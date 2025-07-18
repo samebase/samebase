@@ -98,9 +98,18 @@ export const createRepository = action({
       throw new Error("User not authenticated");
     }
 
-    // TODO: Get the user's GitHub access token from the auth tables
-    // For now, this is a placeholder - you'll need to implement token retrieval
-    const accessToken = "YOUR_GITHUB_ACCESS_TOKEN"; // Replace with actual token retrieval
+    // Get the user's GitHub account
+    const account = await ctx.runQuery(api.users.getGitHubAccount, {});
+
+    if (!account) {
+      throw new Error("GitHub account not found");
+    }
+
+    if (!account.secret) {
+      throw new Error("GitHub access token not found");
+    }
+
+    const accessToken: string = account.secret;
 
     const response = await fetch("https://api.github.com/user/repos", {
       method: "POST",
@@ -151,8 +160,18 @@ export const createCommit = action({
       throw new Error("User not authenticated");
     }
 
-    // TODO: Get the user's GitHub access token from the auth tables
-    const accessToken = "YOUR_GITHUB_ACCESS_TOKEN"; // Replace with actual token retrieval
+    // Get the user's GitHub account
+    const account = await ctx.runQuery(api.users.getGitHubAccount, {});
+
+    if (!account) {
+      throw new Error("GitHub account not found");
+    }
+
+    if (!account.secret) {
+      throw new Error("GitHub access token not found");
+    }
+
+    const accessToken: string = account.secret;
 
     // Create or update a file in the repository
     const response = await fetch(

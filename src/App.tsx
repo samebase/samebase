@@ -3,11 +3,16 @@ import { ChatIntro } from "@/Chat/ChatIntro";
 import { Layout } from "@/Layout";
 import { SignInForm } from "@/SignInForm";
 import { UserMenu } from "@/components/UserMenu";
+import { GitHubRepositories } from "@/components/GitHubRepositories";
+import { Button } from "@/components/ui/button";
 import { Authenticated, Unauthenticated, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
+import { useState } from "react";
 
 export default function App() {
   const user = useQuery(api.users.viewer);
+  const [activeTab, setActiveTab] = useState<"chat" | "repositories">("chat");
+
   return (
     <Layout
       menu={
@@ -18,8 +23,41 @@ export default function App() {
     >
       <>
         <Authenticated>
-          <ChatIntro />
-          <Chat viewer={(user ?? {})._id!} />
+          <div className="flex h-full flex-col">
+            {/* Tab Navigation */}
+            <div className="border-b">
+              <div className="container flex gap-2 px-4 py-2">
+                <Button
+                  variant={activeTab === "chat" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setActiveTab("chat")}
+                >
+                  Chat
+                </Button>
+                <Button
+                  variant={activeTab === "repositories" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setActiveTab("repositories")}
+                >
+                  Repositories
+                </Button>
+              </div>
+            </div>
+
+            {/* Tab Content */}
+            <div className="flex-1 overflow-hidden">
+              {activeTab === "chat" ? (
+                <>
+                  <ChatIntro />
+                  <Chat viewer={(user ?? {})._id!} />
+                </>
+              ) : (
+                <div className="h-full overflow-y-auto">
+                  <GitHubRepositories />
+                </div>
+              )}
+            </div>
+          </div>
         </Authenticated>
         <Unauthenticated>
           <SignInForm />
