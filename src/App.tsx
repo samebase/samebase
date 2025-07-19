@@ -5,14 +5,13 @@ import { GitHubRepositories } from "@/components/GitHubRepositories";
 import { RepositoryReadme } from "@/components/RepositoryReadme";
 import { Button } from "@/components/ui/button";
 import { Authenticated, Unauthenticated, useQuery } from "convex/react";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { api } from "../convex/_generated/api";
 import { useState } from "react";
 
 export default function App() {
   const user = useQuery(api.users.viewer);
   const [activeTab, setActiveTab] = useState<"repositories">("repositories");
-  const location = useLocation();
 
 
   return (
