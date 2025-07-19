@@ -232,3 +232,50 @@ export const createCommit = action({
     };
   },
 });
+
+// Get README content from a GitHub repository
+export const getReadme = action({
+  args: {
+    owner: v.string(),
+    repo: v.string(),
+  },
+  returns: v.union(
+    v.object({
+      content: v.string(),
+      encoding: v.string(),
+      name: v.string(),
+    }),
+    v.null(),
+  ),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ content: string; encoding: string; name: string } | null> => {
+    const currentUser: any = await ctx.runQuery(api.users.getAuthUser, {});
+
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    const octokit: Octokit = new Octokit({
+      auth: currentUser.githubAccessToken,
+    });
+
+    try {
+      const readme: any = await octokit.rest.repos.getReadme({
+        owner: args.owner,
+        repo: args.repo,
+      });
+
+      return {
+        content: readme.data.content,
+        encoding: readme.data.encoding,
+        name: readme.data.name,
+      };
+    } catch (error) {
+      // README might not exist
+      console.log(`README not found for ${args.owner}/${args.repo}:`, error);
+      return null;
+    }
+  },
+});

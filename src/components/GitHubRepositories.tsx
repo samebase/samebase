@@ -10,10 +10,12 @@ import {
   GitHubLogoIcon,
   ExternalLinkIcon,
   StarIcon,
+  FileTextIcon,
 } from "@radix-ui/react-icons";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 
 export function GitHubRepositories() {
   const listRepositories = useAction(api.github.listRepositories);
@@ -132,36 +134,48 @@ export function GitHubRepositories() {
                     <div className="text-xs text-muted-foreground">
                       Updated {formatDate(repo.updated_at)}
                     </div>
-                    <Button variant="outline" size="sm" asChild>
-                      <a
-                        href={repo.html_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1"
-                      >
-                        <ExternalLinkIcon className="h-3 w-3" />
-                        View
-                      </a>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link
+                          to={`/vault/${repo.full_name}`}
+                          className="flex items-center gap-1"
+                        >
+                          <FileTextIcon className="h-3 w-3" />
+                          README
+                        </Link>
+                      </Button>
 
-                    {/* Connect button */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        void connectRepository({
-                          repositoryFullName: repo.full_name,
-                        })
-                          .then((val) => {
-                            console.log(val);
+                      <Button variant="outline" size="sm" asChild>
+                        <a
+                          href={repo.html_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1"
+                        >
+                          <ExternalLinkIcon className="h-3 w-3" />
+                          View
+                        </a>
+                      </Button>
+
+                      {/* Connect button */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          void connectRepository({
+                            repositoryFullName: repo.full_name,
                           })
-                          .catch((err) => {
-                            console.error(err);
-                          });
-                      }}
-                    >
-                      Connect
-                    </Button>
+                            .then((val) => {
+                              console.log(val);
+                            })
+                            .catch((err) => {
+                              console.error(err);
+                            });
+                        }}
+                      >
+                        Connect
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>
