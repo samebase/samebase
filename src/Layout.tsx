@@ -1,5 +1,4 @@
 import { ReactNode } from "react";
-import { GetStartedDialog } from "@/GetStarted/GetStartedDialog";
 
 export function Layout({
   menu,
@@ -24,14 +23,3 @@ export function Layout({
   );
 }
 
-function FooterLink({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <a
-      href={href}
-      className="underline underline-offset-4 hover:no-underline"
-      target="_blank"
-    >
-      {children}
-    </a>
-  );
-}
