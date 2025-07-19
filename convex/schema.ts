@@ -31,6 +31,7 @@ export default defineSchema({
 
     // Added these things. Maybe find a better way?
     // GitHub
+    githubUsername: v.string(),
     githubAccessToken: v.optional(v.string()),
     githubRefreshToken: v.optional(v.string()),
     githubExpiresAt: v.optional(v.number()),
@@ -49,6 +50,7 @@ export default defineSchema({
   vaults: defineTable({
     userId: v.id("users"),
     ghRepoId: v.string(),
+    ghRepoOwner: v.string(),
     ghRepoName: v.string(),
   }),
 });

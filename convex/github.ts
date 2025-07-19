@@ -4,6 +4,7 @@ import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
+import { Octokit } from "@octokit/rest";
 
 // List the current user's GitHub repositories
 export const listRepositories = action({
@@ -77,6 +78,33 @@ export const listRepositories = action({
 
     console.log(val);
     return val;
+  },
+});
+
+// Calls the github api to get a repository
+export const getRepository = action({
+  args: {
+    repositoryFullName: v.string(),
+  },
+  handler: async (ctx, args): Promise<unknown> => {
+    const currentUser = await ctx.runQuery(api.users.getAuthUser, {});
+
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    const octokit = new Octokit({
+      auth: currentUser.githubAccessToken,
+    });
+
+    const repo = await octokit.rest.repos.get({
+      owner: args.repositoryFullName.split("/")[0],
+      repo: args.repositoryFullName.split("/")[1],
+    });
+
+    console.log(repo);
+
+    return repo;
   },
 });
 

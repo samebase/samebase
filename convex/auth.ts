@@ -12,6 +12,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
 
       profile: (profile, tokens) => {
         console.log("profile", profile, tokens);
+
         const value = {
           id: profile.id.toString(),
           // login: profile.login,
@@ -19,6 +20,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           email: profile.email,
           image: profile.avatar_url,
 
+          githubUsername: profile.login,
           githubAccessToken: tokens.access_token,
           githubRefreshToken: tokens.refresh_token,
           githubExpiresAt: tokens.expires_at,

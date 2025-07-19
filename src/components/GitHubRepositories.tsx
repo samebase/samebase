@@ -11,18 +11,25 @@ import {
   ExternalLinkIcon,
   StarIcon,
 } from "@radix-ui/react-icons";
-import {
-  useGitHubRepositories,
-  Repository,
-} from "@/lib/hooks/use-github-repositories";
+import { useAction } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { useQuery as useReactQuery } from "@tanstack/react-query";
 
 export function GitHubRepositories() {
+  const listRepositories = useAction(api.github.listRepositories);
+  const connectRepository = useAction(api.vault.connectRepository);
+
   const {
     data: repositories = [],
     isLoading: loading,
     error: queryError,
     refetch,
-  } = useGitHubRepositories();
+  } = useReactQuery({
+    queryKey: ["github-repositories"],
+    queryFn: async () => {
+      return await listRepositories();
+    },
+  });
 
   const error = queryError
     ? queryError instanceof Error
@@ -135,6 +142,25 @@ export function GitHubRepositories() {
                         <ExternalLinkIcon className="h-3 w-3" />
                         View
                       </a>
+                    </Button>
+
+                    {/* Connect button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        void connectRepository({
+                          repositoryFullName: repo.full_name,
+                        })
+                          .then((val) => {
+                            console.log(val);
+                          })
+                          .catch((err) => {
+                            console.error(err);
+                          });
+                      }}
+                    >
+                      Connect
                     </Button>
                   </div>
                 </div>
