@@ -12,8 +12,8 @@ export function SignInForm() {
         {step === "signIn" ? (
           <>
             <h2 className="font-semibold text-2xl tracking-tight">
-              Sign in or create an account
-            </h2>
+              If Notion and Obsidian had a baby 
+            </h2>   <h3>and the baby was a SaaS that edited markdown files on your GitHub account</h3>
             <SignInWithGitHub />
           </>
         ) : (

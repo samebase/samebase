@@ -9,7 +9,7 @@ export function Layout({
 }) {
   return (
     <div className="flex h-screen w-full flex-col">
-      <header className="sticky top-0 z-10 flex min-h-20 border-b bg-background/80 backdrop-blur">
+      <header className="sticky top-0 z-10 flex min-h-20 bg-background/80 backdrop-blur">
         <nav className="container w-full justify-between flex flex-row items-center gap-6">
         
           {menu}
