@@ -1,6 +1,5 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { query } from "./_generated/server";
-import { v } from "convex/values";
 
 export const viewer = query({
   args: {},
