@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   GitHubLogoIcon,
   ExternalLinkIcon,
@@ -36,7 +36,7 @@ export function GitHubRepositories() {
   const [error, setError] = useState<string | null>(null);
   const listRepositories = useAction(api.github.listRepositories);
 
-  const fetchRepositories = async () => {
+  const fetchRepositories = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -49,11 +49,11 @@ export function GitHubRepositories() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [listRepositories]);
 
   useEffect(() => {
-    fetchRepositories();
-  }, []);
+    void fetchRepositories();
+  }, [fetchRepositories]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
@@ -66,7 +66,7 @@ export function GitHubRepositories() {
           <GitHubLogoIcon className="h-6 w-6" />
           <h1 className="text-2xl font-semibold">Your GitHub Repositories</h1>
         </div>
-        <Button onClick={fetchRepositories} disabled={loading}>
+        <Button onClick={() => void fetchRepositories()} disabled={loading}>
           {loading ? "Loading..." : "Refresh"}
         </Button>
       </div>

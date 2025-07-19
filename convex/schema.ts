@@ -29,6 +29,7 @@ export default defineSchema({
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
 
+    // Added these things. Maybe find a better way?
     // GitHub
     githubAccessToken: v.optional(v.string()),
     githubRefreshToken: v.optional(v.string()),
@@ -42,8 +43,12 @@ export default defineSchema({
     body: v.string(),
   }),
 
-  githubTokens: defineTable({
-    userId: v.string(),
-    token: v.string(),
+  /**
+   * Vault contains a connected github repository.
+   */
+  vaults: defineTable({
+    userId: v.id("users"),
+    ghRepoId: v.string(),
+    ghRepoName: v.string(),
   }),
 });
