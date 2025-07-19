@@ -6,54 +6,29 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useAction } from "convex/react";
-import { api } from "../../convex/_generated/api";
-import { useState, useEffect, useCallback } from "react";
 import {
   GitHubLogoIcon,
   ExternalLinkIcon,
   StarIcon,
 } from "@radix-ui/react-icons";
-
-type Repository = {
-  id: number;
-  name: string;
-  full_name: string;
-  html_url: string;
-  description?: string;
-  private: boolean;
-  fork: boolean;
-  created_at: string;
-  updated_at: string;
-  language?: string;
-  stargazers_count: number;
-  forks_count: number;
-};
+import {
+  useGitHubRepositories,
+  Repository,
+} from "@/lib/hooks/use-github-repositories";
 
 export function GitHubRepositories() {
-  const [repositories, setRepositories] = useState<Repository[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const listRepositories = useAction(api.github.listRepositories);
+  const {
+    data: repositories = [],
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useGitHubRepositories();
 
-  const fetchRepositories = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const repos = await listRepositories({});
-      setRepositories(repos);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to fetch repositories",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [listRepositories]);
-
-  useEffect(() => {
-    void fetchRepositories();
-  }, [fetchRepositories]);
+  const error = queryError
+    ? queryError instanceof Error
+      ? queryError.message
+      : "Failed to fetch repositories"
+    : null;
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
@@ -66,7 +41,7 @@ export function GitHubRepositories() {
           <GitHubLogoIcon className="h-6 w-6" />
           <h1 className="text-2xl font-semibold">Your GitHub Repositories</h1>
         </div>
-        <Button onClick={() => void fetchRepositories()} disabled={loading}>
+        <Button onClick={() => void refetch()} disabled={loading}>
           {loading ? "Loading..." : "Refresh"}
         </Button>
       </div>

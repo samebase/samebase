@@ -5,6 +5,7 @@ import { ThemeProvider } from "next-themes";
 import { ConvexReactClient } from "convex/react";
 import App from "./App.tsx";
 import "./index.css";
+import { QueryProvider } from "./lib/providers/query-provider";
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
@@ -12,7 +13,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ThemeProvider attribute="class">
       <ConvexAuthProvider client={convex}>
-        <App />
+        <QueryProvider>
+          <App />
+        </QueryProvider>
       </ConvexAuthProvider>
     </ThemeProvider>
   </React.StrictMode>,
