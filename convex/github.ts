@@ -14,12 +14,12 @@ export const listRepositories = action({
       name: v.string(),
       full_name: v.string(),
       html_url: v.string(),
-      description: v.optional(v.string()),
+      description: v.union(v.string(), v.null()),
       private: v.boolean(),
       fork: v.boolean(),
       created_at: v.string(),
       updated_at: v.string(),
-      language: v.optional(v.string()),
+      language: v.union(v.string(), v.null()),
       stargazers_count: v.number(),
       forks_count: v.number(),
     }),
@@ -30,18 +30,14 @@ export const listRepositories = action({
       throw new Error("User not authenticated");
     }
 
-    // Get the user's GitHub account
-    const account = await ctx.runQuery(api.users.getGitHubAccount, {});
+    const currentUser = await ctx.runQuery(api.users.getAuthUser, {});
 
-    if (!account) {
-      throw new Error("GitHub account not found");
+    if (!currentUser) {
+      throw new Error("User not found");
     }
 
-    if (!account.secret) {
-      throw new Error("GitHub access token not found");
-    }
-
-    const accessToken: string = account.secret;
+    console.log(currentUser);
+    const accessToken = currentUser.githubAccessToken;
 
     // Fetch repositories from GitHub API
     const response = await fetch(
@@ -62,7 +58,9 @@ export const listRepositories = action({
 
     const repos: any[] = await response.json();
 
-    return repos.map((repo: any) => ({
+    console.log(repos);
+
+    const val = repos.map((repo: any) => ({
       id: repo.id,
       name: repo.name,
       full_name: repo.full_name,
@@ -76,6 +74,9 @@ export const listRepositories = action({
       stargazers_count: repo.stargazers_count,
       forks_count: repo.forks_count,
     }));
+
+    console.log(val);
+    return val;
   },
 });
 
