@@ -147,30 +147,31 @@ function TreeNodeComponent({
       <div>
         <div
           className={cn(
-            "flex items-center gap-1 py-1 px-2 text-sm cursor-pointer hover:bg-muted/30 rounded-none",
+            "flex items-center gap-2 py-3 px-3 md:py-1 md:px-2 text-base md:text-sm cursor-pointer hover:bg-muted/30 rounded-none",
             isSelected && "bg-muted/50",
             "transition-colors",
+            "min-h-[44px] md:min-h-[auto]", // Touch-friendly height on mobile
           )}
-          style={{ paddingLeft: `${level * 12 + 8}px` }}
+          style={{ paddingLeft: `${level * 16 + 12}px` }}
           onClick={handleClick}
           onContextMenu={handleRightClick}
         >
           {hasChildren ? (
             isOpen ? (
-              <ChevronDownIcon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+              <ChevronDownIcon className="h-4 w-4 md:h-3 md:w-3 text-muted-foreground flex-shrink-0" />
             ) : (
-              <ChevronRightIcon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+              <ChevronRightIcon className="h-4 w-4 md:h-3 md:w-3 text-muted-foreground flex-shrink-0" />
             )
           ) : (
-            <div className="w-3" />
+            <div className="w-4 md:w-3" />
           )}
 
           {node.type === "tree" ? (
-            <div className="h-3 w-3 flex items-center justify-center">
-              <div className="h-2 w-2 bg-muted-foreground/30 rounded-sm" />
+            <div className="h-4 w-4 md:h-3 md:w-3 flex items-center justify-center">
+              <div className="h-3 w-3 md:h-2 md:w-2 bg-muted-foreground/30 rounded-sm" />
             </div>
           ) : (
-            <FileIcon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+            <FileIcon className="h-4 w-4 md:h-3 md:w-3 text-muted-foreground flex-shrink-0" />
           )}
 
           {isRenaming ? (
@@ -184,7 +185,7 @@ function TreeNodeComponent({
               autoFocus
             />
           ) : (
-            <span className="truncate text-muted-foreground text-xs">
+            <span className="truncate text-muted-foreground text-sm md:text-xs">
               {node.name}
             </span>
           )}
@@ -240,7 +241,9 @@ export function FileTree({
 
   if (items.length === 0) {
     return (
-      <div className="p-4 text-xs text-muted-foreground">No files found</div>
+      <div className="p-4 text-sm md:text-xs text-muted-foreground">
+        No files found
+      </div>
     );
   }
 

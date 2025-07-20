@@ -23,11 +23,13 @@ import {
 } from "@/components/ui/sidebar";
 import { FileTree } from "./FileTree";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
+import { useSidebar } from "@/components/ui/sidebar";
 
 const COMMIT_COUNTDOWN = 20;
 const SAVE_DEBOUNCE_MS = 300; // Debounce saves to avoid too many mutations
 
-export function RepositoryReadme() {
+function RepositoryReadmeInner() {
   const {
     owner,
     repoName,
@@ -340,6 +342,19 @@ export function RepositoryReadme() {
     }, 1000);
   }, []);
 
+  const handleManualSave = async () => {
+    console.log("Manual save triggered");
+    if (selectedFile && localContent !== remoteContent && owner && repoName) {
+      await saveToStaging({
+        repositoryId,
+        filePath: selectedFile,
+        content: localContent,
+        parentCommitSha: currentSha,
+        branch: "main",
+      });
+    }
+  };
+
   const handleManualCommit = async () => {
     if (!selectedFile || !owner || !repoName) return;
 
@@ -447,128 +462,36 @@ export function RepositoryReadme() {
   // Show loading state while tree loads
   if (isLoadingTree) {
     return (
-      <SidebarProvider>
-        <div className="flex h-screen w-full">
-          <Sidebar variant="sidebar" className="border-r border-border/50">
-            <SidebarContent className="p-0">
-              <div className="p-3 border-b border-border/50">
-                <div className="flex items-center gap-2">
-                  <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
-                  <div className="text-xs font-medium truncate text-muted-foreground">
-                    {owner}/{repoName}
-                  </div>
+      <div className="flex h-screen w-full">
+        <Sidebar variant="sidebar" className="border-r border-border/50">
+          <SidebarContent className="p-0">
+            <div className="p-3 border-b border-border/50">
+              <div className="flex items-center gap-2">
+                <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
+                <div className="text-xs font-medium truncate text-muted-foreground">
+                  {owner}/{repoName}
                 </div>
               </div>
-              <div className="p-3 text-xs text-muted-foreground">
-                Loading repository...
-              </div>
-            </SidebarContent>
-          </Sidebar>
-          <SidebarInset className="flex-1">
-            <div className="flex h-full items-center justify-center">
-              <div className="text-xs text-muted-foreground">
-                Loading repository...
-              </div>
             </div>
-          </SidebarInset>
-        </div>
-      </SidebarProvider>
+            <div className="p-3 text-xs text-muted-foreground">
+              Loading repository...
+            </div>
+          </SidebarContent>
+        </Sidebar>
+        <SidebarInset className="flex-1">
+          <div className="flex h-full items-center justify-center">
+            <div className="text-xs text-muted-foreground">
+              Loading repository...
+            </div>
+          </div>
+        </SidebarInset>
+      </div>
     );
   }
 
   // Show no files message if repository is empty
   if (!isLoadingTree && treeData.length === 0) {
     return (
-      <SidebarProvider>
-        <div className="flex h-screen w-full">
-          <Sidebar variant="sidebar" className="border-r border-border/50">
-            <SidebarContent className="p-0">
-              <div className="p-3 border-b border-border/50 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
-                  <div className="text-xs font-medium truncate text-muted-foreground">
-                    {owner}/{repoName}
-                  </div>
-                </div>
-                <Dialog
-                  open={isNewFileDialogOpen}
-                  onOpenChange={setIsNewFileDialogOpen}
-                >
-                  <DialogTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                      <PlusIcon className="h-3 w-3" />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>Create New File</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <Input
-                        placeholder="filename.md"
-                        value={newFileName}
-                        onChange={(e) => setNewFileName(e.target.value)}
-                        onKeyDown={handleCreateFileKeyDown}
-                        className="text-xs"
-                      />
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setIsNewFileDialogOpen(false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => void handleCreateFile()}
-                          disabled={!newFileName.trim() || isCreatingFile}
-                        >
-                          {isCreatingFile ? "Creating..." : "Create"}
-                        </Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-              <div className="p-3 text-xs text-muted-foreground">
-                No files found
-              </div>
-            </SidebarContent>
-          </Sidebar>
-          <SidebarInset className="flex-1">
-            <div className="flex h-full flex-col">
-              <div className="flex items-center gap-3 p-3 border-b border-border/50">
-                <SidebarTrigger className="h-6 w-6" />
-                <Button variant="ghost" size="sm" asChild className="h-7 px-2">
-                  <Link to="/" className="flex items-center gap-2">
-                    <ArrowLeftIcon className="h-3 w-3" />
-                    <span className="text-xs">Back</span>
-                  </Link>
-                </Button>
-                <h1 className="text-sm font-medium">
-                  {owner}/{repoName}
-                </h1>
-              </div>
-              <div className="flex-1 flex items-center justify-center">
-                <div className="text-center">
-                  <h2 className="text-sm font-medium mb-2">No files found</h2>
-                  <p className="text-xs text-muted-foreground">
-                    This repository appears to be empty.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </SidebarInset>
-        </div>
-      </SidebarProvider>
-    );
-  }
-
-  const error = fileError || treeError;
-
-  return (
-    <SidebarProvider>
       <div className="flex h-screen w-full">
         <Sidebar variant="sidebar" className="border-r border-border/50">
           <SidebarContent className="p-0">
@@ -577,9 +500,6 @@ export function RepositoryReadme() {
                 <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
                 <div className="text-xs font-medium truncate text-muted-foreground">
                   {owner}/{repoName}
-                  {isFromStaging && (
-                    <span className="ml-1 text-blue-600">•</span>
-                  )}
                 </div>
               </div>
               <Dialog
@@ -623,24 +543,11 @@ export function RepositoryReadme() {
                 </DialogContent>
               </Dialog>
             </div>
-
-            <div className="flex-1 overflow-auto">
-              <FileTree
-                items={treeData.map((item) => ({
-                  path: item.path,
-                  type: item.type as "tree" | "blob",
-                  size: item.size,
-                }))}
-                onFileSelect={handleFileSelect}
-                onFileRename={(oldPath, newPath) =>
-                  void handleFileRename(oldPath, newPath)
-                }
-                selectedFile={selectedFile}
-              />
+            <div className="p-3 text-xs text-muted-foreground">
+              No files found
             </div>
           </SidebarContent>
         </Sidebar>
-
         <SidebarInset className="flex-1">
           <div className="flex h-full flex-col">
             <div className="flex items-center gap-3 p-3 border-b border-border/50">
@@ -651,91 +558,263 @@ export function RepositoryReadme() {
                   <span className="text-xs">Back</span>
                 </Link>
               </Button>
-              <div className="flex items-center gap-2">
-                <h1 className="text-sm font-medium">
-                  {owner}/{repoName}
-                </h1>
-                {selectedFile && (
-                  <>
-                    <span className="text-xs text-muted-foreground">•</span>
-                    <span className="text-xs text-muted-foreground">
-                      {selectedFile}
-                    </span>
-                    {isFromStaging && (
-                      <span className="text-xs text-blue-600">(live)</span>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {/* Auto-commit status */}
-              <div className="ml-auto flex items-center gap-2">
-                {countdown > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-xs text-muted-foreground bg-muted/50 hover:bg-muted/70"
-                    onClick={() => void handleManualCommit()}
-                    disabled={isManualCommitting}
-                  >
-                    {isManualCommitting
-                      ? "Committing..."
-                      : `Auto-commit in ${countdown}s (click to commit now)`}
-                  </Button>
-                )}
-                {isManualCommitting && (
-                  <div className="text-xs text-muted-foreground bg-blue-50 px-2 py-1 rounded">
-                    Committing...
-                  </div>
-                )}
-                {localContent !== remoteContent &&
-                  countdown === 0 &&
-                  !isManualCommitting && (
-                    <div className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
-                      Changes saved
-                    </div>
-                  )}
-              </div>
+              <h1 className="text-sm font-medium">
+                {owner}/{repoName}
+              </h1>
             </div>
-
-            <div className="flex-1 overflow-auto p-4">
-              {error && (
-                <div className="mb-4 p-3 text-xs text-red-600 bg-red-50 rounded border border-red-200">
-                  Failed to load data:{" "}
-                  {error instanceof Error ? error.message : "Unknown error"}
-                </div>
-              )}
-
-              <div className="max-w-none">
-                <div className="mb-4">
-                  <h2 className="text-sm font-medium mb-2">
-                    {githubFileData?.name || selectedFile}
-                  </h2>
-                </div>
-
-                {isLoadingFile && !isFromStaging && localContent === "" && (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="text-xs text-muted-foreground">
-                      Loading file...
-                    </div>
-                  </div>
-                )}
-
-                {(localContent !== "" || selectedFile) && (
-                  <Textarea
-                    value={localContent}
-                    onChange={(e) => handleContentChange(e.target.value)}
-                    className="min-h-[600px] font-mono text-xs border border-border/50 shadow-none resize-none focus-visible:ring-0 focus-visible:ring-offset-0 bg-background"
-                    placeholder={
-                      localContent === "" ? "No file content found" : undefined
-                    }
-                  />
-                )}
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center">
+                <h2 className="text-sm font-medium mb-2">No files found</h2>
+                <p className="text-xs text-muted-foreground">
+                  This repository appears to be empty.
+                </p>
               </div>
             </div>
           </div>
         </SidebarInset>
       </div>
+    );
+  }
+
+  const error = fileError || treeError;
+
+  return (
+    <div className="flex h-screen w-full">
+      <Sidebar variant="sidebar" className="border-r border-border/50">
+        <SidebarContent className="p-0">
+          <div className="p-3 border-b border-border/50 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
+              <div className="text-xs font-medium truncate text-muted-foreground">
+                {owner}/{repoName}
+                {isFromStaging && <span className="ml-1 text-blue-600">•</span>}
+              </div>
+            </div>
+            <Dialog
+              open={isNewFileDialogOpen}
+              onOpenChange={setIsNewFileDialogOpen}
+            >
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                  <PlusIcon className="h-3 w-3" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Create New File</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <Input
+                    placeholder="filename.md"
+                    value={newFileName}
+                    onChange={(e) => setNewFileName(e.target.value)}
+                    onKeyDown={handleCreateFileKeyDown}
+                    className="text-xs"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsNewFileDialogOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => void handleCreateFile()}
+                      disabled={!newFileName.trim() || isCreatingFile}
+                    >
+                      {isCreatingFile ? "Creating..." : "Create"}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <div className="flex-1 overflow-auto">
+            <FileTree
+              items={treeData.map((item) => ({
+                path: item.path,
+                type: item.type as "tree" | "blob",
+                size: item.size,
+              }))}
+              onFileSelect={handleFileSelect}
+              onFileRename={(oldPath, newPath) =>
+                void handleFileRename(oldPath, newPath)
+              }
+              selectedFile={selectedFile}
+            />
+          </div>
+        </SidebarContent>
+      </Sidebar>
+
+      <SidebarInset className="flex-1">
+        <div className="flex h-full flex-col">
+          <div className="flex items-center gap-3 p-3 border-b border-border/50">
+            <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
+
+            {/* Mobile swipe indicator */}
+            <div className="flex md:hidden items-center text-xs text-muted-foreground">
+              <span className="animate-pulse">←</span>
+              <span className="ml-1">Swipe from edge</span>
+            </div>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="h-8 px-3 md:h-7 md:px-2"
+            >
+              <Link to="/" className="flex items-center gap-2">
+                <ArrowLeftIcon className="h-4 w-4 md:h-3 md:w-3" />
+                <span className="text-sm md:text-xs">Back</span>
+              </Link>
+            </Button>
+            <div className="flex items-center gap-2">
+              <h1 className="text-base md:text-sm font-medium">
+                {owner}/{repoName}
+              </h1>
+              {selectedFile && (
+                <>
+                  <span className="text-sm md:text-xs text-muted-foreground">
+                    •
+                  </span>
+                  <span className="text-sm md:text-xs text-muted-foreground truncate max-w-32 md:max-w-none">
+                    {selectedFile}
+                  </span>
+                  {isFromStaging && (
+                    <span className="text-sm md:text-xs text-blue-600">
+                      (live)
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Auto-commit status */}
+            {isFromStaging && localContent !== remoteContent && (
+              <div className="ml-auto flex items-center gap-2 text-sm md:text-xs">
+                {countdown > 0 && (
+                  <span className="text-muted-foreground">
+                    Auto-commit in {countdown}s
+                  </span>
+                )}
+                {countdown === 0 && !isManualCommitting && (
+                  <span className="text-blue-600">Committing...</span>
+                )}
+              </div>
+            )}
+
+            {/* Mobile: Show action buttons in a dropdown */}
+            <div className="flex md:hidden">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleManualSave()}
+                disabled={localContent === remoteContent || !selectedFile}
+                className="h-8"
+              >
+                Save
+              </Button>
+            </div>
+
+            {/* Desktop: Show action buttons inline */}
+            <div className="hidden md:flex">
+              {/* Manual save button for debugging */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleManualSave()}
+                disabled={localContent === remoteContent || !selectedFile}
+                className="ml-2"
+              >
+                Save
+              </Button>
+
+              {/* Manual commit button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleManualCommit()}
+                disabled={!isFromStaging || isManualCommitting}
+                className="ml-2"
+              >
+                {isManualCommitting ? "Committing..." : "Commit Now"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-auto p-4 md:p-4">
+            {error && (
+              <div className="mb-4 p-3 text-sm md:text-xs text-red-600 bg-red-50 rounded border border-red-200">
+                Failed to load data:{" "}
+                {error instanceof Error ? error.message : "Unknown error"}
+              </div>
+            )}
+
+            <div className="max-w-none">
+              <div className="mb-4">
+                <h2 className="text-base md:text-sm font-medium mb-2">
+                  {githubFileData?.name || selectedFile}
+                </h2>
+              </div>
+
+              {isLoadingFile && !isFromStaging && localContent === "" && (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-sm md:text-xs text-muted-foreground">
+                    Loading file...
+                  </div>
+                </div>
+              )}
+
+              {isFromStaging &&
+                localContent !== remoteContent &&
+                countdown === 0 &&
+                !isManualCommitting && (
+                  <div className="mb-4 p-3 text-sm md:text-xs text-blue-600 bg-blue-50 rounded border border-blue-200">
+                    Auto-committing changes...
+                  </div>
+                )}
+
+              {(localContent !== "" || selectedFile) && (
+                <Textarea
+                  value={localContent}
+                  onChange={(e) => handleContentChange(e.target.value)}
+                  className="min-h-[calc(100vh-300px)] md:min-h-[600px] font-mono text-sm md:text-xs border border-border/50 shadow-none resize-none focus-visible:ring-0 focus-visible:ring-offset-0 bg-background"
+                  placeholder={
+                    localContent === "" ? "No file content found" : undefined
+                  }
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      </SidebarInset>
+    </div>
+  );
+}
+
+// Main export with sidebar provider wrapper
+export function RepositoryReadme() {
+  return (
+    <SidebarProvider>
+      <RepositoryReadmeWithSwipe />
     </SidebarProvider>
   );
+}
+
+// Component with sidebar context and swipe gesture
+function RepositoryReadmeWithSwipe() {
+  // Setup sidebar context and mobile swipe gesture
+  const { isMobile, openMobile, setOpenMobile } = useSidebar();
+
+  // Enable swipe-to-open sidebar on mobile
+  useSwipeToOpenSidebar(() => {
+    if (isMobile && !openMobile) {
+      setOpenMobile(true);
+    }
+  });
+
+  return <RepositoryReadmeInner />;
 }
