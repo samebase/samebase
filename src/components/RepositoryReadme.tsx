@@ -24,6 +24,8 @@ import {
 import { FileTree } from "./FileTree";
 import { useState, useEffect, useCallback, useRef } from "react";
 
+const COMMIT_COUNTDOWN = 20;
+
 export function RepositoryReadme() {
   const {
     owner,
@@ -288,7 +290,7 @@ export function RepositoryReadme() {
     }
 
     // Start countdown from 60 seconds
-    setCountdown(60);
+    setCountdown(COMMIT_COUNTDOWN);
 
     // Update countdown every second
     intervalRef.current = setInterval(() => {
