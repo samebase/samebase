@@ -23,6 +23,7 @@ interface TreeNode {
 interface FileTreeProps {
   items: FileTreeItem[];
   onFileSelect?: (path: string) => void;
+  onFileRename?: (oldPath: string, newPath: string) => void;
   selectedFile?: string;
 }
 
@@ -81,14 +82,23 @@ function TreeNodeComponent({
   node,
   level = 0,
   onFileSelect,
+  onFileRename,
   selectedFile,
 }: {
   node: TreeNode;
   level?: number;
   onFileSelect?: (path: string) => void;
+  onFileRename?: (oldPath: string, newPath: string) => void;
   selectedFile?: string;
 }) {
   const [isOpen, setIsOpen] = useState(level < 2); // Auto-expand first 2 levels
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renamingValue, setRenamingValue] = useState(node.name);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+
   const hasChildren = node.children && node.children.length > 0;
   const isSelected = selectedFile === node.path;
 
@@ -100,58 +110,132 @@ function TreeNodeComponent({
     }
   };
 
+  const handleRightClick = (e: React.MouseEvent) => {
+    if (node.type === "blob") {
+      e.preventDefault();
+      setContextMenu({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  const handleRename = () => {
+    setIsRenaming(true);
+    setRenamingValue(node.name);
+    setContextMenu(null);
+  };
+
+  const handleRenameSubmit = () => {
+    if (renamingValue.trim() && renamingValue !== node.name && onFileRename) {
+      const pathParts = node.path.split("/");
+      pathParts[pathParts.length - 1] = renamingValue.trim();
+      const newPath = pathParts.join("/");
+      onFileRename(node.path, newPath);
+    }
+    setIsRenaming(false);
+  };
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleRenameSubmit();
+    } else if (e.key === "Escape") {
+      setIsRenaming(false);
+      setRenamingValue(node.name);
+    }
+  };
+
   return (
-    <div>
-      <div
-        className={cn(
-          "flex items-center gap-1 py-1 px-2 text-sm cursor-pointer hover:bg-muted/30 rounded-none",
-          isSelected && "bg-muted/50",
-          "transition-colors",
-        )}
-        style={{ paddingLeft: `${level * 12 + 8}px` }}
-        onClick={handleClick}
-      >
-        {hasChildren ? (
-          isOpen ? (
-            <ChevronDownIcon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+    <>
+      <div>
+        <div
+          className={cn(
+            "flex items-center gap-1 py-1 px-2 text-sm cursor-pointer hover:bg-muted/30 rounded-none",
+            isSelected && "bg-muted/50",
+            "transition-colors",
+          )}
+          style={{ paddingLeft: `${level * 12 + 8}px` }}
+          onClick={handleClick}
+          onContextMenu={handleRightClick}
+        >
+          {hasChildren ? (
+            isOpen ? (
+              <ChevronDownIcon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+            ) : (
+              <ChevronRightIcon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+            )
           ) : (
-            <ChevronRightIcon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-          )
-        ) : (
-          <div className="w-3" />
-        )}
+            <div className="w-3" />
+          )}
 
-        {node.type === "tree" ? (
-          <div className="h-3 w-3 flex items-center justify-center">
-            <div className="h-2 w-2 bg-muted-foreground/30 rounded-sm" />
+          {node.type === "tree" ? (
+            <div className="h-3 w-3 flex items-center justify-center">
+              <div className="h-2 w-2 bg-muted-foreground/30 rounded-sm" />
+            </div>
+          ) : (
+            <FileIcon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+          )}
+
+          {isRenaming ? (
+            <input
+              type="text"
+              value={renamingValue}
+              onChange={(e) => setRenamingValue(e.target.value)}
+              onBlur={handleRenameSubmit}
+              onKeyDown={handleRenameKeyDown}
+              className="flex-1 bg-background border border-border rounded px-1 text-xs"
+              autoFocus
+            />
+          ) : (
+            <span className="truncate text-muted-foreground text-xs">
+              {node.name}
+            </span>
+          )}
+        </div>
+
+        {hasChildren && isOpen && (
+          <div>
+            {node.children!.map((child) => (
+              <TreeNodeComponent
+                key={child.path}
+                node={child}
+                level={level + 1}
+                onFileSelect={onFileSelect}
+                onFileRename={onFileRename}
+                selectedFile={selectedFile}
+              />
+            ))}
           </div>
-        ) : (
-          <FileIcon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
         )}
-
-        <span className="truncate text-muted-foreground text-xs">
-          {node.name}
-        </span>
       </div>
 
-      {hasChildren && isOpen && (
-        <div>
-          {node.children!.map((child) => (
-            <TreeNodeComponent
-              key={child.path}
-              node={child}
-              level={level + 1}
-              onFileSelect={onFileSelect}
-              selectedFile={selectedFile}
-            />
-          ))}
-        </div>
+      {/* Context Menu */}
+      {contextMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => setContextMenu(null)}
+          />
+          <div
+            className="fixed z-20 bg-background border border-border rounded shadow-lg py-1 min-w-24"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+          >
+            <button
+              className="w-full px-3 py-1 text-xs text-left hover:bg-muted/50"
+              onClick={handleRename}
+            >
+              Rename
+            </button>
+          </div>
+        </>
       )}
-    </div>
+    </>
   );
 }
 
-export function FileTree({ items, onFileSelect, selectedFile }: FileTreeProps) {
+export function FileTree({
+  items,
+  onFileSelect,
+  onFileRename,
+  selectedFile,
+}: FileTreeProps) {
   const tree = useMemo(() => buildTree(items), [items]);
 
   if (items.length === 0) {
@@ -167,6 +251,7 @@ export function FileTree({ items, onFileSelect, selectedFile }: FileTreeProps) {
           key={node.path}
           node={node}
           onFileSelect={onFileSelect}
+          onFileRename={onFileRename}
           selectedFile={selectedFile}
         />
       ))}

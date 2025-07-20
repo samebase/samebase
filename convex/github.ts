@@ -233,6 +233,57 @@ export const createCommit = action({
   },
 });
 
+// Update file content in GitHub repository
+export const updateFileContent = action({
+  args: {
+    owner: v.string(),
+    repo: v.string(),
+    path: v.string(),
+    content: v.string(),
+    message: v.string(),
+    sha: v.string(),
+    branch: v.optional(v.string()),
+  },
+  returns: v.object({
+    sha: v.string(),
+    url: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const currentUser: any = await ctx.runQuery(api.users.getAuthUser, {});
+
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    const octokit: Octokit = new Octokit({
+      auth: currentUser.githubAccessToken,
+    });
+
+    try {
+      const result = await octokit.rest.repos.createOrUpdateFileContents({
+        owner: args.owner,
+        repo: args.repo,
+        path: args.path,
+        message: args.message,
+        content: Buffer.from(args.content, "utf8").toString("base64"),
+        sha: args.sha,
+        branch: args.branch || "main",
+      });
+
+      return {
+        sha: result.data.commit.sha || "",
+        url: result.data.commit.html_url || "",
+      };
+    } catch (error) {
+      console.error(
+        `Failed to update file ${args.path} for ${args.owner}/${args.repo}:`,
+        error,
+      );
+      throw error;
+    }
+  },
+});
+
 // Get README content from a GitHub repository
 export const getReadme = action({
   args: {
@@ -295,6 +346,7 @@ export const getFileContent = action({
       name: v.string(),
       path: v.string(),
       type: v.string(),
+      sha: v.string(),
     }),
     v.null(),
   ),
@@ -330,6 +382,7 @@ export const getFileContent = action({
         name: fileData.name,
         path: fileData.path,
         type: fileData.type,
+        sha: fileData.sha,
       };
     } catch (error) {
       console.error(
@@ -337,6 +390,104 @@ export const getFileContent = action({
         error,
       );
       return null;
+    }
+  },
+});
+
+// Create a new file in GitHub repository
+export const createFile = action({
+  args: {
+    owner: v.string(),
+    repo: v.string(),
+    path: v.string(),
+    content: v.string(),
+    message: v.string(),
+    branch: v.optional(v.string()),
+  },
+  returns: v.object({
+    sha: v.string(),
+    url: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const currentUser: any = await ctx.runQuery(api.users.getAuthUser, {});
+
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    const octokit: Octokit = new Octokit({
+      auth: currentUser.githubAccessToken,
+    });
+
+    try {
+      const result = await octokit.rest.repos.createOrUpdateFileContents({
+        owner: args.owner,
+        repo: args.repo,
+        path: args.path,
+        message: args.message,
+        content: Buffer.from(args.content, "utf8").toString("base64"),
+        branch: args.branch || "main",
+      });
+
+      return {
+        sha: result.data.commit.sha || "",
+        url: result.data.commit.html_url || "",
+      };
+    } catch (error) {
+      console.error(
+        `Failed to create file ${args.path} for ${args.owner}/${args.repo}:`,
+        error,
+      );
+      throw error;
+    }
+  },
+});
+
+// Delete a file from GitHub repository
+export const deleteFile = action({
+  args: {
+    owner: v.string(),
+    repo: v.string(),
+    path: v.string(),
+    message: v.string(),
+    sha: v.string(),
+    branch: v.optional(v.string()),
+  },
+  returns: v.object({
+    sha: v.string(),
+    url: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const currentUser: any = await ctx.runQuery(api.users.getAuthUser, {});
+
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    const octokit: Octokit = new Octokit({
+      auth: currentUser.githubAccessToken,
+    });
+
+    try {
+      const result = await octokit.rest.repos.deleteFile({
+        owner: args.owner,
+        repo: args.repo,
+        path: args.path,
+        message: args.message,
+        sha: args.sha,
+        branch: args.branch || "main",
+      });
+
+      return {
+        sha: result.data.commit.sha || "",
+        url: result.data.commit.html_url || "",
+      };
+    } catch (error) {
+      console.error(
+        `Failed to delete file ${args.path} for ${args.owner}/${args.repo}:`,
+        error,
+      );
+      throw error;
     }
   },
 });
