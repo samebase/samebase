@@ -279,3 +279,117 @@ export const getReadme = action({
     }
   },
 });
+
+// Get file content from a GitHub repository
+export const getFileContent = action({
+  args: {
+    owner: v.string(),
+    repo: v.string(),
+    path: v.string(),
+    ref: v.optional(v.string()),
+  },
+  returns: v.union(
+    v.object({
+      content: v.string(),
+      encoding: v.string(),
+      name: v.string(),
+      path: v.string(),
+      type: v.string(),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    const currentUser: any = await ctx.runQuery(api.users.getAuthUser, {});
+
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    const octokit: Octokit = new Octokit({
+      auth: currentUser.githubAccessToken,
+    });
+
+    try {
+      const file = await octokit.rest.repos.getContent({
+        owner: args.owner,
+        repo: args.repo,
+        path: args.path,
+        ref: args.ref || "main",
+      });
+
+      // Handle case where path is a directory (shouldn't happen in our use case)
+      if (Array.isArray(file.data)) {
+        return null;
+      }
+
+      const fileData = file.data as any;
+
+      return {
+        content: fileData.content,
+        encoding: fileData.encoding,
+        name: fileData.name,
+        path: fileData.path,
+        type: fileData.type,
+      };
+    } catch (error) {
+      console.error(
+        `Failed to fetch file ${args.path} for ${args.owner}/${args.repo}:`,
+        error,
+      );
+      return null;
+    }
+  },
+});
+
+// Get repository tree structure
+export const getRepositoryTree = action({
+  args: {
+    owner: v.string(),
+    repo: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      path: v.string(),
+      mode: v.string(),
+      type: v.string(),
+      sha: v.string(),
+      size: v.optional(v.number()),
+      url: v.string(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const currentUser: any = await ctx.runQuery(api.users.getAuthUser, {});
+
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    const octokit: Octokit = new Octokit({
+      auth: currentUser.githubAccessToken,
+    });
+
+    try {
+      const tree = await octokit.rest.git.getTree({
+        owner: args.owner,
+        repo: args.repo,
+        tree_sha: "HEAD",
+        recursive: "1",
+      });
+
+      return tree.data.tree.map((item: any) => ({
+        path: item.path,
+        mode: item.mode,
+        type: item.type,
+        sha: item.sha,
+        size: item.size,
+        url: item.url,
+      }));
+    } catch (error) {
+      console.error(
+        `Failed to fetch tree for ${args.owner}/${args.repo}:`,
+        error,
+      );
+      return [];
+    }
+  },
+});

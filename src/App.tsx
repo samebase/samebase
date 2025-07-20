@@ -13,7 +13,6 @@ export default function App() {
   const user = useQuery(api.users.viewer);
   const [activeTab, setActiveTab] = useState<"repositories">("repositories");
 
-
   return (
     <Layout
       menu={
@@ -55,6 +54,10 @@ export default function App() {
             />
             <Route
               path="/vault/:owner/:repoName"
+              element={<RepositoryReadme />}
+            />
+            <Route
+              path="/vault/:owner/:repoName/*"
               element={<RepositoryReadme />}
             />
           </Routes>
