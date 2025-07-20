@@ -13,7 +13,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-import { GitHubLogoIcon, ArrowLeftIcon, PlusIcon } from "@radix-ui/react-icons";
+import {
+  GitHubLogoIcon,
+  ArrowLeftIcon,
+  PlusIcon,
+  MagnifyingGlassIcon,
+} from "@radix-ui/react-icons";
 import {
   Sidebar,
   SidebarContent,
@@ -22,6 +27,7 @@ import {
   SidebarInset,
 } from "@/components/ui/sidebar";
 import { FileTree } from "./FileTree";
+import { CommandPalette } from "./CommandPalette";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -67,6 +73,9 @@ function RepositoryReadmeInner() {
   const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const [isCreatingFile, setIsCreatingFile] = useState(false);
+
+  // Command palette state
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   // Convex hooks for staging
   const saveToStaging = useMutation(api.fileStagingMutations.saveToStaging);
@@ -222,6 +231,24 @@ function RepositoryReadmeInner() {
       saveTimeoutRef.current = null;
     }
   }, [selectedFile]);
+
+  // Add command palette keyboard shortcut handler
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key === "p" &&
+        (event.metaKey || event.ctrlKey) &&
+        !event.shiftKey &&
+        !event.altKey
+      ) {
+        event.preventDefault();
+        setIsCommandPaletteOpen(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const handleFileSelect = (path: string) => {
     if (owner && repoName) {
@@ -683,6 +710,15 @@ function RepositoryReadmeInner() {
           <div className="flex items-center justify-between p-3 border-b border-border/50">
             <div className="flex items-center gap-3">
               <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 md:h-6 md:w-6 p-0"
+                onClick={() => setIsCommandPaletteOpen(true)}
+                title="Quick Open (Cmd+P)"
+              >
+                <MagnifyingGlassIcon className="h-4 w-4 md:h-3 md:w-3" />
+              </Button>
               {selectedFile && (
                 <div className="flex items-center gap-2">
                   <span className="text-base md:text-sm font-medium truncate">
@@ -782,6 +818,19 @@ function RepositoryReadmeInner() {
           </div>
         </div>
       </SidebarInset>
+
+      {/* Command Palette */}
+      <CommandPalette
+        open={isCommandPaletteOpen}
+        onOpenChange={setIsCommandPaletteOpen}
+        files={treeData.map((item) => ({
+          path: item.path,
+          type: item.type as "tree" | "blob",
+          size: item.size,
+        }))}
+        onFileSelect={handleFileSelect}
+        selectedFile={selectedFile}
+      />
     </div>
   );
 }
