@@ -26,6 +26,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
 import { useSidebar } from "@/components/ui/sidebar";
 import { UserMenu } from "@/components/UserMenu";
+import { base64ToUtf8 } from "@/lib/base64";
 
 const COMMIT_COUNTDOWN = 20;
 const SAVE_DEBOUNCE_MS = 300; // Debounce saves to avoid too many mutations
@@ -184,7 +185,7 @@ function RepositoryReadmeInner() {
     ? fileStatus.content
     : githubFileData?.content
       ? githubFileData.encoding === "base64"
-        ? atob(githubFileData.content)
+        ? base64ToUtf8(githubFileData.content)
         : githubFileData.content
       : "";
 
@@ -247,7 +248,7 @@ function RepositoryReadmeInner() {
 
       const content =
         fileToRename.encoding === "base64"
-          ? atob(fileToRename.content)
+          ? base64ToUtf8(fileToRename.content)
           : fileToRename.content;
 
       // Create new file with the same content
