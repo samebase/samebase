@@ -25,6 +25,7 @@ import { FileTree } from "./FileTree";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
 import { useSidebar } from "@/components/ui/sidebar";
+import { UserMenu } from "@/components/UserMenu";
 
 const COMMIT_COUNTDOWN = 20;
 const SAVE_DEBOUNCE_MS = 300; // Debounce saves to avoid too many mutations
@@ -40,6 +41,9 @@ function RepositoryReadmeInner() {
     "*": string;
   }>();
   const navigate = useNavigate();
+
+  // Get current user for sidebar
+  const user = useQuery(api.users.viewer);
 
   // Parse branch and file path from the wildcard parameter
   const parsedPath = filePath ? filePath.split("/") : [];
@@ -465,6 +469,17 @@ function RepositoryReadmeInner() {
       <div className="flex h-screen w-full">
         <Sidebar variant="sidebar" className="border-r border-border/50">
           <SidebarContent className="p-0">
+            {/* User profile section */}
+            <div className="p-3 border-b border-border/50">
+              <div className="flex items-center justify-between">
+                {user ? (
+                  <UserMenu>{user?.name ?? user?.email}</UserMenu>
+                ) : (
+                  <div className="h-8" />
+                )}
+              </div>
+            </div>
+
             <div className="p-3 border-b border-border/50">
               <div className="flex items-center gap-2">
                 <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
@@ -582,6 +597,18 @@ function RepositoryReadmeInner() {
     <div className="flex h-screen w-full">
       <Sidebar variant="sidebar" className="border-r border-border/50">
         <SidebarContent className="p-0">
+          {/* User profile section */}
+          <div className="p-3 border-b border-border/50">
+            <div className="flex items-center justify-between">
+              {user ? (
+                <UserMenu>{user?.name ?? user?.email}</UserMenu>
+              ) : (
+                <div className="h-8" />
+              )}
+            </div>
+          </div>
+
+          {/* Repository header */}
           <div className="p-3 border-b border-border/50 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
@@ -651,94 +678,57 @@ function RepositoryReadmeInner() {
 
       <SidebarInset className="flex-1">
         <div className="flex h-full flex-col">
-          <div className="flex items-center gap-3 p-3 border-b border-border/50">
-            <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
-
-            {/* Mobile swipe indicator */}
-            <div className="flex md:hidden items-center text-xs text-muted-foreground">
-              <span className="animate-pulse">←</span>
-              <span className="ml-1">Swipe from edge</span>
-            </div>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              asChild
-              className="h-8 px-3 md:h-7 md:px-2"
-            >
-              <Link to="/" className="flex items-center gap-2">
-                <ArrowLeftIcon className="h-4 w-4 md:h-3 md:w-3" />
-                <span className="text-sm md:text-xs">Back</span>
-              </Link>
-            </Button>
-            <div className="flex items-center gap-2">
-              <h1 className="text-base md:text-sm font-medium">
-                {owner}/{repoName}
-              </h1>
+          {/* Minimal editor header */}
+          <div className="flex items-center justify-between p-3 border-b border-border/50">
+            <div className="flex items-center gap-3">
+              <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
               {selectedFile && (
-                <>
-                  <span className="text-sm md:text-xs text-muted-foreground">
-                    •
-                  </span>
-                  <span className="text-sm md:text-xs text-muted-foreground truncate max-w-32 md:max-w-none">
-                    {selectedFile}
+                <div className="flex items-center gap-2">
+                  <span className="text-base md:text-sm font-medium truncate">
+                    {selectedFile.split("/").pop() || selectedFile}
                   </span>
                   {isFromStaging && (
                     <span className="text-sm md:text-xs text-blue-600">
                       (live)
                     </span>
                   )}
-                </>
+                </div>
               )}
             </div>
 
-            {/* Auto-commit status */}
-            {isFromStaging && localContent !== remoteContent && (
-              <div className="ml-auto flex items-center gap-2 text-sm md:text-xs">
-                {countdown > 0 && (
-                  <span className="text-muted-foreground">
-                    Auto-commit in {countdown}s
-                  </span>
-                )}
-                {countdown === 0 && !isManualCommitting && (
-                  <span className="text-blue-600">Committing...</span>
-                )}
-              </div>
-            )}
+            {/* Auto-commit status and actions */}
+            <div className="flex items-center gap-2">
+              {/* Auto-commit status */}
+              {isFromStaging && localContent !== remoteContent && (
+                <div className="flex items-center gap-2 text-sm md:text-xs">
+                  {countdown > 0 && (
+                    <span className="text-muted-foreground">
+                      Auto-commit in {countdown}s
+                    </span>
+                  )}
+                  {countdown === 0 && !isManualCommitting && (
+                    <span className="text-blue-600">Committing...</span>
+                  )}
+                </div>
+              )}
 
-            {/* Mobile: Show action buttons in a dropdown */}
-            <div className="flex md:hidden">
+              {/* Action buttons */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => void handleManualSave()}
                 disabled={localContent === remoteContent || !selectedFile}
-                className="h-8"
-              >
-                Save
-              </Button>
-            </div>
-
-            {/* Desktop: Show action buttons inline */}
-            <div className="hidden md:flex">
-              {/* Manual save button for debugging */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void handleManualSave()}
-                disabled={localContent === remoteContent || !selectedFile}
-                className="ml-2"
+                className="h-8 md:h-7"
               >
                 Save
               </Button>
 
-              {/* Manual commit button */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => void handleManualCommit()}
                 disabled={!isFromStaging || isManualCommitting}
-                className="ml-2"
+                className="h-8 md:h-7"
               >
                 {isManualCommitting ? "Committing..." : "Commit Now"}
               </Button>
