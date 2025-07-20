@@ -64,8 +64,8 @@ export function RepositoryReadme() {
   // Convex hooks for staging
   const saveToStaging = useMutation(api.fileStagingMutations.saveToStaging);
   const commitStaging = useMutation(api.fileStagingMutations.commitStaging);
-  const stagedFile = useQuery(
-    api.fileStagingMutations.getStagedFile,
+  const fileStatus = useQuery(
+    api.fileStagingMutations.getFileStatus,
     selectedFile && owner && repoName
       ? { repositoryId, filePath: selectedFile }
       : "skip",
@@ -163,21 +163,27 @@ export function RepositoryReadme() {
         ref: branch,
       });
     },
-    enabled: !!(owner && repoName && selectedFile && !stagedFile),
+    enabled: !!(
+      owner &&
+      repoName &&
+      selectedFile &&
+      fileStatus?.hasStaging === false
+    ),
   });
 
-  // Determine current file content and metadata
-  const currentFileData = stagedFile || githubFileData;
-  const isFromStaging = !!stagedFile;
+  // Determine current file content and metadata based on staging status
+  const isFromStaging = fileStatus?.hasStaging === true;
 
-  const remoteContent = currentFileData?.content
-    ? currentFileData.encoding === "base64"
-      ? atob(currentFileData.content)
-      : currentFileData.content
-    : "";
+  const remoteContent = isFromStaging
+    ? fileStatus.content
+    : githubFileData?.content
+      ? githubFileData.encoding === "base64"
+        ? atob(githubFileData.content)
+        : githubFileData.content
+      : "";
 
   const currentSha = isFromStaging
-    ? stagedFile.parentCommitSha
+    ? fileStatus.parentCommitSha
     : githubFileData?.sha || "";
 
   // Initialize local content when file loads or changes
@@ -703,11 +709,11 @@ export function RepositoryReadme() {
               <div className="max-w-none">
                 <div className="mb-4">
                   <h2 className="text-sm font-medium mb-2">
-                    {currentFileData?.name || selectedFile}
+                    {githubFileData?.name || selectedFile}
                   </h2>
                 </div>
 
-                {isLoadingFile && !stagedFile && localContent === "" && (
+                {isLoadingFile && !isFromStaging && localContent === "" && (
                   <div className="flex items-center justify-center py-12">
                     <div className="text-xs text-muted-foreground">
                       Loading file...

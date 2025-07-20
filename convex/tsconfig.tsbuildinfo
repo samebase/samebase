@@ -1,0 +1,1 @@
+{"root":["./auth.config.ts","./auth.ts","./filestaging.ts","./filestagingmutations.ts","./github.ts","./http.ts","./lib.ts","./messages.ts","./schema.ts","./users.ts","./vault.ts"],"version":"5.8.3"}

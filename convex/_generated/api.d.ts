@@ -18,7 +18,6 @@ import type * as fileStaging from "../fileStaging.js";
 import type * as fileStagingMutations from "../fileStagingMutations.js";
 import type * as github from "../github.js";
 import type * as http from "../http.js";
-import type * as lib from "../lib.js";
 import type * as messages from "../messages.js";
 import type * as users from "../users.js";
 import type * as vault from "../vault.js";
@@ -37,7 +36,6 @@ declare const fullApi: ApiFromModules<{
   fileStagingMutations: typeof fileStagingMutations;
   github: typeof github;
   http: typeof http;
-  lib: typeof lib;
   messages: typeof messages;
   users: typeof users;
   vault: typeof vault;

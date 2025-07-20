@@ -237,3 +237,51 @@ export const cleanupOldStaging = internalMutation({
     return null;
   },
 });
+
+// Get current file status - returns staging if exists, or indicates GitHub fetch needed
+export const getFileStatus = query({
+  args: {
+    repositoryId: v.string(),
+    filePath: v.string(),
+  },
+  returns: v.union(
+    v.object({
+      hasStaging: v.literal(true),
+      content: v.string(),
+      parentCommitSha: v.string(),
+      lastEditTime: v.number(),
+      branch: v.string(),
+    }),
+    v.object({
+      hasStaging: v.literal(false),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    // Check if there's staged content for this file
+    const staging = await ctx.db
+      .query("fileStaging")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("repositoryId"), args.repositoryId),
+          q.eq(q.field("filePath"), args.filePath),
+        ),
+      )
+      .first();
+
+    if (staging) {
+      // Return staged content
+      return {
+        hasStaging: true as const,
+        content: staging.content,
+        parentCommitSha: staging.parentCommitSha,
+        lastEditTime: staging.lastEditTime,
+        branch: staging.branch,
+      };
+    }
+
+    // No staging - indicate GitHub fetch needed
+    return {
+      hasStaging: false as const,
+    };
+  },
+});

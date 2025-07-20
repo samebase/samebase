@@ -1,7 +1,16 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
-import { omit } from "./lib";
+
+// Helper function to omit keys from an object
+function omit<T extends Record<string, any>, K extends keyof T>(
+  obj: T,
+  keys: K[],
+): Omit<T, K> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([key]) => !keys.includes(key as K)),
+  ) as Omit<T, K>;
+}
 
 // The schema is normally optional, but Convex Auth
 // requires indexes defined on `authTables`.
