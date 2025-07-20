@@ -1,8 +1,5 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import {
-  useQuery as useReactQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useQuery as useReactQuery } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,7 +35,6 @@ export function RepositoryReadme() {
     "*": string;
   }>();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   // Parse branch and file path from the wildcard parameter
   const parsedPath = filePath ? filePath.split("/") : [];
@@ -584,7 +580,9 @@ export function RepositoryReadme() {
                   size: item.size,
                 }))}
                 onFileSelect={handleFileSelect}
-                onFileRename={handleFileRename}
+                onFileRename={(oldPath, newPath) =>
+                  void handleFileRename(oldPath, newPath)
+                }
                 selectedFile={selectedFile}
               />
             </div>
