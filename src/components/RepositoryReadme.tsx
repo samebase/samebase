@@ -722,7 +722,7 @@ function RepositoryReadmeInner() {
               {selectedFile && (
                 <div className="flex items-center gap-2">
                   <span className="text-base md:text-sm font-medium truncate">
-                    {selectedFile.split("/").pop() || selectedFile}
+                    {selectedFile.split("/").slice(0, -1).join("/") || "/"}
                   </span>
                   {isFromStaging && (
                     <span className="text-sm md:text-xs text-blue-600">
@@ -734,42 +734,48 @@ function RepositoryReadmeInner() {
             </div>
 
             {/* Auto-commit status and actions */}
-            <div className="flex items-center gap-2">
-              {/* Auto-commit status */}
-              {isFromStaging && localContent !== remoteContent && (
-                <div className="flex items-center gap-2 text-sm md:text-xs">
-                  {countdown > 0 && (
-                    <span className="text-muted-foreground">
-                      Auto-commit in {countdown}s
-                    </span>
-                  )}
-                  {countdown === 0 && !isManualCommitting && (
-                    <span className="text-blue-600">Committing...</span>
-                  )}
-                </div>
-              )}
+            {false && (
+              <div className="flex items-center gap-2">
+                {/* Auto-commit status */}
+                {isFromStaging && localContent !== remoteContent && (
+                  <div className="flex items-center gap-2 text-sm md:text-xs">
+                    {countdown > 0 && (
+                      <span className="text-muted-foreground">
+                        Auto-commit in {countdown}s
+                      </span>
+                    )}
+                    {countdown === 0 && !isManualCommitting && (
+                      <span className="text-blue-600">Committing...</span>
+                    )}
+                  </div>
+                )}
 
-              {/* Action buttons */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void handleManualSave()}
-                disabled={localContent === remoteContent || !selectedFile}
-                className="h-8 md:h-7"
-              >
-                Save
-              </Button>
+                {/* Action buttons */}
+                {false && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleManualSave()}
+                    disabled={localContent === remoteContent || !selectedFile}
+                    className="h-8 md:h-7"
+                  >
+                    Save
+                  </Button>
+                )}
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void handleManualCommit()}
-                disabled={!isFromStaging || isManualCommitting}
-                className="h-8 md:h-7"
-              >
-                {isManualCommitting ? "Committing..." : "Commit Now"}
-              </Button>
-            </div>
+                {false && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleManualCommit()}
+                    disabled={!isFromStaging || isManualCommitting}
+                    className="h-8 md:h-7"
+                  >
+                    {isManualCommitting ? "Committing..." : "Commit Now"}
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex-1 overflow-auto p-4 md:p-4">
