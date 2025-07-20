@@ -3,7 +3,7 @@
 import { action } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 
 // List the current user's GitHub repositories
@@ -268,6 +268,13 @@ export const updateFileContent = action({
         content: Buffer.from(args.content, "utf8").toString("base64"),
         sha: args.sha,
         branch: args.branch || "main",
+      });
+
+      // Clear staging after successful commit
+      const repositoryId = `${args.owner}/${args.repo}`;
+      await ctx.runMutation(internal.fileStagingMutations.clearStaging, {
+        repositoryId,
+        filePath: args.path,
       });
 
       return {

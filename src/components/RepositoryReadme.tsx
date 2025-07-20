@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
-import { useAction } from "convex/react";
+import { useAction, useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ import { FileTree } from "./FileTree";
 import { useState, useEffect, useCallback, useRef } from "react";
 
 const COMMIT_COUNTDOWN = 20;
+const SAVE_DEBOUNCE_MS = 300; // Debounce saves to avoid too many mutations
 
 export function RepositoryReadme() {
   const {
@@ -43,22 +44,34 @@ export function RepositoryReadme() {
   const branch = parsedPath[0] || "main";
   const actualFilePath = parsedPath.slice(1).join("/");
   const selectedFile = actualFilePath || undefined;
+  const repositoryId = `${owner}/${repoName}`;
 
-  // Edit state
-  const [editedContent, setEditedContent] = useState<string>("");
-  const [isEdited, setIsEdited] = useState(false);
+  // Local state for immediate UI updates
+  const [localContent, setLocalContent] = useState<string>("");
+  const [lastLocalEditTime, setLastLocalEditTime] = useState<number>(0);
+
+  // Visual countdown state (for UX, actual commit happens on server)
   const [countdown, setCountdown] = useState<number>(0);
-  const [isCommitting, setIsCommitting] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [isManualCommitting, setIsManualCommitting] = useState(false);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // New file dialog state
   const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const [isCreatingFile, setIsCreatingFile] = useState(false);
 
+  // Convex hooks for staging
+  const saveToStaging = useMutation(api.fileStagingMutations.saveToStaging);
+  const commitStaging = useMutation(api.fileStagingMutations.commitStaging);
+  const stagedFile = useQuery(
+    api.fileStagingMutations.getStagedFile,
+    selectedFile && owner && repoName
+      ? { repositoryId, filePath: selectedFile }
+      : "skip",
+  );
+
   const getFileContent = useAction(api.github.getFileContent);
-  const updateFileContent = useAction(api.github.updateFileContent);
   const createFile = useAction(api.github.createFile);
   const deleteFile = useAction(api.github.deleteFile);
   const getRepositoryTree = useAction(api.github.getRepositoryTree);
@@ -131,9 +144,9 @@ export function RepositoryReadme() {
     navigate,
   ]);
 
-  // Fetch selected file content
+  // Fetch file from GitHub if not in staging
   const {
-    data: fileData,
+    data: githubFileData,
     isLoading: isLoadingFile,
     error: fileError,
     refetch: refetchFile,
@@ -150,8 +163,52 @@ export function RepositoryReadme() {
         ref: branch,
       });
     },
-    enabled: !!(owner && repoName && selectedFile),
+    enabled: !!(owner && repoName && selectedFile && !stagedFile),
   });
+
+  // Determine current file content and metadata
+  const currentFileData = stagedFile || githubFileData;
+  const isFromStaging = !!stagedFile;
+
+  const remoteContent = currentFileData?.content
+    ? currentFileData.encoding === "base64"
+      ? atob(currentFileData.content)
+      : currentFileData.content
+    : "";
+
+  const currentSha = isFromStaging
+    ? stagedFile.parentCommitSha
+    : githubFileData?.sha || "";
+
+  // Initialize local content when file loads or changes
+  useEffect(() => {
+    if (remoteContent !== undefined) {
+      // Only update local content if user hasn't been editing recently (1 second grace period)
+      const timeSinceLastEdit = Date.now() - lastLocalEditTime;
+      const hasRecentLocalEdits = timeSinceLastEdit < 1000;
+
+      if (!hasRecentLocalEdits || localContent === "") {
+        setLocalContent(remoteContent);
+      }
+    }
+  }, [remoteContent, lastLocalEditTime, localContent]);
+
+  // Reset local state when switching files
+  useEffect(() => {
+    setLocalContent("");
+    setLastLocalEditTime(0);
+    setCountdown(0);
+
+    // Clear all timers
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+  }, [selectedFile]);
 
   const handleFileSelect = (path: string) => {
     if (owner && repoName) {
@@ -160,10 +217,10 @@ export function RepositoryReadme() {
   };
 
   const handleFileRename = async (oldPath: string, newPath: string) => {
-    if (!owner || !repoName || !fileData) return;
+    if (!owner || !repoName) return;
 
     try {
-      // Get the file data for the file being renamed
+      // Get the file data for the file being renamed (from GitHub)
       const fileToRename = await getFileContent({
         owner,
         repo: repoName,
@@ -251,128 +308,116 @@ export function RepositoryReadme() {
     }
   };
 
-  // Get the original content and decode it
-  const originalContent = fileData?.content
-    ? fileData.encoding === "base64"
-      ? atob(fileData.content)
-      : fileData.content
-    : "";
-
-  // Initialize edited content when file loads
-  useEffect(() => {
-    if (originalContent && !isEdited) {
-      setEditedContent(originalContent);
-    }
-  }, [originalContent, isEdited]);
-
-  // Reset edit state when switching files
-  useEffect(() => {
-    setIsEdited(false);
-    setEditedContent("");
-    setCountdown(0);
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  }, [selectedFile]);
-
-  const startCommitCountdown = useCallback(() => {
-    // Clear existing timers
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
+  // Visual countdown for UX (actual commit happens on server)
+  const startVisualCountdown = useCallback(() => {
+    // Clear existing timer
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
     }
 
-    // Start countdown from 60 seconds
+    // Start countdown from COMMIT_COUNTDOWN seconds
     setCountdown(COMMIT_COUNTDOWN);
 
     // Update countdown every second
-    intervalRef.current = setInterval(() => {
+    countdownIntervalRef.current = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
           // Clear interval when countdown reaches 0
-          if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
+          if (countdownIntervalRef.current) {
+            clearInterval(countdownIntervalRef.current);
+            countdownIntervalRef.current = null;
           }
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
-
-    // Set timeout for actual commit
-    timeoutRef.current = setTimeout(() => {
-      void handleCommit();
-    }, 60000);
   }, []);
 
-  const handleCommit = async () => {
-    if (!isEdited || !selectedFile || !owner || !repoName || !fileData) return;
+  const handleManualCommit = async () => {
+    if (!selectedFile || !owner || !repoName) return;
 
-    setIsCommitting(true);
+    setIsManualCommitting(true);
+    setCountdown(0); // Stop countdown
+
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+
     try {
-      await updateFileContent({
-        owner,
-        repo: repoName,
-        path: selectedFile,
-        content: editedContent,
-        message: `Update ${selectedFile}`,
-        sha: fileData.sha || "",
-        branch,
+      await commitStaging({
+        repositoryId,
+        filePath: selectedFile,
       });
 
-      // Reset edit state after successful commit
-      setIsEdited(false);
-      setCountdown(0);
-
-      // Refetch the file to get the updated SHA
+      // Refetch the file to get updated data after commit
       void refetchFile();
     } catch (error) {
       console.error("Failed to commit changes:", error);
     } finally {
-      setIsCommitting(false);
+      setIsManualCommitting(false);
     }
   };
 
-  const handleContentChange = (value: string) => {
-    setEditedContent(value);
+  // Debounced save to Convex staging
+  const debouncedSaveToStaging = useCallback(
+    async (content: string) => {
+      if (!selectedFile || !owner || !repoName) {
+        return;
+      }
 
-    // Only start countdown if content actually changed from original
-    if (value !== originalContent) {
-      if (!isEdited) {
-        setIsEdited(true);
+      try {
+        await saveToStaging({
+          repositoryId,
+          filePath: selectedFile,
+          content,
+          parentCommitSha: currentSha,
+          branch,
+        });
+
+        // Start visual countdown after successful save
+        startVisualCountdown();
+      } catch (error) {
+        console.error("Failed to save to staging:", error);
       }
-      startCommitCountdown();
-    } else {
-      // Content reverted to original, cancel edit state
-      setIsEdited(false);
-      setCountdown(0);
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+    },
+    [
+      saveToStaging,
+      repositoryId,
+      selectedFile,
+      currentSha,
+      branch,
+      owner,
+      repoName,
+      startVisualCountdown,
+    ],
+  );
+
+  const handleContentChange = (value: string) => {
+    // Update local state immediately for responsive UI
+    setLocalContent(value);
+    setLastLocalEditTime(Date.now());
+
+    // Clear existing save timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
+
+    // Debounce the save to Convex
+    saveTimeoutRef.current = setTimeout(() => {
+      void debouncedSaveToStaging(value);
+    }, SAVE_DEBOUNCE_MS);
   };
 
   // Cleanup timers on unmount
   useEffect(() => {
     return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
       }
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
       }
     };
   }, []);
@@ -526,6 +571,9 @@ export function RepositoryReadme() {
                 <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
                 <div className="text-xs font-medium truncate text-muted-foreground">
                   {owner}/{repoName}
+                  {isFromStaging && (
+                    <span className="ml-1 text-blue-600">•</span>
+                  )}
                 </div>
               </div>
               <Dialog
@@ -546,11 +594,7 @@ export function RepositoryReadme() {
                       placeholder="filename.md"
                       value={newFileName}
                       onChange={(e) => setNewFileName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          void handleCreateFile();
-                        }
-                      }}
+                      onKeyDown={handleCreateFileKeyDown}
                       className="text-xs"
                     />
                     <div className="flex justify-end gap-2">
@@ -611,32 +655,40 @@ export function RepositoryReadme() {
                     <span className="text-xs text-muted-foreground">
                       {selectedFile}
                     </span>
+                    {isFromStaging && (
+                      <span className="text-xs text-blue-600">(live)</span>
+                    )}
                   </>
                 )}
               </div>
 
               {/* Auto-commit status */}
               <div className="ml-auto flex items-center gap-2">
-                {isEdited && countdown > 0 && (
+                {countdown > 0 && (
                   <Button
                     variant="ghost"
                     size="sm"
                     className="h-6 px-2 text-xs text-muted-foreground bg-muted/50 hover:bg-muted/70"
-                    onClick={() => void handleCommit()}
+                    onClick={() => void handleManualCommit()}
+                    disabled={isManualCommitting}
                   >
-                    Auto-commit in {countdown}s (click to commit now)
+                    {isManualCommitting
+                      ? "Committing..."
+                      : `Auto-commit in ${countdown}s (click to commit now)`}
                   </Button>
                 )}
-                {isCommitting && (
+                {isManualCommitting && (
                   <div className="text-xs text-muted-foreground bg-blue-50 px-2 py-1 rounded">
                     Committing...
                   </div>
                 )}
-                {isEdited && !isCommitting && countdown === 0 && (
-                  <div className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
-                    Changes saved
-                  </div>
-                )}
+                {localContent !== remoteContent &&
+                  countdown === 0 &&
+                  !isManualCommitting && (
+                    <div className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                      Changes saved
+                    </div>
+                  )}
               </div>
             </div>
 
@@ -651,11 +703,11 @@ export function RepositoryReadme() {
               <div className="max-w-none">
                 <div className="mb-4">
                   <h2 className="text-sm font-medium mb-2">
-                    {fileData?.name || selectedFile}
+                    {currentFileData?.name || selectedFile}
                   </h2>
                 </div>
 
-                {isLoadingFile && (
+                {isLoadingFile && !stagedFile && localContent === "" && (
                   <div className="flex items-center justify-center py-12">
                     <div className="text-xs text-muted-foreground">
                       Loading file...
@@ -663,13 +715,13 @@ export function RepositoryReadme() {
                   </div>
                 )}
 
-                {!isLoadingFile && !fileError && selectedFile && (
+                {(localContent !== "" || selectedFile) && (
                   <Textarea
-                    value={editedContent}
+                    value={localContent}
                     onChange={(e) => handleContentChange(e.target.value)}
                     className="min-h-[600px] font-mono text-xs border border-border/50 shadow-none resize-none focus-visible:ring-0 focus-visible:ring-offset-0 bg-background"
                     placeholder={
-                      editedContent === "" ? "No file content found" : undefined
+                      localContent === "" ? "No file content found" : undefined
                     }
                   />
                 )}

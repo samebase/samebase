@@ -1,15 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
-
-function omit<T extends Record<string, any>, K extends keyof T>(
-  obj: T,
-  keys: K[],
-): Omit<T, K> {
-  return Object.fromEntries(
-    Object.entries(obj).filter(([key]) => !keys.includes(key as K)),
-  ) as Omit<T, K>;
-}
+import { omit } from "./lib";
 
 // The schema is normally optional, but Convex Auth
 // requires indexes defined on `authTables`.
@@ -53,4 +45,21 @@ export default defineSchema({
     ghRepoOwner: v.string(),
     ghRepoName: v.string(),
   }),
+
+  /**
+   * File staging for real-time collaborative editing.
+   * Stores unsaved changes before they're committed to GitHub.
+   */
+  fileStaging: defineTable({
+    repositoryId: v.string(), // "owner/repo"
+    filePath: v.string(),
+    content: v.string(),
+    parentCommitSha: v.string(), // SHA of the GitHub commit this edit is based on
+    lastEditTime: v.number(),
+    lastEditUserId: v.id("users"),
+    branch: v.string(),
+  })
+    .index("by_repository_and_path", ["repositoryId", "filePath"])
+    .index("by_repository", ["repositoryId"])
+    .index("by_user", ["lastEditUserId"]),
 });
