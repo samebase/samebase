@@ -2,7 +2,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
 import { useAction, useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { Textarea } from "@/components/ui/textarea";
+import { CodeEditor } from "@/components/CodeEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -723,7 +723,9 @@ function RepositoryReadmeInner() {
               selectedFile={selectedFile}
               repositoryFullName={repositoryFullName}
               folderExpansionStates={folderExpansionStates ?? []}
-              onFolderToggle={handleFolderToggle}
+              onFolderToggle={(folderPath, isExpanded) =>
+                void handleFolderToggle(folderPath, isExpanded)
+              }
             />
           </div>
         </SidebarContent>
@@ -803,7 +805,7 @@ function RepositoryReadmeInner() {
             )}
           </div>
 
-          <div className="flex-1 overflow-auto p-4 md:p-4">
+          <div className="flex-1 overflow-auto p-0 md:p-4">
             {error && (
               <div className="mb-4 p-3 text-sm md:text-xs text-red-600 bg-red-50 rounded border border-red-200">
                 Failed to load data:{" "}
@@ -811,7 +813,7 @@ function RepositoryReadmeInner() {
               </div>
             )}
 
-            <div className="max-w-none">
+            <div className="max-w-none h-full flex flex-col">
               <div className="mb-4">
                 <h2 className="text-base md:text-sm font-medium mb-2">
                   {githubFileData?.name || selectedFile}
@@ -836,14 +838,14 @@ function RepositoryReadmeInner() {
                 )}
 
               {(localContent !== "" || selectedFile) && (
-                <Textarea
-                  value={localContent}
-                  onChange={(e) => handleContentChange(e.target.value)}
-                  className="min-h-[calc(100vh-300px)] md:min-h-[600px] font-mono text-sm md:text-xs border border-border/50 shadow-none resize-none focus-visible:ring-0 focus-visible:ring-offset-0 bg-background"
-                  placeholder={
-                    localContent === "" ? "No file content found" : undefined
-                  }
-                />
+                <div className="flex-1 min-h-0">
+                  <CodeEditor
+                    value={localContent}
+                    onChange={handleContentChange}
+                    fileName={selectedFile}
+                    className="h-full border border-border/50 rounded-md overflow-hidden"
+                  />
+                </div>
               )}
             </div>
           </div>
