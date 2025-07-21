@@ -1,20 +1,12 @@
 import { v } from "convex/values";
-import {
-  mutation,
-  query,
-  internalQuery,
-  internalMutation,
-} from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
-import { Id } from "./_generated/dataModel";
 
-const AUTO_COMMIT_DELAY_MS = 20000; // 20 seconds
-
-// Save file content to staging (real-time)
+// Save file content to staging for real-time editing
 export const saveToStaging = mutation({
   args: {
-    repositoryId: v.string(),
+    repositoryFullName: v.string(),
     filePath: v.string(),
     content: v.string(),
     parentCommitSha: v.string(),
@@ -27,75 +19,46 @@ export const saveToStaging = mutation({
       throw new Error("User not authenticated");
     }
 
-    const now = Date.now();
-
-    // Check if staging entry already exists
-    const existing = await ctx.db
+    // Check if there's already a staging record for this file
+    const existingStaging = await ctx.db
       .query("fileStaging")
       .filter((q) =>
         q.and(
-          q.eq(q.field("repositoryId"), args.repositoryId),
+          q.eq(q.field("repositoryFullName"), args.repositoryFullName),
           q.eq(q.field("filePath"), args.filePath),
         ),
       )
       .first();
 
-    let stagingId;
-
-    if (existing) {
-      // Update existing staging entry
-      await ctx.db.patch(existing._id, {
+    if (existingStaging) {
+      // Update existing staging
+      await ctx.db.patch(existingStaging._id, {
         content: args.content,
-        lastEditTime: now,
+        lastEditTime: Date.now(),
         lastEditUserId: userId,
-        parentCommitSha: args.parentCommitSha,
+        branch: args.branch,
       });
-      stagingId = existing._id;
     } else {
-      // Create new staging entry
-      stagingId = await ctx.db.insert("fileStaging", {
-        repositoryId: args.repositoryId,
+      // Create new staging record
+      await ctx.db.insert("fileStaging", {
+        repositoryFullName: args.repositoryFullName,
         filePath: args.filePath,
         content: args.content,
         parentCommitSha: args.parentCommitSha,
-        lastEditTime: now,
+        lastEditTime: Date.now(),
         lastEditUserId: userId,
         branch: args.branch,
       });
     }
 
-    // Schedule auto-commit with user ID
-    await ctx.scheduler.runAfter(
-      AUTO_COMMIT_DELAY_MS,
-      internal.fileStaging.autoCommit,
-      {
-        repositoryId: args.repositoryId,
-        filePath: args.filePath,
-        stagingId: stagingId as Id<"fileStaging">,
-        scheduledTime: now,
-        userId,
-      },
-    );
-
     return null;
-  },
-});
-
-// Get user by ID (internal helper)
-export const getUserById = internalQuery({
-  args: {
-    userId: v.id("users"),
-  },
-  returns: v.any(),
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.userId);
   },
 });
 
 // Get staged content for a file (with real-time updates)
 export const getStagedFile = query({
   args: {
-    repositoryId: v.string(),
+    repositoryFullName: v.string(),
     filePath: v.string(),
   },
   returns: v.any(),
@@ -104,7 +67,7 @@ export const getStagedFile = query({
       .query("fileStaging")
       .filter((q) =>
         q.and(
-          q.eq(q.field("repositoryId"), args.repositoryId),
+          q.eq(q.field("repositoryFullName"), args.repositoryFullName),
           q.eq(q.field("filePath"), args.filePath),
         ),
       )
@@ -114,35 +77,66 @@ export const getStagedFile = query({
   },
 });
 
-// Get staging by ID (internal helper)
-export const getStagingById = internalQuery({
+// List all files currently in staging for a repository
+export const listStagedFiles = query({
   args: {
-    stagingId: v.id("fileStaging"),
+    repositoryFullName: v.string(),
   },
-  returns: v.any(),
+  returns: v.array(v.any()),
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.stagingId);
-  },
-});
-
-// Get all staged files for a repository
-export const getAllStagedFiles = query({
-  args: {
-    repositoryId: v.string(),
-  },
-  returns: v.any(),
-  handler: async (ctx, args) => {
-    return await ctx.db
+    const files = await ctx.db
       .query("fileStaging")
-      .filter((q) => q.eq(q.field("repositoryId"), args.repositoryId))
+      .filter((q) =>
+        q.eq(q.field("repositoryFullName"), args.repositoryFullName),
+      )
       .collect();
+
+    return files;
   },
 });
 
-// Clear staging after successful commit
+// Commit staged file to GitHub
+export const commitStaging = mutation({
+  args: {
+    repositoryFullName: v.string(),
+    filePath: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    // Find the staging record
+    const staging = await ctx.db
+      .query("fileStaging")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("repositoryFullName"), args.repositoryFullName),
+          q.eq(q.field("filePath"), args.filePath),
+        ),
+      )
+      .first();
+
+    if (!staging) {
+      throw new Error("No staged changes found for this file");
+    }
+
+    // Schedule the actual GitHub commit
+    await ctx.scheduler.runAfter(0, internal.fileStaging.commitStagedFile, {
+      repositoryFullName: args.repositoryFullName,
+      filePath: args.filePath,
+    });
+
+    return null;
+  },
+});
+
+// Clear staging for a specific file (used after successful commit)
 export const clearStaging = internalMutation({
   args: {
-    repositoryId: v.string(),
+    repositoryFullName: v.string(),
     filePath: v.string(),
   },
   returns: v.null(),
@@ -151,7 +145,7 @@ export const clearStaging = internalMutation({
       .query("fileStaging")
       .filter((q) =>
         q.and(
-          q.eq(q.field("repositoryId"), args.repositoryId),
+          q.eq(q.field("repositoryFullName"), args.repositoryFullName),
           q.eq(q.field("filePath"), args.filePath),
         ),
       )
@@ -165,83 +159,10 @@ export const clearStaging = internalMutation({
   },
 });
 
-// Manual commit from client (cancels auto-commit)
-export const commitStaging = mutation({
-  args: {
-    repositoryId: v.string(),
-    filePath: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
-    // Get staging entry
-    const staging = await ctx.db
-      .query("fileStaging")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("repositoryId"), args.repositoryId),
-          q.eq(q.field("filePath"), args.filePath),
-        ),
-      )
-      .first();
-
-    if (!staging) {
-      throw new Error("No staged changes to commit");
-    }
-
-    // Parse repository info
-    const [owner, repo] = args.repositoryId.split("/");
-    if (!owner || !repo) {
-      throw new Error("Invalid repository ID format");
-    }
-
-    // Commit immediately with user ID
-    await ctx.scheduler.runAfter(0, internal.fileStaging.manualCommit, {
-      repositoryId: args.repositoryId,
-      filePath: args.filePath,
-      owner,
-      repo,
-      content: staging.content,
-      message: `Update ${args.filePath}`,
-      sha: staging.parentCommitSha,
-      branch: staging.branch,
-      userId,
-    });
-
-    return null;
-  },
-});
-
-// Clean up old staging entries (for maintenance)
-export const cleanupOldStaging = internalMutation({
-  args: {
-    olderThanMs: v.number(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const cutoff = Date.now() - args.olderThanMs;
-
-    const oldEntries = await ctx.db
-      .query("fileStaging")
-      .filter((q) => q.lt(q.field("lastEditTime"), cutoff))
-      .collect();
-
-    for (const entry of oldEntries) {
-      await ctx.db.delete(entry._id);
-    }
-
-    return null;
-  },
-});
-
 // Get current file status - returns staging if exists, or indicates GitHub fetch needed
 export const getFileStatus = query({
   args: {
-    repositoryId: v.string(),
+    repositoryFullName: v.string(),
     filePath: v.string(),
   },
   returns: v.union(
@@ -262,7 +183,7 @@ export const getFileStatus = query({
       .query("fileStaging")
       .filter((q) =>
         q.and(
-          q.eq(q.field("repositoryId"), args.repositoryId),
+          q.eq(q.field("repositoryFullName"), args.repositoryFullName),
           q.eq(q.field("filePath"), args.filePath),
         ),
       )

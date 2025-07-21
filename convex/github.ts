@@ -271,9 +271,9 @@ export const updateFileContent = action({
       });
 
       // Clear staging after successful commit
-      const repositoryId = `${args.owner}/${args.repo}`;
+      const repositoryFullName = `${args.owner}/${args.repo}`;
       await ctx.runMutation(internal.fileStagingMutations.clearStaging, {
-        repositoryId,
+        repositoryFullName,
         filePath: args.path,
       });
 

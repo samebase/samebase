@@ -57,7 +57,16 @@ function RepositoryReadmeInner() {
   const branch = parsedPath[0] || "main";
   const actualFilePath = parsedPath.slice(1).join("/");
   const selectedFile = actualFilePath || undefined;
-  const repositoryId = `${owner}/${repoName}`;
+  const repositoryFullName = `${owner}/${repoName}`;
+
+  // Folder expansion state
+  const folderExpansionStates = useQuery(
+    api.folderExpansion.getFolderExpansionStates,
+    owner && repoName ? { repositoryFullName } : "skip",
+  );
+  const setFolderExpansionState = useMutation(
+    api.folderExpansion.setFolderExpansionState,
+  );
 
   // Local state for immediate UI updates
   const [localContent, setLocalContent] = useState<string>("");
@@ -83,7 +92,7 @@ function RepositoryReadmeInner() {
   const fileStatus = useQuery(
     api.fileStagingMutations.getFileStatus,
     selectedFile && owner && repoName
-      ? { repositoryId, filePath: selectedFile }
+      ? { repositoryFullName, filePath: selectedFile }
       : "skip",
   );
 
@@ -378,7 +387,7 @@ function RepositoryReadmeInner() {
     console.log("Manual save triggered");
     if (selectedFile && localContent !== remoteContent && owner && repoName) {
       await saveToStaging({
-        repositoryId,
+        repositoryFullName,
         filePath: selectedFile,
         content: localContent,
         parentCommitSha: currentSha,
@@ -400,7 +409,7 @@ function RepositoryReadmeInner() {
 
     try {
       await commitStaging({
-        repositoryId,
+        repositoryFullName,
         filePath: selectedFile,
       });
 
@@ -422,7 +431,7 @@ function RepositoryReadmeInner() {
 
       try {
         await saveToStaging({
-          repositoryId,
+          repositoryFullName,
           filePath: selectedFile,
           content,
           parentCommitSha: currentSha,
@@ -437,7 +446,7 @@ function RepositoryReadmeInner() {
     },
     [
       saveToStaging,
-      repositoryId,
+      repositoryFullName,
       selectedFile,
       currentSha,
       branch,
@@ -474,6 +483,19 @@ function RepositoryReadmeInner() {
       }
     };
   }, []);
+
+  const handleFolderToggle = async (
+    folderPath: string,
+    isExpanded: boolean,
+  ) => {
+    if (owner && repoName) {
+      await setFolderExpansionState({
+        repositoryFullName,
+        folderPath,
+        isExpanded,
+      });
+    }
+  };
 
   if (!owner || !repoName) {
     return (
@@ -699,6 +721,9 @@ function RepositoryReadmeInner() {
                 void handleFileRename(oldPath, newPath)
               }
               selectedFile={selectedFile}
+              repositoryFullName={repositoryFullName}
+              folderExpansionStates={folderExpansionStates ?? []}
+              onFolderToggle={handleFolderToggle}
             />
           </div>
         </SidebarContent>

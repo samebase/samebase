@@ -60,7 +60,7 @@ export default defineSchema({
    * Stores unsaved changes before they're committed to GitHub.
    */
   fileStaging: defineTable({
-    repositoryId: v.string(), // "owner/repo"
+    repositoryFullName: v.string(), // "owner/repo"
     filePath: v.string(),
     content: v.string(),
     parentCommitSha: v.string(), // SHA of the GitHub commit this edit is based on
@@ -68,7 +68,24 @@ export default defineSchema({
     lastEditUserId: v.id("users"),
     branch: v.string(),
   })
-    .index("by_repository_and_path", ["repositoryId", "filePath"])
-    .index("by_repository", ["repositoryId"])
+    .index("by_repository_and_path", ["repositoryFullName", "filePath"])
+    .index("by_repository", ["repositoryFullName"])
     .index("by_user", ["lastEditUserId"]),
+
+  /**
+   * Folder expansion state for file tree sidebar.
+   * Stores which folders are expanded/collapsed per user per repository.
+   */
+  folderExpansionState: defineTable({
+    userId: v.id("users"),
+    repositoryFullName: v.string(), // "owner/repo"
+    folderPath: v.string(), // path to the folder
+    isExpanded: v.boolean(),
+  })
+    .index("by_user_and_repository", ["userId", "repositoryFullName"])
+    .index("by_user_repository_and_path", [
+      "userId",
+      "repositoryFullName",
+      "folderPath",
+    ]),
 });

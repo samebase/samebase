@@ -20,11 +20,19 @@ interface TreeNode {
   size?: number;
 }
 
+interface FolderExpansionState {
+  folderPath: string;
+  isExpanded: boolean;
+}
+
 interface FileTreeProps {
   items: FileTreeItem[];
   onFileSelect?: (path: string) => void;
   onFileRename?: (oldPath: string, newPath: string) => void;
   selectedFile?: string;
+  repositoryFullName: string;
+  folderExpansionStates: FolderExpansionState[];
+  onFolderToggle?: (folderPath: string, isExpanded: boolean) => void;
 }
 
 function buildTree(items: FileTreeItem[]): TreeNode[] {
@@ -84,14 +92,23 @@ function TreeNodeComponent({
   onFileSelect,
   onFileRename,
   selectedFile,
+  folderExpansionStates,
+  onFolderToggle,
 }: {
   node: TreeNode;
   level?: number;
   onFileSelect?: (path: string) => void;
   onFileRename?: (oldPath: string, newPath: string) => void;
   selectedFile?: string;
+  folderExpansionStates: FolderExpansionState[];
+  onFolderToggle?: (folderPath: string, isExpanded: boolean) => void;
 }) {
-  const [isOpen, setIsOpen] = useState(level < 2); // Auto-expand first 2 levels
+  // Get expansion state from database instead of auto-expanding
+  const expansionState = folderExpansionStates.find(
+    (state) => state.folderPath === node.path,
+  );
+  const isOpen = expansionState?.isExpanded ?? false; // Default to collapsed
+
   const [isRenaming, setIsRenaming] = useState(false);
   const [renamingValue, setRenamingValue] = useState(node.name);
   const [contextMenu, setContextMenu] = useState<{
@@ -104,7 +121,8 @@ function TreeNodeComponent({
 
   const handleClick = () => {
     if (hasChildren) {
-      setIsOpen(!isOpen);
+      const newIsOpen = !isOpen;
+      onFolderToggle?.(node.path, newIsOpen);
     } else {
       onFileSelect?.(node.path);
     }
@@ -201,6 +219,8 @@ function TreeNodeComponent({
                 onFileSelect={onFileSelect}
                 onFileRename={onFileRename}
                 selectedFile={selectedFile}
+                folderExpansionStates={folderExpansionStates}
+                onFolderToggle={onFolderToggle}
               />
             ))}
           </div>
@@ -236,6 +256,8 @@ export function FileTree({
   onFileSelect,
   onFileRename,
   selectedFile,
+  folderExpansionStates,
+  onFolderToggle,
 }: FileTreeProps) {
   const tree = useMemo(() => buildTree(items), [items]);
 
@@ -256,6 +278,8 @@ export function FileTree({
           onFileSelect={onFileSelect}
           onFileRename={onFileRename}
           selectedFile={selectedFile}
+          folderExpansionStates={folderExpansionStates}
+          onFolderToggle={onFolderToggle}
         />
       ))}
     </div>

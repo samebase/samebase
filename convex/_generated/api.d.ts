@@ -16,6 +16,7 @@ import type {
 import type * as auth from "../auth.js";
 import type * as fileStaging from "../fileStaging.js";
 import type * as fileStagingMutations from "../fileStagingMutations.js";
+import type * as folderExpansion from "../folderExpansion.js";
 import type * as github from "../github.js";
 import type * as http from "../http.js";
 import type * as messages from "../messages.js";
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   fileStaging: typeof fileStaging;
   fileStagingMutations: typeof fileStagingMutations;
+  folderExpansion: typeof folderExpansion;
   github: typeof github;
   http: typeof http;
   messages: typeof messages;
