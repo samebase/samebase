@@ -319,17 +319,20 @@ function RepositoryReadmeInner() {
     }
   };
 
-  const handleCreateFile = async () => {
-    if (!newFileName.trim() || !owner || !repoName) return;
+  const handleCreateFile = async (folderPath?: string) => {
+    const fileName = folderPath ? newFileName.trim() : newFileName.trim();
+    const filePath = folderPath ? `${folderPath}/${fileName}` : fileName;
+
+    if (!fileName || !owner || !repoName) return;
 
     setIsCreatingFile(true);
     try {
       await createFile({
         owner,
         repo: repoName,
-        path: newFileName.trim(),
+        path: filePath,
         content: "",
-        message: `Create ${newFileName.trim()}`,
+        message: `Create ${filePath}`,
         branch,
       });
 
@@ -337,9 +340,7 @@ function RepositoryReadmeInner() {
       void refetchTree();
 
       // Navigate to the new file
-      void navigate(
-        `/vault/${owner}/${repoName}/${branch}/${newFileName.trim()}`,
-      );
+      void navigate(`/vault/${owner}/${repoName}/${branch}/${filePath}`);
 
       // Reset dialog state
       setNewFileName("");
@@ -349,6 +350,31 @@ function RepositoryReadmeInner() {
     } finally {
       setIsCreatingFile(false);
     }
+  };
+
+  // Handler for creating files in specific folders from the file tree
+  const handleCreateFileInFolder = (folderPath: string, fileName: string) => {
+    if (!owner || !repoName || !fileName.trim()) return;
+
+    const filePath = folderPath ? `${folderPath}/${fileName}` : fileName;
+
+    createFile({
+      owner,
+      repo: repoName,
+      path: filePath,
+      content: "",
+      message: `Create ${filePath}`,
+      branch,
+    })
+      .then(() => {
+        // Refresh the tree
+        void refetchTree();
+        // Navigate to the new file
+        void navigate(`/vault/${owner}/${repoName}/${branch}/${filePath}`);
+      })
+      .catch((error) => {
+        console.error("Failed to create file:", error);
+      });
   };
 
   const handleCreateFileKeyDown = (e: React.KeyboardEvent) => {
@@ -720,6 +746,7 @@ function RepositoryReadmeInner() {
               onFileRename={(oldPath, newPath) =>
                 void handleFileRename(oldPath, newPath)
               }
+              onFileCreate={handleCreateFileInFolder}
               selectedFile={selectedFile}
               repositoryFullName={repositoryFullName}
               folderExpansionStates={folderExpansionStates ?? []}
