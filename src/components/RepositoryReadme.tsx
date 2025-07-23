@@ -196,16 +196,23 @@ function RepositoryReadmeInner() {
     ),
   });
 
+  // load github file into staging
+  useEffect(() => {
+    if (githubFileData?.content && !fileStatus?.hasStaging) {
+      void debouncedSaveToStaging(githubFileData.content);
+    }
+  }, [selectedFile, owner, repoName]);
+
   // Determine current file content and metadata based on staging status
   const isFromStaging = fileStatus?.hasStaging === true;
-
-  const remoteContent = isFromStaging
-    ? fileStatus.content
-    : githubFileData?.content
-      ? githubFileData.encoding === "base64"
-        ? base64ToUtf8(githubFileData.content)
-        : githubFileData.content
-      : "";
+  const remoteContent = fileStatus?.content || "";
+  // const remoteContent = isFromStaging
+  //   ? fileStatus.content
+  //   : githubFileData?.content
+  //     ? githubFileData.encoding === "base64"
+  //       ? base64ToUtf8(githubFileData.content)
+  //       : githubFileData.content
+  //     : "";
 
   const currentSha = isFromStaging
     ? fileStatus.parentCommitSha
@@ -456,6 +463,7 @@ function RepositoryReadmeInner() {
       }
 
       try {
+        console.log("debouncedSaveToStaging", { content });
         await saveToStaging({
           repositoryFullName,
           filePath: selectedFile,

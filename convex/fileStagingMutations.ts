@@ -1,7 +1,9 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
+
+export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
 
 // Save file content to staging for real-time editing
 export const saveToStaging = mutation({
@@ -30,11 +32,25 @@ export const saveToStaging = mutation({
       )
       .first();
 
+    console.log("saveToStaging", { args, existingStaging });
+
+    const currentTimestamp = Date.now();
+
     if (existingStaging) {
+      // Codemirror gives lots of updates
+      if (existingStaging.content === args.content) {
+        return null;
+      }
+
+      console.log({
+        old: existingStaging.content,
+        new: args.content,
+      });
+
       // Update existing staging
       await ctx.db.patch(existingStaging._id, {
         content: args.content,
-        lastEditTime: Date.now(),
+        lastEditTime: currentTimestamp,
         lastEditUserId: userId,
         branch: args.branch,
       });
@@ -45,11 +61,25 @@ export const saveToStaging = mutation({
         filePath: args.filePath,
         content: args.content,
         parentCommitSha: args.parentCommitSha,
-        lastEditTime: Date.now(),
+        lastEditTime: currentTimestamp,
         lastEditUserId: userId,
         branch: args.branch,
       });
     }
+
+    console.log("userId in mutation", userId);
+
+    // Schedule auto-commit after 20 seconds with timestamp validation
+    await ctx.scheduler.runAfter(
+      AUTO_COMMIT_DELAY_MS,
+      internal.fileStaging.autoCommitStagedFile,
+      {
+        userId,
+        repositoryFullName: args.repositoryFullName,
+        filePath: args.filePath,
+        lastEditTime: currentTimestamp,
+      },
+    );
 
     return null;
   },
@@ -125,6 +155,7 @@ export const commitStaging = mutation({
 
     // Schedule the actual GitHub commit
     await ctx.scheduler.runAfter(0, internal.fileStaging.commitStagedFile, {
+      userId,
       repositoryFullName: args.repositoryFullName,
       filePath: args.filePath,
     });

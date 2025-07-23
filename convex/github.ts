@@ -236,6 +236,8 @@ export const createCommit = action({
 // Update file content in GitHub repository
 export const updateFileContent = action({
   args: {
+    userId: v.id("users"),
+
     owner: v.string(),
     repo: v.string(),
     path: v.string(),
@@ -249,7 +251,9 @@ export const updateFileContent = action({
     url: v.string(),
   }),
   handler: async (ctx, args) => {
-    const currentUser: any = await ctx.runQuery(api.users.getAuthUser, {});
+    const currentUser = await ctx.runQuery(api.users.getById, {
+      userId: args.userId,
+    });
 
     if (!currentUser) {
       throw new Error("User not found");
@@ -260,13 +264,36 @@ export const updateFileContent = action({
     });
 
     try {
+      // If no SHA is provided, get the current file's SHA
+      let fileSha = args.sha;
+      if (!fileSha) {
+        try {
+          const currentFile = await octokit.rest.repos.getContent({
+            owner: args.owner,
+            repo: args.repo,
+            path: args.path,
+            ref: args.branch || "main",
+          });
+
+          // Handle case where path is a directory (shouldn't happen in our use case)
+          if (!Array.isArray(currentFile.data)) {
+            fileSha = (currentFile.data as any).sha;
+          }
+        } catch (error: any) {
+          // File doesn't exist yet, so we don't need a SHA
+          if (error.status !== 404) {
+            throw error;
+          }
+        }
+      }
+
       const result = await octokit.rest.repos.createOrUpdateFileContents({
         owner: args.owner,
         repo: args.repo,
         path: args.path,
         message: args.message,
         content: Buffer.from(args.content, "utf8").toString("base64"),
-        sha: args.sha,
+        sha: fileSha, // Use the file SHA (either provided or fetched)
         branch: args.branch || "main",
       });
 
