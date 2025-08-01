@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 
 export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
 
@@ -57,6 +57,7 @@ export const saveToStaging = mutation({
     } else {
       // Create new staging record
       await ctx.db.insert("fileStaging", {
+        ownerId: userId,
         repositoryFullName: args.repositoryFullName,
         filePath: args.filePath,
         content: args.content,

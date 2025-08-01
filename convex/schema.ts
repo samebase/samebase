@@ -60,6 +60,8 @@ export default defineSchema({
    * Stores unsaved changes before they're committed to GitHub.
    */
   fileStaging: defineTable({
+    ownerId: v.id("users"),
+
     repositoryFullName: v.string(), // "owner/repo"
     filePath: v.string(),
     content: v.string(),

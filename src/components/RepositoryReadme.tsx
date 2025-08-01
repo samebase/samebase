@@ -169,18 +169,18 @@ function RepositoryReadmeInner() {
     navigate,
   ]);
 
-  // Fetch file from GitHub if not in staging
-  const {
-    data: githubFileData,
-    isLoading: isLoadingFile,
-    error: fileError,
-    refetch: refetchFile,
-  } = useReactQuery({
+  const ghFile = useReactQuery({
     queryKey: ["github-file", owner, repoName, selectedFile, branch],
     queryFn: async () => {
       if (!owner || !repoName || !selectedFile) {
         throw new Error("Owner, repository name, and file path are required");
       }
+      console.log("fetching file from github", {
+        owner,
+        repo: repoName,
+        path: selectedFile,
+        ref: branch,
+      });
       return await getFileContent({
         owner,
         repo: repoName,
@@ -196,27 +196,23 @@ function RepositoryReadmeInner() {
     ),
   });
 
-  // load github file into staging
+  // load github file into staging, if there's no staging yet
   useEffect(() => {
-    if (githubFileData?.content && !fileStatus?.hasStaging) {
-      void debouncedSaveToStaging(githubFileData.content);
+    console.log("ghFile.data?.content", ghFile.data?.content);
+    console.log("fileStatus?.hasStaging", fileStatus?.hasStaging);
+    if (ghFile.data?.content && !fileStatus?.hasStaging) {
+      const utf8 = base64ToUtf8(ghFile.data.content);
+      void debouncedSaveToStaging(utf8);
     }
-  }, [selectedFile, owner, repoName]);
+  }, [selectedFile, owner, repoName, ghFile, fileStatus]);
 
   // Determine current file content and metadata based on staging status
   const isFromStaging = fileStatus?.hasStaging === true;
   const remoteContent = fileStatus?.content || "";
-  // const remoteContent = isFromStaging
-  //   ? fileStatus.content
-  //   : githubFileData?.content
-  //     ? githubFileData.encoding === "base64"
-  //       ? base64ToUtf8(githubFileData.content)
-  //       : githubFileData.content
-  //     : "";
 
   const currentSha = isFromStaging
     ? fileStatus.parentCommitSha
-    : githubFileData?.sha || "";
+    : ghFile.data?.sha || "";
 
   // Initialize local content when file loads or changes
   useEffect(() => {
@@ -447,7 +443,7 @@ function RepositoryReadmeInner() {
       });
 
       // Refetch the file to get updated data after commit
-      void refetchFile();
+      void ghFile.refetch();
     } catch (error) {
       console.error("Failed to commit changes:", error);
     } finally {
@@ -458,6 +454,11 @@ function RepositoryReadmeInner() {
   // Debounced save to Convex staging
   const debouncedSaveToStaging = useCallback(
     async (content: string) => {
+      console.log("debouncedSaveToStaging", {
+        selectedFile,
+        owner,
+        repoName,
+      });
       if (!selectedFile || !owner || !repoName) {
         return;
       }
@@ -675,7 +676,9 @@ function RepositoryReadmeInner() {
     );
   }
 
-  const error = fileError || treeError;
+  const error = ghFile.error || treeError;
+
+  // MARK: Return
 
   return (
     <div className="flex h-screen w-full">
@@ -794,50 +797,6 @@ function RepositoryReadmeInner() {
                 </div>
               )}
             </div>
-
-            {/* Auto-commit status and actions */}
-            {false && (
-              <div className="flex items-center gap-2">
-                {/* Auto-commit status */}
-                {isFromStaging && localContent !== remoteContent && (
-                  <div className="flex items-center gap-2 text-sm md:text-xs">
-                    {countdown > 0 && (
-                      <span className="text-muted-foreground">
-                        Auto-commit in {countdown}s
-                      </span>
-                    )}
-                    {countdown === 0 && !isManualCommitting && (
-                      <span className="text-blue-600">Committing...</span>
-                    )}
-                  </div>
-                )}
-
-                {/* Action buttons */}
-                {false && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void handleManualSave()}
-                    disabled={localContent === remoteContent || !selectedFile}
-                    className="h-8 md:h-7"
-                  >
-                    Save
-                  </Button>
-                )}
-
-                {false && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void handleManualCommit()}
-                    disabled={!isFromStaging || isManualCommitting}
-                    className="h-8 md:h-7"
-                  >
-                    {isManualCommitting ? "Committing..." : "Commit Now"}
-                  </Button>
-                )}
-              </div>
-            )}
           </div>
 
           <div className="flex-1 overflow-auto p-0 md:p-4">
@@ -851,11 +810,11 @@ function RepositoryReadmeInner() {
             <div className="max-w-none h-full flex flex-col">
               <div className="mb-4">
                 <h2 className="text-base md:text-sm font-medium mb-2">
-                  {githubFileData?.name || selectedFile}
+                  {ghFile.data?.name || selectedFile}
                 </h2>
               </div>
 
-              {isLoadingFile && !isFromStaging && localContent === "" && (
+              {ghFile.isLoading && !isFromStaging && localContent === "" && (
                 <div className="flex items-center justify-center py-12">
                   <div className="text-sm md:text-xs text-muted-foreground">
                     Loading file...
