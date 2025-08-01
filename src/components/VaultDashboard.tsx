@@ -34,8 +34,8 @@ export function VaultDashboard() {
 
   if (showRepositorySelector) {
     return (
-      <div className="container py-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="container py-6 h-screen flex flex-col">
+        <div className="flex items-center justify-between mb-6 flex-shrink-0">
           <div className="flex items-center gap-2">
             <GitHubLogoIcon className="h-6 w-6" />
             <h1 className="text-2xl font-semibold">Connect a Repository</h1>
@@ -47,14 +47,16 @@ export function VaultDashboard() {
             Back to Vaults
           </Button>
         </div>
-        <GitHubRepositories
-          onRepositoryConnected={() => {
-            setShowRepositorySelector(false);
-          }}
-          showHeader={false}
-          compact={true}
-          connectedVaults={vaults || []}
-        />
+        <div className="flex-1 overflow-y-auto">
+          <GitHubRepositories
+            onRepositoryConnected={() => {
+              setShowRepositorySelector(false);
+            }}
+            showHeader={false}
+            compact={true}
+            connectedVaults={vaults || []}
+          />
+        </div>
       </div>
     );
   }

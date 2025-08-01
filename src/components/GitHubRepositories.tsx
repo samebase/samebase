@@ -155,28 +155,6 @@ export function GitHubRepositories({
                       Updated {formatDate(repo.updated_at)}
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link
-                          to={`/vault/${repo.full_name}`}
-                          className="flex items-center gap-1"
-                        >
-                          <FileTextIcon className="h-3 w-3" />
-                          README
-                        </Link>
-                      </Button>
-
-                      <Button variant="outline" size="sm" asChild>
-                        <a
-                          href={repo.html_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1"
-                        >
-                          <ExternalLinkIcon className="h-3 w-3" />
-                          View
-                        </a>
-                      </Button>
-
                       {/* Connect button */}
                       {(() => {
                         const isConnected = connectedVaults.some(
