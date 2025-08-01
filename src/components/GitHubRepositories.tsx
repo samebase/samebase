@@ -6,16 +6,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  GitHubLogoIcon,
-  ExternalLinkIcon,
-  StarIcon,
-  FileTextIcon,
-} from "@radix-ui/react-icons";
+import { GitHubLogoIcon, StarIcon } from "@radix-ui/react-icons";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
 
 interface GitHubRepositoriesProps {
   onRepositoryConnected?: () => void;
