@@ -11,10 +11,19 @@ import {
 import { useAuthActions } from "@convex-dev/auth/react";
 import { PersonIcon } from "@radix-ui/react-icons";
 import { ReactNode } from "react";
+import { clsx } from "clsx";
 
-export function UserMenu({ children }: { children: ReactNode }) {
+export function UserMenu({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="flex items-center gap-2 text-sm font-medium">
+    <div
+      className={clsx("flex items-center gap-2 text-sm font-medium", className)}
+    >
       {children}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

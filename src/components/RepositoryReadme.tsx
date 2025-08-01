@@ -529,6 +529,8 @@ function RepositoryReadmeInner() {
     }
   };
 
+  // MARK: First returns
+
   if (!owner || !repoName) {
     return (
       <div className="container py-6">
@@ -566,12 +568,23 @@ function RepositoryReadmeInner() {
     );
   }
 
+  const userPart = (
+    <div className="p-3 border-b border-border/50">
+      <Link
+        to="/"
+        className="flex items-center justify-between hover:text-blue-600 hover:underline transition-colors"
+      >
+        <UserMenu>{user?.name ?? user?.email ?? "..."}</UserMenu>
+      </Link>
+    </div>
+  );
+
   const repoPart = (
     <div className="p-3 border-b border-border/50">
       <div className="flex items-center gap-2">
         <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
         <a
-          className="text-xs font-medium truncate text-muted-foreground"
+          className="text-xs font-medium truncate text-muted-foreground hover:text-blue-600 hover:underline transition-colors"
           href={`https://github.com/${owner}/${repoName}`}
           target="_blank"
           rel="noopener noreferrer"
@@ -588,17 +601,7 @@ function RepositoryReadmeInner() {
       <div className="flex h-screen w-full">
         <Sidebar variant="sidebar" className="border-r border-border/50">
           <SidebarContent className="p-0">
-            {/* User profile section */}
-            <div className="p-3 border-b border-border/50">
-              <div className="flex items-center justify-between">
-                {user ? (
-                  <UserMenu>{user?.name ?? user?.email}</UserMenu>
-                ) : (
-                  <div className="h-8" />
-                )}
-              </div>
-            </div>
-
+            {userPart}
             {repoPart}
 
             <div className="p-3 text-xs text-muted-foreground">
@@ -623,54 +626,8 @@ function RepositoryReadmeInner() {
       <div className="flex h-screen w-full">
         <Sidebar variant="sidebar" className="border-r border-border/50">
           <SidebarContent className="p-0">
-            <div className="p-3 border-b border-border/50 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
-                <a className="text-xs font-medium truncate text-muted-foreground">
-                  {owner}/{repoName}
-                </a>
-              </div>
-              <Dialog
-                open={isNewFileDialogOpen}
-                onOpenChange={setIsNewFileDialogOpen}
-              >
-                <DialogTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                    <PlusIcon className="h-3 w-3" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Create New File</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <Input
-                      placeholder="filename.md"
-                      value={newFileName}
-                      onChange={(e) => setNewFileName(e.target.value)}
-                      onKeyDown={handleCreateFileKeyDown}
-                      className="text-xs"
-                    />
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setIsNewFileDialogOpen(false)}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => void handleCreateFile()}
-                        disabled={!newFileName.trim() || isCreatingFile}
-                      >
-                        {isCreatingFile ? "Creating..." : "Create"}
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
+            {userPart}
+            {repoPart}
             <div className="p-3 text-xs text-muted-foreground">
               No files found
             </div>
@@ -712,67 +669,8 @@ function RepositoryReadmeInner() {
     <div className="flex h-screen w-full">
       <Sidebar variant="sidebar" className="border-r border-border/50">
         <SidebarContent className="p-0">
-          {/* User profile section */}
-          <div className="p-3 border-b border-border/50">
-            <div className="flex items-center justify-between">
-              {user ? (
-                <UserMenu>{user?.name ?? user?.email}</UserMenu>
-              ) : (
-                <div className="h-8" />
-              )}
-            </div>
-          </div>
-
-          {/* Repository header */}
-          <div className="p-3 border-b border-border/50 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
-              <a className="text-xs font-medium truncate text-muted-foreground">
-                {owner}/{repoName}
-                {isFromStaging && <span className="ml-1 text-blue-600">•</span>}
-              </a>
-            </div>
-            <Dialog
-              open={isNewFileDialogOpen}
-              onOpenChange={setIsNewFileDialogOpen}
-            >
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                  <PlusIcon className="h-3 w-3" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Create New File</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <Input
-                    placeholder="filename.md"
-                    value={newFileName}
-                    onChange={(e) => setNewFileName(e.target.value)}
-                    onKeyDown={handleCreateFileKeyDown}
-                    className="text-xs"
-                  />
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setIsNewFileDialogOpen(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => void handleCreateFile()}
-                      disabled={!newFileName.trim() || isCreatingFile}
-                    >
-                      {isCreatingFile ? "Creating..." : "Create"}
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
+          {userPart}
+          {repoPart}
 
           <div className="flex-1 overflow-auto">
             <FileTree
@@ -816,11 +714,6 @@ function RepositoryReadmeInner() {
                   <span className="text-base md:text-sm font-medium truncate">
                     {selectedFile.split("/").slice(0, -1).join("/") || "/"}
                   </span>
-                  {isFromStaging && (
-                    <span className="text-sm md:text-xs text-blue-600">
-                      (live)
-                    </span>
-                  )}
                 </div>
               )}
             </div>
