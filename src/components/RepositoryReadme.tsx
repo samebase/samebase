@@ -59,10 +59,16 @@ function RepositoryReadmeInner() {
   const selectedFile = actualFilePath || undefined;
   const repositoryFullName = `${owner}/${repoName}`;
 
+  // Get vault for this repository
+  const vault = useQuery(
+    api.vault.getVaultByRepository,
+    owner && repoName ? { repositoryFullName } : "skip",
+  );
+
   // Folder expansion state
   const folderExpansionStates = useQuery(
     api.folderExpansion.getFolderExpansionStates,
-    owner && repoName ? { repositoryFullName } : "skip",
+    vault ? { vaultId: vault._id } : "skip",
   );
   const setFolderExpansionState = useMutation(
     api.folderExpansion.setFolderExpansionState,
@@ -91,8 +97,8 @@ function RepositoryReadmeInner() {
   const commitStaging = useMutation(api.fileStagingMutations.commitStaging);
   const fileStatus = useQuery(
     api.fileStagingMutations.getFileStatus,
-    selectedFile && owner && repoName
-      ? { repositoryFullName, filePath: selectedFile }
+    selectedFile && vault
+      ? { vaultId: vault._id, filePath: selectedFile }
       : "skip",
   );
 
@@ -210,6 +216,7 @@ function RepositoryReadmeInner() {
     repoName,
     ghFile.data?.content,
     fileStatus?.hasStaging,
+    // debouncedSaveToStaging,
   ]);
 
   // Determine current file content and metadata based on staging status
@@ -418,61 +425,21 @@ function RepositoryReadmeInner() {
     }, 1000);
   }, []);
 
-  const handleManualSave = async () => {
-    console.log("Manual save triggered");
-    if (selectedFile && localContent !== remoteContent && owner && repoName) {
-      await saveToStaging({
-        repositoryFullName,
-        filePath: selectedFile,
-        content: localContent,
-        parentCommitSha: currentSha,
-        branch: "main",
-      });
-    }
-  };
-
-  const handleManualCommit = async () => {
-    if (!selectedFile || !owner || !repoName) return;
-
-    setIsManualCommitting(true);
-    setCountdown(0); // Stop countdown
-
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
-
-    try {
-      await commitStaging({
-        repositoryFullName,
-        filePath: selectedFile,
-      });
-
-      // Refetch the file to get updated data after commit
-      // void ghFile.refetch();
-    } catch (error) {
-      console.error("Failed to commit changes:", error);
-    } finally {
-      setIsManualCommitting(false);
-    }
-  };
-
   // Debounced save to Convex staging
   const debouncedSaveToStaging = useCallback(
     async (content: string) => {
       console.log("debouncedSaveToStaging", {
         selectedFile,
-        owner,
-        repoName,
+        vault,
       });
-      if (!selectedFile || !owner || !repoName) {
+      if (!selectedFile || !vault) {
         return;
       }
 
       try {
         console.log("debouncedSaveToStaging", { content });
         await saveToStaging({
-          repositoryFullName,
+          vaultId: vault._id,
           filePath: selectedFile,
           content,
           parentCommitSha: currentSha,
@@ -487,15 +454,39 @@ function RepositoryReadmeInner() {
     },
     [
       saveToStaging,
-      repositoryFullName,
+      vault,
       selectedFile,
       currentSha,
       branch,
-      owner,
-      repoName,
       startVisualCountdown,
     ],
   );
+
+  const handleManualCommit = async () => {
+    if (!selectedFile || !vault) return;
+
+    setIsManualCommitting(true);
+    setCountdown(0); // Stop countdown
+
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+
+    try {
+      await commitStaging({
+        vaultId: vault._id,
+        filePath: selectedFile,
+      });
+
+      // Refetch the file to get updated data after commit
+      // void ghFile.refetch();
+    } catch (error) {
+      console.error("Failed to commit changes:", error);
+    } finally {
+      setIsManualCommitting(false);
+    }
+  };
 
   const handleContentChange = (value: string) => {
     // Update local state immediately for responsive UI
@@ -529,9 +520,9 @@ function RepositoryReadmeInner() {
     folderPath: string,
     isExpanded: boolean,
   ) => {
-    if (owner && repoName) {
+    if (vault) {
       await setFolderExpansionState({
-        repositoryFullName,
+        vaultId: vault._id,
         folderPath,
         isExpanded,
       });
@@ -554,6 +545,43 @@ function RepositoryReadmeInner() {
     );
   }
 
+  if (!vault) {
+    return (
+      <div className="container py-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-semibold mb-4">
+            Repository Not Connected
+          </h1>
+          <p className="text-muted-foreground">
+            This repository is not connected to your vault yet.
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Please connect it from your dashboard first.
+          </p>
+          <Button asChild className="mt-4">
+            <Link to="/">Back to Dashboard</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const repoPart = (
+    <div className="p-3 border-b border-border/50">
+      <div className="flex items-center gap-2">
+        <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
+        <a
+          className="text-xs font-medium truncate text-muted-foreground"
+          href={`https://github.com/${owner}/${repoName}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {owner}/{repoName}
+        </a>
+      </div>
+    </div>
+  );
+
   // Show loading state while tree loads
   if (isLoadingTree) {
     return (
@@ -571,14 +599,8 @@ function RepositoryReadmeInner() {
               </div>
             </div>
 
-            <div className="p-3 border-b border-border/50">
-              <div className="flex items-center gap-2">
-                <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
-                <div className="text-xs font-medium truncate text-muted-foreground">
-                  {owner}/{repoName}
-                </div>
-              </div>
-            </div>
+            {repoPart}
+
             <div className="p-3 text-xs text-muted-foreground">
               Loading repository...
             </div>
@@ -604,9 +626,9 @@ function RepositoryReadmeInner() {
             <div className="p-3 border-b border-border/50 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
-                <div className="text-xs font-medium truncate text-muted-foreground">
+                <a className="text-xs font-medium truncate text-muted-foreground">
                   {owner}/{repoName}
-                </div>
+                </a>
               </div>
               <Dialog
                 open={isNewFileDialogOpen}
@@ -664,9 +686,9 @@ function RepositoryReadmeInner() {
                   <span className="text-xs">Back</span>
                 </Link>
               </Button>
-              <h1 className="text-sm font-medium">
+              <a className="text-sm font-medium">
                 {owner}/{repoName}
-              </h1>
+              </a>
             </div>
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
@@ -705,10 +727,10 @@ function RepositoryReadmeInner() {
           <div className="p-3 border-b border-border/50 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
-              <div className="text-xs font-medium truncate text-muted-foreground">
+              <a className="text-xs font-medium truncate text-muted-foreground">
                 {owner}/{repoName}
                 {isFromStaging && <span className="ml-1 text-blue-600">•</span>}
-              </div>
+              </a>
             </div>
             <Dialog
               open={isNewFileDialogOpen}
@@ -765,7 +787,6 @@ function RepositoryReadmeInner() {
               }
               onFileCreate={handleCreateFileInFolder}
               selectedFile={selectedFile}
-              repositoryFullName={repositoryFullName}
               folderExpansionStates={folderExpansionStates ?? []}
               onFolderToggle={(folderPath, isExpanded) =>
                 void handleFolderToggle(folderPath, isExpanded)
@@ -819,15 +840,19 @@ function RepositoryReadmeInner() {
                   {ghFile.data?.name || selectedFile}
                 </h2>
 
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void handleManualCommit()}
-                  disabled={isManualCommitting}
-                  className="h-6 px-2 text-xs"
-                >
-                  {isManualCommitting ? "Committing..." : "Commit Now"}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {/* TODO: Display number of changed files in staging */}
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void handleManualCommit()}
+                    disabled={isManualCommitting}
+                    className="h-6 px-2 text-xs"
+                  >
+                    {isManualCommitting ? "Committing..." : "Commit Now"}
+                  </Button>
+                </div>
               </div>
 
               {ghFile.isLoading && !isFromStaging && localContent === "" && (

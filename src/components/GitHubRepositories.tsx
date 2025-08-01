@@ -17,7 +17,19 @@ import { api } from "../../convex/_generated/api";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
-export function GitHubRepositories() {
+interface GitHubRepositoriesProps {
+  onRepositoryConnected?: () => void;
+  showHeader?: boolean;
+  compact?: boolean;
+  connectedVaults?: Array<{ repositoryFullName: string }>;
+}
+
+export function GitHubRepositories({
+  onRepositoryConnected,
+  showHeader = true,
+  compact = false,
+  connectedVaults = [],
+}: GitHubRepositoriesProps) {
   const listRepositories = useAction(api.github.listRepositories);
   const connectRepository = useAction(api.vault.connectRepository);
 
@@ -44,16 +56,24 @@ export function GitHubRepositories() {
   };
 
   return (
-    <div className="container py-6">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <GitHubLogoIcon className="h-6 w-6" />
-          <h1 className="text-2xl font-semibold">Your GitHub Repositories</h1>
+    <div className={compact ? "" : "container py-6"}>
+      {showHeader && (
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <GitHubLogoIcon className="h-6 w-6" />
+            <h1
+              className={
+                compact ? "text-xl font-semibold" : "text-2xl font-semibold"
+              }
+            >
+              Your GitHub Repositories
+            </h1>
+          </div>
+          <Button onClick={() => void refetch()} disabled={loading}>
+            {loading ? "Loading..." : "Refresh"}
+          </Button>
         </div>
-        <Button onClick={() => void refetch()} disabled={loading}>
-          {loading ? "Loading..." : "Refresh"}
-        </Button>
-      </div>
+      )}
 
       {error && (
         <div className="mb-4 p-4 text-sm text-red-600 bg-red-50 rounded-md border border-red-200">
@@ -158,23 +178,38 @@ export function GitHubRepositories() {
                       </Button>
 
                       {/* Connect button */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          void connectRepository({
-                            repositoryFullName: repo.full_name,
-                          })
-                            .then((val) => {
-                              console.log(val);
-                            })
-                            .catch((err) => {
-                              console.error(err);
-                            });
-                        }}
-                      >
-                        Connect
-                      </Button>
+                      {(() => {
+                        const isConnected = connectedVaults.some(
+                          (vault) =>
+                            vault.repositoryFullName === repo.full_name,
+                        );
+
+                        return (
+                          <Button
+                            variant={isConnected ? "secondary" : "outline"}
+                            size="sm"
+                            disabled={isConnected}
+                            onClick={
+                              isConnected
+                                ? undefined
+                                : () => {
+                                    void connectRepository({
+                                      repositoryFullName: repo.full_name,
+                                    })
+                                      .then((val) => {
+                                        console.log(val);
+                                        onRepositoryConnected?.();
+                                      })
+                                      .catch((err) => {
+                                        console.error(err);
+                                      });
+                                  }
+                            }
+                          >
+                            {isConnected ? "Connected" : "Connect"}
+                          </Button>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>

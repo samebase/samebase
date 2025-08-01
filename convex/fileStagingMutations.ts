@@ -8,7 +8,7 @@ export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
 // Save file content to staging for real-time editing
 export const saveToStaging = mutation({
   args: {
-    repositoryFullName: v.string(),
+    vaultId: v.id("vaults"),
     filePath: v.string(),
     content: v.string(),
     parentCommitSha: v.string(),
@@ -24,11 +24,8 @@ export const saveToStaging = mutation({
     // Check if there's already a staging record for this file
     const existingStaging = await ctx.db
       .query("fileStaging")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("repositoryFullName"), args.repositoryFullName),
-          q.eq(q.field("filePath"), args.filePath),
-        ),
+      .withIndex("by_vault_and_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
       )
       .first();
 
@@ -58,7 +55,7 @@ export const saveToStaging = mutation({
       // Create new staging record
       await ctx.db.insert("fileStaging", {
         ownerId: userId,
-        repositoryFullName: args.repositoryFullName,
+        vaultId: args.vaultId,
         filePath: args.filePath,
         content: args.content,
         parentCommitSha: args.parentCommitSha,
@@ -76,7 +73,7 @@ export const saveToStaging = mutation({
     //   internal.fileStaging.autoCommitStagedFile,
     //   {
     //     userId,
-    //     repositoryFullName: args.repositoryFullName,
+    //     vaultId: args.vaultId,
     //     filePath: args.filePath,
     //     lastEditTime: currentTimestamp,
     //   },
@@ -89,18 +86,15 @@ export const saveToStaging = mutation({
 // Get staged content for a file (with real-time updates)
 export const getStagedFile = query({
   args: {
-    repositoryFullName: v.string(),
+    vaultId: v.id("vaults"),
     filePath: v.string(),
   },
   returns: v.any(),
   handler: async (ctx, args) => {
     const staging = await ctx.db
       .query("fileStaging")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("repositoryFullName"), args.repositoryFullName),
-          q.eq(q.field("filePath"), args.filePath),
-        ),
+      .withIndex("by_vault_and_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
       )
       .first();
 
@@ -108,18 +102,16 @@ export const getStagedFile = query({
   },
 });
 
-// List all files currently in staging for a repository
+// List all files currently in staging for a vault
 export const listStagedFiles = query({
   args: {
-    repositoryFullName: v.string(),
+    vaultId: v.id("vaults"),
   },
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
     const files = await ctx.db
       .query("fileStaging")
-      .filter((q) =>
-        q.eq(q.field("repositoryFullName"), args.repositoryFullName),
-      )
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .collect();
 
     return files;
@@ -129,7 +121,7 @@ export const listStagedFiles = query({
 // Commit staged file to GitHub
 export const commitStaging = mutation({
   args: {
-    repositoryFullName: v.string(),
+    vaultId: v.id("vaults"),
     filePath: v.string(),
   },
   returns: v.null(),
@@ -142,11 +134,8 @@ export const commitStaging = mutation({
     // Find the staging record
     const staging = await ctx.db
       .query("fileStaging")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("repositoryFullName"), args.repositoryFullName),
-          q.eq(q.field("filePath"), args.filePath),
-        ),
+      .withIndex("by_vault_and_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
       )
       .first();
 
@@ -157,7 +146,7 @@ export const commitStaging = mutation({
     // Schedule the actual GitHub commit
     await ctx.scheduler.runAfter(0, internal.fileStaging.commitStagedFile, {
       userId,
-      repositoryFullName: args.repositoryFullName,
+      vaultId: args.vaultId,
       filePath: args.filePath,
     });
 
@@ -168,18 +157,15 @@ export const commitStaging = mutation({
 // Clear staging for a specific file (used after successful commit)
 export const clearStaging = internalMutation({
   args: {
-    repositoryFullName: v.string(),
+    vaultId: v.id("vaults"),
     filePath: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const staging = await ctx.db
       .query("fileStaging")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("repositoryFullName"), args.repositoryFullName),
-          q.eq(q.field("filePath"), args.filePath),
-        ),
+      .withIndex("by_vault_and_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
       )
       .first();
 
@@ -194,7 +180,7 @@ export const clearStaging = internalMutation({
 // Get current file status - returns staging if exists, or indicates GitHub fetch needed
 export const getFileStatus = query({
   args: {
-    repositoryFullName: v.string(),
+    vaultId: v.id("vaults"),
     filePath: v.string(),
   },
   returns: v.union(
@@ -213,11 +199,8 @@ export const getFileStatus = query({
     // Check if there's staged content for this file
     const staging = await ctx.db
       .query("fileStaging")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("repositoryFullName"), args.repositoryFullName),
-          q.eq(q.field("filePath"), args.filePath),
-        ),
+      .withIndex("by_vault_and_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
       )
       .first();
 

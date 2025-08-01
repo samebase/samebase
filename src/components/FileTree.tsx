@@ -53,7 +53,6 @@ interface FileTreeProps {
   onFileRename?: (oldPath: string, newPath: string) => void;
   onFileCreate?: (folderPath: string, fileName: string) => void;
   selectedFile?: string;
-  repositoryFullName: string;
   folderExpansionStates: FolderExpansionState[];
   onFolderToggle?: (folderPath: string, isExpanded: boolean) => void;
 }

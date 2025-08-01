@@ -3,27 +3,32 @@
 import { internalAction } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
-import { AUTO_COMMIT_DELAY_MS } from "./fileStagingMutations";
 
 // Internal action to commit a staged file to GitHub
 export const commitStagedFile = internalAction({
   args: {
     userId: v.id("users"),
-    repositoryFullName: v.string(),
+    vaultId: v.id("vaults"),
     filePath: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     console.log(
-      `Starting commit for ${args.filePath} in ${args.repositoryFullName}`,
+      `Starting commit for ${args.filePath} in vault ${args.vaultId}`,
     );
 
     try {
+      // Get the vault record
+      const vault = await ctx.runQuery(api.users.getAuthUser, {});
+      if (!vault) {
+        throw new Error("User not found");
+      }
+
       // Get the staging record
       const staging = await ctx.runQuery(
         api.fileStagingMutations.getStagedFile,
         {
-          repositoryFullName: args.repositoryFullName,
+          vaultId: args.vaultId,
           filePath: args.filePath,
         },
       );
@@ -35,8 +40,15 @@ export const commitStagedFile = internalAction({
 
       console.log(args);
 
-      // Parse owner and repo from repositoryFullName
-      const [owner, repo] = args.repositoryFullName.split("/");
+      // Get the vault to find repository info
+      const vaultRecord = await ctx.runQuery(api.vault.getUserVaults, {});
+      const targetVault = vaultRecord.find((v) => v._id === args.vaultId);
+
+      if (!targetVault) {
+        throw new Error("Vault not found");
+      }
+
+      const [owner, repo] = targetVault.repositoryFullName.split("/");
       if (!owner || !repo) {
         throw new Error("Invalid repository full name format");
       }
@@ -50,6 +62,7 @@ export const commitStagedFile = internalAction({
       // Update file content via GitHub API
       const result = await ctx.runAction(api.github.updateFileContent, {
         userId: args.userId,
+        vaultId: args.vaultId,
         owner,
         repo,
         path: args.filePath,
@@ -65,17 +78,15 @@ export const commitStagedFile = internalAction({
       if (result) {
         // Success - remove from staging
         // await ctx.runMutation(internal.fileStagingMutations.clearStaging, {
-        //   repositoryFullName: args.repositoryFullName,
+        //   vaultId: args.vaultId,
         //   filePath: args.filePath,
         // });
 
-        console.log(
-          `Auto-committed ${args.filePath} in ${args.repositoryFullName}`,
-        );
+        console.log(`Auto-committed ${args.filePath} in vault ${args.vaultId}`);
       }
     } catch (error) {
       console.error(
-        `Failed to auto-commit ${args.filePath} in ${args.repositoryFullName}:`,
+        `Failed to auto-commit ${args.filePath} in vault ${args.vaultId}:`,
         error,
       );
       // Don't throw - let the system retry if needed
@@ -89,14 +100,14 @@ export const commitStagedFile = internalAction({
 export const autoCommitStagedFile = internalAction({
   args: {
     userId: v.id("users"),
-    repositoryFullName: v.string(),
+    vaultId: v.id("vaults"),
     filePath: v.string(),
     lastEditTime: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     console.log(
-      `Attempting auto-commit for ${args.filePath} in ${args.repositoryFullName} (expected timestamp: ${args.lastEditTime})`,
+      `Attempting auto-commit for ${args.filePath} in vault ${args.vaultId} (expected timestamp: ${args.lastEditTime})`,
     );
 
     try {
@@ -104,7 +115,7 @@ export const autoCommitStagedFile = internalAction({
       const staging = await ctx.runQuery(
         api.fileStagingMutations.getStagedFile,
         {
-          repositoryFullName: args.repositoryFullName,
+          vaultId: args.vaultId,
           filePath: args.filePath,
         },
       );
@@ -121,16 +132,16 @@ export const autoCommitStagedFile = internalAction({
 
       await ctx.runAction(internal.fileStaging.commitStagedFile, {
         userId: args.userId,
-        repositoryFullName: args.repositoryFullName,
+        vaultId: args.vaultId,
         filePath: args.filePath,
       });
 
       console.log(
-        `Successfully auto-committed ${args.filePath} in ${args.repositoryFullName}`,
+        `Successfully auto-committed ${args.filePath} in vault ${args.vaultId}`,
       );
     } catch (error) {
       console.error(
-        `Failed to auto-commit ${args.filePath} in ${args.repositoryFullName}:`,
+        `Failed to auto-commit ${args.filePath} in vault ${args.vaultId}:`,
         error,
       );
       // Don't throw - let the system continue without failing the scheduled task
@@ -144,7 +155,7 @@ export const autoCommitStagedFile = internalAction({
 export const manualCommit = internalAction({
   args: {
     userId: v.id("users"),
-    repositoryFullName: v.string(),
+    vaultId: v.id("vaults"),
     filePath: v.string(),
   },
   returns: v.null(),
@@ -153,16 +164,16 @@ export const manualCommit = internalAction({
       // Just call the same commit logic
       await ctx.runAction(internal.fileStaging.commitStagedFile, {
         userId: args.userId,
-        repositoryFullName: args.repositoryFullName,
+        vaultId: args.vaultId,
         filePath: args.filePath,
       });
 
       console.log(
-        `Manually committed ${args.filePath} in ${args.repositoryFullName}`,
+        `Manually committed ${args.filePath} in vault ${args.vaultId}`,
       );
     } catch (error) {
       console.error(
-        `Failed to manually commit ${args.filePath} in ${args.repositoryFullName}:`,
+        `Failed to manually commit ${args.filePath} in vault ${args.vaultId}:`,
         error,
       );
       throw error;

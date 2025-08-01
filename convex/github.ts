@@ -237,6 +237,7 @@ export const createCommit = action({
 export const updateFileContent = action({
   args: {
     userId: v.id("users"),
+    vaultId: v.id("vaults"),
 
     owner: v.string(),
     repo: v.string(),
@@ -298,9 +299,8 @@ export const updateFileContent = action({
       });
 
       // Clear staging after successful commit
-      const repositoryFullName = `${args.owner}/${args.repo}`;
       await ctx.runMutation(internal.fileStagingMutations.clearStaging, {
-        repositoryFullName,
+        vaultId: args.vaultId,
         filePath: args.path,
       });
 

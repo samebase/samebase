@@ -61,8 +61,8 @@ export default defineSchema({
    */
   fileStaging: defineTable({
     ownerId: v.id("users"),
+    vaultId: v.id("vaults"),
 
-    repositoryFullName: v.string(), // "owner/repo"
     filePath: v.string(),
     content: v.string(),
     parentCommitSha: v.string(), // SHA of the GitHub commit this edit is based on
@@ -70,24 +70,20 @@ export default defineSchema({
     lastEditUserId: v.id("users"),
     branch: v.string(),
   })
-    .index("by_repository_and_path", ["repositoryFullName", "filePath"])
-    .index("by_repository", ["repositoryFullName"])
+    .index("by_vault_and_path", ["vaultId", "filePath"])
+    .index("by_vault", ["vaultId"])
     .index("by_user", ["lastEditUserId"]),
 
   /**
    * Folder expansion state for file tree sidebar.
-   * Stores which folders are expanded/collapsed per user per repository.
+   * Stores which folders are expanded/collapsed per user per vault.
    */
   folderExpansionState: defineTable({
     userId: v.id("users"),
-    repositoryFullName: v.string(), // "owner/repo"
+    vaultId: v.id("vaults"),
     folderPath: v.string(), // path to the folder
     isExpanded: v.boolean(),
   })
-    .index("by_user_and_repository", ["userId", "repositoryFullName"])
-    .index("by_user_repository_and_path", [
-      "userId",
-      "repositoryFullName",
-      "folderPath",
-    ]),
+    .index("by_user_and_vault", ["userId", "vaultId"])
+    .index("by_user_vault_and_path", ["userId", "vaultId", "folderPath"]),
 });

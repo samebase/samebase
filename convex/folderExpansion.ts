@@ -3,11 +3,11 @@ import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
 /**
- * Get folder expansion states for a specific repository and user
+ * Get folder expansion states for a specific vault and user
  */
 export const getFolderExpansionStates = query({
   args: {
-    repositoryFullName: v.string(),
+    vaultId: v.id("vaults"),
   },
   returns: v.array(
     v.object({
@@ -23,10 +23,8 @@ export const getFolderExpansionStates = query({
 
     const expansionStates = await ctx.db
       .query("folderExpansionState")
-      .withIndex("by_user_and_repository", (q) =>
-        q
-          .eq("userId", userId)
-          .eq("repositoryFullName", args.repositoryFullName),
+      .withIndex("by_user_and_vault", (q) =>
+        q.eq("userId", userId).eq("vaultId", args.vaultId),
       )
       .collect();
 
@@ -42,7 +40,7 @@ export const getFolderExpansionStates = query({
  */
 export const setFolderExpansionState = mutation({
   args: {
-    repositoryFullName: v.string(),
+    vaultId: v.id("vaults"),
     folderPath: v.string(),
     isExpanded: v.boolean(),
   },
@@ -56,10 +54,10 @@ export const setFolderExpansionState = mutation({
     // Check if state already exists
     const existingState = await ctx.db
       .query("folderExpansionState")
-      .withIndex("by_user_repository_and_path", (q) =>
+      .withIndex("by_user_vault_and_path", (q) =>
         q
           .eq("userId", userId)
-          .eq("repositoryFullName", args.repositoryFullName)
+          .eq("vaultId", args.vaultId)
           .eq("folderPath", args.folderPath),
       )
       .first();
@@ -73,7 +71,7 @@ export const setFolderExpansionState = mutation({
       // Create new state
       await ctx.db.insert("folderExpansionState", {
         userId,
-        repositoryFullName: args.repositoryFullName,
+        vaultId: args.vaultId,
         folderPath: args.folderPath,
         isExpanded: args.isExpanded,
       });
@@ -84,11 +82,11 @@ export const setFolderExpansionState = mutation({
 });
 
 /**
- * Clear all folder expansion states for a repository (useful for reset)
+ * Clear all folder expansion states for a vault (useful for reset)
  */
 export const clearFolderExpansionStates = mutation({
   args: {
-    repositoryFullName: v.string(),
+    vaultId: v.id("vaults"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -99,14 +97,12 @@ export const clearFolderExpansionStates = mutation({
 
     const expansionStates = await ctx.db
       .query("folderExpansionState")
-      .withIndex("by_user_and_repository", (q) =>
-        q
-          .eq("userId", userId)
-          .eq("repositoryFullName", args.repositoryFullName),
+      .withIndex("by_user_and_vault", (q) =>
+        q.eq("userId", userId).eq("vaultId", args.vaultId),
       )
       .collect();
 
-    // Delete all states for this user and repository
+    // Delete all states for this user and vault
     for (const state of expansionStates) {
       await ctx.db.delete(state._id);
     }
