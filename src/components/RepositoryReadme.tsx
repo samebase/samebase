@@ -4,19 +4,10 @@ import { useAction, useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { CodeEditor } from "@/components/CodeEditor";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 
 import {
   GitHubLogoIcon,
   ArrowLeftIcon,
-  PlusIcon,
   MagnifyingGlassIcon,
 } from "@radix-ui/react-icons";
 import {
