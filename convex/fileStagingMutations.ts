@@ -32,7 +32,7 @@ export const saveToStaging = mutation({
       )
       .first();
 
-    console.log("saveToStaging", { args, existingStaging });
+    // console.log("saveToStaging", { args, existingStaging });
 
     const currentTimestamp = Date.now();
 
@@ -71,16 +71,16 @@ export const saveToStaging = mutation({
     console.log("userId in mutation", userId);
 
     // Schedule auto-commit after 20 seconds with timestamp validation
-    await ctx.scheduler.runAfter(
-      AUTO_COMMIT_DELAY_MS,
-      internal.fileStaging.autoCommitStagedFile,
-      {
-        userId,
-        repositoryFullName: args.repositoryFullName,
-        filePath: args.filePath,
-        lastEditTime: currentTimestamp,
-      },
-    );
+    // await ctx.scheduler.runAfter(
+    //   AUTO_COMMIT_DELAY_MS,
+    //   internal.fileStaging.autoCommitStagedFile,
+    //   {
+    //     userId,
+    //     repositoryFullName: args.repositoryFullName,
+    //     filePath: args.filePath,
+    //     lastEditTime: currentTimestamp,
+    //   },
+    // );
 
     return null;
   },

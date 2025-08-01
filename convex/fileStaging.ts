@@ -60,12 +60,14 @@ export const commitStagedFile = internalAction({
       });
       console.log("--here3", "after updateFileContent");
 
+      console.log("result", result);
+
       if (result) {
         // Success - remove from staging
-        await ctx.runMutation(internal.fileStagingMutations.clearStaging, {
-          repositoryFullName: args.repositoryFullName,
-          filePath: args.filePath,
-        });
+        // await ctx.runMutation(internal.fileStagingMutations.clearStaging, {
+        //   repositoryFullName: args.repositoryFullName,
+        //   filePath: args.filePath,
+        // });
 
         console.log(
           `Auto-committed ${args.filePath} in ${args.repositoryFullName}`,

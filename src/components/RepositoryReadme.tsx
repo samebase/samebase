@@ -204,7 +204,13 @@ function RepositoryReadmeInner() {
       const utf8 = base64ToUtf8(ghFile.data.content);
       void debouncedSaveToStaging(utf8);
     }
-  }, [selectedFile, owner, repoName, ghFile, fileStatus]);
+  }, [
+    selectedFile,
+    owner,
+    repoName,
+    ghFile.data?.content,
+    fileStatus?.hasStaging,
+  ]);
 
   // Determine current file content and metadata based on staging status
   const isFromStaging = fileStatus?.hasStaging === true;
@@ -443,7 +449,7 @@ function RepositoryReadmeInner() {
       });
 
       // Refetch the file to get updated data after commit
-      void ghFile.refetch();
+      // void ghFile.refetch();
     } catch (error) {
       console.error("Failed to commit changes:", error);
     } finally {
@@ -808,10 +814,20 @@ function RepositoryReadmeInner() {
             )}
 
             <div className="max-w-none h-full flex flex-col">
-              <div className="mb-4">
+              <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-base md:text-sm font-medium mb-2">
                   {ghFile.data?.name || selectedFile}
                 </h2>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void handleManualCommit()}
+                  disabled={isManualCommitting}
+                  className="h-6 px-2 text-xs"
+                >
+                  {isManualCommitting ? "Committing..." : "Commit Now"}
+                </Button>
               </div>
 
               {ghFile.isLoading && !isFromStaging && localContent === "" && (
