@@ -10,6 +10,7 @@ import {
 } from "@radix-ui/react-icons";
 import { GitHubRepositories } from "./GitHubRepositories";
 import { Link } from "react-router-dom";
+import { linkStyle } from "./styles";
 
 export function VaultDashboard() {
   const [showRepositorySelector, setShowRepositorySelector] = useState(false);
@@ -125,7 +126,7 @@ export function VaultDashboard() {
                   <h3 className="font-semibold truncate">
                     <Link
                       to={`/vault/${vault.repositoryFullName}`}
-                      className="flex items-center gap-1 hover:text-blue-600 hover:underline transition-colors"
+                      className={`flex items-center gap-1 ${linkStyle}`}
                     >
                       {vault.ghRepoName}
                     </Link>
@@ -134,8 +135,7 @@ export function VaultDashboard() {
                     href={`https://github.com/${vault.repositoryFullName}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    // className="hover:text-blue-600 transition-colors"
-                    className="text-sm text-muted-foreground hover:text-blue-600 hover:underline transition-colors"
+                    className={`text-sm text-muted-foreground ${linkStyle}`}
                   >
                     {vault.repositoryFullName}
                   </a>

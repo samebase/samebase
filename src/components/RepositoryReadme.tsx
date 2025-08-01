@@ -33,6 +33,12 @@ import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
 import { useSidebar } from "@/components/ui/sidebar";
 import { UserMenu } from "@/components/UserMenu";
 import { base64ToUtf8 } from "@/lib/base64";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { linkStyle } from "./styles";
 
 const COMMIT_COUNTDOWN = 20;
 const SAVE_DEBOUNCE_MS = 300; // Debounce saves to avoid too many mutations
@@ -100,6 +106,12 @@ function RepositoryReadmeInner() {
     selectedFile && vault
       ? { vaultId: vault._id, filePath: selectedFile }
       : "skip",
+  );
+
+  // Get count of staged files for this vault
+  const stagedFiles = useQuery(
+    api.fileStagingMutations.listStagedFiles,
+    vault ? { vaultId: vault._id } : "skip",
   );
 
   const getFileContent = useAction(api.github.getFileContent);
@@ -570,10 +582,7 @@ function RepositoryReadmeInner() {
 
   const userPart = (
     <div className="p-3 border-b border-border/50">
-      <Link
-        to="/"
-        className="flex items-center justify-between hover:text-blue-600 hover:underline transition-colors"
-      >
+      <Link to="/" className={`flex items-center justify-between ${linkStyle}`}>
         <UserMenu>{user?.name ?? user?.email ?? "..."}</UserMenu>
       </Link>
     </div>
@@ -584,7 +593,7 @@ function RepositoryReadmeInner() {
       <div className="flex items-center gap-2">
         <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
         <a
-          className="text-xs font-medium truncate text-muted-foreground hover:text-blue-600 hover:underline transition-colors"
+          className={`text-xs font-medium truncate text-muted-foreground ${linkStyle}`}
           href={`https://github.com/${owner}/${repoName}`}
           target="_blank"
           rel="noopener noreferrer"
@@ -734,7 +743,44 @@ function RepositoryReadmeInner() {
                 </h2>
 
                 <div className="flex items-center gap-2">
-                  {/* TODO: Display number of changed files in staging */}
+                  {stagedFiles && stagedFiles.length > 0 && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          className={`text-xs text-muted-foreground ${linkStyle}`}
+                        >
+                          {stagedFiles.length} file
+                          {stagedFiles.length !== 1 ? "s" : ""} staged
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        side="bottom"
+                        align="end"
+                        className="w-64 p-3"
+                      >
+                        <div className="space-y-2">
+                          <div className="text-sm font-medium">
+                            Staged files:
+                          </div>
+                          <div className="space-y-1 max-h-48 overflow-y-auto">
+                            {stagedFiles.map((file) => (
+                              <button
+                                key={file.filePath}
+                                onClick={() => {
+                                  void navigate(
+                                    `/vault/${repositoryFullName}/${branch}/${file.filePath}`,
+                                  );
+                                }}
+                                className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 rounded truncate w-full ${linkStyle}`}
+                              >
+                                {file.filePath}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
 
                   <Button
                     size="sm"
