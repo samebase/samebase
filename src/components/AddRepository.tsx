@@ -50,6 +50,75 @@ export function AddRepository() {
     }
   };
 
+  const fuzzySearchWithHighlight = (
+    query: string,
+    target: string,
+  ): {
+    matches: boolean;
+    highlightedText: JSX.Element;
+  } => {
+    if (!query.trim()) {
+      return { matches: true, highlightedText: <span>{target}</span> };
+    }
+
+    const searchChars = query.toLowerCase().replace(/\s+/g, "").split("");
+    const targetChars = target.toLowerCase().split("");
+    const targetOriginal = target.split("");
+
+    const matchedIndices: number[] = [];
+    let searchIndex = 0;
+
+    for (
+      let i = 0;
+      i < targetChars.length && searchIndex < searchChars.length;
+      i++
+    ) {
+      if (targetChars[i] === searchChars[searchIndex]) {
+        matchedIndices.push(i);
+        searchIndex++;
+      }
+    }
+
+    const matches = searchIndex === searchChars.length;
+
+    if (!matches) {
+      return { matches: false, highlightedText: <span>{target}</span> };
+    }
+
+    // Build highlighted JSX
+    const elements: JSX.Element[] = [];
+    let lastIndex = 0;
+
+    matchedIndices.forEach((index, i) => {
+      // Add non-highlighted text before this match
+      if (index > lastIndex) {
+        elements.push(
+          <span key={`text-${i}`}>
+            {targetOriginal.slice(lastIndex, index).join("")}
+          </span>,
+        );
+      }
+
+      // Add highlighted character
+      elements.push(
+        <mark key={`mark-${i}`} className="bg-yellow-200">
+          {targetOriginal[index]}
+        </mark>,
+      );
+
+      lastIndex = index + 1;
+    });
+
+    // Add remaining text
+    if (lastIndex < targetOriginal.length) {
+      elements.push(
+        <span key="text-end">{targetOriginal.slice(lastIndex).join("")}</span>,
+      );
+    }
+
+    return { matches: true, highlightedText: <span>{elements}</span> };
+  };
+
   const connectedVaults = vaults || [];
 
   const filteredRepositories = repositories
@@ -60,11 +129,16 @@ export function AddRepository() {
       );
       return !isConnected;
     })
-    .filter(
-      (repo) =>
-        repo.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        repo.name.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
+    .filter((repo) => {
+      if (!searchQuery.trim()) return true;
+
+      const repoName = repo.name;
+
+      // Search only repo name
+      const repoMatch = fuzzySearchWithHighlight(searchQuery, repoName).matches;
+
+      return repoMatch;
+    });
 
   return (
     <div className="container py-6 h-screen flex flex-col">
@@ -76,7 +150,10 @@ export function AddRepository() {
           </h1>
         </div>
         <Button variant="outline" asChild className="shrink-0">
-          <Link to="/">Back to Vaults</Link>
+          <Link to="/">
+            <span className="sm:hidden">Back</span>
+            <span className="hidden sm:inline">Back to Vaults</span>
+          </Link>
         </Button>
       </div>
 
@@ -102,59 +179,69 @@ export function AddRepository() {
           </div>
         ) : (
           <div className="space-y-2">
-            {filteredRepositories.map((repo) => (
-              <div
-                key={repo.id}
-                className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-col items-start">
-                      <span
-                        className={`text-sm text-muted-foreground ${linkStyle}`}
-                      >
-                        {repo.full_name.split("/")[0]}/
-                      </span>
-                      <h3 className="font-semibold truncate">
-                        <span
-                          className={`flex items-center gap-1 ${linkStyle}`}
-                        >
-                          {repo.name}
-                        </span>
-                      </h3>
-                    </div>
-                  </div>
+            {filteredRepositories.map((repo) => {
+              const ownerName = repo.full_name.split("/")[0];
+              const repoName = repo.name;
 
-                  <div className="flex flex-col items-end text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <ClockIcon className="h-3 w-3" />
-                      <span className="text-xs">
-                        {formatTimeAgo(new Date(repo.updated_at).getTime())}
-                      </span>
+              const repoHighlight = fuzzySearchWithHighlight(
+                searchQuery,
+                repoName,
+              );
+
+              return (
+                <div
+                  key={repo.id}
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-col items-start">
+                        <span
+                          className={`text-sm text-muted-foreground ${linkStyle}`}
+                        >
+                          {ownerName}/
+                        </span>
+                        <h3 className="font-semibold truncate">
+                          <span
+                            className={`flex items-center gap-1 ${linkStyle}`}
+                          >
+                            {repoHighlight.highlightedText}
+                          </span>
+                        </h3>
+                      </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-2"
-                      onClick={() => {
-                        void connectRepository({
-                          repositoryFullName: repo.full_name,
-                        })
-                          .then((val) => {
-                            console.log(val);
-                            void navigate("/");
+
+                    <div className="flex flex-col items-end text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <ClockIcon className="h-3 w-3" />
+                        <span className="text-xs">
+                          {formatTimeAgo(new Date(repo.updated_at).getTime())}
+                        </span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => {
+                          void connectRepository({
+                            repositoryFullName: repo.full_name,
                           })
-                          .catch((err) => {
-                            console.error(err);
-                          });
-                      }}
-                    >
-                      Connect
-                    </Button>
+                            .then((val) => {
+                              console.log(val);
+                              void navigate("/");
+                            })
+                            .catch((err) => {
+                              console.error(err);
+                            });
+                        }}
+                      >
+                        Connect
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
