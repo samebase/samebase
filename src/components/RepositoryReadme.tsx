@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/sidebar";
 import { FileTree } from "./FileTree";
 import { CommandPalette } from "./CommandPalette";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
 import { useSidebar } from "@/components/ui/sidebar";
 import { UserMenu } from "@/components/UserMenu";
@@ -31,9 +31,6 @@ import {
 } from "@/components/ui/popover";
 import { linkStyle } from "./styles";
 import { GetFunctionReferenceReturnType } from "@/lib/convexTypeUtils";
-
-const COMMIT_COUNTDOWN = 20;
-const SAVE_DEBOUNCE_MS = 300; // Debounce saves to avoid too many mutations
 
 type RepositoryTree = GetFunctionReferenceReturnType<
   typeof api.github.getRepositoryTree
@@ -103,11 +100,7 @@ function RepositoryReadmeInner() {
   const [localContent, setLocalContent] = useState<string>("");
   const [lastLocalEditTime, setLastLocalEditTime] = useState<number>(0);
 
-  // Visual countdown state (for UX, actual commit happens on server)
-  const [countdown, setCountdown] = useState<number>(0);
   const [isManualCommitting, setIsManualCommitting] = useState(false);
-  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Command palette state
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -201,31 +194,6 @@ function RepositoryReadmeInner() {
     ? fileStatus.parentCommitSha
     : ghFile.data?.sha || "";
 
-  // Visual countdown for UX (actual commit happens on server)
-  const startVisualCountdown = useCallback(() => {
-    // Clear existing timer
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-    }
-
-    // Start countdown from COMMIT_COUNTDOWN seconds
-    setCountdown(COMMIT_COUNTDOWN);
-
-    // Update countdown every second
-    countdownIntervalRef.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          // Clear interval when countdown reaches 0
-          if (countdownIntervalRef.current) {
-            clearInterval(countdownIntervalRef.current);
-            countdownIntervalRef.current = null;
-          }
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, []);
   // Debounced save to Convex staging
   const debouncedSaveToStaging = useCallback(
     async (content: string) => {
@@ -241,21 +209,11 @@ function RepositoryReadmeInner() {
           parentCommitSha: currentSha,
           branch,
         });
-
-        // Start visual countdown after successful save
-        startVisualCountdown();
       } catch (error) {
         console.error("Failed to save to staging:", error);
       }
     },
-    [
-      saveToStaging,
-      vault,
-      selectedFile,
-      currentSha,
-      branch,
-      startVisualCountdown,
-    ],
+    [saveToStaging, vault, selectedFile, currentSha, branch],
   );
 
   // load github file into staging, if there's no staging yet
@@ -290,17 +248,6 @@ function RepositoryReadmeInner() {
   useEffect(() => {
     setLocalContent("");
     setLastLocalEditTime(0);
-    setCountdown(0);
-
-    // Clear all timers
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = null;
-    }
   }, [selectedFile]);
 
   // Add command palette keyboard shortcut handler
@@ -410,12 +357,6 @@ function RepositoryReadmeInner() {
     if (!selectedFile || !vault) return;
 
     setIsManualCommitting(true);
-    setCountdown(0); // Stop countdown
-
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
 
     try {
       await commitStaging({
@@ -436,29 +377,7 @@ function RepositoryReadmeInner() {
     // Update local state immediately for responsive UI
     setLocalContent(value);
     setLastLocalEditTime(Date.now());
-
-    // Clear existing save timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    // Debounce the save to Convex
-    saveTimeoutRef.current = setTimeout(() => {
-      void debouncedSaveToStaging(value);
-    }, SAVE_DEBOUNCE_MS);
   };
-
-  // Cleanup timers on unmount
-  useEffect(() => {
-    return () => {
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
-      }
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const handleFolderToggle = async (
     folderPath: string,
@@ -705,15 +624,6 @@ function RepositoryReadmeInner() {
                   </div>
                 </div>
               )}
-
-              {isFromStaging &&
-                localContent !== remoteContent &&
-                countdown === 0 &&
-                !isManualCommitting && (
-                  <div className="mb-4 p-3 text-sm md:text-xs text-blue-600 bg-blue-50 rounded border border-blue-200">
-                    Auto-committing changes...
-                  </div>
-                )}
 
               {(localContent !== "" || selectedFile) && (
                 <div className="flex-1 min-h-0">
