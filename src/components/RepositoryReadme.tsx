@@ -617,14 +617,6 @@ function RepositoryReadmeInner() {
                 </div>
               </div>
 
-              {ghFile.isLoading && !isFromStaging && localContent === "" && (
-                <div className="flex items-center justify-center py-12">
-                  <div className="text-sm md:text-xs text-muted-foreground">
-                    Loading file...
-                  </div>
-                </div>
-              )}
-
               {(localContent !== "" || selectedFile) && (
                 <div className="flex-1 min-h-0">
                   <CodeEditor
