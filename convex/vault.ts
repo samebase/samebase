@@ -154,12 +154,12 @@ export const getVaultByRepository = query({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
-      return null;
+      throw new Error("User not authenticated");
     }
 
     const [owner, name] = args.repositoryFullName.split("/");
     if (!owner || !name) {
-      return null;
+      throw new Error("Invalid repository full name");
     }
 
     const vault = await ctx.db
@@ -174,7 +174,7 @@ export const getVaultByRepository = query({
       .first();
 
     if (!vault) {
-      return null;
+      throw new Error("Vault not found");
     }
 
     return {

@@ -30,9 +30,37 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { linkStyle } from "./styles";
+import { GetFunctionReferenceReturnType } from "@/lib/convexTypeUtils";
 
 const COMMIT_COUNTDOWN = 20;
 const SAVE_DEBOUNCE_MS = 300; // Debounce saves to avoid too many mutations
+
+type RepositoryTree = GetFunctionReferenceReturnType<
+  typeof api.github.getRepositoryTree
+>;
+// Function to find the best file to display
+function findBestInitialFile(files: RepositoryTree) {
+  // Only consider blob (file) types, not directories
+  const fileList = files.filter((item) => item.type === "blob");
+
+  if (fileList.length === 0) return null;
+
+  // 1. Look for README files (case insensitive, various extensions)
+  const readmeFile = fileList.find((file) =>
+    /^readme(\.(md|txt|rst|org))?$/i.test(file.path),
+  );
+  if (readmeFile) return readmeFile.path;
+
+  // 2. Look for any markdown files
+  const markdownFile = fileList.find((file) =>
+    /\.(md|markdown)$/i.test(file.path),
+  );
+  if (markdownFile) return markdownFile.path;
+
+  // 3. Return first file (sorted alphabetically)
+  const sortedFiles = fileList.sort((a, b) => a.path.localeCompare(b.path));
+  return sortedFiles[0]?.path || null;
+}
 
 function RepositoryReadmeInner() {
   const {
@@ -81,11 +109,6 @@ function RepositoryReadmeInner() {
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // New file dialog state
-  const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false);
-  const [newFileName, setNewFileName] = useState("");
-  const [isCreatingFile, setIsCreatingFile] = useState(false);
-
   // Command palette state
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
@@ -110,13 +133,9 @@ function RepositoryReadmeInner() {
   const deleteFile = useAction(api.github.deleteFile);
   const getRepositoryTree = useAction(api.github.getRepositoryTree);
 
+  // extract return type of api.github.getRepositoryTree
   // Fetch repository tree
-  const {
-    data: treeData = [],
-    isLoading: isLoadingTree,
-    error: treeError,
-    refetch: refetchTree,
-  } = useReactQuery({
+  const tree = useReactQuery({
     queryKey: ["github-tree", owner, repoName],
     queryFn: async () => {
       if (!owner || !repoName) {
@@ -127,40 +146,16 @@ function RepositoryReadmeInner() {
     enabled: !!(owner && repoName),
   });
 
-  // Function to find the best file to display
-  const findBestFile = useCallback((files: typeof treeData) => {
-    // Only consider blob (file) types, not directories
-    const fileList = files.filter((item) => item.type === "blob");
-
-    if (fileList.length === 0) return null;
-
-    // 1. Look for README files (case insensitive, various extensions)
-    const readmeFile = fileList.find((file) =>
-      /^readme(\.(md|txt|rst|org))?$/i.test(file.path),
-    );
-    if (readmeFile) return readmeFile.path;
-
-    // 2. Look for any markdown files
-    const markdownFile = fileList.find((file) =>
-      /\.(md|markdown)$/i.test(file.path),
-    );
-    if (markdownFile) return markdownFile.path;
-
-    // 3. Return first file (sorted alphabetically)
-    const sortedFiles = fileList.sort((a, b) => a.path.localeCompare(b.path));
-    return sortedFiles[0]?.path || null;
-  }, []);
-
   // Auto-redirect to best file when no file is selected
   useEffect(() => {
     if (
       !selectedFile &&
-      treeData.length > 0 &&
-      !isLoadingTree &&
+      (tree.data ?? []).length > 0 &&
+      !tree.isLoading &&
       owner &&
       repoName
     ) {
-      const bestFile = findBestFile(treeData);
+      const bestFile = findBestInitialFile(tree.data ?? []);
       if (bestFile) {
         void navigate(`/vault/${owner}/${repoName}/${branch}/${bestFile}`, {
           replace: true,
@@ -169,12 +164,11 @@ function RepositoryReadmeInner() {
     }
   }, [
     selectedFile,
-    treeData,
-    isLoadingTree,
+    tree.data,
+    tree.isLoading,
     owner,
     repoName,
     branch,
-    findBestFile,
     navigate,
   ]);
 
@@ -199,6 +193,71 @@ function RepositoryReadmeInner() {
     ),
   });
 
+  // Determine current file content and metadata based on staging status
+  const isFromStaging = fileStatus?.hasStaging === true;
+  const remoteContent = fileStatus?.content || "";
+
+  const currentSha = isFromStaging
+    ? fileStatus.parentCommitSha
+    : ghFile.data?.sha || "";
+
+  // Visual countdown for UX (actual commit happens on server)
+  const startVisualCountdown = useCallback(() => {
+    // Clear existing timer
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+    }
+
+    // Start countdown from COMMIT_COUNTDOWN seconds
+    setCountdown(COMMIT_COUNTDOWN);
+
+    // Update countdown every second
+    countdownIntervalRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          // Clear interval when countdown reaches 0
+          if (countdownIntervalRef.current) {
+            clearInterval(countdownIntervalRef.current);
+            countdownIntervalRef.current = null;
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+  // Debounced save to Convex staging
+  const debouncedSaveToStaging = useCallback(
+    async (content: string) => {
+      if (!selectedFile || !vault) {
+        return;
+      }
+
+      try {
+        await saveToStaging({
+          vaultId: vault._id,
+          filePath: selectedFile,
+          content,
+          parentCommitSha: currentSha,
+          branch,
+        });
+
+        // Start visual countdown after successful save
+        startVisualCountdown();
+      } catch (error) {
+        console.error("Failed to save to staging:", error);
+      }
+    },
+    [
+      saveToStaging,
+      vault,
+      selectedFile,
+      currentSha,
+      branch,
+      startVisualCountdown,
+    ],
+  );
+
   // load github file into staging, if there's no staging yet
   useEffect(() => {
     if (ghFile.data?.content && !fileStatus?.hasStaging) {
@@ -211,16 +270,8 @@ function RepositoryReadmeInner() {
     repoName,
     ghFile.data?.content,
     fileStatus?.hasStaging,
-    // debouncedSaveToStaging,
+    debouncedSaveToStaging,
   ]);
-
-  // Determine current file content and metadata based on staging status
-  const isFromStaging = fileStatus?.hasStaging === true;
-  const remoteContent = fileStatus?.content || "";
-
-  const currentSha = isFromStaging
-    ? fileStatus.parentCommitSha
-    : ghFile.data?.sha || "";
 
   // Initialize local content when file loads or changes
   useEffect(() => {
@@ -319,7 +370,7 @@ function RepositoryReadmeInner() {
       });
 
       // Refresh the tree
-      void refetchTree();
+      void tree.refetch();
 
       // If we're currently viewing the renamed file, navigate to the new path
       if (selectedFile === oldPath) {
@@ -327,39 +378,6 @@ function RepositoryReadmeInner() {
       }
     } catch (error) {
       console.error("Failed to rename file:", error);
-    }
-  };
-
-  const handleCreateFile = async (folderPath?: string) => {
-    const fileName = folderPath ? newFileName.trim() : newFileName.trim();
-    const filePath = folderPath ? `${folderPath}/${fileName}` : fileName;
-
-    if (!fileName || !owner || !repoName) return;
-
-    setIsCreatingFile(true);
-    try {
-      await createFile({
-        owner,
-        repo: repoName,
-        path: filePath,
-        content: "",
-        message: `Create ${filePath}`,
-        branch,
-      });
-
-      // Refresh the tree
-      void refetchTree();
-
-      // Navigate to the new file
-      void navigate(`/vault/${owner}/${repoName}/${branch}/${filePath}`);
-
-      // Reset dialog state
-      setNewFileName("");
-      setIsNewFileDialogOpen(false);
-    } catch (error) {
-      console.error("Failed to create file:", error);
-    } finally {
-      setIsCreatingFile(false);
     }
   };
 
@@ -379,7 +397,7 @@ function RepositoryReadmeInner() {
     })
       .then(() => {
         // Refresh the tree
-        void refetchTree();
+        void tree.refetch();
         // Navigate to the new file
         void navigate(`/vault/${owner}/${repoName}/${branch}/${filePath}`);
       })
@@ -387,70 +405,6 @@ function RepositoryReadmeInner() {
         console.error("Failed to create file:", error);
       });
   };
-
-  const handleCreateFileKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      void handleCreateFile();
-    }
-  };
-
-  // Visual countdown for UX (actual commit happens on server)
-  const startVisualCountdown = useCallback(() => {
-    // Clear existing timer
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-    }
-
-    // Start countdown from COMMIT_COUNTDOWN seconds
-    setCountdown(COMMIT_COUNTDOWN);
-
-    // Update countdown every second
-    countdownIntervalRef.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          // Clear interval when countdown reaches 0
-          if (countdownIntervalRef.current) {
-            clearInterval(countdownIntervalRef.current);
-            countdownIntervalRef.current = null;
-          }
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, []);
-
-  // Debounced save to Convex staging
-  const debouncedSaveToStaging = useCallback(
-    async (content: string) => {
-      if (!selectedFile || !vault) {
-        return;
-      }
-
-      try {
-        await saveToStaging({
-          vaultId: vault._id,
-          filePath: selectedFile,
-          content,
-          parentCommitSha: currentSha,
-          branch,
-        });
-
-        // Start visual countdown after successful save
-        startVisualCountdown();
-      } catch (error) {
-        console.error("Failed to save to staging:", error);
-      }
-    },
-    [
-      saveToStaging,
-      vault,
-      selectedFile,
-      currentSha,
-      branch,
-      startVisualCountdown,
-    ],
-  );
 
   const handleManualCommit = async () => {
     if (!selectedFile || !vault) return;
@@ -522,40 +476,12 @@ function RepositoryReadmeInner() {
   // MARK: First returns
 
   if (!owner || !repoName) {
-    return (
-      <div className="container py-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-semibold mb-4">Repository Not Found</h1>
-          <p className="text-muted-foreground">
-            Invalid repository parameters. Please check the URL.
-          </p>
-          <Button asChild className="mt-4">
-            <Link to="/">Go Back</Link>
-          </Button>
-        </div>
-      </div>
-    );
+    void navigate("/");
   }
 
+  // Assume this means it's loading
   if (!vault) {
-    return (
-      <div className="container py-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-semibold mb-4">
-            Repository Not Connected
-          </h1>
-          <p className="text-muted-foreground">
-            This repository is not connected to your vault yet.
-          </p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Please connect it from your dashboard first.
-          </p>
-          <Button asChild className="mt-4">
-            <Link to="/">Back to Dashboard</Link>
-          </Button>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   const userPart = (
@@ -583,7 +509,7 @@ function RepositoryReadmeInner() {
   );
 
   // Show loading state while tree loads
-  if (isLoadingTree) {
+  if (tree.isLoading) {
     return (
       <div className="flex h-screen w-full">
         <Sidebar variant="sidebar" className="border-r border-border/50">
@@ -608,7 +534,7 @@ function RepositoryReadmeInner() {
   }
 
   // Show no files message if repository is empty
-  if (!isLoadingTree && treeData.length === 0) {
+  if (!tree.isLoading && (tree.data ?? []).length === 0) {
     return (
       <div className="flex h-screen w-full">
         <Sidebar variant="sidebar" className="border-r border-border/50">
@@ -648,7 +574,7 @@ function RepositoryReadmeInner() {
     );
   }
 
-  const error = ghFile.error || treeError;
+  const error = ghFile.error || tree.error;
 
   // MARK: Return
 
@@ -661,7 +587,7 @@ function RepositoryReadmeInner() {
 
           <div className="flex-1 overflow-auto">
             <FileTree
-              items={treeData.map((item) => ({
+              items={(tree.data ?? []).map((item) => ({
                 path: item.path,
                 type: item.type as "tree" | "blob",
                 size: item.size,
@@ -808,7 +734,7 @@ function RepositoryReadmeInner() {
       <CommandPalette
         open={isCommandPaletteOpen}
         onOpenChange={setIsCommandPaletteOpen}
-        files={treeData.map((item) => ({
+        files={(tree.data ?? []).map((item) => ({
           path: item.path,
           type: item.type as "tree" | "blob",
           size: item.size,
