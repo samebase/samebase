@@ -174,7 +174,7 @@ export const getVaultByRepository = query({
       .first();
 
     if (!vault) {
-      throw new Error("Vault not found");
+      return null;
     }
 
     return {

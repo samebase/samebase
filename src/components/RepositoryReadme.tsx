@@ -399,7 +399,7 @@ function RepositoryReadmeInner() {
   }
 
   // Assume this means it's loading
-  if (!vault) {
+  if (vault === undefined) {
     return null;
   }
 
