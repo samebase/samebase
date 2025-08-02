@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
@@ -8,67 +7,31 @@ import {
   FileTextIcon,
   ClockIcon,
 } from "@radix-ui/react-icons";
-import { GitHubRepositories } from "./GitHubRepositories";
 import { Link } from "react-router-dom";
 import { linkStyle } from "./styles";
+import { clsx } from "clsx";
+
+const formatTimeAgo = (timestamp: number) => {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const minutes = Math.floor(diff / (1000 * 60));
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  } else if (hours < 24) {
+    return `${hours}h ago`;
+  } else {
+    return `${days}d ago`;
+  }
+};
 
 export function VaultDashboard() {
-  const [showRepositorySelector, setShowRepositorySelector] = useState(false);
   const vaults = useQuery(api.vault.getUserVaults);
 
-  const formatTimeAgo = (timestamp: number) => {
-    const now = Date.now();
-    const diff = now - timestamp;
-    const minutes = Math.floor(diff / (1000 * 60));
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (minutes < 60) {
-      return `${minutes}m ago`;
-    } else if (hours < 24) {
-      return `${hours}h ago`;
-    } else {
-      return `${days}d ago`;
-    }
-  };
-
-  if (showRepositorySelector) {
-    return (
-      <div className="container py-6 h-screen flex flex-col">
-        <div className="flex items-center justify-between mb-6 flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <GitHubLogoIcon className="h-6 w-6" />
-            <h1 className="text-2xl font-semibold">Connect a Repository</h1>
-          </div>
-          <Button
-            variant="outline"
-            onClick={() => setShowRepositorySelector(false)}
-          >
-            Back to Vaults
-          </Button>
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          <GitHubRepositories
-            onRepositoryConnected={() => {
-              setShowRepositorySelector(false);
-            }}
-            showHeader={false}
-            compact={true}
-            connectedVaults={vaults || []}
-          />
-        </div>
-      </div>
-    );
-  }
-
   if (!vaults) {
-    return (
-      <div className="container py-6">
-        <div className="flex items-center justify-center py-8">
-          <div className="text-muted-foreground">Loading your vaults...</div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   if (vaults.length === 0) {
@@ -90,13 +53,11 @@ export function VaultDashboard() {
             </p>
           </div>
 
-          <Button
-            size="lg"
-            onClick={() => setShowRepositorySelector(true)}
-            className="px-8 py-6 text-lg"
-          >
-            <PlusIcon className="h-5 w-5 mr-2" />
-            Connect Your First Repository
+          <Button size="lg" className="px-8 py-6 text-lg" asChild>
+            <Link to="/add">
+              <PlusIcon className="h-5 w-5 mr-2" />
+              Connect Your First Repository
+            </Link>
           </Button>
         </div>
       </div>
@@ -105,14 +66,16 @@ export function VaultDashboard() {
 
   return (
     <div className="container py-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div className="flex items-center gap-2">
-          <GitHubLogoIcon className="h-6 w-6" />
-          <h1 className="text-2xl font-semibold">Your Vaults</h1>
+          <GitHubLogoIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+          <h1 className="text-xl sm:text-2xl font-semibold">Your Vaults</h1>
         </div>
-        <Button onClick={() => setShowRepositorySelector(true)}>
-          <PlusIcon className="h-4 w-4 mr-2" />
-          Connect Repository
+        <Button asChild className="shrink-0">
+          <Link to="/add">
+            <PlusIcon className="h-4 w-4 mr-2" />
+            <span className="sm:inline">Connect Repository</span>
+          </Link>
         </Button>
       </div>
 
@@ -122,29 +85,27 @@ export function VaultDashboard() {
             key={vault._id}
             className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
           >
-            <div className="flex items-center gap-4 flex-1 min-w-0">
+            <Link
+              to={`/vault/${vault.repositoryFullName}`}
+              className={"flex items-center gap-4 flex-1 min-w-0"}
+            >
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold truncate">
-                    <Link
-                      to={`/vault/${vault.repositoryFullName}`}
-                      className={`flex items-center gap-1 ${linkStyle}`}
-                    >
-                      {vault.ghRepoName}
-                    </Link>
-                  </h3>
-                  <a
-                    href={`https://github.com/${vault.repositoryFullName}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                <div className="flex flex-col items-start ">
+                  <span
                     className={`text-sm text-muted-foreground ${linkStyle}`}
                   >
-                    {vault.repositoryFullName}
-                  </a>
+                    {vault.ghRepoOwner}/
+                  </span>
+
+                  <h3 className="font-semibold truncate">
+                    <span className={`flex items-center gap-1 ${linkStyle}`}>
+                      {vault.ghRepoName}
+                    </span>
+                  </h3>
                 </div>
               </div>
 
-              <div className="flex items-center gap-6 text-sm text-muted-foreground">
+              <div className="flex flex-col items-end text-sm text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <FileTextIcon className="h-3 w-3" />
                   <span>
@@ -152,14 +113,21 @@ export function VaultDashboard() {
                     {vault.fileCount !== 1 ? "s" : ""}
                   </span>
                 </div>
-                {vault.lastEditTime && (
-                  <div className="flex items-center gap-1">
-                    <ClockIcon className="h-3 w-3" />
-                    <span>{formatTimeAgo(vault.lastEditTime)}</span>
-                  </div>
-                )}
+
+                <div
+                  className={clsx("flex items-center gap-1", {
+                    invisible: !vault.lastEditTime,
+                  })}
+                >
+                  <ClockIcon className="h-3 w-3" />
+                  <span>
+                    {vault.lastEditTime
+                      ? formatTimeAgo(vault.lastEditTime)
+                      : "0m ago"}
+                  </span>
+                </div>
               </div>
-            </div>
+            </Link>
           </div>
         ))}
       </div>

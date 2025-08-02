@@ -184,12 +184,6 @@ function RepositoryReadmeInner() {
       if (!owner || !repoName || !selectedFile) {
         throw new Error("Owner, repository name, and file path are required");
       }
-      console.log("fetching file from github", {
-        owner,
-        repo: repoName,
-        path: selectedFile,
-        ref: branch,
-      });
       return await getFileContent({
         owner,
         repo: repoName,
@@ -207,8 +201,6 @@ function RepositoryReadmeInner() {
 
   // load github file into staging, if there's no staging yet
   useEffect(() => {
-    console.log("ghFile.data?.content", ghFile.data?.content);
-    console.log("fileStatus?.hasStaging", fileStatus?.hasStaging);
     if (ghFile.data?.content && !fileStatus?.hasStaging) {
       const utf8 = base64ToUtf8(ghFile.data.content);
       void debouncedSaveToStaging(utf8);
@@ -431,16 +423,11 @@ function RepositoryReadmeInner() {
   // Debounced save to Convex staging
   const debouncedSaveToStaging = useCallback(
     async (content: string) => {
-      console.log("debouncedSaveToStaging", {
-        selectedFile,
-        vault,
-      });
       if (!selectedFile || !vault) {
         return;
       }
 
       try {
-        console.log("debouncedSaveToStaging", { content });
         await saveToStaging({
           vaultId: vault._id,
           filePath: selectedFile,
