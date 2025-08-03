@@ -111,6 +111,7 @@ export function CodeEditor({
         indentOnInput(),
         bracketMatching(),
         rectangularSelection(),
+        EditorView.lineWrapping,
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         keymap.of([...defaultKeymap, ...historyKeymap, ...foldKeymap]),
         // Custom theme to remove all borders

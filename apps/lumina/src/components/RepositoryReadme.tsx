@@ -692,7 +692,7 @@ function RepositoryReadmeInner() {
                     value={localContent}
                     onChange={handleContentChange}
                     fileName={selectedFile}
-                    className="h-full border border-border/50 rounded-md overflow-hidden"
+                    className="h-full border border-border/50 rounded-md"
                   />
                 </div>
               )}
