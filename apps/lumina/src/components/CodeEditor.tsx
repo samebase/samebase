@@ -9,6 +9,7 @@ import { html } from "@codemirror/lang-html";
 import { css } from "@codemirror/lang-css";
 import { python } from "@codemirror/lang-python";
 import { useTheme } from "next-themes";
+import { createEditor } from "./ProseMarkEditor/ProseMarkEditor";
 
 interface CodeEditorProps {
   value: string;
@@ -55,6 +56,15 @@ export function CodeEditor({
   const { theme, systemTheme } = useTheme();
 
   useEffect(() => {
+    console.log("Creating editor");
+    createEditor();
+    return () => {
+      console.log("Destroying editor");
+      // editor.destroy();
+    };
+  }, []);
+
+  useEffect(() => {
     if (!editorRef.current) return;
 
     // Determine if we should use dark theme
@@ -73,64 +83,16 @@ export function CodeEditor({
       extensions.push(oneDark);
     }
 
-    const startState = EditorState.create({
-      doc: value,
-      extensions: [
-        ...extensions,
-        EditorView.updateListener.of((update) => {
-          if (update.docChanged) {
-            const doc = update.state.doc;
-            const newValue = doc.toString();
-            onChange(newValue);
-          }
-        }),
-        EditorView.theme({
-          "&": {
-            height: "100%",
-            fontSize: "14px",
-          },
-          ".cm-content": {
-            padding: "16px",
-            minHeight: "100%",
-            fontFamily:
-              'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-          },
-          ".cm-focused": {
-            outline: "none",
-          },
-          ".cm-editor": {
-            height: "100%",
-          },
-          ".cm-scroller": {
-            height: "100%",
-          },
-          // Mobile optimizations - no padding on mobile for full screen
-          "@media (max-width: 768px)": {
-            ".cm-content": {
-              padding: "8px",
-            },
-            "&": {
-              height: "100vh",
-            },
-          },
-        }),
-        EditorView.lineWrapping,
-      ],
-    });
-
     // Create editor view
-    const view = new EditorView({
-      state: startState,
-      parent: editorRef.current,
-    });
+    // const view = editor;
 
-    viewRef.current = view;
+    // viewRef.current = view;
 
     // Cleanup function
-    return () => {
-      view.destroy();
-      viewRef.current = null;
-    };
+    // return () => {
+    //   view.destroy();
+    //   viewRef.current = null;
+    // };
   }, [fileName, theme, systemTheme]); // Re-create editor when theme changes
 
   // Update editor content when value prop changes
@@ -147,13 +109,18 @@ export function CodeEditor({
   }, [value]);
 
   return (
-    <div
-      ref={editorRef}
-      className={`h-full w-full ${className || ""}`}
-      style={{
-        height: "100%",
-        minHeight: "400px", // Minimum height for usability
-      }}
-    />
+    <div>
+      <div id="codemirror-container"></div>
+      {false && (
+        <div
+          ref={editorRef}
+          className={`h-full w-full ${className || ""}`}
+          style={{
+            height: "100%",
+            minHeight: "400px", // Minimum height for usability
+          }}
+        />
+      )}
+    </div>
   );
 }
