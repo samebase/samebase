@@ -2,20 +2,22 @@
 
 Turborepo + PNPM monorepo with React + Vite + Convex.
 
+Also using ProseMark. something
+
 ## Install
 
-```bash
+```
 pnpm install
 ```
 
 ## Development
 
-```bash
+```
 pnpm dev
 ```
 
 ## Build
 
-```bash
+```
 pnpm build
 ```
