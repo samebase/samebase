@@ -250,6 +250,27 @@ function RepositoryReadmeInner() {
     setLastLocalEditTime(0);
   }, [selectedFile]);
 
+  // Auto-save to Convex when content changes (debounced)
+  useEffect(() => {
+    if (!localContent || !selectedFile || !vault) return;
+
+    // Only save if there have been recent edits (not just initial load)
+    const timeSinceLastEdit = Date.now() - lastLocalEditTime;
+    if (timeSinceLastEdit > 5000) return; // Don't save if last edit was more than 5 seconds ago
+
+    const timeoutId = setTimeout(() => {
+      void debouncedSaveToStaging(localContent);
+    }, 1000); // Debounce for 1 second
+
+    return () => clearTimeout(timeoutId);
+  }, [
+    localContent,
+    selectedFile,
+    vault,
+    lastLocalEditTime,
+    debouncedSaveToStaging,
+  ]);
+
   // Add command palette keyboard shortcut handler
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
