@@ -1,11 +1,9 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ],
-  "buildCommand": "npx convex deploy --cmd 'cd ../.. && pnpm build:lumina' --cmd-url-env-var-name VITE_CONVEX_URL",
-
-  "outputDirectory": "dist"
+  ]
 }
