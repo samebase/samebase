@@ -5,6 +5,6 @@
       "destination": "/index.html"
     }
   ],
-  "buildCommand": "pnpm run build:vercel",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD"
+  "buildCommand": "npx convex deploy --cmd 'cd ../.. && pnpm build:lumina' --cmd-url-env-var-name VITE_CONVEX_URL",
+  "outputDirectory": "dist"
 }
