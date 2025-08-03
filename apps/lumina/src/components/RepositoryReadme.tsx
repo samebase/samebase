@@ -101,6 +101,7 @@ function RepositoryReadmeInner() {
   const [lastLocalEditTime, setLastLocalEditTime] = useState<number>(0);
 
   const [isManualCommitting, setIsManualCommitting] = useState(false);
+  const [isResettingToGitHub, setIsResettingToGitHub] = useState(false);
 
   // Command palette state
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -108,6 +109,7 @@ function RepositoryReadmeInner() {
   // Convex hooks for staging
   const saveToStaging = useMutation(api.fileStagingMutations.saveToStaging);
   const commitStaging = useMutation(api.fileStagingMutations.commitStaging);
+  const resetStaging = useMutation(api.fileStagingMutations.resetStaging);
   const fileStatus = useQuery(
     api.fileStagingMutations.getFileStatus,
     selectedFile && vault
@@ -386,11 +388,47 @@ function RepositoryReadmeInner() {
       });
 
       // Refetch the file to get updated data after commit
-      // void ghFile.refetch();
+      void ghFile.refetch();
     } catch (error) {
       console.error("Failed to commit changes:", error);
     } finally {
       setIsManualCommitting(false);
+    }
+  };
+
+  const handleResetToGitHub = async () => {
+    if (!selectedFile || !vault || !owner || !repoName) return;
+
+    setIsResettingToGitHub(true);
+
+    try {
+      // Clear staging first
+      await resetStaging({
+        vaultId: vault._id,
+        filePath: selectedFile,
+      });
+
+      // Fetch latest content from GitHub
+      const latestContent = await getFileContent({
+        owner,
+        repo: repoName,
+        path: selectedFile,
+        ref: branch,
+      });
+
+      if (latestContent?.content) {
+        // Update local content to match GitHub
+        const decodedContent = base64ToUtf8(latestContent.content);
+        setLocalContent(decodedContent);
+        setLastLocalEditTime(0); // Reset edit time
+      }
+
+      // Refetch queries to update UI state
+      void ghFile.refetch();
+    } catch (error) {
+      console.error("Failed to reset to GitHub version:", error);
+    } finally {
+      setIsResettingToGitHub(false);
     }
   };
 
@@ -630,10 +668,20 @@ function RepositoryReadmeInner() {
                     size="sm"
                     variant="outline"
                     onClick={() => void handleManualCommit()}
-                    disabled={isManualCommitting}
+                    disabled={isManualCommitting || isResettingToGitHub}
                     className="h-6 px-2 text-xs"
                   >
                     {isManualCommitting ? "Committing..." : "Commit Now"}
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void handleResetToGitHub()}
+                    disabled={isResettingToGitHub || isManualCommitting}
+                    className="h-6 px-2 text-xs text-orange-600 hover:text-orange-700"
+                  >
+                    {isResettingToGitHub ? "Resetting..." : "Reset to GitHub"}
                   </Button>
                 </div>
               </div>

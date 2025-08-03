@@ -189,18 +189,20 @@ export const createCommit = action({
       throw new Error("User not authenticated");
     }
 
-    // Get the user's GitHub account
-    const account = await ctx.runQuery(api.users.getGitHubAccount, {});
+    // Get the current user
+    const currentUser = await ctx.runQuery(api.users.getById, {
+      userId,
+    });
 
-    if (!account) {
-      throw new Error("GitHub account not found");
+    if (!currentUser) {
+      throw new Error("User not found");
     }
 
-    if (!account.secret) {
+    if (!currentUser.githubAccessToken) {
       throw new Error("GitHub access token not found");
     }
 
-    const accessToken: string = account.secret;
+    const accessToken: string = currentUser.githubAccessToken;
 
     // Create or update a file in the repository
     const response = await fetch(
@@ -265,26 +267,24 @@ export const updateFileContent = action({
     });
 
     try {
-      // If no SHA is provided, get the current file's SHA
-      let fileSha = args.sha;
-      if (!fileSha) {
-        try {
-          const currentFile = await octokit.rest.repos.getContent({
-            owner: args.owner,
-            repo: args.repo,
-            path: args.path,
-            ref: args.branch || "main",
-          });
+      // Always get the current file's SHA to avoid conflicts
+      let fileSha = null;
+      try {
+        const currentFile = await octokit.rest.repos.getContent({
+          owner: args.owner,
+          repo: args.repo,
+          path: args.path,
+          ref: args.branch || "main",
+        });
 
-          // Handle case where path is a directory (shouldn't happen in our use case)
-          if (!Array.isArray(currentFile.data)) {
-            fileSha = (currentFile.data as any).sha;
-          }
-        } catch (error: any) {
-          // File doesn't exist yet, so we don't need a SHA
-          if (error.status !== 404) {
-            throw error;
-          }
+        // Handle case where path is a directory (shouldn't happen in our use case)
+        if (!Array.isArray(currentFile.data)) {
+          fileSha = (currentFile.data as any).sha;
+        }
+      } catch (error: any) {
+        // File doesn't exist yet, so we don't need a SHA
+        if (error.status !== 404) {
+          throw error;
         }
       }
 

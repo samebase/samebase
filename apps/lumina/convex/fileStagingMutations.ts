@@ -143,12 +143,49 @@ export const commitStaging = mutation({
       throw new Error("No staged changes found for this file");
     }
 
+    // Get the vault information while we have auth context
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
     // Schedule the actual GitHub commit
     await ctx.scheduler.runAfter(0, internal.fileStaging.commitStagedFile, {
       userId,
       vaultId: args.vaultId,
       filePath: args.filePath,
+      repoOwner: vault.ghRepoOwner,
+      repoName: vault.ghRepoName,
     });
+
+    return null;
+  },
+});
+
+// Public mutation to reset staging (clear staged changes)
+export const resetStaging = mutation({
+  args: {
+    vaultId: v.id("vaults"),
+    filePath: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    // Clear the staging record
+    const staging = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      )
+      .first();
+
+    if (staging) {
+      await ctx.db.delete(staging._id);
+    }
 
     return null;
   },

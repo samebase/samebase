@@ -10,6 +10,8 @@ export const commitStagedFile = internalAction({
     userId: v.id("users"),
     vaultId: v.id("vaults"),
     filePath: v.string(),
+    repoOwner: v.string(),
+    repoName: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -18,12 +20,6 @@ export const commitStagedFile = internalAction({
     );
 
     try {
-      // Get the vault record
-      const vault = await ctx.runQuery(api.users.getAuthUser, {});
-      if (!vault) {
-        throw new Error("User not found");
-      }
-
       // Get the staging record
       const staging = await ctx.runQuery(
         api.fileStagingMutations.getStagedFile,
@@ -40,17 +36,11 @@ export const commitStagedFile = internalAction({
 
       console.log(args);
 
-      // Get the vault to find repository info
-      const vaultRecord = await ctx.runQuery(api.vault.getUserVaults, {});
-      const targetVault = vaultRecord.find((v) => v._id === args.vaultId);
-
-      if (!targetVault) {
-        throw new Error("Vault not found");
-      }
-
-      const [owner, repo] = targetVault.repositoryFullName.split("/");
+      // Use the provided repository information
+      const owner = args.repoOwner;
+      const repo = args.repoName;
       if (!owner || !repo) {
-        throw new Error("Invalid repository full name format");
+        throw new Error("Invalid repository owner or name");
       }
 
       console.log("--here1", { owner, repo });
@@ -77,10 +67,10 @@ export const commitStagedFile = internalAction({
 
       if (result) {
         // Success - remove from staging
-        // await ctx.runMutation(internal.fileStagingMutations.clearStaging, {
-        //   vaultId: args.vaultId,
-        //   filePath: args.filePath,
-        // });
+        await ctx.runMutation(internal.fileStagingMutations.clearStaging, {
+          vaultId: args.vaultId,
+          filePath: args.filePath,
+        });
 
         console.log(`Auto-committed ${args.filePath} in vault ${args.vaultId}`);
       }
@@ -103,6 +93,8 @@ export const autoCommitStagedFile = internalAction({
     vaultId: v.id("vaults"),
     filePath: v.string(),
     lastEditTime: v.number(),
+    repoOwner: v.string(),
+    repoName: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -134,6 +126,8 @@ export const autoCommitStagedFile = internalAction({
         userId: args.userId,
         vaultId: args.vaultId,
         filePath: args.filePath,
+        repoOwner: args.repoOwner,
+        repoName: args.repoName,
       });
 
       console.log(
@@ -157,6 +151,8 @@ export const manualCommit = internalAction({
     userId: v.id("users"),
     vaultId: v.id("vaults"),
     filePath: v.string(),
+    repoOwner: v.string(),
+    repoName: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -166,6 +162,8 @@ export const manualCommit = internalAction({
         userId: args.userId,
         vaultId: args.vaultId,
         filePath: args.filePath,
+        repoOwner: args.repoOwner,
+        repoName: args.repoName,
       });
 
       console.log(
