@@ -9,6 +9,7 @@ import {
   GitHubLogoIcon,
   MagnifyingGlassIcon,
   PlusIcon,
+  FilePlusIcon,
 } from "@radix-ui/react-icons";
 import {
   Sidebar,
@@ -34,6 +35,7 @@ import { GetFunctionReferenceReturnType } from "@/lib/convexTypeUtils";
 import { DialogProvider } from "@/contexts/DialogContext";
 import { useDialog } from "@/hooks/useDialog";
 import { FileCreationDialog } from "@/components/FileCreationDialog";
+import { FolderCreationDialog } from "@/components/FolderCreationDialog";
 
 type RepositoryTree = GetFunctionReferenceReturnType<
   typeof api.github.getRepositoryTree
@@ -78,8 +80,14 @@ function RepositoryReadmeInner() {
   const user = useQuery(api.users.viewer);
 
   // Dialog state management
-  const { fileCreationDialog, openFileCreation, closeFileCreation } =
-    useDialog();
+  const {
+    fileCreationDialog,
+    folderCreationDialog,
+    openFileCreation,
+    closeFileCreation,
+    openFolderCreation,
+    closeFolderCreation,
+  } = useDialog();
 
   // Parse branch and file path from the wildcard parameter
   const parsedPath = filePath ? filePath.split("/") : [];
@@ -383,6 +391,36 @@ function RepositoryReadmeInner() {
       });
   };
 
+  // Handler for creating folders in specific paths from the file tree
+  const handleCreateFolderInFolder = (
+    folderPath: string,
+    folderName: string,
+  ) => {
+    if (!owner || !repoName || !folderName.trim()) return;
+
+    const newFolderPath = folderPath
+      ? `${folderPath}/${folderName}`
+      : folderName;
+    const readmeFilePath = `${newFolderPath}/README.md`;
+
+    // Create a README file in the folder to make the folder exist in Git
+    createFile({
+      owner,
+      repo: repoName,
+      path: readmeFilePath,
+      content: `# ${folderName}\n\nThis folder was created automatically.`,
+      message: `Create folder ${newFolderPath}`,
+      branch,
+    })
+      .then(() => {
+        // Refresh the tree
+        void tree.refetch();
+      })
+      .catch((error) => {
+        console.error("Failed to create folder:", error);
+      });
+  };
+
   const handleManualCommit = async () => {
     if (!selectedFile || !vault) return;
 
@@ -513,6 +551,17 @@ function RepositoryReadmeInner() {
                 title="Create new file"
               >
                 <PlusIcon className="h-4 w-4 md:h-3 md:w-3" />
+              </Button>
+
+              {/* icon button to add new folder */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 md:h-6 md:w-6 p-0"
+                onClick={() => openFolderCreation("")}
+                title="Create new folder"
+              >
+                <FilePlusIcon className="h-4 w-4 md:h-3 md:w-3" />
               </Button>
             </div>
           </div>
@@ -667,6 +716,21 @@ function RepositoryReadmeInner() {
           onClose={closeFileCreation}
           initialFolderPath={fileCreationDialog.folderPath || ""}
           onFileCreate={handleCreateFileInFolder}
+          folders={(tree.data ?? []).map((item) => ({
+            path: item.path,
+            type: item.type as "tree" | "blob",
+            size: item.size,
+          }))}
+        />
+      )}
+
+      {/* Folder Creation Dialog */}
+      {folderCreationDialog.isOpen && (
+        <FolderCreationDialog
+          isOpen={true}
+          onClose={closeFolderCreation}
+          initialFolderPath={folderCreationDialog.folderPath || ""}
+          onFolderCreate={handleCreateFolderInFolder}
           folders={(tree.data ?? []).map((item) => ({
             path: item.path,
             type: item.type as "tree" | "blob",

@@ -3,6 +3,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { FileIcon, ChevronRightIcon } from "@radix-ui/react-icons";
 import { cn } from "@/lib/utils";
+import { fuzzyMatch } from "@/lib/fuzzySearch.tsx";
 
 interface FileItem {
   path: string;
@@ -18,52 +19,7 @@ interface CommandPaletteProps {
   selectedFile?: string;
 }
 
-// Simple fuzzy search implementation
-function fuzzyMatch(
-  needle: string,
-  haystack: string,
-): { score: number; matches: number[] } {
-  if (!needle) return { score: 0, matches: [] };
-
-  const needleLower = needle.toLowerCase();
-  const haystackLower = haystack.toLowerCase();
-  const matches: number[] = [];
-
-  let needleIndex = 0;
-  let score = 0;
-
-  for (
-    let i = 0;
-    i < haystackLower.length && needleIndex < needleLower.length;
-    i++
-  ) {
-    if (haystackLower[i] === needleLower[needleIndex]) {
-      matches.push(i);
-      needleIndex++;
-      // Boost score for consecutive matches
-      if (
-        matches.length > 1 &&
-        matches[matches.length - 1] === matches[matches.length - 2] + 1
-      ) {
-        score += 2;
-      } else {
-        score += 1;
-      }
-    }
-  }
-
-  // Only return a match if all characters were found
-  if (needleIndex === needleLower.length) {
-    // Boost score for matches at the start
-    if (matches[0] === 0) score += 3;
-    // Boost score for matches in filename (after last /)
-    const lastSlash = haystack.lastIndexOf("/");
-    if (matches.some((m) => m > lastSlash)) score += 2;
-    return { score, matches };
-  }
-
-  return { score: -1, matches: [] };
-}
+// CommandPalette-specific highlighting with blue colors
 
 function highlightMatches(text: string, matches: number[]): React.ReactNode {
   if (matches.length === 0) return text;

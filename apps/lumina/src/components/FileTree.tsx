@@ -4,6 +4,7 @@ import {
   ChevronDownIcon,
   FileIcon,
   PlusIcon,
+  FilePlusIcon,
 } from "@radix-ui/react-icons";
 import { cn } from "@/lib/utils";
 import {
@@ -116,7 +117,7 @@ function TreeNodeComponent({
   onFolderToggle?: (folderPath: string, isExpanded: boolean) => void;
   allItems: FileTreeItem[];
 }) {
-  const { openFileCreation } = useDialog();
+  const { openFileCreation, openFolderCreation } = useDialog();
 
   // Get expansion state from database instead of auto-expanding
   const expansionState = folderExpansionStates.find(
@@ -196,6 +197,11 @@ function TreeNodeComponent({
 
   const handleCreateFile = () => {
     openFileCreation(node.path);
+    setContextMenu(null);
+  };
+
+  const handleCreateFolder = () => {
+    openFolderCreation(node.path);
     setContextMenu(null);
   };
 
@@ -317,13 +323,22 @@ function TreeNodeComponent({
             style={{ left: contextMenu.x, top: contextMenu.y }}
           >
             {isFolder && (
-              <button
-                className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50 flex items-center gap-2"
-                onClick={handleCreateFile}
-              >
-                <PlusIcon className="h-3 w-3" />
-                Create File
-              </button>
+              <>
+                <button
+                  className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50 flex items-center gap-2"
+                  onClick={handleCreateFile}
+                >
+                  <PlusIcon className="h-3 w-3" />
+                  Create File
+                </button>
+                <button
+                  className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50 flex items-center gap-2"
+                  onClick={handleCreateFolder}
+                >
+                  <FilePlusIcon className="h-3 w-3" />
+                  Create Folder
+                </button>
+              </>
             )}
             {node.type === "blob" && (
               <button
