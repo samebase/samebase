@@ -7,26 +7,13 @@ import {
 } from "@radix-ui/react-icons";
 import { cn } from "@/lib/utils";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useDialog } from "@/hooks/useDialog";
 
 interface FileTreeItem {
   path: string;
@@ -117,6 +104,7 @@ function TreeNodeComponent({
   selectedFile,
   folderExpansionStates,
   onFolderToggle,
+  allItems,
 }: {
   node: TreeNode;
   level?: number;
@@ -126,7 +114,10 @@ function TreeNodeComponent({
   selectedFile?: string;
   folderExpansionStates: FolderExpansionState[];
   onFolderToggle?: (folderPath: string, isExpanded: boolean) => void;
+  allItems: FileTreeItem[];
 }) {
+  const { openFileCreation } = useDialog();
+
   // Get expansion state from database instead of auto-expanding
   const expansionState = folderExpansionStates.find(
     (state) => state.folderPath === node.path,
@@ -140,11 +131,6 @@ function TreeNodeComponent({
     x: number;
     y: number;
   } | null>(null);
-
-  // File creation states
-  const [isFileCreationOpen, setIsFileCreationOpen] = useState(false);
-  const [newFileName, setNewFileName] = useState("");
-  const [isCreatingFile, setIsCreatingFile] = useState(false);
 
   // Long press detection for mobile
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -176,12 +162,13 @@ function TreeNodeComponent({
       setIsLongPressing(false);
       longPressTimer.current = setTimeout(() => {
         setIsLongPressing(true);
-        setIsFileCreationOpen(true);
+
+        openFileCreation(node.path);
         // Prevent normal click
         e.preventDefault();
       }, 500); // 500ms long press threshold
     },
-    [isMobile, isFolder],
+    [isMobile, isFolder, openFileCreation, node.path],
   );
 
   const handleTouchEnd = useCallback(() => {
@@ -208,7 +195,7 @@ function TreeNodeComponent({
   };
 
   const handleCreateFile = () => {
-    setIsFileCreationOpen(true);
+    openFileCreation(node.path);
     setContextMenu(null);
   };
 
@@ -230,68 +217,6 @@ function TreeNodeComponent({
       setRenamingValue(node.name);
     }
   };
-
-  const handleFileCreateSubmit = () => {
-    if (!newFileName.trim() || !onFileCreate) return;
-
-    setIsCreatingFile(true);
-    try {
-      onFileCreate(node.path, newFileName.trim());
-      setNewFileName("");
-      setIsFileCreationOpen(false);
-    } catch (error) {
-      console.error("Failed to create file:", error);
-    } finally {
-      setIsCreatingFile(false);
-    }
-  };
-
-  const handleFileCreateKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleFileCreateSubmit();
-    } else if (e.key === "Escape") {
-      setIsFileCreationOpen(false);
-      setNewFileName("");
-    }
-  };
-
-  // File creation dialog content
-  const FileCreationDialog = () => (
-    <div className="space-y-4">
-      <div>
-        <label className="text-sm font-medium">
-          Create file in: {node.path || "/"}
-        </label>
-      </div>
-      <Input
-        placeholder="filename.md"
-        value={newFileName}
-        onChange={(e) => setNewFileName(e.target.value)}
-        onKeyDown={handleFileCreateKeyDown}
-        className="text-sm"
-        autoFocus
-      />
-      <div className="flex justify-end gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            setIsFileCreationOpen(false);
-            setNewFileName("");
-          }}
-        >
-          Cancel
-        </Button>
-        <Button
-          size="sm"
-          onClick={handleFileCreateSubmit}
-          disabled={!newFileName.trim() || isCreatingFile}
-        >
-          {isCreatingFile ? "Creating..." : "Create"}
-        </Button>
-      </div>
-    </div>
-  );
 
   return (
     <>
@@ -373,6 +298,7 @@ function TreeNodeComponent({
                 selectedFile={selectedFile}
                 folderExpansionStates={folderExpansionStates}
                 onFolderToggle={onFolderToggle}
+                allItems={allItems}
               />
             ))}
           </div>
@@ -410,28 +336,6 @@ function TreeNodeComponent({
           </div>
         </>
       )}
-
-      {/* Mobile Sheet for File Creation */}
-      {isMobile ? (
-        <Sheet open={isFileCreationOpen} onOpenChange={setIsFileCreationOpen}>
-          <SheetContent side="bottom" className="rounded-t-lg">
-            <SheetHeader>
-              <SheetTitle>Create New File</SheetTitle>
-            </SheetHeader>
-            <FileCreationDialog />
-          </SheetContent>
-        </Sheet>
-      ) : (
-        /* Desktop Dialog for File Creation */
-        <Dialog open={isFileCreationOpen} onOpenChange={setIsFileCreationOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Create New File</DialogTitle>
-            </DialogHeader>
-            <FileCreationDialog />
-          </DialogContent>
-        </Dialog>
-      )}
     </>
   );
 }
@@ -467,6 +371,7 @@ export function FileTree({
           selectedFile={selectedFile}
           folderExpansionStates={folderExpansionStates}
           onFolderToggle={onFolderToggle}
+          allItems={items}
         />
       ))}
     </div>

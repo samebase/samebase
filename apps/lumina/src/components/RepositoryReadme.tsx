@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 
 import {
   GitHubLogoIcon,
-  ArrowLeftIcon,
   MagnifyingGlassIcon,
+  PlusIcon,
 } from "@radix-ui/react-icons";
 import {
   Sidebar,
@@ -31,6 +31,9 @@ import {
 } from "@/components/ui/popover";
 import { linkStyle } from "./styles";
 import { GetFunctionReferenceReturnType } from "@/lib/convexTypeUtils";
+import { DialogProvider } from "@/contexts/DialogContext";
+import { useDialog } from "@/hooks/useDialog";
+import { FileCreationDialog } from "@/components/FileCreationDialog";
 
 type RepositoryTree = GetFunctionReferenceReturnType<
   typeof api.github.getRepositoryTree
@@ -73,6 +76,10 @@ function RepositoryReadmeInner() {
 
   // Get current user for sidebar
   const user = useQuery(api.users.viewer);
+
+  // Dialog state management
+  const { fileCreationDialog, openFileCreation, closeFileCreation } =
+    useDialog();
 
   // Parse branch and file path from the wildcard parameter
   const parsedPath = filePath ? filePath.split("/") : [];
@@ -451,6 +458,10 @@ function RepositoryReadmeInner() {
     }
   };
 
+  const emptyRepository = !tree.isLoading && (tree.data ?? []).length === 0;
+
+  const error = ghFile.error || tree.error;
+
   // MARK: First returns
 
   if (!owner || !repoName) {
@@ -462,126 +473,74 @@ function RepositoryReadmeInner() {
     return null;
   }
 
-  const userPart = (
-    <div className="p-3 border-b border-border/50">
-      <Link to="/" className={`flex items-center justify-between ${linkStyle}`}>
-        <UserMenu>{user?.name ?? user?.email ?? "..."}</UserMenu>
-      </Link>
-    </div>
-  );
-
-  const repoPart = (
-    <div className="p-3 border-b border-border/50">
-      <div className="flex items-center gap-2">
-        <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
-        <a
-          className={`text-xs font-medium truncate text-muted-foreground ${linkStyle}`}
-          href={`https://github.com/${owner}/${repoName}`}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {owner}/{repoName}
-        </a>
-      </div>
-    </div>
-  );
-
-  // Show loading state while tree loads
-  if (tree.isLoading) {
-    return (
-      <div className="flex h-screen w-full">
-        <Sidebar variant="sidebar" className="border-r border-border/50">
-          <SidebarContent className="p-0">
-            {userPart}
-            {repoPart}
-
-            <div className="p-3 text-xs text-muted-foreground">
-              Loading repository...
-            </div>
-          </SidebarContent>
-        </Sidebar>
-        <SidebarInset className="flex-1">
-          <div className="flex h-full items-center justify-center">
-            <div className="text-xs text-muted-foreground">
-              Loading repository...
-            </div>
-          </div>
-        </SidebarInset>
-      </div>
-    );
-  }
-
-  // Show no files message if repository is empty
-  if (!tree.isLoading && (tree.data ?? []).length === 0) {
-    return (
-      <div className="flex h-screen w-full">
-        <Sidebar variant="sidebar" className="border-r border-border/50">
-          <SidebarContent className="p-0">
-            {userPart}
-            {repoPart}
-            <div className="p-3 text-xs text-muted-foreground">
-              No files found
-            </div>
-          </SidebarContent>
-        </Sidebar>
-        <SidebarInset className="flex-1">
-          <div className="flex h-full flex-col">
-            <div className="flex items-center gap-3 p-3 border-b border-border/50">
-              <SidebarTrigger className="h-6 w-6" />
-              <Button variant="ghost" size="sm" asChild className="h-7 px-2">
-                <Link to="/" className="flex items-center gap-2">
-                  <ArrowLeftIcon className="h-3 w-3" />
-                  <span className="text-xs">Back</span>
-                </Link>
-              </Button>
-              <a className="text-sm font-medium">
-                {owner}/{repoName}
-              </a>
-            </div>
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <h2 className="text-sm font-medium mb-2">No files found</h2>
-                <p className="text-xs text-muted-foreground">
-                  This repository appears to be empty.
-                </p>
-              </div>
-            </div>
-          </div>
-        </SidebarInset>
-      </div>
-    );
-  }
-
-  const error = ghFile.error || tree.error;
-
   // MARK: Return
 
   return (
     <div className="flex h-screen w-full">
       <Sidebar variant="sidebar" className="border-r border-border/50">
         <SidebarContent className="p-0">
-          {userPart}
-          {repoPart}
-
-          <div className="flex-1 overflow-auto">
-            <FileTree
-              items={(tree.data ?? []).map((item) => ({
-                path: item.path,
-                type: item.type as "tree" | "blob",
-                size: item.size,
-              }))}
-              onFileSelect={handleFileSelect}
-              onFileRename={(oldPath, newPath) =>
-                void handleFileRename(oldPath, newPath)
-              }
-              onFileCreate={handleCreateFileInFolder}
-              selectedFile={selectedFile}
-              folderExpansionStates={folderExpansionStates ?? []}
-              onFolderToggle={(folderPath, isExpanded) =>
-                void handleFolderToggle(folderPath, isExpanded)
-              }
-            />
+          {/* User part */}
+          <div className="p-3 border-b border-border/50">
+            <Link
+              to="/"
+              className={`flex items-center justify-between ${linkStyle}`}
+            >
+              <UserMenu>{user?.name ?? user?.email ?? "..."}</UserMenu>
+            </Link>
           </div>
+          {/* Repo part */}
+          <div className="p-3 border-b border-border/50">
+            <div className="flex items-center gap-2">
+              <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
+              <a
+                className={`text-xs font-medium truncate text-muted-foreground ${linkStyle}`}
+                href={`https://github.com/${owner}/${repoName}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {owner}/{repoName}
+              </a>
+
+              {/* element that takes as much space as possible to push the button to the right */}
+              <div className="flex-1" />
+
+              {/* icon button to add new file (+)*/}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 md:h-6 md:w-6 p-0"
+                onClick={() => openFileCreation("")}
+                title="Create new file"
+              >
+                <PlusIcon className="h-4 w-4 md:h-3 md:w-3" />
+              </Button>
+            </div>
+          </div>
+          {emptyRepository ? (
+            <div className="p-3 text-xs text-muted-foreground">
+              No files found
+            </div>
+          ) : (
+            <div className="flex-1 overflow-auto">
+              <FileTree
+                items={(tree.data ?? []).map((item) => ({
+                  path: item.path,
+                  type: item.type as "tree" | "blob",
+                  size: item.size,
+                }))}
+                onFileSelect={handleFileSelect}
+                onFileRename={(oldPath, newPath) =>
+                  void handleFileRename(oldPath, newPath)
+                }
+                onFileCreate={handleCreateFileInFolder}
+                selectedFile={selectedFile}
+                folderExpansionStates={folderExpansionStates ?? []}
+                onFolderToggle={(folderPath, isExpanded) =>
+                  void handleFolderToggle(folderPath, isExpanded)
+                }
+              />
+            </div>
+          )}{" "}
         </SidebarContent>
       </Sidebar>
 
@@ -610,7 +569,7 @@ function RepositoryReadmeInner() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-auto p-0 md:p-4">
+          <div className="flex-1 overflow-auto p-4">
             {error && (
               <div className="mb-4 p-3 text-sm md:text-xs text-red-600 bg-red-50 rounded border border-red-200">
                 Failed to load data:{" "}
@@ -701,6 +660,21 @@ function RepositoryReadmeInner() {
         </div>
       </SidebarInset>
 
+      {/* File Creation Dialog */}
+      {fileCreationDialog.isOpen && (
+        <FileCreationDialog
+          isOpen={true}
+          onClose={closeFileCreation}
+          initialFolderPath={fileCreationDialog.folderPath || ""}
+          onFileCreate={handleCreateFileInFolder}
+          folders={(tree.data ?? []).map((item) => ({
+            path: item.path,
+            type: item.type as "tree" | "blob",
+            size: item.size,
+          }))}
+        />
+      )}
+
       {/* Command Palette */}
       <CommandPalette
         open={isCommandPaletteOpen}
@@ -720,9 +694,11 @@ function RepositoryReadmeInner() {
 // Main export with sidebar provider wrapper
 export function RepositoryReadme() {
   return (
-    <SidebarProvider>
-      <RepositoryReadmeWithSwipe />
-    </SidebarProvider>
+    <DialogProvider>
+      <SidebarProvider>
+        <RepositoryReadmeWithSwipe />
+      </SidebarProvider>
+    </DialogProvider>
   );
 }
 

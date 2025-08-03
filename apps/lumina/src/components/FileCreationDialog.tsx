@@ -1,0 +1,358 @@
+import { useState, useMemo, useRef, useEffect } from "react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent as DialogContentUI,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
+
+// Simple fuzzy search implementation (reused from CommandPalette)
+function fuzzyMatch(
+  needle: string,
+  haystack: string,
+): { score: number; matches: number[] } {
+  if (!needle) return { score: 0, matches: [] };
+
+  const needleLower = needle.toLowerCase();
+  const haystackLower = haystack.toLowerCase();
+  const matches: number[] = [];
+
+  let needleIndex = 0;
+  let score = 0;
+
+  for (
+    let i = 0;
+    i < haystackLower.length && needleIndex < needleLower.length;
+    i++
+  ) {
+    if (haystackLower[i] === needleLower[needleIndex]) {
+      matches.push(i);
+      needleIndex++;
+      // Boost score for consecutive matches
+      if (
+        matches.length > 1 &&
+        matches[matches.length - 1] === matches[matches.length - 2] + 1
+      ) {
+        score += 2;
+      } else {
+        score += 1;
+      }
+    }
+  }
+
+  // Only return a match if all characters were found
+  if (needleIndex === needleLower.length) {
+    // Boost score for matches at the start
+    if (matches[0] === 0) score += 3;
+    // Boost score for matches in filename (after last /)
+    const lastSlash = haystack.lastIndexOf("/");
+    if (matches.some((m) => m > lastSlash)) score += 2;
+    return { score, matches };
+  }
+
+  return { score: -1, matches: [] };
+}
+
+function highlightMatches(text: string, matches: number[]): React.ReactNode {
+  if (matches.length === 0) return text;
+
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+
+  matches.forEach((match, i) => {
+    // Add text before this match
+    if (match > lastIndex) {
+      parts.push(text.slice(lastIndex, match));
+    }
+    // Add highlighted character
+    parts.push(
+      <mark key={i} className="bg-yellow-200 text-yellow-900">
+        {text[match]}
+      </mark>,
+    );
+    lastIndex = match + 1;
+  });
+
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return <>{parts}</>;
+}
+
+interface FileTreeItem {
+  path: string;
+  type: "tree" | "blob";
+  size?: number;
+}
+
+interface FilteredFolder extends FileTreeItem {
+  score: number;
+  matches: number[];
+}
+
+interface FileCreationDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  initialFolderPath: string;
+  onFileCreate: (folderPath: string, fileName: string) => void;
+  folders: FileTreeItem[]; // All available folders for search
+}
+
+export function FileCreationDialog({
+  isOpen,
+  onClose,
+  initialFolderPath,
+  onFileCreate,
+  folders,
+}: FileCreationDialogProps) {
+  const [newFileName, setNewFileName] = useState("");
+  const [isCreatingFile, setIsCreatingFile] = useState(false);
+  const [folderInputValue, setFolderInputValue] = useState(initialFolderPath);
+  const [showFolderDropdown, setShowFolderDropdown] = useState(false);
+  const [selectedFolderIndex, setSelectedFolderIndex] = useState(0);
+
+  const isMobile = useIsMobile();
+  const folderInputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Filter and sort folders based on fuzzy search
+  const filteredFolders = useMemo(() => {
+    const query = folderInputValue.trim();
+    if (!query || !showFolderDropdown) {
+      return folders
+        .filter((folder) => folder.type === "tree")
+        .slice(0, 20)
+        .map((folder) => ({ ...folder, score: 0, matches: [] }));
+    }
+
+    const results = folders
+      .filter((folder) => folder.type === "tree")
+      .map((folder) => {
+        const match = fuzzyMatch(query, folder.path);
+        return { ...folder, ...match } as FilteredFolder;
+      })
+      .filter((folder) => folder.score >= 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 20);
+
+    return results;
+  }, [folders, folderInputValue, showFolderDropdown]);
+
+  // Reset selection when dropdown results change
+  useEffect(() => {
+    setSelectedFolderIndex(0);
+  }, [filteredFolders]);
+
+  // Handle clicking outside dropdown
+  useEffect(() => {
+    console.log("useEffect add event listener");
+    const handleClickOutside = (event: MouseEvent) => {
+      console.log("handleClickOutside", event);
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        folderInputRef.current &&
+        !folderInputRef.current.contains(event.target as Node)
+      ) {
+        console.log("handleClickOutside setShowFolderDropdown(false)");
+        setShowFolderDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleFileCreateSubmit = () => {
+    if (!newFileName.trim()) return;
+
+    setIsCreatingFile(true);
+    try {
+      onFileCreate(folderInputValue, newFileName.trim());
+      setNewFileName("");
+      onClose();
+    } catch (error) {
+      console.error("Failed to create file:", error);
+    } finally {
+      setIsCreatingFile(false);
+    }
+  };
+
+  const handleFileCreateKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleFileCreateSubmit();
+    } else if (e.key === "Escape") {
+      onClose();
+      setNewFileName("");
+    }
+  };
+
+  const handleFolderInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFolderInputValue(value);
+    setShowFolderDropdown(true);
+  };
+
+  const handleFolderInputFocus = () => {
+    setShowFolderDropdown(true);
+  };
+
+  const handleFolderKeyDown = (e: React.KeyboardEvent) => {
+    if (!showFolderDropdown) return;
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setSelectedFolderIndex((prev) =>
+          Math.min(prev + 1, filteredFolders.length - 1),
+        );
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setSelectedFolderIndex((prev) => Math.max(prev - 1, 0));
+        break;
+      case "Enter":
+        e.preventDefault();
+        if (filteredFolders[selectedFolderIndex]) {
+          const selectedPath = filteredFolders[selectedFolderIndex].path;
+          setFolderInputValue(selectedPath);
+          setShowFolderDropdown(false);
+        }
+        break;
+      case "Escape":
+        setShowFolderDropdown(false);
+        break;
+    }
+  };
+
+  const handleFolderSelect = (folderPath: string) => {
+    setFolderInputValue(folderPath);
+    setShowFolderDropdown(false);
+  };
+
+  const handleCancel = () => {
+    onClose();
+    setNewFileName("");
+    setShowFolderDropdown(false);
+  };
+
+  // Dialog content component
+  const dialogContent = (
+    <div className="space-y-4">
+      {/* Folder Selection */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Folder</label>
+        <div className="relative">
+          <Input
+            ref={folderInputRef}
+            placeholder="/"
+            value={folderInputValue}
+            onChange={handleFolderInputChange}
+            onFocus={handleFolderInputFocus}
+            onKeyDown={handleFolderKeyDown}
+            className="text-sm"
+          />
+
+          {/* Dropdown */}
+          {showFolderDropdown && (
+            <div
+              ref={dropdownRef}
+              className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md"
+            >
+              {filteredFolders.map((folder, index) => (
+                <div
+                  key={folder.path}
+                  className={cn(
+                    "cursor-pointer px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground",
+                    index === selectedFolderIndex &&
+                      "bg-accent text-accent-foreground",
+                  )}
+                  onClick={() => handleFolderSelect(folder.path)}
+                >
+                  {folderInputValue.trim()
+                    ? highlightMatches(folder.path || "/", folder.matches || [])
+                    : folder.path || "/"}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* File Name Input */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium">File name</label>
+        <Input
+          placeholder="filename.md"
+          value={newFileName}
+          onChange={(e) => setNewFileName(e.target.value)}
+          onKeyDown={handleFileCreateKeyDown}
+          className="text-sm"
+          autoFocus={!showFolderDropdown}
+        />
+      </div>
+
+      {/* Actions */}
+      <div className="flex justify-end gap-2">
+        <Button variant="ghost" size="sm" onClick={handleCancel}>
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          onClick={handleFileCreateSubmit}
+          disabled={!newFileName.trim() || isCreatingFile}
+        >
+          {isCreatingFile ? "Creating..." : "Create"}
+        </Button>
+      </div>
+    </div>
+  );
+  // Reset state when dialog closes
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      setNewFileName("");
+      setIsCreatingFile(false);
+      setShowFolderDropdown(false);
+      setFolderInputValue(initialFolderPath); // Reset to initial path
+      onClose();
+    }
+  };
+
+  // Mobile Sheet for File Creation
+  if (isMobile) {
+    return (
+      <Sheet open={isOpen} onOpenChange={handleOpenChange}>
+        <SheetContent side="bottom" className="rounded-t-lg">
+          <SheetHeader>
+            <SheetTitle>Create New File</SheetTitle>
+          </SheetHeader>
+          {dialogContent}
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  // Desktop Dialog for File Creation
+  return (
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContentUI className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Create New File</DialogTitle>
+        </DialogHeader>
+        {dialogContent}
+      </DialogContentUI>
+    </Dialog>
+  );
+}

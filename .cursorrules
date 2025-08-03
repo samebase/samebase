@@ -1,0 +1,48 @@
+# Cursor AI Guidelines
+
+## UI/UX Best Practices
+
+### Avoid Unnecessary Loading States
+- **DON'T** add "Loading...", "No items found", or placeholder text by default
+- **DO** return `null`, empty array `[]`, or empty state when there's no content
+- **REASON**: Loading states cause UI jumping and jarring user experience
+- **EXCEPTION**: Only add loading states if explicitly requested or for long-running operations (>500ms)
+
+### Examples
+
+❌ **Bad - Causes UI jumping:**
+```tsx
+{items.length === 0 ? (
+  <div>Loading items...</div>
+) : (
+  items.map(item => <Item key={item.id} {...item} />)
+)}
+```
+
+✅ **Good - Clean, no jumping:**
+```tsx
+{items.map(item => <Item key={item.id} {...item} />)}
+```
+
+❌ **Bad - Unnecessary placeholder:**
+```tsx
+{filteredResults.length === 0 ? (
+  <div>No results found</div>
+) : (
+  filteredResults.map(result => ...)
+)}
+```
+
+✅ **Good - Let empty state speak for itself:**
+```tsx
+{filteredResults.map(result => ...)}
+```
+
+### When Loading States ARE Appropriate
+- Network requests that take >500ms
+- File uploads/downloads
+- Complex computations
+- User explicitly expects feedback (form submissions)
+
+### General Principle
+**Prefer silent, smooth UX over chatty, jumpy interfaces.**
