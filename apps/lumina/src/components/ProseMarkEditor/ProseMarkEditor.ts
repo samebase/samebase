@@ -13,12 +13,8 @@ import * as ProseMark from "@prosemark/core";
 // import { htmlBlockExtension } from '@prosemark/render-html';
 import { indentWithTab } from "@codemirror/commands";
 import { GFM } from "@lezer/markdown";
-import {
-  defaultHighlightStyle,
-  syntaxHighlighting,
-  syntaxTree,
-} from "@codemirror/language";
-import { printTree, traverseTree } from "@lezer-unofficial/printer";
+import { syntaxTree } from "@codemirror/language";
+import { printTree } from "@lezer-unofficial/printer";
 // import initDoc from "./initDoc.md?raw";
 import { traverseTreePlugin } from "./traverseTreePlugin";
 
@@ -66,4 +62,6 @@ export function createEditor() {
   });
   // for easier debugging
   Object.assign(window, { editor, ProseMark });
+
+  return editor;
 }

@@ -1,22 +1,22 @@
-import { Decoration, type DecorationSet, EditorView } from '@codemirror/view';
+import { Decoration, type DecorationSet, EditorView } from "@codemirror/view";
 import {
   type EditorState,
   Facet,
   type Range,
   StateField,
-} from '@codemirror/state';
-import { syntaxTree } from '@codemirror/language';
-import type { SyntaxNodeRef } from '@lezer/common';
-import { type RangeLike, rangeTouchesRange } from '../utils';
+} from "@codemirror/state";
+import { syntaxTree } from "@codemirror/language";
+import type { SyntaxNodeRef } from "@lezer/common";
+import { type RangeLike, rangeTouchesRange } from "../utils";
 
 const hideTheme = EditorView.theme({
-  '.cm-hidden-token': {
-    fontSize: '0px',
+  ".cm-hidden-token": {
+    fontSize: "0px",
   },
 });
 
 export const hideInlineDecoration = Decoration.mark({
-  class: 'cm-hidden-token',
+  class: "cm-hidden-token",
 });
 export const hideBlockDecoration = Decoration.replace({
   block: true,
@@ -53,7 +53,7 @@ const buildDecorations = (state: EditorState) => {
           const res = spec.unhideZone(state, node);
           if (
             state.selection.ranges.some((range) =>
-              rangeTouchesRange(res, range),
+              rangeTouchesRange(res, range)
             )
           ) {
             return;
@@ -78,17 +78,19 @@ const buildDecorations = (state: EditorState) => {
           }
 
           const cursor = node.node.cursor();
-          console.assert(cursor.firstChild(), 'A hide node must have children');
-          cursor.iterate((node) => {
-            if (names.includes(node.type.name)) {
+          console.assert(cursor.firstChild(), "A hide node must have children");
+
+          // Manual traversal to ensure all children are processed
+          do {
+            if (names.includes(cursor.type.name)) {
               decorations.push(
                 (spec.block ? hideBlockDecoration : hideInlineDecoration).range(
-                  node.from,
-                  node.to,
-                ),
+                  cursor.from,
+                  cursor.to
+                )
               );
             }
-          });
+          } while (cursor.nextSibling());
         }
       }
     },
@@ -115,7 +117,7 @@ export interface HidableNodeSpec {
   subNodeNameToHide?: string | string[];
   onHide?: (
     state: EditorState,
-    node: SyntaxNodeRef,
+    node: SyntaxNodeRef
   ) => Range<Decoration> | Range<Decoration>[] | undefined;
   block?: boolean;
   unhideZone?: (state: EditorState, node: SyntaxNodeRef) => RangeLike;

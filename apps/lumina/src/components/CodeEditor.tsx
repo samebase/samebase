@@ -57,10 +57,10 @@ export function CodeEditor({
 
   useEffect(() => {
     console.log("Creating editor");
-    createEditor();
+    const editor = createEditor();
     return () => {
       console.log("Destroying editor");
-      // editor.destroy();
+      editor.destroy();
     };
   }, []);
 
