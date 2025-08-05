@@ -17,6 +17,9 @@ importers:
       '@auth/core':
         specifier: ^0.37.0
         version: 0.37.4
+      '@codemirror/collab':
+        specifier: ^6.1.1
+        version: 6.1.1
       '@codemirror/commands':
         specifier: ^6.8.0
         version: 6.8.1
@@ -493,6 +496,12 @@ packages:
       '@codemirror/state': 6.5.2
       '@codemirror/view': 6.38.1
       '@lezer/common': 1.2.3
+
+  /@codemirror/collab@6.1.1:
+    resolution: {integrity: sha512-tkIn9Jguh98ie12dbBuba3lE8LHUkaMrIFuCVeVGhncSczFdKmX25vC12+58+yqQW5AXi3py6jWY0W+jelyglA==}
+    dependencies:
+      '@codemirror/state': 6.5.2
+    dev: false
 
   /@codemirror/commands@6.8.1:
     resolution: {integrity: sha512-KlGVYufHMQzxbdQONiLyGQDUW0itrLZwq3CcY7xpv9ZLRHqzkBSoteocBHtMCoY7/Ci4xhzSrToIeLg7FxHuaw==}

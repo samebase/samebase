@@ -1,0 +1,329 @@
+import { query, mutation, internalMutation } from "./_generated/server";
+import { v } from "convex/values";
+import { getAuthUserId } from "@convex-dev/auth/server";
+
+/**
+ * Get a document for collaborative editing - similar to the authority's getDocument
+ * Returns the current document content and version
+ */
+export const getDocument = query({
+  args: {
+    vaultId: v.id("vaults"),
+    filePath: v.string(),
+  },
+  returns: v.object({
+    version: v.number(),
+    content: v.string(),
+    exists: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    console.log("getDocument:", args.filePath);
+
+    // Check if there's staged content for this file
+    const staging = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      )
+      .first();
+
+    if (staging) {
+      console.log(
+        "getDocument: found staging with version",
+        staging.version ?? 0,
+      );
+      return {
+        version: staging.version ?? 0,
+        content: staging.content,
+        exists: true,
+      };
+    }
+
+    console.log("getDocument: no staging found");
+    // No staging found - return empty document
+    return {
+      version: 0,
+      content: "",
+      exists: false,
+    };
+  },
+});
+
+/**
+ * Pull updates since a given version - similar to the authority's pullUpdates
+ * Returns all updates that happened after the given version
+ */
+export const pullUpdates = query({
+  args: {
+    vaultId: v.id("vaults"),
+    filePath: v.string(),
+    version: v.number(),
+  },
+  returns: v.array(
+    v.object({
+      clientId: v.string(),
+      changes: v.string(), // Serialized ChangeSet
+      version: v.number(),
+      userId: v.id("users"),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const updates = await ctx.db
+      .query("collaborativeUpdates")
+      .withIndex("by_file_and_version", (q) =>
+        q
+          .eq("vaultId", args.vaultId)
+          .eq("filePath", args.filePath)
+          .gt("version", args.version),
+      )
+      .collect();
+
+    return updates.map((update) => ({
+      clientId: update.clientId,
+      changes: update.changes,
+      version: update.version,
+      userId: update.userId,
+    }));
+  },
+});
+
+/**
+ * Push updates to the server - similar to the authority's pushUpdates
+ * Handles operational transformation and conflict resolution
+ */
+export const pushUpdates = mutation({
+  args: {
+    vaultId: v.id("vaults"),
+    filePath: v.string(),
+    version: v.number(), // Client's current version
+    updates: v.array(
+      v.object({
+        clientId: v.string(),
+        changes: v.string(), // Serialized ChangeSet
+      }),
+    ),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    newVersion: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    console.log("pushUpdates received:", JSON.stringify(args, null, 2));
+
+    // Get current staging record
+    const staging = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      )
+      .first();
+
+    let currentVersion = staging?.version ?? 0;
+
+    // If client version doesn't match server version, we need to handle conflicts
+    // For now, we'll implement a simple approach: reject if versions don't match
+    // In a full implementation, you'd use rebaseUpdates from @codemirror/collab
+    if (args.version !== currentVersion) {
+      return {
+        success: false,
+        newVersion: currentVersion,
+      };
+    }
+
+    // Apply updates
+    const timestamp = Date.now();
+    console.log("pushUpdates: applying", args.updates.length, "updates");
+
+    for (const update of args.updates) {
+      currentVersion++;
+
+      // Store the update for other clients to pull
+      const inserted = await ctx.db.insert("collaborativeUpdates", {
+        vaultId: args.vaultId,
+        filePath: args.filePath,
+        version: currentVersion,
+        clientId: update.clientId,
+        changes: update.changes,
+        userId,
+        timestamp,
+      });
+
+      console.log(
+        "pushUpdates: inserted update",
+        inserted,
+        "for version",
+        currentVersion,
+      );
+    }
+
+    // Update the staging record version
+    if (staging) {
+      await ctx.db.patch(staging._id, {
+        version: currentVersion,
+        lastEditTime: timestamp,
+        lastEditUserId: userId,
+      });
+    }
+
+    return {
+      success: true,
+      newVersion: currentVersion,
+    };
+  },
+});
+
+/**
+ * Initialize collaborative editing for a file
+ * This is called when a file is first opened for collaborative editing
+ */
+export const initializeCollaborativeFile = mutation({
+  args: {
+    vaultId: v.id("vaults"),
+    filePath: v.string(),
+    initialContent: v.string(),
+    parentCommitSha: v.string(),
+    branch: v.string(),
+  },
+  returns: v.object({
+    version: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    console.log("initializeCollaborativeFile:", args.filePath);
+
+    // Check if there's already a staging record for this file
+    const existingStaging = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      )
+      .first();
+
+    if (existingStaging) {
+      console.log(
+        "initializeCollaborativeFile: found existing staging with version",
+        existingStaging.version ?? 0,
+      );
+      // Return existing version
+      return {
+        version: existingStaging.version ?? 0,
+      };
+    }
+
+    // Create new staging record with collaborative editing support
+    const inserted = await ctx.db.insert("fileStaging", {
+      ownerId: userId,
+      vaultId: args.vaultId,
+      filePath: args.filePath,
+      content: args.initialContent,
+      parentCommitSha: args.parentCommitSha,
+      lastEditTime: Date.now(),
+      lastEditUserId: userId,
+      branch: args.branch,
+      version: 0,
+    });
+
+    console.log("initializeCollaborativeFile: created new staging", inserted);
+
+    return {
+      version: 0,
+    };
+  },
+});
+
+/**
+ * Apply remote updates to the file content in staging
+ * This is called internally when updates are pushed
+ */
+export const applyUpdatesToStaging = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+    filePath: v.string(),
+    updates: v.array(
+      v.object({
+        changes: v.string(),
+        version: v.number(),
+      }),
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Get current staging record
+    const staging = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      )
+      .first();
+
+    if (!staging) {
+      return null;
+    }
+
+    // In a full implementation, you would:
+    // 1. Parse the ChangeSet from changes
+    // 2. Apply it to the current content
+    // 3. Update the staging record
+
+    // For now, we just update the version
+    const latestVersion = Math.max(...args.updates.map((u) => u.version));
+
+    await ctx.db.patch(staging._id, {
+      version: latestVersion,
+      lastEditTime: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Get all users currently editing a file (for awareness features)
+ */
+export const getActiveEditors = query({
+  args: {
+    vaultId: v.id("vaults"),
+    filePath: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      userId: v.id("users"),
+      lastActive: v.number(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    // Get recent updates (within last 30 seconds) to determine active editors
+    const recentTimestamp = Date.now() - 30 * 1000;
+
+    const recentUpdates = await ctx.db
+      .query("collaborativeUpdates")
+      .withIndex("by_file", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      )
+      .filter((q) => q.gt(q.field("timestamp"), recentTimestamp))
+      .collect();
+
+    // Group by user and get the most recent activity
+    const userActivity = new Map<string, number>();
+    for (const update of recentUpdates) {
+      const currentLatest = userActivity.get(update.userId) ?? 0;
+      if (update.timestamp > currentLatest) {
+        userActivity.set(update.userId, update.timestamp);
+      }
+    }
+
+    return Array.from(userActivity.entries()).map(([userId, lastActive]) => ({
+      userId: userId as any, // Type assertion for Convex ID
+      lastActive,
+    }));
+  },
+});

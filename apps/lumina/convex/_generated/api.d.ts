@@ -14,6 +14,7 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as auth from "../auth.js";
+import type * as collaborative from "../collaborative.js";
 import type * as fileStaging from "../fileStaging.js";
 import type * as fileStagingMutations from "../fileStagingMutations.js";
 import type * as folderExpansion from "../folderExpansion.js";
@@ -33,6 +34,7 @@ import type * as vault from "../vault.js";
  */
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  collaborative: typeof collaborative;
   fileStaging: typeof fileStaging;
   fileStagingMutations: typeof fileStagingMutations;
   folderExpansion: typeof folderExpansion;
