@@ -69,6 +69,9 @@ export default defineSchema({
     lastEditTime: v.number(),
     lastEditUserId: v.id("users"),
     branch: v.string(),
+
+    // Collaborative editing fields
+    version: v.optional(v.number()), // Current version for collaborative editing (defaults to 0)
   })
     .index("by_vault_and_path", ["vaultId", "filePath"])
     .index("by_vault", ["vaultId"])
@@ -86,4 +89,20 @@ export default defineSchema({
   })
     .index("by_user_and_vault", ["userId", "vaultId"])
     .index("by_user_vault_and_path", ["userId", "vaultId", "folderPath"]),
+
+  /**
+   * Collaborative editing updates for operational transformation.
+   * Stores individual changes made to files for proper conflict resolution.
+   */
+  collaborativeUpdates: defineTable({
+    vaultId: v.id("vaults"),
+    filePath: v.string(),
+    version: v.number(), // Version number when this update was applied
+    clientId: v.string(), // Client identifier
+    changes: v.string(), // Serialized ChangeSet from CodeMirror
+    userId: v.id("users"), // User who made the change
+    timestamp: v.number(),
+  })
+    .index("by_file", ["vaultId", "filePath"])
+    .index("by_file_and_version", ["vaultId", "filePath", "version"]),
 });

@@ -4,6 +4,7 @@ import { SignInForm } from "@/SignInForm";
 import { VaultDashboard } from "@/components/VaultDashboard";
 import { RepositoryReadme } from "@/components/RepositoryReadme";
 import { AddRepository } from "@/components/AddRepository";
+import { CollaborativeDemo } from "@/components/CollaborativeDemo";
 import { Authenticated, Unauthenticated } from "convex/react";
 import { Routes, Route } from "react-router-dom";
 
@@ -15,6 +16,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<VaultDashboard />} />
             <Route path="/add" element={<AddRepository />} />
+            <Route path="/collab-demo" element={<CollaborativeDemo />} />
             <Route
               path="/vault/:owner/:repoName"
               element={<RepositoryReadme />}
