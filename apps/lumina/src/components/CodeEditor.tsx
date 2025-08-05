@@ -29,6 +29,56 @@ interface CodeEditorProps {
   className?: string;
 }
 
+// Custom basic setup without line numbers and with minimal borders
+const customBasicSetup = [
+  history(),
+  dropCursor(),
+  EditorState.allowMultipleSelections.of(true),
+  indentOnInput(),
+  bracketMatching(),
+  rectangularSelection(),
+  EditorView.lineWrapping,
+  syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+  keymap.of([...defaultKeymap, ...historyKeymap, ...foldKeymap]),
+  // Custom theme to remove all borders
+  EditorView.theme({
+    "&": {
+      border: "none !important",
+      outline: "none !important",
+      boxShadow: "none !important",
+    },
+    ".cm-editor": {
+      border: "none !important",
+      outline: "none !important",
+      boxShadow: "none !important",
+    },
+    ".cm-editor.cm-focused": {
+      outline: "none !important",
+      border: "none !important",
+      boxShadow: "none !important",
+    },
+    ".cm-focused": {
+      outline: "none !important",
+      border: "none !important",
+      boxShadow: "none !important",
+    },
+    ".cm-scroller": {
+      border: "none !important",
+      outline: "none !important",
+    },
+    ".cm-content": {
+      border: "none !important",
+      outline: "none !important",
+    },
+    ".cm-gutters": {
+      border: "none !important",
+      borderRight: "none !important",
+    },
+    ".cm-line": {
+      border: "none !important",
+    },
+  }),
+];
 // Language detection based on file extension
 const getLanguageExtension = (fileName: string): Extension => {
   const ext = fileName.toLowerCase().split(".").pop();
@@ -102,57 +152,6 @@ export function CodeEditor({
     } else {
       // Use regular CodeMirror for other file types
       const languageExtension = getLanguageExtension(fileName || "");
-
-      // Custom basic setup without line numbers and with minimal borders
-      const customBasicSetup = [
-        history(),
-        dropCursor(),
-        EditorState.allowMultipleSelections.of(true),
-        indentOnInput(),
-        bracketMatching(),
-        rectangularSelection(),
-        EditorView.lineWrapping,
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-        keymap.of([...defaultKeymap, ...historyKeymap, ...foldKeymap]),
-        // Custom theme to remove all borders
-        EditorView.theme({
-          "&": {
-            border: "none !important",
-            outline: "none !important",
-            boxShadow: "none !important",
-          },
-          ".cm-editor": {
-            border: "none !important",
-            outline: "none !important",
-            boxShadow: "none !important",
-          },
-          ".cm-editor.cm-focused": {
-            outline: "none !important",
-            border: "none !important",
-            boxShadow: "none !important",
-          },
-          ".cm-focused": {
-            outline: "none !important",
-            border: "none !important",
-            boxShadow: "none !important",
-          },
-          ".cm-scroller": {
-            border: "none !important",
-            outline: "none !important",
-          },
-          ".cm-content": {
-            border: "none !important",
-            outline: "none !important",
-          },
-          ".cm-gutters": {
-            border: "none !important",
-            borderRight: "none !important",
-          },
-          ".cm-line": {
-            border: "none !important",
-          },
-        }),
-      ];
 
       const extensions: Extension[] = [...customBasicSetup, languageExtension];
 

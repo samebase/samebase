@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
-import { useAction, useQuery, useMutation } from "convex/react";
+import { useAction, useQuery, useMutation, ReactMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { CodeEditor } from "@/components/CodeEditor";
 import { Button } from "@/components/ui/button";
@@ -31,11 +31,15 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { linkStyle } from "./styles";
-import { GetFunctionReferenceReturnType } from "@/lib/convexTypeUtils";
+import {
+  GetFunctionReferenceReturnType,
+  useConvexMutation,
+} from "@/lib/convexUtils";
 import { DialogProvider } from "@/contexts/DialogContext";
 import { useDialog } from "@/hooks/useDialog";
 import { FileCreationDialog } from "@/components/FileCreationDialog";
 import { FolderCreationDialog } from "@/components/FolderCreationDialog";
+import { FunctionReference } from "convex/server";
 
 type RepositoryTree = GetFunctionReferenceReturnType<
   typeof api.github.getRepositoryTree
@@ -115,16 +119,19 @@ function RepositoryReadmeInner() {
   const [localContent, setLocalContent] = useState<string>("");
   const [lastLocalEditTime, setLastLocalEditTime] = useState<number>(0);
 
-  const [isManualCommitting, setIsManualCommitting] = useState(false);
-  const [isResettingToGitHub, setIsResettingToGitHub] = useState(false);
-
   // Command palette state
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   // Convex hooks for staging
-  const saveToStaging = useMutation(api.fileStagingMutations.saveToStaging);
-  const commitStaging = useMutation(api.fileStagingMutations.commitStaging);
-  const resetStaging = useMutation(api.fileStagingMutations.resetStaging);
+  const [saveToStaging] = useConvexMutation(
+    api.fileStagingMutations.saveToStaging,
+  );
+  const [commitStaging, manualComittingStatus] = useConvexMutation(
+    api.fileStagingMutations.commitStaging,
+  );
+  const [resetStaging, resettingToGitHubStatus] = useConvexMutation(
+    api.fileStagingMutations.resetStaging,
+  );
   const fileStatus = useQuery(
     api.fileStagingMutations.getFileStatus,
     selectedFile && vault
@@ -424,8 +431,6 @@ function RepositoryReadmeInner() {
   const handleManualCommit = async () => {
     if (!selectedFile || !vault) return;
 
-    setIsManualCommitting(true);
-
     try {
       await commitStaging({
         vaultId: vault._id,
@@ -436,15 +441,11 @@ function RepositoryReadmeInner() {
       void ghFile.refetch();
     } catch (error) {
       console.error("Failed to commit changes:", error);
-    } finally {
-      setIsManualCommitting(false);
     }
   };
 
   const handleResetToGitHub = async () => {
     if (!selectedFile || !vault || !owner || !repoName) return;
-
-    setIsResettingToGitHub(true);
 
     try {
       // Clear staging first
@@ -472,8 +473,6 @@ function RepositoryReadmeInner() {
       void ghFile.refetch();
     } catch (error) {
       console.error("Failed to reset to GitHub version:", error);
-    } finally {
-      setIsResettingToGitHub(false);
     }
   };
 
@@ -676,20 +675,28 @@ function RepositoryReadmeInner() {
                     size="sm"
                     variant="outline"
                     onClick={() => void handleManualCommit()}
-                    disabled={isManualCommitting || isResettingToGitHub}
+                    disabled={
+                      manualComittingStatus === "loading" ||
+                      resettingToGitHubStatus === "loading"
+                    }
                     className="h-6 px-2 text-xs"
                   >
-                    {isManualCommitting ? "Committing..." : "Commit Now"}
+                    {manualComittingStatus ? "Committing..." : "Commit Now"}
                   </Button>
 
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => void handleResetToGitHub()}
-                    disabled={isResettingToGitHub || isManualCommitting}
+                    disabled={
+                      resettingToGitHubStatus === "loading" ||
+                      manualComittingStatus === "loading"
+                    }
                     className="h-6 px-2 text-xs text-orange-600 hover:text-orange-700"
                   >
-                    {isResettingToGitHub ? "Resetting..." : "Reset to GitHub"}
+                    {resettingToGitHubStatus
+                      ? "Resetting..."
+                      : "Reset to GitHub"}
                   </Button>
                 </div>
               </div>
