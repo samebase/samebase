@@ -3,6 +3,8 @@ import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
 import { Update } from "@codemirror/collab";
+import { api } from "./_generated/api";
+import { Id } from "./_generated/dataModel";
 
 /**
  * Get a document for collaborative editing - similar to the authority's getDocument
@@ -57,31 +59,41 @@ export const getDocument = query({
  */
 export const pullUpdates = query({
   args: {
-    vaultId: v.id("vaults"),
+    repositoryFullName: v.string(),
     filePath: v.string(),
     version: v.number(),
   },
-  returns: v.array(
-    v.object({
-      clientId: v.string(),
-      changes: v.string(), // Serialized ChangeSet
-      version: v.number(),
-      userId: v.id("users"),
-    }),
-  ),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<
+    {
+      clientID: string;
+      changes: string;
+      version: number;
+      userId: Id<"users">;
+    }[]
+  > => {
+    const vault = await ctx.runQuery(api.vault.getVaultByRepository, {
+      repositoryFullName: args.repositoryFullName,
+    });
+
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
     const updates = await ctx.db
       .query("collaborativeUpdates")
       .withIndex("by_file_and_version", (q) =>
         q
-          .eq("vaultId", args.vaultId)
+          .eq("vaultId", vault._id)
           .eq("filePath", args.filePath)
           .gt("version", args.version),
       )
       .collect();
 
     return updates.map((update) => ({
-      clientId: update.clientId,
+      clientID: update.clientId,
       changes: update.changes,
       version: update.version,
       userId: update.userId,
@@ -95,7 +107,7 @@ export const pullUpdates = query({
  */
 export const pushUpdates = mutation({
   args: {
-    vaultId: v.id("vaults"),
+    repositoryFullName: v.string(),
     filePath: v.string(),
     version: v.number(), // Client's current version
     updates: v.array(
@@ -109,7 +121,10 @@ export const pushUpdates = mutation({
     success: v.boolean(),
     newVersion: v.number(),
   }),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ success: boolean; newVersion: number }> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       throw new Error("User not authenticated");
@@ -117,11 +132,20 @@ export const pushUpdates = mutation({
 
     console.log("pushUpdates received:", JSON.stringify(args, null, 2));
 
+    // run existing query
+    const vault = await ctx.runQuery(api.vault.getVaultByRepository, {
+      repositoryFullName: args.repositoryFullName,
+    });
+
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
     // Get current staging record
     const staging = await ctx.db
       .query("fileStaging")
       .withIndex("by_vault_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+        q.eq("vaultId", vault._id).eq("filePath", args.filePath),
       )
       .first();
 
@@ -146,7 +170,7 @@ export const pushUpdates = mutation({
 
       // Store the update for other clients to pull
       const inserted = await ctx.db.insert("collaborativeUpdates", {
-        vaultId: args.vaultId,
+        vaultId: vault._id,
         filePath: args.filePath,
         version: currentVersion,
         clientId: update.clientId,
@@ -175,69 +199,6 @@ export const pushUpdates = mutation({
     return {
       success: true,
       newVersion: currentVersion,
-    };
-  },
-});
-
-/**
- * Initialize collaborative editing for a file
- * This is called when a file is first opened for collaborative editing
- */
-export const initializeCollaborativeFile = mutation({
-  args: {
-    vaultId: v.id("vaults"),
-    filePath: v.string(),
-    initialContent: v.string(),
-    parentCommitSha: v.string(),
-    branch: v.string(),
-  },
-  returns: v.object({
-    version: v.number(),
-  }),
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
-    console.log("initializeCollaborativeFile:", args.filePath);
-
-    // Check if there's already a staging record for this file
-    const existingStaging = await ctx.db
-      .query("fileStaging")
-      .withIndex("by_vault_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
-      )
-      .first();
-
-    if (existingStaging) {
-      console.log(
-        "initializeCollaborativeFile: found existing staging with version",
-        existingStaging.version ?? 0,
-      );
-      // Return existing version
-      return {
-        version: existingStaging.version ?? 0,
-      };
-    }
-
-    // Create new staging record with collaborative editing support
-    const inserted = await ctx.db.insert("fileStaging", {
-      ownerId: userId,
-      vaultId: args.vaultId,
-      filePath: args.filePath,
-      content: args.initialContent,
-      parentCommitSha: args.parentCommitSha,
-      lastEditTime: Date.now(),
-      lastEditUserId: userId,
-      branch: args.branch,
-      version: 0,
-    });
-
-    console.log("initializeCollaborativeFile: created new staging", inserted);
-
-    return {
-      version: 0,
     };
   },
 });

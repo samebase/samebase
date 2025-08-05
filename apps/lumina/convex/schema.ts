@@ -71,7 +71,7 @@ export default defineSchema({
     branch: v.string(),
 
     // Collaborative editing fields
-    version: v.optional(v.number()), // Current version for collaborative editing (defaults to 0)
+    version: v.number(), // Current version for collaborative editing (defaults to 0)
   })
     .index("by_vault_and_path", ["vaultId", "filePath"])
     .index("by_vault", ["vaultId"])

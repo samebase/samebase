@@ -108,68 +108,6 @@ export const getRepository = action({
   },
 });
 
-// Example function to create a repository for the authenticated user
-export const createRepository = action({
-  args: {
-    name: v.string(),
-    description: v.optional(v.string()),
-    private: v.optional(v.boolean()),
-  },
-  returns: v.object({
-    id: v.number(),
-    name: v.string(),
-    full_name: v.string(),
-    html_url: v.string(),
-  }),
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
-    // Get the user's GitHub account
-    const account = await ctx.runQuery(api.users.getGitHubAccount, {});
-
-    if (!account) {
-      throw new Error("GitHub account not found");
-    }
-
-    if (!account.secret) {
-      throw new Error("GitHub access token not found");
-    }
-
-    const accessToken: string = account.secret;
-
-    const response = await fetch("https://api.github.com/user/repos", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: "application/vnd.github.v3+json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: args.name,
-        description: args.description,
-        private: args.private ?? false,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `GitHub API error: ${response.status} ${response.statusText}`,
-      );
-    }
-
-    const repo = await response.json();
-    return {
-      id: repo.id,
-      name: repo.name,
-      full_name: repo.full_name,
-      html_url: repo.html_url,
-    };
-  },
-});
-
 // Example function to create a commit in a repository
 export const createCommit = action({
   args: {
@@ -299,7 +237,7 @@ export const updateFileContent = action({
       });
 
       // Clear staging after successful commit
-      await ctx.runMutation(internal.fileStagingMutations.clearStaging, {
+      await ctx.runMutation(api.fileStagingMutations.clearStaging, {
         vaultId: args.vaultId,
         filePath: args.path,
       });

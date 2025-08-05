@@ -1,4 +1,4 @@
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { FunctionReference } from "convex/server";
 import { useState, useCallback } from "react";
 
@@ -31,4 +31,31 @@ export function useConvexMutation<T extends FunctionReference<"mutation">>(
   );
 
   return [wrappedMutation, state] as const;
+}
+
+// Convex useAction wrapper that also returns the state (e.g. 'loading')
+export function useConvexAction<T extends FunctionReference<"action">>(
+  action: T,
+) {
+  const [state, setState] = useState<"idle" | "loading">("idle");
+  const rawAction = useAction(action);
+
+  const wrappedAction = useCallback(
+    async (
+      ...args: Parameters<typeof rawAction>
+    ): ReturnType<typeof rawAction> => {
+      setState("loading");
+      try {
+        const result = await rawAction(...args);
+        setState("idle");
+        return result;
+      } catch (error) {
+        setState("idle");
+        throw error;
+      }
+    },
+    [rawAction],
+  );
+
+  return [wrappedAction, state] as const;
 }
