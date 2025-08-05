@@ -2,7 +2,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
 import { useAction, useQuery, useMutation, ReactMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { CodeEditor } from "@/components/CodeEditor";
+import { CodeEditor, CodeEditorWrapper } from "@/components/CodeEditor";
 import { Button } from "@/components/ui/button";
 
 import {
@@ -499,8 +499,6 @@ function RepositoryReadmeInner() {
 
   const error = ghFile.error || tree.error;
 
-  // MARK: First returns
-
   if (!owner || !repoName) {
     void navigate("/");
   }
@@ -681,7 +679,9 @@ function RepositoryReadmeInner() {
                     }
                     className="h-6 px-2 text-xs"
                   >
-                    {manualComittingStatus ? "Committing..." : "Commit Now"}
+                    {manualComittingStatus === "loading"
+                      ? "Committing..."
+                      : "Commit Now"}
                   </Button>
 
                   <Button
@@ -694,23 +694,24 @@ function RepositoryReadmeInner() {
                     }
                     className="h-6 px-2 text-xs text-orange-600 hover:text-orange-700"
                   >
-                    {resettingToGitHubStatus
+                    {resettingToGitHubStatus === "loading"
                       ? "Resetting..."
                       : "Reset to GitHub"}
                   </Button>
                 </div>
               </div>
 
-              {(localContent !== "" || selectedFile) && (
+              {
+                // (localContent !== "" || selectedFile) &&
                 <div className="flex-1 min-h-0">
-                  <CodeEditor
-                    value={localContent}
+                  <CodeEditorWrapper
+                    // value={localContent}
                     onChange={handleContentChange}
                     fileName={selectedFile}
                     className="h-full border border-border/50 rounded-md"
                   />
                 </div>
-              )}
+              }
             </div>
           </div>
         </div>

@@ -8,13 +8,15 @@ import App from "./App.tsx";
 import "./index.css";
 import { QueryProvider } from "./lib/providers/query-provider";
 
-const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
+export const client = new ConvexReactClient(
+  import.meta.env.VITE_CONVEX_URL as string,
+);
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
       <ThemeProvider attribute="class">
-        <ConvexAuthProvider client={convex}>
+        <ConvexAuthProvider client={client}>
           <QueryProvider>
             <App />
           </QueryProvider>
