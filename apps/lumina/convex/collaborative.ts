@@ -2,6 +2,8 @@ import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
+import { Update } from "@codemirror/collab";
+
 /**
  * Get a document for collaborative editing - similar to the authority's getDocument
  * Returns the current document content and version

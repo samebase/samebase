@@ -29,6 +29,12 @@ export function CollaborativeDemo() {
     demoVaultId ? { vaultId: demoVaultId, filePath: demoFilePath } : "skip",
   );
 
+  console.log({
+    demoVaultId,
+    demoFilePath,
+    activeEditors,
+  });
+
   const [content, setContent] =
     useState(`// Welcome to Collaborative CodeMirror Demo!
 // 
@@ -159,8 +165,6 @@ console.log("Hello, collaborative world!");
               </div>
             </CardContent>
           </Card>
-
-          {/* Instructions */}
         </div>
       </div>
     </div>
