@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query, internalMutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 
@@ -14,7 +14,6 @@ export const saveToStaging = mutation({
     parentCommitSha: v.string(),
     branch: v.string(),
   },
-  returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
@@ -36,7 +35,7 @@ export const saveToStaging = mutation({
     if (existingStaging) {
       // Codemirror gives lots of updates
       if (existingStaging.content === args.content) {
-        return null;
+        return existingStaging;
       }
 
       console.log({
@@ -62,24 +61,22 @@ export const saveToStaging = mutation({
         lastEditTime: currentTimestamp,
         lastEditUserId: userId,
         branch: args.branch,
+        version: 0,
       });
     }
 
-    console.log("userId in mutation", userId);
+    const staging = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      )
+      .first();
 
-    // Schedule auto-commit after 20 seconds with timestamp validation
-    // await ctx.scheduler.runAfter(
-    //   AUTO_COMMIT_DELAY_MS,
-    //   internal.fileStaging.autoCommitStagedFile,
-    //   {
-    //     userId,
-    //     vaultId: args.vaultId,
-    //     filePath: args.filePath,
-    //     lastEditTime: currentTimestamp,
-    //   },
-    // );
+    if (!staging) {
+      throw new Error("Should not happen. Staging not found after saving?!?");
+    }
 
-    return null;
+    return staging;
   },
 });
 
@@ -118,81 +115,8 @@ export const listStagedFiles = query({
   },
 });
 
-// Commit staged file to GitHub
-export const commitStaging = mutation({
-  args: {
-    vaultId: v.id("vaults"),
-    filePath: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
-    // Find the staging record
-    const staging = await ctx.db
-      .query("fileStaging")
-      .withIndex("by_vault_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
-      )
-      .first();
-
-    if (!staging) {
-      throw new Error("No staged changes found for this file");
-    }
-
-    // Get the vault information while we have auth context
-    const vault = await ctx.db.get(args.vaultId);
-    if (!vault) {
-      throw new Error("Vault not found");
-    }
-
-    // Schedule the actual GitHub commit
-    await ctx.scheduler.runAfter(0, internal.fileStaging.commitStagedFile, {
-      userId,
-      vaultId: args.vaultId,
-      filePath: args.filePath,
-      repoOwner: vault.ghRepoOwner,
-      repoName: vault.ghRepoName,
-    });
-
-    return null;
-  },
-});
-
-// Public mutation to reset staging (clear staged changes)
-export const resetStaging = mutation({
-  args: {
-    vaultId: v.id("vaults"),
-    filePath: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
-    // Clear the staging record
-    const staging = await ctx.db
-      .query("fileStaging")
-      .withIndex("by_vault_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
-      )
-      .first();
-
-    if (staging) {
-      await ctx.db.delete(staging._id);
-    }
-
-    return null;
-  },
-});
-
 // Clear staging for a specific file (used after successful commit)
-export const clearStaging = internalMutation({
+export const clearStaging = mutation({
   args: {
     vaultId: v.id("vaults"),
     filePath: v.string(),
@@ -206,55 +130,22 @@ export const clearStaging = internalMutation({
       )
       .first();
 
+    // delete all updates for this file
+    const updates = await ctx.db
+      .query("collaborativeUpdates")
+      .withIndex("by_file", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      )
+      .collect();
+
+    for (const update of updates) {
+      await ctx.db.delete(update._id);
+    }
+
     if (staging) {
       await ctx.db.delete(staging._id);
     }
 
     return null;
-  },
-});
-
-// Get current file status - returns staging if exists, or indicates GitHub fetch needed
-export const getFileStatus = query({
-  args: {
-    vaultId: v.id("vaults"),
-    filePath: v.string(),
-  },
-  returns: v.union(
-    v.object({
-      hasStaging: v.literal(true),
-      content: v.string(),
-      parentCommitSha: v.string(),
-      lastEditTime: v.number(),
-      branch: v.string(),
-    }),
-    v.object({
-      hasStaging: v.literal(false),
-    }),
-  ),
-  handler: async (ctx, args) => {
-    // Check if there's staged content for this file
-    const staging = await ctx.db
-      .query("fileStaging")
-      .withIndex("by_vault_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
-      )
-      .first();
-
-    if (staging) {
-      // Return staged content
-      return {
-        hasStaging: true as const,
-        content: staging.content,
-        parentCommitSha: staging.parentCommitSha,
-        lastEditTime: staging.lastEditTime,
-        branch: staging.branch,
-      };
-    }
-
-    // No staging - indicate GitHub fetch needed
-    return {
-      hasStaging: false as const,
-    };
   },
 });

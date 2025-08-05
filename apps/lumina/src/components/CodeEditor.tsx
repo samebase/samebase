@@ -6,6 +6,7 @@ import { ChangeSet, EditorState, Extension, Text } from "@codemirror/state";
 import { EditorView } from "codemirror";
 import { languages } from "@codemirror/language-data";
 import * as ProseMark from "@prosemark/core";
+import { useQuery as useReactQuery } from "@tanstack/react-query";
 // Note: closeBrackets functionality requires @codemirror/autocomplete package
 // which is not installed in this project
 import {
@@ -54,24 +55,26 @@ import {
   prosemarkMarkdownSyntaxExtensions,
 } from "@prosemark/core";
 import { printTree } from "@lezer-unofficial/printer";
-import { useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 
 // Temporary:
-const tempVaultId = "k976ryb9d1m2gyvxhps87dac257mv5ps" as Id<"vaults">;
-const tempFilePath = "README.md";
+// const tempVaultId = "k976ryb9d1m2gyvxhps87dac257mv5ps" as Id<"vaults">;
+// const tempFilePath = "README.md";
 
 export function createProseMarkEditor({
   content,
   version,
-  onChange,
   parent,
   isDark = false,
+  repositoryFullName,
+  filePath,
 }: {
   content: string | Text;
-  onChange?: (value: string) => void;
   parent: HTMLElement;
   isDark?: boolean;
   version: number;
+  repositoryFullName: string;
+  filePath: string;
 }) {
   // Custom basic setup without line numbers and with minimal borders
 
@@ -84,7 +87,11 @@ export function createProseMarkEditor({
     EditorView.lineWrapping,
     prosemarkBasicSetup(),
     prosemarkBaseThemeSetup(),
-    peerExtension(version),
+    peerExtension({
+      startVersion: version,
+      repositoryFullName,
+      filePath,
+    }),
 
     keymap.of([
       indentWithTab,
@@ -105,71 +112,14 @@ export function createProseMarkEditor({
     extensions.push(oneDark);
   }
 
-  // Add change listener if onChange is provided
-  if (onChange) {
-    extensions.push(
-      EditorView.updateListener.of((update) => {
-        if (update.docChanged) {
-          onChange(update.state.doc.toString());
-        }
-      }),
-    );
-  }
-
   const editor = new EditorView({
     extensions,
     doc: content,
     parent,
   });
 
-  // for easier debugging
-  Object.assign(window, { editor, ProseMark });
-
   return editor;
 }
-
-/*
-// Copied from 
-
-let pending: ((value: any) => void)[] = []
-
-self.onmessage = event => {
-  function resp(value: any) {
-    event.ports[0].postMessage(JSON.stringify(value))
-  }
-  let data = JSON.parse(event.data)
-  if (data.type == "pullUpdates") {
-    if (data.version < updates.length)
-      resp(updates.slice(data.version))
-    else
-      pending.push(resp)
-  } else if (data.type == "pushUpdates") {
-    // Convert the JSON representation to an actual ChangeSet
-    // instance
-    let received = data.updates.map(json => ({
-      clientID: json.clientID,
-      changes: ChangeSet.fromJSON(json.changes)
-    }))
-    if (data.version != updates.length)
-      received = rebaseUpdates(received, updates.slice(data.version))
-    for (let update of received) {
-      updates.push(update)
-      doc = update.changes.apply(doc)
-    }
-    resp(true)
-    if (received.length) {
-      // Notify pending requests
-      let json = received.map(update => ({
-        clientID: update.clientID,
-        changes: update.changes.toJSON()
-      }))
-      while (pending.length) pending.pop()!(json)
-    }
-  } else if (data.type == "getDocument") {
-    resp({version: updates.length, doc: doc.toString()})
-  }
-}
- */
 
 function awaitTimeout(timeout: number): Promise<void> {
   return new Promise((resolve) => {
@@ -181,30 +131,17 @@ function awaitTimeout(timeout: number): Promise<void> {
 
 const delay = 500;
 
-async function getDocument(opts?: {
-  delay?: number;
-}): Promise<{ version: number; doc: Text }> {
-  // only for dev
-  if (opts?.delay) {
-    await awaitTimeout(opts.delay);
-  }
-  const data = await client.query(api.collaborative.getDocument, {
-    vaultId: tempVaultId,
-    filePath: tempFilePath,
-  });
-
-  console.log(data.content);
-
-  return {
-    version: data.version,
-    doc: Text.of(data.content.split("\n")),
-  };
-}
-
-async function pushUpdates(
-  version: number,
-  fullUpdates: readonly Update[],
-): Promise<boolean> {
+async function pushUpdates({
+  version,
+  repositoryFullName,
+  filePath,
+  fullUpdates,
+}: {
+  version: number;
+  repositoryFullName: string;
+  filePath: string;
+  fullUpdates: readonly Update[];
+}): Promise<boolean> {
   await awaitTimeout(delay);
   // Strip off transaction data
   let updates = fullUpdates.map((u) => ({
@@ -214,32 +151,48 @@ async function pushUpdates(
 
   return client
     .mutation(api.collaborative.pushUpdates, {
-      vaultId: tempVaultId,
-      filePath: tempFilePath,
+      repositoryFullName,
+      filePath,
       version,
       updates,
     })
     .then((result) => result.success);
 }
 
-async function pullUpdates(version: number): Promise<readonly Update[]> {
+async function pullUpdates({
+  version,
+  repositoryFullName,
+  filePath,
+}: {
+  version: number;
+  repositoryFullName: string;
+  filePath: string;
+}): Promise<readonly Update[]> {
   await awaitTimeout(delay);
   return client
     .query(api.collaborative.pullUpdates, {
-      vaultId: tempVaultId,
-      filePath: tempFilePath,
+      repositoryFullName,
+      filePath,
       version,
     })
     .then((updates) =>
       updates.map((u) => ({
         changes: ChangeSet.fromJSON(JSON.parse(u.changes)),
-        clientID: u.clientId,
+        clientID: u.clientID,
       })),
     );
 }
 
 // https://github.com/codemirror/website/blob/main/site/examples/collab/collab.ts#L89
-export function peerExtension(startVersion: number) {
+export function peerExtension({
+  startVersion,
+  repositoryFullName,
+  filePath,
+}: {
+  startVersion: number;
+  repositoryFullName: string;
+  filePath: string;
+}) {
   let plugin = ViewPlugin.fromClass(
     class {
       private pushing = false;
@@ -258,7 +211,12 @@ export function peerExtension(startVersion: number) {
         if (this.pushing || !updates.length) return;
         this.pushing = true;
         let version = getSyncedVersion(this.view.state);
-        await pushUpdates(version, updates);
+        await pushUpdates({
+          version,
+          repositoryFullName,
+          filePath,
+          fullUpdates: updates,
+        });
         this.pushing = false;
         // Regardless of whether the push failed or new updates came in
         // while it was running, try again if there's updates remaining
@@ -270,7 +228,11 @@ export function peerExtension(startVersion: number) {
         while (!this.done) {
           console.log("pulling");
           let version = getSyncedVersion(this.view.state);
-          let updates = await pullUpdates(version);
+          let updates = await pullUpdates({
+            version,
+            repositoryFullName,
+            filePath,
+          });
           this.view.dispatch(receiveUpdates(this.view.state, updates));
         }
       }
@@ -368,63 +330,49 @@ const isMarkdownFile = (fileName?: string) => {
 };
 
 export function CodeEditorWrapper({
-  // value,
-  onChange,
-  fileName,
-  className,
+  repositoryFullName,
+  filePath,
 }: {
-  // value: string;
-  onChange: (value: string) => void;
-  fileName?: string;
-  className?: string;
+  repositoryFullName: string;
+  filePath: string;
 }) {
-  const firstDoc = useQuery(api.collaborative.getDocument, {
-    vaultId: tempVaultId,
-    filePath: tempFilePath,
+  const firstDocAction = useAction(api.fileStaging.getFileForEditing);
+
+  const { data: firstDocData } = useReactQuery({
+    queryKey: ["firstDoc"],
+    queryFn: () => firstDocAction({ repositoryFullName, filePath }),
   });
 
-  if (!firstDoc) return null;
+  console.log({
+    firstDocData,
+  });
+
+  if (!firstDocData) return null;
 
   return (
     <CodeEditor
-      firstDoc={firstDoc}
-      onChange={onChange}
-      fileName={fileName}
-      className={className}
+      firstDoc={firstDocData}
+      repositoryFullName={repositoryFullName}
+      filePath={filePath}
     />
   );
 }
 
 export function CodeEditor({
   firstDoc,
-  onChange,
-  fileName,
-  className,
+  repositoryFullName,
+  filePath,
 }: {
-  firstDoc: { version: number; content: string; exists: boolean };
-  onChange: (value: string) => void;
-  fileName?: string;
-  className?: string;
+  firstDoc: { version: number; content: string };
+  repositoryFullName: string;
+  filePath: string;
 }) {
+  const fileName = filePath.split("/").pop();
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
-  const onChangeRef = useRef(onChange);
   const { theme, systemTheme } = useTheme();
   // 3 letters/digits to differentiate the mounted editor
   const idRef = useRef(Math.random().toString(36).substring(2, 5));
-
-  // Keep onChange ref up to date
-  useEffect(() => {
-    onChangeRef.current = onChange;
-  }, [onChange]);
-
-  console.log({ firstDoc });
-
-  // const data = useQuery(api.collaborative.pullUpdates, {
-  //   vaultId: tempVaultId,
-  //   filePath: tempFilePath,
-  //   version: firstDoc.version,
-  // });
 
   useEffect(() => {
     let cancelled = false;
@@ -434,7 +382,7 @@ export function CodeEditor({
       console.log("starting func", idRef.current);
       if (!editorRef.current) return;
 
-      const { version, doc } = await getDocument();
+      // const { version, doc } = await getDocument();
 
       if (cancelled) return;
 
@@ -448,11 +396,12 @@ export function CodeEditor({
       if (useProseMarkEditor) {
         // Use ProseMarkEditor for markdown files
         editor = createProseMarkEditor({
-          content: doc,
-          version,
-          onChange: (newValue: string) => onChangeRef.current(newValue),
+          content: firstDoc.content,
+          version: firstDoc.version,
           parent: editorRef.current,
           isDark,
+          repositoryFullName,
+          filePath,
         });
       } else {
         // Use regular CodeMirror for other file types
@@ -461,25 +410,20 @@ export function CodeEditor({
         const extensions: Extension[] = [
           ...customBasicSetup,
           languageExtension,
-          peerExtension(0),
+          peerExtension({
+            startVersion: firstDoc.version,
+            repositoryFullName,
+            filePath,
+          }),
         ];
 
         if (isDark) {
           extensions.push(oneDark);
         }
 
-        // Add change listener
-        extensions.push(
-          EditorView.updateListener.of((update) => {
-            if (update.docChanged) {
-              onChangeRef.current(update.state.doc.toString());
-            }
-          }),
-        );
-
         editor = new EditorView({
           state: EditorState.create({
-            doc,
+            doc: firstDoc.content,
             extensions,
           }),
           parent: editorRef.current,
@@ -504,7 +448,7 @@ export function CodeEditor({
   return (
     <div
       ref={editorRef}
-      className={`h-full w-full ${className || ""}`}
+      className={`h-full w-full`}
       style={{
         height: "100%",
         minHeight: "400px", // Minimum height for usability

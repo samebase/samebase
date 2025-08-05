@@ -33,6 +33,7 @@ import {
 import { linkStyle } from "./styles";
 import {
   GetFunctionReferenceReturnType,
+  useConvexAction,
   useConvexMutation,
 } from "@/lib/convexUtils";
 import { DialogProvider } from "@/contexts/DialogContext";
@@ -69,10 +70,12 @@ function findBestInitialFile(files: RepositoryTree) {
 }
 
 function RepositoryReadmeInner() {
+  const { setOpenMobile } = useSidebar();
+
   const {
     owner,
     repoName,
-    "*": filePath,
+    "*": branchAndFilePath,
   } = useParams<{
     owner: string;
     repoName: string;
@@ -94,7 +97,7 @@ function RepositoryReadmeInner() {
   } = useDialog();
 
   // Parse branch and file path from the wildcard parameter
-  const parsedPath = filePath ? filePath.split("/") : [];
+  const parsedPath = branchAndFilePath ? branchAndFilePath.split("/") : [];
   const branch = parsedPath[0] || "main";
   const actualFilePath = parsedPath.slice(1).join("/");
   const selectedFile = actualFilePath || undefined;
@@ -115,28 +118,16 @@ function RepositoryReadmeInner() {
     api.folderExpansion.setFolderExpansionState,
   );
 
-  // Local state for immediate UI updates
-  const [localContent, setLocalContent] = useState<string>("");
-  const [lastLocalEditTime, setLastLocalEditTime] = useState<number>(0);
-
   // Command palette state
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   // Convex hooks for staging
-  const [saveToStaging] = useConvexMutation(
-    api.fileStagingMutations.saveToStaging,
+  const [commitStaging, manualComittingStatus] = useConvexAction(
+    api.fileStaging.commitStaging,
   );
-  const [commitStaging, manualComittingStatus] = useConvexMutation(
-    api.fileStagingMutations.commitStaging,
-  );
-  const [resetStaging, resettingToGitHubStatus] = useConvexMutation(
-    api.fileStagingMutations.resetStaging,
-  );
-  const fileStatus = useQuery(
-    api.fileStagingMutations.getFileStatus,
-    selectedFile && vault
-      ? { vaultId: vault._id, filePath: selectedFile }
-      : "skip",
+
+  const [clearStaging, clearingStagingStatus] = useConvexMutation(
+    api.fileStagingMutations.clearStaging,
   );
 
   // Get count of staged files for this vault
@@ -189,112 +180,6 @@ function RepositoryReadmeInner() {
     navigate,
   ]);
 
-  const ghFile = useReactQuery({
-    queryKey: ["github-file", owner, repoName, selectedFile, branch],
-    queryFn: async () => {
-      if (!owner || !repoName || !selectedFile) {
-        throw new Error("Owner, repository name, and file path are required");
-      }
-      return await getFileContent({
-        owner,
-        repo: repoName,
-        path: selectedFile,
-        ref: branch,
-      });
-    },
-    enabled: !!(
-      owner &&
-      repoName &&
-      selectedFile &&
-      fileStatus?.hasStaging === false
-    ),
-  });
-
-  // Determine current file content and metadata based on staging status
-  const isFromStaging = fileStatus?.hasStaging === true;
-  const remoteContent = fileStatus?.content || "";
-
-  const currentSha = isFromStaging
-    ? fileStatus.parentCommitSha
-    : ghFile.data?.sha || "";
-
-  // Debounced save to Convex staging
-  const debouncedSaveToStaging = useCallback(
-    async (content: string) => {
-      if (!selectedFile || !vault) {
-        return;
-      }
-
-      try {
-        await saveToStaging({
-          vaultId: vault._id,
-          filePath: selectedFile,
-          content,
-          parentCommitSha: currentSha,
-          branch,
-        });
-      } catch (error) {
-        console.error("Failed to save to staging:", error);
-      }
-    },
-    [saveToStaging, vault, selectedFile, currentSha, branch],
-  );
-
-  // load github file into staging, if there's no staging yet
-  useEffect(() => {
-    if (ghFile.data?.content && !fileStatus?.hasStaging) {
-      const utf8 = base64ToUtf8(ghFile.data.content);
-      void debouncedSaveToStaging(utf8);
-    }
-  }, [
-    selectedFile,
-    owner,
-    repoName,
-    ghFile.data?.content,
-    fileStatus?.hasStaging,
-    debouncedSaveToStaging,
-  ]);
-
-  // Initialize local content when file loads or changes
-  useEffect(() => {
-    if (remoteContent !== undefined) {
-      // Only update local content if user hasn't been editing recently (1 second grace period)
-      const timeSinceLastEdit = Date.now() - lastLocalEditTime;
-      const hasRecentLocalEdits = timeSinceLastEdit < 1000;
-
-      if (!hasRecentLocalEdits || localContent === "") {
-        setLocalContent(remoteContent);
-      }
-    }
-  }, [remoteContent, lastLocalEditTime, localContent]);
-
-  // Reset local state when switching files
-  useEffect(() => {
-    setLocalContent("");
-    setLastLocalEditTime(0);
-  }, [selectedFile]);
-
-  // Auto-save to Convex when content changes (debounced)
-  useEffect(() => {
-    if (!localContent || !selectedFile || !vault) return;
-
-    // Only save if there have been recent edits (not just initial load)
-    const timeSinceLastEdit = Date.now() - lastLocalEditTime;
-    if (timeSinceLastEdit > 5000) return; // Don't save if last edit was more than 5 seconds ago
-
-    const timeoutId = setTimeout(() => {
-      void debouncedSaveToStaging(localContent);
-    }, 1000); // Debounce for 1 second
-
-    return () => clearTimeout(timeoutId);
-  }, [
-    localContent,
-    selectedFile,
-    vault,
-    lastLocalEditTime,
-    debouncedSaveToStaging,
-  ]);
-
   // Add command palette keyboard shortcut handler
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -316,6 +201,9 @@ function RepositoryReadmeInner() {
   const handleFileSelect = (path: string) => {
     if (owner && repoName) {
       void navigate(`/vault/${owner}/${repoName}/${branch}/${path}`);
+
+      // close the sidebar
+      setOpenMobile(false);
     }
   };
 
@@ -433,12 +321,9 @@ function RepositoryReadmeInner() {
 
     try {
       await commitStaging({
-        vaultId: vault._id,
+        repositoryFullName: repositoryFullName,
         filePath: selectedFile,
       });
-
-      // Refetch the file to get updated data after commit
-      void ghFile.refetch();
     } catch (error) {
       console.error("Failed to commit changes:", error);
     }
@@ -447,39 +332,10 @@ function RepositoryReadmeInner() {
   const handleResetToGitHub = async () => {
     if (!selectedFile || !vault || !owner || !repoName) return;
 
-    try {
-      // Clear staging first
-      await resetStaging({
-        vaultId: vault._id,
-        filePath: selectedFile,
-      });
-
-      // Fetch latest content from GitHub
-      const latestContent = await getFileContent({
-        owner,
-        repo: repoName,
-        path: selectedFile,
-        ref: branch,
-      });
-
-      if (latestContent?.content) {
-        // Update local content to match GitHub
-        const decodedContent = base64ToUtf8(latestContent.content);
-        setLocalContent(decodedContent);
-        setLastLocalEditTime(0); // Reset edit time
-      }
-
-      // Refetch queries to update UI state
-      void ghFile.refetch();
-    } catch (error) {
-      console.error("Failed to reset to GitHub version:", error);
-    }
-  };
-
-  const handleContentChange = (value: string) => {
-    // Update local state immediately for responsive UI
-    setLocalContent(value);
-    setLastLocalEditTime(Date.now());
+    await clearStaging({
+      vaultId: vault._id,
+      filePath: selectedFile,
+    });
   };
 
   const handleFolderToggle = async (
@@ -497,7 +353,7 @@ function RepositoryReadmeInner() {
 
   const emptyRepository = !tree.isLoading && (tree.data ?? []).length === 0;
 
-  const error = ghFile.error || tree.error;
+  const error = tree.error;
 
   if (!owner || !repoName) {
     void navigate("/");
@@ -626,7 +482,7 @@ function RepositoryReadmeInner() {
             <div className="max-w-none h-full flex flex-col">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-base md:text-sm font-medium mb-2">
-                  {ghFile.data?.name || selectedFile}
+                  {selectedFile}
                 </h2>
 
                 <div className="flex items-center gap-2">
@@ -675,7 +531,7 @@ function RepositoryReadmeInner() {
                     onClick={() => void handleManualCommit()}
                     disabled={
                       manualComittingStatus === "loading" ||
-                      resettingToGitHubStatus === "loading"
+                      clearingStagingStatus === "loading"
                     }
                     className="h-6 px-2 text-xs"
                   >
@@ -689,12 +545,12 @@ function RepositoryReadmeInner() {
                     variant="outline"
                     onClick={() => void handleResetToGitHub()}
                     disabled={
-                      resettingToGitHubStatus === "loading" ||
+                      clearingStagingStatus === "loading" ||
                       manualComittingStatus === "loading"
                     }
                     className="h-6 px-2 text-xs text-orange-600 hover:text-orange-700"
                   >
-                    {resettingToGitHubStatus === "loading"
+                    {clearingStagingStatus === "loading"
                       ? "Resetting..."
                       : "Reset to GitHub"}
                   </Button>
@@ -705,10 +561,9 @@ function RepositoryReadmeInner() {
                 // (localContent !== "" || selectedFile) &&
                 <div className="flex-1 min-h-0">
                   <CodeEditorWrapper
-                    // value={localContent}
-                    onChange={handleContentChange}
-                    fileName={selectedFile}
-                    className="h-full border border-border/50 rounded-md"
+                    key={branchAndFilePath}
+                    repositoryFullName={repositoryFullName}
+                    filePath={actualFilePath || ""}
                   />
                 </div>
               }

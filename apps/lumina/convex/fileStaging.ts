@@ -1,8 +1,10 @@
 "use node";
 
-import { internalAction } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
+import { Octokit } from "@octokit/rest";
+import { getAuthUserId } from "@convex-dev/auth/server";
 
 // Internal action to commit a staged file to GitHub
 export const commitStagedFile = internalAction({
@@ -67,7 +69,7 @@ export const commitStagedFile = internalAction({
 
       if (result) {
         // Success - remove from staging
-        await ctx.runMutation(internal.fileStagingMutations.clearStaging, {
+        await ctx.runMutation(api.fileStagingMutations.clearStaging, {
           vaultId: args.vaultId,
           filePath: args.filePath,
         });
@@ -176,6 +178,170 @@ export const manualCommit = internalAction({
       );
       throw error;
     }
+
+    return null;
+  },
+});
+
+/**
+ * Initial request to get the file.
+ * Will call GitHub and populate the fileStaging table
+ */
+export const getFileForEditing = action({
+  args: {
+    repositoryFullName: v.string(),
+    filePath: v.string(),
+  },
+
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    content: string;
+    parentCommitSha: string;
+    lastEditTime: number;
+    branch: string;
+    version: number;
+  } | null> => {
+    const currentUser = await ctx.runQuery(api.users.getAuthUser, {});
+
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    const vault = await ctx.runQuery(api.vault.getVaultByRepository, {
+      repositoryFullName: args.repositoryFullName,
+    });
+
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
+    console.log({
+      args,
+    });
+
+    // Check if there's staged content for this file
+    const staging = await ctx.runQuery(api.fileStagingMutations.getStagedFile, {
+      vaultId: vault._id,
+      filePath: args.filePath,
+    });
+
+    // TODO: Maybe also check the github, if it has updates
+    if (staging) {
+      console.log("found in staging", staging);
+      // Return staged content
+      return {
+        content: staging.content,
+        parentCommitSha: staging.parentCommitSha,
+        lastEditTime: staging.lastEditTime,
+        branch: staging.branch,
+        version: staging.version,
+      };
+    }
+
+    console.log("not found in staging");
+
+    const octokit: Octokit = new Octokit({
+      auth: currentUser.githubAccessToken,
+    });
+
+    try {
+      const file = await octokit.rest.repos.getContent({
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        path: args.filePath,
+        // ref: args.ref || "main",
+      });
+
+      console.log("file", file);
+
+      // Handle case where path is a directory (shouldn't happen in our use case)
+      if (Array.isArray(file.data)) {
+        return null;
+      }
+
+      if (file.data.type !== "file") {
+        return null;
+      }
+
+      const fileData = file.data;
+
+      const utf8Content = Buffer.from(fileData.content, "base64").toString(
+        "utf-8",
+      );
+
+      console.log({
+        utf8Content,
+        fileData,
+      });
+
+      // create new staging record
+      const stagedFile = await ctx.runMutation(
+        api.fileStagingMutations.saveToStaging,
+        {
+          // TODO: figure out branch
+          branch: "main",
+          vaultId: vault._id,
+          filePath: args.filePath,
+          content: utf8Content,
+          parentCommitSha: fileData.sha,
+        },
+      );
+
+      return {
+        content: stagedFile.content,
+        parentCommitSha: stagedFile.parentCommitSha,
+        lastEditTime: stagedFile.lastEditTime,
+        branch: stagedFile.branch,
+        version: stagedFile.version,
+      };
+    } catch (error) {
+      console.error("error", error);
+      return null;
+    }
+  },
+});
+
+// Commit staged file to GitHub
+export const commitStaging = action({
+  args: {
+    repositoryFullName: v.string(),
+    filePath: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    // Get the vault information while we have auth context
+    const vault = await ctx.runQuery(api.vault.getVaultByRepository, {
+      repositoryFullName: args.repositoryFullName,
+    });
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
+    // Find the staging record
+    const staging = await ctx.runQuery(api.fileStagingMutations.getStagedFile, {
+      vaultId: vault._id,
+      filePath: args.filePath,
+    });
+
+    if (!staging) {
+      throw new Error("No staged changes found for this file");
+    }
+
+    // Schedule the actual GitHub commit
+    await ctx.runAction(internal.fileStaging.commitStagedFile, {
+      userId,
+      vaultId: vault._id,
+      filePath: args.filePath,
+      repoOwner: vault.ghRepoOwner,
+      repoName: vault.ghRepoName,
+    });
 
     return null;
   },
