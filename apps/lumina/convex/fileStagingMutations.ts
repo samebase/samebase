@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { internal } from "./_generated/api";
 
 export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
 
@@ -57,6 +56,8 @@ export const saveToStaging = internalMutation({
         ownerId: userId,
         vaultId: args.vaultId,
         filePath: args.filePath,
+        initialFilePath: args.filePath,
+        fileDeleted: false,
         content: args.content,
         initialContent: args.initialContent,
         parentCommitSha: args.parentCommitSha,

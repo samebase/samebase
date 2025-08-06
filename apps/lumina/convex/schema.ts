@@ -63,10 +63,15 @@ export default defineSchema({
     ownerId: v.id("users"),
     vaultId: v.id("vaults"),
 
+    fileDeleted: v.boolean(),
+
     filePath: v.string(),
+    initialFilePath: v.string(),
+
     content: v.string(),
     initialContent: v.string(),
     parentCommitSha: v.string(), // SHA of the GitHub commit this edit is based on
+
     lastEditTime: v.number(),
     lastEditUserId: v.id("users"),
     branch: v.string(),
