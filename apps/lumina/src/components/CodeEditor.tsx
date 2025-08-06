@@ -126,10 +126,16 @@ export function peerExtension({
   startVersion,
   repositoryFullName,
   filePath,
+  setVersion,
+  setPull,
 }: {
   startVersion: number;
   repositoryFullName: string;
   filePath: string;
+  setVersion: (version: number) => void;
+  setPull: (
+    pull: (updates: readonly Update[], version: number) => void,
+  ) => void;
 }) {
   let plugin = ViewPlugin.fromClass(
     class {
@@ -137,7 +143,8 @@ export function peerExtension({
       private done = false;
 
       constructor(private view: EditorView) {
-        this.pull();
+        // this.pull();
+        setPull(this.pull.bind(this));
       }
 
       update(update: ViewUpdate) {
@@ -146,9 +153,12 @@ export function peerExtension({
 
       async push() {
         let updates = sendableUpdates(this.view.state);
+
         if (this.pushing || !updates.length) return;
         this.pushing = true;
         let version = getSyncedVersion(this.view.state);
+        setVersion(version);
+
         await pushUpdates({
           version,
           repositoryFullName,
@@ -162,16 +172,19 @@ export function peerExtension({
           setTimeout(() => this.push(), 100);
       }
 
-      async pull() {
-        while (!this.done) {
-          let version = getSyncedVersion(this.view.state);
-          let updates = await pullUpdates({
-            version,
-            repositoryFullName,
-            filePath,
-          });
-          this.view.dispatch(receiveUpdates(this.view.state, updates));
-        }
+      async pull(updates: readonly Update[], incomingVersion: number) {
+        let version = getSyncedVersion(this.view.state);
+        if (version !== incomingVersion) return;
+
+        // let updates = await pullUpdates({
+        //   version,
+        //   repositoryFullName,
+        //   filePath,
+        // });
+        this.view.dispatch(receiveUpdates(this.view.state, updates));
+
+        const newVersion = getSyncedVersion(this.view.state);
+        setVersion(newVersion);
       }
 
       destroy() {
@@ -307,18 +320,29 @@ export function CodeEditor({
   const fileName = filePath.split("/").pop();
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  const pullRef = useRef<
+    ((updates: readonly Update[], version: number) => void) | null
+  >(null);
   const { theme, systemTheme } = useTheme();
   // 3 letters/digits to differentiate the mounted editor
   const idRef = useRef(Math.random().toString(36).substring(2, 5));
+  const [version, setVersion] = useState(firstDoc.version);
 
   const updates = useQuery(api.collaborative.pullUpdates, {
     repositoryFullName,
     filePath,
-    version: firstDoc.version,
+    version,
   });
 
   useEffect(() => {
-    // Implement the pull part
+    if (!updates || !pullRef.current) return;
+
+    const cmUpdates = updates.map((u) => ({
+      changes: ChangeSet.fromJSON(JSON.parse(u.changes)),
+      clientID: u.clientID,
+    }));
+    pullRef.current(cmUpdates, version);
+    console.log("pulled updates", version, cmUpdates);
   }, [updates]);
 
   useEffect(() => {
@@ -364,6 +388,10 @@ export function CodeEditor({
           startVersion: firstDoc.version,
           repositoryFullName,
           filePath,
+          setVersion,
+          setPull: (pull) => {
+            pullRef.current = pull;
+          },
         }),
 
         keymap.of([
