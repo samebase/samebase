@@ -1,12 +1,10 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 /* eslint-disable @typescript-eslint/no-floating-promises */
 /* eslint-disable prefer-const */
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { ChangeSet, EditorState, Extension, Text } from "@codemirror/state";
 import { EditorView } from "codemirror";
 import { languages } from "@codemirror/language-data";
-import * as ProseMark from "@prosemark/core";
-import { useQuery as useReactQuery } from "@tanstack/react-query";
 // Note: closeBrackets functionality requires @codemirror/autocomplete package
 // which is not installed in this project
 import {
@@ -60,66 +58,6 @@ import { useAction, useQuery } from "convex/react";
 // Temporary:
 // const tempVaultId = "k976ryb9d1m2gyvxhps87dac257mv5ps" as Id<"vaults">;
 // const tempFilePath = "README.md";
-
-export function createProseMarkEditor({
-  content,
-  version,
-  parent,
-  isDark = false,
-  repositoryFullName,
-  filePath,
-}: {
-  content: string | Text;
-  parent: HTMLElement;
-  isDark?: boolean;
-  version: number;
-  repositoryFullName: string;
-  filePath: string;
-}) {
-  // Custom basic setup without line numbers and with minimal borders
-
-  const extensions = [
-    ...customBasicSetup,
-    markdown({
-      codeLanguages: languages,
-      extensions: [GFM, prosemarkMarkdownSyntaxExtensions],
-    }),
-    EditorView.lineWrapping,
-    prosemarkBasicSetup(),
-    prosemarkBaseThemeSetup(),
-    peerExtension({
-      startVersion: version,
-      repositoryFullName,
-      filePath,
-    }),
-
-    keymap.of([
-      indentWithTab,
-      {
-        key: "Alt-p",
-        run: (view) => {
-          console.log(
-            printTree(syntaxTree(view.state), view.state.doc.toString()),
-          );
-          return true;
-        },
-      },
-    ]),
-  ];
-
-  // Add dark theme if requested
-  if (isDark) {
-    extensions.push(oneDark);
-  }
-
-  const editor = new EditorView({
-    extensions,
-    doc: content,
-    parent,
-  });
-
-  return editor;
-}
 
 function awaitTimeout(timeout: number): Promise<void> {
   return new Promise((resolve) => {
@@ -226,7 +164,6 @@ export function peerExtension({
 
       async pull() {
         while (!this.done) {
-          console.log("pulling");
           let version = getSyncedVersion(this.view.state);
           let updates = await pullUpdates({
             version,
@@ -337,20 +274,20 @@ export function CodeEditorWrapper({
   filePath: string;
 }) {
   const firstDocAction = useAction(api.fileStaging.getFileForEditing);
+  const [firstDocData, setFirstDocData] =
+    useState<Awaited<ReturnType<typeof firstDocAction>>>(null);
 
-  const { data: firstDocData } = useReactQuery({
-    queryKey: ["firstDoc"],
-    queryFn: () => firstDocAction({ repositoryFullName, filePath }),
-  });
-
-  console.log({
-    firstDocData,
-  });
+  useEffect(() => {
+    firstDocAction({ repositoryFullName, filePath }).then((data) => {
+      setFirstDocData(data);
+    });
+  }, [firstDocAction, repositoryFullName, filePath]);
 
   if (!firstDocData) return null;
 
   return (
     <CodeEditor
+      key={`${repositoryFullName}-${filePath}`}
       firstDoc={firstDocData}
       repositoryFullName={repositoryFullName}
       filePath={filePath}
@@ -374,15 +311,24 @@ export function CodeEditor({
   // 3 letters/digits to differentiate the mounted editor
   const idRef = useRef(Math.random().toString(36).substring(2, 5));
 
+  const updates = useQuery(api.collaborative.pullUpdates, {
+    repositoryFullName,
+    filePath,
+    version: firstDoc.version,
+  });
+
   useEffect(() => {
+    // Implement the pull part
+  }, [updates]);
+
+  useEffect(() => {
+    console.log("useEffect", idRef.current);
     let cancelled = false;
     let editor: EditorView | null = null;
 
     const func = async () => {
-      console.log("starting func", idRef.current);
+      console.log("starting func", idRef.current), editorRef.current;
       if (!editorRef.current) return;
-
-      // const { version, doc } = await getDocument();
 
       if (cancelled) return;
 
@@ -390,47 +336,64 @@ export function CodeEditor({
       const effectiveTheme = theme === "system" ? systemTheme : theme;
       const isDark = effectiveTheme === "dark";
 
-      // Check if this is a markdown file
-      const useProseMarkEditor = isMarkdownFile(fileName);
+      console.log("creating editor", {
+        ...firstDoc,
+      });
 
-      if (useProseMarkEditor) {
-        // Use ProseMarkEditor for markdown files
-        editor = createProseMarkEditor({
-          content: firstDoc.content,
-          version: firstDoc.version,
-          parent: editorRef.current,
-          isDark,
+      // editor = createProseMarkEditor({
+      //   content: firstDoc.content,
+      //   version: firstDoc.version,
+      //   parent: editorRef.current,
+      //   isDark,
+      //   repositoryFullName,
+      //   filePath,
+      // });
+
+      // Custom basic setup without line numbers and with minimal borders
+
+      const extensions = [
+        ...customBasicSetup,
+        markdown({
+          codeLanguages: languages,
+          extensions: [GFM, prosemarkMarkdownSyntaxExtensions],
+        }),
+        EditorView.lineWrapping,
+        prosemarkBasicSetup(),
+        prosemarkBaseThemeSetup(),
+        peerExtension({
+          startVersion: firstDoc.version,
           repositoryFullName,
           filePath,
-        });
-      } else {
-        // Use regular CodeMirror for other file types
-        const languageExtension = getLanguageExtension(fileName || "");
+        }),
 
-        const extensions: Extension[] = [
-          ...customBasicSetup,
-          languageExtension,
-          peerExtension({
-            startVersion: firstDoc.version,
-            repositoryFullName,
-            filePath,
-          }),
-        ];
+        keymap.of([
+          indentWithTab,
+          {
+            key: "Alt-p",
+            run: (view) => {
+              console.log(
+                printTree(syntaxTree(view.state), view.state.doc.toString()),
+              );
+              return true;
+            },
+          },
+        ]),
+      ];
 
-        if (isDark) {
-          extensions.push(oneDark);
-        }
-
-        editor = new EditorView({
-          state: EditorState.create({
-            doc: firstDoc.content,
-            extensions,
-          }),
-          parent: editorRef.current,
-        });
+      // Add dark theme if requested
+      if (isDark) {
+        extensions.push(oneDark);
       }
 
+      editor = new EditorView({
+        extensions,
+        doc: firstDoc.content,
+        parent: editorRef.current,
+      });
+
       viewRef.current = editor;
+
+      (window as any).editor = editor;
 
       console.log("finished created editor", idRef.current);
     };

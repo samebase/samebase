@@ -132,7 +132,6 @@ export const pushUpdates = mutation({
 
     console.log("pushUpdates received:", JSON.stringify(args, null, 2));
 
-    // run existing query
     const vault = await ctx.runQuery(api.vault.getVaultByRepository, {
       repositoryFullName: args.repositoryFullName,
     });
@@ -149,8 +148,13 @@ export const pushUpdates = mutation({
       )
       .first();
 
-    let currentVersion = staging?.version ?? 0;
+    if (!staging) {
+      throw new Error("Staging not found");
+    }
 
+    let currentVersion = staging.version;
+
+    // TODO: handle conflicts
     // If client version doesn't match server version, we need to handle conflicts
     // For now, we'll implement a simple approach: reject if versions don't match
     // In a full implementation, you'd use rebaseUpdates from @codemirror/collab
@@ -188,13 +192,12 @@ export const pushUpdates = mutation({
     }
 
     // Update the staging record version
-    if (staging) {
-      await ctx.db.patch(staging._id, {
-        version: currentVersion,
-        lastEditTime: timestamp,
-        lastEditUserId: userId,
-      });
-    }
+
+    await ctx.db.patch(staging._id, {
+      version: currentVersion,
+      lastEditTime: timestamp,
+      lastEditUserId: userId,
+    });
 
     return {
       success: true,
