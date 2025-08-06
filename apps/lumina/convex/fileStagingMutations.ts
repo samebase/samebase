@@ -1,16 +1,17 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 
 export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
 
 // Save file content to staging for real-time editing
-export const saveToStaging = mutation({
+export const saveToStaging = internalMutation({
   args: {
     vaultId: v.id("vaults"),
     filePath: v.string(),
     content: v.string(),
+    initialContent: v.string(),
     parentCommitSha: v.string(),
     branch: v.string(),
   },
@@ -57,6 +58,7 @@ export const saveToStaging = mutation({
         vaultId: args.vaultId,
         filePath: args.filePath,
         content: args.content,
+        initialContent: args.initialContent,
         parentCommitSha: args.parentCommitSha,
         lastEditTime: currentTimestamp,
         lastEditUserId: userId,

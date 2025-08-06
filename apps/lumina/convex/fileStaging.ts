@@ -278,13 +278,14 @@ export const getFileForEditing = action({
 
       // create new staging record
       const stagedFile = await ctx.runMutation(
-        api.fileStagingMutations.saveToStaging,
+        internal.fileStagingMutations.saveToStaging,
         {
           // TODO: figure out branch
           branch: "main",
           vaultId: vault._id,
           filePath: args.filePath,
           content: utf8Content,
+          initialContent: utf8Content,
           parentCommitSha: fileData.sha,
         },
       );

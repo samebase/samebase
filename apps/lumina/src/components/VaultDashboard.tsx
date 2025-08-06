@@ -43,11 +43,10 @@ export function VaultDashboard() {
           </div>
 
           <div className="space-y-2">
-            <h1 className="text-3xl font-bold">Welcome to Your Vault</h1>
+            <h1 className="text-3xl font-bold">
+              Connect your first GitHub repository
+            </h1>
             <p className="text-lg text-muted-foreground">
-              Get started by connecting your first GitHub repository
-            </p>
-            <p className="text-sm text-muted-foreground">
               Once connected, you'll be able to edit files directly in your
               browser and collaborate with others in real-time.
             </p>

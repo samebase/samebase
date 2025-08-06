@@ -65,6 +65,7 @@ export default defineSchema({
 
     filePath: v.string(),
     content: v.string(),
+    initialContent: v.string(),
     parentCommitSha: v.string(), // SHA of the GitHub commit this edit is based on
     lastEditTime: v.number(),
     lastEditUserId: v.id("users"),

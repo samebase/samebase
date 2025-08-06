@@ -2,7 +2,7 @@ import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
-import { Update } from "@codemirror/collab";
+import { ChangeSet, Text } from "@codemirror/state";
 import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
@@ -154,10 +154,7 @@ export const pushUpdates = mutation({
 
     let currentVersion = staging.version;
 
-    // TODO: handle conflicts
-    // If client version doesn't match server version, we need to handle conflicts
-    // For now, we'll implement a simple approach: reject if versions don't match
-    // In a full implementation, you'd use rebaseUpdates from @codemirror/collab
+    // Simple version check - reject if versions don't match
     if (args.version !== currentVersion) {
       return {
         success: false,
@@ -168,6 +165,9 @@ export const pushUpdates = mutation({
     // Apply updates
     const timestamp = Date.now();
     console.log("pushUpdates: applying", args.updates.length, "updates");
+
+    // Store the updates for other clients to pull and apply them to content
+    let currentDoc = Text.of(staging.content.split("\n"));
 
     for (const update of args.updates) {
       currentVersion++;
@@ -189,11 +189,18 @@ export const pushUpdates = mutation({
         "for version",
         currentVersion,
       );
+
+      // Apply the changes to the document using CodeMirror's proper methods
+      const changeSet = ChangeSet.fromJSON(JSON.parse(update.changes));
+      currentDoc = changeSet.apply(currentDoc);
     }
 
-    // Update the staging record version
+    // Convert back to string
+    const updatedContent = currentDoc.toString();
 
+    // Update the staging record with new content and version
     await ctx.db.patch(staging._id, {
+      content: updatedContent,
       version: currentVersion,
       lastEditTime: timestamp,
       lastEditUserId: userId,
@@ -235,15 +242,35 @@ export const applyUpdatesToStaging = internalMutation({
       return null;
     }
 
-    // In a full implementation, you would:
-    // 1. Parse the ChangeSet from changes
-    // 2. Apply it to the current content
-    // 3. Update the staging record
+    // Apply the updates to the actual content using proper CodeMirror functions
+    let currentDoc = Text.of(staging.content.split("\n"));
 
-    // For now, we just update the version
+    // Sort updates by version to apply them in order
+    const sortedUpdates = args.updates.sort((a, b) => a.version - b.version);
+
+    for (const update of sortedUpdates) {
+      try {
+        // Parse the serialized ChangeSet from CodeMirror
+        const changeSet = ChangeSet.fromJSON(JSON.parse(update.changes));
+
+        // Apply the changes to the document using CodeMirror's proper methods
+        currentDoc = changeSet.apply(currentDoc);
+      } catch (error) {
+        console.error(
+          "Error applying update in applyUpdatesToStaging:",
+          error,
+          "Update:",
+          update,
+        );
+        // Continue with other updates even if one fails
+      }
+    }
+
     const latestVersion = Math.max(...args.updates.map((u) => u.version));
+    const updatedContent = currentDoc.toString();
 
     await ctx.db.patch(staging._id, {
+      content: updatedContent,
       version: latestVersion,
       lastEditTime: Date.now(),
     });
