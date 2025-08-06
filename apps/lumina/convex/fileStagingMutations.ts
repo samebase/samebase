@@ -105,12 +105,18 @@ export const getStagedFile = query({
 export const listStagedFiles = query({
   args: {
     vaultId: v.id("vaults"),
+    includeUnchanged: v.optional(v.boolean()),
   },
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
     const files = await ctx.db
       .query("fileStaging")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .filter((q) =>
+        args.includeUnchanged
+          ? q.eq(true, true)
+          : q.neq(q.field("content"), q.field("initialContent")),
+      )
       .collect();
 
     return files;

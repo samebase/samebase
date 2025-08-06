@@ -493,7 +493,7 @@ function RepositoryReadmeInner() {
                           className={`text-xs text-muted-foreground ${linkStyle}`}
                         >
                           {stagedFiles.length} file
-                          {stagedFiles.length !== 1 ? "s" : ""} staged
+                          {stagedFiles.length !== 1 ? "s" : ""} changed
                         </button>
                       </PopoverTrigger>
                       <PopoverContent
