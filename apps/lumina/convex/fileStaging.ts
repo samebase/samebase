@@ -6,79 +6,173 @@ import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
-// Internal action to commit a staged file to GitHub
+// Helper function to create a commit with multiple files
+async function createCommitWithMultipleFiles(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  stagedFiles: Array<{ filePath: string; content: string }>,
+  commitMessage: string,
+  branch: string = "main",
+) {
+  try {
+    // 1. Get the current commit SHA
+    const { data: refData } = await octokit.rest.git.getRef({
+      owner,
+      repo,
+      ref: `heads/${branch}`,
+    });
+    const currentCommitSha = refData.object.sha;
+
+    // 2. Get the current commit to get the tree SHA
+    const { data: currentCommit } = await octokit.rest.git.getCommit({
+      owner,
+      repo,
+      commit_sha: currentCommitSha,
+    });
+    const currentTreeSha = currentCommit.tree.sha;
+
+    // 3. Create blobs for each file
+    const tree = [];
+    for (const file of stagedFiles) {
+      const { data: blob } = await octokit.rest.git.createBlob({
+        owner,
+        repo,
+        content: Buffer.from(file.content, "utf8").toString("base64"),
+        encoding: "base64",
+      });
+
+      tree.push({
+        path: file.filePath,
+        mode: "100644" as const, // File mode for regular files
+        type: "blob" as const,
+        sha: blob.sha,
+      });
+    }
+
+    // 4. Create a new tree
+    const { data: newTree } = await octokit.rest.git.createTree({
+      owner,
+      repo,
+      base_tree: currentTreeSha,
+      tree,
+    });
+
+    // 5. Create the commit
+    const { data: newCommit } = await octokit.rest.git.createCommit({
+      owner,
+      repo,
+      message: commitMessage,
+      tree: newTree.sha,
+      parents: [currentCommitSha],
+    });
+
+    // 6. Update the reference
+    await octokit.rest.git.updateRef({
+      owner,
+      repo,
+      ref: `heads/${branch}`,
+      sha: newCommit.sha,
+    });
+
+    return {
+      sha: newCommit.sha,
+      url: newCommit.html_url,
+    };
+  } catch (error) {
+    console.error("Failed to create commit:", error);
+    throw error;
+  }
+}
+
+// Internal action to commit all staged files to GitHub
 export const commitStagedFile = internalAction({
   args: {
     userId: v.id("users"),
     vaultId: v.id("vaults"),
-    filePath: v.string(),
     repoOwner: v.string(),
     repoName: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    console.log(
-      `Starting commit for ${args.filePath} in vault ${args.vaultId}`,
-    );
+    const fullRepo = `${args.repoOwner}/${args.repoName}`;
+    console.log(`Starting commit for all staged files in vault ${fullRepo}`);
+
+    const vault = await ctx.runQuery(api.vault.getVaultByRepository, {
+      repositoryFullName: fullRepo,
+    });
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
 
     try {
       // Get the staging record
-      const staging = await ctx.runQuery(
-        api.fileStagingMutations.getStagedFile,
+      const changedFiles = await ctx.runQuery(
+        api.fileStagingMutations.listStagedFiles,
         {
           vaultId: args.vaultId,
-          filePath: args.filePath,
         },
       );
 
-      if (!staging) {
-        console.log(`No staging found for ${args.filePath}`);
+      if (!changedFiles.length) {
+        console.log(`No staging found for ${fullRepo}`);
         return null;
       }
 
-      console.log(args);
-
-      // Use the provided repository information
-      const owner = args.repoOwner;
-      const repo = args.repoName;
-      if (!owner || !repo) {
-        throw new Error("Invalid repository owner or name");
-      }
-
-      console.log("--here1", { owner, repo });
+      console.log("--here1", { stagedFiles: changedFiles });
 
       // const user = await ctx.runQuery(api.users.getById, {
       //   userId: args.userId,
       // });
-
-      // Update file content via GitHub API
-      const result = await ctx.runAction(api.github.updateFileContent, {
+      const currentUser = await ctx.runQuery(api.users.getById, {
         userId: args.userId,
-        vaultId: args.vaultId,
-        owner,
-        repo,
-        path: args.filePath,
-        content: staging.content,
-        message: `Update ${args.filePath}`,
-        sha: staging.parentCommitSha,
-        branch: staging.branch,
       });
-      console.log("--here3", "after updateFileContent");
+
+      if (!currentUser) {
+        throw new Error("User not found");
+      }
+
+      const octokit: Octokit = new Octokit({
+        auth: currentUser.githubAccessToken,
+      });
+
+      // Create a commit with all staged files
+      const result = await createCommitWithMultipleFiles(
+        octokit,
+        args.repoOwner,
+        args.repoName,
+        changedFiles,
+        "Auto-commit staged files", // commit message
+        "main", // branch
+      );
+
+      console.log("--here3", "after createCommitWithMultipleFiles");
 
       console.log("result", result);
 
-      if (result) {
-        // Success - remove from staging
+      // Remove staged file even if they are unchanged
+      const stagedFiles = await ctx.runQuery(
+        api.fileStagingMutations.listStagedFiles,
+        {
+          vaultId: args.vaultId,
+          includeUnchanged: true,
+        },
+      );
+
+      // Success - remove all staged files from staging
+      for (const stagedFile of stagedFiles) {
         await ctx.runMutation(api.fileStagingMutations.clearStaging, {
           vaultId: args.vaultId,
-          filePath: args.filePath,
+          filePath: stagedFile.filePath,
         });
-
-        console.log(`Auto-committed ${args.filePath} in vault ${args.vaultId}`);
       }
+
+      console.log(
+        `Auto-committed ${changedFiles.length} files in vault ${args.vaultId}`,
+      );
     } catch (error) {
       console.error(
-        `Failed to auto-commit ${args.filePath} in vault ${args.vaultId}:`,
+        `Failed to auto-commit staged files in vault ${args.vaultId}:`,
         error,
       );
       // Don't throw - let the system retry if needed
@@ -127,7 +221,6 @@ export const autoCommitStagedFile = internalAction({
       await ctx.runAction(internal.fileStaging.commitStagedFile, {
         userId: args.userId,
         vaultId: args.vaultId,
-        filePath: args.filePath,
         repoOwner: args.repoOwner,
         repoName: args.repoName,
       });
@@ -163,7 +256,6 @@ export const manualCommit = internalAction({
       await ctx.runAction(internal.fileStaging.commitStagedFile, {
         userId: args.userId,
         vaultId: args.vaultId,
-        filePath: args.filePath,
         repoOwner: args.repoOwner,
         repoName: args.repoName,
       });
@@ -339,7 +431,6 @@ export const commitStaging = action({
     await ctx.runAction(internal.fileStaging.commitStagedFile, {
       userId,
       vaultId: vault._id,
-      filePath: args.filePath,
       repoOwner: vault.ghRepoOwner,
       repoName: vault.ghRepoName,
     });
