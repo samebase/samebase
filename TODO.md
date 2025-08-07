@@ -1,0 +1,4 @@
+- make dragging nice
+- when committing, commit all changed files
+- allow deleting file/folder
+- 
