@@ -1,4 +1,4 @@
 - make dragging nice
 - when committing, commit all changed files
 - allow deleting file/folder
-- 
+- after commit now, the file should already have a new staging
