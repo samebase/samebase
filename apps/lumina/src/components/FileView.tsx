@@ -1,5 +1,8 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useQuery as useReactQuery } from "@tanstack/react-query";
+import {
+  UseQueryResult,
+  useQuery as useReactQuery,
+} from "@tanstack/react-query";
 import { useAction, useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { CodeEditorWrapper } from "@/components/CodeEditor";
@@ -23,7 +26,7 @@ import {
 } from "@/components/ui/sidebar";
 import { FileTree } from "./FileTree";
 import { CommandPalette } from "./CommandPalette";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
 import { useSidebar } from "@/components/ui/sidebar";
 import { UserMenu } from "@/components/UserMenu";
@@ -42,6 +45,7 @@ import { DialogProvider } from "@/contexts/DialogContext";
 import { useDialog } from "@/hooks/useDialog";
 import { FileCreationDialog } from "@/components/FileCreationDialog";
 import { FolderCreationDialog } from "@/components/FolderCreationDialog";
+import { nonNullable } from "@/lib/utils";
 
 type RepositoryTree = GetFunctionReferenceReturnType<
   typeof api.github.getRepositoryTree
@@ -104,8 +108,8 @@ function categorizeStagedFiles(stagedFiles: any[]) {
   return categories;
 }
 
-function FileViewInner() {
-  const { setOpenMobile } = useSidebar();
+function FileViewWrapper() {
+  const navigate = useNavigate();
 
   const {
     owner,
@@ -116,20 +120,6 @@ function FileViewInner() {
     repoName: string;
     "*": string;
   }>();
-  const navigate = useNavigate();
-
-  // Get current user for sidebar
-  const user = useQuery(api.users.viewer);
-
-  // Dialog state management
-  const {
-    fileCreationDialog,
-    folderCreationDialog,
-    openFileCreation,
-    closeFileCreation,
-    openFolderCreation,
-    closeFolderCreation,
-  } = useDialog();
 
   // Parse branch and file path from the wildcard parameter
   const parsedPath = branchAndFilePath ? branchAndFilePath.split("/") : [];
@@ -144,40 +134,6 @@ function FileViewInner() {
     owner && repoName ? { repositoryFullName } : "skip",
   );
 
-  // Folder expansion state
-  const folderExpansionStates = useQuery(
-    api.folderExpansion.getFolderExpansionStates,
-    vault ? { vaultId: vault._id } : "skip",
-  );
-  const setFolderExpansionState = useMutation(
-    api.folderExpansion.setFolderExpansionState,
-  );
-
-  // Command palette state
-  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
-
-  // Convex hooks for staging
-  const [commitStaging, manualComittingStatus] = useConvexAction(
-    api.fileStaging.commitStaging,
-  );
-
-  const [clearAllStaging, clearingStagingStatus] = useConvexMutation(
-    api.fileStagingMutations.clearAllStaging,
-  );
-  const [markFileForDeletion] = useConvexMutation(
-    api.fileStagingMutations.markFileForDeletion,
-  );
-  const [renameFileInStaging] = useConvexAction(
-    api.fileStaging.renameFileInStaging,
-  );
-
-  // Get count of staged files for this vault
-  const stagedFiles = useQuery(
-    api.fileStagingMutations.listStagedFiles,
-    vault ? { vaultId: vault._id } : "skip",
-  );
-
-  const createFile = useAction(api.github.createFile);
   const getRepositoryTree = useAction(api.github.getRepositoryTree);
 
   // extract return type of api.github.getRepositoryTree
@@ -219,6 +175,104 @@ function FileViewInner() {
     navigate,
   ]);
 
+  if (!vault || !tree.data || !selectedFile) {
+    return null;
+  }
+
+  return (
+    <FileViewInner
+      vault={vault}
+      tree={tree}
+      selectedFile={selectedFile}
+      branch={branch}
+    />
+  );
+}
+
+function FileViewInner({
+  vault,
+  tree,
+  selectedFile,
+  branch,
+}: {
+  vault: NonNullable<
+    GetFunctionReferenceReturnType<typeof api.vault.getVaultByRepository>
+  >;
+  tree: UseQueryResult<
+    GetFunctionReferenceReturnType<typeof api.github.getRepositoryTree>,
+    Error
+  >;
+  branch: string;
+  selectedFile: string;
+}) {
+  const { setOpenMobile } = useSidebar();
+
+  const {
+    owner,
+    repoName,
+    "*": branchAndFilePath,
+  } = useParams<{
+    owner: string;
+    repoName: string;
+    "*": string;
+  }>();
+  const navigate = useNavigate();
+
+  // Get current user for sidebar
+  const user = useQuery(api.users.viewer);
+
+  // Dialog state management
+  const {
+    fileCreationDialog,
+    folderCreationDialog,
+    openFileCreation,
+    closeFileCreation,
+    openFolderCreation,
+    closeFolderCreation,
+  } = useDialog();
+
+  const repositoryFullName = `${owner}/${repoName}`;
+
+  const stagedFile = useQuery(api.fileStagingMutations.getByNewPath, {
+    newPath: selectedFile,
+    vaultId: vault._id,
+  });
+
+  // Folder expansion state
+  const folderExpansionStates = useQuery(
+    api.folderExpansion.getFolderExpansionStates,
+    vault ? { vaultId: vault._id } : "skip",
+  );
+  const setFolderExpansionState = useMutation(
+    api.folderExpansion.setFolderExpansionState,
+  );
+
+  // Command palette state
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  // Convex hooks for staging
+  const [commitStaging, manualComittingStatus] = useConvexAction(
+    api.fileStaging.commitStaging,
+  );
+
+  const [clearAllStaging, clearingStagingStatus] = useConvexMutation(
+    api.fileStagingMutations.clearAllStaging,
+  );
+  const [markFileForDeletion] = useConvexMutation(
+    api.fileStagingMutations.markFileForDeletion,
+  );
+  const [renameFileInStaging] = useConvexAction(
+    api.fileStaging.renameFileInStaging,
+  );
+
+  // Get count of staged files for this vault
+  const stagedFiles = useQuery(
+    api.fileStagingMutations.listStagedFiles,
+    vault ? { vaultId: vault._id } : "skip",
+  );
+
+  const createFile = useAction(api.github.createFile);
+
   // Add command palette keyboard shortcut handler
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -246,23 +300,23 @@ function FileViewInner() {
     }
   };
 
-  const handleFileRename = async (oldPath: string, newPath: string) => {
+  const handleFileRename = async (originalPath: string, newPath: string) => {
     if (!owner || !repoName || !vault) return;
 
     try {
       // Rename the file in staging instead of committing immediately
       await renameFileInStaging({
         vaultId: vault._id,
-        oldPath,
+        originalPath,
         newPath,
       });
 
       // If we're currently viewing the renamed file, navigate to the new path
-      if (selectedFile === oldPath) {
+      if (stagedFile?.initialFilePath === originalPath) {
         void navigate(`/vault/${owner}/${repoName}/${branch}/${newPath}`);
       }
 
-      console.log(`File ${oldPath} renamed to ${newPath} in staging`);
+      console.log(`File ${originalPath} renamed to ${newPath} in staging`);
     } catch (error) {
       console.error("Failed to rename file:", error);
     }
@@ -353,7 +407,6 @@ function FileViewInner() {
     try {
       await commitStaging({
         repositoryFullName: repositoryFullName,
-        filePath: selectedFile,
       });
     } catch (error) {
       console.error("Failed to commit changes:", error);
@@ -388,6 +441,31 @@ function FileViewInner() {
   if (!owner || !repoName) {
     void navigate("/");
   }
+
+  const finalTreeData = useMemo(() => {
+    if (!tree.data || !stagedFiles) return [];
+
+    return tree.data
+      .map((item) => {
+        const stagedFile = stagedFiles.find(
+          (staged) => staged.initialFilePath === item.path,
+        );
+
+        const path = stagedFile ? stagedFile.filePath : item.path;
+        const deleted = stagedFile ? stagedFile.fileDeleted : false;
+
+        if (deleted) return null;
+
+        return {
+          deleted,
+          path,
+          originalPath: item.path,
+          type: item.type as "tree" | "blob",
+          size: item.size,
+        };
+      })
+      .filter(nonNullable);
+  }, [tree.data, stagedFiles]);
 
   // Assume this means it's loading
   if (vault === undefined) {
@@ -454,52 +532,12 @@ function FileViewInner() {
             </div>
           ) : (
             <div className="flex-1 overflow-auto">
-              {tree.data && (
+              {tree.data && stagedFiles && (
                 <FileTree
-                  items={[
-                    // First, get all tree items and filter/transform them
-                    ...tree.data
-                      .filter((item) => {
-                        // Filter out files that are marked for deletion in staging
-                        const deletedFile = stagedFiles?.find(
-                          (staged) =>
-                            staged.filePath === item.path && staged.fileDeleted,
-                        );
-                        if (deletedFile) return false;
-
-                        // Filter out files that have been renamed (hide original path)
-                        const renamedFile = stagedFiles?.find(
-                          (staged) =>
-                            staged.initialFilePath === item.path &&
-                            staged.filePath !== staged.initialFilePath,
-                        );
-                        if (renamedFile) return false;
-
-                        return true;
-                      })
-                      .map((item) => {
-                        return {
-                          path: item.path,
-                          type: item.type as "tree" | "blob",
-                          size: item.size,
-                        };
-                      }),
-                    // Then, add any renamed files that show at new paths
-                    ...(stagedFiles
-                      ?.filter(
-                        (staged) =>
-                          staged.filePath !== staged.initialFilePath &&
-                          !staged.fileDeleted,
-                      )
-                      .map((staged) => ({
-                        path: staged.filePath,
-                        type: "blob" as const,
-                        size: 0, // We don't have size info for staged files
-                      })) || []),
-                  ]}
+                  items={finalTreeData}
                   onFileSelect={handleFileSelect}
-                  onFileRename={(oldPath, newPath) =>
-                    void handleFileRename(oldPath, newPath)
+                  onFileRename={(originalPath, newPath) =>
+                    void handleFileRename(originalPath, newPath)
                   }
                   onFileCreate={handleCreateFileInFolder}
                   onFileDelete={(filePath) => void handleFileDelete(filePath)}
@@ -839,16 +877,14 @@ function FileViewInner() {
                 </div>
               </div>
 
-              {
-                // (localContent !== "" || selectedFile) &&
-                <div className="flex-1 min-h-0">
-                  <CodeEditorWrapper
-                    key={branchAndFilePath}
-                    repositoryFullName={repositoryFullName}
-                    filePath={actualFilePath || ""}
-                  />
-                </div>
-              }
+              <div className="flex-1 min-h-0">
+                <CodeEditorWrapper
+                  key={branchAndFilePath}
+                  repositoryFullName={repositoryFullName}
+                  filePath={selectedFile}
+                  initialFilePath={stagedFile?.initialFilePath ?? selectedFile}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -876,45 +912,7 @@ function FileViewInner() {
           onClose={closeFolderCreation}
           initialFolderPath={folderCreationDialog.folderPath || ""}
           onFolderCreate={handleCreateFolderInFolder}
-          folders={[
-            // First, get all tree items and filter/transform them
-            ...(tree.data ?? [])
-              .filter((item) => {
-                // Filter out files that are marked for deletion in staging
-                const deletedFile = stagedFiles?.find(
-                  (staged) =>
-                    staged.filePath === item.path && staged.fileDeleted,
-                );
-                if (deletedFile) return false;
-
-                // Filter out files that have been renamed (hide original path)
-                const renamedFile = stagedFiles?.find(
-                  (staged) =>
-                    staged.initialFilePath === item.path &&
-                    staged.filePath !== staged.initialFilePath,
-                );
-                if (renamedFile) return false;
-
-                return true;
-              })
-              .map((item) => ({
-                path: item.path,
-                type: item.type as "tree" | "blob",
-                size: item.size,
-              })),
-            // Then, add any renamed files that show at new paths
-            ...(stagedFiles
-              ?.filter(
-                (staged) =>
-                  staged.filePath !== staged.initialFilePath &&
-                  !staged.fileDeleted,
-              )
-              .map((staged) => ({
-                path: staged.filePath,
-                type: "blob" as const,
-                size: 0, // We don't have size info for staged files
-              })) || []),
-          ]}
+          folders={finalTreeData}
         />
       )}
 
@@ -922,44 +920,7 @@ function FileViewInner() {
       <CommandPalette
         open={isCommandPaletteOpen}
         onOpenChange={setIsCommandPaletteOpen}
-        files={[
-          // First, get all tree items and filter/transform them
-          ...(tree.data ?? [])
-            .filter((item) => {
-              // Filter out files that are marked for deletion in staging
-              const deletedFile = stagedFiles?.find(
-                (staged) => staged.filePath === item.path && staged.fileDeleted,
-              );
-              if (deletedFile) return false;
-
-              // Filter out files that have been renamed (hide original path)
-              const renamedFile = stagedFiles?.find(
-                (staged) =>
-                  staged.initialFilePath === item.path &&
-                  staged.filePath !== staged.initialFilePath,
-              );
-              if (renamedFile) return false;
-
-              return true;
-            })
-            .map((item) => ({
-              path: item.path,
-              type: item.type as "tree" | "blob",
-              size: item.size,
-            })),
-          // Then, add any renamed files that show at new paths
-          ...(stagedFiles
-            ?.filter(
-              (staged) =>
-                staged.filePath !== staged.initialFilePath &&
-                !staged.fileDeleted,
-            )
-            .map((staged) => ({
-              path: staged.filePath,
-              type: "blob" as const,
-              size: 0, // We don't have size info for staged files
-            })) || []),
-        ]}
+        files={finalTreeData}
         onFileSelect={handleFileSelect}
         selectedFile={selectedFile}
       />
@@ -990,5 +951,5 @@ function FileViewWithSwipe() {
     }
   });
 
-  return <FileViewInner />;
+  return <FileViewWrapper />;
 }

@@ -131,7 +131,7 @@ async function createCommitWithMultipleFiles(
 }
 
 // Internal action to commit all staged files to GitHub
-export const commitStagedFile = internalAction({
+export const commitAllStaged = internalAction({
   args: {
     userId: v.id("users"),
     vaultId: v.id("vaults"),
@@ -214,104 +214,11 @@ export const commitStagedFile = internalAction({
   },
 });
 
-// Auto-commit action with timestamp validation (prevents race conditions)
-export const autoCommitStagedFile = internalAction({
-  args: {
-    userId: v.id("users"),
-    vaultId: v.id("vaults"),
-    filePath: v.string(),
-    lastEditTime: v.number(),
-    repoOwner: v.string(),
-    repoName: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    console.log(
-      `Attempting auto-commit for ${args.filePath} in vault ${args.vaultId} (expected timestamp: ${args.lastEditTime})`,
-    );
-
-    try {
-      // Get current staging record
-      const staging = await ctx.runQuery(
-        api.fileStagingMutations.getStagedFile,
-        {
-          vaultId: args.vaultId,
-          filePath: args.filePath,
-        },
-      );
-
-      if (!staging) {
-        return null;
-      }
-
-      console.log(staging.lastEditTime, args.lastEditTime);
-
-      if (staging.lastEditTime !== args.lastEditTime) {
-        return null;
-      }
-
-      await ctx.runAction(internal.fileStaging.commitStagedFile, {
-        userId: args.userId,
-        vaultId: args.vaultId,
-        repoOwner: args.repoOwner,
-        repoName: args.repoName,
-      });
-
-      console.log(
-        `Successfully auto-committed ${args.filePath} in vault ${args.vaultId}`,
-      );
-    } catch (error) {
-      console.error(
-        `Failed to auto-commit ${args.filePath} in vault ${args.vaultId}:`,
-        error,
-      );
-      // Don't throw - let the system continue without failing the scheduled task
-    }
-
-    return null;
-  },
-});
-
-// Manual commit action (for when users want to commit immediately)
-export const manualCommit = internalAction({
-  args: {
-    userId: v.id("users"),
-    vaultId: v.id("vaults"),
-    filePath: v.string(),
-    repoOwner: v.string(),
-    repoName: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    try {
-      // Just call the same commit logic
-      await ctx.runAction(internal.fileStaging.commitStagedFile, {
-        userId: args.userId,
-        vaultId: args.vaultId,
-        repoOwner: args.repoOwner,
-        repoName: args.repoName,
-      });
-
-      console.log(
-        `Manually committed ${args.filePath} in vault ${args.vaultId}`,
-      );
-    } catch (error) {
-      console.error(
-        `Failed to manually commit ${args.filePath} in vault ${args.vaultId}:`,
-        error,
-      );
-      throw error;
-    }
-
-    return null;
-  },
-});
-
 // Rename a file in staging (updates the filePath while keeping initialFilePath)
 export const renameFileInStaging = action({
   args: {
     vaultId: v.id("vaults"),
-    oldPath: v.string(),
+    originalPath: v.string(),
     newPath: v.string(),
   },
   handler: async (
@@ -320,6 +227,7 @@ export const renameFileInStaging = action({
   ): Promise<{
     content: string;
   }> => {
+    console.log("renameFileInStaging", args);
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       throw new Error("User not authenticated");
@@ -336,18 +244,24 @@ export const renameFileInStaging = action({
     // So that we guarantee that we have the file in staging
     await ctx.runAction(api.fileStaging.getFileForEditing, {
       repositoryFullName: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-      filePath: args.oldPath,
+      originalFilePath: args.originalPath,
     });
+
+    console.log("after getFileForEditing");
 
     // Update existing staging record with new path
     const updatedFile = await ctx.runMutation(
       internal.fileStagingMutations.rename,
       {
         vaultId: args.vaultId,
-        oldPath: args.oldPath,
+        initialFilePath: args.originalPath,
         newPath: args.newPath,
       },
     );
+
+    const { content, initialContent, ...rest } = updatedFile;
+
+    console.log("after rename", rest);
 
     return {
       content: updatedFile.content,
@@ -361,7 +275,7 @@ export const renameFileInStaging = action({
 export const getFileForEditing = action({
   args: {
     repositoryFullName: v.string(),
-    filePath: v.string(),
+    originalFilePath: v.string(),
   },
 
   handler: async (
@@ -395,12 +309,11 @@ export const getFileForEditing = action({
     // Check if there's staged content for this file
     const staging = await ctx.runQuery(api.fileStagingMutations.getStagedFile, {
       vaultId: vault._id,
-      filePath: args.filePath,
+      originalFilePath: args.originalFilePath,
     });
 
     // TODO: Maybe also check the github, if it has updates
     if (staging) {
-      console.log("found in staging", staging);
       // Return staged content
       return {
         content: staging.content,
@@ -411,8 +324,6 @@ export const getFileForEditing = action({
       };
     }
 
-    console.log("not found in staging");
-
     const octokit: Octokit = new Octokit({
       auth: currentUser.githubAccessToken,
     });
@@ -421,11 +332,10 @@ export const getFileForEditing = action({
       const file = await octokit.rest.repos.getContent({
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
-        path: args.filePath,
-        // ref: args.ref || "main",
+        path: args.originalFilePath,
       });
 
-      console.log("file", file);
+      console.log("----------file", file);
 
       // Handle case where path is a directory (shouldn't happen in our use case)
       if (Array.isArray(file.data)) {
@@ -454,7 +364,7 @@ export const getFileForEditing = action({
           // TODO: figure out branch
           branch: "main",
           vaultId: vault._id,
-          filePath: args.filePath,
+          initialFilePath: args.originalFilePath,
           content: utf8Content,
           initialContent: utf8Content,
           parentCommitSha: fileData.sha,
@@ -479,7 +389,6 @@ export const getFileForEditing = action({
 export const commitStaging = action({
   args: {
     repositoryFullName: v.string(),
-    filePath: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -496,18 +405,8 @@ export const commitStaging = action({
       throw new Error("Vault not found");
     }
 
-    // Find the staging record
-    const staging = await ctx.runQuery(api.fileStagingMutations.getStagedFile, {
-      vaultId: vault._id,
-      filePath: args.filePath,
-    });
-
-    if (!staging) {
-      throw new Error("No staged changes found for this file");
-    }
-
     // Schedule the actual GitHub commit
-    await ctx.runAction(internal.fileStaging.commitStagedFile, {
+    await ctx.runAction(internal.fileStaging.commitAllStaged, {
       userId,
       vaultId: vault._id,
       repoOwner: vault.ghRepoOwner,

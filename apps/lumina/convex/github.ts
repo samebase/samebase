@@ -259,16 +259,6 @@ export const getRepositoryTree = action({
     owner: v.string(),
     repo: v.string(),
   },
-  returns: v.array(
-    v.object({
-      path: v.string(),
-      mode: v.string(),
-      type: v.string(),
-      sha: v.string(),
-      size: v.optional(v.number()),
-      url: v.string(),
-    }),
-  ),
   handler: async (ctx, args) => {
     const currentUser: any = await ctx.runQuery(api.users.getAuthUser, {});
 
@@ -288,7 +278,7 @@ export const getRepositoryTree = action({
         recursive: "1",
       });
 
-      return tree.data.tree.map((item: any) => ({
+      return tree.data.tree.map((item) => ({
         path: item.path,
         mode: item.mode,
         type: item.type,

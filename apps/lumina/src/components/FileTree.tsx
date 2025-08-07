@@ -19,6 +19,7 @@ import { useDialog } from "@/hooks/useDialog";
 
 interface FileTreeItem {
   path: string;
+  originalPath: string;
   type: "tree" | "blob";
   size?: number;
 }
@@ -26,6 +27,7 @@ interface FileTreeItem {
 interface TreeNode {
   name: string;
   path: string;
+  originalPath: string;
   type: "tree" | "blob";
   children?: TreeNode[];
   size?: number;
@@ -60,25 +62,26 @@ function buildTree(items: FileTreeItem[]): TreeNode[] {
 
   sortedItems.forEach((item) => {
     const parts = item.path.split("/");
-    let currentPath = "";
+    let path = "";
     let currentParent = root;
 
     parts.forEach((part, index) => {
-      currentPath = index === 0 ? part : `${currentPath}/${part}`;
+      path = index === 0 ? part : `${path}/${part}`;
 
-      let existingNode = pathToNode.get(currentPath);
+      let existingNode = pathToNode.get(path);
 
       if (!existingNode) {
         existingNode = {
           name: part,
-          path: currentPath,
+          path,
+          originalPath: item.originalPath,
           type: index === parts.length - 1 ? item.type : "tree",
           children:
             index === parts.length - 1 && item.type === "blob" ? undefined : [],
           size: index === parts.length - 1 ? item.size : undefined,
         };
 
-        pathToNode.set(currentPath, existingNode);
+        pathToNode.set(path, existingNode);
         currentParent.push(existingNode);
 
         // Sort the parent array
@@ -113,7 +116,7 @@ function TreeNodeComponent({
   node: TreeNode;
   level?: number;
   onFileSelect?: (path: string) => void;
-  onFileRename?: (oldPath: string, newPath: string) => void;
+  onFileRename?: (originalPath: string, newPath: string) => void;
   onFileCreate?: (folderPath: string, fileName: string) => void;
   onFileDelete?: (path: string) => void;
   selectedFile?: string;
@@ -218,7 +221,7 @@ function TreeNodeComponent({
       const pathParts = node.path.split("/");
       pathParts[pathParts.length - 1] = renamingValue.trim();
       const newPath = pathParts.join("/");
-      onFileRename(node.path, newPath);
+      onFileRename(node.originalPath, newPath);
     }
     setIsRenaming(false);
   };

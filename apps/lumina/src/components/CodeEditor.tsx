@@ -282,19 +282,25 @@ const isMarkdownFile = (fileName?: string) => {
 export function CodeEditorWrapper({
   repositoryFullName,
   filePath,
+  initialFilePath,
 }: {
   repositoryFullName: string;
   filePath: string;
+  initialFilePath: string;
 }) {
   const firstDocAction = useAction(api.fileStaging.getFileForEditing);
-  const [firstDocData, setFirstDocData] =
-    useState<Awaited<ReturnType<typeof firstDocAction>>>(null);
+  const [firstDocData, setFirstDocData] = useState<Awaited<
+    ReturnType<typeof firstDocAction>
+  > | null>(null);
 
   useEffect(() => {
-    firstDocAction({ repositoryFullName, filePath }).then((data) => {
+    firstDocAction({
+      repositoryFullName,
+      originalFilePath: initialFilePath,
+    }).then((data) => {
       setFirstDocData(data);
     });
-  }, [firstDocAction, repositoryFullName, filePath]);
+  }, [firstDocAction, repositoryFullName, initialFilePath]);
 
   if (!firstDocData) return null;
 
@@ -342,16 +348,13 @@ export function CodeEditor({
       clientID: u.clientID,
     }));
     pullRef.current(cmUpdates, version);
-    console.log("pulled updates", version, cmUpdates);
   }, [updates]);
 
   useEffect(() => {
-    console.log("useEffect", idRef.current);
     let cancelled = false;
     let editor: EditorView | null = null;
 
     const func = async () => {
-      console.log("starting func", idRef.current), editorRef.current;
       if (!editorRef.current) return;
 
       if (cancelled) return;
@@ -359,10 +362,6 @@ export function CodeEditor({
       // Determine if we should use dark theme
       const effectiveTheme = theme === "system" ? systemTheme : theme;
       const isDark = effectiveTheme === "dark";
-
-      console.log("creating editor", {
-        ...firstDoc,
-      });
 
       // editor = createProseMarkEditor({
       //   content: firstDoc.content,
@@ -422,8 +421,6 @@ export function CodeEditor({
       viewRef.current = editor;
 
       (window as any).editor = editor;
-
-      console.log("finished created editor", idRef.current);
     };
 
     func();

@@ -10,7 +10,7 @@ export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
 export const saveToStaging = internalMutation({
   args: {
     vaultId: v.id("vaults"),
-    filePath: v.string(),
+    initialFilePath: v.string(),
     content: v.string(),
     initialContent: v.string(),
     parentCommitSha: v.string(),
@@ -25,8 +25,10 @@ export const saveToStaging = internalMutation({
     // Check if there's already a staging record for this file
     const existingStaging = await ctx.db
       .query("fileStaging")
-      .withIndex("by_vault_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      .withIndex("by_vault_and_initial_path", (q) =>
+        q
+          .eq("vaultId", args.vaultId)
+          .eq("initialFilePath", args.initialFilePath),
       )
       .first();
 
@@ -57,8 +59,8 @@ export const saveToStaging = internalMutation({
       await ctx.db.insert("fileStaging", {
         ownerId: userId,
         vaultId: args.vaultId,
-        filePath: args.filePath,
-        initialFilePath: args.filePath,
+        filePath: args.initialFilePath,
+        initialFilePath: args.initialFilePath,
         fileDeleted: false,
         content: args.content,
         initialContent: args.initialContent,
@@ -72,8 +74,10 @@ export const saveToStaging = internalMutation({
 
     const staging = await ctx.db
       .query("fileStaging")
-      .withIndex("by_vault_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      .withIndex("by_vault_and_initial_path", (q) =>
+        q
+          .eq("vaultId", args.vaultId)
+          .eq("initialFilePath", args.initialFilePath),
       )
       .first();
 
@@ -85,18 +89,38 @@ export const saveToStaging = internalMutation({
   },
 });
 
-// Get staged content for a file (with real-time updates)
-export const getStagedFile = query({
+export const getByNewPath = query({
   args: {
     vaultId: v.id("vaults"),
-    filePath: v.string(),
+    newPath: v.string(),
   },
   returns: v.any(),
   handler: async (ctx, args) => {
     const staging = await ctx.db
       .query("fileStaging")
       .withIndex("by_vault_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+        q.eq("vaultId", args.vaultId).eq("filePath", args.newPath),
+      )
+      .first();
+
+    return staging;
+  },
+});
+
+// Get staged content for a file (with real-time updates)
+export const getStagedFile = query({
+  args: {
+    vaultId: v.id("vaults"),
+    originalFilePath: v.string(),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const staging = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_initial_path", (q) =>
+        q
+          .eq("vaultId", args.vaultId)
+          .eq("initialFilePath", args.originalFilePath),
       )
       .first();
 
@@ -119,8 +143,12 @@ export const listStagedFiles = query({
         args.includeUnchanged
           ? q.eq(true, true)
           : q.or(
+              // content changed
               q.neq(q.field("content"), q.field("initialContent")),
+              // file deleted
               q.eq(q.field("fileDeleted"), true),
+              // file renamed
+              q.neq(q.field("filePath"), q.field("initialFilePath")),
             ),
       )
       .collect();
@@ -216,7 +244,7 @@ export const markFileForDeletion = mutation({
 export const rename = internalMutation({
   args: {
     vaultId: v.id("vaults"),
-    oldPath: v.string(),
+    initialFilePath: v.string(),
     newPath: v.string(),
   },
   handler: async (
@@ -253,8 +281,10 @@ export const rename = internalMutation({
 
     const file = await ctx.db
       .query("fileStaging")
-      .withIndex("by_vault_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("filePath", args.oldPath),
+      .withIndex("by_vault_and_initial_path", (q) =>
+        q
+          .eq("vaultId", args.vaultId)
+          .eq("initialFilePath", args.initialFilePath),
       )
       .first();
 
