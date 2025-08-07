@@ -69,7 +69,7 @@ function findBestInitialFile(files: RepositoryTree) {
   return sortedFiles[0]?.path || null;
 }
 
-function RepositoryReadmeInner() {
+function FileViewInner() {
   const { setOpenMobile } = useSidebar();
 
   const {
@@ -424,23 +424,25 @@ function RepositoryReadmeInner() {
             </div>
           ) : (
             <div className="flex-1 overflow-auto">
-              <FileTree
-                items={(tree.data ?? []).map((item) => ({
-                  path: item.path,
-                  type: item.type as "tree" | "blob",
-                  size: item.size,
-                }))}
-                onFileSelect={handleFileSelect}
-                onFileRename={(oldPath, newPath) =>
-                  void handleFileRename(oldPath, newPath)
-                }
-                onFileCreate={handleCreateFileInFolder}
-                selectedFile={selectedFile}
-                folderExpansionStates={folderExpansionStates ?? []}
-                onFolderToggle={(folderPath, isExpanded) =>
-                  void handleFolderToggle(folderPath, isExpanded)
-                }
-              />
+              {tree.data && (
+                <FileTree
+                  items={tree.data.map((item) => ({
+                    path: item.path,
+                    type: item.type as "tree" | "blob",
+                    size: item.size,
+                  }))}
+                  onFileSelect={handleFileSelect}
+                  onFileRename={(oldPath, newPath) =>
+                    void handleFileRename(oldPath, newPath)
+                  }
+                  onFileCreate={handleCreateFileInFolder}
+                  selectedFile={selectedFile}
+                  folderExpansionStates={folderExpansionStates ?? []}
+                  onFolderToggle={(folderPath, isExpanded) =>
+                    void handleFolderToggle(folderPath, isExpanded)
+                  }
+                />
+              )}
             </div>
           )}{" "}
         </SidebarContent>
@@ -619,18 +621,18 @@ function RepositoryReadmeInner() {
 }
 
 // Main export with sidebar provider wrapper
-export function RepositoryReadme() {
+export function FileView() {
   return (
     <DialogProvider>
       <SidebarProvider>
-        <RepositoryReadmeWithSwipe />
+        <FileViewWithSwipe />
       </SidebarProvider>
     </DialogProvider>
   );
 }
 
 // Component with sidebar context and swipe gesture
-function RepositoryReadmeWithSwipe() {
+function FileViewWithSwipe() {
   // Setup sidebar context and mobile swipe gesture
   const { isMobile, openMobile, setOpenMobile } = useSidebar();
 
@@ -641,5 +643,5 @@ function RepositoryReadmeWithSwipe() {
     }
   });
 
-  return <RepositoryReadmeInner />;
+  return <FileViewInner />;
 }

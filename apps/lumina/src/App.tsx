@@ -2,7 +2,7 @@ import { Layout } from "@/Layout";
 import { SignInForm } from "@/SignInForm";
 
 import { VaultDashboard } from "@/components/VaultDashboard";
-import { RepositoryReadme } from "@/components/RepositoryReadme";
+import { FileView } from "@/components/FileView";
 import { AddRepository } from "@/components/AddRepository";
 import { Authenticated, Unauthenticated } from "convex/react";
 import { Routes, Route } from "react-router-dom";
@@ -15,14 +15,8 @@ export default function App() {
           <Routes>
             <Route path="/" element={<VaultDashboard />} />
             <Route path="/add" element={<AddRepository />} />
-            <Route
-              path="/vault/:owner/:repoName"
-              element={<RepositoryReadme />}
-            />
-            <Route
-              path="/vault/:owner/:repoName/*"
-              element={<RepositoryReadme />}
-            />
+            <Route path="/vault/:owner/:repoName" element={<FileView />} />
+            <Route path="/vault/:owner/:repoName/*" element={<FileView />} />
           </Routes>
         </Authenticated>
         <Unauthenticated>
