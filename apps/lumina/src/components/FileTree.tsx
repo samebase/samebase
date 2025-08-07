@@ -210,7 +210,11 @@ function TreeNodeComponent({
   };
 
   const handleRenameSubmit = () => {
-    if (renamingValue.trim() && renamingValue !== node.name && onFileRename) {
+    if (
+      renamingValue.trim() &&
+      renamingValue.trim() !== node.name &&
+      onFileRename
+    ) {
       const pathParts = node.path.split("/");
       pathParts[pathParts.length - 1] = renamingValue.trim();
       const newPath = pathParts.join("/");
@@ -273,6 +277,8 @@ function TreeNodeComponent({
                     onChange={(e) => setRenamingValue(e.target.value)}
                     onBlur={handleRenameSubmit}
                     onKeyDown={handleRenameKeyDown}
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
                     className="flex-1 bg-background border border-border rounded px-1 text-xs"
                     autoFocus
                   />
@@ -305,6 +311,7 @@ function TreeNodeComponent({
                 onFileSelect={onFileSelect}
                 onFileRename={onFileRename}
                 onFileCreate={onFileCreate}
+                onFileDelete={onFileDelete}
                 selectedFile={selectedFile}
                 folderExpansionStates={folderExpansionStates}
                 onFolderToggle={onFolderToggle}

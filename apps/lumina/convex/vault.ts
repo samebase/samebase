@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
+import { action, internalQuery, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -133,6 +133,15 @@ export const getUserVaults = query({
       const bTime = b.lastEditTime ?? b._creationTime;
       return bTime - aTime;
     });
+  },
+});
+
+export const getById = internalQuery({
+  args: {
+    id: v.id("vaults"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
   },
 });
 

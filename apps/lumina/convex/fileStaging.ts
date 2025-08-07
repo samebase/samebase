@@ -195,22 +195,9 @@ export const commitStagedFile = internalAction({
 
       console.log("result", result);
 
-      // Remove staged file even if they are unchanged
-      const stagedFiles = await ctx.runQuery(
-        api.fileStagingMutations.listStagedFiles,
-        {
-          vaultId: args.vaultId,
-          includeUnchanged: true,
-        },
-      );
-
-      // Success - remove all staged files from staging
-      for (const stagedFile of stagedFiles) {
-        await ctx.runMutation(api.fileStagingMutations.clearStaging, {
-          vaultId: args.vaultId,
-          filePath: stagedFile.filePath,
-        });
-      }
+      await ctx.runMutation(api.fileStagingMutations.clearAllStaging, {
+        vaultId: args.vaultId,
+      });
 
       console.log(
         `Auto-committed ${changedFiles.length} files in vault ${args.vaultId}`,
@@ -320,6 +307,53 @@ export const manualCommit = internalAction({
   },
 });
 
+// Rename a file in staging (updates the filePath while keeping initialFilePath)
+export const renameFileInStaging = action({
+  args: {
+    vaultId: v.id("vaults"),
+    oldPath: v.string(),
+    newPath: v.string(),
+  },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    content: string;
+  }> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const vault = await ctx.runQuery(internal.vault.getById, {
+      id: args.vaultId,
+    });
+
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
+    // So that we guarantee that we have the file in staging
+    await ctx.runAction(api.fileStaging.getFileForEditing, {
+      repositoryFullName: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+      filePath: args.oldPath,
+    });
+
+    // Update existing staging record with new path
+    const updatedFile = await ctx.runMutation(
+      internal.fileStagingMutations.rename,
+      {
+        vaultId: args.vaultId,
+        oldPath: args.oldPath,
+        newPath: args.newPath,
+      },
+    );
+
+    return {
+      content: updatedFile.content,
+    };
+  },
+});
 /**
  * Initial request to get the file.
  * Will call GitHub and populate the fileStaging table
@@ -339,7 +373,7 @@ export const getFileForEditing = action({
     lastEditTime: number;
     branch: string;
     version: number;
-  } | null> => {
+  }> => {
     const currentUser = await ctx.runQuery(api.users.getAuthUser, {});
 
     if (!currentUser) {
@@ -395,11 +429,11 @@ export const getFileForEditing = action({
 
       // Handle case where path is a directory (shouldn't happen in our use case)
       if (Array.isArray(file.data)) {
-        return null;
+        throw new Error("Path is a directory");
       }
 
       if (file.data.type !== "file") {
-        return null;
+        throw new Error("Path is not a file");
       }
 
       const fileData = file.data;
@@ -436,7 +470,7 @@ export const getFileForEditing = action({
       };
     } catch (error) {
       console.error("error", error);
-      return null;
+      throw error;
     }
   },
 });

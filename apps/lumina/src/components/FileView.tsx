@@ -1,8 +1,8 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
-import { useAction, useQuery, useMutation, ReactMutation } from "convex/react";
+import { useAction, useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { CodeEditor, CodeEditorWrapper } from "@/components/CodeEditor";
+import { CodeEditorWrapper } from "@/components/CodeEditor";
 import { Button } from "@/components/ui/button";
 
 import {
@@ -23,11 +23,10 @@ import {
 } from "@/components/ui/sidebar";
 import { FileTree } from "./FileTree";
 import { CommandPalette } from "./CommandPalette";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
 import { useSidebar } from "@/components/ui/sidebar";
 import { UserMenu } from "@/components/UserMenu";
-import { base64ToUtf8 } from "@/lib/base64";
 import {
   Popover,
   PopoverContent,
@@ -43,7 +42,6 @@ import { DialogProvider } from "@/contexts/DialogContext";
 import { useDialog } from "@/hooks/useDialog";
 import { FileCreationDialog } from "@/components/FileCreationDialog";
 import { FolderCreationDialog } from "@/components/FolderCreationDialog";
-import { FunctionReference } from "convex/server";
 
 type RepositoryTree = GetFunctionReferenceReturnType<
   typeof api.github.getRepositoryTree
@@ -163,14 +161,14 @@ function FileViewInner() {
     api.fileStaging.commitStaging,
   );
 
-  const [clearStaging, clearingStagingStatus] = useConvexMutation(
-    api.fileStagingMutations.clearStaging,
+  const [clearAllStaging, clearingStagingStatus] = useConvexMutation(
+    api.fileStagingMutations.clearAllStaging,
   );
   const [markFileForDeletion] = useConvexMutation(
     api.fileStagingMutations.markFileForDeletion,
   );
-  const [renameFileInStaging] = useConvexMutation(
-    api.fileStagingMutations.renameFileInStaging,
+  const [renameFileInStaging] = useConvexAction(
+    api.fileStaging.renameFileInStaging,
   );
 
   // Get count of staged files for this vault
@@ -179,7 +177,6 @@ function FileViewInner() {
     vault ? { vaultId: vault._id } : "skip",
   );
 
-  const getFileContent = useAction(api.github.getFileContent);
   const createFile = useAction(api.github.createFile);
   const getRepositoryTree = useAction(api.github.getRepositoryTree);
 
@@ -253,32 +250,11 @@ function FileViewInner() {
     if (!owner || !repoName || !vault) return;
 
     try {
-      // Get the file data for the file being renamed (from GitHub or staging)
-      const fileToRename = await getFileContent({
-        owner,
-        repo: repoName,
-        path: oldPath,
-        ref: branch,
-      });
-
-      if (!fileToRename) {
-        console.error("File to rename not found");
-        return;
-      }
-
-      const content =
-        fileToRename.encoding === "base64"
-          ? base64ToUtf8(fileToRename.content)
-          : fileToRename.content;
-
       // Rename the file in staging instead of committing immediately
       await renameFileInStaging({
         vaultId: vault._id,
         oldPath,
         newPath,
-        content,
-        parentCommitSha: "main", // TODO: Get actual commit SHA
-        branch,
       });
 
       // If we're currently viewing the renamed file, navigate to the new path
@@ -385,11 +361,10 @@ function FileViewInner() {
   };
 
   const handleResetToGitHub = async () => {
-    if (!selectedFile || !vault || !owner || !repoName) return;
+    if (!vault) return;
 
-    await clearStaging({
+    await clearAllStaging({
       vaultId: vault._id,
-      filePath: selectedFile,
     });
   };
 
@@ -859,7 +834,7 @@ function FileViewInner() {
                   >
                     {clearingStagingStatus === "loading"
                       ? "Resetting..."
-                      : "Reset to GitHub"}
+                      : "Reset all to GitHub (Discard Changes)"}
                   </Button>
                 </div>
               </div>

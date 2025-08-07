@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { internal } from "./_generated/api";
+import { Id } from "./_generated/dataModel";
 
 export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
 
@@ -128,33 +130,27 @@ export const listStagedFiles = query({
 });
 
 // Clear staging for a specific file (used after successful commit)
-export const clearStaging = mutation({
+export const clearAllStaging = mutation({
   args: {
     vaultId: v.id("vaults"),
-    filePath: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const staging = await ctx.db
+    const stagingFiles = await ctx.db
       .query("fileStaging")
-      .withIndex("by_vault_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
-      )
-      .first();
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .collect();
 
-    // delete all updates for this file
     const updates = await ctx.db
       .query("collaborativeUpdates")
-      .withIndex("by_file", (q) =>
-        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
-      )
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .collect();
 
     for (const update of updates) {
       await ctx.db.delete(update._id);
     }
 
-    if (staging) {
+    for (const staging of stagingFiles) {
       await ctx.db.delete(staging._id);
     }
 
@@ -217,60 +213,70 @@ export const markFileForDeletion = mutation({
   },
 });
 
-// Rename a file in staging (updates the filePath while keeping initialFilePath)
-export const renameFileInStaging = mutation({
+export const rename = internalMutation({
   args: {
     vaultId: v.id("vaults"),
     oldPath: v.string(),
     newPath: v.string(),
-    content: v.string(),
-    parentCommitSha: v.string(),
-    branch: v.string(),
   },
-  returns: v.null(),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    _id: Id<"fileStaging">;
+    _creationTime: number;
+    ownerId: Id<"users">;
+    vaultId: Id<"vaults">;
+    fileDeleted: boolean;
+    filePath: string;
+    initialFilePath: string;
+    content: string;
+    initialContent: string;
+    parentCommitSha: string;
+    lastEditTime: number;
+    lastEditUserId: Id<"users">;
+    branch: string;
+    version: number;
+  }> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       throw new Error("User not authenticated");
     }
 
-    // Check if there's already a staging record for the old file path
-    const existingStaging = await ctx.db
+    const vault = await ctx.runQuery(internal.vault.getById, {
+      id: args.vaultId,
+    });
+
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
+    const file = await ctx.db
       .query("fileStaging")
       .withIndex("by_vault_and_path", (q) =>
         q.eq("vaultId", args.vaultId).eq("filePath", args.oldPath),
       )
       .first();
 
-    const currentTimestamp = Date.now();
-
-    if (existingStaging) {
-      // Update existing staging record with new path
-      await ctx.db.patch(existingStaging._id, {
-        filePath: args.newPath,
-        lastEditTime: currentTimestamp,
-        lastEditUserId: userId,
-        branch: args.branch,
-        // Keep initialFilePath unchanged - this tracks the original file for Git operations
-      });
-    } else {
-      // Create new staging record for the rename
-      await ctx.db.insert("fileStaging", {
-        ownerId: userId,
-        vaultId: args.vaultId,
-        filePath: args.newPath,
-        initialFilePath: args.oldPath, // This is key - tracks the original path
-        fileDeleted: false,
-        content: args.content,
-        initialContent: args.content, // Same content, just different path
-        parentCommitSha: args.parentCommitSha,
-        lastEditTime: currentTimestamp,
-        lastEditUserId: userId,
-        branch: args.branch,
-        version: 0,
-      });
+    if (!file) {
+      throw new Error("File not found");
     }
 
-    return null;
+    await ctx.db.patch(file._id, {
+      filePath: args.newPath,
+    });
+
+    const updatedFile = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.newPath),
+      )
+      .first();
+
+    if (!updatedFile) {
+      throw new Error("File not found after rename???");
+    }
+
+    return updatedFile;
   },
 });

@@ -109,6 +109,7 @@ export default defineSchema({
     userId: v.id("users"), // User who made the change
     timestamp: v.number(),
   })
+    .index("by_vault", ["vaultId"])
     .index("by_file", ["vaultId", "filePath"])
     .index("by_file_and_version", ["vaultId", "filePath", "version"]),
 });
