@@ -116,7 +116,10 @@ export const listStagedFiles = query({
       .filter((q) =>
         args.includeUnchanged
           ? q.eq(true, true)
-          : q.neq(q.field("content"), q.field("initialContent")),
+          : q.or(
+              q.neq(q.field("content"), q.field("initialContent")),
+              q.eq(q.field("fileDeleted"), true),
+            ),
       )
       .collect();
 
@@ -153,6 +156,119 @@ export const clearStaging = mutation({
 
     if (staging) {
       await ctx.db.delete(staging._id);
+    }
+
+    return null;
+  },
+});
+
+// Mark a file for deletion in staging
+export const markFileForDeletion = mutation({
+  args: {
+    vaultId: v.id("vaults"),
+    filePath: v.string(),
+    parentCommitSha: v.string(),
+    branch: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    // Check if there's already a staging record for this file
+    const existingStaging = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      )
+      .first();
+
+    const currentTimestamp = Date.now();
+
+    if (existingStaging) {
+      // Update existing staging to mark as deleted
+      await ctx.db.patch(existingStaging._id, {
+        fileDeleted: true,
+        lastEditTime: currentTimestamp,
+        lastEditUserId: userId,
+        branch: args.branch,
+      });
+    } else {
+      // Create new staging record for deletion
+      await ctx.db.insert("fileStaging", {
+        ownerId: userId,
+        vaultId: args.vaultId,
+        filePath: args.filePath,
+        initialFilePath: args.filePath,
+        fileDeleted: true,
+        content: "", // Empty content for deleted files
+        initialContent: "", // We don't need the original content for deletions
+        parentCommitSha: args.parentCommitSha,
+        lastEditTime: currentTimestamp,
+        lastEditUserId: userId,
+        branch: args.branch,
+        version: 0,
+      });
+    }
+
+    return null;
+  },
+});
+
+// Rename a file in staging (updates the filePath while keeping initialFilePath)
+export const renameFileInStaging = mutation({
+  args: {
+    vaultId: v.id("vaults"),
+    oldPath: v.string(),
+    newPath: v.string(),
+    content: v.string(),
+    parentCommitSha: v.string(),
+    branch: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    // Check if there's already a staging record for the old file path
+    const existingStaging = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.oldPath),
+      )
+      .first();
+
+    const currentTimestamp = Date.now();
+
+    if (existingStaging) {
+      // Update existing staging record with new path
+      await ctx.db.patch(existingStaging._id, {
+        filePath: args.newPath,
+        lastEditTime: currentTimestamp,
+        lastEditUserId: userId,
+        branch: args.branch,
+        // Keep initialFilePath unchanged - this tracks the original file for Git operations
+      });
+    } else {
+      // Create new staging record for the rename
+      await ctx.db.insert("fileStaging", {
+        ownerId: userId,
+        vaultId: args.vaultId,
+        filePath: args.newPath,
+        initialFilePath: args.oldPath, // This is key - tracks the original path
+        fileDeleted: false,
+        content: args.content,
+        initialContent: args.content, // Same content, just different path
+        parentCommitSha: args.parentCommitSha,
+        lastEditTime: currentTimestamp,
+        lastEditUserId: userId,
+        branch: args.branch,
+        version: 0,
+      });
     }
 
     return null;

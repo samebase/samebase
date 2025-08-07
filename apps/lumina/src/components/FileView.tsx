@@ -10,6 +10,9 @@ import {
   MagnifyingGlassIcon,
   PlusIcon,
   FilePlusIcon,
+  Pencil1Icon,
+  TrashIcon,
+  UpdateIcon,
 } from "@radix-ui/react-icons";
 import {
   Sidebar,
@@ -67,6 +70,40 @@ function findBestInitialFile(files: RepositoryTree) {
   // 3. Return first file (sorted alphabetically)
   const sortedFiles = fileList.sort((a, b) => a.path.localeCompare(b.path));
   return sortedFiles[0]?.path || null;
+}
+
+// Helper function to categorize staged files by change type
+function categorizeStagedFiles(stagedFiles: any[]) {
+  const categories = {
+    deleted: [] as any[],
+    renamed: [] as any[],
+    renamedAndModified: [] as any[],
+    modified: [] as any[],
+    new: [] as any[],
+  };
+
+  stagedFiles.forEach((file) => {
+    if (file.fileDeleted) {
+      categories.deleted.push(file);
+    } else if (file.filePath !== file.initialFilePath) {
+      // It's a rename
+      if (file.content !== file.initialContent) {
+        // Renamed AND modified
+        categories.renamedAndModified.push(file);
+      } else {
+        // Just renamed
+        categories.renamed.push(file);
+      }
+    } else if (file.content !== file.initialContent) {
+      // Just modified
+      categories.modified.push(file);
+    } else {
+      // This shouldn't normally happen, but just in case
+      categories.new.push(file);
+    }
+  });
+
+  return categories;
 }
 
 function FileViewInner() {
@@ -129,6 +166,12 @@ function FileViewInner() {
   const [clearStaging, clearingStagingStatus] = useConvexMutation(
     api.fileStagingMutations.clearStaging,
   );
+  const [markFileForDeletion] = useConvexMutation(
+    api.fileStagingMutations.markFileForDeletion,
+  );
+  const [renameFileInStaging] = useConvexMutation(
+    api.fileStagingMutations.renameFileInStaging,
+  );
 
   // Get count of staged files for this vault
   const stagedFiles = useQuery(
@@ -138,7 +181,6 @@ function FileViewInner() {
 
   const getFileContent = useAction(api.github.getFileContent);
   const createFile = useAction(api.github.createFile);
-  const deleteFile = useAction(api.github.deleteFile);
   const getRepositoryTree = useAction(api.github.getRepositoryTree);
 
   // extract return type of api.github.getRepositoryTree
@@ -208,10 +250,10 @@ function FileViewInner() {
   };
 
   const handleFileRename = async (oldPath: string, newPath: string) => {
-    if (!owner || !repoName) return;
+    if (!owner || !repoName || !vault) return;
 
     try {
-      // Get the file data for the file being renamed (from GitHub)
+      // Get the file data for the file being renamed (from GitHub or staging)
       const fileToRename = await getFileContent({
         owner,
         repo: repoName,
@@ -229,35 +271,48 @@ function FileViewInner() {
           ? base64ToUtf8(fileToRename.content)
           : fileToRename.content;
 
-      // Create new file with the same content
-      await createFile({
-        owner,
-        repo: repoName,
-        path: newPath,
+      // Rename the file in staging instead of committing immediately
+      await renameFileInStaging({
+        vaultId: vault._id,
+        oldPath,
+        newPath,
         content,
-        message: `Rename ${oldPath} to ${newPath}`,
+        parentCommitSha: "main", // TODO: Get actual commit SHA
         branch,
       });
-
-      // Delete the old file
-      await deleteFile({
-        owner,
-        repo: repoName,
-        path: oldPath,
-        message: `Rename ${oldPath} to ${newPath}`,
-        sha: fileToRename.sha,
-        branch,
-      });
-
-      // Refresh the tree
-      void tree.refetch();
 
       // If we're currently viewing the renamed file, navigate to the new path
       if (selectedFile === oldPath) {
         void navigate(`/vault/${owner}/${repoName}/${branch}/${newPath}`);
       }
+
+      console.log(`File ${oldPath} renamed to ${newPath} in staging`);
     } catch (error) {
       console.error("Failed to rename file:", error);
+    }
+  };
+
+  // Handler for deleting files from the file tree
+  const handleFileDelete = async (filePath: string) => {
+    if (!owner || !repoName || !vault) return;
+
+    try {
+      // Mark the file for deletion in staging
+      await markFileForDeletion({
+        vaultId: vault._id,
+        filePath,
+        parentCommitSha: "main", // TODO: Get actual commit SHA
+        branch,
+      });
+
+      // If the deleted file is currently selected, navigate away
+      if (selectedFile === filePath) {
+        void navigate(`/vault/${owner}/${repoName}/${branch}`);
+      }
+
+      console.log(`File ${filePath} marked for deletion`);
+    } catch (error) {
+      console.error("Failed to delete file:", error);
     }
   };
 
@@ -426,16 +481,53 @@ function FileViewInner() {
             <div className="flex-1 overflow-auto">
               {tree.data && (
                 <FileTree
-                  items={tree.data.map((item) => ({
-                    path: item.path,
-                    type: item.type as "tree" | "blob",
-                    size: item.size,
-                  }))}
+                  items={[
+                    // First, get all tree items and filter/transform them
+                    ...tree.data
+                      .filter((item) => {
+                        // Filter out files that are marked for deletion in staging
+                        const deletedFile = stagedFiles?.find(
+                          (staged) =>
+                            staged.filePath === item.path && staged.fileDeleted,
+                        );
+                        if (deletedFile) return false;
+
+                        // Filter out files that have been renamed (hide original path)
+                        const renamedFile = stagedFiles?.find(
+                          (staged) =>
+                            staged.initialFilePath === item.path &&
+                            staged.filePath !== staged.initialFilePath,
+                        );
+                        if (renamedFile) return false;
+
+                        return true;
+                      })
+                      .map((item) => {
+                        return {
+                          path: item.path,
+                          type: item.type as "tree" | "blob",
+                          size: item.size,
+                        };
+                      }),
+                    // Then, add any renamed files that show at new paths
+                    ...(stagedFiles
+                      ?.filter(
+                        (staged) =>
+                          staged.filePath !== staged.initialFilePath &&
+                          !staged.fileDeleted,
+                      )
+                      .map((staged) => ({
+                        path: staged.filePath,
+                        type: "blob" as const,
+                        size: 0, // We don't have size info for staged files
+                      })) || []),
+                  ]}
                   onFileSelect={handleFileSelect}
                   onFileRename={(oldPath, newPath) =>
                     void handleFileRename(oldPath, newPath)
                   }
                   onFileCreate={handleCreateFileInFolder}
+                  onFileDelete={(filePath) => void handleFileDelete(filePath)}
                   selectedFile={selectedFile}
                   folderExpansionStates={folderExpansionStates ?? []}
                   onFolderToggle={(folderPath, isExpanded) =>
@@ -492,35 +584,248 @@ function FileViewInner() {
                     <Popover>
                       <PopoverTrigger asChild>
                         <button
-                          className={`text-xs text-muted-foreground ${linkStyle}`}
+                          className={`text-xs text-muted-foreground ${linkStyle} flex items-center gap-2`}
                         >
-                          {stagedFiles.length} file
-                          {stagedFiles.length !== 1 ? "s" : ""} changed
+                          <div className="flex items-center gap-1">
+                            {(() => {
+                              const categories =
+                                categorizeStagedFiles(stagedFiles);
+                              const indicators = [];
+
+                              if (categories.modified.length > 0) {
+                                indicators.push(
+                                  <span
+                                    key="modified"
+                                    className="inline-flex items-center gap-1 text-blue-600"
+                                  >
+                                    <Pencil1Icon className="w-3 h-3" />
+                                    <span>{categories.modified.length}</span>
+                                  </span>,
+                                );
+                              }
+
+                              if (categories.renamed.length > 0) {
+                                indicators.push(
+                                  <span
+                                    key="renamed"
+                                    className="inline-flex items-center gap-1 text-purple-600"
+                                  >
+                                    <UpdateIcon className="w-3 h-3" />
+                                    <span>{categories.renamed.length}</span>
+                                  </span>,
+                                );
+                              }
+
+                              if (categories.renamedAndModified.length > 0) {
+                                indicators.push(
+                                  <span
+                                    key="renamedAndModified"
+                                    className="inline-flex items-center gap-1 text-orange-600"
+                                  >
+                                    <UpdateIcon className="w-3 h-3" />
+                                    <Pencil1Icon className="w-2.5 h-2.5" />
+                                    <span>
+                                      {categories.renamedAndModified.length}
+                                    </span>
+                                  </span>,
+                                );
+                              }
+
+                              if (categories.deleted.length > 0) {
+                                indicators.push(
+                                  <span
+                                    key="deleted"
+                                    className="inline-flex items-center gap-1 text-red-600"
+                                  >
+                                    <TrashIcon className="w-3 h-3" />
+                                    <span>{categories.deleted.length}</span>
+                                  </span>,
+                                );
+                              }
+
+                              if (categories.new.length > 0) {
+                                indicators.push(
+                                  <span
+                                    key="new"
+                                    className="inline-flex items-center gap-1 text-green-600"
+                                  >
+                                    <PlusIcon className="w-3 h-3" />
+                                    <span>{categories.new.length}</span>
+                                  </span>,
+                                );
+                              }
+
+                              return indicators.length > 0 ? (
+                                indicators
+                              ) : (
+                                <span>
+                                  {stagedFiles.length} file
+                                  {stagedFiles.length !== 1 ? "s" : ""} changed
+                                </span>
+                              );
+                            })()}
+                          </div>
                         </button>
                       </PopoverTrigger>
                       <PopoverContent
                         side="bottom"
                         align="end"
-                        className="w-64 p-3"
+                        className="w-80 p-3"
                       >
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           <div className="text-sm font-medium">
-                            Staged files:
+                            Staged Changes
                           </div>
-                          <div className="space-y-1 max-h-48 overflow-y-auto">
-                            {stagedFiles.map((file) => (
-                              <button
-                                key={file.filePath}
-                                onClick={() => {
-                                  void navigate(
-                                    `/vault/${repositoryFullName}/${branch}/${file.filePath}`,
-                                  );
-                                }}
-                                className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 rounded truncate w-full ${linkStyle}`}
-                              >
-                                {file.filePath}
-                              </button>
-                            ))}
+                          <div className="space-y-3 max-h-64 overflow-y-auto">
+                            {(() => {
+                              const categories =
+                                categorizeStagedFiles(stagedFiles);
+                              const sections = [];
+
+                              if (categories.modified.length > 0) {
+                                sections.push(
+                                  <div key="modified" className="space-y-1">
+                                    <div className="flex items-center gap-2 text-xs font-medium text-blue-600">
+                                      <Pencil1Icon className="w-3 h-3" />
+                                      Modified ({categories.modified.length})
+                                    </div>
+                                    <div className="space-y-1 pl-5">
+                                      {categories.modified.map((file) => (
+                                        <button
+                                          key={file.filePath}
+                                          onClick={() => {
+                                            void navigate(
+                                              `/vault/${repositoryFullName}/${branch}/${file.filePath}`,
+                                            );
+                                          }}
+                                          className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 rounded truncate w-full ${linkStyle}`}
+                                        >
+                                          {file.filePath}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>,
+                                );
+                              }
+
+                              if (categories.renamed.length > 0) {
+                                sections.push(
+                                  <div key="renamed" className="space-y-1">
+                                    <div className="flex items-center gap-2 text-xs font-medium text-purple-600">
+                                      <UpdateIcon className="w-3 h-3" />
+                                      Renamed ({categories.renamed.length})
+                                    </div>
+                                    <div className="space-y-1 pl-5">
+                                      {categories.renamed.map((file) => (
+                                        <button
+                                          key={file.filePath}
+                                          onClick={() => {
+                                            void navigate(
+                                              `/vault/${repositoryFullName}/${branch}/${file.filePath}`,
+                                            );
+                                          }}
+                                          className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 rounded truncate w-full ${linkStyle}`}
+                                        >
+                                          <div className="text-muted-foreground">
+                                            {file.initialFilePath} →
+                                          </div>
+                                          <div className="font-medium">
+                                            {file.filePath}
+                                          </div>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>,
+                                );
+                              }
+
+                              if (categories.renamedAndModified.length > 0) {
+                                sections.push(
+                                  <div
+                                    key="renamedAndModified"
+                                    className="space-y-1"
+                                  >
+                                    <div className="flex items-center gap-2 text-xs font-medium text-orange-600">
+                                      <UpdateIcon className="w-3 h-3" />
+                                      <Pencil1Icon className="w-2.5 h-2.5" />
+                                      Renamed & Modified (
+                                      {categories.renamedAndModified.length})
+                                    </div>
+                                    <div className="space-y-1 pl-5">
+                                      {categories.renamedAndModified.map(
+                                        (file) => (
+                                          <button
+                                            key={file.filePath}
+                                            onClick={() => {
+                                              void navigate(
+                                                `/vault/${repositoryFullName}/${branch}/${file.filePath}`,
+                                              );
+                                            }}
+                                            className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 rounded truncate w-full ${linkStyle}`}
+                                          >
+                                            <div className="text-muted-foreground">
+                                              {file.initialFilePath} →
+                                            </div>
+                                            <div className="font-medium">
+                                              {file.filePath}
+                                            </div>
+                                          </button>
+                                        ),
+                                      )}
+                                    </div>
+                                  </div>,
+                                );
+                              }
+
+                              if (categories.deleted.length > 0) {
+                                sections.push(
+                                  <div key="deleted" className="space-y-1">
+                                    <div className="flex items-center gap-2 text-xs font-medium text-red-600">
+                                      <TrashIcon className="w-3 h-3" />
+                                      Deleted ({categories.deleted.length})
+                                    </div>
+                                    <div className="space-y-1 pl-5">
+                                      {categories.deleted.map((file) => (
+                                        <div
+                                          key={file.filePath}
+                                          className="block text-xs text-left p-1 rounded truncate w-full text-muted-foreground line-through"
+                                        >
+                                          {file.filePath}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>,
+                                );
+                              }
+
+                              if (categories.new.length > 0) {
+                                sections.push(
+                                  <div key="new" className="space-y-1">
+                                    <div className="flex items-center gap-2 text-xs font-medium text-green-600">
+                                      <PlusIcon className="w-3 h-3" />
+                                      New ({categories.new.length})
+                                    </div>
+                                    <div className="space-y-1 pl-5">
+                                      {categories.new.map((file) => (
+                                        <button
+                                          key={file.filePath}
+                                          onClick={() => {
+                                            void navigate(
+                                              `/vault/${repositoryFullName}/${branch}/${file.filePath}`,
+                                            );
+                                          }}
+                                          className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 rounded truncate w-full ${linkStyle}`}
+                                        >
+                                          {file.filePath}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>,
+                                );
+                              }
+
+                              return sections;
+                            })()}
                           </div>
                         </div>
                       </PopoverContent>
@@ -596,11 +901,45 @@ function FileViewInner() {
           onClose={closeFolderCreation}
           initialFolderPath={folderCreationDialog.folderPath || ""}
           onFolderCreate={handleCreateFolderInFolder}
-          folders={(tree.data ?? []).map((item) => ({
-            path: item.path,
-            type: item.type as "tree" | "blob",
-            size: item.size,
-          }))}
+          folders={[
+            // First, get all tree items and filter/transform them
+            ...(tree.data ?? [])
+              .filter((item) => {
+                // Filter out files that are marked for deletion in staging
+                const deletedFile = stagedFiles?.find(
+                  (staged) =>
+                    staged.filePath === item.path && staged.fileDeleted,
+                );
+                if (deletedFile) return false;
+
+                // Filter out files that have been renamed (hide original path)
+                const renamedFile = stagedFiles?.find(
+                  (staged) =>
+                    staged.initialFilePath === item.path &&
+                    staged.filePath !== staged.initialFilePath,
+                );
+                if (renamedFile) return false;
+
+                return true;
+              })
+              .map((item) => ({
+                path: item.path,
+                type: item.type as "tree" | "blob",
+                size: item.size,
+              })),
+            // Then, add any renamed files that show at new paths
+            ...(stagedFiles
+              ?.filter(
+                (staged) =>
+                  staged.filePath !== staged.initialFilePath &&
+                  !staged.fileDeleted,
+              )
+              .map((staged) => ({
+                path: staged.filePath,
+                type: "blob" as const,
+                size: 0, // We don't have size info for staged files
+              })) || []),
+          ]}
         />
       )}
 
@@ -608,11 +947,44 @@ function FileViewInner() {
       <CommandPalette
         open={isCommandPaletteOpen}
         onOpenChange={setIsCommandPaletteOpen}
-        files={(tree.data ?? []).map((item) => ({
-          path: item.path,
-          type: item.type as "tree" | "blob",
-          size: item.size,
-        }))}
+        files={[
+          // First, get all tree items and filter/transform them
+          ...(tree.data ?? [])
+            .filter((item) => {
+              // Filter out files that are marked for deletion in staging
+              const deletedFile = stagedFiles?.find(
+                (staged) => staged.filePath === item.path && staged.fileDeleted,
+              );
+              if (deletedFile) return false;
+
+              // Filter out files that have been renamed (hide original path)
+              const renamedFile = stagedFiles?.find(
+                (staged) =>
+                  staged.initialFilePath === item.path &&
+                  staged.filePath !== staged.initialFilePath,
+              );
+              if (renamedFile) return false;
+
+              return true;
+            })
+            .map((item) => ({
+              path: item.path,
+              type: item.type as "tree" | "blob",
+              size: item.size,
+            })),
+          // Then, add any renamed files that show at new paths
+          ...(stagedFiles
+            ?.filter(
+              (staged) =>
+                staged.filePath !== staged.initialFilePath &&
+                !staged.fileDeleted,
+            )
+            .map((staged) => ({
+              path: staged.filePath,
+              type: "blob" as const,
+              size: 0, // We don't have size info for staged files
+            })) || []),
+        ]}
         onFileSelect={handleFileSelect}
         selectedFile={selectedFile}
       />

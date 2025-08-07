@@ -5,6 +5,7 @@ import {
   FileIcon,
   PlusIcon,
   FilePlusIcon,
+  TrashIcon,
 } from "@radix-ui/react-icons";
 import { cn } from "@/lib/utils";
 import {
@@ -40,6 +41,7 @@ interface FileTreeProps {
   onFileSelect?: (path: string) => void;
   onFileRename?: (oldPath: string, newPath: string) => void;
   onFileCreate?: (folderPath: string, fileName: string) => void;
+  onFileDelete?: (path: string) => void;
   selectedFile?: string;
   folderExpansionStates: FolderExpansionState[];
   onFolderToggle?: (folderPath: string, isExpanded: boolean) => void;
@@ -102,6 +104,7 @@ function TreeNodeComponent({
   onFileSelect,
   onFileRename,
   onFileCreate,
+  onFileDelete,
   selectedFile,
   folderExpansionStates,
   onFolderToggle,
@@ -112,6 +115,7 @@ function TreeNodeComponent({
   onFileSelect?: (path: string) => void;
   onFileRename?: (oldPath: string, newPath: string) => void;
   onFileCreate?: (folderPath: string, fileName: string) => void;
+  onFileDelete?: (path: string) => void;
   selectedFile?: string;
   folderExpansionStates: FolderExpansionState[];
   onFolderToggle?: (folderPath: string, isExpanded: boolean) => void;
@@ -341,12 +345,24 @@ function TreeNodeComponent({
               </>
             )}
             {node.type === "blob" && (
-              <button
-                className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50"
-                onClick={handleRename}
-              >
-                Rename
-              </button>
+              <>
+                <button
+                  className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50"
+                  onClick={handleRename}
+                >
+                  Rename
+                </button>
+                <button
+                  className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50 text-destructive flex items-center gap-2"
+                  onClick={() => {
+                    onFileDelete?.(node.path);
+                    setContextMenu(null);
+                  }}
+                >
+                  <TrashIcon className="h-3 w-3" />
+                  Delete
+                </button>
+              </>
             )}
           </div>
         </>
@@ -360,6 +376,7 @@ export function FileTree({
   onFileSelect,
   onFileRename,
   onFileCreate,
+  onFileDelete,
   selectedFile,
   folderExpansionStates,
   onFolderToggle,
@@ -383,6 +400,7 @@ export function FileTree({
           onFileSelect={onFileSelect}
           onFileRename={onFileRename}
           onFileCreate={onFileCreate}
+          onFileDelete={onFileDelete}
           selectedFile={selectedFile}
           folderExpansionStates={folderExpansionStates}
           onFolderToggle={onFolderToggle}

@@ -11,7 +11,12 @@ async function createCommitWithMultipleFiles(
   octokit: Octokit,
   owner: string,
   repo: string,
-  stagedFiles: Array<{ filePath: string; content: string }>,
+  stagedFiles: Array<{
+    filePath: string;
+    content: string;
+    fileDeleted: boolean;
+    initialFilePath: string;
+  }>,
   commitMessage: string,
   branch: string = "main",
 ) {
@@ -32,22 +37,62 @@ async function createCommitWithMultipleFiles(
     });
     const currentTreeSha = currentCommit.tree.sha;
 
-    // 3. Create blobs for each file
+    // 3. Create blobs for modified/new files and handle deletions and renames
     const tree = [];
     for (const file of stagedFiles) {
-      const { data: blob } = await octokit.rest.git.createBlob({
-        owner,
-        repo,
-        content: Buffer.from(file.content, "utf8").toString("base64"),
-        encoding: "base64",
-      });
+      if (file.fileDeleted) {
+        // For deletions, set sha to null to remove the file from the tree
+        tree.push({
+          path: file.filePath,
+          mode: "100644" as const,
+          type: "blob" as const,
+          sha: null, // This removes the file
+        });
+      } else {
+        // Check if this is a rename (filePath different from initialFilePath)
+        const isRenamed = file.filePath !== file.initialFilePath;
 
-      tree.push({
-        path: file.filePath,
-        mode: "100644" as const, // File mode for regular files
-        type: "blob" as const,
-        sha: blob.sha,
-      });
+        if (isRenamed) {
+          // For renames, we need to:
+          // 1. Remove the old file (set sha to null)
+          tree.push({
+            path: file.initialFilePath,
+            mode: "100644" as const,
+            type: "blob" as const,
+            sha: null, // This removes the old file
+          });
+
+          // 2. Add the new file with the same content
+          const { data: blob } = await octokit.rest.git.createBlob({
+            owner,
+            repo,
+            content: Buffer.from(file.content, "utf8").toString("base64"),
+            encoding: "base64",
+          });
+
+          tree.push({
+            path: file.filePath,
+            mode: "100644" as const,
+            type: "blob" as const,
+            sha: blob.sha,
+          });
+        } else {
+          // For regular new/modified files, create a blob and add to tree
+          const { data: blob } = await octokit.rest.git.createBlob({
+            owner,
+            repo,
+            content: Buffer.from(file.content, "utf8").toString("base64"),
+            encoding: "base64",
+          });
+
+          tree.push({
+            path: file.filePath,
+            mode: "100644" as const, // File mode for regular files
+            type: "blob" as const,
+            sha: blob.sha,
+          });
+        }
+      }
     }
 
     // 4. Create a new tree
