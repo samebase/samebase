@@ -15,8 +15,8 @@
   },
   "dependencies": {
     "@auth/core": "^0.37.0",
-    "@codemirror/commands": "^6.8.0",
     "@codemirror/collab": "^6.1.1",
+    "@codemirror/commands": "^6.8.0",
     "@codemirror/lang-css": "^6.2.1",
     "@codemirror/lang-html": "^6.4.9",
     "@codemirror/lang-javascript": "^6.2.2",
@@ -50,6 +50,7 @@
     "clsx": "^2.1.1",
     "codemirror": "^6.0.1",
     "convex": "^1.17.0",
+    "diff": "^8.0.2",
     "lucide-react": "^0.525.0",
     "next-themes": "^0.3.0",
     "react": "^18.3.1",

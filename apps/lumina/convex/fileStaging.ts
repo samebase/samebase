@@ -5,21 +5,79 @@ import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { diffLines } from "diff";
 
 // Helper function to create a commit with multiple files
-async function createCommitWithMultipleFiles(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
+async function createCommitWithMultipleFiles({
+  octokit,
+  owner,
+  repo,
+  stagedFiles,
+  branch,
+}: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
   stagedFiles: Array<{
     filePath: string;
     content: string;
     fileDeleted: boolean;
     initialFilePath: string;
-  }>,
-  commitMessage: string,
-  branch: string = "main",
-) {
+    initialContent?: string;
+  }>;
+  branch: string;
+}) {
+  // Helper to compute modified (added) line ranges in the new content
+  const computeModifiedLineRanges = (
+    oldContent: string,
+    newContent: string,
+  ): Array<{ from: number; to: number }> => {
+    const parts = diffLines(oldContent ?? "", newContent ?? "");
+    const ranges: Array<{ from: number; to: number }> = [];
+    let newLine = 1;
+    for (const part of parts) {
+      const value = part.value ?? "";
+      const lineCount =
+        typeof (part as any).count === "number"
+          ? (part as any).count
+          : value === ""
+            ? 0
+            : value.split("\n").length; // count lines even without trailing newline
+      if (part.added) {
+        if (lineCount > 0) {
+          ranges.push({ from: newLine, to: newLine + lineCount - 1 });
+        }
+        newLine += lineCount;
+      } else if (part.removed) {
+        // Removed lines affect old content only; don't advance newLine
+      } else {
+        newLine += lineCount;
+      }
+    }
+    return ranges;
+  };
+
+  // Summarize all changes to craft a commit message
+  const changesInfo: Array<{
+    deleted: boolean;
+    modifiedLines: Array<{ from: number; to: number }>;
+    filePath: string;
+    initialFilePath: string;
+    wasModified: boolean;
+  }> = stagedFiles.map((file) => ({
+    deleted: file.fileDeleted,
+    filePath: file.filePath,
+    initialFilePath: file.initialFilePath,
+    modifiedLines: file.fileDeleted
+      ? []
+      : computeModifiedLineRanges(
+          file.initialContent ?? "",
+          file.content ?? "",
+        ),
+    wasModified:
+      !file.fileDeleted && (file.initialContent ?? "") !== (file.content ?? ""),
+  }));
+
   try {
     // 1. Get the current commit SHA
     const { data: refData } = await octokit.rest.git.getRef({
@@ -38,7 +96,12 @@ async function createCommitWithMultipleFiles(
     const currentTreeSha = currentCommit.tree.sha;
 
     // 3. Create blobs for modified/new files and handle deletions and renames
-    const tree = [];
+    const tree = [] as Array<{
+      path: string;
+      mode: "100644";
+      type: "blob";
+      sha: string | null;
+    }>;
     for (const file of stagedFiles) {
       if (file.fileDeleted) {
         // For deletions, set sha to null to remove the file from the tree
@@ -103,7 +166,50 @@ async function createCommitWithMultipleFiles(
       tree,
     });
 
-    // 5. Create the commit
+    // 5. Create the commit - compact, single-line subject
+    const basename = (p: string) => {
+      const parts = p.split("/");
+      return parts[parts.length - 1] || p;
+    };
+    const shortRanges = (
+      ranges: Array<{ from: number; to: number }>,
+      max = 2,
+    ) => {
+      const items = ranges
+        .slice(0, max)
+        .map((r) => (r.from === r.to ? `${r.from}` : `${r.from}-${r.to}`));
+      return ranges.length > max ? `${items.join(",")},…` : items.join(",");
+    };
+    const subjectTokens: string[] = [];
+    for (const info of changesInfo) {
+      const renamed = info.initialFilePath !== info.filePath;
+      if (info.deleted) {
+        subjectTokens.push(`D ${basename(info.initialFilePath)}`);
+      } else if (renamed && info.modifiedLines.length > 0) {
+        subjectTokens.push(
+          `${basename(info.initialFilePath)}->${basename(info.filePath)}[${shortRanges(info.modifiedLines)}]`,
+        );
+      } else if (renamed) {
+        subjectTokens.push(
+          `${basename(info.initialFilePath)}->${basename(info.filePath)}`,
+        );
+      } else if (info.modifiedLines.length > 0) {
+        subjectTokens.push(
+          `${basename(info.filePath)}[${shortRanges(info.modifiedLines)}]`,
+        );
+      } else if (info.wasModified) {
+        // Modified but only deletions (no added ranges). Still include token.
+        subjectTokens.push(`${basename(info.filePath)}[]`);
+      }
+    }
+    const maxTokens = 4;
+    const commitMessage =
+      subjectTokens.length === 0
+        ? "Update files"
+        : subjectTokens.length > maxTokens
+          ? `${subjectTokens.slice(0, maxTokens).join(", ")} …`
+          : subjectTokens.join(", ");
+
     const { data: newCommit } = await octokit.rest.git.createCommit({
       owner,
       repo,
@@ -182,14 +288,13 @@ export const commitAllStaged = internalAction({
       });
 
       // Create a commit with all staged files
-      const result = await createCommitWithMultipleFiles(
+      const result = await createCommitWithMultipleFiles({
         octokit,
-        args.repoOwner,
-        args.repoName,
-        changedFiles,
-        "Auto-commit staged files", // commit message
-        "main", // branch
-      );
+        owner: args.repoOwner,
+        repo: args.repoName,
+        stagedFiles: changedFiles,
+        branch: "main", // branch
+      });
 
       console.log("--here3", "after createCommitWithMultipleFiles");
 
@@ -259,7 +364,11 @@ export const renameFileInStaging = action({
       },
     );
 
-    const { content, initialContent, ...rest } = updatedFile;
+    const {
+      content: _content,
+      initialContent: _initialContent,
+      ...rest
+    } = updatedFile;
 
     console.log("after rename", rest);
 
@@ -389,6 +498,9 @@ export const getFileForEditing = action({
 export const commitStaging = action({
   args: {
     repositoryFullName: v.string(),
+
+    // Used to instantly populate the file view. Probably temporary fix.
+    currentFilePath: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -412,6 +524,14 @@ export const commitStaging = action({
       repoOwner: vault.ghRepoOwner,
       repoName: vault.ghRepoName,
     });
+
+    // Refresh the file view
+    if (args.currentFilePath) {
+      await ctx.runAction(api.fileStaging.getFileForEditing, {
+        repositoryFullName: args.repositoryFullName,
+        originalFilePath: args.currentFilePath,
+      });
+    }
 
     return null;
   },

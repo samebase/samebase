@@ -175,7 +175,7 @@ function FileViewWrapper() {
     navigate,
   ]);
 
-  if (!vault || !tree.data || !selectedFile) {
+  if (!vault || !tree.data || !selectedFile || !owner || !repoName) {
     return null;
   }
 
@@ -185,6 +185,8 @@ function FileViewWrapper() {
       tree={tree}
       selectedFile={selectedFile}
       branch={branch}
+      owner={owner}
+      repoName={repoName}
     />
   );
 }
@@ -194,6 +196,8 @@ function FileViewInner({
   tree,
   selectedFile,
   branch,
+  owner,
+  repoName,
 }: {
   vault: NonNullable<
     GetFunctionReferenceReturnType<typeof api.vault.getVaultByRepository>
@@ -204,18 +208,11 @@ function FileViewInner({
   >;
   branch: string;
   selectedFile: string;
+  owner: string;
+  repoName: string;
 }) {
   const { setOpenMobile } = useSidebar();
 
-  const {
-    owner,
-    repoName,
-    "*": branchAndFilePath,
-  } = useParams<{
-    owner: string;
-    repoName: string;
-    "*": string;
-  }>();
   const navigate = useNavigate();
 
   // Get current user for sidebar
@@ -407,6 +404,7 @@ function FileViewInner({
     try {
       await commitStaging({
         repositoryFullName: repositoryFullName,
+        currentFilePath: selectedFile,
       });
     } catch (error) {
       console.error("Failed to commit changes:", error);
@@ -879,7 +877,7 @@ function FileViewInner({
 
               <div className="flex-1 min-h-0">
                 <CodeEditorWrapper
-                  key={branchAndFilePath}
+                  key={`${branch}/${selectedFile}-${stagedFile?.parentCommitSha}`}
                   repositoryFullName={repositoryFullName}
                   filePath={selectedFile}
                   initialFilePath={stagedFile?.initialFilePath ?? selectedFile}
