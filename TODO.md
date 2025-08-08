@@ -1,6 +1,5 @@
 - [ ] make dragging nice
 - [x] when committing, commit all changed files
-- [ ] allow deleting file/folder
-- [ ] after commit now, the file should already have a new staging
-- [ ] add more descriptive commit names
-- 
+- [x] allow deleting file/folder
+- [x] after commit now, the file should already have a new staging
+- [x] add more descriptive commit names
