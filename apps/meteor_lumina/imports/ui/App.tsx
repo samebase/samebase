@@ -3,11 +3,12 @@ import { Hello } from './Hello'
 import { Info } from './Info'
 import { useTracker } from 'meteor/react-meteor-data'
 import { Meteor } from 'meteor/meteor'
-import { LoginForm } from './LoginForm'
 import { Button } from '/imports/components/ui/button'
 import { Layout } from './Layout'
 import { Route, Routes } from 'react-router-dom'
 import { SignInForm } from './SignInForm'
+import { VaultDashboard } from './VaultDashboard'
+import { AddRepository } from './AddRepository'
 
 export function App() {
   const user = useTracker(() => Meteor.user())
@@ -17,9 +18,8 @@ export function App() {
       <>
         {user ? (
           <Routes>
-            <Route path="/" element={<div>Hello</div>} />
-            {/* <Route path="/" element={<VaultDashboard />} /> */}
-            {/* <Route path="/add" element={<AddRepository />} /> */}
+            <Route path="/" element={<VaultDashboard />} />
+            <Route path="/add" element={<AddRepository />} />
             {/* <Route path="/vault/:owner/:repoName" element={<FileView />} /> */}
             {/* <Route path="/vault/:owner/:repoName/*" element={<FileView />} /> */}
           </Routes>
