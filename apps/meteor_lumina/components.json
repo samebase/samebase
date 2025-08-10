@@ -10,7 +10,6 @@
     "cssVariables": true,
     "prefix": ""
   },
-  "comment": "The @ will have to manually be removed since shadcn doesn't work with meteor's absolute imports",
   "aliases": {
     "components": "/imports/components",
     "utils": "/imports/ui/utils",
