@@ -5,21 +5,28 @@ import { useTracker } from 'meteor/react-meteor-data'
 import { Meteor } from 'meteor/meteor'
 import { LoginForm } from './LoginForm'
 import { Button } from '/imports/components/ui/button'
+import { Layout } from './Layout'
+import { Route, Routes } from 'react-router-dom'
+import { SignInForm } from './SignInForm'
 
-export const App = () => {
+export function App() {
   const user = useTracker(() => Meteor.user())
 
-  if (!user) {
-    return <LoginForm />
-  }
-
-  // Nice tailwind css landing page
   return (
-    <div className="flex flex-col items-center justify-center h-screen">
-      <h1 className="text-4xl font-bold">Welcome to Meteor!</h1>
-      <Button>Click me</Button>
-      <Hello />
-      <Info />
-    </div>
+    <Layout>
+      <>
+        {user ? (
+          <Routes>
+            <Route path="/" element={<div>Hello</div>} />
+            {/* <Route path="/" element={<VaultDashboard />} /> */}
+            {/* <Route path="/add" element={<AddRepository />} /> */}
+            {/* <Route path="/vault/:owner/:repoName" element={<FileView />} /> */}
+            {/* <Route path="/vault/:owner/:repoName/*" element={<FileView />} /> */}
+          </Routes>
+        ) : (
+          <SignInForm />
+        )}
+      </>
+    </Layout>
   )
 }
