@@ -1,5 +1,6 @@
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { Button } from "@/components/ui/button";
+import React from 'react'
+import { ThemeToggle } from '/imports/ui/ThemeToggle'
+import { Button } from '/imports/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,23 +8,15 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useAuthActions } from "@convex-dev/auth/react";
-import { PersonIcon } from "@radix-ui/react-icons";
-import { ReactNode } from "react";
-import { clsx } from "clsx";
+} from '/imports/components/ui/dropdown-menu'
+import { Meteor } from 'meteor/meteor'
+import { PersonIcon } from '@radix-ui/react-icons'
+import { ReactNode } from 'react'
+import { clsx } from 'clsx'
 
-export function UserMenu({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+export function UserMenu({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div
-      className={clsx("flex items-center gap-2 text-sm font-medium", className)}
-    >
+    <div className={clsx('flex items-center gap-2 text-sm font-medium', className)}>
       {children}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -43,12 +36,12 @@ export function UserMenu({
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
-  );
+  )
 }
 
 function SignOutButton() {
-  const { signOut } = useAuthActions();
-  return (
-    <DropdownMenuItem onClick={() => void signOut()}>Sign out</DropdownMenuItem>
-  );
+  const handleSignOut = () => {
+    Meteor.logout()
+  }
+  return <DropdownMenuItem onClick={handleSignOut}>Sign out</DropdownMenuItem>
 }

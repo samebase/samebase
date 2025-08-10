@@ -24,8 +24,6 @@
     /* Module Resolution Options */
     "baseUrl": ".",
     "paths": {
-      // Don't use this import since it won't work with meteor, but it's set so tailwind adds components nicely
-      "@/*": ["./imports/*"],
       /* Support absolute /imports/* with a leading '/' */
       "/*": ["*"],
       /* Pull in type declarations for Meteor packages from either zodern:types or @types/meteor packages */

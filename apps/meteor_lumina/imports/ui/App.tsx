@@ -9,24 +9,26 @@ import { Route, Routes } from 'react-router-dom'
 import { SignInForm } from './SignInForm'
 import { VaultDashboard } from './VaultDashboard'
 import { AddRepository } from './AddRepository'
+import { FileView } from './FileView'
+import { DialogProvider } from '/imports/contexts/DialogContext'
 
 export function App() {
   const user = useTracker(() => Meteor.user())
 
   return (
-    <Layout>
-      <>
+    <DialogProvider>
+      <Layout>
         {user ? (
           <Routes>
             <Route path="/" element={<VaultDashboard />} />
             <Route path="/add" element={<AddRepository />} />
-            {/* <Route path="/vault/:owner/:repoName" element={<FileView />} /> */}
-            {/* <Route path="/vault/:owner/:repoName/*" element={<FileView />} /> */}
+            <Route path="/vault/:owner/:repoName" element={<FileView />} />
+            <Route path="/vault/:owner/:repoName/*" element={<FileView />} />
           </Routes>
         ) : (
           <SignInForm />
         )}
-      </>
-    </Layout>
+      </Layout>
+    </DialogProvider>
   )
 }

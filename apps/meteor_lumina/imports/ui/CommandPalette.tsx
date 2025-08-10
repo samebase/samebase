@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent } from "/imports/components/ui/dialog";
+import { Input } from "/imports/components/ui/input";
 import { FileIcon, ChevronRightIcon } from "@radix-ui/react-icons";
-import { cn } from "@/lib/utils";
-import { fuzzyMatch } from "@/lib/fuzzySearch.tsx";
+import { cn } from "/imports/lib/utils";
+import { fuzzyMatch } from "/imports/lib/fuzzySearch.tsx";
 
 interface FileItem {
   path: string;

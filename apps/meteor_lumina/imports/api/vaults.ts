@@ -2,7 +2,7 @@ import { Mongo } from 'meteor/mongo'
 import { Meteor } from 'meteor/meteor'
 
 export interface Vault {
-  _id?: string
+  _id: string
   userId: string // Reference to users collection
   ghRepoId: string
   ghRepoOwner: string
@@ -11,6 +11,44 @@ export interface Vault {
 }
 
 export const VaultsCollection = new Mongo.Collection<Vault>('vaults')
+
+// Publications - Server-side security
+if (Meteor.isServer) {
+  // Publish vault by repository - SECURE: only user's own vaults
+  Meteor.publish('vault-by-repository', function (repositoryFullName: string) {
+    // Security check - must be logged in
+    if (!this.userId) {
+      return this.ready()
+    }
+
+    if (!repositoryFullName || typeof repositoryFullName !== 'string') {
+      return this.ready()
+    }
+
+    const [owner, name] = repositoryFullName.split('/')
+    if (!owner || !name) {
+      return this.ready()
+    }
+
+    // Only return vaults that belong to the current user
+    return VaultsCollection.find({
+      userId: this.userId, // Server-enforced security
+      ghRepoOwner: owner,
+      ghRepoName: name,
+    })
+  })
+
+  // Publish user's vaults
+  Meteor.publish('user-vaults', function () {
+    if (!this.userId) {
+      return this.ready()
+    }
+
+    return VaultsCollection.find({
+      userId: this.userId,
+    })
+  })
+}
 
 // Vault management methods
 Meteor.methods({

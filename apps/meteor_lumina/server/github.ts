@@ -254,7 +254,7 @@ Meteor.methods({
     }
   },
 
-  async getGitHubRepositoryTree(owner: string, repo: string) {
+  async getGitHubRepositoryTree({ owner, repo }: { owner: string; repo: string }) {
     if (!this.userId) {
       throw new Meteor.Error('not-authorized', 'You must be logged in')
     }

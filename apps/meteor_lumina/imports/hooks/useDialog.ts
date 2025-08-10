@@ -1,10 +1,10 @@
-import { useContext } from "react";
-import { DialogContext } from "@/contexts/DialogContext";
+import { useContext } from 'react'
+import { DialogContext } from '/imports/contexts/DialogContext'
 
 export function useDialog() {
-  const context = useContext(DialogContext);
+  const context = useContext(DialogContext)
   if (context === undefined) {
-    throw new Error("useDialog must be used within a DialogProvider");
+    throw new Error('useDialog must be used within a DialogProvider')
   }
-  return context;
+  return context
 }

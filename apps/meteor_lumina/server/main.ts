@@ -3,12 +3,12 @@ import { Link, LinksCollection } from '/imports/api/links'
 import { Accounts } from 'meteor/accounts-base'
 import { ServiceConfiguration } from 'meteor/service-configuration'
 import './github'
-import '/imports/api/vaults'
 import '/imports/api/users'
 import '/imports/api/messages'
 import '/imports/api/fileStaging'
 import '/imports/api/collaborative'
 import '/imports/api/folderExpansion'
+import '/imports/api/vaults'
 
 async function insertLink({ title, url }: Pick<Link, 'title' | 'url'>) {
   await LinksCollection.insertAsync({ title, url, createdAt: new Date() })
