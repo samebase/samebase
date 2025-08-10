@@ -26,6 +26,7 @@ Meteor.methods({
       vaultId: vault._id,
       originalFilePath,
     })
+    console.log('getFileForEditing', { vault, originalFilePath })
 
     if (staging) {
       return {
@@ -49,12 +50,15 @@ Meteor.methods({
         },
       )
 
+      if (!response.ok) {
+        throw new Error('Failed to fetch file for editing')
+      }
+
       let content = ''
-      if (response.ok) {
-        const fileData = await response.json()
-        if (fileData.content) {
-          content = Buffer.from(fileData.content, 'base64').toString('utf-8')
-        }
+
+      const fileData = await response.json()
+      if (fileData.content) {
+        content = Buffer.from(fileData.content, 'base64').toString('utf-8')
       }
 
       // Create staging record
@@ -278,7 +282,7 @@ Meteor.methods({
       originalFilePath,
     })
 
-    return staging
+    return staging || null
   },
 
   async listStagedFiles({

@@ -40,6 +40,7 @@ import {
   prosemarkBaseThemeSetup,
   prosemarkBasicSetup,
   prosemarkMarkdownSyntaxExtensions,
+  // @ts-expect-error no types
 } from '@prosemark/core'
 import { printTree } from '@lezer-unofficial/printer'
 
@@ -91,7 +92,7 @@ async function pullUpdates({
 }): Promise<readonly Update[]> {
   await awaitTimeout(delay)
   return Meteor.callAsync('pullUpdates', { repositoryFullName, filePath, version }).then(updates =>
-    updates.map(u => ({
+    updates.map((u: any) => ({
       changes: ChangeSet.fromJSON(JSON.parse(u.changes)),
       clientID: u.clientID,
     })),
@@ -256,24 +257,28 @@ const isMarkdownFile = (fileName?: string) => {
 export function CodeEditorWrapper({
   repositoryFullName,
   filePath,
-  initialFilePath,
+  originalFilePath,
 }: {
   repositoryFullName: string
   filePath: string
-  initialFilePath: string
+  originalFilePath: string
 }) {
   const [firstDocData, setFirstDocData] = useState<{
     version: number
     content: string
   } | null>(null)
 
+  console.log('CodeEditorWrapper', { repositoryFullName, filePath, originalFilePath })
+
   useEffect(() => {
-    Meteor.callAsync('getFileForEditing', { repositoryFullName, initialFilePath })
+    console.log('CodeEditorWrapper useEffect', { repositoryFullName, originalFilePath })
+    Meteor.callAsync('getFileForEditing', { repositoryFullName, originalFilePath })
       .then(data => {
+        console.log('CodeEditorWrapper useEffect then', { data })
         setFirstDocData(data)
       })
       .catch(console.error)
-  }, [repositoryFullName, initialFilePath])
+  }, [repositoryFullName, originalFilePath])
 
   if (!firstDocData) return <div>Loading file...</div>
 
@@ -317,7 +322,7 @@ export function CodeEditor({
   useEffect(() => {
     if (!updates.data || !pullRef.current) return
 
-    const cmUpdates = updates.data.map(u => ({
+    const cmUpdates = updates.data.map((u: any) => ({
       changes: ChangeSet.fromJSON(JSON.parse(u.changes)),
       clientID: u.clientID,
     }))

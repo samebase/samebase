@@ -265,14 +265,14 @@ function FileViewInner({
   // File staging methods
   const commitStaging = async (params: { repositoryFullName: string; commitMessage: string }) => {
     setCommitting(true)
-    return await Meteor.callAsync('commitStagedFiles', params)
+    await Meteor.callAsync('commitStagedFiles', params)
     setCommitting(false)
   }
 
   const [clearingStaging, setClearingStaging] = useState(false)
   const clearAllStaging = async (params: { vaultId: string }) => {
     setClearingStaging(true)
-    return await Meteor.callAsync('clearAllStaging', params)
+    await Meteor.callAsync('clearAllStaging', params)
     setClearingStaging(false)
   }
 
@@ -850,7 +850,7 @@ function FileViewInner({
                   key={`${branch}/${selectedFile}-${stagedFile.data?.parentCommitSha}`}
                   repositoryFullName={repositoryFullName}
                   filePath={selectedFile}
-                  initialFilePath={stagedFile.data?.initialFilePath ?? selectedFile}
+                  originalFilePath={stagedFile.data?.initialFilePath ?? selectedFile}
                 />
               </div>
             </div>

@@ -27,8 +27,8 @@ export interface FileStaging {
   content: string
   version: number
   lastEditTime: number
-  lastEditUserId?: string
-  originalContent?: string
+  lastEditUserId: string
+  originalContent: string
   originalFilePath: string
   fileDeleted?: boolean
   createdAt?: Date
