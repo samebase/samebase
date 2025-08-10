@@ -12,7 +12,7 @@ export function Chat({ viewer }: { viewer: string }) {
   const [newMessageText, setNewMessageText] = useState('')
 
   const messages = useTracker(() => {
-    return Meteor.callAsync('listMessages')
+    return Meteor.callAsync('listMessages', {})
   }, [])
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -20,7 +20,7 @@ export function Chat({ viewer }: { viewer: string }) {
     if (!newMessageText.trim()) return
 
     try {
-      await Meteor.callAsync('sendMessage', newMessageText)
+      await Meteor.callAsync('sendMessage', { body: newMessageText })
       setNewMessageText('')
     } catch (error) {
       console.error('Failed to send message:', error)

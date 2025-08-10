@@ -38,7 +38,7 @@ export const FileStagingCollection = new Mongo.Collection<FileStaging>('fileStag
 
 // Collaborative methods
 Meteor.methods({
-  async getDocument(vaultId: string, filePath: string) {
+  async getDocument({ vaultId, filePath }: { vaultId: string; filePath: string }) {
     if (!this.userId) {
       throw new Meteor.Error('not-authorized', 'You must be logged in')
     }
@@ -69,12 +69,20 @@ Meteor.methods({
     }
   },
 
-  async pullUpdates(repositoryFullName: string, filePath: string, version: number) {
+  async pullUpdates({
+    repositoryFullName,
+    filePath,
+    version,
+  }: {
+    repositoryFullName: string
+    filePath: string
+    version: number
+  }) {
     if (!this.userId) {
       throw new Meteor.Error('not-authorized', 'You must be logged in')
     }
 
-    const vault = await Meteor.callAsync('getVaultByRepository', repositoryFullName)
+    const vault = await Meteor.callAsync('getVaultByRepository', { repositoryFullName })
     if (!vault) {
       throw new Error('Vault not found')
     }
@@ -93,12 +101,17 @@ Meteor.methods({
     }))
   },
 
-  async pushUpdates(
-    repositoryFullName: string,
-    filePath: string,
-    version: number,
-    updates: Array<{ clientId: string; changes: string }>,
-  ) {
+  async pushUpdates({
+    repositoryFullName,
+    filePath,
+    version,
+    updates,
+  }: {
+    repositoryFullName: string
+    filePath: string
+    version: number
+    updates: Array<{ clientId: string; changes: string }>
+  }) {
     if (!this.userId) {
       throw new Meteor.Error('not-authorized', 'You must be logged in')
     }
@@ -108,7 +121,7 @@ Meteor.methods({
       JSON.stringify({ repositoryFullName, filePath, version, updates }, null, 2),
     )
 
-    const vault = await Meteor.callAsync('getVaultByRepository', repositoryFullName)
+    const vault = await Meteor.callAsync('getVaultByRepository', { repositoryFullName })
     if (!vault) {
       throw new Error('Vault not found')
     }
@@ -181,7 +194,7 @@ Meteor.methods({
     }
   },
 
-  async getActiveEditors(vaultId: string, filePath: string) {
+  async getActiveEditors({ vaultId, filePath }: { vaultId: string; filePath: string }) {
     if (!this.userId) {
       throw new Meteor.Error('not-authorized', 'You must be logged in')
     }

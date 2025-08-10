@@ -5,12 +5,18 @@ export const AUTO_COMMIT_DELAY_MS = 2 * 1000
 
 // File staging methods
 Meteor.methods({
-  async getFileForEditing(repositoryFullName: string, originalFilePath: string) {
+  async getFileForEditing({
+    repositoryFullName,
+    originalFilePath,
+  }: {
+    repositoryFullName: string
+    originalFilePath: string
+  }) {
     if (!this.userId) {
       throw new Meteor.Error('not-authorized', 'You must be logged in')
     }
 
-    const vault = await Meteor.callAsync('getVaultByRepository', repositoryFullName)
+    const vault = await Meteor.callAsync('getVaultByRepository', { repositoryFullName })
     if (!vault) {
       throw new Error('Vault not found')
     }
@@ -36,7 +42,7 @@ Meteor.methods({
         `https://api.github.com/repos/${owner}/${repo}/contents/${originalFilePath}`,
         {
           headers: {
-            Authorization: `Bearer ${await Meteor.callAsync('getGitHubAccessToken', this.userId)}`,
+            Authorization: `Bearer ${await Meteor.callAsync('getGitHubAccessToken', { userId: this.userId })}`,
             Accept: 'application/vnd.github.v3+json',
             'User-Agent': 'Lumina-App',
           },
@@ -74,12 +80,12 @@ Meteor.methods({
     }
   },
 
-  async getStagedFiles(repositoryFullName: string) {
+  async getStagedFiles({ repositoryFullName }: { repositoryFullName: string }) {
     if (!this.userId) {
       throw new Meteor.Error('not-authorized', 'You must be logged in')
     }
 
-    const vault = await Meteor.callAsync('getVaultByRepository', repositoryFullName)
+    const vault = await Meteor.callAsync('getVaultByRepository', { repositoryFullName })
     if (!vault) {
       throw new Error('Vault not found')
     }
@@ -100,12 +106,18 @@ Meteor.methods({
     }))
   },
 
-  async commitStagedFiles(repositoryFullName: string, commitMessage: string) {
+  async commitStagedFiles({
+    repositoryFullName,
+    commitMessage,
+  }: {
+    repositoryFullName: string
+    commitMessage: string
+  }) {
     if (!this.userId) {
       throw new Meteor.Error('not-authorized', 'You must be logged in')
     }
 
-    const vault = await Meteor.callAsync('getVaultByRepository', repositoryFullName)
+    const vault = await Meteor.callAsync('getVaultByRepository', { repositoryFullName })
     if (!vault) {
       throw new Error('Vault not found')
     }
@@ -120,7 +132,7 @@ Meteor.methods({
 
     try {
       const [owner, repo] = repositoryFullName.split('/')
-      const accessToken = await Meteor.callAsync('getGitHubAccessToken', this.userId)
+      const accessToken = await Meteor.callAsync('getGitHubAccessToken', { userId: this.userId })
 
       // For simplicity, commit files one by one
       // In a production app, you'd want to create a single commit with multiple files
@@ -156,12 +168,18 @@ Meteor.methods({
     }
   },
 
-  async discardStagedFile(repositoryFullName: string, filePath: string) {
+  async discardStagedFile({
+    repositoryFullName,
+    filePath,
+  }: {
+    repositoryFullName: string
+    filePath: string
+  }) {
     if (!this.userId) {
       throw new Meteor.Error('not-authorized', 'You must be logged in')
     }
 
-    const vault = await Meteor.callAsync('getVaultByRepository', repositoryFullName)
+    const vault = await Meteor.callAsync('getVaultByRepository', { repositoryFullName })
     if (!vault) {
       throw new Error('Vault not found')
     }
@@ -244,7 +262,13 @@ Meteor.methods({
     return staging
   },
 
-  async getStagedFile(vaultId: string, originalFilePath: string) {
+  async getStagedFile({
+    vaultId,
+    originalFilePath,
+  }: {
+    vaultId: string
+    originalFilePath: string
+  }) {
     if (!this.userId) {
       throw new Meteor.Error('not-authorized', 'You must be logged in')
     }
@@ -257,7 +281,13 @@ Meteor.methods({
     return staging
   },
 
-  async listStagedFiles(vaultId: string, includeUnchanged = false) {
+  async listStagedFiles({
+    vaultId,
+    includeUnchanged = false,
+  }: {
+    vaultId: string
+    includeUnchanged?: boolean
+  }) {
     if (!this.userId) {
       throw new Meteor.Error('not-authorized', 'You must be logged in')
     }
@@ -281,7 +311,7 @@ Meteor.methods({
     return files
   },
 
-  async clearAllStaging(vaultId: string) {
+  async clearAllStaging({ vaultId }: { vaultId: string }) {
     if (!this.userId) {
       throw new Meteor.Error('not-authorized', 'You must be logged in')
     }
@@ -342,7 +372,15 @@ Meteor.methods({
     return null
   },
 
-  async renameFileInStaging(vaultId: string, originalPath: string, newPath: string) {
+  async renameFileInStaging({
+    vaultId,
+    originalPath,
+    newPath,
+  }: {
+    vaultId: string
+    originalPath: string
+    newPath: string
+  }) {
     if (!this.userId) {
       throw new Meteor.Error('not-authorized', 'You must be logged in')
     }

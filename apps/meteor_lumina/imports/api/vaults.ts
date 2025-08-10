@@ -52,14 +52,14 @@ if (Meteor.isServer) {
 
 // Vault management methods
 Meteor.methods({
-  async connectRepository(repositoryFullName: string) {
+  async connectRepository({ repositoryFullName }: { repositoryFullName: string }) {
     if (!this.userId) {
       throw new Meteor.Error('not-authorized', 'You must be logged in')
     }
 
     try {
       // Get repository details from GitHub
-      const repoData = await Meteor.callAsync('getGitHubRepository', repositoryFullName)
+      const repoData = await Meteor.callAsync('getGitHubRepository', { repositoryFullName })
 
       // Check if vault already exists
       const existingVault = await VaultsCollection.findOneAsync({
@@ -116,7 +116,7 @@ Meteor.methods({
     }
   },
 
-  async getVaultByRepository(repositoryFullName: string) {
+  async getVaultByRepository({ repositoryFullName }: { repositoryFullName: string }) {
     if (!this.userId) {
       throw new Meteor.Error('not-authorized', 'You must be logged in')
     }

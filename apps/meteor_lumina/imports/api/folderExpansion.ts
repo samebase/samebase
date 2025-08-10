@@ -17,7 +17,7 @@ export const FolderExpansionStateCollection = new Mongo.Collection<FolderExpansi
 
 // Folder expansion methods
 Meteor.methods({
-  async getFolderExpansionStates(vaultId: string) {
+  async getFolderExpansionStates({ vaultId }: { vaultId: string }) {
     if (!this.userId) {
       return []
     }
@@ -33,7 +33,15 @@ Meteor.methods({
     }))
   },
 
-  async setFolderExpansionState(vaultId: string, folderPath: string, isExpanded: boolean) {
+  async setFolderExpansionState({
+    vaultId,
+    folderPath,
+    isExpanded,
+  }: {
+    vaultId: string
+    folderPath: string
+    isExpanded: boolean
+  }) {
     if (!this.userId) {
       throw new Meteor.Error('not-authorized', 'You must be logged in')
     }
@@ -64,7 +72,7 @@ Meteor.methods({
     return null
   },
 
-  async clearFolderExpansionStates(vaultId: string) {
+  async clearFolderExpansionStates({ vaultId }: { vaultId: string }) {
     if (!this.userId) {
       throw new Meteor.Error('not-authorized', 'You must be logged in')
     }

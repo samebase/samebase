@@ -28,7 +28,7 @@ export function VaultDashboard() {
   React.useEffect(() => {
     const fetchVaults = async () => {
       try {
-        const result = await Meteor.callAsync('getUserVaults')
+        const result = await Meteor.callAsync('getUserVaults', {})
         setVaults(result || [])
       } catch (error) {
         console.error('Error fetching vaults:', error)

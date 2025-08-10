@@ -100,8 +100,8 @@ export function AddRepository() {
 
         // Fetch both repositories and vaults in parallel
         const [repos, userVaults] = await Promise.all([
-          Meteor.callAsync('listGitHubRepositories'),
-          Meteor.callAsync('getUserVaults'),
+          Meteor.callAsync('listGitHubRepositories', {}),
+          Meteor.callAsync('getUserVaults', {}),
         ])
 
         setRepositories(repos)
@@ -140,7 +140,7 @@ export function AddRepository() {
 
   const handleConnectRepository = async (repositoryFullName: string) => {
     try {
-      await Meteor.callAsync('connectRepository', repositoryFullName)
+      await Meteor.callAsync('connectRepository', { repositoryFullName })
       navigate('/')
     } catch (err: any) {
       console.error('Error connecting repository:', err)

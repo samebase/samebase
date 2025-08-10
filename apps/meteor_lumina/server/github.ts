@@ -68,7 +68,11 @@ Meteor.methods({
     }
   },
 
-  async getGitHubRepository(repositoryFullName: string): Promise<GetRepoResponse> {
+  async getGitHubRepository({
+    repositoryFullName,
+  }: {
+    repositoryFullName: string
+  }): Promise<GetRepoResponse> {
     if (!this.userId) {
       throw new Meteor.Error('not-authorized', 'You must be logged in')
     }
@@ -138,13 +142,13 @@ Meteor.methods({
     }
   },
 
-  async getGitHubAccessToken(userId: string): Promise<string | null> {
+  async getGitHubAccessToken({ userId }: { userId: string }): Promise<string | null> {
     const user = await Meteor.users.findOneAsync(userId)
     // @ts-expect-error TODO: add typings file
     return user?.services?.github?.accessToken || null
   },
 
-  async getGitHubReadme(owner: string, repo: string) {
+  async getGitHubReadme({ owner, repo }: { owner: string; repo: string }) {
     if (!this.userId) {
       throw new Meteor.Error('not-authorized', 'You must be logged in')
     }

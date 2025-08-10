@@ -75,7 +75,7 @@ async function pushUpdates({
     changes: JSON.stringify(u.changes.toJSON()),
   }))
 
-  return Meteor.callAsync('pushUpdates', repositoryFullName, filePath, version, updates).then(
+  return Meteor.callAsync('pushUpdates', { repositoryFullName, filePath, version, updates }).then(
     result => result.success,
   )
 }
@@ -90,7 +90,7 @@ async function pullUpdates({
   filePath: string
 }): Promise<readonly Update[]> {
   await awaitTimeout(delay)
-  return Meteor.callAsync('pullUpdates', repositoryFullName, filePath, version).then(updates =>
+  return Meteor.callAsync('pullUpdates', { repositoryFullName, filePath, version }).then(updates =>
     updates.map(u => ({
       changes: ChangeSet.fromJSON(JSON.parse(u.changes)),
       clientID: u.clientID,
@@ -268,7 +268,7 @@ export function CodeEditorWrapper({
   } | null>(null)
 
   useEffect(() => {
-    Meteor.callAsync('getFileForEditing', repositoryFullName, initialFilePath)
+    Meteor.callAsync('getFileForEditing', { repositoryFullName, initialFilePath })
       .then(data => {
         setFirstDocData(data)
       })
