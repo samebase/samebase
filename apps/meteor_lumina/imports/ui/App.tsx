@@ -12,9 +12,10 @@ export const App = () => {
     return <LoginForm />;
   }
 
+  // Nice tailwind css landing page
   return (
-    <div>
-      <h1>Welcome to Meteor!</h1>
+    <div className="flex flex-col items-center justify-center h-screen">
+      <h1 className="text-4xl font-bold">Welcome to Meteor!</h1>
       <Hello />
       <Info />
     </div>
