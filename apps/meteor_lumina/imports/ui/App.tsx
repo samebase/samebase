@@ -1,23 +1,25 @@
-import React from "react";
-import { Hello } from "./Hello";
-import { Info } from "./Info";
-import { useTracker } from "meteor/react-meteor-data";
-import { Meteor } from "meteor/meteor";
-import { LoginForm } from "./LoginForm";
+import React from 'react'
+import { Hello } from './Hello'
+import { Info } from './Info'
+import { useTracker } from 'meteor/react-meteor-data'
+import { Meteor } from 'meteor/meteor'
+import { LoginForm } from './LoginForm'
+import { Button } from '/imports/components/ui/button'
 
 export const App = () => {
-  const user = useTracker(() => Meteor.user());
+  const user = useTracker(() => Meteor.user())
 
   if (!user) {
-    return <LoginForm />;
+    return <LoginForm />
   }
 
   // Nice tailwind css landing page
   return (
     <div className="flex flex-col items-center justify-center h-screen">
       <h1 className="text-4xl font-bold">Welcome to Meteor!</h1>
+      <Button>Click me</Button>
       <Hello />
       <Info />
     </div>
-  );
-};
+  )
+}
