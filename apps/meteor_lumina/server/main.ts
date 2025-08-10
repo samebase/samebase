@@ -1,31 +1,44 @@
-import { Meteor } from 'meteor/meteor';
-import { Link, LinksCollection } from '/imports/api/links';
+import { Meteor } from "meteor/meteor";
+import { Link, LinksCollection } from "/imports/api/links";
+import { Accounts } from "meteor/accounts-base";
+import { TasksCollection } from "/imports/api/TasksCollection";
 
-async function insertLink({ title, url }: Pick<Link, 'title' | 'url'>) {
+async function insertLink({ title, url }: Pick<Link, "title" | "url">) {
   await LinksCollection.insertAsync({ title, url, createdAt: new Date() });
 }
 
+const SEED_USERNAME = "meteorite";
+const SEED_PASSWORD = "password";
+
 Meteor.startup(async () => {
+  // Create a user if one doesn't exist
+  if (!(await Accounts.findUserByUsername(SEED_USERNAME))) {
+    await Accounts.createUser({
+      username: SEED_USERNAME,
+      password: SEED_PASSWORD,
+    });
+  }
+
   // If the Links collection is empty, add some data.
-  if (await LinksCollection.find().countAsync() === 0) {
+  if ((await LinksCollection.find().countAsync()) === 0) {
     await insertLink({
-      title: 'Do the Tutorial',
-      url: 'https://react-tutorial.meteor.com/simple-todos/01-creating-app.html',
+      title: "Do the Tutorial",
+      url: "https://react-tutorial.meteor.com/simple-todos/01-creating-app.html",
     });
 
     await insertLink({
-      title: 'Follow the Guide',
-      url: 'https://guide.meteor.com',
+      title: "Follow the Guide",
+      url: "https://guide.meteor.com",
     });
 
     await insertLink({
-      title: 'Read the Docs',
-      url: 'https://docs.meteor.com',
+      title: "Read the Docs",
+      url: "https://docs.meteor.com",
     });
 
     await insertLink({
-      title: 'Discussions',
-      url: 'https://forums.meteor.com',
+      title: "Discussions",
+      url: "https://forums.meteor.com",
     });
   }
 
