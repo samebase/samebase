@@ -137,4 +137,150 @@ Meteor.methods({
       throw new Meteor.Error('github-api-error', 'Failed to create/update file')
     }
   },
+
+  async getGitHubAccessToken(userId: string): Promise<string | null> {
+    const user = await Meteor.users.findOneAsync(userId)
+    // @ts-expect-error TODO: add typings file
+    return user?.services?.github?.accessToken || null
+  },
+
+  async getGitHubReadme(owner: string, repo: string) {
+    if (!this.userId) {
+      throw new Meteor.Error('not-authorized', 'You must be logged in')
+    }
+
+    const accessToken = await getGitHubAccessToken(this.userId)
+    if (!accessToken) {
+      throw new Meteor.Error('no-github-token', 'GitHub access token not found')
+    }
+
+    try {
+      const readme = await githubFetch(
+        `https://api.github.com/repos/${owner}/${repo}/readme`,
+        accessToken,
+      )
+
+      return {
+        content: readme.content,
+        encoding: readme.encoding,
+        name: readme.name,
+      }
+    } catch (error) {
+      // README might not exist
+      console.log(`README not found for ${owner}/${repo}:`, error)
+      return null
+    }
+  },
+
+  async createGitHubFile(
+    owner: string,
+    repo: string,
+    path: string,
+    content: string,
+    message: string,
+    branch = 'main',
+  ) {
+    if (!this.userId) {
+      throw new Meteor.Error('not-authorized', 'You must be logged in')
+    }
+
+    const accessToken = await getGitHubAccessToken(this.userId)
+    if (!accessToken) {
+      throw new Meteor.Error('no-github-token', 'GitHub access token not found')
+    }
+
+    try {
+      const result = await githubFetch(
+        `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
+        accessToken,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            message,
+            content: Buffer.from(content, 'utf8').toString('base64'),
+            branch,
+          }),
+        },
+      )
+
+      return {
+        sha: result.commit?.sha || '',
+        url: result.commit?.html_url || '',
+      }
+    } catch (error) {
+      console.error(`Failed to create file ${path} for ${owner}/${repo}:`, error)
+      throw new Meteor.Error('github-api-error', 'Failed to create file')
+    }
+  },
+
+  async deleteGitHubFile(
+    owner: string,
+    repo: string,
+    path: string,
+    message: string,
+    sha: string,
+    branch = 'main',
+  ) {
+    if (!this.userId) {
+      throw new Meteor.Error('not-authorized', 'You must be logged in')
+    }
+
+    const accessToken = await getGitHubAccessToken(this.userId)
+    if (!accessToken) {
+      throw new Meteor.Error('no-github-token', 'GitHub access token not found')
+    }
+
+    try {
+      const result = await githubFetch(
+        `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
+        accessToken,
+        {
+          method: 'DELETE',
+          body: JSON.stringify({
+            message,
+            sha,
+            branch,
+          }),
+        },
+      )
+
+      return {
+        sha: result.commit?.sha || '',
+        url: result.commit?.html_url || '',
+      }
+    } catch (error) {
+      console.error(`Failed to delete file ${path} for ${owner}/${repo}:`, error)
+      throw new Meteor.Error('github-api-error', 'Failed to delete file')
+    }
+  },
+
+  async getGitHubRepositoryTree(owner: string, repo: string) {
+    if (!this.userId) {
+      throw new Meteor.Error('not-authorized', 'You must be logged in')
+    }
+
+    const accessToken = await getGitHubAccessToken(this.userId)
+    if (!accessToken) {
+      throw new Meteor.Error('no-github-token', 'GitHub access token not found')
+    }
+
+    try {
+      const tree = await githubFetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/trees/HEAD?recursive=1`,
+        accessToken,
+      )
+
+      return tree.tree.map((item: any) => ({
+        path: item.path,
+        mode: item.mode,
+        type: item.type,
+        sha: item.sha,
+        size: item.size,
+        url: item.url,
+      }))
+    } catch (error) {
+      console.error(`Failed to fetch tree for ${owner}/${repo}:`, error)
+      return []
+    }
+  },
 })
