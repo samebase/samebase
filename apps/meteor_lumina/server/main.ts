@@ -18,6 +18,10 @@ const SEED_USERNAME = 'meteorite'
 const SEED_PASSWORD = 'password'
 
 Meteor.startup(async () => {
+  console.log('envs', {
+    GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
+    GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
+  })
   // Configure GitHub OAuth
   await ServiceConfiguration.configurations.upsertAsync(
     { service: 'github' },
