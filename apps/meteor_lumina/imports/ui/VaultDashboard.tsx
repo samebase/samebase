@@ -73,7 +73,7 @@ export function VaultDashboard() {
   }
 
   return (
-    <div className="container py-6">
+    <div className="container py-6 max-w-4xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div className="flex items-center gap-2">
           <GitHubLogoIcon className="h-5 w-5 sm:h-6 sm:w-6" />
