@@ -1,6 +1,7 @@
 import React from 'react'
 
 const Debug: React.FC = () => {
+  return null
   return (
     <div
       style={{
