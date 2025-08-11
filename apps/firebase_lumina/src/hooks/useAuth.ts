@@ -1,5 +1,11 @@
 import { useState, useEffect } from 'react'
-import { User, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
+import {
+  User,
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut,
+  GithubAuthProvider,
+} from 'firebase/auth'
 import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { auth, githubProvider, db } from '../lib/firebase'
 
@@ -52,9 +58,16 @@ export const useAuth = () => {
     try {
       const result = await signInWithPopup(auth, githubProvider)
 
-      // Get the GitHub access token
-      const credential = result.credential
-      const accessToken = (credential as any)?.accessToken
+      // Get the GitHub access token using the proper method
+      const credential = GithubAuthProvider.credentialFromResult(result)
+      const accessToken = credential?.accessToken
+
+      // Debug logging
+      console.log('GitHub Auth Result:', {
+        credential: credential,
+        accessToken: accessToken,
+        user: result.user.providerData[0],
+      })
 
       // Get GitHub username from the user profile
       const githubUsername = result.user.providerData[0]?.uid || null
