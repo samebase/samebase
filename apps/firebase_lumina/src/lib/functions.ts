@@ -59,6 +59,18 @@ export const cloudFunctions = {
     { repositoryFullName: string },
     { valid: boolean; repository: GitHubRepository }
   >(functions, 'validateVaultConnection'),
+
+  // Get repository tree (file structure)
+  getRepositoryTree: httpsCallable<{ owner: string; repo: string }, { tree: any[] }>(
+    functions,
+    'getRepositoryTree',
+  ),
+
+  // Get file for editing
+  getFileForEditing: httpsCallable<
+    { repositoryFullName: string; filePath: string },
+    { version: number; content: string; sha: string }
+  >(functions, 'getFileForEditing'),
 }
 
 // Helper function to handle Cloud Function errors

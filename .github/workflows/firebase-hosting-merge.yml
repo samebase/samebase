@@ -29,10 +29,20 @@ jobs:
           pnpm install
           cd apps/firebase_lumina
           pnpm run build
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+      - name: Deploy to Firebase
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_LUMINA3334 }}
           channelId: live
           projectId: lumina3334
           entryPoint: ./apps/firebase_lumina
+      - name: Deploy Cloud Functions
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_LUMINA3334 }}
+        run: |
+          cd apps/firebase_lumina
+          echo "$GOOGLE_APPLICATION_CREDENTIALS_JSON" > service-account.json
+          export GOOGLE_APPLICATION_CREDENTIALS="service-account.json"
+          npx firebase deploy --only functions --project lumina3334
+          rm service-account.json

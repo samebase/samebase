@@ -14,6 +14,9 @@ importers:
 
   apps/firebase_lumina:
     dependencies:
+      '@prosemark/core':
+        specifier: workspace:^
+        version: link:../../packages/core
       '@radix-ui/react-avatar':
         specifier: ^1.1.10
         version: 1.1.10(@types/react-dom@18.3.7)(@types/react@18.3.23)(react-dom@18.3.1)(react@18.3.1)
@@ -26,6 +29,9 @@ importers:
       '@tailwindcss/postcss':
         specifier: ^4.1.11
         version: 4.1.11
+      '@tanstack/react-query':
+        specifier: ^5.84.2
+        version: 5.84.2(react@18.3.1)
       '@types/react-router-dom':
         specifier: ^5.3.3
         version: 5.3.3

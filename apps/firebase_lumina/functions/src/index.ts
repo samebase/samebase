@@ -266,6 +266,67 @@ export const validateVaultConnection = onCall<{ repositoryFullName: string }>(as
 })
 
 /**
+ * Cloud Function: Get repository tree (file structure)
+ */
+export const getRepositoryTree = onCall<{ owner: string; repo: string }>(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated')
+  }
+
+  const { owner, repo } = request.data
+  if (!owner || !repo) {
+    throw new HttpsError('invalid-argument', 'Owner and repo are required')
+  }
+
+  try {
+    const githubToken = await getUserGitHubToken(request.auth.uid)
+    const githubAPI = new GitHubAPI(githubToken)
+    const tree = await githubAPI.getRepositoryContents(owner, repo)
+
+    return { tree }
+  } catch (error: any) {
+    console.error('Error getting repository tree:', error)
+    throw new HttpsError('internal', error.message || 'Failed to get repository tree')
+  }
+})
+
+/**
+ * Cloud Function: Get file for editing
+ */
+export const getFileForEditing = onCall<{
+  repositoryFullName: string
+  filePath: string
+}>(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated')
+  }
+
+  const { repositoryFullName, filePath } = request.data
+  if (!repositoryFullName || !filePath) {
+    throw new HttpsError('invalid-argument', 'Repository name and file path are required')
+  }
+
+  try {
+    const [owner, repo] = repositoryFullName.split('/')
+    const githubToken = await getUserGitHubToken(request.auth.uid)
+    const githubAPI = new GitHubAPI(githubToken)
+    const fileContent = await githubAPI.getFileContent(owner, repo, filePath)
+
+    // Decode base64 content
+    const content = atob(fileContent.content.replace(/\n/g, ''))
+
+    return {
+      version: 1, // Simple versioning for now
+      content,
+      sha: fileContent.sha,
+    }
+  } catch (error: any) {
+    console.error('Error getting file for editing:', error)
+    throw new HttpsError('internal', error.message || 'Failed to get file for editing')
+  }
+})
+
+/**
  * Firestore trigger: Log vault creation
  */
 export const onVaultCreated = onDocumentCreated('vaults/{vaultId}', async (event) => {

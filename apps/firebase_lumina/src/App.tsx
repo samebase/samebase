@@ -3,6 +3,7 @@ import Auth from './components/Auth'
 import Debug from './components/Debug'
 import { VaultDashboard } from './components/VaultDashboard'
 import { AddRepository } from './components/AddRepository'
+import { FileView } from './components/FileView'
 import { useAuth } from './hooks/useAuth'
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
         <Routes>
           <Route path="/" element={<VaultDashboard />} />
           <Route path="/add" element={<AddRepository />} />
+          <Route path="/vault/:owner/:repoName/*" element={<FileView />} />
         </Routes>
       </div>
     </Router>
