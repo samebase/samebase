@@ -1,5 +1,4 @@
 import React from 'react'
-import { ThemeToggle } from '/imports/ui/ThemeToggle'
 import { Button } from '/imports/components/ui/button'
 import {
   DropdownMenu,
@@ -28,10 +27,6 @@ export function UserMenu({ children, className }: { children: ReactNode; classNa
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>{children}</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuLabel className="flex items-center gap-2 py-0 font-normal">
-            Theme
-            <ThemeToggle />
-          </DropdownMenuLabel>
           <SignOutButton />
         </DropdownMenuContent>
       </DropdownMenu>

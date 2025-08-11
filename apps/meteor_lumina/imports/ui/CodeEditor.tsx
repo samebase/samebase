@@ -18,14 +18,14 @@ import {
   syntaxTree,
 } from '@codemirror/language'
 import { dropCursor, rectangularSelection, keymap, ViewPlugin, ViewUpdate } from '@codemirror/view'
-import { oneDark } from '@codemirror/theme-one-dark'
+
 import { javascript } from '@codemirror/lang-javascript'
 import { markdown } from '@codemirror/lang-markdown'
 import { json } from '@codemirror/lang-json'
 import { html } from '@codemirror/lang-html'
 import { css } from '@codemirror/lang-css'
 import { python } from '@codemirror/lang-python'
-import { useTheme } from 'next-themes'
+
 import {
   collab,
   getSyncedVersion,
@@ -305,7 +305,7 @@ export function CodeEditor({
   const editorRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const pullRef = useRef<((updates: readonly Update[], version: number) => void) | null>(null)
-  const { theme, systemTheme } = useTheme()
+
   // 3 letters/digits to differentiate the mounted editor
   const idRef = useRef(Math.random().toString(36).substring(2, 5))
   const [version, setVersion] = useState(firstDoc.version)
@@ -337,10 +337,6 @@ export function CodeEditor({
       if (!editorRef.current) return
 
       if (cancelled) return
-
-      // Determine if we should use dark theme
-      const effectiveTheme = theme === 'system' ? systemTheme : theme
-      const isDark = effectiveTheme === 'dark'
 
       // editor = createProseMarkEditor({
       //   content: firstDoc.content,
@@ -384,11 +380,6 @@ export function CodeEditor({
         ]),
       ]
 
-      // Add dark theme if requested
-      if (isDark) {
-        extensions.push(oneDark)
-      }
-
       editor = new EditorView({
         extensions,
         doc: firstDoc.content,
@@ -407,7 +398,7 @@ export function CodeEditor({
       viewRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fileName, theme, systemTheme]) // Re-create editor when theme or filename changes (value intentionally excluded to prevent recreation on every keystroke)
+  }, [fileName]) // Re-create editor when filename changes (value intentionally excluded to prevent recreation on every keystroke)
 
   return (
     <div
