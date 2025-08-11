@@ -23,8 +23,8 @@ Meteor.startup(async () => {
     { service: 'github' },
     {
       $set: {
-        clientId: Meteor.settings.github?.clientId || process.env.GITHUB_CLIENT_ID,
-        secret: Meteor.settings.github?.clientSecret || process.env.GITHUB_CLIENT_SECRET,
+        clientId: process.env.GITHUB_CLIENT_ID || Meteor.settings.github?.clientId,
+        secret: process.env.GITHUB_CLIENT_SECRET || Meteor.settings.github?.clientSecret,
       },
     },
   )
