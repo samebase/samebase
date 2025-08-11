@@ -5,7 +5,10 @@
     "start": "meteor run",
     "test": "meteor test --once --driver-package meteortesting:mocha",
     "test-app": "TEST_WATCH=1 meteor test --full-app --driver-package meteortesting:mocha",
-    "visualize": "meteor --production --extra-packages bundle-visualizer"
+    "visualize": "meteor --production --extra-packages bundle-visualizer",
+    "build:css": "postcss client/main.source.css -o client/main.css",
+    "deploy": "npm run build:css && meteor deploy lumina.eu.meteorapp.com --settings settings.json",
+    "dev": "meteor run --settings settings.json"
   },
   "dependencies": {
     "@babel/runtime": "^7.23.5",
@@ -65,6 +68,7 @@
     "@types/react": "^18.2.5",
     "@types/react-dom": "^18.2.4",
     "autoprefixer": "^10.4.21",
+    "postcss-cli": "^11.0.1",
     "postcss-load-config": "^6.0.1",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.4.5"
