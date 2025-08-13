@@ -68,9 +68,23 @@ export const cloudFunctions = {
 
   // Get file for editing
   getFileForEditing: httpsCallable<
-    { repositoryFullName: string; filePath: string },
+    { repositoryFullName: string; originalFilePath: string },
     { version: number; content: string; sha: string }
   >(functions, 'getFileForEditing'),
+
+  // Push collaborative updates
+  pushUpdates: httpsCallable<
+    {
+      repositoryFullName: string
+      filePath: string
+      version: number
+      updates: Array<{
+        clientId: string
+        changes: string
+      }>
+    },
+    { success: boolean; newVersion: number }
+  >(functions, 'pushUpdates'),
 }
 
 // Helper function to handle Cloud Function errors

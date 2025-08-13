@@ -1,55 +1,279 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { useQuery as useReactQuery } from '@tanstack/react-query'
-import { Button } from '@/components/ui/button'
-import { GitHubLogoIcon, MagnifyingGlassIcon, PlusIcon } from '@radix-ui/react-icons'
+import { UseQueryResult, useQuery as useReactQuery } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
-import { useVaults } from '@/hooks/useVaults'
-import { cloudFunctions, handleFunctionError } from '@/lib/functions'
+import { collection, query, where, onSnapshot, doc, updateDoc, addDoc } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
+import { useAuth } from '@/hooks/useAuth'
+import { cloudFunctions } from '@/lib/functions'
+// Convex imports replaced with Firebase equivalents above
 
-// Types
-type RepositoryTree = {
-  path: string
-  mode: string
-  type: string
-  sha: string
-  size?: number
-  url?: string
-}[]
+// Types for Firebase data
+interface Vault {
+  id: string
+  userId: string
+  repositoryFullName: string
+  repositoryOwner: string
+  repositoryName: string
+  createdAt: number
+  updatedAt: number
+}
 
-// Function to find the best file to display
-function findBestInitialFile(files: RepositoryTree) {
-  // Only consider blob (file) types, not directories
-  const fileList = files.filter(item => item.type === 'blob')
+// Custom hook to get vault by repository
+function useVaultByRepository(repositoryFullName: string | null) {
+  const [vault, setVault] = useState<Vault | null>(null)
+  const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
 
-  // Priority order for file selection
-  const priorities = [
-    'README.md',
-    'readme.md',
-    'index.js',
-    'index.ts',
-    'index.tsx',
-    'main.js',
-    'main.ts',
-    'app.js',
-    'app.ts',
-  ]
+  useEffect(() => {
+    if (!repositoryFullName || !user) {
+      setVault(null)
+      setLoading(false)
+      return
+    }
 
-  // Find first priority file
-  for (const priority of priorities) {
-    const found = fileList.find(file => file.path === priority)
-    if (found) return found.path
+    const vaultsQuery = query(
+      collection(db, 'vaults'),
+      where('repositoryFullName', '==', repositoryFullName),
+      where('userId', '==', user.uid),
+    )
+
+    const unsubscribe = onSnapshot(vaultsQuery, snapshot => {
+      if (snapshot.empty) {
+        setVault(null)
+      } else {
+        const doc = snapshot.docs[0]
+        const data = doc.data()
+        setVault({
+          id: doc.id,
+          userId: data.userId,
+          repositoryFullName: data.repositoryFullName,
+          repositoryOwner: data.repositoryOwner,
+          repositoryName: data.repositoryName,
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+        })
+      }
+      setLoading(false)
+    })
+
+    return () => unsubscribe()
+  }, [repositoryFullName, user])
+
+  return { vault, loading }
+}
+
+// Custom hook to get staged file by path
+function useStagedFileByPath(vaultId: string | null, filePath: string | undefined) {
+  const [stagedFile, setStagedFile] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!vaultId || !filePath) {
+      setStagedFile(null)
+      setLoading(false)
+      return
+    }
+
+    const stagingQuery = query(
+      collection(db, 'fileStaging'),
+      where('vaultId', '==', vaultId),
+      where('filePath', '==', filePath),
+    )
+
+    const unsubscribe = onSnapshot(stagingQuery, snapshot => {
+      if (snapshot.empty) {
+        setStagedFile(null)
+      } else {
+        const doc = snapshot.docs[0]
+        setStagedFile({
+          _id: doc.id,
+          ...doc.data(),
+        })
+      }
+      setLoading(false)
+    })
+
+    return () => unsubscribe()
+  }, [vaultId, filePath])
+
+  return { stagedFile, loading }
+}
+
+// Custom hook for folder expansion states
+function useFolderExpansionStates(vaultId: string | null) {
+  const [folderExpansionStates, setFolderExpansionStates] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!vaultId) {
+      setFolderExpansionStates([])
+      setLoading(false)
+      return
+    }
+
+    const expansionQuery = query(collection(db, 'folderExpansion'), where('vaultId', '==', vaultId))
+
+    const unsubscribe = onSnapshot(expansionQuery, snapshot => {
+      const states = snapshot.docs.map(doc => ({
+        _id: doc.id,
+        ...doc.data(),
+      }))
+      setFolderExpansionStates(states)
+      setLoading(false)
+    })
+
+    return () => unsubscribe()
+  }, [vaultId])
+
+  const setFolderExpansionState = async (folderPath: string, isExpanded: boolean) => {
+    if (!vaultId) return
+
+    // This would need to be implemented as a cloud function or direct Firestore write
+    // For now, implementing as direct Firestore write
+    const expansionDoc = folderExpansionStates.find(state => state.folderPath === folderPath)
+
+    if (expansionDoc) {
+      // Update existing
+      const docRef = doc(db, 'folderExpansion', expansionDoc._id)
+      await updateDoc(docRef, { isExpanded })
+    } else {
+      // Create new
+      await addDoc(collection(db, 'folderExpansion'), {
+        vaultId,
+        folderPath,
+        isExpanded,
+      })
+    }
   }
 
-  // Return first markdown file
-  const markdownFile = fileList.find(
-    file => file.path.endsWith('.md') || file.path.endsWith('.markdown'),
-  )
+  return { folderExpansionStates, setFolderExpansionState, loading }
+}
+
+// Custom hook to list staged files
+function useStagedFiles(vaultId: string | null) {
+  const [stagedFiles, setStagedFiles] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!vaultId) {
+      setStagedFiles([])
+      setLoading(false)
+      return
+    }
+
+    const stagingQuery = query(collection(db, 'fileStaging'), where('vaultId', '==', vaultId))
+
+    const unsubscribe = onSnapshot(stagingQuery, snapshot => {
+      const files = snapshot.docs.map(doc => ({
+        _id: doc.id,
+        ...doc.data(),
+      }))
+      setStagedFiles(files)
+      setLoading(false)
+    })
+
+    return () => unsubscribe()
+  }, [vaultId])
+
+  return { stagedFiles, loading }
+}
+import { CodeEditorWrapper } from '@/components/CodeEditor'
+import { Button } from '@/components/ui/button'
+
+import {
+  GitHubLogoIcon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+  FilePlusIcon,
+  Pencil1Icon,
+  TrashIcon,
+  UpdateIcon,
+} from '@radix-ui/react-icons'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarProvider,
+  SidebarTrigger,
+  SidebarInset,
+} from '@/components/ui/sidebar'
+import { FileTree } from './FileTree'
+import { CommandPalette } from './CommandPalette'
+import { useMemo } from 'react'
+import { useSwipeToOpenSidebar } from '@/hooks/use-touch-gestures'
+import { useSidebar } from '@/components/ui/sidebar'
+import { UserMenu } from '@/components/UserMenu'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { linkStyle } from './styles'
+// import {
+//   GetFunctionReferenceReturnType,
+// Firebase equivalents implemented above
+// } from "@/lib/convexUtils";
+import { DialogProvider } from '@/contexts/DialogContext'
+import { useDialog } from '@/hooks/useDialog'
+import { FileCreationDialog } from '@/components/FileCreationDialog'
+import { FolderCreationDialog } from '@/components/FolderCreationDialog'
+import { nonNullable } from '@/lib/utils'
+
+type RepositoryTree = {
+  path: string
+  mode?: string
+  type: 'file' | 'dir' // GitHub Contents API: 'file' for files, 'dir' for directories
+  sha: string
+  size: number | undefined
+  url: string | undefined
+}[]
+// Function to find the best file to display
+function findBestInitialFile(files: RepositoryTree) {
+  // Only consider file types, not directories
+  const fileList = files.filter(item => item.type === 'file')
+
+  if (fileList.length === 0) return null
+
+  // 1. Look for README files (case insensitive, various extensions)
+  const readmeFile = fileList.find(file => /^readme(\.(md|txt|rst|org))?$/i.test(file.path))
+  if (readmeFile) return readmeFile.path
+
+  // 2. Look for any markdown files
+  const markdownFile = fileList.find(file => /\.(md|markdown)$/i.test(file.path))
   if (markdownFile) return markdownFile.path
 
-  // Return first file
-  if (fileList.length > 0) return fileList[0].path
+  // 3. Return first file (sorted alphabetically)
+  const sortedFiles = fileList.sort((a, b) => a.path.localeCompare(b.path))
+  return sortedFiles[0]?.path || null
+}
 
-  return null
+// Helper function to categorize staged files by change type
+function categorizeStagedFiles(stagedFiles: any[]) {
+  const categories = {
+    deleted: [] as any[],
+    renamed: [] as any[],
+    renamedAndModified: [] as any[],
+    modified: [] as any[],
+    new: [] as any[],
+  }
+
+  stagedFiles.forEach(file => {
+    if (file.fileDeleted) {
+      categories.deleted.push(file)
+    } else if (file.filePath !== file.initialFilePath) {
+      // It's a rename
+      if (file.content !== file.initialContent) {
+        // Renamed AND modified
+        categories.renamedAndModified.push(file)
+      } else {
+        // Just renamed
+        categories.renamed.push(file)
+      }
+    } else if (file.content !== file.initialContent) {
+      // Just modified
+      categories.modified.push(file)
+    } else {
+      // This shouldn't normally happen, but just in case
+      categories.new.push(file)
+    }
+  })
+
+  return categories
 }
 
 function FileViewWrapper() {
@@ -73,9 +297,11 @@ function FileViewWrapper() {
   const repositoryFullName = `${owner}/${repoName}`
 
   // Get vault for this repository
-  const { vaults } = useVaults()
-  const vault = vaults.find(v => v.repositoryFullName === repositoryFullName)
+  const { vault } = useVaultByRepository(owner && repoName ? repositoryFullName : null)
 
+  // GitHub repository tree is handled via React Query below
+
+  // GitHub repository tree data
   // Fetch repository tree
   const tree = useReactQuery({
     queryKey: ['github-tree', owner, repoName],
@@ -91,8 +317,10 @@ function FileViewWrapper() {
 
   // Auto-redirect to best file when no file is selected
   useEffect(() => {
+    console.log('here4', tree.data)
     if (!selectedFile && (tree.data ?? []).length > 0 && !tree.isLoading && owner && repoName) {
       const bestFile = findBestInitialFile(tree.data ?? [])
+      console.log('bestFile', bestFile)
       if (bestFile) {
         void navigate(`/vault/${owner}/${repoName}/${branch}/${bestFile}`, {
           replace: true,
@@ -101,31 +329,14 @@ function FileViewWrapper() {
     }
   }, [selectedFile, tree.data, tree.isLoading, owner, repoName, branch, navigate])
 
-  if (!vault) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="text-red-600">Repository not found or not connected</div>
-          <Button asChild>
-            <Link to="/">Back to Dashboard</Link>
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  if (!tree.data || !selectedFile || !owner || !repoName) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-muted-foreground">Loading repository...</div>
-      </div>
-    )
+  if (!vault || !tree.data || !selectedFile || !owner || !repoName) {
+    return null
   }
 
   return (
     <FileViewInner
       vault={vault}
-      tree={tree.data}
+      tree={tree}
       selectedFile={selectedFile}
       branch={branch}
       owner={owner}
@@ -142,154 +353,701 @@ function FileViewInner({
   owner,
   repoName,
 }: {
-  vault: any
-  tree: RepositoryTree
-  selectedFile: string
+  vault: Vault
+  tree: UseQueryResult<RepositoryTree, Error>
   branch: string
+  selectedFile: string
   owner: string
   repoName: string
 }) {
+  const { setOpenMobile } = useSidebar()
+
   const navigate = useNavigate()
+
+  // Get current user for sidebar
+  const { user } = useAuth()
+
+  // Dialog state management
+  const {
+    fileCreationDialog,
+    folderCreationDialog,
+    openFileCreation,
+    closeFileCreation,
+    openFolderCreation,
+    closeFolderCreation,
+  } = useDialog()
+
   const repositoryFullName = `${owner}/${repoName}`
 
-  // Get file content for editing
-  const fileContent = useReactQuery({
-    queryKey: ['file-content', repositoryFullName, selectedFile],
-    queryFn: async () => {
-      const result = await cloudFunctions.getFileForEditing({
-        repositoryFullName,
-        filePath: selectedFile,
-      })
-      return result.data
-    },
-    enabled: !!(repositoryFullName && selectedFile),
-  })
+  const { stagedFile } = useStagedFileByPath(vault?.id || null, selectedFile)
+
+  // Folder expansion state
+  const { folderExpansionStates, setFolderExpansionState } = useFolderExpansionStates(
+    vault?.id || null,
+  )
+
+  // Command palette state
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
+
+  // Firebase hooks for staging (TODO: implement these cloud functions)
+  const commitStaging = async (args: any) => {
+    console.log('TODO: Implement commitStaging cloud function', args)
+    // return await cloudFunctions.commitStaging(args)
+  }
+  const manualComittingStatus = { isLoading: false }
+
+  const clearAllStaging = async (args: any) => {
+    console.log('TODO: Implement clearAllStaging cloud function', args)
+    // return await cloudFunctions.clearAllStaging(args)
+  }
+  const clearingStagingStatus = { isLoading: false }
+
+  const markFileForDeletion = async (args: any) => {
+    console.log('TODO: Implement markFileForDeletion cloud function', args)
+    // return await cloudFunctions.markFileForDeletion(args)
+  }
+
+  const renameFileInStaging = async (args: any) => {
+    console.log('TODO: Implement renameFileInStaging cloud function', args)
+    // return await cloudFunctions.renameFileInStaging(args)
+  }
+
+  // Get count of staged files for this vault
+  const { stagedFiles } = useStagedFiles(vault?.id || null)
+
+  const createFile = async (args: any) => {
+    console.log('TODO: Implement createFile cloud function', args)
+    // return await cloudFunctions.createFile(args)
+  }
+
+  // Add command palette keyboard shortcut handler
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key === 'p' &&
+        (event.metaKey || event.ctrlKey) &&
+        !event.shiftKey &&
+        !event.altKey
+      ) {
+        event.preventDefault()
+        setIsCommandPaletteOpen(true)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   const handleFileSelect = (path: string) => {
     if (owner && repoName) {
       void navigate(`/vault/${owner}/${repoName}/${branch}/${path}`)
+
+      // close the sidebar
+      setOpenMobile(false)
     }
   }
 
-  // Simple file tree component (we'll enhance this later)
-  const SimpleFileTree = ({ files }: { files: RepositoryTree }) => (
-    <div className="space-y-1">
-      {files.map(file => (
-        <div
-          key={file.path}
-          className={`p-2 text-sm cursor-pointer rounded hover:bg-muted/50 ${
-            selectedFile === file.path ? 'bg-muted' : ''
-          }`}
-          onClick={() => file.type === 'blob' && handleFileSelect(file.path)}
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">
-              {file.type === 'tree' ? '📁' : '📄'}
-            </span>
-            <span className="truncate">{file.path}</span>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
+  const handleFileRename = async (originalPath: string, newPath: string) => {
+    if (!owner || !repoName || !vault) return
+
+    try {
+      // Rename the file in staging instead of committing immediately
+      await renameFileInStaging({
+        vaultId: vault.id,
+        originalPath,
+        newPath,
+      })
+
+      // If we're currently viewing the renamed file, navigate to the new path
+      if (stagedFile?.initialFilePath === originalPath) {
+        void navigate(`/vault/${owner}/${repoName}/${branch}/${newPath}`)
+      }
+
+      console.log(`File ${originalPath} renamed to ${newPath} in staging`)
+    } catch (error) {
+      console.error('Failed to rename file:', error)
+    }
+  }
+
+  // Handler for deleting files from the file tree
+  const handleFileDelete = async (filePath: string) => {
+    if (!owner || !repoName || !vault) return
+
+    try {
+      // Mark the file for deletion in staging
+      await markFileForDeletion({
+        vaultId: vault.id,
+        filePath,
+        parentCommitSha: 'main', // TODO: Get actual commit SHA
+        branch,
+      })
+
+      // If the deleted file is currently selected, navigate away
+      if (selectedFile === filePath) {
+        void navigate(`/vault/${owner}/${repoName}/${branch}`)
+      }
+
+      console.log(`File ${filePath} marked for deletion`)
+    } catch (error) {
+      console.error('Failed to delete file:', error)
+    }
+  }
+
+  // Handler for creating files in specific folders from the file tree
+  const handleCreateFileInFolder = (folderPath: string, fileName: string) => {
+    if (!owner || !repoName || !fileName.trim()) return
+
+    const filePath = folderPath ? `${folderPath}/${fileName}` : fileName
+
+    createFile({
+      owner,
+      repo: repoName,
+      path: filePath,
+      content: '',
+      message: `Create ${filePath}`,
+      branch,
+    })
+      .then(() => {
+        // Refresh the tree
+        void tree.refetch()
+        // Navigate to the new file
+        void navigate(`/vault/${owner}/${repoName}/${branch}/${filePath}`)
+      })
+      .catch(error => {
+        console.error('Failed to create file:', error)
+      })
+  }
+
+  // Handler for creating folders in specific paths from the file tree
+  const handleCreateFolderInFolder = (folderPath: string, folderName: string) => {
+    if (!owner || !repoName || !folderName.trim()) return
+
+    const newFolderPath = folderPath ? `${folderPath}/${folderName}` : folderName
+    const readmeFilePath = `${newFolderPath}/README.md`
+
+    // Create a README file in the folder to make the folder exist in Git
+    createFile({
+      owner,
+      repo: repoName,
+      path: readmeFilePath,
+      content: `# ${folderName}\n\nThis folder was created automatically.`,
+      message: `Create folder ${newFolderPath}`,
+      branch,
+    })
+      .then(() => {
+        // Refresh the tree
+        void tree.refetch()
+      })
+      .catch(error => {
+        console.error('Failed to create folder:', error)
+      })
+  }
+
+  const handleManualCommit = async () => {
+    if (!selectedFile || !vault) return
+
+    try {
+      await commitStaging({
+        repositoryFullName: repositoryFullName,
+        currentFilePath: selectedFile,
+      })
+    } catch (error) {
+      console.error('Failed to commit changes:', error)
+    }
+  }
+
+  const handleResetToGitHub = async () => {
+    if (!vault) return
+
+    await clearAllStaging({
+      vaultId: vault.id,
+    })
+  }
+
+  const handleFolderToggle = async (folderPath: string, isExpanded: boolean) => {
+    if (vault) {
+      await setFolderExpansionState(folderPath, isExpanded)
+    }
+  }
+
+  const emptyRepository = !tree.isLoading && (tree.data ?? []).length === 0
+
+  const error = tree.error
+
+  if (!owner || !repoName) {
+    void navigate('/')
+  }
+
+  const finalTreeData = useMemo(() => {
+    if (!tree.data || !stagedFiles) return []
+
+    return tree.data
+      .map(item => {
+        const stagedFile = stagedFiles.find(staged => staged.initialFilePath === item.path)
+
+        const path = stagedFile ? stagedFile.filePath : item.path
+        const deleted = stagedFile ? stagedFile.fileDeleted : false
+
+        if (deleted) return null
+
+        return {
+          deleted,
+          path,
+          originalPath: item.path,
+          type: item.type as 'tree' | 'blob',
+          size: item.size,
+        }
+      })
+      .filter(nonNullable)
+  }, [tree.data, stagedFiles])
+
+  // Assume this means it's loading
+  if (vault === undefined) {
+    return null
+  }
+
+  // MARK: Return
 
   return (
-    <div className="h-screen flex">
-      {/* Sidebar */}
-      <div className="w-80 border-r bg-muted/20 flex flex-col">
-        {/* Header */}
-        <div className="p-4 border-b bg-background">
-          <div className="flex items-center gap-2 mb-4">
-            <GitHubLogoIcon className="h-5 w-5" />
-            <span className="font-semibold truncate">{repositoryFullName}</span>
+    <div className="flex h-screen w-full">
+      <Sidebar variant="sidebar" className="border-r border-border/50">
+        <SidebarContent className="p-0">
+          {/* User part */}
+          <div className="p-3 border-b border-border/50">
+            <Link to="/" className={`flex items-center justify-between ${linkStyle}`}>
+              <UserMenu>{user?.displayName ?? user?.email ?? '...'}</UserMenu>
+            </Link>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/">← Back</Link>
-            </Button>
-            <Button variant="outline" size="sm" disabled>
-              <PlusIcon className="h-4 w-4 mr-1" />
-              New
-            </Button>
-          </div>
-        </div>
-
-        {/* File Tree */}
-        <div className="flex-1 overflow-auto p-2">
-          {tree.length === 0 ? (
-            <div className="p-3 text-xs text-muted-foreground">No files found</div>
-          ) : (
-            <SimpleFileTree files={tree} />
-          )}
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        {/* File Header */}
-        <div className="p-4 border-b bg-background">
-          <div className="flex items-center justify-between">
+          {/* Repo part */}
+          <div className="p-3 border-b border-border/50">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">📄</span>
-              <span className="font-mono text-sm">{selectedFile}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" disabled>
-                Save
+              <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
+              <a
+                className={`text-xs font-medium truncate text-muted-foreground ${linkStyle}`}
+                href={`https://github.com/${owner}/${repoName}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {owner}/{repoName}
+              </a>
+
+              {/* element that takes as much space as possible to push the button to the right */}
+              <div className="flex-1" />
+
+              {/* icon button to add new file (+)*/}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 md:h-6 md:w-6 p-0"
+                onClick={() => openFileCreation('')}
+                title="Create new file"
+              >
+                <PlusIcon className="h-4 w-4 md:h-3 md:w-3" />
+              </Button>
+
+              {/* icon button to add new folder */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 md:h-6 md:w-6 p-0"
+                onClick={() => openFolderCreation('')}
+                title="Create new folder"
+              >
+                <FilePlusIcon className="h-4 w-4 md:h-3 md:w-3" />
               </Button>
             </div>
           </div>
-        </div>
-
-        {/* Editor */}
-        <div className="flex-1 overflow-auto">
-          {fileContent.isLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-muted-foreground">Loading file...</div>
+          {emptyRepository ? (
+            <div className="p-3 text-xs text-muted-foreground">No files found</div>
+          ) : (
+            <div className="flex-1 overflow-auto">
+              {tree.data && stagedFiles && (
+                <FileTree
+                  items={finalTreeData}
+                  onFileSelect={handleFileSelect}
+                  onFileRename={(originalPath, newPath) =>
+                    void handleFileRename(originalPath, newPath)
+                  }
+                  onFileCreate={handleCreateFileInFolder}
+                  onFileDelete={filePath => void handleFileDelete(filePath)}
+                  selectedFile={selectedFile}
+                  folderExpansionStates={folderExpansionStates ?? []}
+                  onFolderToggle={(folderPath, isExpanded) =>
+                    void handleFolderToggle(folderPath, isExpanded)
+                  }
+                />
+              )}
             </div>
-          ) : fileContent.error ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-red-600">
-                Error loading file: {handleFunctionError(fileContent.error)}
+          )}{' '}
+        </SidebarContent>
+      </Sidebar>
+
+      <SidebarInset className="flex-1">
+        <div className="flex h-full flex-col">
+          {/* Minimal editor header */}
+          <div className="flex items-center justify-between p-3 border-b border-border/50">
+            <div className="flex items-center gap-3">
+              <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 md:h-6 md:w-6 p-0"
+                onClick={() => setIsCommandPaletteOpen(true)}
+                title="Quick Open (Cmd+P)"
+              >
+                <MagnifyingGlassIcon className="h-4 w-4 md:h-3 md:w-3" />
+              </Button>
+              {selectedFile && (
+                <div className="flex items-center gap-2">
+                  <span className="text-base md:text-sm font-medium truncate">
+                    {selectedFile.split('/').slice(0, -1).join('/') || '/'}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-auto p-4">
+            {error && (
+              <div className="mb-4 p-3 text-sm md:text-xs text-red-600 bg-red-50 rounded border border-red-200">
+                Failed to load data: {error instanceof Error ? error.message : 'Unknown error'}
+              </div>
+            )}
+
+            <div className="max-w-none h-full flex flex-col">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-base md:text-sm font-medium mb-2">{selectedFile}</h2>
+
+                <div className="flex items-center gap-2">
+                  {stagedFiles && stagedFiles.length > 0 && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          className={`text-xs text-muted-foreground ${linkStyle} flex items-center gap-2`}
+                        >
+                          <div className="flex items-center gap-1">
+                            {(() => {
+                              const categories = categorizeStagedFiles(stagedFiles)
+                              const indicators = []
+
+                              if (categories.modified.length > 0) {
+                                indicators.push(
+                                  <span
+                                    key="modified"
+                                    className="inline-flex items-center gap-1 text-blue-600"
+                                  >
+                                    <Pencil1Icon className="w-3 h-3" />
+                                    <span>{categories.modified.length}</span>
+                                  </span>,
+                                )
+                              }
+
+                              if (categories.renamed.length > 0) {
+                                indicators.push(
+                                  <span
+                                    key="renamed"
+                                    className="inline-flex items-center gap-1 text-purple-600"
+                                  >
+                                    <UpdateIcon className="w-3 h-3" />
+                                    <span>{categories.renamed.length}</span>
+                                  </span>,
+                                )
+                              }
+
+                              if (categories.renamedAndModified.length > 0) {
+                                indicators.push(
+                                  <span
+                                    key="renamedAndModified"
+                                    className="inline-flex items-center gap-1 text-orange-600"
+                                  >
+                                    <UpdateIcon className="w-3 h-3" />
+                                    <Pencil1Icon className="w-2.5 h-2.5" />
+                                    <span>{categories.renamedAndModified.length}</span>
+                                  </span>,
+                                )
+                              }
+
+                              if (categories.deleted.length > 0) {
+                                indicators.push(
+                                  <span
+                                    key="deleted"
+                                    className="inline-flex items-center gap-1 text-red-600"
+                                  >
+                                    <TrashIcon className="w-3 h-3" />
+                                    <span>{categories.deleted.length}</span>
+                                  </span>,
+                                )
+                              }
+
+                              if (categories.new.length > 0) {
+                                indicators.push(
+                                  <span
+                                    key="new"
+                                    className="inline-flex items-center gap-1 text-green-600"
+                                  >
+                                    <PlusIcon className="w-3 h-3" />
+                                    <span>{categories.new.length}</span>
+                                  </span>,
+                                )
+                              }
+
+                              return indicators.length > 0 ? (
+                                indicators
+                              ) : (
+                                <span>
+                                  {stagedFiles.length} file
+                                  {stagedFiles.length !== 1 ? 's' : ''} changed
+                                </span>
+                              )
+                            })()}
+                          </div>
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent side="bottom" align="end" className="w-80 p-3">
+                        <div className="space-y-3">
+                          <div className="text-sm font-medium">Staged Changes</div>
+                          <div className="space-y-3 max-h-64 overflow-y-auto">
+                            {(() => {
+                              const categories = categorizeStagedFiles(stagedFiles)
+                              const sections = []
+
+                              if (categories.modified.length > 0) {
+                                sections.push(
+                                  <div key="modified" className="space-y-1">
+                                    <div className="flex items-center gap-2 text-xs font-medium text-blue-600">
+                                      <Pencil1Icon className="w-3 h-3" />
+                                      Modified ({categories.modified.length})
+                                    </div>
+                                    <div className="space-y-1 pl-5">
+                                      {categories.modified.map(file => (
+                                        <button
+                                          key={file.filePath}
+                                          onClick={() => {
+                                            void navigate(
+                                              `/vault/${repositoryFullName}/${branch}/${file.filePath}`,
+                                            )
+                                          }}
+                                          className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 rounded truncate w-full ${linkStyle}`}
+                                        >
+                                          {file.filePath}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>,
+                                )
+                              }
+
+                              if (categories.renamed.length > 0) {
+                                sections.push(
+                                  <div key="renamed" className="space-y-1">
+                                    <div className="flex items-center gap-2 text-xs font-medium text-purple-600">
+                                      <UpdateIcon className="w-3 h-3" />
+                                      Renamed ({categories.renamed.length})
+                                    </div>
+                                    <div className="space-y-1 pl-5">
+                                      {categories.renamed.map(file => (
+                                        <button
+                                          key={file.filePath}
+                                          onClick={() => {
+                                            void navigate(
+                                              `/vault/${repositoryFullName}/${branch}/${file.filePath}`,
+                                            )
+                                          }}
+                                          className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 rounded truncate w-full ${linkStyle}`}
+                                        >
+                                          <div className="text-muted-foreground">
+                                            {file.initialFilePath} →
+                                          </div>
+                                          <div className="font-medium">{file.filePath}</div>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>,
+                                )
+                              }
+
+                              if (categories.renamedAndModified.length > 0) {
+                                sections.push(
+                                  <div key="renamedAndModified" className="space-y-1">
+                                    <div className="flex items-center gap-2 text-xs font-medium text-orange-600">
+                                      <UpdateIcon className="w-3 h-3" />
+                                      <Pencil1Icon className="w-2.5 h-2.5" />
+                                      Renamed & Modified ({categories.renamedAndModified.length})
+                                    </div>
+                                    <div className="space-y-1 pl-5">
+                                      {categories.renamedAndModified.map(file => (
+                                        <button
+                                          key={file.filePath}
+                                          onClick={() => {
+                                            void navigate(
+                                              `/vault/${repositoryFullName}/${branch}/${file.filePath}`,
+                                            )
+                                          }}
+                                          className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 rounded truncate w-full ${linkStyle}`}
+                                        >
+                                          <div className="text-muted-foreground">
+                                            {file.initialFilePath} →
+                                          </div>
+                                          <div className="font-medium">{file.filePath}</div>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>,
+                                )
+                              }
+
+                              if (categories.deleted.length > 0) {
+                                sections.push(
+                                  <div key="deleted" className="space-y-1">
+                                    <div className="flex items-center gap-2 text-xs font-medium text-red-600">
+                                      <TrashIcon className="w-3 h-3" />
+                                      Deleted ({categories.deleted.length})
+                                    </div>
+                                    <div className="space-y-1 pl-5">
+                                      {categories.deleted.map(file => (
+                                        <div
+                                          key={file.filePath}
+                                          className="block text-xs text-left p-1 rounded truncate w-full text-muted-foreground line-through"
+                                        >
+                                          {file.filePath}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>,
+                                )
+                              }
+
+                              if (categories.new.length > 0) {
+                                sections.push(
+                                  <div key="new" className="space-y-1">
+                                    <div className="flex items-center gap-2 text-xs font-medium text-green-600">
+                                      <PlusIcon className="w-3 h-3" />
+                                      New ({categories.new.length})
+                                    </div>
+                                    <div className="space-y-1 pl-5">
+                                      {categories.new.map(file => (
+                                        <button
+                                          key={file.filePath}
+                                          onClick={() => {
+                                            void navigate(
+                                              `/vault/${repositoryFullName}/${branch}/${file.filePath}`,
+                                            )
+                                          }}
+                                          className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 rounded truncate w-full ${linkStyle}`}
+                                        >
+                                          {file.filePath}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>,
+                                )
+                              }
+
+                              return sections
+                            })()}
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void handleManualCommit()}
+                    disabled={manualComittingStatus.isLoading || clearingStagingStatus.isLoading}
+                    className="h-6 px-2 text-xs"
+                  >
+                    {manualComittingStatus.isLoading ? 'Committing...' : 'Commit Now'}
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void handleResetToGitHub()}
+                    disabled={clearingStagingStatus.isLoading || manualComittingStatus.isLoading}
+                    className="h-6 px-2 text-xs text-orange-600 hover:text-orange-700"
+                  >
+                    {clearingStagingStatus.isLoading
+                      ? 'Resetting...'
+                      : 'Reset all to GitHub (Discard Changes)'}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex-1 min-h-0">
+                <CodeEditorWrapper
+                  key={`${branch}/${selectedFile}-${stagedFile?.parentCommitSha}`}
+                  repositoryFullName={repositoryFullName}
+                  filePath={selectedFile}
+                  initialFilePath={stagedFile?.initialFilePath ?? selectedFile}
+                />
               </div>
             </div>
-          ) : fileContent.data ? (
-            <CodeEditorWrapper
-              key={`${repositoryFullName}-${selectedFile}`}
-              firstDoc={fileContent.data}
-              repositoryFullName={repositoryFullName}
-              filePath={selectedFile}
-            />
-          ) : null}
+          </div>
         </div>
-      </div>
-    </div>
-  )
-}
+      </SidebarInset>
 
-// Simple code editor wrapper (we'll enhance this with prosemark)
-function CodeEditorWrapper({
-  firstDoc,
-  repositoryFullName,
-  filePath,
-}: {
-  firstDoc: { version: number; content: string; sha: string }
-  repositoryFullName: string
-  filePath: string
-}) {
-  return (
-    <div className="h-full">
-      <textarea
-        className="w-full h-full p-4 font-mono text-sm border-0 resize-none focus:outline-none"
-        value={firstDoc.content}
-        readOnly
-        placeholder="Loading file content..."
+      {/* File Creation Dialog */}
+      {fileCreationDialog.isOpen && (
+        <FileCreationDialog
+          isOpen={true}
+          onClose={closeFileCreation}
+          initialFolderPath={fileCreationDialog.folderPath || ''}
+          onFileCreate={handleCreateFileInFolder}
+          folders={(tree.data ?? []).map(item => ({
+            path: item.path,
+            type: item.type as 'tree' | 'blob',
+            size: item.size,
+          }))}
+        />
+      )}
+
+      {/* Folder Creation Dialog */}
+      {folderCreationDialog.isOpen && (
+        <FolderCreationDialog
+          isOpen={true}
+          onClose={closeFolderCreation}
+          initialFolderPath={folderCreationDialog.folderPath || ''}
+          onFolderCreate={handleCreateFolderInFolder}
+          folders={finalTreeData}
+        />
+      )}
+
+      {/* Command Palette */}
+      <CommandPalette
+        open={isCommandPaletteOpen}
+        onOpenChange={setIsCommandPaletteOpen}
+        files={finalTreeData}
+        onFileSelect={handleFileSelect}
+        selectedFile={selectedFile}
       />
     </div>
   )
 }
 
-// Main export
+// Main export with sidebar provider wrapper
 export function FileView() {
+  return (
+    <DialogProvider>
+      <SidebarProvider>
+        <FileViewWithSwipe />
+      </SidebarProvider>
+    </DialogProvider>
+  )
+}
+
+// Component with sidebar context and swipe gesture
+function FileViewWithSwipe() {
+  // Setup sidebar context and mobile swipe gesture
+  const { isMobile, openMobile, setOpenMobile } = useSidebar()
+
+  // Enable swipe-to-open sidebar on mobile
+  useSwipeToOpenSidebar(() => {
+    if (isMobile && !openMobile) {
+      setOpenMobile(true)
+    }
+  })
+
   return <FileViewWrapper />
 }

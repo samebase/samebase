@@ -77,6 +77,26 @@ class GitHubAPI {
   }
 
   /**
+   * Get repository tree using Git Tree API for better performance
+   * Maps GitHub Git Tree API response to match expected structure
+   */
+  async getRepositoryTree(owner: string, repo: string) {
+    const treeResponse = (await this.makeRequest(
+      `/repos/${owner}/${repo}/git/trees/HEAD?recursive=1`,
+    )) as any
+
+    return treeResponse.tree.map((item: any) => ({
+      path: item.path,
+      mode: item.mode,
+      // Map Git Tree API types to match what the frontend expects
+      type: item.type === 'blob' ? 'file' : 'dir', // 'blob' -> 'file', 'tree' -> 'dir'
+      sha: item.sha,
+      size: item.size,
+      url: item.url,
+    }))
+  }
+
+  /**
    * Get file content
    * @param {string} owner Repository owner
    * @param {string} repo Repository name
@@ -281,11 +301,12 @@ export const getRepositoryTree = onCall<{ owner: string; repo: string }>(async (
   try {
     const githubToken = await getUserGitHubToken(request.auth.uid)
     const githubAPI = new GitHubAPI(githubToken)
-    const tree = await githubAPI.getRepositoryContents(owner, repo)
+    const tree = await githubAPI.getRepositoryTree(owner, repo)
 
+    console.log('Repository tree response:', { owner, repo, treeLength: tree.length })
     return { tree }
   } catch (error: any) {
-    console.error('Error getting repository tree:', error)
+    console.error('Error getting repository tree:', { owner, repo, error: error.message })
     throw new HttpsError('internal', error.message || 'Failed to get repository tree')
   }
 })
@@ -295,34 +316,191 @@ export const getRepositoryTree = onCall<{ owner: string; repo: string }>(async (
  */
 export const getFileForEditing = onCall<{
   repositoryFullName: string
-  filePath: string
+  originalFilePath: string
 }>(async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated')
   }
 
-  const { repositoryFullName, filePath } = request.data
-  if (!repositoryFullName || !filePath) {
+  console.log('getFileForEditing', request.data)
+
+  const { repositoryFullName, originalFilePath } = request.data
+  if (!repositoryFullName || !originalFilePath) {
     throw new HttpsError('invalid-argument', 'Repository name and file path are required')
   }
 
   try {
+    // First, get the vault for this repository
+    const vaultsSnapshot = await db
+      .collection('vaults')
+      .where('repositoryFullName', '==', repositoryFullName)
+      .where('userId', '==', request.auth.uid)
+      .limit(1)
+      .get()
+
+    if (vaultsSnapshot.empty) {
+      throw new HttpsError('not-found', 'Vault not found for this repository')
+    }
+
+    const vaultDoc = vaultsSnapshot.docs[0]
+    const vaultId = vaultDoc.id
+
+    // Check if file exists in fileStaging collection
+    const fileStagingSnapshot = await db
+      .collection('fileStaging')
+      .where('vaultId', '==', vaultId)
+      .where('filePath', '==', originalFilePath)
+      .limit(1)
+      .get()
+
+    if (!fileStagingSnapshot.empty) {
+      const fileData = fileStagingSnapshot.docs[0].data()
+      console.log(`File found in fileStaging: ${originalFilePath}`)
+
+      return {
+        version: fileData.version || 0,
+        content: fileData.content || '',
+        sha: fileData.parentCommitSha || '',
+        source: 'firestore',
+      }
+    }
+
+    // If not in fileStaging, fetch from GitHub
+    console.log(`File not in fileStaging, fetching from GitHub: ${originalFilePath}`)
     const [owner, repo] = repositoryFullName.split('/')
     const githubToken = await getUserGitHubToken(request.auth.uid)
     const githubAPI = new GitHubAPI(githubToken)
-    const fileContent = await githubAPI.getFileContent(owner, repo, filePath)
+    const fileContent = await githubAPI.getFileContent(owner, repo, originalFilePath)
 
     // Decode base64 content
     const content = atob(fileContent.content.replace(/\n/g, ''))
 
+    // Store in fileStaging collection following the Convex schema
+    await db.collection('fileStaging').add({
+      ownerId: request.auth.uid,
+      vaultId: vaultId,
+      fileDeleted: false,
+      filePath: originalFilePath,
+      initialFilePath: originalFilePath,
+      content: content,
+      initialContent: content,
+      parentCommitSha: fileContent.sha,
+      lastEditTime: Date.now(),
+      lastEditUserId: request.auth.uid,
+      branch: 'main', // Default branch, could be made configurable
+      version: 0, // Starting version for collaborative editing
+    })
+
     return {
-      version: 1, // Simple versioning for now
+      version: 0,
       content,
       sha: fileContent.sha,
+      source: 'github',
     }
   } catch (error: any) {
     console.error('Error getting file for editing:', error)
     throw new HttpsError('internal', error.message || 'Failed to get file for editing')
+  }
+})
+
+/**
+ * Cloud Function: Push collaborative updates
+ */
+export const pushUpdates = onCall<{
+  repositoryFullName: string
+  filePath: string
+  version: number
+  updates: Array<{
+    clientId: string
+    changes: string
+  }>
+}>(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated')
+  }
+
+  const { repositoryFullName, filePath, version, updates } = request.data
+  if (!repositoryFullName || !filePath || version === undefined || !updates) {
+    throw new HttpsError('invalid-argument', 'All parameters are required')
+  }
+
+  try {
+    // Get the vault for this repository
+    const vaultsSnapshot = await db
+      .collection('vaults')
+      .where('repositoryFullName', '==', repositoryFullName)
+      .where('userId', '==', request.auth.uid)
+      .limit(1)
+      .get()
+
+    if (vaultsSnapshot.empty) {
+      throw new HttpsError('not-found', 'Vault not found for this repository')
+    }
+
+    const vaultId = vaultsSnapshot.docs[0].id
+
+    // Get current staging record
+    const stagingSnapshot = await db
+      .collection('fileStaging')
+      .where('vaultId', '==', vaultId)
+      .where('filePath', '==', filePath)
+      .limit(1)
+      .get()
+
+    if (stagingSnapshot.empty) {
+      throw new HttpsError('not-found', 'File staging not found')
+    }
+
+    const stagingDoc = stagingSnapshot.docs[0]
+    const stagingData = stagingDoc.data()
+    let currentVersion = stagingData.version || 0
+
+    // Simple version check - reject if versions don't match
+    if (version !== currentVersion) {
+      return {
+        success: false,
+        newVersion: currentVersion,
+      }
+    }
+
+    // Apply updates
+    const timestamp = Date.now()
+    const batch = db.batch()
+
+    // Store the updates for other clients to pull
+    for (const update of updates) {
+      currentVersion++
+
+      // Add collaborative update document
+      const updateRef = db.collection('collaborativeUpdates').doc()
+      batch.set(updateRef, {
+        vaultId: vaultId,
+        filePath: filePath,
+        version: currentVersion,
+        clientId: update.clientId,
+        changes: update.changes,
+        userId: request.auth.uid,
+        timestamp: timestamp,
+      })
+    }
+
+    // Update the staging record with new version
+    batch.update(stagingDoc.ref, {
+      version: currentVersion,
+      lastEditTime: timestamp,
+      lastEditUserId: request.auth.uid,
+    })
+
+    // Commit all changes atomically
+    await batch.commit()
+
+    return {
+      success: true,
+      newVersion: currentVersion,
+    }
+  } catch (error: any) {
+    console.error('Error pushing updates:', error)
+    throw new HttpsError('internal', error.message || 'Failed to push updates')
   }
 })
 

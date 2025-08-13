@@ -74,3 +74,7 @@ export const generateAvatarColor = (seed: string): string => {
 
   return colors[Math.abs(hash) % colors.length]
 }
+
+export function nonNullable<T>(value: T | null | undefined): value is T {
+  return value !== null && value !== undefined
+}
