@@ -122,6 +122,9 @@ importers:
       tailwind-merge:
         specifier: ^3.3.1
         version: 3.3.1
+      typesaurus:
+        specifier: ^10.7.0
+        version: 10.7.0
     devDependencies:
       '@tailwindcss/vite':
         specifier: ^4.1.11
@@ -9342,6 +9345,10 @@ packages:
       possible-typed-array-names: 1.1.0
       reflect.getprototypeof: 1.0.10
     dev: true
+
+  /typesaurus@10.7.0:
+    resolution: {integrity: sha512-1kPF9jIAbgi8ahk/KSI+r/AYs5mC50usGacBHSJbTqaMk4d5zGHyqqm3WFIgvn8W+g4nVw5QUGIlAnyLHFzKcw==}
+    dev: false
 
   /typescript-eslint@8.38.0(eslint@9.32.0)(typescript@5.9.2):
     resolution: {integrity: sha512-FsZlrYK6bPDGoLeZRuvx2v6qrM03I0U0SnfCLPs/XCCPCFD80xU9Pg09H/K+XFa68uJuZo7l/Xhs+eDRg2l3hg==}

@@ -44,7 +44,8 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.8.0",
-    "tailwind-merge": "^3.3.1"
+    "tailwind-merge": "^3.3.1",
+    "typesaurus": "^10.7.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.11",
