@@ -254,7 +254,7 @@ export const deleteFile = action({
 });
 
 // Get repository tree structure
-export const getRepositoryTree = action({
+export const updateRepositoryTree = action({
   args: {
     owner: v.string(),
     repo: v.string(),
@@ -264,6 +264,14 @@ export const getRepositoryTree = action({
 
     if (!currentUser) {
       throw new Error("User not found");
+    }
+
+    const vault = await ctx.runQuery(api.vault.getVaultByRepository, {
+      repositoryFullName: `${args.owner}/${args.repo}`,
+    });
+
+    if (!vault) {
+      throw new Error("Vault not found");
     }
 
     const octokit: Octokit = new Octokit({
@@ -276,6 +284,19 @@ export const getRepositoryTree = action({
         repo: args.repo,
         tree_sha: "HEAD",
         recursive: "1",
+      });
+
+      if (tree.data.sha === vault.treeData.sha) {
+        return {
+          status: "up-to-date",
+        };
+      }
+
+      const treeData = tree.data;
+
+      await ctx.runMutation(internal.vault.updateVaultTree, {
+        vaultId: vault._id,
+        treeData: treeData,
       });
 
       return tree.data.tree.map((item) => ({

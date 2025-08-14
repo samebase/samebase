@@ -46,12 +46,10 @@ import { useDialog } from "@/hooks/useDialog";
 import { FileCreationDialog } from "@/components/FileCreationDialog";
 import { FolderCreationDialog } from "@/components/FolderCreationDialog";
 import { nonNullable } from "@/lib/utils";
+import { type GithubTreeType } from "convex/schema";
 
-type RepositoryTree = GetFunctionReferenceReturnType<
-  typeof api.github.getRepositoryTree
->;
 // Function to find the best file to display
-function findBestInitialFile(files: RepositoryTree) {
+function findBestInitialFile(files: GithubTreeType[]) {
   // Only consider blob (file) types, not directories
   const fileList = files.filter((item) => item.type === "blob");
 
@@ -134,55 +132,45 @@ function FileViewWrapper() {
     owner && repoName ? { repositoryFullName } : "skip",
   );
 
-  const getRepositoryTree = useAction(api.github.getRepositoryTree);
+  // const getRepositoryTree = useAction(api.github.getRepositoryTree);
 
   // extract return type of api.github.getRepositoryTree
   // Fetch repository tree
-  const tree = useReactQuery({
-    queryKey: ["github-tree", owner, repoName],
-    queryFn: async () => {
-      if (!owner || !repoName) {
-        throw new Error("Owner and repository name are required");
-      }
-      return await getRepositoryTree({ owner, repo: repoName });
-    },
-    enabled: !!(owner && repoName),
-  });
+  // const tree = useReactQuery({
+  //   queryKey: ["github-tree", owner, repoName],
+  //   queryFn: async () => {
+  //     if (!owner || !repoName) {
+  //       throw new Error("Owner and repository name are required");
+  //     }
+  //     return await getRepositoryTree({ owner, repo: repoName });
+  //   },
+  //   enabled: !!(owner && repoName),
+  // });
 
   // Auto-redirect to best file when no file is selected
   useEffect(() => {
     if (
       !selectedFile &&
-      (tree.data ?? []).length > 0 &&
-      !tree.isLoading &&
+      (vault?.treeData.tree ?? []).length > 0 &&
       owner &&
       repoName
     ) {
-      const bestFile = findBestInitialFile(tree.data ?? []);
+      const bestFile = findBestInitialFile(vault?.treeData.tree ?? []);
       if (bestFile) {
         void navigate(`/vault/${owner}/${repoName}/${branch}/${bestFile}`, {
           replace: true,
         });
       }
     }
-  }, [
-    selectedFile,
-    tree.data,
-    tree.isLoading,
-    owner,
-    repoName,
-    branch,
-    navigate,
-  ]);
+  }, [selectedFile, vault, owner, repoName, branch, navigate]);
 
-  if (!vault || !tree.data || !selectedFile || !owner || !repoName) {
+  if (!vault || !selectedFile || !owner || !repoName) {
     return null;
   }
 
   return (
     <FileViewInner
       vault={vault}
-      tree={tree}
       selectedFile={selectedFile}
       branch={branch}
       owner={owner}
@@ -193,7 +181,6 @@ function FileViewWrapper() {
 
 function FileViewInner({
   vault,
-  tree,
   selectedFile,
   branch,
   owner,
@@ -201,10 +188,6 @@ function FileViewInner({
 }: {
   vault: NonNullable<
     GetFunctionReferenceReturnType<typeof api.vault.getVaultByRepository>
-  >;
-  tree: UseQueryResult<
-    GetFunctionReferenceReturnType<typeof api.github.getRepositoryTree>,
-    Error
   >;
   branch: string;
   selectedFile: string;
@@ -260,6 +243,10 @@ function FileViewInner({
   );
   const [renameFileInStaging] = useConvexAction(
     api.fileStaging.renameFileInStaging,
+  );
+
+  const [updateRepositoryTree] = useConvexAction(
+    api.github.updateRepositoryTree,
   );
 
   // Get count of staged files for this vault
@@ -359,7 +346,9 @@ function FileViewInner({
     })
       .then(() => {
         // Refresh the tree
-        void tree.refetch();
+        // void tree.refetch();
+        // TODO: Update
+
         // Navigate to the new file
         void navigate(`/vault/${owner}/${repoName}/${branch}/${filePath}`);
       })
@@ -391,7 +380,10 @@ function FileViewInner({
     })
       .then(() => {
         // Refresh the tree
-        void tree.refetch();
+        void updateRepositoryTree({
+          owner,
+          repo: repoName,
+        });
       })
       .catch((error) => {
         console.error("Failed to create folder:", error);
@@ -432,18 +424,16 @@ function FileViewInner({
     }
   };
 
-  const emptyRepository = !tree.isLoading && (tree.data ?? []).length === 0;
-
-  const error = tree.error;
+  const emptyRepository = vault.treeData.tree.length === 0;
 
   if (!owner || !repoName) {
     void navigate("/");
   }
 
   const finalTreeData = useMemo(() => {
-    if (!tree.data || !stagedFiles) return [];
+    if (!stagedFiles) return [];
 
-    return tree.data
+    return vault.treeData.tree
       .map((item) => {
         const stagedFile = stagedFiles.find(
           (staged) => staged.initialFilePath === item.path,
@@ -463,7 +453,7 @@ function FileViewInner({
         };
       })
       .filter(nonNullable);
-  }, [tree.data, stagedFiles]);
+  }, [vault.treeData.tree, stagedFiles]);
 
   // Assume this means it's loading
   if (vault === undefined) {
@@ -530,7 +520,7 @@ function FileViewInner({
             </div>
           ) : (
             <div className="flex-1 overflow-auto">
-              {tree.data && stagedFiles && (
+              {stagedFiles && (
                 <FileTree
                   items={finalTreeData}
                   onFileSelect={handleFileSelect}
@@ -577,13 +567,6 @@ function FileViewInner({
           </div>
 
           <div className="flex-1 overflow-auto p-4">
-            {error && (
-              <div className="mb-4 p-3 text-sm md:text-xs text-red-600 bg-red-50 rounded border border-red-200">
-                Failed to load data:{" "}
-                {error instanceof Error ? error.message : "Unknown error"}
-              </div>
-            )}
-
             <div className="max-w-none h-full flex flex-col">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-base md:text-sm font-medium mb-2">
@@ -895,7 +878,7 @@ function FileViewInner({
           onClose={closeFileCreation}
           initialFolderPath={fileCreationDialog.folderPath || ""}
           onFileCreate={handleCreateFileInFolder}
-          folders={(tree.data ?? []).map((item) => ({
+          folders={vault.treeData.tree.map((item) => ({
             path: item.path,
             type: item.type as "tree" | "blob",
             size: item.size,

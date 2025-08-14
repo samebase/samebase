@@ -1,5 +1,5 @@
 import { defineSchema, defineTable } from "convex/server";
-import { v } from "convex/values";
+import { Infer, v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
 
 // Helper function to omit keys from an object
@@ -11,6 +11,23 @@ function omit<T extends Record<string, any>, K extends keyof T>(
     Object.entries(obj).filter(([key]) => !keys.includes(key as K)),
   ) as Omit<T, K>;
 }
+
+export const GithubTree = v.object({
+  path: v.string(),
+  mode: v.string(),
+  type: v.string(),
+  sha: v.string(),
+  size: v.optional(v.number()),
+  url: v.optional(v.string()),
+});
+export type GithubTreeType = Infer<typeof GithubTree>;
+
+export const GithubTreeData = v.object({
+  sha: v.string(),
+  url: v.optional(v.string()),
+  truncated: v.boolean(),
+  tree: v.array(GithubTree),
+});
 
 // The schema is normally optional, but Convex Auth
 // requires indexes defined on `authTables`.
@@ -53,6 +70,8 @@ export default defineSchema({
     ghRepoId: v.string(),
     ghRepoOwner: v.string(),
     ghRepoName: v.string(),
+    treeSHA: v.string(),
+    treeData: GithubTreeData,
   }),
 
   /**

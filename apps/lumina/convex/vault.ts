@@ -1,8 +1,15 @@
 import { v } from "convex/values";
-import { action, internalQuery, mutation, query } from "./_generated/server";
-import { api } from "./_generated/api";
+import {
+  action,
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server";
+import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { GithubTreeData } from "./schema";
 
 export const connectRepository = action({
   args: {
@@ -20,27 +27,43 @@ export const connectRepository = action({
       auth: currentUser.githubAccessToken,
     });
 
+    const ownerName = args.repositoryFullName.split("/")[0];
+    const repoName = args.repositoryFullName.split("/")[1];
+
+    if (!ownerName || !repoName) {
+      throw new Error("Invalid repository full name");
+    }
+
     const repo = await octokit.rest.repos.get({
-      owner: args.repositoryFullName.split("/")[0],
-      repo: args.repositoryFullName.split("/")[1],
+      owner: ownerName,
+      repo: repoName,
     });
 
-    console.log(repo);
+    const tree = await octokit.rest.git.getTree({
+      owner: ownerName,
+      repo: repoName,
+      tree_sha: "HEAD",
+      recursive: "1",
+    });
 
-    await ctx.runMutation(api.vault.addVault, {
+    await ctx.runMutation(internal.vault.addVault, {
       ghRepoId: repo.data.id.toString(),
       ghRepoOwner: repo.data.owner.login,
       ghRepoName: repo.data.name,
+      treeSHA: tree.data.sha,
+      treeData: tree.data,
     });
   },
 });
 
 // mutation to add new vault
-export const addVault = mutation({
+export const addVault = internalMutation({
   args: {
     ghRepoId: v.string(),
     ghRepoOwner: v.string(),
     ghRepoName: v.string(),
+    treeSHA: v.string(),
+    treeData: GithubTreeData,
   },
   handler: async (ctx, args): Promise<string> => {
     const currentUser = await ctx.runQuery(api.users.getAuthUser, {});
@@ -69,6 +92,8 @@ export const addVault = mutation({
       ghRepoId: args.ghRepoId,
       ghRepoOwner: args.ghRepoOwner,
       ghRepoName: args.ghRepoName,
+      treeSHA: args.treeSHA,
+      treeData: args.treeData,
     });
   },
 });
@@ -150,16 +175,6 @@ export const getVaultByRepository = query({
   args: {
     repositoryFullName: v.string(),
   },
-  returns: v.union(
-    v.object({
-      _id: v.id("vaults"),
-      _creationTime: v.number(),
-      ghRepoOwner: v.string(),
-      ghRepoName: v.string(),
-      repositoryFullName: v.string(),
-    }),
-    v.null(),
-  ),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
@@ -192,6 +207,28 @@ export const getVaultByRepository = query({
       ghRepoOwner: vault.ghRepoOwner,
       ghRepoName: vault.ghRepoName,
       repositoryFullName: args.repositoryFullName,
+      treeSHA: vault.treeSHA,
+      treeData: vault.treeData,
     };
+  },
+});
+
+// Update vault tree internal mutation
+export const updateVaultTree = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+    treeData: GithubTreeData,
+  },
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
+    return await ctx.db.patch(args.vaultId, {
+      treeSHA: args.treeData.sha,
+      treeData: args.treeData,
+    });
   },
 });
