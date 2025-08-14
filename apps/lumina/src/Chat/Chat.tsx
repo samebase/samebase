@@ -2,7 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { FormEvent, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { MessageList } from "@/Chat/MessageList";

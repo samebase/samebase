@@ -1,10 +1,7 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import {
-  UseQueryResult,
-  useQuery as useReactQuery,
-} from "@tanstack/react-query";
-import { useAction, useQuery, useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { CodeEditorWrapper } from "@/components/CodeEditor";
 import { Button } from "@/components/ui/button";
 
@@ -122,30 +119,13 @@ function FileViewWrapper() {
   // Parse branch and file path from the wildcard parameter
   const parsedPath = branchAndFilePath ? branchAndFilePath.split("/") : [];
   const branch = parsedPath[0] || "main";
-  const actualFilePath = parsedPath.slice(1).join("/");
-  const selectedFile = actualFilePath || undefined;
-  const repositoryFullName = `${owner}/${repoName}`;
+  const selectedFile = parsedPath.slice(1).join("/");
+  const repositoryFullName = owner && repoName ? `${owner}/${repoName}` : null;
 
   // Get vault for this repository
-  const vault = useQuery(
-    api.vault.getVaultByRepository,
-    owner && repoName ? { repositoryFullName } : "skip",
-  );
-
-  // const getRepositoryTree = useAction(api.github.getRepositoryTree);
-
-  // extract return type of api.github.getRepositoryTree
-  // Fetch repository tree
-  // const tree = useReactQuery({
-  //   queryKey: ["github-tree", owner, repoName],
-  //   queryFn: async () => {
-  //     if (!owner || !repoName) {
-  //       throw new Error("Owner and repository name are required");
-  //     }
-  //     return await getRepositoryTree({ owner, repo: repoName });
-  //   },
-  //   enabled: !!(owner && repoName),
-  // });
+  const vault = useQuery(api.vault.getVaultByRepository, {
+    repositoryFullName: repositoryFullName ?? "skip",
+  });
 
   // Auto-redirect to best file when no file is selected
   useEffect(() => {
@@ -217,6 +197,7 @@ function FileViewInner({
     newPath: selectedFile,
     vaultId: vault._id,
   });
+  console.log("stagedFile", stagedFile);
 
   // Folder expansion state
   const folderExpansionStates = useQuery(

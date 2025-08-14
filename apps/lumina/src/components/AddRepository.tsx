@@ -2,7 +2,7 @@ import { GitHubLogoIcon, ClockIcon } from "@radix-ui/react-icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link, useNavigate } from "react-router-dom";
-import { useQuery } from "convex/react";
+import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useQuery as useReactQuery } from "@tanstack/react-query";

@@ -1,4 +1,3 @@
-import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +9,7 @@ import {
 import { Link } from "react-router-dom";
 import { linkStyle } from "./styles";
 import { clsx } from "clsx";
+import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 
 const formatTimeAgo = (timestamp: number) => {
   const now = Date.now();

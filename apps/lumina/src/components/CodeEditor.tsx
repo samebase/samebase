@@ -53,7 +53,8 @@ import {
   prosemarkMarkdownSyntaxExtensions,
 } from "@prosemark/core";
 import { printTree } from "@lezer-unofficial/printer";
-import { useAction, useQuery } from "convex/react";
+import { useAction } from "convex/react";
+import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 
 // Temporary:
 // const tempVaultId = "k976ryb9d1m2gyvxhps87dac257mv5ps" as Id<"vaults">;
