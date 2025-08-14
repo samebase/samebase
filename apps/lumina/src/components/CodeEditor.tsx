@@ -55,6 +55,7 @@ import {
 import { printTree } from "@lezer-unofficial/printer";
 import { useAction } from "convex/react";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
+import { GetFunctionReferenceReturnType } from "@/lib/convexUtils";
 
 // Temporary:
 // const tempVaultId = "k976ryb9d1m2gyvxhps87dac257mv5ps" as Id<"vaults">;
@@ -96,30 +97,6 @@ async function pushUpdates({
       updates,
     })
     .then((result) => result.success);
-}
-
-async function pullUpdates({
-  version,
-  repositoryFullName,
-  filePath,
-}: {
-  version: number;
-  repositoryFullName: string;
-  filePath: string;
-}): Promise<readonly Update[]> {
-  await awaitTimeout(delay);
-  return client
-    .query(api.collaborative.pullUpdates, {
-      repositoryFullName,
-      filePath,
-      version,
-    })
-    .then((updates) =>
-      updates.map((u) => ({
-        changes: ChangeSet.fromJSON(JSON.parse(u.changes)),
-        clientID: u.clientID,
-      })),
-    );
 }
 
 // https://github.com/codemirror/website/blob/main/site/examples/collab/collab.ts#L89
@@ -284,31 +261,36 @@ export function CodeEditorWrapper({
   repositoryFullName,
   filePath,
   initialFilePath,
+  stagedFile,
 }: {
   repositoryFullName: string;
   filePath: string;
   initialFilePath: string;
+  stagedFile: NonNullable<
+    GetFunctionReferenceReturnType<typeof api.fileStagingMutations.getByNewPath>
+  >;
 }) {
+  useQuery;
   const firstDocAction = useAction(api.fileStaging.getFileForEditing);
-  const [firstDocData, setFirstDocData] = useState<Awaited<
-    ReturnType<typeof firstDocAction>
-  > | null>(null);
+  // const [firstDocData, setFirstDocData] = useState<Awaited<
+  //   ReturnType<typeof firstDocAction>
+  // > | null>(null);
 
-  useEffect(() => {
-    firstDocAction({
-      repositoryFullName,
-      originalFilePath: initialFilePath,
-    }).then((data) => {
-      setFirstDocData(data);
-    });
-  }, [firstDocAction, repositoryFullName, initialFilePath]);
+  // useEffect(() => {
+  //   firstDocAction({
+  //     repositoryFullName,
+  //     originalFilePath: initialFilePath,
+  //   }).then((data) => {
+  //     setFirstDocData(data);
+  //   });
+  // }, [firstDocAction, repositoryFullName, initialFilePath]);
 
-  if (!firstDocData) return null;
+  // if (!firstDocData) return null;
 
   return (
     <CodeEditor
       key={`${repositoryFullName}-${filePath}`}
-      firstDoc={firstDocData}
+      firstDoc={stagedFile}
       repositoryFullName={repositoryFullName}
       filePath={filePath}
     />
@@ -427,6 +409,7 @@ export function CodeEditor({
     func();
     // Cleanup function
     return () => {
+      console.log("Cleaning up editor");
       cancelled = true;
       editor?.destroy();
       viewRef.current = null;

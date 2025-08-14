@@ -116,6 +116,7 @@ function FileViewWrapper() {
     "*": string;
   }>();
 
+  const firstDocAction = useAction(api.fileStaging.getFileForEditing);
   // Parse branch and file path from the wildcard parameter
   const parsedPath = branchAndFilePath ? branchAndFilePath.split("/") : [];
   const branch = parsedPath[0] || "main";
@@ -142,9 +143,30 @@ function FileViewWrapper() {
         });
       }
     }
-  }, [selectedFile, vault, owner, repoName, branch, navigate]);
+  }, [selectedFile, vault, owner, repoName, branch, navigate, firstDocAction]);
 
-  if (!vault || !selectedFile || !owner || !repoName) {
+  const stagedFile = useQuery(
+    api.fileStagingMutations.getByNewPath,
+    vault
+      ? {
+          newPath: selectedFile,
+          vaultId: vault._id,
+        }
+      : "skip",
+  );
+  console.log("stagedFile", stagedFile);
+
+  // If file not staged,
+  useEffect(() => {
+    if (selectedFile && !stagedFile) {
+      void firstDocAction({
+        repositoryFullName: `${owner}/${repoName}`,
+        originalFilePath: selectedFile,
+      });
+    }
+  }, [selectedFile, stagedFile, firstDocAction, owner, repoName]);
+
+  if (!vault || !selectedFile || !owner || !repoName || !stagedFile) {
     return null;
   }
 
@@ -155,6 +177,7 @@ function FileViewWrapper() {
       branch={branch}
       owner={owner}
       repoName={repoName}
+      stagedFile={stagedFile}
     />
   );
 }
@@ -165,6 +188,7 @@ function FileViewInner({
   branch,
   owner,
   repoName,
+  stagedFile,
 }: {
   vault: NonNullable<
     GetFunctionReferenceReturnType<typeof api.vault.getVaultByRepository>
@@ -173,6 +197,9 @@ function FileViewInner({
   selectedFile: string;
   owner: string;
   repoName: string;
+  stagedFile: NonNullable<
+    GetFunctionReferenceReturnType<typeof api.fileStagingMutations.getByNewPath>
+  >;
 }) {
   const { setOpenMobile } = useSidebar();
 
@@ -192,12 +219,6 @@ function FileViewInner({
   } = useDialog();
 
   const repositoryFullName = `${owner}/${repoName}`;
-
-  const stagedFile = useQuery(api.fileStagingMutations.getByNewPath, {
-    newPath: selectedFile,
-    vaultId: vault._id,
-  });
-  console.log("stagedFile", stagedFile);
 
   // Folder expansion state
   const folderExpansionStates = useQuery(
@@ -277,7 +298,7 @@ function FileViewInner({
       });
 
       // If we're currently viewing the renamed file, navigate to the new path
-      if (stagedFile?.initialFilePath === originalPath) {
+      if (stagedFile.initialFilePath === originalPath) {
         void navigate(`/vault/${owner}/${repoName}/${branch}/${newPath}`);
       }
 
@@ -844,7 +865,8 @@ function FileViewInner({
                   key={`${branch}/${selectedFile}-${stagedFile?.parentCommitSha}`}
                   repositoryFullName={repositoryFullName}
                   filePath={selectedFile}
-                  initialFilePath={stagedFile?.initialFilePath ?? selectedFile}
+                  initialFilePath={stagedFile.initialFilePath}
+                  stagedFile={stagedFile}
                 />
               </div>
             </div>
