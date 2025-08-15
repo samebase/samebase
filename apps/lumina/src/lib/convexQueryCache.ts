@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FunctionReference } from "convex/server";
 import { getFunctionName } from "convex/server";
 import { useQuery, OptionalRestArgsOrSkip } from "convex/react";
@@ -79,15 +79,6 @@ async function idbSet<T>(key: string, value: IdbRecord<T>): Promise<void> {
 
 const memoryCache = new Map<string, IdbRecord<any>>();
 
-// ---------- query name extraction ----------
-
-function getQueryName(ref: FunctionReference<"query">): string {
-  const anyRef = ref as any;
-  return (
-    anyRef?.name || anyRef?.path?.join(":") || anyRef?.identifier || "unknown"
-  );
-}
-
 // ---------- main hook ----------
 
 /**
@@ -100,36 +91,19 @@ export function useCacheQuery<Query extends FunctionReference<"query">>(
   query: Query,
   ...args: OptionalRestArgsOrSkip<Query>
 ) {
-  const live = useQuery(query, ...args) as any; // live value or undefined while loading
-  const [cached, setCached] = useState<any>(undefined);
-  const [fromCache, setFromCache] = useState<boolean>(false);
+  const live = useQuery(query, ...args); // live value or undefined while loading
+  const [cached, setCached] = useState<Query["_returnType"]>(undefined);
+  const [fromCache, setFromCache] = useState(false);
   const queryName = useMemo(() => getFunctionName(query), [query]);
 
-  const ttlMsRef = useRef<number | undefined>(
-    (useCacheQuery as any).ttlMs as number | undefined,
-  );
-
-  // Build a stable cache key (async due to crypto)
-  const [cacheKey, setCacheKey] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      if (cancelled) return;
-
-      const argsKey = stableStringify(args);
-      const key = `convex:${CACHE_VERSION}:${queryName}:${argsKey}`;
-
-      setCacheKey(key);
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const cacheKey = useMemo(() => {
+    const argsKey = stableStringify(args);
+    return `convex:${CACHE_VERSION}:${queryName}:${argsKey}`;
   }, [args, queryName]);
 
   // Hydrate from memory/IDB on mount/args change
   useEffect(() => {
     let cancelled = false;
-    if (!cacheKey) return;
 
     // 1) memory
     const mem = memoryCache.get(cacheKey);
@@ -168,7 +142,7 @@ export function useCacheQuery<Query extends FunctionReference<"query">>(
     if (cacheKey && live !== undefined) {
       const record: IdbRecord = {
         data: live,
-        exp: ttlMsRef.current ? Date.now() + ttlMsRef.current : undefined,
+        exp: useCacheQuery.ttlMs ? Date.now() + useCacheQuery.ttlMs : undefined,
       };
       memoryCache.set(cacheKey, record);
       void idbSet(cacheKey, record);
@@ -179,9 +153,9 @@ export function useCacheQuery<Query extends FunctionReference<"query">>(
 
   // Returned value mirrors useQuery (data or undefined),
   // with metadata on the function as a property for opt-in usage.
-  (useCacheQuery as any).last = { fromCache, cacheKey };
+  useCacheQuery.last = { fromCache, cacheKey };
 
-  return cached as ReturnType<typeof useQuery<Query>>;
+  return cached;
 }
 
 /**
