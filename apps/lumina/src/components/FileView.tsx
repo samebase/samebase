@@ -136,7 +136,7 @@ function FileViewWrapper() {
       branch={branch}
       owner={owner}
       repoName={repoName}
-      stagedFile={stagedFile}
+      stagedFile={stagedFile ?? null}
     />
   );
 }
@@ -182,7 +182,38 @@ function FileViewInner({
   );
   const setFolderExpansionState = useMutation(
     api.folderExpansion.setFolderExpansionState,
-  );
+  ).withOptimisticUpdate((localStore, args) => {
+    const currentValue = localStore.getQuery(
+      api.folderExpansion.getFolderExpansionStates,
+      {
+        vaultId: vault._id,
+      },
+    );
+
+    if (currentValue) {
+      // search if
+      const folderIndex = currentValue.findIndex(
+        (folder) => folder.folderPath === args.folderPath,
+      );
+
+      if (folderIndex !== -1) {
+        currentValue[folderIndex].isExpanded = args.isExpanded;
+      } else {
+        currentValue.push({
+          folderPath: args.folderPath,
+          isExpanded: args.isExpanded,
+        });
+      }
+
+      localStore.setQuery(
+        api.folderExpansion.getFolderExpansionStates,
+        {
+          vaultId: vault._id,
+        },
+        currentValue,
+      );
+    }
+  });
 
   // Command palette state
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -373,7 +404,7 @@ function FileViewInner({
   const finalTreeData = useMemo(() => {
     return vault.treeData.tree
       .map((item) => {
-        const stagedFile = stagedFiles.find(
+        const stagedFile = stagedFiles?.find(
           (staged) => staged.initialFilePath === item.path,
         );
 
@@ -462,7 +493,7 @@ function FileViewInner({
                 onFileCreate={handleCreateFileInFolder}
                 onFileDelete={(filePath) => void handleFileDelete(filePath)}
                 selectedFile={selectedFile}
-                folderExpansionStates={folderExpansionStates}
+                folderExpansionStates={folderExpansionStates ?? []}
                 onFolderToggle={(folderPath, isExpanded) =>
                   void handleFolderToggle(folderPath, isExpanded)
                 }
@@ -505,7 +536,7 @@ function FileViewInner({
                 </h2>
 
                 <div className="flex items-center gap-2">
-                  {stagedFiles.length > 0 && (
+                  {stagedFiles && stagedFiles.length > 0 && (
                     <Popover>
                       <PopoverTrigger asChild>
                         <button

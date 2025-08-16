@@ -90,7 +90,7 @@ const memoryCache = new Map<string, IdbRecord<any>>();
 export function useCacheQuery<Query extends FunctionReference<"query">>(
   query: Query,
   ...args: OptionalRestArgsOrSkip<Query>
-) {
+): Query["_returnType"] | undefined {
   const live = useQuery(query, ...args); // live value or undefined while loading
   const [cached, setCached] = useState<Query["_returnType"]>(undefined);
   const [fromCache, setFromCache] = useState(false);
