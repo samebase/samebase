@@ -108,7 +108,7 @@ export default defineSchema({
     ghRepoId: v.string(), // Not sure if this is needed.
     sha: v.string(),
 
-    fileName: v.string(),
+    filePath: v.string(),
     content: v.bytes(),
   }).index("by_vault_and_sha", ["vaultId", "sha"]),
   /**
