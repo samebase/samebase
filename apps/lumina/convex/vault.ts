@@ -3,11 +3,10 @@ import {
   action,
   internalMutation,
   internalQuery,
-  mutation,
   query,
   QueryCtx,
 } from "./_generated/server";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { GithubTreeData } from "./schema";
 import { Id } from "./_generated/dataModel";
@@ -32,10 +31,16 @@ export const getVaultByRepository = query({
 
 export const connectRepository = action({
   args: {
-    // repositoryOwner: v.string(),
     repositoryFullName: v.string(),
   },
-  handler: async (ctx, args) => {
+  returns: v.object({
+    vaultId: v.string(),
+    filesDownloaded: v.optional(v.number()),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ vaultId: string; filesDownloaded?: number }> => {
     const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
 
     if (!currentUser) {
@@ -65,13 +70,41 @@ export const connectRepository = action({
       recursive: "1",
     });
 
-    await ctx.runMutation(internal.vault.addVault, {
+    const vaultId = await ctx.runMutation(internal.vault.addVault, {
       ghRepoId: repo.data.id.toString(),
       ghRepoOwner: repo.data.owner.login,
       ghRepoName: repo.data.name,
       treeSHA: tree.data.sha,
       treeData: tree.data,
     });
+
+    let filesDownloaded: number | undefined;
+
+    // Optionally download all files using isomorphic-git
+    {
+      const repositoryUrl = repo.data.clone_url;
+      const downloadResult = await ctx.runAction(
+        internal.gitOperationsActions.downloadGitRepository,
+        {
+          userId: currentUser._id,
+          vaultId,
+          repositoryUrl,
+          branch: repo.data.default_branch,
+        },
+      );
+
+      // if (downloadResult.success) {
+      //   filesDownloaded = downloadResult.filesDownloaded;
+      //   console.log(
+      //     `Downloaded ${filesDownloaded} files for repository ${args.repositoryFullName}`,
+      //   );
+      // }
+    }
+
+    return {
+      vaultId,
+      filesDownloaded,
+    };
   },
 });
 
@@ -86,7 +119,7 @@ export const addVault = internalMutation({
     treeSHA: v.string(),
     treeData: GithubTreeData,
   },
-  handler: async (ctx, args): Promise<string> => {
+  handler: async (ctx, args): Promise<Id<"vaults">> => {
     const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
 
     if (!currentUser) {
