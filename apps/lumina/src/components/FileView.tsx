@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/sidebar";
 import { FileTree } from "./FileTree";
 import { CommandPalette } from "./CommandPalette";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
 import { useSidebar } from "@/components/ui/sidebar";
 import { UserMenu } from "@/components/UserMenu";
@@ -366,35 +366,33 @@ function FileViewInner({
     });
   };
 
-  const handleManualCommit = async () => {
+  const handleManualCommit = useCallback(() => {
     if (!selectedFile) return;
 
-    try {
-      await commitStaging({
-        repositoryFullName: repositoryFullName,
-        currentFilePath: selectedFile,
-      });
-    } catch (error) {
+    void commitStaging({
+      repositoryFullName: repositoryFullName,
+      currentFilePath: selectedFile,
+    }).catch((error) => {
       console.error("Failed to commit changes:", error);
-    }
-  };
+    });
+  }, [commitStaging, repositoryFullName, selectedFile]);
 
-  const handleResetToGitHub = async () => {
-    await clearAllStaging({
+  const handleResetToGitHub = useCallback(() => {
+    void clearAllStaging({
       vaultId: vault._id,
     });
-  };
+  }, [clearAllStaging, vault._id]);
 
-  const handleFolderToggle = async (
-    folderPath: string,
-    isExpanded: boolean,
-  ) => {
-    await setFolderExpansionState({
-      vaultId: vault._id,
-      folderPath,
-      isExpanded,
-    });
-  };
+  const handleFolderToggle = useCallback(
+    (folderPath: string, isExpanded: boolean) => {
+      void setFolderExpansionState({
+        vaultId: vault._id,
+        folderPath,
+        isExpanded,
+      });
+    },
+    [setFolderExpansionState, vault._id],
+  );
 
   const emptyRepository = vault.treeData.tree.length === 0;
 
@@ -495,9 +493,7 @@ function FileViewInner({
                 onFileDelete={(filePath) => void handleFileDelete(filePath)}
                 selectedFile={selectedFile}
                 folderExpansionStates={folderExpansionStates ?? []}
-                onFolderToggle={(folderPath, isExpanded) =>
-                  void handleFolderToggle(folderPath, isExpanded)
-                }
+                onFolderToggle={handleFolderToggle}
               />
             </div>
           )}{" "}
@@ -570,7 +566,7 @@ function FileViewInner({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => void handleManualCommit()}
+                    onClick={handleManualCommit}
                     disabled={
                       manualComittingStatus === "loading" ||
                       clearingStagingStatus === "loading"
@@ -585,7 +581,7 @@ function FileViewInner({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => void handleResetToGitHub()}
+                    onClick={handleResetToGitHub}
                     disabled={
                       clearingStagingStatus === "loading" ||
                       manualComittingStatus === "loading"
