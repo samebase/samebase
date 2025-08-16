@@ -191,15 +191,16 @@ function FileViewInner({
     );
 
     if (currentValue) {
-      // search if
-      const folderIndex = currentValue.findIndex(
+      const newState = [...currentValue];
+
+      const folderIndex = newState.findIndex(
         (folder) => folder.folderPath === args.folderPath,
       );
 
       if (folderIndex !== -1) {
-        currentValue[folderIndex].isExpanded = args.isExpanded;
+        newState[folderIndex].isExpanded = args.isExpanded;
       } else {
-        currentValue.push({
+        newState.push({
           folderPath: args.folderPath,
           isExpanded: args.isExpanded,
         });
@@ -210,7 +211,7 @@ function FileViewInner({
         {
           vaultId: vault._id,
         },
-        currentValue,
+        newState,
       );
     }
   });
