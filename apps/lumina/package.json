@@ -29,6 +29,7 @@
     "@codemirror/theme-one-dark": "^6.1.2",
     "@codemirror/view": "^6.28.4",
     "@convex-dev/auth": "^0.0.77",
+    "@convex-dev/eslint-plugin": "0.0.1-alpha.4",
     "@lezer-unofficial/printer": "^1.0.1",
     "@lezer/markdown": "^1.4.0",
     "@octokit/rest": "^22.0.0",

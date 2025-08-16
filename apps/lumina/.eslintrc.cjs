@@ -5,6 +5,7 @@ module.exports = {
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended-type-checked",
     "plugin:react-hooks/recommended",
+    "plugin:@convex-dev/recommended",
   ],
   ignorePatterns: [
     "dist",
