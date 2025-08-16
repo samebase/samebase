@@ -5,9 +5,9 @@ import {
   mutation,
   query,
 } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+import { getUserId } from "./common";
 
 export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
 
@@ -111,10 +111,7 @@ export const markFileForDeletion = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
+    const userId = await getUserId(ctx);
 
     // Check if there's already a staging record for this file
     const existingStaging = await ctx.db
@@ -169,10 +166,7 @@ export const saveToStaging = internalMutation({
     branch: v.string(),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
+    const userId = await getUserId(ctx);
 
     // Check if there's already a staging record for this file
     const existingStaging = await ctx.db
@@ -266,10 +260,7 @@ export const rename = internalMutation({
     branch: string;
     version: number;
   }> => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
+    await getUserId(ctx);
 
     const vault = await ctx.runQuery(internal.vault.getById, {
       id: args.vaultId,
