@@ -4,3 +4,6 @@
 - [x] after commit now, the file should already have a new staging
 - [x] add more descriptive commit names
 - [ ] add settings page for each vault an also for the whole app that allows auto commits
+- [ ] when path doesn't have owner or repo name or can't find it, redirect to vaults
+- [ ] update the tree from time to time?
+- [ ] 
