@@ -5,11 +5,30 @@ import {
   internalQuery,
   mutation,
   query,
+  QueryCtx,
 } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { GithubTreeData } from "./schema";
+import { Id } from "./_generated/dataModel";
+import { getUserId } from "./common";
+
+// MARK: Public
+
+// Get a specific vault by repository full name for a user
+export const getVaultByRepository = query({
+  args: {
+    repositoryFullName: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+
+    return await getVaultByRepositoryHelper(ctx, {
+      userId,
+      repositoryFullName: args.repositoryFullName,
+    });
+  },
+});
 
 export const connectRepository = action({
   args: {
@@ -55,6 +74,8 @@ export const connectRepository = action({
     });
   },
 });
+
+// MARK: Internal
 
 // mutation to add new vault
 export const addVault = internalMutation({
@@ -113,10 +134,7 @@ export const getUserVaults = query({
     }),
   ),
   handler: async (ctx, _args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
+    const userId = await getUserId(ctx);
 
     // Get user's vaults
     const vaults = await ctx.db
@@ -170,46 +188,54 @@ export const getById = internalQuery({
   },
 });
 
-// Get a specific vault by repository full name for a user
-export const getVaultByRepository = query({
+async function getVaultByRepositoryHelper(
+  ctx: QueryCtx,
   args: {
+    userId: Id<"users">;
+    repositoryFullName: string;
+  },
+) {
+  const [owner, name] = args.repositoryFullName.split("/");
+  if (!owner || !name) {
+    throw new Error("Invalid repository full name");
+  }
+
+  const vault = await ctx.db
+    .query("vaults")
+    .filter((q) =>
+      q.and(
+        q.eq(q.field("userId"), args.userId),
+        q.eq(q.field("ghRepoOwner"), owner),
+        q.eq(q.field("ghRepoName"), name),
+      ),
+    )
+    .first();
+
+  if (!vault) {
+    return null;
+  }
+
+  return {
+    _id: vault._id,
+    _creationTime: vault._creationTime,
+    ghRepoOwner: vault.ghRepoOwner,
+    ghRepoName: vault.ghRepoName,
+    repositoryFullName: args.repositoryFullName,
+    treeSHA: vault.treeSHA,
+    treeData: vault.treeData,
+  };
+}
+
+export const getByRepositoryFullName = internalQuery({
+  args: {
+    userId: v.id("users"),
     repositoryFullName: v.string(),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
-    const [owner, name] = args.repositoryFullName.split("/");
-    if (!owner || !name) {
-      throw new Error("Invalid repository full name");
-    }
-
-    const vault = await ctx.db
-      .query("vaults")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("userId"), userId),
-          q.eq(q.field("ghRepoOwner"), owner),
-          q.eq(q.field("ghRepoName"), name),
-        ),
-      )
-      .first();
-
-    if (!vault) {
-      return null;
-    }
-
-    return {
-      _id: vault._id,
-      _creationTime: vault._creationTime,
-      ghRepoOwner: vault.ghRepoOwner,
-      ghRepoName: vault.ghRepoName,
+    return await getVaultByRepositoryHelper(ctx, {
+      userId: args.userId,
       repositoryFullName: args.repositoryFullName,
-      treeSHA: vault.treeSHA,
-      treeData: vault.treeData,
-    };
+    });
   },
 });
 

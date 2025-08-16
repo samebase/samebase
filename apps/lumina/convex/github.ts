@@ -1,9 +1,9 @@
 "use node";
 
 import { action, internalAction } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
+import { getUserId } from "./common";
 import { v } from "convex/values";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 
 // List the current user's GitHub repositories
@@ -26,10 +26,7 @@ export const listRepositories = action({
     }),
   ),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
+    await getUserId(ctx);
 
     const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
 
@@ -212,14 +209,18 @@ export const updateRepositoryTree = internalAction({
     repo: v.string(),
   },
   handler: async (ctx, args) => {
-    const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
+    console.log("updateRepositoryTree", args);
+    const currentUser = await ctx.runQuery(internal.users.getById, {
+      userId: args.userId,
+    });
 
     if (!currentUser) {
       throw new Error("User not found");
     }
 
-    const vault = await ctx.runQuery(api.vault.getVaultByRepository, {
+    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: `${args.owner}/${args.repo}`,
+      userId: args.userId,
     });
 
     if (!vault) {

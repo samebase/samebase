@@ -1,5 +1,10 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
@@ -19,27 +24,6 @@ export const getByNewPath = query({
       .query("fileStaging")
       .withIndex("by_vault_and_path", (q) =>
         q.eq("vaultId", args.vaultId).eq("filePath", args.newPath),
-      )
-      .first();
-
-    return staging;
-  },
-});
-
-// Get staged content for a file (with real-time updates)
-export const getStagedFile = query({
-  args: {
-    vaultId: v.id("vaults"),
-    originalFilePath: v.string(),
-  },
-  returns: v.any(),
-  handler: async (ctx, args) => {
-    const staging = await ctx.db
-      .query("fileStaging")
-      .withIndex("by_vault_and_initial_path", (q) =>
-        q
-          .eq("vaultId", args.vaultId)
-          .eq("initialFilePath", args.originalFilePath),
       )
       .first();
 
@@ -324,5 +308,26 @@ export const rename = internalMutation({
     }
 
     return updatedFile;
+  },
+});
+
+// Get staged content for a file (with real-time updates)
+export const getByOriginalPath = internalQuery({
+  args: {
+    vaultId: v.id("vaults"),
+    originalFilePath: v.string(),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const staging = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_initial_path", (q) =>
+        q
+          .eq("vaultId", args.vaultId)
+          .eq("initialFilePath", args.originalFilePath),
+      )
+      .first();
+
+    return staging;
   },
 });

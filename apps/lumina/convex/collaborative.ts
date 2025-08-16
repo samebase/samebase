@@ -1,9 +1,9 @@
 import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import { getAuthUserId } from "@convex-dev/auth/server";
+import { getUserId } from "./common";
 
 import { ChangeSet, Text } from "@codemirror/state";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
 /**
@@ -74,8 +74,11 @@ export const pullUpdates = query({
       userId: Id<"users">;
     }[]
   > => {
-    const vault = await ctx.runQuery(api.vault.getVaultByRepository, {
+    const userId = await getUserId(ctx);
+
+    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
+      userId,
     });
 
     if (!vault) {
@@ -125,15 +128,11 @@ export const pushUpdates = mutation({
     ctx,
     args,
   ): Promise<{ success: boolean; newVersion: number }> => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
+    const userId = await getUserId(ctx);
 
-    console.log("pushUpdates received:", JSON.stringify(args, null, 2));
-
-    const vault = await ctx.runQuery(api.vault.getVaultByRepository, {
+    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
+      userId,
     });
 
     if (!vault) {

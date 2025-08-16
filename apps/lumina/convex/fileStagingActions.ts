@@ -4,8 +4,8 @@ import { action, internalAction } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { diffLines } from "diff";
+import { getUserId } from "./common";
 
 // MARK: Public
 
@@ -22,10 +22,7 @@ export const renameFileInStaging = action({
   ): Promise<{
     content: string;
   }> => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
+    await getUserId(ctx);
 
     const vault = await ctx.runQuery(internal.vault.getById, {
       id: args.vaultId,
@@ -86,8 +83,9 @@ export const getFileForEditing = action({
       throw new Error("User not found");
     }
 
-    const vault = await ctx.runQuery(api.vault.getVaultByRepository, {
+    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
+      userId: currentUser._id,
     });
 
     if (!vault) {
@@ -95,7 +93,7 @@ export const getFileForEditing = action({
     }
 
     // Check if there's staged content for this file
-    const staging = await ctx.runQuery(api.fileStaging.getStagedFile, {
+    const staging = await ctx.runQuery(internal.fileStaging.getByOriginalPath, {
       vaultId: vault._id,
       originalFilePath: args.originalFilePath,
     });
@@ -176,14 +174,12 @@ export const commitStaging = action({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
+    const userId = await getUserId(ctx);
 
     // Get the vault information while we have auth context
-    const vault = await ctx.runQuery(api.vault.getVaultByRepository, {
+    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
+      userId,
     });
     if (!vault) {
       throw new Error("Vault not found");
@@ -452,8 +448,9 @@ export const commitAllStaged = internalAction({
   handler: async (ctx, args) => {
     const fullRepo = `${args.repoOwner}/${args.repoName}`;
 
-    const vault = await ctx.runQuery(api.vault.getVaultByRepository, {
+    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: fullRepo,
+      userId: args.userId,
     });
     if (!vault) {
       throw new Error("Vault not found");
