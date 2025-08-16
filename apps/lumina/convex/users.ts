@@ -1,6 +1,8 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { query } from "./_generated/server";
+import { internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
+
+// Public
 
 export const viewer = query({
   args: {},
@@ -10,7 +12,9 @@ export const viewer = query({
   },
 });
 
-export const getAuthUser = query({
+// Internal
+
+export const getAuthUser = internalQuery({
   args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
@@ -18,37 +22,11 @@ export const getAuthUser = query({
   },
 });
 
-export const getById = query({
+export const getById = internalQuery({
   args: {
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
     return ctx.db.get(args.userId);
-  },
-});
-
-// Get the current user's GitHub account
-export const getGitHubAccount = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      return null;
-    }
-
-    const account = await ctx.db
-      .query("authAccounts")
-      .withIndex("userIdAndProvider", (q) =>
-        q.eq("userId", userId).eq("provider", "github"),
-      )
-      .unique();
-
-    return account
-      ? {
-          provider: account.provider,
-          providerAccountId: account.providerAccountId,
-          secret: account.secret,
-        }
-      : null;
   },
 });

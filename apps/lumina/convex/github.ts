@@ -1,6 +1,6 @@
 "use node";
 
-import { action } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
@@ -31,7 +31,7 @@ export const listRepositories = action({
       throw new Error("User not authenticated");
     }
 
-    const currentUser = await ctx.runQuery(api.users.getAuthUser, {});
+    const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
 
     if (!currentUser) {
       throw new Error("User not found");
@@ -87,7 +87,7 @@ export const getRepository = action({
     repositoryFullName: v.string(),
   },
   handler: async (ctx, args): Promise<unknown> => {
-    const currentUser = await ctx.runQuery(api.users.getAuthUser, {});
+    const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
 
     if (!currentUser) {
       throw new Error("User not found");
@@ -126,7 +126,7 @@ export const getReadme = action({
     ctx,
     args,
   ): Promise<{ content: string; encoding: string; name: string } | null> => {
-    const currentUser: any = await ctx.runQuery(api.users.getAuthUser, {});
+    const currentUser: any = await ctx.runQuery(internal.users.getAuthUser, {});
 
     if (!currentUser) {
       throw new Error("User not found");
@@ -170,7 +170,7 @@ export const createFile = action({
     url: v.string(),
   }),
   handler: async (ctx, args) => {
-    const currentUser: any = await ctx.runQuery(api.users.getAuthUser, {});
+    const currentUser: any = await ctx.runQuery(internal.users.getAuthUser, {});
 
     if (!currentUser) {
       throw new Error("User not found");
@@ -204,63 +204,15 @@ export const createFile = action({
   },
 });
 
-// Delete a file from GitHub repository
-export const deleteFile = action({
-  args: {
-    owner: v.string(),
-    repo: v.string(),
-    path: v.string(),
-    message: v.string(),
-    sha: v.string(),
-    branch: v.optional(v.string()),
-  },
-  returns: v.object({
-    sha: v.string(),
-    url: v.string(),
-  }),
-  handler: async (ctx, args) => {
-    const currentUser: any = await ctx.runQuery(api.users.getAuthUser, {});
-
-    if (!currentUser) {
-      throw new Error("User not found");
-    }
-
-    const octokit: Octokit = new Octokit({
-      auth: currentUser.githubAccessToken,
-    });
-
-    try {
-      const result = await octokit.rest.repos.deleteFile({
-        owner: args.owner,
-        repo: args.repo,
-        path: args.path,
-        message: args.message,
-        sha: args.sha,
-        branch: args.branch || "main",
-      });
-
-      return {
-        sha: result.data.commit.sha || "",
-        url: result.data.commit.html_url || "",
-      };
-    } catch (error) {
-      console.error(
-        `Failed to delete file ${args.path} for ${args.owner}/${args.repo}:`,
-        error,
-      );
-      throw error;
-    }
-  },
-});
-
 // Get repository tree structure
-export const updateRepositoryTree = action({
+export const updateRepositoryTree = internalAction({
   args: {
+    userId: v.id("users"),
     owner: v.string(),
     repo: v.string(),
   },
   handler: async (ctx, args) => {
-    const currentUser: any = await ctx.runQuery(api.users.getAuthUser, {});
+    const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
 
     if (!currentUser) {
       throw new Error("User not found");
@@ -294,10 +246,13 @@ export const updateRepositoryTree = action({
 
       const treeData = tree.data;
 
-      await ctx.runMutation(internal.vault.updateVaultTree, {
+      console.log("treeData", treeData);
+
+      const result = await ctx.runMutation(internal.vault.updateVaultTree, {
         vaultId: vault._id,
         treeData: treeData,
       });
+      console.log("result", result);
 
       return tree.data.tree.map((item) => ({
         path: item.path,

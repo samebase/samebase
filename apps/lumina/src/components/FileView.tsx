@@ -116,7 +116,7 @@ function FileViewWrapper() {
     "*": string;
   }>();
 
-  const firstDocAction = useAction(api.fileStaging.getFileForEditing);
+  const firstDocAction = useAction(api.fileStagingActions.getFileForEditing);
   // Parse branch and file path from the wildcard parameter
   const parsedPath = branchAndFilePath ? branchAndFilePath.split("/") : [];
   const branch = parsedPath[0] || "main";
@@ -146,7 +146,7 @@ function FileViewWrapper() {
   }, [selectedFile, vault, owner, repoName, branch, navigate, firstDocAction]);
 
   const stagedFile = useQuery(
-    api.fileStagingMutations.getByNewPath,
+    api.fileStaging.getByNewPath,
     vault
       ? {
           newPath: selectedFile,
@@ -154,7 +154,6 @@ function FileViewWrapper() {
         }
       : "skip",
   );
-  console.log("stagedFile", stagedFile);
 
   // If file not staged,
   useEffect(() => {
@@ -198,7 +197,7 @@ function FileViewInner({
   owner: string;
   repoName: string;
   stagedFile: NonNullable<
-    GetFunctionReferenceReturnType<typeof api.fileStagingMutations.getByNewPath>
+    GetFunctionReferenceReturnType<typeof api.fileStaging.getByNewPath>
   >;
 }) {
   const { setOpenMobile } = useSidebar();
@@ -234,26 +233,22 @@ function FileViewInner({
 
   // Convex hooks for staging
   const [commitStaging, manualComittingStatus] = useConvexAction(
-    api.fileStaging.commitStaging,
+    api.fileStagingActions.commitStaging,
   );
 
   const [clearAllStaging, clearingStagingStatus] = useConvexMutation(
-    api.fileStagingMutations.clearAllStaging,
+    api.fileStaging.clearAllStaging,
   );
   const [markFileForDeletion] = useConvexMutation(
-    api.fileStagingMutations.markFileForDeletion,
+    api.fileStaging.markFileForDeletion,
   );
   const [renameFileInStaging] = useConvexAction(
-    api.fileStaging.renameFileInStaging,
-  );
-
-  const [updateRepositoryTree] = useConvexAction(
-    api.github.updateRepositoryTree,
+    api.fileStagingActions.renameFileInStaging,
   );
 
   // Get count of staged files for this vault
   const stagedFiles = useQuery(
-    api.fileStagingMutations.listStagedFiles,
+    api.fileStaging.listStagedFiles,
     vault ? { vaultId: vault._id } : "skip",
   );
 
@@ -379,17 +374,9 @@ function FileViewInner({
       content: `# ${folderName}\n\nThis folder was created automatically.`,
       message: `Create folder ${newFolderPath}`,
       branch,
-    })
-      .then(() => {
-        // Refresh the tree
-        void updateRepositoryTree({
-          owner,
-          repo: repoName,
-        });
-      })
-      .catch((error) => {
-        console.error("Failed to create folder:", error);
-      });
+    }).catch((error) => {
+      console.error("Failed to create folder:", error);
+    });
   };
 
   const handleManualCommit = async () => {

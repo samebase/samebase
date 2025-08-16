@@ -17,7 +17,7 @@ export const connectRepository = action({
     repositoryFullName: v.string(),
   },
   handler: async (ctx, args) => {
-    const currentUser = await ctx.runQuery(api.users.getAuthUser, {});
+    const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
 
     if (!currentUser) {
       throw new Error("User not found");
@@ -66,7 +66,7 @@ export const addVault = internalMutation({
     treeData: GithubTreeData,
   },
   handler: async (ctx, args): Promise<string> => {
-    const currentUser = await ctx.runQuery(api.users.getAuthUser, {});
+    const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
 
     if (!currentUser) {
       throw new Error("User not found");

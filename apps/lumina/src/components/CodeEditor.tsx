@@ -267,11 +267,11 @@ export function CodeEditorWrapper({
   filePath: string;
   initialFilePath: string;
   stagedFile: NonNullable<
-    GetFunctionReferenceReturnType<typeof api.fileStagingMutations.getByNewPath>
+    GetFunctionReferenceReturnType<typeof api.fileStaging.getByNewPath>
   >;
 }) {
   useQuery;
-  const firstDocAction = useAction(api.fileStaging.getFileForEditing);
+  const firstDocAction = useAction(api.fileStagingActions.getFileForEditing);
   // const [firstDocData, setFirstDocData] = useState<Awaited<
   //   ReturnType<typeof firstDocAction>
   // > | null>(null);
