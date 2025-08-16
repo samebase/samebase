@@ -10,9 +10,6 @@ import {
   MagnifyingGlassIcon,
   PlusIcon,
   FilePlusIcon,
-  Pencil1Icon,
-  TrashIcon,
-  UpdateIcon,
 } from "@radix-ui/react-icons";
 import {
   Sidebar,
@@ -33,11 +30,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { linkStyle } from "./styles";
-import {
-  GetFunctionReferenceReturnType,
-  useConvexAction,
-  useConvexMutation,
-} from "@/lib/convexUtils";
+import { useConvexAction, useConvexMutation } from "@/lib/convexUtils";
 import { DialogProvider } from "@/contexts/DialogContext";
 import { useDialog } from "@/hooks/useDialog";
 import { FileCreationDialog } from "@/components/FileCreationDialog";
@@ -185,7 +178,7 @@ function FileViewInner({
   // Folder expansion state
   const folderExpansionStates = useQuery(
     api.folderExpansion.getFolderExpansionStates,
-    vault ? { vaultId: vault._id } : "skip",
+    { vaultId: vault._id },
   );
   const setFolderExpansionState = useMutation(
     api.folderExpansion.setFolderExpansionState,
@@ -210,10 +203,9 @@ function FileViewInner({
   );
 
   // Get count of staged files for this vault
-  const stagedFiles = useQuery(
-    api.fileStaging.listStagedFiles,
-    vault ? { vaultId: vault._id } : "skip",
-  );
+  const stagedFiles = useQuery(api.fileStaging.listStagedFiles, {
+    vaultId: vault._id,
+  });
 
   const createFile = useAction(api.github.createFile);
 
@@ -245,7 +237,7 @@ function FileViewInner({
   };
 
   const handleFileRename = async (originalPath: string, newPath: string) => {
-    if (!owner || !repoName || !vault || !stagedFile) return;
+    if (!owner || !repoName || !stagedFile) return;
 
     try {
       // Rename the file in staging instead of committing immediately
@@ -268,7 +260,7 @@ function FileViewInner({
 
   // Handler for deleting files from the file tree
   const handleFileDelete = async (filePath: string) => {
-    if (!owner || !repoName || !vault) return;
+    if (!owner || !repoName) return;
 
     try {
       // Mark the file for deletion in staging
@@ -343,7 +335,7 @@ function FileViewInner({
   };
 
   const handleManualCommit = async () => {
-    if (!selectedFile || !vault) return;
+    if (!selectedFile) return;
 
     try {
       await commitStaging({
@@ -356,8 +348,6 @@ function FileViewInner({
   };
 
   const handleResetToGitHub = async () => {
-    if (!vault) return;
-
     await clearAllStaging({
       vaultId: vault._id,
     });
@@ -367,13 +357,11 @@ function FileViewInner({
     folderPath: string,
     isExpanded: boolean,
   ) => {
-    if (vault) {
-      await setFolderExpansionState({
-        vaultId: vault._id,
-        folderPath,
-        isExpanded,
-      });
-    }
+    await setFolderExpansionState({
+      vaultId: vault._id,
+      folderPath,
+      isExpanded,
+    });
   };
 
   const emptyRepository = vault.treeData.tree.length === 0;
@@ -383,8 +371,6 @@ function FileViewInner({
   }
 
   const finalTreeData = useMemo(() => {
-    if (!stagedFiles) return [];
-
     return vault.treeData.tree
       .map((item) => {
         const stagedFile = stagedFiles.find(
@@ -406,11 +392,6 @@ function FileViewInner({
       })
       .filter(nonNullable);
   }, [vault.treeData.tree, stagedFiles]);
-
-  // Assume this means it's loading
-  if (vault === undefined) {
-    return null;
-  }
 
   // MARK: Return
 
@@ -472,22 +453,20 @@ function FileViewInner({
             </div>
           ) : (
             <div className="flex-1 overflow-auto">
-              {stagedFiles && (
-                <FileTree
-                  items={finalTreeData}
-                  onFileSelect={handleFileSelect}
-                  onFileRename={(originalPath, newPath) =>
-                    void handleFileRename(originalPath, newPath)
-                  }
-                  onFileCreate={handleCreateFileInFolder}
-                  onFileDelete={(filePath) => void handleFileDelete(filePath)}
-                  selectedFile={selectedFile}
-                  folderExpansionStates={folderExpansionStates ?? []}
-                  onFolderToggle={(folderPath, isExpanded) =>
-                    void handleFolderToggle(folderPath, isExpanded)
-                  }
-                />
-              )}
+              <FileTree
+                items={finalTreeData}
+                onFileSelect={handleFileSelect}
+                onFileRename={(originalPath, newPath) =>
+                  void handleFileRename(originalPath, newPath)
+                }
+                onFileCreate={handleCreateFileInFolder}
+                onFileDelete={(filePath) => void handleFileDelete(filePath)}
+                selectedFile={selectedFile}
+                folderExpansionStates={folderExpansionStates}
+                onFolderToggle={(folderPath, isExpanded) =>
+                  void handleFolderToggle(folderPath, isExpanded)
+                }
+              />
             </div>
           )}{" "}
         </SidebarContent>
@@ -526,7 +505,7 @@ function FileViewInner({
                 </h2>
 
                 <div className="flex items-center gap-2">
-                  {stagedFiles && stagedFiles.length > 0 && (
+                  {stagedFiles.length > 0 && (
                     <Popover>
                       <PopoverTrigger asChild>
                         <button

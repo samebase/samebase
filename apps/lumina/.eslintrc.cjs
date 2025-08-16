@@ -50,7 +50,9 @@ module.exports = {
     "@typescript-eslint/no-unsafe-call": "off",
     "@typescript-eslint/no-unsafe-member-access": "off",
     "@typescript-eslint/no-unsafe-return": "off",
+
     // END: Allow implicit `any`s
+    "@typescript-eslint/no-unnecessary-condition": "warn",
 
     // Allow async functions without await
     // for consistency (esp. Convex `handler`s)
