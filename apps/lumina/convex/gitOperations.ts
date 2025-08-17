@@ -1,10 +1,22 @@
 import { v } from "convex/values";
-import { internalMutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, query } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 
 // MARK: Public
 
 // MARK: Internal
+
+export const getBlobBySha = internalQuery({
+  args: {
+    sha: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("blobs")
+      .withIndex("by_sha", (q) => q.eq("sha", args.sha))
+      .first();
+  },
+});
 
 /**
  * Internal mutation to save a file blob to the database
