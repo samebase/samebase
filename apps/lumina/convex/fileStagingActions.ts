@@ -110,31 +110,30 @@ export const getFileForEditing = action({
       };
     }
 
-    const octokit: Octokit = new Octokit({
-      auth: currentUser.githubAccessToken,
-    });
+    // console.log("vault.treeData", vault.treeData);
+    console.log("args.originalFilePath", args.originalFilePath);
+
+    // read from blobs table
+    const fileSha = vault.treeData.tree.find(
+      (t) => t.path === args.originalFilePath,
+    )?.sha;
+
+    if (!fileSha) {
+      throw new Error("File not found in tree");
+    }
 
     try {
-      const file = await octokit.rest.repos.getContent({
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
-        path: args.originalFilePath,
+      const file = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+        sha: fileSha,
       });
 
-      // Handle case where path is a directory (shouldn't happen in our use case)
-      if (Array.isArray(file.data)) {
-        throw new Error("Path is a directory");
+      if (!file) {
+        throw new Error("File not found in blobs table");
       }
 
-      if (file.data.type !== "file") {
-        throw new Error("Path is not a file");
+      if (!file.text) {
+        throw new Error("File is in storage, not implemented yet");
       }
-
-      const fileData = file.data;
-
-      const utf8Content = Buffer.from(fileData.content, "base64").toString(
-        "utf-8",
-      );
 
       // create new staging record
       const stagedFile = await ctx.runMutation(
@@ -144,9 +143,9 @@ export const getFileForEditing = action({
           branch: "main",
           vaultId: vault._id,
           initialFilePath: args.originalFilePath,
-          content: utf8Content,
-          initialContent: utf8Content,
-          parentCommitSha: fileData.sha,
+          content: file.text,
+          initialContent: file.text,
+          parentCommitSha: fileSha,
         },
       );
 
