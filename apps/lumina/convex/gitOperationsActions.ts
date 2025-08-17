@@ -14,9 +14,32 @@ import os from "node:os";
 import { allLimited } from "./common";
 import { Id } from "./_generated/dataModel";
 
-// Tune thresholds to your usage
-const INLINE_TEXT_MAX = 400_000; // ~400 KB text fast path
 const ALWAYS_STORAGE_OVER = 900_000; // keep margin below ~1MB doc limit
+
+type StagedInline = {
+  kind: "inline";
+  filePath: string;
+  oid: string; // blob sha
+  size: number;
+  mime: string;
+  text: string; // small UTF-8 text
+  ext: string;
+};
+
+type StagedStored = {
+  kind: "stored";
+  filePath: string;
+  oid: string; // blob sha
+  size: number;
+  mime: string;
+  u8: Uint8Array; // raw bytes to upload
+  ext: string;
+};
+
+const READ_CONCURRENCY = 50; // cheap
+const DB_CONCURRENCY = 80; // inline doc writes
+const UP_CONCURRENCY = 12; // storage uploads
+const INLINE_TEXT_MAX = 400_000;
 
 /**
  * Download a git repository using isomorphic-git and save all files to fileBlobs table
@@ -82,9 +105,10 @@ export const downloadGitRepository = internalAction({
       const commitOid = await git.resolveRef({ fs, dir, ref: branch });
       const files = await git.listFiles({ fs, dir, ref: commitOid }); // paths at that commit
 
-      await allLimited(
-        files.map((filePath) => async () => {
-          try {
+      // 1) Stage: read all blobs (fast, higher concurrency)
+      const staged = await allLimited(
+        files.map(
+          (filePath) => async (): Promise<StagedInline | StagedStored> => {
             const { blob, oid } = await git.readBlob({
               fs,
               dir,
@@ -92,35 +116,88 @@ export const downloadGitRepository = internalAction({
               filepath: filePath,
             });
 
+            // TODO: Filter if SHA is already saved
+
             const size = blob.byteLength;
-
-            let text: string | undefined;
-            let storageId: Id<"_storage"> | undefined;
-
-            if (isLikelyText(filePath) && size <= INLINE_TEXT_MAX) {
-              // Inline UTF-8 text for fast reads
-              text = new TextDecoder("utf-8", { fatal: false }).decode(blob);
-            } else {
-              // Store bytes in File Storage
-              storageId = await ctx.storage.store(toBlob(blob));
-            }
-
+            const ext = path.extname(filePath).slice(1).toLowerCase();
             const mime = guessMime(filePath);
 
-            // oid is the blob's SHA-1 → use as `sha`
-            await ctx.runMutation(internal.gitOperations.saveFileBlob, {
-              sha: oid,
-              size,
-              ext: path.extname(filePath).slice(1).toLowerCase(),
-              text,
-              storageId,
-              mime,
-            });
-          } catch (error) {
-            // TODO:
-            console.error(`Error saving file ${filePath}:`, error);
-          }
+            if (isLikelyText(filePath) && size <= INLINE_TEXT_MAX) {
+              const text = new TextDecoder("utf-8", { fatal: false }).decode(
+                blob,
+              );
+              return { kind: "inline", filePath, oid, size, mime, text, ext };
+            } else {
+              return {
+                kind: "stored",
+                filePath,
+                oid,
+                size,
+                mime,
+                u8: blob,
+                ext,
+              };
+            }
+          },
+        ),
+        READ_CONCURRENCY,
+      );
+
+      // 2) Split
+      const inlineItems: StagedInline[] = staged.filter(
+        (x): x is StagedInline => x.kind === "inline",
+      );
+      const storedItems: StagedStored[] = staged.filter(
+        (x): x is StagedStored => x.kind === "stored",
+      );
+
+      // 3) Write inline blobs to DB (no storage) — throttle lightly
+      await allLimited(
+        inlineItems.map((item) => async () => {
+          const { filePath, oid, size, mime, text } = item;
+
+          // idempotent upsert by sha on the server
+          await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+            // blob record
+            sha: oid,
+            size,
+            mime,
+            text,
+            storageId: undefined,
+            ext: path.extname(filePath).slice(1).toLowerCase(),
+          });
         }),
+        DB_CONCURRENCY,
+      );
+
+      // 4) Upload storage blobs (heavy) + write metadata — throttle harder
+      await allLimited(
+        storedItems.map((item) => async () => {
+          const { filePath, oid, size, mime, u8, ext } = item;
+
+          // optional: avoid re-uploading if we already have this sha with a storageId
+          const existing = await ctx.runQuery(
+            internal.gitOperations.getBlobBySha,
+            { sha: oid },
+          );
+          let storageId: Id<"_storage"> | undefined = existing?.storageId;
+
+          if (!storageId) {
+            storageId = await withRetry(() =>
+              ctx.storage.store(toBlob(u8, mime)),
+            );
+          }
+
+          await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+            sha: oid,
+            size,
+            mime,
+            text: undefined,
+            storageId,
+            ext,
+          });
+        }),
+        UP_CONCURRENCY,
       );
 
       const endTime2 = Date.now();
@@ -190,4 +267,21 @@ export function guessMime(filePath: string): string {
     default:
       return "application/octet-stream";
   }
+}
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+  let err: any;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      err = e;
+      await sleep(150 * (i + 1));
+    }
+  }
+  throw err;
 }
