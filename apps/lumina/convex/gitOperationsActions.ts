@@ -222,7 +222,8 @@ export const downloadGitRepository = internalAction({
   },
 });
 
-const toBlob = (u8: Uint8Array<ArrayBuffer>, type?: string) =>
+const toBlob = (u8: Uint8Array, type?: string) =>
+  // @ts-expect-error - Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
   new Blob([u8], type ? { type } : undefined);
 
 function isLikelyText(p: string) {
