@@ -23,6 +23,7 @@ export const getBlobBySha = internalQuery({
  */
 export const saveFileBlob = internalMutation({
   args: {
+    vaultId: v.id("vaults"),
     sha: v.string(),
     size: v.number(),
     text: v.optional(v.string()),
@@ -32,6 +33,11 @@ export const saveFileBlob = internalMutation({
   },
   returns: v.id("blobs"),
   handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
     // Only text or storageId should be provided
     if (args.text && args.storageId) {
       throw new Error("Only one of text or storageId should be provided");
@@ -52,6 +58,7 @@ export const saveFileBlob = internalMutation({
     }
 
     return await ctx.db.insert("blobs", {
+      vaultId: args.vaultId,
       sha: args.sha,
       size: args.size,
       text: args.text,

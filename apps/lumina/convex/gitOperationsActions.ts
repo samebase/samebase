@@ -162,6 +162,7 @@ export const downloadGitRepository = internalAction({
 
           // idempotent upsert by sha on the server
           await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+            vaultId: args.vaultId,
             // blob record
             sha: oid,
             size,
@@ -193,6 +194,7 @@ export const downloadGitRepository = internalAction({
           }
 
           await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+            vaultId: args.vaultId,
             sha: oid,
             size,
             mime,

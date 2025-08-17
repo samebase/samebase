@@ -105,6 +105,8 @@ export default defineSchema({
 
   // Unique content (dedup by sha)
   blobs: defineTable({
+    // Even though it's not necessary. It can be used to easily cleanup files and unreferenced blobs.
+    vaultId: v.id("vaults"),
     sha: v.string(), // unique index
     size: v.number(),
     // Inline small text for fast reads
