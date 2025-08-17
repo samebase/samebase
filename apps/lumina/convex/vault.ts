@@ -144,26 +144,18 @@ export const connectRepository = action({
 
     let filesDownloaded: number | undefined;
 
-    // Optionally download all files using isomorphic-git
-    {
-      const repositoryUrl = repo.data.clone_url;
-      const downloadResult = await ctx.runAction(
-        internal.gitOperationsActions.downloadGitRepository,
-        {
-          userId: currentUser._id,
-          vaultId,
-          repositoryUrl,
-          branch: repo.data.default_branch,
-        },
-      );
-
-      // if (downloadResult.success) {
-      //   filesDownloaded = downloadResult.filesDownloaded;
-      //   console.log(
-      //     `Downloaded ${filesDownloaded} files for repository ${args.repositoryFullName}`,
-      //   );
-      // }
-    }
+    // It works, but for bigger repos it takes more than 30 seconds
+    // which is the duration of a convex function (AWS Lambda)
+    // eslint-disable-next-line no-constant-condition, @typescript-eslint/no-unnecessary-condition
+    // if (false) {
+    //   const repositoryUrl = repo.data.clone_url;
+    //   await ctx.runAction(internal.gitOperationsActions.downloadGitRepository, {
+    //     userId: currentUser._id,
+    //     vaultId,
+    //     repositoryUrl,
+    //     branch: repo.data.default_branch,
+    //   });
+    // }
 
     return {
       vaultId,

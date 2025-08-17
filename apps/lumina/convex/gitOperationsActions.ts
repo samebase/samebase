@@ -39,7 +39,7 @@ type StagedStored = {
 const READ_CONCURRENCY = 50; // cheap
 const DB_CONCURRENCY = 80; // inline doc writes
 const UP_CONCURRENCY = 12; // storage uploads
-const INLINE_TEXT_MAX = 900_000;
+export const INLINE_TEXT_MAX = 900_000;
 
 /**
  * Download a git repository using isomorphic-git and save all files to fileBlobs table
@@ -285,7 +285,10 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  attempts = 3,
+): Promise<T> {
   let err: any;
   for (let i = 0; i < attempts; i++) {
     try {
@@ -298,7 +301,7 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
   throw err;
 }
 
-function isTextBuffer(buf: Uint8Array): boolean {
+export function isTextBuffer(buf: Uint8Array): boolean {
   const len = Math.min(buf.length, 8000); // sample first 8KB
   let suspicious = 0;
 

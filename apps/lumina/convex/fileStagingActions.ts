@@ -6,6 +6,12 @@ import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { diffLines } from "diff";
 import { getUserId } from "./common";
+import {
+  guessMime,
+  INLINE_TEXT_MAX,
+  isTextBuffer,
+  withRetry,
+} from "./gitOperationsActions";
 
 // MARK: Public
 
@@ -122,40 +128,142 @@ export const getFileForEditing = action({
       throw new Error("File not found in tree");
     }
 
+    // Try getting it from blob sha
     try {
-      const file = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+      const blobFile = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
         sha: fileSha,
       });
 
-      if (!file) {
-        throw new Error("File not found in blobs table");
+      if (blobFile) {
+        if (!blobFile.text) {
+          throw new Error("File is in storage, not implemented yet");
+        }
+
+        // create new staging record
+        const stagedFile = await ctx.runMutation(
+          internal.fileStaging.saveToStaging,
+          {
+            // TODO: figure out branch
+            branch: "main",
+            vaultId: vault._id,
+            initialFilePath: args.originalFilePath,
+            content: blobFile.text,
+            initialContent: blobFile.text,
+            parentCommitSha: fileSha,
+          },
+        );
+
+        return {
+          content: stagedFile.content,
+          parentCommitSha: stagedFile.parentCommitSha,
+          lastEditTime: stagedFile.lastEditTime,
+          branch: stagedFile.branch,
+          version: stagedFile.version,
+        };
       }
 
-      if (!file.text) {
-        throw new Error("File is in storage, not implemented yet");
+      // Otherwise get from github
+
+      const octokit: Octokit = new Octokit({
+        auth: currentUser.githubAccessToken,
+      });
+
+      try {
+        const file = await octokit.rest.repos.getContent({
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          path: args.originalFilePath,
+        });
+
+        // Handle case where path is a directory (shouldn't happen in our use case)
+        if (Array.isArray(file.data)) {
+          throw new Error("Path is a directory");
+        }
+
+        if (file.data.type !== "file") {
+          throw new Error("Path is not a file");
+        }
+
+        const filePath = file.data.path;
+        const fileData = file.data;
+        const buffer = Buffer.from(fileData.content, "base64");
+        const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
+        const isText = isTextBuffer(new Uint8Array(buffer));
+        let mime = guessMime(filePath);
+        if (mime === "application/octet-stream" && isText) {
+          mime = "text/plain; charset=utf-8";
+        }
+
+        if (isText && fileData.size < INLINE_TEXT_MAX) {
+          await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+            vaultId: vault._id,
+            sha: fileSha,
+            size: fileData.size,
+            mime: fileData.type,
+            text: buffer.toString("utf-8"),
+            storageId: undefined,
+            ext,
+            debugFilePath: filePath,
+          });
+        } else {
+          // store in storage
+          const storageId = await withRetry(() =>
+            ctx.storage.store(new Blob([buffer], { type: mime })),
+          );
+
+          await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+            vaultId: vault._id,
+            sha: fileSha,
+            size: fileData.size,
+            mime: fileData.type,
+            text: undefined,
+            storageId,
+            ext,
+            debugFilePath: filePath,
+          });
+        }
+
+        const blobFile = await ctx.runQuery(
+          internal.gitOperations.getBlobBySha,
+          {
+            sha: fileSha,
+          },
+        );
+
+        if (!blobFile) {
+          throw new Error(
+            "File not found in blobs table after literally saving it there?!?",
+          );
+        }
+
+        if (!blobFile.text) {
+          throw new Error("File is in storage, not implemented yet");
+        }
+
+        const stagedFile = await ctx.runMutation(
+          internal.fileStaging.saveToStaging,
+          {
+            // TODO: figure out branch
+            branch: "main",
+            vaultId: vault._id,
+            initialFilePath: args.originalFilePath,
+            content: blobFile.text,
+            initialContent: blobFile.text,
+            parentCommitSha: fileSha,
+          },
+        );
+
+        return {
+          content: stagedFile.content,
+          parentCommitSha: stagedFile.parentCommitSha,
+          lastEditTime: stagedFile.lastEditTime,
+          branch: stagedFile.branch,
+          version: stagedFile.version,
+        };
+      } catch (error) {
+        console.error("error", error);
+        throw error;
       }
-
-      // create new staging record
-      const stagedFile = await ctx.runMutation(
-        internal.fileStaging.saveToStaging,
-        {
-          // TODO: figure out branch
-          branch: "main",
-          vaultId: vault._id,
-          initialFilePath: args.originalFilePath,
-          content: file.text,
-          initialContent: file.text,
-          parentCommitSha: fileSha,
-        },
-      );
-
-      return {
-        content: stagedFile.content,
-        parentCommitSha: stagedFile.parentCommitSha,
-        lastEditTime: stagedFile.lastEditTime,
-        branch: stagedFile.branch,
-        version: stagedFile.version,
-      };
     } catch (error) {
       console.error("error", error);
       throw error;
