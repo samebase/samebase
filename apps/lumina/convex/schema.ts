@@ -103,14 +103,18 @@ export default defineSchema({
     .index("by_vault", ["vaultId"])
     .index("by_user", ["lastEditUserId"]),
 
-  fileBlobs: defineTable({
-    vaultId: v.id("vaults"),
-    ghRepoId: v.string(), // Not sure if this is needed.
-    sha: v.string(),
+  // Unique content (dedup by sha)
+  blobs: defineTable({
+    sha: v.string(), // unique index
+    size: v.number(),
+    // Inline small text for fast reads
+    text: v.optional(v.string()),
+    // Everything else goes to storage
+    storageId: v.optional(v.id("_storage")),
+    mime: v.optional(v.string()),
+    ext: v.optional(v.string()),
+  }).index("by_sha", ["sha"]),
 
-    filePath: v.string(),
-    content: v.bytes(),
-  }).index("by_vault_and_sha", ["vaultId", "sha"]),
   /**
    * Folder expansion state for file tree sidebar.
    * Stores which folders are expanded/collapsed per user per vault.
