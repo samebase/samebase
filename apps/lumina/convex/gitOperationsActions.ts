@@ -39,7 +39,7 @@ type StagedStored = {
 const READ_CONCURRENCY = 50; // cheap
 const DB_CONCURRENCY = 80; // inline doc writes
 const UP_CONCURRENCY = 12; // storage uploads
-const INLINE_TEXT_MAX = 400_000;
+const INLINE_TEXT_MAX = 900_000;
 
 /**
  * Download a git repository using isomorphic-git and save all files to fileBlobs table
@@ -120,9 +120,13 @@ export const downloadGitRepository = internalAction({
 
             const size = blob.byteLength;
             const ext = path.extname(filePath).slice(1).toLowerCase();
-            const mime = guessMime(filePath);
+            const isText = isTextBuffer(blob);
+            let mime = guessMime(filePath);
+            if (mime === "application/octet-stream" && isText) {
+              mime = "text/plain; charset=utf-8";
+            }
 
-            if (isLikelyText(filePath) && size <= INLINE_TEXT_MAX) {
+            if (isText && size <= INLINE_TEXT_MAX) {
               const text = new TextDecoder("utf-8", { fatal: false }).decode(
                 blob,
               );
@@ -265,6 +269,7 @@ export function guessMime(filePath: string): string {
       return "image/svg+xml";
 
     default:
+      console.log("unknown mime", ext);
       return "application/octet-stream";
   }
 }
@@ -284,4 +289,23 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
     }
   }
   throw err;
+}
+
+function isTextBuffer(buf: Uint8Array): boolean {
+  const len = Math.min(buf.length, 8000); // sample first 8KB
+  let suspicious = 0;
+
+  for (let i = 0; i < len; i++) {
+    const byte = buf[i];
+    // Allow: tab, line feed, carriage return
+    if (byte === 9 || byte === 10 || byte === 13) continue;
+    // Printable ASCII
+    if (byte >= 32 && byte <= 126) continue;
+    // UTF-8 multibyte starts (quick + permissive)
+    if (byte >= 128) continue;
+
+    suspicious++;
+    if (suspicious > 10) return false; // too many weird bytes
+  }
+  return true;
 }
