@@ -1,8 +1,9 @@
-import { v } from "convex/values";
+import { GenericId, v, VId } from "convex/values";
 import {
   action,
   internalMutation,
   internalQuery,
+  mutation,
   query,
   QueryCtx,
 } from "./_generated/server";
@@ -13,6 +14,69 @@ import { Id } from "./_generated/dataModel";
 import { getUserId } from "./common";
 
 // MARK: Public
+
+export const removeVault = mutation({
+  args: {
+    vaultId: v.id("vaults"),
+  },
+  handler: async (ctx, args) => {
+    await getUserId(ctx);
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault) {
+      console.error("vault not found", args.vaultId);
+      return;
+    }
+
+    // 1. Delete all blobs
+    const blobs = await ctx.db
+      .query("blobs")
+      .filter((q) => q.eq(q.field("vaultId"), args.vaultId))
+      .collect();
+
+    for (const blob of blobs) {
+      if (blob.storageId) {
+        await ctx.storage.delete(blob.storageId).catch((e) => {
+          console.error("storage delete", e);
+        });
+      }
+      await ctx.db.delete(blob._id).catch((e) => {
+        console.error("blob delete", e);
+      });
+    }
+
+    // 2. Delete all collaborative updates of all the stagedFiles
+    const stagedFiles = await ctx.db
+      .query("fileStaging")
+      .filter((q) => q.eq(q.field("vaultId"), args.vaultId))
+      .collect();
+
+    for (const stagedFile of stagedFiles) {
+      await ctx.db.delete(stagedFile._id).catch((e) => {
+        console.error("stagedFile delete", e);
+      });
+    }
+
+    // 3. Delete all the stagedFiles
+    await ctx.db.delete(args.vaultId);
+
+    // 4. Delete folder expansion states
+    const folderExpansionStates = await ctx.db
+      .query("folderExpansionState")
+      .filter((q) => q.eq(q.field("vaultId"), args.vaultId))
+      .collect();
+
+    for (const folderExpansionState of folderExpansionStates) {
+      await ctx.db.delete(folderExpansionState._id).catch((e) => {
+        console.error("folderExpansionState delete", e);
+      });
+    }
+
+    // 4. Delete the vault
+    await ctx.db.delete(vault._id).catch((e) => {
+      console.error("vault delete", e);
+    });
+  },
+});
 
 // Get a specific vault by repository full name for a user
 export const getVaultByRepository = query({
@@ -183,7 +247,13 @@ export const getUserVaults = query({
           .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
           .collect();
 
-        const fileCount = stagingData.length;
+        const fileCount = stagingData.filter(
+          (file) =>
+            file.content !== file.initialContent ||
+            file.fileDeleted ||
+            file.filePath !== file.initialFilePath,
+        ).length;
+
         const lastEditTime =
           stagingData.length > 0
             ? Math.max(...stagingData.map((s) => s.lastEditTime))
@@ -291,3 +361,9 @@ export const updateVaultTree = internalMutation({
     });
   },
 });
+function muration(arg0: {
+  args: { vaultId: VId<GenericId<"vaults">, "required"> };
+  handler: (ctx: any, args: any) => Promise<void>;
+}) {
+  throw new Error("Function not implemented.");
+}

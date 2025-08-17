@@ -5,11 +5,22 @@ import {
   PlusIcon,
   FileTextIcon,
   ClockIcon,
+  TrashIcon,
 } from "@radix-ui/react-icons";
 import { Link } from "react-router-dom";
 import { linkStyle } from "./styles";
 import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
+import { useMutation } from "convex/react";
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const formatTimeAgo = (timestamp: number) => {
   const now = Date.now();
@@ -29,6 +40,22 @@ const formatTimeAgo = (timestamp: number) => {
 
 export function VaultDashboard() {
   const vaults = useQuery(api.vault.getUserVaults);
+  const removeVault = useMutation(api.vault.removeVault);
+  const [vaultToDelete, setVaultToDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
+  const handleRemoveVault = async () => {
+    if (!vaultToDelete) return;
+
+    try {
+      await removeVault({ vaultId: vaultToDelete.id as any });
+      setVaultToDelete(null);
+    } catch (error) {
+      console.error("Failed to remove vault:", error);
+    }
+  };
 
   if (!vaults) {
     return null;
@@ -127,9 +154,55 @@ export function VaultDashboard() {
                 </div>
               </div>
             </Link>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setVaultToDelete({
+                  id: vault._id,
+                  name: vault.repositoryFullName,
+                });
+              }}
+              className="ml-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </Button>
           </div>
         ))}
       </div>
+
+      {/* Confirmation Dialog */}
+      <Dialog
+        open={!!vaultToDelete}
+        onOpenChange={() => setVaultToDelete(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Vault</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove the vault for{" "}
+              <strong>{vaultToDelete?.name}</strong>? This action cannot be
+              undone and will permanently delete all staged files and edits.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVaultToDelete(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                handleRemoveVault().catch(console.error);
+              }}
+            >
+              Remove Vault
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -30,6 +30,9 @@ export const saveFileBlob = internalMutation({
     storageId: v.optional(v.id("_storage")),
     ext: v.string(),
     mime: v.string(),
+
+    // only used for debugging
+    debugFilePath: v.optional(v.string()),
   },
   returns: v.id("blobs"),
   handler: async (ctx, args) => {
@@ -38,11 +41,16 @@ export const saveFileBlob = internalMutation({
       throw new Error("Vault not found");
     }
 
+    // empty text is also valid
+    const textDefined = typeof args.text === "string";
+
     // Only text or storageId should be provided
-    if (args.text && args.storageId) {
+    if (textDefined && args.storageId) {
+      console.log("saveFileBlob", args);
       throw new Error("Only one of text or storageId should be provided");
     }
-    if (!args.text && !args.storageId) {
+    if (!textDefined && !args.storageId) {
+      console.log("saveFileBlob", args);
       throw new Error("One of text or storageId must be provided");
     }
 

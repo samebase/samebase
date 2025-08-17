@@ -7,15 +7,26 @@ import {
 import { api } from "convex/_generated/api";
 import { useNavigate } from "react-router-dom";
 import { linkStyle } from "./styles";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+
+type StagedFile = NonNullable<
+  Awaited<(typeof api.fileStaging.getByNewPath)["_returnType"]>
+>;
 
 // Helper function to categorize staged files by change type
-export function categorizeStagedFiles(stagedFiles: any[]) {
-  const categories = {
-    deleted: [] as any[],
-    renamed: [] as any[],
-    renamedAndModified: [] as any[],
-    modified: [] as any[],
-    new: [] as any[],
+export function categorizeStagedFiles(stagedFiles: StagedFile[]) {
+  const categories: {
+    deleted: StagedFile[];
+    renamed: StagedFile[];
+    renamedAndModified: StagedFile[];
+    modified: StagedFile[];
+    new: StagedFile[];
+  } = {
+    deleted: [],
+    renamed: [],
+    renamedAndModified: [],
+    modified: [],
+    new: [],
   };
 
   stagedFiles.forEach((file) => {
@@ -232,4 +243,42 @@ export function EditedFilesCategories({
   }
 
   return sections;
+}
+
+export function EditedFilesCategoriesPopover({
+  repositoryFullName,
+  branch,
+  stagedFiles,
+}: {
+  repositoryFullName: string;
+  branch: string;
+  stagedFiles: StagedFile[];
+}) {
+  const categories = categorizeStagedFiles(stagedFiles);
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className={`text-xs text-muted-foreground ${linkStyle} flex items-center gap-2`}
+        >
+          <div className="flex items-center gap-1">
+            <EditedFilesCategoriesPopoverTrigger categories={categories} />
+          </div>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="bottom" align="end" className="w-80 p-3">
+        <div className="space-y-3">
+          <div className="text-sm font-medium">Staged Changes</div>
+          <div className="space-y-3 max-h-64 overflow-y-auto">
+            <EditedFilesCategories
+              categories={categories}
+              repositoryFullName={repositoryFullName}
+              branch={branch}
+            />
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 }

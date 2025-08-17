@@ -170,6 +170,7 @@ export const downloadGitRepository = internalAction({
             text,
             storageId: undefined,
             ext: path.extname(filePath).slice(1).toLowerCase(),
+            debugFilePath: filePath,
           });
         }),
         DB_CONCURRENCY,
@@ -193,6 +194,8 @@ export const downloadGitRepository = internalAction({
             );
           }
 
+          console.log("expected to store blob", { storageId, oid, filePath });
+
           await ctx.runMutation(internal.gitOperations.saveFileBlob, {
             vaultId: args.vaultId,
             sha: oid,
@@ -201,6 +204,7 @@ export const downloadGitRepository = internalAction({
             text: undefined,
             storageId,
             ext,
+            debugFilePath: filePath,
           });
         }),
         UP_CONCURRENCY,
@@ -218,8 +222,8 @@ export const downloadGitRepository = internalAction({
   },
 });
 
-const toBlob = (u8: Uint8Array, type?: string) =>
-  new Blob([new Uint8Array(u8)], type ? { type } : undefined);
+const toBlob = (u8: Uint8Array<ArrayBuffer>, type?: string) =>
+  new Blob([u8], type ? { type } : undefined);
 
 function isLikelyText(p: string) {
   return /\.(md|markdown|txt|json|yaml|yml|toml|csv|ts|js|tsx|jsx|css|html)$/i.test(

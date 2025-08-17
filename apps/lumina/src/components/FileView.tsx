@@ -40,6 +40,7 @@ import { type GithubTreeType } from "convex/schema";
 import {
   categorizeStagedFiles,
   EditedFilesCategories,
+  EditedFilesCategoriesPopover,
   EditedFilesCategoriesPopoverTrigger,
 } from "./EditedFilesCategories";
 
@@ -427,10 +428,6 @@ function FileViewInner({
       .filter(nonNullable);
   }, [vault.treeData.tree, stagedFiles]);
 
-  const categories = useMemo(() => {
-    return categorizeStagedFiles(stagedFiles ?? []);
-  }, [stagedFiles]);
-
   // MARK: Return
 
   return (
@@ -542,37 +539,11 @@ function FileViewInner({
 
                 <div className="flex items-center gap-2">
                   {stagedFiles && stagedFiles.length > 0 && (
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button
-                          className={`text-xs text-muted-foreground ${linkStyle} flex items-center gap-2`}
-                        >
-                          <div className="flex items-center gap-1">
-                            <EditedFilesCategoriesPopoverTrigger
-                              categories={categories}
-                            />
-                          </div>
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        side="bottom"
-                        align="end"
-                        className="w-80 p-3"
-                      >
-                        <div className="space-y-3">
-                          <div className="text-sm font-medium">
-                            Staged Changes
-                          </div>
-                          <div className="space-y-3 max-h-64 overflow-y-auto">
-                            <EditedFilesCategories
-                              categories={categories}
-                              repositoryFullName={repositoryFullName}
-                              branch={branch}
-                            />
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+                    <EditedFilesCategoriesPopover
+                      repositoryFullName={repositoryFullName}
+                      branch={branch}
+                      stagedFiles={stagedFiles}
+                    />
                   )}
 
                   <Button

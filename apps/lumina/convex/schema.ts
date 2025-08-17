@@ -57,11 +57,6 @@ export default defineSchema({
     .index("email", ["email"])
     .index("phone", ["phone"]),
 
-  messages: defineTable({
-    userId: v.id("users"),
-    body: v.string(),
-  }),
-
   /**
    * Vault contains a connected github repository.
    */
