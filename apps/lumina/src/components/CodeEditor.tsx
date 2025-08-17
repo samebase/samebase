@@ -317,11 +317,17 @@ export function CodeEditor({
   const idRef = useRef(Math.random().toString(36).substring(2, 5));
   const [version, setVersion] = useState(firstDoc.version);
 
-  const updates = useQuery(api.collaborative.pullUpdates, {
-    repositoryFullName,
-    filePath,
-    version,
-  });
+  const updates = useQuery(
+    api.collaborative.pullUpdates,
+    {
+      repositoryFullName,
+      filePath,
+      version,
+    },
+    {
+      dontCache: true,
+    },
+  );
 
   useEffect(() => {
     if (!updates || !pullRef.current) return;

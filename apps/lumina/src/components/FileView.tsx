@@ -37,7 +37,11 @@ import { FileCreationDialog } from "@/components/FileCreationDialog";
 import { FolderCreationDialog } from "@/components/FolderCreationDialog";
 import { nonNullable } from "@/lib/utils";
 import { type GithubTreeType } from "convex/schema";
-import { EditedFilesCategories } from "./EditedFilesCategories";
+import {
+  categorizeStagedFiles,
+  EditedFilesCategories,
+  EditedFilesCategoriesPopoverTrigger,
+} from "./EditedFilesCategories";
 
 // Function to find the best file to display
 function findBestInitialFile(files: GithubTreeType[]) {
@@ -423,6 +427,10 @@ function FileViewInner({
       .filter(nonNullable);
   }, [vault.treeData.tree, stagedFiles]);
 
+  const categories = useMemo(() => {
+    return categorizeStagedFiles(stagedFiles ?? []);
+  }, [stagedFiles]);
+
   // MARK: Return
 
   return (
@@ -540,10 +548,8 @@ function FileViewInner({
                           className={`text-xs text-muted-foreground ${linkStyle} flex items-center gap-2`}
                         >
                           <div className="flex items-center gap-1">
-                            <EditedFilesCategories
-                              stagedFiles={stagedFiles}
-                              repositoryFullName={repositoryFullName}
-                              branch={branch}
+                            <EditedFilesCategoriesPopoverTrigger
+                              categories={categories}
                             />
                           </div>
                         </button>
@@ -557,7 +563,13 @@ function FileViewInner({
                           <div className="text-sm font-medium">
                             Staged Changes
                           </div>
-                          <div className="space-y-3 max-h-64 overflow-y-auto"></div>
+                          <div className="space-y-3 max-h-64 overflow-y-auto">
+                            <EditedFilesCategories
+                              categories={categories}
+                              repositoryFullName={repositoryFullName}
+                              branch={branch}
+                            />
+                          </div>
                         </div>
                       </PopoverContent>
                     </Popover>

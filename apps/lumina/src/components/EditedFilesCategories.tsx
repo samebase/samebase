@@ -9,7 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { linkStyle } from "./styles";
 
 // Helper function to categorize staged files by change type
-function categorizeStagedFiles(stagedFiles: any[]) {
+export function categorizeStagedFiles(stagedFiles: any[]) {
   const categories = {
     deleted: [] as any[],
     renamed: [] as any[],
@@ -42,17 +42,61 @@ function categorizeStagedFiles(stagedFiles: any[]) {
   return categories;
 }
 
+export function EditedFilesCategoriesPopoverTrigger({
+  categories,
+}: {
+  categories: ReturnType<typeof categorizeStagedFiles>;
+}) {
+  // Single line with all categories and different colors
+  return (
+    <div className="flex items-center gap-3">
+      {categories.modified.length > 0 && (
+        <div className="flex items-center gap-1 text-blue-600">
+          <Pencil1Icon className="w-3 h-3" />
+          <span className="text-xs">{categories.modified.length}</span>
+        </div>
+      )}
+      {categories.deleted.length > 0 && (
+        <div className="flex items-center gap-1 text-red-600">
+          <TrashIcon className="w-3 h-3" />
+          <span className="text-xs">{categories.deleted.length}</span>
+        </div>
+      )}
+      {categories.new.length > 0 && (
+        <div className="flex items-center gap-1 text-green-600">
+          <PlusIcon className="w-3 h-3" />
+          <span className="text-xs">{categories.new.length}</span>
+        </div>
+      )}
+      {categories.renamed.length > 0 && (
+        <div className="flex items-center gap-1 text-purple-600">
+          <UpdateIcon className="w-3 h-3" />
+          <span className="text-xs">{categories.renamed.length}</span>
+        </div>
+      )}
+      {categories.renamedAndModified.length > 0 && (
+        <div className="flex items-center gap-1 text-orange-600">
+          <UpdateIcon className="w-3 h-3" />
+          <Pencil1Icon className="w-3 h-3" />
+          <span className="text-xs">
+            {categories.renamedAndModified.length}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function EditedFilesCategories({
-  stagedFiles,
+  categories,
   repositoryFullName,
   branch,
 }: {
+  categories: ReturnType<typeof categorizeStagedFiles>;
   repositoryFullName: string;
   branch: string;
-  stagedFiles: (typeof api.fileStaging.listStagedFiles)["_returnType"];
 }) {
   const navigate = useNavigate();
-  const categories = categorizeStagedFiles(stagedFiles);
   const sections = [];
 
   if (categories.modified.length > 0) {

@@ -19,7 +19,8 @@
     "lint:lumina": "turbo run lint --filter=lumina"
   },
   "devDependencies": {
-    "turbo": "^2.5.5"
+    "turbo": "^2.5.5",
+    "typescript": "5.9.2"
   },
   "keywords": [
     "monorepo",
