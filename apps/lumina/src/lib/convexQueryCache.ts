@@ -89,17 +89,35 @@ const memoryCache = new Map<string, IdbRecord<any>>();
  */
 export function useCacheQuery<Query extends FunctionReference<"query">>(
   query: Query,
-  ...args: OptionalRestArgsOrSkip<Query>
+  arg?: undefined,
+  options?: {
+    dontCache?: boolean;
+  },
+): Query["_returnType"] | undefined;
+
+export function useCacheQuery<Query extends FunctionReference<"query">>(
+  query: Query,
+  arg: OptionalRestArgsOrSkip<Query>[0],
+  options?: {
+    dontCache?: boolean;
+  },
+): Query["_returnType"] | undefined;
+export function useCacheQuery<Query extends FunctionReference<"query">>(
+  query: Query,
+  arg: OptionalRestArgsOrSkip<Query>[0],
+  options: {
+    dontCache?: boolean;
+  } = {},
 ): Query["_returnType"] | undefined {
-  const live = useQuery(query, ...args); // live value or undefined while loading
+  const live = useQuery(query, arg); // live value or undefined while loading
   const [cached, setCached] = useState<Query["_returnType"]>(undefined);
   const [fromCache, setFromCache] = useState(false);
   const queryName = useMemo(() => getFunctionName(query), [query]);
 
   const cacheKey = useMemo(() => {
-    const argsKey = stableStringify(args);
+    const argsKey = stableStringify(arg);
     return `convex:${CACHE_VERSION}:${queryName}:${argsKey}`;
-  }, [args, queryName]);
+  }, [arg, queryName]);
 
   // Hydrate from memory/IDB on mount/args change
   useEffect(() => {
@@ -154,6 +172,10 @@ export function useCacheQuery<Query extends FunctionReference<"query">>(
   // Returned value mirrors useQuery (data or undefined),
   // with metadata on the function as a property for opt-in usage.
   useCacheQuery.last = { fromCache, cacheKey };
+
+  if (options.dontCache) {
+    return live;
+  }
 
   return cached;
 }
