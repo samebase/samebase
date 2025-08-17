@@ -217,7 +217,7 @@ export const downloadGitRepository = internalAction({
 });
 
 const toBlob = (u8: Uint8Array, type?: string) =>
-  new Blob([u8], type ? { type } : undefined);
+  new Blob([new Uint8Array(u8)], type ? { type } : undefined);
 
 function isLikelyText(p: string) {
   return /\.(md|markdown|txt|json|yaml|yml|toml|csv|ts|js|tsx|jsx|css|html)$/i.test(
