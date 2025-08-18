@@ -52,6 +52,8 @@ export const listStagedFiles = query({
               q.eq(q.field("fileDeleted"), true),
               // file renamed
               q.neq(q.field("filePath"), q.field("initialFilePath")),
+              // new file (parentCommitSha is null)
+              q.eq(q.field("parentCommitSha"), null),
             ),
       )
       .collect();
@@ -106,7 +108,7 @@ export const markFileForDeletion = mutation({
   args: {
     vaultId: v.id("vaults"),
     filePath: v.string(),
-    parentCommitSha: v.string(),
+    parentCommitSha: v.union(v.string(), v.null()),
     branch: v.string(),
   },
   returns: v.null(),
@@ -153,6 +155,52 @@ export const markFileForDeletion = mutation({
   },
 });
 
+// Create a new file in staging (instead of immediately committing to GitHub)
+export const createFileInStaging = mutation({
+  args: {
+    vaultId: v.id("vaults"),
+    filePath: v.string(),
+    content: v.string(),
+    branch: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+
+    // Check if there's already a staging record for this file
+    const existingStaging = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_initial_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("initialFilePath", args.filePath),
+      )
+      .first();
+
+    if (existingStaging) {
+      throw new Error("File already exists in staging");
+    }
+
+    const currentTimestamp = Date.now();
+
+    // Create new staging record for a new file (parentCommitSha is null)
+    await ctx.db.insert("fileStaging", {
+      ownerId: userId,
+      vaultId: args.vaultId,
+      filePath: args.filePath,
+      initialFilePath: args.filePath,
+      fileDeleted: false,
+      content: args.content,
+      initialContent: "", // New files have no initial content
+      parentCommitSha: null, // New files have no parent commit
+      lastEditTime: currentTimestamp,
+      lastEditUserId: userId,
+      branch: args.branch,
+      version: 0,
+    });
+
+    return null;
+  },
+});
+
 // MARK: Internal
 
 // Save file content to staging for real-time editing
@@ -162,7 +210,7 @@ export const saveToStaging = internalMutation({
     initialFilePath: v.string(),
     content: v.string(),
     initialContent: v.string(),
-    parentCommitSha: v.string(),
+    parentCommitSha: v.union(v.string(), v.null()),
     branch: v.string(),
   },
   handler: async (ctx, args) => {
@@ -254,7 +302,7 @@ export const rename = internalMutation({
     initialFilePath: string;
     content: string;
     initialContent: string;
-    parentCommitSha: string;
+    parentCommitSha: string | null;
     lastEditTime: number;
     lastEditUserId: Id<"users">;
     branch: string;

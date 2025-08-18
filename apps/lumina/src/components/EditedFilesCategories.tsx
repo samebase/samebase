@@ -32,6 +32,9 @@ export function categorizeStagedFiles(stagedFiles: StagedFile[]) {
   stagedFiles.forEach((file) => {
     if (file.fileDeleted) {
       categories.deleted.push(file);
+    } else if (file.parentCommitSha === null) {
+      // New files (parentCommitSha is null)
+      categories.new.push(file);
     } else if (file.filePath !== file.initialFilePath) {
       // It's a rename
       if (file.content !== file.initialContent) {
@@ -44,9 +47,6 @@ export function categorizeStagedFiles(stagedFiles: StagedFile[]) {
     } else if (file.content !== file.initialContent) {
       // Just modified
       categories.modified.push(file);
-    } else {
-      // This shouldn't normally happen, but just in case
-      categories.new.push(file);
     }
   });
 

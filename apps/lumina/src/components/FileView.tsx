@@ -244,7 +244,7 @@ function FileViewInner({
     vaultId: vault._id,
   });
 
-  const createFile = useAction(api.github.createFile);
+  const createFileInStaging = useMutation(api.fileStaging.createFileInStaging);
 
   // Add command palette keyboard shortcut handler
   useEffect(() => {
@@ -300,11 +300,15 @@ function FileViewInner({
     if (!owner || !repoName) return;
 
     try {
+      // Get the file's SHA from the tree (null for new files)
+      const fileSha =
+        vault.treeData.tree.find((t) => t.path === filePath)?.sha ?? null;
+
       // Mark the file for deletion in staging
       await markFileForDeletion({
         vaultId: vault._id,
         filePath,
-        parentCommitSha: "main", // TODO: Get actual commit SHA
+        parentCommitSha: fileSha,
         branch,
       });
 
@@ -325,19 +329,13 @@ function FileViewInner({
 
     const filePath = folderPath ? `${folderPath}/${fileName}` : fileName;
 
-    createFile({
-      owner,
-      repo: repoName,
-      path: filePath,
+    createFileInStaging({
+      vaultId: vault._id,
+      filePath,
       content: "",
-      message: `Create ${filePath}`,
       branch,
     })
       .then(() => {
-        // Refresh the tree
-        // void tree.refetch();
-        // TODO: Update
-
         // Navigate to the new file
         void navigate(`/vault/${owner}/${repoName}/${branch}/${filePath}`);
       })
@@ -359,12 +357,10 @@ function FileViewInner({
     const readmeFilePath = `${newFolderPath}/README.md`;
 
     // Create a README file in the folder to make the folder exist in Git
-    createFile({
-      owner,
-      repo: repoName,
-      path: readmeFilePath,
+    createFileInStaging({
+      vaultId: vault._id,
+      filePath: readmeFilePath,
       content: `# ${folderName}\n\nThis folder was created automatically.`,
-      message: `Create folder ${newFolderPath}`,
       branch,
     }).catch((error) => {
       console.error("Failed to create folder:", error);
@@ -406,7 +402,7 @@ function FileViewInner({
   }
 
   const finalTreeData = useMemo(() => {
-    return vault.treeData.tree
+    const treeItems = vault.treeData.tree
       .map((item) => {
         const stagedFile = stagedFiles?.find(
           (staged) => staged.initialFilePath === item.path,
@@ -426,6 +422,21 @@ function FileViewInner({
         };
       })
       .filter(nonNullable);
+
+    // Add new files from staging (parentCommitSha is null)
+    const newFiles = (stagedFiles || [])
+      .filter(
+        (staged) => staged.parentCommitSha === null && !staged.fileDeleted,
+      )
+      .map((staged) => ({
+        deleted: false,
+        path: staged.filePath,
+        originalPath: staged.initialFilePath,
+        type: "blob" as const,
+        size: undefined,
+      }));
+
+    return [...treeItems, ...newFiles];
   }, [vault.treeData.tree, stagedFiles]);
 
   // MARK: Return
@@ -581,7 +592,7 @@ function FileViewInner({
               <div className="flex-1 min-h-0">
                 {stagedFile && (
                   <CodeEditorWrapper
-                    key={`${branch}/${selectedFile}-${stagedFile.parentCommitSha}`}
+                    key={`${branch}/${selectedFile}-${stagedFile.parentCommitSha ?? "new"}`}
                     repositoryFullName={repositoryFullName}
                     filePath={selectedFile}
                     initialFilePath={stagedFile.initialFilePath}

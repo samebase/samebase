@@ -78,7 +78,7 @@ export const getFileForEditing = action({
     args,
   ): Promise<{
     content: string;
-    parentCommitSha: string;
+    parentCommitSha: string | null;
     lastEditTime: number;
     branch: string;
     version: number;

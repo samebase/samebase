@@ -85,8 +85,10 @@ export default defineSchema({
     initialFilePath: v.string(),
 
     content: v.string(),
+    // TODO: Maybe remove and rely on blobs table instead?
     initialContent: v.string(),
-    parentCommitSha: v.string(), // SHA of the GitHub commit this edit is based on
+
+    parentCommitSha: v.union(v.string(), v.null()), // SHA of the GitHub commit this edit is based on
 
     lastEditTime: v.number(),
     lastEditUserId: v.id("users"),
