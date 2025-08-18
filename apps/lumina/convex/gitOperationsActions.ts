@@ -44,7 +44,7 @@ export const INLINE_TEXT_MAX = 900_000;
 /**
  * Download a git repository using isomorphic-git and save all files to fileBlobs table
  */
-export const downloadGitRepository = internalAction({
+export const downloadGitRepositoryAndMarkReady = internalAction({
   args: {
     userId: v.id("users"),
     vaultId: v.id("vaults"),
@@ -147,6 +147,8 @@ export const downloadGitRepository = internalAction({
         READ_CONCURRENCY,
       );
 
+      console.log("finished stage 1, read all blobs");
+
       // 2) Split
       const inlineItems: StagedInline[] = staged.filter(
         (x): x is StagedInline => x.kind === "inline",
@@ -155,60 +157,64 @@ export const downloadGitRepository = internalAction({
         (x): x is StagedStored => x.kind === "stored",
       );
 
-      // 3) Write inline blobs to DB (no storage) — throttle lightly
-      await allLimited(
-        inlineItems.map((item) => async () => {
-          const { filePath, oid, size, mime, text } = item;
+      await Promise.all([
+        // 3) Write inline blobs to DB (no storage) — throttle lightly
+        allLimited(
+          inlineItems.map((item) => async () => {
+            const { filePath, oid, size, mime, text } = item;
 
-          // idempotent upsert by sha on the server
-          await ctx.runMutation(internal.gitOperations.saveFileBlob, {
-            vaultId: args.vaultId,
-            // blob record
-            sha: oid,
-            size,
-            mime,
-            text,
-            storageId: undefined,
-            ext: path.extname(filePath).slice(1).toLowerCase(),
-            debugFilePath: filePath,
-          });
-        }),
-        DB_CONCURRENCY,
-      );
+            // idempotent upsert by sha on the server
+            await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+              vaultId: args.vaultId,
+              // blob record
+              sha: oid,
+              size,
+              mime,
+              text,
+              storageId: undefined,
+              ext: path.extname(filePath).slice(1).toLowerCase(),
+              debugFilePath: filePath,
+            });
+          }),
+          DB_CONCURRENCY,
+        ),
 
-      // 4) Upload storage blobs (heavy) + write metadata — throttle harder
-      await allLimited(
-        storedItems.map((item) => async () => {
-          const { filePath, oid, size, mime, u8, ext } = item;
+        // 4) Upload storage blobs (heavy) + write metadata — throttle harder
+        allLimited(
+          storedItems.map((item) => async () => {
+            const { filePath, oid, size, mime, u8, ext } = item;
 
-          // optional: avoid re-uploading if we already have this sha with a storageId
-          const existing = await ctx.runQuery(
-            internal.gitOperations.getBlobBySha,
-            { sha: oid },
-          );
-          let storageId: Id<"_storage"> | undefined = existing?.storageId;
-
-          if (!storageId) {
-            storageId = await withRetry(() =>
-              ctx.storage.store(toBlob(u8, mime)),
+            // optional: avoid re-uploading if we already have this sha with a storageId
+            const existing = await ctx.runQuery(
+              internal.gitOperations.getBlobBySha,
+              { sha: oid },
             );
-          }
+            let storageId: Id<"_storage"> | undefined = existing?.storageId;
 
-          console.log("expected to store blob", { storageId, oid, filePath });
+            if (!storageId) {
+              storageId = await withRetry(() =>
+                ctx.storage.store(toBlob(u8, mime)),
+              );
+            }
 
-          await ctx.runMutation(internal.gitOperations.saveFileBlob, {
-            vaultId: args.vaultId,
-            sha: oid,
-            size,
-            mime,
-            text: undefined,
-            storageId,
-            ext,
-            debugFilePath: filePath,
-          });
-        }),
-        UP_CONCURRENCY,
-      );
+            console.log("expected to store blob", { storageId, oid, filePath });
+
+            await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+              vaultId: args.vaultId,
+              sha: oid,
+              size,
+              mime,
+              text: undefined,
+              storageId,
+              ext,
+              debugFilePath: filePath,
+            });
+          }),
+          UP_CONCURRENCY,
+        ),
+      ]);
+
+      console.log("finished stage 4, uploaded storage blobs");
 
       const endTime2 = Date.now();
       const duration2 = endTime2 - endTime;
@@ -219,6 +225,10 @@ export const downloadGitRepository = internalAction({
         `Failed to download repository: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
     }
+
+    await ctx.runMutation(internal.vault.markVaultAsReady, {
+      vaultId: args.vaultId,
+    });
   },
 });
 

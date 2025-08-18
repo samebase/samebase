@@ -67,6 +67,8 @@ export default defineSchema({
     ghRepoName: v.string(),
     treeSHA: v.string(),
     treeData: GithubTreeData,
+
+    state: v.union(v.literal("copying_files"), v.literal("ready")),
   }),
 
   /**

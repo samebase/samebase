@@ -144,18 +144,16 @@ export const connectRepository = action({
 
     let filesDownloaded: number | undefined;
 
-    // It works, but for bigger repos it takes more than 30 seconds
-    // which is the duration of a convex function (AWS Lambda)
-    // eslint-disable-next-line no-constant-condition, @typescript-eslint/no-unnecessary-condition
-    // if (false) {
-    //   const repositoryUrl = repo.data.clone_url;
-    //   await ctx.runAction(internal.gitOperationsActions.downloadGitRepository, {
-    //     userId: currentUser._id,
-    //     vaultId,
-    //     repositoryUrl,
-    //     branch: repo.data.default_branch,
-    //   });
-    // }
+    await ctx.scheduler.runAfter(
+      0,
+      internal.gitOperationsActions.downloadGitRepositoryAndMarkReady,
+      {
+        userId: currentUser._id,
+        vaultId,
+        repositoryUrl: repo.data.clone_url,
+        branch: repo.data.default_branch,
+      },
+    );
 
     return {
       vaultId,
@@ -204,7 +202,17 @@ export const addVault = internalMutation({
       ghRepoName: args.ghRepoName,
       treeSHA: args.treeSHA,
       treeData: args.treeData,
+      state: "copying_files",
     });
+  },
+});
+
+export const markVaultAsReady = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.patch(args.vaultId, { state: "ready" });
   },
 });
 
@@ -220,6 +228,7 @@ export const getUserVaults = query({
       repositoryFullName: v.string(),
       fileCount: v.number(),
       lastEditTime: v.optional(v.number()),
+      state: v.union(v.literal("copying_files"), v.literal("ready")),
     }),
   ),
   handler: async (ctx, _args) => {
@@ -261,6 +270,7 @@ export const getUserVaults = query({
           repositoryFullName,
           fileCount,
           lastEditTime,
+          state: vault.state,
         };
       }),
     );

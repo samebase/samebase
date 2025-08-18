@@ -6,6 +6,7 @@ import {
   FileTextIcon,
   ClockIcon,
   TrashIcon,
+  UpdateIcon,
 } from "@radix-ui/react-icons";
 import { Link } from "react-router-dom";
 import { linkStyle } from "./styles";
@@ -106,72 +107,89 @@ export function VaultDashboard() {
       </div>
 
       <div className="space-y-2">
-        {vaults.map((vault) => (
-          <div
-            key={vault._id}
-            className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-          >
-            <Link
-              to={`/vault/${vault.repositoryFullName}`}
-              className={"flex items-center gap-4 flex-1 min-w-0"}
+        {vaults.map((vault: (typeof vaults)[0]) => {
+          const isReady = vault.state === "ready";
+          return (
+            <div
+              key={vault._id}
+              className={clsx(
+                "flex items-center justify-between p-4 border rounded-lg transition-colors",
+                isReady ? "hover:bg-muted/50" : "bg-muted/30 opacity-75",
+              )}
             >
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-col items-start ">
-                  <span
-                    className={`text-sm text-muted-foreground ${linkStyle}`}
-                  >
-                    {vault.ghRepoOwner}/
-                  </span>
-
-                  <h3 className="font-semibold truncate">
-                    <span className={`flex items-center gap-1 ${linkStyle}`}>
-                      {vault.ghRepoName}
+              <Link
+                to={isReady ? `/vault/${vault.repositoryFullName}` : "#"}
+                className={clsx(
+                  "flex items-center gap-4 flex-1 min-w-0",
+                  !isReady && "pointer-events-none",
+                )}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-col items-start ">
+                    <span
+                      className={`text-sm text-muted-foreground ${linkStyle}`}
+                    >
+                      {vault.ghRepoOwner}/
                     </span>
-                  </h3>
-                </div>
-              </div>
 
-              <div className="flex flex-col items-end text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <FileTextIcon className="h-3 w-3" />
-                  <span>
-                    {vault.fileCount} edited file
-                    {vault.fileCount !== 1 ? "s" : ""}
-                  </span>
+                    <h3 className="font-semibold truncate">
+                      <span className={`flex items-center gap-2 ${linkStyle}`}>
+                        {!isReady && (
+                          <UpdateIcon className="h-4 w-4 animate-spin text-muted-foreground" />
+                        )}
+                        {vault.ghRepoName}
+                        {!isReady && (
+                          <span className="text-xs text-muted-foreground font-normal">
+                            (setting up...)
+                          </span>
+                        )}
+                      </span>
+                    </h3>
+                  </div>
                 </div>
 
-                <div
-                  className={clsx("flex items-center gap-1", {
-                    invisible: !vault.lastEditTime,
-                  })}
-                >
-                  <ClockIcon className="h-3 w-3" />
-                  <span>
-                    {vault.lastEditTime
-                      ? formatTimeAgo(vault.lastEditTime)
-                      : "0m ago"}
-                  </span>
-                </div>
-              </div>
-            </Link>
+                <div className="flex flex-col items-end text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <FileTextIcon className="h-3 w-3" />
+                    <span>
+                      {vault.fileCount} edited file
+                      {vault.fileCount !== 1 ? "s" : ""}
+                    </span>
+                  </div>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setVaultToDelete({
-                  id: vault._id,
-                  name: vault.repositoryFullName,
-                });
-              }}
-              className="ml-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-            >
-              <TrashIcon className="h-4 w-4" />
-            </Button>
-          </div>
-        ))}
+                  <div
+                    className={clsx("flex items-center gap-1", {
+                      invisible: !vault.lastEditTime,
+                    })}
+                  >
+                    <ClockIcon className="h-3 w-3" />
+                    <span>
+                      {vault.lastEditTime
+                        ? formatTimeAgo(vault.lastEditTime)
+                        : "0m ago"}
+                    </span>
+                  </div>
+                </div>
+              </Link>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setVaultToDelete({
+                    id: vault._id,
+                    name: vault.repositoryFullName,
+                  });
+                }}
+                className="ml-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </Button>
+            </div>
+          );
+        })}
       </div>
 
       {/* Confirmation Dialog */}
