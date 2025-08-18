@@ -23,7 +23,6 @@ import type * as gitOperations from "../gitOperations.js";
 import type * as gitOperationsActions from "../gitOperationsActions.js";
 import type * as github from "../github.js";
 import type * as http from "../http.js";
-import type * as messages from "../messages.js";
 import type * as users from "../users.js";
 import type * as vault from "../vault.js";
 
@@ -46,7 +45,6 @@ declare const fullApi: ApiFromModules<{
   gitOperationsActions: typeof gitOperationsActions;
   github: typeof github;
   http: typeof http;
-  messages: typeof messages;
   users: typeof users;
   vault: typeof vault;
 }>;
