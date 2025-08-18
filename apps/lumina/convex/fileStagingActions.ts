@@ -135,7 +135,7 @@ export const getFileForEditing = action({
       });
 
       if (blobFile) {
-        if (!blobFile.text) {
+        if (typeof blobFile.text !== "string") {
           throw new Error("File is in storage, not implemented yet");
         }
 
@@ -236,7 +236,7 @@ export const getFileForEditing = action({
           );
         }
 
-        if (!blobFile.text) {
+        if (typeof blobFile.text !== "string") {
           throw new Error("File is in storage, not implemented yet");
         }
 
