@@ -8,10 +8,12 @@ export function SignInForm() {
       <div className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8">
         <h2 className="font-semibold text-2xl tracking-tight">
           If Notion and Obsidian had a baby
-        </h2>{" "}
-        <h3>
-          that <b>stores everything on GitHub</b> so there's 0.00018% lock-in
-        </h3>
+        </h2>
+        <ul className="list-disc list-inside">
+          <li>stores everything on GitHub</li>
+          <li>supports real-time collaboration</li>
+          <li>is mobile-web first</li>
+        </ul>
         <SignInWithGitHub />
       </div>
     </div>
