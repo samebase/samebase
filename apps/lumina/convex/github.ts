@@ -78,55 +78,6 @@ export const listRepositories = action({
   },
 });
 
-// Create a new file in GitHub repository
-export const createFile = action({
-  args: {
-    owner: v.string(),
-    repo: v.string(),
-    path: v.string(),
-    content: v.string(),
-    message: v.string(),
-    branch: v.optional(v.string()),
-  },
-  returns: v.object({
-    sha: v.string(),
-    url: v.string(),
-  }),
-  handler: async (ctx, args) => {
-    const currentUser: any = await ctx.runQuery(internal.users.getAuthUser, {});
-
-    if (!currentUser) {
-      throw new Error("User not found");
-    }
-
-    const octokit: Octokit = new Octokit({
-      auth: currentUser.githubAccessToken,
-    });
-
-    try {
-      const result = await octokit.rest.repos.createOrUpdateFileContents({
-        owner: args.owner,
-        repo: args.repo,
-        path: args.path,
-        message: args.message,
-        content: Buffer.from(args.content, "utf8").toString("base64"),
-        branch: args.branch || "main",
-      });
-
-      return {
-        sha: result.data.commit.sha || "",
-        url: result.data.commit.html_url || "",
-      };
-    } catch (error) {
-      console.error(
-        `Failed to create file ${args.path} for ${args.owner}/${args.repo}:`,
-        error,
-      );
-      throw error;
-    }
-  },
-});
-
 // Get repository tree structure
 export const updateRepositoryTree = internalAction({
   args: {
