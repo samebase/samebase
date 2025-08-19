@@ -140,20 +140,21 @@ export const connectRepository = action({
       ghRepoName: repo.data.name,
       treeSHA: tree.data.sha,
       treeData: tree.data,
+      state: "ready",
     });
 
     let filesDownloaded: number | undefined;
 
-    await ctx.scheduler.runAfter(
-      0,
-      internal.gitOperationsActions.downloadGitRepositoryAndMarkReady,
-      {
-        userId: currentUser._id,
-        vaultId,
-        repositoryUrl: repo.data.clone_url,
-        branch: repo.data.default_branch,
-      },
-    );
+    // await ctx.scheduler.runAfter(
+    //   0,
+    //   internal.gitOperationsActions.downloadGitRepositoryAndMarkReady,
+    //   {
+    //     userId: currentUser._id,
+    //     vaultId,
+    //     repositoryUrl: repo.data.clone_url,
+    //     branch: repo.data.default_branch,
+    //   },
+    // );
 
     return {
       vaultId,
@@ -172,6 +173,7 @@ export const addVault = internalMutation({
     ghRepoName: v.string(),
     treeSHA: v.string(),
     treeData: GithubTreeData,
+    state: v.union(v.literal("copying_files"), v.literal("ready")),
   },
   handler: async (ctx, args): Promise<Id<"vaults">> => {
     const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
@@ -202,7 +204,7 @@ export const addVault = internalMutation({
       ghRepoName: args.ghRepoName,
       treeSHA: args.treeSHA,
       treeData: args.treeData,
-      state: "copying_files",
+      state: args.state,
     });
   },
 });
@@ -363,9 +365,3 @@ export const updateVaultTree = internalMutation({
     });
   },
 });
-function muration(arg0: {
-  args: { vaultId: VId<GenericId<"vaults">, "required"> };
-  handler: (ctx: any, args: any) => Promise<void>;
-}) {
-  throw new Error("Function not implemented.");
-}
