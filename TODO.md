@@ -6,4 +6,5 @@
 - [ ] add settings page for each vault an also for the whole app that allows auto commits
 - [ ] when path doesn't have owner or repo name or can't find it, redirect to vaults
 - [ ] update the tree from time to time?
+- [ ] **IMPORTANT, make less changes to collaborativeUpdates db, takes lots of resources**
 - [ ] 
