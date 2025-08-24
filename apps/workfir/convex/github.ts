@@ -43,7 +43,7 @@ export const listRepositories = action({
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          "User-Agent": "Lumina-App",
+          "User-Agent": "WorkFir-App",
         },
       },
     );

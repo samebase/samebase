@@ -13,15 +13,15 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
       },
       manifest: {
-        name: "Lumina",
-        short_name: "Lumina",
+        name: "WorkFir",
+        short_name: "WorkFir",
         description: "Code Editor",
         theme_color: "#000000",
         icons: [
           {
-            src: "/lumina_icon.png",
+            src: "/workfir.svg",
             sizes: "192x192",
-            type: "image/png",
+            type: "image/svg+xml",
           },
         ],
       },

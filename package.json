@@ -1,8 +1,8 @@
 {
-  "name": "lumina-monorepo",
+  "name": "workfir-monorepo",
   "private": true,
   "version": "1.0.0",
-  "description": "Lumina monorepo with Turborepo and PNPM",
+  "description": "WorkFir monorepo with Turborepo and PNPM",
   "packageManager": "pnpm@8.12.0",
   "engines": {
     "node": ">=18.0.0",
@@ -14,9 +14,9 @@
     "lint": "turbo run lint",
     "preview": "turbo run preview",
     "clean": "turbo run clean",
-    "dev:lumina": "turbo run dev --filter=lumina",
-    "build:lumina": "turbo run build --filter=lumina",
-    "lint:lumina": "turbo run lint --filter=lumina"
+    "dev:workfir": "turbo run dev --filter=workfir",
+    "build:workfir": "turbo run build --filter=workfir",
+    "lint:workfir": "turbo run lint --filter=workfir"
   },
   "devDependencies": {
     "turbo": "^2.5.5",

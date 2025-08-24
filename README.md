@@ -1,4 +1,4 @@
-# Lumina
+# WorkFir
 
 Turborepo + PNPM monorepo with React + Vite + Convex.
 

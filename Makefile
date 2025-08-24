@@ -2,4 +2,4 @@
 .PHONY: run
 
 run:
-	cd apps/lumina && pnpm run dev
+	cd apps/workfir && pnpm run dev
