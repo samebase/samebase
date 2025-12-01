@@ -17,6 +17,9 @@ export default function App() {
             <Route path="/add" element={<AddRepository />} />
             <Route path="/vault/:owner/:repoName" element={<FileView />} />
             <Route path="/vault/:owner/:repoName/*" element={<FileView />} />
+
+            {/* test route */}
+            <Route path="/test" element={<div>Test</div>} />
           </Routes>
         </Authenticated>
         <Unauthenticated>
