@@ -402,6 +402,8 @@ async function createCommitWithMultipleFiles({
     });
     const currentTreeSha = currentCommit.tree.sha;
 
+    console.log("currentTreeSha", currentTreeSha);
+
     // 3. Create blobs for modified/new files and handle deletions and renames
     const tree = [] as Array<{
       path: string;
