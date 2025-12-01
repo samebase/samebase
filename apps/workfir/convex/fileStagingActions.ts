@@ -525,12 +525,13 @@ async function createCommitWithMultipleFiles({
       parents: [currentCommitSha],
     });
 
-    // 6. Update the reference
+    // 6. Update the reference (force to override any divergent remote commits)
     await octokit.rest.git.updateRef({
       owner,
       repo,
       ref: `heads/${branch}`,
       sha: newCommit.sha,
+      force: true,
     });
 
     return {
