@@ -402,41 +402,58 @@ async function createCommitWithMultipleFiles({
     });
     const currentTreeSha = currentCommit.tree.sha;
 
-    // 3. Get the full current tree (recursive) - this is just metadata, not content
-    const { data: currentTree } = await octokit.rest.git.getTree({
-      owner,
-      repo,
-      tree_sha: currentTreeSha,
-      recursive: "true",
-    });
-
-    // 4. Build a map of paths to delete/modify
+    // 3. Prepare file lists for parallel processing
     const pathsToDelete = new Set<string>();
-    const pathsToUpdate = new Map<string, string>(); // path -> new blob sha
+    const filesToCreateBlobs: Array<{
+      filePath: string;
+      content: string;
+    }> = [];
 
-    // Create blobs for all files we're adding/modifying
     for (const file of stagedFiles) {
       if (file.fileDeleted) {
         pathsToDelete.add(file.filePath);
       } else {
         const isRenamed = file.filePath !== file.initialFilePath;
         if (isRenamed) {
-          // Delete old path
           pathsToDelete.add(file.initialFilePath);
         }
+        filesToCreateBlobs.push({
+          filePath: file.filePath,
+          content: file.content,
+        });
+      }
+    }
 
-        // Create blob for new/modified content
-        const { data: blob } = await octokit.rest.git.createBlob({
+    // 4. Fetch tree AND create all blobs in parallel
+    const [{ data: currentTree }, ...blobResults] = await Promise.all([
+      // Fetch full tree (just metadata, not content)
+      octokit.rest.git.getTree({
+        owner,
+        repo,
+        tree_sha: currentTreeSha,
+        recursive: "true",
+      }),
+      // Create all blobs in parallel
+      ...filesToCreateBlobs.map((file) =>
+        octokit.rest.git.createBlob({
           owner,
           repo,
           content: Buffer.from(file.content, "utf8").toString("base64"),
           encoding: "base64",
-        });
-        pathsToUpdate.set(file.filePath, blob.sha);
-      }
+        }),
+      ),
+    ]);
+
+    // 5. Build path -> sha map from blob results
+    const pathsToUpdate = new Map<string, string>();
+    for (let i = 0; i < filesToCreateBlobs.length; i++) {
+      pathsToUpdate.set(
+        filesToCreateBlobs[i].filePath,
+        blobResults[i].data.sha,
+      );
     }
 
-    // 5. Build the complete new tree by:
+    // 6. Build the complete new tree by:
     //    - Taking all existing blobs (not trees) that aren't deleted
     //    - Adding/replacing with our new blobs
     const newTreeEntries: Array<{
@@ -472,14 +489,14 @@ async function createCommitWithMultipleFiles({
       });
     }
 
-    // 6. Create a new tree WITHOUT base_tree - complete replacement
+    // 7. Create a new tree WITHOUT base_tree - complete replacement
     const { data: newTree } = await octokit.rest.git.createTree({
       owner,
       repo,
       tree: newTreeEntries,
     });
 
-    // 5. Create the commit - compact, single-line subject
+    // 8. Create the commit - compact, single-line subject
     const basename = (p: string) => {
       const parts = p.split("/");
       return parts[parts.length - 1] || p;
@@ -531,7 +548,7 @@ async function createCommitWithMultipleFiles({
       parents: [currentCommitSha],
     });
 
-    // 6. Update the reference
+    // 9. Update the reference
     await octokit.rest.git.updateRef({
       owner,
       repo,
