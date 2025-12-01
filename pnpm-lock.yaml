@@ -75,8 +75,8 @@ importers:
         specifier: ^22.0.0
         version: 22.0.0
       '@prosemark/core':
-        specifier: https://pkg.pr.new/jsimonrichard/ProseMark/@prosemark/core@247a874
-        version: '@pkg.pr.new/jsimonrichard/ProseMark/@prosemark/core@247a874(@codemirror/commands@6.8.1)(@codemirror/lang-markdown@6.3.4)(@codemirror/language-data@6.5.1)(@codemirror/language@6.11.2)(@codemirror/state@6.5.2)(@codemirror/view@6.38.1)(@lezer/highlight@1.2.1)'
+        specifier: ^0.0.4
+        version: 0.0.4(@codemirror/autocomplete@6.20.0)(@codemirror/commands@6.8.1)(@codemirror/lang-markdown@6.3.4)(@codemirror/language-data@6.5.1)(@codemirror/language@6.11.2)(@codemirror/lint@6.9.2)(@codemirror/search@6.5.11)(@codemirror/state@6.5.2)(@codemirror/view@6.38.1)(@lezer/highlight@1.2.1)
       '@radix-ui/react-dialog':
         specifier: ^1.1.14
         version: 1.1.14(@types/react-dom@18.3.7)(@types/react@18.3.23)(react-dom@18.3.1)(react@18.3.1)
@@ -1389,6 +1389,15 @@ packages:
       '@lezer/common': 1.2.3
     dev: false
 
+  /@codemirror/autocomplete@6.20.0:
+    resolution: {integrity: sha512-bOwvTOIJcG5FVo5gUUupiwYh8MioPLQ4UcqbcRf7UQ98X90tCa9E1kZ3Z7tqwpZxYyOvh1YTYbmZE9RTfTp5hg==}
+    dependencies:
+      '@codemirror/language': 6.11.2
+      '@codemirror/state': 6.5.2
+      '@codemirror/view': 6.38.1
+      '@lezer/common': 1.2.3
+    dev: false
+
   /@codemirror/collab@6.1.1:
     resolution: {integrity: sha512-tkIn9Jguh98ie12dbBuba3lE8LHUkaMrIFuCVeVGhncSczFdKmX25vC12+58+yqQW5AXi3py6jWY0W+jelyglA==}
     dependencies:
@@ -1654,6 +1663,14 @@ packages:
 
   /@codemirror/lint@6.8.5:
     resolution: {integrity: sha512-s3n3KisH7dx3vsoeGMxsbRAgKe4O1vbrnKBClm99PU0fWxmxsx5rR2PfqQgIt+2MMJBHbiJ5rfIdLYfB9NNvsA==}
+    dependencies:
+      '@codemirror/state': 6.5.2
+      '@codemirror/view': 6.38.1
+      crelt: 1.0.6
+    dev: false
+
+  /@codemirror/lint@6.9.2:
+    resolution: {integrity: sha512-sv3DylBiIyi+xKwRCJAAsBZZZWo82shJ/RTMymLabAdtbkV5cSKwWDeCgtUq3v8flTaXS2y1kKkICuRYtUswyQ==}
     dependencies:
       '@codemirror/state': 6.5.2
       '@codemirror/view': 6.38.1
@@ -2880,6 +2897,36 @@ packages:
     engines: {node: '>=14'}
     requiresBuild: true
     optional: true
+
+  /@prosemark/core@0.0.4(@codemirror/autocomplete@6.20.0)(@codemirror/commands@6.8.1)(@codemirror/lang-markdown@6.3.4)(@codemirror/language-data@6.5.1)(@codemirror/language@6.11.2)(@codemirror/lint@6.9.2)(@codemirror/search@6.5.11)(@codemirror/state@6.5.2)(@codemirror/view@6.38.1)(@lezer/highlight@1.2.1):
+    resolution: {integrity: sha512-0YQ+Ri2cBIiZYLFyMwWA7xE63gHPgYP313uxdQ21GwG9adGM26jUaDm9RBwwmuE0M2K1UNJX4+dmL3RiF6UkHA==}
+    peerDependencies:
+      '@codemirror/autocomplete': ^6.19.1
+      '@codemirror/commands': ^6.8.1
+      '@codemirror/lang-markdown': ^6.3.4
+      '@codemirror/language': ^6.11.3
+      '@codemirror/language-data': ^6.5.1
+      '@codemirror/lint': ^6.9.1
+      '@codemirror/search': ^6.5.11
+      '@codemirror/state': ^6.5.2
+      '@codemirror/view': ^6.38.6
+      '@lezer/highlight': ^1.2.0
+    dependencies:
+      '@codemirror/autocomplete': 6.20.0
+      '@codemirror/commands': 6.8.1
+      '@codemirror/lang-markdown': 6.3.4
+      '@codemirror/language': 6.11.2
+      '@codemirror/language-data': 6.5.1
+      '@codemirror/lint': 6.9.2
+      '@codemirror/search': 6.5.11
+      '@codemirror/state': 6.5.2
+      '@codemirror/view': 6.38.1
+      '@lezer/common': 1.2.3
+      '@lezer/highlight': 1.2.1
+      '@lezer/markdown': 1.4.3
+      ajv: 8.17.1
+      node-emoji: 2.2.0
+    dev: false
 
   /@radix-ui/primitive@1.1.2:
     resolution: {integrity: sha512-XnbHrrprsNqZKQhStrSwgRUQzoCI1glLzdw79xiZPoofhGICeZRSQ3dIxAKH1gb3OHfNf4d6f+vAv3kil2eggA==}
@@ -7653,30 +7700,3 @@ packages:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
     requiresBuild: true
-
-  '@pkg.pr.new/jsimonrichard/ProseMark/@prosemark/core@247a874(@codemirror/commands@6.8.1)(@codemirror/lang-markdown@6.3.4)(@codemirror/language-data@6.5.1)(@codemirror/language@6.11.2)(@codemirror/state@6.5.2)(@codemirror/view@6.38.1)(@lezer/highlight@1.2.1)':
-    resolution: {tarball: https://pkg.pr.new/jsimonrichard/ProseMark/@prosemark/core@247a874}
-    id: '@pkg.pr.new/jsimonrichard/ProseMark/@prosemark/core@247a874'
-    name: '@prosemark/core'
-    version: 0.0.0
-    peerDependencies:
-      '@codemirror/commands': ^6.8.1
-      '@codemirror/lang-markdown': ^6.3.4
-      '@codemirror/language': ^6.11.3
-      '@codemirror/language-data': ^6.5.1
-      '@codemirror/state': ^6.5.2
-      '@codemirror/view': ^6.38.1
-      '@lezer/highlight': ^1.2.0
-    dependencies:
-      '@codemirror/commands': 6.8.1
-      '@codemirror/lang-markdown': 6.3.4
-      '@codemirror/language': 6.11.2
-      '@codemirror/language-data': 6.5.1
-      '@codemirror/state': 6.5.2
-      '@codemirror/view': 6.38.1
-      '@lezer/common': 1.2.3
-      '@lezer/highlight': 1.2.1
-      '@lezer/markdown': 1.4.3
-      ajv: 8.17.1
-      node-emoji: 2.2.0
-    dev: false
