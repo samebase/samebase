@@ -13,13 +13,13 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
       },
       manifest: {
-        name: "WorkFir",
-        short_name: "WorkFir",
+        name: "noter",
+        short_name: "noter",
         description: "Code Editor",
         theme_color: "#000000",
         icons: [
           {
-            src: "/workfir.svg",
+            src: "/noter.svg",
             sizes: "192x192",
             type: "image/svg+xml",
           },

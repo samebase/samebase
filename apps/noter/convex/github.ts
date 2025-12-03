@@ -43,7 +43,7 @@ export const listRepositories = action({
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          "User-Agent": "WorkFir-App",
+          "User-Agent": "noter-App",
         },
       },
     );

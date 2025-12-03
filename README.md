@@ -1,4 +1,4 @@
-# WorkFir
+# noter
 
 Turborepo + PNPM monorepo with React + Vite + Convex.
 

@@ -2,4 +2,4 @@
 .PHONY: run
 
 run:
-	cd apps/workfir && pnpm run dev
+	cd apps/noter && pnpm run dev

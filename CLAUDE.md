@@ -4,8 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Structure
 
-WorkFir is a Turborepo monorepo using PNPM that combines:
-- **Main App** (`apps/workfir`): React + Vite + Convex collaborative code editor with GitHub integration
+noter is a Turborepo monorepo using PNPM that combines:
+- **Main App** (`apps/noter`): React + Vite + Convex collaborative code editor with GitHub integration
 - **Core Package** (`packages/core`): ProseMark - CodeMirror-based markdown editor library
 
 ## Development Commands
@@ -25,12 +25,12 @@ pnpm build
 pnpm lint
 
 # Target specific app/package
-pnpm dev:workfir      # Dev mode for workfir app only
-pnpm build:workfir    # Build workfir app only
-pnpm lint:workfir     # Lint workfir app only
+pnpm dev:noter        # Dev mode for noter app only
+pnpm build:noter      # Build noter app only
+pnpm lint:noter       # Lint noter app only
 ```
 
-**WorkFir App** (`apps/workfir`):
+**noter App** (`apps/noter`):
 ```bash
 # Development with Convex backend
 npm run dev           # Runs both frontend (Vite) and backend (Convex) in parallel
@@ -56,7 +56,7 @@ npm run check-types   # TypeScript check
 
 ## Architecture Overview
 
-### WorkFir App (`apps/workfir`)
+### noter App (`apps/noter`)
 - **Frontend**: React 18 + React Router + Vite
 - **Backend**: Convex (real-time database + serverless functions)
 - **Auth**: Convex Auth with GitHub OAuth integration
