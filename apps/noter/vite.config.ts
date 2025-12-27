@@ -19,7 +19,7 @@ export default defineConfig({
         theme_color: "#000000",
         icons: [
           {
-            src: "/noter.svg",
+            src: "/favicon.svg",
             sizes: "192x192",
             type: "image/svg+xml",
           },
