@@ -1,13 +1,49 @@
 import { Layout } from "@/Layout";
-import { SignInForm } from "@/SignInForm";
+import { SignInForm, useAutoSignIn } from "@/SignInForm";
 
 import { VaultDashboard } from "@/components/VaultDashboard";
 import { FileView } from "@/components/FileView";
 import { AddRepository } from "@/components/AddRepository";
-import { Authenticated, Unauthenticated } from "convex/react";
+import { Authenticated, Unauthenticated, useConvexAuth } from "convex/react";
 import { Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
+
+function useCloseOAuthPopup() {
+  const { isAuthenticated } = useConvexAuth();
+  useEffect(() => {
+    if (!isAuthenticated || !window.opener) return;
+
+    const authKeys = Object.keys(localStorage).filter((k) =>
+      k.startsWith("__convexAuth"),
+    );
+    const authTokens: Record<string, string> = {};
+    for (const key of authKeys) {
+      authTokens[key] = localStorage.getItem(key) ?? "";
+    }
+
+    // Try writing directly to the parent's localStorage.
+    try {
+      const parentLS = window.opener.localStorage;
+      for (const [key, value] of Object.entries(authTokens)) {
+        parentLS.setItem(key, value);
+      }
+      window.opener.location.reload();
+    } catch {
+      // Cross-origin or security restriction — fall back to postMessage
+      window.opener.postMessage(
+        { type: "convex-auth-tokens", tokens: authTokens },
+        "*",
+      );
+    }
+
+    window.close();
+  }, [isAuthenticated]);
+}
 
 export default function App() {
+  useCloseOAuthPopup();
+  useAutoSignIn();
+
   return (
     <Layout>
       <>
