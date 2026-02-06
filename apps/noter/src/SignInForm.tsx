@@ -61,22 +61,26 @@ export function SignInWithGitHub() {
           // Don't call signIn here — the library would try
           // window.location.href which breaks the iframe.
           // Instead open a popup that will auto-trigger sign-in.
-          const popup = window.open(
+          // Listen for auth tokens sent from the popup via postMessage.
+          // This handles the case where iframe localStorage is
+          // partitioned and can't read the popup's stored tokens.
+          const handler = (event: MessageEvent) => {
+            if (event.data?.type === "convex-auth-tokens") {
+              window.removeEventListener("message", handler);
+              const tokens = event.data.tokens as Record<string, string>;
+              for (const [key, value] of Object.entries(tokens)) {
+                localStorage.setItem(key, value);
+              }
+              window.location.reload();
+            }
+          };
+          window.addEventListener("message", handler);
+
+          window.open(
             window.location.origin + "/?auth=github",
             "github-oauth",
             "width=600,height=700,popup=true",
           );
-          // The storage event may not fire reliably across iframe
-          // boundaries. Poll for the popup closing and reload so
-          // the app picks up the new token from localStorage.
-          if (popup) {
-            const interval = setInterval(() => {
-              if (popup.closed) {
-                clearInterval(interval);
-                window.location.reload();
-              }
-            }, 500);
-          }
         } else {
           void signIn("github");
         }
