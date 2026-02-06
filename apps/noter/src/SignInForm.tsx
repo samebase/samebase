@@ -1,9 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export function SignInForm() {
+  const authKeys = Object.keys(localStorage).filter((k) =>
+    k.startsWith("__convexAuth"),
+  );
+
   return (
     <div className="container my-auto">
       <div className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8">
@@ -16,6 +20,15 @@ export function SignInForm() {
           <li>is mobile-web first</li>
         </ul>
         <SignInWithGitHub />
+        {/* Temporary debug info */}
+        <div className="text-xs text-muted-foreground mt-4 p-2 bg-muted rounded font-mono">
+          <div>iframe: {isInIframe() ? "yes" : "no"}</div>
+          <div>opener: {window.opener ? "yes" : "no"}</div>
+          <div>auth keys in localStorage: {authKeys.length}</div>
+          {authKeys.map((k) => (
+            <div key={k}>{k}: {localStorage.getItem(k)?.slice(0, 20)}...</div>
+          ))}
+        </div>
       </div>
     </div>
   );
