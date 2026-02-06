@@ -12,6 +12,19 @@ function useCloseOAuthPopup() {
   const { isAuthenticated } = useConvexAuth();
   useEffect(() => {
     if (isAuthenticated && window.opener) {
+      // Send auth tokens to the parent window before closing.
+      // Iframes may have partitioned localStorage so they can't
+      // read tokens stored by a top-level popup directly.
+      const authTokens: Record<string, string> = {};
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith("__convexAuth")) {
+          authTokens[key] = localStorage.getItem(key) ?? "";
+        }
+      }
+      window.opener.postMessage(
+        { type: "convex-auth-tokens", tokens: authTokens },
+        "*",
+      );
       window.close();
     }
   }, [isAuthenticated]);
