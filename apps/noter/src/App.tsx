@@ -11,22 +11,35 @@ import { useEffect } from "react";
 function useCloseOAuthPopup() {
   const { isAuthenticated } = useConvexAuth();
   useEffect(() => {
-    if (isAuthenticated && window.opener) {
-      // Send auth tokens to the parent window before closing.
-      // Iframes may have partitioned localStorage so they can't
-      // read tokens stored by a top-level popup directly.
-      const authTokens: Record<string, string> = {};
-      for (const key of Object.keys(localStorage)) {
-        if (key.startsWith("__convexAuth")) {
-          authTokens[key] = localStorage.getItem(key) ?? "";
-        }
+    if (!isAuthenticated || !window.opener) return;
+
+    const authKeys = Object.keys(localStorage).filter((k) =>
+      k.startsWith("__convexAuth"),
+    );
+    const authTokens: Record<string, string> = {};
+    for (const key of authKeys) {
+      authTokens[key] = localStorage.getItem(key) ?? "";
+    }
+
+    // Try writing directly to the parent's localStorage.
+    // This works when popup and parent are same-origin (even
+    // if the parent iframe has partitioned storage, opener
+    // gives us access to its partition).
+    try {
+      const parentLS = window.opener.localStorage;
+      for (const [key, value] of Object.entries(authTokens)) {
+        parentLS.setItem(key, value);
       }
+      window.opener.location.reload();
+    } catch {
+      // Cross-origin or security restriction — fall back to postMessage
       window.opener.postMessage(
         { type: "convex-auth-tokens", tokens: authTokens },
         "*",
       );
-      window.close();
     }
+
+    window.close();
   }, [isAuthenticated]);
 }
 
