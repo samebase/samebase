@@ -21,25 +21,32 @@ function useCloseOAuthPopup() {
       authTokens[key] = localStorage.getItem(key) ?? "";
     }
 
+    // Log what we're sending for debugging
+    console.log("[oauth-popup] authenticated, sending tokens", {
+      keyCount: authKeys.length,
+      keys: authKeys,
+    });
+
     // Try writing directly to the parent's localStorage.
-    // This works when popup and parent are same-origin (even
-    // if the parent iframe has partitioned storage, opener
-    // gives us access to its partition).
     try {
       const parentLS = window.opener.localStorage;
       for (const [key, value] of Object.entries(authTokens)) {
         parentLS.setItem(key, value);
       }
+      console.log("[oauth-popup] wrote to parent localStorage");
       window.opener.location.reload();
-    } catch {
-      // Cross-origin or security restriction — fall back to postMessage
+      console.log("[oauth-popup] triggered parent reload");
+    } catch (e) {
+      console.log("[oauth-popup] direct access failed, using postMessage", e);
       window.opener.postMessage(
         { type: "convex-auth-tokens", tokens: authTokens },
         "*",
       );
     }
 
-    window.close();
+    // Don't auto-close yet — keep popup open so user can see debug info
+    document.title = `Auth done! ${authKeys.length} keys. Will close in 3s...`;
+    setTimeout(() => window.close(), 3000);
   }, [isAuthenticated]);
 }
 
