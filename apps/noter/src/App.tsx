@@ -4,10 +4,22 @@ import { SignInForm } from "@/SignInForm";
 import { VaultDashboard } from "@/components/VaultDashboard";
 import { FileView } from "@/components/FileView";
 import { AddRepository } from "@/components/AddRepository";
-import { Authenticated, Unauthenticated } from "convex/react";
+import { Authenticated, Unauthenticated, useConvexAuth } from "convex/react";
 import { Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
+
+function useCloseOAuthPopup() {
+  const { isAuthenticated } = useConvexAuth();
+  useEffect(() => {
+    if (isAuthenticated && window.opener) {
+      window.close();
+    }
+  }, [isAuthenticated]);
+}
 
 export default function App() {
+  useCloseOAuthPopup();
+
   return (
     <Layout>
       <>
