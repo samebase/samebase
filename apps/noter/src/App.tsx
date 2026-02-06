@@ -1,5 +1,5 @@
 import { Layout } from "@/Layout";
-import { SignInForm } from "@/SignInForm";
+import { SignInForm, useAutoSignIn } from "@/SignInForm";
 
 import { VaultDashboard } from "@/components/VaultDashboard";
 import { FileView } from "@/components/FileView";
