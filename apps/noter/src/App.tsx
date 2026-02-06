@@ -19,6 +19,7 @@ function useCloseOAuthPopup() {
 
 export default function App() {
   useCloseOAuthPopup();
+  useAutoSignIn();
 
   return (
     <Layout>
