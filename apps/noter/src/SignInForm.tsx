@@ -26,7 +26,9 @@ export function SignInForm() {
           <div>opener: {window.opener ? "yes" : "no"}</div>
           <div>auth keys in localStorage: {authKeys.length}</div>
           {authKeys.map((k) => (
-            <div key={k}>{k}: {localStorage.getItem(k)?.slice(0, 20)}...</div>
+            <div key={k}>
+              {k}: {localStorage.getItem(k)?.slice(0, 20)}...
+            </div>
           ))}
         </div>
       </div>
