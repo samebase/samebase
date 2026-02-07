@@ -23,6 +23,26 @@ npm run build         # TypeScript compile + Vite build
 npm run lint          # TypeScript + ESLint check
 ```
 
+### Convex CLI
+
+Access Convex database, logs, and admin operations using the CLI (from `apps/noter` directory):
+
+```bash
+# View real-time logs from production deployment
+npx convex logs --prod --history 50
+
+# View development deployment logs
+npx convex logs
+
+# Open Convex dashboard in browser
+npx convex dashboard
+
+# Get status of current deployment
+npx convex status
+```
+
+Use these commands to debug issues in Convex functions, check production logs, or inspect database state. This is the primary way to diagnose runtime errors and function failures.
+
 ## Architecture
 - **Frontend**: React 18 + React Router + Vite
 - **Backend**: Convex (real-time database + serverless functions)
