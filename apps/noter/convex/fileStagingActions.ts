@@ -275,9 +275,6 @@ export const getFileForEditing = action({
 export const commitStaging = action({
   args: {
     repositoryFullName: v.string(),
-
-    // Used to instantly populate the file view. Probably temporary fix.
-    currentFilePath: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -292,21 +289,14 @@ export const commitStaging = action({
       throw new Error("Vault not found");
     }
 
-    // Schedule the actual GitHub commit
+    // Commit all staged files to GitHub
+    // commitAllStaged handles: commit → update tree → save blobs → clear staging
     await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
       userId,
       vaultId: vault._id,
       repoOwner: vault.ghRepoOwner,
       repoName: vault.ghRepoName,
     });
-
-    // Refresh the file view
-    if (args.currentFilePath) {
-      await ctx.runAction(api.fileStagingActions.getFileForEditing, {
-        repositoryFullName: args.repositoryFullName,
-        originalFilePath: args.currentFilePath,
-      });
-    }
 
     return null;
   },
