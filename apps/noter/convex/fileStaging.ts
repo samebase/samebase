@@ -68,6 +68,7 @@ const DELETION_BATCH_SIZE = 500;
 export const clearAllStaging = mutation({
   args: {
     vaultId: v.id("vaults"),
+    skipTreeUpdate: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -92,7 +93,8 @@ export const clearAllStaging = mutation({
     );
 
     // Update tree to ensure it's fresh after clearing staging
-    if (vault) {
+    // Skip when called from commitAllStaged (tree is already updated there)
+    if (vault && !args.skipTreeUpdate) {
       await ctx.scheduler.runAfter(0, internal.github.updateRepositoryTree, {
         userId: vault.userId,
         owner: vault.ghRepoOwner,
