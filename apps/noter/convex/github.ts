@@ -78,6 +78,22 @@ export const listRepositories = action({
   },
 });
 
+// Public action to refresh repository tree (called from frontend on vault open)
+export const refreshRepositoryTree = action({
+  args: {
+    owner: v.string(),
+    repo: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+    await ctx.runAction(internal.github.updateRepositoryTree, {
+      userId,
+      owner: args.owner,
+      repo: args.repo,
+    });
+  },
+});
+
 // Get repository tree structure
 export const updateRepositoryTree = internalAction({
   args: {
