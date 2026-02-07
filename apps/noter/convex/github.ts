@@ -86,11 +86,30 @@ export const refreshRepositoryTree = action({
   },
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    await ctx.runAction(internal.github.updateRepositoryTree, {
+
+    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
+      repositoryFullName: `${args.owner}/${args.repo}`,
       userId,
-      owner: args.owner,
-      repo: args.repo,
     });
+    if (!vault) return;
+
+    // Atomically claim the refresh lock; skip if debounced or already running
+    const { claimed } = await ctx.runMutation(internal.vault.claimTreeRefresh, {
+      vaultId: vault._id,
+    });
+    if (!claimed) return;
+
+    try {
+      await ctx.runAction(internal.github.updateRepositoryTree, {
+        userId,
+        owner: args.owner,
+        repo: args.repo,
+      });
+    } finally {
+      await ctx.runMutation(internal.vault.releaseTreeRefresh, {
+        vaultId: vault._id,
+      });
+    }
   },
 });
 
@@ -124,44 +143,20 @@ export const updateRepositoryTree = internalAction({
       auth: currentUser.githubAccessToken,
     });
 
-    try {
-      const tree = await octokit.rest.git.getTree({
-        owner: args.owner,
-        repo: args.repo,
-        tree_sha: "HEAD",
-        recursive: "1",
-      });
+    const tree = await octokit.rest.git.getTree({
+      owner: args.owner,
+      repo: args.repo,
+      tree_sha: "HEAD",
+      recursive: "1",
+    });
 
-      if (tree.data.sha === vault.treeData.sha) {
-        return {
-          status: "up-to-date",
-        };
-      }
-
-      const treeData = tree.data;
-
-      console.log("treeData", treeData);
-
-      const result = await ctx.runMutation(internal.vault.updateVaultTree, {
-        vaultId: vault._id,
-        treeData: treeData,
-      });
-      console.log("result", result);
-
-      return tree.data.tree.map((item) => ({
-        path: item.path,
-        mode: item.mode,
-        type: item.type,
-        sha: item.sha,
-        size: item.size,
-        url: item.url,
-      }));
-    } catch (error) {
-      console.error(
-        `Failed to fetch tree for ${args.owner}/${args.repo}:`,
-        error,
-      );
-      return [];
+    if (tree.data.sha === vault.treeData.sha) {
+      return;
     }
+
+    await ctx.runMutation(internal.vault.updateVaultTree, {
+      vaultId: vault._id,
+      treeData: tree.data,
+    });
   },
 });
