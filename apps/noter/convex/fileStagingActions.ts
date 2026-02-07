@@ -436,7 +436,7 @@ async function createCommitWithMultipleFiles({
     });
   }
 
-  // 4. Build commit message
+  // 3. Build commit message
   const basename = (p: string) => {
     const parts = p.split("/");
     return parts[parts.length - 1] || p;
@@ -479,7 +479,7 @@ async function createCommitWithMultipleFiles({
         ? `${subjectTokens.slice(0, maxTokens).join(", ")} …`
         : subjectTokens.join(", ");
 
-  // 5. Retry loop for ref-dependent operations (getRef → getCommit → createTree → createCommit → updateRef)
+  // 4. Retry loop for ref-dependent operations (getRef → getCommit → createTree → createCommit → updateRef)
   //    Retries handle transient GitHub 422 (GitRPC::BadObjectState) and 409 (conflict) errors.
   const MAX_ATTEMPTS = 3;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
