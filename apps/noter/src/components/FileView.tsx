@@ -44,8 +44,8 @@ import {
   EditedFilesCategoriesPopoverTrigger,
 } from "./EditedFilesCategories";
 
-function formatRelativeTime(timestamp: number): string {
-  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+function formatRelativeTime(now: number, timestamp: number): string {
+  const seconds = Math.floor((now - timestamp) / 1000);
   if (seconds < 60) return "just now";
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m ago`;
@@ -53,6 +53,16 @@ function formatRelativeTime(timestamp: number): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
+}
+
+/** Returns a `now` timestamp that updates every 30 seconds. */
+function useNow() {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
 }
 
 // Function to find the best file to display
