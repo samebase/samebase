@@ -23,6 +23,26 @@ npm run build         # TypeScript compile + Vite build
 npm run lint          # TypeScript + ESLint check
 ```
 
+### Convex CLI
+
+Access Convex database, logs, and admin operations using the CLI:
+
+```bash
+# View real-time logs from Convex functions and actions
+convex logs
+
+# Open Convex dashboard in browser
+convex dashboard
+
+# Run database queries/mutations
+convex dev
+
+# List database tables and schema
+convex status
+```
+
+Use these commands to debug issues in Convex functions, check production logs, or inspect database state.
+
 ## Architecture
 - **Frontend**: React 18 + React Router + Vite
 - **Backend**: Convex (real-time database + serverless functions)
