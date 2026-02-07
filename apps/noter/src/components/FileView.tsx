@@ -198,6 +198,7 @@ function FileViewInner({
   stagedFile: (typeof api.fileStaging.getByNewPath)["_returnType"];
 }) {
   const { setOpenMobile } = useSidebar();
+  const now = useNow();
 
   const navigate = useNavigate();
 
@@ -594,7 +595,7 @@ function FileViewInner({
 
                   <span className="text-xs text-muted-foreground flex items-center gap-1">
                     {vault.treeRefreshStartedAt &&
-                    Date.now() - vault.treeRefreshStartedAt < 60_000 ? (
+                    now - vault.treeRefreshStartedAt < 60_000 ? (
                       <>
                         <span className="animate-spin inline-block">🔄</span>
                         Syncing…
@@ -605,7 +606,7 @@ function FileViewInner({
                         {vault.lastTreeRefreshAt && (
                           <>
                             <span>·</span>
-                            {formatRelativeTime(vault.lastTreeRefreshAt)}
+                            {formatRelativeTime(now, vault.lastTreeRefreshAt)}
                           </>
                         )}
                       </>
