@@ -8,12 +8,7 @@
 
 import { execSync } from "child_process";
 
-const origin = process.env.FUSION_ENV_ORIGIN;
-
-if (!origin) {
-  console.log("No FUSION_ENV_ORIGIN found, skipping SITE_URL sync.");
-  process.exit(0);
-}
+const origin = process.env.FUSION_ENV_ORIGIN || "http://localhost:5173";
 
 console.log(`Setting Convex SITE_URL to ${origin}`);
 execSync(`npx convex env set SITE_URL "${origin}"`, { stdio: "inherit" });
