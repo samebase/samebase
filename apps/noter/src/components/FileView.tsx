@@ -10,6 +10,7 @@ import {
   MagnifyingGlassIcon,
   PlusIcon,
   FilePlusIcon,
+  UpdateIcon,
 } from "@radix-ui/react-icons";
 import {
   Sidebar,
@@ -597,7 +598,7 @@ function FileViewInner({
                     {vault.treeRefreshStartedAt &&
                     now - vault.treeRefreshStartedAt < 60_000 ? (
                       <>
-                        <span className="animate-spin inline-block">🔄</span>
+                        <UpdateIcon className="animate-spin" />
                         Syncing…
                       </>
                     ) : (
