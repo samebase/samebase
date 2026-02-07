@@ -17,8 +17,7 @@
     "test": "vitest",
     "dev:noter": "turbo run dev --filter=noter",
     "build:noter": "turbo run build --filter=noter",
-    "lint:noter": "turbo run lint --filter=noter",
-    "prepare": "cd apps/noter && npx convex dev --once --configure=false && node sync-site-url.mjs || true"
+    "lint:noter": "turbo run lint --filter=noter"
   },
   "devDependencies": {
     "turbo": "^2.5.5",
