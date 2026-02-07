@@ -34,6 +34,8 @@ const origin = process.env.FUSION_ENV_ORIGIN || "http://localhost:5173";
 console.log(`Setting Convex SITE_URL to ${origin}`);
 try {
   execSync(`npx convex env set SITE_URL "${origin}"`, { stdio: "inherit" });
+  console.log(`✓ SITE_URL successfully set to ${origin}`);
 } catch (error) {
-  console.error("Failed to set SITE_URL, continuing anyway:", error.message);
+  console.error(`✗ Failed to set SITE_URL to ${origin}:`, error.message);
+  process.exit(1);
 }
