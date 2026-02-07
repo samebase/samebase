@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "Edit",
       "Bash(pnpm install:*)",
       "Bash(git add:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nUpdate pnpm-lock.yaml to include vitest dependency\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
@@ -14,7 +15,8 @@
       "Bash(cat:*)",
       "Bash(grep:*)",
       "Bash(launchctl getenv:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(pnpm --version:*)"
     ]
   }
 }
