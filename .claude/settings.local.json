@@ -14,7 +14,8 @@
       "Bash(env)",
       "Bash(cat:*)",
       "Bash(grep:*)",
-      "Bash(launchctl getenv:*)"
+      "Bash(launchctl getenv:*)",
+      "Bash(git stash:*)"
     ]
   }
 }
