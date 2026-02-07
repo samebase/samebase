@@ -384,6 +384,18 @@ export const claimTreeRefresh = internalMutation({
   },
 });
 
+// Optimistically start tree refresh (for immediate UI feedback)
+export const startTreeRefreshOptimistic = mutation({
+  args: { vaultId: v.id("vaults") },
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault) return;
+
+    // Optimistically set the refresh started timestamp
+    await ctx.db.patch(args.vaultId, { treeRefreshStartedAt: Date.now() });
+  },
+});
+
 // Release the tree refresh lock and record completion time.
 export const releaseTreeRefresh = internalMutation({
   args: { vaultId: v.id("vaults") },
