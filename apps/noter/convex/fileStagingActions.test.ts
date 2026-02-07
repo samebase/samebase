@@ -302,9 +302,6 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
       makeGetCommitResponse("tree123", "abc123"),
     );
-    vi.spyOn(octokit.rest.git, "createBlob").mockResolvedValue(
-      makeCreateBlobResponse("blob1"),
-    );
     const createTreeSpy = vi
       .spyOn(octokit.rest.git, "createTree")
       .mockResolvedValue(makeCreateTreeResponse("newtree123"));
@@ -326,19 +323,20 @@ describe("createCommitWithMultipleFiles", () => {
           fileDeleted: false,
           initialFilePath: "src/file.ts",
           initialContent: "old content",
+          parentCommitSha: "parent123",
         },
       ],
       branch: "main",
     });
 
-    // Verify tree was created with only 1 entry
+    // Verify tree was created with only 1 entry using inline content
     const createTreeCall = createTreeSpy.mock.calls[0]?.[0];
     if (!createTreeCall) {
       throw new Error("createTree was not called");
     }
     expect(createTreeCall.tree.length).toBe(1);
     expect(createTreeCall.tree[0].path).toBe("src/file.ts");
-    expect(createTreeCall.tree[0].sha).toBe("blob1");
+    expect((createTreeCall.tree[0] as any).content).toBe("new content");
 
     // Verify base_tree parameter is passed
     expect(createTreeCall.base_tree).toBe("tree123");
@@ -355,9 +353,6 @@ describe("createCommitWithMultipleFiles", () => {
     );
     vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
       makeGetCommitResponse("tree123", "abc123"),
-    );
-    vi.spyOn(octokit.rest.git, "createBlob").mockResolvedValue(
-      makeCreateBlobResponse("blob1"),
     );
     const createTreeSpy = vi
       .spyOn(octokit.rest.git, "createTree")
@@ -380,6 +375,7 @@ describe("createCommitWithMultipleFiles", () => {
           fileDeleted: true,
           initialFilePath: "src/deleted.ts",
           initialContent: "deleted content",
+          parentCommitSha: "parent123",
         },
       ],
       branch: "main",
@@ -406,9 +402,6 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
       makeGetCommitResponse("tree123", "abc123"),
     );
-    vi.spyOn(octokit.rest.git, "createBlob").mockResolvedValue(
-      makeCreateBlobResponse("blob1"),
-    );
     const createTreeSpy = vi
       .spyOn(octokit.rest.git, "createTree")
       .mockResolvedValue(makeCreateTreeResponse("newtree123"));
@@ -430,6 +423,7 @@ describe("createCommitWithMultipleFiles", () => {
           fileDeleted: false,
           initialFilePath: "src/old-name.ts",
           initialContent: "file content",
+          parentCommitSha: "parent123",
         },
       ],
       branch: "main",
@@ -455,7 +449,7 @@ describe("createCommitWithMultipleFiles", () => {
       throw new Error("Expected rename entries to be present");
     }
     expect(deletionEntry.sha).toBe(null);
-    expect(additionEntry.sha).toBe("blob1");
+    expect((additionEntry as any).content).toBe("file content");
   });
 
   /**
@@ -471,10 +465,6 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
       makeGetCommitResponse("tree123", "abc123"),
     );
-    vi.spyOn(octokit.rest.git, "createBlob")
-      .mockResolvedValueOnce(makeCreateBlobResponse("blob1"))
-      .mockResolvedValueOnce(makeCreateBlobResponse("blob2"))
-      .mockResolvedValueOnce(makeCreateBlobResponse("blob3"));
     const createTreeSpy = vi
       .spyOn(octokit.rest.git, "createTree")
       .mockResolvedValue(makeCreateTreeResponse("newtree123"));
@@ -496,6 +486,7 @@ describe("createCommitWithMultipleFiles", () => {
           fileDeleted: false,
           initialFilePath: "src/edit1.ts",
           initialContent: "old content 1",
+          parentCommitSha: "parent1",
         },
         {
           filePath: "src/edit2.ts",
@@ -503,6 +494,7 @@ describe("createCommitWithMultipleFiles", () => {
           fileDeleted: false,
           initialFilePath: "src/edit2.ts",
           initialContent: "old content 2",
+          parentCommitSha: "parent2",
         },
         {
           filePath: "src/deleted.ts",
@@ -510,6 +502,7 @@ describe("createCommitWithMultipleFiles", () => {
           fileDeleted: true,
           initialFilePath: "src/deleted.ts",
           initialContent: "deleted content",
+          parentCommitSha: "parent3",
         },
         {
           filePath: "src/renamed-new.ts",
@@ -517,6 +510,7 @@ describe("createCommitWithMultipleFiles", () => {
           fileDeleted: false,
           initialFilePath: "src/renamed-old.ts",
           initialContent: "renamed content",
+          parentCommitSha: "parent4",
         },
       ],
       branch: "main",
@@ -541,13 +535,18 @@ describe("createCommitWithMultipleFiles", () => {
     expect(paths).toContain("src/deleted.ts");
     expect(paths).toContain("src/renamed-old.ts");
     expect(paths).toContain("src/renamed-new.ts");
+
+    // Verify content-based entries for additions
+    const edit1Entry = createTreeCall.tree.find(
+      (e) => e.path === "src/edit1.ts",
+    );
+    expect((edit1Entry as any).content).toBe("new content 1");
   });
 
   /**
-   * Test 5: Retry on 422 (GitRPC::BadObjectState)
+   * Test 5: Retry on 422
    * Input: createTree fails with 422 on first attempt, succeeds on second
    * Verify: getRef is called twice (re-fetched on retry)
-   * Verify: createBlob is called only once per file (outside retry loop)
    * Verify: Commit succeeds on retry
    */
   it("Test 5: Retries on 422 error and succeeds on second attempt", async () => {
@@ -559,10 +558,6 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "getCommit")
       .mockResolvedValueOnce(makeGetCommitResponse("stale-tree", "stale-sha"))
       .mockResolvedValueOnce(makeGetCommitResponse("fresh-tree", "fresh-sha"));
-
-    const createBlobSpy = vi
-      .spyOn(octokit.rest.git, "createBlob")
-      .mockResolvedValue(makeCreateBlobResponse("blob1"));
 
     const error422 = Object.assign(new Error("GitRPC::BadObjectState"), {
       status: 422,
@@ -590,6 +585,7 @@ describe("createCommitWithMultipleFiles", () => {
           fileDeleted: false,
           initialFilePath: "src/file.ts",
           initialContent: "old content",
+          parentCommitSha: "parent123",
         },
       ],
       branch: "main",
@@ -597,9 +593,6 @@ describe("createCommitWithMultipleFiles", () => {
 
     // getRef called twice: once for stale attempt, once for fresh retry
     expect(getRefSpy).toHaveBeenCalledTimes(2);
-
-    // createBlob called only once (outside retry loop)
-    expect(createBlobSpy).toHaveBeenCalledTimes(1);
 
     // createTree called twice: first 422, second success
     expect(createTreeSpy).toHaveBeenCalledTimes(2);
@@ -624,9 +617,6 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
       makeGetCommitResponse("tree123", "abc123"),
     );
-    vi.spyOn(octokit.rest.git, "createBlob").mockResolvedValue(
-      makeCreateBlobResponse("blob1"),
-    );
 
     const error500 = Object.assign(new Error("Internal Server Error"), {
       status: 500,
@@ -647,6 +637,7 @@ describe("createCommitWithMultipleFiles", () => {
             fileDeleted: false,
             initialFilePath: "src/file.ts",
             initialContent: "old content",
+            parentCommitSha: "parent123",
           },
         ],
         branch: "main",
@@ -658,27 +649,118 @@ describe("createCommitWithMultipleFiles", () => {
   });
 
   /**
-   * Test 6: Verify blobs are created in parallel
-   * Input: 3 modified files
-   * Verify: All blobs created via Promise.all() (no sequential API calls)
+   * Test 6: New file deletion skips delete entry (parentCommitSha guard)
+   * Input: A new file (parentCommitSha: null) marked as deleted
+   * Verify: No tree entries are created (file never existed in repo)
    */
-  it("Test 5: Blobs are created in parallel", async () => {
+  it("Test 6: Deleting a new file (parentCommitSha null) produces no tree entries", async () => {
     vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
       makeGetRefResponse("abc123"),
     );
     vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
       makeGetCommitResponse("tree123", "abc123"),
     );
-
-    const createBlobSpy = vi
-      .spyOn(octokit.rest.git, "createBlob")
-      .mockResolvedValueOnce(makeCreateBlobResponse("blob1"))
-      .mockResolvedValueOnce(makeCreateBlobResponse("blob2"))
-      .mockResolvedValueOnce(makeCreateBlobResponse("blob3"));
-
-    vi.spyOn(octokit.rest.git, "createTree").mockResolvedValue(
-      makeCreateTreeResponse("newtree123"),
+    const createTreeSpy = vi
+      .spyOn(octokit.rest.git, "createTree")
+      .mockResolvedValue(makeCreateTreeResponse("newtree123"));
+    vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
+      makeCreateCommitResponse("newtree123", "commit123"),
     );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
+      makeUpdateRefResponse("commit123"),
+    );
+
+    await createCommitWithMultipleFiles({
+      octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      stagedFiles: [
+        {
+          filePath: "src/new-file.ts",
+          content: "",
+          fileDeleted: true,
+          initialFilePath: "src/new-file.ts",
+          initialContent: "",
+          parentCommitSha: null, // Never committed to GitHub
+        },
+      ],
+      branch: "main",
+    });
+
+    const createTreeCall = createTreeSpy.mock.calls[0]?.[0];
+    if (!createTreeCall) {
+      throw new Error("createTree was not called");
+    }
+    // No tree entries — the file never existed in the repo
+    expect(createTreeCall.tree.length).toBe(0);
+  });
+
+  /**
+   * Test 7: Renaming a new file (parentCommitSha null) skips old-path deletion
+   * Input: A new file renamed before first commit
+   * Verify: Only the addition entry is created, no deletion of old path
+   */
+  it("Test 7: Renaming a new file skips old-path deletion", async () => {
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
+      makeGetRefResponse("abc123"),
+    );
+    vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
+      makeGetCommitResponse("tree123", "abc123"),
+    );
+    const createTreeSpy = vi
+      .spyOn(octokit.rest.git, "createTree")
+      .mockResolvedValue(makeCreateTreeResponse("newtree123"));
+    vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
+      makeCreateCommitResponse("newtree123", "commit123"),
+    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
+      makeUpdateRefResponse("commit123"),
+    );
+
+    await createCommitWithMultipleFiles({
+      octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      stagedFiles: [
+        {
+          filePath: "src/renamed-new.ts",
+          content: "file content",
+          fileDeleted: false,
+          initialFilePath: "src/original-new.ts",
+          initialContent: "",
+          parentCommitSha: null, // New file, never committed
+        },
+      ],
+      branch: "main",
+    });
+
+    const createTreeCall = createTreeSpy.mock.calls[0]?.[0];
+    if (!createTreeCall) {
+      throw new Error("createTree was not called");
+    }
+    // Only 1 entry: addition of new path, no deletion of old path
+    expect(createTreeCall.tree.length).toBe(1);
+    expect(createTreeCall.tree[0].path).toBe("src/renamed-new.ts");
+    expect((createTreeCall.tree[0] as any).content).toBe("file content");
+  });
+
+  /**
+   * Test 8: No createBlob calls — content is inline in tree entries
+   * Input: 3 modified files
+   * Verify: createBlob is never called
+   * Verify: tree entries use content field
+   */
+  it("Test 8: No createBlob calls - content is provided inline", async () => {
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
+      makeGetRefResponse("abc123"),
+    );
+    vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
+      makeGetCommitResponse("tree123", "abc123"),
+    );
+    const createBlobSpy = vi.spyOn(octokit.rest.git, "createBlob");
+    const createTreeSpy = vi
+      .spyOn(octokit.rest.git, "createTree")
+      .mockResolvedValue(makeCreateTreeResponse("newtree123"));
     vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
       makeCreateCommitResponse("newtree123", "commit123"),
     );
@@ -697,6 +779,7 @@ describe("createCommitWithMultipleFiles", () => {
           fileDeleted: false,
           initialFilePath: "src/file1.ts",
           initialContent: "old content 1",
+          parentCommitSha: "parent1",
         },
         {
           filePath: "src/file2.ts",
@@ -704,6 +787,7 @@ describe("createCommitWithMultipleFiles", () => {
           fileDeleted: false,
           initialFilePath: "src/file2.ts",
           initialContent: "old content 2",
+          parentCommitSha: "parent2",
         },
         {
           filePath: "src/file3.ts",
@@ -711,16 +795,23 @@ describe("createCommitWithMultipleFiles", () => {
           fileDeleted: false,
           initialFilePath: "src/file3.ts",
           initialContent: "old content 3",
+          parentCommitSha: "parent3",
         },
       ],
       branch: "main",
     });
 
-    // Verify createBlob was called 3 times
-    expect(createBlobSpy).toHaveBeenCalledTimes(3);
+    // createBlob should never be called — content is inline
+    expect(createBlobSpy).not.toHaveBeenCalled();
 
-    // Verify all blob calls were made (they happen in Promise.all, so order might vary)
-    const blobCalls = createBlobSpy.mock.calls;
-    expect(blobCalls.length).toBe(3);
+    // Verify tree entries have inline content
+    const createTreeCall = createTreeSpy.mock.calls[0]?.[0];
+    if (!createTreeCall) {
+      throw new Error("createTree was not called");
+    }
+    expect(createTreeCall.tree.length).toBe(3);
+    for (const entry of createTreeCall.tree) {
+      expect((entry as any).content).toBeDefined();
+    }
   });
 });
