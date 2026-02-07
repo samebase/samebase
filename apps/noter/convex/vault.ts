@@ -349,12 +349,12 @@ export const getByRepositoryFullName = internalQuery({
 });
 
 const REFRESH_DEBOUNCE_MS = 2 * 60 * 1000; // 2 minutes
-const STALE_LOCK_MS = 60 * 1000; // 60 seconds — consider a lock stale if action crashed
+const STALE_LOCK_MS = 3 * 60 * 1000; // 3 minutes — consider a lock stale if action crashed
 
 // Atomically claim the tree refresh lock for a vault.
 // Returns { claimed: true } if this caller should proceed, { claimed: false } if skipped.
 export const claimTreeRefresh = internalMutation({
-  args: { vaultId: v.id("vaults") },
+  args: { vaultId: v.id("vaults"), force: v.optional(v.boolean()) },
   returns: v.object({ claimed: v.boolean() }),
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
@@ -362,20 +362,22 @@ export const claimTreeRefresh = internalMutation({
 
     const now = Date.now();
 
-    // Skip if last successful refresh was recent
-    if (
-      vault.lastTreeRefreshAt &&
-      now - vault.lastTreeRefreshAt < REFRESH_DEBOUNCE_MS
-    ) {
-      return { claimed: false };
-    }
+    if (!args.force) {
+      // Skip if last successful refresh was recent
+      if (
+        vault.lastTreeRefreshAt &&
+        now - vault.lastTreeRefreshAt < REFRESH_DEBOUNCE_MS
+      ) {
+        return { claimed: false };
+      }
 
-    // Skip if another refresh is already in progress (and not stale)
-    if (
-      vault.treeRefreshStartedAt &&
-      now - vault.treeRefreshStartedAt < STALE_LOCK_MS
-    ) {
-      return { claimed: false };
+      // Skip if another refresh is already in progress (and not stale)
+      if (
+        vault.treeRefreshStartedAt &&
+        now - vault.treeRefreshStartedAt < STALE_LOCK_MS
+      ) {
+        return { claimed: false };
+      }
     }
 
     // Claim the lock
