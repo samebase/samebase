@@ -3,8 +3,13 @@ import { v } from "convex/values";
 import { getUserId } from "./common";
 
 import { ChangeSet, Text } from "@codemirror/state";
-import { api, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+
+// Keep this many recent updates per file for clients to catch up.
+// Older updates are pruned since the content is already applied to staging.
+const MAX_UPDATES_TO_KEEP = 200;
+const CLEANUP_BATCH_SIZE = 500;
 
 /**
  * Get a document for collaborative editing - similar to the authority's getDocument
@@ -205,6 +210,20 @@ export const pushUpdates = mutation({
       lastEditUserId: userId,
     });
 
+    // Periodically prune old collaborative updates to prevent unbounded growth.
+    // Only run every 50 versions to avoid scheduling too often.
+    if (currentVersion % 50 === 0) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.collaborative.pruneOldUpdates,
+        {
+          vaultId: vault._id,
+          filePath: args.filePath,
+          currentVersion,
+        },
+      );
+    }
+
     return {
       success: true,
       newVersion: currentVersion,
@@ -279,6 +298,53 @@ export const applyUpdatesToStaging = internalMutation({
 });
 
 /**
+ * Prune old collaborative updates that are no longer needed.
+ * Keeps the most recent MAX_UPDATES_TO_KEEP per file, deletes the rest in batches.
+ */
+export const pruneOldUpdates = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+    filePath: v.string(),
+    currentVersion: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const cutoffVersion = args.currentVersion - MAX_UPDATES_TO_KEEP;
+    if (cutoffVersion <= 0) return null;
+
+    // Grab a batch of old updates to delete (ascending version order).
+    const oldUpdates = await ctx.db
+      .query("collaborativeUpdates")
+      .withIndex("by_file_and_version", (q) =>
+        q
+          .eq("vaultId", args.vaultId)
+          .eq("filePath", args.filePath)
+          .lte("version", cutoffVersion),
+      )
+      .take(CLEANUP_BATCH_SIZE);
+
+    for (const update of oldUpdates) {
+      await ctx.db.delete(update._id);
+    }
+
+    // If we hit the batch limit, schedule another round.
+    if (oldUpdates.length === CLEANUP_BATCH_SIZE) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.collaborative.pruneOldUpdates,
+        {
+          vaultId: args.vaultId,
+          filePath: args.filePath,
+          currentVersion: args.currentVersion,
+        },
+      );
+    }
+
+    return null;
+  },
+});
+
+/**
  * Get all users currently editing a file (for awareness features)
  */
 export const getActiveEditors = query({
@@ -293,20 +359,22 @@ export const getActiveEditors = query({
     }),
   ),
   handler: async (ctx, args) => {
-    // Get recent updates (within last 30 seconds) to determine active editors
-    const recentTimestamp = Date.now() - 30 * 1000;
-
+    // Get recent updates (within last 30 seconds) to determine active editors.
+    // Use .order("desc") and .take() to avoid scanning the entire update history.
     const recentUpdates = await ctx.db
       .query("collaborativeUpdates")
       .withIndex("by_file", (q) =>
         q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
       )
-      .filter((q) => q.gt(q.field("timestamp"), recentTimestamp))
-      .collect();
+      .order("desc")
+      .take(100);
+
+    const recentTimestamp = Date.now() - 30 * 1000;
 
     // Group by user and get the most recent activity
     const userActivity = new Map<string, number>();
     for (const update of recentUpdates) {
+      if (update.timestamp < recentTimestamp) break;
       const currentLatest = userActivity.get(update.userId) ?? 0;
       if (update.timestamp > currentLatest) {
         userActivity.set(update.userId, update.timestamp);
@@ -314,7 +382,7 @@ export const getActiveEditors = query({
     }
 
     return Array.from(userActivity.entries()).map(([userId, lastActive]) => ({
-      userId: userId as any, // Type assertion for Convex ID
+      userId: userId as Id<"users">,
       lastActive,
     }));
   },
