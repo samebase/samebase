@@ -42,7 +42,7 @@ export function useAutoSignIn() {
     if (params.get("auth") === "github" && window.opener) {
       params.delete("auth");
       const newUrl =
-        window.location.pathname + (params.toString() ? `?${params}` : "");
+        window.location.pathname + (params.toString() ? `?${params.toString()}` : "");
       window.history.replaceState({}, "", newUrl);
       void signIn("github");
     }
