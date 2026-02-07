@@ -7,7 +7,6 @@
     "dev": "npm-run-all --parallel dev:frontend dev:backend",
     "dev:frontend": "vite",
     "dev:backend": "convex dev",
-    "predev:backend": "convex dev --until-success && node sync-site-url.mjs",
     "predev": "convex dev --until-success && node setup.mjs --once && node sync-site-url.mjs && convex dashboard",
     "build": "tsc && vite build",
     "build:vercel": "vite build",
