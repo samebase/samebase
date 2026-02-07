@@ -6,7 +6,15 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nUpdate pnpm-lock.yaml to include vitest dependency\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git commit:*)",
       "Bash(git push)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)",
+      "Bash(echo:*)",
+      "Bash(gh auth status:*)",
+      "Bash(env)",
+      "Bash(cat:*)",
+      "Bash(grep:*)",
+      "Bash(launchctl getenv:*)"
     ]
   }
 }
