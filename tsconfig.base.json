@@ -7,7 +7,6 @@
     "skipLibCheck": true,
     "types": ["vitest/globals"],
 
-    
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
@@ -18,7 +17,6 @@
     "sourceMap": true,
     "inlineSources": true,
 
-    
     "strict": true,
     "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
