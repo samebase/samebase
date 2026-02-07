@@ -597,14 +597,52 @@ export const commitAllStaged = internalAction({
         branch: "main", // branch
       });
 
-      await ctx.runMutation(api.fileStaging.clearAllStaging, {
-        vaultId: args.vaultId,
-      });
-
+      // 1. Update the vault tree FIRST so new SHAs are available
       await ctx.runAction(internal.github.updateRepositoryTree, {
         userId: args.userId,
         owner: args.repoOwner,
         repo: args.repoName,
+      });
+
+      // 2. Re-read the vault to get the updated tree with new SHAs
+      const updatedVault = await ctx.runQuery(
+        internal.vault.getByRepositoryFullName,
+        {
+          repositoryFullName: fullRepo,
+          userId: args.userId,
+        },
+      );
+
+      // 3. Save committed file contents into the blob cache under their new SHAs
+      //    so that when the client re-fetches after staging is cleared, it gets
+      //    the correct content immediately without hitting GitHub API
+      if (updatedVault) {
+        for (const file of changedFiles) {
+          if (file.fileDeleted) continue;
+
+          const newSha = updatedVault.treeData.tree.find(
+            (t: { path?: string }) => t.path === file.filePath,
+          )?.sha;
+
+          if (newSha && typeof file.content === "string") {
+            await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+              vaultId: args.vaultId,
+              sha: newSha,
+              size: Buffer.byteLength(file.content, "utf-8"),
+              text: file.content,
+              storageId: undefined,
+              ext: file.filePath.split(".").pop()?.toLowerCase() ?? "",
+              mime: "text/plain; charset=utf-8",
+              debugFilePath: file.filePath,
+            });
+          }
+        }
+      }
+
+      // 4. NOW clear staging — client will refetch with correct tree + blobs
+      await ctx.runMutation(api.fileStaging.clearAllStaging, {
+        vaultId: args.vaultId,
+        skipTreeUpdate: true,
       });
     } catch (error) {
       console.error(
