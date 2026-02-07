@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/sidebar";
 import { FileTree } from "./FileTree";
 import { CommandPalette } from "./CommandPalette";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
 import { useSidebar } from "@/components/ui/sidebar";
 import { UserMenu } from "@/components/UserMenu";
@@ -68,6 +68,10 @@ function findBestInitialFile(files: GithubTreeType[]) {
   return sortedFiles[0]?.path || null;
 }
 
+// In-memory map tracking last refresh time per vault key
+const lastRefreshMap = new Map<string, number>();
+const REFRESH_DEBOUNCE_MS = 2 * 60 * 1000; // 2 minutes
+
 function FileViewWrapper() {
   const navigate = useNavigate();
 
@@ -82,6 +86,7 @@ function FileViewWrapper() {
   }>();
 
   const firstDocAction = useAction(api.fileStagingActions.getFileForEditing);
+  const refreshTree = useAction(api.github.refreshRepositoryTree);
   // Parse branch and file path from the wildcard parameter
   const parsedPath = branchAndFilePath ? branchAndFilePath.split("/") : [];
   const branch = parsedPath[0] || "main";
@@ -92,6 +97,16 @@ function FileViewWrapper() {
   const vault = useQuery(api.vault.getVaultByRepository, {
     repositoryFullName: repositoryFullName ?? "skip",
   });
+
+  // Refresh tree from GitHub when vault is opened (debounced to 2 min)
+  useEffect(() => {
+    if (!vault || !owner || !repoName) return;
+    const key = `${owner}/${repoName}`;
+    const lastRefresh = lastRefreshMap.get(key) ?? 0;
+    if (Date.now() - lastRefresh < REFRESH_DEBOUNCE_MS) return;
+    lastRefreshMap.set(key, Date.now());
+    void refreshTree({ owner, repo: repoName });
+  }, [vault?._id, owner, repoName, refreshTree]);
 
   // Auto-redirect to best file when no file is selected
   useEffect(() => {
