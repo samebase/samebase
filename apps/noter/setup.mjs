@@ -18,9 +18,19 @@ const config = {};
 loadEnvFile({ path: ".env.local", processEnv: config });
 
 const runOnceWorkflow = process.argv.includes("--once");
+const isInteractive = process.stdin.isTTY && process.stdout.isTTY;
 
 if (runOnceWorkflow && config.SETUP_SCRIPT_RAN !== undefined) {
   // The script has already ran once, skip.
+  process.exit(0);
+}
+
+if (!isInteractive) {
+  // Non-interactive environment, skip setup
+  console.log("Skipping interactive setup in non-interactive environment");
+  if (runOnceWorkflow) {
+    fs.writeFileSync(".env.local", `\nSETUP_SCRIPT_RAN=1\n`, { flag: "a" });
+  }
   process.exit(0);
 }
 
