@@ -185,118 +185,122 @@ async function createCommitWithMultipleFiles({
       !file.fileDeleted && (file.initialContent ?? "") !== (file.content ?? ""),
   }));
 
-  try {
-    // 1. Get the current commit SHA
-    const { data: refData } = await octokit.rest.git.getRef({
-      owner,
-      repo,
-      ref: `heads/${branch}`,
-    });
-    const currentCommitSha = refData.object.sha;
+  // 1. Prepare file lists
+  const pathsToDelete = new Set<string>();
+  const filesToCreateBlobs: Array<{
+    filePath: string;
+    content: string;
+  }> = [];
 
-    // 2. Get the current commit to get the tree SHA
-    const { data: currentCommit } = await octokit.rest.git.getCommit({
-      owner,
-      repo,
-      commit_sha: currentCommitSha,
-    });
-    const currentTreeSha = currentCommit.tree.sha;
-
-    // 3. Prepare file lists for parallel processing
-    const pathsToDelete = new Set<string>();
-    const filesToCreateBlobs: Array<{
-      filePath: string;
-      content: string;
-    }> = [];
-
-    for (const file of stagedFiles) {
-      if (file.fileDeleted) {
-        pathsToDelete.add(file.filePath);
-      } else {
-        const isRenamed = file.filePath !== file.initialFilePath;
-        if (isRenamed) {
-          pathsToDelete.add(file.initialFilePath);
-        }
-        filesToCreateBlobs.push({
-          filePath: file.filePath,
-          content: file.content,
-        });
+  for (const file of stagedFiles) {
+    if (file.fileDeleted) {
+      pathsToDelete.add(file.filePath);
+    } else {
+      const isRenamed = file.filePath !== file.initialFilePath;
+      if (isRenamed) {
+        pathsToDelete.add(file.initialFilePath);
       }
-    }
-
-    // 4. Create all blobs in parallel
-    const blobResults = await Promise.all(
-      filesToCreateBlobs.map((file) =>
-        octokit.rest.git.createBlob({
-          owner,
-          repo,
-          content: Buffer.from(file.content, "utf8").toString("base64"),
-          encoding: "base64",
-        }),
-      ),
-    );
-
-    // 5. Build incremental tree entries (only changes)
-    const newTreeEntries: Array<{
-      path: string;
-      mode: "100644";
-      type: "blob";
-      sha: string | null;
-    }> = [];
-
-    // Add deleted files with sha: null to remove them
-    for (const path of pathsToDelete) {
-      newTreeEntries.push({
-        path,
-        mode: "100644",
-        type: "blob",
-        sha: null,
+      filesToCreateBlobs.push({
+        filePath: file.filePath,
+        content: file.content,
       });
     }
-
-    // Add new/updated files with their blob SHAs
-    for (let i = 0; i < filesToCreateBlobs.length; i++) {
-      newTreeEntries.push({
-        path: filesToCreateBlobs[i].filePath,
-        mode: "100644",
-        type: "blob",
-        sha: blobResults[i].data.sha,
-      });
-    }
-
-    // 6. Create a new tree using base_tree — only sends the diff
-    const { data: newTree } = await octokit.rest.git.createTree({
-      owner,
-      repo,
-      base_tree: currentTreeSha,
-      tree: newTreeEntries,
-    });
-
-    // 7. Create the commit
-    const { data: newCommit } = await octokit.rest.git.createCommit({
-      owner,
-      repo,
-      message: "Test commit",
-      tree: newTree.sha,
-      parents: [currentCommitSha],
-    });
-
-    // 8. Update the reference
-    await octokit.rest.git.updateRef({
-      owner,
-      repo,
-      ref: `heads/${branch}`,
-      sha: newCommit.sha,
-    });
-
-    return {
-      sha: newCommit.sha,
-      url: newCommit.html_url,
-    };
-  } catch (error) {
-    console.error("Failed to create commit:", error);
-    throw error;
   }
+
+  // 2. Create all blobs in parallel (outside retry — blobs are content-addressable)
+  const blobResults = await Promise.all(
+    filesToCreateBlobs.map((file) =>
+      octokit.rest.git.createBlob({
+        owner,
+        repo,
+        content: Buffer.from(file.content, "utf8").toString("base64"),
+        encoding: "base64",
+      }),
+    ),
+  );
+
+  // 3. Build tree entries from blobs
+  const newTreeEntries: Array<{
+    path: string;
+    mode: "100644";
+    type: "blob";
+    sha: string | null;
+  }> = [];
+
+  for (const path of pathsToDelete) {
+    newTreeEntries.push({
+      path,
+      mode: "100644",
+      type: "blob",
+      sha: null,
+    });
+  }
+
+  for (let i = 0; i < filesToCreateBlobs.length; i++) {
+    newTreeEntries.push({
+      path: filesToCreateBlobs[i].filePath,
+      mode: "100644",
+      type: "blob",
+      sha: blobResults[i].data.sha,
+    });
+  }
+
+  // 4. Retry loop for ref-dependent operations
+  const MAX_ATTEMPTS = 3;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    try {
+      const { data: refData } = await octokit.rest.git.getRef({
+        owner,
+        repo,
+        ref: `heads/${branch}`,
+      });
+      const currentCommitSha = refData.object.sha;
+
+      const { data: currentCommit } = await octokit.rest.git.getCommit({
+        owner,
+        repo,
+        commit_sha: currentCommitSha,
+      });
+      const currentTreeSha = currentCommit.tree.sha;
+
+      const { data: newTree } = await octokit.rest.git.createTree({
+        owner,
+        repo,
+        base_tree: currentTreeSha,
+        tree: newTreeEntries,
+      });
+
+      const { data: newCommit } = await octokit.rest.git.createCommit({
+        owner,
+        repo,
+        message: "Test commit",
+        tree: newTree.sha,
+        parents: [currentCommitSha],
+      });
+
+      await octokit.rest.git.updateRef({
+        owner,
+        repo,
+        ref: `heads/${branch}`,
+        sha: newCommit.sha,
+      });
+
+      return {
+        sha: newCommit.sha,
+        url: newCommit.html_url,
+      };
+    } catch (error) {
+      const status = (error as { status?: number }).status;
+      const isRetryable = status === 422 || status === 409;
+      if (!isRetryable || attempt === MAX_ATTEMPTS - 1) {
+        console.error("Failed to create commit:", error);
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 0)); // immediate in tests
+    }
+  }
+
+  throw new Error("Exhausted commit retry attempts");
 }
 
 describe("createCommitWithMultipleFiles", () => {
@@ -563,7 +567,121 @@ describe("createCommitWithMultipleFiles", () => {
   });
 
   /**
-   * Test 5: Verify blobs are created in parallel
+   * Test 5: Retry on 422 (GitRPC::BadObjectState)
+   * Input: createTree fails with 422 on first attempt, succeeds on second
+   * Verify: getRef is called twice (re-fetched on retry)
+   * Verify: createBlob is called only once per file (outside retry loop)
+   * Verify: Commit succeeds on retry
+   */
+  it("Test 5: Retries on 422 error and succeeds on second attempt", async () => {
+    const getRefSpy = vi
+      .spyOn(octokit.rest.git, "getRef")
+      .mockResolvedValueOnce(makeGetRefResponse("stale-sha"))
+      .mockResolvedValueOnce(makeGetRefResponse("fresh-sha"));
+
+    vi.spyOn(octokit.rest.git, "getCommit")
+      .mockResolvedValueOnce(makeGetCommitResponse("stale-tree", "stale-sha"))
+      .mockResolvedValueOnce(makeGetCommitResponse("fresh-tree", "fresh-sha"));
+
+    const createBlobSpy = vi
+      .spyOn(octokit.rest.git, "createBlob")
+      .mockResolvedValue(makeCreateBlobResponse("blob1"));
+
+    const error422 = Object.assign(new Error("GitRPC::BadObjectState"), {
+      status: 422,
+    });
+    const createTreeSpy = vi
+      .spyOn(octokit.rest.git, "createTree")
+      .mockRejectedValueOnce(error422)
+      .mockResolvedValueOnce(makeCreateTreeResponse("newtree123"));
+
+    vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
+      makeCreateCommitResponse("newtree123", "commit123"),
+    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
+      makeUpdateRefResponse("commit123"),
+    );
+
+    const result = await createCommitWithMultipleFiles({
+      octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      stagedFiles: [
+        {
+          filePath: "src/file.ts",
+          content: "new content",
+          fileDeleted: false,
+          initialFilePath: "src/file.ts",
+          initialContent: "old content",
+        },
+      ],
+      branch: "main",
+    });
+
+    // getRef called twice: once for stale attempt, once for fresh retry
+    expect(getRefSpy).toHaveBeenCalledTimes(2);
+
+    // createBlob called only once (outside retry loop)
+    expect(createBlobSpy).toHaveBeenCalledTimes(1);
+
+    // createTree called twice: first 422, second success
+    expect(createTreeSpy).toHaveBeenCalledTimes(2);
+
+    // Second createTree used the fresh tree SHA
+    const secondTreeCall = createTreeSpy.mock.calls[1]?.[0];
+    expect(secondTreeCall?.base_tree).toBe("fresh-tree");
+
+    // Commit succeeded
+    expect(result.sha).toBe("commit123");
+  });
+
+  /**
+   * Test 5b: Non-retryable errors are thrown immediately
+   * Input: createTree fails with 500
+   * Verify: No retry, error is thrown
+   */
+  it("Test 5b: Non-retryable errors are thrown immediately", async () => {
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
+      makeGetRefResponse("abc123"),
+    );
+    vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
+      makeGetCommitResponse("tree123", "abc123"),
+    );
+    vi.spyOn(octokit.rest.git, "createBlob").mockResolvedValue(
+      makeCreateBlobResponse("blob1"),
+    );
+
+    const error500 = Object.assign(new Error("Internal Server Error"), {
+      status: 500,
+    });
+    const createTreeSpy = vi
+      .spyOn(octokit.rest.git, "createTree")
+      .mockRejectedValue(error500);
+
+    await expect(
+      createCommitWithMultipleFiles({
+        octokit,
+        owner: "test-owner",
+        repo: "test-repo",
+        stagedFiles: [
+          {
+            filePath: "src/file.ts",
+            content: "new content",
+            fileDeleted: false,
+            initialFilePath: "src/file.ts",
+            initialContent: "old content",
+          },
+        ],
+        branch: "main",
+      }),
+    ).rejects.toThrow("Internal Server Error");
+
+    // Only one attempt — no retry on 500
+    expect(createTreeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * Test 6: Verify blobs are created in parallel
    * Input: 3 modified files
    * Verify: All blobs created via Promise.all() (no sequential API calls)
    */
