@@ -62,6 +62,8 @@ export const listStagedFiles = query({
   },
 });
 
+const DELETION_BATCH_SIZE = 500;
+
 // Clear staging for a specific file (used after successful commit)
 export const clearAllStaging = mutation({
   args: {
@@ -77,18 +79,17 @@ export const clearAllStaging = mutation({
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .collect();
 
-    const updates = await ctx.db
-      .query("collaborativeUpdates")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .collect();
-
-    for (const update of updates) {
-      await ctx.db.delete(update._id);
-    }
-
     for (const staging of stagingFiles) {
       await ctx.db.delete(staging._id);
     }
+
+    // Delete collaborative updates in batches to avoid hitting read limits.
+    // Schedule the first batch — it will chain further batches if needed.
+    await ctx.scheduler.runAfter(
+      0,
+      internal.fileStaging.deleteCollaborativeUpdatesBatch,
+      { vaultId: args.vaultId },
+    );
 
     // Update tree to ensure it's fresh after clearing staging
     if (vault) {
@@ -97,6 +98,35 @@ export const clearAllStaging = mutation({
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
       });
+    }
+
+    return null;
+  },
+});
+
+// Delete collaborative updates in batches to stay under the 4096 read limit.
+export const deleteCollaborativeUpdatesBatch = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const updates = await ctx.db
+      .query("collaborativeUpdates")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .take(DELETION_BATCH_SIZE);
+
+    for (const update of updates) {
+      await ctx.db.delete(update._id);
+    }
+
+    // If we got a full batch, there are likely more — schedule another round.
+    if (updates.length === DELETION_BATCH_SIZE) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.fileStaging.deleteCollaborativeUpdatesBatch,
+        { vaultId: args.vaultId },
+      );
     }
 
     return null;
