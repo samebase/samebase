@@ -357,17 +357,17 @@ export const pullFromGitHub = action({
 
     // 3. Build reconciliation instructions
     type Instruction =
-      | { action: "delete"; stagingId: typeof allStaged[0]["_id"] }
+      | { action: "delete"; stagingId: (typeof allStaged)[0]["_id"] }
       | {
           action: "update";
-          stagingId: typeof allStaged[0]["_id"];
+          stagingId: (typeof allStaged)[0]["_id"];
           parentCommitSha: string | null;
           initialContent?: string;
         };
 
     const instructions: Instruction[] = [];
     const blobFetchQueue: Array<{
-      stagingId: typeof allStaged[0]["_id"];
+      stagingId: (typeof allStaged)[0]["_id"];
       sha: string;
     }> = [];
 
