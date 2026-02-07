@@ -343,7 +343,7 @@ export const pullFromGitHub = action({
 });
 
 // Internal action that performs the actual pull logic
-const pullFromGitHubInternal = internalAction({
+export const pullFromGitHubInternal = internalAction({
   args: {
     userId: v.id("users"),
     vaultId: v.id("vaults"),
