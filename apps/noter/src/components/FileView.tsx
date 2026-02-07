@@ -44,22 +44,15 @@ import {
   EditedFilesCategoriesPopoverTrigger,
 } from "./EditedFilesCategories";
 
-function formatRelativeTime(now: number, timestamp: number): string {
-  const seconds = Math.floor((now - timestamp) / 1000);
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+function formatSecondsAgo(now: number, timestamp: number): string {
+  return `${Math.floor((now - timestamp) / 1000)}s ago`;
 }
 
-/** Returns a `now` timestamp that updates every 30 seconds. */
+/** Returns a `now` timestamp that updates every second. */
 function useNow() {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30_000);
+    const id = setInterval(() => setNow(Date.now()), 1_000);
     return () => clearInterval(id);
   }, []);
   return now;
@@ -606,7 +599,7 @@ function FileViewInner({
                         {vault.lastTreeRefreshAt && (
                           <>
                             <span>·</span>
-                            {formatRelativeTime(now, vault.lastTreeRefreshAt)}
+                            <span className="font-mono tabular-nums">{formatSecondsAgo(now, vault.lastTreeRefreshAt)}</span>
                           </>
                         )}
                       </>
