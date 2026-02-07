@@ -232,6 +232,9 @@ function FileViewInner({
   const [clearAllStaging, clearingStagingStatus] = useConvexMutation(
     api.fileStaging.clearAllStaging,
   );
+  const [pullFromGitHub, pullFromGitHubStatus] = useConvexAction(
+    api.fileStagingActions.pullFromGitHub,
+  );
   const [markFileForDeletion] = useConvexMutation(
     api.fileStaging.markFileForDeletion,
   );
@@ -382,6 +385,12 @@ function FileViewInner({
       vaultId: vault._id,
     });
   }, [clearAllStaging, vault._id]);
+
+  const handlePullFromGitHub = useCallback(() => {
+    void pullFromGitHub({
+      vaultId: vault._id,
+    });
+  }, [pullFromGitHub, vault._id]);
 
   const handleFolderToggle = useCallback(
     (folderPath: string, isExpanded: boolean) => {
@@ -559,10 +568,27 @@ function FileViewInner({
                   <Button
                     size="sm"
                     variant="outline"
+                    onClick={handlePullFromGitHub}
+                    disabled={
+                      pullFromGitHubStatus === "loading" ||
+                      manualComittingStatus === "loading" ||
+                      clearingStagingStatus === "loading"
+                    }
+                    className="h-6 px-2 text-xs"
+                  >
+                    {pullFromGitHubStatus === "loading"
+                      ? "Pulling..."
+                      : "Pull Main"}
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
                     onClick={handleManualCommit}
                     disabled={
                       manualComittingStatus === "loading" ||
-                      clearingStagingStatus === "loading"
+                      clearingStagingStatus === "loading" ||
+                      pullFromGitHubStatus === "loading"
                     }
                     className="h-6 px-2 text-xs"
                   >
@@ -577,7 +603,8 @@ function FileViewInner({
                     onClick={handleResetToGitHub}
                     disabled={
                       clearingStagingStatus === "loading" ||
-                      manualComittingStatus === "loading"
+                      manualComittingStatus === "loading" ||
+                      pullFromGitHubStatus === "loading"
                     }
                     className="h-6 px-2 text-xs text-orange-600 hover:text-orange-700"
                   >
