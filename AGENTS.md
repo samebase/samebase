@@ -91,4 +91,4 @@ Shorthand commands for git/GitHub workflows. When the user says these, execute t
 - Adapt to context (if PR exists, update it; if already ready, skip)
 - Update PR description with `gh pr edit --body` when commits change scope
 - On CI failure, report the error and offer to fix
-- **NEVER merge a PR until CI is green** - always wait for checks to pass before squash-merging
+- **NEVER merge a PR until CI is green** - always wait for checks to pass, then squash-merge with `gh pr merge --squash`
