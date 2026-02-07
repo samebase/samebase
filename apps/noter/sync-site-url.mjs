@@ -32,4 +32,8 @@ import { execSync } from "child_process";
 const origin = process.env.FUSION_ENV_ORIGIN || "http://localhost:5173";
 
 console.log(`Setting Convex SITE_URL to ${origin}`);
-execSync(`npx convex env set SITE_URL "${origin}"`, { stdio: "inherit" });
+try {
+  execSync(`npx convex env set SITE_URL "${origin}"`, { stdio: "inherit" });
+} catch (error) {
+  console.error("Failed to set SITE_URL, continuing anyway:", error.message);
+}
