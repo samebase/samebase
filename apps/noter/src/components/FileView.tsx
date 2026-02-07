@@ -229,8 +229,8 @@ function FileViewInner({
     api.fileStagingActions.commitStaging,
   );
 
-  const [clearAllStaging, clearingStagingStatus] = useConvexMutation(
-    api.fileStaging.clearAllStaging,
+  const [pullFromGitHub, pullFromGitHubStatus] = useConvexAction(
+    api.fileStagingActions.pullFromGitHub,
   );
   const [markFileForDeletion] = useConvexMutation(
     api.fileStaging.markFileForDeletion,
@@ -377,11 +377,11 @@ function FileViewInner({
     });
   }, [commitStaging, repositoryFullName]);
 
-  const handleResetToGitHub = useCallback(() => {
-    void clearAllStaging({
+  const handlePullFromGitHub = useCallback(() => {
+    void pullFromGitHub({
       vaultId: vault._id,
     });
-  }, [clearAllStaging, vault._id]);
+  }, [pullFromGitHub, vault._id]);
 
   const handleFolderToggle = useCallback(
     (folderPath: string, isExpanded: boolean) => {
@@ -559,31 +559,31 @@ function FileViewInner({
                   <Button
                     size="sm"
                     variant="outline"
+                    onClick={handlePullFromGitHub}
+                    disabled={
+                      pullFromGitHubStatus === "loading" ||
+                      manualComittingStatus === "loading"
+                    }
+                    className="h-6 px-2 text-xs"
+                  >
+                    {pullFromGitHubStatus === "loading"
+                      ? "Pulling..."
+                      : "Pull Main"}
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
                     onClick={handleManualCommit}
                     disabled={
                       manualComittingStatus === "loading" ||
-                      clearingStagingStatus === "loading"
+                      pullFromGitHubStatus === "loading"
                     }
                     className="h-6 px-2 text-xs"
                   >
                     {manualComittingStatus === "loading"
                       ? "Committing..."
                       : "Commit Now"}
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleResetToGitHub}
-                    disabled={
-                      clearingStagingStatus === "loading" ||
-                      manualComittingStatus === "loading"
-                    }
-                    className="h-6 px-2 text-xs text-orange-600 hover:text-orange-700"
-                  >
-                    {clearingStagingStatus === "loading"
-                      ? "Resetting..."
-                      : "Reset all to GitHub (Discard Changes)"}
                   </Button>
                 </div>
               </div>

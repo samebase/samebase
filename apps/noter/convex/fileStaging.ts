@@ -402,3 +402,54 @@ export const getByOriginalPath = internalQuery({
     return staging;
   },
 });
+
+// Reconcile staging records after pulling a fresh tree from GitHub.
+// Accepts a list of instructions describing what to do with each staging record.
+const reconcileInstructionValidator = v.union(
+  v.object({
+    action: v.literal("delete"),
+    stagingId: v.id("fileStaging"),
+  }),
+  v.object({
+    action: v.literal("update"),
+    stagingId: v.id("fileStaging"),
+    parentCommitSha: v.union(v.string(), v.null()),
+    initialContent: v.optional(v.string()),
+  }),
+);
+
+export const reconcileStagingWithTree = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+    instructions: v.array(reconcileInstructionValidator),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    for (const instruction of args.instructions) {
+      if (instruction.action === "delete") {
+        await ctx.db.delete(instruction.stagingId);
+      } else {
+        const patch: Record<string, unknown> = {
+          parentCommitSha: instruction.parentCommitSha,
+        };
+        if (instruction.initialContent !== undefined) {
+          patch.initialContent = instruction.initialContent;
+        }
+        await ctx.db.patch(instruction.stagingId, patch);
+      }
+    }
+
+    // Clean up collaborative updates for deleted staging records
+    // (schedule batched deletion to avoid hitting read limits)
+    const hasDeletes = args.instructions.some((i) => i.action === "delete");
+    if (hasDeletes) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.fileStaging.deleteCollaborativeUpdatesBatch,
+        { vaultId: args.vaultId },
+      );
+    }
+
+    return null;
+  },
+});

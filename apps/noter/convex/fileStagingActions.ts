@@ -302,6 +302,159 @@ export const commitStaging = action({
   },
 });
 
+// Pull the latest tree from GitHub and reconcile with staged files.
+// Staged files with real edits are preserved (noter wins).
+// Unchanged staging records are cleaned up.
+export const pullFromGitHub = action({
+  args: {
+    vaultId: v.id("vaults"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+
+    const currentUser = await ctx.runQuery(internal.users.getById, {
+      userId,
+    });
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    const vault = await ctx.runQuery(internal.vault.getById, {
+      id: args.vaultId,
+    });
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
+    const octokit = new Octokit({
+      auth: currentUser.githubAccessToken,
+    });
+
+    // 1. Fetch fresh tree from GitHub
+    const tree = await octokit.rest.git.getTree({
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+      tree_sha: "HEAD",
+      recursive: "1",
+    });
+
+    const newTree = tree.data;
+
+    // Build a map of path → sha for quick lookups
+    const treeMap = new Map<string, string>();
+    for (const item of newTree.tree) {
+      if (item.path && item.sha) {
+        treeMap.set(item.path, item.sha);
+      }
+    }
+
+    // 2. Read all staging records for this vault (including unchanged)
+    const allStaged = await ctx.runQuery(api.fileStaging.listStagedFiles, {
+      vaultId: args.vaultId,
+      includeUnchanged: true,
+    });
+
+    // 3. Build reconciliation instructions
+    type Instruction =
+      | { action: "delete"; stagingId: (typeof allStaged)[0]["_id"] }
+      | {
+          action: "update";
+          stagingId: (typeof allStaged)[0]["_id"];
+          parentCommitSha: string | null;
+          initialContent?: string;
+        };
+
+    const instructions: Instruction[] = [];
+    const blobFetchQueue: Array<{
+      stagingId: (typeof allStaged)[0]["_id"];
+      sha: string;
+    }> = [];
+
+    for (const staged of allStaged) {
+      const isEdited =
+        staged.content !== staged.initialContent ||
+        staged.fileDeleted ||
+        staged.filePath !== staged.initialFilePath;
+      const isNewFile = staged.parentCommitSha === null;
+
+      // Rule 6: New file in staging → always keep
+      if (isNewFile) {
+        continue;
+      }
+
+      const pathInTree = staged.initialFilePath;
+      const newSha = treeMap.get(pathInTree);
+      const fileExistsOnGitHub = newSha !== undefined;
+
+      if (!isEdited) {
+        // Content === initialContent (unchanged edit)
+        // Rule 3 & 4: drop the staging record regardless of GitHub state
+        instructions.push({ action: "delete", stagingId: staged._id });
+        continue;
+      }
+
+      // File has real edits (noter wins)
+      if (!fileExistsOnGitHub) {
+        // Rule 2: Deleted on GitHub but edited in noter → treat as new file
+        instructions.push({
+          action: "update",
+          stagingId: staged._id,
+          parentCommitSha: null,
+        });
+      } else if (newSha !== staged.parentCommitSha) {
+        // File exists on GitHub with a new SHA → need to fetch new content
+        // for initialContent update, but preserve user's content
+        blobFetchQueue.push({ stagingId: staged._id, sha: newSha });
+      }
+      // else: same SHA → no change needed (Rule 5)
+    }
+
+    // 4. Fetch blobs for files that changed on GitHub (need new initialContent)
+    for (const item of blobFetchQueue) {
+      try {
+        const blob = await octokit.rest.git.getBlob({
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          file_sha: item.sha,
+        });
+        const buffer = Buffer.from(blob.data.content, "base64");
+        const newContent = buffer.toString("utf-8");
+        instructions.push({
+          action: "update",
+          stagingId: item.stagingId,
+          parentCommitSha: item.sha,
+          initialContent: newContent,
+        });
+      } catch (error) {
+        console.error(`Failed to fetch blob ${item.sha}:`, error);
+        // Still update the parentCommitSha even if we can't get content
+        instructions.push({
+          action: "update",
+          stagingId: item.stagingId,
+          parentCommitSha: item.sha,
+        });
+      }
+    }
+
+    // 5. Apply reconciliation instructions
+    if (instructions.length > 0) {
+      await ctx.runMutation(internal.fileStaging.reconcileStagingWithTree, {
+        vaultId: args.vaultId,
+        instructions,
+      });
+    }
+
+    // 6. Update the vault tree
+    await ctx.runMutation(internal.vault.updateVaultTree, {
+      vaultId: args.vaultId,
+      treeData: newTree,
+    });
+
+    return null;
+  },
+});
+
 // MARK: Internal
 
 // Helper function to create a commit with multiple files
