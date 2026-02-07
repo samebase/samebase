@@ -331,6 +331,7 @@ async function getVaultByRepositoryHelper(
     treeSHA: vault.treeSHA,
     treeData: vault.treeData,
     treeRefreshStartedAt: vault.treeRefreshStartedAt,
+    lastTreeRefreshAt: vault.lastTreeRefreshAt,
   };
 }
 
