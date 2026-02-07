@@ -184,7 +184,7 @@ describe("createCommitWithMultipleFiles", () => {
           updateRef: vi.fn(),
         },
       },
-    } as any;
+    };
   });
 
   /**
