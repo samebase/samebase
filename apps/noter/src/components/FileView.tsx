@@ -372,11 +372,10 @@ function FileViewInner({
 
     void commitStaging({
       repositoryFullName: repositoryFullName,
-      currentFilePath: selectedFile,
     }).catch((error) => {
       console.error("Failed to commit changes:", error);
     });
-  }, [commitStaging, repositoryFullName, selectedFile]);
+  }, [commitStaging, repositoryFullName]);
 
   const handleResetToGitHub = useCallback(() => {
     void clearAllStaging({
