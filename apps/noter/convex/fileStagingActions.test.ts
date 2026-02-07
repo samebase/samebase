@@ -1,5 +1,135 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { Octokit } from "@octokit/rest";
+import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
+
+type GitApi = RestEndpointMethodTypes["git"];
+type GetRefResponse = GitApi["getRef"]["response"];
+type GetCommitResponse = GitApi["getCommit"]["response"];
+type CreateBlobResponse = GitApi["createBlob"]["response"];
+type CreateTreeResponse = GitApi["createTree"]["response"];
+type CreateCommitResponse = GitApi["createCommit"]["response"];
+type UpdateRefResponse = GitApi["updateRef"]["response"];
+
+type GetRefData = GitApi["getRef"]["response"]["data"];
+type GetCommitData = GitApi["getCommit"]["response"]["data"];
+type CreateBlobData = GitApi["createBlob"]["response"]["data"];
+type CreateTreeData = GitApi["createTree"]["response"]["data"];
+type CreateCommitData = GitApi["createCommit"]["response"]["data"];
+type UpdateRefData = GitApi["updateRef"]["response"]["data"];
+
+const emptyHeaders: Record<string, string> = {};
+
+const makeRefData = (sha: string): GetRefData => ({
+  ref: "refs/heads/main",
+  node_id: "node-id",
+  url: "https://api.github.com/repos/test-owner/test-repo/git/refs/heads/main",
+  object: {
+    type: "commit",
+    sha,
+    url: `https://api.github.com/repos/test-owner/test-repo/git/commits/${sha}`,
+  },
+});
+
+const makeGetRefResponse = (sha: string): GetRefResponse => ({
+  status: 200,
+  url: "https://api.github.com/",
+  headers: emptyHeaders,
+  data: makeRefData(sha),
+});
+
+const makeAuthor = () => ({
+  name: "Test Author",
+  email: "author@example.com",
+  date: "2020-01-01T00:00:00Z",
+});
+
+const makeGetCommitResponse = (
+  treeSha: string,
+  commitSha: string,
+): GetCommitResponse => ({
+  status: 200,
+  url: `https://api.github.com/repos/test-owner/test-repo/git/commits/${commitSha}`,
+  headers: emptyHeaders,
+  data: {
+    sha: commitSha,
+    node_id: "node-id",
+    url: `https://api.github.com/repos/test-owner/test-repo/git/commits/${commitSha}`,
+    author: makeAuthor(),
+    committer: makeAuthor(),
+    message: "Test commit",
+    tree: {
+      sha: treeSha,
+      url: `https://api.github.com/repos/test-owner/test-repo/git/trees/${treeSha}`,
+    },
+    parents: [],
+    verification: {
+      verified: false,
+      reason: "unsigned",
+      signature: null,
+      payload: null,
+      verified_at: null,
+    },
+    html_url: `https://github.com/test-owner/test-repo/commit/${commitSha}`,
+  } satisfies GetCommitData,
+});
+
+const makeCreateBlobResponse = (blobSha: string): CreateBlobResponse => ({
+  status: 201,
+  url: "https://api.github.com/",
+  headers: emptyHeaders,
+  data: {
+    url: `https://api.github.com/repos/test-owner/test-repo/git/blobs/${blobSha}`,
+    sha: blobSha,
+  } satisfies CreateBlobData,
+});
+
+const makeCreateTreeResponse = (treeSha: string): CreateTreeResponse => ({
+  status: 201,
+  url: `https://api.github.com/repos/test-owner/test-repo/git/trees/${treeSha}`,
+  headers: emptyHeaders,
+  data: {
+    sha: treeSha,
+    url: `https://api.github.com/repos/test-owner/test-repo/git/trees/${treeSha}`,
+    tree: [],
+    truncated: false,
+  } satisfies CreateTreeData,
+});
+
+const makeCreateCommitResponse = (
+  treeSha: string,
+  commitSha: string,
+): CreateCommitResponse => ({
+  status: 201,
+  url: `https://api.github.com/repos/test-owner/test-repo/git/commits/${commitSha}`,
+  headers: emptyHeaders,
+  data: {
+    sha: commitSha,
+    node_id: "node-id",
+    url: `https://api.github.com/repos/test-owner/test-repo/git/commits/${commitSha}`,
+    author: makeAuthor(),
+    committer: makeAuthor(),
+    message: "Test commit",
+    tree: {
+      sha: treeSha,
+      url: `https://api.github.com/repos/test-owner/test-repo/git/trees/${treeSha}`,
+    },
+    parents: [],
+    verification: {
+      verified: false,
+      reason: "unsigned",
+      signature: null,
+      payload: null,
+      verified_at: null,
+    },
+    html_url: `https://github.com/test-owner/test-repo/commit/${commitSha}`,
+  } satisfies CreateCommitData,
+});
+
+const makeUpdateRefResponse = (sha: string): UpdateRefResponse => ({
+  status: 200,
+  url: "https://api.github.com/",
+  headers: emptyHeaders,
+  data: makeRefData(sha) satisfies UpdateRefData,
+});
 
 /**
  * Mock implementation of createCommitWithMultipleFiles
@@ -139,7 +269,7 @@ async function createCommitWithMultipleFiles({
       owner,
       repo,
       base_tree: currentTreeSha,
-      tree: newTreeEntries as any,
+      tree: newTreeEntries,
     });
 
     // 7. Create the commit
@@ -170,21 +300,11 @@ async function createCommitWithMultipleFiles({
 }
 
 describe("createCommitWithMultipleFiles", () => {
-  let mockOctokit: Partial<Octokit>;
+  let octokit: Octokit;
 
   beforeEach(() => {
-    mockOctokit = {
-      rest: {
-        git: {
-          getRef: vi.fn(),
-          getCommit: vi.fn(),
-          createBlob: vi.fn(),
-          createTree: vi.fn(),
-          createCommit: vi.fn(),
-          updateRef: vi.fn(),
-        },
-      },
-    };
+    vi.restoreAllMocks();
+    octokit = new Octokit({ auth: "test" });
   });
 
   /**
@@ -195,25 +315,27 @@ describe("createCommitWithMultipleFiles", () => {
    */
   it("Test 1: Single file edit - creates only 1 tree entry with base_tree", async () => {
     // Setup mocks
-    (mockOctokit.rest!.git!.getRef as any).mockResolvedValue({
-      data: { object: { sha: "abc123" } },
-    });
-    (mockOctokit.rest!.git!.getCommit as any).mockResolvedValue({
-      data: { tree: { sha: "tree123" } },
-    });
-    (mockOctokit.rest!.git!.createBlob as any).mockResolvedValue({
-      data: { sha: "blob1" },
-    });
-    (mockOctokit.rest!.git!.createTree as any).mockResolvedValue({
-      data: { sha: "newtree123" },
-    });
-    (mockOctokit.rest!.git!.createCommit as any).mockResolvedValue({
-      data: { sha: "commit123", html_url: "http://github.com/commit" },
-    });
-    (mockOctokit.rest!.git!.updateRef as any).mockResolvedValue({});
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
+      makeGetRefResponse("abc123"),
+    );
+    vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
+      makeGetCommitResponse("tree123", "abc123"),
+    );
+    vi.spyOn(octokit.rest.git, "createBlob").mockResolvedValue(
+      makeCreateBlobResponse("blob1"),
+    );
+    const createTreeSpy = vi
+      .spyOn(octokit.rest.git, "createTree")
+      .mockResolvedValue(makeCreateTreeResponse("newtree123"));
+    vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
+      makeCreateCommitResponse("newtree123", "commit123"),
+    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
+      makeUpdateRefResponse("commit123"),
+    );
 
     await createCommitWithMultipleFiles({
-      octokit: mockOctokit as Octokit,
+      octokit,
       owner: "test-owner",
       repo: "test-repo",
       stagedFiles: [
@@ -229,8 +351,10 @@ describe("createCommitWithMultipleFiles", () => {
     });
 
     // Verify tree was created with only 1 entry
-    const createTreeCall = (mockOctokit.rest!.git!.createTree as any).mock
-      .calls[0][0];
+    const createTreeCall = createTreeSpy.mock.calls[0]?.[0];
+    if (!createTreeCall) {
+      throw new Error("createTree was not called");
+    }
     expect(createTreeCall.tree.length).toBe(1);
     expect(createTreeCall.tree[0].path).toBe("src/file.ts");
     expect(createTreeCall.tree[0].sha).toBe("blob1");
@@ -245,25 +369,27 @@ describe("createCommitWithMultipleFiles", () => {
    * Verify: Tree entry for deleted file has sha: null
    */
   it("Test 2: File deletion - creates tree entry with sha null", async () => {
-    (mockOctokit.rest!.git!.getRef as any).mockResolvedValue({
-      data: { object: { sha: "abc123" } },
-    });
-    (mockOctokit.rest!.git!.getCommit as any).mockResolvedValue({
-      data: { tree: { sha: "tree123" } },
-    });
-    (mockOctokit.rest!.git!.createBlob as any).mockResolvedValue({
-      data: { sha: "blob1" },
-    });
-    (mockOctokit.rest!.git!.createTree as any).mockResolvedValue({
-      data: { sha: "newtree123" },
-    });
-    (mockOctokit.rest!.git!.createCommit as any).mockResolvedValue({
-      data: { sha: "commit123", html_url: "http://github.com/commit" },
-    });
-    (mockOctokit.rest!.git!.updateRef as any).mockResolvedValue({});
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
+      makeGetRefResponse("abc123"),
+    );
+    vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
+      makeGetCommitResponse("tree123", "abc123"),
+    );
+    vi.spyOn(octokit.rest.git, "createBlob").mockResolvedValue(
+      makeCreateBlobResponse("blob1"),
+    );
+    const createTreeSpy = vi
+      .spyOn(octokit.rest.git, "createTree")
+      .mockResolvedValue(makeCreateTreeResponse("newtree123"));
+    vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
+      makeCreateCommitResponse("newtree123", "commit123"),
+    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
+      makeUpdateRefResponse("commit123"),
+    );
 
     await createCommitWithMultipleFiles({
-      octokit: mockOctokit as Octokit,
+      octokit,
       owner: "test-owner",
       repo: "test-repo",
       stagedFiles: [
@@ -278,8 +404,10 @@ describe("createCommitWithMultipleFiles", () => {
       branch: "main",
     });
 
-    const createTreeCall = (mockOctokit.rest!.git!.createTree as any).mock
-      .calls[0][0];
+    const createTreeCall = createTreeSpy.mock.calls[0]?.[0];
+    if (!createTreeCall) {
+      throw new Error("createTree was not called");
+    }
     expect(createTreeCall.tree.length).toBe(1);
     expect(createTreeCall.tree[0].path).toBe("src/deleted.ts");
     expect(createTreeCall.tree[0].sha).toBe(null);
@@ -291,25 +419,27 @@ describe("createCommitWithMultipleFiles", () => {
    * Verify: Tree entries contain deletion of old path AND addition of new path
    */
   it("Test 3: File rename - creates entries for old and new paths", async () => {
-    (mockOctokit.rest!.git!.getRef as any).mockResolvedValue({
-      data: { object: { sha: "abc123" } },
-    });
-    (mockOctokit.rest!.git!.getCommit as any).mockResolvedValue({
-      data: { tree: { sha: "tree123" } },
-    });
-    (mockOctokit.rest!.git!.createBlob as any).mockResolvedValue({
-      data: { sha: "blob1" },
-    });
-    (mockOctokit.rest!.git!.createTree as any).mockResolvedValue({
-      data: { sha: "newtree123" },
-    });
-    (mockOctokit.rest!.git!.createCommit as any).mockResolvedValue({
-      data: { sha: "commit123", html_url: "http://github.com/commit" },
-    });
-    (mockOctokit.rest!.git!.updateRef as any).mockResolvedValue({});
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
+      makeGetRefResponse("abc123"),
+    );
+    vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
+      makeGetCommitResponse("tree123", "abc123"),
+    );
+    vi.spyOn(octokit.rest.git, "createBlob").mockResolvedValue(
+      makeCreateBlobResponse("blob1"),
+    );
+    const createTreeSpy = vi
+      .spyOn(octokit.rest.git, "createTree")
+      .mockResolvedValue(makeCreateTreeResponse("newtree123"));
+    vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
+      makeCreateCommitResponse("newtree123", "commit123"),
+    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
+      makeUpdateRefResponse("commit123"),
+    );
 
     await createCommitWithMultipleFiles({
-      octokit: mockOctokit as Octokit,
+      octokit,
       owner: "test-owner",
       repo: "test-repo",
       stagedFiles: [
@@ -324,21 +454,26 @@ describe("createCommitWithMultipleFiles", () => {
       branch: "main",
     });
 
-    const createTreeCall = (mockOctokit.rest!.git!.createTree as any).mock
-      .calls[0][0];
+    const createTreeCall = createTreeSpy.mock.calls[0]?.[0];
+    if (!createTreeCall) {
+      throw new Error("createTree was not called");
+    }
     // Should have 2 entries: deletion of old path + addition of new path
     expect(createTreeCall.tree.length).toBe(2);
 
     const deletionEntry = createTreeCall.tree.find(
-      (e: any) => e.path === "src/old-name.ts",
+      (entry) => entry.path === "src/old-name.ts",
     );
     const additionEntry = createTreeCall.tree.find(
-      (e: any) => e.path === "src/new-name.ts",
+      (entry) => entry.path === "src/new-name.ts",
     );
 
     expect(deletionEntry).toBeDefined();
-    expect(deletionEntry.sha).toBe(null);
     expect(additionEntry).toBeDefined();
+    if (!deletionEntry || !additionEntry) {
+      throw new Error("Expected rename entries to be present");
+    }
+    expect(deletionEntry.sha).toBe(null);
     expect(additionEntry.sha).toBe("blob1");
   });
 
@@ -349,26 +484,28 @@ describe("createCommitWithMultipleFiles", () => {
    * Verify: No full tree reconstruction happens (base_tree is used)
    */
   it("Test 4: Mixed changes - handles edits, deletes, and renames", async () => {
-    (mockOctokit.rest!.git!.getRef as any).mockResolvedValue({
-      data: { object: { sha: "abc123" } },
-    });
-    (mockOctokit.rest!.git!.getCommit as any).mockResolvedValue({
-      data: { tree: { sha: "tree123" } },
-    });
-    (mockOctokit.rest!.git!.createBlob as any)
-      .mockResolvedValueOnce({ data: { sha: "blob1" } })
-      .mockResolvedValueOnce({ data: { sha: "blob2" } })
-      .mockResolvedValueOnce({ data: { sha: "blob3" } });
-    (mockOctokit.rest!.git!.createTree as any).mockResolvedValue({
-      data: { sha: "newtree123" },
-    });
-    (mockOctokit.rest!.git!.createCommit as any).mockResolvedValue({
-      data: { sha: "commit123", html_url: "http://github.com/commit" },
-    });
-    (mockOctokit.rest!.git!.updateRef as any).mockResolvedValue({});
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
+      makeGetRefResponse("abc123"),
+    );
+    vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
+      makeGetCommitResponse("tree123", "abc123"),
+    );
+    vi.spyOn(octokit.rest.git, "createBlob")
+      .mockResolvedValueOnce(makeCreateBlobResponse("blob1"))
+      .mockResolvedValueOnce(makeCreateBlobResponse("blob2"))
+      .mockResolvedValueOnce(makeCreateBlobResponse("blob3"));
+    const createTreeSpy = vi
+      .spyOn(octokit.rest.git, "createTree")
+      .mockResolvedValue(makeCreateTreeResponse("newtree123"));
+    vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
+      makeCreateCommitResponse("newtree123", "commit123"),
+    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
+      makeUpdateRefResponse("commit123"),
+    );
 
     await createCommitWithMultipleFiles({
-      octokit: mockOctokit as Octokit,
+      octokit,
       owner: "test-owner",
       repo: "test-repo",
       stagedFiles: [
@@ -404,8 +541,10 @@ describe("createCommitWithMultipleFiles", () => {
       branch: "main",
     });
 
-    const createTreeCall = (mockOctokit.rest!.git!.createTree as any).mock
-      .calls[0][0];
+    const createTreeCall = createTreeSpy.mock.calls[0]?.[0];
+    if (!createTreeCall) {
+      throw new Error("createTree was not called");
+    }
     // Should have 5 entries: 2 edits + 1 delete + 1 old rename delete + 1 new rename add
     expect(createTreeCall.tree.length).toBe(5);
 
@@ -413,7 +552,9 @@ describe("createCommitWithMultipleFiles", () => {
     expect(createTreeCall.base_tree).toBe("tree123");
 
     // Verify all paths are present
-    const paths = createTreeCall.tree.map((e: any) => e.path);
+    const paths = createTreeCall.tree
+      .map((entry) => entry.path)
+      .filter((path): path is string => typeof path === "string");
     expect(paths).toContain("src/edit1.ts");
     expect(paths).toContain("src/edit2.ts");
     expect(paths).toContain("src/deleted.ts");
@@ -427,31 +568,31 @@ describe("createCommitWithMultipleFiles", () => {
    * Verify: All blobs created via Promise.all() (no sequential API calls)
    */
   it("Test 5: Blobs are created in parallel", async () => {
-    (mockOctokit.rest!.git!.getRef as any).mockResolvedValue({
-      data: { object: { sha: "abc123" } },
-    });
-    (mockOctokit.rest!.git!.getCommit as any).mockResolvedValue({
-      data: { tree: { sha: "tree123" } },
-    });
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
+      makeGetRefResponse("abc123"),
+    );
+    vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
+      makeGetCommitResponse("tree123", "abc123"),
+    );
 
-    const createBlobMock = vi
-      .fn()
-      .mockResolvedValueOnce({ data: { sha: "blob1" } })
-      .mockResolvedValueOnce({ data: { sha: "blob2" } })
-      .mockResolvedValueOnce({ data: { sha: "blob3" } });
+    const createBlobSpy = vi
+      .spyOn(octokit.rest.git, "createBlob")
+      .mockResolvedValueOnce(makeCreateBlobResponse("blob1"))
+      .mockResolvedValueOnce(makeCreateBlobResponse("blob2"))
+      .mockResolvedValueOnce(makeCreateBlobResponse("blob3"));
 
-    (mockOctokit.rest!.git!.createBlob as any) = createBlobMock;
-
-    (mockOctokit.rest!.git!.createTree as any).mockResolvedValue({
-      data: { sha: "newtree123" },
-    });
-    (mockOctokit.rest!.git!.createCommit as any).mockResolvedValue({
-      data: { sha: "commit123", html_url: "http://github.com/commit" },
-    });
-    (mockOctokit.rest!.git!.updateRef as any).mockResolvedValue({});
+    vi.spyOn(octokit.rest.git, "createTree").mockResolvedValue(
+      makeCreateTreeResponse("newtree123"),
+    );
+    vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
+      makeCreateCommitResponse("newtree123", "commit123"),
+    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
+      makeUpdateRefResponse("commit123"),
+    );
 
     await createCommitWithMultipleFiles({
-      octokit: mockOctokit as Octokit,
+      octokit,
       owner: "test-owner",
       repo: "test-repo",
       stagedFiles: [
@@ -481,10 +622,10 @@ describe("createCommitWithMultipleFiles", () => {
     });
 
     // Verify createBlob was called 3 times
-    expect(createBlobMock).toHaveBeenCalledTimes(3);
+    expect(createBlobSpy).toHaveBeenCalledTimes(3);
 
     // Verify all blob calls were made (they happen in Promise.all, so order might vary)
-    const blobCalls = createBlobMock.mock.calls;
+    const blobCalls = createBlobSpy.mock.calls;
     expect(blobCalls.length).toBe(3);
   });
 });
