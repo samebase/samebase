@@ -330,6 +330,8 @@ async function getVaultByRepositoryHelper(
     repositoryFullName: args.repositoryFullName,
     treeSHA: vault.treeSHA,
     treeData: vault.treeData,
+    treeRefreshStartedAt: vault.treeRefreshStartedAt,
+    lastTreeRefreshAt: vault.lastTreeRefreshAt,
   };
 }
 
@@ -342,6 +344,70 @@ export const getByRepositoryFullName = internalQuery({
     return await getVaultByRepositoryHelper(ctx, {
       userId: args.userId,
       repositoryFullName: args.repositoryFullName,
+    });
+  },
+});
+
+const REFRESH_DEBOUNCE_MS = 2 * 60 * 1000; // 2 minutes
+const STALE_LOCK_MS = 3 * 60 * 1000; // 3 minutes — consider a lock stale if action crashed
+
+// Atomically claim the tree refresh lock for a vault.
+// Returns { claimed: true } if this caller should proceed, { claimed: false } if skipped.
+export const claimTreeRefresh = internalMutation({
+  args: { vaultId: v.id("vaults"), force: v.optional(v.boolean()) },
+  returns: v.object({ claimed: v.boolean() }),
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault) return { claimed: false };
+
+    const now = Date.now();
+
+    if (!args.force) {
+      // Skip if last successful refresh was recent
+      if (
+        vault.lastTreeRefreshAt &&
+        now - vault.lastTreeRefreshAt < REFRESH_DEBOUNCE_MS
+      ) {
+        return { claimed: false };
+      }
+
+      // Skip if another refresh is already in progress (and not stale)
+      if (
+        vault.treeRefreshStartedAt &&
+        now - vault.treeRefreshStartedAt < STALE_LOCK_MS
+      ) {
+        return { claimed: false };
+      }
+    }
+
+    // Claim the lock
+    await ctx.db.patch(args.vaultId, { treeRefreshStartedAt: now });
+    return { claimed: true };
+  },
+});
+
+// Optimistically start tree refresh (for immediate UI feedback)
+export const startTreeRefreshOptimistic = mutation({
+  args: { vaultId: v.id("vaults") },
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault) return;
+
+    // Optimistically set the refresh started timestamp
+    await ctx.db.patch(args.vaultId, { treeRefreshStartedAt: Date.now() });
+  },
+});
+
+// Release the tree refresh lock and record completion time.
+export const releaseTreeRefresh = internalMutation({
+  args: { vaultId: v.id("vaults") },
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault) return;
+
+    await ctx.db.patch(args.vaultId, {
+      lastTreeRefreshAt: Date.now(),
+      treeRefreshStartedAt: undefined,
     });
   },
 });

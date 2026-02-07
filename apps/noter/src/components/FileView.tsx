@@ -10,6 +10,7 @@ import {
   MagnifyingGlassIcon,
   PlusIcon,
   FilePlusIcon,
+  UpdateIcon,
 } from "@radix-ui/react-icons";
 import {
   Sidebar,
@@ -20,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { FileTree } from "./FileTree";
 import { CommandPalette } from "./CommandPalette";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
 import { useSidebar } from "@/components/ui/sidebar";
 import { UserMenu } from "@/components/UserMenu";
@@ -43,6 +44,27 @@ import {
   EditedFilesCategoriesPopover,
   EditedFilesCategoriesPopoverTrigger,
 } from "./EditedFilesCategories";
+
+function formatSecondsAgo(now: number, timestamp: number): string {
+  const seconds = Math.floor((now - timestamp) / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+/** Returns a `now` timestamp that updates every second. */
+function useNow() {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1_000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
 
 // Function to find the best file to display
 function findBestInitialFile(files: GithubTreeType[]) {
@@ -68,6 +90,10 @@ function findBestInitialFile(files: GithubTreeType[]) {
   return sortedFiles[0]?.path || null;
 }
 
+// In-memory map tracking last refresh time per vault key
+const lastRefreshMap = new Map<string, number>();
+const REFRESH_DEBOUNCE_MS = 2 * 60 * 1000; // 2 minutes
+
 function FileViewWrapper() {
   const navigate = useNavigate();
 
@@ -82,6 +108,7 @@ function FileViewWrapper() {
   }>();
 
   const firstDocAction = useAction(api.fileStagingActions.getFileForEditing);
+  const refreshTree = useAction(api.github.refreshRepositoryTree);
   // Parse branch and file path from the wildcard parameter
   const parsedPath = branchAndFilePath ? branchAndFilePath.split("/") : [];
   const branch = parsedPath[0] || "main";
@@ -92,6 +119,16 @@ function FileViewWrapper() {
   const vault = useQuery(api.vault.getVaultByRepository, {
     repositoryFullName: repositoryFullName ?? "skip",
   });
+
+  // Refresh tree from GitHub when vault is opened (debounced to 2 min)
+  useEffect(() => {
+    if (!vault || !owner || !repoName) return;
+    const key = `${owner}/${repoName}`;
+    const lastRefresh = lastRefreshMap.get(key) ?? 0;
+    if (Date.now() - lastRefresh < REFRESH_DEBOUNCE_MS) return;
+    lastRefreshMap.set(key, Date.now());
+    void refreshTree({ owner, repo: repoName });
+  }, [vault?._id, owner, repoName, refreshTree]);
 
   // Auto-redirect to best file when no file is selected
   useEffect(() => {
@@ -162,6 +199,7 @@ function FileViewInner({
   stagedFile: (typeof api.fileStaging.getByNewPath)["_returnType"];
 }) {
   const { setOpenMobile } = useSidebar();
+  const now = useNow();
 
   const navigate = useNavigate();
 
@@ -237,6 +275,9 @@ function FileViewInner({
   );
   const [renameFileInStaging] = useConvexAction(
     api.fileStagingActions.renameFileInStaging,
+  );
+  const startTreeRefreshOptimistic = useMutation(
+    api.vault.startTreeRefreshOptimistic,
   );
 
   // Get count of staged files for this vault
@@ -378,10 +419,12 @@ function FileViewInner({
   }, [commitStaging, repositoryFullName]);
 
   const handlePullFromGitHub = useCallback(() => {
+    // Optimistically update UI to show syncing state immediately
+    void startTreeRefreshOptimistic({ vaultId: vault._id });
     void pullFromGitHub({
       vaultId: vault._id,
     });
-  }, [pullFromGitHub, vault._id]);
+  }, [pullFromGitHub, vault._id, startTreeRefreshOptimistic]);
 
   const handleFolderToggle = useCallback(
     (folderPath: string, isExpanded: boolean) => {
@@ -555,6 +598,30 @@ function FileViewInner({
                       stagedFiles={stagedFiles}
                     />
                   )}
+
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    {vault.treeRefreshStartedAt &&
+                    now - vault.treeRefreshStartedAt < 60_000 ? (
+                      <>
+                        <UpdateIcon className="animate-spin" />
+                        Syncing…
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-mono">
+                          {vault.treeSHA.slice(0, 7)}
+                        </span>
+                        {vault.lastTreeRefreshAt && (
+                          <>
+                            <span>·</span>
+                            <span className="font-mono tabular-nums">
+                              {formatSecondsAgo(now, vault.lastTreeRefreshAt)}
+                            </span>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </span>
 
                   <Button
                     size="sm"

@@ -313,8 +313,45 @@ export const pullFromGitHub = action({
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
 
+    const vault = await ctx.runQuery(internal.vault.getById, {
+      id: args.vaultId,
+    });
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
+    // Atomically claim the refresh lock; force because user explicitly requested pull
+    const { claimed } = await ctx.runMutation(internal.vault.claimTreeRefresh, {
+      vaultId: vault._id,
+      force: true,
+    });
+    if (!claimed) return null;
+
+    try {
+      await ctx.runAction(internal.fileStagingActions.pullFromGitHubInternal, {
+        userId,
+        vaultId: args.vaultId,
+      });
+    } finally {
+      await ctx.runMutation(internal.vault.releaseTreeRefresh, {
+        vaultId: vault._id,
+      });
+    }
+
+    return null;
+  },
+});
+
+// Internal action that performs the actual pull logic
+export const pullFromGitHubInternal = internalAction({
+  args: {
+    userId: v.id("users"),
+    vaultId: v.id("vaults"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
     const currentUser = await ctx.runQuery(internal.users.getById, {
-      userId,
+      userId: args.userId,
     });
     if (!currentUser) {
       throw new Error("User not found");
