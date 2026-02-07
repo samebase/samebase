@@ -330,6 +330,7 @@ async function getVaultByRepositoryHelper(
     repositoryFullName: args.repositoryFullName,
     treeSHA: vault.treeSHA,
     treeData: vault.treeData,
+    treeRefreshStartedAt: vault.treeRefreshStartedAt,
   };
 }
 
