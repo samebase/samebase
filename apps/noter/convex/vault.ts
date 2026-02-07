@@ -346,6 +346,50 @@ export const getByRepositoryFullName = internalQuery({
   },
 });
 
+const REFRESH_DEBOUNCE_MS = 2 * 60 * 1000; // 2 minutes
+const STALE_LOCK_MS = 60 * 1000; // 60 seconds — consider a lock stale if action crashed
+
+// Atomically claim the tree refresh lock for a vault.
+// Returns { claimed: true } if this caller should proceed, { claimed: false } if skipped.
+export const claimTreeRefresh = internalMutation({
+  args: { vaultId: v.id("vaults") },
+  returns: v.object({ claimed: v.boolean() }),
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault) return { claimed: false };
+
+    const now = Date.now();
+
+    // Skip if last successful refresh was recent
+    if (vault.lastTreeRefreshAt && now - vault.lastTreeRefreshAt < REFRESH_DEBOUNCE_MS) {
+      return { claimed: false };
+    }
+
+    // Skip if another refresh is already in progress (and not stale)
+    if (vault.treeRefreshStartedAt && now - vault.treeRefreshStartedAt < STALE_LOCK_MS) {
+      return { claimed: false };
+    }
+
+    // Claim the lock
+    await ctx.db.patch(args.vaultId, { treeRefreshStartedAt: now });
+    return { claimed: true };
+  },
+});
+
+// Release the tree refresh lock and record completion time.
+export const releaseTreeRefresh = internalMutation({
+  args: { vaultId: v.id("vaults") },
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault) return;
+
+    await ctx.db.patch(args.vaultId, {
+      lastTreeRefreshAt: Date.now(),
+      treeRefreshStartedAt: undefined,
+    });
+  },
+});
+
 // Update vault tree internal mutation
 export const updateVaultTree = internalMutation({
   args: {
