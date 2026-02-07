@@ -4,14 +4,12 @@ import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
 type GitApi = RestEndpointMethodTypes["git"];
 type GetRefResponse = GitApi["getRef"]["response"];
 type GetCommitResponse = GitApi["getCommit"]["response"];
-type CreateBlobResponse = GitApi["createBlob"]["response"];
 type CreateTreeResponse = GitApi["createTree"]["response"];
 type CreateCommitResponse = GitApi["createCommit"]["response"];
 type UpdateRefResponse = GitApi["updateRef"]["response"];
 
 type GetRefData = GitApi["getRef"]["response"]["data"];
 type GetCommitData = GitApi["getCommit"]["response"]["data"];
-type CreateBlobData = GitApi["createBlob"]["response"]["data"];
 type CreateTreeData = GitApi["createTree"]["response"]["data"];
 type CreateCommitData = GitApi["createCommit"]["response"]["data"];
 type UpdateRefData = GitApi["updateRef"]["response"]["data"];
@@ -70,16 +68,6 @@ const makeGetCommitResponse = (
     },
     html_url: `https://github.com/test-owner/test-repo/commit/${commitSha}`,
   } satisfies GetCommitData,
-});
-
-const makeCreateBlobResponse = (blobSha: string): CreateBlobResponse => ({
-  status: 201,
-  url: "https://api.github.com/",
-  headers: emptyHeaders,
-  data: {
-    url: `https://api.github.com/repos/test-owner/test-repo/git/blobs/${blobSha}`,
-    sha: blobSha,
-  } satisfies CreateBlobData,
 });
 
 const makeCreateTreeResponse = (treeSha: string): CreateTreeResponse => ({
@@ -151,6 +139,7 @@ async function createCommitWithMultipleFiles({
     fileDeleted: boolean;
     initialFilePath: string;
     initialContent?: string;
+    parentCommitSha: string | null;
   }>;
   branch: string;
 }) {
@@ -187,45 +176,33 @@ async function createCommitWithMultipleFiles({
 
   // 1. Prepare file lists
   const pathsToDelete = new Set<string>();
-  const filesToCreateBlobs: Array<{
+  const filesToAdd: Array<{
     filePath: string;
     content: string;
   }> = [];
 
   for (const file of stagedFiles) {
     if (file.fileDeleted) {
-      pathsToDelete.add(file.filePath);
+      if (file.parentCommitSha !== null) {
+        pathsToDelete.add(file.filePath);
+      }
     } else {
       const isRenamed = file.filePath !== file.initialFilePath;
-      if (isRenamed) {
+      if (isRenamed && file.parentCommitSha !== null) {
         pathsToDelete.add(file.initialFilePath);
       }
-      filesToCreateBlobs.push({
+      filesToAdd.push({
         filePath: file.filePath,
         content: file.content,
       });
     }
   }
 
-  // 2. Create all blobs in parallel (outside retry — blobs are content-addressable)
-  const blobResults = await Promise.all(
-    filesToCreateBlobs.map((file) =>
-      octokit.rest.git.createBlob({
-        owner,
-        repo,
-        content: Buffer.from(file.content, "utf8").toString("base64"),
-        encoding: "base64",
-      }),
-    ),
-  );
-
-  // 3. Build tree entries from blobs
-  const newTreeEntries: Array<{
-    path: string;
-    mode: "100644";
-    type: "blob";
-    sha: string | null;
-  }> = [];
+  // 2. Build tree entries with inline content
+  const newTreeEntries: Array<
+    | { path: string; mode: "100644"; type: "blob"; sha: null }
+    | { path: string; mode: "100644"; type: "blob"; content: string }
+  > = [];
 
   for (const path of pathsToDelete) {
     newTreeEntries.push({
@@ -236,12 +213,12 @@ async function createCommitWithMultipleFiles({
     });
   }
 
-  for (let i = 0; i < filesToCreateBlobs.length; i++) {
+  for (const file of filesToAdd) {
     newTreeEntries.push({
-      path: filesToCreateBlobs[i].filePath,
+      path: file.filePath,
       mode: "100644",
       type: "blob",
-      sha: blobResults[i].data.sha,
+      content: file.content,
     });
   }
 
@@ -267,7 +244,7 @@ async function createCommitWithMultipleFiles({
         owner,
         repo,
         base_tree: currentTreeSha,
-        tree: newTreeEntries,
+        tree: newTreeEntries as any,
       });
 
       const { data: newCommit } = await octokit.rest.git.createCommit({
