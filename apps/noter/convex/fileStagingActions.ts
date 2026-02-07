@@ -385,162 +385,171 @@ async function createCommitWithMultipleFiles({
       !file.fileDeleted && (file.initialContent ?? "") !== (file.content ?? ""),
   }));
 
-  try {
-    // 1. Get the current commit SHA
-    const { data: refData } = await octokit.rest.git.getRef({
-      owner,
-      repo,
-      ref: `heads/${branch}`,
-    });
-    const currentCommitSha = refData.object.sha;
+  // 1. Prepare file lists
+  const pathsToDelete = new Set<string>();
+  const filesToCreateBlobs: Array<{
+    filePath: string;
+    content: string;
+  }> = [];
 
-    // 2. Get the current commit to get the tree SHA
-    const { data: currentCommit } = await octokit.rest.git.getCommit({
-      owner,
-      repo,
-      commit_sha: currentCommitSha,
-    });
-    const currentTreeSha = currentCommit.tree.sha;
-
-    // 3. Prepare file lists for parallel processing
-    const pathsToDelete = new Set<string>();
-    const filesToCreateBlobs: Array<{
-      filePath: string;
-      content: string;
-    }> = [];
-
-    for (const file of stagedFiles) {
-      if (file.fileDeleted) {
-        pathsToDelete.add(file.filePath);
-      } else {
-        const isRenamed = file.filePath !== file.initialFilePath;
-        if (isRenamed) {
-          pathsToDelete.add(file.initialFilePath);
-        }
-        filesToCreateBlobs.push({
-          filePath: file.filePath,
-          content: file.content,
-        });
+  for (const file of stagedFiles) {
+    if (file.fileDeleted) {
+      pathsToDelete.add(file.filePath);
+    } else {
+      const isRenamed = file.filePath !== file.initialFilePath;
+      if (isRenamed) {
+        pathsToDelete.add(file.initialFilePath);
       }
-    }
-
-    // 4. Create all blobs in parallel
-    const blobResults = await Promise.all(
-      filesToCreateBlobs.map((file) =>
-        octokit.rest.git.createBlob({
-          owner,
-          repo,
-          content: Buffer.from(file.content, "utf8").toString("base64"),
-          encoding: "base64",
-        }),
-      ),
-    );
-
-    // 5. Build incremental tree entries (only changes)
-    const newTreeEntries: Array<{
-      path: string;
-      mode: "100644";
-      type: "blob";
-      sha: string | null;
-    }> = [];
-
-    // Add deleted files with sha: null to remove them
-    for (const path of pathsToDelete) {
-      newTreeEntries.push({
-        path,
-        mode: "100644",
-        type: "blob",
-        sha: null,
+      filesToCreateBlobs.push({
+        filePath: file.filePath,
+        content: file.content,
       });
     }
-
-    // Add new/updated files with their blob SHAs
-    for (let i = 0; i < filesToCreateBlobs.length; i++) {
-      newTreeEntries.push({
-        path: filesToCreateBlobs[i].filePath,
-        mode: "100644",
-        type: "blob",
-        sha: blobResults[i].data.sha,
-      });
-    }
-
-    // 6. Create a new tree using base_tree — only sends the diff
-    const { data: newTree } = await octokit.rest.git.createTree({
-      owner,
-      repo,
-      base_tree: currentTreeSha,
-      tree: newTreeEntries as any,
-    });
-
-    // 8. Create the commit - compact, single-line subject
-    const basename = (p: string) => {
-      const parts = p.split("/");
-      return parts[parts.length - 1] || p;
-    };
-    const shortRanges = (
-      ranges: Array<{ from: number; to: number }>,
-      max = 2,
-    ) => {
-      const items = ranges
-        .slice(0, max)
-        .map((r) => (r.from === r.to ? `${r.from}` : `${r.from}-${r.to}`));
-      return ranges.length > max ? `${items.join(",")},…` : items.join(",");
-    };
-    const subjectTokens: string[] = [];
-    for (const info of changesInfo) {
-      const renamed = info.initialFilePath !== info.filePath;
-      if (info.deleted) {
-        subjectTokens.push(`D ${basename(info.initialFilePath)}`);
-      } else if (renamed && info.modifiedLines.length > 0) {
-        subjectTokens.push(
-          `${basename(info.initialFilePath)}->${basename(info.filePath)}[${shortRanges(info.modifiedLines)}]`,
-        );
-      } else if (renamed) {
-        subjectTokens.push(
-          `${basename(info.initialFilePath)}->${basename(info.filePath)}`,
-        );
-      } else if (info.modifiedLines.length > 0) {
-        subjectTokens.push(
-          `${basename(info.filePath)}[${shortRanges(info.modifiedLines)}]`,
-        );
-      } else if (info.wasModified) {
-        // Modified but only deletions (no added ranges). Still include token.
-        subjectTokens.push(`${basename(info.filePath)}[]`);
-      }
-    }
-    const maxTokens = 4;
-    const commitMessage =
-      subjectTokens.length === 0
-        ? "Update files"
-        : subjectTokens.length > maxTokens
-          ? `${subjectTokens.slice(0, maxTokens).join(", ")} …`
-          : subjectTokens.join(", ");
-
-    const { data: newCommit } = await octokit.rest.git.createCommit({
-      owner,
-      repo,
-      message: commitMessage,
-      tree: newTree.sha,
-      parents: [currentCommitSha],
-    });
-
-    // 9. Update the reference (force to override any divergent remote commits)
-    await octokit.rest.git.updateRef({
-      owner,
-      repo,
-      ref: `heads/${branch}`,
-      sha: newCommit.sha,
-      force: true,
-    });
-
-    return {
-      sha: newCommit.sha,
-      url: newCommit.html_url,
-    };
-  } catch (error) {
-    console.error("Failed to create commit:", error);
-    throw error;
   }
+
+  // 2. Create all blobs in parallel (outside retry — blobs are content-addressable, same content = same SHA)
+  const blobResults = await Promise.all(
+    filesToCreateBlobs.map((file) =>
+      octokit.rest.git.createBlob({
+        owner,
+        repo,
+        content: Buffer.from(file.content, "utf8").toString("base64"),
+        encoding: "base64",
+      }),
+    ),
+  );
+
+  // 3. Build tree entries from blobs
+  const newTreeEntries: Array<{
+    path: string;
+    mode: "100644";
+    type: "blob";
+    sha: string | null;
+  }> = [];
+
+  for (const path of pathsToDelete) {
+    newTreeEntries.push({
+      path,
+      mode: "100644",
+      type: "blob",
+      sha: null,
+    });
+  }
+
+  for (let i = 0; i < filesToCreateBlobs.length; i++) {
+    newTreeEntries.push({
+      path: filesToCreateBlobs[i].filePath,
+      mode: "100644",
+      type: "blob",
+      sha: blobResults[i].data.sha,
+    });
+  }
+
+  // 4. Build commit message
+  const basename = (p: string) => {
+    const parts = p.split("/");
+    return parts[parts.length - 1] || p;
+  };
+  const shortRanges = (
+    ranges: Array<{ from: number; to: number }>,
+    max = 2,
+  ) => {
+    const items = ranges
+      .slice(0, max)
+      .map((r) => (r.from === r.to ? `${r.from}` : `${r.from}-${r.to}`));
+    return ranges.length > max ? `${items.join(",")},…` : items.join(",");
+  };
+  const subjectTokens: string[] = [];
+  for (const info of changesInfo) {
+    const renamed = info.initialFilePath !== info.filePath;
+    if (info.deleted) {
+      subjectTokens.push(`D ${basename(info.initialFilePath)}`);
+    } else if (renamed && info.modifiedLines.length > 0) {
+      subjectTokens.push(
+        `${basename(info.initialFilePath)}->${basename(info.filePath)}[${shortRanges(info.modifiedLines)}]`,
+      );
+    } else if (renamed) {
+      subjectTokens.push(
+        `${basename(info.initialFilePath)}->${basename(info.filePath)}`,
+      );
+    } else if (info.modifiedLines.length > 0) {
+      subjectTokens.push(
+        `${basename(info.filePath)}[${shortRanges(info.modifiedLines)}]`,
+      );
+    } else if (info.wasModified) {
+      subjectTokens.push(`${basename(info.filePath)}[]`);
+    }
+  }
+  const maxTokens = 4;
+  const commitMessage =
+    subjectTokens.length === 0
+      ? "Update files"
+      : subjectTokens.length > maxTokens
+        ? `${subjectTokens.slice(0, maxTokens).join(", ")} …`
+        : subjectTokens.join(", ");
+
+  // 5. Retry loop for ref-dependent operations (getRef → getCommit → createTree → createCommit → updateRef)
+  //    Retries handle transient GitHub 422 (GitRPC::BadObjectState) and 409 (conflict) errors.
+  const MAX_ATTEMPTS = 3;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    try {
+      const { data: refData } = await octokit.rest.git.getRef({
+        owner,
+        repo,
+        ref: `heads/${branch}`,
+      });
+      const currentCommitSha = refData.object.sha;
+
+      const { data: currentCommit } = await octokit.rest.git.getCommit({
+        owner,
+        repo,
+        commit_sha: currentCommitSha,
+      });
+      const currentTreeSha = currentCommit.tree.sha;
+
+      const { data: newTree } = await octokit.rest.git.createTree({
+        owner,
+        repo,
+        base_tree: currentTreeSha,
+        tree: newTreeEntries as any,
+      });
+
+      const { data: newCommit } = await octokit.rest.git.createCommit({
+        owner,
+        repo,
+        message: commitMessage,
+        tree: newTree.sha,
+        parents: [currentCommitSha],
+      });
+
+      await octokit.rest.git.updateRef({
+        owner,
+        repo,
+        ref: `heads/${branch}`,
+        sha: newCommit.sha,
+        force: true,
+      });
+
+      return {
+        sha: newCommit.sha,
+        url: newCommit.html_url,
+      };
+    } catch (error) {
+      const status = (error as { status?: number }).status;
+      const isRetryable = status === 422 || status === 409;
+      if (!isRetryable || attempt === MAX_ATTEMPTS - 1) {
+        console.error("Failed to create commit:", error);
+        throw error;
+      }
+      console.warn(
+        `Commit attempt ${attempt + 1} failed (status ${status}), retrying...`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+    }
+  }
+
+  // Unreachable — the loop always returns or throws — but satisfies TypeScript
+  throw new Error("Exhausted commit retry attempts");
 }
 
 // Internal action to commit all staged files to GitHub
