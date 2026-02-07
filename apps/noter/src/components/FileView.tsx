@@ -571,6 +571,14 @@ function FileViewInner({
                     />
                   )}
 
+                  {vault.treeRefreshStartedAt &&
+                    Date.now() - vault.treeRefreshStartedAt < 60_000 && (
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <span className="animate-spin inline-block">🔄</span>
+                        Syncing…
+                      </span>
+                    )}
+
                   <Button
                     size="sm"
                     variant="outline"
