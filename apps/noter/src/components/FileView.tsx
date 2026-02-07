@@ -571,13 +571,25 @@ function FileViewInner({
                     />
                   )}
 
-                  {vault.treeRefreshStartedAt &&
-                    Date.now() - vault.treeRefreshStartedAt < 60_000 && (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    {vault.treeRefreshStartedAt &&
+                    Date.now() - vault.treeRefreshStartedAt < 60_000 ? (
+                      <>
                         <span className="animate-spin inline-block">🔄</span>
                         Syncing…
-                      </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-mono">{vault.treeSHA.slice(0, 7)}</span>
+                        {vault.lastTreeRefreshAt && (
+                          <>
+                            <span>·</span>
+                            {formatRelativeTime(vault.lastTreeRefreshAt)}
+                          </>
+                        )}
+                      </>
                     )}
+                  </span>
 
                   <Button
                     size="sm"
