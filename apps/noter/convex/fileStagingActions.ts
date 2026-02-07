@@ -320,9 +320,10 @@ export const pullFromGitHub = action({
       throw new Error("Vault not found");
     }
 
-    // Atomically claim the refresh lock; skip if debounced or already running
+    // Atomically claim the refresh lock; force because user explicitly requested pull
     const { claimed } = await ctx.runMutation(internal.vault.claimTreeRefresh, {
       vaultId: vault._id,
+      force: true,
     });
     if (!claimed) return null;
 
