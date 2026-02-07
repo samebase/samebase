@@ -602,11 +602,15 @@ function FileViewInner({
                       </>
                     ) : (
                       <>
-                        <span className="font-mono">{vault.treeSHA.slice(0, 7)}</span>
+                        <span className="font-mono">
+                          {vault.treeSHA.slice(0, 7)}
+                        </span>
                         {vault.lastTreeRefreshAt && (
                           <>
                             <span>·</span>
-                            <span className="font-mono tabular-nums">{formatSecondsAgo(now, vault.lastTreeRefreshAt)}</span>
+                            <span className="font-mono tabular-nums">
+                              {formatSecondsAgo(now, vault.lastTreeRefreshAt)}
+                            </span>
                           </>
                         )}
                       </>

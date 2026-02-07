@@ -363,12 +363,18 @@ export const claimTreeRefresh = internalMutation({
     const now = Date.now();
 
     // Skip if last successful refresh was recent
-    if (vault.lastTreeRefreshAt && now - vault.lastTreeRefreshAt < REFRESH_DEBOUNCE_MS) {
+    if (
+      vault.lastTreeRefreshAt &&
+      now - vault.lastTreeRefreshAt < REFRESH_DEBOUNCE_MS
+    ) {
       return { claimed: false };
     }
 
     // Skip if another refresh is already in progress (and not stale)
-    if (vault.treeRefreshStartedAt && now - vault.treeRefreshStartedAt < STALE_LOCK_MS) {
+    if (
+      vault.treeRefreshStartedAt &&
+      now - vault.treeRefreshStartedAt < STALE_LOCK_MS
+    ) {
       return { claimed: false };
     }
 
