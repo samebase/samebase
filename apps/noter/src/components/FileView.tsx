@@ -276,6 +276,9 @@ function FileViewInner({
   const [renameFileInStaging] = useConvexAction(
     api.fileStagingActions.renameFileInStaging,
   );
+  const startTreeRefreshOptimistic = useMutation(
+    api.vault.startTreeRefreshOptimistic,
+  );
 
   // Get count of staged files for this vault
   const stagedFiles = useQuery(api.fileStaging.listStagedFiles, {
@@ -416,10 +419,12 @@ function FileViewInner({
   }, [commitStaging, repositoryFullName]);
 
   const handlePullFromGitHub = useCallback(() => {
+    // Optimistically update UI to show syncing state immediately
+    void startTreeRefreshOptimistic({ vaultId: vault._id });
     void pullFromGitHub({
       vaultId: vault._id,
     });
-  }, [pullFromGitHub, vault._id]);
+  }, [pullFromGitHub, vault._id, startTreeRefreshOptimistic]);
 
   const handleFolderToggle = useCallback(
     (folderPath: string, isExpanded: boolean) => {
