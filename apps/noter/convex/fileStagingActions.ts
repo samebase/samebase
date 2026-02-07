@@ -424,17 +424,9 @@ async function createCommitWithMultipleFiles({
       }
     }
 
-    // 4. Fetch tree AND create all blobs in parallel
-    const [{ data: currentTree }, ...blobResults] = await Promise.all([
-      // Fetch full tree (just metadata, not content)
-      octokit.rest.git.getTree({
-        owner,
-        repo,
-        tree_sha: currentTreeSha,
-        recursive: "true",
-      }),
-      // Create all blobs in parallel
-      ...filesToCreateBlobs.map((file) =>
+    // 4. Create all blobs in parallel
+    const blobResults = await Promise.all(
+      filesToCreateBlobs.map((file) =>
         octokit.rest.git.createBlob({
           owner,
           repo,
@@ -442,58 +434,42 @@ async function createCommitWithMultipleFiles({
           encoding: "base64",
         }),
       ),
-    ]);
+    );
 
-    // 5. Build path -> sha map from blob results
-    const pathsToUpdate = new Map<string, string>();
-    for (let i = 0; i < filesToCreateBlobs.length; i++) {
-      pathsToUpdate.set(
-        filesToCreateBlobs[i].filePath,
-        blobResults[i].data.sha,
-      );
-    }
-
-    // 6. Build the complete new tree by:
-    //    - Taking all existing blobs (not trees) that aren't deleted
-    //    - Adding/replacing with our new blobs
+    // 5. Build incremental tree entries (only changes)
     const newTreeEntries: Array<{
       path: string;
-      mode: "100644" | "100755" | "040000" | "160000" | "120000";
-      type: "blob" | "tree" | "commit";
-      sha: string;
+      mode: "100644";
+      type: "blob";
+      sha: string | null;
     }> = [];
 
-    // Add existing files that aren't being deleted or updated
-    for (const item of currentTree.tree) {
-      if (item.type !== "blob" || !item.path || !item.sha) continue;
-      if (pathsToDelete.has(item.path)) continue;
-      if (pathsToUpdate.has(item.path)) continue;
-
-      newTreeEntries.push({
-        path: item.path,
-        mode:
-          (item.mode as "100644" | "100755" | "040000" | "160000" | "120000") ??
-          "100644",
-        type: "blob",
-        sha: item.sha,
-      });
-    }
-
-    // Add our new/updated files
-    for (const [path, sha] of pathsToUpdate) {
+    // Add deleted files with sha: null to remove them
+    for (const path of pathsToDelete) {
       newTreeEntries.push({
         path,
         mode: "100644",
         type: "blob",
-        sha,
+        sha: null,
       });
     }
 
-    // 7. Create a new tree WITHOUT base_tree - complete replacement
+    // Add new/updated files with their blob SHAs
+    for (let i = 0; i < filesToCreateBlobs.length; i++) {
+      newTreeEntries.push({
+        path: filesToCreateBlobs[i].filePath,
+        mode: "100644",
+        type: "blob",
+        sha: blobResults[i].data.sha,
+      });
+    }
+
+    // 6. Create a new tree using base_tree — only sends the diff
     const { data: newTree } = await octokit.rest.git.createTree({
       owner,
       repo,
-      tree: newTreeEntries,
+      base_tree: currentTreeSha,
+      tree: newTreeEntries as any,
     });
 
     // 8. Create the commit - compact, single-line subject
