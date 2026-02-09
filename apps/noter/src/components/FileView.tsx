@@ -267,17 +267,11 @@ function FileViewInner({
     api.fileStagingActions.commitStaging,
   );
 
-  const [pullFromGitHub, pullFromGitHubStatus] = useConvexAction(
-    api.fileStagingActions.pullFromGitHub,
-  );
   const [markFileForDeletion] = useConvexMutation(
     api.fileStaging.markFileForDeletion,
   );
   const [renameFileInStaging] = useConvexAction(
     api.fileStagingActions.renameFileInStaging,
-  );
-  const startTreeRefreshOptimistic = useMutation(
-    api.vault.startTreeRefreshOptimistic,
   );
 
   // Get count of staged files for this vault
@@ -417,14 +411,6 @@ function FileViewInner({
       console.error("Failed to commit changes:", error);
     });
   }, [commitStaging, repositoryFullName]);
-
-  const handlePullFromGitHub = useCallback(() => {
-    // Optimistically update UI to show syncing state immediately
-    void startTreeRefreshOptimistic({ vaultId: vault._id });
-    void pullFromGitHub({
-      vaultId: vault._id,
-    });
-  }, [pullFromGitHub, vault._id, startTreeRefreshOptimistic]);
 
   const handleFolderToggle = useCallback(
     (folderPath: string, isExpanded: boolean) => {
@@ -626,26 +612,8 @@ function FileViewInner({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={handlePullFromGitHub}
-                    disabled={
-                      pullFromGitHubStatus === "loading" ||
-                      manualComittingStatus === "loading"
-                    }
-                    className="h-6 px-2 text-xs"
-                  >
-                    {pullFromGitHubStatus === "loading"
-                      ? "Pulling..."
-                      : "Pull Main"}
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
                     onClick={handleManualCommit}
-                    disabled={
-                      manualComittingStatus === "loading" ||
-                      pullFromGitHubStatus === "loading"
-                    }
+                    disabled={manualComittingStatus === "loading"}
                     className="h-6 px-2 text-xs"
                   >
                     {manualComittingStatus === "loading"
