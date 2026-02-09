@@ -613,9 +613,7 @@ function FileViewInner({
                     size="sm"
                     variant="outline"
                     onClick={handleManualCommit}
-                    disabled={
-                      manualComittingStatus === "loading"
-                    }
+                    disabled={manualComittingStatus === "loading"}
                     className="h-6 px-2 text-xs"
                   >
                     {manualComittingStatus === "loading"
