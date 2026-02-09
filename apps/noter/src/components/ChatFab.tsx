@@ -75,13 +75,7 @@ export function ChatFab() {
     <>
       {/* Chat Window — sized to fit well inside an iframe */}
       {isOpen && (
-        <div
-          className="fixed right-3 z-[9999] flex w-[min(22rem,calc(100vw-1.5rem))] flex-col rounded-xl border border-border bg-popover shadow-xl"
-          style={{
-            bottom: "calc(3.5rem + var(--bottom-inset, 0px))",
-            height: "min(24rem, calc(100vh - 5rem - var(--bottom-inset, 0px)))",
-          }}
-        >
+        <div className="fixed bottom-16 right-3 z-[9999] flex h-[min(24rem,calc(100%-5rem))] w-[min(22rem,calc(100vw-1.5rem))] flex-col rounded-xl border border-border bg-popover shadow-xl">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
             <span className="text-sm font-medium text-foreground">Chat</span>
@@ -145,12 +139,11 @@ export function ChatFab() {
       <button
         onClick={() => setIsOpen((prev) => !prev)}
         className={cn(
-          "fixed right-3 z-[9999] flex h-11 w-11 items-center justify-center rounded-full shadow-lg transition-colors",
+          "fixed bottom-3 right-3 z-[9999] flex h-11 w-11 items-center justify-center rounded-full shadow-lg transition-colors",
           isOpen
             ? "bg-muted text-foreground hover:bg-muted/80"
             : "bg-primary text-primary-foreground hover:bg-primary/90",
         )}
-        style={{ bottom: "calc(0.75rem + var(--bottom-inset, 0px))" }}
       >
         {isOpen ? (
           <X className="h-5 w-5" />
