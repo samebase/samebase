@@ -91,6 +91,28 @@ export const listConversations = query({
   },
 });
 
+export const loadMessagesForAction = internalQuery({
+  args: {
+    conversationId: v.id("chatConversations"),
+  },
+  returns: v.array(
+    v.object({
+      role: v.union(v.literal("user"), v.literal("assistant")),
+      content: v.string(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const messages = await ctx.db
+      .query("chatMessages")
+      .withIndex("by_conversationId", (q) =>
+        q.eq("conversationId", args.conversationId),
+      )
+      .order("asc")
+      .collect();
+    return messages.map((m) => ({ role: m.role, content: m.content }));
+  },
+});
+
 export const saveAssistantMessage = internalMutation({
   args: {
     conversationId: v.id("chatConversations"),
