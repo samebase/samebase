@@ -28,11 +28,17 @@ export const sendMessage = mutation({
     if (!conversation || conversation.userId !== userId) {
       throw new Error("Conversation not found");
     }
-    return await ctx.db.insert("chatMessages", {
+    const messageId = await ctx.db.insert("chatMessages", {
       conversationId: args.conversationId,
       role: "user",
       content: args.content,
     });
+    await ctx.scheduler.runAfter(
+      0,
+      internal.chatActions.generateResponse,
+      { conversationId: args.conversationId },
+    );
+    return messageId;
   },
 });
 
