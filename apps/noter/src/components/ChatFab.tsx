@@ -44,7 +44,8 @@ export function ChatFab() {
         {
           id: crypto.randomUUID(),
           role: "assistant",
-          content: "This is a placeholder response. Agent integration coming soon.",
+          content:
+            "This is a placeholder response. Agent integration coming soon.",
         },
       ]);
     }, 500);
@@ -125,7 +126,11 @@ export function ChatFab() {
             : "bg-primary text-primary-foreground hover:bg-primary/90",
         )}
       >
-        {isOpen ? <X className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
+        {isOpen ? (
+          <X className="h-5 w-5" />
+        ) : (
+          <MessageSquare className="h-5 w-5" />
+        )}
       </button>
     </>
   );
