@@ -1,23 +1,23 @@
-import { ReactNode, useSyncExternalStore } from "react";
-
-const isInIframe = () => {
-  try {
-    return window.self !== window.top;
-  } catch {
-    return true;
-  }
-};
-
-const getInIframe = () => isInIframe();
-const subscribe = () => () => {};
+import { ReactNode, useEffect } from "react";
 
 export function Layout({ children }: { children: ReactNode }) {
-  const inIframe = useSyncExternalStore(subscribe, getInIframe, () => false);
+  useEffect(() => {
+    let inIframe = false;
+    try {
+      inIframe = window.self !== window.top;
+    } catch {
+      inIframe = true;
+    }
+    document.documentElement.style.setProperty(
+      "--bottom-inset",
+      inIframe ? "3rem" : "0px",
+    );
+  }, []);
 
   return (
     <div
       className="flex w-full flex-col"
-      style={{ height: inIframe ? "calc(100vh - 3rem)" : "100vh" }}
+      style={{ height: "calc(100vh - var(--bottom-inset, 0px))" }}
     >
       <main className="flex grow flex-col overflow-hidden">{children}</main>
     </div>
