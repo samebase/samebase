@@ -8,7 +8,8 @@ import { Id } from "../../convex/_generated/dataModel";
 export function ChatFab() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
-  const [conversationId, setConversationId] = useState<Id<"chatConversations"> | null>(null);
+  const [conversationId, setConversationId] =
+    useState<Id<"chatConversations"> | null>(null);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -38,7 +39,11 @@ export function ChatFab() {
 
   // Clear sending flag when we get the assistant response
   useEffect(() => {
-    if (messages && messages.length > 0 && messages[messages.length - 1].role === "assistant") {
+    if (
+      messages &&
+      messages.length > 0 &&
+      messages[messages.length - 1].role === "assistant"
+    ) {
       setSending(false);
     }
   }, [messages]);

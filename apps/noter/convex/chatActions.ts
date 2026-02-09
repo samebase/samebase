@@ -13,10 +13,9 @@ export const generateResponse = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const messages = await ctx.runQuery(
-      internal.chat.loadMessagesForAction,
-      { conversationId: args.conversationId },
-    );
+    const messages = await ctx.runQuery(internal.chat.loadMessagesForAction, {
+      conversationId: args.conversationId,
+    });
 
     const client = new Anthropic();
     const response = await client.messages.create({

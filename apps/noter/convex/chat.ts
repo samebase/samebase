@@ -34,11 +34,9 @@ export const sendMessage = mutation({
       role: "user",
       content: args.content,
     });
-    await ctx.scheduler.runAfter(
-      0,
-      internal.chatActions.generateResponse,
-      { conversationId: args.conversationId },
-    );
+    await ctx.scheduler.runAfter(0, internal.chatActions.generateResponse, {
+      conversationId: args.conversationId,
+    });
     return messageId;
   },
 });
