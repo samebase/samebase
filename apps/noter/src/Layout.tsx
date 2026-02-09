@@ -10,7 +10,7 @@ export function Layout({ children }: { children: ReactNode }) {
     }
     document.documentElement.style.setProperty(
       "--bottom-inset",
-      inIframe ? "3rem" : "0px",
+      inIframe ? "1.5rem" : "0px",
     );
   }, []);
 
