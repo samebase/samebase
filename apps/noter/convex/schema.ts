@@ -137,6 +137,23 @@ export default defineSchema({
    * Collaborative editing updates for operational transformation.
    * Stores individual changes made to files for proper conflict resolution.
    */
+  /**
+   * Chat conversations per user.
+   */
+  chatConversations: defineTable({
+    userId: v.id("users"),
+    title: v.optional(v.string()),
+  }).index("by_userId", ["userId"]),
+
+  /**
+   * Chat messages within a conversation.
+   */
+  chatMessages: defineTable({
+    conversationId: v.id("chatConversations"),
+    role: v.union(v.literal("user"), v.literal("assistant")),
+    content: v.string(),
+  }).index("by_conversationId", ["conversationId"]),
+
   collaborativeUpdates: defineTable({
     vaultId: v.id("vaults"),
     filePath: v.string(),
