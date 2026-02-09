@@ -1,24 +1,8 @@
-import { ReactNode, useEffect } from "react";
+import { ReactNode } from "react";
 
 export function Layout({ children }: { children: ReactNode }) {
-  useEffect(() => {
-    let inIframe = false;
-    try {
-      inIframe = window.self !== window.top;
-    } catch {
-      inIframe = true;
-    }
-    document.documentElement.style.setProperty(
-      "--bottom-inset",
-      inIframe ? "1.5rem" : "0px",
-    );
-  }, []);
-
   return (
-    <div
-      className="flex w-full flex-col"
-      style={{ height: "calc(100vh - var(--bottom-inset, 0px))" }}
-    >
+    <div className="flex h-full w-full flex-col">
       <main className="flex grow flex-col overflow-hidden">{children}</main>
     </div>
   );
