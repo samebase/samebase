@@ -1,3 +1,5 @@
+"use node";
+
 import { GenericId, v, VId } from "convex/values";
 import {
   action,
