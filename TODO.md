@@ -7,4 +7,5 @@
 - [ ] when path doesn't have owner or repo name or can't find it, redirect to vaults
 - [ ] update the tree from time to time?
 - [ ] **IMPORTANT, make less changes to collaborativeUpdates db, takes lots of resources**
+- [ ] **BUG: If a GitHub repository is renamed, the vault UI still shows the old name. It also appears in search with the old name, which is confusing. Need to detect repo renames and update vault metadata accordingly.**
 - [ ] 
