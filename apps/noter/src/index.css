@@ -113,21 +113,43 @@
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
   }
-  
+
   @keyframes underline-color-cycle {
-    0% { text-decoration-color: theme('colors.blue.600'); }
-    10% { text-decoration-color: theme('colors.violet.600'); }
-    20% { text-decoration-color: theme('colors.pink.600'); }
-    30% { text-decoration-color: theme('colors.orange.600'); }
-    40% { text-decoration-color: theme('colors.yellow.600'); }
-    50% { text-decoration-color: theme('colors.green.600'); }
-    60% { text-decoration-color: theme('colors.teal.600'); }
-    70% { text-decoration-color: theme('colors.cyan.600'); }
-    80% { text-decoration-color: theme('colors.indigo.600'); }
-    90% { text-decoration-color: theme('colors.purple.600'); }
-    100% { text-decoration-color: theme('colors.blue.600'); }
+    0% {
+      text-decoration-color: theme("colors.blue.600");
+    }
+    10% {
+      text-decoration-color: theme("colors.violet.600");
+    }
+    20% {
+      text-decoration-color: theme("colors.pink.600");
+    }
+    30% {
+      text-decoration-color: theme("colors.orange.600");
+    }
+    40% {
+      text-decoration-color: theme("colors.yellow.600");
+    }
+    50% {
+      text-decoration-color: theme("colors.green.600");
+    }
+    60% {
+      text-decoration-color: theme("colors.teal.600");
+    }
+    70% {
+      text-decoration-color: theme("colors.cyan.600");
+    }
+    80% {
+      text-decoration-color: theme("colors.indigo.600");
+    }
+    90% {
+      text-decoration-color: theme("colors.purple.600");
+    }
+    100% {
+      text-decoration-color: theme("colors.blue.600");
+    }
   }
-  
+
   .animate-underline-color {
     animation: underline-color-cycle 10s ease-in-out infinite;
   }
