@@ -4,6 +4,7 @@ import { SignInForm, useAutoSignIn } from "@/SignInForm";
 import { VaultDashboard } from "@/components/VaultDashboard";
 import { FileView } from "@/components/FileView";
 import { AddRepository } from "@/components/AddRepository";
+import { ChatFab } from "@/components/ChatFab";
 import { Authenticated, Unauthenticated, useConvexAuth } from "convex/react";
 import { Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
