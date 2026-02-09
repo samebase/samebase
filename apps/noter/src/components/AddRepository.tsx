@@ -14,7 +14,7 @@ export function AddRepository() {
   const vaults = useQuery(api.vault.getUserVaults);
   const [searchQuery, setSearchQuery] = useState("");
   const listRepositories = useAction(api.github.listRepositories);
-  const connectRepository = useAction(api.vault.connectRepository);
+  const connectRepository = useAction(api.vaultActions.connectRepository);
 
   const {
     data: repositories = [],

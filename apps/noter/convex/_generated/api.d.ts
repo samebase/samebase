@@ -9,6 +9,8 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as chat from "../chat.js";
+import type * as chatActions from "../chatActions.js";
 import type * as collaborative from "../collaborative.js";
 import type * as common from "../common.js";
 import type * as fileStaging from "../fileStaging.js";
@@ -20,6 +22,7 @@ import type * as github from "../github.js";
 import type * as http from "../http.js";
 import type * as users from "../users.js";
 import type * as vault from "../vault.js";
+import type * as vaultActions from "../vaultActions.js";
 
 import type {
   ApiFromModules,
@@ -29,6 +32,8 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  chat: typeof chat;
+  chatActions: typeof chatActions;
   collaborative: typeof collaborative;
   common: typeof common;
   fileStaging: typeof fileStaging;
@@ -40,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   users: typeof users;
   vault: typeof vault;
+  vaultActions: typeof vaultActions;
 }>;
 
 /**
