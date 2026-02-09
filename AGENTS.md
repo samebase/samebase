@@ -5,6 +5,7 @@ This file provides guidance to AI agents (Claude Code, Cursor, etc.) when workin
 ## Project Structure
 
 noter is a Turborepo monorepo (PNPM + Node 24) with a single app:
+
 - **`apps/noter`**: React + Vite + Convex collaborative code editor with GitHub integration
 - Uses `@prosemark/core` from npm for markdown editing
 
@@ -44,6 +45,7 @@ npx convex status
 Use these commands to debug issues in Convex functions, check production logs, or inspect database state. This is the primary way to diagnose runtime errors and function failures.
 
 ## Architecture
+
 - **Frontend**: React 18 + React Router + Vite
 - **Backend**: Convex (real-time database + serverless functions)
 - **Auth**: Convex Auth with GitHub OAuth integration
@@ -52,6 +54,7 @@ Use these commands to debug issues in Convex functions, check production logs, o
 - **State**: Convex real-time queries + TanStack Query
 
 **Key Data Models** (Convex schema):
+
 - `users`: GitHub-authenticated users with access tokens
 - `vaults`: Connected GitHub repositories per user
 - `fileStaging`: Real-time collaborative file editing state
@@ -59,6 +62,7 @@ Use these commands to debug issues in Convex functions, check production logs, o
 - `folderExpansionState`: UI state for file tree per user/vault
 
 **Core Components**:
+
 - `VaultDashboard`: Main dashboard showing connected repositories
 - `AddRepository`: GitHub repository connection flow
 - `RepositoryReadme`: File browser + collaborative editor view
@@ -94,15 +98,15 @@ Use these commands to debug issues in Convex functions, check production logs, o
 
 Shorthand commands for git/GitHub workflows. When the user says these, execute them directly using CLI tools.
 
-| Command | Action |
-|---------|--------|
-| `commit` | Stage all changes, commit with concise message |
-| `push` | Commit if needed, push to remote |
-| `create pr` | Push if needed, `gh pr create --draft --fill` |
-| `ready` | Mark draft PR as ready: `gh pr ready` |
-| `wait` | Monitor CI with `gh pr checks` or `gh run watch`, report status |
-| `ship` | Full flow: commit → push → create PR → ready → wait |
-| `status` | Show branch, uncommitted changes, PR state |
+| Command     | Action                                                          |
+| ----------- | --------------------------------------------------------------- |
+| `commit`    | Stage all changes, commit with concise message                  |
+| `push`      | Commit if needed, push to remote                                |
+| `create pr` | Push if needed, `gh pr create --draft --fill`                   |
+| `ready`     | Mark draft PR as ready: `gh pr ready`                           |
+| `wait`      | Monitor CI with `gh pr checks` or `gh run watch`, report status |
+| `ship`      | Full flow: commit → push → create PR → ready → wait             |
+| `status`    | Show branch, uncommitted changes, PR state                      |
 
 ### Rules
 
