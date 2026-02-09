@@ -22,15 +22,15 @@ export const generateResponse = internalAction({
       model: "claude-sonnet-4-20250514",
       max_tokens: 4096,
       system: SYSTEM_PROMPT,
-      messages: messages.map((m: { role: "user" | "assistant"; content: string }) => ({
+      messages: messages.map((m) => ({
         role: m.role,
         content: m.content,
       })),
     });
 
     const content = response.content
-      .filter((block: Anthropic.ContentBlock): block is Anthropic.TextBlock => block.type === "text")
-      .map((block: Anthropic.TextBlock) => block.text)
+      .filter((block): block is Anthropic.TextBlock => block.type === "text")
+      .map((block) => block.text)
       .join("");
 
     if (content) {
