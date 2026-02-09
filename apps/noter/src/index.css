@@ -96,6 +96,11 @@
   * {
     @apply border-border;
   }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
   body {
     @apply bg-background text-foreground;
   }
@@ -127,4 +132,3 @@
     animation: underline-color-cycle 10s ease-in-out infinite;
   }
 }
-
