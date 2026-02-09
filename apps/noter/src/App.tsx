@@ -58,6 +58,7 @@ export default function App() {
             {/* test route */}
             <Route path="/test" element={<div>Test</div>} />
           </Routes>
+          <ChatFab />
         </Authenticated>
         <Unauthenticated>
           <SignInForm />
