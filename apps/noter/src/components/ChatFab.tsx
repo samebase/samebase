@@ -1,9 +1,299 @@
-import { useState, useRef, useEffect } from "react";
-import { MessageSquare, X, Send, Loader2 } from "lucide-react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import {
+  MessageSquare,
+  X,
+  Send,
+  Loader2,
+  GitCommitHorizontal,
+  Check,
+  Wrench,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
+import { useParams, useLocation } from "react-router-dom";
+
+// --- Route context hook ---
+
+function useVaultContext() {
+  const params = useParams<{ owner: string; repoName: string; "*": string }>();
+  const location = useLocation();
+
+  const owner = params.owner;
+  const repoName = params.repoName;
+  const repositoryFullName =
+    owner && repoName ? `${owner}/${repoName}` : undefined;
+
+  // Extract file path from the wildcard or from pathname
+  const filePath = useMemo(() => {
+    if (params["*"]) return params["*"];
+    // Parse from URL: /vault/owner/repo/path/to/file
+    const match = location.pathname.match(/^\/vault\/[^/]+\/[^/]+\/(.+)$/);
+    return match?.[1];
+  }, [params, location.pathname]);
+
+  const vault = useQuery(
+    api.vault.getVaultByRepository,
+    repositoryFullName ? { repositoryFullName } : "skip",
+  );
+
+  return {
+    vaultId: vault?._id as Id<"vaults"> | undefined,
+    filePath,
+    repositoryFullName,
+  };
+}
+
+// --- Metadata parsing ---
+
+type ToolActivity = {
+  type: "tool_activity";
+  tools: Array<{ tool: string; input: unknown }>;
+};
+
+type CommitProposal = {
+  type: "commit_proposal";
+  message: string;
+  committed?: boolean;
+  tools?: Array<{ tool: string; input: unknown }>;
+};
+
+type MessageMetadata = ToolActivity | CommitProposal;
+
+function parseMetadata(metadata: string | undefined): MessageMetadata | null {
+  if (!metadata) return null;
+  try {
+    return JSON.parse(metadata);
+  } catch {
+    return null;
+  }
+}
+
+// --- Simple markdown renderer ---
+
+function renderMarkdown(text: string) {
+  const parts: React.ReactNode[] = [];
+  let i = 0;
+
+  // Split by code blocks first
+  const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    // Text before code block
+    if (match.index > lastIndex) {
+      parts.push(
+        <span key={i++}>
+          {renderInlineMarkdown(text.slice(lastIndex, match.index))}
+        </span>,
+      );
+    }
+    // Code block
+    parts.push(
+      <pre
+        key={i++}
+        className="my-1.5 overflow-x-auto rounded bg-background/80 p-2 text-xs"
+      >
+        <code>{match[2]}</code>
+      </pre>,
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Remaining text
+  if (lastIndex < text.length) {
+    parts.push(
+      <span key={i++}>{renderInlineMarkdown(text.slice(lastIndex))}</span>,
+    );
+  }
+
+  return <>{parts}</>;
+}
+
+function renderInlineMarkdown(text: string): React.ReactNode {
+  // Handle inline code, bold, and italic
+  const parts: React.ReactNode[] = [];
+  const regex = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  let lastIndex = 0;
+  let match;
+  let i = 0;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    const m = match[0];
+    if (m.startsWith("`")) {
+      parts.push(
+        <code
+          key={i++}
+          className="rounded bg-background/80 px-1 py-0.5 text-xs"
+        >
+          {m.slice(1, -1)}
+        </code>,
+      );
+    } else if (m.startsWith("**")) {
+      parts.push(<strong key={i++}>{m.slice(2, -2)}</strong>);
+    } else if (m.startsWith("*")) {
+      parts.push(<em key={i++}>{m.slice(1, -1)}</em>);
+    }
+    lastIndex = match.index + m.length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts.length === 1 ? parts[0] : <>{parts}</>;
+}
+
+// --- Tool activity badge ---
+
+function ToolActivityBadge({
+  tools,
+}: {
+  tools: Array<{ tool: string; input: unknown }>;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="mb-1">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="inline-flex items-center gap-1 rounded-md bg-background/50 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-background/80"
+      >
+        <Wrench className="h-2.5 w-2.5" />
+        {tools.length} tool{tools.length !== 1 ? "s" : ""} used
+      </button>
+      {expanded && (
+        <div className="mt-1 space-y-0.5 text-[10px] text-muted-foreground">
+          {tools.map((t, idx) => (
+            <div key={idx} className="flex items-center gap-1">
+              <span className="font-mono">{t.tool}</span>
+              {t.tool === "read_file" ||
+              t.tool === "edit_file" ||
+              t.tool === "create_file" ||
+              t.tool === "delete_file" ? (
+                <span className="truncate opacity-70">
+                  {(t.input as Record<string, string>).path}
+                </span>
+              ) : t.tool === "github_api" ? (
+                <span className="truncate opacity-70">
+                  {(t.input as Record<string, string>).endpoint}
+                </span>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Commit proposal card ---
+
+function CommitProposalCard({
+  metadata,
+  conversationId,
+}: {
+  metadata: CommitProposal;
+  conversationId: Id<"chatConversations">;
+}) {
+  const confirmCommit = useMutation(api.chat.confirmCommit);
+  const [confirming, setConfirming] = useState(false);
+
+  async function handleApprove() {
+    setConfirming(true);
+    try {
+      await confirmCommit({ conversationId });
+    } finally {
+      setConfirming(false);
+    }
+  }
+
+  return (
+    <div className="my-1 rounded-lg border border-border bg-background p-2.5">
+      <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+        <GitCommitHorizontal className="h-3.5 w-3.5" />
+        Commit proposal
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground font-mono">
+        {metadata.message}
+      </p>
+      {metadata.committed ? (
+        <div className="mt-2 flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+          <Check className="h-3 w-3" />
+          Committed
+        </div>
+      ) : (
+        <button
+          onClick={() => void handleApprove()}
+          disabled={confirming}
+          className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        >
+          {confirming ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <GitCommitHorizontal className="h-3 w-3" />
+          )}
+          Approve & Push
+        </button>
+      )}
+    </div>
+  );
+}
+
+// --- Message bubble ---
+
+function MessageBubble({
+  msg,
+  conversationId,
+}: {
+  msg: {
+    _id: Id<"chatMessages">;
+    role: "user" | "assistant";
+    content: string;
+    metadata?: string;
+  };
+  conversationId: Id<"chatConversations">;
+}) {
+  const metadata = parseMetadata(msg.metadata);
+
+  if (msg.role === "user") {
+    return (
+      <div className="mb-2 ml-auto max-w-[85%] rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground whitespace-pre-wrap">
+        {msg.content}
+      </div>
+    );
+  }
+
+  const isCommitProposal = metadata?.type === "commit_proposal";
+  const toolsUsed =
+    metadata?.type === "tool_activity"
+      ? metadata.tools
+      : metadata?.type === "commit_proposal"
+        ? metadata.tools
+        : null;
+
+  return (
+    <div className="mb-2 max-w-[85%] rounded-lg bg-muted px-3 py-2 text-sm text-foreground">
+      {toolsUsed && toolsUsed.length > 0 && (
+        <ToolActivityBadge tools={toolsUsed} />
+      )}
+      <div className="whitespace-pre-wrap">{renderMarkdown(msg.content)}</div>
+      {isCommitProposal && (
+        <CommitProposalCard
+          metadata={metadata}
+          conversationId={conversationId}
+        />
+      )}
+    </div>
+  );
+}
+
+// --- Main component ---
 
 export function ChatFab() {
   const [isOpen, setIsOpen] = useState(false);
@@ -13,6 +303,8 @@ export function ChatFab() {
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const { vaultId, filePath } = useVaultContext();
 
   const messages = useQuery(
     api.chat.listMessages,
@@ -61,7 +353,12 @@ export function ChatFab() {
       setConversationId(convId);
     }
 
-    await sendMessage({ conversationId: convId, content: trimmed });
+    await sendMessage({
+      conversationId: convId,
+      content: trimmed,
+      vaultId,
+      filePath,
+    });
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -73,7 +370,7 @@ export function ChatFab() {
 
   return (
     <>
-      {/* Chat Window — sized to fit well inside an iframe */}
+      {/* Chat Window */}
       {isOpen && (
         <div className="fixed bottom-16 right-3 z-[9999] flex h-[min(24rem,calc(100%-5rem))] w-[min(22rem,calc(100vw-1.5rem))] flex-col rounded-xl border border-border bg-popover shadow-xl">
           {/* Header */}
@@ -89,19 +386,14 @@ export function ChatFab() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-3 py-2">
-            {messages?.map((msg) => (
-              <div
-                key={msg._id}
-                className={cn(
-                  "mb-2 max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap",
-                  msg.role === "user"
-                    ? "ml-auto bg-primary text-primary-foreground"
-                    : "bg-muted text-foreground",
-                )}
-              >
-                {msg.content}
-              </div>
-            ))}
+            {conversationId &&
+              messages?.map((msg) => (
+                <MessageBubble
+                  key={msg._id}
+                  msg={msg}
+                  conversationId={conversationId}
+                />
+              ))}
             {isWaitingForResponse && (
               <div className="mb-2 flex max-w-[85%] items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -135,7 +427,7 @@ export function ChatFab() {
         </div>
       )}
 
-      {/* FAB — z-index higher than TanStack devtools */}
+      {/* FAB */}
       <button
         onClick={() => setIsOpen((prev) => !prev)}
         className={cn(
