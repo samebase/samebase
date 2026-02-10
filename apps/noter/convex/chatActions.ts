@@ -7,6 +7,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { Octokit } from "@octokit/rest";
 import type { ActionCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import type { GithubTreeData } from "./schema";
 
 // --- Tool Definitions ---
 
