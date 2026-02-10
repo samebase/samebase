@@ -418,7 +418,6 @@ async function executeGithubApi(
   if (!categoryObj) {
     return `Error: unknown GitHub API category "${category}"`;
   }
-  // @ts-expect-error — dynamic method lookup
   const fn = categoryObj[method];
   if (typeof fn !== "function") {
     return `Error: unknown method "${method}" on category "${category}"`;
