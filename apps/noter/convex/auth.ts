@@ -33,20 +33,13 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   ],
 
   callbacks: {
-    // createOrUpdateUser: async (_ctx, args) => {
-    //   const { profile } = args;
-    //   console.log("createOrUpdateUser", args);
-    //   return {
-    //     userId: args.existingUserId,
-    //     name: profile.name,
-    //     email: profile.email,
-    //     provider: "github",
-    //     providerAccountId: "123",
-    //     // remove accessToken/refreshToken here to avoid schema error
-    //   };
-    // },
-    // afterUserCreatedOrUpdated: async (ctx, args) => {
-    //   console.log(ctx, args);
-    // },
+    afterUserCreatedOrUpdated: async (ctx, args) => {
+      if (args.existingUserId) return;
+      const user = await ctx.db.get(args.userId);
+      if (!user) return;
+      if (isAdminUser(user.githubUsername)) {
+        await ctx.db.patch(args.userId, { isApproved: true });
+      }
+    },
   },
 });
