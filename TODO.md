@@ -6,7 +6,8 @@
 - [ ] add settings page for each vault an also for the whole app that allows auto commits
 - [ ] when path doesn't have owner or repo name or can't find it, redirect to vaults
 - [x] update the tree from time to time?
-- [ ] add line numbers to code display to fix line reference issues in AI assistant
+- [ ] fix dark mode/light mode toggle - it's redirecting to /
+- [ ] 
 - [ ] improve file search functionality with better fuzzy matching
 - [ ] add keyboard shortcuts for common actions (save, commit, etc.)
 - [ ] implement file diff view to show changes before committing
