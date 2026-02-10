@@ -230,7 +230,7 @@ function buildSystemPrompt(context: {
     "",
     "When using github_api:",
     "- Owner and repo are auto-filled from the current vault context",
-    '- Common endpoints: pulls.list, pulls.get, pulls.create, issues.list, checks.listForRef, branches.list, actions.listWorkflowRunsForRepo',
+    "- Common endpoints: pulls.list, pulls.get, pulls.create, issues.list, checks.listForRef, branches.list, actions.listWorkflowRunsForRepo",
     "- You can access any GitHub REST API endpoint on the allowlist",
     "",
     "Be concise and direct. When showing code, use markdown code blocks.",
@@ -327,9 +327,7 @@ async function executeListFiles(
       ? `No files found in directory: ${input.directory}`
       : "Repository has no files";
   }
-  return entries
-    .map((t: { path?: string }) => t.path)
-    .join("\n");
+  return entries.map((t: { path?: string }) => t.path).join("\n");
 }
 
 async function executeEditFile(
@@ -378,9 +376,8 @@ async function executeDeleteFile(
     id: toolCtx.vaultId,
   });
   const sha =
-    vault?.treeData.tree.find(
-      (t: { path?: string }) => t.path === input.path,
-    )?.sha ?? null;
+    vault?.treeData.tree.find((t: { path?: string }) => t.path === input.path)
+      ?.sha ?? null;
 
   await toolCtx.ctx.runMutation(api.fileStaging.markFileForDeletion, {
     vaultId: toolCtx.vaultId,
@@ -508,9 +505,7 @@ export const generateResponse = internalAction({
 
       // Collect text content
       const textParts = response.content
-        .filter(
-          (block): block is Anthropic.TextBlock => block.type === "text",
-        )
+        .filter((block): block is Anthropic.TextBlock => block.type === "text")
         .map((block) => block.text);
 
       // Check for tool use
@@ -594,9 +589,7 @@ export const generateResponse = internalAction({
               case "github_api":
                 result = await executeGithubApi(toolCtx, {
                   endpoint: input.endpoint as string,
-                  params: input.params as
-                    | Record<string, unknown>
-                    | undefined,
+                  params: input.params as Record<string, unknown> | undefined,
                 });
                 break;
               case "commit_and_push": {

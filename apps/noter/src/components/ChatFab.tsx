@@ -29,9 +29,7 @@ function useVaultContext() {
   const filePath = useMemo(() => {
     if (params["*"]) return params["*"];
     // Parse from URL: /vault/owner/repo/path/to/file
-    const match = location.pathname.match(
-      /^\/vault\/[^/]+\/[^/]+\/(.+)$/,
-    );
+    const match = location.pathname.match(/^\/vault\/[^/]+\/[^/]+\/(.+)$/);
     return match?.[1];
   }, [params, location.pathname]);
 
@@ -87,7 +85,9 @@ function renderMarkdown(text: string) {
     // Text before code block
     if (match.index > lastIndex) {
       parts.push(
-        <span key={i++}>{renderInlineMarkdown(text.slice(lastIndex, match.index))}</span>,
+        <span key={i++}>
+          {renderInlineMarkdown(text.slice(lastIndex, match.index))}
+        </span>,
       );
     }
     // Code block
@@ -172,7 +172,10 @@ function ToolActivityBadge({
           {tools.map((t, idx) => (
             <div key={idx} className="flex items-center gap-1">
               <span className="font-mono">{t.tool}</span>
-              {t.tool === "read_file" || t.tool === "edit_file" || t.tool === "create_file" || t.tool === "delete_file" ? (
+              {t.tool === "read_file" ||
+              t.tool === "edit_file" ||
+              t.tool === "create_file" ||
+              t.tool === "delete_file" ? (
                 <span className="truncate opacity-70">
                   {(t.input as Record<string, string>).path}
                 </span>
