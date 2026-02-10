@@ -23,6 +23,7 @@ export const sendMessage = mutation({
     content: v.string(),
     vaultId: v.optional(v.id("vaults")),
     filePath: v.optional(v.string()),
+    branch: v.optional(v.string()),
   },
   returns: v.id("chatMessages"),
   handler: async (ctx, args) => {
@@ -48,6 +49,7 @@ export const sendMessage = mutation({
       conversationId: args.conversationId,
       vaultId: vaultId ?? undefined,
       filePath: args.filePath,
+      branch: args.branch,
     });
     return messageId;
   },
