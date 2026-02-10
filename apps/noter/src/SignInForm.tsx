@@ -45,11 +45,12 @@ function WaitlistForm() {
       </p>
       <form
         className="flex gap-2"
-        onSubmit={async (e) => {
+        onSubmit={(e) => {
           e.preventDefault();
           if (!email.trim()) return;
-          await joinWaitlist({ email: email.trim() });
-          setSubmitted(true);
+          void joinWaitlist({ email: email.trim() }).then(() =>
+            setSubmitted(true),
+          );
         }}
       >
         <Input
