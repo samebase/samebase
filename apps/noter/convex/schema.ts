@@ -74,7 +74,59 @@ export default defineSchema({
     // Tree refresh mutex: prevents concurrent/redundant GitHub API calls
     lastTreeRefreshAt: v.optional(v.number()),
     treeRefreshStartedAt: v.optional(v.number()),
+
+    // Codespace integration
+    activeCodespaceId: v.optional(v.id("codespaces")),
+    devcontainerConfig: v.optional(v.string()), // JSON string of .devcontainer/devcontainer.json
   }),
+
+  /**
+   * GitHub Codespaces for AI execution environment.
+   * Each vault can have multiple codespaces over time, but only one active.
+   */
+  codespaces: defineTable({
+    vaultId: v.id("vaults"),
+    userId: v.id("users"),
+
+    // GitHub Codespace identifiers
+    ghCodespaceId: v.string(),
+    ghCodespaceName: v.string(),
+
+    // State management
+    state: v.union(
+      v.literal("creating"),
+      v.literal("starting"),
+      v.literal("running"),
+      v.literal("stopping"),
+      v.literal("stopped"),
+      v.literal("deleting"),
+      v.literal("deleted"),
+      v.literal("failed")
+    ),
+
+    // Connection details (when running)
+    webUrl: v.optional(v.string()),
+
+    // HTTP Agent details
+    agentUrl: v.optional(v.string()), // https://<codespace>-3000.app.github.dev
+    agentToken: v.optional(v.string()), // Random token for authentication
+    agentHealthy: v.optional(v.boolean()), // Last health check status
+
+    // Lifecycle tracking
+    createdAt: v.number(),
+    lastStartedAt: v.optional(v.number()),
+    lastStoppedAt: v.optional(v.number()),
+    deletedAt: v.optional(v.number()),
+    lastHealthCheckAt: v.optional(v.number()),
+
+    // Commit tracking for reproducibility
+    commitSha: v.string(),
+    branch: v.string(),
+  })
+    .index("by_vault", ["vaultId"])
+    .index("by_user", ["userId"])
+    .index("by_gh_id", ["ghCodespaceId"])
+    .index("by_state", ["state"]),
 
   /**
    * File staging for real-time collaborative editing.
