@@ -120,7 +120,7 @@ export function CommitStatus({ owner, repo, commitSha, className = "" }: CommitS
         }
       } catch (err) {
         console.error("Failed to fetch CI status:", err);
-        setError(err instanceof Error ? (err.message ?? "Unknown error") : String(err));
+        setError(err instanceof Error ? (err.message || "Unknown error") : String(err));
         setCheckRuns(null);
       } finally {
         setLoading(false);
