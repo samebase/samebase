@@ -113,14 +113,14 @@ export function CommitStatus({ owner, repo, commitSha, className = "" }: CommitS
         });
         
         if ('error' in result) {
-          setError(result.error);
+          setError(result.error || "Unknown error");
           setCheckRuns(null);
         } else {
           setCheckRuns(result.check_runs);
         }
       } catch (err) {
         console.error("Failed to fetch CI status:", err);
-        setError(err instanceof Error ? (err.message ?? "Unknown error") : String(err));
+        setError(err instanceof Error ? (err.message || "Unknown error") : String(err));
         setCheckRuns(null);
       } finally {
         setLoading(false);
