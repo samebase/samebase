@@ -12,6 +12,7 @@ export default defineConfig({
       injectRegister: false,
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024, // 6 MiB – Monaco bundle is ~5 MB
         skipWaiting: true,
         clientsClaim: true,
         navigateFallback: "index.html",
