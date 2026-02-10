@@ -1,13 +1,13 @@
 "use node";
 
 import { internalAction } from "./_generated/server";
-import { v } from "convex/values";
+import { v, Infer } from "convex/values";
 import { api, internal } from "./_generated/api";
 import Anthropic from "@anthropic-ai/sdk";
 import { Octokit } from "@octokit/rest";
 import type { ActionCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import type { GithubTreeData } from "./schema";
+import { GithubTreeData } from "./schema";
 
 // --- Tool Definitions ---
 
