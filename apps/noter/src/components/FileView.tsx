@@ -44,6 +44,7 @@ import {
   EditedFilesCategoriesPopover,
   EditedFilesCategoriesPopoverTrigger,
 } from "./EditedFilesCategories";
+import { CommitStatus } from "./CommitStatus";
 
 function formatSecondsAgo(now: number, timestamp: number): string {
   const seconds = Math.floor((now - timestamp) / 1000);
@@ -594,6 +595,12 @@ function FileViewInner({
                       </>
                     ) : (
                       <>
+                        <CommitStatus
+                          owner={owner}
+                          repo={repoName}
+                          commitSha={vault.treeSHA}
+                          className="mr-1"
+                        />
                         <span className="font-mono">
                           {vault.treeSHA.slice(0, 7)}
                         </span>
