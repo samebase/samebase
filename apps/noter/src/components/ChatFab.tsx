@@ -285,7 +285,7 @@ function MessageBubble({
       <div className="whitespace-pre-wrap">{renderMarkdown(msg.content)}</div>
       {isCommitProposal && (
         <CommitProposalCard
-          metadata={metadata as CommitProposal}
+          metadata={metadata}
           conversationId={conversationId}
         />
       )}
