@@ -145,6 +145,7 @@ export default defineSchema({
     userId: v.id("users"),
     title: v.optional(v.string()),
     vaultId: v.optional(v.id("vaults")),
+    systemPrompt: v.optional(v.string()),
   }).index("by_userId", ["userId"]),
 
   /**

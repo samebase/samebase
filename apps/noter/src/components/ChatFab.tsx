@@ -7,6 +7,7 @@ import {
   GitCommitHorizontal,
   Check,
   Wrench,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "convex/react";
@@ -296,6 +297,34 @@ function MessageBubble({
   );
 }
 
+// --- System prompt bubble ---
+
+function SystemPromptBubble({ systemPrompt }: { systemPrompt: string }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="mb-2 rounded-lg border border-dashed border-border bg-muted/50 text-xs">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-1.5 px-3 py-1.5 text-muted-foreground hover:text-foreground"
+      >
+        <ChevronRight
+          className={cn(
+            "h-3 w-3 shrink-0 transition-transform",
+            expanded && "rotate-90",
+          )}
+        />
+        <span className="font-medium">System prompt</span>
+      </button>
+      {expanded && (
+        <pre className="max-h-48 overflow-auto whitespace-pre-wrap border-t border-border px-3 py-2 text-[11px] text-muted-foreground">
+          {systemPrompt}
+        </pre>
+      )}
+    </div>
+  );
+}
+
 // --- Main component ---
 
 export function ChatFab() {
@@ -311,6 +340,11 @@ export function ChatFab() {
 
   const messages = useQuery(
     api.chat.listMessages,
+    conversationId ? { conversationId } : "skip",
+  );
+
+  const conversation = useQuery(
+    api.chat.getConversation,
     conversationId ? { conversationId } : "skip",
   );
 
@@ -390,6 +424,9 @@ export function ChatFab() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-3 py-2">
+            {conversation?.systemPrompt && (
+              <SystemPromptBubble systemPrompt={conversation.systemPrompt} />
+            )}
             {conversationId &&
               messages?.map((msg) => (
                 <MessageBubble

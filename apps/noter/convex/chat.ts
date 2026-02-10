@@ -94,6 +94,7 @@ export const listConversations = query({
       userId: v.id("users"),
       title: v.optional(v.string()),
       vaultId: v.optional(v.id("vaults")),
+      systemPrompt: v.optional(v.string()),
     }),
   ),
   handler: async (ctx) => {
@@ -103,6 +104,41 @@ export const listConversations = query({
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .order("desc")
       .collect();
+  },
+});
+
+export const saveSystemPrompt = internalMutation({
+  args: {
+    conversationId: v.id("chatConversations"),
+    systemPrompt: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.conversationId, {
+      systemPrompt: args.systemPrompt,
+    });
+    return null;
+  },
+});
+
+export const getConversation = query({
+  args: { conversationId: v.id("chatConversations") },
+  returns: v.union(
+    v.object({
+      _id: v.id("chatConversations"),
+      _creationTime: v.number(),
+      userId: v.id("users"),
+      title: v.optional(v.string()),
+      vaultId: v.optional(v.id("vaults")),
+      systemPrompt: v.optional(v.string()),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation || conversation.userId !== userId) return null;
+    return conversation;
   },
 });
 
