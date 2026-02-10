@@ -23,7 +23,7 @@ export const executeCommand = action({
   }),
   handler: async (ctx, args) => {
     // Get codespace record with agentUrl and agentToken
-    const codespace = await ctx.runQuery(internal.codespaces.getCodespace, {
+    const codespace = await ctx.runQuery(internal.codespacesMutations.getCodespace, {
       codespaceId: args.codespaceId,
     });
 
@@ -77,7 +77,7 @@ export const writeFileToCodespace = action({
     filePath: v.string(),
   }),
   handler: async (ctx, args) => {
-    const codespace = await ctx.runQuery(internal.codespaces.getCodespace, {
+    const codespace = await ctx.runQuery(internal.codespacesMutations.getCodespace, {
       codespaceId: args.codespaceId,
     });
 
@@ -129,7 +129,7 @@ export const readFileFromCodespace = action({
     filePath: v.string(),
   }),
   handler: async (ctx, args) => {
-    const codespace = await ctx.runQuery(internal.codespaces.getCodespace, {
+    const codespace = await ctx.runQuery(internal.codespacesMutations.getCodespace, {
       codespaceId: args.codespaceId,
     });
 
@@ -187,7 +187,7 @@ export const listFiles = action({
     dirPath: v.string(),
   }),
   handler: async (ctx, args) => {
-    const codespace = await ctx.runQuery(internal.codespaces.getCodespace, {
+    const codespace = await ctx.runQuery(internal.codespacesMutations.getCodespace, {
       codespaceId: args.codespaceId,
     });
 
@@ -239,7 +239,7 @@ export const deleteFile = action({
     filePath: v.string(),
   }),
   handler: async (ctx, args) => {
-    const codespace = await ctx.runQuery(internal.codespaces.getCodespace, {
+    const codespace = await ctx.runQuery(internal.codespacesMutations.getCodespace, {
       codespaceId: args.codespaceId,
     });
 
@@ -295,7 +295,7 @@ export const getFileStat = action({
     createdAt: v.string(),
   }),
   handler: async (ctx, args) => {
-    const codespace = await ctx.runQuery(internal.codespaces.getCodespace, {
+    const codespace = await ctx.runQuery(internal.codespacesMutations.getCodespace, {
       codespaceId: args.codespaceId,
     });
 
@@ -347,7 +347,7 @@ export const checkAgentHealth = action({
     timestamp: v.optional(v.number()),
   }),
   handler: async (ctx, args) => {
-    const codespace = await ctx.runQuery(internal.codespaces.getCodespace, {
+    const codespace = await ctx.runQuery(internal.codespacesMutations.getCodespace, {
       codespaceId: args.codespaceId,
     });
 
@@ -374,7 +374,7 @@ export const checkAgentHealth = action({
       const data = await response.json();
 
       // Update health status in database
-      await ctx.runMutation(internal.codespaces.updateAgentHealth, {
+      await ctx.runMutation(internal.codespacesMutations.updateAgentHealth, {
         codespaceId: args.codespaceId,
         healthy: true,
         lastHealthCheckAt: Date.now(),
@@ -388,7 +388,7 @@ export const checkAgentHealth = action({
       };
     } catch (error) {
       // Update health status in database
-      await ctx.runMutation(internal.codespaces.updateAgentHealth, {
+      await ctx.runMutation(internal.codespacesMutations.updateAgentHealth, {
         codespaceId: args.codespaceId,
         healthy: false,
         lastHealthCheckAt: Date.now(),

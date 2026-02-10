@@ -2,7 +2,7 @@
 // @ts-nocheck - Temporary bypass for Convex type inference circular dependency issues
 
 import { v } from "convex/values";
-import { action, internalMutation, internalQuery, query } from "./_generated/server";
+import { action, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
@@ -24,7 +24,7 @@ export const createCodespace = action({
     const userId = await getUserId(ctx);
 
     // Get vault details
-    const vault = await ctx.runQuery(internal.codespaces.getVault, {
+    const vault = await ctx.runQuery(internal.codespacesMutations.getVault, {
       vaultId: args.vaultId,
     });
 
@@ -33,7 +33,7 @@ export const createCodespace = action({
     }
 
     // Get user GitHub access token
-    const user = await ctx.runQuery(internal.codespaces.getUser, { userId });
+    const user = await ctx.runQuery(internal.codespacesMutations.getUser, { userId });
 
     if (!user?.githubAccessToken) {
       throw new Error("GitHub access token not found");
@@ -58,7 +58,7 @@ export const createCodespace = action({
 
     // Store codespace record in database
     const codespaceId = await ctx.runMutation(
-      internal.codespaces.createCodespaceRecord,
+      internal.codespacesMutations.createCodespaceRecord,
       {
         vaultId: args.vaultId,
         userId,
@@ -87,7 +87,7 @@ export const createCodespace = action({
     const agentUrl = `https://${codespace.name}-3000.app.github.dev`;
 
     // Update codespace with connection details
-    await ctx.runMutation(internal.codespaces.updateCodespaceConnection, {
+    await ctx.runMutation(internal.codespacesMutations.updateCodespaceConnection, {
       codespaceId,
       webUrl: updatedCodespace.web_url,
       agentUrl,
@@ -113,7 +113,7 @@ export const getCodespaceConnection = action({
     state: v.string(),
   }),
   handler: async (ctx, args) => {
-    const codespace = await ctx.runQuery(internal.codespaces.getCodespace, {
+    const codespace = await ctx.runQuery(internal.codespacesMutations.getCodespace, {
       codespaceId: args.codespaceId,
     });
 
@@ -151,7 +151,7 @@ export const startCodespace = action({
       throw new Error("Codespace not found");
     }
 
-    const user = await ctx.runQuery(internal.codespaces.getUser, { userId });
+    const user = await ctx.runQuery(internal.codespacesMutations.getUser, { userId });
 
     if (!user?.githubAccessToken) {
       throw new Error("GitHub access token not found");
@@ -168,7 +168,7 @@ export const startCodespace = action({
     });
 
     // Update state to starting
-    await ctx.runMutation(internal.codespaces.updateCodespaceState, {
+    await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
       codespaceId: args.codespaceId,
       state: "starting",
     });
@@ -177,7 +177,7 @@ export const startCodespace = action({
     await pollCodespaceState(octokit, codespace.ghCodespaceName, "Available");
 
     // Update state to running
-    await ctx.runMutation(internal.codespaces.updateCodespaceState, {
+    await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
       codespaceId: args.codespaceId,
       state: "running",
       lastStartedAt: Date.now(),
@@ -204,7 +204,7 @@ export const stopCodespace = action({
       throw new Error("Codespace not found");
     }
 
-    const user = await ctx.runQuery(internal.codespaces.getUser, { userId });
+    const user = await ctx.runQuery(internal.codespacesMutations.getUser, { userId });
 
     if (!user?.githubAccessToken) {
       throw new Error("GitHub access token not found");
@@ -221,7 +221,7 @@ export const stopCodespace = action({
     });
 
     // Update state
-    await ctx.runMutation(internal.codespaces.updateCodespaceState, {
+    await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
       codespaceId: args.codespaceId,
       state: "stopped",
       lastStoppedAt: Date.now(),
@@ -248,7 +248,7 @@ export const deleteCodespace = action({
       throw new Error("Codespace not found");
     }
 
-    const user = await ctx.runQuery(internal.codespaces.getUser, { userId });
+    const user = await ctx.runQuery(internal.codespacesMutations.getUser, { userId });
 
     if (!user?.githubAccessToken) {
       throw new Error("GitHub access token not found");
@@ -265,7 +265,7 @@ export const deleteCodespace = action({
     });
 
     // Mark as deleted in database
-    await ctx.runMutation(internal.codespaces.updateCodespaceState, {
+    await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
       codespaceId: args.codespaceId,
       state: "deleted",
       deletedAt: Date.now(),
@@ -317,142 +317,6 @@ export const getActiveCodespace = query({
     // Return without agentToken (security - don't expose to frontend)
     const { agentToken: _agentToken, ...safeCodespace } = codespace;
     return safeCodespace as any;
-  },
-});
-
-/**
- * Internal: Get Codespace by ID
- */
-export const getCodespace = internalQuery({
-  args: { codespaceId: v.id("codespaces") },
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.codespaceId);
-  },
-});
-
-/**
- * Internal: Get vault by ID
- */
-export const getVault = internalQuery({
-  args: { vaultId: v.id("vaults") },
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.vaultId);
-  },
-});
-
-/**
- * Internal: Get user by ID
- */
-export const getUser = internalQuery({
-  args: { userId: v.id("users") },
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.userId);
-  },
-});
-
-/**
- * Internal mutation: Create Codespace record in database
- */
-export const createCodespaceRecord = internalMutation({
-  args: {
-    vaultId: v.id("vaults"),
-    userId: v.id("users"),
-    ghCodespaceId: v.string(),
-    ghCodespaceName: v.string(),
-    commitSha: v.string(),
-    branch: v.string(),
-    agentToken: v.string(),
-  },
-  returns: v.id("codespaces"),
-  handler: async (ctx, args) => {
-    const codespaceId = await ctx.db.insert("codespaces", {
-      vaultId: args.vaultId,
-      userId: args.userId,
-      ghCodespaceId: args.ghCodespaceId,
-      ghCodespaceName: args.ghCodespaceName,
-      state: "creating",
-      commitSha: args.commitSha,
-      branch: args.branch,
-      agentToken: args.agentToken,
-      createdAt: Date.now(),
-    });
-
-    // Update vault to point to this codespace
-    await ctx.db.patch(args.vaultId, {
-      activeCodespaceId: codespaceId,
-    });
-
-    return codespaceId;
-  },
-});
-
-/**
- * Internal mutation: Update Codespace connection details
- */
-export const updateCodespaceConnection = internalMutation({
-  args: {
-    codespaceId: v.id("codespaces"),
-    webUrl: v.string(),
-    agentUrl: v.string(),
-    state: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.codespaceId, {
-      webUrl: args.webUrl,
-      agentUrl: args.agentUrl,
-      state: args.state,
-    });
-    return null;
-  },
-});
-
-/**
- * Internal mutation: Update Codespace state
- */
-export const updateCodespaceState = internalMutation({
-  args: {
-    codespaceId: v.id("codespaces"),
-    state: v.string(),
-    lastStartedAt: v.optional(v.number()),
-    lastStoppedAt: v.optional(v.number()),
-    deletedAt: v.optional(v.number()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const updates: Record<string, any> = { state: args.state as any };
-
-    if (args.lastStartedAt !== undefined) {
-      updates.lastStartedAt = args.lastStartedAt;
-    }
-    if (args.lastStoppedAt !== undefined) {
-      updates.lastStoppedAt = args.lastStoppedAt;
-    }
-    if (args.deletedAt !== undefined) {
-      updates.deletedAt = args.deletedAt;
-    }
-
-    await ctx.db.patch(args.codespaceId, updates);
-    return null;
-  },
-});
-
-/**
- * Internal mutation: Update agent health status
- */
-export const updateAgentHealth = internalMutation({
-  args: {
-    codespaceId: v.id("codespaces"),
-    healthy: v.boolean(),
-    lastHealthCheckAt: v.number(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.codespaceId, {
-      agentHealthy: args.healthy,
-      lastHealthCheckAt: args.lastHealthCheckAt,
-    });
-    return null;
   },
 });
 
