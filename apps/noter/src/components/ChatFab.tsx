@@ -18,20 +18,22 @@ import { useParams, useLocation } from "react-router-dom";
 
 function useVaultContext() {
   const params = useParams<{ owner: string; repoName: string; "*": string }>();
-  const location = useLocation();
 
   const owner = params.owner;
   const repoName = params.repoName;
   const repositoryFullName =
     owner && repoName ? `${owner}/${repoName}` : undefined;
 
-  // Extract file path from the wildcard or from pathname
-  const filePath = useMemo(() => {
-    if (params["*"]) return params["*"];
-    // Parse from URL: /vault/owner/repo/path/to/file
-    const match = location.pathname.match(/^\/vault\/[^/]+\/[^/]+\/(.+)$/);
-    return match?.[1];
-  }, [params, location.pathname]);
+  // Parse branch and file path from the wildcard parameter
+  // URL structure: /vault/:owner/:repoName/:branch/:filePath
+  const { branch, filePath } = useMemo(() => {
+    const wildcard = params["*"];
+    if (!wildcard) return { branch: "main", filePath: undefined };
+    const parts = wildcard.split("/");
+    const branch = parts[0] || "main";
+    const filePath = parts.slice(1).join("/") || undefined;
+    return { branch, filePath };
+  }, [params]);
 
   const vault = useQuery(
     api.vault.getVaultByRepository,
@@ -40,6 +42,7 @@ function useVaultContext() {
 
   return {
     vaultId: vault?._id as Id<"vaults"> | undefined,
+    branch,
     filePath,
     repositoryFullName,
   };
@@ -304,7 +307,7 @@ export function ChatFab() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const { vaultId, filePath } = useVaultContext();
+  const { vaultId, branch, filePath } = useVaultContext();
 
   const messages = useQuery(
     api.chat.listMessages,
@@ -358,6 +361,7 @@ export function ChatFab() {
       content: trimmed,
       vaultId,
       filePath,
+      branch,
     });
   }
 
