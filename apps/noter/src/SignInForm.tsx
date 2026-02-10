@@ -1,7 +1,10 @@
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
-import { useEffect } from "react";
+import { useMutation } from "convex/react";
+import { api } from "../convex/_generated/api";
+import { useEffect, useState } from "react";
 
 export function SignInForm() {
   return (
@@ -16,7 +19,50 @@ export function SignInForm() {
           <li>is mobile-web first</li>
         </ul>
         <SignInWithGitHub />
+        <WaitlistForm />
       </div>
+    </div>
+  );
+}
+
+function WaitlistForm() {
+  const joinWaitlist = useMutation(api.waitlist.joinWaitlist);
+  const [email, setEmail] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  if (submitted) {
+    return (
+      <p className="text-sm text-muted-foreground text-center">
+        You're in the queue! We'll reach out when a spot opens up.
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2 pt-2 border-t">
+      <p className="text-sm text-muted-foreground text-center">
+        Usage is invite-only. Join the queue to get access.
+      </p>
+      <form
+        className="flex gap-2"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (!email.trim()) return;
+          await joinWaitlist({ email: email.trim() });
+          setSubmitted(true);
+        }}
+      >
+        <Input
+          type="email"
+          placeholder="you@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+        <Button type="submit" variant="outline" className="shrink-0">
+          Join queue
+        </Button>
+      </form>
     </div>
   );
 }
