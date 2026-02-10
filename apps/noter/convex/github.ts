@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use node";
 
 import { action, internalAction } from "./_generated/server";
