@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { CodespaceStatus } from "@/components/CodespaceStatus";
 
 const formatTimeAgo = (timestamp: number) => {
   const now = Date.now();
@@ -124,7 +125,7 @@ export function VaultDashboard() {
                   !isReady && "pointer-events-none",
                 )}
               >
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 space-y-2">
                   <div className="flex flex-col items-start ">
                     <span
                       className={`text-sm text-muted-foreground ${linkStyle}`}
@@ -146,6 +147,10 @@ export function VaultDashboard() {
                       </span>
                     </h3>
                   </div>
+
+                  {isReady && (
+                    <CodespaceStatus vaultId={vault._id} showActions={false} />
+                  )}
                 </div>
 
                 <div className="flex flex-col items-end text-sm text-muted-foreground">

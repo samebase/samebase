@@ -3,6 +3,7 @@ import { useAction, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { CodeEditorWrapper } from "@/components/CodeEditor";
+import { CodespaceIframe } from "@/components/CodespaceIframe";
 import { Button } from "@/components/ui/button";
 
 import {
@@ -638,18 +639,37 @@ function FileViewInner({
               </div>
 
               <div className="flex-1 min-h-0">
-                {stagedFile && (
-                  <CodeEditorWrapper
-                    key={`${branch}/${selectedFile}-${stagedFile.parentCommitSha ?? "new"}`}
-                    repositoryFullName={repositoryFullName}
-                    filePath={selectedFile}
-                    initialFilePath={stagedFile.initialFilePath}
-                    stagedFile={stagedFile}
-                    vaultId={vault._id}
-                    tree={vault.treeData.tree}
-                    treeSHA={vault.treeSHA}
-                  />
-                )}
+                {stagedFile && (() => {
+                  // Route to appropriate editor based on file type
+                  const fileExtension = selectedFile.split('.').pop()?.toLowerCase();
+                  const isMarkdown = fileExtension === 'md' || fileExtension === 'markdown';
+
+                  if (isMarkdown) {
+                    // Use Prosemark editor for markdown files
+                    return (
+                      <CodeEditorWrapper
+                        key={`${branch}/${selectedFile}-${stagedFile.parentCommitSha ?? "new"}`}
+                        repositoryFullName={repositoryFullName}
+                        filePath={selectedFile}
+                        initialFilePath={stagedFile.initialFilePath}
+                        stagedFile={stagedFile}
+                        vaultId={vault._id}
+                        tree={vault.treeData.tree}
+                        treeSHA={vault.treeSHA}
+                      />
+                    );
+                  }
+
+                  // Use GitHub Codespace iframe for all other files
+                  return (
+                    <CodespaceIframe
+                      key={`codespace-${branch}/${selectedFile}`}
+                      vaultId={vault._id}
+                      filePath={selectedFile}
+                      className="h-full"
+                    />
+                  );
+                })()}
               </div>
             </div>
           </div>
