@@ -11,11 +11,27 @@ import {
   SystemMessage,
   HumanMessage,
   AIMessage,
+  isAIMessage,
+  ToolMessage,
 } from "@langchain/core/messages";
 import type { ToolContext } from "./tools";
 import { createTools } from "./tools";
 
 const COMMIT_SENTINEL = "__COMMIT_PROPOSAL__:";
+
+function extractTextContent(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter(
+        (b): b is { type: "text"; text: string } =>
+          typeof b === "object" && b !== null && b.type === "text",
+      )
+      .map((b) => b.text)
+      .join("");
+  }
+  return "";
+}
 
 function createModel(provider: string, model: string) {
   switch (provider) {
@@ -68,15 +84,7 @@ export async function runAgentGraph(opts: {
       ),
     ];
     const response = await baseLlm.invoke(inputMessages);
-    const text =
-      typeof response.content === "string"
-        ? response.content
-        : Array.isArray(response.content)
-          ? response.content
-              .filter((b: { type: string }) => b.type === "text")
-              .map((b: { text: string }) => b.text)
-              .join("")
-          : "";
+    const text = extractTextContent(response.content);
     return { text: text || "(No response)", toolActivity: [] };
   }
 
@@ -102,16 +110,16 @@ export async function runAgentGraph(opts: {
       // Also look at the preceding AI message to capture tool call inputs.
       const lastAiMsg = state.messages[state.messages.length - 1];
       const toolCallInputs = new Map<string, unknown>();
-      if (lastAiMsg.tool_calls) {
+      if (isAIMessage(lastAiMsg) && lastAiMsg.tool_calls) {
         for (const tc of lastAiMsg.tool_calls) {
           toolCallInputs.set(tc.id ?? tc.name, tc.args);
         }
       }
 
       for (const msg of result.messages) {
-        if (msg._getType() === "tool") {
+        if (msg instanceof ToolMessage) {
           toolActivity.push({
-            tool: msg.name,
+            tool: msg.name ?? "unknown",
             input: toolCallInputs.get(msg.tool_call_id) ?? {},
           });
 
@@ -133,6 +141,7 @@ export async function runAgentGraph(opts: {
 
       // If the LLM didn't request any tool calls, we're done
       if (
+        !isAIMessage(lastMessage) ||
         !lastMessage.tool_calls ||
         lastMessage.tool_calls.length === 0
       ) {
@@ -173,17 +182,10 @@ export async function runAgentGraph(opts: {
   let text = "";
   for (let i = allMessages.length - 1; i >= 0; i--) {
     const msg = allMessages[i];
-    if (msg._getType() === "ai" && typeof msg.content === "string" && msg.content) {
-      text = msg.content;
-      break;
-    }
-    // AIMessage content can also be an array of content blocks
-    if (msg._getType() === "ai" && Array.isArray(msg.content)) {
-      const textParts = msg.content
-        .filter((b: { type: string }) => b.type === "text")
-        .map((b: { text: string }) => b.text);
-      if (textParts.length > 0) {
-        text = textParts.join("");
+    if (isAIMessage(msg)) {
+      const extracted = extractTextContent(msg.content);
+      if (extracted) {
+        text = extracted;
         break;
       }
     }

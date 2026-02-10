@@ -5,6 +5,7 @@ import { v, Infer } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { GithubTreeData } from "./schema";
+import { executeReadFile } from "./agent/tools";
 import type { ToolContext } from "./agent/tools";
 import { buildSystemPrompt } from "./agent/systemPrompt";
 import { runAgentGraph } from "./agent/graph";
@@ -64,19 +65,17 @@ export const generateResponse = internalAction({
 
     if (args.filePath && vault && user?.githubAccessToken) {
       try {
-        // Reuse the same read logic as the tool: staging → blob → GitHub API
-        const { createTools } = await import("./agent/tools");
-        const tempToolCtx: ToolContext = {
-          ctx,
-          vaultId: vault._id,
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
-          userId: user._id,
-          accessToken: user.githubAccessToken,
-        };
-        // Invoke the read_file tool directly to get file content
-        const readTool = createTools(tempToolCtx)[0];
-        fileContent = await readTool.invoke({ path: args.filePath });
+        fileContent = await executeReadFile(
+          {
+            ctx,
+            vaultId: vault._id,
+            owner: vault.ghRepoOwner,
+            repo: vault.ghRepoName,
+            userId: user._id,
+            accessToken: user.githubAccessToken,
+          },
+          { path: args.filePath },
+        );
       } catch {
         // File content is optional context — don't fail the request
       }

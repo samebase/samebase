@@ -86,7 +86,7 @@ const GITHUB_API_ALLOWLIST = new Set([
 
 // --- Tool Executor Functions ---
 
-async function executeReadFile(
+export async function executeReadFile(
   toolCtx: ToolContext,
   input: { path: string },
 ): Promise<string> {
