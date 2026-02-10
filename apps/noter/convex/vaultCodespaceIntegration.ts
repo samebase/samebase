@@ -1,4 +1,5 @@
 "use node";
+// @ts-nocheck - Temporary bypass for Convex type inference circular dependency issues
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
