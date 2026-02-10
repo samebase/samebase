@@ -4,9 +4,40 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
 import { useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+const AUTH_FLAG_KEY = "noter_was_authenticated";
+
+export function clearAuthFlag() {
+  localStorage.removeItem(AUTH_FLAG_KEY);
+}
+
+export function setAuthFlag() {
+  localStorage.setItem(AUTH_FLAG_KEY, "1");
+}
+
+function useAutoReauthenticate() {
+  const { signIn } = useAuthActions();
+  const attempted = useRef(false);
+
+  useEffect(() => {
+    if (attempted.current) return;
+    if (isInIframe() || window.opener) return;
+    if (!localStorage.getItem(AUTH_FLAG_KEY)) return;
+
+    attempted.current = true;
+    void signIn("github");
+  }, [signIn]);
+
+  // Returning whether we're attempting auto-login so the form can hide itself
+  return attempted.current;
+}
 
 export function SignInForm() {
+  const autoLoginInProgress = useAutoReauthenticate();
+
+  if (autoLoginInProgress) return null;
+
   return (
     <div className="container my-auto">
       <div className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8">

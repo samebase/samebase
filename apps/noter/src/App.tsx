@@ -1,5 +1,5 @@
 import { Layout } from "@/Layout";
-import { SignInForm, useAutoSignIn } from "@/SignInForm";
+import { SignInForm, useAutoSignIn, setAuthFlag, clearAuthFlag } from "@/SignInForm";
 
 import { VaultDashboard } from "@/components/VaultDashboard";
 import { FileView } from "@/components/FileView";
@@ -20,7 +20,14 @@ import { useEffect } from "react";
 function useCloseOAuthPopup() {
   const { isAuthenticated } = useConvexAuth();
   useEffect(() => {
-    if (!isAuthenticated || !window.opener) return;
+    if (!isAuthenticated) return;
+
+    // Remember that this user has authenticated, so we can auto-login next time
+    if (!window.opener) {
+      setAuthFlag();
+    }
+
+    if (!window.opener) return;
 
     const authKeys = Object.keys(localStorage).filter((k) =>
       k.startsWith("__convexAuth"),
@@ -66,7 +73,7 @@ function ApprovalGate({ children }: { children: React.ReactNode }) {
           <p className="text-muted-foreground text-sm">
             We'll let you know when your spot opens up.
           </p>
-          <Button variant="outline" onClick={() => void signOut()}>
+          <Button variant="outline" onClick={() => { clearAuthFlag(); void signOut(); }}>
             Sign out
           </Button>
         </div>
