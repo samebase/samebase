@@ -5,8 +5,8 @@ import { useState, useEffect } from "react";
 interface GitHubCheckRun {
   id: number;
   name: string;
-  status: "completed" | "in_progress" | "queued";
-  conclusion: "success" | "failure" | "neutral" | "cancelled" | "timed_out" | "action_required" | "skipped" | null;
+  status: string;
+  conclusion: string | null;
   html_url: string;
 }
 
@@ -21,7 +21,7 @@ function getStatusColor(status: string, conclusion: string | null): string {
   if (status === "in_progress" || status === "queued") {
     return "text-yellow-500"; // Yellow for running/pending
   }
-  
+
   if (status === "completed") {
     switch (conclusion) {
       case "success":
@@ -38,7 +38,7 @@ function getStatusColor(status: string, conclusion: string | null): string {
         return "text-gray-400"; // Default gray
     }
   }
-  
+
   return "text-gray-400"; // Default
 }
 
@@ -46,7 +46,7 @@ function getStatusIcon(status: string, conclusion: string | null): string {
   if (status === "in_progress" || status === "queued") {
     return "●"; // Solid dot for running
   }
-  
+
   if (status === "completed") {
     switch (conclusion) {
       case "success":
@@ -57,13 +57,17 @@ function getStatusIcon(status: string, conclusion: string | null): string {
         return "●"; // Solid dot for others
     }
   }
-  
+
   return "●"; // Default solid dot
 }
 
-function getStatusTitle(status: string, conclusion: string | null, checkCount: number): string {
+function getStatusTitle(
+  status: string,
+  conclusion: string | null,
+  checkCount: number,
+): string {
   const checkText = checkCount === 1 ? "check" : "checks";
-  
+
   if (status === "in_progress") {
     return `${checkCount} CI ${checkText} running`;
   }
@@ -91,11 +95,16 @@ function getStatusTitle(status: string, conclusion: string | null, checkCount: n
   return "CI status unknown";
 }
 
-export function CommitStatus({ owner, repo, commitSha, className = "" }: CommitStatusProps) {
+export function CommitStatus({
+  owner,
+  repo,
+  commitSha,
+  className = "",
+}: CommitStatusProps) {
   const [checkRuns, setCheckRuns] = useState<GitHubCheckRun[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const getCommitStatus = useAction(api.githubChecks.getCommitStatus);
 
   useEffect(() => {
@@ -104,23 +113,20 @@ export function CommitStatus({ owner, repo, commitSha, className = "" }: CommitS
     const fetchCheckRuns = async () => {
       setLoading(true);
       setError(null);
-      
+
       try {
         const result = await getCommitStatus({
           owner,
           repo,
           ref: commitSha,
         });
-        
-        if ('error' in result) {
-          setError(result.error || "Unknown error");
-          setCheckRuns(null);
-        } else {
-          setCheckRuns(result.check_runs);
-        }
+
+        setCheckRuns(result.check_runs);
       } catch (err) {
         console.error("Failed to fetch CI status:", err);
-        setError(err instanceof Error ? (err.message || "Unknown error") : String(err));
+        setError(
+          err instanceof Error ? err.message || "Unknown error" : String(err),
+        );
         setCheckRuns(null);
       } finally {
         setLoading(false);
@@ -136,10 +142,15 @@ export function CommitStatus({ owner, repo, commitSha, className = "" }: CommitS
   }
 
   // Determine overall status from all check runs
-  const hasFailure = checkRuns.some(run => run.status === "completed" && run.conclusion === "failure");
-  const hasRunning = checkRuns.some(run => run.status === "in_progress" || run.status === "queued");
-  const allCompleted = checkRuns.every(run => run.status === "completed");
-  const allSuccess = allCompleted && checkRuns.every(run => run.conclusion === "success");
+  const hasFailure = checkRuns.some(
+    (run) => run.status === "completed" && run.conclusion === "failure",
+  );
+  const hasRunning = checkRuns.some(
+    (run) => run.status === "in_progress" || run.status === "queued",
+  );
+  const allCompleted = checkRuns.every((run) => run.status === "completed");
+  const allSuccess =
+    allCompleted && checkRuns.every((run) => run.conclusion === "success");
 
   let overallStatus: string;
   let overallConclusion: string | null;
@@ -160,13 +171,14 @@ export function CommitStatus({ owner, repo, commitSha, className = "" }: CommitS
 
   const colorClass = getStatusColor(overallStatus, overallConclusion);
   const icon = getStatusIcon(overallStatus, overallConclusion);
-  const title = getStatusTitle(overallStatus, overallConclusion, checkRuns.length);
+  const title = getStatusTitle(
+    overallStatus,
+    overallConclusion,
+    checkRuns.length,
+  );
 
   return (
-    <span 
-      className={`${colorClass} ${className} cursor-help`}
-      title={title}
-    >
+    <span className={`${colorClass} ${className} cursor-help`} title={title}>
       {icon}
     </span>
   );

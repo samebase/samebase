@@ -1,5 +1,11 @@
+"use node";
+
 import { action } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
+import { getUserId } from "./common";
+import { Octokit } from "@octokit/rest";
+import type { Doc } from "./_generated/dataModel";
 
 export const getCommitStatus = action({
   args: {
@@ -7,42 +13,45 @@ export const getCommitStatus = action({
     repo: v.string(),
     ref: v.string(), // commit SHA or branch name
   },
+  returns: v.object({
+    check_runs: v.array(
+      v.object({
+        id: v.number(),
+        name: v.string(),
+        status: v.string(),
+        conclusion: v.union(v.string(), v.null()),
+        html_url: v.string(),
+      }),
+    ),
+  }),
   handler: async (ctx, { owner, repo, ref }) => {
-    try {
-      // Use the GitHub API to get check runs for the commit
-      const response = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/commits/${ref}/check-runs`,
-        {
-          headers: {
-            "Authorization": `token ${process.env.GITHUB_TOKEN}`,
-            "Accept": "application/vnd.github.v3+json",
-            "User-Agent": "Noter-App",
-          },
-        }
-      );
-
-      if (!response.ok) {
-        console.error(`GitHub API error: ${response.status} ${response.statusText}`);
-        return { error: `GitHub API error: ${response.status}` };
-      }
-
-      const data = await response.json();
-      
-      return {
-        total_count: data.total_count,
-        check_runs: data.check_runs.map((run: any) => ({
-          id: run.id,
-          name: run.name,
-          status: run.status,
-          conclusion: run.conclusion,
-          started_at: run.started_at,
-          completed_at: run.completed_at,
-          html_url: run.html_url,
-        })),
-      };
-    } catch (error) {
-      console.error("Failed to fetch commit status:", error);
-      return { error: "Failed to fetch commit status" };
+    await getUserId(ctx);
+    const currentUser: Doc<"users"> | null = await ctx.runQuery(
+      internal.users.getAuthUser,
+      {},
+    );
+    if (!currentUser) {
+      throw new Error("User not found");
     }
+
+    const octokit: Octokit = new Octokit({
+      auth: currentUser.githubAccessToken,
+    });
+
+    const { data } = await octokit.checks.listForRef({
+      owner,
+      repo,
+      ref,
+    });
+
+    return {
+      check_runs: data.check_runs.map((run) => ({
+        id: run.id,
+        name: run.name,
+        status: run.status,
+        conclusion: run.conclusion ?? null,
+        html_url: run.html_url ?? "",
+      })),
+    };
   },
 });
