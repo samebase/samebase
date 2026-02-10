@@ -298,6 +298,70 @@ export const applyUpdatesToStaging = internalMutation({
 });
 
 /**
+ * Push a full-content replacement through the collaborative editing stream.
+ * Used by the AI agent to make edits that appear in real-time for open editors.
+ */
+export const pushContentUpdate = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+    filePath: v.string(),
+    newContent: v.string(),
+    userId: v.id("users"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const staging = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      )
+      .first();
+
+    if (!staging) {
+      // No staging record means no editor is open — nothing to sync
+      return null;
+    }
+
+    const oldContent = staging.content;
+    if (oldContent === args.newContent) {
+      return null;
+    }
+
+    const currentVersion = staging.version;
+    const newVersion = currentVersion + 1;
+    const timestamp = Date.now();
+
+    // Build a ChangeSet that replaces the entire document
+    const oldDoc = Text.of(oldContent.split("\n"));
+    const changeSet = ChangeSet.of(
+      { from: 0, to: oldDoc.length, insert: args.newContent },
+      oldDoc.length,
+    );
+
+    // Insert into the collaborative update stream so open editors pick it up
+    await ctx.db.insert("collaborativeUpdates", {
+      vaultId: args.vaultId,
+      filePath: args.filePath,
+      version: newVersion,
+      clientId: "agent",
+      changes: JSON.stringify(changeSet.toJSON()),
+      userId: args.userId,
+      timestamp,
+    });
+
+    // Update staging to match
+    await ctx.db.patch(staging._id, {
+      content: args.newContent,
+      version: newVersion,
+      lastEditTime: timestamp,
+      lastEditUserId: args.userId,
+    });
+
+    return null;
+  },
+});
+
+/**
  * Prune old collaborative updates that are no longer needed.
  * Keeps the most recent MAX_UPDATES_TO_KEEP per file, deletes the rest in batches.
  */

@@ -5,23 +5,43 @@ export function buildSystemPrompt(context: {
   filePath?: string;
   fileContent?: string;
   repoTree?: string[];
+  toolsEnabled?: boolean;
 }): string {
+  const toolsEnabled = context.toolsEnabled === true;
   const lines = [
     "You are a coding assistant in Noter, a collaborative code editor connected to GitHub.",
-    "You can read and edit files, access the GitHub API, and propose commits.",
-    "",
-    "When editing files:",
-    "- Read the file first to understand its current content",
-    "- Make precise, minimal edits",
-    "- After all edits are done, use commit_and_push to propose committing",
-    "",
-    "When using github_api:",
-    "- Owner and repo are auto-filled from the current vault context",
-    "- Common endpoints: pulls.list, pulls.get, pulls.create, issues.list, checks.listForRef, branches.list, actions.listWorkflowRunsForRepo",
-    "- You can access any GitHub REST API endpoint on the allowlist",
+  ];
+
+  if (toolsEnabled) {
+    lines.push(
+      "You can read and edit files, access the GitHub API, and propose commits.",
+      "",
+      "When editing files:",
+      "- Read the file first to understand its current content",
+      "- Make precise, minimal edits",
+      "- After all edits are done, use commit_and_push to propose committing",
+      "",
+      "When asked about repository files or structure:",
+      "- Use read_file or list_files rather than guessing",
+      "- If a tool fails, say so and ask how to proceed",
+      "",
+      "When using github_api:",
+      "- Owner and repo are auto-filled from the current vault context",
+      "- Common endpoints: pulls.list, pulls.get, pulls.create, issues.list, checks.listForRef, branches.list, actions.listWorkflowRunsForRepo",
+      "- You can access any GitHub REST API endpoint on the allowlist",
+    );
+  } else {
+    lines.push(
+      "Tool access is not available. You cannot read or edit repository files or call the GitHub API.",
+      "",
+      "If the user asks about repository files, be transparent about the limitation and ask them to connect GitHub or open a repository.",
+    );
+  }
+
+  lines.push(
     "",
     "Be concise and direct. When showing code, use markdown code blocks.",
-  ];
+  );
 
   if (context.owner && context.repo) {
     lines.push("", `## Current Context`);

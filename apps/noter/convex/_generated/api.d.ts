@@ -10,6 +10,7 @@
 
 import type * as agent_graph from "../agent/graph.js";
 import type * as agent_systemPrompt from "../agent/systemPrompt.js";
+import type * as agent_toolCatalog from "../agent/toolCatalog.js";
 import type * as agent_tools from "../agent/tools.js";
 import type * as auth from "../auth.js";
 import type * as chat from "../chat.js";
@@ -38,6 +39,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "agent/graph": typeof agent_graph;
   "agent/systemPrompt": typeof agent_systemPrompt;
+  "agent/toolCatalog": typeof agent_toolCatalog;
   "agent/tools": typeof agent_tools;
   auth: typeof auth;
   chat: typeof chat;

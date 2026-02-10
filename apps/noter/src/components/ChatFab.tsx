@@ -8,33 +8,53 @@ import {
   Check,
   Wrench,
   ChevronRight,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-import { useParams } from "react-router-dom";
+import { useLocation } from "react-router-dom";
+import { TOOL_CATALOG } from "../../convex/agent/toolCatalog";
 
 // --- Route context hook ---
 
+// ChatFab is rendered outside <Routes>, so useParams() returns {}.
+// Parse the URL manually via useLocation() instead.
+const VAULT_PATH_RE = /^\/vault\/([^/]+)\/([^/]+)(?:\/(.*))?$/;
+
 function useVaultContext() {
-  const params = useParams<{ owner: string; repoName: string; "*": string }>();
+  const { pathname } = useLocation();
 
-  const owner = params.owner;
-  const repoName = params.repoName;
-  const repositoryFullName =
-    owner && repoName ? `${owner}/${repoName}` : undefined;
+  const { branch, filePath, repositoryFullName } =
+    useMemo(() => {
+      const match = pathname.match(VAULT_PATH_RE);
+      if (!match) {
+        return {
+          branch: "main",
+          filePath: undefined,
+          repositoryFullName: undefined,
+        };
+      }
 
-  // Parse branch and file path from the wildcard parameter
-  // URL structure: /vault/:owner/:repoName/:branch/:filePath
-  const { branch, filePath } = useMemo(() => {
-    const wildcard = params["*"];
-    if (!wildcard) return { branch: "main", filePath: undefined };
-    const parts = wildcard.split("/");
-    const branch = parts[0] || "main";
-    const filePath = parts.slice(1).join("/") || undefined;
-    return { branch, filePath };
-  }, [params]);
+      const _owner = match[1];
+      const _repoName = match[2];
+      const rest = match[3]; // "branch/path/to/file" or undefined
+
+      let branch = "main";
+      let filePath: string | undefined;
+      if (rest) {
+        const parts = rest.split("/");
+        branch = parts[0] || "main";
+        filePath = parts.slice(1).join("/") || undefined;
+      }
+
+      return {
+        branch,
+        filePath,
+        repositoryFullName: `${_owner}/${_repoName}`,
+      };
+    }, [pathname]);
 
   const vault = useQuery(
     api.vault.getVaultByRepository,
@@ -173,23 +193,105 @@ function ToolActivityBadge({
       </button>
       {expanded && (
         <div className="mt-1 space-y-0.5 text-[10px] text-muted-foreground">
-          {tools.map((t, idx) => (
-            <div key={idx} className="flex items-center gap-1">
-              <span className="font-mono">{t.tool}</span>
-              {t.tool === "read_file" ||
-              t.tool === "edit_file" ||
-              t.tool === "create_file" ||
-              t.tool === "delete_file" ? (
-                <span className="truncate opacity-70">
-                  {(t.input as Record<string, string>).path}
+          {tools.map((t, idx) => {
+            const meta = TOOL_CATALOG.find((c) => c.name === t.tool);
+            const displayKey = meta?.inputDisplayKey;
+            const displayValue = displayKey
+              ? (t.input as Record<string, string>)[displayKey]
+              : undefined;
+            return (
+              <div key={idx} className="flex items-center gap-1">
+                <span className="font-mono">{t.tool}</span>
+                {displayValue && (
+                  <span className="truncate opacity-70">{displayValue}</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Capabilities panel ---
+
+function CapabilitiesPanel({
+  repositoryFullName,
+  vaultId,
+  hasGithubToken,
+  systemPrompt,
+}: {
+  repositoryFullName?: string;
+  vaultId?: Id<"vaults">;
+  hasGithubToken: boolean;
+  systemPrompt?: string;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  const toolsEnabled = Boolean(repositoryFullName && vaultId && hasGithubToken);
+
+  let statusLine = "Open a repository to enable tools.";
+  if (repositoryFullName) {
+    if (!vaultId) {
+      statusLine = "Repository is not connected yet.";
+    } else if (!hasGithubToken) {
+      statusLine = "GitHub access is missing. Reconnect to enable tools.";
+    } else {
+      statusLine = `Tools are enabled for ${repositoryFullName}.`;
+    }
+  }
+
+  return (
+    <div className="mb-2 rounded-lg border border-border bg-muted/50 text-xs">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-1.5 px-3 py-1.5 text-muted-foreground hover:text-foreground"
+      >
+        <ChevronRight
+          className={cn(
+            "h-3 w-3 shrink-0 transition-transform",
+            expanded && "rotate-90",
+          )}
+        />
+        <span className="font-medium">Chat tools</span>
+        <span
+          className={cn(
+            "ml-auto rounded-full px-2 py-0.5 text-[10px] font-medium",
+            toolsEnabled
+              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+              : "bg-muted text-muted-foreground",
+          )}
+        >
+          {toolsEnabled ? "Enabled" : "Disabled"}
+        </span>
+      </button>
+      {expanded && (
+        <div className="border-t border-border px-3 py-2 text-muted-foreground">
+          <div>{statusLine}</div>
+          <div className="mt-2 text-foreground">Available tools</div>
+          <div className="mt-1 space-y-0.5">
+            {TOOL_CATALOG.map((toolInfo) => (
+              <div key={toolInfo.name} className="flex items-center gap-2">
+                <span className="font-mono text-[11px] text-foreground">
+                  {toolInfo.name}
                 </span>
-              ) : t.tool === "github_api" ? (
-                <span className="truncate opacity-70">
-                  {(t.input as Record<string, string>).endpoint}
-                </span>
-              ) : null}
-            </div>
-          ))}
+                <span>{toolInfo.uiDescription}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2">
+            Tool usage appears as a badge on assistant responses.
+          </div>
+          {systemPrompt && (
+            <details className="mt-2">
+              <summary className="cursor-pointer text-[11px] text-muted-foreground">
+                System prompt
+              </summary>
+              <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap text-[11px] text-muted-foreground">
+                {systemPrompt}
+              </pre>
+            </details>
+          )}
         </div>
       )}
     </div>
@@ -297,32 +399,27 @@ function MessageBubble({
   );
 }
 
-// --- System prompt bubble ---
+// --- localStorage persistence helpers ---
 
-function SystemPromptBubble({ systemPrompt }: { systemPrompt: string }) {
-  const [expanded, setExpanded] = useState(false);
+const STORAGE_KEY_SIZE = "noter-chat-size";
+const STORAGE_KEY_OPEN = "noter-chat-open";
 
-  return (
-    <div className="mb-2 rounded-lg border border-dashed border-border bg-muted/50 text-xs">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-1.5 px-3 py-1.5 text-muted-foreground hover:text-foreground"
-      >
-        <ChevronRight
-          className={cn(
-            "h-3 w-3 shrink-0 transition-transform",
-            expanded && "rotate-90",
-          )}
-        />
-        <span className="font-medium">System prompt</span>
-      </button>
-      {expanded && (
-        <pre className="max-h-48 overflow-auto whitespace-pre-wrap border-t border-border px-3 py-2 text-[11px] text-muted-foreground">
-          {systemPrompt}
-        </pre>
-      )}
-    </div>
-  );
+function loadFromStorage<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveToStorage(key: string, value: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // ignore quota errors
+  }
 }
 
 // --- Main component ---
@@ -333,15 +430,20 @@ const MIN_WIDTH = 20 * 16; // 20rem
 const MIN_HEIGHT = 16 * 16; // 16rem
 
 export function ChatFab() {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(() =>
+    loadFromStorage(STORAGE_KEY_OPEN, false),
+  );
   const [input, setInput] = useState("");
-  const [conversationId, setConversationId] =
+  // Local fallback for conversations without a vault context
+  const [localConversationId, setLocalConversationId] =
     useState<Id<"chatConversations"> | null>(null);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const [size, setSize] = useState({ w: DEFAULT_WIDTH, h: DEFAULT_HEIGHT });
+  const [size, setSize] = useState(() =>
+    loadFromStorage(STORAGE_KEY_SIZE, { w: DEFAULT_WIDTH, h: DEFAULT_HEIGHT }),
+  );
   const dragRef = useRef<{ startX: number; startY: number; startW: number; startH: number } | null>(null);
 
   const onDragStart = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -363,7 +465,17 @@ export function ChatFab() {
     dragRef.current = null;
   }, []);
 
-  const { vaultId, branch, filePath } = useVaultContext();
+  const { vaultId, branch, filePath, repositoryFullName } = useVaultContext();
+  const viewer = useQuery(api.users.viewer);
+
+  // One conversation per user per vault — persisted in Convex
+  const vaultConversation = useQuery(
+    api.chat.getConversationForVault,
+    vaultId ? { vaultId } : "skip",
+  );
+  const conversationId = vaultId
+    ? (vaultConversation?._id ?? null)
+    : localConversationId;
 
   const messages = useQuery(
     api.chat.listMessages,
@@ -376,7 +488,23 @@ export function ChatFab() {
   );
 
   const createConversation = useMutation(api.chat.createConversation);
+  const deleteConversation = useMutation(api.chat.deleteConversation);
   const sendMessage = useMutation(api.chat.sendMessage);
+
+  async function handleNewConversation() {
+    if (!conversationId) return;
+    await deleteConversation({ conversationId });
+    setLocalConversationId(null);
+  }
+
+  // Persist UI state to localStorage (conversation itself lives in Convex)
+  useEffect(() => {
+    saveToStorage(STORAGE_KEY_OPEN, isOpen);
+  }, [isOpen]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEY_SIZE, size);
+  }, [size]);
 
   const isWaitingForResponse =
     messages &&
@@ -413,8 +541,12 @@ export function ChatFab() {
 
     let convId = conversationId;
     if (!convId) {
-      convId = await createConversation();
-      setConversationId(convId);
+      // get-or-create: if vaultId is provided the backend returns the
+      // existing conversation for this user+vault, or creates a new one.
+      convId = await createConversation({ vaultId: vaultId ?? undefined });
+      if (!vaultId) {
+        setLocalConversationId(convId);
+      }
     }
 
     await sendMessage({
@@ -458,19 +590,33 @@ export function ChatFab() {
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
             <span className="text-sm font-medium text-foreground">Chat</span>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-0.5">
+              {conversationId && (
+                <button
+                  onClick={() => void handleNewConversation()}
+                  title="New conversation"
+                  className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              )}
+              <button
+                onClick={() => setIsOpen(false)}
+                className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-3 py-2">
-            {conversation?.systemPrompt && (
-              <SystemPromptBubble systemPrompt={conversation.systemPrompt} />
-            )}
+            <CapabilitiesPanel
+              repositoryFullName={repositoryFullName}
+              vaultId={vaultId}
+              hasGithubToken={Boolean(viewer?.githubAccessToken)}
+              systemPrompt={conversation?.systemPrompt}
+            />
             {conversationId &&
               messages?.map((msg) => (
                 <MessageBubble

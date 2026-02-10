@@ -9,11 +9,74 @@ import { internal } from "./_generated/api";
 import { getUserId } from "./common";
 
 export const createConversation = mutation({
-  args: {},
+  args: { vaultId: v.optional(v.id("vaults")) },
   returns: v.id("chatConversations"),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    return await ctx.db.insert("chatConversations", { userId });
+
+    // One conversation per user per vault — return existing if found
+    if (args.vaultId) {
+      const existing = await ctx.db
+        .query("chatConversations")
+        .withIndex("by_userId_and_vaultId", (q) =>
+          q.eq("userId", userId).eq("vaultId", args.vaultId),
+        )
+        .first();
+      if (existing) return existing._id;
+    }
+
+    return await ctx.db.insert("chatConversations", {
+      userId,
+      vaultId: args.vaultId,
+    });
+  },
+});
+
+export const getConversationForVault = query({
+  args: { vaultId: v.id("vaults") },
+  returns: v.union(
+    v.object({
+      _id: v.id("chatConversations"),
+      _creationTime: v.number(),
+      userId: v.id("users"),
+      title: v.optional(v.string()),
+      vaultId: v.optional(v.id("vaults")),
+      systemPrompt: v.optional(v.string()),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+    return await ctx.db
+      .query("chatConversations")
+      .withIndex("by_userId_and_vaultId", (q) =>
+        q.eq("userId", userId).eq("vaultId", args.vaultId),
+      )
+      .first();
+  },
+});
+
+export const deleteConversation = mutation({
+  args: { conversationId: v.id("chatConversations") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation || conversation.userId !== userId) {
+      throw new Error("Conversation not found");
+    }
+    // Delete all messages in the conversation
+    const messages = await ctx.db
+      .query("chatMessages")
+      .withIndex("by_conversationId", (q) =>
+        q.eq("conversationId", args.conversationId),
+      )
+      .collect();
+    for (const msg of messages) {
+      await ctx.db.delete(msg._id);
+    }
+    await ctx.db.delete(args.conversationId);
+    return null;
   },
 });
 

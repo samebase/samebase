@@ -3,9 +3,16 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { Octokit } from "@octokit/rest";
-import { api, internal } from "../_generated/api";
+import { internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import { TOOL_CATALOG } from "./toolCatalog";
+
+function catalogDescription(name: string): string {
+  const entry = TOOL_CATALOG.find((t) => t.name === name);
+  if (!entry) throw new Error(`Tool "${name}" not found in catalog`);
+  return entry.description;
+}
 
 // --- Tool Context ---
 
@@ -163,20 +170,48 @@ async function executeEditFile(
   toolCtx: ToolContext,
   input: { path: string; content: string },
 ): Promise<string> {
-  const repoFullName = `${toolCtx.owner}/${toolCtx.repo}`;
-  await toolCtx.ctx.runAction(api.fileStagingActions.getFileForEditing, {
-    repositoryFullName: repoFullName,
-    originalFilePath: input.path,
-  });
+  // Check if file is already staged (i.e. editor is open)
+  const staging = await toolCtx.ctx.runQuery(
+    internal.fileStaging.getByOriginalPath,
+    { vaultId: toolCtx.vaultId, originalFilePath: input.path },
+  );
 
-  await toolCtx.ctx.runMutation(internal.fileStaging.saveToStaging, {
-    vaultId: toolCtx.vaultId,
-    initialFilePath: input.path,
-    content: input.content,
-    initialContent: "",
-    parentCommitSha: null,
-    branch: "main",
-  });
+  if (staging) {
+    // File is staged — push through the collaborative editing stream
+    // so open editors update in real-time.
+    await toolCtx.ctx.runMutation(internal.collaborative.pushContentUpdate, {
+      vaultId: toolCtx.vaultId,
+      filePath: input.path,
+      newContent: input.content,
+      userId: toolCtx.userId,
+    });
+  } else {
+    // Not yet staged — read current content for proper diffs, then create staging
+    let initialContent = "";
+    try {
+      initialContent = await executeReadFile(toolCtx, { path: input.path });
+    } catch {
+      initialContent = "";
+    }
+
+    const vault = await toolCtx.ctx.runQuery(internal.vault.getById, {
+      id: toolCtx.vaultId,
+    });
+    const parentCommitSha =
+      vault?.treeData.tree.find(
+        (t: { path?: string }) => t.path === input.path,
+      )?.sha ?? null;
+
+    await toolCtx.ctx.runMutation(internal.fileStaging.saveToStaging, {
+      vaultId: toolCtx.vaultId,
+      initialFilePath: input.path,
+      content: input.content,
+      initialContent,
+      parentCommitSha,
+      branch: "main",
+      userId: toolCtx.userId,
+    });
+  }
 
   return `File edited: ${input.path}`;
 }
@@ -185,11 +220,15 @@ async function executeCreateFile(
   toolCtx: ToolContext,
   input: { path: string; content: string },
 ): Promise<string> {
-  await toolCtx.ctx.runMutation(api.fileStaging.createFileInStaging, {
+  // Use saveToStaging with empty initialContent (new file has no prior content)
+  await toolCtx.ctx.runMutation(internal.fileStaging.saveToStaging, {
     vaultId: toolCtx.vaultId,
-    filePath: input.path,
+    initialFilePath: input.path,
     content: input.content,
+    initialContent: "",
+    parentCommitSha: null,
     branch: "main",
+    userId: toolCtx.userId,
   });
   return `File created: ${input.path}`;
 }
@@ -205,11 +244,12 @@ async function executeDeleteFile(
     vault?.treeData.tree.find((t: { path?: string }) => t.path === input.path)
       ?.sha ?? null;
 
-  await toolCtx.ctx.runMutation(api.fileStaging.markFileForDeletion, {
+  await toolCtx.ctx.runMutation(internal.fileStaging.internalMarkFileForDeletion, {
     vaultId: toolCtx.vaultId,
     filePath: input.path,
     parentCommitSha: sha,
     branch: "main",
+    userId: toolCtx.userId,
   });
   return `File marked for deletion: ${input.path}`;
 }
@@ -267,8 +307,7 @@ export function createTools(toolCtx: ToolContext) {
     },
     {
       name: "read_file",
-      description:
-        "Read the contents of a file in the repository. Returns the file content as text.",
+      description: catalogDescription("read_file"),
       schema: z.object({
         path: z.string().describe("File path relative to repository root"),
       }),
@@ -281,8 +320,7 @@ export function createTools(toolCtx: ToolContext) {
     },
     {
       name: "list_files",
-      description:
-        "List files in the repository, optionally filtered to a directory.",
+      description: catalogDescription("list_files"),
       schema: z.object({
         directory: z
           .string()
@@ -300,8 +338,7 @@ export function createTools(toolCtx: ToolContext) {
     },
     {
       name: "edit_file",
-      description:
-        "Edit an existing file by replacing its entire content. The file must already exist.",
+      description: catalogDescription("edit_file"),
       schema: z.object({
         path: z.string().describe("File path relative to repository root"),
         content: z.string().describe("The new full content of the file"),
@@ -315,7 +352,7 @@ export function createTools(toolCtx: ToolContext) {
     },
     {
       name: "create_file",
-      description: "Create a new file in the repository.",
+      description: catalogDescription("create_file"),
       schema: z.object({
         path: z.string().describe("File path relative to repository root"),
         content: z.string().describe("The content of the new file"),
@@ -329,7 +366,7 @@ export function createTools(toolCtx: ToolContext) {
     },
     {
       name: "delete_file",
-      description: "Mark a file for deletion in the repository.",
+      description: catalogDescription("delete_file"),
       schema: z.object({
         path: z.string().describe("File path relative to repository root"),
       }),
@@ -342,18 +379,7 @@ export function createTools(toolCtx: ToolContext) {
     },
     {
       name: "github_api",
-      description: `Call the GitHub REST API. Owner and repo are auto-filled from the current vault context.
-
-Common endpoints:
-- pulls.list — List pull requests
-- pulls.get — Get a single PR (params: { pull_number })
-- pulls.create — Create a PR (params: { title, head, base, body? })
-- issues.list — List issues
-- issues.get — Get a single issue (params: { issue_number })
-- issues.create — Create an issue (params: { title, body? })
-- checks.listForRef — Get CI status (params: { ref })
-- branches.list — List branches
-- actions.listWorkflowRunsForRepo — List workflow runs`,
+      description: catalogDescription("github_api"),
       schema: z.object({
         endpoint: z
           .string()
@@ -377,8 +403,7 @@ Common endpoints:
     },
     {
       name: "commit_and_push",
-      description:
-        "Propose committing all currently staged file changes and pushing to the main branch. The user will see an approval button — changes are NOT committed until approved.",
+      description: catalogDescription("commit_and_push"),
       schema: z.object({
         message: z
           .string()

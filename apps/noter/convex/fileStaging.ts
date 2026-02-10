@@ -244,9 +244,12 @@ export const saveToStaging = internalMutation({
     initialContent: v.string(),
     parentCommitSha: v.union(v.string(), v.null()),
     branch: v.string(),
+    // Optional: pass userId explicitly when calling from an internal action
+    // (where auth context is unavailable, e.g. the AI agent).
+    userId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = args.userId ?? (await getUserId(ctx));
 
     // Check if there's already a staging record for this file
     const existingStaging = await ctx.db
@@ -312,6 +315,55 @@ export const saveToStaging = internalMutation({
     }
 
     return staging;
+  },
+});
+
+// Internal version of markFileForDeletion — callable from agent actions
+// without auth context.
+export const internalMarkFileForDeletion = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+    filePath: v.string(),
+    parentCommitSha: v.union(v.string(), v.null()),
+    branch: v.string(),
+    userId: v.id("users"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existingStaging = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      )
+      .first();
+
+    const currentTimestamp = Date.now();
+
+    if (existingStaging) {
+      await ctx.db.patch(existingStaging._id, {
+        fileDeleted: true,
+        lastEditTime: currentTimestamp,
+        lastEditUserId: args.userId,
+        branch: args.branch,
+      });
+    } else {
+      await ctx.db.insert("fileStaging", {
+        ownerId: args.userId,
+        vaultId: args.vaultId,
+        filePath: args.filePath,
+        initialFilePath: args.filePath,
+        fileDeleted: true,
+        content: "",
+        initialContent: "",
+        parentCommitSha: args.parentCommitSha,
+        lastEditTime: currentTimestamp,
+        lastEditUserId: args.userId,
+        branch: args.branch,
+        version: 0,
+      });
+    }
+
+    return null;
   },
 });
 

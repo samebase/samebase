@@ -88,6 +88,7 @@ export const generateResponse = internalAction({
       filePath: args.filePath,
       fileContent,
       repoTree,
+      toolsEnabled: Boolean(hasToolAccess),
     });
 
     await ctx.runMutation(internal.chat.saveSystemPrompt, {

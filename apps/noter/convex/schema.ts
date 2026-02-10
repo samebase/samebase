@@ -146,7 +146,9 @@ export default defineSchema({
     title: v.optional(v.string()),
     vaultId: v.optional(v.id("vaults")),
     systemPrompt: v.optional(v.string()),
-  }).index("by_userId", ["userId"]),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_and_vaultId", ["userId", "vaultId"]),
 
   /**
    * Chat messages within a conversation.
