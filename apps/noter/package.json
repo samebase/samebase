@@ -8,9 +8,9 @@
     "dev:frontend": "vite",
     "dev:backend": "convex dev",
     "predev": "convex dev --until-success && node setup.mjs --once && node sync-site-url.mjs",
-    "build": "tsc && vite build",
+    "build": "convex codegen && tsc && vite build",
     "build:vercel": "vite build",
-    "lint": "tsc && eslint .  --ext ts,tsx --report-unused-disable-directives",
+    "lint": "convex codegen && tsc && eslint .  --ext ts,tsx --report-unused-disable-directives",
     "preview": "vite preview"
   },
   "dependencies": {
