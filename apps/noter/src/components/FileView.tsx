@@ -631,6 +631,9 @@ function FileViewInner({
                     filePath={selectedFile}
                     initialFilePath={stagedFile.initialFilePath}
                     stagedFile={stagedFile}
+                    vaultId={vault._id}
+                    tree={vault.treeData.tree}
+                    treeSHA={vault.treeSHA}
                   />
                 )}
               </div>

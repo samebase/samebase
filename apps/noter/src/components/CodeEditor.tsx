@@ -45,7 +45,6 @@ import {
 } from "@codemirror/collab";
 import { client } from "@/main";
 import { api } from "../../convex/_generated/api";
-import { Id } from "convex/_generated/dataModel";
 import { GFM } from "@lezer/markdown";
 import {
   prosemarkBaseThemeSetup,
@@ -53,9 +52,11 @@ import {
   prosemarkMarkdownSyntaxExtensions,
 } from "@prosemark/core";
 import { printTree } from "@lezer-unofficial/printer";
-import { useAction } from "convex/react";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { GetFunctionReferenceReturnType } from "@/lib/convexUtils";
+import { Id } from "../../convex/_generated/dataModel";
+import { type GithubTreeType } from "convex/schema";
+import { MonacoEditor } from "./MonacoEditor";
 
 // Temporary:
 // const tempVaultId = "k976ryb9d1m2gyvxhps87dac257mv5ps" as Id<"vaults">;
@@ -250,18 +251,23 @@ const getLanguageExtension = (fileName: string): Extension => {
   }
 };
 
-// Check if file is markdown
-const isMarkdownFile = (fileName?: string) => {
-  if (!fileName) return true; // Default to markdown if no filename
-  const extension = fileName.split(".").pop()?.toLowerCase();
-  return extension === "md" || extension === "markdown";
-};
+// Prose files: use ProseMark/CodeMirror. Everything else: Monaco.
+const PROSE_EXTENSIONS = new Set(["md", "mdx", "mdc", "txt", "markdown"]);
+
+function isProseFile(filePath: string): boolean {
+  const ext = filePath.split(".").pop()?.toLowerCase();
+  // Default to prose if no extension (or unknown)
+  return !ext || PROSE_EXTENSIONS.has(ext);
+}
 
 export function CodeEditorWrapper({
   repositoryFullName,
   filePath,
   initialFilePath,
   stagedFile,
+  vaultId,
+  tree,
+  treeSHA,
 }: {
   repositoryFullName: string;
   filePath: string;
@@ -269,30 +275,30 @@ export function CodeEditorWrapper({
   stagedFile: NonNullable<
     GetFunctionReferenceReturnType<typeof api.fileStaging.getByNewPath>
   >;
+  vaultId: Id<"vaults">;
+  tree: GithubTreeType[];
+  treeSHA: string;
 }) {
-  useQuery;
-  const firstDocAction = useAction(api.fileStagingActions.getFileForEditing);
-  // const [firstDocData, setFirstDocData] = useState<Awaited<
-  //   ReturnType<typeof firstDocAction>
-  // > | null>(null);
-
-  // useEffect(() => {
-  //   firstDocAction({
-  //     repositoryFullName,
-  //     originalFilePath: initialFilePath,
-  //   }).then((data) => {
-  //     setFirstDocData(data);
-  //   });
-  // }, [firstDocAction, repositoryFullName, initialFilePath]);
-
-  // if (!firstDocData) return null;
+  if (isProseFile(filePath)) {
+    return (
+      <CodeEditor
+        key={`${repositoryFullName}-${filePath}`}
+        firstDoc={stagedFile}
+        repositoryFullName={repositoryFullName}
+        filePath={filePath}
+      />
+    );
+  }
 
   return (
-    <CodeEditor
+    <MonacoEditor
       key={`${repositoryFullName}-${filePath}`}
       firstDoc={stagedFile}
       repositoryFullName={repositoryFullName}
       filePath={filePath}
+      vaultId={vaultId}
+      tree={tree}
+      treeSHA={treeSHA}
     />
   );
 }

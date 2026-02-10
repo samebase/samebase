@@ -492,6 +492,105 @@ export const pullFromGitHubInternal = internalAction({
   },
 });
 
+// Batch-fetch file contents (read-only, no staging records).
+// Used by the Monaco editor to load project files for TypeScript import resolution.
+export const batchReadFiles = action({
+  args: {
+    vaultId: v.id("vaults"),
+    filePaths: v.array(v.string()),
+  },
+  returns: v.array(v.object({ path: v.string(), content: v.string() })),
+  handler: async (ctx, args) => {
+    const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    const vault = await ctx.runQuery(internal.vault.getById, {
+      id: args.vaultId,
+    });
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
+    // Build a map of path → tree entry for fast lookups
+    const treeMap = new Map<string, { sha: string; size?: number }>();
+    for (const item of vault.treeData.tree) {
+      if (item.type === "blob" && item.sha) {
+        treeMap.set(item.path, { sha: item.sha, size: item.size });
+      }
+    }
+
+    const MAX_FILE_SIZE = 100_000; // 100KB – skip large generated files
+    const results: Array<{ path: string; content: string }> = [];
+
+    // Lazily create Octokit only if we need to hit GitHub
+    let octokit: Octokit | null = null;
+    const getOctokit = () => {
+      if (!octokit) {
+        octokit = new Octokit({ auth: currentUser.githubAccessToken });
+      }
+      return octokit;
+    };
+
+    for (const filePath of args.filePaths) {
+      const entry = treeMap.get(filePath);
+      if (!entry) continue; // file not in tree, skip
+
+      // Skip files that are too large
+      if (entry.size !== undefined && entry.size > MAX_FILE_SIZE) continue;
+
+      // 1. Try blob cache
+      const cached = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+        sha: entry.sha,
+      });
+
+      if (cached && typeof cached.text === "string") {
+        results.push({ path: filePath, content: cached.text });
+        continue;
+      }
+
+      // 2. Fetch from GitHub (blob API by SHA – lightweight)
+      try {
+        const blob = await getOctokit().rest.git.getBlob({
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          file_sha: entry.sha,
+        });
+
+        const buffer = Buffer.from(blob.data.content, "base64");
+
+        // Skip binary files
+        if (!isTextBuffer(new Uint8Array(buffer))) continue;
+
+        const text = buffer.toString("utf-8");
+
+        // Cache in blob store for future reads
+        if (buffer.byteLength <= INLINE_TEXT_MAX) {
+          const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
+          await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+            vaultId: vault._id,
+            sha: entry.sha,
+            size: buffer.byteLength,
+            text,
+            storageId: undefined,
+            ext,
+            mime: "text/plain; charset=utf-8",
+            debugFilePath: filePath,
+          });
+        }
+
+        results.push({ path: filePath, content: text });
+      } catch (error) {
+        // Skip files that fail to fetch (permissions, deleted, etc.)
+        console.warn(`batchReadFiles: failed to fetch ${filePath}:`, error);
+      }
+    }
+
+    return results;
+  },
+});
+
 // MARK: Internal
 
 // Helper function to create a commit with multiple files
