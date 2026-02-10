@@ -8,6 +8,9 @@ import { api } from "../../convex/_generated/api";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { linkStyle } from "./styles";
+import type { FunctionReturnType } from "convex/server";
+
+type Repository = FunctionReturnType<typeof api.github.listRepositories>[number];
 
 export function AddRepository() {
   const navigate = useNavigate();
@@ -122,14 +125,14 @@ export function AddRepository() {
   const connectedVaults = vaults || [];
 
   const filteredRepositories = repositories
-    .filter((repo) => {
+    .filter((repo: Repository) => {
       // Filter out already connected repos
       const isConnected = connectedVaults.some(
-        (vault) => vault.repositoryFullName === repo.full_name,
+        (vault: (typeof connectedVaults)[number]) => vault.repositoryFullName === repo.full_name,
       );
       return !isConnected;
     })
-    .filter((repo) => {
+    .filter((repo: Repository) => {
       if (!searchQuery.trim()) return true;
 
       const repoName = repo.name;
@@ -179,7 +182,7 @@ export function AddRepository() {
           </div>
         ) : (
           <div className="space-y-2">
-            {filteredRepositories.map((repo) => {
+            {filteredRepositories.map((repo: Repository) => {
               const ownerName = repo.full_name.split("/")[0];
               const repoName = repo.name;
 

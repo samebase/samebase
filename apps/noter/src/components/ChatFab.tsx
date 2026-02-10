@@ -636,7 +636,7 @@ export function ChatFab() {
               systemPrompt={conversation?.systemPrompt}
             />
             {conversationId &&
-              messages?.map((msg) => (
+              messages?.map((msg: (typeof messages)[number]) => (
                 <MessageBubble
                   key={msg._id}
                   msg={msg}

@@ -203,7 +203,7 @@ export function MonacoEditor({
   useEffect(() => {
     if (!remoteUpdates?.length || !editorRef.current) return;
 
-    const cmUpdates: Update[] = remoteUpdates.map((u) => ({
+    const cmUpdates: Update[] = remoteUpdates.map((u: (typeof remoteUpdates)[number]) => ({
       changes: ChangeSet.fromJSON(JSON.parse(u.changes)),
       clientID: u.clientID,
     }));

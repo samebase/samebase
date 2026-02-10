@@ -338,7 +338,7 @@ export function CodeEditor({
   useEffect(() => {
     if (!updates || !pullRef.current) return;
 
-    const cmUpdates = updates.map((u) => ({
+    const cmUpdates = updates.map((u: (typeof updates)[number]) => ({
       changes: ChangeSet.fromJSON(JSON.parse(u.changes)),
       clientID: u.clientID,
     }));
