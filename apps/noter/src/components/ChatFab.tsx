@@ -438,7 +438,7 @@ export function ChatFab() {
       {/* Chat Window */}
       {isOpen && (
         <div
-          className="fixed bottom-16 right-3 z-[9999] relative flex max-sm:!left-0 max-sm:!right-0 max-sm:!bottom-16 max-sm:!w-auto max-sm:!h-[calc(100%-5rem)] max-sm:rounded-none flex-col rounded-xl border border-border bg-popover shadow-xl"
+          className="fixed bottom-16 right-3 z-[9999] flex max-sm:!left-0 max-sm:!right-0 max-sm:!bottom-16 max-sm:!w-auto max-sm:!h-[calc(100%-5rem)] max-sm:rounded-none flex-col rounded-xl border border-border bg-popover shadow-xl"
           style={{ width: size.w, height: size.h, maxHeight: 'calc(100vh - 5rem)' }}
         >
           {/* Drag handle (top-left corner) */}
