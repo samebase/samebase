@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import {
   MessageSquare,
   X,
@@ -327,6 +327,11 @@ function SystemPromptBubble({ systemPrompt }: { systemPrompt: string }) {
 
 // --- Main component ---
 
+const DEFAULT_WIDTH = 28 * 16; // 28rem in px
+const DEFAULT_HEIGHT = 32 * 16; // 32rem in px
+const MIN_WIDTH = 20 * 16; // 20rem
+const MIN_HEIGHT = 16 * 16; // 16rem
+
 export function ChatFab() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
@@ -335,6 +340,28 @@ export function ChatFab() {
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const [size, setSize] = useState({ w: DEFAULT_WIDTH, h: DEFAULT_HEIGHT });
+  const dragRef = useRef<{ startX: number; startY: number; startW: number; startH: number } | null>(null);
+
+  const onDragStart = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = { startX: e.clientX, startY: e.clientY, startW: size.w, startH: size.h };
+  }, [size]);
+
+  const onDragMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current) return;
+    const { startX, startY, startW, startH } = dragRef.current;
+    // Dragging top-left corner: moving left increases width, moving up increases height
+    const newW = Math.max(MIN_WIDTH, Math.min(window.innerWidth - 24, startW + (startX - e.clientX)));
+    const newH = Math.max(MIN_HEIGHT, Math.min(window.innerHeight - 80, startH + (startY - e.clientY)));
+    setSize({ w: newW, h: newH });
+  }, []);
+
+  const onDragEnd = useCallback(() => {
+    dragRef.current = null;
+  }, []);
 
   const { vaultId, branch, filePath } = useVaultContext();
 
@@ -410,7 +437,24 @@ export function ChatFab() {
     <>
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-16 right-3 z-[9999] flex h-[min(24rem,calc(100%-5rem))] w-[min(22rem,calc(100vw-1.5rem))] flex-col rounded-xl border border-border bg-popover shadow-xl">
+        <div
+          className="fixed bottom-16 right-3 z-[9999] relative flex max-sm:!left-0 max-sm:!right-0 max-sm:!bottom-16 max-sm:!w-auto max-sm:!h-[calc(100%-5rem)] max-sm:rounded-none flex-col rounded-xl border border-border bg-popover shadow-xl"
+          style={{ width: size.w, height: size.h, maxHeight: 'calc(100vh - 5rem)' }}
+        >
+          {/* Drag handle (top-left corner) */}
+          <div
+            onPointerDown={onDragStart}
+            onPointerMove={onDragMove}
+            onPointerUp={onDragEnd}
+            className="absolute -left-1.5 -top-1.5 h-6 w-6 cursor-nwse-resize max-sm:hidden z-10 flex items-end justify-end touch-none"
+          >
+            <svg width="10" height="10" viewBox="0 0 10 10" className="text-muted-foreground/50 mr-0.5 mb-0.5">
+              <path d="M0 10L10 0" stroke="currentColor" strokeWidth="1.5" fill="none" />
+              <path d="M0 6L6 0" stroke="currentColor" strokeWidth="1.5" fill="none" />
+              <path d="M0 2L2 0" stroke="currentColor" strokeWidth="1.5" fill="none" />
+            </svg>
+          </div>
+
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
             <span className="text-sm font-medium text-foreground">Chat</span>
