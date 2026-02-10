@@ -217,7 +217,10 @@ const GITHUB_API_ALLOWLIST = new Set([
 function buildSystemPrompt(context: {
   owner?: string;
   repo?: string;
+  branch?: string;
   filePath?: string;
+  fileContent?: string;
+  repoTree?: string[];
 }): string {
   const lines = [
     "You are a coding assistant in Noter, a collaborative code editor connected to GitHub.",
@@ -236,11 +239,47 @@ function buildSystemPrompt(context: {
     "Be concise and direct. When showing code, use markdown code blocks.",
   ];
 
+  // Repository context
   if (context.owner && context.repo) {
-    lines.push("", `Current repository: ${context.owner}/${context.repo}`);
+    lines.push("", `## Current Context`);
+    lines.push(`Repository: ${context.owner}/${context.repo}`);
+    if (context.branch) {
+      lines.push(`Branch: ${context.branch}`);
+    }
   }
+
+  // Current file context
   if (context.filePath) {
-    lines.push(`Currently viewing file: ${context.filePath}`);
+    lines.push("", `### Currently Open File`);
+    lines.push(`Path: ${context.filePath}`);
+    lines.push(
+      "The user is currently viewing and editing this file. When they ask questions without specifying a file, they are likely referring to this one.",
+    );
+
+    if (context.fileContent !== undefined) {
+      // Truncate very large files to avoid blowing up the system prompt
+      const maxLen = 12000;
+      const content =
+        context.fileContent.length > maxLen
+          ? context.fileContent.slice(0, maxLen) + "\n... (file truncated)"
+          : context.fileContent;
+      lines.push("", "Current file content:", "```", content, "```");
+    }
+  }
+
+  // Repository structure
+  if (context.repoTree && context.repoTree.length > 0) {
+    lines.push("", `### Repository File Structure`);
+    // Cap tree listing to keep prompt manageable
+    const maxFiles = 200;
+    if (context.repoTree.length > maxFiles) {
+      lines.push(
+        context.repoTree.slice(0, maxFiles).join("\n"),
+        `... and ${context.repoTree.length - maxFiles} more files`,
+      );
+    } else {
+      lines.push(context.repoTree.join("\n"));
+    }
   }
 
   return lines.join("\n");
@@ -439,6 +478,7 @@ export const generateResponse = internalAction({
     conversationId: v.id("chatConversations"),
     vaultId: v.optional(v.id("vaults")),
     filePath: v.optional(v.string()),
+    branch: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -472,10 +512,44 @@ export const generateResponse = internalAction({
 
     const hasToolAccess = vault && user?.githubAccessToken;
 
+    // Gather context for the system prompt
+    let fileContent: string | undefined;
+    let repoTree: string[] | undefined;
+
+    if (vault) {
+      // Get repo file tree
+      repoTree = vault.treeData?.tree
+        ?.filter((t: { type?: string }) => t.type === "blob")
+        ?.map((t: { path?: string }) => t.path)
+        ?.filter((p: string | undefined): p is string => !!p);
+    }
+
+    if (args.filePath && vault && user?.githubAccessToken) {
+      // Try to get current file content for context
+      try {
+        const toolCtx: ToolContext = {
+          ctx,
+          vaultId: vault._id,
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          userId: user._id,
+          accessToken: user.githubAccessToken,
+        };
+        fileContent = await executeReadFile(toolCtx, {
+          path: args.filePath,
+        });
+      } catch {
+        // File content is optional context — don't fail the request
+      }
+    }
+
     const systemPrompt = buildSystemPrompt({
       owner: vault?.ghRepoOwner,
       repo: vault?.ghRepoName,
+      branch: args.branch,
       filePath: args.filePath,
+      fileContent,
+      repoTree,
     });
 
     const client = new Anthropic();
