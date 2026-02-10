@@ -64,7 +64,7 @@ export function CodespaceStatus({
   className,
   showActions = true,
 }: CodespaceStatusProps) {
-  const codespace = useQuery(api.codespaces.getActiveCodespace, { vaultId });
+  const codespace = useQuery(api.codespacesMutations.getActiveCodespace, { vaultId });
 
   if (!codespace) {
     return (

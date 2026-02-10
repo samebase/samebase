@@ -1,7 +1,7 @@
 // @ts-nocheck - Temporary bypass for Convex type inference circular dependency issues
 
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "./_generated/server";
+import { internalMutation, internalQuery, query } from "./_generated/server";
 
 /**
  * Internal: Get Codespace by ID
@@ -136,5 +136,50 @@ export const updateAgentHealth = internalMutation({
       lastHealthCheckAt: args.lastHealthCheckAt,
     });
     return null;
+  },
+});
+
+/**
+ * Get active Codespace for a vault (public query)
+ */
+export const getActiveCodespace = query({
+  args: { vaultId: v.id("vaults") },
+  returns: v.union(
+    v.object({
+      _id: v.id("codespaces"),
+      vaultId: v.id("vaults"),
+      userId: v.id("users"),
+      ghCodespaceId: v.string(),
+      ghCodespaceName: v.string(),
+      state: v.string(),
+      webUrl: v.optional(v.string()),
+      agentUrl: v.optional(v.string()),
+      agentHealthy: v.optional(v.boolean()),
+      createdAt: v.number(),
+      lastStartedAt: v.optional(v.number()),
+      lastStoppedAt: v.optional(v.number()),
+      deletedAt: v.optional(v.number()),
+      lastHealthCheckAt: v.optional(v.number()),
+      commitSha: v.string(),
+      branch: v.string(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+
+    if (!vault?.activeCodespaceId) {
+      return null;
+    }
+
+    const codespace = await ctx.db.get(vault.activeCodespaceId);
+
+    if (!codespace) {
+      return null;
+    }
+
+    // Return without agentToken (security - don't expose to frontend)
+    const { agentToken: _agentToken, ...safeCodespace } = codespace;
+    return safeCodespace as any;
   },
 });
