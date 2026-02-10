@@ -16,7 +16,9 @@
       "Bash(grep:*)",
       "Bash(launchctl getenv:*)",
       "Bash(git stash:*)",
-      "Bash(pnpm --version:*)"
+      "Bash(pnpm --version:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

@@ -218,6 +218,7 @@ function FileViewInner({
   } = useDialog();
 
   const repositoryFullName = `${owner}/${repoName}`;
+  const commitUrl = `https://github.com/${owner}/${repoName}/commit/${vault.treeSHA}`;
 
   // Folder expansion state
   const folderExpansionStates = useQuery(
@@ -601,9 +602,15 @@ function FileViewInner({
                           commitSha={vault.treeSHA}
                           className="mr-1"
                         />
-                        <span className="font-mono">
+                        <a
+                          className={`font-mono ${linkStyle}`}
+                          href={commitUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="View commit on GitHub"
+                        >
                           {vault.treeSHA.slice(0, 7)}
-                        </span>
+                        </a>
                         {vault.lastTreeRefreshAt && (
                           <>
                             <span>·</span>
