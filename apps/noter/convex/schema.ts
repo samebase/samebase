@@ -144,6 +144,7 @@ export default defineSchema({
   chatConversations: defineTable({
     userId: v.id("users"),
     title: v.optional(v.string()),
+    vaultId: v.optional(v.id("vaults")),
   }).index("by_userId", ["userId"]),
 
   /**
@@ -153,6 +154,8 @@ export default defineSchema({
     conversationId: v.id("chatConversations"),
     role: v.union(v.literal("user"), v.literal("assistant")),
     content: v.string(),
+    model: v.optional(v.string()),
+    metadata: v.optional(v.string()),
   }).index("by_conversationId", ["conversationId"]),
 
   /**
