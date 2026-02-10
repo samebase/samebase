@@ -66,7 +66,7 @@ function ApprovalGate({ children }: { children: React.ReactNode }) {
           <p className="text-muted-foreground text-sm">
             We'll let you know when your spot opens up.
           </p>
-          <Button variant="outline" onClick={() => signOut()}>
+          <Button variant="outline" onClick={() => void signOut()}>
             Sign out
           </Button>
         </div>
