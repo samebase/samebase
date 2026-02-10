@@ -5,7 +5,10 @@ import { VaultDashboard } from "@/components/VaultDashboard";
 import { FileView } from "@/components/FileView";
 import { AddRepository } from "@/components/AddRepository";
 import { ChatFab } from "@/components/ChatFab";
-import { Authenticated, Unauthenticated, useConvexAuth } from "convex/react";
+import { Button } from "@/components/ui/button";
+import { Authenticated, Unauthenticated, useConvexAuth, useQuery } from "convex/react";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { api } from "../convex/_generated/api";
 import { Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 
