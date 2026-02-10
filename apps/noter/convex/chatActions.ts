@@ -554,6 +554,11 @@ export const generateResponse = internalAction({
       repoTree,
     });
 
+    await ctx.runMutation(internal.chat.saveSystemPrompt, {
+      conversationId: args.conversationId,
+      systemPrompt,
+    });
+
     const client = new Anthropic();
 
     // Build Anthropic message history

@@ -12,6 +12,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { PersonIcon } from "@radix-ui/react-icons";
 import { ReactNode } from "react";
 import { clsx } from "clsx";
+import { clearAuthFlag } from "@/SignInForm";
 
 export function UserMenu({
   children,
@@ -49,6 +50,6 @@ export function UserMenu({
 function SignOutButton() {
   const { signOut } = useAuthActions();
   return (
-    <DropdownMenuItem onClick={() => void signOut()}>Sign out</DropdownMenuItem>
+    <DropdownMenuItem onClick={() => { clearAuthFlag(); void signOut(); }}>Sign out</DropdownMenuItem>
   );
 }

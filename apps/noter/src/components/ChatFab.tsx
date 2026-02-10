@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import {
   MessageSquare,
   X,
@@ -7,6 +7,7 @@ import {
   GitCommitHorizontal,
   Check,
   Wrench,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "convex/react";
@@ -296,7 +297,40 @@ function MessageBubble({
   );
 }
 
+// --- System prompt bubble ---
+
+function SystemPromptBubble({ systemPrompt }: { systemPrompt: string }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="mb-2 rounded-lg border border-dashed border-border bg-muted/50 text-xs">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-1.5 px-3 py-1.5 text-muted-foreground hover:text-foreground"
+      >
+        <ChevronRight
+          className={cn(
+            "h-3 w-3 shrink-0 transition-transform",
+            expanded && "rotate-90",
+          )}
+        />
+        <span className="font-medium">System prompt</span>
+      </button>
+      {expanded && (
+        <pre className="max-h-48 overflow-auto whitespace-pre-wrap border-t border-border px-3 py-2 text-[11px] text-muted-foreground">
+          {systemPrompt}
+        </pre>
+      )}
+    </div>
+  );
+}
+
 // --- Main component ---
+
+const DEFAULT_WIDTH = 28 * 16; // 28rem in px
+const DEFAULT_HEIGHT = 32 * 16; // 32rem in px
+const MIN_WIDTH = 20 * 16; // 20rem
+const MIN_HEIGHT = 16 * 16; // 16rem
 
 export function ChatFab() {
   const [isOpen, setIsOpen] = useState(false);
@@ -307,10 +341,37 @@ export function ChatFab() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  const [size, setSize] = useState({ w: DEFAULT_WIDTH, h: DEFAULT_HEIGHT });
+  const dragRef = useRef<{ startX: number; startY: number; startW: number; startH: number } | null>(null);
+
+  const onDragStart = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = { startX: e.clientX, startY: e.clientY, startW: size.w, startH: size.h };
+  }, [size]);
+
+  const onDragMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current) return;
+    const { startX, startY, startW, startH } = dragRef.current;
+    // Dragging top-left corner: moving left increases width, moving up increases height
+    const newW = Math.max(MIN_WIDTH, Math.min(window.innerWidth - 24, startW + (startX - e.clientX)));
+    const newH = Math.max(MIN_HEIGHT, Math.min(window.innerHeight - 80, startH + (startY - e.clientY)));
+    setSize({ w: newW, h: newH });
+  }, []);
+
+  const onDragEnd = useCallback(() => {
+    dragRef.current = null;
+  }, []);
+
   const { vaultId, branch, filePath } = useVaultContext();
 
   const messages = useQuery(
     api.chat.listMessages,
+    conversationId ? { conversationId } : "skip",
+  );
+
+  const conversation = useQuery(
+    api.chat.getConversation,
     conversationId ? { conversationId } : "skip",
   );
 
@@ -376,7 +437,24 @@ export function ChatFab() {
     <>
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-16 right-3 z-[9999] flex h-[min(24rem,calc(100%-5rem))] w-[min(22rem,calc(100vw-1.5rem))] flex-col rounded-xl border border-border bg-popover shadow-xl">
+        <div
+          className="fixed bottom-16 right-3 z-[9999] flex max-sm:!left-0 max-sm:!right-0 max-sm:!bottom-16 max-sm:!w-auto max-sm:!h-[calc(100%-5rem)] max-sm:rounded-none flex-col rounded-xl border border-border bg-popover shadow-xl"
+          style={{ width: size.w, height: size.h, maxHeight: 'calc(100vh - 5rem)' }}
+        >
+          {/* Drag handle (top-left corner) */}
+          <div
+            onPointerDown={onDragStart}
+            onPointerMove={onDragMove}
+            onPointerUp={onDragEnd}
+            className="absolute -left-1.5 -top-1.5 h-6 w-6 cursor-nwse-resize max-sm:hidden z-10 flex items-end justify-end touch-none"
+          >
+            <svg width="10" height="10" viewBox="0 0 10 10" className="text-muted-foreground/50 mr-0.5 mb-0.5">
+              <path d="M0 10L10 0" stroke="currentColor" strokeWidth="1.5" fill="none" />
+              <path d="M0 6L6 0" stroke="currentColor" strokeWidth="1.5" fill="none" />
+              <path d="M0 2L2 0" stroke="currentColor" strokeWidth="1.5" fill="none" />
+            </svg>
+          </div>
+
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
             <span className="text-sm font-medium text-foreground">Chat</span>
@@ -390,6 +468,9 @@ export function ChatFab() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-3 py-2">
+            {conversation?.systemPrompt && (
+              <SystemPromptBubble systemPrompt={conversation.systemPrompt} />
+            )}
             {conversationId &&
               messages?.map((msg) => (
                 <MessageBubble
