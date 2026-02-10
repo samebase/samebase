@@ -493,7 +493,7 @@ export const generateResponse = internalAction({
       ghRepoOwner: string;
       ghRepoName: string;
       userId?: Id<"users">;
-      treeData?: unknown;
+      treeData?: GithubTreeData;
     } | null = null;
     let user: {
       _id: Id<"users">;
