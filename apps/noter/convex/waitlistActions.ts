@@ -13,12 +13,14 @@ export const notifyAdmin = internalAction({
       console.warn("RESEND_API_KEY not set, skipping waitlist notification");
       return null;
     }
+    const isProd = process.env.CONVEX_CLOUD_URL?.includes(".convex.cloud");
+    const env = isProd ? "prod" : "dev";
     const resend = new Resend(apiKey);
     await resend.emails.send({
       from: "Noter Waitlist <onboarding@resend.dev>",
       to: "nicuchiciuc@gmail.com",
-      subject: `New waitlist signup: ${args.email}`,
-      text: `Someone just joined the noter waitlist: ${args.email}`,
+      subject: `[${env}] New waitlist signup: ${args.email}`,
+      text: `[${env}] Someone just joined the noter waitlist: ${args.email}`,
     });
     return null;
   },
