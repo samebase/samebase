@@ -55,7 +55,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "codemirror": "^6.0.1",
-    "convex": "^1.31.7",
+    "convex": "1.27.5",
     "convex-helpers": "^0.1.111",
     "diff": "^8.0.2",
     "isomorphic-git": "^1.33.0",
