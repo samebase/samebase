@@ -9,8 +9,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      injectRegister: false,
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+        skipWaiting: true,
+        clientsClaim: true,
+        navigateFallback: "index.html",
       },
       manifest: {
         name: "noter",
