@@ -5,7 +5,15 @@ import { VaultDashboard } from "@/components/VaultDashboard";
 import { FileView } from "@/components/FileView";
 import { AddRepository } from "@/components/AddRepository";
 import { ChatFab } from "@/components/ChatFab";
-import { Authenticated, Unauthenticated, useConvexAuth } from "convex/react";
+import { Button } from "@/components/ui/button";
+import {
+  Authenticated,
+  Unauthenticated,
+  useConvexAuth,
+  useQuery,
+} from "convex/react";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { api } from "../convex/_generated/api";
 import { Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 
@@ -41,6 +49,34 @@ function useCloseOAuthPopup() {
   }, [isAuthenticated]);
 }
 
+function ApprovalGate({ children }: { children: React.ReactNode }) {
+  const isApproved = useQuery(api.users.isCurrentUserApproved);
+  const { signOut } = useAuthActions();
+
+  // Still loading auth state — render nothing to avoid flicker
+  if (isApproved === undefined) return null;
+
+  if (!isApproved) {
+    return (
+      <div className="container my-auto">
+        <div className="max-w-[384px] mx-auto flex flex-col items-center gap-4 py-16 text-center">
+          <h2 className="font-semibold text-xl tracking-tight">
+            You're on the waitlist
+          </h2>
+          <p className="text-muted-foreground text-sm">
+            We'll let you know when your spot opens up.
+          </p>
+          <Button variant="outline" onClick={() => void signOut()}>
+            Sign out
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
+
 export default function App() {
   useCloseOAuthPopup();
   useAutoSignIn();
@@ -49,16 +85,18 @@ export default function App() {
     <Layout>
       <>
         <Authenticated>
-          <Routes>
-            <Route path="/" element={<VaultDashboard />} />
-            <Route path="/add" element={<AddRepository />} />
-            <Route path="/vault/:owner/:repoName" element={<FileView />} />
-            <Route path="/vault/:owner/:repoName/*" element={<FileView />} />
+          <ApprovalGate>
+            <Routes>
+              <Route path="/" element={<VaultDashboard />} />
+              <Route path="/add" element={<AddRepository />} />
+              <Route path="/vault/:owner/:repoName" element={<FileView />} />
+              <Route path="/vault/:owner/:repoName/*" element={<FileView />} />
 
-            {/* test route */}
-            <Route path="/test" element={<div>Test</div>} />
-          </Routes>
-          <ChatFab />
+              {/* test route */}
+              <Route path="/test" element={<div>Test</div>} />
+            </Routes>
+            <ChatFab />
+          </ApprovalGate>
         </Authenticated>
         <Unauthenticated>
           <SignInForm />

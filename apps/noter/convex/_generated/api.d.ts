@@ -23,6 +23,8 @@ import type * as http from "../http.js";
 import type * as users from "../users.js";
 import type * as vault from "../vault.js";
 import type * as vaultActions from "../vaultActions.js";
+import type * as waitlist from "../waitlist.js";
+import type * as waitlistActions from "../waitlistActions.js";
 
 import type {
   ApiFromModules,
@@ -46,6 +48,8 @@ declare const fullApi: ApiFromModules<{
   users: typeof users;
   vault: typeof vault;
   vaultActions: typeof vaultActions;
+  waitlist: typeof waitlist;
+  waitlistActions: typeof waitlistActions;
 }>;
 
 /**

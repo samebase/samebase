@@ -50,6 +50,7 @@ export default defineSchema({
     // Added these things. Maybe find a better way?
     // GitHub
     githubUsername: v.string(),
+    isApproved: v.optional(v.boolean()),
     githubAccessToken: v.optional(v.string()),
     githubRefreshToken: v.optional(v.string()),
     githubExpiresAt: v.optional(v.number()),
@@ -153,6 +154,14 @@ export default defineSchema({
     role: v.union(v.literal("user"), v.literal("assistant")),
     content: v.string(),
   }).index("by_conversationId", ["conversationId"]),
+
+  /**
+   * Waitlist for invite-only access.
+   */
+  waitlist: defineTable({
+    email: v.string(),
+    createdAt: v.number(),
+  }).index("by_email", ["email"]),
 
   collaborativeUpdates: defineTable({
     vaultId: v.id("vaults"),
