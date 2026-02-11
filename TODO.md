@@ -12,6 +12,9 @@
 - [ ] implement file diff view to show changes before committing
 - [ ] add "todo" command functionality for AI assistant to update this file
 
+## Development Environment
+- [ ] the dev container should default to fish. Even the ai should prefer that
+
 ## Completed ✅
 - [x] when committing, commit all changed files
 - [x] allow deleting file/folder
