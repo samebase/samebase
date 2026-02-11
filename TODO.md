@@ -8,6 +8,7 @@
 - [ ] add command "auto-push" "stop auto push" or similar to allow automatic pushing
 - [ ] you don't need to open noter in noter.md, you have it as a fab in your prod, just for you
 - [ ] don't use builder.io anymore
+- [ ] add share functionality to noter.md app
 
 ## Features & Improvements
 - [ ] improve file search functionality with better fuzzy matching
