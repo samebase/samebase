@@ -24,6 +24,11 @@ export const createCodespace = action({
     ctx,
     args,
   ): Promise<{ codespaceId: Id<"codespaces">; ghCodespaceId: string }> => {
+    console.log("codespaces:createCodespace:start", {
+      vaultId: args.vaultId,
+      branch: args.branch,
+      commitSha: args.commitSha,
+    });
     const userId = await getUserId(ctx);
 
     // Get vault details
@@ -34,6 +39,11 @@ export const createCodespace = action({
     if (!vault) {
       throw new Error("Vault not found");
     }
+    console.log("codespaces:createCodespace:vault", {
+      vaultId: vault._id,
+      repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+      ghRepoId: vault.ghRepoId,
+    });
 
     // Get user GitHub access token
     const user = await ctx.runQuery(internal.codespacesMutations.getUser, {
@@ -62,6 +72,11 @@ export const createCodespace = action({
     );
 
     // Create Codespace via GitHub API
+    console.log("codespaces:createCodespace:github:create", {
+      repositoryId,
+      branch: args.branch,
+      displayName,
+    });
     const { data: codespace } =
       await octokit.rest.codespaces.createForAuthenticatedUser({
         repository_id: repositoryId,
@@ -70,6 +85,11 @@ export const createCodespace = action({
         display_name: displayName,
         idle_timeout_minutes: 30,
       });
+    console.log("codespaces:createCodespace:github:created", {
+      ghCodespaceId: codespace.id,
+      ghCodespaceName: codespace.name,
+      state: codespace.state,
+    });
 
     // Store codespace record in database
     const codespaceId = await ctx.runMutation(
@@ -84,22 +104,37 @@ export const createCodespace = action({
         agentToken,
       },
     );
+    console.log("codespaces:createCodespace:db:created", {
+      codespaceId,
+      ghCodespaceId: codespace.id,
+      ghCodespaceName: codespace.name,
+    });
 
     try {
       // Poll for creation completion
+      const pollStart = Date.now();
       await pollCodespaceState(
         octokit,
         codespace.name,
         "Available",
         300000, // 5 minute timeout
       );
+      console.log("codespaces:createCodespace:poll:available", {
+        ghCodespaceName: codespace.name,
+        elapsedMs: Date.now() - pollStart,
+      });
 
       // Get updated connection details (retrying eventual consistency)
+      const detailsStart = Date.now();
       const updatedCodespace = await getCodespaceWithRetry(
         octokit,
         codespace.name,
         60000,
       );
+      console.log("codespaces:createCodespace:details:ready", {
+        ghCodespaceName: codespace.name,
+        elapsedMs: Date.now() - detailsStart,
+      });
 
       // Construct agent URL from port forwarding pattern
       const agentUrl = `https://${codespace.name}-3000.app.github.dev`;
@@ -114,7 +149,16 @@ export const createCodespace = action({
           state: "running",
         },
       );
+      console.log("codespaces:createCodespace:db:connected", {
+        codespaceId,
+        webUrl: updatedCodespace.web_url,
+      });
     } catch (error) {
+      console.log("codespaces:createCodespace:error", {
+        codespaceId,
+        ghCodespaceName: codespace.name,
+        message: formatError(error),
+      });
       await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
         codespaceId,
         state: "failed",
@@ -354,6 +398,7 @@ async function pollCodespaceState(
 ): Promise<void> {
   const startTime = Date.now();
   const pollInterval = 5000; // 5 seconds
+  let notFoundCount = 0;
 
   while (Date.now() - startTime < timeoutMs) {
     try {
@@ -368,6 +413,7 @@ async function pollCodespaceState(
     } catch (error) {
       // GitHub may return 404 immediately after creation; keep polling.
       if (isNotFoundError(error)) {
+        notFoundCount += 1;
         await delay(pollInterval);
         continue;
       }
@@ -378,6 +424,14 @@ async function pollCodespaceState(
     await delay(pollInterval);
   }
 
+  if (notFoundCount > 0) {
+    console.log("codespaces:poll:timeout_not_found", {
+      ghCodespaceName: codespaceName,
+      targetState,
+      notFoundCount,
+      elapsedMs: Date.now() - startTime,
+    });
+  }
   throw new Error(
     `Timeout waiting for Codespace to reach state: ${targetState}`,
   );
@@ -395,6 +449,9 @@ const isNotFoundError = (error: unknown): error is Error => {
   return status === 404 || error.message.includes("Not Found");
 };
 
+const formatError = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
+
 async function getCodespaceWithRetry(
   octokit: Octokit,
   codespaceName: string,
@@ -402,6 +459,7 @@ async function getCodespaceWithRetry(
 ): Promise<{ web_url: string }> {
   const startTime = Date.now();
   const pollInterval = 5000;
+  let notFoundCount = 0;
 
   while (Date.now() - startTime < timeoutMs) {
     try {
@@ -412,6 +470,7 @@ async function getCodespaceWithRetry(
       return codespace;
     } catch (error) {
       if (isNotFoundError(error)) {
+        notFoundCount += 1;
         await delay(pollInterval);
         continue;
       }
@@ -419,6 +478,13 @@ async function getCodespaceWithRetry(
     }
   }
 
+  if (notFoundCount > 0) {
+    console.log("codespaces:details:timeout_not_found", {
+      ghCodespaceName: codespaceName,
+      notFoundCount,
+      elapsedMs: Date.now() - startTime,
+    });
+  }
   throw new Error(
     `Timeout waiting for Codespace details: ${codespaceName}`,
   );
