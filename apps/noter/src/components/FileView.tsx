@@ -625,10 +625,10 @@ function FileViewInner({
 
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="default"
                     onClick={handleManualCommit}
                     disabled={manualComittingStatus === "loading"}
-                    className="h-6 px-2 text-xs"
+                    className="h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
                   >
                     {manualComittingStatus === "loading"
                       ? "Committing..."

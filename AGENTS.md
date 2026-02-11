@@ -82,6 +82,9 @@ Use these commands to debug issues in Convex functions, check production logs, o
 - **Only show loading for operations >500ms** or when user expects feedback
 - **Prefer silent, smooth UX** over chatty, jumpy interfaces
 
+### TODO
+- **Better mobile keyboard handling** - improve window size handling when virtual keyboard appears on mobile devices
+
 ## Technology Stack
 
 - **Runtime**: Node 24, PNPM 9, Turborepo
