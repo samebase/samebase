@@ -1,15 +1,18 @@
-// @ts-nocheck - Temporary bypass for Convex type inference circular dependency issues
 "use node";
 
 import { action } from "./_generated/server";
-import { v } from "convex/values";
-import { internal } from "./_generated/api";
+import { Infer, v } from "convex/values";
+import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
 
 /**
  * Create a vault with an associated Codespace
  */
+const createVaultWithCodespaceResult = v.object({
+  vaultId: v.id("vaults"),
+  codespaceId: v.id("codespaces"),
+});
 export const createVaultWithCodespace = action({
   args: {
     repoOwner: v.string(),
@@ -17,16 +20,18 @@ export const createVaultWithCodespace = action({
     ghRepoId: v.number(),
     branch: v.optional(v.string()),
   },
-  returns: v.object({
-    vaultId: v.id("vaults"),
-    codespaceId: v.id("codespaces"),
-  }),
-  handler: async (ctx, args) => {
+  returns: createVaultWithCodespaceResult,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof createVaultWithCodespaceResult>> => {
     const userId = await getUserId(ctx);
     const branch = args.branch || "main";
 
     // Get user GitHub access token
-    const user = await ctx.runQuery(internal.codespaces.getUser, { userId });
+    const user = await ctx.runQuery(internal.codespacesMutations.getUser, {
+      userId,
+    });
 
     if (!user?.githubAccessToken) {
       throw new Error("GitHub access token not found");
@@ -50,6 +55,7 @@ export const createVaultWithCodespace = action({
 
     // Create vault record using existing addVault mutation
     const vaultId = await ctx.runMutation(internal.vault.addVault, {
+      state: "copying_files",
       ghRepoId: args.ghRepoId.toString(),
       ghRepoOwner: args.repoOwner,
       ghRepoName: args.repoName,
@@ -63,17 +69,20 @@ export const createVaultWithCodespace = action({
     });
 
     // Store devcontainer config in vault
-    await ctx.runMutation(internal.vaultCodespaceIntegration.updateVaultDevcontainer, {
+    await ctx.runAction(api.vaultCodespaceIntegration.updateVaultDevcontainer, {
       vaultId,
       devcontainerConfig,
     });
 
     // Create Codespace
-    const { codespaceId } = await ctx.runAction(internal.codespaces.createCodespace, {
-      vaultId,
-      branch,
-      commitSha,
-    });
+    const { codespaceId } = await ctx.runAction(
+      api.codespaces.createCodespace,
+      {
+        vaultId,
+        branch,
+        commitSha,
+      },
+    );
 
     return {
       vaultId,
@@ -85,18 +94,22 @@ export const createVaultWithCodespace = action({
 /**
  * Rebuild Codespace if the main branch has changed
  */
+const rebuildCodespaceIfStaleResult = v.object({
+  rebuilt: v.boolean(),
+  codespaceId: v.optional(v.id("codespaces")),
+  reason: v.optional(v.string()),
+});
 export const rebuildCodespaceIfStale = action({
   args: { vaultId: v.id("vaults") },
-  returns: v.object({
-    rebuilt: v.boolean(),
-    codespaceId: v.optional(v.id("codespaces")),
-    reason: v.optional(v.string()),
-  }),
-  handler: async (ctx, args) => {
+  returns: rebuildCodespaceIfStaleResult,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof rebuildCodespaceIfStaleResult>> => {
     const userId = await getUserId(ctx);
 
     // Get vault and active codespace
-    const vault = await ctx.runQuery(internal.codespaces.getVault, {
+    const vault = await ctx.runQuery(internal.codespacesMutations.getVault, {
       vaultId: args.vaultId,
     });
 
@@ -105,13 +118,15 @@ export const rebuildCodespaceIfStale = action({
     }
 
     const activeCodespace = vault.activeCodespaceId
-      ? await ctx.runQuery(internal.codespaces.getCodespace, {
+      ? await ctx.runQuery(internal.codespacesMutations.getCodespace, {
           codespaceId: vault.activeCodespaceId,
         })
       : null;
 
     // Get user GitHub access token
-    const user = await ctx.runQuery(internal.codespaces.getUser, { userId });
+    const user = await ctx.runQuery(internal.codespacesMutations.getUser, {
+      userId,
+    });
 
     if (!user?.githubAccessToken) {
       throw new Error("GitHub access token not found");
@@ -141,17 +156,20 @@ export const rebuildCodespaceIfStale = action({
 
     // Delete old codespace if it exists
     if (activeCodespace) {
-      await ctx.runAction(internal.codespaces.deleteCodespace, {
+      await ctx.runAction(api.codespaces.deleteCodespace, {
         codespaceId: activeCodespace._id,
       });
     }
 
     // Create new codespace with latest commit
-    const { codespaceId } = await ctx.runAction(internal.codespaces.createCodespace, {
-      vaultId: args.vaultId,
-      branch,
-      commitSha: latestCommitSha,
-    });
+    const { codespaceId } = await ctx.runAction(
+      api.codespaces.createCodespace,
+      {
+        vaultId: args.vaultId,
+        branch,
+        commitSha: latestCommitSha,
+      },
+    );
 
     return {
       rebuilt: true,
@@ -166,14 +184,18 @@ export const rebuildCodespaceIfStale = action({
 /**
  * Ensure Codespace is running and healthy before use
  */
+const ensureCodespaceReadyResult = v.object({
+  codespaceId: v.id("codespaces"),
+  ready: v.boolean(),
+});
 export const ensureCodespaceReady = action({
   args: { vaultId: v.id("vaults") },
-  returns: v.object({
-    codespaceId: v.id("codespaces"),
-    ready: v.boolean(),
-  }),
-  handler: async (ctx, args) => {
-    const vault = await ctx.runQuery(internal.codespaces.getVault, {
+  returns: ensureCodespaceReadyResult,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof ensureCodespaceReadyResult>> => {
+    const vault = await ctx.runQuery(internal.codespacesMutations.getVault, {
       vaultId: args.vaultId,
     });
 
@@ -183,8 +205,8 @@ export const ensureCodespaceReady = action({
 
     // Check if codespace needs rebuild
     const { rebuilt, codespaceId } = await ctx.runAction(
-      internal.vaultCodespaceIntegration.rebuildCodespaceIfStale,
-      { vaultId: args.vaultId }
+      api.vaultCodespaceIntegration.rebuildCodespaceIfStale,
+      { vaultId: args.vaultId },
     );
 
     if (!codespaceId) {
@@ -192,9 +214,12 @@ export const ensureCodespaceReady = action({
     }
 
     // Get codespace state
-    const codespace = await ctx.runQuery(internal.codespaces.getCodespace, {
-      codespaceId,
-    });
+    const codespace = await ctx.runQuery(
+      internal.codespacesMutations.getCodespace,
+      {
+        codespaceId,
+      },
+    );
 
     if (!codespace) {
       throw new Error("Codespace not found");
@@ -202,7 +227,7 @@ export const ensureCodespaceReady = action({
 
     // Start if stopped
     if (codespace.state === "stopped") {
-      await ctx.runAction(internal.codespaces.startCodespace, {
+      await ctx.runAction(api.codespaces.startCodespace, {
         codespaceId,
       });
     }
@@ -216,8 +241,8 @@ export const ensureCodespaceReady = action({
 
       while (Date.now() - startTime < maxWaitMs) {
         const currentCodespace = await ctx.runQuery(
-          internal.codespaces.getCodespace,
-          { codespaceId }
+          internal.codespacesMutations.getCodespace,
+          { codespaceId },
         );
 
         if (currentCodespace?.state === "running") {
@@ -229,9 +254,12 @@ export const ensureCodespaceReady = action({
     }
 
     // Check health
-    const health = await ctx.runAction(internal.codespacesExecutor.checkAgentHealth, {
-      codespaceId,
-    });
+    const health = await ctx.runAction(
+      api.codespacesExecutor.checkAgentHealth,
+      {
+        codespaceId,
+      },
+    );
 
     return {
       codespaceId,
@@ -250,9 +278,9 @@ export const updateVaultDevcontainer = action({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.runMutation(
-      internal.vaultCodespaceIntegration.updateVaultDevcontainerMutation,
-      args
+    await ctx.runAction(
+      api.vaultCodespaceIntegration.updateVaultDevcontainerMutation,
+      args,
     );
     return null;
   },
@@ -265,7 +293,7 @@ export const updateVaultDevcontainerMutation = action({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // @ts-expect-error - Convex runtime issue
+    // TODO: db inside action!! needs fixing
     await ctx.db.patch(args.vaultId, {
       devcontainerConfig: args.devcontainerConfig,
     });

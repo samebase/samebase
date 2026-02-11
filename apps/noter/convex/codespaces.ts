@@ -1,11 +1,11 @@
-// @ts-nocheck - Temporary bypass for Convex type inference circular dependency issues
 "use node";
 
-import { v } from "convex/values";
+import { Infer, v } from "convex/values";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
+import { Id } from "./_generated/dataModel";
 
 /**
  * Create a new GitHub Codespace for a vault
@@ -20,7 +20,10 @@ export const createCodespace = action({
     codespaceId: v.id("codespaces"),
     ghCodespaceId: v.string(),
   }),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ codespaceId: Id<"codespaces">; ghCodespaceId: string }> => {
     const userId = await getUserId(ctx);
 
     // Get vault details
@@ -33,7 +36,9 @@ export const createCodespace = action({
     }
 
     // Get user GitHub access token
-    const user = await ctx.runQuery(internal.codespacesMutations.getUser, { userId });
+    const user = await ctx.runQuery(internal.codespacesMutations.getUser, {
+      userId,
+    });
 
     if (!user?.githubAccessToken) {
       throw new Error("GitHub access token not found");
@@ -47,14 +52,15 @@ export const createCodespace = action({
     const agentToken = crypto.randomUUID();
 
     // Create Codespace via GitHub API
-    const { data: codespace } = await octokit.rest.codespaces.createForAuthenticatedUser({
-      repository_id: parseInt(vault.ghRepoId),
-      ref: args.branch,
-      machine: "basicLinux32gb",
-      devcontainer_path: ".devcontainer/devcontainer.json",
-      display_name: `Noter: ${vault.ghRepoOwner}/${vault.ghRepoName}`,
-      idle_timeout_minutes: 30,
-    });
+    const { data: codespace } =
+      await octokit.rest.codespaces.createForAuthenticatedUser({
+        repository_id: parseInt(vault.ghRepoId),
+        ref: args.branch,
+        machine: "basicLinux32gb",
+        devcontainer_path: ".devcontainer/devcontainer.json",
+        display_name: `Noter: ${vault.ghRepoOwner}/${vault.ghRepoName}`,
+        idle_timeout_minutes: 30,
+      });
 
     // Store codespace record in database
     const codespaceId = await ctx.runMutation(
@@ -67,7 +73,7 @@ export const createCodespace = action({
         commitSha: args.commitSha,
         branch: args.branch,
         agentToken,
-      }
+      },
     );
 
     // Poll for creation completion
@@ -75,24 +81,28 @@ export const createCodespace = action({
       octokit,
       codespace.name,
       "Available",
-      60000 // 60 second timeout
+      60000, // 60 second timeout
     );
 
     // Get updated connection details
-    const { data: updatedCodespace } = await octokit.rest.codespaces.get({
-      codespace_name: codespace.name,
-    });
+    const { data: updatedCodespace } =
+      await octokit.rest.codespaces.getForAuthenticatedUser({
+        codespace_name: codespace.name,
+      });
 
     // Construct agent URL from port forwarding pattern
     const agentUrl = `https://${codespace.name}-3000.app.github.dev`;
 
     // Update codespace with connection details
-    await ctx.runMutation(internal.codespacesMutations.updateCodespaceConnection, {
-      codespaceId,
-      webUrl: updatedCodespace.web_url,
-      agentUrl,
-      state: "running",
-    });
+    await ctx.runMutation(
+      internal.codespacesMutations.updateCodespaceConnection,
+      {
+        codespaceId,
+        webUrl: updatedCodespace.web_url,
+        agentUrl,
+        state: "running",
+      },
+    );
 
     return {
       codespaceId,
@@ -101,21 +111,28 @@ export const createCodespace = action({
   },
 });
 
+const getCodespaceConnectionResult = v.object({
+  webUrl: v.string(),
+  agentUrl: v.string(),
+  agentToken: v.string(),
+  state: v.string(),
+});
 /**
  * Get connection details for a Codespace
  */
 export const getCodespaceConnection = action({
   args: { codespaceId: v.id("codespaces") },
-  returns: v.object({
-    webUrl: v.string(),
-    agentUrl: v.string(),
-    agentToken: v.string(),
-    state: v.string(),
-  }),
-  handler: async (ctx, args) => {
-    const codespace = await ctx.runQuery(internal.codespacesMutations.getCodespace, {
-      codespaceId: args.codespaceId,
-    });
+  returns: getCodespaceConnectionResult,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof getCodespaceConnectionResult>> => {
+    const codespace = await ctx.runQuery(
+      internal.codespacesMutations.getCodespace,
+      {
+        codespaceId: args.codespaceId,
+      },
+    );
 
     if (!codespace) {
       throw new Error("Codespace not found");
@@ -143,15 +160,20 @@ export const startCodespace = action({
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
 
-    const codespace = await ctx.runQuery(internal.codespaces.getCodespace, {
-      codespaceId: args.codespaceId,
-    });
+    const codespace = await ctx.runQuery(
+      internal.codespacesMutations.getCodespace,
+      {
+        codespaceId: args.codespaceId,
+      },
+    );
 
     if (!codespace) {
       throw new Error("Codespace not found");
     }
 
-    const user = await ctx.runQuery(internal.codespacesMutations.getUser, { userId });
+    const user = await ctx.runQuery(internal.codespacesMutations.getUser, {
+      userId,
+    });
 
     if (!user?.githubAccessToken) {
       throw new Error("GitHub access token not found");
@@ -162,8 +184,7 @@ export const startCodespace = action({
     });
 
     // Start the Codespace
-    // @ts-expect-error - Codespace API methods may not be in type definitions
-    await octokit.rest.codespaces.start({
+    await octokit.rest.codespaces.startForAuthenticatedUser({
       codespace_name: codespace.ghCodespaceName,
     });
 
@@ -196,15 +217,20 @@ export const stopCodespace = action({
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
 
-    const codespace = await ctx.runQuery(internal.codespaces.getCodespace, {
-      codespaceId: args.codespaceId,
-    });
+    const codespace = await ctx.runQuery(
+      internal.codespacesMutations.getCodespace,
+      {
+        codespaceId: args.codespaceId,
+      },
+    );
 
     if (!codespace) {
       throw new Error("Codespace not found");
     }
 
-    const user = await ctx.runQuery(internal.codespacesMutations.getUser, { userId });
+    const user = await ctx.runQuery(internal.codespacesMutations.getUser, {
+      userId,
+    });
 
     if (!user?.githubAccessToken) {
       throw new Error("GitHub access token not found");
@@ -215,8 +241,7 @@ export const stopCodespace = action({
     });
 
     // Stop the Codespace
-    // @ts-expect-error - Codespace API methods may not be in type definitions
-    await octokit.rest.codespaces.stop({
+    await octokit.rest.codespaces.stopForAuthenticatedUser({
       codespace_name: codespace.ghCodespaceName,
     });
 
@@ -240,15 +265,20 @@ export const deleteCodespace = action({
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
 
-    const codespace = await ctx.runQuery(internal.codespaces.getCodespace, {
-      codespaceId: args.codespaceId,
-    });
+    const codespace = await ctx.runQuery(
+      internal.codespacesMutations.getCodespace,
+      {
+        codespaceId: args.codespaceId,
+      },
+    );
 
     if (!codespace) {
       throw new Error("Codespace not found");
     }
 
-    const user = await ctx.runQuery(internal.codespacesMutations.getUser, { userId });
+    const user = await ctx.runQuery(internal.codespacesMutations.getUser, {
+      userId,
+    });
 
     if (!user?.githubAccessToken) {
       throw new Error("GitHub access token not found");
@@ -259,8 +289,7 @@ export const deleteCodespace = action({
     });
 
     // Delete the Codespace
-    // @ts-expect-error - Codespace API methods may not be in type definitions
-    await octokit.rest.codespaces.delete({
+    await octokit.rest.codespaces.deleteForAuthenticatedUser({
       codespace_name: codespace.ghCodespaceName,
     });
 
@@ -282,16 +311,16 @@ async function pollCodespaceState(
   octokit: Octokit,
   codespaceName: string,
   targetState: string,
-  timeoutMs: number = 120000
+  timeoutMs: number = 120000,
 ): Promise<void> {
   const startTime = Date.now();
   const pollInterval = 5000; // 5 seconds
 
   while (Date.now() - startTime < timeoutMs) {
-    // @ts-expect-error - Codespace API methods may not be in type definitions
-    const { data: codespace } = await octokit.rest.codespaces.get({
-      codespace_name: codespaceName,
-    });
+    const { data: codespace } =
+      await octokit.rest.codespaces.getForAuthenticatedUser({
+        codespace_name: codespaceName,
+      });
 
     if (codespace.state === targetState) {
       return;
@@ -302,6 +331,6 @@ async function pollCodespaceState(
   }
 
   throw new Error(
-    `Timeout waiting for Codespace to reach state: ${targetState}`
+    `Timeout waiting for Codespace to reach state: ${targetState}`,
   );
 }

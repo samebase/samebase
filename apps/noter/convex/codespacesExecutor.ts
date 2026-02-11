@@ -1,9 +1,15 @@
-// @ts-nocheck - Temporary bypass for Convex type inference circular dependency issues
 "use node";
 
 import { action } from "./_generated/server";
-import { v } from "convex/values";
+import { type Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
+
+const executeCommandResult = v.object({
+  stdout: v.string(),
+  stderr: v.string(),
+  exitCode: v.number(),
+  success: v.boolean(),
+});
 
 /**
  * Execute a command in the Codespace
@@ -15,17 +21,15 @@ export const executeCommand = action({
     workingDir: v.optional(v.string()),
     timeoutMs: v.optional(v.number()),
   },
-  returns: v.object({
-    stdout: v.string(),
-    stderr: v.string(),
-    exitCode: v.number(),
-    success: v.boolean(),
-  }),
-  handler: async (ctx, args) => {
+  returns: executeCommandResult,
+  handler: async (ctx, args): Promise<Infer<typeof executeCommandResult>> => {
     // Get codespace record with agentUrl and agentToken
-    const codespace = await ctx.runQuery(internal.codespacesMutations.getCodespace, {
-      codespaceId: args.codespaceId,
-    });
+    const codespace = await ctx.runQuery(
+      internal.codespacesMutations.getCodespace,
+      {
+        codespaceId: args.codespaceId,
+      },
+    );
 
     if (!codespace) {
       throw new Error("Codespace not found");
@@ -37,7 +41,7 @@ export const executeCommand = action({
 
     if (codespace.state !== "running") {
       throw new Error(
-        `Codespace is not running (current state: ${codespace.state})`
+        `Codespace is not running (current state: ${codespace.state})`,
       );
     }
 
@@ -63,6 +67,10 @@ export const executeCommand = action({
   },
 });
 
+const writeFileToCodespaceResult = v.object({
+  success: v.boolean(),
+  filePath: v.string(),
+});
 /**
  * Write a file to the Codespace
  */
@@ -72,14 +80,17 @@ export const writeFileToCodespace = action({
     filePath: v.string(),
     content: v.string(),
   },
-  returns: v.object({
-    success: v.boolean(),
-    filePath: v.string(),
-  }),
-  handler: async (ctx, args) => {
-    const codespace = await ctx.runQuery(internal.codespacesMutations.getCodespace, {
-      codespaceId: args.codespaceId,
-    });
+  returns: writeFileToCodespaceResult,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof writeFileToCodespaceResult>> => {
+    const codespace = await ctx.runQuery(
+      internal.codespacesMutations.getCodespace,
+      {
+        codespaceId: args.codespaceId,
+      },
+    );
 
     if (!codespace) {
       throw new Error("Codespace not found");
@@ -91,7 +102,7 @@ export const writeFileToCodespace = action({
 
     if (codespace.state !== "running") {
       throw new Error(
-        `Codespace is not running (current state: ${codespace.state})`
+        `Codespace is not running (current state: ${codespace.state})`,
       );
     }
 
@@ -119,19 +130,26 @@ export const writeFileToCodespace = action({
 /**
  * Read a file from the Codespace
  */
+const readFileFromCodespaceResult = v.object({
+  content: v.string(),
+  filePath: v.string(),
+});
 export const readFileFromCodespace = action({
   args: {
     codespaceId: v.id("codespaces"),
     filePath: v.string(),
   },
-  returns: v.object({
-    content: v.string(),
-    filePath: v.string(),
-  }),
-  handler: async (ctx, args) => {
-    const codespace = await ctx.runQuery(internal.codespacesMutations.getCodespace, {
-      codespaceId: args.codespaceId,
-    });
+  returns: readFileFromCodespaceResult,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof readFileFromCodespaceResult>> => {
+    const codespace = await ctx.runQuery(
+      internal.codespacesMutations.getCodespace,
+      {
+        codespaceId: args.codespaceId,
+      },
+    );
 
     if (!codespace) {
       throw new Error("Codespace not found");
@@ -143,19 +161,19 @@ export const readFileFromCodespace = action({
 
     if (codespace.state !== "running") {
       throw new Error(
-        `Codespace is not running (current state: ${codespace.state})`
+        `Codespace is not running (current state: ${codespace.state})`,
       );
     }
 
     const response = await fetch(
       `${codespace.agentUrl}/files/read?filePath=${encodeURIComponent(
-        args.filePath
+        args.filePath,
       )}`,
       {
         headers: {
           Authorization: `Bearer ${codespace.agentToken}`,
         },
-      }
+      },
     );
 
     if (!response.ok) {
@@ -170,26 +188,30 @@ export const readFileFromCodespace = action({
 /**
  * List files in a directory in the Codespace
  */
+const listFilesResult = v.object({
+  files: v.array(
+    v.object({
+      name: v.string(),
+      isDirectory: v.boolean(),
+      isFile: v.boolean(),
+      path: v.string(),
+    }),
+  ),
+  dirPath: v.string(),
+});
 export const listFiles = action({
   args: {
     codespaceId: v.id("codespaces"),
     dirPath: v.optional(v.string()),
   },
-  returns: v.object({
-    files: v.array(
-      v.object({
-        name: v.string(),
-        isDirectory: v.boolean(),
-        isFile: v.boolean(),
-        path: v.string(),
-      })
-    ),
-    dirPath: v.string(),
-  }),
-  handler: async (ctx, args) => {
-    const codespace = await ctx.runQuery(internal.codespacesMutations.getCodespace, {
-      codespaceId: args.codespaceId,
-    });
+  returns: listFilesResult,
+  handler: async (ctx, args): Promise<Infer<typeof listFilesResult>> => {
+    const codespace = await ctx.runQuery(
+      internal.codespacesMutations.getCodespace,
+      {
+        codespaceId: args.codespaceId,
+      },
+    );
 
     if (!codespace) {
       throw new Error("Codespace not found");
@@ -201,7 +223,7 @@ export const listFiles = action({
 
     if (codespace.state !== "running") {
       throw new Error(
-        `Codespace is not running (current state: ${codespace.state})`
+        `Codespace is not running (current state: ${codespace.state})`,
       );
     }
 
@@ -228,20 +250,24 @@ export const listFiles = action({
 /**
  * Delete a file or directory in the Codespace
  */
+const deleteFileResult = v.object({
+  success: v.boolean(),
+  filePath: v.string(),
+});
 export const deleteFile = action({
   args: {
     codespaceId: v.id("codespaces"),
     filePath: v.string(),
     recursive: v.optional(v.boolean()),
   },
-  returns: v.object({
-    success: v.boolean(),
-    filePath: v.string(),
-  }),
-  handler: async (ctx, args) => {
-    const codespace = await ctx.runQuery(internal.codespacesMutations.getCodespace, {
-      codespaceId: args.codespaceId,
-    });
+  returns: deleteFileResult,
+  handler: async (ctx, args): Promise<Infer<typeof deleteFileResult>> => {
+    const codespace = await ctx.runQuery(
+      internal.codespacesMutations.getCodespace,
+      {
+        codespaceId: args.codespaceId,
+      },
+    );
 
     if (!codespace) {
       throw new Error("Codespace not found");
@@ -253,7 +279,7 @@ export const deleteFile = action({
 
     if (codespace.state !== "running") {
       throw new Error(
-        `Codespace is not running (current state: ${codespace.state})`
+        `Codespace is not running (current state: ${codespace.state})`,
       );
     }
 
@@ -281,23 +307,27 @@ export const deleteFile = action({
 /**
  * Get file metadata in the Codespace
  */
+const getFileStatResult = v.object({
+  filePath: v.string(),
+  size: v.number(),
+  isDirectory: v.boolean(),
+  isFile: v.boolean(),
+  modifiedAt: v.string(),
+  createdAt: v.string(),
+});
 export const getFileStat = action({
   args: {
     codespaceId: v.id("codespaces"),
     filePath: v.string(),
   },
-  returns: v.object({
-    filePath: v.string(),
-    size: v.number(),
-    isDirectory: v.boolean(),
-    isFile: v.boolean(),
-    modifiedAt: v.string(),
-    createdAt: v.string(),
-  }),
-  handler: async (ctx, args) => {
-    const codespace = await ctx.runQuery(internal.codespacesMutations.getCodespace, {
-      codespaceId: args.codespaceId,
-    });
+  returns: getFileStatResult,
+  handler: async (ctx, args): Promise<Infer<typeof getFileStatResult>> => {
+    const codespace = await ctx.runQuery(
+      internal.codespacesMutations.getCodespace,
+      {
+        codespaceId: args.codespaceId,
+      },
+    );
 
     if (!codespace) {
       throw new Error("Codespace not found");
@@ -309,19 +339,19 @@ export const getFileStat = action({
 
     if (codespace.state !== "running") {
       throw new Error(
-        `Codespace is not running (current state: ${codespace.state})`
+        `Codespace is not running (current state: ${codespace.state})`,
       );
     }
 
     const response = await fetch(
       `${codespace.agentUrl}/files/stat?filePath=${encodeURIComponent(
-        args.filePath
+        args.filePath,
       )}`,
       {
         headers: {
           Authorization: `Bearer ${codespace.agentToken}`,
         },
-      }
+      },
     );
 
     if (!response.ok) {
@@ -336,20 +366,24 @@ export const getFileStat = action({
 /**
  * Check health of the HTTP agent
  */
+const checkAgentHealthResult = v.object({
+  healthy: v.boolean(),
+  status: v.optional(v.string()),
+  uptime: v.optional(v.number()),
+  timestamp: v.optional(v.number()),
+});
 export const checkAgentHealth = action({
   args: {
     codespaceId: v.id("codespaces"),
   },
-  returns: v.object({
-    healthy: v.boolean(),
-    status: v.optional(v.string()),
-    uptime: v.optional(v.number()),
-    timestamp: v.optional(v.number()),
-  }),
-  handler: async (ctx, args) => {
-    const codespace = await ctx.runQuery(internal.codespacesMutations.getCodespace, {
-      codespaceId: args.codespaceId,
-    });
+  returns: checkAgentHealthResult,
+  handler: async (ctx, args): Promise<Infer<typeof checkAgentHealthResult>> => {
+    const codespace = await ctx.runQuery(
+      internal.codespacesMutations.getCodespace,
+      {
+        codespaceId: args.codespaceId,
+      },
+    );
 
     if (!codespace) {
       return { healthy: false };

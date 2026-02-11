@@ -29,6 +29,17 @@ export const GithubTreeData = v.object({
   tree: v.array(GithubTree),
 });
 
+export const CodespaceState = v.union(
+  v.literal("creating"),
+  v.literal("starting"),
+  v.literal("running"),
+  v.literal("stopping"),
+  v.literal("stopped"),
+  v.literal("deleting"),
+  v.literal("deleted"),
+  v.literal("failed"),
+);
+
 // The schema is normally optional, but Convex Auth
 // requires indexes defined on `authTables`.
 // The schema provides more precise TypeScript types.
@@ -93,16 +104,7 @@ export default defineSchema({
     ghCodespaceName: v.string(),
 
     // State management
-    state: v.union(
-      v.literal("creating"),
-      v.literal("starting"),
-      v.literal("running"),
-      v.literal("stopping"),
-      v.literal("stopped"),
-      v.literal("deleting"),
-      v.literal("deleted"),
-      v.literal("failed")
-    ),
+    state: CodespaceState,
 
     // Connection details (when running)
     webUrl: v.optional(v.string()),

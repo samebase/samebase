@@ -1,7 +1,6 @@
-// @ts-nocheck - Temporary bypass for Convex type inference circular dependency issues
-
 import { v } from "convex/values";
 import { internalMutation, internalQuery, query } from "./_generated/server";
+import { CodespaceState } from "./schema";
 
 /**
  * Internal: Get Codespace by ID
@@ -77,7 +76,7 @@ export const updateCodespaceConnection = internalMutation({
     codespaceId: v.id("codespaces"),
     webUrl: v.string(),
     agentUrl: v.string(),
-    state: v.string(),
+    state: CodespaceState,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -163,7 +162,7 @@ export const getActiveCodespace = query({
       commitSha: v.string(),
       branch: v.string(),
     }),
-    v.null()
+    v.null(),
   ),
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);

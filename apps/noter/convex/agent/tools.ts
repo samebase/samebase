@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use node";
 
 import { tool } from "@langchain/core/tools";
@@ -199,9 +198,8 @@ async function executeEditFile(
       id: toolCtx.vaultId,
     });
     const parentCommitSha =
-      vault?.treeData.tree.find(
-        (t: { path?: string }) => t.path === input.path,
-      )?.sha ?? null;
+      vault?.treeData.tree.find((t: { path?: string }) => t.path === input.path)
+        ?.sha ?? null;
 
     await toolCtx.ctx.runMutation(internal.fileStaging.saveToStaging, {
       vaultId: toolCtx.vaultId,
@@ -245,13 +243,16 @@ async function executeDeleteFile(
     vault?.treeData.tree.find((t: { path?: string }) => t.path === input.path)
       ?.sha ?? null;
 
-  await toolCtx.ctx.runMutation(internal.fileStaging.internalMarkFileForDeletion, {
-    vaultId: toolCtx.vaultId,
-    filePath: input.path,
-    parentCommitSha: sha,
-    branch: "main",
-    userId: toolCtx.userId,
-  });
+  await toolCtx.ctx.runMutation(
+    internal.fileStaging.internalMarkFileForDeletion,
+    {
+      vaultId: toolCtx.vaultId,
+      filePath: input.path,
+      parentCommitSha: sha,
+      branch: "main",
+      userId: toolCtx.userId,
+    },
+  );
   return `File marked for deletion: ${input.path}`;
 }
 
