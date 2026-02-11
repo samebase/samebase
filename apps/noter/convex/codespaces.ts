@@ -347,23 +347,42 @@ async function pollCodespaceState(
   const pollInterval = 5000; // 5 seconds
 
   while (Date.now() - startTime < timeoutMs) {
-    const { data: codespace } =
-      await octokit.rest.codespaces.getForAuthenticatedUser({
-        codespace_name: codespaceName,
-      });
+    try {
+      const { data: codespace } =
+        await octokit.rest.codespaces.getForAuthenticatedUser({
+          codespace_name: codespaceName,
+        });
 
-    if (codespace.state === targetState) {
-      return;
+      if (codespace.state === targetState) {
+        return;
+      }
+    } catch (error) {
+      // GitHub may return 404 immediately after creation; keep polling.
+      if (isNotFoundError(error)) {
+        await delay(pollInterval);
+        continue;
+      }
+      throw error;
     }
 
     // Wait before polling again
-    await new Promise((resolve) => setTimeout(resolve, pollInterval));
+    await delay(pollInterval);
   }
 
   throw new Error(
     `Timeout waiting for Codespace to reach state: ${targetState}`,
   );
 }
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isNotFoundError = (error: unknown): error is Error => {
+  return (
+    error instanceof Error &&
+    typeof error.message === "string" &&
+    error.message.includes("Not Found")
+  );
+};
 
 const MAX_CODESPACE_DISPLAY_NAME_LENGTH = 48;
 
