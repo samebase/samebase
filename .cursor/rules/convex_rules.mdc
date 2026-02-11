@@ -214,6 +214,47 @@ export const exampleQuery = query({
 - When using the `Record` type, make sure to always define your records as `const record: Record<KeyType, ValueType> = {...};`
 - Always add `@types/node` to your `package.json` when using any Node.js built-in modules.
 
+### TypeScript error handling
+- If you encounter the error "has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer", this can usually be solved by explicitly setting the return type of the handler function.
+- Even if the `returns` validator is set in the Convex function definition, TypeScript may not infer the return type correctly in some cases.
+- **Solution 1**: Explicitly type the handler function's return type:
+```typescript
+import { query } from "./_generated/server";
+import { v } from "convex/values";
+
+export const exampleQuery = query({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx, args): Promise<string> => {
+    // Function body
+    return "result";
+  },
+});
+```
+- **Solution 2**: Create the returns validator before the function definition and use `Infer<>` to derive the type:
+```typescript
+import { query } from "./_generated/server";
+import { v, Infer } from "convex/values";
+
+const returnsValidator = v.object({
+  id: v.id("users"),
+  name: v.string(),
+});
+
+export const exampleQuery = query({
+  args: {},
+  returns: returnsValidator,
+  handler: async (ctx, args): Promise<Infer<typeof returnsValidator>> => {
+    // Function body
+    return {
+      id: "user123" as any,
+      name: "John Doe",
+    };
+  },
+});
+```
+- This pattern is especially useful for complex return types where the validator is reused or when TypeScript has trouble inferring circular dependencies.
+
 ## Full text search guidelines
 - A query for "10 messages in channel '#general' that best match the query 'hello hi' in their body" would look like:
 
@@ -673,4 +714,3 @@ export default function App() {
   return <div>Hello World</div>;
 }
 ```
-
