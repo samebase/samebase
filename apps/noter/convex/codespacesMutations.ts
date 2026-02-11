@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, query } from "./_generated/server";
 import { CodespaceState } from "./schema";
+import { getUserId } from "./common";
 
 /**
  * Internal: Get Codespace by ID
@@ -95,14 +96,19 @@ export const updateCodespaceConnection = internalMutation({
 export const updateCodespaceState = internalMutation({
   args: {
     codespaceId: v.id("codespaces"),
-    state: v.string(),
+    state: CodespaceState,
     lastStartedAt: v.optional(v.number()),
     lastStoppedAt: v.optional(v.number()),
     deletedAt: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const updates: Record<string, any> = { state: args.state as any };
+    const updates: {
+      state: typeof args.state;
+      lastStartedAt?: number;
+      lastStoppedAt?: number;
+      deletedAt?: number;
+    } = { state: args.state };
 
     if (args.lastStartedAt !== undefined) {
       updates.lastStartedAt = args.lastStartedAt;
@@ -165,20 +171,36 @@ export const getActiveCodespace = query({
     v.null(),
   ),
   handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
     const vault = await ctx.db.get(args.vaultId);
 
-    if (!vault?.activeCodespaceId) {
+    if (!vault?.activeCodespaceId || vault.userId !== userId) {
       return null;
     }
 
     const codespace = await ctx.db.get(vault.activeCodespaceId);
 
-    if (!codespace) {
+    if (!codespace || codespace.userId !== userId) {
       return null;
     }
 
-    // Return without agentToken (security - don't expose to frontend)
-    const { agentToken: _agentToken, ...safeCodespace } = codespace;
-    return safeCodespace as any;
+    return {
+      _id: codespace._id,
+      vaultId: codespace.vaultId,
+      userId: codespace.userId,
+      ghCodespaceId: codespace.ghCodespaceId,
+      ghCodespaceName: codespace.ghCodespaceName,
+      state: codespace.state,
+      webUrl: codespace.webUrl,
+      agentUrl: codespace.agentUrl,
+      agentHealthy: codespace.agentHealthy,
+      createdAt: codespace.createdAt,
+      lastStartedAt: codespace.lastStartedAt,
+      lastStoppedAt: codespace.lastStoppedAt,
+      deletedAt: codespace.deletedAt,
+      lastHealthCheckAt: codespace.lastHealthCheckAt,
+      commitSha: codespace.commitSha,
+      branch: codespace.branch,
+    };
   },
 });

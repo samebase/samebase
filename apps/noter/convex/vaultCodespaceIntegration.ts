@@ -1,6 +1,6 @@
 "use node";
 
-import { action } from "./_generated/server";
+import { action, internalMutation } from "./_generated/server";
 import { Infer, v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
@@ -278,22 +278,21 @@ export const updateVaultDevcontainer = action({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.runAction(
-      api.vaultCodespaceIntegration.updateVaultDevcontainerMutation,
+    await ctx.runMutation(
+      internal.vaultCodespaceIntegration.updateVaultDevcontainerMutation,
       args,
     );
     return null;
   },
 });
 
-export const updateVaultDevcontainerMutation = action({
+export const updateVaultDevcontainerMutation = internalMutation({
   args: {
     vaultId: v.id("vaults"),
     devcontainerConfig: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // TODO: db inside action!! needs fixing
     await ctx.db.patch(args.vaultId, {
       devcontainerConfig: args.devcontainerConfig,
     });

@@ -149,7 +149,7 @@ export function VaultDashboard() {
                   </div>
 
                   {isReady && (
-                    <CodespaceStatus vaultId={vault._id} showActions={false} />
+                    <CodespaceStatus vaultId={vault._id} />
                   )}
                 </div>
 

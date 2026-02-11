@@ -1,4 +1,4 @@
-import { useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { Badge } from "./ui/badge";
@@ -6,6 +6,7 @@ import { Button } from "./ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { cn } from "../lib/utils";
 import { Activity, CircleCheck, CircleX, Loader2, Circle, ExternalLink } from "lucide-react";
+import { useState } from "react";
 
 interface CodespaceStatusProps {
   vaultId: Id<"vaults">;
@@ -64,7 +65,23 @@ export function CodespaceStatus({
   className,
   showActions = true,
 }: CodespaceStatusProps) {
+  const [isEnsuringCodespace, setIsEnsuringCodespace] = useState(false);
+  const ensureCodespaceReady = useAction(
+    api.vaultCodespaceIntegration.ensureCodespaceReady,
+  );
   const codespace = useQuery(api.codespacesMutations.getActiveCodespace, { vaultId });
+
+  const handleEnsureCodespace = async () => {
+    if (isEnsuringCodespace) return;
+    setIsEnsuringCodespace(true);
+    try {
+      await ensureCodespaceReady({ vaultId });
+    } catch (error) {
+      console.error("Failed to ensure Codespace is ready:", error);
+    } finally {
+      setIsEnsuringCodespace(false);
+    }
+  };
 
   if (!codespace) {
     return (
@@ -72,6 +89,22 @@ export function CodespaceStatus({
         <Badge variant="outline" className="text-muted-foreground">
           No Codespace
         </Badge>
+        {showActions && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8"
+            onClick={() => {
+              void handleEnsureCodespace();
+            }}
+            disabled={isEnsuringCodespace}
+          >
+            {isEnsuringCodespace && (
+              <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+            )}
+            Create Codespace
+          </Button>
+        )}
       </div>
     );
   }
@@ -110,6 +143,9 @@ export function CodespaceStatus({
             <div className="text-xs space-y-1">
               <p>
                 <strong>State:</strong> {codespace.state}
+              </p>
+              <p>
+                <strong>Name:</strong> {codespace.ghCodespaceName}
               </p>
               {isRunning && (
                 <p>
