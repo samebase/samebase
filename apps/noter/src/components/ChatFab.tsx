@@ -16,6 +16,8 @@ import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { useLocation } from "react-router-dom";
 import { TOOL_CATALOG } from "../../convex/agent/toolCatalog";
+import { EnhancedMarkdownRenderer } from "./EnhancedMarkdownRenderer";
+import { InlineEditingContext } from "@/lib/codeBlockParser";
 
 // --- Route context hook ---
 
@@ -94,7 +96,7 @@ function parseMetadata(metadata: string | undefined): MessageMetadata | null {
   }
 }
 
-// --- Simple markdown renderer ---
+// --- Simple markdown renderer (fallback) ---
 
 function renderMarkdown(text: string) {
   const parts: React.ReactNode[] = [];
@@ -356,6 +358,7 @@ function CommitProposalCard({
 function MessageBubble({
   msg,
   conversationId,
+  inlineEditingContext,
 }: {
   msg: {
     _id: Id<"chatMessages">;
@@ -364,6 +367,7 @@ function MessageBubble({
     metadata?: string;
   };
   conversationId: Id<"chatConversations">;
+  inlineEditingContext?: InlineEditingContext;
 }) {
   const metadata = parseMetadata(msg.metadata);
 
@@ -388,7 +392,13 @@ function MessageBubble({
       {toolsUsed && toolsUsed.length > 0 && (
         <ToolActivityBadge tools={toolsUsed} />
       )}
-      <div className="whitespace-pre-wrap">{renderMarkdown(msg.content)}</div>
+      <div className="whitespace-pre-wrap">
+        <EnhancedMarkdownRenderer 
+          text={msg.content} 
+          context={inlineEditingContext}
+          readOnly={false}
+        />
+      </div>
       {isCommitProposal && (
         <CommitProposalCard
           metadata={metadata}
@@ -490,6 +500,14 @@ export function ChatFab() {
   const createConversation = useMutation(api.chat.createConversation);
   const deleteConversation = useMutation(api.chat.deleteConversation);
   const sendMessage = useMutation(api.chat.sendMessage);
+
+  // Create inline editing context
+  const inlineEditingContext: InlineEditingContext = useMemo(() => ({
+    vaultId,
+    repositoryFullName,
+    branch,
+    currentFilePath: filePath,
+  }), [vaultId, repositoryFullName, branch, filePath]);
 
   async function handleNewConversation() {
     if (!conversationId) return;
@@ -623,6 +641,7 @@ export function ChatFab() {
                   key={msg._id}
                   msg={msg}
                   conversationId={conversationId}
+                  inlineEditingContext={inlineEditingContext}
                 />
               ))}
             {isWaitingForResponse && (
