@@ -13,6 +13,7 @@
 - [ ] add "todo" command functionality for AI assistant to update this file
 - [ ] for prompts that are linked to files, enable inline editing that automatically propagates changes to the actual files
 - [ ] folders can be used as objects or arrays because of ordered preservation (note: this is undefined behavior in JS)
+- [ ] have 1 agent with which I talk, but I also see the agent they are building, on the side. Basically instead of chat and code generated to the right. You get chat and markdown generated to the right, with
 
 ## UI/UX Improvements
 - [ ] commit proposal UI: make the commit description clickable to go to GitHub commit URL, ensure button inside doesn't change sizes

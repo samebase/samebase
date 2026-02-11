@@ -25,8 +25,12 @@ export function parseMessageForCodeBlocks(text: string): ParsedMessage {
   let lastIndex = 0;
   let blockId = 0;
 
-  // Regex to match code blocks with optional language and file path hints
-  const codeBlockRegex = /```(\w*)\s*(?:\/\/\s*(.+?))?\n([\s\S]*?)```/g;
+  // Enhanced regex to match code blocks with optional language and file path hints
+  // Supports formats like:
+  // ```js // path/to/file.js
+  // ```typescript // src/components/Button.tsx
+  // ```python // scripts/deploy.py
+  const codeBlockRegex = /```(\w*)\s*(?:\/\/\s*(.+?))?\s*\n([\s\S]*?)```/g;
   let match;
 
   while ((match = codeBlockRegex.exec(text)) !== null) {
@@ -101,6 +105,8 @@ function inferFilePathFromCode(code: string, language?: string): string | undefi
       /^#\s*(.+\.\w+)/, // # path/to/file.ext
       /^\/\*\s*(.+\.\w+)\s*\*\//, // /* path/to/file.ext */
       /^<!--\s*(.+\.\w+)\s*-->/, // <!-- path/to/file.ext -->
+      /^\/\/\s*File:\s*(.+\.\w+)/i, // // File: path/to/file.ext
+      /^#\s*File:\s*(.+\.\w+)/i, // # File: path/to/file.ext
     ];
     
     for (const pattern of filePathPatterns) {
@@ -152,7 +158,8 @@ function isValidFilePath(path: string): boolean {
     'css', 'scss', 'sass', 'html', 'htm', 'xml', 'json', 'yaml', 'yml',
     'md', 'txt', 'sh', 'bash', 'zsh', 'fish', 'ps1', 'bat', 'cmd',
     'sql', 'php', 'rb', 'go', 'rs', 'swift', 'kt', 'scala', 'clj',
-    'vue', 'svelte', 'astro', 'config', 'env', 'gitignore', 'dockerfile'
+    'vue', 'svelte', 'astro', 'config', 'env', 'gitignore', 'dockerfile',
+    'toml', 'ini', 'conf', 'lock', 'log', 'csv', 'tsv', 'properties'
   ];
   
   return ext ? validExtensions.includes(ext) : false;
