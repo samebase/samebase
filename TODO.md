@@ -3,6 +3,7 @@
 ## High Priority
 - [ ] **VERY IMPORTANT**: Try Convex components for defining things internally but also at AI agent component level
 - [ ] **AI Agent Access**: Give AI agent ability to query which files are "staged" and generally have more access to the Convex functions themselves
+- [ ] **File Staging Bug**: Fix issue where marking newly created files for deletion causes them to appear both as "to be created" and "to be deleted" in stagedFiles. Instead, newly created files should be completely removed from stagedFiles when deleted, not marked for deletion.
 - [ ] fix dark mode/light mode toggle - it's redirecting to /
 - [ ] make dragging nice
 - [ ] add settings page for each vault and also for the whole app that allows auto commits
@@ -29,6 +30,9 @@
 
 ## Development Environment
 - [ ] the dev container should default to fish. Even the ai should prefer that
+
+## Research & Inspiration
+- [ ] **Video Reference**: Problems that could be solved by Noter - https://www.youtube.com/watch?v=YVq28OTPCKw
 
 ## Completed ✅
 - [x] when committing, commit all changed files
