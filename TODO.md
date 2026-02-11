@@ -14,6 +14,13 @@
 - [ ] for prompts that are linked to files, enable inline editing that automatically propagates changes to the actual files
 - [ ] folders can be used as objects or arrays because of ordered preservation (note: this is undefined behavior in JS)
 - [ ] have 1 agent with which I talk, but I also see the agent they are building, on the side. Basically instead of chat and code generated to the right. You get chat and markdown generated to the right, with
+- [ ] **MDX Function Calling Enhancement**: Implement MDX-like syntax with function calls instead of tags for text rendering:
+  - Support `@code(language="json", filePath="config/app.json")...@end` syntax
+  - Add `@edit()`, `@note()`, `@warning()` function blocks
+  - Parse function calls with parameter extraction (language, filePath, etc.)
+  - Integrate with existing EnhancedMarkdownRenderer
+  - Benefits: No React compilation needed, backward compatible, extensible, type-safe
+  - Alternative to full MDX that works with plain text rendering
 
 ## UI/UX Improvements
 - [ ] commit proposal UI: make the commit description clickable to go to GitHub commit URL, ensure button inside doesn't change sizes
