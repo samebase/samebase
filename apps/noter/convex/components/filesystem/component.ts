@@ -177,6 +177,12 @@ export class FileSystemComponent {
     const now = Date.now();
 
     if (existingStaging) {
+      // TODO: Fix deletion logic for newly created files
+      // When deleting a file that was just created (doesn't exist in GitHub tree),
+      // we should completely remove the staging entry instead of marking it as deleted.
+      // Currently this causes files to appear as both "to be created" and "to be deleted"
+      // which results in the files being added to git instead of being properly removed.
+      
       // Mark existing staging as deleted
       await this.ctx.db.patch(existingStaging._id, {
         fileDeleted: true,
