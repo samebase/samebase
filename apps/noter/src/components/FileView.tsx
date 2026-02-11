@@ -469,6 +469,14 @@ function FileViewInner({
     return [...treeItems, ...newFiles];
   }, [vault.treeData.tree, stagedFiles]);
 
+  // Check if there are any changes to commit
+  const hasChangesToCommit = stagedFiles && stagedFiles.length > 0 && stagedFiles.some(file => 
+    file.content !== file.initialContent || 
+    file.filePath !== file.initialFilePath || 
+    file.fileDeleted ||
+    file.parentCommitSha === null
+  );
+
   // MARK: Return
 
   return (
@@ -625,10 +633,13 @@ function FileViewInner({
 
                   <Button
                     size="sm"
-                    variant="default"
+                    variant={hasChangesToCommit ? "default" : "outline"}
                     onClick={handleManualCommit}
-                    disabled={manualComittingStatus === "loading"}
-                    className="h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
+                    disabled={manualComittingStatus === "loading" || !hasChangesToCommit}
+                    className={hasChangesToCommit 
+                      ? "h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white" 
+                      : "h-6 px-2 text-xs border-green-600 text-green-600 hover:bg-green-50"
+                    }
                   >
                     {manualComittingStatus === "loading"
                       ? "Committing..."
