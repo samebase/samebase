@@ -6,6 +6,8 @@ import { internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
 import { Id } from "./_generated/dataModel";
+import { getEnvLabel } from "./env";
+import { CodespaceState } from "./schema";
 
 /**
  * Create a new GitHub Codespace for a vault
@@ -67,6 +69,7 @@ export const createCodespace = action({
     }
 
     const displayName = buildCodespaceDisplayName(
+      getEnvLabel(),
       vault.ghRepoOwner,
       vault.ghRepoName,
     );
@@ -368,13 +371,10 @@ export const deleteCodespace = action({
         deletedAt: Date.now(),
       });
 
-      await ctx.runMutation(
-        internal.codespacesMutations.clearActiveCodespace,
-        {
-          vaultId: codespace.vaultId,
-          codespaceId: codespace._id,
-        },
-      );
+      await ctx.runMutation(internal.codespacesMutations.clearActiveCodespace, {
+        vaultId: codespace.vaultId,
+        codespaceId: codespace._id,
+      });
     } catch (error) {
       await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
         codespaceId: args.codespaceId,
@@ -393,7 +393,9 @@ export const deleteCodespace = action({
 async function pollCodespaceState(
   octokit: Octokit,
   codespaceName: string,
-  targetState: string,
+  targetState: Awaited<
+    ReturnType<typeof octokit.rest.codespaces.getForAuthenticatedUser>
+  >["data"]["state"],
   timeoutMs: number = 120000,
 ): Promise<void> {
   const startTime = Date.now();
@@ -402,15 +404,36 @@ async function pollCodespaceState(
 
   while (Date.now() - startTime < timeoutMs) {
     try {
+      console.log("codespaces:pollCodespaceState:get", {
+        codespaceName,
+        targetState,
+      });
       const { data: codespace } =
         await octokit.rest.codespaces.getForAuthenticatedUser({
           codespace_name: codespaceName,
         });
 
+      console.log("codespaces:pollCodespaceState:get:result", {
+        codespaceName,
+        targetState,
+        codespace,
+      });
+
+      console.log("codespaces:pollCodespaceState:get:result:state", {
+        codespaceName,
+        targetState,
+        codespaceState: codespace.state,
+      });
+
       if (codespace.state === targetState) {
         return;
       }
     } catch (error) {
+      console.log("codespaces:pollCodespaceState:get:error", {
+        codespaceName,
+        targetState,
+        error,
+      });
       // GitHub may return 404 immediately after creation; keep polling.
       if (isNotFoundError(error)) {
         notFoundCount += 1;
@@ -443,9 +466,10 @@ const isNotFoundError = (error: unknown): error is Error => {
   if (!(error instanceof Error) || typeof error.message !== "string") {
     return false;
   }
-  const status = typeof (error as { status?: number }).status === "number"
-    ? (error as { status?: number }).status
-    : undefined;
+  const status =
+    typeof (error as { status?: number }).status === "number"
+      ? (error as { status?: number }).status
+      : undefined;
   return status === 404 || error.message.includes("Not Found");
 };
 
@@ -485,15 +509,17 @@ async function getCodespaceWithRetry(
       elapsedMs: Date.now() - startTime,
     });
   }
-  throw new Error(
-    `Timeout waiting for Codespace details: ${codespaceName}`,
-  );
+  throw new Error(`Timeout waiting for Codespace details: ${codespaceName}`);
 }
 
 const MAX_CODESPACE_DISPLAY_NAME_LENGTH = 48;
 
-function buildCodespaceDisplayName(owner: string, repo: string): string {
-  const rawName = `Noter ${owner}-${repo}`;
+function buildCodespaceDisplayName(
+  envLabel: string,
+  owner: string,
+  repo: string,
+): string {
+  const rawName = `Noter ${envLabel} ${owner}-${repo}`;
   const cleanedName = rawName
     .replace(/[^a-zA-Z0-9 _-]+/g, " ")
     .replace(/\s+/g, " ")

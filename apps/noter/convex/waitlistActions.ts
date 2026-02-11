@@ -3,6 +3,7 @@
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { Resend } from "resend";
+import { getEnvLabel } from "./env";
 
 export const notifyAdmin = internalAction({
   args: { email: v.string() },
@@ -13,8 +14,7 @@ export const notifyAdmin = internalAction({
       console.warn("RESEND_API_KEY not set, skipping waitlist notification");
       return null;
     }
-    const isProd = process.env.CONVEX_CLOUD_URL?.includes(".convex.cloud");
-    const env = isProd ? "prod" : "dev";
+    const env = getEnvLabel();
     const resend = new Resend(apiKey);
     await resend.emails.send({
       from: "Noter Waitlist <onboarding@resend.dev>",
