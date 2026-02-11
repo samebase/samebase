@@ -3,9 +3,25 @@ import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { cn } from "../lib/utils";
-import { Activity, CircleCheck, CircleX, Loader2, Circle, ExternalLink } from "lucide-react";
+import {
+  Activity,
+  CircleCheck,
+  CircleX,
+  Loader2,
+  Circle,
+  ExternalLink,
+  TrashIcon,
+} from "lucide-react";
 import { useState } from "react";
 
 interface CodespaceStatusProps {
@@ -66,9 +82,12 @@ export function CodespaceStatus({
   showActions = true,
 }: CodespaceStatusProps) {
   const [isEnsuringCodespace, setIsEnsuringCodespace] = useState(false);
+  const [isDeletingCodespace, setIsDeletingCodespace] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const ensureCodespaceReady = useAction(
     api.vaultCodespaceIntegration.ensureCodespaceReady,
   );
+  const deleteCodespace = useAction(api.codespaces.deleteCodespace);
   const codespace = useQuery(api.codespacesMutations.getActiveCodespace, { vaultId });
 
   const handleEnsureCodespace = async () => {
@@ -83,6 +102,19 @@ export function CodespaceStatus({
     }
   };
 
+  const handleDeleteCodespace = async () => {
+    if (!codespace || isDeletingCodespace) return;
+    setIsDeletingCodespace(true);
+    try {
+      await deleteCodespace({ codespaceId: codespace._id });
+    } catch (error) {
+      console.error("Failed to delete Codespace:", error);
+    } finally {
+      setIsDeletingCodespace(false);
+      setIsDeleteDialogOpen(false);
+    }
+  };
+
   if (!codespace) {
     return (
       <div className={cn("flex items-center gap-2", className)}>
@@ -94,7 +126,9 @@ export function CodespaceStatus({
             variant="ghost"
             size="sm"
             className="h-8"
-            onClick={() => {
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
               void handleEnsureCodespace();
             }}
             disabled={isEnsuringCodespace}
@@ -116,6 +150,7 @@ export function CodespaceStatus({
   const isRunning = codespace.state === "running";
 
   return (
+    <>
     <div className={cn("flex items-center gap-2", className)}>
       <TooltipProvider>
         <Tooltip>
@@ -166,23 +201,86 @@ export function CodespaceStatus({
         </Tooltip>
       </TooltipProvider>
 
-      {showActions && isRunning && codespace.webUrl && (
-        <Button
-          variant="ghost"
-          size="sm"
-          asChild
-          className="h-8 gap-1"
-        >
-          <a
-            href={codespace.webUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+      {showActions && (
+        <div className="flex items-center gap-1">
+          {isRunning && codespace.webUrl && (
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="h-8 gap-1"
+            >
+              <a
+                href={codespace.webUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(event) => {
+                  event.stopPropagation();
+                }}
+              >
+                Open in Browser
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setIsDeleteDialogOpen(true);
+            }}
+            disabled={isDeletingCodespace}
           >
-            Open in Browser
-            <ExternalLink className="h-3 w-3" />
-          </a>
-        </Button>
+            {isDeletingCodespace ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <TrashIcon className="h-3 w-3" />
+            )}
+            Remove
+          </Button>
+        </div>
       )}
     </div>
+
+    <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Remove Codespace</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to remove the Codespace for{" "}
+            <strong>{codespace.ghCodespaceName}</strong>? This will delete the
+            dev container from GitHub.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setIsDeleteDialogOpen(false);
+            }}
+            disabled={isDeletingCodespace}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              void handleDeleteCodespace();
+            }}
+            disabled={isDeletingCodespace}
+          >
+            Remove Codespace
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

@@ -51,14 +51,23 @@ export const createCodespace = action({
     // Generate random token for HTTP agent authentication
     const agentToken = crypto.randomUUID();
 
+    const repositoryId = Number.parseInt(vault.ghRepoId, 10);
+    if (!Number.isFinite(repositoryId)) {
+      throw new Error(`Invalid repository id: ${vault.ghRepoId}`);
+    }
+
+    const displayName = buildCodespaceDisplayName(
+      vault.ghRepoOwner,
+      vault.ghRepoName,
+    );
+
     // Create Codespace via GitHub API
     const { data: codespace } =
       await octokit.rest.codespaces.createForAuthenticatedUser({
-        repository_id: parseInt(vault.ghRepoId),
+        repository_id: repositoryId,
         ref: args.branch,
         machine: "basicLinux32gb",
-        devcontainer_path: ".devcontainer/devcontainer.json",
-        display_name: `Noter: ${vault.ghRepoOwner}/${vault.ghRepoName}`,
+        display_name: displayName,
         idle_timeout_minutes: 30,
       });
 
@@ -288,17 +297,38 @@ export const deleteCodespace = action({
       auth: user.githubAccessToken,
     });
 
-    // Delete the Codespace
-    await octokit.rest.codespaces.deleteForAuthenticatedUser({
-      codespace_name: codespace.ghCodespaceName,
-    });
-
-    // Mark as deleted in database
     await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
       codespaceId: args.codespaceId,
-      state: "deleted",
-      deletedAt: Date.now(),
+      state: "deleting",
     });
+
+    try {
+      // Delete the Codespace
+      await octokit.rest.codespaces.deleteForAuthenticatedUser({
+        codespace_name: codespace.ghCodespaceName,
+      });
+
+      // Mark as deleted in database
+      await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
+        codespaceId: args.codespaceId,
+        state: "deleted",
+        deletedAt: Date.now(),
+      });
+
+      await ctx.runMutation(
+        internal.codespacesMutations.clearActiveCodespace,
+        {
+          vaultId: codespace.vaultId,
+          codespaceId: codespace._id,
+        },
+      );
+    } catch (error) {
+      await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
+        codespaceId: args.codespaceId,
+        state: "failed",
+      });
+      throw error;
+    }
 
     return null;
   },
@@ -333,4 +363,22 @@ async function pollCodespaceState(
   throw new Error(
     `Timeout waiting for Codespace to reach state: ${targetState}`,
   );
+}
+
+const MAX_CODESPACE_DISPLAY_NAME_LENGTH = 48;
+
+function buildCodespaceDisplayName(owner: string, repo: string): string {
+  const rawName = `Noter ${owner}-${repo}`;
+  const cleanedName = rawName
+    .replace(/[^a-zA-Z0-9 _-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const safeName = cleanedName.length > 0 ? cleanedName : "Noter Codespace";
+  if (safeName.length <= MAX_CODESPACE_DISPLAY_NAME_LENGTH) {
+    return safeName;
+  }
+  const truncatedName = safeName
+    .slice(0, MAX_CODESPACE_DISPLAY_NAME_LENGTH)
+    .trim();
+  return truncatedName.length > 0 ? truncatedName : "Noter Codespace";
 }

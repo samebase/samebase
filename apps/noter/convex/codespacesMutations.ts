@@ -126,6 +126,32 @@ export const updateCodespaceState = internalMutation({
 });
 
 /**
+ * Internal mutation: Clear active Codespace for a vault if it matches
+ */
+export const clearActiveCodespace = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+    codespaceId: v.id("codespaces"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault) {
+      return null;
+    }
+
+    if (vault.activeCodespaceId !== args.codespaceId) {
+      return null;
+    }
+
+    await ctx.db.patch(args.vaultId, {
+      activeCodespaceId: undefined,
+    });
+    return null;
+  },
+});
+
+/**
  * Internal mutation: Update agent health status
  */
 export const updateAgentHealth = internalMutation({

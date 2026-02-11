@@ -253,17 +253,15 @@ export const ensureCodespaceReady = action({
       }
     }
 
-    // Check health
-    const health = await ctx.runAction(
-      api.codespacesExecutor.checkAgentHealth,
-      {
-        codespaceId,
-      },
-    );
+    // Agent health is best-effort. A running Codespace is considered usable
+    // even when the custom agent endpoint is unavailable.
+    await ctx.runAction(api.codespacesExecutor.checkAgentHealth, {
+      codespaceId,
+    });
 
     return {
       codespaceId,
-      ready: health.healthy,
+      ready: true,
     };
   },
 });
