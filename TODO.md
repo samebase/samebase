@@ -9,6 +9,7 @@
 - [ ] you don't need to open noter in noter.md, you have it as a fab in your prod, just for you
 - [ ] don't use builder.io anymore
 - [ ] add share functionality to noter.md app - when copying text, allow sharing to Telegram, etc. Create new PWA app for this
+- [ ] add backwards and forward buttons
 
 ## Features & Improvements
 - [ ] improve file search functionality with better fuzzy matching
