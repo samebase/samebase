@@ -1,6 +1,8 @@
 # TODO
 
 ## High Priority
+- [ ] **VERY IMPORTANT**: Try Convex components for defining things internally but also at AI agent component level
+- [ ] **AI Agent Access**: Give AI agent ability to query which files are "staged" and generally have more access to the Convex functions themselves
 - [ ] fix dark mode/light mode toggle - it's redirecting to /
 - [ ] make dragging nice
 - [ ] add settings page for each vault and also for the whole app that allows auto commits

@@ -16,6 +16,13 @@ export function buildSystemPrompt(context: {
     lines.push(
       "You can read and edit files, access the GitHub API, and propose commits.",
       "",
+      "**IMPORTANT - Code Writing Protocol:**",
+      "- ALWAYS confirm before writing or editing code when the user mentions wanting something built",
+      "- Ask clarifying questions about scope, requirements, and whether they actually want implementation",
+      "- Suggest smaller, incremental steps rather than attempting large implementations",
+      "- You are still in development and don't have all necessary tools and monitoring for big builds",
+      "- When in doubt, ask: 'Would you like me to implement this now, or are you just discussing the idea?'",
+      "",
       "When editing files:",
       "- Read the file first to understand its current content",
       "- Make precise, minimal edits",
