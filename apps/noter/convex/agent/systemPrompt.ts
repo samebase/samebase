@@ -48,22 +48,6 @@ export function buildSystemPrompt(context: {
   lines.push(
     "",
     "Be concise and direct. When showing code, use markdown code blocks.",
-    "",
-    "## Inline Code Editing",
-    "When showing code that relates to specific files in the repository, include the file path in your code blocks using this format:",
-    "```language // path/to/file.ext",
-    "code content here",
-    "```",
-    "",
-    "This enables inline editing - users can click an edit button on the code block to modify it directly, and changes will automatically propagate to the actual file. This works for any file in the repository.",
-    "",
-    "Examples:",
-    "- ```js // src/components/Button.tsx",
-    "- ```python // scripts/deploy.py", 
-    "- ```css // styles/main.css",
-    "- ```md // README.md",
-    "",
-    "Always include file paths when showing code from repository files, even for small snippets, as this greatly improves the user experience by enabling direct editing.",
   );
 
   if (context.owner && context.repo) {

@@ -339,7 +339,7 @@ function FileViewInner({
     try {
       // Get the file's SHA from the tree (null for new files)
       const fileSha =
-        vault.treeData.tree.find((t) => t.path === filePath)?.sha ?? null;
+        vault.treeData.tree.find((t: GithubTreeType) => t.path === filePath)?.sha ?? null;
 
       // Mark the file for deletion in staging
       await markFileForDeletion({
@@ -433,9 +433,9 @@ function FileViewInner({
 
   const finalTreeData = useMemo(() => {
     const treeItems = vault.treeData.tree
-      .map((item) => {
+      .map((item: GithubTreeType) => {
         const stagedFile = stagedFiles?.find(
-          (staged) => staged.initialFilePath === item.path,
+          (staged: NonNullable<typeof stagedFiles>[number]) => staged.initialFilePath === item.path,
         );
 
         const path = stagedFile ? stagedFile.filePath : item.path;
@@ -456,9 +456,9 @@ function FileViewInner({
     // Add new files from staging (parentCommitSha is null)
     const newFiles = (stagedFiles || [])
       .filter(
-        (staged) => staged.parentCommitSha === null && !staged.fileDeleted,
+        (staged: NonNullable<typeof stagedFiles>[number]) => staged.parentCommitSha === null && !staged.fileDeleted,
       )
-      .map((staged) => ({
+      .map((staged: NonNullable<typeof stagedFiles>[number]) => ({
         deleted: false,
         path: staged.filePath,
         originalPath: staged.initialFilePath,
@@ -663,7 +663,7 @@ function FileViewInner({
           onClose={closeFileCreation}
           initialFolderPath={fileCreationDialog.folderPath || ""}
           onFileCreate={handleCreateFileInFolder}
-          folders={vault.treeData.tree.map((item) => ({
+          folders={vault.treeData.tree.map((item: GithubTreeType) => ({
             path: item.path,
             type: item.type as "tree" | "blob",
             size: item.size,

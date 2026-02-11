@@ -39,4 +39,17 @@
 - [x] allow deleting file/folder
 - [x] after commit now, the file should already have a new staging
 - [x] add more descriptive commit names
+- [ ] add settings page for each vault an also for the whole app that allows auto commits
+- [ ] when path doesn't have owner or repo name or can't find it, redirect to vaults
 - [x] update the tree from time to time?
+- [ ] fix dark mode/light mode toggle - it's redirecting to /
+- [ ] 
+- [ ] improve file search functionality with better fuzzy matching
+- [ ] add keyboard shortcuts for common actions (save, commit, etc.)
+- [ ] implement file diff view to show changes before committing
+- [ ] fix implicit `any` types across frontend components (13 errors, CI-blocking):
+  - AddRepository.tsx: `repo`, `vault` params in callbacks (4)
+  - ChatFab.tsx: `msg` param (1)
+  - CodeEditor.tsx: `u` param in update callback (1)
+  - FileView.tsx: `t`, `item`, `staged` params (5)
+  - MonacoEditor.tsx: `u` param in update callback (1)

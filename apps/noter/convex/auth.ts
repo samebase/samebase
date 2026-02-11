@@ -7,14 +7,12 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     GitHub({
       authorization: {
         params: {
-          scope: "repo user user:email",
+          scope: "repo user user:email codespace",
         },
       },
 
       profile: (profile, tokens) => {
-        console.log("profile", profile, tokens);
-
-        const value = {
+        return {
           id: profile.id.toString(),
           // login: profile.login,
           name: profile.name,
@@ -26,8 +24,6 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           githubRefreshToken: tokens.refresh_token,
           githubExpiresAt: tokens.expires_at,
         };
-        console.log("value", value);
-        return value;
       },
     }),
   ],
