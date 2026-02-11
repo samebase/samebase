@@ -85,33 +85,42 @@ export const createCodespace = action({
       },
     );
 
-    // Poll for creation completion
-    await pollCodespaceState(
-      octokit,
-      codespace.name,
-      "Available",
-      60000, // 60 second timeout
-    );
+    try {
+      // Poll for creation completion
+      await pollCodespaceState(
+        octokit,
+        codespace.name,
+        "Available",
+        300000, // 5 minute timeout
+      );
 
-    // Get updated connection details
-    const { data: updatedCodespace } =
-      await octokit.rest.codespaces.getForAuthenticatedUser({
-        codespace_name: codespace.name,
-      });
+      // Get updated connection details (retrying eventual consistency)
+      const updatedCodespace = await getCodespaceWithRetry(
+        octokit,
+        codespace.name,
+        60000,
+      );
 
-    // Construct agent URL from port forwarding pattern
-    const agentUrl = `https://${codespace.name}-3000.app.github.dev`;
+      // Construct agent URL from port forwarding pattern
+      const agentUrl = `https://${codespace.name}-3000.app.github.dev`;
 
-    // Update codespace with connection details
-    await ctx.runMutation(
-      internal.codespacesMutations.updateCodespaceConnection,
-      {
+      // Update codespace with connection details
+      await ctx.runMutation(
+        internal.codespacesMutations.updateCodespaceConnection,
+        {
+          codespaceId,
+          webUrl: updatedCodespace.web_url,
+          agentUrl,
+          state: "running",
+        },
+      );
+    } catch (error) {
+      await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
         codespaceId,
-        webUrl: updatedCodespace.web_url,
-        agentUrl,
-        state: "running",
-      },
-    );
+        state: "failed",
+      });
+      throw error;
+    }
 
     return {
       codespaceId,
@@ -377,12 +386,43 @@ async function pollCodespaceState(
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const isNotFoundError = (error: unknown): error is Error => {
-  return (
-    error instanceof Error &&
-    typeof error.message === "string" &&
-    error.message.includes("Not Found")
-  );
+  if (!(error instanceof Error) || typeof error.message !== "string") {
+    return false;
+  }
+  const status = typeof (error as { status?: number }).status === "number"
+    ? (error as { status?: number }).status
+    : undefined;
+  return status === 404 || error.message.includes("Not Found");
 };
+
+async function getCodespaceWithRetry(
+  octokit: Octokit,
+  codespaceName: string,
+  timeoutMs: number,
+): Promise<{ web_url: string }> {
+  const startTime = Date.now();
+  const pollInterval = 5000;
+
+  while (Date.now() - startTime < timeoutMs) {
+    try {
+      const { data: codespace } =
+        await octokit.rest.codespaces.getForAuthenticatedUser({
+          codespace_name: codespaceName,
+        });
+      return codespace;
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        await delay(pollInterval);
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw new Error(
+    `Timeout waiting for Codespace details: ${codespaceName}`,
+  );
+}
 
 const MAX_CODESPACE_DISPLAY_NAME_LENGTH = 48;
 
