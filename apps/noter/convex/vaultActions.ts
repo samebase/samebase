@@ -176,7 +176,45 @@ Describe what this agent does and who it's for.
       isNoterManaged: true,
     });
 
+    await ctx.scheduler.runAfter(
+      0,
+      internal.infraProvisioning.provisionVaultInfrastructure,
+      {
+        vaultId,
+      },
+    );
+
     return { vaultId };
+  },
+});
+
+export const retryInfrastructureProvisioning = action({
+  args: {
+    vaultId: v.id("vaults"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.runQuery(internal.vault.getById, {
+      id: args.vaultId,
+    });
+    if (!vault || vault.userId !== userId) {
+      throw new Error("Vault not found");
+    }
+    if (vault.isNoterManaged !== true) {
+      throw new Error("Infrastructure retry is available only for Noter-managed vaults");
+    }
+
+    await ctx.scheduler.runAfter(
+      0,
+      internal.infraProvisioning.provisionVaultInfrastructure,
+      {
+        vaultId: args.vaultId,
+        force: true,
+      },
+    );
+
+    return null;
   },
 });
 

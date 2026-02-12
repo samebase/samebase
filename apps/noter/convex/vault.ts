@@ -73,6 +73,28 @@ export const removeVault = mutation({
       });
     }
 
+    // 5. Delete infra domain mappings
+    const domains = await ctx.db
+      .query("vaultDomains")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .collect();
+    for (const domain of domains) {
+      await ctx.db.delete(domain._id).catch((e) => {
+        console.error("vaultDomain delete", e);
+      });
+    }
+
+    // 6. Delete infra record
+    const infra = await ctx.db
+      .query("vaultInfrastructure")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .first();
+    if (infra) {
+      await ctx.db.delete(infra._id).catch((e) => {
+        console.error("vaultInfrastructure delete", e);
+      });
+    }
+
     // 4. Delete the vault
     await ctx.db.delete(vault._id).catch((e) => {
       console.error("vault delete", e);
@@ -144,6 +166,10 @@ export const addVault = internalMutation({
       treeData: args.treeData,
       state: args.state,
       isNoterManaged: args.isNoterManaged ?? false,
+      infraState: "not_started",
+      infraLastError: undefined,
+      infraLastProvisionedAt: undefined,
+      infraProvisioningStartedAt: undefined,
     });
   },
 });
@@ -185,6 +211,14 @@ export const getUserVaults = query({
       lastEditTime: v.optional(v.number()),
       state: v.union(v.literal("copying_files"), v.literal("ready")),
       isNoterManaged: v.boolean(),
+      infraState: v.union(
+        v.literal("not_started"),
+        v.literal("provisioning"),
+        v.literal("ready"),
+        v.literal("failed"),
+        v.literal("partial"),
+      ),
+      infraProductionUrl: v.optional(v.string()),
     }),
   ),
   handler: async (ctx, _args) => {
@@ -217,6 +251,10 @@ export const getUserVaults = query({
             : undefined;
 
         const repositoryFullName = `${vault.ghRepoOwner}/${vault.ghRepoName}`;
+        const infra = await ctx.db
+          .query("vaultInfrastructure")
+          .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+          .first();
 
         return {
           _id: vault._id,
@@ -228,6 +266,9 @@ export const getUserVaults = query({
           lastEditTime,
           state: vault.state,
           isNoterManaged: vault.isNoterManaged ?? false,
+          infraState: vault.infraState ?? "not_started",
+          infraProductionUrl:
+            infra?.netlifyProductionUrl ?? infra?.netlifyDefaultUrl,
         };
       }),
     );
@@ -288,8 +329,104 @@ async function getVaultByRepositoryHelper(
     treeData: vault.treeData,
     treeRefreshStartedAt: vault.treeRefreshStartedAt,
     lastTreeRefreshAt: vault.lastTreeRefreshAt,
+    infraState: vault.infraState ?? "not_started",
+    infraLastError: vault.infraLastError,
+    infraLastProvisionedAt: vault.infraLastProvisionedAt,
   };
 }
+
+export const getVaultInfrastructure = query({
+  args: {
+    vaultId: v.id("vaults"),
+  },
+  returns: v.union(
+    v.object({
+      infraState: v.union(
+        v.literal("not_started"),
+        v.literal("provisioning"),
+        v.literal("ready"),
+        v.literal("failed"),
+        v.literal("partial"),
+      ),
+      infraLastError: v.optional(v.string()),
+      infraLastProvisionedAt: v.optional(v.number()),
+      infrastructure: v.optional(
+        v.object({
+          status: v.union(
+            v.literal("not_started"),
+            v.literal("provisioning"),
+            v.literal("ready"),
+            v.literal("failed"),
+            v.literal("partial"),
+          ),
+          convexProjectId: v.optional(v.string()),
+          convexProjectSlug: v.optional(v.string()),
+          convexDeploymentName: v.optional(v.string()),
+          convexCloudUrl: v.optional(v.string()),
+          convexSiteUrl: v.optional(v.string()),
+          netlifySiteId: v.optional(v.string()),
+          netlifySiteName: v.optional(v.string()),
+          netlifyDefaultUrl: v.optional(v.string()),
+          netlifyProductionUrl: v.optional(v.string()),
+        }),
+      ),
+      domains: v.array(
+        v.object({
+          branch: v.string(),
+          kind: v.union(v.literal("main"), v.literal("branch_preview")),
+          url: v.string(),
+          source: v.union(v.literal("netlify_default"), v.literal("netlify_custom")),
+          active: v.boolean(),
+        }),
+      ),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.userId !== userId) {
+      return null;
+    }
+
+    const infrastructure = await ctx.db
+      .query("vaultInfrastructure")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .first();
+
+    const domains = await ctx.db
+      .query("vaultDomains")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .collect();
+
+    return {
+      infraState: vault.infraState ?? "not_started",
+      infraLastError: vault.infraLastError,
+      infraLastProvisionedAt: vault.infraLastProvisionedAt,
+      infrastructure: infrastructure
+        ? {
+            status: infrastructure.status,
+            convexProjectId: infrastructure.convexProjectId,
+            convexProjectSlug: infrastructure.convexProjectSlug,
+            convexDeploymentName: infrastructure.convexDeploymentName,
+            convexCloudUrl: infrastructure.convexCloudUrl,
+            convexSiteUrl: infrastructure.convexSiteUrl,
+            netlifySiteId: infrastructure.netlifySiteId,
+            netlifySiteName: infrastructure.netlifySiteName,
+            netlifyDefaultUrl: infrastructure.netlifyDefaultUrl,
+            netlifyProductionUrl: infrastructure.netlifyProductionUrl,
+          }
+        : undefined,
+      domains: domains.map((domain) => ({
+        branch: domain.branch,
+        kind: domain.kind,
+        url: domain.url,
+        source: domain.source,
+        active: domain.active,
+      })),
+    };
+  },
+});
 
 export const getByRepositoryFullName = internalQuery({
   args: {

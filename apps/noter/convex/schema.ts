@@ -40,6 +40,64 @@ export const CodespaceState = v.union(
   v.literal("failed"),
 );
 
+export const InfraState = v.union(
+  v.literal("not_started"),
+  v.literal("provisioning"),
+  v.literal("ready"),
+  v.literal("failed"),
+  v.literal("partial"),
+);
+
+export const VaultDomainKind = v.union(
+  v.literal("main"),
+  v.literal("branch_preview"),
+);
+
+export const VaultDomainSource = v.union(
+  v.literal("netlify_default"),
+  v.literal("netlify_custom"),
+);
+
+export const ProdAccessScope = v.union(
+  v.literal("vault"),
+  v.literal("global"),
+);
+
+export const ProdAccessProvider = v.union(
+  v.literal("convex"),
+  v.literal("netlify"),
+);
+
+export const ProdAccessResourceKind = v.union(
+  v.literal("deployment_status"),
+  v.literal("logs"),
+  v.literal("data_query"),
+);
+
+export const ProdAccessStatus = v.union(
+  v.literal("proposed"),
+  v.literal("approved"),
+  v.literal("rejected"),
+  v.literal("executed"),
+  v.literal("failed"),
+  v.literal("expired"),
+);
+
+export const ProdAccessRedactionLevel = v.union(
+  v.literal("default"),
+  v.literal("strict"),
+  v.literal("raw_fallback"),
+);
+
+export const ProdAccessAuditAction = v.union(
+  v.literal("proposed"),
+  v.literal("approved"),
+  v.literal("rejected"),
+  v.literal("executed"),
+  v.literal("failed"),
+  v.literal("expired"),
+);
+
 // The schema is normally optional, but Convex Auth
 // requires indexes defined on `authTables`.
 // The schema provides more precise TypeScript types.
@@ -91,7 +149,59 @@ export default defineSchema({
     // Codespace integration
     activeCodespaceId: v.optional(v.id("codespaces")),
     devcontainerConfig: v.optional(v.string()), // JSON string of .devcontainer/devcontainer.json
+
+    // Infrastructure provisioning lifecycle
+    infraState: v.optional(InfraState),
+    infraLastError: v.optional(v.string()),
+    infraLastProvisionedAt: v.optional(v.number()),
+    infraProvisioningStartedAt: v.optional(v.number()),
   }),
+
+  /**
+   * External infrastructure identifiers and status for a vault.
+   */
+  vaultInfrastructure: defineTable({
+    vaultId: v.id("vaults"),
+
+    status: InfraState,
+    lastError: v.optional(v.string()),
+    provisioningVersion: v.number(),
+    lastProvisionedAt: v.optional(v.number()),
+
+    // Convex
+    convexProjectId: v.optional(v.string()),
+    convexProjectSlug: v.optional(v.string()),
+    convexDeploymentName: v.optional(v.string()),
+    convexDeploymentType: v.optional(v.union(v.literal("prod"), v.literal("dev"))),
+    convexCloudUrl: v.optional(v.string()),
+    convexSiteUrl: v.optional(v.string()),
+    convexDeployKeyId: v.optional(v.string()),
+
+    // Netlify
+    netlifySiteId: v.optional(v.string()),
+    netlifySiteName: v.optional(v.string()),
+    netlifyTeamId: v.optional(v.string()),
+    netlifyDefaultUrl: v.optional(v.string()),
+    netlifyProductionUrl: v.optional(v.string()),
+    netlifyBuildHookId: v.optional(v.string()),
+  })
+    .index("by_vault", ["vaultId"])
+    .index("by_status", ["status"]),
+
+  /**
+   * Branch to domain mapping.
+   */
+  vaultDomains: defineTable({
+    vaultId: v.id("vaults"),
+    branch: v.string(),
+    kind: VaultDomainKind,
+    url: v.string(),
+    source: VaultDomainSource,
+    active: v.boolean(),
+    lastSyncedAt: v.number(),
+  })
+    .index("by_vault", ["vaultId"])
+    .index("by_vault_and_branch", ["vaultId", "branch"]),
 
   /**
    * GitHub Codespaces for AI execution environment.
@@ -224,6 +334,53 @@ export default defineSchema({
     email: v.string(),
     createdAt: v.number(),
   }).index("by_email", ["email"]),
+
+  /**
+   * Approval-first requests for AI reads against production infrastructure/data.
+   */
+  aiProdAccessRequests: defineTable({
+    conversationId: v.id("chatConversations"),
+    requesterUserId: v.id("users"),
+    vaultId: v.optional(v.id("vaults")),
+
+    scope: ProdAccessScope,
+    provider: ProdAccessProvider,
+    resourceKind: ProdAccessResourceKind,
+    toolName: v.string(),
+    paramsJson: v.string(),
+
+    status: ProdAccessStatus,
+    redactionLevel: ProdAccessRedactionLevel,
+
+    approvedBy: v.optional(v.id("users")),
+    approvedAt: v.optional(v.number()),
+    executedAt: v.optional(v.number()),
+    expiresAt: v.optional(v.number()),
+    error: v.optional(v.string()),
+  })
+    .index("by_conversation", ["conversationId"])
+    .index("by_requester", ["requesterUserId"])
+    .index("by_status", ["status"])
+    .index("by_vault", ["vaultId"]),
+
+  /**
+   * Immutable audit events for prod-access request lifecycle.
+   */
+  aiProdAccessAudit: defineTable({
+    requestId: v.id("aiProdAccessRequests"),
+    actorUserId: v.id("users"),
+    action: ProdAccessAuditAction,
+    toolName: v.string(),
+    endpoint: v.string(),
+    argumentHash: v.string(),
+    rowCount: v.optional(v.number()),
+    logLineCount: v.optional(v.number()),
+    createdAt: v.number(),
+    error: v.optional(v.string()),
+  })
+    .index("by_request", ["requestId"])
+    .index("by_actor", ["actorUserId"])
+    .index("by_action", ["action"]),
 
   collaborativeUpdates: defineTable({
     vaultId: v.id("vaults"),
