@@ -729,7 +729,9 @@ function FileViewInner({
                   >
                     {manualComittingStatus === "loading"
                       ? "Committing..."
-                      : "Commit Now"}
+                      : hasChangesToCommit 
+                        ? "Commit Now"
+                        : "All Synced"}
                   </Button>
                 </div>
               </div>
