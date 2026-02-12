@@ -2,7 +2,7 @@
 
 ## High Priority
 - [ ] fix dark mode/light mode toggle - it's redirecting to /
-- [ ] make dragging nice
+- [ ] make dragging nice for sidebar on left
 - [ ] add settings page for each vault and also for the whole app that allows auto commits
 - [ ] when path doesn't have owner or repo name or can't find it, redirect to vaults
 - [ ] add command "auto-push" "stop auto push" or similar to allow automatic pushing
@@ -16,6 +16,9 @@
 - [ ] mcp server can be replaced by folder and file. If it's query it can be single expression of convex query. And write here a complex query, as a anonymous with no { ctx.db.query("messages").withIndex("by_vault", q => q.eq("vaultId", args.vaultId)).filter(q => q.and(q.gte(q.field("_creationTime"), args.since), q.or(q.eq(q.field("role"), "user"), q.eq(q.field("role"), "assistant")))).order("desc").take(50)
 - [ ] add link to changed files in commit. Also the name of the commit is displayed twice, both in text and in bubble of button
 - [ ] add questions at bottom of your messages, make them small, "yes", maybe, no. But the input is always open. That's the thing the input is never waiting. You can even instruct it to stop research
+- [ ] the fab is notm click able when sidebar opens. It should have knowledge that it's in the sidebar
+- [ ] it's fine to reuse the Sha of the same vault so history should be easy, so we can implement branching easily in noter
+- [ ] 
 
 ## Features & Improvements
 - [ ] improve file search functionality with better fuzzy matching
