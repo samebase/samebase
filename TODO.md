@@ -27,6 +27,7 @@
 
 ## Ideas to Explore
 - [ ] check if I discussed this idea: noter could approach darklang because the logs are automatically in convex
+- [ ] add idea regarding the jokes about older people don't know how to convert to pdf. But now with noter
 
 ## Completed ✅
 - [x] when committing, commit all changed files
