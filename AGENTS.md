@@ -2,8 +2,6 @@
 
 This file provides guidance to AI agents (Claude Code, Cursor, etc.) when working with this repository.
 
-Whatever
-
 ## Project Structure
 
 noter is a Turborepo monorepo (PNPM + Node 24) with a single app:
