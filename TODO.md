@@ -11,6 +11,8 @@
 - [ ] add backwards and forward buttons
 - [ ] always sync input values to Convex so text is remembered on typing (real-time persistence)
 - [ ] screenshot support so it can debug itself
+- [ ] if new commit button appears, or actually, all previous requests get disabled, can only click last group
+- [ ] while waiting for tool, you can still talk with it but it will keep fresh in prompt that it's waiting for tool, no blocking
 
 ## Features & Improvements
 - [ ] improve file search functionality with better fuzzy matching
