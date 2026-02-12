@@ -9,8 +9,67 @@ import { executeReadFile } from "./agent/tools";
 import type { ToolContext } from "./agent/tools";
 import { buildSystemPrompt } from "./agent/systemPrompt";
 import { runAgentGraph } from "./agent/graph";
+import {
+  applyRedaction,
+  getProdAccessMode,
+  isProdReadEnabled,
+} from "./infraReadPolicy";
 
 const MODEL = "claude-sonnet-4-20250514";
+
+type AllowedDataTable =
+  | "vaults"
+  | "vaultInfrastructure"
+  | "vaultDomains"
+  | "codespaces"
+  | "fileStaging"
+  | "aiProdAccessRequests"
+  | "aiProdAccessAudit";
+
+function hashText(input: string): string {
+  let hash = 5381;
+  for (let i = 0; i < input.length; i++) {
+    hash = (hash * 33) ^ input.charCodeAt(i);
+  }
+  return Math.abs(hash >>> 0).toString(16);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseJsonObject(text: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(text);
+    if (isRecord(parsed)) {
+      return parsed;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+function parseOptionalPositiveNumber(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return undefined;
+  }
+  if (value <= 0) {
+    return undefined;
+  }
+  return Math.floor(value);
+}
+
+function parseAllowedDataTable(value: unknown): AllowedDataTable {
+  if (value === "vaults") return value;
+  if (value === "vaultInfrastructure") return value;
+  if (value === "vaultDomains") return value;
+  if (value === "codespaces") return value;
+  if (value === "fileStaging") return value;
+  if (value === "aiProdAccessRequests") return value;
+  if (value === "aiProdAccessAudit") return value;
+  throw new Error("Unsupported table for production data read");
+}
 
 export const generateResponse = internalAction({
   args: {
@@ -68,6 +127,7 @@ export const generateResponse = internalAction({
         fileContent = await executeReadFile(
           {
             ctx,
+            conversationId: args.conversationId,
             vaultId: vault._id,
             owner: vault.ghRepoOwner,
             repo: vault.ghRepoName,
@@ -120,6 +180,7 @@ export const generateResponse = internalAction({
       repo: vault.ghRepoName,
       userId: user._id,
       accessToken: user.githubAccessToken,
+      conversationId: args.conversationId,
     };
 
     const result = await runAgentGraph({
@@ -129,7 +190,26 @@ export const generateResponse = internalAction({
       model: MODEL,
     });
 
-    if (result.commitProposal) {
+    if (result.prodReadProposal) {
+      await ctx.runMutation(internal.chat.saveAssistantMessage, {
+        conversationId: args.conversationId,
+        content:
+          result.prodReadProposal.summary ??
+          "I need your approval before running this production read.",
+        model: MODEL,
+        metadata: JSON.stringify({
+          type: "prod_read_proposal",
+          requestId: result.prodReadProposal.requestId,
+          scope: result.prodReadProposal.scope,
+          provider: result.prodReadProposal.provider,
+          resourceKind: result.prodReadProposal.resourceKind,
+          toolName: result.prodReadProposal.toolName,
+          paramsPreview: result.prodReadProposal.paramsPreview,
+          status: "proposed",
+          tools: result.toolActivity,
+        }),
+      });
+    } else if (result.commitProposal) {
       // Save as a commit proposal message (same metadata shape as before)
       await ctx.runMutation(internal.chat.saveAssistantMessage, {
         conversationId: args.conversationId,
@@ -159,5 +239,276 @@ export const generateResponse = internalAction({
     }
 
     return null;
+  },
+});
+
+export const executeApprovedProdRead = internalAction({
+  args: {
+    requestId: v.id("aiProdAccessRequests"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const request = await ctx.runQuery(internal.chat.getProdAccessRequestInternal, {
+      requestId: args.requestId,
+    });
+    if (!request) {
+      return null;
+    }
+    if (request.status !== "approved") {
+      return null;
+    }
+
+    const argumentHash = hashText(request.paramsJson);
+    const auditActorUserId = request.approvedBy ?? request.requesterUserId;
+    const fallbackEndpoint = `${request.provider}:${request.resourceKind}`;
+
+    if (!isProdReadEnabled()) {
+      const error = "Production reads are disabled by kill switch";
+      await ctx.runMutation(internal.chat.setProdAccessRequestStatusInternal, {
+        requestId: request._id,
+        status: "failed",
+        error,
+        approvedBy: request.approvedBy,
+        approvedAt: request.approvedAt,
+      });
+      await ctx.runMutation(internal.chat.addProdAccessAuditInternal, {
+        requestId: request._id,
+        actorUserId: auditActorUserId,
+        action: "failed",
+        toolName: request.toolName,
+        endpoint: fallbackEndpoint,
+        argumentHash,
+        error,
+      });
+      await ctx.runMutation(internal.chat.updateProdReadProposalMessageStatusInternal, {
+        conversationId: request.conversationId,
+        requestId: request._id,
+        status: "failed",
+        error,
+      });
+      await ctx.runMutation(internal.chat.saveAssistantMessage, {
+        conversationId: request.conversationId,
+        content: `Production read failed: ${error}.`,
+        model: MODEL,
+        metadata: JSON.stringify({
+          type: "prod_read_result",
+          requestId: request._id,
+          provider: request.provider,
+          resourceKind: request.resourceKind,
+          endpoint: fallbackEndpoint,
+          error,
+        }),
+      });
+      return null;
+    }
+
+    const now = Date.now();
+    if (request.expiresAt && now > request.expiresAt) {
+      const error = "Request approval expired before execution";
+      await ctx.runMutation(internal.chat.setProdAccessRequestStatusInternal, {
+        requestId: request._id,
+        status: "expired",
+        error,
+        approvedBy: request.approvedBy,
+        approvedAt: request.approvedAt,
+      });
+      await ctx.runMutation(internal.chat.addProdAccessAuditInternal, {
+        requestId: request._id,
+        actorUserId: auditActorUserId,
+        action: "expired",
+        toolName: request.toolName,
+        endpoint: fallbackEndpoint,
+        argumentHash,
+        error,
+      });
+      await ctx.runMutation(internal.chat.updateProdReadProposalMessageStatusInternal, {
+        conversationId: request.conversationId,
+        requestId: request._id,
+        status: "expired",
+        error,
+      });
+      await ctx.runMutation(internal.chat.saveAssistantMessage, {
+        conversationId: request.conversationId,
+        content: `Production read expired before execution: ${error}.`,
+        model: MODEL,
+        metadata: JSON.stringify({
+          type: "prod_read_result",
+          requestId: request._id,
+          provider: request.provider,
+          resourceKind: request.resourceKind,
+          endpoint: fallbackEndpoint,
+          error,
+        }),
+      });
+      return null;
+    }
+
+    const params = parseJsonObject(request.paramsJson);
+
+    try {
+      let executionResult:
+        | {
+            summary: string;
+            endpoint: string;
+            raw: string;
+            rowCount?: number;
+            logLineCount?: number;
+          }
+        | undefined;
+
+      if (
+        request.provider === "convex" &&
+        request.resourceKind === "deployment_status"
+      ) {
+        if (!request.vaultId) {
+          throw new Error("Vault context is required for Convex deployment status");
+        }
+        executionResult = await ctx.runAction(internal.infraRead.getConvexDeploymentStatus, {
+          vaultId: request.vaultId,
+        });
+      } else if (request.provider === "convex" && request.resourceKind === "logs") {
+        if (!request.vaultId) {
+          throw new Error("Vault context is required for Convex logs");
+        }
+        executionResult = await ctx.runAction(internal.infraRead.getConvexLogs, {
+          vaultId: request.vaultId,
+          maxLines: parseOptionalPositiveNumber(params["maxLines"]),
+        });
+      } else if (
+        request.provider === "netlify" &&
+        request.resourceKind === "deployment_status"
+      ) {
+        if (!request.vaultId) {
+          throw new Error("Vault context is required for Netlify site status");
+        }
+        executionResult = await ctx.runAction(internal.infraRead.getNetlifySiteStatus, {
+          vaultId: request.vaultId,
+        });
+      } else if (request.provider === "netlify" && request.resourceKind === "logs") {
+        if (!request.vaultId) {
+          throw new Error("Vault context is required for Netlify logs");
+        }
+        executionResult = await ctx.runAction(internal.infraRead.getNetlifyLogs, {
+          vaultId: request.vaultId,
+          maxEntries: parseOptionalPositiveNumber(params["maxEntries"]),
+        });
+      } else if (
+        request.provider === "convex" &&
+        request.resourceKind === "data_query"
+      ) {
+        executionResult = await ctx.runAction(internal.infraRead.getConvexDataQuery, {
+          table: parseAllowedDataTable(params["table"]),
+          limit: parseOptionalPositiveNumber(params["limit"]),
+          vaultId:
+            request.scope === "vault"
+              ? request.vaultId ?? undefined
+              : undefined,
+        });
+      }
+
+      if (!executionResult) {
+        throw new Error(
+          `Unsupported production read combination: ${request.provider}/${request.resourceKind}`,
+        );
+      }
+
+      const redacted = applyRedaction({
+        raw: executionResult.raw,
+        requestedLevel: request.redactionLevel,
+        mode: getProdAccessMode(),
+      });
+
+      await ctx.runMutation(internal.chat.setProdAccessRequestStatusInternal, {
+        requestId: request._id,
+        status: "executed",
+        error: undefined,
+        approvedBy: request.approvedBy,
+        approvedAt: request.approvedAt,
+        executedAt: Date.now(),
+        redactionLevel: redacted.effectiveLevel,
+      });
+      await ctx.runMutation(internal.chat.addProdAccessAuditInternal, {
+        requestId: request._id,
+        actorUserId: auditActorUserId,
+        action: "executed",
+        toolName: request.toolName,
+        endpoint: executionResult.endpoint,
+        argumentHash,
+        rowCount: executionResult.rowCount,
+        logLineCount: executionResult.logLineCount,
+        error: undefined,
+      });
+      await ctx.runMutation(internal.chat.updateProdReadProposalMessageStatusInternal, {
+        conversationId: request.conversationId,
+        requestId: request._id,
+        status: "executed",
+      });
+
+      const output = [
+        `Production read complete: ${executionResult.summary}.`,
+        `Endpoint: \`${executionResult.endpoint}\``,
+        "",
+        redacted.output,
+      ].join("\n");
+
+      await ctx.runMutation(internal.chat.saveAssistantMessage, {
+        conversationId: request.conversationId,
+        content: output,
+        model: MODEL,
+        metadata: JSON.stringify({
+          type: "prod_read_result",
+          requestId: request._id,
+          provider: request.provider,
+          resourceKind: request.resourceKind,
+          endpoint: executionResult.endpoint,
+          redactionLevel: redacted.effectiveLevel,
+          rowCount: executionResult.rowCount,
+          logLineCount: executionResult.logLineCount,
+        }),
+      });
+
+      return null;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unknown production read error";
+
+      await ctx.runMutation(internal.chat.setProdAccessRequestStatusInternal, {
+        requestId: request._id,
+        status: "failed",
+        error: message,
+        approvedBy: request.approvedBy,
+        approvedAt: request.approvedAt,
+        executedAt: Date.now(),
+      });
+      await ctx.runMutation(internal.chat.addProdAccessAuditInternal, {
+        requestId: request._id,
+        actorUserId: auditActorUserId,
+        action: "failed",
+        toolName: request.toolName,
+        endpoint: fallbackEndpoint,
+        argumentHash,
+        error: message,
+      });
+      await ctx.runMutation(internal.chat.updateProdReadProposalMessageStatusInternal, {
+        conversationId: request.conversationId,
+        requestId: request._id,
+        status: "failed",
+        error: message,
+      });
+      await ctx.runMutation(internal.chat.saveAssistantMessage, {
+        conversationId: request.conversationId,
+        content: `Production read failed: ${message}.`,
+        model: MODEL,
+        metadata: JSON.stringify({
+          type: "prod_read_result",
+          requestId: request._id,
+          provider: request.provider,
+          resourceKind: request.resourceKind,
+          endpoint: fallbackEndpoint,
+          error: message,
+        }),
+      });
+      return null;
+    }
   },
 });

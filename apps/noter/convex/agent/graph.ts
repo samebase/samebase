@@ -18,6 +18,11 @@ import type { ToolContext } from "./tools";
 import { createTools } from "./tools";
 
 const COMMIT_SENTINEL = "__COMMIT_PROPOSAL__:";
+const PROD_READ_SENTINEL = "__PROD_READ_PROPOSAL__:";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 function extractTextContent(content: unknown): string {
   if (typeof content === "string") return content;
@@ -47,6 +52,16 @@ export interface GraphResult {
   text: string;
   /** If commit_and_push was called, the commit message */
   commitProposal?: string;
+  /** If a production read was requested, proposal payload */
+  prodReadProposal?: {
+    requestId: string;
+    scope: "vault" | "global";
+    provider: "convex" | "netlify";
+    resourceKind: "deployment_status" | "logs" | "data_query";
+    toolName: string;
+    paramsPreview: string;
+    summary: string;
+  };
   /** Log of tool calls made during this invocation */
   toolActivity: Array<{ tool: string; input: unknown }>;
 }
@@ -94,6 +109,7 @@ export async function runAgentGraph(opts: {
 
   const toolActivity: Array<{ tool: string; input: unknown }> = [];
   let commitProposal: string | undefined;
+  let prodReadProposal: GraphResult["prodReadProposal"];
 
   // --- Graph Definition ---
 
@@ -130,6 +146,40 @@ export async function runAgentGraph(opts: {
           ) {
             commitProposal = msg.content.slice(COMMIT_SENTINEL.length);
           }
+          if (
+            typeof msg.content === "string" &&
+            msg.content.startsWith(PROD_READ_SENTINEL)
+          ) {
+            const payload = msg.content.slice(PROD_READ_SENTINEL.length);
+            try {
+              const parsed: unknown = JSON.parse(payload);
+              if (
+                isRecord(parsed) &&
+                typeof parsed["requestId"] === "string" &&
+                (parsed["scope"] === "vault" || parsed["scope"] === "global") &&
+                (parsed["provider"] === "convex" ||
+                  parsed["provider"] === "netlify") &&
+                (parsed["resourceKind"] === "deployment_status" ||
+                  parsed["resourceKind"] === "logs" ||
+                  parsed["resourceKind"] === "data_query") &&
+                typeof parsed["toolName"] === "string" &&
+                typeof parsed["paramsPreview"] === "string" &&
+                typeof parsed["summary"] === "string"
+              ) {
+                prodReadProposal = {
+                  requestId: parsed["requestId"],
+                  scope: parsed["scope"],
+                  provider: parsed["provider"],
+                  resourceKind: parsed["resourceKind"],
+                  toolName: parsed["toolName"],
+                  paramsPreview: parsed["paramsPreview"],
+                  summary: parsed["summary"],
+                };
+              }
+            } catch {
+              // Ignore malformed sentinel payloads.
+            }
+          }
         }
       }
 
@@ -153,6 +203,10 @@ export async function runAgentGraph(opts: {
     .addConditionalEdges("tools", () => {
       // If commit_and_push was called, stop the loop
       if (commitProposal !== undefined) {
+        return "__end__";
+      }
+      // If a prod read proposal was emitted, stop the loop
+      if (prodReadProposal !== undefined) {
         return "__end__";
       }
       // Otherwise loop back to the agent
@@ -194,6 +248,7 @@ export async function runAgentGraph(opts: {
   return {
     text: text || "(No response)",
     commitProposal,
+    prodReadProposal,
     toolActivity,
   };
 }
