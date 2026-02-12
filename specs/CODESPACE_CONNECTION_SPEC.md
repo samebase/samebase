@@ -1,4 +1,4 @@
-# GitHub Codespace Connection Specification
+# Codespace Connection Specification
 
 ## Overview
 This document outlines how Noter connects to and interacts with GitHub Codespaces, providing both visual and programmatic access to cloud development environments.
@@ -18,7 +18,7 @@ This document outlines how Noter connects to and interacts with GitHub Codespace
 
 ## Connection Workflow
 
-### Creation Process
+### Creation Process:
 1. **Codespace Creation**: Noter calls GitHub API to create a Codespace
 2. **Agent Setup**: A Node.js HTTP server starts on port 3000 inside the Codespace
 3. **URL Generation**: 
@@ -26,7 +26,7 @@ This document outlines how Noter connects to and interacts with GitHub Codespace
    - Agent URL: `{codespace-name}-3000.app.github.dev`
 4. **Token Storage**: Unique authentication token stored in Convex database
 
-### Agent API Endpoints
+### Agent API Endpoints:
 - `GET /health` - Health check (no auth required)
 - `POST /exec` - Execute shell commands
 - `POST /files/write` - Write files
@@ -46,29 +46,30 @@ This document outlines how Noter connects to and interacts with GitHub Codespace
 - **State Management**: Real-time status tracking (creating → running → stopped)
 - **Error Handling**: Graceful fallbacks and external link options
 
-## Implementation Details
+## Implementation Files
+- `apps/noter/src/components/CodespaceIframe.tsx` - Web interface embedding
+- `apps/noter/convex/codespaces.ts` - Codespace management
+- `apps/noter/convex/codespacesExecutor.ts` - HTTP agent communication
+- `.codespace-agent/server.js` - Agent HTTP server
 
-### Codespace States
-- `creating` - Codespace is being provisioned
-- `running` - Codespace is active and accessible
-- `stopped` - Codespace is shut down (can be restarted)
-- `error` - Codespace creation or operation failed
+## TODOs / Ideas
 
-### Connection Establishment
-The connection is established automatically when you create a Codespace through Noter's interface, providing both visual and programmatic access to your GitHub repository in a cloud development environment.
-
-## TODO/Ideas
-
-### Enhanced Code Block Rendering
+### Monaco in ProseMirror
 - **Idea**: Render Monaco editor inside ProseMirror for code blocks (```ts, ```js, etc.)
-- **Scope**: Not limited to TypeScript - apply to all languages that would use Monaco if they were in a file
-- **Benefits**: 
-  - Syntax highlighting
-  - IntelliSense/autocomplete
-  - Error detection
-  - Consistent editing experience
-- **Implementation Considerations**:
-  - Embed Monaco as a ProseMirror node view
-  - Language detection from code fence info
-  - Seamless integration with document flow
-  - Performance optimization for multiple code blocks
+- **Scope**: Not just TypeScript - all languages that would use Monaco if they were in a file
+- **Benefit**: Rich code editing experience within markdown documents
+- **Implementation**: Custom ProseMirror node view with embedded Monaco instance
+
+### Agent/Code Toggle (like build.io)
+- **Idea**: Toggle between "agent" and "code" modes
+- **Code Mode**: Full VS Code experience (current iframe implementation)
+- **Agent Mode**: Simplified interface optimized for AI interactions
+- **Questions**: 
+  - What would the agent mode UI look like?
+  - How would it differ from the full VS Code experience?
+  - Should it be a completely different interface or a simplified VS Code view?
+
+## Future Considerations
+- Performance optimization for Monaco embedding
+- User preference storage for mode selection
+- Integration with AI chat for seamless agent interactions
