@@ -24,6 +24,9 @@
 ## Meta/Philosophy
 - [ ] the more our tooling for noter gets better (in terms of ai settings or integrations) the more our user's tooling gets better, since we use noter for building noter
 
+## Ideas to Explore
+- [ ] check if I discussed this idea: noter could approach darklang because the logs are automatically in convex
+
 ## Completed ✅
 - [x] when committing, commit all changed files
 - [x] allow deleting file/folder
@@ -31,3 +34,4 @@
 - [x] add more descriptive commit names
 - [x] update the tree from time to time?
 - [x] don't use builder.io anymore
+- [x] removing noter from builder.io todo is done
