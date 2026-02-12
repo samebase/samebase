@@ -22,6 +22,8 @@
 - [ ] remove the "auto delete GitHub repo" option once repos move to the noter.md org flow
 - [ ] show actionable error when delete fails due to missing GitHub `delete_repo` scope, with a re-login CTA
 
+## Meta/Philosophy
+- [ ] the more our tooling for noter gets better (in terms of ai settings or integrations) the more our user's tooling gets better, since we use noter for building noter
 
 ## Completed ✅
 - [x] when committing, commit all changed files
