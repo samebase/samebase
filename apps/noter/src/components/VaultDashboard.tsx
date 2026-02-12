@@ -30,7 +30,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ButtonGroup } from "@/components/ui/button-group";
+import {
+  ButtonGroup,
+  ButtonGroupSeparator,
+} from "@/components/ui/button-group";
 import { CodespaceStatus } from "@/components/CodespaceStatus";
 import type { Id } from "../../convex/_generated/dataModel";
 
@@ -167,13 +170,10 @@ export function VaultDashboard() {
         >
           {isCreating ? "Creating..." : "New agent"}
         </Button>
+        <ButtonGroupSeparator className="bg-primary-foreground/30" />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="secondary"
-              className="px-2"
-              aria-label="More actions"
-            >
+            <Button className="px-2" aria-label="More actions">
               <ChevronDownIcon className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>

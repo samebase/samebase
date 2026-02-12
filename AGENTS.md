@@ -84,6 +84,12 @@ Use these commands to debug issues in Convex functions, check production logs, o
 - **Prefer existing shadcn/ui components** over custom Tailwind-only solutions when available
 - **Async destructive actions** - disable the trigger while pending and show a spinner/label (e.g. "Removing...") to prevent double-submit
 
+## shadcn/ui Component Rules
+
+- **Do not manually edit generated shadcn/ui files** in `apps/noter/src/components/ui/*` unless the user gives an explicit exceptional instruction for that exact change
+- **Always use the shadcn CLI via `npx`** for component updates/additions (from `apps/noter`, e.g. `npx shadcn@latest add <component>`)
+- **If manual edits are explicitly requested**, keep them minimal and call out that they diverge from generated output
+
 ### TODO
 - **Better mobile keyboard handling** - improve window size handling when virtual keyboard appears on mobile devices
 
