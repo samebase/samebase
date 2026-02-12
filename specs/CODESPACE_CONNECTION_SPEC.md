@@ -1,5 +1,10 @@
 # Codespace Connection Specification
 
+## Related Specs
+- `specs/VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md` - Master plan for infra provisioning and safe AI prod access.
+- `specs/VAULT_INFRA_PROVISIONING_SPEC.md` - Auto-provisioning flow and contracts for Convex + Netlify per vault.
+- `specs/AI_PROD_ACCESS_POLICY_SPEC.md` - Approval-first policy for AI production logs/data access.
+
 ## Overview
 This document outlines how Noter connects to and interacts with GitHub Codespaces, providing both visual and programmatic access to cloud development environments.
 
