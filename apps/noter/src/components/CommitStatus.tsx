@@ -22,7 +22,7 @@ interface GitHubCommitStatus {
 interface CommitStatusProps {
   owner: string;
   repo: string;
-  commitSha: string;
+  commitSha?: string;
   className?: string;
 }
 
@@ -193,6 +193,27 @@ function StatusBadge({
   );
 }
 
+function InlineState({
+  label,
+  className,
+  title,
+}: {
+  label: string;
+  className?: string;
+  title?: string;
+}) {
+  const accessibleText = title ?? label;
+  return (
+    <span
+      className={cn("inline-flex items-center text-[11px] leading-none", className)}
+      title={accessibleText}
+      aria-label={accessibleText}
+    >
+      {label}
+    </span>
+  );
+}
+
 export function CommitStatus({
   owner,
   repo,
@@ -212,6 +233,8 @@ export function CommitStatus({
     if (!commitSha || !owner || !repo) {
       setCheckRuns(null);
       setCommitStatuses(null);
+      setLoading(false);
+      setError(null);
       return;
     }
 
@@ -243,9 +266,33 @@ export function CommitStatus({
     void fetchCheckRuns();
   }, [commitSha, owner, repo, getCommitStatus]);
 
-  // Don't render anything while loading or if there's an error
-  if (loading || error) {
-    return null;
+  if (!commitSha) {
+    return (
+      <InlineState
+        label="Missing commit SHA"
+        className={cn("text-red-600", className)}
+      />
+    );
+  }
+
+  if (loading) {
+    return (
+      <InlineState
+        label="Loading checks..."
+        className={cn("text-muted-foreground", className)}
+      />
+    );
+  }
+
+  if (error) {
+    const errorMessage = `Checks error: ${error}`;
+    return (
+      <InlineState
+        label="Checks error"
+        className={cn("text-red-600", className)}
+        title={errorMessage}
+      />
+    );
   }
 
   const checkSummary = checkRuns
@@ -261,7 +308,12 @@ export function CommitStatus({
     : null;
 
   if (!checkSummary && !statusSummary) {
-    return null;
+    return (
+      <InlineState
+        label="No checks/statuses"
+        className={cn("text-muted-foreground", className)}
+      />
+    );
   }
 
   const commitUrl = `https://github.com/${owner}/${repo}/commit/${commitSha}`;

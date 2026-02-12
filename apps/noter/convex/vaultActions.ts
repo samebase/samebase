@@ -41,10 +41,17 @@ export const connectRepository = action({
       repo: repoName,
     });
 
+    const defaultBranch = repo.data.default_branch;
+    const branchData = await octokit.rest.repos.getBranch({
+      owner: ownerName,
+      repo: repoName,
+      branch: defaultBranch,
+    });
+
     const tree = await octokit.rest.git.getTree({
       owner: ownerName,
       repo: repoName,
-      tree_sha: "HEAD",
+      tree_sha: defaultBranch,
       recursive: "1",
     });
 
@@ -53,6 +60,7 @@ export const connectRepository = action({
       ghRepoOwner: repo.data.owner.login,
       ghRepoName: repo.data.name,
       treeSHA: tree.data.sha,
+      commitSHA: branchData.data.commit.sha,
       treeData: tree.data,
       state: "ready",
       isNoterManaged: false,
@@ -116,7 +124,7 @@ export const createRepository = action({
 
     const ownerName = repo.data.owner.login;
     const repoFinalName = repo.data.name;
-    const defaultBranch = repo.data.default_branch ?? "main";
+    const defaultBranch = repo.data.default_branch;
 
     const agentsMd = `# AGENTS.md
 
@@ -151,12 +159,18 @@ Describe what this agent does and who it's for.
       tree_sha: defaultBranch,
       recursive: "1",
     });
+    const branchData = await octokit.rest.repos.getBranch({
+      owner: ownerName,
+      repo: repoFinalName,
+      branch: defaultBranch,
+    });
 
     const vaultId = await ctx.runMutation(internal.vault.addVault, {
       ghRepoId: repo.data.id.toString(),
       ghRepoOwner: ownerName,
       ghRepoName: repoFinalName,
       treeSHA: tree.data.sha,
+      commitSHA: branchData.data.commit.sha,
       treeData: tree.data,
       state: "ready",
       isNoterManaged: true,

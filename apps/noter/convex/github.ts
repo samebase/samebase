@@ -149,14 +149,26 @@ export const updateRepositoryTree = internalAction({
       tree_sha: "HEAD",
       recursive: "1",
     });
+    const latestCommits = await octokit.rest.repos.listCommits({
+      owner: args.owner,
+      repo: args.repo,
+      per_page: 1,
+    });
+    const latestCommitSha = latestCommits.data[0]?.sha;
 
-    if (tree.data.sha === vault.treeData.sha) {
+    const shouldUpdateTree = tree.data.sha !== vault.treeData.sha;
+    const shouldUpdateCommit =
+      typeof latestCommitSha === "string" &&
+      latestCommitSha !== vault.commitSHA;
+
+    if (!shouldUpdateTree && !shouldUpdateCommit) {
       return;
     }
 
     await ctx.runMutation(internal.vault.updateVaultTree, {
       vaultId: vault._id,
       treeData: tree.data,
+      commitSHA: latestCommitSha,
     });
   },
 });

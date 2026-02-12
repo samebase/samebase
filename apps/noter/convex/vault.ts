@@ -104,6 +104,7 @@ export const addVault = internalMutation({
     ghRepoOwner: v.string(),
     ghRepoName: v.string(),
     treeSHA: v.string(),
+    commitSHA: v.optional(v.string()),
     treeData: GithubTreeData,
     state: v.union(v.literal("copying_files"), v.literal("ready")),
     isNoterManaged: v.optional(v.boolean()),
@@ -127,6 +128,9 @@ export const addVault = internalMutation({
       .first();
 
     if (existingVault) {
+      if (!existingVault.commitSHA && args.commitSHA) {
+        await ctx.db.patch(existingVault._id, { commitSHA: args.commitSHA });
+      }
       return existingVault._id;
     }
 
@@ -136,6 +140,7 @@ export const addVault = internalMutation({
       ghRepoOwner: args.ghRepoOwner,
       ghRepoName: args.ghRepoName,
       treeSHA: args.treeSHA,
+      commitSHA: args.commitSHA,
       treeData: args.treeData,
       state: args.state,
       isNoterManaged: args.isNoterManaged ?? false,
@@ -279,6 +284,7 @@ async function getVaultByRepositoryHelper(
     ghRepoName: vault.ghRepoName,
     repositoryFullName: args.repositoryFullName,
     treeSHA: vault.treeSHA,
+    commitSHA: vault.commitSHA,
     treeData: vault.treeData,
     treeRefreshStartedAt: vault.treeRefreshStartedAt,
     lastTreeRefreshAt: vault.lastTreeRefreshAt,
@@ -367,6 +373,7 @@ export const updateVaultTree = internalMutation({
   args: {
     vaultId: v.id("vaults"),
     treeData: GithubTreeData,
+    commitSHA: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
@@ -375,9 +382,19 @@ export const updateVaultTree = internalMutation({
       throw new Error("Vault not found");
     }
 
-    return await ctx.db.patch(args.vaultId, {
+    const patchData: {
+      treeSHA: string;
+      treeData: typeof args.treeData;
+      commitSHA?: string;
+    } = {
       treeSHA: args.treeData.sha,
       treeData: args.treeData,
-    });
+    };
+
+    if (typeof args.commitSHA === "string") {
+      patchData.commitSHA = args.commitSHA;
+    }
+
+    return await ctx.db.patch(args.vaultId, patchData);
   },
 });

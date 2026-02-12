@@ -292,7 +292,10 @@ function FileViewInner({
   } = useDialog();
 
   const repositoryFullName = `${owner}/${repoName}`;
-  const commitUrl = `https://github.com/${owner}/${repoName}/commit/${vault.treeSHA}`;
+  const commitSha = vault.commitSHA;
+  const commitUrl = commitSha
+    ? `https://github.com/${owner}/${repoName}/commit/${commitSha}`
+    : null;
 
   // Folder expansion state
   const folderExpansionStates = useQuery(
@@ -681,18 +684,27 @@ function FileViewInner({
                         <CommitStatus
                           owner={owner}
                           repo={repoName}
-                          commitSha={vault.treeSHA}
+                          commitSha={commitSha}
                           className="mr-1"
                         />
-                        <a
-                          className={`font-mono ${linkStyle}`}
-                          href={commitUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="View commit on GitHub"
-                        >
-                          {vault.treeSHA.slice(0, 7)}
-                        </a>
+                        {commitSha && commitUrl ? (
+                          <a
+                            className={`font-mono ${linkStyle}`}
+                            href={commitUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="View commit on GitHub"
+                          >
+                            {commitSha.slice(0, 7)}
+                          </a>
+                        ) : (
+                          <span
+                            className="font-mono text-red-600"
+                            title="Missing commit SHA. Refresh repository tree to backfill."
+                          >
+                            missing commit SHA
+                          </span>
+                        )}
                         {vault.lastTreeRefreshAt && (
                           <>
                             <span>·</span>

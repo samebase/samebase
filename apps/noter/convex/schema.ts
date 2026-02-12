@@ -78,6 +78,7 @@ export default defineSchema({
     ghRepoOwner: v.string(),
     ghRepoName: v.string(),
     treeSHA: v.string(),
+    commitSHA: v.optional(v.string()),
     treeData: GithubTreeData,
 
     state: v.union(v.literal("copying_files"), v.literal("ready")),

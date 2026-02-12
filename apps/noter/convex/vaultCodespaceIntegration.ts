@@ -60,6 +60,7 @@ export const createVaultWithCodespace = action({
       ghRepoOwner: args.repoOwner,
       ghRepoName: args.repoName,
       treeSHA: branchData.commit.commit.tree.sha,
+      commitSHA: commitSha,
       treeData: {
         sha: branchData.commit.commit.tree.sha,
         url: branchData.commit.commit.tree.url,
