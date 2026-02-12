@@ -724,7 +724,7 @@ function FileViewInner({
                     disabled={manualComittingStatus === "loading" || !hasChangesToCommit}
                     className={hasChangesToCommit 
                       ? "h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white" 
-                      : "h-6 px-2 text-xs border-green-600 text-green-600 hover:bg-green-50"
+                      : "h-6 px-2 text-xs border-gray-300 text-gray-500 hover:bg-gray-50 bg-gray-100"
                     }
                   >
                     {manualComittingStatus === "loading"
