@@ -120,9 +120,19 @@ function FileViewWrapper() {
   const vault = useQuery(api.vault.getVaultByRepository, {
     repositoryFullName: repositoryFullName ?? "skip",
   });
+  const selectedTreeEntry = useMemo(
+    () => vault?.treeData.tree.find((item) => item.path === selectedFile) ?? null,
+    [vault, selectedFile],
+  );
+  const selectedFileExistsInTree = selectedTreeEntry?.type === "blob";
 
-  // Refresh tree from GitHub when vault is opened (debounced to 2 min)
   useEffect(() => {
+    if (vault === null) {
+      void navigate("/", { replace: true });
+    }
+  }, [vault, navigate]);
+
+  const refreshTreeIfNeeded = useCallback(() => {
     if (!vault || !owner || !repoName) return;
     const key = `${owner}/${repoName}`;
     const lastRefresh = lastRefreshMap.get(key) ?? 0;
@@ -130,6 +140,33 @@ function FileViewWrapper() {
     lastRefreshMap.set(key, Date.now());
     void refreshTree({ owner, repo: repoName });
   }, [vault?._id, owner, repoName, refreshTree]);
+
+  // Refresh tree from GitHub when the page regains focus (debounced to 2 min)
+  useEffect(() => {
+    if (!vault || !owner || !repoName) return;
+
+    const handleFocus = () => {
+      refreshTreeIfNeeded();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshTreeIfNeeded();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Initial sync when the vault loads while this tab is already active.
+    if (document.visibilityState === "visible") {
+      refreshTreeIfNeeded();
+    }
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [vault?._id, owner, repoName, refreshTreeIfNeeded]);
 
   // Auto-redirect to best file when no file is selected
   useEffect(() => {
@@ -158,15 +195,52 @@ function FileViewWrapper() {
       : "skip",
   );
 
+  // If a selected file path does not exist in this vault, redirect to the best initial file.
+  useEffect(() => {
+    if (!selectedFile || !vault || !owner || !repoName) return;
+    // Wait until staging query resolves before deciding that the file is missing.
+    if (stagedFile === undefined) return;
+    if (stagedFile || selectedFileExistsInTree) return;
+
+    const bestFile = findBestInitialFile(vault.treeData.tree ?? []);
+    if (bestFile) {
+      void navigate(`/vault/${owner}/${repoName}/${branch}/${bestFile}`, {
+        replace: true,
+      });
+      return;
+    }
+
+    void navigate(`/vault/${owner}/${repoName}/${branch}`, {
+      replace: true,
+    });
+  }, [
+    selectedFile,
+    vault,
+    owner,
+    repoName,
+    stagedFile,
+    selectedFileExistsInTree,
+    branch,
+    navigate,
+  ]);
+
   // If file not staged,
   useEffect(() => {
-    if (selectedFile && !stagedFile) {
+    if (selectedFile && vault && stagedFile === null && selectedFileExistsInTree) {
       void firstDocAction({
         repositoryFullName: `${owner}/${repoName}`,
         originalFilePath: selectedFile,
       });
     }
-  }, [selectedFile, stagedFile, firstDocAction, owner, repoName]);
+  }, [
+    selectedFile,
+    vault,
+    stagedFile,
+    selectedFileExistsInTree,
+    firstDocAction,
+    owner,
+    repoName,
+  ]);
 
   if (!vault || !selectedFile || !owner || !repoName) {
     return null;
