@@ -10,6 +10,7 @@
 - [ ] add share functionality to noter.md app - when copying text, allow sharing to Telegram, etc. Create new PWA app for this
 - [ ] add backwards and forward buttons
 - [ ] always sync input values to Convex so text is remembered on typing (real-time persistence)
+- [ ] screenshot support so it can debug itself
 
 ## Features & Improvements
 - [ ] improve file search functionality with better fuzzy matching
