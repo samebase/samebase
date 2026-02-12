@@ -8,6 +8,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { getUserId } from "./common";
 import { isAdminUser } from "./users";
+import { z } from "zod";
 import {
   ProdAccessAuditAction,
   ProdAccessProvider,
@@ -35,20 +36,35 @@ function getProdAccessMode(): "MVP_OWNER_MODE" | "MULTI_USER_MODE" {
     : "MVP_OWNER_MODE";
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+const metadataTypeSchema = z.object({
+  type: z.string(),
+});
 
-function parseMetadataRecord(metadata: string | undefined): Record<string, unknown> | null {
+const prodReadProposalMetadataSchema = z
+  .object({
+    type: z.literal("prod_read_proposal"),
+    requestId: z.string(),
+  })
+  .catchall(z.unknown());
+
+const commitProposalMetadataSchema = z
+  .object({
+    type: z.literal("commit_proposal"),
+    committed: z.boolean().optional(),
+  })
+  .catchall(z.unknown());
+
+function parseMetadataWithSchema<T extends z.ZodTypeAny>(
+  metadata: string | undefined,
+  schema: T,
+): z.infer<T> | null {
   if (!metadata) {
     return null;
   }
   try {
     const parsed = JSON.parse(metadata);
-    if (isRecord(parsed)) {
-      return parsed;
-    }
-    return null;
+    const result = schema.safeParse(parsed);
+    return result.success ? result.data : null;
   } catch {
     return null;
   }
@@ -385,11 +401,14 @@ export const rejectProdRead = mutation({
       .order("desc")
       .collect();
     for (const message of messages) {
-      const parsed = parseMetadataRecord(message.metadata);
-      if (!parsed || parsed["type"] !== "prod_read_proposal") {
+      const parsed = parseMetadataWithSchema(
+        message.metadata,
+        prodReadProposalMetadataSchema,
+      );
+      if (!parsed) {
         continue;
       }
-      if (parsed["requestId"] !== args.requestId) {
+      if (parsed.requestId !== args.requestId) {
         continue;
       }
       await ctx.db.patch(message._id, {
@@ -469,11 +488,14 @@ export const confirmProdRead = mutation({
         .order("desc")
         .collect();
       for (const message of messages) {
-        const parsed = parseMetadataRecord(message.metadata);
-        if (!parsed || parsed["type"] !== "prod_read_proposal") {
+        const parsed = parseMetadataWithSchema(
+          message.metadata,
+          prodReadProposalMetadataSchema,
+        );
+        if (!parsed) {
           continue;
         }
-        if (parsed["requestId"] !== args.requestId) {
+        if (parsed.requestId !== args.requestId) {
           continue;
         }
         await ctx.db.patch(message._id, {
@@ -516,11 +538,14 @@ export const confirmProdRead = mutation({
       .order("desc")
       .collect();
     for (const message of messages) {
-      const parsed = parseMetadataRecord(message.metadata);
-      if (!parsed || parsed["type"] !== "prod_read_proposal") {
+      const parsed = parseMetadataWithSchema(
+        message.metadata,
+        prodReadProposalMetadataSchema,
+      );
+      if (!parsed) {
         continue;
       }
-      if (parsed["requestId"] !== args.requestId) {
+      if (parsed.requestId !== args.requestId) {
         continue;
       }
       await ctx.db.patch(message._id, {
@@ -649,16 +674,14 @@ export const loadMessagesForAction = internalQuery({
     // Filter out UI-only messages (approval cards/proposals)
     return messages
       .filter((m) => {
-        if (!m.metadata) return true;
-        try {
-          const meta = JSON.parse(m.metadata);
-          return (
-            meta.type !== "commit_proposal" &&
-            meta.type !== "prod_read_proposal"
-          );
-        } catch {
+        const meta = parseMetadataWithSchema(m.metadata, metadataTypeSchema);
+        if (!meta) {
           return true;
         }
+        return (
+          meta.type !== "commit_proposal" &&
+          meta.type !== "prod_read_proposal"
+        );
       })
       .map((m) => ({ role: m.role, content: m.content }));
   },
@@ -778,11 +801,14 @@ export const updateProdReadProposalMessageStatusInternal = internalMutation({
       .collect();
 
     for (const message of messages) {
-      const parsed = parseMetadataRecord(message.metadata);
-      if (!parsed || parsed["type"] !== "prod_read_proposal") {
+      const parsed = parseMetadataWithSchema(
+        message.metadata,
+        prodReadProposalMetadataSchema,
+      );
+      if (!parsed) {
         continue;
       }
-      if (parsed["requestId"] !== args.requestId) {
+      if (parsed.requestId !== args.requestId) {
         continue;
       }
       await ctx.db.patch(message._id, {
@@ -867,17 +893,15 @@ export const confirmCommit = mutation({
       .collect();
 
     for (const msg of messages) {
-      if (!msg.metadata) continue;
-      try {
-        const meta = JSON.parse(msg.metadata);
-        if (meta.type === "commit_proposal" && !meta.committed) {
-          await ctx.db.patch(msg._id, {
-            metadata: JSON.stringify({ ...meta, committed: true }),
-          });
-          break;
-        }
-      } catch {
-        // skip malformed metadata
+      const meta = parseMetadataWithSchema(
+        msg.metadata,
+        commitProposalMetadataSchema,
+      );
+      if (meta && !meta.committed) {
+        await ctx.db.patch(msg._id, {
+          metadata: JSON.stringify({ ...meta, committed: true }),
+        });
+        break;
       }
     }
 

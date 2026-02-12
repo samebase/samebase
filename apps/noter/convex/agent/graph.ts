@@ -14,15 +14,21 @@ import {
   isAIMessage,
   ToolMessage,
 } from "@langchain/core/messages";
+import { z } from "zod";
 import type { ToolContext } from "./tools";
 import { createTools } from "./tools";
 
 const COMMIT_SENTINEL = "__COMMIT_PROPOSAL__:";
 const PROD_READ_SENTINEL = "__PROD_READ_PROPOSAL__:";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+const PROD_READ_PROPOSAL_SCHEMA = z.object({
+  requestId: z.string(),
+  scope: z.enum(["vault", "global"]),
+  provider: z.enum(["convex", "netlify"]),
+  resourceKind: z.enum(["deployment_status", "logs", "data_query"]),
+  toolName: z.string(),
+  paramsPreview: z.string(),
+  summary: z.string(),
+});
 
 function extractTextContent(content: unknown): string {
   if (typeof content === "string") return content;
@@ -153,29 +159,8 @@ export async function runAgentGraph(opts: {
             const payload = msg.content.slice(PROD_READ_SENTINEL.length);
             try {
               const parsed: unknown = JSON.parse(payload);
-              if (
-                isRecord(parsed) &&
-                typeof parsed["requestId"] === "string" &&
-                (parsed["scope"] === "vault" || parsed["scope"] === "global") &&
-                (parsed["provider"] === "convex" ||
-                  parsed["provider"] === "netlify") &&
-                (parsed["resourceKind"] === "deployment_status" ||
-                  parsed["resourceKind"] === "logs" ||
-                  parsed["resourceKind"] === "data_query") &&
-                typeof parsed["toolName"] === "string" &&
-                typeof parsed["paramsPreview"] === "string" &&
-                typeof parsed["summary"] === "string"
-              ) {
-                prodReadProposal = {
-                  requestId: parsed["requestId"],
-                  scope: parsed["scope"],
-                  provider: parsed["provider"],
-                  resourceKind: parsed["resourceKind"],
-                  toolName: parsed["toolName"],
-                  paramsPreview: parsed["paramsPreview"],
-                  summary: parsed["summary"],
-                };
-              }
+              const proposal = PROD_READ_PROPOSAL_SCHEMA.parse(parsed);
+              prodReadProposal = proposal;
             } catch {
               // Ignore malformed sentinel payloads.
             }

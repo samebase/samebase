@@ -4,6 +4,7 @@ import { internalAction } from "./_generated/server";
 import { v, Infer } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { z } from "zod";
 import { GithubTreeData } from "./schema";
 import { executeReadFile } from "./agent/tools";
 import type { ToolContext } from "./agent/tools";
@@ -17,14 +18,23 @@ import {
 
 const MODEL = "claude-sonnet-4-20250514";
 
-type AllowedDataTable =
-  | "vaults"
-  | "vaultInfrastructure"
-  | "vaultDomains"
-  | "codespaces"
-  | "fileStaging"
-  | "aiProdAccessRequests"
-  | "aiProdAccessAudit";
+const allowedDataTableSchema = z.enum([
+  "vaults",
+  "vaultInfrastructure",
+  "vaultDomains",
+  "codespaces",
+  "fileStaging",
+  "aiProdAccessRequests",
+  "aiProdAccessAudit",
+]);
+type AllowedDataTable = z.infer<typeof allowedDataTableSchema>;
+
+const paramsJsonSchema = z.record(z.string(), z.unknown());
+const optionalPositiveNumberSchema = z
+  .number()
+  .finite()
+  .positive()
+  .transform((value) => Math.floor(value));
 
 function hashText(input: string): string {
   let hash = 5381;
@@ -34,16 +44,11 @@ function hashText(input: string): string {
   return Math.abs(hash >>> 0).toString(16);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function parseJsonObject(text: string): Record<string, unknown> {
   try {
     const parsed = JSON.parse(text);
-    if (isRecord(parsed)) {
-      return parsed;
-    }
+    const result = paramsJsonSchema.safeParse(parsed);
+    if (result.success) return result.data;
     return {};
   } catch {
     return {};
@@ -51,24 +56,13 @@ function parseJsonObject(text: string): Record<string, unknown> {
 }
 
 function parseOptionalPositiveNumber(value: unknown): number | undefined {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return undefined;
-  }
-  if (value <= 0) {
-    return undefined;
-  }
-  return Math.floor(value);
+  const result = optionalPositiveNumberSchema.safeParse(value);
+  if (!result.success) return undefined;
+  return result.data;
 }
 
 function parseAllowedDataTable(value: unknown): AllowedDataTable {
-  if (value === "vaults") return value;
-  if (value === "vaultInfrastructure") return value;
-  if (value === "vaultDomains") return value;
-  if (value === "codespaces") return value;
-  if (value === "fileStaging") return value;
-  if (value === "aiProdAccessRequests") return value;
-  if (value === "aiProdAccessAudit") return value;
-  throw new Error("Unsupported table for production data read");
+  return allowedDataTableSchema.parse(value);
 }
 
 export const generateResponse = internalAction({
