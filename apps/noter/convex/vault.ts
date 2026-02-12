@@ -18,10 +18,14 @@ export const removeVault = mutation({
     vaultId: v.id("vaults"),
   },
   handler: async (ctx, args) => {
-    await getUserId(ctx);
+    const userId = await getUserId(ctx);
     const vault = await ctx.db.get(args.vaultId);
     if (!vault) {
       console.error("vault not found", args.vaultId);
+      return;
+    }
+    if (vault.userId !== userId) {
+      console.error("vault ownership mismatch", args.vaultId);
       return;
     }
 
@@ -102,6 +106,7 @@ export const addVault = internalMutation({
     treeSHA: v.string(),
     treeData: GithubTreeData,
     state: v.union(v.literal("copying_files"), v.literal("ready")),
+    isNoterManaged: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<Id<"vaults">> => {
     const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
@@ -133,6 +138,7 @@ export const addVault = internalMutation({
       treeSHA: args.treeSHA,
       treeData: args.treeData,
       state: args.state,
+      isNoterManaged: args.isNoterManaged ?? false,
     });
   },
 });
@@ -173,6 +179,7 @@ export const getUserVaults = query({
       fileCount: v.number(),
       lastEditTime: v.optional(v.number()),
       state: v.union(v.literal("copying_files"), v.literal("ready")),
+      isNoterManaged: v.boolean(),
     }),
   ),
   handler: async (ctx, _args) => {
@@ -215,6 +222,7 @@ export const getUserVaults = query({
           fileCount,
           lastEditTime,
           state: vault.state,
+          isNoterManaged: vault.isNoterManaged ?? false,
         };
       }),
     );

@@ -81,6 +81,7 @@ export default defineSchema({
     treeData: GithubTreeData,
 
     state: v.union(v.literal("copying_files"), v.literal("ready")),
+    isNoterManaged: v.optional(v.boolean()),
 
     // Tree refresh mutex: prevents concurrent/redundant GitHub API calls
     lastTreeRefreshAt: v.optional(v.number()),

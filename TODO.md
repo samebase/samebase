@@ -19,6 +19,8 @@
 - [ ] add "todo" command functionality for AI assistant to update this file
 - [ ] add command "auto-push" "stop auto push" or similar to allows
 - [ ] use mermaid?
+- [ ] remove the "auto delete GitHub repo" option once repos move to the noter.md org flow
+- [ ] show actionable error when delete fails due to missing GitHub `delete_repo` scope, with a re-login CTA
 
 
 ## Completed ✅

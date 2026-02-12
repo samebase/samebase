@@ -149,7 +149,7 @@ export function AddRepository() {
         <div className="flex items-center gap-2">
           <GitHubLogoIcon className="h-5 w-5 sm:h-6 sm:w-6" />
           <h1 className="text-xl sm:text-2xl font-semibold">
-            Connect a Repository
+            Connect an existing repository
           </h1>
         </div>
         <Button variant="outline" asChild className="shrink-0">

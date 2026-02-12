@@ -7,7 +7,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     GitHub({
       authorization: {
         params: {
-          scope: "repo user user:email codespace",
+          scope: "repo delete_repo user user:email codespace",
         },
       },
 

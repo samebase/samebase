@@ -1,18 +1,20 @@
 import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   GitHubLogoIcon,
-  PlusIcon,
   FileTextIcon,
   ClockIcon,
   TrashIcon,
   UpdateIcon,
+  ChevronDownIcon,
 } from "@radix-ui/react-icons";
+import { Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { linkStyle } from "./styles";
 import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import { useMutation } from "convex/react";
+import { useAction } from "convex/react";
 import { useState } from "react";
 import {
   Dialog,
@@ -22,7 +24,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { CodespaceStatus } from "@/components/CodespaceStatus";
+import type { Id } from "../../convex/_generated/dataModel";
 
 const formatTimeAgo = (timestamp: number) => {
   const now = Date.now();
@@ -42,22 +52,143 @@ const formatTimeAgo = (timestamp: number) => {
 
 export function VaultDashboard() {
   const vaults = useQuery(api.vault.getUserVaults);
-  const removeVault = useMutation(api.vault.removeVault);
+  const deleteVault = useAction(api.vaultActions.deleteVault);
+  const createRepository = useAction(api.vaultActions.createRepository);
+  const commitStaging = useAction(api.fileStagingActions.commitStaging);
   const [vaultToDelete, setVaultToDelete] = useState<{
-    id: string;
-    name: string;
+    id: Id<"vaults">;
+    repositoryFullName: string;
+    isNoterManaged: boolean;
   } | null>(null);
+  const [removeGithubRepo, setRemoveGithubRepo] = useState(false);
+  const [newAgentName, setNewAgentName] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isCommitting, setIsCommitting] = useState(false);
+  const [commitError, setCommitError] = useState<string | null>(null);
+  const [didAttemptCommit, setDidAttemptCommit] = useState(false);
+
+  const selectedVault =
+    vaultToDelete && vaults
+      ? vaults.find((vault: (typeof vaults)[0]) => vault._id === vaultToDelete.id) ?? null
+      : null;
+  const stagedChangesCount = selectedVault?.fileCount ?? 0;
+  const hasStagedChanges = stagedChangesCount > 0;
 
   const handleRemoveVault = async () => {
-    if (!vaultToDelete) return;
+    if (!vaultToDelete || isDeleting || isCommitting) return;
 
     try {
-      await removeVault({ vaultId: vaultToDelete.id as any });
+      setIsDeleting(true);
+      await deleteVault({
+        vaultId: vaultToDelete.id,
+        removeGithubRepo: vaultToDelete.isNoterManaged
+          ? removeGithubRepo
+          : false,
+      });
       setVaultToDelete(null);
+      setRemoveGithubRepo(false);
+      setCommitError(null);
+      setDidAttemptCommit(false);
     } catch (error) {
       console.error("Failed to remove vault:", error);
+    } finally {
+      setIsDeleting(false);
     }
   };
+
+  const handleCommitBeforeRemove = async () => {
+    if (!vaultToDelete || isCommitting || isDeleting) return;
+
+    setIsCommitting(true);
+    setCommitError(null);
+
+    try {
+      await commitStaging({
+        repositoryFullName: vaultToDelete.repositoryFullName,
+      });
+    } catch (error) {
+      setCommitError(
+        error instanceof Error ? error.message : "Failed to commit changes",
+      );
+    } finally {
+      setDidAttemptCommit(true);
+      setIsCommitting(false);
+    }
+  };
+
+  const handleCreateRepository = async () => {
+    const repoName = newAgentName.trim();
+    if (!repoName || isCreating) return;
+
+    setIsCreating(true);
+    setCreateError(null);
+
+    try {
+      await createRepository({
+        name: repoName,
+        private: true,
+      });
+      setNewAgentName("");
+    } catch (error) {
+      setCreateError(
+        error instanceof Error ? error.message : "Failed to create agent",
+      );
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const createControl = (
+    <div className="flex flex-col items-start gap-2">
+      <ButtonGroup className="w-full sm:w-[360px]">
+        <Input
+          placeholder="New agent name"
+          value={newAgentName}
+          onChange={(e) => {
+            setNewAgentName(e.target.value);
+            if (createError) {
+              setCreateError(null);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              void handleCreateRepository();
+            }
+          }}
+          className="flex-1"
+        />
+        <Button
+          onClick={() => {
+            void handleCreateRepository();
+          }}
+          disabled={isCreating || newAgentName.trim().length === 0}
+        >
+          {isCreating ? "Creating..." : "New agent"}
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="secondary"
+              className="px-2"
+              aria-label="More actions"
+            >
+              <ChevronDownIcon className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link to="/add">Connect existing repo</Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </ButtonGroup>
+      {createError && (
+        <div className="text-sm text-red-600">{createError}</div>
+      )}
+    </div>
+  );
 
   if (!vaults) {
     return null;
@@ -72,21 +203,14 @@ export function VaultDashboard() {
           </div>
 
           <div className="space-y-2">
-            <h1 className="text-3xl font-bold">
-              Connect your first GitHub repository
-            </h1>
+            <h1 className="text-3xl font-bold">Create your first agent</h1>
             <p className="text-lg text-muted-foreground">
-              Once connected, you'll be able to edit files directly in your
-              browser and collaborate with others in real-time.
+              Start with a new agent or connect an existing repository to edit
+              files directly in your browser.
             </p>
           </div>
 
-          <Button size="lg" className="px-8 py-6 text-lg" asChild>
-            <Link to="/add">
-              <PlusIcon className="h-5 w-5 mr-2" />
-              Connect Your First Repository
-            </Link>
-          </Button>
+          <div className="flex justify-center">{createControl}</div>
         </div>
       </div>
     );
@@ -99,12 +223,7 @@ export function VaultDashboard() {
           <GitHubLogoIcon className="h-5 w-5 sm:h-6 sm:w-6" />
           <h1 className="text-xl sm:text-2xl font-semibold">Your Vaults</h1>
         </div>
-        <Button asChild className="shrink-0">
-          <Link to="/add">
-            <PlusIcon className="h-4 w-4 mr-2" />
-            <span className="sm:inline">Connect Repository</span>
-          </Link>
-        </Button>
+        {createControl}
       </div>
 
       <div className="space-y-2">
@@ -185,8 +304,12 @@ export function VaultDashboard() {
                   e.stopPropagation();
                   setVaultToDelete({
                     id: vault._id,
-                    name: vault.repositoryFullName,
+                    repositoryFullName: vault.repositoryFullName,
+                    isNoterManaged: vault.isNoterManaged,
                   });
+                  setRemoveGithubRepo(vault.isNoterManaged);
+                  setCommitError(null);
+                  setDidAttemptCommit(false);
                 }}
                 className="ml-2 text-destructive hover:text-destructive hover:bg-destructive/10"
               >
@@ -200,28 +323,110 @@ export function VaultDashboard() {
       {/* Confirmation Dialog */}
       <Dialog
         open={!!vaultToDelete}
-        onOpenChange={() => setVaultToDelete(null)}
+        onOpenChange={() => {
+          if (isDeleting || isCommitting) return;
+          setVaultToDelete(null);
+          setRemoveGithubRepo(false);
+          setCommitError(null);
+          setDidAttemptCommit(false);
+        }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Remove Vault</DialogTitle>
+            <DialogTitle>
+              {vaultToDelete
+                ? `Remove Vault ${vaultToDelete.repositoryFullName}`
+                : "Remove Vault"}
+            </DialogTitle>
             <DialogDescription>
-              Are you sure you want to remove the vault for{" "}
-              <strong>{vaultToDelete?.name}</strong>? This action cannot be
-              undone and will permanently delete all staged files and edits.
+              {hasStagedChanges
+                ? `This vault has ${stagedChangesCount} uncommitted local change${stagedChangesCount === 1 ? "" : "s"}. You can commit ${stagedChangesCount === 1 ? "it" : "them"} now.`
+                : "All local changes are already backed up on GitHub."}
             </DialogDescription>
           </DialogHeader>
+          {vaultToDelete && (
+            <div className="space-y-2">
+              <div className="flex items-start gap-2">
+                <input
+                  id="remove-github-repo"
+                  type="checkbox"
+                  checked={removeGithubRepo}
+                  onChange={(e) => setRemoveGithubRepo(e.target.checked)}
+                  disabled={
+                    !vaultToDelete.isNoterManaged || isDeleting || isCommitting
+                  }
+                  className="mt-0.5 h-4 w-4 rounded border border-input"
+                />
+                <label
+                  htmlFor="remove-github-repo"
+                  className="text-sm text-muted-foreground"
+                >
+                  Also remove GitHub repository
+                  {!vaultToDelete.isNoterManaged && (
+                    <div className="text-xs text-muted-foreground">
+                      Only available for repositories created in Noter.
+                    </div>
+                  )}
+                </label>
+              </div>
+              {commitError && (
+                <div className="text-sm text-red-600">{commitError}</div>
+              )}
+              {didAttemptCommit && hasStagedChanges && (
+                <div className="text-sm text-muted-foreground">
+                  Some local changes are still uncommitted. You can retry
+                  commit or remove anyway.
+                </div>
+              )}
+            </div>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setVaultToDelete(null)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (isDeleting || isCommitting) return;
+                setVaultToDelete(null);
+                setRemoveGithubRepo(false);
+                setCommitError(null);
+                setDidAttemptCommit(false);
+              }}
+              disabled={isDeleting || isCommitting}
+            >
               Cancel
             </Button>
+            {vaultToDelete && hasStagedChanges && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  void handleCommitBeforeRemove();
+                }}
+                disabled={isDeleting || isCommitting}
+              >
+                {isCommitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Committing...
+                  </>
+                ) : (
+                  "Commit changes"
+                )}
+              </Button>
+            )}
             <Button
               variant="destructive"
               onClick={() => {
-                handleRemoveVault().catch(console.error);
+                void handleRemoveVault();
               }}
+              disabled={isDeleting || isCommitting}
             >
-              Remove Vault
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                "Remove Vault"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -81,6 +81,8 @@ Use these commands to debug issues in Convex functions, check production logs, o
 - **No "No items found" placeholders** - let empty state speak for itself
 - **Only show loading for operations >500ms** or when user expects feedback
 - **Prefer silent, smooth UX** over chatty, jumpy interfaces
+- **Prefer existing shadcn/ui components** over custom Tailwind-only solutions when available
+- **Async destructive actions** - disable the trigger while pending and show a spinner/label (e.g. "Removing...") to prevent double-submit
 
 ### TODO
 - **Better mobile keyboard handling** - improve window size handling when virtual keyboard appears on mobile devices
