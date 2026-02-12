@@ -7,7 +7,6 @@
 - [ ] when path doesn't have owner or repo name or can't find it, redirect to vaults
 - [ ] add command "auto-push" "stop auto push" or similar to allow automatic pushing
 - [ ] you don't need to open noter in noter.md, you have it as a fab in your prod, just for you
-- [ ] don't use builder.io anymore
 - [ ] add share functionality to noter.md app - when copying text, allow sharing to Telegram, etc. Create new PWA app for this
 - [ ] add backwards and forward buttons
 - [ ] always sync input values to Convex so text is remembered on typing (real-time persistence)
@@ -31,3 +30,4 @@
 - [x] after commit now, the file should already have a new staging
 - [x] add more descriptive commit names
 - [x] update the tree from time to time?
+- [x] don't use builder.io anymore
