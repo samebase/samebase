@@ -13,6 +13,9 @@
 - [ ] screenshot support so it can debug itself
 - [ ] if new commit button appears, or actually, all previous requests get disabled, can only click last group
 - [ ] while waiting for tool, you can still talk with it but it will keep fresh in prompt that it's waiting for tool, no blocking
+- [ ] mcp server can be replaced by folder and file. If it's query it can be single expression of convex query. And write here a complex query, as a anonymous with no { ctx.db.query("messages").withIndex("by_vault", q => q.eq("vaultId", args.vaultId)).filter(q => q.and(q.gte(q.field("_creationTime"), args.since), q.or(q.eq(q.field("role"), "user"), q.eq(q.field("role"), "assistant")))).order("desc").take(50)
+- [ ] add link to changed files in commit. Also the name of the commit is displayed twice, both in text and in bubble of button
+- [ ] add questions at bottom of your messages, make them small, "yes", maybe, no. But the input is always open. That's the thing the input is never waiting. You can even instruct it to stop research
 
 ## Features & Improvements
 - [ ] improve file search functionality with better fuzzy matching
