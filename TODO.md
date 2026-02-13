@@ -2,6 +2,7 @@
 
 ## High Priority
 - [ ] check out https://www.kernel.sh/?utm_source=theo - kernel might be useful
+- [ ] flex: it's possible to remove github vault of noter completely and then attach it again and this whole time everything works, since we maintain netlify and convex for you. Currently set to remove in checkboxes
 - [ ] fix dark mode/light mode toggle - it's redirecting to /
 - [ ] make dragging nice for sidebar on left
 - [ ] add settings page for each vault and also for the whole app that allows auto commits
