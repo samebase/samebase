@@ -1,7 +1,55 @@
 import { useAction } from "convex/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { cn } from "../lib/utils";
+
+function getDelayForAttempt(
+  delaysMs: readonly number[],
+  attempt: number,
+): number {
+  if (delaysMs.length === 0) {
+    return 0;
+  }
+
+  return delaysMs[Math.min(attempt, delaysMs.length - 1)];
+}
+
+function useRetryBackoff(unit: "sec" | "ms", delays: readonly number[]) {
+  const delaysMs = unit === "sec" ? delays.map((d) => d * 1000) : delays;
+
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const attemptRef = useRef(0);
+
+  const clearScheduledRetry = useCallback(() => {
+    if (timeoutRef.current !== null) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
+
+  const resetRetryBackoff = useCallback(() => {
+    attemptRef.current = 0;
+    clearScheduledRetry();
+  }, [clearScheduledRetry]);
+
+  const scheduleRetry = useCallback(
+    (callback: () => void) => {
+      const delayMs = getDelayForAttempt(delaysMs, attemptRef.current);
+      attemptRef.current += 1;
+
+      clearScheduledRetry();
+      timeoutRef.current = setTimeout(() => {
+        timeoutRef.current = null;
+        callback();
+      }, delayMs);
+    },
+    [clearScheduledRetry, delaysMs],
+  );
+
+  useEffect(() => resetRetryBackoff, [resetRetryBackoff]);
+
+  return { scheduleRetry, resetRetryBackoff };
+}
 
 interface GitHubCheckRun {
   id: number;
@@ -205,7 +253,10 @@ function InlineState({
   const accessibleText = title ?? label;
   return (
     <span
-      className={cn("inline-flex items-center text-[11px] leading-none", className)}
+      className={cn(
+        "inline-flex items-center text-[11px] leading-none",
+        className,
+      )}
       title={accessibleText}
       aria-label={accessibleText}
     >
@@ -228,9 +279,14 @@ export function CommitStatus({
   const [error, setError] = useState<string | null>(null);
 
   const getCommitStatus = useAction(api.githubChecks.getCommitStatus);
+  const { scheduleRetry, resetRetryBackoff } = useRetryBackoff(
+    "sec",
+    [2, 2, 2, 2, 5, 10, 20, 30, 60],
+  );
 
   useEffect(() => {
     if (!commitSha || !owner || !repo) {
+      resetRetryBackoff();
       setCheckRuns(null);
       setCommitStatuses(null);
       setLoading(false);
@@ -238,8 +294,12 @@ export function CommitStatus({
       return;
     }
 
-    const fetchCheckRuns = async () => {
-      setLoading(true);
+    let isCancelled = false;
+
+    const fetchCheckRuns = async (isInitialLoad: boolean) => {
+      if (isInitialLoad) {
+        setLoading(true);
+      }
       setError(null);
 
       try {
@@ -249,9 +309,25 @@ export function CommitStatus({
           ref: commitSha,
         });
 
+        if (isCancelled) {
+          return;
+        }
+
         setCheckRuns(result.check_runs);
         setCommitStatuses(result.statuses);
+
+        if (result.check_runs.length === 0 && result.statuses.length === 0) {
+          scheduleRetry(() => {
+            void fetchCheckRuns(false);
+          });
+        } else {
+          resetRetryBackoff();
+        }
       } catch (err) {
+        if (isCancelled) {
+          return;
+        }
+
         console.error("Failed to fetch CI status:", err);
         setError(
           err instanceof Error ? err.message || "Unknown error" : String(err),
@@ -259,12 +335,26 @@ export function CommitStatus({
         setCheckRuns(null);
         setCommitStatuses(null);
       } finally {
-        setLoading(false);
+        if (isInitialLoad && !isCancelled) {
+          setLoading(false);
+        }
       }
     };
 
-    void fetchCheckRuns();
-  }, [commitSha, owner, repo, getCommitStatus]);
+    void fetchCheckRuns(true);
+
+    return () => {
+      isCancelled = true;
+      resetRetryBackoff();
+    };
+  }, [
+    commitSha,
+    owner,
+    repo,
+    getCommitStatus,
+    scheduleRetry,
+    resetRetryBackoff,
+  ]);
 
   if (!commitSha) {
     return (
@@ -296,7 +386,12 @@ export function CommitStatus({
   }
 
   const checkSummary = checkRuns
-    ? summarizeStatuses("Checks", checkRuns, classifyCheckRun, (run) => run.name)
+    ? summarizeStatuses(
+        "Checks",
+        checkRuns,
+        classifyCheckRun,
+        (run) => run.name,
+      )
     : null;
   const statusSummary = commitStatuses
     ? summarizeStatuses(
@@ -322,11 +417,7 @@ export function CommitStatus({
   return (
     <span className={cn("inline-flex items-center gap-2", className)}>
       {checkSummary && (
-        <StatusBadge
-          label="Checks"
-          summary={checkSummary}
-          href={checksUrl}
-        />
+        <StatusBadge label="Checks" summary={checkSummary} href={checksUrl} />
       )}
       {statusSummary && (
         <StatusBadge
