@@ -68,14 +68,18 @@ const formatInfraState = (
   return "Partial";
 };
 
-const isInfraRetryable = (
+const getInfraActionLabel = (
   infraState:
     | "not_started"
     | "provisioning"
     | "ready"
     | "failed"
     | "partial",
-) => infraState === "failed" || infraState === "partial";
+) => {
+  if (infraState === "not_started") return "Provision infra";
+  if (infraState === "failed" || infraState === "partial") return "Retry infra";
+  return null;
+};
 
 export function VaultDashboard() {
   const vaults = useQuery(api.vault.getUserVaults);
@@ -273,6 +277,9 @@ export function VaultDashboard() {
       <div className="space-y-2">
         {vaults.map((vault: (typeof vaults)[0]) => {
           const isReady = vault.state === "ready";
+          const infraActionLabel = vault.isNoterManaged
+            ? getInfraActionLabel(vault.infraState)
+            : null;
           return (
             <div
               key={vault._id}
@@ -353,7 +360,7 @@ export function VaultDashboard() {
               </Link>
 
               <div className="ml-2 flex items-center gap-2">
-                {vault.isNoterManaged && isInfraRetryable(vault.infraState) && (
+                {infraActionLabel && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -370,7 +377,7 @@ export function VaultDashboard() {
                         Retrying...
                       </>
                     ) : (
-                      "Retry infra"
+                      infraActionLabel
                     )}
                   </Button>
                 )}

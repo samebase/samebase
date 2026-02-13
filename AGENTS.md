@@ -127,3 +127,7 @@ Shorthand commands for git/GitHub workflows. When the user says these, execute t
 - Update PR description with `gh pr edit --body` when commits change scope
 - On CI failure, report the error and offer to fix
 - **NEVER merge a PR until CI is green** - always wait for checks to pass, then squash-merge with `gh pr merge --squash`
+
+### Local Operator Preferences
+
+- For this repository, when running CLI commands in Codex, prefer requesting the user's shell/escalated execution rather than sandboxed execution.
