@@ -295,6 +295,7 @@ export function VaultDashboard() {
       <div className="space-y-2">
         {vaults.map((vault: (typeof vaults)[0]) => {
           const isReady = vault.state === "ready";
+          const defaultBranch = "main";
           const infraActionLabel = vault.isNoterManaged
             ? getInfraActionLabel(vault.infraState)
             : null;
@@ -302,27 +303,19 @@ export function VaultDashboard() {
             <div
               key={vault._id}
               className={clsx(
-                "flex items-center justify-between p-4 border rounded-lg transition-colors",
-                isReady ? "hover:bg-muted/50" : "bg-muted/30 opacity-75",
+                "flex items-center justify-between p-4 border rounded-lg",
+                !isReady && "bg-muted/30 opacity-75",
               )}
             >
-              <Link
-                to={isReady ? `/vault/${vault.repositoryFullName}` : "#"}
-                className={clsx(
-                  "flex items-center gap-4 flex-1 min-w-0",
-                  !isReady && "pointer-events-none",
-                )}
-              >
+              <div className="flex items-center gap-4 flex-1 min-w-0">
                 <div className="flex-1 min-w-0 space-y-2">
                   <div className="flex flex-col items-start ">
-                    <span
-                      className={`text-sm text-muted-foreground ${linkStyle}`}
-                    >
+                    <span className="text-sm text-muted-foreground">
                       {vault.ghRepoOwner}/
                     </span>
 
                     <h3 className="font-semibold truncate">
-                      <span className={`flex items-center gap-2 ${linkStyle}`}>
+                      <span className="flex items-center gap-2">
                         {!isReady && (
                           <UpdateIcon className="h-4 w-4 animate-spin text-muted-foreground" />
                         )}
@@ -343,9 +336,14 @@ export function VaultDashboard() {
                         <div className="text-xs text-muted-foreground">
                           Infra: {formatInfraState(vault.infraState)}
                           {vault.infraProductionUrl && (
-                            <span className="ml-2 font-mono">
+                            <a
+                              href={vault.infraProductionUrl}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className={`ml-2 font-mono ${linkStyle}`}
+                            >
                               {vault.infraProductionUrl}
-                            </span>
+                            </a>
                           )}
                         </div>
                       )}
@@ -375,16 +373,25 @@ export function VaultDashboard() {
                     </span>
                   </div>
                 </div>
-              </Link>
+              </div>
 
               <div className="ml-2 flex items-center gap-2">
+                {isReady ? (
+                  <Button asChild variant="secondary" size="sm">
+                    <Link to={`/vault/${vault.repositoryFullName}/${defaultBranch}`}>
+                      {defaultBranch}
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button variant="secondary" size="sm" disabled>
+                    {defaultBranch}
+                  </Button>
+                )}
                 {infraActionLabel && (
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
+                    onClick={() => {
                       void handleRetryInfrastructure(vault._id);
                     }}
                     disabled={retryingVaultId === vault._id}
@@ -403,9 +410,7 @@ export function VaultDashboard() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
+                  onClick={() => {
                     setVaultToDelete({
                       id: vault._id,
                       repositoryFullName: vault.repositoryFullName,
