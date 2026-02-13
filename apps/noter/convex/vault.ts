@@ -467,19 +467,27 @@ const STALE_LOCK_MS = 3 * 60 * 1000; // 3 minutes — consider a lock stale if a
 // Atomically claim the tree refresh lock for a vault.
 // Returns { claimed: true } if this caller should proceed, { claimed: false } if skipped.
 export const claimTreeRefresh = internalMutation({
-  args: { vaultId: v.id("vaults"), force: v.optional(v.boolean()) },
+  args: {
+    vaultId: v.id("vaults"),
+    force: v.optional(v.boolean()),
+    debounceMs: v.optional(v.number()),
+  },
   returns: v.object({ claimed: v.boolean() }),
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
     if (!vault) return { claimed: false };
 
     const now = Date.now();
+    const debounceMs =
+      args.debounceMs !== undefined
+        ? Math.max(0, Math.floor(args.debounceMs))
+        : REFRESH_DEBOUNCE_MS;
 
     if (!args.force) {
       // Skip if last successful refresh was recent
       if (
         vault.lastTreeRefreshAt &&
-        now - vault.lastTreeRefreshAt < REFRESH_DEBOUNCE_MS
+        now - vault.lastTreeRefreshAt < debounceMs
       ) {
         return { claimed: false };
       }

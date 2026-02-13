@@ -84,6 +84,7 @@ const repositoryFileContentResult = v.union(
 );
 
 type RepositoryFileContent = { exists: false } | { exists: true; content: string };
+const PAGE_LOAD_REFRESH_DEBOUNCE_MS = 10 * 1000;
 
 export const getRepositoryFileContent = action({
   args: {
@@ -173,6 +174,7 @@ export const refreshRepositoryTree = action({
   args: {
     owner: v.string(),
     repo: v.string(),
+    trigger: v.optional(v.union(v.literal("focus"), v.literal("page_load"))),
   },
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
@@ -183,9 +185,13 @@ export const refreshRepositoryTree = action({
     });
     if (!vault) return;
 
+    const debounceMs =
+      args.trigger === "page_load" ? PAGE_LOAD_REFRESH_DEBOUNCE_MS : undefined;
+
     // Atomically claim the refresh lock; skip if debounced or already running
     const { claimed } = await ctx.runMutation(internal.vault.claimTreeRefresh, {
       vaultId: vault._id,
+      debounceMs,
     });
     if (!claimed) return;
 

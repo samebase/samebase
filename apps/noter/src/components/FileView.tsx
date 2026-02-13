@@ -91,6 +91,7 @@ function findBestInitialFile(files: GithubTreeType[]) {
 // In-memory map tracking last refresh time per vault key
 const lastRefreshMap = new Map<string, number>();
 const REFRESH_DEBOUNCE_MS = 2 * 60 * 1000; // 2 minutes
+type RefreshTrigger = "focus" | "page_load";
 
 function FileViewWrapper() {
   const navigate = useNavigate();
@@ -132,16 +133,17 @@ function FileViewWrapper() {
     }
   }, [vault, navigate]);
 
-  const refreshTreeIfNeeded = useCallback(() => {
+  const refreshTreeIfNeeded = useCallback((trigger: RefreshTrigger = "focus") => {
     if (!vault || !owner || !repoName) return;
     const key = `${owner}/${repoName}`;
     const lastRefresh = lastRefreshMap.get(key) ?? 0;
     if (Date.now() - lastRefresh < REFRESH_DEBOUNCE_MS) return;
     lastRefreshMap.set(key, Date.now());
-    void refreshTree({ owner, repo: repoName });
+    void refreshTree({ owner, repo: repoName, trigger });
   }, [vault?._id, owner, repoName, refreshTree]);
 
-  // Refresh tree from GitHub when the page regains focus (debounced to 2 min)
+  // Refresh tree from GitHub when the page regains focus (debounced to 2 min).
+  // Initial page-load refreshes use a shorter server-side debounce window.
   useEffect(() => {
     if (!vault || !owner || !repoName) return;
 
@@ -159,7 +161,7 @@ function FileViewWrapper() {
 
     // Initial sync when the vault loads while this tab is already active.
     if (document.visibilityState === "visible") {
-      refreshTreeIfNeeded();
+      refreshTreeIfNeeded("page_load");
     }
 
     return () => {
