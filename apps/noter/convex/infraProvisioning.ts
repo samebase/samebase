@@ -10,6 +10,7 @@ import {
 } from "./infraProviders";
 
 const PROVISIONING_STALE_MS = 10 * 60 * 1000;
+const GITHUB_API_VERSION = "2022-11-28";
 
 const infraPatchValidator = v.object({
   status: v.optional(
@@ -89,6 +90,126 @@ async function readResponseTextSafe(response: Response): Promise<string> {
   }
 }
 
+async function parseResponseJsonSafe(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+type GitHubRepoRequestMethod = "GET" | "POST" | "PATCH";
+
+async function requestGitHubRepoApi(args: {
+  githubAccessToken: string;
+  owner: string;
+  repo: string;
+  path: string;
+  method: GitHubRepoRequestMethod;
+  body?: unknown;
+}): Promise<unknown> {
+  const endpoint = `https://api.github.com/repos/${encodeURIComponent(args.owner)}/${encodeURIComponent(args.repo)}${args.path}`;
+  const response = await fetch(endpoint, {
+    method: args.method,
+    headers: {
+      Authorization: `Bearer ${args.githubAccessToken}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": GITHUB_API_VERSION,
+      "Content-Type": "application/json",
+    },
+    body: args.body === undefined ? undefined : JSON.stringify(args.body),
+  });
+
+  if (!response.ok) {
+    const responseText = await readResponseTextSafe(response);
+    throw new Error(
+      `GitHub API request failed (${response.status}) for ${args.owner}/${args.repo}${args.path}: ${responseText}`,
+    );
+  }
+
+  if (response.status === 204) {
+    return null;
+  }
+
+  return await parseResponseJsonSafe(response);
+}
+
+async function ensureGitHubPushWebhook(args: {
+  githubAccessToken: string;
+  owner: string;
+  repo: string;
+  webhookUrl: string;
+}): Promise<void> {
+  const configPayload = {
+    url: args.webhookUrl,
+    content_type: "json",
+    insecure_ssl: "0",
+  };
+
+  const hooks: unknown[] = [];
+  const pageSize = 100;
+  for (let page = 1; ; page += 1) {
+    const hooksPageRaw = await requestGitHubRepoApi({
+      githubAccessToken: args.githubAccessToken,
+      owner: args.owner,
+      repo: args.repo,
+      path: `/hooks?per_page=${pageSize}&page=${page}`,
+      method: "GET",
+    });
+    const hooksPage = Array.isArray(hooksPageRaw) ? hooksPageRaw : [];
+    hooks.push(...hooksPage);
+    if (hooksPage.length < pageSize) {
+      break;
+    }
+  }
+
+  let hookId: string | undefined;
+  for (const hook of hooks) {
+    const hookRecord = asRecord(hook);
+    const hookName = readString(hookRecord, "name");
+    const hookConfig = asRecord(hookRecord["config"]);
+    const currentHookUrl = readString(hookConfig, "url");
+    if (hookName !== "web" || currentHookUrl !== args.webhookUrl) {
+      continue;
+    }
+
+    hookId = readStringOrNumber(hookRecord, "id");
+    if (hookId) {
+      break;
+    }
+  }
+
+  if (!hookId) {
+    await requestGitHubRepoApi({
+      githubAccessToken: args.githubAccessToken,
+      owner: args.owner,
+      repo: args.repo,
+      path: "/hooks",
+      method: "POST",
+      body: {
+        name: "web",
+        active: true,
+        events: ["push"],
+        config: configPayload,
+      },
+    });
+    return;
+  }
+
+  await requestGitHubRepoApi({
+    githubAccessToken: args.githubAccessToken,
+    owner: args.owner,
+    repo: args.repo,
+    path: `/hooks/${encodeURIComponent(hookId)}`,
+    method: "PATCH",
+    body: {
+      active: true,
+      events: ["push"],
+      config: configPayload,
+    },
+  });
+}
+
 async function addGitHubDeployKey(args: {
   githubAccessToken: string;
   owner: string;
@@ -102,7 +223,7 @@ async function addGitHubDeployKey(args: {
     headers: {
       Authorization: `Bearer ${args.githubAccessToken}`,
       Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
+      "X-GitHub-Api-Version": GITHUB_API_VERSION,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -580,11 +701,19 @@ async function ensureNetlifyResources(args: {
       defaultBranch: args.defaultBranch,
     });
 
-    let buildHookId = args.existing.buildHookId;
+    let buildHookId: string | undefined;
+    let buildHookUrl: string | undefined;
     for (const hook of hooks) {
       const hookRecord = asRecord(hook);
       if (readString(hookRecord, "branch") === args.defaultBranch) {
-        buildHookId = readString(hookRecord, "id") ?? buildHookId;
+        const hookId = readStringOrNumber(hookRecord, "id");
+        if (!hookId) {
+          continue;
+        }
+        buildHookId = hookId;
+        buildHookUrl =
+          readString(hookRecord, "url") ??
+          `https://api.netlify.com/build_hooks/${encodeURIComponent(hookId)}`;
         break;
       }
     }
@@ -600,14 +729,34 @@ async function ensureNetlifyResources(args: {
         },
       );
       const hookRecord = asRecord(hookRaw);
-      buildHookId = readString(hookRecord, "id") ?? buildHookId;
+      const hookId = readStringOrNumber(hookRecord, "id");
+      if (!hookId) {
+        throw new Error("Failed to create Netlify build hook");
+      }
+      buildHookId = hookId;
+      buildHookUrl =
+        readString(hookRecord, "url") ??
+        `https://api.netlify.com/build_hooks/${encodeURIComponent(hookId)}`;
       console.log("infra:netlify:hooks:created", {
         vaultId: args.vaultId,
         siteId,
         buildHookId,
+        buildHookUrl,
         branch: args.defaultBranch,
       });
     }
+
+    if (!buildHookId || !buildHookUrl) {
+      throw new Error("Failed to resolve Netlify build hook URL");
+    }
+
+    step = "ensure_push_webhook";
+    await ensureGitHubPushWebhook({
+      githubAccessToken: args.githubAccessToken,
+      owner: args.owner,
+      repo: args.repo,
+      webhookUrl: buildHookUrl,
+    });
 
     step = "trigger_build";
     if (repoLinkagePatched) {
