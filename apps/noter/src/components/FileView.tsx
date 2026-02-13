@@ -121,7 +121,9 @@ function FileViewWrapper() {
     repositoryFullName: repositoryFullName ?? "skip",
   });
   const selectedTreeEntry = useMemo(
-    () => vault?.treeData.tree.find((item) => item.path === selectedFile) ?? null,
+    () =>
+      vault?.treeData.tree.find((item: { path: string }) => item.path === selectedFile) ??
+      null,
     [vault, selectedFile],
   );
   const selectedFileExistsInTree = selectedTreeEntry?.type === "blob";
@@ -547,12 +549,16 @@ function FileViewInner({
   }, [vault.treeData.tree, stagedFiles]);
 
   // Check if there are any changes to commit
-  const hasChangesToCommit = stagedFiles && stagedFiles.length > 0 && stagedFiles.some(file => 
-    file.content !== file.initialContent || 
-    file.filePath !== file.initialFilePath || 
-    file.fileDeleted ||
-    file.parentCommitSha === null
-  );
+  const hasChangesToCommit =
+    stagedFiles &&
+    stagedFiles.length > 0 &&
+    stagedFiles.some(
+      (file: NonNullable<typeof stagedFiles>[number]) =>
+        file.content !== file.initialContent ||
+        file.filePath !== file.initialFilePath ||
+        file.fileDeleted ||
+        file.parentCommitSha === null,
+    );
 
   // MARK: Return
 

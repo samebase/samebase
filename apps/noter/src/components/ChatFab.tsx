@@ -83,7 +83,46 @@ type CommitProposal = {
   tools?: Array<{ tool: string; input: unknown }>;
 };
 
-type MessageMetadata = ToolActivity | CommitProposal;
+type ProdReadProposal = {
+  type: "prod_read_proposal";
+  requestId: Id<"aiProdAccessRequests">;
+  scope: "vault" | "global";
+  provider: "convex" | "netlify";
+  resourceKind:
+    | "deployment_status"
+    | "logs"
+    | "data_query"
+    | "project_inventory"
+    | "site_inventory";
+  toolName: string;
+  paramsPreview: string;
+  status?: "proposed" | "approved" | "rejected" | "executed" | "failed" | "expired";
+  error?: string;
+  tools?: Array<{ tool: string; input: unknown }>;
+};
+
+type ProdReadResult = {
+  type: "prod_read_result";
+  requestId: Id<"aiProdAccessRequests">;
+  provider: "convex" | "netlify";
+  resourceKind:
+    | "deployment_status"
+    | "logs"
+    | "data_query"
+    | "project_inventory"
+    | "site_inventory";
+  endpoint?: string;
+  redactionLevel?: "default" | "strict" | "raw_fallback";
+  rowCount?: number;
+  logLineCount?: number;
+  error?: string;
+};
+
+type MessageMetadata =
+  | ToolActivity
+  | CommitProposal
+  | ProdReadProposal
+  | ProdReadResult;
 
 function parseMetadata(metadata: string | undefined): MessageMetadata | null {
   if (!metadata) return null;
@@ -351,6 +390,124 @@ function CommitProposalCard({
   );
 }
 
+function renderProdReadLabel(resourceKind: ProdReadProposal["resourceKind"]) {
+  if (resourceKind === "deployment_status") return "Deployment status";
+  if (resourceKind === "logs") return "Logs";
+  if (resourceKind === "data_query") return "Data sample";
+  if (resourceKind === "project_inventory") return "Project inventory";
+  return "Site inventory";
+}
+
+function ProdReadProposalCard({
+  metadata,
+  conversationId,
+}: {
+  metadata: ProdReadProposal;
+  conversationId: Id<"chatConversations">;
+}) {
+  const confirmProdRead = useMutation(api.chat.confirmProdRead);
+  const rejectProdRead = useMutation(api.chat.rejectProdRead);
+  const [action, setAction] = useState<"approve" | "reject" | null>(null);
+
+  const status = metadata.status ?? "proposed";
+  const isPending = status === "proposed";
+
+  async function handleApprove() {
+    setAction("approve");
+    try {
+      await confirmProdRead({
+        requestId: metadata.requestId,
+        conversationId,
+      });
+    } finally {
+      setAction(null);
+    }
+  }
+
+  async function handleReject() {
+    setAction("reject");
+    try {
+      await rejectProdRead({
+        requestId: metadata.requestId,
+        conversationId,
+      });
+    } finally {
+      setAction(null);
+    }
+  }
+
+  const providerLabel = metadata.provider === "convex" ? "Convex" : "Netlify";
+  const scopeLabel = metadata.scope === "vault" ? "Vault scope" : "Global scope";
+
+  return (
+    <div className="my-1 rounded-lg border border-border bg-background p-2.5">
+      <div className="text-xs font-medium text-foreground">
+        Production read approval
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        {providerLabel} • {renderProdReadLabel(metadata.resourceKind)} •{" "}
+        {scopeLabel}
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground font-mono">
+        {metadata.paramsPreview}
+      </div>
+
+      {status === "approved" && (
+        <div className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+          Approved. Executing request...
+        </div>
+      )}
+      {status === "executed" && (
+        <div className="mt-2 text-xs text-green-600 dark:text-green-400">
+          Executed.
+        </div>
+      )}
+      {status === "rejected" && (
+        <div className="mt-2 text-xs text-muted-foreground">Rejected.</div>
+      )}
+      {status === "failed" && (
+        <div className="mt-2 text-xs text-red-600">
+          Failed: {metadata.error ?? "Execution failed"}
+        </div>
+      )}
+      {status === "expired" && (
+        <div className="mt-2 text-xs text-muted-foreground">
+          Expired: {metadata.error ?? "Approval window expired"}
+        </div>
+      )}
+
+      {isPending && (
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            onClick={() => void handleApprove()}
+            disabled={action !== null}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {action === "approve" ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Check className="h-3 w-3" />
+            )}
+            Approve
+          </button>
+          <button
+            onClick={() => void handleReject()}
+            disabled={action !== null}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
+          >
+            {action === "reject" ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <X className="h-3 w-3" />
+            )}
+            Reject
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // --- Message bubble ---
 
 function MessageBubble({
@@ -376,11 +533,14 @@ function MessageBubble({
   }
 
   const isCommitProposal = metadata?.type === "commit_proposal";
+  const isProdReadProposal = metadata?.type === "prod_read_proposal";
   const toolsUsed =
     metadata?.type === "tool_activity"
       ? metadata.tools
       : metadata?.type === "commit_proposal"
         ? metadata.tools
+        : metadata?.type === "prod_read_proposal"
+          ? metadata.tools
         : null;
 
   return (
@@ -391,6 +551,12 @@ function MessageBubble({
       <div className="whitespace-pre-wrap">{renderMarkdown(msg.content)}</div>
       {isCommitProposal && (
         <CommitProposalCard
+          metadata={metadata}
+          conversationId={conversationId}
+        />
+      )}
+      {isProdReadProposal && (
+        <ProdReadProposalCard
           metadata={metadata}
           conversationId={conversationId}
         />

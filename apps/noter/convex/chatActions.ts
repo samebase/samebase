@@ -4,13 +4,65 @@ import { internalAction } from "./_generated/server";
 import { v, Infer } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { z } from "zod";
 import { GithubTreeData } from "./schema";
 import { executeReadFile } from "./agent/tools";
 import type { ToolContext } from "./agent/tools";
 import { buildSystemPrompt } from "./agent/systemPrompt";
 import { runAgentGraph } from "./agent/graph";
+import {
+  applyRedaction,
+  getProdAccessMode,
+} from "./infraReadPolicy";
 
 const MODEL = "claude-sonnet-4-20250514";
+
+const allowedDataTableSchema = z.enum([
+  "vaults",
+  "vaultInfrastructure",
+  "vaultDomains",
+  "codespaces",
+  "fileStaging",
+  "aiProdAccessRequests",
+  "aiProdAccessAudit",
+]);
+type AllowedDataTable = z.infer<typeof allowedDataTableSchema>;
+
+const paramsJsonSchema = z.record(z.string(), z.unknown());
+const optionalPositiveNumberSchema = z
+  .number()
+  .finite()
+  .positive()
+  .transform((value) => Math.floor(value));
+
+function hashText(input: string): string {
+  let hash = 5381;
+  for (let i = 0; i < input.length; i++) {
+    hash = (hash * 33) ^ input.charCodeAt(i);
+  }
+  return Math.abs(hash >>> 0).toString(16);
+}
+
+function parseJsonObject(text: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(text);
+    const result = paramsJsonSchema.safeParse(parsed);
+    if (result.success) return result.data;
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+function parseOptionalPositiveNumber(value: unknown): number | undefined {
+  const result = optionalPositiveNumberSchema.safeParse(value);
+  if (!result.success) return undefined;
+  return result.data;
+}
+
+function parseAllowedDataTable(value: unknown): AllowedDataTable {
+  return allowedDataTableSchema.parse(value);
+}
 
 export const generateResponse = internalAction({
   args: {
@@ -68,6 +120,7 @@ export const generateResponse = internalAction({
         fileContent = await executeReadFile(
           {
             ctx,
+            conversationId: args.conversationId,
             vaultId: vault._id,
             owner: vault.ghRepoOwner,
             repo: vault.ghRepoName,
@@ -120,6 +173,7 @@ export const generateResponse = internalAction({
       repo: vault.ghRepoName,
       userId: user._id,
       accessToken: user.githubAccessToken,
+      conversationId: args.conversationId,
     };
 
     const result = await runAgentGraph({
@@ -129,7 +183,26 @@ export const generateResponse = internalAction({
       model: MODEL,
     });
 
-    if (result.commitProposal) {
+    if (result.prodReadProposal) {
+      await ctx.runMutation(internal.chat.saveAssistantMessage, {
+        conversationId: args.conversationId,
+        content:
+          result.prodReadProposal.summary ??
+          "I need your approval before running this production read.",
+        model: MODEL,
+        metadata: JSON.stringify({
+          type: "prod_read_proposal",
+          requestId: result.prodReadProposal.requestId,
+          scope: result.prodReadProposal.scope,
+          provider: result.prodReadProposal.provider,
+          resourceKind: result.prodReadProposal.resourceKind,
+          toolName: result.prodReadProposal.toolName,
+          paramsPreview: result.prodReadProposal.paramsPreview,
+          status: "proposed",
+          tools: result.toolActivity,
+        }),
+      });
+    } else if (result.commitProposal) {
       // Save as a commit proposal message (same metadata shape as before)
       await ctx.runMutation(internal.chat.saveAssistantMessage, {
         conversationId: args.conversationId,
@@ -159,5 +232,256 @@ export const generateResponse = internalAction({
     }
 
     return null;
+  },
+});
+
+export const executeApprovedProdRead = internalAction({
+  args: {
+    requestId: v.id("aiProdAccessRequests"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const request = await ctx.runQuery(internal.chat.getProdAccessRequestInternal, {
+      requestId: args.requestId,
+    });
+    if (!request) {
+      return null;
+    }
+    if (request.status !== "approved") {
+      return null;
+    }
+
+    const argumentHash = hashText(request.paramsJson);
+    const auditActorUserId = request.approvedBy ?? request.requesterUserId;
+    const fallbackEndpoint = `${request.provider}:${request.resourceKind}`;
+
+    const now = Date.now();
+    if (request.expiresAt && now > request.expiresAt) {
+      const error = "Request approval expired before execution";
+      await ctx.runMutation(internal.chat.setProdAccessRequestStatusInternal, {
+        requestId: request._id,
+        status: "expired",
+        error,
+        approvedBy: request.approvedBy,
+        approvedAt: request.approvedAt,
+      });
+      await ctx.runMutation(internal.chat.addProdAccessAuditInternal, {
+        requestId: request._id,
+        actorUserId: auditActorUserId,
+        action: "expired",
+        toolName: request.toolName,
+        endpoint: fallbackEndpoint,
+        argumentHash,
+        error,
+      });
+      await ctx.runMutation(internal.chat.updateProdReadProposalMessageStatusInternal, {
+        conversationId: request.conversationId,
+        requestId: request._id,
+        status: "expired",
+        error,
+      });
+      await ctx.runMutation(internal.chat.saveAssistantMessage, {
+        conversationId: request.conversationId,
+        content: `Production read expired before execution: ${error}.`,
+        model: MODEL,
+        metadata: JSON.stringify({
+          type: "prod_read_result",
+          requestId: request._id,
+          provider: request.provider,
+          resourceKind: request.resourceKind,
+          endpoint: fallbackEndpoint,
+          error,
+        }),
+      });
+      return null;
+    }
+
+    const params = parseJsonObject(request.paramsJson);
+
+    try {
+      let executionResult:
+        | {
+            summary: string;
+            endpoint: string;
+            raw: string;
+            rowCount?: number;
+            logLineCount?: number;
+          }
+        | undefined;
+
+      if (
+        request.provider === "convex" &&
+        request.resourceKind === "deployment_status"
+      ) {
+        if (!request.vaultId) {
+          throw new Error("Vault context is required for Convex deployment status");
+        }
+        executionResult = await ctx.runAction(internal.infraRead.getConvexDeploymentStatus, {
+          vaultId: request.vaultId,
+        });
+      } else if (request.provider === "convex" && request.resourceKind === "logs") {
+        if (!request.vaultId) {
+          throw new Error("Vault context is required for Convex logs");
+        }
+        executionResult = await ctx.runAction(internal.infraRead.getConvexLogs, {
+          vaultId: request.vaultId,
+          maxLines: parseOptionalPositiveNumber(params["maxLines"]),
+        });
+      } else if (
+        request.provider === "netlify" &&
+        request.resourceKind === "deployment_status"
+      ) {
+        if (!request.vaultId) {
+          throw new Error("Vault context is required for Netlify site status");
+        }
+        executionResult = await ctx.runAction(internal.infraRead.getNetlifySiteStatus, {
+          vaultId: request.vaultId,
+        });
+      } else if (request.provider === "netlify" && request.resourceKind === "logs") {
+        if (!request.vaultId) {
+          throw new Error("Vault context is required for Netlify logs");
+        }
+        executionResult = await ctx.runAction(internal.infraRead.getNetlifyLogs, {
+          vaultId: request.vaultId,
+          maxEntries: parseOptionalPositiveNumber(params["maxEntries"]),
+        });
+      } else if (
+        request.provider === "convex" &&
+        request.resourceKind === "data_query"
+      ) {
+        executionResult = await ctx.runAction(internal.infraRead.getConvexDataQuery, {
+          table: parseAllowedDataTable(params["table"]),
+          limit: parseOptionalPositiveNumber(params["limit"]),
+          vaultId:
+            request.scope === "vault"
+              ? request.vaultId ?? undefined
+              : undefined,
+        });
+      } else if (
+        request.provider === "convex" &&
+        request.resourceKind === "project_inventory"
+      ) {
+        executionResult = await ctx.runAction(
+          internal.infraRead.getConvexProjectInventory,
+          {
+            limit: parseOptionalPositiveNumber(params["limit"]),
+          },
+        );
+      } else if (
+        request.provider === "netlify" &&
+        request.resourceKind === "site_inventory"
+      ) {
+        executionResult = await ctx.runAction(
+          internal.infraRead.getNetlifySiteInventory,
+          {
+            limit: parseOptionalPositiveNumber(params["limit"]),
+          },
+        );
+      }
+
+      if (!executionResult) {
+        throw new Error(
+          `Unsupported production read combination: ${request.provider}/${request.resourceKind}`,
+        );
+      }
+
+      const redacted = applyRedaction({
+        raw: executionResult.raw,
+        requestedLevel: request.redactionLevel,
+        mode: getProdAccessMode(),
+      });
+
+      await ctx.runMutation(internal.chat.setProdAccessRequestStatusInternal, {
+        requestId: request._id,
+        status: "executed",
+        error: undefined,
+        approvedBy: request.approvedBy,
+        approvedAt: request.approvedAt,
+        executedAt: Date.now(),
+        redactionLevel: redacted.effectiveLevel,
+      });
+      await ctx.runMutation(internal.chat.addProdAccessAuditInternal, {
+        requestId: request._id,
+        actorUserId: auditActorUserId,
+        action: "executed",
+        toolName: request.toolName,
+        endpoint: executionResult.endpoint,
+        argumentHash,
+        rowCount: executionResult.rowCount,
+        logLineCount: executionResult.logLineCount,
+        error: undefined,
+      });
+      await ctx.runMutation(internal.chat.updateProdReadProposalMessageStatusInternal, {
+        conversationId: request.conversationId,
+        requestId: request._id,
+        status: "executed",
+      });
+
+      const output = [
+        `Production read complete: ${executionResult.summary}.`,
+        `Endpoint: \`${executionResult.endpoint}\``,
+        "",
+        redacted.output,
+      ].join("\n");
+
+      await ctx.runMutation(internal.chat.saveAssistantMessage, {
+        conversationId: request.conversationId,
+        content: output,
+        model: MODEL,
+        metadata: JSON.stringify({
+          type: "prod_read_result",
+          requestId: request._id,
+          provider: request.provider,
+          resourceKind: request.resourceKind,
+          endpoint: executionResult.endpoint,
+          redactionLevel: redacted.effectiveLevel,
+          rowCount: executionResult.rowCount,
+          logLineCount: executionResult.logLineCount,
+        }),
+      });
+
+      return null;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unknown production read error";
+
+      await ctx.runMutation(internal.chat.setProdAccessRequestStatusInternal, {
+        requestId: request._id,
+        status: "failed",
+        error: message,
+        approvedBy: request.approvedBy,
+        approvedAt: request.approvedAt,
+        executedAt: Date.now(),
+      });
+      await ctx.runMutation(internal.chat.addProdAccessAuditInternal, {
+        requestId: request._id,
+        actorUserId: auditActorUserId,
+        action: "failed",
+        toolName: request.toolName,
+        endpoint: fallbackEndpoint,
+        argumentHash,
+        error: message,
+      });
+      await ctx.runMutation(internal.chat.updateProdReadProposalMessageStatusInternal, {
+        conversationId: request.conversationId,
+        requestId: request._id,
+        status: "failed",
+        error: message,
+      });
+      await ctx.runMutation(internal.chat.saveAssistantMessage, {
+        conversationId: request.conversationId,
+        content: `Production read failed: ${message}.`,
+        model: MODEL,
+        metadata: JSON.stringify({
+          type: "prod_read_result",
+          requestId: request._id,
+          provider: request.provider,
+          resourceKind: request.resourceKind,
+          endpoint: fallbackEndpoint,
+          error: message,
+        }),
+      });
+      return null;
+    }
   },
 });

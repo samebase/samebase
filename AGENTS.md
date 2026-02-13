@@ -35,11 +35,14 @@ npx convex logs --prod --history 50
 # View development deployment logs
 npx convex logs
 
+# View a bounded log snapshot (Convex logs stream forever, so auto-stop after 3s)
+{ npx convex logs --history 200 & pid=$!; sleep 3; kill -INT "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; } | sed -n '1,200p'
+
 # Open Convex dashboard in browser
 npx convex dashboard
 
-# Get status of current deployment
-npx convex status
+# Inspect deployment env/config quickly
+npx convex env list
 ```
 
 Use these commands to debug issues in Convex functions, check production logs, or inspect database state. This is the primary way to diagnose runtime errors and function failures.
@@ -74,6 +77,8 @@ Use these commands to debug issues in Convex functions, check production logs, o
 - **Strict type safety** - never use `any` or type assertions (`as`)
 - **When typing is too hard** - prefer `@ts-expect-error` over `as` or `any`
 - **Let TypeScript infer** - don't over-annotate when inference works
+- **Infer from schemas** - when a Zod/validator schema exists, derive the TypeScript type from it (`z.infer`/`Infer`) instead of duplicating manual types
+- **Runtime directives** - avoid `"use node"` unless it is truly necessary; prefer runtime-agnostic modules that can run in both node and non-node environments
 
 ## UI/UX Guidelines
 
@@ -127,3 +132,13 @@ Shorthand commands for git/GitHub workflows. When the user says these, execute t
 - Update PR description with `gh pr edit --body` when commits change scope
 - On CI failure, report the error and offer to fix
 - **NEVER merge a PR until CI is green** - always wait for checks to pass, then squash-merge with `gh pr merge --squash`
+
+### Local Operator Preferences
+
+- For this repository, when running CLI commands in Codex, prefer requesting the user's shell/escalated execution rather than sandboxed execution.
+
+### MVP Infra Credentials (Current)
+
+- For MVP testing, the same `NETLIFY_ACCESS_TOKEN` is used for both Convex dev and prod deployments.
+- For MVP testing, the same `CONVEX_MANAGEMENT_TOKEN` and `CONVEX_TEAM_ID` are used for both Convex dev and prod deployments.
+- This is intentional for speed during MVP and can be split by environment later.

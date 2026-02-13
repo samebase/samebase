@@ -14,10 +14,28 @@ import {
   isAIMessage,
   ToolMessage,
 } from "@langchain/core/messages";
+import { z } from "zod";
 import type { ToolContext } from "./tools";
 import { createTools } from "./tools";
 
 const COMMIT_SENTINEL = "__COMMIT_PROPOSAL__:";
+const PROD_READ_SENTINEL = "__PROD_READ_PROPOSAL__:";
+const PROD_READ_PROPOSAL_SCHEMA = z.object({
+  requestId: z.string(),
+  scope: z.enum(["vault", "global"]),
+  provider: z.enum(["convex", "netlify"]),
+  resourceKind: z.enum([
+    "deployment_status",
+    "logs",
+    "data_query",
+    "project_inventory",
+    "site_inventory",
+  ]),
+  toolName: z.string(),
+  paramsPreview: z.string(),
+  summary: z.string(),
+});
+type ProdReadProposal = z.infer<typeof PROD_READ_PROPOSAL_SCHEMA>;
 
 function extractTextContent(content: unknown): string {
   if (typeof content === "string") return content;
@@ -47,6 +65,8 @@ export interface GraphResult {
   text: string;
   /** If commit_and_push was called, the commit message */
   commitProposal?: string;
+  /** If a production read was requested, proposal payload */
+  prodReadProposal?: ProdReadProposal;
   /** Log of tool calls made during this invocation */
   toolActivity: Array<{ tool: string; input: unknown }>;
 }
@@ -94,6 +114,7 @@ export async function runAgentGraph(opts: {
 
   const toolActivity: Array<{ tool: string; input: unknown }> = [];
   let commitProposal: string | undefined;
+  let prodReadProposal: GraphResult["prodReadProposal"];
 
   // --- Graph Definition ---
 
@@ -130,6 +151,19 @@ export async function runAgentGraph(opts: {
           ) {
             commitProposal = msg.content.slice(COMMIT_SENTINEL.length);
           }
+          if (
+            typeof msg.content === "string" &&
+            msg.content.startsWith(PROD_READ_SENTINEL)
+          ) {
+            const payload = msg.content.slice(PROD_READ_SENTINEL.length);
+            try {
+              const parsed: unknown = JSON.parse(payload);
+              const proposal = PROD_READ_PROPOSAL_SCHEMA.parse(parsed);
+              prodReadProposal = proposal;
+            } catch {
+              // Ignore malformed sentinel payloads.
+            }
+          }
         }
       }
 
@@ -153,6 +187,10 @@ export async function runAgentGraph(opts: {
     .addConditionalEdges("tools", () => {
       // If commit_and_push was called, stop the loop
       if (commitProposal !== undefined) {
+        return "__end__";
+      }
+      // If a prod read proposal was emitted, stop the loop
+      if (prodReadProposal !== undefined) {
         return "__end__";
       }
       // Otherwise loop back to the agent
@@ -194,6 +232,7 @@ export async function runAgentGraph(opts: {
   return {
     text: text || "(No response)",
     commitProposal,
+    prodReadProposal,
     toolActivity,
   };
 }

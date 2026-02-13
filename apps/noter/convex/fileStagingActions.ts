@@ -121,7 +121,7 @@ export const getFileForEditing = action({
 
     // read from blobs table
     const fileSha = vault.treeData.tree.find(
-      (t) => t.path === args.originalFilePath,
+      (t: { path: string }) => t.path === args.originalFilePath,
     )?.sha;
 
     if (!fileSha) {

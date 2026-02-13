@@ -53,10 +53,41 @@ const formatTimeAgo = (timestamp: number) => {
   }
 };
 
+const formatInfraState = (
+  infraState:
+    | "not_started"
+    | "provisioning"
+    | "ready"
+    | "failed"
+    | "partial",
+) => {
+  if (infraState === "not_started") return "Not started";
+  if (infraState === "provisioning") return "Provisioning";
+  if (infraState === "ready") return "Ready";
+  if (infraState === "failed") return "Failed";
+  return "Partial";
+};
+
+const getInfraActionLabel = (
+  infraState:
+    | "not_started"
+    | "provisioning"
+    | "ready"
+    | "failed"
+    | "partial",
+) => {
+  if (infraState === "not_started") return "Provision infra";
+  if (infraState === "failed" || infraState === "partial") return "Retry infra";
+  return null;
+};
+
 export function VaultDashboard() {
   const vaults = useQuery(api.vault.getUserVaults);
   const deleteVault = useAction(api.vaultActions.deleteVault);
   const createRepository = useAction(api.vaultActions.createRepository);
+  const retryInfrastructureProvisioning = useAction(
+    api.vaultActions.retryInfrastructureProvisioning,
+  );
   const commitStaging = useAction(api.fileStagingActions.commitStaging);
   const [vaultToDelete, setVaultToDelete] = useState<{
     id: Id<"vaults">;
@@ -71,6 +102,9 @@ export function VaultDashboard() {
   const [isCommitting, setIsCommitting] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
   const [didAttemptCommit, setDidAttemptCommit] = useState(false);
+  const [retryingVaultId, setRetryingVaultId] = useState<Id<"vaults"> | null>(
+    null,
+  );
 
   const selectedVault =
     vaultToDelete && vaults
@@ -140,6 +174,20 @@ export function VaultDashboard() {
       );
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleRetryInfrastructure = async (vaultId: Id<"vaults">) => {
+    if (retryingVaultId === vaultId) {
+      return;
+    }
+    setRetryingVaultId(vaultId);
+    try {
+      await retryInfrastructureProvisioning({ vaultId });
+    } catch (error) {
+      console.error("Failed to retry infrastructure provisioning:", error);
+    } finally {
+      setRetryingVaultId(null);
     }
   };
 
@@ -229,6 +277,9 @@ export function VaultDashboard() {
       <div className="space-y-2">
         {vaults.map((vault: (typeof vaults)[0]) => {
           const isReady = vault.state === "ready";
+          const infraActionLabel = vault.isNoterManaged
+            ? getInfraActionLabel(vault.infraState)
+            : null;
           return (
             <div
               key={vault._id}
@@ -268,7 +319,19 @@ export function VaultDashboard() {
                   </div>
 
                   {isReady && (
-                    <CodespaceStatus vaultId={vault._id} />
+                    <div className="space-y-1.5">
+                      <CodespaceStatus vaultId={vault._id} />
+                      {vault.isNoterManaged && (
+                        <div className="text-xs text-muted-foreground">
+                          Infra: {formatInfraState(vault.infraState)}
+                          {vault.infraProductionUrl && (
+                            <span className="ml-2 font-mono">
+                              {vault.infraProductionUrl}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -296,25 +359,49 @@ export function VaultDashboard() {
                 </div>
               </Link>
 
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setVaultToDelete({
-                    id: vault._id,
-                    repositoryFullName: vault.repositoryFullName,
-                    isNoterManaged: vault.isNoterManaged,
-                  });
-                  setRemoveGithubRepo(vault.isNoterManaged);
-                  setCommitError(null);
-                  setDidAttemptCommit(false);
-                }}
-                className="ml-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-              >
-                <TrashIcon className="h-4 w-4" />
-              </Button>
+              <div className="ml-2 flex items-center gap-2">
+                {infraActionLabel && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      void handleRetryInfrastructure(vault._id);
+                    }}
+                    disabled={retryingVaultId === vault._id}
+                  >
+                    {retryingVaultId === vault._id ? (
+                      <>
+                        <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                        Retrying...
+                      </>
+                    ) : (
+                      infraActionLabel
+                    )}
+                  </Button>
+                )}
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setVaultToDelete({
+                      id: vault._id,
+                      repositoryFullName: vault.repositoryFullName,
+                      isNoterManaged: vault.isNoterManaged,
+                    });
+                    setRemoveGithubRepo(vault.isNoterManaged);
+                    setCommitError(null);
+                    setDidAttemptCommit(false);
+                  }}
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           );
         })}
