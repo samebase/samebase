@@ -176,6 +176,14 @@ Describe what this agent does and who it's for.
       isNoterManaged: true,
     });
 
+    await ctx.scheduler.runAfter(
+      0,
+      internal.infraProvisioning.provisionVaultInfrastructure,
+      {
+        vaultId,
+      },
+    );
+
     return { vaultId };
   },
 });
