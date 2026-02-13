@@ -1,5 +1,10 @@
 # Lumina: Complete Project Analysis & Technical Deep Dive
 
+> [!WARNING]
+> Historical document from an earlier naming phase (`Lumina`).
+> It is not maintained as the primary source of truth for current Noter behavior.
+> For implementation context, start with `AGENTS.md`, `README.md`, and the specs under `specs/`.
+
 ## Executive Summary
 
 Lumina is a sophisticated web-based collaborative code editor that bridges the gap between traditional Git workflows and real-time collaborative editing. Built as a modern alternative to tools like Notion and Obsidian, it stores all data directly on GitHub to minimize vendor lock-in while providing a seamless, browser-based editing experience with real-time collaboration capabilities.

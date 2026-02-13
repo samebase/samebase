@@ -4,6 +4,8 @@ description:
 status: draft
 ---
 
+> Note: Personal draft content. This file is not part of Noter's product spec or engineering source-of-truth docs.
+
 Remember the last time HTML made the update and you couldn't use a website anymore.
 
 The answer to that should've been a resounding no, but I guess you could use Flash as an answer.
@@ -17,6 +19,5 @@ Of course it didn't work and I decided to write this mini-article.
 But it's not the first time I encounter such issues, and why I prefer to always use web when possible.
 
 I'm still using Twitter since I "installed" it as a web app, and it didn't change the logo.
-
 
 

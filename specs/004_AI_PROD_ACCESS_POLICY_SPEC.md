@@ -1,15 +1,24 @@
 # AI Production Access Policy Specification
 
 ## Document Control
-- Status: Draft for implementation
+- Status: Implemented for MVP owner mode (with follow-ups)
 - Owner: Noter chat/agent + platform security
-- Last updated: 2026-02-12
+- Last updated: 2026-02-13
 - Related plan: `specs/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 
 ## Summary
 Define how the main Noter AI can inspect production infrastructure, logs, and data in a way that is auditable and gated by explicit user approval for each request.
 
 This spec is intentionally approval-first and read-only for MVP.
+
+## Implementation Snapshot (2026-02-13)
+
+- Proposal -> explicit approval -> execution flow is live in `chat.ts` + `chatActions.ts`.
+- Request/audit persistence is live via `aiProdAccessRequests` and `aiProdAccessAudit`.
+- Admin-only enforcement is active via `isAdminUser`.
+- Request expiration (TTL) is active.
+- Redaction is active through `infraReadPolicy.ts` with default mode `MVP_OWNER_MODE`.
+- Global kill switch is still a follow-up (not currently wired as a runtime gate).
 
 ## Goals
 - Allow AI-assisted debugging of prod infra/logs/data.

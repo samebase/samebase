@@ -9,6 +9,24 @@ noter is a Turborepo monorepo (PNPM + Node 24) with a single app:
 - **`apps/noter`**: React + Vite + Convex collaborative code editor with GitHub integration
 - Uses `@prosemark/core` from npm for markdown editing
 
+## Session Bootstrap (Read Order)
+
+When starting a fresh chat for implementation/debugging, read in this order:
+
+1. `AGENTS.md` (this file)
+2. `README.md` (product/dev overview)
+3. `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md` (vault infra lifecycle)
+4. `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md` (approval-first prod reads)
+5. `specs/001_CODESPACE_CONNECTION_SPEC.md` (codespace architecture)
+6. `apps/noter/convex/schema.ts` (source of truth for data model)
+7. `apps/noter/convex/vaultActions.ts` + `apps/noter/convex/infraProvisioning.ts` (vault creation + infra provisioning)
+8. `apps/noter/convex/chat.ts` + `apps/noter/convex/chatActions.ts` (chat + approval flows)
+9. `apps/noter/src/components/VaultDashboard.tsx` + `apps/noter/src/components/ChatFab.tsx` (user-visible controls)
+
+Low-signal/historical docs (do not treat as source of truth):
+- `LUMINA_PROJECT_ANALYSIS.md`
+- `apps/noter/src/components/Untitled-1.md`
+
 ## Development Commands
 
 ```bash
@@ -60,9 +78,13 @@ Use these commands to debug issues in Convex functions, check production logs, o
 
 - `users`: GitHub-authenticated users with access tokens
 - `vaults`: Connected GitHub repositories per user
+- `vaultInfrastructure`: per-vault Convex/Netlify provisioning metadata
+- `vaultDomains`: branch/domain mappings per vault
 - `fileStaging`: Real-time collaborative file editing state
 - `collaborativeUpdates`: Operational transformation for conflict resolution
 - `folderExpansionState`: UI state for file tree per user/vault
+- `aiProdAccessRequests`: approval-first production read requests
+- `aiProdAccessAudit`: immutable audit trail for prod-read request lifecycle
 
 **Core Components**:
 
@@ -71,6 +93,14 @@ Use these commands to debug issues in Convex functions, check production logs, o
 - `RepositoryReadme`: File browser + collaborative editor view
 - `CodeEditor`: CodeMirror-based editor with real-time collaboration
 - `FileTree`: Repository file browser with expansion state
+- `ChatFab`: persisted chat UI with commit/prod-read approval cards
+
+## Current Capability Snapshot (2026-02-13)
+
+- New vaults created via `vaultActions.createRepository` are `isNoterManaged: true` and now auto-schedule infra provisioning (`infraProvisioning.provisionVaultInfrastructure`).
+- Existing repos connected via `vaultActions.connectRepository` remain `isNoterManaged: false` and do **not** auto-provision infra.
+- Infrastructure retry is available from `vaultActions.retryInfrastructureProvisioning` and dashboard UI.
+- AI production reads are approval-first (proposal card -> explicit approve/reject -> audited execution).
 
 ## Code Style
 

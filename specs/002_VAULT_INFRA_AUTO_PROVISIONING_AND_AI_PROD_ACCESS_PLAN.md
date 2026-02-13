@@ -1,5 +1,14 @@
 # Spec Update Plan: Vault Infra Auto-Provisioning + Safe AI Prod Access
 
+## Status Update (2026-02-13)
+
+- Infra auto-provisioning for noter-managed vault creation is implemented.
+- Existing-repo GitHub connect remains non-provisioning by default.
+- Approval-first production read flow is implemented with request/audit tables and chat approval cards.
+- See current source-of-truth specs:
+  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
+
 ## Summary
 Update the specs to cover two coupled MVP tracks:
 1. Auto-provision infrastructure (Convex + Netlify) for new noter-managed vaults.

@@ -1,99 +1,63 @@
 # Chat Agent Feature Specification
 
-## Overview
+## Status
 
-A floating action button (FAB) chat widget that opens a chat window for users to interact with AI agents. The feature is integrated into the noter app as a way to provide real-time assistance while editing code.
+Implemented for MVP with persisted conversations, commit proposals, and approval-first production read requests.
+
+Last updated: 2026-02-13
+
+## Scope
+
+Noter's chat is a floating assistant (`ChatFab`) that is scoped to the current vault when available and stored in Convex.
 
 ## Current Implementation
 
-### Frontend Component: `ChatFab` (`apps/noter/src/components/ChatFab.tsx`)
+### Frontend
 
-- **Location**: Bottom-right corner (fixed positioning)
-- **FAB Button**:
-  - Shows `MessageSquare` icon when closed
-  - Shows `X` icon when open
-  - Primary styling when closed, muted when open
-- **Chat Window**:
-  - 448px width (sm: 384px) on mobile
-  - Fixed height of 448px (28rem)
-  - Rounded borders with shadow
-  - Three sections: header, messages area, input
-- **Message Structure**:
-  - `id`: UUID
-  - `role`: "user" | "assistant"
-  - `content`: string
-  - **TODO**: Add `model` field to track which LLM generated each message
+- Component: `apps/noter/src/components/ChatFab.tsx`
+- Rendered for authenticated users
+- One conversation per user+vault when a vault context exists
+- Supports metadata-driven cards:
+  - `commit_proposal`
+  - `prod_read_proposal`
+  - `prod_read_result`
 
-### Features
+### Backend
 
-- Auto-scrolls to latest message
-- Input field focuses automatically when window opens
-- Enter key sends message (Shift+Enter for newlines)
-- Placeholder echo response (needs real agent integration)
-- Only visible to authenticated users (rendered in `<Authenticated>` block in `App.tsx`)
+- Conversation/message lifecycle: `apps/noter/convex/chat.ts`
+- Response generation and proposal/result messages: `apps/noter/convex/chatActions.ts`
+- Tool catalog/system behavior: `apps/noter/convex/agent/*`
 
-## Integration Points
+## Data Model
 
-- **Mounted in**: `App.tsx` inside `<Authenticated>` block
-- **State**: Client-side only (in-memory)
-- **Styling**: Tailwind CSS + shadcn/ui primitives
+- `chatConversations`
+- `chatMessages`
+- `aiProdAccessRequests`
+- `aiProdAccessAudit`
 
-## Future Enhancements
+## Approval Flows
 
-### High Priority
+### Commit proposal
 
-1. **Message Model Attribution**
+1. Assistant proposes commit.
+2. UI renders commit proposal card.
+3. User confirms via `chat.confirmCommit`.
 
-   - Add `model?: string` field to Message interface
-   - Display model name/icon below each assistant message
-   - Examples: "Claude 3.5", "GPT-4o", "Auto (Claude selected)"
-   - **Rationale**: "Auto" option currently implies it's the worst choice; explicit model attribution shows the actual model being used
+### Production read proposal
 
-2. **Backend Integration**
+1. Assistant proposes prod read.
+2. UI renders approval card with approve/reject actions.
+3. `chat.confirmProdRead` schedules execution.
+4. `chatActions.executeApprovedProdRead` runs allowlisted read + redaction.
+5. Result is persisted and displayed as `prod_read_result`.
 
-   - Connect to Convex actions for real chat responses
-   - Implement message persistence (optional)
-   - Add context awareness (current file, vault info)
+## Policy Notes
 
-3. **Model Selection**
-   - Allow users to select preferred model per conversation
-   - Show model capabilities/speed/cost tradeoffs
-   - **Design note**: Avoid labeling any option as "Auto" if possible, or clarify it means "Recommended based on request"
+- Admin-only checks are enforced server-side for prod reads.
+- Requests expire (TTL) if not approved in time.
+- Redaction mode is currently owner-mode-first (see `infraReadPolicy.ts`).
 
-### Medium Priority
+## Related Docs
 
-- Message editing/deletion
-- Conversation history/saving
-- Code snippet references from current editor
-- Input character limit feedback
-- Typing indicators for agent responses
-
-### Low Priority
-
-- Message reactions/feedback
-- Export conversation
-- Theme-aware styling refinements
-
-## Known Issues
-
-- Currently uses placeholder responses
-- No persistence between sessions
-- No context from edited files
-
-## Message Interface (TypeScript)
-
-```typescript
-interface Message {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  model?: string // e.g., "Claude 3.5 Sonnet", "GPT-4o", "Recommended"
-}
-```
-
-## UX Guidelines
-
-- Keep chat window compact to not obstruct editor
-- Prioritize clarity over feature richness
-- Model attribution should be visible but not obtrusive
-- Avoid terminology that implies one model/option is "lesser"
+- `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
+- `AGENTS.md`
