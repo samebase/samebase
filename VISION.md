@@ -43,6 +43,12 @@ Noter is an AI-first collaborative platform for building full-stack AI agents. W
 - **Different**: Text-based instead of visual, AI agents instead of websites
 - **Inspiration**: Their collaborative editing experience was key to Noter's early success
 
+**vs DarkLang**
+- **Similar**: Instant deployment, integrated development environment, simplified backend development
+- **Different**: AI agent focus vs general backend development, collaborative editing vs solo development
+- **Influence**: DarkLang's vision of eliminating deployment friction and making backend development accessible inspired Noter's "instant everything" philosophy
+- **Learning**: DarkLang showed the power of tight integration between editor, runtime, and deployment, but Noter applies this to AI agent development with collaborative features
+
 ## Target Users
 
 **Primary**: Non-developers and time-constrained developers who want:
