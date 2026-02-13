@@ -89,6 +89,7 @@ export const getRepositoryFileContent = action({
   args: {
     repositoryFullName: v.string(),
     filePath: v.string(),
+    branch: v.optional(v.string()),
   },
   returns: repositoryFileContentResult,
   handler: async (ctx, args): Promise<RepositoryFileContent> => {
@@ -139,6 +140,7 @@ export const getRepositoryFileContent = action({
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
         path: args.filePath,
+        ref: args.branch,
       });
 
       if (Array.isArray(file.data) || file.data.type !== "file") {

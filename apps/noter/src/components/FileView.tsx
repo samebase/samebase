@@ -441,6 +441,7 @@ function FileViewInner({
     void loadRepositoryFileContent({
       repositoryFullName,
       filePath: SIMPLE_VIEW_CONFIG_PATH,
+      branch,
     })
       .then((result) => {
         if (cancelled) {
@@ -461,6 +462,7 @@ function FileViewInner({
   }, [
     didAttemptRepositoryNoterLoad,
     hasRepositoryNoterFile,
+    branch,
     loadRepositoryFileContent,
     repositoryFullName,
     stagedNoterFile,

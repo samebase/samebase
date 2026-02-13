@@ -13,6 +13,173 @@ import {
   withRetry,
 } from "./gitOperationsActions";
 
+type HeaderValue = string | number | readonly string[] | undefined;
+type HeaderMap = Record<string, HeaderValue>;
+
+const githubRateLimitResetByUser = new Map<string, number>();
+const RATE_LIMIT_COOLDOWN_FALLBACK_MS = 60_000;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function toHeaderMap(value: unknown): HeaderMap | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const headers: HeaderMap = {};
+  for (const [key, headerValue] of Object.entries(value)) {
+    if (
+      typeof headerValue === "string" ||
+      typeof headerValue === "number" ||
+      headerValue === undefined
+    ) {
+      headers[key] = headerValue;
+      continue;
+    }
+
+    if (
+      Array.isArray(headerValue) &&
+      headerValue.every((item) => typeof item === "string")
+    ) {
+      headers[key] = headerValue;
+    }
+  }
+
+  return headers;
+}
+
+function getHeaderValue(headers: HeaderMap | null, name: string): string | null {
+  if (!headers) {
+    return null;
+  }
+
+  const target = name.toLowerCase();
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() !== target) {
+      continue;
+    }
+    if (typeof value === "string") {
+      return value;
+    }
+    if (typeof value === "number") {
+      return String(value);
+    }
+    if (Array.isArray(value)) {
+      return value.length > 0 ? value[0] : null;
+    }
+    return null;
+  }
+
+  return null;
+}
+
+function parsePositiveInteger(value: string | null): number | null {
+  if (value === null) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function getErrorHeaders(error: unknown): HeaderMap | null {
+  if (!isRecord(error)) {
+    return null;
+  }
+
+  const response = error.response;
+  if (!isRecord(response)) {
+    return null;
+  }
+
+  return toHeaderMap(response.headers);
+}
+
+function getErrorStatus(error: unknown): number | null {
+  if (!isRecord(error)) {
+    return null;
+  }
+  const status = error.status;
+  return typeof status === "number" ? status : null;
+}
+
+function getErrorMessage(error: unknown): string {
+  if (!isRecord(error)) {
+    return "";
+  }
+  const message = error.message;
+  return typeof message === "string" ? message : "";
+}
+
+function isGitHubRateLimitError(error: unknown): boolean {
+  const status = getErrorStatus(error);
+  if (status === 429) {
+    return true;
+  }
+  if (status !== 403) {
+    return false;
+  }
+
+  const headers = getErrorHeaders(error);
+  const remaining = getHeaderValue(headers, "x-ratelimit-remaining");
+  if (remaining === "0") {
+    return true;
+  }
+
+  return getErrorMessage(error).toLowerCase().includes("rate limit");
+}
+
+function getRateLimitResetAtMsFromError(error: unknown): number | null {
+  const headers = getErrorHeaders(error);
+  const now = Date.now();
+
+  const retryAfterSeconds = parsePositiveInteger(
+    getHeaderValue(headers, "retry-after"),
+  );
+  const resetAtSeconds = parsePositiveInteger(
+    getHeaderValue(headers, "x-ratelimit-reset"),
+  );
+
+  const candidates: number[] = [];
+  if (retryAfterSeconds !== null) {
+    candidates.push(now + retryAfterSeconds * 1000);
+  }
+  if (resetAtSeconds !== null) {
+    candidates.push(resetAtSeconds * 1000);
+  }
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const earliestResetAt = Math.min(...candidates);
+  return earliestResetAt > now ? earliestResetAt : now;
+}
+
+function getKnownRateLimitResetAtMs(userId: string): number | null {
+  const resetAtMs = githubRateLimitResetByUser.get(userId);
+  if (typeof resetAtMs !== "number") {
+    return null;
+  }
+
+  if (resetAtMs <= Date.now()) {
+    githubRateLimitResetByUser.delete(userId);
+    return null;
+  }
+
+  return resetAtMs;
+}
+
+function rememberRateLimitResetAtMs(userId: string, error: unknown): number {
+  const resetAtMs =
+    getRateLimitResetAtMsFromError(error) ??
+    Date.now() + RATE_LIMIT_COOLDOWN_FALLBACK_MS;
+  githubRateLimitResetByUser.set(userId, resetAtMs);
+  return resetAtMs;
+}
+
 // MARK: Public
 
 // Rename a file in staging (updates the filePath while keeping initialFilePath)
@@ -521,19 +688,12 @@ export const batchReadFiles = action({
       }
     }
 
+    const uniqueFilePaths = Array.from(new Set(args.filePaths));
     const MAX_FILE_SIZE = 100_000; // 100KB – skip large generated files
     const results: Array<{ path: string; content: string }> = [];
+    const misses: Array<{ path: string; sha: string }> = [];
 
-    // Lazily create Octokit only if we need to hit GitHub
-    let octokit: Octokit | null = null;
-    const getOctokit = () => {
-      if (!octokit) {
-        octokit = new Octokit({ auth: currentUser.githubAccessToken });
-      }
-      return octokit;
-    };
-
-    for (const filePath of args.filePaths) {
+    for (const filePath of uniqueFilePaths) {
       const entry = treeMap.get(filePath);
       if (!entry) continue; // file not in tree, skip
 
@@ -550,12 +710,37 @@ export const batchReadFiles = action({
         continue;
       }
 
+      misses.push({ path: filePath, sha: entry.sha });
+    }
+
+    // Lazily create Octokit only if we need to hit GitHub
+    let octokit: Octokit | null = null;
+    const getOctokit = () => {
+      if (!octokit) {
+        octokit = new Octokit({ auth: currentUser.githubAccessToken });
+      }
+      return octokit;
+    };
+
+    for (const miss of misses) {
+      const knownResetAtMs = getKnownRateLimitResetAtMs(currentUser._id);
+      if (knownResetAtMs !== null) {
+        console.warn(
+          "batchReadFiles: skipping uncached GitHub reads due to active rate-limit cooldown",
+          {
+            userId: currentUser._id,
+            resetAtMs: knownResetAtMs,
+          },
+        );
+        break;
+      }
+
       // 2. Fetch from GitHub (blob API by SHA – lightweight)
       try {
         const blob = await getOctokit().rest.git.getBlob({
           owner: vault.ghRepoOwner,
           repo: vault.ghRepoName,
-          file_sha: entry.sha,
+          file_sha: miss.sha,
         });
 
         const buffer = Buffer.from(blob.data.content, "base64");
@@ -567,23 +752,36 @@ export const batchReadFiles = action({
 
         // Cache in blob store for future reads
         if (buffer.byteLength <= INLINE_TEXT_MAX) {
-          const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
+          const ext = miss.path.split(".").pop()?.toLowerCase() ?? "";
           await ctx.runMutation(internal.gitOperations.saveFileBlob, {
             vaultId: vault._id,
-            sha: entry.sha,
+            sha: miss.sha,
             size: buffer.byteLength,
             text,
             storageId: undefined,
             ext,
             mime: "text/plain; charset=utf-8",
-            debugFilePath: filePath,
+            debugFilePath: miss.path,
           });
         }
 
-        results.push({ path: filePath, content: text });
+        results.push({ path: miss.path, content: text });
       } catch (error) {
+        if (isGitHubRateLimitError(error)) {
+          const resetAtMs = rememberRateLimitResetAtMs(currentUser._id, error);
+          console.warn(
+            "batchReadFiles: hit GitHub rate limit, stopping uncached reads for now",
+            {
+              userId: currentUser._id,
+              resetAtMs,
+              failedPath: miss.path,
+            },
+          );
+          break;
+        }
+
         // Skip files that fail to fetch (permissions, deleted, etc.)
-        console.warn(`batchReadFiles: failed to fetch ${filePath}:`, error);
+        console.warn(`batchReadFiles: failed to fetch ${miss.path}:`, error);
       }
     }
 
