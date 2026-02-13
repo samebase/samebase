@@ -21,7 +21,7 @@ test
 - **Styling**: Tailwind CSS + shadcn/ui components
 - **Editor**: ProseMark for rich text editing
 - **Monorepo**: Turborepo + PNPM
-- **Authentication**: Convex Auth
+- **Authentication**: Convex Authf
 - **GitHub API**: Direct repository integration
 
 ## Project Structure

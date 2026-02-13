@@ -7,7 +7,8 @@ simpleView:
     - convex/** # Backend functions
     - node_modules/** # Dependencies
     - dist/** # Build output
-    - "**/*.{ts,tsx,js,jsx,css,html}" # Source file extensions
+    - "**/*.{json,ts,tsx,js,jsx,css,html}" # Source file extensions
+    - tsconfig.base.json
 
 ---
 
