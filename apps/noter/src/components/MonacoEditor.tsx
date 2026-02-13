@@ -140,7 +140,12 @@ export function MonacoEditor({
   const isDark = effectiveTheme === "dark";
 
   // ---- Project files for import resolution ----
-  const { files: projectFiles } = useProjectFiles(vaultId, tree, treeSHA);
+  const { files: projectFiles } = useProjectFiles(
+    vaultId,
+    tree,
+    treeSHA,
+    filePath,
+  );
 
   // Store Monaco instance for use in effects
   // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents -- Monaco resolves to any from library types
