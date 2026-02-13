@@ -281,7 +281,7 @@ export function CommitStatus({
   const getCommitStatus = useAction(api.githubChecks.getCommitStatus);
   const { scheduleRetry, resetRetryBackoff } = useRetryBackoff(
     "sec",
-    [2, 2, 2, 2, 5, 10, 20, 30, 60],
+    [2, 3, 5, 8, 13, 21, 34, 55, 89],
   );
 
   useEffect(() => {
