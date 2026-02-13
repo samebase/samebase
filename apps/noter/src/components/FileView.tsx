@@ -367,10 +367,16 @@ function FileViewInner({
   const stagedFiles = useQuery(api.fileStaging.listStagedFiles, {
     vaultId: vault._id,
   });
-  const stagedNoterFile = useQuery(api.fileStaging.getByNewPath, {
-    vaultId: vault._id,
-    newPath: SIMPLE_VIEW_CONFIG_PATH,
-  });
+  const stagedNoterFile = useQuery(
+    api.fileStaging.getByNewPath,
+    {
+      vaultId: vault._id,
+      newPath: SIMPLE_VIEW_CONFIG_PATH,
+    },
+    {
+      dontCache: true,
+    },
+  );
   const [repositoryNoterContent, setRepositoryNoterContent] = useState<
     string | null
   >(null);
@@ -443,7 +449,6 @@ function FileViewInner({
     void loadRepositoryFileContent({
       repositoryFullName,
       filePath: SIMPLE_VIEW_CONFIG_PATH,
-      branch,
     })
       .then((result) => {
         if (cancelled) {
@@ -464,7 +469,6 @@ function FileViewInner({
   }, [
     didAttemptRepositoryNoterLoad,
     hasRepositoryNoterFile,
-    branch,
     loadRepositoryFileContent,
     repositoryFullName,
     stagedNoterFile,
@@ -494,17 +498,13 @@ function FileViewInner({
     }
   }, [simpleViewMode, simpleViewStorageKey]);
 
-  const noterConfigContent = useMemo(() => {
-    if (
-      stagedNoterFile !== undefined &&
-      stagedNoterFile !== null &&
-      !stagedNoterFile.fileDeleted
-    ) {
-      return stagedNoterFile.content;
-    }
-
-    return repositoryNoterContent;
-  }, [repositoryNoterContent, stagedNoterFile]);
+  const stagedNoterContent =
+    stagedNoterFile !== undefined &&
+    stagedNoterFile !== null &&
+    !stagedNoterFile.fileDeleted
+      ? stagedNoterFile.content
+      : null;
+  const noterConfigContent = stagedNoterContent ?? repositoryNoterContent;
 
   const simpleViewConfig = useMemo(
     () => parseSimpleViewConfig(noterConfigContent),
