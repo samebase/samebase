@@ -8,3 +8,7 @@
 
 - Add fast switch to different project in top left, I don't want to have to go to dashboard
   - Reference: https://vt.tiktok.com/ZSmjxL79p/
+
+## Development Environment
+
+- Add todo: openclaw inside dev container
