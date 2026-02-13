@@ -38,6 +38,13 @@
 - [ ] check if I discussed this idea: noter could approach darklang because the logs are automatically in convex
 - [ ] add idea regarding the jokes about older people don't know how to convert to pdf. But now with noter
 
+## Starter Provisioning Follow-ups
+- [ ] make `vaultActions.deleteVault` idempotent for missing docs to avoid repeated "Delete on nonexistent document ID" errors in logs
+- [ ] add explicit provisioning logs for `needsRepoPatch` and `existingDeployKeyId` during Netlify repo wiring
+- [ ] add integration test for Netlify provisioning order: site create -> env set -> repo patch -> skip manual trigger
+- [ ] add retry/backoff around deploy trigger/provisioning calls for transient Netlify/Convex API failures
+- [ ] define and document a Convex CLI dependency update cadence for the starter template
+
 ## Completed ✅
 - [x] when committing, commit all changed files
 - [x] allow deleting file/folder
