@@ -1,6 +1,7 @@
 # TODO
 
 ## High Priority
+- [ ] check out https://www.kernel.sh/?utm_source=theo - kernel might be useful
 - [ ] fix dark mode/light mode toggle - it's redirecting to /
 - [ ] make dragging nice for sidebar on left
 - [ ] add settings page for each vault and also for the whole app that allows auto commits
@@ -14,8 +15,6 @@
 - [ ] if new commit button appears, or actually, all previous requests get disabled, can only click last group
 - [ ] while waiting for tool, you can still talk with it but it will keep fresh in prompt that it's waiting for tool, no blocking
 - [ ] mcp server can be replaced by folder and file. If it's query it can be single expression of convex query. And write here a complex query, as a anonymous with no { ctx.db.query("messages").withIndex("by_vault", q => q.eq("vaultId", args.vaultId)).filter(q => q.and(q.gte(q.field("_creationTime"), args.since), q.or(q.eq(q.field("role"), "user"), q.eq(q.field("role"), "assistant")))).order("desc").take(50)
-- [ ] for markdown reads, return file size first and let agents decide whether to include full content in context
-- [ ] markdown optimization for agents: show headers/subheaders first, replace paragraph bodies with character counts plus section slugs, and let AI request full text only for selected sections
 - [ ] add link to changed files in commit. Also the name of the commit is displayed twice, both in text and in bubble of button
 - [ ] add questions at bottom of your messages, make them small, "yes", maybe, no. But the input is always open. That's the thing the input is never waiting. You can even instruct it to stop research
 - [ ] the fab is notm click able when sidebar opens. It should have knowledge that it's in the sidebar
@@ -29,21 +28,16 @@
 - [ ] add "todo" command functionality for AI assistant to update this file
 - [ ] add command "auto-push" "stop auto push" or similar to allows
 - [ ] use mermaid?
-- [ ] add fish-like aliases, or even better make this input behave like a fish terminal
-- [ ] in dev mode, simple terminal should show/accept the full command format: `noter "add todo or whatever paragraph"`
-- [ ] explore frontmatter-based settings in markdown (e.g. `noter.md`) as an alternative to JSON: LLM-readable, human-readable, and schema-validated into TypeScript objects
 - [ ] remove the "auto delete GitHub repo" option once repos move to the noter.md org flow
 - [ ] show actionable error when delete fails due to missing GitHub `delete_repo` scope, with a re-login CTA
 - [ ] When repository name already exists show better error
 
 ## Meta/Philosophy
 - [ ] the more our tooling for noter gets better (in terms of ai settings or integrations) the more our user's tooling gets better, since we use noter for building noter
-- [ ] treat chat as a terminal UX: user sends commands, system executes/actions, then returns clear output (like a shell loop)
 
 ## Ideas to Explore
 - [ ] check if I discussed this idea: noter could approach darklang because the logs are automatically in convex
 - [ ] add idea regarding the jokes about older people don't know how to convert to pdf. But now with noter
-- [ ] pot discuta cu Predeus ca Robolex sa fie dezvoltat pe noter.md; asta e o metoda buna si pentru juniori, pentru ca au acces la aceleasi posibilitati ca seniorii; faptul ca noter.md e facut in noter inseamna ca produsul e bun
 
 ## Starter Provisioning Follow-ups
 - [ ] make `vaultActions.deleteVault` idempotent for missing docs to avoid repeated "Delete on nonexistent document ID" errors in logs
