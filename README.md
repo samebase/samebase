@@ -6,7 +6,7 @@ Noter is a collaborative, GitHub-connected code editor built as a Turborepo mono
 
 - Real-time collaborative editing with CodeMirror + Convex synchronization
 - GitHub repository connection (`connectRepository`) for existing repos
-- New agent/repo creation (`createRepository`) for noter-managed vaults
+- New agent/repo creation (`createRepository`) for noter-managed vaults, seeded as a runnable starter in a single commit
 - Automatic infrastructure provisioning for new noter-managed vaults:
   - Convex project/deployment
   - Netlify site + environment wiring
@@ -21,6 +21,7 @@ Noter is a collaborative, GitHub-connected code editor built as a Turborepo mono
 
 - Auto infra provisioning is triggered only for newly created noter-managed vaults.
 - Connecting an existing GitHub repository does not auto-provision infra.
+- Starter seed source of truth is maintained in `apps/noter-starter-template` and exported to `apps/noter/convex/starterSeedManifest.generated.ts`.
 
 ## Tech Stack
 
@@ -38,7 +39,10 @@ Noter is a collaborative, GitHub-connected code editor built as a Turborepo mono
 ├── AGENTS.md
 ├── specs/
 ├── apps/
-│   └── noter/
+│   ├── noter/
+│   │   ├── convex/
+│   │   └── src/
+│   └── noter-starter-template/
 │       ├── convex/
 │       └── src/
 ├── package.json
@@ -56,9 +60,12 @@ Noter is a collaborative, GitHub-connected code editor built as a Turborepo mono
 
 ```bash
 pnpm install
-pnpm dev
-pnpm build
-pnpm lint
+pnpm dev           # noter app only (default filtered)
+pnpm build         # noter app only (default filtered)
+pnpm lint          # noter app only (default filtered)
+pnpm dev:starter
+pnpm build:starter
+pnpm lint:starter
 ```
 
 ### App commands (`apps/noter`)

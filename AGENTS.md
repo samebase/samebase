@@ -4,9 +4,10 @@ This file provides guidance to AI agents (Claude Code, Cursor, etc.) when workin
 
 ## Project Structure
 
-noter is a Turborepo monorepo (PNPM + Node 24) with a single app:
+noter is a Turborepo monorepo (PNPM + Node 24) with two apps:
 
 - **`apps/noter`**: React + Vite + Convex collaborative code editor with GitHub integration
+- **`apps/noter-starter-template`**: canonical seeded starter snapshots used by `vaultActions.createRepository`
 - Uses `@prosemark/core` from npm for markdown editing
 
 ## Session Bootstrap (Read Order)
@@ -15,13 +16,14 @@ When starting a fresh chat for implementation/debugging, read in this order:
 
 1. `AGENTS.md` (this file)
 2. `README.md` (product/dev overview)
-3. `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md` (vault infra lifecycle)
-4. `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md` (approval-first prod reads)
-5. `specs/001_CODESPACE_CONNECTION_SPEC.md` (codespace architecture)
-6. `apps/noter/convex/schema.ts` (source of truth for data model)
-7. `apps/noter/convex/vaultActions.ts` + `apps/noter/convex/infraProvisioning.ts` (vault creation + infra provisioning)
-8. `apps/noter/convex/chat.ts` + `apps/noter/convex/chatActions.ts` (chat + approval flows)
-9. `apps/noter/src/components/VaultDashboard.tsx` + `apps/noter/src/components/ChatFab.tsx` (user-visible controls)
+3. `apps/noter-starter-template/AGENTS.md` + `apps/noter-starter-template/scripts/export-template-manifest.mjs` (starter regeneration contract + manifest export)
+4. `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md` (vault infra lifecycle)
+5. `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md` (approval-first prod reads)
+6. `specs/001_CODESPACE_CONNECTION_SPEC.md` (codespace architecture)
+7. `apps/noter/convex/schema.ts` (source of truth for data model)
+8. `apps/noter/convex/vaultActions.ts` + `apps/noter/convex/infraProvisioning.ts` (vault creation + infra provisioning)
+9. `apps/noter/convex/chat.ts` + `apps/noter/convex/chatActions.ts` (chat + approval flows)
+10. `apps/noter/src/components/VaultDashboard.tsx` + `apps/noter/src/components/ChatFab.tsx` (user-visible controls)
 
 Low-signal/historical docs (do not treat as source of truth):
 - `LUMINA_PROJECT_ANALYSIS.md`
@@ -32,7 +34,10 @@ Low-signal/historical docs (do not treat as source of truth):
 ```bash
 # From root
 pnpm install          # Install dependencies
-pnpm dev              # Start development
+pnpm dev              # Start noter app development
+pnpm dev:starter      # Run starter template app explicitly
+pnpm build:starter    # Build starter template app explicitly
+pnpm lint:starter     # Lint starter template app explicitly
 
 # From apps/noter
 npm run dev           # Runs both frontend (Vite) and backend (Convex) in parallel
@@ -97,10 +102,11 @@ Use these commands to debug issues in Convex functions, check production logs, o
 
 ## Current Capability Snapshot (2026-02-13)
 
-- New vaults created via `vaultActions.createRepository` are `isNoterManaged: true` and now auto-schedule infra provisioning (`infraProvisioning.provisionVaultInfrastructure`).
+- New vaults created via `vaultActions.createRepository` are `isNoterManaged: true`, seed a runnable starter repo in one commit, and auto-schedule infra provisioning (`infraProvisioning.provisionVaultInfrastructure`).
 - Existing repos connected via `vaultActions.connectRepository` remain `isNoterManaged: false` and do **not** auto-provision infra.
 - Infrastructure retry is available from `vaultActions.retryInfrastructureProvisioning` and dashboard UI.
 - AI production reads are approval-first (proposal card -> explicit approve/reject -> audited execution).
+- Seed source of truth lives in `apps/noter-starter-template` root template files and exports to `apps/noter/convex/starterSeedManifest.generated.ts`.
 
 ## Code Style
 
