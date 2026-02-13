@@ -40,6 +40,7 @@
 ## Ideas to Explore
 - [ ] check if I discussed this idea: noter could approach darklang because the logs are automatically in convex
 - [ ] add idea regarding the jokes about older people don't know how to convert to pdf. But now with noter
+- [ ] pot discuta cu Predeus ca Robolex sa fie dezvoltat pe noter.md; asta e o metoda buna si pentru juniori, pentru ca au acces la aceleasi posibilitati ca seniorii; faptul ca noter.md e facut in noter inseamna ca produsul e bun
 
 ## Starter Provisioning Follow-ups
 - [ ] make `vaultActions.deleteVault` idempotent for missing docs to avoid repeated "Delete on nonexistent document ID" errors in logs
