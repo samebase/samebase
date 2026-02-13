@@ -61,6 +61,7 @@
     "diff": "^8.0.2",
     "isomorphic-git": "^1.33.0",
     "lucide-react": "^0.525.0",
+    "minimatch": "^10.2.0",
     "next-themes": "^0.3.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -68,6 +69,7 @@
     "resend": "^6.9.1",
     "tailwind-merge": "^2.3.0",
     "tailwindcss-animate": "^1.0.7",
+    "yaml": "^2.8.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {
