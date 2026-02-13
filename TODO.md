@@ -27,6 +27,7 @@
 - [ ] add "todo" command functionality for AI assistant to update this file
 - [ ] add command "auto-push" "stop auto push" or similar to allows
 - [ ] use mermaid?
+- [ ] explore frontmatter-based settings in markdown (e.g. `noter.md`) as an alternative to JSON: LLM-readable, human-readable, and schema-validated into TypeScript objects
 - [ ] remove the "auto delete GitHub repo" option once repos move to the noter.md org flow
 - [ ] show actionable error when delete fails due to missing GitHub `delete_repo` scope, with a re-login CTA
 - [ ] When repository name already exists show better error
