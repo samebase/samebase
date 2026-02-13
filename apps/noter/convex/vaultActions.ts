@@ -7,6 +7,10 @@ import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
 import { createInfraProviders } from "./infraProviders";
 import { toSafeRepoName } from "./repoName";
+import {
+  createStarterSeedGitClient,
+  seedRepositoryWithStarter,
+} from "./starterSeed";
 
 function isProviderNotFoundError(error: unknown): boolean {
   if (typeof error === "object" && error !== null) {
@@ -22,6 +26,24 @@ function isProviderNotFoundError(error: unknown): boolean {
 
   const message = error.message.toLowerCase();
   return message.includes("(404)") || message.includes("not found");
+}
+
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
+
+function readDefaultBranch(repoData: unknown): string {
+  if (typeof repoData !== "object" || repoData === null) {
+    return "main";
+  }
+  const value = Reflect.get(repoData, "default_branch");
+  if (typeof value === "string" && value.length > 0) {
+    return value;
+  }
+  return "main";
 }
 
 export const connectRepository = action({
@@ -134,41 +156,52 @@ export const createRepository = action({
 
     const repo = await octokit.rest.repos.createForAuthenticatedUser({
       name: repoName,
-      auto_init: true,
+      auto_init: false,
       private: args.private ?? true,
       description: args.description ?? undefined,
     });
 
     const ownerName = repo.data.owner.login;
     const repoFinalName = repo.data.name;
-    const defaultBranch = repo.data.default_branch;
+    const defaultBranch = readDefaultBranch(repo.data);
 
-    const agentsMd = `# AGENTS.md
+    try {
+      await seedRepositoryWithStarter({
+        client: createStarterSeedGitClient(octokit),
+        owner: ownerName,
+        repo: repoFinalName,
+        defaultBranch,
+      });
+    } catch (error) {
+      const seedErrorMessage = toErrorMessage(error);
+      let cleanupErrorMessage: string | undefined;
 
-This file defines the behavior, tools, and workflows for your agent.
+      console.error("seed:failed", {
+        repo: `${ownerName}/${repoFinalName}`,
+        message: seedErrorMessage,
+      });
 
-## Purpose
-Describe what this agent does and who it's for.
+      try {
+        await octokit.rest.repos.delete({
+          owner: ownerName,
+          repo: repoFinalName,
+        });
+      } catch (cleanupError) {
+        cleanupErrorMessage = toErrorMessage(cleanupError);
+        console.error("seed:cleanup_failed", {
+          repo: `${ownerName}/${repoFinalName}`,
+          message: cleanupErrorMessage,
+        });
+      }
 
-## Behavior
-- Tone and style
-- Boundaries and safety notes
+      if (cleanupErrorMessage) {
+        throw new Error(
+          `Failed to seed starter repository: ${seedErrorMessage}. Cleanup also failed: ${cleanupErrorMessage}`,
+        );
+      }
 
-## Tools
-- List available tools and APIs
-
-## Workflows
-- Common tasks and step-by-step flows
-`;
-
-    await octokit.rest.repos.createOrUpdateFileContents({
-      owner: ownerName,
-      repo: repoFinalName,
-      path: "AGENTS.md",
-      message: "chore: add AGENTS.md",
-      content: Buffer.from(agentsMd, "utf8").toString("base64"),
-      branch: defaultBranch,
-    });
+      throw new Error(`Failed to seed starter repository: ${seedErrorMessage}`);
+    }
 
     const tree = await octokit.rest.git.getTree({
       owner: ownerName,
