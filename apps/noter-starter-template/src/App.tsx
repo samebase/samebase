@@ -2,6 +2,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import "./App.css";
 
@@ -85,19 +86,28 @@ function App() {
           </form>
 
           <ul className="space-y-2">
-            {todos.map((todo) => (
-              <li key={todo._id}>
-                <button
-                  type="button"
-                  onClick={() => void toggleTodo({ id: todo._id })}
-                  className="w-full rounded-md border px-3 py-2 text-left transition hover:bg-secondary"
-                >
-                  <span className={todo.done ? "line-through text-muted-foreground" : ""}>
-                    {todo.text}
-                  </span>
-                </button>
-              </li>
-            ))}
+            {todos.map((todo) => {
+              const checkboxId = `todo-${todo._id}`;
+              return (
+                <li key={todo._id}>
+                  <div className="flex items-center gap-3 rounded-md border px-3 py-2 transition hover:bg-secondary/50">
+                    <Checkbox
+                      id={checkboxId}
+                      checked={todo.done}
+                      onCheckedChange={() => void toggleTodo({ id: todo._id })}
+                    />
+                    <label
+                      htmlFor={checkboxId}
+                      className={`flex-1 cursor-pointer text-sm ${
+                        todo.done ? "line-through text-muted-foreground" : ""
+                      }`}
+                    >
+                      {todo.text}
+                    </label>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </CardContent>
       </Card>
