@@ -211,6 +211,8 @@ export const getUserVaults = query({
       lastEditTime: v.optional(v.number()),
       state: v.union(v.literal("copying_files"), v.literal("ready")),
       isNoterManaged: v.boolean(),
+      hasConvexProvision: v.boolean(),
+      hasNetlifyProvision: v.boolean(),
       infraState: v.union(
         v.literal("not_started"),
         v.literal("provisioning"),
@@ -255,6 +257,10 @@ export const getUserVaults = query({
           .query("vaultInfrastructure")
           .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
           .first();
+        const hasConvexProvision =
+          typeof infra?.convexProjectId === "string" ||
+          typeof infra?.convexDeploymentName === "string";
+        const hasNetlifyProvision = typeof infra?.netlifySiteId === "string";
 
         return {
           _id: vault._id,
@@ -266,6 +272,8 @@ export const getUserVaults = query({
           lastEditTime,
           state: vault.state,
           isNoterManaged: vault.isNoterManaged ?? false,
+          hasConvexProvision,
+          hasNetlifyProvision,
           infraState: vault.infraState ?? "not_started",
           infraProductionUrl:
             infra?.netlifyProductionUrl ?? infra?.netlifyDefaultUrl,
@@ -288,6 +296,18 @@ export const getById = internalQuery({
   },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.id);
+  },
+});
+
+export const getInfrastructureByVaultId = internalQuery({
+  args: {
+    vaultId: v.id("vaults"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("vaultInfrastructure")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .first();
   },
 });
 

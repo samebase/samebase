@@ -93,8 +93,12 @@ export function VaultDashboard() {
     id: Id<"vaults">;
     repositoryFullName: string;
     isNoterManaged: boolean;
+    hasConvexProvision: boolean;
+    hasNetlifyProvision: boolean;
   } | null>(null);
   const [removeGithubRepo, setRemoveGithubRepo] = useState(false);
+  const [removeConvexProvision, setRemoveConvexProvision] = useState(false);
+  const [removeNetlifyProvision, setRemoveNetlifyProvision] = useState(false);
   const [newAgentName, setNewAgentName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -113,6 +117,15 @@ export function VaultDashboard() {
   const stagedChangesCount = selectedVault?.fileCount ?? 0;
   const hasStagedChanges = stagedChangesCount > 0;
 
+  const resetDeleteDialogState = () => {
+    setVaultToDelete(null);
+    setRemoveGithubRepo(false);
+    setRemoveConvexProvision(false);
+    setRemoveNetlifyProvision(false);
+    setCommitError(null);
+    setDidAttemptCommit(false);
+  };
+
   const handleRemoveVault = async () => {
     if (!vaultToDelete || isDeleting || isCommitting) return;
 
@@ -123,11 +136,16 @@ export function VaultDashboard() {
         removeGithubRepo: vaultToDelete.isNoterManaged
           ? removeGithubRepo
           : false,
+        removeConvexProvision:
+          vaultToDelete.isNoterManaged && vaultToDelete.hasConvexProvision
+          ? removeConvexProvision
+          : false,
+        removeNetlifyProvision:
+          vaultToDelete.isNoterManaged && vaultToDelete.hasNetlifyProvision
+          ? removeNetlifyProvision
+          : false,
       });
-      setVaultToDelete(null);
-      setRemoveGithubRepo(false);
-      setCommitError(null);
-      setDidAttemptCommit(false);
+      resetDeleteDialogState();
     } catch (error) {
       console.error("Failed to remove vault:", error);
     } finally {
@@ -392,8 +410,16 @@ export function VaultDashboard() {
                       id: vault._id,
                       repositoryFullName: vault.repositoryFullName,
                       isNoterManaged: vault.isNoterManaged,
+                      hasConvexProvision: vault.hasConvexProvision,
+                      hasNetlifyProvision: vault.hasNetlifyProvision,
                     });
                     setRemoveGithubRepo(vault.isNoterManaged);
+                    setRemoveConvexProvision(
+                      vault.isNoterManaged && vault.hasConvexProvision,
+                    );
+                    setRemoveNetlifyProvision(
+                      vault.isNoterManaged && vault.hasNetlifyProvision,
+                    );
                     setCommitError(null);
                     setDidAttemptCommit(false);
                   }}
@@ -412,10 +438,7 @@ export function VaultDashboard() {
         open={!!vaultToDelete}
         onOpenChange={() => {
           if (isDeleting || isCommitting) return;
-          setVaultToDelete(null);
-          setRemoveGithubRepo(false);
-          setCommitError(null);
-          setDidAttemptCommit(false);
+          resetDeleteDialogState();
         }}
       >
         <DialogContent>
@@ -456,6 +479,60 @@ export function VaultDashboard() {
                   )}
                 </label>
               </div>
+              {vaultToDelete.hasConvexProvision && (
+                <div className="flex items-start gap-2">
+                  <input
+                    id="remove-convex-provision"
+                    type="checkbox"
+                    checked={removeConvexProvision}
+                    onChange={(e) =>
+                      setRemoveConvexProvision(e.target.checked)
+                    }
+                    disabled={
+                      !vaultToDelete.isNoterManaged || isDeleting || isCommitting
+                    }
+                    className="mt-0.5 h-4 w-4 rounded border border-input"
+                  />
+                  <label
+                    htmlFor="remove-convex-provision"
+                    className="text-sm text-muted-foreground"
+                  >
+                    Also remove Convex project/deployment
+                    {!vaultToDelete.isNoterManaged && (
+                      <div className="text-xs text-muted-foreground">
+                        Only available for infrastructure provisioned by Noter.
+                      </div>
+                    )}
+                  </label>
+                </div>
+              )}
+              {vaultToDelete.hasNetlifyProvision && (
+                <div className="flex items-start gap-2">
+                  <input
+                    id="remove-netlify-provision"
+                    type="checkbox"
+                    checked={removeNetlifyProvision}
+                    onChange={(e) =>
+                      setRemoveNetlifyProvision(e.target.checked)
+                    }
+                    disabled={
+                      !vaultToDelete.isNoterManaged || isDeleting || isCommitting
+                    }
+                    className="mt-0.5 h-4 w-4 rounded border border-input"
+                  />
+                  <label
+                    htmlFor="remove-netlify-provision"
+                    className="text-sm text-muted-foreground"
+                  >
+                    Also remove Netlify site
+                    {!vaultToDelete.isNoterManaged && (
+                      <div className="text-xs text-muted-foreground">
+                        Only available for infrastructure provisioned by Noter.
+                      </div>
+                    )}
+                  </label>
+                </div>
+              )}
               {commitError && (
                 <div className="text-sm text-red-600">{commitError}</div>
               )}
@@ -472,10 +549,7 @@ export function VaultDashboard() {
               variant="outline"
               onClick={() => {
                 if (isDeleting || isCommitting) return;
-                setVaultToDelete(null);
-                setRemoveGithubRepo(false);
-                setCommitError(null);
-                setDidAttemptCommit(false);
+                resetDeleteDialogState();
               }}
               disabled={isDeleting || isCommitting}
             >

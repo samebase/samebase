@@ -5,7 +5,24 @@ import { action } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
+import { createInfraProviders } from "./infraProviders";
 import { toSafeRepoName } from "./repoName";
+
+function isProviderNotFoundError(error: unknown): boolean {
+  if (typeof error === "object" && error !== null) {
+    const status = Reflect.get(error, "status");
+    if (typeof status === "number" && status === 404) {
+      return true;
+    }
+  }
+
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  return message.includes("(404)") || message.includes("not found");
+}
 
 export const connectRepository = action({
   args: {
@@ -222,6 +239,8 @@ export const deleteVault = action({
   args: {
     vaultId: v.id("vaults"),
     removeGithubRepo: v.optional(v.boolean()),
+    removeConvexProvision: v.optional(v.boolean()),
+    removeNetlifyProvision: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -235,8 +254,66 @@ export const deleteVault = action({
       throw new Error("Vault not found");
     }
 
+    const infrastructure = await ctx.runQuery(
+      internal.vault.getInfrastructureByVaultId,
+      {
+        vaultId: args.vaultId,
+      },
+    );
+
+    const shouldRemoveNetlifyProvision =
+      args.removeNetlifyProvision === true &&
+      vault.isNoterManaged === true &&
+      typeof infrastructure?.netlifySiteId === "string";
+    const shouldRemoveConvexProvision =
+      args.removeConvexProvision === true &&
+      vault.isNoterManaged === true &&
+      (typeof infrastructure?.convexProjectId === "string" ||
+        typeof infrastructure?.convexDeploymentName === "string");
     const shouldRemoveRepo =
       args.removeGithubRepo === true && vault.isNoterManaged === true;
+
+    if (shouldRemoveNetlifyProvision || shouldRemoveConvexProvision) {
+      const providers = createInfraProviders();
+
+      if (shouldRemoveNetlifyProvision) {
+        const netlifySiteId = infrastructure.netlifySiteId;
+        if (typeof netlifySiteId === "string") {
+          try {
+            await providers.netlify.request(
+              `/sites/${encodeURIComponent(netlifySiteId)}`,
+              "DELETE",
+            );
+          } catch (error) {
+            if (!isProviderNotFoundError(error)) {
+              throw error;
+            }
+          }
+        }
+      }
+
+      if (shouldRemoveConvexProvision) {
+        const convexProjectId = infrastructure.convexProjectId;
+        const convexDeploymentName = infrastructure.convexDeploymentName;
+        try {
+          if (typeof convexProjectId === "string") {
+            await providers.convex.request(
+              `/projects/${encodeURIComponent(convexProjectId)}/delete`,
+              "POST",
+            );
+          } else if (typeof convexDeploymentName === "string") {
+            await providers.convex.request(
+              `/deployments/${encodeURIComponent(convexDeploymentName)}/delete`,
+              "POST",
+            );
+          }
+        } catch (error) {
+          if (!isProviderNotFoundError(error)) {
+            throw error;
+          }
+        }
+      }
+    }
 
     if (shouldRemoveRepo) {
       const user = await ctx.runQuery(internal.users.getById, {

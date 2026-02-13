@@ -1,5 +1,5 @@
 type ConvexRequestMethod = "GET" | "POST";
-type NetlifyRequestMethod = "GET" | "POST" | "PATCH";
+type NetlifyRequestMethod = "GET" | "POST" | "PATCH" | "DELETE";
 type ProviderName = "Convex" | "Netlify";
 
 export interface ConvexManagementProvider {
