@@ -102,6 +102,20 @@ Common endpoints:
     inputDisplayKey: "maxEntries",
   },
   {
+    name: "request_convex_projects_read",
+    description:
+      "Request approval to list Convex projects for the configured team. This tool only creates an approval proposal and does not execute direct reads.",
+    uiDescription: "Propose Convex project inventory read (approval required)",
+    inputDisplayKey: "limit",
+  },
+  {
+    name: "request_netlify_projects_read",
+    description:
+      "Request approval to list Netlify sites for the configured team. This tool only creates an approval proposal and does not execute direct reads.",
+    uiDescription: "Propose Netlify project inventory read (approval required)",
+    inputDisplayKey: "limit",
+  },
+  {
     name: "request_convex_data_read",
     description:
       "Request approval to read a limited sample from allowed Convex tables. This tool never performs direct production data reads by itself.",

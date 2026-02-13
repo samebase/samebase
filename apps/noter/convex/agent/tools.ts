@@ -319,7 +319,12 @@ async function executeGithubApi(
 
 function buildProdReadSummary(args: {
   provider: "convex" | "netlify";
-  resourceKind: "deployment_status" | "logs" | "data_query";
+  resourceKind:
+    | "deployment_status"
+    | "logs"
+    | "data_query"
+    | "project_inventory"
+    | "site_inventory";
   scope: "vault" | "global";
 }): string {
   const provider = args.provider === "convex" ? "Convex" : "Netlify";
@@ -328,7 +333,11 @@ function buildProdReadSummary(args: {
       ? "deployment status"
       : args.resourceKind === "logs"
         ? "logs"
-        : "data sample";
+        : args.resourceKind === "data_query"
+          ? "data sample"
+          : args.resourceKind === "project_inventory"
+            ? "project inventory"
+            : "site inventory";
   const scope = args.scope === "vault" ? "this vault" : "global scope";
   return `I need your approval before reading ${provider} ${resource} for ${scope}.`;
 }
@@ -346,7 +355,12 @@ async function executeProdReadRequest(
   input: {
     scope: "vault" | "global";
     provider: "convex" | "netlify";
-    resourceKind: "deployment_status" | "logs" | "data_query";
+    resourceKind:
+      | "deployment_status"
+      | "logs"
+      | "data_query"
+      | "project_inventory"
+      | "site_inventory";
     toolName: string;
     params: Record<string, unknown>;
     allowRawFallback?: boolean;
@@ -439,6 +453,38 @@ async function executeRequestNetlifyLogsRead(
       ...(typeof input.maxEntries === "number"
         ? { maxEntries: input.maxEntries }
         : {}),
+    },
+    allowRawFallback: input.allowRawFallback,
+  });
+}
+
+async function executeRequestConvexProjectsRead(
+  toolCtx: ToolContext,
+  input: { limit?: number; allowRawFallback?: boolean },
+): Promise<string> {
+  return await executeProdReadRequest(toolCtx, {
+    scope: "global",
+    provider: "convex",
+    resourceKind: "project_inventory",
+    toolName: "request_convex_projects_read",
+    params: {
+      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
+    },
+    allowRawFallback: input.allowRawFallback,
+  });
+}
+
+async function executeRequestNetlifyProjectsRead(
+  toolCtx: ToolContext,
+  input: { limit?: number; allowRawFallback?: boolean },
+): Promise<string> {
+  return await executeProdReadRequest(toolCtx, {
+    scope: "global",
+    provider: "netlify",
+    resourceKind: "site_inventory",
+    toolName: "request_netlify_projects_read",
+    params: {
+      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
     },
     allowRawFallback: input.allowRawFallback,
   });
@@ -653,6 +699,52 @@ export function createTools(toolCtx: ToolContext) {
     },
   );
 
+  const requestConvexProjectsRead = tool(
+    async (input) => {
+      return await executeRequestConvexProjectsRead(toolCtx, input);
+    },
+    {
+      name: "request_convex_projects_read",
+      description: catalogDescription("request_convex_projects_read"),
+      schema: z.object({
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe("Maximum projects to include"),
+        allowRawFallback: z
+          .boolean()
+          .optional()
+          .describe("In owner mode, allow explicit raw payload fallback"),
+      }),
+    },
+  );
+
+  const requestNetlifyProjectsRead = tool(
+    async (input) => {
+      return await executeRequestNetlifyProjectsRead(toolCtx, input);
+    },
+    {
+      name: "request_netlify_projects_read",
+      description: catalogDescription("request_netlify_projects_read"),
+      schema: z.object({
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe("Maximum sites to include"),
+        allowRawFallback: z
+          .boolean()
+          .optional()
+          .describe("In owner mode, allow explicit raw payload fallback"),
+      }),
+    },
+  );
+
   const requestConvexDataRead = tool(
     async (input) => {
       return await executeRequestConvexDataRead(toolCtx, input);
@@ -692,6 +784,8 @@ export function createTools(toolCtx: ToolContext) {
     requestConvexLogsRead,
     requestNetlifyStatusRead,
     requestNetlifyLogsRead,
+    requestConvexProjectsRead,
+    requestNetlifyProjectsRead,
     requestConvexDataRead,
     commitAndPush,
   ];

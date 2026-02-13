@@ -2,6 +2,12 @@ import { Infer, v } from "convex/values";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import {
+  createInfraProviders,
+  getRequiredEnv,
+  type ConvexManagementProvider,
+  type NetlifyManagementProvider,
+} from "./infraProviders";
 
 const PROVISIONING_STALE_MS = 10 * 60 * 1000;
 
@@ -39,18 +45,6 @@ type InfraPatch = Infer<typeof infraPatchValidator>;
 
 type JsonRecord = Record<string, unknown>;
 
-class ApiError extends Error {
-  status: number;
-  body: string;
-
-  constructor(message: string, status: number, body: string) {
-    super(message);
-    this.name = "ApiError";
-    this.status = status;
-    this.body = body;
-  }
-}
-
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -87,97 +81,6 @@ function vaultSuffix(vaultId: string): string {
   return alnumOnly.slice(-6).toLowerCase() || "vault";
 }
 
-function getEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
-
-function isProvisioningEnabled(): boolean {
-  return process.env.AUTO_INFRA_PROVISIONING_ENABLED === "true";
-}
-
-async function parseResponseBody(response: Response): Promise<unknown> {
-  if (response.status === 204) {
-    return null;
-  }
-
-  const contentType = response.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
-    try {
-      return await response.json();
-    } catch {
-      return null;
-    }
-  }
-
-  try {
-    return await response.text();
-  } catch {
-    return null;
-  }
-}
-
-async function convexApiRequest(
-  token: string,
-  path: string,
-  method: "GET" | "POST",
-  body?: unknown,
-): Promise<unknown> {
-  const response = await fetch(`https://api.convex.dev/v1${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const payload = await parseResponseBody(response);
-    const payloadText =
-      typeof payload === "string" ? payload : JSON.stringify(payload);
-    throw new ApiError(
-      `Convex API request failed (${response.status}) for ${path}`,
-      response.status,
-      payloadText,
-    );
-  }
-
-  return await parseResponseBody(response);
-}
-
-async function netlifyApiRequest(
-  token: string,
-  path: string,
-  method: "GET" | "POST" | "PATCH",
-  body?: unknown,
-): Promise<unknown> {
-  const response = await fetch(`https://api.netlify.com/api/v1${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const payload = await parseResponseBody(response);
-    const payloadText =
-      typeof payload === "string" ? payload : JSON.stringify(payload);
-    throw new ApiError(
-      `Netlify API request failed (${response.status}) for ${path}`,
-      response.status,
-      payloadText,
-    );
-  }
-
-  return await parseResponseBody(response);
-}
-
 function parseDeployKeyIdentifier(deployKey: string): string {
   const pipeIdx = deployKey.indexOf("|");
   if (pipeIdx === -1) {
@@ -199,7 +102,7 @@ type ConvexProvisionResult = {
 
 async function ensureConvexResources(args: {
   teamId: string;
-  token: string;
+  convexProvider: ConvexManagementProvider;
   owner: string;
   repo: string;
   vaultId: string;
@@ -217,8 +120,7 @@ async function ensureConvexResources(args: {
   let projectId = args.existing.projectId;
   let projectSlug = args.existing.projectSlug;
 
-  const projectsRaw = await convexApiRequest(
-    args.token,
+  const projectsRaw = await args.convexProvider.request(
     `/teams/${encodeURIComponent(args.teamId)}/list_projects`,
     "GET",
   );
@@ -240,8 +142,7 @@ async function ensureConvexResources(args: {
   let deploymentUrl = args.existing.cloudUrl;
 
   if (!projectId) {
-    const createResponseRaw = await convexApiRequest(
-      args.token,
+    const createResponseRaw = await args.convexProvider.request(
       `/teams/${encodeURIComponent(args.teamId)}/create_project`,
       "POST",
       {
@@ -255,8 +156,7 @@ async function ensureConvexResources(args: {
     deploymentName = readString(createResponse, "deploymentName");
     deploymentUrl = readString(createResponse, "deploymentUrl");
 
-    const refreshedProjectsRaw = await convexApiRequest(
-      args.token,
+    const refreshedProjectsRaw = await args.convexProvider.request(
       `/teams/${encodeURIComponent(args.teamId)}/list_projects`,
       "GET",
     );
@@ -277,8 +177,7 @@ async function ensureConvexResources(args: {
   }
 
   if (!deploymentName) {
-    const deploymentsRaw = await convexApiRequest(
-      args.token,
+    const deploymentsRaw = await args.convexProvider.request(
       `/projects/${encodeURIComponent(projectId)}/list_deployments`,
       "GET",
     );
@@ -296,8 +195,7 @@ async function ensureConvexResources(args: {
   }
 
   if (!deploymentName) {
-    const createdDeploymentRaw = await convexApiRequest(
-      args.token,
+    const createdDeploymentRaw = await args.convexProvider.request(
       `/projects/${encodeURIComponent(projectId)}/create_deployment`,
       "POST",
       {
@@ -322,8 +220,7 @@ async function ensureConvexResources(args: {
 
   const siteUrl = args.existing.siteUrl ?? `https://${deploymentName}.convex.site`;
 
-  const deployKeyRaw = await convexApiRequest(
-    args.token,
+  const deployKeyRaw = await args.convexProvider.request(
     `/deployments/${encodeURIComponent(deploymentName)}/create_deploy_key`,
     "POST",
     {
@@ -358,7 +255,7 @@ type NetlifyProvisionResult = {
 };
 
 async function setNetlifyEnvironmentVariables(args: {
-  token: string;
+  netlifyProvider: NetlifyManagementProvider;
   accountId: string;
   siteId: string;
   vars: Record<string, string>;
@@ -375,8 +272,7 @@ async function setNetlifyEnvironmentVariables(args: {
     is_secret: key.includes("KEY") || key.includes("TOKEN"),
   }));
 
-  await netlifyApiRequest(
-    args.token,
+  await args.netlifyProvider.request(
     `/accounts/${encodeURIComponent(args.accountId)}/env?site_id=${encodeURIComponent(args.siteId)}`,
     "POST",
     envVarsPayload,
@@ -384,7 +280,7 @@ async function setNetlifyEnvironmentVariables(args: {
 }
 
 async function ensureNetlifyResources(args: {
-  token: string;
+  netlifyProvider: NetlifyManagementProvider;
   teamSlug: string;
   owner: string;
   repo: string;
@@ -411,8 +307,7 @@ async function ensureNetlifyResources(args: {
   let siteResponse: JsonRecord | null = null;
 
   if (args.existing.siteId) {
-    const existingSiteRaw = await netlifyApiRequest(
-      args.token,
+    const existingSiteRaw = await args.netlifyProvider.request(
       `/sites/${encodeURIComponent(args.existing.siteId)}`,
       "GET",
     );
@@ -420,8 +315,7 @@ async function ensureNetlifyResources(args: {
   }
 
   if (!siteResponse) {
-    const sitesRaw = await netlifyApiRequest(
-      args.token,
+    const sitesRaw = await args.netlifyProvider.request(
       `/${encodeURIComponent(args.teamSlug)}/sites?name=${encodeURIComponent(siteName)}`,
       "GET",
     );
@@ -437,8 +331,7 @@ async function ensureNetlifyResources(args: {
   }
 
   if (!siteResponse) {
-    const createSiteRaw = await netlifyApiRequest(
-      args.token,
+    const createSiteRaw = await args.netlifyProvider.request(
       `/${encodeURIComponent(args.teamSlug)}/sites?configure_dns=false`,
       "POST",
       {
@@ -464,7 +357,7 @@ async function ensureNetlifyResources(args: {
   }
 
   await setNetlifyEnvironmentVariables({
-    token: args.token,
+    netlifyProvider: args.netlifyProvider,
     accountId,
     siteId,
     vars: {
@@ -474,8 +367,7 @@ async function ensureNetlifyResources(args: {
     },
   });
 
-  const hooksRaw = await netlifyApiRequest(
-    args.token,
+  const hooksRaw = await args.netlifyProvider.request(
     `/sites/${encodeURIComponent(siteId)}/build_hooks`,
     "GET",
   );
@@ -491,8 +383,7 @@ async function ensureNetlifyResources(args: {
   }
 
   if (!buildHookId) {
-    const hookRaw = await netlifyApiRequest(
-      args.token,
+    const hookRaw = await args.netlifyProvider.request(
       `/sites/${encodeURIComponent(siteId)}/build_hooks`,
       "POST",
       {
@@ -505,8 +396,7 @@ async function ensureNetlifyResources(args: {
   }
 
   try {
-    await netlifyApiRequest(
-      args.token,
+    await args.netlifyProvider.request(
       `/sites/${encodeURIComponent(siteId)}/builds?branch=${encodeURIComponent(args.defaultBranch)}`,
       "POST",
       {},
@@ -515,8 +405,7 @@ async function ensureNetlifyResources(args: {
     console.warn("Netlify build trigger failed", error);
   }
 
-  const refreshedSiteRaw = await netlifyApiRequest(
-    args.token,
+  const refreshedSiteRaw = await args.netlifyProvider.request(
     `/sites/${encodeURIComponent(siteId)}`,
     "GET",
   );
@@ -697,10 +586,6 @@ export const provisionVaultInfrastructure = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    if (!isProvisioningEnabled()) {
-      return null;
-    }
-
     const vault = await ctx.runQuery(internal.vault.getById, {
       id: args.vaultId,
     });
@@ -737,15 +622,14 @@ export const provisionVaultInfrastructure = internalAction({
     let netlifySuccess = false;
 
     try {
-      const convexToken = getEnv("CONVEX_MANAGEMENT_TOKEN");
-      const convexTeamId = getEnv("CONVEX_TEAM_ID");
-      const netlifyToken = getEnv("NETLIFY_ACCESS_TOKEN");
-      const netlifyTeamSlug = getEnv("NETLIFY_TEAM_ID");
+      const providers = createInfraProviders();
+      const convexTeamId = getRequiredEnv("CONVEX_TEAM_ID");
+      const netlifyTeamSlug = getRequiredEnv("NETLIFY_TEAM_ID");
       const defaultBranch = process.env.INFRA_DEFAULT_BRANCH ?? "main";
 
       const convex = await ensureConvexResources({
         teamId: convexTeamId,
-        token: convexToken,
+        convexProvider: providers.convex,
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
         vaultId: args.vaultId,
@@ -777,7 +661,7 @@ export const provisionVaultInfrastructure = internalAction({
       });
 
       const netlify = await ensureNetlifyResources({
-        token: netlifyToken,
+        netlifyProvider: providers.netlify,
         teamSlug: netlifyTeamSlug,
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,

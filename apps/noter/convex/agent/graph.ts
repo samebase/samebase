@@ -24,11 +24,18 @@ const PROD_READ_PROPOSAL_SCHEMA = z.object({
   requestId: z.string(),
   scope: z.enum(["vault", "global"]),
   provider: z.enum(["convex", "netlify"]),
-  resourceKind: z.enum(["deployment_status", "logs", "data_query"]),
+  resourceKind: z.enum([
+    "deployment_status",
+    "logs",
+    "data_query",
+    "project_inventory",
+    "site_inventory",
+  ]),
   toolName: z.string(),
   paramsPreview: z.string(),
   summary: z.string(),
 });
+type ProdReadProposal = z.infer<typeof PROD_READ_PROPOSAL_SCHEMA>;
 
 function extractTextContent(content: unknown): string {
   if (typeof content === "string") return content;
@@ -59,15 +66,7 @@ export interface GraphResult {
   /** If commit_and_push was called, the commit message */
   commitProposal?: string;
   /** If a production read was requested, proposal payload */
-  prodReadProposal?: {
-    requestId: string;
-    scope: "vault" | "global";
-    provider: "convex" | "netlify";
-    resourceKind: "deployment_status" | "logs" | "data_query";
-    toolName: string;
-    paramsPreview: string;
-    summary: string;
-  };
+  prodReadProposal?: ProdReadProposal;
   /** Log of tool calls made during this invocation */
   toolActivity: Array<{ tool: string; input: unknown }>;
 }

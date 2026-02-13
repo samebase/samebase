@@ -88,7 +88,12 @@ type ProdReadProposal = {
   requestId: Id<"aiProdAccessRequests">;
   scope: "vault" | "global";
   provider: "convex" | "netlify";
-  resourceKind: "deployment_status" | "logs" | "data_query";
+  resourceKind:
+    | "deployment_status"
+    | "logs"
+    | "data_query"
+    | "project_inventory"
+    | "site_inventory";
   toolName: string;
   paramsPreview: string;
   status?: "proposed" | "approved" | "rejected" | "executed" | "failed" | "expired";
@@ -100,7 +105,12 @@ type ProdReadResult = {
   type: "prod_read_result";
   requestId: Id<"aiProdAccessRequests">;
   provider: "convex" | "netlify";
-  resourceKind: "deployment_status" | "logs" | "data_query";
+  resourceKind:
+    | "deployment_status"
+    | "logs"
+    | "data_query"
+    | "project_inventory"
+    | "site_inventory";
   endpoint?: string;
   redactionLevel?: "default" | "strict" | "raw_fallback";
   rowCount?: number;
@@ -383,7 +393,9 @@ function CommitProposalCard({
 function renderProdReadLabel(resourceKind: ProdReadProposal["resourceKind"]) {
   if (resourceKind === "deployment_status") return "Deployment status";
   if (resourceKind === "logs") return "Logs";
-  return "Data sample";
+  if (resourceKind === "data_query") return "Data sample";
+  if (resourceKind === "project_inventory") return "Project inventory";
+  return "Site inventory";
 }
 
 function ProdReadProposalCard({

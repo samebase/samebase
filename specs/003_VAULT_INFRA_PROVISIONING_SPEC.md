@@ -4,7 +4,7 @@
 - Status: Draft for implementation
 - Owner: Noter backend/frontend
 - Last updated: 2026-02-12
-- Related plan: `specs/VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
+- Related plan: `specs/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 
 ## Summary
 When a noter-managed vault is created, Noter must automatically provision and track infrastructure for that vault:
@@ -175,7 +175,6 @@ vaultDomains: defineTable({
 
 ## Runtime Configuration
 Required environment variables:
-- `AUTO_INFRA_PROVISIONING_ENABLED` (`"true" | "false"`)
 - `CONVEX_MANAGEMENT_TOKEN`
 - `CONVEX_TEAM_ID`
 - `NETLIFY_ACCESS_TOKEN`
@@ -342,10 +341,14 @@ Update vault card to show:
 - Avoid writing deploy key plaintext to DB; persist only identifier/fingerprint if available.
 
 ## Rollout Plan
-1. Ship schema and backend provider modules behind `AUTO_INFRA_PROVISIONING_ENABLED=false`.
+1. Ship schema and backend provider modules.
 2. Enable in dev for noter-managed vaults.
 3. Enable in prod for admin account only.
 4. Enable for all noter-managed vault creation.
+
+## MVP Credential Note
+- For MVP speed, Convex dev/prod deployments share the same `CONVEX_MANAGEMENT_TOKEN` and `CONVEX_TEAM_ID`.
+- For MVP speed, Convex dev/prod deployments share the same `NETLIFY_ACCESS_TOKEN`.
 
 ## Migration Plan
 - Existing vaults get defaults:
@@ -358,7 +361,7 @@ Update vault card to show:
 - Infra records and main-domain records are written for successful runs.
 - Partial failures are recoverable via retry without duplicate resources.
 - Dashboard displays infra state and production URL.
-- Feature flag can disable provisioning globally without code changes.
+- Provisioning behavior is controlled by product flows (manual retry/action), not by an infra env feature flag.
 
 ## Test Matrix
 
@@ -384,4 +387,3 @@ Update vault card to show:
 - [ ] Add cleanup workflow for orphaned external resources.
 - [ ] Add quota/cost controls per user/team.
 - [ ] Add customer-facing infra diagnostics page with least-privilege details.
-

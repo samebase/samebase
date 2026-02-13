@@ -58,10 +58,7 @@ export const VaultDomainSource = v.union(
   v.literal("netlify_custom"),
 );
 
-export const ProdAccessScope = v.union(
-  v.literal("vault"),
-  v.literal("global"),
-);
+export const ProdAccessScope = v.union(v.literal("vault"), v.literal("global"));
 
 export const ProdAccessProvider = v.union(
   v.literal("convex"),
@@ -72,6 +69,8 @@ export const ProdAccessResourceKind = v.union(
   v.literal("deployment_status"),
   v.literal("logs"),
   v.literal("data_query"),
+  v.literal("project_inventory"),
+  v.literal("site_inventory"),
 );
 
 export const ProdAccessStatus = v.union(
@@ -172,7 +171,9 @@ export default defineSchema({
     convexProjectId: v.optional(v.string()),
     convexProjectSlug: v.optional(v.string()),
     convexDeploymentName: v.optional(v.string()),
-    convexDeploymentType: v.optional(v.union(v.literal("prod"), v.literal("dev"))),
+    convexDeploymentType: v.optional(
+      v.union(v.literal("prod"), v.literal("dev")),
+    ),
     convexCloudUrl: v.optional(v.string()),
     convexSiteUrl: v.optional(v.string()),
     convexDeployKeyId: v.optional(v.string()),

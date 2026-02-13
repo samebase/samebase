@@ -8,14 +8,8 @@ function truncateText(text: string, maxChars = 15000): string {
   return `${text.slice(0, maxChars)}\n\n... (truncated)`;
 }
 
-export function isProdReadEnabled(): boolean {
-  return process.env.AI_PROD_READ_ENABLED === "true";
-}
-
 export function getProdAccessMode(): ProdAccessMode {
-  return process.env.AI_PROD_ACCESS_MODE === "MULTI_USER_MODE"
-    ? "MULTI_USER_MODE"
-    : "MVP_OWNER_MODE";
+  return "MVP_OWNER_MODE";
 }
 
 function redactDefault(text: string): string {

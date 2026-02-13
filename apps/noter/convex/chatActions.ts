@@ -13,7 +13,6 @@ import { runAgentGraph } from "./agent/graph";
 import {
   applyRedaction,
   getProdAccessMode,
-  isProdReadEnabled,
 } from "./infraReadPolicy";
 
 const MODEL = "claude-sonnet-4-20250514";
@@ -256,46 +255,6 @@ export const executeApprovedProdRead = internalAction({
     const auditActorUserId = request.approvedBy ?? request.requesterUserId;
     const fallbackEndpoint = `${request.provider}:${request.resourceKind}`;
 
-    if (!isProdReadEnabled()) {
-      const error = "Production reads are disabled by kill switch";
-      await ctx.runMutation(internal.chat.setProdAccessRequestStatusInternal, {
-        requestId: request._id,
-        status: "failed",
-        error,
-        approvedBy: request.approvedBy,
-        approvedAt: request.approvedAt,
-      });
-      await ctx.runMutation(internal.chat.addProdAccessAuditInternal, {
-        requestId: request._id,
-        actorUserId: auditActorUserId,
-        action: "failed",
-        toolName: request.toolName,
-        endpoint: fallbackEndpoint,
-        argumentHash,
-        error,
-      });
-      await ctx.runMutation(internal.chat.updateProdReadProposalMessageStatusInternal, {
-        conversationId: request.conversationId,
-        requestId: request._id,
-        status: "failed",
-        error,
-      });
-      await ctx.runMutation(internal.chat.saveAssistantMessage, {
-        conversationId: request.conversationId,
-        content: `Production read failed: ${error}.`,
-        model: MODEL,
-        metadata: JSON.stringify({
-          type: "prod_read_result",
-          requestId: request._id,
-          provider: request.provider,
-          resourceKind: request.resourceKind,
-          endpoint: fallbackEndpoint,
-          error,
-        }),
-      });
-      return null;
-    }
-
     const now = Date.now();
     if (request.expiresAt && now > request.expiresAt) {
       const error = "Request approval expired before execution";
@@ -398,6 +357,26 @@ export const executeApprovedProdRead = internalAction({
               ? request.vaultId ?? undefined
               : undefined,
         });
+      } else if (
+        request.provider === "convex" &&
+        request.resourceKind === "project_inventory"
+      ) {
+        executionResult = await ctx.runAction(
+          internal.infraRead.getConvexProjectInventory,
+          {
+            limit: parseOptionalPositiveNumber(params["limit"]),
+          },
+        );
+      } else if (
+        request.provider === "netlify" &&
+        request.resourceKind === "site_inventory"
+      ) {
+        executionResult = await ctx.runAction(
+          internal.infraRead.getNetlifySiteInventory,
+          {
+            limit: parseOptionalPositiveNumber(params["limit"]),
+          },
+        );
       }
 
       if (!executionResult) {

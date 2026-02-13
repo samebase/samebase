@@ -8,9 +8,9 @@ Update the specs to cover two coupled MVP tracks:
 This keeps your "move fast" single-user workflow, while preventing a dangerous rewrite when real users arrive.
 
 ## Spec Files to Add/Update
-1. Add `/Users/nicu/dev/my/noter/specs/VAULT_INFRA_PROVISIONING_SPEC.md`.
-2. Add `/Users/nicu/dev/my/noter/specs/AI_PROD_ACCESS_POLICY_SPEC.md`.
-3. Add a short cross-link section to `/Users/nicu/dev/my/noter/specs/CODESPACE_CONNECTION_SPEC.md` pointing to the new infra specs.
+1. Add `/Users/nicu/dev/my/noter/specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`.
+2. Add `/Users/nicu/dev/my/noter/specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`.
+3. Add a short cross-link section to `/Users/nicu/dev/my/noter/specs/001_CODESPACE_CONNECTION_SPEC.md` pointing to the new infra specs.
 
 ## Required API/Schema Changes (to include in specs)
 
@@ -63,7 +63,7 @@ This keeps your "move fast" single-user workflow, while preventing a dangerous r
 2. Assistant message is stored with `metadata.type="prod_read_proposal"`.
 3. UI shows approval card similar to commit proposal.
 4. User clicks approve.
-5. Backend executes read with admin + feature-flag checks.
+5. Backend executes read with admin checks.
 6. Output is redacted by policy, saved, and shown in chat.
 7. Full audit row is written for proposal, approval, execution, and result.
 
@@ -91,7 +91,7 @@ This keeps your "move fast" single-user workflow, while preventing a dangerous r
 2. Request/audit persistence for prod access.
 3. Idempotent retry logic for infra provisioning.
 4. Operator-facing infra status in vault dashboard.
-5. Kill switch env flag to disable all prod-read tools instantly.
+5. Provider adapter boundary for Convex/Netlify reads and provisioning so internals can switch to generated OpenAPI SDKs later without changing tool contracts.
 
 ## What Can Be Deferred (post-MVP)
 1. Per-user linked Convex/Netlify accounts.
@@ -115,6 +115,16 @@ This keeps your "move fast" single-user workflow, while preventing a dangerous r
 3. Admin user is currently you (`isAdminUser` gate).
 4. Explicit approval required for every prod logs/data read.
 5. MVP allows broader access under `MVP_OWNER_MODE`, with planned switch to strict mode before external users.
+6. For MVP speed, Convex dev/prod deployments share the same `CONVEX_MANAGEMENT_TOKEN` + `CONVEX_TEAM_ID`.
+7. For MVP speed, Convex dev/prod deployments share the same `NETLIFY_ACCESS_TOKEN`.
+
+## Provider Boundary and Migration
+1. Keep `fetch`-based providers in backend adapter modules for MVP.
+2. Keep AI tool contracts provider-agnostic and routed through internal actions.
+3. Later migration path:
+- swap Netlify adapter internals to `@netlify/api` (OpenAPI-generated client),
+- keep Convex adapter internals aligned with Convex Management API,
+- avoid changes to chat/tool schemas and approval flow.
 
 ## Acceptance Criteria for "Spec Updated"
 1. Both new spec files exist with concrete schemas, APIs, flow diagrams, and test matrix.

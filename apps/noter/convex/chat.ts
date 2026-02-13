@@ -26,16 +26,6 @@ function hashText(input: string): string {
   return Math.abs(hash >>> 0).toString(16);
 }
 
-function isProdReadEnabled(): boolean {
-  return process.env.AI_PROD_READ_ENABLED === "true";
-}
-
-function getProdAccessMode(): "MVP_OWNER_MODE" | "MULTI_USER_MODE" {
-  return process.env.AI_PROD_ACCESS_MODE === "MULTI_USER_MODE"
-    ? "MULTI_USER_MODE"
-    : "MVP_OWNER_MODE";
-}
-
 const metadataTypeSchema = z.object({
   type: z.string(),
 });
@@ -195,10 +185,6 @@ export const proposeProdRead = mutation({
     requestId: v.id("aiProdAccessRequests"),
   }),
   handler: async (ctx, args) => {
-    if (!isProdReadEnabled()) {
-      throw new Error("AI production reads are disabled");
-    }
-
     const userId = await getUserId(ctx);
     const conversation = await ctx.db.get(args.conversationId);
     if (!conversation || conversation.userId !== userId) {
@@ -220,13 +206,7 @@ export const proposeProdRead = mutation({
       }
     }
 
-    const mode = getProdAccessMode();
-    const redactionLevel =
-      mode === "MULTI_USER_MODE"
-        ? "strict"
-        : args.allowRawFallback
-          ? "raw_fallback"
-          : "default";
+    const redactionLevel = args.allowRawFallback ? "raw_fallback" : "default";
 
     const now = Date.now();
     const requestId = await ctx.db.insert("aiProdAccessRequests", {
@@ -280,10 +260,6 @@ export const proposeProdReadInternal = internalMutation({
     requestId: v.id("aiProdAccessRequests"),
   }),
   handler: async (ctx, args) => {
-    if (!isProdReadEnabled()) {
-      throw new Error("AI production reads are disabled");
-    }
-
     const conversation = await ctx.db.get(args.conversationId);
     if (!conversation || conversation.userId !== args.requesterUserId) {
       throw new Error("Conversation not found");
@@ -304,13 +280,7 @@ export const proposeProdReadInternal = internalMutation({
       }
     }
 
-    const mode = getProdAccessMode();
-    const redactionLevel =
-      mode === "MULTI_USER_MODE"
-        ? "strict"
-        : args.allowRawFallback
-          ? "raw_fallback"
-          : "default";
+    const redactionLevel = args.allowRawFallback ? "raw_fallback" : "default";
 
     const now = Date.now();
     const requestId = await ctx.db.insert("aiProdAccessRequests", {
@@ -432,10 +402,6 @@ export const confirmProdRead = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    if (!isProdReadEnabled()) {
-      throw new Error("AI production reads are disabled");
-    }
-
     const userId = await getUserId(ctx);
     const conversation = await ctx.db.get(args.conversationId);
     if (!conversation || conversation.userId !== userId) {

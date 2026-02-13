@@ -4,6 +4,7 @@ import { Infer, v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { allowedInfraReadTable } from "./infraReadQueries";
+import { createInfraProviders, getRequiredEnv } from "./infraProviders";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -33,73 +34,6 @@ function clamp(num: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, num));
 }
 
-function getEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
-
-
-async function convexApiRequest(
-  path: string,
-  method: "GET" | "POST",
-  body?: unknown,
-): Promise<unknown> {
-  const token = getEnv("CONVEX_MANAGEMENT_TOKEN");
-  const response = await fetch(`https://api.convex.dev/v1${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const payload = await response.text();
-    throw new Error(
-      `Convex API request failed (${response.status}) for ${path}: ${payload}`,
-    );
-  }
-
-  try {
-    return await response.json();
-  } catch {
-    return null;
-  }
-}
-
-async function netlifyApiRequest(
-  path: string,
-  method: "GET" | "POST",
-  body?: unknown,
-): Promise<unknown> {
-  const token = getEnv("NETLIFY_ACCESS_TOKEN");
-  const response = await fetch(`https://api.netlify.com/api/v1${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const payload = await response.text();
-    throw new Error(
-      `Netlify API request failed (${response.status}) for ${path}: ${payload}`,
-    );
-  }
-
-  try {
-    return await response.json();
-  } catch {
-    return null;
-  }
-}
-
 function getVaultInfraError(vaultId: string): string {
   return `Infrastructure not found for vault ${vaultId}. Provision the vault first.`;
 }
@@ -110,6 +44,7 @@ export const getConvexDeploymentStatus = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
+    const providers = createInfraProviders();
     const infra = await ctx.runQuery(internal.infraProvisioning.getInfrastructureByVault, {
       vaultId: args.vaultId,
     });
@@ -119,7 +54,7 @@ export const getConvexDeploymentStatus = internalAction({
     }
 
     const endpoint = `/deployments/${encodeURIComponent(infra.convexDeploymentName)}`;
-    const payload = await convexApiRequest(endpoint, "GET");
+    const payload = await providers.convex.request(endpoint, "GET");
     const raw = JSON.stringify(payload, null, 2);
 
     return {
@@ -138,6 +73,7 @@ export const getConvexLogs = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
+    const providers = createInfraProviders();
     const infra = await ctx.runQuery(internal.infraProvisioning.getInfrastructureByVault, {
       vaultId: args.vaultId,
     });
@@ -147,7 +83,7 @@ export const getConvexLogs = internalAction({
     }
 
     const endpoint = `/projects/${encodeURIComponent(infra.convexProjectId)}/list_deployments`;
-    const payload = await convexApiRequest(endpoint, "GET");
+    const payload = await providers.convex.request(endpoint, "GET");
 
     const deployments = Array.isArray(payload) ? payload : [];
     const max = clamp(args.maxLines ?? 20, 1, 100);
@@ -179,6 +115,7 @@ export const getNetlifySiteStatus = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
+    const providers = createInfraProviders();
     const infra = await ctx.runQuery(internal.infraProvisioning.getInfrastructureByVault, {
       vaultId: args.vaultId,
     });
@@ -188,7 +125,7 @@ export const getNetlifySiteStatus = internalAction({
     }
 
     const endpoint = `/sites/${encodeURIComponent(infra.netlifySiteId)}`;
-    const payload = await netlifyApiRequest(endpoint, "GET");
+    const payload = await providers.netlify.request(endpoint, "GET");
 
     return {
       summary: `Netlify site status for ${infra.netlifySiteName ?? infra.netlifySiteId}`,
@@ -206,6 +143,7 @@ export const getNetlifyLogs = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
+    const providers = createInfraProviders();
     const infra = await ctx.runQuery(internal.infraProvisioning.getInfrastructureByVault, {
       vaultId: args.vaultId,
     });
@@ -220,8 +158,8 @@ export const getNetlifyLogs = internalAction({
     const buildsEndpoint =
       `/sites/${encodeURIComponent(infra.netlifySiteId)}/builds?per_page=${maxEntries}&page=1`;
 
-    const deploysPayload = await netlifyApiRequest(deploysEndpoint, "GET");
-    const buildsPayload = await netlifyApiRequest(buildsEndpoint, "GET");
+    const deploysPayload = await providers.netlify.request(deploysEndpoint, "GET");
+    const buildsPayload = await providers.netlify.request(buildsEndpoint, "GET");
 
     const lines: string[] = [];
 
@@ -255,6 +193,55 @@ export const getNetlifyLogs = internalAction({
       endpoint: `${deploysEndpoint} + ${buildsEndpoint}`,
       raw: lines.join("\n") || "No deploy/build activity entries returned.",
       logLineCount: lines.length,
+    };
+  },
+});
+
+export const getConvexProjectInventory = internalAction({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  returns: EXECUTION_RESULT,
+  handler: async (_ctx, args): Promise<ExecutionResult> => {
+    const providers = createInfraProviders();
+    const teamId = getRequiredEnv("CONVEX_TEAM_ID");
+    const endpoint = `/teams/${encodeURIComponent(teamId)}/list_projects`;
+    const payload = await providers.convex.request(endpoint, "GET");
+
+    const projects = Array.isArray(payload) ? payload : [];
+    const max = clamp(args.limit ?? 50, 1, 100);
+    const rows = projects.slice(0, max);
+
+    return {
+      summary: `Convex project inventory for team ${teamId}`,
+      endpoint,
+      raw: JSON.stringify(rows, null, 2),
+      rowCount: rows.length,
+    };
+  },
+});
+
+export const getNetlifySiteInventory = internalAction({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  returns: EXECUTION_RESULT,
+  handler: async (_ctx, args): Promise<ExecutionResult> => {
+    const providers = createInfraProviders();
+    const teamSlug = getRequiredEnv("NETLIFY_TEAM_ID");
+    const max = clamp(args.limit ?? 50, 1, 100);
+    const endpoint =
+      `/${encodeURIComponent(teamSlug)}/sites?per_page=${max}&page=1`;
+    const payload = await providers.netlify.request(endpoint, "GET");
+
+    const sites = Array.isArray(payload) ? payload : [];
+    const rows = sites.slice(0, max);
+
+    return {
+      summary: `Netlify site inventory for team ${teamSlug}`,
+      endpoint,
+      raw: JSON.stringify(rows, null, 2),
+      rowCount: rows.length,
     };
   },
 });

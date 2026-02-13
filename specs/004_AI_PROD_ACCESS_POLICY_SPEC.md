@@ -4,7 +4,7 @@
 - Status: Draft for implementation
 - Owner: Noter chat/agent + platform security
 - Last updated: 2026-02-12
-- Related plan: `specs/VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
+- Related plan: `specs/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 
 ## Summary
 Define how the main Noter AI can inspect production infrastructure, logs, and data in a way that is auditable and gated by explicit user approval for each request.
@@ -39,8 +39,8 @@ This spec is intentionally approval-first and read-only for MVP.
 - Additional access scoping required by tenant/user.
 
 Runtime configuration:
-- `AI_PROD_ACCESS_MODE` = `MVP_OWNER_MODE` or `MULTI_USER_MODE`
-- `AI_PROD_READ_ENABLED` = `true`/`false`
+- MVP defaults to owner mode behavior.
+- Production reads are enabled in MVP and always require explicit per-request approval.
 
 ## Threat Model
 Primary risks:
@@ -265,10 +265,9 @@ UI requirements:
 
 ## Authorization and Safety Gates
 1. Admin-only gate using `isAdminUser`.
-2. Global kill switch `AI_PROD_READ_ENABLED`.
-3. Optional scope check:
+2. Optional scope check:
 - For vault scope, requester must own the vault.
-4. No direct executor exposure to LLM tool runtime.
+3. No direct executor exposure to LLM tool runtime.
 
 ## Redaction Policy
 
@@ -336,10 +335,9 @@ Reference redaction pipeline order:
 - Automated anomaly detection on prod-read volume.
 
 ## Flip to Multi-User Safe Mode Checklist
-- [ ] Set `AI_PROD_ACCESS_MODE=MULTI_USER_MODE`.
+- [ ] Reintroduce explicit runtime mode config for `MULTI_USER_MODE`.
 - [ ] Disable raw fallback path entirely.
 - [ ] Enforce vault-to-tenant scope checks for all data queries.
 - [ ] Add user-visible privacy disclosure and policy docs.
 - [ ] Add retention limits for request/result payloads.
 - [ ] Add alerting for unusual request frequency or wide scope reads.
-

@@ -74,6 +74,8 @@ Use these commands to debug issues in Convex functions, check production logs, o
 - **Strict type safety** - never use `any` or type assertions (`as`)
 - **When typing is too hard** - prefer `@ts-expect-error` over `as` or `any`
 - **Let TypeScript infer** - don't over-annotate when inference works
+- **Infer from schemas** - when a Zod/validator schema exists, derive the TypeScript type from it (`z.infer`/`Infer`) instead of duplicating manual types
+- **Runtime directives** - avoid `"use node"` unless it is truly necessary; prefer runtime-agnostic modules that can run in both node and non-node environments
 
 ## UI/UX Guidelines
 
@@ -131,3 +133,9 @@ Shorthand commands for git/GitHub workflows. When the user says these, execute t
 ### Local Operator Preferences
 
 - For this repository, when running CLI commands in Codex, prefer requesting the user's shell/escalated execution rather than sandboxed execution.
+
+### MVP Infra Credentials (Current)
+
+- For MVP testing, the same `NETLIFY_ACCESS_TOKEN` is used for both Convex dev and prod deployments.
+- For MVP testing, the same `CONVEX_MANAGEMENT_TOKEN` and `CONVEX_TEAM_ID` are used for both Convex dev and prod deployments.
+- This is intentional for speed during MVP and can be split by environment later.
