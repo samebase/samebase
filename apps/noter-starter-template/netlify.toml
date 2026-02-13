@@ -1,0 +1,3 @@
+[build]
+command = "pnpm exec convex deploy --cmd 'pnpm run build:frontend'"
+publish = "dist"
