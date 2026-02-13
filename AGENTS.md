@@ -168,11 +168,14 @@ Shorthand commands for git/GitHub workflows. When the user says these, execute t
 - Adapt to context (if PR exists, update it; if already ready, skip)
 - Update PR description with `gh pr edit --body` when commits change scope
 - On CI failure, report the error and offer to fix
-- **NEVER merge a PR until CI is green** - always wait for checks to pass, then squash-merge with `gh pr merge --squash`
+- **NEVER merge a PR until CI is green** - always wait for checks to pass.
+- Preferred merge style for this repo: rebase the branch onto `main`, then merge with a merge commit (`gh pr merge --merge`) so PR boundaries remain visible while preserving internal commits.
 
 ### Local Operator Preferences
 
 - For this repository, when running CLI commands in Codex, prefer requesting the user's shell/escalated execution rather than sandboxed execution.
+- When the user says "remember this" (or equivalent), persist that preference in durable project memory (for example `AGENTS.md`) instead of keeping it only in chat context.
+- Deferred workflow experiment: optionally try a temporary `next_main` branch, cherry-pick changes, and merge PRs with merge commits. Treat this as opt-in per request (not default).
 
 ### MVP Infra Credentials (Current)
 
