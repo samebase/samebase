@@ -29,6 +29,8 @@
 - [ ] add "todo" command functionality for AI assistant to update this file
 - [ ] add command "auto-push" "stop auto push" or similar to allows
 - [ ] use mermaid?
+- [ ] add fish-like aliases, or even better make this input behave like a fish terminal
+- [ ] in dev mode, simple terminal should show/accept the full command format: `noter "add todo or whatever paragraph"`
 - [ ] explore frontmatter-based settings in markdown (e.g. `noter.md`) as an alternative to JSON: LLM-readable, human-readable, and schema-validated into TypeScript objects
 - [ ] remove the "auto delete GitHub repo" option once repos move to the noter.md org flow
 - [ ] show actionable error when delete fails due to missing GitHub `delete_repo` scope, with a re-login CTA
@@ -36,6 +38,7 @@
 
 ## Meta/Philosophy
 - [ ] the more our tooling for noter gets better (in terms of ai settings or integrations) the more our user's tooling gets better, since we use noter for building noter
+- [ ] treat chat as a terminal UX: user sends commands, system executes/actions, then returns clear output (like a shell loop)
 
 ## Ideas to Explore
 - [ ] check if I discussed this idea: noter could approach darklang because the logs are automatically in convex
