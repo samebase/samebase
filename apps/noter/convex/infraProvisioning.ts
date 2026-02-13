@@ -81,6 +81,76 @@ function toErrorMessage(error: unknown): string {
   return String(error);
 }
 
+async function readResponseTextSafe(response: Response): Promise<string> {
+  try {
+    return await response.text();
+  } catch {
+    return "";
+  }
+}
+
+async function addGitHubDeployKey(args: {
+  githubAccessToken: string;
+  owner: string;
+  repo: string;
+  title: string;
+  publicKey: string;
+}): Promise<void> {
+  const endpoint = `https://api.github.com/repos/${encodeURIComponent(args.owner)}/${encodeURIComponent(args.repo)}/keys`;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${args.githubAccessToken}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      title: args.title,
+      key: args.publicKey,
+      read_only: true,
+    }),
+  });
+
+  if (response.ok) {
+    return;
+  }
+
+  const responseText = await readResponseTextSafe(response);
+  const lowered = responseText.toLowerCase();
+  if (
+    response.status === 422 &&
+    (lowered.includes("key is already in use") || lowered.includes("already exists"))
+  ) {
+    return;
+  }
+
+  throw new Error(
+    `GitHub deploy key creation failed (${response.status}) for ${args.owner}/${args.repo}: ${responseText}`,
+  );
+}
+
+async function createNetlifyDeployKey(args: {
+  netlifyProvider: NetlifyManagementProvider;
+}): Promise<{ deployKeyId: string; publicKey: string }> {
+  const deployKeyRaw = await args.netlifyProvider.request(
+    "/deploy_keys",
+    "POST",
+  );
+  const deployKey = asRecord(deployKeyRaw);
+  const deployKeyId = readStringOrNumber(deployKey, "id");
+  const publicKey = readString(deployKey, "public_key");
+
+  if (!deployKeyId || !publicKey) {
+    throw new Error("Failed to create Netlify deploy key");
+  }
+
+  return {
+    deployKeyId,
+    publicKey,
+  };
+}
+
 function sanitizeSlug(input: string, maxLen = 58): string {
   const sanitized = input
     .toLowerCase()
@@ -330,6 +400,8 @@ async function ensureNetlifyResources(args: {
   teamSlug: string;
   owner: string;
   repo: string;
+  ghRepoId: string;
+  githubAccessToken: string;
   defaultBranch: string;
   vaultId: string;
   existing: {
@@ -349,6 +421,11 @@ async function ensureNetlifyResources(args: {
   const siteName =
     args.existing.siteName ??
     sanitizeSlug(`${args.owner}-${args.repo}-${suffix}`, 48);
+  const repoIdNumber = Number.parseInt(args.ghRepoId, 10);
+  const repoId =
+    Number.isFinite(repoIdNumber) && repoIdNumber > 0
+      ? repoIdNumber
+      : args.ghRepoId;
 
   console.log("infra:netlify:provision:start", {
     vaultId: args.vaultId,
@@ -363,6 +440,8 @@ async function ensureNetlifyResources(args: {
   let siteResponse: JsonRecord | null = null;
 
   try {
+    let netlifyDeployKeyId: string | undefined;
+
     if (args.existing.siteId) {
       step = "read_existing_site";
       const existingSiteRaw = await args.netlifyProvider.request(
@@ -395,6 +474,20 @@ async function ensureNetlifyResources(args: {
     }
 
     if (!siteResponse) {
+      step = "create_deploy_key";
+      const netlifyDeployKey = await createNetlifyDeployKey({
+        netlifyProvider: args.netlifyProvider,
+      });
+      netlifyDeployKeyId = netlifyDeployKey.deployKeyId;
+
+      await addGitHubDeployKey({
+        githubAccessToken: args.githubAccessToken,
+        owner: args.owner,
+        repo: args.repo,
+        title: `netlify-${siteName}`,
+        publicKey: netlifyDeployKey.publicKey,
+      });
+
       step = "create_site";
       const createSiteRaw = await args.netlifyProvider.request(
         `/${encodeURIComponent(args.teamSlug)}/sites?configure_dns=false`,
@@ -403,6 +496,12 @@ async function ensureNetlifyResources(args: {
           name: siteName,
           repo: {
             provider: "github",
+            repo: `${args.owner}/${args.repo}`,
+            repo_id: repoId,
+            branch: args.defaultBranch,
+            private: true,
+            public_repo: false,
+            deploy_key_id: netlifyDeployKeyId,
             repo_path: `${args.owner}/${args.repo}`,
             repo_branch: args.defaultBranch,
           },
@@ -416,6 +515,46 @@ async function ensureNetlifyResources(args: {
       throw new Error("Failed to resolve Netlify site ID");
     }
 
+    if (!netlifyDeployKeyId) {
+      const siteRepo = asRecord(siteResponse["repo"]);
+      const existingDeployKeyId = readStringOrNumber(siteRepo, "deploy_key_id");
+
+      if (!existingDeployKeyId) {
+        step = "repair_deploy_key";
+        const netlifyDeployKey = await createNetlifyDeployKey({
+          netlifyProvider: args.netlifyProvider,
+        });
+        netlifyDeployKeyId = netlifyDeployKey.deployKeyId;
+
+        await addGitHubDeployKey({
+          githubAccessToken: args.githubAccessToken,
+          owner: args.owner,
+          repo: args.repo,
+          title: `netlify-${siteName}`,
+          publicKey: netlifyDeployKey.publicKey,
+        });
+
+        step = "patch_site_repo";
+        await args.netlifyProvider.request(
+          `/sites/${encodeURIComponent(siteId)}`,
+          "PATCH",
+          {
+            repo: {
+              provider: "github",
+              repo: `${args.owner}/${args.repo}`,
+              repo_id: repoId,
+              branch: args.defaultBranch,
+              private: true,
+              public_repo: false,
+              deploy_key_id: netlifyDeployKeyId,
+              repo_path: `${args.owner}/${args.repo}`,
+              repo_branch: args.defaultBranch,
+            },
+          },
+        );
+      }
+    }
+
     const accountId = readString(siteResponse, "account_id");
     if (!accountId) {
       throw new Error("Failed to resolve Netlify account ID for environment setup");
@@ -426,6 +565,7 @@ async function ensureNetlifyResources(args: {
       siteId,
       accountId,
       siteName,
+      deployKeyConfigured: typeof netlifyDeployKeyId === "string",
     });
 
     step = "set_env";
@@ -755,6 +895,15 @@ export const provisionVaultInfrastructure = internalAction({
       const convexTeamId = getRequiredEnv("CONVEX_TEAM_ID");
       const netlifyTeamSlug = getRequiredEnv("NETLIFY_TEAM_ID");
       const defaultBranch = process.env.INFRA_DEFAULT_BRANCH ?? "main";
+      const user = await ctx.runQuery(internal.users.getById, {
+        userId: vault.userId,
+      });
+
+      if (!user?.githubAccessToken) {
+        throw new Error(
+          "Cannot provision Netlify for private repositories: missing GitHub access token",
+        );
+      }
 
       const convex = await ensureConvexResources({
         teamId: convexTeamId,
@@ -794,6 +943,8 @@ export const provisionVaultInfrastructure = internalAction({
         teamSlug: netlifyTeamSlug,
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
+        ghRepoId: vault.ghRepoId,
+        githubAccessToken: user.githubAccessToken,
         defaultBranch,
         vaultId: args.vaultId,
         existing: {
