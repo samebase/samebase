@@ -78,6 +78,94 @@ export const listRepositories = action({
   },
 });
 
+const repositoryFileContentResult = v.union(
+  v.object({ exists: v.literal(false) }),
+  v.object({ exists: v.literal(true), content: v.string() }),
+);
+
+type RepositoryFileContent = { exists: false } | { exists: true; content: string };
+
+export const getRepositoryFileContent = action({
+  args: {
+    repositoryFullName: v.string(),
+    filePath: v.string(),
+  },
+  returns: repositoryFileContentResult,
+  handler: async (ctx, args): Promise<RepositoryFileContent> => {
+    const userId = await getUserId(ctx);
+
+    const currentUser = await ctx.runQuery(internal.users.getById, {
+      userId,
+    });
+
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
+    const targetFile = vault.treeData.tree.find(
+      (item: { path: string; type: string; sha?: string }) =>
+        item.path === args.filePath && item.type === "blob",
+    );
+
+    if (!targetFile?.sha) {
+      return { exists: false };
+    }
+
+    const blobFile = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+      sha: targetFile.sha,
+    });
+
+    if (blobFile && typeof blobFile.text === "string") {
+      return {
+        exists: true,
+        content: blobFile.text,
+      };
+    }
+
+    const octokit: Octokit = new Octokit({
+      auth: currentUser.githubAccessToken,
+    });
+
+    try {
+      const file = await octokit.rest.repos.getContent({
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        path: args.filePath,
+      });
+
+      if (Array.isArray(file.data) || file.data.type !== "file") {
+        return { exists: false };
+      }
+
+      const contentBuffer = Buffer.from(file.data.content, "base64");
+      return {
+        exists: true,
+        content: contentBuffer.toString("utf-8"),
+      };
+    } catch (error: unknown) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "status" in error &&
+        typeof error.status === "number" &&
+        error.status === 404
+      ) {
+        return { exists: false };
+      }
+
+      throw error;
+    }
+  },
+});
+
 // Public action to refresh repository tree (called from frontend on vault open)
 export const refreshRepositoryTree = action({
   args: {
