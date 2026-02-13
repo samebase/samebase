@@ -441,6 +441,7 @@ async function ensureNetlifyResources(args: {
 
   try {
     let netlifyDeployKeyId: string | undefined;
+    let repoLinkagePatched = false;
 
     if (args.existing.siteId) {
       step = "read_existing_site";
@@ -474,37 +475,12 @@ async function ensureNetlifyResources(args: {
     }
 
     if (!siteResponse) {
-      step = "create_deploy_key";
-      const netlifyDeployKey = await createNetlifyDeployKey({
-        netlifyProvider: args.netlifyProvider,
-      });
-      netlifyDeployKeyId = netlifyDeployKey.deployKeyId;
-
-      await addGitHubDeployKey({
-        githubAccessToken: args.githubAccessToken,
-        owner: args.owner,
-        repo: args.repo,
-        title: `netlify-${siteName}`,
-        publicKey: netlifyDeployKey.publicKey,
-      });
-
       step = "create_site";
       const createSiteRaw = await args.netlifyProvider.request(
         `/${encodeURIComponent(args.teamSlug)}/sites?configure_dns=false`,
         "POST",
         {
           name: siteName,
-          repo: {
-            provider: "github",
-            repo: `${args.owner}/${args.repo}`,
-            repo_id: repoId,
-            branch: args.defaultBranch,
-            private: true,
-            public_repo: false,
-            deploy_key_id: netlifyDeployKeyId,
-            repo_path: `${args.owner}/${args.repo}`,
-            repo_branch: args.defaultBranch,
-          },
         },
       );
       siteResponse = asRecord(createSiteRaw);
@@ -515,50 +491,22 @@ async function ensureNetlifyResources(args: {
       throw new Error("Failed to resolve Netlify site ID");
     }
 
-    if (!netlifyDeployKeyId) {
-      const siteRepo = asRecord(siteResponse["repo"]);
-      const existingDeployKeyId = readStringOrNumber(siteRepo, "deploy_key_id");
-
-      if (!existingDeployKeyId) {
-        step = "repair_deploy_key";
-        const netlifyDeployKey = await createNetlifyDeployKey({
-          netlifyProvider: args.netlifyProvider,
-        });
-        netlifyDeployKeyId = netlifyDeployKey.deployKeyId;
-
-        await addGitHubDeployKey({
-          githubAccessToken: args.githubAccessToken,
-          owner: args.owner,
-          repo: args.repo,
-          title: `netlify-${siteName}`,
-          publicKey: netlifyDeployKey.publicKey,
-        });
-
-        step = "patch_site_repo";
-        await args.netlifyProvider.request(
-          `/sites/${encodeURIComponent(siteId)}`,
-          "PATCH",
-          {
-            repo: {
-              provider: "github",
-              repo: `${args.owner}/${args.repo}`,
-              repo_id: repoId,
-              branch: args.defaultBranch,
-              private: true,
-              public_repo: false,
-              deploy_key_id: netlifyDeployKeyId,
-              repo_path: `${args.owner}/${args.repo}`,
-              repo_branch: args.defaultBranch,
-            },
-          },
-        );
-      }
-    }
-
     const accountId = readString(siteResponse, "account_id");
     if (!accountId) {
       throw new Error("Failed to resolve Netlify account ID for environment setup");
     }
+
+    const siteRepo = asRecord(siteResponse["repo"]);
+    netlifyDeployKeyId = readStringOrNumber(siteRepo, "deploy_key_id");
+    const currentRepoPath =
+      readString(siteRepo, "repo_path") ?? readString(siteRepo, "repo");
+    const currentRepoBranch =
+      readString(siteRepo, "repo_branch") ?? readString(siteRepo, "branch");
+    let needsRepoPatch =
+      currentRepoPath !== `${args.owner}/${args.repo}` ||
+      currentRepoBranch !== args.defaultBranch ||
+      typeof netlifyDeployKeyId !== "string" ||
+      netlifyDeployKeyId.length === 0;
 
     console.log("infra:netlify:site:resolved", {
       vaultId: args.vaultId,
@@ -579,6 +527,45 @@ async function ensureNetlifyResources(args: {
         CONVEX_DEPLOY_KEY: args.convex.deployKey,
       },
     });
+
+    if (!netlifyDeployKeyId) {
+      step = "ensure_deploy_key";
+      const netlifyDeployKey = await createNetlifyDeployKey({
+        netlifyProvider: args.netlifyProvider,
+      });
+      netlifyDeployKeyId = netlifyDeployKey.deployKeyId;
+
+      await addGitHubDeployKey({
+        githubAccessToken: args.githubAccessToken,
+        owner: args.owner,
+        repo: args.repo,
+        title: `netlify-${siteName}`,
+        publicKey: netlifyDeployKey.publicKey,
+      });
+    }
+
+    if (needsRepoPatch) {
+      step = "patch_site_repo";
+      await args.netlifyProvider.request(
+        `/sites/${encodeURIComponent(siteId)}`,
+        "PATCH",
+        {
+          repo: {
+            provider: "github",
+            repo: `${args.owner}/${args.repo}`,
+            repo_id: repoId,
+            branch: args.defaultBranch,
+            private: true,
+            public_repo: false,
+            deploy_key_id: netlifyDeployKeyId,
+            repo_path: `${args.owner}/${args.repo}`,
+            repo_branch: args.defaultBranch,
+          },
+        },
+      );
+      repoLinkagePatched = true;
+      needsRepoPatch = false;
+    }
 
     step = "list_build_hooks";
     const hooksRaw = await args.netlifyProvider.request(
@@ -623,24 +610,33 @@ async function ensureNetlifyResources(args: {
     }
 
     step = "trigger_build";
-    try {
-      await args.netlifyProvider.request(
-        `/sites/${encodeURIComponent(siteId)}/builds?branch=${encodeURIComponent(args.defaultBranch)}`,
-        "POST",
-        {},
-      );
-      console.log("infra:netlify:build:triggered", {
+    if (repoLinkagePatched) {
+      console.log("infra:netlify:build:skipped_manual_trigger", {
         vaultId: args.vaultId,
         siteId,
         branch: args.defaultBranch,
+        reason: "repo_linkage_recently_patched",
       });
-    } catch (error) {
-      console.warn("infra:netlify:build:trigger_failed", {
-        vaultId: args.vaultId,
-        siteId,
-        branch: args.defaultBranch,
-        message: toErrorMessage(error),
-      });
+    } else {
+      try {
+        await args.netlifyProvider.request(
+          `/sites/${encodeURIComponent(siteId)}/builds?branch=${encodeURIComponent(args.defaultBranch)}`,
+          "POST",
+          {},
+        );
+        console.log("infra:netlify:build:triggered", {
+          vaultId: args.vaultId,
+          siteId,
+          branch: args.defaultBranch,
+        });
+      } catch (error) {
+        console.warn("infra:netlify:build:trigger_failed", {
+          vaultId: args.vaultId,
+          siteId,
+          branch: args.defaultBranch,
+          message: toErrorMessage(error),
+        });
+      }
     }
 
     step = "refresh_site";
