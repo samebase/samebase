@@ -4,6 +4,7 @@ import { api } from "../../convex/_generated/api";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { CodeEditorWrapper } from "@/components/CodeEditor";
 import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 import {
   GitHubLogoIcon,
@@ -21,15 +22,10 @@ import {
 } from "@/components/ui/sidebar";
 import { FileTree } from "./FileTree";
 import { CommandPalette } from "./CommandPalette";
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
 import { useSidebar } from "@/components/ui/sidebar";
 import { UserMenu } from "@/components/UserMenu";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { linkStyle } from "./styles";
 import { useConvexAction, useConvexMutation } from "@/lib/convexUtils";
 import { DialogProvider } from "@/contexts/DialogContext";
@@ -37,13 +33,14 @@ import { useDialog } from "@/hooks/useDialog";
 import { FileCreationDialog } from "@/components/FileCreationDialog";
 import { FolderCreationDialog } from "@/components/FolderCreationDialog";
 import { nonNullable } from "@/lib/utils";
-import { type GithubTreeType } from "convex/schema";
 import {
-  categorizeStagedFiles,
-  EditedFilesCategories,
-  EditedFilesCategoriesPopover,
-  EditedFilesCategoriesPopoverTrigger,
-} from "./EditedFilesCategories";
+  filterSimpleViewTreeItems,
+  getSimpleViewPreferenceStorageKey,
+  parseSimpleViewConfig,
+  SIMPLE_VIEW_CONFIG_PATH,
+} from "@/lib/simpleView";
+import { type GithubTreeType } from "convex/schema";
+import { EditedFilesCategoriesPopover } from "./EditedFilesCategories";
 import { CommitStatus } from "./CommitStatus";
 
 function formatSecondsAgo(now: number, timestamp: number): string {
@@ -122,8 +119,9 @@ function FileViewWrapper() {
   });
   const selectedTreeEntry = useMemo(
     () =>
-      vault?.treeData.tree.find((item: { path: string }) => item.path === selectedFile) ??
-      null,
+      vault?.treeData.tree.find(
+        (item: { path: string }) => item.path === selectedFile,
+      ) ?? null,
     [vault, selectedFile],
   );
   const selectedFileExistsInTree = selectedTreeEntry?.type === "blob";
@@ -228,7 +226,12 @@ function FileViewWrapper() {
 
   // If file not staged,
   useEffect(() => {
-    if (selectedFile && vault && stagedFile === null && selectedFileExistsInTree) {
+    if (
+      selectedFile &&
+      vault &&
+      stagedFile === null &&
+      selectedFileExistsInTree
+    ) {
       void firstDocAction({
         repositoryFullName: `${owner}/${repoName}`,
         originalFilePath: selectedFile,
@@ -354,11 +357,24 @@ function FileViewInner({
   const [renameFileInStaging] = useConvexAction(
     api.fileStagingActions.renameFileInStaging,
   );
+  const loadRepositoryFileContent = useAction(
+    api.github.getRepositoryFileContent,
+  );
 
   // Get count of staged files for this vault
   const stagedFiles = useQuery(api.fileStaging.listStagedFiles, {
     vaultId: vault._id,
   });
+  const stagedNoterFile = useQuery(api.fileStaging.getByNewPath, {
+    vaultId: vault._id,
+    newPath: SIMPLE_VIEW_CONFIG_PATH,
+  });
+  const [repositoryNoterContent, setRepositoryNoterContent] = useState<
+    string | null
+  >(null);
+  const [didAttemptRepositoryNoterLoad, setDidAttemptRepositoryNoterLoad] =
+    useState(false);
+  const [simpleViewMode, setSimpleViewMode] = useState<"simple" | "all">("all");
 
   const createFileInStaging = useMutation(api.fileStaging.createFileInStaging);
 
@@ -379,6 +395,117 @@ function FileViewInner({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  const hasRepositoryNoterFile = useMemo(
+    () =>
+      vault.treeData.tree.some(
+        (item: GithubTreeType) =>
+          item.type === "blob" && item.path === SIMPLE_VIEW_CONFIG_PATH,
+      ),
+    [vault.treeData.tree],
+  );
+
+  const hasNoterConfigFile =
+    hasRepositoryNoterFile ||
+    (stagedNoterFile !== undefined &&
+      stagedNoterFile !== null &&
+      !stagedNoterFile.fileDeleted);
+
+  const simpleViewStorageKey = useMemo(
+    () => getSimpleViewPreferenceStorageKey(vault._id),
+    [vault._id],
+  );
+
+  useEffect(() => {
+    setRepositoryNoterContent(null);
+    setDidAttemptRepositoryNoterLoad(false);
+  }, [vault._id]);
+
+  useEffect(() => {
+    if (stagedNoterFile === undefined) {
+      return;
+    }
+    if (!hasRepositoryNoterFile) {
+      return;
+    }
+    if (stagedNoterFile && !stagedNoterFile.fileDeleted) {
+      return;
+    }
+    if (didAttemptRepositoryNoterLoad) {
+      return;
+    }
+
+    let cancelled = false;
+    setDidAttemptRepositoryNoterLoad(true);
+
+    void loadRepositoryFileContent({
+      repositoryFullName,
+      filePath: SIMPLE_VIEW_CONFIG_PATH,
+    })
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+        setRepositoryNoterContent(result.exists ? result.content : null);
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+        setRepositoryNoterContent(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    didAttemptRepositoryNoterLoad,
+    hasRepositoryNoterFile,
+    loadRepositoryFileContent,
+    repositoryFullName,
+    stagedNoterFile,
+  ]);
+
+  useEffect(() => {
+    const defaultMode = hasNoterConfigFile ? "simple" : "all";
+
+    try {
+      const storedMode = localStorage.getItem(simpleViewStorageKey);
+      if (storedMode === "simple" || storedMode === "all") {
+        setSimpleViewMode(storedMode);
+        return;
+      }
+    } catch (error) {
+      console.warn("Failed to read simple view preference", error);
+    }
+
+    setSimpleViewMode(defaultMode);
+  }, [hasNoterConfigFile, simpleViewStorageKey]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(simpleViewStorageKey, simpleViewMode);
+    } catch (error) {
+      console.warn("Failed to persist simple view preference", error);
+    }
+  }, [simpleViewMode, simpleViewStorageKey]);
+
+  const noterConfigContent = useMemo(() => {
+    if (
+      stagedNoterFile !== undefined &&
+      stagedNoterFile !== null &&
+      !stagedNoterFile.fileDeleted
+    ) {
+      return stagedNoterFile.content;
+    }
+
+    return repositoryNoterContent;
+  }, [repositoryNoterContent, stagedNoterFile]);
+
+  const simpleViewConfig = useMemo(
+    () => parseSimpleViewConfig(noterConfigContent),
+    [noterConfigContent],
+  );
 
   const handleFileSelect = (path: string) => {
     if (owner && repoName) {
@@ -418,7 +545,8 @@ function FileViewInner({
     try {
       // Get the file's SHA from the tree (null for new files)
       const fileSha =
-        vault.treeData.tree.find((t: GithubTreeType) => t.path === filePath)?.sha ?? null;
+        vault.treeData.tree.find((t: GithubTreeType) => t.path === filePath)
+          ?.sha ?? null;
 
       // Mark the file for deletion in staging
       await markFileForDeletion({
@@ -504,8 +632,6 @@ function FileViewInner({
     [setFolderExpansionState, vault._id],
   );
 
-  const emptyRepository = vault.treeData.tree.length === 0;
-
   if (!owner || !repoName) {
     void navigate("/");
   }
@@ -514,7 +640,8 @@ function FileViewInner({
     const treeItems = vault.treeData.tree
       .map((item: GithubTreeType) => {
         const stagedFile = stagedFiles?.find(
-          (staged: NonNullable<typeof stagedFiles>[number]) => staged.initialFilePath === item.path,
+          (staged: NonNullable<typeof stagedFiles>[number]) =>
+            staged.initialFilePath === item.path,
         );
 
         const path = stagedFile ? stagedFile.filePath : item.path;
@@ -535,7 +662,8 @@ function FileViewInner({
     // Add new files from staging (parentCommitSha is null)
     const newFiles = (stagedFiles || [])
       .filter(
-        (staged: NonNullable<typeof stagedFiles>[number]) => staged.parentCommitSha === null && !staged.fileDeleted,
+        (staged: NonNullable<typeof stagedFiles>[number]) =>
+          staged.parentCommitSha === null && !staged.fileDeleted,
       )
       .map((staged: NonNullable<typeof stagedFiles>[number]) => ({
         deleted: false,
@@ -547,6 +675,26 @@ function FileViewInner({
 
     return [...treeItems, ...newFiles];
   }, [vault.treeData.tree, stagedFiles]);
+
+  const visibleTreeData = useMemo(() => {
+    if (simpleViewMode !== "simple") {
+      return finalTreeData;
+    }
+
+    if (
+      !simpleViewConfig.hasValidConfig ||
+      simpleViewConfig.excludePatterns.length === 0
+    ) {
+      return finalTreeData;
+    }
+
+    return filterSimpleViewTreeItems(
+      finalTreeData,
+      simpleViewConfig.excludePatterns,
+    );
+  }, [finalTreeData, simpleViewConfig, simpleViewMode]);
+
+  const emptyRepository = visibleTreeData.length === 0;
 
   // Check if there are any changes to commit
   const hasChangesToCommit =
@@ -613,6 +761,34 @@ function FileViewInner({
                 <FilePlusIcon className="h-4 w-4 md:h-3 md:w-3" />
               </Button>
             </div>
+            <div className="mt-2">
+              <ToggleGroup
+                type="single"
+                size="sm"
+                value={simpleViewMode}
+                className="justify-start"
+                onValueChange={(value) => {
+                  if (value === "simple" || value === "all") {
+                    setSimpleViewMode(value);
+                  }
+                }}
+              >
+                <ToggleGroupItem
+                  value="simple"
+                  aria-label="Simple View"
+                  className="h-7 px-2 text-xs"
+                >
+                  Simple View
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="all"
+                  aria-label="All Files"
+                  className="h-7 px-2 text-xs"
+                >
+                  All Files
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
           </div>
           {emptyRepository ? (
             <div className="p-3 text-xs text-muted-foreground">
@@ -621,7 +797,7 @@ function FileViewInner({
           ) : (
             <div className="flex-1 overflow-auto">
               <FileTree
-                items={finalTreeData}
+                items={visibleTreeData}
                 onFileSelect={handleFileSelect}
                 onFileRename={(originalPath, newPath) =>
                   void handleFileRename(originalPath, newPath)
@@ -727,15 +903,18 @@ function FileViewInner({
                     size="sm"
                     variant={hasChangesToCommit ? "default" : "outline"}
                     onClick={handleManualCommit}
-                    disabled={manualComittingStatus === "loading" || !hasChangesToCommit}
-                    className={hasChangesToCommit 
-                      ? "h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white" 
-                      : "h-6 px-2 text-xs border-green-500 text-green-600 hover:bg-green-50"
+                    disabled={
+                      manualComittingStatus === "loading" || !hasChangesToCommit
+                    }
+                    className={
+                      hasChangesToCommit
+                        ? "h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
+                        : "h-6 px-2 text-xs border-green-500 text-green-600 hover:bg-green-50"
                     }
                   >
                     {manualComittingStatus === "loading"
                       ? "Committing..."
-                      : hasChangesToCommit 
+                      : hasChangesToCommit
                         ? "Commit Now"
                         : "All Synced"}
                   </Button>
@@ -791,7 +970,7 @@ function FileViewInner({
       <CommandPalette
         open={isCommandPaletteOpen}
         onOpenChange={setIsCommandPaletteOpen}
-        files={finalTreeData}
+        files={visibleTreeData}
         onFileSelect={handleFileSelect}
         selectedFile={selectedFile}
       />
