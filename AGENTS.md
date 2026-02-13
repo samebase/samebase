@@ -35,11 +35,14 @@ npx convex logs --prod --history 50
 # View development deployment logs
 npx convex logs
 
+# View a bounded log snapshot (Convex logs stream forever, so auto-stop after 3s)
+{ npx convex logs --history 200 & pid=$!; sleep 3; kill -INT "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; } | sed -n '1,200p'
+
 # Open Convex dashboard in browser
 npx convex dashboard
 
-# Get status of current deployment
-npx convex status
+# Inspect deployment env/config quickly
+npx convex env list
 ```
 
 Use these commands to debug issues in Convex functions, check production logs, or inspect database state. This is the primary way to diagnose runtime errors and function failures.

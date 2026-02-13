@@ -58,9 +58,27 @@ function readString(record: JsonRecord, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+function readStringOrNumber(record: JsonRecord, key: string): string | undefined {
+  const value = record[key];
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number") {
+    return String(value);
+  }
+  return undefined;
+}
+
 function readArray(record: JsonRecord, key: string): unknown[] {
   const value = record[key];
   return Array.isArray(value) ? value : [];
+}
+
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
 }
 
 function sanitizeSlug(input: string, maxLen = 58): string {
@@ -131,7 +149,7 @@ async function ensureConvexResources(args: {
       const projectRecord = asRecord(project);
       const name = readString(projectRecord, "name");
       if (name === projectName) {
-        projectId = readString(projectRecord, "id");
+        projectId = readStringOrNumber(projectRecord, "id");
         projectSlug = readString(projectRecord, "slug");
         break;
       }
@@ -152,7 +170,7 @@ async function ensureConvexResources(args: {
     );
 
     const createResponse = asRecord(createResponseRaw);
-    projectId = readString(createResponse, "projectId");
+    projectId = readStringOrNumber(createResponse, "projectId");
     deploymentName = readString(createResponse, "deploymentName");
     deploymentUrl = readString(createResponse, "deploymentUrl");
 
@@ -165,7 +183,7 @@ async function ensureConvexResources(args: {
       : [];
     for (const project of refreshedProjects) {
       const projectRecord = asRecord(project);
-      if (readString(projectRecord, "id") === projectId) {
+      if (readStringOrNumber(projectRecord, "id") === projectId) {
         projectSlug = readString(projectRecord, "slug");
         break;
       }
@@ -254,29 +272,57 @@ type NetlifyProvisionResult = {
   netlifyBuildHookId?: string;
 };
 
+const NETLIFY_ENV_CONTEXTS = [
+  "production",
+  "deploy-preview",
+  "branch-deploy",
+  "dev",
+] as const;
+
 async function setNetlifyEnvironmentVariables(args: {
   netlifyProvider: NetlifyManagementProvider;
   accountId: string;
   siteId: string;
   vars: Record<string, string>;
 }): Promise<void> {
+  const varKeys = Object.keys(args.vars);
+  console.log("infra:netlify:env:set:start", {
+    siteId: args.siteId,
+    accountId: args.accountId,
+    keys: varKeys,
+    contexts: NETLIFY_ENV_CONTEXTS,
+  });
+
   const envVarsPayload = Object.entries(args.vars).map(([key, value]) => ({
     key,
     scopes: ["builds", "functions", "runtime"],
-    values: [
-      {
-        context: "all",
-        value,
-      },
-    ],
+    values: NETLIFY_ENV_CONTEXTS.map((context) => ({
+      context,
+      value,
+    })),
     is_secret: key.includes("KEY") || key.includes("TOKEN"),
   }));
 
-  await args.netlifyProvider.request(
-    `/accounts/${encodeURIComponent(args.accountId)}/env?site_id=${encodeURIComponent(args.siteId)}`,
-    "POST",
-    envVarsPayload,
-  );
+  try {
+    await args.netlifyProvider.request(
+      `/accounts/${encodeURIComponent(args.accountId)}/env?site_id=${encodeURIComponent(args.siteId)}`,
+      "POST",
+      envVarsPayload,
+    );
+    console.log("infra:netlify:env:set:success", {
+      siteId: args.siteId,
+      accountId: args.accountId,
+      keys: varKeys,
+    });
+  } catch (error) {
+    console.error("infra:netlify:env:set:failed", {
+      siteId: args.siteId,
+      accountId: args.accountId,
+      keys: varKeys,
+      message: toErrorMessage(error),
+    });
+    throw error;
+  }
 }
 
 async function ensureNetlifyResources(args: {
@@ -304,123 +350,198 @@ async function ensureNetlifyResources(args: {
     args.existing.siteName ??
     sanitizeSlug(`${args.owner}-${args.repo}-${suffix}`, 48);
 
+  console.log("infra:netlify:provision:start", {
+    vaultId: args.vaultId,
+    teamSlug: args.teamSlug,
+    repo: `${args.owner}/${args.repo}`,
+    siteName,
+    existingSiteId: args.existing.siteId,
+    existingBuildHookId: args.existing.buildHookId,
+  });
+
+  let step = "resolve_site";
   let siteResponse: JsonRecord | null = null;
 
-  if (args.existing.siteId) {
-    const existingSiteRaw = await args.netlifyProvider.request(
-      `/sites/${encodeURIComponent(args.existing.siteId)}`,
+  try {
+    if (args.existing.siteId) {
+      step = "read_existing_site";
+      const existingSiteRaw = await args.netlifyProvider.request(
+        `/sites/${encodeURIComponent(args.existing.siteId)}`,
+        "GET",
+      );
+      siteResponse = asRecord(existingSiteRaw);
+    }
+
+    if (!siteResponse) {
+      step = "find_site_by_name";
+      const sitesRaw = await args.netlifyProvider.request(
+        `/${encodeURIComponent(args.teamSlug)}/sites?name=${encodeURIComponent(siteName)}`,
+        "GET",
+      );
+      const sites = Array.isArray(sitesRaw) ? sitesRaw : [];
+      console.log("infra:netlify:site:search", {
+        vaultId: args.vaultId,
+        siteName,
+        count: sites.length,
+      });
+
+      for (const site of sites) {
+        const siteRecord = asRecord(site);
+        if (readString(siteRecord, "name") === siteName) {
+          siteResponse = siteRecord;
+          break;
+        }
+      }
+    }
+
+    if (!siteResponse) {
+      step = "create_site";
+      const createSiteRaw = await args.netlifyProvider.request(
+        `/${encodeURIComponent(args.teamSlug)}/sites?configure_dns=false`,
+        "POST",
+        {
+          name: siteName,
+          repo: {
+            provider: "github",
+            repo_path: `${args.owner}/${args.repo}`,
+            repo_branch: args.defaultBranch,
+          },
+        },
+      );
+      siteResponse = asRecord(createSiteRaw);
+    }
+
+    const siteId = readString(siteResponse, "id");
+    if (!siteId) {
+      throw new Error("Failed to resolve Netlify site ID");
+    }
+
+    const accountId = readString(siteResponse, "account_id");
+    if (!accountId) {
+      throw new Error("Failed to resolve Netlify account ID for environment setup");
+    }
+
+    console.log("infra:netlify:site:resolved", {
+      vaultId: args.vaultId,
+      siteId,
+      accountId,
+      siteName,
+    });
+
+    step = "set_env";
+    await setNetlifyEnvironmentVariables({
+      netlifyProvider: args.netlifyProvider,
+      accountId,
+      siteId,
+      vars: {
+        VITE_CONVEX_URL: args.convex.cloudUrl,
+        VITE_CONVEX_SITE_URL: args.convex.siteUrl,
+        CONVEX_DEPLOY_KEY: args.convex.deployKey,
+      },
+    });
+
+    step = "list_build_hooks";
+    const hooksRaw = await args.netlifyProvider.request(
+      `/sites/${encodeURIComponent(siteId)}/build_hooks`,
       "GET",
     );
-    siteResponse = asRecord(existingSiteRaw);
-  }
+    const hooks = Array.isArray(hooksRaw) ? hooksRaw : [];
+    console.log("infra:netlify:hooks:list", {
+      vaultId: args.vaultId,
+      siteId,
+      count: hooks.length,
+      defaultBranch: args.defaultBranch,
+    });
 
-  if (!siteResponse) {
-    const sitesRaw = await args.netlifyProvider.request(
-      `/${encodeURIComponent(args.teamSlug)}/sites?name=${encodeURIComponent(siteName)}`,
-      "GET",
-    );
-    const sites = Array.isArray(sitesRaw) ? sitesRaw : [];
-
-    for (const site of sites) {
-      const siteRecord = asRecord(site);
-      if (readString(siteRecord, "name") === siteName) {
-        siteResponse = siteRecord;
+    let buildHookId = args.existing.buildHookId;
+    for (const hook of hooks) {
+      const hookRecord = asRecord(hook);
+      if (readString(hookRecord, "branch") === args.defaultBranch) {
+        buildHookId = readString(hookRecord, "id") ?? buildHookId;
         break;
       }
     }
-  }
 
-  if (!siteResponse) {
-    const createSiteRaw = await args.netlifyProvider.request(
-      `/${encodeURIComponent(args.teamSlug)}/sites?configure_dns=false`,
-      "POST",
-      {
-        name: siteName,
-        repo: {
-          provider: "github",
-          repo_path: `${args.owner}/${args.repo}`,
-          repo_branch: args.defaultBranch,
+    if (!buildHookId) {
+      step = "create_build_hook";
+      const hookRaw = await args.netlifyProvider.request(
+        `/sites/${encodeURIComponent(siteId)}/build_hooks`,
+        "POST",
+        {
+          title: `noter-${args.defaultBranch}`,
+          branch: args.defaultBranch,
         },
-      },
-    );
-    siteResponse = asRecord(createSiteRaw);
-  }
-
-  const siteId = readString(siteResponse, "id");
-  if (!siteId) {
-    throw new Error("Failed to resolve Netlify site ID");
-  }
-
-  const accountId = readString(siteResponse, "account_id");
-  if (!accountId) {
-    throw new Error("Failed to resolve Netlify account ID for environment setup");
-  }
-
-  await setNetlifyEnvironmentVariables({
-    netlifyProvider: args.netlifyProvider,
-    accountId,
-    siteId,
-    vars: {
-      VITE_CONVEX_URL: args.convex.cloudUrl,
-      VITE_CONVEX_SITE_URL: args.convex.siteUrl,
-      CONVEX_DEPLOY_KEY: args.convex.deployKey,
-    },
-  });
-
-  const hooksRaw = await args.netlifyProvider.request(
-    `/sites/${encodeURIComponent(siteId)}/build_hooks`,
-    "GET",
-  );
-  const hooks = Array.isArray(hooksRaw) ? hooksRaw : [];
-
-  let buildHookId = args.existing.buildHookId;
-  for (const hook of hooks) {
-    const hookRecord = asRecord(hook);
-    if (readString(hookRecord, "branch") === args.defaultBranch) {
+      );
+      const hookRecord = asRecord(hookRaw);
       buildHookId = readString(hookRecord, "id") ?? buildHookId;
-      break;
-    }
-  }
-
-  if (!buildHookId) {
-    const hookRaw = await args.netlifyProvider.request(
-      `/sites/${encodeURIComponent(siteId)}/build_hooks`,
-      "POST",
-      {
-        title: `noter-${args.defaultBranch}`,
+      console.log("infra:netlify:hooks:created", {
+        vaultId: args.vaultId,
+        siteId,
+        buildHookId,
         branch: args.defaultBranch,
-      },
-    );
-    const hookRecord = asRecord(hookRaw);
-    buildHookId = readString(hookRecord, "id") ?? buildHookId;
-  }
+      });
+    }
 
-  try {
-    await args.netlifyProvider.request(
-      `/sites/${encodeURIComponent(siteId)}/builds?branch=${encodeURIComponent(args.defaultBranch)}`,
-      "POST",
-      {},
+    step = "trigger_build";
+    try {
+      await args.netlifyProvider.request(
+        `/sites/${encodeURIComponent(siteId)}/builds?branch=${encodeURIComponent(args.defaultBranch)}`,
+        "POST",
+        {},
+      );
+      console.log("infra:netlify:build:triggered", {
+        vaultId: args.vaultId,
+        siteId,
+        branch: args.defaultBranch,
+      });
+    } catch (error) {
+      console.warn("infra:netlify:build:trigger_failed", {
+        vaultId: args.vaultId,
+        siteId,
+        branch: args.defaultBranch,
+        message: toErrorMessage(error),
+      });
+    }
+
+    step = "refresh_site";
+    const refreshedSiteRaw = await args.netlifyProvider.request(
+      `/sites/${encodeURIComponent(siteId)}`,
+      "GET",
     );
+    const refreshedSite = asRecord(refreshedSiteRaw);
+
+    const result = {
+      netlifySiteId: siteId,
+      netlifySiteName: readString(refreshedSite, "name") ?? siteName,
+      netlifyTeamId: args.teamSlug,
+      netlifyDefaultUrl:
+        readString(refreshedSite, "deploy_url") ?? readString(refreshedSite, "url"),
+      netlifyProductionUrl:
+        readString(refreshedSite, "ssl_url") ?? readString(refreshedSite, "url"),
+      netlifyBuildHookId: buildHookId,
+    };
+
+    console.log("infra:netlify:provision:success", {
+      vaultId: args.vaultId,
+      siteId: result.netlifySiteId,
+      siteName: result.netlifySiteName,
+      defaultUrl: result.netlifyDefaultUrl,
+      productionUrl: result.netlifyProductionUrl,
+      buildHookId: result.netlifyBuildHookId,
+    });
+
+    return result;
   } catch (error) {
-    console.warn("Netlify build trigger failed", error);
+    console.error("infra:netlify:provision:failed", {
+      vaultId: args.vaultId,
+      teamSlug: args.teamSlug,
+      repo: `${args.owner}/${args.repo}`,
+      siteName,
+      step,
+      message: toErrorMessage(error),
+    });
+    throw error;
   }
-
-  const refreshedSiteRaw = await args.netlifyProvider.request(
-    `/sites/${encodeURIComponent(siteId)}`,
-    "GET",
-  );
-  const refreshedSite = asRecord(refreshedSiteRaw);
-
-  return {
-    netlifySiteId: siteId,
-    netlifySiteName: readString(refreshedSite, "name") ?? siteName,
-    netlifyTeamId: args.teamSlug,
-    netlifyDefaultUrl:
-      readString(refreshedSite, "deploy_url") ?? readString(refreshedSite, "url"),
-    netlifyProductionUrl:
-      readString(refreshedSite, "ssl_url") ?? readString(refreshedSite, "url"),
-    netlifyBuildHookId: buildHookId,
-  };
 }
 
 export const getInfrastructureByVault = internalQuery({
@@ -618,6 +739,14 @@ export const provisionVaultInfrastructure = internalAction({
       },
     });
 
+    console.log("infra:provision:start", {
+      vaultId: args.vaultId,
+      repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+      previousVersion: existing?.provisioningVersion ?? 0,
+      nextVersion,
+      force: args.force ?? false,
+    });
+
     let convexSuccess = false;
     let netlifySuccess = false;
 
@@ -717,11 +846,26 @@ export const provisionVaultInfrastructure = internalAction({
         infraState: "ready",
       });
 
+      console.log("infra:provision:success", {
+        vaultId: args.vaultId,
+        repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+        convexDeploymentName: convex.convexDeploymentName,
+        netlifySiteId: netlify.netlifySiteId,
+      });
+
       return null;
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unknown infra provisioning error";
+      const message = toErrorMessage(error);
       const infraState = convexSuccess || netlifySuccess ? "partial" : "failed";
+
+      console.error("infra:provision:failed", {
+        vaultId: args.vaultId,
+        repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+        infraState,
+        convexSuccess,
+        netlifySuccess,
+        message,
+      });
 
       await ctx.runMutation(internal.infraProvisioning.upsertInfrastructureRecord, {
         vaultId: args.vaultId,
