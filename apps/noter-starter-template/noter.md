@@ -1,6 +1,7 @@
 ---
 simpleView:
   exclude:
+    - noter.md # Simple View config file
     - src/** # Frontend implementation code
     - convex/** # Backend functions
     - node_modules/** # Dependencies
