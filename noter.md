@@ -1,11 +1,14 @@
 ---
-title: noter.md
-description: "Metadata-enabled markdown note"
-format: tsx_md
-props:
-  audience: internal
-  feature: markdown-properties
-  version: 1
+
+simpleView:
+  exclude:
+    - noter.md # Simple View config file
+    - src/** # Frontend implementation code
+    - convex/** # Backend functions
+    - node_modules/** # Dependencies
+    - dist/** # Build output
+    - "**/*.{ts,tsx,js,jsx,css,html}" # Source file extensions
+
 ---
 
 # noter.md
