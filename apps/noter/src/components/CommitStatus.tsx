@@ -1,7 +1,33 @@
 import { useAction } from "convex/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { cn } from "../lib/utils";
+
+const EMPTY_RESULT_RETRY_DELAYS_MS = [
+  2_000,
+  3_000,
+  5_000,
+  8_000,
+  13_000,
+  21_000,
+  34_000,
+  55_000,
+  89_000,
+];
+const RUNNING_STATUS_POLL_INTERVAL_MS = 30_000;
+const RATE_LIMIT_FALLBACK_RETRY_MS = 60_000;
+const MIN_FETCH_GAP_MS = 5_000;
+
+function getDelayForAttempt(
+  delaysMs: readonly number[],
+  attempt: number,
+): number {
+  if (delaysMs.length === 0) {
+    return 0;
+  }
+
+  return delaysMs[Math.min(attempt, delaysMs.length - 1)];
+}
 
 interface GitHubCheckRun {
   id: number;
@@ -17,6 +43,11 @@ interface GitHubCommitStatus {
   context: string;
   description: string | null;
   target_url: string | null;
+}
+
+interface RateLimitedState {
+  message: string;
+  resetAtMs: number | null;
 }
 
 interface CommitStatusProps {
@@ -160,6 +191,24 @@ function classifyCommitStatus(status: GitHubCommitStatus): StatusKind {
   }
 }
 
+function hasRunningStatuses(
+  checkRuns: GitHubCheckRun[],
+  commitStatuses: GitHubCommitStatus[],
+): boolean {
+  return (
+    checkRuns.some((run) => classifyCheckRun(run) === "running") ||
+    commitStatuses.some((status) => classifyCommitStatus(status) === "running")
+  );
+}
+
+function formatRateLimitedTitle(rateLimited: RateLimitedState): string {
+  if (rateLimited.resetAtMs === null) {
+    return rateLimited.message;
+  }
+
+  return `${rateLimited.message} • Resets at ${new Date(rateLimited.resetAtMs).toLocaleString()}`;
+}
+
 function StatusBadge({
   label,
   summary,
@@ -205,7 +254,10 @@ function InlineState({
   const accessibleText = title ?? label;
   return (
     <span
-      className={cn("inline-flex items-center text-[11px] leading-none", className)}
+      className={cn(
+        "inline-flex items-center text-[11px] leading-none",
+        className,
+      )}
       title={accessibleText}
       aria-label={accessibleText}
     >
@@ -226,20 +278,77 @@ export function CommitStatus({
   >(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rateLimited, setRateLimited] = useState<RateLimitedState | null>(null);
 
   const getCommitStatus = useAction(api.githubChecks.getCommitStatus);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestTokenRef = useRef(0);
+  const emptyAttemptRef = useRef(0);
+  const inFlightRef = useRef(false);
+  const lastFetchAtRef = useRef<number | null>(null);
 
   useEffect(() => {
+    requestTokenRef.current += 1;
+    const requestToken = requestTokenRef.current;
+
+    const clearScheduledFetch = () => {
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+
+    clearScheduledFetch();
+    emptyAttemptRef.current = 0;
+    inFlightRef.current = false;
+    lastFetchAtRef.current = null;
+
     if (!commitSha || !owner || !repo) {
       setCheckRuns(null);
       setCommitStatuses(null);
       setLoading(false);
       setError(null);
-      return;
+      setRateLimited(null);
+      return () => {
+        requestTokenRef.current += 1;
+        clearScheduledFetch();
+      };
     }
 
-    const fetchCheckRuns = async () => {
-      setLoading(true);
+    let disposed = false;
+
+    const scheduleFetch = (delayMs: number) => {
+      clearScheduledFetch();
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null;
+        void fetchCommitStatus(false);
+      }, delayMs);
+    };
+
+    const fetchCommitStatus = async (isInitialLoad: boolean) => {
+      if (disposed || requestTokenRef.current !== requestToken) {
+        return;
+      }
+      if (inFlightRef.current) {
+        return;
+      }
+
+      const now = Date.now();
+      const lastFetchAt = lastFetchAtRef.current;
+      if (!isInitialLoad && lastFetchAt !== null) {
+        const elapsedMs = now - lastFetchAt;
+        if (elapsedMs < MIN_FETCH_GAP_MS) {
+          scheduleFetch(MIN_FETCH_GAP_MS - elapsedMs);
+          return;
+        }
+      }
+
+      inFlightRef.current = true;
+      lastFetchAtRef.current = now;
+
+      if (isInitialLoad) {
+        setLoading(true);
+      }
       setError(null);
 
       try {
@@ -249,21 +358,90 @@ export function CommitStatus({
           ref: commitSha,
         });
 
+        if (disposed || requestTokenRef.current !== requestToken) {
+          return;
+        }
+
+        if (result.kind === "rate_limited") {
+          setRateLimited({
+            message: result.message,
+            resetAtMs: result.resetAtMs,
+          });
+          setError(null);
+
+          const cooldownCandidates: number[] = [];
+          if (result.retryAfterMs !== null && result.retryAfterMs > 0) {
+            cooldownCandidates.push(result.retryAfterMs);
+          }
+          if (result.resetAtMs !== null) {
+            const resetDelayMs = result.resetAtMs - Date.now();
+            if (resetDelayMs > 0) {
+              cooldownCandidates.push(resetDelayMs);
+            }
+          }
+
+          const retryDelayMs =
+            cooldownCandidates.length > 0
+              ? Math.min(...cooldownCandidates)
+              : RATE_LIMIT_FALLBACK_RETRY_MS;
+
+          scheduleFetch(Math.max(retryDelayMs, MIN_FETCH_GAP_MS));
+          return;
+        }
+
+        setRateLimited(null);
         setCheckRuns(result.check_runs);
         setCommitStatuses(result.statuses);
+
+        if (result.check_runs.length === 0 && result.statuses.length === 0) {
+          const delayMs = getDelayForAttempt(
+            EMPTY_RESULT_RETRY_DELAYS_MS,
+            emptyAttemptRef.current,
+          );
+          emptyAttemptRef.current += 1;
+          scheduleFetch(delayMs);
+          return;
+        }
+
+        emptyAttemptRef.current = 0;
+
+        if (hasRunningStatuses(result.check_runs, result.statuses)) {
+          scheduleFetch(RUNNING_STATUS_POLL_INTERVAL_MS);
+        } else {
+          clearScheduledFetch();
+        }
       } catch (err) {
+        if (disposed || requestTokenRef.current !== requestToken) {
+          return;
+        }
+
         console.error("Failed to fetch CI status:", err);
+        setRateLimited(null);
         setError(
           err instanceof Error ? err.message || "Unknown error" : String(err),
         );
         setCheckRuns(null);
         setCommitStatuses(null);
       } finally {
-        setLoading(false);
+        inFlightRef.current = false;
+        if (isInitialLoad && !disposed && requestTokenRef.current === requestToken) {
+          setLoading(false);
+        }
       }
     };
 
-    void fetchCheckRuns();
+    setRateLimited(null);
+    setError(null);
+    void fetchCommitStatus(true);
+
+    return () => {
+      disposed = true;
+      requestTokenRef.current += 1;
+      clearScheduledFetch();
+      inFlightRef.current = false;
+      emptyAttemptRef.current = 0;
+      lastFetchAtRef.current = null;
+    };
   }, [commitSha, owner, repo, getCommitStatus]);
 
   if (!commitSha) {
@@ -284,6 +462,16 @@ export function CommitStatus({
     );
   }
 
+  if (rateLimited) {
+    return (
+      <InlineState
+        label="GitHub rate limited"
+        className={cn("text-amber-600", className)}
+        title={formatRateLimitedTitle(rateLimited)}
+      />
+    );
+  }
+
   if (error) {
     const errorMessage = `Checks error: ${error}`;
     return (
@@ -296,7 +484,12 @@ export function CommitStatus({
   }
 
   const checkSummary = checkRuns
-    ? summarizeStatuses("Checks", checkRuns, classifyCheckRun, (run) => run.name)
+    ? summarizeStatuses(
+        "Checks",
+        checkRuns,
+        classifyCheckRun,
+        (run) => run.name,
+      )
     : null;
   const statusSummary = commitStatuses
     ? summarizeStatuses(
@@ -322,11 +515,7 @@ export function CommitStatus({
   return (
     <span className={cn("inline-flex items-center gap-2", className)}>
       {checkSummary && (
-        <StatusBadge
-          label="Checks"
-          summary={checkSummary}
-          href={checksUrl}
-        />
+        <StatusBadge label="Checks" summary={checkSummary} href={checksUrl} />
       )}
       {statusSummary && (
         <StatusBadge
