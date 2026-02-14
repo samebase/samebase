@@ -33,6 +33,7 @@
 - [ ] https://link.com/ for payments instead of strip, a lot of apps seem to use it. Need to check if in MOldova
 - [ ] https://developers.openai.com/codex/ide/ use this instead of the app. Vscode is the default platform. No need to invent agent+can use openclaw!!!
 - [ ] https://github.com/Fission-AI/OpenSpec
+- [ ] https://www.youtube.com/watch?v=pey9u_ANXZM
 - [ ] 
 
 ## Features & Improvements
