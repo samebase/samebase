@@ -2,9 +2,62 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
+import { execSync } from "node:child_process";
+
+const gitRoot = path.resolve(__dirname, "..", "..");
+
+function readGitOutput(command: string): string | null {
+  try {
+    const output = execSync(command, {
+      cwd: gitRoot,
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .toString()
+      .trim();
+    return output.length > 0 ? output : null;
+  } catch {
+    return null;
+  }
+}
+
+function toGithubRepoUrl(remote: string): string | null {
+  const trimmed = remote.trim();
+  const patterns = [
+    /^git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/,
+    /^https?:\/\/github\.com\/([^/]+)\/(.+?)(?:\.git)?$/,
+    /^ssh:\/\/git@github\.com\/([^/]+)\/(.+?)(?:\.git)?$/,
+    /^git:\/\/github\.com\/([^/]+)\/(.+?)(?:\.git)?$/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = trimmed.match(pattern);
+    if (match) {
+      return `https://github.com/${match[1]}/${match[2]}`;
+    }
+  }
+
+  return null;
+}
+
+const appCommit =
+  process.env.VITE_APP_COMMIT ??
+  readGitOutput("git rev-parse HEAD") ??
+  "unknown";
+
+const appRepoUrl =
+  process.env.VITE_APP_REPO_URL ??
+  (() => {
+    const remote = readGitOutput("git config --get remote.origin.url");
+    if (!remote) return "";
+    return toGithubRepoUrl(remote) ?? "";
+  })();
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  define: {
+    __APP_COMMIT__: JSON.stringify(appCommit),
+    __APP_REPO_URL__: JSON.stringify(appRepoUrl),
+  },
   plugins: [
     react(),
     VitePWA({
