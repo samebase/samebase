@@ -93,6 +93,13 @@ const lastRefreshMap = new Map<string, number>();
 const REFRESH_DEBOUNCE_MS = 2 * 60 * 1000; // 2 minutes
 type RefreshTrigger = "focus" | "page_load";
 
+function isStorageBackedFileError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.toLowerCase().includes("in storage")
+  );
+}
+
 function FileViewWrapper() {
   const navigate = useNavigate();
 
@@ -126,6 +133,15 @@ function FileViewWrapper() {
     [vault, selectedFile],
   );
   const selectedFileExistsInTree = selectedTreeEntry?.type === "blob";
+  const [storageBackedSelection, setStorageBackedSelection] = useState<
+    Record<string, true>
+  >({});
+
+  useEffect(() => {
+    if (vault?._id) {
+      setStorageBackedSelection({});
+    }
+  }, [vault?._id]);
 
   useEffect(() => {
     if (vault === null) {
@@ -232,11 +248,21 @@ function FileViewWrapper() {
       selectedFile &&
       vault &&
       stagedFile === null &&
-      selectedFileExistsInTree
+      selectedFileExistsInTree &&
+      storageBackedSelection[selectedFile] !== true
     ) {
       void firstDocAction({
         repositoryFullName: `${owner}/${repoName}`,
         originalFilePath: selectedFile,
+      }).catch((error: unknown) => {
+        if (isStorageBackedFileError(error)) {
+          setStorageBackedSelection((previous) => ({
+            ...previous,
+            [selectedFile]: true,
+          }));
+          return;
+        }
+        console.error("Failed to stage file for editing:", error);
       });
     }
   }, [
@@ -244,6 +270,7 @@ function FileViewWrapper() {
     vault,
     stagedFile,
     selectedFileExistsInTree,
+    storageBackedSelection,
     firstDocAction,
     owner,
     repoName,

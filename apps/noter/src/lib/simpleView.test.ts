@@ -1,4 +1,6 @@
 import { execSync } from "node:child_process";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -13,17 +15,34 @@ type TreeItem = {
   type: "tree" | "blob";
 };
 
-function getRepositoryTreeItems(): TreeItem[] {
-  const repositoryRoot = fileURLToPath(new URL("../../../../", import.meta.url));
+const UPDATE_SIMPLE_VIEW_FIXTURES =
+  process.env.UPDATE_SIMPLE_VIEW_FIXTURES === "1";
+// Regenerate fixtures with:
+// UPDATE_SIMPLE_VIEW_FIXTURES=1 pnpm exec vitest run apps/noter/src/lib/simpleView.test.ts
+
+function getRepositoryRoot(): string {
+  return fileURLToPath(new URL("../../../../", import.meta.url));
+}
+
+function getRootNoterMarkdown(): string {
+  return readFileSync(`${getRepositoryRoot()}/noter.md`, "utf8");
+}
+
+function getTrackedFiles(): string[] {
   const trackedFilesOutput = execSync("git ls-files", {
-    cwd: repositoryRoot,
+    cwd: getRepositoryRoot(),
     encoding: "utf8",
   });
-  const trackedFiles = trackedFilesOutput
+
+  return trackedFilesOutput
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
     .sort((a, b) => a.localeCompare(b));
+}
+
+function getRepositoryTreeItems(): TreeItem[] {
+  const trackedFiles = getTrackedFiles();
 
   const directories = new Set<string>();
   trackedFiles.forEach((filePath) => {
@@ -48,6 +67,67 @@ function getRepositoryTreeItems(): TreeItem[] {
 
   return [...directoryItems, ...fileItems];
 }
+
+function getSimpleViewFixturesDir(): string {
+  return `${getRepositoryRoot()}/apps/noter/src/lib/__fixtures__/simpleView`;
+}
+
+function toFixtureFilePath(fileName: string): string {
+  return `${getSimpleViewFixturesDir()}/${fileName}`;
+}
+
+function serializePathList(paths: string[]): string {
+  return `${paths.join("\n")}\n`;
+}
+
+function readPathFixture(fixturePath: string): string[] {
+  return readFileSync(fixturePath, "utf8")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}
+
+function assertPathsMatchFixture(
+  fixturePath: string,
+  actualPaths: string[],
+): void {
+  if (UPDATE_SIMPLE_VIEW_FIXTURES) {
+    mkdirSync(dirname(fixturePath), { recursive: true });
+    writeFileSync(fixturePath, serializePathList(actualPaths), "utf8");
+  }
+
+  const expectedPaths = readPathFixture(fixturePath);
+  expect(actualPaths).toEqual(expectedPaths);
+}
+
+describe("repository file tree fixtures", () => {
+  it("matches tracked file fixture", () => {
+    assertPathsMatchFixture(
+      toFixtureFilePath("tracked-files.txt"),
+      getTrackedFiles(),
+    );
+  });
+
+  it("matches visible simple-view file fixture for root noter.md", () => {
+    const parsedConfig = parseSimpleViewConfig(getRootNoterMarkdown());
+    if (!parsedConfig.hasValidConfig) {
+      throw new Error("Expected root noter.md to have valid simpleView config");
+    }
+
+    const visibleFiles = filterSimpleViewTreeItems(
+      getRepositoryTreeItems(),
+      parsedConfig.excludePatterns,
+    )
+      .filter((item) => item.type === "blob")
+      .map((item) => item.path)
+      .sort((a, b) => a.localeCompare(b));
+
+    assertPathsMatchFixture(
+      toFixtureFilePath("visible-simple-view-files.txt"),
+      visibleFiles,
+    );
+  });
+});
 
 describe("getSimpleViewPreferenceStorageKey", () => {
   it("returns the per-vault key format", () => {
@@ -243,5 +323,55 @@ describe("filterSimpleViewTreeItems with repository structure", () => {
         (item) => item.path === ".husky/pre-commit" && item.type === "blob",
       ),
     ).toBe(false);
+  });
+});
+
+describe("current noter.md config with repository tree", () => {
+  const repositoryTreeItems = getRepositoryTreeItems();
+  const parsedConfig = parseSimpleViewConfig(getRootNoterMarkdown());
+
+  it("parses root noter.md simpleView config", () => {
+    expect(parsedConfig.hasConfigFile).toBe(true);
+    expect(parsedConfig.hasValidConfig).toBe(true);
+    expect(parsedConfig.excludePatterns.length).toBeGreaterThan(0);
+  });
+
+  it("hides known noisy files from this repository", () => {
+    if (!parsedConfig.hasValidConfig) {
+      throw new Error("Expected root noter.md to have valid simpleView config");
+    }
+
+    const filtered = filterSimpleViewTreeItems(
+      repositoryTreeItems,
+      parsedConfig.excludePatterns,
+    );
+
+    expect(filtered.some((item) => item.path === "tsconfig.base.json")).toBe(
+      false,
+    );
+    expect(filtered.some((item) => item.path === ".husky/pre-commit")).toBe(
+      false,
+    );
+    expect(
+      filtered.some(
+        (item) => item.path === "apps/noter/src/components/Untitled-1.md",
+      ),
+    ).toBe(false);
+    expect(
+      filtered.some((item) => item.path === "apps/noter/convex/README.md"),
+    ).toBe(false);
+  });
+
+  it("keeps top-level docs visible", () => {
+    if (!parsedConfig.hasValidConfig) {
+      throw new Error("Expected root noter.md to have valid simpleView config");
+    }
+
+    const filtered = filterSimpleViewTreeItems(
+      repositoryTreeItems,
+      parsedConfig.excludePatterns,
+    );
+
+    expect(filtered.some((item) => item.path === "AGENTS.md")).toBe(true);
   });
 });

@@ -18,6 +18,7 @@ type HeaderMap = Record<string, HeaderValue>;
 
 const githubRateLimitResetByUser = new Map<string, number>();
 const RATE_LIMIT_COOLDOWN_FALLBACK_MS = 60_000;
+const STORAGE_BACKED_FILE_ERROR_MESSAGE = "File is in storage, not implemented yet";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -111,6 +112,12 @@ function getErrorMessage(error: unknown): string {
   }
   const message = error.message;
   return typeof message === "string" ? message : "";
+}
+
+function isStorageBackedFileError(error: unknown): boolean {
+  return (
+    error instanceof Error && error.message === STORAGE_BACKED_FILE_ERROR_MESSAGE
+  );
 }
 
 function isGitHubRateLimitError(error: unknown): boolean {
@@ -303,7 +310,7 @@ export const getFileForEditing = action({
 
       if (blobFile) {
         if (typeof blobFile.text !== "string") {
-          throw new Error("File is in storage, not implemented yet");
+          throw new Error(STORAGE_BACKED_FILE_ERROR_MESSAGE);
         }
 
         // create new staging record
@@ -404,7 +411,7 @@ export const getFileForEditing = action({
         }
 
         if (typeof blobFile.text !== "string") {
-          throw new Error("File is in storage, not implemented yet");
+          throw new Error(STORAGE_BACKED_FILE_ERROR_MESSAGE);
         }
 
         const stagedFile = await ctx.runMutation(
@@ -428,11 +435,15 @@ export const getFileForEditing = action({
           version: stagedFile.version,
         };
       } catch (error) {
-        console.error("error", error);
+        if (!isStorageBackedFileError(error)) {
+          console.error("error", error);
+        }
         throw error;
       }
     } catch (error) {
-      console.error("error", error);
+      if (!isStorageBackedFileError(error)) {
+        console.error("error", error);
+      }
       throw error;
     }
   },

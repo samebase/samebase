@@ -112,6 +112,7 @@ Use these commands to debug issues in Convex functions, check production logs, o
 
 - **Strict type safety** - never use `any` or type assertions (`as`)
 - **When typing is too hard** - prefer `@ts-expect-error` over `as` or `any`
+- **Never use `@ts-nocheck`** - if a type suppression is unavoidable, use the narrowest possible `@ts-expect-error`
 - **Let TypeScript infer** - don't over-annotate when inference works
 - **Infer from schemas** - when a Zod/validator schema exists, derive the TypeScript type from it (`z.infer`/`Infer`) instead of duplicating manual types
 - **Convex validator style** - in Convex modules, define result validators before handlers, derive TS types via `Infer<typeof ...>`, and avoid `v.<fn>()` call sites by destructuring validator builders once (e.g. `const { object, string, union } = v`)
