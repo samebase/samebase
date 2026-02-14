@@ -304,11 +304,11 @@ export function VaultDashboard() {
             <div
               key={vault._id}
               className={clsx(
-                "flex items-center justify-between p-4 border rounded-lg",
+                "flex flex-col gap-3 p-4 border rounded-lg sm:flex-row sm:items-center sm:justify-between sm:gap-0",
                 !isReady && "bg-muted/30 opacity-75",
               )}
             >
-              <div className="flex items-center gap-4 flex-1 min-w-0">
+              <div className="flex flex-col gap-3 flex-1 min-w-0 sm:flex-row sm:items-center sm:gap-4">
                 <div className="flex-1 min-w-0 space-y-2">
                   <div className="flex flex-col items-start ">
                     <span className="text-sm text-muted-foreground">
@@ -341,7 +341,7 @@ export function VaultDashboard() {
                               href={vault.infraProductionUrl}
                               target="_blank"
                               rel="noreferrer noopener"
-                              className={`ml-2 font-mono ${linkStyle}`}
+                              className={`ml-2 font-mono break-all ${linkStyle}`}
                             >
                               {vault.infraProductionUrl}
                             </a>
@@ -352,7 +352,7 @@ export function VaultDashboard() {
                   )}
                 </div>
 
-                <div className="flex flex-col items-end text-sm text-muted-foreground">
+                <div className="flex flex-row items-center gap-4 text-xs text-muted-foreground sm:flex-col sm:items-end sm:gap-1 sm:text-sm">
                   <div className="flex items-center gap-1">
                     <FileTextIcon className="h-3 w-3" />
                     <span>
@@ -376,7 +376,7 @@ export function VaultDashboard() {
                 </div>
               </div>
 
-              <div className="ml-2 flex items-center gap-2">
+              <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:ml-2 sm:w-auto sm:flex-nowrap">
                 {isReady ? (
                   <>
                     <Button asChild variant="secondary" size="sm">

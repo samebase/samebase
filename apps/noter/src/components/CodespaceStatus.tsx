@@ -117,7 +117,7 @@ export function CodespaceStatus({
 
   if (!codespace) {
     return (
-      <div className={cn("flex items-center gap-2", className)}>
+      <div className={cn("flex flex-wrap items-center gap-2", className)}>
         <Badge variant="outline" className="text-muted-foreground">
           No Codespace
         </Badge>
@@ -182,11 +182,11 @@ export function CodespaceStatus({
 
   return (
     <>
-    <div className={cn("flex items-center gap-2", className)}>
+    <div className={cn("flex flex-wrap items-center gap-2", className)}>
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Icon className={cn("h-4 w-4", stateStyle.color)} />
               <Badge
                 variant={isRunning ? "default" : "outline"}
@@ -255,7 +255,7 @@ export function CodespaceStatus({
       </TooltipProvider>
 
       {showActions && (
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           {isRunning && codespace.webUrl && (
             <Button
               variant="ghost"
