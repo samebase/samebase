@@ -7,7 +7,6 @@
 .github/workflows/ci.yml
 .gitignore
 .husky/pre-commit
-.mise.toml
 .nvmrc
 .prettierrc
 AGENTS.md
