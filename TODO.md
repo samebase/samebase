@@ -1,7 +1,10 @@
 # TODO
 
 ## High Priority
-- [ ] research https://vly.ai/, and all others startups shown on https://www.convex.dev/startups
+
+- [ ] research https://vly.ai/, and all others startups shown on
+- [ ] ai can access convex functions directly and can invoke them, and use them as custom tools or can build for itself
+- [ ] https://www.convex.dev/startups
 - [ ] https://www.convex.dev/startups has live video of the browser the ai are using
 - [ ] transform the chat from fab to sider from left or right
 - [ ] check out https://www.kernel.sh/?utm_source=theo - kernel might be useful
