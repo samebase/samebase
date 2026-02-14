@@ -18,6 +18,15 @@ dist-ssr
 build
 .next
 
+# Coverage
+coverage
+.nyc_output
+
+# Tooling caches
+.eslintcache
+*.tsbuildinfo
+.vite
+
 # Environment variables
 *.local
 .env
@@ -25,8 +34,17 @@ build
 .env.production.local
 .env.development.local
 
+# Convex
+convex/_generated
+convex/.tmp
+.convex
+
 # Turbo
 .turbo
+
+# Hosting tooling
+.netlify
+.vercel
 
 # Editor directories and files
 .vscode/*
@@ -45,3 +63,6 @@ yarn.lock
 
 # Codespace agent runtime state
 .codespace-agent/.agent-token
+
+# Local notes
+todo.md

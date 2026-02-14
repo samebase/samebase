@@ -47,7 +47,6 @@ apps/noter/.eslintrc.cjs
 apps/noter/.gitignore
 apps/noter/.prettierrc
 apps/noter/components.json
-apps/noter/convex/.tmp/tsconfig.tsbuildinfo
 apps/noter/convex/agent/graph.ts
 apps/noter/convex/agent/systemPrompt.ts
 apps/noter/convex/agent/toolCatalog.ts
@@ -86,7 +85,6 @@ apps/noter/convex/starterSeed.test.ts
 apps/noter/convex/starterSeed.ts
 apps/noter/convex/starterSeedManifest.generated.ts
 apps/noter/convex/starterSeedManifest.test.ts
-apps/noter/convex/tsconfig.tsbuildinfo
 apps/noter/convex/users.ts
 apps/noter/convex/vault.ts
 apps/noter/convex/vaultActions.ts
