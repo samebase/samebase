@@ -2,14 +2,19 @@
 
 simpleView:
   exclude:
+    - noter.md # Simple View config file
     - src/** # Frontend implementation code
     - convex/** # Backend functions
     - node_modules/** # Dependencies
     - dist/** # Build output
-    - "**/*.{json,ts,tsx,js,jsx,css,html,yaml,toml,tsbuildinfo,yml}" # Source file extensions
+    - "**/*.{json,ts,tsx,js,jsx,cjs,mjs,css,html,yaml}" # Source file extensions
+    - tsconfig.base.json
+
     - Makefile
-    - pre-commit
+    - .**/**
     
+
+
 
 ---
 
