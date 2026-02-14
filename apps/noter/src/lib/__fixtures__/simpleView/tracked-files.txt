@@ -10,6 +10,9 @@
 .nvmrc
 .prettierrc
 AGENTS.md
+apps/noter-starter-template/.codespace-agent/package.json
+apps/noter-starter-template/.codespace-agent/server.js
+apps/noter-starter-template/.devcontainer/devcontainer.json
 apps/noter-starter-template/.gitignore
 apps/noter-starter-template/.husky/pre-commit
 apps/noter-starter-template/AGENTS.md
@@ -24,6 +27,7 @@ apps/noter-starter-template/package.json
 apps/noter-starter-template/postcss.config.js
 apps/noter-starter-template/README.md
 apps/noter-starter-template/scripts/export-template-manifest.mjs
+apps/noter-starter-template/scripts/sync-codespace-assets.mjs
 apps/noter-starter-template/src/App.css
 apps/noter-starter-template/src/App.tsx
 apps/noter-starter-template/src/components/ui/button.tsx
