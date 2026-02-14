@@ -311,7 +311,7 @@ function generateDevcontainerConfig(): string {
     postCreateCommand: "npm install && cd .codespace-agent && npm install",
     postStartCommand:
       "cd .codespace-agent && CODESPACE_AGENT_TOKEN=${CODESPACE_AGENT_TOKEN} npm start &",
-    forwardPorts: [5173, 3000],
+    forwardPorts: [5173, 3000, 1455],
     portsAttributes: {
       "5173": {
         label: "Vite Dev Server",
@@ -319,6 +319,11 @@ function generateDevcontainerConfig(): string {
       },
       "3000": {
         label: "Codespace Agent API",
+        visibility: "private",
+        onAutoForward: "silent",
+      },
+      "1455": {
+        label: "Codex OAuth Callback",
         visibility: "private",
         onAutoForward: "silent",
       },

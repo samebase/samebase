@@ -21,6 +21,27 @@ This document outlines how Noter connects to and interacts with GitHub Codespace
 - **Authentication**: Bearer token (generated UUID stored in database)
 - **Purpose**: Allows Noter to programmatically interact with the Codespace
 
+## Codex Authentication in Codespaces
+
+### Problem
+- Some IDE auth flows redirect to `http://localhost:1455/auth/callback`.
+- In browser-based Codespaces, this `localhost` target resolves on the user's machine, not inside the remote container where the extension is listening.
+
+### Supported Workflows
+1. Prefer device authentication from the Codespace terminal:
+   ```bash
+   codex login --device-auth
+   ```
+2. Use API key auth in the extension/CLI when OAuth is not viable.
+3. If loopback OAuth is required, forward callback port `1455` from local machine:
+   ```bash
+   gh codespace ports forward 1455:1455 -c <codespace-name>
+   ```
+
+### Devcontainer Contract
+- Port `1455` is included in `forwardPorts` and marked private.
+- This does not make loopback OAuth automatic in browser Codespaces, but keeps callback port wiring explicit for CLI forwarding workflows.
+
 ## Connection Workflow
 
 ### Creation Process:
