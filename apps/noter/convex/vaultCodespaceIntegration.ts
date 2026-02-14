@@ -151,6 +151,7 @@ export const rebuildCodespaceIfStale = action({
     if (activeCodespace && activeCodespace.commitSha === latestCommitSha) {
       return {
         rebuilt: false,
+        codespaceId: activeCodespace._id,
         reason: "Codespace is up to date",
       };
     }
@@ -205,7 +206,7 @@ export const ensureCodespaceReady = action({
     }
 
     // Check if codespace needs rebuild
-    const { rebuilt, codespaceId } = await ctx.runAction(
+    const { codespaceId } = await ctx.runAction(
       api.vaultCodespaceIntegration.rebuildCodespaceIfStale,
       { vaultId: args.vaultId },
     );
@@ -308,7 +309,8 @@ function generateDevcontainerConfig(): string {
         },
       },
     },
-    postCreateCommand: "npm install && cd .codespace-agent && npm install",
+    postCreateCommand:
+      "npm install && npm install -g @openai/codex && cd .codespace-agent && npm install",
     postStartCommand:
       "cd .codespace-agent && CODESPACE_AGENT_TOKEN=${CODESPACE_AGENT_TOKEN} npm start &",
     forwardPorts: [5173, 3000, 1455],

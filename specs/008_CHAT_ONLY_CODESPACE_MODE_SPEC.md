@@ -1,15 +1,17 @@
 # Chat-only Codespace Mode Specification
 
 ## Document Control
-- Status: Proposed
+- Status: Revised proposal (pivot after embed spike)
 - Owner: Noter frontend/backend
-- Date: 2026-02-14
+- Last Updated: 2026-02-14
+- Previous revision date: 2026-02-14 (iframe-first draft)
 - Related specs:
   - `specs/001_CODESPACE_CONNECTION_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
 - Related code:
   - `apps/noter/src/components/CodespaceIframe.tsx`
+  - `apps/noter/src/components/CodespaceChatOnlyView.tsx`
   - `apps/noter/src/components/CodespaceStatus.tsx`
   - `apps/noter/src/components/VaultDashboard.tsx`
   - `apps/noter/src/App.tsx`
@@ -22,313 +24,286 @@
   - `.codespace-agent/server.js`
 
 ## Summary
-Add a new "Chat-only Codespace mode" in Noter where:
-1. Noter still launches a full GitHub Codespace / VS Code web runtime.
-2. Noter renders that runtime in a kiosk-like shell that hides non-chat VS Code chrome as much as possible.
-3. User interaction is centered on Codex chat, not the full editor UX.
-4. Authentication does not require manual localhost callback URL edits.
+Noter should provide a chat-only Codespace experience where the primary UX is a native Noter chat surface, while Codex runtime execution happens inside the vault dev-container.
 
-This spec treats the current in-app `ChatFab` as temporary and out of scope for final chat UX.
+This revision keeps iframe embedding as a fallback/debug path, not the primary path, because browser and GitHub framing policies prevent reliable in-iframe auth flows.
 
-## Problem Statement
-Current behavior launches Codespaces and can embed VS Code, but does not provide:
-1. A reliable chat-only presentation mode.
-2. A no-manual-intervention auth flow for Codex login when localhost callback behavior appears.
-3. A hardened fallback strategy for iframe/cookie/mobile constraints.
+## Why This Revision
+During implementation and manual testing, we confirmed that iframe-first UX is not reliable as a primary integration path.
+
+### Confirmed Issues Encountered (2026-02-14)
+1. GitHub login/consent redirects can be loaded during Codespace web auth and are blocked in iframes.
+2. Browser console error observed in product testing:
+   - `Framing 'https://github.com/' violates the following Content Security Policy directive: "frame-ancestors 'none'".`
+3. Header-level confirmation from live endpoint checks:
+   - `x-frame-options: deny`
+   - CSP includes `frame-ancestors 'none'`
+4. Existing "Open in New Tab" fallback works, but that does not satisfy a reliable embedded primary flow.
 
 ## Goals
-1. Keep full Codespace launch behavior intact.
-2. Present a chat-first, kiosk-style surface in Noter.
-3. Remove manual URL editing from auth workflows.
-4. Support desktop and mobile web without browser extensions or local setup.
-5. Keep Codespace lifecycle state and health visible in Noter.
+1. Keep full Codespace lifecycle behavior intact (create/start/stop/delete/retry).
+2. Deliver a reliable chat-first UX inside Noter web app without depending on in-iframe GitHub auth.
+3. Keep Codex runtime inside each vault dev-container/Codespace.
+4. Remove manual localhost callback URL editing from user workflows.
+5. Maintain a deterministic fallback path to full `github.dev` when needed.
 
 ## Non-Goals
-1. Building a custom replacement for VS Code or Codex extension internals.
-2. Guaranteeing true "extension-only render" if the platform does not expose it.
-3. Removing ability to open full VS Code in a separate tab as fallback.
+1. Bypassing GitHub `X-Frame-Options` / CSP `frame-ancestors` protections.
+2. Building a full custom VS Code replacement.
+3. Requiring browser extensions or local machine setup.
 
-## Key Clarification
-The temporary Noter chat UI (`ChatFab`) is not the target end-state.  
-Target is embedding Codex/VS Code surfaces in Noter with a chat-only user experience.
+## Decision
+Primary path changes from "kiosk iframe of VS Code web" to "Noter-native chat UI backed by Codex app-server in dev-container".
+
+Iframe embedding remains:
+1. Best-effort secondary surface.
+2. Debug/admin fallback.
+3. Explicit external-tab escape hatch.
 
 ## Feasibility Assessment
 
-### A. True extension-only rendering inside VS Code web
-Result: Not currently feasible as a hard guarantee.
+### A. Iframe-first primary UX
+Result: Not viable as primary.
 
 Reasoning:
-1. Codespaces browser UX is a full VS Code workbench.
-2. There is no stable public contract to expose only one extension surface and hard-disable all other chrome for all devices.
-3. Even with custom layout settings, users can still hit edge cases where parts of workbench appear.
+1. GitHub auth pages are frame-blocked by policy.
+2. Third-party cookie/cross-site restrictions vary by browser and break auth/session continuity.
+3. A degraded fallback is possible, but this cannot be the core product contract.
 
-### B. Closest practical kiosk mode
-Result: Feasible.
+### B. App-server-first (native chat UI + server-side Codex runtime)
+Result: Viable and aligned with Codex harness model.
 
-Approach:
-1. Use full Codespace runtime.
-2. Apply VS Code layout/profile settings and startup commands to collapse sidebars, panel, editor tabs, and non-chat affordances by default.
-3. Embed in Noter iframe with a narrow wrapper UI (status, reconnect, fallback).
-
-### C. Automatic OAuth callback without localhost URL edits
-Result: Partially feasible depending on auth method.
-
-1. ChatGPT OAuth localhost callback path is currently tied to local callback semantics (`localhost:1455` pattern).
-2. Fully automatic no-touch login is feasible with API key bootstrap.
-3. Device-code auth is feasible without URL edits, but still requires a short user confirmation step.
-
-## Options Ranked (Reliability + UX)
-
-### Option 1 (Recommended MVP): Kiosk embed + API key bootstrap
-1. Reliability: High.
-2. UX: Best no-manual-edit path.
-3. Tradeoff: Requires secure API key provisioning strategy.
-
-### Option 2: Kiosk embed + device-code bootstrap
-1. Reliability: High.
-2. UX: Good, one user step to enter/confirm code.
-3. Tradeoff: Not zero-touch.
-
-### Option 3: External-tab fallback to full Codespace
-1. Reliability: Highest when iframe breaks.
-2. UX: Lower than in-Noter embed.
-3. Tradeoff: Breaks strict single-surface interaction, but preserves task completion.
-
-### Option 4: Depend on localhost callback forwarding (`1455`) for browser users
-1. Reliability: Low for this product goal.
-2. UX: Poor, often manual.
-3. Tradeoff: Conflicts with "no local machine setup" requirement.
+Reasoning:
+1. Browser UI interacts with Noter backend/agent stream endpoints, not embedded GitHub auth pages.
+2. Runtime remains inside workspace container where tools/filesystem access already exists.
+3. Approval, audit, and state transitions can be integrated with existing Convex model.
 
 ## Proposed Architecture
 
 ### Control Plane (Noter + Convex)
-1. Owns create/start/stop/delete Codespace.
-2. Stores mode, auth bootstrap state, and health.
-3. Orchestrates bootstrap and fallback.
+1. Own create/start/stop/delete Codespace.
+2. Own session lifecycle metadata, auth state, and runtime health.
+3. Orchestrate bridge startup and retries.
 
 ### Runtime Plane (Codespace)
-1. Runs VS Code web + Codex extension tooling.
-2. Runs `.codespace-agent` HTTP service on port `3000`.
-3. Runs auth bootstrap commands (`codex login ...`) and status checks.
+1. `.codespace-agent` runs HTTP/SSE bridge on port `3000`.
+2. Bridge launches and supervises `codex app-server` process in the container.
+3. Bridge communicates with `codex app-server` over JSON-RPC via stdio.
 
 ### Presentation Plane (Noter UI)
-1. Full-screen chat-only shell route.
-2. Embedded Codespace iframe in kiosk mode.
-3. Minimal overlay for state/auth/fallback actions.
+1. `/vault/:owner/:repoName/:branch/chat` renders native chat interface.
+2. UI streams events/tokens/tool status via SSE from bridge (proxied through Convex actions where needed).
+3. Optional controls: open full Codespace tab, retry runtime, reconnect session.
 
 ```mermaid
 sequenceDiagram
   participant U as User
   participant N as Noter UI
-  participant C as Convex Actions
+  participant C as Convex
   participant GH as GitHub Codespaces
   participant A as Codespace Agent
+  participant S as Codex App Server
 
-  U->>N: Create Codespace (Chat-only mode)
-  N->>C: ensureCodespaceReady + mode args
-  C->>GH: create/start codespace
-  GH-->>C: webUrl + running state
-  C->>A: bootstrap codex auth (api key or device code)
-  A-->>C: auth status
-  C-->>N: ready + auth state
-  N->>N: render kiosk iframe + minimal controls
-  U->>N: chat-only interaction
+  U->>N: Open Chat-only Mode
+  N->>C: ensureCodespaceReady(vaultId)
+  C->>GH: create/start codespace if needed
+  GH-->>C: running + webUrl
+  C->>A: ensure Codex bridge/runtime ready
+  A->>S: start app-server (stdio)
+  S-->>A: session ready
+  C-->>N: ready + runtime state
+  U->>N: send prompt
+  N->>A: start turn
+  A<->>S: JSON-RPC events
+  A-->>N: SSE stream (tokens/tool/approval)
 ```
+
+## Current Implementation Snapshot (Already Done)
+1. Chat route exists: `/vault/:owner/:repoName/:branch/chat`.
+2. Dashboard has Chat entrypoint.
+3. `ChatFab` hidden on chat route.
+4. Iframe component has improved failure detection and retry/open-tab fallback.
+5. `ensureCodespaceReady` bug fixed when codespace is already up to date (returns existing `codespaceId`).
+
+These are transitional and remain useful as fallback even after app-server-first delivery.
 
 ## Data Model Changes (Convex)
 
-Extend `codespaces` table (`apps/noter/convex/schema.ts`) with:
-1. `uiMode`: `"full"` | `"chat_only"` (optional, default `"full"` behavior).
-2. `codexAuthState`: `"not_started"` | `"pending"` | `"ready"` | `"failed"` (optional).
-3. `codexAuthMethod`: `"api_key"` | `"device_code"` | `"chatgpt_oauth"` (optional).
-4. `codexAuthLastError`: string (optional).
-5. `codexVerificationUrl`: string (optional, for device code flow).
-6. `codexUserCode`: string (optional, short-lived display only).
-7. `chatOnlyKioskReadyAt`: number (optional).
+### `codespaces` table extensions
+1. `uiMode`: `"full" | "chat_only"` (optional, default `"full"`).
+2. `codexRuntimeState`: `"not_started" | "starting" | "ready" | "busy" | "failed"` (optional).
+3. `codexRuntimeTransport`: `"app_server_stdio"` (optional).
+4. `codexRuntimeSessionId`: string (optional).
+5. `codexRuntimeThreadId`: string (optional).
+6. `codexRuntimeLastError`: string (optional).
+7. `codexRuntimeReadyAt`: number (optional).
+
+### Auth metadata (keep from prior spec)
+1. `codexAuthState`: `"not_started" | "pending" | "ready" | "failed"`.
+2. `codexAuthMethod`: `"api_key" | "device_code" | "chatgpt_oauth"`.
+3. `codexVerificationUrl`: optional string.
+4. `codexUserCode`: optional string.
+5. `codexAuthLastError`: optional string.
 
 Indexes:
 1. Keep existing indexes.
-2. Optional new index by auth state if operationally needed.
+2. Add index by runtime/auth state only if operations require it.
 
-## Backend Changes (Convex)
-
-### `apps/noter/convex/codespaces.ts`
-1. Extend `createCodespace` args with optional `uiMode` and `authBootstrapMode`.
-2. Persist mode/auth intent when record is created.
-3. After running state is reached, trigger bootstrap action.
-
-### `apps/noter/convex/codespacesMutations.ts`
-1. Add internal mutation(s) to update codex auth status fields.
-2. Expose these fields in `getActiveCodespace`.
+## Backend Changes
 
 ### `apps/noter/convex/vaultCodespaceIntegration.ts`
-1. Extend `ensureCodespaceReady` input to include target mode.
-2. Ensure bootstrap runs when mode is `chat_only`.
-3. Return richer readiness payload (`codespaceId`, `ready`, `authState`).
+1. Extend `ensureCodespaceReady` to optionally ensure Codex runtime readiness for `chat_only` mode.
+2. Return richer readiness payload (`codespaceId`, `ready`, `runtimeState`, `authState`).
 
-### `apps/noter/convex/codespacesExecutor.ts`
-1. Add actions for:
-   - bootstrap with API key (`codex login --with-api-key`)
-   - bootstrap with device code (`codex login --device-auth`)
-   - check auth status (`codex login status`)
-2. Parse device-code output and write verification URL/code to DB.
+### `apps/noter/convex/codespacesExecutor.ts` or new module `codespacesCodexRuntime.ts`
+1. Add actions to:
+   - ensure bridge runtime is started
+   - create/reuse Codex session/thread
+   - start turn, interrupt turn
+   - approve/reject gated actions
+   - poll/check runtime status
+2. Keep strict error mapping and redaction for logs/responses.
 
-### New action module (recommended)
-Create `apps/noter/convex/codespacesAuthBootstrap.ts` to orchestrate:
-1. Method selection (api-key first, then device-code fallback).
-2. retries/timeouts.
-3. DB status updates and error handling.
+### `apps/noter/convex/codespacesMutations.ts`
+1. Add internal mutations for runtime/auth status updates.
+2. Expose runtime/auth fields in `getActiveCodespace`.
+
+### `.codespace-agent/server.js`
+Add Codex bridge endpoints (token-authenticated):
+1. `POST /codex/session/start`
+2. `POST /codex/turn/start`
+3. `POST /codex/turn/interrupt`
+4. `POST /codex/approval/respond`
+5. `GET /codex/events` (SSE)
+6. `GET /codex/status`
+
+Bridge behavior:
+1. Spawn and supervise `codex app-server` child process.
+2. Maintain per-session in-memory mapping in agent process.
+3. Restart policy on crash with bounded retries.
 
 ## Frontend Changes
 
-### `apps/noter/src/App.tsx`
-1. Add dedicated route for chat-only surface, for example:
-   - `/vault/:owner/:repoName/:branch/chat`
-2. Hide temporary `ChatFab` on this route.
-
-### New component: `apps/noter/src/components/CodespaceChatOnlyView.tsx`
-1. Host full-page shell for chat-only mode.
-2. Query active codespace and auth state.
-3. Render:
-   - kiosk iframe
-   - lightweight status/auth overlay
-   - fallback controls
+### `apps/noter/src/components/CodespaceChatOnlyView.tsx`
+1. Evolve from iframe shell to native chat-first surface.
+2. Subscribe to SSE stream for tokens/tool events.
+3. Render approval cards and action results.
+4. Keep `Open Tab` as fallback control.
 
 ### `apps/noter/src/components/CodespaceIframe.tsx`
-1. Add explicit kiosk mode prop.
-2. Remove unused workspace derivation variable.
-3. Improve error detection and emit structured fallback states.
-4. Keep `Open in New Tab` as first-class fallback.
+1. Keep best-effort embed only.
+2. Maintain CSP/login-block detection and deterministic fallback actions.
+3. Not part of primary success path.
 
-### `apps/noter/src/components/CodespaceStatus.tsx`
-1. Add "Enter Chat-only Mode" action.
-2. Trigger ensure/bootstrapping with mode args.
-3. Surface auth state in tooltip/card.
-
-### `apps/noter/src/components/VaultDashboard.tsx`
-1. Add CTA for chat-only launch path.
-2. Keep full-editor path available for debug/admin workflows.
-
-### `apps/noter/src/components/ChatFab.tsx`
-1. Keep temporary behavior unchanged for existing routes.
-2. Explicitly mark as non-authoritative chat surface for long-term direction.
-
-## Devcontainer and Runtime Changes
-
-### `.devcontainer/devcontainer.json`
-1. Ensure required extension(s) are installed for Codex chat surface.
-2. Add kiosk-oriented VS Code defaults where stable.
-3. Keep `forwardPorts` including `3000` and `1455`.
-4. Keep `1455` private/silent to avoid accidental exposure.
-
-### `apps/noter/convex/vaultCodespaceIntegration.ts` (generated devcontainer config)
-Mirror the same settings as `.devcontainer/devcontainer.json` so runtime-generated configs stay aligned.
-
-### `.codespace-agent/server.js`
-1. Keep current API endpoints.
-2. Add optional endpoint(s) only if needed for structured bootstrap status.
-3. Continue strict token auth and workspace path validation.
+### `apps/noter/src/components/VaultDashboard.tsx` / `CodespaceStatus.tsx`
+1. Keep "Chat" launch action.
+2. Surface runtime/auth status for operator visibility.
 
 ## Authentication Strategy
 
-### Primary path (MVP): API key bootstrap
-1. Noter securely injects key material to bootstrap action.
-2. Codespace runs `codex login --with-api-key`.
-3. Mark auth state `ready` when status confirms success.
+### Primary (MVP): API key bootstrap
+1. Securely provide key to runtime bootstrap.
+2. Run `codex login --with-api-key` in container context.
+3. Confirm with status checks and persist `codexAuthState = ready`.
 
-### Secondary path: Device-code bootstrap
-1. Codespace runs `codex login --device-auth`.
-2. Noter displays verification URL + one-time code in a compact card.
-3. Poll until `codex login status` becomes authenticated.
+### Secondary: Device code
+1. Run `codex login --device-auth`.
+2. Show verification URL/code in Noter native card.
+3. Poll until authenticated.
 
-### Explicitly deferred for MVP
-Attempting to force ChatGPT OAuth browser callback away from localhost in this flow.
+### Deferred
+1. Any flow that depends on in-iframe GitHub/ChatGPT auth pages.
+2. Forcing localhost callback edits.
 
-## UX Behavior Contract
-1. User clicks "Create Codespace" or "Open Chat-only Mode".
-2. Noter ensures running codespace and starts auth bootstrap.
-3. While pending, user sees concise status only.
-4. On success, iframe enters kiosk chat mode.
-5. On iframe/auth failure, show deterministic fallback actions:
-   - Retry bootstrap
-   - Reopen codespace
-   - Open in new tab
+## UX Contract (Revised)
+1. User enters Chat-only Mode.
+2. Noter ensures codespace + runtime readiness.
+3. User chats in native Noter surface.
+4. Tool progress and approvals stream in-line.
+5. If runtime/auth fails, show deterministic recovery actions:
+   - Retry runtime
+   - Reopen Codespace
+   - Open full Codespace in new tab
 
 ## Mobile and Cross-device Requirements
-1. Do not require local CLI, browser extension, or port forwarding.
-2. If iframe behavior degrades on mobile, auto-offer top-level tab fallback.
-3. Preserve codespace state regardless of surface transitions.
+1. No local CLI requirement.
+2. No browser extension requirement.
+3. If embedded web editor degrades, native chat remains primary and usable.
+4. Preserve session and codespace state across device transitions.
 
 ## Risks and Mitigations
 
-### Risk 1: VS Code UI chrome cannot be perfectly hidden
+### Risk 1: Runtime process management complexity in agent
 Mitigation:
-1. Define kiosk as "best-effort with strong defaults".
-2. Track user-visible leaks and iterate settings/commands.
+1. Add bounded restart policy and health endpoint.
+2. Keep process model simple (one app-server per active session initially).
 
-### Risk 2: Embedded auth/cookie restrictions in iframe
+### Risk 2: Event stream disconnects / flaky mobile networks
 Mitigation:
-1. Detect load/auth failures quickly.
-2. Promote one-click external tab fallback.
+1. SSE reconnect with last-event-id semantics.
+2. Resume turn status from Convex state on reconnect.
 
-### Risk 3: Localhost callback semantics for ChatGPT OAuth
+### Risk 3: Secret handling for API key bootstrap
 Mitigation:
-1. Use API key/bootstrap or device-code as default auth methods.
-2. Keep callback-port forwarding as optional operator workflow only.
+1. Redact logs.
+2. Never expose raw keys to client state.
+3. Use existing secure env/secrets patterns.
 
-### Risk 4: Secret handling for API key bootstrap
+### Risk 4: Drift between root devcontainer and generated config
 Mitigation:
-1. Redact logs and responses.
-2. Store secrets using existing secure env/secrets patterns.
-3. Never return raw secrets to client state.
+1. Single canonical config builder for both static and generated paths.
+2. Validation tests for critical fields.
 
-### Risk 5: Drift between root devcontainer and generated config
+### Risk 5: Scope creep (trying to fully replicate VS Code UI)
 Mitigation:
-1. Define one canonical config builder and reuse in both paths.
-2. Add validation tests comparing critical fields.
+1. Keep MVP focused on chat/tool/approval workflows.
+2. Keep `github.dev` full-tab as explicit fallback for advanced editor tasks.
 
 ## Implementation Plan
 
-### Phase 1: Mode plumbing
-1. Add schema and mutations for mode/auth state.
-2. Add route + shell component for chat-only mode.
-3. Add dashboard/status actions.
+### Phase 0 (done): Transitional chat route + embed hardening
+1. Route and launch entrypoints implemented.
+2. Iframe fallback behavior improved.
+3. Existing codespace-ready bug fixed.
 
-### Phase 2: Auth bootstrap
-1. Add bootstrap orchestration actions.
-2. Implement API key path.
-3. Implement device-code fallback and UI card.
+### Phase 1: Agent bridge runtime
+1. Add `codex app-server` process management in `.codespace-agent/server.js`.
+2. Add session + turn + status endpoints.
+3. Add SSE stream endpoint.
 
-### Phase 3: Kiosk hardening + fallback
-1. Add kiosk defaults in devcontainer configs.
-2. Add iframe failure detection and external-tab fallback.
-3. Add mobile-specific behavior checks.
+### Phase 2: Convex orchestration
+1. Add runtime lifecycle actions/mutations.
+2. Persist runtime/auth state in `codespaces` table.
+3. Add retry/recovery action surfaces.
+
+### Phase 3: Native chat UI integration
+1. Replace iframe-first content in chat route with streamed native chat.
+2. Wire approvals and audit trails.
+3. Keep fallback "Open Tab" control.
 
 ### Phase 4: Validation
-1. Manual matrix: desktop Chrome/Safari/Firefox, mobile Safari/Chrome.
-2. Validate create/start/resume/retry/delete lifecycle.
-3. Validate auth state transitions and recovery behavior.
+1. Browser matrix: desktop Chrome/Safari/Firefox, mobile Safari/Chrome.
+2. Lifecycle matrix: create/start/resume/retry/delete.
+3. Failure matrix: auth pending/fail, SSE reconnect, runtime restart.
 
-## Acceptance Criteria
-1. User can create/start a codespace in chat-only mode from Noter.
-2. User can interact through a chat-first surface without manual localhost URL edits.
-3. API-key bootstrap is fully automatic when configured.
-4. Device-code fallback works with clear guidance and no URL editing.
-5. If iframe fails, user can continue via deterministic fallback path.
-6. Desktop and mobile web are both functional with documented caveats.
+## Acceptance Criteria (Revised)
+1. User can open Chat-only Mode and complete a Codex turn without relying on iframe-rendered GitHub auth pages.
+2. Primary chat flow works in desktop and mobile web.
+3. API-key bootstrap is automatic when configured.
+4. Device-code fallback works with clear in-app guidance.
+5. Full Codespace tab remains available as deterministic fallback.
+6. No manual localhost URL editing is required.
 
 ## Open Questions
-1. Final extension command/view identifiers for forcing chat focus in kiosk startup.
-2. Product decision on API key ownership model:
-   - per-user secret
-   - workspace/shared secret
-3. Whether to retain legacy `ChatFab` during migration or hide immediately on vault routes.
+1. Session persistence scope: reuse per vault vs per conversation?
+2. Should transcript source of truth be existing `chatConversations/messages` tables or dedicated runtime transcript records?
+3. Where should approval gating be enforced first: agent bridge, Convex action layer, or both?
 
 ## References
-1. VS Code custom layout: https://code.visualstudio.com/docs/editor/custom-layout
-2. VS Code remote extensions callbacks and URI handlers: https://code.visualstudio.com/api/advanced-topics/remote-extensions#callbacks-and-uri-handlers
-3. GitHub Codespaces port forwarding: https://docs.github.com/en/codespaces/developing-in-a-codespace/forwarding-ports-in-your-codespace
-4. GitHub Codespaces auth troubleshooting: https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-authentication-to-a-repository-in-codespaces
-5. Codex app-server auth API (login modes and localhost callback examples): https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md
-6. Codex login server localhost callback/port behavior: https://github.com/openai/codex/blob/main/codex-rs/login/src/server.rs
-7. Codex CLI auth flags (`--device-auth`, `--with-api-key`): https://github.com/openai/codex/blob/main/codex-rs/cli/src/main.rs
+1. OpenAI Codex harness architecture: https://openai.com/index/unlocking-the-codex-harness/
+2. Codex app-server README (transport/auth/runtime): https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md
+3. GitHub login framing behavior (`x-frame-options`, CSP `frame-ancestors`): https://github.com/login
+4. GitHub community thread on immutable frame policy behavior: https://github.com/orgs/community/discussions/24495
+5. Builder Chrome extension (header rewrite approach): https://www.builder.io/c/docs/chrome-extension
+6. Builder proxy previews (non-direct embedding path): https://www.builder.io/c/docs/advanced-settings
+7. VS Code custom layout reference (still relevant for fallback kiosk tuning): https://code.visualstudio.com/docs/editor/custom-layout
