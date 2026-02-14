@@ -296,6 +296,7 @@ export function VaultDashboard() {
         {vaults.map((vault: (typeof vaults)[0]) => {
           const isReady = vault.state === "ready";
           const defaultBranch = "main";
+          const chatRoute = `/vault/${vault.repositoryFullName}/${defaultBranch}/chat`;
           const infraActionLabel = vault.isNoterManaged
             ? getInfraActionLabel(vault.infraState)
             : null;
@@ -377,15 +378,25 @@ export function VaultDashboard() {
 
               <div className="ml-2 flex items-center gap-2">
                 {isReady ? (
-                  <Button asChild variant="secondary" size="sm">
-                    <Link to={`/vault/${vault.repositoryFullName}/${defaultBranch}`}>
-                      {defaultBranch}
-                    </Link>
-                  </Button>
+                  <>
+                    <Button asChild variant="secondary" size="sm">
+                      <Link to={`/vault/${vault.repositoryFullName}/${defaultBranch}`}>
+                        {defaultBranch}
+                      </Link>
+                    </Button>
+                    <Button asChild variant="outline" size="sm">
+                      <Link to={chatRoute}>Chat</Link>
+                    </Button>
+                  </>
                 ) : (
-                  <Button variant="secondary" size="sm" disabled>
-                    {defaultBranch}
-                  </Button>
+                  <>
+                    <Button variant="secondary" size="sm" disabled>
+                      {defaultBranch}
+                    </Button>
+                    <Button variant="outline" size="sm" disabled>
+                      Chat
+                    </Button>
+                  </>
                 )}
                 {infraActionLabel && (
                   <Button

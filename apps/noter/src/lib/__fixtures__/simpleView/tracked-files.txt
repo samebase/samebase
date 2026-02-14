@@ -102,6 +102,7 @@ apps/noter/src/components/AddRepository.tsx
 apps/noter/src/components/ChatFab.tsx
 apps/noter/src/components/Code.tsx
 apps/noter/src/components/CodeEditor.tsx
+apps/noter/src/components/CodespaceChatOnlyView.tsx
 apps/noter/src/components/CodespaceIframe.tsx
 apps/noter/src/components/CodespaceStatus.tsx
 apps/noter/src/components/CommandPalette.tsx
