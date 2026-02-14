@@ -2,6 +2,8 @@
 
 ## High Priority
 
+- [ ] left to easily press enter
+- [ ] https://theia-ide.org/
 - [ ] research https://vly.ai/, and all others startups shown on
 - [ ] ai can access convex functions directly and can invoke them, and use them as custom tools or can build for itself
 - [ ] https://www.convex.dev/startups
