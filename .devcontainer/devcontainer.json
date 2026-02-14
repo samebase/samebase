@@ -17,13 +17,14 @@
         "bradlc.vscode-tailwindcss"
       ],
       "settings": {
+        "npm.packageManager": "pnpm",
         "editor.formatOnSave": true,
         "editor.defaultFormatter": "esbenp.prettier-vscode"
       }
     }
   },
   
-  "postCreateCommand": "npm install && cd .codespace-agent && npm install",
+  "postCreateCommand": "pnpm install && cd .codespace-agent && npm install --no-package-lock",
   "postStartCommand": "cd .codespace-agent && CODESPACE_AGENT_TOKEN=${CODESPACE_AGENT_TOKEN} npm start &",
   
   "forwardPorts": [5173, 3000, 1455],
