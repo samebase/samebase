@@ -14,6 +14,7 @@
     "lint": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "prepare": "husky",
+    "template:sync-codespace": "node scripts/sync-codespace-assets.mjs",
     "template:export": "node scripts/export-template-manifest.mjs"
   },
   "dependencies": {

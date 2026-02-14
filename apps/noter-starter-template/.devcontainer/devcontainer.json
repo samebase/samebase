@@ -1,0 +1,51 @@
+{
+  "name": "React + Convex App",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-bookworm",
+  
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "24"
+    },
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+  
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss"
+      ],
+      "settings": {
+        "npm.packageManager": "pnpm",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+      }
+    }
+  },
+  
+  "postCreateCommand": "pnpm install && npm install -g @openai/codex && cd .codespace-agent && npm install --no-package-lock",
+  "postStartCommand": "bash -lc 'cd .codespace-agent && if [ ! -d node_modules ]; then npm install --no-package-lock; fi && if ! pgrep -f \"node server.js\" >/dev/null; then nohup npm start >/tmp/codespace-agent.log 2>&1 & fi'",
+  
+  "forwardPorts": [5173, 3000, 1455],
+  "portsAttributes": {
+    "5173": {
+      "label": "Vite Dev Server",
+      "onAutoForward": "notify"
+    },
+    "3000": {
+      "label": "Codespace Agent API",
+      "visibility": "public",
+      "onAutoForward": "silent"
+    },
+    "1455": {
+      "label": "Codex OAuth Callback",
+      "visibility": "private",
+      "onAutoForward": "silent"
+    }
+  },
+  
+  "remoteEnv": {
+    "WORKSPACE_DIR": "/workspaces/${localWorkspaceFolderBasename}"
+  }
+}

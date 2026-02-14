@@ -1,6 +1,7 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { syncCodespaceAssets } from "./sync-codespace-assets.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -55,6 +56,8 @@ const packageJsonRaw = await readFile(packageJsonPath, "utf8");
 const packageJson = JSON.parse(packageJsonRaw);
 const packageVersion =
   typeof packageJson.version === "string" ? packageJson.version : "0.0.0";
+
+await syncCodespaceAssets();
 
 const files = await collectFiles(baseDir, baseDir, 0);
 files.sort((left, right) => left.relativePath.localeCompare(right.relativePath));

@@ -9,6 +9,9 @@
   - `apps/noter/convex/vaultActions.ts`
   - `apps/noter/convex/starterSeed.ts` (or replacement)
   - `apps/noter-starter-template/AGENTS.md`
+  - `apps/noter-starter-template/scripts/sync-codespace-assets.mjs`
+  - `apps/noter-starter-template/.devcontainer/devcontainer.json`
+  - `apps/noter-starter-template/.codespace-agent/server.js`
 
 ## Summary
 
@@ -118,10 +121,23 @@ Operational cost:
 - Remove/avoid `seed-commits/*` layered source model.
 - New vault creation seeds starter content as exactly one commit.
 - Starter template package manager is pnpm to align with monorepo tooling and reduce package-manager variance.
+- Codespace runtime assets are part of the starter contract:
+  - `.devcontainer/devcontainer.json`
+  - `.codespace-agent/**`
 - `apps/noter-starter-template/AGENTS.md` must include:
   - exact initialization sequence used to build the template,
   - exact commands run (Vite, Convex, Tailwind, shadcn setup),
   - regeneration guidance for future updates.
+
+## Sync Contract (Added 2026-02-14)
+
+- Canonical sources live at monorepo root:
+  - `.devcontainer/devcontainer.json`
+  - `.codespace-agent/**`
+- Starter template copies are synchronized by:
+  - `pnpm --filter noter-starter-template run template:sync-codespace`
+- `template:export` must run sync first so manifest output cannot drift from canonical runtime assets.
+- Sync excludes runtime-only artifacts (for example `.codespace-agent/node_modules`, `.codespace-agent/.agent-token`).
 
 ## Public API / Behavior Changes
 
@@ -167,6 +183,7 @@ Out of scope for Iteration 1:
 - Spec explicitly defines Iteration 1 scope and deferred topics.
 - Spec states exact single-commit seeding rule.
 - Spec requires command-level setup history in template `AGENTS.md`.
+- Starter template export always includes up-to-date `.devcontainer` + `.codespace-agent` assets from canonical root sources.
 
 ## Test Cases and Scenarios
 

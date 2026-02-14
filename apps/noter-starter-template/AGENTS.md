@@ -49,6 +49,16 @@ pnpm run template:export
 pnpm run template:export
 ```
 
+`template:export` now auto-syncs these root assets into the template before manifest generation:
+- `.codespace-agent/**`
+- `.devcontainer/devcontainer.json`
+
+Optional manual sync without export:
+
+```bash
+pnpm run template:sync-codespace
+```
+
 5. Confirm generated output file exists and is updated:
    - `apps/noter/convex/starterSeedManifest.generated.ts`
 

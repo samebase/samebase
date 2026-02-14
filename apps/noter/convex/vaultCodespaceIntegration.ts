@@ -310,9 +310,9 @@ function generateDevcontainerConfig(): string {
       },
     },
     postCreateCommand:
-      "npm install && npm install -g @openai/codex && cd .codespace-agent && npm install",
+      "pnpm install && npm install -g @openai/codex && cd .codespace-agent && npm install --no-package-lock",
     postStartCommand:
-      "cd .codespace-agent && CODESPACE_AGENT_TOKEN=${CODESPACE_AGENT_TOKEN} npm start &",
+      "bash -lc 'cd .codespace-agent && if [ ! -d node_modules ]; then npm install --no-package-lock; fi && if ! pgrep -f \"node server.js\" >/dev/null; then nohup npm start >/tmp/codespace-agent.log 2>&1 & fi'",
     forwardPorts: [5173, 3000, 1455],
     portsAttributes: {
       "5173": {
@@ -321,7 +321,7 @@ function generateDevcontainerConfig(): string {
       },
       "3000": {
         label: "Codespace Agent API",
-        visibility: "private",
+        visibility: "public",
         onAutoForward: "silent",
       },
       "1455": {

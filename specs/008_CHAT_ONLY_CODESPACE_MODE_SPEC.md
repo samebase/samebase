@@ -1,7 +1,7 @@
 # Chat-only Codespace Mode Specification
 
 ## Document Control
-- Status: Revised proposal (pivot after embed spike)
+- Status: Revised proposal with MVP hardening updates
 - Owner: Noter frontend/backend
 - Last Updated: 2026-02-14
 - Previous revision date: 2026-02-14 (iframe-first draft)
@@ -22,6 +22,9 @@
   - `apps/noter/convex/schema.ts`
   - `.devcontainer/devcontainer.json`
   - `.codespace-agent/server.js`
+  - `apps/noter-starter-template/.devcontainer/devcontainer.json`
+  - `apps/noter-starter-template/.codespace-agent/server.js`
+  - `apps/noter-starter-template/scripts/sync-codespace-assets.mjs`
 
 ## Summary
 Noter should provide a chat-only Codespace experience where the primary UX is a native Noter chat surface, while Codex runtime execution happens inside the vault dev-container.
@@ -39,6 +42,9 @@ During implementation and manual testing, we confirmed that iframe-first UX is n
    - `x-frame-options: deny`
    - CSP includes `frame-ancestors 'none'`
 4. Existing "Open in New Tab" fallback works, but that does not satisfy a reliable embedded primary flow.
+5. Codespace agent port forwarding can return gateway auth responses (`401` with `www-authenticate: tunnel` / `Bearer`) when port-level exposure is not compatible with backend-to-codespace calls.
+6. Agent startup is unreliable when it depends on `CODESPACE_AGENT_TOKEN` being pre-populated in runtime env at process start.
+7. Repositories created from starter seed failed to include `.devcontainer` + `.codespace-agent`, causing agent server not to start at all in new vault Codespaces.
 
 ## Goals
 1. Keep full Codespace lifecycle behavior intact (create/start/stop/delete/retry).
@@ -124,6 +130,11 @@ sequenceDiagram
 3. `ChatFab` hidden on chat route.
 4. Iframe component has improved failure detection and retry/open-tab fallback.
 5. `ensureCodespaceReady` bug fixed when codespace is already up to date (returns existing `codespaceId`).
+6. Agent startup hardening:
+   - `postStartCommand` is idempotent and starts agent with `nohup` when missing.
+   - runtime token bootstrap in `.codespace-agent/server.js` allows first authenticated request to initialize token when env token is missing.
+7. Codespace agent runtime state file `.codespace-agent/.agent-token` is persisted and gitignored.
+8. Starter template now carries `.devcontainer` and `.codespace-agent` assets and syncs them from monorepo root before manifest export.
 
 These are transitional and remain useful as fallback even after app-server-first delivery.
 
@@ -225,6 +236,12 @@ Bridge behavior:
    - Reopen Codespace
    - Open full Codespace in new tab
 
+## Operational Requirements (MVP)
+1. Agent API port `3000` must be externally reachable for Convex actions (not only editor-local).
+2. Agent process must be auto-started on Codespace boot and restart-safe (no duplicate process storms).
+3. Agent auth token must be stable across process restarts even when shell env is missing token.
+4. New noter-managed repositories must include both `.devcontainer` and `.codespace-agent` at seed time.
+
 ## Mobile and Cross-device Requirements
 1. No local CLI requirement.
 2. No browser extension requirement.
@@ -251,8 +268,9 @@ Mitigation:
 
 ### Risk 4: Drift between root devcontainer and generated config
 Mitigation:
-1. Single canonical config builder for both static and generated paths.
-2. Validation tests for critical fields.
+1. Root `.devcontainer` + `.codespace-agent` treated as canonical runtime sources.
+2. `apps/noter-starter-template/scripts/sync-codespace-assets.mjs` syncs those assets into starter template.
+3. `template:export` runs sync automatically before manifest generation.
 
 ### Risk 5: Scope creep (trying to fully replicate VS Code UI)
 Mitigation:

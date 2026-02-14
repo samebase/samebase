@@ -1,19 +1,69 @@
 const express = require('express');
 const { exec, spawn } = require('child_process');
 const fs = require('fs').promises;
+const fsSync = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
 
-// Security: validate token from environment
-const AGENT_TOKEN = process.env.CODESPACE_AGENT_TOKEN || crypto.randomUUID();
+const AGENT_TOKEN_FILE = path.join(__dirname, '.agent-token');
 const WORKSPACE_DIR = process.env.WORKSPACE_DIR || '/workspaces';
 const CODEX_RPC_TIMEOUT_MS = 120000;
 const CODEX_INIT_TIMEOUT_MS = 30000;
 const CODEX_EVENT_BUFFER_SIZE = 500;
 const CODEX_REQUEST_BUFFER_SIZE = 100;
+
+function normalizeToken(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function readPersistedAgentToken() {
+  try {
+    if (!fsSync.existsSync(AGENT_TOKEN_FILE)) {
+      return null;
+    }
+    const persisted = fsSync.readFileSync(AGENT_TOKEN_FILE, 'utf8');
+    return normalizeToken(persisted);
+  } catch (error) {
+    console.warn(
+      `[AGENT] Failed to read persisted token from ${AGENT_TOKEN_FILE}: ${String(error)}`
+    );
+    return null;
+  }
+}
+
+function loadInitialTokenState() {
+  const fromEnv = normalizeToken(process.env.CODESPACE_AGENT_TOKEN);
+  if (fromEnv) {
+    return { token: fromEnv, source: 'env' };
+  }
+
+  const fromFile = readPersistedAgentToken();
+  if (fromFile) {
+    return { token: fromFile, source: 'persisted' };
+  }
+
+  return { token: null, source: 'runtime' };
+}
+
+async function persistAgentToken(token) {
+  try {
+    await fs.writeFile(AGENT_TOKEN_FILE, `${token}\n`, 'utf8');
+  } catch (error) {
+    console.warn(
+      `[AGENT] Failed to persist token to ${AGENT_TOKEN_FILE}: ${String(error)}`
+    );
+  }
+}
+
+const initialTokenState = loadInitialTokenState();
+let AGENT_TOKEN = initialTokenState.token;
+let AGENT_TOKEN_SOURCE = initialTokenState.source;
 
 const codexRuntime = {
   process: null,
@@ -35,7 +85,13 @@ const codexRuntime = {
 console.log('='.repeat(60));
 console.log('Codespace Agent Starting');
 console.log('='.repeat(60));
-console.log(`Agent Token: ${AGENT_TOKEN.substring(0, 8)}...`);
+if (AGENT_TOKEN) {
+  console.log(`Agent Token: ${AGENT_TOKEN.substring(0, 8)}... (${AGENT_TOKEN_SOURCE})`);
+} else {
+  console.log(
+    'Agent Token: <unset> (will initialize from first authenticated request)',
+  );
+}
 console.log(`Workspace Dir: ${WORKSPACE_DIR}`);
 console.log('='.repeat(60));
 
@@ -49,7 +105,20 @@ function authenticateToken(req, res, next) {
   }
 
   const authHeader = req.headers.authorization;
-  const token = authHeader?.replace('Bearer ', '');
+  const token = normalizeToken(authHeader?.replace('Bearer ', ''));
+
+  if (!AGENT_TOKEN) {
+    if (!token) {
+      console.warn(`Unauthorized request from ${req.ip} to ${req.path} (missing token)`);
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    AGENT_TOKEN = token;
+    AGENT_TOKEN_SOURCE = 'request';
+    void persistAgentToken(token);
+    console.log('Agent token initialized from first authenticated request');
+    return next();
+  }
 
   if (token !== AGENT_TOKEN) {
     console.warn(`Unauthorized request from ${req.ip} to ${req.path}`);
@@ -419,7 +488,9 @@ function getCodexRuntimeSnapshot() {
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
-    token: AGENT_TOKEN.substring(0, 8) + '...',
+    authConfigured: Boolean(AGENT_TOKEN),
+    tokenSource: AGENT_TOKEN_SOURCE,
+    token: AGENT_TOKEN ? AGENT_TOKEN.substring(0, 8) + '...' : null,
     uptime: process.uptime(),
     timestamp: Date.now(),
   });
@@ -905,7 +976,9 @@ const PORT = process.env.AGENT_PORT || 3000;
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('='.repeat(60));
   console.log(`✓ Codespace Agent running on port ${PORT}`);
-  console.log(`✓ Token: ${AGENT_TOKEN.substring(0, 8)}...`);
+  console.log(
+    `✓ Token: ${AGENT_TOKEN ? `${AGENT_TOKEN.substring(0, 8)}... (${AGENT_TOKEN_SOURCE})` : '<unset>'}`,
+  );
   console.log(`✓ Workspace: ${WORKSPACE_DIR}`);
   console.log('='.repeat(60));
   console.log('Ready to accept requests');
