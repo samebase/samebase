@@ -2,20 +2,18 @@
 
 simpleView:
   exclude:
-    - "**/src/**" # Frontend implementation code
-    - "**/convex/**" # Backend functions
-    - "**/node_modules/**" # Dependencies
-    - "**/dist/**" # Build output
-    - "**/*.{json,ts,tsx,js,jsx,cjs,mjs,css,html,yaml,toml}" # Source file extensions
+    - noter.md # Simple View config file
+    - src/** # Frontend implementation code
+    - convex/** # Backend functions
+    - node_modules/** # Dependencies
+    - dist/** # Build output
+    - "**/*.{json,ts,tsx,js,jsx,cjs,mjs,css,html,yaml}" # Source file extensions
     - tsconfig.base.json
 
     - Makefile
     - "**/pre-commit" # Git hooks like .husky/pre-commit
     - "**/.*" # Dotfiles and dotfolders
     - "**/.*/**" # Files inside dotfolders
-    - "**/_redirects"
-    
-
 
 
 ---
