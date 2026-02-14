@@ -5,6 +5,7 @@ import { VaultDashboard } from "@/components/VaultDashboard";
 import { FileView } from "@/components/FileView";
 import { AddRepository } from "@/components/AddRepository";
 import { ChatFab } from "@/components/ChatFab";
+import { CodespaceChatOnlyView } from "@/components/CodespaceChatOnlyView";
 import { Button } from "@/components/ui/button";
 import {
   Authenticated,
@@ -14,8 +15,12 @@ import {
 } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../convex/_generated/api";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { useEffect } from "react";
+
+function isChatOnlyCodespaceRoute(pathname: string): boolean {
+  return /^\/vault\/[^/]+\/[^/]+\/[^/]+\/chat\/?$/.test(pathname);
+}
 
 function useCloseOAuthPopup() {
   const { isAuthenticated } = useConvexAuth();
@@ -87,6 +92,8 @@ function ApprovalGate({ children }: { children: React.ReactNode }) {
 export default function App() {
   useCloseOAuthPopup();
   useAutoSignIn();
+  const location = useLocation();
+  const showChatFab = !isChatOnlyCodespaceRoute(location.pathname);
 
   return (
     <Layout>
@@ -96,13 +103,17 @@ export default function App() {
             <Routes>
               <Route path="/" element={<VaultDashboard />} />
               <Route path="/add" element={<AddRepository />} />
+              <Route
+                path="/vault/:owner/:repoName/:branch/chat"
+                element={<CodespaceChatOnlyView />}
+              />
               <Route path="/vault/:owner/:repoName" element={<FileView />} />
               <Route path="/vault/:owner/:repoName/*" element={<FileView />} />
 
               {/* test route */}
               <Route path="/test" element={<div>Test</div>} />
             </Routes>
-            <ChatFab />
+            {showChatFab && <ChatFab />}
           </ApprovalGate>
         </Authenticated>
         <Unauthenticated>

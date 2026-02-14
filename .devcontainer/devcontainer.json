@@ -24,7 +24,7 @@
     }
   },
   
-  "postCreateCommand": "pnpm install && cd .codespace-agent && npm install --no-package-lock",
+  "postCreateCommand": "pnpm install && npm install -g @openai/codex && cd .codespace-agent && npm install --no-package-lock",
   "postStartCommand": "cd .codespace-agent && CODESPACE_AGENT_TOKEN=${CODESPACE_AGENT_TOKEN} npm start &",
   
   "forwardPorts": [5173, 3000, 1455],
