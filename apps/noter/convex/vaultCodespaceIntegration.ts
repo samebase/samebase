@@ -257,6 +257,23 @@ export const ensureCodespaceReady = action({
 
     // Agent health is best-effort. A running Codespace is considered usable
     // even when the custom agent endpoint is unavailable.
+    try {
+      const portEnsured = await ctx.runAction(
+        api.codespacesPorts.ensureCodespacePortsVisibility,
+        { codespaceId },
+      );
+      if (!portEnsured.ensured) {
+        console.log("vaultCodespaceIntegration:ensureCodespaceReady:ports:ensure:failed", {
+          codespaceId,
+          results: portEnsured.results,
+        });
+      }
+    } catch (error) {
+      console.log("vaultCodespaceIntegration:ensureCodespaceReady:ports:ensure:error", {
+        codespaceId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
     await ctx.runAction(api.codespacesExecutor.checkAgentHealth, {
       codespaceId,
     });

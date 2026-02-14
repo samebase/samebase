@@ -59,6 +59,7 @@ apps/noter/convex/chatActions.ts
 apps/noter/convex/codespaces.ts
 apps/noter/convex/codespacesExecutor.ts
 apps/noter/convex/codespacesMutations.ts
+apps/noter/convex/codespacesPorts.ts
 apps/noter/convex/collaborative.ts
 apps/noter/convex/common.ts
 apps/noter/convex/env.ts
@@ -192,6 +193,7 @@ specs/005_STARTER_TEMPLATE_STRATEGY_SPEC.md
 specs/006_DNS_DOMAIN_STRATEGY_SPEC.md
 specs/007_SIMPLE_VIEW_FRONTMATTER_SPEC.md
 specs/008_CHAT_ONLY_CODESPACE_MODE_SPEC.md
+specs/009_CODESPACE_PORT_VISIBILITY_SPEC.md
 TODO.md
 tsconfig.base.json
 turbo.json
