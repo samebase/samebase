@@ -151,6 +151,9 @@ export function CodespaceStatus({
   const portsEnsured = codespace.portsVisibilityEnsured;
   const portsEnsuredAt = codespace.portsVisibilityEnsuredAt;
   const portsLastError = codespace.portsVisibilityLastError;
+  const agentBaseUrl =
+    codespace.agentUrl ?? `https://${codespace.ghCodespaceName}-3000.app.github.dev`;
+  const agentHealthUrl = `${agentBaseUrl.replace(/\/$/, "")}/health`;
 
   const portsBadge = (() => {
     if (!isRunning) {
@@ -159,9 +162,20 @@ export function CodespaceStatus({
 
     if (portsEnsured === true) {
       return (
-        <Badge variant="outline" className="text-xs text-emerald-700">
-          Ports ok
-        </Badge>
+        <a
+          href={agentHealthUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex rounded-full no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
+          title="Open agent /health"
+        >
+          <Badge variant="outline" className="text-xs text-emerald-700">
+            Ports ok
+          </Badge>
+        </a>
       );
     }
 

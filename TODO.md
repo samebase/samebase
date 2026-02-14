@@ -41,6 +41,7 @@
 
 ## Features & Improvements
 - [ ] improve file search functionality with better fuzzy matching
+- [ ] editor: on hover over Tailwind classes, show their definition
 - [ ] add keyboard shortcuts for common actions (save, commit, etc.)
 - [ ] implement file diff view to show changes before committing
 - [ ] add "todo" command functionality for AI assistant to update this file
