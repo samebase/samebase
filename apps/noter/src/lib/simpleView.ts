@@ -72,7 +72,19 @@ export function parseSimpleViewConfig(
     };
   }
 
-  const validated = simpleViewFrontmatterSchema.safeParse(document.toJS());
+  let parsedFrontmatter: unknown;
+  try {
+    parsedFrontmatter = document.toJS();
+  } catch (error) {
+    return {
+      hasConfigFile: true,
+      hasValidConfig: false,
+      excludePatterns: [],
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  const validated = simpleViewFrontmatterSchema.safeParse(parsedFrontmatter);
   if (!validated.success) {
     return {
       hasConfigFile: true,

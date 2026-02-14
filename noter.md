@@ -11,7 +11,9 @@ simpleView:
     - tsconfig.base.json
 
     - Makefile
-    - .**/**
+    - "**/pre-commit" # Git hooks like .husky/pre-commit
+    - "**/.*" # Dotfiles and dotfolders
+    - "**/.*/**" # Files inside dotfolders
     
 
 
