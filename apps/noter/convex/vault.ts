@@ -95,7 +95,18 @@ export const removeVault = mutation({
       });
     }
 
-    // 4. Delete the vault
+    // 7. Delete codespaces records (GitHub resources are handled by vaultActions.deleteVault)
+    const codespaces = await ctx.db
+      .query("codespaces")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .collect();
+    for (const codespace of codespaces) {
+      await ctx.db.delete(codespace._id).catch((e) => {
+        console.error("codespace delete", e);
+      });
+    }
+
+    // 8. Delete the vault
     await ctx.db.delete(vault._id).catch((e) => {
       console.error("vault delete", e);
     });

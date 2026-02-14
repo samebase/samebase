@@ -257,3 +257,60 @@ export const getActiveCodespace = query({
     };
   },
 });
+
+const connectedCodespaceSummary = v.object({
+  _id: v.id("codespaces"),
+  ghCodespaceName: v.string(),
+  state: v.string(),
+});
+
+export const listConnectedCodespacesForVault = internalQuery({
+  args: {
+    vaultId: v.id("vaults"),
+    userId: v.id("users"),
+  },
+  returns: v.array(connectedCodespaceSummary),
+  handler: async (ctx, args) => {
+    const codespaces = await ctx.db
+      .query("codespaces")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("userId"), args.userId),
+          q.neq(q.field("state"), "deleted"),
+        ),
+      )
+      .collect();
+
+    return codespaces.map((codespace) => ({
+      _id: codespace._id,
+      ghCodespaceName: codespace.ghCodespaceName,
+      state: codespace.state,
+    }));
+  },
+});
+
+export const getConnectedCodespacesCount = query({
+  args: { vaultId: v.id("vaults") },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.userId !== userId) {
+      return 0;
+    }
+
+    const codespaces = await ctx.db
+      .query("codespaces")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("userId"), userId),
+          q.neq(q.field("state"), "deleted"),
+        ),
+      )
+      .collect();
+
+    return codespaces.length;
+  },
+});

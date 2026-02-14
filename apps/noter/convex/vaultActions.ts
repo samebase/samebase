@@ -271,6 +271,7 @@ export const retryInfrastructureProvisioning = action({
 export const deleteVault = action({
   args: {
     vaultId: v.id("vaults"),
+    removeCodespaces: v.optional(v.boolean()),
     removeGithubRepo: v.optional(v.boolean()),
     removeConvexProvision: v.optional(v.boolean()),
     removeNetlifyProvision: v.optional(v.boolean()),
@@ -278,6 +279,25 @@ export const deleteVault = action({
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
+    let octokit: Octokit | null = null;
+    const getOctokit = async (): Promise<Octokit> => {
+      if (octokit) {
+        return octokit;
+      }
+
+      const user = await ctx.runQuery(internal.users.getById, {
+        userId,
+      });
+
+      if (!user?.githubAccessToken) {
+        throw new Error("GitHub access token not found");
+      }
+
+      octokit = new Octokit({
+        auth: user.githubAccessToken,
+      });
+      return octokit;
+    };
 
     const vault = await ctx.runQuery(internal.vault.getById, {
       id: args.vaultId,
@@ -305,6 +325,7 @@ export const deleteVault = action({
         typeof infrastructure?.convexDeploymentName === "string");
     const shouldRemoveRepo =
       args.removeGithubRepo === true && vault.isNoterManaged === true;
+    const shouldRemoveCodespaces = args.removeCodespaces === true;
 
     if (shouldRemoveNetlifyProvision || shouldRemoveConvexProvision) {
       const providers = createInfraProviders();
@@ -348,18 +369,50 @@ export const deleteVault = action({
       }
     }
 
-    if (shouldRemoveRepo) {
-      const user = await ctx.runQuery(internal.users.getById, {
-        userId,
-      });
+    if (shouldRemoveCodespaces) {
+      const codespaces = await ctx.runQuery(
+        internal.codespacesMutations.listConnectedCodespacesForVault,
+        { vaultId: args.vaultId, userId },
+      );
 
-      if (!user?.githubAccessToken) {
-        throw new Error("GitHub access token not found");
+      if (codespaces.length > 0) {
+        const octokit = await getOctokit();
+
+        for (const codespace of codespaces) {
+          await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
+            codespaceId: codespace._id,
+            state: "deleting",
+          });
+
+          try {
+            await octokit.rest.codespaces.deleteForAuthenticatedUser({
+              codespace_name: codespace.ghCodespaceName,
+            });
+          } catch (error) {
+            if (!isProviderNotFoundError(error)) {
+              await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
+                codespaceId: codespace._id,
+                state: "failed",
+              });
+              throw error;
+            }
+          }
+
+          await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
+            codespaceId: codespace._id,
+            state: "deleted",
+            deletedAt: Date.now(),
+          });
+          await ctx.runMutation(internal.codespacesMutations.clearActiveCodespace, {
+            vaultId: args.vaultId,
+            codespaceId: codespace._id,
+          });
+        }
       }
+    }
 
-      const octokit = new Octokit({
-        auth: user.githubAccessToken,
-      });
+    if (shouldRemoveRepo) {
+      const octokit = await getOctokit();
 
       await octokit.rest.repos.delete({
         owner: vault.ghRepoOwner,

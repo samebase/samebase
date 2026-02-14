@@ -14,7 +14,7 @@ import { Link } from "react-router-dom";
 import { linkStyle } from "./styles";
 import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import { useAction } from "convex/react";
+import { useAction, useQuery as useConvexQuery } from "convex/react";
 import { useState } from "react";
 import {
   Dialog,
@@ -97,6 +97,7 @@ export function VaultDashboard() {
     hasNetlifyProvision: boolean;
   } | null>(null);
   const [removeGithubRepo, setRemoveGithubRepo] = useState(false);
+  const [removeCodespaces, setRemoveCodespaces] = useState(false);
   const [removeConvexProvision, setRemoveConvexProvision] = useState(false);
   const [removeNetlifyProvision, setRemoveNetlifyProvision] = useState(false);
   const [newAgentName, setNewAgentName] = useState("");
@@ -120,11 +121,17 @@ export function VaultDashboard() {
   const resetDeleteDialogState = () => {
     setVaultToDelete(null);
     setRemoveGithubRepo(false);
+    setRemoveCodespaces(false);
     setRemoveConvexProvision(false);
     setRemoveNetlifyProvision(false);
     setCommitError(null);
     setDidAttemptCommit(false);
   };
+
+  const connectedCodespacesCount = useConvexQuery(
+    api.codespacesMutations.getConnectedCodespacesCount,
+    vaultToDelete ? { vaultId: vaultToDelete.id } : "skip",
+  );
 
   const handleRemoveVault = async () => {
     if (!vaultToDelete || isDeleting || isCommitting) return;
@@ -133,6 +140,8 @@ export function VaultDashboard() {
       setIsDeleting(true);
       await deleteVault({
         vaultId: vaultToDelete.id,
+        removeCodespaces:
+          connectedCodespacesCount === 0 ? true : removeCodespaces,
         removeGithubRepo: vaultToDelete.isNoterManaged
           ? removeGithubRepo
           : false,
@@ -430,6 +439,7 @@ export function VaultDashboard() {
                       hasNetlifyProvision: vault.hasNetlifyProvision,
                     });
                     setRemoveGithubRepo(vault.isNoterManaged);
+                    setRemoveCodespaces(true);
                     setRemoveConvexProvision(
                       vault.isNoterManaged && vault.hasConvexProvision,
                     );
@@ -493,6 +503,31 @@ export function VaultDashboard() {
                       Only available for repositories created in Noter.
                     </div>
                   )}
+                </label>
+              </div>
+              <div className="flex items-start gap-2">
+                <input
+                  id="remove-codespaces"
+                  type="checkbox"
+                  checked={
+                    connectedCodespacesCount === 0 ? true : removeCodespaces
+                  }
+                  onChange={(e) => setRemoveCodespaces(e.target.checked)}
+                  disabled={
+                    connectedCodespacesCount === 0 ||
+                    isDeleting ||
+                    isCommitting
+                  }
+                  className="mt-0.5 h-4 w-4 rounded border border-input"
+                />
+                <label
+                  htmlFor="remove-codespaces"
+                  className="text-sm text-muted-foreground"
+                >
+                  Also remove all Codespaces
+                  {connectedCodespacesCount === undefined
+                    ? null
+                    : ` (${connectedCodespacesCount} connected)`}
                 </label>
               </div>
               {vaultToDelete.hasConvexProvision && (
