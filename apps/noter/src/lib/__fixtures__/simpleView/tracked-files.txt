@@ -12,6 +12,7 @@
 .prettierrc
 AGENTS.md
 apps/noter-starter-template/.gitignore
+apps/noter-starter-template/.husky/pre-commit
 apps/noter-starter-template/AGENTS.md
 apps/noter-starter-template/components.json
 apps/noter-starter-template/convex/messages.ts
@@ -148,6 +149,8 @@ apps/noter/src/hooks/useDialog.ts
 apps/noter/src/hooks/useProjectFiles.ts
 apps/noter/src/index.css
 apps/noter/src/Layout.tsx
+apps/noter/src/lib/__fixtures__/simpleView/tracked-files.txt
+apps/noter/src/lib/__fixtures__/simpleView/visible-simple-view-files.txt
 apps/noter/src/lib/base64.ts
 apps/noter/src/lib/convexQueryCache.ts
 apps/noter/src/lib/convexUtils.tsx

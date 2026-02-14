@@ -3,7 +3,6 @@ apps/noter-starter-template/AGENTS.md
 apps/noter-starter-template/netlify.toml
 apps/noter-starter-template/noter.md
 apps/noter-starter-template/README.md
-apps/noter/public/_redirects
 apps/noter/public/favicon.png
 apps/noter/public/favicon.svg
 apps/noter/public/lumina_icon.png
