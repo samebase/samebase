@@ -6,7 +6,8 @@ simpleView:
     - convex/** # Backend functions
     - node_modules/** # Dependencies
     - dist/** # Build output
-    - "**/*.{ts,tsx,js,jsx,css,html}" # Source file extensions
+    - "**/*.{ts,tsx,js,jsx,css,html,tsbuildinfo}" # Source file extensions
+
 ---
 
 # noter.md

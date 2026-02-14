@@ -25,6 +25,7 @@
 - [ ] it's fine to reuse the Sha of the same vault so history should be easy, so we can implement branching easily in noter
 - [ ] you don't share code, you share methods how you work with code. Like teach it about type-safety, so senior devs will still be needed, since you need to be technical
 - [ ] https://www.deployopenclaw.co/
+- [ ] https://link.com/ for payments instead of strip, a lot of apps seem to use it. Need to check if in MOldova
 
 ## Features & Improvements
 - [ ] improve file search functionality with better fuzzy matching
