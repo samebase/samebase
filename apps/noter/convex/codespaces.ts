@@ -2,12 +2,11 @@
 
 import { Infer, v } from "convex/values";
 import { action } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
 import { Id } from "./_generated/dataModel";
 import { getEnvLabel } from "./env";
-import { CodespaceState } from "./schema";
 
 /**
  * Create a new GitHub Codespace for a vault
@@ -156,6 +155,26 @@ export const createCodespace = action({
         codespaceId,
         webUrl: updatedCodespace.web_url,
       });
+
+      try {
+        const portEnsured = await ctx.runAction(
+          api.codespacesPorts.ensureCodespacePortsVisibility,
+          { codespaceId },
+        );
+        if (!portEnsured.ensured) {
+          console.log("codespaces:createCodespace:ports:ensure:failed", {
+            codespaceId,
+            results: portEnsured.results,
+          });
+        } else {
+          console.log("codespaces:createCodespace:ports:ensure:ok", { codespaceId });
+        }
+      } catch (error) {
+        console.log("codespaces:createCodespace:ports:ensure:error", {
+          codespaceId,
+          message: formatError(error),
+        });
+      }
     } catch (error) {
       console.log("codespaces:createCodespace:error", {
         codespaceId,
@@ -268,6 +287,24 @@ export const startCodespace = action({
       state: "running",
       lastStartedAt: Date.now(),
     });
+
+    try {
+      const portEnsured = await ctx.runAction(
+        api.codespacesPorts.ensureCodespacePortsVisibility,
+        { codespaceId: args.codespaceId },
+      );
+      if (!portEnsured.ensured) {
+        console.log("codespaces:startCodespace:ports:ensure:failed", {
+          codespaceId: args.codespaceId,
+          results: portEnsured.results,
+        });
+      }
+    } catch (error) {
+      console.log("codespaces:startCodespace:ports:ensure:error", {
+        codespaceId: args.codespaceId,
+        message: formatError(error),
+      });
+    }
 
     return null;
   },

@@ -171,6 +171,27 @@ export const updateAgentHealth = internalMutation({
 });
 
 /**
+ * Internal mutation: Update port visibility reconciliation status
+ */
+export const updatePortsVisibilityStatus = internalMutation({
+  args: {
+    codespaceId: v.id("codespaces"),
+    ensured: v.boolean(),
+    ensuredAt: v.number(),
+    lastError: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.codespaceId, {
+      portsVisibilityEnsured: args.ensured,
+      portsVisibilityEnsuredAt: args.ensuredAt,
+      portsVisibilityLastError: args.lastError,
+    });
+    return null;
+  },
+});
+
+/**
  * Get active Codespace for a vault (public query)
  */
 export const getActiveCodespace = query({
@@ -186,6 +207,9 @@ export const getActiveCodespace = query({
       webUrl: v.optional(v.string()),
       agentUrl: v.optional(v.string()),
       agentHealthy: v.optional(v.boolean()),
+      portsVisibilityEnsured: v.optional(v.boolean()),
+      portsVisibilityEnsuredAt: v.optional(v.number()),
+      portsVisibilityLastError: v.optional(v.string()),
       createdAt: v.number(),
       lastStartedAt: v.optional(v.number()),
       lastStoppedAt: v.optional(v.number()),
@@ -220,6 +244,9 @@ export const getActiveCodespace = query({
       webUrl: codespace.webUrl,
       agentUrl: codespace.agentUrl,
       agentHealthy: codespace.agentHealthy,
+      portsVisibilityEnsured: codespace.portsVisibilityEnsured,
+      portsVisibilityEnsuredAt: codespace.portsVisibilityEnsuredAt,
+      portsVisibilityLastError: codespace.portsVisibilityLastError,
       createdAt: codespace.createdAt,
       lastStartedAt: codespace.lastStartedAt,
       lastStoppedAt: codespace.lastStoppedAt,

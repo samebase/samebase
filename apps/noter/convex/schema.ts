@@ -226,6 +226,9 @@ export default defineSchema({
     agentUrl: v.optional(v.string()), // https://<codespace>-3000.app.github.dev
     agentToken: v.optional(v.string()), // Random token for authentication
     agentHealthy: v.optional(v.boolean()), // Last health check status
+    portsVisibilityEnsured: v.optional(v.boolean()),
+    portsVisibilityEnsuredAt: v.optional(v.number()),
+    portsVisibilityLastError: v.optional(v.string()),
 
     // Lifecycle tracking
     createdAt: v.number(),

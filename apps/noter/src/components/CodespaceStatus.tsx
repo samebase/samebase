@@ -148,6 +148,37 @@ export function CodespaceStatus({
 
   const isHealthy = codespace.agentHealthy ?? false;
   const isRunning = codespace.state === "running";
+  const portsEnsured = codespace.portsVisibilityEnsured;
+  const portsEnsuredAt = codespace.portsVisibilityEnsuredAt;
+  const portsLastError = codespace.portsVisibilityLastError;
+
+  const portsBadge = (() => {
+    if (!isRunning) {
+      return null;
+    }
+
+    if (portsEnsured === true) {
+      return (
+        <Badge variant="outline" className="text-xs text-emerald-700">
+          Ports ok
+        </Badge>
+      );
+    }
+
+    if (portsEnsured === false) {
+      return (
+        <Badge variant="outline" className="text-xs text-red-700">
+          Ports issue
+        </Badge>
+      );
+    }
+
+    return (
+      <Badge variant="outline" className="text-xs text-muted-foreground">
+        Ports unknown
+      </Badge>
+    );
+  })();
 
   return (
     <>
@@ -172,6 +203,7 @@ export function CodespaceStatus({
                   title={isHealthy ? "Agent healthy" : "Agent unhealthy"}
                 />
               )}
+              {portsBadge}
             </div>
           </TooltipTrigger>
           <TooltipContent>
@@ -185,6 +217,27 @@ export function CodespaceStatus({
               {isRunning && (
                 <p>
                   <strong>Agent:</strong> {isHealthy ? "Healthy" : "Unhealthy"}
+                </p>
+              )}
+              {isRunning && (
+                <p>
+                  <strong>Ports:</strong>{" "}
+                  {portsEnsured === true
+                    ? "OK"
+                    : portsEnsured === false
+                      ? "Issue"
+                      : "Unknown"}
+                  {portsEnsuredAt && (
+                    <>
+                      {" "}
+                      ({new Date(portsEnsuredAt).toLocaleTimeString()})
+                    </>
+                  )}
+                </p>
+              )}
+              {isRunning && portsLastError && (
+                <p className="max-w-72 break-words">
+                  <strong>Ports Error:</strong> {portsLastError}
                 </p>
               )}
               <p>
