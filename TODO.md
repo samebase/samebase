@@ -23,6 +23,7 @@
 - [ ] add questions at bottom of your messages, make them small, "yes", maybe, no. But the input is always open. That's the thing the input is never waiting. You can even instruct it to stop research
 - [ ] the fab is notm click able when sidebar opens. It should have knowledge that it's in the sidebar
 - [ ] it's fine to reuse the Sha of the same vault so history should be easy, so we can implement branching easily in noter
+- [ ] you don't share code, you share methods how you work with code. Like teach it about type-safety, so senior devs will still be needed, since you need to be technical
 - [ ] 
 
 ## Features & Improvements
