@@ -83,6 +83,8 @@ apps/noter/convex/README.md
 apps/noter/convex/repoName.test.ts
 apps/noter/convex/repoName.ts
 apps/noter/convex/schema.ts
+apps/noter/convex/stagingRebase.test.ts
+apps/noter/convex/stagingRebase.ts
 apps/noter/convex/starterSeed.test.ts
 apps/noter/convex/starterSeed.ts
 apps/noter/convex/starterSeedManifest.generated.ts

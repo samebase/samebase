@@ -12,6 +12,7 @@ import {
   isTextBuffer,
   withRetry,
 } from "./gitOperationsActions";
+import { rebaseStagedContent } from "./stagingRebase";
 
 type HeaderValue = string | number | readonly string[] | undefined;
 type HeaderMap = Record<string, HeaderValue>;
@@ -481,7 +482,7 @@ export const commitStaging = action({
 });
 
 // Pull the latest tree from GitHub and reconcile with staged files.
-// Staged files with real edits are preserved (noter wins).
+// Staged files with real edits are rebased onto GitHub; conflicts get markers.
 // Unchanged staging records are cleaned up.
 export const pullFromGitHub = action({
   args: {
@@ -584,6 +585,10 @@ export const pullFromGitHubInternal = internalAction({
     const blobFetchQueue: Array<{
       stagingId: (typeof allStaged)[0]["_id"];
       sha: string;
+      filePath: string;
+      stagedContent: string;
+      initialContent: string;
+      fileDeleted: boolean;
     }> = [];
 
     for (const staged of allStaged) {
@@ -620,7 +625,14 @@ export const pullFromGitHubInternal = internalAction({
       } else if (newSha !== staged.parentCommitSha) {
         // File exists on GitHub with a new SHA → need to fetch new content
         // for initialContent update, but preserve user's content
-        blobFetchQueue.push({ stagingId: staged._id, sha: newSha });
+        blobFetchQueue.push({
+          stagingId: staged._id,
+          sha: newSha,
+          filePath: staged.filePath,
+          stagedContent: staged.content,
+          initialContent: staged.initialContent,
+          fileDeleted: staged.fileDeleted,
+        });
       }
       // else: same SHA → no change needed (Rule 5)
     }
@@ -635,6 +647,23 @@ export const pullFromGitHubInternal = internalAction({
         });
         const buffer = Buffer.from(blob.data.content, "base64");
         const newContent = buffer.toString("utf-8");
+        if (!item.fileDeleted) {
+          const rebaseResult = rebaseStagedContent({
+            baseContent: item.initialContent,
+            stagedContent: item.stagedContent,
+            upstreamContent: newContent,
+          });
+
+          if (rebaseResult.content !== item.stagedContent) {
+            await ctx.runMutation(internal.collaborative.pushContentUpdate, {
+              vaultId: args.vaultId,
+              filePath: item.filePath,
+              newContent: rebaseResult.content,
+              userId: args.userId,
+            });
+          }
+        }
+
         instructions.push({
           action: "update",
           stagingId: item.stagingId,
