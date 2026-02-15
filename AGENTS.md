@@ -184,6 +184,12 @@ Shorthand commands for git/GitHub workflows. When the user says these, execute t
 - For MVP testing, the same `CONVEX_MANAGEMENT_TOKEN` and `CONVEX_TEAM_ID` are used for both Convex dev and prod deployments.
 - This is intentional for speed during MVP and can be split by environment later.
 
+## Operational Note (Codex Auth)
+
+- Enable device code authorization for Codex when running in headless or remote environments where the normal browser flow isn’t available.
+- Exercise caution in enabling device code auth, as device codes can be phished.
+- Never share a device code.
+
 ## Reference Links
 
 ### TypeScript in JupyterLab

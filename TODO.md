@@ -70,6 +70,43 @@
 ## Ideas to Explore
 - [ ] check if I discussed this idea: noter could approach darklang because the logs are automatically in convex
 - [ ] add idea regarding the jokes about older people don't know how to convert to pdf. But now with noter
+- [ ] Codex auth persistence across Codespaces (file-based credential storage):
+```
+Yes. When you use file-based credential storage, the OAuth tokens land in ~/.codex/auth.json with this structure:
+
+{
+  "auth_mode": "chatgpt",
+  "tokens": {
+    "access_token": "eyJhbG...",
+    "refresh_token": "v1:refresh:...",
+    "id_token": "...",
+    "expires_at": "2025-12-31T23:59:59Z"
+  },
+  "last_refresh": "2025-01-15T10:30:00Z"
+}
+
+To make sure it uses file storage (not OS keyring, which won't exist in a Codespace), set this in config.toml:
+
+cli_auth_credentials_store = "file"
+
+The strategy for Codespaces:
+1. Do the OAuth flow once locally (or in one Codespace via VS Code Desktop)
+2. Copy the resulting auth.json content
+3. Store the whole JSON blob as a Codespace secret, e.g. CODEX_AUTH_JSON
+4. In your devcontainer postCreateCommand or dotfiles, write it out:
+
+mkdir -p ~/.codex
+echo "$CODEX_AUTH_JSON" > ~/.codex/auth.json
+chmod 600 ~/.codex/auth.json
+
+cat > ~/.codex/config.toml << 'EOF'
+cli_auth_credentials_store = "file"
+EOF
+
+Codex automatically refreshes tokens 8 minutes before expiration, so as long as the refresh_token is still valid, it'll keep working without re-auth. You'd only need to redo the OAuth flow if the refresh token itself expires or gets revoked.
+
+One caveat: Codespace secrets have a 48KB size limit, but auth.json is tiny so that's fine. The main risk is the refresh token eventually expiring -- in practice ChatGPT OAuth refresh tokens seem to be long-lived, but there's no official guarantee on the lifetime.
+```
 
 ## Starter Provisioning Follow-ups
 - [ ] make `vaultActions.deleteVault` idempotent for missing docs to avoid repeated "Delete on nonexistent document ID" errors in logs
