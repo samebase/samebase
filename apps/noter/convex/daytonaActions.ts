@@ -15,6 +15,8 @@ import { toSafeRepoName } from "./repoName";
 const { object, id, string, optional, boolean, union, literal } = v;
 const DEFAULT_BASE_IMAGE =
   "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm";
+const DEFAULT_WORKSPACE_DIR = "/home/daytona/workspace";
+const DAYTONA_CONVEX_DEPLOY_KEY_ENV = "DAYTONA_CONVEX_DEPLOY_KEY";
 
 function isNotFoundError(error: unknown): boolean {
   if (typeof error === "object" && error !== null) {
@@ -47,6 +49,17 @@ function inferSnapshotNameFromImage(image: string): string {
     .replace(/^[.-]+|[.-]+$/g, "");
   const base = normalized.length > 0 ? normalized : "devcontainer-base";
   return `noter-${base}`;
+}
+
+function inferBaseSnapshotName(args: {
+  image: string;
+  owner: string;
+  repo: string;
+}): string {
+  const base = inferSnapshotNameFromImage(args.image);
+  const combined = `${base}-${args.owner}-${args.repo}`.toLowerCase();
+  const safe = toSafeRepoName(combined);
+  return safe || base;
 }
 
 function inferPrebuildSnapshotName(args: {
@@ -87,7 +100,7 @@ async function bootstrapSandbox(args: {
   branch: string;
   token: string | null;
 }): Promise<void> {
-  const workspaceDir = "/home/daytona/workspace";
+  const workspaceDir = DEFAULT_WORKSPACE_DIR;
   const repoDir = `${workspaceDir}/${args.repo}`;
   const cloneUrl = buildCloneUrl({
     token: args.token,
@@ -128,6 +141,19 @@ async function bootstrapSandbox(args: {
     `echo "$status" > "${installStatus}"`,
   ].join("; ");
   const quotedInstallScript = quoteForBash(installScript);
+  const writeConvexEnvCommand = [
+    'if [ -n "$CONVEX_DEPLOY_KEY" ]; then',
+    `  env_file="${repoDir}/apps/noter/.env.local";`,
+    '  if [ -f "$env_file" ]; then',
+    "    grep -v '^CONVEX_DEPLOY_KEY=' \"$env_file\" > \"$env_file.tmp\" || true;",
+    "    mv \"$env_file.tmp\" \"$env_file\";",
+    "  else",
+    '    mkdir -p "$(dirname "$env_file")";',
+    "  fi;",
+    '  printf "CONVEX_DEPLOY_KEY=%s\\n" "$CONVEX_DEPLOY_KEY" >> "$env_file";',
+    '  chmod 600 "$env_file";',
+    "fi",
+  ].join(" ");
   const script = [
     "set -e",
     "export GIT_TERMINAL_PROMPT=0",
@@ -137,6 +163,7 @@ async function bootstrapSandbox(args: {
     `cd "${repoDir}"`,
     `git fetch origin "${args.branch}"`,
     `git checkout "${args.branch}"`,
+    writeConvexEnvCommand,
     "if ! command -v pnpm >/dev/null; then if command -v corepack >/dev/null; then corepack enable && corepack prepare pnpm@9.15.0 --activate; else npm install -g pnpm@9.15.0; fi; fi",
     autoCdCommand,
     `rm -f "${installLog}" "${installStatus}"`,
@@ -273,10 +300,15 @@ export const startDaytonaWorkspace = action({
       repo: vault.ghRepoName,
       branch,
     });
-    const baseSnapshotName = inferSnapshotNameFromImage(baseImage);
+    const baseSnapshotName = inferBaseSnapshotName({
+      image: baseImage,
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+    });
     const shouldCreateSnapshot = true;
     let usePrebuildSnapshot = false;
     let snapshotToUse: string | null = null;
+    const repoWorkdir = `${DEFAULT_WORKSPACE_DIR}/${vault.ghRepoName}`;
 
     if (prebuildSnapshotName) {
       try {
@@ -308,9 +340,10 @@ export const startDaytonaWorkspace = action({
             snapshotName: baseSnapshotName,
             image: baseImage,
           });
+          const baseSnapshotImage = Image.base(baseImage).workdir(repoWorkdir);
           const created = await daytona.snapshot.create({
             name: baseSnapshotName,
-            image: baseImage,
+            image: baseSnapshotImage,
           });
           snapshotToUse = created.name;
         } else if (isNotFoundError(error)) {
@@ -324,11 +357,18 @@ export const startDaytonaWorkspace = action({
     const baseParams = {
       name: sandboxName,
       language: "typescript",
-      envVars: {
-        NOTER_VAULT_ID: args.vaultId,
-        NOTER_REPO: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-        NOTER_BRANCH: branch,
-      },
+      envVars: (() => {
+        const envVars: Record<string, string> = {
+          NOTER_VAULT_ID: args.vaultId,
+          NOTER_REPO: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+          NOTER_BRANCH: branch,
+        };
+        const convexDeployKey = process.env[DAYTONA_CONVEX_DEPLOY_KEY_ENV];
+        if (convexDeployKey) {
+          envVars.CONVEX_DEPLOY_KEY = convexDeployKey;
+        }
+        return envVars;
+      })(),
       labels: {
         "noter.vault_id": args.vaultId,
         "noter.repo": `${vault.ghRepoOwner}/${vault.ghRepoName}`,
@@ -337,7 +377,7 @@ export const startDaytonaWorkspace = action({
     };
     const sandboxParams = snapshotToUse
       ? { ...baseParams, snapshot: snapshotToUse }
-      : { ...baseParams, image: baseImage };
+      : { ...baseParams, image: Image.base(baseImage).workdir(repoWorkdir) };
     const sandbox = await daytona.create(sandboxParams);
 
     const resolvedSandboxName = sandbox.name ?? sandboxName;
@@ -361,7 +401,7 @@ export const startDaytonaWorkspace = action({
           branch,
           token: githubToken,
         });
-        bootstrapMessage = `Bootstrapping repo in /home/daytona/workspace/${vault.ghRepoName}. Installing dependencies in background (see /tmp/noter-pnpm-install.log).`;
+        bootstrapMessage = `Bootstrapping repo in ${repoWorkdir}. Installing dependencies in background (see /tmp/noter-pnpm-install.log).`;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.warn("daytona:bootstrap:failed", {
@@ -749,7 +789,7 @@ export const prebuildDaytonaSnapshot = action({
         ".git\nnode_modules\n.pnpm\n",
       );
 
-      const repoPath = `/home/daytona/workspace/${vault.ghRepoName}`;
+      const repoPath = `${DEFAULT_WORKSPACE_DIR}/${vault.ghRepoName}`;
       const autoCdCommand = [
         `auto_cd_line="cd ${repoPath}"`,
         "for file in /root/.bashrc /home/daytona/.bashrc /etc/bash.bashrc; do",
