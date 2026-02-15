@@ -791,13 +791,13 @@ export const prebuildDaytonaSnapshot = action({
 
       const repoPath = `${DEFAULT_WORKSPACE_DIR}/${vault.ghRepoName}`;
       const autoCdCommand = [
-        `auto_cd_line="cd ${repoPath}"`,
+        `auto_cd_line="cd ${repoPath}";`,
         "for file in /root/.bashrc /home/daytona/.bashrc /etc/bash.bashrc; do",
         '  if [ -f "$file" ]; then',
-        '    if ! grep -Fqx "$auto_cd_line" "$file"; then printf "%s\\n" "$auto_cd_line" >> "$file"; fi',
+        '    if ! grep -Fqx "$auto_cd_line" "$file"; then printf "%s\\n" "$auto_cd_line" >> "$file"; fi;',
         "  else",
-        '    printf "%s\\n" "$auto_cd_line" >> "$file"',
-        "  fi",
+        '    printf "%s\\n" "$auto_cd_line" >> "$file";',
+        "  fi;",
         "done",
       ].join(" ");
 
