@@ -13,7 +13,7 @@
 - [ ] security: fix codespace agent exposure model (`port 3000` public + `/exec`/file endpoints); restrict reachability or add hardened gateway auth
 - [ ] starter manifest hygiene: exclude `.codespace-agent/node_modules/**` from template export and regenerate deterministic `starterSeedManifest.generated.ts`
 - [ ] starter template hygiene: add CI coverage for `apps/noter-starter-template` (we missed a `node_modules`/ignore drift once because it wasn't being checked)
-- 
+- [ ] add help center app, show how easy it is to have one, where everything is markdown
 
 - [ ] left to easily press enter
 - [ ] coding on vscode on mobile web is very good, we can try simplifying it for focus only on chat, 
