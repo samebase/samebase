@@ -1,6 +1,16 @@
 # TODO
 
+!!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
+
+# The most important right now is to fix rebaseing works, because we always accept only things on incoming side instead of even trying to reconcile!!!!
+
 ## High Priority
+
+- [ ] security: remove first-request token bootstrap in `.codespace-agent/server.js`; require preconfigured secret for auth before exposing agent APIs
+- [ ] security: fix codespace agent exposure model (`port 3000` public + `/exec`/file endpoints); restrict reachability or add hardened gateway auth
+- [ ] starter manifest hygiene: exclude `.codespace-agent/node_modules/**` from template export and regenerate deterministic `starterSeedManifest.generated.ts`
+- [ ] starter template hygiene: add CI coverage for `apps/noter-starter-template` (we missed a `node_modules`/ignore drift once because it wasn't being checked)
+- 
 
 - [ ] left to easily press enter
 - [ ] coding on vscode on mobile web is very good, we can try simplifying it for focus only on chat, 
