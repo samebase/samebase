@@ -40,6 +40,7 @@ const DAYTONA_REGISTRY_PROJECT_ENV = "DAYTONA_REGISTRY_PROJECT";
 const DAYTONA_REGISTRY_NAME_ENV = "DAYTONA_REGISTRY_NAME";
 const DAYTONA_REGISTRY_SET_DEFAULT_ENV = "DAYTONA_REGISTRY_SET_DEFAULT";
 const DAYTONA_ORGANIZATION_ID_ENV = "DAYTONA_ORGANIZATION_ID";
+const DAYTONA_DEV_ALLOW_UNMANAGED_ENV = "DAYTONA_DEV_ALLOW_UNMANAGED";
 
 function isNotFoundError(error: unknown): boolean {
   if (typeof error === "object" && error !== null) {
@@ -768,7 +769,10 @@ export const startDaytonaWorkspace = action({
         "Using prebuild snapshot; bootstrap skipped for faster startup.";
     }
 
-    if (vault.isNoterManaged) {
+    const allowUnmanaged =
+      parseBooleanEnv(process.env[DAYTONA_DEV_ALLOW_UNMANAGED_ENV]) ?? false;
+
+    if (vault.isNoterManaged === true || allowUnmanaged) {
       try {
         await startDaytonaDevServer({ sandbox, repoDir: repoWorkdir });
         devServerMessage = `Dev server starting on port ${DAYTONA_PREVIEW_PORT} (logs: ${DAYTONA_DEV_LOG}).`;
