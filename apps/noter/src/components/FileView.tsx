@@ -42,6 +42,7 @@ import {
 import { type GithubTreeType } from "convex/schema";
 import { EditedFilesCategoriesPopover } from "./EditedFilesCategories";
 import { CommitStatus } from "./CommitStatus";
+import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
 
 function formatSecondsAgo(now: number, timestamp: number): string {
   const seconds = Math.floor((now - timestamp) / 1000);
@@ -374,6 +375,7 @@ function FileViewInner({
 
   // Command palette state
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // Convex hooks for staging
   const [commitStaging, manualComittingStatus] = useConvexAction(
@@ -932,6 +934,15 @@ function FileViewInner({
 
                   <Button
                     size="sm"
+                    variant={isPreviewOpen ? "secondary" : "outline"}
+                    onClick={() => setIsPreviewOpen((current) => !current)}
+                    className="h-6 px-2 text-xs"
+                  >
+                    {isPreviewOpen ? "Hide Preview" : "Show Preview"}
+                  </Button>
+
+                  <Button
+                    size="sm"
                     variant={hasChangesToCommit ? "default" : "outline"}
                     onClick={handleManualCommit}
                     disabled={
@@ -951,6 +962,10 @@ function FileViewInner({
                   </Button>
                 </div>
               </div>
+
+              {vault && isPreviewOpen && (
+                <DaytonaPreviewPanel vaultId={vault._id} className="mb-4" />
+              )}
 
               <div className="flex-1 min-h-0">
                 {stagedFile && (

@@ -1,6 +1,8 @@
 {
   "name": "React + Convex App",
-  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-bookworm",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
 
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
@@ -15,7 +17,8 @@
       "extensions": [
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
-        "bradlc.vscode-tailwindcss"
+        "bradlc.vscode-tailwindcss",
+        "letmaik.git-tree-compare"
       ],
       "settings": {
         "npm.packageManager": "pnpm",
