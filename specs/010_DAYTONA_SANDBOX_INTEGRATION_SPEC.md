@@ -83,6 +83,14 @@ Required:
 Optional (prebuild deps image):
 - `DAYTONA_DEPS_IMAGE_TEMPLATE` (example: `ghcr.io/<owner>/<repo>-daytona-deps:{lockHash}`)
 
+Optional (private registry automation):
+- `DAYTONA_REGISTRY_URL` (example: `ghcr.io`)
+- `DAYTONA_REGISTRY_USERNAME`
+- `DAYTONA_REGISTRY_PASSWORD` (PAT with `read:packages` + `repo` for private GHCR)
+- `DAYTONA_REGISTRY_PROJECT` (optional)
+- `DAYTONA_REGISTRY_NAME` (optional, defaults to `ghcr`)
+- `DAYTONA_REGISTRY_SET_DEFAULT` (optional, `true|false`)
+
 No other Daytona env vars are used. Base image is fixed in code to
 `mcr.microsoft.com/devcontainers/javascript-node:24-bookworm`.
 
@@ -110,6 +118,21 @@ No other Daytona env vars are used. Base image is fixed in code to
    - Push to GHCR.
    - Sandbox uses prebuilt image from registry.
    - This repo includes `Dockerfile.daytona-deps` + `.github/workflows/daytona-deps-image.yml` to build a deps image when `pnpm-lock.yaml` changes; set `DAYTONA_DEPS_IMAGE_TEMPLATE` to enable it in prebuilds.
+
+## Registry Automation (Implemented)
+
+To support **private** registry images (GHCR, ECR, GCR, etc.), Noter can add a Daytona registry entry automatically
+using the Daytona API. This keeps prebuilds working without manual dashboard setup.
+
+**Flow:**
+1. On prebuild start, call `ensureDaytonaRegistry`.
+2. `ensureDaytonaRegistry` lists existing registries and matches by URL (and project if provided).
+3. If not found, create registry with credentials from env vars.
+4. Optionally set as default.
+
+**Notes:**
+- Registry auth is separate from GitHub repo auth. The existing GitHub token is only used for git clone.
+- For GHCR private images, a PAT with `read:packages` (+ `repo` if private repo) is required.
 
 **Constraint:** Convex cannot build images from repo source directly, so prebuilds must be executed outside Convex.
 

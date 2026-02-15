@@ -1,5 +1,11 @@
 "use node";
 
+import {
+  Configuration as DaytonaApiConfiguration,
+  CreateDockerRegistryRegistryTypeEnum,
+  DockerRegistryApi,
+  type DockerRegistry,
+} from "@daytonaio/api-client";
 import { Daytona, Image, type Sandbox } from "@daytonaio/sdk";
 import { Infer, v } from "convex/values";
 import { createHash } from "crypto";
@@ -22,6 +28,13 @@ const DAYTONA_DEPS_IMAGE_TEMPLATE_ENV = "DAYTONA_DEPS_IMAGE_TEMPLATE";
 const PNPM_LOCKFILE_NAME = "pnpm-lock.yaml";
 const MAX_PREBUILD_LOG_CHARS = 50_000;
 const PREBUILD_LOG_FLUSH_MS = 1_000;
+const DAYTONA_REGISTRY_URL_ENV = "DAYTONA_REGISTRY_URL";
+const DAYTONA_REGISTRY_USERNAME_ENV = "DAYTONA_REGISTRY_USERNAME";
+const DAYTONA_REGISTRY_PASSWORD_ENV = "DAYTONA_REGISTRY_PASSWORD";
+const DAYTONA_REGISTRY_PROJECT_ENV = "DAYTONA_REGISTRY_PROJECT";
+const DAYTONA_REGISTRY_NAME_ENV = "DAYTONA_REGISTRY_NAME";
+const DAYTONA_REGISTRY_SET_DEFAULT_ENV = "DAYTONA_REGISTRY_SET_DEFAULT";
+const DAYTONA_ORGANIZATION_ID_ENV = "DAYTONA_ORGANIZATION_ID";
 
 function isNotFoundError(error: unknown): boolean {
   if (typeof error === "object" && error !== null) {
@@ -52,6 +65,10 @@ function hasImageTagOrDigest(image: string): boolean {
   const lastColon = image.lastIndexOf(":");
   const lastSlash = image.lastIndexOf("/");
   return lastColon > lastSlash;
+}
+
+function normalizeRegistryUrl(url: string): string {
+  return url.trim().replace(/\/+$/g, "").toLowerCase();
 }
 
 async function readPnpmLockHash(repoDir: string): Promise<string | null> {
@@ -102,6 +119,150 @@ function resolveDepsImageName(args: {
   }
 
   return resolved;
+}
+
+type RegistryConfig = {
+  url: string;
+  username: string;
+  password: string;
+  project?: string;
+  name: string;
+  setDefault: boolean;
+  organizationId?: string;
+};
+
+function parseBooleanEnv(value: string | undefined): boolean | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "y", "on"].includes(normalized)) {
+    return true;
+  }
+  if (["0", "false", "no", "n", "off"].includes(normalized)) {
+    return false;
+  }
+  return undefined;
+}
+
+function readRegistryConfig(): { config: RegistryConfig | null; missing: string[] } {
+  const url = process.env[DAYTONA_REGISTRY_URL_ENV]?.trim() ?? "";
+  const username = process.env[DAYTONA_REGISTRY_USERNAME_ENV]?.trim() ?? "";
+  const password = process.env[DAYTONA_REGISTRY_PASSWORD_ENV] ?? "";
+
+  if (!url && !username && !password) {
+    return { config: null, missing: [] };
+  }
+
+  const missing: string[] = [];
+  if (!url) missing.push(DAYTONA_REGISTRY_URL_ENV);
+  if (!username) missing.push(DAYTONA_REGISTRY_USERNAME_ENV);
+  if (!password) missing.push(DAYTONA_REGISTRY_PASSWORD_ENV);
+
+  if (missing.length > 0) {
+    return { config: null, missing };
+  }
+
+  const project = process.env[DAYTONA_REGISTRY_PROJECT_ENV]?.trim() || undefined;
+  const nameOverride = process.env[DAYTONA_REGISTRY_NAME_ENV]?.trim();
+  const isGhcr = normalizeRegistryUrl(url).includes("ghcr.io");
+  const name = nameOverride && nameOverride.length > 0 ? nameOverride : isGhcr ? "ghcr" : "registry";
+  const setDefault =
+    parseBooleanEnv(process.env[DAYTONA_REGISTRY_SET_DEFAULT_ENV]) ?? false;
+  const organizationId =
+    process.env[DAYTONA_ORGANIZATION_ID_ENV]?.trim() || undefined;
+
+  return {
+    config: {
+      url,
+      username,
+      password,
+      project,
+      name,
+      setDefault,
+      organizationId,
+    },
+    missing: [],
+  };
+}
+
+function getRegistryMatch(
+  registries: DockerRegistry[],
+  config: RegistryConfig,
+): DockerRegistry | null {
+  const targetUrl = normalizeRegistryUrl(config.url);
+  const targetProject = config.project ?? "";
+  for (const registry of registries) {
+    const registryUrl = normalizeRegistryUrl(registry.url);
+    if (registryUrl !== targetUrl) {
+      continue;
+    }
+    const registryProject = registry.project ?? "";
+    if (config.project && registryProject !== targetProject) {
+      continue;
+    }
+    return registry;
+  }
+  return null;
+}
+
+async function ensureDaytonaRegistry(args: {
+  baseUrl: string;
+  token: string;
+  config: RegistryConfig;
+}): Promise<{ registryId: string; status: "created" | "updated" | "existing" }> {
+  const configuration = new DaytonaApiConfiguration({
+    accessToken: args.token,
+    basePath: args.baseUrl,
+  });
+  const registryApi = new DockerRegistryApi(configuration);
+  const listResponse = await registryApi.listRegistries(
+    args.config.organizationId,
+  );
+  const registries = listResponse.data ?? [];
+  const match = getRegistryMatch(registries, args.config);
+
+  if (!match) {
+    const created = await registryApi.createRegistry(
+      {
+        name: args.config.name,
+        url: args.config.url,
+        username: args.config.username,
+        password: args.config.password,
+        project: args.config.project,
+        registryType: CreateDockerRegistryRegistryTypeEnum.ORGANIZATION,
+        isDefault: args.config.setDefault,
+      },
+      args.config.organizationId,
+    );
+    return { registryId: created.data.id, status: "created" };
+  }
+
+  const projectMatch = (match.project ?? "") === (args.config.project ?? "");
+  const needsUpdate =
+    match.name !== args.config.name ||
+    match.username !== args.config.username ||
+    !projectMatch;
+
+  if (needsUpdate) {
+    await registryApi.updateRegistry(
+      match.id,
+      {
+        name: args.config.name,
+        url: args.config.url,
+        username: args.config.username,
+        password: args.config.password,
+        project: args.config.project,
+      },
+      args.config.organizationId,
+    );
+  }
+
+  if (args.config.setDefault) {
+    await registryApi.setDefaultRegistry(match.id, args.config.organizationId);
+  }
+
+  return { registryId: match.id, status: needsUpdate ? "updated" : "existing" };
 }
 
 function truncateLogTail(input: string, maxChars: number): string {
@@ -948,6 +1109,36 @@ export const prebuildDaytonaSnapshot = action({
             lockHash,
           })
         : null;
+
+      const registryConfigResult = readRegistryConfig();
+      if (depsImage && registryConfigResult.missing.length > 0) {
+        await appendPrebuildLog(
+          `Registry config missing (${registryConfigResult.missing.join(
+            ", ",
+          )}); attempting to pull image without registry auth.\n`,
+        );
+      }
+      if (depsImage && registryConfigResult.config) {
+        await appendPrebuildLog(
+          `Ensuring registry access for ${registryConfigResult.config.url}...\n`,
+        );
+        try {
+          const registryStatus = await ensureDaytonaRegistry({
+            baseUrl,
+            token,
+            config: registryConfigResult.config,
+          });
+          await appendPrebuildLog(
+            `Registry ${registryStatus.status}: ${registryConfigResult.config.url}\n`,
+          );
+        } catch (error) {
+          const message = `Registry setup failed: ${
+            error instanceof Error ? error.message : String(error)
+          }\n`;
+          await appendPrebuildLog(message);
+          throw new Error(message.trim());
+        }
+      }
 
       const baseCommands = [
         "USER root",

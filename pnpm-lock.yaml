@@ -71,6 +71,9 @@ importers:
       '@convex-dev/eslint-plugin':
         specifier: 0.0.1-alpha.4
         version: 0.0.1-alpha.4(eslint@8.57.1)(typescript@5.9.2)
+      '@daytonaio/api-client':
+        specifier: ^0.143.0
+        version: 0.143.0
       '@daytonaio/sdk':
         specifier: ^0.143.0
         version: 0.143.0(ws@8.19.0)
