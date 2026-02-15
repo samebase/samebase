@@ -37,16 +37,23 @@ export function DaytonaWorkspaceButton({
   const removeDaytonaSandbox = useAction(api.daytonaActions.removeDaytonaSandbox);
   const getDaytonaBootstrapLogs = useAction(api.daytonaActions.getDaytonaBootstrapLogs);
   const prebuildDaytonaSnapshot = useAction(api.daytonaActions.prebuildDaytonaSnapshot);
+  const getDaytonaPrebuildStatus = useAction(api.daytonaActions.getDaytonaPrebuildStatus);
   const [isStarting, setIsStarting] = useState(false);
   const [isOpeningTerminal, setIsOpeningTerminal] = useState(false);
   const [isRemovingSandbox, setIsRemovingSandbox] = useState(false);
   const [isFetchingLogs, setIsFetchingLogs] = useState(false);
   const [isPrebuilding, setIsPrebuilding] = useState(false);
+  const [isCheckingPrebuild, setIsCheckingPrebuild] = useState(false);
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
   const [terminalUrl, setTerminalUrl] = useState<string | null>(null);
   const [bootstrapLogs, setBootstrapLogs] = useState<string | null>(null);
+  const [prebuildSnapshotName, setPrebuildSnapshotName] = useState<string | null>(
+    null,
+  );
+  const [prebuildState, setPrebuildState] = useState<string | null>(null);
+  const [prebuildError, setPrebuildError] = useState<string | null>(null);
 
   const handleStart = async () => {
     if (disabled || isStarting) {
@@ -231,6 +238,40 @@ export function DaytonaWorkspaceButton({
     }
   };
 
+  const handleCheckPrebuild = async () => {
+    if (disabled || isCheckingPrebuild) {
+      return;
+    }
+    setIsCheckingPrebuild(true);
+    setMessage(null);
+    setHasError(false);
+
+    try {
+      const result = await getDaytonaPrebuildStatus({ vaultId, branch });
+      if (!result.ok) {
+        setHasError(true);
+        setMessage(result.message ?? "Failed to fetch prebuild status.");
+        return;
+      }
+      setPrebuildSnapshotName(result.snapshotName ?? null);
+      setPrebuildState(result.state ?? null);
+      setPrebuildError(result.errorReason ?? null);
+      if (result.state === "ERROR" || result.state === "BUILD_FAILED") {
+        setHasError(true);
+      }
+      setMessage(result.message ?? "Fetched prebuild status.");
+    } catch (error) {
+      setHasError(true);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch prebuild status.",
+      );
+    } finally {
+      setIsCheckingPrebuild(false);
+    }
+  };
+
   return (
     <div className={cn("flex flex-col gap-1", className)}>
       <div className="flex flex-wrap items-center gap-2">
@@ -350,10 +391,34 @@ export function DaytonaWorkspaceButton({
         >
           {isPrebuilding ? "Building prebuild..." : "Build prebuild"}
         </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            void handleCheckPrebuild();
+          }}
+          disabled={disabled || isCheckingPrebuild}
+        >
+          {isCheckingPrebuild ? "Checking..." : "Check prebuild"}
+        </Button>
         <span className="text-xs text-muted-foreground">
           Snapshot name is inferred from vault + branch.
         </span>
       </div>
+      {prebuildState && (
+        <div
+          className={cn(
+            "text-xs",
+            prebuildState === "ERROR" || prebuildState === "BUILD_FAILED"
+              ? "text-destructive"
+              : "text-muted-foreground",
+          )}
+        >
+          Prebuild {prebuildSnapshotName ? `${prebuildSnapshotName}: ` : ""}
+          {prebuildState}
+          {prebuildError ? ` (${prebuildError})` : ""}
+        </div>
+      )}
       {sandboxId && sandboxName && (
         <div className="text-xs text-muted-foreground">
           Daytona: {sandboxName}

@@ -54,6 +54,8 @@ Snapshots are used to avoid repeating base OS/Node setup. The system:
   - Clones the repo for the selected branch.
   - Builds a snapshot that includes repo + dependencies.
   - Replaces any existing prebuild snapshot with the same name.
+- UI also exposes **Check prebuild** to fetch snapshot state (`PENDING`, `BUILDING`, `ACTIVE`, `ERROR`).
+- Prebuild build logs stream into Convex logs (`daytona:prebuild:log`), not the Noter UI.
 
 **Limitations:**
 - Prebuilds are currently manual and branch-scoped (auto-update per commit is future work).
@@ -64,6 +66,7 @@ Snapshots are used to avoid repeating base OS/Node setup. The system:
 - **Open in tab** is always available as fallback.
 - **Refresh link** generates a new signed URL if the iframe expires.
 - If Daytona blocks embedding (CSP/X-Frame-Options), tab fallback is required.
+- Terminal shells auto-`cd` to `/home/daytona/workspace/<repo>` on open.
 
 ## Sandbox Removal
 

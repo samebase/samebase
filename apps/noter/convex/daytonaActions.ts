@@ -94,6 +94,17 @@ async function bootstrapSandbox(args: {
     owner: args.owner,
     repo: args.repo,
   });
+  const autoCdLine = `cd ${repoDir}`;
+  const autoCdCommand = [
+    `auto_cd_line=${quoteForBash(autoCdLine)}`,
+    "for file in /root/.bashrc /home/daytona/.bashrc /etc/bash.bashrc; do",
+    '  if [ -f "$file" ]; then',
+    '    if ! grep -Fqx "$auto_cd_line" "$file"; then printf "%s\\n" "$auto_cd_line" >> "$file"; fi',
+    "  else",
+    '    printf "%s\\n" "$auto_cd_line" >> "$file"',
+    "  fi",
+    "done",
+  ].join(" ");
   const installLog = "/tmp/noter-pnpm-install.log";
   const installStatus = "/tmp/noter-pnpm-install.status";
   const installScript = [
@@ -127,6 +138,7 @@ async function bootstrapSandbox(args: {
     `git fetch origin "${args.branch}"`,
     `git checkout "${args.branch}"`,
     "if ! command -v pnpm >/dev/null; then if command -v corepack >/dev/null; then corepack enable && corepack prepare pnpm@9.15.0 --activate; else npm install -g pnpm@9.15.0; fi; fi",
+    autoCdCommand,
     `rm -f "${installLog}" "${installStatus}"`,
     `nohup bash -lc ${quotedInstallScript} > "${installLog}" 2>&1 &`,
   ].join(" && ");
@@ -186,6 +198,19 @@ const prebuildDaytonaSnapshotResult = object({
   ok: boolean(),
   snapshotName: optional(string()),
   commitSha: optional(string()),
+  message: optional(string()),
+});
+
+const getDaytonaPrebuildStatusArgs = object({
+  vaultId: id("vaults"),
+  branch: optional(string()),
+});
+
+const getDaytonaPrebuildStatusResult = object({
+  ok: boolean(),
+  snapshotName: optional(string()),
+  state: optional(string()),
+  errorReason: optional(string()),
   message: optional(string()),
 });
 
@@ -676,6 +701,13 @@ export const prebuildDaytonaSnapshot = action({
       branch,
     });
 
+    console.log("daytona:prebuild:start", {
+      vaultId: args.vaultId,
+      repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+      branch,
+      snapshotName,
+    });
+
     try {
       const existing = await daytona.snapshot.get(snapshotName);
       await daytona.snapshot.delete(existing);
@@ -717,18 +749,51 @@ export const prebuildDaytonaSnapshot = action({
         ".git\nnode_modules\n.pnpm\n",
       );
 
+      const repoPath = `/home/daytona/workspace/${vault.ghRepoName}`;
+      const autoCdCommand = [
+        `auto_cd_line="cd ${repoPath}"`,
+        "for file in /root/.bashrc /home/daytona/.bashrc /etc/bash.bashrc; do",
+        '  if [ -f "$file" ]; then',
+        '    if ! grep -Fqx "$auto_cd_line" "$file"; then printf "%s\\n" "$auto_cd_line" >> "$file"; fi',
+        "  else",
+        '    printf "%s\\n" "$auto_cd_line" >> "$file"',
+        "  fi",
+        "done",
+      ].join(" ");
+
       const image = Image.base(DEFAULT_BASE_IMAGE).dockerfileCommands(
         [
           "USER root",
-          "WORKDIR /home/daytona/workspace/noter",
-          "COPY . /home/daytona/workspace/noter",
+          `WORKDIR ${repoPath}`,
+          `COPY . ${repoPath}`,
           "RUN corepack enable && corepack prepare pnpm@9.15.0 --activate",
           "RUN pnpm install --prod=false --force --node-linker=hoisted",
+          `RUN ${autoCdCommand}`,
         ],
         repoDir,
       );
 
-      await daytona.snapshot.create({ name: snapshotName, image }, { timeout: 0 });
+      await daytona.snapshot.create(
+        { name: snapshotName, image },
+        {
+          timeout: 0,
+          onLogs: (chunk) => {
+            if (chunk.trim().length > 0) {
+              console.log("daytona:prebuild:log", {
+                vaultId: args.vaultId,
+                snapshotName,
+                chunk,
+              });
+            }
+          },
+        },
+      );
+
+      console.log("daytona:prebuild:done", {
+        vaultId: args.vaultId,
+        snapshotName,
+        commitSha: headSha,
+      });
 
       return {
         ok: true,
@@ -738,6 +803,76 @@ export const prebuildDaytonaSnapshot = action({
       };
     } finally {
       await fs.promises.rm(tmpRoot, { recursive: true, force: true });
+    }
+  },
+});
+
+export const getDaytonaPrebuildStatus = action({
+  args: getDaytonaPrebuildStatusArgs,
+  returns: getDaytonaPrebuildStatusResult,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof getDaytonaPrebuildStatusResult>> => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.runQuery(internal.vault.getById, {
+      id: args.vaultId,
+    });
+
+    if (!vault || vault.userId !== userId) {
+      throw new Error("Vault not found");
+    }
+
+    const branch = args.branch?.trim() || "main";
+    const baseUrl = process.env.DAYTONA_API_URL;
+    const token = process.env.DAYTONA_API_TOKEN ?? process.env.DAYTONA_API_KEY;
+    if (!baseUrl || !token) {
+      const missing = [
+        !baseUrl ? "DAYTONA_API_URL" : null,
+        !token ? "DAYTONA_API_TOKEN (or DAYTONA_API_KEY)" : null,
+      ].filter((value): value is string => value !== null);
+      return {
+        ok: false,
+        message:
+          missing.length === 0
+            ? "Daytona is not configured."
+            : `Daytona is not configured. Missing ${missing.join(", ")}.`,
+      };
+    }
+
+    const config: { apiKey: string; apiUrl?: string } = {
+      apiKey: token,
+    };
+    if (baseUrl) {
+      config.apiUrl = baseUrl;
+    }
+    const daytona = new Daytona(config);
+
+    const snapshotName = inferPrebuildSnapshotName({
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+      branch,
+    });
+
+    try {
+      const snapshot = await daytona.snapshot.get(snapshotName);
+      return {
+        ok: true,
+        snapshotName,
+        state: snapshot.state,
+        errorReason: snapshot.errorReason || undefined,
+        message: `Prebuild snapshot ${snapshotName} is ${snapshot.state}.`,
+      };
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        throw error;
+      }
+      return {
+        ok: true,
+        snapshotName,
+        state: "missing",
+        message: `No prebuild snapshot found for ${branch} yet.`,
+      };
     }
   },
 });
