@@ -4,6 +4,7 @@
 .cursor/rules/convex_rules.mdc
 .cursorrules
 .devcontainer/devcontainer.json
+.devcontainer/postcreate.sh
 .github/workflows/ci.yml
 .gitignore
 .husky/pre-commit
@@ -13,6 +14,7 @@ AGENTS.md
 apps/noter-starter-template/.codespace-agent/package.json
 apps/noter-starter-template/.codespace-agent/server.js
 apps/noter-starter-template/.devcontainer/devcontainer.json
+apps/noter-starter-template/.devcontainer/postcreate.sh
 apps/noter-starter-template/.gitignore
 apps/noter-starter-template/.husky/pre-commit
 apps/noter-starter-template/AGENTS.md

@@ -43,6 +43,7 @@
 - [ ] add keyboard shortcuts for common actions (save, commit, etc.)
 - [ ] implement file diff view to show changes before committing
 - [ ] add "todo" command functionality for AI assistant to update this file
+- [ ] simple view: consider switching from exclude-only to explicit include allowlist (ex: `**/*.md`, `**/config.json`, `**/tools.json`)
 - [ ] add command "auto-push" "stop auto push" or similar to allows
 - [ ] use mermaid?
 - [ ] remove the "auto delete GitHub repo" option once repos move to the noter.md org flow
