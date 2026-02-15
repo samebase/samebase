@@ -77,12 +77,8 @@ Required:
 - `DAYTONA_API_URL`
 - `DAYTONA_API_KEY` (or `DAYTONA_API_TOKEN`)
 
-Optional:
-- `DAYTONA_TARGET` (region/target)
-- `DAYTONA_BASE_IMAGE` (defaults to `mcr.microsoft.com/devcontainers/javascript-node:24-bookworm`)
-- `DAYTONA_SNAPSHOT_NAME` (defaults to inferred from image; ignored if per-vault snapshot is set)
-- `DAYTONA_SNAPSHOT_CREATE` (defaults to `true` if unset; ignored when explicit snapshot is set)
-- `DAYTONA_BOOTSTRAP_REPO` (defaults to `true` if unset)
+No other Daytona env vars are used. Base image is fixed in code to
+`mcr.microsoft.com/devcontainers/javascript-node:24-bookworm`.
 
 ## Future: Daytona Prebuilds
 

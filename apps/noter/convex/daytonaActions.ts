@@ -9,6 +9,8 @@ import { toSafeRepoName } from "./repoName";
 
 const { object, id, string, optional, boolean, union, literal, number, array } =
   v;
+const DEFAULT_BASE_IMAGE =
+  "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm";
 
 function isNotFoundError(error: unknown): boolean {
   if (typeof error === "object" && error !== null) {
@@ -222,8 +224,6 @@ export const startDaytonaWorkspace = action({
     const branch = args.branch?.trim() || "main";
     const baseUrl = process.env.DAYTONA_API_URL;
     const token = process.env.DAYTONA_API_TOKEN ?? process.env.DAYTONA_API_KEY;
-    const target = process.env.DAYTONA_TARGET;
-
     if (!baseUrl || !token) {
       const missing = [
         !baseUrl ? "DAYTONA_API_URL" : null,
@@ -257,25 +257,11 @@ export const startDaytonaWorkspace = action({
     if (baseUrl) {
       config.apiUrl = baseUrl;
     }
-    if (target) {
-      config.target = target;
-    }
-
     const daytona = new Daytona(config);
-    const baseImage =
-      process.env.DAYTONA_BASE_IMAGE ??
-      "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm";
-    const explicitSnapshotName =
-      vault.daytonaSnapshotName?.trim() ||
-      process.env.DAYTONA_SNAPSHOT_NAME?.trim() ||
-      null;
-    const snapshotName =
-      explicitSnapshotName ?? inferSnapshotNameFromImage(baseImage);
-    const shouldCreateSnapshot = explicitSnapshotName
-      ? false
-      : process.env.DAYTONA_SNAPSHOT_CREATE === undefined
-        ? true
-        : process.env.DAYTONA_SNAPSHOT_CREATE === "true";
+    const baseImage = DEFAULT_BASE_IMAGE;
+    const explicitSnapshotName = vault.daytonaSnapshotName?.trim() || null;
+    const snapshotName = explicitSnapshotName ?? inferSnapshotNameFromImage(baseImage);
+    const shouldCreateSnapshot = !explicitSnapshotName;
     let snapshotToUse: string | null = null;
 
     if (snapshotName) {
@@ -289,7 +275,7 @@ export const startDaytonaWorkspace = action({
             baseImage.toLowerCase().endsWith(":latest")
           ) {
             throw new Error(
-              "DAYTONA_BASE_IMAGE must include a non-latest tag or digest to build a snapshot.",
+              "Base image must include a non-latest tag or digest to build a snapshot.",
             );
           }
           console.log("daytona:snapshot:create", {
@@ -341,10 +327,7 @@ export const startDaytonaWorkspace = action({
 
     const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
     const githubToken = currentUser?.githubAccessToken ?? null;
-    const shouldBootstrapRepo =
-      process.env.DAYTONA_BOOTSTRAP_REPO === undefined
-        ? true
-        : process.env.DAYTONA_BOOTSTRAP_REPO !== "false";
+    const shouldBootstrapRepo = true;
     let bootstrapMessage: string | null = null;
 
     if (shouldBootstrapRepo) {
@@ -418,8 +401,6 @@ export const getDaytonaTerminalUrl = action({
 
     const baseUrl = process.env.DAYTONA_API_URL;
     const token = process.env.DAYTONA_API_TOKEN ?? process.env.DAYTONA_API_KEY;
-    const target = process.env.DAYTONA_TARGET;
-
     if (!baseUrl || !token) {
       const missing = [
         !baseUrl ? "DAYTONA_API_URL" : null,
@@ -440,10 +421,6 @@ export const getDaytonaTerminalUrl = action({
     if (baseUrl) {
       config.apiUrl = baseUrl;
     }
-    if (target) {
-      config.target = target;
-    }
-
     const daytona = new Daytona(config);
     let sandboxId = vault.daytonaSandboxId;
     let sandboxName = vault.daytonaSandboxName;
@@ -514,8 +491,6 @@ export const removeDaytonaSandbox = action({
 
     const baseUrl = process.env.DAYTONA_API_URL;
     const token = process.env.DAYTONA_API_TOKEN ?? process.env.DAYTONA_API_KEY;
-    const target = process.env.DAYTONA_TARGET;
-
     if (!baseUrl || !token) {
       const missing = [
         !baseUrl ? "DAYTONA_API_URL" : null,
@@ -536,10 +511,6 @@ export const removeDaytonaSandbox = action({
     if (baseUrl) {
       config.apiUrl = baseUrl;
     }
-    if (target) {
-      config.target = target;
-    }
-
     const daytona = new Daytona(config);
     let sandboxId = vault.daytonaSandboxId;
     let sandboxName = vault.daytonaSandboxName;
@@ -595,8 +566,6 @@ export const getDaytonaBootstrapLogs = action({
 
     const baseUrl = process.env.DAYTONA_API_URL;
     const token = process.env.DAYTONA_API_TOKEN ?? process.env.DAYTONA_API_KEY;
-    const target = process.env.DAYTONA_TARGET;
-
     if (!baseUrl || !token) {
       const missing = [
         !baseUrl ? "DAYTONA_API_URL" : null,
@@ -617,10 +586,6 @@ export const getDaytonaBootstrapLogs = action({
     if (baseUrl) {
       config.apiUrl = baseUrl;
     }
-    if (target) {
-      config.target = target;
-    }
-
     const daytona = new Daytona(config);
     let sandboxId = vault.daytonaSandboxId;
 
@@ -704,8 +669,6 @@ export const listDaytonaSnapshots = action({
 
     const baseUrl = process.env.DAYTONA_API_URL;
     const token = process.env.DAYTONA_API_TOKEN ?? process.env.DAYTONA_API_KEY;
-    const target = process.env.DAYTONA_TARGET;
-
     if (!baseUrl || !token) {
       const missing = [
         !baseUrl ? "DAYTONA_API_URL" : null,
@@ -726,10 +689,6 @@ export const listDaytonaSnapshots = action({
     if (baseUrl) {
       config.apiUrl = baseUrl;
     }
-    if (target) {
-      config.target = target;
-    }
-
     const daytona = new Daytona(config);
     const limit =
       args.limit === undefined
