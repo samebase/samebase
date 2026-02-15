@@ -1,5 +1,5 @@
 import { useAction } from "convex/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -38,10 +38,12 @@ export function DaytonaWorkspaceButton({
   const getDaytonaBootstrapLogs = useAction(api.daytonaActions.getDaytonaBootstrapLogs);
   const prebuildDaytonaSnapshot = useAction(api.daytonaActions.prebuildDaytonaSnapshot);
   const getDaytonaPrebuildStatus = useAction(api.daytonaActions.getDaytonaPrebuildStatus);
+  const getDaytonaPrebuildLogs = useAction(api.daytonaActions.getDaytonaPrebuildLogs);
   const [isStarting, setIsStarting] = useState(false);
   const [isOpeningTerminal, setIsOpeningTerminal] = useState(false);
   const [isRemovingSandbox, setIsRemovingSandbox] = useState(false);
   const [isFetchingLogs, setIsFetchingLogs] = useState(false);
+  const [isFetchingPrebuildLogs, setIsFetchingPrebuildLogs] = useState(false);
   const [isPrebuilding, setIsPrebuilding] = useState(false);
   const [isCheckingPrebuild, setIsCheckingPrebuild] = useState(false);
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
@@ -49,11 +51,39 @@ export function DaytonaWorkspaceButton({
   const [hasError, setHasError] = useState(false);
   const [terminalUrl, setTerminalUrl] = useState<string | null>(null);
   const [bootstrapLogs, setBootstrapLogs] = useState<string | null>(null);
+  const [prebuildLogs, setPrebuildLogs] = useState<string | null>(null);
   const [prebuildSnapshotName, setPrebuildSnapshotName] = useState<string | null>(
     null,
   );
   const [prebuildState, setPrebuildState] = useState<string | null>(null);
   const [prebuildError, setPrebuildError] = useState<string | null>(null);
+  const prebuildLogPollRef = useRef<number | null>(null);
+
+  const startPrebuildLogPolling = () => {
+    if (prebuildLogPollRef.current !== null) {
+      return;
+    }
+    prebuildLogPollRef.current = window.setInterval(() => {
+      void fetchPrebuildLogs(true);
+    }, 2_000);
+  };
+
+  const stopPrebuildLogPolling = () => {
+    if (prebuildLogPollRef.current === null) {
+      return;
+    }
+    window.clearInterval(prebuildLogPollRef.current);
+    prebuildLogPollRef.current = null;
+  };
+
+  useEffect(() => {
+    return () => {
+      if (prebuildLogPollRef.current !== null) {
+        window.clearInterval(prebuildLogPollRef.current);
+        prebuildLogPollRef.current = null;
+      }
+    };
+  }, []);
 
   const handleStart = async () => {
     if (disabled || isStarting) {
@@ -212,6 +242,8 @@ export function DaytonaWorkspaceButton({
     setIsPrebuilding(true);
     setMessage(null);
     setHasError(false);
+    setPrebuildLogs("");
+    startPrebuildLogPolling();
 
     try {
       const result = await prebuildDaytonaSnapshot({ vaultId, branch });
@@ -235,6 +267,45 @@ export function DaytonaWorkspaceButton({
       );
     } finally {
       setIsPrebuilding(false);
+      stopPrebuildLogPolling();
+      void fetchPrebuildLogs(true);
+    }
+  };
+
+  const fetchPrebuildLogs = async (silent: boolean) => {
+    if (disabled || isFetchingPrebuildLogs) {
+      return;
+    }
+    setIsFetchingPrebuildLogs(true);
+    if (!silent) {
+      setMessage(null);
+      setHasError(false);
+    }
+
+    try {
+      const result = await getDaytonaPrebuildLogs({ vaultId, branch });
+      if (!result.ok) {
+        if (!silent) {
+          setHasError(true);
+          setMessage(result.message ?? "Failed to fetch prebuild logs.");
+        }
+        return;
+      }
+      setPrebuildLogs(result.logs ?? "");
+      if (!silent) {
+        setMessage(result.message ?? "Fetched prebuild logs.");
+      }
+    } catch (error) {
+      if (!silent) {
+        setHasError(true);
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch prebuild logs.",
+        );
+      }
+    } finally {
+      setIsFetchingPrebuildLogs(false);
     }
   };
 
@@ -401,6 +472,16 @@ export function DaytonaWorkspaceButton({
         >
           {isCheckingPrebuild ? "Checking..." : "Check prebuild"}
         </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            void fetchPrebuildLogs(false);
+          }}
+          disabled={disabled || isFetchingPrebuildLogs}
+        >
+          {isFetchingPrebuildLogs ? "Fetching logs..." : "View prebuild logs"}
+        </Button>
         <span className="text-xs text-muted-foreground">
           Snapshot name is inferred from vault + branch.
         </span>
@@ -458,6 +539,17 @@ export function DaytonaWorkspaceButton({
           <pre className="max-h-48 overflow-auto whitespace-pre-wrap">
             {bootstrapLogs || "No output yet."}
           </pre>
+        </div>
+      )}
+      {prebuildLogs !== null && (
+        <div className="mt-2 rounded-md border bg-muted/5 p-2 text-xs">
+          <div className="mb-1 text-muted-foreground">Prebuild log</div>
+          <textarea
+            readOnly
+            rows={10}
+            className="max-h-64 min-h-[160px] w-full resize-y overflow-auto whitespace-pre-wrap rounded border bg-background/70 p-2 text-xs"
+            value={prebuildLogs || "No output yet."}
+          />
         </div>
       )}
       {message && (

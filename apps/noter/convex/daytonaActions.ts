@@ -13,13 +13,15 @@ import { internal } from "./_generated/api";
 import { getUserId } from "./common";
 import { toSafeRepoName } from "./repoName";
 
-const { object, id, string, optional, boolean, union, literal } = v;
+const { object, id, string, optional, boolean, union, literal, number } = v;
 const DEFAULT_BASE_IMAGE =
   "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm";
 const DEFAULT_WORKSPACE_DIR = "/home/daytona/workspace";
 const DAYTONA_CONVEX_DEPLOY_KEY_ENV = "DAYTONA_CONVEX_DEPLOY_KEY";
 const DAYTONA_DEPS_IMAGE_TEMPLATE_ENV = "DAYTONA_DEPS_IMAGE_TEMPLATE";
 const PNPM_LOCKFILE_NAME = "pnpm-lock.yaml";
+const MAX_PREBUILD_LOG_CHARS = 50_000;
+const PREBUILD_LOG_FLUSH_MS = 1_000;
 
 function isNotFoundError(error: unknown): boolean {
   if (typeof error === "object" && error !== null) {
@@ -100,6 +102,13 @@ function resolveDepsImageName(args: {
   }
 
   return resolved;
+}
+
+function truncateLogTail(input: string, maxChars: number): string {
+  if (input.length <= maxChars) {
+    return input;
+  }
+  return input.slice(input.length - maxChars);
 }
 
 function inferSnapshotNameFromImage(image: string): string {
@@ -206,8 +215,8 @@ async function bootstrapSandbox(args: {
     'if [ -n "$CONVEX_DEPLOY_KEY" ]; then',
     `  env_file="${repoDir}/apps/noter/.env.local";`,
     '  if [ -f "$env_file" ]; then',
-    "    grep -v '^CONVEX_DEPLOY_KEY=' \"$env_file\" > \"$env_file.tmp\" || true;",
-    "    mv \"$env_file.tmp\" \"$env_file\";",
+    '    grep -v \'^CONVEX_DEPLOY_KEY=\' "$env_file" > "$env_file.tmp" || true;',
+    '    mv "$env_file.tmp" "$env_file";',
     "  else",
     '    mkdir -p "$(dirname "$env_file")";',
     "  fi;",
@@ -299,6 +308,20 @@ const getDaytonaPrebuildStatusResult = object({
   snapshotName: optional(string()),
   state: optional(string()),
   errorReason: optional(string()),
+  message: optional(string()),
+});
+
+const getDaytonaPrebuildLogsArgs = object({
+  vaultId: id("vaults"),
+  branch: optional(string()),
+});
+
+const getDaytonaPrebuildLogsResult = object({
+  ok: boolean(),
+  logs: optional(string()),
+  branch: optional(string()),
+  snapshotName: optional(string()),
+  updatedAt: optional(number()),
   message: optional(string()),
 });
 
@@ -408,7 +431,9 @@ export const startDaytonaWorkspace = action({
           });
           snapshotToUse = created.name;
         } else if (isNotFoundError(error)) {
-          console.log("daytona:snapshot:missing", { snapshotName: baseSnapshotName });
+          console.log("daytona:snapshot:missing", {
+            snapshotName: baseSnapshotName,
+          });
         } else {
           throw error;
         }
@@ -496,7 +521,9 @@ export const startDaytonaWorkspace = action({
     return {
       ok: true,
       status: "created",
-      message: bootstrapMessage ? `${baseMessage} ${bootstrapMessage}` : baseMessage,
+      message: bootstrapMessage
+        ? `${baseMessage} ${bootstrapMessage}`
+        : baseMessage,
       branch,
       sandboxId: sandbox.id,
       sandboxName: resolvedSandboxName,
@@ -728,15 +755,22 @@ export const getDaytonaBootstrapLogs = action({
 
     const sandbox = await daytona.get(sandboxId);
     const command =
-      "bash -lc 'if [ -f /tmp/noter-pnpm-install.log ]; then tail -n 200 /tmp/noter-pnpm-install.log; else echo \"__NOTER_NO_LOG__\"; fi; if [ -f /tmp/noter-pnpm-install.status ]; then echo \"\"; echo \"Install status:\"; cat /tmp/noter-pnpm-install.status; fi'";
-    const result = await sandbox.process.executeCommand(command, undefined, undefined, 60);
+      'bash -lc \'if [ -f /tmp/noter-pnpm-install.log ]; then tail -n 200 /tmp/noter-pnpm-install.log; else echo "__NOTER_NO_LOG__"; fi; if [ -f /tmp/noter-pnpm-install.status ]; then echo ""; echo "Install status:"; cat /tmp/noter-pnpm-install.status; fi\'';
+    const result = await sandbox.process.executeCommand(
+      command,
+      undefined,
+      undefined,
+      60,
+    );
 
     const rawLogs = result.result ?? "";
     const hasNoLog = rawLogs.includes("__NOTER_NO_LOG__");
     const cleanedLogs = hasNoLog
       ? rawLogs.replace(/__NOTER_NO_LOG__\n?/g, "")
       : rawLogs;
-    const message = hasNoLog ? "No install log found yet." : "Fetched bootstrap logs.";
+    const message = hasNoLog
+      ? "No install log found yet."
+      : "Fetched bootstrap logs.";
 
     return {
       ok: true,
@@ -801,6 +835,50 @@ export const prebuildDaytonaSnapshot = action({
       repo: vault.ghRepoName,
       branch,
     });
+
+    const prebuildStartedAt = Date.now();
+    const prebuildStartLine = `Prebuild started for ${branch} at ${new Date(prebuildStartedAt).toISOString()}\n`;
+    await ctx.runMutation(internal.vault.updateVaultDaytonaPrebuildLogs, {
+      vaultId: args.vaultId,
+      branch,
+      snapshotName,
+      logs: prebuildStartLine,
+      updatedAt: prebuildStartedAt,
+    });
+
+    const prebuildLogState = {
+      buffer: prebuildStartLine,
+      lastFlushAt: prebuildStartedAt,
+    };
+
+    const flushPrebuildLogs = async (force: boolean) => {
+      const now = Date.now();
+      if (
+        !force &&
+        now - prebuildLogState.lastFlushAt < PREBUILD_LOG_FLUSH_MS
+      ) {
+        return;
+      }
+      prebuildLogState.lastFlushAt = now;
+      await ctx.runMutation(internal.vault.updateVaultDaytonaPrebuildLogs, {
+        vaultId: args.vaultId,
+        branch,
+        snapshotName,
+        logs: prebuildLogState.buffer,
+        updatedAt: now,
+      });
+    };
+
+    const appendPrebuildLog = async (chunk: string) => {
+      if (chunk.trim().length === 0) {
+        return;
+      }
+      prebuildLogState.buffer = truncateLogTail(
+        prebuildLogState.buffer + chunk,
+        MAX_PREBUILD_LOG_CHARS,
+      );
+      await flushPrebuildLogs(false);
+    };
 
     console.log("daytona:prebuild:start", {
       vaultId: args.vaultId,
@@ -877,10 +955,14 @@ export const prebuildDaytonaSnapshot = action({
         `COPY . ${repoPath}`,
         "RUN corepack enable && corepack prepare pnpm@9.15.0 --activate",
       ];
-      const installCommand = "RUN pnpm install --prod=false --force --node-linker=hoisted";
+      const installCommand =
+        "RUN pnpm install --prod=false --force --node-linker=hoisted";
       const autoCdStep = `RUN ${autoCdCommand}`;
 
-      const createSnapshot = async (baseImage: string, includeInstall: boolean) => {
+      const createSnapshot = async (
+        baseImage: string,
+        includeInstall: boolean,
+      ) => {
         const dockerfileCommands = includeInstall
           ? [...baseCommands, installCommand, autoCdStep]
           : [...baseCommands, autoCdStep];
@@ -899,6 +981,14 @@ export const prebuildDaytonaSnapshot = action({
                   snapshotName,
                   chunk,
                 });
+                void appendPrebuildLog(chunk).catch((error) => {
+                  console.warn("daytona:prebuild:log-append-failed", {
+                    vaultId: args.vaultId,
+                    snapshotName,
+                    message:
+                      error instanceof Error ? error.message : String(error),
+                  });
+                });
               }
             },
           },
@@ -913,16 +1003,27 @@ export const prebuildDaytonaSnapshot = action({
             depsImage,
             lockHash,
           });
+          await appendPrebuildLog(
+            `Using deps image ${depsImage} for lock ${lockHash}\n`,
+          );
           await createSnapshot(depsImage, false);
         } catch (error) {
           if (isNotFoundError(error)) {
-            throw new Error(
-              `Deps image not found: ${depsImage}. Build the image for lock hash ${lockHash ?? "unknown"} before prebuild.`,
-            );
+            const message = `Deps image not found: ${depsImage}. Build the image for lock hash ${lockHash ?? "unknown"} before prebuild.\n`;
+            await appendPrebuildLog(message);
+            throw new Error(message.trim());
           }
+          await appendPrebuildLog(
+            `Prebuild failed: ${
+              error instanceof Error ? error.message : String(error)
+            }\n`,
+          );
           throw error;
         }
       } else {
+        await appendPrebuildLog(
+          "No deps image configured; installing dependencies in snapshot.\n",
+        );
         await createSnapshot(DEFAULT_BASE_IMAGE, true);
       }
 
@@ -932,12 +1033,24 @@ export const prebuildDaytonaSnapshot = action({
         commitSha: headSha,
       });
 
+      await appendPrebuildLog(
+        `Prebuild finished at ${new Date().toISOString()}\n`,
+      );
+      await flushPrebuildLogs(true);
+
       return {
         ok: true,
         snapshotName,
         commitSha: headSha,
         message: `Prebuild snapshot ${snapshotName} created for ${branch}@${headSha.slice(0, 7)}.`,
       };
+    } catch (error) {
+      const message = `Prebuild failed: ${
+        error instanceof Error ? error.message : String(error)
+      }\n`;
+      await appendPrebuildLog(message);
+      await flushPrebuildLogs(true);
+      throw error;
     } finally {
       await fs.promises.rm(tmpRoot, { recursive: true, force: true });
     }
@@ -1011,5 +1124,46 @@ export const getDaytonaPrebuildStatus = action({
         message: `No prebuild snapshot found for ${branch} yet.`,
       };
     }
+  },
+});
+
+export const getDaytonaPrebuildLogs = action({
+  args: getDaytonaPrebuildLogsArgs,
+  returns: getDaytonaPrebuildLogsResult,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof getDaytonaPrebuildLogsResult>> => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.runQuery(internal.vault.getById, {
+      id: args.vaultId,
+    });
+
+    if (!vault || vault.userId !== userId) {
+      throw new Error("Vault not found");
+    }
+
+    const branch = args.branch?.trim();
+    if (branch && vault.daytonaPrebuildLogsBranch !== branch) {
+      return {
+        ok: true,
+        logs: "",
+        branch: vault.daytonaPrebuildLogsBranch,
+        snapshotName: vault.daytonaPrebuildLogsSnapshot,
+        updatedAt: vault.daytonaPrebuildLogsUpdatedAt,
+        message: "No prebuild logs for this branch yet.",
+      };
+    }
+
+    return {
+      ok: true,
+      logs: vault.daytonaPrebuildLogs ?? "",
+      branch: vault.daytonaPrebuildLogsBranch,
+      snapshotName: vault.daytonaPrebuildLogsSnapshot,
+      updatedAt: vault.daytonaPrebuildLogsUpdatedAt,
+      message: vault.daytonaPrebuildLogs
+        ? "Fetched prebuild logs."
+        : "No prebuild logs yet.",
+    };
   },
 });

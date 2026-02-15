@@ -240,6 +240,26 @@ export const updateVaultDaytonaSnapshot = internalMutation({
   },
 });
 
+export const updateVaultDaytonaPrebuildLogs = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+    branch: v.string(),
+    snapshotName: v.optional(v.string()),
+    logs: v.string(),
+    updatedAt: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.vaultId, {
+      daytonaPrebuildLogs: args.logs,
+      daytonaPrebuildLogsUpdatedAt: args.updatedAt,
+      daytonaPrebuildLogsBranch: args.branch,
+      daytonaPrebuildLogsSnapshot: args.snapshotName,
+    });
+    return null;
+  },
+});
+
 export const clearVaultDaytonaSandbox = internalMutation({
   args: {
     vaultId: v.id("vaults"),
