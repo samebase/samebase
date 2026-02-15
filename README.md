@@ -79,6 +79,10 @@ pnpm test
 2. Set up GitHub OAuth for repository access
 3. Configure authentication providers
 
+## TODO
+
+- **Easy win**: Rename simple/all to important/code
+
 ## Contributing
 
 This project uses:
