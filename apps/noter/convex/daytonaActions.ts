@@ -186,6 +186,36 @@ function readRegistryConfig(): { config: RegistryConfig | null; missing: string[
   };
 }
 
+function buildRegistryConfigFromGithub(args: {
+  githubUsername: string;
+  githubAccessToken: string;
+}): RegistryConfig {
+  const url =
+    process.env[DAYTONA_REGISTRY_URL_ENV]?.trim() || "ghcr.io";
+  const project = process.env[DAYTONA_REGISTRY_PROJECT_ENV]?.trim() || undefined;
+  const nameOverride = process.env[DAYTONA_REGISTRY_NAME_ENV]?.trim();
+  const name =
+    nameOverride && nameOverride.length > 0
+      ? nameOverride
+      : normalizeRegistryUrl(url).includes("ghcr.io")
+        ? "ghcr"
+        : "registry";
+  const setDefault =
+    parseBooleanEnv(process.env[DAYTONA_REGISTRY_SET_DEFAULT_ENV]) ?? false;
+  const organizationId =
+    process.env[DAYTONA_ORGANIZATION_ID_ENV]?.trim() || undefined;
+
+  return {
+    url,
+    username: args.githubUsername,
+    password: args.githubAccessToken,
+    project,
+    name,
+    setDefault,
+    organizationId,
+  };
+}
+
 function getRegistryMatch(
   registries: DockerRegistry[],
   config: RegistryConfig,
@@ -483,6 +513,15 @@ const getDaytonaPrebuildLogsResult = object({
   branch: optional(string()),
   snapshotName: optional(string()),
   updatedAt: optional(number()),
+  message: optional(string()),
+});
+
+const ensureDaytonaRegistryArgs = object({
+  vaultId: id("vaults"),
+});
+
+const ensureDaytonaRegistryResult = object({
+  ok: boolean(),
   message: optional(string()),
 });
 
@@ -1356,5 +1395,77 @@ export const getDaytonaPrebuildLogs = action({
         ? "Fetched prebuild logs."
         : "No prebuild logs yet.",
     };
+  },
+});
+
+export const ensureDaytonaRegistryForVault = action({
+  args: ensureDaytonaRegistryArgs,
+  returns: ensureDaytonaRegistryResult,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof ensureDaytonaRegistryResult>> => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.runQuery(internal.vault.getById, {
+      id: args.vaultId,
+    });
+
+    if (!vault || vault.userId !== userId) {
+      throw new Error("Vault not found");
+    }
+
+    const baseUrl = process.env.DAYTONA_API_URL;
+    const token = process.env.DAYTONA_API_TOKEN ?? process.env.DAYTONA_API_KEY;
+    if (!baseUrl || !token) {
+      const missing = [
+        !baseUrl ? "DAYTONA_API_URL" : null,
+        !token ? "DAYTONA_API_TOKEN (or DAYTONA_API_KEY)" : null,
+      ].filter((value): value is string => value !== null);
+      return {
+        ok: false,
+        message:
+          missing.length === 0
+            ? "Daytona is not configured."
+            : `Daytona is not configured. Missing ${missing.join(", ")}.`,
+      };
+    }
+
+    const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
+    const githubToken = currentUser?.githubAccessToken ?? null;
+    const githubUsername = currentUser?.githubUsername ?? null;
+
+    if (!githubToken || !githubUsername) {
+      return {
+        ok: false,
+        message:
+          "GitHub access token not found. Re-authenticate with GitHub to enable registry setup.",
+      };
+    }
+
+    const registryConfig = buildRegistryConfigFromGithub({
+      githubUsername,
+      githubAccessToken: githubToken,
+    });
+
+    try {
+      const registryStatus = await ensureDaytonaRegistry({
+        baseUrl,
+        token,
+        config: registryConfig,
+      });
+
+      return {
+        ok: true,
+        message: `Registry ${registryStatus.status} for ${registryConfig.url}.`,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to configure Daytona registry.",
+      };
+    }
   },
 });

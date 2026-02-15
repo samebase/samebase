@@ -39,6 +39,9 @@ export function DaytonaWorkspaceButton({
   const prebuildDaytonaSnapshot = useAction(api.daytonaActions.prebuildDaytonaSnapshot);
   const getDaytonaPrebuildStatus = useAction(api.daytonaActions.getDaytonaPrebuildStatus);
   const getDaytonaPrebuildLogs = useAction(api.daytonaActions.getDaytonaPrebuildLogs);
+  const ensureDaytonaRegistryForVault = useAction(
+    api.daytonaActions.ensureDaytonaRegistryForVault,
+  );
   const [isStarting, setIsStarting] = useState(false);
   const [isOpeningTerminal, setIsOpeningTerminal] = useState(false);
   const [isRemovingSandbox, setIsRemovingSandbox] = useState(false);
@@ -46,6 +49,7 @@ export function DaytonaWorkspaceButton({
   const [isFetchingPrebuildLogs, setIsFetchingPrebuildLogs] = useState(false);
   const [isPrebuilding, setIsPrebuilding] = useState(false);
   const [isCheckingPrebuild, setIsCheckingPrebuild] = useState(false);
+  const [isEnsuringRegistry, setIsEnsuringRegistry] = useState(false);
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
@@ -343,6 +347,34 @@ export function DaytonaWorkspaceButton({
     }
   };
 
+  const handleEnsureRegistry = async () => {
+    if (disabled || isEnsuringRegistry) {
+      return;
+    }
+    setIsEnsuringRegistry(true);
+    setMessage(null);
+    setHasError(false);
+
+    try {
+      const result = await ensureDaytonaRegistryForVault({ vaultId });
+      if (!result.ok) {
+        setHasError(true);
+        setMessage(result.message ?? "Failed to configure Daytona registry.");
+        return;
+      }
+      setMessage(result.message ?? "Daytona registry configured.");
+    } catch (error) {
+      setHasError(true);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to configure Daytona registry.",
+      );
+    } finally {
+      setIsEnsuringRegistry(false);
+    }
+  };
+
   return (
     <div className={cn("flex flex-col gap-1", className)}>
       <div className="flex flex-wrap items-center gap-2">
@@ -461,6 +493,23 @@ export function DaytonaWorkspaceButton({
           disabled={disabled || isPrebuilding}
         >
           {isPrebuilding ? "Building prebuild..." : "Build prebuild"}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            void handleEnsureRegistry();
+          }}
+          disabled={disabled || isEnsuringRegistry}
+        >
+          {isEnsuringRegistry ? (
+            <>
+              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              Setting registry...
+            </>
+          ) : (
+            "Set registry access"
+          )}
         </Button>
         <Button
           variant="ghost"
