@@ -41,23 +41,22 @@ This spec captures the current Daytona sandbox MVP (runtime bootstrap + terminal
 ## Snapshot Strategy (Now)
 
 Snapshots are used to avoid repeating base OS/Node setup. The system:
-- Defaults snapshot creation to **true** if not explicitly disabled.
-- Infers snapshot name from base image: `noter-<sanitized-image>`, e.g. `noter-mcr.microsoft.com-devcontainers-typescript-node-1-bookworm`.
-- Uses snapshot on sandbox creation if it exists.
-- If missing, creates it once using the base image.
+- Infers a **base snapshot** name from the base image:
+  `noter-<sanitized-image>` (example: `noter-mcr.microsoft.com-devcontainers-javascript-node-24-bookworm`).
+- Creates that base snapshot once (if missing) and reuses it for sandbox creation.
 
-**Per-vault snapshot preference:**
-- Each vault can store an explicit snapshot name (intended for Daytona prebuilds).
-- If a vault snapshot name is set, the system **does not auto-create** snapshots.
-- If the named snapshot is missing, sandbox creation fails with a clear error so the user can fix the prebuild or clear the preference.
-- When a snapshot preference is set, bootstrap is **skipped** for fast startup (assumes prebuild has repo + deps).
-- UI exposes:
-  - Snapshot name input + save.
-  - Snapshot list fetch (Daytona API) with one-click selection.
+**Prebuild snapshot (manual for now):**
+- Snapshot name is **automatically inferred** per vault + branch:
+  `noter-prebuild-<owner>-<repo>-<branch>` (sanitized).
+- If the prebuild snapshot exists, sandbox creation **uses it** and **skips bootstrap** for fast startup.
+- If it does **not** exist, sandbox creation falls back to the base snapshot and runs bootstrap.
+- UI exposes a **Build prebuild** button that:
+  - Clones the repo for the selected branch.
+  - Builds a snapshot that includes repo + dependencies.
+  - Replaces any existing prebuild snapshot with the same name.
 
 **Limitations:**
-- Snapshot is built from the base image only, not from a running sandbox’s filesystem.
-- Repo dependencies still need to be installed unless a future prebuild step includes repo context or cache volumes.
+- Prebuilds are currently manual and branch-scoped (auto-update per commit is future work).
 
 ## Terminal UX
 
