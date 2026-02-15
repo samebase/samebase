@@ -2,11 +2,9 @@
 
 ## High Priority
 
-- [ ] security: remove first-request token bootstrap in `.codespace-agent/server.js`; require preconfigured secret for auth before exposing agent APIs
-- [ ] security: fix codespace agent exposure model (`port 3000` public + `/exec`/file endpoints); restrict reachability or add hardened gateway auth
-- [ ] starter manifest hygiene: exclude `.codespace-agent/node_modules/**` from template export and regenerate deterministic `starterSeedManifest.generated.ts`
-- [ ] starter template hygiene: add CI coverage for `apps/noter-starter-template` (we missed a `node_modules`/ignore drift once because it wasn't being checked)
 - [ ] left to easily press enter
+- [ ] https://vt.tiktok.com/ZSmrDkbnF/ https://x1.new
+- [ ] 
 - [ ] https://theia-ide.org/
 - [ ] research https://vly.ai/, and all others startups shown on
 - [ ] ai can access convex functions directly and can invoke them, and use them as custom tools or can build for itself
@@ -42,7 +40,6 @@
 
 ## Features & Improvements
 - [ ] improve file search functionality with better fuzzy matching
-- [ ] editor: on hover over Tailwind classes, show their definition
 - [ ] add keyboard shortcuts for common actions (save, commit, etc.)
 - [ ] implement file diff view to show changes before committing
 - [ ] add "todo" command functionality for AI assistant to update this file
