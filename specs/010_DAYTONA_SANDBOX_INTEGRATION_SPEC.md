@@ -82,7 +82,6 @@ Required:
 
 Optional (prebuild deps image):
 - `DAYTONA_DEPS_IMAGE_TEMPLATE` (example: `ghcr.io/<owner>/<repo>-daytona-deps:{lockHash}`)
-- Deps image includes repo + `.git`; prebuild snapshot uses it directly and sandbox startup syncs via git fetch/reset.
 
 Optional (private registry automation):
 - `DAYTONA_REGISTRY_URL` (example: `ghcr.io`)
@@ -119,7 +118,6 @@ No other Daytona env vars are used. Base image is fixed in code to
    - Push to GHCR.
    - Sandbox uses prebuilt image from registry.
    - This repo includes `Dockerfile.daytona-deps` + `.github/workflows/daytona-deps-image.yml` to build a deps image when `pnpm-lock.yaml` changes; set `DAYTONA_DEPS_IMAGE_TEMPLATE` to enable it in prebuilds.
-   - Deps image contains repo + git history so startup only needs a fast git sync.
 
 ## Registry Automation (Implemented)
 

@@ -18,6 +18,7 @@ import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getUserId } from "./common";
 import { toSafeRepoName } from "./repoName";
+
 const { object, id, string, optional, boolean, union, literal, number } = v;
 const DEFAULT_BASE_IMAGE =
   "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm";
@@ -144,10 +145,7 @@ function parseBooleanEnv(value: string | undefined): boolean | undefined {
   return undefined;
 }
 
-function readRegistryConfig(): {
-  config: RegistryConfig | null;
-  missing: string[];
-} {
+function readRegistryConfig(): { config: RegistryConfig | null; missing: string[] } {
   const url = process.env[DAYTONA_REGISTRY_URL_ENV]?.trim() ?? "";
   const username = process.env[DAYTONA_REGISTRY_USERNAME_ENV]?.trim() ?? "";
   const password = process.env[DAYTONA_REGISTRY_PASSWORD_ENV] ?? "";
@@ -165,16 +163,10 @@ function readRegistryConfig(): {
     return { config: null, missing };
   }
 
-  const project =
-    process.env[DAYTONA_REGISTRY_PROJECT_ENV]?.trim() || undefined;
+  const project = process.env[DAYTONA_REGISTRY_PROJECT_ENV]?.trim() || undefined;
   const nameOverride = process.env[DAYTONA_REGISTRY_NAME_ENV]?.trim();
   const isGhcr = normalizeRegistryUrl(url).includes("ghcr.io");
-  const name =
-    nameOverride && nameOverride.length > 0
-      ? nameOverride
-      : isGhcr
-        ? "ghcr"
-        : "registry";
+  const name = nameOverride && nameOverride.length > 0 ? nameOverride : isGhcr ? "ghcr" : "registry";
   const setDefault =
     parseBooleanEnv(process.env[DAYTONA_REGISTRY_SET_DEFAULT_ENV]) ?? false;
   const organizationId =
@@ -198,9 +190,9 @@ function buildRegistryConfigFromGithub(args: {
   githubUsername: string;
   githubAccessToken: string;
 }): RegistryConfig {
-  const url = process.env[DAYTONA_REGISTRY_URL_ENV]?.trim() || "ghcr.io";
-  const project =
-    process.env[DAYTONA_REGISTRY_PROJECT_ENV]?.trim() || undefined;
+  const url =
+    process.env[DAYTONA_REGISTRY_URL_ENV]?.trim() || "ghcr.io";
+  const project = process.env[DAYTONA_REGISTRY_PROJECT_ENV]?.trim() || undefined;
   const nameOverride = process.env[DAYTONA_REGISTRY_NAME_ENV]?.trim();
   const name =
     nameOverride && nameOverride.length > 0
@@ -248,10 +240,7 @@ async function ensureDaytonaRegistry(args: {
   baseUrl: string;
   token: string;
   config: RegistryConfig;
-}): Promise<{
-  registryId: string;
-  status: "created" | "updated" | "existing";
-}> {
+}): Promise<{ registryId: string; status: "created" | "updated" | "existing" }> {
   const configuration = new DaytonaApiConfiguration({
     accessToken: args.token,
     basePath: args.baseUrl,
@@ -379,11 +368,6 @@ async function bootstrapSandbox(args: {
     owner: args.owner,
     repo: args.repo,
   });
-  const cleanCloneUrl = buildCloneUrl({
-    token: null,
-    owner: args.owner,
-    repo: args.repo,
-  });
   const autoCdLine = `cd ${repoDir}`;
   const autoCdCommand = [
     `auto_cd_line=${quoteForBash(autoCdLine)}`,
@@ -431,40 +415,20 @@ async function bootstrapSandbox(args: {
     '  chmod 600 "$env_file";',
     "fi",
   ].join(" ");
-  const gitSyncCommand = [
-    `if [ -d "${repoDir}/.git" ]; then`,
-    `  cd "${repoDir}"`,
-    `  git remote set-url origin "${cloneUrl}"`,
-    `  git fetch --prune origin "${args.branch}"`,
-    `  git checkout -B "${args.branch}" "origin/${args.branch}"`,
-    `  git reset --hard "origin/${args.branch}"`,
-    `  git remote set-url origin "${cleanCloneUrl}"`,
-    "else",
-    `  git clone "${cloneUrl}" "${repoDir}"`,
-    `  cd "${repoDir}"`,
-    `  git checkout -B "${args.branch}" "origin/${args.branch}"`,
-    `  git remote set-url origin "${cleanCloneUrl}"`,
-    "fi",
-  ].join(" ");
-  const installGuard = [
-    'if [ -d "node_modules" ] || [ -d "apps/noter/node_modules" ] || [ -d "apps/noter-starter-template/node_modules" ]; then',
-    `  echo "Dependencies already present; skipping pnpm install." > "${installLog}"`,
-    `  echo "skipped" > "${installStatus}"`,
-    "else",
-    `  rm -f "${installLog}" "${installStatus}"`,
-    `  nohup bash -lc ${quotedInstallScript} > "${installLog}" 2>&1 &`,
-    "fi",
-  ].join(" ");
   const script = [
     "set -e",
     "export GIT_TERMINAL_PROMPT=0",
     `mkdir -p "${workspaceDir}"`,
     "if ! command -v git >/dev/null; then (command -v sudo >/dev/null && sudo apt-get update && sudo apt-get install -y git) || (apt-get update && apt-get install -y git); fi",
-    gitSyncCommand,
+    `[ -d "${repoDir}/.git" ] || git clone "${cloneUrl}" "${repoDir}"`,
+    `cd "${repoDir}"`,
+    `git fetch origin "${args.branch}"`,
+    `git checkout "${args.branch}"`,
     writeConvexEnvCommand,
     "if ! command -v pnpm >/dev/null; then if command -v corepack >/dev/null; then corepack enable && corepack prepare pnpm@9.15.0 --activate; else npm install -g pnpm@9.15.0; fi; fi",
     autoCdCommand,
-    installGuard,
+    `rm -f "${installLog}" "${installStatus}"`,
+    `nohup bash -lc ${quotedInstallScript} > "${installLog}" 2>&1 &`,
   ].join(" && ");
   const command = `bash -lc ${quoteForBash(script)}`;
   await args.sandbox.process.executeCommand(command, undefined, undefined, 600);
@@ -706,30 +670,35 @@ export const startDaytonaWorkspace = action({
 
     const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
     const githubToken = currentUser?.githubAccessToken ?? null;
+    const shouldBootstrapRepo = !usePrebuildSnapshot;
     let bootstrapMessage: string | null = null;
 
-    try {
-      console.log("daytona:bootstrap:start", {
-        vaultId: args.vaultId,
-        repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-        branch,
-        usesPrebuild: usePrebuildSnapshot,
-      });
-      await bootstrapSandbox({
-        sandbox,
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
-        branch,
-        token: githubToken,
-      });
-      bootstrapMessage = `Repo synced in ${repoWorkdir}. Dependencies install runs in background if needed (see /tmp/noter-pnpm-install.log).`;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.warn("daytona:bootstrap:failed", {
-        vaultId: args.vaultId,
-        message,
-      });
-      bootstrapMessage = `Sandbox created, but bootstrap failed: ${message}`;
+    if (shouldBootstrapRepo) {
+      try {
+        console.log("daytona:bootstrap:start", {
+          vaultId: args.vaultId,
+          repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+          branch,
+        });
+        await bootstrapSandbox({
+          sandbox,
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          branch,
+          token: githubToken,
+        });
+        bootstrapMessage = `Bootstrapping repo in ${repoWorkdir}. Installing dependencies in background (see /tmp/noter-pnpm-install.log).`;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn("daytona:bootstrap:failed", {
+          vaultId: args.vaultId,
+          message,
+        });
+        bootstrapMessage = `Sandbox created, but bootstrap failed: ${message}`;
+      }
+    } else {
+      bootstrapMessage =
+        "Using prebuild snapshot; bootstrap skipped for faster startup.";
     }
 
     await ctx.runMutation(internal.vault.updateVaultDaytonaSandbox, {
@@ -1220,7 +1189,17 @@ export const prebuildDaytonaSnapshot = action({
         "RUN pnpm install --prod=false --force --node-linker=hoisted";
       const autoCdStep = `RUN ${autoCdCommand}`;
 
-      const createSnapshot = async (image: Image) => {
+      const createSnapshot = async (
+        baseImage: string,
+        includeInstall: boolean,
+      ) => {
+        const dockerfileCommands = includeInstall
+          ? [...baseCommands, installCommand, autoCdStep]
+          : [...baseCommands, autoCdStep];
+        const image = Image.base(baseImage).dockerfileCommands(
+          dockerfileCommands,
+          repoDir,
+        );
         await daytona.snapshot.create(
           { name: snapshotName, image },
           {
@@ -1246,20 +1225,6 @@ export const prebuildDaytonaSnapshot = action({
         );
       };
 
-      const createSnapshotFromRepo = async (
-        baseImage: string,
-        includeInstall: boolean,
-      ) => {
-        const dockerfileCommands = includeInstall
-          ? [...baseCommands, installCommand, autoCdStep]
-          : [...baseCommands, autoCdStep];
-        const image = Image.base(baseImage).dockerfileCommands(
-          dockerfileCommands,
-          repoDir,
-        );
-        await createSnapshot(image);
-      };
-
       if (depsImage) {
         try {
           console.log("daytona:prebuild:deps-image", {
@@ -1271,10 +1236,7 @@ export const prebuildDaytonaSnapshot = action({
           await appendPrebuildLog(
             `Using deps image ${depsImage} for lock ${lockHash}\n`,
           );
-          await appendPrebuildLog(
-            "Creating snapshot directly from deps image (repo already baked in).\n",
-          );
-          await createSnapshot(Image.base(depsImage).workdir(repoPath));
+          await createSnapshot(depsImage, false);
         } catch (error) {
           if (isNotFoundError(error)) {
             const message = `Deps image not found: ${depsImage}. Build the image for lock hash ${lockHash ?? "unknown"} before prebuild.\n`;
@@ -1292,7 +1254,7 @@ export const prebuildDaytonaSnapshot = action({
         await appendPrebuildLog(
           "No deps image configured; installing dependencies in snapshot.\n",
         );
-        await createSnapshotFromRepo(DEFAULT_BASE_IMAGE, true);
+        await createSnapshot(DEFAULT_BASE_IMAGE, true);
       }
 
       console.log("daytona:prebuild:done", {

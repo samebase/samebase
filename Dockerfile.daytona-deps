@@ -13,5 +13,3 @@ COPY apps/noter-starter-template/package.json apps/noter-starter-template/packag
 
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 RUN pnpm install --prod=false --force --node-linker=hoisted
-
-COPY . ./
