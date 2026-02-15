@@ -2,6 +2,7 @@
 
 import { Daytona, Image, type Sandbox } from "@daytonaio/sdk";
 import { Infer, v } from "convex/values";
+import { createHash } from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -17,6 +18,8 @@ const DEFAULT_BASE_IMAGE =
   "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm";
 const DEFAULT_WORKSPACE_DIR = "/home/daytona/workspace";
 const DAYTONA_CONVEX_DEPLOY_KEY_ENV = "DAYTONA_CONVEX_DEPLOY_KEY";
+const DAYTONA_DEPS_IMAGE_TEMPLATE_ENV = "DAYTONA_DEPS_IMAGE_TEMPLATE";
+const PNPM_LOCKFILE_NAME = "pnpm-lock.yaml";
 
 function isNotFoundError(error: unknown): boolean {
   if (typeof error === "object" && error !== null) {
@@ -32,6 +35,14 @@ function isNotFoundError(error: unknown): boolean {
   return false;
 }
 
+function isMissingFileError(error: unknown): boolean {
+  if (typeof error === "object" && error !== null) {
+    const code = Reflect.get(error, "code");
+    return code === "ENOENT";
+  }
+  return false;
+}
+
 function hasImageTagOrDigest(image: string): boolean {
   if (image.includes("@")) {
     return true;
@@ -39,6 +50,56 @@ function hasImageTagOrDigest(image: string): boolean {
   const lastColon = image.lastIndexOf(":");
   const lastSlash = image.lastIndexOf("/");
   return lastColon > lastSlash;
+}
+
+async function readPnpmLockHash(repoDir: string): Promise<string | null> {
+  const lockfilePath = path.join(repoDir, PNPM_LOCKFILE_NAME);
+  try {
+    const contents = await fs.promises.readFile(lockfilePath);
+    return createHash("sha256").update(contents).digest("hex");
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function replaceTemplateTokens(
+  template: string,
+  replacements: Record<string, string>,
+): string {
+  let result = template;
+  for (const [key, value] of Object.entries(replacements)) {
+    result = result.split(`{${key}}`).join(value);
+    result = result.split("${" + key + "}").join(value);
+  }
+  return result;
+}
+
+function resolveDepsImageName(args: {
+  owner: string;
+  repo: string;
+  lockHash: string;
+}): string | null {
+  const templateRaw = process.env[DAYTONA_DEPS_IMAGE_TEMPLATE_ENV];
+  if (!templateRaw || templateRaw.trim().length === 0) {
+    return null;
+  }
+
+  const owner = args.owner.toLowerCase();
+  const repo = args.repo.toLowerCase();
+  let resolved = replaceTemplateTokens(templateRaw.trim(), {
+    owner,
+    repo,
+    lockHash: args.lockHash,
+  });
+
+  if (!hasImageTagOrDigest(resolved)) {
+    resolved = `${resolved}:${args.lockHash}`;
+  }
+
+  return resolved;
 }
 
 function inferSnapshotNameFromImage(image: string): string {
@@ -801,33 +862,69 @@ export const prebuildDaytonaSnapshot = action({
         "done",
       ].join(" ");
 
-      const image = Image.base(DEFAULT_BASE_IMAGE).dockerfileCommands(
-        [
-          "USER root",
-          `WORKDIR ${repoPath}`,
-          `COPY . ${repoPath}`,
-          "RUN corepack enable && corepack prepare pnpm@9.15.0 --activate",
-          "RUN pnpm install --prod=false --force --node-linker=hoisted",
-          `RUN ${autoCdCommand}`,
-        ],
-        repoDir,
-      );
+      const lockHash = await readPnpmLockHash(repoDir);
+      const depsImage = lockHash
+        ? resolveDepsImageName({
+            owner: vault.ghRepoOwner,
+            repo: vault.ghRepoName,
+            lockHash,
+          })
+        : null;
 
-      await daytona.snapshot.create(
-        { name: snapshotName, image },
-        {
-          timeout: 0,
-          onLogs: (chunk) => {
-            if (chunk.trim().length > 0) {
-              console.log("daytona:prebuild:log", {
-                vaultId: args.vaultId,
-                snapshotName,
-                chunk,
-              });
-            }
+      const baseCommands = [
+        "USER root",
+        `WORKDIR ${repoPath}`,
+        `COPY . ${repoPath}`,
+        "RUN corepack enable && corepack prepare pnpm@9.15.0 --activate",
+      ];
+      const installCommand = "RUN pnpm install --prod=false --force --node-linker=hoisted";
+      const autoCdStep = `RUN ${autoCdCommand}`;
+
+      const createSnapshot = async (baseImage: string, includeInstall: boolean) => {
+        const dockerfileCommands = includeInstall
+          ? [...baseCommands, installCommand, autoCdStep]
+          : [...baseCommands, autoCdStep];
+        const image = Image.base(baseImage).dockerfileCommands(
+          dockerfileCommands,
+          repoDir,
+        );
+        await daytona.snapshot.create(
+          { name: snapshotName, image },
+          {
+            timeout: 0,
+            onLogs: (chunk) => {
+              if (chunk.trim().length > 0) {
+                console.log("daytona:prebuild:log", {
+                  vaultId: args.vaultId,
+                  snapshotName,
+                  chunk,
+                });
+              }
+            },
           },
-        },
-      );
+        );
+      };
+
+      if (depsImage) {
+        try {
+          console.log("daytona:prebuild:deps-image", {
+            vaultId: args.vaultId,
+            snapshotName,
+            depsImage,
+            lockHash,
+          });
+          await createSnapshot(depsImage, false);
+        } catch (error) {
+          if (isNotFoundError(error)) {
+            throw new Error(
+              `Deps image not found: ${depsImage}. Build the image for lock hash ${lockHash ?? "unknown"} before prebuild.`,
+            );
+          }
+          throw error;
+        }
+      } else {
+        await createSnapshot(DEFAULT_BASE_IMAGE, true);
+      }
 
       console.log("daytona:prebuild:done", {
         vaultId: args.vaultId,

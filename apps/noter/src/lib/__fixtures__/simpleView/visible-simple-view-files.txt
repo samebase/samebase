@@ -8,6 +8,7 @@ apps/noter/public/favicon.svg
 apps/noter/public/lumina_icon.png
 CHAT_SPEC.md
 CONVEX_CODEGEN_CI.md
+Dockerfile.daytona-deps
 Ideas/E2b.md
 Ideas/README.md
 Ideas/to-do.md

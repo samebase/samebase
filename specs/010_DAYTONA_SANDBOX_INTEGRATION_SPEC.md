@@ -80,6 +80,9 @@ Required:
 - `DAYTONA_API_URL`
 - `DAYTONA_API_KEY` (or `DAYTONA_API_TOKEN`)
 
+Optional (prebuild deps image):
+- `DAYTONA_DEPS_IMAGE_TEMPLATE` (example: `ghcr.io/<owner>/<repo>-daytona-deps:{lockHash}`)
+
 No other Daytona env vars are used. Base image is fixed in code to
 `mcr.microsoft.com/devcontainers/javascript-node:24-bookworm`.
 
@@ -106,6 +109,7 @@ No other Daytona env vars are used. Base image is fixed in code to
    - Build Docker image in CI.
    - Push to GHCR.
    - Sandbox uses prebuilt image from registry.
+   - This repo includes `Dockerfile.daytona-deps` + `.github/workflows/daytona-deps-image.yml` to build a deps image when `pnpm-lock.yaml` changes; set `DAYTONA_DEPS_IMAGE_TEMPLATE` to enable it in prebuilds.
 
 **Constraint:** Convex cannot build images from repo source directly, so prebuilds must be executed outside Convex.
 
