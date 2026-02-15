@@ -348,7 +348,6 @@ export function VaultDashboard() {
                         branch={defaultBranch}
                         sandboxId={vault.daytonaSandboxId}
                         sandboxName={vault.daytonaSandboxName}
-                        snapshotName={vault.daytonaSnapshotName}
                       />
                       {vault.isNoterManaged && (
                         <div className="text-xs text-muted-foreground">

@@ -1,10 +1,9 @@
 import { useAction } from "convex/react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -21,7 +20,6 @@ interface DaytonaWorkspaceButtonProps {
   branch: string;
   sandboxId?: string;
   sandboxName?: string;
-  snapshotName?: string;
   disabled?: boolean;
   className?: string;
 }
@@ -31,7 +29,6 @@ export function DaytonaWorkspaceButton({
   branch,
   sandboxId,
   sandboxName,
-  snapshotName,
   disabled,
   className,
 }: DaytonaWorkspaceButtonProps) {
@@ -39,33 +36,17 @@ export function DaytonaWorkspaceButton({
   const getDaytonaTerminalUrl = useAction(api.daytonaActions.getDaytonaTerminalUrl);
   const removeDaytonaSandbox = useAction(api.daytonaActions.removeDaytonaSandbox);
   const getDaytonaBootstrapLogs = useAction(api.daytonaActions.getDaytonaBootstrapLogs);
-  const setDaytonaSnapshotName = useAction(api.daytonaActions.setDaytonaSnapshotName);
-  const listDaytonaSnapshots = useAction(api.daytonaActions.listDaytonaSnapshots);
+  const prebuildDaytonaSnapshot = useAction(api.daytonaActions.prebuildDaytonaSnapshot);
   const [isStarting, setIsStarting] = useState(false);
   const [isOpeningTerminal, setIsOpeningTerminal] = useState(false);
   const [isRemovingSandbox, setIsRemovingSandbox] = useState(false);
   const [isFetchingLogs, setIsFetchingLogs] = useState(false);
-  const [isSavingSnapshot, setIsSavingSnapshot] = useState(false);
-  const [isListingSnapshots, setIsListingSnapshots] = useState(false);
+  const [isPrebuilding, setIsPrebuilding] = useState(false);
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
   const [terminalUrl, setTerminalUrl] = useState<string | null>(null);
   const [bootstrapLogs, setBootstrapLogs] = useState<string | null>(null);
-  const [snapshotInput, setSnapshotInput] = useState(snapshotName ?? "");
-  const [snapshots, setSnapshots] = useState<
-    Array<{
-      name: string;
-      imageName?: string;
-      state?: string;
-      createdAt?: string;
-      lastUsedAt?: string;
-    }> | null
-  >(null);
-
-  useEffect(() => {
-    setSnapshotInput(snapshotName ?? "");
-  }, [snapshotName]);
 
   const handleStart = async () => {
     if (disabled || isStarting) {
@@ -217,74 +198,37 @@ export function DaytonaWorkspaceButton({
     }
   };
 
-  const handleSaveSnapshot = async (nextName?: string) => {
-    if (disabled || isSavingSnapshot) {
+  const handlePrebuildSnapshot = async () => {
+    if (disabled || isPrebuilding) {
       return;
     }
-    setIsSavingSnapshot(true);
+    setIsPrebuilding(true);
     setMessage(null);
     setHasError(false);
 
     try {
-      const trimmed = (nextName ?? snapshotInput).trim();
-      const result = await setDaytonaSnapshotName({
-        vaultId,
-        snapshotName: trimmed.length > 0 ? trimmed : undefined,
-      });
+      const result = await prebuildDaytonaSnapshot({ vaultId, branch });
       if (!result.ok) {
         setHasError(true);
-        setMessage(result.message ?? "Failed to save snapshot preference.");
+        setMessage(result.message ?? "Failed to build prebuild snapshot.");
         return;
       }
-      setSnapshotInput(result.snapshotName ?? "");
-      setMessage(result.message ?? "Snapshot preference saved.");
+      setMessage(
+        result.message ??
+          (result.snapshotName
+            ? `Prebuild snapshot ${result.snapshotName} created.`
+            : "Prebuild snapshot created."),
+      );
     } catch (error) {
       setHasError(true);
       setMessage(
         error instanceof Error
           ? error.message
-          : "Failed to save snapshot preference.",
+          : "Failed to build prebuild snapshot.",
       );
     } finally {
-      setIsSavingSnapshot(false);
+      setIsPrebuilding(false);
     }
-  };
-
-  const handleListSnapshots = async () => {
-    if (disabled || isListingSnapshots) {
-      return;
-    }
-    setIsListingSnapshots(true);
-    setMessage(null);
-    setHasError(false);
-
-    try {
-      const result = await listDaytonaSnapshots({ vaultId, limit: 20 });
-      if (!result.ok) {
-        setHasError(true);
-        setMessage(result.message ?? "Failed to load snapshots.");
-        return;
-      }
-      const items = result.snapshots ?? [];
-      setSnapshots(items);
-      if (items.length === 0) {
-        setMessage("No snapshots returned from Daytona yet.");
-      } else {
-        setMessage(result.message ?? "Loaded snapshots.");
-      }
-    } catch (error) {
-      setHasError(true);
-      setMessage(
-        error instanceof Error ? error.message : "Failed to load snapshots.",
-      );
-    } finally {
-      setIsListingSnapshots(false);
-    }
-  };
-
-  const handleUseSnapshot = async (name: string) => {
-    setSnapshotInput(name);
-    await handleSaveSnapshot(name);
   };
 
   return (
@@ -396,75 +340,23 @@ export function DaytonaWorkspaceButton({
         )}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Input
-          value={snapshotInput}
-          onChange={(event) => setSnapshotInput(event.target.value)}
-          placeholder="Prebuild snapshot name"
-          className="h-7 w-64 text-xs"
-          disabled={disabled || isSavingSnapshot}
-        />
         <Button
           variant="outline"
           size="sm"
           onClick={() => {
-            void handleSaveSnapshot();
+            void handlePrebuildSnapshot();
           }}
-          disabled={disabled || isSavingSnapshot}
+          disabled={disabled || isPrebuilding}
         >
-          {isSavingSnapshot ? "Saving..." : "Save snapshot"}
+          {isPrebuilding ? "Building prebuild..." : "Build prebuild"}
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            void handleListSnapshots();
-          }}
-          disabled={disabled || isListingSnapshots}
-        >
-          {isListingSnapshots ? "Loading..." : "Fetch snapshots"}
-        </Button>
+        <span className="text-xs text-muted-foreground">
+          Snapshot name is inferred from vault + branch.
+        </span>
       </div>
-      {snapshots && snapshots.length > 0 && (
-        <div className="rounded-md border bg-muted/5 p-2 text-xs">
-          <div className="mb-1 text-muted-foreground">
-            Available snapshots
-          </div>
-          <div className="flex flex-col gap-1">
-            {snapshots.map((snapshot) => (
-              <div
-                key={snapshot.name}
-                className="flex flex-wrap items-center justify-between gap-2"
-              >
-                <div className="min-w-0">
-                  <div className="truncate font-mono">{snapshot.name}</div>
-                  {(snapshot.createdAt || snapshot.imageName) && (
-                    <div className="text-muted-foreground">
-                      {snapshot.createdAt ?? snapshot.imageName ?? ""}
-                    </div>
-                  )}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    void handleUseSnapshot(snapshot.name);
-                  }}
-                >
-                  Use
-                </Button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
       {sandboxId && sandboxName && (
         <div className="text-xs text-muted-foreground">
           Daytona: {sandboxName}
-        </div>
-      )}
-      {snapshotName && (
-        <div className="text-xs text-muted-foreground">
-          Snapshot: {snapshotName}
         </div>
       )}
       {terminalUrl && (
