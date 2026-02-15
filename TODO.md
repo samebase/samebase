@@ -4,6 +4,8 @@
 - [ ] maybe jupyterlab is not necessaryle necessary, or even a good idea, since developers usually don't use it; and vibecoders don't even use it; only academia?
 # The most important right now is to fix rebaseing works, because we always accept only things on incoming side instead of even trying to reconcile!!!!
 
+- [ ] We need less of a profit from AI, if we allow them to stay with their paid tools, for codex/claude, so we don't even need to run any serious ai infra. And the price we can provide is much lower than any competitions, since we don't choose that battle at all
+
 ## High Priority
 
 - [ ] security: remove first-request token bootstrap in `.codespace-agent/server.js`; require preconfigured secret for auth before exposing agent APIs

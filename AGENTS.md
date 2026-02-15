@@ -183,3 +183,14 @@ Shorthand commands for git/GitHub workflows. When the user says these, execute t
 - For MVP testing, the same `NETLIFY_ACCESS_TOKEN` is used for both Convex dev and prod deployments.
 - For MVP testing, the same `CONVEX_MANAGEMENT_TOKEN` and `CONVEX_TEAM_ID` are used for both Convex dev and prod deployments.
 - This is intentional for speed during MVP and can be split by environment later.
+
+## Reference Links
+
+### TypeScript in JupyterLab
+- [Jupyter kernels overview](https://docs.jupyter.org/en/stable/projects/kernels.html)
+- [tslab (TypeScript kernel)](https://github.com/yunabe/tslab)
+- [tslab examples: getting started notebook](https://github.com/yunabe/tslab-examples/blob/master/notebooks/getting_started.ipynb)
+- [tslab examples: TensorFlow.js notebook](https://github.com/yunabe/tslab-examples/blob/master/notebooks/tensorflow.ipynb)
+- [Deno Jupyter kernel docs](https://docs.deno.com/runtime/reference/cli/jupyter/)
+- [Deno Jupyter output API](https://docs.deno.com/api/deno/~/Deno.jupyter.md)
+- [Community list of Jupyter kernels](https://github.com/jupyter/jupyter/wiki/Jupyter-kernels)
