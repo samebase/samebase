@@ -50,6 +50,7 @@ Snapshots are used to avoid repeating base OS/Node setup. The system:
 - Each vault can store an explicit snapshot name (intended for Daytona prebuilds).
 - If a vault snapshot name is set, the system **does not auto-create** snapshots.
 - If the named snapshot is missing, sandbox creation fails with a clear error so the user can fix the prebuild or clear the preference.
+- When a snapshot preference is set, bootstrap is **skipped** for fast startup (assumes prebuild has repo + deps).
 - UI exposes:
   - Snapshot name input + save.
   - Snapshot list fetch (Daytona API) with one-click selection.

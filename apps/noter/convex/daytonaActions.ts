@@ -260,8 +260,10 @@ export const startDaytonaWorkspace = action({
     const daytona = new Daytona(config);
     const baseImage = DEFAULT_BASE_IMAGE;
     const explicitSnapshotName = vault.daytonaSnapshotName?.trim() || null;
-    const snapshotName = explicitSnapshotName ?? inferSnapshotNameFromImage(baseImage);
+    const snapshotName =
+      explicitSnapshotName ?? inferSnapshotNameFromImage(baseImage);
     const shouldCreateSnapshot = !explicitSnapshotName;
+    const usePrebuildSnapshot = explicitSnapshotName !== null;
     let snapshotToUse: string | null = null;
 
     if (snapshotName) {
@@ -327,7 +329,7 @@ export const startDaytonaWorkspace = action({
 
     const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
     const githubToken = currentUser?.githubAccessToken ?? null;
-    const shouldBootstrapRepo = true;
+    const shouldBootstrapRepo = !usePrebuildSnapshot;
     let bootstrapMessage: string | null = null;
 
     if (shouldBootstrapRepo) {
@@ -353,6 +355,9 @@ export const startDaytonaWorkspace = action({
         });
         bootstrapMessage = `Sandbox created, but bootstrap failed: ${message}`;
       }
+    } else {
+      bootstrapMessage =
+        "Using prebuild snapshot; bootstrap skipped for faster startup.";
     }
 
     await ctx.runMutation(internal.vault.updateVaultDaytonaSandbox, {
@@ -607,13 +612,24 @@ export const getDaytonaBootstrapLogs = action({
 
     const sandbox = await daytona.get(sandboxId);
     const command =
-      "bash -lc 'if [ -f /tmp/noter-pnpm-install.log ]; then tail -n 200 /tmp/noter-pnpm-install.log; else echo \"No install log found yet.\"; fi; if [ -f /tmp/noter-pnpm-install.status ]; then echo \"\"; echo \"Install status:\"; cat /tmp/noter-pnpm-install.status; fi'";
+      "bash -lc 'if [ -f /tmp/noter-pnpm-install.log ]; then tail -n 200 /tmp/noter-pnpm-install.log; else echo \"__NOTER_NO_LOG__\"; fi; if [ -f /tmp/noter-pnpm-install.status ]; then echo \"\"; echo \"Install status:\"; cat /tmp/noter-pnpm-install.status; fi'";
     const result = await sandbox.process.executeCommand(command, undefined, undefined, 60);
+
+    const rawLogs = result.result ?? "";
+    const hasNoLog = rawLogs.includes("__NOTER_NO_LOG__");
+    const cleanedLogs = hasNoLog
+      ? rawLogs.replace(/__NOTER_NO_LOG__\n?/g, "")
+      : rawLogs;
+    const message = hasNoLog
+      ? vault.daytonaSnapshotName
+        ? "Bootstrap skipped for prebuild snapshot."
+        : "No install log found yet."
+      : "Fetched bootstrap logs.";
 
     return {
       ok: true,
-      logs: result.result ?? "",
-      message: "Fetched bootstrap logs.",
+      logs: cleanedLogs,
+      message,
     };
   },
 });
