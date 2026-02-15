@@ -90,13 +90,17 @@ async function bootstrapSandbox(args: {
   const installStatus = "/tmp/noter-pnpm-install.status";
   const installScript = [
     `cd "${repoDir}"`,
+    "set +e",
     'echo "pwd: $(pwd)"',
     'echo "node: $(node -v 2>/dev/null || echo missing)"',
     'echo "pnpm: $(pnpm -v 2>/dev/null || echo missing)"',
     'echo "pnpm node-linker: $(pnpm config get node-linker 2>/dev/null || echo unknown)"',
+    'echo "pnpm engine-strict: $(pnpm config get engine-strict 2>/dev/null || echo unknown)"',
+    'echo "pnpm store-dir: $(pnpm config get store-dir 2>/dev/null || echo unknown)"',
+    'echo "pnpm virtual-store-dir: $(pnpm config get virtual-store-dir 2>/dev/null || echo unknown)"',
     'echo "pnpm install started: $(date -Is)"',
     "status=0",
-    "pnpm install --prod=false --force",
+    "NPM_CONFIG_ENGINE_STRICT=false PNPM_NODE_LINKER=hoisted pnpm install --prod=false --force",
     "status=$?",
     'if [ "$status" != "0" ]; then echo "pnpm install failed with $status"; fi',
     'if [ ! -d "node_modules" ]; then echo "node_modules missing after pnpm install"; if [ "$status" = "0" ]; then status=1; fi; fi',
