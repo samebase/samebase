@@ -6,6 +6,5 @@ dist
 **/dist
 .turbo
 **/.turbo
-.git
 .github
 .DS_Store
