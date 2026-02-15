@@ -153,6 +153,7 @@ export default defineSchema({
     daytonaSandboxId: v.optional(v.string()),
     daytonaSandboxName: v.optional(v.string()),
     daytonaSandboxCreatedAt: v.optional(v.number()),
+    daytonaSnapshotName: v.optional(v.string()),
 
     // Infrastructure provisioning lifecycle
     infraState: v.optional(InfraState),

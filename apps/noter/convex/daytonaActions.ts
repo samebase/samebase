@@ -1,13 +1,14 @@
 "use node";
 
-import { Daytona } from "@daytonaio/sdk";
+import { Daytona, type Sandbox } from "@daytonaio/sdk";
 import { Infer, v } from "convex/values";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getUserId } from "./common";
 import { toSafeRepoName } from "./repoName";
 
-const { object, id, string, optional, boolean, union, literal } = v;
+const { object, id, string, optional, boolean, union, literal, number, array } =
+  v;
 
 function isNotFoundError(error: unknown): boolean {
   if (typeof error === "object" && error !== null) {
@@ -42,6 +43,86 @@ function inferSnapshotNameFromImage(image: string): string {
   return `noter-${base}`;
 }
 
+function quoteForBash(input: string): string {
+  return `'${input.replace(/'/g, `'\\''`)}'`;
+}
+
+function toIsoString(
+  value: Date | string | null | undefined,
+): string | undefined {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === "string" && value.length > 0) {
+    return value;
+  }
+  return undefined;
+}
+
+function buildCloneUrl(args: {
+  token: string | null;
+  owner: string;
+  repo: string;
+}): string {
+  const base = `https://github.com/${args.owner}/${args.repo}.git`;
+  if (!args.token) {
+    return base;
+  }
+  const encoded = encodeURIComponent(args.token);
+  return `https://x-access-token:${encoded}@github.com/${args.owner}/${args.repo}.git`;
+}
+
+async function bootstrapSandbox(args: {
+  sandbox: Sandbox;
+  owner: string;
+  repo: string;
+  branch: string;
+  token: string | null;
+}): Promise<void> {
+  const workspaceDir = "/home/daytona/workspace";
+  const repoDir = `${workspaceDir}/${args.repo}`;
+  const cloneUrl = buildCloneUrl({
+    token: args.token,
+    owner: args.owner,
+    repo: args.repo,
+  });
+  const installLog = "/tmp/noter-pnpm-install.log";
+  const installStatus = "/tmp/noter-pnpm-install.status";
+  const installScript = [
+    `cd "${repoDir}"`,
+    'echo "pwd: $(pwd)"',
+    'echo "node: $(node -v 2>/dev/null || echo missing)"',
+    'echo "pnpm: $(pnpm -v 2>/dev/null || echo missing)"',
+    'echo "pnpm node-linker: $(pnpm config get node-linker 2>/dev/null || echo unknown)"',
+    'echo "pnpm install started: $(date -Is)"',
+    "status=0",
+    "pnpm install --prod=false --force",
+    "status=$?",
+    'if [ "$status" != "0" ]; then echo "pnpm install failed with $status"; fi',
+    'if [ ! -d "node_modules" ]; then echo "node_modules missing after pnpm install"; if [ "$status" = "0" ]; then status=1; fi; fi',
+    'if [ -d "node_modules" ]; then echo "node_modules present"; ls -la node_modules | head -n 20; fi',
+    'if [ -d ".pnpm" ]; then echo ".pnpm present"; ls -la .pnpm | head -n 20; fi',
+    'echo "exit_code=$status"',
+    `echo "$status" > "${installStatus}"`,
+  ].join("; ");
+  const quotedInstallScript = quoteForBash(installScript);
+  const script = [
+    "set -e",
+    "export GIT_TERMINAL_PROMPT=0",
+    `mkdir -p "${workspaceDir}"`,
+    "if ! command -v git >/dev/null; then (command -v sudo >/dev/null && sudo apt-get update && sudo apt-get install -y git) || (apt-get update && apt-get install -y git); fi",
+    `[ -d "${repoDir}/.git" ] || git clone "${cloneUrl}" "${repoDir}"`,
+    `cd "${repoDir}"`,
+    `git fetch origin "${args.branch}"`,
+    `git checkout "${args.branch}"`,
+    "if ! command -v pnpm >/dev/null; then if command -v corepack >/dev/null; then corepack enable && corepack prepare pnpm@9.15.0 --activate; else npm install -g pnpm@9.15.0; fi; fi",
+    `rm -f "${installLog}" "${installStatus}"`,
+    `nohup bash -lc ${quotedInstallScript} > "${installLog}" 2>&1 &`,
+  ].join(" && ");
+  const command = `bash -lc ${JSON.stringify(script)}`;
+  await args.sandbox.process.executeCommand(command, undefined, undefined, 600);
+}
+
 const startDaytonaWorkspaceArgs = object({
   vaultId: id("vaults"),
   branch: optional(string()),
@@ -49,7 +130,11 @@ const startDaytonaWorkspaceArgs = object({
 
 const startDaytonaWorkspaceResult = object({
   ok: boolean(),
-  status: union(literal("not_configured"), literal("created")),
+  status: union(
+    literal("not_configured"),
+    literal("created"),
+    literal("snapshot_missing"),
+  ),
   message: optional(string()),
   branch: string(),
   sandboxId: optional(string()),
@@ -72,6 +157,46 @@ const removeDaytonaSandboxArgs = object({
 
 const removeDaytonaSandboxResult = object({
   ok: boolean(),
+  message: optional(string()),
+});
+
+const getDaytonaBootstrapLogsArgs = object({
+  vaultId: id("vaults"),
+});
+
+const getDaytonaBootstrapLogsResult = object({
+  ok: boolean(),
+  logs: optional(string()),
+  message: optional(string()),
+});
+
+const setDaytonaSnapshotNameArgs = object({
+  vaultId: id("vaults"),
+  snapshotName: optional(string()),
+});
+
+const setDaytonaSnapshotNameResult = object({
+  ok: boolean(),
+  snapshotName: optional(string()),
+  message: optional(string()),
+});
+
+const daytonaSnapshotSummary = object({
+  name: string(),
+  imageName: optional(string()),
+  state: optional(string()),
+  createdAt: optional(string()),
+  lastUsedAt: optional(string()),
+});
+
+const listDaytonaSnapshotsArgs = object({
+  vaultId: id("vaults"),
+  limit: optional(number()),
+});
+
+const listDaytonaSnapshotsResult = object({
+  ok: boolean(),
+  snapshots: optional(array(daytonaSnapshotSummary)),
   message: optional(string()),
 });
 
@@ -137,10 +262,15 @@ export const startDaytonaWorkspace = action({
     const baseImage =
       process.env.DAYTONA_BASE_IMAGE ??
       "mcr.microsoft.com/devcontainers/typescript-node:1-bookworm";
+    const explicitSnapshotName =
+      vault.daytonaSnapshotName?.trim() ||
+      process.env.DAYTONA_SNAPSHOT_NAME?.trim() ||
+      null;
     const snapshotName =
-      process.env.DAYTONA_SNAPSHOT_NAME ?? inferSnapshotNameFromImage(baseImage);
-    const shouldCreateSnapshot =
-      process.env.DAYTONA_SNAPSHOT_CREATE === undefined
+      explicitSnapshotName ?? inferSnapshotNameFromImage(baseImage);
+    const shouldCreateSnapshot = explicitSnapshotName
+      ? false
+      : process.env.DAYTONA_SNAPSHOT_CREATE === undefined
         ? true
         : process.env.DAYTONA_SNAPSHOT_CREATE === "true";
     let snapshotToUse: string | null = null;
@@ -168,6 +298,15 @@ export const startDaytonaWorkspace = action({
             image: baseImage,
           });
           snapshotToUse = created.name;
+        } else if (isNotFoundError(error) && explicitSnapshotName) {
+          return {
+            ok: false,
+            status: "snapshot_missing",
+            message:
+              `Snapshot ${snapshotName} not found in Daytona. ` +
+              "Create a prebuild snapshot or clear the snapshot preference.",
+            branch,
+          };
         } else if (isNotFoundError(error)) {
           console.log("daytona:snapshot:missing", { snapshotName });
         } else {
@@ -197,6 +336,39 @@ export const startDaytonaWorkspace = action({
 
     const resolvedSandboxName = sandbox.name ?? sandboxName;
 
+    const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
+    const githubToken = currentUser?.githubAccessToken ?? null;
+    const shouldBootstrapRepo =
+      process.env.DAYTONA_BOOTSTRAP_REPO === undefined
+        ? true
+        : process.env.DAYTONA_BOOTSTRAP_REPO !== "false";
+    let bootstrapMessage: string | null = null;
+
+    if (shouldBootstrapRepo) {
+      try {
+        console.log("daytona:bootstrap:start", {
+          vaultId: args.vaultId,
+          repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+          branch,
+        });
+        await bootstrapSandbox({
+          sandbox,
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          branch,
+          token: githubToken,
+        });
+        bootstrapMessage = `Bootstrapping repo in /home/daytona/workspace/${vault.ghRepoName}. Installing dependencies in background (see /tmp/noter-pnpm-install.log).`;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn("daytona:bootstrap:failed", {
+          vaultId: args.vaultId,
+          message,
+        });
+        bootstrapMessage = `Sandbox created, but bootstrap failed: ${message}`;
+      }
+    }
+
     await ctx.runMutation(internal.vault.updateVaultDaytonaSandbox, {
       vaultId: args.vaultId,
       sandboxId: sandbox.id,
@@ -210,12 +382,14 @@ export const startDaytonaWorkspace = action({
       sandboxName: resolvedSandboxName,
     });
 
+    const baseMessage = snapshotToUse
+      ? `Daytona sandbox created from snapshot ${snapshotToUse}.`
+      : "Daytona sandbox created.";
+
     return {
       ok: true,
       status: "created",
-      message: snapshotToUse
-        ? `Daytona sandbox created from snapshot ${snapshotToUse}.`
-        : "Daytona sandbox created.",
+      message: bootstrapMessage ? `${baseMessage} ${bootstrapMessage}` : baseMessage,
       branch,
       sandboxId: sandbox.id,
       sandboxName: resolvedSandboxName,
@@ -396,6 +570,182 @@ export const removeDaytonaSandbox = action({
       message: sandboxName
         ? `Removed Daytona sandbox ${sandboxName}.`
         : "Removed Daytona sandbox.",
+    };
+  },
+});
+
+export const getDaytonaBootstrapLogs = action({
+  args: getDaytonaBootstrapLogsArgs,
+  returns: getDaytonaBootstrapLogsResult,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof getDaytonaBootstrapLogsResult>> => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.runQuery(internal.vault.getById, {
+      id: args.vaultId,
+    });
+
+    if (!vault || vault.userId !== userId) {
+      throw new Error("Vault not found");
+    }
+
+    const baseUrl = process.env.DAYTONA_API_URL;
+    const token = process.env.DAYTONA_API_TOKEN ?? process.env.DAYTONA_API_KEY;
+    const target = process.env.DAYTONA_TARGET;
+
+    if (!baseUrl || !token) {
+      const missing = [
+        !baseUrl ? "DAYTONA_API_URL" : null,
+        !token ? "DAYTONA_API_TOKEN (or DAYTONA_API_KEY)" : null,
+      ].filter((value): value is string => value !== null);
+      return {
+        ok: false,
+        message:
+          missing.length === 0
+            ? "Daytona is not configured."
+            : `Daytona is not configured. Missing ${missing.join(", ")}.`,
+      };
+    }
+
+    const config: { apiKey: string; apiUrl?: string; target?: string } = {
+      apiKey: token,
+    };
+    if (baseUrl) {
+      config.apiUrl = baseUrl;
+    }
+    if (target) {
+      config.target = target;
+    }
+
+    const daytona = new Daytona(config);
+    let sandboxId = vault.daytonaSandboxId;
+
+    if (!sandboxId) {
+      const matches = await daytona.list(
+        { "noter.vault_id": args.vaultId },
+        1,
+        5,
+      );
+      const match = matches.items[0];
+      if (!match) {
+        return {
+          ok: false,
+          message: "No Daytona sandbox found for this vault.",
+        };
+      }
+      sandboxId = match.id;
+    }
+
+    const sandbox = await daytona.get(sandboxId);
+    const command =
+      "bash -lc 'if [ -f /tmp/noter-pnpm-install.log ]; then tail -n 200 /tmp/noter-pnpm-install.log; else echo \"No install log found yet.\"; fi; if [ -f /tmp/noter-pnpm-install.status ]; then echo \"\"; echo \"Install status:\"; cat /tmp/noter-pnpm-install.status; fi'";
+    const result = await sandbox.process.executeCommand(command, undefined, undefined, 60);
+
+    return {
+      ok: true,
+      logs: result.result ?? "",
+      message: "Fetched bootstrap logs.",
+    };
+  },
+});
+
+export const setDaytonaSnapshotName = action({
+  args: setDaytonaSnapshotNameArgs,
+  returns: setDaytonaSnapshotNameResult,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof setDaytonaSnapshotNameResult>> => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.runQuery(internal.vault.getById, {
+      id: args.vaultId,
+    });
+
+    if (!vault || vault.userId !== userId) {
+      throw new Error("Vault not found");
+    }
+
+    const snapshotName = args.snapshotName?.trim() || undefined;
+
+    await ctx.runMutation(internal.vault.updateVaultDaytonaSnapshot, {
+      vaultId: args.vaultId,
+      snapshotName,
+    });
+
+    return {
+      ok: true,
+      snapshotName,
+      message: snapshotName
+        ? `Snapshot preference set to ${snapshotName}.`
+        : "Snapshot preference cleared.",
+    };
+  },
+});
+
+export const listDaytonaSnapshots = action({
+  args: listDaytonaSnapshotsArgs,
+  returns: listDaytonaSnapshotsResult,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof listDaytonaSnapshotsResult>> => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.runQuery(internal.vault.getById, {
+      id: args.vaultId,
+    });
+
+    if (!vault || vault.userId !== userId) {
+      throw new Error("Vault not found");
+    }
+
+    const baseUrl = process.env.DAYTONA_API_URL;
+    const token = process.env.DAYTONA_API_TOKEN ?? process.env.DAYTONA_API_KEY;
+    const target = process.env.DAYTONA_TARGET;
+
+    if (!baseUrl || !token) {
+      const missing = [
+        !baseUrl ? "DAYTONA_API_URL" : null,
+        !token ? "DAYTONA_API_TOKEN (or DAYTONA_API_KEY)" : null,
+      ].filter((value): value is string => value !== null);
+      return {
+        ok: false,
+        message:
+          missing.length === 0
+            ? "Daytona is not configured."
+            : `Daytona is not configured. Missing ${missing.join(", ")}.`,
+      };
+    }
+
+    const config: { apiKey: string; apiUrl?: string; target?: string } = {
+      apiKey: token,
+    };
+    if (baseUrl) {
+      config.apiUrl = baseUrl;
+    }
+    if (target) {
+      config.target = target;
+    }
+
+    const daytona = new Daytona(config);
+    const limit =
+      args.limit === undefined
+        ? 20
+        : Math.min(Math.max(Math.floor(args.limit), 1), 50);
+    const result = await daytona.snapshot.list(1, limit);
+
+    const snapshots = result.items.map((snapshot) => ({
+      name: snapshot.name,
+      imageName: snapshot.imageName ?? undefined,
+      state: snapshot.state ? String(snapshot.state) : undefined,
+      createdAt: toIsoString(snapshot.createdAt),
+      lastUsedAt: toIsoString(snapshot.lastUsedAt),
+    }));
+
+    return {
+      ok: true,
+      snapshots,
+      message: `Loaded ${snapshots.length} snapshots.`,
     };
   },
 });

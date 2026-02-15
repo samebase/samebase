@@ -226,6 +226,20 @@ export const updateVaultDaytonaSandbox = internalMutation({
   },
 });
 
+export const updateVaultDaytonaSnapshot = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+    snapshotName: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.vaultId, {
+      daytonaSnapshotName: args.snapshotName,
+    });
+    return null;
+  },
+});
+
 export const clearVaultDaytonaSandbox = internalMutation({
   args: {
     vaultId: v.id("vaults"),
@@ -260,6 +274,7 @@ export const getUserVaults = query({
       daytonaSandboxId: v.optional(v.string()),
       daytonaSandboxName: v.optional(v.string()),
       daytonaSandboxCreatedAt: v.optional(v.number()),
+      daytonaSnapshotName: v.optional(v.string()),
       infraState: v.union(
         v.literal("not_started"),
         v.literal("provisioning"),
@@ -324,6 +339,7 @@ export const getUserVaults = query({
           daytonaSandboxId: vault.daytonaSandboxId,
           daytonaSandboxName: vault.daytonaSandboxName,
           daytonaSandboxCreatedAt: vault.daytonaSandboxCreatedAt,
+          daytonaSnapshotName: vault.daytonaSnapshotName,
           infraState: vault.infraState ?? "not_started",
           infraProductionUrl:
             infra?.netlifyProductionUrl ?? infra?.netlifyDefaultUrl,
