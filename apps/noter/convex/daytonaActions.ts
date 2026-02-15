@@ -23,6 +23,9 @@ const { object, id, string, optional, boolean, union, literal, number } = v;
 const DEFAULT_BASE_IMAGE =
   "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm";
 const DEFAULT_WORKSPACE_DIR = "/home/daytona/workspace";
+const DAYTONA_API_URL_ENV = "DAYTONA_API_URL";
+const DAYTONA_API_TOKEN_ENV = "DAYTONA_API_TOKEN";
+const DAYTONA_API_KEY_ENV = "DAYTONA_API_KEY";
 const DAYTONA_CONVEX_DEPLOY_KEY_ENV = "DAYTONA_CONVEX_DEPLOY_KEY";
 const DAYTONA_DEPS_IMAGE_TEMPLATE_ENV = "DAYTONA_DEPS_IMAGE_TEMPLATE";
 const PNPM_LOCKFILE_NAME = "pnpm-lock.yaml";
@@ -74,6 +77,42 @@ function hasImageTagOrDigest(image: string): boolean {
 
 function normalizeRegistryUrl(url: string): string {
   return url.trim().replace(/\/+$/g, "").toLowerCase();
+}
+
+function resolveDaytonaApiConfig():
+  | { ok: true; baseUrl: string; token: string }
+  | { ok: false; message: string } {
+  const baseUrl = process.env[DAYTONA_API_URL_ENV]?.trim() ?? "";
+  const token =
+    process.env[DAYTONA_API_TOKEN_ENV] ??
+    process.env[DAYTONA_API_KEY_ENV] ??
+    "";
+  const missing = [
+    baseUrl.length === 0 ? DAYTONA_API_URL_ENV : null,
+    token.length === 0
+      ? `${DAYTONA_API_TOKEN_ENV} (or ${DAYTONA_API_KEY_ENV})`
+      : null,
+  ].filter((value): value is string => value !== null);
+
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      message:
+        missing.length === 0
+          ? "Daytona is not configured."
+          : `Daytona is not configured. Missing ${missing.join(", ")}.`,
+    };
+  }
+
+  const isHttp = baseUrl.startsWith("http://") || baseUrl.startsWith("https://");
+  if (!isHttp) {
+    return {
+      ok: false,
+      message: `DAYTONA_API_URL must start with http:// or https:// (received "${baseUrl}").`,
+    };
+  }
+
+  return { ok: true, baseUrl, token };
 }
 
 async function readPnpmLockHash(repoDir: string): Promise<string | null> {
@@ -359,6 +398,36 @@ function buildCloneUrl(args: {
   return `https://x-access-token:${encoded}@github.com/${args.owner}/${args.repo}.git`;
 }
 
+function buildAutoCdCommand(repoDir: string): string {
+  const autoCdLine = `cd ${repoDir}`;
+  return [
+    `auto_cd_line=${quoteForBash(autoCdLine)}`,
+    "for file in /root/.bashrc /home/daytona/.bashrc /etc/bash.bashrc; do",
+    '  if [ -f "$file" ]; then',
+    '    if ! grep -Fqx "$auto_cd_line" "$file"; then printf "%s\\n" "$auto_cd_line" >> "$file"; fi',
+    "  else",
+    '    printf "%s\\n" "$auto_cd_line" >> "$file"',
+    "  fi",
+    "done",
+  ].join(" ");
+}
+
+function buildWriteConvexEnvCommand(repoDir: string): string {
+  return [
+    'if [ -n "$CONVEX_DEPLOY_KEY" ]; then',
+    `  env_file="${repoDir}/apps/noter/.env.local";`,
+    '  if [ -f "$env_file" ]; then',
+    '    grep -v \'^CONVEX_DEPLOY_KEY=\' "$env_file" > "$env_file.tmp" || true;',
+    '    mv "$env_file.tmp" "$env_file";',
+    "  else",
+    '    mkdir -p "$(dirname "$env_file")";',
+    "  fi;",
+    '  printf "CONVEX_DEPLOY_KEY=%s\\n" "$CONVEX_DEPLOY_KEY" >> "$env_file";',
+    '  chmod 600 "$env_file";',
+    "fi",
+  ].join(" ");
+}
+
 async function bootstrapSandbox(args: {
   sandbox: Sandbox;
   owner: string;
@@ -373,17 +442,7 @@ async function bootstrapSandbox(args: {
     owner: args.owner,
     repo: args.repo,
   });
-  const autoCdLine = `cd ${repoDir}`;
-  const autoCdCommand = [
-    `auto_cd_line=${quoteForBash(autoCdLine)}`,
-    "for file in /root/.bashrc /home/daytona/.bashrc /etc/bash.bashrc; do",
-    '  if [ -f "$file" ]; then',
-    '    if ! grep -Fqx "$auto_cd_line" "$file"; then printf "%s\\n" "$auto_cd_line" >> "$file"; fi',
-    "  else",
-    '    printf "%s\\n" "$auto_cd_line" >> "$file"',
-    "  fi",
-    "done",
-  ].join(" ");
+  const autoCdCommand = buildAutoCdCommand(repoDir);
   const installLog = PNPM_INSTALL_LOG;
   const installStatus = PNPM_INSTALL_STATUS;
   const installScript = [
@@ -407,19 +466,7 @@ async function bootstrapSandbox(args: {
     `echo "$status" > "${installStatus}"`,
   ].join("; ");
   const quotedInstallScript = quoteForBash(installScript);
-  const writeConvexEnvCommand = [
-    'if [ -n "$CONVEX_DEPLOY_KEY" ]; then',
-    `  env_file="${repoDir}/apps/noter/.env.local";`,
-    '  if [ -f "$env_file" ]; then',
-    '    grep -v \'^CONVEX_DEPLOY_KEY=\' "$env_file" > "$env_file.tmp" || true;',
-    '    mv "$env_file.tmp" "$env_file";',
-    "  else",
-    '    mkdir -p "$(dirname "$env_file")";',
-    "  fi;",
-    '  printf "CONVEX_DEPLOY_KEY=%s\\n" "$CONVEX_DEPLOY_KEY" >> "$env_file";',
-    '  chmod 600 "$env_file";',
-    "fi",
-  ].join(" ");
+  const writeConvexEnvCommand = buildWriteConvexEnvCommand(repoDir);
   const script = [
     "set -e",
     "export GIT_TERMINAL_PROMPT=0",
@@ -437,6 +484,49 @@ async function bootstrapSandbox(args: {
   ].join(" && ");
   const command = `bash -lc ${quoteForBash(script)}`;
   await args.sandbox.process.executeCommand(command, undefined, undefined, 600);
+}
+
+async function refreshSandboxRepo(args: {
+  sandbox: Sandbox;
+  owner: string;
+  repo: string;
+  branch: string;
+  token: string | null;
+}): Promise<void> {
+  const workspaceDir = DEFAULT_WORKSPACE_DIR;
+  const repoDir = `${workspaceDir}/${args.repo}`;
+  const cloneUrl = buildCloneUrl({
+    token: args.token,
+    owner: args.owner,
+    repo: args.repo,
+  });
+  const autoCdCommand = buildAutoCdCommand(repoDir);
+  const writeConvexEnvCommand = buildWriteConvexEnvCommand(repoDir);
+  const script = [
+    "set -e",
+    "export GIT_TERMINAL_PROMPT=0",
+    `mkdir -p "${workspaceDir}"`,
+    "if ! command -v git >/dev/null; then (command -v sudo >/dev/null && sudo apt-get update && sudo apt-get install -y git) || (apt-get update && sudo apt-get install -y git); fi",
+    `[ -d "${repoDir}" ] || mkdir -p "${repoDir}"`,
+    `cd "${repoDir}"`,
+    'if [ ! -d ".git" ]; then git init; fi',
+    `if git remote get-url origin >/dev/null 2>&1; then git remote set-url origin "${cloneUrl}"; else git remote add origin "${cloneUrl}"; fi`,
+    `git fetch origin "${args.branch}" --depth=1`,
+    `git checkout -f -B "${args.branch}" FETCH_HEAD`,
+    "git reset --hard FETCH_HEAD",
+    writeConvexEnvCommand,
+    autoCdCommand,
+  ].join(" && ");
+  const command = `bash -lc ${quoteForBash(script)}`;
+  const result = await args.sandbox.process.executeCommand(
+    command,
+    undefined,
+    undefined,
+    600,
+  );
+  if (result.exitCode !== 0) {
+    throw new Error(`Failed to refresh repo (exit ${result.exitCode}).`);
+  }
 }
 
 async function startDaytonaDevServer(args: {
@@ -608,23 +698,17 @@ export const startDaytonaWorkspace = action({
     }
 
     const branch = args.branch?.trim() || "main";
-    const baseUrl = process.env.DAYTONA_API_URL;
-    const token = process.env.DAYTONA_API_TOKEN ?? process.env.DAYTONA_API_KEY;
-    if (!baseUrl || !token) {
-      const missing = [
-        !baseUrl ? "DAYTONA_API_URL" : null,
-        !token ? "DAYTONA_API_TOKEN (or DAYTONA_API_KEY)" : null,
-      ].filter((value): value is string => value !== null);
+    const apiConfig = resolveDaytonaApiConfig();
+    if (!apiConfig.ok) {
       return {
         ok: false,
         status: "not_configured",
-        message:
-          missing.length === 0
-            ? "Daytona is not configured."
-            : `Daytona is not configured. Missing ${missing.join(", ")}.`,
+        message: apiConfig.message,
         branch,
       };
     }
+    const baseUrl = apiConfig.baseUrl;
+    const token = apiConfig.token;
 
     console.log("daytona:workspace:request", {
       vaultId: args.vaultId,
@@ -764,8 +848,34 @@ export const startDaytonaWorkspace = action({
         bootstrapMessage = `Sandbox created, but bootstrap failed: ${message}`;
       }
     } else {
-      bootstrapMessage =
-        "Using prebuild snapshot; bootstrap skipped for faster startup.";
+      try {
+        console.log("daytona:repo:refresh:start", {
+          vaultId: args.vaultId,
+          repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+          branch,
+        });
+        await refreshSandboxRepo({
+          sandbox,
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          branch,
+          token: githubToken,
+        });
+        console.log("daytona:repo:refresh:done", {
+          vaultId: args.vaultId,
+          repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+          branch,
+        });
+        bootstrapMessage =
+          "Using prebuild snapshot; repo refreshed to latest branch.";
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn("daytona:repo:refresh:failed", {
+          vaultId: args.vaultId,
+          message,
+        });
+        bootstrapMessage = `Using prebuild snapshot; repo refresh failed: ${message}`;
+      }
     }
 
     try {
@@ -831,21 +941,15 @@ export const getDaytonaTerminalUrl = action({
       throw new Error("Vault not found");
     }
 
-    const baseUrl = process.env.DAYTONA_API_URL;
-    const token = process.env.DAYTONA_API_TOKEN ?? process.env.DAYTONA_API_KEY;
-    if (!baseUrl || !token) {
-      const missing = [
-        !baseUrl ? "DAYTONA_API_URL" : null,
-        !token ? "DAYTONA_API_TOKEN (or DAYTONA_API_KEY)" : null,
-      ].filter((value): value is string => value !== null);
+    const apiConfig = resolveDaytonaApiConfig();
+    if (!apiConfig.ok) {
       return {
         ok: false,
-        message:
-          missing.length === 0
-            ? "Daytona is not configured."
-            : `Daytona is not configured. Missing ${missing.join(", ")}.`,
+        message: apiConfig.message,
       };
     }
+    const baseUrl = apiConfig.baseUrl;
+    const token = apiConfig.token;
 
     const config: { apiKey: string; apiUrl?: string; target?: string } = {
       apiKey: token,
@@ -921,21 +1025,15 @@ export const getDaytonaPreviewUrl = action({
       throw new Error("Vault not found");
     }
 
-    const baseUrl = process.env.DAYTONA_API_URL;
-    const token = process.env.DAYTONA_API_TOKEN ?? process.env.DAYTONA_API_KEY;
-    if (!baseUrl || !token) {
-      const missing = [
-        !baseUrl ? "DAYTONA_API_URL" : null,
-        !token ? "DAYTONA_API_TOKEN (or DAYTONA_API_KEY)" : null,
-      ].filter((value): value is string => value !== null);
+    const apiConfig = resolveDaytonaApiConfig();
+    if (!apiConfig.ok) {
       return {
         ok: false,
-        message:
-          missing.length === 0
-            ? "Daytona is not configured."
-            : `Daytona is not configured. Missing ${missing.join(", ")}.`,
+        message: apiConfig.message,
       };
     }
+    const baseUrl = apiConfig.baseUrl;
+    const token = apiConfig.token;
 
     const config: { apiKey: string; apiUrl?: string; target?: string } = {
       apiKey: token,
@@ -1017,21 +1115,15 @@ export const removeDaytonaSandbox = action({
       throw new Error("Vault not found");
     }
 
-    const baseUrl = process.env.DAYTONA_API_URL;
-    const token = process.env.DAYTONA_API_TOKEN ?? process.env.DAYTONA_API_KEY;
-    if (!baseUrl || !token) {
-      const missing = [
-        !baseUrl ? "DAYTONA_API_URL" : null,
-        !token ? "DAYTONA_API_TOKEN (or DAYTONA_API_KEY)" : null,
-      ].filter((value): value is string => value !== null);
+    const apiConfig = resolveDaytonaApiConfig();
+    if (!apiConfig.ok) {
       return {
         ok: false,
-        message:
-          missing.length === 0
-            ? "Daytona is not configured."
-            : `Daytona is not configured. Missing ${missing.join(", ")}.`,
+        message: apiConfig.message,
       };
     }
+    const baseUrl = apiConfig.baseUrl;
+    const token = apiConfig.token;
 
     const config: { apiKey: string; apiUrl?: string; target?: string } = {
       apiKey: token,
@@ -1092,21 +1184,15 @@ export const getDaytonaBootstrapLogs = action({
       throw new Error("Vault not found");
     }
 
-    const baseUrl = process.env.DAYTONA_API_URL;
-    const token = process.env.DAYTONA_API_TOKEN ?? process.env.DAYTONA_API_KEY;
-    if (!baseUrl || !token) {
-      const missing = [
-        !baseUrl ? "DAYTONA_API_URL" : null,
-        !token ? "DAYTONA_API_TOKEN (or DAYTONA_API_KEY)" : null,
-      ].filter((value): value is string => value !== null);
+    const apiConfig = resolveDaytonaApiConfig();
+    if (!apiConfig.ok) {
       return {
         ok: false,
-        message:
-          missing.length === 0
-            ? "Daytona is not configured."
-            : `Daytona is not configured. Missing ${missing.join(", ")}.`,
+        message: apiConfig.message,
       };
     }
+    const baseUrl = apiConfig.baseUrl;
+    const token = apiConfig.token;
 
     const config: { apiKey: string; apiUrl?: string; target?: string } = {
       apiKey: token,
@@ -1177,21 +1263,15 @@ export const prebuildDaytonaSnapshot = action({
     }
 
     const branch = args.branch?.trim() || "main";
-    const baseUrl = process.env.DAYTONA_API_URL;
-    const token = process.env.DAYTONA_API_TOKEN ?? process.env.DAYTONA_API_KEY;
-    if (!baseUrl || !token) {
-      const missing = [
-        !baseUrl ? "DAYTONA_API_URL" : null,
-        !token ? "DAYTONA_API_TOKEN (or DAYTONA_API_KEY)" : null,
-      ].filter((value): value is string => value !== null);
+    const apiConfig = resolveDaytonaApiConfig();
+    if (!apiConfig.ok) {
       return {
         ok: false,
-        message:
-          missing.length === 0
-            ? "Daytona is not configured."
-            : `Daytona is not configured. Missing ${missing.join(", ")}.`,
+        message: apiConfig.message,
       };
     }
+    const baseUrl = apiConfig.baseUrl;
+    const token = apiConfig.token;
 
     const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
     const githubToken = currentUser?.githubAccessToken ?? null;
@@ -1484,21 +1564,15 @@ export const getDaytonaPrebuildStatus = action({
     }
 
     const branch = args.branch?.trim() || "main";
-    const baseUrl = process.env.DAYTONA_API_URL;
-    const token = process.env.DAYTONA_API_TOKEN ?? process.env.DAYTONA_API_KEY;
-    if (!baseUrl || !token) {
-      const missing = [
-        !baseUrl ? "DAYTONA_API_URL" : null,
-        !token ? "DAYTONA_API_TOKEN (or DAYTONA_API_KEY)" : null,
-      ].filter((value): value is string => value !== null);
+    const apiConfig = resolveDaytonaApiConfig();
+    if (!apiConfig.ok) {
       return {
         ok: false,
-        message:
-          missing.length === 0
-            ? "Daytona is not configured."
-            : `Daytona is not configured. Missing ${missing.join(", ")}.`,
+        message: apiConfig.message,
       };
     }
+    const baseUrl = apiConfig.baseUrl;
+    const token = apiConfig.token;
 
     const config: { apiKey: string; apiUrl?: string } = {
       apiKey: token,
@@ -1594,21 +1668,15 @@ export const ensureDaytonaRegistryForVault = action({
       throw new Error("Vault not found");
     }
 
-    const baseUrl = process.env.DAYTONA_API_URL;
-    const token = process.env.DAYTONA_API_TOKEN ?? process.env.DAYTONA_API_KEY;
-    if (!baseUrl || !token) {
-      const missing = [
-        !baseUrl ? "DAYTONA_API_URL" : null,
-        !token ? "DAYTONA_API_TOKEN (or DAYTONA_API_KEY)" : null,
-      ].filter((value): value is string => value !== null);
+    const apiConfig = resolveDaytonaApiConfig();
+    if (!apiConfig.ok) {
       return {
         ok: false,
-        message:
-          missing.length === 0
-            ? "Daytona is not configured."
-            : `Daytona is not configured. Missing ${missing.join(", ")}.`,
+        message: apiConfig.message,
       };
     }
+    const baseUrl = apiConfig.baseUrl;
+    const token = apiConfig.token;
 
     const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
     const githubToken = currentUser?.githubAccessToken ?? null;
