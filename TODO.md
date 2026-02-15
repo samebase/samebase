@@ -8,6 +8,7 @@
 
 ## High Priority
 
+- [ ] the dev container template, should automatically login with convex so the dev server can be started immediately
 - [ ] security: remove first-request token bootstrap in `.codespace-agent/server.js`; require preconfigured secret for auth before exposing agent APIs
 - [ ] security: fix codespace agent exposure model (`port 3000` public + `/exec`/file endpoints); restrict reachability or add hardened gateway auth
 - [ ] starter manifest hygiene: exclude `.codespace-agent/node_modules/**` from template export and regenerate deterministic `starterSeedManifest.generated.ts`
