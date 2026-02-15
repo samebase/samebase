@@ -26,6 +26,11 @@ const DEFAULT_WORKSPACE_DIR = "/home/daytona/workspace";
 const DAYTONA_CONVEX_DEPLOY_KEY_ENV = "DAYTONA_CONVEX_DEPLOY_KEY";
 const DAYTONA_DEPS_IMAGE_TEMPLATE_ENV = "DAYTONA_DEPS_IMAGE_TEMPLATE";
 const PNPM_LOCKFILE_NAME = "pnpm-lock.yaml";
+const PNPM_INSTALL_LOG = "/tmp/noter-pnpm-install.log";
+const PNPM_INSTALL_STATUS = "/tmp/noter-pnpm-install.status";
+const DAYTONA_PREVIEW_PORT = 5173;
+const DAYTONA_PREVIEW_TTL_SECONDS = 3600;
+const DAYTONA_DEV_LOG = "/tmp/noter-dev.log";
 const MAX_PREBUILD_LOG_CHARS = 50_000;
 const PREBUILD_LOG_FLUSH_MS = 1_000;
 const DAYTONA_REGISTRY_URL_ENV = "DAYTONA_REGISTRY_URL";
@@ -379,8 +384,8 @@ async function bootstrapSandbox(args: {
     "  fi",
     "done",
   ].join(" ");
-  const installLog = "/tmp/noter-pnpm-install.log";
-  const installStatus = "/tmp/noter-pnpm-install.status";
+  const installLog = PNPM_INSTALL_LOG;
+  const installStatus = PNPM_INSTALL_STATUS;
   const installScript = [
     `cd "${repoDir}"`,
     "set +e",
@@ -434,6 +439,56 @@ async function bootstrapSandbox(args: {
   await args.sandbox.process.executeCommand(command, undefined, undefined, 600);
 }
 
+async function startDaytonaDevServer(args: {
+  sandbox: Sandbox;
+  repoDir: string;
+}): Promise<void> {
+  const ensurePnpm = [
+    "if ! command -v pnpm >/dev/null; then",
+    "  if command -v corepack >/dev/null; then",
+    "    corepack enable && corepack prepare pnpm@9.15.0 --activate;",
+    "  else",
+    "    npm install -g pnpm@9.15.0;",
+    "  fi;",
+    "fi",
+  ].join(" ");
+  const installFallback = [
+    'if [ ! -d "node_modules" ]',
+    '  && [ ! -d "apps/noter/node_modules" ]',
+    '  && [ ! -d "apps/noter-starter-template/node_modules" ]; then',
+    '  echo "node_modules missing; running pnpm install";',
+    "  NPM_CONFIG_ENGINE_STRICT=false pnpm install --prod=false --force --node-linker=hoisted;",
+    "fi",
+  ].join(" ");
+  const devCommand = `cd "${args.repoDir}" && pnpm run dev`;
+  const script = [
+    "set -e",
+    `cd "${args.repoDir}"`,
+    ensurePnpm,
+    `if [ -f "${PNPM_INSTALL_STATUS}" ]; then`,
+    `  status=$(cat "${PNPM_INSTALL_STATUS}" 2>/dev/null || echo 1);`,
+    '  if [ "$status" != "0" ]; then',
+    '    echo "pnpm install failed with $status";',
+    "    exit 1;",
+    "  fi;",
+    "fi",
+    installFallback,
+    `NOTER_DEV_HOST=0.0.0.0 NOTER_DEV_PORT=${DAYTONA_PREVIEW_PORT} NOTER_DEV_STRICT_PORT=1 nohup bash -lc ${quoteForBash(
+      devCommand,
+    )} > ${quoteForBash(DAYTONA_DEV_LOG)} 2>&1 &`,
+  ].join("; ");
+  const command = `bash -lc ${quoteForBash(script)}`;
+  const result = await args.sandbox.process.executeCommand(
+    command,
+    undefined,
+    undefined,
+    600,
+  );
+  if (result.exitCode !== 0) {
+    throw new Error(`Failed to start dev server (exit ${result.exitCode}).`);
+  }
+}
+
 const startDaytonaWorkspaceArgs = object({
   vaultId: id("vaults"),
   branch: optional(string()),
@@ -456,6 +511,17 @@ const getDaytonaTerminalUrlResult = object({
   ok: boolean(),
   url: optional(string()),
   message: optional(string()),
+});
+
+const getDaytonaPreviewUrlArgs = object({
+  vaultId: id("vaults"),
+});
+
+const getDaytonaPreviewUrlResult = object({
+  ok: boolean(),
+  url: optional(string()),
+  message: optional(string()),
+  branch: optional(string()),
 });
 
 const removeDaytonaSandboxArgs = object({
@@ -672,6 +738,7 @@ export const startDaytonaWorkspace = action({
     const githubToken = currentUser?.githubAccessToken ?? null;
     const shouldBootstrapRepo = !usePrebuildSnapshot;
     let bootstrapMessage: string | null = null;
+    let devServerMessage: string | null = null;
 
     if (shouldBootstrapRepo) {
       try {
@@ -687,7 +754,7 @@ export const startDaytonaWorkspace = action({
           branch,
           token: githubToken,
         });
-        bootstrapMessage = `Bootstrapping repo in ${repoWorkdir}. Installing dependencies in background (see /tmp/noter-pnpm-install.log).`;
+        bootstrapMessage = `Bootstrapping repo in ${repoWorkdir}. Installing dependencies in background (see ${PNPM_INSTALL_LOG}).`;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.warn("daytona:bootstrap:failed", {
@@ -699,6 +766,20 @@ export const startDaytonaWorkspace = action({
     } else {
       bootstrapMessage =
         "Using prebuild snapshot; bootstrap skipped for faster startup.";
+    }
+
+    if (vault.isNoterManaged) {
+      try {
+        await startDaytonaDevServer({ sandbox, repoDir: repoWorkdir });
+        devServerMessage = `Dev server starting on port ${DAYTONA_PREVIEW_PORT} (logs: ${DAYTONA_DEV_LOG}).`;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn("daytona:dev-server:failed", {
+          vaultId: args.vaultId,
+          message,
+        });
+        devServerMessage = `Dev server failed to start: ${message}`;
+      }
     }
 
     await ctx.runMutation(internal.vault.updateVaultDaytonaSandbox, {
@@ -717,13 +798,18 @@ export const startDaytonaWorkspace = action({
     const baseMessage = snapshotToUse
       ? `Daytona sandbox created from snapshot ${snapshotToUse}.`
       : "Daytona sandbox created.";
+    const messageParts: string[] = [baseMessage];
+    if (bootstrapMessage) {
+      messageParts.push(bootstrapMessage);
+    }
+    if (devServerMessage) {
+      messageParts.push(devServerMessage);
+    }
 
     return {
       ok: true,
       status: "created",
-      message: bootstrapMessage
-        ? `${baseMessage} ${bootstrapMessage}`
-        : baseMessage,
+      message: messageParts.join(" "),
       branch,
       sandboxId: sandbox.id,
       sandboxName: resolvedSandboxName,
@@ -816,6 +902,102 @@ export const getDaytonaTerminalUrl = action({
         message:
           "Failed to create a terminal link. Try opening the Terminal from the Daytona dashboard instead. " +
           `(${errorMessage})`,
+      };
+    }
+  },
+});
+
+export const getDaytonaPreviewUrl = action({
+  args: getDaytonaPreviewUrlArgs,
+  returns: getDaytonaPreviewUrlResult,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof getDaytonaPreviewUrlResult>> => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.runQuery(internal.vault.getById, {
+      id: args.vaultId,
+    });
+
+    if (!vault || vault.userId !== userId) {
+      throw new Error("Vault not found");
+    }
+
+    const baseUrl = process.env.DAYTONA_API_URL;
+    const token = process.env.DAYTONA_API_TOKEN ?? process.env.DAYTONA_API_KEY;
+    if (!baseUrl || !token) {
+      const missing = [
+        !baseUrl ? "DAYTONA_API_URL" : null,
+        !token ? "DAYTONA_API_TOKEN (or DAYTONA_API_KEY)" : null,
+      ].filter((value): value is string => value !== null);
+      return {
+        ok: false,
+        message:
+          missing.length === 0
+            ? "Daytona is not configured."
+            : `Daytona is not configured. Missing ${missing.join(", ")}.`,
+      };
+    }
+
+    const config: { apiKey: string; apiUrl?: string; target?: string } = {
+      apiKey: token,
+    };
+    if (baseUrl) {
+      config.apiUrl = baseUrl;
+    }
+    const daytona = new Daytona(config);
+    let sandboxId = vault.daytonaSandboxId;
+    let sandboxName = vault.daytonaSandboxName;
+
+    if (!sandboxId) {
+      const matches = await daytona.list(
+        { "noter.vault_id": args.vaultId },
+        1,
+        5,
+      );
+      const match = matches.items[0];
+      if (!match) {
+        return {
+          ok: false,
+          message:
+            "No Daytona sandbox is connected to this vault yet. Click Start Daytona first.",
+        };
+      }
+      sandboxId = match.id;
+      sandboxName = match.name;
+      await ctx.runMutation(internal.vault.updateVaultDaytonaSandbox, {
+        vaultId: args.vaultId,
+        sandboxId,
+        sandboxName,
+        createdAt: Date.now(),
+      });
+    }
+
+    const sandbox = await daytona.get(sandboxId);
+    const branchLabel = sandbox.labels?.["noter.branch"];
+
+    try {
+      const preview = await sandbox.getSignedPreviewUrl(
+        DAYTONA_PREVIEW_PORT,
+        DAYTONA_PREVIEW_TTL_SECONDS,
+      );
+      return {
+        ok: true,
+        url: preview.url,
+        branch:
+          branchLabel && branchLabel.trim().length > 0
+            ? branchLabel
+            : undefined,
+        message: sandboxName
+          ? `Preview link ready for ${sandboxName}.`
+          : "Preview link ready.",
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      return {
+        ok: false,
+        message: `Failed to create a preview link. (${errorMessage})`,
       };
     }
   },

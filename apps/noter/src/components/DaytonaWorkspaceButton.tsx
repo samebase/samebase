@@ -34,6 +34,7 @@ export function DaytonaWorkspaceButton({
 }: DaytonaWorkspaceButtonProps) {
   const startDaytonaWorkspace = useAction(api.daytonaActions.startDaytonaWorkspace);
   const getDaytonaTerminalUrl = useAction(api.daytonaActions.getDaytonaTerminalUrl);
+  const getDaytonaPreviewUrl = useAction(api.daytonaActions.getDaytonaPreviewUrl);
   const removeDaytonaSandbox = useAction(api.daytonaActions.removeDaytonaSandbox);
   const getDaytonaBootstrapLogs = useAction(api.daytonaActions.getDaytonaBootstrapLogs);
   const prebuildDaytonaSnapshot = useAction(api.daytonaActions.prebuildDaytonaSnapshot);
@@ -44,6 +45,7 @@ export function DaytonaWorkspaceButton({
   );
   const [isStarting, setIsStarting] = useState(false);
   const [isOpeningTerminal, setIsOpeningTerminal] = useState(false);
+  const [isOpeningPreview, setIsOpeningPreview] = useState(false);
   const [isRemovingSandbox, setIsRemovingSandbox] = useState(false);
   const [isFetchingLogs, setIsFetchingLogs] = useState(false);
   const [isFetchingPrebuildLogs, setIsFetchingPrebuildLogs] = useState(false);
@@ -177,6 +179,33 @@ export function DaytonaWorkspaceButton({
       return;
     }
     window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const handleOpenPreview = async () => {
+    if (disabled || isOpeningPreview) {
+      return;
+    }
+    setIsOpeningPreview(true);
+    setMessage(null);
+    setHasError(false);
+
+    try {
+      const result = await getDaytonaPreviewUrl({ vaultId });
+      if (!result.ok || !result.url) {
+        setHasError(true);
+        setMessage(result.message ?? "Failed to open preview.");
+        return;
+      }
+      window.open(result.url, "_blank", "noopener,noreferrer");
+      setMessage(result.message ?? "Preview link ready.");
+    } catch (error) {
+      setHasError(true);
+      setMessage(
+        error instanceof Error ? error.message : "Failed to open preview.",
+      );
+    } finally {
+      setIsOpeningPreview(false);
+    }
   };
 
   const handleRemoveSandbox = async () => {
@@ -412,6 +441,23 @@ export function DaytonaWorkspaceButton({
             "Hide Terminal"
           ) : (
             "Open Terminal"
+          )}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            void handleOpenPreview();
+          }}
+          disabled={disabled || isOpeningPreview}
+        >
+          {isOpeningPreview ? (
+            <>
+              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              Opening preview...
+            </>
+          ) : (
+            "Open Preview"
           )}
         </Button>
         <Button
