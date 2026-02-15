@@ -226,6 +226,21 @@ export const updateVaultDaytonaSandbox = internalMutation({
   },
 });
 
+export const clearVaultDaytonaSandbox = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.vaultId, {
+      daytonaSandboxId: undefined,
+      daytonaSandboxName: undefined,
+      daytonaSandboxCreatedAt: undefined,
+    });
+    return null;
+  },
+});
+
 // Get user's vaults with optional file staging stats
 export const getUserVaults = query({
   args: {},

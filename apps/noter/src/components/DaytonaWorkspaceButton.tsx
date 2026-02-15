@@ -4,6 +4,15 @@ import { Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 interface DaytonaWorkspaceButtonProps {
@@ -25,8 +34,11 @@ export function DaytonaWorkspaceButton({
 }: DaytonaWorkspaceButtonProps) {
   const startDaytonaWorkspace = useAction(api.daytonaActions.startDaytonaWorkspace);
   const getDaytonaTerminalUrl = useAction(api.daytonaActions.getDaytonaTerminalUrl);
+  const removeDaytonaSandbox = useAction(api.daytonaActions.removeDaytonaSandbox);
   const [isStarting, setIsStarting] = useState(false);
   const [isOpeningTerminal, setIsOpeningTerminal] = useState(false);
+  const [isRemovingSandbox, setIsRemovingSandbox] = useState(false);
+  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
   const [terminalUrl, setTerminalUrl] = useState<string | null>(null);
@@ -54,6 +66,7 @@ export function DaytonaWorkspaceButton({
         setMessage(
           result.message ?? `Daytona ${label} created. Check Daytona UI.`,
         );
+        await fetchTerminalUrl();
       }
     } catch (error) {
       setHasError(true);
@@ -119,6 +132,36 @@ export function DaytonaWorkspaceButton({
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
+  const handleRemoveSandbox = async () => {
+    if (disabled || isRemovingSandbox) {
+      return;
+    }
+    setIsRemovingSandbox(true);
+    setMessage(null);
+    setHasError(false);
+
+    try {
+      const result = await removeDaytonaSandbox({ vaultId });
+      if (!result.ok) {
+        setHasError(true);
+        setMessage(result.message ?? "Failed to remove Daytona sandbox.");
+        return;
+      }
+      setTerminalUrl(null);
+      setMessage(result.message ?? "Daytona sandbox removed.");
+      setIsRemoveDialogOpen(false);
+    } catch (error) {
+      setHasError(true);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to remove Daytona sandbox.",
+      );
+    } finally {
+      setIsRemovingSandbox(false);
+    }
+  };
+
   return (
     <div className={cn("flex flex-col gap-1", className)}>
       <div className="flex flex-wrap items-center gap-2">
@@ -168,6 +211,54 @@ export function DaytonaWorkspaceButton({
         >
           Open in tab
         </Button>
+        {(sandboxId || sandboxName) && (
+          <Dialog
+            open={isRemoveDialogOpen}
+            onOpenChange={(open) => {
+              if (isRemovingSandbox) {
+                return;
+              }
+              setIsRemoveDialogOpen(open);
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                disabled={disabled}
+              >
+                Remove sandbox
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Remove Daytona sandbox</DialogTitle>
+                <DialogDescription>
+                  This deletes the sandbox but keeps any snapshots intact.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsRemoveDialogOpen(false)}
+                  disabled={isRemovingSandbox}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    void handleRemoveSandbox();
+                  }}
+                  disabled={isRemovingSandbox}
+                >
+                  {isRemovingSandbox ? "Removing..." : "Remove sandbox"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
       {sandboxId && sandboxName && (
         <div className="text-xs text-muted-foreground">
