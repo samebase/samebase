@@ -1,6 +1,13 @@
 # TODO
 
+# The most important right now is to fix rebaseing works, because we always accept only things on incoming side instead of even trying to reconcile!!!!
+
 ## High Priority
+
+- [ ] security: remove first-request token bootstrap in `.codespace-agent/server.js`; require preconfigured secret for auth before exposing agent APIs
+- [ ] security: fix codespace agent exposure model (`port 3000` public + `/exec`/file endpoints); restrict reachability or add hardened gateway auth
+- [ ] starter manifest hygiene: exclude `.codespace-agent/node_modules/**` from template export and regenerate deterministic `starterSeedManifest.generated.ts`
+- [ ] starter template hygiene: add CI coverage for `apps/noter-starter-template` (we missed a `node_modules`/ignore drift once because it wasn't being checked)
 
 - [ ] left to easily press enter
 - [ ] https://vt.tiktok.com/ZSmrDkbnF/ https://x1.new
@@ -40,6 +47,7 @@
 
 ## Features & Improvements
 - [ ] improve file search functionality with better fuzzy matching
+- [ ] editor: on hover over Tailwind classes, show their definition
 - [ ] add keyboard shortcuts for common actions (save, commit, etc.)
 - [ ] implement file diff view to show changes before committing
 - [ ] add "todo" command functionality for AI assistant to update this file
