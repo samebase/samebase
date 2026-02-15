@@ -264,7 +264,7 @@ export const startDaytonaWorkspace = action({
     const daytona = new Daytona(config);
     const baseImage =
       process.env.DAYTONA_BASE_IMAGE ??
-      "mcr.microsoft.com/devcontainers/typescript-node:1-bookworm";
+      "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm";
     const explicitSnapshotName =
       vault.daytonaSnapshotName?.trim() ||
       process.env.DAYTONA_SNAPSHOT_NAME?.trim() ||

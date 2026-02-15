@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/devcontainers/typescript-node:1-bookworm
+FROM mcr.microsoft.com/devcontainers/javascript-node:24-bookworm
 
 # System deps for native builds and repo tooling.
 RUN apt-get update \

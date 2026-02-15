@@ -79,7 +79,7 @@ Required:
 
 Optional:
 - `DAYTONA_TARGET` (region/target)
-- `DAYTONA_BASE_IMAGE` (defaults to `mcr.microsoft.com/devcontainers/typescript-node:1-bookworm`)
+- `DAYTONA_BASE_IMAGE` (defaults to `mcr.microsoft.com/devcontainers/javascript-node:24-bookworm`)
 - `DAYTONA_SNAPSHOT_NAME` (defaults to inferred from image; ignored if per-vault snapshot is set)
 - `DAYTONA_SNAPSHOT_CREATE` (defaults to `true` if unset; ignored when explicit snapshot is set)
 - `DAYTONA_BOOTSTRAP_REPO` (defaults to `true` if unset)
