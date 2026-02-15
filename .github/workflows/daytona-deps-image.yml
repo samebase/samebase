@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - pnpm-lock.yaml
+      - Dockerfile.daytona-deps
+      - .github/workflows/daytona-deps-image.yml
   workflow_dispatch: {}
 
 jobs:
