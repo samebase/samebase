@@ -119,7 +119,7 @@ async function bootstrapSandbox(args: {
     `rm -f "${installLog}" "${installStatus}"`,
     `nohup bash -lc ${quotedInstallScript} > "${installLog}" 2>&1 &`,
   ].join(" && ");
-  const command = `bash -lc ${JSON.stringify(script)}`;
+  const command = `bash -lc ${quoteForBash(script)}`;
   await args.sandbox.process.executeCommand(command, undefined, undefined, 600);
 }
 
