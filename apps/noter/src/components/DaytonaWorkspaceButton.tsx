@@ -1,9 +1,18 @@
 import { useAction } from "convex/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 interface DaytonaWorkspaceButtonProps {
@@ -25,11 +34,60 @@ export function DaytonaWorkspaceButton({
 }: DaytonaWorkspaceButtonProps) {
   const startDaytonaWorkspace = useAction(api.daytonaActions.startDaytonaWorkspace);
   const getDaytonaTerminalUrl = useAction(api.daytonaActions.getDaytonaTerminalUrl);
+  const removeDaytonaSandbox = useAction(api.daytonaActions.removeDaytonaSandbox);
+  const getDaytonaBootstrapLogs = useAction(api.daytonaActions.getDaytonaBootstrapLogs);
+  const prebuildDaytonaSnapshot = useAction(api.daytonaActions.prebuildDaytonaSnapshot);
+  const getDaytonaPrebuildStatus = useAction(api.daytonaActions.getDaytonaPrebuildStatus);
+  const getDaytonaPrebuildLogs = useAction(api.daytonaActions.getDaytonaPrebuildLogs);
+  const ensureDaytonaRegistryForVault = useAction(
+    api.daytonaActions.ensureDaytonaRegistryForVault,
+  );
   const [isStarting, setIsStarting] = useState(false);
   const [isOpeningTerminal, setIsOpeningTerminal] = useState(false);
+  const [isRemovingSandbox, setIsRemovingSandbox] = useState(false);
+  const [isFetchingLogs, setIsFetchingLogs] = useState(false);
+  const [isFetchingPrebuildLogs, setIsFetchingPrebuildLogs] = useState(false);
+  const [isPrebuilding, setIsPrebuilding] = useState(false);
+  const [isCheckingPrebuild, setIsCheckingPrebuild] = useState(false);
+  const [isEnsuringRegistry, setIsEnsuringRegistry] = useState(false);
+  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
   const [terminalUrl, setTerminalUrl] = useState<string | null>(null);
+  const [bootstrapLogs, setBootstrapLogs] = useState<string | null>(null);
+  const [prebuildLogs, setPrebuildLogs] = useState<string | null>(null);
+  const [prebuildSnapshotName, setPrebuildSnapshotName] = useState<string | null>(
+    null,
+  );
+  const [prebuildState, setPrebuildState] = useState<string | null>(null);
+  const [prebuildError, setPrebuildError] = useState<string | null>(null);
+  const prebuildLogPollRef = useRef<number | null>(null);
+
+  const startPrebuildLogPolling = () => {
+    if (prebuildLogPollRef.current !== null) {
+      return;
+    }
+    prebuildLogPollRef.current = window.setInterval(() => {
+      void fetchPrebuildLogs(true);
+    }, 2_000);
+  };
+
+  const stopPrebuildLogPolling = () => {
+    if (prebuildLogPollRef.current === null) {
+      return;
+    }
+    window.clearInterval(prebuildLogPollRef.current);
+    prebuildLogPollRef.current = null;
+  };
+
+  useEffect(() => {
+    return () => {
+      if (prebuildLogPollRef.current !== null) {
+        window.clearInterval(prebuildLogPollRef.current);
+        prebuildLogPollRef.current = null;
+      }
+    };
+  }, []);
 
   const handleStart = async () => {
     if (disabled || isStarting) {
@@ -54,6 +112,8 @@ export function DaytonaWorkspaceButton({
         setMessage(
           result.message ?? `Daytona ${label} created. Check Daytona UI.`,
         );
+        setBootstrapLogs(null);
+        await fetchTerminalUrl();
       }
     } catch (error) {
       setHasError(true);
@@ -119,6 +179,202 @@ export function DaytonaWorkspaceButton({
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
+  const handleRemoveSandbox = async () => {
+    if (disabled || isRemovingSandbox) {
+      return;
+    }
+    setIsRemovingSandbox(true);
+    setMessage(null);
+    setHasError(false);
+
+    try {
+      const result = await removeDaytonaSandbox({ vaultId });
+      if (!result.ok) {
+        setHasError(true);
+        setMessage(result.message ?? "Failed to remove Daytona sandbox.");
+        return;
+      }
+      setTerminalUrl(null);
+      setBootstrapLogs(null);
+      setMessage(result.message ?? "Daytona sandbox removed.");
+      setIsRemoveDialogOpen(false);
+    } catch (error) {
+      setHasError(true);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to remove Daytona sandbox.",
+      );
+    } finally {
+      setIsRemovingSandbox(false);
+    }
+  };
+
+  const handleFetchLogs = async () => {
+    if (disabled || isFetchingLogs) {
+      return;
+    }
+    setIsFetchingLogs(true);
+    setMessage(null);
+    setHasError(false);
+
+    try {
+      const result = await getDaytonaBootstrapLogs({ vaultId });
+      if (!result.ok) {
+        setHasError(true);
+        setMessage(result.message ?? "Failed to fetch bootstrap logs.");
+        return;
+      }
+      setBootstrapLogs(result.logs ?? "");
+      setMessage(result.message ?? "Fetched bootstrap logs.");
+    } catch (error) {
+      setHasError(true);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch bootstrap logs.",
+      );
+    } finally {
+      setIsFetchingLogs(false);
+    }
+  };
+
+  const handlePrebuildSnapshot = async () => {
+    if (disabled || isPrebuilding) {
+      return;
+    }
+    setIsPrebuilding(true);
+    setMessage(null);
+    setHasError(false);
+    setPrebuildLogs("");
+    startPrebuildLogPolling();
+
+    try {
+      const result = await prebuildDaytonaSnapshot({ vaultId, branch });
+      if (!result.ok) {
+        setHasError(true);
+        setMessage(result.message ?? "Failed to build prebuild snapshot.");
+        return;
+      }
+      setMessage(
+        result.message ??
+          (result.snapshotName
+            ? `Prebuild snapshot ${result.snapshotName} created.`
+            : "Prebuild snapshot created."),
+      );
+    } catch (error) {
+      setHasError(true);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to build prebuild snapshot.",
+      );
+    } finally {
+      setIsPrebuilding(false);
+      stopPrebuildLogPolling();
+      void fetchPrebuildLogs(true);
+    }
+  };
+
+  const fetchPrebuildLogs = async (silent: boolean) => {
+    if (disabled || isFetchingPrebuildLogs) {
+      return;
+    }
+    setIsFetchingPrebuildLogs(true);
+    if (!silent) {
+      setMessage(null);
+      setHasError(false);
+    }
+
+    try {
+      const result = await getDaytonaPrebuildLogs({ vaultId, branch });
+      if (!result.ok) {
+        if (!silent) {
+          setHasError(true);
+          setMessage(result.message ?? "Failed to fetch prebuild logs.");
+        }
+        return;
+      }
+      setPrebuildLogs(result.logs ?? "");
+      if (!silent) {
+        setMessage(result.message ?? "Fetched prebuild logs.");
+      }
+    } catch (error) {
+      if (!silent) {
+        setHasError(true);
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch prebuild logs.",
+        );
+      }
+    } finally {
+      setIsFetchingPrebuildLogs(false);
+    }
+  };
+
+  const handleCheckPrebuild = async () => {
+    if (disabled || isCheckingPrebuild) {
+      return;
+    }
+    setIsCheckingPrebuild(true);
+    setMessage(null);
+    setHasError(false);
+
+    try {
+      const result = await getDaytonaPrebuildStatus({ vaultId, branch });
+      if (!result.ok) {
+        setHasError(true);
+        setMessage(result.message ?? "Failed to fetch prebuild status.");
+        return;
+      }
+      setPrebuildSnapshotName(result.snapshotName ?? null);
+      setPrebuildState(result.state ?? null);
+      setPrebuildError(result.errorReason ?? null);
+      if (result.state === "ERROR" || result.state === "BUILD_FAILED") {
+        setHasError(true);
+      }
+      setMessage(result.message ?? "Fetched prebuild status.");
+    } catch (error) {
+      setHasError(true);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch prebuild status.",
+      );
+    } finally {
+      setIsCheckingPrebuild(false);
+    }
+  };
+
+  const handleEnsureRegistry = async () => {
+    if (disabled || isEnsuringRegistry) {
+      return;
+    }
+    setIsEnsuringRegistry(true);
+    setMessage(null);
+    setHasError(false);
+
+    try {
+      const result = await ensureDaytonaRegistryForVault({ vaultId });
+      if (!result.ok) {
+        setHasError(true);
+        setMessage(result.message ?? "Failed to configure Daytona registry.");
+        return;
+      }
+      setMessage(result.message ?? "Daytona registry configured.");
+    } catch (error) {
+      setHasError(true);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to configure Daytona registry.",
+      );
+    } finally {
+      setIsEnsuringRegistry(false);
+    }
+  };
+
   return (
     <div className={cn("flex flex-col gap-1", className)}>
       <div className="flex flex-wrap items-center gap-2">
@@ -168,7 +424,131 @@ export function DaytonaWorkspaceButton({
         >
           Open in tab
         </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            void handleFetchLogs();
+          }}
+          disabled={disabled || isFetchingLogs}
+        >
+          {isFetchingLogs ? "Fetching logs..." : "View install log"}
+        </Button>
+        {(sandboxId || sandboxName) && (
+          <Dialog
+            open={isRemoveDialogOpen}
+            onOpenChange={(open) => {
+              if (isRemovingSandbox) {
+                return;
+              }
+              setIsRemoveDialogOpen(open);
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                disabled={disabled}
+              >
+                Remove sandbox
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Remove Daytona sandbox</DialogTitle>
+                <DialogDescription>
+                  This deletes the sandbox but keeps any snapshots intact.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsRemoveDialogOpen(false)}
+                  disabled={isRemovingSandbox}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    void handleRemoveSandbox();
+                  }}
+                  disabled={isRemovingSandbox}
+                >
+                  {isRemovingSandbox ? "Removing..." : "Remove sandbox"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            void handlePrebuildSnapshot();
+          }}
+          disabled={disabled || isPrebuilding}
+        >
+          {isPrebuilding ? "Building prebuild..." : "Build prebuild"}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            void handleEnsureRegistry();
+          }}
+          disabled={disabled || isEnsuringRegistry}
+        >
+          {isEnsuringRegistry ? (
+            <>
+              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              Setting registry...
+            </>
+          ) : (
+            "Set registry access"
+          )}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            void handleCheckPrebuild();
+          }}
+          disabled={disabled || isCheckingPrebuild}
+        >
+          {isCheckingPrebuild ? "Checking..." : "Check prebuild"}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            void fetchPrebuildLogs(false);
+          }}
+          disabled={disabled || isFetchingPrebuildLogs}
+        >
+          {isFetchingPrebuildLogs ? "Fetching logs..." : "View prebuild logs"}
+        </Button>
+        <span className="text-xs text-muted-foreground">
+          Snapshot name is inferred from vault + branch.
+        </span>
+      </div>
+      {prebuildState && (
+        <div
+          className={cn(
+            "text-xs",
+            prebuildState === "ERROR" || prebuildState === "BUILD_FAILED"
+              ? "text-destructive"
+              : "text-muted-foreground",
+          )}
+        >
+          Prebuild {prebuildSnapshotName ? `${prebuildSnapshotName}: ` : ""}
+          {prebuildState}
+          {prebuildError ? ` (${prebuildError})` : ""}
+        </div>
+      )}
       {sandboxId && sandboxName && (
         <div className="text-xs text-muted-foreground">
           Daytona: {sandboxName}
@@ -200,6 +580,25 @@ export function DaytonaWorkspaceButton({
             If the terminal does not render, Daytona may block embedding. Use
             “Open in tab”.
           </div>
+        </div>
+      )}
+      {bootstrapLogs !== null && (
+        <div className="mt-2 rounded-md border bg-muted/5 p-2 text-xs">
+          <div className="mb-1 text-muted-foreground">Install log</div>
+          <pre className="max-h-48 overflow-auto whitespace-pre-wrap">
+            {bootstrapLogs || "No output yet."}
+          </pre>
+        </div>
+      )}
+      {prebuildLogs !== null && (
+        <div className="mt-2 rounded-md border bg-muted/5 p-2 text-xs">
+          <div className="mb-1 text-muted-foreground">Prebuild log</div>
+          <textarea
+            readOnly
+            rows={10}
+            className="max-h-64 min-h-[160px] w-full resize-y overflow-auto whitespace-pre-wrap rounded border bg-background/70 p-2 text-xs"
+            value={prebuildLogs || "No output yet."}
+          />
         </div>
       )}
       {message && (
