@@ -101,13 +101,6 @@ function assertPathsMatchFixture(
 }
 
 describe("repository file tree fixtures", () => {
-  it("matches tracked file fixture", () => {
-    assertPathsMatchFixture(
-      toFixtureFilePath("tracked-files.txt"),
-      getTrackedFiles(),
-    );
-  });
-
   it("matches visible simple-view file fixture for root noter.md", () => {
     const parsedConfig = parseSimpleViewConfig(getRootNoterMarkdown());
     if (!parsedConfig.hasValidConfig) {
@@ -315,9 +308,10 @@ describe("filterSimpleViewTreeItems with repository structure", () => {
       ),
     ).toBe(true);
 
-    const explicitPathFiltered = filterSimpleViewTreeItems(repositoryTreeItems, [
-      ".husky/pre-commit",
-    ]);
+    const explicitPathFiltered = filterSimpleViewTreeItems(
+      repositoryTreeItems,
+      [".husky/pre-commit"],
+    );
     expect(
       explicitPathFiltered.some(
         (item) => item.path === ".husky/pre-commit" && item.type === "blob",

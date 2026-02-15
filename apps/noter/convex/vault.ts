@@ -208,6 +208,24 @@ export const updateVaultDevcontainerConfig = internalMutation({
   },
 });
 
+export const updateVaultDaytonaSandbox = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+    sandboxId: v.string(),
+    sandboxName: v.optional(v.string()),
+    createdAt: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.vaultId, {
+      daytonaSandboxId: args.sandboxId,
+      daytonaSandboxName: args.sandboxName,
+      daytonaSandboxCreatedAt: args.createdAt,
+    });
+    return null;
+  },
+});
+
 // Get user's vaults with optional file staging stats
 export const getUserVaults = query({
   args: {},
@@ -224,6 +242,9 @@ export const getUserVaults = query({
       isNoterManaged: v.boolean(),
       hasConvexProvision: v.boolean(),
       hasNetlifyProvision: v.boolean(),
+      daytonaSandboxId: v.optional(v.string()),
+      daytonaSandboxName: v.optional(v.string()),
+      daytonaSandboxCreatedAt: v.optional(v.number()),
       infraState: v.union(
         v.literal("not_started"),
         v.literal("provisioning"),
@@ -285,6 +306,9 @@ export const getUserVaults = query({
           isNoterManaged: vault.isNoterManaged ?? false,
           hasConvexProvision,
           hasNetlifyProvision,
+          daytonaSandboxId: vault.daytonaSandboxId,
+          daytonaSandboxName: vault.daytonaSandboxName,
+          daytonaSandboxCreatedAt: vault.daytonaSandboxCreatedAt,
           infraState: vault.infraState ?? "not_started",
           infraProductionUrl:
             infra?.netlifyProductionUrl ?? infra?.netlifyDefaultUrl,

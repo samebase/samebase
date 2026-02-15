@@ -35,6 +35,7 @@ import {
   ButtonGroupSeparator,
 } from "@/components/ui/button-group";
 import { CodespaceStatus } from "@/components/CodespaceStatus";
+import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
 import type { Id } from "../../convex/_generated/dataModel";
 
 const formatTimeAgo = (timestamp: number) => {
@@ -342,6 +343,12 @@ export function VaultDashboard() {
                   {isReady && (
                     <div className="space-y-1.5">
                       <CodespaceStatus vaultId={vault._id} />
+                      <DaytonaWorkspaceButton
+                        vaultId={vault._id}
+                        branch={defaultBranch}
+                        sandboxId={vault.daytonaSandboxId}
+                        sandboxName={vault.daytonaSandboxName}
+                      />
                       {vault.isNoterManaged && (
                         <div className="text-xs text-muted-foreground">
                           Infra: {formatInfraState(vault.infraState)}

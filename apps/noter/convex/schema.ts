@@ -149,6 +149,11 @@ export default defineSchema({
     activeCodespaceId: v.optional(v.id("codespaces")),
     devcontainerConfig: v.optional(v.string()), // JSON string of .devcontainer/devcontainer.json
 
+    // Daytona sandbox integration
+    daytonaSandboxId: v.optional(v.string()),
+    daytonaSandboxName: v.optional(v.string()),
+    daytonaSandboxCreatedAt: v.optional(v.number()),
+
     // Infrastructure provisioning lifecycle
     infraState: v.optional(InfraState),
     infraLastError: v.optional(v.string()),
