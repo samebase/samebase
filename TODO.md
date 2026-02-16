@@ -16,6 +16,7 @@
 - [ ] starter template hygiene: add CI coverage for `apps/noter-starter-template` (we missed a `node_modules`/ignore drift once because it wasn't being checked)
 - [ ] add help center app, show how easy it is to have one, where everything is markdown
 - [ ] worktree friendly vibe code editor
+- [ ] **IMPORTANT**: make `noter.md` comfortable to use with worktrees using Codex on mac
 - [ ] check all commits created from noter if we didn't lose anything due to the way it doesn't update it's own tree correctly
 
 - [ ] left to easily press enter
@@ -59,7 +60,9 @@
 - [ ] https://github.com/Fission-AI/OpenSpec
 - [ ] https://www.youtube.com/watch?v=pey9u_ANXZM
 - [ ] easy win: rename simple/all to important/code
-- [ ] 
+- [ ] try out blacksmith instead of github actions
+- [ ] the ui is the following, the right side there's a fab that's opened with a chat window, on the left side it's a codex like chat, with all that standard stuff, and using this standard chat you can configure the fab that'll be on your site; commit this atomically
+- [ ] vscode has this hidden eye on the .md file
 
 ## Features & Improvements
 - [ ] add line numbers to code display to fix line reference issues in AI assistant
