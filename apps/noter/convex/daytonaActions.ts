@@ -133,10 +133,9 @@ async function inferSandboxDevOrigin(args: {
   ttlSeconds: number;
 }): Promise<string | null> {
   try {
-    const preview = await args.sandbox.getSignedPreviewUrl(
-      args.port,
-      args.ttlSeconds,
-    );
+    const preview = args.sandbox.public
+      ? await args.sandbox.getPreviewLink(args.port)
+      : await args.sandbox.getSignedPreviewUrl(args.port, args.ttlSeconds);
     const origin = new URL(preview.url).origin;
     return origin.trim().length > 0 ? origin : null;
   } catch (error) {
@@ -958,6 +957,7 @@ export const startDaytonaWorkspace = action({
       name: sandboxName,
       language: "typescript",
       user: "daytona",
+      public: true,
       envVars: (() => {
         const envVars: Record<string, string> = {
           NOTER_VAULT_ID: args.vaultId,
@@ -1236,10 +1236,12 @@ export const getDaytonaPreviewUrl = action({
     const branchLabel = sandbox.labels?.["noter.branch"];
 
     try {
-      const preview = await sandbox.getSignedPreviewUrl(
-        DAYTONA_PREVIEW_PORT,
-        DAYTONA_PREVIEW_TTL_SECONDS,
-      );
+      const preview = sandbox.public
+        ? await sandbox.getPreviewLink(DAYTONA_PREVIEW_PORT)
+        : await sandbox.getSignedPreviewUrl(
+            DAYTONA_PREVIEW_PORT,
+            DAYTONA_PREVIEW_TTL_SECONDS,
+          );
       return {
         ok: true,
         url: preview.url,
