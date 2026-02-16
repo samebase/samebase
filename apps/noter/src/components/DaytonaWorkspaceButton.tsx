@@ -268,6 +268,7 @@ export function DaytonaWorkspaceButton({
     }
   };
 
+
   const handlePrebuildSnapshot = async () => {
     if (disabled || isPrebuilding) {
       return;
