@@ -23,6 +23,7 @@ import http from "isomorphic-git/http/node";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getUserId } from "./common";
+import { getEnvLabel } from "./env";
 import { toSafeRepoName } from "./repoName";
 
 const { object, id, string, optional, boolean, union, literal, number } = v;
@@ -396,13 +397,14 @@ function inferPrebuildSnapshotName(args: {
   repo: string;
   branch: string;
 }): string {
+  const envLabel = getEnvLabel();
   const base = toSafeRepoName(
-    `noter-prebuild-${args.owner}-${args.repo}-${args.branch}`,
+    `noter-prebuild-${envLabel}-${args.owner}-${args.repo}-${args.branch}`,
   );
   if (base) {
     return base;
   }
-  return "noter-prebuild-snapshot";
+  return `noter-prebuild-${envLabel}-snapshot`;
 }
 
 function quoteForBash(input: string): string {
