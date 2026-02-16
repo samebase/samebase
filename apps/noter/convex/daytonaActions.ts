@@ -6,7 +6,13 @@ import {
   DockerRegistryApi,
   type DockerRegistry,
 } from "@daytonaio/api-client";
-import { Daytona, Image, type Sandbox } from "@daytonaio/sdk";
+import {
+  CreateSandboxFromSnapshotParams,
+  Daytona,
+  Image,
+  type Resources,
+  type Sandbox,
+} from "@daytonaio/sdk";
 import { Infer, v } from "convex/values";
 import { createHash } from "crypto";
 import fs from "fs";
@@ -29,11 +35,11 @@ const DAYTONA_API_KEY_ENV = "DAYTONA_API_KEY";
 const DAYTONA_CONVEX_DEPLOY_KEY_ENV = "DAYTONA_CONVEX_DEPLOY_KEY";
 const DAYTONA_DEPS_IMAGE_TEMPLATE_ENV = "DAYTONA_DEPS_IMAGE_TEMPLATE";
 const PNPM_LOCKFILE_NAME = "pnpm-lock.yaml";
-const PNPM_INSTALL_LOG = "/tmp/noter-pnpm-install.log";
 const PNPM_INSTALL_STATUS = "/tmp/noter-pnpm-install.status";
 const DAYTONA_PREVIEW_PORT = 5173;
 const DAYTONA_PREVIEW_TTL_SECONDS = 3600;
 const DAYTONA_DEV_LOG = "/tmp/noter-dev.log";
+const DEV_ENV_ORIGIN_ENV = "DEV_ENV_ORIGIN";
 const MAX_PREBUILD_LOG_CHARS = 50_000;
 const PREBUILD_LOG_FLUSH_MS = 1_000;
 const DAYTONA_REGISTRY_URL_ENV = "DAYTONA_REGISTRY_URL";
@@ -43,6 +49,11 @@ const DAYTONA_REGISTRY_PROJECT_ENV = "DAYTONA_REGISTRY_PROJECT";
 const DAYTONA_REGISTRY_NAME_ENV = "DAYTONA_REGISTRY_NAME";
 const DAYTONA_REGISTRY_SET_DEFAULT_ENV = "DAYTONA_REGISTRY_SET_DEFAULT";
 const DAYTONA_ORGANIZATION_ID_ENV = "DAYTONA_ORGANIZATION_ID";
+const DAYTONA_PREBUILD_RESOURCES: Resources = {
+  cpu: 4,
+  memory: 8,
+  disk: 10,
+};
 
 function isNotFoundError(error: unknown): boolean {
   if (typeof error === "object" && error !== null) {
@@ -104,7 +115,8 @@ function resolveDaytonaApiConfig():
     };
   }
 
-  const isHttp = baseUrl.startsWith("http://") || baseUrl.startsWith("https://");
+  const isHttp =
+    baseUrl.startsWith("http://") || baseUrl.startsWith("https://");
   if (!isHttp) {
     return {
       ok: false,
@@ -113,6 +125,28 @@ function resolveDaytonaApiConfig():
   }
 
   return { ok: true, baseUrl, token };
+}
+
+async function inferSandboxDevOrigin(args: {
+  sandbox: Sandbox;
+  port: number;
+  ttlSeconds: number;
+}): Promise<string | null> {
+  try {
+    const preview = await args.sandbox.getSignedPreviewUrl(
+      args.port,
+      args.ttlSeconds,
+    );
+    const origin = new URL(preview.url).origin;
+    return origin.trim().length > 0 ? origin : null;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log("daytona:dev-origin:failed", {
+      sandboxId: args.sandbox.id,
+      message,
+    });
+    return null;
+  }
 }
 
 async function readPnpmLockHash(repoDir: string): Promise<string | null> {
@@ -189,7 +223,10 @@ function parseBooleanEnv(value: string | undefined): boolean | undefined {
   return undefined;
 }
 
-function readRegistryConfig(): { config: RegistryConfig | null; missing: string[] } {
+function readRegistryConfig(): {
+  config: RegistryConfig | null;
+  missing: string[];
+} {
   const url = process.env[DAYTONA_REGISTRY_URL_ENV]?.trim() ?? "";
   const username = process.env[DAYTONA_REGISTRY_USERNAME_ENV]?.trim() ?? "";
   const password = process.env[DAYTONA_REGISTRY_PASSWORD_ENV] ?? "";
@@ -207,10 +244,16 @@ function readRegistryConfig(): { config: RegistryConfig | null; missing: string[
     return { config: null, missing };
   }
 
-  const project = process.env[DAYTONA_REGISTRY_PROJECT_ENV]?.trim() || undefined;
+  const project =
+    process.env[DAYTONA_REGISTRY_PROJECT_ENV]?.trim() || undefined;
   const nameOverride = process.env[DAYTONA_REGISTRY_NAME_ENV]?.trim();
   const isGhcr = normalizeRegistryUrl(url).includes("ghcr.io");
-  const name = nameOverride && nameOverride.length > 0 ? nameOverride : isGhcr ? "ghcr" : "registry";
+  const name =
+    nameOverride && nameOverride.length > 0
+      ? nameOverride
+      : isGhcr
+        ? "ghcr"
+        : "registry";
   const setDefault =
     parseBooleanEnv(process.env[DAYTONA_REGISTRY_SET_DEFAULT_ENV]) ?? false;
   const organizationId =
@@ -234,9 +277,9 @@ function buildRegistryConfigFromGithub(args: {
   githubUsername: string;
   githubAccessToken: string;
 }): RegistryConfig {
-  const url =
-    process.env[DAYTONA_REGISTRY_URL_ENV]?.trim() || "ghcr.io";
-  const project = process.env[DAYTONA_REGISTRY_PROJECT_ENV]?.trim() || undefined;
+  const url = process.env[DAYTONA_REGISTRY_URL_ENV]?.trim() || "ghcr.io";
+  const project =
+    process.env[DAYTONA_REGISTRY_PROJECT_ENV]?.trim() || undefined;
   const nameOverride = process.env[DAYTONA_REGISTRY_NAME_ENV]?.trim();
   const name =
     nameOverride && nameOverride.length > 0
@@ -284,7 +327,10 @@ async function ensureDaytonaRegistry(args: {
   baseUrl: string;
   token: string;
   config: RegistryConfig;
-}): Promise<{ registryId: string; status: "created" | "updated" | "existing" }> {
+}): Promise<{
+  registryId: string;
+  status: "created" | "updated" | "existing";
+}> {
   const configuration = new DaytonaApiConfiguration({
     accessToken: args.token,
     basePath: args.baseUrl,
@@ -346,27 +392,6 @@ function truncateLogTail(input: string, maxChars: number): string {
   return input.slice(input.length - maxChars);
 }
 
-function inferSnapshotNameFromImage(image: string): string {
-  const normalized = image
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^[.-]+|[.-]+$/g, "");
-  const base = normalized.length > 0 ? normalized : "devcontainer-base";
-  return `noter-${base}`;
-}
-
-function inferBaseSnapshotName(args: {
-  image: string;
-  owner: string;
-  repo: string;
-}): string {
-  const base = inferSnapshotNameFromImage(args.image);
-  const combined = `${base}-${args.owner}-${args.repo}`.toLowerCase();
-  const safe = toSafeRepoName(combined);
-  return safe || base;
-}
-
 function inferPrebuildSnapshotName(args: {
   owner: string;
   repo: string;
@@ -385,6 +410,161 @@ function quoteForBash(input: string): string {
   return `'${input.replace(/'/g, `'\\''`)}'`;
 }
 
+type TemplateValue = string | number | boolean | null | undefined;
+
+function stripIndent(
+  strings: TemplateStringsArray,
+  ...values: TemplateValue[]
+): string {
+  let combined = "";
+  for (let index = 0; index < strings.length; index += 1) {
+    combined += strings[index];
+    if (index < values.length) {
+      combined += String(values[index]);
+    }
+  }
+
+  const trimmed = combined.trim();
+  if (trimmed.length === 0) {
+    return "";
+  }
+
+  const lines = trimmed.split("\n");
+  let minIndent: number | null = null;
+  for (const line of lines) {
+    if (line.trim().length === 0) {
+      continue;
+    }
+    const match = line.match(/^ +/);
+    const indent = match ? match[0].length : 0;
+    if (minIndent === null || indent < minIndent) {
+      minIndent = indent;
+      if (minIndent === 0) {
+        break;
+      }
+    }
+  }
+
+  if (minIndent === null || minIndent === 0) {
+    return lines.join("\n");
+  }
+
+  const stripPrefix = " ".repeat(minIndent);
+  return lines
+    .map((line) =>
+      line.startsWith(stripPrefix) ? line.slice(minIndent) : line,
+    )
+    .join("\n");
+}
+
+const DEV_SERVER_STATUS_MARKER = "__NOTER_DEV_STATUS__";
+const DEV_SERVER_LOG_MARKER = "__NOTER_DEV_LOG_START__";
+const DEV_SERVER_NO_LOG_MARKER = "__NOTER_NO_DEV_LOG__";
+
+type DevServerStatus = {
+  running?: boolean;
+  pid?: number;
+  logTail?: string;
+  message?: string;
+};
+
+function buildDevServerStatusScript(): string {
+  return stripIndent`
+    port=${DAYTONA_PREVIEW_PORT}
+    check="none"
+    running="unknown"
+    pid=""
+    if command -v ss >/dev/null; then
+      check="ss"
+      running="false"
+      line=$(ss -ltnp 2>/dev/null | grep ":\${port} " || true)
+      if [ -n "$line" ]; then
+        running="true"
+        pid=$(printf "%s\n" "$line" | sed -n 's/.*pid=\\([0-9][0-9]*\\).*/\\1/p' | head -n 1)
+      fi
+    elif command -v lsof >/dev/null; then
+      check="lsof"
+      running="false"
+      line=$(lsof -iTCP:\${port} -sTCP:LISTEN -n -P 2>/dev/null | sed -n '2p')
+      if [ -n "$line" ]; then
+        running="true"
+        pid=$(printf "%s\n" "$line" | awk '{print $2}')
+      fi
+    fi
+    echo "${DEV_SERVER_STATUS_MARKER}running=\${running};pid=\${pid};check=\${check}"
+    echo "${DEV_SERVER_LOG_MARKER}"
+    if [ -f ${DAYTONA_DEV_LOG} ]; then tail -n 200 ${DAYTONA_DEV_LOG}; else echo "${DEV_SERVER_NO_LOG_MARKER}"; fi
+  `;
+}
+
+function parseDevServerStatus(raw: string): DevServerStatus {
+  const lines = raw.split("\n");
+  const statusLine = lines.find((line) =>
+    line.startsWith(DEV_SERVER_STATUS_MARKER),
+  );
+  const statusPayload = statusLine
+    ? statusLine.slice(DEV_SERVER_STATUS_MARKER.length)
+    : "";
+  const values = new Map<string, string>();
+  for (const part of statusPayload.split(";")) {
+    if (part.trim().length === 0) {
+      continue;
+    }
+    const separatorIndex = part.indexOf("=");
+    if (separatorIndex === -1) {
+      continue;
+    }
+    const key = part.slice(0, separatorIndex);
+    const value = part.slice(separatorIndex + 1);
+    values.set(key, value);
+  }
+
+  const check = values.get("check");
+  const runningValue = values.get("running");
+  let running: boolean | undefined;
+  if (runningValue === "true") {
+    running = true;
+  } else if (runningValue === "false") {
+    running = false;
+  }
+  if (check === "none") {
+    running = undefined;
+  }
+
+  const pidValue = values.get("pid");
+  let pid: number | undefined;
+  if (pidValue && pidValue.trim().length > 0) {
+    const parsed = Number(pidValue);
+    if (Number.isFinite(parsed)) {
+      pid = parsed;
+    }
+  }
+
+  let logTail: string | undefined;
+  let message: string | undefined;
+  const logIndex = raw.indexOf(DEV_SERVER_LOG_MARKER);
+  if (logIndex >= 0) {
+    let tail = raw.slice(logIndex + DEV_SERVER_LOG_MARKER.length);
+    if (tail.startsWith("\n")) {
+      tail = tail.slice(1);
+    }
+    const hasNoLog = tail.includes(DEV_SERVER_NO_LOG_MARKER);
+    if (hasNoLog) {
+      tail = tail.split(DEV_SERVER_NO_LOG_MARKER).join("");
+      message = "Dev log not found yet.";
+    }
+    logTail = tail.length > 0 ? tail : "";
+  }
+
+  if (check === "none") {
+    message = message
+      ? `${message} Port status unavailable (ss/lsof missing).`
+      : "Port status unavailable (ss/lsof missing).";
+  }
+
+  return { running, pid, logTail, message };
+}
+
 function buildCloneUrl(args: {
   token: string | null;
   owner: string;
@@ -400,90 +580,32 @@ function buildCloneUrl(args: {
 
 function buildAutoCdCommand(repoDir: string): string {
   const autoCdLine = `cd ${repoDir}`;
-  return [
-    `auto_cd_line=${quoteForBash(autoCdLine)}`,
-    "for file in /root/.bashrc /home/daytona/.bashrc /etc/bash.bashrc; do",
-    '  if [ -f "$file" ]; then',
-    '    if ! grep -Fqx "$auto_cd_line" "$file"; then printf "%s\\n" "$auto_cd_line" >> "$file"; fi',
-    "  else",
-    '    printf "%s\\n" "$auto_cd_line" >> "$file"',
-    "  fi",
-    "done",
-  ].join(" ");
+  return stripIndent`
+    auto_cd_line=${quoteForBash(autoCdLine)}
+    for file in /root/.bashrc /home/daytona/.bashrc /etc/bash.bashrc; do
+      if [ -f "$file" ]; then
+        if ! grep -Fqx "$auto_cd_line" "$file"; then printf "%s\\n" "$auto_cd_line" >> "$file"; fi
+      else
+        printf "%s\\n" "$auto_cd_line" >> "$file"
+      fi
+    done
+  `;
 }
 
 function buildWriteConvexEnvCommand(repoDir: string): string {
-  return [
-    'if [ -n "$CONVEX_DEPLOY_KEY" ]; then',
-    `  env_file="${repoDir}/apps/noter/.env.local";`,
-    '  if [ -f "$env_file" ]; then',
-    '    grep -v \'^CONVEX_DEPLOY_KEY=\' "$env_file" > "$env_file.tmp" || true;',
-    '    mv "$env_file.tmp" "$env_file";',
-    "  else",
-    '    mkdir -p "$(dirname "$env_file")";',
-    "  fi;",
-    '  printf "CONVEX_DEPLOY_KEY=%s\\n" "$CONVEX_DEPLOY_KEY" >> "$env_file";',
-    '  chmod 600 "$env_file";',
-    "fi",
-  ].join(" ");
-}
-
-async function bootstrapSandbox(args: {
-  sandbox: Sandbox;
-  owner: string;
-  repo: string;
-  branch: string;
-  token: string | null;
-}): Promise<void> {
-  const workspaceDir = DEFAULT_WORKSPACE_DIR;
-  const repoDir = `${workspaceDir}/${args.repo}`;
-  const cloneUrl = buildCloneUrl({
-    token: args.token,
-    owner: args.owner,
-    repo: args.repo,
-  });
-  const autoCdCommand = buildAutoCdCommand(repoDir);
-  const installLog = PNPM_INSTALL_LOG;
-  const installStatus = PNPM_INSTALL_STATUS;
-  const installScript = [
-    `cd "${repoDir}"`,
-    "set +e",
-    'echo "pwd: $(pwd)"',
-    'echo "node: $(node -v 2>/dev/null || echo missing)"',
-    'echo "pnpm: $(pnpm -v 2>/dev/null || echo missing)"',
-    'echo "pnpm node-linker: $(pnpm config get node-linker 2>/dev/null || echo unknown)"',
-    'echo "pnpm engine-strict: $(pnpm config get engine-strict 2>/dev/null || echo unknown)"',
-    'echo "pnpm store-dir: $(pnpm config get store-dir 2>/dev/null || echo unknown)"',
-    'echo "pnpm virtual-store-dir: $(pnpm config get virtual-store-dir 2>/dev/null || echo unknown)"',
-    'echo "pnpm install started: $(date -Is)"',
-    "status=0",
-    "NPM_CONFIG_ENGINE_STRICT=false pnpm install --prod=false --force --node-linker=hoisted",
-    "status=$?",
-    'if [ "$status" != "0" ]; then echo "pnpm install failed with $status"; fi',
-    'for path in node_modules node_modules/.pnpm apps/noter/node_modules apps/noter-starter-template/node_modules; do if [ -d "$path" ]; then echo "$path present"; ls -la "$path" | head -n 20; else echo "$path missing"; fi; done',
-    'if [ ! -d "node_modules" ] && [ ! -d "apps/noter/node_modules" ] && [ ! -d "apps/noter-starter-template/node_modules" ]; then echo "No node_modules found in repo"; if [ "$status" = "0" ]; then status=1; fi; fi',
-    'echo "exit_code=$status"',
-    `echo "$status" > "${installStatus}"`,
-  ].join("; ");
-  const quotedInstallScript = quoteForBash(installScript);
-  const writeConvexEnvCommand = buildWriteConvexEnvCommand(repoDir);
-  const script = [
-    "set -e",
-    "export GIT_TERMINAL_PROMPT=0",
-    `mkdir -p "${workspaceDir}"`,
-    "if ! command -v git >/dev/null; then (command -v sudo >/dev/null && sudo apt-get update && sudo apt-get install -y git) || (apt-get update && apt-get install -y git); fi",
-    `[ -d "${repoDir}/.git" ] || git clone "${cloneUrl}" "${repoDir}"`,
-    `cd "${repoDir}"`,
-    `git fetch origin "${args.branch}"`,
-    `git checkout "${args.branch}"`,
-    writeConvexEnvCommand,
-    "if ! command -v pnpm >/dev/null; then if command -v corepack >/dev/null; then corepack enable && corepack prepare pnpm@9.15.0 --activate; else npm install -g pnpm@9.15.0; fi; fi",
-    autoCdCommand,
-    `rm -f "${installLog}" "${installStatus}"`,
-    `nohup bash -lc ${quotedInstallScript} > "${installLog}" 2>&1 &`,
-  ].join(" && ");
-  const command = `bash -lc ${quoteForBash(script)}`;
-  await args.sandbox.process.executeCommand(command, undefined, undefined, 600);
+  return stripIndent`
+    if [ -n "$CONVEX_DEPLOY_KEY" ]; then
+      env_file="${repoDir}/apps/noter/.env.local";
+      if [ -f "$env_file" ]; then
+        grep -v '^CONVEX_DEPLOY_KEY=' "$env_file" > "$env_file.tmp" || true;
+        mv "$env_file.tmp" "$env_file";
+      else
+        mkdir -p "$(dirname "$env_file")";
+      fi;
+      printf "CONVEX_DEPLOY_KEY=%s\\n" "$CONVEX_DEPLOY_KEY" >> "$env_file";
+      chmod 600 "$env_file";
+    fi
+  `;
 }
 
 async function refreshSandboxRepo(args: {
@@ -502,21 +624,21 @@ async function refreshSandboxRepo(args: {
   });
   const autoCdCommand = buildAutoCdCommand(repoDir);
   const writeConvexEnvCommand = buildWriteConvexEnvCommand(repoDir);
-  const script = [
-    "set -e",
-    "export GIT_TERMINAL_PROMPT=0",
-    `mkdir -p "${workspaceDir}"`,
-    "if ! command -v git >/dev/null; then (command -v sudo >/dev/null && sudo apt-get update && sudo apt-get install -y git) || (apt-get update && sudo apt-get install -y git); fi",
-    `[ -d "${repoDir}" ] || mkdir -p "${repoDir}"`,
-    `cd "${repoDir}"`,
-    'if [ ! -d ".git" ]; then git init; fi',
-    `if git remote get-url origin >/dev/null 2>&1; then git remote set-url origin "${cloneUrl}"; else git remote add origin "${cloneUrl}"; fi`,
-    `git fetch origin "${args.branch}" --depth=1`,
-    `git checkout -f -B "${args.branch}" FETCH_HEAD`,
-    "git reset --hard FETCH_HEAD",
-    writeConvexEnvCommand,
-    autoCdCommand,
-  ].join(" && ");
+  const script = stripIndent`
+set -e
+export GIT_TERMINAL_PROMPT=0
+mkdir -p "${workspaceDir}"
+if ! command -v git >/dev/null; then (command -v sudo >/dev/null && sudo apt-get update && sudo apt-get install -y git) || (apt-get update && sudo apt-get install -y git); fi
+[ -d "${repoDir}" ] || mkdir -p "${repoDir}"
+cd "${repoDir}"
+if [ ! -d ".git" ]; then git init; fi
+if git remote get-url origin >/dev/null 2>&1; then git remote set-url origin "${cloneUrl}"; else git remote add origin "${cloneUrl}"; fi
+git fetch origin "${args.branch}" --depth=1
+git checkout -f -B "${args.branch}" FETCH_HEAD
+git reset --hard FETCH_HEAD
+${writeConvexEnvCommand}
+${autoCdCommand}
+  `;
   const command = `bash -lc ${quoteForBash(script)}`;
   const result = await args.sandbox.process.executeCommand(
     command,
@@ -524,6 +646,14 @@ async function refreshSandboxRepo(args: {
     undefined,
     600,
   );
+
+  console.log("daytona:repo:refresh:result", {
+    sandboxId: args.sandbox.id,
+    repo: `${args.owner}/${args.repo}`,
+    branch: args.branch,
+    result,
+  });
+
   if (result.exitCode !== 0) {
     throw new Error(`Failed to refresh repo (exit ${result.exitCode}).`);
   }
@@ -533,40 +663,59 @@ async function startDaytonaDevServer(args: {
   sandbox: Sandbox;
   repoDir: string;
 }): Promise<void> {
-  const ensurePnpm = [
-    "if ! command -v pnpm >/dev/null; then",
-    "  if command -v corepack >/dev/null; then",
-    "    corepack enable && corepack prepare pnpm@9.15.0 --activate;",
-    "  else",
-    "    npm install -g pnpm@9.15.0;",
-    "  fi;",
-    "fi",
-  ].join(" ");
-  const installFallback = [
-    'if [ ! -d "node_modules" ]',
-    '  && [ ! -d "apps/noter/node_modules" ]',
-    '  && [ ! -d "apps/noter-starter-template/node_modules" ]; then',
-    '  echo "node_modules missing; running pnpm install";',
-    "  NPM_CONFIG_ENGINE_STRICT=false pnpm install --prod=false --force --node-linker=hoisted;",
-    "fi",
-  ].join(" ");
+  const ensurePnpm = stripIndent`
+    if ! command -v pnpm >/dev/null; then
+      if command -v corepack >/dev/null; then
+        corepack enable && corepack prepare pnpm@9.15.0 --activate
+      else
+        npm install -g pnpm@9.15.0
+      fi
+    fi
+  `;
+  const devOrigin = await inferSandboxDevOrigin({
+    sandbox: args.sandbox,
+    port: DAYTONA_PREVIEW_PORT,
+    ttlSeconds: DAYTONA_PREVIEW_TTL_SECONDS,
+  });
+  if (devOrigin) {
+    console.log("daytona:dev-origin", {
+      sandboxId: args.sandbox.id,
+      origin: devOrigin,
+    });
+  }
+  const installFallback = stripIndent`
+    if [ ! -d "node_modules" ] \\
+      && [ ! -d "apps/noter/node_modules" ] \\
+      && [ ! -d "apps/noter-starter-template/node_modules" ]; then
+      echo "node_modules missing; running pnpm install";
+      NPM_CONFIG_ENGINE_STRICT=false pnpm install --prod=false --force --node-linker=hoisted;
+    fi
+  `;
+  const devEnv = [
+    devOrigin ? `${DEV_ENV_ORIGIN_ENV}=${quoteForBash(devOrigin)}` : "",
+    "NOTER_DEV_HOST=0.0.0.0",
+    `NOTER_DEV_PORT=${DAYTONA_PREVIEW_PORT}`,
+    "NOTER_DEV_STRICT_PORT=1",
+  ]
+    .filter((part) => part.length > 0)
+    .join(" ");
   const devCommand = `cd "${args.repoDir}" && pnpm run dev`;
-  const script = [
-    "set -e",
-    `cd "${args.repoDir}"`,
-    ensurePnpm,
-    `if [ -f "${PNPM_INSTALL_STATUS}" ]; then`,
-    `  status=$(cat "${PNPM_INSTALL_STATUS}" 2>/dev/null || echo 1);`,
-    '  if [ "$status" != "0" ]; then',
-    '    echo "pnpm install failed with $status";',
-    "    exit 1;",
-    "  fi;",
-    "fi",
-    installFallback,
-    `NOTER_DEV_HOST=0.0.0.0 NOTER_DEV_PORT=${DAYTONA_PREVIEW_PORT} NOTER_DEV_STRICT_PORT=1 nohup bash -lc ${quoteForBash(
-      devCommand,
-    )} > ${quoteForBash(DAYTONA_DEV_LOG)} 2>&1 &`,
-  ].join("; ");
+  const script = stripIndent`
+    set -e
+    cd "${args.repoDir}"
+    ${ensurePnpm}
+    if [ -f "${PNPM_INSTALL_STATUS}" ]; then
+      status=$(cat "${PNPM_INSTALL_STATUS}" 2>/dev/null || echo 1);
+      if [ "$status" != "0" ]; then
+        echo "pnpm install failed with $status";
+        exit 1;
+      fi;
+    fi
+    ${installFallback}
+    ${devEnv} nohup bash -lc ${quoteForBash(devCommand)} > ${quoteForBash(
+      DAYTONA_DEV_LOG,
+    )} 2>&1 &
+  `;
   const command = `bash -lc ${quoteForBash(script)}`;
   const result = await args.sandbox.process.executeCommand(
     command,
@@ -574,6 +723,12 @@ async function startDaytonaDevServer(args: {
     undefined,
     600,
   );
+
+  console.log("daytona:dev-server:result", {
+    sandboxId: args.sandbox.id,
+    result,
+  });
+
   if (result.exitCode !== 0) {
     throw new Error(`Failed to start dev server (exit ${result.exitCode}).`);
   }
@@ -612,6 +767,37 @@ const getDaytonaPreviewUrlResult = object({
   url: optional(string()),
   message: optional(string()),
   branch: optional(string()),
+});
+
+const startDaytonaDevServerSafeArgs = object({
+  vaultId: id("vaults"),
+});
+
+const startDaytonaDevServerSafeResult = object({
+  ok: boolean(),
+  message: optional(string()),
+});
+
+const startDaytonaDevServerFastArgs = object({
+  vaultId: id("vaults"),
+});
+
+const startDaytonaDevServerFastResult = object({
+  ok: boolean(),
+  message: optional(string()),
+});
+
+const getDaytonaDevServerStatusArgs = object({
+  vaultId: id("vaults"),
+});
+
+const getDaytonaDevServerStatusResult = object({
+  ok: boolean(),
+  running: optional(boolean()),
+  port: number(),
+  pid: optional(number()),
+  logTail: optional(string()),
+  message: optional(string()),
 });
 
 const removeDaytonaSandboxArgs = object({
@@ -728,77 +914,57 @@ export const startDaytonaWorkspace = action({
       config.apiUrl = baseUrl;
     }
     const daytona = new Daytona(config);
-    const baseImage = DEFAULT_BASE_IMAGE;
     const prebuildSnapshotName = inferPrebuildSnapshotName({
       owner: vault.ghRepoOwner,
       repo: vault.ghRepoName,
       branch,
     });
-    const baseSnapshotName = inferBaseSnapshotName({
-      image: baseImage,
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
-    });
-    const shouldCreateSnapshot = true;
-    let usePrebuildSnapshot = false;
-    let snapshotToUse: string | null = null;
     const repoWorkdir = `${DEFAULT_WORKSPACE_DIR}/${vault.ghRepoName}`;
-
+    let snapshotToUse: string | null = null;
     if (prebuildSnapshotName) {
       try {
-        await daytona.snapshot.get(prebuildSnapshotName);
+        const snapshot = await daytona.snapshot.get(prebuildSnapshotName);
+        if (snapshot.state !== "active") {
+          return {
+            ok: false,
+            status: "not_configured",
+            message: `Prebuild snapshot ${prebuildSnapshotName} is ${snapshot.state}. Wait for it to become active.`,
+            branch,
+          };
+        }
         snapshotToUse = prebuildSnapshotName;
-        usePrebuildSnapshot = true;
       } catch (error) {
         if (!isNotFoundError(error)) {
           throw error;
         }
+        return {
+          ok: false,
+          status: "not_configured",
+          message: `No prebuild snapshot found for ${branch} yet. Run a prebuild before creating a workspace.`,
+          branch,
+        };
       }
     }
-
-    if (!snapshotToUse && baseSnapshotName) {
-      try {
-        await daytona.snapshot.get(baseSnapshotName);
-        snapshotToUse = baseSnapshotName;
-      } catch (error) {
-        if (isNotFoundError(error) && shouldCreateSnapshot) {
-          if (
-            !hasImageTagOrDigest(baseImage) ||
-            baseImage.toLowerCase().endsWith(":latest")
-          ) {
-            throw new Error(
-              "Base image must include a non-latest tag or digest to build a snapshot.",
-            );
-          }
-          console.log("daytona:snapshot:create", {
-            snapshotName: baseSnapshotName,
-            image: baseImage,
-          });
-          const baseSnapshotImage = Image.base(baseImage).workdir(repoWorkdir);
-          const created = await daytona.snapshot.create({
-            name: baseSnapshotName,
-            image: baseSnapshotImage,
-          });
-          snapshotToUse = created.name;
-        } else if (isNotFoundError(error)) {
-          console.log("daytona:snapshot:missing", {
-            snapshotName: baseSnapshotName,
-          });
-        } else {
-          throw error;
-        }
-      }
+    if (!snapshotToUse) {
+      return {
+        ok: false,
+        status: "not_configured",
+        message: "Prebuild snapshot name is missing.",
+        branch,
+      };
     }
 
-    const baseParams = {
+    const baseParams: CreateSandboxFromSnapshotParams = {
       name: sandboxName,
       language: "typescript",
+      user: "daytona",
       envVars: (() => {
         const envVars: Record<string, string> = {
           NOTER_VAULT_ID: args.vaultId,
           NOTER_REPO: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
           NOTER_BRANCH: branch,
         };
+
         const convexDeployKey = process.env[DAYTONA_CONVEX_DEPLOY_KEY_ENV];
         if (convexDeployKey) {
           envVars.CONVEX_DEPLOY_KEY = convexDeployKey;
@@ -811,75 +977,72 @@ export const startDaytonaWorkspace = action({
         "noter.branch": branch,
       },
     };
-    const sandboxParams = snapshotToUse
-      ? { ...baseParams, snapshot: snapshotToUse }
-      : { ...baseParams, image: Image.base(baseImage).workdir(repoWorkdir) };
+    const sandboxParams: CreateSandboxFromSnapshotParams = {
+      ...baseParams,
+      snapshot: snapshotToUse,
+    };
     const sandbox = await daytona.create(sandboxParams);
 
     const resolvedSandboxName = sandbox.name ?? sandboxName;
 
     const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
     const githubToken = currentUser?.githubAccessToken ?? null;
-    const shouldBootstrapRepo = !usePrebuildSnapshot;
     let bootstrapMessage: string | null = null;
     let devServerMessage: string | null = null;
-
-    if (shouldBootstrapRepo) {
-      try {
-        console.log("daytona:bootstrap:start", {
-          vaultId: args.vaultId,
-          repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-          branch,
-        });
-        await bootstrapSandbox({
-          sandbox,
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
-          branch,
-          token: githubToken,
-        });
-        bootstrapMessage = `Bootstrapping repo in ${repoWorkdir}. Installing dependencies in background (see ${PNPM_INSTALL_LOG}).`;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.warn("daytona:bootstrap:failed", {
-          vaultId: args.vaultId,
-          message,
-        });
-        bootstrapMessage = `Sandbox created, but bootstrap failed: ${message}`;
-      }
-    } else {
-      try {
-        console.log("daytona:repo:refresh:start", {
-          vaultId: args.vaultId,
-          repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-          branch,
-        });
-        await refreshSandboxRepo({
-          sandbox,
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
-          branch,
-          token: githubToken,
-        });
-        console.log("daytona:repo:refresh:done", {
-          vaultId: args.vaultId,
-          repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-          branch,
-        });
-        bootstrapMessage =
-          "Using prebuild snapshot; repo refreshed to latest branch.";
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.warn("daytona:repo:refresh:failed", {
-          vaultId: args.vaultId,
-          message,
-        });
-        bootstrapMessage = `Using prebuild snapshot; repo refresh failed: ${message}`;
-      }
+    try {
+      console.log("daytona:repo:refresh:start", {
+        vaultId: args.vaultId,
+        repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+        branch,
+      });
+      await refreshSandboxRepo({
+        sandbox,
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        branch,
+        token: githubToken,
+      });
+      console.log("daytona:repo:refresh:done", {
+        vaultId: args.vaultId,
+        repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+        branch,
+      });
+      bootstrapMessage =
+        "Using prebuild snapshot; repo refreshed to latest branch.";
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn("daytona:repo:refresh:failed", {
+        vaultId: args.vaultId,
+        message,
+      });
+      bootstrapMessage = `Using prebuild snapshot; repo refresh failed: ${message}`;
     }
 
     try {
+      {
+        const command = stripIndent`
+          set -e
+          whoami
+        `;
+
+        // testing
+        //
+        const result = await sandbox.process.executeCommand(
+          command,
+          undefined,
+          undefined,
+          600,
+        );
+
+        console.log("daytona:process:executeCommand:result", {
+          sandboxId: sandbox.id,
+          command,
+          result,
+        });
+      }
+
       await startDaytonaDevServer({ sandbox, repoDir: repoWorkdir });
+
       devServerMessage = `Dev server starting on port ${DAYTONA_PREVIEW_PORT} (logs: ${DAYTONA_DEV_LOG}).`;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -1096,6 +1259,319 @@ export const getDaytonaPreviewUrl = action({
         message: `Failed to create a preview link. (${errorMessage})`,
       };
     }
+  },
+});
+
+export const startDaytonaDevServerSafe = action({
+  args: startDaytonaDevServerSafeArgs,
+  returns: startDaytonaDevServerSafeResult,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof startDaytonaDevServerSafeResult>> => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.runQuery(internal.vault.getById, {
+      id: args.vaultId,
+    });
+
+    if (!vault || vault.userId !== userId) {
+      throw new Error("Vault not found");
+    }
+
+    const apiConfig = resolveDaytonaApiConfig();
+    if (!apiConfig.ok) {
+      return {
+        ok: false,
+        message: apiConfig.message,
+      };
+    }
+    const baseUrl = apiConfig.baseUrl;
+    const token = apiConfig.token;
+
+    const config: { apiKey: string; apiUrl?: string; target?: string } = {
+      apiKey: token,
+    };
+    if (baseUrl) {
+      config.apiUrl = baseUrl;
+    }
+    const daytona = new Daytona(config);
+    let sandboxId = vault.daytonaSandboxId;
+    let sandboxName = vault.daytonaSandboxName;
+
+    if (!sandboxId) {
+      const matches = await daytona.list(
+        { "noter.vault_id": args.vaultId },
+        1,
+        5,
+      );
+      const match = matches.items[0];
+      if (!match) {
+        return {
+          ok: false,
+          message:
+            "No Daytona sandbox is connected to this vault yet. Click Start Daytona first.",
+        };
+      }
+      sandboxId = match.id;
+      sandboxName = match.name;
+      await ctx.runMutation(internal.vault.updateVaultDaytonaSandbox, {
+        vaultId: args.vaultId,
+        sandboxId,
+        sandboxName,
+        createdAt: Date.now(),
+      });
+    }
+
+    const sandbox = await daytona.get(sandboxId);
+    const repoDir = `${DEFAULT_WORKSPACE_DIR}/${vault.ghRepoName}`;
+
+    const statusCommand = `bash -lc ${quoteForBash(buildDevServerStatusScript())}`;
+    const statusResult = await sandbox.process.executeCommand(
+      statusCommand,
+      undefined,
+      undefined,
+      60,
+    );
+    if (statusResult.exitCode === 0) {
+      const status = parseDevServerStatus(statusResult.result ?? "");
+      if (status.running) {
+        return {
+          ok: true,
+          message: "Dev server already running.",
+        };
+      }
+    }
+
+    try {
+      await startDaytonaDevServer({ sandbox, repoDir });
+      return {
+        ok: true,
+        message: sandboxName
+          ? `Dev server start requested for ${sandboxName}.`
+          : "Dev server start requested.",
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to start dev server.",
+      };
+    }
+  },
+});
+
+export const startDaytonaDevServerFast = action({
+  args: startDaytonaDevServerFastArgs,
+  returns: startDaytonaDevServerFastResult,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof startDaytonaDevServerFastResult>> => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.runQuery(internal.vault.getById, {
+      id: args.vaultId,
+    });
+
+    if (!vault || vault.userId !== userId) {
+      throw new Error("Vault not found");
+    }
+
+    const apiConfig = resolveDaytonaApiConfig();
+    if (!apiConfig.ok) {
+      return {
+        ok: false,
+        message: apiConfig.message,
+      };
+    }
+    const baseUrl = apiConfig.baseUrl;
+    const token = apiConfig.token;
+
+    const config: { apiKey: string; apiUrl?: string; target?: string } = {
+      apiKey: token,
+    };
+    if (baseUrl) {
+      config.apiUrl = baseUrl;
+    }
+    const daytona = new Daytona(config);
+    let sandboxId = vault.daytonaSandboxId;
+    let sandboxName = vault.daytonaSandboxName;
+
+    if (!sandboxId) {
+      const matches = await daytona.list(
+        { "noter.vault_id": args.vaultId },
+        1,
+        5,
+      );
+      const match = matches.items[0];
+      if (!match) {
+        return {
+          ok: false,
+          message:
+            "No Daytona sandbox is connected to this vault yet. Click Start Daytona first.",
+        };
+      }
+      sandboxId = match.id;
+      sandboxName = match.name;
+      await ctx.runMutation(internal.vault.updateVaultDaytonaSandbox, {
+        vaultId: args.vaultId,
+        sandboxId,
+        sandboxName,
+        createdAt: Date.now(),
+      });
+    }
+
+    const sandbox = await daytona.get(sandboxId);
+
+    const statusCommand = `bash -lc ${quoteForBash(buildDevServerStatusScript())}`;
+    const statusResult = await sandbox.process.executeCommand(
+      statusCommand,
+      undefined,
+      undefined,
+      60,
+    );
+    if (statusResult.exitCode === 0) {
+      const status = parseDevServerStatus(statusResult.result ?? "");
+      if (status.running) {
+        return {
+          ok: true,
+          message: "Dev server already running.",
+        };
+      }
+    }
+
+    const repoDir = `${DEFAULT_WORKSPACE_DIR}/${vault.ghRepoName}`;
+    const devCommand = `cd "${repoDir}" && pnpm run dev`;
+    const startScript = stripIndent`
+      set -e
+      if [ ! -d "${repoDir}" ]; then
+        echo "__NOTER_REPO_MISSING__"
+        exit 1
+      fi
+      NOTER_DEV_HOST=0.0.0.0 NOTER_DEV_PORT=${DAYTONA_PREVIEW_PORT} NOTER_DEV_STRICT_PORT=1 nohup bash -lc ${quoteForBash(
+        devCommand,
+      )} > ${quoteForBash(DAYTONA_DEV_LOG)} 2>&1 &
+    `;
+    const startCommand = `bash -lc ${quoteForBash(startScript)}`;
+    const startResult = await sandbox.process.executeCommand(
+      startCommand,
+      undefined,
+      undefined,
+      600,
+    );
+
+    if (startResult.exitCode !== 0) {
+      const raw = startResult.result ?? "";
+      const message = raw.includes("__NOTER_REPO_MISSING__")
+        ? "Repo directory not found in sandbox. Start Daytona first."
+        : `Failed to start dev server (exit ${startResult.exitCode}).`;
+      return {
+        ok: false,
+        message,
+      };
+    }
+
+    return {
+      ok: true,
+      message: sandboxName
+        ? `Fast dev start requested for ${sandboxName}.`
+        : "Fast dev start requested.",
+    };
+  },
+});
+
+export const getDaytonaDevServerStatus = action({
+  args: getDaytonaDevServerStatusArgs,
+  returns: getDaytonaDevServerStatusResult,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof getDaytonaDevServerStatusResult>> => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.runQuery(internal.vault.getById, {
+      id: args.vaultId,
+    });
+
+    if (!vault || vault.userId !== userId) {
+      throw new Error("Vault not found");
+    }
+
+    const apiConfig = resolveDaytonaApiConfig();
+    if (!apiConfig.ok) {
+      return {
+        ok: false,
+        port: DAYTONA_PREVIEW_PORT,
+        message: apiConfig.message,
+      };
+    }
+    const baseUrl = apiConfig.baseUrl;
+    const token = apiConfig.token;
+
+    const config: { apiKey: string; apiUrl?: string; target?: string } = {
+      apiKey: token,
+    };
+    if (baseUrl) {
+      config.apiUrl = baseUrl;
+    }
+    const daytona = new Daytona(config);
+    let sandboxId = vault.daytonaSandboxId;
+    let sandboxName = vault.daytonaSandboxName;
+
+    if (!sandboxId) {
+      const matches = await daytona.list(
+        { "noter.vault_id": args.vaultId },
+        1,
+        5,
+      );
+      const match = matches.items[0];
+      if (!match) {
+        return {
+          ok: false,
+          port: DAYTONA_PREVIEW_PORT,
+          message:
+            "No Daytona sandbox is connected to this vault yet. Click Start Daytona first.",
+        };
+      }
+      sandboxId = match.id;
+      sandboxName = match.name;
+      await ctx.runMutation(internal.vault.updateVaultDaytonaSandbox, {
+        vaultId: args.vaultId,
+        sandboxId,
+        sandboxName,
+        createdAt: Date.now(),
+      });
+    }
+
+    const sandbox = await daytona.get(sandboxId);
+    const statusCommand = `bash -lc ${quoteForBash(buildDevServerStatusScript())}`;
+    const statusResult = await sandbox.process.executeCommand(
+      statusCommand,
+      undefined,
+      undefined,
+      60,
+    );
+
+    if (statusResult.exitCode !== 0) {
+      return {
+        ok: false,
+        port: DAYTONA_PREVIEW_PORT,
+        message: `Failed to check dev server (exit ${statusResult.exitCode}).`,
+      };
+    }
+
+    const status = parseDevServerStatus(statusResult.result ?? "");
+    const defaultMessage = sandboxName
+      ? `Dev status for ${sandboxName}.`
+      : "Dev status ready.";
+    return {
+      ok: true,
+      port: DAYTONA_PREVIEW_PORT,
+      running: status.running,
+      pid: status.pid,
+      logTail: status.logTail,
+      message: status.message ?? defaultMessage,
+    };
   },
 });
 
@@ -1389,16 +1865,18 @@ export const prebuildDaytonaSnapshot = action({
       );
 
       const repoPath = `${DEFAULT_WORKSPACE_DIR}/${vault.ghRepoName}`;
-      const autoCdCommand = [
-        `auto_cd_line="cd ${repoPath}";`,
-        "for file in /root/.bashrc /home/daytona/.bashrc /etc/bash.bashrc; do",
-        '  if [ -f "$file" ]; then',
-        '    if ! grep -Fqx "$auto_cd_line" "$file"; then printf "%s\\n" "$auto_cd_line" >> "$file"; fi;',
-        "  else",
-        '    printf "%s\\n" "$auto_cd_line" >> "$file";',
-        "  fi;",
-        "done",
-      ].join(" ");
+      const autoCdCommand = stripIndent`
+        auto_cd_line="cd ${repoPath}";
+        for file in /root/.bashrc /home/daytona/.bashrc /etc/bash.bashrc; do
+          if [ -f "$file" ]; then
+            if ! grep -Fqx "$auto_cd_line" "$file"; then printf "%s\\n" "$auto_cd_line" >> "$file"; fi;
+          else
+            printf "%s\\n" "$auto_cd_line" >> "$file";
+          fi;
+        done
+      `
+        // Dockerfile RUN instructions must be a single line; keep loop inline.
+        .replace(/\n/g, " ");
 
       const lockHash = await readPnpmLockHash(repoDir);
       const depsImage = lockHash
@@ -1461,7 +1939,7 @@ export const prebuildDaytonaSnapshot = action({
           repoDir,
         );
         await daytona.snapshot.create(
-          { name: snapshotName, image },
+          { name: snapshotName, image, resources: DAYTONA_PREBUILD_RESOURCES },
           {
             timeout: 0,
             onLogs: (chunk) => {

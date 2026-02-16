@@ -9,11 +9,11 @@
  * after GitHub OAuth completes. In development, this URL changes depending on
  * the environment:
  *
- *   - Cloud dev containers (e.g. Builder.io Fusion): Each container gets a
- *     unique, ephemeral fly.dev URL. When a container is destroyed and a new
- *     one is created, the URL changes — but the SITE_URL on the Convex
- *     deployment still points to the old, dead URL. This script fixes that
- *     by reading the current container URL from the FUSION_ENV_ORIGIN env var.
+ *   - Cloud dev containers (e.g. sandboxes): Each container gets a unique,
+ *     ephemeral URL. When a container is destroyed and a new one is created,
+ *     the URL changes — but the SITE_URL on the Convex deployment still points
+ *     to the old, dead URL. This script fixes that by reading the current
+ *     container URL from the DEV_ENV_ORIGIN env var.
  *
  *   - Local development: Defaults to http://localhost:5173 (Vite's default).
  *
@@ -27,9 +27,9 @@
 
 import { execSync } from "child_process";
 
-// FUSION_ENV_ORIGIN is set automatically by the cloud container platform.
+// DEV_ENV_ORIGIN is set by sandbox providers (e.g. Daytona).
 // Falls back to localhost for local development.
-const origin = process.env.FUSION_ENV_ORIGIN || "http://localhost:5173";
+const origin = process.env.DEV_ENV_ORIGIN || "http://localhost:5173";
 
 console.log(`Setting Convex SITE_URL to ${origin}`);
 try {

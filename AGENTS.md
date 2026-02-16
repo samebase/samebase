@@ -47,6 +47,10 @@ npm run build         # TypeScript compile + Vite build
 npm run lint          # TypeScript + ESLint check
 ```
 
+### Local Environment Notes
+
+- `rg` (ripgrep) is not available in this environment. Use `grep`/`find` instead.
+
 ### Convex CLI
 
 Access Convex database, logs, and admin operations using the CLI (from `apps/noter` directory):
@@ -171,6 +175,21 @@ Shorthand commands for git/GitHub workflows. When the user says these, execute t
 - On CI failure, report the error and offer to fix
 - **NEVER merge a PR until CI is green** - always wait for checks to pass.
 - Preferred merge style for this repo: rebase the branch onto `main`, then merge with a merge commit (`gh pr merge --merge`) so PR boundaries remain visible while preserving internal commits.
+
+## Daytona Refresh (Local CLI)
+
+When you need to refresh a Daytona sandbox repo to the latest branch tip using local GitHub auth, use the repo script:
+
+```bash
+pnpm daytona:refresh <sandbox-id-or-name> [branch] [repo-dir]
+```
+
+Defaults:
+- `branch`: `main`
+- `repo-dir`: `/home/daytona/workspace/noter`
+
+Auth:
+- Uses `GITHUB_TOKEN` if set, otherwise falls back to `gh auth token`.
 
 ### Local Operator Preferences
 

@@ -22,7 +22,8 @@
     "dev:starter": "turbo run dev --filter=noter-starter-template",
     "build:starter": "turbo run build --filter=noter-starter-template",
     "lint:starter": "turbo run lint --filter=noter-starter-template",
-    "prepare": "husky"
+    "prepare": "husky",
+    "daytona:refresh": "bash scripts/daytona-refresh.sh"
   },
   "devDependencies": {
     "husky": "^9.1.7",
