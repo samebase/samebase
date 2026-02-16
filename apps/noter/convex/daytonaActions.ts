@@ -903,10 +903,11 @@ export const startDaytonaWorkspace = action({
       branch,
     });
 
+    const envLabel = getEnvLabel();
     const baseName = toSafeRepoName(
-      `noter-${vault.ghRepoOwner}-${vault.ghRepoName}-${branch}`,
+      `noter-${envLabel}-${vault.ghRepoOwner}-${vault.ghRepoName}-${branch}`,
     );
-    const sandboxName = baseName || `noter-${args.vaultId}`;
+    const sandboxName = baseName || `noter-${envLabel}-${args.vaultId}`;
 
     const config: { apiKey: string; apiUrl?: string; target?: string } = {
       apiKey: token,
