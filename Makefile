@@ -1,7 +1,11 @@
 # set default  to be `make run`
-.PHONY: run
+# .PHONY ensures targets run even if a file with the same name exists.
+.PHONY: run update-fixtures
 
 # also add a step that updates the env for preview server when using worktrees
 # or daytona or gh codespaces or something else
 run:
-	pnpm dev 
+	pnpm dev
+
+update-fixtures:
+	UPDATE_SIMPLE_VIEW_FIXTURES=1 pnpm exec vitest run apps/noter/src/lib/simpleView.test.ts

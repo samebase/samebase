@@ -8,6 +8,7 @@ simpleView:
     - dist/** # Build output
     - "**/*.{ts,tsx,js,jsx,css,html,tsbuildinfo}" # Source file extensions
 
+    - "**/*.{ts,tsx,js,jsx,css,html}" # Source file extensions
 ---
 
 # noter.md

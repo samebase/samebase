@@ -1,6 +1,5 @@
 AGENTS.md
 apps/noter-starter-template/AGENTS.md
-apps/noter-starter-template/netlify.toml
 apps/noter-starter-template/noter.md
 apps/noter-starter-template/README.md
 apps/noter/public/favicon.png
@@ -13,6 +12,7 @@ Ideas/README.md
 Ideas/to-do.md
 LUMINA_PROJECT_ANALYSIS.md
 README.md
+RECOVERED_IDEAS.md
 REFERENCES.md
 scripts/daytona-refresh.sh
 specs/001_CODESPACE_CONNECTION_SPEC.md

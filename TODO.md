@@ -26,16 +26,19 @@
 - [ ] research https://vly.ai/, and all others startups shown on
 - [ ] ai can access convex functions directly and can invoke them, and use them as custom tools or can build for itself
 - [ ] https://www.convex.dev/startups
+- [ ] research https://vly.ai/, and all others startups shown on https://www.convex.dev/startups
 - [ ] https://www.convex.dev/startups has live video of the browser the ai are using
 - [ ] transform the chat from fab to sider from left or right
 - [ ] check out https://www.kernel.sh/?utm_source=theo - kernel might be useful
 - [ ] flex: it's possible to remove github vault of noter completely and then attach it again and this whole time everything works, since we maintain netlify and convex for you. Currently set to remove in checkboxes
 - [ ] fix dark mode/light mode toggle - it's redirecting to /
 - [ ] make dragging nice for sidebar on left
+- [ ] make dragging nice
 - [ ] add settings page for each vault and also for the whole app that allows auto commits
 - [ ] when path doesn't have owner or repo name or can't find it, redirect to vaults
 - [ ] add command "auto-push" "stop auto push" or similar to allow automatic pushing
 - [ ] you don't need to open noter in noter.md, you have it as a fab in your prod, just for you
+- [ ] don't use builder.io anymore
 - [ ] add share functionality to noter.md app - when copying text, allow sharing to Telegram, etc. Create new PWA app for this
 - [ ] add backwards and forward buttons
 - [ ] always sync input values to Convex so text is remembered on typing (real-time persistence)
@@ -43,6 +46,8 @@
 - [ ] if new commit button appears, or actually, all previous requests get disabled, can only click last group
 - [ ] while waiting for tool, you can still talk with it but it will keep fresh in prompt that it's waiting for tool, no blocking
 - [ ] mcp server can be replaced by folder and file. If it's query it can be single expression of convex query. And write here a complex query, as a anonymous with no { ctx.db.query("messages").withIndex("by_vault", q => q.eq("vaultId", args.vaultId)).filter(q => q.and(q.gte(q.field("_creationTime"), args.since), q.or(q.eq(q.field("role"), "user"), q.eq(q.field("role"), "assistant")))).order("desc").take(50)
+- [ ] for markdown reads, return file size first and let agents decide whether to include full content in context
+- [ ] markdown optimization for agents: show headers/subheaders first, replace paragraph bodies with character counts plus section slugs, and let AI request full text only for selected sections
 - [ ] add link to changed files in commit. Also the name of the commit is displayed twice, both in text and in bubble of button
 - [ ] add questions at bottom of your messages, make them small, "yes", maybe, no. But the input is always open. That's the thing the input is never waiting. You can even instruct it to stop research
 - [ ] the fab is notm click able when sidebar opens. It should have knowledge that it's in the sidebar
@@ -57,10 +62,13 @@
 - [ ] 
 
 ## Features & Improvements
+- [ ] add line numbers to code display to fix line reference issues in AI assistant
 - [ ] improve file search functionality with better fuzzy matching
+- [ ] editor: on hover over Tailwind classes, show their definition
 - [ ] add keyboard shortcuts for common actions (save, commit, etc.)
 - [ ] implement file diff view to show changes before committing
 - [ ] add "todo" command functionality for AI assistant to update this file
+- [ ] simple view: consider switching from exclude-only to explicit include allowlist (ex: `**/*.md`, `**/config.json`, `**/tools.json`)
 - [ ] add command "auto-push" "stop auto push" or similar to allows
 - [ ] use mermaid?
 - [ ] remove the "auto delete GitHub repo" option once repos move to the noter.md org flow
@@ -111,6 +119,11 @@ Codex automatically refreshes tokens 8 minutes before expiration, so as long as 
 
 One caveat: Codespace secrets have a 48KB size limit, but auth.json is tiny so that's fine. The main risk is the refresh token eventually expiring -- in practice ChatGPT OAuth refresh tokens seem to be long-lived, but there's no official guarantee on the lifetime.
 ```
+- [ ] add fish-like aliases, or even better make this input behave like a fish terminal
+- [ ] in dev mode, simple terminal should show/accept the full command format: `noter "add todo or whatever paragraph"`
+- [ ] explore frontmatter-based settings in markdown (e.g. `noter.md`) as an alternative to JSON: LLM-readable, human-readable, and schema-validated into TypeScript objects
+- [ ] treat chat as a terminal UX: user sends commands, system executes/actions, then returns clear output (like a shell loop)
+- [ ] pot discuta cu Predeus ca Robolex sa fie dezvoltat pe noter.md; asta e o metoda buna si pentru juniori, pentru ca au acces la aceleasi posibilitati ca seniorii; faptul ca noter.md e facut in noter inseamna ca produsul e bun
 
 ## Starter Provisioning Follow-ups
 - [ ] make `vaultActions.deleteVault` idempotent for missing docs to avoid repeated "Delete on nonexistent document ID" errors in logs
@@ -127,3 +140,39 @@ One caveat: Codespace secrets have a 48KB size limit, but auth.json is tiny so t
 - [x] update the tree from time to time?
 - [x] don't use builder.io anymore
 - [x] removing noter from builder.io todo is done
+
+- [ ] allow deleting file/folder
+- [ ] after commit now, the file should already have a new staging
+- [ ] add more descriptive commit names
+- [ ] update the tree from time to time?
+- [ ] **IMPORTANT, make less changes to collaborativeUpdates db, takes lots of resources**
+- [ ] **BUG: If a GitHub repository is renamed, the vault UI still shows the old name. It also appears in search with the old name, which is confusing. Need to detect repo renames and update vault metadata accordingly.**
+- [ ] **CHAT: Don't use "Auto" label for model selection - it implies it's the worst option. Instead, show each message with the model that created it attached. Each message should have `model` field showing "Claude 3.5", "GPT-4o", "Recommended", etc.**
+- [ ]
+- [ ] add settings page for each vault an also for the whole app that allows auto commits
+- [ ] **VERY IMPORTANT**: Try Convex components for defining things internally but also at AI agent component level
+- [ ] **AI Agent Access**: Give AI agent ability to query which files are "staged" and generally have more access to the Convex functions themselves
+- [ ] **File Staging Bug**: Fix issue where marking newly created files for deletion causes them to appear both as "to be created" and "to be deleted" in stagedFiles. Instead, newly created files should be completely removed from stagedFiles when deleted, not marked for deletion.
+- [ ] for prompts that are linked to files, enable inline editing that automatically propagates changes to the actual files
+- [ ] folders can be used as objects or arrays because of ordered preservation (note: this is undefined behavior in JS)
+- [ ] have 1 agent with which I talk, but I also see the agent they are building, on the side. Basically instead of chat and code generated to the right. You get chat and markdown generated to the right, with
+- [ ] **MDX Function Calling Enhancement**: Implement MDX-like syntax with function calls instead of tags for text rendering:
+  - Support `@code(language="json", filePath="config/app.json")...@end` syntax
+  - Add `@edit()`, `@note()`, `@warning()` function blocks
+  - Parse function calls with parameter extraction (language, filePath, etc.)
+  - Integrate with existing EnhancedMarkdownRenderer
+  - Benefits: No React compilation needed, backward compatible, extensible, type-safe
+  - Alternative to full MDX that works with plain text rendering
+## UI/UX Improvements
+- [ ] commit proposal UI: make the commit description clickable to go to GitHub commit URL, ensure button inside doesn't change sizes
+## Development Environment
+- [ ] the dev container should default to fish. Even the ai should prefer that
+## Research & Inspiration
+- [ ] **Video Reference**: Problems that could be solved by Noter - https://www.youtube.com/watch?v=YVq28OTPCKw
+- [ ] fix implicit `any` types across frontend components (13 errors, CI-blocking):
+  - AddRepository.tsx: `repo`, `vault` params in callbacks (4)
+  - ChatFab.tsx: `msg` param (1)
+  - CodeEditor.tsx: `u` param in update callback (1)
+  - FileView.tsx: `t`, `item`, `staged` params (5)
+  - MonacoEditor.tsx: `u` param in update callback (1)
+- [ ] add share functionality to noter.md app
