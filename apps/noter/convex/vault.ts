@@ -295,6 +295,7 @@ export const getUserVaults = query({
       daytonaSandboxName: v.optional(v.string()),
       daytonaSandboxCreatedAt: v.optional(v.number()),
       daytonaSnapshotName: v.optional(v.string()),
+      daytonaPrebuildLogsSnapshot: v.optional(v.string()),
       infraState: v.union(
         v.literal("not_started"),
         v.literal("provisioning"),
@@ -360,6 +361,7 @@ export const getUserVaults = query({
           daytonaSandboxName: vault.daytonaSandboxName,
           daytonaSandboxCreatedAt: vault.daytonaSandboxCreatedAt,
           daytonaSnapshotName: vault.daytonaSnapshotName,
+          daytonaPrebuildLogsSnapshot: vault.daytonaPrebuildLogsSnapshot,
           infraState: vault.infraState ?? "not_started",
           infraProductionUrl:
             infra?.netlifyProductionUrl ?? infra?.netlifyDefaultUrl,

@@ -101,6 +101,7 @@ export function VaultDashboard() {
   const [removeCodespaces, setRemoveCodespaces] = useState(false);
   const [removeConvexProvision, setRemoveConvexProvision] = useState(false);
   const [removeNetlifyProvision, setRemoveNetlifyProvision] = useState(false);
+  const [removeDaytonaResources, setRemoveDaytonaResources] = useState(false);
   const [newAgentName, setNewAgentName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -118,6 +119,11 @@ export function VaultDashboard() {
       : null;
   const stagedChangesCount = selectedVault?.fileCount ?? 0;
   const hasStagedChanges = stagedChangesCount > 0;
+  const hasDaytonaResources = Boolean(
+    selectedVault?.daytonaSandboxId ||
+      selectedVault?.daytonaSnapshotName ||
+      selectedVault?.daytonaPrebuildLogsSnapshot,
+  );
 
   const resetDeleteDialogState = () => {
     setVaultToDelete(null);
@@ -125,6 +131,7 @@ export function VaultDashboard() {
     setRemoveCodespaces(false);
     setRemoveConvexProvision(false);
     setRemoveNetlifyProvision(false);
+    setRemoveDaytonaResources(false);
     setCommitError(null);
     setDidAttemptCommit(false);
   };
@@ -154,6 +161,7 @@ export function VaultDashboard() {
           vaultToDelete.isNoterManaged && vaultToDelete.hasNetlifyProvision
           ? removeNetlifyProvision
           : false,
+        removeDaytonaResources,
       });
       resetDeleteDialogState();
     } catch (error) {
@@ -453,6 +461,13 @@ export function VaultDashboard() {
                     setRemoveNetlifyProvision(
                       vault.isNoterManaged && vault.hasNetlifyProvision,
                     );
+                    setRemoveDaytonaResources(
+                      Boolean(
+                        vault.daytonaSandboxId ||
+                          vault.daytonaSnapshotName ||
+                          vault.daytonaPrebuildLogsSnapshot,
+                      ),
+                    );
                     setCommitError(null);
                     setDidAttemptCommit(false);
                   }}
@@ -535,6 +550,27 @@ export function VaultDashboard() {
                   {connectedCodespacesCount === undefined
                     ? null
                     : ` (${connectedCodespacesCount} connected)`}
+                </label>
+              </div>
+              <div className="flex items-start gap-2">
+                <input
+                  id="remove-daytona-resources"
+                  type="checkbox"
+                  checked={removeDaytonaResources}
+                  onChange={(e) => setRemoveDaytonaResources(e.target.checked)}
+                  disabled={isDeleting || isCommitting}
+                  className="mt-0.5 h-4 w-4 rounded border border-input"
+                />
+                <label
+                  htmlFor="remove-daytona-resources"
+                  className="text-sm text-muted-foreground"
+                >
+                  Also remove Daytona sandboxes and snapshots
+                  {!hasDaytonaResources && (
+                    <div className="text-xs text-muted-foreground">
+                      We will try to remove any Daytona resources tied to this vault.
+                    </div>
+                  )}
                 </label>
               </div>
               {vaultToDelete.hasConvexProvision && (

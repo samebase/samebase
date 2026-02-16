@@ -4,7 +4,9 @@ import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
+import { Daytona } from "@daytonaio/sdk";
 import { getUserId } from "./common";
+import { getEnvLabel } from "./env";
 import { createInfraProviders } from "./infraProviders";
 import { toSafeRepoName } from "./repoName";
 import {
@@ -18,6 +20,13 @@ function isProviderNotFoundError(error: unknown): boolean {
     if (typeof status === "number" && status === 404) {
       return true;
     }
+    const response = Reflect.get(error, "response");
+    if (typeof response === "object" && response !== null) {
+      const responseStatus = Reflect.get(response, "status");
+      if (typeof responseStatus === "number" && responseStatus === 404) {
+        return true;
+      }
+    }
   }
 
   if (!(error instanceof Error)) {
@@ -25,7 +34,11 @@ function isProviderNotFoundError(error: unknown): boolean {
   }
 
   const message = error.message.toLowerCase();
-  return message.includes("(404)") || message.includes("not found");
+  return (
+    message.includes("(404)") ||
+    message.includes("not found") ||
+    message.includes("404")
+  );
 }
 
 function toErrorMessage(error: unknown): string {
@@ -44,6 +57,108 @@ function readDefaultBranch(repoData: unknown): string {
     return value;
   }
   return "main";
+}
+
+const DAYTONA_API_URL_ENV = "DAYTONA_API_URL";
+const DAYTONA_API_TOKEN_ENV = "DAYTONA_API_TOKEN";
+const DAYTONA_API_KEY_ENV = "DAYTONA_API_KEY";
+const DAYTONA_SANDBOX_LIST_LIMIT = 100;
+const DAYTONA_SNAPSHOT_LIST_LIMIT = 100;
+
+type DaytonaSandbox = Awaited<ReturnType<Daytona["list"]>>["items"][number];
+type SnapshotService = Daytona["snapshot"];
+type DaytonaSnapshot = Awaited<ReturnType<SnapshotService["list"]>>["items"][number];
+
+function resolveDaytonaApiConfig():
+  | { ok: true; baseUrl: string; token: string }
+  | { ok: false; message: string } {
+  const baseUrl = process.env[DAYTONA_API_URL_ENV]?.trim() ?? "";
+  const token =
+    process.env[DAYTONA_API_TOKEN_ENV] ??
+    process.env[DAYTONA_API_KEY_ENV] ??
+    "";
+  const missing = [
+    baseUrl.length === 0 ? DAYTONA_API_URL_ENV : null,
+    token.length === 0
+      ? `${DAYTONA_API_TOKEN_ENV} (or ${DAYTONA_API_KEY_ENV})`
+      : null,
+  ].filter((value): value is string => value !== null);
+
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      message:
+        missing.length === 0
+          ? "Daytona is not configured."
+          : `Daytona is not configured. Missing ${missing.join(", ")}.`,
+    };
+  }
+
+  const isHttp =
+    baseUrl.startsWith("http://") || baseUrl.startsWith("https://");
+  if (!isHttp) {
+    return {
+      ok: false,
+      message: `DAYTONA_API_URL must start with http:// or https:// (received "${baseUrl}").`,
+    };
+  }
+
+  return { ok: true, baseUrl, token };
+}
+
+function inferDaytonaSnapshotPrefix(args: {
+  owner: string;
+  repo: string;
+}): string | null {
+  try {
+    const envLabel = getEnvLabel();
+    const base = toSafeRepoName(
+      `noter-prebuild-${envLabel}-${args.owner}-${args.repo}-`,
+    );
+    return base.length > 0 ? base : null;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn("daytona:delete:prefix:failed", { message });
+    return null;
+  }
+}
+
+async function listDaytonaSandboxes(
+  daytona: Daytona,
+  labels: Record<string, string>,
+): Promise<DaytonaSandbox[]> {
+  const sandboxes: DaytonaSandbox[] = [];
+  let page = 1;
+  let totalPages = 1;
+
+  do {
+    const result = await daytona.list(labels, page, DAYTONA_SANDBOX_LIST_LIMIT);
+    sandboxes.push(...result.items);
+    totalPages = result.totalPages;
+    page += 1;
+  } while (page <= totalPages);
+
+  return sandboxes;
+}
+
+async function listDaytonaSnapshots(
+  daytona: Daytona,
+): Promise<DaytonaSnapshot[]> {
+  const snapshots: DaytonaSnapshot[] = [];
+  let page = 1;
+  let totalPages = 1;
+
+  do {
+    const result = await daytona.snapshot.list(
+      page,
+      DAYTONA_SNAPSHOT_LIST_LIMIT,
+    );
+    snapshots.push(...result.items);
+    totalPages = result.totalPages;
+    page += 1;
+  } while (page <= totalPages);
+
+  return snapshots;
 }
 
 export const connectRepository = action({
@@ -275,6 +390,7 @@ export const deleteVault = action({
     removeGithubRepo: v.optional(v.boolean()),
     removeConvexProvision: v.optional(v.boolean()),
     removeNetlifyProvision: v.optional(v.boolean()),
+    removeDaytonaResources: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -326,6 +442,7 @@ export const deleteVault = action({
     const shouldRemoveRepo =
       args.removeGithubRepo === true && vault.isNoterManaged === true;
     const shouldRemoveCodespaces = args.removeCodespaces === true;
+    const shouldRemoveDaytonaResources = args.removeDaytonaResources === true;
 
     if (shouldRemoveNetlifyProvision || shouldRemoveConvexProvision) {
       const providers = createInfraProviders();
@@ -361,6 +478,84 @@ export const deleteVault = action({
               "POST",
             );
           }
+        } catch (error) {
+          if (!isProviderNotFoundError(error)) {
+            throw error;
+          }
+        }
+      }
+    }
+
+    if (shouldRemoveDaytonaResources) {
+      const apiConfig = resolveDaytonaApiConfig();
+      if (!apiConfig.ok) {
+        throw new Error(apiConfig.message);
+      }
+
+      const config: { apiKey: string; apiUrl?: string; target?: string } = {
+        apiKey: apiConfig.token,
+      };
+      if (apiConfig.baseUrl) {
+        config.apiUrl = apiConfig.baseUrl;
+      }
+
+      const daytona = new Daytona(config);
+      const vaultIdLabel = String(args.vaultId);
+      const sandboxIds = new Set<string>();
+      if (vault.daytonaSandboxId) {
+        sandboxIds.add(vault.daytonaSandboxId);
+      }
+
+      const sandboxes = await listDaytonaSandboxes(daytona, {
+        "noter.vault_id": vaultIdLabel,
+      });
+      for (const sandbox of sandboxes) {
+        if (sandbox.id) {
+          sandboxIds.add(sandbox.id);
+        }
+      }
+
+      for (const sandboxId of sandboxIds) {
+        try {
+          const sandbox = await daytona.get(sandboxId);
+          await sandbox.delete();
+        } catch (error) {
+          if (!isProviderNotFoundError(error)) {
+            throw error;
+          }
+        }
+      }
+
+      const snapshotNames = new Set<string>();
+      if (vault.daytonaSnapshotName) {
+        snapshotNames.add(vault.daytonaSnapshotName);
+      }
+      if (vault.daytonaPrebuildLogsSnapshot) {
+        snapshotNames.add(vault.daytonaPrebuildLogsSnapshot);
+      }
+
+      const snapshotPrefix = inferDaytonaSnapshotPrefix({
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+      });
+
+      const snapshotsByName = new Map<string, DaytonaSnapshot>();
+      if (snapshotPrefix) {
+        const snapshots = await listDaytonaSnapshots(daytona);
+        for (const snapshot of snapshots) {
+          if (snapshot.name.startsWith(snapshotPrefix)) {
+            snapshotsByName.set(snapshot.name, snapshot);
+            snapshotNames.add(snapshot.name);
+          }
+        }
+      }
+
+      for (const snapshotName of snapshotNames) {
+        try {
+          const snapshot =
+            snapshotsByName.get(snapshotName) ??
+            (await daytona.snapshot.get(snapshotName));
+          await daytona.snapshot.delete(snapshot);
         } catch (error) {
           if (!isProviderNotFoundError(error)) {
             throw error;
