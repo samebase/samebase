@@ -10,6 +10,7 @@ import {
   CreateSandboxFromSnapshotParams,
   Daytona,
   Image,
+  type Resources,
   type Sandbox,
 } from "@daytonaio/sdk";
 import { Infer, v } from "convex/values";
@@ -38,6 +39,7 @@ const PNPM_INSTALL_STATUS = "/tmp/noter-pnpm-install.status";
 const DAYTONA_PREVIEW_PORT = 5173;
 const DAYTONA_PREVIEW_TTL_SECONDS = 3600;
 const DAYTONA_DEV_LOG = "/tmp/noter-dev.log";
+const DEV_ENV_ORIGIN_ENV = "DEV_ENV_ORIGIN";
 const MAX_PREBUILD_LOG_CHARS = 50_000;
 const PREBUILD_LOG_FLUSH_MS = 1_000;
 const DAYTONA_REGISTRY_URL_ENV = "DAYTONA_REGISTRY_URL";
@@ -47,6 +49,11 @@ const DAYTONA_REGISTRY_PROJECT_ENV = "DAYTONA_REGISTRY_PROJECT";
 const DAYTONA_REGISTRY_NAME_ENV = "DAYTONA_REGISTRY_NAME";
 const DAYTONA_REGISTRY_SET_DEFAULT_ENV = "DAYTONA_REGISTRY_SET_DEFAULT";
 const DAYTONA_ORGANIZATION_ID_ENV = "DAYTONA_ORGANIZATION_ID";
+const DAYTONA_PREBUILD_RESOURCES: Resources = {
+  cpu: 4,
+  memory: 8,
+  disk: 10,
+};
 
 function isNotFoundError(error: unknown): boolean {
   if (typeof error === "object" && error !== null) {
@@ -118,6 +125,28 @@ function resolveDaytonaApiConfig():
   }
 
   return { ok: true, baseUrl, token };
+}
+
+async function inferSandboxDevOrigin(args: {
+  sandbox: Sandbox;
+  port: number;
+  ttlSeconds: number;
+}): Promise<string | null> {
+  try {
+    const preview = await args.sandbox.getSignedPreviewUrl(
+      args.port,
+      args.ttlSeconds,
+    );
+    const origin = new URL(preview.url).origin;
+    return origin.trim().length > 0 ? origin : null;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log("daytona:dev-origin:failed", {
+      sandboxId: args.sandbox.id,
+      message,
+    });
+    return null;
+  }
 }
 
 async function readPnpmLockHash(repoDir: string): Promise<string | null> {
@@ -643,6 +672,17 @@ async function startDaytonaDevServer(args: {
       fi
     fi
   `;
+  const devOrigin = await inferSandboxDevOrigin({
+    sandbox: args.sandbox,
+    port: DAYTONA_PREVIEW_PORT,
+    ttlSeconds: DAYTONA_PREVIEW_TTL_SECONDS,
+  });
+  if (devOrigin) {
+    console.log("daytona:dev-origin", {
+      sandboxId: args.sandbox.id,
+      origin: devOrigin,
+    });
+  }
   const installFallback = stripIndent`
     if [ ! -d "node_modules" ] \\
       && [ ! -d "apps/noter/node_modules" ] \\
@@ -651,6 +691,14 @@ async function startDaytonaDevServer(args: {
       NPM_CONFIG_ENGINE_STRICT=false pnpm install --prod=false --force --node-linker=hoisted;
     fi
   `;
+  const devEnv = [
+    devOrigin ? `${DEV_ENV_ORIGIN_ENV}=${quoteForBash(devOrigin)}` : "",
+    "NOTER_DEV_HOST=0.0.0.0",
+    `NOTER_DEV_PORT=${DAYTONA_PREVIEW_PORT}`,
+    "NOTER_DEV_STRICT_PORT=1",
+  ]
+    .filter((part) => part.length > 0)
+    .join(" ");
   const devCommand = `cd "${args.repoDir}" && pnpm run dev`;
   const script = stripIndent`
     set -e
@@ -664,9 +712,9 @@ async function startDaytonaDevServer(args: {
       fi;
     fi
     ${installFallback}
-    NOTER_DEV_HOST=0.0.0.0 NOTER_DEV_PORT=${DAYTONA_PREVIEW_PORT} NOTER_DEV_STRICT_PORT=1 nohup bash -lc ${quoteForBash(
-      devCommand,
-    )} > ${quoteForBash(DAYTONA_DEV_LOG)} 2>&1 &
+    ${devEnv} nohup bash -lc ${quoteForBash(devCommand)} > ${quoteForBash(
+      DAYTONA_DEV_LOG,
+    )} 2>&1 &
   `;
   const command = `bash -lc ${quoteForBash(script)}`;
   const result = await args.sandbox.process.executeCommand(
@@ -1826,7 +1874,9 @@ export const prebuildDaytonaSnapshot = action({
             printf "%s\\n" "$auto_cd_line" >> "$file";
           fi;
         done
-      `;
+      `
+        // Dockerfile RUN instructions must be a single line; keep loop inline.
+        .replace(/\n/g, " ");
 
       const lockHash = await readPnpmLockHash(repoDir);
       const depsImage = lockHash
@@ -1889,7 +1939,7 @@ export const prebuildDaytonaSnapshot = action({
           repoDir,
         );
         await daytona.snapshot.create(
-          { name: snapshotName, image },
+          { name: snapshotName, image, resources: DAYTONA_PREBUILD_RESOURCES },
           {
             timeout: 0,
             onLogs: (chunk) => {
