@@ -307,7 +307,11 @@ export function MonacoEditor({
   };
 
   return (
-    <div style={{ height: "100%", minHeight: "400px" }}>
+    <div
+      className="notranslate"
+      translate="no"
+      style={{ height: "100%", minHeight: "400px" }}
+    >
       <Editor
         height="100%"
         path={`file:///${filePath}`}

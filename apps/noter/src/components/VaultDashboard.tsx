@@ -325,14 +325,14 @@ export function VaultDashboard() {
                       {vault.ghRepoOwner}/
                     </span>
 
-                    <h3 className="font-semibold truncate">
-                      <span className="flex items-center gap-2">
+                    <h3 className="font-semibold">
+                      <span className="flex items-center gap-2 min-w-0">
                         {!isReady && (
-                          <UpdateIcon className="h-4 w-4 animate-spin text-muted-foreground" />
+                          <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
                         )}
-                        {vault.ghRepoName}
+                        <span className="min-w-0 truncate">{vault.ghRepoName}</span>
                         {!isReady && (
-                          <span className="text-xs text-muted-foreground font-normal">
+                          <span className="text-xs text-muted-foreground font-normal shrink-0">
                             (setting up...)
                           </span>
                         )}

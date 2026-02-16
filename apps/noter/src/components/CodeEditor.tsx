@@ -432,7 +432,8 @@ export function CodeEditor({
   return (
     <div
       ref={editorRef}
-      className={`h-full w-full`}
+      className="notranslate h-full w-full"
+      translate="no"
       style={{
         height: "100%",
         minHeight: "400px", // Minimum height for usability

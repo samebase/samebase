@@ -205,9 +205,7 @@ export function AddRepository() {
                           {ownerName}/
                         </span>
                         <h3 className="font-semibold truncate">
-                          <span
-                            className={`flex items-center gap-1 ${linkStyle}`}
-                          >
+                          <span className={linkStyle}>
                             {repoHighlight.highlightedText}
                           </span>
                         </h3>
