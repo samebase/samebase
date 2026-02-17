@@ -206,6 +206,7 @@ Auth:
 - Avoid adding unusual options or flags unless there is a clear, stated reason for them.
 - Prefer breadth-first, simplest-viable fixes before deeper changes; stop once a minimal solution works.
 - When using the local worktree helper, prefer `wt <branch>` to print a worktree path and `cd (wt <branch>)` to change directories in fish.
+- For rebase/fast-forward without switching directories, use `git -C (wt <branch>) rebase main` then `git -C (wt main) merge --ff-only <branch>`.
 - Deferred workflow experiment: optionally try a temporary `next_main` branch, cherry-pick changes, and merge PRs with merge commits. Treat this as opt-in per request (not default).
 
 ### Worktree Protocol (Local)
