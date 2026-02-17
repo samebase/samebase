@@ -208,7 +208,7 @@ Auth:
 - When using the local worktree helper, prefer `wt <branch>` to print a worktree path and `cd (wt <branch>)` to change directories in fish.
 - For rebase/fast-forward without switching directories, use `git -C (wt <branch>) rebase main` then `git -C (wt main) merge --ff-only <branch>`.
 - Deferred workflow experiment: optionally try a temporary `next_main` branch, cherry-pick changes, and merge PRs with merge commits. Treat this as opt-in per request (not default).
-- When the simpleView fixture test fails due to new `.md` files, update the fixture to include those `.md` files.
+- When the simpleView fixture test fails due to new `.md` files, update the fixture to include those `.md` files and include the fixture update in the same commit by default.
 - Do not bypass pre-commit hooks by default when lint/tests are failing; only do so on explicit user request.
 
 ### Worktree Protocol (Local)
