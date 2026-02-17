@@ -140,6 +140,7 @@ One caveat: Codespace secrets have a 48KB size limit, but auth.json is tiny so t
 - [ ] add integration test for Netlify provisioning order: site create -> env set -> repo patch -> skip manual trigger
 - [ ] add retry/backoff around deploy trigger/provisioning calls for transient Netlify/Convex API failures
 - [ ] define and document a Convex CLI dependency update cadence for the starter template
+- [ ] olap vs oltp
 
 ## Completed ✅
 - [x] when committing, commit all changed files
