@@ -5,6 +5,7 @@
 # also add a step that updates the env for preview server when using worktrees
 # or daytona or gh codespaces or something else
 run:
+	pnpm install
 	pnpm dev
 
 update-fixtures:

@@ -8,6 +8,8 @@
 
 ## High Priority
 
+- [ ] codex: make worktrees work automatically
+- [ ] chat-first UI: start with chatbot; allow chat messages to render Tailwind/React UI so users can promote pieces into the page (ex: sign-in inside chat)
 - [ ] the dev container template, should automatically login with convex so the dev server can be started immediately
 - [ ] Daytona prebuild alternative: use GitHub Actions to build devcontainer image and push to GHCR, with a manual UI button to trigger the workflow (auto-trigger later)
 - [ ] security: remove first-request token bootstrap in `.codespace-agent/server.js`; require preconfigured secret for auth before exposing agent APIs

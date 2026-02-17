@@ -280,28 +280,31 @@ export function VaultDashboard() {
 
   if (vaults.length === 0) {
     return (
-      <div className="container py-6 max-w-2xl mx-auto">
-        <div className="text-center space-y-6">
-          <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center">
-            <GitHubLogoIcon className="h-12 w-12 text-muted-foreground" />
-          </div>
+      <div className="h-full overflow-y-auto">
+        <div className="container py-6 max-w-2xl mx-auto">
+          <div className="text-center space-y-6">
+            <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center">
+              <GitHubLogoIcon className="h-12 w-12 text-muted-foreground" />
+            </div>
 
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold">Create your first agent</h1>
-            <p className="text-lg text-muted-foreground">
-              Start with a new agent or connect an existing repository to edit
-              files directly in your browser.
-            </p>
-          </div>
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold">Create your first agent</h1>
+              <p className="text-lg text-muted-foreground">
+                Start with a new agent or connect an existing repository to edit
+                files directly in your browser.
+              </p>
+            </div>
 
-          <div className="flex justify-center">{createControl}</div>
+            <div className="flex justify-center">{createControl}</div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container py-6">
+    <div className="h-full overflow-y-auto">
+      <div className="container py-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div className="flex items-center gap-2">
           <GitHubLogoIcon className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -686,6 +689,7 @@ export function VaultDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
     </div>
   );
 }
