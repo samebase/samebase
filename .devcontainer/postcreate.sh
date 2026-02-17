@@ -4,6 +4,27 @@ set -euo pipefail
 WORKSPACE_DIR="${WORKSPACE_DIR:-$(pwd)}"
 cd "$WORKSPACE_DIR"
 
+if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  current_branch="$(git symbolic-ref -q --short HEAD || true)"
+  if [ -z "$current_branch" ]; then
+    branch_base="codex/auto-$(date +%Y%m%d-%H%M%S)"
+    branch_name="$branch_base"
+    if git show-ref --verify --quiet "refs/heads/$branch_name"; then
+      for _ in 1 2 3 4 5; do
+        branch_name="${branch_base}-$RANDOM"
+        if ! git show-ref --verify --quiet "refs/heads/$branch_name"; then
+          break
+        fi
+      done
+    fi
+    if git switch -c "$branch_name" >/dev/null 2>&1; then
+      echo "Created branch: $branch_name"
+    else
+      echo "Could not create branch (leaving HEAD detached)."
+    fi
+  fi
+fi
+
 CACHE_ROOT=""
 if [ -d /vscode ] && [ -w /vscode ]; then
   CACHE_ROOT="/vscode/noter-cache"

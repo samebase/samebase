@@ -17,6 +17,10 @@
 - [ ] add help center app, show how easy it is to have one, where everything is markdown
 - [ ] worktree friendly vibe code editor
 - [ ] **IMPORTANT**: make `noter.md` comfortable to use with worktrees using Codex on mac
+- [ ] document 3 ways to view `noter.md`:
+1. noter is a note taking app based on Markdown similar to obsidian, but it's collaborative like notion (syncs to github in background)
+2. since agents can be defined using markdown and tools.json, using a repo with files is a nice and clear representation (instead of pythong or typescript)
+3. the agents are running on convex for the backend, and netlify (or similar) for frontend deployment React+tailwind+shadcn. It's github codespaces ready, integrates well with worktrees and teh codex workflow
 - [ ] check all commits created from noter if we didn't lose anything due to the way it doesn't update it's own tree correctly
 
 - [ ] left to easily press enter

@@ -177,6 +177,13 @@ Shorthand commands for git/GitHub workflows. When the user says these, execute t
 - **NEVER merge a PR until CI is green** - always wait for checks to pass.
 - Preferred merge style for this repo: rebase the branch onto `main`, then merge with a merge commit (`gh pr merge --merge`) so PR boundaries remain visible while preserving internal commits.
 
+## Worktree Branching
+
+- If HEAD is detached, create a branch with the `codex/` prefix (example: `git switch -c codex/auto-20260217-103000`).
+- To rename the current branch: `git branch -m codex/new-name`.
+- If the branch was pushed already, push the new name and delete the old remote: `git push -u origin codex/new-name` then `git push origin --delete codex/old-name`.
+- If you are detached and want a specific name, use `git switch -c codex/<name>`.
+
 ## Daytona Refresh (Local CLI)
 
 When you need to refresh a Daytona sandbox repo to the latest branch tip using local GitHub auth, use the repo script:
