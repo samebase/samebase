@@ -1,6 +1,7 @@
 type ConvexRequestMethod = "GET" | "POST";
 type NetlifyRequestMethod = "GET" | "POST" | "PATCH" | "DELETE";
-type ProviderName = "Convex" | "Netlify";
+type CloudflareRequestMethod = "GET" | "POST" | "PATCH" | "DELETE";
+type ProviderName = "Convex" | "Netlify" | "Cloudflare";
 
 export interface ConvexManagementProvider {
   request(path: string, method: ConvexRequestMethod, body?: unknown): Promise<unknown>;
@@ -8,6 +9,14 @@ export interface ConvexManagementProvider {
 
 export interface NetlifyManagementProvider {
   request(path: string, method: NetlifyRequestMethod, body?: unknown): Promise<unknown>;
+}
+
+export interface CloudflareManagementProvider {
+  request(
+    path: string,
+    method: CloudflareRequestMethod,
+    body?: unknown,
+  ): Promise<unknown>;
 }
 
 export function getRequiredEnv(name: string): string {
@@ -55,7 +64,7 @@ async function requestProviderApi(args: {
   baseUrl: string;
   token: string;
   path: string;
-  method: ConvexRequestMethod | NetlifyRequestMethod;
+  method: ConvexRequestMethod | NetlifyRequestMethod | CloudflareRequestMethod;
   body?: unknown;
 }): Promise<unknown> {
   const response = await fetch(`${args.baseUrl}${args.path}`, {
@@ -80,12 +89,15 @@ async function requestProviderApi(args: {
 export function createInfraProviders(args?: {
   convexToken?: string;
   netlifyToken?: string;
+  cloudflareToken?: string;
 }): {
   convex: ConvexManagementProvider;
   netlify: NetlifyManagementProvider;
+  cloudflare: CloudflareManagementProvider;
 } {
   const convexTokenOverride = args?.convexToken;
   const netlifyTokenOverride = args?.netlifyToken;
+  const cloudflareTokenOverride = args?.cloudflareToken;
 
   return {
     convex: {
@@ -112,6 +124,40 @@ export function createInfraProviders(args?: {
           method,
           body,
         });
+      },
+    },
+    cloudflare: {
+      async request(path, method, body) {
+        const token =
+          cloudflareTokenOverride ?? getRequiredEnv("CLOUDFLARE_API_TOKEN");
+        const response = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
+          method,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: body === undefined ? undefined : JSON.stringify(body),
+        });
+
+        const payload = await parseResponseBody(response);
+        const record =
+          typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : null;
+        const success =
+          record && typeof record.success === "boolean" ? record.success : response.ok;
+
+        if (!response.ok || !success) {
+          const errors = record?.errors ?? record?.messages;
+          throw new Error(
+            `Cloudflare API request failed (${response.status}) for ${path}: ${payloadToString(
+              errors ?? payload,
+            )}`,
+          );
+        }
+
+        if (record && "result" in record) {
+          return record.result;
+        }
+        return payload;
       },
     },
   };

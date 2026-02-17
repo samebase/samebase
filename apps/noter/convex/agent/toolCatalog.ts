@@ -89,16 +89,16 @@ Common endpoints:
     inputDisplayKey: "maxLines",
   },
   {
-    name: "request_netlify_status_read",
+    name: "request_cloudflare_status_read",
     description:
-      "Request approval to read Netlify site/deployment status for the current vault. This tool only creates an approval proposal.",
-    uiDescription: "Propose Netlify status read (approval required)",
+      "Request approval to read Cloudflare Pages deployment status for the current vault. This tool only creates an approval proposal.",
+    uiDescription: "Propose Cloudflare status read (approval required)",
   },
   {
-    name: "request_netlify_logs_read",
+    name: "request_cloudflare_logs_read",
     description:
-      "Request approval to read Netlify deploy/build activity logs for the current vault. This tool only proposes access.",
-    uiDescription: "Propose Netlify logs read (approval required)",
+      "Request approval to read Cloudflare Pages deployment logs for the current vault. This tool only proposes access.",
+    uiDescription: "Propose Cloudflare logs read (approval required)",
     inputDisplayKey: "maxEntries",
   },
   {
@@ -109,10 +109,10 @@ Common endpoints:
     inputDisplayKey: "limit",
   },
   {
-    name: "request_netlify_projects_read",
+    name: "request_cloudflare_projects_read",
     description:
-      "Request approval to list Netlify sites for the configured team. This tool only creates an approval proposal and does not execute direct reads.",
-    uiDescription: "Propose Netlify project inventory read (approval required)",
+      "Request approval to list Cloudflare Pages projects for the configured account. This tool only creates an approval proposal and does not execute direct reads.",
+    uiDescription: "Propose Cloudflare project inventory read (approval required)",
     inputDisplayKey: "limit",
   },
   {

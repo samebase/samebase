@@ -33,8 +33,10 @@ export const listRepositories = action({
     if (!currentUser) {
       throw new Error("User not found");
     }
+    if (!currentUser.githubAccessToken) {
+      throw new Error("GitHub access token not found");
+    }
 
-    console.log(currentUser);
     const accessToken = currentUser.githubAccessToken;
 
     // Fetch repositories from GitHub API
@@ -56,8 +58,6 @@ export const listRepositories = action({
 
     const repos: any[] = await response.json();
 
-    console.log(repos);
-
     const val = repos.map((repo: any) => ({
       id: repo.id,
       name: repo.name,
@@ -72,8 +72,6 @@ export const listRepositories = action({
       stargazers_count: repo.stargazers_count,
       forks_count: repo.forks_count,
     }));
-
-    console.log(val);
     return val;
   },
 });

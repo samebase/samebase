@@ -56,6 +56,8 @@ export const VaultDomainKind = v.union(
 export const VaultDomainSource = v.union(
   v.literal("netlify_default"),
   v.literal("netlify_custom"),
+  v.literal("cloudflare_pages_default"),
+  v.literal("cloudflare_pages_custom"),
 );
 
 export const ProdAccessScope = v.union(v.literal("vault"), v.literal("global"));
@@ -63,6 +65,7 @@ export const ProdAccessScope = v.union(v.literal("vault"), v.literal("global"));
 export const ProdAccessProvider = v.union(
   v.literal("convex"),
   v.literal("netlify"),
+  v.literal("cloudflare"),
 );
 
 export const ProdAccessResourceKind = v.union(
@@ -117,11 +120,26 @@ export default defineSchema({
 
     // Added these things. Maybe find a better way?
     // GitHub
-    githubUsername: v.string(),
+    githubUsername: v.optional(v.string()),
     isApproved: v.optional(v.boolean()),
     githubAccessToken: v.optional(v.string()),
     githubRefreshToken: v.optional(v.string()),
     githubExpiresAt: v.optional(v.number()),
+
+    // Convex (BYO OAuth)
+    convexAccessToken: v.optional(v.string()),
+    convexRefreshToken: v.optional(v.string()),
+    convexExpiresAt: v.optional(v.number()),
+    convexUserId: v.optional(v.string()),
+    convexTeamId: v.optional(v.string()),
+    convexTeamSlug: v.optional(v.string()),
+
+    // Cloudflare (optional BYO)
+    cloudflareAccessToken: v.optional(v.string()),
+    cloudflareRefreshToken: v.optional(v.string()),
+    cloudflareExpiresAt: v.optional(v.number()),
+    cloudflareAccountId: v.optional(v.string()),
+    cloudflareAccountName: v.optional(v.string()),
   })
     .index("email", ["email"])
     .index("phone", ["phone"]),
@@ -195,6 +213,15 @@ export default defineSchema({
     netlifyDefaultUrl: v.optional(v.string()),
     netlifyProductionUrl: v.optional(v.string()),
     netlifyBuildHookId: v.optional(v.string()),
+
+    // Cloudflare Pages
+    cloudflarePagesProjectId: v.optional(v.string()),
+    cloudflarePagesProjectName: v.optional(v.string()),
+    cloudflarePagesAccountId: v.optional(v.string()),
+    cloudflarePagesAccountName: v.optional(v.string()),
+    cloudflarePagesSubdomain: v.optional(v.string()),
+    cloudflarePagesDefaultUrl: v.optional(v.string()),
+    cloudflarePagesProductionUrl: v.optional(v.string()),
   })
     .index("by_vault", ["vaultId"])
     .index("by_status", ["status"]),
@@ -395,6 +422,20 @@ export default defineSchema({
     .index("by_request", ["requestId"])
     .index("by_actor", ["actorUserId"])
     .index("by_action", ["action"]),
+
+  /**
+   * OAuth state records for provider integrations (Convex OAuth).
+   */
+  oauthStates: defineTable({
+    provider: v.union(v.literal("convex")),
+    userId: v.id("users"),
+    state: v.string(),
+    codeVerifier: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_state", ["state"])
+    .index("by_user", ["userId"]),
 
   collaborativeUpdates: defineTable({
     vaultId: v.id("vaults"),

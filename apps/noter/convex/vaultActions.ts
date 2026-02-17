@@ -178,6 +178,9 @@ export const connectRepository = action({
     if (!currentUser) {
       throw new Error("User not found");
     }
+    if (!currentUser.githubAccessToken) {
+      throw new Error("GitHub access token not found");
+    }
 
     const octokit = new Octokit({
       auth: currentUser.githubAccessToken,
@@ -258,6 +261,18 @@ export const createRepository = action({
 
     if (!currentUser.githubAccessToken) {
       throw new Error("GitHub access token not found");
+    }
+    const allowOperatorFallback = process.env.ALLOW_OPERATOR_FALLBACK === "true";
+    const hasConvexConnection =
+      typeof currentUser.convexAccessToken === "string" &&
+      typeof currentUser.convexTeamId === "string";
+    if (!hasConvexConnection && !allowOperatorFallback) {
+      throw new Error("Convex connection is required to create a project.");
+    }
+    if (!hasConvexConnection && allowOperatorFallback) {
+      if (!process.env.CONVEX_MANAGEMENT_TOKEN || !process.env.CONVEX_TEAM_ID) {
+        throw new Error("Convex operator tokens are not configured.");
+      }
     }
 
     const repoName = toSafeRepoName(args.name);
@@ -389,21 +404,24 @@ export const deleteVault = action({
     removeCodespaces: v.optional(v.boolean()),
     removeGithubRepo: v.optional(v.boolean()),
     removeConvexProvision: v.optional(v.boolean()),
+    removeCloudflareProvision: v.optional(v.boolean()),
     removeNetlifyProvision: v.optional(v.boolean()),
     removeDaytonaResources: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
+    const user = await ctx.runQuery(internal.users.getById, {
+      userId,
+    });
+    if (!user) {
+      throw new Error("User not found");
+    }
     let octokit: Octokit | null = null;
     const getOctokit = async (): Promise<Octokit> => {
       if (octokit) {
         return octokit;
       }
-
-      const user = await ctx.runQuery(internal.users.getById, {
-        userId,
-      });
 
       if (!user?.githubAccessToken) {
         throw new Error("GitHub access token not found");
@@ -434,6 +452,10 @@ export const deleteVault = action({
       args.removeNetlifyProvision === true &&
       vault.isNoterManaged === true &&
       typeof infrastructure?.netlifySiteId === "string";
+    const shouldRemoveCloudflareProvision =
+      args.removeCloudflareProvision === true &&
+      vault.isNoterManaged === true &&
+      typeof infrastructure?.cloudflarePagesProjectName === "string";
     const shouldRemoveConvexProvision =
       args.removeConvexProvision === true &&
       vault.isNoterManaged === true &&
@@ -444,8 +466,30 @@ export const deleteVault = action({
     const shouldRemoveCodespaces = args.removeCodespaces === true;
     const shouldRemoveDaytonaResources = args.removeDaytonaResources === true;
 
-    if (shouldRemoveNetlifyProvision || shouldRemoveConvexProvision) {
-      const providers = createInfraProviders();
+    if (
+      shouldRemoveNetlifyProvision ||
+      shouldRemoveConvexProvision ||
+      shouldRemoveCloudflareProvision
+    ) {
+      const allowOperatorFallback = process.env.ALLOW_OPERATOR_FALLBACK === "true";
+      const convexToken = shouldRemoveConvexProvision
+        ? user.convexAccessToken ??
+          (allowOperatorFallback ? process.env.CONVEX_MANAGEMENT_TOKEN : undefined)
+        : undefined;
+      if (shouldRemoveConvexProvision && !convexToken) {
+        throw new Error("Convex connection is required to remove resources.");
+      }
+      const cloudflareToken = shouldRemoveCloudflareProvision
+        ? user.cloudflareAccessToken ?? process.env.CLOUDFLARE_API_TOKEN
+        : undefined;
+      if (shouldRemoveCloudflareProvision && !cloudflareToken) {
+        throw new Error("Cloudflare is not configured for resource removal.");
+      }
+
+      const providers = createInfraProviders({
+        convexToken,
+        cloudflareToken,
+      });
 
       if (shouldRemoveNetlifyProvision) {
         const netlifySiteId = infrastructure.netlifySiteId;
@@ -478,6 +522,27 @@ export const deleteVault = action({
               "POST",
             );
           }
+        } catch (error) {
+          if (!isProviderNotFoundError(error)) {
+            throw error;
+          }
+        }
+      }
+
+      if (shouldRemoveCloudflareProvision) {
+        const projectName = infrastructure.cloudflarePagesProjectName;
+        const accountId =
+          infrastructure.cloudflarePagesAccountId ??
+          user.cloudflareAccountId ??
+          process.env.CLOUDFLARE_ACCOUNT_ID;
+        if (!projectName || !accountId) {
+          throw new Error("Cloudflare Pages project details are missing.");
+        }
+        try {
+          await providers.cloudflare.request(
+            `/accounts/${encodeURIComponent(accountId)}/pages/projects/${encodeURIComponent(projectName)}`,
+            "DELETE",
+          );
         } catch (error) {
           if (!isProviderNotFoundError(error)) {
             throw error;

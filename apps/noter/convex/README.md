@@ -6,7 +6,7 @@ This directory contains Noter's backend: schema, auth, repository workflows, col
 
 1. `schema.ts` - full data model and indexes
 2. `vaultActions.ts` - repository connect/create/delete + infra retry actions
-3. `infraProvisioning.ts` - async Convex/Netlify provisioning flow
+3. `infraProvisioning.ts` - async Convex/Cloudflare provisioning flow
 4. `chat.ts` + `chatActions.ts` - conversation lifecycle, response generation, approval flows
 5. `codespaces.ts` + `vaultCodespaceIntegration.ts` - Codespaces lifecycle integration
 
@@ -27,7 +27,7 @@ This directory contains Noter's backend: schema, auth, repository workflows, col
 ### Chat Approval Flows
 
 - Commit proposals in chat
-- Production read proposals (Convex/Netlify/logs/data)
+- Production read proposals (Convex/Cloudflare/logs/data)
 - Explicit approve/reject with audit trails (`aiProdAccessRequests`, `aiProdAccessAudit`)
 
 ## Useful Local Commands
