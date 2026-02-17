@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "noter monorepo with Turborepo and PNPM",
   "packageManager": "pnpm@9.15.0",
+  "type": "module",
   "engines": {
     "node": ">=24.0.0",
     "pnpm": ">=9.0.0"
@@ -39,5 +40,8 @@
     "convex"
   ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@robolex/sure": "^0.12.0"
+  }
 }

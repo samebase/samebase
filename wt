@@ -1,0 +1,70 @@
+#!/usr/bin/env node
+// @ts-check
+import { execSync } from 'node:child_process'
+import { object, string, optional, err } from '@robolex/sure'
+
+/**
+ *
+ * @param args {unknown[]}
+ */
+function log(...args) {
+  if (false) {
+    console.log(...args)
+  }
+}
+
+const WorktreeSchema = object({
+  branch: optional(string),
+  worktree: string,
+  HEAD: string,
+})
+
+const target = process.argv[2]
+
+if (!target) {
+  const worktrees = getWorktrees().filter(wt => wt.shortBranch)
+
+  console.log(worktrees.map(wt => `${wt.shortBranch} ${wt.worktree}`).join('\n'))
+  process.exit(1)
+}
+
+function getWorktrees() {
+  const output = execSync('git worktree list --porcelain', {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+  })
+
+  const worktrees = output
+    .trim()
+    .split('\n\n')
+    .map(line => {
+      const entries = line.split('\n').map(line => line.split(' '))
+
+      const worktree = Object.fromEntries(entries)
+      return err(WorktreeSchema)(worktree)
+    })
+
+  const augmentedWorktrees = worktrees.map(wt => {
+    return {
+      ...wt,
+
+      shortBranch: wt.branch?.split('/').pop(),
+    }
+  })
+  return augmentedWorktrees
+}
+
+const worktrees = getWorktrees()
+
+const wt = worktrees.find(wt => wt.shortBranch === target)
+
+log(wt)
+
+if (!wt) {
+  console.error(`worktree ${target} not found`)
+  process.exit(1)
+}
+
+console.log(wt.worktree)
+
+process.exit(0)
