@@ -98,12 +98,13 @@ export function VaultDashboard() {
   const disconnectGithub = useMutation(api.users.disconnectGithub);
   const disconnectConvex = useMutation(api.users.disconnectConvex);
   const disconnectCloudflare = useMutation(api.users.disconnectCloudflare);
-  const connectCloudflare = useMutation(api.users.connectCloudflare);
   const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
   const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus);
   const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus);
   const canCreateProject = Boolean(
-    githubConnection?.connected && convexConnection?.connected,
+    githubConnection?.connected &&
+      convexConnection?.connected &&
+      cloudflareConnection?.connected,
   );
   const [vaultToDelete, setVaultToDelete] = useState<{
     id: Id<"vaults">;
@@ -121,12 +122,6 @@ export function VaultDashboard() {
   const [removeNetlifyProvision, setRemoveNetlifyProvision] = useState(false);
   const [removeDaytonaResources, setRemoveDaytonaResources] = useState(false);
   const [newAgentName, setNewAgentName] = useState("");
-  const [cloudflareAccountId, setCloudflareAccountId] = useState("");
-  const [cloudflareAccountName, setCloudflareAccountName] = useState("");
-  const [cloudflareToken, setCloudflareToken] = useState("");
-  const [cloudflareError, setCloudflareError] = useState<string | null>(null);
-  const [isCloudflareDialogOpen, setIsCloudflareDialogOpen] = useState(false);
-  const [isConnectingCloudflare, setIsConnectingCloudflare] = useState(false);
   const [disconnectingProvider, setDisconnectingProvider] = useState<
     "github" | "convex" | "cloudflare" | null
   >(null);
@@ -155,6 +150,9 @@ export function VaultDashboard() {
     import.meta.env.VITE_CONVEX_SITE_URL ?? import.meta.env.VITE_CONVEX_URL ?? "";
   const convexOAuthUrl = convexSiteUrl
     ? `${convexSiteUrl.replace(/\/$/, "")}/api/oauth/convex/start`
+    : "";
+  const cloudflareOAuthUrl = convexSiteUrl
+    ? `${convexSiteUrl.replace(/\/$/, "")}/api/oauth/cloudflare/start`
     : "";
 
   const resetDeleteDialogState = () => {
@@ -214,33 +212,23 @@ export function VaultDashboard() {
     }
   };
 
-  const handleConnectCloudflare = async () => {
-    if (isConnectingCloudflare) return;
-    const accessToken = cloudflareToken.trim();
-    const accountId = cloudflareAccountId.trim();
-    if (!accessToken || !accountId) {
-      setCloudflareError("Cloudflare account ID and API token are required.");
+  const handleConnectCloudflare = () => {
+    if (createError) {
+      setCreateError(null);
+    }
+    if (!cloudflareOAuthUrl) {
+      setCreateError("Missing VITE_CONVEX_SITE_URL for Cloudflare OAuth.");
       return;
     }
-    setIsConnectingCloudflare(true);
-    setCloudflareError(null);
-    try {
-      await connectCloudflare({
-        accessToken,
-        accountId,
-        accountName: cloudflareAccountName.trim() || undefined,
-      });
-      setCloudflareToken("");
-      setCloudflareAccountId("");
-      setCloudflareAccountName("");
-      setIsCloudflareDialogOpen(false);
-    } catch (error) {
-      setCloudflareError(
-        error instanceof Error ? error.message : "Failed to connect Cloudflare",
+    if (isInIframe()) {
+      window.open(
+        cloudflareOAuthUrl,
+        "cloudflare-oauth",
+        "width=600,height=700,popup=true",
       );
-    } finally {
-      setIsConnectingCloudflare(false);
+      return;
     }
+    window.location.assign(cloudflareOAuthUrl);
   };
 
   const handleRemoveVault = async () => {
@@ -301,7 +289,9 @@ export function VaultDashboard() {
     const repoName = newAgentName.trim();
     if (!repoName || isCreating) return;
     if (!canCreateProject) {
-      setCreateError("Connect GitHub and Convex before creating a project.");
+      setCreateError(
+        "Connect GitHub, Convex, and Cloudflare before creating a project.",
+      );
       return;
     }
 
@@ -348,8 +338,9 @@ export function VaultDashboard() {
     : "Not connected";
   const cloudflareStatus = cloudflareConnected
     ? `Connected to ${cloudflareConnection?.accountName ?? cloudflareConnection?.accountId ?? "Cloudflare account"}`
-    : "Not connected (optional)";
+    : "Not connected";
   const canStartConvexOAuth = Boolean(convexOAuthUrl);
+  const canStartCloudflareOAuth = Boolean(cloudflareOAuthUrl);
 
   const createControl = (
     <div className="flex flex-col items-start gap-2">
@@ -404,7 +395,7 @@ export function VaultDashboard() {
       )}
       {!canCreateProject && (
         <div className="text-xs text-muted-foreground">
-          Connect GitHub and Convex to create projects.
+          Connect GitHub, Convex, and Cloudflare to create projects.
         </div>
       )}
     </div>
@@ -510,10 +501,8 @@ export function VaultDashboard() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                setCloudflareError(null);
-                setIsCloudflareDialogOpen(true);
-              }}
+              onClick={handleConnectCloudflare}
+              disabled={!canStartCloudflareOAuth}
             >
               Connect Cloudflare
             </Button>
@@ -975,102 +964,6 @@ export function VaultDashboard() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={isCloudflareDialogOpen}
-        onOpenChange={(open) => {
-          if (isConnectingCloudflare) return;
-          setIsCloudflareDialogOpen(open);
-          if (!open) {
-            setCloudflareError(null);
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Connect Cloudflare</DialogTitle>
-            <DialogDescription>
-              Provide a Cloudflare API token and account ID to provision Pages
-              projects in your account. This is optional.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <label
-                htmlFor="cloudflare-account-id"
-                className="text-sm text-muted-foreground"
-              >
-                Account ID
-              </label>
-              <Input
-                id="cloudflare-account-id"
-                placeholder="1234abcd..."
-                value={cloudflareAccountId}
-                onChange={(e) => {
-                  setCloudflareAccountId(e.target.value);
-                  if (cloudflareError) setCloudflareError(null);
-                }}
-              />
-            </div>
-            <div className="space-y-1">
-              <label
-                htmlFor="cloudflare-account-name"
-                className="text-sm text-muted-foreground"
-              >
-                Account name (optional)
-              </label>
-              <Input
-                id="cloudflare-account-name"
-                placeholder="My Cloudflare Account"
-                value={cloudflareAccountName}
-                onChange={(e) => setCloudflareAccountName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <label
-                htmlFor="cloudflare-token"
-                className="text-sm text-muted-foreground"
-              >
-                API token
-              </label>
-              <Input
-                id="cloudflare-token"
-                type="password"
-                placeholder="cf_api_token..."
-                value={cloudflareToken}
-                onChange={(e) => {
-                  setCloudflareToken(e.target.value);
-                  if (cloudflareError) setCloudflareError(null);
-                }}
-              />
-            </div>
-            {cloudflareError && (
-              <div className="text-sm text-red-600">{cloudflareError}</div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsCloudflareDialogOpen(false)}
-              disabled={isConnectingCloudflare}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => void handleConnectCloudflare()}
-              disabled={isConnectingCloudflare}
-            >
-              {isConnectingCloudflare ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Connecting...
-                </>
-              ) : (
-                "Connect"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
     </div>
   );
