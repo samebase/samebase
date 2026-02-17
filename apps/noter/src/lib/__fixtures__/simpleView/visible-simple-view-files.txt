@@ -32,4 +32,3 @@ specs/013_WORKTREE_AUTO_PROVISIONING_SPEC.md
 TODO.md
 VISION.md
 worktree.md
-wt

@@ -21,6 +21,7 @@ simpleView:
     - "**/_redirects"    
     - "**/*.{json,ts,tsx,js,jsx,css,html,yaml,toml,tsbuildinfo,yml}" # Source file extensions
     - pre-commit
+    - wt # worktree helper
 ---
 
 # noter.md
