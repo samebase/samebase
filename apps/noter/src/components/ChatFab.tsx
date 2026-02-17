@@ -87,7 +87,7 @@ type ProdReadProposal = {
   type: "prod_read_proposal";
   requestId: Id<"aiProdAccessRequests">;
   scope: "vault" | "global";
-  provider: "convex" | "netlify";
+  provider: "convex" | "netlify" | "cloudflare";
   resourceKind:
     | "deployment_status"
     | "logs"
@@ -104,7 +104,7 @@ type ProdReadProposal = {
 type ProdReadResult = {
   type: "prod_read_result";
   requestId: Id<"aiProdAccessRequests">;
-  provider: "convex" | "netlify";
+  provider: "convex" | "netlify" | "cloudflare";
   resourceKind:
     | "deployment_status"
     | "logs"
@@ -398,6 +398,12 @@ function renderProdReadLabel(resourceKind: ProdReadProposal["resourceKind"]) {
   return "Site inventory";
 }
 
+function renderProviderLabel(provider: ProdReadProposal["provider"]) {
+  if (provider === "convex") return "Convex";
+  if (provider === "cloudflare") return "Cloudflare Pages";
+  return "Netlify";
+}
+
 function ProdReadProposalCard({
   metadata,
   conversationId,
@@ -436,7 +442,7 @@ function ProdReadProposalCard({
     }
   }
 
-  const providerLabel = metadata.provider === "convex" ? "Convex" : "Netlify";
+  const providerLabel = renderProviderLabel(metadata.provider);
   const scopeLabel = metadata.scope === "vault" ? "Vault scope" : "Global scope";
 
   return (
@@ -780,7 +786,7 @@ export function ChatFab() {
             <CapabilitiesPanel
               repositoryFullName={repositoryFullName}
               vaultId={vaultId}
-              hasGithubToken={Boolean(viewer?.githubAccessToken)}
+              hasGithubToken={Boolean(viewer?.hasGithubAccessToken)}
               systemPrompt={conversation?.systemPrompt}
             />
             {conversationId &&

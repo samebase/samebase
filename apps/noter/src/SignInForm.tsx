@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
+import { Chrome } from "lucide-react";
 import { useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { useEffect, useRef, useState } from "react";
@@ -26,7 +27,7 @@ function useAutoReauthenticate() {
     if (!localStorage.getItem(AUTH_FLAG_KEY)) return;
 
     attempted.current = true;
-    void signIn("github");
+    void signIn("google");
   }, [signIn]);
 
   // Returning whether we're attempting auto-login so the form can hide itself
@@ -49,7 +50,7 @@ export function SignInForm() {
           <li>supports real-time collaboration</li>
           <li>is mobile-web first</li>
         </ul>
-        <SignInWithGitHub />
+        <SignInWithGoogle />
         <WaitlistForm />
       </div>
     </div>
@@ -99,7 +100,7 @@ function WaitlistForm() {
   );
 }
 
-function isInIframe() {
+export function isInIframe() {
   try {
     return window !== window.top;
   } catch {
@@ -107,8 +108,31 @@ function isInIframe() {
   }
 }
 
+export function openAuthPopup(provider: "google" | "github") {
+  // Don't call signIn directly — the library would try window.location.href
+  // which breaks in iframes. Instead open a popup that will auto-trigger sign-in.
+  // Listen for auth tokens sent from the popup via postMessage.
+  const handler = (event: MessageEvent) => {
+    if (event.data?.type === "convex-auth-tokens") {
+      window.removeEventListener("message", handler);
+      const tokens = event.data.tokens as Record<string, string>;
+      for (const [key, value] of Object.entries(tokens)) {
+        localStorage.setItem(key, value);
+      }
+      window.location.reload();
+    }
+  };
+  window.addEventListener("message", handler);
+
+  window.open(
+    `${window.location.origin}/?auth=${provider}`,
+    `${provider}-oauth`,
+    "width=600,height=700,popup=true",
+  );
+}
+
 /**
- * Auto-trigger GitHub sign-in when opened as a popup with ?auth=github.
+ * Auto-trigger provider sign-in when opened as a popup with ?auth=github|google.
  * The popup handles the full OAuth redirect flow (not blocked by CSP
  * since it's a top-level window). After auth completes, the popup
  * auto-closes and the token syncs to the parent via localStorage.
@@ -117,15 +141,36 @@ export function useAutoSignIn() {
   const { signIn } = useAuthActions();
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("auth") === "github" && window.opener) {
+    const auth = params.get("auth");
+    if ((auth === "github" || auth === "google") && window.opener) {
       params.delete("auth");
       const newUrl =
         window.location.pathname +
         (params.toString() ? `?${params.toString()}` : "");
       window.history.replaceState({}, "", newUrl);
-      void signIn("github");
+      void signIn(auth);
     }
   }, [signIn]);
+}
+
+export function SignInWithGoogle() {
+  const { signIn } = useAuthActions();
+  return (
+    <Button
+      className="flex-1"
+      variant="outline"
+      type="button"
+      onClick={() => {
+        if (isInIframe()) {
+          openAuthPopup("google");
+        } else {
+          void signIn("google");
+        }
+      }}
+    >
+      <Chrome className="mr-2 h-4 w-4" /> Google
+    </Button>
+  );
 }
 
 export function SignInWithGitHub() {
@@ -137,29 +182,7 @@ export function SignInWithGitHub() {
       type="button"
       onClick={() => {
         if (isInIframe()) {
-          // Don't call signIn here — the library would try
-          // window.location.href which breaks the iframe.
-          // Instead open a popup that will auto-trigger sign-in.
-          // Listen for auth tokens sent from the popup via postMessage.
-          // This handles the case where iframe localStorage is
-          // partitioned and can't read the popup's stored tokens.
-          const handler = (event: MessageEvent) => {
-            if (event.data?.type === "convex-auth-tokens") {
-              window.removeEventListener("message", handler);
-              const tokens = event.data.tokens as Record<string, string>;
-              for (const [key, value] of Object.entries(tokens)) {
-                localStorage.setItem(key, value);
-              }
-              window.location.reload();
-            }
-          };
-          window.addEventListener("message", handler);
-
-          window.open(
-            window.location.origin + "/?auth=github",
-            "github-oauth",
-            "width=600,height=700,popup=true",
-          );
+          openAuthPopup("github");
         } else {
           void signIn("github");
         }
