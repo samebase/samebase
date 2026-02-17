@@ -199,6 +199,17 @@ Auth:
 - Avoid adding unusual options or flags unless there is a clear, stated reason for them.
 - Deferred workflow experiment: optionally try a temporary `next_main` branch, cherry-pick changes, and merge PRs with merge commits. Treat this as opt-in per request (not default).
 
+### Worktree Protocol (Local)
+
+- Create worktrees via Codex (running `git worktree add`) on explicit user request; do not add Makefile or script helpers for worktree creation.
+- Treat the current worktree root from `git rev-parse --show-toplevel` as the workspace boundary; do not read/write outside it without an explicit request.
+- Before running dev/test/commit, confirm the worktree + branch with `git worktree list --porcelain` and `git rev-parse --abbrev-ref HEAD`.
+- Use `pnpm dev` from the current worktree root unless the user explicitly asks for a different entrypoint.
+- Keep changes isolated per worktree (one idea per worktree) and avoid mixing branches in a single worktree.
+- Use `noter.md` frontmatter `worktrees` settings as the canonical, user-visible worktree config.
+- If a task requires touching multiple worktrees, ask before proceeding.
+- Worktree location convention: keep main at `<repo>` (e.g., `~/dev/noter`) and use `<repo>-<suffix>` for worktrees (e.g., `~/dev/noter-idea-1`). Treat the first `-` as the delimiter.
+
 ### MVP Infra Credentials (Current)
 
 - For MVP testing, the same `NETLIFY_ACCESS_TOKEN` is used for both Convex dev and prod deployments.
