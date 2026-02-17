@@ -25,6 +25,8 @@
 3. the agents are running on convex for the backend, and netlify (or similar) for frontend deployment React+tailwind+shadcn. It's github codespaces ready, integrates well with worktrees and teh codex workflow
 - [ ] check all commits created from noter if we didn't lose anything due to the way it doesn't update it's own tree correctly
 
+- [ ] cannot click on daytona allow button inside preview if it's rendered inside noter.md
+
 - [ ] left to easily press enter
 - [ ] coding on vscode on mobile web is very good, we can try simplifying it for focus only on chat, 
 - [ ] https://vt.tiktok.com/ZSmrDkbnF/ https://x1.new
