@@ -3,12 +3,20 @@ import { internalQuery, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 const ADMIN_USERNAMES = ["nicu-chiciuc"];
+const ALLOWED_EMAILS = ["nicu.dev@gmail.com"];
 
 export function isAdminUser(githubUsername: string | null | undefined): boolean {
   if (!githubUsername) {
     return false;
   }
   return ADMIN_USERNAMES.includes(githubUsername);
+}
+
+function isAllowedEmail(email: string | null | undefined): boolean {
+  if (!email) {
+    return false;
+  }
+  return ALLOWED_EMAILS.includes(email.toLowerCase());
 }
 
 // Public
@@ -60,6 +68,7 @@ export const isCurrentUserApproved = query({
     if (!user) return false;
     if (user.isApproved === true) return true;
     if (isAdminUser(user.githubUsername)) return true;
+    if (isAllowedEmail(user.email)) return true;
     return false;
   },
 });

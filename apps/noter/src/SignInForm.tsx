@@ -49,6 +49,18 @@ export function SignInForm() {
           <li>stores everything on GitHub</li>
           <li>supports real-time collaboration</li>
           <li>is mobile-web first</li>
+          <li className="text-muted-foreground/90">
+            can build small apps with Codex
+          </li>
+          <li className="text-muted-foreground/70">can be built it intself</li>
+          <li className="text-muted-foreground/40">
+            is built in itself
+            <span className="sr-only">
+              {" "}
+              This line is intentionally de-emphasized to make the tone feel
+              more mysterious.
+            </span>
+          </li>
         </ul>
         <SignInWithGoogle />
         <WaitlistForm />

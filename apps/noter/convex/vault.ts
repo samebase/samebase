@@ -290,6 +290,7 @@ export const getUserVaults = query({
       state: v.union(v.literal("copying_files"), v.literal("ready")),
       isNoterManaged: v.boolean(),
       hasConvexProvision: v.boolean(),
+      hasCloudflareProvision: v.boolean(),
       hasNetlifyProvision: v.boolean(),
       daytonaSandboxId: v.optional(v.string()),
       daytonaSandboxName: v.optional(v.string()),

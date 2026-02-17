@@ -12,6 +12,9 @@
 ## High Priority
 
 - [ ] codex: make worktrees work automatically
+- [ ] auth env vars: standardize on `AUTH_*` (or document precedence) and add a warning when multiple GitHub/Google env keys are set
+- [ ] add dashboard-level settings panel (currently logout only exists inside vault)
+- [ ] decide if Turborepo is necessary or if PNPM workspaces alone are enough
 - [ ] chat-first UI: start with chatbot; allow chat messages to render Tailwind/React UI so users can promote pieces into the page (ex: sign-in inside chat)
 - [ ] the dev container template, should automatically login with convex so the dev server can be started immediately
 - [ ] Daytona prebuild alternative: use GitHub Actions to build devcontainer image and push to GHCR, with a manual UI button to trigger the workflow (auto-trigger later)

@@ -95,6 +95,8 @@ export function VaultDashboard() {
     api.vaultActions.retryInfrastructureProvisioning,
   );
   const commitStaging = useAction(api.fileStagingActions.commitStaging);
+  const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
+  const getCloudflareOAuthUrl = useMutation(api.cloudflareOAuth.getCloudflareOAuthUrl);
   const disconnectGithub = useMutation(api.users.disconnectGithub);
   const disconnectConvex = useMutation(api.users.disconnectConvex);
   const disconnectCloudflare = useMutation(api.users.disconnectCloudflare);
@@ -146,15 +148,6 @@ export function VaultDashboard() {
       selectedVault?.daytonaSnapshotName ||
       selectedVault?.daytonaPrebuildLogsSnapshot,
   );
-  const convexSiteUrl =
-    import.meta.env.VITE_CONVEX_SITE_URL ?? import.meta.env.VITE_CONVEX_URL ?? "";
-  const convexOAuthUrl = convexSiteUrl
-    ? `${convexSiteUrl.replace(/\/$/, "")}/api/oauth/convex/start`
-    : "";
-  const cloudflareOAuthUrl = convexSiteUrl
-    ? `${convexSiteUrl.replace(/\/$/, "")}/api/oauth/cloudflare/start`
-    : "";
-
   const resetDeleteDialogState = () => {
     setVaultToDelete(null);
     setRemoveGithubRepo(false);
@@ -180,20 +173,28 @@ export function VaultDashboard() {
     void signIn("github");
   };
 
-  const handleConnectConvex = () => {
-    if (!convexOAuthUrl) {
-      setCreateError("Missing VITE_CONVEX_SITE_URL for Convex OAuth.");
-      return;
+  const handleConnectConvex = async () => {
+    if (createError) {
+      setCreateError(null);
     }
-    if (isInIframe()) {
-      window.open(
-        convexOAuthUrl,
-        "convex-oauth",
-        "width=600,height=700,popup=true",
+    try {
+      const oauthUrl = await getConvexOAuthUrl();
+      if (isInIframe()) {
+        window.open(
+          oauthUrl,
+          "convex-oauth",
+          "width=600,height=700,popup=true",
+        );
+        return;
+      }
+      window.location.assign(oauthUrl);
+    } catch (error) {
+      setCreateError(
+        error instanceof Error
+          ? error.message
+          : "Failed to start Convex OAuth",
       );
-      return;
     }
-    window.location.assign(convexOAuthUrl);
   };
 
   const handleDisconnect = async (provider: "github" | "convex" | "cloudflare") => {
@@ -212,23 +213,28 @@ export function VaultDashboard() {
     }
   };
 
-  const handleConnectCloudflare = () => {
+  const handleConnectCloudflare = async () => {
     if (createError) {
       setCreateError(null);
     }
-    if (!cloudflareOAuthUrl) {
-      setCreateError("Missing VITE_CONVEX_SITE_URL for Cloudflare OAuth.");
-      return;
-    }
-    if (isInIframe()) {
-      window.open(
-        cloudflareOAuthUrl,
-        "cloudflare-oauth",
-        "width=600,height=700,popup=true",
+    try {
+      const oauthUrl = await getCloudflareOAuthUrl();
+      if (isInIframe()) {
+        window.open(
+          oauthUrl,
+          "cloudflare-oauth",
+          "width=600,height=700,popup=true",
+        );
+        return;
+      }
+      window.location.assign(oauthUrl);
+    } catch (error) {
+      setCreateError(
+        error instanceof Error
+          ? error.message
+          : "Failed to start Cloudflare OAuth",
       );
-      return;
     }
-    window.location.assign(cloudflareOAuthUrl);
   };
 
   const handleRemoveVault = async () => {
@@ -339,9 +345,6 @@ export function VaultDashboard() {
   const cloudflareStatus = cloudflareConnected
     ? `Connected to ${cloudflareConnection?.accountName ?? cloudflareConnection?.accountId ?? "Cloudflare account"}`
     : "Not connected";
-  const canStartConvexOAuth = Boolean(convexOAuthUrl);
-  const canStartCloudflareOAuth = Boolean(cloudflareOAuthUrl);
-
   const createControl = (
     <div className="flex flex-col items-start gap-2">
       <ButtonGroup className="w-full sm:w-[360px]">
@@ -463,8 +466,7 @@ export function VaultDashboard() {
           ) : (
             <Button
               size="sm"
-              onClick={handleConnectConvex}
-              disabled={!canStartConvexOAuth}
+              onClick={() => void handleConnectConvex()}
             >
               Connect Convex
             </Button>
@@ -501,8 +503,7 @@ export function VaultDashboard() {
             <Button
               variant="outline"
               size="sm"
-              onClick={handleConnectCloudflare}
-              disabled={!canStartCloudflareOAuth}
+              onClick={() => void handleConnectCloudflare()}
             >
               Connect Cloudflare
             </Button>
