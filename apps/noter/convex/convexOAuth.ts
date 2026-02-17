@@ -1,43 +1,13 @@
 import { v } from "convex/values";
-import { httpAction, internalMutation, internalQuery } from "./_generated/server";
+import { httpAction, internalMutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
-
-const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
-
-function base64UrlEncode(bytes: Uint8Array): string {
-  let base64: string;
-  if (typeof btoa === "function") {
-    let binary = "";
-    for (const byte of bytes) {
-      binary += String.fromCharCode(byte);
-    }
-    base64 = btoa(binary);
-  } else {
-    base64 = Buffer.from(bytes).toString("base64");
-  }
-  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
-function randomToken(size = 32): string {
-  const bytes = new Uint8Array(size);
-  crypto.getRandomValues(bytes);
-  return base64UrlEncode(bytes);
-}
-
-async function createCodeChallenge(verifier: string): Promise<string> {
-  const data = new TextEncoder().encode(verifier);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return base64UrlEncode(new Uint8Array(digest));
-}
-
-function readRequiredEnv(key: string): string {
-  const value = process.env[key];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${key}`);
-  }
-  return value;
-}
+import {
+  createCodeChallenge,
+  OAUTH_STATE_TTL_MS,
+  randomToken,
+  readRequiredEnv,
+} from "./oauthUtils";
 
 async function exchangeConvexOAuthCode(args: {
   code: string;
@@ -117,50 +87,6 @@ async function fetchConvexTokenDetails(accessToken: string): Promise<{
   };
 }
 
-export const createOauthState = internalMutation({
-  args: {
-    userId: v.id("users"),
-    state: v.string(),
-    codeVerifier: v.string(),
-    createdAt: v.number(),
-    expiresAt: v.number(),
-  },
-  returns: v.id("oauthStates"),
-  handler: async (ctx, args) => {
-    return await ctx.db.insert("oauthStates", {
-      provider: "convex",
-      userId: args.userId,
-      state: args.state,
-      codeVerifier: args.codeVerifier,
-      createdAt: args.createdAt,
-      expiresAt: args.expiresAt,
-    });
-  },
-});
-
-export const getOauthStateByState = internalQuery({
-  args: {
-    state: v.string(),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("oauthStates")
-      .withIndex("by_state", (q) => q.eq("state", args.state))
-      .first();
-  },
-});
-
-export const deleteOauthState = internalMutation({
-  args: {
-    id: v.id("oauthStates"),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await ctx.db.delete(args.id);
-    return null;
-  },
-});
-
 export const storeConvexOauthTokens = internalMutation({
   args: {
     userId: v.id("users"),
@@ -201,7 +127,8 @@ export const startConvexOAuth = httpAction(async (ctx) => {
   const codeChallenge = await createCodeChallenge(codeVerifier);
 
   const now = Date.now();
-  await ctx.runMutation(internal.convexOAuth.createOauthState, {
+  await ctx.runMutation(internal.oauthState.createOauthState, {
+    provider: "convex",
     userId,
     state,
     codeVerifier,
@@ -231,7 +158,8 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
     return new Response("Missing OAuth parameters", { status: 400 });
   }
 
-  const oauthState = await ctx.runQuery(internal.convexOAuth.getOauthStateByState, {
+  const oauthState = await ctx.runQuery(internal.oauthState.getOauthStateByState, {
+    provider: "convex",
     state,
   });
 
@@ -240,7 +168,7 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
   }
 
   if (oauthState.expiresAt < Date.now()) {
-    await ctx.runMutation(internal.convexOAuth.deleteOauthState, {
+    await ctx.runMutation(internal.oauthState.deleteOauthState, {
       id: oauthState._id,
     });
     return new Response("OAuth state expired", { status: 400 });
@@ -276,7 +204,7 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
       oauthStateId: oauthState._id,
     });
   } catch (error) {
-    await ctx.runMutation(internal.convexOAuth.deleteOauthState, {
+    await ctx.runMutation(internal.oauthState.deleteOauthState, {
       id: oauthState._id,
     });
     throw error;

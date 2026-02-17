@@ -102,7 +102,10 @@ export function createInfraProviders(args?: {
   return {
     convex: {
       request(path, method, body) {
-        const token = convexTokenOverride ?? getRequiredEnv("CONVEX_MANAGEMENT_TOKEN");
+        const token = convexTokenOverride;
+        if (!token) {
+          throw new Error("Convex access token is required.");
+        }
         return requestProviderApi({
           provider: "Convex",
           baseUrl: "https://api.convex.dev/v1",
@@ -128,8 +131,10 @@ export function createInfraProviders(args?: {
     },
     cloudflare: {
       async request(path, method, body) {
-        const token =
-          cloudflareTokenOverride ?? getRequiredEnv("CLOUDFLARE_API_TOKEN");
+        const token = cloudflareTokenOverride;
+        if (!token) {
+          throw new Error("Cloudflare access token is required.");
+        }
         const response = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
           method,
           headers: {

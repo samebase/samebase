@@ -424,10 +424,10 @@ export default defineSchema({
     .index("by_action", ["action"]),
 
   /**
-   * OAuth state records for provider integrations (Convex OAuth).
+   * OAuth state records for provider integrations (Convex + Cloudflare OAuth).
    */
   oauthStates: defineTable({
-    provider: v.union(v.literal("convex")),
+    provider: v.union(v.literal("convex"), v.literal("cloudflare")),
     userId: v.id("users"),
     state: v.string(),
     codeVerifier: v.string(),

@@ -195,27 +195,6 @@ export const disconnectCloudflare = mutation({
   },
 });
 
-export const connectCloudflare = mutation({
-  args: {
-    accessToken: v.string(),
-    accountId: v.string(),
-    accountName: v.optional(v.string()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      throw new Error("User not authenticated");
-    }
-    await ctx.db.patch(userId, {
-      cloudflareAccessToken: args.accessToken,
-      cloudflareAccountId: args.accountId,
-      cloudflareAccountName: args.accountName,
-    });
-    return null;
-  },
-});
-
 // Internal
 
 export const getAuthUser = internalQuery({

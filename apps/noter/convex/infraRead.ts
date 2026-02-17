@@ -66,18 +66,12 @@ function resolveConvexToken(user: { convexAccessToken?: string } | null): string
   if (user?.convexAccessToken) {
     return user.convexAccessToken;
   }
-  if (process.env.ALLOW_OPERATOR_FALLBACK === "true") {
-    return getRequiredEnv("CONVEX_MANAGEMENT_TOKEN");
-  }
   throw new Error("Convex connection required to perform this read.");
 }
 
 function resolveConvexTeamId(user: { convexTeamId?: string } | null): string {
   if (user?.convexTeamId) {
     return user.convexTeamId;
-  }
-  if (process.env.ALLOW_OPERATOR_FALLBACK === "true") {
-    return getRequiredEnv("CONVEX_TEAM_ID");
   }
   throw new Error("Convex connection required to perform this read.");
 }
@@ -86,7 +80,7 @@ function resolveCloudflareToken(user: { cloudflareAccessToken?: string } | null)
   if (user?.cloudflareAccessToken) {
     return user.cloudflareAccessToken;
   }
-  return getRequiredEnv("CLOUDFLARE_API_TOKEN");
+  throw new Error("Cloudflare connection required to perform this read.");
 }
 
 function resolveCloudflareAccountId(
@@ -99,7 +93,7 @@ function resolveCloudflareAccountId(
   if (user?.cloudflareAccountId) {
     return user.cloudflareAccountId;
   }
-  return getRequiredEnv("CLOUDFLARE_ACCOUNT_ID");
+  throw new Error("Cloudflare connection required to perform this read.");
 }
 
 export const getConvexDeploymentStatus = internalAction({

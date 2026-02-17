@@ -1296,7 +1296,6 @@ export const provisionVaultInfrastructure = internalAction({
     let cloudflareSuccess = false;
 
     try {
-      const allowOperatorFallback = process.env.ALLOW_OPERATOR_FALLBACK === "true";
       const defaultBranch = process.env.INFRA_DEFAULT_BRANCH ?? "main";
       const user = await ctx.runQuery(internal.users.getById, {
         userId: vault.userId,
@@ -1306,14 +1305,8 @@ export const provisionVaultInfrastructure = internalAction({
         throw new Error("GitHub connection is required to provision infrastructure.");
       }
 
-      const userConvexToken = user.convexAccessToken?.trim();
-      const userConvexTeamId = user.convexTeamId?.trim();
-      const convexToken =
-        userConvexToken ??
-        (allowOperatorFallback ? getRequiredEnv("CONVEX_MANAGEMENT_TOKEN") : "");
-      const convexTeamId =
-        userConvexTeamId ??
-        (allowOperatorFallback ? getRequiredEnv("CONVEX_TEAM_ID") : "");
+      const convexToken = user.convexAccessToken?.trim() ?? "";
+      const convexTeamId = user.convexTeamId?.trim() ?? "";
 
       if (!convexToken || !convexTeamId) {
         throw new Error(
@@ -1321,14 +1314,12 @@ export const provisionVaultInfrastructure = internalAction({
         );
       }
 
-      const cloudflareToken =
-        user.cloudflareAccessToken ?? process.env.CLOUDFLARE_API_TOKEN ?? "";
-      const cloudflareAccountId =
-        user.cloudflareAccountId ?? process.env.CLOUDFLARE_ACCOUNT_ID ?? "";
+      const cloudflareToken = user.cloudflareAccessToken?.trim() ?? "";
+      const cloudflareAccountId = user.cloudflareAccountId?.trim() ?? "";
 
       if (!cloudflareToken || !cloudflareAccountId) {
         throw new Error(
-          "Cloudflare Pages is not configured. Missing CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID.",
+          "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
         );
       }
 

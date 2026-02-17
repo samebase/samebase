@@ -262,17 +262,17 @@ export const createRepository = action({
     if (!currentUser.githubAccessToken) {
       throw new Error("GitHub access token not found");
     }
-    const allowOperatorFallback = process.env.ALLOW_OPERATOR_FALLBACK === "true";
     const hasConvexConnection =
       typeof currentUser.convexAccessToken === "string" &&
       typeof currentUser.convexTeamId === "string";
-    if (!hasConvexConnection && !allowOperatorFallback) {
+    if (!hasConvexConnection) {
       throw new Error("Convex connection is required to create a project.");
     }
-    if (!hasConvexConnection && allowOperatorFallback) {
-      if (!process.env.CONVEX_MANAGEMENT_TOKEN || !process.env.CONVEX_TEAM_ID) {
-        throw new Error("Convex operator tokens are not configured.");
-      }
+    const hasCloudflareConnection =
+      typeof currentUser.cloudflareAccessToken === "string" &&
+      typeof currentUser.cloudflareAccountId === "string";
+    if (!hasCloudflareConnection) {
+      throw new Error("Cloudflare connection is required to create a project.");
     }
 
     const repoName = toSafeRepoName(args.name);
@@ -471,19 +471,17 @@ export const deleteVault = action({
       shouldRemoveConvexProvision ||
       shouldRemoveCloudflareProvision
     ) {
-      const allowOperatorFallback = process.env.ALLOW_OPERATOR_FALLBACK === "true";
       const convexToken = shouldRemoveConvexProvision
-        ? user.convexAccessToken ??
-          (allowOperatorFallback ? process.env.CONVEX_MANAGEMENT_TOKEN : undefined)
+        ? user.convexAccessToken
         : undefined;
       if (shouldRemoveConvexProvision && !convexToken) {
         throw new Error("Convex connection is required to remove resources.");
       }
       const cloudflareToken = shouldRemoveCloudflareProvision
-        ? user.cloudflareAccessToken ?? process.env.CLOUDFLARE_API_TOKEN
+        ? user.cloudflareAccessToken
         : undefined;
       if (shouldRemoveCloudflareProvision && !cloudflareToken) {
-        throw new Error("Cloudflare is not configured for resource removal.");
+        throw new Error("Cloudflare connection is required to remove resources.");
       }
 
       const providers = createInfraProviders({
@@ -532,9 +530,7 @@ export const deleteVault = action({
       if (shouldRemoveCloudflareProvision) {
         const projectName = infrastructure.cloudflarePagesProjectName;
         const accountId =
-          infrastructure.cloudflarePagesAccountId ??
-          user.cloudflareAccountId ??
-          process.env.CLOUDFLARE_ACCOUNT_ID;
+          infrastructure.cloudflarePagesAccountId ?? user.cloudflareAccountId;
         if (!projectName || !accountId) {
           throw new Error("Cloudflare Pages project details are missing.");
         }
