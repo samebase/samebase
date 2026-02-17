@@ -14,6 +14,7 @@ Noter is a collaborative, GitHub-connected code editor built as a Turborepo mono
 - Persistent in-app chat with approval cards for:
   - Commit proposals
   - Production infrastructure/data read requests
+
 ## Important Behavior
 - Auto infra provisioning is triggered only for newly created noter-managed vaults.
 - Connecting an existing GitHub repository does not auto-provision infra.
