@@ -69,21 +69,51 @@ async function fetchConvexTokenDetails(accessToken: string): Promise<{
     throw new Error(`Failed to fetch Convex token details (${response.status}).`);
   }
 
+  const teamId =
+    typeof data.teamId === "string"
+      ? data.teamId
+      : typeof data.teamId === "number"
+        ? String(data.teamId)
+      : typeof data.team_id === "string"
+        ? data.team_id
+        : typeof data.team_id === "number"
+          ? String(data.team_id)
+        : typeof data.team?.id === "string"
+          ? data.team.id
+          : typeof data.team?.id === "number"
+            ? String(data.team.id)
+          : undefined;
+
+  const teamSlug =
+    typeof data.teamSlug === "string"
+      ? data.teamSlug
+      : typeof data.team_slug === "string"
+        ? data.team_slug
+        : typeof data.team?.slug === "string"
+          ? data.team.slug
+          : undefined;
+
+  const teamName =
+    typeof data.name === "string"
+      ? data.name
+      : typeof data.team?.name === "string"
+        ? data.team.name
+        : undefined;
+
+  const userId =
+    typeof data.userId === "string"
+      ? data.userId
+      : typeof data.user_id === "string"
+        ? data.user_id
+        : typeof data.user?.id === "string"
+          ? data.user.id
+          : undefined;
+
   return {
-    teamId: typeof data.teamId === "string" ? data.teamId : undefined,
-    teamSlug:
-      typeof data.teamSlug === "string"
-        ? data.teamSlug
-        : typeof data.team_slug === "string"
-          ? data.team_slug
-          : undefined,
-    teamName: typeof data.name === "string" ? data.name : undefined,
-    userId:
-      typeof data.userId === "string"
-        ? data.userId
-        : typeof data.user_id === "string"
-          ? data.user_id
-          : undefined,
+    teamId,
+    teamSlug,
+    teamName,
+    userId,
   };
 }
 
