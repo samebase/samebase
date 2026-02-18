@@ -96,36 +96,33 @@ export function VaultDashboard() {
   );
   const commitStaging = useAction(api.fileStagingActions.commitStaging);
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
-  const getCloudflareOAuthUrl = useMutation(api.cloudflareOAuth.getCloudflareOAuthUrl);
+  const getNetlifyOAuthUrl = useMutation(api.netlifyOAuth.getNetlifyOAuthUrl);
   const disconnectGithub = useMutation(api.users.disconnectGithub);
   const disconnectConvex = useMutation(api.users.disconnectConvex);
-  const disconnectCloudflare = useMutation(api.users.disconnectCloudflare);
+  const disconnectNetlify = useMutation(api.users.disconnectNetlify);
   const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
   const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus);
-  const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus);
+  const netlifyConnection = useConvexQuery(api.users.getNetlifyConnectionStatus);
   const canCreateProject = Boolean(
     githubConnection?.connected &&
       convexConnection?.connected &&
-      cloudflareConnection?.connected,
+      netlifyConnection?.connected,
   );
   const [vaultToDelete, setVaultToDelete] = useState<{
     id: Id<"vaults">;
     repositoryFullName: string;
     isNoterManaged: boolean;
     hasConvexProvision: boolean;
-    hasCloudflareProvision: boolean;
     hasNetlifyProvision: boolean;
   } | null>(null);
   const [removeGithubRepo, setRemoveGithubRepo] = useState(false);
   const [removeCodespaces, setRemoveCodespaces] = useState(false);
   const [removeConvexProvision, setRemoveConvexProvision] = useState(false);
-  const [removeCloudflareProvision, setRemoveCloudflareProvision] =
-    useState(false);
   const [removeNetlifyProvision, setRemoveNetlifyProvision] = useState(false);
   const [removeDaytonaResources, setRemoveDaytonaResources] = useState(false);
   const [newAgentName, setNewAgentName] = useState("");
   const [disconnectingProvider, setDisconnectingProvider] = useState<
-    "github" | "convex" | "cloudflare" | null
+    "github" | "convex" | "netlify" | null
   >(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -153,7 +150,6 @@ export function VaultDashboard() {
     setRemoveGithubRepo(false);
     setRemoveCodespaces(false);
     setRemoveConvexProvision(false);
-    setRemoveCloudflareProvision(false);
     setRemoveNetlifyProvision(false);
     setRemoveDaytonaResources(false);
     setCommitError(null);
@@ -197,7 +193,7 @@ export function VaultDashboard() {
     }
   };
 
-  const handleDisconnect = async (provider: "github" | "convex" | "cloudflare") => {
+  const handleDisconnect = async (provider: "github" | "convex" | "netlify") => {
     if (disconnectingProvider) return;
     setDisconnectingProvider(provider);
     try {
@@ -206,23 +202,23 @@ export function VaultDashboard() {
       } else if (provider === "convex") {
         await disconnectConvex();
       } else {
-        await disconnectCloudflare();
+        await disconnectNetlify();
       }
     } finally {
       setDisconnectingProvider(null);
     }
   };
 
-  const handleConnectCloudflare = async () => {
+  const handleConnectNetlify = async () => {
     if (createError) {
       setCreateError(null);
     }
     try {
-      const oauthUrl = await getCloudflareOAuthUrl();
+      const oauthUrl = await getNetlifyOAuthUrl();
       if (isInIframe()) {
         window.open(
           oauthUrl,
-          "cloudflare-oauth",
+          "netlify-oauth",
           "width=600,height=700,popup=true",
         );
         return;
@@ -232,7 +228,7 @@ export function VaultDashboard() {
       setCreateError(
         error instanceof Error
           ? error.message
-          : "Failed to start Cloudflare OAuth",
+          : "Failed to start Netlify OAuth",
       );
     }
   };
@@ -252,10 +248,6 @@ export function VaultDashboard() {
         removeConvexProvision:
           vaultToDelete.isNoterManaged && vaultToDelete.hasConvexProvision
           ? removeConvexProvision
-          : false,
-        removeCloudflareProvision:
-          vaultToDelete.isNoterManaged && vaultToDelete.hasCloudflareProvision
-          ? removeCloudflareProvision
           : false,
         removeNetlifyProvision:
           vaultToDelete.isNoterManaged && vaultToDelete.hasNetlifyProvision
@@ -296,7 +288,7 @@ export function VaultDashboard() {
     if (!repoName || isCreating) return;
     if (!canCreateProject) {
       setCreateError(
-        "Connect GitHub, Convex, and Cloudflare before creating a project.",
+        "Connect GitHub, Convex, and Netlify before creating a project.",
       );
       return;
     }
@@ -335,15 +327,15 @@ export function VaultDashboard() {
 
   const githubConnected = githubConnection?.connected === true;
   const convexConnected = convexConnection?.connected === true;
-  const cloudflareConnected = cloudflareConnection?.connected === true;
+  const netlifyConnected = netlifyConnection?.connected === true;
   const githubStatus = githubConnected
     ? `Connected as ${githubConnection?.username ?? "GitHub user"}`
     : "Not connected";
   const convexStatus = convexConnected
     ? `Connected to ${convexConnection?.teamSlug ?? convexConnection?.teamId ?? "Convex team"}`
     : "Not connected";
-  const cloudflareStatus = cloudflareConnected
-    ? `Connected to ${cloudflareConnection?.accountName ?? cloudflareConnection?.accountId ?? "Cloudflare account"}`
+  const netlifyStatus = netlifyConnected
+    ? `Connected to ${netlifyConnection?.teamSlug ?? netlifyConnection?.teamId ?? "Netlify team"}`
     : "Not connected";
   const createControl = (
     <div className="flex flex-col items-start gap-2">
@@ -398,7 +390,7 @@ export function VaultDashboard() {
       )}
       {!canCreateProject && (
         <div className="text-xs text-muted-foreground">
-          Connect GitHub, Convex, and Cloudflare to create projects.
+          Connect GitHub, Convex, and Netlify to create projects.
         </div>
       )}
     </div>
@@ -477,20 +469,20 @@ export function VaultDashboard() {
           <div className="flex items-center gap-2">
             <GlobeIcon className="h-4 w-4" />
             <div>
-              <div className="text-sm font-medium">Cloudflare</div>
+              <div className="text-sm font-medium">Netlify</div>
               <div className="text-xs text-muted-foreground">
-                {cloudflareStatus}
+                {netlifyStatus}
               </div>
             </div>
           </div>
-          {cloudflareConnected ? (
+          {netlifyConnected ? (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => void handleDisconnect("cloudflare")}
+              onClick={() => void handleDisconnect("netlify")}
               disabled={disconnectingProvider !== null}
             >
-              {disconnectingProvider === "cloudflare" ? (
+              {disconnectingProvider === "netlify" ? (
                 <>
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   Disconnecting...
@@ -503,9 +495,9 @@ export function VaultDashboard() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => void handleConnectCloudflare()}
+              onClick={() => void handleConnectNetlify()}
             >
-              Connect Cloudflare
+              Connect Netlify
             </Button>
           )}
         </div>
@@ -698,16 +690,12 @@ export function VaultDashboard() {
                       repositoryFullName: vault.repositoryFullName,
                       isNoterManaged: vault.isNoterManaged,
                       hasConvexProvision: vault.hasConvexProvision,
-                      hasCloudflareProvision: vault.hasCloudflareProvision,
                       hasNetlifyProvision: vault.hasNetlifyProvision,
                     });
                     setRemoveGithubRepo(vault.isNoterManaged);
                     setRemoveCodespaces(true);
                     setRemoveConvexProvision(
                       vault.isNoterManaged && vault.hasConvexProvision,
-                    );
-                    setRemoveCloudflareProvision(
-                      vault.isNoterManaged && vault.hasCloudflareProvision,
                     );
                     setRemoveNetlifyProvision(
                       vault.isNoterManaged && vault.hasNetlifyProvision,
@@ -851,33 +839,6 @@ export function VaultDashboard() {
                   </label>
                 </div>
               )}
-              {vaultToDelete.hasCloudflareProvision && (
-                <div className="flex items-start gap-2">
-                  <input
-                    id="remove-cloudflare-provision"
-                    type="checkbox"
-                    checked={removeCloudflareProvision}
-                    onChange={(e) =>
-                      setRemoveCloudflareProvision(e.target.checked)
-                    }
-                    disabled={
-                      !vaultToDelete.isNoterManaged || isDeleting || isCommitting
-                    }
-                    className="mt-0.5 h-4 w-4 rounded border border-input"
-                  />
-                  <label
-                    htmlFor="remove-cloudflare-provision"
-                    className="text-sm text-muted-foreground"
-                  >
-                    Also remove Cloudflare Pages project
-                    {!vaultToDelete.isNoterManaged && (
-                      <div className="text-xs text-muted-foreground">
-                        Only available for infrastructure provisioned by Noter.
-                      </div>
-                    )}
-                  </label>
-                </div>
-              )}
               {vaultToDelete.hasNetlifyProvision && (
                 <div className="flex items-start gap-2">
                   <input
@@ -896,7 +857,7 @@ export function VaultDashboard() {
                     htmlFor="remove-netlify-provision"
                     className="text-sm text-muted-foreground"
                   >
-                    Also remove Netlify site (legacy)
+                    Also remove Netlify site
                     {!vaultToDelete.isNoterManaged && (
                       <div className="text-xs text-muted-foreground">
                         Only available for infrastructure provisioned by Noter.

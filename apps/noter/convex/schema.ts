@@ -56,8 +56,6 @@ export const VaultDomainKind = v.union(
 export const VaultDomainSource = v.union(
   v.literal("netlify_default"),
   v.literal("netlify_custom"),
-  v.literal("cloudflare_pages_default"),
-  v.literal("cloudflare_pages_custom"),
 );
 
 export const ProdAccessScope = v.union(v.literal("vault"), v.literal("global"));
@@ -65,7 +63,6 @@ export const ProdAccessScope = v.union(v.literal("vault"), v.literal("global"));
 export const ProdAccessProvider = v.union(
   v.literal("convex"),
   v.literal("netlify"),
-  v.literal("cloudflare"),
 );
 
 export const ProdAccessResourceKind = v.union(
@@ -134,12 +131,13 @@ export default defineSchema({
     convexTeamId: v.optional(v.string()),
     convexTeamSlug: v.optional(v.string()),
 
-    // Cloudflare (optional BYO)
-    cloudflareAccessToken: v.optional(v.string()),
-    cloudflareRefreshToken: v.optional(v.string()),
-    cloudflareExpiresAt: v.optional(v.number()),
-    cloudflareAccountId: v.optional(v.string()),
-    cloudflareAccountName: v.optional(v.string()),
+    // Netlify (optional BYO)
+    netlifyAccessToken: v.optional(v.string()),
+    netlifyRefreshToken: v.optional(v.string()),
+    netlifyExpiresAt: v.optional(v.number()),
+    netlifyUserId: v.optional(v.string()),
+    netlifyTeamId: v.optional(v.string()),
+    netlifyTeamSlug: v.optional(v.string()),
   })
     .index("email", ["email"])
     .index("phone", ["phone"]),
@@ -214,14 +212,6 @@ export default defineSchema({
     netlifyProductionUrl: v.optional(v.string()),
     netlifyBuildHookId: v.optional(v.string()),
 
-    // Cloudflare Pages
-    cloudflarePagesProjectId: v.optional(v.string()),
-    cloudflarePagesProjectName: v.optional(v.string()),
-    cloudflarePagesAccountId: v.optional(v.string()),
-    cloudflarePagesAccountName: v.optional(v.string()),
-    cloudflarePagesSubdomain: v.optional(v.string()),
-    cloudflarePagesDefaultUrl: v.optional(v.string()),
-    cloudflarePagesProductionUrl: v.optional(v.string()),
   })
     .index("by_vault", ["vaultId"])
     .index("by_status", ["status"]),
@@ -424,13 +414,13 @@ export default defineSchema({
     .index("by_action", ["action"]),
 
   /**
-   * OAuth state records for provider integrations (Convex + Cloudflare OAuth).
+   * OAuth state records for provider integrations (Convex + Netlify OAuth).
    */
   oauthStates: defineTable({
-    provider: v.union(v.literal("convex"), v.literal("cloudflare")),
+    provider: v.union(v.literal("convex"), v.literal("netlify")),
     userId: v.id("users"),
     state: v.string(),
-    codeVerifier: v.string(),
+    codeVerifier: v.optional(v.string()),
     createdAt: v.number(),
     expiresAt: v.number(),
   })

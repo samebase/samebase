@@ -3,7 +3,7 @@
 ## Document Control
 - Status: Proposed
 - Owner: Noter platform + dev tooling
-- Last updated: 2026-02-17
+- Last updated: 2026-02-18
 - Supersedes: `specs/014_WORKTREE_CLOUD_PROVISIONING_AND_CLI_AUTH_SPEC.md`
 - Related specs:
 - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
@@ -20,17 +20,17 @@ This spec is **web UI + backend only**. Local worktree provisioning and CLI inte
 - GitHub OAuth is a separate, explicit connection step for repo provisioning.
 - Web UI supports Convex OAuth connection for each user.
 - Noter provisions Convex projects/deployments using **user tokens**, not operator tokens.
-- No Netlify requirements for MVP.
+- Netlify OAuth is specified separately in `specs/017_NETLIFY_OAUTH_AND_TEAM_SELECTION_SPEC.md`.
 - Preserve “single seed commit” for new repos.
 
 ## Non-Goals
-- Netlify OAuth or Netlify provisioning in MVP.
+- Netlify OAuth details (handled in `specs/017_NETLIFY_OAUTH_AND_TEAM_SELECTION_SPEC.md`).
 - Local worktree provisioning / CLI integration (covered in a follow-up spec).
 - Changing starter template seeding behavior (still a single commit).
 
 ## Background (Current State)
 - Noter currently uses GitHub OAuth for both app login and repo provisioning.
-- Server-side infra provisioning uses **operator** env vars (`CONVEX_MANAGEMENT_TOKEN`, `CONVEX_TEAM_ID`).
+- Server-side infra provisioning uses user-scoped OAuth tokens.
 
 ## Product Requirements
 ### 0. App Login vs GitHub Connection
@@ -164,5 +164,5 @@ Indexes:
 
 ## Acceptance Criteria
 - A new user can connect Convex and create a project that provisions in their account.
-- No Netlify steps are required for MVP.
+- Netlify connection is required for hosting and is covered in spec 017.
 - The repo seed remains a single commit.

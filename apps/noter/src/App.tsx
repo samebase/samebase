@@ -6,6 +6,7 @@ import { FileView } from "@/components/FileView";
 import { AddRepository } from "@/components/AddRepository";
 import { ChatFab } from "@/components/ChatFab";
 import { CodespaceChatOnlyView } from "@/components/CodespaceChatOnlyView";
+import { NetlifyOAuthCallback } from "@/components/NetlifyOAuthCallback";
 import { Button } from "@/components/ui/button";
 import {
   Authenticated,
@@ -22,10 +23,11 @@ function isChatOnlyCodespaceRoute(pathname: string): boolean {
   return /^\/vault\/[^/]+\/[^/]+\/[^/]+\/chat\/?$/.test(pathname);
 }
 
-function useCloseOAuthPopup() {
+function useCloseOAuthPopup(pathname: string) {
   const { isAuthenticated } = useConvexAuth();
   useEffect(() => {
     if (!isAuthenticated) return;
+    if (pathname.startsWith("/oauth/netlify")) return;
 
     // Remember that this user has authenticated, so we can auto-login next time
     if (!window.opener) {
@@ -58,7 +60,7 @@ function useCloseOAuthPopup() {
     }
 
     window.close();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, pathname]);
 }
 
 function ApprovalGate({ children }: { children: React.ReactNode }) {
@@ -90,9 +92,9 @@ function ApprovalGate({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  useCloseOAuthPopup();
   useAutoSignIn();
   const location = useLocation();
+  useCloseOAuthPopup(location.pathname);
   const showChatFab = !isChatOnlyCodespaceRoute(location.pathname);
 
   return (
@@ -103,6 +105,7 @@ export default function App() {
             <Routes>
               <Route path="/" element={<VaultDashboard />} />
               <Route path="/add" element={<AddRepository />} />
+              <Route path="/oauth/netlify/callback" element={<NetlifyOAuthCallback />} />
               <Route
                 path="/vault/:owner/:repoName/:branch/chat"
                 element={<CodespaceChatOnlyView />}

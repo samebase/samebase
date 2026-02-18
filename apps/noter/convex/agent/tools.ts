@@ -318,7 +318,7 @@ async function executeGithubApi(
 }
 
 function buildProdReadSummary(args: {
-  provider: "convex" | "netlify" | "cloudflare";
+  provider: "convex" | "netlify";
   resourceKind:
     | "deployment_status"
     | "logs"
@@ -327,12 +327,7 @@ function buildProdReadSummary(args: {
     | "site_inventory";
   scope: "vault" | "global";
 }): string {
-  const provider =
-    args.provider === "convex"
-      ? "Convex"
-      : args.provider === "cloudflare"
-        ? "Cloudflare Pages"
-        : "Netlify";
+  const provider = args.provider === "convex" ? "Convex" : "Netlify";
   const resource =
     args.resourceKind === "deployment_status"
       ? "deployment status"
@@ -359,7 +354,7 @@ async function executeProdReadRequest(
   toolCtx: ToolContext,
   input: {
     scope: "vault" | "global";
-    provider: "convex" | "netlify" | "cloudflare";
+    provider: "convex" | "netlify";
     resourceKind:
       | "deployment_status"
       | "logs"
@@ -450,27 +445,27 @@ async function executeRequestConvexProjectsRead(
   });
 }
 
-async function executeRequestCloudflareStatusRead(
+async function executeRequestNetlifyStatusRead(
   toolCtx: ToolContext,
 ): Promise<string> {
   return await executeProdReadRequest(toolCtx, {
     scope: "vault",
-    provider: "cloudflare",
+    provider: "netlify",
     resourceKind: "deployment_status",
-    toolName: "request_cloudflare_status_read",
+    toolName: "request_netlify_status_read",
     params: {},
   });
 }
 
-async function executeRequestCloudflareLogsRead(
+async function executeRequestNetlifyLogsRead(
   toolCtx: ToolContext,
   input: { maxEntries?: number; allowRawFallback?: boolean },
 ): Promise<string> {
   return await executeProdReadRequest(toolCtx, {
     scope: "vault",
-    provider: "cloudflare",
+    provider: "netlify",
     resourceKind: "logs",
-    toolName: "request_cloudflare_logs_read",
+    toolName: "request_netlify_logs_read",
     params: {
       ...(typeof input.maxEntries === "number"
         ? { maxEntries: input.maxEntries }
@@ -480,15 +475,15 @@ async function executeRequestCloudflareLogsRead(
   });
 }
 
-async function executeRequestCloudflareProjectsRead(
+async function executeRequestNetlifyProjectsRead(
   toolCtx: ToolContext,
   input: { limit?: number; allowRawFallback?: boolean },
 ): Promise<string> {
   return await executeProdReadRequest(toolCtx, {
     scope: "global",
-    provider: "cloudflare",
-    resourceKind: "project_inventory",
-    toolName: "request_cloudflare_projects_read",
+    provider: "netlify",
+    resourceKind: "site_inventory",
+    toolName: "request_netlify_projects_read",
     params: {
       ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
     },
@@ -671,24 +666,24 @@ export function createTools(toolCtx: ToolContext) {
     },
   );
 
-  const requestCloudflareStatusRead = tool(
+  const requestNetlifyStatusRead = tool(
     async () => {
-      return await executeRequestCloudflareStatusRead(toolCtx);
+      return await executeRequestNetlifyStatusRead(toolCtx);
     },
     {
-      name: "request_cloudflare_status_read",
-      description: catalogDescription("request_cloudflare_status_read"),
+      name: "request_netlify_status_read",
+      description: catalogDescription("request_netlify_status_read"),
       schema: z.object({}),
     },
   );
 
-  const requestCloudflareLogsRead = tool(
+  const requestNetlifyLogsRead = tool(
     async (input) => {
-      return await executeRequestCloudflareLogsRead(toolCtx, input);
+      return await executeRequestNetlifyLogsRead(toolCtx, input);
     },
     {
-      name: "request_cloudflare_logs_read",
-      description: catalogDescription("request_cloudflare_logs_read"),
+      name: "request_netlify_logs_read",
+      description: catalogDescription("request_netlify_logs_read"),
       schema: z.object({
         maxEntries: z
           .number()
@@ -728,13 +723,13 @@ export function createTools(toolCtx: ToolContext) {
     },
   );
 
-  const requestCloudflareProjectsRead = tool(
+  const requestNetlifyProjectsRead = tool(
     async (input) => {
-      return await executeRequestCloudflareProjectsRead(toolCtx, input);
+      return await executeRequestNetlifyProjectsRead(toolCtx, input);
     },
     {
-      name: "request_cloudflare_projects_read",
-      description: catalogDescription("request_cloudflare_projects_read"),
+      name: "request_netlify_projects_read",
+      description: catalogDescription("request_netlify_projects_read"),
       schema: z.object({
         limit: z
           .number()
@@ -788,10 +783,10 @@ export function createTools(toolCtx: ToolContext) {
     githubApi,
     requestConvexStatusRead,
     requestConvexLogsRead,
-    requestCloudflareStatusRead,
-    requestCloudflareLogsRead,
+    requestNetlifyStatusRead,
+    requestNetlifyLogsRead,
     requestConvexProjectsRead,
-    requestCloudflareProjectsRead,
+    requestNetlifyProjectsRead,
     requestConvexDataRead,
     commitAndPush,
   ];

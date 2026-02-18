@@ -5,7 +5,7 @@ import { internalAction } from "./_generated/server";
 import type { ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { allowedInfraReadTable } from "./infraReadQueries";
-import { createInfraProviders, getRequiredEnv } from "./infraProviders";
+import { createInfraProviders } from "./infraProviders";
 import type { Doc, Id } from "./_generated/dataModel";
 
 type JsonRecord = Record<string, unknown>;
@@ -76,24 +76,26 @@ function resolveConvexTeamId(user: { convexTeamId?: string } | null): string {
   throw new Error("Convex connection required to perform this read.");
 }
 
-function resolveCloudflareToken(user: { cloudflareAccessToken?: string } | null): string {
-  if (user?.cloudflareAccessToken) {
-    return user.cloudflareAccessToken;
+function resolveNetlifyToken(user: { netlifyAccessToken?: string } | null): string {
+  if (user?.netlifyAccessToken) {
+    return user.netlifyAccessToken;
   }
-  throw new Error("Cloudflare connection required to perform this read.");
+  throw new Error("Netlify connection required to perform this read.");
 }
 
-function resolveCloudflareAccountId(
-  user: { cloudflareAccountId?: string } | null,
-  infra: { cloudflarePagesAccountId?: string } | null,
-): string {
-  if (infra?.cloudflarePagesAccountId) {
-    return infra.cloudflarePagesAccountId;
+function resolveNetlifyTeamSlug(user: {
+  netlifyTeamSlug?: string;
+  netlifyTeamId?: string;
+} | null): string {
+  const slug = user?.netlifyTeamSlug?.trim() ?? "";
+  if (slug) {
+    return slug;
   }
-  if (user?.cloudflareAccountId) {
-    return user.cloudflareAccountId;
+  const teamId = user?.netlifyTeamId?.trim() ?? "";
+  if (teamId) {
+    return teamId;
   }
-  throw new Error("Cloudflare connection required to perform this read.");
+  throw new Error("Netlify team selection required to perform this read.");
 }
 
 export const getConvexDeploymentStatus = internalAction({
@@ -173,13 +175,15 @@ export const getNetlifySiteStatus = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { infra } = await loadVaultContext(ctx, args.vaultId);
+    const { infra, user } = await loadVaultContext(ctx, args.vaultId);
 
     if (!infra?.netlifySiteId) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
 
-    const providers = createInfraProviders();
+    const providers = createInfraProviders({
+      netlifyToken: resolveNetlifyToken(user),
+    });
     const endpoint = `/sites/${encodeURIComponent(infra.netlifySiteId)}`;
     const payload = await providers.netlify.request(endpoint, "GET");
 
@@ -199,13 +203,15 @@ export const getNetlifyLogs = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { infra } = await loadVaultContext(ctx, args.vaultId);
+    const { infra, user } = await loadVaultContext(ctx, args.vaultId);
 
     if (!infra?.netlifySiteId) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
 
-    const providers = createInfraProviders();
+    const providers = createInfraProviders({
+      netlifyToken: resolveNetlifyToken(user),
+    });
     const maxEntries = clamp(args.maxEntries ?? 10, 1, 50);
     const deploysEndpoint =
       `/sites/${encodeURIComponent(infra.netlifySiteId)}/deploys?per_page=${maxEntries}&page=1`;
@@ -251,83 +257,6 @@ export const getNetlifyLogs = internalAction({
   },
 });
 
-export const getCloudflarePagesProjectStatus = internalAction({
-  args: {
-    vaultId: v.id("vaults"),
-  },
-  returns: EXECUTION_RESULT,
-  handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { infra, user } = await loadVaultContext(ctx, args.vaultId);
-
-    if (!infra?.cloudflarePagesProjectName) {
-      throw new Error(getVaultInfraError(args.vaultId));
-    }
-
-    const providers = createInfraProviders({
-      cloudflareToken: resolveCloudflareToken(user),
-    });
-    const accountId = resolveCloudflareAccountId(user, infra);
-    const endpoint = `/accounts/${encodeURIComponent(accountId)}/pages/projects/${encodeURIComponent(infra.cloudflarePagesProjectName)}`;
-    const payload = await providers.cloudflare.request(endpoint, "GET");
-
-    return {
-      summary: `Cloudflare Pages status for ${infra.cloudflarePagesProjectName}`,
-      endpoint,
-      raw: JSON.stringify(payload, null, 2),
-      rowCount: 1,
-    };
-  },
-});
-
-export const getCloudflarePagesLogs = internalAction({
-  args: {
-    vaultId: v.id("vaults"),
-    maxEntries: v.optional(v.number()),
-  },
-  returns: EXECUTION_RESULT,
-  handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { infra, user } = await loadVaultContext(ctx, args.vaultId);
-
-    if (!infra?.cloudflarePagesProjectName) {
-      throw new Error(getVaultInfraError(args.vaultId));
-    }
-
-    const providers = createInfraProviders({
-      cloudflareToken: resolveCloudflareToken(user),
-    });
-    const accountId = resolveCloudflareAccountId(user, infra);
-    const maxEntries = clamp(args.maxEntries ?? 10, 1, 50);
-    const endpoint = `/accounts/${encodeURIComponent(accountId)}/pages/projects/${encodeURIComponent(infra.cloudflarePagesProjectName)}/deployments?per_page=${maxEntries}&page=1`;
-    const payload = await providers.cloudflare.request(endpoint, "GET");
-
-    const deploymentsPayload = Array.isArray(payload)
-      ? payload
-      : Array.isArray(asRecord(payload)["deployments"])
-        ? (asRecord(payload)["deployments"] as unknown[])
-        : [];
-
-    const lines: string[] = [];
-    for (const deployment of deploymentsPayload.slice(0, maxEntries)) {
-      const record = asRecord(deployment);
-      const createdAt =
-        readString(record, "created_on") ??
-        readString(record, "created_at") ??
-        "unknown";
-      const env = readString(record, "environment") ?? "unknown";
-      const url = readString(record, "url");
-      lines.push(
-        `${createdAt} env=${env}` + (url ? ` url=${url}` : ""),
-      );
-    }
-
-    return {
-      summary: `Cloudflare Pages deployments for ${infra.cloudflarePagesProjectName}`,
-      endpoint,
-      raw: lines.join("\n") || "No deployment entries returned.",
-      logLineCount: lines.length,
-    };
-  },
-});
 
 export const getConvexProjectInventory = internalAction({
   args: {
@@ -362,11 +291,17 @@ export const getConvexProjectInventory = internalAction({
 export const getNetlifySiteInventory = internalAction({
   args: {
     limit: v.optional(v.number()),
+    userId: v.optional(v.id("users")),
   },
   returns: EXECUTION_RESULT,
-  handler: async (_ctx, args): Promise<ExecutionResult> => {
-    const providers = createInfraProviders();
-    const teamSlug = getRequiredEnv("NETLIFY_TEAM_ID");
+  handler: async (ctx, args): Promise<ExecutionResult> => {
+    const user = args.userId
+      ? await ctx.runQuery(internal.users.getById, { userId: args.userId })
+      : null;
+    const providers = createInfraProviders({
+      netlifyToken: resolveNetlifyToken(user),
+    });
+    const teamSlug = resolveNetlifyTeamSlug(user);
     const max = clamp(args.limit ?? 50, 1, 100);
     const endpoint =
       `/${encodeURIComponent(teamSlug)}/sites?per_page=${max}&page=1`;
@@ -377,41 +312,6 @@ export const getNetlifySiteInventory = internalAction({
 
     return {
       summary: `Netlify site inventory for team ${teamSlug}`,
-      endpoint,
-      raw: JSON.stringify(rows, null, 2),
-      rowCount: rows.length,
-    };
-  },
-});
-
-export const getCloudflareProjectInventory = internalAction({
-  args: {
-    limit: v.optional(v.number()),
-    userId: v.optional(v.id("users")),
-  },
-  returns: EXECUTION_RESULT,
-  handler: async (ctx, args): Promise<ExecutionResult> => {
-    const user = args.userId
-      ? await ctx.runQuery(internal.users.getById, { userId: args.userId })
-      : null;
-    const providers = createInfraProviders({
-      cloudflareToken: resolveCloudflareToken(user),
-    });
-    const accountId = resolveCloudflareAccountId(user, null);
-    const max = clamp(args.limit ?? 50, 1, 100);
-    const endpoint =
-      `/accounts/${encodeURIComponent(accountId)}/pages/projects?per_page=${max}&page=1`;
-    const payload = await providers.cloudflare.request(endpoint, "GET");
-
-    const projects = Array.isArray(payload)
-      ? payload
-      : Array.isArray(asRecord(payload)["projects"])
-        ? (asRecord(payload)["projects"] as unknown[])
-        : [];
-    const rows = projects.slice(0, max);
-
-    return {
-      summary: `Cloudflare Pages project inventory for account ${accountId}`,
       endpoint,
       raw: JSON.stringify(rows, null, 2),
       rowCount: rows.length,

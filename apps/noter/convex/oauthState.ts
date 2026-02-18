@@ -3,7 +3,7 @@ import { internalMutation, internalQuery } from "./_generated/server";
 
 export const OAuthProvider = v.union(
   v.literal("convex"),
-  v.literal("cloudflare"),
+  v.literal("netlify"),
 );
 
 export type OAuthProvider = Infer<typeof OAuthProvider>;
@@ -13,7 +13,7 @@ export const createOauthState = internalMutation({
     provider: OAuthProvider,
     userId: v.id("users"),
     state: v.string(),
-    codeVerifier: v.string(),
+    codeVerifier: v.optional(v.string()),
     createdAt: v.number(),
     expiresAt: v.number(),
   },

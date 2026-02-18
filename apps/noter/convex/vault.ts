@@ -290,7 +290,6 @@ export const getUserVaults = query({
       state: v.union(v.literal("copying_files"), v.literal("ready")),
       isNoterManaged: v.boolean(),
       hasConvexProvision: v.boolean(),
-      hasCloudflareProvision: v.boolean(),
       hasNetlifyProvision: v.boolean(),
       daytonaSandboxId: v.optional(v.string()),
       daytonaSandboxName: v.optional(v.string()),
@@ -344,9 +343,6 @@ export const getUserVaults = query({
         const hasConvexProvision =
           typeof infra?.convexProjectId === "string" ||
           typeof infra?.convexDeploymentName === "string";
-        const hasCloudflareProvision =
-          typeof infra?.cloudflarePagesProjectId === "string" ||
-          typeof infra?.cloudflarePagesProjectName === "string";
         const hasNetlifyProvision = typeof infra?.netlifySiteId === "string";
 
         return {
@@ -360,7 +356,6 @@ export const getUserVaults = query({
           state: vault.state,
           isNoterManaged: vault.isNoterManaged ?? false,
           hasConvexProvision,
-          hasCloudflareProvision,
           hasNetlifyProvision,
           daytonaSandboxId: vault.daytonaSandboxId,
           daytonaSandboxName: vault.daytonaSandboxName,
@@ -369,10 +364,7 @@ export const getUserVaults = query({
           daytonaPrebuildLogsSnapshot: vault.daytonaPrebuildLogsSnapshot,
           infraState: vault.infraState ?? "not_started",
           infraProductionUrl:
-            infra?.cloudflarePagesProductionUrl ??
-            infra?.cloudflarePagesDefaultUrl ??
-            infra?.netlifyProductionUrl ??
-            infra?.netlifyDefaultUrl,
+            infra?.netlifyProductionUrl ?? infra?.netlifyDefaultUrl,
         };
       }),
     );
@@ -484,11 +476,6 @@ export const getVaultInfrastructure = query({
           netlifySiteName: v.optional(v.string()),
           netlifyDefaultUrl: v.optional(v.string()),
           netlifyProductionUrl: v.optional(v.string()),
-          cloudflarePagesProjectId: v.optional(v.string()),
-          cloudflarePagesProjectName: v.optional(v.string()),
-          cloudflarePagesSubdomain: v.optional(v.string()),
-          cloudflarePagesDefaultUrl: v.optional(v.string()),
-          cloudflarePagesProductionUrl: v.optional(v.string()),
         }),
       ),
       domains: v.array(
@@ -499,8 +486,6 @@ export const getVaultInfrastructure = query({
           source: v.union(
             v.literal("netlify_default"),
             v.literal("netlify_custom"),
-            v.literal("cloudflare_pages_default"),
-            v.literal("cloudflare_pages_custom"),
           ),
           active: v.boolean(),
         }),
@@ -541,11 +526,6 @@ export const getVaultInfrastructure = query({
             netlifySiteName: infrastructure.netlifySiteName,
             netlifyDefaultUrl: infrastructure.netlifyDefaultUrl,
             netlifyProductionUrl: infrastructure.netlifyProductionUrl,
-            cloudflarePagesProjectId: infrastructure.cloudflarePagesProjectId,
-            cloudflarePagesProjectName: infrastructure.cloudflarePagesProjectName,
-            cloudflarePagesSubdomain: infrastructure.cloudflarePagesSubdomain,
-            cloudflarePagesDefaultUrl: infrastructure.cloudflarePagesDefaultUrl,
-            cloudflarePagesProductionUrl: infrastructure.cloudflarePagesProductionUrl,
           }
         : undefined,
       domains: domains.map((domain) => ({

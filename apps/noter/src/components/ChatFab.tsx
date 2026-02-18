@@ -87,7 +87,7 @@ type ProdReadProposal = {
   type: "prod_read_proposal";
   requestId: Id<"aiProdAccessRequests">;
   scope: "vault" | "global";
-  provider: "convex" | "netlify" | "cloudflare";
+  provider: "convex" | "netlify";
   resourceKind:
     | "deployment_status"
     | "logs"
@@ -104,7 +104,7 @@ type ProdReadProposal = {
 type ProdReadResult = {
   type: "prod_read_result";
   requestId: Id<"aiProdAccessRequests">;
-  provider: "convex" | "netlify" | "cloudflare";
+  provider: "convex" | "netlify";
   resourceKind:
     | "deployment_status"
     | "logs"
@@ -400,7 +400,6 @@ function renderProdReadLabel(resourceKind: ProdReadProposal["resourceKind"]) {
 
 function renderProviderLabel(provider: ProdReadProposal["provider"]) {
   if (provider === "convex") return "Convex";
-  if (provider === "cloudflare") return "Cloudflare Pages";
   return "Netlify";
 }
 

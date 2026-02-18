@@ -32,7 +32,7 @@ export const viewer = query({
       githubUsername: v.optional(v.string()),
       hasGithubAccessToken: v.boolean(),
       hasConvexAccessToken: v.boolean(),
-      hasCloudflareAccessToken: v.boolean(),
+      hasNetlifyAccessToken: v.boolean(),
     }),
     v.null(),
   ),
@@ -53,7 +53,7 @@ export const viewer = query({
       githubUsername: user.githubUsername,
       hasGithubAccessToken: typeof user.githubAccessToken === "string",
       hasConvexAccessToken: typeof user.convexAccessToken === "string",
-      hasCloudflareAccessToken: typeof user.cloudflareAccessToken === "string",
+      hasNetlifyAccessToken: typeof user.netlifyAccessToken === "string",
     };
   },
 });
@@ -159,12 +159,12 @@ export const disconnectConvex = mutation({
   },
 });
 
-export const getCloudflareConnectionStatus = query({
+export const getNetlifyConnectionStatus = query({
   args: {},
   returns: v.object({
     connected: v.boolean(),
-    accountId: v.optional(v.string()),
-    accountName: v.optional(v.string()),
+    teamId: v.optional(v.string()),
+    teamSlug: v.optional(v.string()),
   }),
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
@@ -177,15 +177,16 @@ export const getCloudflareConnectionStatus = query({
     }
     return {
       connected:
-        typeof user.cloudflareAccessToken === "string" &&
-        typeof user.cloudflareAccountId === "string",
-      accountId: user.cloudflareAccountId,
-      accountName: user.cloudflareAccountName,
+        typeof user.netlifyAccessToken === "string" &&
+        (typeof user.netlifyTeamSlug === "string" ||
+          typeof user.netlifyTeamId === "string"),
+      teamId: user.netlifyTeamId,
+      teamSlug: user.netlifyTeamSlug,
     };
   },
 });
 
-export const disconnectCloudflare = mutation({
+export const disconnectNetlify = mutation({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
@@ -194,11 +195,12 @@ export const disconnectCloudflare = mutation({
       throw new Error("User not authenticated");
     }
     await ctx.db.patch(userId, {
-      cloudflareAccessToken: undefined,
-      cloudflareRefreshToken: undefined,
-      cloudflareExpiresAt: undefined,
-      cloudflareAccountId: undefined,
-      cloudflareAccountName: undefined,
+      netlifyAccessToken: undefined,
+      netlifyRefreshToken: undefined,
+      netlifyExpiresAt: undefined,
+      netlifyUserId: undefined,
+      netlifyTeamId: undefined,
+      netlifyTeamSlug: undefined,
     });
     return null;
   },

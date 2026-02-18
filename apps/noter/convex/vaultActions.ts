@@ -268,11 +268,12 @@ export const createRepository = action({
     if (!hasConvexConnection) {
       throw new Error("Convex connection is required to create a project.");
     }
-    const hasCloudflareConnection =
-      typeof currentUser.cloudflareAccessToken === "string" &&
-      typeof currentUser.cloudflareAccountId === "string";
-    if (!hasCloudflareConnection) {
-      throw new Error("Cloudflare connection is required to create a project.");
+    const hasNetlifyConnection =
+      typeof currentUser.netlifyAccessToken === "string" &&
+      (typeof currentUser.netlifyTeamSlug === "string" ||
+        typeof currentUser.netlifyTeamId === "string");
+    if (!hasNetlifyConnection) {
+      throw new Error("Netlify connection is required to create a project.");
     }
 
     const repoName = toSafeRepoName(args.name);
@@ -404,7 +405,6 @@ export const deleteVault = action({
     removeCodespaces: v.optional(v.boolean()),
     removeGithubRepo: v.optional(v.boolean()),
     removeConvexProvision: v.optional(v.boolean()),
-    removeCloudflareProvision: v.optional(v.boolean()),
     removeNetlifyProvision: v.optional(v.boolean()),
     removeDaytonaResources: v.optional(v.boolean()),
   },
@@ -452,10 +452,6 @@ export const deleteVault = action({
       args.removeNetlifyProvision === true &&
       vault.isNoterManaged === true &&
       typeof infrastructure?.netlifySiteId === "string";
-    const shouldRemoveCloudflareProvision =
-      args.removeCloudflareProvision === true &&
-      vault.isNoterManaged === true &&
-      typeof infrastructure?.cloudflarePagesProjectName === "string";
     const shouldRemoveConvexProvision =
       args.removeConvexProvision === true &&
       vault.isNoterManaged === true &&
@@ -468,8 +464,7 @@ export const deleteVault = action({
 
     if (
       shouldRemoveNetlifyProvision ||
-      shouldRemoveConvexProvision ||
-      shouldRemoveCloudflareProvision
+      shouldRemoveConvexProvision
     ) {
       const convexToken = shouldRemoveConvexProvision
         ? user.convexAccessToken
@@ -477,16 +472,16 @@ export const deleteVault = action({
       if (shouldRemoveConvexProvision && !convexToken) {
         throw new Error("Convex connection is required to remove resources.");
       }
-      const cloudflareToken = shouldRemoveCloudflareProvision
-        ? user.cloudflareAccessToken
+      const netlifyToken = shouldRemoveNetlifyProvision
+        ? user.netlifyAccessToken
         : undefined;
-      if (shouldRemoveCloudflareProvision && !cloudflareToken) {
-        throw new Error("Cloudflare connection is required to remove resources.");
+      if (shouldRemoveNetlifyProvision && !netlifyToken) {
+        throw new Error("Netlify connection is required to remove resources.");
       }
 
       const providers = createInfraProviders({
         convexToken,
-        cloudflareToken,
+        netlifyToken,
       });
 
       if (shouldRemoveNetlifyProvision) {
@@ -527,24 +522,6 @@ export const deleteVault = action({
         }
       }
 
-      if (shouldRemoveCloudflareProvision) {
-        const projectName = infrastructure.cloudflarePagesProjectName;
-        const accountId =
-          infrastructure.cloudflarePagesAccountId ?? user.cloudflareAccountId;
-        if (!projectName || !accountId) {
-          throw new Error("Cloudflare Pages project details are missing.");
-        }
-        try {
-          await providers.cloudflare.request(
-            `/accounts/${encodeURIComponent(accountId)}/pages/projects/${encodeURIComponent(projectName)}`,
-            "DELETE",
-          );
-        } catch (error) {
-          if (!isProviderNotFoundError(error)) {
-            throw error;
-          }
-        }
-      }
     }
 
     if (shouldRemoveDaytonaResources) {

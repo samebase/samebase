@@ -1,10 +1,7 @@
 import { httpRouter } from "convex/server";
 import { auth } from "./auth";
 import { finishConvexOAuth, startConvexOAuth } from "./convexOAuth";
-import {
-  finishCloudflareOAuth,
-  startCloudflareOAuth,
-} from "./cloudflareOAuth";
+import { finishNetlifyOAuthCallback, startNetlifyOAuth } from "./netlifyOAuth";
 
 const http = httpRouter();
 
@@ -23,15 +20,15 @@ http.route({
 });
 
 http.route({
-  path: "/oauth/cloudflare/start",
+  path: "/oauth/netlify/start",
   method: "GET",
-  handler: startCloudflareOAuth,
+  handler: startNetlifyOAuth,
 });
 
 http.route({
-  path: "/oauth/cloudflare/callback",
+  path: "/oauth/netlify/callback",
   method: "GET",
-  handler: finishCloudflareOAuth,
+  handler: finishNetlifyOAuthCallback,
 });
 
 export default http;

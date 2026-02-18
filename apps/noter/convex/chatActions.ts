@@ -369,44 +369,6 @@ export const executeApprovedProdRead = internalAction({
           },
         );
       } else if (
-        request.provider === "cloudflare" &&
-        request.resourceKind === "deployment_status"
-      ) {
-        if (!request.vaultId) {
-          throw new Error("Vault context is required for Cloudflare status");
-        }
-        executionResult = await ctx.runAction(
-          internal.infraRead.getCloudflarePagesProjectStatus,
-          {
-            vaultId: request.vaultId,
-          },
-        );
-      } else if (
-        request.provider === "cloudflare" &&
-        request.resourceKind === "logs"
-      ) {
-        if (!request.vaultId) {
-          throw new Error("Vault context is required for Cloudflare logs");
-        }
-        executionResult = await ctx.runAction(
-          internal.infraRead.getCloudflarePagesLogs,
-          {
-            vaultId: request.vaultId,
-            maxEntries: parseOptionalPositiveNumber(params["maxEntries"]),
-          },
-        );
-      } else if (
-        request.provider === "cloudflare" &&
-        request.resourceKind === "project_inventory"
-      ) {
-        executionResult = await ctx.runAction(
-          internal.infraRead.getCloudflareProjectInventory,
-          {
-            limit: parseOptionalPositiveNumber(params["limit"]),
-            userId: request.requesterUserId,
-          },
-        );
-      } else if (
         request.provider === "netlify" &&
         request.resourceKind === "site_inventory"
       ) {
@@ -414,6 +376,7 @@ export const executeApprovedProdRead = internalAction({
           internal.infraRead.getNetlifySiteInventory,
           {
             limit: parseOptionalPositiveNumber(params["limit"]),
+            userId: request.requesterUserId,
           },
         );
       }

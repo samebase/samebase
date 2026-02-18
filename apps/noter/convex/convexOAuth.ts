@@ -244,6 +244,13 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
     return new Response("OAuth state expired", { status: 400 });
   }
 
+  if (!oauthState.codeVerifier) {
+    await ctx.runMutation(internal.oauthState.deleteOauthState, {
+      id: oauthState._id,
+    });
+    return new Response("OAuth state missing code verifier", { status: 400 });
+  }
+
   const clientId = readRequiredEnv("CONVEX_OAUTH_CLIENT_ID");
   const clientSecret = readRequiredEnv("CONVEX_OAUTH_CLIENT_SECRET");
   const redirectUri = readRequiredEnv("CONVEX_OAUTH_REDIRECT_URL");
