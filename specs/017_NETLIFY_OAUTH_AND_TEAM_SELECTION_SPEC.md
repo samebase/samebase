@@ -5,8 +5,8 @@
 - Owner: Noter platform
 - Last updated: 2026-02-18
 - Related specs:
-- `/Users/nicu/dev/my/noter/specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-- `/Users/nicu/dev/my/noter/specs/016_FRONTEND_HOSTING_PROVIDER_SELECTION_SPEC.md`
+- `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+- `specs/016_FRONTEND_HOSTING_PROVIDER_SELECTION_SPEC.md`
 
 ## Summary
 Noter uses **Netlify OAuth** to connect a user's Netlify account for BYO hosting. The flow uses Netlify's authorization endpoint to return an authorization code, then Noter exchanges that code server-side for an access token and **auto-selects the default/first Netlify team** for provisioning. This keeps onboarding minimal and removes the need for operator tokens.
@@ -55,7 +55,7 @@ Required env vars:
 
 ## Security Notes
 - Tokens are stored only in Convex (never in client state).
-- The callback page clears the URL fragment immediately after parsing.
+- The callback page clears the URL query parameters immediately after parsing.
 - If the OAuth state is missing/expired, the flow fails with a clear error.
 
 ## Acceptance Criteria

@@ -316,16 +316,6 @@ function parseDeployKeyIdentifier(deployKey: string): string {
   return deployKey.slice(0, pipeIdx);
 }
 
-function ensureHttpsUrl(url?: string): string | undefined {
-  if (!url) {
-    return undefined;
-  }
-  if (url.startsWith("http://") || url.startsWith("https://")) {
-    return url;
-  }
-  return `https://${url}`;
-}
-
 type ConvexProvisionResult = {
   convexProjectId: string;
   convexProjectSlug?: string;

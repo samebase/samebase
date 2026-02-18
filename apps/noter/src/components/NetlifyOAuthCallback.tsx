@@ -1,4 +1,4 @@
-import { useMutation } from "convex/react";
+import { useAction } from "convex/react";
 import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { Loader2 } from "lucide-react";
@@ -9,7 +9,7 @@ function parseQueryParams(): URLSearchParams {
 }
 
 export function NetlifyOAuthCallback() {
-  const finishNetlifyOAuth = useMutation(api.netlifyOAuth.finishNetlifyOAuth);
+  const finishNetlifyOAuth = useAction(api.netlifyOAuth.finishNetlifyOAuth);
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
 

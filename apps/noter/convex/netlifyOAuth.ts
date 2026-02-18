@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { httpAction, internalMutation, mutation } from "./_generated/server";
+import { action, httpAction, internalMutation, mutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./oauthUtils";
@@ -200,7 +200,7 @@ export const getNetlifyOAuthUrl = mutation({
   },
 });
 
-export const finishNetlifyOAuth = mutation({
+export const finishNetlifyOAuth = action({
   args: {
     code: v.string(),
     state: v.string(),

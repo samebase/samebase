@@ -124,7 +124,11 @@ export function openAuthPopup(provider: "google" | "github") {
   // Don't call signIn directly — the library would try window.location.href
   // which breaks in iframes. Instead open a popup that will auto-trigger sign-in.
   // Listen for auth tokens sent from the popup via postMessage.
+  let popup: Window | null = null;
+  const expectedOrigin = window.location.origin;
   const handler = (event: MessageEvent) => {
+    if (event.origin !== expectedOrigin) return;
+    if (popup && event.source !== popup) return;
     if (event.data?.type === "convex-auth-tokens") {
       window.removeEventListener("message", handler);
       const tokens = event.data.tokens as Record<string, string>;
@@ -136,7 +140,7 @@ export function openAuthPopup(provider: "google" | "github") {
   };
   window.addEventListener("message", handler);
 
-  window.open(
+  popup = window.open(
     `${window.location.origin}/?auth=${provider}`,
     `${provider}-oauth`,
     "width=600,height=700,popup=true",
