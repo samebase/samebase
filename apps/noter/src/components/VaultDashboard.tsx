@@ -40,6 +40,10 @@ import {
 } from "@/components/ui/button-group";
 import { CodespaceStatus } from "@/components/CodespaceStatus";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
+import {
+  type UserMenuPlacementPreview,
+  useUserMenuPlacementPreview,
+} from "@/hooks/use-user-menu-placement-preview";
 import type { Id } from "../../convex/_generated/dataModel";
 
 const formatTimeAgo = (timestamp: number) => {
@@ -102,6 +106,8 @@ const getInfraActionLabel = (
 
 export function VaultDashboard() {
   const vaults = useQuery(api.vault.getUserVaults);
+  const [menuPlacementPreview, setMenuPlacementPreview] =
+    useUserMenuPlacementPreview();
   const { signIn } = useAuthActions();
   const deleteVault = useAction(api.vaultActions.deleteVault);
   const createRepository = useAction(api.vaultActions.createRepository);
@@ -404,6 +410,40 @@ export function VaultDashboard() {
   const netlifyStatus = netlifyConnected
     ? `Connected to ${netlifyConnection?.teamSlug ?? netlifyConnection?.teamId ?? "Netlify team"}`
     : "Not connected";
+  const previewOptions: Array<{
+    value: UserMenuPlacementPreview;
+    label: string;
+  }> = [
+    { value: "sidebar", label: "Sidebar (current)" },
+    { value: "top-strip", label: "Top strip" },
+    { value: "floating", label: "Floating button" },
+  ];
+  const menuPreviewPanel = (
+    <div className="rounded-lg border border-dashed border-border/80 bg-muted/20 p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-muted-foreground">
+          User menu preview (worktree-only). Switch styles, then open a vault on
+          mobile to compare editor chrome.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {previewOptions.map((option) => (
+            <Button
+              key={option.value}
+              type="button"
+              size="sm"
+              variant={
+                menuPlacementPreview === option.value ? "secondary" : "outline"
+              }
+              onClick={() => setMenuPlacementPreview(option.value)}
+              className="h-7 px-2 text-xs"
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
   const createControl = (
     <div className="flex flex-col items-start gap-2">
       <ButtonGroup className="w-full sm:w-[360px]">
@@ -593,7 +633,8 @@ export function VaultDashboard() {
               </p>
             </div>
 
-            <div className="space-y-4">
+          <div className="space-y-4">
+              {menuPreviewPanel}
               {connectionPanel}
               <div className="flex justify-center">{createControl}</div>
             </div>
@@ -606,186 +647,186 @@ export function VaultDashboard() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="container py-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div className="flex items-center gap-2">
-          <GitHubLogoIcon className="h-5 w-5 sm:h-6 sm:w-6" />
-          <h1 className="text-xl sm:text-2xl font-semibold">Your Vaults</h1>
+        <div className="mb-6">{menuPreviewPanel}</div>
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <GitHubLogoIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+            <h1 className="text-xl sm:text-2xl font-semibold">Your Vaults</h1>
+          </div>
+          {createControl}
         </div>
-        {createControl}
-      </div>
+        <div className="mb-6">{connectionPanel}</div>
 
-      <div className="mb-6">{connectionPanel}</div>
-
-      <div className="space-y-2">
-        {vaults.map((vault: (typeof vaults)[0]) => {
-          const isReady = vault.state === "ready";
-          const defaultBranch = "main";
-          const chatRoute = `/vault/${vault.repositoryFullName}/${defaultBranch}/chat`;
-          const infraActionLabel = vault.isNoterManaged
-            ? getInfraActionLabel(vault.infraState)
-            : null;
-          return (
-            <div
-              key={vault._id}
-              className={clsx(
-                "flex flex-col gap-3 p-4 border rounded-lg sm:flex-row sm:items-center sm:justify-between sm:gap-0",
-                !isReady && "bg-muted/30 opacity-75",
-              )}
-            >
-              <div className="flex flex-col gap-3 flex-1 min-w-0 sm:flex-row sm:items-center sm:gap-4">
-                <div className="flex-1 min-w-0 space-y-2">
-                  <div className="flex flex-col items-start ">
-                    <span className="text-sm text-muted-foreground">
-                      {vault.ghRepoOwner}/
-                    </span>
-
-                    <h3 className="font-semibold">
-                      <span className="flex items-center gap-2 min-w-0">
-                        {!isReady && (
-                          <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
-                        )}
-                        <span className="min-w-0 truncate">{vault.ghRepoName}</span>
-                        {!isReady && (
-                          <span className="text-xs text-muted-foreground font-normal shrink-0">
-                            (setting up...)
-                          </span>
-                        )}
-                      </span>
-                    </h3>
-                  </div>
-
-                  {isReady && (
-                    <div className="space-y-1.5">
-                      <CodespaceStatus vaultId={vault._id} />
-                      <DaytonaWorkspaceButton
-                        vaultId={vault._id}
-                        branch={defaultBranch}
-                        sandboxId={vault.daytonaSandboxId}
-                        sandboxName={vault.daytonaSandboxName}
-                      />
-                      {vault.isNoterManaged && (
-                        <div className="text-xs text-muted-foreground">
-                          Infra: {formatInfraState(vault.infraState)}
-                          {vault.infraProductionUrl && (
-                            <a
-                              href={vault.infraProductionUrl}
-                              target="_blank"
-                              rel="noreferrer noopener"
-                              className={`ml-2 font-mono break-all ${linkStyle}`}
-                            >
-                              {vault.infraProductionUrl}
-                            </a>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex flex-row items-center gap-4 text-xs text-muted-foreground sm:flex-col sm:items-end sm:gap-1 sm:text-sm">
-                  <div className="flex items-center gap-1">
-                    <FileTextIcon className="h-3 w-3" />
-                    <span>
-                      {vault.fileCount} edited file
-                      {vault.fileCount !== 1 ? "s" : ""}
-                    </span>
-                  </div>
-
-                  <div
-                    className={clsx("flex items-center gap-1", {
-                      invisible: !vault.lastEditTime,
-                    })}
-                  >
-                    <ClockIcon className="h-3 w-3" />
-                    <span>
-                      {vault.lastEditTime
-                        ? formatTimeAgo(vault.lastEditTime)
-                        : "0m ago"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:ml-2 sm:w-auto sm:flex-nowrap">
-                {isReady ? (
-                  <>
-                    <Button asChild variant="secondary" size="sm">
-                      <Link to={`/vault/${vault.repositoryFullName}/${defaultBranch}`}>
-                        {defaultBranch}
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" size="sm">
-                      <Link to={chatRoute}>Chat</Link>
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button variant="secondary" size="sm" disabled>
-                      {defaultBranch}
-                    </Button>
-                    <Button variant="outline" size="sm" disabled>
-                      Chat
-                    </Button>
-                  </>
+        <div className="space-y-2">
+          {vaults.map((vault: (typeof vaults)[0]) => {
+            const isReady = vault.state === "ready";
+            const defaultBranch = "main";
+            const chatRoute = `/vault/${vault.repositoryFullName}/${defaultBranch}/chat`;
+            const infraActionLabel = vault.isNoterManaged
+              ? getInfraActionLabel(vault.infraState)
+              : null;
+            return (
+              <div
+                key={vault._id}
+                className={clsx(
+                  "flex flex-col gap-3 p-4 border rounded-lg sm:flex-row sm:items-center sm:justify-between sm:gap-0",
+                  !isReady && "bg-muted/30 opacity-75",
                 )}
-                {infraActionLabel && (
+              >
+                <div className="flex flex-col gap-3 flex-1 min-w-0 sm:flex-row sm:items-center sm:gap-4">
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="flex flex-col items-start ">
+                      <span className="text-sm text-muted-foreground">
+                        {vault.ghRepoOwner}/
+                      </span>
+
+                      <h3 className="font-semibold">
+                        <span className="flex items-center gap-2 min-w-0">
+                          {!isReady && (
+                            <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+                          )}
+                          <span className="min-w-0 truncate">{vault.ghRepoName}</span>
+                          {!isReady && (
+                            <span className="text-xs text-muted-foreground font-normal shrink-0">
+                              (setting up...)
+                            </span>
+                          )}
+                        </span>
+                      </h3>
+                    </div>
+
+                    {isReady && (
+                      <div className="space-y-1.5">
+                        <CodespaceStatus vaultId={vault._id} />
+                        <DaytonaWorkspaceButton
+                          vaultId={vault._id}
+                          branch={defaultBranch}
+                          sandboxId={vault.daytonaSandboxId}
+                          sandboxName={vault.daytonaSandboxName}
+                        />
+                        {vault.isNoterManaged && (
+                          <div className="text-xs text-muted-foreground">
+                            Infra: {formatInfraState(vault.infraState)}
+                            {vault.infraProductionUrl && (
+                              <a
+                                href={vault.infraProductionUrl}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className={`ml-2 font-mono break-all ${linkStyle}`}
+                              >
+                                {vault.infraProductionUrl}
+                              </a>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-row items-center gap-4 text-xs text-muted-foreground sm:flex-col sm:items-end sm:gap-1 sm:text-sm">
+                    <div className="flex items-center gap-1">
+                      <FileTextIcon className="h-3 w-3" />
+                      <span>
+                        {vault.fileCount} edited file
+                        {vault.fileCount !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+
+                    <div
+                      className={clsx("flex items-center gap-1", {
+                        invisible: !vault.lastEditTime,
+                      })}
+                    >
+                      <ClockIcon className="h-3 w-3" />
+                      <span>
+                        {vault.lastEditTime
+                          ? formatTimeAgo(vault.lastEditTime)
+                          : "0m ago"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:ml-2 sm:w-auto sm:flex-nowrap">
+                  {isReady ? (
+                    <>
+                      <Button asChild variant="secondary" size="sm">
+                        <Link to={`/vault/${vault.repositoryFullName}/${defaultBranch}`}>
+                          {defaultBranch}
+                        </Link>
+                      </Button>
+                      <Button asChild variant="outline" size="sm">
+                        <Link to={chatRoute}>Chat</Link>
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="secondary" size="sm" disabled>
+                        {defaultBranch}
+                      </Button>
+                      <Button variant="outline" size="sm" disabled>
+                        Chat
+                      </Button>
+                    </>
+                  )}
+                  {infraActionLabel && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        void handleRetryInfrastructure(vault._id);
+                      }}
+                      disabled={retryingVaultId === vault._id}
+                    >
+                      {retryingVaultId === vault._id ? (
+                        <>
+                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                          Retrying...
+                        </>
+                      ) : (
+                        infraActionLabel
+                      )}
+                    </Button>
+                  )}
+
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     onClick={() => {
-                      void handleRetryInfrastructure(vault._id);
+                      setVaultToDelete({
+                        id: vault._id,
+                        repositoryFullName: vault.repositoryFullName,
+                        isNoterManaged: vault.isNoterManaged,
+                        hasConvexProvision: vault.hasConvexProvision,
+                        hasNetlifyProvision: vault.hasNetlifyProvision,
+                      });
+                      setRemoveGithubRepo(vault.isNoterManaged);
+                      setRemoveCodespaces(true);
+                      setRemoveConvexProvision(
+                        vault.isNoterManaged && vault.hasConvexProvision,
+                      );
+                      setRemoveNetlifyProvision(
+                        vault.isNoterManaged && vault.hasNetlifyProvision,
+                      );
+                      setRemoveDaytonaResources(
+                        Boolean(
+                          vault.daytonaSandboxId ||
+                            vault.daytonaSnapshotName ||
+                            vault.daytonaPrebuildLogsSnapshot,
+                        ),
+                      );
+                      setCommitError(null);
+                      setDidAttemptCommit(false);
                     }}
-                    disabled={retryingVaultId === vault._id}
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
-                    {retryingVaultId === vault._id ? (
-                      <>
-                        <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                        Retrying...
-                      </>
-                    ) : (
-                      infraActionLabel
-                    )}
+                    <TrashIcon className="h-4 w-4" />
                   </Button>
-                )}
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setVaultToDelete({
-                      id: vault._id,
-                      repositoryFullName: vault.repositoryFullName,
-                      isNoterManaged: vault.isNoterManaged,
-                      hasConvexProvision: vault.hasConvexProvision,
-                      hasNetlifyProvision: vault.hasNetlifyProvision,
-                    });
-                    setRemoveGithubRepo(vault.isNoterManaged);
-                    setRemoveCodespaces(true);
-                    setRemoveConvexProvision(
-                      vault.isNoterManaged && vault.hasConvexProvision,
-                    );
-                    setRemoveNetlifyProvision(
-                      vault.isNoterManaged && vault.hasNetlifyProvision,
-                    );
-                    setRemoveDaytonaResources(
-                      Boolean(
-                        vault.daytonaSandboxId ||
-                          vault.daytonaSnapshotName ||
-                          vault.daytonaPrebuildLogsSnapshot,
-                      ),
-                    );
-                    setCommitError(null);
-                    setDidAttemptCommit(false);
-                  }}
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                >
-                  <TrashIcon className="h-4 w-4" />
-                </Button>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
 
       {/* Confirmation Dialog */}
       <Dialog
