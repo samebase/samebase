@@ -8,14 +8,18 @@ import {
   TrashIcon,
   UpdateIcon,
   ChevronDownIcon,
+  LightningBoltIcon,
+  GlobeIcon,
 } from "@radix-ui/react-icons";
 import { Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { linkStyle } from "./styles";
 import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import { useAction, useQuery as useConvexQuery } from "convex/react";
-import { useState } from "react";
+import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
+import { useEffect, useRef, useState } from "react";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { isInIframe, openAuthPopup } from "@/SignInForm";
 import {
   Dialog,
   DialogContent,
@@ -69,6 +73,20 @@ const formatInfraState = (
   return "Partial";
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const getRedirectOrigin = (oauthUrl: string): string | null => {
+  try {
+    const url = new URL(oauthUrl);
+    const redirect = url.searchParams.get("redirect_uri");
+    if (!redirect) return null;
+    return new URL(redirect).origin;
+  } catch {
+    return null;
+  }
+};
+
 const getInfraActionLabel = (
   infraState:
     | "not_started"
@@ -84,12 +102,30 @@ const getInfraActionLabel = (
 
 export function VaultDashboard() {
   const vaults = useQuery(api.vault.getUserVaults);
+  const { signIn } = useAuthActions();
   const deleteVault = useAction(api.vaultActions.deleteVault);
   const createRepository = useAction(api.vaultActions.createRepository);
   const retryInfrastructureProvisioning = useAction(
     api.vaultActions.retryInfrastructureProvisioning,
   );
   const commitStaging = useAction(api.fileStagingActions.commitStaging);
+  const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
+  const getNetlifyOAuthUrl = useMutation(api.netlifyOAuth.getNetlifyOAuthUrl);
+  const disconnectGithub = useMutation(api.users.disconnectGithub);
+  const disconnectConvex = useMutation(api.users.disconnectConvex);
+  const disconnectNetlify = useMutation(api.users.disconnectNetlify);
+  const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
+  const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus);
+  const netlifyConnection = useConvexQuery(api.users.getNetlifyConnectionStatus);
+  const canCreateProject = Boolean(
+    githubConnection?.connected &&
+      convexConnection?.connected &&
+      netlifyConnection?.connected,
+  );
+  const convexPopupRef = useRef<Window | null>(null);
+  const netlifyPopupRef = useRef<Window | null>(null);
+  const convexPopupOriginRef = useRef<string | null>(null);
+  const netlifyPopupOriginRef = useRef<string | null>(null);
   const [vaultToDelete, setVaultToDelete] = useState<{
     id: Id<"vaults">;
     repositoryFullName: string;
@@ -103,6 +139,9 @@ export function VaultDashboard() {
   const [removeNetlifyProvision, setRemoveNetlifyProvision] = useState(false);
   const [removeDaytonaResources, setRemoveDaytonaResources] = useState(false);
   const [newAgentName, setNewAgentName] = useState("");
+  const [disconnectingProvider, setDisconnectingProvider] = useState<
+    "github" | "convex" | "netlify" | null
+  >(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -112,6 +151,42 @@ export function VaultDashboard() {
   const [retryingVaultId, setRetryingVaultId] = useState<Id<"vaults"> | null>(
     null,
   );
+
+  useEffect(() => {
+    const expectedOrigin = window.location.origin;
+    const handler = (event: MessageEvent) => {
+      if (!isRecord(event.data)) return;
+      if (
+        event.data.type === "convex-oauth-complete" &&
+        event.source === convexPopupRef.current
+      ) {
+        if (
+          event.origin !==
+          (convexPopupOriginRef.current ?? expectedOrigin)
+        ) {
+          return;
+        }
+        window.location.reload();
+      }
+      if (
+        event.data.type === "netlify-oauth-complete" &&
+        event.source === netlifyPopupRef.current
+      ) {
+        if (
+          event.origin !==
+          (netlifyPopupOriginRef.current ?? expectedOrigin)
+        ) {
+          return;
+        }
+        window.location.reload();
+      }
+    };
+
+    window.addEventListener("message", handler);
+    return () => {
+      window.removeEventListener("message", handler);
+    };
+  }, []);
 
   const selectedVault =
     vaultToDelete && vaults
@@ -124,7 +199,6 @@ export function VaultDashboard() {
       selectedVault?.daytonaSnapshotName ||
       selectedVault?.daytonaPrebuildLogsSnapshot,
   );
-
   const resetDeleteDialogState = () => {
     setVaultToDelete(null);
     setRemoveGithubRepo(false);
@@ -140,6 +214,91 @@ export function VaultDashboard() {
     api.codespacesMutations.getConnectedCodespacesCount,
     vaultToDelete ? { vaultId: vaultToDelete.id } : "skip",
   );
+
+  const handleConnectGithub = () => {
+    if (isInIframe()) {
+      openAuthPopup("github");
+      return;
+    }
+    void signIn("github");
+  };
+
+  const handleConnectConvex = async () => {
+    if (createError) {
+      setCreateError(null);
+    }
+    try {
+      const oauthUrl = await getConvexOAuthUrl();
+      if (isInIframe()) {
+        convexPopupOriginRef.current =
+          getRedirectOrigin(oauthUrl) ?? window.location.origin;
+        convexPopupRef.current = window.open(
+          oauthUrl,
+          "convex-oauth",
+          "width=600,height=700,popup=true",
+        );
+        return;
+      }
+      window.location.assign(oauthUrl);
+    } catch (error) {
+      setCreateError(
+        error instanceof Error
+          ? error.message
+          : "Failed to start Convex OAuth",
+      );
+    }
+  };
+
+  const handleDisconnect = async (provider: "github" | "convex" | "netlify") => {
+    if (disconnectingProvider) return;
+    setDisconnectingProvider(provider);
+    if (createError) {
+      setCreateError(null);
+    }
+    try {
+      if (provider === "github") {
+        await disconnectGithub();
+      } else if (provider === "convex") {
+        await disconnectConvex();
+      } else {
+        await disconnectNetlify();
+      }
+    } catch (error) {
+      setCreateError(
+        error instanceof Error
+          ? error.message
+          : `Failed to disconnect ${provider}`,
+      );
+    } finally {
+      setDisconnectingProvider(null);
+    }
+  };
+
+  const handleConnectNetlify = async () => {
+    if (createError) {
+      setCreateError(null);
+    }
+    try {
+      const oauthUrl = await getNetlifyOAuthUrl();
+      if (isInIframe()) {
+        netlifyPopupOriginRef.current =
+          getRedirectOrigin(oauthUrl) ?? window.location.origin;
+        netlifyPopupRef.current = window.open(
+          oauthUrl,
+          "netlify-oauth",
+          "width=600,height=700,popup=true",
+        );
+        return;
+      }
+      window.location.assign(oauthUrl);
+    } catch (error) {
+      setCreateError(
+        error instanceof Error
+          ? error.message
+          : "Failed to start Netlify OAuth",
+      );
+    }
+  };
 
   const handleRemoveVault = async () => {
     if (!vaultToDelete || isDeleting || isCommitting) return;
@@ -194,6 +353,12 @@ export function VaultDashboard() {
   const handleCreateRepository = async () => {
     const repoName = newAgentName.trim();
     if (!repoName || isCreating) return;
+    if (!canCreateProject) {
+      setCreateError(
+        "Connect GitHub, Convex, and Netlify before creating a project.",
+      );
+      return;
+    }
 
     setIsCreating(true);
     setCreateError(null);
@@ -206,7 +371,7 @@ export function VaultDashboard() {
       setNewAgentName("");
     } catch (error) {
       setCreateError(
-        error instanceof Error ? error.message : "Failed to create agent",
+        error instanceof Error ? error.message : "Failed to create project",
       );
     } finally {
       setIsCreating(false);
@@ -227,11 +392,23 @@ export function VaultDashboard() {
     }
   };
 
+  const githubConnected = githubConnection?.connected === true;
+  const convexConnected = convexConnection?.connected === true;
+  const netlifyConnected = netlifyConnection?.connected === true;
+  const githubStatus = githubConnected
+    ? `Connected as ${githubConnection?.username ?? "GitHub user"}`
+    : "Not connected";
+  const convexStatus = convexConnected
+    ? `Connected to ${convexConnection?.teamSlug ?? convexConnection?.teamId ?? "Convex team"}`
+    : "Not connected";
+  const netlifyStatus = netlifyConnected
+    ? `Connected to ${netlifyConnection?.teamSlug ?? netlifyConnection?.teamId ?? "Netlify team"}`
+    : "Not connected";
   const createControl = (
     <div className="flex flex-col items-start gap-2">
       <ButtonGroup className="w-full sm:w-[360px]">
         <Input
-          placeholder="New agent name"
+          placeholder="New project name"
           value={newAgentName}
           onChange={(e) => {
             setNewAgentName(e.target.value);
@@ -245,14 +422,17 @@ export function VaultDashboard() {
             }
           }}
           className="flex-1"
+          disabled={!canCreateProject}
         />
         <Button
           onClick={() => {
             void handleCreateRepository();
           }}
-          disabled={isCreating || newAgentName.trim().length === 0}
+          disabled={
+            isCreating || newAgentName.trim().length === 0 || !canCreateProject
+          }
         >
-          {isCreating ? "Creating..." : "New agent"}
+          {isCreating ? "Creating..." : "New project"}
         </Button>
         <ButtonGroupSeparator className="bg-primary-foreground/30" />
         <DropdownMenu>
@@ -262,15 +442,133 @@ export function VaultDashboard() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem asChild>
-              <Link to="/add">Connect existing repo</Link>
-            </DropdownMenuItem>
+            {githubConnected ? (
+              <DropdownMenuItem asChild>
+                <Link to="/add">Connect existing repo</Link>
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem disabled>Connect existing repo</DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </ButtonGroup>
       {createError && (
         <div className="text-sm text-red-600">{createError}</div>
       )}
+      {!canCreateProject && (
+        <div className="text-xs text-muted-foreground">
+          Connect GitHub, Convex, and Netlify to create projects.
+        </div>
+      )}
+    </div>
+  );
+
+  const connectionPanel = (
+    <div className="rounded-lg border border-border bg-background p-4 space-y-3">
+      <div className="text-sm font-medium">Connections</div>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <GitHubLogoIcon className="h-4 w-4" />
+            <div>
+              <div className="text-sm font-medium">GitHub</div>
+              <div className="text-xs text-muted-foreground">{githubStatus}</div>
+            </div>
+          </div>
+          {githubConnected ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleDisconnect("github")}
+              disabled={disconnectingProvider !== null}
+            >
+              {disconnectingProvider === "github" ? (
+                <>
+                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                  Disconnecting...
+                </>
+              ) : (
+                "Disconnect"
+              )}
+            </Button>
+          ) : (
+            <Button size="sm" onClick={handleConnectGithub}>
+              Connect GitHub
+            </Button>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <LightningBoltIcon className="h-4 w-4" />
+            <div>
+              <div className="text-sm font-medium">Convex</div>
+              <div className="text-xs text-muted-foreground">{convexStatus}</div>
+            </div>
+          </div>
+          {convexConnected ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleDisconnect("convex")}
+              disabled={disconnectingProvider !== null}
+            >
+              {disconnectingProvider === "convex" ? (
+                <>
+                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                  Disconnecting...
+                </>
+              ) : (
+                "Disconnect"
+              )}
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              onClick={() => void handleConnectConvex()}
+            >
+              Connect Convex
+            </Button>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <GlobeIcon className="h-4 w-4" />
+            <div>
+              <div className="text-sm font-medium">Netlify</div>
+              <div className="text-xs text-muted-foreground">
+                {netlifyStatus}
+              </div>
+            </div>
+          </div>
+          {netlifyConnected ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleDisconnect("netlify")}
+              disabled={disconnectingProvider !== null}
+            >
+              {disconnectingProvider === "netlify" ? (
+                <>
+                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                  Disconnecting...
+                </>
+              ) : (
+                "Disconnect"
+              )}
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleConnectNetlify()}
+            >
+              Connect Netlify
+            </Button>
+          )}
+        </div>
+      </div>
     </div>
   );
 
@@ -288,14 +586,17 @@ export function VaultDashboard() {
             </div>
 
             <div className="space-y-2">
-              <h1 className="text-3xl font-bold">Create your first agent</h1>
+              <h1 className="text-3xl font-bold">Create your first project</h1>
               <p className="text-lg text-muted-foreground">
-                Start with a new agent or connect an existing repository to edit
+                Start with a new project or connect an existing repository to edit
                 files directly in your browser.
               </p>
             </div>
 
-            <div className="flex justify-center">{createControl}</div>
+            <div className="space-y-4">
+              {connectionPanel}
+              <div className="flex justify-center">{createControl}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -312,6 +613,8 @@ export function VaultDashboard() {
         </div>
         {createControl}
       </div>
+
+      <div className="mb-6">{connectionPanel}</div>
 
       <div className="space-y-2">
         {vaults.map((vault: (typeof vaults)[0]) => {
@@ -689,6 +992,7 @@ export function VaultDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </div>
     </div>
   );

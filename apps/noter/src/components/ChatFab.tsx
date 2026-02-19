@@ -398,6 +398,11 @@ function renderProdReadLabel(resourceKind: ProdReadProposal["resourceKind"]) {
   return "Site inventory";
 }
 
+function renderProviderLabel(provider: ProdReadProposal["provider"]) {
+  if (provider === "convex") return "Convex";
+  return "Netlify";
+}
+
 function ProdReadProposalCard({
   metadata,
   conversationId,
@@ -436,7 +441,7 @@ function ProdReadProposalCard({
     }
   }
 
-  const providerLabel = metadata.provider === "convex" ? "Convex" : "Netlify";
+  const providerLabel = renderProviderLabel(metadata.provider);
   const scopeLabel = metadata.scope === "vault" ? "Vault scope" : "Global scope";
 
   return (
@@ -780,7 +785,7 @@ export function ChatFab() {
             <CapabilitiesPanel
               repositoryFullName={repositoryFullName}
               vaultId={vaultId}
-              hasGithubToken={Boolean(viewer?.githubAccessToken)}
+              hasGithubToken={Boolean(viewer?.hasGithubAccessToken)}
               systemPrompt={conversation?.systemPrompt}
             />
             {conversationId &&

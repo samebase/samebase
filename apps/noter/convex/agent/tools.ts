@@ -428,6 +428,23 @@ async function executeRequestConvexLogsRead(
   });
 }
 
+
+async function executeRequestConvexProjectsRead(
+  toolCtx: ToolContext,
+  input: { limit?: number; allowRawFallback?: boolean },
+): Promise<string> {
+  return await executeProdReadRequest(toolCtx, {
+    scope: "global",
+    provider: "convex",
+    resourceKind: "project_inventory",
+    toolName: "request_convex_projects_read",
+    params: {
+      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
+    },
+    allowRawFallback: input.allowRawFallback,
+  });
+}
+
 async function executeRequestNetlifyStatusRead(
   toolCtx: ToolContext,
 ): Promise<string> {
@@ -453,22 +470,6 @@ async function executeRequestNetlifyLogsRead(
       ...(typeof input.maxEntries === "number"
         ? { maxEntries: input.maxEntries }
         : {}),
-    },
-    allowRawFallback: input.allowRawFallback,
-  });
-}
-
-async function executeRequestConvexProjectsRead(
-  toolCtx: ToolContext,
-  input: { limit?: number; allowRawFallback?: boolean },
-): Promise<string> {
-  return await executeProdReadRequest(toolCtx, {
-    scope: "global",
-    provider: "convex",
-    resourceKind: "project_inventory",
-    toolName: "request_convex_projects_read",
-    params: {
-      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
     },
     allowRawFallback: input.allowRawFallback,
   });
@@ -690,7 +691,7 @@ export function createTools(toolCtx: ToolContext) {
           .min(1)
           .max(50)
           .optional()
-          .describe("Maximum deploy/build entries to include"),
+          .describe("Maximum deployment entries to include"),
         allowRawFallback: z
           .boolean()
           .optional()
@@ -736,7 +737,7 @@ export function createTools(toolCtx: ToolContext) {
           .min(1)
           .max(100)
           .optional()
-          .describe("Maximum sites to include"),
+          .describe("Maximum projects to include"),
         allowRawFallback: z
           .boolean()
           .optional()

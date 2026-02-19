@@ -4,7 +4,6 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
   createInfraProviders,
-  getRequiredEnv,
   type ConvexManagementProvider,
   type NetlifyManagementProvider,
 } from "./infraProviders";
@@ -132,6 +131,25 @@ async function requestGitHubRepoApi(args: {
   }
 
   return await parseResponseJsonSafe(response);
+}
+
+async function fetchGitHubRepoIdentity(args: {
+  githubAccessToken: string;
+  owner: string;
+  repo: string;
+}): Promise<{ repoId?: string; ownerId?: string }> {
+  const repoRaw = await requestGitHubRepoApi({
+    githubAccessToken: args.githubAccessToken,
+    owner: args.owner,
+    repo: args.repo,
+    path: "",
+    method: "GET",
+  });
+  const record = asRecord(repoRaw);
+  const repoId = readStringOrNumber(record, "id");
+  const ownerRecord = asRecord(record["owner"]);
+  const ownerId = readStringOrNumber(ownerRecord, "id");
+  return { repoId, ownerId };
 }
 
 async function ensureGitHubPushWebhook(args: {
@@ -798,7 +816,7 @@ async function ensureNetlifyResources(args: {
     const result = {
       netlifySiteId: siteId,
       netlifySiteName: readString(refreshedSite, "name") ?? siteName,
-      netlifyTeamId: args.teamSlug,
+      netlifyTeamId: accountId,
       netlifyDefaultUrl:
         readString(refreshedSite, "deploy_url") ?? readString(refreshedSite, "url"),
       netlifyProductionUrl:
@@ -828,6 +846,7 @@ async function ensureNetlifyResources(args: {
     throw error;
   }
 }
+
 
 export const getInfrastructureByVault = internalQuery({
   args: {
@@ -948,7 +967,10 @@ export const upsertDomainRecord = internalMutation({
     branch: v.string(),
     kind: v.union(v.literal("main"), v.literal("branch_preview")),
     url: v.string(),
-    source: v.union(v.literal("netlify_default"), v.literal("netlify_custom")),
+    source: v.union(
+      v.literal("netlify_default"),
+      v.literal("netlify_custom"),
+    ),
     active: v.boolean(),
   },
   returns: v.null(),
@@ -1036,19 +1058,39 @@ export const provisionVaultInfrastructure = internalAction({
     let netlifySuccess = false;
 
     try {
-      const providers = createInfraProviders();
-      const convexTeamId = getRequiredEnv("CONVEX_TEAM_ID");
-      const netlifyTeamSlug = getRequiredEnv("NETLIFY_TEAM_ID");
       const defaultBranch = process.env.INFRA_DEFAULT_BRANCH ?? "main";
       const user = await ctx.runQuery(internal.users.getById, {
         userId: vault.userId,
       });
 
       if (!user?.githubAccessToken) {
+        throw new Error("GitHub connection is required to provision infrastructure.");
+      }
+
+      const convexToken = user.convexAccessToken?.trim() ?? "";
+      const convexTeamId = user.convexTeamId?.trim() ?? "";
+
+      if (!convexToken || !convexTeamId) {
         throw new Error(
-          "Cannot provision Netlify for private repositories: missing GitHub access token",
+          "Convex connection is required to provision infrastructure. Connect Convex and retry.",
         );
       }
+
+      const netlifyToken = user.netlifyAccessToken?.trim() ?? "";
+      const netlifyTeamSlug = user.netlifyTeamSlug?.trim() ?? "";
+      const netlifyTeamId = user.netlifyTeamId?.trim() ?? "";
+      const netlifyTeam = netlifyTeamSlug || netlifyTeamId;
+
+      if (!netlifyToken || !netlifyTeam) {
+        throw new Error(
+          "Netlify connection is required to provision infrastructure. Connect Netlify and retry.",
+        );
+      }
+
+      const providers = createInfraProviders({
+        convexToken,
+        netlifyToken,
+      });
 
       const convex = await ensureConvexResources({
         teamId: convexTeamId,
@@ -1083,12 +1125,18 @@ export const provisionVaultInfrastructure = internalAction({
         },
       });
 
-      const netlify = await ensureNetlifyResources({
-        netlifyProvider: providers.netlify,
-        teamSlug: netlifyTeamSlug,
+      const repoIdentity = await fetchGitHubRepoIdentity({
+        githubAccessToken: user.githubAccessToken,
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
-        ghRepoId: vault.ghRepoId,
+      });
+
+      const netlify = await ensureNetlifyResources({
+        netlifyProvider: providers.netlify,
+        teamSlug: netlifyTeam,
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
         githubAccessToken: user.githubAccessToken,
         defaultBranch,
         vaultId: args.vaultId,
@@ -1146,7 +1194,7 @@ export const provisionVaultInfrastructure = internalAction({
         vaultId: args.vaultId,
         repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
         convexDeploymentName: convex.convexDeploymentName,
-        netlifySiteId: netlify.netlifySiteId,
+        netlifySite: netlify.netlifySiteName,
       });
 
       return null;

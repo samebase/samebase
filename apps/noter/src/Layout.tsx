@@ -12,8 +12,10 @@ export function Layout({ children }: { children: ReactNode }) {
   const viewer = useQuery(api.users.viewer);
   const isOwner = viewer?.githubUsername === "nicu-chiciuc";
   const showGuestBadge = Boolean(viewer && !isOwner);
+  const guestName =
+    viewer?.githubUsername ?? viewer?.name ?? viewer?.email ?? "there";
   const guestTitle = viewer
-    ? `Welcome, ${viewer.githubUsername}. You're viewing the dev build.`
+    ? `Welcome, ${guestName}. You're viewing the dev build.`
     : "Viewing the dev build.";
 
   return (

@@ -483,7 +483,10 @@ export const getVaultInfrastructure = query({
           branch: v.string(),
           kind: v.union(v.literal("main"), v.literal("branch_preview")),
           url: v.string(),
-          source: v.union(v.literal("netlify_default"), v.literal("netlify_custom")),
+          source: v.union(
+            v.literal("netlify_default"),
+            v.literal("netlify_custom"),
+          ),
           active: v.boolean(),
         }),
       ),

@@ -54,6 +54,9 @@ This runs in `predev` (already wired).
 - The preview URL origin is stable even if the signed URL token expires (the origin is just scheme + host).
 - Keep logging minimal but add a diagnostic log for the chosen origin if helpful.
 
+## Production Requirements
+- Production deployments must set `SITE_URL` to the frontend origin (e.g. `https://app.example.com`) in Convex envs so OAuth callbacks redirect to the app rather than the Convex origin.
+
 ## User Experience
 - User starts dev server from UI.
 - `SITE_URL` is automatically set to the sandbox preview origin.

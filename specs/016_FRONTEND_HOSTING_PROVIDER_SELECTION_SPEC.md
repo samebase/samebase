@@ -3,14 +3,14 @@
 ## Document Control
 - Status: Proposed
 - Owner: Noter platform
-- Last updated: 2026-02-17
+- Last updated: 2026-02-18
 - Related specs:
 - `/Users/nicu/dev/my/noter/specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
 - `/Users/nicu/dev/my/noter/specs/006_DNS_DOMAIN_STRATEGY_SPEC.md`
 - `/Users/nicu/dev/my/noter/specs/015_BYO_CONVEX_OAUTH_AND_WORKTREE_PROVISIONING_SPEC.md`
 
 ## Summary
-Noter-managed vault apps are static Vite + React frontends (no SSR). We need a hosting provider that supports high-frequency production deploys, preview deployments, custom domains, and automation. Netlify’s production deploys consume credits (15 credits per production deploy), which makes frequent prod deploys cost-prohibitive even on paid tiers. Cloudflare Pages is selected as the default managed host because it offers generous build quotas, unlimited preview deployments, and higher custom domain limits with low plan costs.
+Noter-managed vault apps are static Vite + React frontends (no SSR). We need a hosting provider that supports high-frequency production deploys, preview deployments, custom domains, and automation. Netlify remains the current default because infra is already in place and switching providers would slow delivery. Cloudflare Pages is a **future option only** (not a planned migration target) due to the lack of a straightforward OAuth flow for BYO hosting.
 
 This spec documents the decision, the Netlify constraint, and alternative providers that are viable (including GitHub Pages).
 
@@ -27,12 +27,13 @@ This spec documents the decision, the Netlify constraint, and alternative provid
 3. Supporting all possible static hosting providers.
 
 ## Decision
-### Default host: Cloudflare Pages
-Cloudflare Pages becomes the default static host for noter-managed vault apps, with two modes:
-1. Managed hosting: Noter uses a Cloudflare account to create Pages projects and manage deployments/domains.
-2. BYO hosting: Advanced users can connect their own Cloudflare account for provisioning inside their account.
+### Default host: Netlify
+Netlify is the default static host for noter-managed vault apps because existing infra already provisions Netlify sites and environment wiring. This minimizes near-term migration work.
 
-## Why Cloudflare Pages
+### Cloudflare Pages: Future option only (not planned)
+Cloudflare Pages remains a viable alternative for cost/scale, but is not planned until OAuth/connection UX is revisited.
+
+## Cloudflare Pages (Future Option)
 ### Cost and scale
 - Cloudflare Pages pricing: Free ($0), Pro ($25/month), Business ($250/month). All plans include unlimited sites, seats, requests, and bandwidth. 
 - Cloudflare Pages build quotas per month: Free 500, Pro 5,000, Business 20,000. Concurrent builds per plan: Free 1, Pro 5, Business 20. 
@@ -48,7 +49,7 @@ Cloudflare Pages becomes the default static host for noter-managed vault apps, w
 ### Operational constraints to track
 - Cloudflare Pages has a soft limit of 100 projects per account and may temporarily disable creation if many projects are created quickly. Limit increases require a request. This is a scaling consideration for a fully managed “one project per vault” approach.
 
-## Netlify Constraint (Primary Driver)
+## Netlify Constraint (Known Issue)
 Netlify now prices production deploys as a credit-based resource:
 - Production deploys cost 15 credits each.
 - Pro includes 3,000 credits per month per team.
@@ -95,24 +96,21 @@ This means even paid Pro only supports ~200 production deploys/month before add-
   - Requires GitLab repo and CI/CD pipeline; not aligned with GitHub-only workflows.
 
 ## Recommendation
-1. Default: Cloudflare Pages for managed hosting of noter-managed vault apps.
-2. BYO option: Users can connect their own Cloudflare account if they want ownership and billing control.
-3. Low-friction fallback: GitHub Pages (for non-commercial or personal use only, with GitHub Actions publishing).
-4. Optional alternative: Render or Firebase Hosting for users who want a non-Cloudflare managed host without Netlify/Vercel.
+1. Default: Netlify for managed hosting of noter-managed vault apps (existing infra).
+2. Low-friction fallback: GitHub Pages (for non-commercial or personal use only, with GitHub Actions publishing).
+3. Optional alternative: Render or Firebase Hosting for users who want a non-Cloudflare managed host without Netlify/Vercel.
 
 ## Risks and Mitigations
-- Risk: Cloudflare Pages soft limit of 100 projects per account.
-  - Mitigation: Partition managed hosting across multiple CF accounts or request limit increases.
-- Risk: Apex custom domains require Cloudflare zone management.
-  - Mitigation: Prefer subdomain custom domains (CNAME) for managed hosting, or require BYO Cloudflare for apex domains.
+- Risk: Netlify deploy credits cap production deploy volume.
+  - Mitigation: Monitor deploy volume; revisit hosting strategy if credits become prohibitive.
 - Risk: GitHub Pages commercial-use restriction prevents paid SaaS hosting.
-  - Mitigation: Use Cloudflare Pages or Render/Firebase for commercial use cases.
+  - Mitigation: Use Render or Firebase Hosting for commercial use cases.
 
 ## References
-- Cloudflare Pages limits: https://developers.cloudflare.com/pages/platform/limits/
-- Cloudflare Pages pricing: https://www.cloudflare.com/developer-platform/products/pages/
-- Cloudflare Pages plan details (builds/concurrency/domains): https://pages.cloudflare.com/?type=standard
-- Cloudflare Pages custom domains (apex vs subdomain): https://developers.cloudflare.com/pages/configuration/custom-domains/
+- Cloudflare Pages limits (future evaluation): https://developers.cloudflare.com/pages/platform/limits/
+- Cloudflare Pages pricing (future evaluation): https://www.cloudflare.com/developer-platform/products/pages/
+- Cloudflare Pages plan details (future evaluation): https://pages.cloudflare.com/?type=standard
+- Cloudflare Pages custom domains (future evaluation): https://developers.cloudflare.com/pages/configuration/custom-domains/
 - Netlify pricing (credits, production deploy cost): https://www.netlify.com/pricing/
 - GitHub Pages limits and commercial-use restriction: https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits
 - Render static sites: https://render.com/docs/static-sites

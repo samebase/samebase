@@ -89,19 +89,6 @@ Common endpoints:
     inputDisplayKey: "maxLines",
   },
   {
-    name: "request_netlify_status_read",
-    description:
-      "Request approval to read Netlify site/deployment status for the current vault. This tool only creates an approval proposal.",
-    uiDescription: "Propose Netlify status read (approval required)",
-  },
-  {
-    name: "request_netlify_logs_read",
-    description:
-      "Request approval to read Netlify deploy/build activity logs for the current vault. This tool only proposes access.",
-    uiDescription: "Propose Netlify logs read (approval required)",
-    inputDisplayKey: "maxEntries",
-  },
-  {
     name: "request_convex_projects_read",
     description:
       "Request approval to list Convex projects for the configured team. This tool only creates an approval proposal and does not execute direct reads.",
@@ -109,10 +96,23 @@ Common endpoints:
     inputDisplayKey: "limit",
   },
   {
+    name: "request_netlify_status_read",
+    description:
+      "Request approval to read Netlify site status for the current vault. This tool only creates an approval proposal.",
+    uiDescription: "Propose Netlify status read (approval required)",
+  },
+  {
+    name: "request_netlify_logs_read",
+    description:
+      "Request approval to read Netlify deploy/build logs for the current vault. This tool only proposes access.",
+    uiDescription: "Propose Netlify logs read (approval required)",
+    inputDisplayKey: "maxEntries",
+  },
+  {
     name: "request_netlify_projects_read",
     description:
       "Request approval to list Netlify sites for the configured team. This tool only creates an approval proposal and does not execute direct reads.",
-    uiDescription: "Propose Netlify project inventory read (approval required)",
+    uiDescription: "Propose Netlify site inventory read (approval required)",
     inputDisplayKey: "limit",
   },
   {

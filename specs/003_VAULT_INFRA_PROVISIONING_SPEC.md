@@ -4,22 +4,22 @@
 
 - Status: Implemented for MVP
 - Owner: Noter backend/frontend
-- Last updated: 2026-02-13
+- Last updated: 2026-02-18
 - Related plan: `specs/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 
 ## Summary
 
 For noter-managed vaults, infrastructure is provisioned automatically after vault creation:
 
-1. Convex project/deployment resources
-2. Netlify site + environment setup
+1. Convex project/deployment resources (user-scoped)
+2. Netlify site + environment setup (user-scoped)
 3. Main-domain tracking in Convex tables
 
 Provisioning is asynchronous and resumable. Vault creation succeeds even if downstream provisioning partially fails.
 
 ## Important Behavior
 
-- `vaultActions.createRepository` (new noter-managed repo) schedules `internal.infraProvisioning.provisionVaultInfrastructure` automatically.
+- `vaultActions.createRepository` (new noter-managed repo) requires GitHub + Convex + Netlify connections and schedules `internal.infraProvisioning.provisionVaultInfrastructure` automatically.
 - `vaultActions.connectRepository` (existing GitHub repo connection) does **not** auto-provision infra.
 - `vaultActions.retryInfrastructureProvisioning` allows manual retries for noter-managed vaults.
 
@@ -62,12 +62,14 @@ Indexes:
 
 ## Runtime Configuration
 
-Required env vars:
+Required env vars (OAuth + redirects):
 
-- `CONVEX_MANAGEMENT_TOKEN`
-- `CONVEX_TEAM_ID`
-- `NETLIFY_ACCESS_TOKEN`
-- `NETLIFY_TEAM_ID`
+- `CONVEX_OAUTH_CLIENT_ID`
+- `CONVEX_OAUTH_CLIENT_SECRET`
+- `CONVEX_OAUTH_REDIRECT_URL`
+- `NETLIFY_OAUTH_CLIENT_ID`
+- `NETLIFY_OAUTH_CLIENT_SECRET`
+- `NETLIFY_OAUTH_REDIRECT_URL`
 
 Optional:
 
@@ -138,12 +140,11 @@ In `VaultDashboard`:
 
 ## MVP Notes
 
-- Uses shared operator credentials from env vars.
+- Uses user-scoped OAuth tokens for Convex and Netlify (no operator fallback).
 - Provisioning is idempotent/resumable and does not auto-teardown resources on vault deletion unless explicitly requested.
 
 ## Deferred
 
-- Per-user provider credentials
 - Automatic teardown/orphan cleanup
 - Branch custom domains and routing automation
 - Budget/usage alerting

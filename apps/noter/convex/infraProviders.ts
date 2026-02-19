@@ -90,7 +90,10 @@ export function createInfraProviders(args?: {
   return {
     convex: {
       request(path, method, body) {
-        const token = convexTokenOverride ?? getRequiredEnv("CONVEX_MANAGEMENT_TOKEN");
+        const token = convexTokenOverride;
+        if (!token) {
+          throw new Error("Convex access token is required.");
+        }
         return requestProviderApi({
           provider: "Convex",
           baseUrl: "https://api.convex.dev/v1",
@@ -103,7 +106,10 @@ export function createInfraProviders(args?: {
     },
     netlify: {
       request(path, method, body) {
-        const token = netlifyTokenOverride ?? getRequiredEnv("NETLIFY_ACCESS_TOKEN");
+        const token = netlifyTokenOverride;
+        if (!token) {
+          throw new Error("Netlify access token is required.");
+        }
         return requestProviderApi({
           provider: "Netlify",
           baseUrl: "https://api.netlify.com/api/v1",

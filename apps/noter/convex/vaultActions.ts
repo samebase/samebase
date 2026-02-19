@@ -178,6 +178,9 @@ export const connectRepository = action({
     if (!currentUser) {
       throw new Error("User not found");
     }
+    if (!currentUser.githubAccessToken) {
+      throw new Error("GitHub access token not found");
+    }
 
     const octokit = new Octokit({
       auth: currentUser.githubAccessToken,
@@ -258,6 +261,19 @@ export const createRepository = action({
 
     if (!currentUser.githubAccessToken) {
       throw new Error("GitHub access token not found");
+    }
+    const hasConvexConnection =
+      typeof currentUser.convexAccessToken === "string" &&
+      typeof currentUser.convexTeamId === "string";
+    if (!hasConvexConnection) {
+      throw new Error("Convex connection is required to create a project.");
+    }
+    const hasNetlifyConnection =
+      typeof currentUser.netlifyAccessToken === "string" &&
+      (typeof currentUser.netlifyTeamSlug === "string" ||
+        typeof currentUser.netlifyTeamId === "string");
+    if (!hasNetlifyConnection) {
+      throw new Error("Netlify connection is required to create a project.");
     }
 
     const repoName = toSafeRepoName(args.name);
@@ -395,15 +411,17 @@ export const deleteVault = action({
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
+    const user = await ctx.runQuery(internal.users.getById, {
+      userId,
+    });
+    if (!user) {
+      throw new Error("User not found");
+    }
     let octokit: Octokit | null = null;
     const getOctokit = async (): Promise<Octokit> => {
       if (octokit) {
         return octokit;
       }
-
-      const user = await ctx.runQuery(internal.users.getById, {
-        userId,
-      });
 
       if (!user?.githubAccessToken) {
         throw new Error("GitHub access token not found");
@@ -444,8 +462,27 @@ export const deleteVault = action({
     const shouldRemoveCodespaces = args.removeCodespaces === true;
     const shouldRemoveDaytonaResources = args.removeDaytonaResources === true;
 
-    if (shouldRemoveNetlifyProvision || shouldRemoveConvexProvision) {
-      const providers = createInfraProviders();
+    if (
+      shouldRemoveNetlifyProvision ||
+      shouldRemoveConvexProvision
+    ) {
+      const convexToken = shouldRemoveConvexProvision
+        ? user.convexAccessToken
+        : undefined;
+      if (shouldRemoveConvexProvision && !convexToken) {
+        throw new Error("Convex connection is required to remove resources.");
+      }
+      const netlifyToken = shouldRemoveNetlifyProvision
+        ? user.netlifyAccessToken
+        : undefined;
+      if (shouldRemoveNetlifyProvision && !netlifyToken) {
+        throw new Error("Netlify connection is required to remove resources.");
+      }
+
+      const providers = createInfraProviders({
+        convexToken,
+        netlifyToken,
+      });
 
       if (shouldRemoveNetlifyProvision) {
         const netlifySiteId = infrastructure.netlifySiteId;
@@ -484,6 +521,7 @@ export const deleteVault = action({
           }
         }
       }
+
     }
 
     if (shouldRemoveDaytonaResources) {

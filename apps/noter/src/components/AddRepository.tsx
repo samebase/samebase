@@ -3,12 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link, useNavigate } from "react-router-dom";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import { useAction } from "convex/react";
+import { useAction, useQuery as useConvexQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { linkStyle } from "./styles";
 import type { FunctionReturnType } from "convex/server";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { isInIframe, openAuthPopup } from "@/SignInForm";
 
 type Repository = FunctionReturnType<typeof api.github.listRepositories>[number];
 
@@ -18,6 +20,9 @@ export function AddRepository() {
   const [searchQuery, setSearchQuery] = useState("");
   const listRepositories = useAction(api.github.listRepositories);
   const connectRepository = useAction(api.vaultActions.connectRepository);
+  const { signIn } = useAuthActions();
+  const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
+  const githubConnected = githubConnection?.connected === true;
 
   const {
     data: repositories = [],
@@ -29,6 +34,7 @@ export function AddRepository() {
     queryFn: async () => {
       return await listRepositories();
     },
+    enabled: githubConnected,
   });
 
   const error = queryError
@@ -166,17 +172,39 @@ export function AddRepository() {
         </div>
       )}
 
+      {!githubConnected && (
+        <div className="mb-6 rounded-lg border border-border bg-background p-4">
+          <div className="text-sm font-medium">GitHub connection required</div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Connect GitHub to list your repositories.
+          </p>
+          <Button
+            className="mt-3"
+            onClick={() => {
+              if (isInIframe()) {
+                openAuthPopup("github");
+              } else {
+                void signIn("github");
+              }
+            }}
+          >
+            Connect GitHub
+          </Button>
+        </div>
+      )}
+
       <div className="mb-6 flex-shrink-0">
         <Input
           placeholder="Search repositories..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="max-w-md"
+          disabled={!githubConnected}
         />
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {loading && repositories.length === 0 ? (
+        {githubConnected && loading && repositories.length === 0 ? (
           <div className="flex items-center justify-center py-8">
             <div className="text-muted-foreground">Loading repositories...</div>
           </div>
@@ -249,7 +277,8 @@ export function AddRepository() {
         {filteredRepositories.length === 0 &&
           !loading &&
           !error &&
-          repositories.length > 0 && (
+          repositories.length > 0 &&
+          githubConnected && (
             <div className="text-center py-8">
               <div className="text-muted-foreground">
                 No repositories match your search
@@ -257,7 +286,7 @@ export function AddRepository() {
             </div>
           )}
 
-        {repositories.length === 0 && !loading && !error && (
+        {repositories.length === 0 && !loading && !error && githubConnected && (
           <div className="text-center py-8">
             <div className="text-muted-foreground">No repositories found</div>
           </div>

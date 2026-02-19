@@ -365,6 +365,7 @@ export const executeApprovedProdRead = internalAction({
           internal.infraRead.getConvexProjectInventory,
           {
             limit: parseOptionalPositiveNumber(params["limit"]),
+            userId: request.requesterUserId,
           },
         );
       } else if (
@@ -375,6 +376,7 @@ export const executeApprovedProdRead = internalAction({
           internal.infraRead.getNetlifySiteInventory,
           {
             limit: parseOptionalPositiveNumber(params["limit"]),
+            userId: request.requesterUserId,
           },
         );
       }
