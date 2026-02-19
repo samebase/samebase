@@ -54,40 +54,18 @@ function buildUserPatch(profile: Record<string, unknown>): UserPatch {
   return patch;
 }
 
-function readEnvAny(keys: string[]): string | undefined {
-  for (const key of keys) {
-    const value = process.env[key];
-    if (isNonEmptyString(value)) {
-      return value;
-    }
-  }
-  return undefined;
-}
-
-function requireEnvAny(keys: string[], label: string): string {
-  const value = readEnvAny(keys);
-  if (!value) {
-    throw new Error(`Missing ${label}. Set one of: ${keys.join(", ")}`);
+function readRequiredEnv(key: string): string {
+  const value = process.env[key];
+  if (!isNonEmptyString(value)) {
+    throw new Error(`Missing ${key}. Set ${key} in the environment.`);
   }
   return value;
 }
 
-const githubClientId = requireEnvAny(
-  ["GITHUB_CLIENT_ID", "GITHUB_ID", "AUTH_GITHUB_ID"],
-  "GitHub client ID",
-);
-const githubClientSecret = requireEnvAny(
-  ["GITHUB_CLIENT_SECRET", "GITHUB_SECRET", "AUTH_GITHUB_SECRET"],
-  "GitHub client secret",
-);
-const googleClientId = requireEnvAny(
-  ["GOOGLE_CLIENT_ID", "GOOGLE_ID", "AUTH_GOOGLE_ID"],
-  "Google client ID",
-);
-const googleClientSecret = requireEnvAny(
-  ["GOOGLE_CLIENT_SECRET", "GOOGLE_SECRET", "AUTH_GOOGLE_SECRET"],
-  "Google client secret",
-);
+const githubClientId = readRequiredEnv("AUTH_GITHUB_ID");
+const githubClientSecret = readRequiredEnv("AUTH_GITHUB_SECRET");
+const googleClientId = readRequiredEnv("AUTH_GOOGLE_ID");
+const googleClientSecret = readRequiredEnv("AUTH_GOOGLE_SECRET");
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
