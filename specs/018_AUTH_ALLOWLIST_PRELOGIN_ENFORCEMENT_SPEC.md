@@ -65,8 +65,8 @@ Allowlist source:
 
 ## Acceptance Criteria
 
-- [ ] Non-allowlisted Google account cannot complete sign-in to an authenticated app session.
-- [ ] Non-allowlisted Google account does not create a `users` record.
+- [ ] Non-allowlisted OAuth account cannot complete sign-in to an authenticated app session.
+- [ ] Non-allowlisted OAuth account does not create a `users` record.
 - [ ] Allowlisted account can sign in normally.
 - [ ] Empty allowlist blocks all sign-ins by default.
 - [ ] Frontend waitlist page is no longer the primary security gate.
