@@ -160,7 +160,7 @@ Shorthand commands for git/GitHub workflows. When the user says these, execute t
 | ----------- | --------------------------------------------------------------- |
 | `commit`    | Stage all changes, commit with concise message                  |
 | `push`      | Commit if needed, push to remote                                |
-| `create pr` | Push if needed, `gh pr create --draft --fill`                   |
+| `create pr` | Push if needed, create draft PR and ensure a non-empty body     |
 | `ready`     | Mark draft PR as ready: `gh pr ready`                           |
 | `wait`      | Monitor CI with `gh pr checks` or `gh run watch`, report status |
 | `ship`      | Full flow: commit → push → create PR → ready → wait             |
@@ -171,6 +171,7 @@ Shorthand commands for git/GitHub workflows. When the user says these, execute t
 - Always use CLI tools (`gh`, `git`) - never tell user to click UI buttons
 - Execute, don't instruct
 - Adapt to context (if PR exists, update it; if already ready, skip)
+- When the user asks to "open a PR" (or `create pr`), always write a normal PR description (summary, key changes, validation). Never leave the PR body empty.
 - Update PR description with `gh pr edit --body` when commits change scope
 - On CI failure, report the error and offer to fix
 - **NEVER merge a PR until CI is green** - always wait for checks to pass, then squash-merge with `gh pr merge --squash`
