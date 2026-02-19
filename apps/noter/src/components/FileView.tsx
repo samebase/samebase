@@ -30,7 +30,6 @@ import { linkStyle } from "./styles";
 import { useConvexAction, useConvexMutation } from "@/lib/convexUtils";
 import { DialogProvider } from "@/contexts/DialogContext";
 import { useDialog } from "@/hooks/useDialog";
-import { useUserMenuPlacementPreview } from "@/hooks/use-user-menu-placement-preview";
 import { FileCreationDialog } from "@/components/FileCreationDialog";
 import { FolderCreationDialog } from "@/components/FolderCreationDialog";
 import { nonNullable } from "@/lib/utils";
@@ -316,7 +315,6 @@ function FileViewInner({
 
   // Get current user for sidebar
   const user = useQuery(api.users.viewer);
-  const [menuPlacementPreview] = useUserMenuPlacementPreview();
 
   // Dialog state management
   const {
@@ -749,25 +747,11 @@ function FileViewInner({
     <div className="flex h-screen w-full">
       <Sidebar variant="sidebar" className="border-r border-border/50">
         <SidebarContent className="p-0">
-          {menuPlacementPreview === "sidebar" ? (
-            <div className="p-3 border-b border-border/50">
-              <Link
-                to="/"
-                className={`flex items-center justify-between ${linkStyle}`}
-              >
-                <UserMenu>{user?.name ?? user?.email ?? "..."}</UserMenu>
-              </Link>
-            </div>
-          ) : (
-            <div className="p-3 border-b border-border/50">
-              <Link
-                to="/"
-                className={`text-xs text-muted-foreground ${linkStyle}`}
-              >
-                Back to Vaults
-              </Link>
-            </div>
-          )}
+          <div className="p-3 border-b border-border/50">
+            <Link to="/" className={`flex items-center justify-between ${linkStyle}`}>
+              <UserMenu>{user?.name ?? user?.email ?? "..."}</UserMenu>
+            </Link>
+          </div>
           {/* Repo part */}
           <div className="p-3 border-b border-border/50">
             <div className="flex items-center gap-2">
