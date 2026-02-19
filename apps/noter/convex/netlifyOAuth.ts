@@ -9,8 +9,28 @@ import type { Id } from "./_generated/dataModel";
 const NETLIFY_AUTHORIZE_URL = "https://app.netlify.com/authorize";
 const NETLIFY_TOKEN_URL = "https://api.netlify.com/oauth/token";
 const NETLIFY_API_BASE = "https://api.netlify.com/api/v1";
+const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
 
 type OAuthContext = ActionCtx | MutationCtx;
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs = DEFAULT_OAUTH_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`Netlify OAuth request timed out after ${timeoutMs}ms.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 type JsonRecord = Record<string, unknown>;
 
@@ -58,7 +78,7 @@ async function exchangeNetlifyOAuthCode(args: {
     redirect_uri: args.redirectUri,
   });
 
-  const response = await fetch(NETLIFY_TOKEN_URL, {
+  const response = await fetchWithTimeout(NETLIFY_TOKEN_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -79,7 +99,7 @@ async function exchangeNetlifyOAuthCode(args: {
 }
 
 async function fetchNetlifyUser(accessToken: string): Promise<{ userId?: string }> {
-  const response = await fetch(`${NETLIFY_API_BASE}/user`, {
+  const response = await fetchWithTimeout(`${NETLIFY_API_BASE}/user`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -98,7 +118,7 @@ async function fetchNetlifyUser(accessToken: string): Promise<{ userId?: string 
 }
 
 async function fetchNetlifyAccounts(accessToken: string): Promise<NetlifyAccount[]> {
-  const response = await fetch(`${NETLIFY_API_BASE}/accounts`, {
+  const response = await fetchWithTimeout(`${NETLIFY_API_BASE}/accounts`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,

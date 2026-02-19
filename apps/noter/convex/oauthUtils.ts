@@ -28,7 +28,7 @@ export async function createCodeChallenge(verifier: string): Promise<string> {
 
 export function readRequiredEnv(key: string): string {
   const value = process.env[key];
-  if (!value) {
+  if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`Missing required environment variable: ${key}`);
   }
   return value;

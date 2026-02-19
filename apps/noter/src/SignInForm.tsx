@@ -8,13 +8,29 @@ import { api } from "../convex/_generated/api";
 import { useEffect, useRef, useState } from "react";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
+const AUTH_PROVIDER_KEY = "noter_auth_provider";
+
+type AuthProvider = "github" | "google";
+
+function readAuthProvider(): AuthProvider | null {
+  const value = localStorage.getItem(AUTH_PROVIDER_KEY);
+  if (value === "github" || value === "google") {
+    return value;
+  }
+  return null;
+}
 
 export function clearAuthFlag() {
   localStorage.removeItem(AUTH_FLAG_KEY);
+  localStorage.removeItem(AUTH_PROVIDER_KEY);
 }
 
 export function setAuthFlag() {
   localStorage.setItem(AUTH_FLAG_KEY, "1");
+}
+
+export function setAuthProvider(provider: AuthProvider) {
+  localStorage.setItem(AUTH_PROVIDER_KEY, provider);
 }
 
 function useAutoReauthenticate() {
@@ -26,8 +42,11 @@ function useAutoReauthenticate() {
     if (isInIframe() || window.opener) return;
     if (!localStorage.getItem(AUTH_FLAG_KEY)) return;
 
+    const provider = readAuthProvider();
+    if (!provider) return;
+
     attempted.current = true;
-    void signIn("google");
+    void signIn(provider);
   }, [signIn]);
 
   // Returning whether we're attempting auto-login so the form can hide itself
@@ -124,6 +143,7 @@ export function openAuthPopup(provider: "google" | "github") {
   // Don't call signIn directly — the library would try window.location.href
   // which breaks in iframes. Instead open a popup that will auto-trigger sign-in.
   // Listen for auth tokens sent from the popup via postMessage.
+  setAuthProvider(provider);
   let popup: Window | null = null;
   const expectedOrigin = window.location.origin;
   const handler = (event: MessageEvent) => {
@@ -159,6 +179,7 @@ export function useAutoSignIn() {
     const params = new URLSearchParams(window.location.search);
     const auth = params.get("auth");
     if ((auth === "github" || auth === "google") && window.opener) {
+      setAuthProvider(auth);
       params.delete("auth");
       const newUrl =
         window.location.pathname +
@@ -180,6 +201,7 @@ export function SignInWithGoogle() {
         if (isInIframe()) {
           openAuthPopup("google");
         } else {
+          setAuthProvider("google");
           void signIn("google");
         }
       }}
@@ -200,6 +222,7 @@ export function SignInWithGitHub() {
         if (isInIframe()) {
           openAuthPopup("github");
         } else {
+          setAuthProvider("github");
           void signIn("github");
         }
       }}

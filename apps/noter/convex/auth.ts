@@ -3,6 +3,7 @@ import Google from "@auth/core/providers/google";
 import { convexAuth } from "@convex-dev/auth/server";
 import { isAdminUser, isAllowedEmail } from "./users";
 import type { Doc } from "./_generated/dataModel";
+import { readRequiredEnv } from "./oauthUtils";
 
 type UserPatch = Partial<Doc<"users">>;
 
@@ -52,14 +53,6 @@ function buildUserPatch(profile: Record<string, unknown>): UserPatch {
   }
 
   return patch;
-}
-
-function readRequiredEnv(key: string): string {
-  const value = process.env[key];
-  if (!isNonEmptyString(value)) {
-    throw new Error(`Missing ${key}. Set ${key} in the environment.`);
-  }
-  return value;
 }
 
 const githubClientId = readRequiredEnv("AUTH_GITHUB_ID");

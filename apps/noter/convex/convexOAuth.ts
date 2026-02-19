@@ -283,7 +283,7 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
       refreshToken: token.refreshToken,
       expiresAt,
       teamId: details.teamId,
-      teamSlug: details.teamSlug ?? details.teamName,
+      teamSlug: details.teamSlug,
       providerUserId: details.userId,
       oauthStateId: oauthState._id,
     });

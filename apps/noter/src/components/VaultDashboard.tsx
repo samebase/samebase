@@ -76,6 +76,17 @@ const formatInfraState = (
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
+const getRedirectOrigin = (oauthUrl: string): string | null => {
+  try {
+    const url = new URL(oauthUrl);
+    const redirect = url.searchParams.get("redirect_uri");
+    if (!redirect) return null;
+    return new URL(redirect).origin;
+  } catch {
+    return null;
+  }
+};
+
 const getInfraActionLabel = (
   infraState:
     | "not_started"
@@ -113,6 +124,8 @@ export function VaultDashboard() {
   );
   const convexPopupRef = useRef<Window | null>(null);
   const netlifyPopupRef = useRef<Window | null>(null);
+  const convexPopupOriginRef = useRef<string | null>(null);
+  const netlifyPopupOriginRef = useRef<string | null>(null);
   const [vaultToDelete, setVaultToDelete] = useState<{
     id: Id<"vaults">;
     repositoryFullName: string;
@@ -140,18 +153,31 @@ export function VaultDashboard() {
   );
 
   useEffect(() => {
+    const expectedOrigin = window.location.origin;
     const handler = (event: MessageEvent) => {
       if (!isRecord(event.data)) return;
       if (
         event.data.type === "convex-oauth-complete" &&
         event.source === convexPopupRef.current
       ) {
+        if (
+          event.origin !==
+          (convexPopupOriginRef.current ?? expectedOrigin)
+        ) {
+          return;
+        }
         window.location.reload();
       }
       if (
         event.data.type === "netlify-oauth-complete" &&
         event.source === netlifyPopupRef.current
       ) {
+        if (
+          event.origin !==
+          (netlifyPopupOriginRef.current ?? expectedOrigin)
+        ) {
+          return;
+        }
         window.location.reload();
       }
     };
@@ -204,6 +230,8 @@ export function VaultDashboard() {
     try {
       const oauthUrl = await getConvexOAuthUrl();
       if (isInIframe()) {
+        convexPopupOriginRef.current =
+          getRedirectOrigin(oauthUrl) ?? window.location.origin;
         convexPopupRef.current = window.open(
           oauthUrl,
           "convex-oauth",
@@ -244,6 +272,8 @@ export function VaultDashboard() {
     try {
       const oauthUrl = await getNetlifyOAuthUrl();
       if (isInIframe()) {
+        netlifyPopupOriginRef.current =
+          getRedirectOrigin(oauthUrl) ?? window.location.origin;
         netlifyPopupRef.current = window.open(
           oauthUrl,
           "netlify-oauth",
