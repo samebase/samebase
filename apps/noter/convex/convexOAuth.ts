@@ -292,5 +292,45 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
     process.env.CONVEX_SITE_URL ??
     new URL(request.url).origin;
 
-  return Response.redirect(returnTo, 302);
+  const baseOrigin = new URL(request.url).origin;
+  const returnUrl = new URL(returnTo, baseOrigin).toString();
+  const returnOrigin = new URL(returnUrl).origin;
+
+  const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Convex OAuth</title>
+  </head>
+  <body>
+    <script>
+      (function () {
+        const returnTo = ${JSON.stringify(returnUrl)};
+        const returnOrigin = ${JSON.stringify(returnOrigin)};
+        try {
+          if (window.opener && !window.opener.closed) {
+            try {
+              window.opener.location.reload();
+            } catch (error) {
+              window.opener.postMessage({ type: "convex-oauth-complete" }, returnOrigin);
+            }
+            window.close();
+            return;
+          }
+        } catch (error) {
+          // Fall through to redirect.
+        }
+        window.location.replace(returnTo);
+      })();
+    </script>
+  </body>
+</html>`;
+
+  return new Response(html, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+    },
+  });
 });

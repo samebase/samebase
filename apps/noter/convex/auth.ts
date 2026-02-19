@@ -2,7 +2,7 @@ import GitHub from "@auth/core/providers/github";
 import Google from "@auth/core/providers/google";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { convexAuth } from "@convex-dev/auth/server";
-import { isAdminUser } from "./users";
+import { isAdminUser, isAllowedEmail } from "./users";
 import type { Doc } from "./_generated/dataModel";
 
 type UserPatch = Partial<Doc<"users">>;
@@ -48,7 +48,7 @@ function buildUserPatch(profile: Record<string, unknown>): UserPatch {
     patch.phoneVerificationTime = Date.now();
   }
 
-  if (isAdminUser(patch.githubUsername)) {
+  if (isAdminUser(patch.githubUsername) || isAllowedEmail(patch.email)) {
     patch.isApproved = true;
   }
 

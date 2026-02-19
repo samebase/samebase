@@ -12,7 +12,7 @@ export function isAdminUser(githubUsername: string | null | undefined): boolean 
   return ADMIN_USERNAMES.includes(githubUsername);
 }
 
-function isAllowedEmail(email: string | null | undefined): boolean {
+export function isAllowedEmail(email: string | null | undefined): boolean {
   if (!email) {
     return false;
   }
