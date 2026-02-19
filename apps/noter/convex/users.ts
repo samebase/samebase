@@ -3,7 +3,11 @@ import { internalQuery, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 const ADMIN_USERNAMES = ["nicu-chiciuc"];
-const ALLOWED_EMAILS = ["nicu.dev@gmail.com"];
+const ALLOWED_EMAILS = new Set([
+  "nicu.dev@gmail.com",
+  "nicuchiciuc@gmail.com",
+  "noita.lovare@gmail.com",
+]);
 
 export function isAdminUser(githubUsername: string | null | undefined): boolean {
   if (!githubUsername) {
@@ -16,7 +20,7 @@ export function isAllowedEmail(email: string | null | undefined): boolean {
   if (!email) {
     return false;
   }
-  return ALLOWED_EMAILS.includes(email.toLowerCase());
+  return ALLOWED_EMAILS.has(email.toLowerCase());
 }
 
 // Public

@@ -48,11 +48,18 @@ function buildUserPatch(profile: Record<string, unknown>): UserPatch {
     patch.phoneVerificationTime = Date.now();
   }
 
-  if (isAdminUser(patch.githubUsername) || isAllowedEmail(patch.email)) {
+  if (isSignInAllowed(patch.githubUsername, patch.email)) {
     patch.isApproved = true;
   }
 
   return patch;
+}
+
+function isSignInAllowed(
+  githubUsername: string | null | undefined,
+  email: string | null | undefined,
+): boolean {
+  return isAdminUser(githubUsername) || isAllowedEmail(email);
 }
 
 const githubClientId = readRequiredEnv("AUTH_GITHUB_ID");
@@ -113,6 +120,22 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   callbacks: {
     createOrUpdateUser: async (ctx, args) => {
       const patch = buildUserPatch(args.profile);
+      let githubUsernameForAccessCheck = patch.githubUsername;
+      let emailForAccessCheck = patch.email;
+
+      if (args.existingUserId) {
+        const existingUser = await ctx.db.get(args.existingUserId);
+        if (!githubUsernameForAccessCheck) {
+          githubUsernameForAccessCheck = existingUser?.githubUsername;
+        }
+        if (!emailForAccessCheck) {
+          emailForAccessCheck = existingUser?.email;
+        }
+      }
+
+      if (!isSignInAllowed(githubUsernameForAccessCheck, emailForAccessCheck)) {
+        throw new Error("Access denied: account is not allowlisted");
+      }
 
       if (args.existingUserId) {
         await ctx.db.patch(args.existingUserId, patch);
