@@ -163,7 +163,7 @@ Shorthand commands for git/GitHub workflows. When the user says these, execute t
 | `create pr` | Push if needed, create draft PR and ensure a non-empty body     |
 | `ready`     | Mark draft PR as ready: `gh pr ready`                           |
 | `wait`      | Monitor CI with `gh pr checks` or `gh run watch`, report status |
-| `ship`      | Full flow: commit → push → create PR → ready → wait             |
+| `ship`      | Full flow: commit → push → create PR → ready → fix CodeRabbit feedback → wait |
 | `status`    | Show branch, uncommitted changes, PR state                      |
 
 ### Rules
@@ -173,6 +173,8 @@ Shorthand commands for git/GitHub workflows. When the user says these, execute t
 - Adapt to context (if PR exists, update it; if already ready, skip)
 - When the user asks to "open a PR" (or `create pr`), always write a normal PR description (summary, key changes, validation). Never leave the PR body empty.
 - Update PR description with `gh pr edit --body` when commits change scope
+- During `ship`, if CodeRabbit reports actionable findings, fix them, push updates, and continue until CodeRabbit and required CI checks are green.
+- During `ship`, if CodeRabbit is only pending (no actionable findings yet), continue waiting.
 - On CI failure, report the error and offer to fix
 - **NEVER merge a PR until CI is green** - always wait for checks to pass, then squash-merge with `gh pr merge --squash`
 - **NEVER merge a PR until CI is green** - always wait for checks to pass.
