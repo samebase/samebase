@@ -401,10 +401,18 @@ export const finishNetlifyOAuthCallback = httpAction(async (ctx, request) => {
     throw err;
   }
 
-  const returnTo =
-    process.env.SITE_URL ??
-    process.env.CONVEX_SITE_URL ??
-    new URL(request.url).origin;
+  const siteUrl = process.env.SITE_URL;
+  const fallbackReturnTo =
+    process.env.CONVEX_SITE_URL ?? new URL(request.url).origin;
+
+  if (!siteUrl) {
+    console.warn(
+      "SITE_URL is not set; falling back to Convex origin for Netlify OAuth redirect.",
+      { fallbackReturnTo },
+    );
+  }
+
+  const returnTo = siteUrl ?? fallbackReturnTo;
 
   return Response.redirect(returnTo, 302);
 });

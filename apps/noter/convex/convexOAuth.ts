@@ -16,7 +16,46 @@ const CONVEX_TOKEN_URL = "https://api.convex.dev/oauth/token";
 const CONVEX_TOKEN_DETAILS_URL = "https://api.convex.dev/v1/token_details";
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
 
+type JsonRecord = Record<string, unknown>;
+
 type OAuthContext = ActionCtx | MutationCtx;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readStringOrNumber(record: JsonRecord, key: string): string | undefined {
+  const value = record[key];
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  return undefined;
+}
+
+function readNestedStringOrNumber(
+  record: JsonRecord,
+  key: string,
+  field: string,
+): string | undefined {
+  const nested = record[key];
+  if (!isRecord(nested)) return undefined;
+  return readStringOrNumber(nested, field);
+}
+
+function resolveField(
+  record: JsonRecord,
+  keys: string[],
+  nested?: { key: string; field: string },
+): string | undefined {
+  for (const key of keys) {
+    const value = readStringOrNumber(record, key);
+    if (value !== undefined) return value;
+  }
+  if (nested) {
+    const nestedValue = readNestedStringOrNumber(record, nested.key, nested.field);
+    if (nestedValue !== undefined) return nestedValue;
+  }
+  return undefined;
+}
 
 async function fetchWithTimeout(
   input: RequestInfo | URL,
@@ -129,45 +168,20 @@ async function fetchConvexTokenDetails(accessToken: string): Promise<{
     throw new Error(`Failed to fetch Convex token details (${response.status}).`);
   }
 
-  const teamId =
-    typeof data.teamId === "string"
-      ? data.teamId
-      : typeof data.teamId === "number"
-        ? String(data.teamId)
-      : typeof data.team_id === "string"
-        ? data.team_id
-        : typeof data.team_id === "number"
-          ? String(data.team_id)
-        : typeof data.team?.id === "string"
-          ? data.team.id
-          : typeof data.team?.id === "number"
-            ? String(data.team.id)
-          : undefined;
-
-  const teamSlug =
-    typeof data.teamSlug === "string"
-      ? data.teamSlug
-      : typeof data.team_slug === "string"
-        ? data.team_slug
-        : typeof data.team?.slug === "string"
-          ? data.team.slug
-          : undefined;
-
-  const teamName =
-    typeof data.name === "string"
-      ? data.name
-      : typeof data.team?.name === "string"
-        ? data.team.name
-        : undefined;
-
-  const userId =
-    typeof data.userId === "string"
-      ? data.userId
-      : typeof data.user_id === "string"
-        ? data.user_id
-        : typeof data.user?.id === "string"
-          ? data.user.id
-          : undefined;
+  const record = isRecord(data) ? data : {};
+  const teamId = resolveField(record, ["teamId", "team_id"], {
+    key: "team",
+    field: "id",
+  });
+  const teamSlug = resolveField(record, ["teamSlug", "team_slug"], {
+    key: "team",
+    field: "slug",
+  });
+  const teamName = resolveField(record, ["name"], { key: "team", field: "name" });
+  const userId = resolveField(record, ["userId", "user_id"], {
+    key: "user",
+    field: "id",
+  });
 
   return {
     teamId,

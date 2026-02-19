@@ -252,6 +252,9 @@ export function VaultDashboard() {
   const handleDisconnect = async (provider: "github" | "convex" | "netlify") => {
     if (disconnectingProvider) return;
     setDisconnectingProvider(provider);
+    if (createError) {
+      setCreateError(null);
+    }
     try {
       if (provider === "github") {
         await disconnectGithub();
@@ -260,6 +263,12 @@ export function VaultDashboard() {
       } else {
         await disconnectNetlify();
       }
+    } catch (error) {
+      setCreateError(
+        error instanceof Error
+          ? error.message
+          : `Failed to disconnect ${provider}`,
+      );
     } finally {
       setDisconnectingProvider(null);
     }
