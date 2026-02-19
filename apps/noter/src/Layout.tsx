@@ -1,8 +1,6 @@
 import { ReactNode } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
-import { UserMenu } from "@/components/UserMenu";
-import { useUserMenuPlacementPreview } from "@/hooks/use-user-menu-placement-preview";
 
 export function Layout({ children }: { children: ReactNode }) {
   const appCommit = __APP_COMMIT__ || "unknown";
@@ -14,17 +12,11 @@ export function Layout({ children }: { children: ReactNode }) {
   const viewer = useQuery(api.users.viewer);
   const isOwner = viewer?.githubUsername === "nicu-chiciuc";
   const showGuestBadge = Boolean(viewer && !isOwner);
-  const [menuPlacementPreview] = useUserMenuPlacementPreview();
   const guestName =
     viewer?.githubUsername ?? viewer?.name ?? viewer?.email ?? "there";
-  const userLabel = viewer?.name ?? viewer?.email ?? "Account";
   const guestTitle = viewer
     ? `Welcome, ${guestName}. You're viewing the dev build.`
     : "Viewing the dev build.";
-  const showTopStripMenu =
-    Boolean(viewer) && menuPlacementPreview === "top-strip";
-  const showFloatingMenu =
-    Boolean(viewer) && menuPlacementPreview === "floating";
 
   return (
     <div className="flex h-full w-full flex-col">
@@ -54,23 +46,9 @@ export function Layout({ children }: { children: ReactNode }) {
               {shortCommit}
             </span>
           )}
-          {showTopStripMenu && (
-            <UserMenu className="ml-2 gap-1 text-xs font-normal">
-              <span className="hidden sm:inline">{userLabel}</span>
-            </UserMenu>
-          )}
         </div>
       </div>
       <main className="flex grow flex-col overflow-hidden">{children}</main>
-      {showFloatingMenu && (
-        <div className="pointer-events-none fixed right-3 top-3 z-50">
-          <div className="pointer-events-auto">
-            <UserMenu className="gap-0 text-xs font-normal">
-              <span className="sr-only">{userLabel}</span>
-            </UserMenu>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

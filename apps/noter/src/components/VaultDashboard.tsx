@@ -40,10 +40,6 @@ import {
 } from "@/components/ui/button-group";
 import { CodespaceStatus } from "@/components/CodespaceStatus";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
-import {
-  type UserMenuPlacementPreview,
-  useUserMenuPlacementPreview,
-} from "@/hooks/use-user-menu-placement-preview";
 import type { Id } from "../../convex/_generated/dataModel";
 
 const formatTimeAgo = (timestamp: number) => {
@@ -106,8 +102,6 @@ const getInfraActionLabel = (
 
 export function VaultDashboard() {
   const vaults = useQuery(api.vault.getUserVaults);
-  const [menuPlacementPreview, setMenuPlacementPreview] =
-    useUserMenuPlacementPreview();
   const { signIn } = useAuthActions();
   const deleteVault = useAction(api.vaultActions.deleteVault);
   const createRepository = useAction(api.vaultActions.createRepository);
@@ -410,40 +404,6 @@ export function VaultDashboard() {
   const netlifyStatus = netlifyConnected
     ? `Connected to ${netlifyConnection?.teamSlug ?? netlifyConnection?.teamId ?? "Netlify team"}`
     : "Not connected";
-  const previewOptions: Array<{
-    value: UserMenuPlacementPreview;
-    label: string;
-  }> = [
-    { value: "sidebar", label: "Sidebar (current)" },
-    { value: "top-strip", label: "Top strip" },
-    { value: "floating", label: "Floating button" },
-  ];
-  const menuPreviewPanel = (
-    <div className="rounded-lg border border-dashed border-border/80 bg-muted/20 p-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-muted-foreground">
-          User menu preview (worktree-only). Switch styles, then open a vault on
-          mobile to compare editor chrome.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {previewOptions.map((option) => (
-            <Button
-              key={option.value}
-              type="button"
-              size="sm"
-              variant={
-                menuPlacementPreview === option.value ? "secondary" : "outline"
-              }
-              onClick={() => setMenuPlacementPreview(option.value)}
-              className="h-7 px-2 text-xs"
-            >
-              {option.label}
-            </Button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
   const createControl = (
     <div className="flex flex-col items-start gap-2">
       <ButtonGroup className="w-full sm:w-[360px]">
@@ -633,8 +593,7 @@ export function VaultDashboard() {
               </p>
             </div>
 
-          <div className="space-y-4">
-              {menuPreviewPanel}
+            <div className="space-y-4">
               {connectionPanel}
               <div className="flex justify-center">{createControl}</div>
             </div>
@@ -647,7 +606,6 @@ export function VaultDashboard() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="container py-6">
-        <div className="mb-6">{menuPreviewPanel}</div>
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <GitHubLogoIcon className="h-5 w-5 sm:h-6 sm:w-6" />
