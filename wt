@@ -1,7 +1,212 @@
 #!/usr/bin/env node
 // @ts-check
-import { execSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { Command } from 'commander'
 import { object, string, optional, err } from '@robolex/sure'
+
+const WorktreeSchema = object({
+  branch: optional(string),
+  worktree: string,
+  HEAD: string,
+})
+const HOME_DIR = process.env.HOME ?? ''
+
+/**
+ * @typedef {{
+ *   apply: boolean
+ *   base?: string
+ * }} CleanOptions
+ */
+
+/**
+ * @typedef {{
+ *   status: boolean
+ * }} ListOptions
+ */
+
+function main() {
+  const program = new Command()
+
+  program
+    .name('wt')
+    .description('worktree helper')
+    .usage('[branch] | list | ls | status | clean [options]')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  wt --help
+  wt list
+  wt list --status
+  wt ls
+  wt status
+  wt main
+  wt codex/my-branch
+  wt clean
+  wt clean --base main
+  wt clean --apply`,
+    )
+    .showHelpAfterError('(run with --help for usage)')
+
+  program
+    .command('clean')
+    .description('dry-run by default; remove only safe merged/reachable worktrees with --apply')
+    .option('--apply', 'actually remove candidates (default is dry-run)', false)
+    .option('--base <branch>', 'override base branch used for merged/reachable checks')
+    .addHelpText(
+      'after',
+      `
+What gets auto-removed:
+  - Branch worktree: branch is merged into base and worktree has no local changes.
+  - Detached worktree: HEAD commit is reachable from base and worktree has no local changes.
+
+What is never auto-removed:
+  - Any worktree with local changes.
+  - Detached worktree with commits not reachable from base.
+
+Base source:
+  - If --base is set, that value is used.
+  - Otherwise it matches your fish 'main' alias behavior (resolved from 'origin/HEAD').
+
+Examples:
+  wt clean
+  wt clean --base main
+  wt clean --apply`,
+    )
+    .action(
+      /**
+       * @param {CleanOptions} options
+       */
+      options => {
+        runClean(options)
+      },
+    )
+
+  program
+    .command('list')
+    .alias('ls')
+    .description('list worktrees and local-change summary')
+    .option('--status', 'include full git status output per worktree', false)
+    .action(
+      /**
+       * @param {ListOptions} options
+       */
+      options => {
+        printWorktreeList(options)
+      },
+    )
+
+  program
+    .command('status')
+    .description('list worktrees with full git status output')
+    .action(() => {
+      printWorktreeList({ status: true })
+    })
+
+  program
+    .argument('[target]', 'branch name to resolve to a worktree path')
+    .action(target => {
+      if (!target) {
+        program.outputHelp()
+        return
+      }
+
+      const worktrees = getWorktrees()
+      const wt = worktrees.find(
+        worktree => worktree.shortBranch === target || worktree.branchName === target,
+      )
+
+      log(wt)
+
+      if (!wt) {
+        console.error(`worktree ${target} not found`)
+        process.exit(1)
+      }
+
+      console.log(wt.worktree)
+    })
+
+  program.parse(process.argv)
+}
+
+// MARK: - Helpers
+
+function getWorktrees() {
+  const output = execFileSync('git', ['worktree', 'list', '--porcelain'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+
+  return output
+    .trim()
+    .split('\n\n')
+    .filter(Boolean)
+    .map(block => {
+      /** @type {Record<string, string | true>} */
+      const raw = {}
+      for (const line of block.split('\n')) {
+        if (!line) {
+          continue
+        }
+        const spaceIndex = line.indexOf(' ')
+        if (spaceIndex === -1) {
+          raw[line] = true
+          continue
+        }
+        const key = line.slice(0, spaceIndex)
+        const value = line.slice(spaceIndex + 1)
+        raw[key] = value
+      }
+
+      const base = err(WorktreeSchema)(raw)
+      const branchName = base.branch?.replace('refs/heads/', '')
+      return {
+        ...base,
+        detached: Boolean(raw.detached),
+        branchName,
+        shortBranch: branchName?.split('/').pop(),
+      }
+    })
+}
+
+/**
+ * @param {ListOptions} [options]
+ */
+function printWorktreeList(options = { status: false }) {
+  const repoRoot = git(['rev-parse', '--show-toplevel']).trim()
+  const worktrees = getWorktrees()
+  const labels = worktrees.map(wt =>
+    wt.branchName ? wt.branchName : `detached@${wt.HEAD.slice(0, 8)}`,
+  )
+  const labelWidth = Math.max(8, ...labels.map(label => label.length))
+
+  for (let index = 0; index < worktrees.length; index += 1) {
+    const wt = worktrees[index]
+    const summary = getWorktreeSummary(wt.worktree)
+    const label = wt.branchName ? wt.branchName : `detached@${wt.HEAD.slice(0, 8)}`
+    const marker = wt.worktree === repoRoot ? colorize('*', 'cyan') : ' '
+    const stateLabel = getStateLabel(summary)
+    const state = colorize(pad(stateLabel, 8), getStateTone(summary))
+    const counts = [
+      formatCountToken('S', summary.staged),
+      formatCountToken('U', summary.unstaged),
+      formatCountToken('?', summary.untracked),
+    ].join(' ')
+    const line = `${marker} ${pad(label, labelWidth)} ${state} ${counts} ${dim(formatPath(wt.worktree))}`
+    console.log(line)
+
+    if (options.status) {
+      const statusOutput = git(['status'], { cwd: wt.worktree }).trimEnd()
+      if (statusOutput.length > 0) {
+        const indented = statusOutput.split('\n').map(part => `    ${part}`).join('\n')
+        console.log(indented)
+      }
+      if (index < worktrees.length - 1) {
+        console.log('')
+      }
+    }
+  }
+}
 
 /**
  *
@@ -13,58 +218,394 @@ function log(...args) {
   }
 }
 
-const WorktreeSchema = object({
-  branch: optional(string),
-  worktree: string,
-  HEAD: string,
-})
-
-const target = process.argv[2]
-
-if (!target) {
-  const worktrees = getWorktrees().filter(wt => wt.shortBranch)
-
-  console.log(worktrees.map(wt => `${wt.shortBranch} ${wt.worktree}`).join('\n'))
-  process.exit(1)
+function shouldUseColor() {
+  if (process.env.NO_COLOR) {
+    return false
+  }
+  if (process.env.FORCE_COLOR === '0') {
+    return false
+  }
+  if (process.env.FORCE_COLOR) {
+    return true
+  }
+  return Boolean(process.stdout.isTTY)
 }
 
-function getWorktrees() {
-  const output = execSync('git worktree list --porcelain', {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'ignore'],
-  })
+const COLOR_ENABLED = shouldUseColor()
 
-  const worktrees = output
-    .trim()
-    .split('\n\n')
-    .map(line => {
-      const entries = line.split('\n').map(line => line.split(' '))
+/**
+ * @param {string} text
+ * @param {'green' | 'yellow' | 'red' | 'cyan' | 'dim' | 'bold'} tone
+ */
+function colorize(text, tone) {
+  if (!COLOR_ENABLED) {
+    return text
+  }
+  const codes = {
+    green: '\u001B[32m',
+    yellow: '\u001B[33m',
+    red: '\u001B[31m',
+    cyan: '\u001B[36m',
+    dim: '\u001B[2m',
+    bold: '\u001B[1m',
+  }
+  const reset = '\u001B[0m'
+  return `${codes[tone]}${text}${reset}`
+}
 
-      const worktree = Object.fromEntries(entries)
-      return err(WorktreeSchema)(worktree)
-    })
+/**
+ * @param {string} text
+ */
+function dim(text) {
+  return colorize(text, 'dim')
+}
 
-  const augmentedWorktrees = worktrees.map(wt => {
-    return {
-      ...wt,
+/**
+ * @param {string} text
+ * @param {number} width
+ */
+function pad(text, width) {
+  return text.length >= width ? text : `${text}${' '.repeat(width - text.length)}`
+}
 
-      shortBranch: wt.branch?.split('/').pop(),
+/**
+ * @param {string} inputPath
+ */
+function formatPath(inputPath) {
+  if (HOME_DIR.length > 0 && inputPath.startsWith(`${HOME_DIR}/`)) {
+    return `~/${inputPath.slice(HOME_DIR.length + 1)}`
+  }
+  if (inputPath === HOME_DIR) {
+    return '~'
+  }
+  return inputPath
+}
+
+/**
+ * @param {string} label
+ * @param {number} value
+ */
+function formatCountToken(label, value) {
+  const token = `${label}${value}`
+  if (value === 0) {
+    return dim(token)
+  }
+  return colorize(token, 'bold')
+}
+
+/**
+ * @typedef {{
+ *   staged: number
+ *   unstaged: number
+ *   untracked: number
+ *   conflicts: number
+ * }} WorktreeSummary
+ */
+
+function isDirty(summary) {
+  return summary.staged > 0 || summary.unstaged > 0 || summary.untracked > 0
+}
+
+/**
+ * @param {WorktreeSummary} summary
+ * @returns {'clean' | 'dirty' | 'conflict'}
+ */
+function getStateLabel(summary) {
+  if (summary.conflicts > 0) {
+    return 'conflict'
+  }
+  return isDirty(summary) ? 'dirty' : 'clean'
+}
+
+/**
+ * @param {WorktreeSummary} summary
+ * @returns {'green' | 'yellow' | 'red'}
+ */
+function getStateTone(summary) {
+  if (summary.conflicts > 0) {
+    return 'red'
+  }
+  return isDirty(summary) ? 'yellow' : 'green'
+}
+
+/**
+ * @param {string} worktreePath
+ * @returns {WorktreeSummary}
+ */
+function getWorktreeSummary(worktreePath) {
+  const status = git(['status', '--porcelain'], { cwd: worktreePath })
+  const lines = status.split('\n').filter(Boolean)
+
+  let staged = 0
+  let unstaged = 0
+  let untracked = 0
+  let conflicts = 0
+
+  for (const line of lines) {
+    const x = line[0] ?? ' '
+    const y = line[1] ?? ' '
+
+    if (x === '?' && y === '?') {
+      untracked += 1
+      continue
     }
-  })
-  return augmentedWorktrees
+
+    if (x !== ' ' && x !== '?') {
+      staged += 1
+    }
+    if (y !== ' ' && y !== '?') {
+      unstaged += 1
+    }
+    if (
+      x === 'U' ||
+      y === 'U' ||
+      (x === 'A' && y === 'A') ||
+      (x === 'D' && y === 'D')
+    ) {
+      conflicts += 1
+    }
+  }
+
+  return {
+    staged,
+    unstaged,
+    untracked,
+    conflicts,
+  }
 }
 
-const worktrees = getWorktrees()
+/**
+ * @param {string[]} gitArgs
+ * @param {{ cwd?: string }} [options]
+ */
+function git(gitArgs, options = {}) {
+  return execFileSync('git', gitArgs, {
+    cwd: options.cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+}
 
-const wt = worktrees.find(wt => wt.shortBranch === target)
+/**
+ * @param {string[]} gitArgs
+ * @param {{ cwd?: string }} [options]
+ */
+function gitStatus(gitArgs, options = {}) {
+  const result = spawnSync('git', gitArgs, {
+    cwd: options.cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  return {
+    status: result.status ?? 1,
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+  }
+}
 
-log(wt)
+/**
+ * @param {string} worktreePath
+ */
+function hasLocalChanges(worktreePath) {
+  const status = git(['status', '--porcelain'], { cwd: worktreePath })
+  return status.trim().length > 0
+}
 
-if (!wt) {
-  console.error(`worktree ${target} not found`)
+/**
+ * @param {string} ancestor
+ * @param {string} descendant
+ * @param {string} cwd
+ */
+function isAncestor(ancestor, descendant, cwd) {
+  const result = gitStatus(['merge-base', '--is-ancestor', ancestor, descendant], {
+    cwd,
+  })
+  return result.status === 0
+}
+
+/**
+ * @param {CleanOptions} options
+ */
+function runClean(options) {
+  const { apply, base: baseOption } = options
+
+  const repoRoot = git(['rev-parse', '--show-toplevel']).trim()
+  const requestedBase = baseOption?.trim()
+  const base = requestedBase && requestedBase.length > 0
+    ? normalizeBaseName(requestedBase)
+    : resolveDefaultBranchName(repoRoot)
+  const baseRef = resolveBaseRef(repoRoot, requestedBase && requestedBase.length > 0 ? requestedBase : base)
+
+  const baseCheck = gitStatus(['rev-parse', '--verify', baseRef], { cwd: repoRoot })
+  if (baseCheck.status !== 0) {
+    console.error(`base ref not found: ${baseRef}`)
+    process.exit(1)
+  }
+
+  const worktrees = getWorktrees()
+  const toRemove = []
+  const manualCheck = []
+
+  for (const wt of worktrees) {
+    if (wt.worktree === repoRoot) {
+      continue
+    }
+
+    const dirty = hasLocalChanges(wt.worktree)
+    if (wt.branchName) {
+      if (wt.branchName === base) {
+        continue
+      }
+      const merged = isAncestor(wt.branchName, baseRef, repoRoot)
+      if (merged) {
+        if (dirty) {
+          manualCheck.push({
+            worktree: wt.worktree,
+            reason: `branch '${wt.branchName}' is merged into '${base}' but has local changes`,
+          })
+        } else {
+          toRemove.push({
+            worktree: wt.worktree,
+            reason: `branch '${wt.branchName}' is merged into '${base}'`,
+          })
+        }
+      }
+      continue
+    }
+
+    const detachedMerged = isAncestor(wt.HEAD, baseRef, repoRoot)
+    if (dirty) {
+      manualCheck.push({
+        worktree: wt.worktree,
+        reason: 'detached HEAD with local changes',
+      })
+      continue
+    }
+    if (detachedMerged) {
+      toRemove.push({
+        worktree: wt.worktree,
+        reason: `detached HEAD ${wt.HEAD.slice(0, 12)} is reachable from '${base}'`,
+      })
+      continue
+    }
+    manualCheck.push({
+      worktree: wt.worktree,
+      reason: `detached HEAD ${wt.HEAD.slice(0, 12)} is not reachable from '${base}'`,
+    })
+  }
+
+  const baseLabel = baseRef === base ? base : `${base} (${baseRef})`
+  console.log(`base: ${baseLabel}`)
+  console.log(apply ? 'mode: apply (will remove candidates)' : 'mode: dry-run (no removals)')
+  if (toRemove.length === 0) {
+    console.log('remove candidates: none')
+  } else {
+    console.log(`remove candidates (${toRemove.length}):`)
+    for (const item of toRemove) {
+      console.log(`- ${formatPath(item.worktree)} (${item.reason})`)
+    }
+  }
+
+  if (manualCheck.length > 0) {
+    console.log(`manual checks (${manualCheck.length}):`)
+    for (const item of manualCheck) {
+      console.log(`- ${formatPath(item.worktree)} (${item.reason})`)
+    }
+  }
+
+  if (!apply) {
+    console.log('no worktrees removed (dry-run).')
+    console.log("next: run 'wt list --status' to inspect, then 'wt clean --apply' to remove candidates.")
+    return
+  }
+
+  let removed = 0
+  let failed = 0
+  for (const item of toRemove) {
+    const removeResult = gitStatus(['worktree', 'remove', item.worktree], { cwd: repoRoot })
+    if (removeResult.status === 0) {
+      console.log(`removed: ${formatPath(item.worktree)}`)
+      removed += 1
+    } else {
+      failed += 1
+      console.log(`failed: ${formatPath(item.worktree)}`)
+      if (removeResult.stderr.trim().length > 0) {
+        console.log(removeResult.stderr.trim())
+      }
+    }
+  }
+
+  if (removed > 0) {
+    git(['worktree', 'prune'], { cwd: repoRoot })
+  }
+  console.log(`done. removed ${removed}, failed ${failed}, manual checks ${manualCheck.length}.`)
+}
+
+/**
+ * Mirrors fish alias: main -> bb -> `git rev-parse --abbrev-ref origin/HEAD`
+ * then strip `origin/`.
+ * @param {string} repoRoot
+ */
+function resolveDefaultBranchName(repoRoot) {
+  const remoteHead = gitStatus(['rev-parse', '--abbrev-ref', 'origin/HEAD'], { cwd: repoRoot })
+  if (remoteHead.status === 0) {
+    const value = remoteHead.stdout.trim()
+    if (value.startsWith('origin/')) {
+      return value.slice('origin/'.length)
+    }
+    if (value.length > 0 && value !== 'origin/HEAD') {
+      return value
+    }
+  }
+
+  const fallback = ['main', 'master']
+  for (const candidate of fallback) {
+    const exists = gitStatus(['rev-parse', '--verify', candidate], { cwd: repoRoot })
+    if (exists.status === 0) {
+      return candidate
+    }
+  }
+
+  console.error("could not resolve default branch from origin/HEAD and no 'main'/'master' fallback found")
   process.exit(1)
 }
 
-console.log(wt.worktree)
+/**
+ * @param {string} repoRoot
+ * @param {string} baseInput
+ */
+function resolveBaseRef(repoRoot, baseInput) {
+  const directExists = gitStatus(['rev-parse', '--verify', baseInput], { cwd: repoRoot })
+  if (directExists.status === 0) {
+    return baseInput
+  }
 
-process.exit(0)
+  const normalized = normalizeBaseName(baseInput)
+  const localExists = gitStatus(['rev-parse', '--verify', normalized], { cwd: repoRoot })
+  if (localExists.status === 0) {
+    return normalized
+  }
+
+  const remoteRef = `origin/${normalized}`
+  const remoteExists = gitStatus(['rev-parse', '--verify', remoteRef], { cwd: repoRoot })
+  if (remoteExists.status === 0) {
+    return remoteRef
+  }
+
+  return baseInput
+}
+
+/**
+ * @param {string} value
+ */
+function normalizeBaseName(value) {
+  if (value.startsWith('origin/')) {
+    return value.slice('origin/'.length)
+  }
+  if (value.startsWith('refs/heads/')) {
+    return value.slice('refs/heads/'.length)
+  }
+  return value
+}
+
+main()

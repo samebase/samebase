@@ -85,6 +85,7 @@
 - [ ] add keyboard shortcuts for common actions (save, commit, etc.)
 - [ ] implement file diff view to show changes before committing
 - [ ] add "todo" command functionality for AI assistant to update this file
+- [ ] `wt` CLI low-level follow-up: add machine-readable modes (`wt list --json` / `--ndjson`) plus `--plain` (no ANSI), stable keys (`path`, `branch`, `detached`, `head`, `isCurrent`, `staged`, `unstaged`, `untracked`, `conflicts`, `isClean`), and deterministic exit codes for automation
 - [ ] simple view: consider switching from exclude-only to explicit include allowlist (ex: `**/*.md`, `**/config.json`, `**/tools.json`)
 - [ ] add command "auto-push" "stop auto push" or similar to allows
 - [ ] use mermaid?
