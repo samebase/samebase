@@ -3,7 +3,7 @@ import Google from "@auth/core/providers/google";
 import { convexAuth } from "@convex-dev/auth/server";
 import { isAdminUser, isAllowedEmail } from "./users";
 import type { Doc } from "./_generated/dataModel";
-import { readRequiredEnv } from "./oauthUtils";
+import { readOptionalEnv, readRequiredEnv } from "./oauthUtils";
 
 type UserPatch = Partial<Doc<"users">>;
 
@@ -57,22 +57,33 @@ function buildUserPatch(profile: Record<string, unknown>): UserPatch {
 
 const githubClientId = readRequiredEnv("AUTH_GITHUB_ID");
 const githubClientSecret = readRequiredEnv("AUTH_GITHUB_SECRET");
-const googleClientId = readRequiredEnv("AUTH_GOOGLE_ID");
-const googleClientSecret = readRequiredEnv("AUTH_GOOGLE_SECRET");
+const googleClientId = readOptionalEnv("AUTH_GOOGLE_ID");
+const googleClientSecret = readOptionalEnv("AUTH_GOOGLE_SECRET");
+if ((googleClientId === null) !== (googleClientSecret === null)) {
+  throw new Error(
+    `Missing required environment variable: ${
+      googleClientId === null ? "AUTH_GOOGLE_ID" : "AUTH_GOOGLE_SECRET"
+    }`,
+  );
+}
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
-    Google({
-      clientId: googleClientId,
-      clientSecret: googleClientSecret,
-      profile: (profile) => ({
-        id: profile.sub,
-        name: profile.name,
-        email: profile.email,
-        image: profile.picture,
-        emailVerified: profile.email_verified,
-      }),
-    }),
+    ...(googleClientId && googleClientSecret
+      ? [
+          Google({
+            clientId: googleClientId,
+            clientSecret: googleClientSecret,
+            profile: (profile) => ({
+              id: profile.sub,
+              name: profile.name,
+              email: profile.email,
+              image: profile.picture,
+              emailVerified: profile.email_verified,
+            }),
+          }),
+        ]
+      : []),
     GitHub({
       clientId: githubClientId,
       clientSecret: githubClientSecret,

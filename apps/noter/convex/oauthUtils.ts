@@ -26,9 +26,18 @@ export async function createCodeChallenge(verifier: string): Promise<string> {
   return base64UrlEncode(new Uint8Array(digest));
 }
 
-export function readRequiredEnv(key: string): string {
+export function readOptionalEnv(key: string): string | null {
   const value = process.env[key];
-  if (typeof value !== "string" || value.trim().length === 0) {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+export function readRequiredEnv(key: string): string {
+  const value = readOptionalEnv(key);
+  if (value === null) {
     throw new Error(`Missing required environment variable: ${key}`);
   }
   return value;
