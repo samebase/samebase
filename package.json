@@ -13,6 +13,7 @@
     "dev": "turbo run dev --filter=noter",
     "build": "turbo run build --filter=noter",
     "lint": "turbo run lint --filter=noter",
+    "format": "prettier --write .",
     "preview": "turbo run preview",
     "clean": "turbo run clean",
     "test": "vitest --run",
@@ -30,9 +31,14 @@
     "@robolex/sure": "^0.12.0",
     "commander": "^14.0.3",
     "husky": "^9.1.7",
+    "lint-staged": "^15.5.2",
+    "prettier": "3.3.2",
     "turbo": "^2.5.5",
     "typescript": "5.9.2",
     "vitest": "^1.0.0"
+  },
+  "lint-staged": {
+    "*.{cjs,css,html,js,json,jsx,md,mdx,mjs,scss,ts,tsx}": "prettier --write"
   },
   "keywords": [
     "monorepo",
