@@ -1,6 +1,5 @@
 import GitHub from "@auth/core/providers/github";
 import Google from "@auth/core/providers/google";
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { convexAuth } from "@convex-dev/auth/server";
 import { isAdminUser, isAllowedEmail } from "./users";
 import type { Doc } from "./_generated/dataModel";
@@ -65,26 +64,30 @@ function readEnvAny(keys: string[]): string | undefined {
   return undefined;
 }
 
-const githubClientId = readEnvAny([
-  "GITHUB_CLIENT_ID",
-  "GITHUB_ID",
-  "AUTH_GITHUB_ID",
-]);
-const githubClientSecret = readEnvAny([
-  "GITHUB_CLIENT_SECRET",
-  "GITHUB_SECRET",
-  "AUTH_GITHUB_SECRET",
-]);
-const googleClientId = readEnvAny([
-  "GOOGLE_CLIENT_ID",
-  "GOOGLE_ID",
-  "AUTH_GOOGLE_ID",
-]);
-const googleClientSecret = readEnvAny([
-  "GOOGLE_CLIENT_SECRET",
-  "GOOGLE_SECRET",
-  "AUTH_GOOGLE_SECRET",
-]);
+function requireEnvAny(keys: string[], label: string): string {
+  const value = readEnvAny(keys);
+  if (!value) {
+    throw new Error(`Missing ${label}. Set one of: ${keys.join(", ")}`);
+  }
+  return value;
+}
+
+const githubClientId = requireEnvAny(
+  ["GITHUB_CLIENT_ID", "GITHUB_ID", "AUTH_GITHUB_ID"],
+  "GitHub client ID",
+);
+const githubClientSecret = requireEnvAny(
+  ["GITHUB_CLIENT_SECRET", "GITHUB_SECRET", "AUTH_GITHUB_SECRET"],
+  "GitHub client secret",
+);
+const googleClientId = requireEnvAny(
+  ["GOOGLE_CLIENT_ID", "GOOGLE_ID", "AUTH_GOOGLE_ID"],
+  "Google client ID",
+);
+const googleClientSecret = requireEnvAny(
+  ["GOOGLE_CLIENT_SECRET", "GOOGLE_SECRET", "AUTH_GOOGLE_SECRET"],
+  "Google client secret",
+);
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
@@ -128,16 +131,10 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   callbacks: {
     createOrUpdateUser: async (ctx, args) => {
       const patch = buildUserPatch(args.profile);
-      const sessionUserId = await getAuthUserId(ctx);
 
       if (args.existingUserId) {
         await ctx.db.patch(args.existingUserId, patch);
         return args.existingUserId;
-      }
-
-      if (sessionUserId) {
-        await ctx.db.patch(sessionUserId, patch);
-        return sessionUserId;
       }
 
       return await ctx.db.insert("users", patch);

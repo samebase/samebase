@@ -1,12 +1,16 @@
 import { v } from "convex/values";
 import { action, httpAction, internalMutation, mutation } from "./_generated/server";
+import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./oauthUtils";
+import type { Id } from "./_generated/dataModel";
 
 const NETLIFY_AUTHORIZE_URL = "https://app.netlify.com/authorize";
 const NETLIFY_TOKEN_URL = "https://api.netlify.com/oauth/token";
 const NETLIFY_API_BASE = "https://api.netlify.com/api/v1";
+
+type OAuthContext = ActionCtx | MutationCtx;
 
 type JsonRecord = Record<string, unknown>;
 
@@ -141,6 +145,33 @@ function selectNetlifyAccount(accounts: NetlifyAccount[]): NetlifyAccount {
   return teamAccount ?? accounts[0];
 }
 
+async function buildNetlifyOAuthUrl(
+  ctx: OAuthContext,
+  userId: Id<"users">,
+): Promise<string> {
+  const clientId = readRequiredEnv("NETLIFY_OAUTH_CLIENT_ID");
+  const redirectUri = readRequiredEnv("NETLIFY_OAUTH_REDIRECT_URL");
+
+  const state = randomToken();
+
+  const now = Date.now();
+  await ctx.runMutation(internal.oauthState.createOauthState, {
+    provider: "netlify",
+    userId,
+    state,
+    createdAt: now,
+    expiresAt: now + OAUTH_STATE_TTL_MS,
+  });
+
+  const authorizeUrl = new URL(NETLIFY_AUTHORIZE_URL);
+  authorizeUrl.searchParams.set("client_id", clientId);
+  authorizeUrl.searchParams.set("redirect_uri", redirectUri);
+  authorizeUrl.searchParams.set("response_type", "code");
+  authorizeUrl.searchParams.set("state", state);
+
+  return authorizeUrl.toString();
+}
+
 export const storeNetlifyOauthTokens = internalMutation({
   args: {
     userId: v.id("users"),
@@ -176,27 +207,7 @@ export const getNetlifyOAuthUrl = mutation({
       throw new Error("User not authenticated");
     }
 
-    const clientId = readRequiredEnv("NETLIFY_OAUTH_CLIENT_ID");
-    const redirectUri = readRequiredEnv("NETLIFY_OAUTH_REDIRECT_URL");
-
-    const state = randomToken();
-
-    const now = Date.now();
-    await ctx.runMutation(internal.oauthState.createOauthState, {
-      provider: "netlify",
-      userId,
-      state,
-      createdAt: now,
-      expiresAt: now + OAUTH_STATE_TTL_MS,
-    });
-
-    const authorizeUrl = new URL(NETLIFY_AUTHORIZE_URL);
-    authorizeUrl.searchParams.set("client_id", clientId);
-    authorizeUrl.searchParams.set("redirect_uri", redirectUri);
-    authorizeUrl.searchParams.set("response_type", "code");
-    authorizeUrl.searchParams.set("state", state);
-
-    return authorizeUrl.toString();
+    return await buildNetlifyOAuthUrl(ctx, userId);
   },
 });
 
@@ -280,26 +291,8 @@ export const startNetlifyOAuth = httpAction(async (ctx) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const clientId = readRequiredEnv("NETLIFY_OAUTH_CLIENT_ID");
-  const redirectUri = readRequiredEnv("NETLIFY_OAUTH_REDIRECT_URL");
-
-  const state = randomToken();
-  const now = Date.now();
-  await ctx.runMutation(internal.oauthState.createOauthState, {
-    provider: "netlify",
-    userId,
-    state,
-    createdAt: now,
-    expiresAt: now + OAUTH_STATE_TTL_MS,
-  });
-
-  const authorizeUrl = new URL(NETLIFY_AUTHORIZE_URL);
-  authorizeUrl.searchParams.set("client_id", clientId);
-  authorizeUrl.searchParams.set("redirect_uri", redirectUri);
-  authorizeUrl.searchParams.set("response_type", "code");
-  authorizeUrl.searchParams.set("state", state);
-
-  return Response.redirect(authorizeUrl.toString(), 302);
+  const authorizeUrl = await buildNetlifyOAuthUrl(ctx, userId);
+  return Response.redirect(authorizeUrl, 302);
 });
 
 export const finishNetlifyOAuthCallback = httpAction(async (ctx, request) => {

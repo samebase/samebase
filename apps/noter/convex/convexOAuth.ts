@@ -1,13 +1,73 @@
 import { v } from "convex/values";
 import { httpAction, internalMutation, mutation } from "./_generated/server";
+import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import {
   createCodeChallenge,
   OAUTH_STATE_TTL_MS,
   randomToken,
   readRequiredEnv,
 } from "./oauthUtils";
+
+const CONVEX_AUTHORIZE_URL = "https://dashboard.convex.dev/oauth/authorize/team";
+const CONVEX_TOKEN_URL = "https://api.convex.dev/oauth/token";
+const CONVEX_TOKEN_DETAILS_URL = "https://api.convex.dev/v1/token_details";
+const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
+
+type OAuthContext = ActionCtx | MutationCtx;
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs = DEFAULT_OAUTH_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`Convex OAuth request timed out after ${timeoutMs}ms.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function buildConvexOAuthUrl(
+  ctx: OAuthContext,
+  userId: Id<"users">,
+): Promise<string> {
+  const clientId = readRequiredEnv("CONVEX_OAUTH_CLIENT_ID");
+  const redirectUri = readRequiredEnv("CONVEX_OAUTH_REDIRECT_URL");
+
+  const state = randomToken();
+  const codeVerifier = randomToken(64);
+  const codeChallenge = await createCodeChallenge(codeVerifier);
+
+  const now = Date.now();
+  await ctx.runMutation(internal.oauthState.createOauthState, {
+    provider: "convex",
+    userId,
+    state,
+    codeVerifier,
+    createdAt: now,
+    expiresAt: now + OAUTH_STATE_TTL_MS,
+  });
+
+  const authorizeUrl = new URL(CONVEX_AUTHORIZE_URL);
+  authorizeUrl.searchParams.set("client_id", clientId);
+  authorizeUrl.searchParams.set("redirect_uri", redirectUri);
+  authorizeUrl.searchParams.set("response_type", "code");
+  authorizeUrl.searchParams.set("state", state);
+  authorizeUrl.searchParams.set("code_challenge", codeChallenge);
+  authorizeUrl.searchParams.set("code_challenge_method", "S256");
+
+  return authorizeUrl.toString();
+}
 
 async function exchangeConvexOAuthCode(args: {
   code: string;
@@ -29,7 +89,7 @@ async function exchangeConvexOAuthCode(args: {
     redirect_uri: args.redirectUri,
   });
 
-  const response = await fetch("https://api.convex.dev/oauth/token", {
+  const response = await fetchWithTimeout(CONVEX_TOKEN_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -57,7 +117,7 @@ async function fetchConvexTokenDetails(accessToken: string): Promise<{
   teamName?: string;
   userId?: string;
 }> {
-  const response = await fetch("https://api.convex.dev/v1/token_details", {
+  const response = await fetchWithTimeout(CONVEX_TOKEN_DETAILS_URL, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -152,34 +212,7 @@ export const getConvexOAuthUrl = mutation({
       throw new Error("User not authenticated");
     }
 
-    const clientId = readRequiredEnv("CONVEX_OAUTH_CLIENT_ID");
-    const redirectUri = readRequiredEnv("CONVEX_OAUTH_REDIRECT_URL");
-
-    const state = randomToken();
-    const codeVerifier = randomToken(64);
-    const codeChallenge = await createCodeChallenge(codeVerifier);
-
-    const now = Date.now();
-    await ctx.runMutation(internal.oauthState.createOauthState, {
-      provider: "convex",
-      userId,
-      state,
-      codeVerifier,
-      createdAt: now,
-      expiresAt: now + OAUTH_STATE_TTL_MS,
-    });
-
-    const authorizeUrl = new URL(
-      "https://dashboard.convex.dev/oauth/authorize/team",
-    );
-    authorizeUrl.searchParams.set("client_id", clientId);
-    authorizeUrl.searchParams.set("redirect_uri", redirectUri);
-    authorizeUrl.searchParams.set("response_type", "code");
-    authorizeUrl.searchParams.set("state", state);
-    authorizeUrl.searchParams.set("code_challenge", codeChallenge);
-    authorizeUrl.searchParams.set("code_challenge_method", "S256");
-
-    return authorizeUrl.toString();
+    return await buildConvexOAuthUrl(ctx, userId);
   },
 });
 
@@ -189,34 +222,8 @@ export const startConvexOAuth = httpAction(async (ctx) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const clientId = readRequiredEnv("CONVEX_OAUTH_CLIENT_ID");
-  const redirectUri = readRequiredEnv("CONVEX_OAUTH_REDIRECT_URL");
-
-  const state = randomToken();
-  const codeVerifier = randomToken(64);
-  const codeChallenge = await createCodeChallenge(codeVerifier);
-
-  const now = Date.now();
-  await ctx.runMutation(internal.oauthState.createOauthState, {
-    provider: "convex",
-    userId,
-    state,
-    codeVerifier,
-    createdAt: now,
-    expiresAt: now + OAUTH_STATE_TTL_MS,
-  });
-
-  const authorizeUrl = new URL(
-    "https://dashboard.convex.dev/oauth/authorize/team",
-  );
-  authorizeUrl.searchParams.set("client_id", clientId);
-  authorizeUrl.searchParams.set("redirect_uri", redirectUri);
-  authorizeUrl.searchParams.set("response_type", "code");
-  authorizeUrl.searchParams.set("state", state);
-  authorizeUrl.searchParams.set("code_challenge", codeChallenge);
-  authorizeUrl.searchParams.set("code_challenge_method", "S256");
-
-  return Response.redirect(authorizeUrl.toString(), 302);
+  const authorizeUrl = await buildConvexOAuthUrl(ctx, userId);
+  return Response.redirect(authorizeUrl, 302);
 });
 
 export const finishConvexOAuth = httpAction(async (ctx, request) => {

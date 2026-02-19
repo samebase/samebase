@@ -17,7 +17,7 @@ import { linkStyle } from "./styles";
 import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { isInIframe, openAuthPopup } from "@/SignInForm";
 import {
@@ -73,6 +73,9 @@ const formatInfraState = (
   return "Partial";
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
 const getInfraActionLabel = (
   infraState:
     | "not_started"
@@ -108,6 +111,8 @@ export function VaultDashboard() {
       convexConnection?.connected &&
       netlifyConnection?.connected,
   );
+  const convexPopupRef = useRef<Window | null>(null);
+  const netlifyPopupRef = useRef<Window | null>(null);
   const [vaultToDelete, setVaultToDelete] = useState<{
     id: Id<"vaults">;
     repositoryFullName: string;
@@ -133,6 +138,29 @@ export function VaultDashboard() {
   const [retryingVaultId, setRetryingVaultId] = useState<Id<"vaults"> | null>(
     null,
   );
+
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (!isRecord(event.data)) return;
+      if (
+        event.data.type === "convex-oauth-complete" &&
+        event.source === convexPopupRef.current
+      ) {
+        window.location.reload();
+      }
+      if (
+        event.data.type === "netlify-oauth-complete" &&
+        event.source === netlifyPopupRef.current
+      ) {
+        window.location.reload();
+      }
+    };
+
+    window.addEventListener("message", handler);
+    return () => {
+      window.removeEventListener("message", handler);
+    };
+  }, []);
 
   const selectedVault =
     vaultToDelete && vaults
@@ -176,7 +204,7 @@ export function VaultDashboard() {
     try {
       const oauthUrl = await getConvexOAuthUrl();
       if (isInIframe()) {
-        window.open(
+        convexPopupRef.current = window.open(
           oauthUrl,
           "convex-oauth",
           "width=600,height=700,popup=true",
@@ -216,7 +244,7 @@ export function VaultDashboard() {
     try {
       const oauthUrl = await getNetlifyOAuthUrl();
       if (isInIframe()) {
-        window.open(
+        netlifyPopupRef.current = window.open(
           oauthUrl,
           "netlify-oauth",
           "width=600,height=700,popup=true",
