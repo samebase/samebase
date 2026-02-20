@@ -273,6 +273,8 @@ Auth:
   after every commit so the remote stays up to date.
 - Do not introduce new `.mjs` files; keep `type: "module"` and prefer `.js`
   files as ESM.
+- Always rebase work branches on `origin/main` (not only local `main`) before
+  shipping.
 - When using the local worktree helper, prefer `wt <branch>` to print a worktree
   path and `cd (wt <branch>)` to change directories in fish.
 - For rebase/fast-forward without switching directories, use
