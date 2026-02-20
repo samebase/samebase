@@ -32,6 +32,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      # Bootstrap an anonymous local Convex deployment so CONVEX_DEPLOYMENT
+      # exists before lint/build invoke `convex codegen`.
+      # Note: codegen/typecheck stay disabled here because `pnpm lint` and
+      # `pnpm build` run them as the actual CI checks.
+      - name: Bootstrap Convex for CI
+        run: pnpm ci:convex-bootstrap
+
       - name: Type check
         run: pnpm lint
 

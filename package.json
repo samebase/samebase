@@ -13,6 +13,7 @@
     "dev": "turbo run dev --filter=noter",
     "build": "turbo run build --filter=noter",
     "lint": "turbo run lint --filter=noter",
+    "ci:convex-bootstrap": "CONVEX_AGENT_MODE=anonymous pnpm --filter noter exec convex dev --once --codegen=disable --typecheck=disable --tail-logs=disable",
     "format": "prettier --write .",
     "preview": "turbo run preview",
     "clean": "turbo run clean",
