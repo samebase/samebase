@@ -98,9 +98,10 @@ const stopLocalBackendIfRunning = async () => {
 
 if (process.env.CONVEX_AGENT_MODE === "anonymous") {
   await stopLocalBackendIfRunning();
+  run("node", ["convex-dev.js", "--until-success", "--codegen=enable"]);
   process.exit(0);
 }
 
-run("convex", ["dev", "--until-success"]);
+run("node", ["convex-dev.js", "--until-success", "--codegen=enable"]);
 run("node", ["setup.mjs", "--once"]);
 run("node", ["sync-site-url.mjs"]);
