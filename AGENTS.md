@@ -1,13 +1,16 @@
 # AGENTS.md
 
-This file provides guidance to AI agents (Claude Code, Cursor, etc.) when working with this repository.
+This file provides guidance to AI agents (Claude Code, Cursor, etc.) when
+working with this repository.
 
 ## Project Structure
 
 noter is a Turborepo monorepo (PNPM + Node 24) with two apps:
 
-- **`apps/noter`**: React + Vite + Convex collaborative code editor with GitHub integration
-- **`apps/noter-starter-template`**: canonical seeded starter snapshots used by `vaultActions.createRepository`
+- **`apps/noter`**: React + Vite + Convex collaborative code editor with GitHub
+  integration
+- **`apps/noter-starter-template`**: canonical seeded starter snapshots used by
+  `vaultActions.createRepository`
 - Uses `@prosemark/core` from npm for markdown editing
 
 ## Session Bootstrap (Read Order)
@@ -16,16 +19,23 @@ When starting a fresh chat for implementation/debugging, read in this order:
 
 1. `AGENTS.md` (this file)
 2. `README.md` (product/dev overview)
-3. `apps/noter-starter-template/AGENTS.md` + `apps/noter-starter-template/scripts/export-template-manifest.mjs` (starter regeneration contract + manifest export)
+3. `apps/noter-starter-template/AGENTS.md` +
+   `apps/noter-starter-template/scripts/export-template-manifest.mjs` (starter
+   regeneration contract + manifest export)
 4. `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md` (vault infra lifecycle)
 5. `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md` (approval-first prod reads)
 6. `specs/001_CODESPACE_CONNECTION_SPEC.md` (codespace architecture)
 7. `apps/noter/convex/schema.ts` (source of truth for data model)
-8. `apps/noter/convex/vaultActions.ts` + `apps/noter/convex/infraProvisioning.ts` (vault creation + infra provisioning)
-9. `apps/noter/convex/chat.ts` + `apps/noter/convex/chatActions.ts` (chat + approval flows)
-10. `apps/noter/src/components/VaultDashboard.tsx` + `apps/noter/src/components/ChatFab.tsx` (user-visible controls)
+8. `apps/noter/convex/vaultActions.ts` +
+   `apps/noter/convex/infraProvisioning.ts` (vault creation + infra
+   provisioning)
+9. `apps/noter/convex/chat.ts` + `apps/noter/convex/chatActions.ts` (chat +
+   approval flows)
+10. `apps/noter/src/components/VaultDashboard.tsx` +
+    `apps/noter/src/components/ChatFab.tsx` (user-visible controls)
 
 Low-signal/historical docs (do not treat as source of truth):
+
 - `LUMINA_PROJECT_ANALYSIS.md`
 - `apps/noter/src/components/Untitled-1.md`
 
@@ -49,11 +59,13 @@ npm run lint          # TypeScript + ESLint check
 
 ### Local Environment Notes
 
-- `rg` (ripgrep) is not available in this environment. Use `grep`/`find` instead.
+- `rg` (ripgrep) is not available in this environment. Use `grep`/`find`
+  instead.
 
 ### Convex CLI
 
-Access Convex database, logs, and admin operations using the CLI (from `apps/noter` directory):
+Access Convex database, logs, and admin operations using the CLI (from
+`apps/noter` directory):
 
 ```bash
 # View real-time logs from production deployment
@@ -72,7 +84,9 @@ npx convex dashboard
 npx convex env list
 ```
 
-Use these commands to debug issues in Convex functions, check production logs, or inspect database state. This is the primary way to diagnose runtime errors and function failures.
+Use these commands to debug issues in Convex functions, check production logs,
+or inspect database state. This is the primary way to diagnose runtime errors
+and function failures.
 
 ## Architecture
 
@@ -106,39 +120,63 @@ Use these commands to debug issues in Convex functions, check production logs, o
 
 ## Current Capability Snapshot (2026-02-13)
 
-- New vaults created via `vaultActions.createRepository` are `isNoterManaged: true`, seed a runnable starter repo in one commit, and auto-schedule infra provisioning (`infraProvisioning.provisionVaultInfrastructure`).
-- Existing repos connected via `vaultActions.connectRepository` remain `isNoterManaged: false` and do **not** auto-provision infra.
-- Infrastructure retry is available from `vaultActions.retryInfrastructureProvisioning` and dashboard UI.
-- AI production reads are approval-first (proposal card -> explicit approve/reject -> audited execution).
-- Seed source of truth lives in `apps/noter-starter-template` root template files and exports to `apps/noter/convex/starterSeedManifest.generated.ts`.
+- New vaults created via `vaultActions.createRepository` are
+  `isNoterManaged: true`, seed a runnable starter repo in one commit, and
+  auto-schedule infra provisioning
+  (`infraProvisioning.provisionVaultInfrastructure`).
+- Existing repos connected via `vaultActions.connectRepository` remain
+  `isNoterManaged: false` and do **not** auto-provision infra.
+- Infrastructure retry is available from
+  `vaultActions.retryInfrastructureProvisioning` and dashboard UI.
+- AI production reads are approval-first (proposal card -> explicit
+  approve/reject -> audited execution).
+- Seed source of truth lives in `apps/noter-starter-template` root template
+  files and exports to `apps/noter/convex/starterSeedManifest.generated.ts`.
 
 ## Code Style
 
 - **Strict type safety** - never use `any` or type assertions (`as`)
 - **When typing is too hard** - prefer `@ts-expect-error` over `as` or `any`
-- **Never use `@ts-nocheck`** - if a type suppression is unavoidable, use the narrowest possible `@ts-expect-error`
+- **Never use `@ts-nocheck`** - if a type suppression is unavoidable, use the
+  narrowest possible `@ts-expect-error`
 - **Let TypeScript infer** - don't over-annotate when inference works
-- **Infer from schemas** - when a Zod/validator schema exists, derive the TypeScript type from it (`z.infer`/`Infer`) instead of duplicating manual types
-- **Convex validator style** - in Convex modules, define result validators before handlers, derive TS types via `Infer<typeof ...>`, and avoid `v.<fn>()` call sites by destructuring validator builders once (e.g. `const { object, string, union } = v`)
-- **Runtime directives** - avoid `"use node"` unless it is truly necessary; prefer runtime-agnostic modules that can run in both node and non-node environments
+- **Infer from schemas** - when a Zod/validator schema exists, derive the
+  TypeScript type from it (`z.infer`/`Infer`) instead of duplicating manual
+  types
+- **Convex validator style** - in Convex modules, define result validators
+  before handlers, derive TS types via `Infer<typeof ...>`, and avoid `v.<fn>()`
+  call sites by destructuring validator builders once (e.g.
+  `const { object, string, union } = v`)
+- **Runtime directives** - avoid `"use node"` unless it is truly necessary;
+  prefer runtime-agnostic modules that can run in both node and non-node
+  environments
 
 ## UI/UX Guidelines
 
-- **Avoid unnecessary loading states** - prefer `null`/empty arrays over "Loading..." text
+- **Avoid unnecessary loading states** - prefer `null`/empty arrays over
+  "Loading..." text
 - **No "No items found" placeholders** - let empty state speak for itself
 - **Only show loading for operations >500ms** or when user expects feedback
 - **Prefer silent, smooth UX** over chatty, jumpy interfaces
-- **Prefer existing shadcn/ui components** over custom Tailwind-only solutions when available
-- **Async destructive actions** - disable the trigger while pending and show a spinner/label (e.g. "Removing...") to prevent double-submit
+- **Prefer existing shadcn/ui components** over custom Tailwind-only solutions
+  when available
+- **Async destructive actions** - disable the trigger while pending and show a
+  spinner/label (e.g. "Removing...") to prevent double-submit
 
 ## shadcn/ui Component Rules
 
-- **Do not manually edit generated shadcn/ui files** in `apps/noter/src/components/ui/*` unless the user gives an explicit exceptional instruction for that exact change
-- **Always use the shadcn CLI via `npx`** for component updates/additions (from `apps/noter`, e.g. `npx shadcn@latest add <component>`)
-- **If manual edits are explicitly requested**, keep them minimal and call out that they diverge from generated output
+- **Do not manually edit generated shadcn/ui files** in
+  `apps/noter/src/components/ui/*` unless the user gives an explicit exceptional
+  instruction for that exact change
+- **Always use the shadcn CLI via `npx`** for component updates/additions (from
+  `apps/noter`, e.g. `npx shadcn@latest add <component>`)
+- **If manual edits are explicitly requested**, keep them minimal and call out
+  that they diverge from generated output
 
 ### TODO
-- **Better mobile keyboard handling** - improve window size handling when virtual keyboard appears on mobile devices
+
+- **Better mobile keyboard handling** - improve window size handling when
+  virtual keyboard appears on mobile devices
 
 ## Technology Stack
 
@@ -154,95 +192,144 @@ Use these commands to debug issues in Convex functions, check production logs, o
 
 ## Workflow Shortcuts
 
-Shorthand commands for git/GitHub workflows. When the user says these, execute them directly using CLI tools.
+Shorthand commands for git/GitHub workflows. When the user says these, execute
+them directly using CLI tools.
 
-| Command     | Action                                                          |
-| ----------- | --------------------------------------------------------------- |
-| `commit`    | Stage all changes, commit with concise message                  |
-| `push`      | Commit if needed, push to remote                                |
-| `create pr` | Push if needed, create PR, ensure a non-empty body, then mark ready |
-| `ready`     | Mark draft PR as ready: `gh pr ready`                           |
-| `wait`      | Monitor CI with `gh pr checks` or `gh run watch`, report status |
+| Command     | Action                                                                        |
+| ----------- | ----------------------------------------------------------------------------- |
+| `commit`    | Stage all changes, commit with concise message                                |
+| `push`      | Commit if needed, push to remote                                              |
+| `create pr` | Push if needed, create PR, ensure a non-empty body, then mark ready           |
+| `ready`     | Mark draft PR as ready: `gh pr ready`                                         |
+| `wait`      | Monitor CI with `gh pr checks` or `gh run watch`, report status               |
 | `ship`      | Full flow: commit → push → create PR → ready → fix CodeRabbit feedback → wait |
-| `status`    | Show branch, uncommitted changes, PR state                      |
+| `status`    | Show branch, uncommitted changes, PR state                                    |
 
 ### Rules
 
 - Always use CLI tools (`gh`, `git`) - never tell user to click UI buttons
 - Execute, don't instruct
 - Adapt to context (if PR exists, update it; if already ready, skip)
-- When the user asks to "open a PR" (or `create pr`), always write a normal PR description (summary, key changes, validation). Never leave the PR body empty.
-- When the user asks to "open a PR" (or `create pr`), mark it ready for review by default. Only keep it as draft if the user explicitly asks for draft.
+- When the user asks to "open a PR" (or `create pr`), always write a normal PR
+  description (summary, key changes, validation). Never leave the PR body empty.
+- When the user asks to "open a PR" (or `create pr`), mark it ready for review
+  by default. Only keep it as draft if the user explicitly asks for draft.
 - Update PR description with `gh pr edit --body` when commits change scope
-- During `ship`, if CodeRabbit reports actionable findings, fix them, push updates, and continue until CodeRabbit and required CI checks are green.
-- During `ship`, if CodeRabbit is only pending (no actionable findings yet), continue waiting.
+- During `ship`, if CodeRabbit reports actionable findings, fix them, push
+  updates, and continue until CodeRabbit and required CI checks are green.
+- During `ship`, if CodeRabbit is only pending (no actionable findings yet),
+  continue waiting.
 - On CI failure, report the error and offer to fix
-- **NEVER merge a PR until CI is green** - always wait for checks to pass, then squash-merge with `gh pr merge --squash`
+- **NEVER merge a PR until CI is green** - always wait for checks to pass, then
+  squash-merge with `gh pr merge --squash`
 - **NEVER merge a PR until CI is green** - always wait for checks to pass.
-- Preferred merge style for this repo: rebase the branch onto `main`, then merge with a merge commit (`gh pr merge --merge`) so PR boundaries remain visible while preserving internal commits.
+- Preferred merge style for this repo: rebase the branch onto `main`, then merge
+  with a merge commit (`gh pr merge --merge`) so PR boundaries remain visible
+  while preserving internal commits.
 
 ## Worktree Branching
 
-- If HEAD is detached, create a branch with the `codex/` prefix (example: `git switch -c codex/auto-20260217-103000`).
+- If HEAD is detached, create a branch with the `codex/` prefix (example:
+  `git switch -c codex/auto-20260217-103000`).
 - To rename the current branch: `git branch -m codex/new-name`.
-- If the branch was pushed already, push the new name and delete the old remote: `git push -u origin codex/new-name` then `git push origin --delete codex/old-name`.
-- If you are detached and want a specific name, use `git switch -c codex/<name>`.
+- If the branch was pushed already, push the new name and delete the old remote:
+  `git push -u origin codex/new-name` then
+  `git push origin --delete codex/old-name`.
+- If you are detached and want a specific name, use
+  `git switch -c codex/<name>`.
 
 ## Daytona Refresh (Local CLI)
 
-When you need to refresh a Daytona sandbox repo to the latest branch tip using local GitHub auth, use the repo script:
+When you need to refresh a Daytona sandbox repo to the latest branch tip using
+local GitHub auth, use the repo script:
 
 ```bash
 pnpm daytona:refresh <sandbox-id-or-name> [branch] [repo-dir]
 ```
 
 Defaults:
+
 - `branch`: `main`
 - `repo-dir`: `/home/daytona/workspace/noter`
 
 Auth:
+
 - Uses `GITHUB_TOKEN` if set, otherwise falls back to `gh auth token`.
 
 ### Local Operator Preferences
 
-- For this repository, when running CLI commands in Codex, prefer requesting the user's shell/escalated execution rather than sandboxed execution.
-- When the user says "remember this" (or equivalent), persist that preference in durable project memory (for example `AGENTS.md`) instead of keeping it only in chat context.
-- When asked for OAuth redirect URLs or env vars, give a single exact recommendation. Do not present multiple options or alternate env var lookups.
-- Avoid adding unusual options or flags unless there is a clear, stated reason for them.
-- Prefer breadth-first, simplest-viable fixes before deeper changes; stop once a minimal solution works.
-- When using the local worktree helper, prefer `wt <branch>` to print a worktree path and `cd (wt <branch>)` to change directories in fish.
-- For rebase/fast-forward without switching directories, use `git -C (wt <branch>) rebase main` then `git -C (wt main) merge --ff-only <branch>`.
-- Deferred workflow experiment: optionally try a temporary `next_main` branch, cherry-pick changes, and merge PRs with merge commits. Treat this as opt-in per request (not default).
-- When the simpleView fixture test fails due to new `.md` files, update the fixture to include those `.md` files and include the fixture update in the same commit by default.
-- Do not bypass pre-commit hooks by default when lint/tests are failing; only do so on explicit user request.
-- When the user asks to create a PR, automatically mark it ready for review unless they explicitly ask for a draft PR.
+- For this repository, when running CLI commands in Codex, prefer requesting the
+  user's shell/escalated execution rather than sandboxed execution.
+- When the user says "remember this" (or equivalent), persist that preference in
+  durable project memory (for example `AGENTS.md`) instead of keeping it only in
+  chat context.
+- When asked for OAuth redirect URLs or env vars, give a single exact
+  recommendation. Do not present multiple options or alternate env var lookups.
+- Avoid adding unusual options or flags unless there is a clear, stated reason
+  for them.
+- Prefer breadth-first, simplest-viable fixes before deeper changes; stop once a
+  minimal solution works.
+- Always create a working branch (use `codex/` prefix when needed), and push
+  after every commit so the remote stays up to date.
+- Do not introduce new `.mjs` files; keep `type: "module"` and prefer `.js`
+  files as ESM.
+- Always rebase work branches on `origin/main` (not only local `main`) before
+  shipping.
+- When using the local worktree helper, prefer `wt <branch>` to print a worktree
+  path and `cd (wt <branch>)` to change directories in fish.
+- For rebase/fast-forward without switching directories, use
+  `git -C (wt <branch>) rebase main` then
+  `git -C (wt main) merge --ff-only <branch>`.
+- Deferred workflow experiment: optionally try a temporary `next_main` branch,
+  cherry-pick changes, and merge PRs with merge commits. Treat this as opt-in
+  per request (not default).
+- When the simpleView fixture test fails due to new `.md` files, update the
+  fixture to include those `.md` files and include the fixture update in the
+  same commit by default.
+- Do not bypass pre-commit hooks by default when lint/tests are failing; only do
+  so on explicit user request.
+- When the user asks to create a PR, automatically mark it ready for review
+  unless they explicitly ask for a draft PR.
 
 ### Worktree Protocol (Local)
 
-- Create worktrees via Codex (running `git worktree add`) on explicit user request; do not add Makefile or script helpers for worktree creation.
-- Treat the current worktree root from `git rev-parse --show-toplevel` as the workspace boundary; do not read/write outside it without an explicit request.
-- Before running dev/test/commit, confirm the worktree + branch with `git worktree list --porcelain` and `git rev-parse --abbrev-ref HEAD`.
-- Use `pnpm dev` from the current worktree root unless the user explicitly asks for a different entrypoint.
-- Keep changes isolated per worktree (one idea per worktree) and avoid mixing branches in a single worktree.
-- Use `noter.md` frontmatter `worktrees` settings as the canonical, user-visible worktree config.
+- Create worktrees via Codex (running `git worktree add`) on explicit user
+  request; do not add Makefile or script helpers for worktree creation.
+- Treat the current worktree root from `git rev-parse --show-toplevel` as the
+  workspace boundary; do not read/write outside it without an explicit request.
+- Before running dev/test/commit, confirm the worktree + branch with
+  `git worktree list --porcelain` and `git rev-parse --abbrev-ref HEAD`.
+- Use `pnpm dev` from the current worktree root unless the user explicitly asks
+  for a different entrypoint.
+- Keep changes isolated per worktree (one idea per worktree) and avoid mixing
+  branches in a single worktree.
+- Use `noter.md` frontmatter `worktrees` settings as the canonical, user-visible
+  worktree config.
 - If a task requires touching multiple worktrees, ask before proceeding.
-- Worktree location convention: keep main at `<repo>` (e.g., `~/dev/noter`) and use `<repo>-<suffix>` for worktrees (e.g., `~/dev/noter-idea-1`). Treat the first `-` as the delimiter.
+- Worktree location convention: keep main at `<repo>` (e.g., `~/dev/noter`) and
+  use `<repo>-<suffix>` for worktrees (e.g., `~/dev/noter-idea-1`). Treat the
+  first `-` as the delimiter.
 
 ### MVP Infra Credentials (Current)
 
-- For MVP testing, the same `NETLIFY_ACCESS_TOKEN` is used for both Convex dev and prod deployments.
-- For MVP testing, the same `CONVEX_MANAGEMENT_TOKEN` and `CONVEX_TEAM_ID` are used for both Convex dev and prod deployments.
-- This is intentional for speed during MVP and can be split by environment later.
+- For MVP testing, the same `NETLIFY_ACCESS_TOKEN` is used for both Convex dev
+  and prod deployments.
+- For MVP testing, the same `CONVEX_MANAGEMENT_TOKEN` and `CONVEX_TEAM_ID` are
+  used for both Convex dev and prod deployments.
+- This is intentional for speed during MVP and can be split by environment
+  later.
 
 ## Operational Note (Codex Auth)
 
-- Enable device code authorization for Codex when running in headless or remote environments where the normal browser flow isn’t available.
+- Enable device code authorization for Codex when running in headless or remote
+  environments where the normal browser flow isn’t available.
 - Exercise caution in enabling device code auth, as device codes can be phished.
 - Never share a device code.
 
 ## Reference Links
 
 ### TypeScript in JupyterLab
+
 - [Jupyter kernels overview](https://docs.jupyter.org/en/stable/projects/kernels.html)
 - [tslab (TypeScript kernel)](https://github.com/yunabe/tslab)
 - [tslab examples: getting started notebook](https://github.com/yunabe/tslab-examples/blob/master/notebooks/getting_started.ipynb)

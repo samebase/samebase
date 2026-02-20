@@ -95,7 +95,7 @@ Convex Type  | TS/JS type  |  Example Usage         | Validator for argument val
 | Boolean     | boolean     | `true`                 | `v.boolean()`                                  |
 | String      | string      | `"abc"`                | `v.string()`                                   | Strings are stored as UTF-8 and must be valid Unicode sequences. Strings must be smaller than the 1MB total size limit when encoded as UTF-8.                                                         |
 | Bytes       | ArrayBuffer | `new ArrayBuffer(8)`   | `v.bytes()`                                    | Convex supports first class bytestrings, passed in as `ArrayBuffer`s. Bytestrings must be smaller than the 1MB total size limit for Convex types.                                                     |
-| Array       | Array]      | `[1, 3.2, "abc"]`      | `v.array(values)`                              | Arrays can have at most 8192 values.                                                                                                                                                                  |
+| Array       | Array       | `[1, 3.2, "abc"]`      | `v.array(values)`                              | Arrays can have at most 8192 values.                                                                                                                                                                  |
 | Object      | Object      | `{a: "abc"}`           | `v.object({property: value})`                  | Convex only supports "plain old JavaScript objects" (objects that do not have a custom prototype). Objects can have at most 1024 entries. Field names must be nonempty and not start with "$" or "_". |
 | Record      | Record      | `{"a": "1", "b": "2"}` | `v.record(keys, values)`                       | Records are objects at runtime, but can have dynamic keys. Keys must be only ASCII characters, nonempty, and not start with "$" or "_".                                                               |
 
@@ -159,7 +159,7 @@ export const listWithExtraArg = query({
     handler: async (ctx, args) => {
         return await ctx.db
         .query("messages")
-        .filter((q) => q.eq(q.field("author"), args.author))
+        .withIndex("by_author", (q) => q.eq("author", args.author))
         .order("desc")
         .paginate(args.paginationOpts);
     },
@@ -169,9 +169,9 @@ Note: `paginationOpts` is an object with the following properties:
 - `numItems`: the maximum number of documents to return (the validator is `v.number()`)
 - `cursor`: the cursor to use to fetch the next page of documents (the validator is `v.union(v.string(), v.null())`)
 - A query that ends in `.paginate()` returns an object that has the following properties:
-                            - page (contains an array of documents that you fetches)
-                            - isDone (a boolean that represents whether or not this is the last page of documents)
-                            - continueCursor (a string that represents the cursor to use to fetch the next page of documents)
+- page (contains an array of documents that you fetches)
+- isDone (a boolean that represents whether or not this is the last page of documents)
+- continueCursor (a string that represents the cursor to use to fetch the next page of documents)
 
 
 ## Validator guidelines
@@ -180,7 +180,7 @@ Note: `paginationOpts` is an object with the following properties:
 
 ## Schema guidelines
 - Always define your schema in `convex/schema.ts`.
-- Always import the schema definition functions from `convex/server`:
+- Always import the schema definition functions from `convex/server`.
 - System fields are automatically added to all documents and are prefixed with an underscore. The two system fields that are automatically added to all documents are `_creationTime` which has the validator `v.number()` and `_id` which has the validator `v.id(tableName)`.
 - Always include all index fields in the index name. For example, if an index is defined as `["field1", "field2"]`, the index name should be "by_field1_and_field2".
 - Index fields must be queried in the same order they are defined. If you want to be able to query by "field1" then "field2" and by "field2" then "field1", you must create separate indexes.
@@ -198,9 +198,9 @@ export const exampleQuery = query({
     handler: async (ctx, args) => {
         const idToUsername: Record<Id<"users">, string> = {};
         for (const userId of args.userIds) {
-            const user = await ctx.db.get(userId);
+            const user = await ctx.db.get("users", userId);
             if (user) {
-                users[user._id] = user.username;
+                idToUsername[user._id] = user.username;
             }
         }
 
@@ -212,48 +212,6 @@ export const exampleQuery = query({
 - Always use `as const` for string literals in discriminated union types.
 - When using the `Array` type, make sure to always define your arrays as `const array: Array<T> = [...];`
 - When using the `Record` type, make sure to always define your records as `const record: Record<KeyType, ValueType> = {...};`
-- Always add `@types/node` to your `package.json` when using any Node.js built-in modules.
-
-### TypeScript error handling
-- If you encounter the error "has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer", this can usually be solved by explicitly setting the return type of the handler function.
-- Even if the `returns` validator is set in the Convex function definition, TypeScript may not infer the return type correctly in some cases.
-- **Solution 1**: Explicitly type the handler function's return type:
-```typescript
-import { query } from "./_generated/server";
-import { v } from "convex/values";
-
-export const exampleQuery = query({
-  args: {},
-  returns: v.string(),
-  handler: async (ctx, args): Promise<string> => {
-    // Function body
-    return "result";
-  },
-});
-```
-- **Solution 2**: Create the returns validator before the function definition and use `Infer<>` to derive the type:
-```typescript
-import { query } from "./_generated/server";
-import { v, Infer } from "convex/values";
-
-const returnsValidator = v.object({
-  id: v.id("users"),
-  name: v.string(),
-});
-
-export const exampleQuery = query({
-  args: {},
-  returns: returnsValidator,
-  handler: async (ctx, args): Promise<Infer<typeof returnsValidator>> => {
-    // Function body
-    return {
-      id: "user123" as any,
-      name: "John Doe",
-    };
-  },
-});
-```
-- This pattern is especially useful for complex return types where the validator is reused or when TypeScript has trouble inferring circular dependencies.
 
 ## Full text search guidelines
 - A query for "10 messages in channel '#general' that best match the query 'hello hi' in their body" would look like:
@@ -277,8 +235,8 @@ const messages = await ctx.db
 
 
 ## Mutation guidelines
-- Use `ctx.db.replace` to fully replace an existing document. This method will throw an error if the document does not exist.
-- Use `ctx.db.patch` to shallow merge updates into an existing document. This method will throw an error if the document does not exist.
+- Use `ctx.db.replace` to fully replace an existing document. This method will throw an error if the document does not exist. Syntax: `await ctx.db.replace('tasks', taskId, { name: 'Buy milk', completed: false })`
+- Use `ctx.db.patch` to shallow merge updates into an existing document. This method will throw an error if the document does not exist. Syntax: `await ctx.db.patch('tasks', taskId, { completed: true })`
 
 ## Action guidelines
 - Always add `"use node";` to the top of files containing actions that use Node.js built-in modules.
@@ -331,7 +289,7 @@ export default crons;
 - The `ctx.storage.getUrl()` method returns a signed URL for a given file. It returns `null` if the file doesn't exist.
 - Do NOT use the deprecated `ctx.storage.getMetadata` call for loading a file's metadata.
 
-                    Instead, query the `_storage` system table. For example, you can use `ctx.db.system.get` to get an `Id<"_storage">`.
+Instead, query the `_storage` system table. For example, you can use `ctx.db.system.get` to get an `Id<"_storage">`.
 ```
 import { query } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
@@ -346,9 +304,9 @@ type FileMetadata = {
 
 export const exampleQuery = query({
     args: { fileId: v.id("_storage") },
-    returns: v.null();
+    returns: v.null(),
     handler: async (ctx, args) => {
-        const metadata: FileMetadata | null = await ctx.db.system.get(args.fileId);
+        const metadata: FileMetadata | null = await ctx.db.system.get("_storage", args.fileId);
         console.log(metadata);
         return null;
     },
@@ -475,7 +433,7 @@ Internal Functions:
   "description": "This example shows how to build a chat app without authentication.",
   "version": "1.0.0",
   "dependencies": {
-    "convex": "^1.17.4",
+    "convex": "^1.31.2",
     "openai": "^4.79.0"
   },
   "devDependencies": {
@@ -706,6 +664,35 @@ export default defineSchema({
     content: v.string(),
   }).index("by_channel", ["channelId"]),
 });
+```
+
+#### convex/tsconfig.json
+```typescript
+{
+  /* This TypeScript project config describes the environment that
+   * Convex functions run in and is used to typecheck them.
+   * You can modify it, but some settings required to use Convex.
+   */
+  "compilerOptions": {
+    /* These settings are not required by Convex and can be modified. */
+    "allowJs": true,
+    "strict": true,
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+
+    /* These compiler options are required by Convex */
+    "target": "ESNext",
+    "lib": ["ES2021", "dom"],
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "isolatedModules": true,
+    "noEmit": true
+  },
+  "include": ["./**/*"],
+  "exclude": ["./_generated"]
+}
 ```
 
 #### src/App.tsx

@@ -6,12 +6,14 @@
   "scripts": {
     "dev": "npm-run-all --parallel dev:frontend dev:backend",
     "dev:frontend": "vite --host 0.0.0.0",
-    "dev:backend": "convex dev",
-    "predev": "convex dev --until-success && node setup.mjs --once && node sync-site-url.mjs",
+    "dev:backend": "node convex-dev.js",
+    "predev": "node predev.js",
     "typecheck": "convex codegen && tsc --noEmit",
     "build": "convex codegen && tsc && vite build",
+    "build:ci": "tsc && vite build",
     "build:vercel": "vite build",
     "lint": "convex codegen && tsc && eslint .  --ext ts,tsx --report-unused-disable-directives",
+    "lint:ci": "tsc && eslint .  --ext ts,tsx --report-unused-disable-directives",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -29,6 +31,7 @@
     "@codemirror/state": "^6.4.1",
     "@codemirror/theme-one-dark": "^6.1.2",
     "@codemirror/view": "^6.28.4",
+    "@convex-dev/agent": "^0.3.2",
     "@convex-dev/auth": "^0.0.88",
     "@convex-dev/eslint-plugin": "0.0.1-alpha.4",
     "@daytonaio/api-client": "^0.143.0",
@@ -58,7 +61,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "codemirror": "^6.0.1",
-    "convex": "1.27.5",
+    "convex": "1.32.0",
     "convex-helpers": "^0.1.111",
     "diff": "^8.0.2",
     "isomorphic-git": "^1.33.0",

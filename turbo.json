@@ -5,13 +5,20 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**"]
     },
+    "build:ci": {
+      "dependsOn": ["^build:ci"],
+      "outputs": ["dist/**", ".next/**"]
+    },
     "dev": {
       "cache": false,
       "persistent": true,
-      "env": ["CONVEX_DEPLOY_KEY", "DEV_ENV_ORIGIN"]
+      "env": ["CONVEX_DEPLOY_KEY", "CONVEX_AGENT_MODE", "DEV_ENV_ORIGIN"]
     },
     "lint": {
       "dependsOn": ["^build"]
+    },
+    "lint:ci": {
+      "dependsOn": ["^build:ci"]
     },
     "preview": {
       "dependsOn": ["build"],
