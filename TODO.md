@@ -3,6 +3,7 @@
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 - [ ] maybe jupyterlab is not necessaryle necessary, or even a good idea, since developers usually don't use it; and vibecoders don't even use it; only academia?
 - [ ] preview deploys should be created in the pr. But locally in Daytona use local convex
+- [ ] enforce the importance of using web apps when you're trying to do something on an older phone, that's not supported anymore. Mobile apps are a liability 
 # The most important right now is to fix rebaseing works, because we always accept only things on incoming side instead of even trying to reconcile!!!!
 
 - [ ] add better rebase skill/workflow: when conflict is only `pnpm-lock.yaml`, regenerate lockfile from manifests instead of manual conflict edits
@@ -15,7 +16,6 @@
 
 - [ ] codex: make worktrees work automatically
 - [ ] auth env vars: standardize on `AUTH_*` (or document precedence) and add a warning when multiple GitHub/Google env keys are set
-- [ ] auth: signing in with Google then GitHub switches to GitHub account + auto-connects services; decide policy and UX (maybe use account details dialog)
 - [ ] add dashboard-level settings panel (currently logout only exists inside vault)
 - [ ] decide if Turborepo is necessary or if PNPM workspaces alone are enough
 - [ ] chat-first UI: start with chatbot; allow chat messages to render Tailwind/React UI so users can promote pieces into the page (ex: sign-in inside chat)
