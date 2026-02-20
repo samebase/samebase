@@ -27,6 +27,8 @@
     "daytona:refresh": "bash scripts/daytona-refresh.sh"
   },
   "devDependencies": {
+    "@robolex/sure": "^0.12.0",
+    "commander": "^14.0.3",
     "husky": "^9.1.7",
     "turbo": "^2.5.5",
     "typescript": "5.9.2",
@@ -40,8 +42,5 @@
     "convex"
   ],
   "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "@robolex/sure": "^0.12.0"
-  }
+  "license": "MIT"
 }
