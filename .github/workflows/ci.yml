@@ -9,9 +9,6 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
-    env:
-      AUTH_GITHUB_ID: ci-placeholder
-      AUTH_GITHUB_SECRET: ci-placeholder
 
     strategy:
       matrix:
@@ -35,18 +32,29 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Seed Convex auth env for CI
-        run: |
-          {
-            echo "AUTH_GITHUB_ID=ci-placeholder"
-            echo "AUTH_GITHUB_SECRET=ci-placeholder"
-          } >> apps/noter/.env.local
-
       # Bootstrap an anonymous local Convex deployment so CONVEX_DEPLOYMENT
       # exists and generated files are materialized for CI-only lint/build.
       # Note: `lint:ci`/`build:ci` skip Convex codegen and rely on this step.
       - name: Bootstrap Convex for CI
-        run: pnpm ci:convex-bootstrap
+        run: |
+          set -euo pipefail
+
+          CONVEX_AGENT_MODE=anonymous pnpm --filter noter exec convex dev --until-success --typecheck=disable --tail-logs=disable > /tmp/convex-bootstrap.log 2>&1 &
+          bootstrap_pid=$!
+
+          timeout 60 bash -c 'until grep -q "^CONVEX_DEPLOYMENT=" apps/noter/.env.local 2>/dev/null; do sleep 1; done'
+          timeout 90 bash -c 'until curl -sf http://127.0.0.1:3210/instance_name >/dev/null; do sleep 1; done'
+
+          pnpm --filter noter exec convex env set AUTH_GITHUB_ID ci-placeholder
+          pnpm --filter noter exec convex env set AUTH_GITHUB_SECRET ci-placeholder
+
+          timeout 180 bash -c 'until grep -q "Convex functions ready!" /tmp/convex-bootstrap.log; do sleep 1; done'
+
+          if kill -0 "$bootstrap_pid" 2>/dev/null; then
+            kill "$bootstrap_pid" || true
+            wait "$bootstrap_pid" || true
+          fi
+          tail -n 80 /tmp/convex-bootstrap.log
 
       - name: Type check
         run: pnpm lint:ci
