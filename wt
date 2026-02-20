@@ -98,7 +98,7 @@ Base source:
       `
 List output legend:
   S/U/? = staged / unstaged / untracked file counts
-  + / - = commits ahead / behind the comparison base`,
+  ↑ / ↓ = commits ahead / behind the comparison base`,
     )
     .action(
       /**
@@ -450,10 +450,10 @@ function getWorktreeDivergence(worktreePath, baseRef) {
  */
 function formatDivergence(divergence) {
   if (!divergence) {
-    return `${dim('+?')} ${dim('-?')}`
+    return `${dim('↑?')} ${dim('↓?')}`
   }
 
-  return [formatCountToken('+', divergence.ahead), formatCountToken('-', divergence.behind)].join(
+  return [formatCountToken('↑', divergence.ahead), formatCountToken('↓', divergence.behind)].join(
     ' ',
   )
 }
