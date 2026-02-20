@@ -34,8 +34,8 @@ jobs:
 
       # Bootstrap an anonymous local Convex deployment so CONVEX_DEPLOYMENT
       # exists before lint/build invoke `convex codegen`.
-      # Note: codegen/typecheck stay disabled here because `pnpm lint` and
-      # `pnpm build` run them as the actual CI checks.
+      # Note: bootstrap keeps Convex typecheck disabled; `pnpm lint` and
+      # `pnpm build` still run the actual typecheck/codegen checks.
       - name: Bootstrap Convex for CI
         run: pnpm ci:convex-bootstrap
 
