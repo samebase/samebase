@@ -8,7 +8,7 @@
     "dev": {
       "cache": false,
       "persistent": true,
-      "env": ["CONVEX_DEPLOY_KEY", "DEV_ENV_ORIGIN"]
+      "env": ["CONVEX_DEPLOY_KEY", "CONVEX_AGENT_MODE", "DEV_ENV_ORIGIN"]
     },
     "lint": {
       "dependsOn": ["^build"]
