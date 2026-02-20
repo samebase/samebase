@@ -160,7 +160,7 @@ Shorthand commands for git/GitHub workflows. When the user says these, execute t
 | ----------- | --------------------------------------------------------------- |
 | `commit`    | Stage all changes, commit with concise message                  |
 | `push`      | Commit if needed, push to remote                                |
-| `create pr` | Push if needed, create draft PR and ensure a non-empty body     |
+| `create pr` | Push if needed, create PR, ensure a non-empty body, then mark ready |
 | `ready`     | Mark draft PR as ready: `gh pr ready`                           |
 | `wait`      | Monitor CI with `gh pr checks` or `gh run watch`, report status |
 | `ship`      | Full flow: commit → push → create PR → ready → fix CodeRabbit feedback → wait |
@@ -172,6 +172,7 @@ Shorthand commands for git/GitHub workflows. When the user says these, execute t
 - Execute, don't instruct
 - Adapt to context (if PR exists, update it; if already ready, skip)
 - When the user asks to "open a PR" (or `create pr`), always write a normal PR description (summary, key changes, validation). Never leave the PR body empty.
+- When the user asks to "open a PR" (or `create pr`), mark it ready for review by default. Only keep it as draft if the user explicitly asks for draft.
 - Update PR description with `gh pr edit --body` when commits change scope
 - During `ship`, if CodeRabbit reports actionable findings, fix them, push updates, and continue until CodeRabbit and required CI checks are green.
 - During `ship`, if CodeRabbit is only pending (no actionable findings yet), continue waiting.
@@ -214,6 +215,7 @@ Auth:
 - Deferred workflow experiment: optionally try a temporary `next_main` branch, cherry-pick changes, and merge PRs with merge commits. Treat this as opt-in per request (not default).
 - When the simpleView fixture test fails due to new `.md` files, update the fixture to include those `.md` files and include the fixture update in the same commit by default.
 - Do not bypass pre-commit hooks by default when lint/tests are failing; only do so on explicit user request.
+- When the user asks to create a PR, automatically mark it ready for review unless they explicitly ask for a draft PR.
 
 ### Worktree Protocol (Local)
 
