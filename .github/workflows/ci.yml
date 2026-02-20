@@ -35,18 +35,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Seed Convex auth env for CI
+        run: |
+          {
+            echo "AUTH_GITHUB_ID=ci-placeholder"
+            echo "AUTH_GITHUB_SECRET=ci-placeholder"
+          } >> apps/noter/.env.local
+
       # Bootstrap an anonymous local Convex deployment so CONVEX_DEPLOYMENT
-      # exists before lint/build invoke `convex codegen`.
-      # Note: bootstrap keeps Convex typecheck disabled; `pnpm lint` and
-      # `pnpm build` still run the actual typecheck/codegen checks.
+      # exists and generated files are materialized for CI-only lint/build.
+      # Note: `lint:ci`/`build:ci` skip Convex codegen and rely on this step.
       - name: Bootstrap Convex for CI
         run: pnpm ci:convex-bootstrap
 
       - name: Type check
-        run: pnpm lint
+        run: pnpm lint:ci
 
       - name: Run tests
         run: pnpm test
 
       - name: Build
-        run: pnpm build
+        run: pnpm build:ci
