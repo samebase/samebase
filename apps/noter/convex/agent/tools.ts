@@ -1,6 +1,6 @@
 "use node";
 
-import { tool } from "@langchain/core/tools";
+import { createTool } from "@convex-dev/agent";
 import { z } from "zod";
 import { Octokit } from "@octokit/rest";
 import { internal } from "../_generated/api";
@@ -422,12 +422,13 @@ async function executeRequestConvexLogsRead(
     resourceKind: "logs",
     toolName: "request_convex_logs_read",
     params: {
-      ...(typeof input.maxLines === "number" ? { maxLines: input.maxLines } : {}),
+      ...(typeof input.maxLines === "number"
+        ? { maxLines: input.maxLines }
+        : {}),
     },
     allowRawFallback: input.allowRawFallback,
   });
 }
-
 
 async function executeRequestConvexProjectsRead(
   toolCtx: ToolContext,
@@ -514,34 +515,26 @@ async function executeRequestConvexDataRead(
   });
 }
 
-// --- LangGraph Tool Definitions ---
+// --- Convex Agent Tool Definitions ---
 
 /**
- * Creates LangGraph tool instances bound to a specific ToolContext.
- * Each tool wraps the executor functions above.
+ * Creates Convex Agent tools bound to the current chat/tool context.
  */
 export function createTools(toolCtx: ToolContext) {
-  const readFile = tool(
-    async (input) => {
-      return await executeReadFile(toolCtx, input);
-    },
-    {
-      name: "read_file",
+  return {
+    read_file: createTool({
       description: catalogDescription("read_file"),
-      schema: z.object({
+      args: z.object({
         path: z.string().describe("File path relative to repository root"),
       }),
-    },
-  );
+      handler: async (_ctx, input) => {
+        return await executeReadFile(toolCtx, input);
+      },
+    }),
 
-  const listFiles = tool(
-    async (input) => {
-      return await executeListFiles(toolCtx, input);
-    },
-    {
-      name: "list_files",
+    list_files: createTool({
       description: catalogDescription("list_files"),
-      schema: z.object({
+      args: z.object({
         directory: z
           .string()
           .optional()
@@ -549,58 +542,46 @@ export function createTools(toolCtx: ToolContext) {
             "Optional directory path to filter by (e.g. 'src/components'). Omit to list all files.",
           ),
       }),
-    },
-  );
+      handler: async (_ctx, input) => {
+        return await executeListFiles(toolCtx, input);
+      },
+    }),
 
-  const editFile = tool(
-    async (input) => {
-      return await executeEditFile(toolCtx, input);
-    },
-    {
-      name: "edit_file",
+    edit_file: createTool({
       description: catalogDescription("edit_file"),
-      schema: z.object({
+      args: z.object({
         path: z.string().describe("File path relative to repository root"),
         content: z.string().describe("The new full content of the file"),
       }),
-    },
-  );
+      handler: async (_ctx, input) => {
+        return await executeEditFile(toolCtx, input);
+      },
+    }),
 
-  const createFile = tool(
-    async (input) => {
-      return await executeCreateFile(toolCtx, input);
-    },
-    {
-      name: "create_file",
+    create_file: createTool({
       description: catalogDescription("create_file"),
-      schema: z.object({
+      args: z.object({
         path: z.string().describe("File path relative to repository root"),
         content: z.string().describe("The content of the new file"),
       }),
-    },
-  );
+      handler: async (_ctx, input) => {
+        return await executeCreateFile(toolCtx, input);
+      },
+    }),
 
-  const deleteFile = tool(
-    async (input) => {
-      return await executeDeleteFile(toolCtx, input);
-    },
-    {
-      name: "delete_file",
+    delete_file: createTool({
       description: catalogDescription("delete_file"),
-      schema: z.object({
+      args: z.object({
         path: z.string().describe("File path relative to repository root"),
       }),
-    },
-  );
+      handler: async (_ctx, input) => {
+        return await executeDeleteFile(toolCtx, input);
+      },
+    }),
 
-  const githubApi = tool(
-    async (input) => {
-      return await executeGithubApi(toolCtx, input);
-    },
-    {
-      name: "github_api",
+    github_api: createTool({
       description: catalogDescription("github_api"),
-      schema: z.object({
+      args: z.object({
         endpoint: z
           .string()
           .describe(
@@ -613,44 +594,35 @@ export function createTools(toolCtx: ToolContext) {
             "Parameters passed to the GitHub API method. Owner and repo are auto-injected.",
           ),
       }),
-    },
-  );
+      handler: async (_ctx, input) => {
+        return await executeGithubApi(toolCtx, input);
+      },
+    }),
 
-  const commitAndPush = tool(
-    async (input) => {
-      // This tool's result is a signal — the graph handles early termination
-      return `__COMMIT_PROPOSAL__:${input.message}`;
-    },
-    {
-      name: "commit_and_push",
+    commit_and_push: createTool({
       description: catalogDescription("commit_and_push"),
-      schema: z.object({
+      args: z.object({
         message: z
           .string()
           .describe("A short commit message describing the changes"),
       }),
-    },
-  );
+      handler: async (_ctx, input) => {
+        // This tool result is a signal — the chat action turns it into an approval card.
+        return `__COMMIT_PROPOSAL__:${input.message}`;
+      },
+    }),
 
-  const requestConvexStatusRead = tool(
-    async () => {
-      return await executeRequestConvexStatusRead(toolCtx);
-    },
-    {
-      name: "request_convex_status_read",
+    request_convex_status_read: createTool({
       description: catalogDescription("request_convex_status_read"),
-      schema: z.object({}),
-    },
-  );
+      args: z.object({}),
+      handler: async () => {
+        return await executeRequestConvexStatusRead(toolCtx);
+      },
+    }),
 
-  const requestConvexLogsRead = tool(
-    async (input) => {
-      return await executeRequestConvexLogsRead(toolCtx, input);
-    },
-    {
-      name: "request_convex_logs_read",
+    request_convex_logs_read: createTool({
       description: catalogDescription("request_convex_logs_read"),
-      schema: z.object({
+      args: z.object({
         maxLines: z
           .number()
           .int()
@@ -663,28 +635,22 @@ export function createTools(toolCtx: ToolContext) {
           .optional()
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
-    },
-  );
+      handler: async (_ctx, input) => {
+        return await executeRequestConvexLogsRead(toolCtx, input);
+      },
+    }),
 
-  const requestNetlifyStatusRead = tool(
-    async () => {
-      return await executeRequestNetlifyStatusRead(toolCtx);
-    },
-    {
-      name: "request_netlify_status_read",
+    request_netlify_status_read: createTool({
       description: catalogDescription("request_netlify_status_read"),
-      schema: z.object({}),
-    },
-  );
+      args: z.object({}),
+      handler: async () => {
+        return await executeRequestNetlifyStatusRead(toolCtx);
+      },
+    }),
 
-  const requestNetlifyLogsRead = tool(
-    async (input) => {
-      return await executeRequestNetlifyLogsRead(toolCtx, input);
-    },
-    {
-      name: "request_netlify_logs_read",
+    request_netlify_logs_read: createTool({
       description: catalogDescription("request_netlify_logs_read"),
-      schema: z.object({
+      args: z.object({
         maxEntries: z
           .number()
           .int()
@@ -697,17 +663,14 @@ export function createTools(toolCtx: ToolContext) {
           .optional()
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
-    },
-  );
+      handler: async (_ctx, input) => {
+        return await executeRequestNetlifyLogsRead(toolCtx, input);
+      },
+    }),
 
-  const requestConvexProjectsRead = tool(
-    async (input) => {
-      return await executeRequestConvexProjectsRead(toolCtx, input);
-    },
-    {
-      name: "request_convex_projects_read",
+    request_convex_projects_read: createTool({
       description: catalogDescription("request_convex_projects_read"),
-      schema: z.object({
+      args: z.object({
         limit: z
           .number()
           .int()
@@ -720,17 +683,14 @@ export function createTools(toolCtx: ToolContext) {
           .optional()
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
-    },
-  );
+      handler: async (_ctx, input) => {
+        return await executeRequestConvexProjectsRead(toolCtx, input);
+      },
+    }),
 
-  const requestNetlifyProjectsRead = tool(
-    async (input) => {
-      return await executeRequestNetlifyProjectsRead(toolCtx, input);
-    },
-    {
-      name: "request_netlify_projects_read",
+    request_netlify_projects_read: createTool({
       description: catalogDescription("request_netlify_projects_read"),
-      schema: z.object({
+      args: z.object({
         limit: z
           .number()
           .int()
@@ -743,17 +703,14 @@ export function createTools(toolCtx: ToolContext) {
           .optional()
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
-    },
-  );
+      handler: async (_ctx, input) => {
+        return await executeRequestNetlifyProjectsRead(toolCtx, input);
+      },
+    }),
 
-  const requestConvexDataRead = tool(
-    async (input) => {
-      return await executeRequestConvexDataRead(toolCtx, input);
-    },
-    {
-      name: "request_convex_data_read",
+    request_convex_data_read: createTool({
       description: catalogDescription("request_convex_data_read"),
-      schema: z.object({
+      args: z.object({
         table: dataTableSchema.describe("Convex table to sample"),
         scope: z
           .enum(["vault", "global"])
@@ -771,23 +728,9 @@ export function createTools(toolCtx: ToolContext) {
           .optional()
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
-    },
-  );
-
-  return [
-    readFile,
-    listFiles,
-    editFile,
-    createFile,
-    deleteFile,
-    githubApi,
-    requestConvexStatusRead,
-    requestConvexLogsRead,
-    requestNetlifyStatusRead,
-    requestNetlifyLogsRead,
-    requestConvexProjectsRead,
-    requestNetlifyProjectsRead,
-    requestConvexDataRead,
-    commitAndPush,
-  ];
+      handler: async (_ctx, input) => {
+        return await executeRequestConvexDataRead(toolCtx, input);
+      },
+    }),
+  };
 }

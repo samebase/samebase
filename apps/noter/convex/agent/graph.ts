@@ -1,20 +1,10 @@
 "use node";
 
-import {
-  StateGraph,
-  MessagesAnnotation,
-  MemorySaver,
-} from "@langchain/langgraph";
-import { ToolNode } from "@langchain/langgraph/prebuilt";
-import { ChatAnthropic } from "@langchain/anthropic";
-import {
-  SystemMessage,
-  HumanMessage,
-  AIMessage,
-  isAIMessage,
-  ToolMessage,
-} from "@langchain/core/messages";
+import { Agent, stepCountIs } from "@convex-dev/agent";
+import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
+import { components } from "../_generated/api";
+import type { ActionCtx } from "../_generated/server";
 import type { ToolContext } from "./tools";
 import { createTools } from "./tools";
 
@@ -37,27 +27,21 @@ const PROD_READ_PROPOSAL_SCHEMA = z.object({
 });
 type ProdReadProposal = z.infer<typeof PROD_READ_PROPOSAL_SCHEMA>;
 
-function extractTextContent(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content
-      .filter(
-        (b): b is { type: "text"; text: string } =>
-          typeof b === "object" && b !== null && b.type === "text",
-      )
-      .map((b) => b.text)
-      .join("");
-  }
-  return "";
-}
-
 function createModel(provider: string, model: string) {
   switch (provider) {
     case "anthropic":
-      return new ChatAnthropic({ model, temperature: 0 });
+      return anthropic(model);
     default:
       throw new Error(`Unknown LLM provider: ${provider}`);
   }
+}
+
+function createNoterAgent(provider: string, model: string) {
+  return new Agent(components.agent, {
+    name: "noter-chat",
+    languageModel: createModel(provider, model),
+    maxSteps: 12,
+  });
 }
 
 export interface GraphResult {
@@ -72,11 +56,12 @@ export interface GraphResult {
 }
 
 /**
- * Creates and invokes the agent graph for a single request.
+ * Runs the Noter agent turn using the official Convex Agent runtime.
  *
- * Returns the final assistant text plus any commit proposal detected.
+ * Returns the final assistant text plus detected commit/prod-read proposals.
  */
 export async function runAgentGraph(opts: {
+  ctx: ActionCtx;
   toolCtx?: ToolContext;
   systemPrompt: string;
   messages: Array<{ role: "user" | "assistant"; content: string }>;
@@ -84,6 +69,7 @@ export async function runAgentGraph(opts: {
   model?: string;
 }): Promise<GraphResult> {
   const {
+    ctx,
     toolCtx,
     systemPrompt,
     messages,
@@ -91,146 +77,68 @@ export async function runAgentGraph(opts: {
     model = "claude-sonnet-4-20250514",
   } = opts;
 
-  const baseLlm = createModel(provider, model);
+  const agent = createNoterAgent(provider, model);
+  const tools = toolCtx ? createTools(toolCtx) : undefined;
 
-  // When no tool context, run without tools (simple Q&A mode)
-  if (!toolCtx) {
-    const inputMessages = [
-      new SystemMessage(systemPrompt),
-      ...messages.map((m) =>
-        m.role === "user"
-          ? new HumanMessage(m.content)
-          : new AIMessage(m.content),
-      ),
-    ];
-    const response = await baseLlm.invoke(inputMessages);
-    const text = extractTextContent(response.content);
-    return { text: text || "(No response)", toolActivity: [] };
-  }
-
-  const tools = createTools(toolCtx);
-  const llm = baseLlm.bindTools(tools);
-  const toolNode = new ToolNode(tools);
+  const result = await agent.generateText(
+    ctx,
+    {},
+    {
+      system: systemPrompt,
+      messages: messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      })),
+      tools,
+      ...(tools ? { stopWhen: stepCountIs(12) } : {}),
+    },
+    {
+      storageOptions: { saveMessages: "none" },
+      contextOptions: { recentMessages: 0 },
+    },
+  );
 
   const toolActivity: Array<{ tool: string; input: unknown }> = [];
   let commitProposal: string | undefined;
-  let prodReadProposal: GraphResult["prodReadProposal"];
+  let prodReadProposal: ProdReadProposal | undefined;
 
-  // --- Graph Definition ---
+  for (const step of result.steps) {
+    for (const call of step.toolCalls) {
+      toolActivity.push({
+        tool: call.toolName,
+        input: call.input,
+      });
+    }
 
-  const graph = new StateGraph(MessagesAnnotation)
-    .addNode("agent", async (state) => {
-      const response = await llm.invoke(state.messages);
-      return { messages: [response] };
-    })
-    .addNode("tools", async (state) => {
-      // Run the tool node
-      const result = await toolNode.invoke(state);
-
-      // Track tool activity and detect commit proposals.
-      // Also look at the preceding AI message to capture tool call inputs.
-      const lastAiMsg = state.messages[state.messages.length - 1];
-      const toolCallInputs = new Map<string, unknown>();
-      if (isAIMessage(lastAiMsg) && lastAiMsg.tool_calls) {
-        for (const tc of lastAiMsg.tool_calls) {
-          toolCallInputs.set(tc.id ?? tc.name, tc.args);
-        }
+    for (const toolResult of step.toolResults) {
+      if (typeof toolResult.output !== "string") {
+        continue;
       }
 
-      for (const msg of result.messages) {
-        if (msg instanceof ToolMessage) {
-          toolActivity.push({
-            tool: msg.name ?? "unknown",
-            input: toolCallInputs.get(msg.tool_call_id) ?? {},
-          });
+      if (toolResult.output.startsWith(COMMIT_SENTINEL)) {
+        commitProposal = toolResult.output.slice(COMMIT_SENTINEL.length);
+        continue;
+      }
 
-          // Detect commit_and_push sentinel
-          if (
-            typeof msg.content === "string" &&
-            msg.content.startsWith(COMMIT_SENTINEL)
-          ) {
-            commitProposal = msg.content.slice(COMMIT_SENTINEL.length);
+      if (toolResult.output.startsWith(PROD_READ_SENTINEL)) {
+        const payload = toolResult.output.slice(PROD_READ_SENTINEL.length);
+        try {
+          const parsedUnknown: unknown = JSON.parse(payload);
+          const parsed = PROD_READ_PROPOSAL_SCHEMA.safeParse(parsedUnknown);
+          if (parsed.success) {
+            prodReadProposal = parsed.data;
           }
-          if (
-            typeof msg.content === "string" &&
-            msg.content.startsWith(PROD_READ_SENTINEL)
-          ) {
-            const payload = msg.content.slice(PROD_READ_SENTINEL.length);
-            try {
-              const parsed: unknown = JSON.parse(payload);
-              const proposal = PROD_READ_PROPOSAL_SCHEMA.parse(parsed);
-              prodReadProposal = proposal;
-            } catch {
-              // Ignore malformed sentinel payloads.
-            }
-          }
+        } catch {
+          // Ignore malformed tool payloads.
         }
-      }
-
-      return result;
-    })
-    .addEdge("__start__", "agent")
-    .addConditionalEdges("agent", (state) => {
-      const lastMessage = state.messages[state.messages.length - 1];
-
-      // If the LLM didn't request any tool calls, we're done
-      if (
-        !isAIMessage(lastMessage) ||
-        !lastMessage.tool_calls ||
-        lastMessage.tool_calls.length === 0
-      ) {
-        return "__end__";
-      }
-
-      return "tools";
-    })
-    .addConditionalEdges("tools", () => {
-      // If commit_and_push was called, stop the loop
-      if (commitProposal !== undefined) {
-        return "__end__";
-      }
-      // If a prod read proposal was emitted, stop the loop
-      if (prodReadProposal !== undefined) {
-        return "__end__";
-      }
-      // Otherwise loop back to the agent
-      return "agent";
-    });
-
-  const checkpointer = new MemorySaver();
-  const app = graph.compile({ checkpointer });
-
-  // Build initial message list with system prompt
-  const inputMessages = [
-    new SystemMessage(systemPrompt),
-    ...messages.map((m) =>
-      m.role === "user"
-        ? new HumanMessage(m.content)
-        : new AIMessage(m.content),
-    ),
-  ];
-
-  const result = await app.invoke(
-    { messages: inputMessages },
-    { configurable: { thread_id: "single" } },
-  );
-
-  // Extract the final AI message text
-  const allMessages = result.messages;
-  let text = "";
-  for (let i = allMessages.length - 1; i >= 0; i--) {
-    const msg = allMessages[i];
-    if (isAIMessage(msg)) {
-      const extracted = extractTextContent(msg.content);
-      if (extracted) {
-        text = extracted;
-        break;
       }
     }
   }
 
+  const text = result.text.trim().length > 0 ? result.text : "(No response)";
+
   return {
-    text: text || "(No response)",
+    text,
     commitProposal,
     prodReadProposal,
     toolActivity,
