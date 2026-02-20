@@ -21,6 +21,7 @@ const HOME_DIR = process.env.HOME ?? ''
 /**
  * @typedef {{
  *   status: boolean
+ *   base?: string
  * }} ListOptions
  */
 
@@ -38,6 +39,7 @@ Examples:
   wt --help
   wt list
   wt list --status
+  wt list --base origin/main
   wt ls
   wt status
   wt main
@@ -68,11 +70,11 @@ Base source:
   - If --base is set, that value is used.
   - Otherwise it matches your fish 'main' alias behavior (resolved from 'origin/HEAD').
 
-Examples:
-  wt clean
-  wt clean --base main
-  wt clean --apply`,
-    )
+	Examples:
+	  wt clean
+	  wt clean --base main
+	  wt clean --apply`,
+	    )
     .action(
       /**
        * @param {CleanOptions} options
@@ -85,8 +87,19 @@ Examples:
   program
     .command('list')
     .alias('ls')
-    .description('list worktrees and local-change summary')
+    .description('list worktrees with local-change and divergence summary')
     .option('--status', 'include full git status output per worktree', false)
+    .option(
+      '--base <ref>',
+      'compare ahead/behind against this ref (default: origin/<default>)',
+    )
+    .addHelpText(
+      'after',
+      `
+List output legend:
+  S/U/? = staged / unstaged / untracked file counts
+  + / - = commits ahead / behind the comparison base`,
+    )
     .action(
       /**
        * @param {ListOptions} options
@@ -98,10 +111,19 @@ Examples:
 
   program
     .command('status')
-    .description('list worktrees with full git status output')
-    .action(() => {
-      printWorktreeList({ status: true })
-    })
+    .description('list worktrees with full git status output and divergence summary')
+    .option(
+      '--base <ref>',
+      'compare ahead/behind against this ref (default: origin/<default>)',
+    )
+    .action(
+      /**
+       * @param {ListOptions} options
+       */
+      options => {
+        printWorktreeList({ status: true, base: options.base })
+      },
+    )
 
   program
     .argument('[target]', 'branch name to resolve to a worktree path')
@@ -175,6 +197,12 @@ function getWorktrees() {
 function printWorktreeList(options = { status: false }) {
   const repoRoot = git(['rev-parse', '--show-toplevel']).trim()
   const worktrees = getWorktrees()
+  const baseRef = resolveListBaseRef(repoRoot, options.base)
+  const requestedBase = options.base?.trim()
+  if (requestedBase && requestedBase.length > 0 && !baseRef) {
+    console.error(`base ref not found: ${requestedBase}`)
+    process.exit(1)
+  }
   const labels = worktrees.map(wt =>
     wt.branchName ? wt.branchName : `detached@${wt.HEAD.slice(0, 8)}`,
   )
@@ -192,7 +220,9 @@ function printWorktreeList(options = { status: false }) {
       formatCountToken('U', summary.unstaged),
       formatCountToken('?', summary.untracked),
     ].join(' ')
-    const line = `${marker} ${pad(label, labelWidth)} ${state} ${counts} ${dim(formatPath(wt.worktree))}`
+    const divergence = getWorktreeDivergence(wt.worktree, baseRef)
+    const commits = formatDivergence(divergence)
+    const line = `${marker} ${pad(label, labelWidth)} ${state} ${counts} ${commits} ${dim(formatPath(wt.worktree))}`
     console.log(line)
 
     if (options.status) {
@@ -296,10 +326,17 @@ function formatCountToken(label, value) {
 /**
  * @typedef {{
  *   staged: number
- *   unstaged: number
- *   untracked: number
- *   conflicts: number
+  *   unstaged: number
+  *   untracked: number
+  *   conflicts: number
  * }} WorktreeSummary
+ */
+
+/**
+ * @typedef {{
+ *   ahead: number
+ *   behind: number
+ * }} WorktreeDivergence
  */
 
 function isDirty(summary) {
@@ -372,6 +409,53 @@ function getWorktreeSummary(worktreePath) {
     untracked,
     conflicts,
   }
+}
+
+/**
+ * @param {string} worktreePath
+ * @param {string | null} baseRef
+ * @returns {WorktreeDivergence | null}
+ */
+function getWorktreeDivergence(worktreePath, baseRef) {
+  if (!baseRef) {
+    return null
+  }
+
+  const result = gitStatus(['rev-list', '--left-right', '--count', `${baseRef}...HEAD`], {
+    cwd: worktreePath,
+  })
+  if (result.status !== 0) {
+    return null
+  }
+
+  const parts = result.stdout.trim().split(/\s+/)
+  if (parts.length < 2) {
+    return null
+  }
+
+  const behind = Number.parseInt(parts[0], 10)
+  const ahead = Number.parseInt(parts[1], 10)
+  if (!Number.isFinite(ahead) || !Number.isFinite(behind)) {
+    return null
+  }
+
+  return {
+    ahead,
+    behind,
+  }
+}
+
+/**
+ * @param {WorktreeDivergence | null} divergence
+ */
+function formatDivergence(divergence) {
+  if (!divergence) {
+    return `${dim('+?')} ${dim('-?')}`
+  }
+
+  return [formatCountToken('+', divergence.ahead), formatCountToken('-', divergence.behind)].join(
+    ' ',
+  )
 }
 
 /**
@@ -568,6 +652,38 @@ function resolveDefaultBranchName(repoRoot) {
 
   console.error("could not resolve default branch from origin/HEAD and no 'main'/'master' fallback found")
   process.exit(1)
+}
+
+/**
+ * @param {string} repoRoot
+ * @param {string | undefined} requestedBase
+ * @returns {string | null}
+ */
+function resolveListBaseRef(repoRoot, requestedBase) {
+  const trimmed = requestedBase?.trim()
+  if (trimmed && trimmed.length > 0) {
+    const explicit = resolveBaseRef(repoRoot, trimmed)
+    const explicitExists = gitStatus(['rev-parse', '--verify', explicit], { cwd: repoRoot })
+    if (explicitExists.status === 0) {
+      return explicit
+    }
+    return null
+  }
+
+  const defaultName = resolveDefaultBranchName(repoRoot)
+  const remoteRef = `origin/${defaultName}`
+  const remoteExists = gitStatus(['rev-parse', '--verify', remoteRef], { cwd: repoRoot })
+  if (remoteExists.status === 0) {
+    return remoteRef
+  }
+
+  const fallbackRef = resolveBaseRef(repoRoot, defaultName)
+  const fallbackExists = gitStatus(['rev-parse', '--verify', fallbackRef], { cwd: repoRoot })
+  if (fallbackExists.status === 0) {
+    return fallbackRef
+  }
+
+  return null
 }
 
 /**
