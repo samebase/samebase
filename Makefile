@@ -1,15 +1,21 @@
 # set default  to be `make run`
 # .PHONY ensures targets run even if a file with the same name exists.
-.PHONY: run anon update-fixtures
+.PHONY: bootstrap bootstrap-anon run anon update-fixtures
 
 # also add a step that updates the env for preview server when using worktrees
 # or daytona or gh codespaces or something else
+bootstrap:
+	./scripts/bootstrap-worktree.js
+
+bootstrap-anon:
+	./scripts/bootstrap-worktree.js --anon
+
 run:
-	pnpm install
+	$(MAKE) bootstrap
 	pnpm dev
 
 anon:
-	CONVEX_AGENT_MODE=anonymous pnpm install
+	$(MAKE) bootstrap-anon
 	CONVEX_AGENT_MODE=anonymous pnpm dev
 
 update-fixtures:

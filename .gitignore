@@ -63,6 +63,7 @@ yarn.lock
 
 # Codespace agent runtime state
 .codespace-agent/.agent-token
+.devcontainer/pnpm-install.hash
 
 # Local notes
 todo.md

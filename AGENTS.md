@@ -229,8 +229,10 @@ them directly using CLI tools.
 
 ## Worktree Branching
 
-- If HEAD is detached, create a branch with the `codex/` prefix (example:
-  `git switch -c codex/auto-20260217-103000`).
+- If HEAD is detached, use `./scripts/bootstrap-worktree.js` to auto-create a
+  branch in the format `codex/<word>-<word>-<word>`.
+- After an auto-created random branch, rename it to a meaningful `codex/<name>`
+  branch as soon as intent is clear.
 - To rename the current branch: `git branch -m codex/new-name`.
 - If the branch was pushed already, push the new name and delete the old remote:
   `git push -u origin codex/new-name` then

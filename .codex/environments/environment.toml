@@ -3,4 +3,4 @@ version = 1
 name = "noter"
 
 [setup]
-script = "echo \"hello\""
+script = "make bootstrap-anon"
