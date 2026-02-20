@@ -5,6 +5,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 import { components } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import type { ToolContext } from "./tools";
 import { createTools } from "./tools";
 
@@ -67,6 +68,8 @@ export async function runAgentGraph(opts: {
   messages: Array<{ role: "user" | "assistant"; content: string }>;
   provider?: string;
   model?: string;
+  userId?: Id<"users">;
+  threadId?: string;
 }): Promise<GraphResult> {
   const {
     ctx,
@@ -75,6 +78,8 @@ export async function runAgentGraph(opts: {
     messages,
     provider = "anthropic",
     model = "claude-sonnet-4-20250514",
+    userId,
+    threadId,
   } = opts;
 
   const agent = createNoterAgent(provider, model);
@@ -82,7 +87,7 @@ export async function runAgentGraph(opts: {
 
   const result = await agent.generateText(
     ctx,
-    {},
+    { userId, threadId },
     {
       system: systemPrompt,
       messages: messages.map((m) => ({

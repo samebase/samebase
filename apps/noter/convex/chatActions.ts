@@ -70,6 +70,14 @@ export const generateResponse = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const conversation = await ctx.runQuery(
+      internal.chat.getConversationForAction,
+      { conversationId: args.conversationId },
+    );
+    if (!conversation) {
+      throw new Error("Conversation not found");
+    }
+
     const messages = await ctx.runQuery(internal.chat.loadMessagesForAction, {
       conversationId: args.conversationId,
     });
@@ -153,6 +161,7 @@ export const generateResponse = internalAction({
         systemPrompt,
         messages,
         model: MODEL,
+        userId: conversation.userId,
       });
 
       await ctx.runMutation(internal.chat.saveAssistantMessage, {
@@ -180,6 +189,7 @@ export const generateResponse = internalAction({
       systemPrompt,
       messages,
       model: MODEL,
+      userId: conversation.userId,
     });
 
     if (result.prodReadProposal) {

@@ -198,7 +198,9 @@ export const proposeProdRead = mutation({
 
     if (args.scope === "vault") {
       if (!args.vaultId) {
-        throw new Error("vaultId is required for vault-scoped production reads");
+        throw new Error(
+          "vaultId is required for vault-scoped production reads",
+        );
       }
       const vault = await ctx.db.get(args.vaultId);
       if (!vault || vault.userId !== userId) {
@@ -272,7 +274,9 @@ export const proposeProdReadInternal = internalMutation({
 
     if (args.scope === "vault") {
       if (!args.vaultId) {
-        throw new Error("vaultId is required for vault-scoped production reads");
+        throw new Error(
+          "vaultId is required for vault-scoped production reads",
+        );
       }
       const vault = await ctx.db.get(args.vaultId);
       if (!vault || vault.userId !== args.requesterUserId) {
@@ -524,9 +528,13 @@ export const confirmProdRead = mutation({
       break;
     }
 
-    await ctx.scheduler.runAfter(0, internal.chatActions.executeApprovedProdRead, {
-      requestId: args.requestId,
-    });
+    await ctx.scheduler.runAfter(
+      0,
+      internal.chatActions.executeApprovedProdRead,
+      {
+        requestId: args.requestId,
+      },
+    );
 
     return null;
   },
@@ -619,6 +627,27 @@ export const getConversation = query({
   },
 });
 
+export const getConversationForAction = internalQuery({
+  args: { conversationId: v.id("chatConversations") },
+  returns: v.union(
+    v.object({
+      _id: v.id("chatConversations"),
+      userId: v.id("users"),
+      vaultId: v.optional(v.id("vaults")),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) return null;
+    return {
+      _id: conversation._id,
+      userId: conversation.userId,
+      vaultId: conversation.vaultId,
+    };
+  },
+});
+
 export const loadMessagesForAction = internalQuery({
   args: {
     conversationId: v.id("chatConversations"),
@@ -645,8 +674,7 @@ export const loadMessagesForAction = internalQuery({
           return true;
         }
         return (
-          meta.type !== "commit_proposal" &&
-          meta.type !== "prod_read_proposal"
+          meta.type !== "commit_proposal" && meta.type !== "prod_read_proposal"
         );
       })
       .map((m) => ({ role: m.role, content: m.content }));
