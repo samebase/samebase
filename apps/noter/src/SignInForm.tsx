@@ -81,7 +81,10 @@ export function SignInForm() {
             </span>
           </li>
         </ul>
-        <SignInWithGoogle />
+        <div className="flex flex-col gap-2">
+          <SignInWithGoogle />
+          <SignInWithGitHub />
+        </div>
         <WaitlistForm />
       </div>
     </div>

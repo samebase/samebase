@@ -15,6 +15,7 @@
 
 - [ ] codex: make worktrees work automatically
 - [ ] auth env vars: standardize on `AUTH_*` (or document precedence) and add a warning when multiple GitHub/Google env keys are set
+- [ ] auth: signing in with Google then GitHub switches to GitHub account + auto-connects services; decide policy and UX (maybe use account details dialog)
 - [ ] add dashboard-level settings panel (currently logout only exists inside vault)
 - [ ] decide if Turborepo is necessary or if PNPM workspaces alone are enough
 - [ ] chat-first UI: start with chatbot; allow chat messages to render Tailwind/React UI so users can promote pieces into the page (ex: sign-in inside chat)
