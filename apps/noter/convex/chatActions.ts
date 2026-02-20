@@ -10,10 +10,7 @@ import { executeReadFile } from "./agent/tools";
 import type { ToolContext } from "./agent/tools";
 import { buildSystemPrompt } from "./agent/systemPrompt";
 import { runAgentGraph } from "./agent/graph";
-import {
-  applyRedaction,
-  getProdAccessMode,
-} from "./infraReadPolicy";
+import { applyRedaction, getProdAccessMode } from "./infraReadPolicy";
 
 const MODEL = "claude-sonnet-4-20250514";
 
@@ -152,6 +149,7 @@ export const generateResponse = internalAction({
     if (!hasToolAccess || !vault || !user?.githubAccessToken) {
       // No tools — run graph without tool context (tools won't be bound)
       const result = await runAgentGraph({
+        ctx,
         systemPrompt,
         messages,
         model: MODEL,
@@ -177,6 +175,7 @@ export const generateResponse = internalAction({
     };
 
     const result = await runAgentGraph({
+      ctx,
       toolCtx,
       systemPrompt,
       messages,
@@ -241,9 +240,12 @@ export const executeApprovedProdRead = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const request = await ctx.runQuery(internal.chat.getProdAccessRequestInternal, {
-      requestId: args.requestId,
-    });
+    const request = await ctx.runQuery(
+      internal.chat.getProdAccessRequestInternal,
+      {
+        requestId: args.requestId,
+      },
+    );
     if (!request) {
       return null;
     }
@@ -274,12 +276,15 @@ export const executeApprovedProdRead = internalAction({
         argumentHash,
         error,
       });
-      await ctx.runMutation(internal.chat.updateProdReadProposalMessageStatusInternal, {
-        conversationId: request.conversationId,
-        requestId: request._id,
-        status: "expired",
-        error,
-      });
+      await ctx.runMutation(
+        internal.chat.updateProdReadProposalMessageStatusInternal,
+        {
+          conversationId: request.conversationId,
+          requestId: request._id,
+          status: "expired",
+          error,
+        },
+      );
       await ctx.runMutation(internal.chat.saveAssistantMessage, {
         conversationId: request.conversationId,
         content: `Production read expired before execution: ${error}.`,
@@ -314,19 +319,30 @@ export const executeApprovedProdRead = internalAction({
         request.resourceKind === "deployment_status"
       ) {
         if (!request.vaultId) {
-          throw new Error("Vault context is required for Convex deployment status");
+          throw new Error(
+            "Vault context is required for Convex deployment status",
+          );
         }
-        executionResult = await ctx.runAction(internal.infraRead.getConvexDeploymentStatus, {
-          vaultId: request.vaultId,
-        });
-      } else if (request.provider === "convex" && request.resourceKind === "logs") {
+        executionResult = await ctx.runAction(
+          internal.infraRead.getConvexDeploymentStatus,
+          {
+            vaultId: request.vaultId,
+          },
+        );
+      } else if (
+        request.provider === "convex" &&
+        request.resourceKind === "logs"
+      ) {
         if (!request.vaultId) {
           throw new Error("Vault context is required for Convex logs");
         }
-        executionResult = await ctx.runAction(internal.infraRead.getConvexLogs, {
-          vaultId: request.vaultId,
-          maxLines: parseOptionalPositiveNumber(params["maxLines"]),
-        });
+        executionResult = await ctx.runAction(
+          internal.infraRead.getConvexLogs,
+          {
+            vaultId: request.vaultId,
+            maxLines: parseOptionalPositiveNumber(params["maxLines"]),
+          },
+        );
       } else if (
         request.provider === "netlify" &&
         request.resourceKind === "deployment_status"
@@ -334,29 +350,41 @@ export const executeApprovedProdRead = internalAction({
         if (!request.vaultId) {
           throw new Error("Vault context is required for Netlify site status");
         }
-        executionResult = await ctx.runAction(internal.infraRead.getNetlifySiteStatus, {
-          vaultId: request.vaultId,
-        });
-      } else if (request.provider === "netlify" && request.resourceKind === "logs") {
+        executionResult = await ctx.runAction(
+          internal.infraRead.getNetlifySiteStatus,
+          {
+            vaultId: request.vaultId,
+          },
+        );
+      } else if (
+        request.provider === "netlify" &&
+        request.resourceKind === "logs"
+      ) {
         if (!request.vaultId) {
           throw new Error("Vault context is required for Netlify logs");
         }
-        executionResult = await ctx.runAction(internal.infraRead.getNetlifyLogs, {
-          vaultId: request.vaultId,
-          maxEntries: parseOptionalPositiveNumber(params["maxEntries"]),
-        });
+        executionResult = await ctx.runAction(
+          internal.infraRead.getNetlifyLogs,
+          {
+            vaultId: request.vaultId,
+            maxEntries: parseOptionalPositiveNumber(params["maxEntries"]),
+          },
+        );
       } else if (
         request.provider === "convex" &&
         request.resourceKind === "data_query"
       ) {
-        executionResult = await ctx.runAction(internal.infraRead.getConvexDataQuery, {
-          table: parseAllowedDataTable(params["table"]),
-          limit: parseOptionalPositiveNumber(params["limit"]),
-          vaultId:
-            request.scope === "vault"
-              ? request.vaultId ?? undefined
-              : undefined,
-        });
+        executionResult = await ctx.runAction(
+          internal.infraRead.getConvexDataQuery,
+          {
+            table: parseAllowedDataTable(params["table"]),
+            limit: parseOptionalPositiveNumber(params["limit"]),
+            vaultId:
+              request.scope === "vault"
+                ? request.vaultId ?? undefined
+                : undefined,
+          },
+        );
       } else if (
         request.provider === "convex" &&
         request.resourceKind === "project_inventory"
@@ -413,11 +441,14 @@ export const executeApprovedProdRead = internalAction({
         logLineCount: executionResult.logLineCount,
         error: undefined,
       });
-      await ctx.runMutation(internal.chat.updateProdReadProposalMessageStatusInternal, {
-        conversationId: request.conversationId,
-        requestId: request._id,
-        status: "executed",
-      });
+      await ctx.runMutation(
+        internal.chat.updateProdReadProposalMessageStatusInternal,
+        {
+          conversationId: request.conversationId,
+          requestId: request._id,
+          status: "executed",
+        },
+      );
 
       const output = [
         `Production read complete: ${executionResult.summary}.`,
@@ -445,7 +476,9 @@ export const executeApprovedProdRead = internalAction({
       return null;
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Unknown production read error";
+        error instanceof Error
+          ? error.message
+          : "Unknown production read error";
 
       await ctx.runMutation(internal.chat.setProdAccessRequestStatusInternal, {
         requestId: request._id,
@@ -464,12 +497,15 @@ export const executeApprovedProdRead = internalAction({
         argumentHash,
         error: message,
       });
-      await ctx.runMutation(internal.chat.updateProdReadProposalMessageStatusInternal, {
-        conversationId: request.conversationId,
-        requestId: request._id,
-        status: "failed",
-        error: message,
-      });
+      await ctx.runMutation(
+        internal.chat.updateProdReadProposalMessageStatusInternal,
+        {
+          conversationId: request.conversationId,
+          requestId: request._id,
+          status: "failed",
+          error: message,
+        },
+      );
       await ctx.runMutation(internal.chat.saveAssistantMessage, {
         conversationId: request.conversationId,
         content: `Production read failed: ${message}.`,
