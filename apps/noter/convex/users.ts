@@ -1,6 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internalQuery, mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { Infer, v } from "convex/values";
 
 const ADMIN_USERNAMES = ["nicu-chiciuc"];
 const ALLOWED_EMAILS = new Set([
@@ -9,7 +9,15 @@ const ALLOWED_EMAILS = new Set([
   "noita.lovare@gmail.com",
 ]);
 
-export function isAdminUser(githubUsername: string | null | undefined): boolean {
+const authProviderSummaryValidator = v.object({
+  providers: v.array(v.string()),
+  primaryProvider: v.optional(v.string()),
+});
+type AuthProviderSummary = Infer<typeof authProviderSummaryValidator>;
+
+export function isAdminUser(
+  githubUsername: string | null | undefined,
+): boolean {
   if (!githubUsername) {
     return false;
   }
@@ -59,6 +67,39 @@ export const viewer = query({
       hasConvexAccessToken: typeof user.convexAccessToken === "string",
       hasNetlifyAccessToken: typeof user.netlifyAccessToken === "string",
     };
+  },
+});
+
+export const getViewerAuthProviders = query({
+  args: {},
+  returns: authProviderSummaryValidator,
+  handler: async (ctx): Promise<AuthProviderSummary> => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      return { providers: [] };
+    }
+
+    const accounts = await ctx.db
+      .query("authAccounts")
+      .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
+      .order("desc")
+      .collect();
+
+    const providers: string[] = [];
+    const seen = new Set<string>();
+    for (const account of accounts) {
+      if (seen.has(account.provider)) {
+        continue;
+      }
+      seen.add(account.provider);
+      providers.push(account.provider);
+    }
+
+    const primaryProvider = accounts[0]?.provider;
+    if (primaryProvider) {
+      return { providers, primaryProvider };
+    }
+    return { providers };
   },
 });
 

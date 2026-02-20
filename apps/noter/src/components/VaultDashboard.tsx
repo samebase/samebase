@@ -16,10 +16,15 @@ import { Link } from "react-router-dom";
 import { linkStyle } from "./styles";
 import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
+import {
+  useAction,
+  useMutation,
+  useQuery as useConvexQuery,
+} from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { isInIframe, openAuthPopup } from "@/SignInForm";
+import { UserMenu } from "@/components/UserMenu";
 import {
   Dialog,
   DialogContent,
@@ -59,12 +64,7 @@ const formatTimeAgo = (timestamp: number) => {
 };
 
 const formatInfraState = (
-  infraState:
-    | "not_started"
-    | "provisioning"
-    | "ready"
-    | "failed"
-    | "partial",
+  infraState: "not_started" | "provisioning" | "ready" | "failed" | "partial",
 ) => {
   if (infraState === "not_started") return "Not started";
   if (infraState === "provisioning") return "Provisioning";
@@ -88,12 +88,7 @@ const getRedirectOrigin = (oauthUrl: string): string | null => {
 };
 
 const getInfraActionLabel = (
-  infraState:
-    | "not_started"
-    | "provisioning"
-    | "ready"
-    | "failed"
-    | "partial",
+  infraState: "not_started" | "provisioning" | "ready" | "failed" | "partial",
 ) => {
   if (infraState === "not_started") return "Provision infra";
   if (infraState === "failed" || infraState === "partial") return "Retry infra";
@@ -116,7 +111,10 @@ export function VaultDashboard() {
   const disconnectNetlify = useMutation(api.users.disconnectNetlify);
   const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
   const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus);
-  const netlifyConnection = useConvexQuery(api.users.getNetlifyConnectionStatus);
+  const netlifyConnection = useConvexQuery(
+    api.users.getNetlifyConnectionStatus,
+  );
+  const user = useConvexQuery(api.users.viewer);
   const canCreateProject = Boolean(
     githubConnection?.connected &&
       convexConnection?.connected &&
@@ -160,10 +158,7 @@ export function VaultDashboard() {
         event.data.type === "convex-oauth-complete" &&
         event.source === convexPopupRef.current
       ) {
-        if (
-          event.origin !==
-          (convexPopupOriginRef.current ?? expectedOrigin)
-        ) {
+        if (event.origin !== (convexPopupOriginRef.current ?? expectedOrigin)) {
           return;
         }
         window.location.reload();
@@ -173,8 +168,7 @@ export function VaultDashboard() {
         event.source === netlifyPopupRef.current
       ) {
         if (
-          event.origin !==
-          (netlifyPopupOriginRef.current ?? expectedOrigin)
+          event.origin !== (netlifyPopupOriginRef.current ?? expectedOrigin)
         ) {
           return;
         }
@@ -190,7 +184,9 @@ export function VaultDashboard() {
 
   const selectedVault =
     vaultToDelete && vaults
-      ? vaults.find((vault: (typeof vaults)[0]) => vault._id === vaultToDelete.id) ?? null
+      ? vaults.find(
+          (vault: (typeof vaults)[0]) => vault._id === vaultToDelete.id,
+        ) ?? null
       : null;
   const stagedChangesCount = selectedVault?.fileCount ?? 0;
   const hasStagedChanges = stagedChangesCount > 0;
@@ -242,14 +238,14 @@ export function VaultDashboard() {
       window.location.assign(oauthUrl);
     } catch (error) {
       setCreateError(
-        error instanceof Error
-          ? error.message
-          : "Failed to start Convex OAuth",
+        error instanceof Error ? error.message : "Failed to start Convex OAuth",
       );
     }
   };
 
-  const handleDisconnect = async (provider: "github" | "convex" | "netlify") => {
+  const handleDisconnect = async (
+    provider: "github" | "convex" | "netlify",
+  ) => {
     if (disconnectingProvider) return;
     setDisconnectingProvider(provider);
     if (createError) {
@@ -314,12 +310,12 @@ export function VaultDashboard() {
           : false,
         removeConvexProvision:
           vaultToDelete.isNoterManaged && vaultToDelete.hasConvexProvision
-          ? removeConvexProvision
-          : false,
+            ? removeConvexProvision
+            : false,
         removeNetlifyProvision:
           vaultToDelete.isNoterManaged && vaultToDelete.hasNetlifyProvision
-          ? removeNetlifyProvision
-          : false,
+            ? removeNetlifyProvision
+            : false,
         removeDaytonaResources,
       });
       resetDeleteDialogState();
@@ -404,6 +400,9 @@ export function VaultDashboard() {
   const netlifyStatus = netlifyConnected
     ? `Connected to ${netlifyConnection?.teamSlug ?? netlifyConnection?.teamId ?? "Netlify team"}`
     : "Not connected";
+  const userDisplayName =
+    user?.name ?? user?.email ?? user?.githubUsername ?? "...";
+  const userMenu = user ? <UserMenu>{userDisplayName}</UserMenu> : null;
   const createControl = (
     <div className="flex flex-col items-start gap-2">
       <ButtonGroup className="w-full sm:w-[360px]">
@@ -447,14 +446,14 @@ export function VaultDashboard() {
                 <Link to="/add">Connect existing repo</Link>
               </DropdownMenuItem>
             ) : (
-              <DropdownMenuItem disabled>Connect existing repo</DropdownMenuItem>
+              <DropdownMenuItem disabled>
+                Connect existing repo
+              </DropdownMenuItem>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
       </ButtonGroup>
-      {createError && (
-        <div className="text-sm text-red-600">{createError}</div>
-      )}
+      {createError && <div className="text-sm text-red-600">{createError}</div>}
       {!canCreateProject && (
         <div className="text-xs text-muted-foreground">
           Connect GitHub, Convex, and Netlify to create projects.
@@ -472,7 +471,9 @@ export function VaultDashboard() {
             <GitHubLogoIcon className="h-4 w-4" />
             <div>
               <div className="text-sm font-medium">GitHub</div>
-              <div className="text-xs text-muted-foreground">{githubStatus}</div>
+              <div className="text-xs text-muted-foreground">
+                {githubStatus}
+              </div>
             </div>
           </div>
           {githubConnected ? (
@@ -503,7 +504,9 @@ export function VaultDashboard() {
             <LightningBoltIcon className="h-4 w-4" />
             <div>
               <div className="text-sm font-medium">Convex</div>
-              <div className="text-xs text-muted-foreground">{convexStatus}</div>
+              <div className="text-xs text-muted-foreground">
+                {convexStatus}
+              </div>
             </div>
           </div>
           {convexConnected ? (
@@ -523,10 +526,7 @@ export function VaultDashboard() {
               )}
             </Button>
           ) : (
-            <Button
-              size="sm"
-              onClick={() => void handleConnectConvex()}
-            >
+            <Button size="sm" onClick={() => void handleConnectConvex()}>
               Connect Convex
             </Button>
           )}
@@ -580,6 +580,7 @@ export function VaultDashboard() {
     return (
       <div className="h-full overflow-y-auto">
         <div className="container py-6 max-w-2xl mx-auto">
+          {userMenu && <div className="mb-4 flex justify-end">{userMenu}</div>}
           <div className="text-center space-y-6">
             <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center">
               <GitHubLogoIcon className="h-12 w-12 text-muted-foreground" />
@@ -588,8 +589,8 @@ export function VaultDashboard() {
             <div className="space-y-2">
               <h1 className="text-3xl font-bold">Create your first project</h1>
               <p className="text-lg text-muted-foreground">
-                Start with a new project or connect an existing repository to edit
-                files directly in your browser.
+                Start with a new project or connect an existing repository to
+                edit files directly in your browser.
               </p>
             </div>
 
@@ -606,12 +607,15 @@ export function VaultDashboard() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="container py-6">
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-2">
             <GitHubLogoIcon className="h-5 w-5 sm:h-6 sm:w-6" />
             <h1 className="text-xl sm:text-2xl font-semibold">Your Vaults</h1>
           </div>
-          {createControl}
+          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
+            {createControl}
+            {userMenu}
+          </div>
         </div>
         <div className="mb-6">{connectionPanel}</div>
 
@@ -643,7 +647,9 @@ export function VaultDashboard() {
                           {!isReady && (
                             <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
                           )}
-                          <span className="min-w-0 truncate">{vault.ghRepoName}</span>
+                          <span className="min-w-0 truncate">
+                            {vault.ghRepoName}
+                          </span>
                           {!isReady && (
                             <span className="text-xs text-muted-foreground font-normal shrink-0">
                               (setting up...)
@@ -709,7 +715,9 @@ export function VaultDashboard() {
                   {isReady ? (
                     <>
                       <Button asChild variant="secondary" size="sm">
-                        <Link to={`/vault/${vault.repositoryFullName}/${defaultBranch}`}>
+                        <Link
+                          to={`/vault/${vault.repositoryFullName}/${defaultBranch}`}
+                        >
                           {defaultBranch}
                         </Link>
                       </Button>
@@ -786,213 +794,223 @@ export function VaultDashboard() {
           })}
         </div>
 
-      {/* Confirmation Dialog */}
-      <Dialog
-        open={!!vaultToDelete}
-        onOpenChange={() => {
-          if (isDeleting || isCommitting) return;
-          resetDeleteDialogState();
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {vaultToDelete
-                ? `Remove Vault ${vaultToDelete.repositoryFullName}`
-                : "Remove Vault"}
-            </DialogTitle>
-            <DialogDescription>
-              {hasStagedChanges
-                ? `This vault has ${stagedChangesCount} uncommitted local change${stagedChangesCount === 1 ? "" : "s"}. You can commit ${stagedChangesCount === 1 ? "it" : "them"} now.`
-                : "All local changes are already backed up on GitHub."}
-            </DialogDescription>
-          </DialogHeader>
-          {vaultToDelete && (
-            <div className="space-y-2">
-              <div className="flex items-start gap-2">
-                <input
-                  id="remove-github-repo"
-                  type="checkbox"
-                  checked={removeGithubRepo}
-                  onChange={(e) => setRemoveGithubRepo(e.target.checked)}
-                  disabled={
-                    !vaultToDelete.isNoterManaged || isDeleting || isCommitting
-                  }
-                  className="mt-0.5 h-4 w-4 rounded border border-input"
-                />
-                <label
-                  htmlFor="remove-github-repo"
-                  className="text-sm text-muted-foreground"
-                >
-                  Also remove GitHub repository
-                  {!vaultToDelete.isNoterManaged && (
-                    <div className="text-xs text-muted-foreground">
-                      Only available for repositories created in Noter.
-                    </div>
-                  )}
-                </label>
-              </div>
-              <div className="flex items-start gap-2">
-                <input
-                  id="remove-codespaces"
-                  type="checkbox"
-                  checked={
-                    connectedCodespacesCount === 0 ? true : removeCodespaces
-                  }
-                  onChange={(e) => setRemoveCodespaces(e.target.checked)}
-                  disabled={
-                    connectedCodespacesCount === 0 ||
-                    isDeleting ||
-                    isCommitting
-                  }
-                  className="mt-0.5 h-4 w-4 rounded border border-input"
-                />
-                <label
-                  htmlFor="remove-codespaces"
-                  className="text-sm text-muted-foreground"
-                >
-                  Also remove all Codespaces
-                  {connectedCodespacesCount === undefined
-                    ? null
-                    : ` (${connectedCodespacesCount} connected)`}
-                </label>
-              </div>
-              <div className="flex items-start gap-2">
-                <input
-                  id="remove-daytona-resources"
-                  type="checkbox"
-                  checked={removeDaytonaResources}
-                  onChange={(e) => setRemoveDaytonaResources(e.target.checked)}
-                  disabled={isDeleting || isCommitting}
-                  className="mt-0.5 h-4 w-4 rounded border border-input"
-                />
-                <label
-                  htmlFor="remove-daytona-resources"
-                  className="text-sm text-muted-foreground"
-                >
-                  Also remove Daytona sandboxes and snapshots
-                  {!hasDaytonaResources && (
-                    <div className="text-xs text-muted-foreground">
-                      We will try to remove any Daytona resources tied to this vault.
-                    </div>
-                  )}
-                </label>
-              </div>
-              {vaultToDelete.hasConvexProvision && (
+        {/* Confirmation Dialog */}
+        <Dialog
+          open={!!vaultToDelete}
+          onOpenChange={() => {
+            if (isDeleting || isCommitting) return;
+            resetDeleteDialogState();
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {vaultToDelete
+                  ? `Remove Vault ${vaultToDelete.repositoryFullName}`
+                  : "Remove Vault"}
+              </DialogTitle>
+              <DialogDescription>
+                {hasStagedChanges
+                  ? `This vault has ${stagedChangesCount} uncommitted local change${stagedChangesCount === 1 ? "" : "s"}. You can commit ${stagedChangesCount === 1 ? "it" : "them"} now.`
+                  : "All local changes are already backed up on GitHub."}
+              </DialogDescription>
+            </DialogHeader>
+            {vaultToDelete && (
+              <div className="space-y-2">
                 <div className="flex items-start gap-2">
                   <input
-                    id="remove-convex-provision"
+                    id="remove-github-repo"
                     type="checkbox"
-                    checked={removeConvexProvision}
-                    onChange={(e) =>
-                      setRemoveConvexProvision(e.target.checked)
-                    }
+                    checked={removeGithubRepo}
+                    onChange={(e) => setRemoveGithubRepo(e.target.checked)}
                     disabled={
-                      !vaultToDelete.isNoterManaged || isDeleting || isCommitting
+                      !vaultToDelete.isNoterManaged ||
+                      isDeleting ||
+                      isCommitting
                     }
                     className="mt-0.5 h-4 w-4 rounded border border-input"
                   />
                   <label
-                    htmlFor="remove-convex-provision"
+                    htmlFor="remove-github-repo"
                     className="text-sm text-muted-foreground"
                   >
-                    Also remove Convex project/deployment
+                    Also remove GitHub repository
                     {!vaultToDelete.isNoterManaged && (
                       <div className="text-xs text-muted-foreground">
-                        Only available for infrastructure provisioned by Noter.
+                        Only available for repositories created in Noter.
                       </div>
                     )}
                   </label>
                 </div>
-              )}
-              {vaultToDelete.hasNetlifyProvision && (
                 <div className="flex items-start gap-2">
                   <input
-                    id="remove-netlify-provision"
+                    id="remove-codespaces"
                     type="checkbox"
-                    checked={removeNetlifyProvision}
-                    onChange={(e) =>
-                      setRemoveNetlifyProvision(e.target.checked)
+                    checked={
+                      connectedCodespacesCount === 0 ? true : removeCodespaces
                     }
+                    onChange={(e) => setRemoveCodespaces(e.target.checked)}
                     disabled={
-                      !vaultToDelete.isNoterManaged || isDeleting || isCommitting
+                      connectedCodespacesCount === 0 ||
+                      isDeleting ||
+                      isCommitting
                     }
                     className="mt-0.5 h-4 w-4 rounded border border-input"
                   />
                   <label
-                    htmlFor="remove-netlify-provision"
+                    htmlFor="remove-codespaces"
                     className="text-sm text-muted-foreground"
                   >
-                    Also remove Netlify site
-                    {!vaultToDelete.isNoterManaged && (
+                    Also remove all Codespaces
+                    {connectedCodespacesCount === undefined
+                      ? null
+                      : ` (${connectedCodespacesCount} connected)`}
+                  </label>
+                </div>
+                <div className="flex items-start gap-2">
+                  <input
+                    id="remove-daytona-resources"
+                    type="checkbox"
+                    checked={removeDaytonaResources}
+                    onChange={(e) =>
+                      setRemoveDaytonaResources(e.target.checked)
+                    }
+                    disabled={isDeleting || isCommitting}
+                    className="mt-0.5 h-4 w-4 rounded border border-input"
+                  />
+                  <label
+                    htmlFor="remove-daytona-resources"
+                    className="text-sm text-muted-foreground"
+                  >
+                    Also remove Daytona sandboxes and snapshots
+                    {!hasDaytonaResources && (
                       <div className="text-xs text-muted-foreground">
-                        Only available for infrastructure provisioned by Noter.
+                        We will try to remove any Daytona resources tied to this
+                        vault.
                       </div>
                     )}
                   </label>
                 </div>
-              )}
-              {commitError && (
-                <div className="text-sm text-red-600">{commitError}</div>
-              )}
-              {didAttemptCommit && hasStagedChanges && (
-                <div className="text-sm text-muted-foreground">
-                  Some local changes are still uncommitted. You can retry
-                  commit or remove anyway.
-                </div>
-              )}
-            </div>
-          )}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (isDeleting || isCommitting) return;
-                resetDeleteDialogState();
-              }}
-              disabled={isDeleting || isCommitting}
-            >
-              Cancel
-            </Button>
-            {vaultToDelete && hasStagedChanges && (
+                {vaultToDelete.hasConvexProvision && (
+                  <div className="flex items-start gap-2">
+                    <input
+                      id="remove-convex-provision"
+                      type="checkbox"
+                      checked={removeConvexProvision}
+                      onChange={(e) =>
+                        setRemoveConvexProvision(e.target.checked)
+                      }
+                      disabled={
+                        !vaultToDelete.isNoterManaged ||
+                        isDeleting ||
+                        isCommitting
+                      }
+                      className="mt-0.5 h-4 w-4 rounded border border-input"
+                    />
+                    <label
+                      htmlFor="remove-convex-provision"
+                      className="text-sm text-muted-foreground"
+                    >
+                      Also remove Convex project/deployment
+                      {!vaultToDelete.isNoterManaged && (
+                        <div className="text-xs text-muted-foreground">
+                          Only available for infrastructure provisioned by
+                          Noter.
+                        </div>
+                      )}
+                    </label>
+                  </div>
+                )}
+                {vaultToDelete.hasNetlifyProvision && (
+                  <div className="flex items-start gap-2">
+                    <input
+                      id="remove-netlify-provision"
+                      type="checkbox"
+                      checked={removeNetlifyProvision}
+                      onChange={(e) =>
+                        setRemoveNetlifyProvision(e.target.checked)
+                      }
+                      disabled={
+                        !vaultToDelete.isNoterManaged ||
+                        isDeleting ||
+                        isCommitting
+                      }
+                      className="mt-0.5 h-4 w-4 rounded border border-input"
+                    />
+                    <label
+                      htmlFor="remove-netlify-provision"
+                      className="text-sm text-muted-foreground"
+                    >
+                      Also remove Netlify site
+                      {!vaultToDelete.isNoterManaged && (
+                        <div className="text-xs text-muted-foreground">
+                          Only available for infrastructure provisioned by
+                          Noter.
+                        </div>
+                      )}
+                    </label>
+                  </div>
+                )}
+                {commitError && (
+                  <div className="text-sm text-red-600">{commitError}</div>
+                )}
+                {didAttemptCommit && hasStagedChanges && (
+                  <div className="text-sm text-muted-foreground">
+                    Some local changes are still uncommitted. You can retry
+                    commit or remove anyway.
+                  </div>
+                )}
+              </div>
+            )}
+            <DialogFooter>
               <Button
                 variant="outline"
                 onClick={() => {
-                  void handleCommitBeforeRemove();
+                  if (isDeleting || isCommitting) return;
+                  resetDeleteDialogState();
                 }}
                 disabled={isDeleting || isCommitting}
               >
-                {isCommitting ? (
+                Cancel
+              </Button>
+              {vaultToDelete && hasStagedChanges && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    void handleCommitBeforeRemove();
+                  }}
+                  disabled={isDeleting || isCommitting}
+                >
+                  {isCommitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Committing...
+                    </>
+                  ) : (
+                    "Commit changes"
+                  )}
+                </Button>
+              )}
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  void handleRemoveVault();
+                }}
+                disabled={isDeleting || isCommitting}
+              >
+                {isDeleting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Committing...
+                    Removing...
                   </>
                 ) : (
-                  "Commit changes"
+                  "Remove Vault"
                 )}
               </Button>
-            )}
-            <Button
-              variant="destructive"
-              onClick={() => {
-                void handleRemoveVault();
-              }}
-              disabled={isDeleting || isCommitting}
-            >
-              {isDeleting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Removing...
-                </>
-              ) : (
-                "Remove Vault"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-    </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }
