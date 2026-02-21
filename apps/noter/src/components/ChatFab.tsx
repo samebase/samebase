@@ -16,6 +16,8 @@ import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { useLocation } from "react-router-dom";
 import { TOOL_CATALOG } from "../../convex/agent/toolCatalog";
+import { useUIMessages, type UIMessage } from "@convex-dev/agent/react";
+import { z } from "zod";
 
 // --- Route context hook ---
 
@@ -26,43 +28,44 @@ const VAULT_PATH_RE = /^\/vault\/([^/]+)\/([^/]+)(?:\/(.*))?$/;
 function useVaultContext() {
   const { pathname } = useLocation();
 
-  const { branch, filePath, repositoryFullName } =
-    useMemo(() => {
-      const match = pathname.match(VAULT_PATH_RE);
-      if (!match) {
-        return {
-          branch: "main",
-          filePath: undefined,
-          repositoryFullName: undefined,
-        };
-      }
-
-      const _owner = match[1];
-      const _repoName = match[2];
-      const rest = match[3]; // "branch/path/to/file" or undefined
-
-      let branch = "main";
-      let filePath: string | undefined;
-      if (rest) {
-        const parts = rest.split("/");
-        branch = parts[0] || "main";
-        filePath = parts.slice(1).join("/") || undefined;
-      }
-
+  const { branch, filePath, repositoryFullName } = useMemo(() => {
+    const match = pathname.match(VAULT_PATH_RE);
+    if (!match) {
       return {
-        branch,
-        filePath,
-        repositoryFullName: `${_owner}/${_repoName}`,
+        branch: "main",
+        filePath: undefined,
+        repositoryFullName: undefined,
       };
-    }, [pathname]);
+    }
+
+    const _owner = match[1];
+    const _repoName = match[2];
+    const rest = match[3]; // "branch/path/to/file" or undefined
+
+    let branch = "main";
+    let filePath: string | undefined;
+    if (rest) {
+      const parts = rest.split("/");
+      branch = parts[0] || "main";
+      filePath = parts.slice(1).join("/") || undefined;
+    }
+
+    return {
+      branch,
+      filePath,
+      repositoryFullName: `${_owner}/${_repoName}`,
+    };
+  }, [pathname]);
 
   const vault = useQuery(
     api.vault.getVaultByRepository,
     repositoryFullName ? { repositoryFullName } : "skip",
   );
 
+  const vaultId = vault?._id;
+
   return {
-    vaultId: vault?._id as Id<"vaults"> | undefined,
+    vaultId,
     branch,
     filePath,
     repositoryFullName,
@@ -71,66 +74,90 @@ function useVaultContext() {
 
 // --- Metadata parsing ---
 
-type ToolActivity = {
-  type: "tool_activity";
-  tools: Array<{ tool: string; input: unknown }>;
-};
+const toolActivityItemSchema = z.object({
+  tool: z.string(),
+  input: z.unknown(),
+});
 
-type CommitProposal = {
-  type: "commit_proposal";
-  message: string;
-  committed?: boolean;
-  tools?: Array<{ tool: string; input: unknown }>;
-};
+const requestIdSchema = z.custom<Id<"aiProdAccessRequests">>(
+  (value) => typeof value === "string",
+);
 
-type ProdReadProposal = {
-  type: "prod_read_proposal";
-  requestId: Id<"aiProdAccessRequests">;
-  scope: "vault" | "global";
-  provider: "convex" | "netlify";
-  resourceKind:
-    | "deployment_status"
-    | "logs"
-    | "data_query"
-    | "project_inventory"
-    | "site_inventory";
-  toolName: string;
-  paramsPreview: string;
-  status?: "proposed" | "approved" | "rejected" | "executed" | "failed" | "expired";
-  error?: string;
-  tools?: Array<{ tool: string; input: unknown }>;
-};
+const toolActivitySchema = z.object({
+  type: z.literal("tool_activity"),
+  tools: z.array(toolActivityItemSchema),
+});
 
-type ProdReadResult = {
-  type: "prod_read_result";
-  requestId: Id<"aiProdAccessRequests">;
-  provider: "convex" | "netlify";
-  resourceKind:
-    | "deployment_status"
-    | "logs"
-    | "data_query"
-    | "project_inventory"
-    | "site_inventory";
-  endpoint?: string;
-  redactionLevel?: "default" | "strict" | "raw_fallback";
-  rowCount?: number;
-  logLineCount?: number;
-  error?: string;
-};
+const commitProposalSchema = z.object({
+  type: z.literal("commit_proposal"),
+  message: z.string(),
+  committed: z.boolean().optional(),
+  tools: z.array(toolActivityItemSchema).optional(),
+});
 
-type MessageMetadata =
-  | ToolActivity
-  | CommitProposal
-  | ProdReadProposal
-  | ProdReadResult;
+const prodReadProposalSchema = z.object({
+  type: z.literal("prod_read_proposal"),
+  requestId: requestIdSchema,
+  scope: z.enum(["vault", "global"]),
+  provider: z.enum(["convex", "netlify"]),
+  resourceKind: z.enum([
+    "deployment_status",
+    "logs",
+    "data_query",
+    "project_inventory",
+    "site_inventory",
+  ]),
+  toolName: z.string(),
+  paramsPreview: z.string(),
+  status: z
+    .enum(["proposed", "approved", "rejected", "executed", "failed", "expired"])
+    .optional(),
+  error: z.string().optional(),
+  tools: z.array(toolActivityItemSchema).optional(),
+});
 
-function parseMetadata(metadata: string | undefined): MessageMetadata | null {
-  if (!metadata) return null;
-  try {
-    return JSON.parse(metadata);
-  } catch {
-    return null;
-  }
+const prodReadResultSchema = z.object({
+  type: z.literal("prod_read_result"),
+  requestId: requestIdSchema,
+  provider: z.enum(["convex", "netlify"]),
+  resourceKind: z.enum([
+    "deployment_status",
+    "logs",
+    "data_query",
+    "project_inventory",
+    "site_inventory",
+  ]),
+  endpoint: z.string().optional(),
+  redactionLevel: z.enum(["default", "strict", "raw_fallback"]).optional(),
+  rowCount: z.number().optional(),
+  logLineCount: z.number().optional(),
+  error: z.string().optional(),
+});
+
+const messageMetadataSchema = z.union([
+  toolActivitySchema,
+  commitProposalSchema,
+  prodReadProposalSchema,
+  prodReadResultSchema,
+]);
+
+type ToolActivity = z.infer<typeof toolActivitySchema>;
+type CommitProposal = z.infer<typeof commitProposalSchema>;
+type ProdReadProposal = z.infer<typeof prodReadProposalSchema>;
+type ProdReadResult = z.infer<typeof prodReadResultSchema>;
+type MessageMetadata = z.infer<typeof messageMetadataSchema>;
+type ChatUIMessage = UIMessage & { metadata?: unknown };
+
+function parseMetadata(metadata: unknown): MessageMetadata | null {
+  const result = messageMetadataSchema.safeParse(metadata);
+  return result.success ? result.data : null;
+}
+
+function hasRecordKey(
+  value: unknown,
+  key: string,
+): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && key in value;
 }
 
 // --- Simple markdown renderer (fallback) ---
@@ -236,7 +263,9 @@ function ToolActivityBadge({
             const meta = TOOL_CATALOG.find((c) => c.name === t.tool);
             const displayKey = meta?.inputDisplayKey;
             const displayValue = displayKey
-              ? (t.input as Record<string, string>)[displayKey]
+              ? hasRecordKey(t.input, displayKey)
+                ? String(t.input[displayKey])
+                : undefined
               : undefined;
             return (
               <div key={idx} className="flex items-center gap-1">
@@ -341,10 +370,12 @@ function CapabilitiesPanel({
 
 function CommitProposalCard({
   metadata,
-  conversationId,
+  threadId,
+  messageId,
 }: {
   metadata: CommitProposal;
-  conversationId: Id<"chatConversations">;
+  threadId: string;
+  messageId: string;
 }) {
   const confirmCommit = useMutation(api.chat.confirmCommit);
   const [confirming, setConfirming] = useState(false);
@@ -352,7 +383,7 @@ function CommitProposalCard({
   async function handleApprove() {
     setConfirming(true);
     try {
-      await confirmCommit({ conversationId });
+      await confirmCommit({ threadId, messageId });
     } finally {
       setConfirming(false);
     }
@@ -405,10 +436,12 @@ function renderProviderLabel(provider: ProdReadProposal["provider"]) {
 
 function ProdReadProposalCard({
   metadata,
-  conversationId,
+  threadId,
+  messageId,
 }: {
   metadata: ProdReadProposal;
-  conversationId: Id<"chatConversations">;
+  threadId: string;
+  messageId: string;
 }) {
   const confirmProdRead = useMutation(api.chat.confirmProdRead);
   const rejectProdRead = useMutation(api.chat.rejectProdRead);
@@ -422,7 +455,8 @@ function ProdReadProposalCard({
     try {
       await confirmProdRead({
         requestId: metadata.requestId,
-        conversationId,
+        threadId,
+        messageId,
       });
     } finally {
       setAction(null);
@@ -434,7 +468,8 @@ function ProdReadProposalCard({
     try {
       await rejectProdRead({
         requestId: metadata.requestId,
-        conversationId,
+        threadId,
+        messageId,
       });
     } finally {
       setAction(null);
@@ -442,7 +477,8 @@ function ProdReadProposalCard({
   }
 
   const providerLabel = renderProviderLabel(metadata.provider);
-  const scopeLabel = metadata.scope === "vault" ? "Vault scope" : "Global scope";
+  const scopeLabel =
+    metadata.scope === "vault" ? "Vault scope" : "Global scope";
 
   return (
     <div className="my-1 rounded-lg border border-border bg-background p-2.5">
@@ -517,22 +553,17 @@ function ProdReadProposalCard({
 
 function MessageBubble({
   msg,
-  conversationId,
+  threadId,
 }: {
-  msg: {
-    _id: Id<"chatMessages">;
-    role: "user" | "assistant";
-    content: string;
-    metadata?: string;
-  };
-  conversationId: Id<"chatConversations">;
+  msg: ChatUIMessage;
+  threadId: string;
 }) {
   const metadata = parseMetadata(msg.metadata);
 
   if (msg.role === "user") {
     return (
       <div className="mb-2 ml-auto max-w-[85%] rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground whitespace-pre-wrap">
-        {msg.content}
+        {msg.text}
       </div>
     );
   }
@@ -546,24 +577,26 @@ function MessageBubble({
         ? metadata.tools
         : metadata?.type === "prod_read_proposal"
           ? metadata.tools
-        : null;
+          : null;
 
   return (
     <div className="mb-2 max-w-[85%] rounded-lg bg-muted px-3 py-2 text-sm text-foreground">
       {toolsUsed && toolsUsed.length > 0 && (
         <ToolActivityBadge tools={toolsUsed} />
       )}
-      <div className="whitespace-pre-wrap">{renderMarkdown(msg.content)}</div>
+      <div className="whitespace-pre-wrap">{renderMarkdown(msg.text)}</div>
       {isCommitProposal && (
         <CommitProposalCard
           metadata={metadata}
-          conversationId={conversationId}
+          threadId={threadId}
+          messageId={msg.id}
         />
       )}
       {isProdReadProposal && (
         <ProdReadProposalCard
           metadata={metadata}
-          conversationId={conversationId}
+          threadId={threadId}
+          messageId={msg.id}
         />
       )}
     </div>
@@ -605,9 +638,8 @@ export function ChatFab() {
     loadFromStorage(STORAGE_KEY_OPEN, false),
   );
   const [input, setInput] = useState("");
-  // Local fallback for conversations without a vault context
-  const [localConversationId, setLocalConversationId] =
-    useState<Id<"chatConversations"> | null>(null);
+  // Local fallback for threads without a vault context
+  const [localThreadId, setLocalThreadId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -615,20 +647,39 @@ export function ChatFab() {
   const [size, setSize] = useState(() =>
     loadFromStorage(STORAGE_KEY_SIZE, { w: DEFAULT_WIDTH, h: DEFAULT_HEIGHT }),
   );
-  const dragRef = useRef<{ startX: number; startY: number; startW: number; startH: number } | null>(null);
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    startW: number;
+    startH: number;
+  } | null>(null);
 
-  const onDragStart = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    dragRef.current = { startX: e.clientX, startY: e.clientY, startW: size.w, startH: size.h };
-  }, [size]);
+  const onDragStart = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      dragRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        startW: size.w,
+        startH: size.h,
+      };
+    },
+    [size],
+  );
 
   const onDragMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragRef.current) return;
     const { startX, startY, startW, startH } = dragRef.current;
     // Dragging top-left corner: moving left increases width, moving up increases height
-    const newW = Math.max(MIN_WIDTH, Math.min(window.innerWidth - 24, startW + (startX - e.clientX)));
-    const newH = Math.max(MIN_HEIGHT, Math.min(window.innerHeight - 80, startH + (startY - e.clientY)));
+    const newW = Math.max(
+      MIN_WIDTH,
+      Math.min(window.innerWidth - 24, startW + (startX - e.clientX)),
+    );
+    const newH = Math.max(
+      MIN_HEIGHT,
+      Math.min(window.innerHeight - 80, startH + (startY - e.clientY)),
+    );
     setSize({ w: newW, h: newH });
   }, []);
 
@@ -639,36 +690,35 @@ export function ChatFab() {
   const { vaultId, branch, filePath, repositoryFullName } = useVaultContext();
   const viewer = useQuery(api.users.viewer);
 
-  // One conversation per user per vault — persisted in Convex
-  const vaultConversation = useQuery(
-    api.chat.getConversationForVault,
+  // One thread per user per vault — persisted in Convex
+  const vaultThread = useQuery(
+    api.chat.getThreadForVault,
     vaultId ? { vaultId } : "skip",
   );
-  const conversationId = vaultId
-    ? (vaultConversation?._id ?? null)
-    : localConversationId;
+  const threadId = vaultId ? vaultThread?.threadId ?? null : localThreadId;
 
-  const messages = useQuery(
-    api.chat.listMessages,
-    conversationId ? { conversationId } : "skip",
+  const threadContext = useQuery(
+    api.chat.getThreadContext,
+    threadId ? { threadId } : "skip",
   );
 
-  const conversation = useQuery(
-    api.chat.getConversation,
-    conversationId ? { conversationId } : "skip",
+  const messages = useUIMessages(
+    api.chat.listThreadMessages,
+    threadId ? { threadId } : "skip",
+    { initialNumItems: 50, stream: true },
   );
 
-  const createConversation = useMutation(api.chat.createConversation);
-  const deleteConversation = useMutation(api.chat.deleteConversation);
+  const createThread = useMutation(api.chat.createThread);
+  const deleteThread = useMutation(api.chat.deleteThread);
   const sendMessage = useMutation(api.chat.sendMessage);
 
   async function handleNewConversation() {
-    if (!conversationId) return;
-    await deleteConversation({ conversationId });
-    setLocalConversationId(null);
+    if (!threadId) return;
+    await deleteThread({ threadId });
+    setLocalThreadId(null);
   }
 
-  // Persist UI state to localStorage (conversation itself lives in Convex)
+  // Persist UI state to localStorage (thread itself lives in Convex)
   useEffect(() => {
     saveToStorage(STORAGE_KEY_OPEN, isOpen);
   }, [isOpen]);
@@ -677,14 +727,18 @@ export function ChatFab() {
     saveToStorage(STORAGE_KEY_SIZE, size);
   }, [size]);
 
+  const messageResults: ChatUIMessage[] = messages?.results ?? [];
+  const hasStreaming = messageResults.some(
+    (msg) => msg.role === "assistant" && msg.status === "streaming",
+  );
   const isWaitingForResponse =
-    messages &&
-    messages.length > 0 &&
-    messages[messages.length - 1].role === "user";
+    !hasStreaming &&
+    messageResults.length > 0 &&
+    messageResults[messageResults.length - 1].role === "user";
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messageResults]);
 
   useEffect(() => {
     if (isOpen) {
@@ -694,14 +748,19 @@ export function ChatFab() {
 
   // Clear sending flag when we get the assistant response
   useEffect(() => {
-    if (
-      messages &&
-      messages.length > 0 &&
-      messages[messages.length - 1].role === "assistant"
-    ) {
+    if (messageResults.length > 0) {
+      const last = messageResults[messageResults.length - 1];
+      if (last.role === "assistant") {
+        setSending(false);
+      }
+    }
+  }, [messageResults]);
+
+  useEffect(() => {
+    if (hasStreaming) {
       setSending(false);
     }
-  }, [messages]);
+  }, [hasStreaming]);
 
   async function handleSend() {
     const trimmed = input.trim();
@@ -710,18 +769,21 @@ export function ChatFab() {
     setSending(true);
     setInput("");
 
-    let convId = conversationId;
-    if (!convId) {
-      // get-or-create: if vaultId is provided the backend returns the
-      // existing conversation for this user+vault, or creates a new one.
-      convId = await createConversation({ vaultId: vaultId ?? undefined });
+    let activeThreadId = threadId;
+    if (!activeThreadId) {
+      activeThreadId = await createThread({
+        vaultId: vaultId ?? undefined,
+        repositoryFullName,
+        branch,
+        filePath,
+      });
       if (!vaultId) {
-        setLocalConversationId(convId);
+        setLocalThreadId(activeThreadId);
       }
     }
 
     await sendMessage({
-      conversationId: convId,
+      threadId: activeThreadId,
       content: trimmed,
       vaultId,
       filePath,
@@ -742,7 +804,11 @@ export function ChatFab() {
       {isOpen && (
         <div
           className="fixed bottom-16 right-3 z-[9999] flex max-sm:!left-0 max-sm:!right-0 max-sm:!bottom-16 max-sm:!w-auto max-sm:!h-[calc(100%-5rem)] max-sm:rounded-none flex-col rounded-xl border border-border bg-popover shadow-xl"
-          style={{ width: size.w, height: size.h, maxHeight: 'calc(100vh - 5rem)' }}
+          style={{
+            width: size.w,
+            height: size.h,
+            maxHeight: "calc(100vh - 5rem)",
+          }}
         >
           {/* Drag handle (top-left corner) */}
           <div
@@ -751,10 +817,30 @@ export function ChatFab() {
             onPointerUp={onDragEnd}
             className="absolute -left-1.5 -top-1.5 h-6 w-6 cursor-nwse-resize max-sm:hidden z-10 flex items-end justify-end touch-none"
           >
-            <svg width="10" height="10" viewBox="0 0 10 10" className="text-muted-foreground/50 mr-0.5 mb-0.5">
-              <path d="M0 10L10 0" stroke="currentColor" strokeWidth="1.5" fill="none" />
-              <path d="M0 6L6 0" stroke="currentColor" strokeWidth="1.5" fill="none" />
-              <path d="M0 2L2 0" stroke="currentColor" strokeWidth="1.5" fill="none" />
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 10 10"
+              className="text-muted-foreground/50 mr-0.5 mb-0.5"
+            >
+              <path
+                d="M0 10L10 0"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                fill="none"
+              />
+              <path
+                d="M0 6L6 0"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                fill="none"
+              />
+              <path
+                d="M0 2L2 0"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                fill="none"
+              />
             </svg>
           </div>
 
@@ -762,7 +848,7 @@ export function ChatFab() {
           <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
             <span className="text-sm font-medium text-foreground">Chat</span>
             <div className="flex items-center gap-0.5">
-              {conversationId && (
+              {threadId && (
                 <button
                   onClick={() => void handleNewConversation()}
                   title="New conversation"
@@ -786,15 +872,11 @@ export function ChatFab() {
               repositoryFullName={repositoryFullName}
               vaultId={vaultId}
               hasGithubToken={Boolean(viewer?.hasGithubAccessToken)}
-              systemPrompt={conversation?.systemPrompt}
+              systemPrompt={threadContext?.systemPrompt}
             />
-            {conversationId &&
-              messages?.map((msg: (typeof messages)[number]) => (
-                <MessageBubble
-                  key={msg._id}
-                  msg={msg}
-                  conversationId={conversationId}
-                />
+            {threadId &&
+              messageResults.map((msg) => (
+                <MessageBubble key={msg.id} msg={msg} threadId={threadId} />
               ))}
             {isWaitingForResponse && (
               <div className="mb-2 flex max-w-[85%] items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">

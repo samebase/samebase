@@ -271,6 +271,8 @@ Auth:
   for them.
 - Prefer breadth-first, simplest-viable fixes before deeper changes; stop once a
   minimal solution works.
+- When removing legacy systems, prefer clean removal and rely on git history for
+  recovery instead of keeping deprecated code or data structures around.
 - Always create a working branch (use `codex/` prefix when needed), and push
   after every commit so the remote stays up to date.
 - Do not introduce new `.mjs` files; keep `type: "module"` and prefer `.js`

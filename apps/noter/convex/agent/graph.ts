@@ -8,6 +8,7 @@ import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import type { ToolContext } from "./tools";
 import { createTools } from "./tools";
+import type { MessageDoc } from "@convex-dev/agent/validators";
 
 const COMMIT_SENTINEL = "__COMMIT_PROPOSAL__:";
 const PROD_READ_SENTINEL = "__PROD_READ_PROPOSAL__:";
@@ -27,6 +28,11 @@ const PROD_READ_PROPOSAL_SCHEMA = z.object({
   summary: z.string(),
 });
 type ProdReadProposal = z.infer<typeof PROD_READ_PROPOSAL_SCHEMA>;
+
+type StepSnapshot = {
+  toolCalls?: Array<{ toolName: string; input: unknown }>;
+  toolResults?: Array<{ output: unknown }>;
+};
 
 function createModel(provider: string, model: string) {
   switch (provider) {
@@ -54,6 +60,8 @@ export interface GraphResult {
   prodReadProposal?: ProdReadProposal;
   /** Log of tool calls made during this invocation */
   toolActivity: Array<{ tool: string; input: unknown }>;
+  /** Messages saved by the agent during this invocation */
+  savedMessages?: MessageDoc[];
 }
 
 /**
@@ -65,41 +73,42 @@ export async function runAgentGraph(opts: {
   ctx: ActionCtx;
   toolCtx?: ToolContext;
   systemPrompt: string;
-  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  threadId: string;
+  promptMessageId: string;
   provider?: string;
   model?: string;
   userId?: Id<"users">;
-  threadId?: string;
 }): Promise<GraphResult> {
   const {
     ctx,
     toolCtx,
     systemPrompt,
-    messages,
+    threadId,
+    promptMessageId,
     provider = "anthropic",
     model = "claude-sonnet-4-20250514",
     userId,
-    threadId,
   } = opts;
 
   const agent = createNoterAgent(provider, model);
   const tools = toolCtx ? createTools(toolCtx) : undefined;
 
-  const result = await agent.generateText(
+  const steps: StepSnapshot[] = [];
+
+  const result = await agent.streamText(
     ctx,
     { userId, threadId },
     {
       system: systemPrompt,
-      messages: messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
+      promptMessageId,
       tools,
+      onStepFinish: async (step: StepSnapshot) => {
+        steps.push(step);
+      },
       ...(tools ? { stopWhen: stepCountIs(12) } : {}),
     },
     {
-      storageOptions: { saveMessages: "none" },
-      contextOptions: { recentMessages: 0 },
+      saveStreamDeltas: true,
     },
   );
 
@@ -107,15 +116,15 @@ export async function runAgentGraph(opts: {
   let commitProposal: string | undefined;
   let prodReadProposal: ProdReadProposal | undefined;
 
-  for (const step of result.steps) {
-    for (const call of step.toolCalls) {
+  for (const step of steps) {
+    for (const call of step.toolCalls ?? []) {
       toolActivity.push({
         tool: call.toolName,
         input: call.input,
       });
     }
 
-    for (const toolResult of step.toolResults) {
+    for (const toolResult of step.toolResults ?? []) {
       if (typeof toolResult.output !== "string") {
         continue;
       }
@@ -140,12 +149,23 @@ export async function runAgentGraph(opts: {
     }
   }
 
-  const text = result.text.trim().length > 0 ? result.text : "(No response)";
+  const savedMessages = result.savedMessages;
+  let text = "(No response)";
+  if (savedMessages && savedMessages.length > 0) {
+    for (let i = savedMessages.length - 1; i >= 0; i -= 1) {
+      const msg = savedMessages[i];
+      if (!msg.tool && msg.message?.role === "assistant") {
+        text = msg.text ?? text;
+        break;
+      }
+    }
+  }
 
   return {
     text,
     commitProposal,
     prodReadProposal,
     toolActivity,
+    savedMessages,
   };
 }

@@ -2,7 +2,7 @@
 
 import { internalAction } from "./_generated/server";
 import { v, Infer } from "convex/values";
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { z } from "zod";
 import { GithubTreeData } from "./schema";
@@ -11,6 +11,14 @@ import type { ToolContext } from "./agent/tools";
 import { buildSystemPrompt } from "./agent/systemPrompt";
 import { runAgentGraph } from "./agent/graph";
 import { applyRedaction, getProdAccessMode } from "./infraReadPolicy";
+import type { MessageDoc } from "@convex-dev/agent/validators";
+import { saveMessage } from "@convex-dev/agent";
+import {
+  buildCommitProposalPayload,
+  buildProdReadProposalPayload,
+  buildProdReadResultPayload,
+  buildToolActivityPayload,
+} from "./chat";
 
 const MODEL = "claude-sonnet-4-20250514";
 
@@ -61,26 +69,33 @@ function parseAllowedDataTable(value: unknown): AllowedDataTable {
   return allowedDataTableSchema.parse(value);
 }
 
+function selectAssistantMessageId(
+  messages: MessageDoc[] | undefined,
+): string | undefined {
+  if (!messages) return undefined;
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const msg = messages[i];
+    if (!msg.tool && msg.message?.role === "assistant") {
+      return msg._id;
+    }
+  }
+  return undefined;
+}
+
 export const generateResponse = internalAction({
   args: {
-    conversationId: v.id("chatConversations"),
-    vaultId: v.optional(v.id("vaults")),
-    filePath: v.optional(v.string()),
-    branch: v.optional(v.string()),
+    threadId: v.string(),
+    promptMessageId: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const conversation = await ctx.runQuery(
-      internal.chat.getConversationForAction,
-      { conversationId: args.conversationId },
+    const threadContext = await ctx.runQuery(
+      internal.chat.getThreadContextForAction,
+      { threadId: args.threadId },
     );
-    if (!conversation) {
-      throw new Error("Conversation not found");
+    if (!threadContext) {
+      throw new Error("Thread not found");
     }
-
-    const messages = await ctx.runQuery(internal.chat.loadMessagesForAction, {
-      conversationId: args.conversationId,
-    });
 
     // Load vault context if available
     let vault: {
@@ -95,9 +110,9 @@ export const generateResponse = internalAction({
       githubAccessToken?: string;
     } | null = null;
 
-    if (args.vaultId) {
+    if (threadContext.vaultId) {
       const v = await ctx.runQuery(internal.vault.getById, {
-        id: args.vaultId,
+        id: threadContext.vaultId,
       });
       if (v) {
         vault = v;
@@ -120,19 +135,19 @@ export const generateResponse = internalAction({
         ?.filter((p: string | undefined): p is string => !!p);
     }
 
-    if (args.filePath && vault && user?.githubAccessToken) {
+    if (threadContext.filePath && vault && user?.githubAccessToken) {
       try {
         fileContent = await executeReadFile(
           {
             ctx,
-            conversationId: args.conversationId,
+            threadId: args.threadId,
             vaultId: vault._id,
             owner: vault.ghRepoOwner,
             repo: vault.ghRepoName,
             userId: user._id,
             accessToken: user.githubAccessToken,
           },
-          { path: args.filePath },
+          { path: threadContext.filePath },
         );
       } catch {
         // File content is optional context — don't fail the request
@@ -142,101 +157,104 @@ export const generateResponse = internalAction({
     const systemPrompt = buildSystemPrompt({
       owner: vault?.ghRepoOwner,
       repo: vault?.ghRepoName,
-      branch: args.branch,
-      filePath: args.filePath,
+      branch: threadContext.branch,
+      filePath: threadContext.filePath,
       fileContent,
       repoTree,
       toolsEnabled: Boolean(hasToolAccess),
     });
 
-    await ctx.runMutation(internal.chat.saveSystemPrompt, {
-      conversationId: args.conversationId,
+    await ctx.runMutation(internal.chat.saveThreadSystemPrompt, {
+      threadId: args.threadId,
       systemPrompt,
     });
 
-    if (!hasToolAccess || !vault || !user?.githubAccessToken) {
-      // No tools — run graph without tool context (tools won't be bound)
-      const result = await runAgentGraph({
-        ctx,
-        systemPrompt,
-        messages,
-        model: MODEL,
-        userId: conversation.userId,
-      });
-
-      await ctx.runMutation(internal.chat.saveAssistantMessage, {
-        conversationId: args.conversationId,
-        content: result.text,
-        model: MODEL,
-      });
-      return null;
-    }
-
-    // Build tool context
-    const toolCtx: ToolContext = {
-      ctx,
-      vaultId: vault._id,
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
-      userId: user._id,
-      accessToken: user.githubAccessToken,
-      conversationId: args.conversationId,
-    };
+    const toolCtx: ToolContext | undefined =
+      hasToolAccess && vault && user?.githubAccessToken
+        ? {
+            ctx,
+            threadId: args.threadId,
+            vaultId: vault._id,
+            owner: vault.ghRepoOwner,
+            repo: vault.ghRepoName,
+            userId: user._id,
+            accessToken: user.githubAccessToken,
+          }
+        : undefined;
 
     const result = await runAgentGraph({
       ctx,
       toolCtx,
       systemPrompt,
-      messages,
+      threadId: args.threadId,
+      promptMessageId: args.promptMessageId,
       model: MODEL,
-      userId: conversation.userId,
+      userId: threadContext.userId,
     });
 
-    if (result.prodReadProposal) {
-      await ctx.runMutation(internal.chat.saveAssistantMessage, {
-        conversationId: args.conversationId,
-        content:
-          result.prodReadProposal.summary ??
-          "I need your approval before running this production read.",
-        model: MODEL,
-        metadata: JSON.stringify({
-          type: "prod_read_proposal",
-          requestId: result.prodReadProposal.requestId,
-          scope: result.prodReadProposal.scope,
-          provider: result.prodReadProposal.provider,
-          resourceKind: result.prodReadProposal.resourceKind,
-          toolName: result.prodReadProposal.toolName,
-          paramsPreview: result.prodReadProposal.paramsPreview,
-          status: "proposed",
-          tools: result.toolActivity,
-        }),
-      });
-    } else if (result.commitProposal) {
-      // Save as a commit proposal message (same metadata shape as before)
-      await ctx.runMutation(internal.chat.saveAssistantMessage, {
-        conversationId: args.conversationId,
-        content: `I've prepared the changes and propose committing them with the message: "${result.commitProposal}"`,
-        model: MODEL,
-        metadata: JSON.stringify({
-          type: "commit_proposal",
-          message: result.commitProposal,
-          tools: result.toolActivity,
-        }),
-      });
-    } else {
-      const metadata =
-        result.toolActivity.length > 0
-          ? JSON.stringify({
-              type: "tool_activity",
-              tools: result.toolActivity,
-            })
-          : undefined;
+    const assistantMessageId = selectAssistantMessageId(result.savedMessages);
+    if (!assistantMessageId) {
+      return null;
+    }
 
-      await ctx.runMutation(internal.chat.saveAssistantMessage, {
-        conversationId: args.conversationId,
-        content: result.text,
-        model: MODEL,
-        metadata,
+    if (result.prodReadProposal) {
+      const summary =
+        result.prodReadProposal.summary ??
+        "I need your approval before running this production read.";
+      await ctx.runMutation(components.agent.messages.updateMessage, {
+        messageId: assistantMessageId,
+        patch: {
+          message: { role: "assistant", content: summary },
+        },
+      });
+
+      const payload = buildProdReadProposalPayload(
+        {
+          ...result.prodReadProposal,
+          status: "proposed",
+        },
+        result.toolActivity.length > 0 ? result.toolActivity : undefined,
+      );
+
+      await ctx.runMutation(internal.chat.saveMessageMetadataInternal, {
+        messageId: assistantMessageId,
+        threadId: args.threadId,
+        type: payload.type,
+        payloadJson: JSON.stringify(payload),
+      });
+      return null;
+    }
+
+    if (result.commitProposal) {
+      const summary = `I've prepared the changes and propose committing them with the message: "${result.commitProposal}"`;
+      await ctx.runMutation(components.agent.messages.updateMessage, {
+        messageId: assistantMessageId,
+        patch: {
+          message: { role: "assistant", content: summary },
+        },
+      });
+
+      const payload = buildCommitProposalPayload({
+        message: result.commitProposal,
+        tools: result.toolActivity.length > 0 ? result.toolActivity : undefined,
+      });
+
+      await ctx.runMutation(internal.chat.saveMessageMetadataInternal, {
+        messageId: assistantMessageId,
+        threadId: args.threadId,
+        type: payload.type,
+        payloadJson: JSON.stringify(payload),
+      });
+      return null;
+    }
+
+    if (result.toolActivity.length > 0) {
+      const payload = buildToolActivityPayload(result.toolActivity);
+      await ctx.runMutation(internal.chat.saveMessageMetadataInternal, {
+        messageId: assistantMessageId,
+        threadId: args.threadId,
+        type: payload.type,
+        payloadJson: JSON.stringify(payload),
       });
     }
 
@@ -247,6 +265,7 @@ export const generateResponse = internalAction({
 export const executeApprovedProdRead = internalAction({
   args: {
     requestId: v.id("aiProdAccessRequests"),
+    proposalMessageId: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -289,24 +308,29 @@ export const executeApprovedProdRead = internalAction({
       await ctx.runMutation(
         internal.chat.updateProdReadProposalMessageStatusInternal,
         {
-          conversationId: request.conversationId,
-          requestId: request._id,
+          messageId: args.proposalMessageId,
           status: "expired",
           error,
         },
       );
-      await ctx.runMutation(internal.chat.saveAssistantMessage, {
-        conversationId: request.conversationId,
-        content: `Production read expired before execution: ${error}.`,
-        model: MODEL,
-        metadata: JSON.stringify({
-          type: "prod_read_result",
-          requestId: request._id,
-          provider: request.provider,
-          resourceKind: request.resourceKind,
-          endpoint: fallbackEndpoint,
-          error,
-        }),
+
+      const expiredMessage = `Production read expired before execution: ${error}.`;
+      const { messageId } = await saveMessage(ctx, components.agent, {
+        threadId: request.threadId,
+        message: { role: "assistant", content: expiredMessage },
+      });
+      const payload = buildProdReadResultPayload({
+        requestId: request._id,
+        provider: request.provider,
+        resourceKind: request.resourceKind,
+        endpoint: fallbackEndpoint,
+        error,
+      });
+      await ctx.runMutation(internal.chat.saveMessageMetadataInternal, {
+        messageId,
+        threadId: request.threadId,
+        type: payload.type,
+        payloadJson: JSON.stringify(payload),
       });
       return null;
     }
@@ -454,8 +478,7 @@ export const executeApprovedProdRead = internalAction({
       await ctx.runMutation(
         internal.chat.updateProdReadProposalMessageStatusInternal,
         {
-          conversationId: request.conversationId,
-          requestId: request._id,
+          messageId: args.proposalMessageId,
           status: "executed",
         },
       );
@@ -467,20 +490,24 @@ export const executeApprovedProdRead = internalAction({
         redacted.output,
       ].join("\n");
 
-      await ctx.runMutation(internal.chat.saveAssistantMessage, {
-        conversationId: request.conversationId,
-        content: output,
-        model: MODEL,
-        metadata: JSON.stringify({
-          type: "prod_read_result",
-          requestId: request._id,
-          provider: request.provider,
-          resourceKind: request.resourceKind,
-          endpoint: executionResult.endpoint,
-          redactionLevel: redacted.effectiveLevel,
-          rowCount: executionResult.rowCount,
-          logLineCount: executionResult.logLineCount,
-        }),
+      const { messageId } = await saveMessage(ctx, components.agent, {
+        threadId: request.threadId,
+        message: { role: "assistant", content: output },
+      });
+      const payload = buildProdReadResultPayload({
+        requestId: request._id,
+        provider: request.provider,
+        resourceKind: request.resourceKind,
+        endpoint: executionResult.endpoint,
+        redactionLevel: redacted.effectiveLevel,
+        rowCount: executionResult.rowCount,
+        logLineCount: executionResult.logLineCount,
+      });
+      await ctx.runMutation(internal.chat.saveMessageMetadataInternal, {
+        messageId,
+        threadId: request.threadId,
+        type: payload.type,
+        payloadJson: JSON.stringify(payload),
       });
 
       return null;
@@ -510,24 +537,28 @@ export const executeApprovedProdRead = internalAction({
       await ctx.runMutation(
         internal.chat.updateProdReadProposalMessageStatusInternal,
         {
-          conversationId: request.conversationId,
-          requestId: request._id,
+          messageId: args.proposalMessageId,
           status: "failed",
           error: message,
         },
       );
-      await ctx.runMutation(internal.chat.saveAssistantMessage, {
-        conversationId: request.conversationId,
-        content: `Production read failed: ${message}.`,
-        model: MODEL,
-        metadata: JSON.stringify({
-          type: "prod_read_result",
-          requestId: request._id,
-          provider: request.provider,
-          resourceKind: request.resourceKind,
-          endpoint: fallbackEndpoint,
-          error: message,
-        }),
+      const failedMessage = `Production read failed: ${message}.`;
+      const { messageId } = await saveMessage(ctx, components.agent, {
+        threadId: request.threadId,
+        message: { role: "assistant", content: failedMessage },
+      });
+      const payload = buildProdReadResultPayload({
+        requestId: request._id,
+        provider: request.provider,
+        resourceKind: request.resourceKind,
+        endpoint: fallbackEndpoint,
+        error: message,
+      });
+      await ctx.runMutation(internal.chat.saveMessageMetadataInternal, {
+        messageId,
+        threadId: request.threadId,
+        type: payload.type,
+        payloadJson: JSON.stringify(payload),
       });
       return null;
     }

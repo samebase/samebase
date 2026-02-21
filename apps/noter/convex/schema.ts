@@ -211,7 +211,6 @@ export default defineSchema({
     netlifyDefaultUrl: v.optional(v.string()),
     netlifyProductionUrl: v.optional(v.string()),
     netlifyBuildHookId: v.optional(v.string()),
-
   })
     .index("by_vault", ["vaultId"])
     .index("by_status", ["status"]),
@@ -335,28 +334,42 @@ export default defineSchema({
    * Collaborative editing updates for operational transformation.
    * Stores individual changes made to files for proper conflict resolution.
    */
+
   /**
-   * Chat conversations per user.
+   * Agent thread context for AI Fab.
+   * Stores per-thread context not modeled by the Agent component.
    */
-  chatConversations: defineTable({
+  agentThreadContext: defineTable({
+    threadId: v.string(),
     userId: v.id("users"),
-    title: v.optional(v.string()),
     vaultId: v.optional(v.id("vaults")),
+    repositoryFullName: v.optional(v.string()),
+    branch: v.optional(v.string()),
+    filePath: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
+    createdAt: v.number(),
   })
+    .index("by_threadId", ["threadId"])
     .index("by_userId", ["userId"])
     .index("by_userId_and_vaultId", ["userId", "vaultId"]),
 
   /**
-   * Chat messages within a conversation.
+   * Chat message metadata for AI Fab (commit proposals, prod-read proposals, tool activity).
    */
-  chatMessages: defineTable({
-    conversationId: v.id("chatConversations"),
-    role: v.union(v.literal("user"), v.literal("assistant")),
-    content: v.string(),
-    model: v.optional(v.string()),
-    metadata: v.optional(v.string()),
-  }).index("by_conversationId", ["conversationId"]),
+  chatMessageMetadata: defineTable({
+    messageId: v.string(),
+    threadId: v.string(),
+    type: v.union(
+      v.literal("tool_activity"),
+      v.literal("commit_proposal"),
+      v.literal("prod_read_proposal"),
+      v.literal("prod_read_result"),
+    ),
+    payloadJson: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_messageId", ["messageId"])
+    .index("by_threadId", ["threadId"]),
 
   /**
    * Waitlist for invite-only access.
@@ -370,7 +383,7 @@ export default defineSchema({
    * Approval-first requests for AI reads against production infrastructure/data.
    */
   aiProdAccessRequests: defineTable({
-    conversationId: v.id("chatConversations"),
+    threadId: v.string(),
     requesterUserId: v.id("users"),
     vaultId: v.optional(v.id("vaults")),
 
@@ -389,7 +402,7 @@ export default defineSchema({
     expiresAt: v.optional(v.number()),
     error: v.optional(v.string()),
   })
-    .index("by_conversation", ["conversationId"])
+    .index("by_thread", ["threadId"])
     .index("by_requester", ["requesterUserId"])
     .index("by_status", ["status"])
     .index("by_vault", ["vaultId"]),

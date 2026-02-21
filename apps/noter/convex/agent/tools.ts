@@ -38,7 +38,7 @@ function catalogDescription(name: string): string {
 
 export interface ToolContext {
   ctx: ActionCtx;
-  conversationId: Id<"chatConversations">;
+  threadId: string;
   vaultId: Id<"vaults">;
   owner: string;
   repo: string;
@@ -370,7 +370,7 @@ async function executeProdReadRequest(
   const proposal = await toolCtx.ctx.runMutation(
     internal.chat.proposeProdReadInternal,
     {
-      conversationId: toolCtx.conversationId,
+      threadId: toolCtx.threadId,
       requesterUserId: toolCtx.userId,
       vaultId: input.scope === "vault" ? toolCtx.vaultId : undefined,
       scope: input.scope,

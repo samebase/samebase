@@ -5,10 +5,21 @@ import {
   internalQuery,
 } from "./_generated/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
+import { paginationOptsValidator } from "convex/server";
+import { z } from "zod";
+import { components, internal } from "./_generated/api";
 import { getUserId } from "./common";
 import { isAdminUser } from "./users";
-import { z } from "zod";
+import {
+  listMessages,
+  saveMessage,
+  syncStreams,
+  toUIMessages,
+  type UIMessage,
+} from "@convex-dev/agent";
+import { vStreamArgs } from "@convex-dev/agent/validators";
+import type { Id } from "./_generated/dataModel";
+import type { MessageDoc } from "@convex-dev/agent/validators";
 import {
   ProdAccessAuditAction,
   ProdAccessProvider,
@@ -18,6 +29,8 @@ import {
   ProdAccessStatus,
 } from "./schema";
 
+const { string, optional, object, union, literal, number, id, boolean } = v;
+
 function hashText(input: string): string {
   let hash = 5381;
   for (let i = 0; i < input.length; i++) {
@@ -26,170 +39,443 @@ function hashText(input: string): string {
   return Math.abs(hash >>> 0).toString(16);
 }
 
+const toolActivityItemSchema = z.object({
+  tool: z.string(),
+  input: z.unknown(),
+});
+
+type ToolActivityItem = z.infer<typeof toolActivityItemSchema>;
+
+type ToolActivityPayload = {
+  type: "tool_activity";
+  tools: ToolActivityItem[];
+};
+
+type CommitProposalPayload = {
+  type: "commit_proposal";
+  message: string;
+  committed?: boolean;
+  tools?: ToolActivityItem[];
+};
+
+type ProdReadProposalPayload = {
+  type: "prod_read_proposal";
+  requestId: string;
+  scope: "vault" | "global";
+  provider: "convex" | "netlify";
+  resourceKind:
+    | "deployment_status"
+    | "logs"
+    | "data_query"
+    | "project_inventory"
+    | "site_inventory";
+  toolName: string;
+  paramsPreview: string;
+  summary: string;
+  status?:
+    | "proposed"
+    | "approved"
+    | "rejected"
+    | "executed"
+    | "failed"
+    | "expired";
+  error?: string;
+  tools?: ToolActivityItem[];
+};
+
+type ProdReadResultPayload = {
+  type: "prod_read_result";
+  requestId: string;
+  provider: "convex" | "netlify";
+  resourceKind:
+    | "deployment_status"
+    | "logs"
+    | "data_query"
+    | "project_inventory"
+    | "site_inventory";
+  endpoint?: string;
+  redactionLevel?: "default" | "strict" | "raw_fallback";
+  rowCount?: number;
+  logLineCount?: number;
+  error?: string;
+};
+
+type MessageMetadata =
+  | ToolActivityPayload
+  | CommitProposalPayload
+  | ProdReadProposalPayload
+  | ProdReadResultPayload;
+
 const metadataTypeSchema = z.object({
   type: z.string(),
 });
 
-const prodReadProposalMetadataSchema = z
+const commitProposalPayloadSchema = z
+  .object({
+    type: z.literal("commit_proposal"),
+    message: z.string(),
+    committed: z.boolean().optional(),
+    tools: z.array(toolActivityItemSchema).optional(),
+  })
+  .catchall(z.unknown());
+
+const prodReadProposalPayloadSchema = z
   .object({
     type: z.literal("prod_read_proposal"),
     requestId: z.string(),
+    scope: z.enum(["vault", "global"]),
+    provider: z.enum(["convex", "netlify"]),
+    resourceKind: z.enum([
+      "deployment_status",
+      "logs",
+      "data_query",
+      "project_inventory",
+      "site_inventory",
+    ]),
+    toolName: z.string(),
+    paramsPreview: z.string(),
+    summary: z.string(),
+    status: z
+      .enum([
+        "proposed",
+        "approved",
+        "rejected",
+        "executed",
+        "failed",
+        "expired",
+      ])
+      .optional(),
+    error: z.string().optional(),
+    tools: z.array(toolActivityItemSchema).optional(),
   })
   .catchall(z.unknown());
 
-const commitProposalMetadataSchema = z
+const toolActivityPayloadSchema = z
   .object({
-    type: z.literal("commit_proposal"),
-    committed: z.boolean().optional(),
+    type: z.literal("tool_activity"),
+    tools: z.array(toolActivityItemSchema),
   })
   .catchall(z.unknown());
 
-function parseMetadataWithSchema<T extends z.ZodTypeAny>(
-  metadata: string | undefined,
-  schema: T,
-): z.infer<T> | null {
-  if (!metadata) {
-    return null;
-  }
+const prodReadResultPayloadSchema = z
+  .object({
+    type: z.literal("prod_read_result"),
+    requestId: z.string(),
+    provider: z.enum(["convex", "netlify"]),
+    resourceKind: z.enum([
+      "deployment_status",
+      "logs",
+      "data_query",
+      "project_inventory",
+      "site_inventory",
+    ]),
+    endpoint: z.string().optional(),
+    redactionLevel: z.enum(["default", "strict", "raw_fallback"]).optional(),
+    rowCount: z.number().optional(),
+    logLineCount: z.number().optional(),
+    error: z.string().optional(),
+  })
+  .catchall(z.unknown());
+
+function parseMetadataPayload(payloadJson: string): MessageMetadata | null {
   try {
-    const parsed = JSON.parse(metadata);
-    const result = schema.safeParse(parsed);
-    return result.success ? result.data : null;
+    const parsed = JSON.parse(payloadJson);
+    const typeResult = metadataTypeSchema.safeParse(parsed);
+    if (!typeResult.success) return null;
+    if (parsed.type === "commit_proposal") {
+      const result = commitProposalPayloadSchema.safeParse(parsed);
+      return result.success ? result.data : null;
+    }
+    if (parsed.type === "prod_read_proposal") {
+      const result = prodReadProposalPayloadSchema.safeParse(parsed);
+      return result.success ? result.data : null;
+    }
+    if (parsed.type === "tool_activity") {
+      const result = toolActivityPayloadSchema.safeParse(parsed);
+      return result.success ? result.data : null;
+    }
+    if (parsed.type === "prod_read_result") {
+      const result = prodReadResultPayloadSchema.safeParse(parsed);
+      return result.success ? result.data : null;
+    }
+    return null;
   } catch {
     return null;
   }
 }
 
-export const createConversation = mutation({
-  args: { vaultId: v.optional(v.id("vaults")) },
-  returns: v.id("chatConversations"),
+function parseCommitPayload(payloadJson: string): CommitProposalPayload | null {
+  const parsed = parseMetadataPayload(payloadJson);
+  return parsed?.type === "commit_proposal" ? parsed : null;
+}
+
+function parseProdReadProposalPayload(
+  payloadJson: string,
+): ProdReadProposalPayload | null {
+  const parsed = parseMetadataPayload(payloadJson);
+  return parsed?.type === "prod_read_proposal" ? parsed : null;
+}
+
+function ensureThreadAccess<T extends { userId: Id<"users"> }>(
+  ctxUserId: Id<"users">,
+  threadContext: T | null,
+): asserts threadContext is T {
+  if (!threadContext || threadContext.userId !== ctxUserId) {
+    throw new Error("Thread not found");
+  }
+}
+
+export const createThread = mutation({
+  args: {
+    vaultId: optional(id("vaults")),
+    repositoryFullName: optional(string()),
+    branch: optional(string()),
+    filePath: optional(string()),
+  },
+  returns: string(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
 
-    // One conversation per user per vault — return existing if found
     if (args.vaultId) {
       const existing = await ctx.db
-        .query("chatConversations")
+        .query("agentThreadContext")
         .withIndex("by_userId_and_vaultId", (q) =>
           q.eq("userId", userId).eq("vaultId", args.vaultId),
         )
         .first();
-      if (existing) return existing._id;
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          repositoryFullName:
+            args.repositoryFullName ?? existing.repositoryFullName,
+          branch: args.branch ?? existing.branch,
+          filePath: args.filePath ?? existing.filePath,
+        });
+        return existing.threadId;
+      }
     }
 
-    return await ctx.db.insert("chatConversations", {
+    const thread = await ctx.runMutation(
+      components.agent.threads.createThread,
+      {
+        userId,
+      },
+    );
+
+    await ctx.db.insert("agentThreadContext", {
+      threadId: thread._id,
       userId,
       vaultId: args.vaultId,
+      repositoryFullName: args.repositoryFullName,
+      branch: args.branch,
+      filePath: args.filePath,
+      systemPrompt: undefined,
+      createdAt: Date.now(),
     });
+
+    return thread._id;
   },
 });
 
-export const getConversationForVault = query({
-  args: { vaultId: v.id("vaults") },
-  returns: v.union(
-    v.object({
-      _id: v.id("chatConversations"),
-      _creationTime: v.number(),
-      userId: v.id("users"),
-      title: v.optional(v.string()),
-      vaultId: v.optional(v.id("vaults")),
-      systemPrompt: v.optional(v.string()),
+export const getThreadForVault = query({
+  args: { vaultId: id("vaults") },
+  returns: union(
+    object({
+      threadId: string(),
+      systemPrompt: optional(string()),
     }),
     v.null(),
   ),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    return await ctx.db
-      .query("chatConversations")
+    const thread = await ctx.db
+      .query("agentThreadContext")
       .withIndex("by_userId_and_vaultId", (q) =>
         q.eq("userId", userId).eq("vaultId", args.vaultId),
       )
       .first();
+    if (!thread) return null;
+    return { threadId: thread.threadId, systemPrompt: thread.systemPrompt };
   },
 });
 
-export const deleteConversation = mutation({
-  args: { conversationId: v.id("chatConversations") },
+export const getThreadContext = query({
+  args: { threadId: string() },
+  returns: union(
+    object({
+      threadId: string(),
+      systemPrompt: optional(string()),
+      vaultId: optional(id("vaults")),
+      repositoryFullName: optional(string()),
+      branch: optional(string()),
+      filePath: optional(string()),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+    const thread = await ctx.db
+      .query("agentThreadContext")
+      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
+      .first();
+    ensureThreadAccess(userId, thread);
+    return {
+      threadId: thread.threadId,
+      systemPrompt: thread.systemPrompt,
+      vaultId: thread.vaultId,
+      repositoryFullName: thread.repositoryFullName,
+      branch: thread.branch,
+      filePath: thread.filePath,
+    };
+  },
+});
+
+export const deleteThread = mutation({
+  args: { threadId: string() },
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    const conversation = await ctx.db.get(args.conversationId);
-    if (!conversation || conversation.userId !== userId) {
-      throw new Error("Conversation not found");
-    }
-    // Delete all messages in the conversation
-    const messages = await ctx.db
-      .query("chatMessages")
-      .withIndex("by_conversationId", (q) =>
-        q.eq("conversationId", args.conversationId),
-      )
+    const thread = await ctx.db
+      .query("agentThreadContext")
+      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
+      .first();
+    ensureThreadAccess(userId, thread);
+
+    await ctx.runMutation(components.agent.threads.deleteAllForThreadIdAsync, {
+      threadId: args.threadId,
+    });
+
+    const metadata = await ctx.db
+      .query("chatMessageMetadata")
+      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
       .collect();
-    for (const msg of messages) {
-      await ctx.db.delete(msg._id);
+    for (const row of metadata) {
+      await ctx.db.delete(row._id);
     }
-    await ctx.db.delete(args.conversationId);
+
+    if (thread) {
+      await ctx.db.delete(thread._id);
+    }
+
     return null;
   },
 });
 
 export const sendMessage = mutation({
   args: {
-    conversationId: v.id("chatConversations"),
-    content: v.string(),
-    vaultId: v.optional(v.id("vaults")),
-    filePath: v.optional(v.string()),
-    branch: v.optional(v.string()),
+    threadId: string(),
+    content: string(),
+    vaultId: optional(id("vaults")),
+    filePath: optional(string()),
+    branch: optional(string()),
   },
-  returns: v.id("chatMessages"),
+  returns: string(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    const conversation = await ctx.db.get(args.conversationId);
-    if (!conversation || conversation.userId !== userId) {
-      throw new Error("Conversation not found");
+    const thread = await ctx.db
+      .query("agentThreadContext")
+      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
+      .first();
+    ensureThreadAccess(userId, thread);
+
+    if (thread) {
+      await ctx.db.patch(thread._id, {
+        vaultId: args.vaultId ?? thread.vaultId,
+        filePath: args.filePath ?? thread.filePath,
+        branch: args.branch ?? thread.branch,
+      });
     }
 
-    // Set vaultId on the conversation if provided and not already set
-    if (args.vaultId && !conversation.vaultId) {
-      await ctx.db.patch(args.conversationId, { vaultId: args.vaultId });
-    }
-
-    const messageId = await ctx.db.insert("chatMessages", {
-      conversationId: args.conversationId,
-      role: "user",
-      content: args.content,
+    const { messageId } = await saveMessage(ctx, components.agent, {
+      threadId: args.threadId,
+      userId,
+      prompt: args.content,
     });
 
-    const vaultId = args.vaultId ?? conversation.vaultId;
     await ctx.scheduler.runAfter(0, internal.chatActions.generateResponse, {
-      conversationId: args.conversationId,
-      vaultId: vaultId ?? undefined,
-      filePath: args.filePath,
-      branch: args.branch,
+      threadId: args.threadId,
+      promptMessageId: messageId,
     });
+
     return messageId;
+  },
+});
+
+export const listThreadMessages = query({
+  args: {
+    threadId: string(),
+    paginationOpts: paginationOptsValidator,
+    streamArgs: vStreamArgs,
+  },
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+    const thread = await ctx.db
+      .query("agentThreadContext")
+      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
+      .first();
+    ensureThreadAccess(userId, thread);
+
+    const paginated = await listMessages(ctx, components.agent, {
+      threadId: args.threadId,
+      paginationOpts: args.paginationOpts,
+    });
+
+    const metadataRows = await ctx.db
+      .query("chatMessageMetadata")
+      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
+      .collect();
+
+    const metadataByMessageId = new Map<string, MessageMetadata>();
+    for (const row of metadataRows) {
+      const parsed = parseMetadataPayload(row.payloadJson);
+      if (parsed) {
+        metadataByMessageId.set(row.messageId, parsed);
+      }
+    }
+
+    const messagesWithMetadata = paginated.page.map((msg) => ({
+      ...msg,
+      metadata: metadataByMessageId.get(msg._id),
+    }));
+
+    const uiMessages = toUIMessages(messagesWithMetadata).map((msg) => ({
+      ...msg,
+      metadata: metadataByMessageId.get(msg.id),
+    }));
+    const streams = await syncStreams(ctx, components.agent, {
+      threadId: args.threadId,
+      streamArgs: args.streamArgs,
+    });
+
+    return { ...paginated, page: uiMessages, streams } satisfies {
+      page: UIMessage[];
+      isDone: boolean;
+      continueCursor: string | null;
+      streams: typeof streams | undefined;
+    };
   },
 });
 
 export const proposeProdRead = mutation({
   args: {
-    conversationId: v.id("chatConversations"),
-    vaultId: v.optional(v.id("vaults")),
+    threadId: string(),
+    vaultId: optional(id("vaults")),
     scope: ProdAccessScope,
     provider: ProdAccessProvider,
     resourceKind: ProdAccessResourceKind,
-    toolName: v.string(),
-    paramsJson: v.string(),
-    allowRawFallback: v.optional(v.boolean()),
+    toolName: string(),
+    paramsJson: string(),
+    allowRawFallback: optional(boolean()),
   },
-  returns: v.object({
-    requestId: v.id("aiProdAccessRequests"),
+  returns: object({
+    requestId: id("aiProdAccessRequests"),
   }),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    const conversation = await ctx.db.get(args.conversationId);
-    if (!conversation || conversation.userId !== userId) {
-      throw new Error("Conversation not found");
-    }
+    const thread = await ctx.db
+      .query("agentThreadContext")
+      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
+      .first();
+    ensureThreadAccess(userId, thread);
 
     const user = await ctx.db.get(userId);
     if (!user || !isAdminUser(user.githubUsername)) {
@@ -209,10 +495,9 @@ export const proposeProdRead = mutation({
     }
 
     const redactionLevel = args.allowRawFallback ? "raw_fallback" : "default";
-
     const now = Date.now();
     const requestId = await ctx.db.insert("aiProdAccessRequests", {
-      conversationId: args.conversationId,
+      threadId: args.threadId,
       requesterUserId: userId,
       vaultId: args.vaultId,
       scope: args.scope,
@@ -248,24 +533,25 @@ export const proposeProdRead = mutation({
 
 export const proposeProdReadInternal = internalMutation({
   args: {
-    conversationId: v.id("chatConversations"),
-    requesterUserId: v.id("users"),
-    vaultId: v.optional(v.id("vaults")),
+    threadId: string(),
+    requesterUserId: id("users"),
+    vaultId: optional(id("vaults")),
     scope: ProdAccessScope,
     provider: ProdAccessProvider,
     resourceKind: ProdAccessResourceKind,
-    toolName: v.string(),
-    paramsJson: v.string(),
-    allowRawFallback: v.optional(v.boolean()),
+    toolName: string(),
+    paramsJson: string(),
+    allowRawFallback: optional(boolean()),
   },
-  returns: v.object({
-    requestId: v.id("aiProdAccessRequests"),
+  returns: object({
+    requestId: id("aiProdAccessRequests"),
   }),
   handler: async (ctx, args) => {
-    const conversation = await ctx.db.get(args.conversationId);
-    if (!conversation || conversation.userId !== args.requesterUserId) {
-      throw new Error("Conversation not found");
-    }
+    const thread = await ctx.db
+      .query("agentThreadContext")
+      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
+      .first();
+    ensureThreadAccess(args.requesterUserId, thread);
 
     const user = await ctx.db.get(args.requesterUserId);
     if (!user || !isAdminUser(user.githubUsername)) {
@@ -285,10 +571,9 @@ export const proposeProdReadInternal = internalMutation({
     }
 
     const redactionLevel = args.allowRawFallback ? "raw_fallback" : "default";
-
     const now = Date.now();
     const requestId = await ctx.db.insert("aiProdAccessRequests", {
-      conversationId: args.conversationId,
+      threadId: args.threadId,
       requesterUserId: args.requesterUserId,
       vaultId: args.vaultId,
       scope: args.scope,
@@ -324,19 +609,21 @@ export const proposeProdReadInternal = internalMutation({
 
 export const rejectProdRead = mutation({
   args: {
-    requestId: v.id("aiProdAccessRequests"),
-    conversationId: v.id("chatConversations"),
+    requestId: id("aiProdAccessRequests"),
+    threadId: string(),
+    messageId: string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    const conversation = await ctx.db.get(args.conversationId);
-    if (!conversation || conversation.userId !== userId) {
-      throw new Error("Conversation not found");
-    }
+    const thread = await ctx.db
+      .query("agentThreadContext")
+      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
+      .first();
+    ensureThreadAccess(userId, thread);
 
     const request = await ctx.db.get(args.requestId);
-    if (!request || request.conversationId !== args.conversationId) {
+    if (!request || request.threadId !== args.threadId) {
       throw new Error("Request not found");
     }
 
@@ -367,33 +654,14 @@ export const rejectProdRead = mutation({
       error: "Rejected by user",
     });
 
-    const messages = await ctx.db
-      .query("chatMessages")
-      .withIndex("by_conversationId", (q) =>
-        q.eq("conversationId", args.conversationId),
-      )
-      .order("desc")
-      .collect();
-    for (const message of messages) {
-      const parsed = parseMetadataWithSchema(
-        message.metadata,
-        prodReadProposalMetadataSchema,
-      );
-      if (!parsed) {
-        continue;
-      }
-      if (parsed.requestId !== args.requestId) {
-        continue;
-      }
-      await ctx.db.patch(message._id, {
-        metadata: JSON.stringify({
-          ...parsed,
-          status: "rejected",
-          error: "Rejected by user",
-        }),
-      });
-      break;
-    }
+    await ctx.runMutation(
+      internal.chat.updateProdReadProposalMessageStatusInternal,
+      {
+        messageId: args.messageId,
+        status: "rejected",
+        error: "Rejected by user",
+      },
+    );
 
     return null;
   },
@@ -401,16 +669,18 @@ export const rejectProdRead = mutation({
 
 export const confirmProdRead = mutation({
   args: {
-    requestId: v.id("aiProdAccessRequests"),
-    conversationId: v.id("chatConversations"),
+    requestId: id("aiProdAccessRequests"),
+    threadId: string(),
+    messageId: string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    const conversation = await ctx.db.get(args.conversationId);
-    if (!conversation || conversation.userId !== userId) {
-      throw new Error("Conversation not found");
-    }
+    const thread = await ctx.db
+      .query("agentThreadContext")
+      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
+      .first();
+    ensureThreadAccess(userId, thread);
 
     const user = await ctx.db.get(userId);
     if (!user || !isAdminUser(user.githubUsername)) {
@@ -418,7 +688,7 @@ export const confirmProdRead = mutation({
     }
 
     const request = await ctx.db.get(args.requestId);
-    if (!request || request.conversationId !== args.conversationId) {
+    if (!request || request.threadId !== args.threadId) {
       throw new Error("Request not found");
     }
 
@@ -450,33 +720,14 @@ export const confirmProdRead = mutation({
         error: "Request approval expired",
       });
 
-      const messages = await ctx.db
-        .query("chatMessages")
-        .withIndex("by_conversationId", (q) =>
-          q.eq("conversationId", args.conversationId),
-        )
-        .order("desc")
-        .collect();
-      for (const message of messages) {
-        const parsed = parseMetadataWithSchema(
-          message.metadata,
-          prodReadProposalMetadataSchema,
-        );
-        if (!parsed) {
-          continue;
-        }
-        if (parsed.requestId !== args.requestId) {
-          continue;
-        }
-        await ctx.db.patch(message._id, {
-          metadata: JSON.stringify({
-            ...parsed,
-            status: "expired",
-            error: "Request approval expired",
-          }),
-        });
-        break;
-      }
+      await ctx.runMutation(
+        internal.chat.updateProdReadProposalMessageStatusInternal,
+        {
+          messageId: args.messageId,
+          status: "expired",
+          error: "Request approval expired",
+        },
+      );
       return null;
     }
 
@@ -500,39 +751,21 @@ export const confirmProdRead = mutation({
       error: undefined,
     });
 
-    const messages = await ctx.db
-      .query("chatMessages")
-      .withIndex("by_conversationId", (q) =>
-        q.eq("conversationId", args.conversationId),
-      )
-      .order("desc")
-      .collect();
-    for (const message of messages) {
-      const parsed = parseMetadataWithSchema(
-        message.metadata,
-        prodReadProposalMetadataSchema,
-      );
-      if (!parsed) {
-        continue;
-      }
-      if (parsed.requestId !== args.requestId) {
-        continue;
-      }
-      await ctx.db.patch(message._id, {
-        metadata: JSON.stringify({
-          ...parsed,
-          status: "approved",
-          error: undefined,
-        }),
-      });
-      break;
-    }
+    await ctx.runMutation(
+      internal.chat.updateProdReadProposalMessageStatusInternal,
+      {
+        messageId: args.messageId,
+        status: "approved",
+        error: undefined,
+      },
+    );
 
     await ctx.scheduler.runAfter(
       0,
       internal.chatActions.executeApprovedProdRead,
       {
         requestId: args.requestId,
+        proposalMessageId: args.messageId,
       },
     );
 
@@ -540,170 +773,74 @@ export const confirmProdRead = mutation({
   },
 });
 
-export const listMessages = query({
+export const confirmCommit = mutation({
   args: {
-    conversationId: v.optional(v.id("chatConversations")),
-  },
-  returns: v.array(
-    v.object({
-      _id: v.id("chatMessages"),
-      _creationTime: v.number(),
-      conversationId: v.id("chatConversations"),
-      role: v.union(v.literal("user"), v.literal("assistant")),
-      content: v.string(),
-      model: v.optional(v.string()),
-      metadata: v.optional(v.string()),
-    }),
-  ),
-  handler: async (ctx, args) => {
-    if (!args.conversationId) return [];
-    const userId = await getUserId(ctx);
-    const conversation = await ctx.db.get(args.conversationId);
-    if (!conversation || conversation.userId !== userId) return [];
-    return await ctx.db
-      .query("chatMessages")
-      .withIndex("by_conversationId", (q) =>
-        q.eq("conversationId", args.conversationId!),
-      )
-      .order("asc")
-      .collect();
-  },
-});
-
-export const listConversations = query({
-  args: {},
-  returns: v.array(
-    v.object({
-      _id: v.id("chatConversations"),
-      _creationTime: v.number(),
-      userId: v.id("users"),
-      title: v.optional(v.string()),
-      vaultId: v.optional(v.id("vaults")),
-      systemPrompt: v.optional(v.string()),
-    }),
-  ),
-  handler: async (ctx) => {
-    const userId = await getUserId(ctx);
-    return await ctx.db
-      .query("chatConversations")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .order("desc")
-      .collect();
-  },
-});
-
-export const saveSystemPrompt = internalMutation({
-  args: {
-    conversationId: v.id("chatConversations"),
-    systemPrompt: v.string(),
+    threadId: string(),
+    messageId: string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.conversationId, {
-      systemPrompt: args.systemPrompt,
-    });
-    return null;
-  },
-});
-
-export const getConversation = query({
-  args: { conversationId: v.id("chatConversations") },
-  returns: v.union(
-    v.object({
-      _id: v.id("chatConversations"),
-      _creationTime: v.number(),
-      userId: v.id("users"),
-      title: v.optional(v.string()),
-      vaultId: v.optional(v.id("vaults")),
-      systemPrompt: v.optional(v.string()),
-    }),
-    v.null(),
-  ),
-  handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    const conversation = await ctx.db.get(args.conversationId);
-    if (!conversation || conversation.userId !== userId) return null;
-    return conversation;
-  },
-});
+    const thread = await ctx.db
+      .query("agentThreadContext")
+      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
+      .first();
+    ensureThreadAccess(userId, thread);
+    if (!thread?.vaultId) {
+      throw new Error("Thread is not linked to a vault");
+    }
 
-export const getConversationForAction = internalQuery({
-  args: { conversationId: v.id("chatConversations") },
-  returns: v.union(
-    v.object({
-      _id: v.id("chatConversations"),
-      userId: v.id("users"),
-      vaultId: v.optional(v.id("vaults")),
-    }),
-    v.null(),
-  ),
-  handler: async (ctx, args) => {
-    const conversation = await ctx.db.get(args.conversationId);
-    if (!conversation) return null;
-    return {
-      _id: conversation._id,
-      userId: conversation.userId,
-      vaultId: conversation.vaultId,
-    };
-  },
-});
+    const vault = await ctx.db.get(thread.vaultId);
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
 
-export const loadMessagesForAction = internalQuery({
-  args: {
-    conversationId: v.id("chatConversations"),
-  },
-  returns: v.array(
-    v.object({
-      role: v.union(v.literal("user"), v.literal("assistant")),
-      content: v.string(),
-    }),
-  ),
-  handler: async (ctx, args) => {
-    const messages = await ctx.db
-      .query("chatMessages")
-      .withIndex("by_conversationId", (q) =>
-        q.eq("conversationId", args.conversationId),
-      )
-      .order("asc")
-      .collect();
-    // Filter out UI-only messages (approval cards/proposals)
-    return messages
-      .filter((m) => {
-        const meta = parseMetadataWithSchema(m.metadata, metadataTypeSchema);
-        if (!meta) {
-          return true;
-        }
-        return (
-          meta.type !== "commit_proposal" && meta.type !== "prod_read_proposal"
-        );
-      })
-      .map((m) => ({ role: m.role, content: m.content }));
+    await ctx.scheduler.runAfter(
+      0,
+      internal.fileStagingActions.commitAllStaged,
+      {
+        userId,
+        vaultId: vault._id,
+        repoOwner: vault.ghRepoOwner,
+        repoName: vault.ghRepoName,
+      },
+    );
+
+    await ctx.runMutation(
+      internal.chat.updateCommitProposalMessageCommittedInternal,
+      {
+        messageId: args.messageId,
+        committed: true,
+      },
+    );
+
+    return null;
   },
 });
 
 export const getProdAccessRequestInternal = internalQuery({
   args: {
-    requestId: v.id("aiProdAccessRequests"),
+    requestId: id("aiProdAccessRequests"),
   },
-  returns: v.union(
-    v.object({
-      _id: v.id("aiProdAccessRequests"),
-      _creationTime: v.number(),
-      conversationId: v.id("chatConversations"),
-      requesterUserId: v.id("users"),
-      vaultId: v.optional(v.id("vaults")),
+  returns: union(
+    object({
+      _id: id("aiProdAccessRequests"),
+      _creationTime: number(),
+      threadId: string(),
+      requesterUserId: id("users"),
+      vaultId: optional(id("vaults")),
       scope: ProdAccessScope,
       provider: ProdAccessProvider,
       resourceKind: ProdAccessResourceKind,
-      toolName: v.string(),
-      paramsJson: v.string(),
+      toolName: string(),
+      paramsJson: string(),
       status: ProdAccessStatus,
       redactionLevel: ProdAccessRedactionLevel,
-      approvedBy: v.optional(v.id("users")),
-      approvedAt: v.optional(v.number()),
-      executedAt: v.optional(v.number()),
-      expiresAt: v.optional(v.number()),
-      error: v.optional(v.string()),
+      approvedBy: optional(id("users")),
+      approvedAt: optional(number()),
+      executedAt: optional(number()),
+      expiresAt: optional(number()),
+      error: optional(string()),
     }),
     v.null(),
   ),
@@ -714,13 +851,13 @@ export const getProdAccessRequestInternal = internalQuery({
 
 export const setProdAccessRequestStatusInternal = internalMutation({
   args: {
-    requestId: v.id("aiProdAccessRequests"),
+    requestId: id("aiProdAccessRequests"),
     status: ProdAccessStatus,
-    error: v.optional(v.string()),
-    approvedBy: v.optional(v.id("users")),
-    approvedAt: v.optional(v.number()),
-    executedAt: v.optional(v.number()),
-    redactionLevel: v.optional(ProdAccessRedactionLevel),
+    error: optional(string()),
+    approvedBy: optional(id("users")),
+    approvedAt: optional(number()),
+    executedAt: optional(number()),
+    redactionLevel: optional(ProdAccessRedactionLevel),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -749,15 +886,15 @@ export const setProdAccessRequestStatusInternal = internalMutation({
 
 export const addProdAccessAuditInternal = internalMutation({
   args: {
-    requestId: v.id("aiProdAccessRequests"),
-    actorUserId: v.id("users"),
+    requestId: id("aiProdAccessRequests"),
+    actorUserId: id("users"),
     action: ProdAccessAuditAction,
-    toolName: v.string(),
-    endpoint: v.string(),
-    argumentHash: v.string(),
-    rowCount: v.optional(v.number()),
-    logLineCount: v.optional(v.number()),
-    error: v.optional(v.string()),
+    toolName: string(),
+    endpoint: string(),
+    argumentHash: string(),
+    rowCount: optional(number()),
+    logLineCount: optional(number()),
+    error: optional(string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -777,128 +914,158 @@ export const addProdAccessAuditInternal = internalMutation({
   },
 });
 
+export const updateCommitProposalMessageCommittedInternal = internalMutation({
+  args: {
+    messageId: string(),
+    committed: boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const row = await ctx.db
+      .query("chatMessageMetadata")
+      .withIndex("by_messageId", (q) => q.eq("messageId", args.messageId))
+      .first();
+    if (!row) return null;
+    const parsed = parseCommitPayload(row.payloadJson);
+    if (!parsed) return null;
+    await ctx.db.patch(row._id, {
+      payloadJson: JSON.stringify({
+        ...parsed,
+        committed: args.committed,
+      }),
+    });
+    return null;
+  },
+});
+
+export const saveMessageMetadataInternal = internalMutation({
+  args: {
+    messageId: string(),
+    threadId: string(),
+    type: union(
+      literal("tool_activity"),
+      literal("commit_proposal"),
+      literal("prod_read_proposal"),
+      literal("prod_read_result"),
+    ),
+    payloadJson: string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.insert("chatMessageMetadata", {
+      messageId: args.messageId,
+      threadId: args.threadId,
+      type: args.type,
+      payloadJson: args.payloadJson,
+      createdAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+export const getThreadContextForAction = internalQuery({
+  args: { threadId: string() },
+  returns: union(
+    object({
+      threadId: string(),
+      userId: id("users"),
+      vaultId: optional(id("vaults")),
+      repositoryFullName: optional(string()),
+      branch: optional(string()),
+      filePath: optional(string()),
+      systemPrompt: optional(string()),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    const thread = await ctx.db
+      .query("agentThreadContext")
+      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
+      .first();
+    if (!thread) return null;
+    return {
+      threadId: thread.threadId,
+      userId: thread.userId,
+      vaultId: thread.vaultId,
+      repositoryFullName: thread.repositoryFullName,
+      branch: thread.branch,
+      filePath: thread.filePath,
+      systemPrompt: thread.systemPrompt,
+    };
+  },
+});
+
+export const saveThreadSystemPrompt = internalMutation({
+  args: {
+    threadId: string(),
+    systemPrompt: string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const thread = await ctx.db
+      .query("agentThreadContext")
+      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
+      .first();
+    if (!thread) return null;
+    await ctx.db.patch(thread._id, { systemPrompt: args.systemPrompt });
+    return null;
+  },
+});
+
 export const updateProdReadProposalMessageStatusInternal = internalMutation({
   args: {
-    conversationId: v.id("chatConversations"),
-    requestId: v.id("aiProdAccessRequests"),
+    messageId: string(),
     status: ProdAccessStatus,
-    error: v.optional(v.string()),
+    error: optional(string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const messages = await ctx.db
-      .query("chatMessages")
-      .withIndex("by_conversationId", (q) =>
-        q.eq("conversationId", args.conversationId),
-      )
-      .order("desc")
-      .collect();
-
-    for (const message of messages) {
-      const parsed = parseMetadataWithSchema(
-        message.metadata,
-        prodReadProposalMetadataSchema,
-      );
-      if (!parsed) {
-        continue;
-      }
-      if (parsed.requestId !== args.requestId) {
-        continue;
-      }
-      await ctx.db.patch(message._id, {
-        metadata: JSON.stringify({
-          ...parsed,
-          status: args.status,
-          error: args.error,
-        }),
-      });
-      break;
-    }
-
-    return null;
-  },
-});
-
-export const saveAssistantMessage = internalMutation({
-  args: {
-    conversationId: v.id("chatConversations"),
-    content: v.string(),
-    model: v.optional(v.string()),
-    metadata: v.optional(v.string()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await ctx.db.insert("chatMessages", {
-      conversationId: args.conversationId,
-      role: "assistant",
-      content: args.content,
-      model: args.model,
-      metadata: args.metadata,
+    const row = await ctx.db
+      .query("chatMessageMetadata")
+      .withIndex("by_messageId", (q) => q.eq("messageId", args.messageId))
+      .first();
+    if (!row) return null;
+    const parsed = parseProdReadProposalPayload(row.payloadJson);
+    if (!parsed) return null;
+    await ctx.db.patch(row._id, {
+      payloadJson: JSON.stringify({
+        ...parsed,
+        status: args.status,
+        error: args.error,
+      }),
     });
-    // Set title from first assistant response if not set
-    const conversation = await ctx.db.get(args.conversationId);
-    if (conversation && !conversation.title) {
-      const firstLine = args.content.slice(0, 60).split("\n")[0];
-      await ctx.db.patch(args.conversationId, { title: firstLine });
-    }
     return null;
   },
 });
 
-export const confirmCommit = mutation({
-  args: {
-    conversationId: v.id("chatConversations"),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
-    const conversation = await ctx.db.get(args.conversationId);
-    if (!conversation || conversation.userId !== userId) {
-      throw new Error("Conversation not found");
-    }
-    if (!conversation.vaultId) {
-      throw new Error("Conversation is not linked to a vault");
-    }
+export function buildToolActivityPayload(
+  tools: ToolActivityItem[],
+): ToolActivityPayload {
+  return { type: "tool_activity", tools };
+}
 
-    const vault = await ctx.db.get(conversation.vaultId);
-    if (!vault) {
-      throw new Error("Vault not found");
-    }
+export function buildCommitProposalPayload(args: {
+  message: string;
+  tools?: ToolActivityItem[];
+}): CommitProposalPayload {
+  return { type: "commit_proposal", message: args.message, tools: args.tools };
+}
 
-    // Schedule the commit
-    await ctx.scheduler.runAfter(
-      0,
-      internal.fileStagingActions.commitAllStaged,
-      {
-        userId,
-        vaultId: vault._id,
-        repoOwner: vault.ghRepoOwner,
-        repoName: vault.ghRepoName,
-      },
-    );
+export function buildProdReadProposalPayload(
+  proposal: Omit<ProdReadProposalPayload, "type">,
+  tools?: ToolActivityItem[],
+): ProdReadProposalPayload {
+  return {
+    type: "prod_read_proposal",
+    ...proposal,
+    ...(tools ? { tools } : {}),
+  };
+}
 
-    // Find the commit_proposal message and mark it as committed
-    const messages = await ctx.db
-      .query("chatMessages")
-      .withIndex("by_conversationId", (q) =>
-        q.eq("conversationId", args.conversationId),
-      )
-      .order("desc")
-      .collect();
+export function buildProdReadResultPayload(
+  payload: Omit<ProdReadResultPayload, "type">,
+): ProdReadResultPayload {
+  return { type: "prod_read_result", ...payload };
+}
 
-    for (const msg of messages) {
-      const meta = parseMetadataWithSchema(
-        msg.metadata,
-        commitProposalMetadataSchema,
-      );
-      if (meta && !meta.committed) {
-        await ctx.db.patch(msg._id, {
-          metadata: JSON.stringify({ ...meta, committed: true }),
-        });
-        break;
-      }
-    }
-
-    return null;
-  },
-});
+export type { MessageMetadata, ToolActivityItem, MessageDoc };
