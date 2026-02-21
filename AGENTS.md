@@ -290,6 +290,8 @@ Auth:
   same commit by default.
 - Do not bypass pre-commit hooks by default when lint/tests are failing; only do
   so on explicit user request.
+- Never recommend bypassing commit or pre-commit hooks as an option; only
+  proceed if the user explicitly asks to bypass them.
 - When the user asks to create a PR, automatically mark it ready for review
   unless they explicitly ask for a draft PR.
 
