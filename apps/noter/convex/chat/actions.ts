@@ -129,10 +129,9 @@ export const generateResponse = internalAction({
     let repoTree: string[] | undefined;
 
     if (vault) {
-      repoTree = vault.treeData?.tree
-        ?.filter((t: { type?: string }) => t.type === "blob")
-        ?.map((t: { path?: string }) => t.path)
-        ?.filter((p: string | undefined): p is string => !!p);
+      repoTree = vault.treeData.tree
+        .filter((t) => t.type === "blob")
+        .map((t) => t.path);
     }
 
     if (threadContext.filePath && vault && user?.githubAccessToken) {
@@ -198,9 +197,7 @@ export const generateResponse = internalAction({
     }
 
     if (result.prodReadProposal) {
-      const summary =
-        result.prodReadProposal.summary ??
-        "I need your approval before running this production read.";
+      const summary = result.prodReadProposal.summary;
       await ctx.runMutation(components.agent.messages.updateMessage, {
         messageId: assistantMessageId,
         patch: {
