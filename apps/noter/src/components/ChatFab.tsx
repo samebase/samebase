@@ -160,6 +160,10 @@ function hasRecordKey(
   return typeof value === "object" && value !== null && key in value;
 }
 
+function getRecordValue(value: unknown, key: string): unknown {
+  return hasRecordKey(value, key) ? value[key] : undefined;
+}
+
 // --- Simple markdown renderer (fallback) ---
 
 function renderMarkdown(text: string) {
@@ -278,6 +282,143 @@ function ToolActivityBadge({
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+type ToolCallInfo = {
+  tool: string;
+  input?: unknown;
+  output?: unknown;
+  errorText?: string;
+  state?: string;
+  providerExecuted?: boolean;
+};
+
+function extractToolCalls(
+  parts: UIMessage["parts"] | undefined,
+): ToolCallInfo[] {
+  if (!parts) return [];
+  const toolCalls: ToolCallInfo[] = [];
+  for (const part of parts) {
+    if (typeof part.type !== "string") continue;
+    if (!part.type.startsWith("tool-")) continue;
+    const tool = part.type.slice("tool-".length);
+    const input = getRecordValue(part, "input");
+    const output = getRecordValue(part, "output");
+    const errorText = getRecordValue(part, "errorText");
+    const state = getRecordValue(part, "state");
+    const providerExecuted = getRecordValue(part, "providerExecuted");
+    toolCalls.push({
+      tool,
+      input,
+      output,
+      errorText: typeof errorText === "string" ? errorText : undefined,
+      state: typeof state === "string" ? state : undefined,
+      providerExecuted:
+        typeof providerExecuted === "boolean" ? providerExecuted : undefined,
+    });
+  }
+  return toolCalls;
+}
+
+function formatToolPayload(value: unknown): string {
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function formatToolState(state: string | undefined): string | null {
+  if (!state) return null;
+  if (state === "input-streaming") return "running";
+  if (state === "input-available") return "called";
+  if (state === "output-available") return "done";
+  if (state === "output-error") return "error";
+  return state;
+}
+
+function ToolCallList({ toolCalls }: { toolCalls: ToolCallInfo[] }) {
+  if (toolCalls.length === 0) return null;
+  return (
+    <div className="mb-1 rounded-md border border-border/60 bg-background/70 px-2 py-1.5 text-[11px] text-muted-foreground">
+      <div className="flex items-center gap-1 text-foreground">
+        <Wrench className="h-3 w-3" />
+        Tool calls ({toolCalls.length})
+      </div>
+      <div className="mt-1 space-y-1">
+        {toolCalls.map((call, idx) => {
+          const meta = TOOL_CATALOG.find((tool) => tool.name === call.tool);
+          const displayKey = meta?.inputDisplayKey;
+          const displayValue = displayKey
+            ? hasRecordKey(call.input, displayKey)
+              ? String(call.input[displayKey])
+              : undefined
+            : undefined;
+          const stateLabel = formatToolState(call.state);
+          return (
+            <details
+              key={`${call.tool}-${idx}`}
+              className="rounded border border-border/60 bg-muted/40 px-2 py-1"
+            >
+              <summary className="cursor-pointer list-none">
+                <span className="flex items-center gap-2 text-foreground">
+                  <span className="font-mono">{call.tool}</span>
+                  {displayValue && (
+                    <span className="truncate text-muted-foreground">
+                      {displayValue}
+                    </span>
+                  )}
+                  {stateLabel && (
+                    <span
+                      className={cn(
+                        "rounded-full px-1.5 py-0.5 text-[9px] uppercase tracking-wide",
+                        stateLabel === "error"
+                          ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
+                          : stateLabel === "done"
+                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                            : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {stateLabel}
+                    </span>
+                  )}
+                </span>
+              </summary>
+              <div className="mt-1 space-y-1 text-[10px] text-muted-foreground">
+                {call.input !== undefined && (
+                  <div>
+                    <div className="font-medium text-foreground">Input</div>
+                    <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-background/60 p-1">
+                      {formatToolPayload(call.input)}
+                    </pre>
+                  </div>
+                )}
+                {call.output !== undefined && (
+                  <div>
+                    <div className="font-medium text-foreground">Output</div>
+                    <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-background/60 p-1">
+                      {formatToolPayload(call.output)}
+                    </pre>
+                  </div>
+                )}
+                {call.errorText && (
+                  <div className="text-red-600 dark:text-red-400">
+                    Error: {call.errorText}
+                  </div>
+                )}
+                {call.providerExecuted === false && (
+                  <div className="text-amber-700 dark:text-amber-400">
+                    Provider execution skipped.
+                  </div>
+                )}
+              </div>
+            </details>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -570,6 +711,7 @@ function MessageBubble({
 
   const isCommitProposal = metadata?.type === "commit_proposal";
   const isProdReadProposal = metadata?.type === "prod_read_proposal";
+  const toolCalls = extractToolCalls(msg.parts);
   const toolsUsed =
     metadata?.type === "tool_activity"
       ? metadata.tools
@@ -578,12 +720,12 @@ function MessageBubble({
         : metadata?.type === "prod_read_proposal"
           ? metadata.tools
           : null;
+  const showToolBadge = toolCalls.length === 0 && Boolean(toolsUsed?.length);
 
   return (
     <div className="mb-2 max-w-[85%] rounded-lg bg-muted px-3 py-2 text-sm text-foreground">
-      {toolsUsed && toolsUsed.length > 0 && (
-        <ToolActivityBadge tools={toolsUsed} />
-      )}
+      {showToolBadge ? <ToolActivityBadge tools={toolsUsed ?? []} /> : null}
+      <ToolCallList toolCalls={toolCalls} />
       <div className="whitespace-pre-wrap">{renderMarkdown(msg.text)}</div>
       {isCommitProposal && (
         <CommitProposalCard
