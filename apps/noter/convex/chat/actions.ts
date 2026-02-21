@@ -1,16 +1,16 @@
 "use node";
 
-import { internalAction } from "./_generated/server";
+import { internalAction } from "../_generated/server";
 import { v, Infer } from "convex/values";
-import { components, internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import { components, internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { z } from "zod";
-import { GithubTreeData } from "./schema";
-import { executeReadFile } from "./agent/tools";
-import type { ToolContext } from "./agent/tools";
-import { buildSystemPrompt } from "./agent/systemPrompt";
-import { runAgentGraph } from "./agent/graph";
-import { applyRedaction, getProdAccessMode } from "./infraReadPolicy";
+import { GithubTreeData } from "../schema";
+import { executeReadFile } from "../agent/tools";
+import type { ToolContext } from "../agent/tools";
+import { buildSystemPrompt } from "../agent/systemPrompt";
+import { runAgentGraph } from "../agent/graph";
+import { applyRedaction, getProdAccessMode } from "../infraReadPolicy";
 import type { MessageDoc } from "@convex-dev/agent/validators";
 import { saveMessage } from "@convex-dev/agent";
 import {
@@ -18,7 +18,7 @@ import {
   buildProdReadProposalPayload,
   buildProdReadResultPayload,
   buildToolActivityPayload,
-} from "./chat";
+} from "./metadata";
 
 const MODEL = "claude-sonnet-4-20250514";
 
@@ -90,7 +90,7 @@ export const generateResponse = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const threadContext = await ctx.runQuery(
-      internal.chat.getThreadContextForAction,
+      internal.chat.index.getThreadContextForAction,
       { threadId: args.threadId },
     );
     if (!threadContext) {
@@ -164,7 +164,7 @@ export const generateResponse = internalAction({
       toolsEnabled: Boolean(hasToolAccess),
     });
 
-    await ctx.runMutation(internal.chat.saveThreadSystemPrompt, {
+    await ctx.runMutation(internal.chat.index.saveThreadSystemPrompt, {
       threadId: args.threadId,
       systemPrompt,
     });
@@ -216,7 +216,7 @@ export const generateResponse = internalAction({
         result.toolActivity.length > 0 ? result.toolActivity : undefined,
       );
 
-      await ctx.runMutation(internal.chat.saveMessageMetadataInternal, {
+      await ctx.runMutation(internal.chat.index.saveMessageMetadataInternal, {
         messageId: assistantMessageId,
         threadId: args.threadId,
         type: payload.type,
@@ -239,7 +239,7 @@ export const generateResponse = internalAction({
         tools: result.toolActivity.length > 0 ? result.toolActivity : undefined,
       });
 
-      await ctx.runMutation(internal.chat.saveMessageMetadataInternal, {
+      await ctx.runMutation(internal.chat.index.saveMessageMetadataInternal, {
         messageId: assistantMessageId,
         threadId: args.threadId,
         type: payload.type,
@@ -250,7 +250,7 @@ export const generateResponse = internalAction({
 
     if (result.toolActivity.length > 0) {
       const payload = buildToolActivityPayload(result.toolActivity);
-      await ctx.runMutation(internal.chat.saveMessageMetadataInternal, {
+      await ctx.runMutation(internal.chat.index.saveMessageMetadataInternal, {
         messageId: assistantMessageId,
         threadId: args.threadId,
         type: payload.type,
@@ -270,7 +270,7 @@ export const executeApprovedProdRead = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const request = await ctx.runQuery(
-      internal.chat.getProdAccessRequestInternal,
+      internal.chat.index.getProdAccessRequestInternal,
       {
         requestId: args.requestId,
       },
@@ -289,14 +289,17 @@ export const executeApprovedProdRead = internalAction({
     const now = Date.now();
     if (request.expiresAt && now > request.expiresAt) {
       const error = "Request approval expired before execution";
-      await ctx.runMutation(internal.chat.setProdAccessRequestStatusInternal, {
-        requestId: request._id,
-        status: "expired",
-        error,
-        approvedBy: request.approvedBy,
-        approvedAt: request.approvedAt,
-      });
-      await ctx.runMutation(internal.chat.addProdAccessAuditInternal, {
+      await ctx.runMutation(
+        internal.chat.index.setProdAccessRequestStatusInternal,
+        {
+          requestId: request._id,
+          status: "expired",
+          error,
+          approvedBy: request.approvedBy,
+          approvedAt: request.approvedAt,
+        },
+      );
+      await ctx.runMutation(internal.chat.index.addProdAccessAuditInternal, {
         requestId: request._id,
         actorUserId: auditActorUserId,
         action: "expired",
@@ -306,7 +309,7 @@ export const executeApprovedProdRead = internalAction({
         error,
       });
       await ctx.runMutation(
-        internal.chat.updateProdReadProposalMessageStatusInternal,
+        internal.chat.index.updateProdReadProposalMessageStatusInternal,
         {
           messageId: args.proposalMessageId,
           status: "expired",
@@ -326,7 +329,7 @@ export const executeApprovedProdRead = internalAction({
         endpoint: fallbackEndpoint,
         error,
       });
-      await ctx.runMutation(internal.chat.saveMessageMetadataInternal, {
+      await ctx.runMutation(internal.chat.index.saveMessageMetadataInternal, {
         messageId,
         threadId: request.threadId,
         type: payload.type,
@@ -455,16 +458,19 @@ export const executeApprovedProdRead = internalAction({
         mode: getProdAccessMode(),
       });
 
-      await ctx.runMutation(internal.chat.setProdAccessRequestStatusInternal, {
-        requestId: request._id,
-        status: "executed",
-        error: undefined,
-        approvedBy: request.approvedBy,
-        approvedAt: request.approvedAt,
-        executedAt: Date.now(),
-        redactionLevel: redacted.effectiveLevel,
-      });
-      await ctx.runMutation(internal.chat.addProdAccessAuditInternal, {
+      await ctx.runMutation(
+        internal.chat.index.setProdAccessRequestStatusInternal,
+        {
+          requestId: request._id,
+          status: "executed",
+          error: undefined,
+          approvedBy: request.approvedBy,
+          approvedAt: request.approvedAt,
+          executedAt: Date.now(),
+          redactionLevel: redacted.effectiveLevel,
+        },
+      );
+      await ctx.runMutation(internal.chat.index.addProdAccessAuditInternal, {
         requestId: request._id,
         actorUserId: auditActorUserId,
         action: "executed",
@@ -476,7 +482,7 @@ export const executeApprovedProdRead = internalAction({
         error: undefined,
       });
       await ctx.runMutation(
-        internal.chat.updateProdReadProposalMessageStatusInternal,
+        internal.chat.index.updateProdReadProposalMessageStatusInternal,
         {
           messageId: args.proposalMessageId,
           status: "executed",
@@ -503,7 +509,7 @@ export const executeApprovedProdRead = internalAction({
         rowCount: executionResult.rowCount,
         logLineCount: executionResult.logLineCount,
       });
-      await ctx.runMutation(internal.chat.saveMessageMetadataInternal, {
+      await ctx.runMutation(internal.chat.index.saveMessageMetadataInternal, {
         messageId,
         threadId: request.threadId,
         type: payload.type,
@@ -517,15 +523,18 @@ export const executeApprovedProdRead = internalAction({
           ? error.message
           : "Unknown production read error";
 
-      await ctx.runMutation(internal.chat.setProdAccessRequestStatusInternal, {
-        requestId: request._id,
-        status: "failed",
-        error: message,
-        approvedBy: request.approvedBy,
-        approvedAt: request.approvedAt,
-        executedAt: Date.now(),
-      });
-      await ctx.runMutation(internal.chat.addProdAccessAuditInternal, {
+      await ctx.runMutation(
+        internal.chat.index.setProdAccessRequestStatusInternal,
+        {
+          requestId: request._id,
+          status: "failed",
+          error: message,
+          approvedBy: request.approvedBy,
+          approvedAt: request.approvedAt,
+          executedAt: Date.now(),
+        },
+      );
+      await ctx.runMutation(internal.chat.index.addProdAccessAuditInternal, {
         requestId: request._id,
         actorUserId: auditActorUserId,
         action: "failed",
@@ -535,7 +544,7 @@ export const executeApprovedProdRead = internalAction({
         error: message,
       });
       await ctx.runMutation(
-        internal.chat.updateProdReadProposalMessageStatusInternal,
+        internal.chat.index.updateProdReadProposalMessageStatusInternal,
         {
           messageId: args.proposalMessageId,
           status: "failed",
@@ -554,7 +563,7 @@ export const executeApprovedProdRead = internalAction({
         endpoint: fallbackEndpoint,
         error: message,
       });
-      await ctx.runMutation(internal.chat.saveMessageMetadataInternal, {
+      await ctx.runMutation(internal.chat.index.saveMessageMetadataInternal, {
         messageId,
         threadId: request.threadId,
         type: payload.type,

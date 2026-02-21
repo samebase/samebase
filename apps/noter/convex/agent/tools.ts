@@ -368,7 +368,7 @@ async function executeProdReadRequest(
 ): Promise<string> {
   const paramsJson = JSON.stringify(input.params);
   const proposal = await toolCtx.ctx.runMutation(
-    internal.chat.proposeProdReadInternal,
+    internal.chat.index.proposeProdReadInternal,
     {
       threadId: toolCtx.threadId,
       requesterUserId: toolCtx.userId,

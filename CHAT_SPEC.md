@@ -2,13 +2,15 @@
 
 ## Status
 
-Implemented for MVP with persisted conversations, commit proposals, and approval-first production read requests.
+Implemented for MVP with persisted conversations, commit proposals, and
+approval-first production read requests.
 
 Last updated: 2026-02-13
 
 ## Scope
 
-Noter's chat is a floating assistant (`ChatFab`) that is scoped to the current vault when available and stored in Convex.
+Noter's chat is a floating assistant (`ChatFab`) that is scoped to the current
+vault when available and stored in Convex.
 
 ## Current Implementation
 
@@ -24,8 +26,9 @@ Noter's chat is a floating assistant (`ChatFab`) that is scoped to the current v
 
 ### Backend
 
-- Conversation/message lifecycle: `apps/noter/convex/chat.ts`
-- Response generation and proposal/result messages: `apps/noter/convex/chatActions.ts`
+- Conversation/message lifecycle: `apps/noter/convex/chat/index.ts`
+- Response generation and proposal/result messages:
+  `apps/noter/convex/chat/actions.ts`
 - Tool catalog/system behavior: `apps/noter/convex/agent/*`
 
 ## Data Model
@@ -48,7 +51,7 @@ Noter's chat is a floating assistant (`ChatFab`) that is scoped to the current v
 1. Assistant proposes prod read.
 2. UI renders approval card with approve/reject actions.
 3. `chat.confirmProdRead` schedules execution.
-4. `chatActions.executeApprovedProdRead` runs allowlisted read + redaction.
+4. `chat.actions.executeApprovedProdRead` runs allowlisted read + redaction.
 5. Result is persisted and displayed as `prod_read_result`.
 
 ## Policy Notes

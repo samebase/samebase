@@ -29,8 +29,8 @@ When starting a fresh chat for implementation/debugging, read in this order:
 8. `apps/noter/convex/vaultActions.ts` +
    `apps/noter/convex/infraProvisioning.ts` (vault creation + infra
    provisioning)
-9. `apps/noter/convex/chat.ts` + `apps/noter/convex/chatActions.ts` (chat +
-   approval flows)
+9. `apps/noter/convex/chat/index.ts` + `apps/noter/convex/chat/actions.ts`
+   (chat + approval flows)
 10. `apps/noter/src/components/VaultDashboard.tsx` +
     `apps/noter/src/components/ChatFab.tsx` (user-visible controls)
 

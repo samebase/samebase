@@ -3,13 +3,12 @@ import {
   mutation,
   internalMutation,
   internalQuery,
-} from "./_generated/server";
+} from "../_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
-import { z } from "zod";
-import { components, internal } from "./_generated/api";
-import { getUserId } from "./common";
-import { isAdminUser } from "./users";
+import { components, internal } from "../_generated/api";
+import { getUserId } from "../common";
+import { isAdminUser } from "../users";
 import {
   listMessages,
   saveMessage,
@@ -18,8 +17,6 @@ import {
   type UIMessage,
 } from "@convex-dev/agent";
 import { vStreamArgs } from "@convex-dev/agent/validators";
-import type { Id } from "./_generated/dataModel";
-import type { MessageDoc } from "@convex-dev/agent/validators";
 import {
   ProdAccessAuditAction,
   ProdAccessProvider,
@@ -27,203 +24,17 @@ import {
   ProdAccessResourceKind,
   ProdAccessScope,
   ProdAccessStatus,
-} from "./schema";
+} from "../schema";
+import {
+  parseCommitPayload,
+  parseMetadataPayload,
+  parseProdReadProposalPayload,
+  type MessageMetadata,
+} from "./metadata";
+import { assertProdReadAccess, hashText } from "./prodAccess";
+import { ensureThreadAccess, getThreadById } from "./threads";
 
 const { string, optional, object, union, literal, number, id, boolean } = v;
-
-function hashText(input: string): string {
-  let hash = 5381;
-  for (let i = 0; i < input.length; i++) {
-    hash = (hash * 33) ^ input.charCodeAt(i);
-  }
-  return Math.abs(hash >>> 0).toString(16);
-}
-
-const toolActivityItemSchema = z.object({
-  tool: z.string(),
-  input: z.unknown(),
-});
-
-type ToolActivityItem = z.infer<typeof toolActivityItemSchema>;
-
-type ToolActivityPayload = {
-  type: "tool_activity";
-  tools: ToolActivityItem[];
-};
-
-type CommitProposalPayload = {
-  type: "commit_proposal";
-  message: string;
-  committed?: boolean;
-  tools?: ToolActivityItem[];
-};
-
-type ProdReadProposalPayload = {
-  type: "prod_read_proposal";
-  requestId: string;
-  scope: "vault" | "global";
-  provider: "convex" | "netlify";
-  resourceKind:
-    | "deployment_status"
-    | "logs"
-    | "data_query"
-    | "project_inventory"
-    | "site_inventory";
-  toolName: string;
-  paramsPreview: string;
-  summary: string;
-  status?:
-    | "proposed"
-    | "approved"
-    | "rejected"
-    | "executed"
-    | "failed"
-    | "expired";
-  error?: string;
-  tools?: ToolActivityItem[];
-};
-
-type ProdReadResultPayload = {
-  type: "prod_read_result";
-  requestId: string;
-  provider: "convex" | "netlify";
-  resourceKind:
-    | "deployment_status"
-    | "logs"
-    | "data_query"
-    | "project_inventory"
-    | "site_inventory";
-  endpoint?: string;
-  redactionLevel?: "default" | "strict" | "raw_fallback";
-  rowCount?: number;
-  logLineCount?: number;
-  error?: string;
-};
-
-type MessageMetadata =
-  | ToolActivityPayload
-  | CommitProposalPayload
-  | ProdReadProposalPayload
-  | ProdReadResultPayload;
-
-const metadataTypeSchema = z.object({
-  type: z.string(),
-});
-
-const commitProposalPayloadSchema = z
-  .object({
-    type: z.literal("commit_proposal"),
-    message: z.string(),
-    committed: z.boolean().optional(),
-    tools: z.array(toolActivityItemSchema).optional(),
-  })
-  .catchall(z.unknown());
-
-const prodReadProposalPayloadSchema = z
-  .object({
-    type: z.literal("prod_read_proposal"),
-    requestId: z.string(),
-    scope: z.enum(["vault", "global"]),
-    provider: z.enum(["convex", "netlify"]),
-    resourceKind: z.enum([
-      "deployment_status",
-      "logs",
-      "data_query",
-      "project_inventory",
-      "site_inventory",
-    ]),
-    toolName: z.string(),
-    paramsPreview: z.string(),
-    summary: z.string(),
-    status: z
-      .enum([
-        "proposed",
-        "approved",
-        "rejected",
-        "executed",
-        "failed",
-        "expired",
-      ])
-      .optional(),
-    error: z.string().optional(),
-    tools: z.array(toolActivityItemSchema).optional(),
-  })
-  .catchall(z.unknown());
-
-const toolActivityPayloadSchema = z
-  .object({
-    type: z.literal("tool_activity"),
-    tools: z.array(toolActivityItemSchema),
-  })
-  .catchall(z.unknown());
-
-const prodReadResultPayloadSchema = z
-  .object({
-    type: z.literal("prod_read_result"),
-    requestId: z.string(),
-    provider: z.enum(["convex", "netlify"]),
-    resourceKind: z.enum([
-      "deployment_status",
-      "logs",
-      "data_query",
-      "project_inventory",
-      "site_inventory",
-    ]),
-    endpoint: z.string().optional(),
-    redactionLevel: z.enum(["default", "strict", "raw_fallback"]).optional(),
-    rowCount: z.number().optional(),
-    logLineCount: z.number().optional(),
-    error: z.string().optional(),
-  })
-  .catchall(z.unknown());
-
-function parseMetadataPayload(payloadJson: string): MessageMetadata | null {
-  try {
-    const parsed = JSON.parse(payloadJson);
-    const typeResult = metadataTypeSchema.safeParse(parsed);
-    if (!typeResult.success) return null;
-    if (parsed.type === "commit_proposal") {
-      const result = commitProposalPayloadSchema.safeParse(parsed);
-      return result.success ? result.data : null;
-    }
-    if (parsed.type === "prod_read_proposal") {
-      const result = prodReadProposalPayloadSchema.safeParse(parsed);
-      return result.success ? result.data : null;
-    }
-    if (parsed.type === "tool_activity") {
-      const result = toolActivityPayloadSchema.safeParse(parsed);
-      return result.success ? result.data : null;
-    }
-    if (parsed.type === "prod_read_result") {
-      const result = prodReadResultPayloadSchema.safeParse(parsed);
-      return result.success ? result.data : null;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function parseCommitPayload(payloadJson: string): CommitProposalPayload | null {
-  const parsed = parseMetadataPayload(payloadJson);
-  return parsed?.type === "commit_proposal" ? parsed : null;
-}
-
-function parseProdReadProposalPayload(
-  payloadJson: string,
-): ProdReadProposalPayload | null {
-  const parsed = parseMetadataPayload(payloadJson);
-  return parsed?.type === "prod_read_proposal" ? parsed : null;
-}
-
-function ensureThreadAccess<T extends { userId: Id<"users"> }>(
-  ctxUserId: Id<"users">,
-  threadContext: T | null,
-): asserts threadContext is T {
-  if (!threadContext || threadContext.userId !== ctxUserId) {
-    throw new Error("Thread not found");
-  }
-}
 
 export const createThread = mutation({
   args: {
@@ -313,10 +124,7 @@ export const getThreadContext = query({
   ),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    const thread = await ctx.db
-      .query("agentThreadContext")
-      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
-      .first();
+    const thread = await getThreadById(ctx, args.threadId);
     ensureThreadAccess(userId, thread);
     return {
       threadId: thread.threadId,
@@ -334,10 +142,7 @@ export const deleteThread = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    const thread = await ctx.db
-      .query("agentThreadContext")
-      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
-      .first();
+    const thread = await getThreadById(ctx, args.threadId);
     ensureThreadAccess(userId, thread);
 
     await ctx.runMutation(components.agent.threads.deleteAllForThreadIdAsync, {
@@ -352,9 +157,7 @@ export const deleteThread = mutation({
       await ctx.db.delete(row._id);
     }
 
-    if (thread) {
-      await ctx.db.delete(thread._id);
-    }
+    await ctx.db.delete(thread._id);
 
     return null;
   },
@@ -371,19 +174,14 @@ export const sendMessage = mutation({
   returns: string(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    const thread = await ctx.db
-      .query("agentThreadContext")
-      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
-      .first();
+    const thread = await getThreadById(ctx, args.threadId);
     ensureThreadAccess(userId, thread);
 
-    if (thread) {
-      await ctx.db.patch(thread._id, {
-        vaultId: args.vaultId ?? thread.vaultId,
-        filePath: args.filePath ?? thread.filePath,
-        branch: args.branch ?? thread.branch,
-      });
-    }
+    await ctx.db.patch(thread._id, {
+      vaultId: args.vaultId ?? thread.vaultId,
+      filePath: args.filePath ?? thread.filePath,
+      branch: args.branch ?? thread.branch,
+    });
 
     const { messageId } = await saveMessage(ctx, components.agent, {
       threadId: args.threadId,
@@ -391,7 +189,7 @@ export const sendMessage = mutation({
       prompt: args.content,
     });
 
-    await ctx.scheduler.runAfter(0, internal.chatActions.generateResponse, {
+    await ctx.scheduler.runAfter(0, internal.chat.actions.generateResponse, {
       threadId: args.threadId,
       promptMessageId: messageId,
     });
@@ -408,10 +206,7 @@ export const listThreadMessages = query({
   },
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    const thread = await ctx.db
-      .query("agentThreadContext")
-      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
-      .first();
+    const thread = await getThreadById(ctx, args.threadId);
     ensureThreadAccess(userId, thread);
 
     const paginated = await listMessages(ctx, components.agent, {
@@ -471,28 +266,14 @@ export const proposeProdRead = mutation({
   }),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    const thread = await ctx.db
-      .query("agentThreadContext")
-      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
-      .first();
+    const thread = await getThreadById(ctx, args.threadId);
     ensureThreadAccess(userId, thread);
 
-    const user = await ctx.db.get(userId);
-    if (!user || !isAdminUser(user.githubUsername)) {
-      throw new Error("Only admin users can request production reads");
-    }
-
-    if (args.scope === "vault") {
-      if (!args.vaultId) {
-        throw new Error(
-          "vaultId is required for vault-scoped production reads",
-        );
-      }
-      const vault = await ctx.db.get(args.vaultId);
-      if (!vault || vault.userId !== userId) {
-        throw new Error("Vault not found");
-      }
-    }
+    await assertProdReadAccess(ctx, {
+      requesterUserId: userId,
+      scope: args.scope,
+      vaultId: args.vaultId,
+    });
 
     const redactionLevel = args.allowRawFallback ? "raw_fallback" : "default";
     const now = Date.now();
@@ -547,28 +328,14 @@ export const proposeProdReadInternal = internalMutation({
     requestId: id("aiProdAccessRequests"),
   }),
   handler: async (ctx, args) => {
-    const thread = await ctx.db
-      .query("agentThreadContext")
-      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
-      .first();
+    const thread = await getThreadById(ctx, args.threadId);
     ensureThreadAccess(args.requesterUserId, thread);
 
-    const user = await ctx.db.get(args.requesterUserId);
-    if (!user || !isAdminUser(user.githubUsername)) {
-      throw new Error("Only admin users can request production reads");
-    }
-
-    if (args.scope === "vault") {
-      if (!args.vaultId) {
-        throw new Error(
-          "vaultId is required for vault-scoped production reads",
-        );
-      }
-      const vault = await ctx.db.get(args.vaultId);
-      if (!vault || vault.userId !== args.requesterUserId) {
-        throw new Error("Vault not found");
-      }
-    }
+    await assertProdReadAccess(ctx, {
+      requesterUserId: args.requesterUserId,
+      scope: args.scope,
+      vaultId: args.vaultId,
+    });
 
     const redactionLevel = args.allowRawFallback ? "raw_fallback" : "default";
     const now = Date.now();
@@ -616,10 +383,7 @@ export const rejectProdRead = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    const thread = await ctx.db
-      .query("agentThreadContext")
-      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
-      .first();
+    const thread = await getThreadById(ctx, args.threadId);
     ensureThreadAccess(userId, thread);
 
     const request = await ctx.db.get(args.requestId);
@@ -655,7 +419,7 @@ export const rejectProdRead = mutation({
     });
 
     await ctx.runMutation(
-      internal.chat.updateProdReadProposalMessageStatusInternal,
+      internal.chat.index.updateProdReadProposalMessageStatusInternal,
       {
         messageId: args.messageId,
         status: "rejected",
@@ -676,10 +440,7 @@ export const confirmProdRead = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    const thread = await ctx.db
-      .query("agentThreadContext")
-      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
-      .first();
+    const thread = await getThreadById(ctx, args.threadId);
     ensureThreadAccess(userId, thread);
 
     const user = await ctx.db.get(userId);
@@ -721,7 +482,7 @@ export const confirmProdRead = mutation({
       });
 
       await ctx.runMutation(
-        internal.chat.updateProdReadProposalMessageStatusInternal,
+        internal.chat.index.updateProdReadProposalMessageStatusInternal,
         {
           messageId: args.messageId,
           status: "expired",
@@ -752,7 +513,7 @@ export const confirmProdRead = mutation({
     });
 
     await ctx.runMutation(
-      internal.chat.updateProdReadProposalMessageStatusInternal,
+      internal.chat.index.updateProdReadProposalMessageStatusInternal,
       {
         messageId: args.messageId,
         status: "approved",
@@ -762,7 +523,7 @@ export const confirmProdRead = mutation({
 
     await ctx.scheduler.runAfter(
       0,
-      internal.chatActions.executeApprovedProdRead,
+      internal.chat.actions.executeApprovedProdRead,
       {
         requestId: args.requestId,
         proposalMessageId: args.messageId,
@@ -781,12 +542,9 @@ export const confirmCommit = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    const thread = await ctx.db
-      .query("agentThreadContext")
-      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
-      .first();
+    const thread = await getThreadById(ctx, args.threadId);
     ensureThreadAccess(userId, thread);
-    if (!thread?.vaultId) {
+    if (!thread.vaultId) {
       throw new Error("Thread is not linked to a vault");
     }
 
@@ -807,7 +565,7 @@ export const confirmCommit = mutation({
     );
 
     await ctx.runMutation(
-      internal.chat.updateCommitProposalMessageCommittedInternal,
+      internal.chat.index.updateCommitProposalMessageCommittedInternal,
       {
         messageId: args.messageId,
         committed: true,
@@ -978,10 +736,7 @@ export const getThreadContextForAction = internalQuery({
     v.null(),
   ),
   handler: async (ctx, args) => {
-    const thread = await ctx.db
-      .query("agentThreadContext")
-      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
-      .first();
+    const thread = await getThreadById(ctx, args.threadId);
     if (!thread) return null;
     return {
       threadId: thread.threadId,
@@ -1002,10 +757,7 @@ export const saveThreadSystemPrompt = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const thread = await ctx.db
-      .query("agentThreadContext")
-      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
-      .first();
+    const thread = await getThreadById(ctx, args.threadId);
     if (!thread) return null;
     await ctx.db.patch(thread._id, { systemPrompt: args.systemPrompt });
     return null;
@@ -1038,34 +790,11 @@ export const updateProdReadProposalMessageStatusInternal = internalMutation({
   },
 });
 
-export function buildToolActivityPayload(
-  tools: ToolActivityItem[],
-): ToolActivityPayload {
-  return { type: "tool_activity", tools };
-}
-
-export function buildCommitProposalPayload(args: {
-  message: string;
-  tools?: ToolActivityItem[];
-}): CommitProposalPayload {
-  return { type: "commit_proposal", message: args.message, tools: args.tools };
-}
-
-export function buildProdReadProposalPayload(
-  proposal: Omit<ProdReadProposalPayload, "type">,
-  tools?: ToolActivityItem[],
-): ProdReadProposalPayload {
-  return {
-    type: "prod_read_proposal",
-    ...proposal,
-    ...(tools ? { tools } : {}),
-  };
-}
-
-export function buildProdReadResultPayload(
-  payload: Omit<ProdReadResultPayload, "type">,
-): ProdReadResultPayload {
-  return { type: "prod_read_result", ...payload };
-}
-
-export type { MessageMetadata, ToolActivityItem, MessageDoc };
+export {
+  buildCommitProposalPayload,
+  buildProdReadProposalPayload,
+  buildProdReadResultPayload,
+  buildToolActivityPayload,
+} from "./metadata";
+export type { MessageMetadata, ToolActivityItem } from "./metadata";
+export type { MessageDoc } from "@convex-dev/agent/validators";

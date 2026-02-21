@@ -108,14 +108,14 @@ durable threads, while keeping Noter’s existing approval-first flows.
   - Use `agent.saveMessage` with `{ threadId, prompt: content, userId }`.
   - Return the `messageId` from the agent component.
   - Schedule `generateResponse` with `threadId` and `promptMessageId`.
-- `chatActions.generateResponse`
+- `chat.actions.generateResponse`
   - Use `agent.streamText` so streaming deltas are stored.
   - Pass `threadId` and `promptMessageId`.
   - Set `saveMessages: "promptAndOutput"` and `saveStreamDeltas: true`.
   - Parse `result.savedMessages` to locate the assistant message IDs.
   - For commit/prod-read proposals, insert a `chatMessageMetadata` row keyed to
     the assistant message ID.
-- `chatActions.executeApprovedProdRead`
+- `chat.actions.executeApprovedProdRead`
   - Write prod-read results as assistant messages to the agent thread via
     `agent.saveMessage` and attach metadata rows for status.
 - `buildSystemPrompt`

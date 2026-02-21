@@ -19,7 +19,7 @@ This spec is intentionally approval-first and read-only for MVP.
 ## Implementation Snapshot (2026-02-13)
 
 - Proposal -> explicit approval -> execution flow is live in `chat.ts` +
-  `chatActions.ts`.
+  `chat/actions.ts`.
 - Request/audit persistence is live via `aiProdAccessRequests` and
   `aiProdAccessAudit`.
 - Admin-only enforcement is active via `isAdminUser`.

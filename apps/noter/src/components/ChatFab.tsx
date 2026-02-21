@@ -377,7 +377,7 @@ function CommitProposalCard({
   threadId: string;
   messageId: string;
 }) {
-  const confirmCommit = useMutation(api.chat.confirmCommit);
+  const confirmCommit = useMutation(api.chat.index.confirmCommit);
   const [confirming, setConfirming] = useState(false);
 
   async function handleApprove() {
@@ -443,8 +443,8 @@ function ProdReadProposalCard({
   threadId: string;
   messageId: string;
 }) {
-  const confirmProdRead = useMutation(api.chat.confirmProdRead);
-  const rejectProdRead = useMutation(api.chat.rejectProdRead);
+  const confirmProdRead = useMutation(api.chat.index.confirmProdRead);
+  const rejectProdRead = useMutation(api.chat.index.rejectProdRead);
   const [action, setAction] = useState<"approve" | "reject" | null>(null);
 
   const status = metadata.status ?? "proposed";
@@ -692,25 +692,25 @@ export function ChatFab() {
 
   // One thread per user per vault — persisted in Convex
   const vaultThread = useQuery(
-    api.chat.getThreadForVault,
+    api.chat.index.getThreadForVault,
     vaultId ? { vaultId } : "skip",
   );
   const threadId = vaultId ? vaultThread?.threadId ?? null : localThreadId;
 
   const threadContext = useQuery(
-    api.chat.getThreadContext,
+    api.chat.index.getThreadContext,
     threadId ? { threadId } : "skip",
   );
 
   const messages = useUIMessages(
-    api.chat.listThreadMessages,
+    api.chat.index.listThreadMessages,
     threadId ? { threadId } : "skip",
     { initialNumItems: 50, stream: true },
   );
 
-  const createThread = useMutation(api.chat.createThread);
-  const deleteThread = useMutation(api.chat.deleteThread);
-  const sendMessage = useMutation(api.chat.sendMessage);
+  const createThread = useMutation(api.chat.index.createThread);
+  const deleteThread = useMutation(api.chat.index.deleteThread);
+  const sendMessage = useMutation(api.chat.index.sendMessage);
 
   async function handleNewConversation() {
     if (!threadId) return;
