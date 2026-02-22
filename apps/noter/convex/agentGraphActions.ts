@@ -3,12 +3,12 @@
 import { action, type ActionCtx } from "./_generated/server";
 import { v, Infer } from "convex/values";
 import { components, internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { getUserId } from "./common";
-import { executeReadFile } from "./agent/tools";
 import type { ToolContext } from "./agent/tools";
 import { runAgentGraph } from "./agent/graph";
 import { saveMessage } from "@convex-dev/agent";
+import { Octokit } from "@octokit/rest";
 
 const { object, string, optional, id } = v;
 
@@ -71,6 +71,50 @@ function buildToolContext(
   };
 }
 
+async function loadAgentPrompt(args: {
+  ctx: ActionCtx;
+  vault: Doc<"vaults">;
+  user: Doc<"users">;
+  agentPath: string;
+}): Promise<string> {
+  const { ctx, vault, user, agentPath } = args;
+
+  const staging = await ctx.runQuery(internal.fileStaging.getByOriginalPath, {
+    vaultId: vault._id,
+    originalFilePath: agentPath,
+  });
+  if (staging && typeof staging.content === "string") {
+    return staging.content;
+  }
+
+  const treeSha = vault.treeData.tree.find(
+    (entry) => entry.path === agentPath,
+  )?.sha;
+  if (treeSha) {
+    const blob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+      sha: treeSha,
+    });
+    if (blob && typeof blob.text === "string") {
+      return blob.text;
+    }
+  }
+
+  if (user.githubAccessToken) {
+    const octokit = new Octokit({ auth: user.githubAccessToken });
+    const file = await octokit.rest.repos.getContent({
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+      path: agentPath,
+    });
+    if (Array.isArray(file.data) || file.data.type !== "file") {
+      throw new Error(`Error: ${agentPath} is a directory, not a file`);
+    }
+    return Buffer.from(file.data.content, "base64").toString("utf-8");
+  }
+
+  throw new Error("GitHub access token not found");
+}
+
 export const sendAgentMessage = action({
   args: sendAgentMessageArgs,
   returns: sendAgentMessageReturns,
@@ -99,11 +143,18 @@ export const sendAgentMessage = action({
 
     const resolvedThreadId = await resolveThreadId(ctx, userId, args.threadId);
 
-    const toolCtx = buildToolContext(ctx, resolvedThreadId, vault, user);
+    const toolCtx = user.githubAccessToken
+      ? buildToolContext(ctx, resolvedThreadId, vault, user)
+      : undefined;
 
     let systemPrompt: string;
     try {
-      systemPrompt = await executeReadFile(toolCtx, { path: args.agentPath });
+      systemPrompt = await loadAgentPrompt({
+        ctx,
+        vault,
+        user,
+        agentPath: args.agentPath,
+      });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to load agent prompt";
