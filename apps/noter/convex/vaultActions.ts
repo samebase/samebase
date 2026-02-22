@@ -13,6 +13,7 @@ import {
   createStarterSeedGitClient,
   seedRepositoryWithStarter,
 } from "./starterSeed";
+import { agentTemplateManifest } from "./agentSeedManifest.generated";
 
 function isProviderNotFoundError(error: unknown): boolean {
   if (typeof error === "object" && error !== null) {
@@ -67,7 +68,9 @@ const DAYTONA_SNAPSHOT_LIST_LIMIT = 100;
 
 type DaytonaSandbox = Awaited<ReturnType<Daytona["list"]>>["items"][number];
 type SnapshotService = Daytona["snapshot"];
-type DaytonaSnapshot = Awaited<ReturnType<SnapshotService["list"]>>["items"][number];
+type DaytonaSnapshot = Awaited<
+  ReturnType<SnapshotService["list"]>
+>["items"][number];
 
 function resolveDaytonaApiConfig():
   | { ok: true; baseUrl: string; token: string }
@@ -248,6 +251,7 @@ export const createRepository = action({
     name: v.string(),
     description: v.optional(v.string()),
     private: v.optional(v.boolean()),
+    templateType: v.optional(v.union(v.literal("app"), v.literal("agent"))),
   },
   returns: v.object({
     vaultId: v.string(),
@@ -295,6 +299,7 @@ export const createRepository = action({
     const ownerName = repo.data.owner.login;
     const repoFinalName = repo.data.name;
     const defaultBranch = readDefaultBranch(repo.data);
+    const templateType = args.templateType ?? "app";
 
     try {
       await seedRepositoryWithStarter({
@@ -302,6 +307,7 @@ export const createRepository = action({
         owner: ownerName,
         repo: repoFinalName,
         defaultBranch,
+        manifest: templateType === "agent" ? agentTemplateManifest : undefined,
       });
     } catch (error) {
       const seedErrorMessage = toErrorMessage(error);
@@ -383,7 +389,9 @@ export const retryInfrastructureProvisioning = action({
       throw new Error("Vault not found");
     }
     if (vault.isNoterManaged !== true) {
-      throw new Error("Infrastructure retry is available only for Noter-managed vaults");
+      throw new Error(
+        "Infrastructure retry is available only for Noter-managed vaults",
+      );
     }
 
     await ctx.scheduler.runAfter(
@@ -462,10 +470,7 @@ export const deleteVault = action({
     const shouldRemoveCodespaces = args.removeCodespaces === true;
     const shouldRemoveDaytonaResources = args.removeDaytonaResources === true;
 
-    if (
-      shouldRemoveNetlifyProvision ||
-      shouldRemoveConvexProvision
-    ) {
+    if (shouldRemoveNetlifyProvision || shouldRemoveConvexProvision) {
       const convexToken = shouldRemoveConvexProvision
         ? user.convexAccessToken
         : undefined;
@@ -521,7 +526,6 @@ export const deleteVault = action({
           }
         }
       }
-
     }
 
     if (shouldRemoveDaytonaResources) {
@@ -612,10 +616,13 @@ export const deleteVault = action({
         const octokit = await getOctokit();
 
         for (const codespace of codespaces) {
-          await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
-            codespaceId: codespace._id,
-            state: "deleting",
-          });
+          await ctx.runMutation(
+            internal.codespacesMutations.updateCodespaceState,
+            {
+              codespaceId: codespace._id,
+              state: "deleting",
+            },
+          );
 
           try {
             await octokit.rest.codespaces.deleteForAuthenticatedUser({
@@ -623,23 +630,32 @@ export const deleteVault = action({
             });
           } catch (error) {
             if (!isProviderNotFoundError(error)) {
-              await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
-                codespaceId: codespace._id,
-                state: "failed",
-              });
+              await ctx.runMutation(
+                internal.codespacesMutations.updateCodespaceState,
+                {
+                  codespaceId: codespace._id,
+                  state: "failed",
+                },
+              );
               throw error;
             }
           }
 
-          await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
-            codespaceId: codespace._id,
-            state: "deleted",
-            deletedAt: Date.now(),
-          });
-          await ctx.runMutation(internal.codespacesMutations.clearActiveCodespace, {
-            vaultId: args.vaultId,
-            codespaceId: codespace._id,
-          });
+          await ctx.runMutation(
+            internal.codespacesMutations.updateCodespaceState,
+            {
+              codespaceId: codespace._id,
+              state: "deleted",
+              deletedAt: Date.now(),
+            },
+          );
+          await ctx.runMutation(
+            internal.codespacesMutations.clearActiveCodespace,
+            {
+              vaultId: args.vaultId,
+              codespaceId: codespace._id,
+            },
+          );
         }
       }
     }

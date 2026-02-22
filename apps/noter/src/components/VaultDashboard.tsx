@@ -37,6 +37,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -95,6 +97,11 @@ const getInfraActionLabel = (
   return null;
 };
 
+type CreateTemplate = "app" | "agent";
+
+const isCreateTemplate = (value: string): value is CreateTemplate =>
+  value === "app" || value === "agent";
+
 export function VaultDashboard() {
   const vaults = useQuery(api.vault.getUserVaults);
   const { signIn } = useAuthActions();
@@ -115,7 +122,7 @@ export function VaultDashboard() {
     api.users.getNetlifyConnectionStatus,
   );
   const user = useConvexQuery(api.users.viewer);
-  const canCreateProject = Boolean(
+  const canCreateRepo = Boolean(
     githubConnection?.connected &&
       convexConnection?.connected &&
       netlifyConnection?.connected,
@@ -136,7 +143,8 @@ export function VaultDashboard() {
   const [removeConvexProvision, setRemoveConvexProvision] = useState(false);
   const [removeNetlifyProvision, setRemoveNetlifyProvision] = useState(false);
   const [removeDaytonaResources, setRemoveDaytonaResources] = useState(false);
-  const [newAgentName, setNewAgentName] = useState("");
+  const [newRepositoryName, setNewRepositoryName] = useState("");
+  const [createTemplate, setCreateTemplate] = useState<CreateTemplate>("app");
   const [disconnectingProvider, setDisconnectingProvider] = useState<
     "github" | "convex" | "netlify" | null
   >(null);
@@ -347,11 +355,11 @@ export function VaultDashboard() {
   };
 
   const handleCreateRepository = async () => {
-    const repoName = newAgentName.trim();
+    const repoName = newRepositoryName.trim();
     if (!repoName || isCreating) return;
-    if (!canCreateProject) {
+    if (!canCreateRepo) {
       setCreateError(
-        "Connect GitHub, Convex, and Netlify before creating a project.",
+        `Connect GitHub, Convex, and Netlify before creating ${createTemplateArticle}.`,
       );
       return;
     }
@@ -363,11 +371,14 @@ export function VaultDashboard() {
       await createRepository({
         name: repoName,
         private: true,
+        templateType: createTemplate,
       });
-      setNewAgentName("");
+      setNewRepositoryName("");
     } catch (error) {
       setCreateError(
-        error instanceof Error ? error.message : "Failed to create project",
+        error instanceof Error
+          ? error.message
+          : `Failed to create ${createTemplate}`,
       );
     } finally {
       setIsCreating(false);
@@ -403,14 +414,44 @@ export function VaultDashboard() {
   const userDisplayName =
     user?.name ?? user?.email ?? user?.githubUsername ?? "...";
   const userMenu = user ? <UserMenu>{userDisplayName}</UserMenu> : null;
+  const createTemplateLabel = createTemplate === "app" ? "App" : "Agent";
+  const createTemplateArticle =
+    createTemplate === "app" ? "an app" : "an agent";
+  const createPlaceholder = `New ${createTemplate} name`;
+  const createButtonLabel = isCreating
+    ? `Creating ${createTemplate}...`
+    : `New ${createTemplate}`;
   const createControl = (
     <div className="flex flex-col items-start gap-2">
       <ButtonGroup className="w-full sm:w-[360px]">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button className="gap-2" variant="outline">
+              {createTemplateLabel}
+              <ChevronDownIcon className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuRadioGroup
+              value={createTemplate}
+              onValueChange={(value) => {
+                if (!isCreateTemplate(value)) return;
+                setCreateTemplate(value);
+                if (createError) {
+                  setCreateError(null);
+                }
+              }}
+            >
+              <DropdownMenuRadioItem value="app">App</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="agent">Agent</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Input
-          placeholder="New project name"
-          value={newAgentName}
+          placeholder={createPlaceholder}
+          value={newRepositoryName}
           onChange={(e) => {
-            setNewAgentName(e.target.value);
+            setNewRepositoryName(e.target.value);
             if (createError) {
               setCreateError(null);
             }
@@ -421,17 +462,19 @@ export function VaultDashboard() {
             }
           }}
           className="flex-1"
-          disabled={!canCreateProject}
+          disabled={!canCreateRepo}
         />
         <Button
           onClick={() => {
             void handleCreateRepository();
           }}
           disabled={
-            isCreating || newAgentName.trim().length === 0 || !canCreateProject
+            isCreating ||
+            newRepositoryName.trim().length === 0 ||
+            !canCreateRepo
           }
         >
-          {isCreating ? "Creating..." : "New project"}
+          {createButtonLabel}
         </Button>
         <ButtonGroupSeparator className="bg-primary-foreground/30" />
         <DropdownMenu>
@@ -454,9 +497,9 @@ export function VaultDashboard() {
         </DropdownMenu>
       </ButtonGroup>
       {createError && <div className="text-sm text-red-600">{createError}</div>}
-      {!canCreateProject && (
+      {!canCreateRepo && (
         <div className="text-xs text-muted-foreground">
-          Connect GitHub, Convex, and Netlify to create projects.
+          Connect GitHub, Convex, and Netlify to create apps or agents.
         </div>
       )}
     </div>
