@@ -7,6 +7,7 @@ import { ConvexReactClient } from "convex/react";
 import { registerSW } from "virtual:pwa-register";
 import App from "./App.tsx";
 import "./index.css";
+import "@xyflow/react/dist/style.css";
 import { QueryProvider } from "./lib/providers/query-provider";
 
 registerSW({
