@@ -31,7 +31,7 @@ function main() {
   program
     .name('wt')
     .description('worktree helper')
-    .usage('[branch] | list | ls | status | clean [options]')
+    .usage('[branch] | list | ls | status | clean [options] | br-clean [options]')
     .addHelpText(
       'after',
       `
@@ -46,7 +46,10 @@ Examples:
   wt codex/my-branch
   wt clean
   wt clean --base main
-  wt clean --apply`,
+  wt clean --apply
+  wt br-clean
+  wt br-clean --base main
+  wt br-clean --apply`,
     )
     .showHelpAfterError('(run with --help for usage)')
 
@@ -81,6 +84,39 @@ Base source:
        */
       options => {
         runClean(options)
+      },
+    )
+
+  program
+    .command('br-clean')
+    .description('dry-run by default; remove only safe merged local branches with --apply')
+    .option('--apply', 'actually remove candidates (default is dry-run)', false)
+    .option('--base <branch>', 'override base branch used for merged checks')
+    .addHelpText(
+      'after',
+      `
+What gets auto-removed:
+  - Local branches merged into base and not checked out in any worktree.
+
+What is never auto-removed:
+  - Branches checked out in any worktree.
+  - Branches not merged into base.
+
+Base source:
+  - If --base is set, that value is used.
+  - Otherwise it matches your fish 'main' alias behavior (resolved from 'origin/HEAD').
+
+\tExamples:
+\t  wt br-clean
+\t  wt br-clean --base main
+\t  wt br-clean --apply`,
+    )
+    .action(
+      /**
+       * @param {CleanOptions} options
+       */
+      options => {
+        runBranchClean(options)
       },
     )
 
@@ -189,6 +225,16 @@ function getWorktrees() {
         shortBranch: branchName?.split('/').pop(),
       }
     })
+}
+
+/**
+ * @param {string} repoRoot
+ */
+function getLocalBranches(repoRoot) {
+  const output = git(['for-each-ref', 'refs/heads', '--format=%(refname:short)'], {
+    cwd: repoRoot,
+  })
+  return output.split('\n').map(line => line.trim()).filter(Boolean)
 }
 
 /**
@@ -622,6 +668,117 @@ function runClean(options) {
   if (removed > 0) {
     git(['worktree', 'prune'], { cwd: repoRoot })
   }
+  console.log(`done. removed ${removed}, failed ${failed}, manual checks ${manualCheck.length}.`)
+}
+
+/**
+ * @param {CleanOptions} options
+ */
+function runBranchClean(options) {
+  const { apply, base: baseOption } = options
+
+  const repoRoot = git(['rev-parse', '--show-toplevel']).trim()
+  const requestedBase = baseOption?.trim()
+  const base = requestedBase && requestedBase.length > 0
+    ? normalizeBaseName(requestedBase)
+    : resolveDefaultBranchName(repoRoot)
+  const baseRef = resolveBaseRef(repoRoot, requestedBase && requestedBase.length > 0 ? requestedBase : base)
+
+  const baseCheck = gitStatus(['rev-parse', '--verify', baseRef], { cwd: repoRoot })
+  if (baseCheck.status !== 0) {
+    console.error(`base ref not found: ${baseRef}`)
+    process.exit(1)
+  }
+
+  const worktrees = getWorktrees()
+  /** @type {Map<string, string[]>} */
+  const activeBranches = new Map()
+  for (const wt of worktrees) {
+    if (!wt.branchName) {
+      continue
+    }
+    const entries = activeBranches.get(wt.branchName)
+    if (entries) {
+      entries.push(wt.worktree)
+    } else {
+      activeBranches.set(wt.branchName, [wt.worktree])
+    }
+  }
+
+  const branches = getLocalBranches(repoRoot)
+  const toRemove = []
+  const manualCheck = []
+
+  for (const branch of branches) {
+    if (branch === base) {
+      continue
+    }
+
+    const activePaths = activeBranches.get(branch)
+    if (activePaths) {
+      const locations = activePaths.map(path => formatPath(path)).join(', ')
+      manualCheck.push({
+        branch,
+        reason: `checked out in ${locations}`,
+      })
+      continue
+    }
+
+    const merged = isAncestor(branch, baseRef, repoRoot)
+    if (merged) {
+      toRemove.push({
+        branch,
+        reason: `merged into '${base}'`,
+      })
+    } else {
+      manualCheck.push({
+        branch,
+        reason: `not merged into '${base}'`,
+      })
+    }
+  }
+
+  const baseLabel = baseRef === base ? base : `${base} (${baseRef})`
+  console.log(`base: ${baseLabel}`)
+  console.log(apply ? 'mode: apply (will remove candidates)' : 'mode: dry-run (no removals)')
+  if (toRemove.length === 0) {
+    console.log('remove candidates: none')
+  } else {
+    console.log(`remove candidates (${toRemove.length}):`)
+    for (const item of toRemove) {
+      console.log(`- ${item.branch} (${item.reason})`)
+    }
+  }
+
+  if (manualCheck.length > 0) {
+    console.log(`manual checks (${manualCheck.length}):`)
+    for (const item of manualCheck) {
+      console.log(`- ${item.branch} (${item.reason})`)
+    }
+  }
+
+  if (!apply) {
+    console.log('no branches removed (dry-run).')
+    console.log("next: run 'wt br-clean --apply' to remove candidates.")
+    return
+  }
+
+  let removed = 0
+  let failed = 0
+  for (const item of toRemove) {
+    const removeResult = gitStatus(['branch', '-d', '--', item.branch], { cwd: repoRoot })
+    if (removeResult.status === 0) {
+      console.log(`removed: ${item.branch}`)
+      removed += 1
+    } else {
+      failed += 1
+      console.log(`failed: ${item.branch}`)
+      if (removeResult.stderr.trim().length > 0) {
+        console.log(removeResult.stderr.trim())
+      }
+    }
+  }
+
   console.log(`done. removed ${removed}, failed ${failed}, manual checks ${manualCheck.length}.`)
 }
 
