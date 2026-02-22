@@ -1,4 +1,7 @@
 AGENTS.md
+apps/noter-agent-template/AGENTS.md
+apps/noter-agent-template/skills/quick-summary/SKILL.md
+apps/noter-agent-template/subagents/researcher/AGENTS.md
 apps/noter-starter-template/AGENTS.md
 apps/noter-starter-template/noter.md
 apps/noter-starter-template/README.md
