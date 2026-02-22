@@ -20,7 +20,7 @@ anon:
 
 anon:once:
 	$(MAKE) bootstrap-anon
-	cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --once --tail-logs=disable --codegen=enable
+	CONVEX_AGENT_MODE=anonymous pnpm --filter noter exec convex dev --once --tail-logs=disable --typecheck=disable
 
 update-fixtures:
 	UPDATE_SIMPLE_VIEW_FIXTURES=1 pnpm exec vitest run apps/noter/src/lib/simpleView.test.ts
