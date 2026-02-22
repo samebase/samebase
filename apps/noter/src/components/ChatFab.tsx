@@ -141,10 +141,8 @@ const messageMetadataSchema = z.union([
   prodReadResultSchema,
 ]);
 
-type ToolActivity = z.infer<typeof toolActivitySchema>;
 type CommitProposal = z.infer<typeof commitProposalSchema>;
 type ProdReadProposal = z.infer<typeof prodReadProposalSchema>;
-type ProdReadResult = z.infer<typeof prodReadResultSchema>;
 type MessageMetadata = z.infer<typeof messageMetadataSchema>;
 type ChatUIMessage = UIMessage & { metadata?: unknown };
 
@@ -869,7 +867,7 @@ export function ChatFab() {
     saveToStorage(STORAGE_KEY_SIZE, size);
   }, [size]);
 
-  const messageResults: ChatUIMessage[] = messages?.results ?? [];
+  const messageResults: ChatUIMessage[] = messages.results;
   const hasStreaming = messageResults.some(
     (msg) => msg.role === "assistant" && msg.status === "streaming",
   );
