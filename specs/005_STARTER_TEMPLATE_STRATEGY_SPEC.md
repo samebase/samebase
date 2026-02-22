@@ -5,6 +5,8 @@
 - Status: Draft for implementation.
 - Owner: Noter backend/frontend
 - Date: 2026-02-13
+- Related specs:
+  - `specs/022_AGENT_GRAPH_VIEW_SPEC.md`
 - Related files:
   - `apps/noter/convex/vaultActions.ts`
   - `apps/noter/convex/starterSeed.ts` (or replacement)
@@ -15,7 +17,8 @@
 
 ## Summary
 
-This spec captures the open questions and tradeoffs discussed while introducing starter seeding for new noter-managed vaults.
+This spec captures the open questions and tradeoffs discussed while introducing
+starter seeding for new noter-managed vaults.
 
 For Iteration 1, the decision is:
 
@@ -28,24 +31,29 @@ For Iteration 1, the decision is:
 
 Current product goal:
 
-- New vaults should be instantly deployable and runnable in production after creation.
+- New vaults should be instantly deployable and runnable in production after
+  creation.
 
 Observed issue with the previous approach:
 
-- Layered snapshot folders (`seed-commits/*`) were introduced to enforce a staged multi-commit history.
+- Layered snapshot folders (`seed-commits/*`) were introduced to enforce a
+  staged multi-commit history.
 - This creates duplicated files and additional maintenance overhead.
 
 Strategic concern:
 
-- Team is still evaluating whether long-term source of truth should remain monorepo-local or move to a separate template repository.
+- Team is still evaluating whether long-term source of truth should remain
+  monorepo-local or move to a separate template repository.
 
 ## Questions Raised (Captured From Discussion)
 
-- Is layered commit snapshotting worth the implementation and maintenance complexity?
+- Is layered commit snapshotting worth the implementation and maintenance
+  complexity?
 - Would a separate template repo reduce ongoing operational overhead?
 - How should reuse from monorepo into template be handled over time?
 - Should staged commit history be mandatory in generated user repositories?
-- How much runtime dependency on external GitHub sources is acceptable during vault creation?
+- How much runtime dependency on external GitHub sources is acceptable during
+  vault creation?
 
 ## Options Considered
 
@@ -120,7 +128,8 @@ Operational cost:
 - Keep starter template in monorepo at `apps/noter-starter-template`.
 - Remove/avoid `seed-commits/*` layered source model.
 - New vault creation seeds starter content as exactly one commit.
-- Starter template package manager is pnpm to align with monorepo tooling and reduce package-manager variance.
+- Starter template package manager is pnpm to align with monorepo tooling and
+  reduce package-manager variance.
 - Codespace runtime assets are part of the starter contract:
   - `.devcontainer/devcontainer.json`
   - `.codespace-agent/**`
@@ -136,8 +145,10 @@ Operational cost:
   - `.codespace-agent/**`
 - Starter template copies are synchronized by:
   - `pnpm --filter noter-starter-template run template:sync-codespace`
-- `template:export` must run sync first so manifest output cannot drift from canonical runtime assets.
-- Sync excludes runtime-only artifacts (for example `.codespace-agent/node_modules`, `.codespace-agent/.agent-token`).
+- `template:export` must run sync first so manifest output cannot drift from
+  canonical runtime assets.
+- Sync excludes runtime-only artifacts (for example
+  `.codespace-agent/node_modules`, `.codespace-agent/.agent-token`).
 
 ## Public API / Behavior Changes
 
@@ -151,7 +162,8 @@ Behavioral contract for Iteration 1:
 ### Infra provisioning
 
 - No contract change.
-- Existing behavior remains: provisioning is still auto-scheduled for noter-managed vaults.
+- Existing behavior remains: provisioning is still auto-scheduled for
+  noter-managed vaults.
 
 ## Technical Contract for Iteration 1
 
@@ -163,14 +175,15 @@ Behavioral contract for Iteration 1:
 
 ## Important Changes / Additions to Interfaces and Types
 
-Iteration 1 simplifies the manifest contract to a single snapshot representation:
+Iteration 1 simplifies the manifest contract to a single snapshot
+representation:
 
 ```ts
 type StarterTemplateManifest = {
-  version: string;
-  commitMessage: string;
-  files: Record<string, string>;
-};
+  version: string
+  commitMessage: string
+  files: Record<string, string>
+}
 ```
 
 Out of scope for Iteration 1:
@@ -183,12 +196,14 @@ Out of scope for Iteration 1:
 - Spec explicitly defines Iteration 1 scope and deferred topics.
 - Spec states exact single-commit seeding rule.
 - Spec requires command-level setup history in template `AGENTS.md`.
-- Starter template export always includes up-to-date `.devcontainer` + `.codespace-agent` assets from canonical root sources.
+- Starter template export always includes up-to-date `.devcontainer` +
+  `.codespace-agent` assets from canonical root sources.
 
 ## Test Cases and Scenarios
 
 1. Creating a new noter-managed vault yields exactly one starter-seeding commit.
-2. Seeded repository builds and runs with React + Vite + Convex + Tailwind + shadcn baseline.
+2. Seeded repository builds and runs with React + Vite + Convex + Tailwind +
+   shadcn baseline.
 3. Infra provisioning still triggers and reaches ready state.
 4. `apps/noter-starter-template/AGENTS.md` includes reproducible setup commands.
 
@@ -204,5 +219,9 @@ Out of scope for Iteration 1:
 - Evaluate moving source of truth to a separate template repository.
 - Evaluate preserving staged pedagogical commit history in generated repos.
 - Evaluate sync automation strategy between monorepo and template repo.
-- Experiment with reading starter template code directly as runtime text (instead of generated manifest) if Convex deployment/bundling guarantees deterministic access to template files.
-- If the direct text-read experiment is pursued, compare failure modes and operational complexity against the current generated-manifest approach before changing the default seeding path.
+- Experiment with reading starter template code directly as runtime text
+  (instead of generated manifest) if Convex deployment/bundling guarantees
+  deterministic access to template files.
+- If the direct text-read experiment is pursued, compare failure modes and
+  operational complexity against the current generated-manifest approach before
+  changing the default seeding path.
