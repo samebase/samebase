@@ -2,8 +2,8 @@
 
 ## Status
 
-Implemented for MVP with persisted conversations, commit proposals, and
-approval-first production read requests.
+Implemented for MVP with persisted threads, commit proposals, and approval-first
+production read requests.
 
 Last updated: 2026-02-13
 
@@ -18,7 +18,7 @@ vault when available and stored in Convex.
 
 - Component: `apps/noter/src/components/ChatFab.tsx`
 - Rendered for authenticated users
-- One conversation per user+vault when a vault context exists
+- One thread per user+vault when a vault context exists
 - Supports metadata-driven cards:
   - `commit_proposal`
   - `prod_read_proposal`
@@ -26,15 +26,15 @@ vault when available and stored in Convex.
 
 ### Backend
 
-- Conversation/message lifecycle: `apps/noter/convex/chat/index.ts`
+- Thread/message lifecycle: `apps/noter/convex/chat/index.ts`
 - Response generation and proposal/result messages:
   `apps/noter/convex/chat/actions.ts`
 - Tool catalog/system behavior: `apps/noter/convex/agent/*`
 
 ## Data Model
 
-- `chatConversations`
-- `chatMessages`
+- `agentThreadContext`
+- `chatMessageMetadata`
 - `aiProdAccessRequests`
 - `aiProdAccessAudit`
 

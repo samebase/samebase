@@ -96,7 +96,7 @@ Fields:
 - `vaultId?: Id<"vaults">`
 - `scope: "vault" | "global"`
 - `provider: "convex" | "netlify"`
-- `resourceKind: "deployment_status" | "logs" | "data_query"`
+- `resourceKind: "deployment_status" | "logs" | "data_query" | "project_inventory" | "site_inventory"`
 - `toolName: string`
 - `paramsJson: string`
 - `status: "proposed" | "approved" | "rejected" | "executed" | "failed" | "expired"`
@@ -109,7 +109,7 @@ Fields:
 
 Indexes:
 
-- `by_thread`
+- `by_threadId`
 - `by_requester`
 - `by_status`
 - `by_vault`
@@ -159,6 +159,8 @@ aiProdAccessRequests: defineTable({
     v.literal('deployment_status'),
     v.literal('logs'),
     v.literal('data_query'),
+    v.literal('project_inventory'),
+    v.literal('site_inventory'),
   ),
   toolName: v.string(),
   paramsJson: v.string(),
@@ -174,7 +176,7 @@ aiProdAccessRequests: defineTable({
   expiresAt: v.optional(v.number()),
   error: v.optional(v.string()),
 })
-  .index('by_thread', ['threadId'])
+  .index('by_threadId', ['threadId'])
   .index('by_requester', ['requesterUserId'])
   .index('by_status', ['status'])
   .index('by_vault', ['vaultId'])
@@ -230,7 +232,12 @@ args: {
   threadId: string;
   vaultId?: Id<"vaults">;
   provider: "convex" | "netlify";
-  resourceKind: "deployment_status" | "logs" | "data_query";
+  resourceKind:
+    | "deployment_status"
+    | "logs"
+    | "data_query"
+    | "project_inventory"
+    | "site_inventory";
   toolName: string;
   paramsJson: string;
 }

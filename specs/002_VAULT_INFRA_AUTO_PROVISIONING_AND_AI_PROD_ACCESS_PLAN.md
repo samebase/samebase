@@ -24,11 +24,10 @@ rewrite when real users arrive.
 
 ## Spec Files to Add/Update
 
-1. Add `/Users/nicu/dev/my/noter/specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`.
-2. Add `/Users/nicu/dev/my/noter/specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`.
-3. Add a short cross-link section to
-   `/Users/nicu/dev/my/noter/specs/001_CODESPACE_CONNECTION_SPEC.md` pointing to
-   the new infra specs.
+1. Add `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`.
+2. Add `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`.
+3. Add a short cross-link section to `specs/001_CODESPACE_CONNECTION_SPEC.md`
+   pointing to the new infra specs.
 
 ## Required API/Schema Changes (to include in specs)
 

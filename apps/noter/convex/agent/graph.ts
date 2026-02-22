@@ -9,11 +9,12 @@ import type { Id } from "../_generated/dataModel";
 import type { ToolContext } from "./tools";
 import { createTools } from "./tools";
 import type { MessageDoc } from "@convex-dev/agent/validators";
+import { requestIdSchema } from "../../shared/chatMetadata";
 
 const COMMIT_SENTINEL = "__COMMIT_PROPOSAL__:";
 const PROD_READ_SENTINEL = "__PROD_READ_PROPOSAL__:";
 const PROD_READ_PROPOSAL_SCHEMA = z.object({
-  requestId: z.string(),
+  requestId: requestIdSchema,
   scope: z.enum(["vault", "global"]),
   provider: z.enum(["convex", "netlify"]),
   resourceKind: z.enum([
@@ -29,10 +30,10 @@ const PROD_READ_PROPOSAL_SCHEMA = z.object({
 });
 type ProdReadProposal = z.infer<typeof PROD_READ_PROPOSAL_SCHEMA>;
 
-type StepSnapshot = {
-  toolCalls?: Array<{ toolName: string; input: unknown }>;
-  toolResults?: Array<{ output: unknown }>;
-};
+type AgentStreamTextArgs = Parameters<typeof Agent.prototype.streamText>[2];
+type StepSnapshot = Parameters<
+  NonNullable<AgentStreamTextArgs["onStepFinish"]>
+>[0];
 
 function createModel(provider: string, model: string) {
   switch (provider) {
@@ -117,14 +118,14 @@ export async function runAgentGraph(opts: {
   let prodReadProposal: ProdReadProposal | undefined;
 
   for (const step of steps) {
-    for (const call of step.toolCalls ?? []) {
+    for (const call of step.toolCalls) {
       toolActivity.push({
         tool: call.toolName,
         input: call.input,
       });
     }
 
-    for (const toolResult of step.toolResults ?? []) {
+    for (const toolResult of step.toolResults) {
       if (typeof toolResult.output !== "string") {
         continue;
       }

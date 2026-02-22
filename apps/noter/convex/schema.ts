@@ -404,7 +404,7 @@ export default defineSchema({
     expiresAt: v.optional(v.number()),
     error: v.optional(v.string()),
   })
-    .index("by_thread", ["threadId"])
+    .index("by_threadId", ["threadId"])
     .index("by_requester", ["requesterUserId"])
     .index("by_status", ["status"])
     .index("by_vault", ["vaultId"]),

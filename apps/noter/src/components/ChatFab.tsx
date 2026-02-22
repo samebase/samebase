@@ -17,7 +17,12 @@ import { Id } from "../../convex/_generated/dataModel";
 import { useLocation } from "react-router-dom";
 import { TOOL_CATALOG } from "../../convex/agent/toolCatalog";
 import { useUIMessages, type UIMessage } from "@convex-dev/agent/react";
-import { z } from "zod";
+import {
+  messageMetadataSchema,
+  type CommitProposalPayload as CommitProposal,
+  type MessageMetadata,
+  type ProdReadProposalPayload as ProdReadProposal,
+} from "../../shared/chatMetadata";
 
 // --- Route context hook ---
 
@@ -74,76 +79,6 @@ function useVaultContext() {
 
 // --- Metadata parsing ---
 
-const toolActivityItemSchema = z.object({
-  tool: z.string(),
-  input: z.unknown(),
-});
-
-const requestIdSchema = z.custom<Id<"aiProdAccessRequests">>(
-  (value) => typeof value === "string",
-);
-
-const toolActivitySchema = z.object({
-  type: z.literal("tool_activity"),
-  tools: z.array(toolActivityItemSchema),
-});
-
-const commitProposalSchema = z.object({
-  type: z.literal("commit_proposal"),
-  message: z.string(),
-  committed: z.boolean().optional(),
-  tools: z.array(toolActivityItemSchema).optional(),
-});
-
-const prodReadProposalSchema = z.object({
-  type: z.literal("prod_read_proposal"),
-  requestId: requestIdSchema,
-  scope: z.enum(["vault", "global"]),
-  provider: z.enum(["convex", "netlify"]),
-  resourceKind: z.enum([
-    "deployment_status",
-    "logs",
-    "data_query",
-    "project_inventory",
-    "site_inventory",
-  ]),
-  toolName: z.string(),
-  paramsPreview: z.string(),
-  status: z
-    .enum(["proposed", "approved", "rejected", "executed", "failed", "expired"])
-    .optional(),
-  error: z.string().optional(),
-  tools: z.array(toolActivityItemSchema).optional(),
-});
-
-const prodReadResultSchema = z.object({
-  type: z.literal("prod_read_result"),
-  requestId: requestIdSchema,
-  provider: z.enum(["convex", "netlify"]),
-  resourceKind: z.enum([
-    "deployment_status",
-    "logs",
-    "data_query",
-    "project_inventory",
-    "site_inventory",
-  ]),
-  endpoint: z.string().optional(),
-  redactionLevel: z.enum(["default", "strict", "raw_fallback"]).optional(),
-  rowCount: z.number().optional(),
-  logLineCount: z.number().optional(),
-  error: z.string().optional(),
-});
-
-const messageMetadataSchema = z.union([
-  toolActivitySchema,
-  commitProposalSchema,
-  prodReadProposalSchema,
-  prodReadResultSchema,
-]);
-
-type CommitProposal = z.infer<typeof commitProposalSchema>;
-type ProdReadProposal = z.infer<typeof prodReadProposalSchema>;
-type MessageMetadata = z.infer<typeof messageMetadataSchema>;
 type ChatUIMessage = UIMessage & { metadata?: unknown };
 
 function parseMetadata(metadata: unknown): MessageMetadata | null {
@@ -785,6 +720,7 @@ export function ChatFab() {
   );
   const [pendingThreadId, setPendingThreadId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const draftSaveTimerRef = useRef<number | null>(null);
@@ -904,17 +840,22 @@ export function ChatFab() {
   }, [threadId, createThread, vaultId, repositoryFullName, branch, filePath]);
 
   async function handleNewConversation() {
-    if (!threadId) return;
-    await deleteThread({ threadId });
-    if (!vaultId) {
-      setLocalThreadId(null);
+    if (!threadId || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      await deleteThread({ threadId });
+      if (!vaultId) {
+        setLocalThreadId(null);
+      }
+      setPendingThreadId(null);
+      setInput("");
+      lastHydratedThreadRef.current = null;
+      lastHydratedDraftRef.current = "";
+      lastSavedDraftRef.current = null;
+      isDirtyDraftRef.current = false;
+    } finally {
+      setIsDeleting(false);
     }
-    setPendingThreadId(null);
-    setInput("");
-    lastHydratedThreadRef.current = null;
-    lastHydratedDraftRef.current = "";
-    lastSavedDraftRef.current = null;
-    isDirtyDraftRef.current = false;
   }
 
   // Persist UI state to localStorage (thread itself lives in Convex)
@@ -1045,15 +986,21 @@ export function ChatFab() {
     lastHydratedDraftRef.current = "";
     isDirtyDraftRef.current = false;
 
-    const activeThreadId = await ensureThreadId();
-
-    await sendMessage({
-      threadId: activeThreadId,
-      content: trimmed,
-      vaultId,
-      filePath,
-      branch,
-    });
+    try {
+      const activeThreadId = await ensureThreadId();
+      await sendMessage({
+        threadId: activeThreadId,
+        content: trimmed,
+        vaultId,
+        filePath,
+        branch,
+      });
+    } catch {
+      setInput(trimmed);
+      isDirtyDraftRef.current = true;
+    } finally {
+      setSending(false);
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -1116,10 +1063,18 @@ export function ChatFab() {
               {threadId && (
                 <button
                   onClick={() => void handleNewConversation()}
-                  title="New conversation"
-                  className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  title={isDeleting ? "Removing..." : "New conversation"}
+                  disabled={isDeleting}
+                  aria-disabled={isDeleting}
+                  className={cn(
+                    "rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
+                  )}
                 >
-                  <Plus className="h-4 w-4" />
+                  {isDeleting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
                 </button>
               )}
               <button
@@ -1170,7 +1125,7 @@ export function ChatFab() {
               />
               <button
                 onClick={() => void handleSend()}
-                disabled={!input.trim() || sending}
+                disabled={!input.trim() || sending || isWaitingForResponse}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
               >
                 <Send className="h-4 w-4" />

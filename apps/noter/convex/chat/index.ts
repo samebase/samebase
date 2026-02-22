@@ -16,7 +16,11 @@ import {
   toUIMessages,
   type UIMessage,
 } from "@convex-dev/agent";
-import { vStreamArgs } from "@convex-dev/agent/validators";
+import {
+  vStreamArgs,
+  vStreamDelta,
+  vStreamMessage,
+} from "@convex-dev/agent/validators";
 import {
   ProdAccessAuditAction,
   ProdAccessProvider,
@@ -34,7 +38,19 @@ import {
 import { assertProdReadAccess, hashText } from "./prodAccess";
 import { ensureThreadAccess, getThreadById } from "./threads";
 
-const { string, optional, object, union, literal, number, id, boolean } = v;
+const {
+  string,
+  optional,
+  object,
+  union,
+  literal,
+  number,
+  id,
+  boolean,
+  array,
+  null: vNull,
+  any: vAny,
+} = v;
 
 export const createThread = mutation({
   args: {
@@ -94,7 +110,7 @@ export const getThreadForVault = query({
       threadId: string(),
       systemPrompt: optional(string()),
     }),
-    v.null(),
+    vNull(),
   ),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
@@ -122,7 +138,7 @@ export const getThreadContext = query({
       draftMessage: optional(string()),
       draftUpdatedAt: optional(number()),
     }),
-    v.null(),
+    vNull(),
   ),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
@@ -143,7 +159,7 @@ export const getThreadContext = query({
 
 export const deleteThread = mutation({
   args: { threadId: string() },
-  returns: v.null(),
+  returns: vNull(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
     const thread = await getThreadById(ctx, args.threadId);
@@ -209,7 +225,7 @@ export const updateThreadDraft = mutation({
     threadId: string(),
     draftMessage: string(),
   },
-  returns: v.null(),
+  returns: vNull(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
     const thread = await getThreadById(ctx, args.threadId);
@@ -223,12 +239,33 @@ export const updateThreadDraft = mutation({
   },
 });
 
+const listThreadMessagesStreamsValidator = optional(
+  union(
+    object({
+      kind: literal("list"),
+      messages: array(vStreamMessage),
+    }),
+    object({
+      kind: literal("deltas"),
+      deltas: array(vStreamDelta),
+    }),
+  ),
+);
+
+const listThreadMessagesReturnValidator = object({
+  page: array(vAny()),
+  isDone: boolean(),
+  continueCursor: union(string(), vNull()),
+  streams: listThreadMessagesStreamsValidator,
+});
+
 export const listThreadMessages = query({
   args: {
     threadId: string(),
     paginationOpts: paginationOptsValidator,
     streamArgs: vStreamArgs,
   },
+  returns: listThreadMessagesReturnValidator,
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
     const thread = await getThreadById(ctx, args.threadId);
@@ -239,13 +276,13 @@ export const listThreadMessages = query({
       paginationOpts: args.paginationOpts,
     });
 
-    const metadataRows = await ctx.db
-      .query("chatMessageMetadata")
-      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
-      .collect();
-
     const metadataByMessageId = new Map<string, MessageMetadata>();
-    for (const row of metadataRows) {
+    for (const msg of paginated.page) {
+      const row = await ctx.db
+        .query("chatMessageMetadata")
+        .withIndex("by_messageId", (q) => q.eq("messageId", msg._id))
+        .first();
+      if (!row) continue;
       const parsed = parseMetadataPayload(row.payloadJson);
       if (parsed) {
         metadataByMessageId.set(row.messageId, parsed);
@@ -405,7 +442,7 @@ export const rejectProdRead = mutation({
     threadId: string(),
     messageId: string(),
   },
-  returns: v.null(),
+  returns: vNull(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
     const thread = await getThreadById(ctx, args.threadId);
@@ -462,7 +499,7 @@ export const confirmProdRead = mutation({
     threadId: string(),
     messageId: string(),
   },
-  returns: v.null(),
+  returns: vNull(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
     const thread = await getThreadById(ctx, args.threadId);
@@ -564,7 +601,7 @@ export const confirmCommit = mutation({
     threadId: string(),
     messageId: string(),
   },
-  returns: v.null(),
+  returns: vNull(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
     const thread = await getThreadById(ctx, args.threadId);
@@ -625,7 +662,7 @@ export const getProdAccessRequestInternal = internalQuery({
       expiresAt: optional(number()),
       error: optional(string()),
     }),
-    v.null(),
+    vNull(),
   ),
   handler: async (ctx, args) => {
     return await ctx.db.get(args.requestId);
@@ -642,7 +679,7 @@ export const setProdAccessRequestStatusInternal = internalMutation({
     executedAt: optional(number()),
     redactionLevel: optional(ProdAccessRedactionLevel),
   },
-  returns: v.null(),
+  returns: vNull(),
   handler: async (ctx, args) => {
     const patch: {
       status: typeof args.status;
@@ -679,7 +716,7 @@ export const addProdAccessAuditInternal = internalMutation({
     logLineCount: optional(number()),
     error: optional(string()),
   },
-  returns: v.null(),
+  returns: vNull(),
   handler: async (ctx, args) => {
     await ctx.db.insert("aiProdAccessAudit", {
       requestId: args.requestId,
@@ -702,7 +739,7 @@ export const updateCommitProposalMessageCommittedInternal = internalMutation({
     messageId: string(),
     committed: boolean(),
   },
-  returns: v.null(),
+  returns: vNull(),
   handler: async (ctx, args) => {
     const row = await ctx.db
       .query("chatMessageMetadata")
@@ -733,7 +770,7 @@ export const saveMessageMetadataInternal = internalMutation({
     ),
     payloadJson: string(),
   },
-  returns: v.null(),
+  returns: vNull(),
   handler: async (ctx, args) => {
     await ctx.db.insert("chatMessageMetadata", {
       messageId: args.messageId,
@@ -758,7 +795,7 @@ export const getThreadContextForAction = internalQuery({
       filePath: optional(string()),
       systemPrompt: optional(string()),
     }),
-    v.null(),
+    vNull(),
   ),
   handler: async (ctx, args) => {
     const thread = await getThreadById(ctx, args.threadId);
@@ -780,7 +817,7 @@ export const saveThreadSystemPrompt = internalMutation({
     threadId: string(),
     systemPrompt: string(),
   },
-  returns: v.null(),
+  returns: vNull(),
   handler: async (ctx, args) => {
     const thread = await getThreadById(ctx, args.threadId);
     if (!thread) return null;
@@ -795,7 +832,7 @@ export const updateProdReadProposalMessageStatusInternal = internalMutation({
     status: ProdAccessStatus,
     error: optional(string()),
   },
-  returns: v.null(),
+  returns: vNull(),
   handler: async (ctx, args) => {
     const row = await ctx.db
       .query("chatMessageMetadata")

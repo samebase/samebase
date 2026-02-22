@@ -86,7 +86,7 @@ durable threads, while keeping Noter’s existing approval-first flows.
   - `filePath: v.optional(v.string())`
   - `createdAt: v.number()`
   - Indexes on `threadId`, `userId`, and `vaultId`.
-- Add `chatMessageMetadata` table (name TBD):
+- Add `chatMessageMetadata` table:
   - `messageId: v.string()` (agent component message ID)
   - `threadId: v.string()`
   - `type: v.union(v.literal("tool_activity"), v.literal("commit_proposal"), v.literal("prod_read_proposal"), v.literal("prod_read_result"))`
