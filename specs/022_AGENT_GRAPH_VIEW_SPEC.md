@@ -94,9 +94,9 @@ Positions:
 
 ## Acceptance Criteria
 
-1. Repo with both files shows two nodes and one edge.
-2. Repo with a single file shows one node and no edge.
-3. Repo with neither file shows an empty canvas (no placeholder text).
+1. When the repository contains both files, display two nodes and one edge.
+2. If the repository contains only a single file, show one node and no edge.
+3. When neither file is present, render an empty canvas (no placeholder text).
 4. Clicking a node opens the file in Editor view.
 5. View toggle is persisted per vault across refresh.
 6. Graph view reflects staged files (no commit required).
