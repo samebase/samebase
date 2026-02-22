@@ -14,10 +14,12 @@ run:
 	$(MAKE) bootstrap
 	pnpm dev
 
+# Full dev (frontend + backend) with anonymous Convex mode.
 anon:
 	$(MAKE) bootstrap-anon
 	CONVEX_AGENT_MODE=anonymous pnpm dev
 
+# One-off anonymous Convex bootstrap (codegen + push), then exit.
 anon:once:
 	$(MAKE) bootstrap-anon
 	CONVEX_AGENT_MODE=anonymous pnpm --filter noter exec convex dev --once --tail-logs=disable --typecheck=disable
