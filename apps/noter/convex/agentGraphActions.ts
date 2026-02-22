@@ -120,6 +120,12 @@ export const sendAgentMessage = action({
   returns: sendAgentMessageReturns,
   handler: async (ctx, args: SendAgentMessageArgs) => {
     const userId = await getUserId(ctx);
+    console.log("agentGraph:sendAgentMessage:start", {
+      vaultId: args.vaultId,
+      agentPath: args.agentPath,
+      hasThreadId: Boolean(args.threadId),
+      userId,
+    });
 
     const vault = await ctx.runQuery(internal.vault.getById, {
       id: args.vaultId,
@@ -183,6 +189,11 @@ export const sendAgentMessage = action({
       threadId: resolvedThreadId,
       promptMessageId: messageId,
       userId,
+    });
+
+    console.log("agentGraph:sendAgentMessage:done", {
+      threadId: resolvedThreadId,
+      responseLength: result.text.length,
     });
 
     return {
