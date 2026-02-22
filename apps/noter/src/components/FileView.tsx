@@ -774,16 +774,18 @@ function FileViewInner({
     if (hasAgents) {
       nodes.push({
         id: "agents",
+        type: "agentNode",
         position: { x: 0, y: 0 },
-        data: { label: "AGENTS.md", path: "AGENTS.md" },
+        data: { label: "AGENTS.md", path: "AGENTS.md", kind: "agent" },
       });
     }
 
     if (hasTools) {
       nodes.push({
         id: "tools",
+        type: "agentNode",
         position: { x: 280, y: 0 },
-        data: { label: "tools.json", path: "tools.json" },
+        data: { label: "tools.json", path: "tools.json", kind: "tool" },
       });
     }
 
@@ -1095,6 +1097,7 @@ function FileViewInner({
                     nodes={agentGraphNodes}
                     edges={agentGraphEdges}
                     onOpenFile={handleOpenFileFromGraph}
+                    vaultId={vault._id}
                   />
                 )}
               </div>
