@@ -219,6 +219,9 @@ them directly using CLI tools.
   updates, and continue until CodeRabbit and required CI checks are green.
 - During `ship`, if CodeRabbit is only pending (no actionable findings yet),
   continue waiting.
+- CodeRabbit can mark checks as pass while still leaving comments; always read
+  CodeRabbit review comments/threads and treat nitpicks as required fixes before
+  merging.
 - On CI failure, report the error and offer to fix
 - **NEVER merge a PR until CI is green** - always wait for checks to pass, then
   squash-merge with `gh pr merge --squash`
