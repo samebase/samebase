@@ -16,6 +16,13 @@ import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { useLocation } from "react-router-dom";
 import { TOOL_CATALOG } from "../../convex/agent/toolCatalog";
+import { useUIMessages, type UIMessage } from "@convex-dev/agent/react";
+import {
+  messageMetadataSchema,
+  type CommitProposalPayload as CommitProposal,
+  type MessageMetadata,
+  type ProdReadProposalPayload as ProdReadProposal,
+} from "../../shared/chatMetadata";
 
 // --- Route context hook ---
 
@@ -26,43 +33,44 @@ const VAULT_PATH_RE = /^\/vault\/([^/]+)\/([^/]+)(?:\/(.*))?$/;
 function useVaultContext() {
   const { pathname } = useLocation();
 
-  const { branch, filePath, repositoryFullName } =
-    useMemo(() => {
-      const match = pathname.match(VAULT_PATH_RE);
-      if (!match) {
-        return {
-          branch: "main",
-          filePath: undefined,
-          repositoryFullName: undefined,
-        };
-      }
-
-      const _owner = match[1];
-      const _repoName = match[2];
-      const rest = match[3]; // "branch/path/to/file" or undefined
-
-      let branch = "main";
-      let filePath: string | undefined;
-      if (rest) {
-        const parts = rest.split("/");
-        branch = parts[0] || "main";
-        filePath = parts.slice(1).join("/") || undefined;
-      }
-
+  const { branch, filePath, repositoryFullName } = useMemo(() => {
+    const match = pathname.match(VAULT_PATH_RE);
+    if (!match) {
       return {
-        branch,
-        filePath,
-        repositoryFullName: `${_owner}/${_repoName}`,
+        branch: "main",
+        filePath: undefined,
+        repositoryFullName: undefined,
       };
-    }, [pathname]);
+    }
+
+    const _owner = match[1];
+    const _repoName = match[2];
+    const rest = match[3]; // "branch/path/to/file" or undefined
+
+    let branch = "main";
+    let filePath: string | undefined;
+    if (rest) {
+      const parts = rest.split("/");
+      branch = parts[0] || "main";
+      filePath = parts.slice(1).join("/") || undefined;
+    }
+
+    return {
+      branch,
+      filePath,
+      repositoryFullName: `${_owner}/${_repoName}`,
+    };
+  }, [pathname]);
 
   const vault = useQuery(
     api.vault.getVaultByRepository,
     repositoryFullName ? { repositoryFullName } : "skip",
   );
 
+  const vaultId = vault?._id;
+
   return {
-    vaultId: vault?._id as Id<"vaults"> | undefined,
+    vaultId,
     branch,
     filePath,
     repositoryFullName,
@@ -71,66 +79,22 @@ function useVaultContext() {
 
 // --- Metadata parsing ---
 
-type ToolActivity = {
-  type: "tool_activity";
-  tools: Array<{ tool: string; input: unknown }>;
-};
+type ChatUIMessage = UIMessage & { metadata?: unknown };
 
-type CommitProposal = {
-  type: "commit_proposal";
-  message: string;
-  committed?: boolean;
-  tools?: Array<{ tool: string; input: unknown }>;
-};
+function parseMetadata(metadata: unknown): MessageMetadata | null {
+  const result = messageMetadataSchema.safeParse(metadata);
+  return result.success ? result.data : null;
+}
 
-type ProdReadProposal = {
-  type: "prod_read_proposal";
-  requestId: Id<"aiProdAccessRequests">;
-  scope: "vault" | "global";
-  provider: "convex" | "netlify";
-  resourceKind:
-    | "deployment_status"
-    | "logs"
-    | "data_query"
-    | "project_inventory"
-    | "site_inventory";
-  toolName: string;
-  paramsPreview: string;
-  status?: "proposed" | "approved" | "rejected" | "executed" | "failed" | "expired";
-  error?: string;
-  tools?: Array<{ tool: string; input: unknown }>;
-};
+function hasRecordKey(
+  value: unknown,
+  key: string,
+): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && key in value;
+}
 
-type ProdReadResult = {
-  type: "prod_read_result";
-  requestId: Id<"aiProdAccessRequests">;
-  provider: "convex" | "netlify";
-  resourceKind:
-    | "deployment_status"
-    | "logs"
-    | "data_query"
-    | "project_inventory"
-    | "site_inventory";
-  endpoint?: string;
-  redactionLevel?: "default" | "strict" | "raw_fallback";
-  rowCount?: number;
-  logLineCount?: number;
-  error?: string;
-};
-
-type MessageMetadata =
-  | ToolActivity
-  | CommitProposal
-  | ProdReadProposal
-  | ProdReadResult;
-
-function parseMetadata(metadata: string | undefined): MessageMetadata | null {
-  if (!metadata) return null;
-  try {
-    return JSON.parse(metadata);
-  } catch {
-    return null;
-  }
+function getRecordValue(value: unknown, key: string): unknown {
+  return hasRecordKey(value, key) ? value[key] : undefined;
 }
 
 // --- Simple markdown renderer (fallback) ---
@@ -236,7 +200,9 @@ function ToolActivityBadge({
             const meta = TOOL_CATALOG.find((c) => c.name === t.tool);
             const displayKey = meta?.inputDisplayKey;
             const displayValue = displayKey
-              ? (t.input as Record<string, string>)[displayKey]
+              ? hasRecordKey(t.input, displayKey)
+                ? String(t.input[displayKey])
+                : undefined
               : undefined;
             return (
               <div key={idx} className="flex items-center gap-1">
@@ -249,6 +215,143 @@ function ToolActivityBadge({
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+type ToolCallInfo = {
+  tool: string;
+  input?: unknown;
+  output?: unknown;
+  errorText?: string;
+  state?: string;
+  providerExecuted?: boolean;
+};
+
+function extractToolCalls(
+  parts: UIMessage["parts"] | undefined,
+): ToolCallInfo[] {
+  if (!parts) return [];
+  const toolCalls: ToolCallInfo[] = [];
+  for (const part of parts) {
+    if (typeof part.type !== "string") continue;
+    if (!part.type.startsWith("tool-")) continue;
+    const tool = part.type.slice("tool-".length);
+    const input = getRecordValue(part, "input");
+    const output = getRecordValue(part, "output");
+    const errorText = getRecordValue(part, "errorText");
+    const state = getRecordValue(part, "state");
+    const providerExecuted = getRecordValue(part, "providerExecuted");
+    toolCalls.push({
+      tool,
+      input,
+      output,
+      errorText: typeof errorText === "string" ? errorText : undefined,
+      state: typeof state === "string" ? state : undefined,
+      providerExecuted:
+        typeof providerExecuted === "boolean" ? providerExecuted : undefined,
+    });
+  }
+  return toolCalls;
+}
+
+function formatToolPayload(value: unknown): string {
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function formatToolState(state: string | undefined): string | null {
+  if (!state) return null;
+  if (state === "input-streaming") return "running";
+  if (state === "input-available") return "called";
+  if (state === "output-available") return "done";
+  if (state === "output-error") return "error";
+  return state;
+}
+
+function ToolCallList({ toolCalls }: { toolCalls: ToolCallInfo[] }) {
+  if (toolCalls.length === 0) return null;
+  return (
+    <div className="mb-1 rounded-md border border-border/60 bg-background/70 px-2 py-1.5 text-[11px] text-muted-foreground">
+      <div className="flex items-center gap-1 text-foreground">
+        <Wrench className="h-3 w-3" />
+        Tool calls ({toolCalls.length})
+      </div>
+      <div className="mt-1 space-y-1">
+        {toolCalls.map((call, idx) => {
+          const meta = TOOL_CATALOG.find((tool) => tool.name === call.tool);
+          const displayKey = meta?.inputDisplayKey;
+          const displayValue = displayKey
+            ? hasRecordKey(call.input, displayKey)
+              ? String(call.input[displayKey])
+              : undefined
+            : undefined;
+          const stateLabel = formatToolState(call.state);
+          return (
+            <details
+              key={`${call.tool}-${idx}`}
+              className="rounded border border-border/60 bg-muted/40 px-2 py-1"
+            >
+              <summary className="cursor-pointer list-none">
+                <span className="flex items-center gap-2 text-foreground">
+                  <span className="font-mono">{call.tool}</span>
+                  {displayValue && (
+                    <span className="truncate text-muted-foreground">
+                      {displayValue}
+                    </span>
+                  )}
+                  {stateLabel && (
+                    <span
+                      className={cn(
+                        "rounded-full px-1.5 py-0.5 text-[9px] uppercase tracking-wide",
+                        stateLabel === "error"
+                          ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
+                          : stateLabel === "done"
+                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                            : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {stateLabel}
+                    </span>
+                  )}
+                </span>
+              </summary>
+              <div className="mt-1 space-y-1 text-[10px] text-muted-foreground">
+                {call.input !== undefined && (
+                  <div>
+                    <div className="font-medium text-foreground">Input</div>
+                    <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-background/60 p-1">
+                      {formatToolPayload(call.input)}
+                    </pre>
+                  </div>
+                )}
+                {call.output !== undefined && (
+                  <div>
+                    <div className="font-medium text-foreground">Output</div>
+                    <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-background/60 p-1">
+                      {formatToolPayload(call.output)}
+                    </pre>
+                  </div>
+                )}
+                {call.errorText && (
+                  <div className="text-red-600 dark:text-red-400">
+                    Error: {call.errorText}
+                  </div>
+                )}
+                {call.providerExecuted === false && (
+                  <div className="text-amber-700 dark:text-amber-400">
+                    Provider execution skipped.
+                  </div>
+                )}
+              </div>
+            </details>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -341,18 +444,20 @@ function CapabilitiesPanel({
 
 function CommitProposalCard({
   metadata,
-  conversationId,
+  threadId,
+  messageId,
 }: {
   metadata: CommitProposal;
-  conversationId: Id<"chatConversations">;
+  threadId: string;
+  messageId: string;
 }) {
-  const confirmCommit = useMutation(api.chat.confirmCommit);
+  const confirmCommit = useMutation(api.chat.index.confirmCommit);
   const [confirming, setConfirming] = useState(false);
 
   async function handleApprove() {
     setConfirming(true);
     try {
-      await confirmCommit({ conversationId });
+      await confirmCommit({ threadId, messageId });
     } finally {
       setConfirming(false);
     }
@@ -405,13 +510,15 @@ function renderProviderLabel(provider: ProdReadProposal["provider"]) {
 
 function ProdReadProposalCard({
   metadata,
-  conversationId,
+  threadId,
+  messageId,
 }: {
   metadata: ProdReadProposal;
-  conversationId: Id<"chatConversations">;
+  threadId: string;
+  messageId: string;
 }) {
-  const confirmProdRead = useMutation(api.chat.confirmProdRead);
-  const rejectProdRead = useMutation(api.chat.rejectProdRead);
+  const confirmProdRead = useMutation(api.chat.index.confirmProdRead);
+  const rejectProdRead = useMutation(api.chat.index.rejectProdRead);
   const [action, setAction] = useState<"approve" | "reject" | null>(null);
 
   const status = metadata.status ?? "proposed";
@@ -422,7 +529,8 @@ function ProdReadProposalCard({
     try {
       await confirmProdRead({
         requestId: metadata.requestId,
-        conversationId,
+        threadId,
+        messageId,
       });
     } finally {
       setAction(null);
@@ -434,7 +542,8 @@ function ProdReadProposalCard({
     try {
       await rejectProdRead({
         requestId: metadata.requestId,
-        conversationId,
+        threadId,
+        messageId,
       });
     } finally {
       setAction(null);
@@ -442,7 +551,8 @@ function ProdReadProposalCard({
   }
 
   const providerLabel = renderProviderLabel(metadata.provider);
-  const scopeLabel = metadata.scope === "vault" ? "Vault scope" : "Global scope";
+  const scopeLabel =
+    metadata.scope === "vault" ? "Vault scope" : "Global scope";
 
   return (
     <div className="my-1 rounded-lg border border-border bg-background p-2.5">
@@ -517,28 +627,24 @@ function ProdReadProposalCard({
 
 function MessageBubble({
   msg,
-  conversationId,
+  threadId,
 }: {
-  msg: {
-    _id: Id<"chatMessages">;
-    role: "user" | "assistant";
-    content: string;
-    metadata?: string;
-  };
-  conversationId: Id<"chatConversations">;
+  msg: ChatUIMessage;
+  threadId: string;
 }) {
   const metadata = parseMetadata(msg.metadata);
 
   if (msg.role === "user") {
     return (
       <div className="mb-2 ml-auto max-w-[85%] rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground whitespace-pre-wrap">
-        {msg.content}
+        {msg.text}
       </div>
     );
   }
 
   const isCommitProposal = metadata?.type === "commit_proposal";
   const isProdReadProposal = metadata?.type === "prod_read_proposal";
+  const toolCalls = extractToolCalls(msg.parts);
   const toolsUsed =
     metadata?.type === "tool_activity"
       ? metadata.tools
@@ -546,24 +652,26 @@ function MessageBubble({
         ? metadata.tools
         : metadata?.type === "prod_read_proposal"
           ? metadata.tools
-        : null;
+          : null;
+  const showToolBadge = toolCalls.length === 0 && Boolean(toolsUsed?.length);
 
   return (
     <div className="mb-2 max-w-[85%] rounded-lg bg-muted px-3 py-2 text-sm text-foreground">
-      {toolsUsed && toolsUsed.length > 0 && (
-        <ToolActivityBadge tools={toolsUsed} />
-      )}
-      <div className="whitespace-pre-wrap">{renderMarkdown(msg.content)}</div>
+      {showToolBadge ? <ToolActivityBadge tools={toolsUsed ?? []} /> : null}
+      <ToolCallList toolCalls={toolCalls} />
+      <div className="whitespace-pre-wrap">{renderMarkdown(msg.text)}</div>
       {isCommitProposal && (
         <CommitProposalCard
           metadata={metadata}
-          conversationId={conversationId}
+          threadId={threadId}
+          messageId={msg.id}
         />
       )}
       {isProdReadProposal && (
         <ProdReadProposalCard
           metadata={metadata}
-          conversationId={conversationId}
+          threadId={threadId}
+          messageId={msg.id}
         />
       )}
     </div>
@@ -574,6 +682,7 @@ function MessageBubble({
 
 const STORAGE_KEY_SIZE = "noter-chat-size";
 const STORAGE_KEY_OPEN = "noter-chat-open";
+const STORAGE_KEY_LOCAL_THREAD = "noter-chat-thread";
 
 function loadFromStorage<T>(key: string, fallback: T): T {
   try {
@@ -605,30 +714,58 @@ export function ChatFab() {
     loadFromStorage(STORAGE_KEY_OPEN, false),
   );
   const [input, setInput] = useState("");
-  // Local fallback for conversations without a vault context
-  const [localConversationId, setLocalConversationId] =
-    useState<Id<"chatConversations"> | null>(null);
+  // Local fallback for threads without a vault context
+  const [localThreadId, setLocalThreadId] = useState<string | null>(() =>
+    loadFromStorage(STORAGE_KEY_LOCAL_THREAD, null),
+  );
+  const [pendingThreadId, setPendingThreadId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const draftSaveTimerRef = useRef<number | null>(null);
+  const lastHydratedThreadRef = useRef<string | null>(null);
+  const lastHydratedDraftRef = useRef<string>("");
+  const lastSavedDraftRef = useRef<string | null>(null);
+  const isDirtyDraftRef = useRef(false);
+  const creatingThreadRef = useRef<Promise<string> | null>(null);
 
   const [size, setSize] = useState(() =>
     loadFromStorage(STORAGE_KEY_SIZE, { w: DEFAULT_WIDTH, h: DEFAULT_HEIGHT }),
   );
-  const dragRef = useRef<{ startX: number; startY: number; startW: number; startH: number } | null>(null);
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    startW: number;
+    startH: number;
+  } | null>(null);
 
-  const onDragStart = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    dragRef.current = { startX: e.clientX, startY: e.clientY, startW: size.w, startH: size.h };
-  }, [size]);
+  const onDragStart = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      dragRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        startW: size.w,
+        startH: size.h,
+      };
+    },
+    [size],
+  );
 
   const onDragMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragRef.current) return;
     const { startX, startY, startW, startH } = dragRef.current;
     // Dragging top-left corner: moving left increases width, moving up increases height
-    const newW = Math.max(MIN_WIDTH, Math.min(window.innerWidth - 24, startW + (startX - e.clientX)));
-    const newH = Math.max(MIN_HEIGHT, Math.min(window.innerHeight - 80, startH + (startY - e.clientY)));
+    const newW = Math.max(
+      MIN_WIDTH,
+      Math.min(window.innerWidth - 24, startW + (startX - e.clientX)),
+    );
+    const newH = Math.max(
+      MIN_HEIGHT,
+      Math.min(window.innerHeight - 80, startH + (startY - e.clientY)),
+    );
     setSize({ w: newW, h: newH });
   }, []);
 
@@ -639,36 +776,89 @@ export function ChatFab() {
   const { vaultId, branch, filePath, repositoryFullName } = useVaultContext();
   const viewer = useQuery(api.users.viewer);
 
-  // One conversation per user per vault — persisted in Convex
-  const vaultConversation = useQuery(
-    api.chat.getConversationForVault,
+  // One thread per user per vault — persisted in Convex
+  const vaultThread = useQuery(
+    api.chat.index.getThreadForVault,
     vaultId ? { vaultId } : "skip",
   );
-  const conversationId = vaultId
-    ? (vaultConversation?._id ?? null)
-    : localConversationId;
+  const threadId = vaultId
+    ? vaultThread?.threadId ?? pendingThreadId
+    : localThreadId;
 
-  const messages = useQuery(
-    api.chat.listMessages,
-    conversationId ? { conversationId } : "skip",
+  const threadContext = useQuery(
+    api.chat.index.getThreadContext,
+    threadId ? { threadId } : "skip",
+  );
+  const threadContextLoaded = threadContext !== undefined;
+
+  const messages = useUIMessages(
+    api.chat.index.listThreadMessages,
+    threadId ? { threadId } : "skip",
+    { initialNumItems: 50, stream: true },
   );
 
-  const conversation = useQuery(
-    api.chat.getConversation,
-    conversationId ? { conversationId } : "skip",
-  );
+  const createThread = useMutation(api.chat.index.createThread);
+  const deleteThread = useMutation(api.chat.index.deleteThread);
+  const sendMessage = useMutation(api.chat.index.sendMessage);
+  const updateThreadDraft = useMutation(api.chat.index.updateThreadDraft);
 
-  const createConversation = useMutation(api.chat.createConversation);
-  const deleteConversation = useMutation(api.chat.deleteConversation);
-  const sendMessage = useMutation(api.chat.sendMessage);
+  const resizeInput = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const maxHeight = 240;
+    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
+  }, []);
+
+  const ensureThreadId = useCallback(async () => {
+    if (threadId) return threadId;
+    if (creatingThreadRef.current) {
+      return await creatingThreadRef.current;
+    }
+
+    const createPromise = (async () => {
+      const createdId = await createThread({
+        vaultId: vaultId ?? undefined,
+        repositoryFullName,
+        branch,
+        filePath,
+      });
+      if (vaultId) {
+        setPendingThreadId(createdId);
+      } else {
+        setLocalThreadId(createdId);
+      }
+      return createdId;
+    })();
+
+    creatingThreadRef.current = createPromise;
+    try {
+      return await createPromise;
+    } finally {
+      creatingThreadRef.current = null;
+    }
+  }, [threadId, createThread, vaultId, repositoryFullName, branch, filePath]);
 
   async function handleNewConversation() {
-    if (!conversationId) return;
-    await deleteConversation({ conversationId });
-    setLocalConversationId(null);
+    if (!threadId || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      await deleteThread({ threadId });
+      if (!vaultId) {
+        setLocalThreadId(null);
+      }
+      setPendingThreadId(null);
+      setInput("");
+      lastHydratedThreadRef.current = null;
+      lastHydratedDraftRef.current = "";
+      lastSavedDraftRef.current = null;
+      isDirtyDraftRef.current = false;
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
-  // Persist UI state to localStorage (conversation itself lives in Convex)
+  // Persist UI state to localStorage (thread itself lives in Convex)
   useEffect(() => {
     saveToStorage(STORAGE_KEY_OPEN, isOpen);
   }, [isOpen]);
@@ -677,14 +867,32 @@ export function ChatFab() {
     saveToStorage(STORAGE_KEY_SIZE, size);
   }, [size]);
 
+  useEffect(() => {
+    saveToStorage(STORAGE_KEY_LOCAL_THREAD, localThreadId);
+  }, [localThreadId]);
+
+  useEffect(() => {
+    if (!vaultId) {
+      setPendingThreadId(null);
+      return;
+    }
+    if (vaultThread?.threadId) {
+      setPendingThreadId(null);
+    }
+  }, [vaultId, vaultThread?.threadId]);
+
+  const messageResults: ChatUIMessage[] = messages.results;
+  const hasStreaming = messageResults.some(
+    (msg) => msg.role === "assistant" && msg.status === "streaming",
+  );
   const isWaitingForResponse =
-    messages &&
-    messages.length > 0 &&
-    messages[messages.length - 1].role === "user";
+    !hasStreaming &&
+    messageResults.length > 0 &&
+    messageResults[messageResults.length - 1].role === "user";
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messageResults]);
 
   useEffect(() => {
     if (isOpen) {
@@ -694,14 +902,79 @@ export function ChatFab() {
 
   // Clear sending flag when we get the assistant response
   useEffect(() => {
-    if (
-      messages &&
-      messages.length > 0 &&
-      messages[messages.length - 1].role === "assistant"
-    ) {
+    if (messageResults.length > 0) {
+      const last = messageResults[messageResults.length - 1];
+      if (last.role === "assistant") {
+        setSending(false);
+      }
+    }
+  }, [messageResults]);
+
+  useEffect(() => {
+    if (hasStreaming) {
       setSending(false);
     }
-  }, [messages]);
+  }, [hasStreaming]);
+
+  useEffect(() => {
+    if (!input.trim()) return;
+    if (threadId) return;
+    void ensureThreadId();
+  }, [input, threadId, ensureThreadId]);
+
+  useEffect(() => {
+    if (!threadId || !threadContextLoaded) return;
+    const remoteDraft = threadContext?.draftMessage ?? "";
+    if (lastHydratedThreadRef.current !== threadId) {
+      lastHydratedThreadRef.current = threadId;
+      lastHydratedDraftRef.current = remoteDraft;
+      lastSavedDraftRef.current = remoteDraft;
+      if (!isDirtyDraftRef.current) {
+        setInput(remoteDraft);
+        isDirtyDraftRef.current = false;
+      }
+      return;
+    }
+    if (isDirtyDraftRef.current) return;
+    if (remoteDraft === lastHydratedDraftRef.current) return;
+    setInput(remoteDraft);
+    lastHydratedDraftRef.current = remoteDraft;
+    lastSavedDraftRef.current = remoteDraft;
+  }, [threadId, threadContextLoaded, threadContext?.draftMessage]);
+
+  useEffect(() => {
+    if (!threadId) return;
+    if (draftSaveTimerRef.current) {
+      window.clearTimeout(draftSaveTimerRef.current);
+    }
+    draftSaveTimerRef.current = window.setTimeout(() => {
+      const draft = input;
+      if (draft === lastSavedDraftRef.current) {
+        isDirtyDraftRef.current = false;
+        return;
+      }
+      void updateThreadDraft({ threadId, draftMessage: draft })
+        .then(() => {
+          lastSavedDraftRef.current = draft;
+          lastHydratedDraftRef.current = draft;
+          isDirtyDraftRef.current = false;
+        })
+        .catch(() => {
+          // keep dirty flag for a future retry
+        });
+    }, 400);
+
+    return () => {
+      if (draftSaveTimerRef.current) {
+        window.clearTimeout(draftSaveTimerRef.current);
+        draftSaveTimerRef.current = null;
+      }
+    };
+  }, [input, threadId, updateThreadDraft]);
+
+  useEffect(() => {
+    resizeInput();
+  }, [input, resizeInput]);
 
   async function handleSend() {
     const trimmed = input.trim();
@@ -709,24 +982,25 @@ export function ChatFab() {
 
     setSending(true);
     setInput("");
+    lastSavedDraftRef.current = "";
+    lastHydratedDraftRef.current = "";
+    isDirtyDraftRef.current = false;
 
-    let convId = conversationId;
-    if (!convId) {
-      // get-or-create: if vaultId is provided the backend returns the
-      // existing conversation for this user+vault, or creates a new one.
-      convId = await createConversation({ vaultId: vaultId ?? undefined });
-      if (!vaultId) {
-        setLocalConversationId(convId);
-      }
+    try {
+      const activeThreadId = await ensureThreadId();
+      await sendMessage({
+        threadId: activeThreadId,
+        content: trimmed,
+        vaultId,
+        filePath,
+        branch,
+      });
+    } catch {
+      setInput(trimmed);
+      isDirtyDraftRef.current = true;
+    } finally {
+      setSending(false);
     }
-
-    await sendMessage({
-      conversationId: convId,
-      content: trimmed,
-      vaultId,
-      filePath,
-      branch,
-    });
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -742,7 +1016,11 @@ export function ChatFab() {
       {isOpen && (
         <div
           className="fixed bottom-16 right-3 z-[9999] flex max-sm:!left-0 max-sm:!right-0 max-sm:!bottom-16 max-sm:!w-auto max-sm:!h-[calc(100%-5rem)] max-sm:rounded-none flex-col rounded-xl border border-border bg-popover shadow-xl"
-          style={{ width: size.w, height: size.h, maxHeight: 'calc(100vh - 5rem)' }}
+          style={{
+            width: size.w,
+            height: size.h,
+            maxHeight: "calc(100vh - 5rem)",
+          }}
         >
           {/* Drag handle (top-left corner) */}
           <div
@@ -751,10 +1029,30 @@ export function ChatFab() {
             onPointerUp={onDragEnd}
             className="absolute -left-1.5 -top-1.5 h-6 w-6 cursor-nwse-resize max-sm:hidden z-10 flex items-end justify-end touch-none"
           >
-            <svg width="10" height="10" viewBox="0 0 10 10" className="text-muted-foreground/50 mr-0.5 mb-0.5">
-              <path d="M0 10L10 0" stroke="currentColor" strokeWidth="1.5" fill="none" />
-              <path d="M0 6L6 0" stroke="currentColor" strokeWidth="1.5" fill="none" />
-              <path d="M0 2L2 0" stroke="currentColor" strokeWidth="1.5" fill="none" />
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 10 10"
+              className="text-muted-foreground/50 mr-0.5 mb-0.5"
+            >
+              <path
+                d="M0 10L10 0"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                fill="none"
+              />
+              <path
+                d="M0 6L6 0"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                fill="none"
+              />
+              <path
+                d="M0 2L2 0"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                fill="none"
+              />
             </svg>
           </div>
 
@@ -762,13 +1060,21 @@ export function ChatFab() {
           <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
             <span className="text-sm font-medium text-foreground">Chat</span>
             <div className="flex items-center gap-0.5">
-              {conversationId && (
+              {threadId && (
                 <button
                   onClick={() => void handleNewConversation()}
-                  title="New conversation"
-                  className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  title={isDeleting ? "Removing..." : "New conversation"}
+                  disabled={isDeleting}
+                  aria-disabled={isDeleting}
+                  className={cn(
+                    "rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
+                  )}
                 >
-                  <Plus className="h-4 w-4" />
+                  {isDeleting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
                 </button>
               )}
               <button
@@ -786,15 +1092,11 @@ export function ChatFab() {
               repositoryFullName={repositoryFullName}
               vaultId={vaultId}
               hasGithubToken={Boolean(viewer?.hasGithubAccessToken)}
-              systemPrompt={conversation?.systemPrompt}
+              systemPrompt={threadContext?.systemPrompt}
             />
-            {conversationId &&
-              messages?.map((msg: (typeof messages)[number]) => (
-                <MessageBubble
-                  key={msg._id}
-                  msg={msg}
-                  conversationId={conversationId}
-                />
+            {threadId &&
+              messageResults.map((msg) => (
+                <MessageBubble key={msg.id} msg={msg} threadId={threadId} />
               ))}
             {isWaitingForResponse && (
               <div className="mb-2 flex max-w-[85%] items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
@@ -811,15 +1113,19 @@ export function ChatFab() {
               <textarea
                 ref={inputRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  isDirtyDraftRef.current = true;
+                  resizeInput();
+                }}
                 onKeyDown={handleKeyDown}
                 placeholder="Type a message..."
-                rows={1}
-                className="max-h-20 min-h-[2rem] flex-1 resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                rows={3}
+                className="max-h-60 min-h-[4.5rem] flex-1 resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
               <button
                 onClick={() => void handleSend()}
-                disabled={!input.trim() || sending}
+                disabled={!input.trim() || sending || isWaitingForResponse}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
               >
                 <Send className="h-4 w-4" />

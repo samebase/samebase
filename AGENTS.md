@@ -29,8 +29,8 @@ When starting a fresh chat for implementation/debugging, read in this order:
 8. `apps/noter/convex/vaultActions.ts` +
    `apps/noter/convex/infraProvisioning.ts` (vault creation + infra
    provisioning)
-9. `apps/noter/convex/chat.ts` + `apps/noter/convex/chatActions.ts` (chat +
-   approval flows)
+9. `apps/noter/convex/chat/index.ts` + `apps/noter/convex/chat/actions.ts`
+   (chat + approval flows)
 10. `apps/noter/src/components/VaultDashboard.tsx` +
     `apps/noter/src/components/ChatFab.tsx` (user-visible controls)
 
@@ -271,6 +271,8 @@ Auth:
   for them.
 - Prefer breadth-first, simplest-viable fixes before deeper changes; stop once a
   minimal solution works.
+- When removing legacy systems, prefer clean removal and rely on git history for
+  recovery instead of keeping deprecated code or data structures around.
 - Always create a working branch (use `codex/` prefix when needed), and push
   after every commit so the remote stays up to date.
 - Do not introduce new `.mjs` files; keep `type: "module"` and prefer `.js`
