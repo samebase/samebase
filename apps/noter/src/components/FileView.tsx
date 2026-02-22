@@ -3,7 +3,13 @@ import { useAction, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { CodeEditorWrapper } from "@/components/CodeEditor";
+import {
+  AgentGraphView,
+  type AgentGraphEdge,
+  type AgentGraphNode,
+} from "@/components/AgentGraphView";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 import {
@@ -96,8 +102,7 @@ type RefreshTrigger = "focus" | "page_load";
 
 function isStorageBackedFileError(error: unknown): boolean {
   return (
-    error instanceof Error &&
-    error.message.toLowerCase().includes("in storage")
+    error instanceof Error && error.message.toLowerCase().includes("in storage")
   );
 }
 
@@ -150,14 +155,17 @@ function FileViewWrapper() {
     }
   }, [vault, navigate]);
 
-  const refreshTreeIfNeeded = useCallback((trigger: RefreshTrigger = "focus") => {
-    if (!vault || !owner || !repoName) return;
-    const key = `${owner}/${repoName}`;
-    const lastRefresh = lastRefreshMap.get(key) ?? 0;
-    if (Date.now() - lastRefresh < REFRESH_DEBOUNCE_MS) return;
-    lastRefreshMap.set(key, Date.now());
-    void refreshTree({ owner, repo: repoName, trigger });
-  }, [vault?._id, owner, repoName, refreshTree]);
+  const refreshTreeIfNeeded = useCallback(
+    (trigger: RefreshTrigger = "focus") => {
+      if (!vault || !owner || !repoName) return;
+      const key = `${owner}/${repoName}`;
+      const lastRefresh = lastRefreshMap.get(key) ?? 0;
+      if (Date.now() - lastRefresh < REFRESH_DEBOUNCE_MS) return;
+      lastRefreshMap.set(key, Date.now());
+      void refreshTree({ owner, repo: repoName, trigger });
+    },
+    [vault?._id, owner, repoName, refreshTree],
+  );
 
   // Refresh tree from GitHub when the page regains focus (debounced to 2 min).
   // Initial page-load refreshes use a shorter server-side debounce window.
@@ -376,6 +384,7 @@ function FileViewInner({
   // Command palette state
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"editor" | "graph">("editor");
 
   // Convex hooks for staging
   const [commitStaging, manualComittingStatus] = useConvexAction(
@@ -452,11 +461,43 @@ function FileViewInner({
     () => getSimpleViewPreferenceStorageKey(vault._id),
     [vault._id],
   );
+  const graphViewStorageKey = useMemo(
+    () => `noter:graph-view:${vault._id}`,
+    [vault._id],
+  );
 
   useEffect(() => {
     setRepositoryNoterContent(null);
     setDidAttemptRepositoryNoterLoad(false);
   }, [vault._id]);
+
+  useEffect(() => {
+    try {
+      const storedMode = localStorage.getItem(graphViewStorageKey);
+      if (storedMode === "editor" || storedMode === "graph") {
+        setViewMode(storedMode);
+        return;
+      }
+    } catch (error) {
+      console.warn("Failed to read graph view preference", error);
+    }
+
+    setViewMode("editor");
+  }, [graphViewStorageKey]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(graphViewStorageKey, viewMode);
+    } catch (error) {
+      console.warn("Failed to persist graph view preference", error);
+    }
+  }, [graphViewStorageKey, viewMode]);
+
+  useEffect(() => {
+    if (viewMode === "graph" && isPreviewOpen) {
+      setIsPreviewOpen(false);
+    }
+  }, [viewMode, isPreviewOpen]);
 
   useEffect(() => {
     if (stagedNoterFile === undefined) {
@@ -540,14 +581,25 @@ function FileViewInner({
     [noterConfigContent],
   );
 
-  const handleFileSelect = (path: string) => {
-    if (owner && repoName) {
-      void navigate(`/vault/${owner}/${repoName}/${branch}/${path}`);
+  const handleFileSelect = useCallback(
+    (path: string) => {
+      if (owner && repoName) {
+        void navigate(`/vault/${owner}/${repoName}/${branch}/${path}`);
 
-      // close the sidebar
-      setOpenMobile(false);
-    }
-  };
+        // close the sidebar
+        setOpenMobile(false);
+      }
+    },
+    [branch, navigate, owner, repoName, setOpenMobile],
+  );
+
+  const handleOpenFileFromGraph = useCallback(
+    (path: string) => {
+      setViewMode("editor");
+      handleFileSelect(path);
+    },
+    [handleFileSelect],
+  );
 
   const handleFileRename = async (originalPath: string, newPath: string) => {
     if (!owner || !repoName || !stagedFile) return;
@@ -709,6 +761,43 @@ function FileViewInner({
     return [...treeItems, ...newFiles];
   }, [vault.treeData.tree, stagedFiles]);
 
+  const { agentGraphNodes, agentGraphEdges } = useMemo(() => {
+    const nodes: AgentGraphNode[] = [];
+    const edges: AgentGraphEdge[] = [];
+    const hasAgents = finalTreeData.some(
+      (item) => item.type === "blob" && item.path === "AGENTS.md",
+    );
+    const hasTools = finalTreeData.some(
+      (item) => item.type === "blob" && item.path === "tools.json",
+    );
+
+    if (hasAgents) {
+      nodes.push({
+        id: "agents",
+        position: { x: 0, y: 0 },
+        data: { label: "AGENTS.md", path: "AGENTS.md" },
+      });
+    }
+
+    if (hasTools) {
+      nodes.push({
+        id: "tools",
+        position: { x: 280, y: 0 },
+        data: { label: "tools.json", path: "tools.json" },
+      });
+    }
+
+    if (hasAgents && hasTools) {
+      edges.push({
+        id: "agents-tools",
+        source: "agents",
+        target: "tools",
+      });
+    }
+
+    return { agentGraphNodes: nodes, agentGraphEdges: edges };
+  }, [finalTreeData]);
+
   const visibleTreeData = useMemo(() => {
     if (simpleViewMode !== "simple") {
       return finalTreeData;
@@ -748,7 +837,10 @@ function FileViewInner({
       <Sidebar variant="sidebar" className="border-r border-border/50">
         <SidebarContent className="p-0">
           <div className="p-3 border-b border-border/50">
-            <Link to="/" className={`flex items-center justify-between ${linkStyle}`}>
+            <Link
+              to="/"
+              className={`flex items-center justify-between ${linkStyle}`}
+            >
               <UserMenu>{user?.name ?? user?.email ?? "..."}</UserMenu>
             </Link>
           </div>
@@ -870,9 +962,28 @@ function FileViewInner({
           <div className="flex-1 overflow-auto p-4">
             <div className="max-w-none h-full flex flex-col">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-base md:text-sm font-medium mb-2">
-                  {selectedFile}
-                </h2>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-base md:text-sm font-medium">
+                    {selectedFile}
+                  </h2>
+                  <Tabs
+                    value={viewMode}
+                    onValueChange={(value) => {
+                      if (value === "editor" || value === "graph") {
+                        setViewMode(value);
+                      }
+                    }}
+                  >
+                    <TabsList className="h-7">
+                      <TabsTrigger value="editor" className="px-2 text-xs">
+                        Editor
+                      </TabsTrigger>
+                      <TabsTrigger value="graph" className="px-2 text-xs">
+                        Graph
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
 
                 <div className="flex items-center gap-2">
                   {stagedFiles && stagedFiles.length > 0 && (
@@ -928,14 +1039,16 @@ function FileViewInner({
                     )}
                   </span>
 
-                  <Button
-                    size="sm"
-                    variant={isPreviewOpen ? "secondary" : "outline"}
-                    onClick={() => setIsPreviewOpen((current) => !current)}
-                    className="h-6 px-2 text-xs"
-                  >
-                    {isPreviewOpen ? "Hide Preview" : "Show Preview"}
-                  </Button>
+                  {viewMode === "editor" && (
+                    <Button
+                      size="sm"
+                      variant={isPreviewOpen ? "secondary" : "outline"}
+                      onClick={() => setIsPreviewOpen((current) => !current)}
+                      className="h-6 px-2 text-xs"
+                    >
+                      {isPreviewOpen ? "Hide Preview" : "Show Preview"}
+                    </Button>
+                  )}
 
                   <Button
                     size="sm"
@@ -959,21 +1072,29 @@ function FileViewInner({
                 </div>
               </div>
 
-              {vault && isPreviewOpen && (
+              {viewMode === "editor" && vault && isPreviewOpen && (
                 <DaytonaPreviewPanel vaultId={vault._id} className="mb-4" />
               )}
 
               <div className="flex-1 min-h-0">
-                {stagedFile && (
-                  <CodeEditorWrapper
-                    key={`${branch}/${selectedFile}-${stagedFile.parentCommitSha ?? "new"}`}
-                    repositoryFullName={repositoryFullName}
-                    filePath={selectedFile}
-                    initialFilePath={stagedFile.initialFilePath}
-                    stagedFile={stagedFile}
-                    vaultId={vault._id}
-                    tree={vault.treeData.tree}
-                    treeSHA={vault.treeSHA}
+                {viewMode === "editor" ? (
+                  stagedFile && (
+                    <CodeEditorWrapper
+                      key={`${branch}/${selectedFile}-${stagedFile.parentCommitSha ?? "new"}`}
+                      repositoryFullName={repositoryFullName}
+                      filePath={selectedFile}
+                      initialFilePath={stagedFile.initialFilePath}
+                      stagedFile={stagedFile}
+                      vaultId={vault._id}
+                      tree={vault.treeData.tree}
+                      treeSHA={vault.treeSHA}
+                    />
+                  )
+                ) : (
+                  <AgentGraphView
+                    nodes={agentGraphNodes}
+                    edges={agentGraphEdges}
+                    onOpenFile={handleOpenFileFromGraph}
                   />
                 )}
               </div>
