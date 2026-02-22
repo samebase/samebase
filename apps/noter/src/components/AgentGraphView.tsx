@@ -38,18 +38,29 @@ type AgentNodeMessage = {
 const MAX_NODE_MESSAGES = 6;
 const EDGE_COLORS = ["#f59e0b", "#6366f1", "#10b981", "#0ea5e9"];
 
+type NodeChatState = {
+  threadId: string | null;
+  messages: AgentNodeMessage[];
+};
+
 function AgentNode({
   data,
   vaultId,
   onOpenFile,
+  messages,
+  threadId,
+  onAppendMessage,
+  onSetThreadId,
 }: NodeProps<AgentGraphNode> & {
   vaultId?: Id<"vaults">;
   onOpenFile: (path: string) => void;
+  messages: AgentNodeMessage[];
+  threadId: string | null;
+  onAppendMessage: (message: AgentNodeMessage) => void;
+  onSetThreadId: (threadId: string) => void;
 }) {
   const sendAgentMessage = useAction(api.agentGraphActions.sendAgentMessage);
   const [input, setInput] = useState("");
-  const [threadId, setThreadId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<AgentNodeMessage[]>([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,21 +69,13 @@ function AgentNode({
   const headerLabel = isAgent ? "AGENT" : "TOOLBOX";
   const subtitle = isAgent ? "System prompt file" : "Tool definitions";
 
-  const pushMessage = useCallback((message: AgentNodeMessage) => {
-    setMessages((prev) => {
-      const next = [...prev, message];
-      if (next.length <= MAX_NODE_MESSAGES) return next;
-      return next.slice(next.length - MAX_NODE_MESSAGES);
-    });
-  }, []);
-
   const handleSend = useCallback(async () => {
     const trimmed = input.trim();
     if (!trimmed || isDisabled || !vaultId) return;
     setSending(true);
     setInput("");
     setError(null);
-    pushMessage({ role: "user", content: trimmed });
+    onAppendMessage({ role: "user", content: trimmed });
 
     try {
       const result = await sendAgentMessage({
@@ -81,8 +84,8 @@ function AgentNode({
         message: trimmed,
         threadId: threadId ?? undefined,
       });
-      setThreadId(result.threadId);
-      pushMessage({ role: "assistant", content: result.response });
+      onSetThreadId(result.threadId);
+      onAppendMessage({ role: "assistant", content: result.response });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to send message.";
@@ -95,10 +98,11 @@ function AgentNode({
     data.path,
     input,
     isDisabled,
-    pushMessage,
     sendAgentMessage,
     threadId,
     vaultId,
+    onAppendMessage,
+    onSetThreadId,
   ]);
 
   return (
@@ -195,13 +199,68 @@ export function AgentGraphView({
   onOpenFile,
   vaultId,
 }: AgentGraphViewProps) {
+  const [nodeChatState, setNodeChatState] = useState<
+    Record<string, NodeChatState>
+  >({});
+
+  const appendNodeMessage = useCallback(
+    (nodeId: string, message: AgentNodeMessage) => {
+      setNodeChatState((prev) => {
+        const current = prev[nodeId] ?? { threadId: null, messages: [] };
+        const nextMessages = [...current.messages, message];
+        const trimmed =
+          nextMessages.length > MAX_NODE_MESSAGES
+            ? nextMessages.slice(nextMessages.length - MAX_NODE_MESSAGES)
+            : nextMessages;
+        return {
+          ...prev,
+          [nodeId]: {
+            ...current,
+            messages: trimmed,
+          },
+        };
+      });
+    },
+    [],
+  );
+
+  const setNodeThreadId = useCallback((nodeId: string, threadId: string) => {
+    setNodeChatState((prev) => {
+      const current = prev[nodeId] ?? { threadId: null, messages: [] };
+      if (current.threadId === threadId) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [nodeId]: {
+          ...current,
+          threadId,
+        },
+      };
+    });
+  }, []);
+
   const nodeTypes = useMemo(
     () => ({
-      agentNode: (props: NodeProps<AgentGraphNode>) => (
-        <AgentNode {...props} vaultId={vaultId} onOpenFile={onOpenFile} />
-      ),
+      agentNode: (props: NodeProps<AgentGraphNode>) => {
+        const chatState = nodeChatState[props.id] ?? {
+          threadId: null,
+          messages: [],
+        };
+        return (
+          <AgentNode
+            {...props}
+            vaultId={vaultId}
+            onOpenFile={onOpenFile}
+            messages={chatState.messages}
+            threadId={chatState.threadId}
+            onAppendMessage={(message) => appendNodeMessage(props.id, message)}
+            onSetThreadId={(threadId) => setNodeThreadId(props.id, threadId)}
+          />
+        );
+      },
     }),
-    [onOpenFile, vaultId],
+    [appendNodeMessage, nodeChatState, onOpenFile, setNodeThreadId, vaultId],
   );
   const styledEdges = useMemo(
     () =>
