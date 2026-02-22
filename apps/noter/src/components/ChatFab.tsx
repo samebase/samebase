@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import {
   MessageSquare,
   X,
-  Send,
   Loader2,
   GitCommitHorizontal,
   Check,
@@ -11,6 +10,7 @@ import {
   Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ChatInput } from "@/components/ChatInput";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
@@ -1003,13 +1003,6 @@ export function ChatFab() {
     }
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      void handleSend();
-    }
-  }
-
   return (
     <>
       {/* Chat Window */}
@@ -1109,28 +1102,17 @@ export function ChatFab() {
 
           {/* Input */}
           <div className="border-t border-border px-2.5 py-2">
-            <div className="flex items-end gap-2">
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  isDirtyDraftRef.current = true;
-                  resizeInput();
-                }}
-                onKeyDown={handleKeyDown}
-                placeholder="Type a message..."
-                rows={3}
-                className="max-h-60 min-h-[4.5rem] flex-1 resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-              <button
-                onClick={() => void handleSend()}
-                disabled={!input.trim() || sending || isWaitingForResponse}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
-              >
-                <Send className="h-4 w-4" />
-              </button>
-            </div>
+            <ChatInput
+              ref={inputRef}
+              value={input}
+              onValueChange={(value) => {
+                setInput(value);
+                isDirtyDraftRef.current = true;
+                resizeInput();
+              }}
+              onSend={() => void handleSend()}
+              disabled={sending || isWaitingForResponse}
+            />
           </div>
         </div>
       )}
