@@ -11,14 +11,54 @@ const EXCLUDED_TOP_LEVEL_DIRS = new Set([
   'dist',
   '.turbo',
   'scripts',
+  '.git',
 ])
 const EXCLUDED_FILENAMES = new Set(['seed-manifest.json'])
+const BINARY_EXTENSIONS = new Set([
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.webp',
+  '.ico',
+  '.pdf',
+  '.zip',
+  '.tar',
+  '.gz',
+  '.tgz',
+  '.bz2',
+  '.7z',
+  '.woff',
+  '.woff2',
+  '.ttf',
+  '.otf',
+  '.mp4',
+  '.mov',
+  '.mp3',
+  '.wav',
+])
+
+const isHiddenEntry = name => name.startsWith('.')
+
+const isBinaryBuffer = buffer => {
+  const sampleSize = Math.min(buffer.length, 8000)
+  for (let i = 0; i < sampleSize; i += 1) {
+    if (buffer[i] === 0) {
+      return true
+    }
+  }
+  return false
+}
 
 async function collectFiles(rootDir, currentDir, depth) {
   const entries = await readdir(currentDir, { withFileTypes: true })
   const files = []
 
   for (const entry of entries) {
+    if (isHiddenEntry(entry.name)) {
+      continue
+    }
+
     const absolutePath = path.join(currentDir, entry.name)
     const relativePath = path
       .relative(rootDir, absolutePath)
@@ -46,7 +86,17 @@ async function collectFiles(rootDir, currentDir, depth) {
       continue
     }
 
-    const content = await readFile(absolutePath, 'utf8')
+    const extension = path.extname(relativePath).toLowerCase()
+    if (BINARY_EXTENSIONS.has(extension)) {
+      continue
+    }
+
+    const contentBuffer = await readFile(absolutePath)
+    if (isBinaryBuffer(contentBuffer)) {
+      continue
+    }
+
+    const content = contentBuffer.toString('utf8')
     files.push({ relativePath, content })
   }
 
