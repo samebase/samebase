@@ -423,7 +423,7 @@ export function VaultDashboard() {
     : `New ${createTemplate}`;
   const createControl = (
     <div className="flex flex-col items-start gap-2">
-      <ButtonGroup className="w-full sm:w-[360px]">
+      <ButtonGroup className="w-full sm:w-[480px]">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button className="gap-2" variant="outline">
