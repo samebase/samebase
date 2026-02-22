@@ -36,6 +36,7 @@ type AgentNodeMessage = {
 };
 
 const MAX_NODE_MESSAGES = 6;
+const EDGE_COLORS = ["#f59e0b", "#6366f1", "#10b981", "#0ea5e9"];
 
 function AgentNode({
   data,
@@ -54,6 +55,8 @@ function AgentNode({
 
   const isAgent = data.kind === "agent";
   const isDisabled = !isAgent || !vaultId || sending;
+  const headerLabel = isAgent ? "AGENT" : "TOOLBOX";
+  const subtitle = isAgent ? "System prompt file" : "Tool definitions";
 
   const pushMessage = useCallback((message: AgentNodeMessage) => {
     setMessages((prev) => {
@@ -99,49 +102,88 @@ function AgentNode({
   ]);
 
   return (
-    <div className="rounded-md border border-border bg-background p-3 shadow-sm w-72">
-      <Handle type="target" position={Position.Left} className="opacity-0" />
-      <Handle type="source" position={Position.Right} className="opacity-0" />
-      <button
-        type="button"
-        onClick={() => onOpenFile(data.path)}
-        className="text-left text-sm font-medium text-foreground hover:underline"
-      >
-        {data.label}
-      </button>
+    <div className="relative w-80 rounded-lg border border-border/70 bg-background shadow-sm">
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="h-2 w-2 rounded-full border border-background bg-foreground/70"
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="h-2 w-2 rounded-full border border-background bg-foreground/70"
+      />
+      <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
+        <span className="text-[11px] font-semibold tracking-wide text-muted-foreground">
+          {headerLabel}
+        </span>
+      </div>
+      <div className="border-b border-border/60 px-3 py-2">
+        <button
+          type="button"
+          onClick={() => onOpenFile(data.path)}
+          className="text-left text-sm font-semibold text-foreground hover:underline"
+        >
+          {data.label}
+        </button>
+        <div className="mt-1 text-xs text-muted-foreground">{subtitle}</div>
+      </div>
       {isAgent && (
-        <div className="mt-2 space-y-2">
-          {messages.length > 0 && (
-            <div className="max-h-32 space-y-2 overflow-auto text-xs">
-              {messages.map((message, index) => (
-                <div
-                  key={`${message.role}-${index}`}
-                  className={
-                    message.role === "assistant"
-                      ? "rounded-md bg-muted px-2 py-1 text-muted-foreground"
-                      : "rounded-md border border-border/70 px-2 py-1 text-foreground"
-                  }
-                >
-                  <span className="font-medium">
-                    {message.role === "assistant" ? "Agent" : "You"}
-                  </span>
-                  {": "}
-                  <span className="whitespace-pre-wrap">{message.content}</span>
-                </div>
-              ))}
+        <>
+          <div className="border-b border-border/60 px-3 py-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold tracking-wide text-muted-foreground">
+                INSTRUCTIONS
+              </span>
+              <button
+                type="button"
+                onClick={() => onOpenFile(data.path)}
+                className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
+              >
+                Edit
+              </button>
             </div>
-          )}
-          <ChatInput
-            value={input}
-            onValueChange={setInput}
-            onSend={() => void handleSend()}
-            disabled={isDisabled}
-            rows={2}
-            textareaClassName="min-h-[3rem] text-xs"
-            sendButtonClassName="h-7 w-7"
-          />
-          {error && <div className="text-[11px] text-red-600">{error}</div>}
-        </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Uses {data.label} as the system prompt for this agent.
+            </div>
+          </div>
+          <div className="px-3 py-2">
+            {messages.length > 0 && (
+              <div className="mb-2 max-h-32 space-y-2 overflow-auto text-xs">
+                {messages.map((message, index) => (
+                  <div
+                    key={`${message.role}-${index}`}
+                    className={
+                      message.role === "assistant"
+                        ? "rounded-md bg-muted/70 px-2 py-1 text-muted-foreground"
+                        : "rounded-md border border-border/70 px-2 py-1 text-foreground"
+                    }
+                  >
+                    <span className="font-medium">
+                      {message.role === "assistant" ? "Agent" : "You"}
+                    </span>
+                    {": "}
+                    <span className="whitespace-pre-wrap">
+                      {message.content}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <ChatInput
+              value={input}
+              onValueChange={setInput}
+              onSend={() => void handleSend()}
+              disabled={isDisabled}
+              rows={2}
+              textareaClassName="min-h-[2.75rem] text-xs"
+              sendButtonClassName="h-7 w-7"
+            />
+            {error && (
+              <div className="mt-1 text-[11px] text-red-600">{error}</div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
@@ -161,12 +203,25 @@ export function AgentGraphView({
     }),
     [onOpenFile, vaultId],
   );
+  const styledEdges = useMemo(
+    () =>
+      edges.map((edge, index) => ({
+        ...edge,
+        style: {
+          strokeDasharray: "6 6",
+          stroke: EDGE_COLORS[index % EDGE_COLORS.length],
+          strokeWidth: 2,
+          ...(edge.style ?? {}),
+        },
+      })),
+    [edges],
+  );
 
   return (
     <div className="h-full w-full rounded-md border border-border/50">
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={styledEdges}
         fitView={nodes.length > 0}
         nodesDraggable={false}
         nodesConnectable={false}
