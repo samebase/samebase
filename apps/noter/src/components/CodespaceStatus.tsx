@@ -11,7 +11,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
 import { cn } from "../lib/utils";
 import {
   Activity,
@@ -26,6 +31,7 @@ import { useState } from "react";
 
 interface CodespaceStatusProps {
   vaultId: Id<"vaults">;
+  repositoryFullName: string;
   className?: string;
   showActions?: boolean;
 }
@@ -78,6 +84,7 @@ const STATE_STYLES: Record<
 
 export function CodespaceStatus({
   vaultId,
+  repositoryFullName,
   className,
   showActions = true,
 }: CodespaceStatusProps) {
@@ -88,7 +95,9 @@ export function CodespaceStatus({
     api.vaultCodespaceIntegration.ensureCodespaceReady,
   );
   const deleteCodespace = useAction(api.codespaces.deleteCodespace);
-  const codespace = useQuery(api.codespacesMutations.getActiveCodespace, { vaultId });
+  const codespace = useQuery(api.codespacesMutations.getActiveCodespace, {
+    vaultId,
+  });
 
   const handleEnsureCodespace = async () => {
     if (isEnsuringCodespace) return;
@@ -152,8 +161,10 @@ export function CodespaceStatus({
   const portsEnsuredAt = codespace.portsVisibilityEnsuredAt;
   const portsLastError = codespace.portsVisibilityLastError;
   const agentBaseUrl =
-    codespace.agentUrl ?? `https://${codespace.ghCodespaceName}-3000.app.github.dev`;
+    codespace.agentUrl ??
+    `https://${codespace.ghCodespaceName}-3000.app.github.dev`;
   const agentHealthUrl = `${agentBaseUrl.replace(/\/$/, "")}/health`;
+  const commitUrl = `https://github.com/${repositoryFullName}/commit/${codespace.commitSha}`;
 
   const portsBadge = (() => {
     if (!isRunning) {
@@ -196,158 +207,163 @@ export function CodespaceStatus({
 
   return (
     <>
-    <div className={cn("flex flex-wrap items-center gap-2", className)}>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="flex flex-wrap items-center gap-2">
-              <Icon className={cn("h-4 w-4", stateStyle.color)} />
-              <Badge
-                variant={isRunning ? "default" : "outline"}
-                className={cn(!isRunning && "text-muted-foreground")}
-              >
-                {stateStyle.label}
-              </Badge>
-              {isRunning && (
-                <div
-                  className={cn(
-                    "h-2 w-2 rounded-full",
-                    isHealthy ? "bg-emerald-500" : "bg-red-500"
-                  )}
-                  title={isHealthy ? "Agent healthy" : "Agent unhealthy"}
-                />
-              )}
-              {portsBadge}
-            </div>
-          </TooltipTrigger>
-          <TooltipContent>
-            <div className="text-xs space-y-1">
-              <p>
-                <strong>State:</strong> {codespace.state}
-              </p>
-              <p>
-                <strong>Name:</strong> {codespace.ghCodespaceName}
-              </p>
-              {isRunning && (
+      <div className={cn("flex flex-wrap items-center gap-2", className)}>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex flex-wrap items-center gap-2">
+                <Icon className={cn("h-4 w-4", stateStyle.color)} />
+                <Badge
+                  variant={isRunning ? "default" : "outline"}
+                  className={cn(!isRunning && "text-muted-foreground")}
+                >
+                  {stateStyle.label}
+                </Badge>
+                {isRunning && (
+                  <div
+                    className={cn(
+                      "h-2 w-2 rounded-full",
+                      isHealthy ? "bg-emerald-500" : "bg-red-500",
+                    )}
+                    title={isHealthy ? "Agent healthy" : "Agent unhealthy"}
+                  />
+                )}
+                {portsBadge}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="text-xs space-y-1">
                 <p>
-                  <strong>Agent:</strong> {isHealthy ? "Healthy" : "Unhealthy"}
+                  <strong>State:</strong> {codespace.state}
                 </p>
-              )}
-              {isRunning && (
                 <p>
-                  <strong>Ports:</strong>{" "}
-                  {portsEnsured === true
-                    ? "OK"
-                    : portsEnsured === false
-                      ? "Issue"
-                      : "Unknown"}
-                  {portsEnsuredAt && (
-                    <>
-                      {" "}
-                      ({new Date(portsEnsuredAt).toLocaleTimeString()})
-                    </>
-                  )}
+                  <strong>Name:</strong> {codespace.ghCodespaceName}
                 </p>
-              )}
-              {isRunning && portsLastError && (
-                <p className="max-w-72 break-words">
-                  <strong>Ports Error:</strong> {portsLastError}
-                </p>
-              )}
-              <p>
-                <strong>Commit:</strong> {codespace.commitSha.substring(0, 7)}
-              </p>
-              {codespace.lastHealthCheckAt && (
+                {isRunning && (
+                  <p>
+                    <strong>Agent:</strong>{" "}
+                    {isHealthy ? "Healthy" : "Unhealthy"}
+                  </p>
+                )}
+                {isRunning && (
+                  <p>
+                    <strong>Ports:</strong>{" "}
+                    {portsEnsured === true
+                      ? "OK"
+                      : portsEnsured === false
+                        ? "Issue"
+                        : "Unknown"}
+                    {portsEnsuredAt && (
+                      <> ({new Date(portsEnsuredAt).toLocaleTimeString()})</>
+                    )}
+                  </p>
+                )}
+                {isRunning && portsLastError && (
+                  <p className="max-w-72 break-words">
+                    <strong>Ports Error:</strong> {portsLastError}
+                  </p>
+                )}
                 <p>
-                  <strong>Last Check:</strong>{" "}
-                  {new Date(codespace.lastHealthCheckAt).toLocaleTimeString()}
+                  <strong>Commit:</strong>{" "}
+                  <a
+                    href={commitUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono underline underline-offset-2 hover:opacity-80"
+                    title="View commit on GitHub"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                    }}
+                  >
+                    {codespace.commitSha.substring(0, 7)}
+                  </a>
                 </p>
-              )}
-            </div>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+                {codespace.lastHealthCheckAt && (
+                  <p>
+                    <strong>Last Check:</strong>{" "}
+                    {new Date(codespace.lastHealthCheckAt).toLocaleTimeString()}
+                  </p>
+                )}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
-      {showActions && (
-        <div className="flex flex-wrap items-center gap-1">
-          {isRunning && codespace.webUrl && (
+        {showActions && (
+          <div className="flex flex-wrap items-center gap-1">
+            {isRunning && codespace.webUrl && (
+              <Button variant="ghost" size="sm" asChild className="h-8 gap-1">
+                <a
+                  href={codespace.webUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                  }}
+                >
+                  Open in Browser
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
-              asChild
-              className="h-8 gap-1"
+              className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setIsDeleteDialogOpen(true);
+              }}
+              disabled={isDeletingCodespace}
             >
-              <a
-                href={codespace.webUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(event) => {
-                  event.stopPropagation();
-                }}
-              >
-                Open in Browser
-                <ExternalLink className="h-3 w-3" />
-              </a>
+              {isDeletingCodespace ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <TrashIcon className="h-3 w-3" />
+              )}
+              Remove
             </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              setIsDeleteDialogOpen(true);
-            }}
-            disabled={isDeletingCodespace}
-          >
-            {isDeletingCodespace ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <TrashIcon className="h-3 w-3" />
-            )}
-            Remove
-          </Button>
-        </div>
-      )}
-    </div>
+          </div>
+        )}
+      </div>
 
-    <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Remove Codespace</DialogTitle>
-          <DialogDescription>
-            Are you sure you want to remove the Codespace for{" "}
-            <strong>{codespace.ghCodespaceName}</strong>? This will delete the
-            dev container from GitHub.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              setIsDeleteDialogOpen(false);
-            }}
-            disabled={isDeletingCodespace}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              void handleDeleteCodespace();
-            }}
-            disabled={isDeletingCodespace}
-          >
-            Remove Codespace
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Codespace</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove the Codespace for{" "}
+              <strong>{codespace.ghCodespaceName}</strong>? This will delete the
+              dev container from GitHub.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setIsDeleteDialogOpen(false);
+              }}
+              disabled={isDeletingCodespace}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                void handleDeleteCodespace();
+              }}
+              disabled={isDeletingCodespace}
+            >
+              Remove Codespace
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

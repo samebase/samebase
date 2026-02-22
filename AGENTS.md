@@ -61,6 +61,8 @@ npm run lint          # TypeScript + ESLint check
 
 - `rg` (ripgrep) is not available in this environment. Use `grep`/`find`
   instead.
+- If Convex tooling complains about missing `CONVEX_DEPLOYMENT` (for lint or
+  codegen), run `make anon` to set up an anonymous deployment.
 
 ### Convex CLI
 
