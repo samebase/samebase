@@ -1,11 +1,10 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 
 export function Layout({ children }: { children: ReactNode }) {
   const appCommit = __APP_COMMIT__ || "unknown";
-  const shortCommit =
-    appCommit.length > 12 ? appCommit.slice(0, 7) : appCommit;
+  const shortCommit = appCommit.length > 12 ? appCommit.slice(0, 7) : appCommit;
   const repoUrl = __APP_REPO_URL__ || "";
   const commitUrl =
     repoUrl && appCommit !== "unknown" ? `${repoUrl}/commit/${appCommit}` : "";
@@ -17,6 +16,13 @@ export function Layout({ children }: { children: ReactNode }) {
   const guestTitle = viewer
     ? `Welcome, ${guestName}. You're viewing the dev build.`
     : "Viewing the dev build.";
+
+  useEffect(() => {
+    console.info("[noter] build metadata", {
+      appCommit: __APP_COMMIT__,
+      appRepoUrl: __APP_REPO_URL__,
+    });
+  }, []);
 
   return (
     <div className="flex h-full w-full flex-col">
