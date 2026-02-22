@@ -11,6 +11,34 @@ const run = (command, args) => {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const captureConvexReadme = () => {
+  const readmePath = path.join(process.cwd(), "convex", "README.md");
+  if (!fs.existsSync(readmePath)) {
+    return null;
+  }
+  return {
+    path: readmePath,
+    contents: fs.readFileSync(readmePath, "utf8"),
+  };
+};
+
+const restoreConvexReadmeIfOverwritten = (snapshot) => {
+  if (!snapshot) {
+    return;
+  }
+  if (!fs.existsSync(snapshot.path)) {
+    return;
+  }
+  const current = fs.readFileSync(snapshot.path, "utf8");
+  if (!current.startsWith("# Welcome to your Convex functions directory!")) {
+    return;
+  }
+  if (current === snapshot.contents) {
+    return;
+  }
+  fs.writeFileSync(snapshot.path, snapshot.contents, "utf8");
+};
+
 const parsePort = (url) => {
   try {
     return new URL(url).port;
@@ -97,11 +125,15 @@ const stopLocalBackendIfRunning = async () => {
 };
 
 if (process.env.CONVEX_AGENT_MODE === "anonymous") {
+  const readmeSnapshot = captureConvexReadme();
   await stopLocalBackendIfRunning();
   run("node", ["convex-dev.js", "--until-success", "--codegen=enable"]);
+  restoreConvexReadmeIfOverwritten(readmeSnapshot);
   process.exit(0);
 }
 
+const readmeSnapshot = captureConvexReadme();
 run("node", ["convex-dev.js", "--until-success", "--codegen=enable"]);
+restoreConvexReadmeIfOverwritten(readmeSnapshot);
 run("node", ["setup.mjs", "--once"]);
 run("node", ["sync-site-url.mjs"]);
