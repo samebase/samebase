@@ -347,6 +347,8 @@ export default defineSchema({
     branch: v.optional(v.string()),
     filePath: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
+    draftMessage: v.optional(v.string()),
+    draftUpdatedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_threadId", ["threadId"])

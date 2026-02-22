@@ -119,6 +119,8 @@ export const getThreadContext = query({
       repositoryFullName: optional(string()),
       branch: optional(string()),
       filePath: optional(string()),
+      draftMessage: optional(string()),
+      draftUpdatedAt: optional(number()),
     }),
     v.null(),
   ),
@@ -133,6 +135,8 @@ export const getThreadContext = query({
       repositoryFullName: thread.repositoryFullName,
       branch: thread.branch,
       filePath: thread.filePath,
+      draftMessage: thread.draftMessage,
+      draftUpdatedAt: thread.draftUpdatedAt,
     };
   },
 });
@@ -181,6 +185,8 @@ export const sendMessage = mutation({
       vaultId: args.vaultId ?? thread.vaultId,
       filePath: args.filePath ?? thread.filePath,
       branch: args.branch ?? thread.branch,
+      draftMessage: "",
+      draftUpdatedAt: Date.now(),
     });
 
     const { messageId } = await saveMessage(ctx, components.agent, {
@@ -195,6 +201,25 @@ export const sendMessage = mutation({
     });
 
     return messageId;
+  },
+});
+
+export const updateThreadDraft = mutation({
+  args: {
+    threadId: string(),
+    draftMessage: string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+    const thread = await getThreadById(ctx, args.threadId);
+    ensureThreadAccess(userId, thread);
+
+    await ctx.db.patch(thread._id, {
+      draftMessage: args.draftMessage,
+      draftUpdatedAt: Date.now(),
+    });
+    return null;
   },
 });
 

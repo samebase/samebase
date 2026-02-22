@@ -747,6 +747,7 @@ function MessageBubble({
 
 const STORAGE_KEY_SIZE = "noter-chat-size";
 const STORAGE_KEY_OPEN = "noter-chat-open";
+const STORAGE_KEY_LOCAL_THREAD = "noter-chat-thread";
 
 function loadFromStorage<T>(key: string, fallback: T): T {
   try {
@@ -779,10 +780,19 @@ export function ChatFab() {
   );
   const [input, setInput] = useState("");
   // Local fallback for threads without a vault context
-  const [localThreadId, setLocalThreadId] = useState<string | null>(null);
+  const [localThreadId, setLocalThreadId] = useState<string | null>(() =>
+    loadFromStorage(STORAGE_KEY_LOCAL_THREAD, null),
+  );
+  const [pendingThreadId, setPendingThreadId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const draftSaveTimerRef = useRef<number | null>(null);
+  const lastHydratedThreadRef = useRef<string | null>(null);
+  const lastHydratedDraftRef = useRef<string>("");
+  const lastSavedDraftRef = useRef<string | null>(null);
+  const isDirtyDraftRef = useRef(false);
+  const creatingThreadRef = useRef<Promise<string> | null>(null);
 
   const [size, setSize] = useState(() =>
     loadFromStorage(STORAGE_KEY_SIZE, { w: DEFAULT_WIDTH, h: DEFAULT_HEIGHT }),
@@ -835,12 +845,15 @@ export function ChatFab() {
     api.chat.index.getThreadForVault,
     vaultId ? { vaultId } : "skip",
   );
-  const threadId = vaultId ? vaultThread?.threadId ?? null : localThreadId;
+  const threadId = vaultId
+    ? vaultThread?.threadId ?? pendingThreadId
+    : localThreadId;
 
   const threadContext = useQuery(
     api.chat.index.getThreadContext,
     threadId ? { threadId } : "skip",
   );
+  const threadContextLoaded = threadContext !== undefined;
 
   const messages = useUIMessages(
     api.chat.index.listThreadMessages,
@@ -851,11 +864,57 @@ export function ChatFab() {
   const createThread = useMutation(api.chat.index.createThread);
   const deleteThread = useMutation(api.chat.index.deleteThread);
   const sendMessage = useMutation(api.chat.index.sendMessage);
+  const updateThreadDraft = useMutation(api.chat.index.updateThreadDraft);
+
+  const resizeInput = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const maxHeight = 240;
+    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
+  }, []);
+
+  const ensureThreadId = useCallback(async () => {
+    if (threadId) return threadId;
+    if (creatingThreadRef.current) {
+      return await creatingThreadRef.current;
+    }
+
+    const createPromise = (async () => {
+      const createdId = await createThread({
+        vaultId: vaultId ?? undefined,
+        repositoryFullName,
+        branch,
+        filePath,
+      });
+      if (vaultId) {
+        setPendingThreadId(createdId);
+      } else {
+        setLocalThreadId(createdId);
+      }
+      return createdId;
+    })();
+
+    creatingThreadRef.current = createPromise;
+    try {
+      return await createPromise;
+    } finally {
+      creatingThreadRef.current = null;
+    }
+  }, [threadId, createThread, vaultId, repositoryFullName, branch, filePath]);
 
   async function handleNewConversation() {
     if (!threadId) return;
     await deleteThread({ threadId });
-    setLocalThreadId(null);
+    if (!vaultId) {
+      setLocalThreadId(null);
+    }
+    setPendingThreadId(null);
+    setInput("");
+    lastHydratedThreadRef.current = null;
+    lastHydratedDraftRef.current = "";
+    lastSavedDraftRef.current = null;
+    isDirtyDraftRef.current = false;
   }
 
   // Persist UI state to localStorage (thread itself lives in Convex)
@@ -866,6 +925,20 @@ export function ChatFab() {
   useEffect(() => {
     saveToStorage(STORAGE_KEY_SIZE, size);
   }, [size]);
+
+  useEffect(() => {
+    saveToStorage(STORAGE_KEY_LOCAL_THREAD, localThreadId);
+  }, [localThreadId]);
+
+  useEffect(() => {
+    if (!vaultId) {
+      setPendingThreadId(null);
+      return;
+    }
+    if (vaultThread?.threadId) {
+      setPendingThreadId(null);
+    }
+  }, [vaultId, vaultThread?.threadId]);
 
   const messageResults: ChatUIMessage[] = messages.results;
   const hasStreaming = messageResults.some(
@@ -902,25 +975,77 @@ export function ChatFab() {
     }
   }, [hasStreaming]);
 
+  useEffect(() => {
+    if (!input.trim()) return;
+    if (threadId) return;
+    void ensureThreadId();
+  }, [input, threadId, ensureThreadId]);
+
+  useEffect(() => {
+    if (!threadId || !threadContextLoaded) return;
+    const remoteDraft = threadContext?.draftMessage ?? "";
+    if (lastHydratedThreadRef.current !== threadId) {
+      lastHydratedThreadRef.current = threadId;
+      lastHydratedDraftRef.current = remoteDraft;
+      lastSavedDraftRef.current = remoteDraft;
+      if (!isDirtyDraftRef.current) {
+        setInput(remoteDraft);
+        isDirtyDraftRef.current = false;
+      }
+      return;
+    }
+    if (isDirtyDraftRef.current) return;
+    if (remoteDraft === lastHydratedDraftRef.current) return;
+    setInput(remoteDraft);
+    lastHydratedDraftRef.current = remoteDraft;
+    lastSavedDraftRef.current = remoteDraft;
+  }, [threadId, threadContextLoaded, threadContext?.draftMessage]);
+
+  useEffect(() => {
+    if (!threadId) return;
+    if (draftSaveTimerRef.current) {
+      window.clearTimeout(draftSaveTimerRef.current);
+    }
+    draftSaveTimerRef.current = window.setTimeout(() => {
+      const draft = input;
+      if (draft === lastSavedDraftRef.current) {
+        isDirtyDraftRef.current = false;
+        return;
+      }
+      void updateThreadDraft({ threadId, draftMessage: draft })
+        .then(() => {
+          lastSavedDraftRef.current = draft;
+          lastHydratedDraftRef.current = draft;
+          isDirtyDraftRef.current = false;
+        })
+        .catch(() => {
+          // keep dirty flag for a future retry
+        });
+    }, 400);
+
+    return () => {
+      if (draftSaveTimerRef.current) {
+        window.clearTimeout(draftSaveTimerRef.current);
+        draftSaveTimerRef.current = null;
+      }
+    };
+  }, [input, threadId, updateThreadDraft]);
+
+  useEffect(() => {
+    resizeInput();
+  }, [input, resizeInput]);
+
   async function handleSend() {
     const trimmed = input.trim();
     if (!trimmed || sending) return;
 
     setSending(true);
     setInput("");
+    lastSavedDraftRef.current = "";
+    lastHydratedDraftRef.current = "";
+    isDirtyDraftRef.current = false;
 
-    let activeThreadId = threadId;
-    if (!activeThreadId) {
-      activeThreadId = await createThread({
-        vaultId: vaultId ?? undefined,
-        repositoryFullName,
-        branch,
-        filePath,
-      });
-      if (!vaultId) {
-        setLocalThreadId(activeThreadId);
-      }
-    }
+    const activeThreadId = await ensureThreadId();
 
     await sendMessage({
       threadId: activeThreadId,
@@ -1033,11 +1158,15 @@ export function ChatFab() {
               <textarea
                 ref={inputRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  isDirtyDraftRef.current = true;
+                  resizeInput();
+                }}
                 onKeyDown={handleKeyDown}
                 placeholder="Type a message..."
-                rows={1}
-                className="max-h-20 min-h-[2rem] flex-1 resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                rows={3}
+                className="max-h-60 min-h-[4.5rem] flex-1 resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
               <button
                 onClick={() => void handleSend()}
