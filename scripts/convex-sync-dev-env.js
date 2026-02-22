@@ -146,11 +146,21 @@ function parseArgs(args) {
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i]
     if (arg === '--source-env') {
-      result.sourceEnv = args[++i] ?? null
+      const value = args[i + 1]
+      if (!value || value.startsWith('-')) {
+        exitWithError(`Missing value for ${arg}\n\n${HELP_TEXT}`)
+      }
+      result.sourceEnv = value
+      i += 1
       continue
     }
     if (arg === '--target-env') {
-      result.targetEnv = args[++i] ?? null
+      const value = args[i + 1]
+      if (!value || value.startsWith('-')) {
+        exitWithError(`Missing value for ${arg}\n\n${HELP_TEXT}`)
+      }
+      result.targetEnv = value
+      i += 1
       continue
     }
     if (arg === '--include-site-url') {
