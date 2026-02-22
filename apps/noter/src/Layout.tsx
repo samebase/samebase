@@ -18,9 +18,6 @@ export function Layout({ children }: { children: ReactNode }) {
     : "Viewing the dev build.";
 
   useEffect(() => {
-    if (!import.meta.env.PROD) {
-      return;
-    }
     console.info("[noter] build metadata", {
       appCommit: __APP_COMMIT__,
       appRepoUrl: __APP_REPO_URL__,
