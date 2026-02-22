@@ -704,7 +704,10 @@ export function VaultDashboard() {
 
                     {isReady && (
                       <div className="space-y-1.5">
-                        <CodespaceStatus vaultId={vault._id} />
+                        <CodespaceStatus
+                          vaultId={vault._id}
+                          repositoryFullName={vault.repositoryFullName}
+                        />
                         <DaytonaWorkspaceButton
                           vaultId={vault._id}
                           branch={defaultBranch}
