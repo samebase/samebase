@@ -1,4 +1,7 @@
 # TODO
+- [ ] here's an idea; market it as a way to build app for yourself (we can use their noter.md auth to login into their apps)
+  - [ ] next we don't directly jump to allow it in public, we instead allow them to manually invite their family/friends/colleagues/collaborators to use these apps
+  - [ ] at some point they might decide to make it public and sell it or give it to other people, and that should also be possible
 
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 - [ ] maybe jupyterlab is not necessaryle necessary, or even a good idea, since developers usually don't use it; and vibecoders don't even use it; only academia?
