@@ -222,6 +222,8 @@ them directly using CLI tools.
 - CodeRabbit can mark checks as pass while still leaving comments; always read
   CodeRabbit review comments/threads and treat nitpicks as required fixes before
   merging.
+- When the user asks to check CodeRabbit, review both the check status and any
+  comments/nitpicks (treat them as required fixes).
 - On CI failure, report the error and offer to fix
 - **NEVER merge a PR until CI is green** - always wait for checks to pass, then
   squash-merge with `gh pr merge --squash`
