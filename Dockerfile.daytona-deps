@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 ARG BASE_IMAGE=mcr.microsoft.com/devcontainers/javascript-node:24-bookworm
 FROM ${BASE_IMAGE}
 
@@ -12,4 +13,5 @@ COPY apps/noter/package.json apps/noter/package.json
 COPY apps/noter-starter-template/package.json apps/noter-starter-template/package.json
 
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
-RUN pnpm install --prod=false --force --node-linker=hoisted
+RUN --mount=type=cache,id=noter-pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm install --prod=false --force --node-linker=hoisted

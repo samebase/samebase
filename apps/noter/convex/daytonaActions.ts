@@ -35,7 +35,17 @@ const DAYTONA_API_TOKEN_ENV = "DAYTONA_API_TOKEN";
 const DAYTONA_API_KEY_ENV = "DAYTONA_API_KEY";
 const DAYTONA_CONVEX_DEPLOY_KEY_ENV = "DAYTONA_CONVEX_DEPLOY_KEY";
 const DAYTONA_DEPS_IMAGE_TEMPLATE_ENV = "DAYTONA_DEPS_IMAGE_TEMPLATE";
+const DAYTONA_BASE_IMAGE_ENV = "DAYTONA_BASE_IMAGE";
+const DAYTONA_PNPM_VERSION = "9.15.0";
 const PNPM_LOCKFILE_NAME = "pnpm-lock.yaml";
+const DAYTONA_DEPS_HASH_INPUT_FILES = [
+  "Dockerfile.daytona-deps",
+  "package.json",
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
+  "apps/noter/package.json",
+  "apps/noter-starter-template/package.json",
+] as const;
 const PNPM_INSTALL_STATUS = "/tmp/noter-pnpm-install.status";
 const DAYTONA_PREVIEW_PORT = 5173;
 const DAYTONA_PREVIEW_TTL_SECONDS = 3600;
@@ -50,10 +60,28 @@ const DAYTONA_REGISTRY_PROJECT_ENV = "DAYTONA_REGISTRY_PROJECT";
 const DAYTONA_REGISTRY_NAME_ENV = "DAYTONA_REGISTRY_NAME";
 const DAYTONA_REGISTRY_SET_DEFAULT_ENV = "DAYTONA_REGISTRY_SET_DEFAULT";
 const DAYTONA_ORGANIZATION_ID_ENV = "DAYTONA_ORGANIZATION_ID";
+const DAYTONA_REPO_REFRESH_MODE_ENV = "DAYTONA_REPO_REFRESH_MODE";
 const DAYTONA_PREBUILD_RESOURCES: Resources = {
   cpu: 4,
   memory: 8,
   disk: 10,
+};
+const REPO_REFRESH_MARKER = "__NOTER_REPO_REFRESH__";
+
+type RepoRefreshMode = "always" | "smart" | "never";
+type RepoRefreshReason =
+  | "mode_always"
+  | "mode_never"
+  | "repo_missing"
+  | "remote_changed"
+  | "remote_unknown"
+  | "up_to_date"
+  | "failed"
+  | "unknown";
+
+type RepoRefreshResult = {
+  refreshed: boolean;
+  reason: RepoRefreshReason;
 };
 
 function isNotFoundError(error: unknown): boolean {
@@ -85,6 +113,14 @@ function hasImageTagOrDigest(image: string): boolean {
   const lastColon = image.lastIndexOf(":");
   const lastSlash = image.lastIndexOf("/");
   return lastColon > lastSlash;
+}
+
+function resolveDaytonaBaseImage(): string {
+  const configured = process.env[DAYTONA_BASE_IMAGE_ENV]?.trim();
+  if (configured && configured.length > 0) {
+    return configured;
+  }
+  return DEFAULT_BASE_IMAGE;
 }
 
 function normalizeRegistryUrl(url: string): string {
@@ -128,6 +164,20 @@ function resolveDaytonaApiConfig():
   return { ok: true, baseUrl, token };
 }
 
+function resolveRepoRefreshMode(): RepoRefreshMode {
+  const raw = process.env[DAYTONA_REPO_REFRESH_MODE_ENV]?.trim().toLowerCase();
+  if (raw === "always" || raw === "smart" || raw === "never") {
+    return raw;
+  }
+  if (raw && raw.length > 0) {
+    console.warn("daytona:repo:refresh:mode:invalid", {
+      value: raw,
+      fallback: "smart",
+    });
+  }
+  return "smart";
+}
+
 async function inferSandboxDevOrigin(args: {
   sandbox: Sandbox;
   port: number;
@@ -162,6 +212,45 @@ async function readPnpmLockHash(repoDir: string): Promise<string | null> {
   }
 }
 
+async function readRepoFileHash(args: {
+  repoDir: string;
+  relativePath: string;
+}): Promise<string | null> {
+  const filePath = path.join(args.repoDir, args.relativePath);
+  try {
+    const contents = await fs.promises.readFile(filePath);
+    return createHash("sha256").update(contents).digest("hex");
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function readDepsInputHash(args: {
+  repoDir: string;
+  baseImage: string;
+  pnpmVersion: string;
+}): Promise<string | null> {
+  const hash = createHash("sha256");
+  hash.update(`baseImage=${args.baseImage}\n`);
+  hash.update(`pnpmVersion=${args.pnpmVersion}\n`);
+
+  for (const relativePath of DAYTONA_DEPS_HASH_INPUT_FILES) {
+    const fileHash = await readRepoFileHash({
+      repoDir: args.repoDir,
+      relativePath,
+    });
+    if (!fileHash) {
+      return null;
+    }
+    hash.update(`${relativePath}:${fileHash}\n`);
+  }
+
+  return hash.digest("hex");
+}
+
 function replaceTemplateTokens(
   template: string,
   replacements: Record<string, string>,
@@ -174,10 +263,10 @@ function replaceTemplateTokens(
   return result;
 }
 
-function resolveDepsImageName(args: {
+function resolveDepsImageNameForTag(args: {
   owner: string;
   repo: string;
-  lockHash: string;
+  tag: string;
 }): string | null {
   const templateRaw = process.env[DAYTONA_DEPS_IMAGE_TEMPLATE_ENV];
   if (!templateRaw || templateRaw.trim().length === 0) {
@@ -189,14 +278,45 @@ function resolveDepsImageName(args: {
   let resolved = replaceTemplateTokens(templateRaw.trim(), {
     owner,
     repo,
-    lockHash: args.lockHash,
+    inputHash: args.tag,
+    lockHash: args.tag,
   });
 
   if (!hasImageTagOrDigest(resolved)) {
-    resolved = `${resolved}:${args.lockHash}`;
+    resolved = `${resolved}:${args.tag}`;
   }
 
   return resolved;
+}
+
+function resolveDepsImageNames(args: {
+  owner: string;
+  repo: string;
+  inputHash: string | null;
+  lockHash: string | null;
+}): string[] {
+  const names = new Set<string>();
+  if (args.inputHash) {
+    const image = resolveDepsImageNameForTag({
+      owner: args.owner,
+      repo: args.repo,
+      tag: args.inputHash,
+    });
+    if (image) {
+      names.add(image);
+    }
+  }
+  if (args.lockHash && args.lockHash !== args.inputHash) {
+    const image = resolveDepsImageNameForTag({
+      owner: args.owner,
+      repo: args.repo,
+      tag: args.lockHash,
+    });
+    if (image) {
+      names.add(image);
+    }
+  }
+  return [...names];
 }
 
 type RegistryConfig = {
@@ -566,6 +686,87 @@ function parseDevServerStatus(raw: string): DevServerStatus {
   return { running, pid, logTail, message };
 }
 
+function parseMarkerFields(payload: string): Map<string, string> {
+  const values = new Map<string, string>();
+  for (const part of payload.split(";")) {
+    if (part.trim().length === 0) {
+      continue;
+    }
+    const separatorIndex = part.indexOf("=");
+    if (separatorIndex === -1) {
+      continue;
+    }
+    const key = part.slice(0, separatorIndex);
+    const value = part.slice(separatorIndex + 1);
+    values.set(key, value);
+  }
+  return values;
+}
+
+function parseRepoRefreshReason(value: string | undefined): RepoRefreshReason {
+  if (
+    value === "mode_always" ||
+    value === "mode_never" ||
+    value === "repo_missing" ||
+    value === "remote_changed" ||
+    value === "remote_unknown" ||
+    value === "up_to_date" ||
+    value === "failed"
+  ) {
+    return value;
+  }
+  return "unknown";
+}
+
+function parseRepoRefreshResult(raw: string): RepoRefreshResult {
+  const markerLine = raw
+    .split("\n")
+    .find((line) => line.startsWith(REPO_REFRESH_MARKER));
+  if (!markerLine) {
+    return {
+      refreshed: false,
+      reason: "unknown",
+    };
+  }
+  const values = parseMarkerFields(
+    markerLine.slice(REPO_REFRESH_MARKER.length),
+  );
+  const refreshedValue = values.get("refreshed");
+  return {
+    refreshed: refreshedValue === "1" || refreshedValue === "true",
+    reason: parseRepoRefreshReason(values.get("reason")),
+  };
+}
+
+function formatRepoRefreshReason(reason: RepoRefreshReason): string {
+  if (reason === "mode_always") {
+    return "forced by config";
+  }
+  if (reason === "mode_never") {
+    return "disabled by config";
+  }
+  if (reason === "repo_missing") {
+    return "repo was missing";
+  }
+  if (reason === "remote_changed") {
+    return "remote branch changed";
+  }
+  if (reason === "remote_unknown") {
+    return "remote tip unknown";
+  }
+  if (reason === "up_to_date") {
+    return "already up to date";
+  }
+  if (reason === "failed") {
+    return "refresh failed";
+  }
+  return "unknown";
+}
+
+function formatDurationMs(ms: number): string {
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
 function buildCloneUrl(args: {
   token: string | null;
   owner: string;
@@ -615,7 +816,8 @@ async function refreshSandboxRepo(args: {
   repo: string;
   branch: string;
   token: string | null;
-}): Promise<void> {
+  mode: RepoRefreshMode;
+}): Promise<RepoRefreshResult> {
   const workspaceDir = DEFAULT_WORKSPACE_DIR;
   const repoDir = `${workspaceDir}/${args.repo}`;
   const cloneUrl = buildCloneUrl({
@@ -628,17 +830,49 @@ async function refreshSandboxRepo(args: {
   const script = stripIndent`
 set -e
 export GIT_TERMINAL_PROMPT=0
+mode="${args.mode}"
 mkdir -p "${workspaceDir}"
-if ! command -v git >/dev/null; then (command -v sudo >/dev/null && sudo apt-get update && sudo apt-get install -y git) || (apt-get update && sudo apt-get install -y git); fi
-[ -d "${repoDir}" ] || mkdir -p "${repoDir}"
+if ! command -v git >/dev/null; then (command -v sudo >/dev/null && sudo apt-get update && sudo apt-get install -y git) || (apt-get update && apt-get install -y git); fi
+repo_missing="0"
+[ -d "${repoDir}" ] || { mkdir -p "${repoDir}"; repo_missing="1"; }
 cd "${repoDir}"
-if [ ! -d ".git" ]; then git init; fi
+if [ ! -d ".git" ]; then git init; repo_missing="1"; fi
 if git remote get-url origin >/dev/null 2>&1; then git remote set-url origin "${cloneUrl}"; else git remote add origin "${cloneUrl}"; fi
-git fetch origin "${args.branch}" --depth=1
-git checkout -f -B "${args.branch}" FETCH_HEAD
-git reset --hard FETCH_HEAD
+local_head=$(git rev-parse HEAD 2>/dev/null || true)
+remote_head=$(git ls-remote --heads origin "${args.branch}" 2>/dev/null | awk '{print $1}' | head -n 1 || true)
+should_fetch="0"
+reason="up_to_date"
+
+if [ "$repo_missing" = "1" ]; then
+  should_fetch="1"
+  reason="repo_missing"
+elif [ "$mode" = "always" ]; then
+  should_fetch="1"
+  reason="mode_always"
+elif [ "$mode" = "never" ]; then
+  should_fetch="0"
+  reason="mode_never"
+elif [ -z "$remote_head" ]; then
+  should_fetch="1"
+  reason="remote_unknown"
+elif [ "$local_head" != "$remote_head" ]; then
+  should_fetch="1"
+  reason="remote_changed"
+fi
+
+if [ "$should_fetch" = "1" ]; then
+  git fetch origin "${args.branch}" --depth=1
+  git checkout -f -B "${args.branch}" FETCH_HEAD
+  git reset --hard FETCH_HEAD
+else
+  current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+  if [ "$current_branch" != "${args.branch}" ] && [ -n "$local_head" ]; then
+    git checkout -f -B "${args.branch}" "$local_head"
+  fi
+fi
 ${writeConvexEnvCommand}
 ${autoCdCommand}
+echo "${REPO_REFRESH_MARKER}refreshed=\${should_fetch};reason=\${reason}"
   `;
   const command = `bash -lc ${quoteForBash(script)}`;
   const result = await args.sandbox.process.executeCommand(
@@ -652,12 +886,16 @@ ${autoCdCommand}
     sandboxId: args.sandbox.id,
     repo: `${args.owner}/${args.repo}`,
     branch: args.branch,
+    mode: args.mode,
+    parsed: parseRepoRefreshResult(result.result ?? ""),
     result,
   });
 
   if (result.exitCode !== 0) {
     throw new Error(`Failed to refresh repo (exit ${result.exitCode}).`);
   }
+
+  return parseRepoRefreshResult(result.result ?? "");
 }
 
 async function startDaytonaDevServer(args: {
@@ -667,9 +905,9 @@ async function startDaytonaDevServer(args: {
   const ensurePnpm = stripIndent`
     if ! command -v pnpm >/dev/null; then
       if command -v corepack >/dev/null; then
-        corepack enable && corepack prepare pnpm@9.15.0 --activate
+        corepack enable && corepack prepare pnpm@${DAYTONA_PNPM_VERSION} --activate
       else
-        npm install -g pnpm@9.15.0
+        npm install -g pnpm@${DAYTONA_PNPM_VERSION}
       fi
     fi
   `;
@@ -740,6 +978,22 @@ const startDaytonaWorkspaceArgs = object({
   branch: optional(string()),
 });
 
+const daytonaRepoRefreshMode = union(
+  literal("always"),
+  literal("smart"),
+  literal("never"),
+);
+
+const daytonaStartupMetrics = object({
+  totalMs: number(),
+  sandboxCreateMs: number(),
+  repoRefreshMs: number(),
+  devServerStartMs: number(),
+  repoRefreshMode: daytonaRepoRefreshMode,
+  repoRefreshed: boolean(),
+  repoRefreshReason: string(),
+});
+
 const startDaytonaWorkspaceResult = object({
   ok: boolean(),
   status: union(literal("not_configured"), literal("created")),
@@ -747,6 +1001,7 @@ const startDaytonaWorkspaceResult = object({
   branch: string(),
   sandboxId: optional(string()),
   sandboxName: optional(string()),
+  startupMetrics: optional(daytonaStartupMetrics),
 });
 
 const getDaytonaTerminalUrlArgs = object({
@@ -885,6 +1140,8 @@ export const startDaytonaWorkspace = action({
     }
 
     const branch = args.branch?.trim() || "main";
+    const startupStartedAt = Date.now();
+    const repoRefreshMode = resolveRepoRefreshMode();
     const apiConfig = resolveDaytonaApiConfig();
     if (!apiConfig.ok) {
       return {
@@ -984,70 +1241,74 @@ export const startDaytonaWorkspace = action({
       ...baseParams,
       snapshot: snapshotToUse,
     };
+    const sandboxCreateStartedAt = Date.now();
     const sandbox = await daytona.create(sandboxParams);
+    const sandboxCreateMs = Date.now() - sandboxCreateStartedAt;
 
     const resolvedSandboxName = sandbox.name ?? sandboxName;
 
     const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
     const githubToken = currentUser?.githubAccessToken ?? null;
+    let repoRefreshMs = 0;
+    let devServerStartMs = 0;
+    let repoRefreshed = false;
+    let repoRefreshReason: RepoRefreshReason = "unknown";
     let bootstrapMessage: string | null = null;
     let devServerMessage: string | null = null;
+    const repoRefreshStartedAt = Date.now();
     try {
       console.log("daytona:repo:refresh:start", {
         vaultId: args.vaultId,
         repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
         branch,
+        mode: repoRefreshMode,
       });
-      await refreshSandboxRepo({
+      const refreshResult = await refreshSandboxRepo({
         sandbox,
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
         branch,
         token: githubToken,
+        mode: repoRefreshMode,
       });
+      repoRefreshMs = Date.now() - repoRefreshStartedAt;
+      repoRefreshed = refreshResult.refreshed;
+      repoRefreshReason = refreshResult.reason;
       console.log("daytona:repo:refresh:done", {
         vaultId: args.vaultId,
         repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
         branch,
+        mode: repoRefreshMode,
+        refreshResult,
       });
-      bootstrapMessage =
-        "Using prebuild snapshot; repo refreshed to latest branch.";
+      if (refreshResult.refreshed) {
+        bootstrapMessage =
+          "Using prebuild snapshot; repo refreshed to latest branch.";
+      } else {
+        bootstrapMessage = `Using prebuild snapshot; repo refresh skipped (${formatRepoRefreshReason(
+          refreshResult.reason,
+        )}).`;
+      }
     } catch (error) {
+      repoRefreshMs = Date.now() - repoRefreshStartedAt;
+      repoRefreshReason = "failed";
       const message = error instanceof Error ? error.message : String(error);
       console.warn("daytona:repo:refresh:failed", {
         vaultId: args.vaultId,
         message,
+        mode: repoRefreshMode,
       });
       bootstrapMessage = `Using prebuild snapshot; repo refresh failed: ${message}`;
     }
 
+    const devServerStartedAt = Date.now();
     try {
-      {
-        const command = stripIndent`
-          set -e
-          whoami
-        `;
-
-        // testing
-        //
-        const result = await sandbox.process.executeCommand(
-          command,
-          undefined,
-          undefined,
-          600,
-        );
-
-        console.log("daytona:process:executeCommand:result", {
-          sandboxId: sandbox.id,
-          command,
-          result,
-        });
-      }
-
       await startDaytonaDevServer({ sandbox, repoDir: repoWorkdir });
+      devServerStartMs = Date.now() - devServerStartedAt;
 
       devServerMessage = `Dev server starting on port ${DAYTONA_PREVIEW_PORT} (logs: ${DAYTONA_DEV_LOG}).`;
     } catch (error) {
+      devServerStartMs = Date.now() - devServerStartedAt;
       const message = error instanceof Error ? error.message : String(error);
       console.warn("daytona:dev-server:failed", {
         vaultId: args.vaultId,
@@ -1061,6 +1322,22 @@ export const startDaytonaWorkspace = action({
       sandboxId: sandbox.id,
       sandboxName: resolvedSandboxName,
       createdAt: Date.now(),
+    });
+
+    const startupMetrics: Infer<typeof daytonaStartupMetrics> = {
+      totalMs: Date.now() - startupStartedAt,
+      sandboxCreateMs,
+      repoRefreshMs,
+      devServerStartMs,
+      repoRefreshMode,
+      repoRefreshed,
+      repoRefreshReason,
+    };
+
+    console.log("daytona:workspace:timing", {
+      vaultId: args.vaultId,
+      sandboxId: sandbox.id,
+      metrics: startupMetrics,
     });
 
     console.log("daytona:workspace:created", {
@@ -1079,6 +1356,13 @@ export const startDaytonaWorkspace = action({
     if (devServerMessage) {
       messageParts.push(devServerMessage);
     }
+    messageParts.push(
+      `Startup timing: total ${formatDurationMs(startupMetrics.totalMs)} (sandbox ${formatDurationMs(
+        startupMetrics.sandboxCreateMs,
+      )}, repo ${formatDurationMs(startupMetrics.repoRefreshMs)}, dev ${formatDurationMs(
+        startupMetrics.devServerStartMs,
+      )}).`,
+    );
 
     return {
       ok: true,
@@ -1087,6 +1371,7 @@ export const startDaytonaWorkspace = action({
       branch,
       sandboxId: sandbox.id,
       sandboxName: resolvedSandboxName,
+      startupMetrics,
     };
   },
 });
@@ -1884,23 +2169,30 @@ export const prebuildDaytonaSnapshot = action({
         .replace(/\n/g, " ");
 
       const lockHash = await readPnpmLockHash(repoDir);
-      const depsImage = lockHash
-        ? resolveDepsImageName({
-            owner: vault.ghRepoOwner,
-            repo: vault.ghRepoName,
-            lockHash,
-          })
-        : null;
+      const depsInputHash = await readDepsInputHash({
+        repoDir,
+        baseImage: resolveDaytonaBaseImage(),
+        pnpmVersion: DAYTONA_PNPM_VERSION,
+      });
+      const depsImageCandidates = resolveDepsImageNames({
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        inputHash: depsInputHash,
+        lockHash,
+      });
 
       const registryConfigResult = readRegistryConfig();
-      if (depsImage && registryConfigResult.missing.length > 0) {
+      if (
+        depsImageCandidates.length > 0 &&
+        registryConfigResult.missing.length > 0
+      ) {
         await appendPrebuildLog(
           `Registry config missing (${registryConfigResult.missing.join(
             ", ",
           )}); attempting to pull image without registry auth.\n`,
         );
       }
-      if (depsImage && registryConfigResult.config) {
+      if (depsImageCandidates.length > 0 && registryConfigResult.config) {
         await appendPrebuildLog(
           `Ensuring registry access for ${registryConfigResult.config.url}...\n`,
         );
@@ -1926,7 +2218,7 @@ export const prebuildDaytonaSnapshot = action({
         "USER root",
         `WORKDIR ${repoPath}`,
         `COPY . ${repoPath}`,
-        "RUN corepack enable && corepack prepare pnpm@9.15.0 --activate",
+        `RUN corepack enable && corepack prepare pnpm@${DAYTONA_PNPM_VERSION} --activate`,
       ];
       const installCommand =
         "RUN pnpm install --prod=false --force --node-linker=hoisted";
@@ -1968,36 +2260,58 @@ export const prebuildDaytonaSnapshot = action({
         );
       };
 
-      if (depsImage) {
-        try {
-          console.log("daytona:prebuild:deps-image", {
-            vaultId: args.vaultId,
-            snapshotName,
-            depsImage,
-            lockHash,
-          });
-          await appendPrebuildLog(
-            `Using deps image ${depsImage} for lock ${lockHash}\n`,
-          );
-          await createSnapshot(depsImage, false);
-        } catch (error) {
-          if (isNotFoundError(error)) {
-            const message = `Deps image not found: ${depsImage}. Build the image for lock hash ${lockHash ?? "unknown"} before prebuild.\n`;
-            await appendPrebuildLog(message);
-            throw new Error(message.trim());
+      if (depsImageCandidates.length > 0) {
+        let selectedDepsImage: string | null = null;
+        const missingDepsImages: string[] = [];
+        for (const depsImage of depsImageCandidates) {
+          try {
+            console.log("daytona:prebuild:deps-image", {
+              vaultId: args.vaultId,
+              snapshotName,
+              depsImage,
+              inputHash: depsInputHash,
+              lockHash,
+            });
+            await appendPrebuildLog(
+              `Trying deps image ${depsImage} (input hash ${depsInputHash ?? "unknown"}, lock hash ${lockHash ?? "unknown"})\n`,
+            );
+            await createSnapshot(depsImage, false);
+            selectedDepsImage = depsImage;
+            await appendPrebuildLog(`Using deps image ${depsImage}\n`);
+            break;
+          } catch (error) {
+            if (isNotFoundError(error)) {
+              missingDepsImages.push(depsImage);
+              await appendPrebuildLog(`Deps image not found: ${depsImage}\n`);
+              continue;
+            }
+            await appendPrebuildLog(
+              `Prebuild failed: ${
+                error instanceof Error ? error.message : String(error)
+              }\n`,
+            );
+            throw error;
           }
-          await appendPrebuildLog(
-            `Prebuild failed: ${
-              error instanceof Error ? error.message : String(error)
-            }\n`,
-          );
-          throw error;
+        }
+
+        if (!selectedDepsImage) {
+          const missingList =
+            missingDepsImages.length > 0
+              ? missingDepsImages.join(", ")
+              : "none";
+          const message = `Deps image not found for candidates: ${missingList}. Build and publish the deps image first.`;
+          await appendPrebuildLog(`${message}\n`);
+          throw new Error(message);
         }
       } else {
         await appendPrebuildLog(
           "No deps image configured; installing dependencies in snapshot.\n",
         );
-        await createSnapshot(DEFAULT_BASE_IMAGE, true);
+        const fallbackBaseImage = resolveDaytonaBaseImage();
+        await appendPrebuildLog(
+          `Using base image ${fallbackBaseImage} for fallback prebuild.\n`,
+        );
+        await createSnapshot(fallbackBaseImage, true);
       }
 
       console.log("daytona:prebuild:done", {

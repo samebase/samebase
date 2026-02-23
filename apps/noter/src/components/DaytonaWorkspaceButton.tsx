@@ -24,6 +24,32 @@ interface DaytonaWorkspaceButtonProps {
   className?: string;
 }
 
+type StartupMetrics = {
+  totalMs: number;
+  sandboxCreateMs: number;
+  repoRefreshMs: number;
+  devServerStartMs: number;
+  repoRefreshMode: "always" | "smart" | "never";
+  repoRefreshed: boolean;
+  repoRefreshReason: string;
+};
+
+const formatDuration = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
+
+const formatRepoRefreshReason = (reason: string) => {
+  if (reason === "mode_always") return "forced by config";
+  if (reason === "mode_never") return "disabled by config";
+  if (reason === "repo_missing") return "repo was missing";
+  if (reason === "remote_changed") return "remote changed";
+  if (reason === "remote_unknown") return "remote tip unknown";
+  if (reason === "up_to_date") return "already up to date";
+  if (reason === "failed") return "refresh failed";
+  return "unknown";
+};
+
+const formatStartupMetricsSummary = (metrics: StartupMetrics) =>
+  `Startup ${formatDuration(metrics.totalMs)} (sandbox ${formatDuration(metrics.sandboxCreateMs)}, repo ${formatDuration(metrics.repoRefreshMs)} ${metrics.repoRefreshed ? "refreshed" : `skipped: ${formatRepoRefreshReason(metrics.repoRefreshReason)}`}, dev ${formatDuration(metrics.devServerStartMs)}).`;
+
 export function DaytonaWorkspaceButton({
   vaultId,
   branch,
@@ -32,14 +58,30 @@ export function DaytonaWorkspaceButton({
   disabled,
   className,
 }: DaytonaWorkspaceButtonProps) {
-  const startDaytonaWorkspace = useAction(api.daytonaActions.startDaytonaWorkspace);
-  const getDaytonaTerminalUrl = useAction(api.daytonaActions.getDaytonaTerminalUrl);
-  const getDaytonaPreviewUrl = useAction(api.daytonaActions.getDaytonaPreviewUrl);
-  const removeDaytonaSandbox = useAction(api.daytonaActions.removeDaytonaSandbox);
-  const getDaytonaBootstrapLogs = useAction(api.daytonaActions.getDaytonaBootstrapLogs);
-  const prebuildDaytonaSnapshot = useAction(api.daytonaActions.prebuildDaytonaSnapshot);
-  const getDaytonaPrebuildStatus = useAction(api.daytonaActions.getDaytonaPrebuildStatus);
-  const getDaytonaPrebuildLogs = useAction(api.daytonaActions.getDaytonaPrebuildLogs);
+  const startDaytonaWorkspace = useAction(
+    api.daytonaActions.startDaytonaWorkspace,
+  );
+  const getDaytonaTerminalUrl = useAction(
+    api.daytonaActions.getDaytonaTerminalUrl,
+  );
+  const getDaytonaPreviewUrl = useAction(
+    api.daytonaActions.getDaytonaPreviewUrl,
+  );
+  const removeDaytonaSandbox = useAction(
+    api.daytonaActions.removeDaytonaSandbox,
+  );
+  const getDaytonaBootstrapLogs = useAction(
+    api.daytonaActions.getDaytonaBootstrapLogs,
+  );
+  const prebuildDaytonaSnapshot = useAction(
+    api.daytonaActions.prebuildDaytonaSnapshot,
+  );
+  const getDaytonaPrebuildStatus = useAction(
+    api.daytonaActions.getDaytonaPrebuildStatus,
+  );
+  const getDaytonaPrebuildLogs = useAction(
+    api.daytonaActions.getDaytonaPrebuildLogs,
+  );
   const ensureDaytonaRegistryForVault = useAction(
     api.daytonaActions.ensureDaytonaRegistryForVault,
   );
@@ -57,10 +99,14 @@ export function DaytonaWorkspaceButton({
   const [hasError, setHasError] = useState(false);
   const [terminalUrl, setTerminalUrl] = useState<string | null>(null);
   const [bootstrapLogs, setBootstrapLogs] = useState<string | null>(null);
-  const [prebuildLogs, setPrebuildLogs] = useState<string | null>(null);
-  const [prebuildSnapshotName, setPrebuildSnapshotName] = useState<string | null>(
+  const [startupMetrics, setStartupMetrics] = useState<StartupMetrics | null>(
     null,
   );
+  const [timeToTerminalMs, setTimeToTerminalMs] = useState<number | null>(null);
+  const [prebuildLogs, setPrebuildLogs] = useState<string | null>(null);
+  const [prebuildSnapshotName, setPrebuildSnapshotName] = useState<
+    string | null
+  >(null);
   const [prebuildState, setPrebuildState] = useState<string | null>(null);
   const [prebuildError, setPrebuildError] = useState<string | null>(null);
   const prebuildLogPollRef = useRef<number | null>(null);
@@ -98,6 +144,9 @@ export function DaytonaWorkspaceButton({
     setIsStarting(true);
     setMessage(null);
     setHasError(false);
+    setStartupMetrics(null);
+    setTimeToTerminalMs(null);
+    const startClickedAt = performance.now();
 
     try {
       const result = await startDaytonaWorkspace({
@@ -110,12 +159,16 @@ export function DaytonaWorkspaceButton({
         setMessage(result.message ?? "Daytona is not configured.");
       } else {
         const label = result.sandboxName ?? result.sandboxId ?? "sandbox";
+        setStartupMetrics(result.startupMetrics ?? null);
         setHasError(false);
         setMessage(
           result.message ?? `Daytona ${label} created. Check Daytona UI.`,
         );
         setBootstrapLogs(null);
-        await fetchTerminalUrl();
+        const terminalLink = await fetchTerminalUrl(true);
+        if (terminalLink) {
+          setTimeToTerminalMs(Math.round(performance.now() - startClickedAt));
+        }
       }
     } catch (error) {
       setHasError(true);
@@ -129,13 +182,16 @@ export function DaytonaWorkspaceButton({
     }
   };
 
-  const fetchTerminalUrl = async (): Promise<string | null> => {
+  const fetchTerminalUrl = async (silent?: boolean): Promise<string | null> => {
+    const isSilent = silent === true;
     if (disabled || isOpeningTerminal) {
       return null;
     }
     setIsOpeningTerminal(true);
-    setMessage(null);
-    setHasError(false);
+    if (!isSilent) {
+      setMessage(null);
+      setHasError(false);
+    }
 
     try {
       const result = await getDaytonaTerminalUrl({ vaultId });
@@ -146,7 +202,9 @@ export function DaytonaWorkspaceButton({
       }
 
       setTerminalUrl(result.url);
-      setMessage(result.message ?? "Terminal link ready.");
+      if (!isSilent) {
+        setMessage(result.message ?? "Terminal link ready.");
+      }
       return result.url;
     } catch (error) {
       setHasError(true);
@@ -267,7 +325,6 @@ export function DaytonaWorkspaceButton({
       setIsFetchingLogs(false);
     }
   };
-
 
   const handlePrebuildSnapshot = async () => {
     if (disabled || isPrebuilding) {
@@ -646,6 +703,16 @@ export function DaytonaWorkspaceButton({
             className="max-h-64 min-h-[160px] w-full resize-y overflow-auto whitespace-pre-wrap rounded border bg-background/70 p-2 text-xs"
             value={prebuildLogs || "No output yet."}
           />
+        </div>
+      )}
+      {startupMetrics && (
+        <div className="text-xs text-muted-foreground">
+          {formatStartupMetricsSummary(startupMetrics)}
+        </div>
+      )}
+      {timeToTerminalMs !== null && (
+        <div className="text-xs text-muted-foreground">
+          Terminal link ready in {formatDuration(timeToTerminalMs)}.
         </div>
       )}
       {message && (
