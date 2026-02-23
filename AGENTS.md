@@ -272,6 +272,8 @@ Auth:
 - When the user says "remember this" (or equivalent), persist that preference in
   durable project memory (for example `AGENTS.md`) instead of keeping it only in
   chat context.
+- For this operator, keep responses concise by default and always include a
+  final `Summary` section.
 - When asked for OAuth redirect URLs or env vars, give a single exact
   recommendation. Do not present multiple options or alternate env var lookups.
 - Avoid adding unusual options or flags unless there is a clear, stated reason
