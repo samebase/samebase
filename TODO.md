@@ -191,6 +191,7 @@ One caveat: Codespace secrets have a 48KB size limit, but auth.json is tiny so t
   - Alternative to full MDX that works with plain text rendering
 ## UI/UX Improvements
 - [ ] commit proposal UI: make the commit description clickable to go to GitHub commit URL, ensure button inside doesn't change sizes
+- [ ] graph view: resizable/collapsible agent chat panel (VS Code-style)
 ## Development Environment
 - [ ] the dev container should default to fish. Even the ai should prefer that
 ## Research & Inspiration

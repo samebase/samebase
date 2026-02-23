@@ -331,6 +331,21 @@ export default defineSchema({
     .index("by_user_vault_and_path", ["userId", "vaultId", "folderPath"]),
 
   /**
+   * Agent graph node layout for Graph View.
+   * Stores per-user, per-vault node dimensions.
+   */
+  agentGraphNodeLayout: defineTable({
+    userId: v.id("users"),
+    vaultId: v.id("vaults"),
+    nodeId: v.string(),
+    width: v.number(),
+    height: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_and_vault", ["userId", "vaultId"])
+    .index("by_user_vault_and_node", ["userId", "vaultId", "nodeId"]),
+
+  /**
    * Collaborative editing updates for operational transformation.
    * Stores individual changes made to files for proper conflict resolution.
    */

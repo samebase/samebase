@@ -106,6 +106,18 @@ function isStorageBackedFileError(error: unknown): boolean {
   );
 }
 
+function readGraphViewMode(storageKey: string): "editor" | "graph" | null {
+  try {
+    const storedMode = localStorage.getItem(storageKey);
+    if (storedMode === "editor" || storedMode === "graph") {
+      return storedMode;
+    }
+  } catch (error) {
+    console.warn("Failed to read graph view preference", error);
+  }
+  return null;
+}
+
 function FileViewWrapper() {
   const navigate = useNavigate();
 
@@ -384,7 +396,6 @@ function FileViewInner({
   // Command palette state
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"editor" | "graph">("editor");
 
   // Convex hooks for staging
   const [commitStaging, manualComittingStatus] = useConvexAction(
@@ -465,6 +476,10 @@ function FileViewInner({
     () => `noter:graph-view:${vault._id}`,
     [vault._id],
   );
+  const [viewMode, setViewMode] = useState<"editor" | "graph">(() => {
+    return readGraphViewMode(graphViewStorageKey) ?? "editor";
+  });
+  const [viewModeHydrated, setViewModeHydrated] = useState(false);
 
   useEffect(() => {
     setRepositoryNoterContent(null);
@@ -472,26 +487,22 @@ function FileViewInner({
   }, [vault._id]);
 
   useEffect(() => {
-    try {
-      const storedMode = localStorage.getItem(graphViewStorageKey);
-      if (storedMode === "editor" || storedMode === "graph") {
-        setViewMode(storedMode);
-        return;
-      }
-    } catch (error) {
-      console.warn("Failed to read graph view preference", error);
-    }
-
-    setViewMode("editor");
+    setViewModeHydrated(false);
+    const storedMode = readGraphViewMode(graphViewStorageKey);
+    setViewMode(storedMode ?? "editor");
+    setViewModeHydrated(true);
   }, [graphViewStorageKey]);
 
   useEffect(() => {
+    if (!viewModeHydrated) {
+      return;
+    }
     try {
       localStorage.setItem(graphViewStorageKey, viewMode);
     } catch (error) {
       console.warn("Failed to persist graph view preference", error);
     }
-  }, [graphViewStorageKey, viewMode]);
+  }, [graphViewStorageKey, viewMode, viewModeHydrated]);
 
   useEffect(() => {
     if (viewMode === "graph" && isPreviewOpen) {
@@ -774,16 +785,18 @@ function FileViewInner({
     if (hasAgents) {
       nodes.push({
         id: "agents",
+        type: "agentNode",
         position: { x: 0, y: 0 },
-        data: { label: "AGENTS.md", path: "AGENTS.md" },
+        data: { label: "AGENTS.md", path: "AGENTS.md", kind: "agent" },
       });
     }
 
     if (hasTools) {
       nodes.push({
         id: "tools",
+        type: "agentNode",
         position: { x: 280, y: 0 },
-        data: { label: "tools.json", path: "tools.json" },
+        data: { label: "tools.json", path: "tools.json", kind: "tool" },
       });
     }
 
@@ -1095,6 +1108,10 @@ function FileViewInner({
                     nodes={agentGraphNodes}
                     edges={agentGraphEdges}
                     onOpenFile={handleOpenFileFromGraph}
+                    vaultId={vault._id}
+                    repositoryFullName={repositoryFullName}
+                    branch={branch}
+                    filePath={selectedFile}
                   />
                 )}
               </div>
