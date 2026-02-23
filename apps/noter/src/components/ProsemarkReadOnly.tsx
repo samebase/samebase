@@ -1,7 +1,14 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
-import { EditorSelection, EditorState, Compartment } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
+import { Compartment, EditorState, Range } from "@codemirror/state";
+import {
+  Decoration,
+  DecorationSet,
+  EditorView,
+  ViewPlugin,
+  ViewUpdate,
+} from "@codemirror/view";
 import { markdown } from "@codemirror/lang-markdown";
+import { syntaxTree } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
 import { GFM } from "@lezer/markdown";
 import {
@@ -18,18 +25,160 @@ type ProsemarkReadOnlyProps = {
   className?: string;
 };
 
-const BLOCK_TOKEN_RE = /^\\s*(#{1,6}\\s|>\\s|[-*+]\\s|\\d+\\.\\s|```|\\|)/;
+type BlurHideSpec = {
+  nodeName: string | string[] | ((name: string) => boolean);
+  subNodeNameToHide?: string | string[];
+  block?: boolean;
+  keepSpace?: boolean;
+  onHide?: (
+    state: EditorState,
+    node: SyntaxNodeLike,
+  ) => Range<Decoration> | Range<Decoration>[] | null | undefined;
+};
 
-function findSelectionAnchor(text: string): number {
-  const lines = text.split(/\\r?\\n/);
-  let offset = 0;
-  for (const line of lines) {
-    if (!BLOCK_TOKEN_RE.test(line)) {
-      return offset + line.length;
+type SyntaxNodeLike = {
+  type: { name: string };
+  from: number;
+  to: number;
+  node: {
+    firstChild: { from: number; to: number } | null;
+    cursor: () => {
+      iterate: (
+        callback: (child: {
+          type: { name: string };
+          from: number;
+          to: number;
+        }) => void,
+      ) => void;
+    };
+  };
+};
+
+const hideInlineDecoration = Decoration.mark({ class: "cm-hidden-token" });
+const hideInlineKeepSpaceDecoration = Decoration.mark({
+  class: "cm-transparent-token",
+});
+const hideBlockDecoration = Decoration.replace({ block: true });
+const renderedLinkDecoration = Decoration.mark({ class: "cm-rendered-link" });
+
+const blurHideSpecs: BlurHideSpec[] = [
+  {
+    nodeName: (name) => name.startsWith("ATXHeading"),
+    onHide: (_state, node) => {
+      const headerMark = node.node.firstChild;
+      if (!headerMark) return null;
+      return hideInlineDecoration.range(
+        headerMark.from,
+        Math.min(headerMark.to + 1, node.to),
+      );
+    },
+  },
+  {
+    nodeName: (name) => name.startsWith("SetextHeading"),
+    subNodeNameToHide: "HeaderMark",
+    block: true,
+  },
+  {
+    nodeName: ["StrongEmphasis", "Emphasis"],
+    subNodeNameToHide: "EmphasisMark",
+  },
+  {
+    nodeName: "InlineCode",
+    subNodeNameToHide: "CodeMark",
+  },
+  {
+    nodeName: "Link",
+    subNodeNameToHide: ["LinkMark", "URL"],
+    onHide: (_state, node) => {
+      return renderedLinkDecoration.range(node.from, node.to);
+    },
+  },
+  {
+    nodeName: "Strikethrough",
+    subNodeNameToHide: "StrikethroughMark",
+  },
+  {
+    nodeName: "Escape",
+    subNodeNameToHide: "EscapeMark",
+  },
+  {
+    nodeName: "FencedCode",
+    subNodeNameToHide: ["CodeMark", "CodeInfo"],
+  },
+  {
+    nodeName: "Blockquote",
+    subNodeNameToHide: "QuoteMark",
+    keepSpace: true,
+  },
+];
+
+const blurHideTokensExtension = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+
+    constructor(view: EditorView) {
+      this.decorations = view.hasFocus
+        ? Decoration.none
+        : buildBlurHideDecorations(view.state);
     }
-    offset += line.length + 1;
+
+    update(update: ViewUpdate) {
+      if (!update.docChanged && !update.focusChanged) return;
+      this.decorations = update.view.hasFocus
+        ? Decoration.none
+        : buildBlurHideDecorations(update.state);
+    }
+  },
+  {
+    decorations: (view) => view.decorations,
+  },
+);
+
+function buildBlurHideDecorations(state: EditorState): DecorationSet {
+  const decorations: Range<Decoration>[] = [];
+  syntaxTree(state).iterate({
+    enter: (node) => {
+      for (const spec of blurHideSpecs) {
+        if (!matchesNodeName(node.type.name, spec.nodeName)) continue;
+        if (spec.onHide) {
+          const res = spec.onHide(state, node);
+          if (Array.isArray(res)) {
+            decorations.push(...res);
+          } else if (res) {
+            decorations.push(res);
+          }
+        }
+        if (spec.subNodeNameToHide) {
+          const names = Array.isArray(spec.subNodeNameToHide)
+            ? spec.subNodeNameToHide
+            : [spec.subNodeNameToHide];
+          const decoration = spec.block
+            ? hideBlockDecoration
+            : spec.keepSpace
+              ? hideInlineKeepSpaceDecoration
+              : hideInlineDecoration;
+          node.node.cursor().iterate((child) => {
+            if (!names.includes(child.type.name)) return;
+            decorations.push(decoration.range(child.from, child.to));
+          });
+        }
+      }
+    },
+  });
+  return Decoration.set(decorations, true);
+}
+
+function matchesNodeName(
+  nodeName: string,
+  specName: BlurHideSpec["nodeName"],
+): boolean {
+  if (typeof specName === "string") {
+    return nodeName === specName;
   }
-  return text.length;
+  if (Array.isArray(specName)) {
+    return specName.includes(nodeName);
+  }
+  return specName(nodeName);
 }
 
 const prosemarkReadOnlyTheme = EditorView.theme({
@@ -108,29 +257,14 @@ export function ProsemarkReadOnly({
 
     const state = EditorState.create({
       doc: lastValueRef.current,
-      selection: EditorSelection.single(
-        findSelectionAnchor(lastValueRef.current),
-      ),
       extensions: [
-        EditorView.updateListener.of((update) => {
-          if (!update.focusChanged || update.view.hasFocus) {
-            return;
-          }
-          const anchor = findSelectionAnchor(update.state.doc.toString());
-          if (update.state.selection.main.head === anchor) {
-            return;
-          }
-          update.view.dispatch({
-            selection: EditorSelection.single(anchor),
-            scrollIntoView: false,
-          });
-        }),
         markdown({
           codeLanguages: languages,
           extensions: [GFM, prosemarkMarkdownSyntaxExtensions],
         }),
         prosemarkBasicSetup(),
         prosemarkBaseThemeSetup(),
+        blurHideTokensExtension,
         prosemarkReadOnlyTheme,
         EditorState.readOnly.of(true),
         EditorView.editable.of(false),
@@ -160,46 +294,6 @@ export function ProsemarkReadOnly({
   }, [isDark]);
 
   useEffect(() => {
-    const handlePointerDown = (event: PointerEvent) => {
-      const view = viewRef.current;
-      if (!view) return;
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (view.dom.contains(target)) return;
-      const anchor = findSelectionAnchor(view.state.doc.toString());
-      if (view.state.selection.main.head !== anchor) {
-        view.dispatch({
-          selection: EditorSelection.single(anchor),
-          scrollIntoView: false,
-        });
-      }
-    };
-    const handlePointerUp = (event: PointerEvent) => {
-      const view = viewRef.current;
-      if (!view) return;
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (view.dom.contains(target)) return;
-      const anchor = findSelectionAnchor(view.state.doc.toString());
-      if (view.state.selection.main.head === anchor) return;
-      requestAnimationFrame(() => {
-        const currentView = viewRef.current;
-        if (!currentView) return;
-        currentView.dispatch({
-          selection: EditorSelection.single(anchor),
-          scrollIntoView: false,
-        });
-      });
-    };
-    document.addEventListener("pointerdown", handlePointerDown, true);
-    document.addEventListener("pointerup", handlePointerUp, true);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown, true);
-      document.removeEventListener("pointerup", handlePointerUp, true);
-    };
-  }, []);
-
-  useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     const observer = new ResizeObserver((entries) => {
@@ -226,16 +320,10 @@ export function ProsemarkReadOnly({
     const transaction: {
       changes: { from: number; to: number; insert: string };
       scrollIntoView: boolean;
-      selection?: EditorSelection;
     } = {
       changes: { from: 0, to: view.state.doc.length, insert: value },
       scrollIntoView: false,
     };
-    if (!view.hasFocus) {
-      transaction.selection = EditorSelection.single(
-        findSelectionAnchor(value),
-      );
-    }
     view.dispatch(transaction);
     resizeToContent();
   }, [value, resizeToContent]);
