@@ -45,7 +45,7 @@ const DAYTONA_DEPS_HASH_INPUT_FILES = [
   "pnpm-workspace.yaml",
   "apps/noter/package.json",
   "apps/noter-starter-template/package.json",
-] as const;
+];
 const PNPM_INSTALL_STATUS = "/tmp/noter-pnpm-install.status";
 const DAYTONA_PREVIEW_PORT = 5173;
 const DAYTONA_PREVIEW_TTL_SECONDS = 3600;
@@ -68,7 +68,6 @@ const DAYTONA_PREBUILD_RESOURCES: Resources = {
 };
 const REPO_REFRESH_MARKER = "__NOTER_REPO_REFRESH__";
 
-type RepoRefreshMode = "always" | "smart" | "never";
 type RepoRefreshReason =
   | "mode_always"
   | "mode_never"
@@ -983,6 +982,7 @@ const daytonaRepoRefreshMode = union(
   literal("smart"),
   literal("never"),
 );
+type RepoRefreshMode = Infer<typeof daytonaRepoRefreshMode>;
 
 const daytonaStartupMetrics = object({
   totalMs: number(),
