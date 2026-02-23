@@ -23,6 +23,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { ChatInput } from "@/components/ChatInput";
+import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { useUIMessages } from "@convex-dev/agent/react";
 import { Kbd, KbdGroup } from "@/components/ui-custom/kbd";
 
@@ -400,13 +401,13 @@ function AgentNode({ data, id, width, height }: NodeProps<AgentGraphNode>) {
                         : "rounded-md border border-border/70 px-2 py-1 text-foreground"
                     }
                   >
-                    <span className="font-medium">
+                    <div className="font-medium">
                       {message.role === "assistant" ? "Agent" : "You"}
-                    </span>
-                    {": "}
-                    <span className="whitespace-pre-wrap">
-                      {message.content}
-                    </span>
+                    </div>
+                    <ProsemarkReadOnly
+                      value={message.content}
+                      className="text-xs"
+                    />
                   </div>
                 ))}
               </div>
@@ -416,6 +417,7 @@ function AgentNode({ data, id, width, height }: NodeProps<AgentGraphNode>) {
               onValueChange={setInput}
               onSend={() => void handleSend()}
               disabled={isDisabled}
+              mode="prosemark"
               rows={2}
               className="nowheel nopan"
               textareaClassName="min-h-[2.75rem] text-xs"

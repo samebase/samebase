@@ -10,7 +10,8 @@ import {
   Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ChatInput } from "@/components/ChatInput";
+import { ChatInput, type ChatInputHandle } from "@/components/ChatInput";
+import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
@@ -95,85 +96,6 @@ function hasRecordKey(
 
 function getRecordValue(value: unknown, key: string): unknown {
   return hasRecordKey(value, key) ? value[key] : undefined;
-}
-
-// --- Simple markdown renderer (fallback) ---
-
-function renderMarkdown(text: string) {
-  const parts: React.ReactNode[] = [];
-  let i = 0;
-
-  // Split by code blocks first
-  const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
-  let lastIndex = 0;
-  let match;
-
-  while ((match = codeBlockRegex.exec(text)) !== null) {
-    // Text before code block
-    if (match.index > lastIndex) {
-      parts.push(
-        <span key={i++}>
-          {renderInlineMarkdown(text.slice(lastIndex, match.index))}
-        </span>,
-      );
-    }
-    // Code block
-    parts.push(
-      <pre
-        key={i++}
-        className="my-1.5 overflow-x-auto rounded bg-background/80 p-2 text-xs"
-      >
-        <code>{match[2]}</code>
-      </pre>,
-    );
-    lastIndex = match.index + match[0].length;
-  }
-
-  // Remaining text
-  if (lastIndex < text.length) {
-    parts.push(
-      <span key={i++}>{renderInlineMarkdown(text.slice(lastIndex))}</span>,
-    );
-  }
-
-  return <>{parts}</>;
-}
-
-function renderInlineMarkdown(text: string): React.ReactNode {
-  // Handle inline code, bold, and italic
-  const parts: React.ReactNode[] = [];
-  const regex = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
-  let lastIndex = 0;
-  let match;
-  let i = 0;
-
-  while ((match = regex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index));
-    }
-    const m = match[0];
-    if (m.startsWith("`")) {
-      parts.push(
-        <code
-          key={i++}
-          className="rounded bg-background/80 px-1 py-0.5 text-xs"
-        >
-          {m.slice(1, -1)}
-        </code>,
-      );
-    } else if (m.startsWith("**")) {
-      parts.push(<strong key={i++}>{m.slice(2, -2)}</strong>);
-    } else if (m.startsWith("*")) {
-      parts.push(<em key={i++}>{m.slice(1, -1)}</em>);
-    }
-    lastIndex = match.index + m.length;
-  }
-
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex));
-  }
-
-  return parts.length === 1 ? parts[0] : <>{parts}</>;
 }
 
 // --- Tool activity badge ---
@@ -636,8 +558,8 @@ function MessageBubble({
 
   if (msg.role === "user") {
     return (
-      <div className="mb-2 ml-auto max-w-[85%] rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground whitespace-pre-wrap">
-        {msg.text}
+      <div className="mb-2 ml-auto max-w-[85%] rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground">
+        <ProsemarkReadOnly value={msg.text} className="text-sm" />
       </div>
     );
   }
@@ -659,7 +581,7 @@ function MessageBubble({
     <div className="mb-2 max-w-[85%] rounded-lg bg-muted px-3 py-2 text-sm text-foreground">
       {showToolBadge ? <ToolActivityBadge tools={toolsUsed ?? []} /> : null}
       <ToolCallList toolCalls={toolCalls} />
-      <div className="whitespace-pre-wrap">{renderMarkdown(msg.text)}</div>
+      <ProsemarkReadOnly value={msg.text} className="text-sm" />
       {isCommitProposal && (
         <CommitProposalCard
           metadata={metadata}
@@ -722,7 +644,7 @@ export function ChatFab() {
   const [sending, setSending] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<ChatInputHandle | null>(null);
   const draftSaveTimerRef = useRef<number | null>(null);
   const lastHydratedThreadRef = useRef<string | null>(null);
   const lastHydratedDraftRef = useRef<string>("");
@@ -802,13 +724,7 @@ export function ChatFab() {
   const sendMessage = useMutation(api.chat.index.sendMessage);
   const updateThreadDraft = useMutation(api.chat.index.updateThreadDraft);
 
-  const resizeInput = useCallback(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    const maxHeight = 240;
-    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
-  }, []);
+  const inputMode = "prosemark";
 
   const ensureThreadId = useCallback(async () => {
     if (threadId) return threadId;
@@ -972,10 +888,6 @@ export function ChatFab() {
     };
   }, [input, threadId, updateThreadDraft]);
 
-  useEffect(() => {
-    resizeInput();
-  }, [input, resizeInput]);
-
   async function handleSend() {
     const trimmed = input.trim();
     if (!trimmed || sending) return;
@@ -1108,10 +1020,11 @@ export function ChatFab() {
               onValueChange={(value) => {
                 setInput(value);
                 isDirtyDraftRef.current = true;
-                resizeInput();
               }}
               onSend={() => void handleSend()}
               disabled={sending || isWaitingForResponse}
+              mode={inputMode}
+              autoResize
             />
           </div>
         </div>
