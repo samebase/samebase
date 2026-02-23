@@ -65,6 +65,17 @@ export interface GraphResult {
   savedMessages?: MessageDoc[];
 }
 
+function summarizeSavedMessages(savedMessages?: MessageDoc[]) {
+  if (!savedMessages || savedMessages.length === 0) return [];
+  return savedMessages.slice(-6).map((message) => ({
+    id: message._id,
+    role: message.message?.role,
+    tool: message.tool,
+    status: message.status,
+    textLength: message.text?.length ?? 0,
+  }));
+}
+
 /**
  * Runs the Noter agent turn using the official Convex Agent runtime.
  *
@@ -152,14 +163,52 @@ export async function runAgentGraph(opts: {
 
   const savedMessages = result.savedMessages;
   let text = "(No response)";
+  let foundAssistant = false;
+  let foundAssistantText = false;
   if (savedMessages && savedMessages.length > 0) {
     for (let i = savedMessages.length - 1; i >= 0; i -= 1) {
       const msg = savedMessages[i];
       if (!msg.tool && msg.message?.role === "assistant") {
-        text = msg.text ?? text;
-        break;
+        foundAssistant = true;
+        if (typeof msg.text === "string" && msg.text.trim()) {
+          text = msg.text;
+          foundAssistantText = true;
+          break;
+        }
       }
     }
+  } else {
+    console.log("agentGraph:runAgentGraph:noSavedMessages", {
+      threadId,
+      promptMessageId,
+    });
+  }
+
+  if (!foundAssistantText) {
+    let fallbackText: string | undefined;
+    try {
+      fallbackText = await result.text;
+    } catch (error) {
+      console.log("agentGraph:runAgentGraph:textReadFailed", {
+        threadId,
+        promptMessageId,
+        error: error instanceof Error ? error.message : "unknown error",
+      });
+    }
+    if (fallbackText && fallbackText.trim()) {
+      text = fallbackText;
+    }
+    console.log(
+      foundAssistant
+        ? "agentGraph:runAgentGraph:assistantTextMissing"
+        : "agentGraph:runAgentGraph:missingAssistantMessage",
+      {
+        threadId,
+        promptMessageId,
+        fallbackLength: fallbackText?.length ?? 0,
+        savedMessages: summarizeSavedMessages(savedMessages),
+      },
+    );
   }
 
   return {
