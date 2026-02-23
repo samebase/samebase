@@ -197,15 +197,15 @@ and function failures.
 Shorthand commands for git/GitHub workflows. When the user says these, execute
 them directly using CLI tools.
 
-| Command     | Action                                                                        |
-| ----------- | ----------------------------------------------------------------------------- |
-| `commit`    | Stage all changes, commit with concise message                                |
-| `push`      | Commit if needed, push to remote                                              |
-| `create pr` | Push if needed, create PR, ensure a non-empty body, then mark ready           |
-| `ready`     | Mark draft PR as ready: `gh pr ready`                                         |
-| `wait`      | Monitor CI with `gh pr checks` or `gh run watch`, report status               |
-| `ship`      | Full flow: commit → push → create PR → ready → fix CodeRabbit feedback → wait |
-| `status`    | Show branch, uncommitted changes, PR state                                    |
+| Command     | Action                                                                                 |
+| ----------- | -------------------------------------------------------------------------------------- |
+| `commit`    | Stage all changes, commit with concise message                                         |
+| `push`      | Commit if needed, push to remote                                                       |
+| `create pr` | Push if needed, create PR, ensure a non-empty body, then mark ready                    |
+| `ready`     | Mark draft PR as ready: `gh pr ready`                                                  |
+| `wait`      | Monitor CI with `gh pr checks` or `gh run watch`, report status                        |
+| `ship`      | Full flow: commit → push → create PR → ready → fix CodeRabbit feedback&nitpicks → wait |
+| `status`    | Show branch, uncommitted changes, PR state                                             |
 
 ### Rules
 
