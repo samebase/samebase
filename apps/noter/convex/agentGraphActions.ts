@@ -2,7 +2,7 @@
 
 import { action, type ActionCtx } from "./_generated/server";
 import { v, Infer } from "convex/values";
-import { components, internal } from "./_generated/api";
+import { api, components, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getUserId } from "./common";
 import type { ToolContext } from "./agent/tools";
@@ -29,6 +29,7 @@ type SendAgentMessageArgs = Infer<typeof sendAgentMessageArgs>;
 async function resolveThreadId(
   ctx: ActionCtx,
   userId: Id<"users">,
+  vaultId: Id<"vaults">,
   threadId?: string,
 ): Promise<string> {
   if (threadId) {
@@ -36,14 +37,16 @@ async function resolveThreadId(
       threadId,
     });
     if (existing?.userId === userId) {
-      return existing._id;
+      const context = await ctx.runQuery(api.chat.index.getThreadContext, {
+        threadId: existing._id,
+      });
+      if (context?.vaultId === vaultId) {
+        return existing._id;
+      }
     }
   }
 
-  const created = await ctx.runMutation(components.agent.threads.createThread, {
-    userId,
-  });
-  return created._id;
+  return ctx.runMutation(api.chat.index.createThread, { vaultId });
 }
 
 function buildToolContext(
@@ -99,20 +102,22 @@ async function loadAgentPrompt(args: {
     }
   }
 
-  if (user.githubAccessToken) {
-    const octokit = new Octokit({ auth: user.githubAccessToken });
-    const file = await octokit.rest.repos.getContent({
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
-      path: agentPath,
-    });
-    if (Array.isArray(file.data) || file.data.type !== "file") {
-      throw new Error(`Error: ${agentPath} is a directory, not a file`);
-    }
-    return Buffer.from(file.data.content, "base64").toString("utf-8");
+  if (!user.githubAccessToken) {
+    throw new Error(
+      "Prompt not found in staging or repo; connect GitHub to fetch missing content",
+    );
   }
 
-  throw new Error("GitHub access token not found");
+  const octokit = new Octokit({ auth: user.githubAccessToken });
+  const file = await octokit.rest.repos.getContent({
+    owner: vault.ghRepoOwner,
+    repo: vault.ghRepoName,
+    path: agentPath,
+  });
+  if (Array.isArray(file.data) || file.data.type !== "file") {
+    throw new Error(`Error: ${agentPath} is a directory, not a file`);
+  }
+  return Buffer.from(file.data.content, "base64").toString("utf-8");
 }
 
 export const sendAgentMessage = action({
@@ -147,7 +152,12 @@ export const sendAgentMessage = action({
       throw new Error("User not found");
     }
 
-    const resolvedThreadId = await resolveThreadId(ctx, userId, args.threadId);
+    const resolvedThreadId = await resolveThreadId(
+      ctx,
+      userId,
+      args.vaultId,
+      args.threadId,
+    );
 
     const toolCtx = user.githubAccessToken
       ? buildToolContext(ctx, resolvedThreadId, vault, user)

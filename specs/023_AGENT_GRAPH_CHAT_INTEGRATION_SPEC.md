@@ -124,4 +124,4 @@ No new Convex API is required for the MVP.
 
 ## Future Iterations
 
-- Resizable/collapsible graph node chat area (VScode sidebar-like behavior).
+- Resizable/collapsible graph node chat area (VSCode sidebar-like behavior).

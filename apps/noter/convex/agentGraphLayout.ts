@@ -1,19 +1,37 @@
-import { v } from "convex/values";
+import { Infer, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
+const { id, array, object, string, number, null: vNull } = v;
+
+const nodeLayoutValidator = object({
+  nodeId: string(),
+  width: number(),
+  height: number(),
+});
+
+const getNodeLayoutsArgs = object({
+  vaultId: id("vaults"),
+});
+
+const getNodeLayoutsReturns = array(nodeLayoutValidator);
+
+const setNodeLayoutArgs = object({
+  vaultId: id("vaults"),
+  nodeId: string(),
+  width: number(),
+  height: number(),
+});
+
+const setNodeLayoutReturns = vNull();
+
+type GetNodeLayoutsArgs = Infer<typeof getNodeLayoutsArgs>;
+type SetNodeLayoutArgs = Infer<typeof setNodeLayoutArgs>;
+
 export const getNodeLayouts = query({
-  args: {
-    vaultId: v.id("vaults"),
-  },
-  returns: v.array(
-    v.object({
-      nodeId: v.string(),
-      width: v.number(),
-      height: v.number(),
-    }),
-  ),
-  handler: async (ctx, args) => {
+  args: getNodeLayoutsArgs,
+  returns: getNodeLayoutsReturns,
+  handler: async (ctx, args: GetNodeLayoutsArgs) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       return [];
@@ -35,14 +53,9 @@ export const getNodeLayouts = query({
 });
 
 export const setNodeLayout = mutation({
-  args: {
-    vaultId: v.id("vaults"),
-    nodeId: v.string(),
-    width: v.number(),
-    height: v.number(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
+  args: setNodeLayoutArgs,
+  returns: setNodeLayoutReturns,
+  handler: async (ctx, args: SetNodeLayoutArgs) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       throw new Error("User not authenticated");

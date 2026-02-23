@@ -24,7 +24,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { ChatInput } from "@/components/ChatInput";
 import { useUIMessages } from "@convex-dev/agent/react";
-import { Kbd, KbdGroup } from "@/components/ui/kbd";
+import { Kbd, KbdGroup } from "@/components/ui-custom/kbd";
 
 export type AgentGraphNodeData = {
   label: string;
