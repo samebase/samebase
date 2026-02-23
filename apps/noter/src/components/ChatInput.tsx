@@ -8,7 +8,7 @@ import {
 } from "react";
 import { Send } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { EditorState, Prec, Compartment } from "@codemirror/state";
+import { Annotation, EditorState, Prec, Compartment } from "@codemirror/state";
 import { EditorView, keymap, placeholder } from "@codemirror/view";
 import { insertNewlineAndIndent } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
@@ -46,6 +46,7 @@ type ChatInputBaseProps = Omit<ChatInputProps, "mode">;
 
 const AUTO_RESIZE_MIN_HEIGHT = 72;
 const AUTO_RESIZE_MAX_HEIGHT = 240;
+const EXTERNAL_UPDATE = Annotation.define<boolean>();
 
 const prosemarkInputTheme = EditorView.theme({
   "&": {
@@ -264,6 +265,13 @@ const ProsemarkChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
 
       const updateListener = EditorView.updateListener.of((update) => {
         if (!update.docChanged) return;
+        if (
+          update.transactions.some((transaction) =>
+            transaction.annotation(EXTERNAL_UPDATE),
+          )
+        ) {
+          return;
+        }
         const nextValue = update.state.doc.toString();
         if (nextValue === lastValueRef.current) return;
         lastValueRef.current = nextValue;
@@ -348,12 +356,14 @@ const ProsemarkChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
     useEffect(() => {
       const view = viewRef.current;
       if (!view) return;
-      lastValueRef.current = value;
       const currentValue = view.state.doc.toString();
       if (currentValue === value) return;
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: value },
+        annotations: EXTERNAL_UPDATE.of(true),
       });
+      lastValueRef.current = value;
+      resizeInputRef.current();
     }, [value]);
 
     return (

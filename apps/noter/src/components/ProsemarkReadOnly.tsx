@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { Compartment, EditorState, Range } from "@codemirror/state";
 import {
   Decoration,
@@ -165,6 +165,9 @@ function buildBlurHideDecorations(state: EditorState): DecorationSet {
       }
     },
   });
+  // Decoration.set(..., true) expects sorted ranges; syntaxTree and
+  // node.cursor().iterate() yield nodes in document order, and onHide must only
+  // emit ranges within the current node to preserve ordering.
   return Decoration.set(decorations, true);
 }
 
@@ -232,20 +235,17 @@ export function ProsemarkReadOnly({
   const themeCompartmentRef = useRef(new Compartment());
   const lastWidthRef = useRef<number | null>(null);
 
-  const resizeToContent = useMemo(
-    () => () => {
-      const container = containerRef.current;
-      const view = viewRef.current;
-      if (!container || !view) return;
-      view.requestMeasure({
-        read: () => view.scrollDOM.scrollHeight,
-        write: (height) => {
-          container.style.height = `${height}px`;
-        },
-      });
-    },
-    [],
-  );
+  const resizeToContent = useCallback(() => {
+    const container = containerRef.current;
+    const view = viewRef.current;
+    if (!container || !view) return;
+    view.requestMeasure({
+      read: () => view.scrollDOM.scrollHeight,
+      write: (height) => {
+        container.style.height = `${height}px`;
+      },
+    });
+  }, []);
 
   useEffect(() => {
     isDarkRef.current = isDark;

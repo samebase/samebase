@@ -558,7 +558,7 @@ function MessageBubble({
 
   if (msg.role === "user") {
     return (
-      <div className="mb-2 ml-auto max-w-[85%] rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground whitespace-pre-wrap">
+      <div className="mb-2 ml-auto max-w-[85%] rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground">
         <ProsemarkReadOnly value={msg.text} className="text-sm" />
       </div>
     );
