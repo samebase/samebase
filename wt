@@ -1,15 +1,19 @@
 #!/usr/bin/env node
 // @ts-check
 import { execFileSync, spawnSync } from 'node:child_process'
-import { Command } from 'commander'
-import { object, string, optional, err } from '@robolex/sure'
-
-const WorktreeSchema = object({
-  branch: optional(string),
-  worktree: string,
-  HEAD: string,
-})
 const HOME_DIR = process.env.HOME ?? ''
+const HELP_HINT = '(run with --help for usage)'
+
+/**
+ * @typedef {{
+ *   worktree: string
+ *   HEAD: string
+ *   branch?: string
+ *   detached: boolean
+ *   branchName?: string
+ *   shortBranch?: string
+ * }} WorktreeEntry
+ */
 
 /**
  * @typedef {{
@@ -26,15 +30,66 @@ const HOME_DIR = process.env.HOME ?? ''
  */
 
 function main() {
-  const program = new Command()
+  const args = process.argv.slice(2)
+  if (args.length === 0) {
+    printMainHelp()
+    return
+  }
 
-  program
-    .name('wt')
-    .description('worktree helper')
-    .usage('[branch] | list | ls | status | clean [options] | br-clean [options]')
-    .addHelpText(
-      'after',
-      `
+  const [first, ...rest] = args
+  if (first === '--help' || first === '-h') {
+    printMainHelp()
+    return
+  }
+
+  if (first === 'clean') {
+    const parsed = parseCleanOptions(rest)
+    if (parsed.help) {
+      printCleanHelp()
+      return
+    }
+    runClean(parsed.options)
+    return
+  }
+
+  if (first === 'br-clean') {
+    const parsed = parseCleanOptions(rest)
+    if (parsed.help) {
+      printBranchCleanHelp()
+      return
+    }
+    runBranchClean(parsed.options)
+    return
+  }
+
+  if (first === 'list' || first === 'ls') {
+    const parsed = parseListOptions(rest)
+    if (parsed.help) {
+      printListHelp()
+      return
+    }
+    printWorktreeList(parsed.options)
+    return
+  }
+
+  if (first === 'status') {
+    const parsed = parseStatusOptions(rest)
+    if (parsed.help) {
+      printStatusHelp()
+      return
+    }
+    printWorktreeList({ status: true, base: parsed.options.base })
+    return
+  }
+
+  resolveTarget(first, rest)
+}
+
+function printMainHelp() {
+  console.log(`Usage: wt [branch] | list | ls | status | clean [options] | br-clean [options]
+
+worktree helper
+
 Examples:
   wt --help
   wt list
@@ -49,18 +104,19 @@ Examples:
   wt clean --apply
   wt br-clean
   wt br-clean --base main
-  wt br-clean --apply`,
-    )
-    .showHelpAfterError('(run with --help for usage)')
+  wt br-clean --apply`)
+}
 
-  program
-    .command('clean')
-    .description('dry-run by default; remove only safe merged/reachable worktrees with --apply')
-    .option('--apply', 'actually remove candidates (default is dry-run)', false)
-    .option('--base <branch>', 'override base branch used for merged/reachable checks')
-    .addHelpText(
-      'after',
-      `
+function printCleanHelp() {
+  console.log(`Usage: wt clean [options]
+
+dry-run by default; remove only safe merged/reachable worktrees with --apply
+
+Options:
+  --apply         actually remove candidates (default is dry-run)
+  --base <branch> override base branch used for merged/reachable checks
+  -h, --help      display help
+
 What gets auto-removed:
   - Branch worktree: branch is merged into base and worktree has no local changes.
   - Detached worktree: HEAD commit is reachable from base and worktree has no local changes.
@@ -73,28 +129,22 @@ Base source:
   - If --base is set, that value is used.
   - Otherwise it matches your fish 'main' alias behavior (resolved from 'origin/HEAD').
 
-	Examples:
-	  wt clean
-	  wt clean --base main
-	  wt clean --apply`,
-	    )
-    .action(
-      /**
-       * @param {CleanOptions} options
-       */
-      options => {
-        runClean(options)
-      },
-    )
+Examples:
+  wt clean
+  wt clean --base main
+  wt clean --apply`)
+}
 
-  program
-    .command('br-clean')
-    .description('dry-run by default; remove only safe merged local branches with --apply')
-    .option('--apply', 'actually remove candidates (default is dry-run)', false)
-    .option('--base <branch>', 'override base branch used for merged checks')
-    .addHelpText(
-      'after',
-      `
+function printBranchCleanHelp() {
+  console.log(`Usage: wt br-clean [options]
+
+dry-run by default; remove only safe merged local branches with --apply
+
+Options:
+  --apply         actually remove candidates (default is dry-run)
+  --base <branch> override base branch used for merged checks
+  -h, --help      display help
+
 What gets auto-removed:
   - Local branches merged into base and not checked out in any worktree.
 
@@ -106,85 +156,199 @@ Base source:
   - If --base is set, that value is used.
   - Otherwise it matches your fish 'main' alias behavior (resolved from 'origin/HEAD').
 
-\tExamples:
-\t  wt br-clean
-\t  wt br-clean --base main
-\t  wt br-clean --apply`,
-    )
-    .action(
-      /**
-       * @param {CleanOptions} options
-       */
-      options => {
-        runBranchClean(options)
-      },
-    )
+Examples:
+  wt br-clean
+  wt br-clean --base main
+  wt br-clean --apply`)
+}
 
-  program
-    .command('list')
-    .alias('ls')
-    .description('list worktrees with local-change and divergence summary')
-    .option('--status', 'include full git status output per worktree', false)
-    .option(
-      '--base <ref>',
-      'compare ahead/behind against this ref (default: origin/<default>)',
-    )
-    .addHelpText(
-      'after',
-      `
+function printListHelp() {
+  console.log(`Usage: wt list|ls [options]
+
+list worktrees with local-change and divergence summary
+
+Options:
+  --status     include full git status output per worktree
+  --base <ref> compare ahead/behind against this ref (default: origin/<default>)
+  -h, --help   display help
+
 List output legend:
   S/U/? = staged / unstaged / untracked file counts
-  + / - = commits ahead / behind the comparison base`,
-    )
-    .action(
-      /**
-       * @param {ListOptions} options
-       */
-      options => {
-        printWorktreeList(options)
-      },
-    )
+  + / - = commits ahead / behind the comparison base`)
+}
 
-  program
-    .command('status')
-    .description('list worktrees with full git status output and divergence summary')
-    .option(
-      '--base <ref>',
-      'compare ahead/behind against this ref (default: origin/<default>)',
-    )
-    .action(
-      /**
-       * @param {ListOptions} options
-       */
-      options => {
-        printWorktreeList({ status: true, base: options.base })
-      },
-    )
+function printStatusHelp() {
+  console.log(`Usage: wt status [options]
 
-  program
-    .argument('[target]', 'branch name to resolve to a worktree path')
-    .action(target => {
-      if (!target) {
-        program.outputHelp()
-        return
-      }
+list worktrees with full git status output and divergence summary
 
-      const worktrees = getWorktrees()
-      const wt = worktrees.find(
-        worktree => worktree.shortBranch === target || worktree.branchName === target,
-      )
+Options:
+  --base <ref> compare ahead/behind against this ref (default: origin/<default>)
+  -h, --help   display help`)
+}
 
-      log(wt)
+/**
+ * @param {string} message
+ */
+function failWithUsage(message) {
+  console.error(message)
+  console.error(HELP_HINT)
+  process.exit(1)
+}
 
-      if (!wt) {
-        console.error(`worktree ${target} not found`)
-        process.exit(1)
-      }
+/**
+ * @param {string[]} args
+ */
+function parseCleanOptions(args) {
+  /** @type {CleanOptions} */
+  const options = { apply: false }
 
-      console.log(wt.worktree)
-    })
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]
+    if (arg === '--help' || arg === '-h') {
+      return { help: true, options }
+    }
+    if (arg === '--apply') {
+      options.apply = true
+      continue
+    }
 
-  program.parse(process.argv)
+    const baseParsed = parseBaseArgument(args, index)
+    if (baseParsed) {
+      options.base = baseParsed.value
+      index = baseParsed.nextIndex
+      continue
+    }
+
+    if (arg.startsWith('-')) {
+      failWithUsage(`unknown option: ${arg}`)
+    }
+    failWithUsage(`unexpected argument: ${arg}`)
+  }
+
+  return { help: false, options }
+}
+
+/**
+ * @param {string[]} args
+ */
+function parseListOptions(args) {
+  /** @type {ListOptions} */
+  const options = { status: false }
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]
+    if (arg === '--help' || arg === '-h') {
+      return { help: true, options }
+    }
+    if (arg === '--status') {
+      options.status = true
+      continue
+    }
+
+    const baseParsed = parseBaseArgument(args, index)
+    if (baseParsed) {
+      options.base = baseParsed.value
+      index = baseParsed.nextIndex
+      continue
+    }
+
+    if (arg.startsWith('-')) {
+      failWithUsage(`unknown option: ${arg}`)
+    }
+    failWithUsage(`unexpected argument: ${arg}`)
+  }
+
+  return { help: false, options }
+}
+
+/**
+ * @param {string[]} args
+ */
+function parseStatusOptions(args) {
+  /** @type {ListOptions} */
+  const options = { status: true }
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]
+    if (arg === '--help' || arg === '-h') {
+      return { help: true, options }
+    }
+
+    const baseParsed = parseBaseArgument(args, index)
+    if (baseParsed) {
+      options.base = baseParsed.value
+      index = baseParsed.nextIndex
+      continue
+    }
+
+    if (arg.startsWith('-')) {
+      failWithUsage(`unknown option: ${arg}`)
+    }
+    failWithUsage(`unexpected argument: ${arg}`)
+  }
+
+  return { help: false, options }
+}
+
+/**
+ * @param {string[]} args
+ * @param {number} index
+ */
+function parseBaseArgument(args, index) {
+  const arg = args[index]
+  if (arg === '--base') {
+    const value = args[index + 1]
+    if (!value || value.startsWith('-')) {
+      failWithUsage("option '--base' requires a value")
+    }
+    return {
+      value,
+      nextIndex: index + 1,
+    }
+  }
+
+  if (arg.startsWith('--base=')) {
+    const value = arg.slice('--base='.length)
+    if (value.length === 0) {
+      failWithUsage("option '--base' requires a value")
+    }
+    return {
+      value,
+      nextIndex: index,
+    }
+  }
+
+  return null
+}
+
+/**
+ * @param {string} target
+ * @param {string[]} rest
+ */
+function resolveTarget(target, rest) {
+  if (rest.length > 0) {
+    if (rest.length === 1 && (rest[0] === '--help' || rest[0] === '-h')) {
+      printMainHelp()
+      return
+    }
+    failWithUsage(`unexpected argument: ${rest[0]}`)
+  }
+  if (target.startsWith('-')) {
+    failWithUsage(`unknown option: ${target}`)
+  }
+
+  const worktrees = getWorktrees()
+  const wt = worktrees.find(worktree => worktree.shortBranch === target || worktree.branchName === target)
+
+  log(wt)
+
+  if (!wt) {
+    console.error(`worktree ${target} not found`)
+    process.exit(1)
+  }
+
+  console.log(wt.worktree)
 }
 
 // MARK: - Helpers
@@ -195,36 +359,55 @@ function getWorktrees() {
     stdio: ['ignore', 'pipe', 'pipe'],
   })
 
-  return output
-    .trim()
-    .split('\n\n')
-    .filter(Boolean)
-    .map(block => {
-      /** @type {Record<string, string | true>} */
-      const raw = {}
-      for (const line of block.split('\n')) {
-        if (!line) {
-          continue
-        }
-        const spaceIndex = line.indexOf(' ')
-        if (spaceIndex === -1) {
-          raw[line] = true
-          continue
-        }
-        const key = line.slice(0, spaceIndex)
-        const value = line.slice(spaceIndex + 1)
-        raw[key] = value
-      }
+  const trimmed = output.trim()
+  if (trimmed.length === 0) {
+    return []
+  }
 
-      const base = err(WorktreeSchema)(raw)
-      const branchName = base.branch?.replace('refs/heads/', '')
-      return {
-        ...base,
-        detached: Boolean(raw.detached),
-        branchName,
-        shortBranch: branchName?.split('/').pop(),
-      }
-    })
+  return trimmed.split('\n\n').filter(Boolean).map(parseWorktreeBlock)
+}
+
+/**
+ * @param {string} block
+ * @returns {WorktreeEntry}
+ */
+function parseWorktreeBlock(block) {
+  /** @type {Record<string, string | true>} */
+  const raw = {}
+  for (const line of block.split('\n')) {
+    if (!line) {
+      continue
+    }
+    const spaceIndex = line.indexOf(' ')
+    if (spaceIndex === -1) {
+      raw[line] = true
+      continue
+    }
+    const key = line.slice(0, spaceIndex)
+    const value = line.slice(spaceIndex + 1)
+    raw[key] = value
+  }
+
+  const worktree = raw.worktree
+  const HEAD = raw.HEAD
+  const branch = raw.branch
+
+  if (typeof worktree !== 'string' || typeof HEAD !== 'string') {
+    throw new Error('failed to parse git worktree output')
+  }
+  if (branch !== undefined && typeof branch !== 'string') {
+    throw new Error('failed to parse git worktree output')
+  }
+
+  const branchName = branch?.replace('refs/heads/', '')
+  return {
+    worktree,
+    HEAD,
+    branch,
+    detached: Boolean(raw.detached),
+    branchName,
+    shortBranch: branchName?.split('/').pop(),
+  }
 }
 
 /**
