@@ -1,4 +1,5 @@
 import { useAction } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
@@ -24,15 +25,12 @@ interface DaytonaWorkspaceButtonProps {
   className?: string;
 }
 
-type StartupMetrics = {
-  totalMs: number;
-  sandboxCreateMs: number;
-  repoRefreshMs: number;
-  devServerStartMs: number;
-  repoRefreshMode: "always" | "smart" | "never";
-  repoRefreshed: boolean;
-  repoRefreshReason: string;
-};
+type StartDaytonaWorkspaceResult = FunctionReturnType<
+  typeof api.daytonaActions.startDaytonaWorkspace
+>;
+type StartupMetrics = NonNullable<
+  StartDaytonaWorkspaceResult["startupMetrics"]
+>;
 
 const formatDuration = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 

@@ -49,7 +49,9 @@ function main() {
   const rootDir = process.cwd()
   const baseImage = process.env.DAYTONA_BASE_IMAGE?.trim() || DEFAULT_BASE_IMAGE
   const pnpmVersion =
-    process.env.DAYTONA_PNPM_VERSION?.trim() || DEFAULT_PNPM_VERSION
+    process.env.DAYTONA_PNPM_VERSION?.trim() ||
+    process.env.PNPM_VERSION?.trim() ||
+    DEFAULT_PNPM_VERSION
 
   const lockHash = computeLockHash(rootDir)
   const inputHash = computeInputHash(rootDir, baseImage, pnpmVersion)
