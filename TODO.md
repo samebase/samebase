@@ -1,11 +1,9 @@
 # TODO
-- [ ] investigate Codex app UI behavior: opening repo/worktree may add `url.https://github.com/.insteadof=git@github.com:` in `.git/config` (forces HTTPS push and breaks workflow-scope pushes)
-- [ ] here's an idea; market it as a way to build app for yourself (we can use their noter.md auth to login into their apps)
-  - [ ] next we don't directly jump to allow it in public, we instead allow them to manually invite their family/friends/colleagues/collaborators to use these apps
-  - [ ] at some point they might decide to make it public and sell it or give it to other people, and that should also be possible
 
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
+
 - [ ] maybe jupyterlab is not necessaryle necessary, or even a good idea, since developers usually don't use it; and vibecoders don't even use it; only academia?
+- [ ] replace enter with cmd-enter, it'll make mobile and pc easier
 - [ ] preview deploys should be created in the pr. But locally in Daytona use local convex
 - [ ] enforce the importance of using web apps when you're trying to do something on an older phone, that's not supported anymore. Mobile apps are a liability
 - [ ] for netlify, just don't deploy if it's a md change (optimization? )
@@ -19,6 +17,7 @@
 
 ## High Priority
 
+- [ ] replace Enter with Cmd+Enter for chat input submission - will make mobile and PC easier to use consistently
 - [ ] codex: make worktrees work automatically
 - [ ] auth env vars: standardize on `AUTH_*` (or document precedence) and add a warning when multiple GitHub/Google env keys are set
 - [ ] add dashboard-level settings panel (currently logout only exists inside vault)
@@ -192,7 +191,6 @@ One caveat: Codespace secrets have a 48KB size limit, but auth.json is tiny so t
   - Alternative to full MDX that works with plain text rendering
 ## UI/UX Improvements
 - [ ] commit proposal UI: make the commit description clickable to go to GitHub commit URL, ensure button inside doesn't change sizes
-- [ ] graph view: resizable/collapsible agent chat panel (VS Code-style)
 ## Development Environment
 - [ ] the dev container should default to fish. Even the ai should prefer that
 ## Research & Inspiration
