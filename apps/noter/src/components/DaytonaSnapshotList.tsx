@@ -84,7 +84,7 @@ export function DaytonaSnapshotList({
 
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
-  const [snapshots, setSnapshots] = useState<SnapshotRow[]>([]);
+  const [snapshots, setSnapshots] = useState<SnapshotRow[] | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [deletingSnapshotName, setDeletingSnapshotName] = useState<
     string | null
@@ -127,6 +127,10 @@ export function DaytonaSnapshotList({
   );
 
   useEffect(() => {
+    void fetchSnapshots(true);
+  }, [fetchSnapshots]);
+
+  useEffect(() => {
     if (!isExpanded) {
       return;
     }
@@ -158,7 +162,9 @@ export function DaytonaSnapshotList({
       }
 
       setSnapshots((current) =>
-        current.filter((snapshot) => snapshot.name !== snapshotName),
+        current === null
+          ? current
+          : current.filter((snapshot) => snapshot.name !== snapshotName),
       );
       void fetchSnapshots(true);
     } catch (error) {
@@ -169,6 +175,7 @@ export function DaytonaSnapshotList({
       setDeletingSnapshotName(null);
     }
   };
+  const snapshotCountLabel = snapshots === null ? "?" : `${snapshots.length}`;
 
   return (
     <div className={cn("mt-1 flex flex-col gap-1", className)}>
@@ -188,7 +195,7 @@ export function DaytonaSnapshotList({
               isExpanded && "rotate-180",
             )}
           />
-          {`Snapshots (${snapshots.length})`}
+          {`Snapshots (${snapshotCountLabel})`}
         </Button>
         {isExpanded && (
           <Button
@@ -212,7 +219,7 @@ export function DaytonaSnapshotList({
         )}
       </div>
 
-      {isExpanded && snapshots.length > 0 && (
+      {isExpanded && snapshots !== null && snapshots.length > 0 && (
         <div className="space-y-1 rounded-md border bg-muted/5 p-2">
           {snapshots.map((snapshot) => {
             const updatedAt = snapshot.updatedAt ?? snapshot.createdAt;
