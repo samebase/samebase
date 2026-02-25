@@ -74,11 +74,11 @@ export function DaytonaWorkspaceButton({
   const prebuildDaytonaSnapshot = useAction(
     api.daytonaActions.prebuildDaytonaSnapshot,
   );
-  const getDaytonaPrebuildStatus = useAction(
-    api.daytonaActions.getDaytonaPrebuildStatus,
-  );
   const getDaytonaPrebuildLogs = useAction(
     api.daytonaActions.getDaytonaPrebuildLogs,
+  );
+  const removeDaytonaSnapshot = useAction(
+    api.daytonaActions.removeDaytonaSnapshot,
   );
   const ensureDaytonaRegistryForVault = useAction(
     api.daytonaActions.ensureDaytonaRegistryForVault,
@@ -90,9 +90,11 @@ export function DaytonaWorkspaceButton({
   const [isFetchingLogs, setIsFetchingLogs] = useState(false);
   const [isFetchingPrebuildLogs, setIsFetchingPrebuildLogs] = useState(false);
   const [isPrebuilding, setIsPrebuilding] = useState(false);
-  const [isCheckingPrebuild, setIsCheckingPrebuild] = useState(false);
   const [isEnsuringRegistry, setIsEnsuringRegistry] = useState(false);
+  const [isRemovingSnapshot, setIsRemovingSnapshot] = useState(false);
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
+  const [isRemoveSnapshotDialogOpen, setIsRemoveSnapshotDialogOpen] =
+    useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
   const [terminalUrl, setTerminalUrl] = useState<string | null>(null);
@@ -102,11 +104,6 @@ export function DaytonaWorkspaceButton({
   );
   const [timeToTerminalMs, setTimeToTerminalMs] = useState<number | null>(null);
   const [prebuildLogs, setPrebuildLogs] = useState<string | null>(null);
-  const [prebuildSnapshotName, setPrebuildSnapshotName] = useState<
-    string | null
-  >(null);
-  const [prebuildState, setPrebuildState] = useState<string | null>(null);
-  const [prebuildError, setPrebuildError] = useState<string | null>(null);
   const prebuildLogPollRef = useRef<number | null>(null);
 
   const startPrebuildLogPolling = () => {
@@ -338,21 +335,19 @@ export function DaytonaWorkspaceButton({
       const result = await prebuildDaytonaSnapshot({ vaultId, branch });
       if (!result.ok) {
         setHasError(true);
-        setMessage(result.message ?? "Failed to build prebuild snapshot.");
+        setMessage(result.message ?? "Failed to build snapshot.");
         return;
       }
       setMessage(
         result.message ??
           (result.snapshotName
-            ? `Prebuild snapshot ${result.snapshotName} created.`
-            : "Prebuild snapshot created."),
+            ? `Snapshot ${result.snapshotName} created.`
+            : "Snapshot created."),
       );
     } catch (error) {
       setHasError(true);
       setMessage(
-        error instanceof Error
-          ? error.message
-          : "Failed to build prebuild snapshot.",
+        error instanceof Error ? error.message : "Failed to build snapshot.",
       );
     } finally {
       setIsPrebuilding(false);
@@ -376,13 +371,13 @@ export function DaytonaWorkspaceButton({
       if (!result.ok) {
         if (!silent) {
           setHasError(true);
-          setMessage(result.message ?? "Failed to fetch prebuild logs.");
+          setMessage(result.message ?? "Failed to fetch snapshot logs.");
         }
         return;
       }
       setPrebuildLogs(result.logs ?? "");
       if (!silent) {
-        setMessage(result.message ?? "Fetched prebuild logs.");
+        setMessage(result.message ?? "Fetched snapshot logs.");
       }
     } catch (error) {
       if (!silent) {
@@ -390,7 +385,7 @@ export function DaytonaWorkspaceButton({
         setMessage(
           error instanceof Error
             ? error.message
-            : "Failed to fetch prebuild logs.",
+            : "Failed to fetch snapshot logs.",
         );
       }
     } finally {
@@ -398,37 +393,31 @@ export function DaytonaWorkspaceButton({
     }
   };
 
-  const handleCheckPrebuild = async () => {
-    if (disabled || isCheckingPrebuild) {
+  const handleRemoveSnapshot = async () => {
+    if (disabled || isRemovingSnapshot) {
       return;
     }
-    setIsCheckingPrebuild(true);
+    setIsRemovingSnapshot(true);
     setMessage(null);
     setHasError(false);
 
     try {
-      const result = await getDaytonaPrebuildStatus({ vaultId, branch });
+      const result = await removeDaytonaSnapshot({ vaultId, branch });
       if (!result.ok) {
         setHasError(true);
-        setMessage(result.message ?? "Failed to fetch prebuild status.");
+        setMessage(result.message ?? "Failed to remove snapshot.");
         return;
       }
-      setPrebuildSnapshotName(result.snapshotName ?? null);
-      setPrebuildState(result.state ?? null);
-      setPrebuildError(result.errorReason ?? null);
-      if (result.state === "ERROR" || result.state === "BUILD_FAILED") {
-        setHasError(true);
-      }
-      setMessage(result.message ?? "Fetched prebuild status.");
+      setPrebuildLogs(null);
+      setMessage(result.message ?? "Snapshot removed.");
+      setIsRemoveSnapshotDialogOpen(false);
     } catch (error) {
       setHasError(true);
       setMessage(
-        error instanceof Error
-          ? error.message
-          : "Failed to fetch prebuild status.",
+        error instanceof Error ? error.message : "Failed to remove snapshot.",
       );
     } finally {
-      setIsCheckingPrebuild(false);
+      setIsRemovingSnapshot(false);
     }
   };
 
@@ -594,7 +583,7 @@ export function DaytonaWorkspaceButton({
           }}
           disabled={disabled || isPrebuilding}
         >
-          {isPrebuilding ? "Building prebuild..." : "Build prebuild"}
+          {isPrebuilding ? "Building snapshot..." : "Build snapshot"}
         </Button>
         <Button
           variant="ghost"
@@ -617,40 +606,63 @@ export function DaytonaWorkspaceButton({
           variant="ghost"
           size="sm"
           onClick={() => {
-            void handleCheckPrebuild();
-          }}
-          disabled={disabled || isCheckingPrebuild}
-        >
-          {isCheckingPrebuild ? "Checking..." : "Check prebuild"}
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
             void fetchPrebuildLogs(false);
           }}
           disabled={disabled || isFetchingPrebuildLogs}
         >
-          {isFetchingPrebuildLogs ? "Fetching logs..." : "View prebuild logs"}
+          {isFetchingPrebuildLogs ? "Fetching logs..." : "View snapshot logs"}
         </Button>
+        <Dialog
+          open={isRemoveSnapshotDialogOpen}
+          onOpenChange={(open) => {
+            if (isRemovingSnapshot) {
+              return;
+            }
+            setIsRemoveSnapshotDialogOpen(open);
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              disabled={disabled}
+            >
+              Remove snapshot
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Remove snapshot</DialogTitle>
+              <DialogDescription>
+                This deletes the snapshot for the current branch. Existing
+                sandboxes are not removed.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsRemoveSnapshotDialogOpen(false)}
+                disabled={isRemovingSnapshot}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  void handleRemoveSnapshot();
+                }}
+                disabled={isRemovingSnapshot}
+              >
+                {isRemovingSnapshot ? "Removing..." : "Remove snapshot"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         <span className="text-xs text-muted-foreground">
           Snapshot name is inferred from vault + branch.
         </span>
       </div>
-      {prebuildState && (
-        <div
-          className={cn(
-            "text-xs",
-            prebuildState === "ERROR" || prebuildState === "BUILD_FAILED"
-              ? "text-destructive"
-              : "text-muted-foreground",
-          )}
-        >
-          Prebuild {prebuildSnapshotName ? `${prebuildSnapshotName}: ` : ""}
-          {prebuildState}
-          {prebuildError ? ` (${prebuildError})` : ""}
-        </div>
-      )}
       {sandboxId && sandboxName && (
         <div className="text-xs text-muted-foreground">
           Daytona: {sandboxName}
@@ -694,7 +706,7 @@ export function DaytonaWorkspaceButton({
       )}
       {prebuildLogs !== null && (
         <div className="mt-2 rounded-md border bg-muted/5 p-2 text-xs">
-          <div className="mb-1 text-muted-foreground">Prebuild log</div>
+          <div className="mb-1 text-muted-foreground">Snapshot log</div>
           <textarea
             readOnly
             rows={10}

@@ -51,6 +51,7 @@ import {
 import { CodespaceStatus } from "@/components/CodespaceStatus";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
 import { VaultSyncStatus } from "@/components/VaultSyncStatus";
+import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
 import type { Id } from "../../convex/_generated/dataModel";
 
 const formatTimeAgo = (timestamp: number) => {
@@ -798,6 +799,7 @@ export function VaultDashboard() {
                           sandboxId={vault.daytonaSandboxId}
                           sandboxName={vault.daytonaSandboxName}
                         />
+                        <DaytonaSnapshotList vaultId={vault._id} />
                         {vault.isNoterManaged && (
                           <div className="text-xs text-muted-foreground">
                             Infra: {formatInfraState(vault.infraState)}
