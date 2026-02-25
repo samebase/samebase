@@ -1,5 +1,6 @@
 import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   GitHubLogoIcon,
@@ -86,6 +87,21 @@ const getInfraActionLabel = (
   return null;
 };
 
+type DaytonaResourceFlags = {
+  daytonaSandboxId?: string | null;
+  daytonaSnapshotName?: string | null;
+  daytonaPrebuildLogsSnapshot?: string | null;
+};
+
+const hasDaytonaResourcesForVault = (
+  vault: DaytonaResourceFlags | null | undefined,
+) =>
+  Boolean(
+    vault?.daytonaSandboxId ||
+      vault?.daytonaSnapshotName ||
+      vault?.daytonaPrebuildLogsSnapshot,
+  );
+
 type CreateTemplate = "app" | "agent";
 
 const isCreateTemplate = (value: string): value is CreateTemplate =>
@@ -147,6 +163,7 @@ export function VaultDashboard() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [didAttemptCommit, setDidAttemptCommit] = useState(false);
   const [retryingVaultId, setRetryingVaultId] = useState<Id<"vaults"> | null>(
     null,
@@ -267,11 +284,7 @@ export function VaultDashboard() {
       : null;
   const stagedChangesCount = selectedVault?.fileCount ?? 0;
   const hasStagedChanges = stagedChangesCount > 0;
-  const hasDaytonaResources = Boolean(
-    selectedVault?.daytonaSandboxId ||
-      selectedVault?.daytonaSnapshotName ||
-      selectedVault?.daytonaPrebuildLogsSnapshot,
-  );
+  const hasDaytonaResources = hasDaytonaResourcesForVault(selectedVault);
   const resetDeleteDialogState = () => {
     setVaultToDelete(null);
     setRemoveGithubRepo(false);
@@ -280,6 +293,7 @@ export function VaultDashboard() {
     setRemoveNetlifyProvision(false);
     setRemoveDaytonaResources(false);
     setCommitError(null);
+    setDeleteError(null);
     setDidAttemptCommit(false);
   };
 
@@ -375,6 +389,7 @@ export function VaultDashboard() {
 
   const handleRemoveVault = async () => {
     if (!vaultToDelete || isDeleting || isCommitting) return;
+    setDeleteError(null);
 
     try {
       setIsDeleting(true);
@@ -398,6 +413,9 @@ export function VaultDashboard() {
       resetDeleteDialogState();
     } catch (error) {
       console.error("Failed to remove vault:", error);
+      setDeleteError(
+        error instanceof Error ? error.message : "Failed to remove vault",
+      );
     } finally {
       setIsDeleting(false);
     }
@@ -868,6 +886,7 @@ export function VaultDashboard() {
                     <Button
                       variant="ghost"
                       size="sm"
+                      aria-label={`Remove vault ${vault.repositoryFullName}`}
                       onClick={() => {
                         setVaultToDelete({
                           id: vault._id,
@@ -885,18 +904,15 @@ export function VaultDashboard() {
                           vault.isNoterManaged && vault.hasNetlifyProvision,
                         );
                         setRemoveDaytonaResources(
-                          Boolean(
-                            vault.daytonaSandboxId ||
-                              vault.daytonaSnapshotName ||
-                              vault.daytonaPrebuildLogsSnapshot,
-                          ),
+                          hasDaytonaResourcesForVault(vault),
                         );
                         setCommitError(null);
+                        setDeleteError(null);
                         setDidAttemptCommit(false);
                       }}
                       className="text-destructive hover:text-destructive hover:bg-destructive/10"
                     >
-                      <TrashIcon className="h-4 w-4" />
+                      <TrashIcon className="h-4 w-4" aria-hidden="true" />
                     </Button>
                   </div>
                 </div>
@@ -929,17 +945,18 @@ export function VaultDashboard() {
             {vaultToDelete && (
               <div className="space-y-2">
                 <div className="flex items-start gap-2">
-                  <input
+                  <Checkbox
                     id="remove-github-repo"
-                    type="checkbox"
                     checked={removeGithubRepo}
-                    onChange={(e) => setRemoveGithubRepo(e.target.checked)}
+                    onCheckedChange={(checked) =>
+                      setRemoveGithubRepo(checked === true)
+                    }
                     disabled={
                       !vaultToDelete.isNoterManaged ||
                       isDeleting ||
                       isCommitting
                     }
-                    className="mt-0.5 h-4 w-4 rounded border border-input"
+                    className="mt-0.5"
                   />
                   <label
                     htmlFor="remove-github-repo"
@@ -954,19 +971,20 @@ export function VaultDashboard() {
                   </label>
                 </div>
                 <div className="flex items-start gap-2">
-                  <input
+                  <Checkbox
                     id="remove-codespaces"
-                    type="checkbox"
                     checked={
                       connectedCodespacesCount === 0 ? true : removeCodespaces
                     }
-                    onChange={(e) => setRemoveCodespaces(e.target.checked)}
+                    onCheckedChange={(checked) =>
+                      setRemoveCodespaces(checked === true)
+                    }
                     disabled={
                       connectedCodespacesCount === 0 ||
                       isDeleting ||
                       isCommitting
                     }
-                    className="mt-0.5 h-4 w-4 rounded border border-input"
+                    className="mt-0.5"
                   />
                   <label
                     htmlFor="remove-codespaces"
@@ -979,15 +997,14 @@ export function VaultDashboard() {
                   </label>
                 </div>
                 <div className="flex items-start gap-2">
-                  <input
+                  <Checkbox
                     id="remove-daytona-resources"
-                    type="checkbox"
                     checked={removeDaytonaResources}
-                    onChange={(e) =>
-                      setRemoveDaytonaResources(e.target.checked)
+                    onCheckedChange={(checked) =>
+                      setRemoveDaytonaResources(checked === true)
                     }
                     disabled={isDeleting || isCommitting}
-                    className="mt-0.5 h-4 w-4 rounded border border-input"
+                    className="mt-0.5"
                   />
                   <label
                     htmlFor="remove-daytona-resources"
@@ -1004,19 +1021,18 @@ export function VaultDashboard() {
                 </div>
                 {vaultToDelete.hasConvexProvision && (
                   <div className="flex items-start gap-2">
-                    <input
+                    <Checkbox
                       id="remove-convex-provision"
-                      type="checkbox"
                       checked={removeConvexProvision}
-                      onChange={(e) =>
-                        setRemoveConvexProvision(e.target.checked)
+                      onCheckedChange={(checked) =>
+                        setRemoveConvexProvision(checked === true)
                       }
                       disabled={
                         !vaultToDelete.isNoterManaged ||
                         isDeleting ||
                         isCommitting
                       }
-                      className="mt-0.5 h-4 w-4 rounded border border-input"
+                      className="mt-0.5"
                     />
                     <label
                       htmlFor="remove-convex-provision"
@@ -1034,19 +1050,18 @@ export function VaultDashboard() {
                 )}
                 {vaultToDelete.hasNetlifyProvision && (
                   <div className="flex items-start gap-2">
-                    <input
+                    <Checkbox
                       id="remove-netlify-provision"
-                      type="checkbox"
                       checked={removeNetlifyProvision}
-                      onChange={(e) =>
-                        setRemoveNetlifyProvision(e.target.checked)
+                      onCheckedChange={(checked) =>
+                        setRemoveNetlifyProvision(checked === true)
                       }
                       disabled={
                         !vaultToDelete.isNoterManaged ||
                         isDeleting ||
                         isCommitting
                       }
-                      className="mt-0.5 h-4 w-4 rounded border border-input"
+                      className="mt-0.5"
                     />
                     <label
                       htmlFor="remove-netlify-provision"
@@ -1061,6 +1076,9 @@ export function VaultDashboard() {
                       )}
                     </label>
                   </div>
+                )}
+                {deleteError && (
+                  <div className="text-sm text-red-600">{deleteError}</div>
                 )}
                 {commitError && (
                   <div className="text-sm text-red-600">{commitError}</div>
