@@ -14,7 +14,6 @@ import { Link } from "react-router-dom";
 import { linkStyle } from "./styles";
 import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import {
   claimRefreshDebounce,
   releaseRefreshDebounce,
@@ -800,108 +799,106 @@ export function VaultDashboard() {
                             )}
                           </div>
                         )}
-                        <VaultSyncStatus
-                          vaultId={vault._id}
-                          repositoryFullName={vault.repositoryFullName}
-                          branch={defaultBranch}
-                          owner={vault.ghRepoOwner}
-                          repoName={vault.ghRepoName}
-                          now={now}
-                          commitSha={vault.commitSHA}
-                          treeRefreshStartedAt={vault.treeRefreshStartedAt}
-                          lastTreeRefreshAt={vault.lastTreeRefreshAt}
-                          stagedFilesCount={vault.fileCount}
-                          showChecks={false}
-                        />
-                        <div className="text-xs text-muted-foreground">
-                          {vault.fileCount} edited file
-                          {vault.fileCount !== 1 ? "s" : ""}
-                          {vault.lastEditTime
-                            ? ` · last edit ${formatRelativeTimeAgo(vault.lastEditTime)}`
-                            : ""}
-                        </div>
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:ml-2 sm:w-auto sm:flex-nowrap">
-                  {isReady ? (
-                    <>
-                      <Button asChild variant="secondary" size="sm">
-                        <Link
-                          to={`/vault/${vault.repositoryFullName}/${defaultBranch}`}
-                        >
-                          {defaultBranch}
-                        </Link>
-                      </Button>
-                      <Button asChild variant="outline" size="sm">
-                        <Link to={chatRoute}>Chat</Link>
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button variant="secondary" size="sm" disabled>
-                        {defaultBranch}
-                      </Button>
-                      <Button variant="outline" size="sm" disabled>
-                        Chat
-                      </Button>
-                    </>
+                <div className="flex w-full flex-col items-end gap-2 sm:ml-2 sm:w-auto">
+                  {isReady && (
+                    <VaultSyncStatus
+                      vaultId={vault._id}
+                      repositoryFullName={vault.repositoryFullName}
+                      branch={defaultBranch}
+                      owner={vault.ghRepoOwner}
+                      repoName={vault.ghRepoName}
+                      now={now}
+                      commitSha={vault.commitSHA}
+                      treeRefreshStartedAt={vault.treeRefreshStartedAt}
+                      lastTreeRefreshAt={vault.lastTreeRefreshAt}
+                      stagedFilesCount={vault.fileCount}
+                      showChecks={false}
+                      className="w-full justify-end sm:w-auto"
+                    />
                   )}
-                  {infraActionLabel && (
+                  <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap">
+                    {isReady ? (
+                      <>
+                        <Button asChild variant="secondary" size="sm">
+                          <Link
+                            to={`/vault/${vault.repositoryFullName}/${defaultBranch}`}
+                          >
+                            {defaultBranch}
+                          </Link>
+                        </Button>
+                        <Button asChild variant="outline" size="sm">
+                          <Link to={chatRoute}>Chat</Link>
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button variant="secondary" size="sm" disabled>
+                          {defaultBranch}
+                        </Button>
+                        <Button variant="outline" size="sm" disabled>
+                          Chat
+                        </Button>
+                      </>
+                    )}
+                    {infraActionLabel && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          void handleRetryInfrastructure(vault._id);
+                        }}
+                        disabled={retryingVaultId === vault._id}
+                      >
+                        {retryingVaultId === vault._id ? (
+                          <>
+                            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                            Retrying...
+                          </>
+                        ) : (
+                          infraActionLabel
+                        )}
+                      </Button>
+                    )}
+
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
                       onClick={() => {
-                        void handleRetryInfrastructure(vault._id);
+                        setVaultToDelete({
+                          id: vault._id,
+                          repositoryFullName: vault.repositoryFullName,
+                          isNoterManaged: vault.isNoterManaged,
+                          hasConvexProvision: vault.hasConvexProvision,
+                          hasNetlifyProvision: vault.hasNetlifyProvision,
+                        });
+                        setRemoveGithubRepo(vault.isNoterManaged);
+                        setRemoveCodespaces(true);
+                        setRemoveConvexProvision(
+                          vault.isNoterManaged && vault.hasConvexProvision,
+                        );
+                        setRemoveNetlifyProvision(
+                          vault.isNoterManaged && vault.hasNetlifyProvision,
+                        );
+                        setRemoveDaytonaResources(
+                          Boolean(
+                            vault.daytonaSandboxId ||
+                              vault.daytonaSnapshotName ||
+                              vault.daytonaPrebuildLogsSnapshot,
+                          ),
+                        );
+                        setCommitError(null);
+                        setDidAttemptCommit(false);
                       }}
-                      disabled={retryingVaultId === vault._id}
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
                     >
-                      {retryingVaultId === vault._id ? (
-                        <>
-                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                          Retrying...
-                        </>
-                      ) : (
-                        infraActionLabel
-                      )}
+                      <TrashIcon className="h-4 w-4" />
                     </Button>
-                  )}
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setVaultToDelete({
-                        id: vault._id,
-                        repositoryFullName: vault.repositoryFullName,
-                        isNoterManaged: vault.isNoterManaged,
-                        hasConvexProvision: vault.hasConvexProvision,
-                        hasNetlifyProvision: vault.hasNetlifyProvision,
-                      });
-                      setRemoveGithubRepo(vault.isNoterManaged);
-                      setRemoveCodespaces(true);
-                      setRemoveConvexProvision(
-                        vault.isNoterManaged && vault.hasConvexProvision,
-                      );
-                      setRemoveNetlifyProvision(
-                        vault.isNoterManaged && vault.hasNetlifyProvision,
-                      );
-                      setRemoveDaytonaResources(
-                        Boolean(
-                          vault.daytonaSandboxId ||
-                            vault.daytonaSnapshotName ||
-                            vault.daytonaPrebuildLogsSnapshot,
-                        ),
-                      );
-                      setCommitError(null);
-                      setDidAttemptCommit(false);
-                    }}
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </Button>
+                  </div>
                 </div>
               </div>
             );
