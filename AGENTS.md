@@ -197,15 +197,15 @@ and function failures.
 Shorthand commands for git/GitHub workflows. When the user says these, execute
 them directly using CLI tools.
 
-| Command     | Action                                                                                 |
-| ----------- | -------------------------------------------------------------------------------------- |
-| `commit`    | Stage all changes, commit with concise message                                         |
-| `push`      | Commit if needed, push to remote                                                       |
-| `create pr` | Push if needed, create PR, ensure a non-empty body, then mark ready                    |
-| `ready`     | Mark draft PR as ready: `gh pr ready`                                                  |
-| `wait`      | Monitor CI with `gh pr checks` or `gh run watch`, report status                        |
-| `ship`      | Full flow: commit → push → create PR → ready → fix CodeRabbit feedback&nitpicks → wait |
-| `status`    | Show branch, uncommitted changes, PR state                                             |
+| Command     | Action                                                                               |
+| ----------- | ------------------------------------------------------------------------------------ |
+| `commit`    | Stage all changes, commit with concise message                                       |
+| `push`      | Commit if needed, push to remote                                                     |
+| `create pr` | Push if needed, create PR, ensure a non-empty body, then mark ready                  |
+| `ready`     | Mark draft PR as ready: `gh pr ready`                                                |
+| `wait`      | Monitor CI with `gh pr checks` or `gh run watch`, report status                      |
+| `ship`      | Full flow: commit → push → create PR → ready → fix Greptile feedback&nitpicks → wait |
+| `status`    | Show branch, uncommitted changes, PR state                                           |
 
 ### Rules
 
@@ -217,14 +217,14 @@ them directly using CLI tools.
 - When the user asks to "open a PR" (or `create pr`), mark it ready for review
   by default. Only keep it as draft if the user explicitly asks for draft.
 - Update PR description with `gh pr edit --body` when commits change scope
-- During `ship`, if CodeRabbit reports actionable findings, fix them, push
-  updates, and continue until CodeRabbit and required CI checks are green.
-- During `ship`, if CodeRabbit is only pending (no actionable findings yet),
+- During `ship`, if Greptile reports actionable findings, fix them, push
+  updates, and continue until Greptile and required CI checks are green.
+- During `ship`, if Greptile is only pending (no actionable findings yet),
   continue waiting.
-- CodeRabbit can mark checks as pass while still leaving comments; always read
-  CodeRabbit review comments/threads and treat nitpicks as required fixes before
+- Greptile can mark checks as pass while still leaving comments; always read
+  Greptile review comments/threads and treat nitpicks as required fixes before
   merging.
-- When the user asks to check CodeRabbit, review both the check status and any
+- When the user asks to check Greptile, review both the check status and any
   comments/nitpicks (treat them as required fixes).
 - On CI failure, report the error and offer to fix
 - **NEVER merge a PR until CI is green** - always wait for checks to pass, then
