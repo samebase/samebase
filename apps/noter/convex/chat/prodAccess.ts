@@ -26,7 +26,7 @@ export async function assertProdReadAccess(
   args: ProdReadAccessArgs,
 ): Promise<ProdReadAccessContext> {
   const user = await ctx.db.get(args.requesterUserId);
-  if (!user || !isAdminUser(user.githubUsername)) {
+  if (!user || !isAdminUser(user.githubUsername, user.email)) {
     throw new Error("Only admin users can request production reads");
   }
 
