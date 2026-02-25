@@ -1,4 +1,4 @@
-import { useCallback, useId, useState } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export type ApiKeyProvider = "github" | "convex" | "netlify";
 
@@ -25,6 +26,10 @@ const getApiKeyProviderLabel = (provider: ApiKeyProvider | null): string => {
   if (provider === "convex") return "Convex";
   if (provider === "netlify") return "Netlify";
   return "Provider";
+};
+
+const assertNever = (value: never): never => {
+  throw new Error(`Unhandled provider: ${String(value)}`);
 };
 
 export const useApiKeyConnectDialog = ({
@@ -70,12 +75,18 @@ export const useApiKeyConnectDialog = ({
     setApiKeyError(null);
 
     try {
-      if (apiKeyDialogProvider === "github") {
-        await connectGithubWithApiKey({ token });
-      } else if (apiKeyDialogProvider === "convex") {
-        await connectConvexWithApiKey({ token });
-      } else {
-        await connectNetlifyWithApiKey({ token });
+      switch (apiKeyDialogProvider) {
+        case "github":
+          await connectGithubWithApiKey({ token });
+          break;
+        case "convex":
+          await connectConvexWithApiKey({ token });
+          break;
+        case "netlify":
+          await connectNetlifyWithApiKey({ token });
+          break;
+        default:
+          assertNever(apiKeyDialogProvider);
       }
       setApiKeyDialogProvider(null);
       setApiKeyInput("");
@@ -103,9 +114,8 @@ export const useApiKeyConnectDialog = ({
     ? "Connecting..."
     : `Connect ${apiKeyProviderLabel}`;
 
-  return {
-    openApiKeyDialog,
-    apiKeyDialog: (
+  const apiKeyDialog = useMemo(
+    () => (
       <Dialog
         open={apiKeyDialogProvider !== null}
         onOpenChange={(open) => {
@@ -123,9 +133,9 @@ export const useApiKeyConnectDialog = ({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor={apiKeyInputId}>
+            <Label htmlFor={apiKeyInputId}>
               {`${apiKeyProviderLabel} API key`}
-            </label>
+            </Label>
             <Input
               id={apiKeyInputId}
               type="password"
@@ -173,5 +183,22 @@ export const useApiKeyConnectDialog = ({
         </DialogContent>
       </Dialog>
     ),
+    [
+      apiKeyDialogProvider,
+      apiKeyError,
+      apiKeyErrorId,
+      apiKeyInput,
+      apiKeyInputId,
+      apiKeyProviderLabel,
+      apiKeySubmitLabel,
+      closeApiKeyDialog,
+      handleConnectWithApiKey,
+      isConnectingApiKey,
+    ],
+  );
+
+  return {
+    openApiKeyDialog,
+    apiKeyDialog,
   };
 };
