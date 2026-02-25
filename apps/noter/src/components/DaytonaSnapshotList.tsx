@@ -7,6 +7,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import { cn } from "@/lib/utils";
 
 const SNAPSHOT_POLL_INTERVAL_MS = 5_000;
@@ -50,25 +51,6 @@ const getSnapshotStateClassName = (state: string) => {
   return "text-muted-foreground";
 };
 
-const formatTimeAgo = (timestamp: number) => {
-  const now = Date.now();
-  const diff = Math.max(0, now - timestamp);
-  const minutes = Math.floor(diff / (1000 * 60));
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-  if (minutes < 1) {
-    return "just now";
-  }
-  if (minutes < 60) {
-    return `${minutes}m ago`;
-  }
-  if (hours < 24) {
-    return `${hours}h ago`;
-  }
-  return `${days}d ago`;
-};
-
 export function DaytonaSnapshotList({
   vaultId,
   disabled,
@@ -96,8 +78,8 @@ export function DaytonaSnapshotList({
         return;
       }
       fetchInFlightRef.current = true;
-      setIsFetching(true);
       if (!silent) {
+        setIsFetching(true);
         setErrorMessage(null);
       }
 
@@ -120,15 +102,13 @@ export function DaytonaSnapshotList({
         }
       } finally {
         fetchInFlightRef.current = false;
-        setIsFetching(false);
+        if (!silent) {
+          setIsFetching(false);
+        }
       }
     },
     [listDaytonaSnapshotsForVault, vaultId],
   );
-
-  useEffect(() => {
-    void fetchSnapshots(true);
-  }, [fetchSnapshots]);
 
   useEffect(() => {
     if (!isExpanded) {
@@ -250,7 +230,7 @@ export function DaytonaSnapshotList({
                   </a>
                   {updatedAt !== undefined && (
                     <span className="shrink-0 text-[11px] text-muted-foreground">
-                      {formatTimeAgo(updatedAt)}
+                      {formatRelativeTimeAgo(updatedAt)}
                     </span>
                   )}
                   <Button
@@ -263,7 +243,10 @@ export function DaytonaSnapshotList({
                     }}
                   >
                     {isDeleting ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <>
+                        <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                        Deleting...
+                      </>
                     ) : (
                       "Delete"
                     )}

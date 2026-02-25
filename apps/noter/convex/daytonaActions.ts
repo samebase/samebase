@@ -64,6 +64,7 @@ const DAYTONA_REGISTRY_SET_DEFAULT_ENV = "DAYTONA_REGISTRY_SET_DEFAULT";
 const DAYTONA_ORGANIZATION_ID_ENV = "DAYTONA_ORGANIZATION_ID";
 const DAYTONA_REPO_REFRESH_MODE_ENV = "DAYTONA_REPO_REFRESH_MODE";
 const DAYTONA_SNAPSHOT_LIST_LIMIT = 100;
+const DAYTONA_SNAPSHOT_CACHE_TTL_MS = 5_000;
 const DAYTONA_PREBUILD_RESOURCES: Resources = {
   cpu: 4,
   memory: 8,
@@ -89,6 +90,13 @@ type RepoRefreshResult = {
 type DaytonaSnapshot = Awaited<
   ReturnType<Daytona["snapshot"]["list"]>
 >["items"][number];
+type SnapshotCacheEntry = {
+  expiresAtMs: number;
+  snapshots: DaytonaSnapshot[];
+};
+
+const daytonaSnapshotCache = new Map<string, SnapshotCacheEntry>();
+const daytonaSnapshotInFlight = new Map<string, Promise<DaytonaSnapshot[]>>();
 
 function isNotFoundError(error: unknown): boolean {
   if (typeof error === "object" && error !== null) {
@@ -545,7 +553,7 @@ function inferDaytonaSnapshotPrefix(args: {
     if (prefix.length > 0) {
       return prefix;
     }
-    return toSafeRepoName(`noter-prebuild-${envLabel}-`) || null;
+    return null;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn("daytona:snapshot:prefix:failed", {
@@ -555,6 +563,17 @@ function inferDaytonaSnapshotPrefix(args: {
     });
     return null;
   }
+}
+
+function buildDaytonaSnapshotCacheKey(args: {
+  apiUrl: string;
+  apiToken: string;
+}): string {
+  const tokenHash = createHash("sha256")
+    .update(args.apiToken)
+    .digest("hex")
+    .slice(0, 12);
+  return `${args.apiUrl}::${tokenHash}`;
 }
 
 function resolveDaytonaDashboardBaseUrl(apiUrl: string): string {
@@ -617,22 +636,47 @@ function parseSnapshotTimestamp(
 
 async function listDaytonaSnapshots(
   daytona: Daytona,
+  cacheKey: string,
 ): Promise<DaytonaSnapshot[]> {
-  const snapshots: DaytonaSnapshot[] = [];
-  let page = 1;
-  let totalPages = 1;
+  const now = Date.now();
+  const cached = daytonaSnapshotCache.get(cacheKey);
+  if (cached && cached.expiresAtMs > now) {
+    return cached.snapshots;
+  }
 
-  do {
-    const result = await daytona.snapshot.list(
-      page,
-      DAYTONA_SNAPSHOT_LIST_LIMIT,
-    );
-    snapshots.push(...result.items);
-    totalPages = result.totalPages;
-    page += 1;
-  } while (page <= totalPages);
+  const existingRequest = daytonaSnapshotInFlight.get(cacheKey);
+  if (existingRequest) {
+    return existingRequest;
+  }
 
-  return snapshots;
+  const request = (async () => {
+    const snapshots: DaytonaSnapshot[] = [];
+    let page = 1;
+    let totalPages = 1;
+
+    do {
+      const result = await daytona.snapshot.list(
+        page,
+        DAYTONA_SNAPSHOT_LIST_LIMIT,
+      );
+      snapshots.push(...result.items);
+      totalPages = result.totalPages;
+      page += 1;
+    } while (page <= totalPages);
+
+    daytonaSnapshotCache.set(cacheKey, {
+      expiresAtMs: Date.now() + DAYTONA_SNAPSHOT_CACHE_TTL_MS,
+      snapshots,
+    });
+    return snapshots;
+  })();
+
+  daytonaSnapshotInFlight.set(cacheKey, request);
+  try {
+    return await request;
+  } finally {
+    daytonaSnapshotInFlight.delete(cacheKey);
+  }
 }
 
 function quoteForBash(input: string): string {
@@ -2635,10 +2679,14 @@ export const listDaytonaSnapshotsForVault = action({
       config.apiUrl = apiConfig.baseUrl;
     }
     const daytona = new Daytona(config);
+    const snapshotCacheKey = buildDaytonaSnapshotCacheKey({
+      apiUrl: apiConfig.baseUrl,
+      apiToken: apiConfig.token,
+    });
     const dashboardBaseUrl = resolveDaytonaDashboardBaseUrl(apiConfig.baseUrl);
 
     try {
-      const snapshots = await listDaytonaSnapshots(daytona);
+      const snapshots = await listDaytonaSnapshots(daytona, snapshotCacheKey);
       const filteredSnapshots = snapshots
         .filter((snapshot) =>
           isVaultSnapshotName({
@@ -2717,14 +2765,13 @@ export const removeDaytonaSnapshot = action({
     }
 
     const explicitSnapshotName = args.snapshotName?.trim();
-    const branch = args.branch?.trim() || "main";
     const snapshotName =
       explicitSnapshotName && explicitSnapshotName.length > 0
         ? explicitSnapshotName
         : inferPrebuildSnapshotName({
             owner: vault.ghRepoOwner,
             repo: vault.ghRepoName,
-            branch,
+            branch: args.branch?.trim() || "main",
           });
     if (!snapshotName) {
       return {
@@ -2752,10 +2799,16 @@ export const removeDaytonaSnapshot = action({
       config.apiUrl = apiConfig.baseUrl;
     }
     const daytona = new Daytona(config);
+    const snapshotCacheKey = buildDaytonaSnapshotCacheKey({
+      apiUrl: apiConfig.baseUrl,
+      apiToken: apiConfig.token,
+    });
 
     try {
       const snapshot = await daytona.snapshot.get(snapshotName);
       await daytona.snapshot.delete(snapshot);
+      daytonaSnapshotCache.delete(snapshotCacheKey);
+      daytonaSnapshotInFlight.delete(snapshotCacheKey);
       return {
         ok: true,
         snapshotName,
@@ -2763,6 +2816,8 @@ export const removeDaytonaSnapshot = action({
       };
     } catch (error) {
       if (isNotFoundError(error)) {
+        daytonaSnapshotCache.delete(snapshotCacheKey);
+        daytonaSnapshotInFlight.delete(snapshotCacheKey);
         return {
           ok: true,
           snapshotName,
