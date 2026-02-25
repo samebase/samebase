@@ -77,9 +77,6 @@ export function DaytonaWorkspaceButton({
   const getDaytonaPrebuildLogs = useAction(
     api.daytonaActions.getDaytonaPrebuildLogs,
   );
-  const removeDaytonaSnapshot = useAction(
-    api.daytonaActions.removeDaytonaSnapshot,
-  );
   const ensureDaytonaRegistryForVault = useAction(
     api.daytonaActions.ensureDaytonaRegistryForVault,
   );
@@ -91,10 +88,7 @@ export function DaytonaWorkspaceButton({
   const [isFetchingPrebuildLogs, setIsFetchingPrebuildLogs] = useState(false);
   const [isPrebuilding, setIsPrebuilding] = useState(false);
   const [isEnsuringRegistry, setIsEnsuringRegistry] = useState(false);
-  const [isRemovingSnapshot, setIsRemovingSnapshot] = useState(false);
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
-  const [isRemoveSnapshotDialogOpen, setIsRemoveSnapshotDialogOpen] =
-    useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
   const [terminalUrl, setTerminalUrl] = useState<string | null>(null);
@@ -393,34 +387,6 @@ export function DaytonaWorkspaceButton({
     }
   };
 
-  const handleRemoveSnapshot = async () => {
-    if (disabled || isRemovingSnapshot) {
-      return;
-    }
-    setIsRemovingSnapshot(true);
-    setMessage(null);
-    setHasError(false);
-
-    try {
-      const result = await removeDaytonaSnapshot({ vaultId, branch });
-      if (!result.ok) {
-        setHasError(true);
-        setMessage(result.message ?? "Failed to remove snapshot.");
-        return;
-      }
-      setPrebuildLogs(null);
-      setMessage(result.message ?? "Snapshot removed.");
-      setIsRemoveSnapshotDialogOpen(false);
-    } catch (error) {
-      setHasError(true);
-      setMessage(
-        error instanceof Error ? error.message : "Failed to remove snapshot.",
-      );
-    } finally {
-      setIsRemovingSnapshot(false);
-    }
-  };
-
   const handleEnsureRegistry = async () => {
     if (disabled || isEnsuringRegistry) {
       return;
@@ -612,53 +578,6 @@ export function DaytonaWorkspaceButton({
         >
           {isFetchingPrebuildLogs ? "Fetching logs..." : "View snapshot logs"}
         </Button>
-        <Dialog
-          open={isRemoveSnapshotDialogOpen}
-          onOpenChange={(open) => {
-            if (isRemovingSnapshot) {
-              return;
-            }
-            setIsRemoveSnapshotDialogOpen(open);
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-destructive hover:text-destructive"
-              disabled={disabled}
-            >
-              Remove snapshot
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Remove snapshot</DialogTitle>
-              <DialogDescription>
-                This deletes the snapshot for the current branch. Existing
-                sandboxes are not removed.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsRemoveSnapshotDialogOpen(false)}
-                disabled={isRemovingSnapshot}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  void handleRemoveSnapshot();
-                }}
-                disabled={isRemovingSnapshot}
-              >
-                {isRemovingSnapshot ? "Removing..." : "Remove snapshot"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
         <span className="text-xs text-muted-foreground">
           Snapshot name is inferred from vault + branch.
         </span>
