@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 import {
   internalMutation,
   internalQuery,
@@ -10,6 +10,10 @@ import { internal } from "./_generated/api";
 import { GithubTreeData } from "./schema";
 import { Id } from "./_generated/dataModel";
 import { getUserId } from "./common";
+import {
+  TREE_REFRESH_DEBOUNCE_MS,
+  TREE_REFRESH_STALE_LOCK_MS,
+} from "../shared/treeRefresh";
 
 // MARK: Public
 
@@ -275,40 +279,47 @@ export const clearVaultDaytonaSandbox = internalMutation({
   },
 });
 
+const { array, boolean, id, literal, number, object, optional, string, union } =
+  v;
+
+const getUserVaultsResult = array(
+  object({
+    _id: id("vaults"),
+    _creationTime: number(),
+    ghRepoOwner: string(),
+    ghRepoName: string(),
+    repositoryFullName: string(),
+    commitSHA: optional(string()),
+    fileCount: number(),
+    lastEditTime: optional(number()),
+    lastTreeRefreshAt: optional(number()),
+    treeRefreshStartedAt: optional(number()),
+    state: union(literal("copying_files"), literal("ready")),
+    isNoterManaged: boolean(),
+    hasConvexProvision: boolean(),
+    hasNetlifyProvision: boolean(),
+    daytonaSandboxId: optional(string()),
+    daytonaSandboxName: optional(string()),
+    daytonaSandboxCreatedAt: optional(number()),
+    daytonaSnapshotName: optional(string()),
+    daytonaPrebuildLogsSnapshot: optional(string()),
+    infraState: union(
+      literal("not_started"),
+      literal("provisioning"),
+      literal("ready"),
+      literal("failed"),
+      literal("partial"),
+    ),
+    infraProductionUrl: optional(string()),
+  }),
+);
+
+type UserVaultResult = Infer<typeof getUserVaultsResult>[number];
+
 // Get user's vaults with optional file staging stats
 export const getUserVaults = query({
   args: {},
-  returns: v.array(
-    v.object({
-      _id: v.id("vaults"),
-      _creationTime: v.number(),
-      ghRepoOwner: v.string(),
-      ghRepoName: v.string(),
-      repositoryFullName: v.string(),
-      commitSHA: v.optional(v.string()),
-      fileCount: v.number(),
-      lastEditTime: v.optional(v.number()),
-      lastTreeRefreshAt: v.optional(v.number()),
-      treeRefreshStartedAt: v.optional(v.number()),
-      state: v.union(v.literal("copying_files"), v.literal("ready")),
-      isNoterManaged: v.boolean(),
-      hasConvexProvision: v.boolean(),
-      hasNetlifyProvision: v.boolean(),
-      daytonaSandboxId: v.optional(v.string()),
-      daytonaSandboxName: v.optional(v.string()),
-      daytonaSandboxCreatedAt: v.optional(v.number()),
-      daytonaSnapshotName: v.optional(v.string()),
-      daytonaPrebuildLogsSnapshot: v.optional(v.string()),
-      infraState: v.union(
-        v.literal("not_started"),
-        v.literal("provisioning"),
-        v.literal("ready"),
-        v.literal("failed"),
-        v.literal("partial"),
-      ),
-      infraProductionUrl: v.optional(v.string()),
-    }),
-  ),
+  returns: getUserVaultsResult,
   handler: async (ctx, _args) => {
     const userId = await getUserId(ctx);
 
@@ -319,7 +330,7 @@ export const getUserVaults = query({
       .collect();
 
     // Get staging stats for each vault
-    const vaultResults = await Promise.all(
+    const vaultResults: UserVaultResult[] = await Promise.all(
       vaults.map(async (vault) => {
         const stagingData = await ctx.db
           .query("fileStaging")
@@ -558,8 +569,8 @@ export const getByRepositoryFullName = internalQuery({
   },
 });
 
-const REFRESH_DEBOUNCE_MS = 2 * 60 * 1000; // 2 minutes
-const STALE_LOCK_MS = 3 * 60 * 1000; // 3 minutes — consider a lock stale if action crashed
+const REFRESH_DEBOUNCE_MS = TREE_REFRESH_DEBOUNCE_MS;
+const STALE_LOCK_MS = TREE_REFRESH_STALE_LOCK_MS;
 
 // Atomically claim the tree refresh lock for a vault.
 // Returns { claimed: true } if this caller should proceed, { claimed: false } if skipped.

@@ -15,6 +15,11 @@ import { linkStyle } from "./styles";
 import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import {
+  claimRefreshDebounce,
+  releaseRefreshDebounce,
+} from "@/lib/treeRefreshDebounce";
+import { useNow } from "@/hooks/useNow";
+import {
   useAction,
   useMutation,
   useQuery as useConvexQuery,
@@ -101,12 +106,12 @@ type CreateTemplate = "app" | "agent";
 const isCreateTemplate = (value: string): value is CreateTemplate =>
   value === "app" || value === "agent";
 
-const lastDashboardRefreshMap = new Map<string, number>();
-const DASHBOARD_REFRESH_DEBOUNCE_MS = 2 * 60 * 1000; // 2 minutes
+const DASHBOARD_REFRESH_CONCURRENCY = 3;
 type RefreshTrigger = "focus" | "page_load";
 
 export function VaultDashboard() {
   const vaults = useQuery(api.vault.getUserVaults);
+  const now = useNow();
   const { signIn } = useAuthActions();
   const deleteVault = useAction(api.vaultActions.deleteVault);
   const createRepository = useAction(api.vaultActions.createRepository);
@@ -200,30 +205,43 @@ export function VaultDashboard() {
         return;
       }
 
-      for (const vault of vaults) {
-        if (vault.state !== "ready") {
-          continue;
-        }
+      const readyVaults = vaults.filter((vault) => vault.state === "ready");
+      const vaultsToRefresh = readyVaults.filter((vault) =>
+        claimRefreshDebounce("dashboard", vault.repositoryFullName),
+      );
 
-        const key = vault.repositoryFullName;
-        const lastRefresh = lastDashboardRefreshMap.get(key) ?? 0;
-        if (Date.now() - lastRefresh < DASHBOARD_REFRESH_DEBOUNCE_MS) {
-          continue;
-        }
-
-        lastDashboardRefreshMap.set(key, Date.now());
-        void refreshTree({
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
-          trigger,
-        }).catch((error: unknown) => {
-          console.error(
-            "Failed to refresh repository tree from dashboard:",
-            error,
-          );
-          lastDashboardRefreshMap.delete(key);
-        });
+      if (vaultsToRefresh.length === 0) {
+        return;
       }
+
+      void (async () => {
+        for (
+          let index = 0;
+          index < vaultsToRefresh.length;
+          index += DASHBOARD_REFRESH_CONCURRENCY
+        ) {
+          const batch = vaultsToRefresh.slice(
+            index,
+            index + DASHBOARD_REFRESH_CONCURRENCY,
+          );
+
+          await Promise.all(
+            batch.map(async (vault) => {
+              await refreshTree({
+                owner: vault.ghRepoOwner,
+                repo: vault.ghRepoName,
+                trigger,
+              }).catch((error: unknown) => {
+                console.error(
+                  "Failed to refresh repository tree from dashboard:",
+                  error,
+                );
+                releaseRefreshDebounce("dashboard", vault.repositoryFullName);
+              });
+            }),
+          );
+        }
+      })();
     },
     [refreshTree, vaults],
   );
@@ -801,6 +819,7 @@ export function VaultDashboard() {
                           branch={defaultBranch}
                           owner={vault.ghRepoOwner}
                           repoName={vault.ghRepoName}
+                          now={now}
                           commitSha={vault.commitSHA}
                           treeRefreshStartedAt={vault.treeRefreshStartedAt}
                           lastTreeRefreshAt={vault.lastTreeRefreshAt}

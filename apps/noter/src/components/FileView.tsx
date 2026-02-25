@@ -44,6 +44,10 @@ import {
   parseSimpleViewConfig,
   SIMPLE_VIEW_CONFIG_PATH,
 } from "@/lib/simpleView";
+import {
+  claimRefreshDebounce,
+  releaseRefreshDebounce,
+} from "@/lib/treeRefreshDebounce";
 import { type GithubTreeType } from "convex/schema";
 import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
 import { VaultSyncStatus } from "./VaultSyncStatus";
@@ -72,9 +76,6 @@ function findBestInitialFile(files: GithubTreeType[]) {
   return sortedFiles[0]?.path || null;
 }
 
-// In-memory map tracking last refresh time per vault key
-const lastRefreshMap = new Map<string, number>();
-const REFRESH_DEBOUNCE_MS = 2 * 60 * 1000; // 2 minutes
 type RefreshTrigger = "focus" | "page_load";
 
 function isStorageBackedFileError(error: unknown): boolean {
@@ -148,10 +149,13 @@ function FileViewWrapper() {
     (trigger: RefreshTrigger = "focus") => {
       if (!vault || !owner || !repoName) return;
       const key = `${owner}/${repoName}`;
-      const lastRefresh = lastRefreshMap.get(key) ?? 0;
-      if (Date.now() - lastRefresh < REFRESH_DEBOUNCE_MS) return;
-      lastRefreshMap.set(key, Date.now());
-      void refreshTree({ owner, repo: repoName, trigger });
+      if (!claimRefreshDebounce("file_view", key)) return;
+      void refreshTree({ owner, repo: repoName, trigger }).catch(
+        (error: unknown) => {
+          console.error("Failed to refresh repository tree:", error);
+          releaseRefreshDebounce("file_view", key);
+        },
+      );
     },
     [vault?._id, owner, repoName, refreshTree],
   );

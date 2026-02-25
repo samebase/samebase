@@ -1,7 +1,8 @@
 import { UpdateIcon } from "@radix-ui/react-icons";
-import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { TREE_REFRESH_STALE_LOCK_MS } from "../../shared/treeRefresh";
+import { useNow } from "@/hooks/useNow";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { cn } from "@/lib/utils";
 import { CommitStatus } from "./CommitStatus";
@@ -19,22 +20,6 @@ function formatSecondsAgo(now: number, timestamp: number): string {
   return `${days}d ago`;
 }
 
-function useNow() {
-  const [now, setNow] = useState(Date.now());
-
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      setNow(Date.now());
-    }, 1_000);
-
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, []);
-
-  return now;
-}
-
 type StagedFile = NonNullable<
   (typeof api.fileStaging.listStagedFiles)["_returnType"]
 >[number];
@@ -50,6 +35,7 @@ export function VaultSyncStatus({
   lastTreeRefreshAt,
   stagedFiles,
   stagedFilesCount,
+  now: nowFromParent,
   disableStagedFilesQuery = false,
   showChecks = true,
   className,
@@ -64,11 +50,13 @@ export function VaultSyncStatus({
   lastTreeRefreshAt?: number;
   stagedFiles?: StagedFile[];
   stagedFilesCount?: number;
+  now?: number;
   disableStagedFilesQuery?: boolean;
   showChecks?: boolean;
   className?: string;
 }) {
-  const now = useNow();
+  const fallbackNow = useNow({ enabled: nowFromParent === undefined });
+  const now = nowFromParent ?? fallbackNow;
   const shouldFetchStagedFiles =
     !disableStagedFilesQuery &&
     stagedFiles === undefined &&
@@ -85,7 +73,7 @@ export function VaultSyncStatus({
 
   const isSyncing =
     typeof treeRefreshStartedAt === "number" &&
-    now - treeRefreshStartedAt < 60_000;
+    now - treeRefreshStartedAt < TREE_REFRESH_STALE_LOCK_MS;
 
   return (
     <div
