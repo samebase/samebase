@@ -642,6 +642,7 @@ export function VaultDashboard() {
                 variant="outline"
                 size="sm"
                 onClick={() => openApiKeyDialog("github")}
+                disabled={disconnectingProvider !== null}
               >
                 Use API key
               </Button>
@@ -684,6 +685,7 @@ export function VaultDashboard() {
                 variant="outline"
                 size="sm"
                 onClick={() => openApiKeyDialog("convex")}
+                disabled={disconnectingProvider !== null}
               >
                 Use API key
               </Button>
@@ -726,6 +728,7 @@ export function VaultDashboard() {
                 variant="outline"
                 size="sm"
                 onClick={() => openApiKeyDialog("netlify")}
+                disabled={disconnectingProvider !== null}
               >
                 Use API key
               </Button>

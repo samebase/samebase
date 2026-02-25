@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,6 +37,8 @@ export const useApiKeyConnectDialog = ({
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [apiKeyError, setApiKeyError] = useState<string | null>(null);
   const [isConnectingApiKey, setIsConnectingApiKey] = useState(false);
+  const apiKeyInputId = useId();
+  const apiKeyErrorId = `${apiKeyInputId}-error`;
 
   const openApiKeyDialog = useCallback((provider: ApiKeyProvider) => {
     setApiKeyDialogProvider(provider);
@@ -121,7 +123,11 @@ export const useApiKeyConnectDialog = ({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor={apiKeyInputId}>
+              {`${apiKeyProviderLabel} API key`}
+            </label>
             <Input
+              id={apiKeyInputId}
               type="password"
               autoComplete="off"
               value={apiKeyInput}
@@ -133,9 +139,18 @@ export const useApiKeyConnectDialog = ({
               }}
               placeholder={`${apiKeyProviderLabel} API key`}
               disabled={isConnectingApiKey}
+              aria-invalid={apiKeyError !== null}
+              aria-describedby={apiKeyError ? apiKeyErrorId : undefined}
             />
             {apiKeyError ? (
-              <p className="text-xs text-red-600">{apiKeyError}</p>
+              <p
+                id={apiKeyErrorId}
+                role="alert"
+                aria-live="assertive"
+                className="text-xs text-red-600"
+              >
+                {apiKeyError}
+              </p>
             ) : null}
           </div>
           <DialogFooter>
