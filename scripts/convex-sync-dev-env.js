@@ -1,7 +1,43 @@
 #!/usr/bin/env node
+// @ts-check
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+
+/**
+ * @typedef {'dev' | 'prod' | 'preview'} DeploymentType
+ * @typedef {'CONVEX_DEPLOYMENT' | 'CONVEX_DEPLOY_KEY'} DeploymentSource
+ *
+ * @typedef {{
+ *   sourceEnv: string | null
+ *   targetEnv: string | null
+ *   includeSiteUrl: boolean
+ *   dryRun: boolean
+ *   showHelp: boolean
+ * }} SyncOptions
+ *
+ * @typedef {{
+ *   path: string
+ *   vars: Record<string, string>
+ * }} EnvFile
+ *
+ * @typedef {{
+ *   type: DeploymentType
+ *   name: string | null
+ *   raw: string
+ *   source: DeploymentSource
+ * }} Deployment
+ *
+ * @typedef {{
+ *   name: string
+ *   value: string
+ * }} EnvEntry
+ *
+ * @typedef {{
+ *   worktree: string
+ *   branch: string | null
+ * }} WorktreeInfo
+ */
 
 const HELP_TEXT = `Usage: scripts/convex-sync-dev-env.js [options]
 
@@ -134,7 +170,12 @@ for (const { name, value } of sorted) {
 
 console.log('Done.')
 
+/**
+ * @param {string[]} args
+ * @returns {SyncOptions}
+ */
 function parseArgs(args) {
+  /** @type {SyncOptions} */
   const result = {
     sourceEnv: null,
     targetEnv: null,
@@ -181,6 +222,7 @@ function parseArgs(args) {
   return result
 }
 
+/** @returns {string} */
 function resolveRepoRoot() {
   const result = spawnSync('git', ['rev-parse', '--show-toplevel'], {
     encoding: 'utf8',
@@ -191,11 +233,16 @@ function resolveRepoRoot() {
   return process.cwd()
 }
 
+/**
+ * @param {string} filePath
+ * @returns {EnvFile | null}
+ */
 function readEnvFile(filePath) {
   if (!fs.existsSync(filePath)) {
     return null
   }
   const contents = fs.readFileSync(filePath, 'utf8')
+  /** @type {Record<string, string>} */
   const vars = {}
   for (const line of contents.split(/\r?\n/)) {
     const trimmed = line.trim()
@@ -214,6 +261,10 @@ function readEnvFile(filePath) {
   return { path: filePath, vars }
 }
 
+/**
+ * @param {string} value
+ * @returns {string}
+ */
 function stripQuotes(value) {
   if (
     (value.startsWith('"') && value.endsWith('"')) ||
@@ -224,6 +275,10 @@ function stripQuotes(value) {
   return value
 }
 
+/**
+ * @param {Record<string, string>} vars
+ * @returns {Deployment | null}
+ */
 function parseDeploymentFromEnv(vars) {
   if (vars.CONVEX_DEPLOYMENT) {
     return parseDeploymentString(vars.CONVEX_DEPLOYMENT, 'CONVEX_DEPLOYMENT')
@@ -234,6 +289,19 @@ function parseDeploymentFromEnv(vars) {
   return null
 }
 
+/**
+ * @param {string} value
+ * @returns {value is DeploymentType}
+ */
+function isDeploymentType(value) {
+  return value === 'dev' || value === 'prod' || value === 'preview'
+}
+
+/**
+ * @param {string} raw
+ * @param {DeploymentSource} source
+ * @returns {Deployment | null}
+ */
 function parseDeploymentString(raw, source) {
   const index = raw.indexOf(':')
   if (index <= 0) {
@@ -241,17 +309,21 @@ function parseDeploymentString(raw, source) {
   }
   const type = raw.slice(0, index).trim()
   const name = raw.slice(index + 1).trim()
-  if (!type || !name) {
+  if (!name || !isDeploymentType(type)) {
     return null
   }
   return { type, name, raw, source }
 }
 
+/**
+ * @param {string} raw
+ * @returns {Deployment | null}
+ */
 function parseDeploymentFromDeployKey(raw) {
   const prefix = raw.split('|')[0] ?? ''
   const parts = prefix.split(':')
-  const type = parts[0]?.trim()
-  if (!type) {
+  const type = parts[0]?.trim() ?? ''
+  if (!isDeploymentType(type)) {
     return null
   }
   if (type === 'dev' || type === 'prod') {
@@ -267,6 +339,10 @@ function parseDeploymentFromDeployKey(raw) {
   return null
 }
 
+/**
+ * @param {{ appDir: string; envFile: string }} args
+ * @returns {EnvEntry[]}
+ */
 function listDeploymentEnvVars({ appDir, envFile }) {
   const result = spawnSync(
     'npx',
@@ -284,6 +360,7 @@ function listDeploymentEnvVars({ appDir, envFile }) {
     return []
   }
 
+  /** @type {EnvEntry[]} */
   const entries = []
   for (const line of output.split(/\r?\n/)) {
     const eqIndex = line.indexOf('=')
@@ -297,6 +374,10 @@ function listDeploymentEnvVars({ appDir, envFile }) {
   return entries
 }
 
+/**
+ * @param {{ appDir: string; envFile: string; name: string; value: string }} args
+ * @returns {void}
+ */
 function setDeploymentEnvVar({ appDir, envFile, name, value }) {
   const result = spawnSync(
     'npx',
@@ -315,8 +396,14 @@ function setDeploymentEnvVar({ appDir, envFile, name, value }) {
   }
 }
 
+/**
+ * @param {string} repoRoot
+ * @param {string} targetEnvPath
+ * @returns {string | null}
+ */
 function findSourceEnvFile(repoRoot, targetEnvPath) {
   const worktrees = getWorktrees(repoRoot)
+  /** @type {Array<{ envPath: string; deployment: Deployment; worktree: WorktreeInfo }>} */
   const candidates = []
 
   for (const worktree of worktrees) {
@@ -360,6 +447,10 @@ function findSourceEnvFile(repoRoot, targetEnvPath) {
   return null
 }
 
+/**
+ * @param {string} repoRoot
+ * @returns {WorktreeInfo[]}
+ */
 function getWorktrees(repoRoot) {
   const result = spawnSync('git', ['worktree', 'list', '--porcelain'], {
     cwd: repoRoot,
@@ -376,8 +467,13 @@ function getWorktrees(repoRoot) {
   return blocks.map(block => parseWorktreeBlock(block))
 }
 
+/**
+ * @param {string} block
+ * @returns {WorktreeInfo}
+ */
 function parseWorktreeBlock(block) {
   const lines = block.split(/\r?\n/)
+  /** @type {WorktreeInfo} */
   const data = {
     worktree: '',
     branch: null,
@@ -394,6 +490,10 @@ function parseWorktreeBlock(block) {
   return data
 }
 
+/**
+ * @param {string} message
+ * @returns {never}
+ */
 function exitWithError(message) {
   console.error(message)
   process.exit(1)

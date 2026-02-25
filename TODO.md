@@ -98,6 +98,7 @@
 - [ ] show actionable error when delete fails due to missing GitHub `delete_repo` scope, with a re-login CTA
 - [ ] When repository name already exists show better error
 - [ ] make graphic of the services we use: GitHub for storage, Convex for backend+db, Netlify for domains+frontend, GitHub Codespaces for dev
+- [ ] Reuse typescript config files (the way we did for ailegis)
 
 ## Meta/Philosophy
 - [ ] the more our tooling for noter gets better (in terms of ai settings or integrations) the more our user's tooling gets better, since we use noter for building noter

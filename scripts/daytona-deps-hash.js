@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
@@ -8,6 +9,7 @@ const DEFAULT_BASE_IMAGE =
   'mcr.microsoft.com/devcontainers/javascript-node:24-bookworm'
 const DEFAULT_PNPM_VERSION = '9.15.0'
 const LOCKFILE_PATH = 'pnpm-lock.yaml'
+/** @type {readonly string[]} */
 const INPUT_FILES = [
   'Dockerfile.daytona-deps',
   'package.json',
@@ -17,20 +19,39 @@ const INPUT_FILES = [
   'apps/noter-starter-template/package.json',
 ]
 
+/**
+ * @param {import('node:crypto').BinaryLike} contents
+ * @returns {string}
+ */
 function sha256(contents) {
   return createHash('sha256').update(contents).digest('hex')
 }
 
+/**
+ * @param {string} rootDir
+ * @param {string} relativePath
+ * @returns {Buffer}
+ */
 function readFileContents(rootDir, relativePath) {
   const absolutePath = path.join(rootDir, relativePath)
   return fs.readFileSync(absolutePath)
 }
 
+/**
+ * @param {string} rootDir
+ * @returns {string}
+ */
 function computeLockHash(rootDir) {
   const lockfile = readFileContents(rootDir, LOCKFILE_PATH)
   return sha256(lockfile)
 }
 
+/**
+ * @param {string} rootDir
+ * @param {string} baseImage
+ * @param {string} pnpmVersion
+ * @returns {string}
+ */
 function computeInputHash(rootDir, baseImage, pnpmVersion) {
   const hash = createHash('sha256')
   hash.update(`baseImage=${baseImage}\n`)
@@ -45,6 +66,7 @@ function computeInputHash(rootDir, baseImage, pnpmVersion) {
   return hash.digest('hex')
 }
 
+/** @returns {void} */
 function main() {
   const rootDir = process.cwd()
   const baseImage = process.env.DAYTONA_BASE_IMAGE?.trim() || DEFAULT_BASE_IMAGE

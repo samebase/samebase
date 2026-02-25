@@ -13,8 +13,8 @@
     "dev": "turbo run dev --filter=noter",
     "build": "turbo run build --filter=noter",
     "build:ci": "turbo run build:ci --filter=noter",
-    "lint": "turbo run lint --filter=noter",
-    "lint:ci": "turbo run lint:ci --filter=noter",
+    "lint": "turbo run lint --filter=noter && pnpm typecheck:scripts",
+    "lint:ci": "turbo run lint:ci --filter=noter && pnpm typecheck:scripts",
     "ci:convex-bootstrap": "CONVEX_AGENT_MODE=anonymous pnpm --filter noter exec convex dev --until-success --typecheck=disable --tail-logs=disable",
     "format": "prettier --write .",
     "preview": "turbo run preview",
@@ -28,7 +28,8 @@
     "build:starter": "turbo run build --filter=noter-starter-template",
     "lint:starter": "turbo run lint --filter=noter-starter-template",
     "prepare": "husky",
-    "daytona:refresh": "bash scripts/daytona-refresh.sh"
+    "daytona:refresh": "bash scripts/daytona-refresh.sh",
+    "typecheck:scripts": "tsc -p tsconfig.scripts.json --pretty false"
   },
   "devDependencies": {
     "@robolex/sure": "^0.12.0",

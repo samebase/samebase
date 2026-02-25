@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
@@ -11,6 +12,20 @@ import {
   writeFileSync,
 } from 'node:fs'
 import path from 'node:path'
+
+/**
+ * @typedef {{
+ *   anonMode: boolean
+ *   enableBranch: boolean
+ * }} BootstrapOptions
+ *
+ * @typedef {{
+ *   anonMode: boolean
+ *   cacheRoot: string
+ *   currentHash: string
+ *   workspaceDir: string
+ * }} InstallOptions
+ */
 
 const HELP_TEXT = `Usage: scripts/bootstrap-worktree.js [--anon] [--no-branch]
 
@@ -114,7 +129,12 @@ installDependenciesIfNeeded({
   workspaceDir,
 })
 
+/**
+ * @param {string[]} args
+ * @returns {BootstrapOptions}
+ */
 function parseArgs(args) {
+  /** @type {BootstrapOptions} */
   const result = {
     anonMode: false,
     enableBranch: true,
@@ -142,6 +162,7 @@ function parseArgs(args) {
   return result
 }
 
+/** @returns {void} */
 function createBranchIfDetached() {
   if (!isGitRepo()) {
     return
@@ -164,6 +185,7 @@ function createBranchIfDetached() {
   }
 }
 
+/** @returns {boolean} */
 function isGitRepo() {
   const result = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], {
     stdio: 'ignore',
@@ -171,6 +193,7 @@ function isGitRepo() {
   return result.status === 0
 }
 
+/** @returns {string} */
 function getCurrentBranch() {
   const result = spawnSync('git', ['symbolic-ref', '-q', '--short', 'HEAD'], {
     encoding: 'utf8',
@@ -183,6 +206,7 @@ function getCurrentBranch() {
   return (result.stdout ?? '').trim()
 }
 
+/** @returns {string} */
 function pickAvailableBranchName() {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const candidate = generateThreeWordBranch()
@@ -207,15 +231,27 @@ function pickAvailableBranchName() {
   return `${fallbackBase}-${Date.now()}`
 }
 
+/** @returns {string} */
 function generateThreeWordBranch() {
   return `codex/${pickRandom(FIRST_WORDS)}-${pickRandom(SECOND_WORDS)}-${pickRandom(THIRD_WORDS)}`
 }
 
+/**
+ * @param {readonly string[]} words
+ * @returns {string}
+ */
 function pickRandom(words) {
+  if (words.length === 0) {
+    throw new Error('Cannot pick from an empty list.')
+  }
   const index = Math.floor(Math.random() * words.length)
   return words[index]
 }
 
+/**
+ * @param {string} branchName
+ * @returns {boolean}
+ */
 function branchExists(branchName) {
   const result = spawnSync(
     'git',
@@ -225,6 +261,7 @@ function branchExists(branchName) {
   return result.status === 0
 }
 
+/** @returns {string} */
 function timestampForBranch() {
   const now = new Date()
   const year = String(now.getFullYear())
@@ -236,6 +273,7 @@ function timestampForBranch() {
   return `${year}${month}${day}-${hours}${minutes}${seconds}`
 }
 
+/** @returns {string} */
 function configureCacheRoot() {
   const vscodeDir = '/vscode'
   if (!existsSync(vscodeDir)) {
@@ -260,7 +298,12 @@ function configureCacheRoot() {
   return cacheRoot
 }
 
+/**
+ * @param {string} workspace
+ * @returns {string}
+ */
 function computeInstallHash(workspace) {
+  /** @type {string[]} */
   const hashInputs = []
   const rootFiles = ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml']
 
@@ -289,6 +332,12 @@ function computeInstallHash(workspace) {
   return hash.digest('hex')
 }
 
+/**
+ * @param {string} relativeDir
+ * @param {number} depth
+ * @param {string[]} output
+ * @returns {void}
+ */
 function collectPackageJsonFiles(relativeDir, depth, output) {
   if (depth > 3) {
     return
@@ -310,6 +359,10 @@ function collectPackageJsonFiles(relativeDir, depth, output) {
   }
 }
 
+/**
+ * @param {InstallOptions} args
+ * @returns {void}
+ */
 function installDependenciesIfNeeded({
   anonMode,
   cacheRoot,
