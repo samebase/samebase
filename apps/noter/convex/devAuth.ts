@@ -3,7 +3,7 @@ import {
   modifyAccountCredentials,
 } from "@convex-dev/auth/server";
 import { v } from "convex/values";
-import { action } from "./_generated/server";
+import { internalAction } from "./_generated/server";
 import { readOptionalEnv } from "./oauthUtils";
 import { isAllowedEmail } from "./users";
 
@@ -27,11 +27,12 @@ function normalizeEmail(email: string): string {
 function isMissingPasswordAccountError(error: unknown): boolean {
   return (
     error instanceof Error &&
-    error.message.includes("because it does not exist")
+    (error.message.includes("does not exist") ||
+      error.message.includes("not found"))
   );
 }
 
-export const seedPasswordAccount = action({
+export const seedPasswordAccount = internalAction({
   args: {},
   returns: v.object({
     email: v.string(),

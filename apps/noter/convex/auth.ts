@@ -88,13 +88,6 @@ function applyAutoSeedProviderKeys(
       patch.githubAccessToken = envToken;
     }
   }
-  const githubUsername = patch.githubUsername ?? existingUser?.githubUsername;
-  if (!isNonEmptyString(githubUsername)) {
-    const envUsername = readOptionalEnv("GITHUB_USERNAME");
-    if (envUsername !== null) {
-      patch.githubUsername = envUsername;
-    }
-  }
 
   const convexAccessToken =
     patch.convexAccessToken ?? existingUser?.convexAccessToken;
@@ -206,7 +199,6 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       const existingUser = args.existingUserId
         ? await ctx.db.get(args.existingUserId)
         : null;
-      applyAutoSeedProviderKeys(patch, existingUser);
 
       let githubUsernameForAccessCheck = patch.githubUsername;
       let emailForAccessCheck = patch.email;
@@ -223,6 +215,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       if (!isSignInAllowed(githubUsernameForAccessCheck, emailForAccessCheck)) {
         throw new Error("Access denied: account is not allowlisted");
       }
+
+      applyAutoSeedProviderKeys(patch, existingUser);
 
       if (args.existingUserId) {
         await ctx.db.patch(args.existingUserId, patch);

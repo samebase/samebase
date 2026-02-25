@@ -55,15 +55,15 @@ Current needs:
 
 ## Locked Product Decisions
 
-1. Password login UI is shown on the current root sign-in page.
-2. Password login UI is development-only.
-3. Password credentials are not prefilled in the form.
+1. The current root sign-in page displays the password login UI.
+2. This password login UI is restricted to development.
+3. Credentials are not prefilled in the password form.
 4. Worktree seeded credentials come from env (`AUTH_SEED_EMAIL`,
    `AUTH_SEED_PASSWORD`).
-5. Password provider supports sign-in and sign-up flows.
+5. Sign-in and sign-up flows are both supported by the password provider.
 6. Existing allowlist policy remains enforced for password flows too.
-7. API-key connection mode is available in production as an option.
-8. OAuth connection mode remains available.
+7. Production keeps API-key connection mode available as an option.
+8. OAuth connection mode remains available in parallel.
 
 ## High-Level Architecture
 
@@ -225,20 +225,20 @@ OAuth or API key.
 
 ### Phase 1: Password auth foundation
 
-1. Add password provider support with env gates.
-2. Add seeded password account action and predev integration.
-3. Add dev-only password UI.
+1. Introduce password provider support with env gates.
+2. Wire seeded password account action into predev integration.
+3. Ship the dev-only password UI.
 
 ### Phase 2: API-key provider connections
 
-1. Add backend connect mutations with validation.
-2. Add UI dialogs/actions in Connections panel.
-3. Keep OAuth connect flows unchanged.
+1. Implement backend connect mutations with validation.
+2. Surface UI dialogs/actions in the Connections panel.
+3. Preserve existing OAuth connect flows unchanged.
 
 ### Phase 3: Hardening and compatibility
 
 1. Update admin-check paths for password-authenticated admin users.
-2. Add documentation for env contract and local workflow.
+2. Document the env contract and local workflow.
 3. Validate behavior across anon worktree, normal dev, and prod.
 
 ## Testing Plan

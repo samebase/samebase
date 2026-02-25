@@ -75,7 +75,9 @@ const maybeSeedPasswordAccount = () => {
     return;
   }
   if (!env.AUTH_SEED_EMAIL || !env.AUTH_SEED_PASSWORD) {
-    return;
+    throw new Error(
+      "AUTH_ENABLE_PASSWORD=true requires AUTH_SEED_EMAIL and AUTH_SEED_PASSWORD in .env.local",
+    );
   }
   run("npx", ["convex", "run", "devAuth:seedPasswordAccount"]);
 };

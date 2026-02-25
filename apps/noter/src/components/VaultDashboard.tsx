@@ -104,7 +104,6 @@ const hasDaytonaResourcesForVault = (
 
 type CreateTemplate = "app" | "agent";
 type ApiKeyProvider = "github" | "convex" | "netlify";
-type CheckedState = boolean | "indeterminate";
 
 const isCreateTemplate = (value: string): value is CreateTemplate =>
   value === "app" || value === "agent";
@@ -820,7 +819,12 @@ export function VaultDashboard() {
             type="password"
             autoComplete="off"
             value={apiKeyInput}
-            onChange={(event) => setApiKeyInput(event.target.value)}
+            onChange={(event) => {
+              setApiKeyInput(event.target.value);
+              if (apiKeyError) {
+                setApiKeyError(null);
+              }
+            }}
             placeholder={`${apiKeyProviderLabel} API key`}
             disabled={isConnectingApiKey}
           />
@@ -1096,7 +1100,7 @@ export function VaultDashboard() {
                   <Checkbox
                     id="remove-github-repo"
                     checked={removeGithubRepo}
-                    onCheckedChange={(checked: CheckedState) =>
+                    onCheckedChange={(checked) =>
                       setRemoveGithubRepo(checked === true)
                     }
                     disabled={
@@ -1124,7 +1128,7 @@ export function VaultDashboard() {
                     checked={
                       connectedCodespacesCount === 0 ? true : removeCodespaces
                     }
-                    onCheckedChange={(checked: CheckedState) =>
+                    onCheckedChange={(checked) =>
                       setRemoveCodespaces(checked === true)
                     }
                     disabled={
@@ -1148,7 +1152,7 @@ export function VaultDashboard() {
                   <Checkbox
                     id="remove-daytona-resources"
                     checked={removeDaytonaResources}
-                    onCheckedChange={(checked: CheckedState) =>
+                    onCheckedChange={(checked) =>
                       setRemoveDaytonaResources(checked === true)
                     }
                     disabled={isDeleting || isCommitting}
@@ -1172,7 +1176,7 @@ export function VaultDashboard() {
                     <Checkbox
                       id="remove-convex-provision"
                       checked={removeConvexProvision}
-                      onCheckedChange={(checked: CheckedState) =>
+                      onCheckedChange={(checked) =>
                         setRemoveConvexProvision(checked === true)
                       }
                       disabled={
@@ -1201,7 +1205,7 @@ export function VaultDashboard() {
                     <Checkbox
                       id="remove-netlify-provision"
                       checked={removeNetlifyProvision}
-                      onCheckedChange={(checked: CheckedState) =>
+                      onCheckedChange={(checked) =>
                         setRemoveNetlifyProvision(checked === true)
                       }
                       disabled={
