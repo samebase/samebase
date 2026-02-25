@@ -49,6 +49,7 @@ jobs:
       - name: Decide publish mode
         id: publish
         run: |
+          # Publish immutable tags on push and same-repo PRs so merges can reuse them.
           should_push="false"
           if [ "${{ github.event_name }}" = "push" ]; then
             should_push="true"
@@ -57,6 +58,7 @@ jobs:
           fi
           echo "should_push=${should_push}" >> "$GITHUB_OUTPUT"
 
+          # Alias tags (lock-hash compatibility) are only published on main.
           publish_aliases="false"
           if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
             publish_aliases="true"
@@ -71,22 +73,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Resolve base image
-        id: base_image
-        env:
-          DAYTONA_BASE_IMAGE_OVERRIDE: ${{ vars.DAYTONA_BASE_IMAGE }}
-        run: |
-          base_image="${DAYTONA_BASE_IMAGE_OVERRIDE}"
-          if [ -z "$base_image" ]; then
-            base_image="mcr.microsoft.com/devcontainers/javascript-node:24-bookworm"
-          fi
-          echo "base_image=${base_image}" >> "$GITHUB_OUTPUT"
-
       - name: Compute deps hashes
         id: hash
-        env:
-          DAYTONA_BASE_IMAGE: ${{ steps.base_image.outputs.base_image }}
-          DAYTONA_PNPM_VERSION: ${{ env.DAYTONA_PNPM_VERSION }}
         run: node scripts/daytona-deps-hash.js
 
       - name: Resolve image tags
@@ -125,7 +113,7 @@ jobs:
           cache-to:
             type=gha,mode=max,scope=daytona-deps-${{ github.repository }}
           build-args: |
-            BASE_IMAGE=${{ steps.base_image.outputs.base_image }}
+            BASE_IMAGE=mcr.microsoft.com/devcontainers/javascript-node:24-bookworm
             WORKSPACE_DIR=/home/daytona/workspace
             REPO_NAME=${{ github.event.repository.name }}
             PNPM_VERSION=${{ env.DAYTONA_PNPM_VERSION }}
@@ -140,7 +128,7 @@ jobs:
           push: false
           cache-from: type=gha,scope=daytona-deps-${{ github.repository }}
           build-args: |
-            BASE_IMAGE=${{ steps.base_image.outputs.base_image }}
+            BASE_IMAGE=mcr.microsoft.com/devcontainers/javascript-node:24-bookworm
             WORKSPACE_DIR=/home/daytona/workspace
             REPO_NAME=${{ github.event.repository.name }}
             PNPM_VERSION=${{ env.DAYTONA_PNPM_VERSION }}

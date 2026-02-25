@@ -46,6 +46,7 @@ const DAYTONA_DEPS_HASH_INPUT_FILES = [
   "apps/noter/package.json",
   "apps/noter-starter-template/package.json",
 ];
+const PNPM_INSTALL_LOG = "/tmp/noter-pnpm-install.log";
 const PNPM_INSTALL_STATUS = "/tmp/noter-pnpm-install.status";
 const DAYTONA_PREVIEW_PORT = 5173;
 const DAYTONA_PREVIEW_TTL_SECONDS = 3600;
@@ -458,7 +459,7 @@ async function ensureDaytonaRegistry(args: {
   const listResponse = await registryApi.listRegistries(
     args.config.organizationId,
   );
-  const registries = listResponse.data ?? [];
+  const registries = listResponse.data;
   const match = getRegistryMatch(registries, args.config);
 
   if (!match) {
@@ -477,7 +478,7 @@ async function ensureDaytonaRegistry(args: {
     return { registryId: created.data.id, status: "created" };
   }
 
-  const projectMatch = (match.project ?? "") === (args.config.project ?? "");
+  const projectMatch = match.project === (args.config.project ?? "");
   const needsUpdate =
     match.name !== args.config.name ||
     match.username !== args.config.username ||
@@ -886,7 +887,7 @@ echo "${REPO_REFRESH_MARKER}refreshed=\${should_fetch};reason=\${reason}"
     repo: `${args.owner}/${args.repo}`,
     branch: args.branch,
     mode: args.mode,
-    parsed: parseRepoRefreshResult(result.result ?? ""),
+    parsed: parseRepoRefreshResult(result.result),
     result,
   });
 
@@ -894,7 +895,7 @@ echo "${REPO_REFRESH_MARKER}refreshed=\${should_fetch};reason=\${reason}"
     throw new Error(`Failed to refresh repo (exit ${result.exitCode}).`);
   }
 
-  return parseRepoRefreshResult(result.result ?? "");
+  return parseRepoRefreshResult(result.result);
 }
 
 async function startDaytonaDevServer(args: {
@@ -937,7 +938,10 @@ async function startDaytonaDevServer(args: {
   ]
     .filter((part) => part.length > 0)
     .join(" ");
-  const devCommand = `cd "${args.repoDir}" && pnpm run dev`;
+  const devCommand = `cd "${args.repoDir}" && make anon`;
+  const installLogPath = quoteForBash(PNPM_INSTALL_LOG);
+  const devLogPath = quoteForBash(DAYTONA_DEV_LOG);
+  const wrappedCommand = `${devCommand} 2>&1 | tee ${installLogPath}`;
   const script = stripIndent`
     set -e
     cd "${args.repoDir}"
@@ -950,9 +954,9 @@ async function startDaytonaDevServer(args: {
       fi;
     fi
     ${installFallback}
-    ${devEnv} nohup bash -lc ${quoteForBash(devCommand)} > ${quoteForBash(
-      DAYTONA_DEV_LOG,
-    )} 2>&1 &
+    ${devEnv} nohup bash -lc ${quoteForBash(
+      wrappedCommand,
+    )} > ${devLogPath} 2>&1 &
   `;
   const command = `bash -lc ${quoteForBash(script)}`;
   const result = await args.sandbox.process.executeCommand(
@@ -1245,7 +1249,7 @@ export const startDaytonaWorkspace = action({
     const sandbox = await daytona.create(sandboxParams);
     const sandboxCreateMs = Date.now() - sandboxCreateStartedAt;
 
-    const resolvedSandboxName = sandbox.name ?? sandboxName;
+    const resolvedSandboxName = sandbox.name;
 
     const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
     const githubToken = currentUser?.githubAccessToken ?? null;
@@ -1986,8 +1990,7 @@ export const getDaytonaBootstrapLogs = action({
     }
 
     const sandbox = await daytona.get(sandboxId);
-    const command =
-      'bash -lc \'if [ -f /tmp/noter-pnpm-install.log ]; then tail -n 200 /tmp/noter-pnpm-install.log; else echo "__NOTER_NO_LOG__"; fi; if [ -f /tmp/noter-pnpm-install.status ]; then echo ""; echo "Install status:"; cat /tmp/noter-pnpm-install.status; fi\'';
+    const command = `bash -lc 'if [ -f ${PNPM_INSTALL_LOG} ]; then tail -n 200 ${PNPM_INSTALL_LOG}; else echo "__NOTER_NO_LOG__"; fi; if [ -f ${PNPM_INSTALL_STATUS} ]; then echo ""; echo "Install status:"; cat ${PNPM_INSTALL_STATUS}; fi'`;
     const result = await sandbox.process.executeCommand(
       command,
       undefined,

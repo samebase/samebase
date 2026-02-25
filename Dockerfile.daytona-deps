@@ -8,6 +8,10 @@ ARG PNPM_VERSION=9.15.0
 
 WORKDIR ${WORKSPACE_DIR}/${REPO_NAME}
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends make \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/noter/package.json apps/noter/package.json
 COPY apps/noter-starter-template/package.json apps/noter-starter-template/package.json
