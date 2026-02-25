@@ -53,6 +53,7 @@ import { CodespaceStatus } from "@/components/CodespaceStatus";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
 import { VaultSyncStatus } from "@/components/VaultSyncStatus";
 import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
+import { useApiKeyConnectDialog } from "@/components/ApiKeyConnectDialog";
 import type { Id } from "../../convex/_generated/dataModel";
 
 const formatInfraState = (
@@ -103,7 +104,6 @@ const hasDaytonaResourcesForVault = (
   );
 
 type CreateTemplate = "app" | "agent";
-type ApiKeyProvider = "github" | "convex" | "netlify";
 
 const isCreateTemplate = (value: string): value is CreateTemplate =>
   value === "app" || value === "agent";
@@ -164,11 +164,6 @@ export function VaultDashboard() {
   const [disconnectingProvider, setDisconnectingProvider] = useState<
     "github" | "convex" | "netlify" | null
   >(null);
-  const [apiKeyDialogProvider, setApiKeyDialogProvider] =
-    useState<ApiKeyProvider | null>(null);
-  const [apiKeyInput, setApiKeyInput] = useState("");
-  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
-  const [isConnectingApiKey, setIsConnectingApiKey] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -398,56 +393,6 @@ export function VaultDashboard() {
     }
   };
 
-  const openApiKeyDialog = (provider: ApiKeyProvider) => {
-    setApiKeyDialogProvider(provider);
-    setApiKeyInput("");
-    setApiKeyError(null);
-  };
-
-  const closeApiKeyDialog = () => {
-    if (isConnectingApiKey) {
-      return;
-    }
-    setApiKeyDialogProvider(null);
-    setApiKeyInput("");
-    setApiKeyError(null);
-  };
-
-  const handleConnectWithApiKey = async () => {
-    if (!apiKeyDialogProvider || isConnectingApiKey) {
-      return;
-    }
-    const token = apiKeyInput.trim();
-    if (!token) {
-      setApiKeyError("API key is required.");
-      return;
-    }
-
-    setIsConnectingApiKey(true);
-    setApiKeyError(null);
-
-    try {
-      if (apiKeyDialogProvider === "github") {
-        await connectGithubWithApiKey({ token });
-      } else if (apiKeyDialogProvider === "convex") {
-        await connectConvexWithApiKey({ token });
-      } else {
-        await connectNetlifyWithApiKey({ token });
-      }
-      setApiKeyDialogProvider(null);
-      setApiKeyInput("");
-      setApiKeyError(null);
-    } catch (error) {
-      setApiKeyError(
-        error instanceof Error
-          ? error.message
-          : "Failed to connect using API key",
-      );
-    } finally {
-      setIsConnectingApiKey(false);
-    }
-  };
-
   const handleRemoveVault = async () => {
     if (!vaultToDelete || isDeleting || isCommitting) return;
     setDeleteError(null);
@@ -569,17 +514,11 @@ export function VaultDashboard() {
   const createButtonLabel = isCreating
     ? `Creating ${createTemplate}...`
     : `New ${createTemplate}`;
-  const apiKeyProviderLabel =
-    apiKeyDialogProvider === "github"
-      ? "GitHub"
-      : apiKeyDialogProvider === "convex"
-        ? "Convex"
-        : apiKeyDialogProvider === "netlify"
-          ? "Netlify"
-          : "Provider";
-  const apiKeySubmitLabel = isConnectingApiKey
-    ? "Connecting..."
-    : `Connect ${apiKeyProviderLabel}`;
+  const { openApiKeyDialog, apiKeyDialog } = useApiKeyConnectDialog({
+    connectGithubWithApiKey,
+    connectConvexWithApiKey,
+    connectNetlifyWithApiKey,
+  });
   const createControl = (
     <div className="flex flex-col items-start gap-2">
       <ButtonGroup className="w-full sm:w-[480px]">
@@ -795,62 +734,6 @@ export function VaultDashboard() {
         </div>
       </div>
     </div>
-  );
-
-  const apiKeyDialog = (
-    <Dialog
-      open={apiKeyDialogProvider !== null}
-      onOpenChange={(open) => {
-        if (!open) {
-          closeApiKeyDialog();
-        }
-      }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{`Connect ${apiKeyProviderLabel} with API key`}</DialogTitle>
-          <DialogDescription>
-            Paste your {apiKeyProviderLabel} API key or token to connect this
-            account.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-2">
-          <Input
-            type="password"
-            autoComplete="off"
-            value={apiKeyInput}
-            onChange={(event) => {
-              setApiKeyInput(event.target.value);
-              if (apiKeyError) {
-                setApiKeyError(null);
-              }
-            }}
-            placeholder={`${apiKeyProviderLabel} API key`}
-            disabled={isConnectingApiKey}
-          />
-          {apiKeyError ? (
-            <p className="text-xs text-red-600">{apiKeyError}</p>
-          ) : null}
-        </div>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={closeApiKeyDialog}
-            disabled={isConnectingApiKey}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={() => {
-              void handleConnectWithApiKey();
-            }}
-            disabled={isConnectingApiKey || apiKeyInput.trim().length === 0}
-          >
-            {apiKeySubmitLabel}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 
   if (!vaults) {
