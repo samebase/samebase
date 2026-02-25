@@ -1,4 +1,4 @@
-import { useCallback, useId, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -42,6 +42,7 @@ export const useApiKeyConnectDialog = ({
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [apiKeyError, setApiKeyError] = useState<string | null>(null);
   const [isConnectingApiKey, setIsConnectingApiKey] = useState(false);
+  const isConnectingApiKeyRef = useRef(false);
   const apiKeyInputId = useId();
   const apiKeyErrorId = `${apiKeyInputId}-error`;
 
@@ -52,16 +53,16 @@ export const useApiKeyConnectDialog = ({
   }, []);
 
   const closeApiKeyDialog = useCallback(() => {
-    if (isConnectingApiKey) {
+    if (isConnectingApiKeyRef.current) {
       return;
     }
     setApiKeyDialogProvider(null);
     setApiKeyInput("");
     setApiKeyError(null);
-  }, [isConnectingApiKey]);
+  }, []);
 
   const handleConnectWithApiKey = useCallback(async () => {
-    if (!apiKeyDialogProvider || isConnectingApiKey) {
+    if (!apiKeyDialogProvider || isConnectingApiKeyRef.current) {
       return;
     }
 
@@ -71,6 +72,7 @@ export const useApiKeyConnectDialog = ({
       return;
     }
 
+    isConnectingApiKeyRef.current = true;
     setIsConnectingApiKey(true);
     setApiKeyError(null);
 
@@ -98,6 +100,7 @@ export const useApiKeyConnectDialog = ({
           : "Failed to connect using API key",
       );
     } finally {
+      isConnectingApiKeyRef.current = false;
       setIsConnectingApiKey(false);
     }
   }, [
@@ -106,7 +109,6 @@ export const useApiKeyConnectDialog = ({
     connectConvexWithApiKey,
     connectGithubWithApiKey,
     connectNetlifyWithApiKey,
-    isConnectingApiKey,
   ]);
 
   const apiKeyProviderLabel = getApiKeyProviderLabel(apiKeyDialogProvider);
