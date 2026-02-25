@@ -663,19 +663,23 @@ async function listDaytonaSnapshots(
       totalPages = result.totalPages;
       page += 1;
     } while (page <= totalPages);
-
-    daytonaSnapshotCache.set(cacheKey, {
-      expiresAtMs: Date.now() + DAYTONA_SNAPSHOT_CACHE_TTL_MS,
-      snapshots,
-    });
     return snapshots;
   })();
 
   daytonaSnapshotInFlight.set(cacheKey, request);
   try {
-    return await request;
+    const snapshots = await request;
+    if (daytonaSnapshotInFlight.get(cacheKey) === request) {
+      daytonaSnapshotCache.set(cacheKey, {
+        expiresAtMs: Date.now() + DAYTONA_SNAPSHOT_CACHE_TTL_MS,
+        snapshots,
+      });
+    }
+    return snapshots;
   } finally {
-    daytonaSnapshotInFlight.delete(cacheKey);
+    if (daytonaSnapshotInFlight.get(cacheKey) === request) {
+      daytonaSnapshotInFlight.delete(cacheKey);
+    }
   }
 }
 
