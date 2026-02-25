@@ -3,8 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   GitHubLogoIcon,
-  FileTextIcon,
-  ClockIcon,
   TrashIcon,
   UpdateIcon,
   ChevronDownIcon,
@@ -21,7 +19,7 @@ import {
   useMutation,
   useQuery as useConvexQuery,
 } from "convex/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { isInIframe, openAuthPopup } from "@/SignInForm";
 import { UserMenu } from "@/components/UserMenu";
@@ -47,6 +45,7 @@ import {
 } from "@/components/ui/button-group";
 import { CodespaceStatus } from "@/components/CodespaceStatus";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
+import { VaultSyncStatus } from "@/components/VaultSyncStatus";
 import type { Id } from "../../convex/_generated/dataModel";
 
 const formatTimeAgo = (timestamp: number) => {
@@ -102,6 +101,10 @@ type CreateTemplate = "app" | "agent";
 const isCreateTemplate = (value: string): value is CreateTemplate =>
   value === "app" || value === "agent";
 
+const lastDashboardRefreshMap = new Map<string, number>();
+const DASHBOARD_REFRESH_DEBOUNCE_MS = 2 * 60 * 1000; // 2 minutes
+type RefreshTrigger = "focus" | "page_load";
+
 export function VaultDashboard() {
   const vaults = useQuery(api.vault.getUserVaults);
   const { signIn } = useAuthActions();
@@ -111,6 +114,7 @@ export function VaultDashboard() {
     api.vaultActions.retryInfrastructureProvisioning,
   );
   const commitStaging = useAction(api.fileStagingActions.commitStaging);
+  const refreshTree = useAction(api.github.refreshRepositoryTree);
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
   const getNetlifyOAuthUrl = useMutation(api.netlifyOAuth.getNetlifyOAuthUrl);
   const disconnectGithub = useMutation(api.users.disconnectGithub);
@@ -189,6 +193,68 @@ export function VaultDashboard() {
       window.removeEventListener("message", handler);
     };
   }, []);
+
+  const refreshVaultTreesIfNeeded = useCallback(
+    (trigger: RefreshTrigger = "focus") => {
+      if (!vaults || vaults.length === 0) {
+        return;
+      }
+
+      for (const vault of vaults) {
+        if (vault.state !== "ready") {
+          continue;
+        }
+
+        const key = vault.repositoryFullName;
+        const lastRefresh = lastDashboardRefreshMap.get(key) ?? 0;
+        if (Date.now() - lastRefresh < DASHBOARD_REFRESH_DEBOUNCE_MS) {
+          continue;
+        }
+
+        lastDashboardRefreshMap.set(key, Date.now());
+        void refreshTree({
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          trigger,
+        }).catch((error: unknown) => {
+          console.error(
+            "Failed to refresh repository tree from dashboard:",
+            error,
+          );
+          lastDashboardRefreshMap.delete(key);
+        });
+      }
+    },
+    [refreshTree, vaults],
+  );
+
+  useEffect(() => {
+    if (!vaults || vaults.length === 0) {
+      return;
+    }
+
+    const handleFocus = () => {
+      refreshVaultTreesIfNeeded();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshVaultTreesIfNeeded();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    if (document.visibilityState === "visible") {
+      refreshVaultTreesIfNeeded("page_load");
+    }
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [refreshVaultTreesIfNeeded, vaults]);
 
   const selectedVault =
     vaultToDelete && vaults
@@ -729,31 +795,27 @@ export function VaultDashboard() {
                             )}
                           </div>
                         )}
+                        <VaultSyncStatus
+                          vaultId={vault._id}
+                          repositoryFullName={vault.repositoryFullName}
+                          branch={defaultBranch}
+                          owner={vault.ghRepoOwner}
+                          repoName={vault.ghRepoName}
+                          commitSha={vault.commitSHA}
+                          treeRefreshStartedAt={vault.treeRefreshStartedAt}
+                          lastTreeRefreshAt={vault.lastTreeRefreshAt}
+                          stagedFilesCount={vault.fileCount}
+                          showChecks={false}
+                        />
+                        <div className="text-xs text-muted-foreground">
+                          {vault.fileCount} edited file
+                          {vault.fileCount !== 1 ? "s" : ""}
+                          {vault.lastEditTime
+                            ? ` · last edit ${formatTimeAgo(vault.lastEditTime)}`
+                            : ""}
+                        </div>
                       </div>
                     )}
-                  </div>
-
-                  <div className="flex flex-row items-center gap-4 text-xs text-muted-foreground sm:flex-col sm:items-end sm:gap-1 sm:text-sm">
-                    <div className="flex items-center gap-1">
-                      <FileTextIcon className="h-3 w-3" />
-                      <span>
-                        {vault.fileCount} edited file
-                        {vault.fileCount !== 1 ? "s" : ""}
-                      </span>
-                    </div>
-
-                    <div
-                      className={clsx("flex items-center gap-1", {
-                        invisible: !vault.lastEditTime,
-                      })}
-                    >
-                      <ClockIcon className="h-3 w-3" />
-                      <span>
-                        {vault.lastEditTime
-                          ? formatTimeAgo(vault.lastEditTime)
-                          : "0m ago"}
-                      </span>
-                    </div>
                   </div>
                 </div>
 
