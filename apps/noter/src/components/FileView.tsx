@@ -17,7 +17,6 @@ import {
   MagnifyingGlassIcon,
   PlusIcon,
   FilePlusIcon,
-  UpdateIcon,
 } from "@radix-ui/react-icons";
 import {
   Sidebar,
@@ -45,31 +44,13 @@ import {
   parseSimpleViewConfig,
   SIMPLE_VIEW_CONFIG_PATH,
 } from "@/lib/simpleView";
+import {
+  claimRefreshDebounce,
+  releaseRefreshDebounce,
+} from "@/lib/treeRefreshDebounce";
 import { type GithubTreeType } from "convex/schema";
-import { EditedFilesCategoriesPopover } from "./EditedFilesCategories";
-import { CommitStatus } from "./CommitStatus";
 import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
-
-function formatSecondsAgo(now: number, timestamp: number): string {
-  const seconds = Math.floor((now - timestamp) / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
-/** Returns a `now` timestamp that updates every second. */
-function useNow() {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1_000);
-    return () => clearInterval(id);
-  }, []);
-  return now;
-}
+import { VaultSyncStatus } from "./VaultSyncStatus";
 
 // Function to find the best file to display
 function findBestInitialFile(files: GithubTreeType[]) {
@@ -95,9 +76,6 @@ function findBestInitialFile(files: GithubTreeType[]) {
   return sortedFiles[0]?.path || null;
 }
 
-// In-memory map tracking last refresh time per vault key
-const lastRefreshMap = new Map<string, number>();
-const REFRESH_DEBOUNCE_MS = 2 * 60 * 1000; // 2 minutes
 type RefreshTrigger = "focus" | "page_load";
 
 function isStorageBackedFileError(error: unknown): boolean {
@@ -171,10 +149,13 @@ function FileViewWrapper() {
     (trigger: RefreshTrigger = "focus") => {
       if (!vault || !owner || !repoName) return;
       const key = `${owner}/${repoName}`;
-      const lastRefresh = lastRefreshMap.get(key) ?? 0;
-      if (Date.now() - lastRefresh < REFRESH_DEBOUNCE_MS) return;
-      lastRefreshMap.set(key, Date.now());
-      void refreshTree({ owner, repo: repoName, trigger });
+      if (!claimRefreshDebounce("file_view", key)) return;
+      void refreshTree({ owner, repo: repoName, trigger }).catch(
+        (error: unknown) => {
+          console.error("Failed to refresh repository tree:", error);
+          releaseRefreshDebounce("file_view", key);
+        },
+      );
     },
     [vault?._id, owner, repoName, refreshTree],
   );
@@ -329,7 +310,6 @@ function FileViewInner({
   stagedFile: (typeof api.fileStaging.getByNewPath)["_returnType"];
 }) {
   const { setOpenMobile } = useSidebar();
-  const now = useNow();
 
   const navigate = useNavigate();
 
@@ -348,9 +328,6 @@ function FileViewInner({
 
   const repositoryFullName = `${owner}/${repoName}`;
   const commitSha = vault.commitSHA;
-  const commitUrl = commitSha
-    ? `https://github.com/${owner}/${repoName}/commit/${commitSha}`
-    : null;
 
   // Folder expansion state
   const folderExpansionStates = useQuery(
@@ -999,58 +976,18 @@ function FileViewInner({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {stagedFiles && stagedFiles.length > 0 && (
-                    <EditedFilesCategoriesPopover
-                      repositoryFullName={repositoryFullName}
-                      branch={branch}
-                      stagedFiles={stagedFiles}
-                    />
-                  )}
-
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    {vault.treeRefreshStartedAt &&
-                    now - vault.treeRefreshStartedAt < 60_000 ? (
-                      <>
-                        <UpdateIcon className="animate-spin" />
-                        Syncing…
-                      </>
-                    ) : (
-                      <>
-                        <CommitStatus
-                          owner={owner}
-                          repo={repoName}
-                          commitSha={commitSha}
-                          className="mr-1"
-                        />
-                        {commitSha && commitUrl ? (
-                          <a
-                            className={`font-mono ${linkStyle}`}
-                            href={commitUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="View commit on GitHub"
-                          >
-                            {commitSha.slice(0, 7)}
-                          </a>
-                        ) : (
-                          <span
-                            className="font-mono text-red-600"
-                            title="Missing commit SHA. Refresh repository tree to backfill."
-                          >
-                            missing commit SHA
-                          </span>
-                        )}
-                        {vault.lastTreeRefreshAt && (
-                          <>
-                            <span>·</span>
-                            <span className="font-mono tabular-nums">
-                              {formatSecondsAgo(now, vault.lastTreeRefreshAt)}
-                            </span>
-                          </>
-                        )}
-                      </>
-                    )}
-                  </span>
+                  <VaultSyncStatus
+                    vaultId={vault._id}
+                    repositoryFullName={repositoryFullName}
+                    branch={branch}
+                    owner={owner}
+                    repoName={repoName}
+                    commitSha={commitSha}
+                    treeRefreshStartedAt={vault.treeRefreshStartedAt}
+                    lastTreeRefreshAt={vault.lastTreeRefreshAt}
+                    stagedFiles={stagedFiles}
+                    disableStagedFilesQuery
+                  />
 
                   {viewMode === "editor" && (
                     <Button
