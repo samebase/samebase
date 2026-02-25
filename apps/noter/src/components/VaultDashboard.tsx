@@ -14,6 +14,7 @@ import { Link } from "react-router-dom";
 import { linkStyle } from "./styles";
 import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
+import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
 import {
   claimRefreshDebounce,
   releaseRefreshDebounce,
@@ -51,23 +52,8 @@ import {
 import { CodespaceStatus } from "@/components/CodespaceStatus";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
 import { VaultSyncStatus } from "@/components/VaultSyncStatus";
+import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
 import type { Id } from "../../convex/_generated/dataModel";
-
-const formatTimeAgo = (timestamp: number) => {
-  const now = Date.now();
-  const diff = now - timestamp;
-  const minutes = Math.floor(diff / (1000 * 60));
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-  if (minutes < 60) {
-    return `${minutes}m ago`;
-  } else if (hours < 24) {
-    return `${hours}h ago`;
-  } else {
-    return `${days}d ago`;
-  }
-};
 
 const formatInfraState = (
   infraState: "not_started" | "provisioning" | "ready" | "failed" | "partial",
@@ -798,6 +784,7 @@ export function VaultDashboard() {
                           sandboxId={vault.daytonaSandboxId}
                           sandboxName={vault.daytonaSandboxName}
                         />
+                        <DaytonaSnapshotList vaultId={vault._id} />
                         {vault.isNoterManaged && (
                           <div className="text-xs text-muted-foreground">
                             Infra: {formatInfraState(vault.infraState)}
@@ -830,7 +817,7 @@ export function VaultDashboard() {
                           {vault.fileCount} edited file
                           {vault.fileCount !== 1 ? "s" : ""}
                           {vault.lastEditTime
-                            ? ` · last edit ${formatTimeAgo(vault.lastEditTime)}`
+                            ? ` · last edit ${formatRelativeTimeAgo(vault.lastEditTime)}`
                             : ""}
                         </div>
                       </div>
