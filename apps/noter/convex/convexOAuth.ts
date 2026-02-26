@@ -88,8 +88,8 @@ async function buildConvexOAuthUrl(
   ctx: OAuthContext,
   userId: Id<"users">,
 ): Promise<string> {
-  const clientId = readRequiredEnv("CONVEX_OAUTH_CLIENT_ID");
-  const redirectUri = readRequiredEnv("CONVEX_OAUTH_REDIRECT_URL");
+  const clientId = readRequiredEnv("PROVIDER_CONVEX_OAUTH_CLIENT_ID");
+  const redirectUri = readRequiredEnv("PROVIDER_CONVEX_OAUTH_REDIRECT_URL");
 
   const state = randomToken();
   const codeVerifier = randomToken(64);
@@ -292,9 +292,9 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
     return new Response("OAuth state missing code verifier", { status: 400 });
   }
 
-  const clientId = readRequiredEnv("CONVEX_OAUTH_CLIENT_ID");
-  const clientSecret = readRequiredEnv("CONVEX_OAUTH_CLIENT_SECRET");
-  const redirectUri = readRequiredEnv("CONVEX_OAUTH_REDIRECT_URL");
+  const clientId = readRequiredEnv("PROVIDER_CONVEX_OAUTH_CLIENT_ID");
+  const clientSecret = readRequiredEnv("PROVIDER_CONVEX_OAUTH_CLIENT_SECRET");
+  const redirectUri = readRequiredEnv("PROVIDER_CONVEX_OAUTH_REDIRECT_URL");
 
   try {
     const token = await exchangeConvexOAuthCode({

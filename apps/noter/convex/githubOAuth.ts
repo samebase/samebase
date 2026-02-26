@@ -36,8 +36,8 @@ async function buildGithubOAuthUrl(
   ctx: OAuthContext,
   userId: Id<"users">,
 ): Promise<string> {
-  const clientId = readRequiredEnv("GITHUB_OAUTH_CLIENT_ID");
-  const redirectUri = readRequiredEnv("GITHUB_OAUTH_REDIRECT_URL");
+  const clientId = readRequiredEnv("PROVIDER_GITHUB_OAUTH_CLIENT_ID");
+  const redirectUri = readRequiredEnv("PROVIDER_GITHUB_OAUTH_REDIRECT_URL");
   const state = randomToken();
 
   const now = Date.now();
@@ -195,9 +195,9 @@ export const finishGithubOAuth = httpAction(async (ctx, request) => {
     return new Response("OAuth state expired", { status: 400 });
   }
 
-  const clientId = readRequiredEnv("GITHUB_OAUTH_CLIENT_ID");
-  const clientSecret = readRequiredEnv("GITHUB_OAUTH_CLIENT_SECRET");
-  const redirectUri = readRequiredEnv("GITHUB_OAUTH_REDIRECT_URL");
+  const clientId = readRequiredEnv("PROVIDER_GITHUB_OAUTH_CLIENT_ID");
+  const clientSecret = readRequiredEnv("PROVIDER_GITHUB_OAUTH_CLIENT_SECRET");
+  const redirectUri = readRequiredEnv("PROVIDER_GITHUB_OAUTH_REDIRECT_URL");
 
   try {
     const token = await exchangeGithubOAuthCode({

@@ -53,8 +53,9 @@ jobs:
           timeout 60 bash -c 'until grep -q "^CONVEX_DEPLOYMENT=" apps/noter/.env.local 2>/dev/null; do sleep 1; done'
           timeout 90 bash -c 'until curl -sf http://127.0.0.1:3210/instance_name >/dev/null; do sleep 1; done'
 
-          pnpm --filter noter exec convex env set AUTH_GITHUB_ID ci-placeholder
-          pnpm --filter noter exec convex env set AUTH_GITHUB_SECRET ci-placeholder
+          pnpm --filter noter exec convex env set PROVIDER_GITHUB_OAUTH_CLIENT_ID ci-placeholder
+          pnpm --filter noter exec convex env set PROVIDER_GITHUB_OAUTH_CLIENT_SECRET ci-placeholder
+          pnpm --filter noter exec convex env set PROVIDER_GITHUB_OAUTH_REDIRECT_URL https://example.com/oauth/github/callback
 
           timeout 180 bash -c 'until grep -q "Convex functions ready!" /tmp/convex-bootstrap.log; do sleep 1; done'
 

@@ -161,8 +161,8 @@ async function buildNetlifyOAuthUrl(
   ctx: OAuthContext,
   userId: Id<"users">,
 ): Promise<string> {
-  const clientId = readRequiredEnv("NETLIFY_OAUTH_CLIENT_ID");
-  const redirectUri = readRequiredEnv("NETLIFY_OAUTH_REDIRECT_URL");
+  const clientId = readRequiredEnv("PROVIDER_NETLIFY_OAUTH_CLIENT_ID");
+  const redirectUri = readRequiredEnv("PROVIDER_NETLIFY_OAUTH_REDIRECT_URL");
 
   const state = randomToken();
 
@@ -260,9 +260,11 @@ export const finishNetlifyOAuth = action({
       throw new Error("OAuth state expired");
     }
 
-    const clientId = readRequiredEnv("NETLIFY_OAUTH_CLIENT_ID");
-    const clientSecret = readRequiredEnv("NETLIFY_OAUTH_CLIENT_SECRET");
-    const redirectUri = readRequiredEnv("NETLIFY_OAUTH_REDIRECT_URL");
+    const clientId = readRequiredEnv("PROVIDER_NETLIFY_OAUTH_CLIENT_ID");
+    const clientSecret = readRequiredEnv(
+      "PROVIDER_NETLIFY_OAUTH_CLIENT_SECRET",
+    );
+    const redirectUri = readRequiredEnv("PROVIDER_NETLIFY_OAUTH_REDIRECT_URL");
 
     try {
       const token = await exchangeNetlifyOAuthCode({
@@ -361,9 +363,9 @@ export const finishNetlifyOAuthCallback = httpAction(async (ctx, request) => {
     return new Response("OAuth state expired", { status: 400 });
   }
 
-  const clientId = readRequiredEnv("NETLIFY_OAUTH_CLIENT_ID");
-  const clientSecret = readRequiredEnv("NETLIFY_OAUTH_CLIENT_SECRET");
-  const redirectUri = readRequiredEnv("NETLIFY_OAUTH_REDIRECT_URL");
+  const clientId = readRequiredEnv("PROVIDER_NETLIFY_OAUTH_CLIENT_ID");
+  const clientSecret = readRequiredEnv("PROVIDER_NETLIFY_OAUTH_CLIENT_SECRET");
+  const redirectUri = readRequiredEnv("PROVIDER_NETLIFY_OAUTH_REDIRECT_URL");
 
   try {
     const token = await exchangeNetlifyOAuthCode({

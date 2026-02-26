@@ -65,9 +65,9 @@ All connection reads/writes must use `providerConnections` (see spec 026).
 
 Required env vars:
 
-1. `CONVEX_OAUTH_CLIENT_ID`
-2. `CONVEX_OAUTH_CLIENT_SECRET`
-3. `CONVEX_OAUTH_REDIRECT_URL`
+1. `PROVIDER_CONVEX_OAUTH_CLIENT_ID`
+2. `PROVIDER_CONVEX_OAUTH_CLIENT_SECRET`
+3. `PROVIDER_CONVEX_OAUTH_REDIRECT_URL`
 
 ## Security
 

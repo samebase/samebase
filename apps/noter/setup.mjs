@@ -40,7 +40,7 @@ const deploymentName =
 
 const variables = JSON.stringify({
   help:
-    "This template includes prebuilt sign-in via GitHub OAuth and " +
+    "This template includes GitHub provider connections via OAuth and " +
     "magic links via Resend. " +
     "This command can help you configure the credentials for these services " +
     "via additional Convex environment variables.",
@@ -51,15 +51,19 @@ const variables = JSON.stringify({
         "Create a GitHub OAuth App, follow the instruction here: " +
         "https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app\n\n" +
         `When you're asked for a callback URL use:\n\n` +
-        `  https://${deploymentName}.convex.site/api/auth/callback/github`,
+        `  https://${deploymentName}.convex.site/oauth/github/callback`,
       variables: [
         {
-          name: "AUTH_GITHUB_ID",
+          name: "PROVIDER_GITHUB_OAUTH_CLIENT_ID",
           description: "the Client ID of your GitHub OAuth App",
         },
         {
-          name: "AUTH_GITHUB_SECRET",
+          name: "PROVIDER_GITHUB_OAUTH_CLIENT_SECRET",
           description: "the generated client secret",
+        },
+        {
+          name: "PROVIDER_GITHUB_OAUTH_REDIRECT_URL",
+          description: "the callback URL from above",
         },
       ],
     },
