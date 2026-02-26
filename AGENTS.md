@@ -245,9 +245,13 @@ them directly using CLI tools.
 - **NEVER merge a PR until CI is green** - always wait for checks to pass, then
   squash-merge with `gh pr merge --squash`
 - **NEVER merge a PR until CI is green** - always wait for checks to pass.
-- Preferred merge style for this repo: rebase the branch onto `main`, then merge
-  with a merge commit (`gh pr merge --merge`) so PR boundaries remain visible
-  while preserving internal commits.
+- Preferred merge style for this repo: rebase the branch onto `origin/main`
+  (after a fresh `git fetch origin`) immediately before merge, then merge with a
+  merge commit (`gh pr merge --merge`) so PR boundaries remain visible while
+  preserving internal commits.
+- Highest-priority guardrail: always verify the branch is rebased on the latest
+  `origin/main` before merging. If `origin/main` changes while a PR is open,
+  rebase and push again before merge.
 
 ## Worktree Branching
 
@@ -303,6 +307,8 @@ Auth:
   files as ESM.
 - Always rebase work branches on `origin/main` (not only local `main`) before
   shipping.
+- Treat rebase freshness as mandatory: check and rebase against the latest
+  `origin/main` right before merge, not only once earlier in the PR lifecycle.
 - When using the local worktree helper, prefer `wt <branch>` to print a worktree
   path and `cd (wt <branch>)` to change directories in fish.
 - For rebase/fast-forward without switching directories, use
