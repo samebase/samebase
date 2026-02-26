@@ -454,7 +454,7 @@ export const rejectProdRead = mutation({
     }
 
     const user = await ctx.db.get(userId);
-    if (!user || !isAdminUser(user.githubUsername)) {
+    if (!user || !isAdminUser(user.githubUsername, user.email)) {
       throw new Error("Only admin users can reject production reads");
     }
 
@@ -506,7 +506,7 @@ export const confirmProdRead = mutation({
     ensureThreadAccess(userId, thread);
 
     const user = await ctx.db.get(userId);
-    if (!user || !isAdminUser(user.githubUsername)) {
+    if (!user || !isAdminUser(user.githubUsername, user.email)) {
       throw new Error("Only admin users can approve production reads");
     }
 

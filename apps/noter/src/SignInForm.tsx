@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 const AUTH_FLAG_KEY = "noter_was_authenticated";
 const AUTH_PROVIDER_KEY = "noter_auth_provider";
 
-type AuthProvider = "github" | "google";
+type AuthProvider = "github" | "google" | "password";
 
 export function clearAuthFlag() {
   localStorage.removeItem(AUTH_FLAG_KEY);
@@ -26,6 +26,9 @@ export function setAuthProvider(provider: AuthProvider) {
 }
 
 export function SignInForm() {
+  const showPasswordAuth =
+    import.meta.env.DEV && import.meta.env.VITE_ENABLE_PASSWORD_AUTH === "true";
+
   return (
     <div className="container my-auto">
       <div className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8">
@@ -52,6 +55,7 @@ export function SignInForm() {
         <div className="flex flex-col gap-2">
           <SignInWithGoogle />
           <SignInWithGitHub />
+          {showPasswordAuth ? <PasswordAuthForm /> : null}
         </div>
         <WaitlistForm />
       </div>
@@ -98,6 +102,98 @@ function WaitlistForm() {
           Join queue
         </Button>
       </form>
+    </div>
+  );
+}
+
+function PasswordAuthForm() {
+  const { signIn } = useAuthActions();
+  const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submitLabel = pending
+    ? flow === "signIn"
+      ? "Signing in..."
+      : "Creating account..."
+    : flow === "signIn"
+      ? "Sign in with password"
+      : "Create password account";
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-sm font-medium">Password auth (dev)</div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-auto px-2 py-1 text-xs"
+          onClick={() => {
+            setError(null);
+            setFlow((current) => (current === "signIn" ? "signUp" : "signIn"));
+          }}
+          disabled={pending}
+        >
+          {flow === "signIn" ? "Need an account?" : "Have an account?"}
+        </Button>
+      </div>
+      <form
+        className="flex flex-col gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const normalizedEmail = email.trim().toLowerCase();
+          if (!normalizedEmail || !password) {
+            return;
+          }
+          setPending(true);
+          setError(null);
+          void signIn("password", {
+            flow,
+            email: normalizedEmail,
+            password,
+          })
+            .then(() => {
+              setAuthProvider("password");
+            })
+            .catch((signInError: unknown) => {
+              setError(
+                signInError instanceof Error
+                  ? signInError.message
+                  : "Password sign-in failed",
+              );
+            })
+            .finally(() => {
+              setPending(false);
+            });
+        }}
+      >
+        <Input
+          type="email"
+          autoComplete="email"
+          placeholder="you@example.com"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          required
+          disabled={pending}
+        />
+        <Input
+          type="password"
+          autoComplete={flow === "signIn" ? "current-password" : "new-password"}
+          placeholder="Password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          required
+          minLength={8}
+          disabled={pending}
+        />
+        <Button type="submit" disabled={pending}>
+          {submitLabel}
+        </Button>
+      </form>
+      {error ? <p className="text-xs text-red-600">{error}</p> : null}
     </div>
   );
 }

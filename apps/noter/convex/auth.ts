@@ -1,5 +1,6 @@
 import GitHub from "@auth/core/providers/github";
 import Google from "@auth/core/providers/google";
+import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
 import { isAdminUser, isAllowedEmail } from "./users";
 import type { Doc } from "./_generated/dataModel";
@@ -13,6 +14,15 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function isFlagEnabled(key: string): boolean {
+  const value = readOptionalEnv(key);
+  return value !== null && value.toLowerCase() === "true";
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
 }
 
 function buildUserPatch(profile: Record<string, unknown>): UserPatch {
@@ -59,13 +69,64 @@ function isSignInAllowed(
   githubUsername: string | null | undefined,
   email: string | null | undefined,
 ): boolean {
-  return isAdminUser(githubUsername) || isAllowedEmail(email);
+  return isAdminUser(githubUsername, email) || isAllowedEmail(email);
+}
+
+function applyAutoSeedProviderKeys(
+  patch: UserPatch,
+  existingUser: Doc<"users"> | null,
+) {
+  if (!isFlagEnabled("AUTH_AUTO_SEED_PROVIDER_KEYS")) {
+    return;
+  }
+
+  const githubAccessToken =
+    patch.githubAccessToken ?? existingUser?.githubAccessToken;
+  if (!isNonEmptyString(githubAccessToken)) {
+    const envToken = readOptionalEnv("GITHUB_TOKEN");
+    if (envToken !== null) {
+      patch.githubAccessToken = envToken;
+    }
+  }
+
+  const convexAccessToken =
+    patch.convexAccessToken ?? existingUser?.convexAccessToken;
+  if (!isNonEmptyString(convexAccessToken)) {
+    const envToken = readOptionalEnv("CONVEX_MANAGEMENT_TOKEN");
+    if (envToken !== null) {
+      patch.convexAccessToken = envToken;
+    }
+  }
+  const convexTeamId = patch.convexTeamId ?? existingUser?.convexTeamId;
+  if (!isNonEmptyString(convexTeamId)) {
+    const envTeamId = readOptionalEnv("CONVEX_TEAM_ID");
+    if (envTeamId !== null) {
+      patch.convexTeamId = envTeamId;
+    }
+  }
+
+  const netlifyAccessToken =
+    patch.netlifyAccessToken ?? existingUser?.netlifyAccessToken;
+  if (!isNonEmptyString(netlifyAccessToken)) {
+    const envToken = readOptionalEnv("NETLIFY_ACCESS_TOKEN");
+    if (envToken !== null) {
+      patch.netlifyAccessToken = envToken;
+    }
+  }
+  const netlifyTeamId = patch.netlifyTeamId ?? existingUser?.netlifyTeamId;
+  if (!isNonEmptyString(netlifyTeamId)) {
+    const envTeamId = readOptionalEnv("NETLIFY_TEAM_ID");
+    if (envTeamId !== null) {
+      patch.netlifyTeamId = envTeamId;
+    }
+  }
 }
 
 const githubClientId = readRequiredEnv("AUTH_GITHUB_ID");
 const githubClientSecret = readRequiredEnv("AUTH_GITHUB_SECRET");
 const googleClientId = readOptionalEnv("AUTH_GOOGLE_ID");
 const googleClientSecret = readOptionalEnv("AUTH_GOOGLE_SECRET");
+const passwordAuthEnabled = isFlagEnabled("AUTH_ENABLE_PASSWORD");
 if ((googleClientId === null) !== (googleClientSecret === null)) {
   throw new Error(
     `Missing required environment variable: ${
@@ -76,6 +137,21 @@ if ((googleClientId === null) !== (googleClientSecret === null)) {
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
+    ...(passwordAuthEnabled
+      ? [
+          Password({
+            profile: (params) => {
+              const rawEmail = params.email;
+              if (!isNonEmptyString(rawEmail)) {
+                throw new Error("Missing `email` for password authentication");
+              }
+              return {
+                email: normalizeEmail(rawEmail),
+              };
+            },
+          }),
+        ]
+      : []),
     ...(googleClientId && googleClientSecret
       ? [
           Google({
@@ -120,22 +196,27 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   callbacks: {
     createOrUpdateUser: async (ctx, args) => {
       const patch = buildUserPatch(args.profile);
+      const existingUser = args.existingUserId
+        ? await ctx.db.get(args.existingUserId)
+        : null;
+
       let githubUsernameForAccessCheck = patch.githubUsername;
       let emailForAccessCheck = patch.email;
 
-      if (args.existingUserId) {
-        const existingUser = await ctx.db.get(args.existingUserId);
+      if (existingUser) {
         if (!githubUsernameForAccessCheck) {
-          githubUsernameForAccessCheck = existingUser?.githubUsername;
+          githubUsernameForAccessCheck = existingUser.githubUsername;
         }
         if (!emailForAccessCheck) {
-          emailForAccessCheck = existingUser?.email;
+          emailForAccessCheck = existingUser.email;
         }
       }
 
       if (!isSignInAllowed(githubUsernameForAccessCheck, emailForAccessCheck)) {
         throw new Error("Access denied: account is not allowlisted");
       }
+
+      applyAutoSeedProviderKeys(patch, existingUser);
 
       if (args.existingUserId) {
         await ctx.db.patch(args.existingUserId, patch);

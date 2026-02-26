@@ -53,6 +53,7 @@ import { CodespaceStatus } from "@/components/CodespaceStatus";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
 import { VaultSyncStatus } from "@/components/VaultSyncStatus";
 import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
+import { useApiKeyConnectDialog } from "@/components/ApiKeyConnectDialog";
 import type { Id } from "../../convex/_generated/dataModel";
 
 const formatInfraState = (
@@ -123,6 +124,11 @@ export function VaultDashboard() {
   const refreshTree = useAction(api.github.refreshRepositoryTree);
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
   const getNetlifyOAuthUrl = useMutation(api.netlifyOAuth.getNetlifyOAuthUrl);
+  const connectGithubWithApiKey = useAction(api.users.connectGithubWithApiKey);
+  const connectConvexWithApiKey = useAction(api.users.connectConvexWithApiKey);
+  const connectNetlifyWithApiKey = useAction(
+    api.users.connectNetlifyWithApiKey,
+  );
   const disconnectGithub = useMutation(api.users.disconnectGithub);
   const disconnectConvex = useMutation(api.users.disconnectConvex);
   const disconnectNetlify = useMutation(api.users.disconnectNetlify);
@@ -508,6 +514,11 @@ export function VaultDashboard() {
   const createButtonLabel = isCreating
     ? `Creating ${createTemplate}...`
     : `New ${createTemplate}`;
+  const { openApiKeyDialog, apiKeyDialog } = useApiKeyConnectDialog({
+    connectGithubWithApiKey,
+    connectConvexWithApiKey,
+    connectNetlifyWithApiKey,
+  });
   const createControl = (
     <div className="flex flex-col items-start gap-2">
       <ButtonGroup className="w-full sm:w-[480px]">
@@ -623,9 +634,19 @@ export function VaultDashboard() {
               )}
             </Button>
           ) : (
-            <Button size="sm" onClick={handleConnectGithub}>
-              Connect GitHub
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={handleConnectGithub}>
+                Connect GitHub
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => openApiKeyDialog("github")}
+                disabled={disconnectingProvider !== null}
+              >
+                Use API key
+              </Button>
+            </div>
           )}
         </div>
 
@@ -656,9 +677,19 @@ export function VaultDashboard() {
               )}
             </Button>
           ) : (
-            <Button size="sm" onClick={() => void handleConnectConvex()}>
-              Connect Convex
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={() => void handleConnectConvex()}>
+                Connect Convex
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => openApiKeyDialog("convex")}
+                disabled={disconnectingProvider !== null}
+              >
+                Use API key
+              </Button>
+            </div>
           )}
         </div>
 
@@ -689,13 +720,19 @@ export function VaultDashboard() {
               )}
             </Button>
           ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void handleConnectNetlify()}
-            >
-              Connect Netlify
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={() => void handleConnectNetlify()}>
+                Connect Netlify
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => openApiKeyDialog("netlify")}
+                disabled={disconnectingProvider !== null}
+              >
+                Use API key
+              </Button>
+            </div>
           )}
         </div>
       </div>
@@ -730,6 +767,7 @@ export function VaultDashboard() {
             </div>
           </div>
         </div>
+        {apiKeyDialog}
       </div>
     );
   }
@@ -1139,6 +1177,7 @@ export function VaultDashboard() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        {apiKeyDialog}
       </div>
     </div>
   );

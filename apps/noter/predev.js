@@ -66,6 +66,22 @@ const readEnvFile = () => {
   return env;
 };
 
+const isFlagEnabled = (value) =>
+  typeof value === "string" && value.trim().toLowerCase() === "true";
+
+const maybeSeedPasswordAccount = () => {
+  const env = readEnvFile();
+  if (!isFlagEnabled(env.AUTH_ENABLE_PASSWORD)) {
+    return;
+  }
+  if (!env.AUTH_SEED_EMAIL || !env.AUTH_SEED_PASSWORD) {
+    throw new Error(
+      "AUTH_ENABLE_PASSWORD=true requires AUTH_SEED_EMAIL and AUTH_SEED_PASSWORD in .env.local",
+    );
+  }
+  run("npx", ["convex", "run", "devAuth:seedPasswordAccount"]);
+};
+
 const isConvexLocalBackend = async (port) => {
   try {
     const response = await fetch(`http://127.0.0.1:${port}/instance_name`, {
@@ -128,6 +144,7 @@ if (process.env.CONVEX_AGENT_MODE === "anonymous") {
   const readmeSnapshot = captureConvexReadme();
   await stopLocalBackendIfRunning();
   run("node", ["convex-dev.js", "--until-success", "--codegen=enable"]);
+  maybeSeedPasswordAccount();
   restoreConvexReadmeIfOverwritten(readmeSnapshot);
   process.exit(0);
 }

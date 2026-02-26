@@ -1,304 +1,273 @@
-# 025 Multi-Worktree OAuth Broker Spec
+# 025 Password Auth + API-Key Connection Mode Spec
 
 ## Document Control
 
 - Status: Proposed
-- Owner: Noter dev workflow + auth
+- Owner: Noter auth + dev workflow
 - Last updated: 2026-02-25
+- Supersedes: Previous `025 Multi-Worktree OAuth Broker Spec`
 - Related specs:
-  - `specs/012_DEV_ENV_ORIGIN_SITE_URL_SYNC_SPEC.md`
-  - `specs/013_WORKTREE_AUTO_PROVISIONING_SPEC.md`
   - `specs/015_BYO_CONVEX_OAUTH_AND_WORKTREE_PROVISIONING_SPEC.md`
   - `specs/017_NETLIFY_OAUTH_AND_TEAM_SELECTION_SPEC.md`
-  - `specs/019_NOTER_CLI_WORKTREE_PREVIEW_PROVISIONING_SPEC.md`
+  - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
 
 ## Summary
 
-Introduce a single OAuth broker with a fixed callback origin so OAuth works
-across many local worktrees (and sandbox previews) without per-worktree redirect
-URI changes.
+Replace the broker-first OAuth direction with a simpler dual-mode model:
 
-This broker terminates and routes all OAuth HTTP entry points:
+1. Keep OAuth flows (Google/GitHub/Convex/Netlify) as-is.
+2. Add email/password app login support for development on the existing root
+   sign-in screen.
+3. Add API-key connection mode for GitHub, Convex, and Netlify in addition to
+   OAuth.
+4. Auto-seed one worktree password account from env variables.
+5. Optionally auto-seed provider API keys onto the user profile from env.
 
-- `/api/auth/signin/*`
-- `/api/auth/callback/*`
-- `/oauth/convex/start|callback`
-- `/oauth/netlify/start|callback`
-
-Primary local target: developer can create a worktree, run `make anon`, and use
-full OAuth (Google + GitHub + Convex + Netlify) without manual redirect URL
-edits.
+This keeps onboarding fast for the single local developer while preserving OAuth
+for normal user paths.
 
 ## Problem Statement
 
-Current worktree flow is mostly good, but OAuth is not worktree-safe because
-providers require exact redirect URIs while worktree frontend origins are
-dynamic (different ports/hosts).
+OAuth callback complexity for per-worktree and preview environments adds
+operational overhead. For local development, the requirement is practical
+velocity with minimal setup friction.
 
-Current repo behavior confirms this:
+Current needs:
 
-- Convex Auth callback URL is derived from
-  `CUSTOM_AUTH_SITE_URL ?? CONVEX_SITE_URL`.
-- Convex Auth currently does not implement built-in redirect proxy support.
-- Existing sign-in calls do not pass `redirectTo`.
-- Anonymous predev mode skips `sync-site-url.mjs`.
-- Convex/Netlify custom OAuth flows depend on fixed backend env redirect URLs.
-
-Result: a single fixed callback URL is required at provider level, and
-callback-only proxying is insufficient. Start and callback both must be
-brokered.
+1. Fast login in fresh worktrees.
+2. Fast provider connectivity without repeated OAuth handshakes.
+3. No dependency on introducing and maintaining a broker service.
 
 ## Goals
 
-1. Full OAuth inside dev worktrees with one fixed provider callback origin.
-2. Keep provider redirect registrations stable while frontend/backend origins
-   vary per worktree.
-3. Remove dependency on `sync-site-url.mjs` for OAuth correctness.
-4. Make `make anon` bootstrapping include OAuth readiness automatically.
-5. Reuse the same broker pattern in sandbox/cloud preview environments.
+1. Support password sign-in/sign-up as an additional auth mode in development.
+2. Keep current OAuth providers fully functional.
+3. Support API-key connect flow for GitHub/Convex/Netlify in all environments.
+4. Support env-based seeding for local worktree convenience.
+5. Keep existing allowlist enforcement model intact.
 
 ## Non-Goals
 
-1. Replacing Convex Auth internals.
-2. Changing production auth architecture.
-3. Supporting arbitrary non-registered callback origins.
-4. Implementing monthly/yearly credential rotation policies in this spec.
+1. Replacing OAuth provider integrations.
+2. Implementing a broker/proxy-based redirect system.
+3. Building key rotation automation in this spec.
+4. Changing core vault provisioning architecture.
 
-## Locked Decisions
+## Locked Product Decisions
 
-1. Local broker origin is fixed to `http://localhost:4700`.
-2. OAuth providers are configured to callback to broker URLs, not per-worktree
-   URLs.
-3. Broker must handle both authorization start and callback routes.
-4. Broker routes callback requests by OAuth `state` bound during start.
-5. `sync-site-url.mjs` is removed after broker rollout.
-
-## Provider Callback Registration
-
-Register one callback per provider for local development:
-
-- Google: `http://localhost:4700/api/auth/callback/google`
-- GitHub: `http://localhost:4700/api/auth/callback/github`
-- Convex OAuth: `http://localhost:4700/oauth/convex/callback`
-- Netlify OAuth: `http://localhost:4700/oauth/netlify/callback`
-
-For sandbox/cloud, use the same technique with a fixed broker origin for that
-environment and register provider callbacks to that broker.
+1. The current root sign-in page displays the password login UI.
+2. This password login UI is restricted to development.
+3. Credentials are not prefilled in the password form.
+4. Worktree seeded credentials come from env (`AUTH_SEED_EMAIL`,
+   `AUTH_SEED_PASSWORD`).
+5. Sign-in and sign-up flows are both supported by the password provider.
+6. Existing allowlist policy remains enforced for password flows too.
+7. Production keeps API-key connection mode available as an option.
+8. OAuth connection mode remains available in parallel.
 
 ## High-Level Architecture
 
 ```mermaid
 flowchart LR
-  F1["Worktree A Frontend"] --> B["OAuth Broker"]
-  F2["Worktree B Frontend"] --> B
-  B --> BA["Worktree A Backend (Convex local anon)"]
-  B --> BB["Worktree B Backend (Convex local anon)"]
-  B --> G["Google/GitHub/Convex/Netlify OAuth Providers"]
+  U["User"] --> A["App Auth"]
+  A --> O["OAuth (Google/GitHub)"]
+  A --> P["Password (dev-enabled)"]
+  U --> C["Provider Connections"]
+  C --> CO["OAuth connect (GitHub/Convex/Netlify)"]
+  C --> CK["API-key connect (GitHub/Convex/Netlify)"]
+  CO --> DB["users token fields"]
+  CK --> DB
+  DB --> I["Infra provisioning / repo actions"]
 ```
 
-Core idea: broker is the stable public callback surface. It forwards to the
-right backend instance based on a stateful transaction map.
+## Auth Model
 
-## Broker Responsibilities
+### App Login Providers
 
-1. Maintain worktree registration map: frontend origin -> backend origin.
-2. Proxy auth start requests to the correct backend.
-3. Capture provider `state` on outbound authorize redirect and bind it to
-   backend+frontend.
-4. Receive provider callback and route it to the bound backend.
-5. Forward cookies and redirect responses so browser flow remains intact.
-6. Enforce strict allowlists to prevent open redirect and SSRF abuse.
+1. Google OAuth remains enabled when configured.
+2. GitHub OAuth remains enabled when configured.
+3. Password provider is enabled only when `AUTH_ENABLE_PASSWORD=true`.
 
-## Broker Route Contract
+### Password Flows
 
-### Control routes
+Use Convex Auth Password provider with:
 
-- `POST /__broker/register`
+1. `flow: "signUp"`
+2. `flow: "signIn"`
 
-  - Registers or refreshes mapping for a worktree.
-  - Body: `{ frontendOrigin, backendOrigin, worktreeId, expiresAt? }`
-  - Auth: shared token in header (required).
+### Allowlist Policy
 
-- `GET /__broker/health`
-  - Health endpoint for bootstrap checks.
+Allowlist checks remain enforced in `createOrUpdateUser`. Implication: password
+sign-up and sign-in are also restricted to allowlisted emails.
 
-### OAuth pass-through routes
+## Provider Connection Model
 
-- `GET /api/auth/signin/:provider`
-- `GET /api/auth/callback/:provider`
-- `POST /api/auth/callback/:provider`
-- `GET /oauth/convex/start`
-- `GET /oauth/convex/callback`
-- `GET /oauth/netlify/start`
-- `GET /oauth/netlify/callback`
+Each provider supports both OAuth and API-key modes:
 
-## Routing Model
+1. GitHub
+2. Convex
+3. Netlify
 
-### Start route handling
+API-key mode validates credentials server-side before storing them on `users`.
 
-1. Broker receives start request.
-2. Broker identifies frontend origin from `redirectTo` query parameter (required
-   for broker mode).
-3. Broker resolves backend origin from registration map.
-4. Broker proxies request to backend start route.
-5. If backend returns provider redirect with `state`, broker stores:
-   - `state`
-   - provider
-   - backend origin
-   - frontend origin
-   - flow type (`convexAuth`, `convexOAuth`, `netlifyOAuth`)
-   - TTL (15 minutes)
-6. Broker returns proxied response headers/body to browser.
+## Data Model
 
-### Callback route handling
+No schema migration required.
 
-1. Broker receives callback with `state`.
-2. Broker loads and validates transaction by `state`.
-3. Broker proxies callback to bound backend callback route.
-4. Broker forwards response to browser.
-5. Broker invalidates transaction record (one-time use).
+Existing fields in `users` are reused:
 
-If callback arrives with unknown/expired state: return `400`.
+1. GitHub: `githubAccessToken`, `githubUsername`, refresh/expiry fields.
+2. Convex: `convexAccessToken`, `convexTeamId`, `convexTeamSlug`, related
+   fields.
+3. Netlify: `netlifyAccessToken`, `netlifyTeamId`, `netlifyTeamSlug`, related
+   fields.
 
-## Convex Auth and RedirectTo Contract
+## Backend Changes
 
-Broker mode requires all OAuth sign-in calls to pass `redirectTo`.
+### `apps/noter/convex/auth.ts`
 
-Frontend requirement:
+1. Add Password provider wiring.
+2. Gate password provider by `AUTH_ENABLE_PASSWORD`.
+3. Keep existing OAuth provider setup.
+4. Keep allowlist check in `createOrUpdateUser`.
+5. Add optional env-based provider-key auto-seed helper, gated by
+   `AUTH_AUTO_SEED_PROVIDER_KEYS`.
 
-- `signIn("google", { redirectTo: window.location.href })`
-- `signIn("github", { redirectTo: window.location.href })`
+### New action: `apps/noter/convex/devAuth.ts`
 
-Backend requirement:
+Add `seedPasswordAccount` action:
 
-- Add `callbacks.redirect` in Convex Auth config to allow only expected dev
-  preview origins and reject all others.
-- This replaces hard coupling to a single `SITE_URL` destination for post-auth
-  redirect.
+1. Enabled only when `AUTH_ENABLE_PASSWORD=true`.
+2. Reads `AUTH_SEED_EMAIL` + `AUTH_SEED_PASSWORD`.
+3. Creates or updates password account idempotently.
+4. Applies allowlist check.
 
-## Env Contract
+### `apps/noter/predev.js`
 
-In broker mode, each dev backend deployment must use:
+In anonymous mode:
 
-- `CUSTOM_AUTH_SITE_URL=http://localhost:4700`
-- `SITE_URL=http://localhost:4700`
-- `CONVEX_OAUTH_REDIRECT_URL=http://localhost:4700/oauth/convex/callback`
-- `NETLIFY_OAUTH_REDIRECT_URL=http://localhost:4700/oauth/netlify/callback`
+1. Keep current bootstrap behavior.
+2. Run seeding action after backend bootstrap for local worktrees.
 
-Frontend:
+### `apps/noter/convex/users.ts`
 
-- `VITE_AUTH_BROKER_ORIGIN=http://localhost:4700`
+Add API-key connect mutations:
 
-Broker:
+1. `connectGithubWithApiKey({ token })`
+2. `connectConvexWithApiKey({ token })`
+3. `connectNetlifyWithApiKey({ token })`
 
-- `AUTH_BROKER_TOKEN=<shared-secret>`
-- `AUTH_BROKER_ALLOWED_BACKEND_HOSTS=<allowlist>`
-- `AUTH_BROKER_ALLOWED_FRONTEND_HOSTS=<allowlist>`
+Each mutation:
 
-## Local Workflow Integration (`make anon`)
+1. Validates token with provider API.
+2. Stores normalized fields on current user.
+3. Clears incompatible stale refresh/expiry fields where needed.
 
-`make anon` path should include:
+### Admin access compatibility
 
-1. Ensure broker is running (start if absent).
-2. Register current worktree mapping with broker.
-3. Ensure backend env values above are set on current anonymous deployment.
-4. Start backend + frontend as today.
+Password-authenticated users may not have `githubUsername`. Admin checks
+currently tied only to username must be updated to include allowlisted admin
+email fallback where required (chat/prod-read approval paths).
 
-Expected outcome: worktree OAuth works without manual provider or `SITE_URL`
-edits.
+## Frontend Changes
 
-## Sandbox/Cloud Workflow
+### `apps/noter/src/SignInForm.tsx`
 
-Use the same broker technique:
+1. Keep Google and GitHub OAuth buttons.
+2. Add dev-only password block when:
+   - `import.meta.env.DEV`
+   - `VITE_ENABLE_PASSWORD_AUTH === "true"`
+3. Support sign-in and sign-up password submissions via
+   `signIn("password", params)`.
 
-1. Run broker at a stable sandbox-facing origin.
-2. Register each ephemeral preview frontend/backend pair at startup.
-3. Keep provider callbacks fixed to broker origin.
-4. Route callbacks by `state` binding.
+### `apps/noter/src/components/VaultDashboard.tsx`
 
-This removes need to mutate backend `SITE_URL` for every new ephemeral preview
-URL.
+For each provider connection row:
 
-## Changes to Existing Local Scripts
+1. Keep OAuth connect button.
+2. Add API-key connect option and input dialog.
+3. Reuse existing status and disconnect surfaces.
 
-1. Remove `apps/noter/sync-site-url.mjs` from predev flow.
-2. Remove docs and setup assumptions that OAuth relies on runtime `SITE_URL`
-   mutation.
-3. Add broker registration/bootstrap step to existing predev/bootstrap scripts.
+## Environment Contract
 
-## Security Model
+### Required for password enablement
 
-1. Registration endpoint requires shared secret.
-2. Broker proxies only to registered/allowlisted backend origins.
-3. OAuth transaction records are one-time, short TTL, provider-bound.
-4. Redirect targets are validated; no wildcard external redirects.
-5. Broker strips sensitive debug output from logs.
-6. Callback replay with reused state is rejected.
+1. `AUTH_ENABLE_PASSWORD=true`
+2. `VITE_ENABLE_PASSWORD_AUTH=true` (frontend visibility gate)
+3. `AUTH_SEED_EMAIL=<email>`
+4. `AUTH_SEED_PASSWORD=<password>`
 
-## Failure Behavior
+### Optional auto-seed of provider keys
 
-- Broker unavailable: fail fast in predev with clear message.
-- Missing registration for redirect origin: `400` with remediation hint.
-- Unknown or expired state: `400` and safe abort.
-- Backend callback failure: propagate safe error and clear transaction.
+1. `AUTH_AUTO_SEED_PROVIDER_KEYS=true`
+2. GitHub source:
+   - `GITHUB_TOKEN`
+   - `GITHUB_USERNAME` (optional but recommended)
+3. Convex source:
+   - `CONVEX_MANAGEMENT_TOKEN`
+   - `CONVEX_TEAM_ID`
+4. Netlify source:
+   - `NETLIFY_ACCESS_TOKEN`
+   - `NETLIFY_TEAM_ID`
+
+If `AUTH_AUTO_SEED_PROVIDER_KEYS` is off, users connect providers manually via
+OAuth or API key.
+
+## Security Notes
+
+1. Provider tokens stay server-side only in Convex.
+2. Token validation is mandatory before persistence for API-key mode.
+3. Do not log raw tokens or seeded passwords.
+4. Keep allowlist enforcement as auth gate.
+5. Keep existing Convex Auth sign-in rate-limit defaults or tighten explicitly.
 
 ## Rollout Plan
 
-### Phase 1: Broker foundation + Convex Auth routes
+### Phase 1: Password auth foundation
 
-1. Implement broker service and registration API.
-2. Route `/api/auth/signin/*` and `/api/auth/callback/*` through broker.
-3. Update frontend sign-in calls to pass `redirectTo`.
-4. Add redirect allowlist callback in Convex Auth config.
+1. Introduce password provider support with env gates.
+2. Wire seeded password account action into predev integration.
+3. Ship the dev-only password UI.
 
-### Phase 2: Convex + Netlify custom OAuth routes
+### Phase 2: API-key provider connections
 
-1. Route `/oauth/convex/start|callback` through broker.
-2. Route `/oauth/netlify/start|callback` through broker.
-3. Update frontend connection flows to start at broker endpoints.
+1. Implement backend connect mutations with validation.
+2. Surface UI dialogs/actions in the Connections panel.
+3. Preserve existing OAuth connect flows unchanged.
 
-### Phase 3: Remove legacy `SITE_URL` sync
+### Phase 3: Hardening and compatibility
 
-1. Delete `sync-site-url.mjs`.
-2. Remove predev invocation.
-3. Update docs/spec references.
+1. Update admin-check paths for password-authenticated admin users.
+2. Document the env contract and local workflow.
+3. Validate behavior across anon worktree, normal dev, and prod.
 
 ## Testing Plan
 
 ### Unit
 
-1. Registration map lifecycle and TTL eviction.
-2. State transaction creation/lookup/one-time invalidation.
-3. Redirect origin validation and rejection paths.
+1. Password provider disabled by default behavior.
+2. Seed action create/update idempotency.
+3. API-key validation failure and success paths per provider.
+4. Allowlist behavior for password sign-up/sign-in.
 
 ### Integration
 
-1. Two worktrees active concurrently, both Google sign-in successful.
-2. Two worktrees active concurrently, both GitHub sign-in successful.
-3. Convex OAuth connect flow succeeds through broker.
-4. Netlify OAuth connect flow succeeds through broker.
-5. Callback with unknown state fails safely.
+1. Fresh anon worktree: seeded account can sign in with password.
+2. Existing OAuth sign-in still works.
+3. GitHub/Convex/Netlify connection via OAuth still works.
+4. GitHub/Convex/Netlify connection via API-key mode works.
+5. Repo creation works with API-key-only provider connections.
 
 ### Manual
 
-1. Fresh worktree -> `make anon` -> sign in via Google/GitHub.
-2. Open second worktree concurrently -> sign in there too.
-3. Verify no per-worktree provider callback edits are needed.
+1. `make anon` then password sign-in with seeded env credentials.
+2. Connect each provider with API key from dashboard.
+3. Disconnect and reconnect via OAuth to confirm both modes coexist.
 
 ## Acceptance Criteria
 
-1. OAuth works in multiple concurrent worktrees with one provider callback
-   config.
-2. `make anon` is sufficient to boot a new worktree with OAuth ready.
-3. `sync-site-url.mjs` is no longer required for dev OAuth.
-4. Convex Auth, Convex OAuth, and Netlify OAuth all function via broker.
-5. Sandbox preview environments can use the same broker pattern.
-
-## Open Questions
-
-1. Should sandbox and local share one broker implementation binary with env-only
-   behavior changes, or separate deploy targets?
-2. Should broker transaction state be in-memory only for dev, or persisted
-   (SQLite/Redis) for sandbox HA?
-3. Should we keep legacy frontend Netlify callback component after broker
-   migration, or remove it immediately?
+1. Spec 25 no longer requires an OAuth broker architecture.
+2. Dev can sign in through password on root sign-in page when enabled.
+3. API-key connection mode works for GitHub, Convex, and Netlify.
+4. OAuth connection mode remains supported.
+5. Allowlist enforcement remains active across auth modes.
