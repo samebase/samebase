@@ -8,6 +8,8 @@ import { useEffect, useState } from "react";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
 const AUTH_PROVIDER_KEY = "noter_auth_provider";
+const DEV_PASSWORD_EMAIL = "nicu@noter.md";
+const DEV_PASSWORD_VALUE = "pass1234";
 
 type AuthProvider = "google" | "password";
 
@@ -116,8 +118,39 @@ function PasswordAuthForm() {
       ? "Signing in..."
       : "Creating account..."
     : flow === "signIn"
-      ? "Sign in with password"
-      : "Create password account";
+      ? "Sign in"
+      : "Create account";
+
+  const runPasswordSignIn = (
+    nextFlow: "signIn" | "signUp",
+    nextEmail: string,
+    nextPassword: string,
+  ) => {
+    const normalizedEmail = nextEmail.trim().toLowerCase();
+    if (!normalizedEmail || !nextPassword) {
+      return;
+    }
+    setPending(true);
+    setError(null);
+    void signIn("password", {
+      flow: nextFlow,
+      email: normalizedEmail,
+      password: nextPassword,
+    })
+      .then(() => {
+        setAuthProvider("password");
+      })
+      .catch((signInError: unknown) => {
+        setError(
+          signInError instanceof Error
+            ? signInError.message
+            : "Password sign-in failed",
+        );
+      })
+      .finally(() => {
+        setPending(false);
+      });
+  };
 
   return (
     <div className="flex flex-col gap-2 rounded-md border p-3">
@@ -141,30 +174,7 @@ function PasswordAuthForm() {
         className="flex flex-col gap-2"
         onSubmit={(event) => {
           event.preventDefault();
-          const normalizedEmail = email.trim().toLowerCase();
-          if (!normalizedEmail || !password) {
-            return;
-          }
-          setPending(true);
-          setError(null);
-          void signIn("password", {
-            flow,
-            email: normalizedEmail,
-            password,
-          })
-            .then(() => {
-              setAuthProvider("password");
-            })
-            .catch((signInError: unknown) => {
-              setError(
-                signInError instanceof Error
-                  ? signInError.message
-                  : "Password sign-in failed",
-              );
-            })
-            .finally(() => {
-              setPending(false);
-            });
+          runPasswordSignIn(flow, email, password);
         }}
       >
         <Input
@@ -186,9 +196,29 @@ function PasswordAuthForm() {
           minLength={8}
           disabled={pending}
         />
-        <Button type="submit" disabled={pending}>
-          {submitLabel}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="shrink-0"
+            onClick={() => {
+              const nextFlow = "signIn";
+              const nextEmail = DEV_PASSWORD_EMAIL;
+              const nextPassword = DEV_PASSWORD_VALUE;
+              setFlow(nextFlow);
+              setError(null);
+              setEmail(nextEmail);
+              setPassword(nextPassword);
+              runPasswordSignIn(nextFlow, nextEmail, nextPassword);
+            }}
+            disabled={pending}
+          >
+            Autofill
+          </Button>
+          <Button type="submit" disabled={pending} className="flex-1">
+            {submitLabel}
+          </Button>
+        </div>
       </form>
       {error ? <p className="text-xs text-red-600">{error}</p> : null}
     </div>
