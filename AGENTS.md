@@ -242,8 +242,6 @@ them directly using CLI tools.
 - When the user asks to check Greptile, review both the check status and any
   comments/nitpicks (treat them as required fixes).
 - On CI failure, report the error and offer to fix
-- **NEVER merge a PR until CI is green** - always wait for checks to pass, then
-  squash-merge with `gh pr merge --squash`
 - **NEVER merge a PR until CI is green** - always wait for checks to pass.
 - Preferred merge style for this repo: rebase the branch onto `origin/main`
   (after a fresh `git fetch origin`) immediately before merge, then merge with a

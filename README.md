@@ -99,7 +99,7 @@ pnpm test
   anonymous/local init (`doInitConvexFolder` currently overwrites by default in
   Convex CLI codegen internals).
 - Upstream reference:
-  https://github.com/get-convex/convex-js/blob/main/src/cli/lib/codegen.ts
+  https://github.com/get-convex/convex-js/blob/98278dfdfe788cf5069c921a80f1f6f7d09d8d2f/src/cli/lib/codegen.ts
 - Removal guidance when upgrading Convex:
   1. Check whether upstream no longer overwrites existing files (or has an
      explicit opt-out).
