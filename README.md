@@ -91,6 +91,23 @@ pnpm test
 2. Configure app-login providers (Google, plus password in dev).
 3. Configure provider connection OAuth/API keys (GitHub/Convex/Netlify).
 
+## Temporary Dependency Patch
+
+- This repo temporarily patches `convex@1.32.0` via `pnpm.patchedDependencies`
+  and `patches/convex@1.32.0.patch`.
+- Reason: preserve existing `convex/README.md` and `convex/tsconfig.json` during
+  anonymous/local init (`doInitConvexFolder` currently overwrites by default in
+  Convex CLI codegen internals).
+- Upstream reference:
+  https://github.com/get-convex/convex-js/blob/main/src/cli/lib/codegen.ts
+- Removal guidance when upgrading Convex:
+  1. Check whether upstream no longer overwrites existing files (or has an
+     explicit opt-out).
+  2. If fixed, remove `patches/convex@1.32.0.patch` and the
+     `pnpm.patchedDependencies` entry in `package.json`.
+  3. Remove the `COPY patches patches` line from `Dockerfile.daytona-deps` if no
+     other patches remain.
+
 ## Contributing
 
 This project uses:
