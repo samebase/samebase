@@ -641,7 +641,7 @@ export function VaultDashboard() {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <GitHubLogoIcon className="h-4 w-4" />
-            <div>
+            <div className="text-left">
               <div className="text-sm font-medium">GitHub</div>
               <div className="text-xs text-muted-foreground">
                 {githubStatus}
@@ -691,7 +691,7 @@ export function VaultDashboard() {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <LightningBoltIcon className="h-4 w-4" />
-            <div>
+            <div className="text-left">
               <div className="text-sm font-medium">Convex</div>
               <div className="text-xs text-muted-foreground">
                 {convexStatus}
@@ -739,7 +739,7 @@ export function VaultDashboard() {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <GlobeIcon className="h-4 w-4" />
-            <div>
+            <div className="text-left">
               <div className="text-sm font-medium">Netlify</div>
               <div className="text-xs text-muted-foreground">
                 {netlifyStatus}
