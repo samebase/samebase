@@ -6,12 +6,10 @@ import path from 'node:path'
 
 /**
  * @typedef {'dev' | 'prod' | 'preview'} DeploymentType
- * @typedef {'CONVEX_DEPLOYMENT' | 'CONVEX_DEPLOY_KEY'} DeploymentSource
  *
  * @typedef {{
  *   sourceEnv: string | null
  *   targetEnv: string | null
- *   includeSiteUrl: boolean
  *   dryRun: boolean
  *   showHelp: boolean
  * }} SyncOptions
@@ -23,9 +21,8 @@ import path from 'node:path'
  *
  * @typedef {{
  *   type: DeploymentType
- *   name: string | null
+ *   name: string
  *   raw: string
- *   source: DeploymentSource
  * }} Deployment
  *
  * @typedef {{
@@ -39,19 +36,24 @@ import path from 'node:path'
  * }} WorktreeInfo
  */
 
+const DEV_SEED_ALLOWLIST = new Set([
+  'DEV_SEED_GITHUB_API_KEY',
+  'DEV_SEED_CONVEX_MANAGEMENT_API_KEY',
+  'DEV_SEED_CONVEX_TEAM_ID',
+  'DEV_SEED_NETLIFY_API_KEY',
+  'DEV_SEED_NETLIFY_TEAM_ID',
+])
+
 const HELP_TEXT = `Usage: scripts/convex-sync-dev-env.js [options]
 
-Copy Convex environment variables from the cloud dev deployment to the
-local anonymous deployment for this worktree.
+Build a local seed env file by pulling DEV_SEED_* values from the cloud dev deployment.
 
 Options:
-  --source-env <path>     Path to an env file that targets the dev deployment.
-                          If omitted, the script scans git worktrees for a
-                          .env.local with CONVEX_DEPLOYMENT=dev:* (non-anon).
-  --target-env <path>     Path to the env file for the local anonymous deployment.
-                          Default: apps/noter/.env.local in this repo.
-  --include-site-url      Copy SITE_URL too (default: skip).
-  --dry-run               Show what would be set without making changes.
+  --source-env <path>     Path to a dev env file (contains CONVEX_DEPLOYMENT=dev:*).
+                          If omitted, the script scans git worktrees and picks main.
+  --target-env <path>     Output env file path.
+                          Default: apps/noter/.env.anon-seed.local
+  --dry-run               Show what would be written.
   -h, --help              Show this help message.
 `
 
@@ -63,39 +65,49 @@ if (options.showHelp) {
 
 const repoRoot = resolveRepoRoot()
 const appDir = path.join(repoRoot, 'apps', 'noter')
-const defaultTargetEnv = path.join(appDir, '.env.local')
+const targetEnvPath = path.resolve(
+  options.targetEnv ?? path.join(appDir, '.env.anon-seed.local'),
+)
+const localAnonEnvPath = path.join(appDir, '.env.local')
 
-const targetEnvPath = path.resolve(options.targetEnv ?? defaultTargetEnv)
-const targetEnv = readEnvFile(targetEnvPath)
-if (!targetEnv) {
+const localAnonEnv = readEnvFile(localAnonEnvPath)
+if (!localAnonEnv) {
   exitWithError(
-    `Target env file not found: ${targetEnvPath}\n` +
-      'Run a local Convex dev deployment first to generate it.',
+    `Local env file not found: ${localAnonEnvPath}\n` +
+      'Run anonymous Convex dev once before generating the seed env.',
   )
 }
 
-const targetDeployment = parseDeploymentFromEnv(targetEnv.vars)
-if (!targetDeployment || !targetDeployment.name) {
+const localAnonDeployment = parseDeploymentFromEnv(localAnonEnv.vars)
+if (!localAnonDeployment) {
   exitWithError(
-    `Target env file does not contain a usable CONVEX_DEPLOYMENT: ${targetEnvPath}`,
+    `Local env file does not contain a usable CONVEX_DEPLOYMENT: ${localAnonEnvPath}`,
   )
 }
-if (targetDeployment.type === 'prod') {
-  exitWithError('Refusing to write env vars to a prod deployment.')
-}
-if (!targetDeployment.name.startsWith('anonymous-')) {
+if (!isAnonymousLikeDeploymentName(localAnonDeployment.name)) {
   exitWithError(
-    `Target deployment is not anonymous (${targetDeployment.raw}). ` +
-      'This script only syncs to local anonymous deployments.',
+    `Local deployment must be anonymous/local (got ${localAnonDeployment.raw}).`,
   )
 }
 
-const discoveredSource =
-  options.sourceEnv ?? findSourceEnvFile(repoRoot, targetEnvPath)
-if (!discoveredSource) {
-  exitWithError('No source env file found. Pass --source-env to specify one.')
+const sourceEnvPath = options.sourceEnv
+  ? path.resolve(options.sourceEnv)
+  : findSourceEnvFile(repoRoot)
+
+if (!sourceEnvPath) {
+  if (options.dryRun) {
+    console.log(`Would write 1 seed var to ${targetEnvPath}`)
+    console.log('- CONVEX_DEPLOYMENT')
+    process.exit(0)
+  }
+  writeEnvFile(targetEnvPath, [
+    { name: 'CONVEX_DEPLOYMENT', value: localAnonDeployment.raw },
+  ])
+  console.log(
+    'No cloud dev env source found. Wrote seed env file with local CONVEX_DEPLOYMENT only.',
+  )
+  process.exit(0)
 }
-const sourceEnvPath = path.resolve(discoveredSource)
 
 const sourceEnv = readEnvFile(sourceEnvPath)
 if (!sourceEnv) {
@@ -103,72 +115,48 @@ if (!sourceEnv) {
 }
 
 const sourceDeployment = parseDeploymentFromEnv(sourceEnv.vars)
-if (!sourceDeployment || !sourceDeployment.type) {
+if (!sourceDeployment) {
   exitWithError(
-    `Source env file does not contain a usable CONVEX_DEPLOYMENT or CONVEX_DEPLOY_KEY: ${sourceEnvPath}`,
+    `Source env does not contain a usable CONVEX_DEPLOYMENT: ${sourceEnvPath}`,
   )
-}
-if (sourceDeployment.type === 'prod') {
-  exitWithError('Refusing to read env vars from a prod deployment.')
 }
 if (sourceDeployment.type !== 'dev') {
   exitWithError(`Source deployment must be dev (got ${sourceDeployment.raw}).`)
 }
-if (sourceDeployment.name?.startsWith('anonymous-')) {
+if (isAnonymousLikeDeploymentName(sourceDeployment.name)) {
   exitWithError(
-    `Source deployment appears to be anonymous (${sourceDeployment.raw}). ` +
-      'Use a cloud dev deployment as the source.',
+    `Source deployment is anonymous (${sourceDeployment.raw}). ` +
+      'Use a cloud dev deployment as source.',
   )
-}
-
-if (path.resolve(sourceEnvPath) === path.resolve(targetEnvPath)) {
-  console.log('Source and target env files are the same; nothing to sync.')
-  process.exit(0)
-}
-
-const ignoredKeys = new Set(['SITE_URL'])
-if (options.includeSiteUrl) {
-  ignoredKeys.delete('SITE_URL')
 }
 
 const entries = listDeploymentEnvVars({
   appDir,
   envFile: sourceEnvPath,
-}).filter(({ name }) => !ignoredKeys.has(name))
-
-if (entries.length === 0) {
-  console.log('No environment variables to sync.')
-  process.exit(0)
-}
+}).filter(({ name }) => DEV_SEED_ALLOWLIST.has(name))
 
 const sorted = entries.slice().sort((a, b) => a.name.localeCompare(b.name))
 
-console.log(
-  `Syncing ${sorted.length} env var${sorted.length === 1 ? '' : 's'} ` +
-    `from ${sourceDeployment.raw} -> ${targetDeployment.raw}`,
-)
-if (ignoredKeys.size > 0) {
-  console.log(`Skipping: ${Array.from(ignoredKeys).join(', ')}`)
-}
-
 if (options.dryRun) {
-  console.log('Dry run; would set:')
+  console.log(
+    `Would write ${sorted.length + 1} seed var${sorted.length + 1 === 1 ? '' : 's'} ` +
+      `from ${sourceDeployment.raw} to ${targetEnvPath}`,
+  )
+  console.log('- CONVEX_DEPLOYMENT')
   for (const { name } of sorted) {
     console.log(`- ${name}`)
   }
   process.exit(0)
 }
 
-for (const { name, value } of sorted) {
-  setDeploymentEnvVar({
-    appDir,
-    envFile: targetEnvPath,
-    name,
-    value,
-  })
-}
-
-console.log('Done.')
+writeEnvFile(targetEnvPath, [
+  { name: 'CONVEX_DEPLOYMENT', value: localAnonDeployment.raw },
+  ...sorted,
+])
+console.log(
+  `Wrote ${sorted.length + 1} seed var${sorted.length + 1 === 1 ? '' : 's'} ` +
+    `to ${targetEnvPath}`,
+)
 
 /**
  * @param {string[]} args
@@ -179,7 +167,6 @@ function parseArgs(args) {
   const result = {
     sourceEnv: null,
     targetEnv: null,
-    includeSiteUrl: false,
     dryRun: false,
     showHelp: false,
   }
@@ -202,10 +189,6 @@ function parseArgs(args) {
       }
       result.targetEnv = value
       i += 1
-      continue
-    }
-    if (arg === '--include-site-url') {
-      result.includeSiteUrl = true
       continue
     }
     if (arg === '--dry-run') {
@@ -254,8 +237,7 @@ function readEnvFile(filePath) {
       continue
     }
     const key = trimmed.slice(0, eqIndex).trim()
-    let value = trimmed.slice(eqIndex + 1)
-    value = stripQuotes(value.trim())
+    const value = stripQuotes(trimmed.slice(eqIndex + 1).trim())
     vars[key] = value
   }
   return { path: filePath, vars }
@@ -280,11 +262,34 @@ function stripQuotes(value) {
  * @returns {Deployment | null}
  */
 function parseDeploymentFromEnv(vars) {
-  if (vars.CONVEX_DEPLOYMENT) {
-    return parseDeploymentString(vars.CONVEX_DEPLOYMENT, 'CONVEX_DEPLOYMENT')
+  const raw = vars.CONVEX_DEPLOYMENT
+  if (!raw) {
+    return null
   }
-  if (vars.CONVEX_DEPLOY_KEY) {
-    return parseDeploymentFromDeployKey(vars.CONVEX_DEPLOY_KEY)
+  const value = raw.trim()
+  if (!value) {
+    return null
+  }
+
+  if (isAnonymousLikeDeploymentName(value)) {
+    return { type: 'dev', name: value, raw: value }
+  }
+
+  const index = value.indexOf(':')
+  if (index <= 0) {
+    return null
+  }
+  const prefix = value.slice(0, index).trim()
+  const name = value.slice(index + 1).trim()
+  if (!name) {
+    return null
+  }
+  if (isDeploymentType(prefix)) {
+    return { type: prefix, name, raw: value }
+  }
+  const isAnonymousPrefix = prefix === 'anonymous' || prefix === 'local'
+  if (isAnonymousPrefix && isAnonymousLikeDeploymentName(name)) {
+    return { type: 'dev', name, raw: value }
   }
   return null
 }
@@ -298,45 +303,11 @@ function isDeploymentType(value) {
 }
 
 /**
- * @param {string} raw
- * @param {DeploymentSource} source
- * @returns {Deployment | null}
+ * @param {string} name
+ * @returns {boolean}
  */
-function parseDeploymentString(raw, source) {
-  const index = raw.indexOf(':')
-  if (index <= 0) {
-    return null
-  }
-  const type = raw.slice(0, index).trim()
-  const name = raw.slice(index + 1).trim()
-  if (!name || !isDeploymentType(type)) {
-    return null
-  }
-  return { type, name, raw, source }
-}
-
-/**
- * @param {string} raw
- * @returns {Deployment | null}
- */
-function parseDeploymentFromDeployKey(raw) {
-  const prefix = raw.split('|')[0] ?? ''
-  const parts = prefix.split(':')
-  const type = parts[0]?.trim() ?? ''
-  if (!isDeploymentType(type)) {
-    return null
-  }
-  if (type === 'dev' || type === 'prod') {
-    const name = parts.slice(1).join(':').trim()
-    if (!name) {
-      return null
-    }
-    return { type, name, raw: prefix, source: 'CONVEX_DEPLOY_KEY' }
-  }
-  if (type === 'preview') {
-    return { type, name: null, raw: prefix, source: 'CONVEX_DEPLOY_KEY' }
-  }
-  return null
+function isAnonymousLikeDeploymentName(name) {
+  return name.startsWith('anonymous-') || name.startsWith('local-')
 }
 
 /**
@@ -351,7 +322,8 @@ function listDeploymentEnvVars({ appDir, envFile }) {
   )
 
   if (result.status !== 0) {
-    const message = (result.stderr || '').trim() || 'convex env list failed'
+    const output = `${result.stdout || ''}\n${result.stderr || ''}`.trim()
+    const message = output || 'convex env list failed'
     exitWithError(message)
   }
 
@@ -375,42 +347,41 @@ function listDeploymentEnvVars({ appDir, envFile }) {
 }
 
 /**
- * @param {{ appDir: string; envFile: string; name: string; value: string }} args
- * @returns {void}
+ * @param {string} filePath
+ * @param {EnvEntry[]} entries
  */
-function setDeploymentEnvVar({ appDir, envFile, name, value }) {
-  const result = spawnSync(
-    'npx',
-    ['convex', 'env', 'set', '--env-file', envFile, name],
-    {
-      cwd: appDir,
-      encoding: 'utf8',
-      input: `${value}\n`,
-      stdio: ['pipe', 'inherit', 'inherit'],
-    },
+function writeEnvFile(filePath, entries) {
+  const dir = path.dirname(filePath)
+  fs.mkdirSync(dir, { recursive: true })
+  const lines = entries.map(
+    entry => `${entry.name}=${formatEnvValue(entry.value)}`,
   )
+  const contents = lines.join('\n') + (lines.length > 0 ? '\n' : '')
+  fs.writeFileSync(filePath, contents, 'utf8')
+}
 
-  if (result.status !== 0) {
-    const message = (result.stderr || '').trim() || `Failed to set ${name}`
-    exitWithError(message)
+/**
+ * @param {string} value
+ * @returns {string}
+ */
+function formatEnvValue(value) {
+  if (/^[A-Za-z0-9_./:@-]+$/.test(value)) {
+    return value
   }
+  return JSON.stringify(value)
 }
 
 /**
  * @param {string} repoRoot
- * @param {string} targetEnvPath
  * @returns {string | null}
  */
-function findSourceEnvFile(repoRoot, targetEnvPath) {
+function findSourceEnvFile(repoRoot) {
   const worktrees = getWorktrees(repoRoot)
-  /** @type {Array<{ envPath: string; deployment: Deployment; worktree: WorktreeInfo }>} */
+  /** @type {Array<{ envPath: string; branch: string | null }>} */
   const candidates = []
 
   for (const worktree of worktrees) {
     const envPath = path.join(worktree.worktree, 'apps', 'noter', '.env.local')
-    if (path.resolve(envPath) === path.resolve(targetEnvPath)) {
-      continue
-    }
     const envFile = readEnvFile(envPath)
     if (!envFile) {
       continue
@@ -419,32 +390,24 @@ function findSourceEnvFile(repoRoot, targetEnvPath) {
     if (!deployment || deployment.type !== 'dev') {
       continue
     }
-    if (deployment.name?.startsWith('anonymous-')) {
+    if (isAnonymousLikeDeploymentName(deployment.name)) {
       continue
     }
-    candidates.push({ envPath, deployment, worktree })
+    candidates.push({ envPath, branch: worktree.branch })
   }
 
   if (candidates.length === 0) {
     return null
   }
+
   const mainCandidate = candidates.find(
-    candidate => candidate.worktree.branch === 'refs/heads/main',
+    candidate => candidate.branch === 'refs/heads/main',
   )
   if (mainCandidate) {
     return mainCandidate.envPath
   }
-  if (candidates.length === 1) {
-    return candidates[0].envPath
-  }
-  console.log('Multiple dev env files found:')
-  for (const candidate of candidates) {
-    const branch = candidate.worktree.branch ?? 'detached'
-    console.log(
-      `- ${candidate.envPath} (${branch}, ${candidate.deployment.raw})`,
-    )
-  }
-  return null
+
+  return candidates[0]?.envPath ?? null
 }
 
 /**
@@ -464,7 +427,7 @@ function getWorktrees(repoRoot) {
     return []
   }
   const blocks = output.split(/\n\n+/)
-  return blocks.map(block => parseWorktreeBlock(block))
+  return blocks.map(parseWorktreeBlock)
 }
 
 /**

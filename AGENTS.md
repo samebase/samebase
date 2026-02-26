@@ -94,14 +94,17 @@ and function failures.
 
 - **Frontend**: React 18 + React Router + Vite
 - **Backend**: Convex (real-time database + serverless functions)
-- **Auth**: Convex Auth with GitHub OAuth integration
+- **Auth**: Convex Auth app login (Google in prod, Google + password in dev)
+  plus provider connection OAuth/API key flows
 - **Editor**: CodeMirror 6 with collaborative editing via Convex
 - **UI**: Tailwind CSS + Radix UI components + shadcn/ui patterns
 - **State**: Convex real-time queries + TanStack Query
 
 **Key Data Models** (Convex schema):
 
-- `users`: GitHub-authenticated users with access tokens
+- `users`: app user profiles and allowlist/approval state
+- `providerConnections`: provider credentials (`github`/`convex`/`netlify`) with
+  `oauth` or `api_key` auth method
 - `vaults`: Connected GitHub repositories per user
 - `vaultInfrastructure`: per-vault Convex/Netlify provisioning metadata
 - `vaultDomains`: branch/domain mappings per vault
@@ -186,7 +189,8 @@ and function failures.
 - **Frontend**: React 18, TypeScript, Vite, React Router 7
 - **Backend**: Convex (real-time database + serverless functions)
 - **Editor**: CodeMirror 6 + `@prosemark/core` (npm)
-- **Auth**: Convex Auth + GitHub OAuth
+- **Auth**: Convex Auth (Google in prod, Google + password in dev) + provider
+  OAuth/API key connection flows
 - **UI**: Tailwind CSS + Radix UI + shadcn/ui
 - **State**: Convex real-time subscriptions + TanStack Query
 

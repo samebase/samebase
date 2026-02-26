@@ -160,6 +160,15 @@ When running anonymous/local worktree seed path:
 4. `DEV_SEED_NETLIFY_API_KEY`
 5. `DEV_SEED_NETLIFY_TEAM_ID`
 
+Seed transport contract:
+
+1. `make anon` / `make anon-once` writes a dedicated local seed file:
+   `apps/noter/.env.anon-seed.local`.
+2. That file contains local `CONVEX_DEPLOYMENT` plus `DEV_SEED_*` inputs.
+3. Seeding runs through `devAuth:seedPasswordAccount` with
+   `--env-file .env.anon-seed.local`.
+4. Do not copy full cloud dev env into local anonymous deployment env.
+
 No shared fallback env names are used for seed inputs.
 
 ## Rollout Notes
