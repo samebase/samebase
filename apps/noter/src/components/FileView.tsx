@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useAction, useMutation } from "convex/react";
+import { useAction, useMutation, useQuery as useLiveQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { CodeEditorWrapper } from "@/components/CodeEditor";
@@ -118,7 +118,9 @@ function FileViewWrapper() {
   const repositoryFullName = owner && repoName ? `${owner}/${repoName}` : null;
 
   // Get vault for this repository
-  const vault = useQuery(api.vault.getVaultByRepository, {
+  // TODO: Keep vault existence checks on live query until useCacheQuery exposes
+  // freshness metadata (cached null can trigger a false redirect to dashboard).
+  const vault = useLiveQuery(api.vault.getVaultByRepository, {
     repositoryFullName: repositoryFullName ?? "skip",
   });
   const selectedTreeEntry = useMemo(
