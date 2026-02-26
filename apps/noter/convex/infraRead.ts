@@ -103,7 +103,7 @@ function resolveConvexToken(
   if (connection) {
     return connection.auth.credential;
   }
-  throw new Error("Convex connection required to perform this read.");
+  throw new Error("Convex is not connected");
 }
 
 function resolveConvexTeamId(
@@ -115,7 +115,7 @@ function resolveConvexTeamId(
   if (connection) {
     return connection.teamId;
   }
-  throw new Error("Convex connection required to perform this read.");
+  throw new Error("Convex is not connected");
 }
 
 function resolveNetlifyToken(
@@ -127,7 +127,7 @@ function resolveNetlifyToken(
   if (connection) {
     return connection.auth.credential;
   }
-  throw new Error("Netlify connection required to perform this read.");
+  throw new Error("Netlify is not connected");
 }
 
 function resolveNetlifyTeamSlug(
@@ -145,7 +145,7 @@ function resolveNetlifyTeamSlug(
   if (teamId) {
     return teamId;
   }
-  throw new Error("Netlify team selection required to perform this read.");
+  throw new Error("Netlify is not connected");
 }
 
 export const getConvexDeploymentStatus = internalAction({
