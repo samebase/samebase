@@ -213,6 +213,7 @@ them directly using CLI tools.
 | `ready`     | Mark draft PR as ready: `gh pr ready`                                                |
 | `wait`      | Monitor CI with `gh pr checks` or `gh run watch`, report status                      |
 | `ship`      | Full flow: commit → push → create PR → ready → fix Greptile feedback&nitpicks → wait |
+| `clean`     | After PR is shipped/merged: remove the current worktree and delete its branch        |
 | `status`    | Show branch, uncommitted changes, PR state                                           |
 
 ### Rules
@@ -220,6 +221,12 @@ them directly using CLI tools.
 - Always use CLI tools (`gh`, `git`) - never tell user to click UI buttons
 - Execute, don't instruct
 - Adapt to context (if PR exists, update it; if already ready, skip)
+- Before `create pr` or `ship`, verify the branch name is meaningful. If it's
+  still an auto-generated random `codex/<word>-<word>-<word>` name, rename it to
+  a descriptive `codex/<intent>` branch before pushing/creating the PR.
+- For `clean`, run it only after the PR is shipped/merged. Execute from CLI:
+  remove the current non-main worktree, delete its local branch, and delete its
+  remote branch if it still exists.
 - When the user asks to "open a PR" (or `create pr`), always write a normal PR
   description (summary, key changes, validation). Never leave the PR body empty.
 - When the user asks to "open a PR" (or `create pr`), mark it ready for review
