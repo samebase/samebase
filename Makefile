@@ -9,6 +9,8 @@ bootstrap:
 
 bootstrap-anon:
 	./scripts/bootstrap-worktree.js --anon
+	CONVEX_AGENT_MODE=anonymous pnpm --filter noter exec convex dev --once --tail-logs=disable --typecheck=disable
+	CONVEX_AGENT_MODE=anonymous pnpm --filter noter exec convex run devAuth:seedPasswordAccount
 
 run:
 	$(MAKE) bootstrap
@@ -22,7 +24,6 @@ anon:
 # One-off anonymous Convex bootstrap (codegen + push), then exit.
 anon-once:
 	$(MAKE) bootstrap-anon
-	CONVEX_AGENT_MODE=anonymous pnpm --filter noter exec convex dev --once --tail-logs=disable --typecheck=disable
 
 update-fixtures:
 	UPDATE_SIMPLE_VIEW_FIXTURES=1 pnpm exec vitest run apps/noter/src/lib/simpleView.test.ts

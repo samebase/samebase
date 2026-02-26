@@ -149,7 +149,12 @@ Add `seedPasswordAccount` action:
 In anonymous mode:
 
 1. Keep current bootstrap behavior.
-2. Run seeding action after backend bootstrap for local worktrees.
+2. Bootstrap Convex successfully before the long-running backend starts.
+
+### `Makefile` (`bootstrap-anon`)
+
+1. Run anonymous one-off Convex bootstrap.
+2. Run `devAuth:seedPasswordAccount` once after bootstrap.
 
 ### `apps/noter/convex/users.ts`
 

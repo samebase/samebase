@@ -66,10 +66,6 @@ const readEnvFile = () => {
   return env;
 };
 
-const maybeSeedPasswordAccount = () => {
-  run("npx", ["convex", "run", "devAuth:seedPasswordAccount"]);
-};
-
 const isConvexLocalBackend = async (port) => {
   try {
     const response = await fetch(`http://127.0.0.1:${port}/instance_name`, {
@@ -132,7 +128,6 @@ if (process.env.CONVEX_AGENT_MODE === "anonymous") {
   const readmeSnapshot = captureConvexReadme();
   await stopLocalBackendIfRunning();
   run("node", ["convex-dev.js", "--until-success", "--codegen=enable"]);
-  maybeSeedPasswordAccount();
   restoreConvexReadmeIfOverwritten(readmeSnapshot);
   process.exit(0);
 }
