@@ -151,10 +151,11 @@ In anonymous mode:
 1. Keep current bootstrap behavior.
 2. Bootstrap Convex successfully before the long-running backend starts.
 
-### `Makefile` (`bootstrap-anon`)
+### `Makefile` (`anon` / `anon-once`)
 
-1. Run anonymous one-off Convex bootstrap.
-2. Run `devAuth:seedPasswordAccount` once after bootstrap.
+1. Keep `bootstrap-anon` setup-only (worktree bootstrap, no seeding).
+2. Run one anonymous one-off Convex bootstrap + `devAuth:seedPasswordAccount` in
+   `anon` and `anon-once`.
 
 ### `apps/noter/convex/users.ts`
 
@@ -230,7 +231,7 @@ For each provider connection row:
 ### Phase 1: Password auth foundation
 
 1. Introduce password provider support with dev-default enablement.
-2. Wire seeded password account action into predev integration.
+2. Wire seeded password account action into `make anon` / `make anon-once`.
 3. Ship the dev-only password UI.
 
 ### Phase 2: API-key provider connections
