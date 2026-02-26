@@ -58,39 +58,15 @@ async function loadVaultContext(
     teamSlug?: string;
   } | null;
 }> {
-  const vault = await ctx.runQuery(internal.vault.getById, {
-    id: vaultId,
-  });
-  if (!vault) {
-    return {
-      infra: null,
-      convexConnection: null,
-      netlifyConnection: null,
-    };
-  }
-  const infra = await ctx.runQuery(
-    internal.infraProvisioning.getInfrastructureByVault,
-    {
-      vaultId,
-    },
+  const { infra, convexConnection, netlifyConnection } = await ctx.runQuery(
+    internal.infraReadQueries.getVaultReadContext,
+    { vaultId },
   );
-  const [convexConnectionRaw, netlifyConnectionRaw] = await Promise.all([
-    ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId: vault.userId,
-      kind: "convex",
-    }),
-    ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-      userId: vault.userId,
-      kind: "netlify",
-    }),
-  ]);
 
   return {
     infra,
-    convexConnection:
-      convexConnectionRaw?.kind === "convex" ? convexConnectionRaw : null,
-    netlifyConnection:
-      netlifyConnectionRaw?.kind === "netlify" ? netlifyConnectionRaw : null,
+    convexConnection,
+    netlifyConnection,
   };
 }
 
@@ -134,16 +110,11 @@ function resolveNetlifyTeamSlug(
   connection: {
     kind: "netlify";
     teamSlug?: string;
-    teamId: string;
   } | null,
 ): string {
   const slug = connection?.teamSlug?.trim() ?? "";
   if (slug) {
     return slug;
-  }
-  const teamId = connection?.teamId?.trim() ?? "";
-  if (teamId) {
-    return teamId;
   }
   throw new Error("Netlify is not connected");
 }

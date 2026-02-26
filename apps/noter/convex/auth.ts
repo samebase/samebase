@@ -194,7 +194,7 @@ async function upsertSeedNetlifyConnection(
         credential,
       },
       teamId,
-      teamSlug: undefined,
+      teamSlug: teamId,
       updatedAt: now,
     });
     return;
@@ -207,6 +207,7 @@ async function upsertSeedNetlifyConnection(
       credential,
     },
     teamId,
+    teamSlug: teamId,
     createdAt: now,
     updatedAt: now,
   });
