@@ -43,8 +43,15 @@ storage/indexing details.
 1. Enable password provider only on development deployments.
 2. Keep Google login provider when configured.
 3. Keep allowlist checks in `createOrUpdateUser`.
-4. In anonymous/local worktree flows, seed provider API keys into
-   `providerConnections` (not `users`).
+
+### `apps/noter/convex/devAuth.ts`
+
+1. `seedPasswordAccount` must seed fixed dev credentials:
+   - Email: `nicu@noter.md`
+   - Password: `pass1234`
+2. `seedPasswordAccount` must also upsert provider API-key connections for the
+   seeded user into `providerConnections` (not `users`) when `DEV_SEED_*` inputs
+   are present.
 
 ### `apps/noter/convex/users.ts`
 
@@ -60,6 +67,12 @@ Each action validates the key before upsert in `providerConnections`.
 
 `make anon` / `make anon-once` must run password-account seed during the anon
 startup flow.
+
+Flow contract:
+
+1. Initialize local anonymous deployment (`convex dev --once`).
+2. Build `apps/noter/.env.anon-seed.local` from cloud dev `DEV_SEED_*` vars.
+3. Run `devAuth:seedPasswordAccount` using `--env-file .env.anon-seed.local`.
 
 ## Frontend Requirements
 

@@ -1,10 +1,14 @@
 # Noter
 
-Noter is a collaborative, GitHub-connected code editor built as a Turborepo monorepo with React + Vite on the frontend and Convex on the backend.
+Noter is a collaborative, GitHub-connected code editor built as a Turborepo
+monorepo with React + Vite on the frontend and Convex on the backend.
+
 ## Current Product Capabilities (2026-02-13)
+
 - Real-time collaborative editing with CodeMirror + Convex synchronization
 - GitHub repository connection (`connectRepository`) for existing repos
-- New agent/repo creation (`createRepository`) for noter-managed vaults, seeded as a runnable starter in a single commit
+- New agent/repo creation (`createRepository`) for noter-managed vaults, seeded
+  as a runnable starter in a single commit
 - Automatic infrastructure provisioning for new noter-managed vaults:
   - Convex project/deployment
   - Netlify site + environment wiring
@@ -16,16 +20,22 @@ Noter is a collaborative, GitHub-connected code editor built as a Turborepo mono
   - Production infrastructure/data read requests
 
 ## Important Behavior
-- Auto infra provisioning is triggered only for newly created noter-managed vaults.
+
+- Auto infra provisioning is triggered only for newly created noter-managed
+  vaults.
 - Connecting an existing GitHub repository does not auto-provision infra.
-- Starter seed source of truth is maintained in `apps/noter-starter-template` and exported to `apps/noter/convex/starterSeedManifest.generated.ts`.
+- Starter seed source of truth is maintained in `apps/noter-starter-template`
+  and exported to `apps/noter/convex/starterSeedManifest.generated.ts`.
 - Frontend: React 18, TypeScript, Vite, React Router
 - Backend: Convex (queries, mutations, actions, scheduler)
 - Editor: CodeMirror 6
-- Auth: Convex Auth + GitHub OAuth
+- Auth: Convex Auth (Google in prod, Google + password in dev) + provider
+  OAuth/API key connections
 - UI: Tailwind CSS + Radix UI + shadcn/ui patterns
 - Monorepo: Turborepo + PNPM
+
 ## Project Layout
+
 ```text
 .
 ├── AGENTS.md
@@ -89,15 +99,13 @@ test
 ## Project Structure
 
 ```
-├── apps/
-│   └── noter/           # Main application
-│       ├── src/         # React frontend source
-│       ├── convex/      # Convex backend functions
-│       └── public/      # Static assets
-├── package.json         # Root package configuration
-├── turbo.json          # Turborepo configuration
-└── pnpm-workspace.yaml # PNPM workspace configuration
-```
+
+├── apps/ │ └── noter/ # Main application │ ├── src/ # React frontend source │
+├── convex/ # Convex backend functions │ └── public/ # Static assets ├──
+package.json # Root package configuration ├── turbo.json # Turborepo
+configuration └── pnpm-workspace.yaml # PNPM workspace configuration
+
+````
 
 ## Getting Started
 
@@ -110,7 +118,7 @@ test
 
 ```bash
 pnpm install
-```
+````
 
 ### Development
 
@@ -119,6 +127,7 @@ pnpm dev
 ```
 
 This will start:
+
 - Vite dev server for the frontend
 - Convex development environment
 - Hot reloading for both frontend and backend
@@ -138,8 +147,8 @@ pnpm test
 ## Environment Setup
 
 1. Copy environment variables and configure your Convex project
-2. Set up GitHub OAuth for repository access
-3. Configure authentication providers
+2. Configure app-login providers (Google, plus password in dev)
+3. Configure provider connection OAuth/API keys (GitHub/Convex/Netlify)
 
 ## TODO
 
@@ -148,6 +157,7 @@ pnpm test
 ## Contributing
 
 This project uses:
+
 - ESLint and Prettier for code formatting
 - Husky for pre-commit hooks
 - TypeScript for type safety
@@ -156,10 +166,16 @@ This project uses:
 ## License
 
 [Add your license information here]
+
 # noter
-Turborepo + PNPM monorepo with React + Vite + Convex.
-Also using ProseMark. something
+
+Turborepo + PNPM monorepo with React + Vite + Convex. Also using ProseMark.
+something
+
 ## Install
+
 ## Development
+
 ## Build
+
 commit
