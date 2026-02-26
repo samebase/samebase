@@ -52,5 +52,10 @@
     "convex"
   ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "pnpm": {
+    "patchedDependencies": {
+      "convex@1.32.0": "patches/convex@1.32.0.patch"
+    }
+  }
 }

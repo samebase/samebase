@@ -1,0 +1,39 @@
+diff --git a/dist/cjs/cli/lib/codegen.js b/dist/cjs/cli/lib/codegen.js
+index 61687ab18a0998eeb46e94c328f2c1c15a1c52c6..82fb9858ca446f597fcc9fb3fbf5134fdc6e6cb2 100644
+--- a/dist/cjs/cli/lib/codegen.js
++++ b/dist/cjs/cli/lib/codegen.js
+@@ -53,7 +53,7 @@ var import_component_server = require("../codegen_templates/component_server.js"
+ var import_component_api = require("../codegen_templates/component_api.js");
+ var import_utils = require("./utils/utils.js");
+ async function doInitConvexFolder(ctx, functionsFolder, opts) {
+-  const skipIfExists = false;
++  const skipIfExists = true;
+   let folder;
+   if (functionsFolder) {
+     folder = functionsFolder;
+diff --git a/dist/cli.bundle.cjs b/dist/cli.bundle.cjs
+index 12cd8cf869fd2697106c35abd3c3f0adffab71f1..c33d9e8ed1e6779e7063af239de52b5b90afbf0e 100644
+--- a/dist/cli.bundle.cjs
++++ b/dist/cli.bundle.cjs
+@@ -121220,7 +121220,7 @@ function canonicalizeModulePath(modulePath) {
+ 
+ // src/cli/lib/codegen.ts
+ async function doInitConvexFolder(ctx, functionsFolder, opts) {
+-  const skipIfExists = false;
++  const skipIfExists = true;
+   let folder;
+   if (functionsFolder) {
+     folder = functionsFolder;
+diff --git a/dist/esm/cli/lib/codegen.js b/dist/esm/cli/lib/codegen.js
+index f8f9ab6ce3973c973edd16bb0bc3429d7522920a..ddb5400658e5bf680abbe0c46afe5ae356c8a183 100644
+--- a/dist/esm/cli/lib/codegen.js
++++ b/dist/esm/cli/lib/codegen.js
+@@ -41,7 +41,7 @@ import {
+ } from "../codegen_templates/component_api.js";
+ import { functionsDir } from "./utils/utils.js";
+ export async function doInitConvexFolder(ctx, functionsFolder, opts) {
+-  const skipIfExists = false;
++  const skipIfExists = true;
+   let folder;
+   if (functionsFolder) {
+     folder = functionsFolder;
