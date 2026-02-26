@@ -1,7 +1,7 @@
 "use node";
 
 import { v } from "convex/values";
-import { internalAction } from "./_generated/server";
+import { internalAction, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
@@ -41,6 +41,23 @@ const DB_CONCURRENCY = 80; // inline doc writes
 const UP_CONCURRENCY = 12; // storage uploads
 export const INLINE_TEXT_MAX = 900_000;
 
+async function getGithubAccessToken(
+  ctx: ActionCtx,
+  userId: Id<"users">,
+): Promise<string> {
+  const connection = await ctx.runQuery(
+    internal.providerConnections.getByUserAndKind,
+    {
+      userId,
+      kind: "github",
+    },
+  );
+  if (connection?.kind !== "github") {
+    throw new Error("GitHub is not connected");
+  }
+  return connection.auth.credential;
+}
+
 /**
  * Download a git repository using isomorphic-git and save all files to fileBlobs table
  */
@@ -52,16 +69,7 @@ export const downloadGitRepositoryAndMarkReady = internalAction({
     branch: v.optional(v.string()), // defaults to 'main'
   },
   handler: async (ctx, args) => {
-    const currentUser = await ctx.runQuery(internal.users.getById, {
-      userId: args.userId,
-    });
-
-    if (!currentUser) {
-      throw new Error("User not found");
-    }
-    if (!currentUser.githubAccessToken) {
-      throw new Error("User does not have a GitHub access token");
-    }
+    const githubAccessToken = await getGithubAccessToken(ctx, args.userId);
 
     const base = await fs.mkdtemp(path.join(os.tmpdir(), "repo-")); // ✅ writable
     const dir = path.join(base, "workdir");
@@ -93,7 +101,7 @@ export const downloadGitRepositoryAndMarkReady = internalAction({
           // Only for github
           return {
             username: "token",
-            password: currentUser.githubAccessToken,
+            password: githubAccessToken,
           };
         },
       });

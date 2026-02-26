@@ -1,12 +1,20 @@
-import GitHub from "@auth/core/providers/github";
 import Google from "@auth/core/providers/google";
 import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
-import { isAdminUser, isAllowedEmail } from "./users";
-import type { Doc } from "./_generated/dataModel";
+import type { DatabaseReader, DatabaseWriter } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+import { getConnectionByUserAndKind } from "./providerConnections";
+import { isAllowedEmail } from "./users";
 import { readOptionalEnv, readRequiredEnv } from "./oauthUtils";
 
-type UserPatch = Partial<Doc<"users">>;
+type UserPatch = {
+  name?: string;
+  email?: string;
+  image?: string;
+  emailVerificationTime?: number;
+  phoneVerificationTime?: number;
+  isApproved?: boolean;
+};
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -16,9 +24,53 @@ function isNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function isFlagEnabled(key: string): boolean {
-  const value = readOptionalEnv(key);
-  return value !== null && value.toLowerCase() === "true";
+function readDeploymentName(rawDeployment: string): string | null {
+  const [_, ...rest] = rawDeployment.split(":");
+  if (rest.length === 0) {
+    return null;
+  }
+  const deploymentName = rest.join(":").trim();
+  return deploymentName.length > 0 ? deploymentName : null;
+}
+
+function isDevelopmentDeployment(): boolean {
+  const deployment = readOptionalEnv("CONVEX_DEPLOYMENT");
+  if (deployment !== null) {
+    return deployment.startsWith("dev:");
+  }
+
+  const daytonaDeployKey = readOptionalEnv("DAYTONA_CONVEX_DEPLOY_KEY");
+  if (daytonaDeployKey !== null) {
+    const [daytonaDeployment] = daytonaDeployKey.split("|", 1);
+    return daytonaDeployment.startsWith("dev:");
+  }
+
+  const siteUrl = readOptionalEnv("SITE_URL");
+  return siteUrl !== null && siteUrl.includes("localhost");
+}
+
+function isAnonymousWorktreeDeployment(): boolean {
+  const deployment = readOptionalEnv("CONVEX_DEPLOYMENT");
+  if (deployment !== null) {
+    const deploymentName = readDeploymentName(deployment);
+    return (
+      deploymentName !== null &&
+      (deploymentName.startsWith("anonymous-") ||
+        deploymentName.startsWith("local-"))
+    );
+  }
+
+  const daytonaDeployKey = readOptionalEnv("DAYTONA_CONVEX_DEPLOY_KEY");
+  if (daytonaDeployKey === null) {
+    return false;
+  }
+  const [daytonaDeployment] = daytonaDeployKey.split("|", 1);
+  const deploymentName = readDeploymentName(daytonaDeployment);
+  return (
+    deploymentName !== null &&
+    (deploymentName.startsWith("anonymous-") ||
+      deploymentName.startsWith("local-"))
+  );
 }
 
 function normalizeEmail(email: string): string {
@@ -38,19 +90,6 @@ function buildUserPatch(profile: Record<string, unknown>): UserPatch {
     patch.image = profile.image;
   }
 
-  if (isNonEmptyString(profile.githubUsername)) {
-    patch.githubUsername = profile.githubUsername;
-  }
-  if (isNonEmptyString(profile.githubAccessToken)) {
-    patch.githubAccessToken = profile.githubAccessToken;
-  }
-  if (isNonEmptyString(profile.githubRefreshToken)) {
-    patch.githubRefreshToken = profile.githubRefreshToken;
-  }
-  if (isNumber(profile.githubExpiresAt)) {
-    patch.githubExpiresAt = profile.githubExpiresAt;
-  }
-
   if (profile.emailVerified === true) {
     patch.emailVerificationTime = Date.now();
   }
@@ -58,75 +97,137 @@ function buildUserPatch(profile: Record<string, unknown>): UserPatch {
     patch.phoneVerificationTime = Date.now();
   }
 
-  if (isSignInAllowed(patch.githubUsername, patch.email)) {
+  if (isSignInAllowed(patch.email)) {
     patch.isApproved = true;
   }
 
   return patch;
 }
 
-function isSignInAllowed(
-  githubUsername: string | null | undefined,
-  email: string | null | undefined,
-): boolean {
-  return isAdminUser(githubUsername, email) || isAllowedEmail(email);
+function isSignInAllowed(email: string | null | undefined): boolean {
+  return isAllowedEmail(email);
 }
 
-function applyAutoSeedProviderKeys(
-  patch: UserPatch,
-  existingUser: Doc<"users"> | null,
-) {
-  if (!isFlagEnabled("AUTH_AUTO_SEED_PROVIDER_KEYS")) {
+async function upsertSeedGithubConnection(
+  db: DatabaseWriter,
+  userId: Id<"users">,
+): Promise<void> {
+  const credential = readOptionalEnv("DEV_SEED_GITHUB_API_KEY");
+  if (credential === null) {
     return;
   }
-
-  const githubAccessToken =
-    patch.githubAccessToken ?? existingUser?.githubAccessToken;
-  if (!isNonEmptyString(githubAccessToken)) {
-    const envToken = readOptionalEnv("GITHUB_TOKEN");
-    if (envToken !== null) {
-      patch.githubAccessToken = envToken;
-    }
+  const existing = await getConnectionByUserAndKind(db, userId, "github");
+  const now = Date.now();
+  if (existing) {
+    await db.patch(existing._id, {
+      auth: {
+        method: "api_key",
+        credential,
+      },
+      updatedAt: now,
+    });
+    return;
   }
-
-  const convexAccessToken =
-    patch.convexAccessToken ?? existingUser?.convexAccessToken;
-  if (!isNonEmptyString(convexAccessToken)) {
-    const envToken = readOptionalEnv("CONVEX_MANAGEMENT_TOKEN");
-    if (envToken !== null) {
-      patch.convexAccessToken = envToken;
-    }
-  }
-  const convexTeamId = patch.convexTeamId ?? existingUser?.convexTeamId;
-  if (!isNonEmptyString(convexTeamId)) {
-    const envTeamId = readOptionalEnv("CONVEX_TEAM_ID");
-    if (envTeamId !== null) {
-      patch.convexTeamId = envTeamId;
-    }
-  }
-
-  const netlifyAccessToken =
-    patch.netlifyAccessToken ?? existingUser?.netlifyAccessToken;
-  if (!isNonEmptyString(netlifyAccessToken)) {
-    const envToken = readOptionalEnv("NETLIFY_ACCESS_TOKEN");
-    if (envToken !== null) {
-      patch.netlifyAccessToken = envToken;
-    }
-  }
-  const netlifyTeamId = patch.netlifyTeamId ?? existingUser?.netlifyTeamId;
-  if (!isNonEmptyString(netlifyTeamId)) {
-    const envTeamId = readOptionalEnv("NETLIFY_TEAM_ID");
-    if (envTeamId !== null) {
-      patch.netlifyTeamId = envTeamId;
-    }
-  }
+  await db.insert("providerConnections", {
+    kind: "github",
+    userId,
+    auth: {
+      method: "api_key",
+      credential,
+    },
+    createdAt: now,
+    updatedAt: now,
+  });
 }
 
-const githubClientId = readRequiredEnv("AUTH_GITHUB_ID");
-const githubClientSecret = readRequiredEnv("AUTH_GITHUB_SECRET");
+async function upsertSeedConvexConnection(
+  db: DatabaseWriter,
+  userId: Id<"users">,
+): Promise<void> {
+  const credential = readOptionalEnv("DEV_SEED_CONVEX_MANAGEMENT_API_KEY");
+  const teamId = readOptionalEnv("DEV_SEED_CONVEX_TEAM_ID");
+  if (credential === null || teamId === null) {
+    return;
+  }
+  const existing = await getConnectionByUserAndKind(db, userId, "convex");
+  const now = Date.now();
+  if (existing) {
+    await db.patch(existing._id, {
+      auth: {
+        method: "api_key",
+        credential,
+      },
+      teamId,
+      teamSlug: undefined,
+      updatedAt: now,
+    });
+    return;
+  }
+  await db.insert("providerConnections", {
+    kind: "convex",
+    userId,
+    auth: {
+      method: "api_key",
+      credential,
+    },
+    teamId,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+async function upsertSeedNetlifyConnection(
+  db: DatabaseWriter,
+  userId: Id<"users">,
+): Promise<void> {
+  const credential = readOptionalEnv("DEV_SEED_NETLIFY_API_KEY");
+  const teamId = readOptionalEnv("DEV_SEED_NETLIFY_TEAM_ID");
+  if (credential === null || teamId === null) {
+    return;
+  }
+  const existing = await getConnectionByUserAndKind(db, userId, "netlify");
+  const now = Date.now();
+  if (existing) {
+    await db.patch(existing._id, {
+      auth: {
+        method: "api_key",
+        credential,
+      },
+      teamId,
+      teamSlug: teamId,
+      updatedAt: now,
+    });
+    return;
+  }
+  await db.insert("providerConnections", {
+    kind: "netlify",
+    userId,
+    auth: {
+      method: "api_key",
+      credential,
+    },
+    teamId,
+    teamSlug: teamId,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+async function applyAutoSeedProviderKeys(
+  db: DatabaseWriter,
+  userId: Id<"users">,
+) {
+  if (!isAnonymousWorktreeDeployment()) {
+    return;
+  }
+  await upsertSeedGithubConnection(db, userId);
+  await upsertSeedConvexConnection(db, userId);
+  await upsertSeedNetlifyConnection(db, userId);
+}
+
 const googleClientId = readOptionalEnv("AUTH_GOOGLE_ID");
 const googleClientSecret = readOptionalEnv("AUTH_GOOGLE_SECRET");
-const passwordAuthEnabled = isFlagEnabled("AUTH_ENABLE_PASSWORD");
+const passwordAuthEnabled = isDevelopmentDeployment();
 if ((googleClientId === null) !== (googleClientSecret === null)) {
   throw new Error(
     `Missing required environment variable: ${
@@ -167,30 +268,6 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           }),
         ]
       : []),
-    GitHub({
-      clientId: githubClientId,
-      clientSecret: githubClientSecret,
-      authorization: {
-        params: {
-          scope: "repo delete_repo user user:email codespace read:packages",
-        },
-      },
-
-      profile: (profile, tokens) => {
-        return {
-          id: profile.id.toString(),
-          // login: profile.login,
-          name: profile.name,
-          email: profile.email,
-          image: profile.avatar_url,
-
-          githubUsername: profile.login,
-          githubAccessToken: tokens.access_token,
-          githubRefreshToken: tokens.refresh_token,
-          githubExpiresAt: tokens.expires_at,
-        };
-      },
-    }),
   ],
 
   callbacks: {
@@ -200,30 +277,21 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         ? await ctx.db.get(args.existingUserId)
         : null;
 
-      let githubUsernameForAccessCheck = patch.githubUsername;
-      let emailForAccessCheck = patch.email;
-
-      if (existingUser) {
-        if (!githubUsernameForAccessCheck) {
-          githubUsernameForAccessCheck = existingUser.githubUsername;
-        }
-        if (!emailForAccessCheck) {
-          emailForAccessCheck = existingUser.email;
-        }
-      }
-
-      if (!isSignInAllowed(githubUsernameForAccessCheck, emailForAccessCheck)) {
+      const emailForAccessCheck = patch.email ?? existingUser?.email;
+      if (!isSignInAllowed(emailForAccessCheck)) {
         throw new Error("Access denied: account is not allowlisted");
       }
 
-      applyAutoSeedProviderKeys(patch, existingUser);
+      const userId = args.existingUserId
+        ? args.existingUserId
+        : await ctx.db.insert("users", patch);
 
       if (args.existingUserId) {
         await ctx.db.patch(args.existingUserId, patch);
-        return args.existingUserId;
       }
 
-      return await ctx.db.insert("users", patch);
+      await applyAutoSeedProviderKeys(ctx.db, userId);
+      return userId;
     },
   },
 });

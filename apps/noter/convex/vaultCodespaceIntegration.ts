@@ -1,10 +1,28 @@
 "use node";
 
-import { action } from "./_generated/server";
+import { action, type ActionCtx } from "./_generated/server";
 import { Infer, v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
+import type { Id } from "./_generated/dataModel";
+
+async function getGithubAccessToken(
+  ctx: ActionCtx,
+  userId: Id<"users">,
+): Promise<string> {
+  const connection = await ctx.runQuery(
+    internal.providerConnections.getByUserAndKind,
+    {
+      userId,
+      kind: "github",
+    },
+  );
+  if (connection?.kind !== "github") {
+    throw new Error("GitHub is not connected");
+  }
+  return connection.auth.credential;
+}
 
 /**
  * Create a vault with an associated Codespace
@@ -28,17 +46,10 @@ export const createVaultWithCodespace = action({
     const userId = await getUserId(ctx);
     const branch = args.branch || "main";
 
-    // Get user GitHub access token
-    const user = await ctx.runQuery(internal.codespacesMutations.getUser, {
-      userId,
-    });
-
-    if (!user?.githubAccessToken) {
-      throw new Error("GitHub access token not found");
-    }
+    const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
     const octokit = new Octokit({
-      auth: user.githubAccessToken,
+      auth: githubAccessToken,
     });
 
     // Get latest commit SHA from GitHub
@@ -124,17 +135,10 @@ export const rebuildCodespaceIfStale = action({
         })
       : null;
 
-    // Get user GitHub access token
-    const user = await ctx.runQuery(internal.codespacesMutations.getUser, {
-      userId,
-    });
-
-    if (!user?.githubAccessToken) {
-      throw new Error("GitHub access token not found");
-    }
+    const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
     const octokit = new Octokit({
-      auth: user.githubAccessToken,
+      auth: githubAccessToken,
     });
 
     // Get latest commit SHA from main branch
@@ -263,16 +267,22 @@ export const ensureCodespaceReady = action({
         { codespaceId },
       );
       if (!portEnsured.ensured) {
-        console.log("vaultCodespaceIntegration:ensureCodespaceReady:ports:ensure:failed", {
-          codespaceId,
-          results: portEnsured.results,
-        });
+        console.log(
+          "vaultCodespaceIntegration:ensureCodespaceReady:ports:ensure:failed",
+          {
+            codespaceId,
+            results: portEnsured.results,
+          },
+        );
       }
     } catch (error) {
-      console.log("vaultCodespaceIntegration:ensureCodespaceReady:ports:ensure:error", {
-        codespaceId,
-        message: error instanceof Error ? error.message : String(error),
-      });
+      console.log(
+        "vaultCodespaceIntegration:ensureCodespaceReady:ports:ensure:error",
+        {
+          codespaceId,
+          message: error instanceof Error ? error.message : String(error),
+        },
+      );
     }
     await ctx.runAction(api.codespacesExecutor.checkAgentHealth, {
       codespaceId,

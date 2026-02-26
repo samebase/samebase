@@ -45,57 +45,78 @@ async function loadVaultContext(
   vaultId: Id<"vaults">,
 ): Promise<{
   infra: Doc<"vaultInfrastructure"> | null;
-  user: Doc<"users"> | null;
+  convexConnection: {
+    kind: "convex";
+    auth: { credential: string };
+    teamId: string;
+    teamSlug?: string;
+  } | null;
+  netlifyConnection: {
+    kind: "netlify";
+    auth: { credential: string };
+    teamId: string;
+    teamSlug?: string;
+  } | null;
 }> {
-  const vault = await ctx.runQuery(internal.vault.getById, {
-    id: vaultId,
-  });
-  if (!vault) {
-    return { infra: null, user: null };
-  }
-  const infra = await ctx.runQuery(internal.infraProvisioning.getInfrastructureByVault, {
-    vaultId,
-  });
-  const user = await ctx.runQuery(internal.users.getById, {
-    userId: vault.userId,
-  });
-  return { infra, user };
+  const { infra, convexConnection, netlifyConnection } = await ctx.runQuery(
+    internal.infraReadQueries.getVaultReadContext,
+    { vaultId },
+  );
+
+  return {
+    infra,
+    convexConnection,
+    netlifyConnection,
+  };
 }
 
-function resolveConvexToken(user: { convexAccessToken?: string } | null): string {
-  if (user?.convexAccessToken) {
-    return user.convexAccessToken;
+function resolveConvexToken(
+  connection: {
+    kind: "convex";
+    auth: { credential: string };
+  } | null,
+): string {
+  if (connection) {
+    return connection.auth.credential;
   }
-  throw new Error("Convex connection required to perform this read.");
+  throw new Error("Convex is not connected");
 }
 
-function resolveConvexTeamId(user: { convexTeamId?: string } | null): string {
-  if (user?.convexTeamId) {
-    return user.convexTeamId;
+function resolveConvexTeamId(
+  connection: {
+    kind: "convex";
+    teamId: string;
+  } | null,
+): string {
+  if (connection) {
+    return connection.teamId;
   }
-  throw new Error("Convex connection required to perform this read.");
+  throw new Error("Convex is not connected");
 }
 
-function resolveNetlifyToken(user: { netlifyAccessToken?: string } | null): string {
-  if (user?.netlifyAccessToken) {
-    return user.netlifyAccessToken;
+function resolveNetlifyToken(
+  connection: {
+    kind: "netlify";
+    auth: { credential: string };
+  } | null,
+): string {
+  if (connection) {
+    return connection.auth.credential;
   }
-  throw new Error("Netlify connection required to perform this read.");
+  throw new Error("Netlify is not connected");
 }
 
-function resolveNetlifyTeamSlug(user: {
-  netlifyTeamSlug?: string;
-  netlifyTeamId?: string;
-} | null): string {
-  const slug = user?.netlifyTeamSlug?.trim() ?? "";
+function resolveNetlifyTeamSlug(
+  connection: {
+    kind: "netlify";
+    teamSlug?: string;
+  } | null,
+): string {
+  const slug = connection?.teamSlug?.trim() ?? "";
   if (slug) {
     return slug;
   }
-  const teamId = user?.netlifyTeamId?.trim() ?? "";
-  if (teamId) {
-    return teamId;
-  }
-  throw new Error("Netlify team selection required to perform this read.");
+  throw new Error("Netlify is not connected");
 }
 
 export const getConvexDeploymentStatus = internalAction({
@@ -104,14 +125,17 @@ export const getConvexDeploymentStatus = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { infra, user } = await loadVaultContext(ctx, args.vaultId);
+    const { infra, convexConnection } = await loadVaultContext(
+      ctx,
+      args.vaultId,
+    );
 
     if (!infra?.convexDeploymentName) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
 
     const providers = createInfraProviders({
-      convexToken: resolveConvexToken(user),
+      convexToken: resolveConvexToken(convexConnection),
     });
     const endpoint = `/deployments/${encodeURIComponent(infra.convexDeploymentName)}`;
     const payload = await providers.convex.request(endpoint, "GET");
@@ -133,14 +157,17 @@ export const getConvexLogs = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { infra, user } = await loadVaultContext(ctx, args.vaultId);
+    const { infra, convexConnection } = await loadVaultContext(
+      ctx,
+      args.vaultId,
+    );
 
     if (!infra?.convexProjectId) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
 
     const providers = createInfraProviders({
-      convexToken: resolveConvexToken(user),
+      convexToken: resolveConvexToken(convexConnection),
     });
     const endpoint = `/projects/${encodeURIComponent(infra.convexProjectId)}/list_deployments`;
     const payload = await providers.convex.request(endpoint, "GET");
@@ -156,8 +183,12 @@ export const getConvexLogs = internalAction({
       const kind = readString(record, "kind") ?? "unknown";
       const createdAt = record["createTime"];
       const createdAtText =
-        typeof createdAt === "number" ? new Date(createdAt).toISOString() : "unknown";
-      lines.push(`[${createdAtText}] ${name} type=${deploymentType} kind=${kind}`);
+        typeof createdAt === "number"
+          ? new Date(createdAt).toISOString()
+          : "unknown";
+      lines.push(
+        `[${createdAtText}] ${name} type=${deploymentType} kind=${kind}`,
+      );
     }
 
     return {
@@ -175,14 +206,17 @@ export const getNetlifySiteStatus = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { infra, user } = await loadVaultContext(ctx, args.vaultId);
+    const { infra, netlifyConnection } = await loadVaultContext(
+      ctx,
+      args.vaultId,
+    );
 
     if (!infra?.netlifySiteId) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
 
     const providers = createInfraProviders({
-      netlifyToken: resolveNetlifyToken(user),
+      netlifyToken: resolveNetlifyToken(netlifyConnection),
     });
     const endpoint = `/sites/${encodeURIComponent(infra.netlifySiteId)}`;
     const payload = await providers.netlify.request(endpoint, "GET");
@@ -203,23 +237,30 @@ export const getNetlifyLogs = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { infra, user } = await loadVaultContext(ctx, args.vaultId);
+    const { infra, netlifyConnection } = await loadVaultContext(
+      ctx,
+      args.vaultId,
+    );
 
     if (!infra?.netlifySiteId) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
 
     const providers = createInfraProviders({
-      netlifyToken: resolveNetlifyToken(user),
+      netlifyToken: resolveNetlifyToken(netlifyConnection),
     });
     const maxEntries = clamp(args.maxEntries ?? 10, 1, 50);
-    const deploysEndpoint =
-      `/sites/${encodeURIComponent(infra.netlifySiteId)}/deploys?per_page=${maxEntries}&page=1`;
-    const buildsEndpoint =
-      `/sites/${encodeURIComponent(infra.netlifySiteId)}/builds?per_page=${maxEntries}&page=1`;
+    const deploysEndpoint = `/sites/${encodeURIComponent(infra.netlifySiteId)}/deploys?per_page=${maxEntries}&page=1`;
+    const buildsEndpoint = `/sites/${encodeURIComponent(infra.netlifySiteId)}/builds?per_page=${maxEntries}&page=1`;
 
-    const deploysPayload = await providers.netlify.request(deploysEndpoint, "GET");
-    const buildsPayload = await providers.netlify.request(buildsEndpoint, "GET");
+    const deploysPayload = await providers.netlify.request(
+      deploysEndpoint,
+      "GET",
+    );
+    const buildsPayload = await providers.netlify.request(
+      buildsEndpoint,
+      "GET",
+    );
 
     const lines: string[] = [];
 
@@ -257,7 +298,6 @@ export const getNetlifyLogs = internalAction({
   },
 });
 
-
 export const getConvexProjectInventory = internalAction({
   args: {
     limit: v.optional(v.number()),
@@ -265,13 +305,18 @@ export const getConvexProjectInventory = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const user = args.userId
-      ? await ctx.runQuery(internal.users.getById, { userId: args.userId })
+    const convexConnectionRaw = args.userId
+      ? await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId: args.userId,
+          kind: "convex",
+        })
       : null;
+    const convexConnection =
+      convexConnectionRaw?.kind === "convex" ? convexConnectionRaw : null;
     const providers = createInfraProviders({
-      convexToken: resolveConvexToken(user),
+      convexToken: resolveConvexToken(convexConnection),
     });
-    const teamId = resolveConvexTeamId(user);
+    const teamId = resolveConvexTeamId(convexConnection);
     const endpoint = `/teams/${encodeURIComponent(teamId)}/list_projects`;
     const payload = await providers.convex.request(endpoint, "GET");
 
@@ -295,16 +340,20 @@ export const getNetlifySiteInventory = internalAction({
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const user = args.userId
-      ? await ctx.runQuery(internal.users.getById, { userId: args.userId })
+    const netlifyConnectionRaw = args.userId
+      ? await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId: args.userId,
+          kind: "netlify",
+        })
       : null;
+    const netlifyConnection =
+      netlifyConnectionRaw?.kind === "netlify" ? netlifyConnectionRaw : null;
     const providers = createInfraProviders({
-      netlifyToken: resolveNetlifyToken(user),
+      netlifyToken: resolveNetlifyToken(netlifyConnection),
     });
-    const teamSlug = resolveNetlifyTeamSlug(user);
+    const teamSlug = resolveNetlifyTeamSlug(netlifyConnection);
     const max = clamp(args.limit ?? 50, 1, 100);
-    const endpoint =
-      `/${encodeURIComponent(teamSlug)}/sites?per_page=${max}&page=1`;
+    const endpoint = `/${encodeURIComponent(teamSlug)}/sites?per_page=${max}&page=1`;
     const payload = await providers.netlify.request(endpoint, "GET");
 
     const sites = Array.isArray(payload) ? payload : [];

@@ -26,8 +26,7 @@ import {
   useQuery as useConvexQuery,
 } from "convex/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useAuthActions } from "@convex-dev/auth/react";
-import { isInIframe, openAuthPopup } from "@/SignInForm";
+import { isInIframe } from "@/SignInForm";
 import { UserMenu } from "@/components/UserMenu";
 import {
   Dialog,
@@ -114,7 +113,6 @@ type RefreshTrigger = "focus" | "page_load";
 export function VaultDashboard() {
   const vaults = useQuery(api.vault.getUserVaults);
   const now = useNow();
-  const { signIn } = useAuthActions();
   const deleteVault = useAction(api.vaultActions.deleteVault);
   const createRepository = useAction(api.vaultActions.createRepository);
   const retryInfrastructureProvisioning = useAction(
@@ -122,6 +120,7 @@ export function VaultDashboard() {
   );
   const commitStaging = useAction(api.fileStagingActions.commitStaging);
   const refreshTree = useAction(api.github.refreshRepositoryTree);
+  const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
   const getNetlifyOAuthUrl = useMutation(api.netlifyOAuth.getNetlifyOAuthUrl);
   const connectGithubWithApiKey = useAction(api.users.connectGithubWithApiKey);
@@ -143,8 +142,10 @@ export function VaultDashboard() {
       convexConnection?.connected &&
       netlifyConnection?.connected,
   );
+  const githubPopupRef = useRef<Window | null>(null);
   const convexPopupRef = useRef<Window | null>(null);
   const netlifyPopupRef = useRef<Window | null>(null);
+  const githubPopupOriginRef = useRef<string | null>(null);
   const convexPopupOriginRef = useRef<string | null>(null);
   const netlifyPopupOriginRef = useRef<string | null>(null);
   const [vaultToDelete, setVaultToDelete] = useState<{
@@ -179,6 +180,15 @@ export function VaultDashboard() {
     const expectedOrigin = window.location.origin;
     const handler = (event: MessageEvent) => {
       if (!isRecord(event.data)) return;
+      if (
+        event.data.type === "github-oauth-complete" &&
+        event.source === githubPopupRef.current
+      ) {
+        if (event.origin !== (githubPopupOriginRef.current ?? expectedOrigin)) {
+          return;
+        }
+        window.location.reload();
+      }
       if (
         event.data.type === "convex-oauth-complete" &&
         event.source === convexPopupRef.current
@@ -308,12 +318,28 @@ export function VaultDashboard() {
     vaultToDelete ? { vaultId: vaultToDelete.id } : "skip",
   );
 
-  const handleConnectGithub = () => {
-    if (isInIframe()) {
-      openAuthPopup("github");
-      return;
+  const handleConnectGithub = async () => {
+    if (createError) {
+      setCreateError(null);
     }
-    void signIn("github");
+    try {
+      const oauthUrl = await getGithubOAuthUrl();
+      if (isInIframe()) {
+        githubPopupOriginRef.current =
+          getRedirectOrigin(oauthUrl) ?? window.location.origin;
+        githubPopupRef.current = window.open(
+          oauthUrl,
+          "github-oauth",
+          "width=600,height=700,popup=true",
+        );
+        return;
+      }
+      window.location.assign(oauthUrl);
+    } catch (error) {
+      setCreateError(
+        error instanceof Error ? error.message : "Failed to start GitHub OAuth",
+      );
+    }
   };
 
   const handleConnectConvex = async () => {
@@ -495,14 +521,19 @@ export function VaultDashboard() {
   const githubConnected = githubConnection?.connected === true;
   const convexConnected = convexConnection?.connected === true;
   const netlifyConnected = netlifyConnection?.connected === true;
+  const formatAuthMethod = (method: "oauth" | "api_key" | undefined) => {
+    if (method === "api_key") return "API key";
+    if (method === "oauth") return "OAuth";
+    return "Unknown";
+  };
   const githubStatus = githubConnected
-    ? `Connected as ${githubConnection?.username ?? "GitHub user"}`
+    ? `Connected as ${githubConnection?.username ?? "GitHub user"} (${formatAuthMethod(githubConnection?.authMethod)})`
     : "Not connected";
   const convexStatus = convexConnected
-    ? `Connected to ${convexConnection?.teamSlug ?? convexConnection?.teamId ?? "Convex team"}`
+    ? `Connected to ${convexConnection?.teamSlug ?? convexConnection?.teamId ?? "Convex team"} (${formatAuthMethod(convexConnection?.authMethod)})`
     : "Not connected";
   const netlifyStatus = netlifyConnected
-    ? `Connected to ${netlifyConnection?.teamSlug ?? netlifyConnection?.teamId ?? "Netlify team"}`
+    ? `Connected to ${netlifyConnection?.teamSlug ?? netlifyConnection?.teamId ?? "Netlify team"} (${formatAuthMethod(netlifyConnection?.authMethod)})`
     : "Not connected";
   const userDisplayName =
     user?.name ?? user?.email ?? user?.githubUsername ?? "...";
@@ -635,8 +666,15 @@ export function VaultDashboard() {
             </Button>
           ) : (
             <div className="flex items-center gap-2">
-              <Button size="sm" onClick={handleConnectGithub}>
-                Connect GitHub
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void handleConnectGithub();
+                }}
+                disabled={disconnectingProvider !== null}
+              >
+                GitHub OAuth
               </Button>
               <Button
                 variant="outline"
@@ -678,8 +716,13 @@ export function VaultDashboard() {
             </Button>
           ) : (
             <div className="flex items-center gap-2">
-              <Button size="sm" onClick={() => void handleConnectConvex()}>
-                Connect Convex
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleConnectConvex()}
+                disabled={disconnectingProvider !== null}
+              >
+                Convex OAuth
               </Button>
               <Button
                 variant="outline"
@@ -721,8 +764,13 @@ export function VaultDashboard() {
             </Button>
           ) : (
             <div className="flex items-center gap-2">
-              <Button size="sm" onClick={() => void handleConnectNetlify()}>
-                Connect Netlify
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleConnectNetlify()}
+                disabled={disconnectingProvider !== null}
+              >
+                Netlify OAuth
               </Button>
               <Button
                 variant="outline"

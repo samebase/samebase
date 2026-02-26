@@ -20,11 +20,12 @@ import os from "os";
 import path from "path";
 import * as git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
-import { action } from "./_generated/server";
+import { action, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getUserId } from "./common";
 import { getEnvLabel } from "./env";
 import { toSafeRepoName } from "./repoName";
+import type { Id } from "./_generated/dataModel";
 
 const { object, id, string, optional, boolean, union, literal, number, array } =
   v;
@@ -71,6 +72,26 @@ const DAYTONA_PREBUILD_RESOURCES: Resources = {
   disk: 10,
 };
 const REPO_REFRESH_MARKER = "__NOTER_REPO_REFRESH__";
+
+type GithubConnection = {
+  kind: "github";
+  auth: { credential: string };
+  username?: string;
+} | null;
+
+async function getGithubConnection(
+  ctx: ActionCtx,
+  userId: Id<"users">,
+): Promise<GithubConnection> {
+  const connection = await ctx.runQuery(
+    internal.providerConnections.getByUserAndKind,
+    {
+      userId,
+      kind: "github",
+    },
+  );
+  return connection?.kind === "github" ? connection : null;
+}
 
 type RepoRefreshReason =
   | "mode_always"
@@ -1439,8 +1460,8 @@ export const startDaytonaWorkspace = action({
 
     const resolvedSandboxName = sandbox.name;
 
-    const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
-    const githubToken = currentUser?.githubAccessToken ?? null;
+    const githubConnection = await getGithubConnection(ctx, userId);
+    const githubToken = githubConnection?.auth.credential ?? null;
     let repoRefreshMs = 0;
     let devServerStartMs = 0;
     let repoRefreshed = false;
@@ -2229,8 +2250,8 @@ export const prebuildDaytonaSnapshot = action({
     const baseUrl = apiConfig.baseUrl;
     const token = apiConfig.token;
 
-    const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
-    const githubToken = currentUser?.githubAccessToken ?? null;
+    const githubConnection = await getGithubConnection(ctx, userId);
+    const githubToken = githubConnection?.auth.credential ?? null;
     if (!githubToken) {
       return {
         ok: false,
@@ -2864,9 +2885,9 @@ export const ensureDaytonaRegistryForVault = action({
     const baseUrl = apiConfig.baseUrl;
     const token = apiConfig.token;
 
-    const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
-    const githubToken = currentUser?.githubAccessToken ?? null;
-    const githubUsername = currentUser?.githubUsername ?? null;
+    const githubConnection = await getGithubConnection(ctx, userId);
+    const githubToken = githubConnection?.auth.credential ?? null;
+    const githubUsername = githubConnection?.username ?? null;
 
     if (!githubToken || !githubUsername) {
       return {

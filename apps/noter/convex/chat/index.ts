@@ -8,6 +8,7 @@ import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { components, internal } from "../_generated/api";
 import { getUserId } from "../common";
+import { getConnectionByUserAndKind } from "../providerConnections";
 import { isAdminUser } from "../users";
 import {
   listMessages,
@@ -454,7 +455,14 @@ export const rejectProdRead = mutation({
     }
 
     const user = await ctx.db.get(userId);
-    if (!user || !isAdminUser(user.githubUsername, user.email)) {
+    const githubConnection = user
+      ? await getConnectionByUserAndKind(ctx.db, user._id, "github")
+      : null;
+    const githubUsername =
+      githubConnection?.kind === "github"
+        ? githubConnection.username
+        : undefined;
+    if (!user || !isAdminUser(githubUsername, user.email)) {
       throw new Error("Only admin users can reject production reads");
     }
 
@@ -506,7 +514,14 @@ export const confirmProdRead = mutation({
     ensureThreadAccess(userId, thread);
 
     const user = await ctx.db.get(userId);
-    if (!user || !isAdminUser(user.githubUsername, user.email)) {
+    const githubConnection = user
+      ? await getConnectionByUserAndKind(ctx.db, user._id, "github")
+      : null;
+    const githubUsername =
+      githubConnection?.kind === "github"
+        ? githubConnection.username
+        : undefined;
+    if (!user || !isAdminUser(githubUsername, user.email)) {
       throw new Error("Only admin users can approve production reads");
     }
 

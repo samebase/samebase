@@ -5,7 +5,6 @@ import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { getUserId } from "./common";
 import { Octokit } from "@octokit/rest";
-import type { Doc } from "./_generated/dataModel";
 
 const { array, literal, number, object, string, union } = v;
 
@@ -113,7 +112,10 @@ function getErrorHeaders(error: unknown): HeaderMap | null {
   return toHeaderMap(response.headers);
 }
 
-function getHeaderValue(headers: HeaderMap | null, name: string): string | null {
+function getHeaderValue(
+  headers: HeaderMap | null,
+  name: string,
+): string | null {
   if (!headers) {
     return null;
   }
@@ -174,17 +176,20 @@ export const getCommitStatus = action({
   },
   returns: commitStatusResultValidator,
   handler: async (ctx, { owner, repo, ref }): Promise<CommitStatusResult> => {
-    await getUserId(ctx);
-    const currentUser: Doc<"users"> | null = await ctx.runQuery(
-      internal.users.getAuthUser,
-      {},
+    const userId = await getUserId(ctx);
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.getByUserAndKind,
+      {
+        userId,
+        kind: "github",
+      },
     );
-    if (!currentUser) {
-      throw new Error("User not found");
+    if (githubConnection?.kind !== "github") {
+      throw new Error("GitHub is not connected");
     }
 
     const octokit: Octokit = new Octokit({
-      auth: currentUser.githubAccessToken,
+      auth: githubConnection.auth.credential,
     });
 
     try {

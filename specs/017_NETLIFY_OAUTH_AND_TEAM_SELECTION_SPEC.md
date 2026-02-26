@@ -1,64 +1,75 @@
 # 017 Netlify OAuth and Team Selection Spec
 
 ## Document Control
+
 - Status: Proposed
 - Owner: Noter platform
-- Last updated: 2026-02-18
+- Last updated: 2026-02-26
 - Related specs:
-- `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-- `specs/016_FRONTEND_HOSTING_PROVIDER_SELECTION_SPEC.md`
+  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/016_FRONTEND_HOSTING_PROVIDER_SELECTION_SPEC.md`
+  - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
 
 ## Summary
-Noter uses **Netlify OAuth** to connect a user's Netlify account for BYO hosting. The flow uses Netlify's authorization endpoint to return an authorization code, then Noter exchanges that code server-side for an access token and **auto-selects the default/first Netlify team** for provisioning. This keeps onboarding minimal and removes the need for operator tokens.
+
+Noter uses Netlify OAuth to connect a user’s Netlify account for BYO hosting.
+OAuth callback exchanges the code server-side and stores the connection in
+`providerConnections` (`kind = "netlify"`).
 
 ## Goals
-1. Single-click Netlify connect from the dashboard.
-2. Auto-select a team without a picker.
-3. Store Netlify tokens server-side only (Convex).
-4. Keep the flow compatible with Netlify's OAuth authorize endpoint.
+
+1. Single-click Netlify connect from dashboard.
+2. Auto-select default/first team account.
+3. Keep credentials server-side only.
 
 ## Non-Goals
-1. Manual team selection UI.
-2. Token refresh/rotation automation.
-3. Netlify operator-token fallback.
+
+1. Manual team picker UI.
+2. Token rotation automation.
+3. Operator-token fallback.
 
 ## OAuth Flow
-1. User clicks **Connect Netlify**.
-2. Noter calls `netlifyOAuth.getNetlifyOAuthUrl` to create OAuth state and generate the authorize URL.
-3. User authorizes at Netlify.
-4. Netlify redirects to `NETLIFY_OAUTH_REDIRECT_URL` with `code` + `state` query params.
-5. The callback handler calls `netlifyOAuth.finishNetlifyOAuth` to exchange the code for tokens.
-6. Noter fetches the user's Netlify account + teams, selects the default/first team, and stores tokens + team metadata on `users`.
+
+1. User clicks `Connect Netlify`.
+2. Backend generates URL + oauth state.
+3. Netlify redirects back with `code` + `state`.
+4. Backend exchanges code for credential.
+5. Backend fetches user accounts and selects team.
+6. Backend upserts `providerConnections` row:
+   - `kind: "netlify"`
+   - `auth.method: "oauth"`
+   - `auth.credential`
+   - optional refresh/expiry
+   - `teamId`
+   - optional `teamSlug`
 
 ## Team Selection Rules
-1. Prefer the account marked as default (`is_default` / `default`).
-2. Otherwise prefer the first team account if present.
-3. Fallback: first account in the list.
 
-## Data Model Changes
-### Users table
-- `netlifyAccessToken: string`
-- `netlifyRefreshToken?: string` (not expected in the initial flow)
-- `netlifyExpiresAt?: number`
-- `netlifyUserId?: string`
-- `netlifyTeamId?: string`
-- `netlifyTeamSlug?: string`
+1. Prefer default account (`is_default` / `default`).
+2. Else prefer first team account.
+3. Else first account.
 
-### OAuth state
-Uses the shared `oauthStates` table with provider `netlify` and a stored `state` value for CSRF protection.
+## Data Model
+
+Uses `providerConnections` from spec 026. No provider token fields on `users`
+are source-of-truth.
 
 ## Configuration
-Required env vars:
-- `NETLIFY_OAUTH_CLIENT_ID`
-- `NETLIFY_OAUTH_CLIENT_SECRET`
-- `NETLIFY_OAUTH_REDIRECT_URL` (points to `/oauth/netlify/callback`)
 
-## Security Notes
-- Tokens are stored only in Convex (never in client state).
-- The callback page clears the URL query parameters immediately after parsing.
-- If the OAuth state is missing/expired, the flow fails with a clear error.
+Required env vars:
+
+1. `NETLIFY_OAUTH_CLIENT_ID`
+2. `NETLIFY_OAUTH_CLIENT_SECRET`
+3. `NETLIFY_OAUTH_REDIRECT_URL`
+
+## Security
+
+1. Credentials are server-side only.
+2. OAuth state validation is required.
+3. Missing/expired state fails the flow clearly.
 
 ## Acceptance Criteria
-- A signed-in user can connect Netlify and see connection status in the dashboard.
-- Netlify tokens + team metadata are stored on `users`.
-- No Cloudflare connection flow exists in the UI or backend.
+
+1. Signed-in user can connect Netlify and see connected status.
+2. Netlify provider connection row includes team metadata.
+3. Disconnect removes Netlify provider connection and blocks dependent actions.

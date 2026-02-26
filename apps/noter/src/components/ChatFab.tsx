@@ -283,22 +283,24 @@ function ToolCallList({ toolCalls }: { toolCalls: ToolCallInfo[] }) {
 function CapabilitiesPanel({
   repositoryFullName,
   vaultId,
-  hasGithubToken,
+  hasGithubConnection,
   systemPrompt,
 }: {
   repositoryFullName?: string;
   vaultId?: Id<"vaults">;
-  hasGithubToken: boolean;
+  hasGithubConnection: boolean;
   systemPrompt?: string;
 }) {
   const [expanded, setExpanded] = useState(true);
-  const toolsEnabled = Boolean(repositoryFullName && vaultId && hasGithubToken);
+  const toolsEnabled = Boolean(
+    repositoryFullName && vaultId && hasGithubConnection,
+  );
 
   let statusLine = "Open a repository to enable tools.";
   if (repositoryFullName) {
     if (!vaultId) {
       statusLine = "Repository is not connected yet.";
-    } else if (!hasGithubToken) {
+    } else if (!hasGithubConnection) {
       statusLine = "GitHub access is missing. Reconnect to enable tools.";
     } else {
       statusLine = `Tools are enabled for ${repositoryFullName}.`;
@@ -996,7 +998,7 @@ export function ChatFab() {
             <CapabilitiesPanel
               repositoryFullName={repositoryFullName}
               vaultId={vaultId}
-              hasGithubToken={Boolean(viewer?.hasGithubAccessToken)}
+              hasGithubConnection={Boolean(viewer?.hasGithubConnection)}
               systemPrompt={threadContext?.systemPrompt}
             />
             {threadId &&

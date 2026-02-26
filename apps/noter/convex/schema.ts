@@ -97,6 +97,60 @@ export const ProdAccessAuditAction = v.union(
   v.literal("expired"),
 );
 
+export const ProviderKind = v.union(
+  v.literal("github"),
+  v.literal("convex"),
+  v.literal("netlify"),
+);
+export type ProviderKind = Infer<typeof ProviderKind>;
+
+export const OAuthAuth = v.object({
+  method: v.literal("oauth"),
+  credential: v.string(),
+  refreshCredential: v.optional(v.string()),
+  credentialExpiresAt: v.optional(v.number()),
+});
+export const ApiKeyAuth = v.object({
+  method: v.literal("api_key"),
+  credential: v.string(),
+  credentialExpiresAt: v.optional(v.number()),
+});
+export const ProviderAuth = v.union(OAuthAuth, ApiKeyAuth);
+export type ProviderAuth = Infer<typeof ProviderAuth>;
+
+export const GithubProviderConnection = v.object({
+  kind: v.literal("github"),
+  userId: v.id("users"),
+  auth: ProviderAuth,
+  username: v.optional(v.string()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+export const ConvexProviderConnection = v.object({
+  kind: v.literal("convex"),
+  userId: v.id("users"),
+  auth: ProviderAuth,
+  teamId: v.string(),
+  teamSlug: v.optional(v.string()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+export const NetlifyProviderConnection = v.object({
+  kind: v.literal("netlify"),
+  userId: v.id("users"),
+  auth: ProviderAuth,
+  teamId: v.string(),
+  teamSlug: v.optional(v.string()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+export const ProviderConnection = v.union(
+  GithubProviderConnection,
+  ConvexProviderConnection,
+  NetlifyProviderConnection,
+);
+export type ProviderConnection = Infer<typeof ProviderConnection>;
+
 // The schema is normally optional, but Convex Auth
 // requires indexes defined on `authTables`.
 // The schema provides more precise TypeScript types.
@@ -114,33 +168,15 @@ export default defineSchema({
     phone: v.optional(v.string()),
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
-
-    // Added these things. Maybe find a better way?
-    // GitHub
-    githubUsername: v.optional(v.string()),
     isApproved: v.optional(v.boolean()),
-    githubAccessToken: v.optional(v.string()),
-    githubRefreshToken: v.optional(v.string()),
-    githubExpiresAt: v.optional(v.number()),
-
-    // Convex (BYO OAuth)
-    convexAccessToken: v.optional(v.string()),
-    convexRefreshToken: v.optional(v.string()),
-    convexExpiresAt: v.optional(v.number()),
-    convexUserId: v.optional(v.string()),
-    convexTeamId: v.optional(v.string()),
-    convexTeamSlug: v.optional(v.string()),
-
-    // Netlify (optional BYO)
-    netlifyAccessToken: v.optional(v.string()),
-    netlifyRefreshToken: v.optional(v.string()),
-    netlifyExpiresAt: v.optional(v.number()),
-    netlifyUserId: v.optional(v.string()),
-    netlifyTeamId: v.optional(v.string()),
-    netlifyTeamSlug: v.optional(v.string()),
   })
     .index("email", ["email"])
     .index("phone", ["phone"]),
+
+  providerConnections: defineTable(ProviderConnection)
+    .index("by_user", ["userId"])
+    .index("by_user_kind", ["userId", "kind"])
+    .index("by_kind_method", ["kind", "auth.method"]),
 
   /**
    * Vault contains a connected github repository.
@@ -444,10 +480,14 @@ export default defineSchema({
     .index("by_action", ["action"]),
 
   /**
-   * OAuth state records for provider integrations (Convex + Netlify OAuth).
+   * OAuth state records for provider integrations.
    */
   oauthStates: defineTable({
-    provider: v.union(v.literal("convex"), v.literal("netlify")),
+    provider: v.union(
+      v.literal("github"),
+      v.literal("convex"),
+      v.literal("netlify"),
+    ),
     userId: v.id("users"),
     state: v.string(),
     codeVerifier: v.optional(v.string()),

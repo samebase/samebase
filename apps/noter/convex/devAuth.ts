@@ -4,21 +4,10 @@ import {
 } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
-import { readOptionalEnv } from "./oauthUtils";
 import { isAllowedEmail } from "./users";
 
-function isFlagEnabled(key: string): boolean {
-  const value = readOptionalEnv(key);
-  return value !== null && value.toLowerCase() === "true";
-}
-
-function readRequiredSeedValue(key: string): string {
-  const value = readOptionalEnv(key);
-  if (value === null) {
-    throw new Error(`Missing required environment variable: ${key}`);
-  }
-  return value;
-}
+const DEV_SEED_EMAIL = "nicu@noter.md";
+const DEV_SEED_PASSWORD = "pass1234";
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -39,12 +28,8 @@ export const seedPasswordAccount = internalAction({
     created: v.boolean(),
   }),
   handler: async (ctx) => {
-    if (!isFlagEnabled("AUTH_ENABLE_PASSWORD")) {
-      throw new Error("Password auth seeding is disabled");
-    }
-
-    const email = normalizeEmail(readRequiredSeedValue("AUTH_SEED_EMAIL"));
-    const password = readRequiredSeedValue("AUTH_SEED_PASSWORD");
+    const email = normalizeEmail(DEV_SEED_EMAIL);
+    const password = DEV_SEED_PASSWORD;
 
     if (!isAllowedEmail(email)) {
       throw new Error("Seed email is not allowlisted");

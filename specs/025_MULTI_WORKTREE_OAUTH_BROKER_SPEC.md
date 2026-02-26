@@ -4,270 +4,96 @@
 
 - Status: Proposed
 - Owner: Noter auth + dev workflow
-- Last updated: 2026-02-25
+- Last updated: 2026-02-26
 - Supersedes: Previous `025 Multi-Worktree OAuth Broker Spec`
 - Related specs:
+  - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `specs/015_BYO_CONVEX_OAUTH_AND_WORKTREE_PROVISIONING_SPEC.md`
   - `specs/017_NETLIFY_OAUTH_AND_TEAM_SELECTION_SPEC.md`
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
 
 ## Summary
 
-Replace the broker-first OAuth direction with a simpler dual-mode model:
+This spec defines the product behavior for:
 
-1. Keep OAuth flows (Google/GitHub/Convex/Netlify) as-is.
-2. Add email/password app login support for development on the existing root
-   sign-in screen.
-3. Add API-key connection mode for GitHub, Convex, and Netlify in addition to
-   OAuth.
-4. Auto-seed one worktree password account from env variables.
-5. Optionally auto-seed provider API keys onto the user profile from env.
+1. Password app-login support in development.
+2. API-key connection mode for GitHub/Convex/Netlify.
+3. Anonymous worktree seed behavior for local development.
 
-This keeps onboarding fast for the single local developer while preserving OAuth
-for normal user paths.
-
-## Problem Statement
-
-OAuth callback complexity for per-worktree and preview environments adds
-operational overhead. For local development, the requirement is practical
-velocity with minimal setup friction.
-
-Current needs:
-
-1. Fast login in fresh worktrees.
-2. Fast provider connectivity without repeated OAuth handshakes.
-3. No dependency on introducing and maintaining a broker service.
-
-## Goals
-
-1. Support password sign-in/sign-up as an additional auth mode in development.
-2. Keep current OAuth providers fully functional.
-3. Support API-key connect flow for GitHub/Convex/Netlify in all environments.
-4. Support env-based seeding for local worktree convenience.
-5. Keep existing allowlist enforcement model intact.
-
-## Non-Goals
-
-1. Replacing OAuth provider integrations.
-2. Implementing a broker/proxy-based redirect system.
-3. Building key rotation automation in this spec.
-4. Changing core vault provisioning architecture.
+Connection data architecture is defined by
+`specs/026_PROVIDER_CONNECTIONS_SPEC.md` and is the source of truth for
+storage/indexing details.
 
 ## Locked Product Decisions
 
-1. The current root sign-in page displays the password login UI.
-2. This password login UI is restricted to development.
-3. Credentials are not prefilled in the password form.
-4. Worktree seeded credentials come from env (`AUTH_SEED_EMAIL`,
-   `AUTH_SEED_PASSWORD`).
-5. Sign-in and sign-up flows are both supported by the password provider.
-6. Existing allowlist policy remains enforced for password flows too.
-7. Production keeps API-key connection mode available as an option.
-8. OAuth connection mode remains available in parallel.
+1. App login providers:
+   - `prod`: Google only.
+   - `dev`: Google + password.
+   - GitHub is not an app-login provider.
+2. Password seeding uses fixed development credentials in code:
+   - Email: `nicu@noter.md`
+   - Password: `pass1234`
+3. Provider connections support both OAuth and API key methods.
+4. Allowlist enforcement remains mandatory for sign-in/sign-up.
 
-## High-Level Architecture
-
-```mermaid
-flowchart LR
-  U["User"] --> A["App Auth"]
-  A --> O["OAuth (Google/GitHub)"]
-  A --> P["Password (dev-enabled)"]
-  U --> C["Provider Connections"]
-  C --> CO["OAuth connect (GitHub/Convex/Netlify)"]
-  C --> CK["API-key connect (GitHub/Convex/Netlify)"]
-  CO --> DB["users token fields"]
-  CK --> DB
-  DB --> I["Infra provisioning / repo actions"]
-```
-
-## Auth Model
-
-### App Login Providers
-
-1. Google OAuth remains enabled when configured.
-2. GitHub OAuth remains enabled when configured.
-3. Password provider is enabled only when `AUTH_ENABLE_PASSWORD=true`.
-
-### Password Flows
-
-Use Convex Auth Password provider with:
-
-1. `flow: "signUp"`
-2. `flow: "signIn"`
-
-### Allowlist Policy
-
-Allowlist checks remain enforced in `createOrUpdateUser`. Implication: password
-sign-up and sign-in are also restricted to allowlisted emails.
-
-## Provider Connection Model
-
-Each provider supports both OAuth and API-key modes:
-
-1. GitHub
-2. Convex
-3. Netlify
-
-API-key mode validates credentials server-side before storing them on `users`.
-
-## Data Model
-
-No schema migration required.
-
-Existing fields in `users` are reused:
-
-1. GitHub: `githubAccessToken`, `githubUsername`, refresh/expiry fields.
-2. Convex: `convexAccessToken`, `convexTeamId`, `convexTeamSlug`, related
-   fields.
-3. Netlify: `netlifyAccessToken`, `netlifyTeamId`, `netlifyTeamSlug`, related
-   fields.
-
-## Backend Changes
+## Backend Requirements
 
 ### `apps/noter/convex/auth.ts`
 
-1. Add Password provider wiring.
-2. Gate password provider by `AUTH_ENABLE_PASSWORD`.
-3. Keep existing OAuth provider setup.
-4. Keep allowlist check in `createOrUpdateUser`.
-5. Add optional env-based provider-key auto-seed helper, gated by
-   `AUTH_AUTO_SEED_PROVIDER_KEYS`.
-
-### New action: `apps/noter/convex/devAuth.ts`
-
-Add `seedPasswordAccount` action:
-
-1. Enabled only when `AUTH_ENABLE_PASSWORD=true`.
-2. Reads `AUTH_SEED_EMAIL` + `AUTH_SEED_PASSWORD`.
-3. Creates or updates password account idempotently.
-4. Applies allowlist check.
-
-### `apps/noter/predev.js`
-
-In anonymous mode:
-
-1. Keep current bootstrap behavior.
-2. Run seeding action after backend bootstrap for local worktrees.
+1. Enable password provider only on development deployments.
+2. Keep Google login provider when configured.
+3. Keep allowlist checks in `createOrUpdateUser`.
+4. In anonymous/local worktree flows, seed provider API keys into
+   `providerConnections` (not `users`).
 
 ### `apps/noter/convex/users.ts`
 
-Add API-key connect mutations:
+Provide API-key connect actions with server-side validation:
 
 1. `connectGithubWithApiKey({ token })`
 2. `connectConvexWithApiKey({ token })`
 3. `connectNetlifyWithApiKey({ token })`
 
-Each mutation:
+Each action validates the key before upsert in `providerConnections`.
 
-1. Validates token with provider API.
-2. Stores normalized fields on current user.
-3. Clears incompatible stale refresh/expiry fields where needed.
+### Make targets
 
-### Admin access compatibility
+`make anon` / `make anon-once` must run password-account seed during the anon
+startup flow.
 
-Password-authenticated users may not have `githubUsername`. Admin checks
-currently tied only to username must be updated to include allowlisted admin
-email fallback where required (chat/prod-read approval paths).
-
-## Frontend Changes
+## Frontend Requirements
 
 ### `apps/noter/src/SignInForm.tsx`
 
-1. Keep Google and GitHub OAuth buttons.
-2. Add dev-only password block when:
-   - `import.meta.env.DEV`
-   - `VITE_ENABLE_PASSWORD_AUTH === "true"`
-3. Support sign-in and sign-up password submissions via
-   `signIn("password", params)`.
+1. Show Google login.
+2. Show password login UI only in dev.
+3. Do not show GitHub app-login button.
 
-### `apps/noter/src/components/VaultDashboard.tsx`
+### Connections UI
 
-For each provider connection row:
+Dashboard/provider controls must expose both:
 
-1. Keep OAuth connect button.
-2. Add API-key connect option and input dialog.
-3. Reuse existing status and disconnect surfaces.
+1. OAuth connect.
+2. API-key connect.
 
 ## Environment Contract
 
-### Required for password enablement
+### Password
 
-1. `AUTH_ENABLE_PASSWORD=true`
-2. `VITE_ENABLE_PASSWORD_AUTH=true` (frontend visibility gate)
-3. `AUTH_SEED_EMAIL=<email>`
-4. `AUTH_SEED_PASSWORD=<password>`
+1. Password UI: `import.meta.env.DEV`.
+2. Password provider: dev deployment only.
 
-### Optional auto-seed of provider keys
+### Provider API-key seed (anonymous/local worktree)
 
-1. `AUTH_AUTO_SEED_PROVIDER_KEYS=true`
-2. GitHub source:
-   - `GITHUB_TOKEN`
-   - `GITHUB_USERNAME` (optional but recommended)
-3. Convex source:
-   - `CONVEX_MANAGEMENT_TOKEN`
-   - `CONVEX_TEAM_ID`
-4. Netlify source:
-   - `NETLIFY_ACCESS_TOKEN`
-   - `NETLIFY_TEAM_ID`
+Only these env vars are used:
 
-If `AUTH_AUTO_SEED_PROVIDER_KEYS` is off, users connect providers manually via
-OAuth or API key.
+1. `DEV_SEED_GITHUB_API_KEY`
+2. `DEV_SEED_CONVEX_MANAGEMENT_API_KEY`
+3. `DEV_SEED_CONVEX_TEAM_ID`
+4. `DEV_SEED_NETLIFY_API_KEY`
+5. `DEV_SEED_NETLIFY_TEAM_ID`
 
-## Security Notes
+## Notes
 
-1. Provider tokens stay server-side only in Convex.
-2. Token validation is mandatory before persistence for API-key mode.
-3. Do not log raw tokens or seeded passwords.
-4. Keep allowlist enforcement as auth gate.
-5. Keep existing Convex Auth sign-in rate-limit defaults or tighten explicitly.
-
-## Rollout Plan
-
-### Phase 1: Password auth foundation
-
-1. Introduce password provider support with env gates.
-2. Wire seeded password account action into predev integration.
-3. Ship the dev-only password UI.
-
-### Phase 2: API-key provider connections
-
-1. Implement backend connect mutations with validation.
-2. Surface UI dialogs/actions in the Connections panel.
-3. Preserve existing OAuth connect flows unchanged.
-
-### Phase 3: Hardening and compatibility
-
-1. Update admin-check paths for password-authenticated admin users.
-2. Document the env contract and local workflow.
-3. Validate behavior across anon worktree, normal dev, and prod.
-
-## Testing Plan
-
-### Unit
-
-1. Password provider disabled by default behavior.
-2. Seed action create/update idempotency.
-3. API-key validation failure and success paths per provider.
-4. Allowlist behavior for password sign-up/sign-in.
-
-### Integration
-
-1. Fresh anon worktree: seeded account can sign in with password.
-2. Existing OAuth sign-in still works.
-3. GitHub/Convex/Netlify connection via OAuth still works.
-4. GitHub/Convex/Netlify connection via API-key mode works.
-5. Repo creation works with API-key-only provider connections.
-
-### Manual
-
-1. `make anon` then password sign-in with seeded env credentials.
-2. Connect each provider with API key from dashboard.
-3. Disconnect and reconnect via OAuth to confirm both modes coexist.
-
-## Acceptance Criteria
-
-1. Spec 25 no longer requires an OAuth broker architecture.
-2. Dev can sign in through password on root sign-in page when enabled.
-3. API-key connection mode works for GitHub, Convex, and Netlify.
-4. OAuth connection mode remains supported.
-5. Allowlist enforcement remains active across auth modes.
+The storage model and indexes for provider credentials are intentionally not
+duplicated here. See `specs/026_PROVIDER_CONNECTIONS_SPEC.md`.

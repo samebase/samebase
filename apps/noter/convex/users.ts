@@ -8,13 +8,18 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Infer, v } from "convex/values";
+import { getConnectionByUserAndKind } from "./providerConnections";
 
 const ADMIN_USERNAMES = ["nicu-chiciuc"];
-const ADMIN_EMAILS = new Set(["nicu.dev@gmail.com", "nicuchiciuc@gmail.com"]);
+const ADMIN_EMAILS = new Set([
+  "nicu.dev@gmail.com",
+  "nicuchiciuc@gmail.com",
+  "nicu@noter.md",
+]);
 const ALLOWED_EMAILS = new Set([
   "nicu.dev@gmail.com",
   "nicuchiciuc@gmail.com",
-  "noita.lovare@gmail.com",
+  "nicu@noter.md",
 ]);
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
 const GITHUB_API_BASE = "https://api.github.com";
@@ -26,6 +31,11 @@ const authProviderSummaryValidator = v.object({
   primaryProvider: v.optional(v.string()),
 });
 type AuthProviderSummary = Infer<typeof authProviderSummaryValidator>;
+
+const providerAuthMethodValidator = v.union(
+  v.literal("oauth"),
+  v.literal("api_key"),
+);
 
 type JsonRecord = Record<string, unknown>;
 type NetlifyAccount = {
@@ -159,7 +169,6 @@ async function fetchGithubIdentity(token: string): Promise<{
 async function fetchConvexTokenDetails(token: string): Promise<{
   teamId: string;
   teamSlug?: string;
-  userId?: string;
 }> {
   const response = await fetchWithTimeout(CONVEX_TOKEN_DETAILS_URL, {
     method: "GET",
@@ -185,15 +194,10 @@ async function fetchConvexTokenDetails(token: string): Promise<{
     key: "team",
     field: "slug",
   });
-  const userId = resolveField(payload, ["userId", "user_id"], {
-    key: "user",
-    field: "id",
-  });
-  return { teamId, teamSlug, userId };
+  return { teamId, teamSlug };
 }
 
 async function fetchNetlifyConnectionDetails(token: string): Promise<{
-  userId?: string;
   teamId: string;
   teamSlug?: string;
 }> {
@@ -252,7 +256,6 @@ async function fetchNetlifyConnectionDetails(token: string): Promise<{
   const selectedAccount = defaultAccount ?? teamAccount ?? accounts[0];
 
   return {
-    userId: readString(userPayload, "id"),
     teamId: selectedAccount.id,
     teamSlug: selectedAccount.slug,
   };
@@ -269,9 +272,9 @@ export const viewer = query({
       image: v.optional(v.string()),
       email: v.optional(v.string()),
       githubUsername: v.optional(v.string()),
-      hasGithubAccessToken: v.boolean(),
-      hasConvexAccessToken: v.boolean(),
-      hasNetlifyAccessToken: v.boolean(),
+      hasGithubConnection: v.boolean(),
+      hasConvexConnection: v.boolean(),
+      hasNetlifyConnection: v.boolean(),
     }),
     v.null(),
   ),
@@ -284,15 +287,25 @@ export const viewer = query({
     if (!user) {
       return null;
     }
+
+    const [github, convex, netlify] = await Promise.all([
+      getConnectionByUserAndKind(ctx.db, userId, "github"),
+      getConnectionByUserAndKind(ctx.db, userId, "convex"),
+      getConnectionByUserAndKind(ctx.db, userId, "netlify"),
+    ]);
+
+    const githubUsername =
+      github?.kind === "github" ? github.username : undefined;
+
     return {
       _id: user._id,
       name: user.name,
       image: user.image,
       email: user.email,
-      githubUsername: user.githubUsername,
-      hasGithubAccessToken: typeof user.githubAccessToken === "string",
-      hasConvexAccessToken: typeof user.convexAccessToken === "string",
-      hasNetlifyAccessToken: typeof user.netlifyAccessToken === "string",
+      githubUsername,
+      hasGithubConnection: github !== null,
+      hasConvexConnection: convex !== null,
+      hasNetlifyConnection: netlify !== null,
     };
   },
 });
@@ -338,8 +351,19 @@ export const isCurrentUserApproved = query({
     if (userId === null) return false;
     const user = await ctx.db.get(userId);
     if (!user) return false;
+
+    const githubConnection = await getConnectionByUserAndKind(
+      ctx.db,
+      userId,
+      "github",
+    );
+    const githubUsername =
+      githubConnection?.kind === "github"
+        ? githubConnection.username
+        : undefined;
+
     if (user.isApproved === true) return true;
-    if (isAdminUser(user.githubUsername, user.email)) return true;
+    if (isAdminUser(githubUsername, user.email)) return true;
     if (isAllowedEmail(user.email)) return true;
     return false;
   },
@@ -350,19 +374,26 @@ export const getGithubConnectionStatus = query({
   returns: v.object({
     connected: v.boolean(),
     username: v.optional(v.string()),
+    authMethod: v.optional(providerAuthMethodValidator),
   }),
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) {
       return { connected: false };
     }
-    const user = await ctx.db.get(userId);
-    if (!user) {
+    const connection = await getConnectionByUserAndKind(
+      ctx.db,
+      userId,
+      "github",
+    );
+    if (connection?.kind !== "github") {
       return { connected: false };
     }
+
     return {
-      connected: typeof user.githubAccessToken === "string",
-      username: user.githubUsername,
+      connected: true,
+      username: connection.username,
+      authMethod: connection.auth.method,
     };
   },
 });
@@ -375,12 +406,15 @@ export const disconnectGithub = mutation({
     if (userId === null) {
       throw new Error("User not authenticated");
     }
-    await ctx.db.patch(userId, {
-      githubAccessToken: undefined,
-      githubRefreshToken: undefined,
-      githubExpiresAt: undefined,
-      githubUsername: undefined,
-    });
+
+    const connection = await getConnectionByUserAndKind(
+      ctx.db,
+      userId,
+      "github",
+    );
+    if (connection) {
+      await ctx.db.delete(connection._id);
+    }
     return null;
   },
 });
@@ -391,22 +425,27 @@ export const getConvexConnectionStatus = query({
     connected: v.boolean(),
     teamId: v.optional(v.string()),
     teamSlug: v.optional(v.string()),
+    authMethod: v.optional(providerAuthMethodValidator),
   }),
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) {
       return { connected: false };
     }
-    const user = await ctx.db.get(userId);
-    if (!user) {
+    const connection = await getConnectionByUserAndKind(
+      ctx.db,
+      userId,
+      "convex",
+    );
+    if (connection?.kind !== "convex") {
       return { connected: false };
     }
+
     return {
-      connected:
-        typeof user.convexAccessToken === "string" &&
-        typeof user.convexTeamId === "string",
-      teamId: user.convexTeamId,
-      teamSlug: user.convexTeamSlug,
+      connected: true,
+      teamId: connection.teamId,
+      teamSlug: connection.teamSlug,
+      authMethod: connection.auth.method,
     };
   },
 });
@@ -419,14 +458,14 @@ export const disconnectConvex = mutation({
     if (userId === null) {
       throw new Error("User not authenticated");
     }
-    await ctx.db.patch(userId, {
-      convexAccessToken: undefined,
-      convexRefreshToken: undefined,
-      convexExpiresAt: undefined,
-      convexUserId: undefined,
-      convexTeamId: undefined,
-      convexTeamSlug: undefined,
-    });
+    const connection = await getConnectionByUserAndKind(
+      ctx.db,
+      userId,
+      "convex",
+    );
+    if (connection) {
+      await ctx.db.delete(connection._id);
+    }
     return null;
   },
 });
@@ -437,23 +476,27 @@ export const getNetlifyConnectionStatus = query({
     connected: v.boolean(),
     teamId: v.optional(v.string()),
     teamSlug: v.optional(v.string()),
+    authMethod: v.optional(providerAuthMethodValidator),
   }),
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) {
       return { connected: false };
     }
-    const user = await ctx.db.get(userId);
-    if (!user) {
+    const connection = await getConnectionByUserAndKind(
+      ctx.db,
+      userId,
+      "netlify",
+    );
+    if (connection?.kind !== "netlify") {
       return { connected: false };
     }
+
     return {
-      connected:
-        typeof user.netlifyAccessToken === "string" &&
-        (typeof user.netlifyTeamSlug === "string" ||
-          typeof user.netlifyTeamId === "string"),
-      teamId: user.netlifyTeamId,
-      teamSlug: user.netlifyTeamSlug,
+      connected: true,
+      teamId: connection.teamId,
+      teamSlug: connection.teamSlug,
+      authMethod: connection.auth.method,
     };
   },
 });
@@ -466,14 +509,14 @@ export const disconnectNetlify = mutation({
     if (userId === null) {
       throw new Error("User not authenticated");
     }
-    await ctx.db.patch(userId, {
-      netlifyAccessToken: undefined,
-      netlifyRefreshToken: undefined,
-      netlifyExpiresAt: undefined,
-      netlifyUserId: undefined,
-      netlifyTeamId: undefined,
-      netlifyTeamSlug: undefined,
-    });
+    const connection = await getConnectionByUserAndKind(
+      ctx.db,
+      userId,
+      "netlify",
+    );
+    if (connection) {
+      await ctx.db.delete(connection._id);
+    }
     return null;
   },
 });
@@ -501,68 +544,6 @@ type NetlifyApiKeyConnectionResult = Infer<
   typeof netlifyApiKeyConnectionResultValidator
 >;
 
-export const setGithubConnectionFromApiKey = internalMutation({
-  args: {
-    userId: v.id("users"),
-    token: v.string(),
-    username: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.userId, {
-      githubAccessToken: args.token,
-      githubUsername: args.username,
-      githubRefreshToken: undefined,
-      githubExpiresAt: undefined,
-    });
-    return null;
-  },
-});
-
-export const setConvexConnectionFromApiKey = internalMutation({
-  args: {
-    userId: v.id("users"),
-    token: v.string(),
-    teamId: v.string(),
-    teamSlug: v.optional(v.string()),
-    providerUserId: v.optional(v.string()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.userId, {
-      convexAccessToken: args.token,
-      convexTeamId: args.teamId,
-      convexTeamSlug: args.teamSlug,
-      convexUserId: args.providerUserId,
-      convexRefreshToken: undefined,
-      convexExpiresAt: undefined,
-    });
-    return null;
-  },
-});
-
-export const setNetlifyConnectionFromApiKey = internalMutation({
-  args: {
-    userId: v.id("users"),
-    token: v.string(),
-    teamId: v.string(),
-    teamSlug: v.optional(v.string()),
-    providerUserId: v.optional(v.string()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.userId, {
-      netlifyAccessToken: args.token,
-      netlifyTeamId: args.teamId,
-      netlifyTeamSlug: args.teamSlug,
-      netlifyUserId: args.providerUserId,
-      netlifyRefreshToken: undefined,
-      netlifyExpiresAt: undefined,
-    });
-    return null;
-  },
-});
-
 export const connectGithubWithApiKey = action({
   args: {
     token: v.string(),
@@ -577,9 +558,12 @@ export const connectGithubWithApiKey = action({
     const token = normalizeApiToken(args.token);
     const identity = await fetchGithubIdentity(token);
 
-    await ctx.runMutation(internal.users.setGithubConnectionFromApiKey, {
+    await ctx.runMutation(internal.providerConnections.upsertGithub, {
       userId,
-      token,
+      auth: {
+        method: "api_key",
+        credential: token,
+      },
       username: identity.username,
     });
 
@@ -601,12 +585,14 @@ export const connectConvexWithApiKey = action({
     const token = normalizeApiToken(args.token);
     const details = await fetchConvexTokenDetails(token);
 
-    await ctx.runMutation(internal.users.setConvexConnectionFromApiKey, {
+    await ctx.runMutation(internal.providerConnections.upsertConvex, {
       userId,
-      token,
+      auth: {
+        method: "api_key",
+        credential: token,
+      },
       teamId: details.teamId,
       teamSlug: details.teamSlug,
-      providerUserId: details.userId,
     });
 
     return { teamId: details.teamId, teamSlug: details.teamSlug };
@@ -627,12 +613,14 @@ export const connectNetlifyWithApiKey = action({
     const token = normalizeApiToken(args.token);
     const details = await fetchNetlifyConnectionDetails(token);
 
-    await ctx.runMutation(internal.users.setNetlifyConnectionFromApiKey, {
+    await ctx.runMutation(internal.providerConnections.upsertNetlify, {
       userId,
-      token,
+      auth: {
+        method: "api_key",
+        credential: token,
+      },
       teamId: details.teamId,
       teamSlug: details.teamSlug,
-      providerUserId: details.userId,
     });
 
     return { teamId: details.teamId, teamSlug: details.teamSlug };
@@ -640,12 +628,14 @@ export const connectNetlifyWithApiKey = action({
 });
 
 // Internal
-
 export const getAuthUser = internalQuery({
   args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
-    return userId !== null ? ctx.db.get(userId) : null;
+    if (userId === null) {
+      return null;
+    }
+    return await ctx.db.get(userId);
   },
 });
 
@@ -654,6 +644,6 @@ export const getById = internalQuery({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    return ctx.db.get(args.userId);
+    return await ctx.db.get(args.userId);
   },
 });

@@ -57,30 +57,26 @@ function buildToolContext(
     ghRepoOwner: string;
     ghRepoName: string;
   },
-  user: { _id: Id<"users">; githubAccessToken?: string },
+  args: { userId: Id<"users">; githubAccessToken: string },
 ): ToolContext {
-  if (!user.githubAccessToken) {
-    throw new Error("GitHub access token not found");
-  }
-
   return {
     ctx,
     threadId,
     vaultId: vault._id,
     owner: vault.ghRepoOwner,
     repo: vault.ghRepoName,
-    userId: user._id,
-    accessToken: user.githubAccessToken,
+    userId: args.userId,
+    accessToken: args.githubAccessToken,
   };
 }
 
 async function loadAgentPrompt(args: {
   ctx: ActionCtx;
   vault: Doc<"vaults">;
-  user: Doc<"users">;
+  githubAccessToken?: string;
   agentPath: string;
 }): Promise<string> {
-  const { ctx, vault, user, agentPath } = args;
+  const { ctx, vault, githubAccessToken, agentPath } = args;
 
   const staging = await ctx.runQuery(internal.fileStaging.getByOriginalPath, {
     vaultId: vault._id,
@@ -102,13 +98,13 @@ async function loadAgentPrompt(args: {
     }
   }
 
-  if (!user.githubAccessToken) {
+  if (!githubAccessToken) {
     throw new Error(
       "Prompt not found in staging or repo; connect GitHub to fetch missing content",
     );
   }
 
-  const octokit = new Octokit({ auth: user.githubAccessToken });
+  const octokit = new Octokit({ auth: githubAccessToken });
   const file = await octokit.rest.repos.getContent({
     owner: vault.ghRepoOwner,
     repo: vault.ghRepoName,
@@ -151,6 +147,17 @@ export const sendAgentMessage = action({
     if (!user) {
       throw new Error("User not found");
     }
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.getByUserAndKind,
+      {
+        userId,
+        kind: "github",
+      },
+    );
+    const githubAccessToken =
+      githubConnection?.kind === "github"
+        ? githubConnection.auth.credential
+        : undefined;
 
     const resolvedThreadId = await resolveThreadId(
       ctx,
@@ -159,8 +166,11 @@ export const sendAgentMessage = action({
       args.threadId,
     );
 
-    const toolCtx = user.githubAccessToken
-      ? buildToolContext(ctx, resolvedThreadId, vault, user)
+    const toolCtx = githubAccessToken
+      ? buildToolContext(ctx, resolvedThreadId, vault, {
+          userId: user._id,
+          githubAccessToken,
+        })
       : undefined;
 
     let systemPrompt: string;
@@ -168,7 +178,7 @@ export const sendAgentMessage = action({
       systemPrompt = await loadAgentPrompt({
         ctx,
         vault,
-        user,
+        githubAccessToken,
         agentPath: args.agentPath,
       });
     } catch (error) {

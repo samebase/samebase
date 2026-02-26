@@ -1,7 +1,7 @@
 "use node";
 
 import { Infer, v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getUserId } from "./common";
 import type { Id } from "./_generated/dataModel";
@@ -23,6 +23,23 @@ const ensureCodespacePortsVisibilityResult = v.object({
   ),
 });
 
+async function getGithubAccessToken(
+  ctx: ActionCtx,
+  userId: Id<"users">,
+): Promise<string> {
+  const connection = await ctx.runQuery(
+    internal.providerConnections.getByUserAndKind,
+    {
+      userId,
+      kind: "github",
+    },
+  );
+  if (connection?.kind !== "github") {
+    throw new Error("GitHub is not connected");
+  }
+  return connection.auth.credential;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -35,7 +52,10 @@ function readRecord(
   return isRecord(value) ? value : undefined;
 }
 
-function readString(record: Record<string, unknown>, key: string): string | undefined {
+function readString(
+  record: Record<string, unknown>,
+  key: string,
+): string | undefined {
   const value = record[key];
   return typeof value === "string" ? value : undefined;
 }
@@ -173,7 +193,9 @@ async function fetchCodespaceTunnelAuth(args: {
     ? readRecord(connection, "tunnelProperties")
     : undefined;
 
-  const tunnelId = tunnelProperties ? readString(tunnelProperties, "tunnelId") : undefined;
+  const tunnelId = tunnelProperties
+    ? readString(tunnelProperties, "tunnelId")
+    : undefined;
   const managePortsAccessToken = tunnelProperties
     ? readString(tunnelProperties, "managePortsAccessToken")
     : undefined;
@@ -182,8 +204,12 @@ async function fetchCodespaceTunnelAuth(args: {
     throw new Error("Codespace tunnel properties not available yet");
   }
 
-  const clusterId = tunnelProperties ? readString(tunnelProperties, "clusterId") : undefined;
-  const serviceUri = tunnelProperties ? readString(tunnelProperties, "serviceUri") : undefined;
+  const clusterId = tunnelProperties
+    ? readString(tunnelProperties, "clusterId")
+    : undefined;
+  const serviceUri = tunnelProperties
+    ? readString(tunnelProperties, "serviceUri")
+    : undefined;
 
   return {
     tunnelId,
@@ -229,7 +255,12 @@ function tunnelPortPutBody(args: {
   accessControl: {
     entries: Array<
       | { type: "Anonymous"; subjects: string[]; scopes: Array<"connect"> }
-      | { type: "Organizations"; isDeny: true; subjects: string[]; scopes: string[] }
+      | {
+          type: "Organizations";
+          isDeny: true;
+          subjects: string[];
+          scopes: string[];
+        }
     >;
   };
   portForwardingUris: null;
@@ -321,7 +352,8 @@ async function ensureTunnelPortVisibility(args: {
 
   const commonHeaders: Record<string, string> = {
     Authorization: `Tunnel ${args.managePortsAccessToken}`,
-    Accept: "application/vnd.github.merge-info-preview+json, application/vnd.github.nebula-preview",
+    Accept:
+      "application/vnd.github.merge-info-preview+json, application/vnd.github.nebula-preview",
   };
 
   // Best-effort fast-path: if it's already correct, do nothing.
@@ -331,7 +363,12 @@ async function ensureTunnelPortVisibility(args: {
   });
   if (getCurrent.ok) {
     const json: unknown = await getCurrent.json();
-    if (portDefinitionMatchesVisibility({ portDefinitionJson: json, desired: args.desired })) {
+    if (
+      portDefinitionMatchesVisibility({
+        portDefinitionJson: json,
+        desired: args.desired,
+      })
+    ) {
       return { applied: true, reason: "already_in_desired_state" };
     }
   }
@@ -355,7 +392,10 @@ async function ensureTunnelPortVisibility(args: {
       "Content-Type": "application/json;charset=UTF-8",
     },
     body: JSON.stringify(
-      tunnelPortPutBody({ portNumber: args.portNumber, visibility: args.desired }),
+      tunnelPortPutBody({
+        portNumber: args.portNumber,
+        visibility: args.desired,
+      }),
     ),
   });
   if (!putResponse.ok) {
@@ -373,7 +413,12 @@ async function ensureTunnelPortVisibility(args: {
     return { applied: false, reason: `verify_failed_${verify.status}` };
   }
   const verifyJson: unknown = await verify.json();
-  if (!portDefinitionMatchesVisibility({ portDefinitionJson: verifyJson, desired: args.desired })) {
+  if (
+    !portDefinitionMatchesVisibility({
+      portDefinitionJson: verifyJson,
+      desired: args.desired,
+    })
+  ) {
     return { applied: false, reason: "verify_mismatch" };
   }
 
@@ -431,9 +476,12 @@ export const ensureCodespacePortsVisibility = action({
     try {
       userId = await getUserId(ctx);
 
-      const codespace = await ctx.runQuery(internal.codespacesMutations.getCodespace, {
-        codespaceId: args.codespaceId,
-      });
+      const codespace = await ctx.runQuery(
+        internal.codespacesMutations.getCodespace,
+        {
+          codespaceId: args.codespaceId,
+        },
+      );
       if (!codespace || codespace.userId !== userId) {
         throw new Error("Codespace not found");
       }
@@ -444,21 +492,19 @@ export const ensureCodespacePortsVisibility = action({
         );
       }
 
-      const user = await ctx.runQuery(internal.codespacesMutations.getUser, {
-        userId,
-      });
-      if (!user?.githubAccessToken) {
-        throw new Error("GitHub access token not found");
-      }
+      const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
-      const desiredPorts: Array<{ portNumber: number; visibility: PortVisibility }> = [
+      const desiredPorts: Array<{
+        portNumber: number;
+        visibility: PortVisibility;
+      }> = [
         { portNumber: 3000, visibility: "public" },
         { portNumber: 1455, visibility: "private" },
       ];
 
       // Fetch tunnel metadata and short-lived managePorts token (eventual consistency).
       const tunnelAuth = await fetchCodespaceTunnelAuthWithRetry({
-        githubAccessToken: user.githubAccessToken,
+        githubAccessToken,
         codespaceName: codespace.ghCodespaceName,
         maxAttempts: 8,
       });
@@ -506,22 +552,30 @@ export const ensureCodespacePortsVisibility = action({
       }
 
       const ensured = results.every((entry) => entry.applied);
-      await ctx.runMutation(internal.codespacesMutations.updatePortsVisibilityStatus, {
-        codespaceId: args.codespaceId,
-        ensured,
-        ensuredAt,
-        lastError: ensured ? undefined : JSON.stringify(results).slice(0, 800),
-      });
+      await ctx.runMutation(
+        internal.codespacesMutations.updatePortsVisibilityStatus,
+        {
+          codespaceId: args.codespaceId,
+          ensured,
+          ensuredAt,
+          lastError: ensured
+            ? undefined
+            : JSON.stringify(results).slice(0, 800),
+        },
+      );
 
       return { ensured, results };
     } catch (error) {
       const message = parseErrorMessage(error);
-      await ctx.runMutation(internal.codespacesMutations.updatePortsVisibilityStatus, {
-        codespaceId: args.codespaceId,
-        ensured: false,
-        ensuredAt,
-        lastError: message.slice(0, 800),
-      });
+      await ctx.runMutation(
+        internal.codespacesMutations.updatePortsVisibilityStatus,
+        {
+          codespaceId: args.codespaceId,
+          ensured: false,
+          ensuredAt,
+          lastError: message.slice(0, 800),
+        },
+      );
       throw error;
     }
   },

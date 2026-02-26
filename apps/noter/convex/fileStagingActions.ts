@@ -1,11 +1,12 @@
 "use node";
 
-import { action, internalAction } from "./_generated/server";
+import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { diffLines } from "diff";
 import { getUserId } from "./common";
+import type { Id } from "./_generated/dataModel";
 import {
   guessMime,
   INLINE_TEXT_MAX,
@@ -19,7 +20,25 @@ type HeaderMap = Record<string, HeaderValue>;
 
 const githubRateLimitResetByUser = new Map<string, number>();
 const RATE_LIMIT_COOLDOWN_FALLBACK_MS = 60_000;
-const STORAGE_BACKED_FILE_ERROR_MESSAGE = "File is in storage, not implemented yet";
+const STORAGE_BACKED_FILE_ERROR_MESSAGE =
+  "File is in storage, not implemented yet";
+
+async function getGithubAccessToken(
+  ctx: ActionCtx,
+  userId: Id<"users">,
+): Promise<string> {
+  const connection = await ctx.runQuery(
+    internal.providerConnections.getByUserAndKind,
+    {
+      userId,
+      kind: "github",
+    },
+  );
+  if (connection?.kind !== "github") {
+    throw new Error("GitHub is not connected");
+  }
+  return connection.auth.credential;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -52,7 +71,10 @@ function toHeaderMap(value: unknown): HeaderMap | null {
   return headers;
 }
 
-function getHeaderValue(headers: HeaderMap | null, name: string): string | null {
+function getHeaderValue(
+  headers: HeaderMap | null,
+  name: string,
+): string | null {
   if (!headers) {
     return null;
   }
@@ -117,7 +139,8 @@ function getErrorMessage(error: unknown): string {
 
 function isStorageBackedFileError(error: unknown): boolean {
   return (
-    error instanceof Error && error.message === STORAGE_BACKED_FILE_ERROR_MESSAGE
+    error instanceof Error &&
+    error.message === STORAGE_BACKED_FILE_ERROR_MESSAGE
   );
 }
 
@@ -258,15 +281,12 @@ export const getFileForEditing = action({
     branch: string;
     version: number;
   }> => {
-    const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
-
-    if (!currentUser) {
-      throw new Error("User not found");
-    }
+    const userId = await getUserId(ctx);
+    const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
-      userId: currentUser._id,
+      userId,
     });
 
     if (!vault) {
@@ -340,7 +360,7 @@ export const getFileForEditing = action({
       // Otherwise get from github
 
       const octokit: Octokit = new Octokit({
-        auth: currentUser.githubAccessToken,
+        auth: githubAccessToken,
       });
 
       try {
@@ -529,12 +549,7 @@ export const pullFromGitHubInternal = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const currentUser = await ctx.runQuery(internal.users.getById, {
-      userId: args.userId,
-    });
-    if (!currentUser) {
-      throw new Error("User not found");
-    }
+    const githubAccessToken = await getGithubAccessToken(ctx, args.userId);
 
     const vault = await ctx.runQuery(internal.vault.getById, {
       id: args.vaultId,
@@ -544,7 +559,7 @@ export const pullFromGitHubInternal = internalAction({
     }
 
     const octokit = new Octokit({
-      auth: currentUser.githubAccessToken,
+      auth: githubAccessToken,
     });
 
     // 1. Fetch fresh tree from GitHub
@@ -708,10 +723,8 @@ export const batchReadFiles = action({
   },
   returns: v.array(v.object({ path: v.string(), content: v.string() })),
   handler: async (ctx, args) => {
-    const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
-    if (!currentUser) {
-      throw new Error("User not found");
-    }
+    const userId = await getUserId(ctx);
+    const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
     const vault = await ctx.runQuery(internal.vault.getById, {
       id: args.vaultId,
@@ -757,18 +770,18 @@ export const batchReadFiles = action({
     let octokit: Octokit | null = null;
     const getOctokit = () => {
       if (!octokit) {
-        octokit = new Octokit({ auth: currentUser.githubAccessToken });
+        octokit = new Octokit({ auth: githubAccessToken });
       }
       return octokit;
     };
 
     for (const miss of misses) {
-      const knownResetAtMs = getKnownRateLimitResetAtMs(currentUser._id);
+      const knownResetAtMs = getKnownRateLimitResetAtMs(userId);
       if (knownResetAtMs !== null) {
         console.warn(
           "batchReadFiles: skipping uncached GitHub reads due to active rate-limit cooldown",
           {
-            userId: currentUser._id,
+            userId,
             resetAtMs: knownResetAtMs,
           },
         );
@@ -808,11 +821,11 @@ export const batchReadFiles = action({
         results.push({ path: miss.path, content: text });
       } catch (error) {
         if (isGitHubRateLimitError(error)) {
-          const resetAtMs = rememberRateLimitResetAtMs(currentUser._id, error);
+          const resetAtMs = rememberRateLimitResetAtMs(userId, error);
           console.warn(
             "batchReadFiles: hit GitHub rate limit, stopping uncached reads for now",
             {
-              userId: currentUser._id,
+              userId,
               resetAtMs,
               failedPath: miss.path,
             },
@@ -1093,16 +1106,10 @@ export const commitAllStaged = internalAction({
       // const user = await ctx.runQuery(internal.users.getById, {
       //   userId: args.userId,
       // });
-      const currentUser = await ctx.runQuery(internal.users.getById, {
-        userId: args.userId,
-      });
-
-      if (!currentUser) {
-        throw new Error("User not found");
-      }
+      const githubAccessToken = await getGithubAccessToken(ctx, args.userId);
 
       const octokit: Octokit = new Octokit({
-        auth: currentUser.githubAccessToken,
+        auth: githubAccessToken,
       });
 
       // Create a commit with all staged files

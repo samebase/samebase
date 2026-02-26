@@ -2,6 +2,7 @@ import { Infer, v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 
 export const OAuthProvider = v.union(
+  v.literal("github"),
   v.literal("convex"),
   v.literal("netlify"),
 );

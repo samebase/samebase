@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { GitHubLogoIcon } from "@radix-ui/react-icons";
 import { Chrome } from "lucide-react";
 import { useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
@@ -10,7 +9,7 @@ import { useEffect, useState } from "react";
 const AUTH_FLAG_KEY = "noter_was_authenticated";
 const AUTH_PROVIDER_KEY = "noter_auth_provider";
 
-type AuthProvider = "github" | "google" | "password";
+type AuthProvider = "google" | "password";
 
 export function clearAuthFlag() {
   localStorage.removeItem(AUTH_FLAG_KEY);
@@ -26,8 +25,7 @@ export function setAuthProvider(provider: AuthProvider) {
 }
 
 export function SignInForm() {
-  const showPasswordAuth =
-    import.meta.env.DEV && import.meta.env.VITE_ENABLE_PASSWORD_AUTH === "true";
+  const showPasswordAuth = import.meta.env.DEV;
 
   return (
     <div className="container my-auto">
@@ -54,7 +52,6 @@ export function SignInForm() {
         </ul>
         <div className="flex flex-col gap-2">
           <SignInWithGoogle />
-          <SignInWithGitHub />
           {showPasswordAuth ? <PasswordAuthForm /> : null}
         </div>
         <WaitlistForm />
@@ -206,7 +203,7 @@ export function isInIframe() {
   }
 }
 
-export function openAuthPopup(provider: "google" | "github") {
+export function openAuthPopup(provider: "google") {
   // Don't call signIn directly — the library would try window.location.href
   // which breaks in iframes. Instead open a popup that will auto-trigger sign-in.
   // Listen for auth tokens sent from the popup via postMessage.
@@ -235,7 +232,7 @@ export function openAuthPopup(provider: "google" | "github") {
 }
 
 /**
- * Auto-trigger provider sign-in when opened as a popup with ?auth=github|google.
+ * Auto-trigger provider sign-in when opened as a popup with ?auth=google.
  * The popup handles the full OAuth redirect flow (not blocked by CSP
  * since it's a top-level window). After auth completes, the popup
  * auto-closes and the token syncs to the parent via localStorage.
@@ -245,7 +242,7 @@ export function useAutoSignIn() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const auth = params.get("auth");
-    if ((auth === "github" || auth === "google") && window.opener) {
+    if (auth === "google" && window.opener) {
       setAuthProvider(auth);
       params.delete("auth");
       const newUrl =
@@ -274,27 +271,6 @@ export function SignInWithGoogle() {
       }}
     >
       <Chrome className="mr-2 h-4 w-4" /> Google
-    </Button>
-  );
-}
-
-export function SignInWithGitHub() {
-  const { signIn } = useAuthActions();
-  return (
-    <Button
-      className="flex-1"
-      variant="outline"
-      type="button"
-      onClick={() => {
-        if (isInIframe()) {
-          openAuthPopup("github");
-        } else {
-          setAuthProvider("github");
-          void signIn("github");
-        }
-      }}
-    >
-      <GitHubLogoIcon className="mr-2 h-4 w-4" /> GitHub
     </Button>
   );
 }

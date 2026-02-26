@@ -1,12 +1,29 @@
 "use node";
 
 import { Infer, v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, type ActionCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
 import { Id } from "./_generated/dataModel";
 import { getEnvLabel } from "./env";
+
+async function getGithubAccessToken(
+  ctx: ActionCtx,
+  userId: Id<"users">,
+): Promise<string> {
+  const connection = await ctx.runQuery(
+    internal.providerConnections.getByUserAndKind,
+    {
+      userId,
+      kind: "github",
+    },
+  );
+  if (connection?.kind !== "github") {
+    throw new Error("GitHub is not connected");
+  }
+  return connection.auth.credential;
+}
 
 /**
  * Create a new GitHub Codespace for a vault
@@ -37,7 +54,7 @@ export const createCodespace = action({
       vaultId: args.vaultId,
     });
 
-    if (!vault) {
+    if (!vault || vault.userId !== userId) {
       throw new Error("Vault not found");
     }
     console.log("codespaces:createCodespace:vault", {
@@ -46,17 +63,10 @@ export const createCodespace = action({
       ghRepoId: vault.ghRepoId,
     });
 
-    // Get user GitHub access token
-    const user = await ctx.runQuery(internal.codespacesMutations.getUser, {
-      userId,
-    });
-
-    if (!user?.githubAccessToken) {
-      throw new Error("GitHub access token not found");
-    }
+    const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
     const octokit = new Octokit({
-      auth: user.githubAccessToken,
+      auth: githubAccessToken,
     });
 
     // Generate random token for HTTP agent authentication
@@ -167,7 +177,9 @@ export const createCodespace = action({
             results: portEnsured.results,
           });
         } else {
-          console.log("codespaces:createCodespace:ports:ensure:ok", { codespaceId });
+          console.log("codespaces:createCodespace:ports:ensure:ok", {
+            codespaceId,
+          });
         }
       } catch (error) {
         console.log("codespaces:createCodespace:ports:ensure:error", {
@@ -211,6 +223,7 @@ export const getCodespaceConnection = action({
     ctx,
     args,
   ): Promise<Infer<typeof getCodespaceConnectionResult>> => {
+    const userId = await getUserId(ctx);
     const codespace = await ctx.runQuery(
       internal.codespacesMutations.getCodespace,
       {
@@ -218,7 +231,7 @@ export const getCodespaceConnection = action({
       },
     );
 
-    if (!codespace) {
+    if (!codespace || codespace.userId !== userId) {
       throw new Error("Codespace not found");
     }
 
@@ -251,20 +264,14 @@ export const startCodespace = action({
       },
     );
 
-    if (!codespace) {
+    if (!codespace || codespace.userId !== userId) {
       throw new Error("Codespace not found");
     }
 
-    const user = await ctx.runQuery(internal.codespacesMutations.getUser, {
-      userId,
-    });
-
-    if (!user?.githubAccessToken) {
-      throw new Error("GitHub access token not found");
-    }
+    const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
     const octokit = new Octokit({
-      auth: user.githubAccessToken,
+      auth: githubAccessToken,
     });
 
     // Start the Codespace
@@ -326,20 +333,14 @@ export const stopCodespace = action({
       },
     );
 
-    if (!codespace) {
+    if (!codespace || codespace.userId !== userId) {
       throw new Error("Codespace not found");
     }
 
-    const user = await ctx.runQuery(internal.codespacesMutations.getUser, {
-      userId,
-    });
-
-    if (!user?.githubAccessToken) {
-      throw new Error("GitHub access token not found");
-    }
+    const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
     const octokit = new Octokit({
-      auth: user.githubAccessToken,
+      auth: githubAccessToken,
     });
 
     // Stop the Codespace
@@ -374,20 +375,14 @@ export const deleteCodespace = action({
       },
     );
 
-    if (!codespace) {
+    if (!codespace || codespace.userId !== userId) {
       throw new Error("Codespace not found");
     }
 
-    const user = await ctx.runQuery(internal.codespacesMutations.getUser, {
-      userId,
-    });
-
-    if (!user?.githubAccessToken) {
-      throw new Error("GitHub access token not found");
-    }
+    const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
     const octokit = new Octokit({
-      auth: user.githubAccessToken,
+      auth: githubAccessToken,
     });
 
     await ctx.runMutation(internal.codespacesMutations.updateCodespaceState, {
