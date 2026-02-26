@@ -164,10 +164,9 @@ rewrite when real users arrive.
 4. Explicit approval required for every prod logs/data read.
 5. MVP allows broader access under `MVP_OWNER_MODE`, with planned switch to
    strict mode before external users.
-6. For MVP speed, Convex dev/prod deployments share the same
-   `CONVEX_MANAGEMENT_TOKEN` + `CONVEX_TEAM_ID`.
-7. For MVP speed, Convex dev/prod deployments share the same
-   `NETLIFY_ACCESS_TOKEN`.
+6. Legacy note: `CONVEX_MANAGEMENT_TOKEN` and `CONVEX_TEAM_ID` are no longer
+   used by runtime code.
+7. Legacy note: `NETLIFY_ACCESS_TOKEN` is no longer used by runtime code.
 
 ## Provider Boundary and Migration
 

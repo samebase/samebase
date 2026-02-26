@@ -325,14 +325,14 @@ Auth:
   use `<repo>-<suffix>` for worktrees (e.g., `~/dev/noter-idea-1`). Treat the
   first `-` as the delimiter.
 
-### MVP Infra Credentials (Current)
+### Legacy Infra Env Vars (Unused)
 
-- For MVP testing, the same `NETLIFY_ACCESS_TOKEN` is used for both Convex dev
-  and prod deployments.
-- For MVP testing, the same `CONVEX_MANAGEMENT_TOKEN` and `CONVEX_TEAM_ID` are
-  used for both Convex dev and prod deployments.
-- This is intentional for speed during MVP and can be split by environment
-  later.
+- `NETLIFY_ACCESS_TOKEN` is no longer used by runtime code.
+- `NETLIFY_TEAM_ID` is no longer used by runtime code.
+- `CONVEX_MANAGEMENT_TOKEN` is no longer used by runtime code.
+- `CONVEX_TEAM_ID` is no longer used by runtime code.
+- Provider connections now use `PROVIDER_*_OAUTH_*` env vars (and `DEV_SEED_*`
+  for dev seeding).
 
 ## Operational Note (Codex Auth)
 
