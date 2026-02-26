@@ -95,6 +95,11 @@ const sourceEnvPath = options.sourceEnv
   : findSourceEnvFile(repoRoot)
 
 if (!sourceEnvPath) {
+  if (options.dryRun) {
+    console.log(`Would write 1 seed var to ${targetEnvPath}`)
+    console.log('- CONVEX_DEPLOYMENT')
+    process.exit(0)
+  }
   writeEnvFile(targetEnvPath, [
     { name: 'CONVEX_DEPLOYMENT', value: localAnonDeployment.raw },
   ])

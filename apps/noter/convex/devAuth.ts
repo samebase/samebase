@@ -16,6 +16,7 @@ import { isAllowedEmail } from "./users";
 
 const DEV_SEED_EMAIL = "nicu@noter.md";
 const DEV_SEED_PASSWORD = "pass1234";
+const { boolean, null: vNull, object, optional, string } = v;
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -134,19 +135,19 @@ async function upsertNetlifyApiKey(
   });
 }
 
-const seedProviderConnectionsArgs = v.object({
-  email: v.string(),
-  githubApiKey: v.optional(v.string()),
-  convexManagementApiKey: v.optional(v.string()),
-  convexTeamId: v.optional(v.string()),
-  netlifyApiKey: v.optional(v.string()),
-  netlifyTeamId: v.optional(v.string()),
+const seedProviderConnectionsArgs = object({
+  email: string(),
+  githubApiKey: optional(string()),
+  convexManagementApiKey: optional(string()),
+  convexTeamId: optional(string()),
+  netlifyApiKey: optional(string()),
+  netlifyTeamId: optional(string()),
 });
 type SeedProviderConnectionsArgs = Infer<typeof seedProviderConnectionsArgs>;
 
 export const seedProviderConnectionsForEmail = internalMutation({
   args: seedProviderConnectionsArgs,
-  returns: v.null(),
+  returns: vNull(),
   handler: async (ctx, args) => {
     const normalizedEmail = normalizeEmail(args.email);
     const user = await ctx.db
@@ -195,9 +196,9 @@ export const seedProviderConnectionsForEmail = internalMutation({
 
 export const seedPasswordAccount = internalAction({
   args: {},
-  returns: v.object({
-    email: v.string(),
-    created: v.boolean(),
+  returns: object({
+    email: string(),
+    created: boolean(),
   }),
   handler: async (ctx) => {
     const email = normalizeEmail(DEV_SEED_EMAIL);
