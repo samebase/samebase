@@ -73,6 +73,9 @@ Access Convex database, logs, and admin operations using the CLI (from
 # View real-time logs from production deployment
 npx convex logs --prod --history 50
 
+# Worktree-safe prod logs (reuse env from main checkout when this worktree lacks .env.local)
+npx convex logs --prod --env-file /Users/nicu/dev/my/noter/apps/noter/.env.local --history 50
+
 # View development deployment logs
 npx convex logs
 
@@ -88,7 +91,8 @@ npx convex env list
 
 Use these commands to debug issues in Convex functions, check production logs,
 or inspect database state. This is the primary way to diagnose runtime errors
-and function failures.
+and function failures. `npx convex logs` does not support a `--project` flag;
+use `--env-file` or an explicit deployment selector instead.
 
 ## Architecture
 
