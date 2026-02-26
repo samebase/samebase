@@ -415,10 +415,6 @@ export const disconnectGithub = mutation({
     if (connection) {
       await ctx.db.delete(connection._id);
     }
-
-    await ctx.db.patch(userId, {
-      githubUsername: undefined,
-    });
     return null;
   },
 });
@@ -571,11 +567,6 @@ export const connectGithubWithApiKey = action({
       username: identity.username,
     });
 
-    await ctx.runMutation(internal.users.setGithubUsername, {
-      userId,
-      username: identity.username,
-    });
-
     return { username: identity.username };
   },
 });
@@ -633,20 +624,6 @@ export const connectNetlifyWithApiKey = action({
     });
 
     return { teamId: details.teamId, teamSlug: details.teamSlug };
-  },
-});
-
-export const setGithubUsername = internalMutation({
-  args: {
-    userId: v.id("users"),
-    username: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.userId, {
-      githubUsername: args.username,
-    });
-    return null;
   },
 });
 

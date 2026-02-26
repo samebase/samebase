@@ -143,9 +143,6 @@ export const storeGithubOauthConnection = internalMutation({
       },
       username: args.username,
     });
-    await ctx.db.patch(args.userId, {
-      githubUsername: args.username,
-    });
     await ctx.db.delete(args.oauthStateId);
     return null;
   },

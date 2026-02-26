@@ -168,10 +168,6 @@ export default defineSchema({
     phone: v.optional(v.string()),
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
-
-    // Added these things. Maybe find a better way?
-    // GitHub
-    githubUsername: v.optional(v.string()),
     isApproved: v.optional(v.boolean()),
   })
     .index("email", ["email"])
