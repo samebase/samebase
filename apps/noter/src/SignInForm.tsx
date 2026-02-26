@@ -42,7 +42,7 @@ export function SignInForm() {
           <li className="text-muted-foreground/90">
             can build small apps with Codex
           </li>
-          <li className="text-muted-foreground/70">can be built it intself</li>
+          <li className="text-muted-foreground/70">can be built in itself</li>
           <li className="text-muted-foreground/40">
             is built in itself
             <span className="sr-only">
