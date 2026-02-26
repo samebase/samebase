@@ -13,6 +13,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches patches
 COPY apps/noter/package.json apps/noter/package.json
 COPY apps/noter-starter-template/package.json apps/noter-starter-template/package.json
 
