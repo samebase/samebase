@@ -213,7 +213,7 @@ function PasswordAuthForm() {
             }}
             disabled={pending}
           >
-            Autofill
+            Autofill & sign in
           </Button>
           <Button type="submit" disabled={pending} className="flex-1">
             {submitLabel}

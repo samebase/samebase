@@ -2,7 +2,7 @@ import {
   createAccount,
   modifyAccountCredentials,
 } from "@convex-dev/auth/server";
-import { v } from "convex/values";
+import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import {
   internalAction,
@@ -134,20 +134,24 @@ async function upsertNetlifyApiKey(
   });
 }
 
+const seedProviderConnectionsArgs = v.object({
+  email: v.string(),
+  githubApiKey: v.optional(v.string()),
+  convexManagementApiKey: v.optional(v.string()),
+  convexTeamId: v.optional(v.string()),
+  netlifyApiKey: v.optional(v.string()),
+  netlifyTeamId: v.optional(v.string()),
+});
+type SeedProviderConnectionsArgs = Infer<typeof seedProviderConnectionsArgs>;
+
 export const seedProviderConnectionsForEmail = internalMutation({
-  args: {
-    email: v.string(),
-    githubApiKey: v.optional(v.string()),
-    convexManagementApiKey: v.optional(v.string()),
-    convexTeamId: v.optional(v.string()),
-    netlifyApiKey: v.optional(v.string()),
-    netlifyTeamId: v.optional(v.string()),
-  },
+  args: seedProviderConnectionsArgs,
   returns: v.null(),
   handler: async (ctx, args) => {
+    const normalizedEmail = normalizeEmail(args.email);
     const user = await ctx.db
       .query("users")
-      .withIndex("email", (q) => q.eq("email", args.email))
+      .withIndex("email", (q) => q.eq("email", normalizedEmail))
       .first();
     if (!user) {
       return null;
@@ -157,7 +161,12 @@ export const seedProviderConnectionsForEmail = internalMutation({
       await upsertGithubApiKey(ctx.db, user._id, args.githubApiKey);
     }
 
-    if (args.convexManagementApiKey && args.convexTeamId) {
+    if (args.convexManagementApiKey || args.convexTeamId) {
+      if (!args.convexManagementApiKey || !args.convexTeamId) {
+        throw new Error(
+          "Both DEV_SEED_CONVEX_MANAGEMENT_API_KEY and DEV_SEED_CONVEX_TEAM_ID are required",
+        );
+      }
       await upsertConvexApiKey(
         ctx.db,
         user._id,
@@ -166,7 +175,12 @@ export const seedProviderConnectionsForEmail = internalMutation({
       );
     }
 
-    if (args.netlifyApiKey && args.netlifyTeamId) {
+    if (args.netlifyApiKey || args.netlifyTeamId) {
+      if (!args.netlifyApiKey || !args.netlifyTeamId) {
+        throw new Error(
+          "Both DEV_SEED_NETLIFY_API_KEY and DEV_SEED_NETLIFY_TEAM_ID are required",
+        );
+      }
       await upsertNetlifyApiKey(
         ctx.db,
         user._id,
@@ -195,14 +209,7 @@ export const seedPasswordAccount = internalAction({
     const convexTeamId = readSeedValue("DEV_SEED_CONVEX_TEAM_ID");
     const netlifyApiKey = readSeedValue("DEV_SEED_NETLIFY_API_KEY");
     const netlifyTeamId = readSeedValue("DEV_SEED_NETLIFY_TEAM_ID");
-    const seedArgs: {
-      email: string;
-      githubApiKey?: string;
-      convexManagementApiKey?: string;
-      convexTeamId?: string;
-      netlifyApiKey?: string;
-      netlifyTeamId?: string;
-    } = { email };
+    const seedArgs: SeedProviderConnectionsArgs = { email };
     if (githubApiKey !== undefined) {
       seedArgs.githubApiKey = githubApiKey;
     }

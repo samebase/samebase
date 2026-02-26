@@ -95,8 +95,12 @@ const sourceEnvPath = options.sourceEnv
   : findSourceEnvFile(repoRoot)
 
 if (!sourceEnvPath) {
-  writeEnvFile(targetEnvPath, [])
-  console.log('No cloud dev env source found. Wrote empty seed env file.')
+  writeEnvFile(targetEnvPath, [
+    { name: 'CONVEX_DEPLOYMENT', value: localAnonDeployment.raw },
+  ])
+  console.log(
+    'No cloud dev env source found. Wrote seed env file with local CONVEX_DEPLOYMENT only.',
+  )
   process.exit(0)
 }
 
