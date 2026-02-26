@@ -1,5 +1,10 @@
 import { v } from "convex/values";
-import { action, httpAction, internalMutation, mutation } from "./_generated/server";
+import {
+  action,
+  httpAction,
+  internalMutation,
+  mutation,
+} from "./_generated/server";
 import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
@@ -88,36 +93,23 @@ async function exchangeNetlifyOAuthCode(args: {
 
   const data = await response.json().catch(() => null);
   if (!response.ok || !data || typeof data.access_token !== "string") {
-    throw new Error(`Failed to exchange Netlify OAuth code (${response.status}).`);
+    throw new Error(
+      `Failed to exchange Netlify OAuth code (${response.status}).`,
+    );
   }
 
   return {
     accessToken: data.access_token,
-    refreshToken: typeof data.refresh_token === "string" ? data.refresh_token : undefined,
-    expiresIn: typeof data.expires_in === "number" ? data.expires_in : undefined,
+    refreshToken:
+      typeof data.refresh_token === "string" ? data.refresh_token : undefined,
+    expiresIn:
+      typeof data.expires_in === "number" ? data.expires_in : undefined,
   };
 }
 
-async function fetchNetlifyUser(accessToken: string): Promise<{ userId?: string }> {
-  const response = await fetchWithTimeout(`${NETLIFY_API_BASE}/user`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-
-  const data = await response.json().catch(() => null);
-  if (!response.ok || !data) {
-    throw new Error(`Failed to fetch Netlify user (${response.status}).`);
-  }
-
-  const record = asRecord(data);
-  const userId = readString(record, "id");
-
-  return { userId };
-}
-
-async function fetchNetlifyAccounts(accessToken: string): Promise<NetlifyAccount[]> {
+async function fetchNetlifyAccounts(
+  accessToken: string,
+): Promise<NetlifyAccount[]> {
   const response = await fetchWithTimeout(`${NETLIFY_API_BASE}/accounts`, {
     method: "GET",
     headers: {
@@ -198,20 +190,22 @@ export const storeNetlifyOauthTokens = internalMutation({
     accessToken: v.string(),
     refreshToken: v.optional(v.string()),
     expiresAt: v.optional(v.number()),
-    teamId: v.optional(v.string()),
+    teamId: v.string(),
     teamSlug: v.optional(v.string()),
-    providerUserId: v.optional(v.string()),
     oauthStateId: v.id("oauthStates"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.userId, {
-      netlifyAccessToken: args.accessToken,
-      netlifyRefreshToken: args.refreshToken,
-      netlifyExpiresAt: args.expiresAt,
-      netlifyUserId: args.providerUserId,
-      netlifyTeamId: args.teamId,
-      netlifyTeamSlug: args.teamSlug,
+    await ctx.runMutation(internal.providerConnections.upsertNetlify, {
+      userId: args.userId,
+      auth: {
+        method: "oauth",
+        credential: args.accessToken,
+        refreshCredential: args.refreshToken,
+        credentialExpiresAt: args.expiresAt,
+      },
+      teamId: args.teamId,
+      teamSlug: args.teamSlug,
     });
     await ctx.db.delete(args.oauthStateId);
     return null;
@@ -243,10 +237,13 @@ export const finishNetlifyOAuth = action({
       throw new Error("User not authenticated");
     }
 
-    const oauthState = await ctx.runQuery(internal.oauthState.getOauthStateByState, {
-      provider: "netlify",
-      state: args.state,
-    });
+    const oauthState = await ctx.runQuery(
+      internal.oauthState.getOauthStateByState,
+      {
+        provider: "netlify",
+        state: args.state,
+      },
+    );
 
     if (!oauthState) {
       throw new Error("Invalid OAuth state");
@@ -275,7 +272,6 @@ export const finishNetlifyOAuth = action({
         redirectUri,
       });
 
-      const user = await fetchNetlifyUser(token.accessToken);
       const accounts = await fetchNetlifyAccounts(token.accessToken);
       const account = selectNetlifyAccount(accounts);
 
@@ -291,7 +287,6 @@ export const finishNetlifyOAuth = action({
         expiresAt,
         teamId: account.id,
         teamSlug: account.slug,
-        providerUserId: user.userId,
         oauthStateId: oauthState._id,
       });
     } catch (err) {
@@ -347,10 +342,13 @@ export const finishNetlifyOAuthCallback = httpAction(async (ctx, request) => {
     return new Response("Missing OAuth parameters", { status: 400 });
   }
 
-  const oauthState = await ctx.runQuery(internal.oauthState.getOauthStateByState, {
-    provider: "netlify",
-    state,
-  });
+  const oauthState = await ctx.runQuery(
+    internal.oauthState.getOauthStateByState,
+    {
+      provider: "netlify",
+      state,
+    },
+  );
 
   if (!oauthState) {
     return new Response("Invalid OAuth state", { status: 400 });
@@ -375,7 +373,6 @@ export const finishNetlifyOAuthCallback = httpAction(async (ctx, request) => {
       redirectUri,
     });
 
-    const user = await fetchNetlifyUser(token.accessToken);
     const accounts = await fetchNetlifyAccounts(token.accessToken);
     const account = selectNetlifyAccount(accounts);
 
@@ -391,7 +388,6 @@ export const finishNetlifyOAuthCallback = httpAction(async (ctx, request) => {
       expiresAt,
       teamId: account.id,
       teamSlug: account.slug,
-      providerUserId: user.userId,
       oauthStateId: oauthState._id,
     });
   } catch (err) {

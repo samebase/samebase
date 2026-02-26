@@ -105,10 +105,7 @@ export const generateResponse = internalAction({
       userId: Id<"users">;
       treeData: Infer<typeof GithubTreeData>;
     } | null = null;
-    let user: {
-      _id: Id<"users">;
-      githubAccessToken?: string;
-    } | null = null;
+    let githubAccessToken: string | null = null;
 
     if (threadContext.vaultId) {
       const v = await ctx.runQuery(internal.vault.getById, {
@@ -116,13 +113,20 @@ export const generateResponse = internalAction({
       });
       if (v) {
         vault = v;
-        user = await ctx.runQuery(internal.users.getById, {
-          userId: v.userId,
-        });
+        const githubConnection = await ctx.runQuery(
+          internal.providerConnections.getByUserAndKind,
+          {
+            userId: v.userId,
+            kind: "github",
+          },
+        );
+        if (githubConnection?.kind === "github") {
+          githubAccessToken = githubConnection.auth.credential;
+        }
       }
     }
 
-    const hasToolAccess = vault && user?.githubAccessToken;
+    const hasToolAccess = Boolean(vault && githubAccessToken);
 
     // Gather context for the system prompt
     let fileContent: string | undefined;
@@ -134,7 +138,7 @@ export const generateResponse = internalAction({
         .map((t) => t.path);
     }
 
-    if (threadContext.filePath && vault && user?.githubAccessToken) {
+    if (threadContext.filePath && vault && githubAccessToken) {
       try {
         fileContent = await executeReadFile(
           {
@@ -143,8 +147,8 @@ export const generateResponse = internalAction({
             vaultId: vault._id,
             owner: vault.ghRepoOwner,
             repo: vault.ghRepoName,
-            userId: user._id,
-            accessToken: user.githubAccessToken,
+            userId: vault.userId,
+            accessToken: githubAccessToken,
           },
           { path: threadContext.filePath },
         );
@@ -169,15 +173,15 @@ export const generateResponse = internalAction({
     });
 
     const toolCtx: ToolContext | undefined =
-      hasToolAccess && vault && user?.githubAccessToken
+      hasToolAccess && vault && githubAccessToken
         ? {
             ctx,
             threadId: args.threadId,
             vaultId: vault._id,
             owner: vault.ghRepoOwner,
             repo: vault.ghRepoName,
-            userId: user._id,
-            accessToken: user.githubAccessToken,
+            userId: vault.userId,
+            accessToken: githubAccessToken,
           }
         : undefined;
 

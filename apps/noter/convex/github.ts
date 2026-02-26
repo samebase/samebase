@@ -26,18 +26,19 @@ export const listRepositories = action({
     }),
   ),
   handler: async (ctx) => {
-    await getUserId(ctx);
-
-    const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
-
-    if (!currentUser) {
-      throw new Error("User not found");
+    const userId = await getUserId(ctx);
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.getByUserAndKind,
+      {
+        userId,
+        kind: "github",
+      },
+    );
+    if (githubConnection?.kind !== "github") {
+      throw new Error("GitHub is not connected");
     }
-    if (!currentUser.githubAccessToken) {
-      throw new Error("GitHub access token not found");
-    }
 
-    const accessToken = currentUser.githubAccessToken;
+    const accessToken = githubConnection.auth.credential;
 
     // Fetch repositories from GitHub API
     const response = await fetch(
@@ -81,7 +82,9 @@ const repositoryFileContentResult = v.union(
   v.object({ exists: v.literal(true), content: v.string() }),
 );
 
-type RepositoryFileContent = { exists: false } | { exists: true; content: string };
+type RepositoryFileContent =
+  | { exists: false }
+  | { exists: true; content: string };
 const PAGE_LOAD_REFRESH_DEBOUNCE_MS = 10 * 1000;
 
 export const getRepositoryFileContent = action({
@@ -100,6 +103,16 @@ export const getRepositoryFileContent = action({
 
     if (!currentUser) {
       throw new Error("User not found");
+    }
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.getByUserAndKind,
+      {
+        userId,
+        kind: "github",
+      },
+    );
+    if (githubConnection?.kind !== "github") {
+      throw new Error("GitHub is not connected");
     }
 
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
@@ -131,7 +144,7 @@ export const getRepositoryFileContent = action({
     }
 
     const octokit: Octokit = new Octokit({
-      auth: currentUser.githubAccessToken,
+      auth: githubConnection.auth.credential,
     });
 
     try {
@@ -223,6 +236,16 @@ export const updateRepositoryTree = internalAction({
     if (!currentUser) {
       throw new Error("User not found");
     }
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.getByUserAndKind,
+      {
+        userId: args.userId,
+        kind: "github",
+      },
+    );
+    if (githubConnection?.kind !== "github") {
+      throw new Error("GitHub is not connected");
+    }
 
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: `${args.owner}/${args.repo}`,
@@ -234,7 +257,7 @@ export const updateRepositoryTree = internalAction({
     }
 
     const octokit: Octokit = new Octokit({
-      auth: currentUser.githubAccessToken,
+      auth: githubConnection.auth.credential,
     });
 
     const tree = await octokit.rest.git.getTree({

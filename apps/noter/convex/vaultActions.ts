@@ -176,17 +176,20 @@ export const connectRepository = action({
     ctx,
     args,
   ): Promise<{ vaultId: string; filesDownloaded?: number }> => {
-    const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
-
-    if (!currentUser) {
-      throw new Error("User not found");
-    }
-    if (!currentUser.githubAccessToken) {
-      throw new Error("GitHub access token not found");
+    const userId = await getUserId(ctx);
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.getByUserAndKind,
+      {
+        userId,
+        kind: "github",
+      },
+    );
+    if (githubConnection?.kind !== "github") {
+      throw new Error("GitHub is not connected");
     }
 
     const octokit = new Octokit({
-      auth: currentUser.githubAccessToken,
+      auth: githubConnection.auth.credential,
     });
 
     const ownerName = args.repositoryFullName.split("/")[0];
@@ -257,26 +260,30 @@ export const createRepository = action({
     vaultId: v.string(),
   }),
   handler: async (ctx, args): Promise<{ vaultId: string }> => {
-    const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
+    const userId = await getUserId(ctx);
+    const [githubConnection, convexConnection, netlifyConnection] =
+      await Promise.all([
+        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId,
+          kind: "github",
+        }),
+        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId,
+          kind: "convex",
+        }),
+        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId,
+          kind: "netlify",
+        }),
+      ]);
 
-    if (!currentUser) {
-      throw new Error("User not found");
+    if (githubConnection?.kind !== "github") {
+      throw new Error("GitHub is not connected");
     }
-
-    if (!currentUser.githubAccessToken) {
-      throw new Error("GitHub access token not found");
-    }
-    const hasConvexConnection =
-      typeof currentUser.convexAccessToken === "string" &&
-      typeof currentUser.convexTeamId === "string";
-    if (!hasConvexConnection) {
+    if (convexConnection?.kind !== "convex") {
       throw new Error("Convex connection is required to create a project.");
     }
-    const hasNetlifyConnection =
-      typeof currentUser.netlifyAccessToken === "string" &&
-      (typeof currentUser.netlifyTeamSlug === "string" ||
-        typeof currentUser.netlifyTeamId === "string");
-    if (!hasNetlifyConnection) {
+    if (netlifyConnection?.kind !== "netlify") {
       throw new Error("Netlify connection is required to create a project.");
     }
 
@@ -286,7 +293,7 @@ export const createRepository = action({
     }
 
     const octokit = new Octokit({
-      auth: currentUser.githubAccessToken,
+      auth: githubConnection.auth.credential,
     });
 
     const repo = await octokit.rest.repos.createForAuthenticatedUser({
@@ -419,24 +426,33 @@ export const deleteVault = action({
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    const user = await ctx.runQuery(internal.users.getById, {
-      userId,
-    });
-    if (!user) {
-      throw new Error("User not found");
-    }
+    const [githubConnection, convexConnection, netlifyConnection] =
+      await Promise.all([
+        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId,
+          kind: "github",
+        }),
+        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId,
+          kind: "convex",
+        }),
+        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId,
+          kind: "netlify",
+        }),
+      ]);
     let octokit: Octokit | null = null;
     const getOctokit = async (): Promise<Octokit> => {
       if (octokit) {
         return octokit;
       }
 
-      if (!user?.githubAccessToken) {
-        throw new Error("GitHub access token not found");
+      if (githubConnection?.kind !== "github") {
+        throw new Error("GitHub is not connected");
       }
 
       octokit = new Octokit({
-        auth: user.githubAccessToken,
+        auth: githubConnection.auth.credential,
       });
       return octokit;
     };
@@ -472,13 +488,17 @@ export const deleteVault = action({
 
     if (shouldRemoveNetlifyProvision || shouldRemoveConvexProvision) {
       const convexToken = shouldRemoveConvexProvision
-        ? user.convexAccessToken
+        ? convexConnection?.kind === "convex"
+          ? convexConnection.auth.credential
+          : undefined
         : undefined;
       if (shouldRemoveConvexProvision && !convexToken) {
         throw new Error("Convex connection is required to remove resources.");
       }
       const netlifyToken = shouldRemoveNetlifyProvision
-        ? user.netlifyAccessToken
+        ? netlifyConnection?.kind === "netlify"
+          ? netlifyConnection.auth.credential
+          : undefined
         : undefined;
       if (shouldRemoveNetlifyProvision && !netlifyToken) {
         throw new Error("Netlify connection is required to remove resources.");

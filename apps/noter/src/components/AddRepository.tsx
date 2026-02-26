@@ -3,16 +3,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link, useNavigate } from "react-router-dom";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import { useAction, useQuery as useConvexQuery } from "convex/react";
+import {
+  useAction,
+  useMutation,
+  useQuery as useConvexQuery,
+} from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { linkStyle } from "./styles";
 import type { FunctionReturnType } from "convex/server";
-import { useAuthActions } from "@convex-dev/auth/react";
-import { isInIframe, openAuthPopup } from "@/SignInForm";
+import { isInIframe } from "@/SignInForm";
 
-type Repository = FunctionReturnType<typeof api.github.listRepositories>[number];
+type Repository = FunctionReturnType<
+  typeof api.github.listRepositories
+>[number];
 
 export function AddRepository() {
   const navigate = useNavigate();
@@ -20,9 +25,10 @@ export function AddRepository() {
   const [searchQuery, setSearchQuery] = useState("");
   const listRepositories = useAction(api.github.listRepositories);
   const connectRepository = useAction(api.vaultActions.connectRepository);
-  const { signIn } = useAuthActions();
+  const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
   const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
   const githubConnected = githubConnection?.connected === true;
+  const [connectError, setConnectError] = useState<string | null>(null);
 
   const {
     data: repositories = [],
@@ -37,11 +43,13 @@ export function AddRepository() {
     enabled: githubConnected,
   });
 
-  const error = queryError
-    ? queryError instanceof Error
-      ? queryError.message
-      : "Failed to fetch repositories"
-    : null;
+  const error =
+    connectError ??
+    (queryError
+      ? queryError instanceof Error
+        ? queryError.message
+        : "Failed to fetch repositories"
+      : null);
 
   const formatTimeAgo = (timestamp: number) => {
     const now = Date.now();
@@ -134,7 +142,8 @@ export function AddRepository() {
     .filter((repo: Repository) => {
       // Filter out already connected repos
       const isConnected = connectedVaults.some(
-        (vault: (typeof connectedVaults)[number]) => vault.repositoryFullName === repo.full_name,
+        (vault: (typeof connectedVaults)[number]) =>
+          vault.repositoryFullName === repo.full_name,
       );
       return !isConnected;
     })
@@ -181,11 +190,27 @@ export function AddRepository() {
           <Button
             className="mt-3"
             onClick={() => {
-              if (isInIframe()) {
-                openAuthPopup("github");
-              } else {
-                void signIn("github");
-              }
+              void (async () => {
+                setConnectError(null);
+                try {
+                  const oauthUrl = await getGithubOAuthUrl();
+                  if (isInIframe()) {
+                    window.open(
+                      oauthUrl,
+                      "github-oauth",
+                      "width=600,height=700,popup=true",
+                    );
+                    return;
+                  }
+                  window.location.assign(oauthUrl);
+                } catch (connectGithubError) {
+                  setConnectError(
+                    connectGithubError instanceof Error
+                      ? connectGithubError.message
+                      : "Failed to start GitHub OAuth",
+                  );
+                }
+              })();
             }}
           >
             Connect GitHub

@@ -996,7 +996,7 @@ export function ChatFab() {
             <CapabilitiesPanel
               repositoryFullName={repositoryFullName}
               vaultId={vaultId}
-              hasGithubToken={Boolean(viewer?.hasGithubAccessToken)}
+              hasGithubToken={Boolean(viewer?.hasGithubConnection)}
               systemPrompt={threadContext?.systemPrompt}
             />
             {threadId &&

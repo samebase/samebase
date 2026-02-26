@@ -11,7 +11,8 @@ import {
   readRequiredEnv,
 } from "./oauthUtils";
 
-const CONVEX_AUTHORIZE_URL = "https://dashboard.convex.dev/oauth/authorize/team";
+const CONVEX_AUTHORIZE_URL =
+  "https://dashboard.convex.dev/oauth/authorize/team";
 const CONVEX_TOKEN_URL = "https://api.convex.dev/oauth/token";
 const CONVEX_TOKEN_DETAILS_URL = "https://api.convex.dev/v1/token_details";
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
@@ -24,7 +25,10 @@ function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function readStringOrNumber(record: JsonRecord, key: string): string | undefined {
+function readStringOrNumber(
+  record: JsonRecord,
+  key: string,
+): string | undefined {
   const value = record[key];
   if (typeof value === "string") return value;
   if (typeof value === "number") return String(value);
@@ -51,7 +55,11 @@ function resolveField(
     if (value !== undefined) return value;
   }
   if (nested) {
-    const nestedValue = readNestedStringOrNumber(record, nested.key, nested.field);
+    const nestedValue = readNestedStringOrNumber(
+      record,
+      nested.key,
+      nested.field,
+    );
     if (nestedValue !== undefined) return nestedValue;
   }
   return undefined;
@@ -145,8 +153,10 @@ async function exchangeConvexOAuthCode(args: {
 
   return {
     accessToken: data.access_token,
-    refreshToken: typeof data.refresh_token === "string" ? data.refresh_token : undefined,
-    expiresIn: typeof data.expires_in === "number" ? data.expires_in : undefined,
+    refreshToken:
+      typeof data.refresh_token === "string" ? data.refresh_token : undefined,
+    expiresIn:
+      typeof data.expires_in === "number" ? data.expires_in : undefined,
   };
 }
 
@@ -165,7 +175,9 @@ async function fetchConvexTokenDetails(accessToken: string): Promise<{
 
   const data = await response.json().catch(() => null);
   if (!response.ok || !data) {
-    throw new Error(`Failed to fetch Convex token details (${response.status}).`);
+    throw new Error(
+      `Failed to fetch Convex token details (${response.status}).`,
+    );
   }
 
   const record = isRecord(data) ? data : {};
@@ -177,7 +189,10 @@ async function fetchConvexTokenDetails(accessToken: string): Promise<{
     key: "team",
     field: "slug",
   });
-  const teamName = resolveField(record, ["name"], { key: "team", field: "name" });
+  const teamName = resolveField(record, ["name"], {
+    key: "team",
+    field: "name",
+  });
   const userId = resolveField(record, ["userId", "user_id"], {
     key: "user",
     field: "id",
@@ -197,20 +212,22 @@ export const storeConvexOauthTokens = internalMutation({
     accessToken: v.string(),
     refreshToken: v.optional(v.string()),
     expiresAt: v.optional(v.number()),
-    teamId: v.optional(v.string()),
+    teamId: v.string(),
     teamSlug: v.optional(v.string()),
-    providerUserId: v.optional(v.string()),
     oauthStateId: v.id("oauthStates"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.userId, {
-      convexAccessToken: args.accessToken,
-      convexRefreshToken: args.refreshToken,
-      convexExpiresAt: args.expiresAt,
-      convexTeamId: args.teamId,
-      convexTeamSlug: args.teamSlug,
-      convexUserId: args.providerUserId,
+    await ctx.runMutation(internal.providerConnections.upsertConvex, {
+      userId: args.userId,
+      auth: {
+        method: "oauth",
+        credential: args.accessToken,
+        refreshCredential: args.refreshToken,
+        credentialExpiresAt: args.expiresAt,
+      },
+      teamId: args.teamId,
+      teamSlug: args.teamSlug,
     });
     await ctx.db.delete(args.oauthStateId);
     return null;
@@ -249,10 +266,13 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
     return new Response("Missing OAuth parameters", { status: 400 });
   }
 
-  const oauthState = await ctx.runQuery(internal.oauthState.getOauthStateByState, {
-    provider: "convex",
-    state,
-  });
+  const oauthState = await ctx.runQuery(
+    internal.oauthState.getOauthStateByState,
+    {
+      provider: "convex",
+      state,
+    },
+  );
 
   if (!oauthState) {
     return new Response("Invalid OAuth state", { status: 400 });
@@ -286,6 +306,9 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
     });
 
     const details = await fetchConvexTokenDetails(token.accessToken);
+    if (!details.teamId) {
+      throw new Error("Convex OAuth token missing team access");
+    }
     const expiresAt =
       typeof token.expiresIn === "number"
         ? Date.now() + token.expiresIn * 1000
@@ -298,7 +321,6 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
       expiresAt,
       teamId: details.teamId,
       teamSlug: details.teamSlug,
-      providerUserId: details.userId,
       oauthStateId: oauthState._id,
     });
   } catch (error) {

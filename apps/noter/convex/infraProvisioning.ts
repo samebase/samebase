@@ -1,5 +1,9 @@
 import { Infer, v } from "convex/values";
-import { internalAction, internalMutation, internalQuery } from "./_generated/server";
+import {
+  internalAction,
+  internalMutation,
+  internalQuery,
+} from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
@@ -28,7 +32,9 @@ const infraPatchValidator = v.object({
   convexProjectId: v.optional(v.string()),
   convexProjectSlug: v.optional(v.string()),
   convexDeploymentName: v.optional(v.string()),
-  convexDeploymentType: v.optional(v.union(v.literal("prod"), v.literal("dev"))),
+  convexDeploymentType: v.optional(
+    v.union(v.literal("prod"), v.literal("dev")),
+  ),
   convexCloudUrl: v.optional(v.string()),
   convexSiteUrl: v.optional(v.string()),
   convexDeployKeyId: v.optional(v.string()),
@@ -58,7 +64,10 @@ function readString(record: JsonRecord, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-function readStringOrNumber(record: JsonRecord, key: string): string | undefined {
+function readStringOrNumber(
+  record: JsonRecord,
+  key: string,
+): string | undefined {
   const value = record[key];
   if (typeof value === "string") {
     return value;
@@ -259,7 +268,8 @@ async function addGitHubDeployKey(args: {
   const lowered = responseText.toLowerCase();
   if (
     response.status === 422 &&
-    (lowered.includes("key is already in use") || lowered.includes("already exists"))
+    (lowered.includes("key is already in use") ||
+      lowered.includes("already exists"))
   ) {
     return;
   }
@@ -445,7 +455,8 @@ async function ensureConvexResources(args: {
     deploymentUrl = `https://${deploymentName}.convex.cloud`;
   }
 
-  const siteUrl = args.existing.siteUrl ?? `https://${deploymentName}.convex.site`;
+  const siteUrl =
+    args.existing.siteUrl ?? `https://${deploymentName}.convex.site`;
 
   const deployKeyRaw = await args.convexProvider.request(
     `/deployments/${encodeURIComponent(deploymentName)}/create_deploy_key`,
@@ -632,7 +643,9 @@ async function ensureNetlifyResources(args: {
 
     const accountId = readString(siteResponse, "account_id");
     if (!accountId) {
-      throw new Error("Failed to resolve Netlify account ID for environment setup");
+      throw new Error(
+        "Failed to resolve Netlify account ID for environment setup",
+      );
     }
 
     const siteRepo = asRecord(siteResponse["repo"]);
@@ -818,9 +831,11 @@ async function ensureNetlifyResources(args: {
       netlifySiteName: readString(refreshedSite, "name") ?? siteName,
       netlifyTeamId: accountId,
       netlifyDefaultUrl:
-        readString(refreshedSite, "deploy_url") ?? readString(refreshedSite, "url"),
+        readString(refreshedSite, "deploy_url") ??
+        readString(refreshedSite, "url"),
       netlifyProductionUrl:
-        readString(refreshedSite, "ssl_url") ?? readString(refreshedSite, "url"),
+        readString(refreshedSite, "ssl_url") ??
+        readString(refreshedSite, "url"),
       netlifyBuildHookId: buildHookId,
     };
 
@@ -846,7 +861,6 @@ async function ensureNetlifyResources(args: {
     throw error;
   }
 }
-
 
 export const getInfrastructureByVault = internalQuery({
   args: {
@@ -967,10 +981,7 @@ export const upsertDomainRecord = internalMutation({
     branch: v.string(),
     kind: v.union(v.literal("main"), v.literal("branch_preview")),
     url: v.string(),
-    source: v.union(
-      v.literal("netlify_default"),
-      v.literal("netlify_custom"),
-    ),
+    source: v.union(v.literal("netlify_default"), v.literal("netlify_custom")),
     active: v.boolean(),
   },
   returns: v.null(),
@@ -1022,29 +1033,38 @@ export const provisionVaultInfrastructure = internalAction({
       return null;
     }
 
-    const { claimed } = await ctx.runMutation(internal.infraProvisioning.claimProvisioning, {
-      vaultId: args.vaultId,
-      force: args.force,
-    });
+    const { claimed } = await ctx.runMutation(
+      internal.infraProvisioning.claimProvisioning,
+      {
+        vaultId: args.vaultId,
+        force: args.force,
+      },
+    );
 
     if (!claimed) {
       return null;
     }
 
-    const existing = await ctx.runQuery(internal.infraProvisioning.getInfrastructureByVault, {
-      vaultId: args.vaultId,
-    });
+    const existing = await ctx.runQuery(
+      internal.infraProvisioning.getInfrastructureByVault,
+      {
+        vaultId: args.vaultId,
+      },
+    );
 
     const nextVersion = (existing?.provisioningVersion ?? 0) + 1;
 
-    await ctx.runMutation(internal.infraProvisioning.upsertInfrastructureRecord, {
-      vaultId: args.vaultId,
-      patch: {
-        status: "provisioning",
-        provisioningVersion: nextVersion,
-        lastError: undefined,
+    await ctx.runMutation(
+      internal.infraProvisioning.upsertInfrastructureRecord,
+      {
+        vaultId: args.vaultId,
+        patch: {
+          status: "provisioning",
+          provisioningVersion: nextVersion,
+          lastError: undefined,
+        },
       },
-    });
+    );
 
     console.log("infra:provision:start", {
       vaultId: args.vaultId,
@@ -1059,16 +1079,37 @@ export const provisionVaultInfrastructure = internalAction({
 
     try {
       const defaultBranch = process.env.INFRA_DEFAULT_BRANCH ?? "main";
-      const user = await ctx.runQuery(internal.users.getById, {
-        userId: vault.userId,
-      });
+      const [githubConnection, convexConnection, netlifyConnection] =
+        await Promise.all([
+          ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+            userId: vault.userId,
+            kind: "github",
+          }),
+          ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+            userId: vault.userId,
+            kind: "convex",
+          }),
+          ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+            userId: vault.userId,
+            kind: "netlify",
+          }),
+        ]);
 
-      if (!user?.githubAccessToken) {
-        throw new Error("GitHub connection is required to provision infrastructure.");
+      if (githubConnection?.kind !== "github") {
+        throw new Error(
+          "GitHub connection is required to provision infrastructure.",
+        );
       }
+      const githubAccessToken = githubConnection.auth.credential;
 
-      const convexToken = user.convexAccessToken?.trim() ?? "";
-      const convexTeamId = user.convexTeamId?.trim() ?? "";
+      const convexToken =
+        convexConnection?.kind === "convex"
+          ? convexConnection.auth.credential.trim()
+          : "";
+      const convexTeamId =
+        convexConnection?.kind === "convex"
+          ? convexConnection.teamId.trim()
+          : "";
 
       if (!convexToken || !convexTeamId) {
         throw new Error(
@@ -1076,9 +1117,18 @@ export const provisionVaultInfrastructure = internalAction({
         );
       }
 
-      const netlifyToken = user.netlifyAccessToken?.trim() ?? "";
-      const netlifyTeamSlug = user.netlifyTeamSlug?.trim() ?? "";
-      const netlifyTeamId = user.netlifyTeamId?.trim() ?? "";
+      const netlifyToken =
+        netlifyConnection?.kind === "netlify"
+          ? netlifyConnection.auth.credential.trim()
+          : "";
+      const netlifyTeamSlug =
+        netlifyConnection?.kind === "netlify"
+          ? netlifyConnection.teamSlug?.trim() ?? ""
+          : "";
+      const netlifyTeamId =
+        netlifyConnection?.kind === "netlify"
+          ? netlifyConnection.teamId.trim()
+          : "";
       const netlifyTeam = netlifyTeamSlug || netlifyTeamId;
 
       if (!netlifyToken || !netlifyTeam) {
@@ -1109,24 +1159,27 @@ export const provisionVaultInfrastructure = internalAction({
 
       convexSuccess = true;
 
-      await ctx.runMutation(internal.infraProvisioning.upsertInfrastructureRecord, {
-        vaultId: args.vaultId,
-        patch: {
-          status: "provisioning",
-          provisioningVersion: nextVersion,
+      await ctx.runMutation(
+        internal.infraProvisioning.upsertInfrastructureRecord,
+        {
+          vaultId: args.vaultId,
+          patch: {
+            status: "provisioning",
+            provisioningVersion: nextVersion,
 
-          convexProjectId: convex.convexProjectId,
-          convexProjectSlug: convex.convexProjectSlug,
-          convexDeploymentName: convex.convexDeploymentName,
-          convexDeploymentType: convex.convexDeploymentType,
-          convexCloudUrl: convex.convexCloudUrl,
-          convexSiteUrl: convex.convexSiteUrl,
-          convexDeployKeyId: convex.convexDeployKeyId,
+            convexProjectId: convex.convexProjectId,
+            convexProjectSlug: convex.convexProjectSlug,
+            convexDeploymentName: convex.convexDeploymentName,
+            convexDeploymentType: convex.convexDeploymentType,
+            convexCloudUrl: convex.convexCloudUrl,
+            convexSiteUrl: convex.convexSiteUrl,
+            convexDeployKeyId: convex.convexDeployKeyId,
+          },
         },
-      });
+      );
 
       const repoIdentity = await fetchGitHubRepoIdentity({
-        githubAccessToken: user.githubAccessToken,
+        githubAccessToken,
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
       });
@@ -1137,7 +1190,7 @@ export const provisionVaultInfrastructure = internalAction({
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
         ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
-        githubAccessToken: user.githubAccessToken,
+        githubAccessToken,
         defaultBranch,
         vaultId: args.vaultId,
         existing: {
@@ -1156,22 +1209,25 @@ export const provisionVaultInfrastructure = internalAction({
 
       netlifySuccess = true;
 
-      await ctx.runMutation(internal.infraProvisioning.upsertInfrastructureRecord, {
-        vaultId: args.vaultId,
-        patch: {
-          status: "ready",
-          provisioningVersion: nextVersion,
-          lastProvisionedAt: Date.now(),
+      await ctx.runMutation(
+        internal.infraProvisioning.upsertInfrastructureRecord,
+        {
+          vaultId: args.vaultId,
+          patch: {
+            status: "ready",
+            provisioningVersion: nextVersion,
+            lastProvisionedAt: Date.now(),
 
-          netlifySiteId: netlify.netlifySiteId,
-          netlifySiteName: netlify.netlifySiteName,
-          netlifyTeamId: netlify.netlifyTeamId,
-          netlifyDefaultUrl: netlify.netlifyDefaultUrl,
-          netlifyProductionUrl: netlify.netlifyProductionUrl,
-          netlifyBuildHookId: netlify.netlifyBuildHookId,
-          lastError: undefined,
+            netlifySiteId: netlify.netlifySiteId,
+            netlifySiteName: netlify.netlifySiteName,
+            netlifyTeamId: netlify.netlifyTeamId,
+            netlifyDefaultUrl: netlify.netlifyDefaultUrl,
+            netlifyProductionUrl: netlify.netlifyProductionUrl,
+            netlifyBuildHookId: netlify.netlifyBuildHookId,
+            lastError: undefined,
+          },
         },
-      });
+      );
 
       const mainUrl = netlify.netlifyProductionUrl ?? netlify.netlifyDefaultUrl;
       if (mainUrl) {
@@ -1211,15 +1267,18 @@ export const provisionVaultInfrastructure = internalAction({
         message,
       });
 
-      await ctx.runMutation(internal.infraProvisioning.upsertInfrastructureRecord, {
-        vaultId: args.vaultId,
-        patch: {
-          status: infraState,
-          provisioningVersion: nextVersion,
-          lastError: message,
-          lastProvisionedAt: Date.now(),
+      await ctx.runMutation(
+        internal.infraProvisioning.upsertInfrastructureRecord,
+        {
+          vaultId: args.vaultId,
+          patch: {
+            status: infraState,
+            provisioningVersion: nextVersion,
+            lastError: message,
+            lastProvisionedAt: Date.now(),
+          },
         },
-      });
+      );
 
       await ctx.runMutation(internal.infraProvisioning.setProvisioningState, {
         vaultId: args.vaultId,
