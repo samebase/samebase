@@ -80,6 +80,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@playwright/cli": "^0.1.1",
     "@types/node": "^20.14.9",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",

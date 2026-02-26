@@ -20,6 +20,9 @@ REFERENCES.md
 Screenshot 2026-02-17 at 01.19.49.png
 scripts/daytona-refresh.sh
 skills/create-pr/SKILL.md
+skills/noter-playwright-live/references/playwright-cli-quickref.md
+skills/noter-playwright-live/references/runbook.md
+skills/noter-playwright-live/SKILL.md
 specs/001_CODESPACE_CONNECTION_SPEC.md
 specs/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md
 specs/003_VAULT_INFRA_PROVISIONING_SPEC.md

@@ -26,6 +26,7 @@ coverage
 .eslintcache
 *.tsbuildinfo
 .vite
+.playwright-cli/
 
 # Environment variables
 *.local

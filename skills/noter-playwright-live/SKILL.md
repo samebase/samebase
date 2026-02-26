@@ -1,0 +1,110 @@
+---
+name: noter-playwright-live
+description:
+  Run Noter-stack apps locally and inspect real UI behavior with Playwright CLI.
+  Use when asked to start the site, navigate pages, log in, click through flows,
+  reproduce UI bugs, verify visual states, or capture screenshots/snapshots.
+  Applies to this noter monorepo and repositories created from noter starter
+  template (React + Vite + Convex).
+---
+
+# Noter Playwright Live
+
+## Goal
+
+Use a real browser session (not unit/E2E test runner) to validate behavior and
+visuals for Noter-stack apps.
+
+## Workflow
+
+1. Confirm repo and branch context.
+
+```bash
+git rev-parse --show-toplevel
+git rev-parse --abbrev-ref HEAD
+```
+
+2. Detect project type.
+
+- Noter monorepo: `apps/noter/package.json` exists.
+- Noter starter/generated app: root `package.json` includes Vite + Convex
+  scripts (`dev`, `dev:frontend`, `dev:backend`).
+
+3. Start dev server in a long-running session.
+
+- Noter monorepo (preferred): run `make anon` from repo root.
+- Starter/generated app: run `pnpm run dev` from project root.
+
+If dependencies are missing, run `pnpm install` first.
+
+4. Discover active frontend URL.
+
+Probe common Vite ports (5173-5190) and select the first reachable page:
+
+```bash
+for p in $(seq 5173 5190); do
+  curl -fsS "http://127.0.0.1:$p" >/dev/null && echo "http://127.0.0.1:$p" && break
+done
+```
+
+5. Open a Playwright CLI session scoped to the worktree/branch.
+
+```bash
+SESSION="noter-$(basename "$PWD")-$(git rev-parse --abbrev-ref HEAD | tr '/' '-')"
+npx --yes @playwright/cli -s="$SESSION" open "$URL"
+```
+
+6. Run the requested UI actions.
+
+- Use `snapshot` to get stable element refs.
+- Prefer `fill`, `click`, `type`, and `press` commands over `eval`.
+- Re-snapshot after navigation or major DOM changes.
+
+7. Capture evidence.
+
+```bash
+npx --yes @playwright/cli -s="$SESSION" snapshot
+npx --yes @playwright/cli -s="$SESSION" screenshot --filename=/tmp/noter-<action>-<timestamp>.png
+```
+
+8. Report outcomes with concrete UI evidence.
+
+- Include URL reached, key state changes, and blockers.
+- Include screenshot file paths.
+
+## Noter Monorepo Defaults
+
+Use these defaults when working in this repository.
+
+1. Bootstrap with `make anon` (sets Convex local env and seeds dev auth).
+2. If sign-in is needed, read seeded credentials from
+   `apps/noter/convex/devAuth.ts` constants:
+   - `DEV_SEED_EMAIL`
+   - `DEV_SEED_PASSWORD`
+3. Typical smoke flow after sign-in:
+   - Open dashboard
+   - Fill `New app name`
+   - Click `New app`
+   - Wait for new vault card and infra status text
+
+## Playwright Session Rules
+
+- Use one session per active task/worktree.
+- Reuse the same `-s` session for multi-step flows.
+- Avoid sharing one session across unrelated projects.
+- Use `close-all` only when explicitly cleaning up broad stale state.
+
+## Safety Rules
+
+- Never print or copy API keys/tokens from `.env*` files into user-facing
+  output.
+- Do not mutate unrelated repositories during UI checks.
+- If app startup fails, include the exact failing command and first actionable
+  error lines.
+
+## References
+
+Load these only when needed:
+
+- `references/runbook.md` for project-type startup commands and flow patterns.
+- `references/playwright-cli-quickref.md` for common browser commands.
