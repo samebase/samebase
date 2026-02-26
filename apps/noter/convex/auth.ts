@@ -21,6 +21,11 @@ function isFlagEnabled(key: string): boolean {
   return value !== null && value.toLowerCase() === "true";
 }
 
+function isDevelopmentDeployment(): boolean {
+  const deployment = readOptionalEnv("CONVEX_DEPLOYMENT");
+  return deployment !== null && deployment.startsWith("dev:");
+}
+
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
@@ -126,7 +131,8 @@ const githubClientId = readRequiredEnv("AUTH_GITHUB_ID");
 const githubClientSecret = readRequiredEnv("AUTH_GITHUB_SECRET");
 const googleClientId = readOptionalEnv("AUTH_GOOGLE_ID");
 const googleClientSecret = readOptionalEnv("AUTH_GOOGLE_SECRET");
-const passwordAuthEnabled = isFlagEnabled("AUTH_ENABLE_PASSWORD");
+const passwordAuthEnabled =
+  isDevelopmentDeployment() || isFlagEnabled("AUTH_ENABLE_PASSWORD");
 if ((googleClientId === null) !== (googleClientSecret === null)) {
   throw new Error(
     `Missing required environment variable: ${

@@ -66,19 +66,7 @@ const readEnvFile = () => {
   return env;
 };
 
-const isFlagEnabled = (value) =>
-  typeof value === "string" && value.trim().toLowerCase() === "true";
-
 const maybeSeedPasswordAccount = () => {
-  const env = readEnvFile();
-  if (!isFlagEnabled(env.AUTH_ENABLE_PASSWORD)) {
-    return;
-  }
-  if (!env.AUTH_SEED_EMAIL || !env.AUTH_SEED_PASSWORD) {
-    throw new Error(
-      "AUTH_ENABLE_PASSWORD=true requires AUTH_SEED_EMAIL and AUTH_SEED_PASSWORD in .env.local",
-    );
-  }
   run("npx", ["convex", "run", "devAuth:seedPasswordAccount"]);
 };
 

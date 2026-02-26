@@ -26,8 +26,7 @@ export function setAuthProvider(provider: AuthProvider) {
 }
 
 export function SignInForm() {
-  const showPasswordAuth =
-    import.meta.env.DEV && import.meta.env.VITE_ENABLE_PASSWORD_AUTH === "true";
+  const showPasswordAuth = import.meta.env.DEV;
 
   return (
     <div className="container my-auto">

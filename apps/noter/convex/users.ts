@@ -10,11 +10,15 @@ import { internal } from "./_generated/api";
 import { Infer, v } from "convex/values";
 
 const ADMIN_USERNAMES = ["nicu-chiciuc"];
-const ADMIN_EMAILS = new Set(["nicu.dev@gmail.com", "nicuchiciuc@gmail.com"]);
+const ADMIN_EMAILS = new Set([
+  "nicu.dev@gmail.com",
+  "nicuchiciuc@gmail.com",
+  "nicu@noter.md",
+]);
 const ALLOWED_EMAILS = new Set([
   "nicu.dev@gmail.com",
   "nicuchiciuc@gmail.com",
-  "noita.lovare@gmail.com",
+  "nicu@noter.md",
 ]);
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
 const GITHUB_API_BASE = "https://api.github.com";

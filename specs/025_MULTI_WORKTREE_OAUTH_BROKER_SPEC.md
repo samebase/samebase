@@ -4,7 +4,7 @@
 
 - Status: Proposed
 - Owner: Noter auth + dev workflow
-- Last updated: 2026-02-25
+- Last updated: 2026-02-26
 - Supersedes: Previous `025 Multi-Worktree OAuth Broker Spec`
 - Related specs:
   - `specs/015_BYO_CONVEX_OAUTH_AND_WORKTREE_PROVISIONING_SPEC.md`
@@ -20,7 +20,8 @@ Replace the broker-first OAuth direction with a simpler dual-mode model:
    sign-in screen.
 3. Add API-key connection mode for GitHub, Convex, and Netlify in addition to
    OAuth.
-4. Auto-seed one worktree password account from env variables.
+4. Auto-seed one worktree password account from fixed development credentials in
+   code.
 5. Optionally auto-seed provider API keys onto the user profile from env.
 
 This keeps onboarding fast for the single local developer while preserving OAuth
@@ -43,7 +44,7 @@ Current needs:
 1. Support password sign-in/sign-up as an additional auth mode in development.
 2. Keep current OAuth providers fully functional.
 3. Support API-key connect flow for GitHub/Convex/Netlify in all environments.
-4. Support env-based seeding for local worktree convenience.
+4. Support fixed-credential seeding for local worktree convenience.
 5. Keep existing allowlist enforcement model intact.
 
 ## Non-Goals
@@ -58,8 +59,8 @@ Current needs:
 1. The current root sign-in page displays the password login UI.
 2. This password login UI is restricted to development.
 3. Credentials are not prefilled in the password form.
-4. Worktree seeded credentials come from env (`AUTH_SEED_EMAIL`,
-   `AUTH_SEED_PASSWORD`).
+4. Worktree password seeding uses fixed development credentials: `nicu@noter.md`
+   / `pass1234`.
 5. Sign-in and sign-up flows are both supported by the password provider.
 6. Existing allowlist policy remains enforced for password flows too.
 7. Production keeps API-key connection mode available as an option.
@@ -86,7 +87,9 @@ flowchart LR
 
 1. Google OAuth remains enabled when configured.
 2. GitHub OAuth remains enabled when configured.
-3. Password provider is enabled only when `AUTH_ENABLE_PASSWORD=true`.
+3. Password provider is enabled automatically on Convex development deployments.
+4. Production password-provider enablement remains opt-in via
+   `AUTH_ENABLE_PASSWORD` until we remove the gate.
 
 ### Password Flows
 
@@ -127,7 +130,7 @@ Existing fields in `users` are reused:
 ### `apps/noter/convex/auth.ts`
 
 1. Add Password provider wiring.
-2. Gate password provider by `AUTH_ENABLE_PASSWORD`.
+2. Enable password provider by default in Convex dev deployments.
 3. Keep existing OAuth provider setup.
 4. Keep allowlist check in `createOrUpdateUser`.
 5. Add optional env-based provider-key auto-seed helper, gated by
@@ -137,10 +140,10 @@ Existing fields in `users` are reused:
 
 Add `seedPasswordAccount` action:
 
-1. Enabled only when `AUTH_ENABLE_PASSWORD=true`.
-2. Reads `AUTH_SEED_EMAIL` + `AUTH_SEED_PASSWORD`.
-3. Creates or updates password account idempotently.
-4. Applies allowlist check.
+1. Uses fixed development seed credentials in code (`nicu@noter.md` /
+   `pass1234`).
+2. Creates or updates password account idempotently.
+3. Applies allowlist check.
 
 ### `apps/noter/predev.js`
 
@@ -174,9 +177,7 @@ email fallback where required (chat/prod-read approval paths).
 ### `apps/noter/src/SignInForm.tsx`
 
 1. Keep Google and GitHub OAuth buttons.
-2. Add dev-only password block when:
-   - `import.meta.env.DEV`
-   - `VITE_ENABLE_PASSWORD_AUTH === "true"`
+2. Add dev-only password block when `import.meta.env.DEV`.
 3. Support sign-in and sign-up password submissions via
    `signIn("password", params)`.
 
@@ -190,12 +191,15 @@ For each provider connection row:
 
 ## Environment Contract
 
-### Required for password enablement
+### Password auth and seeding
 
-1. `AUTH_ENABLE_PASSWORD=true`
-2. `VITE_ENABLE_PASSWORD_AUTH=true` (frontend visibility gate)
-3. `AUTH_SEED_EMAIL=<email>`
-4. `AUTH_SEED_PASSWORD=<password>`
+1. Password UI is shown automatically in frontend dev builds
+   (`import.meta.env.DEV`).
+2. Password provider is enabled automatically for Convex dev deployments.
+3. Production can still opt in with `AUTH_ENABLE_PASSWORD=true` during rollout.
+4. Local dev seeding uses fixed credentials:
+   - Email: `nicu@noter.md`
+   - Password: `pass1234`
 
 ### Optional auto-seed of provider keys
 
@@ -225,7 +229,7 @@ OAuth or API key.
 
 ### Phase 1: Password auth foundation
 
-1. Introduce password provider support with env gates.
+1. Introduce password provider support with dev-default enablement.
 2. Wire seeded password account action into predev integration.
 3. Ship the dev-only password UI.
 
@@ -245,7 +249,7 @@ OAuth or API key.
 
 ### Unit
 
-1. Password provider disabled by default behavior.
+1. Password provider enabled-by-default behavior on dev deployments.
 2. Seed action create/update idempotency.
 3. API-key validation failure and success paths per provider.
 4. Allowlist behavior for password sign-up/sign-in.
@@ -260,14 +264,15 @@ OAuth or API key.
 
 ### Manual
 
-1. `make anon` then password sign-in with seeded env credentials.
+1. `make anon` then password sign-in with `nicu@noter.md` / `pass1234`.
 2. Connect each provider with API key from dashboard.
 3. Disconnect and reconnect via OAuth to confirm both modes coexist.
 
 ## Acceptance Criteria
 
 1. Spec 25 no longer requires an OAuth broker architecture.
-2. Dev can sign in through password on root sign-in page when enabled.
+2. Dev can sign in through password on root sign-in page without extra feature
+   flags.
 3. API-key connection mode works for GitHub, Convex, and Netlify.
 4. OAuth connection mode remains supported.
 5. Allowlist enforcement remains active across auth modes.
