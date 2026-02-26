@@ -16,14 +16,53 @@ function isNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function isFlagEnabled(key: string): boolean {
-  const value = readOptionalEnv(key);
-  return value !== null && value.toLowerCase() === "true";
+function readDeploymentName(rawDeployment: string): string | null {
+  const [_, ...rest] = rawDeployment.split(":");
+  if (rest.length === 0) {
+    return null;
+  }
+  const deploymentName = rest.join(":").trim();
+  return deploymentName.length > 0 ? deploymentName : null;
 }
 
 function isDevelopmentDeployment(): boolean {
   const deployment = readOptionalEnv("CONVEX_DEPLOYMENT");
-  return deployment !== null && deployment.startsWith("dev:");
+  if (deployment !== null) {
+    return deployment.startsWith("dev:");
+  }
+
+  const daytonaDeployKey = readOptionalEnv("DAYTONA_CONVEX_DEPLOY_KEY");
+  if (daytonaDeployKey !== null) {
+    const [daytonaDeployment] = daytonaDeployKey.split("|", 1);
+    return daytonaDeployment.startsWith("dev:");
+  }
+
+  const siteUrl = readOptionalEnv("SITE_URL");
+  return siteUrl !== null && siteUrl.includes("localhost");
+}
+
+function isAnonymousWorktreeDeployment(): boolean {
+  const deployment = readOptionalEnv("CONVEX_DEPLOYMENT");
+  if (deployment !== null) {
+    const deploymentName = readDeploymentName(deployment);
+    return (
+      deploymentName !== null &&
+      (deploymentName.startsWith("anonymous-") ||
+        deploymentName.startsWith("local-"))
+    );
+  }
+
+  const daytonaDeployKey = readOptionalEnv("DAYTONA_CONVEX_DEPLOY_KEY");
+  if (daytonaDeployKey === null) {
+    return false;
+  }
+  const [daytonaDeployment] = daytonaDeployKey.split("|", 1);
+  const deploymentName = readDeploymentName(daytonaDeployment);
+  return (
+    deploymentName !== null &&
+    (deploymentName.startsWith("anonymous-") ||
+      deploymentName.startsWith("local-"))
+  );
 }
 
 function normalizeEmail(email: string): string {
@@ -81,25 +120,25 @@ function applyAutoSeedProviderKeys(
   patch: UserPatch,
   existingUser: Doc<"users"> | null,
 ) {
-  if (!isFlagEnabled("AUTH_AUTO_SEED_PROVIDER_KEYS")) {
+  if (!isAnonymousWorktreeDeployment()) {
     return;
   }
 
   const githubAccessToken =
     patch.githubAccessToken ?? existingUser?.githubAccessToken;
   if (!isNonEmptyString(githubAccessToken)) {
-    const envToken = readOptionalEnv("GITHUB_TOKEN");
-    if (envToken !== null) {
-      patch.githubAccessToken = envToken;
+    const envApiKey = readOptionalEnv("DEV_SEED_GITHUB_API_KEY");
+    if (envApiKey !== null) {
+      patch.githubAccessToken = envApiKey;
     }
   }
 
   const convexAccessToken =
     patch.convexAccessToken ?? existingUser?.convexAccessToken;
   if (!isNonEmptyString(convexAccessToken)) {
-    const envToken = readOptionalEnv("CONVEX_MANAGEMENT_TOKEN");
-    if (envToken !== null) {
-      patch.convexAccessToken = envToken;
+    const envApiKey = readOptionalEnv("DEV_SEED_CONVEX_MANAGEMENT_API_KEY");
+    if (envApiKey !== null) {
+      patch.convexAccessToken = envApiKey;
     }
   }
   const convexTeamId = patch.convexTeamId ?? existingUser?.convexTeamId;
@@ -113,9 +152,9 @@ function applyAutoSeedProviderKeys(
   const netlifyAccessToken =
     patch.netlifyAccessToken ?? existingUser?.netlifyAccessToken;
   if (!isNonEmptyString(netlifyAccessToken)) {
-    const envToken = readOptionalEnv("NETLIFY_ACCESS_TOKEN");
-    if (envToken !== null) {
-      patch.netlifyAccessToken = envToken;
+    const envApiKey = readOptionalEnv("DEC_SEED_NETLIFY_API_KEY");
+    if (envApiKey !== null) {
+      patch.netlifyAccessToken = envApiKey;
     }
   }
   const netlifyTeamId = patch.netlifyTeamId ?? existingUser?.netlifyTeamId;
@@ -131,8 +170,7 @@ const githubClientId = readRequiredEnv("AUTH_GITHUB_ID");
 const githubClientSecret = readRequiredEnv("AUTH_GITHUB_SECRET");
 const googleClientId = readOptionalEnv("AUTH_GOOGLE_ID");
 const googleClientSecret = readOptionalEnv("AUTH_GOOGLE_SECRET");
-const passwordAuthEnabled =
-  isDevelopmentDeployment() || isFlagEnabled("AUTH_ENABLE_PASSWORD");
+const passwordAuthEnabled = isDevelopmentDeployment();
 if ((googleClientId === null) !== (googleClientSecret === null)) {
   throw new Error(
     `Missing required environment variable: ${

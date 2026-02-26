@@ -88,8 +88,7 @@ flowchart LR
 1. Google OAuth remains enabled when configured.
 2. GitHub OAuth remains enabled when configured.
 3. Password provider is enabled automatically on Convex development deployments.
-4. Production password-provider enablement remains opt-in via
-   `AUTH_ENABLE_PASSWORD` until we remove the gate.
+4. Password provider is disabled outside dev deployments.
 
 ### Password Flows
 
@@ -133,8 +132,8 @@ Existing fields in `users` are reused:
 2. Enable password provider by default in Convex dev deployments.
 3. Keep existing OAuth provider setup.
 4. Keep allowlist check in `createOrUpdateUser`.
-5. Add optional env-based provider-key auto-seed helper, gated by
-   `AUTH_AUTO_SEED_PROVIDER_KEYS`.
+5. Auto-seed provider API keys only when running in anonymous/local worktree
+   deployments.
 
 ### New action: `apps/noter/convex/devAuth.ts`
 
@@ -196,26 +195,22 @@ For each provider connection row:
 1. Password UI is shown automatically in frontend dev builds
    (`import.meta.env.DEV`).
 2. Password provider is enabled automatically for Convex dev deployments.
-3. Production can still opt in with `AUTH_ENABLE_PASSWORD=true` during rollout.
+3. Password provider is disabled outside dev deployments.
 4. Local dev seeding uses fixed credentials:
    - Email: `nicu@noter.md`
    - Password: `pass1234`
 
-### Optional auto-seed of provider keys
+### Provider API-key auto-seed (anonymous/local worktree mode)
 
-1. `AUTH_AUTO_SEED_PROVIDER_KEYS=true`
+1. Auto-seed runs only when deployment name is `anonymous-*` or `local-*`.
 2. GitHub source:
-   - `GITHUB_TOKEN`
-   - `GITHUB_USERNAME` (optional but recommended)
+   - `DEV_SEED_GITHUB_API_KEY`
 3. Convex source:
-   - `CONVEX_MANAGEMENT_TOKEN`
+   - `DEV_SEED_CONVEX_MANAGEMENT_API_KEY`
    - `CONVEX_TEAM_ID`
 4. Netlify source:
-   - `NETLIFY_ACCESS_TOKEN`
+   - `DEC_SEED_NETLIFY_API_KEY`
    - `NETLIFY_TEAM_ID`
-
-If `AUTH_AUTO_SEED_PROVIDER_KEYS` is off, users connect providers manually via
-OAuth or API key.
 
 ## Security Notes
 

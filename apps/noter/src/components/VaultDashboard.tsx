@@ -635,8 +635,13 @@ export function VaultDashboard() {
             </Button>
           ) : (
             <div className="flex items-center gap-2">
-              <Button size="sm" onClick={handleConnectGithub}>
-                Connect GitHub
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleConnectGithub}
+                disabled={disconnectingProvider !== null}
+              >
+                GitHub OAuth
               </Button>
               <Button
                 variant="outline"
@@ -678,8 +683,13 @@ export function VaultDashboard() {
             </Button>
           ) : (
             <div className="flex items-center gap-2">
-              <Button size="sm" onClick={() => void handleConnectConvex()}>
-                Connect Convex
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleConnectConvex()}
+                disabled={disconnectingProvider !== null}
+              >
+                Convex OAuth
               </Button>
               <Button
                 variant="outline"
@@ -721,8 +731,13 @@ export function VaultDashboard() {
             </Button>
           ) : (
             <div className="flex items-center gap-2">
-              <Button size="sm" onClick={() => void handleConnectNetlify()}>
-                Connect Netlify
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleConnectNetlify()}
+                disabled={disconnectingProvider !== null}
+              >
+                Netlify OAuth
               </Button>
               <Button
                 variant="outline"
