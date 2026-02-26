@@ -145,46 +145,50 @@ async function upsertNetlifyConnection(
   });
 }
 
+const githubConnectionResultValidator = v.object({
+  _id: v.id("providerConnections"),
+  _creationTime: v.number(),
+  kind: v.literal("github"),
+  userId: v.id("users"),
+  auth: providerAuthValidator,
+  username: v.optional(v.string()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+const convexConnectionResultValidator = v.object({
+  _id: v.id("providerConnections"),
+  _creationTime: v.number(),
+  kind: v.literal("convex"),
+  userId: v.id("users"),
+  auth: providerAuthValidator,
+  teamId: v.string(),
+  teamSlug: v.optional(v.string()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+const netlifyConnectionResultValidator = v.object({
+  _id: v.id("providerConnections"),
+  _creationTime: v.number(),
+  kind: v.literal("netlify"),
+  userId: v.id("users"),
+  auth: providerAuthValidator,
+  teamId: v.string(),
+  teamSlug: v.optional(v.string()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+const providerConnectionResultValidator = v.union(
+  githubConnectionResultValidator,
+  convexConnectionResultValidator,
+  netlifyConnectionResultValidator,
+);
+
 export const getByUserAndKind = internalQuery({
   args: {
     userId: v.id("users"),
     kind: providerKindValidator,
   },
-  returns: v.union(
-    v.object({
-      _id: v.id("providerConnections"),
-      _creationTime: v.number(),
-      kind: v.literal("github"),
-      userId: v.id("users"),
-      auth: providerAuthValidator,
-      username: v.optional(v.string()),
-      createdAt: v.number(),
-      updatedAt: v.number(),
-    }),
-    v.object({
-      _id: v.id("providerConnections"),
-      _creationTime: v.number(),
-      kind: v.literal("convex"),
-      userId: v.id("users"),
-      auth: providerAuthValidator,
-      teamId: v.string(),
-      teamSlug: v.optional(v.string()),
-      createdAt: v.number(),
-      updatedAt: v.number(),
-    }),
-    v.object({
-      _id: v.id("providerConnections"),
-      _creationTime: v.number(),
-      kind: v.literal("netlify"),
-      userId: v.id("users"),
-      auth: providerAuthValidator,
-      teamId: v.string(),
-      teamSlug: v.optional(v.string()),
-      createdAt: v.number(),
-      updatedAt: v.number(),
-    }),
-    v.null(),
-  ),
+  returns: v.union(providerConnectionResultValidator, v.null()),
   handler: async (ctx, args) => {
     return await getConnectionByUserAndKind(ctx.db, args.userId, args.kind);
   },
@@ -194,42 +198,7 @@ export const listByUser = internalQuery({
   args: {
     userId: v.id("users"),
   },
-  returns: v.array(
-    v.union(
-      v.object({
-        _id: v.id("providerConnections"),
-        _creationTime: v.number(),
-        kind: v.literal("github"),
-        userId: v.id("users"),
-        auth: providerAuthValidator,
-        username: v.optional(v.string()),
-        createdAt: v.number(),
-        updatedAt: v.number(),
-      }),
-      v.object({
-        _id: v.id("providerConnections"),
-        _creationTime: v.number(),
-        kind: v.literal("convex"),
-        userId: v.id("users"),
-        auth: providerAuthValidator,
-        teamId: v.string(),
-        teamSlug: v.optional(v.string()),
-        createdAt: v.number(),
-        updatedAt: v.number(),
-      }),
-      v.object({
-        _id: v.id("providerConnections"),
-        _creationTime: v.number(),
-        kind: v.literal("netlify"),
-        userId: v.id("users"),
-        auth: providerAuthValidator,
-        teamId: v.string(),
-        teamSlug: v.optional(v.string()),
-        createdAt: v.number(),
-        updatedAt: v.number(),
-      }),
-    ),
-  ),
+  returns: v.array(providerConnectionResultValidator),
   handler: async (ctx, args) => {
     return await ctx.db
       .query("providerConnections")

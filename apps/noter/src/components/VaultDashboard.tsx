@@ -521,8 +521,11 @@ export function VaultDashboard() {
   const githubConnected = githubConnection?.connected === true;
   const convexConnected = convexConnection?.connected === true;
   const netlifyConnected = netlifyConnection?.connected === true;
-  const formatAuthMethod = (method: "oauth" | "api_key" | undefined) =>
-    method === "api_key" ? "API key" : "OAuth";
+  const formatAuthMethod = (method: "oauth" | "api_key" | undefined) => {
+    if (method === "api_key") return "API key";
+    if (method === "oauth") return "OAuth";
+    return "Unknown";
+  };
   const githubStatus = githubConnected
     ? `Connected as ${githubConnection?.username ?? "GitHub user"} (${formatAuthMethod(githubConnection?.authMethod)})`
     : "Not connected";

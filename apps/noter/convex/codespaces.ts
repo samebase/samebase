@@ -54,7 +54,7 @@ export const createCodespace = action({
       vaultId: args.vaultId,
     });
 
-    if (!vault) {
+    if (!vault || vault.userId !== userId) {
       throw new Error("Vault not found");
     }
     console.log("codespaces:createCodespace:vault", {
@@ -223,6 +223,7 @@ export const getCodespaceConnection = action({
     ctx,
     args,
   ): Promise<Infer<typeof getCodespaceConnectionResult>> => {
+    const userId = await getUserId(ctx);
     const codespace = await ctx.runQuery(
       internal.codespacesMutations.getCodespace,
       {
@@ -230,7 +231,7 @@ export const getCodespaceConnection = action({
       },
     );
 
-    if (!codespace) {
+    if (!codespace || codespace.userId !== userId) {
       throw new Error("Codespace not found");
     }
 
@@ -263,7 +264,7 @@ export const startCodespace = action({
       },
     );
 
-    if (!codespace) {
+    if (!codespace || codespace.userId !== userId) {
       throw new Error("Codespace not found");
     }
 
@@ -332,7 +333,7 @@ export const stopCodespace = action({
       },
     );
 
-    if (!codespace) {
+    if (!codespace || codespace.userId !== userId) {
       throw new Error("Codespace not found");
     }
 
@@ -374,7 +375,7 @@ export const deleteCodespace = action({
       },
     );
 
-    if (!codespace) {
+    if (!codespace || codespace.userId !== userId) {
       throw new Error("Codespace not found");
     }
 

@@ -201,4 +201,3 @@ One caveat: Codespace secrets have a 48KB size limit, but auth.json is tiny so t
   - CodeEditor.tsx: `u` param in update callback (1)
   - FileView.tsx: `t`, `item`, `staged` params (5)
   - MonacoEditor.tsx: `u` param in update callback (1)
-- [ ] add share functionality to noter.md app

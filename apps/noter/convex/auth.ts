@@ -158,6 +158,7 @@ async function upsertSeedConvexConnection(
         credential,
       },
       teamId,
+      teamSlug: undefined,
       updatedAt: now,
     });
     return;
@@ -193,6 +194,7 @@ async function upsertSeedNetlifyConnection(
         credential,
       },
       teamId,
+      teamSlug: undefined,
       updatedAt: now,
     });
     return;

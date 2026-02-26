@@ -104,16 +104,6 @@ export const getRepositoryFileContent = action({
     if (!currentUser) {
       throw new Error("User not found");
     }
-    const githubConnection = await ctx.runQuery(
-      internal.providerConnections.getByUserAndKind,
-      {
-        userId,
-        kind: "github",
-      },
-    );
-    if (githubConnection?.kind !== "github") {
-      throw new Error("GitHub is not connected");
-    }
 
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
@@ -141,6 +131,17 @@ export const getRepositoryFileContent = action({
         exists: true,
         content: blobFile.text,
       };
+    }
+
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.getByUserAndKind,
+      {
+        userId,
+        kind: "github",
+      },
+    );
+    if (githubConnection?.kind !== "github") {
+      throw new Error("GitHub is not connected");
     }
 
     const octokit: Octokit = new Octokit({

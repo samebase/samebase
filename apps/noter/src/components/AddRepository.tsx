@@ -195,12 +195,14 @@ export function AddRepository() {
                 try {
                   const oauthUrl = await getGithubOAuthUrl();
                   if (isInIframe()) {
-                    window.open(
+                    const popup = window.open(
                       oauthUrl,
                       "github-oauth",
                       "width=600,height=700,popup=true",
                     );
-                    return;
+                    if (popup) {
+                      return;
+                    }
                   }
                   window.location.assign(oauthUrl);
                 } catch (connectGithubError) {

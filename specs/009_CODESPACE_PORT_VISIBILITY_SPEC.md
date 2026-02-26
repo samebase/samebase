@@ -4,7 +4,7 @@
 
 - Status: Proposal
 - Owner: Noter backend
-- Last Updated: 2026-02-14
+- Last Updated: 2026-02-26
 - Related specs:
   - `specs/001_CODESPACE_CONNECTION_SPEC.md`
   - `specs/008_CHAT_ONLY_CODESPACE_MODE_SPEC.md`
