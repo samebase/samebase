@@ -5,6 +5,7 @@ import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { getUserId } from "./common";
 import { Octokit } from "@octokit/rest";
+import { isObjectRecord as isRecord } from "./jsonUtils";
 
 const { array, literal, number, object, string, union } = v;
 
@@ -50,10 +51,6 @@ type CommitStatusOkResult = Infer<typeof commitStatusOkResultValidator>;
 type CommitStatusRateLimitedResult = Infer<
   typeof commitStatusRateLimitedResultValidator
 >;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
 
 function toHeaderMap(value: unknown): HeaderMap | null {
   if (!isRecord(value)) {

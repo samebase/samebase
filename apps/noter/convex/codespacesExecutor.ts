@@ -4,6 +4,12 @@ import { action, type ActionCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { type Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
+import {
+  isObjectRecord as isRecord,
+  readBoolean,
+  readNumber,
+  readString,
+} from "./jsonUtils";
 
 const executeCommandResult = v.object({
   stdout: v.string(),
@@ -12,30 +18,11 @@ const executeCommandResult = v.object({
   success: v.boolean(),
 });
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function readString(record: Record<string, unknown>, key: string): string | undefined {
-  const value = record[key];
-  return typeof value === "string" ? value : undefined;
-}
-
-function readNumber(record: Record<string, unknown>, key: string): number | undefined {
-  const value = record[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
-function readBoolean(record: Record<string, unknown>, key: string): boolean | undefined {
-  const value = record[key];
-  return typeof value === "boolean" ? value : undefined;
-}
-
 function jsonStringifySafe(value: unknown): string {
   try {
     return JSON.stringify(value ?? null);
   } catch {
-    return "\"[unserializable]\"";
+    return '"[unserializable]"';
   }
 }
 
@@ -536,7 +523,9 @@ async function getActiveRunningCodespace(
   };
 }
 
-function normalizeCodexStatus(payload: unknown): Infer<typeof codexStatusResult> {
+function normalizeCodexStatus(
+  payload: unknown,
+): Infer<typeof codexStatusResult> {
   const runtimeDefault: Infer<typeof codexRuntimeStatusResult> = {
     running: false,
     initialized: false,
@@ -569,7 +558,8 @@ function normalizeCodexStatus(payload: unknown): Infer<typeof codexStatusResult>
     lastExitCode: readNumber(runtimeRecord, "lastExitCode"),
     lastExitSignal: readString(runtimeRecord, "lastExitSignal"),
     pendingRequestCount: readNumber(runtimeRecord, "pendingRequestCount") ?? 0,
-    pendingApprovalCount: readNumber(runtimeRecord, "pendingApprovalCount") ?? 0,
+    pendingApprovalCount:
+      readNumber(runtimeRecord, "pendingApprovalCount") ?? 0,
     eventCursor: readNumber(runtimeRecord, "eventCursor") ?? 0,
   };
 
@@ -664,10 +654,7 @@ export const startCodexThread = action({
     approvalPolicy: v.optional(v.string()),
   },
   returns: startCodexThreadResult,
-  handler: async (
-    ctx,
-    args,
-  ): Promise<Infer<typeof startCodexThreadResult>> => {
+  handler: async (ctx, args): Promise<Infer<typeof startCodexThreadResult>> => {
     const codespace = await getActiveRunningCodespace(ctx, args.codespaceId);
     const response = await fetch(`${codespace.agentUrl}/codex/thread/start`, {
       method: "POST",
@@ -716,10 +703,7 @@ export const startCodexTurn = action({
     approvalPolicy: v.optional(v.string()),
   },
   returns: startCodexTurnResult,
-  handler: async (
-    ctx,
-    args,
-  ): Promise<Infer<typeof startCodexTurnResult>> => {
+  handler: async (ctx, args): Promise<Infer<typeof startCodexTurnResult>> => {
     const codespace = await getActiveRunningCodespace(ctx, args.codespaceId);
     const response = await fetch(`${codespace.agentUrl}/codex/turn/start`, {
       method: "POST",

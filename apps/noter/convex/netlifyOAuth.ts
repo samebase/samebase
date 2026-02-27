@@ -10,6 +10,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./oauthUtils";
 import type { Id } from "./_generated/dataModel";
+import { asRecord, readBoolean, readString } from "./jsonUtils";
 
 const NETLIFY_AUTHORIZE_URL = "https://app.netlify.com/authorize";
 const NETLIFY_TOKEN_URL = "https://api.netlify.com/oauth/token";
@@ -37,8 +38,6 @@ async function fetchWithTimeout(
   }
 }
 
-type JsonRecord = Record<string, unknown>;
-
 type NetlifyAccount = {
   id: string;
   slug?: string;
@@ -46,24 +45,6 @@ type NetlifyAccount = {
   type?: string;
   isDefault?: boolean;
 };
-
-function isRecord(value: unknown): value is JsonRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function asRecord(value: unknown): JsonRecord {
-  return isRecord(value) ? value : {};
-}
-
-function readString(record: JsonRecord, key: string): string | undefined {
-  const value = record[key];
-  return typeof value === "string" ? value : undefined;
-}
-
-function readBoolean(record: JsonRecord, key: string): boolean | undefined {
-  const value = record[key];
-  return typeof value === "boolean" ? value : undefined;
-}
 
 async function exchangeNetlifyOAuthCode(args: {
   code: string;

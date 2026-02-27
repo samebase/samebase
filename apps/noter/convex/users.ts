@@ -9,6 +9,7 @@ import {
 import { internal } from "./_generated/api";
 import { Infer, v } from "convex/values";
 import { getConnectionByUserAndKind } from "./providerConnections";
+import { isRecord, readBoolean, readString } from "./jsonUtils";
 
 const ADMIN_USERNAMES = ["nicu-chiciuc"];
 const ADMIN_EMAILS = new Set([
@@ -45,15 +46,6 @@ type NetlifyAccount = {
   isDefault?: boolean;
 };
 
-function isRecord(value: unknown): value is JsonRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function readString(record: JsonRecord, key: string): string | undefined {
-  const value = record[key];
-  return typeof value === "string" ? value : undefined;
-}
-
 function readNumberAsString(
   record: JsonRecord,
   key: string,
@@ -62,11 +54,6 @@ function readNumberAsString(
   if (typeof value === "string") return value;
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
   return undefined;
-}
-
-function readBoolean(record: JsonRecord, key: string): boolean | undefined {
-  const value = record[key];
-  return typeof value === "boolean" ? value : undefined;
 }
 
 function readNestedString(

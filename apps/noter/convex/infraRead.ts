@@ -6,9 +6,13 @@ import type { ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { allowedInfraReadTable } from "./infraReadQueries";
 import { createInfraProviders } from "./infraProviders";
+import {
+  readHostingInventory,
+  readHostingLogs,
+  readHostingSiteStatus,
+} from "./hostingProviders";
+import { asRecord, clamp, readString } from "./jsonUtils";
 import type { Doc, Id } from "./_generated/dataModel";
-
-type JsonRecord = Record<string, unknown>;
 
 const EXECUTION_RESULT = v.object({
   summary: v.string(),
@@ -18,23 +22,6 @@ const EXECUTION_RESULT = v.object({
   logLineCount: v.optional(v.number()),
 });
 type ExecutionResult = Infer<typeof EXECUTION_RESULT>;
-
-function isRecord(value: unknown): value is JsonRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function asRecord(value: unknown): JsonRecord {
-  return isRecord(value) ? value : {};
-}
-
-function readString(record: JsonRecord, key: string): string | undefined {
-  const value = record[key];
-  return typeof value === "string" ? value : undefined;
-}
-
-function clamp(num: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, num));
-}
 
 function getVaultInfraError(vaultId: Id<"vaults">): string {
   return `Infrastructure not found for vault ${vaultId}. Provision the vault first.`;
@@ -218,15 +205,12 @@ export const getNetlifySiteStatus = internalAction({
     const providers = createInfraProviders({
       netlifyToken: resolveNetlifyToken(netlifyConnection),
     });
-    const endpoint = `/sites/${encodeURIComponent(infra.netlifySiteId)}`;
-    const payload = await providers.netlify.request(endpoint, "GET");
-
-    return {
-      summary: `Netlify site status for ${infra.netlifySiteName ?? infra.netlifySiteId}`,
-      endpoint,
-      raw: JSON.stringify(payload, null, 2),
-      rowCount: 1,
-    };
+    return await readHostingSiteStatus({
+      provider: "netlify",
+      netlifyProvider: providers.netlify,
+      siteId: infra.netlifySiteId,
+      siteName: infra.netlifySiteName,
+    });
   },
 });
 
@@ -249,52 +233,12 @@ export const getNetlifyLogs = internalAction({
     const providers = createInfraProviders({
       netlifyToken: resolveNetlifyToken(netlifyConnection),
     });
-    const maxEntries = clamp(args.maxEntries ?? 10, 1, 50);
-    const deploysEndpoint = `/sites/${encodeURIComponent(infra.netlifySiteId)}/deploys?per_page=${maxEntries}&page=1`;
-    const buildsEndpoint = `/sites/${encodeURIComponent(infra.netlifySiteId)}/builds?per_page=${maxEntries}&page=1`;
-
-    const deploysPayload = await providers.netlify.request(
-      deploysEndpoint,
-      "GET",
-    );
-    const buildsPayload = await providers.netlify.request(
-      buildsEndpoint,
-      "GET",
-    );
-
-    const lines: string[] = [];
-
-    const deploys = Array.isArray(deploysPayload) ? deploysPayload : [];
-    for (const deploy of deploys) {
-      const record = asRecord(deploy);
-      const createdAt = readString(record, "created_at") ?? "unknown";
-      const state = readString(record, "state") ?? "unknown";
-      const context = readString(record, "context") ?? "unknown";
-      const branch = readString(record, "branch") ?? "unknown";
-      const errorMessage = readString(record, "error_message");
-      lines.push(
-        `${createdAt} deploy state=${state} context=${context} branch=${branch}` +
-          (errorMessage ? ` error=${errorMessage}` : ""),
-      );
-    }
-
-    const builds = Array.isArray(buildsPayload) ? buildsPayload : [];
-    for (const build of builds) {
-      const record = asRecord(build);
-      const createdAt = readString(record, "created_at") ?? "unknown";
-      const done = record["done"] === true;
-      const error = readString(record, "error") ?? "";
-      lines.push(
-        `${createdAt} build done=${done}` + (error ? ` error=${error}` : ""),
-      );
-    }
-
-    return {
-      summary: `Netlify deploy/build activity for site ${infra.netlifySiteId}`,
-      endpoint: `${deploysEndpoint} + ${buildsEndpoint}`,
-      raw: lines.join("\n") || "No deploy/build activity entries returned.",
-      logLineCount: lines.length,
-    };
+    return await readHostingLogs({
+      provider: "netlify",
+      netlifyProvider: providers.netlify,
+      siteId: infra.netlifySiteId,
+      maxEntries: args.maxEntries ?? 10,
+    });
   },
 });
 
@@ -352,19 +296,12 @@ export const getNetlifySiteInventory = internalAction({
       netlifyToken: resolveNetlifyToken(netlifyConnection),
     });
     const teamSlug = resolveNetlifyTeamSlug(netlifyConnection);
-    const max = clamp(args.limit ?? 50, 1, 100);
-    const endpoint = `/${encodeURIComponent(teamSlug)}/sites?per_page=${max}&page=1`;
-    const payload = await providers.netlify.request(endpoint, "GET");
-
-    const sites = Array.isArray(payload) ? payload : [];
-    const rows = sites.slice(0, max);
-
-    return {
-      summary: `Netlify site inventory for team ${teamSlug}`,
-      endpoint,
-      raw: JSON.stringify(rows, null, 2),
-      rowCount: rows.length,
-    };
+    return await readHostingInventory({
+      provider: "netlify",
+      netlifyProvider: providers.netlify,
+      teamSlug,
+      limit: args.limit ?? 50,
+    });
   },
 });
 

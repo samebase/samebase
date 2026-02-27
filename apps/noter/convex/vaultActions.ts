@@ -8,6 +8,8 @@ import { Daytona } from "@daytonaio/sdk";
 import { getUserId } from "./common";
 import { getEnvLabel } from "./env";
 import { createInfraProviders } from "./infraProviders";
+import { deleteHostingResources } from "./hostingProviders";
+import { toErrorMessage } from "./jsonUtils";
 import { toSafeRepoName } from "./repoName";
 import {
   createStarterSeedGitClient,
@@ -40,13 +42,6 @@ function isProviderNotFoundError(error: unknown): boolean {
     message.includes("not found") ||
     message.includes("404")
   );
-}
-
-function toErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return String(error);
 }
 
 function readDefaultBranch(repoData: unknown): string {
@@ -513,10 +508,11 @@ export const deleteVault = action({
         const netlifySiteId = infrastructure.netlifySiteId;
         if (typeof netlifySiteId === "string") {
           try {
-            await providers.netlify.request(
-              `/sites/${encodeURIComponent(netlifySiteId)}`,
-              "DELETE",
-            );
+            await deleteHostingResources({
+              provider: "netlify",
+              netlifyProvider: providers.netlify,
+              siteId: netlifySiteId,
+            });
           } catch (error) {
             if (!isProviderNotFoundError(error)) {
               throw error;
