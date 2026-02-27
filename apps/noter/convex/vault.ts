@@ -378,6 +378,7 @@ export const getUserVaults = query({
           typeof resolveNetlifySiteId(infra) === "string";
         const hasRailwayProvision =
           infra?.hosting?.provider === "railway" &&
+          typeof infra.hosting.projectId === "string" &&
           infra.hosting.projectId.length > 0;
         const hasHostingProvision = hasNetlifyProvision || hasRailwayProvision;
 
