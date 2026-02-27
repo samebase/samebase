@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalQuery } from "./_generated/server";
+import { clamp } from "./jsonUtils";
 
 export const allowedInfraReadTable = v.union(
   v.literal("vaults"),
@@ -10,10 +11,6 @@ export const allowedInfraReadTable = v.union(
   v.literal("aiProdAccessRequests"),
   v.literal("aiProdAccessAudit"),
 );
-
-function clamp(num: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, num));
-}
 
 export const readTableSample = internalQuery({
   args: {

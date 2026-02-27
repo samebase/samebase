@@ -1,0 +1,56 @@
+export type JsonRecord = Record<string, unknown>;
+
+export function isObjectRecord(
+  value: unknown,
+): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+export function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function asRecord(value: unknown): JsonRecord {
+  return isRecord(value) ? value : {};
+}
+
+export function readString(
+  record: JsonRecord,
+  key: string,
+): string | undefined {
+  const value = record[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+export function readStringOrNumber(
+  record: JsonRecord,
+  key: string,
+): string | undefined {
+  const value = record[key];
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number") {
+    return String(value);
+  }
+  return undefined;
+}
+
+export function readBoolean(
+  record: JsonRecord,
+  key: string,
+): boolean | undefined {
+  const value = record[key];
+  return typeof value === "boolean" ? value : undefined;
+}
+
+export function clamp(num: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, num));
+}
+
+export function toErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}

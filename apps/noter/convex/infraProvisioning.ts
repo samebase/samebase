@@ -1,11 +1,10 @@
-import { Infer, v } from "convex/values";
+import { v } from "convex/values";
 import {
   internalAction,
   internalMutation,
   internalQuery,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
 import {
   createInfraProviders,
   type ConvexManagementProvider,
@@ -15,6 +14,12 @@ import {
   getProvisionedMainUrl,
   type ProvisionedByProvider,
 } from "./hostingProviders";
+import {
+  asRecord,
+  readString,
+  readStringOrNumber,
+  toErrorMessage,
+} from "./jsonUtils";
 
 const PROVISIONING_STALE_MS = 10 * 60 * 1000;
 const GITHUB_API_VERSION = "2022-11-28";
@@ -50,49 +55,6 @@ const infraPatchValidator = v.object({
   netlifyProductionUrl: v.optional(v.string()),
   netlifyBuildHookId: v.optional(v.string()),
 });
-
-type InfraPatch = Infer<typeof infraPatchValidator>;
-
-type JsonRecord = Record<string, unknown>;
-
-function isRecord(value: unknown): value is JsonRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function asRecord(value: unknown): JsonRecord {
-  return isRecord(value) ? value : {};
-}
-
-function readString(record: JsonRecord, key: string): string | undefined {
-  const value = record[key];
-  return typeof value === "string" ? value : undefined;
-}
-
-function readStringOrNumber(
-  record: JsonRecord,
-  key: string,
-): string | undefined {
-  const value = record[key];
-  if (typeof value === "string") {
-    return value;
-  }
-  if (typeof value === "number") {
-    return String(value);
-  }
-  return undefined;
-}
-
-function readArray(record: JsonRecord, key: string): unknown[] {
-  const value = record[key];
-  return Array.isArray(value) ? value : [];
-}
-
-function toErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return String(error);
-}
 
 async function readResponseTextSafe(response: Response): Promise<string> {
   try {

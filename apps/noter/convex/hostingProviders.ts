@@ -1,40 +1,12 @@
 import type { NetlifyManagementProvider } from "./infraProviders";
-
-type JsonRecord = Record<string, unknown>;
-
-function isRecord(value: unknown): value is JsonRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function asRecord(value: unknown): JsonRecord {
-  return isRecord(value) ? value : {};
-}
-
-function readString(record: JsonRecord, key: string): string | undefined {
-  const value = record[key];
-  return typeof value === "string" ? value : undefined;
-}
-
-function readStringOrNumber(
-  record: JsonRecord,
-  key: string,
-): string | undefined {
-  const value = record[key];
-  if (typeof value === "string") {
-    return value;
-  }
-  if (typeof value === "number") {
-    return String(value);
-  }
-  return undefined;
-}
-
-function toErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return String(error);
-}
+import {
+  asRecord,
+  clamp,
+  readString,
+  readStringOrNumber,
+  toErrorMessage,
+  type JsonRecord,
+} from "./jsonUtils";
 
 function sanitizeSlug(input: string, maxLen = 58): string {
   const sanitized = input
@@ -52,10 +24,6 @@ function sanitizeSlug(input: string, maxLen = 58): string {
 function vaultSuffix(vaultId: string): string {
   const alnumOnly = vaultId.replace(/[^a-zA-Z0-9]/g, "");
   return alnumOnly.slice(-6).toLowerCase() || "vault";
-}
-
-function clamp(num: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, num));
 }
 
 const NETLIFY_ENV_CONTEXTS = [
@@ -236,11 +204,21 @@ async function ensureNetlifyResources(
 
     if (args.existing.siteId) {
       step = "read_existing_site";
-      const existingSiteRaw = await args.netlifyProvider.request(
-        `/sites/${encodeURIComponent(args.existing.siteId)}`,
-        "GET",
-      );
-      siteResponse = asRecord(existingSiteRaw);
+      try {
+        const existingSiteRaw = await args.netlifyProvider.request(
+          `/sites/${encodeURIComponent(args.existing.siteId)}`,
+          "GET",
+        );
+        siteResponse = asRecord(existingSiteRaw);
+      } catch (error) {
+        step = "read_existing_site_failed";
+        siteResponse = null;
+        console.warn("infra:netlify:site:read_existing_failed", {
+          vaultId: args.vaultId,
+          siteId: args.existing.siteId,
+          message: toErrorMessage(error),
+        });
+      }
     }
 
     if (!siteResponse) {

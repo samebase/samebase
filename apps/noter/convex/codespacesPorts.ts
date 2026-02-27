@@ -5,6 +5,7 @@ import { action, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getUserId } from "./common";
 import type { Id } from "./_generated/dataModel";
+import { isObjectRecord as isRecord, readString } from "./jsonUtils";
 
 type PortVisibility = "public" | "private";
 
@@ -40,24 +41,12 @@ async function getGithubAccessToken(
   return connection.auth.credential;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
 function readRecord(
   record: Record<string, unknown>,
   key: string,
 ): Record<string, unknown> | undefined {
   const value = record[key];
   return isRecord(value) ? value : undefined;
-}
-
-function readString(
-  record: Record<string, unknown>,
-  key: string,
-): string | undefined {
-  const value = record[key];
-  return typeof value === "string" ? value : undefined;
 }
 
 function readStringArray(value: unknown): string[] | undefined {

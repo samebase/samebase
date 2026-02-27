@@ -10,6 +10,7 @@ import {
   randomToken,
   readRequiredEnv,
 } from "./oauthUtils";
+import { isRecord, readStringOrNumber, type JsonRecord } from "./jsonUtils";
 
 const CONVEX_AUTHORIZE_URL =
   "https://dashboard.convex.dev/oauth/authorize/team";
@@ -17,23 +18,7 @@ const CONVEX_TOKEN_URL = "https://api.convex.dev/oauth/token";
 const CONVEX_TOKEN_DETAILS_URL = "https://api.convex.dev/v1/token_details";
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
 
-type JsonRecord = Record<string, unknown>;
-
 type OAuthContext = ActionCtx | MutationCtx;
-
-function isRecord(value: unknown): value is JsonRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function readStringOrNumber(
-  record: JsonRecord,
-  key: string,
-): string | undefined {
-  const value = record[key];
-  if (typeof value === "string") return value;
-  if (typeof value === "number") return String(value);
-  return undefined;
-}
 
 function readNestedStringOrNumber(
   record: JsonRecord,

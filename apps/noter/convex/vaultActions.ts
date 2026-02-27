@@ -9,6 +9,7 @@ import { getUserId } from "./common";
 import { getEnvLabel } from "./env";
 import { createInfraProviders } from "./infraProviders";
 import { deleteHostingResources } from "./hostingProviders";
+import { toErrorMessage } from "./jsonUtils";
 import { toSafeRepoName } from "./repoName";
 import {
   createStarterSeedGitClient,
@@ -41,13 +42,6 @@ function isProviderNotFoundError(error: unknown): boolean {
     message.includes("not found") ||
     message.includes("404")
   );
-}
-
-function toErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return String(error);
 }
 
 function readDefaultBranch(repoData: unknown): string {

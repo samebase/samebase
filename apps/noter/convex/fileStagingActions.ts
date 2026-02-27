@@ -13,6 +13,7 @@ import {
   isTextBuffer,
   withRetry,
 } from "./gitOperationsActions";
+import { isObjectRecord as isRecord } from "./jsonUtils";
 import { rebaseStagedContent } from "./stagingRebase";
 
 type HeaderValue = string | number | readonly string[] | undefined;
@@ -38,10 +39,6 @@ async function getGithubAccessToken(
     throw new Error("GitHub is not connected");
   }
   return connection.auth.credential;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 function toHeaderMap(value: unknown): HeaderMap | null {

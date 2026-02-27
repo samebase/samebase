@@ -11,9 +11,8 @@ import {
   readHostingLogs,
   readHostingSiteStatus,
 } from "./hostingProviders";
+import { asRecord, clamp, readString } from "./jsonUtils";
 import type { Doc, Id } from "./_generated/dataModel";
-
-type JsonRecord = Record<string, unknown>;
 
 const EXECUTION_RESULT = v.object({
   summary: v.string(),
@@ -23,23 +22,6 @@ const EXECUTION_RESULT = v.object({
   logLineCount: v.optional(v.number()),
 });
 type ExecutionResult = Infer<typeof EXECUTION_RESULT>;
-
-function isRecord(value: unknown): value is JsonRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function asRecord(value: unknown): JsonRecord {
-  return isRecord(value) ? value : {};
-}
-
-function readString(record: JsonRecord, key: string): string | undefined {
-  const value = record[key];
-  return typeof value === "string" ? value : undefined;
-}
-
-function clamp(num: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, num));
-}
 
 function getVaultInfraError(vaultId: Id<"vaults">): string {
   return `Infrastructure not found for vault ${vaultId}. Provision the vault first.`;
