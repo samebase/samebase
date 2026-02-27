@@ -113,9 +113,17 @@ const hasDaytonaResourcesForVault = (
   );
 
 type CreateTemplate = "app" | "agent";
+type CreateHostingProvider = "netlify" | "railway";
 
 const isCreateTemplate = (value: string): value is CreateTemplate =>
   value === "app" || value === "agent";
+const isCreateHostingProvider = (
+  value: string,
+): value is CreateHostingProvider => value === "netlify" || value === "railway";
+const CREATE_HOSTING_PROVIDER_LABEL: Record<CreateHostingProvider, string> = {
+  netlify: "Netlify",
+  railway: "Railway",
+};
 
 const DASHBOARD_REFRESH_CONCURRENCY = 3;
 type RefreshTrigger = "focus" | "page_load";
@@ -202,11 +210,7 @@ export function VaultDashboard() {
     api.users.getRailwayConnectionStatus,
   );
   const user = useConvexQuery(api.users.viewer);
-  const canCreateRepo = Boolean(
-    githubConnection?.connected &&
-      convexConnection?.connected &&
-      netlifyConnection?.connected,
-  );
+  const hostingPilotStatus = useConvexQuery(api.users.getHostingPilotStatus);
   const githubPopupRef = useRef<Window | null>(null);
   const convexPopupRef = useRef<Window | null>(null);
   const netlifyPopupRef = useRef<Window | null>(null);
@@ -255,6 +259,8 @@ export function VaultDashboard() {
   const [removeDaytonaResources, setRemoveDaytonaResources] = useState(false);
   const [newRepositoryName, setNewRepositoryName] = useState("");
   const [createTemplate, setCreateTemplate] = useState<CreateTemplate>("app");
+  const [createHostingProvider, setCreateHostingProvider] =
+    useState<CreateHostingProvider>("netlify");
   const [disconnectingProvider, setDisconnectingProvider] =
     useState<ProviderKey | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -267,6 +273,14 @@ export function VaultDashboard() {
   const [retryingVaultId, setRetryingVaultId] = useState<Id<"vaults"> | null>(
     null,
   );
+  const railwayHostingPilotEnabled =
+    hostingPilotStatus?.railwayHostingPilotEnabled === true;
+
+  useEffect(() => {
+    if (!railwayHostingPilotEnabled && createHostingProvider === "railway") {
+      setCreateHostingProvider("netlify");
+    }
+  }, [createHostingProvider, railwayHostingPilotEnabled]);
 
   useEffect(() => {
     const expectedOrigin = window.location.origin;
@@ -538,7 +552,7 @@ export function VaultDashboard() {
     if (!repoName || isCreating) return;
     if (!canCreateRepo) {
       setCreateError(
-        `Connect GitHub, Convex, and Netlify before creating ${createTemplateArticle}.`,
+        `Connect GitHub, Convex, and ${requiredHostingConnectionLabel} before creating ${createTemplateArticle}.`,
       );
       return;
     }
@@ -551,6 +565,7 @@ export function VaultDashboard() {
         name: repoName,
         private: true,
         templateType: createTemplate,
+        hostingProvider: effectiveCreateHostingProvider,
       });
       setNewRepositoryName("");
     } catch (error) {
@@ -582,6 +597,19 @@ export function VaultDashboard() {
   const convexConnected = convexConnection?.connected === true;
   const netlifyConnected = netlifyConnection?.connected === true;
   const railwayConnected = railwayConnection?.connected === true;
+  const effectiveCreateHostingProvider: CreateHostingProvider =
+    createHostingProvider === "railway" && !railwayHostingPilotEnabled
+      ? "netlify"
+      : createHostingProvider;
+  const requiredHostingConnectionLabel =
+    CREATE_HOSTING_PROVIDER_LABEL[effectiveCreateHostingProvider];
+  const requiredHostingConnected =
+    effectiveCreateHostingProvider === "netlify"
+      ? netlifyConnected
+      : railwayConnected;
+  const canCreateRepo = Boolean(
+    githubConnected && convexConnected && requiredHostingConnected,
+  );
   const formatAuthMethod = (method: "oauth" | "api_key" | undefined) => {
     if (method === "api_key") return "API key";
     if (method === "oauth") return "OAuth";
@@ -626,6 +654,8 @@ export function VaultDashboard() {
   const createTemplateLabel = createTemplate === "app" ? "App" : "Agent";
   const createTemplateArticle =
     createTemplate === "app" ? "an app" : "an agent";
+  const createHostingProviderLabel =
+    CREATE_HOSTING_PROVIDER_LABEL[effectiveCreateHostingProvider];
   const createPlaceholder = `New ${createTemplate} name`;
   const createButtonLabel = isCreating
     ? `Creating ${createTemplate}...`
@@ -658,6 +688,36 @@ export function VaultDashboard() {
             >
               <DropdownMenuRadioItem value="app">App</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="agent">Agent</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button className="gap-2" variant="outline">
+              {createHostingProviderLabel}
+              <ChevronDownIcon className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuRadioGroup
+              value={effectiveCreateHostingProvider}
+              onValueChange={(value) => {
+                if (!isCreateHostingProvider(value)) return;
+                if (value === "railway" && !railwayHostingPilotEnabled) return;
+                setCreateHostingProvider(value);
+                if (createError) {
+                  setCreateError(null);
+                }
+              }}
+            >
+              <DropdownMenuRadioItem value="netlify">
+                Netlify
+              </DropdownMenuRadioItem>
+              {railwayHostingPilotEnabled ? (
+                <DropdownMenuRadioItem value="railway">
+                  Railway
+                </DropdownMenuRadioItem>
+              ) : null}
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -713,7 +773,7 @@ export function VaultDashboard() {
       {createError && <div className="text-sm text-red-600">{createError}</div>}
       {!canCreateRepo && (
         <div className="text-xs text-muted-foreground">
-          Connect GitHub, Convex, and Netlify to create apps or agents.
+          {`Connect GitHub, Convex, and ${requiredHostingConnectionLabel} to create apps or agents.`}
         </div>
       )}
     </div>
