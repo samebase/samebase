@@ -759,16 +759,11 @@ export const provisionVaultInfrastructure = internalAction({
               defaultBranch,
               vaultId: args.vaultId,
               existing: {
-                siteId: netlifyExisting?.siteId ?? existing?.netlifySiteId,
-                siteName:
-                  netlifyExisting?.siteName ?? existing?.netlifySiteName,
-                defaultUrl:
-                  netlifyExisting?.defaultUrl ?? existing?.netlifyDefaultUrl,
-                productionUrl:
-                  netlifyExisting?.productionUrl ??
-                  existing?.netlifyProductionUrl,
-                buildHookId:
-                  netlifyExisting?.buildHookId ?? existing?.netlifyBuildHookId,
+                siteId: netlifyExisting?.siteId,
+                siteName: netlifyExisting?.siteName,
+                defaultUrl: netlifyExisting?.defaultUrl,
+                productionUrl: netlifyExisting?.productionUrl,
+                buildHookId: netlifyExisting?.buildHookId,
               },
               convex: {
                 cloudUrl: convex.convexCloudUrl,
