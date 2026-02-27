@@ -247,9 +247,10 @@ them directly using CLI tools.
 - On CI failure, report the error and offer to fix
 - **NEVER merge a PR until CI is green** - always wait for checks to pass.
 - Preferred merge style for this repo: rebase the branch onto `origin/main`
-  (after a fresh `git fetch origin`) immediately before merge, then merge with a
-  merge commit (`gh pr merge --merge`) so PR boundaries remain visible while
-  preserving internal commits.
+  (after a fresh `git fetch origin`) immediately before merge, then squash merge
+  (`gh pr merge --squash`) by default.
+- Use merge commits (`gh pr merge --merge`) only in specific cases where keeping
+  the full intermediate commit history is explicitly desired.
 - Highest-priority guardrail: always verify the branch is rebased on the latest
   `origin/main` before merging. If `origin/main` changes while a PR is open,
   rebase and push again before merge.
