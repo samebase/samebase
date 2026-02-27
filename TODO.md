@@ -3,6 +3,7 @@
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 - [ ] maybe jupyterlab is not necessaryle necessary, or even a good idea, since developers usually don't use it; and vibecoders don't even use it; only academia?
 - [ ] preview deploys should be created in the pr. But locally in Daytona use local convex
+- [ ] add a Make target to stop any running local dev environments (at least processes bound to common dev ports like `5173`, `3000`, and `3210`)
 - [ ] enforce the importance of using web apps when you're trying to do something on an older phone, that's not supported anymore. Mobile apps are a liability
 - [ ] for netlify, just don't deploy if it's a md change (optimization? )
 # The most important right now is to fix rebaseing works, because we always accept only things on incoming side instead of even trying to reconcile!!!!

@@ -105,6 +105,7 @@ export const ProviderKind = v.union(
   v.literal("github"),
   v.literal("convex"),
   v.literal("netlify"),
+  v.literal("railway"),
 );
 export type ProviderKind = Infer<typeof ProviderKind>;
 
@@ -148,10 +149,21 @@ export const NetlifyProviderConnection = v.object({
   createdAt: v.number(),
   updatedAt: v.number(),
 });
+export const RailwayProviderConnection = v.object({
+  kind: v.literal("railway"),
+  userId: v.id("users"),
+  auth: ProviderAuth,
+  accountId: v.string(),
+  email: v.optional(v.string()),
+  name: v.optional(v.string()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
 export const ProviderConnection = v.union(
   GithubProviderConnection,
   ConvexProviderConnection,
   NetlifyProviderConnection,
+  RailwayProviderConnection,
 );
 export type ProviderConnection = Infer<typeof ProviderConnection>;
 
@@ -495,6 +507,7 @@ export default defineSchema({
       v.literal("github"),
       v.literal("convex"),
       v.literal("netlify"),
+      v.literal("railway"),
     ),
     userId: v.id("users"),
     state: v.string(),

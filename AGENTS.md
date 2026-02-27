@@ -144,8 +144,11 @@ use `--env-file` or an explicit deployment selector instead.
 
 ## Code Style
 
-- **Strict type safety** - never use `any` or type assertions (`as`)
-- **When typing is too hard** - prefer `@ts-expect-error` over `as` or `any`
+- **Strict type safety** - never use `any` or type assertions (`as SomeType`)
+- **`as const` is always allowed** - treat `as const` as fully acceptable and
+  use it freely when it improves literal typing/inference
+- **When typing is too hard** - prefer `@ts-expect-error` over `as SomeType` or
+  `any`
 - **Never use `@ts-nocheck`** - if a type suppression is unavoidable, use the
   narrowest possible `@ts-expect-error`
 - **Let TypeScript infer** - don't over-annotate when inference works
@@ -324,6 +327,8 @@ Auth:
   proceed if the user explicitly asks to bypass them.
 - When the user asks to create a PR, automatically mark it ready for review
   unless they explicitly ask for a draft PR.
+- After pushing fixes for PR review feedback, always request a fresh CodeRabbit
+  review by commenting `@coderabbitai review`.
 
 ### Worktree Protocol (Local)
 

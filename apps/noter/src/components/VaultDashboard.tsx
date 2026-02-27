@@ -25,7 +25,14 @@ import {
   useMutation,
   useQuery as useConvexQuery,
 } from "convex/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+  type MutableRefObject,
+} from "react";
 import { isInIframe } from "@/SignInForm";
 import { UserMenu } from "@/components/UserMenu";
 import {
@@ -52,7 +59,10 @@ import { CodespaceStatus } from "@/components/CodespaceStatus";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
 import { VaultSyncStatus } from "@/components/VaultSyncStatus";
 import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
-import { useApiKeyConnectDialog } from "@/components/ApiKeyConnectDialog";
+import {
+  useApiKeyConnectDialog,
+  type ApiKeyProvider,
+} from "@/components/ApiKeyConnectDialog";
 import type { Id } from "../../convex/_generated/dataModel";
 
 const formatInfraState = (
@@ -109,6 +119,56 @@ const isCreateTemplate = (value: string): value is CreateTemplate =>
 
 const DASHBOARD_REFRESH_CONCURRENCY = 3;
 type RefreshTrigger = "focus" | "page_load";
+const PROVIDER_KEYS = ["github", "convex", "netlify", "railway"] as const;
+type ProviderKey = (typeof PROVIDER_KEYS)[number];
+type ProviderMetadata = {
+  label: string;
+  oauthButtonLabel: string;
+  popupName: string;
+  completionEventType: string;
+  icon: ComponentType<{ className?: string }>;
+  apiKeyProvider: ApiKeyProvider | null;
+};
+type ProviderRuntimeConfig = {
+  getOAuthUrl: () => Promise<string>;
+  disconnect: () => Promise<unknown>;
+  popupRef: MutableRefObject<Window | null>;
+  popupOriginRef: MutableRefObject<string | null>;
+};
+const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
+  github: {
+    label: "GitHub",
+    oauthButtonLabel: "GitHub OAuth",
+    popupName: "github-oauth",
+    completionEventType: "github-oauth-complete",
+    icon: GitHubLogoIcon,
+    apiKeyProvider: "github",
+  },
+  convex: {
+    label: "Convex",
+    oauthButtonLabel: "Convex OAuth",
+    popupName: "convex-oauth",
+    completionEventType: "convex-oauth-complete",
+    icon: LightningBoltIcon,
+    apiKeyProvider: "convex",
+  },
+  netlify: {
+    label: "Netlify",
+    oauthButtonLabel: "Netlify OAuth",
+    popupName: "netlify-oauth",
+    completionEventType: "netlify-oauth-complete",
+    icon: GlobeIcon,
+    apiKeyProvider: "netlify",
+  },
+  railway: {
+    label: "Railway",
+    oauthButtonLabel: "Railway OAuth",
+    popupName: "railway-oauth",
+    completionEventType: "railway-oauth-complete",
+    icon: GlobeIcon,
+    apiKeyProvider: null,
+  },
+};
 
 export function VaultDashboard() {
   const vaults = useQuery(api.vault.getUserVaults);
@@ -123,6 +183,7 @@ export function VaultDashboard() {
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
   const getNetlifyOAuthUrl = useMutation(api.netlifyOAuth.getNetlifyOAuthUrl);
+  const getRailwayOAuthUrl = useMutation(api.railwayOAuth.getRailwayOAuthUrl);
   const connectGithubWithApiKey = useAction(api.users.connectGithubWithApiKey);
   const connectConvexWithApiKey = useAction(api.users.connectConvexWithApiKey);
   const connectNetlifyWithApiKey = useAction(
@@ -131,10 +192,14 @@ export function VaultDashboard() {
   const disconnectGithub = useMutation(api.users.disconnectGithub);
   const disconnectConvex = useMutation(api.users.disconnectConvex);
   const disconnectNetlify = useMutation(api.users.disconnectNetlify);
+  const disconnectRailway = useMutation(api.users.disconnectRailway);
   const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
   const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus);
   const netlifyConnection = useConvexQuery(
     api.users.getNetlifyConnectionStatus,
+  );
+  const railwayConnection = useConvexQuery(
+    api.users.getRailwayConnectionStatus,
   );
   const user = useConvexQuery(api.users.viewer);
   const canCreateRepo = Boolean(
@@ -145,9 +210,37 @@ export function VaultDashboard() {
   const githubPopupRef = useRef<Window | null>(null);
   const convexPopupRef = useRef<Window | null>(null);
   const netlifyPopupRef = useRef<Window | null>(null);
+  const railwayPopupRef = useRef<Window | null>(null);
   const githubPopupOriginRef = useRef<string | null>(null);
   const convexPopupOriginRef = useRef<string | null>(null);
   const netlifyPopupOriginRef = useRef<string | null>(null);
+  const railwayPopupOriginRef = useRef<string | null>(null);
+  const providerRuntimeConfig: Record<ProviderKey, ProviderRuntimeConfig> = {
+    github: {
+      getOAuthUrl: getGithubOAuthUrl,
+      disconnect: disconnectGithub,
+      popupRef: githubPopupRef,
+      popupOriginRef: githubPopupOriginRef,
+    },
+    convex: {
+      getOAuthUrl: getConvexOAuthUrl,
+      disconnect: disconnectConvex,
+      popupRef: convexPopupRef,
+      popupOriginRef: convexPopupOriginRef,
+    },
+    netlify: {
+      getOAuthUrl: getNetlifyOAuthUrl,
+      disconnect: disconnectNetlify,
+      popupRef: netlifyPopupRef,
+      popupOriginRef: netlifyPopupOriginRef,
+    },
+    railway: {
+      getOAuthUrl: getRailwayOAuthUrl,
+      disconnect: disconnectRailway,
+      popupRef: railwayPopupRef,
+      popupOriginRef: railwayPopupOriginRef,
+    },
+  };
   const [vaultToDelete, setVaultToDelete] = useState<{
     id: Id<"vaults">;
     repositoryFullName: string;
@@ -162,9 +255,8 @@ export function VaultDashboard() {
   const [removeDaytonaResources, setRemoveDaytonaResources] = useState(false);
   const [newRepositoryName, setNewRepositoryName] = useState("");
   const [createTemplate, setCreateTemplate] = useState<CreateTemplate>("app");
-  const [disconnectingProvider, setDisconnectingProvider] = useState<
-    "github" | "convex" | "netlify" | null
-  >(null);
+  const [disconnectingProvider, setDisconnectingProvider] =
+    useState<ProviderKey | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -178,36 +270,56 @@ export function VaultDashboard() {
 
   useEffect(() => {
     const expectedOrigin = window.location.origin;
+    const providerPopupConfig: Record<
+      ProviderKey,
+      {
+        completionEventType: string;
+        popupRef: MutableRefObject<Window | null>;
+        popupOriginRef: MutableRefObject<string | null>;
+      }
+    > = {
+      github: {
+        completionEventType: PROVIDER_METADATA.github.completionEventType,
+        popupRef: githubPopupRef,
+        popupOriginRef: githubPopupOriginRef,
+      },
+      convex: {
+        completionEventType: PROVIDER_METADATA.convex.completionEventType,
+        popupRef: convexPopupRef,
+        popupOriginRef: convexPopupOriginRef,
+      },
+      netlify: {
+        completionEventType: PROVIDER_METADATA.netlify.completionEventType,
+        popupRef: netlifyPopupRef,
+        popupOriginRef: netlifyPopupOriginRef,
+      },
+      railway: {
+        completionEventType: PROVIDER_METADATA.railway.completionEventType,
+        popupRef: railwayPopupRef,
+        popupOriginRef: railwayPopupOriginRef,
+      },
+    };
     const handler = (event: MessageEvent) => {
-      if (!isRecord(event.data)) return;
-      if (
-        event.data.type === "github-oauth-complete" &&
-        event.source === githubPopupRef.current
-      ) {
-        if (event.origin !== (githubPopupOriginRef.current ?? expectedOrigin)) {
+      if (!isRecord(event.data) || typeof event.data.type !== "string") {
+        return;
+      }
+
+      for (const provider of PROVIDER_KEYS) {
+        const popupConfig = providerPopupConfig[provider];
+        if (event.data.type !== popupConfig.completionEventType) {
+          continue;
+        }
+        if (event.source !== popupConfig.popupRef.current) {
           return;
         }
-        window.location.reload();
-      }
-      if (
-        event.data.type === "convex-oauth-complete" &&
-        event.source === convexPopupRef.current
-      ) {
-        if (event.origin !== (convexPopupOriginRef.current ?? expectedOrigin)) {
-          return;
-        }
-        window.location.reload();
-      }
-      if (
-        event.data.type === "netlify-oauth-complete" &&
-        event.source === netlifyPopupRef.current
-      ) {
         if (
-          event.origin !== (netlifyPopupOriginRef.current ?? expectedOrigin)
+          event.origin !==
+          (popupConfig.popupOriginRef.current ?? expectedOrigin)
         ) {
           return;
         }
         window.location.reload();
+        return;
       }
     };
 
@@ -318,18 +430,20 @@ export function VaultDashboard() {
     vaultToDelete ? { vaultId: vaultToDelete.id } : "skip",
   );
 
-  const handleConnectGithub = async () => {
+  const handleConnect = async (provider: ProviderKey) => {
+    const providerConfig = providerRuntimeConfig[provider];
+    const providerMetadata = PROVIDER_METADATA[provider];
     if (createError) {
       setCreateError(null);
     }
     try {
-      const oauthUrl = await getGithubOAuthUrl();
+      const oauthUrl = await providerConfig.getOAuthUrl();
       if (isInIframe()) {
-        githubPopupOriginRef.current =
+        providerConfig.popupOriginRef.current =
           getRedirectOrigin(oauthUrl) ?? window.location.origin;
-        githubPopupRef.current = window.open(
+        providerConfig.popupRef.current = window.open(
           oauthUrl,
-          "github-oauth",
+          providerMetadata.popupName,
           "width=600,height=700,popup=true",
         );
         return;
@@ -337,85 +451,31 @@ export function VaultDashboard() {
       window.location.assign(oauthUrl);
     } catch (error) {
       setCreateError(
-        error instanceof Error ? error.message : "Failed to start GitHub OAuth",
+        error instanceof Error
+          ? error.message
+          : `Failed to start ${providerMetadata.label} OAuth`,
       );
     }
   };
 
-  const handleConnectConvex = async () => {
-    if (createError) {
-      setCreateError(null);
-    }
-    try {
-      const oauthUrl = await getConvexOAuthUrl();
-      if (isInIframe()) {
-        convexPopupOriginRef.current =
-          getRedirectOrigin(oauthUrl) ?? window.location.origin;
-        convexPopupRef.current = window.open(
-          oauthUrl,
-          "convex-oauth",
-          "width=600,height=700,popup=true",
-        );
-        return;
-      }
-      window.location.assign(oauthUrl);
-    } catch (error) {
-      setCreateError(
-        error instanceof Error ? error.message : "Failed to start Convex OAuth",
-      );
-    }
-  };
-
-  const handleDisconnect = async (
-    provider: "github" | "convex" | "netlify",
-  ) => {
+  const handleDisconnect = async (provider: ProviderKey) => {
+    const providerConfig = providerRuntimeConfig[provider];
+    const providerMetadata = PROVIDER_METADATA[provider];
     if (disconnectingProvider) return;
     setDisconnectingProvider(provider);
     if (createError) {
       setCreateError(null);
     }
     try {
-      if (provider === "github") {
-        await disconnectGithub();
-      } else if (provider === "convex") {
-        await disconnectConvex();
-      } else {
-        await disconnectNetlify();
-      }
+      await providerConfig.disconnect();
     } catch (error) {
       setCreateError(
         error instanceof Error
           ? error.message
-          : `Failed to disconnect ${provider}`,
+          : `Failed to disconnect ${providerMetadata.label}`,
       );
     } finally {
       setDisconnectingProvider(null);
-    }
-  };
-
-  const handleConnectNetlify = async () => {
-    if (createError) {
-      setCreateError(null);
-    }
-    try {
-      const oauthUrl = await getNetlifyOAuthUrl();
-      if (isInIframe()) {
-        netlifyPopupOriginRef.current =
-          getRedirectOrigin(oauthUrl) ?? window.location.origin;
-        netlifyPopupRef.current = window.open(
-          oauthUrl,
-          "netlify-oauth",
-          "width=600,height=700,popup=true",
-        );
-        return;
-      }
-      window.location.assign(oauthUrl);
-    } catch (error) {
-      setCreateError(
-        error instanceof Error
-          ? error.message
-          : "Failed to start Netlify OAuth",
-      );
     }
   };
 
@@ -521,20 +581,45 @@ export function VaultDashboard() {
   const githubConnected = githubConnection?.connected === true;
   const convexConnected = convexConnection?.connected === true;
   const netlifyConnected = netlifyConnection?.connected === true;
+  const railwayConnected = railwayConnection?.connected === true;
   const formatAuthMethod = (method: "oauth" | "api_key" | undefined) => {
     if (method === "api_key") return "API key";
     if (method === "oauth") return "OAuth";
     return "Unknown";
   };
   const githubStatus = githubConnected
-    ? `Connected as ${githubConnection?.username ?? "GitHub user"} (${formatAuthMethod(githubConnection?.authMethod)})`
+    ? `Connected as ${githubConnection.username ?? "GitHub user"} (${formatAuthMethod(githubConnection.authMethod)})`
     : "Not connected";
   const convexStatus = convexConnected
-    ? `Connected to ${convexConnection?.teamSlug ?? convexConnection?.teamId ?? "Convex team"} (${formatAuthMethod(convexConnection?.authMethod)})`
+    ? `Connected to ${convexConnection.teamSlug ?? convexConnection.teamId ?? "Convex team"} (${formatAuthMethod(convexConnection.authMethod)})`
     : "Not connected";
   const netlifyStatus = netlifyConnected
-    ? `Connected to ${netlifyConnection?.teamSlug ?? netlifyConnection?.teamId ?? "Netlify team"} (${formatAuthMethod(netlifyConnection?.authMethod)})`
+    ? `Connected to ${netlifyConnection.teamSlug ?? netlifyConnection.teamId ?? "Netlify team"} (${formatAuthMethod(netlifyConnection.authMethod)})`
     : "Not connected";
+  const railwayStatus = railwayConnected
+    ? `Connected as ${railwayConnection.name ?? railwayConnection.email ?? railwayConnection.accountId ?? "Railway user"} (${formatAuthMethod(railwayConnection.authMethod)})`
+    : "Not connected";
+  const providerConnectionState: Record<
+    ProviderKey,
+    { connected: boolean; status: string }
+  > = {
+    github: {
+      connected: githubConnected,
+      status: githubStatus,
+    },
+    convex: {
+      connected: convexConnected,
+      status: convexStatus,
+    },
+    netlify: {
+      connected: netlifyConnected,
+      status: netlifyStatus,
+    },
+    railway: {
+      connected: railwayConnected,
+      status: railwayStatus,
+    },
+  };
   const userDisplayName =
     user?.name ?? user?.email ?? user?.githubUsername ?? "...";
   const userMenu = user ? <UserMenu>{userDisplayName}</UserMenu> : null;
@@ -638,151 +723,68 @@ export function VaultDashboard() {
     <div className="rounded-lg border border-border bg-background p-4 space-y-3">
       <div className="text-sm font-medium">Connections</div>
       <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <GitHubLogoIcon className="h-4 w-4" />
-            <div className="text-left">
-              <div className="text-sm font-medium">GitHub</div>
-              <div className="text-xs text-muted-foreground">
-                {githubStatus}
-              </div>
-            </div>
-          </div>
-          {githubConnected ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void handleDisconnect("github")}
-              disabled={disconnectingProvider !== null}
+        {PROVIDER_KEYS.map((provider) => {
+          const providerMetadata = PROVIDER_METADATA[provider];
+          const providerState = providerConnectionState[provider];
+          const Icon = providerMetadata.icon;
+          const apiKeyProvider = providerMetadata.apiKeyProvider;
+          return (
+            <div
+              key={provider}
+              className="flex items-center justify-between gap-3"
             >
-              {disconnectingProvider === "github" ? (
-                <>
-                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                  Disconnecting...
-                </>
-              ) : (
-                "Disconnect"
-              )}
-            </Button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  void handleConnectGithub();
-                }}
-                disabled={disconnectingProvider !== null}
-              >
-                GitHub OAuth
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => openApiKeyDialog("github")}
-                disabled={disconnectingProvider !== null}
-              >
-                Use API key
-              </Button>
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <LightningBoltIcon className="h-4 w-4" />
-            <div className="text-left">
-              <div className="text-sm font-medium">Convex</div>
-              <div className="text-xs text-muted-foreground">
-                {convexStatus}
+              <div className="flex items-center gap-2">
+                <Icon className="h-4 w-4" />
+                <div className="text-left">
+                  <div className="text-sm font-medium">
+                    {providerMetadata.label}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {providerState.status}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-          {convexConnected ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void handleDisconnect("convex")}
-              disabled={disconnectingProvider !== null}
-            >
-              {disconnectingProvider === "convex" ? (
-                <>
-                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                  Disconnecting...
-                </>
+              {providerState.connected ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleDisconnect(provider)}
+                  disabled={disconnectingProvider !== null}
+                >
+                  {disconnectingProvider === provider ? (
+                    <>
+                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                      Disconnecting...
+                    </>
+                  ) : (
+                    "Disconnect"
+                  )}
+                </Button>
               ) : (
-                "Disconnect"
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleConnect(provider)}
+                    disabled={disconnectingProvider !== null}
+                  >
+                    {providerMetadata.oauthButtonLabel}
+                  </Button>
+                  {apiKeyProvider ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openApiKeyDialog(apiKeyProvider)}
+                      disabled={disconnectingProvider !== null}
+                    >
+                      Use API key
+                    </Button>
+                  ) : null}
+                </div>
               )}
-            </Button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void handleConnectConvex()}
-                disabled={disconnectingProvider !== null}
-              >
-                Convex OAuth
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => openApiKeyDialog("convex")}
-                disabled={disconnectingProvider !== null}
-              >
-                Use API key
-              </Button>
             </div>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <GlobeIcon className="h-4 w-4" />
-            <div className="text-left">
-              <div className="text-sm font-medium">Netlify</div>
-              <div className="text-xs text-muted-foreground">
-                {netlifyStatus}
-              </div>
-            </div>
-          </div>
-          {netlifyConnected ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void handleDisconnect("netlify")}
-              disabled={disconnectingProvider !== null}
-            >
-              {disconnectingProvider === "netlify" ? (
-                <>
-                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                  Disconnecting...
-                </>
-              ) : (
-                "Disconnect"
-              )}
-            </Button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void handleConnectNetlify()}
-                disabled={disconnectingProvider !== null}
-              >
-                Netlify OAuth
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => openApiKeyDialog("netlify")}
-                disabled={disconnectingProvider !== null}
-              >
-                Use API key
-              </Button>
-            </div>
-          )}
-        </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -7,44 +7,115 @@ import {
 } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 
-const providerKindValidator = v.union(
-  v.literal("github"),
-  v.literal("convex"),
-  v.literal("netlify"),
+const {
+  array,
+  id,
+  literal,
+  null: vNull,
+  number,
+  object,
+  optional,
+  string,
+  union,
+} = v;
+
+const providerKindValidator = union(
+  literal("github"),
+  literal("convex"),
+  literal("netlify"),
+  literal("railway"),
 );
 export type ProviderKind = Infer<typeof providerKindValidator>;
 
-const oauthAuthValidator = v.object({
-  method: v.literal("oauth"),
-  credential: v.string(),
-  refreshCredential: v.optional(v.string()),
-  credentialExpiresAt: v.optional(v.number()),
+const oauthAuthValidator = object({
+  method: literal("oauth"),
+  credential: string(),
+  refreshCredential: optional(string()),
+  credentialExpiresAt: optional(number()),
 });
-const apiKeyAuthValidator = v.object({
-  method: v.literal("api_key"),
-  credential: v.string(),
-  credentialExpiresAt: v.optional(v.number()),
+const apiKeyAuthValidator = object({
+  method: literal("api_key"),
+  credential: string(),
+  credentialExpiresAt: optional(number()),
 });
-const providerAuthValidator = v.union(oauthAuthValidator, apiKeyAuthValidator);
+const providerAuthValidator = union(oauthAuthValidator, apiKeyAuthValidator);
 export type ProviderAuth = Infer<typeof providerAuthValidator>;
 
-const githubConnectionUpsertValidator = v.object({
-  userId: v.id("users"),
+const githubConnectionUpsertValidator = object({
+  userId: id("users"),
   auth: providerAuthValidator,
-  username: v.optional(v.string()),
+  username: optional(string()),
 });
-const convexConnectionUpsertValidator = v.object({
-  userId: v.id("users"),
+const convexConnectionUpsertValidator = object({
+  userId: id("users"),
   auth: providerAuthValidator,
-  teamId: v.string(),
-  teamSlug: v.optional(v.string()),
+  teamId: string(),
+  teamSlug: optional(string()),
 });
-const netlifyConnectionUpsertValidator = v.object({
-  userId: v.id("users"),
+const netlifyConnectionUpsertValidator = object({
+  userId: id("users"),
   auth: providerAuthValidator,
-  teamId: v.string(),
-  teamSlug: v.optional(v.string()),
+  teamId: string(),
+  teamSlug: optional(string()),
 });
+const railwayConnectionUpsertValidator = object({
+  userId: id("users"),
+  auth: providerAuthValidator,
+  accountId: string(),
+  email: optional(string()),
+  name: optional(string()),
+});
+
+const githubConnectionResultValidator = object({
+  _id: id("providerConnections"),
+  _creationTime: number(),
+  kind: literal("github"),
+  userId: id("users"),
+  auth: providerAuthValidator,
+  username: optional(string()),
+  createdAt: number(),
+  updatedAt: number(),
+});
+const convexConnectionResultValidator = object({
+  _id: id("providerConnections"),
+  _creationTime: number(),
+  kind: literal("convex"),
+  userId: id("users"),
+  auth: providerAuthValidator,
+  teamId: string(),
+  teamSlug: optional(string()),
+  createdAt: number(),
+  updatedAt: number(),
+});
+const netlifyConnectionResultValidator = object({
+  _id: id("providerConnections"),
+  _creationTime: number(),
+  kind: literal("netlify"),
+  userId: id("users"),
+  auth: providerAuthValidator,
+  teamId: string(),
+  teamSlug: optional(string()),
+  createdAt: number(),
+  updatedAt: number(),
+});
+const railwayConnectionResultValidator = object({
+  _id: id("providerConnections"),
+  _creationTime: number(),
+  kind: literal("railway"),
+  userId: id("users"),
+  auth: providerAuthValidator,
+  accountId: string(),
+  email: optional(string()),
+  name: optional(string()),
+  createdAt: number(),
+  updatedAt: number(),
+});
+const providerConnectionResultValidator = union(
+  githubConnectionResultValidator,
+  convexConnectionResultValidator,
+  netlifyConnectionResultValidator,
+  railwayConnectionResultValidator,
+);
 
 export async function getConnectionByUserAndKind(
   db: DatabaseReader,
@@ -145,50 +216,40 @@ async function upsertNetlifyConnection(
   });
 }
 
-const githubConnectionResultValidator = v.object({
-  _id: v.id("providerConnections"),
-  _creationTime: v.number(),
-  kind: v.literal("github"),
-  userId: v.id("users"),
-  auth: providerAuthValidator,
-  username: v.optional(v.string()),
-  createdAt: v.number(),
-  updatedAt: v.number(),
-});
-const convexConnectionResultValidator = v.object({
-  _id: v.id("providerConnections"),
-  _creationTime: v.number(),
-  kind: v.literal("convex"),
-  userId: v.id("users"),
-  auth: providerAuthValidator,
-  teamId: v.string(),
-  teamSlug: v.optional(v.string()),
-  createdAt: v.number(),
-  updatedAt: v.number(),
-});
-const netlifyConnectionResultValidator = v.object({
-  _id: v.id("providerConnections"),
-  _creationTime: v.number(),
-  kind: v.literal("netlify"),
-  userId: v.id("users"),
-  auth: providerAuthValidator,
-  teamId: v.string(),
-  teamSlug: v.optional(v.string()),
-  createdAt: v.number(),
-  updatedAt: v.number(),
-});
-const providerConnectionResultValidator = v.union(
-  githubConnectionResultValidator,
-  convexConnectionResultValidator,
-  netlifyConnectionResultValidator,
-);
+async function upsertRailwayConnection(
+  db: DatabaseWriter,
+  args: Infer<typeof railwayConnectionUpsertValidator>,
+): Promise<void> {
+  const now = Date.now();
+  const existing = await getConnectionByUserAndKind(db, args.userId, "railway");
+  if (existing) {
+    await db.patch(existing._id, {
+      auth: args.auth,
+      accountId: args.accountId,
+      email: args.email,
+      name: args.name,
+      updatedAt: now,
+    });
+    return;
+  }
+  await db.insert("providerConnections", {
+    kind: "railway",
+    userId: args.userId,
+    auth: args.auth,
+    accountId: args.accountId,
+    email: args.email,
+    name: args.name,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
 
 export const getByUserAndKind = internalQuery({
   args: {
-    userId: v.id("users"),
+    userId: id("users"),
     kind: providerKindValidator,
   },
-  returns: v.union(providerConnectionResultValidator, v.null()),
+  returns: union(providerConnectionResultValidator, vNull()),
   handler: async (ctx, args) => {
     return await getConnectionByUserAndKind(ctx.db, args.userId, args.kind);
   },
@@ -196,9 +257,9 @@ export const getByUserAndKind = internalQuery({
 
 export const listByUser = internalQuery({
   args: {
-    userId: v.id("users"),
+    userId: id("users"),
   },
-  returns: v.array(providerConnectionResultValidator),
+  returns: array(providerConnectionResultValidator),
   handler: async (ctx, args) => {
     return await ctx.db
       .query("providerConnections")
@@ -209,7 +270,7 @@ export const listByUser = internalQuery({
 
 export const upsertGithub = internalMutation({
   args: githubConnectionUpsertValidator,
-  returns: v.null(),
+  returns: vNull(),
   handler: async (ctx, args) => {
     await upsertGithubConnection(ctx.db, args);
     return null;
@@ -218,7 +279,7 @@ export const upsertGithub = internalMutation({
 
 export const upsertConvex = internalMutation({
   args: convexConnectionUpsertValidator,
-  returns: v.null(),
+  returns: vNull(),
   handler: async (ctx, args) => {
     await upsertConvexConnection(ctx.db, args);
     return null;
@@ -227,19 +288,28 @@ export const upsertConvex = internalMutation({
 
 export const upsertNetlify = internalMutation({
   args: netlifyConnectionUpsertValidator,
-  returns: v.null(),
+  returns: vNull(),
   handler: async (ctx, args) => {
     await upsertNetlifyConnection(ctx.db, args);
     return null;
   },
 });
 
+export const upsertRailway = internalMutation({
+  args: railwayConnectionUpsertValidator,
+  returns: vNull(),
+  handler: async (ctx, args) => {
+    await upsertRailwayConnection(ctx.db, args);
+    return null;
+  },
+});
+
 export const removeByUserAndKind = internalMutation({
   args: {
-    userId: v.id("users"),
+    userId: id("users"),
     kind: providerKindValidator,
   },
-  returns: v.null(),
+  returns: vNull(),
   handler: async (ctx, args) => {
     await deleteConnectionByUserAndKind(ctx.db, args.userId, args.kind);
     return null;
