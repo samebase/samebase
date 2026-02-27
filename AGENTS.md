@@ -208,22 +208,25 @@ use `--env-file` or an explicit deployment selector instead.
 Shorthand commands for git/GitHub workflows. When the user says these, execute
 them directly using CLI tools.
 
-| Command     | Action                                                                                       |
-| ----------- | -------------------------------------------------------------------------------------------- |
-| `commit`    | Stage all changes, commit with concise message                                               |
-| `push`      | Commit if needed, push to remote                                                             |
-| `create pr` | Push if needed, create PR, ensure a non-empty body, then mark ready                          |
-| `ready`     | Mark draft PR as ready: `gh pr ready`                                                        |
-| `wait`      | Monitor CI with `gh pr checks` or `gh run watch`, report status                              |
-| `ship`      | Full flow: commit → push → create PR → ready → fix Greptile+CodeRabbit feedback loops → wait |
-| `clean`     | After PR is shipped/merged: remove the current worktree and delete its branch                |
-| `status`    | Show branch, uncommitted changes, PR state                                                   |
+| Command     | Action                                                                                                                                       |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `commit`    | If branch is auto-generated `codex/<word>-<word>-<word>`, rename to `codex/<intent>`; then stage all changes and commit with concise message |
+| `push`      | Commit if needed, push to remote                                                                                                             |
+| `create pr` | Push if needed, create PR, ensure a non-empty body, then mark ready                                                                          |
+| `ready`     | Mark draft PR as ready: `gh pr ready`                                                                                                        |
+| `wait`      | Monitor CI with `gh pr checks` or `gh run watch`, report status                                                                              |
+| `ship`      | Full flow: commit → push → create PR → ready → fix Greptile+CodeRabbit feedback loops → wait                                                 |
+| `clean`     | After PR is shipped/merged: remove the current worktree and delete its branch                                                                |
+| `status`    | Show branch, uncommitted changes, PR state                                                                                                   |
 
 ### Rules
 
 - Always use CLI tools (`gh`, `git`) - never tell user to click UI buttons
 - Execute, don't instruct
 - Adapt to context (if PR exists, update it; if already ready, skip)
+- Before `commit`, verify the branch name is meaningful. If it's still an
+  auto-generated random `codex/<word>-<word>-<word>` name, rename it to a
+  descriptive `codex/<intent>` branch before committing.
 - Before `create pr` or `ship`, verify the branch name is meaningful. If it's
   still an auto-generated random `codex/<word>-<word>-<word>` name, rename it to
   a descriptive `codex/<intent>` branch before pushing/creating the PR.
