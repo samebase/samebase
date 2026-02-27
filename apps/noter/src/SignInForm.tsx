@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { Chrome } from "lucide-react";
 import { useMutation } from "convex/react";
@@ -10,6 +11,12 @@ const AUTH_FLAG_KEY = "noter_was_authenticated";
 const AUTH_PROVIDER_KEY = "noter_auth_provider";
 const DEV_PASSWORD_EMAIL = "nicu@noter.md";
 const DEV_PASSWORD_VALUE = "pass1234";
+const LANDING_PAGE_COPY = `## Noter is a collaborative markdown workspace on top of GitHub
+
+- your notes and code live in a real repository
+- collaborate in real time with your team
+- work from desktop or mobile without context switching
+- use Codex to ship small apps directly from your workspace`;
 
 type AuthProvider = "google" | "password";
 
@@ -32,26 +39,7 @@ export function SignInForm() {
   return (
     <div className="container my-auto">
       <div className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8">
-        <h2 className="font-semibold text-2xl tracking-tight">
-          If Notion and Obsidian had a baby
-        </h2>
-        <ul className="list-disc list-inside">
-          <li>stores everything on GitHub</li>
-          <li>supports real-time collaboration</li>
-          <li>is mobile-web first</li>
-          <li className="text-muted-foreground/90">
-            can build small apps with Codex
-          </li>
-          <li className="text-muted-foreground/70">can be built in itself</li>
-          <li className="text-muted-foreground/40">
-            is built in itself
-            <span className="sr-only">
-              {" "}
-              This line is intentionally de-emphasized to make the tone feel
-              more mysterious.
-            </span>
-          </li>
-        </ul>
+        <ProsemarkReadOnly value={LANDING_PAGE_COPY} className="text-sm" />
         <div className="flex flex-col gap-2">
           <SignInWithGoogle />
           {showPasswordAuth ? <PasswordAuthForm /> : null}
