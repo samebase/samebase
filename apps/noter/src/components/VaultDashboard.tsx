@@ -123,6 +123,7 @@ export function VaultDashboard() {
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
   const getNetlifyOAuthUrl = useMutation(api.netlifyOAuth.getNetlifyOAuthUrl);
+  const getRailwayOAuthUrl = useMutation(api.railwayOAuth.getRailwayOAuthUrl);
   const connectGithubWithApiKey = useAction(api.users.connectGithubWithApiKey);
   const connectConvexWithApiKey = useAction(api.users.connectConvexWithApiKey);
   const connectNetlifyWithApiKey = useAction(
@@ -131,10 +132,14 @@ export function VaultDashboard() {
   const disconnectGithub = useMutation(api.users.disconnectGithub);
   const disconnectConvex = useMutation(api.users.disconnectConvex);
   const disconnectNetlify = useMutation(api.users.disconnectNetlify);
+  const disconnectRailway = useMutation(api.users.disconnectRailway);
   const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
   const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus);
   const netlifyConnection = useConvexQuery(
     api.users.getNetlifyConnectionStatus,
+  );
+  const railwayConnection = useConvexQuery(
+    api.users.getRailwayConnectionStatus,
   );
   const user = useConvexQuery(api.users.viewer);
   const canCreateRepo = Boolean(
@@ -145,9 +150,11 @@ export function VaultDashboard() {
   const githubPopupRef = useRef<Window | null>(null);
   const convexPopupRef = useRef<Window | null>(null);
   const netlifyPopupRef = useRef<Window | null>(null);
+  const railwayPopupRef = useRef<Window | null>(null);
   const githubPopupOriginRef = useRef<string | null>(null);
   const convexPopupOriginRef = useRef<string | null>(null);
   const netlifyPopupOriginRef = useRef<string | null>(null);
+  const railwayPopupOriginRef = useRef<string | null>(null);
   const [vaultToDelete, setVaultToDelete] = useState<{
     id: Id<"vaults">;
     repositoryFullName: string;
@@ -163,7 +170,7 @@ export function VaultDashboard() {
   const [newRepositoryName, setNewRepositoryName] = useState("");
   const [createTemplate, setCreateTemplate] = useState<CreateTemplate>("app");
   const [disconnectingProvider, setDisconnectingProvider] = useState<
-    "github" | "convex" | "netlify" | null
+    "github" | "convex" | "netlify" | "railway" | null
   >(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -204,6 +211,17 @@ export function VaultDashboard() {
       ) {
         if (
           event.origin !== (netlifyPopupOriginRef.current ?? expectedOrigin)
+        ) {
+          return;
+        }
+        window.location.reload();
+      }
+      if (
+        event.data.type === "railway-oauth-complete" &&
+        event.source === railwayPopupRef.current
+      ) {
+        if (
+          event.origin !== (railwayPopupOriginRef.current ?? expectedOrigin)
         ) {
           return;
         }
@@ -367,7 +385,7 @@ export function VaultDashboard() {
   };
 
   const handleDisconnect = async (
-    provider: "github" | "convex" | "netlify",
+    provider: "github" | "convex" | "netlify" | "railway",
   ) => {
     if (disconnectingProvider) return;
     setDisconnectingProvider(provider);
@@ -379,8 +397,10 @@ export function VaultDashboard() {
         await disconnectGithub();
       } else if (provider === "convex") {
         await disconnectConvex();
-      } else {
+      } else if (provider === "netlify") {
         await disconnectNetlify();
+      } else {
+        await disconnectRailway();
       }
     } catch (error) {
       setCreateError(
@@ -415,6 +435,32 @@ export function VaultDashboard() {
         error instanceof Error
           ? error.message
           : "Failed to start Netlify OAuth",
+      );
+    }
+  };
+
+  const handleConnectRailway = async () => {
+    if (createError) {
+      setCreateError(null);
+    }
+    try {
+      const oauthUrl = await getRailwayOAuthUrl();
+      if (isInIframe()) {
+        railwayPopupOriginRef.current =
+          getRedirectOrigin(oauthUrl) ?? window.location.origin;
+        railwayPopupRef.current = window.open(
+          oauthUrl,
+          "railway-oauth",
+          "width=600,height=700,popup=true",
+        );
+        return;
+      }
+      window.location.assign(oauthUrl);
+    } catch (error) {
+      setCreateError(
+        error instanceof Error
+          ? error.message
+          : "Failed to start Railway OAuth",
       );
     }
   };
@@ -521,6 +567,7 @@ export function VaultDashboard() {
   const githubConnected = githubConnection?.connected === true;
   const convexConnected = convexConnection?.connected === true;
   const netlifyConnected = netlifyConnection?.connected === true;
+  const railwayConnected = railwayConnection?.connected === true;
   const formatAuthMethod = (method: "oauth" | "api_key" | undefined) => {
     if (method === "api_key") return "API key";
     if (method === "oauth") return "OAuth";
@@ -534,6 +581,9 @@ export function VaultDashboard() {
     : "Not connected";
   const netlifyStatus = netlifyConnected
     ? `Connected to ${netlifyConnection?.teamSlug ?? netlifyConnection?.teamId ?? "Netlify team"} (${formatAuthMethod(netlifyConnection?.authMethod)})`
+    : "Not connected";
+  const railwayStatus = railwayConnected
+    ? `Connected as ${railwayConnection?.name ?? railwayConnection?.email ?? railwayConnection?.accountId ?? "Railway user"} (${formatAuthMethod(railwayConnection?.authMethod)})`
     : "Not connected";
   const userDisplayName =
     user?.name ?? user?.email ?? user?.githubUsername ?? "...";
@@ -781,6 +831,44 @@ export function VaultDashboard() {
                 Use API key
               </Button>
             </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <GlobeIcon className="h-4 w-4" />
+            <div className="text-left">
+              <div className="text-sm font-medium">Railway</div>
+              <div className="text-xs text-muted-foreground">
+                {railwayStatus}
+              </div>
+            </div>
+          </div>
+          {railwayConnected ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleDisconnect("railway")}
+              disabled={disconnectingProvider !== null}
+            >
+              {disconnectingProvider === "railway" ? (
+                <>
+                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                  Disconnecting...
+                </>
+              ) : (
+                "Disconnect"
+              )}
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleConnectRailway()}
+              disabled={disconnectingProvider !== null}
+            >
+              Railway OAuth
+            </Button>
           )}
         </div>
       </div>

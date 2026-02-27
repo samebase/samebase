@@ -1,11 +1,5 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import {
-  action,
-  internalMutation,
-  internalQuery,
-  mutation,
-  query,
-} from "./_generated/server";
+import { action, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Infer, v } from "convex/values";
 import { getConnectionByUserAndKind } from "./providerConnections";
@@ -262,6 +256,7 @@ export const viewer = query({
       hasGithubConnection: v.boolean(),
       hasConvexConnection: v.boolean(),
       hasNetlifyConnection: v.boolean(),
+      hasRailwayConnection: v.boolean(),
     }),
     v.null(),
   ),
@@ -275,10 +270,11 @@ export const viewer = query({
       return null;
     }
 
-    const [github, convex, netlify] = await Promise.all([
+    const [github, convex, netlify, railway] = await Promise.all([
       getConnectionByUserAndKind(ctx.db, userId, "github"),
       getConnectionByUserAndKind(ctx.db, userId, "convex"),
       getConnectionByUserAndKind(ctx.db, userId, "netlify"),
+      getConnectionByUserAndKind(ctx.db, userId, "railway"),
     ]);
 
     const githubUsername =
@@ -293,6 +289,7 @@ export const viewer = query({
       hasGithubConnection: github !== null,
       hasConvexConnection: convex !== null,
       hasNetlifyConnection: netlify !== null,
+      hasRailwayConnection: railway !== null,
     };
   },
 });
@@ -500,6 +497,59 @@ export const disconnectNetlify = mutation({
       ctx.db,
       userId,
       "netlify",
+    );
+    if (connection) {
+      await ctx.db.delete(connection._id);
+    }
+    return null;
+  },
+});
+
+export const getRailwayConnectionStatus = query({
+  args: {},
+  returns: v.object({
+    connected: v.boolean(),
+    accountId: v.optional(v.string()),
+    email: v.optional(v.string()),
+    name: v.optional(v.string()),
+    authMethod: v.optional(providerAuthMethodValidator),
+  }),
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      return { connected: false };
+    }
+    const connection = await getConnectionByUserAndKind(
+      ctx.db,
+      userId,
+      "railway",
+    );
+    if (connection?.kind !== "railway") {
+      return { connected: false };
+    }
+
+    return {
+      connected: true,
+      accountId: connection.accountId,
+      email: connection.email,
+      name: connection.name,
+      authMethod: connection.auth.method,
+    };
+  },
+});
+
+export const disconnectRailway = mutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      throw new Error("User not authenticated");
+    }
+    const connection = await getConnectionByUserAndKind(
+      ctx.db,
+      userId,
+      "railway",
     );
     if (connection) {
       await ctx.db.delete(connection._id);

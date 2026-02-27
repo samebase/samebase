@@ -1,5 +1,10 @@
 import { Layout } from "@/Layout";
-import { SignInForm, useAutoSignIn, setAuthFlag, clearAuthFlag } from "@/SignInForm";
+import {
+  SignInForm,
+  useAutoSignIn,
+  setAuthFlag,
+  clearAuthFlag,
+} from "@/SignInForm";
 
 import { VaultDashboard } from "@/components/VaultDashboard";
 import { FileView } from "@/components/FileView";
@@ -7,6 +12,7 @@ import { AddRepository } from "@/components/AddRepository";
 import { ChatFab } from "@/components/ChatFab";
 import { CodespaceChatOnlyView } from "@/components/CodespaceChatOnlyView";
 import { NetlifyOAuthCallback } from "@/components/NetlifyOAuthCallback";
+import { RailwayOAuthCallback } from "@/components/RailwayOAuthCallback";
 import { Button } from "@/components/ui/button";
 import {
   Authenticated,
@@ -28,6 +34,7 @@ function useCloseOAuthPopup(pathname: string) {
   useEffect(() => {
     if (!isAuthenticated) return;
     if (pathname.startsWith("/oauth/netlify")) return;
+    if (pathname.startsWith("/oauth/railway")) return;
 
     // Remember that this user has authenticated, so we can auto-login next time
     if (!window.opener) {
@@ -80,7 +87,13 @@ function ApprovalGate({ children }: { children: React.ReactNode }) {
           <p className="text-muted-foreground text-sm">
             We'll let you know when your spot opens up.
           </p>
-          <Button variant="outline" onClick={() => { clearAuthFlag(); void signOut(); }}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              clearAuthFlag();
+              void signOut();
+            }}
+          >
             Sign out
           </Button>
         </div>
@@ -105,7 +118,14 @@ export default function App() {
             <Routes>
               <Route path="/" element={<VaultDashboard />} />
               <Route path="/add" element={<AddRepository />} />
-              <Route path="/oauth/netlify/callback" element={<NetlifyOAuthCallback />} />
+              <Route
+                path="/oauth/netlify/callback"
+                element={<NetlifyOAuthCallback />}
+              />
+              <Route
+                path="/oauth/railway/callback"
+                element={<RailwayOAuthCallback />}
+              />
               <Route
                 path="/vault/:owner/:repoName/:branch/chat"
                 element={<CodespaceChatOnlyView />}

@@ -5,6 +5,7 @@ export const OAuthProvider = v.union(
   v.literal("github"),
   v.literal("convex"),
   v.literal("netlify"),
+  v.literal("railway"),
 );
 
 export type OAuthProvider = Infer<typeof OAuthProvider>;
