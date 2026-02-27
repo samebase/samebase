@@ -20,6 +20,7 @@ import {
   readStringOrNumber,
   toErrorMessage,
 } from "./jsonUtils";
+import { sanitizeSlug, vaultSuffix } from "./slugUtils";
 
 const PROVISIONING_STALE_MS = 10 * 60 * 1000;
 const GITHUB_API_VERSION = "2022-11-28";
@@ -243,24 +244,6 @@ async function addGitHubDeployKey(args: {
   throw new Error(
     `GitHub deploy key creation failed (${response.status}) for ${args.owner}/${args.repo}: ${responseText}`,
   );
-}
-
-function sanitizeSlug(input: string, maxLen = 58): string {
-  const sanitized = input
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-
-  if (sanitized.length === 0) {
-    return "vault";
-  }
-  return sanitized.slice(0, maxLen);
-}
-
-function vaultSuffix(vaultId: string): string {
-  const alnumOnly = vaultId.replace(/[^a-zA-Z0-9]/g, "");
-  return alnumOnly.slice(-6).toLowerCase() || "vault";
 }
 
 function parseDeployKeyIdentifier(deployKey: string): string {

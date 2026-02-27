@@ -237,7 +237,7 @@ export const getNetlifyLogs = internalAction({
       provider: "netlify",
       netlifyProvider: providers.netlify,
       siteId: infra.netlifySiteId,
-      maxEntries: clamp(args.maxEntries ?? 10, 1, 50),
+      maxEntries: args.maxEntries ?? 10,
     });
   },
 });
@@ -300,7 +300,7 @@ export const getNetlifySiteInventory = internalAction({
       provider: "netlify",
       netlifyProvider: providers.netlify,
       teamSlug,
-      limit: clamp(args.limit ?? 50, 1, 100),
+      limit: args.limit ?? 50,
     });
   },
 });

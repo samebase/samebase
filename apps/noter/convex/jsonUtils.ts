@@ -1,11 +1,17 @@
 export type JsonRecord = Record<string, unknown>;
 
+/**
+ * Checks whether the value is any non-null object, including arrays.
+ */
 export function isObjectRecord(
   value: unknown,
 ): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+/**
+ * Checks whether the value is a non-null object that is not an array.
+ */
 export function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -42,6 +48,16 @@ export function readBoolean(
 ): boolean | undefined {
   const value = record[key];
   return typeof value === "boolean" ? value : undefined;
+}
+
+export function readNumber(
+  record: JsonRecord,
+  key: string,
+): number | undefined {
+  const value = record[key];
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
 }
 
 export function clamp(num: number, min: number, max: number): number {

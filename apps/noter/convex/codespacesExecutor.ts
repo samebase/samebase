@@ -7,6 +7,7 @@ import { internal } from "./_generated/api";
 import {
   isObjectRecord as isRecord,
   readBoolean,
+  readNumber,
   readString,
 } from "./jsonUtils";
 
@@ -16,16 +17,6 @@ const executeCommandResult = v.object({
   exitCode: v.number(),
   success: v.boolean(),
 });
-
-function readNumber(
-  record: Record<string, unknown>,
-  key: string,
-): number | undefined {
-  const value = record[key];
-  return typeof value === "number" && Number.isFinite(value)
-    ? value
-    : undefined;
-}
 
 function jsonStringifySafe(value: unknown): string {
   try {
