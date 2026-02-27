@@ -251,7 +251,7 @@ export function VaultDashboard() {
   const [removeGithubRepo, setRemoveGithubRepo] = useState(false);
   const [removeCodespaces, setRemoveCodespaces] = useState(false);
   const [removeConvexProvision, setRemoveConvexProvision] = useState(false);
-  const [removeNetlifyProvision, setRemoveNetlifyProvision] = useState(false);
+  const [removeHostingProvision, setRemoveHostingProvision] = useState(false);
   const [removeDaytonaResources, setRemoveDaytonaResources] = useState(false);
   const [newRepositoryName, setNewRepositoryName] = useState("");
   const [createTemplate, setCreateTemplate] = useState<CreateTemplate>("app");
@@ -418,7 +418,7 @@ export function VaultDashboard() {
     setRemoveGithubRepo(false);
     setRemoveCodespaces(false);
     setRemoveConvexProvision(false);
-    setRemoveNetlifyProvision(false);
+    setRemoveHostingProvision(false);
     setRemoveDaytonaResources(false);
     setCommitError(null);
     setDeleteError(null);
@@ -496,9 +496,9 @@ export function VaultDashboard() {
           vaultToDelete.isNoterManaged && vaultToDelete.hasConvexProvision
             ? removeConvexProvision
             : false,
-        removeNetlifyProvision:
+        removeHostingProvision:
           vaultToDelete.isNoterManaged && vaultToDelete.hasNetlifyProvision
-            ? removeNetlifyProvision
+            ? removeHostingProvision
             : false,
         removeDaytonaResources,
       });
@@ -988,7 +988,7 @@ export function VaultDashboard() {
                         setRemoveConvexProvision(
                           vault.isNoterManaged && vault.hasConvexProvision,
                         );
-                        setRemoveNetlifyProvision(
+                        setRemoveHostingProvision(
                           vault.isNoterManaged && vault.hasNetlifyProvision,
                         );
                         setRemoveDaytonaResources(
@@ -1140,9 +1140,9 @@ export function VaultDashboard() {
                   <div className="flex items-start gap-2">
                     <Checkbox
                       id="remove-netlify-provision"
-                      checked={removeNetlifyProvision}
+                      checked={removeHostingProvision}
                       onCheckedChange={(checked) =>
-                        setRemoveNetlifyProvision(checked === true)
+                        setRemoveHostingProvision(checked === true)
                       }
                       disabled={
                         !vaultToDelete.isNoterManaged ||

@@ -15,7 +15,8 @@ import { asRecord, readString } from "./jsonUtils";
 const RAILWAY_AUTHORIZE_URL = "https://backboard.railway.com/oauth/auth";
 const RAILWAY_TOKEN_URL = "https://backboard.railway.com/oauth/token";
 const RAILWAY_ME_URL = "https://backboard.railway.com/oauth/me";
-const RAILWAY_OAUTH_SCOPES = "openid email profile offline_access";
+const RAILWAY_OAUTH_SCOPES =
+  "openid email profile offline_access workspace:member";
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
 
 type OAuthContext = ActionCtx | MutationCtx;

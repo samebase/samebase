@@ -116,6 +116,26 @@ Common endpoints:
     inputDisplayKey: "limit",
   },
   {
+    name: "request_railway_status_read",
+    description:
+      "Request approval to read Railway deployment status for the current vault. This tool only creates an approval proposal.",
+    uiDescription: "Propose Railway status read (approval required)",
+  },
+  {
+    name: "request_railway_logs_read",
+    description:
+      "Request approval to read Railway deployment logs for the current vault. This tool only proposes access.",
+    uiDescription: "Propose Railway logs read (approval required)",
+    inputDisplayKey: "maxEntries",
+  },
+  {
+    name: "request_railway_projects_read",
+    description:
+      "Request approval to list Railway projects available to the connected account. This tool only creates an approval proposal and does not execute direct reads.",
+    uiDescription: "Propose Railway project inventory read (approval required)",
+    inputDisplayKey: "limit",
+  },
+  {
     name: "request_convex_data_read",
     description:
       "Request approval to read a limited sample from allowed Convex tables. This tool never performs direct production data reads by itself.",

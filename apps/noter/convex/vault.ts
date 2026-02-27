@@ -521,6 +521,7 @@ export const getVaultInfrastructure = query({
           source: v.union(
             v.literal("netlify_default"),
             v.literal("netlify_custom"),
+            v.literal("railway_default"),
           ),
           active: v.boolean(),
         }),

@@ -419,17 +419,23 @@ function CommitProposalCard({
   );
 }
 
-function renderProdReadLabel(resourceKind: ProdReadProposal["resourceKind"]) {
+function renderProdReadLabel(metadata: {
+  provider: ProdReadProposal["provider"];
+  resourceKind: ProdReadProposal["resourceKind"];
+}) {
+  const { provider, resourceKind } = metadata;
   if (resourceKind === "deployment_status") return "Deployment status";
   if (resourceKind === "logs") return "Logs";
   if (resourceKind === "data_query") return "Data sample";
   if (resourceKind === "project_inventory") return "Project inventory";
+  if (provider === "railway") return "Project inventory";
   return "Site inventory";
 }
 
 function renderProviderLabel(provider: ProdReadProposal["provider"]) {
   if (provider === "convex") return "Convex";
-  return "Netlify";
+  if (provider === "netlify") return "Netlify";
+  return "Railway";
 }
 
 function ProdReadProposalCard({
@@ -484,8 +490,7 @@ function ProdReadProposalCard({
         Production read approval
       </div>
       <div className="mt-1 text-xs text-muted-foreground">
-        {providerLabel} • {renderProdReadLabel(metadata.resourceKind)} •{" "}
-        {scopeLabel}
+        {providerLabel} • {renderProdReadLabel(metadata)} • {scopeLabel}
       </div>
       <div className="mt-1 text-xs text-muted-foreground font-mono">
         {metadata.paramsPreview}
