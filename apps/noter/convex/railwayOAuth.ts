@@ -19,6 +19,11 @@ const RAILWAY_OAUTH_SCOPES = "openid email profile offline_access";
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
 
 type OAuthContext = ActionCtx | MutationCtx;
+type OAuthStateReference = {
+  _id: Id<"oauthStates">;
+  userId: Id<"users">;
+};
+const { id, null: vNull, number, optional, string } = v;
 
 function encodeBase64(value: string): string {
   if (typeof btoa === "function") {
@@ -151,18 +156,53 @@ async function buildRailwayOAuthUrl(
   return authorizeUrl.toString();
 }
 
+async function completeRailwayOAuth(
+  ctx: OAuthContext,
+  oauthState: OAuthStateReference,
+  code: string,
+): Promise<void> {
+  const clientId = readRequiredEnv("PROVIDER_RAILWAY_OAUTH_CLIENT_ID");
+  const clientSecret = readRequiredEnv("PROVIDER_RAILWAY_OAUTH_CLIENT_SECRET");
+  const redirectUri = readRequiredEnv("PROVIDER_RAILWAY_OAUTH_REDIRECT_URL");
+
+  const token = await exchangeRailwayOAuthCode({
+    code,
+    clientId,
+    clientSecret,
+    redirectUri,
+  });
+  const profile = await fetchRailwayProfile({
+    accessToken: token.accessToken,
+  });
+  const expiresAt =
+    typeof token.expiresIn === "number"
+      ? Date.now() + token.expiresIn * 1000
+      : undefined;
+
+  await ctx.runMutation(internal.railwayOAuth.storeRailwayOauthTokens, {
+    userId: oauthState.userId,
+    accessToken: token.accessToken,
+    refreshToken: token.refreshToken,
+    expiresAt,
+    accountId: profile.accountId,
+    email: profile.email,
+    name: profile.name,
+    oauthStateId: oauthState._id,
+  });
+}
+
 export const storeRailwayOauthTokens = internalMutation({
   args: {
-    userId: v.id("users"),
-    accessToken: v.string(),
-    refreshToken: v.optional(v.string()),
-    expiresAt: v.optional(v.number()),
-    accountId: v.string(),
-    email: v.optional(v.string()),
-    name: v.optional(v.string()),
-    oauthStateId: v.id("oauthStates"),
+    userId: id("users"),
+    accessToken: string(),
+    refreshToken: optional(string()),
+    expiresAt: optional(number()),
+    accountId: string(),
+    email: optional(string()),
+    name: optional(string()),
+    oauthStateId: id("oauthStates"),
   },
-  returns: v.null(),
+  returns: vNull(),
   handler: async (ctx, args) => {
     await ctx.runMutation(internal.providerConnections.upsertRailway, {
       userId: args.userId,
@@ -183,7 +223,7 @@ export const storeRailwayOauthTokens = internalMutation({
 
 export const getRailwayOAuthUrl = mutation({
   args: {},
-  returns: v.string(),
+  returns: string(),
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
@@ -195,10 +235,10 @@ export const getRailwayOAuthUrl = mutation({
 
 export const finishRailwayOAuth = action({
   args: {
-    code: v.string(),
-    state: v.string(),
+    code: string(),
+    state: string(),
   },
-  returns: v.null(),
+  returns: vNull(),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
@@ -225,37 +265,8 @@ export const finishRailwayOAuth = action({
       throw new Error("OAuth state expired");
     }
 
-    const clientId = readRequiredEnv("PROVIDER_RAILWAY_OAUTH_CLIENT_ID");
-    const clientSecret = readRequiredEnv(
-      "PROVIDER_RAILWAY_OAUTH_CLIENT_SECRET",
-    );
-    const redirectUri = readRequiredEnv("PROVIDER_RAILWAY_OAUTH_REDIRECT_URL");
-
     try {
-      const token = await exchangeRailwayOAuthCode({
-        code: args.code,
-        clientId,
-        clientSecret,
-        redirectUri,
-      });
-      const profile = await fetchRailwayProfile({
-        accessToken: token.accessToken,
-      });
-      const expiresAt =
-        typeof token.expiresIn === "number"
-          ? Date.now() + token.expiresIn * 1000
-          : undefined;
-
-      await ctx.runMutation(internal.railwayOAuth.storeRailwayOauthTokens, {
-        userId: oauthState.userId,
-        accessToken: token.accessToken,
-        refreshToken: token.refreshToken,
-        expiresAt,
-        accountId: profile.accountId,
-        email: profile.email,
-        name: profile.name,
-        oauthStateId: oauthState._id,
-      });
+      await completeRailwayOAuth(ctx, oauthState, args.code);
     } catch (error) {
       await ctx.runMutation(internal.oauthState.deleteOauthState, {
         id: oauthState._id,
@@ -324,35 +335,8 @@ export const finishRailwayOAuthCallback = httpAction(async (ctx, request) => {
     return new Response("OAuth state expired", { status: 400 });
   }
 
-  const clientId = readRequiredEnv("PROVIDER_RAILWAY_OAUTH_CLIENT_ID");
-  const clientSecret = readRequiredEnv("PROVIDER_RAILWAY_OAUTH_CLIENT_SECRET");
-  const redirectUri = readRequiredEnv("PROVIDER_RAILWAY_OAUTH_REDIRECT_URL");
-
   try {
-    const token = await exchangeRailwayOAuthCode({
-      code,
-      clientId,
-      clientSecret,
-      redirectUri,
-    });
-    const profile = await fetchRailwayProfile({
-      accessToken: token.accessToken,
-    });
-    const expiresAt =
-      typeof token.expiresIn === "number"
-        ? Date.now() + token.expiresIn * 1000
-        : undefined;
-
-    await ctx.runMutation(internal.railwayOAuth.storeRailwayOauthTokens, {
-      userId: oauthState.userId,
-      accessToken: token.accessToken,
-      refreshToken: token.refreshToken,
-      expiresAt,
-      accountId: profile.accountId,
-      email: profile.email,
-      name: profile.name,
-      oauthStateId: oauthState._id,
-    });
+    await completeRailwayOAuth(ctx, oauthState, code);
   } catch (err) {
     await ctx.runMutation(internal.oauthState.deleteOauthState, {
       id: oauthState._id,
