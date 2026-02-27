@@ -485,6 +485,7 @@ type RailwayServiceSummary = {
 type RailwayProjectSummary = {
   id: string;
   name?: string;
+  workspaceId?: string;
   environments: RailwayEnvironmentSummary[];
   services: RailwayServiceSummary[];
 };
@@ -513,6 +514,7 @@ function readRailwayConnectionNodes(value: unknown): JsonRecord[] {
 
 function parseRailwayProjectSummary(
   value: unknown,
+  workspaceId?: string,
 ): RailwayProjectSummary | null {
   const project = asRecord(value);
   const id = readString(project, "id");
@@ -536,6 +538,7 @@ function parseRailwayProjectSummary(
   return {
     id,
     name: readString(project, "name") ?? undefined,
+    workspaceId,
     environments: environments.filter((entry) => entry.id.length > 0),
     services: services.filter((entry) => entry.id.length > 0),
   };
@@ -648,27 +651,36 @@ async function getRailwayProjectById(args: {
 
 async function listRailwayProjects(args: {
   railwayProvider: RailwayManagementProvider;
-}): Promise<RailwayProjectSummary[]> {
+}): Promise<{
+  projects: RailwayProjectSummary[];
+  workspaceIds: string[];
+  defaultWorkspaceId?: string;
+}> {
   const data = await args.railwayProvider.request(`
-    query RailwayProjects {
-      projects {
-        edges {
-          node {
-            id
-            name
-            environments {
-              edges {
-                node {
-                  id
-                  name
+    query RailwayProjectsViaWorkspaces {
+      me {
+        workspaces {
+          id
+          projects {
+            edges {
+              node {
+                id
+                name
+                environments {
+                  edges {
+                    node {
+                      id
+                      name
+                    }
+                  }
                 }
-              }
-            }
-            services {
-              edges {
-                node {
-                  id
-                  name
+                services {
+                  edges {
+                    node {
+                      id
+                      name
+                    }
+                  }
                 }
               }
             }
@@ -677,20 +689,38 @@ async function listRailwayProjects(args: {
       }
     }
   `);
-  const nodes = readRailwayConnectionNodes(asRecord(data)["projects"]);
+  const me = asRecord(asRecord(data)["me"]);
+  const workspacesRaw = Array.isArray(me["workspaces"]) ? me["workspaces"] : [];
   const projects: RailwayProjectSummary[] = [];
-  for (const node of nodes) {
-    const parsed = parseRailwayProjectSummary(node);
-    if (parsed) {
-      projects.push(parsed);
+  const workspaceIds: string[] = [];
+  for (const workspaceRaw of workspacesRaw) {
+    const workspace = asRecord(workspaceRaw);
+    const workspaceId = readString(workspace, "id");
+    if (!workspaceId) {
+      continue;
+    }
+    workspaceIds.push(workspaceId);
+    const nodes = readRailwayConnectionNodes(workspace["projects"]);
+    for (const node of nodes) {
+      const parsed = parseRailwayProjectSummary(node, workspaceId);
+      if (parsed) {
+        projects.push(parsed);
+      }
     }
   }
-  return projects;
+  const defaultWorkspaceId =
+    workspaceIds.length === 1 ? workspaceIds[0] : undefined;
+  return {
+    projects,
+    workspaceIds,
+    defaultWorkspaceId,
+  };
 }
 
 async function createRailwayProject(args: {
   railwayProvider: RailwayManagementProvider;
   name: string;
+  workspaceId: string;
 }): Promise<string> {
   const data = await args.railwayProvider.request(
     `
@@ -703,6 +733,7 @@ async function createRailwayProject(args: {
     {
       input: {
         name: args.name,
+        workspaceId: args.workspaceId,
       },
     },
   );
@@ -932,6 +963,8 @@ async function ensureRailwayResources(
 
   let step = "resolve_project";
   try {
+    let defaultWorkspaceId: string | undefined;
+    let availableWorkspaceIds: string[] = [];
     let project = args.existing.projectId
       ? await getRailwayProjectById({
           railwayProvider: args.railwayProvider,
@@ -940,17 +973,38 @@ async function ensureRailwayResources(
       : null;
 
     if (!project) {
-      const projects = await listRailwayProjects({
+      const projectCatalog = await listRailwayProjects({
         railwayProvider: args.railwayProvider,
       });
-      project = projects.find((entry) => entry.name === projectName) ?? null;
+      defaultWorkspaceId = projectCatalog.defaultWorkspaceId;
+      availableWorkspaceIds = projectCatalog.workspaceIds;
+      project =
+        projectCatalog.projects.find((entry) => entry.name === projectName) ??
+        null;
+
+      if (!project && availableWorkspaceIds.length === 0) {
+        throw new Error(
+          "No Railway workspace is accessible for this account. Verify Railway OAuth access and workspace membership.",
+        );
+      }
     }
 
     if (!project) {
       step = "create_project";
+      if (!defaultWorkspaceId) {
+        if (availableWorkspaceIds.length > 1) {
+          throw new Error(
+            "Multiple Railway workspaces are accessible. Workspace selection is required before creating a Railway project.",
+          );
+        }
+        throw new Error(
+          "No Railway workspace is accessible for project creation.",
+        );
+      }
       const projectId = await createRailwayProject({
         railwayProvider: args.railwayProvider,
         name: projectName,
+        workspaceId: defaultWorkspaceId,
       });
       project = await getRailwayProjectById({
         railwayProvider: args.railwayProvider,
@@ -1344,13 +1398,14 @@ export async function readHostingInventory(
       };
     }
     case "railway": {
-      const projects = await listRailwayProjects({
+      const projectCatalog = await listRailwayProjects({
         railwayProvider: args.railwayProvider,
       });
       const max = clamp(args.limit, 1, 100);
-      const rows = projects.slice(0, max).map((project) => ({
+      const rows = projectCatalog.projects.slice(0, max).map((project) => ({
         id: project.id,
         name: project.name,
+        workspaceId: project.workspaceId,
         serviceCount: project.services.length,
         environmentCount: project.environments.length,
       }));

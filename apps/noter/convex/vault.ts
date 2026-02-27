@@ -314,6 +314,7 @@ const getUserVaultsResult = array(
     hostingProvider: optional(hostingProviderValidator),
     hasConvexProvision: boolean(),
     hasNetlifyProvision: boolean(),
+    hasHostingProvision: boolean(),
     daytonaSandboxId: optional(string()),
     daytonaSandboxName: optional(string()),
     daytonaSandboxCreatedAt: optional(number()),
@@ -375,6 +376,11 @@ export const getUserVaults = query({
           typeof infra?.convexDeploymentName === "string";
         const hasNetlifyProvision =
           typeof resolveNetlifySiteId(infra) === "string";
+        const hasRailwayProvision =
+          infra?.hosting?.provider === "railway" &&
+          typeof infra.hosting.projectId === "string" &&
+          infra.hosting.projectId.length > 0;
+        const hasHostingProvision = hasNetlifyProvision || hasRailwayProvision;
 
         return {
           _id: vault._id,
@@ -392,6 +398,7 @@ export const getUserVaults = query({
           hostingProvider: vault.hostingProvider,
           hasConvexProvision,
           hasNetlifyProvision,
+          hasHostingProvision,
           daytonaSandboxId: vault.daytonaSandboxId,
           daytonaSandboxName: vault.daytonaSandboxName,
           daytonaSandboxCreatedAt: vault.daytonaSandboxCreatedAt,

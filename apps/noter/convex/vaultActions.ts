@@ -8,7 +8,9 @@ import { Daytona } from "@daytonaio/sdk";
 import { getUserId } from "./common";
 import { getEnvLabel } from "./env";
 import { createInfraProviders } from "./infraProviders";
+import { isRailwayHostingPilotEnabled } from "./hostingPilot";
 import { deleteHostingResources } from "./hostingProviders";
+import { hostingProviderValidator } from "./hostingState";
 import { resolveNetlifySiteId } from "./hostingStateHelpers";
 import { toErrorMessage } from "./jsonUtils";
 import { toSafeRepoName } from "./repoName";
@@ -17,6 +19,8 @@ import {
   seedRepositoryWithStarter,
 } from "./starterSeed";
 import { agentTemplateManifest } from "./agentSeedManifest.generated";
+
+const { optional } = v;
 
 function isProviderNotFoundError(error: unknown): boolean {
   if (typeof error === "object" && error !== null) {
@@ -248,30 +252,50 @@ export const connectRepository = action({
 export const createRepository = action({
   args: {
     name: v.string(),
-    description: v.optional(v.string()),
-    private: v.optional(v.boolean()),
-    templateType: v.optional(v.union(v.literal("app"), v.literal("agent"))),
+    description: optional(v.string()),
+    private: optional(v.boolean()),
+    templateType: optional(v.union(v.literal("app"), v.literal("agent"))),
+    hostingProvider: optional(hostingProviderValidator),
   },
   returns: v.object({
     vaultId: v.string(),
   }),
   handler: async (ctx, args): Promise<{ vaultId: string }> => {
     const userId = await getUserId(ctx);
-    const [githubConnection, convexConnection, netlifyConnection] =
-      await Promise.all([
-        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-          userId,
-          kind: "github",
-        }),
-        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-          userId,
-          kind: "convex",
-        }),
-        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-          userId,
-          kind: "netlify",
-        }),
-      ]);
+    const requestedHostingProvider = args.hostingProvider ?? "netlify";
+
+    if (
+      requestedHostingProvider === "railway" &&
+      !isRailwayHostingPilotEnabled()
+    ) {
+      throw new Error(
+        "Railway hosting pilot is not enabled in this environment. Select Netlify to continue.",
+      );
+    }
+
+    const [
+      githubConnection,
+      convexConnection,
+      netlifyConnection,
+      railwayConnection,
+    ] = await Promise.all([
+      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+        userId,
+        kind: "github",
+      }),
+      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+        userId,
+        kind: "convex",
+      }),
+      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+        userId,
+        kind: "netlify",
+      }),
+      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+        userId,
+        kind: "railway",
+      }),
+    ]);
 
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected");
@@ -279,8 +303,21 @@ export const createRepository = action({
     if (convexConnection?.kind !== "convex") {
       throw new Error("Convex connection is required to create a project.");
     }
-    if (netlifyConnection?.kind !== "netlify") {
-      throw new Error("Netlify connection is required to create a project.");
+    if (
+      requestedHostingProvider === "netlify" &&
+      netlifyConnection?.kind !== "netlify"
+    ) {
+      throw new Error(
+        "Netlify connection is required to create a Netlify-hosted project.",
+      );
+    }
+    if (
+      requestedHostingProvider === "railway" &&
+      railwayConnection?.kind !== "railway"
+    ) {
+      throw new Error(
+        "Railway connection is required to create a Railway-hosted project.",
+      );
     }
 
     const repoName = toSafeRepoName(args.name);
@@ -364,7 +401,7 @@ export const createRepository = action({
       treeData: tree.data,
       state: "ready",
       isNoterManaged: true,
-      hostingProvider: "netlify",
+      hostingProvider: requestedHostingProvider,
     });
 
     await ctx.scheduler.runAfter(
