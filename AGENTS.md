@@ -303,6 +303,8 @@ Auth:
   chat context.
 - For this operator, keep responses concise by default and always include a
   final `Summary` section.
+- Runtime bootstrap rule: use `make anon` when operating from a git worktree,
+  and use `make run` when operating from the primary local checkout.
 - When asked for OAuth redirect URLs or env vars, give a single exact
   recommendation. Do not present multiple options or alternate env var lookups.
 - Avoid adding unusual options or flags unless there is a clear, stated reason
