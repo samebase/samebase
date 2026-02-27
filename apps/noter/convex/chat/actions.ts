@@ -409,6 +409,33 @@ export const executeApprovedProdRead = internalAction({
           },
         );
       } else if (
+        request.provider === "railway" &&
+        request.resourceKind === "deployment_status"
+      ) {
+        if (!request.vaultId) {
+          throw new Error("Vault context is required for Railway status");
+        }
+        executionResult = await ctx.runAction(
+          internal.infraRead.getRailwaySiteStatus,
+          {
+            vaultId: request.vaultId,
+          },
+        );
+      } else if (
+        request.provider === "railway" &&
+        request.resourceKind === "logs"
+      ) {
+        if (!request.vaultId) {
+          throw new Error("Vault context is required for Railway logs");
+        }
+        executionResult = await ctx.runAction(
+          internal.infraRead.getRailwayLogs,
+          {
+            vaultId: request.vaultId,
+            maxEntries: parseOptionalPositiveNumber(params["maxEntries"]),
+          },
+        );
+      } else if (
         request.provider === "convex" &&
         request.resourceKind === "data_query"
       ) {
@@ -440,6 +467,17 @@ export const executeApprovedProdRead = internalAction({
       ) {
         executionResult = await ctx.runAction(
           internal.infraRead.getNetlifySiteInventory,
+          {
+            limit: parseOptionalPositiveNumber(params["limit"]),
+            userId: request.requesterUserId,
+          },
+        );
+      } else if (
+        request.provider === "railway" &&
+        request.resourceKind === "site_inventory"
+      ) {
+        executionResult = await ctx.runAction(
+          internal.infraRead.getRailwayProjectInventory,
           {
             limit: parseOptionalPositiveNumber(params["limit"]),
             userId: request.requesterUserId,

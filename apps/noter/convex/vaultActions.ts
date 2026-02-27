@@ -423,21 +423,29 @@ export const deleteVault = action({
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    const [githubConnection, convexConnection, netlifyConnection] =
-      await Promise.all([
-        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-          userId,
-          kind: "github",
-        }),
-        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-          userId,
-          kind: "convex",
-        }),
-        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-          userId,
-          kind: "netlify",
-        }),
-      ]);
+    const [
+      githubConnection,
+      convexConnection,
+      netlifyConnection,
+      railwayConnection,
+    ] = await Promise.all([
+      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+        userId,
+        kind: "github",
+      }),
+      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+        userId,
+        kind: "convex",
+      }),
+      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+        userId,
+        kind: "netlify",
+      }),
+      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+        userId,
+        kind: "railway",
+      }),
+    ]);
     let octokit: Octokit | null = null;
     const getOctokit = async (): Promise<Octokit> => {
       if (octokit) {
@@ -470,10 +478,19 @@ export const deleteVault = action({
     );
 
     const netlifySiteId = resolveNetlifySiteId(infrastructure);
-    const shouldRemoveNetlifyProvision =
+    const railwayProjectId =
+      infrastructure?.hosting?.provider === "railway"
+        ? infrastructure.hosting.projectId
+        : undefined;
+    const hostingProvider =
+      infrastructure?.hosting?.provider ??
+      (typeof netlifySiteId === "string" ? "netlify" : undefined);
+    const shouldRemoveHostingProvision =
       args.removeNetlifyProvision === true &&
       vault.isNoterManaged === true &&
-      typeof netlifySiteId === "string";
+      ((hostingProvider === "netlify" && typeof netlifySiteId === "string") ||
+        (hostingProvider === "railway" &&
+          typeof railwayProjectId === "string"));
     const shouldRemoveConvexProvision =
       args.removeConvexProvision === true &&
       vault.isNoterManaged === true &&
@@ -484,7 +501,7 @@ export const deleteVault = action({
     const shouldRemoveCodespaces = args.removeCodespaces === true;
     const shouldRemoveDaytonaResources = args.removeDaytonaResources === true;
 
-    if (shouldRemoveNetlifyProvision || shouldRemoveConvexProvision) {
+    if (shouldRemoveHostingProvision || shouldRemoveConvexProvision) {
       const convexToken = shouldRemoveConvexProvision
         ? convexConnection?.kind === "convex"
           ? convexConnection.auth.credential
@@ -493,27 +510,61 @@ export const deleteVault = action({
       if (shouldRemoveConvexProvision && !convexToken) {
         throw new Error("Convex connection is required to remove resources.");
       }
-      const netlifyToken = shouldRemoveNetlifyProvision
-        ? netlifyConnection?.kind === "netlify"
-          ? netlifyConnection.auth.credential
-          : undefined
-        : undefined;
-      if (shouldRemoveNetlifyProvision && !netlifyToken) {
+      const netlifyToken =
+        shouldRemoveHostingProvision && hostingProvider === "netlify"
+          ? netlifyConnection?.kind === "netlify"
+            ? netlifyConnection.auth.credential
+            : undefined
+          : undefined;
+      if (
+        shouldRemoveHostingProvision &&
+        hostingProvider === "netlify" &&
+        !netlifyToken
+      ) {
         throw new Error("Netlify connection is required to remove resources.");
+      }
+      const railwayToken =
+        shouldRemoveHostingProvision && hostingProvider === "railway"
+          ? railwayConnection?.kind === "railway"
+            ? railwayConnection.auth.credential
+            : undefined
+          : undefined;
+      if (
+        shouldRemoveHostingProvision &&
+        hostingProvider === "railway" &&
+        !railwayToken
+      ) {
+        throw new Error("Railway connection is required to remove resources.");
       }
 
       const providers = createInfraProviders({
         convexToken,
         netlifyToken,
+        railwayToken,
       });
 
-      if (shouldRemoveNetlifyProvision) {
+      if (shouldRemoveHostingProvision && hostingProvider === "netlify") {
         if (typeof netlifySiteId === "string") {
           try {
             await deleteHostingResources({
               provider: "netlify",
               netlifyProvider: providers.netlify,
               siteId: netlifySiteId,
+            });
+          } catch (error) {
+            if (!isProviderNotFoundError(error)) {
+              throw error;
+            }
+          }
+        }
+      }
+      if (shouldRemoveHostingProvision && hostingProvider === "railway") {
+        if (typeof railwayProjectId === "string") {
+          try {
+            await deleteHostingResources({
+              provider: "railway",
+              railwayProvider: providers.railway,
+              projectId: railwayProjectId,
             });
           } catch (error) {
             if (!isProviderNotFoundError(error)) {

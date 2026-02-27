@@ -90,9 +90,9 @@ It explicitly does not own:
 ## Implementation Progress
 
 - [x] Phase 1 complete: Netlify abstraction extraction
-- [ ] Phase 2 complete: Schema and API alignment
-- [ ] Phase 3 complete: Railway provider connection
-- [ ] Phase 4 complete: Railway hosting implementation
+- [x] Phase 2 complete: Schema and API alignment
+- [x] Phase 3 complete: Railway provider connection
+- [x] Phase 4 complete: Railway hosting implementation
 - [ ] Phase 5 complete: Provider selection and pilot rollout
 - [ ] Phase 6 complete: Pilot evaluation and decision
 
@@ -111,36 +111,36 @@ Exit criteria:
 
 ### Phase 2: Schema and API alignment for multi-hosting
 
-- [ ] Introduce provider-aware hosting state and typed results.
-- [ ] Add additive schema updates only.
-- [ ] Keep backward compatibility for existing Netlify records and queries.
+- [x] Introduce provider-aware hosting state and typed results.
+- [x] Add additive schema updates only.
+- [x] Keep backward compatibility for existing Netlify records and queries.
 
 Exit criteria:
 
-- [ ] Existing vaults continue to function without migration breakage.
-- [ ] New types compile with strict provider discrimination.
+- [x] Existing vaults continue to function without migration breakage.
+- [x] New types compile with strict provider discrimination.
 
 ### Phase 3: Railway provider connection
 
-- [ ] Add Railway OAuth connect/disconnect/status surface.
-- [ ] Persist required Railway token metadata for long-lived access.
-- [ ] Add Railway connection UI beside existing providers.
+- [x] Add Railway OAuth connect/disconnect/status surface.
+- [x] Persist required Railway token metadata for long-lived access.
+- [x] Add Railway connection UI beside existing providers.
 
 Exit criteria:
 
-- [ ] User can connect Railway and see stable connection state.
-- [ ] Netlify connection flow remains unchanged.
+- [x] User can connect Railway and see stable connection state.
+- [x] Netlify connection flow remains unchanged.
 
 ### Phase 4: Railway hosting implementation
 
-- [ ] Implement Railway provisioning through the hosting boundary.
-- [ ] Implement Railway status/log/inventory reads for prod-approval flow.
-- [ ] Implement Railway teardown path.
+- [x] Implement Railway provisioning through the hosting boundary.
+- [x] Implement Railway status/log/inventory reads for prod-approval flow.
+- [x] Implement Railway teardown path.
 
 Exit criteria:
 
-- [ ] Railway path can provision a noter-managed vault to a working URL.
-- [ ] Retry and teardown semantics remain idempotent.
+- [x] Railway path can provision a noter-managed vault to a working URL.
+- [x] Retry and teardown semantics remain idempotent.
 
 ### Phase 5: Provider selection + pilot rollout
 

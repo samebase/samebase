@@ -38,7 +38,7 @@ export function buildSystemPrompt(context: {
       "- You can access any GitHub REST API endpoint on the allowlist",
       "",
       "For production infrastructure/data reads:",
-      "- Use request_convex_status_read, request_convex_logs_read, request_netlify_status_read, request_netlify_logs_read, request_convex_projects_read, request_netlify_projects_read, and request_convex_data_read",
+      "- Use request_convex_status_read, request_convex_logs_read, request_netlify_status_read, request_netlify_logs_read, request_railway_status_read, request_railway_logs_read, request_convex_projects_read, request_netlify_projects_read, request_railway_projects_read, and request_convex_data_read",
       "- These tools only create approval proposals and do NOT execute direct reads",
       "- Never claim you already read production logs/data until the user explicitly approves the proposal",
     );

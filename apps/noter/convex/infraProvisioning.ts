@@ -536,7 +536,11 @@ export const upsertDomainRecord = internalMutation({
     branch: v.string(),
     kind: v.union(v.literal("main"), v.literal("branch_preview")),
     url: v.string(),
-    source: v.union(v.literal("netlify_default"), v.literal("netlify_custom")),
+    source: v.union(
+      v.literal("netlify_default"),
+      v.literal("netlify_custom"),
+      v.literal("railway_default"),
+    ),
     active: v.boolean(),
   },
   returns: v.null(),
@@ -631,25 +635,33 @@ export const provisionVaultInfrastructure = internalAction({
     });
 
     let convexSuccess = false;
-    let netlifySuccess = false;
+    let hostingSuccess = false;
 
     try {
       const defaultBranch = process.env.INFRA_DEFAULT_BRANCH ?? "main";
-      const [githubConnection, convexConnection, netlifyConnection] =
-        await Promise.all([
-          ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-            userId: vault.userId,
-            kind: "github",
-          }),
-          ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-            userId: vault.userId,
-            kind: "convex",
-          }),
-          ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-            userId: vault.userId,
-            kind: "netlify",
-          }),
-        ]);
+      const [
+        githubConnection,
+        convexConnection,
+        netlifyConnection,
+        railwayConnection,
+      ] = await Promise.all([
+        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId: vault.userId,
+          kind: "github",
+        }),
+        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId: vault.userId,
+          kind: "convex",
+        }),
+        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId: vault.userId,
+          kind: "netlify",
+        }),
+        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId: vault.userId,
+          kind: "railway",
+        }),
+      ]);
 
       if (githubConnection?.kind !== "github") {
         throw new Error(
@@ -675,34 +687,48 @@ export const provisionVaultInfrastructure = internalAction({
 
       const requestedHostingProvider: ProvisionedByProvider["provider"] =
         vault.hostingProvider ?? "netlify";
-      if (requestedHostingProvider === "railway") {
-        throw new Error(
-          "Railway hosting is not yet supported. Choose Netlify and retry.",
-        );
-      }
       const netlifyToken =
+        requestedHostingProvider === "netlify" &&
         netlifyConnection?.kind === "netlify"
           ? netlifyConnection.auth.credential.trim()
           : "";
       const netlifyTeamSlug =
+        requestedHostingProvider === "netlify" &&
         netlifyConnection?.kind === "netlify"
           ? netlifyConnection.teamSlug?.trim() ?? ""
           : "";
       const netlifyTeamId =
+        requestedHostingProvider === "netlify" &&
         netlifyConnection?.kind === "netlify"
           ? netlifyConnection.teamId.trim()
           : "";
       const netlifyTeam = netlifyTeamSlug || netlifyTeamId;
+      const railwayToken =
+        requestedHostingProvider === "railway" &&
+        railwayConnection?.kind === "railway"
+          ? railwayConnection.auth.credential.trim()
+          : "";
 
-      if (!netlifyToken || !netlifyTeam) {
+      if (
+        requestedHostingProvider === "netlify" &&
+        (!netlifyToken || !netlifyTeam)
+      ) {
         throw new Error(
           "Netlify connection is required to provision infrastructure. Connect Netlify and retry.",
+        );
+      }
+      if (requestedHostingProvider === "railway" && !railwayToken) {
+        throw new Error(
+          "Railway connection is required to provision infrastructure. Connect Railway and retry.",
         );
       }
 
       const providers = createInfraProviders({
         convexToken,
-        netlifyToken,
+        netlifyToken:
+          requestedHostingProvider === "netlify" ? netlifyToken : undefined,
+        railwayToken:
+          requestedHostingProvider === "railway" ? railwayToken : undefined,
       });
 
       const convex = await ensureConvexResources({
@@ -747,36 +773,60 @@ export const provisionVaultInfrastructure = internalAction({
         repo: vault.ghRepoName,
       });
       const netlifyExisting = resolveNetlifyHostingState(existing);
+      const railwayExisting =
+        existing?.hosting?.provider === "railway"
+          ? existing.hosting
+          : undefined;
       const provisionedHosting: ProvisionedByProvider =
-        await ensureHostingResources({
-          provider: "netlify",
-          netlifyProvider: providers.netlify,
-          teamSlug: netlifyTeam,
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
-          ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
-          githubAccessToken,
-          defaultBranch,
-          vaultId: args.vaultId,
-          existing: {
-            siteId: netlifyExisting?.siteId,
-            siteName: netlifyExisting?.siteName,
-            defaultUrl: netlifyExisting?.defaultUrl,
-            productionUrl: netlifyExisting?.productionUrl,
-            buildHookId: netlifyExisting?.buildHookId,
-          },
-          convex: {
-            cloudUrl: convex.convexCloudUrl,
-            siteUrl: convex.convexSiteUrl,
-            deployKey: convex.deployKey,
-          },
-          addGitHubDeployKey,
-          ensureGitHubPushWebhook,
-        });
+        requestedHostingProvider === "netlify"
+          ? await ensureHostingResources({
+              provider: "netlify",
+              netlifyProvider: providers.netlify,
+              teamSlug: netlifyTeam,
+              owner: vault.ghRepoOwner,
+              repo: vault.ghRepoName,
+              ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
+              githubAccessToken,
+              defaultBranch,
+              vaultId: args.vaultId,
+              existing: {
+                siteId: netlifyExisting?.siteId,
+                siteName: netlifyExisting?.siteName,
+                defaultUrl: netlifyExisting?.defaultUrl,
+                productionUrl: netlifyExisting?.productionUrl,
+                buildHookId: netlifyExisting?.buildHookId,
+              },
+              convex: {
+                cloudUrl: convex.convexCloudUrl,
+                siteUrl: convex.convexSiteUrl,
+                deployKey: convex.deployKey,
+              },
+              addGitHubDeployKey,
+              ensureGitHubPushWebhook,
+            })
+          : await ensureHostingResources({
+              provider: "railway",
+              railwayProvider: providers.railway,
+              owner: vault.ghRepoOwner,
+              repo: vault.ghRepoName,
+              defaultBranch,
+              vaultId: args.vaultId,
+              existing: {
+                projectId: railwayExisting?.projectId,
+                environmentId: railwayExisting?.environmentId,
+                serviceId: railwayExisting?.serviceId,
+                domain: railwayExisting?.domain,
+              },
+              convex: {
+                cloudUrl: convex.convexCloudUrl,
+                siteUrl: convex.convexSiteUrl,
+                deployKey: convex.deployKey,
+              },
+            });
 
       switch (provisionedHosting.provider) {
         case "netlify": {
-          netlifySuccess = true;
+          hostingSuccess = true;
 
           await ctx.runMutation(
             internal.infraProvisioning.upsertInfrastructureRecord,
@@ -823,10 +873,54 @@ export const provisionVaultInfrastructure = internalAction({
           });
           break;
         }
-        case "railway":
-          throw new Error(
-            "Railway hosting provisioning is not implemented yet.",
+        case "railway": {
+          hostingSuccess = true;
+
+          await ctx.runMutation(
+            internal.infraProvisioning.upsertInfrastructureRecord,
+            {
+              vaultId: args.vaultId,
+              patch: {
+                status: "ready",
+                provisioningVersion: nextVersion,
+                lastProvisionedAt: Date.now(),
+                hosting: provisionedHosting,
+                netlifySiteId: undefined,
+                netlifySiteName: undefined,
+                netlifyTeamId: undefined,
+                netlifyDefaultUrl: undefined,
+                netlifyProductionUrl: undefined,
+                netlifyBuildHookId: undefined,
+                lastError: undefined,
+              },
+            },
           );
+
+          const mainUrl = getProvisionedMainUrl(provisionedHosting);
+          if (mainUrl) {
+            await ctx.runMutation(
+              internal.infraProvisioning.upsertDomainRecord,
+              {
+                vaultId: args.vaultId,
+                branch: defaultBranch,
+                kind: "main",
+                url: mainUrl,
+                source: "railway_default",
+                active: true,
+              },
+            );
+          }
+
+          console.log("infra:provision:success", {
+            vaultId: args.vaultId,
+            repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+            convexDeploymentName: convex.convexDeploymentName,
+            railwayProject: provisionedHosting.projectId,
+            railwayService: provisionedHosting.serviceId,
+            railwayDomain: provisionedHosting.domain,
+          });
+          break;
+        }
         default:
           provisionedHosting satisfies never;
       }
@@ -839,14 +933,14 @@ export const provisionVaultInfrastructure = internalAction({
       return null;
     } catch (error) {
       const message = toErrorMessage(error);
-      const infraState = convexSuccess || netlifySuccess ? "partial" : "failed";
+      const infraState = convexSuccess || hostingSuccess ? "partial" : "failed";
 
       console.error("infra:provision:failed", {
         vaultId: args.vaultId,
         repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
         infraState,
         convexSuccess,
-        netlifySuccess,
+        hostingSuccess,
         message,
       });
 

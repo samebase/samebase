@@ -60,6 +60,7 @@ export const VaultDomainKind = v.union(
 export const VaultDomainSource = v.union(
   v.literal("netlify_default"),
   v.literal("netlify_custom"),
+  v.literal("railway_default"),
 );
 
 export const ProdAccessScope = v.union(v.literal("vault"), v.literal("global"));
@@ -67,6 +68,7 @@ export const ProdAccessScope = v.union(v.literal("vault"), v.literal("global"));
 export const ProdAccessProvider = v.union(
   v.literal("convex"),
   v.literal("netlify"),
+  v.literal("railway"),
 );
 
 export const ProdAccessResourceKind = v.union(
