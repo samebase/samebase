@@ -675,6 +675,11 @@ export const provisionVaultInfrastructure = internalAction({
 
       const requestedHostingProvider: ProvisionedByProvider["provider"] =
         vault.hostingProvider ?? "netlify";
+      if (requestedHostingProvider === "railway") {
+        throw new Error(
+          "Railway hosting is not yet supported. Choose Netlify and retry.",
+        );
+      }
       const netlifyToken =
         netlifyConnection?.kind === "netlify"
           ? netlifyConnection.auth.credential.trim()
@@ -747,35 +752,31 @@ export const provisionVaultInfrastructure = internalAction({
       });
       const netlifyExisting = resolveNetlifyHostingState(existing);
       const provisionedHosting: ProvisionedByProvider =
-        requestedHostingProvider === "netlify"
-          ? await ensureHostingResources({
-              provider: "netlify",
-              netlifyProvider: providers.netlify,
-              teamSlug: netlifyTeam,
-              owner: vault.ghRepoOwner,
-              repo: vault.ghRepoName,
-              ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
-              githubAccessToken,
-              defaultBranch,
-              vaultId: args.vaultId,
-              existing: {
-                siteId: netlifyExisting?.siteId,
-                siteName: netlifyExisting?.siteName,
-                defaultUrl: netlifyExisting?.defaultUrl,
-                productionUrl: netlifyExisting?.productionUrl,
-                buildHookId: netlifyExisting?.buildHookId,
-              },
-              convex: {
-                cloudUrl: convex.convexCloudUrl,
-                siteUrl: convex.convexSiteUrl,
-                deployKey: convex.deployKey,
-              },
-              addGitHubDeployKey,
-              ensureGitHubPushWebhook,
-            })
-          : await ensureHostingResources({
-              provider: "railway",
-            });
+        await ensureHostingResources({
+          provider: "netlify",
+          netlifyProvider: providers.netlify,
+          teamSlug: netlifyTeam,
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
+          githubAccessToken,
+          defaultBranch,
+          vaultId: args.vaultId,
+          existing: {
+            siteId: netlifyExisting?.siteId,
+            siteName: netlifyExisting?.siteName,
+            defaultUrl: netlifyExisting?.defaultUrl,
+            productionUrl: netlifyExisting?.productionUrl,
+            buildHookId: netlifyExisting?.buildHookId,
+          },
+          convex: {
+            cloudUrl: convex.convexCloudUrl,
+            siteUrl: convex.convexSiteUrl,
+            deployKey: convex.deployKey,
+          },
+          addGitHubDeployKey,
+          ensureGitHubPushWebhook,
+        });
 
       switch (provisionedHosting.provider) {
         case "netlify": {
@@ -791,6 +792,7 @@ export const provisionVaultInfrastructure = internalAction({
                 lastProvisionedAt: Date.now(),
                 hosting: provisionedHosting,
 
+                // Deprecated compatibility fields; prefer `hosting` and remove these after migration.
                 netlifySiteId: provisionedHosting.siteId,
                 netlifySiteName: provisionedHosting.siteName,
                 netlifyTeamId: provisionedHosting.teamId,
