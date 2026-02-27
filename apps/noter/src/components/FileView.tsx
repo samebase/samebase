@@ -380,6 +380,9 @@ function FileViewInner({
   const [commitStaging, manualComittingStatus] = useConvexAction(
     api.fileStagingActions.commitStaging,
   );
+  const [clearAllStaging, clearingStagingStatus] = useConvexMutation(
+    api.fileStaging.clearAllStaging,
+  );
 
   const [markFileForDeletion] = useConvexMutation(
     api.fileStaging.markFileForDeletion,
@@ -695,6 +698,14 @@ function FileViewInner({
       console.error("Failed to commit changes:", error);
     });
   }, [commitStaging, repositoryFullName]);
+
+  const handleResetToGitHub = useCallback(() => {
+    void clearAllStaging({
+      vaultId: vault._id,
+    }).catch((error) => {
+      console.error("Failed to reset staged files:", error);
+    });
+  }, [clearAllStaging, vault._id]);
 
   const handleFolderToggle = useCallback(
     (folderPath: string, isExpanded: boolean) => {
@@ -1020,6 +1031,21 @@ function FileViewInner({
                       : hasChangesToCommit
                         ? "Commit Now"
                         : "All Synced"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleResetToGitHub}
+                    disabled={
+                      clearingStagingStatus === "loading" ||
+                      manualComittingStatus === "loading" ||
+                      !hasChangesToCommit
+                    }
+                    className="h-6 px-2 text-xs text-orange-600 hover:text-orange-700"
+                  >
+                    {clearingStagingStatus === "loading"
+                      ? "Resetting..."
+                      : "Reset to GitHub"}
                   </Button>
                 </div>
               </div>
