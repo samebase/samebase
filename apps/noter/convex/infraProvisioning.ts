@@ -694,10 +694,7 @@ export const provisionVaultInfrastructure = internalAction({
           : "";
       const netlifyTeam = netlifyTeamSlug || netlifyTeamId;
 
-      if (
-        requestedHostingProvider === "netlify" &&
-        (!netlifyToken || !netlifyTeam)
-      ) {
+      if (!netlifyToken || !netlifyTeam) {
         throw new Error(
           "Netlify connection is required to provision infrastructure. Connect Netlify and retry.",
         );
@@ -705,8 +702,7 @@ export const provisionVaultInfrastructure = internalAction({
 
       const providers = createInfraProviders({
         convexToken,
-        netlifyToken:
-          requestedHostingProvider === "netlify" ? netlifyToken : undefined,
+        netlifyToken,
       });
 
       const convex = await ensureConvexResources({
