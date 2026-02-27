@@ -305,6 +305,10 @@ Auth:
   final `Summary` section.
 - Runtime bootstrap rule: use `make anon` when operating from a git worktree,
   and use `make run` when operating from the primary local checkout.
+- In a worktree, `make anon` is the full startup command (do not run `pnpm dev`
+  separately afterward).
+- Worktree frontend should avoid port `5173` so OAuth flows on main checkout
+  stay unaffected (default worktree dev port: `5174`).
 - When asked for OAuth redirect URLs or env vars, give a single exact
   recommendation. Do not present multiple options or alternate env var lookups.
 - Avoid adding unusual options or flags unless there is a clear, stated reason
