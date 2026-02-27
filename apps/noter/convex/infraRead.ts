@@ -6,6 +6,11 @@ import type { ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { allowedInfraReadTable } from "./infraReadQueries";
 import { createInfraProviders } from "./infraProviders";
+import {
+  readHostingInventory,
+  readHostingLogs,
+  readHostingSiteStatus,
+} from "./hostingProviders";
 import type { Doc, Id } from "./_generated/dataModel";
 
 type JsonRecord = Record<string, unknown>;
@@ -218,15 +223,12 @@ export const getNetlifySiteStatus = internalAction({
     const providers = createInfraProviders({
       netlifyToken: resolveNetlifyToken(netlifyConnection),
     });
-    const endpoint = `/sites/${encodeURIComponent(infra.netlifySiteId)}`;
-    const payload = await providers.netlify.request(endpoint, "GET");
-
-    return {
-      summary: `Netlify site status for ${infra.netlifySiteName ?? infra.netlifySiteId}`,
-      endpoint,
-      raw: JSON.stringify(payload, null, 2),
-      rowCount: 1,
-    };
+    return await readHostingSiteStatus({
+      provider: "netlify",
+      netlifyProvider: providers.netlify,
+      siteId: infra.netlifySiteId,
+      siteName: infra.netlifySiteName,
+    });
   },
 });
 
@@ -249,52 +251,12 @@ export const getNetlifyLogs = internalAction({
     const providers = createInfraProviders({
       netlifyToken: resolveNetlifyToken(netlifyConnection),
     });
-    const maxEntries = clamp(args.maxEntries ?? 10, 1, 50);
-    const deploysEndpoint = `/sites/${encodeURIComponent(infra.netlifySiteId)}/deploys?per_page=${maxEntries}&page=1`;
-    const buildsEndpoint = `/sites/${encodeURIComponent(infra.netlifySiteId)}/builds?per_page=${maxEntries}&page=1`;
-
-    const deploysPayload = await providers.netlify.request(
-      deploysEndpoint,
-      "GET",
-    );
-    const buildsPayload = await providers.netlify.request(
-      buildsEndpoint,
-      "GET",
-    );
-
-    const lines: string[] = [];
-
-    const deploys = Array.isArray(deploysPayload) ? deploysPayload : [];
-    for (const deploy of deploys) {
-      const record = asRecord(deploy);
-      const createdAt = readString(record, "created_at") ?? "unknown";
-      const state = readString(record, "state") ?? "unknown";
-      const context = readString(record, "context") ?? "unknown";
-      const branch = readString(record, "branch") ?? "unknown";
-      const errorMessage = readString(record, "error_message");
-      lines.push(
-        `${createdAt} deploy state=${state} context=${context} branch=${branch}` +
-          (errorMessage ? ` error=${errorMessage}` : ""),
-      );
-    }
-
-    const builds = Array.isArray(buildsPayload) ? buildsPayload : [];
-    for (const build of builds) {
-      const record = asRecord(build);
-      const createdAt = readString(record, "created_at") ?? "unknown";
-      const done = record["done"] === true;
-      const error = readString(record, "error") ?? "";
-      lines.push(
-        `${createdAt} build done=${done}` + (error ? ` error=${error}` : ""),
-      );
-    }
-
-    return {
-      summary: `Netlify deploy/build activity for site ${infra.netlifySiteId}`,
-      endpoint: `${deploysEndpoint} + ${buildsEndpoint}`,
-      raw: lines.join("\n") || "No deploy/build activity entries returned.",
-      logLineCount: lines.length,
-    };
+    return await readHostingLogs({
+      provider: "netlify",
+      netlifyProvider: providers.netlify,
+      siteId: infra.netlifySiteId,
+      maxEntries: clamp(args.maxEntries ?? 10, 1, 50),
+    });
   },
 });
 
@@ -352,19 +314,12 @@ export const getNetlifySiteInventory = internalAction({
       netlifyToken: resolveNetlifyToken(netlifyConnection),
     });
     const teamSlug = resolveNetlifyTeamSlug(netlifyConnection);
-    const max = clamp(args.limit ?? 50, 1, 100);
-    const endpoint = `/${encodeURIComponent(teamSlug)}/sites?per_page=${max}&page=1`;
-    const payload = await providers.netlify.request(endpoint, "GET");
-
-    const sites = Array.isArray(payload) ? payload : [];
-    const rows = sites.slice(0, max);
-
-    return {
-      summary: `Netlify site inventory for team ${teamSlug}`,
-      endpoint,
-      raw: JSON.stringify(rows, null, 2),
-      rowCount: rows.length,
-    };
+    return await readHostingInventory({
+      provider: "netlify",
+      netlifyProvider: providers.netlify,
+      teamSlug,
+      limit: clamp(args.limit ?? 50, 1, 100),
+    });
   },
 });
 

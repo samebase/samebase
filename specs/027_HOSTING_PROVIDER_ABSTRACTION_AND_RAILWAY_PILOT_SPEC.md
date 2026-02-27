@@ -89,7 +89,7 @@ It explicitly does not own:
 
 ## Implementation Progress
 
-- [ ] Phase 1 complete: Netlify abstraction extraction
+- [x] Phase 1 complete: Netlify abstraction extraction
 - [ ] Phase 2 complete: Schema and API alignment
 - [ ] Phase 3 complete: Railway provider connection
 - [ ] Phase 4 complete: Railway hosting implementation
@@ -98,16 +98,16 @@ It explicitly does not own:
 
 ### Phase 1: Netlify abstraction extraction (no behavior change)
 
-- [ ] Add hosting provider function contract and `switch(provider)` dispatch.
-- [ ] Move existing Netlify provisioning/read/teardown logic behind this
+- [x] Add hosting provider function contract and `switch(provider)` dispatch.
+- [x] Move existing Netlify provisioning/read/teardown logic behind this
       contract.
-- [ ] Keep Netlify as the only active implementation.
-- [ ] Validate no behavioral regressions.
+- [x] Keep Netlify as the only active implementation.
+- [x] Validate no behavioral regressions.
 
 Exit criteria:
 
-- [ ] Netlify path still passes existing flows.
-- [ ] Callers no longer directly depend on Netlify implementation internals.
+- [x] Netlify path still passes existing flows.
+- [x] Callers no longer directly depend on Netlify implementation internals.
 
 ### Phase 2: Schema and API alignment for multi-hosting
 
