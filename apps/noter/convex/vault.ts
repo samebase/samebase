@@ -11,6 +11,14 @@ import { GithubTreeData } from "./schema";
 import { Id } from "./_generated/dataModel";
 import { getUserId } from "./common";
 import {
+  hostingProviderValidator,
+  hostingStateValidator,
+} from "./hostingState";
+import {
+  resolveHostingMainUrl,
+  resolveNetlifySiteId,
+} from "./hostingStateHelpers";
+import {
   TREE_REFRESH_DEBOUNCE_MS,
   TREE_REFRESH_STALE_LOCK_MS,
 } from "../shared/treeRefresh";
@@ -145,6 +153,7 @@ export const addVault = internalMutation({
     treeData: GithubTreeData,
     state: v.union(v.literal("copying_files"), v.literal("ready")),
     isNoterManaged: v.optional(v.boolean()),
+    hostingProvider: v.optional(hostingProviderValidator),
   },
   handler: async (ctx, args): Promise<Id<"vaults">> => {
     const currentUser = await ctx.runQuery(internal.users.getAuthUser, {});
@@ -168,6 +177,11 @@ export const addVault = internalMutation({
       if (!existingVault.commitSHA && args.commitSHA) {
         await ctx.db.patch(existingVault._id, { commitSHA: args.commitSHA });
       }
+      if (!existingVault.hostingProvider && args.hostingProvider) {
+        await ctx.db.patch(existingVault._id, {
+          hostingProvider: args.hostingProvider,
+        });
+      }
       return existingVault._id;
     }
 
@@ -181,6 +195,7 @@ export const addVault = internalMutation({
       treeData: args.treeData,
       state: args.state,
       isNoterManaged: args.isNoterManaged ?? false,
+      hostingProvider: args.hostingProvider,
       infraState: "not_started",
       infraLastError: undefined,
       infraLastProvisionedAt: undefined,
@@ -296,6 +311,7 @@ const getUserVaultsResult = array(
     treeRefreshStartedAt: optional(number()),
     state: union(literal("copying_files"), literal("ready")),
     isNoterManaged: boolean(),
+    hostingProvider: optional(hostingProviderValidator),
     hasConvexProvision: boolean(),
     hasNetlifyProvision: boolean(),
     daytonaSandboxId: optional(string()),
@@ -357,7 +373,8 @@ export const getUserVaults = query({
         const hasConvexProvision =
           typeof infra?.convexProjectId === "string" ||
           typeof infra?.convexDeploymentName === "string";
-        const hasNetlifyProvision = typeof infra?.netlifySiteId === "string";
+        const hasNetlifyProvision =
+          typeof resolveNetlifySiteId(infra) === "string";
 
         return {
           _id: vault._id,
@@ -372,6 +389,7 @@ export const getUserVaults = query({
           treeRefreshStartedAt: vault.treeRefreshStartedAt,
           state: vault.state,
           isNoterManaged: vault.isNoterManaged ?? false,
+          hostingProvider: vault.hostingProvider,
           hasConvexProvision,
           hasNetlifyProvision,
           daytonaSandboxId: vault.daytonaSandboxId,
@@ -380,8 +398,7 @@ export const getUserVaults = query({
           daytonaSnapshotName: vault.daytonaSnapshotName,
           daytonaPrebuildLogsSnapshot: vault.daytonaPrebuildLogsSnapshot,
           infraState: vault.infraState ?? "not_started",
-          infraProductionUrl:
-            infra?.netlifyProductionUrl ?? infra?.netlifyDefaultUrl,
+          infraProductionUrl: resolveHostingMainUrl(infra),
         };
       }),
     );
@@ -489,6 +506,7 @@ export const getVaultInfrastructure = query({
           convexDeploymentName: v.optional(v.string()),
           convexCloudUrl: v.optional(v.string()),
           convexSiteUrl: v.optional(v.string()),
+          hosting: v.optional(hostingStateValidator),
           netlifySiteId: v.optional(v.string()),
           netlifySiteName: v.optional(v.string()),
           netlifyDefaultUrl: v.optional(v.string()),
@@ -539,6 +557,7 @@ export const getVaultInfrastructure = query({
             convexDeploymentName: infrastructure.convexDeploymentName,
             convexCloudUrl: infrastructure.convexCloudUrl,
             convexSiteUrl: infrastructure.convexSiteUrl,
+            hosting: infrastructure.hosting,
             netlifySiteId: infrastructure.netlifySiteId,
             netlifySiteName: infrastructure.netlifySiteName,
             netlifyDefaultUrl: infrastructure.netlifyDefaultUrl,

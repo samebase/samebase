@@ -1,6 +1,10 @@
 import { defineSchema, defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
+import {
+  hostingProviderValidator,
+  hostingStateValidator,
+} from "./hostingState";
 
 // Helper function to omit keys from an object
 function omit<T extends Record<string, any>, K extends keyof T>(
@@ -192,6 +196,7 @@ export default defineSchema({
 
     state: v.union(v.literal("copying_files"), v.literal("ready")),
     isNoterManaged: v.optional(v.boolean()),
+    hostingProvider: v.optional(hostingProviderValidator),
 
     // Tree refresh mutex: prevents concurrent/redundant GitHub API calls
     lastTreeRefreshAt: v.optional(v.number()),
@@ -239,6 +244,9 @@ export default defineSchema({
     convexCloudUrl: v.optional(v.string()),
     convexSiteUrl: v.optional(v.string()),
     convexDeployKeyId: v.optional(v.string()),
+
+    // Provider-aware hosting state (phase 2+)
+    hosting: v.optional(hostingStateValidator),
 
     // Netlify
     netlifySiteId: v.optional(v.string()),

@@ -14,6 +14,8 @@ import {
   getProvisionedMainUrl,
   type ProvisionedByProvider,
 } from "./hostingProviders";
+import { hostingStateValidator } from "./hostingState";
+import { resolveNetlifyHostingState } from "./hostingStateHelpers";
 import {
   asRecord,
   readString,
@@ -48,6 +50,8 @@ const infraPatchValidator = v.object({
   convexCloudUrl: v.optional(v.string()),
   convexSiteUrl: v.optional(v.string()),
   convexDeployKeyId: v.optional(v.string()),
+
+  hosting: v.optional(hostingStateValidator),
 
   netlifySiteId: v.optional(v.string()),
   netlifySiteName: v.optional(v.string()),
@@ -512,6 +516,8 @@ export const upsertInfrastructureRecord = internalMutation({
       convexSiteUrl: args.patch.convexSiteUrl,
       convexDeployKeyId: args.patch.convexDeployKeyId,
 
+      hosting: args.patch.hosting,
+
       netlifySiteId: args.patch.netlifySiteId,
       netlifySiteName: args.patch.netlifySiteName,
       netlifyTeamId: args.patch.netlifyTeamId,
@@ -621,6 +627,7 @@ export const provisionVaultInfrastructure = internalAction({
       previousVersion: existing?.provisioningVersion ?? 0,
       nextVersion,
       force: args.force ?? false,
+      hostingProvider: vault.hostingProvider ?? "netlify",
     });
 
     let convexSuccess = false;
@@ -666,6 +673,13 @@ export const provisionVaultInfrastructure = internalAction({
         );
       }
 
+      const requestedHostingProvider: ProvisionedByProvider["provider"] =
+        vault.hostingProvider ?? "netlify";
+      if (requestedHostingProvider === "railway") {
+        throw new Error(
+          "Railway hosting is not yet supported. Choose Netlify and retry.",
+        );
+      }
       const netlifyToken =
         netlifyConnection?.kind === "netlify"
           ? netlifyConnection.auth.credential.trim()
@@ -732,7 +746,7 @@ export const provisionVaultInfrastructure = internalAction({
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
       });
-
+      const netlifyExisting = resolveNetlifyHostingState(existing);
       const provisionedHosting: ProvisionedByProvider =
         await ensureHostingResources({
           provider: "netlify",
@@ -745,11 +759,11 @@ export const provisionVaultInfrastructure = internalAction({
           defaultBranch,
           vaultId: args.vaultId,
           existing: {
-            siteId: existing?.netlifySiteId,
-            siteName: existing?.netlifySiteName,
-            defaultUrl: existing?.netlifyDefaultUrl,
-            productionUrl: existing?.netlifyProductionUrl,
-            buildHookId: existing?.netlifyBuildHookId,
+            siteId: netlifyExisting?.siteId,
+            siteName: netlifyExisting?.siteName,
+            defaultUrl: netlifyExisting?.defaultUrl,
+            productionUrl: netlifyExisting?.productionUrl,
+            buildHookId: netlifyExisting?.buildHookId,
           },
           convex: {
             cloudUrl: convex.convexCloudUrl,
@@ -772,7 +786,9 @@ export const provisionVaultInfrastructure = internalAction({
                 status: "ready",
                 provisioningVersion: nextVersion,
                 lastProvisionedAt: Date.now(),
+                hosting: provisionedHosting,
 
+                // Deprecated compatibility fields; prefer `hosting` and remove these after migration.
                 netlifySiteId: provisionedHosting.siteId,
                 netlifySiteName: provisionedHosting.siteName,
                 netlifyTeamId: provisionedHosting.teamId,
