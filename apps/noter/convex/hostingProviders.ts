@@ -73,7 +73,7 @@ async function setNetlifyEnvironmentVariables(args: {
       context,
       value,
     })),
-    is_secret: key.includes("KEY") || key.includes("TOKEN"),
+    is_secret: /KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL/i.test(key),
   }));
 
   try {
@@ -256,7 +256,7 @@ async function ensureNetlifyResources(
       readString(siteRepo, "repo_path") ?? readString(siteRepo, "repo");
     const currentRepoBranch =
       readString(siteRepo, "repo_branch") ?? readString(siteRepo, "branch");
-    let needsRepoPatch =
+    const needsRepoPatch =
       currentRepoPath !== `${args.owner}/${args.repo}` ||
       currentRepoBranch !== args.defaultBranch ||
       typeof netlifyDeployKeyId !== "string" ||
@@ -318,7 +318,6 @@ async function ensureNetlifyResources(
         },
       );
       repoLinkagePatched = true;
-      needsRepoPatch = false;
     }
 
     step = "list_build_hooks";
