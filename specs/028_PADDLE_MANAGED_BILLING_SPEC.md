@@ -56,30 +56,48 @@ so entitlement reads and writes stay consistent.
 
 ## Convex Data Model Additions
 
-Add tables to `apps/noter/convex/schema.ts`:
+Add tables to `apps/noter/convex/schema.ts` using explicit Convex validators and
+indexes (matching existing schema conventions):
 
 1. `billingCustomers`
-   - `userId`
-   - `paddleCustomerId`
-   - `email` (optional; store only if required for support/reconciliation)
-   - `createdAt`
-   - `updatedAt`
+   - fields:
+     - `userId: v.id("users")`
+     - `paddleCustomerId: v.string()`
+     - `email: v.optional(v.string())` (only if required)
+     - `createdAt: v.number()`
+     - `updatedAt: v.number()`
+   - indexes:
+     - `by_user` on `userId`
+     - `by_paddle_customer` on `paddleCustomerId`
 2. `billingSubscriptions`
-   - `userId`
-   - `paddleSubscriptionId`
-   - `paddleCustomerId`
-   - `status` (mapped from Paddle subscription status)
-   - `planPriceId`
-   - `currentPeriodEndsAt`
-   - `canceledAt`
-   - `updatedAt`
+   - define a validator-first status contract (for example
+     `BillingSubscriptionStatus = v.union(...)`)
+   - fields:
+     - `userId: v.id("users")`
+     - `paddleSubscriptionId: v.string()`
+     - `paddleCustomerId: v.string()`
+     - `status: BillingSubscriptionStatus`
+     - `planPriceId: v.string()`
+     - `currentPeriodEndsAt: v.optional(v.number())`
+     - `canceledAt: v.optional(v.number())`
+     - `updatedAt: v.number()`
+   - indexes:
+     - `by_user` on `userId`
+     - `by_paddle_subscription` on `paddleSubscriptionId`
+     - `by_status` on `status`
 3. `billingEvents`
-   - `eventId` (unique/idempotency key)
-   - `eventType`
-   - `occurredAt`
-   - `processedAt`
-   - `status` (`processed` | `ignored` | `failed`)
-   - `error` (optional)
+   - fields:
+     - `eventId: v.string()` (idempotency key)
+     - `eventType: v.string()`
+     - `occurredAt: v.number()`
+     - `processedAt: v.optional(v.number())`
+     - `status: v.union(v.literal("processed"), v.literal("ignored"), v.literal("failed"))`
+     - `error: v.optional(v.string())`
+   - indexes:
+     - `by_event_id` on `eventId`
+     - `by_status` on `status`
+   - idempotency rule:
+     - query by `eventId` before insert, skip if already processed
 
 ## Backend Integration
 
@@ -96,6 +114,9 @@ Add routes in `apps/noter/convex/http.ts`:
 Implement `apps/noter/convex/paddleWebhooks.ts`:
 
 1. Verify `Paddle-Signature` using endpoint secret and raw request body.
+   - read raw body first (`const rawBody = await request.text()`)
+   - verify signature against `rawBody`
+   - only then parse JSON (`JSON.parse(rawBody)`)
 2. Reject invalid signatures with `401`.
 3. Ensure idempotency with `billingEvents.eventId`.
 4. Process key events:
@@ -104,22 +125,31 @@ Implement `apps/noter/convex/paddleWebhooks.ts`:
    - `subscription.canceled`
    - optional support signals: `subscription.past_due`, `transaction.completed`
 5. Normalize and persist entitlement state using the canonical contract.
-6. Upsert `billingCustomers` and `billingSubscriptions`.
+6. Persist customer/subscription records with query-then-insert-or-patch (Convex
+   has no native upsert).
 
 ### Actions/Queries
 
 Implement `apps/noter/convex/billingActions.ts`:
 
 1. `startManagedCheckout`
+   - public `action`
+   - explicit `args` and `returns` validators
    - creates Paddle transaction/checkout with `custom_data` containing Noter
      `userId`
    - returns checkout URL/token for frontend
 2. `createCustomerPortalSession`
+   - public `action`
+   - explicit `args` and `returns` validators
    - creates short-lived portal session URL
 3. `getBillingEntitlement`
+   - public `query`
+   - explicit `args` and `returns` validators
    - single source of truth for managed entitlement checks
    - returns `allowed` plus normalized metadata (`state`, `graceRemainingMs`,
      `currentPeriodEndsAt`)
+4. Internal write helpers (for webhooks) should be `internalMutation`s with
+   validator-first argument contracts.
 
 ### Managed Creation Gate
 
