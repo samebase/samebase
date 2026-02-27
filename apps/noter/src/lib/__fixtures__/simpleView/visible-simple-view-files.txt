@@ -12,6 +12,7 @@ CHAT_SPEC.md
 CONVEX_CODEGEN_CI.md
 Ideas/E2b.md
 Ideas/README.md
+Ideas/signin-view-code-prosemark.md
 Ideas/to-do.md
 LUMINA_PROJECT_ANALYSIS.md
 patches/convex@1.32.0.patch
