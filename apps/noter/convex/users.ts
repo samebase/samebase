@@ -6,6 +6,8 @@ import { getConnectionByUserAndKind } from "./providerConnections";
 import { isRailwayHostingPilotEnabled } from "./hostingPilot";
 import { isRecord, readBoolean, readString } from "./jsonUtils";
 
+const { array, boolean, literal, object, optional, string, union } = v;
+
 const ADMIN_USERNAMES = ["nicu-chiciuc"];
 const ADMIN_EMAILS = new Set([
   "nicu.dev@gmail.com",
@@ -22,20 +24,17 @@ const GITHUB_API_BASE = "https://api.github.com";
 const CONVEX_TOKEN_DETAILS_URL = "https://api.convex.dev/v1/token_details";
 const NETLIFY_API_BASE = "https://api.netlify.com/api/v1";
 
-const authProviderSummaryValidator = v.object({
-  providers: v.array(v.string()),
-  primaryProvider: v.optional(v.string()),
+const authProviderSummaryValidator = object({
+  providers: array(string()),
+  primaryProvider: optional(string()),
 });
 type AuthProviderSummary = Infer<typeof authProviderSummaryValidator>;
 
-const hostingPilotStatusValidator = v.object({
-  railwayHostingPilotEnabled: v.boolean(),
+const hostingPilotStatusValidator = object({
+  railwayHostingPilotEnabled: boolean(),
 });
 
-const providerAuthMethodValidator = v.union(
-  v.literal("oauth"),
-  v.literal("api_key"),
-);
+const providerAuthMethodValidator = union(literal("oauth"), literal("api_key"));
 
 type JsonRecord = Record<string, unknown>;
 type NetlifyAccount = {

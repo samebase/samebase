@@ -20,6 +20,8 @@ import {
 } from "./starterSeed";
 import { agentTemplateManifest } from "./agentSeedManifest.generated";
 
+const { optional } = v;
+
 function isProviderNotFoundError(error: unknown): boolean {
   if (typeof error === "object" && error !== null) {
     const status = Reflect.get(error, "status");
@@ -250,10 +252,10 @@ export const connectRepository = action({
 export const createRepository = action({
   args: {
     name: v.string(),
-    description: v.optional(v.string()),
-    private: v.optional(v.boolean()),
-    templateType: v.optional(v.union(v.literal("app"), v.literal("agent"))),
-    hostingProvider: v.optional(hostingProviderValidator),
+    description: optional(v.string()),
+    private: optional(v.boolean()),
+    templateType: optional(v.union(v.literal("app"), v.literal("agent"))),
+    hostingProvider: optional(hostingProviderValidator),
   },
   returns: v.object({
     vaultId: v.string(),
