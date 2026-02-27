@@ -36,6 +36,24 @@ subscription webhooks, not checkout redirect callbacks.
 3. If subscription becomes past due/canceled, managed creation is blocked.
 4. Existing managed vaults are not auto-deleted by billing status changes.
 
+## Entitlement Contract (Canonical)
+
+Use one shared helper (`getBillingEntitlement`) for all access decisions.
+Webhook processing and `vaultActions.createRepository` gating must use the same
+contract:
+
+1. Allowed states: `active`, `trialing`
+2. Blocked states: `past_due`, `paused`, `canceled`, `inactive`
+3. Grace policy for `past_due`: none in v1 (blocked immediately)
+4. Helper output must include:
+   - `allowed` (boolean)
+   - `state` (normalized state)
+   - `graceRemainingMs` (always `0` in v1)
+   - `currentPeriodEndsAt` (optional)
+
+Webhook handlers should store normalized state and timestamps used by the helper
+so entitlement reads and writes stay consistent.
+
 ## Convex Data Model Additions
 
 Add tables to `apps/noter/convex/schema.ts`:
@@ -43,7 +61,7 @@ Add tables to `apps/noter/convex/schema.ts`:
 1. `billingCustomers`
    - `userId`
    - `paddleCustomerId`
-   - `email`
+   - `email` (optional; store only if required for support/reconciliation)
    - `createdAt`
    - `updatedAt`
 2. `billingSubscriptions`
@@ -85,7 +103,8 @@ Implement `apps/noter/convex/paddleWebhooks.ts`:
    - `subscription.updated`
    - `subscription.canceled`
    - optional support signals: `subscription.past_due`, `transaction.completed`
-5. Upsert `billingCustomers` and `billingSubscriptions`.
+5. Normalize and persist entitlement state using the canonical contract.
+6. Upsert `billingCustomers` and `billingSubscriptions`.
 
 ### Actions/Queries
 
@@ -98,7 +117,9 @@ Implement `apps/noter/convex/billingActions.ts`:
 2. `createCustomerPortalSession`
    - creates short-lived portal session URL
 3. `getBillingEntitlement`
-   - returns whether managed creation is allowed
+   - single source of truth for managed entitlement checks
+   - returns `allowed` plus normalized metadata (`state`, `graceRemainingMs`,
+     `currentPeriodEndsAt`)
 
 ### Managed Creation Gate
 
@@ -123,6 +144,9 @@ Update `apps/noter/src/components/VaultDashboard.tsx`:
 3. API key scope must be least privilege.
 4. Use server-side API key only in Convex actions/http actions.
 5. Never trust client redirect events for entitlement writes.
+6. Minimize PII in `billingCustomers`; store billing email only when required.
+7. Define retention/deletion policy for billing PII and event error payloads.
+8. Do not log raw webhook payloads that include customer identifiers.
 
 ## Rollout Plan
 
