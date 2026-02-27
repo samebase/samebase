@@ -588,16 +588,16 @@ export function VaultDashboard() {
     return "Unknown";
   };
   const githubStatus = githubConnected
-    ? `Connected as ${githubConnection?.username ?? "GitHub user"} (${formatAuthMethod(githubConnection?.authMethod)})`
+    ? `Connected as ${githubConnection.username ?? "GitHub user"} (${formatAuthMethod(githubConnection.authMethod)})`
     : "Not connected";
   const convexStatus = convexConnected
-    ? `Connected to ${convexConnection?.teamSlug ?? convexConnection?.teamId ?? "Convex team"} (${formatAuthMethod(convexConnection?.authMethod)})`
+    ? `Connected to ${convexConnection.teamSlug ?? convexConnection.teamId ?? "Convex team"} (${formatAuthMethod(convexConnection.authMethod)})`
     : "Not connected";
   const netlifyStatus = netlifyConnected
-    ? `Connected to ${netlifyConnection?.teamSlug ?? netlifyConnection?.teamId ?? "Netlify team"} (${formatAuthMethod(netlifyConnection?.authMethod)})`
+    ? `Connected to ${netlifyConnection.teamSlug ?? netlifyConnection.teamId ?? "Netlify team"} (${formatAuthMethod(netlifyConnection.authMethod)})`
     : "Not connected";
   const railwayStatus = railwayConnected
-    ? `Connected as ${railwayConnection?.name ?? railwayConnection?.email ?? railwayConnection?.accountId ?? "Railway user"} (${formatAuthMethod(railwayConnection?.authMethod)})`
+    ? `Connected as ${railwayConnection.name ?? railwayConnection.email ?? railwayConnection.accountId ?? "Railway user"} (${formatAuthMethod(railwayConnection.authMethod)})`
     : "Not connected";
   const providerConnectionState: Record<
     ProviderKey,
