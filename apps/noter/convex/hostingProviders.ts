@@ -653,6 +653,7 @@ async function listRailwayProjects(args: {
   railwayProvider: RailwayManagementProvider;
 }): Promise<{
   projects: RailwayProjectSummary[];
+  workspaceIds: string[];
   defaultWorkspaceId?: string;
 }> {
   const data = await args.railwayProvider.request(`
@@ -691,16 +692,14 @@ async function listRailwayProjects(args: {
   const me = asRecord(asRecord(data)["me"]);
   const workspacesRaw = Array.isArray(me["workspaces"]) ? me["workspaces"] : [];
   const projects: RailwayProjectSummary[] = [];
-  let defaultWorkspaceId: string | undefined;
+  const workspaceIds: string[] = [];
   for (const workspaceRaw of workspacesRaw) {
     const workspace = asRecord(workspaceRaw);
     const workspaceId = readString(workspace, "id");
     if (!workspaceId) {
       continue;
     }
-    if (!defaultWorkspaceId) {
-      defaultWorkspaceId = workspaceId;
-    }
+    workspaceIds.push(workspaceId);
     const nodes = readRailwayConnectionNodes(workspace["projects"]);
     for (const node of nodes) {
       const parsed = parseRailwayProjectSummary(node, workspaceId);
@@ -709,8 +708,11 @@ async function listRailwayProjects(args: {
       }
     }
   }
+  const defaultWorkspaceId =
+    workspaceIds.length === 1 ? workspaceIds[0] : undefined;
   return {
     projects,
+    workspaceIds,
     defaultWorkspaceId,
   };
 }
@@ -962,6 +964,7 @@ async function ensureRailwayResources(
   let step = "resolve_project";
   try {
     let defaultWorkspaceId: string | undefined;
+    let availableWorkspaceIds: string[] = [];
     let project = args.existing.projectId
       ? await getRailwayProjectById({
           railwayProvider: args.railwayProvider,
@@ -974,11 +977,12 @@ async function ensureRailwayResources(
         railwayProvider: args.railwayProvider,
       });
       defaultWorkspaceId = projectCatalog.defaultWorkspaceId;
+      availableWorkspaceIds = projectCatalog.workspaceIds;
       project =
         projectCatalog.projects.find((entry) => entry.name === projectName) ??
         null;
 
-      if (!project && !defaultWorkspaceId) {
+      if (!project && availableWorkspaceIds.length === 0) {
         throw new Error(
           "No Railway workspace is accessible for this account. Verify Railway OAuth access and workspace membership.",
         );
@@ -988,6 +992,11 @@ async function ensureRailwayResources(
     if (!project) {
       step = "create_project";
       if (!defaultWorkspaceId) {
+        if (availableWorkspaceIds.length > 1) {
+          throw new Error(
+            "Multiple Railway workspaces are accessible. Workspace selection is required before creating a Railway project.",
+          );
+        }
         throw new Error(
           "No Railway workspace is accessible for project creation.",
         );

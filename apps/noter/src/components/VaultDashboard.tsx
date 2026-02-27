@@ -250,7 +250,8 @@ export function VaultDashboard() {
     repositoryFullName: string;
     isNoterManaged: boolean;
     hasConvexProvision: boolean;
-    hasNetlifyProvision: boolean;
+    hasHostingProvision: boolean;
+    hostingProvider?: CreateHostingProvider;
   } | null>(null);
   const [removeGithubRepo, setRemoveGithubRepo] = useState(false);
   const [removeCodespaces, setRemoveCodespaces] = useState(false);
@@ -427,6 +428,14 @@ export function VaultDashboard() {
   const stagedChangesCount = selectedVault?.fileCount ?? 0;
   const hasStagedChanges = stagedChangesCount > 0;
   const hasDaytonaResources = hasDaytonaResourcesForVault(selectedVault);
+  const removeHostingCheckboxId =
+    vaultToDelete?.hostingProvider === "railway"
+      ? "remove-railway-provision"
+      : "remove-netlify-provision";
+  const removeHostingLabel =
+    vaultToDelete?.hostingProvider === "railway"
+      ? "Also remove Railway project"
+      : "Also remove Netlify site";
   const resetDeleteDialogState = () => {
     setVaultToDelete(null);
     setRemoveGithubRepo(false);
@@ -511,7 +520,7 @@ export function VaultDashboard() {
             ? removeConvexProvision
             : false,
         removeHostingProvision:
-          vaultToDelete.isNoterManaged && vaultToDelete.hasNetlifyProvision
+          vaultToDelete.isNoterManaged && vaultToDelete.hasHostingProvision
             ? removeHostingProvision
             : false,
         removeDaytonaResources,
@@ -1041,7 +1050,8 @@ export function VaultDashboard() {
                           repositoryFullName: vault.repositoryFullName,
                           isNoterManaged: vault.isNoterManaged,
                           hasConvexProvision: vault.hasConvexProvision,
-                          hasNetlifyProvision: vault.hasNetlifyProvision,
+                          hasHostingProvision: vault.hasHostingProvision,
+                          hostingProvider: vault.hostingProvider,
                         });
                         setRemoveGithubRepo(vault.isNoterManaged);
                         setRemoveCodespaces(true);
@@ -1049,7 +1059,7 @@ export function VaultDashboard() {
                           vault.isNoterManaged && vault.hasConvexProvision,
                         );
                         setRemoveHostingProvision(
-                          vault.isNoterManaged && vault.hasNetlifyProvision,
+                          vault.isNoterManaged && vault.hasHostingProvision,
                         );
                         setRemoveDaytonaResources(
                           hasDaytonaResourcesForVault(vault),
@@ -1196,10 +1206,10 @@ export function VaultDashboard() {
                     </label>
                   </div>
                 )}
-                {vaultToDelete.hasNetlifyProvision && (
+                {vaultToDelete.hasHostingProvision && (
                   <div className="flex items-start gap-2">
                     <Checkbox
-                      id="remove-netlify-provision"
+                      id={removeHostingCheckboxId}
                       checked={removeHostingProvision}
                       onCheckedChange={(checked) =>
                         setRemoveHostingProvision(checked === true)
@@ -1212,10 +1222,10 @@ export function VaultDashboard() {
                       className="mt-0.5"
                     />
                     <label
-                      htmlFor="remove-netlify-provision"
+                      htmlFor={removeHostingCheckboxId}
                       className="text-sm text-muted-foreground"
                     >
-                      Also remove Netlify site
+                      {removeHostingLabel}
                       {!vaultToDelete.isNoterManaged && (
                         <div className="text-xs text-muted-foreground">
                           Only available for infrastructure provisioned by
