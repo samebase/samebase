@@ -208,16 +208,16 @@ use `--env-file` or an explicit deployment selector instead.
 Shorthand commands for git/GitHub workflows. When the user says these, execute
 them directly using CLI tools.
 
-| Command     | Action                                                                               |
-| ----------- | ------------------------------------------------------------------------------------ |
-| `commit`    | Stage all changes, commit with concise message                                       |
-| `push`      | Commit if needed, push to remote                                                     |
-| `create pr` | Push if needed, create PR, ensure a non-empty body, then mark ready                  |
-| `ready`     | Mark draft PR as ready: `gh pr ready`                                                |
-| `wait`      | Monitor CI with `gh pr checks` or `gh run watch`, report status                      |
-| `ship`      | Full flow: commit → push → create PR → ready → fix Greptile feedback&nitpicks → wait |
-| `clean`     | After PR is shipped/merged: remove the current worktree and delete its branch        |
-| `status`    | Show branch, uncommitted changes, PR state                                           |
+| Command     | Action                                                                                       |
+| ----------- | -------------------------------------------------------------------------------------------- |
+| `commit`    | Stage all changes, commit with concise message                                               |
+| `push`      | Commit if needed, push to remote                                                             |
+| `create pr` | Push if needed, create PR, ensure a non-empty body, then mark ready                          |
+| `ready`     | Mark draft PR as ready: `gh pr ready`                                                        |
+| `wait`      | Monitor CI with `gh pr checks` or `gh run watch`, report status                              |
+| `ship`      | Full flow: commit → push → create PR → ready → fix Greptile+CodeRabbit feedback loops → wait |
+| `clean`     | After PR is shipped/merged: remove the current worktree and delete its branch                |
+| `status`    | Show branch, uncommitted changes, PR state                                                   |
 
 ### Rules
 
@@ -244,6 +244,14 @@ them directly using CLI tools.
   merging.
 - When the user asks to check Greptile, review both the check status and any
   comments/nitpicks (treat them as required fixes).
+- During `ship`, always run CodeRabbit in a loop: after each push, request a
+  fresh review with `@coderabbitai review`, wait for it to finish, fix all
+  actionable findings, push, and repeat until the latest CodeRabbit pass reports
+  no actionable findings.
+- Do not merge while CodeRabbit is in progress; after each review request, wait
+  for completion and re-check new comments before deciding merge readiness.
+- Treat CodeRabbit actionable comments and nitpicks as required fixes during
+  `ship`, same as Greptile findings.
 - On CI failure, report the error and offer to fix
 - **NEVER merge a PR until CI is green** - always wait for checks to pass.
 - Preferred merge style for this repo: rebase the branch onto `origin/main`
