@@ -9,6 +9,7 @@ import { getUserId } from "./common";
 import { getEnvLabel } from "./env";
 import { createInfraProviders } from "./infraProviders";
 import { deleteHostingResources } from "./hostingProviders";
+import { resolveNetlifySiteId } from "./hostingStateHelpers";
 import { toErrorMessage } from "./jsonUtils";
 import { toSafeRepoName } from "./repoName";
 import {
@@ -363,6 +364,7 @@ export const createRepository = action({
       treeData: tree.data,
       state: "ready",
       isNoterManaged: true,
+      hostingProvider: "netlify",
     });
 
     await ctx.scheduler.runAfter(
@@ -467,10 +469,11 @@ export const deleteVault = action({
       },
     );
 
+    const netlifySiteId = resolveNetlifySiteId(infrastructure);
     const shouldRemoveNetlifyProvision =
       args.removeNetlifyProvision === true &&
       vault.isNoterManaged === true &&
-      typeof infrastructure?.netlifySiteId === "string";
+      typeof netlifySiteId === "string";
     const shouldRemoveConvexProvision =
       args.removeConvexProvision === true &&
       vault.isNoterManaged === true &&
@@ -505,7 +508,6 @@ export const deleteVault = action({
       });
 
       if (shouldRemoveNetlifyProvision) {
-        const netlifySiteId = infrastructure.netlifySiteId;
         if (typeof netlifySiteId === "string") {
           try {
             await deleteHostingResources({

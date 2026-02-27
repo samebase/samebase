@@ -14,6 +14,8 @@ import {
   getProvisionedMainUrl,
   type ProvisionedByProvider,
 } from "./hostingProviders";
+import { hostingStateValidator } from "./hostingState";
+import { resolveNetlifyHostingState } from "./hostingStateHelpers";
 import {
   asRecord,
   readString,
@@ -48,6 +50,8 @@ const infraPatchValidator = v.object({
   convexCloudUrl: v.optional(v.string()),
   convexSiteUrl: v.optional(v.string()),
   convexDeployKeyId: v.optional(v.string()),
+
+  hosting: v.optional(hostingStateValidator),
 
   netlifySiteId: v.optional(v.string()),
   netlifySiteName: v.optional(v.string()),
@@ -512,6 +516,8 @@ export const upsertInfrastructureRecord = internalMutation({
       convexSiteUrl: args.patch.convexSiteUrl,
       convexDeployKeyId: args.patch.convexDeployKeyId,
 
+      hosting: args.patch.hosting,
+
       netlifySiteId: args.patch.netlifySiteId,
       netlifySiteName: args.patch.netlifySiteName,
       netlifyTeamId: args.patch.netlifyTeamId,
@@ -621,6 +627,7 @@ export const provisionVaultInfrastructure = internalAction({
       previousVersion: existing?.provisioningVersion ?? 0,
       nextVersion,
       force: args.force ?? false,
+      hostingProvider: vault.hostingProvider ?? "netlify",
     });
 
     let convexSuccess = false;
@@ -666,6 +673,8 @@ export const provisionVaultInfrastructure = internalAction({
         );
       }
 
+      const requestedHostingProvider: ProvisionedByProvider["provider"] =
+        vault.hostingProvider ?? "netlify";
       const netlifyToken =
         netlifyConnection?.kind === "netlify"
           ? netlifyConnection.auth.credential.trim()
@@ -680,7 +689,10 @@ export const provisionVaultInfrastructure = internalAction({
           : "";
       const netlifyTeam = netlifyTeamSlug || netlifyTeamId;
 
-      if (!netlifyToken || !netlifyTeam) {
+      if (
+        requestedHostingProvider === "netlify" &&
+        (!netlifyToken || !netlifyTeam)
+      ) {
         throw new Error(
           "Netlify connection is required to provision infrastructure. Connect Netlify and retry.",
         );
@@ -688,7 +700,8 @@ export const provisionVaultInfrastructure = internalAction({
 
       const providers = createInfraProviders({
         convexToken,
-        netlifyToken,
+        netlifyToken:
+          requestedHostingProvider === "netlify" ? netlifyToken : undefined,
       });
 
       const convex = await ensureConvexResources({
@@ -732,33 +745,42 @@ export const provisionVaultInfrastructure = internalAction({
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
       });
-
+      const netlifyExisting = resolveNetlifyHostingState(existing);
       const provisionedHosting: ProvisionedByProvider =
-        await ensureHostingResources({
-          provider: "netlify",
-          netlifyProvider: providers.netlify,
-          teamSlug: netlifyTeam,
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
-          ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
-          githubAccessToken,
-          defaultBranch,
-          vaultId: args.vaultId,
-          existing: {
-            siteId: existing?.netlifySiteId,
-            siteName: existing?.netlifySiteName,
-            defaultUrl: existing?.netlifyDefaultUrl,
-            productionUrl: existing?.netlifyProductionUrl,
-            buildHookId: existing?.netlifyBuildHookId,
-          },
-          convex: {
-            cloudUrl: convex.convexCloudUrl,
-            siteUrl: convex.convexSiteUrl,
-            deployKey: convex.deployKey,
-          },
-          addGitHubDeployKey,
-          ensureGitHubPushWebhook,
-        });
+        requestedHostingProvider === "netlify"
+          ? await ensureHostingResources({
+              provider: "netlify",
+              netlifyProvider: providers.netlify,
+              teamSlug: netlifyTeam,
+              owner: vault.ghRepoOwner,
+              repo: vault.ghRepoName,
+              ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
+              githubAccessToken,
+              defaultBranch,
+              vaultId: args.vaultId,
+              existing: {
+                siteId: netlifyExisting?.siteId ?? existing?.netlifySiteId,
+                siteName:
+                  netlifyExisting?.siteName ?? existing?.netlifySiteName,
+                defaultUrl:
+                  netlifyExisting?.defaultUrl ?? existing?.netlifyDefaultUrl,
+                productionUrl:
+                  netlifyExisting?.productionUrl ??
+                  existing?.netlifyProductionUrl,
+                buildHookId:
+                  netlifyExisting?.buildHookId ?? existing?.netlifyBuildHookId,
+              },
+              convex: {
+                cloudUrl: convex.convexCloudUrl,
+                siteUrl: convex.convexSiteUrl,
+                deployKey: convex.deployKey,
+              },
+              addGitHubDeployKey,
+              ensureGitHubPushWebhook,
+            })
+          : await ensureHostingResources({
+              provider: "railway",
+            });
 
       switch (provisionedHosting.provider) {
         case "netlify": {
@@ -772,6 +794,7 @@ export const provisionVaultInfrastructure = internalAction({
                 status: "ready",
                 provisioningVersion: nextVersion,
                 lastProvisionedAt: Date.now(),
+                hosting: provisionedHosting,
 
                 netlifySiteId: provisionedHosting.siteId,
                 netlifySiteName: provisionedHosting.siteName,

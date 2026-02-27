@@ -1,4 +1,5 @@
 import type { NetlifyManagementProvider } from "./infraProviders";
+import type { HostingState } from "./hostingState";
 import {
   asRecord,
   clamp,
@@ -98,7 +99,7 @@ async function setNetlifyEnvironmentVariables(args: {
   }
 }
 
-export type HostingProvider = "netlify" | "railway";
+export type { HostingProvider } from "./hostingState";
 
 type NetlifyProvisionExistingState = {
   siteId?: string;
@@ -114,23 +115,7 @@ type NetlifyProvisionConvexState = {
   deployKey: string;
 };
 
-export type ProvisionedByProvider =
-  | {
-      provider: "netlify";
-      siteId: string;
-      siteName: string;
-      teamId: string;
-      defaultUrl?: string;
-      productionUrl?: string;
-      buildHookId: string;
-    }
-  | {
-      provider: "railway";
-      projectId: string;
-      environmentId: string;
-      serviceId: string;
-      domain: string;
-    };
+export type ProvisionedByProvider = HostingState;
 
 type EnsureNetlifyResourcesArgs = {
   provider: "netlify";

@@ -11,6 +11,7 @@ import {
   readHostingLogs,
   readHostingSiteStatus,
 } from "./hostingProviders";
+import { resolveNetlifyHostingState } from "./hostingStateHelpers";
 import { asRecord, clamp, readString } from "./jsonUtils";
 import type { Doc, Id } from "./_generated/dataModel";
 
@@ -198,7 +199,8 @@ export const getNetlifySiteStatus = internalAction({
       args.vaultId,
     );
 
-    if (!infra?.netlifySiteId) {
+    const netlifyHosting = resolveNetlifyHostingState(infra);
+    if (!netlifyHosting) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
 
@@ -208,8 +210,8 @@ export const getNetlifySiteStatus = internalAction({
     return await readHostingSiteStatus({
       provider: "netlify",
       netlifyProvider: providers.netlify,
-      siteId: infra.netlifySiteId,
-      siteName: infra.netlifySiteName,
+      siteId: netlifyHosting.siteId,
+      siteName: netlifyHosting.siteName,
     });
   },
 });
@@ -226,7 +228,8 @@ export const getNetlifyLogs = internalAction({
       args.vaultId,
     );
 
-    if (!infra?.netlifySiteId) {
+    const netlifyHosting = resolveNetlifyHostingState(infra);
+    if (!netlifyHosting) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
 
@@ -236,7 +239,7 @@ export const getNetlifyLogs = internalAction({
     return await readHostingLogs({
       provider: "netlify",
       netlifyProvider: providers.netlify,
-      siteId: infra.netlifySiteId,
+      siteId: netlifyHosting.siteId,
       maxEntries: args.maxEntries ?? 10,
     });
   },
