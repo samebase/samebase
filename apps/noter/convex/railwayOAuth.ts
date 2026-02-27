@@ -24,6 +24,8 @@ type OAuthStateReference = {
   userId: Id<"users">;
 };
 const { id, null: vNull, number, optional, string } = v;
+const nullResultValidator = vNull();
+const oauthUrlResultValidator = string();
 
 function encodeBase64(value: string): string {
   if (typeof btoa === "function") {
@@ -202,7 +204,7 @@ export const storeRailwayOauthTokens = internalMutation({
     name: optional(string()),
     oauthStateId: id("oauthStates"),
   },
-  returns: vNull(),
+  returns: nullResultValidator,
   handler: async (ctx, args) => {
     await ctx.runMutation(internal.providerConnections.upsertRailway, {
       userId: args.userId,
@@ -223,7 +225,7 @@ export const storeRailwayOauthTokens = internalMutation({
 
 export const getRailwayOAuthUrl = mutation({
   args: {},
-  returns: string(),
+  returns: oauthUrlResultValidator,
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
@@ -238,7 +240,7 @@ export const finishRailwayOAuth = action({
     code: string(),
     state: string(),
   },
-  returns: vNull(),
+  returns: nullResultValidator,
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
