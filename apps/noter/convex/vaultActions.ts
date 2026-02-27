@@ -417,7 +417,7 @@ export const deleteVault = action({
     removeCodespaces: v.optional(v.boolean()),
     removeGithubRepo: v.optional(v.boolean()),
     removeConvexProvision: v.optional(v.boolean()),
-    removeNetlifyProvision: v.optional(v.boolean()),
+    removeHostingProvision: v.optional(v.boolean()),
     removeDaytonaResources: v.optional(v.boolean()),
   },
   returns: v.null(),
@@ -486,7 +486,7 @@ export const deleteVault = action({
       infrastructure?.hosting?.provider ??
       (typeof netlifySiteId === "string" ? "netlify" : undefined);
     const shouldRemoveHostingProvision =
-      args.removeNetlifyProvision === true &&
+      args.removeHostingProvision === true &&
       vault.isNoterManaged === true &&
       ((hostingProvider === "netlify" && typeof netlifySiteId === "string") ||
         (hostingProvider === "railway" &&

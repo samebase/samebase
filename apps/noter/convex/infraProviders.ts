@@ -127,17 +127,30 @@ async function requestRailwayGraphql(args: {
   query: string;
   variables?: Record<string, unknown>;
 }): Promise<unknown> {
-  const response = await fetch("https://backboard.railway.com/graphql/v2", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${args.token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      query: args.query,
-      variables: args.variables,
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  let response: Response;
+  try {
+    response = await fetch("https://backboard.railway.com/graphql/v2", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${args.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query: args.query,
+        variables: args.variables,
+      }),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Railway API request timed out after 10000ms.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   const payload = await parseResponseBody(response);
   if (!response.ok) {

@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: In progress (Phases 1-4 complete)
 - Owner: Noter platform
 - Last updated: 2026-02-27
 - Related specs:
@@ -169,25 +169,38 @@ Exit criteria:
 
 - [ ] Netlify create/provision/retry/delete still works.
 - [ ] Railway create/provision/retry/delete works for pilot users.
-- [ ] Prod-read approval flow supports both providers without unsafe bypass.
-- [ ] No broad provider result optionals.
-- [ ] No `any`.
-- [ ] No class state introduced for provider logic.
+- [x] Prod-read approval flow supports both providers without unsafe bypass.
+- [x] No broad provider result optionals.
+- [x] No `any`.
+- [x] No class state introduced for provider logic.
+
+## Validation Evidence (Phase 4)
+
+- [x] `npm run lint` (apps/noter) passes on 2026-02-27 with zero errors.
+- [x] Local Playwright smoke confirms all four provider connection states render
+      as connected and creation-form gating works.
+- [x] Railway approved-read tools are wired end-to-end:
+      `request_railway_status_read`, `request_railway_logs_read`,
+      `request_railway_projects_read`.
+- [x] Railway OAuth minimum scope requirement is implemented as
+      `openid email profile offline_access workspace:member`.
 
 ## Open Questions (to resolve during implementation)
 
-- [ ] Exact Railway OAuth scopes needed for minimum viable provisioning and
-      reads.
-- [ ] Final normalized field set for shared UI status rendering across
-      providers.
+- [x] Exact Railway OAuth scopes needed for minimum viable provisioning and
+      reads. Resolved in implementation as
+      `openid email profile offline_access workspace:member`.
+- [x] Final normalized field set for shared UI status rendering across
+      providers. Phase 4 now normalizes provider-read outputs through common
+      `summary`/`endpoint`/`raw` contracts with provider-specific backends.
 - [ ] Whether teardown should be per-provider toggle in delete dialog from day
       one or follow-up.
 
 ## Acceptance Criteria
 
-- [ ] A provider boundary exists and Netlify runs through it with unchanged
+- [x] A provider boundary exists and Netlify runs through it with unchanged
       behavior.
-- [ ] Railway is implemented as a second provider through the same boundary.
+- [x] Railway is implemented as a second provider through the same boundary.
 - [ ] Vault creation supports provider selection for noter-managed vaults.
 - [ ] Netlify remains available while Railway pilot runs.
 - [ ] Pilot outcome can be used to make a provider-default decision.

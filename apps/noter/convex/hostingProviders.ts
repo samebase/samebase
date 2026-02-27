@@ -561,7 +561,7 @@ function selectRailwayEnvironmentId(
       return environment.id;
     }
   }
-  return environments[0]?.id;
+  return undefined;
 }
 
 function selectRailwayServiceId(
@@ -573,7 +573,7 @@ function selectRailwayServiceId(
       return service.id;
     }
   }
-  return services[0]?.id;
+  return undefined;
 }
 
 function readRailwayServiceDomains(value: unknown): Array<{
@@ -1275,7 +1275,7 @@ export async function readHostingLogs(
         return {
           summary: `Railway deployment activity for service ${args.serviceId}`,
           endpoint: `railway:project=${args.projectId};environment=${args.environmentId};service=${args.serviceId}`,
-          raw: "No deployments found for this service.",
+          raw: "",
           logLineCount: 0,
         };
       }
@@ -1299,7 +1299,7 @@ export async function readHostingLogs(
       return {
         summary: `Railway deployment logs for service ${args.serviceId}`,
         endpoint: `railway:deploymentLogs:${deployment.id}`,
-        raw: lines.join("\n") || "No deployment logs returned.",
+        raw: lines.join("\n"),
         logLineCount: lines.length,
       };
     }

@@ -777,52 +777,60 @@ export const provisionVaultInfrastructure = internalAction({
         existing?.hosting?.provider === "railway"
           ? existing.hosting
           : undefined;
-      const provisionedHosting: ProvisionedByProvider =
-        requestedHostingProvider === "netlify"
-          ? await ensureHostingResources({
-              provider: "netlify",
-              netlifyProvider: providers.netlify,
-              teamSlug: netlifyTeam,
-              owner: vault.ghRepoOwner,
-              repo: vault.ghRepoName,
-              ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
-              githubAccessToken,
-              defaultBranch,
-              vaultId: args.vaultId,
-              existing: {
-                siteId: netlifyExisting?.siteId,
-                siteName: netlifyExisting?.siteName,
-                defaultUrl: netlifyExisting?.defaultUrl,
-                productionUrl: netlifyExisting?.productionUrl,
-                buildHookId: netlifyExisting?.buildHookId,
-              },
-              convex: {
-                cloudUrl: convex.convexCloudUrl,
-                siteUrl: convex.convexSiteUrl,
-                deployKey: convex.deployKey,
-              },
-              addGitHubDeployKey,
-              ensureGitHubPushWebhook,
-            })
-          : await ensureHostingResources({
-              provider: "railway",
-              railwayProvider: providers.railway,
-              owner: vault.ghRepoOwner,
-              repo: vault.ghRepoName,
-              defaultBranch,
-              vaultId: args.vaultId,
-              existing: {
-                projectId: railwayExisting?.projectId,
-                environmentId: railwayExisting?.environmentId,
-                serviceId: railwayExisting?.serviceId,
-                domain: railwayExisting?.domain,
-              },
-              convex: {
-                cloudUrl: convex.convexCloudUrl,
-                siteUrl: convex.convexSiteUrl,
-                deployKey: convex.deployKey,
-              },
-            });
+      let provisionedHosting: ProvisionedByProvider;
+      switch (requestedHostingProvider) {
+        case "netlify":
+          provisionedHosting = await ensureHostingResources({
+            provider: "netlify",
+            netlifyProvider: providers.netlify,
+            teamSlug: netlifyTeam,
+            owner: vault.ghRepoOwner,
+            repo: vault.ghRepoName,
+            ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
+            githubAccessToken,
+            defaultBranch,
+            vaultId: args.vaultId,
+            existing: {
+              siteId: netlifyExisting?.siteId,
+              siteName: netlifyExisting?.siteName,
+              defaultUrl: netlifyExisting?.defaultUrl,
+              productionUrl: netlifyExisting?.productionUrl,
+              buildHookId: netlifyExisting?.buildHookId,
+            },
+            convex: {
+              cloudUrl: convex.convexCloudUrl,
+              siteUrl: convex.convexSiteUrl,
+              deployKey: convex.deployKey,
+            },
+            addGitHubDeployKey,
+            ensureGitHubPushWebhook,
+          });
+          break;
+        case "railway":
+          provisionedHosting = await ensureHostingResources({
+            provider: "railway",
+            railwayProvider: providers.railway,
+            owner: vault.ghRepoOwner,
+            repo: vault.ghRepoName,
+            defaultBranch,
+            vaultId: args.vaultId,
+            existing: {
+              projectId: railwayExisting?.projectId,
+              environmentId: railwayExisting?.environmentId,
+              serviceId: railwayExisting?.serviceId,
+              domain: railwayExisting?.domain,
+            },
+            convex: {
+              cloudUrl: convex.convexCloudUrl,
+              siteUrl: convex.convexSiteUrl,
+              deployKey: convex.deployKey,
+            },
+          });
+          break;
+        default:
+          requestedHostingProvider satisfies never;
+          throw new Error("Unsupported hosting provider.");
+      }
 
       switch (provisionedHosting.provider) {
         case "netlify": {
