@@ -117,16 +117,12 @@ const blurHideTokensExtension = ViewPlugin.fromClass(
     decorations: DecorationSet;
 
     constructor(view: EditorView) {
-      this.decorations = view.hasFocus
-        ? Decoration.none
-        : buildBlurHideDecorations(view.state);
+      this.decorations = buildBlurHideDecorations(view.state);
     }
 
     update(update: ViewUpdate) {
-      if (!update.docChanged && !update.focusChanged) return;
-      this.decorations = update.view.hasFocus
-        ? Decoration.none
-        : buildBlurHideDecorations(update.state);
+      if (!update.docChanged) return;
+      this.decorations = buildBlurHideDecorations(update.state);
     }
   },
   {
@@ -192,6 +188,9 @@ const prosemarkReadOnlyTheme = EditorView.theme({
   ".cm-editor": {
     backgroundColor: "transparent",
     color: "inherit",
+    fontFamily: "inherit",
+    fontSize: "inherit",
+    lineHeight: "inherit",
   },
   ".cm-focused": {
     outline: "none",
@@ -297,7 +296,6 @@ export function ProsemarkReadOnly({
     if (!container) return;
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
-      if (!entry) return;
       const width = entry.contentRect.width;
       if (lastWidthRef.current === width) return;
       lastWidthRef.current = width;
