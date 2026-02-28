@@ -289,6 +289,7 @@ export function ProsemarkReadOnly({
         blurHideTokensExtension,
         prosemarkReadOnlyTheme,
         EditorState.readOnly.of(true),
+        EditorView.editable.of(false),
         themeCompartmentRef.current.of(isDarkRef.current ? oneDark : []),
       ],
     });
