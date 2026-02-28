@@ -576,6 +576,9 @@ function selectRailwayServiceId(
       return service.id;
     }
   }
+  if (services.length === 1) {
+    return services[0].id;
+  }
   return undefined;
 }
 
