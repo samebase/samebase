@@ -224,6 +224,9 @@ them directly using CLI tools.
 - Always use CLI tools (`gh`, `git`) - never tell user to click UI buttons
 - Execute, don't instruct
 - Adapt to context (if PR exists, update it; if already ready, skip)
+- Before `commit`, verify the branch name is meaningful. If it's still an
+  auto-generated random `codex/<word>-<word>-<word>` name, rename it to a
+  descriptive `codex/<intent>` branch before committing.
 - Before `create pr` or `ship`, verify the branch name is meaningful. If it's
   still an auto-generated random `codex/<word>-<word>-<word>` name, rename it to
   a descriptive `codex/<intent>` branch before pushing/creating the PR.
