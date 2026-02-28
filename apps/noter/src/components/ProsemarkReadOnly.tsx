@@ -121,7 +121,7 @@ const blurHideTokensExtension = ViewPlugin.fromClass(
     }
 
     update(update: ViewUpdate) {
-      if (!update.docChanged) return;
+      if (!update.docChanged && !update.selectionSet) return;
       this.decorations = buildBlurHideDecorations(update.state);
     }
   },
@@ -134,6 +134,7 @@ function buildBlurHideDecorations(state: EditorState): DecorationSet {
   const decorations: Range<Decoration>[] = [];
   syntaxTree(state).iterate({
     enter: (node) => {
+      if (selectionTouchesRange(state.selection.ranges, node)) return;
       for (const spec of blurHideSpecs) {
         if (!matchesNodeName(node.type.name, spec.nodeName)) continue;
         if (spec.onHide) {
@@ -165,6 +166,22 @@ function buildBlurHideDecorations(state: EditorState): DecorationSet {
   // node.cursor().iterate() yield nodes in document order, and onHide must only
   // emit ranges within the current node to preserve ordering.
   return Decoration.set(decorations, true);
+}
+
+function rangeTouchesRange(
+  a: { from: number; to: number },
+  b: { from: number; to: number },
+): boolean {
+  return a.from <= b.to && b.from <= a.to;
+}
+
+function selectionTouchesRange(
+  selection: readonly { from: number; to: number }[],
+  range: { from: number; to: number },
+): boolean {
+  return selection.some((selectionRange) =>
+    rangeTouchesRange(selectionRange, range),
+  );
 }
 
 function matchesNodeName(
@@ -215,6 +232,12 @@ const prosemarkReadOnlyTheme = EditorView.theme({
   },
   ".cm-cursor": {
     display: "none",
+  },
+  "& .cm-rendered-list-mark": {
+    display: "inline-block",
+    width: "1ch !important",
+    margin: "0 !important",
+    textAlign: "center",
   },
 });
 
