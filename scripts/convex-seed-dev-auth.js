@@ -3,7 +3,11 @@
 import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import { parsePort, sleep } from '../apps/noter/convex-local-utils.js'
+import {
+  listListeningPids,
+  parsePort,
+  sleep,
+} from '../apps/noter/convex-local-utils.js'
 
 /**
  * @typedef {{ path: string, vars: Record<string, string> }} EnvFile
@@ -67,6 +71,41 @@ const waitForBackendExit = async () => {
     backend.kill('SIGKILL')
   }
 }
+const terminateBackendOnPort = async () => {
+  const pids = listListeningPids(backendPort)
+  if (pids.length === 0) {
+    return
+  }
+  for (const pid of pids) {
+    const numericPid = Number(pid)
+    if (!Number.isFinite(numericPid)) {
+      continue
+    }
+    try {
+      process.kill(numericPid, 'SIGTERM')
+    } catch {
+      // ignore
+    }
+  }
+  const deadline = Date.now() + 3000
+  while (Date.now() < deadline) {
+    if (listListeningPids(backendPort).length === 0) {
+      return
+    }
+    await sleep(100)
+  }
+  for (const pid of listListeningPids(backendPort)) {
+    const numericPid = Number(pid)
+    if (!Number.isFinite(numericPid)) {
+      continue
+    }
+    try {
+      process.kill(numericPid, 'SIGKILL')
+    } catch {
+      // ignore
+    }
+  }
+}
 
 let exitCode = 0
 try {
@@ -115,6 +154,7 @@ try {
   console.error(message)
 } finally {
   await waitForBackendExit()
+  await terminateBackendOnPort()
 }
 
 process.exit(exitCode)
