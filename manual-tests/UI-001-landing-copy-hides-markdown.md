@@ -7,10 +7,8 @@ markers (for example `#`) on focus, and hides them again on blur.
 
 ## Preconditions
 
-- Repo checked out locally (any path), with commands run from the repository
-  root.
-- Dev server running via `make anon` from the repo root.
-- A local URL discovered for the Vite dev server.
+- `make anon` can run in the current checkout.
+- A local Vite URL is reachable in browser or Playwright.
 
 ## Steps
 
