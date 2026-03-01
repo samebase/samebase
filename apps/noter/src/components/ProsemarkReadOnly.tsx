@@ -81,6 +81,12 @@ const prosemarkReadOnlyTheme = EditorView.theme({
   ".cm-cursor": {
     display: "none",
   },
+  "&.cm-focused .cm-hidden-token": {
+    fontSize: "inherit",
+  },
+  "&.cm-focused .cm-transparent-token": {
+    opacity: "1",
+  },
   "& .cm-rendered-list-mark": {
     display: "inline-block",
     width: "1ch !important",
@@ -137,7 +143,6 @@ export function ProsemarkReadOnly({
         blurHideTokensExtension,
         prosemarkReadOnlyTheme,
         EditorState.readOnly.of(true),
-        EditorView.editable.of(false),
         themeCompartmentRef.current.of(isDarkRef.current ? oneDark : []),
       ],
     });
