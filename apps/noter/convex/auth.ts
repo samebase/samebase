@@ -21,6 +21,29 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function isFlagEnabled(key: string): boolean {
+  const value = readOptionalEnv(key);
+  return value !== null && value.toLowerCase() === "true";
+}
+
+function isLocalhostUrl(rawUrl: string): boolean {
+  try {
+    const parsed = new URL(rawUrl);
+    return parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+  } catch {
+    return rawUrl.includes("localhost") || rawUrl.includes("127.0.0.1");
+  }
+}
+
+function isLocalConvexDeployment(): boolean {
+  const cloudUrl = readOptionalEnv("CONVEX_CLOUD_URL");
+  if (cloudUrl !== null && isLocalhostUrl(cloudUrl)) {
+    return true;
+  }
+  const siteUrl = readOptionalEnv("CONVEX_SITE_URL");
+  return siteUrl !== null && isLocalhostUrl(siteUrl);
+}
+
 function readDeploymentName(rawDeployment: string): string | null {
   const [_, ...rest] = rawDeployment.split(":");
   if (rest.length === 0) {
@@ -280,7 +303,11 @@ async function applyAutoSeedProviderKeys(
 
 const googleClientId = readOptionalEnv("AUTH_GOOGLE_ID");
 const googleClientSecret = readOptionalEnv("AUTH_GOOGLE_SECRET");
-const passwordAuthEnabled = isDevelopmentDeployment();
+const passwordAuthEnabled =
+  isLocalConvexDeployment() ||
+  isDevelopmentDeployment() ||
+  isAnonymousWorktreeDeployment() ||
+  isFlagEnabled("AUTH_ENABLE_PASSWORD");
 if ((googleClientId === null) !== (googleClientSecret === null)) {
   throw new Error(
     `Missing required environment variable: ${
