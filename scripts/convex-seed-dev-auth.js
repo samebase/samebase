@@ -54,6 +54,19 @@ let backendExited = false
 backend.on('exit', () => {
   backendExited = true
 })
+const waitForBackendExit = async () => {
+  if (backendExited) {
+    return
+  }
+  backend.kill('SIGTERM')
+  const deadline = Date.now() + 5000
+  while (!backendExited && Date.now() < deadline) {
+    await sleep(100)
+  }
+  if (!backendExited) {
+    backend.kill('SIGKILL')
+  }
+}
 
 let exitCode = 0
 try {
@@ -101,9 +114,7 @@ try {
   const message = error instanceof Error ? error.message : String(error)
   console.error(message)
 } finally {
-  if (!backendExited) {
-    backend.kill('SIGTERM')
-  }
+  await waitForBackendExit()
 }
 
 process.exit(exitCode)
