@@ -130,11 +130,19 @@ const pickAnonymousLocalPorts = () => {
   return null;
 };
 
-const readLocalBackendPorts = (preferredPorts = []) => {
-  const ports = [...preferredPorts, 3214, 3210].filter(
+const normalizePortList = (ports) =>
+  ports.filter(
     (port, index, all) =>
       Number.isFinite(port) && port > 0 && all.indexOf(port) === index,
   );
+
+const readLocalBackendPorts = (preferredPorts = []) => {
+  const strictPreferred = normalizePortList([...preferredPorts]);
+  if (strictPreferred.length > 0) {
+    return strictPreferred;
+  }
+
+  const ports = [3214, 3210];
   const envFile = path.join(process.cwd(), ".env.local");
   if (!fs.existsSync(envFile)) {
     return ports;
@@ -233,8 +241,19 @@ const hasValidPrivateKey = (value) =>
   value.includes("-----BEGIN PRIVATE KEY-----") &&
   value.includes("-----END PRIVATE KEY-----");
 
-const hasValidJwks = (value) =>
-  value.includes('{"keys":') || value.includes('"keys":');
+const hasValidJwks = (value) => {
+  try {
+    const parsed = JSON.parse(value);
+    return (
+      parsed !== null &&
+      typeof parsed === "object" &&
+      Array.isArray(parsed.keys) &&
+      parsed.keys.length > 0
+    );
+  } catch {
+    return false;
+  }
+};
 
 const ensureAnonymousAuthKeys = async (env, preferredPorts = []) => {
   const backendReady = await waitForAnonymousBackend(20000, preferredPorts);
