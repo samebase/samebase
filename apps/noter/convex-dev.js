@@ -1,9 +1,13 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { spawn } from "child_process";
+import { createHash } from "crypto";
+import { spawn, spawnSync } from "child_process";
+import { isPortInUse, parsePort, sleep } from "./convex-local-utils.js";
 
 const SUPPORTED_NODE_MAJORS = ["24", "22", "20", "18"];
+const ANONYMOUS_LOCAL_CLOUD_PORT_START = 11000;
+const ANONYMOUS_LOCAL_PORT_PAIR_COUNT = 2000;
 
 const semverCompare = (a, b) => {
   const aParts = a.slice(1).split(".").map(Number);
@@ -90,6 +94,213 @@ const pickSupportedNodeBin = () => {
   return null;
 };
 
+const hasCliOption = (args, optionName) =>
+  args.some((arg) => arg === optionName || arg.startsWith(`${optionName}=`));
+
+const resolveWorktreeRoot = () => {
+  const result = spawnSync("git", ["rev-parse", "--show-toplevel"], {
+    stdio: "pipe",
+    encoding: "utf8",
+  });
+  if (result.status !== 0) {
+    return process.cwd();
+  }
+  const root = (result.stdout ?? "").trim();
+  return root.length > 0 ? root : process.cwd();
+};
+
+const pickAnonymousLocalPorts = () => {
+  const worktreeRoot = resolveWorktreeRoot();
+  const digest = createHash("sha256").update(worktreeRoot).digest();
+  const startIndex = digest.readUInt32BE(0) % ANONYMOUS_LOCAL_PORT_PAIR_COUNT;
+
+  for (let offset = 0; offset < ANONYMOUS_LOCAL_PORT_PAIR_COUNT; offset += 1) {
+    const index = (startIndex + offset) % ANONYMOUS_LOCAL_PORT_PAIR_COUNT;
+    const cloud = ANONYMOUS_LOCAL_CLOUD_PORT_START + index * 2;
+    const site = cloud + 1;
+    if (isPortInUse(cloud) || isPortInUse(site)) {
+      continue;
+    }
+    return { cloud, site };
+  }
+
+  console.warn(
+    "No free anonymous worktree port pair found; falling back to Convex defaults.",
+  );
+  return null;
+};
+
+const normalizePortList = (ports) =>
+  ports.filter(
+    (port, index, all) =>
+      Number.isFinite(port) && port > 0 && all.indexOf(port) === index,
+  );
+
+const readLocalBackendPorts = (preferredPorts = []) => {
+  const strictPreferred = normalizePortList([...preferredPorts]);
+  if (strictPreferred.length > 0) {
+    return strictPreferred;
+  }
+
+  const ports = [3214, 3210];
+  const envFile = path.join(process.cwd(), ".env.local");
+  if (!fs.existsSync(envFile)) {
+    return ports;
+  }
+
+  const contents = fs.readFileSync(envFile, "utf8");
+  for (const line of contents.split(/\r?\n/)) {
+    if (
+      !line.startsWith("VITE_CONVEX_URL=") &&
+      !line.startsWith("CONVEX_URL=")
+    ) {
+      continue;
+    }
+    const eqIndex = line.indexOf("=");
+    if (eqIndex <= 0) {
+      continue;
+    }
+    const rawValue = line.slice(eqIndex + 1).trim();
+    const unquoted =
+      (rawValue.startsWith('"') && rawValue.endsWith('"')) ||
+      (rawValue.startsWith("'") && rawValue.endsWith("'"))
+        ? rawValue.slice(1, -1)
+        : rawValue;
+    const parsedPort = parsePort(unquoted);
+    if (parsedPort !== null && !ports.includes(parsedPort)) {
+      ports.unshift(parsedPort);
+    }
+  }
+
+  return ports;
+};
+
+const isLocalBackendReady = async (port) => {
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/instance_name`, {
+      signal: AbortSignal.timeout(500),
+    });
+    if (!response.ok) {
+      return false;
+    }
+    const instance = (await response.text()).trim();
+    return (
+      instance.startsWith("anonymous-") ||
+      instance.startsWith("local-") ||
+      instance === "anonymous-agent"
+    );
+  } catch {
+    return false;
+  }
+};
+
+const waitForAnonymousBackend = async (timeoutMs, preferredPorts = []) => {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    for (const port of readLocalBackendPorts(preferredPorts)) {
+      if (await isLocalBackendReady(port)) {
+        return true;
+      }
+    }
+    await sleep(250);
+  }
+  return false;
+};
+
+const removeEnvVar = (name, env) => {
+  spawnSync("npx", ["convex", "env", "remove", name], {
+    stdio: "ignore",
+    env,
+  });
+};
+
+const normalizeEnvValue = (value) => {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+};
+
+const readEnvVar = (name, env) => {
+  const result = spawnSync("npx", ["convex", "env", "get", name], {
+    stdio: "pipe",
+    encoding: "utf8",
+    env,
+  });
+  if (result.status !== 0) {
+    return null;
+  }
+  return normalizeEnvValue(result.stdout ?? "");
+};
+
+const hasValidPrivateKey = (value) =>
+  value.includes("-----BEGIN PRIVATE KEY-----") &&
+  value.includes("-----END PRIVATE KEY-----");
+
+const hasValidJwks = (value) => {
+  try {
+    const parsed = JSON.parse(value);
+    return (
+      parsed !== null &&
+      typeof parsed === "object" &&
+      Array.isArray(parsed.keys) &&
+      parsed.keys.length > 0
+    );
+  } catch {
+    return false;
+  }
+};
+
+const ensureAnonymousAuthKeys = async (env, preferredPorts = []) => {
+  const backendReady = await waitForAnonymousBackend(20000, preferredPorts);
+  if (!backendReady) {
+    console.warn(
+      "Skipping anonymous auth key setup: local Convex backend is not ready.",
+    );
+    return false;
+  }
+
+  const existingPrivateKey = readEnvVar("JWT_PRIVATE_KEY", env);
+  const existingJwks = readEnvVar("JWKS", env);
+  if (
+    existingPrivateKey !== null &&
+    existingJwks !== null &&
+    hasValidPrivateKey(existingPrivateKey) &&
+    hasValidJwks(existingJwks)
+  ) {
+    return true;
+  }
+
+  removeEnvVar("JWT_PRIVATE_KEY", env);
+  removeEnvVar("JWKS", env);
+
+  const setupResult = spawnSync(
+    "npx",
+    ["@convex-dev/auth", "--skip-git-check", "--allow-dirty-git-state"],
+    {
+      stdio: "pipe",
+      encoding: "utf8",
+      env,
+    },
+  );
+
+  if (setupResult.status !== 0) {
+    const output =
+      `${setupResult.stdout ?? ""}\n${setupResult.stderr ?? ""}`.trim();
+    console.warn(
+      `Anonymous auth key setup failed${output ? `:\n${output}` : "."}`,
+    );
+    return false;
+  }
+
+  console.log("Anonymous auth keys refreshed.");
+  return true;
+};
+
 const env = { ...process.env };
 const supportedNodeBin = pickSupportedNodeBin();
 if (!supportedNodeBin) {
@@ -103,13 +314,44 @@ if (!supportedNodeBin) {
 }
 env.PATH = [supportedNodeBin, env.PATH].filter(Boolean).join(path.delimiter);
 
-const extraArgs = process.argv.slice(2);
+const rawExtraArgs = process.argv.slice(2);
+const refreshAnonAuth = rawExtraArgs.includes("--refresh-anon-auth");
+if (refreshAnonAuth && process.env.CONVEX_AGENT_MODE !== "anonymous") {
+  console.error("--refresh-anon-auth requires CONVEX_AGENT_MODE=anonymous");
+  process.exit(1);
+}
+const extraArgs = rawExtraArgs.filter((arg) => arg !== "--refresh-anon-auth");
 const args = ["dev", ...extraArgs];
+let anonymousLocalPorts = null;
 if (
   process.env.CONVEX_AGENT_MODE === "anonymous" &&
   !args.some((arg) => arg.startsWith("--codegen"))
 ) {
   args.push("--codegen=disable");
+}
+if (process.env.CONVEX_AGENT_MODE === "anonymous") {
+  if (
+    !hasCliOption(args, "--local") &&
+    !hasCliOption(args, "--cloud") &&
+    !hasCliOption(args, "--prod") &&
+    !hasCliOption(args, "--url") &&
+    !hasCliOption(args, "--admin-key")
+  ) {
+    args.push("--local");
+  }
+
+  if (
+    !hasCliOption(args, "--local-cloud-port") &&
+    !hasCliOption(args, "--local-site-port")
+  ) {
+    anonymousLocalPorts = pickAnonymousLocalPorts();
+    if (anonymousLocalPorts) {
+      args.push(
+        `--local-cloud-port=${anonymousLocalPorts.cloud}`,
+        `--local-site-port=${anonymousLocalPorts.site}`,
+      );
+    }
+  }
 }
 
 const localConvexBin = path.join(
@@ -123,10 +365,50 @@ const convexExecutable = fs.existsSync(localConvexBin)
   : "convex";
 
 const child = spawn(convexExecutable, args, { stdio: "inherit", env });
+let childExited = false;
+let childExitCode = 1;
+let refreshDone = !refreshAnonAuth;
+let refreshFailed = false;
+
+const maybeExit = () => {
+  if (!childExited || !refreshDone) {
+    return;
+  }
+  if (refreshAnonAuth) {
+    process.exit(refreshFailed ? 1 : 0);
+  }
+  process.exit(childExitCode);
+};
+
 child.on("error", (error) => {
   console.error(error.message);
   process.exit(1);
 });
 child.on("exit", (code) => {
-  process.exit(code ?? 1);
+  childExited = true;
+  childExitCode = code ?? 1;
+  maybeExit();
 });
+
+if (refreshAnonAuth) {
+  void ensureAnonymousAuthKeys(
+    env,
+    anonymousLocalPorts ? [anonymousLocalPorts.cloud] : [],
+  )
+    .then((ok) => {
+      if (!ok) {
+        refreshFailed = true;
+      }
+    })
+    .catch((error) => {
+      refreshFailed = true;
+      console.error(error instanceof Error ? error.message : String(error));
+    })
+    .finally(() => {
+      refreshDone = true;
+      if (!childExited) {
+        child.kill("SIGTERM");
+      }
+      maybeExit();
+    });
+}

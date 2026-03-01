@@ -1,6 +1,7 @@
 import { spawnSync } from "child_process";
 import fs from "fs";
 import path from "path";
+import { listListeningPids, parsePort, sleep } from "./convex-local-utils.js";
 
 const run = (command, args) => {
   const result = spawnSync(command, args, { stdio: "inherit" });
@@ -8,8 +9,6 @@ const run = (command, args) => {
     process.exit(result.status ?? 1);
   }
 };
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const captureConvexReadme = () => {
   const readmePath = path.join(process.cwd(), "convex", "README.md");
@@ -37,14 +36,6 @@ const restoreConvexReadmeIfOverwritten = (snapshot) => {
     return;
   }
   fs.writeFileSync(snapshot.path, snapshot.contents, "utf8");
-};
-
-const parsePort = (url) => {
-  try {
-    return new URL(url).port;
-  } catch {
-    return null;
-  }
 };
 
 const readEnvFile = () => {
@@ -81,19 +72,6 @@ const isConvexLocalBackend = async (port) => {
   }
 };
 
-const findPidsOnPort = (port) => {
-  const result = spawnSync("lsof", ["-tiTCP:" + port, "-sTCP:LISTEN"], {
-    encoding: "utf8",
-  });
-  if (result.status !== 0 || !result.stdout) {
-    return [];
-  }
-  return result.stdout
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-};
-
 const killPids = (pids, signal) => {
   for (const pid of pids) {
     spawnSync("kill", ["-" + signal, pid], { stdio: "ignore" });
@@ -112,13 +90,13 @@ const stopLocalBackendIfRunning = async () => {
   if (!isRunning) {
     return;
   }
-  const pids = findPidsOnPort(port);
+  const pids = listListeningPids(port);
   if (pids.length === 0) {
     return;
   }
   killPids(pids, "TERM");
   await sleep(500);
-  const remaining = findPidsOnPort(port);
+  const remaining = listListeningPids(port);
   if (remaining.length > 0) {
     killPids(remaining, "KILL");
   }
