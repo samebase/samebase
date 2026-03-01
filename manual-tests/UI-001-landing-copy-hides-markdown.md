@@ -7,7 +7,8 @@ markers (for example `#`) on focus, and hides them again on blur.
 
 ## Preconditions
 
-- Repo at `/Users/nicu/.codex/worktrees/d65a/noter`.
+- Repo checked out locally (any path), with commands run from the repository
+  root.
 - Dev server running via `make anon` from the repo root.
 - A local URL discovered for the Vite dev server.
 
