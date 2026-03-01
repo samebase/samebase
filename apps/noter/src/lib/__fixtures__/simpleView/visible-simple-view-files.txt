@@ -14,6 +14,7 @@ Ideas/E2b.md
 Ideas/README.md
 Ideas/signin-view-code-prosemark.md
 Ideas/to-do.md
+Ideas/worktree-conversation-log.md
 LUMINA_PROJECT_ANALYSIS.md
 manual-tests/README.md
 manual-tests/TEMPLATE.md
