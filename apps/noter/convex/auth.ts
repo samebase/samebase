@@ -4,6 +4,7 @@ import { convexAuth } from "@convex-dev/auth/server";
 import type { DatabaseReader, DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getConnectionByUserAndKind } from "./providerConnections";
+import { isRecord, readString } from "./jsonUtils";
 import { isAllowedEmail } from "./users";
 import { readOptionalEnv, readRequiredEnv } from "./oauthUtils";
 
@@ -15,6 +16,9 @@ type UserPatch = {
   phoneVerificationTime?: number;
   isApproved?: boolean;
 };
+
+const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
+const RAILWAY_GRAPHQL_URL = "https://backboard.railway.com/graphql/v2";
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -75,6 +79,67 @@ function isAnonymousWorktreeDeployment(): boolean {
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
+}
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs = DEFAULT_PROVIDER_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`Provider request timed out after ${timeoutMs}ms.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchRailwayConnectionDetails(token: string): Promise<{
+  accountId: string;
+  email?: string;
+  name?: string;
+}> {
+  const response = await fetchWithTimeout(RAILWAY_GRAPHQL_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query: "query RailwaySeedProfile { me { id email name } }",
+    }),
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || !isRecord(payload)) {
+    throw new Error("Invalid DEV_SEED_RAILWAY_API_KEY");
+  }
+  const graphQlErrors = payload["errors"];
+  if (Array.isArray(graphQlErrors) && graphQlErrors.length > 0) {
+    throw new Error("Invalid DEV_SEED_RAILWAY_API_KEY");
+  }
+  const data = payload["data"];
+  if (!isRecord(data)) {
+    throw new Error("Railway API key response is missing data");
+  }
+  const me = data["me"];
+  if (!isRecord(me)) {
+    throw new Error("Railway API key response is missing user profile");
+  }
+  const accountId = readString(me, "id");
+  if (!accountId) {
+    throw new Error("Railway API key response is missing account ID");
+  }
+  return {
+    accountId,
+    email: readString(me, "email"),
+    name: readString(me, "name"),
+  };
 }
 
 function buildUserPatch(profile: Record<string, unknown>): UserPatch {
@@ -213,6 +278,58 @@ async function upsertSeedNetlifyConnection(
   });
 }
 
+async function upsertSeedRailwayConnection(
+  db: DatabaseWriter,
+  userId: Id<"users">,
+): Promise<void> {
+  const credential = readOptionalEnv("DEV_SEED_RAILWAY_API_KEY");
+  if (credential === null) {
+    return;
+  }
+
+  let details: {
+    accountId: string;
+    email?: string;
+    name?: string;
+  };
+  try {
+    details = await fetchRailwayConnectionDetails(credential);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn("auth:seed:railway:skipped", { message });
+    return;
+  }
+
+  const existing = await getConnectionByUserAndKind(db, userId, "railway");
+  const now = Date.now();
+  if (existing) {
+    await db.patch(existing._id, {
+      auth: {
+        method: "api_key",
+        credential,
+      },
+      accountId: details.accountId,
+      email: details.email,
+      name: details.name,
+      updatedAt: now,
+    });
+    return;
+  }
+  await db.insert("providerConnections", {
+    kind: "railway",
+    userId,
+    auth: {
+      method: "api_key",
+      credential,
+    },
+    accountId: details.accountId,
+    email: details.email,
+    name: details.name,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
 async function applyAutoSeedProviderKeys(
   db: DatabaseWriter,
   userId: Id<"users">,
@@ -223,6 +340,7 @@ async function applyAutoSeedProviderKeys(
   await upsertSeedGithubConnection(db, userId);
   await upsertSeedConvexConnection(db, userId);
   await upsertSeedNetlifyConnection(db, userId);
+  await upsertSeedRailwayConnection(db, userId);
 }
 
 const googleClientId = readOptionalEnv("AUTH_GOOGLE_ID");

@@ -11,11 +11,14 @@ import {
 } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getConnectionByUserAndKind } from "./providerConnections";
+import { isRecord, readString } from "./jsonUtils";
 import { readOptionalEnv } from "./oauthUtils";
 import { isAllowedEmail } from "./users";
 
 const DEV_SEED_EMAIL = "nicu@noter.md";
 const DEV_SEED_PASSWORD = "pass1234";
+const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
+const RAILWAY_GRAPHQL_URL = "https://backboard.railway.com/graphql/v2";
 const { boolean, null: vNull, object, optional, string } = v;
 
 function normalizeEmail(email: string): string {
@@ -37,6 +40,71 @@ function readSeedValue(envName: string): string | undefined {
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : undefined;
+}
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs = DEFAULT_PROVIDER_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`Provider request timed out after ${timeoutMs}ms.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchRailwayConnectionDetails(token: string): Promise<{
+  accountId: string;
+  email?: string;
+  name?: string;
+}> {
+  const response = await fetchWithTimeout(RAILWAY_GRAPHQL_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query: "query RailwaySeedProfile { me { id email name } }",
+    }),
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || !isRecord(payload)) {
+    throw new Error("Invalid DEV_SEED_RAILWAY_API_KEY");
+  }
+
+  const graphQlErrors = payload["errors"];
+  if (Array.isArray(graphQlErrors) && graphQlErrors.length > 0) {
+    throw new Error("Invalid DEV_SEED_RAILWAY_API_KEY");
+  }
+
+  const data = payload["data"];
+  if (!isRecord(data)) {
+    throw new Error("Railway API key response is missing data");
+  }
+  const me = data["me"];
+  if (!isRecord(me)) {
+    throw new Error("Railway API key response is missing user profile");
+  }
+
+  const accountId = readString(me, "id");
+  if (!accountId) {
+    throw new Error("Railway API key response is missing account ID");
+  }
+
+  return {
+    accountId,
+    email: readString(me, "email"),
+    name: readString(me, "name"),
+  };
 }
 
 async function upsertGithubApiKey(
@@ -135,6 +203,44 @@ async function upsertNetlifyApiKey(
   });
 }
 
+async function upsertRailwayApiKey(
+  db: DatabaseWriter,
+  userId: Id<"users">,
+  credential: string,
+  accountId: string,
+  email?: string,
+  name?: string,
+): Promise<void> {
+  const existing = await getConnectionByUserAndKind(db, userId, "railway");
+  const now = Date.now();
+  if (existing) {
+    await db.patch(existing._id, {
+      auth: {
+        method: "api_key",
+        credential,
+      },
+      accountId,
+      email,
+      name,
+      updatedAt: now,
+    });
+    return;
+  }
+  await db.insert("providerConnections", {
+    kind: "railway",
+    userId,
+    auth: {
+      method: "api_key",
+      credential,
+    },
+    accountId,
+    email,
+    name,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
 const seedProviderConnectionsArgs = object({
   email: string(),
   githubApiKey: optional(string()),
@@ -142,6 +248,10 @@ const seedProviderConnectionsArgs = object({
   convexTeamId: optional(string()),
   netlifyApiKey: optional(string()),
   netlifyTeamId: optional(string()),
+  railwayApiKey: optional(string()),
+  railwayAccountId: optional(string()),
+  railwayEmail: optional(string()),
+  railwayName: optional(string()),
 });
 type SeedProviderConnectionsArgs = Infer<typeof seedProviderConnectionsArgs>;
 
@@ -190,6 +300,27 @@ export const seedProviderConnectionsForEmail = internalMutation({
       );
     }
 
+    if (
+      args.railwayApiKey ||
+      args.railwayAccountId ||
+      args.railwayEmail ||
+      args.railwayName
+    ) {
+      if (!args.railwayApiKey || !args.railwayAccountId) {
+        throw new Error(
+          "Railway API key and account ID must be provided together",
+        );
+      }
+      await upsertRailwayApiKey(
+        ctx.db,
+        user._id,
+        args.railwayApiKey,
+        args.railwayAccountId,
+        args.railwayEmail,
+        args.railwayName,
+      );
+    }
+
     return null;
   },
 });
@@ -210,6 +341,7 @@ export const seedPasswordAccount = internalAction({
     const convexTeamId = readSeedValue("DEV_SEED_CONVEX_TEAM_ID");
     const netlifyApiKey = readSeedValue("DEV_SEED_NETLIFY_API_KEY");
     const netlifyTeamId = readSeedValue("DEV_SEED_NETLIFY_TEAM_ID");
+    const railwayApiKey = readSeedValue("DEV_SEED_RAILWAY_API_KEY");
     const seedArgs: SeedProviderConnectionsArgs = { email };
     if (githubApiKey !== undefined) {
       seedArgs.githubApiKey = githubApiKey;
@@ -225,6 +357,17 @@ export const seedPasswordAccount = internalAction({
     }
     if (netlifyTeamId !== undefined) {
       seedArgs.netlifyTeamId = netlifyTeamId;
+    }
+    if (railwayApiKey !== undefined) {
+      const railwayProfile = await fetchRailwayConnectionDetails(railwayApiKey);
+      seedArgs.railwayApiKey = railwayApiKey;
+      seedArgs.railwayAccountId = railwayProfile.accountId;
+      if (railwayProfile.email !== undefined) {
+        seedArgs.railwayEmail = railwayProfile.email;
+      }
+      if (railwayProfile.name !== undefined) {
+        seedArgs.railwayName = railwayProfile.name;
+      }
     }
 
     if (!isAllowedEmail(email)) {

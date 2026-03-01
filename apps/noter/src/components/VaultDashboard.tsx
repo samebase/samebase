@@ -179,7 +179,7 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
     popupName: "railway-oauth",
     completionEventType: "railway-oauth-complete",
     icon: GlobeIcon,
-    apiKeyProvider: null,
+    apiKeyProvider: "railway",
   },
 };
 
@@ -201,6 +201,9 @@ export function VaultDashboard() {
   const connectConvexWithApiKey = useAction(api.users.connectConvexWithApiKey);
   const connectNetlifyWithApiKey = useAction(
     api.users.connectNetlifyWithApiKey,
+  );
+  const connectRailwayWithApiKey = useAction(
+    api.users.connectRailwayWithApiKey,
   );
   const disconnectGithub = useMutation(api.users.disconnectGithub);
   const disconnectConvex = useMutation(api.users.disconnectConvex);
@@ -680,6 +683,7 @@ export function VaultDashboard() {
     connectGithubWithApiKey,
     connectConvexWithApiKey,
     connectNetlifyWithApiKey,
+    connectRailwayWithApiKey,
   });
   const createControl = (
     <div className="flex flex-col items-start gap-2">

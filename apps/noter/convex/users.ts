@@ -23,6 +23,7 @@ const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
 const GITHUB_API_BASE = "https://api.github.com";
 const CONVEX_TOKEN_DETAILS_URL = "https://api.convex.dev/v1/token_details";
 const NETLIFY_API_BASE = "https://api.netlify.com/api/v1";
+const RAILWAY_GRAPHQL_URL = "https://backboard.railway.com/graphql/v2";
 
 const authProviderSummaryValidator = object({
   providers: array(string()),
@@ -243,6 +244,52 @@ async function fetchNetlifyConnectionDetails(token: string): Promise<{
   return {
     teamId: selectedAccount.id,
     teamSlug: selectedAccount.slug,
+  };
+}
+
+async function fetchRailwayConnectionDetails(token: string): Promise<{
+  accountId: string;
+  email?: string;
+  name?: string;
+}> {
+  const response = await fetchWithTimeout(RAILWAY_GRAPHQL_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query: "query RailwayApiKeyProfile { me { id email name } }",
+    }),
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || !isRecord(payload)) {
+    throw new Error("Invalid Railway API key");
+  }
+
+  const graphQlErrors = payload["errors"];
+  if (Array.isArray(graphQlErrors) && graphQlErrors.length > 0) {
+    throw new Error("Invalid Railway API key");
+  }
+
+  const data = payload["data"];
+  if (!isRecord(data)) {
+    throw new Error("Railway API key response is missing data");
+  }
+  const me = data["me"];
+  if (!isRecord(me)) {
+    throw new Error("Railway API key response is missing user profile");
+  }
+
+  const accountId = readString(me, "id");
+  if (!accountId) {
+    throw new Error("Railway API key response is missing account ID");
+  }
+
+  return {
+    accountId,
+    email: readString(me, "email"),
+    name: readString(me, "name"),
   };
 }
 
@@ -595,6 +642,15 @@ type NetlifyApiKeyConnectionResult = Infer<
   typeof netlifyApiKeyConnectionResultValidator
 >;
 
+const railwayApiKeyConnectionResultValidator = v.object({
+  accountId: v.string(),
+  email: v.optional(v.string()),
+  name: v.optional(v.string()),
+});
+type RailwayApiKeyConnectionResult = Infer<
+  typeof railwayApiKeyConnectionResultValidator
+>;
+
 export const connectGithubWithApiKey = action({
   args: {
     token: v.string(),
@@ -675,6 +731,39 @@ export const connectNetlifyWithApiKey = action({
     });
 
     return { teamId: details.teamId, teamSlug: details.teamSlug };
+  },
+});
+
+export const connectRailwayWithApiKey = action({
+  args: {
+    token: v.string(),
+  },
+  returns: railwayApiKeyConnectionResultValidator,
+  handler: async (ctx, args): Promise<RailwayApiKeyConnectionResult> => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      throw new Error("User not authenticated");
+    }
+
+    const token = normalizeApiToken(args.token);
+    const details = await fetchRailwayConnectionDetails(token);
+
+    await ctx.runMutation(internal.providerConnections.upsertRailway, {
+      userId,
+      auth: {
+        method: "api_key",
+        credential: token,
+      },
+      accountId: details.accountId,
+      email: details.email,
+      name: details.name,
+    });
+
+    return {
+      accountId: details.accountId,
+      email: details.email,
+      name: details.name,
+    };
   },
 });
 

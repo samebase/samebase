@@ -310,6 +310,9 @@ Auth:
   and use `make run` when operating from the primary local checkout.
 - In a worktree, `make anon` is the full startup command (do not run `pnpm dev`
   separately afterward).
+- For UI automation, never kill all `Google Chrome` processes. Only terminate
+  Playwright-owned sessions/profile paths (for example
+  `.../ms-playwright/mcp-chrome`).
 - Worktree frontend should avoid port `5173` so OAuth flows on main checkout
   stay unaffected (default worktree dev port: `5174`).
 - When asked for OAuth redirect URLs or env vars, give a single exact
