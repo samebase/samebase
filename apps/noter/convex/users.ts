@@ -596,10 +596,10 @@ type NetlifyApiKeyConnectionResult = Infer<
   typeof netlifyApiKeyConnectionResultValidator
 >;
 
-const railwayApiKeyConnectionResultValidator = v.object({
-  accountId: v.string(),
-  email: v.optional(v.string()),
-  name: v.optional(v.string()),
+const railwayApiKeyConnectionResultValidator = object({
+  accountId: string(),
+  email: optional(string()),
+  name: optional(string()),
 });
 type RailwayApiKeyConnectionResult = Infer<
   typeof railwayApiKeyConnectionResultValidator

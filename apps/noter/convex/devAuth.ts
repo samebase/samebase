@@ -292,20 +292,25 @@ export const seedPasswordAccount = internalAction({
       seedArgs.netlifyTeamId = netlifyTeamId;
     }
     if (railwayApiKey !== undefined) {
-      const railwayProfile = await fetchRailwayConnectionDetails(
-        railwayApiKey,
-        {
-          invalidApiKeyMessage: "Invalid DEV_SEED_RAILWAY_API_KEY",
-          queryName: "RailwaySeedProfile",
-        },
-      );
-      seedArgs.railwayApiKey = railwayApiKey;
-      seedArgs.railwayAccountId = railwayProfile.accountId;
-      if (railwayProfile.email !== undefined) {
-        seedArgs.railwayEmail = railwayProfile.email;
-      }
-      if (railwayProfile.name !== undefined) {
-        seedArgs.railwayName = railwayProfile.name;
+      try {
+        const railwayProfile = await fetchRailwayConnectionDetails(
+          railwayApiKey,
+          {
+            invalidApiKeyMessage: "Invalid DEV_SEED_RAILWAY_API_KEY",
+            queryName: "RailwaySeedProfile",
+          },
+        );
+        seedArgs.railwayApiKey = railwayApiKey;
+        seedArgs.railwayAccountId = railwayProfile.accountId;
+        if (railwayProfile.email !== undefined) {
+          seedArgs.railwayEmail = railwayProfile.email;
+        }
+        if (railwayProfile.name !== undefined) {
+          seedArgs.railwayName = railwayProfile.name;
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn("devAuth:seed:railway:skipped", { message });
       }
     }
 

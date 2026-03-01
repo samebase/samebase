@@ -963,7 +963,7 @@ export function VaultDashboard() {
                       <Collapsible
                         className="space-y-1.5"
                         open={developerToolsOpen}
-                        onOpenChange={(isOpen) => {
+                        onOpenChange={(isOpen: boolean) => {
                           setOpenDeveloperToolsByVaultId((prev) => ({
                             ...prev,
                             [vault._id]: isOpen,
