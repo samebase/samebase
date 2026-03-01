@@ -124,6 +124,9 @@ const pickAnonymousLocalPorts = () => {
     return { cloud, site };
   }
 
+  console.warn(
+    "No free anonymous worktree port pair found; falling back to Convex defaults.",
+  );
   return null;
 };
 
@@ -239,7 +242,7 @@ const ensureAnonymousAuthKeys = async (env, preferredPorts = []) => {
     console.warn(
       "Skipping anonymous auth key setup: local Convex backend is not ready.",
     );
-    return;
+    return false;
   }
 
   const existingPrivateKey = readEnvVar("JWT_PRIVATE_KEY", env);
@@ -250,7 +253,7 @@ const ensureAnonymousAuthKeys = async (env, preferredPorts = []) => {
     hasValidPrivateKey(existingPrivateKey) &&
     hasValidJwks(existingJwks)
   ) {
-    return;
+    return true;
   }
 
   removeEnvVar("JWT_PRIVATE_KEY", env);
@@ -272,10 +275,11 @@ const ensureAnonymousAuthKeys = async (env, preferredPorts = []) => {
     console.warn(
       `Anonymous auth key setup failed${output ? `:\n${output}` : "."}`,
     );
-    return;
+    return false;
   }
 
   console.log("Anonymous auth keys refreshed.");
+  return true;
 };
 
 const env = { ...process.env };
@@ -293,6 +297,10 @@ env.PATH = [supportedNodeBin, env.PATH].filter(Boolean).join(path.delimiter);
 
 const rawExtraArgs = process.argv.slice(2);
 const refreshAnonAuth = rawExtraArgs.includes("--refresh-anon-auth");
+if (refreshAnonAuth && process.env.CONVEX_AGENT_MODE !== "anonymous") {
+  console.error("--refresh-anon-auth requires CONVEX_AGENT_MODE=anonymous");
+  process.exit(1);
+}
 const extraArgs = rawExtraArgs.filter((arg) => arg !== "--refresh-anon-auth");
 const args = ["dev", ...extraArgs];
 let anonymousLocalPorts = null;
@@ -364,14 +372,15 @@ child.on("exit", (code) => {
 });
 
 if (refreshAnonAuth) {
-  if (process.env.CONVEX_AGENT_MODE !== "anonymous") {
-    console.error("--refresh-anon-auth requires CONVEX_AGENT_MODE=anonymous");
-    process.exit(1);
-  }
   void ensureAnonymousAuthKeys(
     env,
     anonymousLocalPorts ? [anonymousLocalPorts.cloud] : [],
   )
+    .then((ok) => {
+      if (!ok) {
+        refreshFailed = true;
+      }
+    })
     .catch((error) => {
       refreshFailed = true;
       console.error(error instanceof Error ? error.message : String(error));
