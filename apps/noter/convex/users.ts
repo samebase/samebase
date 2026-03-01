@@ -5,6 +5,7 @@ import { Infer, v } from "convex/values";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import { isRailwayHostingPilotEnabled } from "./hostingPilot";
 import { isRecord, readBoolean, readString } from "./jsonUtils";
+import { fetchRailwayConnectionDetails } from "./railwayConnectionDetails";
 
 const { array, boolean, literal, object, optional, string, union } = v;
 
@@ -595,6 +596,15 @@ type NetlifyApiKeyConnectionResult = Infer<
   typeof netlifyApiKeyConnectionResultValidator
 >;
 
+const railwayApiKeyConnectionResultValidator = object({
+  accountId: string(),
+  email: optional(string()),
+  name: optional(string()),
+});
+type RailwayApiKeyConnectionResult = Infer<
+  typeof railwayApiKeyConnectionResultValidator
+>;
+
 export const connectGithubWithApiKey = action({
   args: {
     token: v.string(),
@@ -675,6 +685,42 @@ export const connectNetlifyWithApiKey = action({
     });
 
     return { teamId: details.teamId, teamSlug: details.teamSlug };
+  },
+});
+
+export const connectRailwayWithApiKey = action({
+  args: {
+    token: v.string(),
+  },
+  returns: railwayApiKeyConnectionResultValidator,
+  handler: async (ctx, args): Promise<RailwayApiKeyConnectionResult> => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      throw new Error("User not authenticated");
+    }
+
+    const token = normalizeApiToken(args.token);
+    const details = await fetchRailwayConnectionDetails(token, {
+      invalidApiKeyMessage: "Invalid Railway API key",
+      queryName: "RailwayApiKeyProfile",
+    });
+
+    await ctx.runMutation(internal.providerConnections.upsertRailway, {
+      userId,
+      auth: {
+        method: "api_key",
+        credential: token,
+      },
+      accountId: details.accountId,
+      email: details.email,
+      name: details.name,
+    });
+
+    return {
+      accountId: details.accountId,
+      email: details.email,
+      name: details.name,
+    };
   },
 });
 

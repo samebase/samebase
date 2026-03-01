@@ -1,11 +1,12 @@
 import Google from "@auth/core/providers/google";
 import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
-import type { DatabaseReader, DatabaseWriter } from "./_generated/server";
+import type { DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getConnectionByUserAndKind } from "./providerConnections";
+import { fetchRailwayConnectionDetails } from "./railwayConnectionDetails";
 import { isAllowedEmail } from "./users";
-import { readOptionalEnv, readRequiredEnv } from "./oauthUtils";
+import { readOptionalEnv } from "./oauthUtils";
 
 type UserPatch = {
   name?: string;
@@ -18,10 +19,6 @@ type UserPatch = {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
-}
-
-function isNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
 }
 
 function readDeploymentName(rawDeployment: string): string | null {
@@ -213,6 +210,61 @@ async function upsertSeedNetlifyConnection(
   });
 }
 
+async function upsertSeedRailwayConnection(
+  db: DatabaseWriter,
+  userId: Id<"users">,
+): Promise<void> {
+  const credential = readOptionalEnv("DEV_SEED_RAILWAY_API_KEY");
+  if (credential === null) {
+    return;
+  }
+
+  let details: {
+    accountId: string;
+    email?: string;
+    name?: string;
+  };
+  try {
+    details = await fetchRailwayConnectionDetails(credential, {
+      invalidApiKeyMessage: "Invalid DEV_SEED_RAILWAY_API_KEY",
+      queryName: "RailwaySeedProfile",
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn("auth:seed:railway:skipped", { message });
+    return;
+  }
+
+  const existing = await getConnectionByUserAndKind(db, userId, "railway");
+  const now = Date.now();
+  if (existing) {
+    await db.patch(existing._id, {
+      auth: {
+        method: "api_key",
+        credential,
+      },
+      accountId: details.accountId,
+      email: details.email,
+      name: details.name,
+      updatedAt: now,
+    });
+    return;
+  }
+  await db.insert("providerConnections", {
+    kind: "railway",
+    userId,
+    auth: {
+      method: "api_key",
+      credential,
+    },
+    accountId: details.accountId,
+    email: details.email,
+    name: details.name,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
 async function applyAutoSeedProviderKeys(
   db: DatabaseWriter,
   userId: Id<"users">,
@@ -223,6 +275,7 @@ async function applyAutoSeedProviderKeys(
   await upsertSeedGithubConnection(db, userId);
   await upsertSeedConvexConnection(db, userId);
   await upsertSeedNetlifyConnection(db, userId);
+  await upsertSeedRailwayConnection(db, userId);
 }
 
 const googleClientId = readOptionalEnv("AUTH_GOOGLE_ID");

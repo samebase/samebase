@@ -11,6 +11,7 @@ import {
 } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getConnectionByUserAndKind } from "./providerConnections";
+import { fetchRailwayConnectionDetails } from "./railwayConnectionDetails";
 import { readOptionalEnv } from "./oauthUtils";
 import { isAllowedEmail } from "./users";
 
@@ -135,6 +136,44 @@ async function upsertNetlifyApiKey(
   });
 }
 
+async function upsertRailwayApiKey(
+  db: DatabaseWriter,
+  userId: Id<"users">,
+  credential: string,
+  accountId: string,
+  email?: string,
+  name?: string,
+): Promise<void> {
+  const existing = await getConnectionByUserAndKind(db, userId, "railway");
+  const now = Date.now();
+  if (existing) {
+    await db.patch(existing._id, {
+      auth: {
+        method: "api_key",
+        credential,
+      },
+      accountId,
+      email,
+      name,
+      updatedAt: now,
+    });
+    return;
+  }
+  await db.insert("providerConnections", {
+    kind: "railway",
+    userId,
+    auth: {
+      method: "api_key",
+      credential,
+    },
+    accountId,
+    email,
+    name,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
 const seedProviderConnectionsArgs = object({
   email: string(),
   githubApiKey: optional(string()),
@@ -142,6 +181,10 @@ const seedProviderConnectionsArgs = object({
   convexTeamId: optional(string()),
   netlifyApiKey: optional(string()),
   netlifyTeamId: optional(string()),
+  railwayApiKey: optional(string()),
+  railwayAccountId: optional(string()),
+  railwayEmail: optional(string()),
+  railwayName: optional(string()),
 });
 type SeedProviderConnectionsArgs = Infer<typeof seedProviderConnectionsArgs>;
 
@@ -190,6 +233,27 @@ export const seedProviderConnectionsForEmail = internalMutation({
       );
     }
 
+    if (
+      args.railwayApiKey ||
+      args.railwayAccountId ||
+      args.railwayEmail ||
+      args.railwayName
+    ) {
+      if (!args.railwayApiKey || !args.railwayAccountId) {
+        throw new Error(
+          "Railway API key and account ID must be provided together",
+        );
+      }
+      await upsertRailwayApiKey(
+        ctx.db,
+        user._id,
+        args.railwayApiKey,
+        args.railwayAccountId,
+        args.railwayEmail,
+        args.railwayName,
+      );
+    }
+
     return null;
   },
 });
@@ -210,6 +274,7 @@ export const seedPasswordAccount = internalAction({
     const convexTeamId = readSeedValue("DEV_SEED_CONVEX_TEAM_ID");
     const netlifyApiKey = readSeedValue("DEV_SEED_NETLIFY_API_KEY");
     const netlifyTeamId = readSeedValue("DEV_SEED_NETLIFY_TEAM_ID");
+    const railwayApiKey = readSeedValue("DEV_SEED_RAILWAY_API_KEY");
     const seedArgs: SeedProviderConnectionsArgs = { email };
     if (githubApiKey !== undefined) {
       seedArgs.githubApiKey = githubApiKey;
@@ -225,6 +290,28 @@ export const seedPasswordAccount = internalAction({
     }
     if (netlifyTeamId !== undefined) {
       seedArgs.netlifyTeamId = netlifyTeamId;
+    }
+    if (railwayApiKey !== undefined) {
+      try {
+        const railwayProfile = await fetchRailwayConnectionDetails(
+          railwayApiKey,
+          {
+            invalidApiKeyMessage: "Invalid DEV_SEED_RAILWAY_API_KEY",
+            queryName: "RailwaySeedProfile",
+          },
+        );
+        seedArgs.railwayApiKey = railwayApiKey;
+        seedArgs.railwayAccountId = railwayProfile.accountId;
+        if (railwayProfile.email !== undefined) {
+          seedArgs.railwayEmail = railwayProfile.email;
+        }
+        if (railwayProfile.name !== undefined) {
+          seedArgs.railwayName = railwayProfile.name;
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn("devAuth:seed:railway:skipped", { message });
+      }
     }
 
     if (!isAllowedEmail(email)) {
