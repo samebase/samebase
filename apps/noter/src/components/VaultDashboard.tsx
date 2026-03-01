@@ -280,7 +280,7 @@ export function VaultDashboard() {
     null,
   );
   const [openDeveloperToolsByVaultId, setOpenDeveloperToolsByVaultId] =
-    useState<Record<string, boolean>>({});
+    useState<Partial<Record<Id<"vaults">, boolean>>>({});
   const railwayHostingPilotEnabled =
     hostingPilotStatus?.railwayHostingPilotEnabled === true;
 
@@ -919,7 +919,7 @@ export function VaultDashboard() {
             const defaultBranch = "main";
             const chatRoute = `/vault/${vault.repositoryFullName}/${defaultBranch}/chat`;
             const developerToolsOpen =
-              openDeveloperToolsByVaultId[vault._id] === true;
+              openDeveloperToolsByVaultId[vault._id] ?? false;
             const infraActionLabel = vault.isNoterManaged
               ? getInfraActionLabel(vault.infraState)
               : null;
