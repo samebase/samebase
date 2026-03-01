@@ -36,9 +36,7 @@ import path from 'node:path'
  * }} WorktreeInfo
  */
 
-const SYNC_ALLOWLIST = new Set([
-  'JWT_PRIVATE_KEY',
-  'JWKS',
+const DEV_SEED_ALLOWLIST = new Set([
   'DEV_SEED_GITHUB_API_KEY',
   'DEV_SEED_CONVEX_MANAGEMENT_API_KEY',
   'DEV_SEED_CONVEX_TEAM_ID',
@@ -49,7 +47,7 @@ const SYNC_ALLOWLIST = new Set([
 
 const HELP_TEXT = `Usage: scripts/convex-sync-dev-env.js [options]
 
-Build a local seed env file by pulling selected variables from the cloud dev deployment.
+Build a local seed env file by pulling DEV_SEED_* values from the cloud dev deployment.
 
 Options:
   --source-env <path>     Path to a dev env file (contains CONVEX_DEPLOYMENT=dev:*).
@@ -99,7 +97,7 @@ const sourceEnvPath = options.sourceEnv
 
 if (!sourceEnvPath) {
   if (options.dryRun) {
-    console.log(`Would write 1 synced var to ${targetEnvPath}`)
+    console.log(`Would write 1 seed var to ${targetEnvPath}`)
     console.log('- CONVEX_DEPLOYMENT')
     process.exit(0)
   }
@@ -136,13 +134,13 @@ if (isAnonymousLikeDeploymentName(sourceDeployment.name)) {
 const entries = listDeploymentEnvVars({
   appDir,
   envFile: sourceEnvPath,
-}).filter(({ name }) => SYNC_ALLOWLIST.has(name))
+}).filter(({ name }) => DEV_SEED_ALLOWLIST.has(name))
 
 const sorted = entries.slice().sort((a, b) => a.name.localeCompare(b.name))
 
 if (options.dryRun) {
   console.log(
-    `Would write ${sorted.length + 1} synced var${sorted.length + 1 === 1 ? '' : 's'} ` +
+    `Would write ${sorted.length + 1} seed var${sorted.length + 1 === 1 ? '' : 's'} ` +
       `from ${sourceDeployment.raw} to ${targetEnvPath}`,
   )
   console.log('- CONVEX_DEPLOYMENT')
@@ -157,7 +155,7 @@ writeEnvFile(targetEnvPath, [
   ...sorted,
 ])
 console.log(
-  `Wrote ${sorted.length + 1} synced var${sorted.length + 1 === 1 ? '' : 's'} ` +
+  `Wrote ${sorted.length + 1} seed var${sorted.length + 1 === 1 ? '' : 's'} ` +
     `to ${targetEnvPath}`,
 )
 
