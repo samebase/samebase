@@ -319,6 +319,8 @@ Auth:
   recommendation. Do not present multiple options or alternate env var lookups.
 - Avoid adding unusual options or flags unless there is a clear, stated reason
   for them.
+- Do not introduce new environment variables as fallback mechanisms unless the
+  user explicitly asks for that behavior.
 - Prefer breadth-first, simplest-viable fixes before deeper changes; stop once a
   minimal solution works.
 - When removing legacy systems, prefer clean removal and rely on git history for

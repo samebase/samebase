@@ -21,17 +21,12 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function isFlagEnabled(key: string): boolean {
-  const value = readOptionalEnv(key);
-  return value !== null && value.toLowerCase() === "true";
-}
-
 function isLocalhostUrl(rawUrl: string): boolean {
   try {
     const parsed = new URL(rawUrl);
     return parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
   } catch {
-    return rawUrl.includes("localhost") || rawUrl.includes("127.0.0.1");
+    return false;
   }
 }
 
@@ -306,8 +301,7 @@ const googleClientSecret = readOptionalEnv("AUTH_GOOGLE_SECRET");
 const passwordAuthEnabled =
   isLocalConvexDeployment() ||
   isDevelopmentDeployment() ||
-  isAnonymousWorktreeDeployment() ||
-  isFlagEnabled("AUTH_ENABLE_PASSWORD");
+  isAnonymousWorktreeDeployment();
 if ((googleClientId === null) !== (googleClientSecret === null)) {
   throw new Error(
     `Missing required environment variable: ${
