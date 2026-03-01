@@ -79,11 +79,13 @@ Flow contract:
 
 Isolation contract:
 
-1. In anonymous worktree mode, Convex deployment label may remain
-   `anonymous-agent`.
+1. In anonymous worktree mode, Convex deployment label is `anonymous-agent`.
 2. Worktree isolation must be enforced by distinct local backend URL/port pairs
-   (`VITE_CONVEX_URL`) and per-worktree local state, so seed/auth data does not
-   collide across concurrent worktrees.
+   (`VITE_CONVEX_URL`) and per-worktree local state.
+3. Local backend ports are selected deterministically from the worktree path
+   hash, then collision-checked; if a chosen pair is already in use, the next
+   available pair in range is used.
+4. Seed/auth data must not collide across concurrent worktrees.
 
 ## Frontend Requirements
 

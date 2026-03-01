@@ -178,7 +178,7 @@ entrypoint).
 
 ## Data Flow Summary
 
-```
+```text
 noter.md -> parse worktrees config -> compute worktreeId + ports
   -> set CONVEX_AGENT_MODE + local backend ports + VITE_PORT + DEV_ENV_ORIGIN
   -> run convex dev + vite

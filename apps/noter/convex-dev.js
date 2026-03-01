@@ -3,6 +3,7 @@ import os from "os";
 import path from "path";
 import { createHash } from "crypto";
 import { spawn, spawnSync } from "child_process";
+import { isPortInUse, parsePort, sleep } from "./convex-local-utils.js";
 
 const SUPPORTED_NODE_MAJORS = ["24", "22", "20", "18"];
 const ANONYMOUS_LOCAL_CLOUD_PORT_START = 11000;
@@ -93,29 +94,8 @@ const pickSupportedNodeBin = () => {
   return null;
 };
 
-const sleep = (ms) =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-
 const hasCliOption = (args, optionName) =>
   args.some((arg) => arg === optionName || arg.startsWith(`${optionName}=`));
-
-const listListeningPids = (port) => {
-  const result = spawnSync("lsof", [`-tiTCP:${port}`, "-sTCP:LISTEN"], {
-    stdio: "pipe",
-    encoding: "utf8",
-  });
-  if (result.status !== 0 || !result.stdout) {
-    return [];
-  }
-  return result.stdout
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-};
-
-const isPortInUse = (port) => listListeningPids(port).length > 0;
 
 const resolveWorktreeRoot = () => {
   const result = spawnSync("git", ["rev-parse", "--show-toplevel"], {
@@ -145,16 +125,6 @@ const pickAnonymousLocalPorts = () => {
   }
 
   return null;
-};
-
-const parsePort = (url) => {
-  try {
-    const parsed = new URL(url);
-    const asNumber = Number(parsed.port);
-    return Number.isFinite(asNumber) && asNumber > 0 ? asNumber : null;
-  } catch {
-    return null;
-  }
 };
 
 const readLocalBackendPorts = (preferredPorts = []) => {
