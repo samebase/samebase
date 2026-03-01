@@ -20,6 +20,7 @@
 
 ## High Priority
 
+- [ ] codex workflow: ship a "main agent" (ChatFab-style) that can orchestrate running agents across worktrees to eliminate context switching; see `Ideas/main-agent-hub/README.md`
 - [ ] codex: make worktrees work automatically
 - [ ] auth env vars: standardize on `AUTH_*` (or document precedence) and add a warning when multiple GitHub/Google env keys are set
 - [ ] add dashboard-level settings panel (currently logout only exists inside vault)
