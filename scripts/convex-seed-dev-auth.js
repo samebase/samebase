@@ -53,6 +53,7 @@ const backend = spawn(
     stdio: 'inherit',
   },
 )
+const backendPid = backend.pid
 
 let backendExited = false
 backend.on('exit', () => {
@@ -72,38 +73,30 @@ const waitForBackendExit = async () => {
   }
 }
 const terminateBackendOnPort = async () => {
-  const pids = listListeningPids(backendPort)
-  if (pids.length === 0) {
+  const pid = backendPid
+  if (pid === undefined || !Number.isFinite(pid)) {
     return
   }
-  for (const pid of pids) {
-    const numericPid = Number(pid)
-    if (!Number.isFinite(numericPid)) {
-      continue
-    }
-    try {
-      process.kill(numericPid, 'SIGTERM')
-    } catch {
-      // ignore
-    }
+  const pidString = String(pid)
+  if (!listListeningPids(backendPort).includes(pidString)) {
+    return
+  }
+  try {
+    process.kill(pid, 'SIGTERM')
+  } catch {
+    return
   }
   const deadline = Date.now() + 3000
   while (Date.now() < deadline) {
-    if (listListeningPids(backendPort).length === 0) {
+    if (!listListeningPids(backendPort).includes(pidString)) {
       return
     }
     await sleep(100)
   }
-  for (const pid of listListeningPids(backendPort)) {
-    const numericPid = Number(pid)
-    if (!Number.isFinite(numericPid)) {
-      continue
-    }
-    try {
-      process.kill(numericPid, 'SIGKILL')
-    } catch {
-      // ignore
-    }
+  try {
+    process.kill(pid, 'SIGKILL')
+  } catch {
+    // ignore
   }
 }
 
