@@ -4,7 +4,7 @@
 
 ANON_SETUP_ONCE_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --once --codegen=enable --tail-logs=disable --typecheck=disable
 ANON_SYNC_ENV_CMD = node ./scripts/convex-sync-dev-env.js
-ANON_SEED_PASSWORD_ACCOUNT_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --once --env-file .env.anon-seed.local --run devAuth:seedPasswordAccount --tail-logs=disable --typecheck=disable
+ANON_SEED_PASSWORD_ACCOUNT_CMD = node ./scripts/convex-seed-dev-auth.js
 ANON_REFRESH_AUTH_KEYS_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --refresh-anon-auth --codegen=disable --tail-logs=disable --typecheck=disable
 ANON_VITE_PORT = 5174
 PLAYWRIGHT_CLI = npx --yes @playwright/cli
