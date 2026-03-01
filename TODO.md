@@ -2,6 +2,8 @@
 
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 - [ ] maybe jupyterlab is not necessaryle necessary, or even a good idea, since developers usually don't use it; and vibecoders don't even use it; only academia?
+- [ ] we te necessarily need an UI. The user should have same UI possibilities as openclaw, e. G. using telegram 
+- [ ] **Define a graphic for the openclaw agent; If we can visually show how it works, we can win**
 - [ ] everythin on a page can easily be configured by the agent; So if there's a form the agent can edit it directly (saved to convex); so you can even build your dashboard; or you can expose it to someone so someone can bpay for it and you get money
 - [ ] preview deploys should be created in the pr. But locally in Daytona use local convex
 - [ ] add a Make target to stop any running local dev environments (at least processes bound to common dev ports like `5173`, `3000`, and `3210`)
