@@ -979,6 +979,7 @@ export function VaultDashboard() {
             const isReady = vault.state === "ready";
             const defaultBranch = "main";
             const chatRoute = `/vault/${vault.repositoryFullName}/${defaultBranch}/chat`;
+            const githubRepositoryUrl = `https://github.com/${vault.ghRepoOwner}/${vault.ghRepoName}`;
             const developerToolsOpen =
               openDeveloperToolsByVaultId[vault._id] ?? false;
             const infraActionLabel = vault.isNoterManaged
@@ -994,26 +995,34 @@ export function VaultDashboard() {
               >
                 <div className="flex flex-col gap-3 flex-1 min-w-0 sm:flex-row sm:items-center sm:gap-4">
                   <div className="flex-1 min-w-0 space-y-2">
-                    <div className="flex flex-col items-start ">
-                      <span className="text-sm text-muted-foreground">
-                        {vault.ghRepoOwner}/
-                      </span>
-
-                      <h3 className="font-semibold">
-                        <span className="flex items-center gap-2 min-w-0">
-                          {!isReady && (
-                            <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
-                          )}
-                          <span className="min-w-0 truncate">
-                            {vault.ghRepoName}
-                          </span>
-                          {!isReady && (
-                            <span className="text-xs text-muted-foreground font-normal shrink-0">
-                              (setting up...)
-                            </span>
-                          )}
+                    <div className="flex flex-col items-start">
+                      <a
+                        href={githubRepositoryUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`flex min-w-0 flex-col items-start ${linkStyle}`}
+                        title={`Open ${vault.repositoryFullName} on GitHub`}
+                      >
+                        <span className="text-sm text-muted-foreground">
+                          {vault.ghRepoOwner}/
                         </span>
-                      </h3>
+
+                        <h3 className="font-semibold">
+                          <span className="flex items-center gap-2 min-w-0">
+                            {!isReady && (
+                              <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+                            )}
+                            <span className="min-w-0 truncate">
+                              {vault.ghRepoName}
+                            </span>
+                            {!isReady && (
+                              <span className="text-xs text-muted-foreground font-normal shrink-0">
+                                (setting up...)
+                              </span>
+                            )}
+                          </span>
+                        </h3>
+                      </a>
                     </div>
 
                     {isReady && (
