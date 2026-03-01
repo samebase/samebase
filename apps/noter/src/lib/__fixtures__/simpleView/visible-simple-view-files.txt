@@ -15,6 +15,9 @@ Ideas/README.md
 Ideas/signin-view-code-prosemark.md
 Ideas/to-do.md
 LUMINA_PROJECT_ANALYSIS.md
+manual-tests/README.md
+manual-tests/TEMPLATE.md
+manual-tests/worktree/WT-001-anon-worktree-isolation.md
 patches/convex@1.32.0.patch
 README.md
 RECOVERED_IDEAS.md
