@@ -2,9 +2,9 @@
 # .PHONY ensures targets run even if a file with the same name exists.
 .PHONY: bootstrap bootstrap-anon run anon anon-once update-fixtures record-start record-stop
 
-ANON_SETUP_ONCE_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous npx convex dev --once --tail-logs=disable --typecheck=disable
+ANON_SETUP_ONCE_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --once --codegen=enable --tail-logs=disable --typecheck=disable
 ANON_SYNC_ENV_CMD = node ./scripts/convex-sync-dev-env.js
-ANON_SEED_PASSWORD_ACCOUNT_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous npx convex dev --once --env-file .env.anon-seed.local --run devAuth:seedPasswordAccount --tail-logs=disable --typecheck=disable
+ANON_SEED_PASSWORD_ACCOUNT_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --once --env-file .env.anon-seed.local --run devAuth:seedPasswordAccount --tail-logs=disable --typecheck=disable
 ANON_REFRESH_AUTH_KEYS_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --refresh-anon-auth --codegen=disable --tail-logs=disable --typecheck=disable
 ANON_VITE_PORT = 5174
 PLAYWRIGHT_CLI = npx --yes @playwright/cli

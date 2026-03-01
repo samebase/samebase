@@ -1,9 +1,12 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { createHash } from "crypto";
 import { spawn, spawnSync } from "child_process";
 
 const SUPPORTED_NODE_MAJORS = ["24", "22", "20", "18"];
+const ANONYMOUS_LOCAL_CLOUD_PORT_START = 11000;
+const ANONYMOUS_LOCAL_PORT_PAIR_COUNT = 2000;
 
 const semverCompare = (a, b) => {
   const aParts = a.slice(1).split(".").map(Number);
@@ -95,6 +98,55 @@ const sleep = (ms) =>
     setTimeout(resolve, ms);
   });
 
+const hasCliOption = (args, optionName) =>
+  args.some((arg) => arg === optionName || arg.startsWith(`${optionName}=`));
+
+const listListeningPids = (port) => {
+  const result = spawnSync("lsof", [`-tiTCP:${port}`, "-sTCP:LISTEN"], {
+    stdio: "pipe",
+    encoding: "utf8",
+  });
+  if (result.status !== 0 || !result.stdout) {
+    return [];
+  }
+  return result.stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+};
+
+const isPortInUse = (port) => listListeningPids(port).length > 0;
+
+const resolveWorktreeRoot = () => {
+  const result = spawnSync("git", ["rev-parse", "--show-toplevel"], {
+    stdio: "pipe",
+    encoding: "utf8",
+  });
+  if (result.status !== 0) {
+    return process.cwd();
+  }
+  const root = (result.stdout ?? "").trim();
+  return root.length > 0 ? root : process.cwd();
+};
+
+const pickAnonymousLocalPorts = () => {
+  const worktreeRoot = resolveWorktreeRoot();
+  const digest = createHash("sha256").update(worktreeRoot).digest();
+  const startIndex = digest.readUInt32BE(0) % ANONYMOUS_LOCAL_PORT_PAIR_COUNT;
+
+  for (let offset = 0; offset < ANONYMOUS_LOCAL_PORT_PAIR_COUNT; offset += 1) {
+    const index = (startIndex + offset) % ANONYMOUS_LOCAL_PORT_PAIR_COUNT;
+    const cloud = ANONYMOUS_LOCAL_CLOUD_PORT_START + index * 2;
+    const site = cloud + 1;
+    if (isPortInUse(cloud) || isPortInUse(site)) {
+      continue;
+    }
+    return { cloud, site };
+  }
+
+  return null;
+};
+
 const parsePort = (url) => {
   try {
     const parsed = new URL(url);
@@ -105,8 +157,11 @@ const parsePort = (url) => {
   }
 };
 
-const readLocalBackendPorts = () => {
-  const ports = [3214, 3210];
+const readLocalBackendPorts = (preferredPorts = []) => {
+  const ports = [...preferredPorts, 3214, 3210].filter(
+    (port, index, all) =>
+      Number.isFinite(port) && port > 0 && all.indexOf(port) === index,
+  );
   const envFile = path.join(process.cwd(), ".env.local");
   if (!fs.existsSync(envFile)) {
     return ports;
@@ -158,10 +213,10 @@ const isLocalBackendReady = async (port) => {
   }
 };
 
-const waitForAnonymousBackend = async (timeoutMs) => {
+const waitForAnonymousBackend = async (timeoutMs, preferredPorts = []) => {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    for (const port of readLocalBackendPorts()) {
+    for (const port of readLocalBackendPorts(preferredPorts)) {
       if (await isLocalBackendReady(port)) {
         return true;
       }
@@ -208,8 +263,8 @@ const hasValidPrivateKey = (value) =>
 const hasValidJwks = (value) =>
   value.includes('{"keys":') || value.includes('"keys":');
 
-const ensureAnonymousAuthKeys = async (env) => {
-  const backendReady = await waitForAnonymousBackend(20000);
+const ensureAnonymousAuthKeys = async (env, preferredPorts = []) => {
+  const backendReady = await waitForAnonymousBackend(20000, preferredPorts);
   if (!backendReady) {
     console.warn(
       "Skipping anonymous auth key setup: local Convex backend is not ready.",
@@ -270,11 +325,36 @@ const rawExtraArgs = process.argv.slice(2);
 const refreshAnonAuth = rawExtraArgs.includes("--refresh-anon-auth");
 const extraArgs = rawExtraArgs.filter((arg) => arg !== "--refresh-anon-auth");
 const args = ["dev", ...extraArgs];
+let anonymousLocalPorts = null;
 if (
   process.env.CONVEX_AGENT_MODE === "anonymous" &&
   !args.some((arg) => arg.startsWith("--codegen"))
 ) {
   args.push("--codegen=disable");
+}
+if (process.env.CONVEX_AGENT_MODE === "anonymous") {
+  if (
+    !hasCliOption(args, "--local") &&
+    !hasCliOption(args, "--cloud") &&
+    !hasCliOption(args, "--prod") &&
+    !hasCliOption(args, "--url") &&
+    !hasCliOption(args, "--admin-key")
+  ) {
+    args.push("--local");
+  }
+
+  if (
+    !hasCliOption(args, "--local-cloud-port") &&
+    !hasCliOption(args, "--local-site-port")
+  ) {
+    anonymousLocalPorts = pickAnonymousLocalPorts();
+    if (anonymousLocalPorts) {
+      args.push(
+        `--local-cloud-port=${anonymousLocalPorts.cloud}`,
+        `--local-site-port=${anonymousLocalPorts.site}`,
+      );
+    }
+  }
 }
 
 const localConvexBin = path.join(
@@ -318,7 +398,10 @@ if (refreshAnonAuth) {
     console.error("--refresh-anon-auth requires CONVEX_AGENT_MODE=anonymous");
     process.exit(1);
   }
-  void ensureAnonymousAuthKeys(env)
+  void ensureAnonymousAuthKeys(
+    env,
+    anonymousLocalPorts ? [anonymousLocalPorts.cloud] : [],
+  )
     .catch((error) => {
       refreshFailed = true;
       console.error(error instanceof Error ? error.message : String(error));

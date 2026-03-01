@@ -4,7 +4,7 @@
 
 - Status: Proposed
 - Owner: Noter auth + dev workflow
-- Last updated: 2026-02-26
+- Last updated: 2026-03-01
 - Supersedes: Previous `025 Multi-Worktree OAuth Broker Spec`
 - Related specs:
   - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
@@ -70,9 +70,20 @@ startup flow.
 
 Flow contract:
 
-1. Initialize local anonymous deployment (`convex dev --once`).
+1. Initialize local anonymous deployment with codegen
+   (`node convex-dev.js --once --codegen=enable`).
 2. Build `apps/noter/.env.anon-seed.local` from cloud dev `DEV_SEED_*` vars.
 3. Run `devAuth:seedPasswordAccount` using `--env-file .env.anon-seed.local`.
+4. Refresh local auth env (`JWT_PRIVATE_KEY`/`JWKS`) via
+   `node convex-dev.js --refresh-anon-auth`.
+
+Isolation contract:
+
+1. In anonymous worktree mode, Convex deployment label may remain
+   `anonymous-agent`.
+2. Worktree isolation must be enforced by distinct local backend URL/port pairs
+   (`VITE_CONVEX_URL`) and per-worktree local state, so seed/auth data does not
+   collide across concurrent worktrees.
 
 ## Frontend Requirements
 
