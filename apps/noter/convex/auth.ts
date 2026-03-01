@@ -1,12 +1,12 @@
 import Google from "@auth/core/providers/google";
 import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
-import type { DatabaseReader, DatabaseWriter } from "./_generated/server";
+import type { DatabaseWriter } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getConnectionByUserAndKind } from "./providerConnections";
-import { isRecord, readString } from "./jsonUtils";
+import { fetchRailwayConnectionDetails } from "./railwayConnectionDetails";
 import { isAllowedEmail } from "./users";
-import { readOptionalEnv, readRequiredEnv } from "./oauthUtils";
+import { readOptionalEnv } from "./oauthUtils";
 
 type UserPatch = {
   name?: string;
@@ -17,15 +17,8 @@ type UserPatch = {
   isApproved?: boolean;
 };
 
-const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
-const RAILWAY_GRAPHQL_URL = "https://backboard.railway.com/graphql/v2";
-
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
-}
-
-function isNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
 }
 
 function readDeploymentName(rawDeployment: string): string | null {
@@ -79,67 +72,6 @@ function isAnonymousWorktreeDeployment(): boolean {
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
-}
-
-async function fetchWithTimeout(
-  input: RequestInfo | URL,
-  init: RequestInit = {},
-  timeoutMs = DEFAULT_PROVIDER_TIMEOUT_MS,
-): Promise<Response> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(input, { ...init, signal: controller.signal });
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error(`Provider request timed out after ${timeoutMs}ms.`);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function fetchRailwayConnectionDetails(token: string): Promise<{
-  accountId: string;
-  email?: string;
-  name?: string;
-}> {
-  const response = await fetchWithTimeout(RAILWAY_GRAPHQL_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      query: "query RailwaySeedProfile { me { id email name } }",
-    }),
-  });
-  const payload = await response.json().catch(() => null);
-  if (!response.ok || !isRecord(payload)) {
-    throw new Error("Invalid DEV_SEED_RAILWAY_API_KEY");
-  }
-  const graphQlErrors = payload["errors"];
-  if (Array.isArray(graphQlErrors) && graphQlErrors.length > 0) {
-    throw new Error("Invalid DEV_SEED_RAILWAY_API_KEY");
-  }
-  const data = payload["data"];
-  if (!isRecord(data)) {
-    throw new Error("Railway API key response is missing data");
-  }
-  const me = data["me"];
-  if (!isRecord(me)) {
-    throw new Error("Railway API key response is missing user profile");
-  }
-  const accountId = readString(me, "id");
-  if (!accountId) {
-    throw new Error("Railway API key response is missing account ID");
-  }
-  return {
-    accountId,
-    email: readString(me, "email"),
-    name: readString(me, "name"),
-  };
 }
 
 function buildUserPatch(profile: Record<string, unknown>): UserPatch {
@@ -293,7 +225,10 @@ async function upsertSeedRailwayConnection(
     name?: string;
   };
   try {
-    details = await fetchRailwayConnectionDetails(credential);
+    details = await fetchRailwayConnectionDetails(credential, {
+      invalidApiKeyMessage: "Invalid DEV_SEED_RAILWAY_API_KEY",
+      queryName: "RailwaySeedProfile",
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn("auth:seed:railway:skipped", { message });
