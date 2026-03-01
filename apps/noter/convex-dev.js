@@ -1,7 +1,7 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { spawn } from "child_process";
+import { spawn, spawnSync } from "child_process";
 
 const SUPPORTED_NODE_MAJORS = ["24", "22", "20", "18"];
 
@@ -90,6 +90,169 @@ const pickSupportedNodeBin = () => {
   return null;
 };
 
+const sleep = (ms) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const parsePort = (url) => {
+  try {
+    const parsed = new URL(url);
+    const asNumber = Number(parsed.port);
+    return Number.isFinite(asNumber) && asNumber > 0 ? asNumber : null;
+  } catch {
+    return null;
+  }
+};
+
+const readLocalBackendPorts = () => {
+  const ports = [3214, 3210];
+  const envFile = path.join(process.cwd(), ".env.local");
+  if (!fs.existsSync(envFile)) {
+    return ports;
+  }
+
+  const contents = fs.readFileSync(envFile, "utf8");
+  for (const line of contents.split(/\r?\n/)) {
+    if (
+      !line.startsWith("VITE_CONVEX_URL=") &&
+      !line.startsWith("CONVEX_URL=")
+    ) {
+      continue;
+    }
+    const eqIndex = line.indexOf("=");
+    if (eqIndex <= 0) {
+      continue;
+    }
+    const rawValue = line.slice(eqIndex + 1).trim();
+    const unquoted =
+      (rawValue.startsWith('"') && rawValue.endsWith('"')) ||
+      (rawValue.startsWith("'") && rawValue.endsWith("'"))
+        ? rawValue.slice(1, -1)
+        : rawValue;
+    const parsedPort = parsePort(unquoted);
+    if (parsedPort !== null && !ports.includes(parsedPort)) {
+      ports.unshift(parsedPort);
+    }
+  }
+
+  return ports;
+};
+
+const isLocalBackendReady = async (port) => {
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/instance_name`, {
+      signal: AbortSignal.timeout(500),
+    });
+    if (!response.ok) {
+      return false;
+    }
+    const instance = (await response.text()).trim();
+    return (
+      instance.startsWith("anonymous-") ||
+      instance.startsWith("local-") ||
+      instance === "anonymous-agent"
+    );
+  } catch {
+    return false;
+  }
+};
+
+const waitForAnonymousBackend = async (timeoutMs) => {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    for (const port of readLocalBackendPorts()) {
+      if (await isLocalBackendReady(port)) {
+        return true;
+      }
+    }
+    await sleep(250);
+  }
+  return false;
+};
+
+const removeEnvVar = (name, env) => {
+  spawnSync("npx", ["convex", "env", "remove", name], {
+    stdio: "ignore",
+    env,
+  });
+};
+
+const normalizeEnvValue = (value) => {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+};
+
+const readEnvVar = (name, env) => {
+  const result = spawnSync("npx", ["convex", "env", "get", name], {
+    stdio: "pipe",
+    encoding: "utf8",
+    env,
+  });
+  if (result.status !== 0) {
+    return null;
+  }
+  return normalizeEnvValue(result.stdout ?? "");
+};
+
+const hasValidPrivateKey = (value) =>
+  value.includes("-----BEGIN PRIVATE KEY-----") &&
+  value.includes("-----END PRIVATE KEY-----");
+
+const hasValidJwks = (value) =>
+  value.includes('{"keys":') || value.includes('"keys":');
+
+const ensureAnonymousAuthKeys = async (env) => {
+  const backendReady = await waitForAnonymousBackend(20000);
+  if (!backendReady) {
+    console.warn(
+      "Skipping anonymous auth key setup: local Convex backend is not ready.",
+    );
+    return;
+  }
+
+  const existingPrivateKey = readEnvVar("JWT_PRIVATE_KEY", env);
+  const existingJwks = readEnvVar("JWKS", env);
+  if (
+    existingPrivateKey !== null &&
+    existingJwks !== null &&
+    hasValidPrivateKey(existingPrivateKey) &&
+    hasValidJwks(existingJwks)
+  ) {
+    return;
+  }
+
+  removeEnvVar("JWT_PRIVATE_KEY", env);
+  removeEnvVar("JWKS", env);
+
+  const setupResult = spawnSync(
+    "npx",
+    ["@convex-dev/auth", "--skip-git-check", "--allow-dirty-git-state"],
+    {
+      stdio: "pipe",
+      encoding: "utf8",
+      env,
+    },
+  );
+
+  if (setupResult.status !== 0) {
+    const output =
+      `${setupResult.stdout ?? ""}\n${setupResult.stderr ?? ""}`.trim();
+    console.warn(
+      `Anonymous auth key setup failed${output ? `:\n${output}` : "."}`,
+    );
+    return;
+  }
+
+  console.log("Anonymous auth keys refreshed.");
+};
+
 const env = { ...process.env };
 const supportedNodeBin = pickSupportedNodeBin();
 if (!supportedNodeBin) {
@@ -103,7 +266,9 @@ if (!supportedNodeBin) {
 }
 env.PATH = [supportedNodeBin, env.PATH].filter(Boolean).join(path.delimiter);
 
-const extraArgs = process.argv.slice(2);
+const rawExtraArgs = process.argv.slice(2);
+const refreshAnonAuth = rawExtraArgs.includes("--refresh-anon-auth");
+const extraArgs = rawExtraArgs.filter((arg) => arg !== "--refresh-anon-auth");
 const args = ["dev", ...extraArgs];
 if (
   process.env.CONVEX_AGENT_MODE === "anonymous" &&
@@ -123,10 +288,46 @@ const convexExecutable = fs.existsSync(localConvexBin)
   : "convex";
 
 const child = spawn(convexExecutable, args, { stdio: "inherit", env });
+let childExited = false;
+let childExitCode = 1;
+let refreshDone = !refreshAnonAuth;
+let refreshFailed = false;
+
+const maybeExit = () => {
+  if (!childExited || !refreshDone) {
+    return;
+  }
+  if (refreshAnonAuth) {
+    process.exit(refreshFailed ? 1 : 0);
+  }
+  process.exit(childExitCode);
+};
+
 child.on("error", (error) => {
   console.error(error.message);
   process.exit(1);
 });
 child.on("exit", (code) => {
-  process.exit(code ?? 1);
+  childExited = true;
+  childExitCode = code ?? 1;
+  maybeExit();
 });
+
+if (refreshAnonAuth) {
+  if (process.env.CONVEX_AGENT_MODE !== "anonymous") {
+    console.error("--refresh-anon-auth requires CONVEX_AGENT_MODE=anonymous");
+    process.exit(1);
+  }
+  void ensureAnonymousAuthKeys(env)
+    .catch((error) => {
+      refreshFailed = true;
+      console.error(error instanceof Error ? error.message : String(error));
+    })
+    .finally(() => {
+      refreshDone = true;
+      if (!childExited) {
+        child.kill("SIGTERM");
+      }
+      maybeExit();
+    });
+}

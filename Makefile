@@ -5,6 +5,7 @@
 ANON_SETUP_ONCE_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous npx convex dev --once --tail-logs=disable --typecheck=disable
 ANON_SYNC_ENV_CMD = node ./scripts/convex-sync-dev-env.js
 ANON_SEED_PASSWORD_ACCOUNT_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous npx convex dev --once --env-file .env.anon-seed.local --run devAuth:seedPasswordAccount --tail-logs=disable --typecheck=disable
+ANON_REFRESH_AUTH_KEYS_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --refresh-anon-auth --codegen=disable --tail-logs=disable --typecheck=disable
 ANON_VITE_PORT = 5174
 PLAYWRIGHT_CLI = npx --yes @playwright/cli
 PLAYWRIGHT_SESSION ?= noter-$(notdir $(CURDIR))-$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null | tr '/' '-')
@@ -29,6 +30,7 @@ anon:
 	$(ANON_SETUP_ONCE_CMD)
 	$(ANON_SYNC_ENV_CMD)
 	$(ANON_SEED_PASSWORD_ACCOUNT_CMD)
+	$(ANON_REFRESH_AUTH_KEYS_CMD)
 	CONVEX_AGENT_MODE=anonymous VITE_PORT=$(ANON_VITE_PORT) pnpm dev
 
 # One-off anonymous Convex bootstrap (codegen + push), then exit.
@@ -37,6 +39,7 @@ anon-once:
 	$(ANON_SETUP_ONCE_CMD)
 	$(ANON_SYNC_ENV_CMD)
 	$(ANON_SEED_PASSWORD_ACCOUNT_CMD)
+	$(ANON_REFRESH_AUTH_KEYS_CMD)
 
 update-fixtures:
 	UPDATE_SIMPLE_VIEW_FIXTURES=1 pnpm exec vitest run apps/noter/src/lib/simpleView.test.ts
