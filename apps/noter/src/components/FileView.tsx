@@ -964,7 +964,7 @@ function FileViewInner({
 
           <div className="flex-1 overflow-auto p-4">
             <div className="max-w-none h-full flex flex-col">
-              <div className="mb-4 flex items-center justify-between">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-3">
                   <h2 className="text-base md:text-sm font-medium">
                     {selectedFile}
@@ -988,7 +988,7 @@ function FileViewInner({
                   </Tabs>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <VaultSyncStatus
                     vaultId={vault._id}
                     repositoryFullName={repositoryFullName}
