@@ -209,6 +209,9 @@ export function VaultDashboard() {
   const disconnectConvex = useMutation(api.users.disconnectConvex);
   const disconnectNetlify = useMutation(api.users.disconnectNetlify);
   const disconnectRailway = useMutation(api.users.disconnectRailway);
+  const setProvidersPanelOpen = useMutation(
+    api.dashboardSettings.setProvidersPanelOpen,
+  );
   const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
   const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus);
   const netlifyConnection = useConvexQuery(
@@ -219,6 +222,9 @@ export function VaultDashboard() {
   );
   const user = useConvexQuery(api.users.viewer);
   const hostingPilotStatus = useConvexQuery(api.users.getHostingPilotStatus);
+  const dashboardSettings = useConvexQuery(
+    api.dashboardSettings.getDashboardSettings,
+  );
   const githubPopupRef = useRef<Window | null>(null);
   const convexPopupRef = useRef<Window | null>(null);
   const netlifyPopupRef = useRef<Window | null>(null);
@@ -284,8 +290,27 @@ export function VaultDashboard() {
   );
   const [openDeveloperToolsByVaultId, setOpenDeveloperToolsByVaultId] =
     useState<Partial<Record<Id<"vaults">, boolean>>>({});
+  const [providersPanelOpen, setProvidersPanelOpenState] = useState<
+    boolean | null
+  >(null);
+  const providersPanelPendingRef = useRef<boolean | null>(null);
   const railwayHostingPilotEnabled =
     hostingPilotStatus?.railwayHostingPilotEnabled === true;
+
+  useEffect(() => {
+    if (!dashboardSettings) {
+      return;
+    }
+    const serverValue = dashboardSettings.providersPanelOpen;
+    if (providersPanelPendingRef.current !== null) {
+      if (providersPanelPendingRef.current === serverValue) {
+        providersPanelPendingRef.current = null;
+      } else {
+        return;
+      }
+    }
+    setProvidersPanelOpenState(serverValue);
+  }, [dashboardSettings?.providersPanelOpen]);
 
   useEffect(() => {
     if (!railwayHostingPilotEnabled && createHostingProvider === "railway") {
@@ -799,73 +824,105 @@ export function VaultDashboard() {
     </div>
   );
 
+  const resolvedProvidersPanelOpen =
+    providersPanelOpen ?? dashboardSettings?.providersPanelOpen ?? false;
+
+  const handleProvidersPanelOpenChange = (isOpen: boolean) => {
+    setProvidersPanelOpenState(isOpen);
+    providersPanelPendingRef.current = isOpen;
+    void setProvidersPanelOpen({ isOpen }).catch((error: unknown) => {
+      console.error("Failed to persist providers panel state:", error);
+      providersPanelPendingRef.current = null;
+      setProvidersPanelOpenState(
+        dashboardSettings?.providersPanelOpen ?? false,
+      );
+    });
+  };
+
   const connectionPanel = (
-    <div className="rounded-lg border border-border bg-background p-4 space-y-3">
-      <div className="text-sm font-medium">Connections</div>
-      <div className="space-y-3">
-        {PROVIDER_KEYS.map((provider) => {
-          const providerMetadata = PROVIDER_METADATA[provider];
-          const providerState = providerConnectionState[provider];
-          const Icon = providerMetadata.icon;
-          const apiKeyProvider = providerMetadata.apiKeyProvider;
-          return (
-            <div
-              key={provider}
-              className="flex items-center justify-between gap-3"
-            >
-              <div className="flex items-center gap-2">
-                <Icon className="h-4 w-4" />
-                <div className="text-left">
-                  <div className="text-sm font-medium">
-                    {providerMetadata.label}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {providerState.status}
-                  </div>
-                </div>
-              </div>
-              {providerState.connected ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void handleDisconnect(provider)}
-                  disabled={disconnectingProvider !== null}
+    <div className="rounded-lg border border-border bg-background p-4">
+      <Collapsible
+        className="space-y-3"
+        open={resolvedProvidersPanelOpen}
+        onOpenChange={handleProvidersPanelOpenChange}
+      >
+        <CollapsibleTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-auto w-full justify-between px-0 text-sm font-medium hover:bg-transparent [&[data-state=open]>svg]:rotate-180"
+          >
+            <span>Providers</span>
+            <ChevronDownIcon className="h-4 w-4 transition-transform" />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="space-y-3">
+            {PROVIDER_KEYS.map((provider) => {
+              const providerMetadata = PROVIDER_METADATA[provider];
+              const providerState = providerConnectionState[provider];
+              const Icon = providerMetadata.icon;
+              const apiKeyProvider = providerMetadata.apiKeyProvider;
+              return (
+                <div
+                  key={provider}
+                  className="flex items-center justify-between gap-3"
                 >
-                  {disconnectingProvider === provider ? (
-                    <>
-                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                      Disconnecting...
-                    </>
-                  ) : (
-                    "Disconnect"
-                  )}
-                </Button>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void handleConnect(provider)}
-                    disabled={disconnectingProvider !== null}
-                  >
-                    {providerMetadata.oauthButtonLabel}
-                  </Button>
-                  {apiKeyProvider ? (
+                  <div className="flex items-center gap-2">
+                    <Icon className="h-4 w-4" />
+                    <div className="text-left">
+                      <div className="text-sm font-medium">
+                        {providerMetadata.label}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {providerState.status}
+                      </div>
+                    </div>
+                  </div>
+                  {providerState.connected ? (
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => openApiKeyDialog(apiKeyProvider)}
+                      onClick={() => void handleDisconnect(provider)}
                       disabled={disconnectingProvider !== null}
                     >
-                      Use API key
+                      {disconnectingProvider === provider ? (
+                        <>
+                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                          Disconnecting...
+                        </>
+                      ) : (
+                        "Disconnect"
+                      )}
                     </Button>
-                  ) : null}
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void handleConnect(provider)}
+                        disabled={disconnectingProvider !== null}
+                      >
+                        {providerMetadata.oauthButtonLabel}
+                      </Button>
+                      {apiKeyProvider ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openApiKeyDialog(apiKeyProvider)}
+                          disabled={disconnectingProvider !== null}
+                        >
+                          Use API key
+                        </Button>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+              );
+            })}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 

@@ -196,6 +196,11 @@ export default defineSchema({
     .index("by_user_kind", ["userId", "kind"])
     .index("by_kind_method", ["kind", "auth.method"]),
 
+  dashboardSettings: defineTable({
+    userId: v.id("users"),
+    providersPanelOpen: v.boolean(),
+  }).index("by_user", ["userId"]),
+
   /**
    * Vault contains a connected github repository.
    */

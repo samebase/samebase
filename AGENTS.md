@@ -306,6 +306,9 @@ Auth:
   chat context.
 - For this operator, keep responses concise by default and always include a
   final `Summary` section.
+- Default to persisting user-visible UI state in Convex (per-user settings) so
+  it syncs across devices; avoid localStorage unless explicitly requested for
+  per-device behavior.
 - Runtime bootstrap rule: use `make anon` when operating from a git worktree,
   and use `make run` when operating from the primary local checkout.
 - In a worktree, `make anon` is the full startup command (do not run `pnpm dev`
