@@ -1,6 +1,11 @@
 import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import {
   GitHubLogoIcon,
@@ -274,6 +279,8 @@ export function VaultDashboard() {
   const [retryingVaultId, setRetryingVaultId] = useState<Id<"vaults"> | null>(
     null,
   );
+  const [openDeveloperToolsByVaultId, setOpenDeveloperToolsByVaultId] =
+    useState<Record<string, boolean>>({});
   const railwayHostingPilotEnabled =
     hostingPilotStatus?.railwayHostingPilotEnabled === true;
 
@@ -911,6 +918,8 @@ export function VaultDashboard() {
             const isReady = vault.state === "ready";
             const defaultBranch = "main";
             const chatRoute = `/vault/${vault.repositoryFullName}/${defaultBranch}/chat`;
+            const developerToolsOpen =
+              openDeveloperToolsByVaultId[vault._id] === true;
             const infraActionLabel = vault.isNoterManaged
               ? getInfraActionLabel(vault.infraState)
               : null;
@@ -947,34 +956,55 @@ export function VaultDashboard() {
                     </div>
 
                     {isReady && (
-                      <div className="space-y-1.5">
-                        <CodespaceStatus
-                          vaultId={vault._id}
-                          repositoryFullName={vault.repositoryFullName}
-                        />
-                        <DaytonaWorkspaceButton
-                          vaultId={vault._id}
-                          branch={defaultBranch}
-                          sandboxId={vault.daytonaSandboxId}
-                          sandboxName={vault.daytonaSandboxName}
-                        />
-                        <DaytonaSnapshotList vaultId={vault._id} />
-                        {vault.isNoterManaged && (
-                          <div className="text-xs text-muted-foreground">
-                            Infra: {formatInfraState(vault.infraState)}
-                            {vault.infraProductionUrl && (
-                              <a
-                                href={vault.infraProductionUrl}
-                                target="_blank"
-                                rel="noreferrer noopener"
-                                className={`ml-2 font-mono break-all ${linkStyle}`}
-                              >
-                                {vault.infraProductionUrl}
-                              </a>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                      <Collapsible
+                        className="space-y-1.5"
+                        open={developerToolsOpen}
+                        onOpenChange={(isOpen) => {
+                          setOpenDeveloperToolsByVaultId((prev) => ({
+                            ...prev,
+                            [vault._id]: isOpen,
+                          }));
+                        }}
+                      >
+                        <CollapsibleTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180"
+                          >
+                            Developer tools
+                            <ChevronDownIcon className="h-3.5 w-3.5 transition-transform" />
+                          </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="space-y-1.5">
+                          <CodespaceStatus
+                            vaultId={vault._id}
+                            repositoryFullName={vault.repositoryFullName}
+                          />
+                          <DaytonaWorkspaceButton
+                            vaultId={vault._id}
+                            branch={defaultBranch}
+                            sandboxId={vault.daytonaSandboxId}
+                            sandboxName={vault.daytonaSandboxName}
+                          />
+                          <DaytonaSnapshotList vaultId={vault._id} />
+                          {vault.isNoterManaged && (
+                            <div className="text-xs text-muted-foreground">
+                              Infra: {formatInfraState(vault.infraState)}
+                              {vault.infraProductionUrl && (
+                                <a
+                                  href={vault.infraProductionUrl}
+                                  target="_blank"
+                                  rel="noreferrer noopener"
+                                  className={`ml-2 font-mono break-all ${linkStyle}`}
+                                >
+                                  {vault.infraProductionUrl}
+                                </a>
+                              )}
+                            </div>
+                          )}
+                        </CollapsibleContent>
+                      </Collapsible>
                     )}
                   </div>
                 </div>
@@ -1006,17 +1036,16 @@ export function VaultDashboard() {
                             {defaultBranch}
                           </Link>
                         </Button>
-                        <Button asChild variant="outline" size="sm">
-                          <Link to={chatRoute}>Chat</Link>
-                        </Button>
+                        {developerToolsOpen && (
+                          <Button asChild variant="outline" size="sm">
+                            <Link to={chatRoute}>Chat</Link>
+                          </Button>
+                        )}
                       </>
                     ) : (
                       <>
                         <Button variant="secondary" size="sm" disabled>
                           {defaultBranch}
-                        </Button>
-                        <Button variant="outline" size="sm" disabled>
-                          Chat
                         </Button>
                       </>
                     )}
