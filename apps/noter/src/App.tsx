@@ -11,6 +11,7 @@ import { FileView } from "@/components/FileView";
 import { AddRepository } from "@/components/AddRepository";
 import { ChatFab } from "@/components/ChatFab";
 import { CodespaceChatOnlyView } from "@/components/CodespaceChatOnlyView";
+import { PricingPage } from "@/components/PricingPage";
 import { NetlifyOAuthCallback } from "@/components/NetlifyOAuthCallback";
 import { RailwayOAuthCallback } from "@/components/RailwayOAuthCallback";
 import { Button } from "@/components/ui/button";
@@ -117,6 +118,7 @@ export default function App() {
           <ApprovalGate>
             <Routes>
               <Route path="/" element={<VaultDashboard />} />
+              <Route path="/pricing" element={<PricingPage />} />
               <Route path="/add" element={<AddRepository />} />
               <Route
                 path="/oauth/netlify/callback"

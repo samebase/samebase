@@ -877,7 +877,12 @@ export function VaultDashboard() {
     return (
       <div className="h-full overflow-y-auto">
         <div className="container py-6 max-w-2xl mx-auto">
-          {userMenu && <div className="mb-4 flex justify-end">{userMenu}</div>}
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <Button variant="outline" asChild>
+              <Link to="/pricing">Pricing</Link>
+            </Button>
+            {userMenu}
+          </div>
           <div className="text-center space-y-6">
             <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center">
               <GitHubLogoIcon className="h-12 w-12 text-muted-foreground" />
@@ -912,6 +917,9 @@ export function VaultDashboard() {
           </div>
           <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
             {createControl}
+            <Button variant="outline" asChild>
+              <Link to="/pricing">Pricing</Link>
+            </Button>
             {userMenu}
           </div>
         </div>
