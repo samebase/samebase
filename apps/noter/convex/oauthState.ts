@@ -6,6 +6,7 @@ export const OAuthProvider = v.union(
   v.literal("convex"),
   v.literal("netlify"),
   v.literal("railway"),
+  v.literal("cloudflare_mcp"),
 );
 
 export type OAuthProvider = Infer<typeof OAuthProvider>;
@@ -16,6 +17,8 @@ export const createOauthState = internalMutation({
     userId: v.id("users"),
     state: v.string(),
     codeVerifier: v.optional(v.string()),
+    clientId: v.optional(v.string()),
+    clientSecret: v.optional(v.string()),
     createdAt: v.number(),
     expiresAt: v.number(),
   },
@@ -26,6 +29,8 @@ export const createOauthState = internalMutation({
       userId: args.userId,
       state: args.state,
       codeVerifier: args.codeVerifier,
+      clientId: args.clientId,
+      clientSecret: args.clientSecret,
       createdAt: args.createdAt,
       expiresAt: args.expiresAt,
     });

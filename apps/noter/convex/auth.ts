@@ -283,6 +283,41 @@ async function upsertSeedRailwayConnection(
   });
 }
 
+async function upsertSeedCloudflareConnection(
+  db: DatabaseWriter,
+  userId: Id<"users">,
+): Promise<void> {
+  const credential = readOptionalEnv("DEV_SEED_CLOUDFLARE_API_KEY");
+  if (credential === null) {
+    return;
+  }
+  const seededAccountId = readOptionalEnv("DEV_SEED_CLOUDFLARE_ACCOUNT_ID");
+  const existing = await getConnectionByUserAndKind(db, userId, "cloudflare");
+  const now = Date.now();
+  if (existing) {
+    await db.patch(existing._id, {
+      auth: {
+        method: "api_key",
+        credential,
+      },
+      ...(seededAccountId ? { accountId: seededAccountId } : {}),
+      updatedAt: now,
+    });
+    return;
+  }
+  await db.insert("providerConnections", {
+    kind: "cloudflare",
+    userId,
+    auth: {
+      method: "api_key",
+      credential,
+    },
+    ...(seededAccountId ? { accountId: seededAccountId } : {}),
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
 async function applyAutoSeedProviderKeys(
   db: DatabaseWriter,
   userId: Id<"users">,
@@ -294,6 +329,7 @@ async function applyAutoSeedProviderKeys(
   await upsertSeedConvexConnection(db, userId);
   await upsertSeedNetlifyConnection(db, userId);
   await upsertSeedRailwayConnection(db, userId);
+  await upsertSeedCloudflareConnection(db, userId);
 }
 
 const googleClientId = readOptionalEnv("AUTH_GOOGLE_ID");

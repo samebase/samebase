@@ -1,5 +1,9 @@
 import { httpRouter } from "convex/server";
 import { auth } from "./auth";
+import {
+  finishCloudflareMcpOAuth,
+  startCloudflareMcpOAuth,
+} from "./cloudflareMcpOAuth";
 import { finishConvexOAuth, startConvexOAuth } from "./convexOAuth";
 import { finishGithubOAuth, startGithubOAuth } from "./githubOAuth";
 import { finishNetlifyOAuthCallback, startNetlifyOAuth } from "./netlifyOAuth";
@@ -19,6 +23,18 @@ http.route({
   path: "/oauth/convex/callback",
   method: "GET",
   handler: finishConvexOAuth,
+});
+
+http.route({
+  path: "/oauth/cloudflare-mcp/start",
+  method: "GET",
+  handler: startCloudflareMcpOAuth,
+});
+
+http.route({
+  path: "/oauth/cloudflare-mcp/callback",
+  method: "GET",
+  handler: finishCloudflareMcpOAuth,
 });
 
 http.route({

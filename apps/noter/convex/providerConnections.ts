@@ -24,6 +24,7 @@ const providerKindValidator = union(
   literal("convex"),
   literal("netlify"),
   literal("railway"),
+  literal("cloudflare"),
 );
 export type ProviderKind = Infer<typeof providerKindValidator>;
 
@@ -33,37 +34,62 @@ const oauthAuthValidator = object({
   refreshCredential: optional(string()),
   credentialExpiresAt: optional(number()),
 });
+const mcpOauthAuthValidator = object({
+  method: literal("mcp_oauth"),
+  credential: string(),
+  refreshCredential: optional(string()),
+  credentialExpiresAt: optional(number()),
+  mcpServerUrl: string(),
+});
 const apiKeyAuthValidator = object({
   method: literal("api_key"),
   credential: string(),
   credentialExpiresAt: optional(number()),
 });
-const providerAuthValidator = union(oauthAuthValidator, apiKeyAuthValidator);
+const providerAuthValidator = union(
+  oauthAuthValidator,
+  mcpOauthAuthValidator,
+  apiKeyAuthValidator,
+);
 export type ProviderAuth = Infer<typeof providerAuthValidator>;
+
+const standardProviderAuthValidator = union(
+  oauthAuthValidator,
+  apiKeyAuthValidator,
+);
+const cloudflareProviderAuthValidator = union(
+  mcpOauthAuthValidator,
+  apiKeyAuthValidator,
+);
 
 const githubConnectionUpsertValidator = object({
   userId: id("users"),
-  auth: providerAuthValidator,
+  auth: standardProviderAuthValidator,
   username: optional(string()),
 });
 const convexConnectionUpsertValidator = object({
   userId: id("users"),
-  auth: providerAuthValidator,
+  auth: standardProviderAuthValidator,
   teamId: string(),
   teamSlug: optional(string()),
 });
 const netlifyConnectionUpsertValidator = object({
   userId: id("users"),
-  auth: providerAuthValidator,
+  auth: standardProviderAuthValidator,
   teamId: string(),
   teamSlug: optional(string()),
 });
 const railwayConnectionUpsertValidator = object({
   userId: id("users"),
-  auth: providerAuthValidator,
+  auth: standardProviderAuthValidator,
   accountId: string(),
   email: optional(string()),
   name: optional(string()),
+});
+const cloudflareConnectionUpsertValidator = object({
+  userId: id("users"),
+  auth: cloudflareProviderAuthValidator,
+  accountId: optional(string()),
 });
 
 const githubConnectionResultValidator = object({
@@ -71,7 +97,7 @@ const githubConnectionResultValidator = object({
   _creationTime: number(),
   kind: literal("github"),
   userId: id("users"),
-  auth: providerAuthValidator,
+  auth: standardProviderAuthValidator,
   username: optional(string()),
   createdAt: number(),
   updatedAt: number(),
@@ -81,7 +107,7 @@ const convexConnectionResultValidator = object({
   _creationTime: number(),
   kind: literal("convex"),
   userId: id("users"),
-  auth: providerAuthValidator,
+  auth: standardProviderAuthValidator,
   teamId: string(),
   teamSlug: optional(string()),
   createdAt: number(),
@@ -92,7 +118,7 @@ const netlifyConnectionResultValidator = object({
   _creationTime: number(),
   kind: literal("netlify"),
   userId: id("users"),
-  auth: providerAuthValidator,
+  auth: standardProviderAuthValidator,
   teamId: string(),
   teamSlug: optional(string()),
   createdAt: number(),
@@ -103,10 +129,20 @@ const railwayConnectionResultValidator = object({
   _creationTime: number(),
   kind: literal("railway"),
   userId: id("users"),
-  auth: providerAuthValidator,
+  auth: standardProviderAuthValidator,
   accountId: string(),
   email: optional(string()),
   name: optional(string()),
+  createdAt: number(),
+  updatedAt: number(),
+});
+const cloudflareConnectionResultValidator = object({
+  _id: id("providerConnections"),
+  _creationTime: number(),
+  kind: literal("cloudflare"),
+  userId: id("users"),
+  auth: cloudflareProviderAuthValidator,
+  accountId: optional(string()),
   createdAt: number(),
   updatedAt: number(),
 });
@@ -115,6 +151,7 @@ const providerConnectionResultValidator = union(
   convexConnectionResultValidator,
   netlifyConnectionResultValidator,
   railwayConnectionResultValidator,
+  cloudflareConnectionResultValidator,
 );
 
 export async function getConnectionByUserAndKind(
@@ -244,6 +281,34 @@ async function upsertRailwayConnection(
   });
 }
 
+async function upsertCloudflareConnection(
+  db: DatabaseWriter,
+  args: Infer<typeof cloudflareConnectionUpsertValidator>,
+): Promise<void> {
+  const now = Date.now();
+  const existing = await getConnectionByUserAndKind(
+    db,
+    args.userId,
+    "cloudflare",
+  );
+  if (existing) {
+    await db.patch(existing._id, {
+      auth: args.auth,
+      accountId: args.accountId,
+      updatedAt: now,
+    });
+    return;
+  }
+  await db.insert("providerConnections", {
+    kind: "cloudflare",
+    userId: args.userId,
+    auth: args.auth,
+    accountId: args.accountId,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
 export const getByUserAndKind = internalQuery({
   args: {
     userId: id("users"),
@@ -300,6 +365,15 @@ export const upsertRailway = internalMutation({
   returns: vNull(),
   handler: async (ctx, args) => {
     await upsertRailwayConnection(ctx.db, args);
+    return null;
+  },
+});
+
+export const upsertCloudflare = internalMutation({
+  args: cloudflareConnectionUpsertValidator,
+  returns: vNull(),
+  handler: async (ctx, args) => {
+    await upsertCloudflareConnection(ctx.db, args);
     return null;
   },
 });

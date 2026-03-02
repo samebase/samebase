@@ -43,6 +43,8 @@ const DEV_SEED_ALLOWLIST = new Set([
   'DEV_SEED_NETLIFY_API_KEY',
   'DEV_SEED_NETLIFY_TEAM_ID',
   'DEV_SEED_RAILWAY_API_KEY',
+  'DEV_SEED_CLOUDFLARE_API_KEY',
+  'DEV_SEED_CLOUDFLARE_ACCOUNT_ID',
 ])
 
 const HELP_TEXT = `Usage: scripts/convex-sync-dev-env.js [options]

@@ -108,6 +108,7 @@ export const ProviderKind = v.union(
   v.literal("convex"),
   v.literal("netlify"),
   v.literal("railway"),
+  v.literal("cloudflare"),
 );
 export type ProviderKind = Infer<typeof ProviderKind>;
 
@@ -117,18 +118,29 @@ export const OAuthAuth = v.object({
   refreshCredential: v.optional(v.string()),
   credentialExpiresAt: v.optional(v.number()),
 });
+export const McpOAuthAuth = v.object({
+  method: v.literal("mcp_oauth"),
+  credential: v.string(),
+  refreshCredential: v.optional(v.string()),
+  credentialExpiresAt: v.optional(v.number()),
+  mcpServerUrl: v.string(),
+});
 export const ApiKeyAuth = v.object({
   method: v.literal("api_key"),
   credential: v.string(),
   credentialExpiresAt: v.optional(v.number()),
 });
-export const ProviderAuth = v.union(OAuthAuth, ApiKeyAuth);
+export const StandardProviderAuth = v.union(OAuthAuth, ApiKeyAuth);
+export type StandardProviderAuth = Infer<typeof StandardProviderAuth>;
+export const CloudflareProviderAuth = v.union(McpOAuthAuth, ApiKeyAuth);
+export type CloudflareProviderAuth = Infer<typeof CloudflareProviderAuth>;
+export const ProviderAuth = v.union(OAuthAuth, McpOAuthAuth, ApiKeyAuth);
 export type ProviderAuth = Infer<typeof ProviderAuth>;
 
 export const GithubProviderConnection = v.object({
   kind: v.literal("github"),
   userId: v.id("users"),
-  auth: ProviderAuth,
+  auth: StandardProviderAuth,
   username: v.optional(v.string()),
   createdAt: v.number(),
   updatedAt: v.number(),
@@ -136,7 +148,7 @@ export const GithubProviderConnection = v.object({
 export const ConvexProviderConnection = v.object({
   kind: v.literal("convex"),
   userId: v.id("users"),
-  auth: ProviderAuth,
+  auth: StandardProviderAuth,
   teamId: v.string(),
   teamSlug: v.optional(v.string()),
   createdAt: v.number(),
@@ -145,7 +157,7 @@ export const ConvexProviderConnection = v.object({
 export const NetlifyProviderConnection = v.object({
   kind: v.literal("netlify"),
   userId: v.id("users"),
-  auth: ProviderAuth,
+  auth: StandardProviderAuth,
   teamId: v.string(),
   teamSlug: v.optional(v.string()),
   createdAt: v.number(),
@@ -154,10 +166,18 @@ export const NetlifyProviderConnection = v.object({
 export const RailwayProviderConnection = v.object({
   kind: v.literal("railway"),
   userId: v.id("users"),
-  auth: ProviderAuth,
+  auth: StandardProviderAuth,
   accountId: v.string(),
   email: v.optional(v.string()),
   name: v.optional(v.string()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+export const CloudflareProviderConnection = v.object({
+  kind: v.literal("cloudflare"),
+  userId: v.id("users"),
+  auth: CloudflareProviderAuth,
+  accountId: v.optional(v.string()),
   createdAt: v.number(),
   updatedAt: v.number(),
 });
@@ -166,6 +186,7 @@ export const ProviderConnection = v.union(
   ConvexProviderConnection,
   NetlifyProviderConnection,
   RailwayProviderConnection,
+  CloudflareProviderConnection,
 );
 export type ProviderConnection = Infer<typeof ProviderConnection>;
 
@@ -515,10 +536,13 @@ export default defineSchema({
       v.literal("convex"),
       v.literal("netlify"),
       v.literal("railway"),
+      v.literal("cloudflare_mcp"),
     ),
     userId: v.id("users"),
     state: v.string(),
     codeVerifier: v.optional(v.string()),
+    clientId: v.optional(v.string()),
+    clientSecret: v.optional(v.string()),
     createdAt: v.number(),
     expiresAt: v.number(),
   })
