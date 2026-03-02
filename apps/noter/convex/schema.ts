@@ -108,6 +108,7 @@ export const ProviderKind = v.union(
   v.literal("convex"),
   v.literal("netlify"),
   v.literal("railway"),
+  v.literal("cloudflare"),
 );
 export type ProviderKind = Infer<typeof ProviderKind>;
 
@@ -117,12 +118,19 @@ export const OAuthAuth = v.object({
   refreshCredential: v.optional(v.string()),
   credentialExpiresAt: v.optional(v.number()),
 });
+export const McpOAuthAuth = v.object({
+  method: v.literal("mcp_oauth"),
+  credential: v.string(),
+  refreshCredential: v.optional(v.string()),
+  credentialExpiresAt: v.optional(v.number()),
+  mcpServerUrl: v.string(),
+});
 export const ApiKeyAuth = v.object({
   method: v.literal("api_key"),
   credential: v.string(),
   credentialExpiresAt: v.optional(v.number()),
 });
-export const ProviderAuth = v.union(OAuthAuth, ApiKeyAuth);
+export const ProviderAuth = v.union(OAuthAuth, McpOAuthAuth, ApiKeyAuth);
 export type ProviderAuth = Infer<typeof ProviderAuth>;
 
 export const GithubProviderConnection = v.object({
@@ -161,11 +169,20 @@ export const RailwayProviderConnection = v.object({
   createdAt: v.number(),
   updatedAt: v.number(),
 });
+export const CloudflareProviderConnection = v.object({
+  kind: v.literal("cloudflare"),
+  userId: v.id("users"),
+  auth: ProviderAuth,
+  accountId: v.optional(v.string()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
 export const ProviderConnection = v.union(
   GithubProviderConnection,
   ConvexProviderConnection,
   NetlifyProviderConnection,
   RailwayProviderConnection,
+  CloudflareProviderConnection,
 );
 export type ProviderConnection = Infer<typeof ProviderConnection>;
 
@@ -515,10 +532,13 @@ export default defineSchema({
       v.literal("convex"),
       v.literal("netlify"),
       v.literal("railway"),
+      v.literal("cloudflare_mcp"),
     ),
     userId: v.id("users"),
     state: v.string(),
     codeVerifier: v.optional(v.string()),
+    clientId: v.optional(v.string()),
+    clientSecret: v.optional(v.string()),
     createdAt: v.number(),
     expiresAt: v.number(),
   })

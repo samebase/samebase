@@ -132,7 +132,13 @@ const CREATE_HOSTING_PROVIDER_LABEL: Record<CreateHostingProvider, string> = {
 
 const DASHBOARD_REFRESH_CONCURRENCY = 3;
 type RefreshTrigger = "focus" | "page_load";
-const PROVIDER_KEYS = ["github", "convex", "netlify", "railway"] as const;
+const PROVIDER_KEYS = [
+  "github",
+  "convex",
+  "netlify",
+  "railway",
+  "cloudflare",
+] as const;
 type ProviderKey = (typeof PROVIDER_KEYS)[number];
 type ProviderMetadata = {
   label: string;
@@ -181,6 +187,14 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
     icon: GlobeIcon,
     apiKeyProvider: "railway",
   },
+  cloudflare: {
+    label: "Cloudflare",
+    oauthButtonLabel: "Cloudflare MCP OAuth",
+    popupName: "cloudflare-mcp-oauth",
+    completionEventType: "cloudflare-mcp-oauth-complete",
+    icon: GlobeIcon,
+    apiKeyProvider: null,
+  },
 };
 
 export function VaultDashboard() {
@@ -197,6 +211,9 @@ export function VaultDashboard() {
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
   const getNetlifyOAuthUrl = useMutation(api.netlifyOAuth.getNetlifyOAuthUrl);
   const getRailwayOAuthUrl = useMutation(api.railwayOAuth.getRailwayOAuthUrl);
+  const getCloudflareMcpOAuthUrl = useAction(
+    api.cloudflareMcpOAuth.getCloudflareMcpOAuthUrl,
+  );
   const connectGithubWithApiKey = useAction(api.users.connectGithubWithApiKey);
   const connectConvexWithApiKey = useAction(api.users.connectConvexWithApiKey);
   const connectNetlifyWithApiKey = useAction(
@@ -209,6 +226,7 @@ export function VaultDashboard() {
   const disconnectConvex = useMutation(api.users.disconnectConvex);
   const disconnectNetlify = useMutation(api.users.disconnectNetlify);
   const disconnectRailway = useMutation(api.users.disconnectRailway);
+  const disconnectCloudflare = useMutation(api.users.disconnectCloudflare);
   const setProvidersPanelOpen = useMutation(
     api.dashboardSettings.setProvidersPanelOpen,
   );
@@ -220,6 +238,9 @@ export function VaultDashboard() {
   const railwayConnection = useConvexQuery(
     api.users.getRailwayConnectionStatus,
   );
+  const cloudflareConnection = useConvexQuery(
+    api.users.getCloudflareConnectionStatus,
+  );
   const user = useConvexQuery(api.users.viewer);
   const hostingPilotStatus = useConvexQuery(api.users.getHostingPilotStatus);
   const dashboardSettings = useConvexQuery(
@@ -229,10 +250,12 @@ export function VaultDashboard() {
   const convexPopupRef = useRef<Window | null>(null);
   const netlifyPopupRef = useRef<Window | null>(null);
   const railwayPopupRef = useRef<Window | null>(null);
+  const cloudflarePopupRef = useRef<Window | null>(null);
   const githubPopupOriginRef = useRef<string | null>(null);
   const convexPopupOriginRef = useRef<string | null>(null);
   const netlifyPopupOriginRef = useRef<string | null>(null);
   const railwayPopupOriginRef = useRef<string | null>(null);
+  const cloudflarePopupOriginRef = useRef<string | null>(null);
   const providerRuntimeConfig: Record<ProviderKey, ProviderRuntimeConfig> = {
     github: {
       getOAuthUrl: getGithubOAuthUrl,
@@ -257,6 +280,12 @@ export function VaultDashboard() {
       disconnect: disconnectRailway,
       popupRef: railwayPopupRef,
       popupOriginRef: railwayPopupOriginRef,
+    },
+    cloudflare: {
+      getOAuthUrl: getCloudflareMcpOAuthUrl,
+      disconnect: disconnectCloudflare,
+      popupRef: cloudflarePopupRef,
+      popupOriginRef: cloudflarePopupOriginRef,
     },
   };
   const [vaultToDelete, setVaultToDelete] = useState<{
@@ -347,6 +376,11 @@ export function VaultDashboard() {
         completionEventType: PROVIDER_METADATA.railway.completionEventType,
         popupRef: railwayPopupRef,
         popupOriginRef: railwayPopupOriginRef,
+      },
+      cloudflare: {
+        completionEventType: PROVIDER_METADATA.cloudflare.completionEventType,
+        popupRef: cloudflarePopupRef,
+        popupOriginRef: cloudflarePopupOriginRef,
       },
     };
     const handler = (event: MessageEvent) => {
@@ -641,6 +675,7 @@ export function VaultDashboard() {
   const convexConnected = convexConnection?.connected === true;
   const netlifyConnected = netlifyConnection?.connected === true;
   const railwayConnected = railwayConnection?.connected === true;
+  const cloudflareConnected = cloudflareConnection?.connected === true;
   const effectiveCreateHostingProvider: CreateHostingProvider =
     createHostingProvider === "railway" && !railwayHostingPilotEnabled
       ? "netlify"
@@ -654,9 +689,12 @@ export function VaultDashboard() {
   const canCreateRepo = Boolean(
     githubConnected && convexConnected && requiredHostingConnected,
   );
-  const formatAuthMethod = (method: "oauth" | "api_key" | undefined) => {
+  const formatAuthMethod = (
+    method: "oauth" | "mcp_oauth" | "api_key" | undefined,
+  ) => {
     if (method === "api_key") return "API key";
     if (method === "oauth") return "OAuth";
+    if (method === "mcp_oauth") return "MCP OAuth";
     return "Unknown";
   };
   const githubStatus = githubConnected
@@ -670,6 +708,9 @@ export function VaultDashboard() {
     : "Not connected";
   const railwayStatus = railwayConnected
     ? `Connected as ${railwayConnection.name ?? railwayConnection.email ?? railwayConnection.accountId ?? "Railway user"} (${formatAuthMethod(railwayConnection.authMethod)})`
+    : "Not connected";
+  const cloudflareStatus = cloudflareConnected
+    ? `Connected (${formatAuthMethod(cloudflareConnection.authMethod)})`
     : "Not connected";
   const providerConnectionState: Record<
     ProviderKey,
@@ -690,6 +731,10 @@ export function VaultDashboard() {
     railway: {
       connected: railwayConnected,
       status: railwayStatus,
+    },
+    cloudflare: {
+      connected: cloudflareConnected,
+      status: cloudflareStatus,
     },
   };
   const userDisplayName =

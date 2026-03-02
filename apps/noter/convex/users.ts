@@ -35,7 +35,11 @@ const hostingPilotStatusValidator = object({
   railwayHostingPilotEnabled: boolean(),
 });
 
-const providerAuthMethodValidator = union(literal("oauth"), literal("api_key"));
+const providerAuthMethodValidator = union(
+  literal("oauth"),
+  literal("mcp_oauth"),
+  literal("api_key"),
+);
 
 type JsonRecord = Record<string, unknown>;
 type NetlifyAccount = {
@@ -262,6 +266,7 @@ export const viewer = query({
       hasConvexConnection: v.boolean(),
       hasNetlifyConnection: v.boolean(),
       hasRailwayConnection: v.boolean(),
+      hasCloudflareConnection: v.boolean(),
     }),
     v.null(),
   ),
@@ -275,11 +280,12 @@ export const viewer = query({
       return null;
     }
 
-    const [github, convex, netlify, railway] = await Promise.all([
+    const [github, convex, netlify, railway, cloudflare] = await Promise.all([
       getConnectionByUserAndKind(ctx.db, userId, "github"),
       getConnectionByUserAndKind(ctx.db, userId, "convex"),
       getConnectionByUserAndKind(ctx.db, userId, "netlify"),
       getConnectionByUserAndKind(ctx.db, userId, "railway"),
+      getConnectionByUserAndKind(ctx.db, userId, "cloudflare"),
     ]);
 
     const githubUsername =
@@ -295,6 +301,7 @@ export const viewer = query({
       hasConvexConnection: convex !== null,
       hasNetlifyConnection: netlify !== null,
       hasRailwayConnection: railway !== null,
+      hasCloudflareConnection: cloudflare !== null,
     };
   },
 });
@@ -565,6 +572,55 @@ export const disconnectRailway = mutation({
       ctx.db,
       userId,
       "railway",
+    );
+    if (connection) {
+      await ctx.db.delete(connection._id);
+    }
+    return null;
+  },
+});
+
+export const getCloudflareConnectionStatus = query({
+  args: {},
+  returns: v.object({
+    connected: v.boolean(),
+    accountId: v.optional(v.string()),
+    authMethod: v.optional(providerAuthMethodValidator),
+  }),
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      return { connected: false };
+    }
+    const connection = await getConnectionByUserAndKind(
+      ctx.db,
+      userId,
+      "cloudflare",
+    );
+    if (connection?.kind !== "cloudflare") {
+      return { connected: false };
+    }
+
+    return {
+      connected: true,
+      accountId: connection.accountId,
+      authMethod: connection.auth.method,
+    };
+  },
+});
+
+export const disconnectCloudflare = mutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      throw new Error("User not authenticated");
+    }
+    const connection = await getConnectionByUserAndKind(
+      ctx.db,
+      userId,
+      "cloudflare",
     );
     if (connection) {
       await ctx.db.delete(connection._id);
