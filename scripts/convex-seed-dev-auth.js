@@ -35,8 +35,10 @@ if (!backendPort) {
   )
 }
 
-const seedEntries = Object.entries(seedEnv.vars).filter(([name]) =>
-  name.startsWith('DEV_SEED_'),
+const WORKTREE_ENV_SYNC_ALLOWLIST = new Set(['ANTHROPIC_API_KEY'])
+const seedEntries = Object.entries(seedEnv.vars).filter(
+  ([name]) =>
+    name.startsWith('DEV_SEED_') || WORKTREE_ENV_SYNC_ALLOWLIST.has(name),
 )
 
 const backend = spawn(
