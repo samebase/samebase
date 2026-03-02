@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
-import { useAction, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,17 +56,25 @@ function readCheckoutState(): "success" | "cancel" | null {
 
 export function PricingPage() {
   const billingStatus = useQuery(api.billing.getViewerBillingStatus);
+  const dashboardSettings = useQuery(
+    api.dashboardSettings.getDashboardSettings,
+  );
+  const setPricingBillingCycle = useMutation(
+    api.dashboardSettings.setPricingBillingCycle,
+  );
   const createCheckoutSession = useAction(
     api.billing.createPolarCheckoutSession,
   );
   const createPortalSession = useAction(
     api.billing.createPolarCustomerPortalSession,
   );
-  const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [pendingIntent, setPendingIntent] = useState<
     "checkout" | "portal" | null
   >(null);
+
+  const billingCycle: BillingCycle =
+    dashboardSettings?.pricingBillingCycle ?? "monthly";
 
   const checkoutState = useMemo(() => readCheckoutState(), []);
   const displayPrices = useMemo(
@@ -155,7 +163,7 @@ export function PricingPage() {
               value={billingCycle}
               onValueChange={(value) => {
                 if (value === "monthly" || value === "annual") {
-                  setBillingCycle(value);
+                  void setPricingBillingCycle({ billingCycle: value });
                 }
               }}
             >

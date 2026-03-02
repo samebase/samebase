@@ -13,6 +13,7 @@ const {
   string,
   union,
   number,
+  id,
   null: nullValue,
   boolean,
 } = v;
@@ -195,7 +196,7 @@ export const getViewerBillingStatus = query({
 
 export const ensurePolarExternalCustomerId = internalMutation({
   args: {
-    userId: v.id("users"),
+    userId: id("users"),
   },
   returns: polarCustomerSeedValidator,
   handler: async (ctx, args) => {
@@ -261,6 +262,17 @@ export const createPolarCheckoutSession = action({
   returns: polarCheckoutSessionValidator,
   handler: async (ctx, args): Promise<{ url: string }> => {
     const userId = await getUserId(ctx);
+    const currentUser = await ctx.runQuery(internal.users.getById, { userId });
+    if (!currentUser) {
+      throw new Error("User not found.");
+    }
+
+    const currentPlan = currentUser.billingPlan ?? "free";
+    const currentStatus = currentUser.billingStatus ?? "inactive";
+    if (currentPlan === "pro" && currentStatus === "active") {
+      throw new Error("You already have an active Pro subscription.");
+    }
+
     const server = inferPolarServer();
     const { successUrl, returnUrl } = validateReturnUrlPair({
       successUrl: args.successUrl,
@@ -370,7 +382,9 @@ export function deriveBillingFromCustomerState(args: {
     return null;
   }
 
-  const externalCustomerId = readString(customer, "external_id");
+  const externalCustomerId =
+    readString(args.customerState, "external_id") ??
+    readString(customer, "external_id");
   if (!externalCustomerId) {
     return null;
   }

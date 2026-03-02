@@ -417,7 +417,7 @@ const requestTermination = (signal) => {
   }, 5000);
 
   setTimeout(() => {
-    if (!childExited) {
+    if (!childExited || !refreshDone) {
       process.exit(1);
     }
   }, 6500);

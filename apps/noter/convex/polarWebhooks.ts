@@ -7,6 +7,8 @@ import { isRecord, readString, toErrorMessage } from "./jsonUtils";
 
 type PolarServer = "sandbox" | "production";
 
+const POLAR_WEBHOOK_FETCH_TIMEOUT_MS = 8000;
+
 function inferPolarServer(): PolarServer {
   const raw = process.env.CONVEX_DEPLOYMENT?.trim() ?? "";
   const prefix = raw.split(":")[0]?.trim().toLowerCase() ?? "";
@@ -29,6 +31,14 @@ function readExternalCustomerIdFromEvent(event: unknown): string | null {
     return null;
   }
 
+  const direct =
+    readString(data, "external_customer_id") ??
+    readString(data, "customer_external_id") ??
+    readString(data, "external_id");
+  if (direct) {
+    return direct;
+  }
+
   const customer = data.customer;
   if (!isRecord(customer)) {
     return null;
@@ -45,14 +55,31 @@ async function fetchCustomerState(args: {
   const baseUrl = getPolarApiBaseUrl(args.server);
   const url = `${baseUrl}/customers/external/${encodeURIComponent(args.externalCustomerId)}/state`;
 
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: "application/json",
-      "User-Agent": "noter-app",
-    },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    POLAR_WEBHOOK_FETCH_TIMEOUT_MS,
+  );
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+        "User-Agent": "noter-app",
+      },
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Polar customer state request timed out.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   const payload: unknown = await response.json().catch(() => null);
   if (!response.ok) {
@@ -110,9 +137,13 @@ export const handlePolarWebhook = httpAction(async (ctx, request) => {
 
     return new Response("OK", { status: 200 });
   } catch (error) {
+    const redactedExternalCustomerId =
+      externalCustomerId.length <= 12
+        ? "redacted"
+        : `${externalCustomerId.slice(0, 8)}...${externalCustomerId.slice(-4)}`;
     console.error("billing:polar:webhook:failed", {
       message: toErrorMessage(error),
-      externalCustomerId,
+      externalCustomerId: redactedExternalCustomerId,
     });
     return new Response("Webhook processing failed", { status: 500 });
   }
