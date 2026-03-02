@@ -23,6 +23,20 @@ function hasWidgetDecorationAt(decorations: DecorationSet, pos: number) {
   return found;
 }
 
+function createState(doc: string, anchor: number, head?: number) {
+  return EditorState.create({
+    doc,
+    selection: head === undefined ? { anchor } : { anchor, head },
+    extensions: [
+      markdown({
+        codeLanguages: languages,
+        extensions: [GFM, prosemarkMarkdownSyntaxExtensions],
+      }),
+      bulletListExtension,
+    ],
+  });
+}
+
 describe("ProsemarkReadOnly selection folding", () => {
   it("unfolds bullet list markers while selected (shows `-`)", () => {
     const documentText = `## Title
@@ -34,17 +48,7 @@ describe("ProsemarkReadOnly selection folding", () => {
     expect(firstDash).toBeGreaterThanOrEqual(0);
     expect(secondDash).toBeGreaterThan(firstDash);
 
-    const state = EditorState.create({
-      doc: documentText,
-      selection: { anchor: firstDash, head: secondDash },
-      extensions: [
-        markdown({
-          codeLanguages: languages,
-          extensions: [GFM, prosemarkMarkdownSyntaxExtensions],
-        }),
-        bulletListExtension,
-      ],
-    });
+    const state = createState(documentText, firstDash, secondDash);
 
     const decorations = state.field(foldExtension);
     expect(hasWidgetDecorationAt(decorations, firstDash)).toBe(false);
@@ -64,17 +68,7 @@ describe("ProsemarkReadOnly selection folding", () => {
     const blankLineAnchor = documentText.indexOf("\n\n") + 1;
     expect(blankLineAnchor).toBeGreaterThan(0);
 
-    const state = EditorState.create({
-      doc: documentText,
-      selection: { anchor: blankLineAnchor },
-      extensions: [
-        markdown({
-          codeLanguages: languages,
-          extensions: [GFM, prosemarkMarkdownSyntaxExtensions],
-        }),
-        bulletListExtension,
-      ],
-    });
+    const state = createState(documentText, blankLineAnchor);
 
     const decorations = state.field(foldExtension);
     expect(hasWidgetDecorationAt(decorations, firstDash)).toBe(true);
