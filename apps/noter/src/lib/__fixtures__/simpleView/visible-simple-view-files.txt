@@ -12,6 +12,7 @@ CHAT_SPEC.md
 CONVEX_CODEGEN_CI.md
 Ideas/E2b.md
 Ideas/main-agent-hub/README.md
+Ideas/mdxeditor-research.md
 Ideas/README.md
 Ideas/signin-view-code-prosemark.md
 Ideas/to-do.md
