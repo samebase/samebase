@@ -25,9 +25,7 @@ export const cleanupCloudflareData = internalMutation({
       await ctx.db.replace(user._id, stripSystemFields(user));
     }
 
-    const infrastructure = await ctx.db
-      .query("vaultInfrastructure")
-      .collect();
+    const infrastructure = await ctx.db.query("vaultInfrastructure").collect();
     for (const infra of infrastructure) {
       await ctx.db.replace(infra._id, stripSystemFields(infra));
     }
@@ -43,9 +41,7 @@ export const cleanupCloudflareData = internalMutation({
       }
     }
 
-    const prodRequests = await ctx.db
-      .query("aiProdAccessRequests")
-      .collect();
+    const prodRequests = await ctx.db.query("aiProdAccessRequests").collect();
     const cloudflareRequestIds = new Set<Id<"aiProdAccessRequests">>();
     for (const request of prodRequests) {
       const provider = readUnknownField(request, "provider");
@@ -67,7 +63,7 @@ export const cleanupCloudflareData = internalMutation({
     const oauthStates = await ctx.db.query("oauthStates").collect();
     for (const oauthState of oauthStates) {
       const provider = readUnknownField(oauthState, "provider");
-      if (provider === "cloudflare") {
+      if (provider === "cloudflare_mcp") {
         await ctx.db.delete(oauthState._id);
       }
     }

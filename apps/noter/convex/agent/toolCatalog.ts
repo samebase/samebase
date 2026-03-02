@@ -136,6 +136,22 @@ Common endpoints:
     inputDisplayKey: "limit",
   },
   {
+    name: "request_cloudflare_accounts_read",
+    description:
+      "Request approval to list Cloudflare accounts available to the connected token. This tool only creates an approval proposal and does not execute direct reads.",
+    uiDescription:
+      "Propose Cloudflare account inventory read (approval required)",
+    inputDisplayKey: "limit",
+  },
+  {
+    name: "request_cloudflare_pages_projects_read",
+    description:
+      "Request approval to list Cloudflare Pages projects for an account. This tool only creates an approval proposal and does not execute direct reads.",
+    uiDescription:
+      "Propose Cloudflare Pages project inventory read (approval required)",
+    inputDisplayKey: "accountId",
+  },
+  {
     name: "request_convex_data_read",
     description:
       "Request approval to read a limited sample from allowed Convex tables. This tool never performs direct production data reads by itself.",
