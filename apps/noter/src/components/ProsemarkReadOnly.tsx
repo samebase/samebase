@@ -18,12 +18,36 @@ type ProsemarkReadOnlyProps = {
   className?: string;
 };
 
+function isBlankLineText(text: string): boolean {
+  return text.trim().length === 0;
+}
+
+function findFirstBlankLineAnchorInString(docText: string): number {
+  let lineStart = 0;
+  for (let i = 0; i <= docText.length; i++) {
+    const isLineEnd = i === docText.length || docText.charCodeAt(i) === 10;
+    if (!isLineEnd) continue;
+
+    const lineText = docText.slice(lineStart, i);
+    if (isBlankLineText(lineText)) return lineStart;
+
+    lineStart = i + 1;
+  }
+  return docText.length;
+}
+
+function findFirstBlankLineAnchorInDoc(doc: EditorState["doc"]): number {
+  for (let i = 1; i <= doc.lines; i++) {
+    const line = doc.line(i);
+    if (isBlankLineText(line.text)) return line.from;
+  }
+  return doc.length;
+}
+
 function findInitialSafeSelectionAnchor(docText: string): number {
   // Prefer the start of the first blank line so markdown stays folded by
   // default (avoids revealing markers at document start).
-  const doubleNewline = docText.indexOf("\n\n");
-  if (doubleNewline !== -1) return doubleNewline + 1;
-  return docText.length;
+  return findFirstBlankLineAnchorInString(docText);
 }
 
 const blurOnOutsidePointerDownExtension = ViewPlugin.fromClass(
@@ -74,13 +98,7 @@ const collapseSelectionOnBlurExtension = ViewPlugin.fromClass(
       const view = update.view;
       if (this.isScheduled) return;
 
-      const safeAnchor = () => {
-        for (let i = 1; i <= view.state.doc.lines; i++) {
-          const line = view.state.doc.line(i);
-          if (line.text.trim().length === 0) return line.from;
-        }
-        return view.state.doc.length;
-      };
+      const safeAnchor = () => findFirstBlankLineAnchorInDoc(view.state.doc);
 
       const shouldCollapse = () => {
         const anchor = safeAnchor();

@@ -23,7 +23,7 @@ markers (for example `#`) on focus, and hides them again on blur.
 6. Click inside the landing copy (on the heading text).
 7. Confirm `##` becomes visible at the start of the heading while focused.
 8. Drag-select the last two bullet points.
-9. Confirm the selected list items unfold into plain markdown text (each line
+9. Confirm the selected list items unfold into plain Markdown text (each line
    starts with `-`) while selected, and the heading `##` does not appear while
    the selection is in the bullet list.
 10. Click whitespace outside the landing copy (for example above the card, not
