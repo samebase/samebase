@@ -312,7 +312,7 @@ async function upsertSeedCloudflareConnection(
       method: "api_key",
       credential,
     },
-    accountId: seededAccountId ?? undefined,
+    ...(seededAccountId ? { accountId: seededAccountId } : {}),
     createdAt: now,
     updatedAt: now,
   });

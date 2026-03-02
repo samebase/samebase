@@ -62,24 +62,27 @@ default switch.
 ### Cost and scale
 
 - Cloudflare Pages pricing: Free ($0), Pro ($25/month), Business ($250/month).
-  All plans include unlimited sites, seats, requests, and bandwidth.
+  All plans include unlimited sites, seats, requests, and bandwidth (as of
+  2026-03-02).
 - Cloudflare Pages build quotas per month: Free 500, Pro 5,000, Business 20,000.
-  Concurrent builds per plan: Free 1, Pro 5, Business 20.
-- Netlify production deploys cost 15 credits each. Netlify plan credits and
-  pricing: Free ($0) includes 300 credits/month, Personal ($9/month) includes
-  1,000 credits/month, Pro ($20 per member/month) includes 3,000 credits/month.
-  This yields ~200 production deploys/month on Pro before add-on credits, which
-  is incompatible with 100s/day workflows.
+  Concurrent builds per plan: Free 1, Pro 5, Business 20 (as of 2026-03-02).
+- Netlify production deploys cost 15 credits each (as of 2026-03-02). Netlify
+  plan credits and pricing: Free ($0) includes 300 credits/month, Personal
+  ($9/month) includes 1,000 credits/month, Pro ($20 per member/month) includes
+  3,000 credits/month (as of 2026-03-02). This yields ~200 production
+  deploys/month on Pro before add-on credits, which is incompatible with
+  100s/day workflows.
 
 ### Deploy volume and preview support
 
 - Cloudflare Pages allows unlimited preview deployments per project and provides
-  build limits per month (Free: 500, Pro: 5,000, Business: 20,000).
+  build limits per month (Free: 500, Pro: 5,000, Business: 20,000) (as of
+  2026-03-02).
 
 ### Custom domain capacity
 
 - Cloudflare Pages supports high custom-domain limits per project (Free: 100,
-  Pro: 250, Business: 500).
+  Pro: 250, Business: 500) (as of 2026-03-02).
 - For apex domains, Cloudflare requires the domain to be added as a Cloudflare
   zone with nameservers pointed to Cloudflare. For subdomains, a CNAME is
   sufficient without moving DNS. This supports a managed default subdomain
@@ -88,16 +91,16 @@ default switch.
 ### Operational constraints to track
 
 - Cloudflare Pages has a soft limit of 100 projects per account and may
-  temporarily disable creation if many projects are created quickly. Limit
-  increases require a request. This is a scaling consideration for a fully
-  managed “one project per vault” approach.
+  temporarily disable creation if many projects are created quickly (as of
+  2026-03-02). Limit increases require a request. This is a scaling
+  consideration for a fully managed “one project per vault” approach.
 
 ## Netlify Constraint (Known Issue)
 
 Netlify now prices production deploys as a credit-based resource:
 
-- Production deploys cost 15 credits each.
-- Pro includes 3,000 credits per month per team.
+- Production deploys cost 15 credits each (as of 2026-03-02).
+- Pro includes 3,000 credits per month per team (as of 2026-03-02).
 
 This means even paid Pro only supports ~200 production deploys/month before
 add-ons, which makes it unsuitable for high-frequency deploy workflows.

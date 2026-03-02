@@ -148,14 +148,16 @@ async function buildCloudflareMcpOAuthUrl(
   return authorizeUrl.toString();
 }
 
+const storeCloudflareMcpOauthConnectionArgs = {
+  userId: v.id("users"),
+  accessToken: v.string(),
+  refreshToken: v.optional(v.string()),
+  expiresAt: v.optional(v.number()),
+  oauthStateId: v.id("oauthStates"),
+} as const;
+
 export const storeCloudflareMcpOauthConnection = internalMutation({
-  args: {
-    userId: v.id("users"),
-    accessToken: v.string(),
-    refreshToken: v.optional(v.string()),
-    expiresAt: v.optional(v.number()),
-    oauthStateId: v.id("oauthStates"),
-  },
+  args: storeCloudflareMcpOauthConnectionArgs,
   returns: v.null(),
   handler: async (ctx, args) => {
     await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
@@ -286,7 +288,9 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
     await ctx.runMutation(internal.oauthState.deleteOauthState, {
       id: oauthState._id,
     });
-    throw err;
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("cloudflare-mcp-oauth:exchange_failed", { message });
+    return new Response("Cloudflare OAuth exchange failed", { status: 400 });
   }
 
   const returnTo =

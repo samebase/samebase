@@ -130,13 +130,17 @@ export const ApiKeyAuth = v.object({
   credential: v.string(),
   credentialExpiresAt: v.optional(v.number()),
 });
+export const StandardProviderAuth = v.union(OAuthAuth, ApiKeyAuth);
+export type StandardProviderAuth = Infer<typeof StandardProviderAuth>;
+export const CloudflareProviderAuth = v.union(McpOAuthAuth, ApiKeyAuth);
+export type CloudflareProviderAuth = Infer<typeof CloudflareProviderAuth>;
 export const ProviderAuth = v.union(OAuthAuth, McpOAuthAuth, ApiKeyAuth);
 export type ProviderAuth = Infer<typeof ProviderAuth>;
 
 export const GithubProviderConnection = v.object({
   kind: v.literal("github"),
   userId: v.id("users"),
-  auth: ProviderAuth,
+  auth: StandardProviderAuth,
   username: v.optional(v.string()),
   createdAt: v.number(),
   updatedAt: v.number(),
@@ -144,7 +148,7 @@ export const GithubProviderConnection = v.object({
 export const ConvexProviderConnection = v.object({
   kind: v.literal("convex"),
   userId: v.id("users"),
-  auth: ProviderAuth,
+  auth: StandardProviderAuth,
   teamId: v.string(),
   teamSlug: v.optional(v.string()),
   createdAt: v.number(),
@@ -153,7 +157,7 @@ export const ConvexProviderConnection = v.object({
 export const NetlifyProviderConnection = v.object({
   kind: v.literal("netlify"),
   userId: v.id("users"),
-  auth: ProviderAuth,
+  auth: StandardProviderAuth,
   teamId: v.string(),
   teamSlug: v.optional(v.string()),
   createdAt: v.number(),
@@ -162,7 +166,7 @@ export const NetlifyProviderConnection = v.object({
 export const RailwayProviderConnection = v.object({
   kind: v.literal("railway"),
   userId: v.id("users"),
-  auth: ProviderAuth,
+  auth: StandardProviderAuth,
   accountId: v.string(),
   email: v.optional(v.string()),
   name: v.optional(v.string()),
@@ -172,7 +176,7 @@ export const RailwayProviderConnection = v.object({
 export const CloudflareProviderConnection = v.object({
   kind: v.literal("cloudflare"),
   userId: v.id("users"),
-  auth: ProviderAuth,
+  auth: CloudflareProviderAuth,
   accountId: v.optional(v.string()),
   createdAt: v.number(),
   updatedAt: v.number(),

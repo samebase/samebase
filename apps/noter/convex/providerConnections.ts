@@ -53,33 +53,42 @@ const providerAuthValidator = union(
 );
 export type ProviderAuth = Infer<typeof providerAuthValidator>;
 
+const standardProviderAuthValidator = union(
+  oauthAuthValidator,
+  apiKeyAuthValidator,
+);
+const cloudflareProviderAuthValidator = union(
+  mcpOauthAuthValidator,
+  apiKeyAuthValidator,
+);
+
 const githubConnectionUpsertValidator = object({
   userId: id("users"),
-  auth: providerAuthValidator,
+  auth: standardProviderAuthValidator,
   username: optional(string()),
 });
 const convexConnectionUpsertValidator = object({
   userId: id("users"),
-  auth: providerAuthValidator,
+  auth: standardProviderAuthValidator,
   teamId: string(),
   teamSlug: optional(string()),
 });
 const netlifyConnectionUpsertValidator = object({
   userId: id("users"),
-  auth: providerAuthValidator,
+  auth: standardProviderAuthValidator,
   teamId: string(),
   teamSlug: optional(string()),
 });
 const railwayConnectionUpsertValidator = object({
   userId: id("users"),
-  auth: providerAuthValidator,
+  auth: standardProviderAuthValidator,
   accountId: string(),
   email: optional(string()),
   name: optional(string()),
 });
 const cloudflareConnectionUpsertValidator = object({
   userId: id("users"),
-  auth: providerAuthValidator,
+  auth: cloudflareProviderAuthValidator,
   accountId: optional(string()),
 });
 
@@ -88,7 +97,7 @@ const githubConnectionResultValidator = object({
   _creationTime: number(),
   kind: literal("github"),
   userId: id("users"),
-  auth: providerAuthValidator,
+  auth: standardProviderAuthValidator,
   username: optional(string()),
   createdAt: number(),
   updatedAt: number(),
@@ -98,7 +107,7 @@ const convexConnectionResultValidator = object({
   _creationTime: number(),
   kind: literal("convex"),
   userId: id("users"),
-  auth: providerAuthValidator,
+  auth: standardProviderAuthValidator,
   teamId: string(),
   teamSlug: optional(string()),
   createdAt: number(),
@@ -109,7 +118,7 @@ const netlifyConnectionResultValidator = object({
   _creationTime: number(),
   kind: literal("netlify"),
   userId: id("users"),
-  auth: providerAuthValidator,
+  auth: standardProviderAuthValidator,
   teamId: string(),
   teamSlug: optional(string()),
   createdAt: number(),
@@ -120,7 +129,7 @@ const railwayConnectionResultValidator = object({
   _creationTime: number(),
   kind: literal("railway"),
   userId: id("users"),
-  auth: providerAuthValidator,
+  auth: standardProviderAuthValidator,
   accountId: string(),
   email: optional(string()),
   name: optional(string()),
@@ -132,7 +141,7 @@ const cloudflareConnectionResultValidator = object({
   _creationTime: number(),
   kind: literal("cloudflare"),
   userId: id("users"),
-  auth: providerAuthValidator,
+  auth: cloudflareProviderAuthValidator,
   accountId: optional(string()),
   createdAt: number(),
   updatedAt: number(),
