@@ -14,6 +14,7 @@ import { hostingProviderValidator } from "./hostingState";
 import { resolveNetlifySiteId } from "./hostingStateHelpers";
 import { toErrorMessage } from "./jsonUtils";
 import { toSafeRepoName } from "./repoName";
+import { isAdminUser } from "./users";
 import {
   createStarterSeedGitClient,
   seedRepositoryWithStarter,
@@ -274,11 +275,13 @@ export const createRepository = action({
     }
 
     const [
+      currentUser,
       githubConnection,
       convexConnection,
       netlifyConnection,
       railwayConnection,
     ] = await Promise.all([
+      ctx.runQuery(internal.users.getById, { userId }),
       ctx.runQuery(internal.providerConnections.getByUserAndKind, {
         userId,
         kind: "github",
@@ -296,6 +299,10 @@ export const createRepository = action({
         kind: "railway",
       }),
     ]);
+
+    if (!currentUser) {
+      throw new Error("User not found.");
+    }
 
     if (githubConnection?.kind !== "github") {
       throw new Error("GitHub is not connected");
@@ -318,6 +325,15 @@ export const createRepository = action({
       throw new Error(
         "Railway connection is required to create a Railway-hosted project.",
       );
+    }
+
+    const isAdmin = isAdminUser(githubConnection.username, currentUser.email);
+    if (!isAdmin) {
+      const plan = currentUser.billingPlan ?? "free";
+      const status = currentUser.billingStatus ?? "inactive";
+      if (!(plan === "pro" && status === "active")) {
+        throw new Error("Upgrade to Pro to create a Noter-managed project.");
+      }
     }
 
     const repoName = toSafeRepoName(args.name);

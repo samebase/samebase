@@ -16,6 +16,27 @@ function omit<T extends Record<string, any>, K extends keyof T>(
   ) as Omit<T, K>;
 }
 
+const { literal, number, optional, string, union } = v;
+
+const BillingProvider = optional(literal("polar"));
+const BillingPlan = optional(union(literal("free"), literal("pro")));
+const BillingStatus = optional(
+  union(
+    literal("inactive"),
+    literal("active"),
+    literal("past_due"),
+    literal("canceled"),
+    literal("unknown"),
+  ),
+);
+const BillingUpdatedAt = optional(number());
+const BillingCurrentPeriodEndAt = optional(number());
+const BillingPolarExternalCustomerId = optional(string());
+
+const PricingBillingCycle = optional(
+  union(literal("monthly"), literal("annual")),
+);
+
 export const GithubTree = v.object({
   path: v.string(),
   mode: v.string(),
@@ -208,9 +229,18 @@ export default defineSchema({
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
     isApproved: v.optional(v.boolean()),
+
+    // Billing (Polar-backed for now).
+    billingProvider: BillingProvider,
+    billingPlan: BillingPlan,
+    billingStatus: BillingStatus,
+    billingUpdatedAt: BillingUpdatedAt,
+    billingCurrentPeriodEndAt: BillingCurrentPeriodEndAt,
+    billingPolarExternalCustomerId: BillingPolarExternalCustomerId,
   })
     .index("email", ["email"])
-    .index("phone", ["phone"]),
+    .index("phone", ["phone"])
+    .index("by_polar_external_customer_id", ["billingPolarExternalCustomerId"]),
 
   providerConnections: defineTable(ProviderConnection)
     .index("by_user", ["userId"])
@@ -220,6 +250,7 @@ export default defineSchema({
   dashboardSettings: defineTable({
     userId: v.id("users"),
     providersPanelOpen: v.boolean(),
+    pricingBillingCycle: PricingBillingCycle,
   }).index("by_user", ["userId"]),
 
   /**
