@@ -3,6 +3,7 @@
 import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import { WORKTREE_ENV_ALLOWLIST } from './worktree-env-allowlist.js'
 import {
   listListeningPids,
   parsePort,
@@ -35,10 +36,8 @@ if (!backendPort) {
   )
 }
 
-const WORKTREE_ENV_SYNC_ALLOWLIST = new Set(['ANTHROPIC_API_KEY'])
-const seedEntries = Object.entries(seedEnv.vars).filter(
-  ([name]) =>
-    name.startsWith('DEV_SEED_') || WORKTREE_ENV_SYNC_ALLOWLIST.has(name),
+const seedEntries = Object.entries(seedEnv.vars).filter(([name]) =>
+  WORKTREE_ENV_ALLOWLIST.has(name),
 )
 
 const backend = spawn(

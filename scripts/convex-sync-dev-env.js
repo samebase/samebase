@@ -3,6 +3,7 @@
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import { WORKTREE_ENV_ALLOWLIST } from './worktree-env-allowlist.js'
 
 /**
  * @typedef {'dev' | 'prod' | 'preview'} DeploymentType
@@ -35,18 +36,6 @@ import path from 'node:path'
  *   branch: string | null
  * }} WorktreeInfo
  */
-
-const WORKTREE_ENV_ALLOWLIST = new Set([
-  'DEV_SEED_GITHUB_API_KEY',
-  'DEV_SEED_CONVEX_MANAGEMENT_API_KEY',
-  'DEV_SEED_CONVEX_TEAM_ID',
-  'DEV_SEED_NETLIFY_API_KEY',
-  'DEV_SEED_NETLIFY_TEAM_ID',
-  'DEV_SEED_RAILWAY_API_KEY',
-  'DEV_SEED_CLOUDFLARE_API_KEY',
-  'DEV_SEED_CLOUDFLARE_ACCOUNT_ID',
-  'ANTHROPIC_API_KEY',
-])
 
 const HELP_TEXT = `Usage: scripts/convex-sync-dev-env.js [options]
 
