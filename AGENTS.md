@@ -309,6 +309,9 @@ Auth:
 - Default to persisting user-visible UI state in Convex (per-user settings) so
   it syncs across devices; avoid localStorage unless explicitly requested for
   per-device behavior.
+- When sharing URLs (including localhost dev URLs), format them as Markdown
+  links (for example `[http://localhost:5174/](http://localhost:5174/)`) so they
+  are clickable in Codex.
 - Runtime bootstrap rule: use `make anon` when operating from a git worktree,
   and use `make run` when operating from the primary local checkout.
 - In a worktree, `make anon` is the full startup command (do not run `pnpm dev`
