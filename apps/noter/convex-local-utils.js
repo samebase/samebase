@@ -1,10 +1,19 @@
+// @ts-check
 import { spawnSync } from "child_process";
 
+/**
+ * @param {number} ms
+ * @returns {Promise<void>}
+ */
 export const sleep = (ms) =>
   new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
 
+/**
+ * @param {string} url
+ * @returns {number | null}
+ */
 export const parsePort = (url) => {
   try {
     const parsed = new URL(url);
@@ -15,7 +24,17 @@ export const parsePort = (url) => {
   }
 };
 
+/**
+ * @param {number} port
+ * @returns {string[]}
+ */
 export const listListeningPids = (port) => {
+  /**
+   * @param {unknown} value
+   * @returns {value is string}
+   */
+  const isString = (value) => typeof value === "string";
+
   if (process.platform === "win32") {
     const netstatResult = spawnSync("netstat", ["-ano", "-p", "tcp"], {
       stdio: "pipe",
@@ -39,7 +58,7 @@ export const listListeningPids = (port) => {
         );
       })
       .map((parts) => parts.at(-1))
-      .filter(Boolean)
+      .filter(isString)
       .filter((pid, index, all) => all.indexOf(pid) === index);
   }
 
@@ -56,4 +75,8 @@ export const listListeningPids = (port) => {
     .filter(Boolean);
 };
 
+/**
+ * @param {number} port
+ * @returns {boolean}
+ */
 export const isPortInUse = (port) => listListeningPids(port).length > 0;

@@ -34,7 +34,27 @@ grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/noter-
 grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/noter-wt-b/apps/noter/.env.local
 ```
 
-4. In the `make ... anon-once` outputs from step 2, confirm each worktree
+4. Confirm each worktree captured dev seed API keys and applied them to provider
+   connections (API keys present + auth method is `api_key`):
+
+```bash
+grep -E '^DEV_SEED_' /tmp/noter-wt-a/apps/noter/.env.anon-seed.local
+grep -E '^DEV_SEED_' /tmp/noter-wt-b/apps/noter/.env.anon-seed.local
+
+(cd /tmp/noter-wt-a/apps/noter && \
+  CONVEX_AGENT_MODE=anonymous node convex-dev.js --tail-logs=disable --typecheck=disable --codegen=disable & \
+  pid=$!; sleep 5; \
+  npx convex data providerConnections --limit 20 --format pretty; \
+  kill $pid; wait $pid 2>/dev/null || true)
+
+(cd /tmp/noter-wt-b/apps/noter && \
+  CONVEX_AGENT_MODE=anonymous node convex-dev.js --tail-logs=disable --typecheck=disable --codegen=disable & \
+  pid=$!; sleep 5; \
+  npx convex data providerConnections --limit 20 --format pretty; \
+  kill $pid; wait $pid 2>/dev/null || true)
+```
+
+5. In the `make ... anon-once` outputs from step 2, confirm each worktree
    prints:
 
 ```txt
@@ -48,7 +68,12 @@ grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/noter-
    `/tmp/noter-wt-b`.
 3. Each worktree can run seed/auth setup without cross-worktree admin/auth
    conflicts.
-4. On first clean run, both step 2 outputs report `"created": true` (if shared
+4. Each `.env.anon-seed.local` includes `DEV_SEED_*` entries from the dev seed
+   env (API keys present).
+5. Each worktree's `providerConnections` includes the seeded providers
+   (GitHub/Convex/Netlify, plus Railway if `DEV_SEED_RAILWAY_API_KEY` is set)
+   with `auth.method: "api_key"`.
+6. On first clean run, both step 2 outputs report `"created": true` (if shared
    DB, second worktree would typically report `"created": false`).
 
 ## Optional Evidence
@@ -61,6 +86,8 @@ mkdir -p manual-tests/.runs
 # make -C /tmp/noter-wt-a anon-once | tee manual-tests/.runs/wt-001-a.log
 # make -C /tmp/noter-wt-b anon-once | tee manual-tests/.runs/wt-001-b.log
 ```
+
+- Avoid saving `npx convex data ...` outputs to disk unless you redact API keys.
 
 ## Cleanup
 
