@@ -3,11 +3,10 @@ import { action, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Infer, v } from "convex/values";
 import { getConnectionByUserAndKind } from "./providerConnections";
-import { isRailwayHostingPilotEnabled } from "./hostingPilot";
 import { isRecord, readBoolean, readString } from "./jsonUtils";
 import { fetchRailwayConnectionDetails } from "./railwayConnectionDetails";
 
-const { array, boolean, literal, object, optional, string, union } = v;
+const { array, literal, object, optional, string, union } = v;
 
 const ADMIN_USERNAMES = ["nicu-chiciuc"];
 const ADMIN_EMAILS = new Set([
@@ -30,10 +29,6 @@ const authProviderSummaryValidator = object({
   primaryProvider: optional(string()),
 });
 type AuthProviderSummary = Infer<typeof authProviderSummaryValidator>;
-
-const hostingPilotStatusValidator = object({
-  railwayHostingPilotEnabled: boolean(),
-});
 
 const providerAuthMethodValidator = union(
   literal("oauth"),
@@ -336,16 +331,6 @@ export const getViewerAuthProviders = query({
       return { providers, primaryProvider };
     }
     return { providers };
-  },
-});
-
-export const getHostingPilotStatus = query({
-  args: {},
-  returns: hostingPilotStatusValidator,
-  handler: async () => {
-    return {
-      railwayHostingPilotEnabled: isRailwayHostingPilotEnabled(),
-    };
   },
 });
 

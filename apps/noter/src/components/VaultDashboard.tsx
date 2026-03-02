@@ -129,6 +129,10 @@ const CREATE_HOSTING_PROVIDER_LABEL: Record<CreateHostingProvider, string> = {
   netlify: "Netlify",
   railway: "Railway",
 };
+const CREATE_HOSTING_PROVIDERS: readonly CreateHostingProvider[] = [
+  "netlify",
+  "railway",
+];
 
 const DASHBOARD_REFRESH_CONCURRENCY = 3;
 type RefreshTrigger = "focus" | "page_load";
@@ -242,7 +246,6 @@ export function VaultDashboard() {
     api.users.getCloudflareConnectionStatus,
   );
   const user = useConvexQuery(api.users.viewer);
-  const hostingPilotStatus = useConvexQuery(api.users.getHostingPilotStatus);
   const dashboardSettings = useConvexQuery(
     api.dashboardSettings.getDashboardSettings,
   );
@@ -323,8 +326,6 @@ export function VaultDashboard() {
     boolean | null
   >(null);
   const providersPanelPendingRef = useRef<boolean | null>(null);
-  const railwayHostingPilotEnabled =
-    hostingPilotStatus?.railwayHostingPilotEnabled === true;
 
   useEffect(() => {
     if (!dashboardSettings) {
@@ -340,12 +341,6 @@ export function VaultDashboard() {
     }
     setProvidersPanelOpenState(serverValue);
   }, [dashboardSettings?.providersPanelOpen]);
-
-  useEffect(() => {
-    if (!railwayHostingPilotEnabled && createHostingProvider === "railway") {
-      setCreateHostingProvider("netlify");
-    }
-  }, [createHostingProvider, railwayHostingPilotEnabled]);
 
   useEffect(() => {
     const expectedOrigin = window.location.origin;
@@ -643,7 +638,7 @@ export function VaultDashboard() {
         name: repoName,
         private: true,
         templateType: createTemplate,
-        hostingProvider: effectiveCreateHostingProvider,
+        hostingProvider: createHostingProvider,
       });
       setNewRepositoryName("");
     } catch (error) {
@@ -676,16 +671,42 @@ export function VaultDashboard() {
   const netlifyConnected = netlifyConnection?.connected === true;
   const railwayConnected = railwayConnection?.connected === true;
   const cloudflareConnected = cloudflareConnection?.connected === true;
-  const effectiveCreateHostingProvider: CreateHostingProvider =
-    createHostingProvider === "railway" && !railwayHostingPilotEnabled
+  useEffect(() => {
+    const selectedConnected =
+      createHostingProvider === "netlify" ? netlifyConnected : railwayConnected;
+    if (selectedConnected) {
+      return;
+    }
+
+    const fallbackHostingProvider = netlifyConnected
       ? "netlify"
-      : createHostingProvider;
+      : railwayConnected
+        ? "railway"
+        : null;
+    if (
+      fallbackHostingProvider &&
+      fallbackHostingProvider !== createHostingProvider
+    ) {
+      setCreateHostingProvider(fallbackHostingProvider);
+    }
+  }, [createHostingProvider, netlifyConnected, railwayConnected]);
+
+  const connectedHostingProviders = CREATE_HOSTING_PROVIDERS.filter(
+    (provider) =>
+      provider === "netlify" ? netlifyConnected : railwayConnected,
+  );
+  const createHostingProviderOptions =
+    connectedHostingProviders.length > 0
+      ? connectedHostingProviders.includes(createHostingProvider)
+        ? connectedHostingProviders
+        : [...connectedHostingProviders, createHostingProvider]
+      : CREATE_HOSTING_PROVIDERS;
+  const isHostingProviderConnected = (provider: CreateHostingProvider) =>
+    provider === "netlify" ? netlifyConnected : railwayConnected;
   const requiredHostingConnectionLabel =
-    CREATE_HOSTING_PROVIDER_LABEL[effectiveCreateHostingProvider];
+    CREATE_HOSTING_PROVIDER_LABEL[createHostingProvider];
   const requiredHostingConnected =
-    effectiveCreateHostingProvider === "netlify"
-      ? netlifyConnected
-      : railwayConnected;
+    createHostingProvider === "netlify" ? netlifyConnected : railwayConnected;
   const canCreateRepo = Boolean(
     githubConnected && convexConnected && requiredHostingConnected,
   );
@@ -744,7 +765,7 @@ export function VaultDashboard() {
   const createTemplateArticle =
     createTemplate === "app" ? "an app" : "an agent";
   const createHostingProviderLabel =
-    CREATE_HOSTING_PROVIDER_LABEL[effectiveCreateHostingProvider];
+    CREATE_HOSTING_PROVIDER_LABEL[createHostingProvider];
   const createPlaceholder = `New ${createTemplate} name`;
   const createButtonLabel = isCreating
     ? `Creating ${createTemplate}...`
@@ -790,24 +811,24 @@ export function VaultDashboard() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             <DropdownMenuRadioGroup
-              value={effectiveCreateHostingProvider}
+              value={createHostingProvider}
               onValueChange={(value) => {
                 if (!isCreateHostingProvider(value)) return;
-                if (value === "railway" && !railwayHostingPilotEnabled) return;
                 setCreateHostingProvider(value);
                 if (createError) {
                   setCreateError(null);
                 }
               }}
             >
-              <DropdownMenuRadioItem value="netlify">
-                Netlify
-              </DropdownMenuRadioItem>
-              {railwayHostingPilotEnabled ? (
-                <DropdownMenuRadioItem value="railway">
-                  Railway
+              {createHostingProviderOptions.map((provider) => (
+                <DropdownMenuRadioItem
+                  key={provider}
+                  value={provider}
+                  disabled={!isHostingProviderConnected(provider)}
+                >
+                  {CREATE_HOSTING_PROVIDER_LABEL[provider]}
                 </DropdownMenuRadioItem>
-              ) : null}
+              ))}
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>

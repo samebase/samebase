@@ -8,7 +8,6 @@ import { Daytona } from "@daytonaio/sdk";
 import { getUserId } from "./common";
 import { getEnvLabel } from "./env";
 import { createInfraProviders } from "./infraProviders";
-import { isRailwayHostingPilotEnabled } from "./hostingPilot";
 import { deleteHostingResources } from "./hostingProviders";
 import { hostingProviderValidator } from "./hostingState";
 import { resolveNetlifySiteId } from "./hostingStateHelpers";
@@ -264,15 +263,6 @@ export const createRepository = action({
   handler: async (ctx, args): Promise<{ vaultId: string }> => {
     const userId = await getUserId(ctx);
     const requestedHostingProvider = args.hostingProvider ?? "netlify";
-
-    if (
-      requestedHostingProvider === "railway" &&
-      !isRailwayHostingPilotEnabled()
-    ) {
-      throw new Error(
-        "Railway hosting pilot is not enabled in this environment. Select Netlify to continue.",
-      );
-    }
 
     const [
       currentUser,
