@@ -178,6 +178,7 @@ async function upsertCloudflareApiKey(
   db: DatabaseWriter,
   userId: Id<"users">,
   credential: string,
+  accountId?: string,
 ): Promise<void> {
   const existing = await getConnectionByUserAndKind(db, userId, "cloudflare");
   const now = Date.now();
@@ -187,7 +188,7 @@ async function upsertCloudflareApiKey(
         method: "api_key",
         credential,
       },
-      accountId: undefined,
+      ...(accountId ? { accountId } : {}),
       updatedAt: now,
     });
     return;
@@ -199,7 +200,7 @@ async function upsertCloudflareApiKey(
       method: "api_key",
       credential,
     },
-    accountId: undefined,
+    accountId,
     createdAt: now,
     updatedAt: now,
   });
@@ -217,6 +218,7 @@ const seedProviderConnectionsArgs = object({
   railwayEmail: optional(string()),
   railwayName: optional(string()),
   cloudflareApiKey: optional(string()),
+  cloudflareAccountId: optional(string()),
 });
 type SeedProviderConnectionsArgs = Infer<typeof seedProviderConnectionsArgs>;
 
@@ -286,8 +288,18 @@ export const seedProviderConnectionsForEmail = internalMutation({
       );
     }
 
-    if (args.cloudflareApiKey) {
-      await upsertCloudflareApiKey(ctx.db, user._id, args.cloudflareApiKey);
+    if (args.cloudflareApiKey || args.cloudflareAccountId) {
+      if (!args.cloudflareApiKey) {
+        throw new Error(
+          "Cloudflare API key must be provided when setting Cloudflare seed details",
+        );
+      }
+      await upsertCloudflareApiKey(
+        ctx.db,
+        user._id,
+        args.cloudflareApiKey,
+        args.cloudflareAccountId,
+      );
     }
 
     return null;
@@ -312,6 +324,7 @@ export const seedPasswordAccount = internalAction({
     const netlifyTeamId = readSeedValue("DEV_SEED_NETLIFY_TEAM_ID");
     const railwayApiKey = readSeedValue("DEV_SEED_RAILWAY_API_KEY");
     const cloudflareApiKey = readSeedValue("DEV_SEED_CLOUDFLARE_API_KEY");
+    const cloudflareAccountId = readSeedValue("DEV_SEED_CLOUDFLARE_ACCOUNT_ID");
     const seedArgs: SeedProviderConnectionsArgs = { email };
     if (githubApiKey !== undefined) {
       seedArgs.githubApiKey = githubApiKey;
@@ -353,6 +366,9 @@ export const seedPasswordAccount = internalAction({
 
     if (cloudflareApiKey !== undefined) {
       seedArgs.cloudflareApiKey = cloudflareApiKey;
+    }
+    if (cloudflareAccountId !== undefined) {
+      seedArgs.cloudflareAccountId = cloudflareAccountId;
     }
 
     if (!isAllowedEmail(email)) {

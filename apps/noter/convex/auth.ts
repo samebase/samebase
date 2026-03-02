@@ -291,6 +291,7 @@ async function upsertSeedCloudflareConnection(
   if (credential === null) {
     return;
   }
+  const seededAccountId = readOptionalEnv("DEV_SEED_CLOUDFLARE_ACCOUNT_ID");
   const existing = await getConnectionByUserAndKind(db, userId, "cloudflare");
   const now = Date.now();
   if (existing) {
@@ -299,7 +300,7 @@ async function upsertSeedCloudflareConnection(
         method: "api_key",
         credential,
       },
-      accountId: undefined,
+      ...(seededAccountId ? { accountId: seededAccountId } : {}),
       updatedAt: now,
     });
     return;
@@ -311,7 +312,7 @@ async function upsertSeedCloudflareConnection(
       method: "api_key",
       credential,
     },
-    accountId: undefined,
+    accountId: seededAccountId ?? undefined,
     createdAt: now,
     updatedAt: now,
   });
