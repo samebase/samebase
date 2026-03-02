@@ -22,8 +22,11 @@ markers (for example `#`) on focus, and hides them again on blur.
    list.
 6. Click inside the landing copy (on the heading text).
 7. Confirm `##` becomes visible at the start of the heading while focused.
-8. Click outside the landing copy (blank area below or above the card).
-9. Confirm `##` is hidden again.
+8. Drag-select the last two bullet points.
+9. Confirm the list stays rendered with bullet dots (not `-` markdown) and the
+   heading `##` does not appear while the selection is in the bullet list.
+10. Click outside the landing copy (blank area below or above the card).
+11. Confirm `##` is hidden again.
 
 ## Expected Results
 
@@ -33,8 +36,8 @@ markers (for example `#`) on focus, and hides them again on blur.
 
 ## Optional Evidence
 
-- Screenshot before click, after click, and after blur (paths like
-  `/tmp/noter-landing-before.png`).
+- Screenshot before click, after click, after selection, and after blur (paths
+  like `/tmp/noter-landing-before.png`).
 
 ## Cleanup
 

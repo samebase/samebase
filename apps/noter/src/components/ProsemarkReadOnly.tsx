@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
-import { Compartment, EditorState } from "@codemirror/state";
+import { Compartment, EditorSelection, EditorState } from "@codemirror/state";
 import {
+  Decoration,
   DecorationSet,
   EditorView,
   ViewPlugin,
   ViewUpdate,
+  WidgetType,
 } from "@codemirror/view";
 import { markdown } from "@codemirror/lang-markdown";
-import { syntaxTree } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
 import { GFM } from "@lezer/markdown";
 import {
+  foldableSyntaxFacet,
   prosemarkBaseThemeSetup,
   prosemarkBasicSetup,
   prosemarkMarkdownSyntaxExtensions,
@@ -25,23 +27,94 @@ type ProsemarkReadOnlyProps = {
   className?: string;
 };
 
+class BulletPoint extends WidgetType {
+  toDOM() {
+    const span = document.createElement("span");
+    span.className = "cm-rendered-list-mark";
+    span.textContent = "•";
+    return span;
+  }
+
+  ignoreEvent(_event: Event) {
+    return false;
+  }
+}
+
+// In a read-only view, text selection is for copy, not editing. Keep bullet
+// list markers rendered as bullets even when the selection spans list items.
+const bulletListKeepDecorationOnSelectExtension = foldableSyntaxFacet.of({
+  nodePath: "BulletList/ListItem/ListMark",
+  keepDecorationOnUnfold: true,
+  buildDecorations: (_state, node, selectionTouchesRange) => {
+    if (!selectionTouchesRange) return;
+    const cursor = node.node.cursor();
+    if (cursor.nextSibling() && cursor.name === "Task") {
+      return;
+    }
+    return Decoration.replace({ widget: new BulletPoint() }).range(
+      node.from,
+      node.to,
+    );
+  },
+});
+
 const blurHideTokensExtension = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet;
 
     constructor(view: EditorView) {
-      this.decorations = buildBlurHideDecorations(view.state);
+      this.decorations = view.hasFocus
+        ? Decoration.none
+        : buildBlurHideDecorations(view.state);
     }
 
     update(update: ViewUpdate) {
-      const syntaxChanged =
-        syntaxTree(update.startState) !== syntaxTree(update.state);
-      if (!update.docChanged && !update.selectionSet && !syntaxChanged) return;
-      this.decorations = buildBlurHideDecorations(update.state);
+      if (!update.docChanged && !update.focusChanged) return;
+      this.decorations = update.view.hasFocus
+        ? Decoration.none
+        : buildBlurHideDecorations(update.state);
     }
   },
   {
     decorations: (view) => view.decorations,
+  },
+);
+
+const collapseSelectionOnBlurExtension = ViewPlugin.fromClass(
+  class {
+    private isScheduled = false;
+
+    update(update: ViewUpdate) {
+      if (!update.focusChanged || update.view.hasFocus) return;
+
+      const view = update.view;
+      if (this.isScheduled) return;
+
+      const shouldCollapse = () => {
+        const anchor = view.state.doc.length;
+        const main = view.state.selection.main;
+        return !(
+          view.state.selection.ranges.length === 1 &&
+          main.anchor === anchor &&
+          main.head === anchor
+        );
+      };
+
+      if (!shouldCollapse()) return;
+
+      this.isScheduled = true;
+      queueMicrotask(() => {
+        this.isScheduled = false;
+        if (view.hasFocus || !view.dom.isConnected) return;
+        if (!shouldCollapse()) return;
+
+        // Collapse selection so fold/hide extensions return to the rendered view.
+        view.dispatch({
+          selection: EditorSelection.single(view.state.doc.length),
+          scrollIntoView: false,
+        });
+      });
+    }
   },
 );
 
@@ -80,12 +153,6 @@ const prosemarkReadOnlyTheme = EditorView.theme({
   },
   ".cm-cursor": {
     display: "none",
-  },
-  "&.cm-focused .cm-hidden-token": {
-    fontSize: "inherit",
-  },
-  "&.cm-focused .cm-transparent-token": {
-    opacity: "1",
   },
   "& .cm-rendered-list-mark": {
     display: "inline-block",
@@ -138,9 +205,11 @@ export function ProsemarkReadOnly({
           codeLanguages: languages,
           extensions: [GFM, prosemarkMarkdownSyntaxExtensions],
         }),
+        bulletListKeepDecorationOnSelectExtension,
         prosemarkBasicSetup(),
         prosemarkBaseThemeSetup(),
         blurHideTokensExtension,
+        collapseSelectionOnBlurExtension,
         prosemarkReadOnlyTheme,
         EditorState.readOnly.of(true),
         themeCompartmentRef.current.of(isDarkRef.current ? oneDark : []),
