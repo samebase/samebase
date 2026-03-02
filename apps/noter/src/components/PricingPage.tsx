@@ -17,11 +17,6 @@ import { Badge } from "@/components/ui/badge";
 type BillingCycle = "monthly" | "annual";
 type PaidPlan = "pro" | "team";
 
-const BILLING_INTERVAL_LABEL: Record<BillingCycle, string> = {
-  monthly: "Monthly",
-  annual: "Annual",
-};
-
 const PLAN_FALLBACK_PRICE: Record<PaidPlan, Record<BillingCycle, string>> = {
   pro: {
     monthly: "$20/mo",
@@ -90,6 +85,7 @@ function extractFormattedTotal(preview: unknown): string | null {
 
 export function PricingPage() {
   const viewer = useQuery(api.users.viewer);
+  const paddleConfig = useQuery(api.billingConfig.getPaddlePublicConfig);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [displayPrices, setDisplayPrices] = useState<Record<PaidPlan, string>>({
     pro: PLAN_FALLBACK_PRICE.pro.monthly,
@@ -103,24 +99,21 @@ export function PricingPage() {
   const [checkoutPendingPlan, setCheckoutPendingPlan] =
     useState<PaidPlan | null>(null);
 
-  const paddleEnvironment = useMemo<"sandbox" | "live">(() => {
-    return import.meta.env.VITE_PADDLE_ENV === "live" ? "live" : "sandbox";
-  }, []);
+  const paddleEnvironment = paddleConfig?.environment ?? "sandbox";
   const isSandbox = paddleEnvironment === "sandbox";
-  const paddleClientToken =
-    import.meta.env.VITE_PADDLE_CLIENT_TOKEN?.trim() ?? "";
+  const paddleClientToken = paddleConfig?.clientToken?.trim() ?? "";
   const priceIds = useMemo(
     () => ({
       pro: {
-        monthly: import.meta.env.VITE_PADDLE_PRICE_PRO_MONTHLY?.trim() ?? "",
-        annual: import.meta.env.VITE_PADDLE_PRICE_PRO_ANNUAL?.trim() ?? "",
+        monthly: paddleConfig?.prices.pro.monthly?.trim() ?? "",
+        annual: paddleConfig?.prices.pro.annual?.trim() ?? "",
       },
       team: {
-        monthly: import.meta.env.VITE_PADDLE_PRICE_TEAM_MONTHLY?.trim() ?? "",
-        annual: import.meta.env.VITE_PADDLE_PRICE_TEAM_ANNUAL?.trim() ?? "",
+        monthly: paddleConfig?.prices.team.monthly?.trim() ?? "",
+        annual: paddleConfig?.prices.team.annual?.trim() ?? "",
       },
     }),
-    [],
+    [paddleConfig],
   );
 
   useEffect(() => {
@@ -268,10 +261,6 @@ export function PricingPage() {
                   {isSandbox ? "Sandbox billing" : "Live billing"}
                 </Badge>
               </div>
-              <p className="max-w-2xl text-sm text-muted-foreground">
-                Start free with your own providers. Upgrade to Pro when you want
-                managed billing and the paid Noter experience.
-              </p>
             </div>
             <Button variant="outline" asChild>
               <Link to="/">Back to Vaults</Link>
@@ -295,10 +284,6 @@ export function PricingPage() {
                 Annual
               </ToggleGroupItem>
             </ToggleGroup>
-            <p className="text-xs text-muted-foreground">
-              Displaying {BILLING_INTERVAL_LABEL[billingCycle].toLowerCase()}{" "}
-              plan prices.
-            </p>
           </div>
 
           {pricePreviewError && (
@@ -413,28 +398,6 @@ export function PricingPage() {
               </CardFooter>
             </Card>
           </div>
-
-          <Card>
-            <CardHeader>
-              <h2 className="text-lg font-semibold">
-                Transparent usage roadmap
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Pro starts as a simple subscription. Next step is transparent
-                credits based on real measured token and compute usage.
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm text-muted-foreground">
-              <p>
-                The long-term model is subscription plus clear credit accounting
-                with a visible usage ledger.
-              </p>
-              <p>
-                Checkout success does not grant entitlement by itself. Billing
-                access updates only after webhook-confirmed subscription state.
-              </p>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>
