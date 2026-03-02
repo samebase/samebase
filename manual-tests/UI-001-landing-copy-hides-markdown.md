@@ -26,8 +26,10 @@ markers (for example `#`) on focus, and hides them again on blur.
 9. Confirm the selected list items unfold into plain markdown text (each line
    starts with `-`) while selected, and the heading `##` does not appear while
    the selection is in the bullet list.
-10. Click outside the landing copy (blank area below or above the card).
-11. Confirm `##` is hidden again.
+10. Click whitespace outside the landing copy (for example above the card, not
+    on the “Commit …” header text).
+11. Confirm the selection collapses and the list refolds back to bullet dots.
+12. Confirm `##` is hidden again.
 
 ## Expected Results
 

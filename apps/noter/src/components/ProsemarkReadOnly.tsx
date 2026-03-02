@@ -26,6 +26,44 @@ function findInitialSafeSelectionAnchor(docText: string): number {
   return docText.length;
 }
 
+const blurOnOutsidePointerDownExtension = ViewPlugin.fromClass(
+  class {
+    private blurTimeout: number | null = null;
+
+    private onPointerDown = (event: PointerEvent) => {
+      // If we click/tap on a non-focusable element (for example whitespace),
+      // contenteditable won't necessarily blur by default. Mirror the common
+      // "tap outside to dismiss" behavior so we always refold on blur.
+      if (!this.view.hasFocus) return;
+      if (event.button !== 0) return;
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (this.view.dom.contains(target)) return;
+
+      // Defer to avoid browsers immediately restoring focus during the pointer
+      // event sequence when no other focusable target exists.
+      if (this.blurTimeout !== null) return;
+      this.blurTimeout = window.setTimeout(() => {
+        this.blurTimeout = null;
+        if (!this.view.hasFocus) return;
+        this.view.contentDOM.blur();
+      }, 0);
+    };
+
+    constructor(private view: EditorView) {
+      document.addEventListener("pointerdown", this.onPointerDown, true);
+    }
+
+    destroy() {
+      if (this.blurTimeout !== null) {
+        window.clearTimeout(this.blurTimeout);
+        this.blurTimeout = null;
+      }
+      document.removeEventListener("pointerdown", this.onPointerDown, true);
+    }
+  },
+);
+
 const collapseSelectionOnBlurExtension = ViewPlugin.fromClass(
   class {
     private isScheduled = false;
@@ -168,6 +206,7 @@ export function ProsemarkReadOnly({
         }),
         prosemarkBasicSetup(),
         prosemarkBaseThemeSetup(),
+        blurOnOutsidePointerDownExtension,
         collapseSelectionOnBlurExtension,
         prosemarkReadOnlyTheme,
         EditorState.readOnly.of(true),
