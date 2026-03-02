@@ -35,22 +35,23 @@ grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/noter-
 ```
 
 4. Confirm each worktree captured dev seed API keys and applied them to provider
-   connections (API keys present + auth method is `api_key`):
+   connections (auth method is `api_key`). Cloudflare should appear when
+   `DEV_SEED_CLOUDFLARE_API_KEY` is set on the cloud dev deployment:
 
 ```bash
-grep -E '^DEV_SEED_' /tmp/noter-wt-a/apps/noter/.env.anon-seed.local
-grep -E '^DEV_SEED_' /tmp/noter-wt-b/apps/noter/.env.anon-seed.local
+grep -E '^DEV_SEED_' /tmp/noter-wt-a/apps/noter/.env.anon-seed.local | cut -d= -f1
+grep -E '^DEV_SEED_' /tmp/noter-wt-b/apps/noter/.env.anon-seed.local | cut -d= -f1
 
 (cd /tmp/noter-wt-a/apps/noter && \
   CONVEX_AGENT_MODE=anonymous node convex-dev.js --tail-logs=disable --typecheck=disable --codegen=disable & \
   pid=$!; sleep 5; \
-  npx convex data providerConnections --limit 20 --format pretty; \
+  npx convex data providerConnections --limit 50 --format json | node -e 'const rows=JSON.parse(require(\"fs\").readFileSync(0,\"utf8\")); console.log(rows.map(row => ({ kind: row.kind, method: row.auth?.method, accountId: row.accountId })));'; \
   kill $pid; wait $pid 2>/dev/null || true)
 
 (cd /tmp/noter-wt-b/apps/noter && \
   CONVEX_AGENT_MODE=anonymous node convex-dev.js --tail-logs=disable --typecheck=disable --codegen=disable & \
   pid=$!; sleep 5; \
-  npx convex data providerConnections --limit 20 --format pretty; \
+  npx convex data providerConnections --limit 50 --format json | node -e 'const rows=JSON.parse(require(\"fs\").readFileSync(0,\"utf8\")); console.log(rows.map(row => ({ kind: row.kind, method: row.auth?.method, accountId: row.accountId })));'; \
   kill $pid; wait $pid 2>/dev/null || true)
 ```
 
@@ -71,8 +72,9 @@ grep -E '^DEV_SEED_' /tmp/noter-wt-b/apps/noter/.env.anon-seed.local
 4. Each `.env.anon-seed.local` includes `DEV_SEED_*` entries from the dev seed
    env (API keys present).
 5. Each worktree's `providerConnections` includes the seeded providers
-   (GitHub/Convex/Netlify, plus Railway if `DEV_SEED_RAILWAY_API_KEY` is set)
-   with `auth.method: "api_key"`.
+   (GitHub/Convex/Netlify, plus Railway if `DEV_SEED_RAILWAY_API_KEY` is set,
+   plus Cloudflare if `DEV_SEED_CLOUDFLARE_API_KEY` is set) with
+   `auth.method: "api_key"`.
 6. On first clean run, both step 2 outputs report `"created": true` (if shared
    DB, second worktree would typically report `"created": false`).
 
