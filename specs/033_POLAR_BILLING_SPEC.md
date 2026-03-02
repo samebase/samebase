@@ -1,8 +1,8 @@
-# 033 Polar Billing Spec (Replace Paddle)
+# 033 Polar Billing Spec
 
 ## Goal
 
-Replace the current Paddle sandbox pricing implementation with Polar so that:
+Implement Polar billing so that:
 
 - Free remains self-sustainable (BYO providers, no Noter-managed infra).
 - Paid (Pro) unlocks Noter-managed vault creation (GitHub repo creation +
@@ -138,7 +138,6 @@ Do not gate `vaultActions.connectRepository` (free tier flow).
 
 Update `apps/noter/src/components/PricingPage.tsx`:
 
-- Remove Paddle client usage and price previewing.
 - Keep the 3-tier UI (Free, Pro, Team).
 - Pro CTA:
   - calls `createPolarCheckoutSession`
