@@ -12,7 +12,7 @@ Link: https://mdxeditor.dev/editor/demo
 
 Practical pain point for `.mdx`:
 
-- "Markdown inside JSX wrapper" is MDX-valid, but many markdown parsers treat
+- "Markdown inside JSX wrapper" is MDX-valid, but many Markdown parsers treat
   `<Tag>...</Tag>` as an HTML block.
 - When that happens, things like `- [ ] task` inside the wrapper stop being
   parsed as a task list item (it becomes plain text inside HTML).
@@ -142,8 +142,8 @@ constructs. Cons: more complex mapping between UI edits and source ranges.
 - Keep ProseMark/CodeMirror as the editor, but introduce block-level nodes that
   render nicely and round-trip to text.
 
-Pros: safe and deterministic; works with current collab. Cons: not compatible
-with arbitrary MDX; requires choosing a new syntax.
+Pros: safe and deterministic; works with current collab. Cons: incompatible with
+arbitrary MDX; requires choosing a new syntax.
 
 ## Open questions (for later)
 
