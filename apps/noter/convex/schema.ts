@@ -16,6 +16,27 @@ function omit<T extends Record<string, any>, K extends keyof T>(
   ) as Omit<T, K>;
 }
 
+const { literal, number, optional, string, union } = v;
+
+const BillingProvider = optional(literal("polar"));
+const BillingPlan = optional(union(literal("free"), literal("pro")));
+const BillingStatus = optional(
+  union(
+    literal("inactive"),
+    literal("active"),
+    literal("past_due"),
+    literal("canceled"),
+    literal("unknown"),
+  ),
+);
+const BillingUpdatedAt = optional(number());
+const BillingCurrentPeriodEndAt = optional(number());
+const BillingPolarExternalCustomerId = optional(string());
+
+const PricingBillingCycle = optional(
+  union(literal("monthly"), literal("annual")),
+);
+
 export const GithubTree = v.object({
   path: v.string(),
   mode: v.string(),
@@ -210,20 +231,12 @@ export default defineSchema({
     isApproved: v.optional(v.boolean()),
 
     // Billing (Polar-backed for now).
-    billingProvider: v.optional(v.literal("polar")),
-    billingPlan: v.optional(v.union(v.literal("free"), v.literal("pro"))),
-    billingStatus: v.optional(
-      v.union(
-        v.literal("inactive"),
-        v.literal("active"),
-        v.literal("past_due"),
-        v.literal("canceled"),
-        v.literal("unknown"),
-      ),
-    ),
-    billingUpdatedAt: v.optional(v.number()),
-    billingCurrentPeriodEndAt: v.optional(v.number()),
-    billingPolarExternalCustomerId: v.optional(v.string()),
+    billingProvider: BillingProvider,
+    billingPlan: BillingPlan,
+    billingStatus: BillingStatus,
+    billingUpdatedAt: BillingUpdatedAt,
+    billingCurrentPeriodEndAt: BillingCurrentPeriodEndAt,
+    billingPolarExternalCustomerId: BillingPolarExternalCustomerId,
   })
     .index("email", ["email"])
     .index("phone", ["phone"])
@@ -237,9 +250,7 @@ export default defineSchema({
   dashboardSettings: defineTable({
     userId: v.id("users"),
     providersPanelOpen: v.boolean(),
-    pricingBillingCycle: v.optional(
-      v.union(v.literal("monthly"), v.literal("annual")),
-    ),
+    pricingBillingCycle: PricingBillingCycle,
   }).index("by_user", ["userId"]),
 
   /**

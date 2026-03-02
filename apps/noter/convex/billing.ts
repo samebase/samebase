@@ -91,6 +91,8 @@ const POLAR_PRODUCTS = {
   },
 } as const;
 
+const POLAR_API_FETCH_TIMEOUT_MS = 10_000;
+
 function readOptionalProductId(id: string): string | null {
   const trimmed = id.trim();
   return trimmed.length > 0 ? trimmed : null;
@@ -148,16 +150,33 @@ async function fetchPolarJson(args: {
   const baseUrl = getPolarApiBaseUrl(args.server);
   const url = `${baseUrl}${args.path}`;
 
-  const response = await fetch(url, {
-    method: args.method,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      "User-Agent": "noter-app",
-    },
-    body: args.body ? JSON.stringify(args.body) : undefined,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    POLAR_API_FETCH_TIMEOUT_MS,
+  );
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: args.method,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "User-Agent": "noter-app",
+      },
+      body: args.body ? JSON.stringify(args.body) : undefined,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Polar API request timed out.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   const payload: unknown = await response.json().catch(() => null);
   if (!response.ok) {

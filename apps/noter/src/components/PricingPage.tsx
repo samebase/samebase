@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import type { BillingCycle } from "../../convex/dashboardSettings";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,7 +14,6 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
 
-type BillingCycle = "monthly" | "annual";
 type PaidPlan = "pro" | "team";
 
 const PLAN_DISPLAY_PRICE: Record<PaidPlan, Record<BillingCycle, string>> = {
