@@ -98,7 +98,7 @@ New tables (names illustrative):
 1. `chatGitObjects`
 
    - `_id`
-   - `oid` (string; content hash)
+   - `oid` (string; content hash, includes version)
    - `type` (`"blob" | "tree" | "commit"`)
    - `data` (bytes or JSON-serializable structure; see storage notes)
    - `size`
@@ -123,7 +123,27 @@ Notes:
 
 - `oid` is content-addressed. The hashing and object encoding must be identical
   in browser and Convex (pure TS).
+- Canonical encoding (required):
+  - Blobs: UTF-8 bytes of the exact content.
+  - Trees/commits: canonical JSON bytes (UTF-8) using a deterministic encoding
+    rule (for example RFC 8785 JCS), including stable key ordering, no
+    insignificant whitespace, and explicit omission of `undefined` fields.
+  - Timestamps must be serialized in a single canonical format (ISO-8601 UTC).
+- Hash algorithm + version (required):
+  - `oid-v1` = `sha256` of the canonical bytes, hex-encoded lowercase.
+  - `oid` strings are stored as `oid-v1:<hex>`.
 - Objects should be deduplicated across threads/users when possible.
+
+### Required Indexes (MVP)
+
+Document and implement indexes up-front so the system does not devolve into
+full-table scans as history grows.
+
+Suggested minimal indexes:
+
+1. `chatGitObjects.by_oid` => `oid`
+2. `chatGitRefs.by_thread_and_name` => `threadId, name`
+3. `chatGitPathIndex.by_thread_and_path` => `threadId, path, touchedAt`
 
 ## Storage and Size Strategy
 
@@ -142,11 +162,25 @@ This keeps the object model stable while allowing a storage upgrade.
 
 1. `chatGit.createThreadRef(threadId)` -> initializes `refs/.../main` to an
    empty commit (or a known “root” commit).
-2. `chatGit.commitChange({ threadId, refName, expectedOid, change })`
+2. `chatGit.commitChange({ threadId, refName, expectedOid, attemptId, change })`
    - Reads the current ref tip.
    - Applies `change` to build a new tree snapshot.
    - Writes any new blobs/trees/commit objects.
    - Updates the ref with compare-and-swap semantics using `expectedOid`.
+   - Idempotency + lifecycle (required):
+     - `attemptId` is a caller-provided unique identifier (for example UUIDv7)
+       and is persisted in the commit metadata.
+     - Retrying the same `attemptId` must be safe and must not create unbounded
+       duplicate objects.
+     - If the ref CAS fails, the function must return a distinct, typed error
+       (for example `REF_CONFLICT`) so callers can decide to retry against the
+       latest head.
+     - Implementations must define one of:
+       - A garbage-collection policy that reclaims unreachable objects older
+         than a TTL (for example 24h) and/or objects associated with stale
+         `attemptId`s, or
+       - A stricter write strategy that prevents persistent unreachable objects
+         (still allowing ephemeral work-in-progress objects).
 
 ### Reads
 
@@ -177,6 +211,8 @@ Ref updates must be atomic and safe:
     new messages appended).
   - Otherwise surface a conflict resolution UI: “your edit was based on an old
     version, retry with latest”.
+- `commitChange` must return an explicit conflict error code when CAS fails, and
+  should return the current head OID so callers can retry deterministically.
 
 This matches how Git behaves (fast-forward vs conflict) without requiring
 general-purpose CRDT merges on day one.
@@ -208,9 +244,49 @@ Policy:
 
 1. Normal “delete message” becomes a new commit that removes the message from
    the current view but does not erase history.
-2. A separate “redaction” operation (history rewrite) is deferred and must be
-   gated behind explicit admin approval, with an audit trail (align with
-   approval-first patterns in `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`).
+2. A separate “redaction” operation (history rewrite) exists for legal erasure
+   requests and must be approval-first (align with patterns in
+   `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`).
+
+### Redaction Workflow (Defined, Implementation Can Be Deferred)
+
+Redaction is distinct from normal delete:
+
+- Normal delete: soft delete from the current view.
+- Redaction: hard removal by rewriting history and ensuring the redacted payload
+  is no longer reachable by refs, followed by GC.
+
+Proposed primitives:
+
+1. Data model: `chatGitRedactionRequests`
+
+   - `threadId`
+   - `requesterUserId`
+   - `requestedAt`
+   - `rationale`
+   - `status` (`"requested" | "approved" | "rejected" | "executed"`)
+   - `approverUserId` (required for approval/rejection)
+   - `approvedAt` / `rejectedAt`
+   - `executionCommitOid` (commit that performs the rewrite)
+   - `slaDueAt` (optional; legal/compliance metadata)
+
+2. API:
+
+   - `redaction.createRequest({ threadId, messageId, rationale })`
+   - `redaction.approveRequest({ requestId })`
+   - `redaction.rejectRequest({ requestId, reason })`
+   - `redaction.executeApprovedRequest({ requestId })`
+
+3. Audit events (immutable log):
+
+   - `redaction_requested`
+   - `redaction_approved` / `redaction_rejected`
+   - `redaction_executed`
+
+4. History rewrite commit requirements:
+   - The rewriting commit must reference `requestId` in commit metadata so the
+     audit trail is discoverable from the DAG.
+   - The execution must be blocked unless an approval record exists.
 
 Implication: UI must communicate that “deleted” does not mean “gone”.
 
@@ -239,3 +315,5 @@ Choose based on desired fidelity vs cost.
 2. How do we want to represent “message reorder” events (rare but possible)?
 3. Do we need per-user scratch branches, or is one shared `main` enough for MVP?
 4. What is the maximum acceptable object size before switching blobs to storage?
+5. What is the first GC policy we want for unreachable objects (TTL, reference
+   counting, or periodic mark-and-sweep)?
