@@ -91,6 +91,7 @@ const blurOnOutsidePointerDownExtension = ViewPlugin.fromClass(
 const collapseSelectionOnBlurExtension = ViewPlugin.fromClass(
   class {
     private isScheduled = false;
+    private collapseTimeout: number | null = null;
 
     update(update: ViewUpdate) {
       if (!update.focusChanged || update.view.hasFocus) return;
@@ -115,7 +116,8 @@ const collapseSelectionOnBlurExtension = ViewPlugin.fromClass(
       this.isScheduled = true;
       // Defer dispatch to avoid "Calls to EditorView.update are not allowed
       // while an update is in progress".
-      setTimeout(() => {
+      this.collapseTimeout = window.setTimeout(() => {
+        this.collapseTimeout = null;
         this.isScheduled = false;
         if (view.hasFocus || !view.dom.isConnected) return;
         if (!shouldCollapse()) return;
@@ -128,6 +130,14 @@ const collapseSelectionOnBlurExtension = ViewPlugin.fromClass(
           scrollIntoView: false,
         });
       }, 0);
+    }
+
+    destroy() {
+      if (this.collapseTimeout !== null) {
+        window.clearTimeout(this.collapseTimeout);
+        this.collapseTimeout = null;
+      }
+      this.isScheduled = false;
     }
   },
 );
