@@ -318,13 +318,15 @@ async function executeGithubApi(
 }
 
 function buildProdReadSummary(args: {
-  provider: "convex" | "netlify" | "railway";
+  provider: "convex" | "netlify" | "railway" | "cloudflare";
   resourceKind:
     | "deployment_status"
     | "logs"
     | "data_query"
     | "project_inventory"
-    | "site_inventory";
+    | "site_inventory"
+    | "account_inventory"
+    | "pages_project_inventory";
   scope: "vault" | "global";
 }): string {
   const provider =
@@ -332,7 +334,9 @@ function buildProdReadSummary(args: {
       ? "Convex"
       : args.provider === "netlify"
         ? "Netlify"
-        : "Railway";
+        : args.provider === "railway"
+          ? "Railway"
+          : "Cloudflare";
   const resource =
     args.resourceKind === "deployment_status"
       ? "deployment status"
@@ -342,7 +346,11 @@ function buildProdReadSummary(args: {
           ? "data sample"
           : args.resourceKind === "project_inventory"
             ? "project inventory"
-            : "site inventory";
+            : args.resourceKind === "site_inventory"
+              ? "site inventory"
+              : args.resourceKind === "account_inventory"
+                ? "account inventory"
+                : "Pages project inventory";
   const scope = args.scope === "vault" ? "this vault" : "global scope";
   return `I need your approval before reading ${provider} ${resource} for ${scope}.`;
 }
@@ -359,13 +367,15 @@ async function executeProdReadRequest(
   toolCtx: ToolContext,
   input: {
     scope: "vault" | "global";
-    provider: "convex" | "netlify" | "railway";
+    provider: "convex" | "netlify" | "railway" | "cloudflare";
     resourceKind:
       | "deployment_status"
       | "logs"
       | "data_query"
       | "project_inventory"
-      | "site_inventory";
+      | "site_inventory"
+      | "account_inventory"
+      | "pages_project_inventory";
     toolName: string;
     params: Record<string, unknown>;
     allowRawFallback?: boolean;
@@ -537,6 +547,41 @@ async function executeRequestRailwayProjectsRead(
     resourceKind: "site_inventory",
     toolName: "request_railway_projects_read",
     params: {
+      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
+    },
+    allowRawFallback: input.allowRawFallback,
+  });
+}
+
+async function executeRequestCloudflareAccountsRead(
+  toolCtx: ToolContext,
+  input: { limit?: number; allowRawFallback?: boolean },
+): Promise<string> {
+  return await executeProdReadRequest(toolCtx, {
+    scope: "global",
+    provider: "cloudflare",
+    resourceKind: "account_inventory",
+    toolName: "request_cloudflare_accounts_read",
+    params: {
+      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
+    },
+    allowRawFallback: input.allowRawFallback,
+  });
+}
+
+async function executeRequestCloudflarePagesProjectsRead(
+  toolCtx: ToolContext,
+  input: { accountId?: string; limit?: number; allowRawFallback?: boolean },
+): Promise<string> {
+  return await executeProdReadRequest(toolCtx, {
+    scope: "global",
+    provider: "cloudflare",
+    resourceKind: "pages_project_inventory",
+    toolName: "request_cloudflare_pages_projects_read",
+    params: {
+      ...(typeof input.accountId === "string"
+        ? { accountId: input.accountId }
+        : {}),
       ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
     },
     allowRawFallback: input.allowRawFallback,
@@ -804,6 +849,52 @@ export function createTools(toolCtx: ToolContext) {
       }),
       handler: async (_ctx, input) => {
         return await executeRequestRailwayProjectsRead(toolCtx, input);
+      },
+    }),
+
+    request_cloudflare_accounts_read: createTool({
+      description: catalogDescription("request_cloudflare_accounts_read"),
+      args: z.object({
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe("Maximum accounts to include"),
+        allowRawFallback: z
+          .boolean()
+          .optional()
+          .describe("In owner mode, allow explicit raw payload fallback"),
+      }),
+      handler: async (_ctx, input) => {
+        return await executeRequestCloudflareAccountsRead(toolCtx, input);
+      },
+    }),
+
+    request_cloudflare_pages_projects_read: createTool({
+      description: catalogDescription("request_cloudflare_pages_projects_read"),
+      args: z.object({
+        accountId: z
+          .string()
+          .optional()
+          .describe(
+            "Cloudflare account ID to query (optional if already stored on the connection)",
+          ),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(100)
+          .optional()
+          .describe("Maximum projects to include"),
+        allowRawFallback: z
+          .boolean()
+          .optional()
+          .describe("In owner mode, allow explicit raw payload fallback"),
+      }),
+      handler: async (_ctx, input) => {
+        return await executeRequestCloudflarePagesProjectsRead(toolCtx, input);
       },
     }),
 

@@ -90,6 +90,7 @@ export const ProdAccessProvider = v.union(
   v.literal("convex"),
   v.literal("netlify"),
   v.literal("railway"),
+  v.literal("cloudflare"),
 );
 
 export const ProdAccessResourceKind = v.union(
@@ -98,6 +99,8 @@ export const ProdAccessResourceKind = v.union(
   v.literal("data_query"),
   v.literal("project_inventory"),
   v.literal("site_inventory"),
+  v.literal("account_inventory"),
+  v.literal("pages_project_inventory"),
 );
 
 export const ProdAccessStatus = v.union(

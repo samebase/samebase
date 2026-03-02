@@ -428,6 +428,9 @@ function renderProdReadLabel(metadata: {
   if (resourceKind === "logs") return "Logs";
   if (resourceKind === "data_query") return "Data sample";
   if (resourceKind === "project_inventory") return "Project inventory";
+  if (resourceKind === "account_inventory") return "Account inventory";
+  if (resourceKind === "pages_project_inventory")
+    return "Pages project inventory";
   if (provider === "railway") return "Project inventory";
   return "Site inventory";
 }
@@ -435,7 +438,8 @@ function renderProdReadLabel(metadata: {
 function renderProviderLabel(provider: ProdReadProposal["provider"]) {
   if (provider === "convex") return "Convex";
   if (provider === "netlify") return "Netlify";
-  return "Railway";
+  if (provider === "railway") return "Railway";
+  return "Cloudflare";
 }
 
 function ProdReadProposalCard({

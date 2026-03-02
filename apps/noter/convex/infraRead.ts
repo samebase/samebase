@@ -14,6 +14,10 @@ import {
 import { resolveNetlifyHostingState } from "./hostingStateHelpers";
 import { asRecord, clamp, readString } from "./jsonUtils";
 import type { Doc, Id } from "./_generated/dataModel";
+import {
+  callCloudflareMcpTool,
+  CLOUDFLARE_MCP_SERVER_URL,
+} from "./cloudflareMcp";
 
 const EXECUTION_RESULT = v.object({
   summary: v.string(),
@@ -125,6 +129,37 @@ function resolveRailwayToken(
     return connection.auth.credential;
   }
   throw new Error("Railway is not connected");
+}
+
+function resolveCloudflareToken(
+  connection: {
+    kind: "cloudflare";
+    auth: { credential: string };
+  } | null,
+): string {
+  if (connection) {
+    return connection.auth.credential;
+  }
+  throw new Error("Cloudflare is not connected");
+}
+
+function resolveCloudflareMcpServerUrl(
+  connection: { kind: "cloudflare"; auth: { method: string } } | null,
+): string {
+  if (connection?.auth.method === "mcp_oauth") {
+    const auth = asRecord(connection.auth);
+    const url = readString(auth, "mcpServerUrl")?.trim() ?? "";
+    if (url) return url;
+  }
+  return CLOUDFLARE_MCP_SERVER_URL;
+}
+
+function tryParseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
 
 export const getConvexDeploymentStatus = internalAction({
@@ -411,6 +446,134 @@ export const getRailwayProjectInventory = internalAction({
       railwayProvider: providers.railway,
       limit: args.limit ?? 50,
     });
+  },
+});
+
+export const getCloudflareAccountInventory = internalAction({
+  args: {
+    limit: v.optional(v.number()),
+    userId: v.optional(v.id("users")),
+  },
+  returns: EXECUTION_RESULT,
+  handler: async (ctx, args): Promise<ExecutionResult> => {
+    const cloudflareConnectionRaw = args.userId
+      ? await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId: args.userId,
+          kind: "cloudflare",
+        })
+      : null;
+    const cloudflareConnection =
+      cloudflareConnectionRaw?.kind === "cloudflare"
+        ? cloudflareConnectionRaw
+        : null;
+
+    const token = resolveCloudflareToken(cloudflareConnection);
+    const serverUrl = resolveCloudflareMcpServerUrl(cloudflareConnection);
+    const perPage = clamp(args.limit ?? 50, 1, 100);
+
+    const code = `async () => {
+  const response = await cloudflare.request({
+    method: "GET",
+    path: "/accounts?page=1&per_page=${perPage}",
+  });
+  if (!response || response.success !== true) {
+    const errors = response && Array.isArray(response.errors) ? response.errors : response;
+    throw new Error("Cloudflare API error: " + JSON.stringify(errors));
+  }
+  const result = Array.isArray(response.result) ? response.result : [];
+  return result.map((account) => ({
+    id: account?.id,
+    name: account?.name,
+  }));
+}`;
+
+    const text = await callCloudflareMcpTool({
+      token,
+      toolName: "execute",
+      toolArgs: { code },
+      serverUrl,
+    });
+
+    const parsed = tryParseJson(text);
+    const raw =
+      typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2);
+
+    return {
+      summary: "Cloudflare account inventory",
+      endpoint: "/accounts",
+      raw,
+      rowCount: Array.isArray(parsed) ? parsed.length : undefined,
+    };
+  },
+});
+
+export const getCloudflarePagesProjectInventory = internalAction({
+  args: {
+    limit: v.optional(v.number()),
+    userId: v.optional(v.id("users")),
+    accountId: v.optional(v.string()),
+  },
+  returns: EXECUTION_RESULT,
+  handler: async (ctx, args): Promise<ExecutionResult> => {
+    const cloudflareConnectionRaw = args.userId
+      ? await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId: args.userId,
+          kind: "cloudflare",
+        })
+      : null;
+    const cloudflareConnection =
+      cloudflareConnectionRaw?.kind === "cloudflare"
+        ? cloudflareConnectionRaw
+        : null;
+
+    const token = resolveCloudflareToken(cloudflareConnection);
+    const serverUrl = resolveCloudflareMcpServerUrl(cloudflareConnection);
+    const perPage = clamp(args.limit ?? 50, 1, 100);
+    const accountId = args.accountId ?? cloudflareConnection?.accountId;
+    if (!accountId) {
+      throw new Error(
+        "Cloudflare accountId is required to list Pages projects. Reconnect or select an account first.",
+      );
+    }
+
+    const code = `async () => {
+  const accountId = ${JSON.stringify(accountId)};
+  const response = await cloudflare.request({
+    method: "GET",
+    path:
+      "/accounts/" +
+      encodeURIComponent(accountId) +
+      "/pages/projects?page=1&per_page=${perPage}",
+  });
+  if (!response || response.success !== true) {
+    const errors = response && Array.isArray(response.errors) ? response.errors : response;
+    throw new Error("Cloudflare API error: " + JSON.stringify(errors));
+  }
+  const result = Array.isArray(response.result) ? response.result : [];
+  return result.map((project) => ({
+    name: project?.name,
+    subdomain: project?.subdomain,
+    productionBranch: project?.production_branch,
+  }));
+}`;
+
+    const text = await callCloudflareMcpTool({
+      token,
+      toolName: "execute",
+      toolArgs: { code },
+      serverUrl,
+    });
+
+    const parsed = tryParseJson(text);
+    const raw =
+      typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2);
+
+    return {
+      summary: `Cloudflare Pages project inventory for account ${accountId}`,
+      endpoint: `/accounts/${encodeURIComponent(accountId)}/pages/projects`,
+      raw,
+      rowCount: Array.isArray(parsed) ? parsed.length : undefined,
+    };
   },
 });
 

@@ -65,6 +65,12 @@ function parseOptionalPositiveNumber(value: unknown): number | undefined {
   return result.data;
 }
 
+function parseOptionalNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 function parseAllowedDataTable(value: unknown): AllowedDataTable {
   return allowedDataTableSchema.parse(value);
 }
@@ -481,6 +487,29 @@ export const executeApprovedProdRead = internalAction({
           {
             limit: parseOptionalPositiveNumber(params["limit"]),
             userId: request.requesterUserId,
+          },
+        );
+      } else if (
+        request.provider === "cloudflare" &&
+        request.resourceKind === "account_inventory"
+      ) {
+        executionResult = await ctx.runAction(
+          internal.infraRead.getCloudflareAccountInventory,
+          {
+            limit: parseOptionalPositiveNumber(params["limit"]),
+            userId: request.requesterUserId,
+          },
+        );
+      } else if (
+        request.provider === "cloudflare" &&
+        request.resourceKind === "pages_project_inventory"
+      ) {
+        executionResult = await ctx.runAction(
+          internal.infraRead.getCloudflarePagesProjectInventory,
+          {
+            limit: parseOptionalPositiveNumber(params["limit"]),
+            userId: request.requesterUserId,
+            accountId: parseOptionalNonEmptyString(params["accountId"]),
           },
         );
       }
