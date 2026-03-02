@@ -1,6 +1,7 @@
 # TODO
 
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
+- [ ] check [tuple.app](https://tuple.app/) (currently not loading)
 - [ ] maybe jupyterlab is not necessaryle necessary, or even a good idea, since developers usually don't use it; and vibecoders don't even use it; only academia?
 - [ ] we te necessarily need an UI. The user should have same UI possibilities as openclaw, e. G. using telegram 
 - [ ] **Define a graphic for the openclaw agent; If we can visually show how it works, we can win**
