@@ -1,13 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
-import { Compartment, EditorState } from "@codemirror/state";
-import {
-  DecorationSet,
-  EditorView,
-  ViewPlugin,
-  ViewUpdate,
-} from "@codemirror/view";
+import { Compartment, EditorSelection, EditorState } from "@codemirror/state";
+import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { markdown } from "@codemirror/lang-markdown";
-import { syntaxTree } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
 import { GFM } from "@lezer/markdown";
 import {
@@ -18,30 +12,133 @@ import {
 import { oneDark } from "@codemirror/theme-one-dark";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
-import { buildBlurHideDecorations } from "./prosemarkReadOnlyDecorations";
 
 type ProsemarkReadOnlyProps = {
   value: string;
   className?: string;
 };
 
-const blurHideTokensExtension = ViewPlugin.fromClass(
-  class {
-    decorations: DecorationSet;
+function isBlankLineText(text: string): boolean {
+  return text.trim().length === 0;
+}
 
-    constructor(view: EditorView) {
-      this.decorations = buildBlurHideDecorations(view.state);
+function findFirstBlankLineAnchorInString(docText: string): number {
+  let lineStart = 0;
+  for (let i = 0; i <= docText.length; i++) {
+    const isLineEnd = i === docText.length || docText.charCodeAt(i) === 10;
+    if (!isLineEnd) continue;
+
+    const lineText = docText.slice(lineStart, i);
+    if (isBlankLineText(lineText)) return lineStart;
+
+    lineStart = i + 1;
+  }
+  return docText.length;
+}
+
+function findFirstBlankLineAnchorInDoc(doc: EditorState["doc"]): number {
+  for (let i = 1; i <= doc.lines; i++) {
+    const line = doc.line(i);
+    if (isBlankLineText(line.text)) return line.from;
+  }
+  return doc.length;
+}
+
+function findInitialSafeSelectionAnchor(docText: string): number {
+  // Prefer the start of the first blank line so markdown stays folded by
+  // default (avoids revealing markers at document start).
+  return findFirstBlankLineAnchorInString(docText);
+}
+
+const blurOnOutsidePointerDownExtension = ViewPlugin.fromClass(
+  class {
+    private blurTimeout: number | null = null;
+
+    private onPointerDown = (event: PointerEvent) => {
+      // If we click/tap on a non-focusable element (for example whitespace),
+      // contenteditable won't necessarily blur by default. Mirror the common
+      // "tap outside to dismiss" behavior so we always refold on blur.
+      if (!this.view.hasFocus) return;
+      if (event.button !== 0) return;
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (this.view.dom.contains(target)) return;
+
+      // Defer to avoid browsers immediately restoring focus during the pointer
+      // event sequence when no other focusable target exists.
+      if (this.blurTimeout !== null) return;
+      this.blurTimeout = window.setTimeout(() => {
+        this.blurTimeout = null;
+        if (!this.view.hasFocus) return;
+        this.view.contentDOM.blur();
+      }, 0);
+    };
+
+    constructor(private view: EditorView) {
+      document.addEventListener("pointerdown", this.onPointerDown, true);
     }
 
-    update(update: ViewUpdate) {
-      const syntaxChanged =
-        syntaxTree(update.startState) !== syntaxTree(update.state);
-      if (!update.docChanged && !update.selectionSet && !syntaxChanged) return;
-      this.decorations = buildBlurHideDecorations(update.state);
+    destroy() {
+      if (this.blurTimeout !== null) {
+        window.clearTimeout(this.blurTimeout);
+        this.blurTimeout = null;
+      }
+      document.removeEventListener("pointerdown", this.onPointerDown, true);
     }
   },
-  {
-    decorations: (view) => view.decorations,
+);
+
+const collapseSelectionOnBlurExtension = ViewPlugin.fromClass(
+  class {
+    private isScheduled = false;
+    private collapseTimeout: number | null = null;
+
+    update(update: ViewUpdate) {
+      if (!update.focusChanged || update.view.hasFocus) return;
+
+      const view = update.view;
+      if (this.isScheduled) return;
+
+      const safeAnchor = () => findFirstBlankLineAnchorInDoc(view.state.doc);
+
+      const shouldCollapse = () => {
+        const anchor = safeAnchor();
+        const main = view.state.selection.main;
+        return !(
+          view.state.selection.ranges.length === 1 &&
+          main.anchor === anchor &&
+          main.head === anchor
+        );
+      };
+
+      if (!shouldCollapse()) return;
+
+      this.isScheduled = true;
+      // Defer dispatch to avoid "Calls to EditorView.update are not allowed
+      // while an update is in progress".
+      this.collapseTimeout = window.setTimeout(() => {
+        this.collapseTimeout = null;
+        this.isScheduled = false;
+        if (view.hasFocus || !view.dom.isConnected) return;
+        if (!shouldCollapse()) return;
+
+        // Collapse selection on a markdown-neutral line so Prosemark re-folds
+        // list markers (`-`) into bullets and heading markers (`##`) into
+        // headings.
+        view.dispatch({
+          selection: EditorSelection.single(safeAnchor()),
+          scrollIntoView: false,
+        });
+      }, 0);
+    }
+
+    destroy() {
+      if (this.collapseTimeout !== null) {
+        window.clearTimeout(this.collapseTimeout);
+        this.collapseTimeout = null;
+      }
+      this.isScheduled = false;
+    }
   },
 );
 
@@ -80,12 +177,6 @@ const prosemarkReadOnlyTheme = EditorView.theme({
   },
   ".cm-cursor": {
     display: "none",
-  },
-  "&.cm-focused .cm-hidden-token": {
-    fontSize: "inherit",
-  },
-  "&.cm-focused .cm-transparent-token": {
-    opacity: "1",
   },
   "& .cm-rendered-list-mark": {
     display: "inline-block",
@@ -133,6 +224,9 @@ export function ProsemarkReadOnly({
 
     const state = EditorState.create({
       doc: lastValueRef.current,
+      selection: EditorSelection.single(
+        findInitialSafeSelectionAnchor(lastValueRef.current),
+      ),
       extensions: [
         markdown({
           codeLanguages: languages,
@@ -140,7 +234,8 @@ export function ProsemarkReadOnly({
         }),
         prosemarkBasicSetup(),
         prosemarkBaseThemeSetup(),
-        blurHideTokensExtension,
+        blurOnOutsidePointerDownExtension,
+        collapseSelectionOnBlurExtension,
         prosemarkReadOnlyTheme,
         EditorState.readOnly.of(true),
         themeCompartmentRef.current.of(isDarkRef.current ? oneDark : []),

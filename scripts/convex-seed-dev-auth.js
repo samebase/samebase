@@ -72,32 +72,57 @@ const waitForBackendExit = async () => {
     backend.kill('SIGKILL')
   }
 }
-const terminateBackendOnPort = async () => {
-  const pid = backendPid
-  if (pid === undefined || !Number.isFinite(pid)) {
+
+/**
+ * @param {number} port
+ * @returns {Promise<void>}
+ */
+const terminateListeningPidsOnPort = async port => {
+  /**
+   * @param {string} value
+   * @returns {number | null}
+   */
+  const toPid = value => {
+    const asNumber = Number(value)
+    return Number.isFinite(asNumber) ? asNumber : null
+  }
+
+  /**
+   * @param {string[]} pids
+   * @param {NodeJS.Signals} signal
+   */
+  const killPids = (pids, signal) => {
+    for (const pidString of pids) {
+      const pid = toPid(pidString)
+      if (pid === null) continue
+      try {
+        process.kill(pid, signal)
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  let pids = listListeningPids(port)
+  if (pids.length === 0) {
     return
   }
-  const pidString = String(pid)
-  if (!listListeningPids(backendPort).includes(pidString)) {
-    return
-  }
-  try {
-    process.kill(pid, 'SIGTERM')
-  } catch {
-    return
-  }
-  const deadline = Date.now() + 3000
+
+  // convex dev can leave behind the underlying `convex-local` process if the
+  // node wrapper is terminated abruptly. Ensure we leave the port clean for
+  // subsequent `convex dev` invocations in `make anon`.
+  killPids(pids, 'SIGTERM')
+
+  const deadline = Date.now() + 5000
   while (Date.now() < deadline) {
-    if (!listListeningPids(backendPort).includes(pidString)) {
+    await sleep(100)
+    pids = listListeningPids(port)
+    if (pids.length === 0) {
       return
     }
-    await sleep(100)
   }
-  try {
-    process.kill(pid, 'SIGKILL')
-  } catch {
-    // ignore
-  }
+
+  killPids(pids, 'SIGKILL')
 }
 
 let exitCode = 0
@@ -147,7 +172,7 @@ try {
   console.error(message)
 } finally {
   await waitForBackendExit()
-  await terminateBackendOnPort()
+  await terminateListeningPidsOnPort(backendPort)
 }
 
 process.exit(exitCode)
