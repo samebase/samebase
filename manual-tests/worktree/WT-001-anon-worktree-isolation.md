@@ -34,13 +34,15 @@ grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/noter-
 grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/noter-wt-b/apps/noter/.env.local
 ```
 
-4. Confirm each worktree captured dev seed API keys and applied them to provider
-   connections (auth method is `api_key`). Cloudflare should appear when
-   `DEV_SEED_CLOUDFLARE_API_KEY` is set on the cloud dev deployment:
+4. Confirm each worktree captured allowlisted env vars in `.env.anon-seed.local`
+   and applied seed API keys to provider connections (auth method is `api_key`).
+   Cloudflare should appear when `DEV_SEED_CLOUDFLARE_API_KEY` is set on the
+   cloud dev deployment. The AI key should appear when `ANTHROPIC_API_KEY` is
+   set on the cloud dev deployment:
 
 ```bash
-grep -E '^DEV_SEED_' /tmp/noter-wt-a/apps/noter/.env.anon-seed.local | cut -d= -f1
-grep -E '^DEV_SEED_' /tmp/noter-wt-b/apps/noter/.env.anon-seed.local | cut -d= -f1
+grep -E '^(DEV_SEED_[^=]+|ANTHROPIC_API_KEY)=' /tmp/noter-wt-a/apps/noter/.env.anon-seed.local | cut -d= -f1
+grep -E '^(DEV_SEED_[^=]+|ANTHROPIC_API_KEY)=' /tmp/noter-wt-b/apps/noter/.env.anon-seed.local | cut -d= -f1
 
 (cd /tmp/noter-wt-a/apps/noter && \
   CONVEX_AGENT_MODE=anonymous node convex-dev.js --tail-logs=disable --typecheck=disable --codegen=disable & \
@@ -70,7 +72,8 @@ grep -E '^DEV_SEED_' /tmp/noter-wt-b/apps/noter/.env.anon-seed.local | cut -d= -
 3. Each worktree can run seed/auth setup without cross-worktree admin/auth
    conflicts.
 4. Each `.env.anon-seed.local` includes `DEV_SEED_*` entries from the dev seed
-   env (API keys present).
+   env (API keys present), plus `ANTHROPIC_API_KEY` when it is set on the cloud
+   dev deployment.
 5. Each worktree's `providerConnections` includes the seeded providers
    (GitHub/Convex/Netlify, plus Railway if `DEV_SEED_RAILWAY_API_KEY` is set,
    plus Cloudflare if `DEV_SEED_CLOUDFLARE_API_KEY` is set) with

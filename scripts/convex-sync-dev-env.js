@@ -3,6 +3,7 @@
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import { WORKTREE_ENV_ALLOWLIST } from './worktree-env-allowlist.js'
 
 /**
  * @typedef {'dev' | 'prod' | 'preview'} DeploymentType
@@ -36,20 +37,9 @@ import path from 'node:path'
  * }} WorktreeInfo
  */
 
-const DEV_SEED_ALLOWLIST = new Set([
-  'DEV_SEED_GITHUB_API_KEY',
-  'DEV_SEED_CONVEX_MANAGEMENT_API_KEY',
-  'DEV_SEED_CONVEX_TEAM_ID',
-  'DEV_SEED_NETLIFY_API_KEY',
-  'DEV_SEED_NETLIFY_TEAM_ID',
-  'DEV_SEED_RAILWAY_API_KEY',
-  'DEV_SEED_CLOUDFLARE_API_KEY',
-  'DEV_SEED_CLOUDFLARE_ACCOUNT_ID',
-])
-
 const HELP_TEXT = `Usage: scripts/convex-sync-dev-env.js [options]
 
-Build a local seed env file by pulling DEV_SEED_* values from the cloud dev deployment.
+Build a local seed env file by pulling allowlisted values from the cloud dev deployment.
 
 Options:
   --source-env <path>     Path to a dev env file (contains CONVEX_DEPLOYMENT=dev:*).
@@ -136,7 +126,7 @@ if (isAnonymousLikeDeploymentName(sourceDeployment.name)) {
 const entries = listDeploymentEnvVars({
   appDir,
   envFile: sourceEnvPath,
-}).filter(({ name }) => DEV_SEED_ALLOWLIST.has(name))
+}).filter(({ name }) => WORKTREE_ENV_ALLOWLIST.has(name))
 
 const sorted = entries.slice().sort((a, b) => a.name.localeCompare(b.name))
 
