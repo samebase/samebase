@@ -194,12 +194,23 @@ consistent with waitlist approval gating.
 
 Environment variables (phase 1):
 
-1. `VITE_PADDLE_ENV` = `sandbox` | `live`
-2. `VITE_PADDLE_CLIENT_TOKEN` = client-side token for current environment
-3. `VITE_PADDLE_PRICE_PRO_MONTHLY`
-4. `VITE_PADDLE_PRICE_PRO_ANNUAL`
-5. `VITE_PADDLE_PRICE_TEAM_MONTHLY` (optional until Team enabled)
-6. `VITE_PADDLE_PRICE_TEAM_ANNUAL` (optional until Team enabled)
+Store these in the Convex deployment environment and expose them to the frontend
+via a public config query (for example `billingConfig.getPaddlePublicConfig`).
+This value is safe to ship to the browser because it is a Paddle client-side
+token (not an API key).
+
+1. `PADDLE_PUBLIC_CLIENT_TOKEN` = client-side token for this deployment
+
+Environment inference:
+
+1. Production deployments use Paddle `live`.
+2. Non-production deployments use Paddle `sandbox`.
+
+Price IDs:
+
+1. For phase 1, keep price IDs in code (for example in
+   `apps/noter/convex/billingConfig.ts`) rather than environment variables.
+2. Move price IDs into Convex database later once plan management UI exists.
 
 Environment variables (phase 2+, backend):
 
