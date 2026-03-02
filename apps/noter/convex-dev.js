@@ -369,6 +369,7 @@ let childExited = false;
 let childExitCode = 1;
 let refreshDone = !refreshAnonAuth;
 let refreshFailed = false;
+let terminateRequested = false;
 
 const maybeExit = () => {
   if (!childExited || !refreshDone) {
@@ -389,6 +390,41 @@ child.on("exit", (code) => {
   childExitCode = code ?? 1;
   maybeExit();
 });
+
+const requestTermination = (signal) => {
+  if (terminateRequested) {
+    return;
+  }
+  terminateRequested = true;
+
+  if (!childExited) {
+    try {
+      child.kill(signal);
+    } catch {
+      // ignore
+    }
+  }
+
+  setTimeout(() => {
+    if (childExited) {
+      return;
+    }
+    try {
+      child.kill("SIGKILL");
+    } catch {
+      // ignore
+    }
+  }, 5000);
+
+  setTimeout(() => {
+    if (!childExited) {
+      process.exit(1);
+    }
+  }, 6500);
+};
+
+process.on("SIGTERM", () => requestTermination("SIGTERM"));
+process.on("SIGINT", () => requestTermination("SIGINT"));
 
 if (refreshAnonAuth) {
   void ensureAnonymousAuthKeys(
