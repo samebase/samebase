@@ -112,6 +112,9 @@ importers:
       '@octokit/rest':
         specifier: ^22.0.0
         version: 22.0.1
+      '@polar-sh/sdk':
+        specifier: ^0.46.0
+        version: 0.46.0
       '@prosemark/core':
         specifier: ^0.0.4
         version: 0.0.4(@codemirror/autocomplete@6.20.0)(@codemirror/commands@6.10.2)(@codemirror/lang-markdown@6.5.0)(@codemirror/language-data@6.5.2)(@codemirror/language@6.12.1)(@codemirror/lint@6.9.3)(@codemirror/search@6.6.0)(@codemirror/state@6.5.4)(@codemirror/view@6.39.12)(@lezer/highlight@1.2.3)
@@ -2088,6 +2091,9 @@ packages:
     resolution: {integrity: sha512-9k11ZfDwAfMVDDIuEVW1Wvs8SoDNXIY1dNQ+9C9/SS8ZmElkcxesu5eoL7vNa96ntibUGaq1TM2qQoqvdl/I9g==}
     engines: {node: '>=18'}
     hasBin: true
+
+  '@polar-sh/sdk@0.46.0':
+    resolution: {integrity: sha512-zrM03aFLSUyNzoh28zTi/DGWXtp4saIr9L2lQnAhuaOXesZ584tJZJxYlzUTzo1XWCwvFYha6IWnPQBnixb80w==}
 
   '@prosemark/core@0.0.4':
     resolution: {integrity: sha512-0YQ+Ri2cBIiZYLFyMwWA7xE63gHPgYP313uxdQ21GwG9adGM26jUaDm9RBwwmuE0M2K1UNJX4+dmL3RiF6UkHA==}
@@ -8300,6 +8306,11 @@ snapshots:
     dependencies:
       minimist: 1.2.8
       playwright: 1.59.0-alpha-1771104257000
+
+  '@polar-sh/sdk@0.46.0':
+    dependencies:
+      standardwebhooks: 1.0.0
+      zod: 4.3.6
 
   '@prosemark/core@0.0.4(@codemirror/autocomplete@6.20.0)(@codemirror/commands@6.10.2)(@codemirror/lang-markdown@6.5.0)(@codemirror/language-data@6.5.2)(@codemirror/language@6.12.1)(@codemirror/lint@6.9.3)(@codemirror/search@6.6.0)(@codemirror/state@6.5.4)(@codemirror/view@6.39.12)(@lezer/highlight@1.2.3)':
     dependencies:

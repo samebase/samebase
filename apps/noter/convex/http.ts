@@ -8,6 +8,7 @@ import { finishConvexOAuth, startConvexOAuth } from "./convexOAuth";
 import { finishGithubOAuth, startGithubOAuth } from "./githubOAuth";
 import { finishNetlifyOAuthCallback, startNetlifyOAuth } from "./netlifyOAuth";
 import { finishRailwayOAuthCallback, startRailwayOAuth } from "./railwayOAuth";
+import { handlePolarWebhook } from "./polarWebhooks";
 
 const http = httpRouter();
 
@@ -71,6 +72,12 @@ http.route({
   path: "/oauth/railway/callback",
   method: "GET",
   handler: finishRailwayOAuthCallback,
+});
+
+http.route({
+  path: "/webhooks/polar",
+  method: "POST",
+  handler: handlePolarWebhook,
 });
 
 export default http;

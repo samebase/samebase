@@ -1,9 +1,8 @@
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
-import { useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { initializePaddleClient } from "@/lib/paddleClient";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 type BillingCycle = "monthly" | "annual";
 type PaidPlan = "pro" | "team";
 
-const PLAN_FALLBACK_PRICE: Record<PaidPlan, Record<BillingCycle, string>> = {
+const PLAN_DISPLAY_PRICE: Record<PaidPlan, Record<BillingCycle, string>> = {
   pro: {
     monthly: "$20/mo",
     annual: "$200/yr",
@@ -46,206 +45,91 @@ const PLAN_FEATURES = {
   ],
 } as const;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function readNestedString(value: unknown, path: string[]): string | undefined {
-  let current: unknown = value;
-  for (const key of path) {
-    if (!isRecord(current) || !(key in current)) {
-      return undefined;
-    }
-    current = current[key];
+function readCheckoutState(): "success" | "cancel" | null {
+  if (typeof window === "undefined") {
+    return null;
   }
-  return typeof current === "string" && current.trim().length > 0
-    ? current
-    : undefined;
-}
-
-function extractFormattedTotal(preview: unknown): string | null {
-  const knownPaths = [
-    ["data", "details", "totals", "total"],
-    ["data", "details", "totals", "formattedTotal"],
-    ["data", "details", "lineItems", "0", "totals", "total"],
-    ["data", "details", "lineItems", "0", "formattedTotals", "total"],
-    ["details", "totals", "total"],
-    ["details", "formattedTotals", "total"],
-  ];
-
-  for (const path of knownPaths) {
-    const value = readNestedString(preview, path);
-    if (value) {
-      return value;
-    }
-  }
-
-  return null;
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get("checkout");
+  return raw === "success" || raw === "cancel" ? raw : null;
 }
 
 export function PricingPage() {
-  const viewer = useQuery(api.users.viewer);
-  const paddleConfig = useQuery(api.billingConfig.getPaddlePublicConfig);
+  const billingStatus = useQuery(api.billing.getViewerBillingStatus);
+  const createCheckoutSession = useAction(
+    api.billing.createPolarCheckoutSession,
+  );
+  const createPortalSession = useAction(
+    api.billing.createPolarCustomerPortalSession,
+  );
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
-  const [displayPrices, setDisplayPrices] = useState<Record<PaidPlan, string>>({
-    pro: PLAN_FALLBACK_PRICE.pro.monthly,
-    team: PLAN_FALLBACK_PRICE.team.monthly,
-  });
-  const [pricePreviewError, setPricePreviewError] = useState<string | null>(
-    null,
-  );
-  const [isPreviewingPrices, setIsPreviewingPrices] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
-  const [checkoutPendingPlan, setCheckoutPendingPlan] =
-    useState<PaidPlan | null>(null);
+  const [pendingIntent, setPendingIntent] = useState<
+    "checkout" | "portal" | null
+  >(null);
 
-  const paddleEnvironment = paddleConfig?.environment ?? "sandbox";
-  const isSandbox = paddleEnvironment === "sandbox";
-  const paddleClientToken = paddleConfig?.clientToken?.trim() ?? "";
-  const priceIds = useMemo(
+  const checkoutState = useMemo(() => readCheckoutState(), []);
+  const displayPrices = useMemo(
     () => ({
-      pro: {
-        monthly: paddleConfig?.prices.pro.monthly?.trim() ?? "",
-        annual: paddleConfig?.prices.pro.annual?.trim() ?? "",
-      },
-      team: {
-        monthly: paddleConfig?.prices.team.monthly?.trim() ?? "",
-        annual: paddleConfig?.prices.team.annual?.trim() ?? "",
-      },
+      pro: PLAN_DISPLAY_PRICE.pro[billingCycle],
+      team: PLAN_DISPLAY_PRICE.team[billingCycle],
     }),
-    [paddleConfig],
+    [billingCycle],
   );
+
+  const isPro =
+    billingStatus?.plan === "pro" && billingStatus.status === "active";
 
   useEffect(() => {
-    setDisplayPrices({
-      pro: PLAN_FALLBACK_PRICE.pro[billingCycle],
-      team: PLAN_FALLBACK_PRICE.team[billingCycle],
-    });
-
-    if (!paddleClientToken || !priceIds.pro[billingCycle]) {
-      return;
+    if (checkoutState === "success") {
+      setCheckoutError(null);
     }
-
-    let isActive = true;
-    setIsPreviewingPrices(true);
-    setPricePreviewError(null);
-
-    const loadPrices = async () => {
-      const paddle = await initializePaddleClient({
-        environment: paddleEnvironment,
-        clientToken: paddleClientToken,
-        eventCallback: (event) => {
-          if (isSandbox) {
-            console.info("paddle:sandbox:event", event);
-          }
-        },
-      });
-      if (!paddle) {
-        if (isActive) {
-          setPricePreviewError("Paddle.js failed to load.");
-        }
-        return;
-      }
-
-      try {
-        const proPreview = await paddle.PricePreview({
-          items: [{ priceId: priceIds.pro[billingCycle], quantity: 1 }],
-        });
-        const nextProPrice =
-          extractFormattedTotal(proPreview) ??
-          PLAN_FALLBACK_PRICE.pro[billingCycle];
-
-        let nextTeamPrice = PLAN_FALLBACK_PRICE.team[billingCycle];
-        const teamPriceId = priceIds.team[billingCycle];
-        if (teamPriceId) {
-          const teamPreview = await paddle.PricePreview({
-            items: [{ priceId: teamPriceId, quantity: 1 }],
-          });
-          nextTeamPrice = extractFormattedTotal(teamPreview) ?? nextTeamPrice;
-        }
-
-        if (isActive) {
-          setDisplayPrices({
-            pro: nextProPrice,
-            team: nextTeamPrice,
-          });
-        }
-      } catch (error) {
-        if (isActive) {
-          setPricePreviewError(
-            error instanceof Error
-              ? error.message
-              : "Unable to preview localized prices.",
-          );
-        }
-      } finally {
-        if (isActive) {
-          setIsPreviewingPrices(false);
-        }
-      }
-    };
-
-    void loadPrices();
-
-    return () => {
-      isActive = false;
-    };
-  }, [
-    billingCycle,
-    isSandbox,
-    paddleClientToken,
-    paddleEnvironment,
-    priceIds.pro,
-    priceIds.team,
-  ]);
-
-  const handleCheckout = async (plan: PaidPlan) => {
-    const selectedPriceId = priceIds[plan][billingCycle];
-    if (!selectedPriceId) {
-      setCheckoutError(`${plan.toUpperCase()} checkout is not configured yet.`);
-      return;
+    if (checkoutState === "cancel") {
+      setCheckoutError("Checkout canceled.");
     }
-    if (!paddleClientToken) {
-      setCheckoutError("Missing Paddle client token.");
-      return;
-    }
+  }, [checkoutState]);
 
+  const handleStartPro = async () => {
     setCheckoutError(null);
-    setCheckoutPendingPlan(plan);
+    setPendingIntent("checkout");
 
     try {
-      const paddle = await initializePaddleClient({
-        environment: paddleEnvironment,
-        clientToken: paddleClientToken,
-        eventCallback: (event) => {
-          if (isSandbox) {
-            console.info("paddle:sandbox:event", event);
-          }
-        },
+      const origin = window.location.origin;
+      const successUrl = new URL(
+        "/pricing?checkout=success",
+        origin,
+      ).toString();
+      const returnUrl = new URL("/pricing?checkout=cancel", origin).toString();
+      const result = await createCheckoutSession({
+        interval: billingCycle,
+        successUrl,
+        returnUrl,
       });
-      if (!paddle) {
-        throw new Error("Paddle.js failed to initialize.");
-      }
-
-      await paddle.Checkout.open({
-        items: [{ priceId: selectedPriceId, quantity: 1 }],
-        customer: viewer?.email ? { email: viewer.email } : undefined,
-        customData: {
-          noterUserId: viewer?._id ?? "unknown",
-          plan,
-          billingCycle,
-          source: "pricing_page",
-        },
-        settings: {
-          displayMode: "overlay",
-        },
-      });
+      window.location.assign(result.url);
     } catch (error) {
       setCheckoutError(
-        error instanceof Error ? error.message : "Unable to open checkout.",
+        error instanceof Error ? error.message : "Unable to start checkout.",
       );
-    } finally {
-      setCheckoutPendingPlan(null);
+      setPendingIntent(null);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    setCheckoutError(null);
+    setPendingIntent("portal");
+
+    try {
+      const origin = window.location.origin;
+      const returnUrl = new URL("/pricing", origin).toString();
+      const result = await createPortalSession({ returnUrl });
+      window.location.assign(result.url);
+    } catch (error) {
+      setCheckoutError(
+        error instanceof Error
+          ? error.message
+          : "Unable to open the customer portal.",
+      );
+      setPendingIntent(null);
     }
   };
 
@@ -257,9 +141,7 @@ export function PricingPage() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-semibold sm:text-3xl">Pricing</h1>
-                <Badge variant={isSandbox ? "secondary" : "outline"}>
-                  {isSandbox ? "Sandbox billing" : "Live billing"}
-                </Badge>
+                {isPro && <Badge>Pro active</Badge>}
               </div>
             </div>
             <Button variant="outline" asChild>
@@ -286,11 +168,6 @@ export function PricingPage() {
             </ToggleGroup>
           </div>
 
-          {pricePreviewError && (
-            <div className="rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-              {pricePreviewError}
-            </div>
-          )}
           {checkoutError && (
             <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {checkoutError}
@@ -347,22 +224,31 @@ export function PricingPage() {
               <CardFooter>
                 <Button
                   className="w-full"
-                  onClick={() => {
-                    void handleCheckout("pro");
-                  }}
                   disabled={
-                    checkoutPendingPlan !== null ||
-                    isPreviewingPrices ||
-                    !priceIds.pro[billingCycle]
+                    pendingIntent !== null ||
+                    (billingCycle === "annual" &&
+                      displayPrices.pro === "Coming soon")
                   }
+                  onClick={() => {
+                    if (isPro) {
+                      void handleManageSubscription();
+                      return;
+                    }
+                    void handleStartPro();
+                  }}
                 >
-                  {checkoutPendingPlan === "pro" ? (
+                  {pendingIntent === "checkout" ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Opening checkout...
+                      Redirecting...
                     </>
-                  ) : isSandbox ? (
-                    "Start Pro in Sandbox"
+                  ) : pendingIntent === "portal" ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Opening portal...
+                    </>
+                  ) : isPro ? (
+                    "Manage subscription"
                   ) : (
                     "Start Pro"
                   )}

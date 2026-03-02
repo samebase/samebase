@@ -208,9 +208,26 @@ export default defineSchema({
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
     isApproved: v.optional(v.boolean()),
+
+    // Billing (Polar-backed for now).
+    billingProvider: v.optional(v.literal("polar")),
+    billingPlan: v.optional(v.union(v.literal("free"), v.literal("pro"))),
+    billingStatus: v.optional(
+      v.union(
+        v.literal("inactive"),
+        v.literal("active"),
+        v.literal("past_due"),
+        v.literal("canceled"),
+        v.literal("unknown"),
+      ),
+    ),
+    billingUpdatedAt: v.optional(v.number()),
+    billingCurrentPeriodEndAt: v.optional(v.number()),
+    billingPolarExternalCustomerId: v.optional(v.string()),
   })
     .index("email", ["email"])
-    .index("phone", ["phone"]),
+    .index("phone", ["phone"])
+    .index("by_polar_external_customer_id", ["billingPolarExternalCustomerId"]),
 
   providerConnections: defineTable(ProviderConnection)
     .index("by_user", ["userId"])
