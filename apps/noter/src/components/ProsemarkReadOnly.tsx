@@ -1,18 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { Compartment, EditorSelection, EditorState } from "@codemirror/state";
-import {
-  Decoration,
-  DecorationSet,
-  EditorView,
-  ViewPlugin,
-  ViewUpdate,
-  WidgetType,
-} from "@codemirror/view";
+import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { markdown } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { GFM } from "@lezer/markdown";
 import {
-  foldableSyntaxFacet,
   prosemarkBaseThemeSetup,
   prosemarkBasicSetup,
   prosemarkMarkdownSyntaxExtensions,
@@ -20,65 +12,19 @@ import {
 import { oneDark } from "@codemirror/theme-one-dark";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
-import { buildBlurHideDecorations } from "./prosemarkReadOnlyDecorations";
 
 type ProsemarkReadOnlyProps = {
   value: string;
   className?: string;
 };
 
-class BulletPoint extends WidgetType {
-  toDOM() {
-    const span = document.createElement("span");
-    span.className = "cm-rendered-list-mark";
-    span.textContent = "•";
-    return span;
-  }
-
-  ignoreEvent(_event: Event) {
-    return false;
-  }
+function findInitialSafeSelectionAnchor(docText: string): number {
+  // Prefer the start of the first blank line so markdown stays folded by
+  // default (avoids revealing markers at document start).
+  const doubleNewline = docText.indexOf("\n\n");
+  if (doubleNewline !== -1) return doubleNewline + 1;
+  return docText.length;
 }
-
-// In a read-only view, text selection is for copy, not editing. Keep bullet
-// list markers rendered as bullets even when the selection spans list items.
-const bulletListKeepDecorationOnSelectExtension = foldableSyntaxFacet.of({
-  nodePath: "BulletList/ListItem/ListMark",
-  keepDecorationOnUnfold: true,
-  buildDecorations: (_state, node, selectionTouchesRange) => {
-    if (!selectionTouchesRange) return;
-    const cursor = node.node.cursor();
-    if (cursor.nextSibling() && cursor.name === "Task") {
-      return;
-    }
-    return Decoration.replace({ widget: new BulletPoint() }).range(
-      node.from,
-      node.to,
-    );
-  },
-});
-
-const blurHideTokensExtension = ViewPlugin.fromClass(
-  class {
-    decorations: DecorationSet;
-
-    constructor(view: EditorView) {
-      this.decorations = view.hasFocus
-        ? Decoration.none
-        : buildBlurHideDecorations(view.state);
-    }
-
-    update(update: ViewUpdate) {
-      if (!update.docChanged && !update.focusChanged) return;
-      this.decorations = update.view.hasFocus
-        ? Decoration.none
-        : buildBlurHideDecorations(update.state);
-    }
-  },
-  {
-    decorations: (view) => view.decorations,
-  },
-);
 
 const collapseSelectionOnBlurExtension = ViewPlugin.fromClass(
   class {
@@ -90,8 +36,16 @@ const collapseSelectionOnBlurExtension = ViewPlugin.fromClass(
       const view = update.view;
       if (this.isScheduled) return;
 
+      const safeAnchor = () => {
+        for (let i = 1; i <= view.state.doc.lines; i++) {
+          const line = view.state.doc.line(i);
+          if (line.text.trim().length === 0) return line.from;
+        }
+        return view.state.doc.length;
+      };
+
       const shouldCollapse = () => {
-        const anchor = view.state.doc.length;
+        const anchor = safeAnchor();
         const main = view.state.selection.main;
         return !(
           view.state.selection.ranges.length === 1 &&
@@ -103,17 +57,21 @@ const collapseSelectionOnBlurExtension = ViewPlugin.fromClass(
       if (!shouldCollapse()) return;
 
       this.isScheduled = true;
-      queueMicrotask(() => {
+      // Defer dispatch to avoid "Calls to EditorView.update are not allowed
+      // while an update is in progress".
+      setTimeout(() => {
         this.isScheduled = false;
         if (view.hasFocus || !view.dom.isConnected) return;
         if (!shouldCollapse()) return;
 
-        // Collapse selection so fold/hide extensions return to the rendered view.
+        // Collapse selection on a markdown-neutral line so Prosemark re-folds
+        // list markers (`-`) into bullets and heading markers (`##`) into
+        // headings.
         view.dispatch({
-          selection: EditorSelection.single(view.state.doc.length),
+          selection: EditorSelection.single(safeAnchor()),
           scrollIntoView: false,
         });
-      });
+      }, 0);
     }
   },
 );
@@ -200,15 +158,16 @@ export function ProsemarkReadOnly({
 
     const state = EditorState.create({
       doc: lastValueRef.current,
+      selection: EditorSelection.single(
+        findInitialSafeSelectionAnchor(lastValueRef.current),
+      ),
       extensions: [
         markdown({
           codeLanguages: languages,
           extensions: [GFM, prosemarkMarkdownSyntaxExtensions],
         }),
-        bulletListKeepDecorationOnSelectExtension,
         prosemarkBasicSetup(),
         prosemarkBaseThemeSetup(),
-        blurHideTokensExtension,
         collapseSelectionOnBlurExtension,
         prosemarkReadOnlyTheme,
         EditorState.readOnly.of(true),

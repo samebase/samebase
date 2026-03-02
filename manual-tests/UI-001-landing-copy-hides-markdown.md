@@ -23,15 +23,17 @@ markers (for example `#`) on focus, and hides them again on blur.
 6. Click inside the landing copy (on the heading text).
 7. Confirm `##` becomes visible at the start of the heading while focused.
 8. Drag-select the last two bullet points.
-9. Confirm the list stays rendered with bullet dots (not `-` markdown) and the
-   heading `##` does not appear while the selection is in the bullet list.
+9. Confirm the selected list items unfold into plain markdown text (each line
+   starts with `-`) while selected, and the heading `##` does not appear while
+   the selection is in the bullet list.
 10. Click outside the landing copy (blank area below or above the card).
 11. Confirm `##` is hidden again.
 
 ## Expected Results
 
-1. Markdown markers are hidden while blurred, visible while focused, and hidden
-   again after blur.
+1. Markdown markers are hidden while blurred. While focused, selecting content
+   reveals markdown markers, and blurring collapses the selection so markers are
+   hidden again.
 2. The landing copy remains readable and stable during focus/blur.
 
 ## Optional Evidence

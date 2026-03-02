@@ -1,47 +1,83 @@
 import { describe, expect, it } from "vitest";
 import { EditorState } from "@codemirror/state";
+import type { DecorationSet } from "@codemirror/view";
 import { markdown } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { GFM } from "@lezer/markdown";
-import { prosemarkMarkdownSyntaxExtensions } from "@prosemark/core";
-import { buildBlurHideDecorations } from "./prosemarkReadOnlyDecorations";
+import {
+  bulletListExtension,
+  foldExtension,
+  prosemarkMarkdownSyntaxExtensions,
+} from "@prosemark/core";
 
-function getHiddenTokenRanges(
-  documentText: string,
-  decorations: ReturnType<typeof buildBlurHideDecorations>,
-): { from: number; to: number }[] {
-  const hiddenRanges: { from: number; to: number }[] = [];
-  decorations.between(0, documentText.length, (from, to, value) => {
+function hasWidgetDecorationAt(decorations: DecorationSet, pos: number) {
+  let found = false;
+  decorations.between(pos, pos + 1, (_from, _to, value) => {
     const spec = value.spec;
-    if (typeof spec !== "object" || spec === null || !("class" in spec)) {
+    if (typeof spec !== "object" || spec === null || !("widget" in spec)) {
       return;
     }
-    if (spec.class !== "cm-hidden-token") {
-      return;
-    }
-    hiddenRanges.push({ from, to });
+    if (spec.widget == null) return;
+    found = true;
   });
-  return hiddenRanges;
+  return found;
 }
 
-describe("buildBlurHideDecorations", () => {
-  it("hides heading markers when selection starts at document start", () => {
-    const documentText = "## Noter";
+describe("ProsemarkReadOnly selection folding", () => {
+  it("unfolds bullet list markers while selected (shows `-`)", () => {
+    const documentText = `## Title
+
+- first
+- second`;
+    const firstDash = documentText.indexOf("- first");
+    const secondDash = documentText.indexOf("- second");
+    expect(firstDash).toBeGreaterThanOrEqual(0);
+    expect(secondDash).toBeGreaterThan(firstDash);
+
     const state = EditorState.create({
       doc: documentText,
-      selection: { anchor: 0 },
+      selection: { anchor: firstDash, head: secondDash },
       extensions: [
         markdown({
           codeLanguages: languages,
           extensions: [GFM, prosemarkMarkdownSyntaxExtensions],
         }),
+        bulletListExtension,
       ],
     });
 
-    const decorations = buildBlurHideDecorations(state);
-    const hiddenRanges = getHiddenTokenRanges(documentText, decorations);
+    const decorations = state.field(foldExtension);
+    expect(hasWidgetDecorationAt(decorations, firstDash)).toBe(false);
+    expect(hasWidgetDecorationAt(decorations, secondDash)).toBe(false);
+  });
 
-    expect(hiddenRanges.length).toBeGreaterThan(0);
-    expect(hiddenRanges[0]).toEqual({ from: 0, to: 3 });
+  it("folds bullet list markers when selection is on a blank line (shows bullets)", () => {
+    const documentText = `## Title
+
+- first
+- second`;
+    const firstDash = documentText.indexOf("- first");
+    const secondDash = documentText.indexOf("- second");
+    expect(firstDash).toBeGreaterThanOrEqual(0);
+    expect(secondDash).toBeGreaterThan(firstDash);
+
+    const blankLineAnchor = documentText.indexOf("\n\n") + 1;
+    expect(blankLineAnchor).toBeGreaterThan(0);
+
+    const state = EditorState.create({
+      doc: documentText,
+      selection: { anchor: blankLineAnchor },
+      extensions: [
+        markdown({
+          codeLanguages: languages,
+          extensions: [GFM, prosemarkMarkdownSyntaxExtensions],
+        }),
+        bulletListExtension,
+      ],
+    });
+
+    const decorations = state.field(foldExtension);
+    expect(hasWidgetDecorationAt(decorations, firstDash)).toBe(true);
+    expect(hasWidgetDecorationAt(decorations, secondDash)).toBe(true);
   });
 });
