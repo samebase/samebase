@@ -171,9 +171,12 @@ We should not add a pile of env vars prematurely. MVP assumption:
 If we learn Cloudflare requires explicit client registration for non-IDE use, we
 will add env vars similar to other providers:
 
-- `PROVIDER_CLOUDFLARE_MCP_OAUTH_CLIENT_ID`
-- `PROVIDER_CLOUDFLARE_MCP_OAUTH_CLIENT_SECRET`
-- `PROVIDER_CLOUDFLARE_MCP_OAUTH_REDIRECT_URL`
+- `PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID`
+- `PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET`
+- `PROVIDER_CLOUDFLARE_OAUTH_REDIRECT_URL`
+
+Note: Convex enforces an env-var name length limit (<40 chars), so these names
+intentionally omit `MCP` while still describing the credential purpose.
 
 ## API Token (Seed + Manual) Flow
 

@@ -119,9 +119,7 @@ async function buildCloudflareMcpOAuthUrl(
   ctx: OAuthContext,
   userId: Id<"users">,
 ): Promise<string> {
-  const redirectUri = readRequiredEnv(
-    "PROVIDER_CLOUDFLARE_MCP_OAUTH_REDIRECT_URL",
-  );
+  const redirectUri = readRequiredEnv("PROVIDER_CLOUDFLARE_OAUTH_REDIRECT_URL");
 
   const state = randomToken();
   const codeVerifier = randomToken(64);
@@ -259,9 +257,7 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
     });
   }
 
-  const redirectUri = readRequiredEnv(
-    "PROVIDER_CLOUDFLARE_MCP_OAUTH_REDIRECT_URL",
-  );
+  const redirectUri = readRequiredEnv("PROVIDER_CLOUDFLARE_OAUTH_REDIRECT_URL");
 
   try {
     const token = await exchangeCloudflareMcpOAuthCode({
