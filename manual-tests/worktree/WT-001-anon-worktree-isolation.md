@@ -41,8 +41,8 @@ grep -E '^(CONVEX_DEPLOYMENT|VITE_CONVEX_URL|VITE_CONVEX_SITE_URL)=' /tmp/noter-
    set on the cloud dev deployment:
 
 ```bash
-grep -E '^(DEV_SEED_|ANTHROPIC_API_KEY)=' /tmp/noter-wt-a/apps/noter/.env.anon-seed.local | cut -d= -f1
-grep -E '^(DEV_SEED_|ANTHROPIC_API_KEY)=' /tmp/noter-wt-b/apps/noter/.env.anon-seed.local | cut -d= -f1
+grep -E '^(DEV_SEED_[^=]+|ANTHROPIC_API_KEY)=' /tmp/noter-wt-a/apps/noter/.env.anon-seed.local | cut -d= -f1
+grep -E '^(DEV_SEED_[^=]+|ANTHROPIC_API_KEY)=' /tmp/noter-wt-b/apps/noter/.env.anon-seed.local | cut -d= -f1
 
 (cd /tmp/noter-wt-a/apps/noter && \
   CONVEX_AGENT_MODE=anonymous node convex-dev.js --tail-logs=disable --typecheck=disable --codegen=disable & \
