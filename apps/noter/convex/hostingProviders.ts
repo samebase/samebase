@@ -1369,12 +1369,12 @@ async function ensureCloudflareResources(
       path: `${projectBasePath}/${encodeURIComponent(projectName)}`,
     });
     const refreshed = asRecord(refreshedRaw);
-    const subdomain =
-      readString(refreshed, "subdomain") ?? args.existing.subdomain;
-    const productionUrl =
-      subdomain !== undefined
-        ? `https://${subdomain}`
-        : args.existing.productionUrl;
+    const refreshedSubdomain = readString(refreshed, "subdomain")?.trim() ?? "";
+    const existingSubdomain = args.existing.subdomain?.trim() ?? "";
+    const subdomain = refreshedSubdomain || existingSubdomain || undefined;
+    const productionUrl = subdomain
+      ? `https://${subdomain}`
+      : args.existing.productionUrl;
 
     const result: Extract<ProvisionedByProvider, { provider: "cloudflare" }> = {
       provider: "cloudflare",
