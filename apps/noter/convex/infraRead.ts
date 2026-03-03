@@ -484,6 +484,8 @@ export const getCloudflareAccountInventory = internalAction({
   return result.map((account) => ({
     id: account?.id,
     name: account?.name,
+    isDefault:
+      account?.is_default === true || account?.default === true,
   }));
 }`;
 

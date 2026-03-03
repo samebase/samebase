@@ -15,7 +15,10 @@ import {
   type ProvisionedByProvider,
 } from "./hostingProviders";
 import { hostingStateValidator } from "./hostingState";
-import { resolveNetlifyHostingState } from "./hostingStateHelpers";
+import {
+  resolveCloudflareHostingState,
+  resolveNetlifyHostingState,
+} from "./hostingStateHelpers";
 import {
   asRecord,
   readString,
@@ -23,6 +26,10 @@ import {
   toErrorMessage,
 } from "./jsonUtils";
 import { sanitizeSlug, vaultSuffix } from "./slugUtils";
+import {
+  CLOUDFLARE_MCP_SERVER_URL,
+  resolveCloudflareMcpServerUrl,
+} from "./cloudflareMcp";
 
 const PROVISIONING_STALE_MS = 10 * 60 * 1000;
 const GITHUB_API_VERSION = "2022-11-28";
@@ -258,6 +265,41 @@ function parseDeployKeyIdentifier(deployKey: string): string {
   return deployKey.slice(0, pipeIdx);
 }
 
+type CloudflareAccountSummary = {
+  id: string;
+  name?: string;
+  isDefault: boolean;
+};
+
+function parseCloudflareAccountInventory(
+  raw: string,
+): CloudflareAccountSummary[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+  const accounts: CloudflareAccountSummary[] = [];
+  for (const entry of parsed) {
+    const record = asRecord(entry);
+    const id = readString(record, "id");
+    if (!id) {
+      continue;
+    }
+    const isDefaultRaw = record["isDefault"];
+    accounts.push({
+      id,
+      name: readString(record, "name"),
+      isDefault: isDefaultRaw === true,
+    });
+  }
+  return accounts;
+}
+
 type ConvexProvisionResult = {
   convexProjectId: string;
   convexProjectSlug?: string;
@@ -415,6 +457,103 @@ async function ensureConvexResources(args: {
   };
 }
 
+type ConvexPreviewProvisionResult = {
+  previewCloudUrl: string;
+  previewDeployKey: string;
+};
+
+async function ensureConvexPreviewResources(args: {
+  convexProvider: ConvexManagementProvider;
+  projectId: string;
+  vaultId: string;
+}): Promise<ConvexPreviewProvisionResult> {
+  const deploymentsRaw = await args.convexProvider.request(
+    `/projects/${encodeURIComponent(args.projectId)}/list_deployments`,
+    "GET",
+  );
+  const deployments = Array.isArray(deploymentsRaw) ? deploymentsRaw : [];
+
+  let deploymentName: string | undefined;
+  let deploymentUrl: string | undefined;
+
+  for (const deployment of deployments) {
+    const deploymentRecord = asRecord(deployment);
+    const deploymentType = readString(deploymentRecord, "deploymentType");
+    const kind = readString(deploymentRecord, "kind");
+    if (deploymentType === "dev" && kind === "cloud") {
+      deploymentName = readString(deploymentRecord, "name");
+      deploymentUrl =
+        readString(deploymentRecord, "deploymentUrl") ??
+        readString(deploymentRecord, "url");
+      break;
+    }
+  }
+
+  if (!deploymentName) {
+    const createdRaw = await args.convexProvider.request(
+      `/projects/${encodeURIComponent(args.projectId)}/create_deployment`,
+      "POST",
+      {
+        type: "dev",
+      },
+    );
+    const created = asRecord(createdRaw);
+    deploymentName = readString(created, "name");
+    deploymentUrl =
+      readString(created, "deploymentUrl") ?? readString(created, "url");
+  }
+
+  if (!deploymentName) {
+    throw new Error("Failed to resolve Convex preview deployment name.");
+  }
+
+  if (!deploymentUrl) {
+    deploymentUrl = `https://${deploymentName}.convex.cloud`;
+  }
+
+  const deployKeyRaw = await args.convexProvider.request(
+    `/deployments/${encodeURIComponent(deploymentName)}/create_deploy_key`,
+    "POST",
+    {
+      name: `noter-preview-${vaultSuffix(args.vaultId)}`,
+    },
+  );
+  const deployKeyRecord = asRecord(deployKeyRaw);
+  const previewDeployKey = readString(deployKeyRecord, "deployKey");
+  if (!previewDeployKey) {
+    throw new Error("Failed to create Convex preview deploy key.");
+  }
+
+  return {
+    previewCloudUrl: deploymentUrl,
+    previewDeployKey,
+  };
+}
+
+function resolveCloudflareBuildConfig(vault: {
+  treeData: { tree: Array<{ path: string }> };
+}): {
+  rootDir: string;
+  buildCommand: string;
+  destinationDir: string;
+} {
+  const hasMonorepoFrontend = vault.treeData.tree.some(
+    (entry) => entry.path === "apps/noter/package.json",
+  );
+  if (hasMonorepoFrontend) {
+    return {
+      rootDir: "apps/noter",
+      buildCommand: "npx convex deploy --cmd 'pnpm run build'",
+      destinationDir: "dist",
+    };
+  }
+  return {
+    rootDir: "/",
+    buildCommand: "pnpm exec convex deploy --cmd 'pnpm run build:frontend'",
+    destinationDir: "dist",
+  };
+}
+
 export const getInfrastructureByVault = internalQuery({
   args: {
     vaultId: v.id("vaults"),
@@ -540,6 +679,8 @@ export const upsertDomainRecord = internalMutation({
       v.literal("netlify_default"),
       v.literal("netlify_custom"),
       v.literal("railway_default"),
+      v.literal("cloudflare_pages_default"),
+      v.literal("cloudflare_pages_custom"),
     ),
     active: v.boolean(),
   },
@@ -644,6 +785,7 @@ export const provisionVaultInfrastructure = internalAction({
         convexConnection,
         netlifyConnection,
         railwayConnection,
+        cloudflareConnection,
       ] = await Promise.all([
         ctx.runQuery(internal.providerConnections.getByUserAndKind, {
           userId: vault.userId,
@@ -660,6 +802,10 @@ export const provisionVaultInfrastructure = internalAction({
         ctx.runQuery(internal.providerConnections.getByUserAndKind, {
           userId: vault.userId,
           kind: "railway",
+        }),
+        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId: vault.userId,
+          kind: "cloudflare",
         }),
       ]);
 
@@ -708,6 +854,21 @@ export const provisionVaultInfrastructure = internalAction({
         railwayConnection?.kind === "railway"
           ? railwayConnection.auth.credential.trim()
           : "";
+      const cloudflareToken =
+        requestedHostingProvider === "cloudflare" &&
+        cloudflareConnection?.kind === "cloudflare"
+          ? cloudflareConnection.auth.credential.trim()
+          : "";
+      const cloudflareServerUrl =
+        requestedHostingProvider === "cloudflare" &&
+        cloudflareConnection?.kind === "cloudflare"
+          ? resolveCloudflareMcpServerUrl(cloudflareConnection)
+          : CLOUDFLARE_MCP_SERVER_URL;
+      let cloudflareAccountId =
+        requestedHostingProvider === "cloudflare" &&
+        cloudflareConnection?.kind === "cloudflare"
+          ? cloudflareConnection.accountId?.trim() ?? ""
+          : "";
 
       if (
         requestedHostingProvider === "netlify" &&
@@ -720,6 +881,49 @@ export const provisionVaultInfrastructure = internalAction({
       if (requestedHostingProvider === "railway" && !railwayToken) {
         throw new Error(
           "Railway connection is required to provision infrastructure. Connect Railway and retry.",
+        );
+      }
+      if (requestedHostingProvider === "cloudflare" && !cloudflareToken) {
+        throw new Error(
+          "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
+        );
+      }
+
+      if (
+        requestedHostingProvider === "cloudflare" &&
+        !cloudflareAccountId &&
+        cloudflareConnection?.kind === "cloudflare"
+      ) {
+        const accountInventory = await ctx.runAction(
+          internal.infraRead.getCloudflareAccountInventory,
+          {
+            userId: vault.userId,
+            limit: 50,
+          },
+        );
+        const accounts = parseCloudflareAccountInventory(accountInventory.raw);
+        if (accounts.length === 0) {
+          throw new Error(
+            "No Cloudflare account is available for provisioning. Reconnect Cloudflare and retry.",
+          );
+        }
+        const defaultAccount = accounts.find((account) => account.isDefault);
+        cloudflareAccountId = (defaultAccount ?? accounts[0]).id;
+        await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
+          userId: vault.userId,
+          auth: cloudflareConnection.auth,
+          accountId: cloudflareAccountId,
+        });
+        console.log("infra:cloudflare:account:auto_selected", {
+          vaultId: args.vaultId,
+          accountId: cloudflareAccountId,
+          accountCount: accounts.length,
+        });
+      }
+
+      if (requestedHostingProvider === "cloudflare" && !cloudflareAccountId) {
+        throw new Error(
+          "Cloudflare account selection is required before provisioning can continue.",
         );
       }
 
@@ -767,6 +971,26 @@ export const provisionVaultInfrastructure = internalAction({
         },
       );
 
+      let previewConvexCloudUrl = convex.convexCloudUrl;
+      let previewConvexDeployKey = convex.deployKey;
+      if (requestedHostingProvider === "cloudflare") {
+        try {
+          const previewConvex = await ensureConvexPreviewResources({
+            convexProvider: providers.convex,
+            projectId: convex.convexProjectId,
+            vaultId: args.vaultId,
+          });
+          previewConvexCloudUrl = previewConvex.previewCloudUrl;
+          previewConvexDeployKey = previewConvex.previewDeployKey;
+        } catch (error) {
+          console.warn("infra:convex:preview:fallback_to_production", {
+            vaultId: args.vaultId,
+            projectId: convex.convexProjectId,
+            message: toErrorMessage(error),
+          });
+        }
+      }
+
       const repoIdentity = await fetchGitHubRepoIdentity({
         githubAccessToken,
         owner: vault.ghRepoOwner,
@@ -777,6 +1001,7 @@ export const provisionVaultInfrastructure = internalAction({
         existing?.hosting?.provider === "railway"
           ? existing.hosting
           : undefined;
+      const cloudflareExisting = resolveCloudflareHostingState(existing);
       let provisionedHosting: ProvisionedByProvider;
       switch (requestedHostingProvider) {
         case "netlify":
@@ -824,6 +1049,37 @@ export const provisionVaultInfrastructure = internalAction({
               cloudUrl: convex.convexCloudUrl,
               siteUrl: convex.convexSiteUrl,
               deployKey: convex.deployKey,
+            },
+          });
+          break;
+        case "cloudflare":
+          provisionedHosting = await ensureHostingResources({
+            provider: "cloudflare",
+            owner: vault.ghRepoOwner,
+            repo: vault.ghRepoName,
+            ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
+            ghRepoOwnerId: repoIdentity.ownerId,
+            defaultBranch,
+            vaultId: args.vaultId,
+            cloudflareToken,
+            cloudflareServerUrl,
+            accountId: cloudflareAccountId,
+            buildConfig: resolveCloudflareBuildConfig(vault),
+            existing: {
+              accountId: cloudflareExisting?.accountId,
+              projectName: cloudflareExisting?.projectName,
+              subdomain: cloudflareExisting?.subdomain,
+              productionUrl: cloudflareExisting?.productionUrl,
+            },
+            convex: {
+              production: {
+                cloudUrl: convex.convexCloudUrl,
+                deployKey: convex.deployKey,
+              },
+              preview: {
+                cloudUrl: previewConvexCloudUrl,
+                deployKey: previewConvexDeployKey,
+              },
             },
           });
           break;
@@ -926,6 +1182,54 @@ export const provisionVaultInfrastructure = internalAction({
             railwayProject: provisionedHosting.projectId,
             railwayService: provisionedHosting.serviceId,
             railwayDomain: provisionedHosting.domain,
+          });
+          break;
+        }
+        case "cloudflare": {
+          hostingSuccess = true;
+
+          await ctx.runMutation(
+            internal.infraProvisioning.upsertInfrastructureRecord,
+            {
+              vaultId: args.vaultId,
+              patch: {
+                status: "ready",
+                provisioningVersion: nextVersion,
+                lastProvisionedAt: Date.now(),
+                hosting: provisionedHosting,
+                netlifySiteId: undefined,
+                netlifySiteName: undefined,
+                netlifyTeamId: undefined,
+                netlifyDefaultUrl: undefined,
+                netlifyProductionUrl: undefined,
+                netlifyBuildHookId: undefined,
+                lastError: undefined,
+              },
+            },
+          );
+
+          const mainUrl = getProvisionedMainUrl(provisionedHosting);
+          if (mainUrl) {
+            await ctx.runMutation(
+              internal.infraProvisioning.upsertDomainRecord,
+              {
+                vaultId: args.vaultId,
+                branch: defaultBranch,
+                kind: "main",
+                url: mainUrl,
+                source: "cloudflare_pages_default",
+                active: true,
+              },
+            );
+          }
+
+          console.log("infra:provision:success", {
+            vaultId: args.vaultId,
+            repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+            convexDeploymentName: convex.convexDeploymentName,
+            cloudflareAccountId: provisionedHosting.accountId,
+            cloudflareProjectName: provisionedHosting.projectName,
+            cloudflareSubdomain: provisionedHosting.subdomain,
           });
           break;
         }

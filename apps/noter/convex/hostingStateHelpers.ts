@@ -1,4 +1,8 @@
-import type { HostingState, NetlifyHostingState } from "./hostingState";
+import type {
+  CloudflareHostingState,
+  HostingState,
+  NetlifyHostingState,
+} from "./hostingState";
 
 type LegacyHostingShape = {
   hosting?: HostingState;
@@ -57,6 +61,16 @@ export function resolveNetlifySiteId(
   return value?.netlifySiteId;
 }
 
+export function resolveCloudflareHostingState(
+  value: LegacyHostingShape | null | undefined,
+): CloudflareHostingState | null {
+  const hosting = value?.hosting;
+  if (hosting?.provider === "cloudflare") {
+    return hosting;
+  }
+  return null;
+}
+
 export function resolveHostingMainUrl(
   value: LegacyHostingShape | null | undefined,
 ): string | undefined {
@@ -66,6 +80,14 @@ export function resolveHostingMainUrl(
   }
   if (hosting?.provider === "railway") {
     return hosting.domain;
+  }
+  if (hosting?.provider === "cloudflare") {
+    if (hosting.productionUrl) {
+      return hosting.productionUrl;
+    }
+    if (hosting.subdomain) {
+      return `https://${hosting.subdomain}`;
+    }
   }
   return value?.netlifyProductionUrl ?? value?.netlifyDefaultUrl;
 }

@@ -14,6 +14,7 @@ import { resolveNetlifySiteId } from "./hostingStateHelpers";
 import { toErrorMessage } from "./jsonUtils";
 import { toSafeRepoName } from "./repoName";
 import { isAdminUser } from "./users";
+import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 import {
   createStarterSeedGitClient,
   seedRepositoryWithStarter,
@@ -270,6 +271,7 @@ export const createRepository = action({
       convexConnection,
       netlifyConnection,
       railwayConnection,
+      cloudflareConnection,
     ] = await Promise.all([
       ctx.runQuery(internal.users.getById, { userId }),
       ctx.runQuery(internal.providerConnections.getByUserAndKind, {
@@ -287,6 +289,10 @@ export const createRepository = action({
       ctx.runQuery(internal.providerConnections.getByUserAndKind, {
         userId,
         kind: "railway",
+      }),
+      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+        userId,
+        kind: "cloudflare",
       }),
     ]);
 
@@ -314,6 +320,14 @@ export const createRepository = action({
     ) {
       throw new Error(
         "Railway connection is required to create a Railway-hosted project.",
+      );
+    }
+    if (
+      requestedHostingProvider === "cloudflare" &&
+      cloudflareConnection?.kind !== "cloudflare"
+    ) {
+      throw new Error(
+        "Cloudflare connection is required to create a Cloudflare-hosted project.",
       );
     }
 
@@ -471,6 +485,7 @@ export const deleteVault = action({
       convexConnection,
       netlifyConnection,
       railwayConnection,
+      cloudflareConnection,
     ] = await Promise.all([
       ctx.runQuery(internal.providerConnections.getByUserAndKind, {
         userId,
@@ -487,6 +502,10 @@ export const deleteVault = action({
       ctx.runQuery(internal.providerConnections.getByUserAndKind, {
         userId,
         kind: "railway",
+      }),
+      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+        userId,
+        kind: "cloudflare",
       }),
     ]);
     let octokit: Octokit | null = null;
@@ -525,6 +544,14 @@ export const deleteVault = action({
       infrastructure?.hosting?.provider === "railway"
         ? infrastructure.hosting.projectId
         : undefined;
+    const cloudflareProjectName =
+      infrastructure?.hosting?.provider === "cloudflare"
+        ? infrastructure.hosting.projectName
+        : undefined;
+    const cloudflareAccountId =
+      infrastructure?.hosting?.provider === "cloudflare"
+        ? infrastructure.hosting.accountId
+        : undefined;
     const hostingProvider =
       infrastructure?.hosting?.provider ??
       (typeof netlifySiteId === "string" ? "netlify" : undefined);
@@ -533,7 +560,10 @@ export const deleteVault = action({
       vault.isNoterManaged === true &&
       ((hostingProvider === "netlify" && typeof netlifySiteId === "string") ||
         (hostingProvider === "railway" &&
-          typeof railwayProjectId === "string"));
+          typeof railwayProjectId === "string") ||
+        (hostingProvider === "cloudflare" &&
+          typeof cloudflareProjectName === "string" &&
+          typeof cloudflareAccountId === "string"));
     const shouldRemoveConvexProvision =
       args.removeConvexProvision === true &&
       vault.isNoterManaged === true &&
@@ -579,6 +609,27 @@ export const deleteVault = action({
       ) {
         throw new Error("Railway connection is required to remove resources.");
       }
+      const cloudflareToken =
+        shouldRemoveHostingProvision && hostingProvider === "cloudflare"
+          ? cloudflareConnection?.kind === "cloudflare"
+            ? cloudflareConnection.auth.credential
+            : undefined
+          : undefined;
+      if (
+        shouldRemoveHostingProvision &&
+        hostingProvider === "cloudflare" &&
+        !cloudflareToken
+      ) {
+        throw new Error(
+          "Cloudflare connection is required to remove resources.",
+        );
+      }
+      const cloudflareServerUrl =
+        shouldRemoveHostingProvision &&
+        hostingProvider === "cloudflare" &&
+        cloudflareConnection?.kind === "cloudflare"
+          ? resolveCloudflareMcpServerUrl(cloudflareConnection)
+          : resolveCloudflareMcpServerUrl(null);
 
       const providers = createInfraProviders({
         convexToken,
@@ -608,6 +659,27 @@ export const deleteVault = action({
               provider: "railway",
               railwayProvider: providers.railway,
               projectId: railwayProjectId,
+            });
+          } catch (error) {
+            if (!isProviderNotFoundError(error)) {
+              throw error;
+            }
+          }
+        }
+      }
+      if (shouldRemoveHostingProvision && hostingProvider === "cloudflare") {
+        if (
+          typeof cloudflareProjectName === "string" &&
+          typeof cloudflareAccountId === "string" &&
+          cloudflareToken
+        ) {
+          try {
+            await deleteHostingResources({
+              provider: "cloudflare",
+              accountId: cloudflareAccountId,
+              projectName: cloudflareProjectName,
+              cloudflareToken,
+              cloudflareServerUrl,
             });
           } catch (error) {
             if (!isProviderNotFoundError(error)) {
