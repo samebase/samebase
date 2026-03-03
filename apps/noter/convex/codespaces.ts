@@ -6,7 +6,7 @@ import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
 import { Id } from "./_generated/dataModel";
-import { getEnvLabel } from "./env";
+import { getDaytonaEnvLabel } from "./daytonaEnv";
 
 async function getGithubAccessToken(
   ctx: ActionCtx,
@@ -78,7 +78,7 @@ export const createCodespace = action({
     }
 
     const displayName = buildCodespaceDisplayName(
-      getEnvLabel(),
+      getDaytonaEnvLabel(),
       vault.ghRepoOwner,
       vault.ghRepoName,
     );

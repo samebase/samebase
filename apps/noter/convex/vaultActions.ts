@@ -6,7 +6,7 @@ import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { Daytona } from "@daytonaio/sdk";
 import { getUserId } from "./common";
-import { getEnvLabel } from "./env";
+import { getDaytonaEnvLabel } from "./daytonaEnv";
 import { createInfraProviders } from "./infraProviders";
 import { deleteHostingResources } from "./hostingProviders";
 import { hostingProviderValidator } from "./hostingState";
@@ -114,7 +114,7 @@ function inferDaytonaSnapshotPrefix(args: {
   repo: string;
 }): string | null {
   try {
-    const envLabel = getEnvLabel();
+    const envLabel = getDaytonaEnvLabel();
     const base = toSafeRepoName(
       `noter-prebuild-${envLabel}-${args.owner}-${args.repo}-`,
     );

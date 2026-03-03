@@ -3,7 +3,19 @@
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { Resend } from "resend";
-import { getEnvLabel } from "./env";
+
+function inferConvexDeploymentLabel(): "prod" | "dev" {
+  const convexDeployment = process.env.CONVEX_DEPLOYMENT?.trim() ?? "";
+  const deploymentPrefix =
+    convexDeployment.split(":")[0]?.trim().toLowerCase() ?? "";
+  if (deploymentPrefix === "prod") {
+    return "prod";
+  }
+  if (deploymentPrefix === "dev" || deploymentPrefix === "preview") {
+    return "dev";
+  }
+  return "dev";
+}
 
 export const notifyAdmin = internalAction({
   args: { email: v.string() },
@@ -14,7 +26,7 @@ export const notifyAdmin = internalAction({
       console.warn("RESEND_API_KEY not set, skipping waitlist notification");
       return null;
     }
-    const env = getEnvLabel();
+    const env = inferConvexDeploymentLabel();
     const resend = new Resend(apiKey);
     await resend.emails.send({
       from: "Noter Waitlist <onboarding@resend.dev>",
