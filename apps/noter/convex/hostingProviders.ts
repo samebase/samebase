@@ -172,6 +172,15 @@ function parseJsonText(value: string): unknown {
   }
 }
 
+function normalizeCloudflarePagesHost(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+  const withoutProtocol = trimmed.replace(/^https?:\/\//, "");
+  return withoutProtocol.replace(/\/+$/, "");
+}
+
 function buildCloudflarePagesEnvVars(vars: {
   convexDeployKey: string;
   convexUrl: string;
@@ -1361,6 +1370,18 @@ async function ensureCloudflareResources(
       }
     }
 
+    const shouldTriggerDeployment =
+      existingProject === null || args.existing.productionUrl === undefined;
+    if (shouldTriggerDeployment) {
+      step = "trigger_deployment";
+      await requestCloudflarePagesApi({
+        token: args.cloudflareToken,
+        serverUrl: args.cloudflareServerUrl,
+        method: "POST",
+        path: `${projectBasePath}/${encodeURIComponent(projectName)}/deployments`,
+      });
+    }
+
     step = "refresh_project";
     const refreshedRaw = await requestCloudflarePagesApi({
       token: args.cloudflareToken,
@@ -1369,12 +1390,16 @@ async function ensureCloudflareResources(
       path: `${projectBasePath}/${encodeURIComponent(projectName)}`,
     });
     const refreshed = asRecord(refreshedRaw);
-    const refreshedSubdomain = readString(refreshed, "subdomain")?.trim() ?? "";
-    const existingSubdomain = args.existing.subdomain?.trim() ?? "";
-    const subdomain = refreshedSubdomain || existingSubdomain || undefined;
-    const productionUrl = subdomain
-      ? `https://${subdomain}`
-      : args.existing.productionUrl;
+    const refreshedSubdomain = normalizeCloudflarePagesHost(
+      readString(refreshed, "subdomain") ?? "",
+    );
+    const existingSubdomain = normalizeCloudflarePagesHost(
+      args.existing.subdomain ?? "",
+    );
+    const fallbackSubdomain = `${projectName}.pages.dev`;
+    const subdomain =
+      refreshedSubdomain || existingSubdomain || fallbackSubdomain;
+    const productionUrl = `https://${subdomain}`;
 
     const result: Extract<ProvisionedByProvider, { provider: "cloudflare" }> = {
       provider: "cloudflare",
