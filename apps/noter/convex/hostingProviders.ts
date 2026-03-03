@@ -164,8 +164,11 @@ type CloudflarePagesRequestMethod = "GET" | "POST" | "PATCH" | "DELETE";
 function parseJsonText(value: string): unknown {
   try {
     return JSON.parse(value);
-  } catch {
-    return value;
+  } catch (error) {
+    const excerpt = value.length > 240 ? `${value.slice(0, 240)}...` : value;
+    throw new Error(
+      `Cloudflare MCP returned non-JSON response: ${toErrorMessage(error)} (payload excerpt: ${excerpt})`,
+    );
   }
 }
 

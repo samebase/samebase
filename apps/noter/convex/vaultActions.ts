@@ -14,7 +14,7 @@ import { resolveNetlifySiteId } from "./hostingStateHelpers";
 import { toErrorMessage } from "./jsonUtils";
 import { toSafeRepoName } from "./repoName";
 import { isAdminUser } from "./users";
-import { CLOUDFLARE_MCP_SERVER_URL } from "./cloudflareMcp";
+import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 import {
   createStarterSeedGitClient,
   seedRepositoryWithStarter,
@@ -627,18 +627,9 @@ export const deleteVault = action({
       const cloudflareServerUrl =
         shouldRemoveHostingProvision &&
         hostingProvider === "cloudflare" &&
-        cloudflareConnection?.kind === "cloudflare" &&
-        cloudflareConnection.auth.method === "mcp_oauth"
-          ? (() => {
-              const value = Reflect.get(
-                cloudflareConnection.auth,
-                "mcpServerUrl",
-              );
-              return typeof value === "string" && value.length > 0
-                ? value
-                : CLOUDFLARE_MCP_SERVER_URL;
-            })()
-          : CLOUDFLARE_MCP_SERVER_URL;
+        cloudflareConnection?.kind === "cloudflare"
+          ? resolveCloudflareMcpServerUrl(cloudflareConnection)
+          : resolveCloudflareMcpServerUrl(null);
 
       const providers = createInfraProviders({
         convexToken,

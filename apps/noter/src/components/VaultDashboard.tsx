@@ -118,24 +118,20 @@ const hasDaytonaResourcesForVault = (
   );
 
 type CreateTemplate = "app" | "agent";
-type CreateHostingProvider = "netlify" | "railway" | "cloudflare";
+const CREATE_HOSTING_PROVIDERS = ["netlify", "railway", "cloudflare"] as const;
+type CreateHostingProvider = (typeof CREATE_HOSTING_PROVIDERS)[number];
 
 const isCreateTemplate = (value: string): value is CreateTemplate =>
   value === "app" || value === "agent";
 const isCreateHostingProvider = (
   value: string,
 ): value is CreateHostingProvider =>
-  value === "netlify" || value === "railway" || value === "cloudflare";
+  CREATE_HOSTING_PROVIDERS.some((provider) => provider === value);
 const CREATE_HOSTING_PROVIDER_LABEL: Record<CreateHostingProvider, string> = {
   netlify: "Netlify",
   railway: "Railway",
   cloudflare: "Cloudflare",
 };
-const CREATE_HOSTING_PROVIDERS: readonly CreateHostingProvider[] = [
-  "netlify",
-  "railway",
-  "cloudflare",
-];
 
 const DASHBOARD_REFRESH_CONCURRENCY = 3;
 type RefreshTrigger = "focus" | "page_load";
@@ -500,13 +496,17 @@ export function VaultDashboard() {
       ? "remove-railway-provision"
       : vaultToDelete?.hostingProvider === "cloudflare"
         ? "remove-cloudflare-provision"
-        : "remove-netlify-provision";
+        : vaultToDelete?.hostingProvider === "netlify"
+          ? "remove-netlify-provision"
+          : "remove-hosting-provision";
   const removeHostingLabel =
     vaultToDelete?.hostingProvider === "railway"
       ? "Also remove Railway project"
       : vaultToDelete?.hostingProvider === "cloudflare"
         ? "Also remove Cloudflare Pages project"
-        : "Also remove Netlify site";
+        : vaultToDelete?.hostingProvider === "netlify"
+          ? "Also remove Netlify site"
+          : "Also remove hosting provider resources";
   const resetDeleteDialogState = () => {
     setVaultToDelete(null);
     setRemoveGithubRepo(false);

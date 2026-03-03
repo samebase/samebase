@@ -6,6 +6,18 @@ export const CLOUDFLARE_MCP_SERVER_URL = "https://mcp.cloudflare.com/mcp";
 const MCP_PROTOCOL_VERSION = "2025-03-26";
 const DEFAULT_TIMEOUT_MS = 10_000;
 
+export function resolveCloudflareMcpServerUrl(
+  connection: { auth: unknown } | null | undefined,
+): string {
+  const authRecord = asRecord(connection?.auth);
+  const method = readString(authRecord, "method");
+  if (method !== "mcp_oauth") {
+    return CLOUDFLARE_MCP_SERVER_URL;
+  }
+  const url = readString(authRecord, "mcpServerUrl")?.trim() ?? "";
+  return url || CLOUDFLARE_MCP_SERVER_URL;
+}
+
 type JsonRpcId = number;
 
 type JsonRpcMessage = {

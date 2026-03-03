@@ -26,7 +26,10 @@ import {
   toErrorMessage,
 } from "./jsonUtils";
 import { sanitizeSlug, vaultSuffix } from "./slugUtils";
-import { CLOUDFLARE_MCP_SERVER_URL } from "./cloudflareMcp";
+import {
+  CLOUDFLARE_MCP_SERVER_URL,
+  resolveCloudflareMcpServerUrl,
+} from "./cloudflareMcp";
 
 const PROVISIONING_STALE_MS = 10 * 60 * 1000;
 const GITHUB_API_VERSION = "2022-11-28";
@@ -267,20 +270,6 @@ type CloudflareAccountSummary = {
   name?: string;
   isDefault: boolean;
 };
-
-function resolveCloudflareMcpServerUrl(connection: {
-  kind: "cloudflare";
-  auth: { method: string };
-}): string {
-  if (connection.auth.method === "mcp_oauth") {
-    const authRecord = asRecord(connection.auth);
-    const url = readString(authRecord, "mcpServerUrl")?.trim() ?? "";
-    if (url) {
-      return url;
-    }
-  }
-  return CLOUDFLARE_MCP_SERVER_URL;
-}
 
 function parseCloudflareAccountInventory(
   raw: string,
