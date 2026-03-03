@@ -5,6 +5,25 @@ const AUTH_FLAG_KEY = "noter_was_authenticated";
 const AUTH_PROVIDER_KEY = "noter_auth_provider";
 
 type AuthProvider = "google" | "password";
+const POPUP_WATCH_INTERVAL_MS = 500;
+const POPUP_WATCH_TIMEOUT_MS = 120_000;
+
+type AuthPopupMessage = {
+  type?: unknown;
+  tokens?: unknown;
+};
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  for (const entryValue of Object.values(value)) {
+    if (typeof entryValue !== "string") {
+      return false;
+    }
+  }
+  return true;
+}
 
 export function clearAuthFlag() {
   localStorage.removeItem(AUTH_FLAG_KEY);
@@ -33,18 +52,37 @@ export function openAuthPopup(provider: "google") {
   // Listen for auth tokens sent from the popup via postMessage.
   setAuthProvider(provider);
   let popup: Window | null = null;
+  let popupPollIntervalId: number | null = null;
+  let popupTimeoutId: number | null = null;
   const expectedOrigin = window.location.origin;
+  const cleanup = () => {
+    window.removeEventListener("message", handler);
+    if (popupPollIntervalId !== null) {
+      window.clearInterval(popupPollIntervalId);
+      popupPollIntervalId = null;
+    }
+    if (popupTimeoutId !== null) {
+      window.clearTimeout(popupTimeoutId);
+      popupTimeoutId = null;
+    }
+  };
   const handler = (event: MessageEvent) => {
     if (event.origin !== expectedOrigin) return;
     if (popup && event.source !== popup) return;
-    if (event.data?.type === "convex-auth-tokens") {
-      window.removeEventListener("message", handler);
-      const tokens = event.data.tokens as Record<string, string>;
-      for (const [key, value] of Object.entries(tokens)) {
-        localStorage.setItem(key, value);
-      }
-      window.location.reload();
+    const messageData: AuthPopupMessage =
+      typeof event.data === "object" && event.data !== null ? event.data : {};
+    if (messageData.type !== "convex-auth-tokens") return;
+    cleanup();
+    if (!isStringRecord(messageData.tokens)) {
+      console.warn(
+        "authClient:ignored popup message with invalid token payload",
+      );
+      return;
     }
+    for (const [key, value] of Object.entries(messageData.tokens)) {
+      localStorage.setItem(key, value);
+    }
+    window.location.reload();
   };
   window.addEventListener("message", handler);
 
@@ -53,6 +91,18 @@ export function openAuthPopup(provider: "google") {
     `${provider}-oauth`,
     "width=600,height=700,popup=true",
   );
+  if (!popup) {
+    cleanup();
+    return;
+  }
+  popupPollIntervalId = window.setInterval(() => {
+    if (popup.closed) {
+      cleanup();
+    }
+  }, POPUP_WATCH_INTERVAL_MS);
+  popupTimeoutId = window.setTimeout(() => {
+    cleanup();
+  }, POPUP_WATCH_TIMEOUT_MS);
 }
 
 /**
