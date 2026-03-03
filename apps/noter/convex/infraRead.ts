@@ -133,7 +133,6 @@ function resolveRailwayToken(
 
 function resolveCloudflareToken(
   connection: {
-    kind: "cloudflare";
     auth: { credential: string };
   } | null,
 ): string {
@@ -144,7 +143,7 @@ function resolveCloudflareToken(
 }
 
 function resolveCloudflareMcpServerUrl(
-  connection: { kind: "cloudflare"; auth: { method: string } } | null,
+  connection: { auth: { method: string } } | null,
 ): string {
   if (connection?.auth.method === "mcp_oauth") {
     const auth = asRecord(connection.auth);
@@ -452,20 +451,16 @@ export const getRailwayProjectInventory = internalAction({
 export const getCloudflareAccountInventory = internalAction({
   args: {
     limit: v.optional(v.number()),
-    userId: v.optional(v.id("users")),
+    userId: v.id("users"),
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const cloudflareConnectionRaw = args.userId
-      ? await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-          userId: args.userId,
-          kind: "cloudflare",
-        })
-      : null;
-    const cloudflareConnection =
-      cloudflareConnectionRaw?.kind === "cloudflare"
-        ? cloudflareConnectionRaw
-        : null;
+    const cloudflareConnection = await ctx.runAction(
+      internal.cloudflareMcpOAuth.resolveConnectionForUser,
+      {
+        userId: args.userId,
+      },
+    );
 
     const token = resolveCloudflareToken(cloudflareConnection);
     const serverUrl = resolveCloudflareMcpServerUrl(cloudflareConnection);
@@ -512,21 +507,17 @@ export const getCloudflareAccountInventory = internalAction({
 export const getCloudflarePagesProjectInventory = internalAction({
   args: {
     limit: v.optional(v.number()),
-    userId: v.optional(v.id("users")),
+    userId: v.id("users"),
     accountId: v.optional(v.string()),
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const cloudflareConnectionRaw = args.userId
-      ? await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-          userId: args.userId,
-          kind: "cloudflare",
-        })
-      : null;
-    const cloudflareConnection =
-      cloudflareConnectionRaw?.kind === "cloudflare"
-        ? cloudflareConnectionRaw
-        : null;
+    const cloudflareConnection = await ctx.runAction(
+      internal.cloudflareMcpOAuth.resolveConnectionForUser,
+      {
+        userId: args.userId,
+      },
+    );
 
     const token = resolveCloudflareToken(cloudflareConnection);
     const serverUrl = resolveCloudflareMcpServerUrl(cloudflareConnection);

@@ -785,7 +785,6 @@ export const provisionVaultInfrastructure = internalAction({
         convexConnection,
         netlifyConnection,
         railwayConnection,
-        cloudflareConnection,
       ] = await Promise.all([
         ctx.runQuery(internal.providerConnections.getByUserAndKind, {
           userId: vault.userId,
@@ -802,10 +801,6 @@ export const provisionVaultInfrastructure = internalAction({
         ctx.runQuery(internal.providerConnections.getByUserAndKind, {
           userId: vault.userId,
           kind: "railway",
-        }),
-        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-          userId: vault.userId,
-          kind: "cloudflare",
         }),
       ]);
 
@@ -833,6 +828,15 @@ export const provisionVaultInfrastructure = internalAction({
 
       const requestedHostingProvider: ProvisionedByProvider["provider"] =
         vault.hostingProvider ?? "netlify";
+      const resolvedCloudflareConnection =
+        requestedHostingProvider === "cloudflare"
+          ? await ctx.runAction(
+              internal.cloudflareMcpOAuth.resolveConnectionForUser,
+              {
+                userId: vault.userId,
+              },
+            )
+          : null;
       const netlifyToken =
         requestedHostingProvider === "netlify" &&
         netlifyConnection?.kind === "netlify"
@@ -856,18 +860,18 @@ export const provisionVaultInfrastructure = internalAction({
           : "";
       const cloudflareToken =
         requestedHostingProvider === "cloudflare" &&
-        cloudflareConnection?.kind === "cloudflare"
-          ? cloudflareConnection.auth.credential.trim()
+        resolvedCloudflareConnection
+          ? resolvedCloudflareConnection.auth.credential.trim()
           : "";
       const cloudflareServerUrl =
         requestedHostingProvider === "cloudflare" &&
-        cloudflareConnection?.kind === "cloudflare"
-          ? resolveCloudflareMcpServerUrl(cloudflareConnection)
+        resolvedCloudflareConnection
+          ? resolveCloudflareMcpServerUrl(resolvedCloudflareConnection)
           : CLOUDFLARE_MCP_SERVER_URL;
       let cloudflareAccountId =
         requestedHostingProvider === "cloudflare" &&
-        cloudflareConnection?.kind === "cloudflare"
-          ? cloudflareConnection.accountId?.trim() ?? ""
+        resolvedCloudflareConnection
+          ? resolvedCloudflareConnection.accountId?.trim() ?? ""
           : "";
 
       if (
@@ -892,7 +896,7 @@ export const provisionVaultInfrastructure = internalAction({
       if (
         requestedHostingProvider === "cloudflare" &&
         !cloudflareAccountId &&
-        cloudflareConnection?.kind === "cloudflare"
+        resolvedCloudflareConnection
       ) {
         const accountInventory = await ctx.runAction(
           internal.infraRead.getCloudflareAccountInventory,
@@ -911,7 +915,7 @@ export const provisionVaultInfrastructure = internalAction({
         cloudflareAccountId = (defaultAccount ?? accounts[0]).id;
         await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
           userId: vault.userId,
-          auth: cloudflareConnection.auth,
+          auth: resolvedCloudflareConnection.auth,
           accountId: cloudflareAccountId,
         });
         console.log("infra:cloudflare:account:auto_selected", {
