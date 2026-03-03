@@ -3,16 +3,20 @@ import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
+import { parseLandingSlogans, selectLandingSlogan } from "@/lib/landingSlogans";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
 import { Chrome } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../convex/_generated/api";
+import slogansRaw from "../../../slogans.md?raw";
 
 const DEV_PASSWORD_EMAIL = "nicu@noter.md";
 const DEV_PASSWORD_VALUE = "pass1234";
-const LANDING_PAGE_COPY = `## Noter is a collaborative markdown workspace on top of GitHub
+const LANDING_PAGE_SLOGANS = parseLandingSlogans(slogansRaw);
+const LANDING_PAGE_SLOGAN = selectLandingSlogan(LANDING_PAGE_SLOGANS);
+const LANDING_PAGE_COPY = `## ${LANDING_PAGE_SLOGAN}
 
 - your notes and code live in a real repository
 - collaborate in real time with your team
