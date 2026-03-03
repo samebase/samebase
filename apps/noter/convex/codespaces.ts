@@ -6,7 +6,7 @@ import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
 import { Id } from "./_generated/dataModel";
-import { getEnvLabel } from "./env";
+import { getDaytonaEnvLabel } from "./daytonaEnv";
 
 async function getGithubAccessToken(
   ctx: ActionCtx,
@@ -23,6 +23,16 @@ async function getGithubAccessToken(
     throw new Error("GitHub is not connected");
   }
   return connection.auth.credential;
+}
+
+function inferCodespaceDisplayEnvLabel(): "prod" | "dev" {
+  try {
+    return getDaytonaEnvLabel();
+  } catch {
+    const deploymentPrefix =
+      process.env.CONVEX_DEPLOYMENT?.split(":")[0]?.trim().toLowerCase() ?? "";
+    return deploymentPrefix === "prod" ? "prod" : "dev";
+  }
 }
 
 /**
@@ -78,7 +88,7 @@ export const createCodespace = action({
     }
 
     const displayName = buildCodespaceDisplayName(
-      getEnvLabel(),
+      inferCodespaceDisplayEnvLabel(),
       vault.ghRepoOwner,
       vault.ghRepoName,
     );

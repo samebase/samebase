@@ -23,7 +23,7 @@ import http from "isomorphic-git/http/node";
 import { action, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getUserId } from "./common";
-import { getEnvLabel } from "./env";
+import { getDaytonaEnvLabel } from "./daytonaEnv";
 import { toSafeRepoName } from "./repoName";
 import type { Id } from "./_generated/dataModel";
 
@@ -552,7 +552,7 @@ function inferPrebuildSnapshotName(args: {
   repo: string;
   branch: string;
 }): string {
-  const envLabel = getEnvLabel();
+  const envLabel = getDaytonaEnvLabel();
   const base = toSafeRepoName(
     `noter-prebuild-${envLabel}-${args.owner}-${args.repo}-${args.branch}`,
   );
@@ -567,7 +567,7 @@ function inferDaytonaSnapshotPrefix(args: {
   repo: string;
 }): string | null {
   try {
-    const envLabel = getEnvLabel();
+    const envLabel = getDaytonaEnvLabel();
     const prefix = toSafeRepoName(
       `noter-prebuild-${envLabel}-${args.owner}-${args.repo}-`,
     );
@@ -1373,7 +1373,7 @@ export const startDaytonaWorkspace = action({
       branch,
     });
 
-    const envLabel = getEnvLabel();
+    const envLabel = getDaytonaEnvLabel();
     const baseName = toSafeRepoName(
       `noter-${envLabel}-${vault.ghRepoOwner}-${vault.ghRepoName}-${branch}`,
     );
