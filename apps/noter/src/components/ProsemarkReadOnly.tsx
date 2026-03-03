@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 type ProsemarkReadOnlyProps = {
   value: string;
   className?: string;
+  editable?: boolean;
 };
 
 function isBlankLineText(text: string): boolean {
@@ -175,9 +176,6 @@ const prosemarkReadOnlyTheme = EditorView.theme({
   ".cm-gutters": {
     display: "none",
   },
-  ".cm-cursor": {
-    display: "none",
-  },
   "& .cm-rendered-list-mark": {
     display: "inline-block",
     width: "1ch !important",
@@ -186,9 +184,16 @@ const prosemarkReadOnlyTheme = EditorView.theme({
   },
 });
 
+const prosemarkHiddenCursorTheme = EditorView.theme({
+  ".cm-cursor": {
+    display: "none",
+  },
+});
+
 export function ProsemarkReadOnly({
   value,
   className,
+  editable = false,
 }: ProsemarkReadOnlyProps) {
   const { theme, systemTheme } = useTheme();
   const effectiveTheme = theme === "system" ? systemTheme : theme;
@@ -198,8 +203,11 @@ export function ProsemarkReadOnly({
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const lastValueRef = useRef(value);
+  const editableRef = useRef(editable);
   const isDarkRef = useRef(isDark);
   const themeCompartmentRef = useRef(new Compartment());
+  const interactionCompartmentRef = useRef(new Compartment());
+  const cursorCompartmentRef = useRef(new Compartment());
   const lastWidthRef = useRef<number | null>(null);
 
   const resizeToContent = useCallback(() => {
@@ -217,6 +225,10 @@ export function ProsemarkReadOnly({
   useEffect(() => {
     isDarkRef.current = isDark;
   }, [isDark]);
+
+  useEffect(() => {
+    editableRef.current = editable;
+  }, [editable]);
 
   useLayoutEffect(() => {
     const host = hostRef.current;
@@ -237,7 +249,13 @@ export function ProsemarkReadOnly({
         blurOnOutsidePointerDownExtension,
         collapseSelectionOnBlurExtension,
         prosemarkReadOnlyTheme,
-        EditorState.readOnly.of(true),
+        interactionCompartmentRef.current.of([
+          EditorState.readOnly.of(!editableRef.current),
+          EditorView.editable.of(editableRef.current),
+        ]),
+        cursorCompartmentRef.current.of(
+          !editableRef.current ? prosemarkHiddenCursorTheme : [],
+        ),
         themeCompartmentRef.current.of(isDarkRef.current ? oneDark : []),
       ],
     });
@@ -262,6 +280,22 @@ export function ProsemarkReadOnly({
       effects: themeCompartmentRef.current.reconfigure(isDark ? oneDark : []),
     });
   }, [isDark]);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({
+      effects: [
+        interactionCompartmentRef.current.reconfigure([
+          EditorState.readOnly.of(!editable),
+          EditorView.editable.of(editable),
+        ]),
+        cursorCompartmentRef.current.reconfigure(
+          !editable ? prosemarkHiddenCursorTheme : [],
+        ),
+      ],
+    });
+  }, [editable]);
 
   useEffect(() => {
     const container = containerRef.current;

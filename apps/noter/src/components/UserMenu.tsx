@@ -20,7 +20,7 @@ import { api } from "../../convex/_generated/api";
 import { useQuery } from "convex/react";
 import { ReactNode, useMemo, useState } from "react";
 import { clsx } from "clsx";
-import { clearAuthFlag } from "@/SignInForm";
+import { clearAuthFlag } from "@/authClient";
 import { Link } from "react-router-dom";
 
 function formatProviderLabel(provider: string | undefined): string {
