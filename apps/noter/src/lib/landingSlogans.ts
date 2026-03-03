@@ -7,7 +7,12 @@ export function parseLandingSlogans(rawSlogans: string): string[] {
   return rawSlogans
     .split(/\r?\n/u)
     .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+    .filter(
+      (line) =>
+        line.length > 0 &&
+        line !== "<!-- prettier-ignore-start -->" &&
+        line !== "<!-- prettier-ignore-end -->",
+    );
 }
 
 export function selectLandingSlogan(

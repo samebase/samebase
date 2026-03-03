@@ -11,6 +11,14 @@ describe("parseLandingSlogans", () => {
   it("parses non-empty trimmed lines", () => {
     expect(parseLandingSlogans("\n  one  \n\n two\n")).toEqual(["one", "two"]);
   });
+
+  it("ignores prettier guard comments", () => {
+    const raw = `<!-- prettier-ignore-start -->
+first
+second
+<!-- prettier-ignore-end -->`;
+    expect(parseLandingSlogans(raw)).toEqual(["first", "second"]);
+  });
 });
 
 describe("selectLandingSlogan", () => {
