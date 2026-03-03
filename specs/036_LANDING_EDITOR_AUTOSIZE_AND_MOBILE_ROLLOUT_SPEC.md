@@ -131,7 +131,7 @@ When `autoResizeOnInput` is `false`:
 ### 1) Automated unit/component tests
 
 Add frontend-focused tests for resize trigger behavior in
-`apps/noter/src/components/__tests__/ProsemarkReadOnly.test.tsx` with
+`apps/noter/src/components/ProsemarkReadOnly.test.ts` with
 `@vitest-environment jsdom`:
 
 1. resizes on mount (existing contract),
