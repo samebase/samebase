@@ -38,7 +38,7 @@ import {
   type ComponentType,
   type MutableRefObject,
 } from "react";
-import { isInIframe } from "@/SignInForm";
+import { isInIframe } from "@/authClient";
 import { UserMenu } from "@/components/UserMenu";
 import {
   Dialog,

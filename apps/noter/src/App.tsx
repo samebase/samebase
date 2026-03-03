@@ -1,10 +1,6 @@
 import { Layout } from "@/Layout";
-import {
-  SignInForm,
-  useAutoSignIn,
-  setAuthFlag,
-  clearAuthFlag,
-} from "@/SignInForm";
+import { clearAuthFlag, setAuthFlag, useAutoSignIn } from "@/authClient";
+import { SignInForm } from "@/SignInForm";
 
 import { VaultDashboard } from "@/components/VaultDashboard";
 import { FileView } from "@/components/FileView";

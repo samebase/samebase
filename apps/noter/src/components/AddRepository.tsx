@@ -13,7 +13,7 @@ import { useQuery as useReactQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { linkStyle } from "./styles";
 import type { FunctionReturnType } from "convex/server";
-import { isInIframe } from "@/SignInForm";
+import { isInIframe } from "@/authClient";
 
 type Repository = FunctionReturnType<
   typeof api.github.listRepositories

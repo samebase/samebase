@@ -1,5 +1,7 @@
-import { ReactNode, useEffect } from "react";
-import { useQuery } from "convex/react";
+import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
+import { ReactNode, useEffect, type MouseEvent } from "react";
+import { useConvexAuth, useQuery } from "convex/react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../convex/_generated/api";
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -9,6 +11,34 @@ export function Layout({ children }: { children: ReactNode }) {
   const commitUrl =
     repoUrl && appCommit !== "unknown" ? `${repoUrl}/commit/${appCommit}` : "";
   const viewer = useQuery(api.users.viewer);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  const landingDevModeEnabled = isLandingDevModeEnabled(searchParams);
+  const showLandingDevToggle =
+    !isLoading &&
+    !isAuthenticated &&
+    location.pathname === "/" &&
+    !searchParams.has("auth");
+  const landingDevToggleHref = landingDevModeEnabled ? "/" : "/?dev";
+  const handleLandingDevToggleClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+  ) => {
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.currentTarget.target === "_blank"
+    ) {
+      return;
+    }
+    event.preventDefault();
+    void navigate(landingDevToggleHref);
+  };
   const isOwner = viewer?.githubUsername === "nicu-chiciuc";
   const showGuestBadge = Boolean(viewer && !isOwner);
   const guestName =
@@ -35,6 +65,15 @@ export function Layout({ children }: { children: ReactNode }) {
             >
               Curious Mode
             </span>
+          )}
+          {showLandingDevToggle && (
+            <a
+              href={landingDevToggleHref}
+              onClick={handleLandingDevToggleClick}
+              className="inline-flex min-w-[3ch] items-center justify-center rounded px-1 hover:text-foreground transition-colors"
+            >
+              {landingDevToggleHref}
+            </a>
           )}
           <span>Commit</span>
           {commitUrl ? (
