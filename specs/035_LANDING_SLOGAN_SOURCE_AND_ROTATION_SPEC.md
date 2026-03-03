@@ -13,8 +13,8 @@
 ## Summary
 
 Define a markdown-first source of truth for landing slogans so copy can be
-updated without touching code, and prepare rotation behavior for future
-implementation.
+updated without touching code, and rotate slogans deterministically every 8
+hours in the landing sign-in view.
 
 ## Why This Spec Exists
 
@@ -34,9 +34,9 @@ want slogan management to be content-first:
 
 ## Non-Goals (This Step)
 
-1. Implementing rendering logic in the frontend.
-2. Finalizing the exact rotation interval.
-3. Building admin UI for slogan editing.
+1. Building admin UI for slogan editing.
+2. Per-user or randomized slogan variants.
+3. Dynamic runtime editing from the browser UI.
 
 ## Source Of Truth
 
@@ -55,20 +55,17 @@ Initial file content:
 2. `- Junior devs, senior stack`
 3. `- If Notion and Obsidian had a baby`
 
-## Rotation Strategy (Decision Deferred)
+## Rotation Strategy (Implemented)
 
-The exact interval is intentionally deferred. Candidate options:
-
-1. Rotate on each page load (simplest).
-2. Rotate every 4 hours.
-3. Rotate every 8 hours.
-4. Rotate daily.
-
-Recommended first implementation when we start coding:
+The current implementation rotates every 8 hours:
 
 1. Read slogans from `slogans.md`.
-2. Choose one slogan deterministically by time bucket (to avoid flicker).
-3. Keep one slogan visible per visitor at a time.
+2. Parse Markdown bullet items (`- slogan`) into a slogan array.
+3. Compute `bucket = floor(Date.now() / (8h))`.
+4. Select `slogans[bucket % slogans.length]`.
+
+This keeps the slogan stable within each 8-hour window and avoids flicker from
+per-load randomization.
 
 ## UX Constraints
 

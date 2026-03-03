@@ -24,6 +24,12 @@ describe("selectLandingSlogan", () => {
     expect(selectLandingSlogan([], 0)).toBe(DEFAULT_LANDING_SLOGAN);
   });
 
+  it("returns a custom fallback when provided", () => {
+    expect(selectLandingSlogan([], 0, "custom fallback")).toBe(
+      "custom fallback",
+    );
+  });
+
   it("rotates slogans every 8 hours", () => {
     const slogans = ["first", "second", "third"];
 
