@@ -25,6 +25,16 @@ async function getGithubAccessToken(
   return connection.auth.credential;
 }
 
+function inferCodespaceDisplayEnvLabel(): "prod" | "dev" {
+  try {
+    return getDaytonaEnvLabel();
+  } catch {
+    const deploymentPrefix =
+      process.env.CONVEX_DEPLOYMENT?.split(":")[0]?.trim().toLowerCase() ?? "";
+    return deploymentPrefix === "prod" ? "prod" : "dev";
+  }
+}
+
 /**
  * Create a new GitHub Codespace for a vault
  */
@@ -78,7 +88,7 @@ export const createCodespace = action({
     }
 
     const displayName = buildCodespaceDisplayName(
-      getDaytonaEnvLabel(),
+      inferCodespaceDisplayEnvLabel(),
       vault.ghRepoOwner,
       vault.ghRepoName,
     );

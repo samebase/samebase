@@ -18,7 +18,7 @@ const parseDaytonaDeployKeyLabel = (
     return "dev";
   }
   throw new Error(
-    `${DAYTONA_DEPLOY_KEY_ENV} must start with "dev:" or "prod:" (received "${label}").`,
+    `${DAYTONA_DEPLOY_KEY_ENV} must start with "dev:", "preview:", or "prod:" (received "${label}").`,
   );
 };
 
