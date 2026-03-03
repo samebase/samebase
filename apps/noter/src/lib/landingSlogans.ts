@@ -4,15 +4,21 @@ export const DEFAULT_LANDING_SLOGAN =
 export const LANDING_SLOGAN_ROTATION_INTERVAL_MS = 8 * 60 * 60 * 1000;
 
 export function parseLandingSlogans(rawSlogans: string): string[] {
-  return rawSlogans
+  const trimmedLines = rawSlogans
     .split(/\r?\n/u)
     .map((line) => line.trim())
-    .filter(
-      (line) =>
-        line.length > 0 &&
-        line !== "<!-- prettier-ignore-start -->" &&
-        line !== "<!-- prettier-ignore-end -->",
-    );
+    .filter((line) => line.length > 0);
+
+  const bulletSlogans = trimmedLines
+    .filter((line) => line.startsWith("- "))
+    .map((line) => line.slice(2).trim())
+    .filter((line) => line.length > 0);
+
+  if (bulletSlogans.length > 0) {
+    return bulletSlogans;
+  }
+
+  return trimmedLines;
 }
 
 export function selectLandingSlogan(

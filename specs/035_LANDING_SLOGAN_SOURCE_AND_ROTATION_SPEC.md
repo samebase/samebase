@@ -44,17 +44,16 @@ Path: `slogans.md` at repository root.
 
 Format contract:
 
-1. One slogan per line.
+1. One slogan per Markdown bullet item (`- slogan text`).
 2. No frontmatter.
-3. No bullets or numbering.
-4. Empty lines are ignored by future parser logic.
-5. Keep slogans concise; target 3-7 words when possible.
+3. Empty lines are ignored by parser logic.
+4. Keep slogans concise; target 3-7 words when possible.
 
 Initial file content:
 
-1. `Noter is a collaborative markdown workspace on top of GitHub`
-2. `Junior devs, senior stack`
-3. `If Notion and Obsidian had a baby`
+1. `- Noter is a collaborative markdown workspace on top of GitHub`
+2. `- Junior devs, senior stack`
+3. `- If Notion and Obsidian had a baby`
 
 ## Rotation Strategy (Decision Deferred)
 

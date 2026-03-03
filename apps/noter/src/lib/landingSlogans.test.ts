@@ -12,11 +12,9 @@ describe("parseLandingSlogans", () => {
     expect(parseLandingSlogans("\n  one  \n\n two\n")).toEqual(["one", "two"]);
   });
 
-  it("ignores prettier guard comments", () => {
-    const raw = `<!-- prettier-ignore-start -->
-first
-second
-<!-- prettier-ignore-end -->`;
+  it("parses markdown bullet items", () => {
+    const raw = `- first
+- second`;
     expect(parseLandingSlogans(raw)).toEqual(["first", "second"]);
   });
 });
