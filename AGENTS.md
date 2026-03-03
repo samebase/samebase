@@ -55,6 +55,10 @@ npm run dev:frontend  # Vite dev server only
 npm run dev:backend   # Convex dev server only
 npm run build         # TypeScript compile + Vite build
 npm run lint          # TypeScript + ESLint check
+
+# Worktree bootstrap (required in git worktrees)
+make anon             # Full startup in worktrees (Convex + frontend with anon wiring)
+make anon-once        # One-shot bootstrap for lint/codegen/hook commands in worktrees
 ```
 
 ### Local Environment Notes
@@ -63,6 +67,11 @@ npm run lint          # TypeScript + ESLint check
   instead.
 - If Convex tooling complains about missing `CONVEX_DEPLOYMENT` (for lint or
   codegen), run `make anon` to set up an anonymous deployment.
+- In a git worktree, always start with `make anon` before dev/lint/test/commit
+  workflows.
+- In a git worktree, do not run `npx convex dev` directly for normal startup;
+  `make anon` is the required entrypoint.
+- For one-off setup in a git worktree, use `make anon-once`.
 
 ### Convex CLI
 
@@ -316,6 +325,8 @@ Auth:
   and use `make run` when operating from the primary local checkout.
 - In a worktree, `make anon` is the full startup command (do not run `pnpm dev`
   separately afterward).
+- If a worktree command fails with `Local backend isn't running`, run
+  `make anon` and retry (do not switch to `npx convex dev` as the default fix).
 - For UI automation, never kill all `Google Chrome` processes. Only terminate
   Playwright-owned sessions/profile paths (for example
   `.../ms-playwright/mcp-chrome`).
@@ -367,8 +378,10 @@ Auth:
   workspace boundary; do not read/write outside it without an explicit request.
 - Before running dev/test/commit, confirm the worktree + branch with
   `git worktree list --porcelain` and `git rev-parse --abbrev-ref HEAD`.
-- Use `pnpm dev` from the current worktree root unless the user explicitly asks
-  for a different entrypoint.
+- Use `make anon` as the default dev/bootstrap entrypoint in a worktree.
+- Never use `npx convex dev` as the normal worktree startup path; only use it
+  for explicit low-level debugging requests.
+- Use `make run` in the primary local checkout (non-worktree).
 - Keep changes isolated per worktree (one idea per worktree) and avoid mixing
   branches in a single worktree.
 - Use `noter.md` frontmatter `worktrees` settings as the canonical, user-visible

@@ -82,6 +82,8 @@ export const VaultDomainSource = v.union(
   v.literal("netlify_default"),
   v.literal("netlify_custom"),
   v.literal("railway_default"),
+  v.literal("cloudflare_pages_default"),
+  v.literal("cloudflare_pages_custom"),
 );
 
 export const ProdAccessScope = v.union(v.literal("vault"), v.literal("global"));

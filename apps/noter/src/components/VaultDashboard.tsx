@@ -118,20 +118,23 @@ const hasDaytonaResourcesForVault = (
   );
 
 type CreateTemplate = "app" | "agent";
-type CreateHostingProvider = "netlify" | "railway";
+type CreateHostingProvider = "netlify" | "railway" | "cloudflare";
 
 const isCreateTemplate = (value: string): value is CreateTemplate =>
   value === "app" || value === "agent";
 const isCreateHostingProvider = (
   value: string,
-): value is CreateHostingProvider => value === "netlify" || value === "railway";
+): value is CreateHostingProvider =>
+  value === "netlify" || value === "railway" || value === "cloudflare";
 const CREATE_HOSTING_PROVIDER_LABEL: Record<CreateHostingProvider, string> = {
   netlify: "Netlify",
   railway: "Railway",
+  cloudflare: "Cloudflare",
 };
 const CREATE_HOSTING_PROVIDERS: readonly CreateHostingProvider[] = [
   "netlify",
   "railway",
+  "cloudflare",
 ];
 
 const DASHBOARD_REFRESH_CONCURRENCY = 3;
@@ -495,11 +498,15 @@ export function VaultDashboard() {
   const removeHostingCheckboxId =
     vaultToDelete?.hostingProvider === "railway"
       ? "remove-railway-provision"
-      : "remove-netlify-provision";
+      : vaultToDelete?.hostingProvider === "cloudflare"
+        ? "remove-cloudflare-provision"
+        : "remove-netlify-provision";
   const removeHostingLabel =
     vaultToDelete?.hostingProvider === "railway"
       ? "Also remove Railway project"
-      : "Also remove Netlify site";
+      : vaultToDelete?.hostingProvider === "cloudflare"
+        ? "Also remove Cloudflare Pages project"
+        : "Also remove Netlify site";
   const resetDeleteDialogState = () => {
     setVaultToDelete(null);
     setRemoveGithubRepo(false);
@@ -673,7 +680,11 @@ export function VaultDashboard() {
   const cloudflareConnected = cloudflareConnection?.connected === true;
   useEffect(() => {
     const selectedConnected =
-      createHostingProvider === "netlify" ? netlifyConnected : railwayConnected;
+      createHostingProvider === "netlify"
+        ? netlifyConnected
+        : createHostingProvider === "railway"
+          ? railwayConnected
+          : cloudflareConnected;
     if (selectedConnected) {
       return;
     }
@@ -682,18 +693,29 @@ export function VaultDashboard() {
       ? "netlify"
       : railwayConnected
         ? "railway"
-        : null;
+        : cloudflareConnected
+          ? "cloudflare"
+          : null;
     if (
       fallbackHostingProvider &&
       fallbackHostingProvider !== createHostingProvider
     ) {
       setCreateHostingProvider(fallbackHostingProvider);
     }
-  }, [createHostingProvider, netlifyConnected, railwayConnected]);
+  }, [
+    cloudflareConnected,
+    createHostingProvider,
+    netlifyConnected,
+    railwayConnected,
+  ]);
 
   const connectedHostingProviders = CREATE_HOSTING_PROVIDERS.filter(
     (provider) =>
-      provider === "netlify" ? netlifyConnected : railwayConnected,
+      provider === "netlify"
+        ? netlifyConnected
+        : provider === "railway"
+          ? railwayConnected
+          : cloudflareConnected,
   );
   const createHostingProviderOptions =
     connectedHostingProviders.length > 0
@@ -702,11 +724,19 @@ export function VaultDashboard() {
         : [...connectedHostingProviders, createHostingProvider]
       : CREATE_HOSTING_PROVIDERS;
   const isHostingProviderConnected = (provider: CreateHostingProvider) =>
-    provider === "netlify" ? netlifyConnected : railwayConnected;
+    provider === "netlify"
+      ? netlifyConnected
+      : provider === "railway"
+        ? railwayConnected
+        : cloudflareConnected;
   const requiredHostingConnectionLabel =
     CREATE_HOSTING_PROVIDER_LABEL[createHostingProvider];
   const requiredHostingConnected =
-    createHostingProvider === "netlify" ? netlifyConnected : railwayConnected;
+    createHostingProvider === "netlify"
+      ? netlifyConnected
+      : createHostingProvider === "railway"
+        ? railwayConnected
+        : cloudflareConnected;
   const canCreateRepo = Boolean(
     githubConnected && convexConnected && requiredHostingConnected,
   );
