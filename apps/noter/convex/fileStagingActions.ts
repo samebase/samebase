@@ -224,6 +224,9 @@ const commitPreviewFile = v.object({
   oldLineCount: v.number(),
   newLineCount: v.number(),
   isMarkdown: v.boolean(),
+  richOldContent: v.optional(v.string()),
+  richNewContent: v.optional(v.string()),
+  richContentTruncated: v.optional(v.boolean()),
   patchTruncated: v.boolean(),
   patch: v.optional(v.string()),
 });
@@ -266,6 +269,27 @@ type StagedFileForCommit = {
 
 const MAX_COMMIT_PREVIEW_PATCH_CHARS_PER_FILE = 25_000;
 const MAX_COMMIT_PREVIEW_PATCH_CHARS_TOTAL = 150_000;
+const MAX_COMMIT_PREVIEW_MARKDOWN_RICH_CHARS_PER_FIELD = 40_000;
+
+function truncateMarkdownRichContent(content: string): {
+  content: string;
+  truncated: boolean;
+} {
+  if (content.length <= MAX_COMMIT_PREVIEW_MARKDOWN_RICH_CHARS_PER_FIELD) {
+    return { content, truncated: false };
+  }
+
+  const suffix = "\n\n... [content truncated for rich preview]";
+  const sliceLength = Math.max(
+    0,
+    MAX_COMMIT_PREVIEW_MARKDOWN_RICH_CHARS_PER_FIELD - suffix.length,
+  );
+
+  return {
+    content: `${content.slice(0, sliceLength)}${suffix}`,
+    truncated: true,
+  };
+}
 
 function countLines(content: string): number {
   if (content.length === 0) return 0;
@@ -325,6 +349,7 @@ export function buildCommitPreviewFromStagedFiles({
     const oldContent = file.initialContent ?? "";
     const newContent = file.fileDeleted ? "" : file.content ?? "";
     const renamed = file.filePath !== file.initialFilePath;
+    const isMarkdown = isMarkdownPath(file.filePath);
     const status = file.fileDeleted
       ? ("deleted" as const)
       : file.parentCommitSha === null
@@ -333,6 +358,17 @@ export function buildCommitPreviewFromStagedFiles({
           ? ("renamed" as const)
           : ("modified" as const);
     const lineStats = computeLineStats(oldContent, newContent);
+
+    let richOldContent: string | undefined;
+    let richNewContent: string | undefined;
+    let richContentTruncated: boolean | undefined;
+    if (isMarkdown) {
+      const truncatedOld = truncateMarkdownRichContent(oldContent);
+      const truncatedNew = truncateMarkdownRichContent(newContent);
+      richOldContent = truncatedOld.content;
+      richNewContent = truncatedNew.content;
+      richContentTruncated = truncatedOld.truncated || truncatedNew.truncated;
+    }
 
     let patch: string | undefined;
     let patchTruncated = false;
@@ -381,7 +417,10 @@ export function buildCommitPreviewFromStagedFiles({
       deletions: lineStats.deletions,
       oldLineCount: countLines(oldContent),
       newLineCount: countLines(newContent),
-      isMarkdown: isMarkdownPath(file.filePath),
+      isMarkdown,
+      richOldContent,
+      richNewContent,
+      richContentTruncated,
       patchTruncated,
       patch,
     });

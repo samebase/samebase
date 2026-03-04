@@ -48,6 +48,7 @@ import { DialogProvider } from "@/contexts/DialogContext";
 import { useDialog } from "@/hooks/useDialog";
 import { FileCreationDialog } from "@/components/FileCreationDialog";
 import { FolderCreationDialog } from "@/components/FolderCreationDialog";
+import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { nonNullable } from "@/lib/utils";
 import {
   filterSimpleViewTreeItems,
@@ -90,6 +91,8 @@ function findBestInitialFile(files: GithubTreeType[]) {
 type CommitPreview = GetFunctionReferenceReturnType<
   typeof api.fileStagingActions.getCommitPreview
 >;
+
+type CommitPreviewDisplayMode = "rich" | "patch";
 
 type RefreshTrigger = "focus" | "page_load";
 
@@ -401,6 +404,8 @@ function FileViewInner({
   const [selectedPreviewPath, setSelectedPreviewPath] = useState<string | null>(
     null,
   );
+  const [commitPreviewDisplayMode, setCommitPreviewDisplayMode] =
+    useState<CommitPreviewDisplayMode>("patch");
   const [commitPreviewError, setCommitPreviewError] = useState<string | null>(
     null,
   );
@@ -774,6 +779,7 @@ function FileViewInner({
     setIsReviewDialogOpen(true);
     setCommitPreview(null);
     setSelectedPreviewPath(null);
+    setCommitPreviewDisplayMode("patch");
     void loadCommitPreview();
   }, [loadCommitPreview]);
 
@@ -796,6 +802,19 @@ function FileViewInner({
     commitPreview?.files.find((file) => file.path === selectedPreviewPath) ??
     commitPreview?.files[0] ??
     null;
+  const selectedPreviewCanRenderRichMarkdown = Boolean(
+    selectedPreviewFile?.isMarkdown &&
+      typeof selectedPreviewFile.richOldContent === "string" &&
+      typeof selectedPreviewFile.richNewContent === "string",
+  );
+
+  useEffect(() => {
+    if (selectedPreviewCanRenderRichMarkdown) {
+      setCommitPreviewDisplayMode("rich");
+      return;
+    }
+    setCommitPreviewDisplayMode("patch");
+  }, [selectedPreviewCanRenderRichMarkdown, selectedPreviewFile?.path]);
 
   const finalTreeData = useMemo(() => {
     const treeItems = vault.treeData.tree
@@ -1262,22 +1281,87 @@ function FileViewInner({
                 </div>
 
                 <div className="overflow-auto rounded border bg-muted/20">
-                  {selectedPreviewFile?.patch ? (
+                  {selectedPreviewFile ? (
                     <div>
-                      {selectedPreviewFile.patchTruncated ? (
-                        <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                          Patch output is truncated for this file.
+                      {selectedPreviewCanRenderRichMarkdown ? (
+                        <div className="border-b px-3 py-2">
+                          <ToggleGroup
+                            type="single"
+                            size="sm"
+                            value={commitPreviewDisplayMode}
+                            className="justify-start"
+                            onValueChange={(value) => {
+                              if (value === "rich" || value === "patch") {
+                                setCommitPreviewDisplayMode(value);
+                              }
+                            }}
+                          >
+                            <ToggleGroupItem
+                              value="rich"
+                              aria-label="Rich markdown preview"
+                              className="h-7 px-2 text-xs"
+                            >
+                              Rich
+                            </ToggleGroupItem>
+                            <ToggleGroupItem
+                              value="patch"
+                              aria-label="Source patch preview"
+                              className="h-7 px-2 text-xs"
+                            >
+                              Patch
+                            </ToggleGroupItem>
+                          </ToggleGroup>
                         </div>
                       ) : null}
-                      <pre className="whitespace-pre-wrap p-3 text-xs font-mono leading-5">
-                        {selectedPreviewFile.patch}
-                      </pre>
+
+                      {commitPreviewDisplayMode === "rich" &&
+                      selectedPreviewCanRenderRichMarkdown ? (
+                        <div>
+                          {selectedPreviewFile.richContentTruncated ? (
+                            <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                              Rich markdown preview is truncated for this file.
+                            </div>
+                          ) : null}
+
+                          <div className="grid gap-3 p-3 md:grid-cols-2">
+                            <div className="min-w-0 rounded border bg-background p-3">
+                              <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                                Before
+                              </div>
+                              <ProsemarkReadOnly
+                                value={selectedPreviewFile.richOldContent ?? ""}
+                                className="text-sm leading-6"
+                              />
+                            </div>
+                            <div className="min-w-0 rounded border bg-background p-3">
+                              <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                                After
+                              </div>
+                              <ProsemarkReadOnly
+                                value={selectedPreviewFile.richNewContent ?? ""}
+                                className="text-sm leading-6"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ) : selectedPreviewFile.patch ? (
+                        <div>
+                          {selectedPreviewFile.patchTruncated ? (
+                            <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                              Patch output is truncated for this file.
+                            </div>
+                          ) : null}
+                          <pre className="whitespace-pre-wrap p-3 text-xs font-mono leading-5">
+                            {selectedPreviewFile.patch}
+                          </pre>
+                        </div>
+                      ) : (
+                        <div className="p-3 text-xs text-muted-foreground">
+                          No textual patch available for this file.
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="p-3 text-xs text-muted-foreground">
-                      No textual patch available for this file.
-                    </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>

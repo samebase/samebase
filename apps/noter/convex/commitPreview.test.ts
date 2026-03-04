@@ -74,6 +74,10 @@ describe("buildCommitPreviewFromStagedFiles", () => {
     );
 
     expect(added?.status).toBe("added");
+    expect(added?.isMarkdown).toBe(true);
+    expect(added?.richOldContent).toBe("");
+    expect(added?.richNewContent).toBe("new content");
+    expect(added?.richContentTruncated).toBe(false);
     expect(renamed?.status).toBe("renamed");
     expect(renamed?.previousPath).toBe("renamed-old.md");
     expect(renamed?.patch).toBeUndefined();
@@ -102,6 +106,10 @@ describe("buildCommitPreviewFromStagedFiles", () => {
     expect(preview.safety.truncatedPatchFileCount).toBe(1);
     expect(preview.files[0]?.patchTruncated).toBe(true);
     expect(preview.files[0]?.patch).toContain("[patch truncated]");
+    expect(preview.files[0]?.richContentTruncated).toBe(true);
+    expect(preview.files[0]?.richNewContent).toContain(
+      "[content truncated for rich preview]",
+    );
   });
 
   it("truncates across many files when total patch budget is exceeded", () => {
@@ -149,5 +157,25 @@ describe("buildCommitPreviewFromStagedFiles", () => {
     expect(preview.files[0]?.patchTruncated).toBe(false);
     expect(preview.safety.includesTruncatedPatches).toBe(false);
     expect(preview.safety.truncatedPatchFileCount).toBe(0);
+  });
+
+  it("omits rich markdown preview fields for non-markdown files", () => {
+    const preview = buildCommitPreviewFromStagedFiles({
+      stagedFiles: [
+        makeStagedFile({
+          filePath: "src/index.ts",
+          initialFilePath: "src/index.ts",
+          initialContent: "const n = 1;\n",
+          content: "const n = 2;\n",
+        }),
+      ],
+      branch: "main",
+      includePatch: true,
+    });
+
+    expect(preview.files[0]?.isMarkdown).toBe(false);
+    expect(preview.files[0]?.richOldContent).toBeUndefined();
+    expect(preview.files[0]?.richNewContent).toBeUndefined();
+    expect(preview.files[0]?.richContentTruncated).toBeUndefined();
   });
 });
