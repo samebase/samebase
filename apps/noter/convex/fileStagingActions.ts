@@ -216,6 +216,7 @@ export const renameFileInStaging = action({
     vaultId: v.id("vaults"),
     originalPath: v.string(),
     newPath: v.string(),
+    branch: v.optional(v.string()),
   },
   handler: async (
     ctx,
@@ -237,6 +238,7 @@ export const renameFileInStaging = action({
     await ctx.runAction(api.fileStagingActions.getFileForEditing, {
       repositoryFullName: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
       originalFilePath: args.originalPath,
+      branch: args.branch,
     });
 
     // Update existing staging record with new path
@@ -266,6 +268,7 @@ export const getFileForEditing = action({
   args: {
     repositoryFullName: v.string(),
     originalFilePath: v.string(),
+    branch: v.optional(v.string()),
   },
 
   handler: async (
@@ -278,6 +281,8 @@ export const getFileForEditing = action({
     branch: string;
     version: number;
   }> => {
+    const targetBranch = args.branch ?? "main";
+
     const userId = await getUserId(ctx);
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
@@ -335,8 +340,7 @@ export const getFileForEditing = action({
         const stagedFile = await ctx.runMutation(
           internal.fileStaging.saveToStaging,
           {
-            // TODO: figure out branch
-            branch: "main",
+            branch: targetBranch,
             vaultId: vault._id,
             initialFilePath: args.originalFilePath,
             content: blobFile.text,
@@ -365,6 +369,7 @@ export const getFileForEditing = action({
           owner: vault.ghRepoOwner,
           repo: vault.ghRepoName,
           path: args.originalFilePath,
+          ref: args.branch,
         });
 
         // Handle case where path is a directory (shouldn't happen in our use case)
@@ -435,8 +440,7 @@ export const getFileForEditing = action({
         const stagedFile = await ctx.runMutation(
           internal.fileStaging.saveToStaging,
           {
-            // TODO: figure out branch
-            branch: "main",
+            branch: targetBranch,
             vaultId: vault._id,
             initialFilePath: args.originalFilePath,
             content: blobFile.text,
@@ -1077,6 +1081,7 @@ export const commitAllStaged = internalAction({
     vaultId: v.id("vaults"),
     repoOwner: v.string(),
     repoName: v.string(),
+    commitProposalMessageId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1090,6 +1095,24 @@ export const commitAllStaged = internalAction({
       throw new Error("Vault not found");
     }
 
+    const updateCommitProposalStatus = async (
+      committed: boolean,
+      error?: string,
+    ) => {
+      if (!args.commitProposalMessageId) {
+        return;
+      }
+
+      await ctx.runMutation(
+        internal.chat.index.updateCommitProposalMessageCommittedInternal,
+        {
+          messageId: args.commitProposalMessageId,
+          committed,
+          error,
+        },
+      );
+    };
+
     try {
       // Get the staging record
       const changedFiles = await ctx.runQuery(api.fileStaging.listStagedFiles, {
@@ -1097,12 +1120,24 @@ export const commitAllStaged = internalAction({
       });
 
       if (!changedFiles.length) {
+        await updateCommitProposalStatus(true);
         return null;
       }
 
-      // const user = await ctx.runQuery(internal.users.getById, {
-      //   userId: args.userId,
-      // });
+      const stagedBranches = Array.from(
+        new Set(
+          changedFiles
+            .map((file) => file.branch)
+            .filter((branch): branch is string => typeof branch === "string"),
+        ),
+      );
+      const commitBranch = stagedBranches[0] ?? "main";
+      if (stagedBranches.length > 1) {
+        throw new Error(
+          `Cannot commit staged files across multiple branches: ${stagedBranches.join(", ")}`,
+        );
+      }
+
       const githubAccessToken = await getGithubAccessToken(ctx, args.userId);
 
       const octokit: Octokit = new Octokit({
@@ -1110,12 +1145,12 @@ export const commitAllStaged = internalAction({
       });
 
       // Create a commit with all staged files
-      const result = await createCommitWithMultipleFiles({
+      await createCommitWithMultipleFiles({
         octokit,
         owner: args.repoOwner,
         repo: args.repoName,
         stagedFiles: changedFiles,
-        branch: "main", // branch
+        branch: commitBranch,
       });
 
       // 1. Update the vault tree FIRST so new SHAs are available
@@ -1165,12 +1200,25 @@ export const commitAllStaged = internalAction({
         vaultId: args.vaultId,
         skipTreeUpdate: true,
       });
+
+      await updateCommitProposalStatus(true);
     } catch (error) {
+      const commitError =
+        error instanceof Error && error.message.length > 0
+          ? error.message
+          : "Commit failed";
+
+      try {
+        await updateCommitProposalStatus(false, commitError);
+      } catch (statusError) {
+        console.error("Failed updating commit proposal status:", statusError);
+      }
+
       console.error(
-        `Failed to auto-commit staged files in vault ${args.vaultId}:`,
+        `Failed to commit staged files in vault ${args.vaultId}:`,
         error,
       );
-      // Don't throw - let the system retry if needed
+      throw error;
     }
 
     return null;

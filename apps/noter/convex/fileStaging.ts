@@ -199,6 +199,13 @@ export const createFileInStaging = mutation({
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
 
+    const vault = await ctx.runQuery(internal.vault.getById, {
+      id: args.vaultId,
+    });
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
     // Check if there's already a staging record for this file
     const existingStaging = await ctx.db
       .query("fileStaging")
@@ -209,6 +216,23 @@ export const createFileInStaging = mutation({
 
     if (existingStaging) {
       throw new Error("File already exists in staging");
+    }
+
+    const existingPathInStaging = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      )
+      .first();
+    if (existingPathInStaging) {
+      throw new Error("A staged file already uses this path");
+    }
+
+    const existsInRepository = vault.treeData.tree.some(
+      (entry) => entry.type === "blob" && entry.path === args.filePath,
+    );
+    if (existsInRepository) {
+      throw new Error("File already exists in repository");
     }
 
     const currentTimestamp = Date.now();
@@ -413,6 +437,30 @@ export const rename = internalMutation({
 
     if (!file) {
       throw new Error("File not found");
+    }
+
+    if (file.filePath === args.newPath) {
+      return file;
+    }
+
+    const existingAtNewPath = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.newPath),
+      )
+      .first();
+    if (existingAtNewPath && existingAtNewPath._id !== file._id) {
+      throw new Error("A staged file already uses this path");
+    }
+
+    const existsInRepository = vault.treeData.tree.some(
+      (entry) =>
+        entry.type === "blob" &&
+        entry.path === args.newPath &&
+        entry.path !== file.initialFilePath,
+    );
+    if (existsInRepository) {
+      throw new Error("A repository file already exists at this path");
     }
 
     await ctx.db.patch(file._id, {

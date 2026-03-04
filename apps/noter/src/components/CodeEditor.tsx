@@ -107,6 +107,7 @@ export function peerExtension({
   filePath,
   setVersion,
   setPull,
+  setSyncError,
 }: {
   startVersion: number;
   repositoryFullName: string;
@@ -115,6 +116,7 @@ export function peerExtension({
   setPull: (
     pull: (updates: readonly Update[], version: number) => void,
   ) => void;
+  setSyncError: (error: string | null) => void;
 }) {
   let plugin = ViewPlugin.fromClass(
     class {
@@ -138,17 +140,36 @@ export function peerExtension({
         let version = getSyncedVersion(this.view.state);
         setVersion(version);
 
-        await pushUpdates({
-          version,
-          repositoryFullName,
-          filePath,
-          fullUpdates: updates,
-        });
-        this.pushing = false;
+        let retryDelayMs = 100;
+        try {
+          const success = await pushUpdates({
+            version,
+            repositoryFullName,
+            filePath,
+            fullUpdates: updates,
+          });
+
+          if (success) {
+            setSyncError(null);
+          } else {
+            retryDelayMs = 200;
+            setSyncError("Syncing latest remote changes...");
+          }
+        } catch (error) {
+          retryDelayMs = 1000;
+          const message =
+            error instanceof Error && error.message.length > 0
+              ? error.message
+              : "Failed to sync edits. Retrying...";
+          setSyncError(message);
+          console.error("Failed to push collaborative editor updates:", error);
+        } finally {
+          this.pushing = false;
+        }
         // Regardless of whether the push failed or new updates came in
         // while it was running, try again if there's updates remaining
         if (sendableUpdates(this.view.state).length)
-          setTimeout(() => this.push(), 100);
+          setTimeout(() => this.push(), retryDelayMs);
       }
 
       async pull(updates: readonly Update[], incomingVersion: number) {
@@ -325,6 +346,7 @@ export function CodeEditor({
   // 3 letters/digits to differentiate the mounted editor
   const idRef = useRef(Math.random().toString(36).substring(2, 5));
   const [version, setVersion] = useState(firstDoc.version);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const updates = useQuery(
     api.collaborative.pullUpdates,
@@ -386,6 +408,7 @@ export function CodeEditor({
           repositoryFullName,
           filePath,
           setVersion,
+          setSyncError,
           setPull: (pull) => {
             pullRef.current = pull;
           },
@@ -432,18 +455,29 @@ export function CodeEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileName, theme, systemTheme]); // Re-create editor when theme or filename changes (value intentionally excluded to prevent recreation on every keystroke)
 
+  useEffect(() => {
+    setSyncError(null);
+  }, [repositoryFullName, filePath]);
+
   return (
-    <div
-      ref={editorRef}
-      className="notranslate h-full w-full"
-      translate="no"
-      style={{
-        height: "100%",
-        minHeight: "400px", // Minimum height for usability
-        border: "none",
-        outline: "none",
-        boxShadow: "none",
-      }}
-    />
+    <div className="relative h-full w-full">
+      <div
+        ref={editorRef}
+        className="notranslate h-full w-full"
+        translate="no"
+        style={{
+          height: "100%",
+          minHeight: "400px", // Minimum height for usability
+          border: "none",
+          outline: "none",
+          boxShadow: "none",
+        }}
+      />
+      {syncError ? (
+        <div className="pointer-events-none absolute bottom-2 right-2 rounded bg-red-600/90 px-2 py-1 text-[11px] text-white">
+          {syncError}
+        </div>
+      ) : null}
+    </div>
   );
 }

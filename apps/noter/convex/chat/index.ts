@@ -638,6 +638,7 @@ export const confirmCommit = mutation({
         vaultId: vault._id,
         repoOwner: vault.ghRepoOwner,
         repoName: vault.ghRepoName,
+        commitProposalMessageId: args.messageId,
       },
     );
 
@@ -645,7 +646,8 @@ export const confirmCommit = mutation({
       internal.chat.index.updateCommitProposalMessageCommittedInternal,
       {
         messageId: args.messageId,
-        committed: true,
+        committed: false,
+        error: undefined,
       },
     );
 
@@ -753,6 +755,7 @@ export const updateCommitProposalMessageCommittedInternal = internalMutation({
   args: {
     messageId: string(),
     committed: boolean(),
+    error: optional(string()),
   },
   returns: vNull(),
   handler: async (ctx, args) => {
@@ -767,6 +770,7 @@ export const updateCommitProposalMessageCommittedInternal = internalMutation({
       payloadJson: JSON.stringify({
         ...parsed,
         committed: args.committed,
+        error: args.error,
       }),
     });
     return null;

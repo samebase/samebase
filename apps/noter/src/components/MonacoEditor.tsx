@@ -172,6 +172,7 @@ export function MonacoEditor({
 
   // Collab version – drives the pullUpdates subscription
   const [version, setVersion] = useState(firstDoc.version);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   // ---- Pull remote updates via Convex real-time query ----
   const remoteUpdates = useQuery(
@@ -190,18 +191,36 @@ export function MonacoEditor({
     const ver = getSyncedVersion(state);
     setVersion(ver);
 
-    await pushUpdatesToServer({
-      version: ver,
-      repositoryFullName,
-      filePath,
-      fullUpdates: pending,
-    });
+    let retryDelayMs = 100;
+    try {
+      const success = await pushUpdatesToServer({
+        version: ver,
+        repositoryFullName,
+        filePath,
+        fullUpdates: pending,
+      });
 
-    pushingRef.current = false;
+      if (success) {
+        setSyncError(null);
+      } else {
+        retryDelayMs = 200;
+        setSyncError("Syncing latest remote changes...");
+      }
+    } catch (error) {
+      retryDelayMs = 1000;
+      const message =
+        error instanceof Error && error.message.length > 0
+          ? error.message
+          : "Failed to sync edits. Retrying...";
+      setSyncError(message);
+      console.error("Failed to push collaborative Monaco updates:", error);
+    } finally {
+      pushingRef.current = false;
+    }
 
     // Retry if more updates accumulated while we were pushing
     if (sendableUpdates(cmStateRef.current).length) {
-      setTimeout(() => void pushToServer(), 100);
+      setTimeout(() => void pushToServer(), retryDelayMs);
     }
   }, [repositoryFullName, filePath]);
 
@@ -272,6 +291,10 @@ export function MonacoEditor({
     applyTsConfigFromProject(monacoRef.current, projectFiles);
   }, [projectFiles, vaultId, treeSHA]);
 
+  useEffect(() => {
+    setSyncError(null);
+  }, [repositoryFullName, filePath]);
+
   // ---- Monaco mount handler ----
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
@@ -317,7 +340,7 @@ export function MonacoEditor({
 
   return (
     <div
-      className="notranslate"
+      className="notranslate relative"
       translate="no"
       style={{
         height: "100%",
@@ -352,6 +375,11 @@ export function MonacoEditor({
           lineDecorationsWidth: isMobileViewport ? 0 : 10,
         }}
       />
+      {syncError ? (
+        <div className="pointer-events-none absolute bottom-2 right-2 rounded bg-red-600/90 px-2 py-1 text-[11px] text-white">
+          {syncError}
+        </div>
+      ) : null}
     </div>
   );
 }

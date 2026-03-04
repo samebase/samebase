@@ -258,6 +258,7 @@ function FileViewWrapper() {
       void firstDocAction({
         repositoryFullName: `${owner}/${repoName}`,
         originalFilePath: selectedFile,
+        branch,
       }).catch((error: unknown) => {
         if (isStorageBackedFileError(error)) {
           setStorageBackedSelection((previous) => ({
@@ -271,6 +272,7 @@ function FileViewWrapper() {
     }
   }, [
     selectedFile,
+    branch,
     vault,
     stagedFile,
     selectedFileExistsInTree,
@@ -376,6 +378,7 @@ function FileViewInner({
   // Command palette state
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [commitError, setCommitError] = useState<string | null>(null);
 
   // Convex hooks for staging
   const [commitStaging, manualComittingStatus] = useConvexAction(
@@ -608,6 +611,7 @@ function FileViewInner({
         vaultId: vault._id,
         originalPath,
         newPath,
+        branch,
       });
 
       // If we're currently viewing the renamed file, navigate to the new path
@@ -696,15 +700,22 @@ function FileViewInner({
 
   const handleManualCommit = useCallback(() => {
     if (!selectedFile) return;
+    setCommitError(null);
 
     void commitStaging({
       repositoryFullName: repositoryFullName,
     }).catch((error) => {
       console.error("Failed to commit changes:", error);
+      const message =
+        error instanceof Error && error.message.length > 0
+          ? error.message
+          : "Commit failed";
+      setCommitError(message);
     });
-  }, [commitStaging, repositoryFullName]);
+  }, [commitStaging, repositoryFullName, selectedFile]);
 
   const handleResetToGitHub = useCallback(() => {
+    setCommitError(null);
     void clearAllStaging({
       vaultId: vault._id,
     }).catch((error) => {
@@ -1054,6 +1065,11 @@ function FileViewInner({
                   </Button>
                 </div>
               </div>
+              {commitError ? (
+                <div className="mb-3 rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">
+                  Commit failed: {commitError}
+                </div>
+              ) : null}
 
               {viewMode === "editor" && vault && isPreviewOpen && (
                 <DaytonaPreviewPanel vaultId={vault._id} className="mb-4" />
