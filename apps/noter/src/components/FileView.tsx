@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -1183,6 +1184,9 @@ function FileViewInner({
         <DialogContent className="max-w-6xl">
           <DialogHeader>
             <DialogTitle>Commit Preview</DialogTitle>
+            <DialogDescription>
+              Review staged diffs before committing these changes.
+            </DialogDescription>
           </DialogHeader>
 
           {commitPreviewStatus === "loading" && commitPreview === null ? (
