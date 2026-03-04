@@ -1229,10 +1229,14 @@ function FileViewInner({
                 </span>
                 {" · "}
                 {commitPreview.totals.files} files
-                {" · +"}
-                {commitPreview.totals.additions}
-                {" / -"}
-                {commitPreview.totals.deletions}
+                {" · "}
+                <span className="text-emerald-600 dark:text-emerald-400">
+                  +{commitPreview.totals.additions}
+                </span>
+                {" / "}
+                <span className="text-rose-600 dark:text-rose-400">
+                  -{commitPreview.totals.deletions}
+                </span>
                 {commitPreview.hasDestructiveChanges
                   ? " · includes deletions"
                   : ""}
@@ -1271,7 +1275,13 @@ function FileViewInner({
                             </div>
                           ) : null}
                           <div className="text-muted-foreground">
-                            +{file.additions} / -{file.deletions}
+                            <span className="text-emerald-600 dark:text-emerald-400">
+                              +{file.additions}
+                            </span>
+                            {" / "}
+                            <span className="text-rose-600 dark:text-rose-400">
+                              -{file.deletions}
+                            </span>
                             {file.patchTruncated ? " · patch truncated" : ""}
                           </div>
                         </button>
@@ -1324,8 +1334,8 @@ function FileViewInner({
                           ) : null}
 
                           <div className="grid gap-3 p-3 md:grid-cols-2">
-                            <div className="min-w-0 rounded border bg-background p-3">
-                              <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                            <div className="min-w-0 rounded border border-rose-200/80 bg-rose-50/40 p-3 dark:border-rose-900/60 dark:bg-rose-950/20">
+                              <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">
                                 Before
                               </div>
                               <ProsemarkReadOnly
@@ -1333,8 +1343,8 @@ function FileViewInner({
                                 className="text-sm leading-6"
                               />
                             </div>
-                            <div className="min-w-0 rounded border bg-background p-3">
-                              <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                            <div className="min-w-0 rounded border border-emerald-200/80 bg-emerald-50/40 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/20">
+                              <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
                                 After
                               </div>
                               <ProsemarkReadOnly
