@@ -322,8 +322,8 @@ export function MonacoEditor({
       style={{
         height: "100%",
         minHeight: "400px",
-        width: isMobileViewport ? "calc(100% + 2rem)" : "100%",
-        marginInline: isMobileViewport ? "-1rem" : "0",
+        width: isMobileViewport ? "100vw" : "100%",
+        marginInline: isMobileViewport ? "calc(50% - 50vw)" : "0",
       }}
     >
       <Editor
