@@ -54,16 +54,13 @@ function WaitlistForm() {
   if (submitted) {
     return (
       <p className="text-sm text-muted-foreground text-center">
-        You're in the queue! We'll reach out when a spot opens up.
+        You're on the waitlist. We'll reach out when a spot opens up.
       </p>
     );
   }
 
   return (
     <div className="flex flex-col gap-2 pt-2 border-t">
-      <p className="text-sm text-muted-foreground text-center">
-        Usage is invite-only. Join the queue to get access.
-      </p>
       <form
         className="flex gap-2"
         onSubmit={(e) => {
@@ -82,7 +79,7 @@ function WaitlistForm() {
           required
         />
         <Button type="submit" variant="outline" className="shrink-0">
-          Join queue
+          Join Waitlist
         </Button>
       </form>
     </div>
