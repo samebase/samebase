@@ -1,4 +1,4 @@
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { useAction, useMutation, useQuery as useLiveQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
@@ -314,6 +314,7 @@ function FileViewInner({
   const { setOpenMobile } = useSidebar();
 
   const navigate = useNavigate();
+  const { search } = useLocation();
 
   // Get current user for sidebar
   const user = useQuery(api.users.viewer);
@@ -416,6 +417,10 @@ function FileViewInner({
   const [simpleViewMode, setSimpleViewMode] = useState<"simple" | "all">("all");
 
   const createFileInStaging = useMutation(api.fileStaging.createFileInStaging);
+  const showMobileEditorLineNumbers = useMemo(() => {
+    const params = new URLSearchParams(search);
+    return params.get("mobileLineNumbers") === "1";
+  }, [search]);
 
   // Add command palette keyboard shortcut handler
   useEffect(() => {
@@ -1066,6 +1071,7 @@ function FileViewInner({
                       vaultId={vault._id}
                       tree={vault.treeData.tree}
                       treeSHA={vault.treeSHA}
+                      showMobileLineNumbers={showMobileEditorLineNumbers}
                     />
                   )
                 ) : (

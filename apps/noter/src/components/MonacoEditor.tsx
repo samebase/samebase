@@ -20,10 +20,8 @@ import {
   parseTsConfig,
   applyTsConfigToMonaco,
 } from "./monaco/setupEditor";
-import {
-  useProjectFiles,
-  type ProjectFile,
-} from "@/hooks/useProjectFiles";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useProjectFiles, type ProjectFile } from "@/hooks/useProjectFiles";
 
 // ---------------------------------------------------------------------------
 // Collab helpers (shared logic with CodeEditor.tsx)
@@ -127,6 +125,7 @@ export function MonacoEditor({
   vaultId,
   tree,
   treeSHA,
+  showMobileLineNumbers = false,
 }: {
   firstDoc: { version: number; content: string };
   repositoryFullName: string;
@@ -134,10 +133,12 @@ export function MonacoEditor({
   vaultId: Id<"vaults">;
   tree: GithubTreeType[];
   treeSHA: string;
+  showMobileLineNumbers?: boolean;
 }) {
   const { theme, systemTheme } = useTheme();
   const effectiveTheme = theme === "system" ? systemTheme : theme;
   const isDark = effectiveTheme === "dark";
+  const isMobileViewport = useIsMobile();
 
   // ---- Project files for import resolution ----
   const { files: projectFiles } = useProjectFiles(
@@ -208,10 +209,12 @@ export function MonacoEditor({
   useEffect(() => {
     if (!remoteUpdates?.length || !editorRef.current) return;
 
-    const cmUpdates: Update[] = remoteUpdates.map((u: (typeof remoteUpdates)[number]) => ({
-      changes: ChangeSet.fromJSON(JSON.parse(u.changes)),
-      clientID: u.clientID,
-    }));
+    const cmUpdates: Update[] = remoteUpdates.map(
+      (u: (typeof remoteUpdates)[number]) => ({
+        changes: ChangeSet.fromJSON(JSON.parse(u.changes)),
+        clientID: u.clientID,
+      }),
+    );
 
     // Apply to headless CM (handles OT rebasing of any unconfirmed local edits)
     const spec = receiveUpdates(cmStateRef.current, cmUpdates);
@@ -306,11 +309,22 @@ export function MonacoEditor({
     });
   };
 
+  const lineNumbersMode = isMobileViewport
+    ? showMobileLineNumbers
+      ? "on"
+      : "off"
+    : "on";
+
   return (
     <div
       className="notranslate"
       translate="no"
-      style={{ height: "100%", minHeight: "400px" }}
+      style={{
+        height: "100%",
+        minHeight: "400px",
+        width: isMobileViewport ? "100vw" : "100%",
+        marginInline: isMobileViewport ? "calc(50% - 50vw)" : "0",
+      }}
     >
       <Editor
         height="100%"
@@ -320,11 +334,24 @@ export function MonacoEditor({
         onMount={handleMount}
         options={{
           minimap: { enabled: false },
-          scrollbar: { alwaysConsumeMouseWheel: false },
+          scrollbar: {
+            alwaysConsumeMouseWheel: false,
+            vertical: isMobileViewport ? "hidden" : "auto",
+            verticalScrollbarSize: isMobileViewport ? 0 : 10,
+            horizontalScrollbarSize: 10,
+          },
+          overviewRulerLanes: isMobileViewport ? 0 : 2,
+          overviewRulerBorder: false,
+          hideCursorInOverviewRuler: true,
           scrollBeyondLastLine: false,
           wordWrap: "on",
           fontSize: 14,
           tabSize: 2,
+          lineNumbers: lineNumbersMode,
+          lineNumbersMinChars: isMobileViewport ? 2 : 3,
+          glyphMargin: false,
+          folding: !isMobileViewport,
+          lineDecorationsWidth: isMobileViewport ? 0 : 10,
         }}
       />
     </div>

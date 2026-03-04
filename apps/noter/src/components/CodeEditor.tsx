@@ -268,6 +268,7 @@ export function CodeEditorWrapper({
   vaultId,
   tree,
   treeSHA,
+  showMobileLineNumbers = false,
 }: {
   repositoryFullName: string;
   filePath: string;
@@ -278,6 +279,7 @@ export function CodeEditorWrapper({
   vaultId: Id<"vaults">;
   tree: GithubTreeType[];
   treeSHA: string;
+  showMobileLineNumbers?: boolean;
 }) {
   if (isProseFile(filePath)) {
     return (
@@ -299,6 +301,7 @@ export function CodeEditorWrapper({
       vaultId={vaultId}
       tree={tree}
       treeSHA={treeSHA}
+      showMobileLineNumbers={showMobileLineNumbers}
     />
   );
 }
