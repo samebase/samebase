@@ -8,6 +8,7 @@ import {
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { getUserId } from "./common";
+import type { GithubTreeType } from "./schema";
 
 export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
 
@@ -229,7 +230,8 @@ export const createFileInStaging = mutation({
     }
 
     const existsInRepository = vault.treeData.tree.some(
-      (entry) => entry.type === "blob" && entry.path === args.filePath,
+      (entry: GithubTreeType) =>
+        entry.type === "blob" && entry.path === args.filePath,
     );
     if (existsInRepository) {
       throw new Error("File already exists in repository");
@@ -454,7 +456,7 @@ export const rename = internalMutation({
     }
 
     const existsInRepository = vault.treeData.tree.some(
-      (entry) =>
+      (entry: GithubTreeType) =>
         entry.type === "blob" &&
         entry.path === args.newPath &&
         entry.path !== file.initialFilePath,

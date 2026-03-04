@@ -1,10 +1,10 @@
 "use node";
 
 import { action, internalAction, type ActionCtx } from "./_generated/server";
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
-import { diffLines } from "diff";
+import { createTwoFilesPatch, diffLines } from "diff";
 import { getUserId } from "./common";
 import type { Id } from "./_generated/dataModel";
 import {
@@ -206,6 +206,97 @@ function rememberRateLimitResetAtMs(userId: string, error: unknown): number {
     Date.now() + RATE_LIMIT_COOLDOWN_FALLBACK_MS;
   githubRateLimitResetByUser.set(userId, resetAtMs);
   return resetAtMs;
+}
+
+const commitPreviewFileStatus = v.union(
+  v.literal("added"),
+  v.literal("modified"),
+  v.literal("deleted"),
+  v.literal("renamed"),
+);
+
+const commitPreviewFile = v.object({
+  status: commitPreviewFileStatus,
+  path: v.string(),
+  previousPath: v.optional(v.string()),
+  additions: v.number(),
+  deletions: v.number(),
+  oldLineCount: v.number(),
+  newLineCount: v.number(),
+  isMarkdown: v.boolean(),
+  patch: v.optional(v.string()),
+});
+
+const commitPreviewTotals = v.object({
+  files: v.number(),
+  added: v.number(),
+  modified: v.number(),
+  deleted: v.number(),
+  renamed: v.number(),
+  additions: v.number(),
+  deletions: v.number(),
+});
+
+const commitPreviewResult = v.object({
+  branch: v.string(),
+  hasDestructiveChanges: v.boolean(),
+  files: v.array(commitPreviewFile),
+  totals: commitPreviewTotals,
+});
+
+type CommitPreviewFile = Infer<typeof commitPreviewFile>;
+type CommitPreviewTotals = Infer<typeof commitPreviewTotals>;
+type CommitPreviewResult = Infer<typeof commitPreviewResult>;
+
+type StagedFileForCommit = {
+  filePath: string;
+  initialFilePath: string;
+  content: string;
+  initialContent: string;
+  fileDeleted: boolean;
+  parentCommitSha: string | null;
+  branch: string;
+};
+
+function countLines(content: string): number {
+  if (content.length === 0) return 0;
+  return content.split("\n").length;
+}
+
+function computeLineStats(
+  oldContent: string,
+  newContent: string,
+): {
+  additions: number;
+  deletions: number;
+} {
+  const parts = diffLines(oldContent, newContent);
+  let additions = 0;
+  let deletions = 0;
+
+  for (const part of parts) {
+    const value = part.value ?? "";
+    const lineCount =
+      typeof part.count === "number"
+        ? part.count
+        : value.length === 0
+          ? 0
+          : value.split("\n").length;
+
+    if (part.added) additions += lineCount;
+    if (part.removed) deletions += lineCount;
+  }
+
+  return { additions, deletions };
+}
+
+function isMarkdownPath(path: string): boolean {
+  const lower = path.toLowerCase();
+  return (
+    lower.endsWith(".md") ||
+    lower.endsWith(".mdx") ||
+    lower.endsWith(".markdown")
+  );
 }
 
 // MARK: Public
@@ -843,6 +934,118 @@ export const batchReadFiles = action({
   },
 });
 
+export const getCommitPreview = action({
+  args: {
+    repositoryFullName: v.string(),
+    includePatch: v.optional(v.boolean()),
+  },
+  returns: commitPreviewResult,
+  handler: async (ctx, args): Promise<CommitPreviewResult> => {
+    const userId = await getUserId(ctx);
+    const includePatch = args.includePatch ?? true;
+
+    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
+    const stagedFiles: StagedFileForCommit[] = await ctx.runQuery(
+      api.fileStaging.listStagedFiles,
+      {
+        vaultId: vault._id,
+      },
+    );
+
+    const stagedBranches: string[] = Array.from(
+      new Set(
+        stagedFiles
+          .map((file: StagedFileForCommit) => file.branch)
+          .filter((branch): branch is string => typeof branch === "string"),
+      ),
+    );
+    if (stagedBranches.length > 1) {
+      throw new Error(
+        `Cannot preview staged files across multiple branches: ${stagedBranches.join(", ")}`,
+      );
+    }
+    const branch = stagedBranches[0] ?? "main";
+
+    const files: CommitPreviewFile[] = stagedFiles.map(
+      (file: StagedFileForCommit) => {
+        const oldContent = file.initialContent ?? "";
+        const newContent = file.fileDeleted ? "" : file.content ?? "";
+        const renamed = file.filePath !== file.initialFilePath;
+        const status = file.fileDeleted
+          ? ("deleted" as const)
+          : file.parentCommitSha === null
+            ? ("added" as const)
+            : renamed
+              ? ("renamed" as const)
+              : ("modified" as const);
+        const lineStats = computeLineStats(oldContent, newContent);
+        const patch =
+          includePatch && !(status === "renamed" && oldContent === newContent)
+            ? createTwoFilesPatch(
+                file.initialFilePath,
+                file.filePath,
+                oldContent,
+                newContent,
+                "",
+                "",
+                { context: 3 },
+              )
+            : undefined;
+
+        return {
+          status,
+          path: file.filePath,
+          previousPath: renamed ? file.initialFilePath : undefined,
+          additions: lineStats.additions,
+          deletions: lineStats.deletions,
+          oldLineCount: countLines(oldContent),
+          newLineCount: countLines(newContent),
+          isMarkdown: isMarkdownPath(file.filePath),
+          patch,
+        };
+      },
+    );
+
+    const totals = files.reduce<CommitPreviewTotals>(
+      (acc, file) => {
+        acc.files += 1;
+        acc.additions += file.additions;
+        acc.deletions += file.deletions;
+
+        if (file.status === "added") acc.added += 1;
+        if (file.status === "modified") acc.modified += 1;
+        if (file.status === "deleted") acc.deleted += 1;
+        if (file.status === "renamed") acc.renamed += 1;
+
+        return acc;
+      },
+      {
+        files: 0,
+        added: 0,
+        modified: 0,
+        deleted: 0,
+        renamed: 0,
+        additions: 0,
+        deletions: 0,
+      },
+    );
+
+    return {
+      branch,
+      hasDestructiveChanges: totals.deleted > 0,
+      files,
+      totals,
+    };
+  },
+});
+
 // MARK: Internal
 
 // Helper function to create a commit with multiple files
@@ -1115,23 +1318,26 @@ export const commitAllStaged = internalAction({
 
     try {
       // Get the staging record
-      const changedFiles = await ctx.runQuery(api.fileStaging.listStagedFiles, {
-        vaultId: args.vaultId,
-      });
+      const changedFiles: StagedFileForCommit[] = await ctx.runQuery(
+        api.fileStaging.listStagedFiles,
+        {
+          vaultId: args.vaultId,
+        },
+      );
 
       if (!changedFiles.length) {
         await updateCommitProposalStatus(true);
         return null;
       }
 
-      const stagedBranches = Array.from(
+      const stagedBranches: string[] = Array.from(
         new Set(
           changedFiles
-            .map((file) => file.branch)
+            .map((file: StagedFileForCommit) => file.branch)
             .filter((branch): branch is string => typeof branch === "string"),
         ),
       );
-      const commitBranch = stagedBranches[0] ?? "main";
+      const commitBranch: string = stagedBranches[0] ?? "main";
       if (stagedBranches.length > 1) {
         throw new Error(
           `Cannot commit staged files across multiple branches: ${stagedBranches.join(", ")}`,

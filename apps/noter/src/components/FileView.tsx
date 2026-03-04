@@ -9,6 +9,12 @@ import {
   type AgentGraphNode,
 } from "@/components/AgentGraphView";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
@@ -32,7 +38,11 @@ import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
 import { useSidebar } from "@/components/ui/sidebar";
 import { UserMenu } from "@/components/UserMenu";
 import { linkStyle } from "./styles";
-import { useConvexAction, useConvexMutation } from "@/lib/convexUtils";
+import {
+  GetFunctionReferenceReturnType,
+  useConvexAction,
+  useConvexMutation,
+} from "@/lib/convexUtils";
 import { DialogProvider } from "@/contexts/DialogContext";
 import { useDialog } from "@/hooks/useDialog";
 import { FileCreationDialog } from "@/components/FileCreationDialog";
@@ -75,6 +85,10 @@ function findBestInitialFile(files: GithubTreeType[]) {
   const sortedFiles = fileList.sort((a, b) => a.path.localeCompare(b.path));
   return sortedFiles[0]?.path || null;
 }
+
+type CommitPreview = GetFunctionReferenceReturnType<
+  typeof api.fileStagingActions.getCommitPreview
+>;
 
 type RefreshTrigger = "focus" | "page_load";
 
@@ -379,10 +393,23 @@ function FileViewInner({
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
+  const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
+  const [commitPreview, setCommitPreview] = useState<CommitPreview | null>(
+    null,
+  );
+  const [selectedPreviewPath, setSelectedPreviewPath] = useState<string | null>(
+    null,
+  );
+  const [commitPreviewError, setCommitPreviewError] = useState<string | null>(
+    null,
+  );
 
   // Convex hooks for staging
   const [commitStaging, manualComittingStatus] = useConvexAction(
     api.fileStagingActions.commitStaging,
+  );
+  const [getCommitPreview, commitPreviewStatus] = useConvexAction(
+    api.fileStagingActions.getCommitPreview,
   );
   const [clearAllStaging, clearingStagingStatus] = useConvexMutation(
     api.fileStaging.clearAllStaging,
@@ -723,6 +750,32 @@ function FileViewInner({
     });
   }, [clearAllStaging, vault._id]);
 
+  const loadCommitPreview = useCallback(() => {
+    setCommitPreviewError(null);
+    return getCommitPreview({
+      repositoryFullName,
+      includePatch: true,
+    })
+      .then((preview) => {
+        setCommitPreview(preview);
+        setSelectedPreviewPath(preview.files[0]?.path ?? null);
+      })
+      .catch((error) => {
+        const message =
+          error instanceof Error && error.message.length > 0
+            ? error.message
+            : "Failed to load commit preview";
+        setCommitPreviewError(message);
+      });
+  }, [getCommitPreview, repositoryFullName]);
+
+  const handleOpenReviewDialog = useCallback(() => {
+    setIsReviewDialogOpen(true);
+    setCommitPreview(null);
+    setSelectedPreviewPath(null);
+    void loadCommitPreview();
+  }, [loadCommitPreview]);
+
   const handleFolderToggle = useCallback(
     (folderPath: string, isExpanded: boolean) => {
       void setFolderExpansionState({
@@ -737,6 +790,11 @@ function FileViewInner({
   if (!owner || !repoName) {
     void navigate("/");
   }
+
+  const selectedPreviewFile =
+    commitPreview?.files.find((file) => file.path === selectedPreviewPath) ??
+    commitPreview?.files[0] ??
+    null;
 
   const finalTreeData = useMemo(() => {
     const treeItems = vault.treeData.tree
@@ -1031,6 +1089,20 @@ function FileViewInner({
 
                   <Button
                     size="sm"
+                    variant="outline"
+                    onClick={handleOpenReviewDialog}
+                    disabled={
+                      !hasChangesToCommit || commitPreviewStatus === "loading"
+                    }
+                    className="h-6 px-2 text-xs"
+                  >
+                    {commitPreviewStatus === "loading" && isReviewDialogOpen
+                      ? "Loading..."
+                      : "Review Changes"}
+                  </Button>
+
+                  <Button
+                    size="sm"
                     variant={hasChangesToCommit ? "default" : "outline"}
                     onClick={handleManualCommit}
                     disabled={
@@ -1106,6 +1178,97 @@ function FileViewInner({
           </div>
         </div>
       </SidebarInset>
+
+      <Dialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
+        <DialogContent className="max-w-6xl">
+          <DialogHeader>
+            <DialogTitle>Commit Preview</DialogTitle>
+          </DialogHeader>
+
+          {commitPreviewStatus === "loading" && commitPreview === null ? (
+            <div className="py-8 text-sm text-muted-foreground">
+              Loading commit preview...
+            </div>
+          ) : null}
+
+          {commitPreviewError ? (
+            <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {commitPreviewError}
+            </div>
+          ) : null}
+
+          {commitPreview ? (
+            <div className="space-y-3">
+              <div className="text-xs text-muted-foreground">
+                Branch:{" "}
+                <span className="font-mono text-foreground">
+                  {commitPreview.branch}
+                </span>
+                {" · "}
+                {commitPreview.totals.files} files
+                {" · +"}
+                {commitPreview.totals.additions}
+                {" / -"}
+                {commitPreview.totals.deletions}
+                {commitPreview.hasDestructiveChanges
+                  ? " · includes deletions"
+                  : ""}
+              </div>
+
+              <div className="grid max-h-[65vh] gap-3 overflow-hidden md:grid-cols-[280px_minmax(0,1fr)]">
+                <div className="overflow-auto rounded border">
+                  {commitPreview.files.length === 0 ? (
+                    <div className="p-3 text-xs text-muted-foreground">
+                      No staged changes.
+                    </div>
+                  ) : (
+                    <div className="divide-y">
+                      {commitPreview.files.map((file) => (
+                        <button
+                          key={`${file.status}:${file.path}:${file.previousPath ?? ""}`}
+                          onClick={() => setSelectedPreviewPath(file.path)}
+                          className={`w-full px-3 py-2 text-left text-xs hover:bg-muted/40 ${
+                            selectedPreviewFile?.path === file.path
+                              ? "bg-muted/50"
+                              : ""
+                          }`}
+                        >
+                          <div className="font-mono text-foreground">
+                            {file.status === "added" && "A"}
+                            {file.status === "modified" && "M"}
+                            {file.status === "deleted" && "D"}
+                            {file.status === "renamed" && "R"} {file.path}
+                          </div>
+                          {file.previousPath ? (
+                            <div className="text-muted-foreground">
+                              from {file.previousPath}
+                            </div>
+                          ) : null}
+                          <div className="text-muted-foreground">
+                            +{file.additions} / -{file.deletions}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="overflow-auto rounded border bg-muted/20">
+                  {selectedPreviewFile?.patch ? (
+                    <pre className="whitespace-pre-wrap p-3 text-xs font-mono leading-5">
+                      {selectedPreviewFile.patch}
+                    </pre>
+                  ) : (
+                    <div className="p-3 text-xs text-muted-foreground">
+                      No textual patch available for this file.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       {/* File Creation Dialog */}
       {fileCreationDialog.isOpen && (
