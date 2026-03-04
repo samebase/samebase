@@ -77,6 +77,7 @@ function findBestInitialFile(files: GithubTreeType[]) {
 }
 
 type RefreshTrigger = "focus" | "page_load";
+const SHOW_MOBILE_EDITOR_LINE_NUMBERS = false;
 
 function isStorageBackedFileError(error: unknown): boolean {
   return (
@@ -1066,6 +1067,7 @@ function FileViewInner({
                       vaultId={vault._id}
                       tree={vault.treeData.tree}
                       treeSHA={vault.treeSHA}
+                      showMobileLineNumbers={SHOW_MOBILE_EDITOR_LINE_NUMBERS}
                     />
                   )
                 ) : (
