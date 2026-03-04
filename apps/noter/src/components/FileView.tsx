@@ -1213,6 +1213,9 @@ function FileViewInner({
                 {commitPreview.hasDestructiveChanges
                   ? " · includes deletions"
                   : ""}
+                {commitPreview.safety.includesTruncatedPatches
+                  ? ` · ${commitPreview.safety.truncatedPatchFileCount} patch${commitPreview.safety.truncatedPatchFileCount === 1 ? "" : "es"} truncated`
+                  : ""}
               </div>
 
               <div className="grid max-h-[65vh] gap-3 overflow-hidden md:grid-cols-[280px_minmax(0,1fr)]">
@@ -1246,6 +1249,7 @@ function FileViewInner({
                           ) : null}
                           <div className="text-muted-foreground">
                             +{file.additions} / -{file.deletions}
+                            {file.patchTruncated ? " · patch truncated" : ""}
                           </div>
                         </button>
                       ))}
@@ -1255,9 +1259,16 @@ function FileViewInner({
 
                 <div className="overflow-auto rounded border bg-muted/20">
                   {selectedPreviewFile?.patch ? (
-                    <pre className="whitespace-pre-wrap p-3 text-xs font-mono leading-5">
-                      {selectedPreviewFile.patch}
-                    </pre>
+                    <div>
+                      {selectedPreviewFile.patchTruncated ? (
+                        <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                          Patch output is truncated for this file.
+                        </div>
+                      ) : null}
+                      <pre className="whitespace-pre-wrap p-3 text-xs font-mono leading-5">
+                        {selectedPreviewFile.patch}
+                      </pre>
+                    </div>
                   ) : (
                     <div className="p-3 text-xs text-muted-foreground">
                       No textual patch available for this file.

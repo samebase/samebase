@@ -224,6 +224,7 @@ const commitPreviewFile = v.object({
   oldLineCount: v.number(),
   newLineCount: v.number(),
   isMarkdown: v.boolean(),
+  patchTruncated: v.boolean(),
   patch: v.optional(v.string()),
 });
 
@@ -242,6 +243,11 @@ const commitPreviewResult = v.object({
   hasDestructiveChanges: v.boolean(),
   files: v.array(commitPreviewFile),
   totals: commitPreviewTotals,
+  safety: v.object({
+    destructiveFileCount: v.number(),
+    truncatedPatchFileCount: v.number(),
+    includesTruncatedPatches: v.boolean(),
+  }),
 });
 
 type CommitPreviewFile = Infer<typeof commitPreviewFile>;
@@ -257,6 +263,9 @@ type StagedFileForCommit = {
   parentCommitSha: string | null;
   branch: string;
 };
+
+const MAX_COMMIT_PREVIEW_PATCH_CHARS_PER_FILE = 25_000;
+const MAX_COMMIT_PREVIEW_PATCH_CHARS_TOTAL = 150_000;
 
 function countLines(content: string): number {
   if (content.length === 0) return 0;
@@ -297,6 +306,122 @@ function isMarkdownPath(path: string): boolean {
     lower.endsWith(".mdx") ||
     lower.endsWith(".markdown")
   );
+}
+
+export function buildCommitPreviewFromStagedFiles({
+  stagedFiles,
+  branch,
+  includePatch,
+}: {
+  stagedFiles: StagedFileForCommit[];
+  branch: string;
+  includePatch: boolean;
+}): CommitPreviewResult {
+  const files: CommitPreviewFile[] = [];
+  let totalPatchChars = 0;
+  let truncatedPatchFileCount = 0;
+
+  for (const file of stagedFiles) {
+    const oldContent = file.initialContent ?? "";
+    const newContent = file.fileDeleted ? "" : file.content ?? "";
+    const renamed = file.filePath !== file.initialFilePath;
+    const status = file.fileDeleted
+      ? ("deleted" as const)
+      : file.parentCommitSha === null
+        ? ("added" as const)
+        : renamed
+          ? ("renamed" as const)
+          : ("modified" as const);
+    const lineStats = computeLineStats(oldContent, newContent);
+
+    let patch: string | undefined;
+    let patchTruncated = false;
+    if (includePatch && !(status === "renamed" && oldContent === newContent)) {
+      const fullPatch = createTwoFilesPatch(
+        file.initialFilePath,
+        file.filePath,
+        oldContent,
+        newContent,
+        "",
+        "",
+        { context: 3 },
+      );
+      let boundedPatch = fullPatch;
+      if (boundedPatch.length > MAX_COMMIT_PREVIEW_PATCH_CHARS_PER_FILE) {
+        boundedPatch = `${boundedPatch.slice(0, MAX_COMMIT_PREVIEW_PATCH_CHARS_PER_FILE)}\n... [patch truncated]`;
+        patchTruncated = true;
+      }
+
+      const remainingBudget = Math.max(
+        0,
+        MAX_COMMIT_PREVIEW_PATCH_CHARS_TOTAL - totalPatchChars,
+      );
+      if (boundedPatch.length > remainingBudget) {
+        if (remainingBudget > 0) {
+          boundedPatch = `${boundedPatch.slice(0, remainingBudget)}\n... [patch truncated]`;
+        } else {
+          boundedPatch = "... [patch truncated]";
+        }
+        patchTruncated = true;
+      }
+
+      patch = boundedPatch;
+      totalPatchChars += patch.length;
+    }
+
+    if (patchTruncated) {
+      truncatedPatchFileCount += 1;
+    }
+
+    files.push({
+      status,
+      path: file.filePath,
+      previousPath: renamed ? file.initialFilePath : undefined,
+      additions: lineStats.additions,
+      deletions: lineStats.deletions,
+      oldLineCount: countLines(oldContent),
+      newLineCount: countLines(newContent),
+      isMarkdown: isMarkdownPath(file.filePath),
+      patchTruncated,
+      patch,
+    });
+  }
+
+  const totals = files.reduce<CommitPreviewTotals>(
+    (acc, file) => {
+      acc.files += 1;
+      acc.additions += file.additions;
+      acc.deletions += file.deletions;
+
+      if (file.status === "added") acc.added += 1;
+      if (file.status === "modified") acc.modified += 1;
+      if (file.status === "deleted") acc.deleted += 1;
+      if (file.status === "renamed") acc.renamed += 1;
+
+      return acc;
+    },
+    {
+      files: 0,
+      added: 0,
+      modified: 0,
+      deleted: 0,
+      renamed: 0,
+      additions: 0,
+      deletions: 0,
+    },
+  );
+
+  return {
+    branch,
+    hasDestructiveChanges: totals.deleted > 0,
+    files,
+    totals,
+    safety: {
+      destructiveFileCount: totals.deleted,
+      truncatedPatchFileCount,
+      includesTruncatedPatches: truncatedPatchFileCount > 0,
+    },
+  };
 }
 
 // MARK: Public
@@ -973,76 +1098,11 @@ export const getCommitPreview = action({
     }
     const branch = stagedBranches[0] ?? "main";
 
-    const files: CommitPreviewFile[] = stagedFiles.map(
-      (file: StagedFileForCommit) => {
-        const oldContent = file.initialContent ?? "";
-        const newContent = file.fileDeleted ? "" : file.content ?? "";
-        const renamed = file.filePath !== file.initialFilePath;
-        const status = file.fileDeleted
-          ? ("deleted" as const)
-          : file.parentCommitSha === null
-            ? ("added" as const)
-            : renamed
-              ? ("renamed" as const)
-              : ("modified" as const);
-        const lineStats = computeLineStats(oldContent, newContent);
-        const patch =
-          includePatch && !(status === "renamed" && oldContent === newContent)
-            ? createTwoFilesPatch(
-                file.initialFilePath,
-                file.filePath,
-                oldContent,
-                newContent,
-                "",
-                "",
-                { context: 3 },
-              )
-            : undefined;
-
-        return {
-          status,
-          path: file.filePath,
-          previousPath: renamed ? file.initialFilePath : undefined,
-          additions: lineStats.additions,
-          deletions: lineStats.deletions,
-          oldLineCount: countLines(oldContent),
-          newLineCount: countLines(newContent),
-          isMarkdown: isMarkdownPath(file.filePath),
-          patch,
-        };
-      },
-    );
-
-    const totals = files.reduce<CommitPreviewTotals>(
-      (acc, file) => {
-        acc.files += 1;
-        acc.additions += file.additions;
-        acc.deletions += file.deletions;
-
-        if (file.status === "added") acc.added += 1;
-        if (file.status === "modified") acc.modified += 1;
-        if (file.status === "deleted") acc.deleted += 1;
-        if (file.status === "renamed") acc.renamed += 1;
-
-        return acc;
-      },
-      {
-        files: 0,
-        added: 0,
-        modified: 0,
-        deleted: 0,
-        renamed: 0,
-        additions: 0,
-        deletions: 0,
-      },
-    );
-
-    return {
+    return buildCommitPreviewFromStagedFiles({
+      stagedFiles,
       branch,
-      hasDestructiveChanges: totals.deleted > 0,
-      files,
-      totals,
-    };
+      includePatch,
+    });
   },
 });
 
