@@ -1,4 +1,4 @@
 - Noter is a collaborative markdown workspace on top of GitHub
 - Junior devs, senior stack
 - If Notion and Obsidian had a baby
-- if Lovable was good enough to be built in itself
+- If Lovable was good enough to be built in itself
