@@ -108,7 +108,7 @@ allowlist_extra_domains = []
 allowed_http_methods = ["GET", "HEAD", "OPTIONS"]
 
 [repos]
-default_repo = "nicu/noter"
+default_repo = "nicu-chiciuc/noter"
 default_branch = "main"
 ```
 
