@@ -319,6 +319,8 @@ Auth:
   chat context.
 - For this operator, keep responses concise by default and always include a
   final `Summary` section.
+- Format documents you write with Prettier by default so markdown/docs do not
+  require manual cleanup.
 - Default to persisting user-visible UI state in Convex (per-user settings) so
   it syncs across devices; avoid localStorage unless explicitly requested for
   per-device behavior.
