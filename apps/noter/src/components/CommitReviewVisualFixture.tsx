@@ -112,10 +112,8 @@ const RENAMED_PATCH = `Index: src/new-name.ts
  export const enabled = true;
 `;
 
-type FixtureStatus = CommitReviewFileStatus;
-
 type FixtureFile = {
-  status: FixtureStatus;
+  status: CommitReviewFileStatus;
   path: string;
   previousPath?: string;
   additions: number;
