@@ -38,7 +38,6 @@ import {
 } from "./metadata";
 import { assertProdReadAccess, hashText } from "./prodAccess";
 import { ensureThreadAccess, getThreadById } from "./threads";
-import { commitConflictReasonValidator } from "../commitConflictValidator";
 
 const {
   string,
@@ -638,7 +637,6 @@ export const confirmCommit = mutation({
         committed: false,
         committing: true,
         error: undefined,
-        conflicts: [],
       },
     );
 
@@ -667,7 +665,6 @@ export const confirmCommit = mutation({
           committed: false,
           committing: false,
           error: commitError,
-          conflicts: [],
         },
       );
 
@@ -780,14 +777,6 @@ export const updateCommitProposalMessageCommittedInternal = internalMutation({
     committed: boolean(),
     committing: optional(boolean()),
     error: optional(string()),
-    conflicts: optional(
-      array(
-        object({
-          path: string(),
-          reason: commitConflictReasonValidator,
-        }),
-      ),
-    ),
   },
   returns: vNull(),
   handler: async (ctx, args) => {
@@ -806,7 +795,6 @@ export const updateCommitProposalMessageCommittedInternal = internalMutation({
           ? { committing: args.committing }
           : {}),
         error: args.error,
-        ...(args.conflicts !== undefined ? { conflicts: args.conflicts } : {}),
       }),
     });
     return null;

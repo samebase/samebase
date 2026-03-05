@@ -1,10 +1,9 @@
 "use node";
-// This module uses Octokit and Buffer decoding in Convex actions, so Node runtime is required.
 
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { v, type Infer } from "convex/values";
 import { api, internal } from "./_generated/api";
-import { Octokit } from "@octokit/rest";
+import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
 import { createTwoFilesPatch, diffLines } from "diff";
 import { getUserId } from "./common";
 import type { Id } from "./_generated/dataModel";
@@ -16,10 +15,12 @@ import {
 } from "./gitOperationsActions";
 import { isObjectRecord as isRecord } from "./jsonUtils";
 import { rebaseStagedContent } from "./stagingRebase";
-import type { CommitConflictReason } from "../shared/commitConflicts";
 
 type HeaderValue = string | number | readonly string[] | undefined;
 type HeaderMap = Record<string, HeaderValue>;
+type CreateTreeEntry = NonNullable<
+  RestEndpointMethodTypes["git"]["createTree"]["parameters"]["tree"]
+>[number];
 
 const githubRateLimitResetByUser = new Map<string, number>();
 const RATE_LIMIT_COOLDOWN_FALLBACK_MS = 60_000;
@@ -1203,74 +1204,6 @@ export const getCommitPreview = action({
 
 // MARK: Internal
 
-type CommitConflict = {
-  path: string;
-  reason: CommitConflictReason;
-};
-
-type CommitAttemptTelemetry = {
-  owner: string;
-  repo: string;
-  branch: string;
-  attempt: number;
-  durationMs: number;
-  retries: number;
-};
-
-const COMMIT_RETRY_BACKOFF_MS = [250, 750] as const;
-
-function formatCommitConflictMessage(conflicts: CommitConflict[]): string {
-  const paths = conflicts.map((conflict) => conflict.path).sort();
-  return `Commit conflicts with upstream changes. Resolve and retry: ${paths.join(", ")}`;
-}
-
-class CommitConflictError extends Error {
-  conflicts: CommitConflict[];
-
-  constructor(conflicts: CommitConflict[]) {
-    super(formatCommitConflictMessage(conflicts));
-    this.name = "CommitConflictError";
-    this.conflicts = conflicts;
-  }
-}
-
-function isCommitConflictError(error: unknown): error is CommitConflictError {
-  return error instanceof CommitConflictError;
-}
-
-type CreateTreeRequest = NonNullable<
-  Parameters<Octokit["rest"]["git"]["createTree"]>[0]
->;
-type CreateTreeEntry = NonNullable<CreateTreeRequest["tree"]>[number];
-
-function logCommitAttempt(
-  stage: "start" | "retry" | "success" | "failure" | "conflict",
-  details: CommitAttemptTelemetry & {
-    status?: number | null;
-    message?: string;
-    retryDelayMs?: number;
-    conflicts?: CommitConflict[];
-    baseHeadSha?: string;
-  },
-): void {
-  const payload = {
-    stage,
-    ...details,
-  };
-
-  if (stage === "failure") {
-    console.error("commit_engine", payload);
-    return;
-  }
-
-  if (stage === "retry" || stage === "conflict") {
-    console.warn("commit_engine", payload);
-    return;
-  }
-
-  console.info("commit_engine", payload);
-}
-
 // Helper function to create a commit with multiple files
 export async function createCommitWithMultipleFiles({
   octokit,
@@ -1343,7 +1276,54 @@ export async function createCommitWithMultipleFiles({
       !file.fileDeleted && (file.initialContent ?? "") !== (file.content ?? ""),
   }));
 
-  // 1. Build commit message from staged intent
+  // 1. Prepare file lists
+  const pathsToDelete = new Set<string>();
+  const filesToAdd: Array<{
+    filePath: string;
+    content: string;
+  }> = [];
+
+  for (const file of stagedFiles) {
+    if (file.fileDeleted) {
+      // Only delete paths that actually exist in the repo
+      if (file.parentCommitSha !== null) {
+        pathsToDelete.add(file.filePath);
+      }
+    } else {
+      const isRenamed = file.filePath !== file.initialFilePath;
+      if (isRenamed && file.parentCommitSha !== null) {
+        pathsToDelete.add(file.initialFilePath);
+      }
+      filesToAdd.push({
+        filePath: file.filePath,
+        content: file.content,
+      });
+    }
+  }
+
+  // 2. Build tree entries with inline content (no separate createBlob needed)
+  //    GitHub creates blobs atomically as part of createTree, avoiding propagation races.
+  const newTreeEntries: CreateTreeEntry[] = [];
+
+  for (const path of pathsToDelete) {
+    newTreeEntries.push({
+      path,
+      mode: "100644",
+      type: "blob",
+      sha: null,
+    });
+  }
+
+  for (const file of filesToAdd) {
+    newTreeEntries.push({
+      path: file.filePath,
+      mode: "100644",
+      type: "blob",
+      content: file.content,
+    });
+  }
+
+  // 3. Build commit message
   const basename = (p: string) => {
     const parts = p.split("/");
     return parts[parts.length - 1] || p;
@@ -1386,204 +1366,10 @@ export async function createCommitWithMultipleFiles({
         ? `${subjectTokens.slice(0, maxTokens).join(", ")} …`
         : subjectTokens.join(", ");
 
-  const blobTextBySha = new Map<string, Promise<string>>();
-
-  const getBlobText = (sha: string): Promise<string> => {
-    const existing = blobTextBySha.get(sha);
-    if (existing) {
-      return existing;
-    }
-
-    const loaded = octokit.rest.git
-      .getBlob({
-        owner,
-        repo,
-        file_sha: sha,
-      })
-      .then((response) => {
-        const base64 = response.data.content.replace(/\n/g, "");
-        return Buffer.from(base64, "base64").toString("utf-8");
-      })
-      .catch((error) => {
-        // Failed loads must be retriable on subsequent attempts.
-        blobTextBySha.delete(sha);
-        throw error;
-      });
-
-    blobTextBySha.set(sha, loaded);
-    return loaded;
-  };
-
-  const buildTreeEntriesForHead = async (
-    currentTreeSha: string,
-  ): Promise<{
-    entries: CreateTreeEntry[];
-    conflicts: CommitConflict[];
-  }> => {
-    const { data: currentTree } = await octokit.rest.git.getTree({
-      owner,
-      repo,
-      tree_sha: currentTreeSha,
-      recursive: "1",
-    });
-    if (currentTree.truncated) {
-      throw new Error(
-        "Upstream tree is too large to resolve fully; cannot verify conflict-free commit.",
-      );
-    }
-
-    const shaByPath = new Map<string, string>();
-    for (const entry of currentTree.tree) {
-      if (
-        entry.type === "blob" &&
-        typeof entry.path === "string" &&
-        typeof entry.sha === "string"
-      ) {
-        shaByPath.set(entry.path, entry.sha);
-      }
-    }
-
-    const pathsToDelete = new Set<string>();
-    const filesToAdd: Array<{ filePath: string; content: string }> = [];
-    const conflictsByPath = new Map<string, CommitConflictReason>();
-    const addConflict = (path: string, reason: CommitConflictReason) => {
-      if (!conflictsByPath.has(path)) {
-        conflictsByPath.set(path, reason);
-      }
-    };
-
-    for (const file of stagedFiles) {
-      const isRenamed = file.filePath !== file.initialFilePath;
-
-      if (file.fileDeleted) {
-        if (file.parentCommitSha === null) {
-          continue;
-        }
-        const deletionPath = shaByPath.has(file.initialFilePath)
-          ? file.initialFilePath
-          : shaByPath.has(file.filePath)
-            ? file.filePath
-            : null;
-        if (deletionPath) {
-          pathsToDelete.add(deletionPath);
-        }
-        continue;
-      }
-
-      if (file.parentCommitSha === null) {
-        const upstreamSha = shaByPath.get(file.filePath);
-        if (!upstreamSha) {
-          filesToAdd.push({
-            filePath: file.filePath,
-            content: file.content,
-          });
-          continue;
-        }
-
-        const upstreamContent = await getBlobText(upstreamSha);
-        if (upstreamContent !== file.content) {
-          addConflict(file.filePath, "new_file_path_taken");
-          continue;
-        }
-
-        filesToAdd.push({
-          filePath: file.filePath,
-          content: file.content,
-        });
-        continue;
-      }
-
-      const preferredUpstreamPath = isRenamed
-        ? file.initialFilePath
-        : file.filePath;
-      const fallbackUpstreamPath = file.filePath;
-      const upstreamPath = shaByPath.has(preferredUpstreamPath)
-        ? preferredUpstreamPath
-        : shaByPath.has(fallbackUpstreamPath)
-          ? fallbackUpstreamPath
-          : null;
-
-      if (!upstreamPath) {
-        addConflict(preferredUpstreamPath, "missing_upstream_path");
-        continue;
-      }
-
-      const upstreamSha = shaByPath.get(upstreamPath);
-      if (!upstreamSha) {
-        addConflict(upstreamPath, "missing_upstream_path");
-        continue;
-      }
-
-      const upstreamContent = await getBlobText(upstreamSha);
-      const rebased = rebaseStagedContent({
-        baseContent: file.initialContent ?? "",
-        stagedContent: file.content,
-        upstreamContent,
-      });
-
-      if (rebased.hasConflict) {
-        addConflict(file.filePath, "content_conflict");
-        continue;
-      }
-
-      if (isRenamed && upstreamPath !== file.filePath) {
-        const renameTargetSha = shaByPath.get(file.filePath);
-        if (renameTargetSha) {
-          const renameTargetContent = await getBlobText(renameTargetSha);
-          if (renameTargetContent !== rebased.content) {
-            addConflict(file.filePath, "rename_target_exists");
-            continue;
-          }
-        }
-      }
-
-      if (isRenamed && upstreamPath !== file.filePath) {
-        pathsToDelete.add(upstreamPath);
-      }
-
-      filesToAdd.push({
-        filePath: file.filePath,
-        content: rebased.content,
-      });
-    }
-
-    const entries: CreateTreeEntry[] = [];
-
-    for (const path of pathsToDelete) {
-      entries.push({
-        path,
-        mode: "100644",
-        type: "blob",
-        sha: null,
-      });
-    }
-
-    for (const file of filesToAdd) {
-      entries.push({
-        path: file.filePath,
-        mode: "100644",
-        type: "blob",
-        content: file.content,
-      });
-    }
-
-    return {
-      entries,
-      conflicts: [...conflictsByPath.entries()]
-        .map(([path, reason]) => ({
-          path,
-          reason,
-        }))
-        .sort((left, right) => left.path.localeCompare(right.path)),
-    };
-  };
-
-  // 2. Retry loop for ref-dependent operations (getRef → getCommit → createTree → createCommit → updateRef).
-  //    Retries are bounded and deterministic to avoid ambiguous behavior under races.
-  const startedAtMs = Date.now();
-  let retries = 0;
-  const maxAttempts = COMMIT_RETRY_BACKOFF_MS.length + 1;
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+  // 4. Retry loop for ref-dependent operations (getRef → getCommit → createTree → createCommit → updateRef)
+  //    Retries handle transient GitHub 422 (GitRPC::BadObjectState) and 409 (conflict) errors.
+  const MAX_ATTEMPTS = 3;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     try {
       const { data: refData } = await octokit.rest.git.getRef({
         owner,
@@ -1592,28 +1378,20 @@ export async function createCommitWithMultipleFiles({
       });
       const currentCommitSha = refData.object.sha;
 
-      logCommitAttempt("start", {
-        owner,
-        repo,
-        branch,
-        attempt: attempt + 1,
-        durationMs: Date.now() - startedAtMs,
-        retries,
-        baseHeadSha: currentCommitSha,
-      });
-
       const { data: currentCommit } = await octokit.rest.git.getCommit({
         owner,
         repo,
         commit_sha: currentCommitSha,
       });
-      const currentTreeSha = currentCommit.tree.sha;
-      const { entries: newTreeEntries, conflicts } =
-        await buildTreeEntriesForHead(currentTreeSha);
 
-      if (conflicts.length > 0) {
-        throw new CommitConflictError(conflicts);
+      if (newTreeEntries.length === 0) {
+        return {
+          sha: currentCommitSha,
+          url: currentCommit.html_url,
+        };
       }
+
+      const currentTreeSha = currentCommit.tree.sha;
 
       const { data: newTree } = await octokit.rest.git.createTree({
         owner,
@@ -1638,73 +1416,21 @@ export async function createCommitWithMultipleFiles({
         force: false,
       });
 
-      logCommitAttempt("success", {
-        owner,
-        repo,
-        branch,
-        attempt: attempt + 1,
-        durationMs: Date.now() - startedAtMs,
-        retries,
-        baseHeadSha: currentCommitSha,
-      });
-
       return {
         sha: newCommit.sha,
         url: newCommit.html_url,
       };
     } catch (error) {
-      if (isCommitConflictError(error)) {
-        logCommitAttempt("conflict", {
-          owner,
-          repo,
-          branch,
-          attempt: attempt + 1,
-          durationMs: Date.now() - startedAtMs,
-          retries,
-          conflicts: error.conflicts,
-          message: error.message,
-        });
-        throw error;
-      }
-
       const status = getErrorStatus(error);
-      const message =
-        error instanceof Error && error.message.length > 0
-          ? error.message
-          : getErrorMessage(error);
       const isRetryable = status === 422 || status === 409;
-      if (!isRetryable || attempt === maxAttempts - 1) {
-        logCommitAttempt("failure", {
-          owner,
-          repo,
-          branch,
-          attempt: attempt + 1,
-          durationMs: Date.now() - startedAtMs,
-          retries,
-          status,
-          message,
-        });
+      if (!isRetryable || attempt === MAX_ATTEMPTS - 1) {
+        console.error("Failed to create commit:", error);
         throw error;
       }
-
-      retries += 1;
-      const retryDelayMs =
-        COMMIT_RETRY_BACKOFF_MS[attempt] ??
-        COMMIT_RETRY_BACKOFF_MS[COMMIT_RETRY_BACKOFF_MS.length - 1] ??
-        500;
-      logCommitAttempt("retry", {
-        owner,
-        repo,
-        branch,
-        attempt: attempt + 1,
-        durationMs: Date.now() - startedAtMs,
-        retries,
-        status,
-        message,
-        retryDelayMs,
-      });
-
-      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      console.warn(
+        `Commit attempt ${attempt + 1} failed (status ${status}), retrying...`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
     }
   }
 
@@ -1724,7 +1450,6 @@ export const commitAllStaged = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const fullRepo = `${args.repoOwner}/${args.repoName}`;
-    const commitStartedAtMs = Date.now();
 
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: fullRepo,
@@ -1737,7 +1462,6 @@ export const commitAllStaged = internalAction({
     const updateCommitProposalStatus = async (
       committed: boolean,
       error?: string,
-      conflicts?: CommitConflict[],
     ) => {
       if (!args.commitProposalMessageId) {
         return;
@@ -1750,7 +1474,6 @@ export const commitAllStaged = internalAction({
           committed,
           committing: false,
           error,
-          conflicts: conflicts ?? [],
         },
       );
     };
@@ -1765,13 +1488,7 @@ export const commitAllStaged = internalAction({
       );
 
       if (!changedFiles.length) {
-        console.info("commit_all_staged", {
-          stage: "no_staged_changes",
-          vaultId: args.vaultId,
-          repository: fullRepo,
-          durationMs: Date.now() - commitStartedAtMs,
-        });
-        await updateCommitProposalStatus(true, undefined, []);
+        await updateCommitProposalStatus(true);
         return null;
       }
 
@@ -1802,7 +1519,7 @@ export const commitAllStaged = internalAction({
         }));
 
       // Create a commit with all staged files
-      const commitResult = await createCommitWithMultipleFiles({
+      await createCommitWithMultipleFiles({
         octokit,
         owner: args.repoOwner,
         repo: args.repoName,
@@ -1858,61 +1575,15 @@ export const commitAllStaged = internalAction({
         skipTreeUpdate: true,
       });
 
-      await updateCommitProposalStatus(true, undefined, []);
-      console.info("commit_all_staged", {
-        stage: "success",
-        vaultId: args.vaultId,
-        repository: fullRepo,
-        branch: commitBranch,
-        changedFileCount: changedFiles.length,
-        commitSha: commitResult.sha,
-        durationMs: Date.now() - commitStartedAtMs,
-      });
+      await updateCommitProposalStatus(true);
     } catch (error) {
       const commitError =
         error instanceof Error && error.message.length > 0
           ? error.message
           : "Commit failed";
 
-      if (isCommitConflictError(error)) {
-        const initialReasonCounts: Record<CommitConflictReason, number> = {
-          missing_upstream_path: 0,
-          new_file_path_taken: 0,
-          content_conflict: 0,
-          rename_target_exists: 0,
-        };
-        const reasonCounts = error.conflicts.reduce(
-          (counts, conflict) => ({
-            ...counts,
-            [conflict.reason]: (counts[conflict.reason] ?? 0) + 1,
-          }),
-          initialReasonCounts,
-        );
-        console.warn("commit_all_staged", {
-          stage: "conflict",
-          vaultId: args.vaultId,
-          repository: fullRepo,
-          conflictCount: error.conflicts.length,
-          conflicts: error.conflicts,
-          reasonCounts,
-          durationMs: Date.now() - commitStartedAtMs,
-        });
-      } else {
-        console.error("commit_all_staged", {
-          stage: "failure",
-          vaultId: args.vaultId,
-          repository: fullRepo,
-          error: commitError,
-          durationMs: Date.now() - commitStartedAtMs,
-        });
-      }
-
       try {
-        await updateCommitProposalStatus(
-          false,
-          commitError,
-          isCommitConflictError(error) ? error.conflicts : [],
-        );
+        await updateCommitProposalStatus(false, commitError);
       } catch (statusError) {
         console.error("Failed updating commit proposal status:", statusError);
       }
