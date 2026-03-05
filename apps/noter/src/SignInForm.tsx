@@ -73,7 +73,7 @@ function WaitlistForm() {
       >
         <Input
           type="email"
-          placeholder="you@example.com"
+          placeholder="email@example.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
