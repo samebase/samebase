@@ -4,7 +4,7 @@
 
 - Status: Draft (implementation started)
 - Owner: Noter frontend/editor + Convex staging/commit pipeline
-- Last updated: 2026-03-04
+- Last updated: 2026-03-05
 
 ## Summary
 
@@ -33,9 +33,9 @@ commit "removed stuff" unexpectedly.
 
 ## Goals
 
-1. Ensure editor -> staging synchronization is robust and observable.
-2. Ensure commit success/failure is explicit and not silently swallowed.
-3. Ensure chat commit metadata reflects real commit outcome.
+1. Make editor -> staging synchronization robust and observable.
+2. Make commit success/failure explicit and not silently swallowed.
+3. Keep chat commit metadata aligned with real commit outcome.
 4. Introduce a true commit preview model and UI.
 5. Provide markdown-first diff UX similar to GitHub defaults.
 

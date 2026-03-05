@@ -14,6 +14,22 @@ type GetCommitData = GitApi["getCommit"]["response"]["data"];
 type CreateTreeData = GitApi["createTree"]["response"]["data"];
 type CreateCommitData = GitApi["createCommit"]["response"]["data"];
 type UpdateRefData = GitApi["updateRef"]["response"]["data"];
+type CreateTreeEntry = NonNullable<
+  GitApi["createTree"]["parameters"]["tree"]
+>[number];
+
+function hasInlineContent(
+  entry: CreateTreeEntry,
+): entry is CreateTreeEntry & { content: string } {
+  return "content" in entry && typeof entry.content === "string";
+}
+
+function readInlineContent(entry: CreateTreeEntry | undefined): string {
+  if (!entry || !hasInlineContent(entry)) {
+    throw new Error("Expected tree entry with inline content");
+  }
+  return entry.content;
+}
 
 const emptyHeaders: Record<string, string> = {};
 
@@ -176,7 +192,7 @@ describe("createCommitWithMultipleFiles", () => {
     }
     expect(createTreeCall.tree.length).toBe(1);
     expect(createTreeCall.tree[0].path).toBe("src/file.ts");
-    expect((createTreeCall.tree[0] as any).content).toBe("new content");
+    expect(readInlineContent(createTreeCall.tree[0])).toBe("new content");
 
     // Verify base_tree parameter is passed
     expect(createTreeCall.base_tree).toBe("tree123");
@@ -292,7 +308,7 @@ describe("createCommitWithMultipleFiles", () => {
       throw new Error("Expected rename entries to be present");
     }
     expect(deletionEntry.sha).toBe(null);
-    expect((additionEntry as any).content).toBe("file content");
+    expect(readInlineContent(additionEntry)).toBe("file content");
   });
 
   /**
@@ -383,7 +399,7 @@ describe("createCommitWithMultipleFiles", () => {
     const edit1Entry = createTreeCall.tree.find(
       (e) => e.path === "src/edit1.ts",
     );
-    expect((edit1Entry as any).content).toBe("new content 1");
+    expect(readInlineContent(edit1Entry)).toBe("new content 1");
   });
 
   /**
@@ -584,7 +600,7 @@ describe("createCommitWithMultipleFiles", () => {
     // Only 1 entry: addition of new path, no deletion of old path
     expect(createTreeCall.tree.length).toBe(1);
     expect(createTreeCall.tree[0].path).toBe("src/renamed-new.ts");
-    expect((createTreeCall.tree[0] as any).content).toBe("file content");
+    expect(readInlineContent(createTreeCall.tree[0])).toBe("file content");
   });
 
   /**
@@ -654,7 +670,10 @@ describe("createCommitWithMultipleFiles", () => {
     }
     expect(createTreeCall.tree.length).toBe(3);
     for (const entry of createTreeCall.tree) {
-      expect((entry as any).content).toBeDefined();
+      if (!hasInlineContent(entry)) {
+        throw new Error("Expected tree entry with inline content");
+      }
+      expect(entry.content).toBeDefined();
     }
   });
 });
