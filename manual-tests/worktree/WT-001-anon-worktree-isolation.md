@@ -75,9 +75,8 @@ grep -E '^(DEV_SEED_[^=]+|ANTHROPIC_API_KEY)=' /tmp/noter-wt-b/apps/noter/.env.a
    env (API keys present), plus `ANTHROPIC_API_KEY` when it is set on the cloud
    dev deployment.
 5. Each worktree's `providerConnections` includes the seeded providers
-   (GitHub/Convex/Netlify, plus Railway if `DEV_SEED_RAILWAY_API_KEY` is set,
-   plus Cloudflare if `DEV_SEED_CLOUDFLARE_API_KEY` is set) with
-   `auth.method: "api_key"`.
+   (GitHub/Convex/Netlify, plus Cloudflare if `DEV_SEED_CLOUDFLARE_API_KEY` is
+   set) with `auth.method: "api_key"`.
 6. On first clean run, both step 2 outputs report `"created": true` (if shared
    DB, second worktree would typically report `"created": false`).
 

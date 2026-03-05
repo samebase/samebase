@@ -469,14 +469,12 @@ function renderProdReadLabel(metadata: {
   if (resourceKind === "account_inventory") return "Account inventory";
   if (resourceKind === "pages_project_inventory")
     return "Pages project inventory";
-  if (provider === "railway") return "Project inventory";
   return "Site inventory";
 }
 
 function renderProviderLabel(provider: ProdReadProposal["provider"]) {
   if (provider === "convex") return "Convex";
   if (provider === "netlify") return "Netlify";
-  if (provider === "railway") return "Railway";
   return "Cloudflare";
 }
 

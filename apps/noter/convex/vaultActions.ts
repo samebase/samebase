@@ -270,7 +270,6 @@ export const createRepository = action({
       githubConnection,
       convexConnection,
       netlifyConnection,
-      railwayConnection,
       cloudflareConnection,
     ] = await Promise.all([
       ctx.runQuery(internal.users.getById, { userId }),
@@ -285,10 +284,6 @@ export const createRepository = action({
       ctx.runQuery(internal.providerConnections.getByUserAndKind, {
         userId,
         kind: "netlify",
-      }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId,
-        kind: "railway",
       }),
       ctx.runQuery(internal.providerConnections.getByUserAndKind, {
         userId,
@@ -312,14 +307,6 @@ export const createRepository = action({
     ) {
       throw new Error(
         "Netlify connection is required to create a Netlify-hosted project.",
-      );
-    }
-    if (
-      requestedHostingProvider === "railway" &&
-      railwayConnection?.kind !== "railway"
-    ) {
-      throw new Error(
-        "Railway connection is required to create a Railway-hosted project.",
       );
     }
     if (
@@ -484,7 +471,6 @@ export const deleteVault = action({
       githubConnection,
       convexConnection,
       netlifyConnection,
-      railwayConnection,
       cloudflareConnection,
     ] = await Promise.all([
       ctx.runQuery(internal.providerConnections.getByUserAndKind, {
@@ -498,10 +484,6 @@ export const deleteVault = action({
       ctx.runQuery(internal.providerConnections.getByUserAndKind, {
         userId,
         kind: "netlify",
-      }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId,
-        kind: "railway",
       }),
       ctx.runQuery(internal.providerConnections.getByUserAndKind, {
         userId,
@@ -540,10 +522,6 @@ export const deleteVault = action({
     );
 
     const netlifySiteId = resolveNetlifySiteId(infrastructure);
-    const railwayProjectId =
-      infrastructure?.hosting?.provider === "railway"
-        ? infrastructure.hosting.projectId
-        : undefined;
     const cloudflareProjectName =
       infrastructure?.hosting?.provider === "cloudflare"
         ? infrastructure.hosting.projectName
@@ -559,8 +537,6 @@ export const deleteVault = action({
       args.removeHostingProvision === true &&
       vault.isNoterManaged === true &&
       ((hostingProvider === "netlify" && typeof netlifySiteId === "string") ||
-        (hostingProvider === "railway" &&
-          typeof railwayProjectId === "string") ||
         (hostingProvider === "cloudflare" &&
           typeof cloudflareProjectName === "string" &&
           typeof cloudflareAccountId === "string"));
@@ -596,19 +572,6 @@ export const deleteVault = action({
       ) {
         throw new Error("Netlify connection is required to remove resources.");
       }
-      const railwayToken =
-        shouldRemoveHostingProvision && hostingProvider === "railway"
-          ? railwayConnection?.kind === "railway"
-            ? railwayConnection.auth.credential
-            : undefined
-          : undefined;
-      if (
-        shouldRemoveHostingProvision &&
-        hostingProvider === "railway" &&
-        !railwayToken
-      ) {
-        throw new Error("Railway connection is required to remove resources.");
-      }
       const cloudflareToken =
         shouldRemoveHostingProvision && hostingProvider === "cloudflare"
           ? cloudflareConnection?.kind === "cloudflare"
@@ -634,7 +597,6 @@ export const deleteVault = action({
       const providers = createInfraProviders({
         convexToken,
         netlifyToken,
-        railwayToken,
       });
 
       if (shouldRemoveHostingProvision && hostingProvider === "netlify") {
@@ -644,21 +606,6 @@ export const deleteVault = action({
               provider: "netlify",
               netlifyProvider: providers.netlify,
               siteId: netlifySiteId,
-            });
-          } catch (error) {
-            if (!isProviderNotFoundError(error)) {
-              throw error;
-            }
-          }
-        }
-      }
-      if (shouldRemoveHostingProvision && hostingProvider === "railway") {
-        if (typeof railwayProjectId === "string") {
-          try {
-            await deleteHostingResources({
-              provider: "railway",
-              railwayProvider: providers.railway,
-              projectId: railwayProjectId,
             });
           } catch (error) {
             if (!isProviderNotFoundError(error)) {

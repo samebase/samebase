@@ -9,7 +9,6 @@ import { ChatFab } from "@/components/ChatFab";
 import { CodespaceChatOnlyView } from "@/components/CodespaceChatOnlyView";
 import { PricingPage } from "@/components/PricingPage";
 import { NetlifyOAuthCallback } from "@/components/NetlifyOAuthCallback";
-import { RailwayOAuthCallback } from "@/components/RailwayOAuthCallback";
 import { Button } from "@/components/ui/button";
 import {
   Authenticated,
@@ -31,7 +30,6 @@ function useCloseOAuthPopup(pathname: string) {
   useEffect(() => {
     if (!isAuthenticated) return;
     if (pathname.startsWith("/oauth/netlify")) return;
-    if (pathname.startsWith("/oauth/railway")) return;
 
     // Remember that this user has authenticated, so we can auto-login next time
     if (!window.opener) {
@@ -119,10 +117,6 @@ export default function App() {
               <Route
                 path="/oauth/netlify/callback"
                 element={<NetlifyOAuthCallback />}
-              />
-              <Route
-                path="/oauth/railway/callback"
-                element={<RailwayOAuthCallback />}
               />
               <Route
                 path="/vault/:owner/:repoName/:branch/chat"

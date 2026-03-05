@@ -49,24 +49,18 @@ async function loadVaultContext(
     teamId: string;
     teamSlug?: string;
   } | null;
-  railwayConnection: {
-    kind: "railway";
-    auth: { credential: string };
-    accountId: string;
-    email?: string;
-    name?: string;
-  } | null;
 }> {
-  const { infra, convexConnection, netlifyConnection, railwayConnection } =
-    await ctx.runQuery(internal.infraReadQueries.getVaultReadContext, {
+  const { infra, convexConnection, netlifyConnection } = await ctx.runQuery(
+    internal.infraReadQueries.getVaultReadContext,
+    {
       vaultId,
-    });
+    },
+  );
 
   return {
     infra,
     convexConnection,
     netlifyConnection,
-    railwayConnection,
   };
 }
 
@@ -117,18 +111,6 @@ function resolveNetlifyTeamSlug(
     return slug;
   }
   throw new Error("Netlify is not connected");
-}
-
-function resolveRailwayToken(
-  connection: {
-    kind: "railway";
-    auth: { credential: string };
-  } | null,
-): string {
-  if (connection) {
-    return connection.auth.credential;
-  }
-  throw new Error("Railway is not connected");
 }
 
 function resolveCloudflareToken(
@@ -299,66 +281,6 @@ export const getNetlifyLogs = internalAction({
   },
 });
 
-export const getRailwaySiteStatus = internalAction({
-  args: {
-    vaultId: v.id("vaults"),
-  },
-  returns: EXECUTION_RESULT,
-  handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { infra, railwayConnection } = await loadVaultContext(
-      ctx,
-      args.vaultId,
-    );
-
-    const railwayHosting = infra?.hosting;
-    if (!railwayHosting || railwayHosting.provider !== "railway") {
-      throw new Error(getVaultInfraError(args.vaultId));
-    }
-
-    const providers = createInfraProviders({
-      railwayToken: resolveRailwayToken(railwayConnection),
-    });
-    return await readHostingSiteStatus({
-      provider: "railway",
-      railwayProvider: providers.railway,
-      projectId: railwayHosting.projectId,
-      environmentId: railwayHosting.environmentId,
-      serviceId: railwayHosting.serviceId,
-    });
-  },
-});
-
-export const getRailwayLogs = internalAction({
-  args: {
-    vaultId: v.id("vaults"),
-    maxEntries: v.optional(v.number()),
-  },
-  returns: EXECUTION_RESULT,
-  handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { infra, railwayConnection } = await loadVaultContext(
-      ctx,
-      args.vaultId,
-    );
-
-    const railwayHosting = infra?.hosting;
-    if (!railwayHosting || railwayHosting.provider !== "railway") {
-      throw new Error(getVaultInfraError(args.vaultId));
-    }
-
-    const providers = createInfraProviders({
-      railwayToken: resolveRailwayToken(railwayConnection),
-    });
-    return await readHostingLogs({
-      provider: "railway",
-      railwayProvider: providers.railway,
-      projectId: railwayHosting.projectId,
-      environmentId: railwayHosting.environmentId,
-      serviceId: railwayHosting.serviceId,
-      maxEntries: args.maxEntries ?? 50,
-    });
-  },
-});
-
 export const getConvexProjectInventory = internalAction({
   args: {
     limit: v.optional(v.number()),
@@ -417,32 +339,6 @@ export const getNetlifySiteInventory = internalAction({
       provider: "netlify",
       netlifyProvider: providers.netlify,
       teamSlug,
-      limit: args.limit ?? 50,
-    });
-  },
-});
-
-export const getRailwayProjectInventory = internalAction({
-  args: {
-    limit: v.optional(v.number()),
-    userId: v.optional(v.id("users")),
-  },
-  returns: EXECUTION_RESULT,
-  handler: async (ctx, args): Promise<ExecutionResult> => {
-    const railwayConnectionRaw = args.userId
-      ? await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-          userId: args.userId,
-          kind: "railway",
-        })
-      : null;
-    const railwayConnection =
-      railwayConnectionRaw?.kind === "railway" ? railwayConnectionRaw : null;
-    const providers = createInfraProviders({
-      railwayToken: resolveRailwayToken(railwayConnection),
-    });
-    return await readHostingInventory({
-      provider: "railway",
-      railwayProvider: providers.railway,
       limit: args.limit ?? 50,
     });
   },

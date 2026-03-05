@@ -5,7 +5,6 @@ export const OAuthProvider = v.union(
   v.literal("github"),
   v.literal("convex"),
   v.literal("netlify"),
-  v.literal("railway"),
   v.literal("cloudflare_mcp"),
 );
 

@@ -86,7 +86,6 @@ export const VaultDomainKind = v.union(
 export const VaultDomainSource = v.union(
   v.literal("netlify_default"),
   v.literal("netlify_custom"),
-  v.literal("railway_default"),
   v.literal("cloudflare_pages_default"),
   v.literal("cloudflare_pages_custom"),
 );
@@ -96,7 +95,6 @@ export const ProdAccessScope = v.union(v.literal("vault"), v.literal("global"));
 export const ProdAccessProvider = v.union(
   v.literal("convex"),
   v.literal("netlify"),
-  v.literal("railway"),
   v.literal("cloudflare"),
 );
 
@@ -138,7 +136,6 @@ export const ProviderKind = v.union(
   v.literal("github"),
   v.literal("convex"),
   v.literal("netlify"),
-  v.literal("railway"),
   v.literal("cloudflare"),
 );
 export type ProviderKind = Infer<typeof ProviderKind>;
@@ -200,16 +197,6 @@ export const NetlifyProviderConnection = v.object({
   createdAt: v.number(),
   updatedAt: v.number(),
 });
-export const RailwayProviderConnection = v.object({
-  kind: v.literal("railway"),
-  userId: v.id("users"),
-  auth: StandardProviderAuth,
-  accountId: v.string(),
-  email: v.optional(v.string()),
-  name: v.optional(v.string()),
-  createdAt: v.number(),
-  updatedAt: v.number(),
-});
 export const CloudflareProviderConnection = v.object({
   kind: v.literal("cloudflare"),
   userId: v.id("users"),
@@ -223,7 +210,6 @@ export const ProviderConnection = v.union(
   GithubProviderConnection,
   ConvexProviderConnection,
   NetlifyProviderConnection,
-  RailwayProviderConnection,
   CloudflareProviderConnection,
 );
 export type ProviderConnection = Infer<typeof ProviderConnection>;
@@ -583,7 +569,6 @@ export default defineSchema({
       v.literal("github"),
       v.literal("convex"),
       v.literal("netlify"),
-      v.literal("railway"),
       v.literal("cloudflare_mcp"),
     ),
     userId: v.id("users"),

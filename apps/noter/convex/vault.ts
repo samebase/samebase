@@ -376,10 +376,6 @@ export const getUserVaults = query({
           typeof infra?.convexDeploymentName === "string";
         const hasNetlifyProvision =
           typeof resolveNetlifySiteId(infra) === "string";
-        const hasRailwayProvision =
-          infra?.hosting?.provider === "railway" &&
-          typeof infra.hosting.projectId === "string" &&
-          infra.hosting.projectId.length > 0;
         const hasCloudflareProvision =
           infra?.hosting?.provider === "cloudflare" &&
           typeof infra.hosting.projectName === "string" &&
@@ -387,7 +383,7 @@ export const getUserVaults = query({
           typeof infra.hosting.accountId === "string" &&
           infra.hosting.accountId.length > 0;
         const hasHostingProvision =
-          hasNetlifyProvision || hasRailwayProvision || hasCloudflareProvision;
+          hasNetlifyProvision || hasCloudflareProvision;
 
         return {
           _id: vault._id,
@@ -535,7 +531,6 @@ export const getVaultInfrastructure = query({
           source: v.union(
             v.literal("netlify_default"),
             v.literal("netlify_custom"),
-            v.literal("railway_default"),
             v.literal("cloudflare_pages_default"),
             v.literal("cloudflare_pages_custom"),
           ),
