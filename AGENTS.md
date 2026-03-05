@@ -319,6 +319,8 @@ Auth:
   chat context.
 - For this operator, keep responses concise by default and always include a
   final `Summary` section.
+- Format documents you write with Prettier by default so markdown/docs do not
+  require manual cleanup.
 - Default to persisting user-visible UI state in Convex (per-user settings) so
   it syncs across devices; avoid localStorage unless explicitly requested for
   per-device behavior.
@@ -373,6 +375,9 @@ Auth:
   proceed if the user explicitly asks to bypass them.
 - When the user asks to create a PR, automatically mark it ready for review
   unless they explicitly ask for a draft PR.
+- When creating or editing PR descriptions with `gh`, use `--body-file` (or
+  stdin/heredoc) so real newlines are preserved; never pass escaped `\n` in a
+  single-line `--body` string.
 - After pushing fixes for PR review feedback, always request a fresh CodeRabbit
   review by commenting `@coderabbitai review`.
 

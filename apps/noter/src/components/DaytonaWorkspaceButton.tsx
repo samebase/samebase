@@ -23,6 +23,7 @@ interface DaytonaWorkspaceButtonProps {
   sandboxName?: string;
   disabled?: boolean;
   className?: string;
+  mode?: "full" | "launch";
 }
 
 type StartDaytonaWorkspaceResult = FunctionReturnType<
@@ -55,6 +56,7 @@ export function DaytonaWorkspaceButton({
   sandboxName,
   disabled,
   className,
+  mode = "full",
 }: DaytonaWorkspaceButtonProps) {
   const startDaytonaWorkspace = useAction(
     api.daytonaActions.startDaytonaWorkspace,
@@ -126,10 +128,13 @@ export function DaytonaWorkspaceButton({
     };
   }, []);
 
-  const handleStart = async () => {
+  const handleStart = async (openInTab: boolean) => {
     if (disabled || isStarting) {
       return;
     }
+    const launchTab = openInTab
+      ? window.open("about:blank", "_blank", "noopener,noreferrer")
+      : null;
     setIsStarting(true);
     setMessage(null);
     setHasError(false);
@@ -144,6 +149,9 @@ export function DaytonaWorkspaceButton({
       });
 
       if (!result.ok) {
+        if (launchTab && !launchTab.closed) {
+          launchTab.close();
+        }
         setHasError(true);
         setMessage(result.message ?? "Daytona is not configured.");
       } else {
@@ -155,11 +163,25 @@ export function DaytonaWorkspaceButton({
         );
         setBootstrapLogs(null);
         const terminalLink = await fetchTerminalUrl(true);
+        if (terminalLink && launchTab && !launchTab.closed) {
+          launchTab.location.href = terminalLink;
+        } else if (!terminalLink && launchTab && !launchTab.closed) {
+          launchTab.close();
+        } else if (terminalLink && openInTab && !launchTab) {
+          setMessage((previous) =>
+            previous
+              ? `${previous} Popup blocked; use Open in tab.`
+              : "Terminal link ready. Popup blocked; use Open in tab.",
+          );
+        }
         if (terminalLink) {
           setTimeToTerminalMs(Math.round(performance.now() - startClickedAt));
         }
       }
     } catch (error) {
+      if (launchTab && !launchTab.closed) {
+        launchTab.close();
+      }
       setHasError(true);
       setMessage(
         error instanceof Error
@@ -183,7 +205,7 @@ export function DaytonaWorkspaceButton({
     }
 
     try {
-      const result = await getDaytonaTerminalUrl({ vaultId });
+      const result = await getDaytonaTerminalUrl({ vaultId, branch });
       if (!result.ok || !result.url) {
         setHasError(true);
         setMessage(result.message ?? "Failed to open Daytona terminal.");
@@ -237,7 +259,7 @@ export function DaytonaWorkspaceButton({
     setHasError(false);
 
     try {
-      const result = await getDaytonaPreviewUrl({ vaultId });
+      const result = await getDaytonaPreviewUrl({ vaultId, branch });
       if (!result.ok || !result.url) {
         setHasError(true);
         setMessage(result.message ?? "Failed to open preview.");
@@ -415,26 +437,81 @@ export function DaytonaWorkspaceButton({
     }
   };
 
+  const launchButton = (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => {
+        void handleStart(true);
+      }}
+      disabled={disabled || isStarting}
+    >
+      {isStarting ? (
+        <>
+          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+          Launching Daytona...
+        </>
+      ) : (
+        "Launch Daytona"
+      )}
+    </Button>
+  );
+
+  const launchControls = (
+    <div className="flex flex-wrap items-center gap-2">
+      {launchButton}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => {
+          void handleOpenTerminalTab();
+        }}
+        disabled={disabled || isOpeningTerminal}
+      >
+        {isOpeningTerminal ? (
+          <>
+            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+            Opening...
+          </>
+        ) : (
+          "Open Terminal"
+        )}
+      </Button>
+    </div>
+  );
+
+  if (mode === "launch") {
+    return (
+      <div className={cn("flex flex-col gap-1", className)}>
+        {launchControls}
+        {startupMetrics && (
+          <div className="text-xs text-muted-foreground">
+            {formatStartupMetricsSummary(startupMetrics)}
+          </div>
+        )}
+        {timeToTerminalMs !== null && (
+          <div className="text-xs text-muted-foreground">
+            Terminal link ready in {formatDuration(timeToTerminalMs)}.
+          </div>
+        )}
+        {message && (
+          <div
+            className={cn(
+              "text-xs",
+              hasError ? "text-red-600" : "text-muted-foreground",
+            )}
+          >
+            {message}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className={cn("flex flex-col gap-1", className)}>
       <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            void handleStart();
-          }}
-          disabled={disabled || isStarting}
-        >
-          {isStarting ? (
-            <>
-              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-              Starting Daytona...
-            </>
-          ) : (
-            "Start Daytona"
-          )}
-        </Button>
+        {launchButton}
         <Button
           variant={terminalUrl ? "secondary" : "outline"}
           size="sm"

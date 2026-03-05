@@ -944,17 +944,8 @@ function formatDurationMs(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-function buildCloneUrl(args: {
-  token: string | null;
-  owner: string;
-  repo: string;
-}): string {
-  const base = `https://github.com/${args.owner}/${args.repo}.git`;
-  if (!args.token) {
-    return base;
-  }
-  const encoded = encodeURIComponent(args.token);
-  return `https://x-access-token:${encoded}@github.com/${args.owner}/${args.repo}.git`;
+function buildRepoUrl(args: { owner: string; repo: string }): string {
+  return `https://github.com/${args.owner}/${args.repo}.git`;
 }
 
 function buildAutoCdCommand(repoDir: string): string {
@@ -997,26 +988,38 @@ async function refreshSandboxRepo(args: {
 }): Promise<RepoRefreshResult> {
   const workspaceDir = DEFAULT_WORKSPACE_DIR;
   const repoDir = `${workspaceDir}/${args.repo}`;
-  const cloneUrl = buildCloneUrl({
-    token: args.token,
+  const repoUrl = buildRepoUrl({
     owner: args.owner,
     repo: args.repo,
   });
+  const authToken = args.token ?? "";
   const autoCdCommand = buildAutoCdCommand(repoDir);
   const writeConvexEnvCommand = buildWriteConvexEnvCommand(repoDir);
   const script = stripIndent`
 set -e
 export GIT_TERMINAL_PROMPT=0
-mode="${args.mode}"
+mode=${quoteForBash(args.mode)}
+branch_ref=${quoteForBash(args.branch)}
+repo_url=${quoteForBash(repoUrl)}
+auth_token=${quoteForBash(authToken)}
 mkdir -p "${workspaceDir}"
 if ! command -v git >/dev/null; then (command -v sudo >/dev/null && sudo apt-get update && sudo apt-get install -y git) || (apt-get update && apt-get install -y git); fi
 repo_missing="0"
 [ -d "${repoDir}" ] || { mkdir -p "${repoDir}"; repo_missing="1"; }
 cd "${repoDir}"
 if [ ! -d ".git" ]; then git init; repo_missing="1"; fi
-if git remote get-url origin >/dev/null 2>&1; then git remote set-url origin "${cloneUrl}"; else git remote add origin "${cloneUrl}"; fi
+if git remote get-url origin >/dev/null 2>&1; then git remote set-url origin "$repo_url"; else git remote add origin "$repo_url"; fi
+auth_header=""
+if [ -n "$auth_token" ]; then
+  auth_basic=$(printf 'x-access-token:%s' "$auth_token" | base64 | tr -d '\n')
+  auth_header="AUTHORIZATION: basic $auth_basic"
+fi
 local_head=$(git rev-parse HEAD 2>/dev/null || true)
-remote_head=$(git ls-remote --heads origin "${args.branch}" 2>/dev/null | awk '{print $1}' | head -n 1 || true)
+if [ -n "$auth_header" ]; then
+  remote_head=$(git -c "http.extraHeader=$auth_header" ls-remote --heads origin "$branch_ref" 2>/dev/null | awk '{print $1}' | head -n 1 || true)
+else
+  remote_head=$(git ls-remote --heads origin "$branch_ref" 2>/dev/null | awk '{print $1}' | head -n 1 || true)
+fi
 should_fetch="0"
 reason="up_to_date"
 
@@ -1038,13 +1041,17 @@ elif [ "$local_head" != "$remote_head" ]; then
 fi
 
 if [ "$should_fetch" = "1" ]; then
-  git fetch origin "${args.branch}" --depth=1
-  git checkout -f -B "${args.branch}" FETCH_HEAD
+  if [ -n "$auth_header" ]; then
+    git -c "http.extraHeader=$auth_header" fetch origin "$branch_ref" --depth=1
+  else
+    git fetch origin "$branch_ref" --depth=1
+  fi
+  git checkout -f -B "$branch_ref" FETCH_HEAD
   git reset --hard FETCH_HEAD
 else
   current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
-  if [ "$current_branch" != "${args.branch}" ] && [ -n "$local_head" ]; then
-    git checkout -f -B "${args.branch}" "$local_head"
+  if [ "$current_branch" != "$branch_ref" ] && [ -n "$local_head" ]; then
+    git checkout -f -B "$branch_ref" "$local_head"
   fi
 fi
 ${writeConvexEnvCommand}
@@ -1187,6 +1194,7 @@ const startDaytonaWorkspaceResult = object({
 
 const getDaytonaTerminalUrlArgs = object({
   vaultId: id("vaults"),
+  branch: optional(string()),
 });
 
 const getDaytonaTerminalUrlResult = object({
@@ -1197,6 +1205,7 @@ const getDaytonaTerminalUrlResult = object({
 
 const getDaytonaPreviewUrlArgs = object({
   vaultId: id("vaults"),
+  branch: optional(string()),
 });
 
 const getDaytonaPreviewUrlResult = object({
@@ -1386,77 +1395,163 @@ export const startDaytonaWorkspace = action({
       config.apiUrl = baseUrl;
     }
     const daytona = new Daytona(config);
-    const prebuildSnapshotName = inferPrebuildSnapshotName({
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
-      branch,
-    });
     const repoWorkdir = `${DEFAULT_WORKSPACE_DIR}/${vault.ghRepoName}`;
+    const requestedVaultLabel = String(args.vaultId);
+    const requestedBranchLabel = branch;
+    const hasMatchingLabels = (candidate: Sandbox): boolean => {
+      const candidateVaultLabel = candidate.labels["noter.vault_id"]?.trim();
+      if (candidateVaultLabel !== requestedVaultLabel) {
+        return false;
+      }
+      const candidateBranchLabel = candidate.labels["noter.branch"]?.trim();
+      return candidateBranchLabel === requestedBranchLabel;
+    };
+
+    let sandbox: Sandbox | null = null;
     let snapshotToUse: string | null = null;
-    if (prebuildSnapshotName) {
+    let sandboxCreateMs = 0;
+    let sandboxLifecycle: "created" | "resumed" | "reused" = "created";
+
+    if (vault.daytonaSandboxId) {
       try {
-        const snapshot = await daytona.snapshot.get(prebuildSnapshotName);
-        if (snapshot.state !== "active") {
-          return {
-            ok: false,
-            status: "not_configured",
-            message: `Snapshot ${prebuildSnapshotName} is ${snapshot.state}. Wait for it to become active.`,
-            branch,
-          };
+        const persistedSandbox = await daytona.get(vault.daytonaSandboxId);
+        if (hasMatchingLabels(persistedSandbox)) {
+          sandbox = persistedSandbox;
         }
-        snapshotToUse = prebuildSnapshotName;
       } catch (error) {
         if (!isNotFoundError(error)) {
           throw error;
         }
+      }
+    }
+
+    if (!sandbox) {
+      const matches = await daytona.list(
+        {
+          "noter.vault_id": requestedVaultLabel,
+          "noter.branch": requestedBranchLabel,
+        },
+        1,
+        5,
+      );
+      const match = matches.items[0];
+      if (match?.id) {
+        try {
+          const matchedSandbox = await daytona.get(match.id);
+          if (hasMatchingLabels(matchedSandbox)) {
+            sandbox = matchedSandbox;
+          }
+        } catch (error) {
+          if (!isNotFoundError(error)) {
+            throw error;
+          }
+        }
+      }
+    }
+
+    if (sandbox) {
+      const currentState = sandbox.state?.toLowerCase();
+      if (currentState === "started") {
+        sandboxLifecycle = "reused";
+      } else {
+        const resumeStartedAt = Date.now();
+        try {
+          await sandbox.start();
+          await sandbox.refreshData();
+          sandboxCreateMs = Date.now() - resumeStartedAt;
+          sandboxLifecycle = "resumed";
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          console.warn("daytona:workspace:resume:failed", {
+            vaultId: args.vaultId,
+            sandboxId: sandbox.id,
+            state: sandbox.state,
+            message,
+          });
+          sandbox = null;
+        }
+      }
+    }
+
+    if (!sandbox) {
+      const prebuildSnapshotName = inferPrebuildSnapshotName({
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        branch,
+      });
+      if (prebuildSnapshotName) {
+        try {
+          const snapshot = await daytona.snapshot.get(prebuildSnapshotName);
+          if (snapshot.state !== "active") {
+            return {
+              ok: false,
+              status: "not_configured",
+              message: `Snapshot ${prebuildSnapshotName} is ${snapshot.state}. Wait for it to become active.`,
+              branch,
+            };
+          }
+          snapshotToUse = prebuildSnapshotName;
+        } catch (error) {
+          if (!isNotFoundError(error)) {
+            throw error;
+          }
+          return {
+            ok: false,
+            status: "not_configured",
+            message: `No snapshot found for ${branch} yet. Build a snapshot before creating a workspace.`,
+            branch,
+          };
+        }
+      }
+      if (!snapshotToUse) {
         return {
           ok: false,
           status: "not_configured",
-          message: `No snapshot found for ${branch} yet. Build a snapshot before creating a workspace.`,
+          message: "Snapshot name is missing.",
           branch,
         };
       }
-    }
-    if (!snapshotToUse) {
-      return {
-        ok: false,
-        status: "not_configured",
-        message: "Snapshot name is missing.",
-        branch,
+
+      const baseParams: CreateSandboxFromSnapshotParams = {
+        name: sandboxName,
+        language: "typescript",
+        user: "daytona",
+        public: true,
+        envVars: (() => {
+          const envVars: Record<string, string> = {
+            NOTER_VAULT_ID: args.vaultId,
+            NOTER_REPO: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+            NOTER_BRANCH: branch,
+          };
+
+          const convexDeployKey = process.env[DAYTONA_CONVEX_DEPLOY_KEY_ENV];
+          if (convexDeployKey) {
+            envVars.CONVEX_DEPLOY_KEY = convexDeployKey;
+          }
+          return envVars;
+        })(),
+        labels: {
+          "noter.vault_id": args.vaultId,
+          "noter.repo": `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+          "noter.branch": branch,
+        },
       };
+      const sandboxParams: CreateSandboxFromSnapshotParams = {
+        ...baseParams,
+        snapshot: snapshotToUse,
+      };
+      const sandboxCreateStartedAt = Date.now();
+      sandbox = await daytona.create(sandboxParams);
+      sandboxCreateMs = Date.now() - sandboxCreateStartedAt;
+      sandboxLifecycle = "created";
     }
 
-    const baseParams: CreateSandboxFromSnapshotParams = {
-      name: sandboxName,
-      language: "typescript",
-      user: "daytona",
-      public: true,
-      envVars: (() => {
-        const envVars: Record<string, string> = {
-          NOTER_VAULT_ID: args.vaultId,
-          NOTER_REPO: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-          NOTER_BRANCH: branch,
-        };
-
-        const convexDeployKey = process.env[DAYTONA_CONVEX_DEPLOY_KEY_ENV];
-        if (convexDeployKey) {
-          envVars.CONVEX_DEPLOY_KEY = convexDeployKey;
-        }
-        return envVars;
-      })(),
-      labels: {
-        "noter.vault_id": args.vaultId,
-        "noter.repo": `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-        "noter.branch": branch,
-      },
-    };
-    const sandboxParams: CreateSandboxFromSnapshotParams = {
-      ...baseParams,
-      snapshot: snapshotToUse,
-    };
-    const sandboxCreateStartedAt = Date.now();
-    const sandbox = await daytona.create(sandboxParams);
-    const sandboxCreateMs = Date.now() - sandboxCreateStartedAt;
+    if (sandbox === null) {
+      throw new Error(
+        "Invariant violation: Daytona sandbox should be available",
+      );
+    }
 
     const resolvedSandboxName = sandbox.name;
 
@@ -1558,9 +1653,12 @@ export const startDaytonaWorkspace = action({
       sandboxName: resolvedSandboxName,
     });
 
-    const baseMessage = snapshotToUse
-      ? `Daytona sandbox created from snapshot ${snapshotToUse}.`
-      : "Daytona sandbox created.";
+    const baseMessage =
+      sandboxLifecycle === "created"
+        ? `Daytona sandbox created from snapshot ${snapshotToUse}.`
+        : sandboxLifecycle === "resumed"
+          ? `Daytona sandbox resumed (${resolvedSandboxName}).`
+          : `Reusing Daytona sandbox ${resolvedSandboxName}.`;
     const messageParts: string[] = [baseMessage];
     if (bootstrapMessage) {
       messageParts.push(bootstrapMessage);
@@ -1587,6 +1685,86 @@ export const startDaytonaWorkspace = action({
     };
   },
 });
+
+async function resolveDaytonaSandboxForVault(args: {
+  ctx: ActionCtx;
+  daytona: Daytona;
+  vaultId: Id<"vaults">;
+  daytonaSandboxId?: string;
+  daytonaSandboxName?: string;
+  requestedBranch?: string;
+}): Promise<
+  | { ok: true; sandbox: Sandbox; sandboxName: string | undefined }
+  | { ok: false; message: string }
+> {
+  const requestedBranch = args.requestedBranch?.trim();
+  const matchesRequestedBranch = (candidate: Sandbox): boolean => {
+    if (!requestedBranch) {
+      return true;
+    }
+    const branchLabel = candidate.labels["noter.branch"]?.trim();
+    return branchLabel === requestedBranch;
+  };
+
+  let sandbox: Sandbox | null = null;
+  let sandboxName = args.daytonaSandboxName;
+
+  if (args.daytonaSandboxId) {
+    try {
+      const persistedSandbox = await args.daytona.get(args.daytonaSandboxId);
+      if (matchesRequestedBranch(persistedSandbox)) {
+        sandbox = persistedSandbox;
+        sandboxName = persistedSandbox.name;
+      }
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  if (!sandbox) {
+    const labels: Record<string, string> = { "noter.vault_id": args.vaultId };
+    if (requestedBranch) {
+      labels["noter.branch"] = requestedBranch;
+    }
+    const matches = await args.daytona.list(labels, 1, 5);
+    const match = matches.items[0];
+    if (!match?.id) {
+      return {
+        ok: false,
+        message: requestedBranch
+          ? `No Daytona sandbox found for branch ${requestedBranch}. Click Launch Daytona first.`
+          : "No Daytona sandbox is connected to this vault yet. Click Launch Daytona first.",
+      };
+    }
+
+    const matchedSandbox = await args.daytona.get(match.id);
+    if (!matchesRequestedBranch(matchedSandbox)) {
+      return {
+        ok: false,
+        message: requestedBranch
+          ? `No Daytona sandbox found for branch ${requestedBranch}. Click Launch Daytona first.`
+          : "No Daytona sandbox is connected to this vault yet. Click Launch Daytona first.",
+      };
+    }
+
+    sandbox = matchedSandbox;
+    sandboxName = sandbox.name;
+    await args.ctx.runMutation(internal.vault.updateVaultDaytonaSandbox, {
+      vaultId: args.vaultId,
+      sandboxId: sandbox.id,
+      sandboxName,
+      createdAt: Date.now(),
+    });
+  }
+
+  return {
+    ok: true,
+    sandbox,
+    sandboxName,
+  };
+}
 
 export const getDaytonaTerminalUrl = action({
   args: getDaytonaTerminalUrlArgs,
@@ -1621,34 +1799,21 @@ export const getDaytonaTerminalUrl = action({
       config.apiUrl = baseUrl;
     }
     const daytona = new Daytona(config);
-    let sandboxId = vault.daytonaSandboxId;
-    let sandboxName = vault.daytonaSandboxName;
-
-    if (!sandboxId) {
-      const matches = await daytona.list(
-        { "noter.vault_id": args.vaultId },
-        1,
-        5,
-      );
-      const match = matches.items[0];
-      if (!match) {
-        return {
-          ok: false,
-          message:
-            "No Daytona sandbox is connected to this vault yet. Click Start Daytona first.",
-        };
-      }
-      sandboxId = match.id;
-      sandboxName = match.name;
-      await ctx.runMutation(internal.vault.updateVaultDaytonaSandbox, {
-        vaultId: args.vaultId,
-        sandboxId,
-        sandboxName,
-        createdAt: Date.now(),
-      });
+    const resolvedSandbox = await resolveDaytonaSandboxForVault({
+      ctx,
+      daytona,
+      vaultId: args.vaultId,
+      daytonaSandboxId: vault.daytonaSandboxId,
+      daytonaSandboxName: vault.daytonaSandboxName,
+      requestedBranch: args.branch,
+    });
+    if (!resolvedSandbox.ok) {
+      return {
+        ok: false,
+        message: resolvedSandbox.message,
+      };
     }
-
-    const sandbox = await daytona.get(sandboxId);
+    const { sandbox, sandboxName } = resolvedSandbox;
 
     try {
       const preview = await sandbox.getSignedPreviewUrl(22222, 300);
@@ -1705,34 +1870,22 @@ export const getDaytonaPreviewUrl = action({
       config.apiUrl = baseUrl;
     }
     const daytona = new Daytona(config);
-    let sandboxId = vault.daytonaSandboxId;
-    let sandboxName = vault.daytonaSandboxName;
-
-    if (!sandboxId) {
-      const matches = await daytona.list(
-        { "noter.vault_id": args.vaultId },
-        1,
-        5,
-      );
-      const match = matches.items[0];
-      if (!match) {
-        return {
-          ok: false,
-          message:
-            "No Daytona sandbox is connected to this vault yet. Click Start Daytona first.",
-        };
-      }
-      sandboxId = match.id;
-      sandboxName = match.name;
-      await ctx.runMutation(internal.vault.updateVaultDaytonaSandbox, {
-        vaultId: args.vaultId,
-        sandboxId,
-        sandboxName,
-        createdAt: Date.now(),
-      });
+    const resolvedSandbox = await resolveDaytonaSandboxForVault({
+      ctx,
+      daytona,
+      vaultId: args.vaultId,
+      daytonaSandboxId: vault.daytonaSandboxId,
+      daytonaSandboxName: vault.daytonaSandboxName,
+      requestedBranch: args.branch,
+    });
+    if (!resolvedSandbox.ok) {
+      return {
+        ok: false,
+        message: resolvedSandbox.message,
+      };
     }
+    const { sandbox, sandboxName } = resolvedSandbox;
 
-    const sandbox = await daytona.get(sandboxId);
     const branchLabel = sandbox.labels?.["noter.branch"];
 
     try {

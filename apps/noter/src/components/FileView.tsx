@@ -57,6 +57,7 @@ import {
 } from "@/lib/treeRefreshDebounce";
 import { type GithubTreeType } from "convex/schema";
 import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
+import { DaytonaWorkspaceButton } from "./DaytonaWorkspaceButton";
 import { CommitReviewStatusChips } from "./CommitReviewStatusChips";
 import { VaultSyncStatus } from "./VaultSyncStatus";
 import { diffLines } from "diff";
@@ -1331,6 +1332,12 @@ function FileViewInner({
                     lastTreeRefreshAt={vault.lastTreeRefreshAt}
                     stagedFiles={stagedFiles}
                     disableStagedFilesQuery
+                  />
+                  <DaytonaWorkspaceButton
+                    vaultId={vault._id}
+                    branch={branch}
+                    mode="launch"
+                    className="text-xs"
                   />
 
                   {viewMode === "editor" && (
