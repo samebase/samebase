@@ -8,12 +8,16 @@ type GetCommitResponse = GitApi["getCommit"]["response"];
 type CreateTreeResponse = GitApi["createTree"]["response"];
 type CreateCommitResponse = GitApi["createCommit"]["response"];
 type UpdateRefResponse = GitApi["updateRef"]["response"];
+type GetTreeResponse = GitApi["getTree"]["response"];
+type GetBlobResponse = GitApi["getBlob"]["response"];
 
 type GetRefData = GitApi["getRef"]["response"]["data"];
 type GetCommitData = GitApi["getCommit"]["response"]["data"];
 type CreateTreeData = GitApi["createTree"]["response"]["data"];
 type CreateCommitData = GitApi["createCommit"]["response"]["data"];
 type UpdateRefData = GitApi["updateRef"]["response"]["data"];
+type GetTreeData = GitApi["getTree"]["response"]["data"];
+type GetBlobData = GitApi["getBlob"]["response"]["data"];
 type CreateTreeEntry = NonNullable<
   GitApi["createTree"]["parameters"]["tree"]
 >[number];
@@ -136,12 +140,54 @@ const makeUpdateRefResponse = (sha: string): UpdateRefResponse => ({
   data: makeRefData(sha) satisfies UpdateRefData,
 });
 
+const makeGetTreeResponse = (
+  treeSha: string,
+  blobs: Array<{ path: string; sha: string }>,
+  options?: {
+    truncated?: boolean;
+  },
+): GetTreeResponse => ({
+  status: 200,
+  url: `https://api.github.com/repos/test-owner/test-repo/git/trees/${treeSha}`,
+  headers: emptyHeaders,
+  data: {
+    sha: treeSha,
+    url: `https://api.github.com/repos/test-owner/test-repo/git/trees/${treeSha}`,
+    truncated: options?.truncated ?? false,
+    tree: blobs.map((blob) => ({
+      path: blob.path,
+      mode: "100644",
+      type: "blob" as const,
+      sha: blob.sha,
+      size: 10,
+      url: `https://api.github.com/repos/test-owner/test-repo/git/blobs/${blob.sha}`,
+    })),
+  } satisfies GetTreeData,
+});
+
+const makeGetBlobResponse = (sha: string, text: string): GetBlobResponse => ({
+  status: 200,
+  url: `https://api.github.com/repos/test-owner/test-repo/git/blobs/${sha}`,
+  headers: emptyHeaders,
+  data: {
+    sha,
+    node_id: "blob-node-id",
+    size: Buffer.byteLength(text, "utf-8"),
+    url: `https://api.github.com/repos/test-owner/test-repo/git/blobs/${sha}`,
+    content: Buffer.from(text, "utf-8").toString("base64"),
+    encoding: "base64",
+  } satisfies GetBlobData,
+});
+
 describe("createCommitWithMultipleFiles", () => {
   let octokit: Octokit;
 
   beforeEach(() => {
     vi.restoreAllMocks();
     octokit = new Octokit({ auth: "test" });
+    vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
+      makeGetTreeResponse("head-tree", []),
+    );
   });
 
   /**
@@ -199,6 +245,166 @@ describe("createCommitWithMultipleFiles", () => {
     expect(updateRefSpy).toHaveBeenCalledWith(
       expect.objectContaining({ force: false }),
     );
+  });
+
+  /**
+   * Test 1b: Stale staged base with upstream-only insertion.
+   * Input: initialContent misses a line now present upstream; local edit is non-overlapping.
+   * Verify: commit content preserves the upstream-only line (no hidden deletion).
+   */
+  it("Test 1b: Rebases stale staged content to preserve upstream-only lines", async () => {
+    const targetBranch = "feature/stale-rebase";
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
+      makeGetRefResponse("abc123"),
+    );
+    vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
+      makeGetCommitResponse("tree123", "abc123"),
+    );
+    const getTreeSpy = vi
+      .spyOn(octokit.rest.git, "getTree")
+      .mockResolvedValue(
+        makeGetTreeResponse("head-tree", [
+          { path: "TODO.md", sha: "upstream" },
+        ]),
+      );
+
+    const upstreamContent = [
+      "!!! github notes",
+      "- [ ] asdfasdfdfsas",
+      "- [ ] add excalidraw",
+      "",
+      "## Research & Inspiration",
+      "- [ ] run a 2-week Augment Code pilot",
+      "- [ ] video reference",
+      "",
+    ].join("\n");
+    vi.spyOn(octokit.rest.git, "getBlob").mockResolvedValue(
+      makeGetBlobResponse("upstream", upstreamContent),
+    );
+
+    const createTreeSpy = vi
+      .spyOn(octokit.rest.git, "createTree")
+      .mockResolvedValue(makeCreateTreeResponse("newtree123"));
+    vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
+      makeCreateCommitResponse("newtree123", "commit123"),
+    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
+      makeUpdateRefResponse("commit123"),
+    );
+
+    const staleInitial = [
+      "!!! github notes",
+      "- [ ] asdfasdfdfsas",
+      "- [ ] add excalidraw",
+      "",
+      "## Research & Inspiration",
+      "- [ ] video reference",
+      "",
+    ].join("\n");
+    const stagedContent = [
+      "!!! github notes",
+      "- [ ] replacement item",
+      "- [ ] add excalidraw",
+      "",
+      "## Research & Inspiration",
+      "- [ ] video reference",
+      "",
+    ].join("\n");
+
+    await createCommitWithMultipleFiles({
+      octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      stagedFiles: [
+        {
+          filePath: "TODO.md",
+          content: stagedContent,
+          fileDeleted: false,
+          initialFilePath: "TODO.md",
+          initialContent: staleInitial,
+          parentCommitSha: "stale-sha",
+        },
+      ],
+      branch: targetBranch,
+    });
+
+    expect(getTreeSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tree_sha: `heads/${targetBranch}`,
+      }),
+    );
+
+    const createTreeCall = createTreeSpy.mock.calls[0]?.[0];
+    if (!createTreeCall) {
+      throw new Error("createTree was not called");
+    }
+
+    const todoEntry = createTreeCall.tree.find(
+      (entry) => entry.path === "TODO.md",
+    );
+    const committedContent = readInlineContent(todoEntry);
+    expect(committedContent).toContain("- [ ] run a 2-week Augment Code pilot");
+    expect(committedContent).toBe(
+      [
+        "!!! github notes",
+        "- [ ] replacement item",
+        "- [ ] add excalidraw",
+        "",
+        "## Research & Inspiration",
+        "- [ ] run a 2-week Augment Code pilot",
+        "- [ ] video reference",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("Test 1c: skipRebase avoids extra head-tree lookups", async () => {
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
+      makeGetRefResponse("abc123"),
+    );
+    vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
+      makeGetCommitResponse("tree123", "abc123"),
+    );
+    const getTreeSpy = vi.spyOn(octokit.rest.git, "getTree");
+    const getBlobSpy = vi.spyOn(octokit.rest.git, "getBlob");
+    const createTreeSpy = vi
+      .spyOn(octokit.rest.git, "createTree")
+      .mockResolvedValue(makeCreateTreeResponse("newtree123"));
+    vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
+      makeCreateCommitResponse("newtree123", "commit123"),
+    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
+      makeUpdateRefResponse("commit123"),
+    );
+
+    await createCommitWithMultipleFiles({
+      octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      stagedFiles: [
+        {
+          filePath: "src/file.ts",
+          content: "new content",
+          fileDeleted: false,
+          initialFilePath: "src/file.ts",
+          initialContent: "old content",
+          parentCommitSha: "parent123",
+        },
+      ],
+      branch: "main",
+      skipRebase: true,
+    });
+
+    expect(getTreeSpy).not.toHaveBeenCalled();
+    expect(getBlobSpy).not.toHaveBeenCalled();
+
+    const createTreeCall = createTreeSpy.mock.calls[0]?.[0];
+    if (!createTreeCall) {
+      throw new Error("createTree was not called");
+    }
+    expect(createTreeCall.tree.length).toBe(1);
+    expect(createTreeCall.tree[0].path).toBe("src/file.ts");
+    expect(readInlineContent(createTreeCall.tree[0])).toBe("new content");
   });
 
   /**

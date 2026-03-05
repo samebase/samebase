@@ -312,6 +312,155 @@ type StagedFileForCommit = {
   branch: string;
 };
 
+function formatUpstreamConflictError(paths: string[]): string {
+  const uniquePaths = Array.from(new Set(paths)).sort();
+  return `Commit conflicts with upstream changes. Resolve and retry: ${uniquePaths.join(", ")}`;
+}
+
+export async function rebaseStagedFilesOnLatestHead(args: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  branch: string;
+  stagedFiles: StagedFileForCommit[];
+}): Promise<StagedFileForCommit[]> {
+  if (args.stagedFiles.length === 0) {
+    return [];
+  }
+
+  const treeSha = args.branch.startsWith("refs/heads/")
+    ? args.branch.slice("refs/".length)
+    : args.branch.startsWith("heads/")
+      ? args.branch
+      : `heads/${args.branch}`;
+
+  const treeResponse = await args.octokit.rest.git.getTree({
+    owner: args.owner,
+    repo: args.repo,
+    tree_sha: treeSha,
+    recursive: "1",
+  });
+
+  if (treeResponse.data.truncated) {
+    throw new Error(
+      "Upstream tree is too large to validate staged changes safely.",
+    );
+  }
+
+  const shaByPath = new Map<string, string>();
+  for (const item of treeResponse.data.tree) {
+    if (
+      item.type === "blob" &&
+      typeof item.path === "string" &&
+      typeof item.sha === "string"
+    ) {
+      shaByPath.set(item.path, item.sha);
+    }
+  }
+
+  const blobTextBySha = new Map<string, Promise<string>>();
+  const getBlobText = (sha: string): Promise<string> => {
+    const existing = blobTextBySha.get(sha);
+    if (existing) {
+      return existing;
+    }
+
+    const loaded = args.octokit.rest.git
+      .getBlob({
+        owner: args.owner,
+        repo: args.repo,
+        file_sha: sha,
+      })
+      .then((response) => {
+        const base64 = response.data.content.replace(/\n/g, "");
+        return Buffer.from(base64, "base64").toString("utf-8");
+      })
+      .catch((error) => {
+        blobTextBySha.delete(sha);
+        throw error;
+      });
+
+    blobTextBySha.set(sha, loaded);
+    return loaded;
+  };
+
+  const resolveUpstreamShaForFile = (
+    file: StagedFileForCommit,
+  ): string | null => {
+    const preferredUpstreamPath =
+      file.filePath === file.initialFilePath
+        ? file.filePath
+        : file.initialFilePath;
+    const fallbackUpstreamPath = file.filePath;
+    const upstreamPath = shaByPath.has(preferredUpstreamPath)
+      ? preferredUpstreamPath
+      : shaByPath.has(fallbackUpstreamPath)
+        ? fallbackUpstreamPath
+        : null;
+    if (!upstreamPath) {
+      return null;
+    }
+    return shaByPath.get(upstreamPath) ?? null;
+  };
+
+  const upstreamShasToPrefetch = new Set<string>();
+  for (const file of args.stagedFiles) {
+    if (file.fileDeleted || file.parentCommitSha === null) {
+      continue;
+    }
+    const upstreamSha = resolveUpstreamShaForFile(file);
+    if (!upstreamSha || upstreamSha === file.parentCommitSha) {
+      continue;
+    }
+    upstreamShasToPrefetch.add(upstreamSha);
+  }
+
+  await Promise.all(
+    Array.from(upstreamShasToPrefetch).map((sha) => getBlobText(sha)),
+  );
+
+  const conflictPaths: string[] = [];
+  const rebasedFiles: StagedFileForCommit[] = [];
+
+  for (const file of args.stagedFiles) {
+    if (file.fileDeleted || file.parentCommitSha === null) {
+      rebasedFiles.push(file);
+      continue;
+    }
+
+    const upstreamSha = resolveUpstreamShaForFile(file);
+    if (!upstreamSha || upstreamSha === file.parentCommitSha) {
+      rebasedFiles.push(file);
+      continue;
+    }
+
+    const upstreamContent = await getBlobText(upstreamSha);
+    const rebased = rebaseStagedContent({
+      baseContent: file.initialContent ?? "",
+      stagedContent: file.content ?? "",
+      upstreamContent,
+    });
+    if (rebased.hasConflict) {
+      conflictPaths.push(file.filePath);
+      rebasedFiles.push(file);
+      continue;
+    }
+
+    rebasedFiles.push({
+      ...file,
+      content: rebased.content,
+      initialContent: upstreamContent,
+      parentCommitSha: upstreamSha,
+    });
+  }
+
+  if (conflictPaths.length > 0) {
+    throw new Error(formatUpstreamConflictError(conflictPaths));
+  }
+
+  return rebasedFiles;
+}
+
 const MAX_COMMIT_PREVIEW_PATCH_CHARS_PER_FILE = 25_000;
 const MAX_COMMIT_PREVIEW_PATCH_CHARS_TOTAL = 150_000;
 const MAX_COMMIT_PREVIEW_MARKDOWN_RICH_CHARS_PER_FIELD = 40_000;
@@ -1194,8 +1343,20 @@ export const getCommitPreview = action({
         vault.ghRepoName,
       ));
 
-    return buildCommitPreviewFromStagedFiles({
+    const githubAccessToken = await getGithubAccessToken(ctx, userId);
+    const octokit: Octokit = new Octokit({
+      auth: githubAccessToken,
+    });
+    const rebasedStagedFiles = await rebaseStagedFilesOnLatestHead({
+      octokit,
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+      branch,
       stagedFiles,
+    });
+
+    return buildCommitPreviewFromStagedFiles({
+      stagedFiles: rebasedStagedFiles,
       branch,
       includePatch,
     });
@@ -1211,6 +1372,7 @@ export async function createCommitWithMultipleFiles({
   repo,
   stagedFiles,
   branch,
+  skipRebase = false,
 }: {
   octokit: Octokit;
   owner: string;
@@ -1224,6 +1386,7 @@ export async function createCommitWithMultipleFiles({
     parentCommitSha: string | null;
   }>;
   branch: string;
+  skipRebase?: boolean;
 }) {
   // Helper to compute modified (added) line ranges in the new content
   const computeModifiedLineRanges = (
@@ -1255,6 +1418,28 @@ export async function createCommitWithMultipleFiles({
     return ranges;
   };
 
+  const normalizedStagedFiles: StagedFileForCommit[] = stagedFiles.map(
+    (file) => ({
+      filePath: file.filePath,
+      initialFilePath: file.initialFilePath,
+      content: file.content,
+      initialContent: file.initialContent ?? "",
+      fileDeleted: file.fileDeleted,
+      parentCommitSha: file.parentCommitSha,
+      branch,
+    }),
+  );
+
+  const resolvedStagedFiles = skipRebase
+    ? normalizedStagedFiles
+    : await rebaseStagedFilesOnLatestHead({
+        octokit,
+        owner,
+        repo,
+        branch,
+        stagedFiles: normalizedStagedFiles,
+      });
+
   // Summarize all changes to craft a commit message
   const changesInfo: Array<{
     deleted: boolean;
@@ -1262,7 +1447,7 @@ export async function createCommitWithMultipleFiles({
     filePath: string;
     initialFilePath: string;
     wasModified: boolean;
-  }> = stagedFiles.map((file) => ({
+  }> = resolvedStagedFiles.map((file) => ({
     deleted: file.fileDeleted,
     filePath: file.filePath,
     initialFilePath: file.initialFilePath,
@@ -1283,7 +1468,7 @@ export async function createCommitWithMultipleFiles({
     content: string;
   }> = [];
 
-  for (const file of stagedFiles) {
+  for (const file of resolvedStagedFiles) {
     if (file.fileDeleted) {
       // Only delete paths that actually exist in the repo
       if (file.parentCommitSha !== null) {
@@ -1517,14 +1702,22 @@ export const commitAllStaged = internalAction({
           owner: args.repoOwner,
           repo: args.repoName,
         }));
+      const resolvedChangedFiles = await rebaseStagedFilesOnLatestHead({
+        octokit,
+        owner: args.repoOwner,
+        repo: args.repoName,
+        branch: commitBranch,
+        stagedFiles: changedFiles,
+      });
 
       // Create a commit with all staged files
       await createCommitWithMultipleFiles({
         octokit,
         owner: args.repoOwner,
         repo: args.repoName,
-        stagedFiles: changedFiles,
+        stagedFiles: resolvedChangedFiles,
         branch: commitBranch,
+        skipRebase: true,
       });
 
       // 1. Update the vault tree FIRST so new SHAs are available
@@ -1547,7 +1740,7 @@ export const commitAllStaged = internalAction({
       //    so that when the client re-fetches after staging is cleared, it gets
       //    the correct content immediately without hitting GitHub API
       if (updatedVault) {
-        for (const file of changedFiles) {
+        for (const file of resolvedChangedFiles) {
           if (file.fileDeleted) continue;
 
           const newSha = updatedVault.treeData.tree.find(
