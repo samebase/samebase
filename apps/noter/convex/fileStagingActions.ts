@@ -1728,6 +1728,7 @@ export const commitAllStaged = internalAction({
     const updateCommitProposalStatus = async (
       committed: boolean,
       error?: string,
+      conflicts?: CommitConflict[],
     ) => {
       if (!args.commitProposalMessageId) {
         return;
@@ -1740,6 +1741,7 @@ export const commitAllStaged = internalAction({
           committed,
           committing: false,
           error,
+          conflicts: conflicts ?? [],
         },
       );
     };
@@ -1760,7 +1762,7 @@ export const commitAllStaged = internalAction({
           repository: fullRepo,
           durationMs: Date.now() - commitStartedAtMs,
         });
-        await updateCommitProposalStatus(true);
+        await updateCommitProposalStatus(true, undefined, []);
         return null;
       }
 
@@ -1847,7 +1849,7 @@ export const commitAllStaged = internalAction({
         skipTreeUpdate: true,
       });
 
-      await updateCommitProposalStatus(true);
+      await updateCommitProposalStatus(true, undefined, []);
       console.info("commit_all_staged", {
         stage: "success",
         vaultId: args.vaultId,
@@ -1897,7 +1899,11 @@ export const commitAllStaged = internalAction({
       }
 
       try {
-        await updateCommitProposalStatus(false, commitError);
+        await updateCommitProposalStatus(
+          false,
+          commitError,
+          isCommitConflictError(error) ? error.conflicts : [],
+        );
       } catch (statusError) {
         console.error("Failed updating commit proposal status:", statusError);
       }

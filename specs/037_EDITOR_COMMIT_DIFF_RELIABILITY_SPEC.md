@@ -166,6 +166,8 @@ Acceptance:
 - Current implementation progress:
   - bounded retry backoff added to commit engine (`409/422` only),
   - structured conflict categories added in commit logs,
+  - commit proposal metadata now carries structured conflict details (`path` +
+    `reason`) for chat surfaces,
   - race retry and conflict-matrix tests added for commit engine.
 
 Acceptance:

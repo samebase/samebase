@@ -637,6 +637,7 @@ export const confirmCommit = mutation({
         committed: false,
         committing: true,
         error: undefined,
+        conflicts: [],
       },
     );
 
@@ -665,6 +666,7 @@ export const confirmCommit = mutation({
           committed: false,
           committing: false,
           error: commitError,
+          conflicts: [],
         },
       );
 
@@ -777,6 +779,19 @@ export const updateCommitProposalMessageCommittedInternal = internalMutation({
     committed: boolean(),
     committing: optional(boolean()),
     error: optional(string()),
+    conflicts: optional(
+      array(
+        object({
+          path: string(),
+          reason: union(
+            literal("missing_upstream_path"),
+            literal("new_file_path_taken"),
+            literal("content_conflict"),
+            literal("rename_target_exists"),
+          ),
+        }),
+      ),
+    ),
   },
   returns: vNull(),
   handler: async (ctx, args) => {
@@ -795,6 +810,7 @@ export const updateCommitProposalMessageCommittedInternal = internalMutation({
           ? { committing: args.committing }
           : {}),
         error: args.error,
+        conflicts: args.conflicts ?? [],
       }),
     });
     return null;

@@ -425,6 +425,15 @@ function CommitProposalCard({
               Commit failed: {metadata.error}
             </div>
           ) : null}
+          {metadata.conflicts && metadata.conflicts.length > 0 ? (
+            <div className="mt-2 space-y-1 text-xs text-red-600">
+              {metadata.conflicts.map((conflict) => (
+                <div key={`${conflict.path}:${conflict.reason}`}>
+                  Conflict: {conflict.path} ({conflict.reason})
+                </div>
+              ))}
+            </div>
+          ) : null}
         </>
       )}
     </div>
