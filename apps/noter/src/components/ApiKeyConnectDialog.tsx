@@ -11,7 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export type ApiKeyProvider = "github" | "convex" | "netlify" | "railway";
+export type ApiKeyProvider = "github" | "convex" | "netlify";
 
 type ConnectWithApiKey = (args: { token: string }) => Promise<unknown>;
 
@@ -19,14 +19,12 @@ type UseApiKeyConnectDialogArgs = {
   connectGithubWithApiKey: ConnectWithApiKey;
   connectConvexWithApiKey: ConnectWithApiKey;
   connectNetlifyWithApiKey: ConnectWithApiKey;
-  connectRailwayWithApiKey: ConnectWithApiKey;
 };
 
 const getApiKeyProviderLabel = (provider: ApiKeyProvider | null): string => {
   if (provider === "github") return "GitHub";
   if (provider === "convex") return "Convex";
   if (provider === "netlify") return "Netlify";
-  if (provider === "railway") return "Railway";
   return "Provider";
 };
 
@@ -38,7 +36,6 @@ export const useApiKeyConnectDialog = ({
   connectGithubWithApiKey,
   connectConvexWithApiKey,
   connectNetlifyWithApiKey,
-  connectRailwayWithApiKey,
 }: UseApiKeyConnectDialogArgs) => {
   const [apiKeyDialogProvider, setApiKeyDialogProvider] =
     useState<ApiKeyProvider | null>(null);
@@ -90,9 +87,6 @@ export const useApiKeyConnectDialog = ({
         case "netlify":
           await connectNetlifyWithApiKey({ token });
           break;
-        case "railway":
-          await connectRailwayWithApiKey({ token });
-          break;
         default:
           assertNever(apiKeyDialogProvider);
       }
@@ -115,7 +109,6 @@ export const useApiKeyConnectDialog = ({
     connectConvexWithApiKey,
     connectGithubWithApiKey,
     connectNetlifyWithApiKey,
-    connectRailwayWithApiKey,
   ]);
 
   const apiKeyProviderLabel = getApiKeyProviderLabel(apiKeyDialogProvider);

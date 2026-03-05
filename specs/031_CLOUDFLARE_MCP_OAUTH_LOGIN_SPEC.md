@@ -8,7 +8,6 @@
 - Related specs:
   - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `specs/006_DNS_DOMAIN_STRATEGY_SPEC.md`
-  - `specs/027_HOSTING_PROVIDER_ABSTRACTION_AND_RAILWAY_PILOT_SPEC.md`
   - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
   - `specs/029_PROVIDERS_PANEL_SETTINGS_SPEC.md`
 
@@ -38,7 +37,7 @@ integration.
 2. Keep a non-interactive, seed-friendly Cloudflare auth path using an API token
    (`api_key`) for `make anon` / worktree seeding.
 3. Make Cloudflare connection a first-class provider in `providerConnections`,
-   consistent with GitHub/Convex/Netlify/Railway.
+   consistent with GitHub/Convex/Netlify.
 4. Keep the runtime integration surface **one**: Cloudflare MCP.
 5. Preserve least-privilege security and support easy disconnect/revocation.
 
@@ -56,8 +55,8 @@ integration.
 1. Noter already models provider credentials in `providerConnections` with
    auth-method union (`oauth` or `api_key`).
 2. Noter already has OAuth state persistence via `oauthStates`.
-3. Noter’s existing provider OAuth flows are direct (GitHub/Convex/Netlify/
-   Railway). Cloudflare differs:
+3. Noter’s existing provider OAuth flows are direct (GitHub/Convex/Netlify).
+   Cloudflare differs:
    - Cloudflare’s “remote MCP server” provides OAuth consent and a stable hosted
      MCP endpoint.
    - Cloudflare also supports passing an API token as a bearer credential

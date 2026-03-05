@@ -18,10 +18,6 @@ export interface NetlifyManagementProvider {
   ): Promise<unknown>;
 }
 
-export interface RailwayManagementProvider {
-  request(query: string, variables?: Record<string, unknown>): Promise<unknown>;
-}
-
 export function getRequiredEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -89,101 +85,15 @@ async function requestProviderApi(args: {
   return await parseResponseBody(response);
 }
 
-function readGraphQlErrors(payload: unknown): string | null {
-  if (typeof payload !== "object" || payload === null) {
-    return null;
-  }
-  const errors = Reflect.get(payload, "errors");
-  if (!Array.isArray(errors) || errors.length === 0) {
-    return null;
-  }
-  const messages = errors
-    .map((entry) => {
-      if (typeof entry !== "object" || entry === null) {
-        return "";
-      }
-      const message = Reflect.get(entry, "message");
-      return typeof message === "string" ? message : "";
-    })
-    .filter((value) => value.length > 0);
-  if (messages.length === 0) {
-    return "Unknown Railway GraphQL error";
-  }
-  return messages.join("; ");
-}
-
-function readGraphQlData(payload: unknown): unknown {
-  if (typeof payload !== "object" || payload === null) {
-    return null;
-  }
-  if (!Object.prototype.hasOwnProperty.call(payload, "data")) {
-    return null;
-  }
-  return Reflect.get(payload, "data");
-}
-
-async function requestRailwayGraphql(args: {
-  token: string;
-  query: string;
-  variables?: Record<string, unknown>;
-}): Promise<unknown> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10_000);
-  let response: Response;
-  try {
-    response = await fetch("https://backboard.railway.com/graphql/v2", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${args.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        query: args.query,
-        variables: args.variables,
-      }),
-      signal: controller.signal,
-    });
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Railway API request timed out after 10000ms.");
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
-
-  const payload = await parseResponseBody(response);
-  if (!response.ok) {
-    throw new Error(
-      `Railway API request failed (${response.status}): ${payloadToString(payload)}`,
-    );
-  }
-
-  const graphQlErrorMessage = readGraphQlErrors(payload);
-  if (graphQlErrorMessage) {
-    throw new Error(`Railway GraphQL error: ${graphQlErrorMessage}`);
-  }
-
-  const data = readGraphQlData(payload);
-  if (data === null || data === undefined) {
-    throw new Error("Railway API response is missing `data`.");
-  }
-
-  return data;
-}
-
 export function createInfraProviders(args?: {
   convexToken?: string;
   netlifyToken?: string;
-  railwayToken?: string;
 }): {
   convex: ConvexManagementProvider;
   netlify: NetlifyManagementProvider;
-  railway: RailwayManagementProvider;
 } {
   const convexTokenOverride = args?.convexToken;
   const netlifyTokenOverride = args?.netlifyToken;
-  const railwayTokenOverride = args?.railwayToken;
 
   return {
     convex: {
@@ -215,19 +125,6 @@ export function createInfraProviders(args?: {
           path,
           method,
           body,
-        });
-      },
-    },
-    railway: {
-      request(query, variables) {
-        const token = railwayTokenOverride;
-        if (!token) {
-          throw new Error("Railway access token is required.");
-        }
-        return requestRailwayGraphql({
-          token,
-          query,
-          variables,
         });
       },
     },

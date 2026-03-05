@@ -24,7 +24,6 @@ const providerKindValidator = union(
   literal("github"),
   literal("convex"),
   literal("netlify"),
-  literal("railway"),
   literal("cloudflare"),
 );
 export type ProviderKind = Infer<typeof providerKindValidator>;
@@ -80,13 +79,6 @@ const netlifyConnectionUpsertValidator = object({
   teamId: string(),
   teamSlug: optional(string()),
 });
-const railwayConnectionUpsertValidator = object({
-  userId: id("users"),
-  auth: standardProviderAuthValidator,
-  accountId: string(),
-  email: optional(string()),
-  name: optional(string()),
-});
 const cloudflareConnectionUpsertValidator = object({
   userId: id("users"),
   auth: cloudflareProviderAuthValidator,
@@ -126,18 +118,6 @@ const netlifyConnectionResultValidator = object({
   createdAt: number(),
   updatedAt: number(),
 });
-const railwayConnectionResultValidator = object({
-  _id: id("providerConnections"),
-  _creationTime: number(),
-  kind: literal("railway"),
-  userId: id("users"),
-  auth: standardProviderAuthValidator,
-  accountId: string(),
-  email: optional(string()),
-  name: optional(string()),
-  createdAt: number(),
-  updatedAt: number(),
-});
 const cloudflareConnectionResultValidator = object({
   _id: id("providerConnections"),
   _creationTime: number(),
@@ -153,7 +133,6 @@ const providerConnectionResultValidator = union(
   githubConnectionResultValidator,
   convexConnectionResultValidator,
   netlifyConnectionResultValidator,
-  railwayConnectionResultValidator,
   cloudflareConnectionResultValidator,
 );
 
@@ -256,34 +235,6 @@ async function upsertNetlifyConnection(
   });
 }
 
-async function upsertRailwayConnection(
-  db: DatabaseWriter,
-  args: Infer<typeof railwayConnectionUpsertValidator>,
-): Promise<void> {
-  const now = Date.now();
-  const existing = await getConnectionByUserAndKind(db, args.userId, "railway");
-  if (existing) {
-    await db.patch(existing._id, {
-      auth: args.auth,
-      accountId: args.accountId,
-      email: args.email,
-      name: args.name,
-      updatedAt: now,
-    });
-    return;
-  }
-  await db.insert("providerConnections", {
-    kind: "railway",
-    userId: args.userId,
-    auth: args.auth,
-    accountId: args.accountId,
-    email: args.email,
-    name: args.name,
-    createdAt: now,
-    updatedAt: now,
-  });
-}
-
 async function upsertCloudflareConnection(
   db: DatabaseWriter,
   args: Infer<typeof cloudflareConnectionUpsertValidator>,
@@ -367,15 +318,6 @@ export const upsertNetlify = internalMutation({
   returns: vNull(),
   handler: async (ctx, args) => {
     await upsertNetlifyConnection(ctx.db, args);
-    return null;
-  },
-});
-
-export const upsertRailway = internalMutation({
-  args: railwayConnectionUpsertValidator,
-  returns: vNull(),
-  handler: async (ctx, args) => {
-    await upsertRailwayConnection(ctx.db, args);
     return null;
   },
 });

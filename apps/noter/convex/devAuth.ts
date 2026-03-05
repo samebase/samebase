@@ -11,7 +11,6 @@ import {
 } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getConnectionByUserAndKind } from "./providerConnections";
-import { fetchRailwayConnectionDetails } from "./railwayConnectionDetails";
 import { readOptionalEnv } from "./oauthUtils";
 import { isAllowedEmail } from "./users";
 
@@ -136,44 +135,6 @@ async function upsertNetlifyApiKey(
   });
 }
 
-async function upsertRailwayApiKey(
-  db: DatabaseWriter,
-  userId: Id<"users">,
-  credential: string,
-  accountId: string,
-  email?: string,
-  name?: string,
-): Promise<void> {
-  const existing = await getConnectionByUserAndKind(db, userId, "railway");
-  const now = Date.now();
-  if (existing) {
-    await db.patch(existing._id, {
-      auth: {
-        method: "api_key",
-        credential,
-      },
-      accountId,
-      email,
-      name,
-      updatedAt: now,
-    });
-    return;
-  }
-  await db.insert("providerConnections", {
-    kind: "railway",
-    userId,
-    auth: {
-      method: "api_key",
-      credential,
-    },
-    accountId,
-    email,
-    name,
-    createdAt: now,
-    updatedAt: now,
-  });
-}
-
 async function upsertCloudflareApiKey(
   db: DatabaseWriter,
   userId: Id<"users">,
@@ -213,10 +174,6 @@ const seedProviderConnectionsArgs = object({
   convexTeamId: optional(string()),
   netlifyApiKey: optional(string()),
   netlifyTeamId: optional(string()),
-  railwayApiKey: optional(string()),
-  railwayAccountId: optional(string()),
-  railwayEmail: optional(string()),
-  railwayName: optional(string()),
   cloudflareApiKey: optional(string()),
   cloudflareAccountId: optional(string()),
 });
@@ -267,27 +224,6 @@ export const seedProviderConnectionsForEmail = internalMutation({
       );
     }
 
-    if (
-      args.railwayApiKey ||
-      args.railwayAccountId ||
-      args.railwayEmail ||
-      args.railwayName
-    ) {
-      if (!args.railwayApiKey || !args.railwayAccountId) {
-        throw new Error(
-          "Railway API key and account ID must be provided together",
-        );
-      }
-      await upsertRailwayApiKey(
-        ctx.db,
-        user._id,
-        args.railwayApiKey,
-        args.railwayAccountId,
-        args.railwayEmail,
-        args.railwayName,
-      );
-    }
-
     if (args.cloudflareApiKey || args.cloudflareAccountId) {
       if (!args.cloudflareApiKey) {
         throw new Error(
@@ -322,7 +258,6 @@ export const seedPasswordAccount = internalAction({
     const convexTeamId = readSeedValue("DEV_SEED_CONVEX_TEAM_ID");
     const netlifyApiKey = readSeedValue("DEV_SEED_NETLIFY_API_KEY");
     const netlifyTeamId = readSeedValue("DEV_SEED_NETLIFY_TEAM_ID");
-    const railwayApiKey = readSeedValue("DEV_SEED_RAILWAY_API_KEY");
     const cloudflareApiKey = readSeedValue("DEV_SEED_CLOUDFLARE_API_KEY");
     const cloudflareAccountId = readSeedValue("DEV_SEED_CLOUDFLARE_ACCOUNT_ID");
     const seedArgs: SeedProviderConnectionsArgs = { email };
@@ -341,29 +276,6 @@ export const seedPasswordAccount = internalAction({
     if (netlifyTeamId !== undefined) {
       seedArgs.netlifyTeamId = netlifyTeamId;
     }
-    if (railwayApiKey !== undefined) {
-      try {
-        const railwayProfile = await fetchRailwayConnectionDetails(
-          railwayApiKey,
-          {
-            invalidApiKeyMessage: "Invalid DEV_SEED_RAILWAY_API_KEY",
-            queryName: "RailwaySeedProfile",
-          },
-        );
-        seedArgs.railwayApiKey = railwayApiKey;
-        seedArgs.railwayAccountId = railwayProfile.accountId;
-        if (railwayProfile.email !== undefined) {
-          seedArgs.railwayEmail = railwayProfile.email;
-        }
-        if (railwayProfile.name !== undefined) {
-          seedArgs.railwayName = railwayProfile.name;
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.warn("devAuth:seed:railway:skipped", { message });
-      }
-    }
-
     if (cloudflareApiKey !== undefined) {
       seedArgs.cloudflareApiKey = cloudflareApiKey;
     }

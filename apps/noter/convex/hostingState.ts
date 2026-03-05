@@ -4,7 +4,6 @@ const { literal, object, optional, string, union } = v;
 
 export const hostingProviderValidator = union(
   literal("netlify"),
-  literal("railway"),
   literal("cloudflare"),
 );
 export type HostingProvider = Infer<typeof hostingProviderValidator>;
@@ -20,15 +19,6 @@ export const netlifyHostingStateValidator = object({
 });
 export type NetlifyHostingState = Infer<typeof netlifyHostingStateValidator>;
 
-export const railwayHostingStateValidator = object({
-  provider: literal("railway"),
-  projectId: string(),
-  environmentId: string(),
-  serviceId: string(),
-  domain: string(),
-});
-export type RailwayHostingState = Infer<typeof railwayHostingStateValidator>;
-
 export const cloudflareHostingStateValidator = object({
   provider: literal("cloudflare"),
   accountId: string(),
@@ -42,7 +32,6 @@ export type CloudflareHostingState = Infer<
 
 export const hostingStateValidator = union(
   netlifyHostingStateValidator,
-  railwayHostingStateValidator,
   cloudflareHostingStateValidator,
 );
 export type HostingState = Infer<typeof hostingStateValidator>;

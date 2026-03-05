@@ -318,7 +318,7 @@ async function executeGithubApi(
 }
 
 function buildProdReadSummary(args: {
-  provider: "convex" | "netlify" | "railway" | "cloudflare";
+  provider: "convex" | "netlify" | "cloudflare";
   resourceKind:
     | "deployment_status"
     | "logs"
@@ -334,9 +334,7 @@ function buildProdReadSummary(args: {
       ? "Convex"
       : args.provider === "netlify"
         ? "Netlify"
-        : args.provider === "railway"
-          ? "Railway"
-          : "Cloudflare";
+        : "Cloudflare";
   const resource =
     args.resourceKind === "deployment_status"
       ? "deployment status"
@@ -367,7 +365,7 @@ async function executeProdReadRequest(
   toolCtx: ToolContext,
   input: {
     scope: "vault" | "global";
-    provider: "convex" | "netlify" | "railway" | "cloudflare";
+    provider: "convex" | "netlify" | "cloudflare";
     resourceKind:
       | "deployment_status"
       | "logs"
@@ -500,52 +498,6 @@ async function executeRequestNetlifyProjectsRead(
     provider: "netlify",
     resourceKind: "site_inventory",
     toolName: "request_netlify_projects_read",
-    params: {
-      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
-    },
-    allowRawFallback: input.allowRawFallback,
-  });
-}
-
-async function executeRequestRailwayStatusRead(
-  toolCtx: ToolContext,
-): Promise<string> {
-  return await executeProdReadRequest(toolCtx, {
-    scope: "vault",
-    provider: "railway",
-    resourceKind: "deployment_status",
-    toolName: "request_railway_status_read",
-    params: {},
-  });
-}
-
-async function executeRequestRailwayLogsRead(
-  toolCtx: ToolContext,
-  input: { maxEntries?: number; allowRawFallback?: boolean },
-): Promise<string> {
-  return await executeProdReadRequest(toolCtx, {
-    scope: "vault",
-    provider: "railway",
-    resourceKind: "logs",
-    toolName: "request_railway_logs_read",
-    params: {
-      ...(typeof input.maxEntries === "number"
-        ? { maxEntries: input.maxEntries }
-        : {}),
-    },
-    allowRawFallback: input.allowRawFallback,
-  });
-}
-
-async function executeRequestRailwayProjectsRead(
-  toolCtx: ToolContext,
-  input: { limit?: number; allowRawFallback?: boolean },
-): Promise<string> {
-  return await executeProdReadRequest(toolCtx, {
-    scope: "global",
-    provider: "railway",
-    resourceKind: "site_inventory",
-    toolName: "request_railway_projects_read",
     params: {
       ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
     },
@@ -801,54 +753,6 @@ export function createTools(toolCtx: ToolContext) {
       }),
       handler: async (_ctx, input) => {
         return await executeRequestNetlifyProjectsRead(toolCtx, input);
-      },
-    }),
-
-    request_railway_status_read: createTool({
-      description: catalogDescription("request_railway_status_read"),
-      args: z.object({}),
-      handler: async () => {
-        return await executeRequestRailwayStatusRead(toolCtx);
-      },
-    }),
-
-    request_railway_logs_read: createTool({
-      description: catalogDescription("request_railway_logs_read"),
-      args: z.object({
-        maxEntries: z
-          .number()
-          .int()
-          .min(1)
-          .max(200)
-          .optional()
-          .describe("Maximum deployment log entries to include"),
-        allowRawFallback: z
-          .boolean()
-          .optional()
-          .describe("In owner mode, allow explicit raw payload fallback"),
-      }),
-      handler: async (_ctx, input) => {
-        return await executeRequestRailwayLogsRead(toolCtx, input);
-      },
-    }),
-
-    request_railway_projects_read: createTool({
-      description: catalogDescription("request_railway_projects_read"),
-      args: z.object({
-        limit: z
-          .number()
-          .int()
-          .min(1)
-          .max(100)
-          .optional()
-          .describe("Maximum projects to include"),
-        allowRawFallback: z
-          .boolean()
-          .optional()
-          .describe("In owner mode, allow explicit raw payload fallback"),
-      }),
-      handler: async (_ctx, input) => {
-        return await executeRequestRailwayProjectsRead(toolCtx, input);
       },
     }),
 

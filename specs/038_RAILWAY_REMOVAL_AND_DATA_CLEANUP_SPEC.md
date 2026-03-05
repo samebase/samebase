@@ -10,7 +10,6 @@
   - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
   - `specs/016_FRONTEND_HOSTING_PROVIDER_SELECTION_SPEC.md`
   - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
-  - `specs/027_HOSTING_PROVIDER_ABSTRACTION_AND_RAILWAY_PILOT_SPEC.md`
   - `specs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
   - `specs/032_CLOUDFLARE_HOSTING_PILOT_SPEC.md`
 
@@ -101,7 +100,8 @@ The removal must therefore be done in a controlled order:
 
 ### 4) Docs/specs/manual test references
 
-- Retire or archive the Railway pilot spec (`027`).
+- Delete the Railway pilot spec (`027`) and keep the decision record in this
+  spec.
 - Update Cloudflare specs (`031`, `032`) to remove Railway assumptions.
 - Remove Railway mentions from manual test docs and env allowlists.
 - Keep fixture manifests in sync when new/removed spec files change the visible
@@ -221,7 +221,7 @@ Exit criteria:
 
 ### Phase 4: Spec and doc cleanup
 
-- Retire/archive `027`.
+- Delete `027`.
 - Update `031` and `032` related-spec links and wording.
 - Remove Railway references in manual-test/env docs.
 
@@ -231,16 +231,10 @@ Exit criteria:
 
 ## Spec Hygiene Decision (for old specs)
 
-Preferred approach:
+Chosen approach:
 
-1. Mark `027` as archived/retired with a short status header and pointer to this
-   removal spec.
-2. Keep the file for historical traceability.
-3. Remove `027` from active related-spec lists where it is no longer relevant.
-
-Alternative (acceptable if we want minimal docs):
-
-- Delete `027` and replace with a short "provider history" note in this spec.
+1. Delete `027`.
+2. Keep this spec as the Railway historical note and removal decision record.
 
 ## Validation Checklist
 

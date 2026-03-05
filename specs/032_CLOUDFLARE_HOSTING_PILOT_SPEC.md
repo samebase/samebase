@@ -9,13 +9,13 @@
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/016_FRONTEND_HOSTING_PROVIDER_SELECTION_SPEC.md`
   - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
-  - `specs/027_HOSTING_PROVIDER_ABSTRACTION_AND_RAILWAY_PILOT_SPEC.md`
+  - `specs/038_RAILWAY_REMOVAL_AND_DATA_CLEANUP_SPEC.md`
   - `specs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
 
 ## Summary
 
-Add Cloudflare as a third hosting provider option for noter-managed vault apps,
-alongside Netlify and Railway, using Cloudflare Pages as the initial target.
+Add Cloudflare as a hosting provider option for noter-managed vault apps,
+alongside Netlify, using Cloudflare Pages as the initial target.
 
 Roll this out as a pilot, gated behind a feature flag, with incremental phases:
 
@@ -30,8 +30,7 @@ access when provisioning is ready.
 
 ## Why this spec exists
 
-- Noter already supports multi-hosting (`netlify` + `railway`) via a strict
-  provider boundary (`specs/027_...`).
+- Noter already supports provider-specific hosting through a strict boundary.
 - Cloudflare Pages is a strong fit for static Vite apps, and helps address
   Netlify deploy-credit constraints documented in `specs/016_...`.
 - Cloudflare connection UX is now available via MCP OAuth (`specs/031_...`),
@@ -40,7 +39,7 @@ access when provisioning is ready.
 ## Goals
 
 1. Add `cloudflare` as a hosting provider implementation behind the existing
-   hosting boundary (no Netlify/Railway regressions).
+   hosting boundary (no Netlify regressions).
 2. Allow selecting Cloudflare in the vault create flow (dropdown) when the pilot
    flag is enabled.
 3. Provision a noter-managed vault to a working Cloudflare Pages URL.
@@ -51,7 +50,7 @@ access when provisioning is ready.
 ## Non-goals
 
 1. Migrating existing vaults to Cloudflare.
-2. Removing Netlify or Railway.
+2. Removing Netlify.
 3. Custom domains, DNS automation, or preview deployments in the first pilot
    slice (these become later phases).
 4. Over-specifying Cloudflare’s final long-term role before pilot evidence.
@@ -74,7 +73,7 @@ Behavior:
 
 - When disabled (default): Cloudflare is hidden from create-flow hosting
   selection and cannot be chosen for new vault provisions.
-- When enabled: Cloudflare appears as a third option alongside Netlify/Railway.
+- When enabled: Cloudflare appears as an option alongside Netlify.
 
 OAuth redirect requirements are already defined in `specs/031_...`:
 
@@ -117,7 +116,7 @@ This keeps vault provisioning deterministic and avoids guessing.
 
 Extend hosting provider unions to include `cloudflare`:
 
-- `HostingProvider = "netlify" | "railway" | "cloudflare"`
+- `HostingProvider = "netlify" | "cloudflare"`
 
 Add a Cloudflare hosting state branch (exact fields may change as we learn the
 minimum required identifiers):
@@ -130,7 +129,7 @@ minimum required identifiers):
 ## Hosting Provider Boundary (Cloudflare implementation)
 
 Implement Cloudflare as another backend behind the existing hosting boundary
-used by Netlify/Railway:
+used by Netlify:
 
 1. Provision (create Pages project + connect to repo)
 2. Resolve production URL
@@ -247,7 +246,7 @@ Exit criteria:
 
 Decide one of:
 
-- keep Netlify/Railway/Cloudflare side-by-side long-term
+- keep Netlify/Cloudflare side-by-side long-term
 - switch default hosting provider for noter-managed vaults
 - keep Cloudflare as opt-in only
 - rollback Cloudflare hosting path
@@ -259,7 +258,6 @@ Exit criteria:
 ## Validation Checklist
 
 - [ ] Netlify create/provision/retry/delete still works.
-- [ ] Railway create/provision/retry/delete still works (when enabled).
 - [ ] Cloudflare connect/disconnect is stable.
 - [ ] Cloudflare provisioning is gated behind flag and requires an explicit
       provider selection.

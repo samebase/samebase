@@ -138,7 +138,7 @@ const hasDaytonaResourcesForVault = (
   );
 
 type CreateTemplate = "app" | "agent";
-const CREATE_HOSTING_PROVIDERS = ["netlify", "railway", "cloudflare"] as const;
+const CREATE_HOSTING_PROVIDERS = ["netlify", "cloudflare"] as const;
 type CreateHostingProvider = (typeof CREATE_HOSTING_PROVIDERS)[number];
 
 const isCreateTemplate = (value: string): value is CreateTemplate =>
@@ -149,19 +149,12 @@ const isCreateHostingProvider = (
   CREATE_HOSTING_PROVIDERS.some((provider) => provider === value);
 const CREATE_HOSTING_PROVIDER_LABEL: Record<CreateHostingProvider, string> = {
   netlify: "Netlify",
-  railway: "Railway",
   cloudflare: "Cloudflare",
 };
 
 const DASHBOARD_REFRESH_CONCURRENCY = 3;
 type RefreshTrigger = "focus" | "page_load";
-const PROVIDER_KEYS = [
-  "github",
-  "convex",
-  "netlify",
-  "railway",
-  "cloudflare",
-] as const;
+const PROVIDER_KEYS = ["github", "convex", "netlify", "cloudflare"] as const;
 type ProviderKey = (typeof PROVIDER_KEYS)[number];
 type ProviderMetadata = {
   label: string;
@@ -202,14 +195,6 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
     icon: GlobeIcon,
     apiKeyProvider: "netlify",
   },
-  railway: {
-    label: "Railway",
-    oauthButtonLabel: "Railway OAuth",
-    popupName: "railway-oauth",
-    completionEventType: "railway-oauth-complete",
-    icon: GlobeIcon,
-    apiKeyProvider: "railway",
-  },
   cloudflare: {
     label: "Cloudflare",
     oauthButtonLabel: "Cloudflare MCP OAuth",
@@ -233,7 +218,6 @@ export function VaultDashboard() {
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
   const getNetlifyOAuthUrl = useMutation(api.netlifyOAuth.getNetlifyOAuthUrl);
-  const getRailwayOAuthUrl = useMutation(api.railwayOAuth.getRailwayOAuthUrl);
   const getCloudflareMcpOAuthUrl = useAction(
     api.cloudflareMcpOAuth.getCloudflareMcpOAuthUrl,
   );
@@ -245,13 +229,9 @@ export function VaultDashboard() {
   const connectNetlifyWithApiKey = useAction(
     api.users.connectNetlifyWithApiKey,
   );
-  const connectRailwayWithApiKey = useAction(
-    api.users.connectRailwayWithApiKey,
-  );
   const disconnectGithub = useMutation(api.users.disconnectGithub);
   const disconnectConvex = useMutation(api.users.disconnectConvex);
   const disconnectNetlify = useMutation(api.users.disconnectNetlify);
-  const disconnectRailway = useMutation(api.users.disconnectRailway);
   const disconnectCloudflare = useMutation(api.users.disconnectCloudflare);
   const setProvidersPanelOpen = useMutation(
     api.dashboardSettings.setProvidersPanelOpen,
@@ -260,9 +240,6 @@ export function VaultDashboard() {
   const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus);
   const netlifyConnection = useConvexQuery(
     api.users.getNetlifyConnectionStatus,
-  );
-  const railwayConnection = useConvexQuery(
-    api.users.getRailwayConnectionStatus,
   );
   const cloudflareConnection = useConvexQuery(
     api.users.getCloudflareConnectionStatus,
@@ -274,12 +251,10 @@ export function VaultDashboard() {
   const githubPopupRef = useRef<Window | null>(null);
   const convexPopupRef = useRef<Window | null>(null);
   const netlifyPopupRef = useRef<Window | null>(null);
-  const railwayPopupRef = useRef<Window | null>(null);
   const cloudflarePopupRef = useRef<Window | null>(null);
   const githubPopupOriginRef = useRef<string | null>(null);
   const convexPopupOriginRef = useRef<string | null>(null);
   const netlifyPopupOriginRef = useRef<string | null>(null);
-  const railwayPopupOriginRef = useRef<string | null>(null);
   const cloudflarePopupOriginRef = useRef<string | null>(null);
   const providerRuntimeConfig: Record<ProviderKey, ProviderRuntimeConfig> = {
     github: {
@@ -299,12 +274,6 @@ export function VaultDashboard() {
       disconnect: disconnectNetlify,
       popupRef: netlifyPopupRef,
       popupOriginRef: netlifyPopupOriginRef,
-    },
-    railway: {
-      getOAuthUrl: getRailwayOAuthUrl,
-      disconnect: disconnectRailway,
-      popupRef: railwayPopupRef,
-      popupOriginRef: railwayPopupOriginRef,
     },
     cloudflare: {
       getOAuthUrl: getCloudflareMcpOAuthUrl,
@@ -390,11 +359,6 @@ export function VaultDashboard() {
         completionEventType: PROVIDER_METADATA.netlify.completionEventType,
         popupRef: netlifyPopupRef,
         popupOriginRef: netlifyPopupOriginRef,
-      },
-      railway: {
-        completionEventType: PROVIDER_METADATA.railway.completionEventType,
-        popupRef: railwayPopupRef,
-        popupOriginRef: railwayPopupOriginRef,
       },
       cloudflare: {
         completionEventType: PROVIDER_METADATA.cloudflare.completionEventType,
@@ -517,21 +481,17 @@ export function VaultDashboard() {
   const hasStagedChanges = stagedChangesCount > 0;
   const hasDaytonaResources = hasDaytonaResourcesForVault(selectedVault);
   const removeHostingCheckboxId =
-    vaultToDelete?.hostingProvider === "railway"
-      ? "remove-railway-provision"
-      : vaultToDelete?.hostingProvider === "cloudflare"
-        ? "remove-cloudflare-provision"
-        : vaultToDelete?.hostingProvider === "netlify"
-          ? "remove-netlify-provision"
-          : "remove-hosting-provision";
+    vaultToDelete?.hostingProvider === "cloudflare"
+      ? "remove-cloudflare-provision"
+      : vaultToDelete?.hostingProvider === "netlify"
+        ? "remove-netlify-provision"
+        : "remove-hosting-provision";
   const removeHostingLabel =
-    vaultToDelete?.hostingProvider === "railway"
-      ? "Also remove Railway project"
-      : vaultToDelete?.hostingProvider === "cloudflare"
-        ? "Also remove Cloudflare Pages project"
-        : vaultToDelete?.hostingProvider === "netlify"
-          ? "Also remove Netlify site"
-          : "Also remove hosting provider resources";
+    vaultToDelete?.hostingProvider === "cloudflare"
+      ? "Also remove Cloudflare Pages project"
+      : vaultToDelete?.hostingProvider === "netlify"
+        ? "Also remove Netlify site"
+        : "Also remove hosting provider resources";
   const resetDeleteDialogState = () => {
     setVaultToDelete(null);
     setRemoveGithubRepo(false);
@@ -722,26 +682,21 @@ export function VaultDashboard() {
   const githubConnected = githubConnection?.connected === true;
   const convexConnected = convexConnection?.connected === true;
   const netlifyConnected = netlifyConnection?.connected === true;
-  const railwayConnected = railwayConnection?.connected === true;
   const cloudflareConnected = cloudflareConnection?.connected === true;
   useEffect(() => {
     const selectedConnected =
       createHostingProvider === "netlify"
         ? netlifyConnected
-        : createHostingProvider === "railway"
-          ? railwayConnected
-          : cloudflareConnected;
+        : cloudflareConnected;
     if (selectedConnected) {
       return;
     }
 
     const fallbackHostingProvider = netlifyConnected
       ? "netlify"
-      : railwayConnected
-        ? "railway"
-        : cloudflareConnected
-          ? "cloudflare"
-          : null;
+      : cloudflareConnected
+        ? "cloudflare"
+        : null;
     if (
       fallbackHostingProvider &&
       fallbackHostingProvider !== createHostingProvider
@@ -752,16 +707,13 @@ export function VaultDashboard() {
     cloudflareConnected,
     createHostingProvider,
     netlifyConnected,
-    railwayConnected,
   ]);
 
   const connectedHostingProviders = CREATE_HOSTING_PROVIDERS.filter(
     (provider) =>
       provider === "netlify"
         ? netlifyConnected
-        : provider === "railway"
-          ? railwayConnected
-          : cloudflareConnected,
+        : cloudflareConnected,
   );
   const createHostingProviderOptions =
     connectedHostingProviders.length > 0
@@ -772,17 +724,13 @@ export function VaultDashboard() {
   const isHostingProviderConnected = (provider: CreateHostingProvider) =>
     provider === "netlify"
       ? netlifyConnected
-      : provider === "railway"
-        ? railwayConnected
-        : cloudflareConnected;
+      : cloudflareConnected;
   const requiredHostingConnectionLabel =
     CREATE_HOSTING_PROVIDER_LABEL[createHostingProvider];
   const requiredHostingConnected =
     createHostingProvider === "netlify"
       ? netlifyConnected
-      : createHostingProvider === "railway"
-        ? railwayConnected
-        : cloudflareConnected;
+      : cloudflareConnected;
   const cloudflareMcpTokenStatus = cloudflareConnection?.mcpTokenStatus;
   const cloudflareMcpTokenExpiresAt = cloudflareConnection?.mcpTokenExpiresAt;
   const cloudflareMcpTokenCheckedAt = cloudflareConnection?.mcpTokenCheckedAt;
@@ -811,9 +759,6 @@ export function VaultDashboard() {
     : "Not connected";
   const netlifyStatus = netlifyConnected
     ? `Connected to ${netlifyConnection.teamSlug ?? netlifyConnection.teamId ?? "Netlify team"} (${formatAuthMethod(netlifyConnection.authMethod)})`
-    : "Not connected";
-  const railwayStatus = railwayConnected
-    ? `Connected as ${railwayConnection.name ?? railwayConnection.email ?? railwayConnection.accountId ?? "Railway user"} (${formatAuthMethod(railwayConnection.authMethod)})`
     : "Not connected";
   const cloudflareMcpTokenTimeStatus =
     cloudflareConnection?.authMethod === "mcp_oauth"
@@ -866,11 +811,6 @@ export function VaultDashboard() {
       status: netlifyStatus,
       showTokenCheck: false,
     },
-    railway: {
-      connected: railwayConnected,
-      status: railwayStatus,
-      showTokenCheck: false,
-    },
     cloudflare: {
       connected: cloudflareConnected,
       status: cloudflareStatus,
@@ -894,7 +834,6 @@ export function VaultDashboard() {
     connectGithubWithApiKey,
     connectConvexWithApiKey,
     connectNetlifyWithApiKey,
-    connectRailwayWithApiKey,
   });
   const createControl = (
     <div className="flex flex-col items-start gap-2">

@@ -33,7 +33,7 @@ const prodReadProposalSchema = z
     type: z.literal("prod_read_proposal"),
     requestId: requestIdSchema,
     scope: z.enum(["vault", "global"]),
-    provider: z.enum(["convex", "netlify", "railway", "cloudflare"]),
+    provider: z.enum(["convex", "netlify", "cloudflare"]),
     resourceKind: z.enum([
       "deployment_status",
       "logs",
@@ -65,7 +65,7 @@ const prodReadResultSchema = z
   .object({
     type: z.literal("prod_read_result"),
     requestId: requestIdSchema,
-    provider: z.enum(["convex", "netlify", "railway", "cloudflare"]),
+    provider: z.enum(["convex", "netlify", "cloudflare"]),
     resourceKind: z.enum([
       "deployment_status",
       "logs",

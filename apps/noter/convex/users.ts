@@ -4,7 +4,6 @@ import { internal } from "./_generated/api";
 import { Infer, v } from "convex/values";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import { isRecord, readBoolean, readString } from "./jsonUtils";
-import { fetchRailwayConnectionDetails } from "./railwayConnectionDetails";
 import {
   deriveMcpTokenStatusFromExpiry,
   mcpTokenHealthStatusValidator,
@@ -325,7 +324,6 @@ export const viewer = query({
       hasGithubConnection: boolean(),
       hasConvexConnection: boolean(),
       hasNetlifyConnection: boolean(),
-      hasRailwayConnection: boolean(),
       hasCloudflareConnection: boolean(),
     }),
     v.null(),
@@ -340,11 +338,10 @@ export const viewer = query({
       return null;
     }
 
-    const [github, convex, netlify, railway, cloudflare] = await Promise.all([
+    const [github, convex, netlify, cloudflare] = await Promise.all([
       getConnectionByUserAndKind(ctx.db, userId, "github"),
       getConnectionByUserAndKind(ctx.db, userId, "convex"),
       getConnectionByUserAndKind(ctx.db, userId, "netlify"),
-      getConnectionByUserAndKind(ctx.db, userId, "railway"),
       getConnectionByUserAndKind(ctx.db, userId, "cloudflare"),
     ]);
 
@@ -360,7 +357,6 @@ export const viewer = query({
       hasGithubConnection: github !== null,
       hasConvexConnection: convex !== null,
       hasNetlifyConnection: netlify !== null,
-      hasRailwayConnection: railway !== null,
       hasCloudflareConnection: cloudflare !== null,
     };
   },
@@ -577,59 +573,6 @@ export const disconnectNetlify = mutation({
   },
 });
 
-export const getRailwayConnectionStatus = query({
-  args: {},
-  returns: v.object({
-    connected: boolean(),
-    accountId: v.optional(v.string()),
-    email: v.optional(v.string()),
-    name: v.optional(v.string()),
-    authMethod: v.optional(providerAuthMethodValidator),
-  }),
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      return { connected: false };
-    }
-    const connection = await getConnectionByUserAndKind(
-      ctx.db,
-      userId,
-      "railway",
-    );
-    if (connection?.kind !== "railway") {
-      return { connected: false };
-    }
-
-    return {
-      connected: true,
-      accountId: connection.accountId,
-      email: connection.email,
-      name: connection.name,
-      authMethod: connection.auth.method,
-    };
-  },
-});
-
-export const disconnectRailway = mutation({
-  args: {},
-  returns: v.null(),
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      throw new Error("User not authenticated");
-    }
-    const connection = await getConnectionByUserAndKind(
-      ctx.db,
-      userId,
-      "railway",
-    );
-    if (connection) {
-      await ctx.db.delete(connection._id);
-    }
-    return null;
-  },
-});
-
 export const getCloudflareConnectionStatus = query({
   args: {},
   returns: cloudflareConnectionStatusValidator,
@@ -750,15 +693,6 @@ type NetlifyApiKeyConnectionResult = Infer<
   typeof netlifyApiKeyConnectionResultValidator
 >;
 
-const railwayApiKeyConnectionResultValidator = object({
-  accountId: string(),
-  email: optional(string()),
-  name: optional(string()),
-});
-type RailwayApiKeyConnectionResult = Infer<
-  typeof railwayApiKeyConnectionResultValidator
->;
-
 export const connectGithubWithApiKey = action({
   args: {
     token: v.string(),
@@ -839,42 +773,6 @@ export const connectNetlifyWithApiKey = action({
     });
 
     return { teamId: details.teamId, teamSlug: details.teamSlug };
-  },
-});
-
-export const connectRailwayWithApiKey = action({
-  args: {
-    token: v.string(),
-  },
-  returns: railwayApiKeyConnectionResultValidator,
-  handler: async (ctx, args): Promise<RailwayApiKeyConnectionResult> => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      throw new Error("User not authenticated");
-    }
-
-    const token = normalizeApiToken(args.token);
-    const details = await fetchRailwayConnectionDetails(token, {
-      invalidApiKeyMessage: "Invalid Railway API key",
-      queryName: "RailwayApiKeyProfile",
-    });
-
-    await ctx.runMutation(internal.providerConnections.upsertRailway, {
-      userId,
-      auth: {
-        method: "api_key",
-        credential: token,
-      },
-      accountId: details.accountId,
-      email: details.email,
-      name: details.name,
-    });
-
-    return {
-      accountId: details.accountId,
-      email: details.email,
-      name: details.name,
-    };
   },
 });
 

@@ -78,9 +78,6 @@ export function resolveHostingMainUrl(
   if (hosting?.provider === "netlify") {
     return hosting.productionUrl ?? hosting.defaultUrl;
   }
-  if (hosting?.provider === "railway") {
-    return hosting.domain;
-  }
   if (hosting?.provider === "cloudflare") {
     if (hosting.productionUrl) {
       return hosting.productionUrl;

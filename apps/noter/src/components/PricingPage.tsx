@@ -29,7 +29,7 @@ const PLAN_DISPLAY_PRICE: Record<PaidPlan, Record<BillingCycle, string>> = {
 
 const PLAN_FEATURES = {
   free: [
-    "Use your own GitHub, Convex, and Railway accounts",
+    "Use your own GitHub, Convex, Netlify, and Cloudflare accounts",
     "Bring your own AI usage and provider costs",
     "No Noter-hosted agent compute included",
   ],
