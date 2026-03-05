@@ -212,6 +212,13 @@ function getPatchLineClassName(line: string): string {
   return "";
 }
 
+function encodeGitHubPath(path: string): string {
+  return path
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+}
+
 function FileViewWrapper() {
   const navigate = useNavigate();
 
@@ -449,6 +456,7 @@ function FileViewInner({
 
   const repositoryFullName = `${owner}/${repoName}`;
   const commitSha = vault.commitSHA;
+  const selectedFileGitHubUrl = `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/blob/${encodeGitHubPath(branch)}/${encodeGitHubPath(selectedFile)}`;
 
   // Folder expansion state
   const folderExpansionStates = useQuery(
@@ -1283,7 +1291,14 @@ function FileViewInner({
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-3">
                   <h2 className="text-base md:text-sm font-medium">
-                    {selectedFile}
+                    <a
+                      className={`block truncate ${linkStyle}`}
+                      href={selectedFileGitHubUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {selectedFile}
+                    </a>
                   </h2>
                   <Tabs
                     value={viewMode}
