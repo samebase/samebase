@@ -321,6 +321,7 @@ export async function rebaseStagedFilesOnLatestHead(args: {
   octokit: Octokit;
   owner: string;
   repo: string;
+  branch: string;
   stagedFiles: StagedFileForCommit[];
 }): Promise<StagedFileForCommit[]> {
   if (args.stagedFiles.length === 0) {
@@ -330,7 +331,7 @@ export async function rebaseStagedFilesOnLatestHead(args: {
   const treeResponse = await args.octokit.rest.git.getTree({
     owner: args.owner,
     repo: args.repo,
-    tree_sha: "HEAD",
+    tree_sha: args.branch,
     recursive: "1",
   });
 
@@ -377,15 +378,9 @@ export async function rebaseStagedFilesOnLatestHead(args: {
     return loaded;
   };
 
-  const conflictPaths: string[] = [];
-  const rebasedFiles: StagedFileForCommit[] = [];
-
-  for (const file of args.stagedFiles) {
-    if (file.fileDeleted || file.parentCommitSha === null) {
-      rebasedFiles.push(file);
-      continue;
-    }
-
+  const resolveUpstreamShaForFile = (
+    file: StagedFileForCommit,
+  ): string | null => {
     const preferredUpstreamPath =
       file.filePath === file.initialFilePath
         ? file.filePath
@@ -397,11 +392,37 @@ export async function rebaseStagedFilesOnLatestHead(args: {
         ? fallbackUpstreamPath
         : null;
     if (!upstreamPath) {
+      return null;
+    }
+    return shaByPath.get(upstreamPath) ?? null;
+  };
+
+  const upstreamShasToPrefetch = new Set<string>();
+  for (const file of args.stagedFiles) {
+    if (file.fileDeleted || file.parentCommitSha === null) {
+      continue;
+    }
+    const upstreamSha = resolveUpstreamShaForFile(file);
+    if (!upstreamSha || upstreamSha === file.parentCommitSha) {
+      continue;
+    }
+    upstreamShasToPrefetch.add(upstreamSha);
+  }
+
+  await Promise.all(
+    Array.from(upstreamShasToPrefetch).map((sha) => getBlobText(sha)),
+  );
+
+  const conflictPaths: string[] = [];
+  const rebasedFiles: StagedFileForCommit[] = [];
+
+  for (const file of args.stagedFiles) {
+    if (file.fileDeleted || file.parentCommitSha === null) {
       rebasedFiles.push(file);
       continue;
     }
 
-    const upstreamSha = shaByPath.get(upstreamPath);
+    const upstreamSha = resolveUpstreamShaForFile(file);
     if (!upstreamSha || upstreamSha === file.parentCommitSha) {
       rebasedFiles.push(file);
       continue;
@@ -1324,6 +1345,7 @@ export const getCommitPreview = action({
       octokit,
       owner: vault.ghRepoOwner,
       repo: vault.ghRepoName,
+      branch,
       stagedFiles,
     });
 
@@ -1408,6 +1430,7 @@ export async function createCommitWithMultipleFiles({
         octokit,
         owner,
         repo,
+        branch,
         stagedFiles: normalizedStagedFiles,
       });
 
@@ -1677,6 +1700,7 @@ export const commitAllStaged = internalAction({
         octokit,
         owner: args.repoOwner,
         repo: args.repoName,
+        branch: commitBranch,
         stagedFiles: changedFiles,
       });
 

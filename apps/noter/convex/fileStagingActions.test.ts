@@ -253,15 +253,20 @@ describe("createCommitWithMultipleFiles", () => {
    * Verify: commit content preserves the upstream-only line (no hidden deletion).
    */
   it("Test 1b: Rebases stale staged content to preserve upstream-only lines", async () => {
+    const targetBranch = "feature/stale-rebase";
     vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
       makeGetRefResponse("abc123"),
     );
     vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
       makeGetCommitResponse("tree123", "abc123"),
     );
-    vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
-      makeGetTreeResponse("head-tree", [{ path: "TODO.md", sha: "upstream" }]),
-    );
+    const getTreeSpy = vi
+      .spyOn(octokit.rest.git, "getTree")
+      .mockResolvedValue(
+        makeGetTreeResponse("head-tree", [
+          { path: "TODO.md", sha: "upstream" },
+        ]),
+      );
 
     const upstreamContent = [
       "!!! github notes",
@@ -320,8 +325,14 @@ describe("createCommitWithMultipleFiles", () => {
           parentCommitSha: "stale-sha",
         },
       ],
-      branch: "main",
+      branch: targetBranch,
     });
+
+    expect(getTreeSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tree_sha: targetBranch,
+      }),
+    );
 
     const createTreeCall = createTreeSpy.mock.calls[0]?.[0];
     if (!createTreeCall) {
