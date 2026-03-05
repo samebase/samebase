@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
+import { createCommitWithMultipleFiles } from "./fileStagingActions";
 
 type GitApi = RestEndpointMethodTypes["git"];
 type GetRefResponse = GitApi["getRef"]["response"];
@@ -119,167 +120,6 @@ const makeUpdateRefResponse = (sha: string): UpdateRefResponse => ({
   data: makeRefData(sha) satisfies UpdateRefData,
 });
 
-/**
- * Mock implementation of createCommitWithMultipleFiles
- * Extracted from the actual implementation for testing
- */
-async function createCommitWithMultipleFiles({
-  octokit,
-  owner,
-  repo,
-  stagedFiles,
-  branch,
-}: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
-  stagedFiles: Array<{
-    filePath: string;
-    content: string;
-    fileDeleted: boolean;
-    initialFilePath: string;
-    initialContent?: string;
-    parentCommitSha: string | null;
-  }>;
-  branch: string;
-}) {
-  // Helper to compute modified (added) line ranges in the new content
-  const computeModifiedLineRanges = (
-    oldContent: string,
-    newContent: string,
-  ): Array<{ from: number; to: number }> => {
-    // Simplified version for testing
-    if (oldContent === newContent) return [];
-    return [{ from: 1, to: 1 }]; // Mock implementation
-  };
-
-  // Summarize all changes to craft a commit message
-  const changesInfo: Array<{
-    deleted: boolean;
-    modifiedLines: Array<{ from: number; to: number }>;
-    filePath: string;
-    initialFilePath: string;
-    wasModified: boolean;
-  }> = stagedFiles.map((file) => ({
-    deleted: file.fileDeleted,
-    filePath: file.filePath,
-    initialFilePath: file.initialFilePath,
-    modifiedLines: file.fileDeleted
-      ? []
-      : computeModifiedLineRanges(
-          file.initialContent ?? "",
-          file.content ?? "",
-        ),
-    wasModified:
-      !file.fileDeleted && (file.initialContent ?? "") !== (file.content ?? ""),
-  }));
-
-  // 1. Prepare file lists
-  const pathsToDelete = new Set<string>();
-  const filesToAdd: Array<{
-    filePath: string;
-    content: string;
-  }> = [];
-
-  for (const file of stagedFiles) {
-    if (file.fileDeleted) {
-      if (file.parentCommitSha !== null) {
-        pathsToDelete.add(file.filePath);
-      }
-    } else {
-      const isRenamed = file.filePath !== file.initialFilePath;
-      if (isRenamed && file.parentCommitSha !== null) {
-        pathsToDelete.add(file.initialFilePath);
-      }
-      filesToAdd.push({
-        filePath: file.filePath,
-        content: file.content,
-      });
-    }
-  }
-
-  // 2. Build tree entries with inline content
-  const newTreeEntries: Array<
-    | { path: string; mode: "100644"; type: "blob"; sha: null }
-    | { path: string; mode: "100644"; type: "blob"; content: string }
-  > = [];
-
-  for (const path of pathsToDelete) {
-    newTreeEntries.push({
-      path,
-      mode: "100644",
-      type: "blob",
-      sha: null,
-    });
-  }
-
-  for (const file of filesToAdd) {
-    newTreeEntries.push({
-      path: file.filePath,
-      mode: "100644",
-      type: "blob",
-      content: file.content,
-    });
-  }
-
-  // 4. Retry loop for ref-dependent operations
-  const MAX_ATTEMPTS = 3;
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    try {
-      const { data: refData } = await octokit.rest.git.getRef({
-        owner,
-        repo,
-        ref: `heads/${branch}`,
-      });
-      const currentCommitSha = refData.object.sha;
-
-      const { data: currentCommit } = await octokit.rest.git.getCommit({
-        owner,
-        repo,
-        commit_sha: currentCommitSha,
-      });
-      const currentTreeSha = currentCommit.tree.sha;
-
-      const { data: newTree } = await octokit.rest.git.createTree({
-        owner,
-        repo,
-        base_tree: currentTreeSha,
-        tree: newTreeEntries as any,
-      });
-
-      const { data: newCommit } = await octokit.rest.git.createCommit({
-        owner,
-        repo,
-        message: "Test commit",
-        tree: newTree.sha,
-        parents: [currentCommitSha],
-      });
-
-      await octokit.rest.git.updateRef({
-        owner,
-        repo,
-        ref: `heads/${branch}`,
-        sha: newCommit.sha,
-      });
-
-      return {
-        sha: newCommit.sha,
-        url: newCommit.html_url,
-      };
-    } catch (error) {
-      const status = (error as { status?: number }).status;
-      const isRetryable = status === 422 || status === 409;
-      if (!isRetryable || attempt === MAX_ATTEMPTS - 1) {
-        console.error("Failed to create commit:", error);
-        throw error;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 0)); // immediate in tests
-    }
-  }
-
-  throw new Error("Exhausted commit retry attempts");
-}
-
 describe("createCommitWithMultipleFiles", () => {
   let octokit: Octokit;
 
@@ -308,9 +148,9 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
       makeCreateCommitResponse("newtree123", "commit123"),
     );
-    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
-      makeUpdateRefResponse("commit123"),
-    );
+    const updateRefSpy = vi
+      .spyOn(octokit.rest.git, "updateRef")
+      .mockResolvedValue(makeUpdateRefResponse("commit123"));
 
     await createCommitWithMultipleFiles({
       octokit,
@@ -340,6 +180,9 @@ describe("createCommitWithMultipleFiles", () => {
 
     // Verify base_tree parameter is passed
     expect(createTreeCall.base_tree).toBe("tree123");
+    expect(updateRefSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ force: false }),
+    );
   });
 
   /**

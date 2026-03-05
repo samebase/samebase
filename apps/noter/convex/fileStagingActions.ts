@@ -3,7 +3,7 @@
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { v, type Infer } from "convex/values";
 import { api, internal } from "./_generated/api";
-import { Octokit } from "@octokit/rest";
+import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
 import { createTwoFilesPatch, diffLines } from "diff";
 import { getUserId } from "./common";
 import type { Id } from "./_generated/dataModel";
@@ -18,6 +18,9 @@ import { rebaseStagedContent } from "./stagingRebase";
 
 type HeaderValue = string | number | readonly string[] | undefined;
 type HeaderMap = Record<string, HeaderValue>;
+type CreateTreeEntry = NonNullable<
+  RestEndpointMethodTypes["git"]["createTree"]["parameters"]["tree"]
+>[number];
 
 const githubRateLimitResetByUser = new Map<string, number>();
 const RATE_LIMIT_COOLDOWN_FALLBACK_MS = 60_000;
@@ -1202,7 +1205,7 @@ export const getCommitPreview = action({
 // MARK: Internal
 
 // Helper function to create a commit with multiple files
-async function createCommitWithMultipleFiles({
+export async function createCommitWithMultipleFiles({
   octokit,
   owner,
   repo,
@@ -1233,8 +1236,8 @@ async function createCommitWithMultipleFiles({
     for (const part of parts) {
       const value = part.value ?? "";
       const lineCount =
-        typeof (part as any).count === "number"
-          ? (part as any).count
+        typeof part.count === "number"
+          ? part.count
           : value === ""
             ? 0
             : value.split("\n").length; // count lines even without trailing newline
@@ -1300,10 +1303,7 @@ async function createCommitWithMultipleFiles({
 
   // 2. Build tree entries with inline content (no separate createBlob needed)
   //    GitHub creates blobs atomically as part of createTree, avoiding propagation races.
-  const newTreeEntries: Array<
-    | { path: string; mode: "100644"; type: "blob"; sha: null }
-    | { path: string; mode: "100644"; type: "blob"; content: string }
-  > = [];
+  const newTreeEntries: CreateTreeEntry[] = [];
 
   for (const path of pathsToDelete) {
     newTreeEntries.push({
@@ -1389,7 +1389,7 @@ async function createCommitWithMultipleFiles({
         owner,
         repo,
         base_tree: currentTreeSha,
-        tree: newTreeEntries as any,
+        tree: newTreeEntries,
       });
 
       const { data: newCommit } = await octokit.rest.git.createCommit({
@@ -1405,7 +1405,7 @@ async function createCommitWithMultipleFiles({
         repo,
         ref: `heads/${branch}`,
         sha: newCommit.sha,
-        force: true,
+        force: false,
       });
 
       return {
@@ -1413,7 +1413,7 @@ async function createCommitWithMultipleFiles({
         url: newCommit.html_url,
       };
     } catch (error) {
-      const status = (error as { status?: number }).status;
+      const status = getErrorStatus(error);
       const isRetryable = status === 422 || status === 409;
       if (!isRetryable || attempt === MAX_ATTEMPTS - 1) {
         console.error("Failed to create commit:", error);
