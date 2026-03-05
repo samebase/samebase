@@ -321,6 +321,8 @@ Auth:
 - When sharing URLs (including localhost dev URLs), format them as Markdown
   links (for example `[http://localhost:5174/](http://localhost:5174/)`) so they
   are clickable in Codex.
+- For boolean URL query params, prefer key-only flags (for example `?diff`)
+  instead of assigning values (`?diff=1`); treat key presence as enabled.
 - Runtime bootstrap rule: use `make anon` when operating from a git worktree,
   and use `make run` when operating from the primary local checkout.
 - In a worktree, `make anon` is the full startup command (do not run `pnpm dev`

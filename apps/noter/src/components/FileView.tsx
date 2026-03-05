@@ -495,8 +495,6 @@ function FileViewInner({
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
-  const [commitReviewMode, setCommitReviewMode] =
-    useState<CommitReviewMode>("editor");
   const [commitPreview, setCommitPreview] = useState<CommitPreview | null>(
     null,
   );
@@ -557,6 +555,10 @@ function FileViewInner({
   const showMobileEditorLineNumbers = useMemo(() => {
     const params = new URLSearchParams(search);
     return params.get("mobileLineNumbers") === "1";
+  }, [search]);
+  const commitReviewMode = useMemo<CommitReviewMode>(() => {
+    const params = new URLSearchParams(search);
+    return params.has("diff") ? "review" : "editor";
   }, [search]);
 
   // Add command palette keyboard shortcut handler
@@ -715,17 +717,57 @@ function FileViewInner({
     () => parseSimpleViewConfig(noterConfigContent),
     [noterConfigContent],
   );
+  const buildVaultFileUrl = useCallback(
+    (
+      path: string,
+      options?: {
+        reviewMode?: CommitReviewMode;
+      },
+    ) => {
+      const encodedPath = path
+        .split("/")
+        .map((segment) => encodeURIComponent(segment))
+        .join("/");
+      const searchParams = new URLSearchParams(search);
+      const preserveCurrentReviewMode = options?.reviewMode === undefined;
+      const includeDiff =
+        options?.reviewMode === "review" ||
+        (preserveCurrentReviewMode && searchParams.has("diff"));
+      searchParams.delete("diff");
+      const baseQuery = searchParams.toString();
+      const queryString = includeDiff
+        ? baseQuery.length > 0
+          ? `${baseQuery}&diff`
+          : "diff"
+        : baseQuery;
+      return `/vault/${owner}/${repoName}/${branch}/${encodedPath}${queryString.length > 0 ? `?${queryString}` : ""}`;
+    },
+    [branch, owner, repoName, search],
+  );
+  const setReviewModeInQuery = useCallback(
+    (
+      mode: CommitReviewMode,
+      options?: {
+        replace?: boolean;
+      },
+    ) => {
+      void navigate(buildVaultFileUrl(selectedFile, { reviewMode: mode }), {
+        replace: options?.replace,
+      });
+    },
+    [buildVaultFileUrl, navigate, selectedFile],
+  );
 
   const handleFileSelect = useCallback(
     (path: string) => {
       if (owner && repoName) {
-        void navigate(`/vault/${owner}/${repoName}/${branch}/${path}`);
+        void navigate(buildVaultFileUrl(path));
 
         // close the sidebar
         setOpenMobile(false);
       }
     },
-    [branch, navigate, owner, repoName, setOpenMobile],
+    [buildVaultFileUrl, navigate, owner, repoName, setOpenMobile],
   );
 
   const handleOpenFileFromGraph = useCallback(
@@ -750,7 +792,7 @@ function FileViewInner({
 
       // If we're currently viewing the renamed file, navigate to the new path
       if (stagedFile.initialFilePath === originalPath) {
-        void navigate(`/vault/${owner}/${repoName}/${branch}/${newPath}`);
+        void navigate(buildVaultFileUrl(newPath));
       }
 
       console.log(`File ${originalPath} renamed to ${newPath} in staging`);
@@ -895,15 +937,15 @@ function FileViewInner({
 
   const handleToggleReviewMode = useCallback(() => {
     if (commitReviewMode === "review") {
-      setCommitReviewMode("editor");
+      setReviewModeInQuery("editor");
       return;
     }
 
-    setCommitReviewMode("review");
     setCommitPreview(null);
     setCommitPreviewDisplayPreference("rich");
     setCommitPreviewDisplayMode("patch");
-  }, [commitReviewMode]);
+    setReviewModeInQuery("review");
+  }, [commitReviewMode, setReviewModeInQuery]);
 
   const handleFolderToggle = useCallback(
     (folderPath: string, isExpanded: boolean) => {
@@ -1094,8 +1136,8 @@ function FileViewInner({
 
   useEffect(() => {
     if (hasChangesToCommit || commitReviewMode !== "review") return;
-    setCommitReviewMode("editor");
-  }, [hasChangesToCommit, commitReviewMode]);
+    setReviewModeInQuery("editor", { replace: true });
+  }, [hasChangesToCommit, commitReviewMode, setReviewModeInQuery]);
 
   useEffect(() => {
     if (commitReviewMode !== "review" || !hasChangesToCommit) return;

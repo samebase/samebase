@@ -5,7 +5,8 @@ import {
   UpdateIcon,
 } from "@radix-ui/react-icons";
 import { api } from "convex/_generated/api";
-import { useNavigate } from "react-router-dom";
+import { useCallback } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { linkStyle } from "./styles";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 
@@ -108,6 +109,24 @@ export function EditedFilesCategories({
   branch: string;
 }) {
   const navigate = useNavigate();
+  const { search } = useLocation();
+  const navigateToDiffViewer = useCallback(
+    (filePath: string) => {
+      const encodedFilePath = filePath
+        .split("/")
+        .map((segment) => encodeURIComponent(segment))
+        .join("/");
+      const searchParams = new URLSearchParams(search);
+      searchParams.delete("diff");
+      const baseQuery = searchParams.toString();
+      const queryString = baseQuery.length > 0 ? `${baseQuery}&diff` : "diff";
+
+      void navigate(
+        `/vault/${repositoryFullName}/${branch}/${encodedFilePath}?${queryString}`,
+      );
+    },
+    [branch, navigate, repositoryFullName, search],
+  );
   const sections = [];
 
   if (categories.modified.length > 0) {
@@ -122,9 +141,7 @@ export function EditedFilesCategories({
             <button
               key={file.filePath}
               onClick={() => {
-                void navigate(
-                  `/vault/${repositoryFullName}/${branch}/${file.filePath}`,
-                );
+                navigateToDiffViewer(file.filePath);
               }}
               className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 rounded truncate w-full ${linkStyle}`}
             >
@@ -148,9 +165,7 @@ export function EditedFilesCategories({
             <button
               key={file.filePath}
               onClick={() => {
-                void navigate(
-                  `/vault/${repositoryFullName}/${branch}/${file.filePath}`,
-                );
+                navigateToDiffViewer(file.filePath);
               }}
               className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 rounded truncate w-full ${linkStyle}`}
             >
@@ -178,9 +193,7 @@ export function EditedFilesCategories({
             <button
               key={file.filePath}
               onClick={() => {
-                void navigate(
-                  `/vault/${repositoryFullName}/${branch}/${file.filePath}`,
-                );
+                navigateToDiffViewer(file.filePath);
               }}
               className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 rounded truncate w-full ${linkStyle}`}
             >
@@ -228,9 +241,7 @@ export function EditedFilesCategories({
             <button
               key={file.filePath}
               onClick={() => {
-                void navigate(
-                  `/vault/${repositoryFullName}/${branch}/${file.filePath}`,
-                );
+                navigateToDiffViewer(file.filePath);
               }}
               className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 rounded truncate w-full ${linkStyle}`}
             >
