@@ -1,9 +1,6 @@
 ---
 simpleView:
-  include:
-    - noter.md
   exclude:
-    - noter.md # Simple View config file
     - "**/src/**" # Frontend implementation code
     - "**/convex/**" # Backend functions
     - "**/node_modules/**" # Dependencies
@@ -12,8 +9,9 @@ simpleView:
     - convex/** # Backend functions
     - node_modules/** # Dependencies
     - dist/** # Build output
-    - "**/*.{json,ts,tsx,js,jsx,cjs,mjs,css,html,yaml,sh}" # Source file extensions
+    - "**/*.{json,ts,tsx,js,jsx,cjs,mjs,css,html,yaml}" # Source file extensions
     - tsconfig.base.json
+
     - Makefile
     - Dockerfile.daytona-deps
     - "**/pre-commit" # Git hooks like .husky/pre-commit
