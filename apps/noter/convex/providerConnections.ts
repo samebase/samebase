@@ -295,41 +295,28 @@ async function upsertCloudflareConnection(
     "cloudflare",
   );
   if (existing) {
-    const patch: {
-      auth: Infer<typeof cloudflareProviderAuthValidator>;
-      accountId?: string;
-      tokenHealth?: Infer<typeof mcpTokenHealthValidator>;
-      updatedAt: number;
-    } = {
+    const patch = {
       auth: args.auth,
       accountId: args.accountId,
       updatedAt: now,
+      ...(args.tokenHealth !== undefined
+        ? { tokenHealth: args.tokenHealth }
+        : {}),
     };
-    if (args.tokenHealth !== undefined) {
-      patch.tokenHealth = args.tokenHealth;
-    }
     await db.patch(existing._id, patch);
     return;
   }
-  const doc: {
-    kind: "cloudflare";
-    userId: Id<"users">;
-    auth: Infer<typeof cloudflareProviderAuthValidator>;
-    accountId?: string;
-    tokenHealth?: Infer<typeof mcpTokenHealthValidator>;
-    createdAt: number;
-    updatedAt: number;
-  } = {
-    kind: "cloudflare",
+  const doc = {
+    kind: "cloudflare" as const,
     userId: args.userId,
     auth: args.auth,
     accountId: args.accountId,
     createdAt: now,
     updatedAt: now,
+    ...(args.tokenHealth !== undefined
+      ? { tokenHealth: args.tokenHealth }
+      : {}),
   };
-  if (args.tokenHealth !== undefined) {
-    doc.tokenHealth = args.tokenHealth;
-  }
   await db.insert("providerConnections", doc);
 }
 

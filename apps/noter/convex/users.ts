@@ -52,10 +52,14 @@ const cloudflareConnectionStatusValidator = object({
 type CloudflareConnectionStatus = Infer<
   typeof cloudflareConnectionStatusValidator
 >;
+type CloudflareAuthMethod = Extract<
+  Infer<typeof providerAuthMethodValidator>,
+  "mcp_oauth" | "api_key"
+>;
 type CloudflareConnectionStatusInput = {
   accountId?: string;
   auth: {
-    method: "oauth" | "mcp_oauth" | "api_key";
+    method: CloudflareAuthMethod;
     credentialExpiresAt?: number;
   };
   tokenHealth?: McpTokenHealth;

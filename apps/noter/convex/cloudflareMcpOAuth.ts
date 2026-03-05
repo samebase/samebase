@@ -377,11 +377,7 @@ export const resolveConnectionForUser = internalAction({
       throw new Error(message);
     }
 
-    let refreshed: {
-      accessToken: string;
-      refreshToken?: string;
-      expiresIn?: number;
-    };
+    let refreshed: Awaited<ReturnType<typeof refreshCloudflareMcpOAuthToken>>;
     try {
       refreshed = await refreshCloudflareMcpOAuthToken({
         refreshToken,
