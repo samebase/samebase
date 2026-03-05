@@ -1386,77 +1386,172 @@ export const startDaytonaWorkspace = action({
       config.apiUrl = baseUrl;
     }
     const daytona = new Daytona(config);
-    const prebuildSnapshotName = inferPrebuildSnapshotName({
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
-      branch,
-    });
     const repoWorkdir = `${DEFAULT_WORKSPACE_DIR}/${vault.ghRepoName}`;
+    const requestedVaultLabel = String(args.vaultId);
+    const requestedBranchLabel = branch;
+    const hasMatchingLabels = (
+      candidate: Sandbox,
+      allowMissingBranch: boolean,
+    ): boolean => {
+      const candidateVaultLabel = candidate.labels["noter.vault_id"]?.trim();
+      if (candidateVaultLabel !== requestedVaultLabel) {
+        return false;
+      }
+      const candidateBranchLabel = candidate.labels["noter.branch"]?.trim();
+      if (!candidateBranchLabel) {
+        return allowMissingBranch;
+      }
+      return candidateBranchLabel === requestedBranchLabel;
+    };
+
+    let sandbox: Sandbox | null = null;
     let snapshotToUse: string | null = null;
-    if (prebuildSnapshotName) {
+    let sandboxCreateMs = 0;
+    let sandboxLifecycle: "created" | "resumed" | "reused" = "created";
+
+    if (vault.daytonaSandboxId) {
       try {
-        const snapshot = await daytona.snapshot.get(prebuildSnapshotName);
-        if (snapshot.state !== "active") {
-          return {
-            ok: false,
-            status: "not_configured",
-            message: `Snapshot ${prebuildSnapshotName} is ${snapshot.state}. Wait for it to become active.`,
-            branch,
-          };
+        const persistedSandbox = await daytona.get(vault.daytonaSandboxId);
+        if (hasMatchingLabels(persistedSandbox, true)) {
+          sandbox = persistedSandbox;
         }
-        snapshotToUse = prebuildSnapshotName;
       } catch (error) {
         if (!isNotFoundError(error)) {
           throw error;
         }
+      }
+    }
+
+    if (!sandbox) {
+      const matches = await daytona.list(
+        {
+          "noter.vault_id": requestedVaultLabel,
+          "noter.branch": requestedBranchLabel,
+        },
+        1,
+        5,
+      );
+      const match = matches.items[0];
+      if (match?.id) {
+        try {
+          const matchedSandbox = await daytona.get(match.id);
+          if (hasMatchingLabels(matchedSandbox, false)) {
+            sandbox = matchedSandbox;
+          }
+        } catch (error) {
+          if (!isNotFoundError(error)) {
+            throw error;
+          }
+        }
+      }
+    }
+
+    if (sandbox) {
+      const currentState = sandbox.state?.toLowerCase();
+      if (currentState === "started") {
+        sandboxLifecycle = "reused";
+      } else {
+        const resumeStartedAt = Date.now();
+        try {
+          await sandbox.start();
+          await sandbox.refreshData();
+          sandboxCreateMs = Date.now() - resumeStartedAt;
+          sandboxLifecycle = "resumed";
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          console.warn("daytona:workspace:resume:failed", {
+            vaultId: args.vaultId,
+            sandboxId: sandbox.id,
+            state: sandbox.state,
+            message,
+          });
+          sandbox = null;
+        }
+      }
+    }
+
+    if (!sandbox) {
+      const prebuildSnapshotName = inferPrebuildSnapshotName({
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        branch,
+      });
+      if (prebuildSnapshotName) {
+        try {
+          const snapshot = await daytona.snapshot.get(prebuildSnapshotName);
+          if (snapshot.state !== "active") {
+            return {
+              ok: false,
+              status: "not_configured",
+              message: `Snapshot ${prebuildSnapshotName} is ${snapshot.state}. Wait for it to become active.`,
+              branch,
+            };
+          }
+          snapshotToUse = prebuildSnapshotName;
+        } catch (error) {
+          if (!isNotFoundError(error)) {
+            throw error;
+          }
+          return {
+            ok: false,
+            status: "not_configured",
+            message: `No snapshot found for ${branch} yet. Build a snapshot before creating a workspace.`,
+            branch,
+          };
+        }
+      }
+      if (!snapshotToUse) {
         return {
           ok: false,
           status: "not_configured",
-          message: `No snapshot found for ${branch} yet. Build a snapshot before creating a workspace.`,
+          message: "Snapshot name is missing.",
           branch,
         };
       }
+
+      const baseParams: CreateSandboxFromSnapshotParams = {
+        name: sandboxName,
+        language: "typescript",
+        user: "daytona",
+        public: true,
+        envVars: (() => {
+          const envVars: Record<string, string> = {
+            NOTER_VAULT_ID: args.vaultId,
+            NOTER_REPO: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+            NOTER_BRANCH: branch,
+          };
+
+          const convexDeployKey = process.env[DAYTONA_CONVEX_DEPLOY_KEY_ENV];
+          if (convexDeployKey) {
+            envVars.CONVEX_DEPLOY_KEY = convexDeployKey;
+          }
+          return envVars;
+        })(),
+        labels: {
+          "noter.vault_id": args.vaultId,
+          "noter.repo": `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+          "noter.branch": branch,
+        },
+      };
+      const sandboxParams: CreateSandboxFromSnapshotParams = {
+        ...baseParams,
+        snapshot: snapshotToUse,
+      };
+      const sandboxCreateStartedAt = Date.now();
+      sandbox = await daytona.create(sandboxParams);
+      sandboxCreateMs = Date.now() - sandboxCreateStartedAt;
+      sandboxLifecycle = "created";
     }
-    if (!snapshotToUse) {
+
+    if (!sandbox) {
       return {
         ok: false,
         status: "not_configured",
-        message: "Snapshot name is missing.",
+        message: "No Daytona sandbox available for this vault.",
         branch,
       };
     }
-
-    const baseParams: CreateSandboxFromSnapshotParams = {
-      name: sandboxName,
-      language: "typescript",
-      user: "daytona",
-      public: true,
-      envVars: (() => {
-        const envVars: Record<string, string> = {
-          NOTER_VAULT_ID: args.vaultId,
-          NOTER_REPO: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-          NOTER_BRANCH: branch,
-        };
-
-        const convexDeployKey = process.env[DAYTONA_CONVEX_DEPLOY_KEY_ENV];
-        if (convexDeployKey) {
-          envVars.CONVEX_DEPLOY_KEY = convexDeployKey;
-        }
-        return envVars;
-      })(),
-      labels: {
-        "noter.vault_id": args.vaultId,
-        "noter.repo": `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-        "noter.branch": branch,
-      },
-    };
-    const sandboxParams: CreateSandboxFromSnapshotParams = {
-      ...baseParams,
-      snapshot: snapshotToUse,
-    };
-    const sandboxCreateStartedAt = Date.now();
-    const sandbox = await daytona.create(sandboxParams);
-    const sandboxCreateMs = Date.now() - sandboxCreateStartedAt;
 
     const resolvedSandboxName = sandbox.name;
 
@@ -1558,9 +1653,12 @@ export const startDaytonaWorkspace = action({
       sandboxName: resolvedSandboxName,
     });
 
-    const baseMessage = snapshotToUse
-      ? `Daytona sandbox created from snapshot ${snapshotToUse}.`
-      : "Daytona sandbox created.";
+    const baseMessage =
+      sandboxLifecycle === "created"
+        ? `Daytona sandbox created from snapshot ${snapshotToUse}.`
+        : sandboxLifecycle === "resumed"
+          ? `Daytona sandbox resumed (${resolvedSandboxName}).`
+          : `Reusing Daytona sandbox ${resolvedSandboxName}.`;
     const messageParts: string[] = [baseMessage];
     if (bootstrapMessage) {
       messageParts.push(bootstrapMessage);
