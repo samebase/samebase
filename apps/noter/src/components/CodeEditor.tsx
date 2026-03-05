@@ -209,11 +209,15 @@ const customBasicSetup = [
   // Custom theme to remove all borders
   EditorView.theme({
     "&": {
+      height: "100%",
+      minHeight: "0",
       border: "none !important",
       outline: "none !important",
       boxShadow: "none !important",
     },
     ".cm-editor": {
+      height: "100%",
+      minHeight: "0",
       border: "none !important",
       outline: "none !important",
       boxShadow: "none !important",
@@ -229,10 +233,17 @@ const customBasicSetup = [
       boxShadow: "none !important",
     },
     ".cm-scroller": {
+      minHeight: "0",
+      overflowY: "auto !important",
+      overflowX: "auto !important",
+      overscrollBehavior: "contain",
+      WebkitOverflowScrolling: "touch",
       border: "none !important",
       outline: "none !important",
     },
     ".cm-content": {
+      // Keep the final line clear of mobile insets / floating controls.
+      paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))",
       border: "none !important",
       outline: "none !important",
     },
@@ -460,18 +471,11 @@ export function CodeEditor({
   }, [repositoryFullName, filePath]);
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full min-h-0 w-full">
       <div
         ref={editorRef}
-        className="notranslate h-full w-full"
+        className="notranslate h-full min-h-0 w-full"
         translate="no"
-        style={{
-          height: "100%",
-          minHeight: "400px", // Minimum height for usability
-          border: "none",
-          outline: "none",
-          boxShadow: "none",
-        }}
       />
       {syncError ? (
         <div className="pointer-events-none absolute bottom-2 right-2 rounded bg-red-600/90 px-2 py-1 text-[11px] text-white">

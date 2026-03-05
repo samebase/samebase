@@ -1073,7 +1073,7 @@ function FileViewInner({
   // MARK: Return
 
   return (
-    <div className="flex h-screen w-full">
+    <div className="flex h-full w-full">
       <Sidebar variant="sidebar" className="border-r border-border/50">
         <SidebarContent className="p-0">
           <div className="p-3 border-b border-border/50">
@@ -1607,7 +1607,7 @@ function FileViewInner({
 export function FileView() {
   return (
     <DialogProvider>
-      <SidebarProvider>
+      <SidebarProvider className="h-full min-h-0">
         <FileViewWithSwipe />
       </SidebarProvider>
     </DialogProvider>
