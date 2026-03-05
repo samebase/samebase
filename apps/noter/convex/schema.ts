@@ -5,6 +5,11 @@ import {
   hostingProviderValidator,
   hostingStateValidator,
 } from "./hostingState";
+import {
+  mcpTokenHealthSourceValidator,
+  mcpTokenHealthStatusValidator,
+  mcpTokenHealthValidator,
+} from "./mcpTokenHealth";
 
 // Helper function to omit keys from an object
 function omit<T extends Record<string, any>, K extends keyof T>(
@@ -162,28 +167,11 @@ export const CloudflareProviderAuth = v.union(McpOAuthAuth, ApiKeyAuth);
 export type CloudflareProviderAuth = Infer<typeof CloudflareProviderAuth>;
 export const ProviderAuth = v.union(OAuthAuth, McpOAuthAuth, ApiKeyAuth);
 export type ProviderAuth = Infer<typeof ProviderAuth>;
-export const McpTokenHealthStatus = v.union(
-  v.literal("valid"),
-  v.literal("expiring_soon"),
-  v.literal("expired"),
-  v.literal("invalid"),
-  v.literal("unknown"),
-);
+export const McpTokenHealthStatus = mcpTokenHealthStatusValidator;
 export type McpTokenHealthStatus = Infer<typeof McpTokenHealthStatus>;
-export const McpTokenHealthSource = v.union(
-  v.literal("expiry_metadata"),
-  v.literal("refresh_attempt"),
-  v.literal("active_probe"),
-  v.literal("runtime_error"),
-);
+export const McpTokenHealthSource = mcpTokenHealthSourceValidator;
 export type McpTokenHealthSource = Infer<typeof McpTokenHealthSource>;
-export const McpTokenHealth = v.object({
-  status: McpTokenHealthStatus,
-  checkedAt: v.number(),
-  expiresAt: v.optional(v.number()),
-  source: McpTokenHealthSource,
-  errorMessage: v.optional(v.string()),
-});
+export const McpTokenHealth = mcpTokenHealthValidator;
 export type McpTokenHealth = Infer<typeof McpTokenHealth>;
 
 export const GithubProviderConnection = v.object({

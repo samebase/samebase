@@ -2,10 +2,13 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { action, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Infer, v } from "convex/values";
-import type { Doc } from "./_generated/dataModel";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import { isRecord, readBoolean, readString } from "./jsonUtils";
 import { fetchRailwayConnectionDetails } from "./railwayConnectionDetails";
+import {
+  mcpTokenHealthStatusValidator,
+  type McpTokenHealth,
+} from "./mcpTokenHealth";
 
 const { array, literal, number, object, optional, string, union } = v;
 
@@ -37,18 +40,11 @@ const providerAuthMethodValidator = union(
   literal("mcp_oauth"),
   literal("api_key"),
 );
-const mcpTokenStatusValidator = union(
-  literal("valid"),
-  literal("expiring_soon"),
-  literal("expired"),
-  literal("invalid"),
-  literal("unknown"),
-);
 const cloudflareConnectionStatusValidator = object({
   connected: v.boolean(),
   accountId: optional(string()),
   authMethod: optional(providerAuthMethodValidator),
-  mcpTokenStatus: optional(mcpTokenStatusValidator),
+  mcpTokenStatus: optional(mcpTokenHealthStatusValidator),
   mcpTokenExpiresAt: optional(number()),
   mcpTokenCheckedAt: optional(number()),
   mcpTokenError: optional(string()),
@@ -56,10 +52,14 @@ const cloudflareConnectionStatusValidator = object({
 type CloudflareConnectionStatus = Infer<
   typeof cloudflareConnectionStatusValidator
 >;
-type CloudflareConnectionDoc = Extract<
-  Doc<"providerConnections">,
-  { kind: "cloudflare" }
->;
+type CloudflareConnectionStatusInput = {
+  accountId?: string;
+  auth: {
+    method: "oauth" | "mcp_oauth" | "api_key";
+    credentialExpiresAt?: number;
+  };
+  tokenHealth?: McpTokenHealth;
+};
 
 type JsonRecord = Record<string, unknown>;
 type NetlifyAccount = {
@@ -154,7 +154,7 @@ function normalizeApiToken(token: string): string {
 function deriveMcpTokenStatusFromExpiry(
   expiresAt: number | undefined,
   now: number = Date.now(),
-): Infer<typeof mcpTokenStatusValidator> {
+): Infer<typeof mcpTokenHealthStatusValidator> {
   if (typeof expiresAt !== "number") {
     return "unknown";
   }
@@ -168,7 +168,7 @@ function deriveMcpTokenStatusFromExpiry(
 }
 
 function buildCloudflareConnectionStatus(
-  connection: CloudflareConnectionDoc,
+  connection: CloudflareConnectionStatusInput,
 ): CloudflareConnectionStatus {
   const baseStatus: CloudflareConnectionStatus = {
     connected: true,
@@ -188,7 +188,7 @@ function buildCloudflareConnectionStatus(
       deriveMcpTokenStatusFromExpiry(connection.auth.credentialExpiresAt, now),
     mcpTokenExpiresAt:
       connection.tokenHealth?.expiresAt ?? connection.auth.credentialExpiresAt,
-    mcpTokenCheckedAt: connection.tokenHealth?.checkedAt ?? now,
+    mcpTokenCheckedAt: connection.tokenHealth?.checkedAt,
     mcpTokenError: connection.tokenHealth?.errorMessage,
   };
 }
@@ -677,13 +677,17 @@ export const checkCloudflareMcpTokenHealth = action({
     }
 
     try {
-      await ctx.runAction(
+      const resolvedConnection = await ctx.runAction(
         internal.cloudflareMcpOAuth.resolveConnectionForUser,
         {
           userId,
           forceRefresh: true,
         },
       );
+      if (resolvedConnection === null) {
+        return { connected: false };
+      }
+      return buildCloudflareConnectionStatus(resolvedConnection);
     } catch (error) {
       const refreshedConnection = await ctx.runQuery(
         internal.providerConnections.getByUserAndKind,
@@ -701,18 +705,6 @@ export const checkCloudflareMcpTokenHealth = action({
       }
       throw error;
     }
-
-    const refreshedConnection = await ctx.runQuery(
-      internal.providerConnections.getByUserAndKind,
-      {
-        userId,
-        kind: "cloudflare",
-      },
-    );
-    if (refreshedConnection?.kind !== "cloudflare") {
-      return { connected: false };
-    }
-    return buildCloudflareConnectionStatus(refreshedConnection);
   },
 });
 

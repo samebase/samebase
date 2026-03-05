@@ -16,6 +16,7 @@ import {
   readRequiredEnv,
 } from "./oauthUtils";
 import { asRecord, readNumber, readString } from "./jsonUtils";
+import { mcpTokenHealthValidator } from "./mcpTokenHealth";
 
 const CLOUDFLARE_MCP_OAUTH_ISSUER = "https://mcp.cloudflare.com";
 const CLOUDFLARE_MCP_AUTHORIZATION_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/authorize`;
@@ -163,8 +164,10 @@ function isLikelyInvalidCloudflareTokenError(error: unknown): boolean {
   }
   return (
     message.includes("401") ||
+    message.includes("400") ||
     message.includes("unauthorized") ||
     message.includes("invalid_token") ||
+    message.includes("invalid_grant") ||
     message.includes("invalid grant") ||
     message.includes("invalid refresh token") ||
     message.includes("refresh token is missing") ||
@@ -290,26 +293,6 @@ const cloudflareApiKeyAuthValidator = v.object({
   method: v.literal("api_key"),
   credential: v.string(),
   credentialExpiresAt: v.optional(v.number()),
-});
-const mcpTokenHealthStatusValidator = v.union(
-  v.literal("valid"),
-  v.literal("expiring_soon"),
-  v.literal("expired"),
-  v.literal("invalid"),
-  v.literal("unknown"),
-);
-const mcpTokenHealthSourceValidator = v.union(
-  v.literal("expiry_metadata"),
-  v.literal("refresh_attempt"),
-  v.literal("active_probe"),
-  v.literal("runtime_error"),
-);
-const mcpTokenHealthValidator = v.object({
-  status: mcpTokenHealthStatusValidator,
-  checkedAt: v.number(),
-  expiresAt: v.optional(v.number()),
-  source: mcpTokenHealthSourceValidator,
-  errorMessage: v.optional(v.string()),
 });
 const resolvedCloudflareConnectionValidator = v.object({
   auth: v.union(cloudflareMcpOauthAuthValidator, cloudflareApiKeyAuthValidator),

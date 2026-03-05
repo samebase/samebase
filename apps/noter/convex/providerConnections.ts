@@ -6,6 +6,7 @@ import {
   type DatabaseWriter,
 } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
+import { mcpTokenHealthValidator } from "./mcpTokenHealth";
 
 const {
   array,
@@ -61,26 +62,6 @@ const cloudflareProviderAuthValidator = union(
   mcpOauthAuthValidator,
   apiKeyAuthValidator,
 );
-const mcpTokenHealthStatusValidator = union(
-  literal("valid"),
-  literal("expiring_soon"),
-  literal("expired"),
-  literal("invalid"),
-  literal("unknown"),
-);
-const mcpTokenHealthSourceValidator = union(
-  literal("expiry_metadata"),
-  literal("refresh_attempt"),
-  literal("active_probe"),
-  literal("runtime_error"),
-);
-const mcpTokenHealthValidator = object({
-  status: mcpTokenHealthStatusValidator,
-  checkedAt: number(),
-  expiresAt: optional(number()),
-  source: mcpTokenHealthSourceValidator,
-  errorMessage: optional(string()),
-});
 
 const githubConnectionUpsertValidator = object({
   userId: id("users"),
