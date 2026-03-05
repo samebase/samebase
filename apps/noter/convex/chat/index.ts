@@ -820,7 +820,7 @@ export const updateCommitProposalMessageCommittedInternal = internalMutation({
           ? { committing: args.committing }
           : {}),
         error: args.error,
-        conflicts: args.conflicts ?? [],
+        ...(args.conflicts !== undefined ? { conflicts: args.conflicts } : {}),
       }),
     });
     return null;

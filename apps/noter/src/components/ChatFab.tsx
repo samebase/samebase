@@ -366,6 +366,17 @@ function CapabilitiesPanel({
 
 // --- Commit proposal card ---
 
+type CommitConflictReason = NonNullable<
+  CommitProposal["conflicts"]
+>[number]["reason"];
+
+const COMMIT_CONFLICT_REASON_LABEL: Record<CommitConflictReason, string> = {
+  missing_upstream_path: "Upstream file is missing",
+  new_file_path_taken: "Path already exists upstream",
+  content_conflict: "Overlapping content changes",
+  rename_target_exists: "Rename target already exists upstream",
+};
+
 function CommitProposalCard({
   metadata,
   threadId,
@@ -432,7 +443,10 @@ function CommitProposalCard({
               <div>Commit conflicts with upstream changes.</div>
               {structuredConflicts.map((conflict) => (
                 <div key={`${conflict.path}:${conflict.reason}`}>
-                  Conflict: {conflict.path} ({conflict.reason})
+                  Conflict: {conflict.path} (
+                  {COMMIT_CONFLICT_REASON_LABEL[conflict.reason] ??
+                    conflict.reason}
+                  )
                 </div>
               ))}
             </div>

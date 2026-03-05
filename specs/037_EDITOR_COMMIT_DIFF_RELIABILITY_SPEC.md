@@ -42,11 +42,10 @@ unexpectedly when upstream moved.
 
 ## Goals
 
-1. Ensure editor -> staging synchronization is robust and observable.
-2. Ensure commit success/failure is explicit and not silently swallowed.
-3. Ensure chat commit metadata reflects real commit outcome.
-4. Ensure commit correctness under remote drift by basing commits on the latest
-   remote head.
+1. Make editor -> staging synchronization robust and observable.
+2. Keep commit success/failure explicit and never silently swallowed.
+3. Reflect the real commit outcome in chat commit metadata.
+4. Base commit creation on the latest remote head so remote drift stays safe.
 5. Auto-resolve non-overlapping upstream/staged changes; fail safely on true
    unresolved conflicts.
 6. Preserve smooth one-click commit UX in both FileView and ChatFab (no
