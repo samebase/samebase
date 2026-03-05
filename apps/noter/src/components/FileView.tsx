@@ -57,6 +57,7 @@ import {
 } from "@/lib/treeRefreshDebounce";
 import { type GithubTreeType } from "convex/schema";
 import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
+import { CommitReviewStatusChips } from "./CommitReviewStatusChips";
 import { VaultSyncStatus } from "./VaultSyncStatus";
 import { diffLines } from "diff";
 
@@ -1397,28 +1398,9 @@ function FileViewInner({
                           </div>
 
                           <div className="border-b px-3 py-2">
-                            <div className="flex flex-wrap gap-2 text-[11px]">
-                              <span
-                                className={`inline-flex items-center gap-1 rounded px-2 py-0.5 font-mono ${getCommitStatusBadgeClassName("added")}`}
-                              >
-                                A {commitPreview.totals.added}
-                              </span>
-                              <span
-                                className={`inline-flex items-center gap-1 rounded px-2 py-0.5 font-mono ${getCommitStatusBadgeClassName("modified")}`}
-                              >
-                                M {commitPreview.totals.modified}
-                              </span>
-                              <span
-                                className={`inline-flex items-center gap-1 rounded px-2 py-0.5 font-mono ${getCommitStatusBadgeClassName("renamed")}`}
-                              >
-                                R {commitPreview.totals.renamed}
-                              </span>
-                              <span
-                                className={`inline-flex items-center gap-1 rounded px-2 py-0.5 font-mono ${getCommitStatusBadgeClassName("deleted")}`}
-                              >
-                                D {commitPreview.totals.deleted}
-                              </span>
-                            </div>
+                            <CommitReviewStatusChips
+                              totals={commitPreview.totals}
+                            />
                           </div>
 
                           <div className="flex min-h-0 flex-1 flex-col md:flex-row">

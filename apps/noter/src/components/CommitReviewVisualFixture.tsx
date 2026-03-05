@@ -1,6 +1,7 @@
 import { FileTree } from "@/components/FileTree";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { CommitReviewStatusChips } from "./CommitReviewStatusChips";
 import {
   getCommitStatusBadgeClassName as getStatusBadgeClassName,
   getCommitStatusLabel as getStatusLabel,
@@ -299,28 +300,7 @@ export function CommitReviewVisualFixture({
           </div>
 
           <div className="border-b px-3 py-2">
-            <div className="flex flex-wrap gap-2 text-[11px]">
-              <span
-                className={`inline-flex items-center gap-1 rounded px-2 py-0.5 font-mono ${getStatusBadgeClassName("added")}`}
-              >
-                A {FIXTURE_TOTALS.added}
-              </span>
-              <span
-                className={`inline-flex items-center gap-1 rounded px-2 py-0.5 font-mono ${getStatusBadgeClassName("modified")}`}
-              >
-                M {FIXTURE_TOTALS.modified}
-              </span>
-              <span
-                className={`inline-flex items-center gap-1 rounded px-2 py-0.5 font-mono ${getStatusBadgeClassName("renamed")}`}
-              >
-                R {FIXTURE_TOTALS.renamed}
-              </span>
-              <span
-                className={`inline-flex items-center gap-1 rounded px-2 py-0.5 font-mono ${getStatusBadgeClassName("deleted")}`}
-              >
-                D {FIXTURE_TOTALS.deleted}
-              </span>
-            </div>
+            <CommitReviewStatusChips totals={FIXTURE_TOTALS} />
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col md:flex-row">
