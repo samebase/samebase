@@ -1202,7 +1202,7 @@ export const getCommitPreview = action({
 // MARK: Internal
 
 // Helper function to create a commit with multiple files
-async function createCommitWithMultipleFiles({
+export async function createCommitWithMultipleFiles({
   octokit,
   owner,
   repo,
@@ -1273,57 +1273,7 @@ async function createCommitWithMultipleFiles({
       !file.fileDeleted && (file.initialContent ?? "") !== (file.content ?? ""),
   }));
 
-  // 1. Prepare file lists
-  const pathsToDelete = new Set<string>();
-  const filesToAdd: Array<{
-    filePath: string;
-    content: string;
-  }> = [];
-
-  for (const file of stagedFiles) {
-    if (file.fileDeleted) {
-      // Only delete paths that actually exist in the repo
-      if (file.parentCommitSha !== null) {
-        pathsToDelete.add(file.filePath);
-      }
-    } else {
-      const isRenamed = file.filePath !== file.initialFilePath;
-      if (isRenamed && file.parentCommitSha !== null) {
-        pathsToDelete.add(file.initialFilePath);
-      }
-      filesToAdd.push({
-        filePath: file.filePath,
-        content: file.content,
-      });
-    }
-  }
-
-  // 2. Build tree entries with inline content (no separate createBlob needed)
-  //    GitHub creates blobs atomically as part of createTree, avoiding propagation races.
-  const newTreeEntries: Array<
-    | { path: string; mode: "100644"; type: "blob"; sha: null }
-    | { path: string; mode: "100644"; type: "blob"; content: string }
-  > = [];
-
-  for (const path of pathsToDelete) {
-    newTreeEntries.push({
-      path,
-      mode: "100644",
-      type: "blob",
-      sha: null,
-    });
-  }
-
-  for (const file of filesToAdd) {
-    newTreeEntries.push({
-      path: file.filePath,
-      mode: "100644",
-      type: "blob",
-      content: file.content,
-    });
-  }
-
-  // 3. Build commit message
+  // 1. Build commit message from staged intent
   const basename = (p: string) => {
     const parts = p.split("/");
     return parts[parts.length - 1] || p;
@@ -1366,8 +1316,172 @@ async function createCommitWithMultipleFiles({
         ? `${subjectTokens.slice(0, maxTokens).join(", ")} …`
         : subjectTokens.join(", ");
 
-  // 4. Retry loop for ref-dependent operations (getRef → getCommit → createTree → createCommit → updateRef)
-  //    Retries handle transient GitHub 422 (GitRPC::BadObjectState) and 409 (conflict) errors.
+  const blobTextBySha = new Map<string, Promise<string>>();
+
+  const getBlobText = (sha: string): Promise<string> => {
+    const existing = blobTextBySha.get(sha);
+    if (existing) {
+      return existing;
+    }
+
+    const loaded = octokit.rest.git
+      .getBlob({
+        owner,
+        repo,
+        file_sha: sha,
+      })
+      .then((response) => {
+        const base64 = response.data.content.replace(/\n/g, "");
+        return Buffer.from(base64, "base64").toString("utf-8");
+      });
+
+    blobTextBySha.set(sha, loaded);
+    return loaded;
+  };
+
+  const buildTreeEntriesForHead = async (
+    currentTreeSha: string,
+  ): Promise<{
+    entries: Array<
+      | { path: string; mode: "100644"; type: "blob"; sha: null }
+      | { path: string; mode: "100644"; type: "blob"; content: string }
+    >;
+    conflicts: string[];
+  }> => {
+    const { data: currentTree } = await octokit.rest.git.getTree({
+      owner,
+      repo,
+      tree_sha: currentTreeSha,
+      recursive: "1",
+    });
+
+    const shaByPath = new Map<string, string>();
+    for (const entry of currentTree.tree) {
+      if (
+        entry.type === "blob" &&
+        typeof entry.path === "string" &&
+        typeof entry.sha === "string"
+      ) {
+        shaByPath.set(entry.path, entry.sha);
+      }
+    }
+
+    const pathsToDelete = new Set<string>();
+    const filesToAdd: Array<{ filePath: string; content: string }> = [];
+    const conflicts = new Set<string>();
+
+    for (const file of stagedFiles) {
+      const isRenamed = file.filePath !== file.initialFilePath;
+
+      if (file.fileDeleted) {
+        const deletionPath = shaByPath.has(file.filePath)
+          ? file.filePath
+          : shaByPath.has(file.initialFilePath)
+            ? file.initialFilePath
+            : null;
+        if (deletionPath) {
+          pathsToDelete.add(deletionPath);
+        }
+        continue;
+      }
+
+      if (file.parentCommitSha === null) {
+        const upstreamSha = shaByPath.get(file.filePath);
+        if (!upstreamSha) {
+          filesToAdd.push({
+            filePath: file.filePath,
+            content: file.content,
+          });
+          continue;
+        }
+
+        const upstreamContent = await getBlobText(upstreamSha);
+        if (upstreamContent !== file.content) {
+          conflicts.add(file.filePath);
+          continue;
+        }
+
+        filesToAdd.push({
+          filePath: file.filePath,
+          content: file.content,
+        });
+        continue;
+      }
+
+      const preferredUpstreamPath = isRenamed
+        ? file.initialFilePath
+        : file.filePath;
+      const fallbackUpstreamPath = file.filePath;
+      const upstreamPath = shaByPath.has(preferredUpstreamPath)
+        ? preferredUpstreamPath
+        : shaByPath.has(fallbackUpstreamPath)
+          ? fallbackUpstreamPath
+          : null;
+
+      if (!upstreamPath) {
+        conflicts.add(preferredUpstreamPath);
+        continue;
+      }
+
+      const upstreamSha = shaByPath.get(upstreamPath);
+      if (!upstreamSha) {
+        conflicts.add(upstreamPath);
+        continue;
+      }
+
+      const upstreamContent = await getBlobText(upstreamSha);
+      const rebased = rebaseStagedContent({
+        baseContent: file.initialContent ?? "",
+        stagedContent: file.content,
+        upstreamContent,
+      });
+
+      if (rebased.hasConflict) {
+        conflicts.add(file.filePath);
+        continue;
+      }
+
+      if (isRenamed && upstreamPath !== file.filePath) {
+        pathsToDelete.add(upstreamPath);
+      }
+
+      filesToAdd.push({
+        filePath: file.filePath,
+        content: rebased.content,
+      });
+    }
+
+    const entries: Array<
+      | { path: string; mode: "100644"; type: "blob"; sha: null }
+      | { path: string; mode: "100644"; type: "blob"; content: string }
+    > = [];
+
+    for (const path of pathsToDelete) {
+      entries.push({
+        path,
+        mode: "100644",
+        type: "blob",
+        sha: null,
+      });
+    }
+
+    for (const file of filesToAdd) {
+      entries.push({
+        path: file.filePath,
+        mode: "100644",
+        type: "blob",
+        content: file.content,
+      });
+    }
+
+    return {
+      entries,
+      conflicts: [...conflicts].sort(),
+    };
+  };
+
+  // 2. Retry loop for ref-dependent operations (getRef → getCommit → createTree → createCommit → updateRef)
+  //    Retries handle transient GitHub 422 (GitRPC::BadObjectState) and 409 (ref race) errors.
   const MAX_ATTEMPTS = 3;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     try {
@@ -1384,6 +1498,14 @@ async function createCommitWithMultipleFiles({
         commit_sha: currentCommitSha,
       });
       const currentTreeSha = currentCommit.tree.sha;
+      const { entries: newTreeEntries, conflicts } =
+        await buildTreeEntriesForHead(currentTreeSha);
+
+      if (conflicts.length > 0) {
+        throw new Error(
+          `Commit conflicts with upstream changes. Resolve and retry: ${conflicts.join(", ")}`,
+        );
+      }
 
       const { data: newTree } = await octokit.rest.git.createTree({
         owner,
@@ -1405,7 +1527,7 @@ async function createCommitWithMultipleFiles({
         repo,
         ref: `heads/${branch}`,
         sha: newCommit.sha,
-        force: true,
+        force: false,
       });
 
       return {
