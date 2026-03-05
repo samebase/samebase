@@ -338,6 +338,31 @@ export async function rebaseStagedFilesOnLatestHead(args: {
       .digest("hex");
     return computedSha === sha;
   };
+  const initialContentMatchesUpstreamCache = new Map<
+    StagedFileForCommit,
+    { upstreamSha: string; matches: boolean }
+  >();
+  const initialContentMatchesUpstream = (
+    file: StagedFileForCommit,
+    upstreamSha: string,
+  ): boolean => {
+    const cached = initialContentMatchesUpstreamCache.get(file);
+    if (cached && cached.upstreamSha === upstreamSha) {
+      return cached.matches;
+    }
+    const matches = contentMatchesSha(file.initialContent, upstreamSha);
+    initialContentMatchesUpstreamCache.set(file, {
+      upstreamSha,
+      matches,
+    });
+    return matches;
+  };
+  const shouldSkipFastPathRebase = (
+    file: StagedFileForCommit,
+    upstreamSha: string,
+  ): boolean =>
+    upstreamSha === file.parentCommitSha &&
+    initialContentMatchesUpstream(file, upstreamSha);
 
   const treeSha = args.branch.startsWith("refs/heads/")
     ? args.branch.slice("refs/".length)
@@ -423,12 +448,7 @@ export async function rebaseStagedFilesOnLatestHead(args: {
     if (!upstreamSha) {
       continue;
     }
-    const parentMatchesUpstream = upstreamSha === file.parentCommitSha;
-    const initialContentMatchesUpstream = contentMatchesSha(
-      file.initialContent ?? "",
-      upstreamSha,
-    );
-    if (parentMatchesUpstream && initialContentMatchesUpstream) {
+    if (shouldSkipFastPathRebase(file, upstreamSha)) {
       continue;
     }
     upstreamShasToPrefetch.add(upstreamSha);
@@ -452,12 +472,7 @@ export async function rebaseStagedFilesOnLatestHead(args: {
       rebasedFiles.push(file);
       continue;
     }
-    const parentMatchesUpstream = upstreamSha === file.parentCommitSha;
-    const initialContentMatchesUpstream = contentMatchesSha(
-      file.initialContent ?? "",
-      upstreamSha,
-    );
-    if (parentMatchesUpstream && initialContentMatchesUpstream) {
+    if (shouldSkipFastPathRebase(file, upstreamSha)) {
       rebasedFiles.push(file);
       continue;
     }
