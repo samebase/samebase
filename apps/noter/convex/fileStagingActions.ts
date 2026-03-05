@@ -1407,6 +1407,11 @@ export async function createCommitWithMultipleFiles({
       .then((response) => {
         const base64 = response.data.content.replace(/\n/g, "");
         return Buffer.from(base64, "base64").toString("utf-8");
+      })
+      .catch((error) => {
+        // Failed loads must be retriable on subsequent attempts.
+        blobTextBySha.delete(sha);
+        throw error;
       });
 
     blobTextBySha.set(sha, loaded);
@@ -1425,6 +1430,11 @@ export async function createCommitWithMultipleFiles({
       tree_sha: currentTreeSha,
       recursive: "1",
     });
+    if (currentTree.truncated) {
+      throw new Error(
+        "Upstream tree is too large to resolve fully; cannot verify conflict-free commit.",
+      );
+    }
 
     const shaByPath = new Map<string, string>();
     for (const entry of currentTree.tree) {

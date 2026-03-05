@@ -127,6 +127,9 @@ const makeUpdateRefResponse = (sha: string): UpdateRefResponse => ({
 const makeGetTreeResponse = (
   treeSha: string,
   blobs: Array<{ path: string; sha: string }>,
+  options?: {
+    truncated?: boolean;
+  },
 ): GetTreeResponse => ({
   status: 200,
   url: `https://api.github.com/repos/test-owner/test-repo/git/trees/${treeSha}`,
@@ -134,7 +137,7 @@ const makeGetTreeResponse = (
   data: {
     sha: treeSha,
     url: `https://api.github.com/repos/test-owner/test-repo/git/trees/${treeSha}`,
-    truncated: false,
+    truncated: options?.truncated ?? false,
     tree: blobs.map((blob) => ({
       path: blob.path,
       mode: "100644",
@@ -1231,5 +1234,102 @@ describe("createCommitWithMultipleFiles (real implementation)", () => {
 
     const createTreeCall = createTreeSpy.mock.calls[0]?.[0];
     expect(createTreeCall?.tree).toHaveLength(0);
+  });
+
+  it("fails fast when GitHub returns a truncated recursive tree", async () => {
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
+      makeGetRefResponse("head-sha-1"),
+    );
+    vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
+      makeGetCommitResponse("tree-sha-1", "head-sha-1"),
+    );
+    vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
+      makeGetTreeResponse(
+        "tree-sha-1",
+        [{ path: "src/app.ts", sha: "blob-sha-upstream" }],
+        { truncated: true },
+      ),
+    );
+    const createTreeSpy = vi.spyOn(octokit.rest.git, "createTree");
+
+    await expect(
+      realCreateCommitWithMultipleFiles({
+        octokit,
+        owner: "test-owner",
+        repo: "test-repo",
+        branch: "main",
+        stagedFiles: [
+          {
+            filePath: "src/app.ts",
+            initialFilePath: "src/app.ts",
+            fileDeleted: false,
+            parentCommitSha: "parent-sha",
+            initialContent: "old\n",
+            content: "new\n",
+          },
+        ],
+      }),
+    ).rejects.toThrow(
+      "Upstream tree is too large to resolve fully; cannot verify conflict-free commit.",
+    );
+    expect(createTreeSpy).not.toHaveBeenCalled();
+  });
+
+  it("retries blob fetch after transient 422 instead of reusing rejected cache", async () => {
+    vi.spyOn(octokit.rest.git, "getRef")
+      .mockResolvedValueOnce(makeGetRefResponse("head-sha-1"))
+      .mockResolvedValueOnce(makeGetRefResponse("head-sha-2"));
+    vi.spyOn(octokit.rest.git, "getCommit")
+      .mockResolvedValueOnce(makeGetCommitResponse("tree-sha-1", "head-sha-1"))
+      .mockResolvedValueOnce(makeGetCommitResponse("tree-sha-2", "head-sha-2"));
+    vi.spyOn(octokit.rest.git, "getTree")
+      .mockResolvedValueOnce(
+        makeGetTreeResponse("tree-sha-1", [
+          { path: "src/app.ts", sha: "blob-sha-upstream" },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        makeGetTreeResponse("tree-sha-2", [
+          { path: "src/app.ts", sha: "blob-sha-upstream" },
+        ]),
+      );
+    const transientBlobError = Object.assign(new Error("Bad object state"), {
+      status: 422,
+    });
+    const getBlobSpy = vi
+      .spyOn(octokit.rest.git, "getBlob")
+      .mockRejectedValueOnce(transientBlobError)
+      .mockResolvedValueOnce(
+        makeGetBlobResponse("blob-sha-upstream", "line-1-upstream\nline-2\n"),
+      );
+    vi.spyOn(octokit.rest.git, "createTree").mockResolvedValue(
+      makeCreateTreeResponse("new-tree-sha"),
+    );
+    vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
+      makeCreateCommitResponse("new-tree-sha", "new-commit-sha"),
+    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
+      makeUpdateRefResponse("new-commit-sha"),
+    );
+
+    const result = await realCreateCommitWithMultipleFiles({
+      octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "main",
+      stagedFiles: [
+        {
+          filePath: "src/app.ts",
+          initialFilePath: "src/app.ts",
+          fileDeleted: false,
+          parentCommitSha: "initial-parent-sha",
+          initialContent: "line-1\nline-2\n",
+          content: "line-1\nline-2\nline-3-local\n",
+        },
+      ],
+    });
+
+    expect(result.sha).toBe("new-commit-sha");
+    expect(getBlobSpy).toHaveBeenCalledTimes(2);
   });
 });

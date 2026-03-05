@@ -377,6 +377,8 @@ function CommitProposalCard({
 }) {
   const confirmCommit = useMutation(api.chat.index.confirmCommit);
   const [confirming, setConfirming] = useState(false);
+  const structuredConflicts = metadata.conflicts ?? [];
+  const hasStructuredConflicts = structuredConflicts.length > 0;
 
   async function handleApprove() {
     setConfirming(true);
@@ -420,14 +422,15 @@ function CommitProposalCard({
             )}
             Approve & Push
           </button>
-          {metadata.error ? (
+          {metadata.error && !hasStructuredConflicts ? (
             <div className="mt-2 text-xs text-red-600">
               Commit failed: {metadata.error}
             </div>
           ) : null}
-          {metadata.conflicts && metadata.conflicts.length > 0 ? (
+          {hasStructuredConflicts ? (
             <div className="mt-2 space-y-1 text-xs text-red-600">
-              {metadata.conflicts.map((conflict) => (
+              <div>Commit conflicts with upstream changes.</div>
+              {structuredConflicts.map((conflict) => (
                 <div key={`${conflict.path}:${conflict.reason}`}>
                   Conflict: {conflict.path} ({conflict.reason})
                 </div>
