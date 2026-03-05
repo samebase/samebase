@@ -366,6 +366,17 @@ function CapabilitiesPanel({
 
 // --- Commit proposal card ---
 
+type CommitConflictReason = NonNullable<
+  CommitProposal["conflicts"]
+>[number]["reason"];
+
+const COMMIT_CONFLICT_REASON_LABEL: Record<CommitConflictReason, string> = {
+  missing_upstream_path: "Upstream file is missing",
+  new_file_path_taken: "Path already exists upstream",
+  content_conflict: "Overlapping content changes",
+  rename_target_exists: "Rename target already exists upstream",
+};
+
 function CommitProposalCard({
   metadata,
   threadId,
@@ -377,6 +388,8 @@ function CommitProposalCard({
 }) {
   const confirmCommit = useMutation(api.chat.index.confirmCommit);
   const [confirming, setConfirming] = useState(false);
+  const structuredConflicts = metadata.conflicts ?? [];
+  const hasStructuredConflicts = structuredConflicts.length > 0;
 
   async function handleApprove() {
     setConfirming(true);
@@ -420,9 +433,22 @@ function CommitProposalCard({
             )}
             Approve & Push
           </button>
-          {metadata.error ? (
+          {metadata.error && !hasStructuredConflicts ? (
             <div className="mt-2 text-xs text-red-600">
               Commit failed: {metadata.error}
+            </div>
+          ) : null}
+          {hasStructuredConflicts ? (
+            <div className="mt-2 space-y-1 text-xs text-red-600">
+              <div>Commit conflicts with upstream changes.</div>
+              {structuredConflicts.map((conflict) => (
+                <div key={`${conflict.path}:${conflict.reason}`}>
+                  Conflict: {conflict.path} (
+                  {COMMIT_CONFLICT_REASON_LABEL[conflict.reason] ??
+                    conflict.reason}
+                  )
+                </div>
+              ))}
             </div>
           ) : null}
         </>

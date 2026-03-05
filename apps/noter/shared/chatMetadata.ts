@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Id } from "../convex/_generated/dataModel";
+import { COMMIT_CONFLICT_REASONS } from "./commitConflicts";
 
 const toolActivityItemSchema = z.object({
   tool: z.string(),
@@ -17,6 +18,11 @@ const toolActivitySchema = z
   })
   .catchall(z.unknown());
 
+const commitConflictSchema = z.object({
+  path: z.string(),
+  reason: z.enum(COMMIT_CONFLICT_REASONS),
+});
+
 const commitProposalSchema = z
   .object({
     type: z.literal("commit_proposal"),
@@ -24,6 +30,7 @@ const commitProposalSchema = z
     committed: z.boolean().optional(),
     committing: z.boolean().optional(),
     error: z.string().optional(),
+    conflicts: z.array(commitConflictSchema).optional(),
     tools: z.array(toolActivityItemSchema).optional(),
   })
   .catchall(z.unknown());
@@ -96,6 +103,7 @@ const metadataTypeSchema = z.object({
 
 export type ToolActivityItem = z.infer<typeof toolActivityItemSchema>;
 export type ToolActivityPayload = z.infer<typeof toolActivitySchema>;
+export type CommitConflictPayload = z.infer<typeof commitConflictSchema>;
 export type CommitProposalPayload = z.infer<typeof commitProposalSchema>;
 export type ProdReadProposalPayload = z.infer<typeof prodReadProposalSchema>;
 export type ProdReadResultPayload = z.infer<typeof prodReadResultSchema>;
@@ -105,6 +113,7 @@ export {
   toolActivityItemSchema,
   requestIdSchema,
   toolActivitySchema,
+  commitConflictSchema,
   commitProposalSchema,
   prodReadProposalSchema,
   prodReadResultSchema,
