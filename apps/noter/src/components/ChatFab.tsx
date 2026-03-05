@@ -401,19 +401,31 @@ function CommitProposalCard({
           <Check className="h-3 w-3" />
           Committed
         </div>
+      ) : metadata.committing ? (
+        <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Committing...
+        </div>
       ) : (
-        <button
-          onClick={() => void handleApprove()}
-          disabled={confirming}
-          className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-        >
-          {confirming ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : (
-            <GitCommitHorizontal className="h-3 w-3" />
-          )}
-          Approve & Push
-        </button>
+        <>
+          <button
+            onClick={() => void handleApprove()}
+            disabled={confirming}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {confirming ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <GitCommitHorizontal className="h-3 w-3" />
+            )}
+            Approve & Push
+          </button>
+          {metadata.error ? (
+            <div className="mt-2 text-xs text-red-600">
+              Commit failed: {metadata.error}
+            </div>
+          ) : null}
+        </>
       )}
     </div>
   );

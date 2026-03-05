@@ -14,6 +14,7 @@
     "build:vercel": "vite build",
     "lint": "convex codegen && tsc && eslint .  --ext ts,tsx --report-unused-disable-directives",
     "lint:ci": "tsc && eslint .  --ext ts,tsx --report-unused-disable-directives",
+    "test:visual": "playwright test -c playwright.config.ts",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -83,6 +84,7 @@
   },
   "devDependencies": {
     "@playwright/cli": "^0.1.1",
+    "@playwright/test": "1.58.2",
     "@types/node": "^20.14.9",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",

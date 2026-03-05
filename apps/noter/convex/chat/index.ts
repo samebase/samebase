@@ -630,24 +630,46 @@ export const confirmCommit = mutation({
       throw new Error("Vault not found");
     }
 
-    await ctx.scheduler.runAfter(
-      0,
-      internal.fileStagingActions.commitAllStaged,
-      {
-        userId,
-        vaultId: vault._id,
-        repoOwner: vault.ghRepoOwner,
-        repoName: vault.ghRepoName,
-      },
-    );
-
     await ctx.runMutation(
       internal.chat.index.updateCommitProposalMessageCommittedInternal,
       {
         messageId: args.messageId,
-        committed: true,
+        committed: false,
+        committing: true,
+        error: undefined,
       },
     );
+
+    try {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.fileStagingActions.commitAllStaged,
+        {
+          userId,
+          vaultId: vault._id,
+          repoOwner: vault.ghRepoOwner,
+          repoName: vault.ghRepoName,
+          commitProposalMessageId: args.messageId,
+        },
+      );
+    } catch (error) {
+      const commitError =
+        error instanceof Error && error.message.length > 0
+          ? error.message
+          : "Failed to schedule commit";
+
+      await ctx.runMutation(
+        internal.chat.index.updateCommitProposalMessageCommittedInternal,
+        {
+          messageId: args.messageId,
+          committed: false,
+          committing: false,
+          error: commitError,
+        },
+      );
+
+      throw error;
+    }
 
     return null;
   },
@@ -753,6 +775,8 @@ export const updateCommitProposalMessageCommittedInternal = internalMutation({
   args: {
     messageId: string(),
     committed: boolean(),
+    committing: optional(boolean()),
+    error: optional(string()),
   },
   returns: vNull(),
   handler: async (ctx, args) => {
@@ -767,6 +791,10 @@ export const updateCommitProposalMessageCommittedInternal = internalMutation({
       payloadJson: JSON.stringify({
         ...parsed,
         committed: args.committed,
+        ...(args.committing !== undefined
+          ? { committing: args.committing }
+          : {}),
+        error: args.error,
       }),
     });
     return null;

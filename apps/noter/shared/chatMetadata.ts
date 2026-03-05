@@ -22,6 +22,8 @@ const commitProposalSchema = z
     type: z.literal("commit_proposal"),
     message: z.string(),
     committed: z.boolean().optional(),
+    committing: z.boolean().optional(),
+    error: z.string().optional(),
     tools: z.array(toolActivityItemSchema).optional(),
   })
   .catchall(z.unknown());

@@ -5,6 +5,9 @@ apps/noter-agent-template/subagents/researcher/AGENTS.md
 apps/noter-starter-template/AGENTS.md
 apps/noter-starter-template/noter.md
 apps/noter-starter-template/README.md
+apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-deleted.png
+apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-patch.png
+apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-rich.png
 apps/noter/public/favicon.png
 apps/noter/public/favicon.svg
 apps/noter/public/lumina_icon.png
@@ -72,6 +75,7 @@ specs/034_POLAR_BILLING_PHASED_ROLLOUT_SPEC.md
 specs/035_LANDING_SLOGAN_SOURCE_AND_SELECTION_SPEC.md
 specs/036_LANDING_EDITOR_AUTOSIZE_AND_MOBILE_ROLLOUT_SPEC.md
 specs/036_MCP_CONNECTION_TOKEN_HEALTH_VISIBILITY_SPEC.md
+specs/037_EDITOR_COMMIT_DIFF_RELIABILITY_SPEC.md
 specs/037_MONACO_MOBILE_FULL_BLEED_SPEC.md
 TODO.md
 VISION.md

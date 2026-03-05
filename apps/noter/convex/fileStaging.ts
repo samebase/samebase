@@ -8,6 +8,7 @@ import {
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { getUserId } from "./common";
+import type { GithubTreeType } from "./schema";
 
 export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
 
@@ -166,6 +167,16 @@ export const markFileForDeletion = mutation({
         branch: args.branch,
       });
     } else {
+      let preservedInitialContent = "";
+      if (args.parentCommitSha) {
+        const blob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+          sha: args.parentCommitSha,
+        });
+        if (typeof blob?.text === "string") {
+          preservedInitialContent = blob.text;
+        }
+      }
+
       // Create new staging record for deletion
       await ctx.db.insert("fileStaging", {
         ownerId: userId,
@@ -173,8 +184,9 @@ export const markFileForDeletion = mutation({
         filePath: args.filePath,
         initialFilePath: args.filePath,
         fileDeleted: true,
-        content: "", // Empty content for deleted files
-        initialContent: "", // We don't need the original content for deletions
+        // Keep original text when available so deleted files remain inspectable.
+        content: preservedInitialContent,
+        initialContent: preservedInitialContent,
         parentCommitSha: args.parentCommitSha,
         lastEditTime: currentTimestamp,
         lastEditUserId: userId,
@@ -199,6 +211,13 @@ export const createFileInStaging = mutation({
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
 
+    const vault = await ctx.runQuery(internal.vault.getById, {
+      id: args.vaultId,
+    });
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
     // Check if there's already a staging record for this file
     const existingStaging = await ctx.db
       .query("fileStaging")
@@ -209,6 +228,24 @@ export const createFileInStaging = mutation({
 
     if (existingStaging) {
       throw new Error("File already exists in staging");
+    }
+
+    const existingPathInStaging = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      )
+      .first();
+    if (existingPathInStaging) {
+      throw new Error("A staged file already uses this path");
+    }
+
+    const existsInRepository = vault.treeData.tree.some(
+      (entry: GithubTreeType) =>
+        entry.type === "blob" && entry.path === args.filePath,
+    );
+    if (existsInRepository) {
+      throw new Error("File already exists in repository");
     }
 
     const currentTimestamp = Date.now();
@@ -347,14 +384,24 @@ export const internalMarkFileForDeletion = internalMutation({
         branch: args.branch,
       });
     } else {
+      let preservedInitialContent = "";
+      if (args.parentCommitSha) {
+        const blob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+          sha: args.parentCommitSha,
+        });
+        if (typeof blob?.text === "string") {
+          preservedInitialContent = blob.text;
+        }
+      }
+
       await ctx.db.insert("fileStaging", {
         ownerId: args.userId,
         vaultId: args.vaultId,
         filePath: args.filePath,
         initialFilePath: args.filePath,
         fileDeleted: true,
-        content: "",
-        initialContent: "",
+        content: preservedInitialContent,
+        initialContent: preservedInitialContent,
         parentCommitSha: args.parentCommitSha,
         lastEditTime: currentTimestamp,
         lastEditUserId: args.userId,
@@ -413,6 +460,30 @@ export const rename = internalMutation({
 
     if (!file) {
       throw new Error("File not found");
+    }
+
+    if (file.filePath === args.newPath) {
+      return file;
+    }
+
+    const existingAtNewPath = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.newPath),
+      )
+      .first();
+    if (existingAtNewPath && existingAtNewPath._id !== file._id) {
+      throw new Error("A staged file already uses this path");
+    }
+
+    const existsInRepository = vault.treeData.tree.some(
+      (entry: GithubTreeType) =>
+        entry.type === "blob" &&
+        entry.path === args.newPath &&
+        entry.path !== file.initialFilePath,
+    );
+    if (existsInRepository) {
+      throw new Error("A repository file already exists at this path");
     }
 
     await ctx.db.patch(file._id, {

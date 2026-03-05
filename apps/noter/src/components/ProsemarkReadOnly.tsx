@@ -1,6 +1,24 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
-import { Compartment, EditorSelection, EditorState } from "@codemirror/state";
-import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from "react";
+import {
+  Compartment,
+  EditorSelection,
+  EditorState,
+  RangeSetBuilder,
+  type Extension,
+} from "@codemirror/state";
+import {
+  Decoration,
+  type DecorationSet,
+  EditorView,
+  ViewPlugin,
+  ViewUpdate,
+} from "@codemirror/view";
 import { markdown } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { GFM } from "@lezer/markdown";
@@ -17,7 +35,76 @@ type ProsemarkReadOnlyProps = {
   value: string;
   className?: string;
   editable?: boolean;
+  highlightedLineNumbers?: number[];
+  lineHighlightTone?: "add" | "remove";
 };
+
+function getHighlightClassName(lineHighlightTone: "add" | "remove"): string {
+  return lineHighlightTone === "remove"
+    ? "cm-line-highlight-remove"
+    : "cm-line-highlight-add";
+}
+
+function buildLineHighlights(
+  doc: EditorState["doc"],
+  highlightedLineNumbers: readonly number[],
+  lineClassName: string,
+): DecorationSet {
+  if (highlightedLineNumbers.length === 0) {
+    return Decoration.none;
+  }
+
+  const builder = new RangeSetBuilder<Decoration>();
+
+  for (const lineNumber of highlightedLineNumbers) {
+    if (lineNumber < 1 || lineNumber > doc.lines) continue;
+    const line = doc.line(lineNumber);
+    builder.add(
+      line.from,
+      line.from,
+      Decoration.line({ class: lineClassName }),
+    );
+  }
+
+  return builder.finish();
+}
+
+function createLineHighlightExtension(
+  highlightedLineNumbers: readonly number[],
+  lineHighlightTone: "add" | "remove",
+): Extension {
+  if (highlightedLineNumbers.length === 0) {
+    return [];
+  }
+
+  const lineClassName = getHighlightClassName(lineHighlightTone);
+
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet;
+
+      constructor(view: EditorView) {
+        this.decorations = buildLineHighlights(
+          view.state.doc,
+          highlightedLineNumbers,
+          lineClassName,
+        );
+      }
+
+      update(update: ViewUpdate) {
+        if (!update.docChanged) return;
+        this.decorations = buildLineHighlights(
+          update.state.doc,
+          highlightedLineNumbers,
+          lineClassName,
+        );
+      }
+    },
+    {
+      decorations: (plugin) => plugin.decorations,
+    },
+  );
+}
 
 function isBlankLineText(text: string): boolean {
   return text.trim().length === 0;
@@ -167,6 +254,14 @@ const prosemarkReadOnlyTheme = EditorView.theme({
   ".cm-line": {
     padding: "0",
   },
+  ".cm-line.cm-line-highlight-add": {
+    backgroundColor: "rgba(16, 185, 129, 0.1)",
+    borderRadius: "4px",
+  },
+  ".cm-line.cm-line-highlight-remove": {
+    backgroundColor: "rgba(244, 63, 94, 0.1)",
+    borderRadius: "4px",
+  },
   ".cm-scroller": {
     fontFamily: "inherit",
     lineHeight: "inherit",
@@ -194,6 +289,8 @@ export function ProsemarkReadOnly({
   value,
   className,
   editable = false,
+  highlightedLineNumbers = [],
+  lineHighlightTone = "add",
 }: ProsemarkReadOnlyProps) {
   const { theme, systemTheme } = useTheme();
   const effectiveTheme = theme === "system" ? systemTheme : theme;
@@ -208,7 +305,23 @@ export function ProsemarkReadOnly({
   const themeCompartmentRef = useRef(new Compartment());
   const interactionCompartmentRef = useRef(new Compartment());
   const cursorCompartmentRef = useRef(new Compartment());
+  const lineHighlightsCompartmentRef = useRef(new Compartment());
+  const lineHighlightToneRef = useRef(lineHighlightTone);
   const lastWidthRef = useRef<number | null>(null);
+  const normalizedHighlightedLineNumbers = useMemo(() => {
+    const deduped = Array.from(
+      new Set(
+        highlightedLineNumbers.filter(
+          (lineNumber) => Number.isInteger(lineNumber) && lineNumber > 0,
+        ),
+      ),
+    );
+    deduped.sort((left, right) => left - right);
+    return deduped;
+  }, [highlightedLineNumbers]);
+  const normalizedHighlightedLineNumbersRef = useRef(
+    normalizedHighlightedLineNumbers,
+  );
 
   const resizeToContent = useCallback(() => {
     const container = containerRef.current;
@@ -229,6 +342,15 @@ export function ProsemarkReadOnly({
   useEffect(() => {
     editableRef.current = editable;
   }, [editable]);
+
+  useEffect(() => {
+    lineHighlightToneRef.current = lineHighlightTone;
+  }, [lineHighlightTone]);
+
+  useEffect(() => {
+    normalizedHighlightedLineNumbersRef.current =
+      normalizedHighlightedLineNumbers;
+  }, [normalizedHighlightedLineNumbers]);
 
   useLayoutEffect(() => {
     const host = hostRef.current;
@@ -255,6 +377,12 @@ export function ProsemarkReadOnly({
         ]),
         cursorCompartmentRef.current.of(
           !editableRef.current ? prosemarkHiddenCursorTheme : [],
+        ),
+        lineHighlightsCompartmentRef.current.of(
+          createLineHighlightExtension(
+            normalizedHighlightedLineNumbersRef.current,
+            lineHighlightToneRef.current,
+          ),
         ),
         themeCompartmentRef.current.of(isDarkRef.current ? oneDark : []),
       ],
@@ -296,6 +424,20 @@ export function ProsemarkReadOnly({
       ],
     });
   }, [editable]);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({
+      effects: lineHighlightsCompartmentRef.current.reconfigure(
+        createLineHighlightExtension(
+          normalizedHighlightedLineNumbers,
+          lineHighlightTone,
+        ),
+      ),
+    });
+    resizeToContent();
+  }, [lineHighlightTone, normalizedHighlightedLineNumbers, resizeToContent]);
 
   useEffect(() => {
     const container = containerRef.current;

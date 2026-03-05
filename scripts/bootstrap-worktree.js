@@ -173,6 +173,12 @@ function createBranchIfDetached() {
     return
   }
 
+  const reusableBranch = switchToExistingDetachedHeadBranch()
+  if (reusableBranch.length > 0) {
+    console.log(`Switched to existing branch: ${reusableBranch}`)
+    return
+  }
+
   const candidate = pickAvailableBranchName()
   const createResult = spawnSync('git', ['switch', '-c', candidate], {
     stdio: 'ignore',
@@ -204,6 +210,109 @@ function getCurrentBranch() {
   }
 
   return (result.stdout ?? '').trim()
+}
+
+/** @returns {string} */
+function switchToExistingDetachedHeadBranch() {
+  const localCandidates = preferredBranchOrder(
+    listLocalBranchesPointingAtHead(),
+  )
+
+  for (const branchName of localCandidates) {
+    const switchResult = spawnSync('git', ['switch', branchName], {
+      stdio: 'ignore',
+    })
+    if (switchResult.status === 0) {
+      return branchName
+    }
+  }
+
+  const remoteCandidates = listRemoteCodexBranchesPointingAtHead()
+  for (const remoteBranch of remoteCandidates) {
+    const localBranch = remoteBranch.replace(/^origin\//, '')
+    if (localBranch.length === 0 || branchExists(localBranch)) {
+      continue
+    }
+
+    const switchResult = spawnSync(
+      'git',
+      ['switch', '--track', '-c', localBranch, remoteBranch],
+      { stdio: 'ignore' },
+    )
+
+    if (switchResult.status === 0) {
+      return localBranch
+    }
+  }
+
+  return ''
+}
+
+/** @returns {string[]} */
+function listLocalBranchesPointingAtHead() {
+  return readBranchLines([
+    'for-each-ref',
+    '--points-at',
+    'HEAD',
+    '--format=%(refname:short)',
+    'refs/heads',
+  ])
+}
+
+/** @returns {string[]} */
+function listRemoteCodexBranchesPointingAtHead() {
+  return readBranchLines([
+    'for-each-ref',
+    '--points-at',
+    'HEAD',
+    '--format=%(refname:short)',
+    'refs/remotes/origin/codex',
+  ])
+}
+
+/**
+ * @param {string[]} branchNames
+ * @returns {string[]}
+ */
+function preferredBranchOrder(branchNames) {
+  return [...branchNames].sort((left, right) => {
+    const leftPriority = branchPriority(left)
+    const rightPriority = branchPriority(right)
+    if (leftPriority !== rightPriority) {
+      return leftPriority - rightPriority
+    }
+    return left.localeCompare(right)
+  })
+}
+
+/**
+ * @param {string} branchName
+ * @returns {number}
+ */
+function branchPriority(branchName) {
+  if (branchName.startsWith('codex/')) {
+    return 0
+  }
+  if (branchName === 'main') {
+    return 2
+  }
+  return 1
+}
+
+/**
+ * @param {string[]} args
+ * @returns {string[]}
+ */
+function readBranchLines(args) {
+  const result = spawnSync('git', args, { encoding: 'utf8' })
+  if (result.status !== 0) {
+    return []
+  }
+
+  return (result.stdout ?? '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
 }
 
 /** @returns {string} */
