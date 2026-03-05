@@ -1383,6 +1383,14 @@ export async function createCommitWithMultipleFiles({
         repo,
         commit_sha: currentCommitSha,
       });
+
+      if (newTreeEntries.length === 0) {
+        return {
+          sha: currentCommitSha,
+          url: currentCommit.html_url,
+        };
+      }
+
       const currentTreeSha = currentCommit.tree.sha;
 
       const { data: newTree } = await octokit.rest.git.createTree({

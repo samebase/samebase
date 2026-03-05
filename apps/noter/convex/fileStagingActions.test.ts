@@ -508,11 +508,11 @@ describe("createCommitWithMultipleFiles", () => {
   });
 
   /**
-   * Test 6: New file deletion skips delete entry (parentCommitSha guard)
+   * Test 6: New file deletion becomes a no-op (parentCommitSha guard)
    * Input: A new file (parentCommitSha: null) marked as deleted
-   * Verify: No tree entries are created (file never existed in repo)
+   * Verify: No Git writes are attempted (file never existed in repo)
    */
-  it("Test 6: Deleting a new file (parentCommitSha null) produces no tree entries", async () => {
+  it("Test 6: Deleting a new file (parentCommitSha null) does not create an empty commit", async () => {
     vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
       makeGetRefResponse("abc123"),
     );
@@ -522,14 +522,14 @@ describe("createCommitWithMultipleFiles", () => {
     const createTreeSpy = vi
       .spyOn(octokit.rest.git, "createTree")
       .mockResolvedValue(makeCreateTreeResponse("newtree123"));
-    vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
-      makeCreateCommitResponse("newtree123", "commit123"),
-    );
-    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
-      makeUpdateRefResponse("commit123"),
-    );
+    const createCommitSpy = vi
+      .spyOn(octokit.rest.git, "createCommit")
+      .mockResolvedValue(makeCreateCommitResponse("newtree123", "commit123"));
+    const updateRefSpy = vi
+      .spyOn(octokit.rest.git, "updateRef")
+      .mockResolvedValue(makeUpdateRefResponse("commit123"));
 
-    await createCommitWithMultipleFiles({
+    const result = await createCommitWithMultipleFiles({
       octokit,
       owner: "test-owner",
       repo: "test-repo",
@@ -546,12 +546,13 @@ describe("createCommitWithMultipleFiles", () => {
       branch: "main",
     });
 
-    const createTreeCall = createTreeSpy.mock.calls[0]?.[0];
-    if (!createTreeCall) {
-      throw new Error("createTree was not called");
-    }
-    // No tree entries — the file never existed in the repo
-    expect(createTreeCall.tree.length).toBe(0);
+    expect(result.sha).toBe("abc123");
+    expect(result.url).toBe(
+      "https://github.com/test-owner/test-repo/commit/abc123",
+    );
+    expect(createTreeSpy).not.toHaveBeenCalled();
+    expect(createCommitSpy).not.toHaveBeenCalled();
+    expect(updateRefSpy).not.toHaveBeenCalled();
   });
 
   /**
