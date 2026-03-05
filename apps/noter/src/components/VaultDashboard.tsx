@@ -21,6 +21,10 @@ import { linkStyle } from "./styles";
 import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import {
+  formatRelativeTimeAgo,
+  formatRelativeTimeUntil,
+} from "@/lib/formatRelativeTime";
+import {
   claimRefreshDebounce,
   releaseRefreshDebounce,
 } from "@/lib/treeRefreshDebounce";
@@ -78,6 +82,22 @@ const formatInfraState = (
   if (infraState === "ready") return "Ready";
   if (infraState === "failed") return "Failed";
   return "Partial";
+};
+
+const formatMcpTokenStatusLabel = (
+  status:
+    | "valid"
+    | "expiring_soon"
+    | "expired"
+    | "invalid"
+    | "unknown"
+    | undefined,
+): string => {
+  if (status === "valid") return "Valid";
+  if (status === "expiring_soon") return "Expiring soon";
+  if (status === "expired") return "Expired";
+  if (status === "invalid") return "Invalid";
+  return "Unknown";
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -217,6 +237,9 @@ export function VaultDashboard() {
   const getCloudflareMcpOAuthUrl = useAction(
     api.cloudflareMcpOAuth.getCloudflareMcpOAuthUrl,
   );
+  const checkCloudflareMcpTokenHealth = useAction(
+    api.users.checkCloudflareMcpTokenHealth,
+  );
   const connectGithubWithApiKey = useAction(api.users.connectGithubWithApiKey);
   const connectConvexWithApiKey = useAction(api.users.connectConvexWithApiKey);
   const connectNetlifyWithApiKey = useAction(
@@ -309,6 +332,8 @@ export function VaultDashboard() {
     useState<CreateHostingProvider>("netlify");
   const [disconnectingProvider, setDisconnectingProvider] =
     useState<ProviderKey | null>(null);
+  const [isCheckingCloudflareToken, setIsCheckingCloudflareToken] =
+    useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -573,6 +598,27 @@ export function VaultDashboard() {
     }
   };
 
+  const handleCheckCloudflareToken = async () => {
+    if (isCheckingCloudflareToken) {
+      return;
+    }
+    setIsCheckingCloudflareToken(true);
+    if (createError) {
+      setCreateError(null);
+    }
+    try {
+      await checkCloudflareMcpTokenHealth();
+    } catch (error) {
+      setCreateError(
+        error instanceof Error
+          ? error.message
+          : "Failed to check Cloudflare token",
+      );
+    } finally {
+      setIsCheckingCloudflareToken(false);
+    }
+  };
+
   const handleRemoveVault = async () => {
     if (!vaultToDelete || isDeleting || isCommitting) return;
     setDeleteError(null);
@@ -737,6 +783,15 @@ export function VaultDashboard() {
       : createHostingProvider === "railway"
         ? railwayConnected
         : cloudflareConnected;
+  const cloudflareMcpTokenStatus = cloudflareConnection?.mcpTokenStatus;
+  const cloudflareMcpTokenExpiresAt = cloudflareConnection?.mcpTokenExpiresAt;
+  const cloudflareMcpTokenCheckedAt = cloudflareConnection?.mcpTokenCheckedAt;
+  const cloudflareMcpTokenError = cloudflareConnection?.mcpTokenError;
+  const showCloudflareCreateWarning =
+    createHostingProvider === "cloudflare" &&
+    cloudflareConnected &&
+    (cloudflareMcpTokenStatus === "invalid" ||
+      cloudflareMcpTokenStatus === "expired");
   const canCreateRepo = Boolean(
     githubConnected && convexConnected && requiredHostingConnected,
   );
@@ -760,32 +815,67 @@ export function VaultDashboard() {
   const railwayStatus = railwayConnected
     ? `Connected as ${railwayConnection.name ?? railwayConnection.email ?? railwayConnection.accountId ?? "Railway user"} (${formatAuthMethod(railwayConnection.authMethod)})`
     : "Not connected";
+  const cloudflareMcpTokenTimeStatus =
+    cloudflareConnection?.authMethod === "mcp_oauth"
+      ? cloudflareMcpTokenStatus === "valid" ||
+        cloudflareMcpTokenStatus === "expiring_soon"
+        ? typeof cloudflareMcpTokenExpiresAt === "number"
+          ? `Expires ${formatRelativeTimeUntil(cloudflareMcpTokenExpiresAt, now)}.`
+          : ""
+        : cloudflareMcpTokenStatus === "expired"
+          ? typeof cloudflareMcpTokenExpiresAt === "number"
+            ? `Expired ${formatRelativeTimeAgo(cloudflareMcpTokenExpiresAt, now)}.`
+            : ""
+          : typeof cloudflareMcpTokenCheckedAt === "number"
+            ? `Last checked ${formatRelativeTimeAgo(cloudflareMcpTokenCheckedAt, now)}.`
+            : ""
+      : "";
+  const cloudflareAuthMethod = cloudflareConnection?.authMethod;
+  const cloudflareMcpTokenErrorStatus =
+    cloudflareAuthMethod === "mcp_oauth" && cloudflareMcpTokenError
+      ? `Error: ${cloudflareMcpTokenError}`
+      : "";
   const cloudflareStatus = cloudflareConnected
-    ? `Connected (${formatAuthMethod(cloudflareConnection.authMethod)})`
+    ? cloudflareAuthMethod === "mcp_oauth"
+      ? [
+          "Connected (MCP OAuth).",
+          `Token ${formatMcpTokenStatusLabel(cloudflareMcpTokenStatus)}.`,
+          cloudflareMcpTokenTimeStatus,
+          cloudflareMcpTokenErrorStatus,
+        ]
+          .filter((part) => part.length > 0)
+          .join(" ")
+      : `Connected (${formatAuthMethod(cloudflareAuthMethod)})`
     : "Not connected";
   const providerConnectionState: Record<
     ProviderKey,
-    { connected: boolean; status: string }
+    { connected: boolean; status: string; showTokenCheck: boolean }
   > = {
     github: {
       connected: githubConnected,
       status: githubStatus,
+      showTokenCheck: false,
     },
     convex: {
       connected: convexConnected,
       status: convexStatus,
+      showTokenCheck: false,
     },
     netlify: {
       connected: netlifyConnected,
       status: netlifyStatus,
+      showTokenCheck: false,
     },
     railway: {
       connected: railwayConnected,
       status: railwayStatus,
+      showTokenCheck: false,
     },
     cloudflare: {
       connected: cloudflareConnected,
       status: cloudflareStatus,
+      showTokenCheck:
+        cloudflareConnected && cloudflareAuthMethod === "mcp_oauth",
     },
   };
   const userDisplayName =
@@ -917,6 +1007,11 @@ export function VaultDashboard() {
           {`Connect GitHub, Convex, and ${requiredHostingConnectionLabel} to create apps or agents.`}
         </div>
       )}
+      {showCloudflareCreateWarning && (
+        <div className="text-xs text-amber-700">
+          Cloudflare token is invalid or expired. Reconnect Cloudflare.
+        </div>
+      )}
     </div>
   );
 
@@ -976,21 +1071,62 @@ export function VaultDashboard() {
                     </div>
                   </div>
                   {providerState.connected ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void handleDisconnect(provider)}
-                      disabled={disconnectingProvider !== null}
-                    >
-                      {disconnectingProvider === provider ? (
-                        <>
-                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                          Disconnecting...
-                        </>
-                      ) : (
-                        "Disconnect"
-                      )}
-                    </Button>
+                    providerState.showTokenCheck ? (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void handleCheckCloudflareToken()}
+                          disabled={
+                            disconnectingProvider !== null ||
+                            isCheckingCloudflareToken
+                          }
+                        >
+                          {isCheckingCloudflareToken ? (
+                            <>
+                              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                              Checking...
+                            </>
+                          ) : (
+                            "Check token"
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void handleDisconnect(provider)}
+                          disabled={
+                            disconnectingProvider !== null ||
+                            isCheckingCloudflareToken
+                          }
+                        >
+                          {disconnectingProvider === provider ? (
+                            <>
+                              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                              Disconnecting...
+                            </>
+                          ) : (
+                            "Disconnect"
+                          )}
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void handleDisconnect(provider)}
+                        disabled={disconnectingProvider !== null}
+                      >
+                        {disconnectingProvider === provider ? (
+                          <>
+                            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                            Disconnecting...
+                          </>
+                        ) : (
+                          "Disconnect"
+                        )}
+                      </Button>
+                    )
                   ) : (
                     <div className="flex items-center gap-2">
                       <Button

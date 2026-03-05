@@ -6,6 +6,7 @@ import {
   type DatabaseWriter,
 } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
+import { mcpTokenHealthValidator } from "./mcpTokenHealth";
 
 const {
   array,
@@ -90,6 +91,7 @@ const cloudflareConnectionUpsertValidator = object({
   userId: id("users"),
   auth: cloudflareProviderAuthValidator,
   accountId: optional(string()),
+  tokenHealth: optional(mcpTokenHealthValidator),
 });
 
 const githubConnectionResultValidator = object({
@@ -143,6 +145,7 @@ const cloudflareConnectionResultValidator = object({
   userId: id("users"),
   auth: cloudflareProviderAuthValidator,
   accountId: optional(string()),
+  tokenHealth: optional(mcpTokenHealthValidator),
   createdAt: number(),
   updatedAt: number(),
 });
@@ -292,21 +295,29 @@ async function upsertCloudflareConnection(
     "cloudflare",
   );
   if (existing) {
-    await db.patch(existing._id, {
+    const patch = {
       auth: args.auth,
       accountId: args.accountId,
       updatedAt: now,
-    });
+      ...(args.tokenHealth !== undefined
+        ? { tokenHealth: args.tokenHealth }
+        : {}),
+    };
+    await db.patch(existing._id, patch);
     return;
   }
-  await db.insert("providerConnections", {
-    kind: "cloudflare",
+  const doc = {
+    kind: "cloudflare" as const,
     userId: args.userId,
     auth: args.auth,
     accountId: args.accountId,
     createdAt: now,
     updatedAt: now,
-  });
+    ...(args.tokenHealth !== undefined
+      ? { tokenHealth: args.tokenHealth }
+      : {}),
+  };
+  await db.insert("providerConnections", doc);
 }
 
 export const getByUserAndKind = internalQuery({

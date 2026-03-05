@@ -5,8 +5,13 @@ import { Infer, v } from "convex/values";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import { isRecord, readBoolean, readString } from "./jsonUtils";
 import { fetchRailwayConnectionDetails } from "./railwayConnectionDetails";
+import {
+  deriveMcpTokenStatusFromExpiry,
+  mcpTokenHealthStatusValidator,
+  type McpTokenHealth,
+} from "./mcpTokenHealth";
 
-const { array, literal, object, optional, string, union } = v;
+const { array, boolean, literal, number, object, optional, string, union } = v;
 
 const ADMIN_USERNAMES = ["nicu-chiciuc"];
 const ADMIN_EMAILS = new Set([
@@ -35,6 +40,30 @@ const providerAuthMethodValidator = union(
   literal("mcp_oauth"),
   literal("api_key"),
 );
+const cloudflareConnectionStatusValidator = object({
+  connected: boolean(),
+  accountId: optional(string()),
+  authMethod: optional(providerAuthMethodValidator),
+  mcpTokenStatus: optional(mcpTokenHealthStatusValidator),
+  mcpTokenExpiresAt: optional(number()),
+  mcpTokenCheckedAt: optional(number()),
+  mcpTokenError: optional(string()),
+});
+type CloudflareConnectionStatus = Infer<
+  typeof cloudflareConnectionStatusValidator
+>;
+type CloudflareAuthMethod = Extract<
+  Infer<typeof providerAuthMethodValidator>,
+  "mcp_oauth" | "api_key"
+>;
+type CloudflareConnectionStatusInput = {
+  accountId?: string;
+  auth: {
+    method: CloudflareAuthMethod;
+    credentialExpiresAt?: number;
+  };
+  tokenHealth?: McpTokenHealth;
+};
 
 type JsonRecord = Record<string, unknown>;
 type NetlifyAccount = {
@@ -124,6 +153,42 @@ function normalizeApiToken(token: string): string {
     throw new Error("API key is required");
   }
   return normalized;
+}
+
+function buildCloudflareConnectionStatus(
+  connection: CloudflareConnectionStatusInput,
+): CloudflareConnectionStatus {
+  const baseStatus: CloudflareConnectionStatus = {
+    connected: true,
+    accountId: connection.accountId,
+    authMethod: connection.auth.method,
+  };
+
+  if (connection.auth.method !== "mcp_oauth") {
+    return baseStatus;
+  }
+
+  const now = Date.now();
+  const effectiveExpiresAt =
+    connection.tokenHealth?.expiresAt ?? connection.auth.credentialExpiresAt;
+  const derivedStatus = deriveMcpTokenStatusFromExpiry(effectiveExpiresAt, now);
+  const storedStatus = connection.tokenHealth?.status;
+  const shouldUseDerivedStatus =
+    connection.tokenHealth?.checkedAt === undefined ||
+    derivedStatus === "expired" ||
+    derivedStatus === "expiring_soon";
+  return {
+    ...baseStatus,
+    mcpTokenStatus:
+      storedStatus === "invalid"
+        ? "invalid"
+        : shouldUseDerivedStatus
+          ? derivedStatus
+          : storedStatus ?? derivedStatus,
+    mcpTokenExpiresAt: effectiveExpiresAt,
+    mcpTokenCheckedAt: connection.tokenHealth?.checkedAt,
+    mcpTokenError: connection.tokenHealth?.errorMessage,
+  };
 }
 
 async function fetchGithubIdentity(token: string): Promise<{
@@ -257,11 +322,11 @@ export const viewer = query({
       image: v.optional(v.string()),
       email: v.optional(v.string()),
       githubUsername: v.optional(v.string()),
-      hasGithubConnection: v.boolean(),
-      hasConvexConnection: v.boolean(),
-      hasNetlifyConnection: v.boolean(),
-      hasRailwayConnection: v.boolean(),
-      hasCloudflareConnection: v.boolean(),
+      hasGithubConnection: boolean(),
+      hasConvexConnection: boolean(),
+      hasNetlifyConnection: boolean(),
+      hasRailwayConnection: boolean(),
+      hasCloudflareConnection: boolean(),
     }),
     v.null(),
   ),
@@ -336,7 +401,7 @@ export const getViewerAuthProviders = query({
 
 export const isCurrentUserApproved = query({
   args: {},
-  returns: v.boolean(),
+  returns: boolean(),
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) return false;
@@ -363,7 +428,7 @@ export const isCurrentUserApproved = query({
 export const getGithubConnectionStatus = query({
   args: {},
   returns: v.object({
-    connected: v.boolean(),
+    connected: boolean(),
     username: v.optional(v.string()),
     authMethod: v.optional(providerAuthMethodValidator),
   }),
@@ -413,7 +478,7 @@ export const disconnectGithub = mutation({
 export const getConvexConnectionStatus = query({
   args: {},
   returns: v.object({
-    connected: v.boolean(),
+    connected: boolean(),
     teamId: v.optional(v.string()),
     teamSlug: v.optional(v.string()),
     authMethod: v.optional(providerAuthMethodValidator),
@@ -464,7 +529,7 @@ export const disconnectConvex = mutation({
 export const getNetlifyConnectionStatus = query({
   args: {},
   returns: v.object({
-    connected: v.boolean(),
+    connected: boolean(),
     teamId: v.optional(v.string()),
     teamSlug: v.optional(v.string()),
     authMethod: v.optional(providerAuthMethodValidator),
@@ -515,7 +580,7 @@ export const disconnectNetlify = mutation({
 export const getRailwayConnectionStatus = query({
   args: {},
   returns: v.object({
-    connected: v.boolean(),
+    connected: boolean(),
     accountId: v.optional(v.string()),
     email: v.optional(v.string()),
     name: v.optional(v.string()),
@@ -567,11 +632,7 @@ export const disconnectRailway = mutation({
 
 export const getCloudflareConnectionStatus = query({
   args: {},
-  returns: v.object({
-    connected: v.boolean(),
-    accountId: v.optional(v.string()),
-    authMethod: v.optional(providerAuthMethodValidator),
-  }),
+  returns: cloudflareConnectionStatusValidator,
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) {
@@ -586,11 +647,63 @@ export const getCloudflareConnectionStatus = query({
       return { connected: false };
     }
 
-    return {
-      connected: true,
-      accountId: connection.accountId,
-      authMethod: connection.auth.method,
-    };
+    return buildCloudflareConnectionStatus(connection);
+  },
+});
+
+export const checkCloudflareMcpTokenHealth = action({
+  args: {},
+  returns: cloudflareConnectionStatusValidator,
+  handler: async (ctx): Promise<CloudflareConnectionStatus> => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      throw new Error("User not authenticated");
+    }
+
+    const connection = await ctx.runQuery(
+      internal.providerConnections.getByUserAndKind,
+      {
+        userId,
+        kind: "cloudflare",
+      },
+    );
+    if (connection?.kind !== "cloudflare") {
+      throw new Error("Cloudflare is not connected");
+    }
+    if (connection.auth.method !== "mcp_oauth") {
+      return buildCloudflareConnectionStatus(connection);
+    }
+
+    try {
+      const resolvedConnection = await ctx.runAction(
+        internal.cloudflareMcpOAuth.resolveConnectionForUser,
+        {
+          userId,
+          forceRefresh: true,
+        },
+      );
+      if (resolvedConnection === null) {
+        return { connected: false };
+      }
+      return buildCloudflareConnectionStatus(resolvedConnection);
+    } catch (error) {
+      const refreshedConnection = await ctx.runQuery(
+        internal.providerConnections.getByUserAndKind,
+        {
+          userId,
+          kind: "cloudflare",
+        },
+      );
+      if (
+        refreshedConnection?.kind === "cloudflare" &&
+        refreshedConnection.auth.method === "mcp_oauth" &&
+        (refreshedConnection.tokenHealth?.status === "invalid" ||
+          refreshedConnection.tokenHealth?.source === "runtime_error")
+      ) {
+        return buildCloudflareConnectionStatus(refreshedConnection);
+      }
+      throw error;
+    }
   },
 });
 

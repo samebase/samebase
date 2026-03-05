@@ -5,6 +5,11 @@ import {
   hostingProviderValidator,
   hostingStateValidator,
 } from "./hostingState";
+import {
+  mcpTokenHealthSourceValidator,
+  mcpTokenHealthStatusValidator,
+  mcpTokenHealthValidator,
+} from "./mcpTokenHealth";
 
 // Helper function to omit keys from an object
 function omit<T extends Record<string, any>, K extends keyof T>(
@@ -162,6 +167,12 @@ export const CloudflareProviderAuth = v.union(McpOAuthAuth, ApiKeyAuth);
 export type CloudflareProviderAuth = Infer<typeof CloudflareProviderAuth>;
 export const ProviderAuth = v.union(OAuthAuth, McpOAuthAuth, ApiKeyAuth);
 export type ProviderAuth = Infer<typeof ProviderAuth>;
+export const McpTokenHealthStatus = mcpTokenHealthStatusValidator;
+export type McpTokenHealthStatus = Infer<typeof McpTokenHealthStatus>;
+export const McpTokenHealthSource = mcpTokenHealthSourceValidator;
+export type McpTokenHealthSource = Infer<typeof McpTokenHealthSource>;
+export const McpTokenHealth = mcpTokenHealthValidator;
+export type McpTokenHealth = Infer<typeof McpTokenHealth>;
 
 export const GithubProviderConnection = v.object({
   kind: v.literal("github"),
@@ -204,6 +215,7 @@ export const CloudflareProviderConnection = v.object({
   userId: v.id("users"),
   auth: CloudflareProviderAuth,
   accountId: v.optional(v.string()),
+  tokenHealth: optional(McpTokenHealth),
   createdAt: v.number(),
   updatedAt: v.number(),
 });
