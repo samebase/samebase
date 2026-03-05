@@ -9,13 +9,6 @@ import {
   type AgentGraphNode,
 } from "@/components/AgentGraphView";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
@@ -63,6 +56,7 @@ import {
 import { type GithubTreeType } from "convex/schema";
 import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
 import { VaultSyncStatus } from "./VaultSyncStatus";
+import { diffLines } from "diff";
 
 // Function to find the best file to display
 function findBestInitialFile(files: GithubTreeType[]) {
@@ -93,6 +87,7 @@ type CommitPreview = GetFunctionReferenceReturnType<
 >;
 
 type CommitPreviewDisplayMode = "rich" | "patch";
+type CommitReviewMode = "editor" | "review";
 
 type RefreshTrigger = "focus" | "page_load";
 
@@ -112,6 +107,74 @@ function readGraphViewMode(storageKey: string): "editor" | "graph" | null {
     console.warn("Failed to read graph view preference", error);
   }
   return null;
+}
+
+function getLineCountFromDiffPart(
+  value: string | undefined,
+  count: number | undefined,
+): number {
+  if (typeof count === "number") {
+    return count;
+  }
+  if (!value || value.length === 0) {
+    return 0;
+  }
+  return value.split("\n").length;
+}
+
+function getRichDiffLineHighlights(
+  oldContent: string,
+  newContent: string,
+): {
+  oldLines: number[];
+  newLines: number[];
+} {
+  const oldLines = new Set<number>();
+  const newLines = new Set<number>();
+  let oldLinePointer = 1;
+  let newLinePointer = 1;
+
+  for (const part of diffLines(oldContent, newContent)) {
+    const lineCount = getLineCountFromDiffPart(part.value, part.count);
+    if (lineCount === 0) continue;
+
+    if (part.removed) {
+      for (let index = 0; index < lineCount; index += 1) {
+        oldLines.add(oldLinePointer + index);
+      }
+      oldLinePointer += lineCount;
+      continue;
+    }
+
+    if (part.added) {
+      for (let index = 0; index < lineCount; index += 1) {
+        newLines.add(newLinePointer + index);
+      }
+      newLinePointer += lineCount;
+      continue;
+    }
+
+    oldLinePointer += lineCount;
+    newLinePointer += lineCount;
+  }
+
+  return {
+    oldLines: [...oldLines].sort((left, right) => left - right),
+    newLines: [...newLines].sort((left, right) => left - right),
+  };
+}
+
+function getPatchLineClassName(line: string): string {
+  if (line.startsWith("+") && !line.startsWith("+++")) {
+    return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+  }
+  if (line.startsWith("-") && !line.startsWith("---")) {
+    return "bg-rose-500/10 text-rose-700 dark:text-rose-300";
+  }
+  if (line.startsWith("@@")) {
+    return "text-muted-foreground";
+  }
+  return "";
 }
 
 function FileViewWrapper() {
@@ -397,11 +460,9 @@ function FileViewInner({
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
-  const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
+  const [commitReviewMode, setCommitReviewMode] =
+    useState<CommitReviewMode>("editor");
   const [commitPreview, setCommitPreview] = useState<CommitPreview | null>(
-    null,
-  );
-  const [selectedPreviewPath, setSelectedPreviewPath] = useState<string | null>(
     null,
   );
   const [commitPreviewDisplayMode, setCommitPreviewDisplayMode] =
@@ -429,6 +490,9 @@ function FileViewInner({
   );
   const loadRepositoryFileContent = useAction(
     api.github.getRepositoryFileContent,
+  );
+  const stageFileForEditing = useAction(
+    api.fileStagingActions.getFileForEditing,
   );
 
   // Get count of staged files for this vault
@@ -668,6 +732,21 @@ function FileViewInner({
         vault.treeData.tree.find((t: GithubTreeType) => t.path === filePath)
           ?.sha ?? null;
 
+      // Ensure we retain original file content in staging for review mode.
+      if (fileSha) {
+        try {
+          await stageFileForEditing({
+            repositoryFullName: `${owner}/${repoName}`,
+            originalFilePath: filePath,
+            branch,
+          });
+        } catch (error) {
+          if (!isStorageBackedFileError(error)) {
+            throw error;
+          }
+        }
+      }
+
       // Mark the file for deletion in staging
       await markFileForDeletion({
         vaultId: vault._id,
@@ -678,6 +757,9 @@ function FileViewInner({
 
       // If the deleted file is currently selected, navigate away
       if (selectedFile === filePath) {
+        if (commitReviewMode === "review") {
+          return;
+        }
         void navigate(`/vault/${owner}/${repoName}/${branch}`);
       }
 
@@ -764,7 +846,6 @@ function FileViewInner({
     })
       .then((preview) => {
         setCommitPreview(preview);
-        setSelectedPreviewPath(preview.files[0]?.path ?? null);
       })
       .catch((error) => {
         const message =
@@ -775,13 +856,16 @@ function FileViewInner({
       });
   }, [getCommitPreview, repositoryFullName]);
 
-  const handleOpenReviewDialog = useCallback(() => {
-    setIsReviewDialogOpen(true);
+  const handleToggleReviewMode = useCallback(() => {
+    if (commitReviewMode === "review") {
+      setCommitReviewMode("editor");
+      return;
+    }
+
+    setCommitReviewMode("review");
     setCommitPreview(null);
-    setSelectedPreviewPath(null);
     setCommitPreviewDisplayMode("patch");
-    void loadCommitPreview();
-  }, [loadCommitPreview]);
+  }, [commitReviewMode]);
 
   const handleFolderToggle = useCallback(
     (folderPath: string, isExpanded: boolean) => {
@@ -799,13 +883,21 @@ function FileViewInner({
   }
 
   const selectedPreviewFile =
-    commitPreview?.files.find((file) => file.path === selectedPreviewPath) ??
-    commitPreview?.files[0] ??
-    null;
+    commitPreview?.files.find((file) => file.path === selectedFile) ?? null;
   const selectedPreviewCanRenderRichMarkdown = Boolean(
     selectedPreviewFile?.isMarkdown &&
       typeof selectedPreviewFile.richOldContent === "string" &&
       typeof selectedPreviewFile.richNewContent === "string",
+  );
+  const selectedPreviewRichDiffLines = useMemo(
+    () =>
+      selectedPreviewCanRenderRichMarkdown && selectedPreviewFile
+        ? getRichDiffLineHighlights(
+            selectedPreviewFile.richOldContent ?? "",
+            selectedPreviewFile.richNewContent ?? "",
+          )
+        : null,
+    [selectedPreviewCanRenderRichMarkdown, selectedPreviewFile],
   );
 
   useEffect(() => {
@@ -827,7 +919,7 @@ function FileViewInner({
         const path = stagedFile ? stagedFile.filePath : item.path;
         const deleted = stagedFile ? stagedFile.fileDeleted : false;
 
-        if (deleted) return null;
+        if (deleted && commitReviewMode !== "review") return null;
 
         return {
           deleted,
@@ -852,9 +944,27 @@ function FileViewInner({
         type: "blob" as const,
         size: undefined,
       }));
+    const existingPaths = new Set(
+      [...treeItems, ...newFiles].map((item) => item.path),
+    );
+    const deletedFiles =
+      commitReviewMode === "review"
+        ? (stagedFiles || [])
+            .filter(
+              (staged: NonNullable<typeof stagedFiles>[number]) =>
+                staged.fileDeleted && !existingPaths.has(staged.filePath),
+            )
+            .map((staged: NonNullable<typeof stagedFiles>[number]) => ({
+              deleted: true,
+              path: staged.filePath,
+              originalPath: staged.initialFilePath,
+              type: "blob" as const,
+              size: undefined,
+            }))
+        : [];
 
-    return [...treeItems, ...newFiles];
-  }, [vault.treeData.tree, stagedFiles]);
+    return [...treeItems, ...newFiles, ...deletedFiles];
+  }, [vault.treeData.tree, stagedFiles, commitReviewMode]);
 
   const { agentGraphNodes, agentGraphEdges } = useMemo(() => {
     const nodes: AgentGraphNode[] = [];
@@ -926,6 +1036,32 @@ function FileViewInner({
         file.fileDeleted ||
         file.parentCommitSha === null,
     );
+  const commitPreviewRefreshKey = useMemo(
+    () =>
+      (stagedFiles ?? [])
+        .map(
+          (file: NonNullable<typeof stagedFiles>[number]) =>
+            `${file._id}:${file.version}:${file.filePath}:${file.initialFilePath}:${file.fileDeleted}:${file.parentCommitSha ?? "new"}`,
+        )
+        .sort()
+        .join("|"),
+    [stagedFiles],
+  );
+
+  useEffect(() => {
+    if (hasChangesToCommit || commitReviewMode !== "review") return;
+    setCommitReviewMode("editor");
+  }, [hasChangesToCommit, commitReviewMode]);
+
+  useEffect(() => {
+    if (commitReviewMode !== "review" || !hasChangesToCommit) return;
+    void loadCommitPreview();
+  }, [
+    commitReviewMode,
+    hasChangesToCommit,
+    commitPreviewRefreshKey,
+    loadCommitPreview,
+  ]);
 
   // MARK: Return
 
@@ -1107,19 +1243,27 @@ function FileViewInner({
                     </Button>
                   )}
 
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleOpenReviewDialog}
-                    disabled={
-                      !hasChangesToCommit || commitPreviewStatus === "loading"
-                    }
-                    className="h-6 px-2 text-xs"
-                  >
-                    {commitPreviewStatus === "loading" && isReviewDialogOpen
-                      ? "Loading..."
-                      : "Review Changes"}
-                  </Button>
+                  {viewMode === "editor" && (
+                    <Button
+                      size="sm"
+                      variant={
+                        commitReviewMode === "review" ? "secondary" : "outline"
+                      }
+                      onClick={handleToggleReviewMode}
+                      disabled={
+                        commitReviewMode === "editor" &&
+                        (!hasChangesToCommit ||
+                          commitPreviewStatus === "loading")
+                      }
+                      className="h-6 px-2 text-xs"
+                    >
+                      {commitReviewMode === "review"
+                        ? "Back to Editor"
+                        : commitPreviewStatus === "loading"
+                          ? "Loading..."
+                          : "Review Changes"}
+                    </Button>
+                  )}
 
                   <Button
                     size="sm"
@@ -1163,24 +1307,236 @@ function FileViewInner({
                 </div>
               ) : null}
 
-              {viewMode === "editor" && vault && isPreviewOpen && (
+              {viewMode === "editor" && isPreviewOpen && (
                 <DaytonaPreviewPanel vaultId={vault._id} className="mb-4" />
               )}
 
               <div className="flex-1 min-h-0">
                 {viewMode === "editor" ? (
-                  stagedFile && (
-                    <CodeEditorWrapper
-                      key={`${branch}/${selectedFile}-${stagedFile.parentCommitSha ?? "new"}`}
-                      repositoryFullName={repositoryFullName}
-                      filePath={selectedFile}
-                      initialFilePath={stagedFile.initialFilePath}
-                      stagedFile={stagedFile}
-                      vaultId={vault._id}
-                      tree={vault.treeData.tree}
-                      treeSHA={vault.treeSHA}
-                      showMobileLineNumbers={showMobileEditorLineNumbers}
-                    />
+                  commitReviewMode === "review" ? (
+                    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded border bg-muted/20">
+                      {commitPreviewStatus === "loading" &&
+                      commitPreview === null ? (
+                        <div className="px-4 py-6 text-sm text-muted-foreground">
+                          Loading commit preview...
+                        </div>
+                      ) : null}
+
+                      {commitPreviewError ? (
+                        <div className="mx-3 mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                          {commitPreviewError}
+                        </div>
+                      ) : null}
+
+                      {commitPreview ? (
+                        <div className="flex min-h-0 flex-1 flex-col">
+                          <div className="border-b px-3 py-2 text-xs text-muted-foreground">
+                            Branch:{" "}
+                            <span className="font-mono text-foreground">
+                              {commitPreview.branch}
+                            </span>
+                            {" · "}
+                            {commitPreview.totals.files} files
+                            {" · "}
+                            <span className="text-emerald-600 dark:text-emerald-400">
+                              +{commitPreview.totals.additions}
+                            </span>
+                            {" / "}
+                            <span className="text-rose-600 dark:text-rose-400">
+                              -{commitPreview.totals.deletions}
+                            </span>
+                            {commitPreview.hasDestructiveChanges
+                              ? " · includes deletions"
+                              : ""}
+                            {commitPreview.safety.includesTruncatedPatches
+                              ? ` · ${commitPreview.safety.truncatedPatchFileCount} patch${commitPreview.safety.truncatedPatchFileCount === 1 ? "" : "es"} truncated`
+                              : ""}
+                          </div>
+
+                          {selectedPreviewFile ? (
+                            <div className="flex min-h-0 flex-1 flex-col">
+                              <div className="border-b px-3 py-2">
+                                <div className="mb-2 text-xs text-muted-foreground">
+                                  <span className="font-mono text-foreground">
+                                    {selectedPreviewFile.status === "added" &&
+                                      "A"}
+                                    {selectedPreviewFile.status ===
+                                      "modified" && "M"}
+                                    {selectedPreviewFile.status === "deleted" &&
+                                      "D"}
+                                    {selectedPreviewFile.status === "renamed" &&
+                                      "R"}{" "}
+                                    {selectedPreviewFile.path}
+                                  </span>
+                                  {selectedPreviewFile.previousPath ? (
+                                    <span>
+                                      {" · "}from{" "}
+                                      <span className="font-mono">
+                                        {selectedPreviewFile.previousPath}
+                                      </span>
+                                    </span>
+                                  ) : null}
+                                  {" · "}
+                                  <span className="text-emerald-600 dark:text-emerald-400">
+                                    +{selectedPreviewFile.additions}
+                                  </span>
+                                  {" / "}
+                                  <span className="text-rose-600 dark:text-rose-400">
+                                    -{selectedPreviewFile.deletions}
+                                  </span>
+                                </div>
+                                {selectedPreviewCanRenderRichMarkdown ? (
+                                  <ToggleGroup
+                                    type="single"
+                                    size="sm"
+                                    value={commitPreviewDisplayMode}
+                                    className="justify-start"
+                                    onValueChange={(value) => {
+                                      if (
+                                        value === "rich" ||
+                                        value === "patch"
+                                      ) {
+                                        setCommitPreviewDisplayMode(value);
+                                      }
+                                    }}
+                                  >
+                                    <ToggleGroupItem
+                                      value="rich"
+                                      aria-label="Rich markdown preview"
+                                      className="h-7 px-2 text-xs"
+                                    >
+                                      Rich
+                                    </ToggleGroupItem>
+                                    <ToggleGroupItem
+                                      value="patch"
+                                      aria-label="Source patch preview"
+                                      className="h-7 px-2 text-xs"
+                                    >
+                                      Patch
+                                    </ToggleGroupItem>
+                                  </ToggleGroup>
+                                ) : null}
+                              </div>
+
+                              <div className="flex-1 overflow-auto">
+                                {commitPreviewDisplayMode === "rich" &&
+                                selectedPreviewCanRenderRichMarkdown ? (
+                                  <div>
+                                    {selectedPreviewFile.richContentTruncated ? (
+                                      <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                        Rich markdown preview is truncated for
+                                        this file.
+                                      </div>
+                                    ) : null}
+
+                                    <div className="grid gap-3 p-3 md:grid-cols-2">
+                                      <div className="min-w-0 rounded border bg-background p-3">
+                                        <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">
+                                          Before
+                                        </div>
+                                        <ProsemarkReadOnly
+                                          value={
+                                            selectedPreviewFile.richOldContent ??
+                                            ""
+                                          }
+                                          highlightedLineNumbers={
+                                            selectedPreviewRichDiffLines?.oldLines ??
+                                            []
+                                          }
+                                          lineHighlightTone="remove"
+                                          className="text-sm leading-6"
+                                        />
+                                      </div>
+                                      <div className="min-w-0 rounded border bg-background p-3">
+                                        <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                                          After
+                                        </div>
+                                        <ProsemarkReadOnly
+                                          value={
+                                            selectedPreviewFile.richNewContent ??
+                                            ""
+                                          }
+                                          highlightedLineNumbers={
+                                            selectedPreviewRichDiffLines?.newLines ??
+                                            []
+                                          }
+                                          lineHighlightTone="add"
+                                          className="text-sm leading-6"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : selectedPreviewFile.patch ? (
+                                  <div>
+                                    {selectedPreviewFile.patchTruncated ? (
+                                      <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                        Patch output is truncated for this file.
+                                      </div>
+                                    ) : null}
+                                    <div className="p-3 font-mono text-xs leading-5">
+                                      {selectedPreviewFile.patch
+                                        .split("\n")
+                                        .map((line, index) => (
+                                          <div
+                                            key={`${index}:${line}`}
+                                            className={`whitespace-pre-wrap rounded-sm px-1 ${getPatchLineClassName(line)}`}
+                                          >
+                                            {line.length > 0 ? line : " "}
+                                          </div>
+                                        ))}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="p-3 text-xs text-muted-foreground">
+                                    No textual patch available for this file.
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-1 flex-col items-start gap-3 p-3 text-xs text-muted-foreground">
+                              <div>
+                                No staged diff for{" "}
+                                <span className="font-mono text-foreground">
+                                  {selectedFile}
+                                </span>
+                                .
+                              </div>
+                              {commitPreview.files[0] ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-xs"
+                                  onClick={() =>
+                                    handleFileSelect(
+                                      commitPreview.files[0].path,
+                                    )
+                                  }
+                                >
+                                  Open first changed file
+                                </Button>
+                              ) : (
+                                <div>No staged changes.</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    stagedFile && (
+                      <CodeEditorWrapper
+                        key={`${branch}/${selectedFile}-${stagedFile.parentCommitSha ?? "new"}`}
+                        repositoryFullName={repositoryFullName}
+                        filePath={selectedFile}
+                        initialFilePath={stagedFile.initialFilePath}
+                        stagedFile={stagedFile}
+                        vaultId={vault._id}
+                        tree={vault.treeData.tree}
+                        treeSHA={vault.treeSHA}
+                        showMobileLineNumbers={showMobileEditorLineNumbers}
+                      />
+                    )
                   )
                 ) : (
                   <AgentGraphView
@@ -1198,186 +1554,6 @@ function FileViewInner({
           </div>
         </div>
       </SidebarInset>
-
-      <Dialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
-        <DialogContent className="max-w-6xl">
-          <DialogHeader>
-            <DialogTitle>Commit Preview</DialogTitle>
-            <DialogDescription>
-              Review staged diffs before committing these changes.
-            </DialogDescription>
-          </DialogHeader>
-
-          {commitPreviewStatus === "loading" && commitPreview === null ? (
-            <div className="py-8 text-sm text-muted-foreground">
-              Loading commit preview...
-            </div>
-          ) : null}
-
-          {commitPreviewError ? (
-            <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {commitPreviewError}
-            </div>
-          ) : null}
-
-          {commitPreview ? (
-            <div className="space-y-3">
-              <div className="text-xs text-muted-foreground">
-                Branch:{" "}
-                <span className="font-mono text-foreground">
-                  {commitPreview.branch}
-                </span>
-                {" · "}
-                {commitPreview.totals.files} files
-                {" · "}
-                <span className="text-emerald-600 dark:text-emerald-400">
-                  +{commitPreview.totals.additions}
-                </span>
-                {" / "}
-                <span className="text-rose-600 dark:text-rose-400">
-                  -{commitPreview.totals.deletions}
-                </span>
-                {commitPreview.hasDestructiveChanges
-                  ? " · includes deletions"
-                  : ""}
-                {commitPreview.safety.includesTruncatedPatches
-                  ? ` · ${commitPreview.safety.truncatedPatchFileCount} patch${commitPreview.safety.truncatedPatchFileCount === 1 ? "" : "es"} truncated`
-                  : ""}
-              </div>
-
-              <div className="grid max-h-[65vh] gap-3 overflow-hidden md:grid-cols-[280px_minmax(0,1fr)]">
-                <div className="overflow-auto rounded border">
-                  {commitPreview.files.length === 0 ? (
-                    <div className="p-3 text-xs text-muted-foreground">
-                      No staged changes.
-                    </div>
-                  ) : (
-                    <div className="divide-y">
-                      {commitPreview.files.map((file) => (
-                        <button
-                          key={`${file.status}:${file.path}:${file.previousPath ?? ""}`}
-                          onClick={() => setSelectedPreviewPath(file.path)}
-                          className={`w-full px-3 py-2 text-left text-xs hover:bg-muted/40 ${
-                            selectedPreviewFile?.path === file.path
-                              ? "bg-muted/50"
-                              : ""
-                          }`}
-                        >
-                          <div className="font-mono text-foreground">
-                            {file.status === "added" && "A"}
-                            {file.status === "modified" && "M"}
-                            {file.status === "deleted" && "D"}
-                            {file.status === "renamed" && "R"} {file.path}
-                          </div>
-                          {file.previousPath ? (
-                            <div className="text-muted-foreground">
-                              from {file.previousPath}
-                            </div>
-                          ) : null}
-                          <div className="text-muted-foreground">
-                            <span className="text-emerald-600 dark:text-emerald-400">
-                              +{file.additions}
-                            </span>
-                            {" / "}
-                            <span className="text-rose-600 dark:text-rose-400">
-                              -{file.deletions}
-                            </span>
-                            {file.patchTruncated ? " · patch truncated" : ""}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="overflow-auto rounded border bg-muted/20">
-                  {selectedPreviewFile ? (
-                    <div>
-                      {selectedPreviewCanRenderRichMarkdown ? (
-                        <div className="border-b px-3 py-2">
-                          <ToggleGroup
-                            type="single"
-                            size="sm"
-                            value={commitPreviewDisplayMode}
-                            className="justify-start"
-                            onValueChange={(value) => {
-                              if (value === "rich" || value === "patch") {
-                                setCommitPreviewDisplayMode(value);
-                              }
-                            }}
-                          >
-                            <ToggleGroupItem
-                              value="rich"
-                              aria-label="Rich markdown preview"
-                              className="h-7 px-2 text-xs"
-                            >
-                              Rich
-                            </ToggleGroupItem>
-                            <ToggleGroupItem
-                              value="patch"
-                              aria-label="Source patch preview"
-                              className="h-7 px-2 text-xs"
-                            >
-                              Patch
-                            </ToggleGroupItem>
-                          </ToggleGroup>
-                        </div>
-                      ) : null}
-
-                      {commitPreviewDisplayMode === "rich" &&
-                      selectedPreviewCanRenderRichMarkdown ? (
-                        <div>
-                          {selectedPreviewFile.richContentTruncated ? (
-                            <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                              Rich markdown preview is truncated for this file.
-                            </div>
-                          ) : null}
-
-                          <div className="grid gap-3 p-3 md:grid-cols-2">
-                            <div className="min-w-0 rounded border border-rose-200/80 bg-rose-50/40 p-3 dark:border-rose-900/60 dark:bg-rose-950/20">
-                              <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">
-                                Before
-                              </div>
-                              <ProsemarkReadOnly
-                                value={selectedPreviewFile.richOldContent ?? ""}
-                                className="text-sm leading-6"
-                              />
-                            </div>
-                            <div className="min-w-0 rounded border border-emerald-200/80 bg-emerald-50/40 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/20">
-                              <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
-                                After
-                              </div>
-                              <ProsemarkReadOnly
-                                value={selectedPreviewFile.richNewContent ?? ""}
-                                className="text-sm leading-6"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      ) : selectedPreviewFile.patch ? (
-                        <div>
-                          {selectedPreviewFile.patchTruncated ? (
-                            <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                              Patch output is truncated for this file.
-                            </div>
-                          ) : null}
-                          <pre className="whitespace-pre-wrap p-3 text-xs font-mono leading-5">
-                            {selectedPreviewFile.patch}
-                          </pre>
-                        </div>
-                      ) : (
-                        <div className="p-3 text-xs text-muted-foreground">
-                          No textual patch available for this file.
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
 
       {/* File Creation Dialog */}
       {fileCreationDialog.isOpen && (

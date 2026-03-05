@@ -167,6 +167,16 @@ export const markFileForDeletion = mutation({
         branch: args.branch,
       });
     } else {
+      let preservedInitialContent = "";
+      if (args.parentCommitSha) {
+        const blob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+          sha: args.parentCommitSha,
+        });
+        if (typeof blob?.text === "string") {
+          preservedInitialContent = blob.text;
+        }
+      }
+
       // Create new staging record for deletion
       await ctx.db.insert("fileStaging", {
         ownerId: userId,
@@ -174,8 +184,9 @@ export const markFileForDeletion = mutation({
         filePath: args.filePath,
         initialFilePath: args.filePath,
         fileDeleted: true,
-        content: "", // Empty content for deleted files
-        initialContent: "", // We don't need the original content for deletions
+        // Keep original text when available so deleted files remain inspectable.
+        content: preservedInitialContent,
+        initialContent: preservedInitialContent,
         parentCommitSha: args.parentCommitSha,
         lastEditTime: currentTimestamp,
         lastEditUserId: userId,
@@ -373,14 +384,24 @@ export const internalMarkFileForDeletion = internalMutation({
         branch: args.branch,
       });
     } else {
+      let preservedInitialContent = "";
+      if (args.parentCommitSha) {
+        const blob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+          sha: args.parentCommitSha,
+        });
+        if (typeof blob?.text === "string") {
+          preservedInitialContent = blob.text;
+        }
+      }
+
       await ctx.db.insert("fileStaging", {
         ownerId: args.userId,
         vaultId: args.vaultId,
         filePath: args.filePath,
         initialFilePath: args.filePath,
         fileDeleted: true,
-        content: "",
-        initialContent: "",
+        content: preservedInitialContent,
+        initialContent: preservedInitialContent,
         parentCommitSha: args.parentCommitSha,
         lastEditTime: currentTimestamp,
         lastEditUserId: args.userId,

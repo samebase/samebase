@@ -22,6 +22,7 @@ interface FileTreeItem {
   originalPath: string;
   type: "tree" | "blob";
   size?: number;
+  deleted?: boolean;
 }
 
 interface TreeNode {
@@ -31,6 +32,7 @@ interface TreeNode {
   type: "tree" | "blob";
   children?: TreeNode[];
   size?: number;
+  deleted?: boolean;
 }
 
 interface FolderExpansionState {
@@ -79,6 +81,7 @@ function buildTree(items: FileTreeItem[]): TreeNode[] {
           children:
             index === parts.length - 1 && item.type === "blob" ? undefined : [],
           size: index === parts.length - 1 ? item.size : undefined,
+          deleted: index === parts.length - 1 ? item.deleted : undefined,
         };
 
         pathToNode.set(path, existingNode);
@@ -90,6 +93,9 @@ function buildTree(items: FileTreeItem[]): TreeNode[] {
           if (a.type === "blob" && b.type === "tree") return 1;
           return a.name.localeCompare(b.name);
         });
+      }
+      if (index === parts.length - 1) {
+        existingNode.deleted = item.deleted;
       }
 
       if (index < parts.length - 1) {
@@ -147,6 +153,7 @@ function TreeNodeComponent({
   const hasChildren = node.children && node.children.length > 0;
   const isSelected = selectedFile === node.path;
   const isFolder = node.type === "tree";
+  const isDeletedFile = node.type === "blob" && node.deleted === true;
 
   const handleClick = () => {
     if (hasChildren) {
@@ -245,6 +252,7 @@ function TreeNodeComponent({
                 className={cn(
                   "flex items-center gap-2 py-3 px-3 md:py-1 md:px-2 text-base md:text-sm cursor-pointer hover:bg-muted/30 rounded-none",
                   isSelected && "bg-muted/50",
+                  isDeletedFile && "text-rose-700 dark:text-rose-300",
                   "transition-colors",
                   "min-h-[44px] md:min-h-[auto]", // Touch-friendly height on mobile
                 )}
@@ -270,7 +278,12 @@ function TreeNodeComponent({
                     <div className="h-3 w-3 md:h-2 md:w-2 bg-muted-foreground/30 rounded-sm" />
                   </div>
                 ) : (
-                  <FileIcon className="h-4 w-4 md:h-3 md:w-3 text-muted-foreground flex-shrink-0" />
+                  <FileIcon
+                    className={cn(
+                      "h-4 w-4 md:h-3 md:w-3 text-muted-foreground flex-shrink-0",
+                      isDeletedFile && "text-rose-600 dark:text-rose-300",
+                    )}
+                  />
                 )}
 
                 {isRenaming ? (
@@ -286,7 +299,12 @@ function TreeNodeComponent({
                     autoFocus
                   />
                 ) : (
-                  <span className="truncate text-muted-foreground text-sm md:text-xs">
+                  <span
+                    className={cn(
+                      "truncate text-muted-foreground text-sm md:text-xs",
+                      isDeletedFile && "text-rose-700 dark:text-rose-300",
+                    )}
+                  >
                     {node.name}
                   </span>
                 )}
