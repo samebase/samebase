@@ -944,17 +944,8 @@ function formatDurationMs(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-function buildCloneUrl(args: {
-  token: string | null;
-  owner: string;
-  repo: string;
-}): string {
-  const base = `https://github.com/${args.owner}/${args.repo}.git`;
-  if (!args.token) {
-    return base;
-  }
-  const encoded = encodeURIComponent(args.token);
-  return `https://x-access-token:${encoded}@github.com/${args.owner}/${args.repo}.git`;
+function buildRepoUrl(args: { owner: string; repo: string }): string {
+  return `https://github.com/${args.owner}/${args.repo}.git`;
 }
 
 function buildAutoCdCommand(repoDir: string): string {
@@ -997,26 +988,37 @@ async function refreshSandboxRepo(args: {
 }): Promise<RepoRefreshResult> {
   const workspaceDir = DEFAULT_WORKSPACE_DIR;
   const repoDir = `${workspaceDir}/${args.repo}`;
-  const cloneUrl = buildCloneUrl({
-    token: args.token,
+  const repoUrl = buildRepoUrl({
     owner: args.owner,
     repo: args.repo,
   });
+  const authToken = args.token ?? "";
   const autoCdCommand = buildAutoCdCommand(repoDir);
   const writeConvexEnvCommand = buildWriteConvexEnvCommand(repoDir);
   const script = stripIndent`
 set -e
 export GIT_TERMINAL_PROMPT=0
 mode="${args.mode}"
+repo_url=${quoteForBash(repoUrl)}
+auth_token=${quoteForBash(authToken)}
 mkdir -p "${workspaceDir}"
 if ! command -v git >/dev/null; then (command -v sudo >/dev/null && sudo apt-get update && sudo apt-get install -y git) || (apt-get update && apt-get install -y git); fi
 repo_missing="0"
 [ -d "${repoDir}" ] || { mkdir -p "${repoDir}"; repo_missing="1"; }
 cd "${repoDir}"
 if [ ! -d ".git" ]; then git init; repo_missing="1"; fi
-if git remote get-url origin >/dev/null 2>&1; then git remote set-url origin "${cloneUrl}"; else git remote add origin "${cloneUrl}"; fi
+if git remote get-url origin >/dev/null 2>&1; then git remote set-url origin "$repo_url"; else git remote add origin "$repo_url"; fi
+auth_header=""
+if [ -n "$auth_token" ]; then
+  auth_basic=$(printf 'x-access-token:%s' "$auth_token" | base64 | tr -d '\n')
+  auth_header="AUTHORIZATION: basic $auth_basic"
+fi
 local_head=$(git rev-parse HEAD 2>/dev/null || true)
-remote_head=$(git ls-remote --heads origin "${args.branch}" 2>/dev/null | awk '{print $1}' | head -n 1 || true)
+if [ -n "$auth_header" ]; then
+  remote_head=$(git -c "http.extraHeader=$auth_header" ls-remote --heads origin "${args.branch}" 2>/dev/null | awk '{print $1}' | head -n 1 || true)
+else
+  remote_head=$(git ls-remote --heads origin "${args.branch}" 2>/dev/null | awk '{print $1}' | head -n 1 || true)
+fi
 should_fetch="0"
 reason="up_to_date"
 
@@ -1038,7 +1040,11 @@ elif [ "$local_head" != "$remote_head" ]; then
 fi
 
 if [ "$should_fetch" = "1" ]; then
-  git fetch origin "${args.branch}" --depth=1
+  if [ -n "$auth_header" ]; then
+    git -c "http.extraHeader=$auth_header" fetch origin "${args.branch}" --depth=1
+  else
+    git fetch origin "${args.branch}" --depth=1
+  fi
   git checkout -f -B "${args.branch}" FETCH_HEAD
   git reset --hard FETCH_HEAD
 else
