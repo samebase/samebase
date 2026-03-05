@@ -2,7 +2,8 @@
 
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 - [ ] maybe jupyterlab is not necessaryle necessary, or even a good idea, since developers usually don't use it; and vibecoders don't even use it; only academia?
-- [ ] asdfasdfdfsas
+- [ ] In Convex discord I've read that Convex storage is not a good option; R2 from Cloudflare is recommended; This is great is Cloudflare will be part of the stack;
+- [ ] I was just thinking about using some sort of .mdx + agent that's specifically trained and has tools to read from github,convex,cloudflare,something for logs; and just displays this in noter.md it's also easy to configure the dashboard since it's just markdown; It's similar in a way to what datadog is doing;
 - [ ] add excalidraw or anything that stores data in text
 - [ ] everythin on a page can easily be configured by the agent; So if there's a form the agent can edit it directly (saved to convex); so you can even build your dashboard; or you can expose it to someone so someone can bpay for it and you get money
 - [ ] allow setting
@@ -202,7 +203,6 @@ One caveat: Codespace secrets have a 48KB size limit, but auth.json is tiny so t
 ## Development Environment
 - [ ] the dev container should default to fish. Even the ai should prefer that
 ## Research & Inspiration
-- [ ] run a 2-week Augment Code pilot per `Ideas/augment-code-research.md` (IDE agent, Context Engine MCP, Code Review)
 - [ ] **Video Reference**: Problems that could be solved by Noter - https://www.youtube.com/watch?v=YVq28OTPCKw
 - [ ] fix implicit `any` types across frontend components (13 errors, CI-blocking):
   - AddRepository.tsx: `repo`, `vault` params in callbacks (4)
