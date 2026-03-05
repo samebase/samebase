@@ -725,12 +725,13 @@ function FileViewInner({
       },
     ) => {
       const searchParams = new URLSearchParams(search);
-      const shouldUseReviewMode = options?.reviewMode === "review";
-      if (shouldUseReviewMode || options?.reviewMode === "editor") {
-        searchParams.delete("diff");
-      }
+      const preserveCurrentReviewMode = options?.reviewMode === undefined;
+      const includeDiff =
+        options?.reviewMode === "review" ||
+        (preserveCurrentReviewMode && searchParams.has("diff"));
+      searchParams.delete("diff");
       const baseQuery = searchParams.toString();
-      const queryString = shouldUseReviewMode
+      const queryString = includeDiff
         ? baseQuery.length > 0
           ? `${baseQuery}&diff`
           : "diff"
@@ -787,7 +788,7 @@ function FileViewInner({
 
       // If we're currently viewing the renamed file, navigate to the new path
       if (stagedFile.initialFilePath === originalPath) {
-        void navigate(`/vault/${owner}/${repoName}/${branch}/${newPath}`);
+        void navigate(buildVaultFileUrl(newPath));
       }
 
       console.log(`File ${originalPath} renamed to ${newPath} in staging`);

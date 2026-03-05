@@ -118,7 +118,7 @@ export function EditedFilesCategories({
       const queryString = baseQuery.length > 0 ? `${baseQuery}&diff` : "diff";
 
       void navigate(
-        `/vault/${repositoryFullName}/${branch}/${filePath}${queryString.length > 0 ? `?${queryString}` : ""}`,
+        `/vault/${repositoryFullName}/${branch}/${filePath}?${queryString}`,
       );
     },
     [branch, navigate, repositoryFullName, search],
