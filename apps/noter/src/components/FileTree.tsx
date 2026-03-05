@@ -251,7 +251,8 @@ function TreeNodeComponent({
               <div
                 className={cn(
                   "flex items-center gap-2 py-3 px-3 md:py-1 md:px-2 text-base md:text-sm cursor-pointer hover:bg-muted/30 rounded-none",
-                  isSelected && "bg-muted/50",
+                  isSelected &&
+                    "bg-primary/15 hover:bg-primary/20 ring-1 ring-inset ring-primary/40",
                   isDeletedFile && "text-rose-700 dark:text-rose-300",
                   "transition-colors",
                   "min-h-[44px] md:min-h-[auto]", // Touch-friendly height on mobile
@@ -281,6 +282,7 @@ function TreeNodeComponent({
                   <FileIcon
                     className={cn(
                       "h-4 w-4 md:h-3 md:w-3 text-muted-foreground flex-shrink-0",
+                      isSelected && "text-primary",
                       isDeletedFile && "text-rose-600 dark:text-rose-300",
                     )}
                   />
@@ -302,6 +304,7 @@ function TreeNodeComponent({
                   <span
                     className={cn(
                       "truncate text-muted-foreground text-sm md:text-xs",
+                      isSelected && "text-foreground font-medium",
                       isDeletedFile && "text-rose-700 dark:text-rose-300",
                     )}
                   >
