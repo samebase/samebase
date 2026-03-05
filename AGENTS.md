@@ -375,6 +375,9 @@ Auth:
   proceed if the user explicitly asks to bypass them.
 - When the user asks to create a PR, automatically mark it ready for review
   unless they explicitly ask for a draft PR.
+- When creating or editing PR descriptions with `gh`, use `--body-file` (or
+  stdin/heredoc) so real newlines are preserved; never pass escaped `\n` in a
+  single-line `--body` string.
 - After pushing fixes for PR review feedback, always request a fresh CodeRabbit
   review by commenting `@coderabbitai review`.
 
