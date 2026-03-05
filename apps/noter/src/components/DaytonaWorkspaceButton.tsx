@@ -203,7 +203,7 @@ export function DaytonaWorkspaceButton({
     }
 
     try {
-      const result = await getDaytonaTerminalUrl({ vaultId });
+      const result = await getDaytonaTerminalUrl({ vaultId, branch });
       if (!result.ok || !result.url) {
         setHasError(true);
         setMessage(result.message ?? "Failed to open Daytona terminal.");
@@ -257,7 +257,7 @@ export function DaytonaWorkspaceButton({
     setHasError(false);
 
     try {
-      const result = await getDaytonaPreviewUrl({ vaultId });
+      const result = await getDaytonaPreviewUrl({ vaultId, branch });
       if (!result.ok || !result.url) {
         setHasError(true);
         setMessage(result.message ?? "Failed to open preview.");

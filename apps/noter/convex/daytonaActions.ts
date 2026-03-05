@@ -1193,6 +1193,7 @@ const startDaytonaWorkspaceResult = object({
 
 const getDaytonaTerminalUrlArgs = object({
   vaultId: id("vaults"),
+  branch: optional(string()),
 });
 
 const getDaytonaTerminalUrlResult = object({
@@ -1203,6 +1204,7 @@ const getDaytonaTerminalUrlResult = object({
 
 const getDaytonaPreviewUrlArgs = object({
   vaultId: id("vaults"),
+  branch: optional(string()),
 });
 
 const getDaytonaPreviewUrlResult = object({
@@ -1725,34 +1727,56 @@ export const getDaytonaTerminalUrl = action({
       config.apiUrl = baseUrl;
     }
     const daytona = new Daytona(config);
-    let sandboxId = vault.daytonaSandboxId;
+    const requestedBranch = args.branch?.trim();
+    const matchesRequestedBranch = (candidate: Sandbox): boolean => {
+      if (!requestedBranch) {
+        return true;
+      }
+      const branchLabel = candidate.labels["noter.branch"]?.trim();
+      return !branchLabel || branchLabel === requestedBranch;
+    };
+
+    let sandbox: Sandbox | null = null;
     let sandboxName = vault.daytonaSandboxName;
 
-    if (!sandboxId) {
-      const matches = await daytona.list(
-        { "noter.vault_id": args.vaultId },
-        1,
-        5,
-      );
+    if (vault.daytonaSandboxId) {
+      try {
+        const persistedSandbox = await daytona.get(vault.daytonaSandboxId);
+        if (matchesRequestedBranch(persistedSandbox)) {
+          sandbox = persistedSandbox;
+          sandboxName = persistedSandbox.name;
+        }
+      } catch (error) {
+        if (!isNotFoundError(error)) {
+          throw error;
+        }
+      }
+    }
+
+    if (!sandbox) {
+      const labels: Record<string, string> = { "noter.vault_id": args.vaultId };
+      if (requestedBranch) {
+        labels["noter.branch"] = requestedBranch;
+      }
+      const matches = await daytona.list(labels, 1, 5);
       const match = matches.items[0];
-      if (!match) {
+      if (!match?.id) {
         return {
           ok: false,
-          message:
-            "No Daytona sandbox is connected to this vault yet. Click Start Daytona first.",
+          message: requestedBranch
+            ? `No Daytona sandbox found for branch ${requestedBranch}. Click Launch Daytona first.`
+            : "No Daytona sandbox is connected to this vault yet. Click Launch Daytona first.",
         };
       }
-      sandboxId = match.id;
-      sandboxName = match.name;
+      sandbox = await daytona.get(match.id);
+      sandboxName = sandbox.name;
       await ctx.runMutation(internal.vault.updateVaultDaytonaSandbox, {
         vaultId: args.vaultId,
-        sandboxId,
+        sandboxId: sandbox.id,
         sandboxName,
         createdAt: Date.now(),
       });
     }
-
-    const sandbox = await daytona.get(sandboxId);
 
     try {
       const preview = await sandbox.getSignedPreviewUrl(22222, 300);
@@ -1809,34 +1833,57 @@ export const getDaytonaPreviewUrl = action({
       config.apiUrl = baseUrl;
     }
     const daytona = new Daytona(config);
-    let sandboxId = vault.daytonaSandboxId;
+    const requestedBranch = args.branch?.trim();
+    const matchesRequestedBranch = (candidate: Sandbox): boolean => {
+      if (!requestedBranch) {
+        return true;
+      }
+      const branchLabel = candidate.labels["noter.branch"]?.trim();
+      return !branchLabel || branchLabel === requestedBranch;
+    };
+
+    let sandbox: Sandbox | null = null;
     let sandboxName = vault.daytonaSandboxName;
 
-    if (!sandboxId) {
-      const matches = await daytona.list(
-        { "noter.vault_id": args.vaultId },
-        1,
-        5,
-      );
+    if (vault.daytonaSandboxId) {
+      try {
+        const persistedSandbox = await daytona.get(vault.daytonaSandboxId);
+        if (matchesRequestedBranch(persistedSandbox)) {
+          sandbox = persistedSandbox;
+          sandboxName = persistedSandbox.name;
+        }
+      } catch (error) {
+        if (!isNotFoundError(error)) {
+          throw error;
+        }
+      }
+    }
+
+    if (!sandbox) {
+      const labels: Record<string, string> = { "noter.vault_id": args.vaultId };
+      if (requestedBranch) {
+        labels["noter.branch"] = requestedBranch;
+      }
+      const matches = await daytona.list(labels, 1, 5);
       const match = matches.items[0];
-      if (!match) {
+      if (!match?.id) {
         return {
           ok: false,
-          message:
-            "No Daytona sandbox is connected to this vault yet. Click Start Daytona first.",
+          message: requestedBranch
+            ? `No Daytona sandbox found for branch ${requestedBranch}. Click Launch Daytona first.`
+            : "No Daytona sandbox is connected to this vault yet. Click Launch Daytona first.",
         };
       }
-      sandboxId = match.id;
-      sandboxName = match.name;
+      sandbox = await daytona.get(match.id);
+      sandboxName = sandbox.name;
       await ctx.runMutation(internal.vault.updateVaultDaytonaSandbox, {
         vaultId: args.vaultId,
-        sandboxId,
+        sandboxId: sandbox.id,
         sandboxName,
         createdAt: Date.now(),
       });
     }
 
-    const sandbox = await daytona.get(sandboxId);
     const branchLabel = sandbox.labels?.["noter.branch"];
 
     try {
