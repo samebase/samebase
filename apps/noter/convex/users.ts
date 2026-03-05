@@ -6,11 +6,12 @@ import { getConnectionByUserAndKind } from "./providerConnections";
 import { isRecord, readBoolean, readString } from "./jsonUtils";
 import { fetchRailwayConnectionDetails } from "./railwayConnectionDetails";
 import {
+  deriveMcpTokenStatusFromExpiry,
   mcpTokenHealthStatusValidator,
   type McpTokenHealth,
 } from "./mcpTokenHealth";
 
-const { array, literal, number, object, optional, string, union } = v;
+const { array, boolean, literal, number, object, optional, string, union } = v;
 
 const ADMIN_USERNAMES = ["nicu-chiciuc"];
 const ADMIN_EMAILS = new Set([
@@ -24,7 +25,6 @@ const ALLOWED_EMAILS = new Set([
   "nicu@noter.md",
 ]);
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
-const MCP_EXPIRING_SOON_MS = 15 * 60 * 1000;
 const GITHUB_API_BASE = "https://api.github.com";
 const CONVEX_TOKEN_DETAILS_URL = "https://api.convex.dev/v1/token_details";
 const NETLIFY_API_BASE = "https://api.netlify.com/api/v1";
@@ -41,7 +41,7 @@ const providerAuthMethodValidator = union(
   literal("api_key"),
 );
 const cloudflareConnectionStatusValidator = object({
-  connected: v.boolean(),
+  connected: boolean(),
   accountId: optional(string()),
   authMethod: optional(providerAuthMethodValidator),
   mcpTokenStatus: optional(mcpTokenHealthStatusValidator),
@@ -149,22 +149,6 @@ function normalizeApiToken(token: string): string {
     throw new Error("API key is required");
   }
   return normalized;
-}
-
-function deriveMcpTokenStatusFromExpiry(
-  expiresAt: number | undefined,
-  now: number = Date.now(),
-): Infer<typeof mcpTokenHealthStatusValidator> {
-  if (typeof expiresAt !== "number") {
-    return "unknown";
-  }
-  if (expiresAt <= now) {
-    return "expired";
-  }
-  if (expiresAt <= now + MCP_EXPIRING_SOON_MS) {
-    return "expiring_soon";
-  }
-  return "valid";
 }
 
 function buildCloudflareConnectionStatus(
@@ -324,11 +308,11 @@ export const viewer = query({
       image: v.optional(v.string()),
       email: v.optional(v.string()),
       githubUsername: v.optional(v.string()),
-      hasGithubConnection: v.boolean(),
-      hasConvexConnection: v.boolean(),
-      hasNetlifyConnection: v.boolean(),
-      hasRailwayConnection: v.boolean(),
-      hasCloudflareConnection: v.boolean(),
+      hasGithubConnection: boolean(),
+      hasConvexConnection: boolean(),
+      hasNetlifyConnection: boolean(),
+      hasRailwayConnection: boolean(),
+      hasCloudflareConnection: boolean(),
     }),
     v.null(),
   ),
@@ -403,7 +387,7 @@ export const getViewerAuthProviders = query({
 
 export const isCurrentUserApproved = query({
   args: {},
-  returns: v.boolean(),
+  returns: boolean(),
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) return false;
@@ -430,7 +414,7 @@ export const isCurrentUserApproved = query({
 export const getGithubConnectionStatus = query({
   args: {},
   returns: v.object({
-    connected: v.boolean(),
+    connected: boolean(),
     username: v.optional(v.string()),
     authMethod: v.optional(providerAuthMethodValidator),
   }),
@@ -480,7 +464,7 @@ export const disconnectGithub = mutation({
 export const getConvexConnectionStatus = query({
   args: {},
   returns: v.object({
-    connected: v.boolean(),
+    connected: boolean(),
     teamId: v.optional(v.string()),
     teamSlug: v.optional(v.string()),
     authMethod: v.optional(providerAuthMethodValidator),
@@ -531,7 +515,7 @@ export const disconnectConvex = mutation({
 export const getNetlifyConnectionStatus = query({
   args: {},
   returns: v.object({
-    connected: v.boolean(),
+    connected: boolean(),
     teamId: v.optional(v.string()),
     teamSlug: v.optional(v.string()),
     authMethod: v.optional(providerAuthMethodValidator),
@@ -582,7 +566,7 @@ export const disconnectNetlify = mutation({
 export const getRailwayConnectionStatus = query({
   args: {},
   returns: v.object({
-    connected: v.boolean(),
+    connected: boolean(),
     accountId: v.optional(v.string()),
     email: v.optional(v.string()),
     name: v.optional(v.string()),

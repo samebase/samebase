@@ -1,6 +1,7 @@
 import { Infer, v } from "convex/values";
 
-const { literal, number, object, optional, union } = v;
+const { literal, number, object, optional, string, union } = v;
+export const MCP_EXPIRING_SOON_MS = 15 * 60 * 1000;
 
 export const mcpTokenHealthStatusValidator = union(
   literal("valid"),
@@ -24,6 +25,22 @@ export const mcpTokenHealthValidator = object({
   checkedAt: number(),
   expiresAt: optional(number()),
   source: mcpTokenHealthSourceValidator,
-  errorMessage: optional(v.string()),
+  errorMessage: optional(string()),
 });
 export type McpTokenHealth = Infer<typeof mcpTokenHealthValidator>;
+
+export function deriveMcpTokenStatusFromExpiry(
+  expiresAt: number | undefined,
+  now: number = Date.now(),
+): Infer<typeof mcpTokenHealthStatusValidator> {
+  if (typeof expiresAt !== "number") {
+    return "unknown";
+  }
+  if (expiresAt <= now) {
+    return "expired";
+  }
+  if (expiresAt <= now + MCP_EXPIRING_SOON_MS) {
+    return "expiring_soon";
+  }
+  return "valid";
+}

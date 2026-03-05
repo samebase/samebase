@@ -16,7 +16,10 @@ import {
   readRequiredEnv,
 } from "./oauthUtils";
 import { asRecord, readNumber, readString } from "./jsonUtils";
-import { mcpTokenHealthValidator } from "./mcpTokenHealth";
+import {
+  deriveMcpTokenStatusFromExpiry,
+  mcpTokenHealthValidator,
+} from "./mcpTokenHealth";
 
 const CLOUDFLARE_MCP_OAUTH_ISSUER = "https://mcp.cloudflare.com";
 const CLOUDFLARE_MCP_AUTHORIZATION_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/authorize`;
@@ -24,7 +27,6 @@ const CLOUDFLARE_MCP_TOKEN_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/token`;
 const CLOUDFLARE_MCP_REGISTRATION_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/register`;
 const CLOUDFLARE_MCP_SERVER_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/mcp`;
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
-const MCP_EXPIRING_SOON_MS = 15 * 60 * 1000;
 
 type OAuthContext = ActionCtx | MutationCtx;
 
@@ -125,22 +127,6 @@ async function exchangeCloudflareMcpOAuthCode(args: {
 function parseCloudflareMcpClientId(token: string): string | null {
   const prefix = token.split(":", 1)[0]?.trim() ?? "";
   return prefix.length > 0 ? prefix : null;
-}
-
-function deriveMcpTokenStatusFromExpiry(
-  expiresAt: number | undefined,
-  now: number = Date.now(),
-): "valid" | "expiring_soon" | "expired" | "unknown" {
-  if (typeof expiresAt !== "number") {
-    return "unknown";
-  }
-  if (expiresAt <= now) {
-    return "expired";
-  }
-  if (expiresAt <= now + MCP_EXPIRING_SOON_MS) {
-    return "expiring_soon";
-  }
-  return "valid";
 }
 
 function sanitizeTokenHealthError(error: unknown): string | undefined {
