@@ -202,6 +202,7 @@ One caveat: Codespace secrets have a 48KB size limit, but auth.json is tiny so t
 ## Development Environment
 - [ ] the dev container should default to fish. Even the ai should prefer that
 ## Research & Inspiration
+- [ ] research Augment Code for Noter workflows (IDE agent, Context Engine MCP, and Code Review) and run a small pilot
 - [ ] **Video Reference**: Problems that could be solved by Noter - https://www.youtube.com/watch?v=YVq28OTPCKw
 - [ ] fix implicit `any` types across frontend components (13 errors, CI-blocking):
   - AddRepository.tsx: `repo`, `vault` params in callbacks (4)
