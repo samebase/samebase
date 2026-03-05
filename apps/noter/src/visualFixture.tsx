@@ -10,7 +10,12 @@ import "./index.css";
 
 function readMode(): CommitReviewVisualMode {
   const value = new URLSearchParams(window.location.search).get("mode");
-  if (value === "rich" || value === "patch" || value === "deleted") {
+  if (
+    value === "rich" ||
+    value === "patch" ||
+    value === "deleted" ||
+    value === "fallback"
+  ) {
     return value;
   }
   return "rich";

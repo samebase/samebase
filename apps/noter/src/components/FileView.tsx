@@ -32,11 +32,7 @@ import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
 import { useSidebar } from "@/components/ui/sidebar";
 import { UserMenu } from "@/components/UserMenu";
 import { linkStyle } from "./styles";
-import {
-  GetFunctionReferenceReturnType,
-  useConvexAction,
-  useConvexMutation,
-} from "@/lib/convexUtils";
+import { useConvexAction, useConvexMutation } from "@/lib/convexUtils";
 import { DialogProvider } from "@/contexts/DialogContext";
 import { useDialog } from "@/hooks/useDialog";
 import { FileCreationDialog } from "@/components/FileCreationDialog";
@@ -50,11 +46,18 @@ import {
   SIMPLE_VIEW_CONFIG_PATH,
 } from "@/lib/simpleView";
 import {
+  getCommitStatusBadgeClassName,
+  getCommitStatusLabel,
+  getCommitStatusToken,
+  type CommitReviewFileStatus as CommitPreviewFileStatus,
+} from "@/lib/commitReviewStatus";
+import {
   claimRefreshDebounce,
   releaseRefreshDebounce,
 } from "@/lib/treeRefreshDebounce";
 import { type GithubTreeType } from "convex/schema";
 import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
+import { CommitReviewStatusChips } from "./CommitReviewStatusChips";
 import { VaultSyncStatus } from "./VaultSyncStatus";
 import { diffLines } from "diff";
 
@@ -82,9 +85,41 @@ function findBestInitialFile(files: GithubTreeType[]) {
   return sortedFiles[0]?.path || null;
 }
 
-type CommitPreview = GetFunctionReferenceReturnType<
-  typeof api.fileStagingActions.getCommitPreview
->;
+type CommitPreviewFile = {
+  status: CommitPreviewFileStatus;
+  path: string;
+  previousPath?: string;
+  additions: number;
+  deletions: number;
+  oldLineCount: number;
+  newLineCount: number;
+  isMarkdown: boolean;
+  richOldContent?: string;
+  richNewContent?: string;
+  richContentTruncated?: boolean;
+  patchTruncated: boolean;
+  patch?: string;
+};
+
+type CommitPreview = {
+  branch: string;
+  hasDestructiveChanges: boolean;
+  files: CommitPreviewFile[];
+  totals: {
+    files: number;
+    added: number;
+    modified: number;
+    deleted: number;
+    renamed: number;
+    additions: number;
+    deletions: number;
+  };
+  safety: {
+    destructiveFileCount: number;
+    truncatedPatchFileCount: number;
+    includesTruncatedPatches: boolean;
+  };
+};
 
 type CommitPreviewDisplayMode = "rich" | "patch";
 type CommitReviewMode = "editor" | "review";
@@ -887,20 +922,22 @@ function FileViewInner({
 
   const selectedPreviewFile =
     commitPreview?.files.find((file) => file.path === selectedFile) ?? null;
+  const fallbackPreviewFile = commitPreview?.files[0] ?? null;
+  const activePreviewFile = selectedPreviewFile ?? fallbackPreviewFile;
   const selectedPreviewCanRenderRichMarkdown = Boolean(
-    selectedPreviewFile?.isMarkdown &&
-      typeof selectedPreviewFile.richOldContent === "string" &&
-      typeof selectedPreviewFile.richNewContent === "string",
+    activePreviewFile?.isMarkdown &&
+      typeof activePreviewFile.richOldContent === "string" &&
+      typeof activePreviewFile.richNewContent === "string",
   );
   const selectedPreviewRichDiffLines = useMemo(
     () =>
-      selectedPreviewCanRenderRichMarkdown && selectedPreviewFile
+      selectedPreviewCanRenderRichMarkdown && activePreviewFile
         ? getRichDiffLineHighlights(
-            selectedPreviewFile.richOldContent ?? "",
-            selectedPreviewFile.richNewContent ?? "",
+            activePreviewFile.richOldContent ?? "",
+            activePreviewFile.richNewContent ?? "",
           )
         : null,
-    [selectedPreviewCanRenderRichMarkdown, selectedPreviewFile],
+    [selectedPreviewCanRenderRichMarkdown, activePreviewFile],
   );
 
   useEffect(() => {
@@ -912,7 +949,7 @@ function FileViewInner({
   }, [
     commitPreviewDisplayPreference,
     selectedPreviewCanRenderRichMarkdown,
-    selectedPreviewFile?.path,
+    activePreviewFile?.path,
   ]);
 
   const finalTreeData = useMemo(() => {
@@ -1360,176 +1397,215 @@ function FileViewInner({
                               : ""}
                           </div>
 
-                          {selectedPreviewFile ? (
-                            <div className="flex min-h-0 flex-1 flex-col">
-                              <div className="border-b px-3 py-2">
-                                <div className="mb-2 text-xs text-muted-foreground">
-                                  <span className="font-mono text-foreground">
-                                    {selectedPreviewFile.status === "added" &&
-                                      "A"}
-                                    {selectedPreviewFile.status ===
-                                      "modified" && "M"}
-                                    {selectedPreviewFile.status === "deleted" &&
-                                      "D"}
-                                    {selectedPreviewFile.status === "renamed" &&
-                                      "R"}{" "}
-                                    {selectedPreviewFile.path}
-                                  </span>
-                                  {selectedPreviewFile.previousPath ? (
-                                    <span>
-                                      {" · "}from{" "}
-                                      <span className="font-mono">
-                                        {selectedPreviewFile.previousPath}
-                                      </span>
-                                    </span>
-                                  ) : null}
-                                  {" · "}
-                                  <span className="text-emerald-600 dark:text-emerald-400">
-                                    +{selectedPreviewFile.additions}
-                                  </span>
-                                  {" / "}
-                                  <span className="text-rose-600 dark:text-rose-400">
-                                    -{selectedPreviewFile.deletions}
-                                  </span>
-                                </div>
-                                {selectedPreviewCanRenderRichMarkdown ? (
-                                  <ToggleGroup
-                                    type="single"
-                                    size="sm"
-                                    value={commitPreviewDisplayMode}
-                                    className="justify-start"
-                                    onValueChange={(value) => {
-                                      if (
-                                        value === "rich" ||
-                                        value === "patch"
-                                      ) {
-                                        setCommitPreviewDisplayMode(value);
-                                        setCommitPreviewDisplayPreference(
-                                          value,
-                                        );
-                                      }
-                                    }}
-                                  >
-                                    <ToggleGroupItem
-                                      value="rich"
-                                      aria-label="Rich markdown preview"
-                                      className="h-7 px-2 text-xs"
-                                    >
-                                      Rich
-                                    </ToggleGroupItem>
-                                    <ToggleGroupItem
-                                      value="patch"
-                                      aria-label="Source patch preview"
-                                      className="h-7 px-2 text-xs"
-                                    >
-                                      Patch
-                                    </ToggleGroupItem>
-                                  </ToggleGroup>
-                                ) : null}
+                          <div className="border-b px-3 py-2">
+                            <CommitReviewStatusChips
+                              totals={commitPreview.totals}
+                            />
+                          </div>
+
+                          <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+                            <aside className="shrink-0 border-b md:h-full md:w-80 md:border-b-0 md:border-r">
+                              <div className="px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                                Staged Files
                               </div>
-
-                              <div className="flex-1 overflow-auto">
-                                {commitPreviewDisplayMode === "rich" &&
-                                selectedPreviewCanRenderRichMarkdown ? (
-                                  <div>
-                                    {selectedPreviewFile.richContentTruncated ? (
-                                      <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                                        Rich markdown preview is truncated for
-                                        this file.
-                                      </div>
-                                    ) : null}
-
-                                    <div className="grid gap-3 p-3 md:grid-cols-2">
-                                      <div className="min-w-0 rounded border bg-background p-3">
-                                        <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">
-                                          Before
-                                        </div>
-                                        <ProsemarkReadOnly
-                                          value={
-                                            selectedPreviewFile.richOldContent ??
-                                            ""
+                              <div className="max-h-52 overflow-auto md:h-full md:max-h-none">
+                                {commitPreview.files.length === 0
+                                  ? null
+                                  : commitPreview.files.map((file) => {
+                                      const isActive =
+                                        activePreviewFile?.path === file.path;
+                                      return (
+                                        <button
+                                          key={file.path}
+                                          className={`w-full border-t px-3 py-2 text-left transition-colors ${isActive ? "bg-muted/60" : "hover:bg-muted/40"}`}
+                                          onClick={() =>
+                                            handleFileSelect(file.path)
                                           }
-                                          highlightedLineNumbers={
-                                            selectedPreviewRichDiffLines?.oldLines ??
-                                            []
-                                          }
-                                          lineHighlightTone="remove"
-                                          className="text-sm leading-6"
-                                        />
-                                      </div>
-                                      <div className="min-w-0 rounded border bg-background p-3">
-                                        <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
-                                          After
-                                        </div>
-                                        <ProsemarkReadOnly
-                                          value={
-                                            selectedPreviewFile.richNewContent ??
-                                            ""
-                                          }
-                                          highlightedLineNumbers={
-                                            selectedPreviewRichDiffLines?.newLines ??
-                                            []
-                                          }
-                                          lineHighlightTone="add"
-                                          className="text-sm leading-6"
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                ) : selectedPreviewFile.patch ? (
-                                  <div>
-                                    {selectedPreviewFile.patchTruncated ? (
-                                      <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                                        Patch output is truncated for this file.
-                                      </div>
-                                    ) : null}
-                                    <div className="p-3 font-mono text-xs leading-5">
-                                      {selectedPreviewFile.patch
-                                        .split("\n")
-                                        .map((line, index) => (
-                                          <div
-                                            key={`${index}:${line}`}
-                                            className={`whitespace-pre-wrap rounded-sm px-1 ${getPatchLineClassName(line)}`}
-                                          >
-                                            {line.length > 0 ? line : " "}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <span
+                                              className={`inline-flex h-5 min-w-5 items-center justify-center rounded px-1 font-mono text-[10px] ${getCommitStatusBadgeClassName(file.status)}`}
+                                            >
+                                              {getCommitStatusToken(
+                                                file.status,
+                                              )}
+                                            </span>
+                                            <span className="truncate font-mono text-xs text-foreground">
+                                              {file.path}
+                                            </span>
                                           </div>
-                                        ))}
+                                          <div className="mt-1 pl-7 text-[11px] text-muted-foreground">
+                                            {getCommitStatusLabel(file.status)}
+                                            {file.previousPath ? (
+                                              <>
+                                                {" · "}from{" "}
+                                                <span className="font-mono">
+                                                  {file.previousPath}
+                                                </span>
+                                              </>
+                                            ) : null}
+                                            {" · "}
+                                            <span className="text-emerald-600 dark:text-emerald-400">
+                                              +{file.additions}
+                                            </span>
+                                            {" / "}
+                                            <span className="text-rose-600 dark:text-rose-400">
+                                              -{file.deletions}
+                                            </span>
+                                          </div>
+                                        </button>
+                                      );
+                                    })}
+                              </div>
+                            </aside>
+
+                            {activePreviewFile ? (
+                              <div className="flex min-h-0 flex-1 flex-col">
+                                {selectedPreviewFile === null ? (
+                                  <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                    Current file has no staged diff. Showing{" "}
+                                    <span className="font-mono text-amber-950">
+                                      {activePreviewFile.path}
+                                    </span>{" "}
+                                    instead.
+                                  </div>
+                                ) : null}
+
+                                <div className="border-b px-3 py-2">
+                                  <div className="mb-2 text-xs text-muted-foreground">
+                                    <span className="font-mono text-foreground">
+                                      {getCommitStatusToken(
+                                        activePreviewFile.status,
+                                      )}{" "}
+                                      {activePreviewFile.path}
+                                    </span>
+                                    {activePreviewFile.previousPath ? (
+                                      <span>
+                                        {" · "}from{" "}
+                                        <span className="font-mono">
+                                          {activePreviewFile.previousPath}
+                                        </span>
+                                      </span>
+                                    ) : null}
+                                    {" · "}
+                                    <span className="text-emerald-600 dark:text-emerald-400">
+                                      +{activePreviewFile.additions}
+                                    </span>
+                                    {" / "}
+                                    <span className="text-rose-600 dark:text-rose-400">
+                                      -{activePreviewFile.deletions}
+                                    </span>
+                                  </div>
+                                  {selectedPreviewCanRenderRichMarkdown ? (
+                                    <ToggleGroup
+                                      type="single"
+                                      size="sm"
+                                      value={commitPreviewDisplayMode}
+                                      className="justify-start"
+                                      onValueChange={(value) => {
+                                        if (
+                                          value === "rich" ||
+                                          value === "patch"
+                                        ) {
+                                          setCommitPreviewDisplayMode(value);
+                                          setCommitPreviewDisplayPreference(
+                                            value,
+                                          );
+                                        }
+                                      }}
+                                    >
+                                      <ToggleGroupItem
+                                        value="rich"
+                                        aria-label="Rich markdown preview"
+                                        className="h-7 px-2 text-xs"
+                                      >
+                                        Rich
+                                      </ToggleGroupItem>
+                                      <ToggleGroupItem
+                                        value="patch"
+                                        aria-label="Source patch preview"
+                                        className="h-7 px-2 text-xs"
+                                      >
+                                        Patch
+                                      </ToggleGroupItem>
+                                    </ToggleGroup>
+                                  ) : null}
+                                </div>
+
+                                <div className="flex-1 overflow-auto">
+                                  {commitPreviewDisplayMode === "rich" &&
+                                  selectedPreviewCanRenderRichMarkdown ? (
+                                    <div>
+                                      {activePreviewFile.richContentTruncated ? (
+                                        <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                          Rich markdown preview is truncated for
+                                          this file.
+                                        </div>
+                                      ) : null}
+
+                                      <div className="grid gap-3 p-3 md:grid-cols-2">
+                                        <div className="min-w-0 rounded border bg-background p-3">
+                                          <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">
+                                            Before
+                                          </div>
+                                          <ProsemarkReadOnly
+                                            value={
+                                              activePreviewFile.richOldContent ??
+                                              ""
+                                            }
+                                            highlightedLineNumbers={
+                                              selectedPreviewRichDiffLines?.oldLines ??
+                                              []
+                                            }
+                                            lineHighlightTone="remove"
+                                            className="text-sm leading-6"
+                                          />
+                                        </div>
+                                        <div className="min-w-0 rounded border bg-background p-3">
+                                          <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                                            After
+                                          </div>
+                                          <ProsemarkReadOnly
+                                            value={
+                                              activePreviewFile.richNewContent ??
+                                              ""
+                                            }
+                                            highlightedLineNumbers={
+                                              selectedPreviewRichDiffLines?.newLines ??
+                                              []
+                                            }
+                                            lineHighlightTone="add"
+                                            className="text-sm leading-6"
+                                          />
+                                        </div>
+                                      </div>
                                     </div>
-                                  </div>
-                                ) : (
-                                  <div className="p-3 text-xs text-muted-foreground">
-                                    No textual patch available for this file.
-                                  </div>
-                                )}
+                                  ) : activePreviewFile.patch ? (
+                                    <div>
+                                      {activePreviewFile.patchTruncated ? (
+                                        <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                          Patch output is truncated for this
+                                          file.
+                                        </div>
+                                      ) : null}
+                                      <div className="p-3 font-mono text-xs leading-5">
+                                        {activePreviewFile.patch
+                                          .split("\n")
+                                          .map((line, index) => (
+                                            <div
+                                              key={`${index}:${line}`}
+                                              className={`whitespace-pre-wrap rounded-sm px-1 ${getPatchLineClassName(line)}`}
+                                            >
+                                              {line.length > 0 ? line : " "}
+                                            </div>
+                                          ))}
+                                      </div>
+                                    </div>
+                                  ) : null}
+                                </div>
                               </div>
-                            </div>
-                          ) : (
-                            <div className="flex flex-1 flex-col items-start gap-3 p-3 text-xs text-muted-foreground">
-                              <div>
-                                No staged diff for{" "}
-                                <span className="font-mono text-foreground">
-                                  {selectedFile}
-                                </span>
-                                .
-                              </div>
-                              {commitPreview.files[0] ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 px-2 text-xs"
-                                  onClick={() =>
-                                    handleFileSelect(
-                                      commitPreview.files[0].path,
-                                    )
-                                  }
-                                >
-                                  Open first changed file
-                                </Button>
-                              ) : (
-                                <div>No staged changes.</div>
-                              )}
-                            </div>
-                          )}
+                            ) : null}
+                          </div>
                         </div>
                       ) : null}
                     </div>
