@@ -46,6 +46,12 @@ import {
   SIMPLE_VIEW_CONFIG_PATH,
 } from "@/lib/simpleView";
 import {
+  getCommitStatusBadgeClassName,
+  getCommitStatusLabel,
+  getCommitStatusToken,
+  type CommitReviewFileStatus as CommitPreviewFileStatus,
+} from "@/lib/commitReviewStatus";
+import {
   claimRefreshDebounce,
   releaseRefreshDebounce,
 } from "@/lib/treeRefreshDebounce";
@@ -77,8 +83,6 @@ function findBestInitialFile(files: GithubTreeType[]) {
   const sortedFiles = fileList.sort((a, b) => a.path.localeCompare(b.path));
   return sortedFiles[0]?.path || null;
 }
-
-type CommitPreviewFileStatus = "added" | "modified" | "deleted" | "renamed";
 
 type CommitPreviewFile = {
   status: CommitPreviewFileStatus;
@@ -205,35 +209,6 @@ function getPatchLineClassName(line: string): string {
     return "text-muted-foreground";
   }
   return "";
-}
-
-function getCommitStatusToken(status: CommitPreviewFileStatus) {
-  if (status === "added") return "A";
-  if (status === "modified") return "M";
-  if (status === "deleted") return "D";
-  return "R";
-}
-
-function getCommitStatusLabel(status: CommitPreviewFileStatus) {
-  if (status === "added") return "Added";
-  if (status === "modified") return "Modified";
-  if (status === "deleted") return "Deleted";
-  return "Renamed";
-}
-
-function getCommitStatusBadgeClassName(
-  status: CommitPreviewFileStatus,
-): string {
-  if (status === "added") {
-    return "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300";
-  }
-  if (status === "modified") {
-    return "bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300";
-  }
-  if (status === "deleted") {
-    return "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300";
-  }
-  return "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300";
 }
 
 function FileViewWrapper() {
@@ -1452,55 +1427,53 @@ function FileViewInner({
                                 Staged Files
                               </div>
                               <div className="max-h-52 overflow-auto md:h-full md:max-h-none">
-                                {commitPreview.files.length === 0 ? (
-                                  <div className="px-3 py-2 text-xs text-muted-foreground">
-                                    No staged changes.
-                                  </div>
-                                ) : (
-                                  commitPreview.files.map((file) => {
-                                    const isActive =
-                                      activePreviewFile?.path === file.path;
-                                    return (
-                                      <button
-                                        key={file.path}
-                                        className={`w-full border-t px-3 py-2 text-left transition-colors ${isActive ? "bg-muted/60" : "hover:bg-muted/40"}`}
-                                        onClick={() =>
-                                          handleFileSelect(file.path)
-                                        }
-                                      >
-                                        <div className="flex items-center gap-2">
-                                          <span
-                                            className={`inline-flex h-5 min-w-5 items-center justify-center rounded px-1 font-mono text-[10px] ${getCommitStatusBadgeClassName(file.status)}`}
-                                          >
-                                            {getCommitStatusToken(file.status)}
-                                          </span>
-                                          <span className="truncate font-mono text-xs text-foreground">
-                                            {file.path}
-                                          </span>
-                                        </div>
-                                        <div className="mt-1 pl-7 text-[11px] text-muted-foreground">
-                                          {getCommitStatusLabel(file.status)}
-                                          {file.previousPath ? (
-                                            <>
-                                              {" · "}from{" "}
-                                              <span className="font-mono">
-                                                {file.previousPath}
-                                              </span>
-                                            </>
-                                          ) : null}
-                                          {" · "}
-                                          <span className="text-emerald-600 dark:text-emerald-400">
-                                            +{file.additions}
-                                          </span>
-                                          {" / "}
-                                          <span className="text-rose-600 dark:text-rose-400">
-                                            -{file.deletions}
-                                          </span>
-                                        </div>
-                                      </button>
-                                    );
-                                  })
-                                )}
+                                {commitPreview.files.length === 0
+                                  ? null
+                                  : commitPreview.files.map((file) => {
+                                      const isActive =
+                                        activePreviewFile?.path === file.path;
+                                      return (
+                                        <button
+                                          key={file.path}
+                                          className={`w-full border-t px-3 py-2 text-left transition-colors ${isActive ? "bg-muted/60" : "hover:bg-muted/40"}`}
+                                          onClick={() =>
+                                            handleFileSelect(file.path)
+                                          }
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <span
+                                              className={`inline-flex h-5 min-w-5 items-center justify-center rounded px-1 font-mono text-[10px] ${getCommitStatusBadgeClassName(file.status)}`}
+                                            >
+                                              {getCommitStatusToken(
+                                                file.status,
+                                              )}
+                                            </span>
+                                            <span className="truncate font-mono text-xs text-foreground">
+                                              {file.path}
+                                            </span>
+                                          </div>
+                                          <div className="mt-1 pl-7 text-[11px] text-muted-foreground">
+                                            {getCommitStatusLabel(file.status)}
+                                            {file.previousPath ? (
+                                              <>
+                                                {" · "}from{" "}
+                                                <span className="font-mono">
+                                                  {file.previousPath}
+                                                </span>
+                                              </>
+                                            ) : null}
+                                            {" · "}
+                                            <span className="text-emerald-600 dark:text-emerald-400">
+                                              +{file.additions}
+                                            </span>
+                                            {" / "}
+                                            <span className="text-rose-600 dark:text-rose-400">
+                                              -{file.deletions}
+                                            </span>
+                                          </div>
+                                        </button>
+                                      );
+                                    })}
                               </div>
                             </aside>
 
@@ -1646,18 +1619,10 @@ function FileViewInner({
                                           ))}
                                       </div>
                                     </div>
-                                  ) : (
-                                    <div className="p-3 text-xs text-muted-foreground">
-                                      No textual patch available for this file.
-                                    </div>
-                                  )}
+                                  ) : null}
                                 </div>
                               </div>
-                            ) : (
-                              <div className="flex flex-1 items-center px-3 text-xs text-muted-foreground">
-                                No staged changes.
-                              </div>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                       ) : null}

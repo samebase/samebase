@@ -1,6 +1,12 @@
 import { FileTree } from "@/components/FileTree";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  getCommitStatusBadgeClassName as getStatusBadgeClassName,
+  getCommitStatusLabel as getStatusLabel,
+  getCommitStatusToken as getStatusToken,
+  type CommitReviewFileStatus,
+} from "@/lib/commitReviewStatus";
 
 const README_OLD = `# Noter Starter Template
 
@@ -106,7 +112,7 @@ const RENAMED_PATCH = `Index: src/new-name.ts
  export const enabled = true;
 `;
 
-type FixtureStatus = "added" | "modified" | "deleted" | "renamed";
+type FixtureStatus = CommitReviewFileStatus;
 
 type FixtureFile = {
   status: FixtureStatus;
@@ -171,15 +177,29 @@ const FIXTURE_FILES: FixtureFile[] = [
   },
 ];
 
-const FIXTURE_TOTALS = {
-  files: 4,
-  additions: 9,
-  deletions: 32,
-  added: 1,
-  modified: 1,
-  renamed: 1,
-  deleted: 1,
-};
+const FIXTURE_TOTALS = FIXTURE_FILES.reduce(
+  (totals, file) => {
+    totals.files += 1;
+    totals.additions += file.additions;
+    totals.deletions += file.deletions;
+
+    if (file.status === "added") totals.added += 1;
+    if (file.status === "modified") totals.modified += 1;
+    if (file.status === "renamed") totals.renamed += 1;
+    if (file.status === "deleted") totals.deleted += 1;
+
+    return totals;
+  },
+  {
+    files: 0,
+    additions: 0,
+    deletions: 0,
+    added: 0,
+    modified: 0,
+    renamed: 0,
+    deleted: 0,
+  },
+);
 
 function getPatchLineClassName(line: string): string {
   if (line.startsWith("+") && !line.startsWith("+++")) {
@@ -192,33 +212,6 @@ function getPatchLineClassName(line: string): string {
     return "text-muted-foreground";
   }
   return "";
-}
-
-function getStatusToken(status: FixtureStatus): "A" | "M" | "D" | "R" {
-  if (status === "added") return "A";
-  if (status === "modified") return "M";
-  if (status === "deleted") return "D";
-  return "R";
-}
-
-function getStatusLabel(status: FixtureStatus): string {
-  if (status === "added") return "Added";
-  if (status === "modified") return "Modified";
-  if (status === "deleted") return "Deleted";
-  return "Renamed";
-}
-
-function getStatusBadgeClassName(status: FixtureStatus): string {
-  if (status === "added") {
-    return "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300";
-  }
-  if (status === "modified") {
-    return "bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300";
-  }
-  if (status === "deleted") {
-    return "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300";
-  }
-  return "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300";
 }
 
 export type CommitReviewVisualMode = "rich" | "patch" | "deleted" | "fallback";
@@ -481,11 +474,7 @@ export function CommitReviewVisualFixture({
                   )}
                 </div>
               </div>
-            ) : (
-              <div className="flex flex-1 items-center px-3 text-xs text-muted-foreground">
-                No staged changes.
-              </div>
-            )}
+            ) : null}
           </div>
         </section>
       </div>
