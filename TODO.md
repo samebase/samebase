@@ -203,6 +203,7 @@ One caveat: Codespace secrets have a 48KB size limit, but auth.json is tiny so t
 ## Development Environment
 - [ ] the dev container should default to fish. Even the ai should prefer that
 ## Research & Inspiration
+- [ ] run a 2-week Augment Code pilot per `Ideas/augment-code-research.md` (IDE agent, Context Engine MCP, Code Review)
 - [ ] **Video Reference**: Problems that could be solved by Noter - https://www.youtube.com/watch?v=YVq28OTPCKw
 - [ ] fix implicit `any` types across frontend components (13 errors, CI-blocking):
   - AddRepository.tsx: `repo`, `vault` params in callbacks (4)

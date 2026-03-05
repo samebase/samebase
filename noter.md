@@ -1,24 +1,24 @@
 ---
 simpleView:
   exclude:
-    - "**/src/**" # Frontend implementation code
-    - "**/convex/**" # Backend functions
-    - "**/node_modules/**" # Dependencies
-    - "**/dist/**" # Build output
+    - '**/src/**' # Frontend implementation code
+    - '**/convex/**' # Backend functions
+    - '**/node_modules/**' # Dependencies
+    - '**/dist/**' # Build output
     - src/** # Frontend implementation code
     - convex/** # Backend functions
     - node_modules/** # Dependencies
     - dist/** # Build output
-    - "**/*.{json,ts,tsx,js,jsx,cjs,mjs,css,html,yaml}" # Source file extensions
+    - '**/*.{json,ts,tsx,js,jsx,cjs,mjs,css,html,yaml,sh}' # Source file extensions
     - tsconfig.base.json
 
     - Makefile
     - Dockerfile.daytona-deps
-    - "**/pre-commit" # Git hooks like .husky/pre-commit
-    - "**/.*" # Dotfiles and dotfolders
-    - "**/.*/**" # Files inside dotfolders
-    - "**/_redirects"    
-    - "**/*.{json,ts,tsx,js,jsx,css,html,yaml,toml,tsbuildinfo,yml}" # Source file extensions
+    - '**/pre-commit' # Git hooks like .husky/pre-commit
+    - '**/.*' # Dotfiles and dotfolders
+    - '**/.*/**' # Files inside dotfolders
+    - '**/_redirects'
+    - '**/*.{json,ts,tsx,js,jsx,css,html,yaml,toml,tsbuildinfo,yml}' # Source file extensions
     - pre-commit
     - wt # worktree helper
 ---

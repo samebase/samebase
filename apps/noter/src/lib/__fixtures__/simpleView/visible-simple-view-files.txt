@@ -29,6 +29,7 @@ manual-tests/TEMPLATE.md
 manual-tests/UI-001-landing-copy-hides-markdown.md
 manual-tests/worktree/WT-001-anon-worktree-isolation.md
 manual-tests/worktree/WT-002-wt-001-local-and-worktree.md
+noter.md
 patches/convex@1.32.0.patch
 README.md
 RECOVERED_IDEAS.md
