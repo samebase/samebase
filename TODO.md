@@ -203,6 +203,11 @@ One caveat: Codespace secrets have a 48KB size limit, but auth.json is tiny so t
 ## Development Environment
 - [ ] the dev container should default to fish. Even the ai should prefer that
 ## Research & Inspiration
+- [ ] AFFiNE research snapshot (2026-03-06): `toeverything/AFFiNE` has ~63.8k stars, default branch `canary`, and latest stable release `v0.26.3` (2026-02-25). Translate strongest ideas into Noter experiments.
+- [ ] AFFiNE-inspired experiment: merge docs + whiteboard in one editable surface (edgeless canvas + blocks) for `noter.md` workspaces.
+- [ ] AFFiNE-inspired experiment: local-first/offline path for collaborative editing (CRDT-first UX, Convex sync when online) to reduce perceived latency.
+- [ ] AFFiNE-inspired experiment: starter-backed template gallery (one-click insert) for common workflows and onboarding.
+- [ ] AFFiNE-inspired architecture check: evaluate whether a plugin/third-party block API should be introduced now or deferred until core editor APIs stabilize.
 - [ ] run a 2-week Augment Code pilot per `Ideas/augment-code-research.md` (IDE agent, Context Engine MCP, Code Review)
 - [ ] **Video Reference**: Problems that could be solved by Noter - https://www.youtube.com/watch?v=YVq28OTPCKw
 - [ ] fix implicit `any` types across frontend components (13 errors, CI-blocking):
