@@ -1344,6 +1344,7 @@ export async function createCommitWithMultipleFiles({
   repo,
   stagedFiles,
   branch,
+  skipRebase = false,
 }: {
   octokit: Octokit;
   owner: string;
@@ -1357,6 +1358,7 @@ export async function createCommitWithMultipleFiles({
     parentCommitSha: string | null;
   }>;
   branch: string;
+  skipRebase?: boolean;
 }) {
   // Helper to compute modified (added) line ranges in the new content
   const computeModifiedLineRanges = (
@@ -1400,12 +1402,14 @@ export async function createCommitWithMultipleFiles({
     }),
   );
 
-  const resolvedStagedFiles = await rebaseStagedFilesOnLatestHead({
-    octokit,
-    owner,
-    repo,
-    stagedFiles: normalizedStagedFiles,
-  });
+  const resolvedStagedFiles = skipRebase
+    ? normalizedStagedFiles
+    : await rebaseStagedFilesOnLatestHead({
+        octokit,
+        owner,
+        repo,
+        stagedFiles: normalizedStagedFiles,
+      });
 
   // Summarize all changes to craft a commit message
   const changesInfo: Array<{
@@ -1683,6 +1687,7 @@ export const commitAllStaged = internalAction({
         repo: args.repoName,
         stagedFiles: resolvedChangedFiles,
         branch: commitBranch,
+        skipRebase: true,
       });
 
       // 1. Update the vault tree FIRST so new SHAs are available

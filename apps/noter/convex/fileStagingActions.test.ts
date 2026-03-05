@@ -347,6 +347,55 @@ describe("createCommitWithMultipleFiles", () => {
     );
   });
 
+  it("Test 1c: skipRebase avoids extra head-tree lookups", async () => {
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
+      makeGetRefResponse("abc123"),
+    );
+    vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
+      makeGetCommitResponse("tree123", "abc123"),
+    );
+    const getTreeSpy = vi.spyOn(octokit.rest.git, "getTree");
+    const getBlobSpy = vi.spyOn(octokit.rest.git, "getBlob");
+    const createTreeSpy = vi
+      .spyOn(octokit.rest.git, "createTree")
+      .mockResolvedValue(makeCreateTreeResponse("newtree123"));
+    vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
+      makeCreateCommitResponse("newtree123", "commit123"),
+    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
+      makeUpdateRefResponse("commit123"),
+    );
+
+    await createCommitWithMultipleFiles({
+      octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      stagedFiles: [
+        {
+          filePath: "src/file.ts",
+          content: "new content",
+          fileDeleted: false,
+          initialFilePath: "src/file.ts",
+          initialContent: "old content",
+          parentCommitSha: "parent123",
+        },
+      ],
+      branch: "main",
+      skipRebase: true,
+    });
+
+    expect(getTreeSpy).not.toHaveBeenCalled();
+    expect(getBlobSpy).not.toHaveBeenCalled();
+
+    const createTreeCall = createTreeSpy.mock.calls[0]?.[0];
+    if (!createTreeCall) {
+      throw new Error("createTree was not called");
+    }
+    expect(createTreeCall.tree.length).toBe(1);
+    expect(createTreeCall.tree[0].path).toBe("src/file.ts");
+    expect(readInlineContent(createTreeCall.tree[0])).toBe("new content");
+  });
+
   /**
    * Test 2: File deletion
    * Input: One deleted file
