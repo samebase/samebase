@@ -54,18 +54,24 @@ const {
   any: vAny,
 } = v;
 
+const commitConflictReasonLiterals = COMMIT_CONFLICT_REASONS.map((reason) =>
+  literal(reason),
+);
+
 const [
-  missingUpstreamPathConflictReason,
-  newFilePathTakenConflictReason,
-  contentConflictReason,
-  renameTargetExistsConflictReason,
-] = COMMIT_CONFLICT_REASONS;
+  firstCommitConflictReasonLiteral,
+  secondCommitConflictReasonLiteral,
+  ...remainingCommitConflictReasonLiterals
+] = commitConflictReasonLiterals;
+
+if (!firstCommitConflictReasonLiteral || !secondCommitConflictReasonLiteral) {
+  throw new Error("Expected at least two commit conflict reasons");
+}
 
 const commitConflictReasonValidator = union(
-  literal(missingUpstreamPathConflictReason),
-  literal(newFilePathTakenConflictReason),
-  literal(contentConflictReason),
-  literal(renameTargetExistsConflictReason),
+  firstCommitConflictReasonLiteral,
+  secondCommitConflictReasonLiteral,
+  ...remainingCommitConflictReasonLiterals,
 );
 
 export const createThread = mutation({
