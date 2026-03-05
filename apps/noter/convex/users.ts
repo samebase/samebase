@@ -165,13 +165,23 @@ function buildCloudflareConnectionStatus(
   }
 
   const now = Date.now();
+  const effectiveExpiresAt =
+    connection.tokenHealth?.expiresAt ?? connection.auth.credentialExpiresAt;
+  const derivedStatus = deriveMcpTokenStatusFromExpiry(effectiveExpiresAt, now);
+  const storedStatus = connection.tokenHealth?.status;
+  const shouldUseDerivedStatus =
+    connection.tokenHealth?.checkedAt === undefined ||
+    derivedStatus === "expired" ||
+    derivedStatus === "expiring_soon";
   return {
     ...baseStatus,
     mcpTokenStatus:
-      connection.tokenHealth?.status ??
-      deriveMcpTokenStatusFromExpiry(connection.auth.credentialExpiresAt, now),
-    mcpTokenExpiresAt:
-      connection.tokenHealth?.expiresAt ?? connection.auth.credentialExpiresAt,
+      storedStatus === "invalid"
+        ? "invalid"
+        : shouldUseDerivedStatus
+          ? derivedStatus
+          : storedStatus ?? derivedStatus,
+    mcpTokenExpiresAt: effectiveExpiresAt,
     mcpTokenCheckedAt: connection.tokenHealth?.checkedAt,
     mcpTokenError: connection.tokenHealth?.errorMessage,
   };
@@ -683,7 +693,8 @@ export const checkCloudflareMcpTokenHealth = action({
       if (
         refreshedConnection?.kind === "cloudflare" &&
         refreshedConnection.auth.method === "mcp_oauth" &&
-        refreshedConnection.tokenHealth?.status === "invalid"
+        (refreshedConnection.tokenHealth?.status === "invalid" ||
+          refreshedConnection.tokenHealth?.source === "runtime_error")
       ) {
         return buildCloudflareConnectionStatus(refreshedConnection);
       }

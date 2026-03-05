@@ -416,9 +416,10 @@ export const resolveConnectionForUser = internalAction({
       credentialExpiresAt: nextExpiresAt,
       mcpServerUrl: connection.auth.mcpServerUrl,
     };
+    const nowAfterRefresh = Date.now();
     const refreshedTokenHealth: Infer<typeof mcpTokenHealthValidator> = {
-      status: deriveMcpTokenStatusFromExpiry(nextExpiresAt, Date.now()),
-      checkedAt: Date.now(),
+      status: deriveMcpTokenStatusFromExpiry(nextExpiresAt, nowAfterRefresh),
+      checkedAt: nowAfterRefresh,
       expiresAt: nextExpiresAt,
       source: "refresh_attempt",
     };
