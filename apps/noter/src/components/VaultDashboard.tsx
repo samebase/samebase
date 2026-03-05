@@ -20,7 +20,10 @@ import { Link } from "react-router-dom";
 import { linkStyle } from "./styles";
 import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
+import {
+  formatRelativeTimeAgo,
+  formatRelativeTimeUntil,
+} from "@/lib/formatRelativeTime";
 import {
   claimRefreshDebounce,
   releaseRefreshDebounce,
@@ -79,28 +82,6 @@ const formatInfraState = (
   if (infraState === "ready") return "Ready";
   if (infraState === "failed") return "Failed";
   return "Partial";
-};
-
-const formatRelativeTimeUntil = (
-  timestamp: number,
-  now: number = Date.now(),
-): string => {
-  const diff = Math.max(0, timestamp - now);
-  const minutes = Math.floor(diff / (1000 * 60));
-  if (minutes < 1) {
-    return "in <1m";
-  }
-  if (minutes < 60) {
-    return `in ${minutes}m`;
-  }
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) {
-    return `in ${hours}h`;
-  }
-
-  const days = Math.floor(hours / 24);
-  return `in ${days}d`;
 };
 
 const formatMcpTokenStatusLabel = (
