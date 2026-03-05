@@ -237,7 +237,6 @@ const customBasicSetup = [
       overflowY: "auto !important",
       overflowX: "auto !important",
       overscrollBehavior: "contain",
-      WebkitOverflowScrolling: "touch",
       border: "none !important",
       outline: "none !important",
     },
