@@ -138,7 +138,7 @@ const hasDaytonaResourcesForVault = (
   );
 
 type CreateTemplate = "app" | "agent";
-const CREATE_HOSTING_PROVIDERS = ["netlify", "cloudflare"] as const;
+const CREATE_HOSTING_PROVIDERS = ["cloudflare", "netlify"] as const;
 type CreateHostingProvider = (typeof CREATE_HOSTING_PROVIDERS)[number];
 
 const isCreateTemplate = (value: string): value is CreateTemplate =>
@@ -298,7 +298,7 @@ export function VaultDashboard() {
   const [newRepositoryName, setNewRepositoryName] = useState("");
   const [createTemplate, setCreateTemplate] = useState<CreateTemplate>("app");
   const [createHostingProvider, setCreateHostingProvider] =
-    useState<CreateHostingProvider>("netlify");
+    useState<CreateHostingProvider>("cloudflare");
   const [disconnectingProvider, setDisconnectingProvider] =
     useState<ProviderKey | null>(null);
   const [isCheckingCloudflareToken, setIsCheckingCloudflareToken] =
@@ -692,10 +692,10 @@ export function VaultDashboard() {
       return;
     }
 
-    const fallbackHostingProvider = netlifyConnected
-      ? "netlify"
-      : cloudflareConnected
-        ? "cloudflare"
+    const fallbackHostingProvider = cloudflareConnected
+      ? "cloudflare"
+      : netlifyConnected
+        ? "netlify"
         : null;
     if (
       fallbackHostingProvider &&
@@ -703,17 +703,11 @@ export function VaultDashboard() {
     ) {
       setCreateHostingProvider(fallbackHostingProvider);
     }
-  }, [
-    cloudflareConnected,
-    createHostingProvider,
-    netlifyConnected,
-  ]);
+  }, [cloudflareConnected, createHostingProvider, netlifyConnected]);
 
   const connectedHostingProviders = CREATE_HOSTING_PROVIDERS.filter(
     (provider) =>
-      provider === "netlify"
-        ? netlifyConnected
-        : cloudflareConnected,
+      provider === "netlify" ? netlifyConnected : cloudflareConnected,
   );
   const createHostingProviderOptions =
     connectedHostingProviders.length > 0
@@ -722,9 +716,7 @@ export function VaultDashboard() {
         : [...connectedHostingProviders, createHostingProvider]
       : CREATE_HOSTING_PROVIDERS;
   const isHostingProviderConnected = (provider: CreateHostingProvider) =>
-    provider === "netlify"
-      ? netlifyConnected
-      : cloudflareConnected;
+    provider === "netlify" ? netlifyConnected : cloudflareConnected;
   const requiredHostingConnectionLabel =
     CREATE_HOSTING_PROVIDER_LABEL[createHostingProvider];
   const requiredHostingConnected =
