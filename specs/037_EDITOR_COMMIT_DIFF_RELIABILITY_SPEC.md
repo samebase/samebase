@@ -67,7 +67,7 @@ Status snapshot (2026-03-05):
 - Phase 1: Shipped
 - Phase 2: Shipped
 - Phase 3: In progress (`updateRef.force = false` and remote-head replay added)
-- Phase 4: Planned (this revision)
+- Phase 4: In progress (race retry hardening + conflict telemetry/tests started)
 
 ### Phase 0: Reliability Foundation (must ship first)
 
@@ -163,6 +163,10 @@ Acceptance:
   - commit latency and failure rates.
 - Add bounded retry policy with deterministic backoff and explicit terminal
   failure state.
+- Current implementation progress:
+  - bounded retry backoff added to commit engine (`409/422` only),
+  - structured conflict categories added in commit logs,
+  - race retry and conflict-matrix tests added for commit engine.
 
 Acceptance:
 

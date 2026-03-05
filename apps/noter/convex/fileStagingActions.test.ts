@@ -1004,4 +1004,232 @@ describe("createCommitWithMultipleFiles (real implementation)", () => {
     expect(createTreeSpy).not.toHaveBeenCalled();
     expect(updateRefSpy).not.toHaveBeenCalled();
   });
+
+  it("retries with latest head when updateRef fails with non-fast-forward race", async () => {
+    vi.spyOn(octokit.rest.git, "getRef")
+      .mockResolvedValueOnce(makeGetRefResponse("head-sha-stale"))
+      .mockResolvedValueOnce(makeGetRefResponse("head-sha-fresh"));
+    vi.spyOn(octokit.rest.git, "getCommit")
+      .mockResolvedValueOnce(
+        makeGetCommitResponse("tree-sha-stale", "head-sha-stale"),
+      )
+      .mockResolvedValueOnce(
+        makeGetCommitResponse("tree-sha-fresh", "head-sha-fresh"),
+      );
+    vi.spyOn(octokit.rest.git, "getTree")
+      .mockResolvedValueOnce(
+        makeGetTreeResponse("tree-sha-stale", [
+          { path: "src/app.ts", sha: "blob-sha-stale" },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        makeGetTreeResponse("tree-sha-fresh", [
+          { path: "src/app.ts", sha: "blob-sha-fresh" },
+        ]),
+      );
+    vi.spyOn(octokit.rest.git, "getBlob").mockImplementation((params) => {
+      const fileSha = params?.file_sha;
+      if (fileSha === "blob-sha-stale") {
+        return Promise.resolve(
+          makeGetBlobResponse("blob-sha-stale", "line-1\nline-2\n"),
+        );
+      }
+      if (fileSha === "blob-sha-fresh") {
+        return Promise.resolve(
+          makeGetBlobResponse("blob-sha-fresh", "line-1-upstream\nline-2\n"),
+        );
+      }
+      return Promise.reject(
+        new Error(`Unexpected blob sha: ${fileSha ?? "undefined"}`),
+      );
+    });
+
+    const createTreeSpy = vi
+      .spyOn(octokit.rest.git, "createTree")
+      .mockResolvedValueOnce(makeCreateTreeResponse("tree-created-1"))
+      .mockResolvedValueOnce(makeCreateTreeResponse("tree-created-2"));
+    const createCommitSpy = vi
+      .spyOn(octokit.rest.git, "createCommit")
+      .mockResolvedValueOnce(
+        makeCreateCommitResponse("tree-created-1", "commit-created-1"),
+      )
+      .mockResolvedValueOnce(
+        makeCreateCommitResponse("tree-created-2", "commit-created-2"),
+      );
+    const nonFastForward = Object.assign(new Error("Reference update failed"), {
+      status: 409,
+    });
+    const updateRefSpy = vi
+      .spyOn(octokit.rest.git, "updateRef")
+      .mockRejectedValueOnce(nonFastForward)
+      .mockResolvedValueOnce(makeUpdateRefResponse("commit-created-2"));
+
+    const result = await realCreateCommitWithMultipleFiles({
+      octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "main",
+      stagedFiles: [
+        {
+          filePath: "src/app.ts",
+          initialFilePath: "src/app.ts",
+          fileDeleted: false,
+          parentCommitSha: "initial-parent-sha",
+          initialContent: "line-1\nline-2\n",
+          content: "line-1\nline-2\nline-3-local\n",
+        },
+      ],
+    });
+
+    expect(result.sha).toBe("commit-created-2");
+    expect(updateRefSpy).toHaveBeenCalledTimes(2);
+    expect(createTreeSpy).toHaveBeenCalledTimes(2);
+    expect(createCommitSpy).toHaveBeenCalledTimes(2);
+    const secondCreateCommitCall = createCommitSpy.mock.calls[1]?.[0];
+    expect(secondCreateCommitCall?.parents).toEqual(["head-sha-fresh"]);
+
+    const secondCreateTreeCall = createTreeSpy.mock.calls[1]?.[0];
+    const refreshedEntry = secondCreateTreeCall?.tree.find(
+      (entry) => entry.path === "src/app.ts",
+    );
+    if (!refreshedEntry || !("content" in refreshedEntry)) {
+      throw new Error("Expected refreshed src/app.ts content entry");
+    }
+    expect(refreshedEntry.content).toBe(
+      "line-1-upstream\nline-2\nline-3-local\n",
+    );
+  });
+
+  it("treats new-file path collisions as conflicts", async () => {
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
+      makeGetRefResponse("head-sha-1"),
+    );
+    vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
+      makeGetCommitResponse("tree-sha-1", "head-sha-1"),
+    );
+    vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
+      makeGetTreeResponse("tree-sha-1", [
+        { path: "src/new-file.ts", sha: "blob-existing" },
+      ]),
+    );
+    vi.spyOn(octokit.rest.git, "getBlob").mockResolvedValue(
+      makeGetBlobResponse("blob-existing", "upstream-content\n"),
+    );
+    const createTreeSpy = vi.spyOn(octokit.rest.git, "createTree");
+
+    await expect(
+      realCreateCommitWithMultipleFiles({
+        octokit,
+        owner: "test-owner",
+        repo: "test-repo",
+        branch: "main",
+        stagedFiles: [
+          {
+            filePath: "src/new-file.ts",
+            initialFilePath: "src/new-file.ts",
+            fileDeleted: false,
+            parentCommitSha: null,
+            initialContent: "",
+            content: "local-content\n",
+          },
+        ],
+      }),
+    ).rejects.toThrow(
+      "Commit conflicts with upstream changes. Resolve and retry: src/new-file.ts",
+    );
+    expect(createTreeSpy).not.toHaveBeenCalled();
+  });
+
+  it("treats rename target collisions as conflicts", async () => {
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
+      makeGetRefResponse("head-sha-1"),
+    );
+    vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
+      makeGetCommitResponse("tree-sha-1", "head-sha-1"),
+    );
+    vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
+      makeGetTreeResponse("tree-sha-1", [
+        { path: "src/old-name.ts", sha: "blob-old" },
+        { path: "src/new-name.ts", sha: "blob-existing-target" },
+      ]),
+    );
+    vi.spyOn(octokit.rest.git, "getBlob").mockImplementation((params) => {
+      const fileSha = params?.file_sha;
+      if (fileSha === "blob-old") {
+        return Promise.resolve(makeGetBlobResponse("blob-old", "line-1\n"));
+      }
+      if (fileSha === "blob-existing-target") {
+        return Promise.resolve(
+          makeGetBlobResponse("blob-existing-target", "target-content\n"),
+        );
+      }
+      return Promise.reject(
+        new Error(`Unexpected blob sha: ${fileSha ?? "undefined"}`),
+      );
+    });
+    const createTreeSpy = vi.spyOn(octokit.rest.git, "createTree");
+
+    await expect(
+      realCreateCommitWithMultipleFiles({
+        octokit,
+        owner: "test-owner",
+        repo: "test-repo",
+        branch: "main",
+        stagedFiles: [
+          {
+            filePath: "src/new-name.ts",
+            initialFilePath: "src/old-name.ts",
+            fileDeleted: false,
+            parentCommitSha: "parent-sha",
+            initialContent: "line-1\n",
+            content: "line-1\nline-2\n",
+          },
+        ],
+      }),
+    ).rejects.toThrow(
+      "Commit conflicts with upstream changes. Resolve and retry: src/new-name.ts",
+    );
+    expect(createTreeSpy).not.toHaveBeenCalled();
+  });
+
+  it("treats upstream missing file as no-op for staged deletions", async () => {
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
+      makeGetRefResponse("head-sha-1"),
+    );
+    vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
+      makeGetCommitResponse("tree-sha-1", "head-sha-1"),
+    );
+    vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
+      makeGetTreeResponse("tree-sha-1", []),
+    );
+    const createTreeSpy = vi
+      .spyOn(octokit.rest.git, "createTree")
+      .mockResolvedValue(makeCreateTreeResponse("new-tree-sha"));
+    vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
+      makeCreateCommitResponse("new-tree-sha", "new-commit-sha"),
+    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
+      makeUpdateRefResponse("new-commit-sha"),
+    );
+
+    await realCreateCommitWithMultipleFiles({
+      octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "main",
+      stagedFiles: [
+        {
+          filePath: "src/deleted.ts",
+          initialFilePath: "src/deleted.ts",
+          fileDeleted: true,
+          parentCommitSha: "initial-parent-sha",
+          initialContent: "old-content\n",
+          content: "old-content\n",
+        },
+      ],
+    });
+
+    const createTreeCall = createTreeSpy.mock.calls[0]?.[0];
+    expect(createTreeCall?.tree).toHaveLength(0);
+  });
 });

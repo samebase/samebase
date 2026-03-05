@@ -1201,6 +1201,80 @@ export const getCommitPreview = action({
 
 // MARK: Internal
 
+type CommitConflictReason =
+  | "missing_upstream_path"
+  | "new_file_path_taken"
+  | "content_conflict"
+  | "rename_target_exists";
+
+type CommitConflict = {
+  path: string;
+  reason: CommitConflictReason;
+};
+
+type CommitAttemptTelemetry = {
+  owner: string;
+  repo: string;
+  branch: string;
+  attempt: number;
+  durationMs: number;
+  retries: number;
+};
+
+const COMMIT_RETRY_BACKOFF_MS = [250, 750] as const;
+
+function formatCommitConflictMessage(conflicts: CommitConflict[]): string {
+  const paths = conflicts.map((conflict) => conflict.path).sort();
+  return `Commit conflicts with upstream changes. Resolve and retry: ${paths.join(", ")}`;
+}
+
+class CommitConflictError extends Error {
+  conflicts: CommitConflict[];
+
+  constructor(conflicts: CommitConflict[]) {
+    super(formatCommitConflictMessage(conflicts));
+    this.name = "CommitConflictError";
+    this.conflicts = conflicts;
+  }
+}
+
+function isCommitConflictError(error: unknown): error is CommitConflictError {
+  return error instanceof CommitConflictError;
+}
+
+type CreateTreeRequest = NonNullable<
+  Parameters<Octokit["rest"]["git"]["createTree"]>[0]
+>;
+type CreateTreeEntry = NonNullable<CreateTreeRequest["tree"]>[number];
+
+function logCommitAttempt(
+  stage: "start" | "retry" | "success" | "failure" | "conflict",
+  details: CommitAttemptTelemetry & {
+    status?: number | null;
+    message?: string;
+    retryDelayMs?: number;
+    conflicts?: CommitConflict[];
+    baseHeadSha?: string;
+  },
+): void {
+  const payload = {
+    stage,
+    ...details,
+  };
+
+  if (stage === "failure") {
+    console.error("commit_engine", payload);
+    return;
+  }
+
+  if (stage === "retry" || stage === "conflict") {
+    console.warn("commit_engine", payload);
+    return;
+  }
+
+  console.info("commit_engine", payload);
+}
+
 // Helper function to create a commit with multiple files
 export async function createCommitWithMultipleFiles({
   octokit,
@@ -1233,8 +1307,8 @@ export async function createCommitWithMultipleFiles({
     for (const part of parts) {
       const value = part.value ?? "";
       const lineCount =
-        typeof (part as any).count === "number"
-          ? (part as any).count
+        typeof part.count === "number"
+          ? part.count
           : value === ""
             ? 0
             : value.split("\n").length; // count lines even without trailing newline
@@ -1342,11 +1416,8 @@ export async function createCommitWithMultipleFiles({
   const buildTreeEntriesForHead = async (
     currentTreeSha: string,
   ): Promise<{
-    entries: Array<
-      | { path: string; mode: "100644"; type: "blob"; sha: null }
-      | { path: string; mode: "100644"; type: "blob"; content: string }
-    >;
-    conflicts: string[];
+    entries: CreateTreeEntry[];
+    conflicts: CommitConflict[];
   }> => {
     const { data: currentTree } = await octokit.rest.git.getTree({
       owner,
@@ -1368,7 +1439,12 @@ export async function createCommitWithMultipleFiles({
 
     const pathsToDelete = new Set<string>();
     const filesToAdd: Array<{ filePath: string; content: string }> = [];
-    const conflicts = new Set<string>();
+    const conflictsByPath = new Map<string, CommitConflictReason>();
+    const addConflict = (path: string, reason: CommitConflictReason) => {
+      if (!conflictsByPath.has(path)) {
+        conflictsByPath.set(path, reason);
+      }
+    };
 
     for (const file of stagedFiles) {
       const isRenamed = file.filePath !== file.initialFilePath;
@@ -1397,7 +1473,7 @@ export async function createCommitWithMultipleFiles({
 
         const upstreamContent = await getBlobText(upstreamSha);
         if (upstreamContent !== file.content) {
-          conflicts.add(file.filePath);
+          addConflict(file.filePath, "new_file_path_taken");
           continue;
         }
 
@@ -1419,13 +1495,13 @@ export async function createCommitWithMultipleFiles({
           : null;
 
       if (!upstreamPath) {
-        conflicts.add(preferredUpstreamPath);
+        addConflict(preferredUpstreamPath, "missing_upstream_path");
         continue;
       }
 
       const upstreamSha = shaByPath.get(upstreamPath);
       if (!upstreamSha) {
-        conflicts.add(upstreamPath);
+        addConflict(upstreamPath, "missing_upstream_path");
         continue;
       }
 
@@ -1437,8 +1513,19 @@ export async function createCommitWithMultipleFiles({
       });
 
       if (rebased.hasConflict) {
-        conflicts.add(file.filePath);
+        addConflict(file.filePath, "content_conflict");
         continue;
+      }
+
+      if (isRenamed && upstreamPath !== file.filePath) {
+        const renameTargetSha = shaByPath.get(file.filePath);
+        if (renameTargetSha) {
+          const renameTargetContent = await getBlobText(renameTargetSha);
+          if (renameTargetContent !== rebased.content) {
+            addConflict(file.filePath, "rename_target_exists");
+            continue;
+          }
+        }
       }
 
       if (isRenamed && upstreamPath !== file.filePath) {
@@ -1451,10 +1538,7 @@ export async function createCommitWithMultipleFiles({
       });
     }
 
-    const entries: Array<
-      | { path: string; mode: "100644"; type: "blob"; sha: null }
-      | { path: string; mode: "100644"; type: "blob"; content: string }
-    > = [];
+    const entries: CreateTreeEntry[] = [];
 
     for (const path of pathsToDelete) {
       entries.push({
@@ -1476,14 +1560,21 @@ export async function createCommitWithMultipleFiles({
 
     return {
       entries,
-      conflicts: [...conflicts].sort(),
+      conflicts: [...conflictsByPath.entries()]
+        .map(([path, reason]) => ({
+          path,
+          reason,
+        }))
+        .sort((left, right) => left.path.localeCompare(right.path)),
     };
   };
 
-  // 2. Retry loop for ref-dependent operations (getRef → getCommit → createTree → createCommit → updateRef)
-  //    Retries handle transient GitHub 422 (GitRPC::BadObjectState) and 409 (ref race) errors.
-  const MAX_ATTEMPTS = 3;
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+  // 2. Retry loop for ref-dependent operations (getRef → getCommit → createTree → createCommit → updateRef).
+  //    Retries are bounded and deterministic to avoid ambiguous behavior under races.
+  const startedAtMs = Date.now();
+  let retries = 0;
+  const maxAttempts = COMMIT_RETRY_BACKOFF_MS.length + 1;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       const { data: refData } = await octokit.rest.git.getRef({
         owner,
@@ -1491,6 +1582,16 @@ export async function createCommitWithMultipleFiles({
         ref: `heads/${branch}`,
       });
       const currentCommitSha = refData.object.sha;
+
+      logCommitAttempt("start", {
+        owner,
+        repo,
+        branch,
+        attempt: attempt + 1,
+        durationMs: Date.now() - startedAtMs,
+        retries,
+        baseHeadSha: currentCommitSha,
+      });
 
       const { data: currentCommit } = await octokit.rest.git.getCommit({
         owner,
@@ -1502,16 +1603,14 @@ export async function createCommitWithMultipleFiles({
         await buildTreeEntriesForHead(currentTreeSha);
 
       if (conflicts.length > 0) {
-        throw new Error(
-          `Commit conflicts with upstream changes. Resolve and retry: ${conflicts.join(", ")}`,
-        );
+        throw new CommitConflictError(conflicts);
       }
 
       const { data: newTree } = await octokit.rest.git.createTree({
         owner,
         repo,
         base_tree: currentTreeSha,
-        tree: newTreeEntries as any,
+        tree: newTreeEntries,
       });
 
       const { data: newCommit } = await octokit.rest.git.createCommit({
@@ -1530,21 +1629,73 @@ export async function createCommitWithMultipleFiles({
         force: false,
       });
 
+      logCommitAttempt("success", {
+        owner,
+        repo,
+        branch,
+        attempt: attempt + 1,
+        durationMs: Date.now() - startedAtMs,
+        retries,
+        baseHeadSha: currentCommitSha,
+      });
+
       return {
         sha: newCommit.sha,
         url: newCommit.html_url,
       };
     } catch (error) {
-      const status = (error as { status?: number }).status;
-      const isRetryable = status === 422 || status === 409;
-      if (!isRetryable || attempt === MAX_ATTEMPTS - 1) {
-        console.error("Failed to create commit:", error);
+      if (isCommitConflictError(error)) {
+        logCommitAttempt("conflict", {
+          owner,
+          repo,
+          branch,
+          attempt: attempt + 1,
+          durationMs: Date.now() - startedAtMs,
+          retries,
+          conflicts: error.conflicts,
+          message: error.message,
+        });
         throw error;
       }
-      console.warn(
-        `Commit attempt ${attempt + 1} failed (status ${status}), retrying...`,
-      );
-      await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+
+      const status = getErrorStatus(error);
+      const message =
+        error instanceof Error && error.message.length > 0
+          ? error.message
+          : getErrorMessage(error);
+      const isRetryable = status === 422 || status === 409;
+      if (!isRetryable || attempt === maxAttempts - 1) {
+        logCommitAttempt("failure", {
+          owner,
+          repo,
+          branch,
+          attempt: attempt + 1,
+          durationMs: Date.now() - startedAtMs,
+          retries,
+          status,
+          message,
+        });
+        throw error;
+      }
+
+      retries += 1;
+      const retryDelayMs =
+        COMMIT_RETRY_BACKOFF_MS[attempt] ??
+        COMMIT_RETRY_BACKOFF_MS[COMMIT_RETRY_BACKOFF_MS.length - 1] ??
+        500;
+      logCommitAttempt("retry", {
+        owner,
+        repo,
+        branch,
+        attempt: attempt + 1,
+        durationMs: Date.now() - startedAtMs,
+        retries,
+        status,
+        message,
+        retryDelayMs,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
     }
   }
 
@@ -1564,6 +1715,7 @@ export const commitAllStaged = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const fullRepo = `${args.repoOwner}/${args.repoName}`;
+    const commitStartedAtMs = Date.now();
 
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: fullRepo,
@@ -1602,6 +1754,12 @@ export const commitAllStaged = internalAction({
       );
 
       if (!changedFiles.length) {
+        console.info("commit_all_staged", {
+          stage: "no_staged_changes",
+          vaultId: args.vaultId,
+          repository: fullRepo,
+          durationMs: Date.now() - commitStartedAtMs,
+        });
         await updateCommitProposalStatus(true);
         return null;
       }
@@ -1633,7 +1791,7 @@ export const commitAllStaged = internalAction({
         }));
 
       // Create a commit with all staged files
-      await createCommitWithMultipleFiles({
+      const commitResult = await createCommitWithMultipleFiles({
         octokit,
         owner: args.repoOwner,
         repo: args.repoName,
@@ -1690,11 +1848,53 @@ export const commitAllStaged = internalAction({
       });
 
       await updateCommitProposalStatus(true);
+      console.info("commit_all_staged", {
+        stage: "success",
+        vaultId: args.vaultId,
+        repository: fullRepo,
+        branch: commitBranch,
+        changedFileCount: changedFiles.length,
+        commitSha: commitResult.sha,
+        durationMs: Date.now() - commitStartedAtMs,
+      });
     } catch (error) {
       const commitError =
         error instanceof Error && error.message.length > 0
           ? error.message
           : "Commit failed";
+
+      if (isCommitConflictError(error)) {
+        const initialReasonCounts: Record<CommitConflictReason, number> = {
+          missing_upstream_path: 0,
+          new_file_path_taken: 0,
+          content_conflict: 0,
+          rename_target_exists: 0,
+        };
+        const reasonCounts = error.conflicts.reduce(
+          (counts, conflict) => ({
+            ...counts,
+            [conflict.reason]: (counts[conflict.reason] ?? 0) + 1,
+          }),
+          initialReasonCounts,
+        );
+        console.warn("commit_all_staged", {
+          stage: "conflict",
+          vaultId: args.vaultId,
+          repository: fullRepo,
+          conflictCount: error.conflicts.length,
+          conflicts: error.conflicts,
+          reasonCounts,
+          durationMs: Date.now() - commitStartedAtMs,
+        });
+      } else {
+        console.error("commit_all_staged", {
+          stage: "failure",
+          vaultId: args.vaultId,
+          repository: fullRepo,
+          error: commitError,
+          durationMs: Date.now() - commitStartedAtMs,
+        });
+      }
 
       try {
         await updateCommitProposalStatus(false, commitError);
