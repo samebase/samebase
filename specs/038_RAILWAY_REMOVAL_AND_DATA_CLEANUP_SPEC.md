@@ -18,9 +18,8 @@
 Remove Railway from the Noter product surface and codebase while keeping Netlify
 and Cloudflare support.
 
-This spec also defines a **repeatable Convex migration workflow** so data
-cleanup is scripted and auditable, instead of manually truncating tables in the
-dashboard.
+This spec also defines a cleanup checklist and rollout order for removing
+Railway-shaped data before schema/runtime changes are deployed.
 
 ## Why this spec exists
 
@@ -45,15 +44,14 @@ The removal must therefore be done in a controlled order:
 2. Netlify remains supported in this phase.
 3. Cloudflare remains supported in this phase.
 4. We do not keep a dormant Railway feature flag path.
-5. Data cleanup is performed via Convex migration functions, not manual table
-   wipes.
+5. Data cleanup is executed manually in target deployments before Railway schema
+   literals are removed.
 
 ## Goals
 
 1. Remove Railway from backend, frontend, and agent tooling.
 2. Keep Netlify + Cloudflare behavior stable.
-3. Introduce a standard migration runbook (`preview` -> `apply` -> `verify`) for
-   Convex cleanup operations.
+3. Define a clear manual cleanup checklist and rollout sequence for Convex data.
 4. Clean or normalize all Railway-shaped rows before schema literals are
    removed.
 5. Leave a concise historical note of the Railway pilot decision.
@@ -107,46 +105,12 @@ The removal must therefore be done in a controlled order:
 - Keep fixture manifests in sync when new/removed spec files change the visible
   simple-view list.
 
-## Data Cleanup Strategy (Convex)
+## Data Cleanup Strategy (Manual)
 
 ### Principle
 
-Do not rely on manual dashboard cleanup.
-
-Instead, add one-off Convex migration functions under a dedicated module,
-example path:
-
-- `apps/noter/convex/migrations/railwayRemoval.ts`
-
-### Migration contract
-
-Expose three functions:
-
-1. `previewRailwayRemoval`
-   - Read-only counts + sample IDs by table
-   - No writes
-2. `applyRailwayRemoval`
-   - Idempotent writes
-   - Requires explicit confirmation token argument
-   - Supports bounded batch size for repeat runs
-3. `verifyRailwayRemoval`
-   - Read-only post-check (all counts expected zero or normalized)
-
-### CLI runbook (example)
-
-From `apps/noter`:
-
-```bash
-npx convex run migrations/railwayRemoval:previewRailwayRemoval
-npx convex run migrations/railwayRemoval:applyRailwayRemoval '{"confirm":"REMOVE_RAILWAY","batchSize":200}'
-npx convex run migrations/railwayRemoval:verifyRailwayRemoval
-```
-
-If needed in production from a worktree without local env:
-
-```bash
-npx convex run migrations/railwayRemoval:previewRailwayRemoval --env-file /Users/nicu/dev/my/noter/apps/noter/.env.local
-```
+Run targeted manual cleanup in Convex dashboard/CLI first, then deploy Railway
+schema/runtime removal.
 
 ### Data transformations required before schema literal removal
 
@@ -172,35 +136,24 @@ Notes:
 - `aiProdAccessAudit` does not carry a provider enum field and can remain.
 - `chatMessageMetadata.payloadJson` is opaque text; old entries can remain.
 
-### Idempotency expectations
+### Cleanup verification expectations
 
-- Multiple `applyRailwayRemoval` runs are safe.
-- Running `preview` after `apply` should eventually return zero actionable
-  Railway rows.
-- `verify` should be used as the merge gate before schema literal deletion.
+- Verify each listed table has zero Railway-shaped rows before deploying Railway
+  literal removals.
+- Treat zero remaining rows as the merge/deploy gate for schema changes.
 
 ## Execution Plan
 
-### Phase 0: Add migration module + runbook
+### Phase 0: Manual cleanup in target deployments
 
-- Implement `preview/apply/verify` in Convex.
-- Add clear operator docs in spec and PR description.
-
-Exit criteria:
-
-- Migration runs successfully in dev and is idempotent.
-
-### Phase 1: Execute cleanup in target deployments
-
-- Run `preview` and capture before counts.
-- Run `apply` until no pending rows remain.
-- Run `verify` and capture after counts.
+- Remove/normalize Railway-shaped rows in each table listed above.
+- Capture before/after counts as rollout evidence.
 
 Exit criteria:
 
 - No Railway rows remain in schema-constrained fields.
 
-### Phase 2: Remove Railway backend code
+### Phase 1: Remove Railway backend code
 
 - Remove Railway modules and all Railway branches in shared backend flows.
 - Update provider/read/resource unions and validators.
@@ -210,7 +163,7 @@ Exit criteria:
 - `apps/noter` typecheck/lint pass.
 - No `railway` references in runtime backend paths.
 
-### Phase 3: Remove Railway frontend code
+### Phase 2: Remove Railway frontend code
 
 - Remove Railway UI connect/status/callback/create-flow options.
 - Keep Netlify + Cloudflare UX intact.
@@ -219,7 +172,7 @@ Exit criteria:
 
 - Dashboard/provider flows work without Railway paths.
 
-### Phase 4: Spec and doc cleanup
+### Phase 3: Spec and doc cleanup
 
 - Delete `027`.
 - Update `031` and `032` related-spec links and wording.
@@ -238,9 +191,8 @@ Chosen approach:
 
 ## Validation Checklist
 
-- [ ] Migration `preview` reports expected Railway rows before apply.
-- [ ] Migration `apply` completes without partial-write corruption.
-- [ ] Migration `verify` reports no Railway rows in constrained fields.
+- [ ] Manual cleanup completed for all listed Railway-shaped rows.
+- [ ] Manual verification confirms zero Railway rows in constrained fields.
 - [ ] `make anon-once` + lint/typecheck pass in worktree.
 - [ ] Vault create/delete/provision flows still work for Netlify/Cloudflare.
 - [ ] Chat prod-read tools still work for non-Railway providers.
@@ -250,13 +202,13 @@ Chosen approach:
 ## Rollback and Safety
 
 1. If cleanup introduces issues, stop before schema literal deletion.
-2. Keep migration write operations scoped and reversible where practical.
+2. Keep manual cleanup operations scoped and reversible where practical.
 3. Use git revert for code/spec rollback; do not reintroduce manual table wipes
    as a standard process.
 
 ## Acceptance Criteria
 
 1. Railway is absent from supported provider/runtime surfaces.
-2. Railway data is cleaned/normalized through repeatable Convex migrations.
+2. Railway data is cleaned/normalized before schema literal removal deploys.
 3. Netlify and Cloudflare remain operational.
 4. Active spec set no longer treats Railway as current strategy.
