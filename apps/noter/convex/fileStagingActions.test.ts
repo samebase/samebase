@@ -330,7 +330,7 @@ describe("createCommitWithMultipleFiles", () => {
 
     expect(getTreeSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        tree_sha: targetBranch,
+        tree_sha: `heads/${targetBranch}`,
       }),
     );
 

@@ -328,10 +328,16 @@ export async function rebaseStagedFilesOnLatestHead(args: {
     return [];
   }
 
+  const treeSha = args.branch.startsWith("refs/heads/")
+    ? args.branch.slice("refs/".length)
+    : args.branch.startsWith("heads/")
+      ? args.branch
+      : `heads/${args.branch}`;
+
   const treeResponse = await args.octokit.rest.git.getTree({
     owner: args.owner,
     repo: args.repo,
-    tree_sha: args.branch,
+    tree_sha: treeSha,
     recursive: "1",
   });
 
