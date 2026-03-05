@@ -3,3 +3,4 @@
 - if Notion and Obsidian had a baby
 - if Lovable were good enough to build Lovable
 - disregards Gödel’s incompleteness theorems
+- the tech stack for AI Agents
