@@ -27,6 +27,7 @@ coverage
 *.tsbuildinfo
 .vite
 .playwright-cli/
+test-results/
 
 # Environment variables
 *.local
