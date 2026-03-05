@@ -38,7 +38,7 @@ import {
 } from "./metadata";
 import { assertProdReadAccess, hashText } from "./prodAccess";
 import { ensureThreadAccess, getThreadById } from "./threads";
-import { COMMIT_CONFLICT_REASONS } from "../../shared/commitConflicts";
+import { commitConflictReasonValidator } from "../commitConflictValidator";
 
 const {
   string,
@@ -53,22 +53,6 @@ const {
   null: vNull,
   any: vAny,
 } = v;
-
-const commitConflictReasonLiterals = COMMIT_CONFLICT_REASONS.map((reason) =>
-  literal(reason),
-);
-
-const [
-  firstCommitConflictReasonLiteral,
-  secondCommitConflictReasonLiteral,
-  ...remainingCommitConflictReasonLiterals
-] = commitConflictReasonLiterals;
-
-const commitConflictReasonValidator = union(
-  firstCommitConflictReasonLiteral,
-  secondCommitConflictReasonLiteral,
-  ...remainingCommitConflictReasonLiterals,
-);
 
 export const createThread = mutation({
   args: {
