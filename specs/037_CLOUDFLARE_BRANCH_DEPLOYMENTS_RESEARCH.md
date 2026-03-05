@@ -61,7 +61,7 @@ The short conclusion is:
 
 ## External Research Findings
 
-## 1) Cloudflare Pages supports branch previews
+### 1) Cloudflare Pages supports branch previews
 
 Cloudflare Pages supports:
 
@@ -73,7 +73,7 @@ Cloudflare Pages supports:
 
 These are exposed via both product docs and API schema.
 
-## 2) Cloudflare API supports branch-aware deployment workflows
+### 2) Cloudflare API supports branch-aware deployment workflows
 
 Pages API supports:
 
@@ -89,7 +89,7 @@ Pages API supports:
 
 This is sufficient for deterministic branch -> preview URL sync.
 
-## 3) GitHub PR deployment cards require GitHub Deployments
+### 3) GitHub PR deployment cards require GitHub Deployments
 
 GitHub’s PR deployment UI is tied to Deployment objects/statuses, not check runs
 alone.
@@ -99,7 +99,7 @@ Practical consequence:
 - A workflow can pass CI and still show "This branch has not been deployed" if
   no deployment status is posted for that ref/environment.
 
-## 4) Wrangler Action can bridge Cloudflare deploy + GitHub deployment status
+### 4) Wrangler Action can bridge Cloudflare deploy + GitHub deployment status
 
 `cloudflare/wrangler-action` supports:
 
@@ -111,7 +111,7 @@ Practical consequence:
 This enables direct PR deployment cards and a "View deployment" URL when wired
 into workflow `environment.url`.
 
-## 5) Operational caveats to account for
+### 5) Operational caveats to account for
 
 - Cloudflare Pages does not generate preview deploys for PRs from forks.
 - Build quotas and concurrent build limits still apply by plan.
@@ -120,7 +120,7 @@ into workflow `environment.url`.
 
 ## Implementation Options
 
-## Option A: Fastest path to remove PR "not deployed" message
+### Option A: Fastest path to remove PR "not deployed" message
 
 Add a GitHub Actions deployment workflow for this repository using
 `cloudflare/wrangler-action`:
@@ -138,7 +138,7 @@ Outcome:
 - GitHub PRs show deployment card and avoid "This branch has not been deployed"
   when workflow runs successfully.
 
-## Option B: Product-level branch preview tracking in Noter
+### Option B: Product-level branch preview tracking in Noter
 
 Add a Cloudflare preview domain sync action:
 
