@@ -64,10 +64,6 @@ const [
   ...remainingCommitConflictReasonLiterals
 ] = commitConflictReasonLiterals;
 
-if (!firstCommitConflictReasonLiteral || !secondCommitConflictReasonLiteral) {
-  throw new Error("Expected at least two commit conflict reasons");
-}
-
 const commitConflictReasonValidator = union(
   firstCommitConflictReasonLiteral,
   secondCommitConflictReasonLiteral,
