@@ -437,25 +437,29 @@ export function DaytonaWorkspaceButton({
     }
   };
 
+  const launchButton = (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => {
+        void handleStart(true);
+      }}
+      disabled={disabled || isStarting}
+    >
+      {isStarting ? (
+        <>
+          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+          Launching Daytona...
+        </>
+      ) : (
+        "Launch Daytona"
+      )}
+    </Button>
+  );
+
   const launchControls = (
     <div className="flex flex-wrap items-center gap-2">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => {
-          void handleStart(true);
-        }}
-        disabled={disabled || isStarting}
-      >
-        {isStarting ? (
-          <>
-            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-            Launching Daytona...
-          </>
-        ) : (
-          "Launch Daytona"
-        )}
-      </Button>
+      {launchButton}
       <Button
         variant="ghost"
         size="sm"
@@ -507,7 +511,7 @@ export function DaytonaWorkspaceButton({
   return (
     <div className={cn("flex flex-col gap-1", className)}>
       <div className="flex flex-wrap items-center gap-2">
-        {launchControls}
+        {launchButton}
         <Button
           variant={terminalUrl ? "secondary" : "outline"}
           size="sm"
