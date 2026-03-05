@@ -41,6 +41,48 @@ async function getGithubAccessToken(
   return connection.auth.credential;
 }
 
+function readDefaultBranch(repoData: unknown): string {
+  if (!isRecord(repoData)) {
+    return "main";
+  }
+
+  const defaultBranch = repoData.default_branch;
+  if (typeof defaultBranch === "string" && defaultBranch.length > 0) {
+    return defaultBranch;
+  }
+
+  return "main";
+}
+
+async function getRepositoryDefaultBranch(args: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+}): Promise<string> {
+  const response = await args.octokit.rest.repos.get({
+    owner: args.owner,
+    repo: args.repo,
+  });
+  return readDefaultBranch(response.data);
+}
+
+async function getVaultDefaultBranch(
+  ctx: ActionCtx,
+  userId: Id<"users">,
+  owner: string,
+  repo: string,
+): Promise<string> {
+  const githubAccessToken = await getGithubAccessToken(ctx, userId);
+  const octokit: Octokit = new Octokit({
+    auth: githubAccessToken,
+  });
+  return getRepositoryDefaultBranch({
+    octokit,
+    owner,
+    repo,
+  });
+}
+
 function toHeaderMap(value: unknown): HeaderMap | null {
   if (!isRecord(value)) {
     return null;
@@ -536,8 +578,6 @@ export const getFileForEditing = action({
     branch: string;
     version: number;
   }> => {
-    const targetBranch = args.branch ?? "main";
-
     const userId = await getUserId(ctx);
     const githubAccessToken = await getGithubAccessToken(ctx, userId);
 
@@ -549,6 +589,17 @@ export const getFileForEditing = action({
     if (!vault) {
       throw new Error("Vault not found");
     }
+
+    const octokit: Octokit = new Octokit({
+      auth: githubAccessToken,
+    });
+    const targetBranch =
+      args.branch ??
+      (await getRepositoryDefaultBranch({
+        octokit,
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+      }));
 
     // Check if there's staged content for this file
     const staging = await ctx.runQuery(internal.fileStaging.getByOriginalPath, {
@@ -615,16 +666,12 @@ export const getFileForEditing = action({
 
       // Otherwise get from github
 
-      const octokit: Octokit = new Octokit({
-        auth: githubAccessToken,
-      });
-
       try {
         const file = await octokit.rest.repos.getContent({
           owner: vault.ghRepoOwner,
           repo: vault.ghRepoName,
           path: args.originalFilePath,
-          ref: args.branch,
+          ref: targetBranch,
         });
 
         // Handle case where path is a directory (shouldn't happen in our use case)
@@ -1135,7 +1182,14 @@ export const getCommitPreview = action({
         `Cannot preview staged files across multiple branches: ${stagedBranches.join(", ")}`,
       );
     }
-    const branch = stagedBranches[0] ?? "main";
+    const branch =
+      stagedBranches[0] ??
+      (await getVaultDefaultBranch(
+        ctx,
+        userId,
+        vault.ghRepoOwner,
+        vault.ghRepoName,
+      ));
 
     return buildCommitPreviewFromStagedFiles({
       stagedFiles,
@@ -1410,6 +1464,7 @@ export const commitAllStaged = internalAction({
         {
           messageId: args.commitProposalMessageId,
           committed,
+          committing: false,
           error,
         },
       );
@@ -1436,7 +1491,6 @@ export const commitAllStaged = internalAction({
             .filter((branch): branch is string => typeof branch === "string"),
         ),
       );
-      const commitBranch: string = stagedBranches[0] ?? "main";
       if (stagedBranches.length > 1) {
         throw new Error(
           `Cannot commit staged files across multiple branches: ${stagedBranches.join(", ")}`,
@@ -1448,6 +1502,13 @@ export const commitAllStaged = internalAction({
       const octokit: Octokit = new Octokit({
         auth: githubAccessToken,
       });
+      const commitBranch: string =
+        stagedBranches[0] ??
+        (await getRepositoryDefaultBranch({
+          octokit,
+          owner: args.repoOwner,
+          repo: args.repoName,
+        }));
 
       // Create a commit with all staged files
       await createCommitWithMultipleFiles({

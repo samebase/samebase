@@ -465,6 +465,8 @@ function FileViewInner({
   const [commitPreview, setCommitPreview] = useState<CommitPreview | null>(
     null,
   );
+  const [commitPreviewDisplayPreference, setCommitPreviewDisplayPreference] =
+    useState<CommitPreviewDisplayMode>("rich");
   const [commitPreviewDisplayMode, setCommitPreviewDisplayMode] =
     useState<CommitPreviewDisplayMode>("patch");
   const [commitPreviewError, setCommitPreviewError] = useState<string | null>(
@@ -864,6 +866,7 @@ function FileViewInner({
 
     setCommitReviewMode("review");
     setCommitPreview(null);
+    setCommitPreviewDisplayPreference("rich");
     setCommitPreviewDisplayMode("patch");
   }, [commitReviewMode]);
 
@@ -902,11 +905,15 @@ function FileViewInner({
 
   useEffect(() => {
     if (selectedPreviewCanRenderRichMarkdown) {
-      setCommitPreviewDisplayMode("rich");
+      setCommitPreviewDisplayMode(commitPreviewDisplayPreference);
       return;
     }
     setCommitPreviewDisplayMode("patch");
-  }, [selectedPreviewCanRenderRichMarkdown, selectedPreviewFile?.path]);
+  }, [
+    commitPreviewDisplayPreference,
+    selectedPreviewCanRenderRichMarkdown,
+    selectedPreviewFile?.path,
+  ]);
 
   const finalTreeData = useMemo(() => {
     const treeItems = vault.treeData.tree
@@ -1397,6 +1404,9 @@ function FileViewInner({
                                         value === "patch"
                                       ) {
                                         setCommitPreviewDisplayMode(value);
+                                        setCommitPreviewDisplayPreference(
+                                          value,
+                                        );
                                       }
                                     }}
                                   >

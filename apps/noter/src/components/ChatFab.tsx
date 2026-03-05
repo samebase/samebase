@@ -401,6 +401,11 @@ function CommitProposalCard({
           <Check className="h-3 w-3" />
           Committed
         </div>
+      ) : metadata.committing ? (
+        <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Committing...
+        </div>
       ) : (
         <>
           <button
