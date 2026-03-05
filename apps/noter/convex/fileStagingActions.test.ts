@@ -18,6 +18,10 @@ type CreateCommitData = GitApi["createCommit"]["response"]["data"];
 type UpdateRefData = GitApi["updateRef"]["response"]["data"];
 type GetTreeData = GitApi["getTree"]["response"]["data"];
 type GetBlobData = GitApi["getBlob"]["response"]["data"];
+type CreateTreeRequest = NonNullable<
+  Parameters<Octokit["rest"]["git"]["createTree"]>[0]
+>;
+type CreateTreeEntry = NonNullable<CreateTreeRequest["tree"]>[number];
 
 const emptyHeaders: Record<string, string> = {};
 
@@ -163,6 +167,10 @@ const makeGetBlobResponse = (sha: string, text: string): GetBlobResponse => ({
   } satisfies GetBlobData,
 });
 
+function getTreeEntryContent(entry: CreateTreeEntry): string | undefined {
+  return typeof entry.content === "string" ? entry.content : undefined;
+}
+
 /**
  * Mock implementation of createCommitWithMultipleFiles
  * Extracted from the actual implementation for testing
@@ -243,10 +251,7 @@ async function createCommitWithMultipleFiles({
   }
 
   // 2. Build tree entries with inline content
-  const newTreeEntries: Array<
-    | { path: string; mode: "100644"; type: "blob"; sha: null }
-    | { path: string; mode: "100644"; type: "blob"; content: string }
-  > = [];
+  const newTreeEntries: CreateTreeEntry[] = [];
 
   for (const path of pathsToDelete) {
     newTreeEntries.push({
@@ -288,7 +293,7 @@ async function createCommitWithMultipleFiles({
         owner,
         repo,
         base_tree: currentTreeSha,
-        tree: newTreeEntries as any,
+        tree: newTreeEntries,
       });
 
       const { data: newCommit } = await octokit.rest.git.createCommit({
@@ -381,7 +386,7 @@ describe("createCommitWithMultipleFiles", () => {
     }
     expect(createTreeCall.tree.length).toBe(1);
     expect(createTreeCall.tree[0].path).toBe("src/file.ts");
-    expect((createTreeCall.tree[0] as any).content).toBe("new content");
+    expect(getTreeEntryContent(createTreeCall.tree[0])).toBe("new content");
 
     // Verify base_tree parameter is passed
     expect(createTreeCall.base_tree).toBe("tree123");
@@ -494,7 +499,7 @@ describe("createCommitWithMultipleFiles", () => {
       throw new Error("Expected rename entries to be present");
     }
     expect(deletionEntry.sha).toBe(null);
-    expect((additionEntry as any).content).toBe("file content");
+    expect(getTreeEntryContent(additionEntry)).toBe("file content");
   });
 
   /**
@@ -585,7 +590,10 @@ describe("createCommitWithMultipleFiles", () => {
     const edit1Entry = createTreeCall.tree.find(
       (e) => e.path === "src/edit1.ts",
     );
-    expect((edit1Entry as any).content).toBe("new content 1");
+    if (!edit1Entry) {
+      throw new Error("Expected src/edit1.ts entry");
+    }
+    expect(getTreeEntryContent(edit1Entry)).toBe("new content 1");
   });
 
   /**
@@ -786,7 +794,7 @@ describe("createCommitWithMultipleFiles", () => {
     // Only 1 entry: addition of new path, no deletion of old path
     expect(createTreeCall.tree.length).toBe(1);
     expect(createTreeCall.tree[0].path).toBe("src/renamed-new.ts");
-    expect((createTreeCall.tree[0] as any).content).toBe("file content");
+    expect(getTreeEntryContent(createTreeCall.tree[0])).toBe("file content");
   });
 
   /**
@@ -856,7 +864,7 @@ describe("createCommitWithMultipleFiles", () => {
     }
     expect(createTreeCall.tree.length).toBe(3);
     for (const entry of createTreeCall.tree) {
-      expect((entry as any).content).toBeDefined();
+      expect(getTreeEntryContent(entry)).toBeDefined();
     }
   });
 

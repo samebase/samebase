@@ -38,6 +38,7 @@ import {
 } from "./metadata";
 import { assertProdReadAccess, hashText } from "./prodAccess";
 import { ensureThreadAccess, getThreadById } from "./threads";
+import { COMMIT_CONFLICT_REASONS } from "../../shared/commitConflicts";
 
 const {
   string,
@@ -52,6 +53,20 @@ const {
   null: vNull,
   any: vAny,
 } = v;
+
+const [
+  missingUpstreamPathConflictReason,
+  newFilePathTakenConflictReason,
+  contentConflictReason,
+  renameTargetExistsConflictReason,
+] = COMMIT_CONFLICT_REASONS;
+
+const commitConflictReasonValidator = union(
+  literal(missingUpstreamPathConflictReason),
+  literal(newFilePathTakenConflictReason),
+  literal(contentConflictReason),
+  literal(renameTargetExistsConflictReason),
+);
 
 export const createThread = mutation({
   args: {
@@ -783,12 +798,7 @@ export const updateCommitProposalMessageCommittedInternal = internalMutation({
       array(
         object({
           path: string(),
-          reason: union(
-            literal("missing_upstream_path"),
-            literal("new_file_path_taken"),
-            literal("content_conflict"),
-            literal("rename_target_exists"),
-          ),
+          reason: commitConflictReasonValidator,
         }),
       ),
     ),

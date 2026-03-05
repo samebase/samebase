@@ -1,4 +1,5 @@
 "use node";
+// This module uses Octokit and Buffer decoding in Convex actions, so Node runtime is required.
 
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { v, type Infer } from "convex/values";
@@ -15,6 +16,7 @@ import {
 } from "./gitOperationsActions";
 import { isObjectRecord as isRecord } from "./jsonUtils";
 import { rebaseStagedContent } from "./stagingRebase";
+import type { CommitConflictReason } from "../shared/commitConflicts";
 
 type HeaderValue = string | number | readonly string[] | undefined;
 type HeaderMap = Record<string, HeaderValue>;
@@ -1200,12 +1202,6 @@ export const getCommitPreview = action({
 });
 
 // MARK: Internal
-
-type CommitConflictReason =
-  | "missing_upstream_path"
-  | "new_file_path_taken"
-  | "content_conflict"
-  | "rename_target_exists";
 
 type CommitConflict = {
   path: string;

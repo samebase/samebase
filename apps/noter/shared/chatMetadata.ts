@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Id } from "../convex/_generated/dataModel";
+import { COMMIT_CONFLICT_REASONS } from "./commitConflicts";
 
 const toolActivityItemSchema = z.object({
   tool: z.string(),
@@ -19,12 +20,7 @@ const toolActivitySchema = z
 
 const commitConflictSchema = z.object({
   path: z.string(),
-  reason: z.enum([
-    "missing_upstream_path",
-    "new_file_path_taken",
-    "content_conflict",
-    "rename_target_exists",
-  ]),
+  reason: z.enum(COMMIT_CONFLICT_REASONS),
 });
 
 const commitProposalSchema = z
