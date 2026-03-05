@@ -126,10 +126,13 @@ export function DaytonaWorkspaceButton({
     };
   }, []);
 
-  const handleStart = async () => {
+  const handleStart = async (openInTab: boolean) => {
     if (disabled || isStarting) {
       return;
     }
+    const launchTab = openInTab
+      ? window.open("about:blank", "_blank", "noopener,noreferrer")
+      : null;
     setIsStarting(true);
     setMessage(null);
     setHasError(false);
@@ -144,6 +147,9 @@ export function DaytonaWorkspaceButton({
       });
 
       if (!result.ok) {
+        if (launchTab && !launchTab.closed) {
+          launchTab.close();
+        }
         setHasError(true);
         setMessage(result.message ?? "Daytona is not configured.");
       } else {
@@ -155,11 +161,25 @@ export function DaytonaWorkspaceButton({
         );
         setBootstrapLogs(null);
         const terminalLink = await fetchTerminalUrl(true);
+        if (terminalLink && launchTab && !launchTab.closed) {
+          launchTab.location.href = terminalLink;
+        } else if (!terminalLink && launchTab && !launchTab.closed) {
+          launchTab.close();
+        } else if (terminalLink && openInTab && !launchTab) {
+          setMessage((previous) =>
+            previous
+              ? `${previous} Popup blocked; use Open in tab.`
+              : "Terminal link ready. Popup blocked; use Open in tab.",
+          );
+        }
         if (terminalLink) {
           setTimeToTerminalMs(Math.round(performance.now() - startClickedAt));
         }
       }
     } catch (error) {
+      if (launchTab && !launchTab.closed) {
+        launchTab.close();
+      }
       setHasError(true);
       setMessage(
         error instanceof Error
@@ -422,17 +442,17 @@ export function DaytonaWorkspaceButton({
           variant="outline"
           size="sm"
           onClick={() => {
-            void handleStart();
+            void handleStart(true);
           }}
           disabled={disabled || isStarting}
         >
           {isStarting ? (
             <>
               <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-              Starting Daytona...
+              Launching Daytona...
             </>
           ) : (
-            "Start Daytona"
+            "Launch Daytona"
           )}
         </Button>
         <Button
