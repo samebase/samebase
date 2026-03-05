@@ -13,6 +13,10 @@ const SCENARIOS = [
     mode: "deleted",
     snapshotName: "commit-review-deleted.png",
   },
+  {
+    mode: "fallback",
+    snapshotName: "commit-review-fallback.png",
+  },
 ] as const;
 
 for (const scenario of SCENARIOS) {
