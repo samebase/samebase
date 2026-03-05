@@ -23,6 +23,7 @@ interface DaytonaWorkspaceButtonProps {
   sandboxName?: string;
   disabled?: boolean;
   className?: string;
+  mode?: "full" | "launch";
 }
 
 type StartDaytonaWorkspaceResult = FunctionReturnType<
@@ -55,6 +56,7 @@ export function DaytonaWorkspaceButton({
   sandboxName,
   disabled,
   className,
+  mode = "full",
 }: DaytonaWorkspaceButtonProps) {
   const startDaytonaWorkspace = useAction(
     api.daytonaActions.startDaytonaWorkspace,
@@ -435,26 +437,77 @@ export function DaytonaWorkspaceButton({
     }
   };
 
+  const launchControls = (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          void handleStart(true);
+        }}
+        disabled={disabled || isStarting}
+      >
+        {isStarting ? (
+          <>
+            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+            Launching Daytona...
+          </>
+        ) : (
+          "Launch Daytona"
+        )}
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => {
+          void handleOpenTerminalTab();
+        }}
+        disabled={disabled || isOpeningTerminal}
+      >
+        {isOpeningTerminal ? (
+          <>
+            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+            Opening...
+          </>
+        ) : (
+          "Open Terminal"
+        )}
+      </Button>
+    </div>
+  );
+
+  if (mode === "launch") {
+    return (
+      <div className={cn("flex flex-col gap-1", className)}>
+        {launchControls}
+        {startupMetrics && (
+          <div className="text-xs text-muted-foreground">
+            {formatStartupMetricsSummary(startupMetrics)}
+          </div>
+        )}
+        {timeToTerminalMs !== null && (
+          <div className="text-xs text-muted-foreground">
+            Terminal link ready in {formatDuration(timeToTerminalMs)}.
+          </div>
+        )}
+        {message && (
+          <div
+            className={cn(
+              "text-xs",
+              hasError ? "text-red-600" : "text-muted-foreground",
+            )}
+          >
+            {message}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className={cn("flex flex-col gap-1", className)}>
       <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            void handleStart(true);
-          }}
-          disabled={disabled || isStarting}
-        >
-          {isStarting ? (
-            <>
-              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-              Launching Daytona...
-            </>
-          ) : (
-            "Launch Daytona"
-          )}
-        </Button>
+        {launchControls}
         <Button
           variant={terminalUrl ? "secondary" : "outline"}
           size="sm"
