@@ -456,7 +456,7 @@ function FileViewInner({
 
   const repositoryFullName = `${owner}/${repoName}`;
   const commitSha = vault.commitSHA;
-  const selectedFileGitHubUrl = `https://github.com/${owner}/${repoName}/blob/${encodeGitHubPath(branch)}/${encodeGitHubPath(selectedFile)}`;
+  const selectedFileGitHubUrl = `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/blob/${encodeGitHubPath(branch)}/${encodeGitHubPath(selectedFile)}`;
 
   // Folder expansion state
   const folderExpansionStates = useQuery(
@@ -1292,7 +1292,7 @@ function FileViewInner({
                 <div className="flex items-center gap-3">
                   <h2 className="text-base md:text-sm font-medium">
                     <a
-                      className={`truncate ${linkStyle}`}
+                      className={`block truncate ${linkStyle}`}
                       href={selectedFileGitHubUrl}
                       target="_blank"
                       rel="noopener noreferrer"
