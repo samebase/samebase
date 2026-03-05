@@ -1456,6 +1456,9 @@ export async function createCommitWithMultipleFiles({
       const isRenamed = file.filePath !== file.initialFilePath;
 
       if (file.fileDeleted) {
+        if (file.parentCommitSha === null) {
+          continue;
+        }
         const deletionPath = shaByPath.has(file.initialFilePath)
           ? file.initialFilePath
           : shaByPath.has(file.filePath)

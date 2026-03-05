@@ -497,6 +497,49 @@ describe("createCommitWithMultipleFiles (real implementation)", () => {
     expect(createTreeCall?.tree).toHaveLength(0);
   });
 
+  it("skips deletion for staged files that were never committed upstream", async () => {
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
+      makeGetRefResponse("head-sha-1"),
+    );
+    vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
+      makeGetCommitResponse("tree-sha-1", "head-sha-1"),
+    );
+    vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
+      makeGetTreeResponse("tree-sha-1", [
+        { path: "src/new-file.ts", sha: "blob-unrelated-upstream" },
+      ]),
+    );
+    const createTreeSpy = vi
+      .spyOn(octokit.rest.git, "createTree")
+      .mockResolvedValue(makeCreateTreeResponse("new-tree-sha"));
+    vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
+      makeCreateCommitResponse("new-tree-sha", "new-commit-sha"),
+    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
+      makeUpdateRefResponse("new-commit-sha"),
+    );
+
+    await realCreateCommitWithMultipleFiles({
+      octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "main",
+      stagedFiles: [
+        {
+          filePath: "src/new-file.ts",
+          initialFilePath: "src/new-file.ts",
+          fileDeleted: true,
+          parentCommitSha: null,
+          initialContent: "",
+          content: "",
+        },
+      ],
+    });
+
+    const createTreeCall = createTreeSpy.mock.calls[0]?.[0];
+    expect(createTreeCall?.tree).toHaveLength(0);
+  });
+
   it("deletes renamed files using the original upstream path", async () => {
     vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
       makeGetRefResponse("head-sha-1"),
