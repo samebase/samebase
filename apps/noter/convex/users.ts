@@ -2,11 +2,12 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { action, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Infer, v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
 import { getConnectionByUserAndKind } from "./providerConnections";
 import { isRecord, readBoolean, readString } from "./jsonUtils";
 import { fetchRailwayConnectionDetails } from "./railwayConnectionDetails";
 
-const { array, literal, object, optional, string, union } = v;
+const { array, literal, number, object, optional, string, union } = v;
 
 const ADMIN_USERNAMES = ["nicu-chiciuc"];
 const ADMIN_EMAILS = new Set([
@@ -20,6 +21,7 @@ const ALLOWED_EMAILS = new Set([
   "nicu@noter.md",
 ]);
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
+const MCP_EXPIRING_SOON_MS = 15 * 60 * 1000;
 const GITHUB_API_BASE = "https://api.github.com";
 const CONVEX_TOKEN_DETAILS_URL = "https://api.convex.dev/v1/token_details";
 const NETLIFY_API_BASE = "https://api.netlify.com/api/v1";
@@ -35,6 +37,29 @@ const providerAuthMethodValidator = union(
   literal("mcp_oauth"),
   literal("api_key"),
 );
+const mcpTokenStatusValidator = union(
+  literal("valid"),
+  literal("expiring_soon"),
+  literal("expired"),
+  literal("invalid"),
+  literal("unknown"),
+);
+const cloudflareConnectionStatusValidator = object({
+  connected: v.boolean(),
+  accountId: optional(string()),
+  authMethod: optional(providerAuthMethodValidator),
+  mcpTokenStatus: optional(mcpTokenStatusValidator),
+  mcpTokenExpiresAt: optional(number()),
+  mcpTokenCheckedAt: optional(number()),
+  mcpTokenError: optional(string()),
+});
+type CloudflareConnectionStatus = Infer<
+  typeof cloudflareConnectionStatusValidator
+>;
+type CloudflareConnectionDoc = Extract<
+  Doc<"providerConnections">,
+  { kind: "cloudflare" }
+>;
 
 type JsonRecord = Record<string, unknown>;
 type NetlifyAccount = {
@@ -124,6 +149,48 @@ function normalizeApiToken(token: string): string {
     throw new Error("API key is required");
   }
   return normalized;
+}
+
+function deriveMcpTokenStatusFromExpiry(
+  expiresAt: number | undefined,
+  now: number = Date.now(),
+): Infer<typeof mcpTokenStatusValidator> {
+  if (typeof expiresAt !== "number") {
+    return "unknown";
+  }
+  if (expiresAt <= now) {
+    return "expired";
+  }
+  if (expiresAt <= now + MCP_EXPIRING_SOON_MS) {
+    return "expiring_soon";
+  }
+  return "valid";
+}
+
+function buildCloudflareConnectionStatus(
+  connection: CloudflareConnectionDoc,
+): CloudflareConnectionStatus {
+  const baseStatus: CloudflareConnectionStatus = {
+    connected: true,
+    accountId: connection.accountId,
+    authMethod: connection.auth.method,
+  };
+
+  if (connection.auth.method !== "mcp_oauth") {
+    return baseStatus;
+  }
+
+  const now = Date.now();
+  return {
+    ...baseStatus,
+    mcpTokenStatus:
+      connection.tokenHealth?.status ??
+      deriveMcpTokenStatusFromExpiry(connection.auth.credentialExpiresAt, now),
+    mcpTokenExpiresAt:
+      connection.tokenHealth?.expiresAt ?? connection.auth.credentialExpiresAt,
+    mcpTokenCheckedAt: connection.tokenHealth?.checkedAt ?? now,
+    mcpTokenError: connection.tokenHealth?.errorMessage,
+  };
 }
 
 async function fetchGithubIdentity(token: string): Promise<{
@@ -567,11 +634,7 @@ export const disconnectRailway = mutation({
 
 export const getCloudflareConnectionStatus = query({
   args: {},
-  returns: v.object({
-    connected: v.boolean(),
-    accountId: v.optional(v.string()),
-    authMethod: v.optional(providerAuthMethodValidator),
-  }),
+  returns: cloudflareConnectionStatusValidator,
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) {
@@ -586,11 +649,70 @@ export const getCloudflareConnectionStatus = query({
       return { connected: false };
     }
 
-    return {
-      connected: true,
-      accountId: connection.accountId,
-      authMethod: connection.auth.method,
-    };
+    return buildCloudflareConnectionStatus(connection);
+  },
+});
+
+export const checkCloudflareMcpTokenHealth = action({
+  args: {},
+  returns: cloudflareConnectionStatusValidator,
+  handler: async (ctx): Promise<CloudflareConnectionStatus> => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      throw new Error("User not authenticated");
+    }
+
+    const connection = await ctx.runQuery(
+      internal.providerConnections.getByUserAndKind,
+      {
+        userId,
+        kind: "cloudflare",
+      },
+    );
+    if (connection?.kind !== "cloudflare") {
+      throw new Error("Cloudflare is not connected");
+    }
+    if (connection.auth.method !== "mcp_oauth") {
+      return buildCloudflareConnectionStatus(connection);
+    }
+
+    try {
+      await ctx.runAction(
+        internal.cloudflareMcpOAuth.resolveConnectionForUser,
+        {
+          userId,
+          forceRefresh: true,
+        },
+      );
+    } catch (error) {
+      const refreshedConnection = await ctx.runQuery(
+        internal.providerConnections.getByUserAndKind,
+        {
+          userId,
+          kind: "cloudflare",
+        },
+      );
+      if (
+        refreshedConnection?.kind === "cloudflare" &&
+        refreshedConnection.auth.method === "mcp_oauth" &&
+        refreshedConnection.tokenHealth?.status === "invalid"
+      ) {
+        return buildCloudflareConnectionStatus(refreshedConnection);
+      }
+      throw error;
+    }
+
+    const refreshedConnection = await ctx.runQuery(
+      internal.providerConnections.getByUserAndKind,
+      {
+        userId,
+        kind: "cloudflare",
+      },
+    );
+    if (refreshedConnection?.kind !== "cloudflare") {
+      return { connected: false };
+    }
+    return buildCloudflareConnectionStatus(refreshedConnection);
   },
 });
 

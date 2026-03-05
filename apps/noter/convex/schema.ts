@@ -162,6 +162,29 @@ export const CloudflareProviderAuth = v.union(McpOAuthAuth, ApiKeyAuth);
 export type CloudflareProviderAuth = Infer<typeof CloudflareProviderAuth>;
 export const ProviderAuth = v.union(OAuthAuth, McpOAuthAuth, ApiKeyAuth);
 export type ProviderAuth = Infer<typeof ProviderAuth>;
+export const McpTokenHealthStatus = v.union(
+  v.literal("valid"),
+  v.literal("expiring_soon"),
+  v.literal("expired"),
+  v.literal("invalid"),
+  v.literal("unknown"),
+);
+export type McpTokenHealthStatus = Infer<typeof McpTokenHealthStatus>;
+export const McpTokenHealthSource = v.union(
+  v.literal("expiry_metadata"),
+  v.literal("refresh_attempt"),
+  v.literal("active_probe"),
+  v.literal("runtime_error"),
+);
+export type McpTokenHealthSource = Infer<typeof McpTokenHealthSource>;
+export const McpTokenHealth = v.object({
+  status: McpTokenHealthStatus,
+  checkedAt: v.number(),
+  expiresAt: v.optional(v.number()),
+  source: McpTokenHealthSource,
+  errorMessage: v.optional(v.string()),
+});
+export type McpTokenHealth = Infer<typeof McpTokenHealth>;
 
 export const GithubProviderConnection = v.object({
   kind: v.literal("github"),
@@ -204,6 +227,7 @@ export const CloudflareProviderConnection = v.object({
   userId: v.id("users"),
   auth: CloudflareProviderAuth,
   accountId: v.optional(v.string()),
+  tokenHealth: v.optional(McpTokenHealth),
   createdAt: v.number(),
   updatedAt: v.number(),
 });

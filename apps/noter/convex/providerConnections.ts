@@ -61,6 +61,26 @@ const cloudflareProviderAuthValidator = union(
   mcpOauthAuthValidator,
   apiKeyAuthValidator,
 );
+const mcpTokenHealthStatusValidator = union(
+  literal("valid"),
+  literal("expiring_soon"),
+  literal("expired"),
+  literal("invalid"),
+  literal("unknown"),
+);
+const mcpTokenHealthSourceValidator = union(
+  literal("expiry_metadata"),
+  literal("refresh_attempt"),
+  literal("active_probe"),
+  literal("runtime_error"),
+);
+const mcpTokenHealthValidator = object({
+  status: mcpTokenHealthStatusValidator,
+  checkedAt: number(),
+  expiresAt: optional(number()),
+  source: mcpTokenHealthSourceValidator,
+  errorMessage: optional(string()),
+});
 
 const githubConnectionUpsertValidator = object({
   userId: id("users"),
@@ -90,6 +110,7 @@ const cloudflareConnectionUpsertValidator = object({
   userId: id("users"),
   auth: cloudflareProviderAuthValidator,
   accountId: optional(string()),
+  tokenHealth: optional(mcpTokenHealthValidator),
 });
 
 const githubConnectionResultValidator = object({
@@ -143,6 +164,7 @@ const cloudflareConnectionResultValidator = object({
   userId: id("users"),
   auth: cloudflareProviderAuthValidator,
   accountId: optional(string()),
+  tokenHealth: optional(mcpTokenHealthValidator),
   createdAt: number(),
   updatedAt: number(),
 });
@@ -292,21 +314,42 @@ async function upsertCloudflareConnection(
     "cloudflare",
   );
   if (existing) {
-    await db.patch(existing._id, {
+    const patch: {
+      auth: Infer<typeof cloudflareProviderAuthValidator>;
+      accountId?: string;
+      tokenHealth?: Infer<typeof mcpTokenHealthValidator>;
+      updatedAt: number;
+    } = {
       auth: args.auth,
       accountId: args.accountId,
       updatedAt: now,
-    });
+    };
+    if (args.tokenHealth !== undefined) {
+      patch.tokenHealth = args.tokenHealth;
+    }
+    await db.patch(existing._id, patch);
     return;
   }
-  await db.insert("providerConnections", {
+  const doc: {
+    kind: "cloudflare";
+    userId: Id<"users">;
+    auth: Infer<typeof cloudflareProviderAuthValidator>;
+    accountId?: string;
+    tokenHealth?: Infer<typeof mcpTokenHealthValidator>;
+    createdAt: number;
+    updatedAt: number;
+  } = {
     kind: "cloudflare",
     userId: args.userId,
     auth: args.auth,
     accountId: args.accountId,
     createdAt: now,
     updatedAt: now,
-  });
+  };
+  if (args.tokenHealth !== undefined) {
+    doc.tokenHealth = args.tokenHealth;
+  }
+  await db.insert("providerConnections", doc);
 }
 
 export const getByUserAndKind = internalQuery({
