@@ -705,9 +705,12 @@ export function VaultDashboard() {
     }
   }, [cloudflareConnected, createHostingProvider, netlifyConnected]);
 
+  const hostingConnectionByProvider: Record<CreateHostingProvider, boolean> = {
+    cloudflare: cloudflareConnected,
+    netlify: netlifyConnected,
+  };
   const connectedHostingProviders = CREATE_HOSTING_PROVIDERS.filter(
-    (provider) =>
-      provider === "netlify" ? netlifyConnected : cloudflareConnected,
+    (provider) => hostingConnectionByProvider[provider],
   );
   const createHostingProviderOptions =
     connectedHostingProviders.length > 0
@@ -716,13 +719,11 @@ export function VaultDashboard() {
         : [...connectedHostingProviders, createHostingProvider]
       : CREATE_HOSTING_PROVIDERS;
   const isHostingProviderConnected = (provider: CreateHostingProvider) =>
-    provider === "netlify" ? netlifyConnected : cloudflareConnected;
+    hostingConnectionByProvider[provider];
   const requiredHostingConnectionLabel =
     CREATE_HOSTING_PROVIDER_LABEL[createHostingProvider];
   const requiredHostingConnected =
-    createHostingProvider === "netlify"
-      ? netlifyConnected
-      : cloudflareConnected;
+    hostingConnectionByProvider[createHostingProvider];
   const cloudflareMcpTokenStatus = cloudflareConnection?.mcpTokenStatus;
   const cloudflareMcpTokenExpiresAt = cloudflareConnection?.mcpTokenExpiresAt;
   const cloudflareMcpTokenCheckedAt = cloudflareConnection?.mcpTokenCheckedAt;
