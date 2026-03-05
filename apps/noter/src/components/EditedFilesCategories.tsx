@@ -112,13 +112,17 @@ export function EditedFilesCategories({
   const { search } = useLocation();
   const navigateToDiffViewer = useCallback(
     (filePath: string) => {
+      const encodedFilePath = filePath
+        .split("/")
+        .map((segment) => encodeURIComponent(segment))
+        .join("/");
       const searchParams = new URLSearchParams(search);
       searchParams.delete("diff");
       const baseQuery = searchParams.toString();
       const queryString = baseQuery.length > 0 ? `${baseQuery}&diff` : "diff";
 
       void navigate(
-        `/vault/${repositoryFullName}/${branch}/${filePath}?${queryString}`,
+        `/vault/${repositoryFullName}/${branch}/${encodedFilePath}?${queryString}`,
       );
     },
     [branch, navigate, repositoryFullName, search],

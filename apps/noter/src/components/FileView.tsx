@@ -724,6 +724,10 @@ function FileViewInner({
         reviewMode?: CommitReviewMode;
       },
     ) => {
+      const encodedPath = path
+        .split("/")
+        .map((segment) => encodeURIComponent(segment))
+        .join("/");
       const searchParams = new URLSearchParams(search);
       const preserveCurrentReviewMode = options?.reviewMode === undefined;
       const includeDiff =
@@ -736,7 +740,7 @@ function FileViewInner({
           ? `${baseQuery}&diff`
           : "diff"
         : baseQuery;
-      return `/vault/${owner}/${repoName}/${branch}/${path}${queryString.length > 0 ? `?${queryString}` : ""}`;
+      return `/vault/${owner}/${repoName}/${branch}/${encodedPath}${queryString.length > 0 ? `?${queryString}` : ""}`;
     },
     [branch, owner, repoName, search],
   );
