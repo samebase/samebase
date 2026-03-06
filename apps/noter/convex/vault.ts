@@ -25,6 +25,8 @@ import {
   TREE_REFRESH_STALE_LOCK_MS,
 } from "../shared/treeRefresh";
 
+const nullValidator = v.null();
+
 // MARK: Public
 
 export const removeVault = mutation({
@@ -247,7 +249,7 @@ export const updateVaultDevcontainerConfig = internalMutation({
     vaultId: v.id("vaults"),
     devcontainerConfig: v.string(),
   },
-  returns: v.null(),
+  returns: nullValidator,
   handler: async (ctx, args) => {
     await ctx.db.patch(args.vaultId, {
       devcontainerConfig: args.devcontainerConfig,
@@ -263,7 +265,7 @@ export const updateVaultDaytonaSandbox = internalMutation({
     sandboxName: v.optional(v.string()),
     createdAt: v.number(),
   },
-  returns: v.null(),
+  returns: nullValidator,
   handler: async (ctx, args) => {
     await ctx.db.patch(args.vaultId, {
       daytonaSandboxId: args.sandboxId,
@@ -279,7 +281,7 @@ export const updateVaultDaytonaSnapshot = internalMutation({
     vaultId: v.id("vaults"),
     snapshotName: v.optional(v.string()),
   },
-  returns: v.null(),
+  returns: nullValidator,
   handler: async (ctx, args) => {
     await ctx.db.patch(args.vaultId, {
       daytonaSnapshotName: args.snapshotName,
@@ -296,7 +298,7 @@ export const updateVaultDaytonaPrebuildLogs = internalMutation({
     logs: v.string(),
     updatedAt: v.number(),
   },
-  returns: v.null(),
+  returns: nullValidator,
   handler: async (ctx, args) => {
     await ctx.db.patch(args.vaultId, {
       daytonaPrebuildLogs: args.logs,
@@ -312,7 +314,7 @@ export const clearVaultDaytonaSandbox = internalMutation({
   args: {
     vaultId: v.id("vaults"),
   },
-  returns: v.null(),
+  returns: nullValidator,
   handler: async (ctx, args) => {
     await ctx.db.patch(args.vaultId, {
       daytonaSandboxId: undefined,
@@ -790,7 +792,7 @@ export const updateVaultTree = internalMutation({
     treeData: GithubTreeData,
     commitSHA: v.optional(v.string()),
   },
-  returns: v.null(),
+  returns: nullValidator,
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
 
@@ -851,7 +853,7 @@ export const updateVaultCommitSha = internalMutation({
     vaultId: v.id("vaults"),
     commitSHA: string(),
   },
-  returns: v.null(),
+  returns: nullValidator,
   handler: async (ctx, args) => {
     await ctx.db.patch(args.vaultId, {
       commitSHA: args.commitSHA,

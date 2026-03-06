@@ -25,6 +25,8 @@ const {
   union,
 } = v;
 
+const nullValidator = vnull();
+
 const daytonaSnapshotRecord = object({
   _id: id("daytonaSnapshots"),
   _creationTime: number(),
@@ -75,13 +77,14 @@ async function getSnapshotRecordByCommit(
     commitSha: string;
   },
 ): Promise<SnapshotRecord | null> {
+  const branch = canonicalizeCommitPinnedDaytonaBranch(args.branch);
   return await ctx.db
     .query("daytonaSnapshots")
     .withIndex("by_ghRepoOwner_and_ghRepoName_and_branch_and_commitSha", (q) =>
       q
         .eq("ghRepoOwner", args.owner)
         .eq("ghRepoName", args.repo)
-        .eq("branch", args.branch)
+        .eq("branch", branch)
         .eq("commitSha", args.commitSha),
     )
     .first();
@@ -196,13 +199,14 @@ export const listByRepoBranch = internalQuery({
   },
   returns: array(daytonaSnapshotRecord),
   handler: async (ctx, args) => {
+    const branch = canonicalizeCommitPinnedDaytonaBranch(args.branch);
     return await ctx.db
       .query("daytonaSnapshots")
       .withIndex("by_ghRepoOwner_and_ghRepoName_and_branch", (q) =>
         q
           .eq("ghRepoOwner", args.owner)
           .eq("ghRepoName", args.repo)
-          .eq("branch", args.branch),
+          .eq("branch", branch),
       )
       .collect();
   },
@@ -300,7 +304,8 @@ export const tryMarkBuildStarted = internalMutation({
       attemptCount: existing.attemptCount + 1,
       lastError: undefined,
       logs: args.logs ?? existing.logs,
-      logsUpdatedAt: args.logs ? args.startedAt : existing.logsUpdatedAt,
+      logsUpdatedAt:
+        args.logs !== undefined ? args.startedAt : existing.logsUpdatedAt,
       nextRetryAt: undefined,
       updatedAt: args.startedAt,
     });
@@ -322,7 +327,7 @@ export const updateLogs = internalMutation({
     logs: string(),
     updatedAt: number(),
   },
-  returns: v.null(),
+  returns: nullValidator,
   handler: async (ctx, args) => {
     const existing = await getSnapshotRecordByCommit(ctx, args);
     if (!existing) {
@@ -410,7 +415,13 @@ export const markBuildFailedAndScheduleRetry = internalMutation({
   },
   returns: union(daytonaSnapshotRecord, vnull()),
   handler: async (ctx, args) => {
-    const existing = await getSnapshotRecordByCommit(ctx, args);
+    const branch = canonicalizeCommitPinnedDaytonaBranch(args.branch);
+    const existing = await getSnapshotRecordByCommit(ctx, {
+      owner: args.owner,
+      repo: args.repo,
+      branch,
+      commitSha: args.commitSha,
+    });
     if (!existing) {
       return null;
     }
@@ -430,7 +441,7 @@ export const markBuildFailedAndScheduleRetry = internalMutation({
         userId: args.userId,
         owner: args.owner,
         repo: args.repo,
-        branch: args.branch,
+        branch,
         commitSha: args.commitSha,
       },
     );
@@ -444,7 +455,7 @@ export const markBuildRemoving = internalMutation({
     snapshotIds: array(id("daytonaSnapshots")),
     updatedAt: number(),
   },
-  returns: v.null(),
+  returns: nullValidator,
   handler: async (ctx, args) => {
     await Promise.all(
       args.snapshotIds.map(async (snapshotId) => {
@@ -467,7 +478,7 @@ export const removeRecordsByIds = internalMutation({
   args: {
     snapshotIds: array(id("daytonaSnapshots")),
   },
-  returns: v.null(),
+  returns: nullValidator,
   handler: async (ctx, args) => {
     await Promise.all(
       args.snapshotIds.map(async (snapshotId) => {
@@ -482,7 +493,7 @@ export const removeBySnapshotName = internalMutation({
   args: {
     snapshotName: string(),
   },
-  returns: v.null(),
+  returns: nullValidator,
   handler: async (ctx, args) => {
     const snapshots = await ctx.db
       .query("daytonaSnapshots")
