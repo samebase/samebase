@@ -30,12 +30,10 @@ manual-tests/UI-001-landing-copy-hides-markdown.md
 manual-tests/worktree/WT-001-anon-worktree-isolation.md
 manual-tests/worktree/WT-002-wt-001-local-and-worktree.md
 noter.md
-patches/convex@1.32.0.patch
 README.md
 RECOVERED_IDEAS.md
 REFERENCES.md
 Screenshot 2026-02-17 at 01.19.49.png
-scripts/daytona-refresh.sh
 skills/create-pr/SKILL.md
 skills/noter-playwright-live/references/playwright-cli-quickref.md
 skills/noter-playwright-live/references/runbook.md
