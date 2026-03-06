@@ -265,9 +265,10 @@ them directly using CLI tools.
 - Treat CodeRabbit actionable comments and nitpicks as required fixes during
   `ship`, same as Greptile findings.
 - CodeRabbit UI/status rule: your `@coderabbitai review` comment is only a
-  trigger. Read the latest CodeRabbit bot status/check for outcome (CodeRabbit
-  may edit its existing status comment instead of posting a new one). Validate
-  findings against the latest commit SHA before fixing.
+  trigger. Read the first/top-level CodeRabbit summary comment for outcome;
+  CodeRabbit updates that existing comment in place rather than reliably posting
+  a new one. Also check the CodeRabbit status/check and validate findings
+  against the latest commit SHA before fixing.
 - On CI failure, report the error and offer to fix
 - **NEVER merge a PR until CI is green** - always wait for checks to pass.
 - Preferred merge style for this repo: rebase the branch onto `origin/main`
