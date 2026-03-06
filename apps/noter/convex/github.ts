@@ -11,23 +11,36 @@ import {
   isSvgRepositoryMediaPath,
 } from "../shared/repositoryMedia";
 
+const {
+  array,
+  boolean,
+  id,
+  literal,
+  null: nullValidator,
+  number,
+  object,
+  optional,
+  string,
+  union,
+} = v;
+
 // List the current user's GitHub repositories
 export const listRepositories = action({
   args: {},
-  returns: v.array(
-    v.object({
-      id: v.number(),
-      name: v.string(),
-      full_name: v.string(),
-      html_url: v.string(),
-      description: v.union(v.string(), v.null()),
-      private: v.boolean(),
-      fork: v.boolean(),
-      created_at: v.string(),
-      updated_at: v.string(),
-      language: v.union(v.string(), v.null()),
-      stargazers_count: v.number(),
-      forks_count: v.number(),
+  returns: array(
+    object({
+      id: number(),
+      name: string(),
+      full_name: string(),
+      html_url: string(),
+      description: union(string(), nullValidator()),
+      private: boolean(),
+      fork: boolean(),
+      created_at: string(),
+      updated_at: string(),
+      language: union(string(), nullValidator()),
+      stargazers_count: number(),
+      forks_count: number(),
     }),
   ),
   handler: async (ctx) => {
@@ -82,9 +95,9 @@ export const listRepositories = action({
   },
 });
 
-const repositoryFileContentResult = v.union(
-  v.object({ exists: v.literal(false) }),
-  v.object({ exists: v.literal(true), content: v.string() }),
+const repositoryFileContentResult = union(
+  object({ exists: literal(false) }),
+  object({ exists: literal(true), content: string() }),
 );
 
 type RepositoryFileContent =
@@ -92,22 +105,22 @@ type RepositoryFileContent =
   | { exists: true; content: string };
 const PAGE_LOAD_REFRESH_DEBOUNCE_MS = 10 * 1000;
 
-const repositoryMediaAssetResult = v.union(
-  v.object({
-    found: v.literal(false),
-    reason: v.literal("missing"),
+const repositoryMediaAssetResult = union(
+  object({
+    found: literal(false),
+    reason: literal("missing"),
   }),
-  v.object({
-    found: v.literal(false),
-    reason: v.literal("unavailable"),
-    message: v.string(),
+  object({
+    found: literal(false),
+    reason: literal("unavailable"),
+    message: string(),
   }),
-  v.object({
-    found: v.literal(true),
-    kind: v.literal("image"),
-    mimeType: v.string(),
-    url: v.string(),
-    fileName: v.string(),
+  object({
+    found: literal(true),
+    kind: literal("image"),
+    mimeType: string(),
+    url: string(),
+    fileName: string(),
   }),
 );
 
@@ -179,9 +192,9 @@ function isRepositoryMediaTooLargeError(error: unknown): boolean {
 
 export const getRepositoryFileContent = action({
   args: {
-    repositoryFullName: v.string(),
-    filePath: v.string(),
-    branch: v.optional(v.string()),
+    repositoryFullName: string(),
+    filePath: string(),
+    branch: optional(string()),
   },
   returns: repositoryFileContentResult,
   handler: async (ctx, args): Promise<RepositoryFileContent> => {
@@ -273,9 +286,9 @@ export const getRepositoryFileContent = action({
 
 export const getRepositoryMediaAsset = action({
   args: {
-    repositoryFullName: v.string(),
-    filePath: v.string(),
-    branch: v.optional(v.string()),
+    repositoryFullName: string(),
+    filePath: string(),
+    branch: optional(string()),
   },
   returns: repositoryMediaAssetResult,
   handler: async (ctx, args): Promise<RepositoryMediaAsset> => {
@@ -472,9 +485,9 @@ export const getRepositoryMediaAsset = action({
 // Public action to refresh repository tree (called from frontend on vault open)
 export const refreshRepositoryTree = action({
   args: {
-    owner: v.string(),
-    repo: v.string(),
-    trigger: v.optional(v.union(v.literal("focus"), v.literal("page_load"))),
+    owner: string(),
+    repo: string(),
+    trigger: optional(union(literal("focus"), literal("page_load"))),
   },
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
@@ -512,9 +525,9 @@ export const refreshRepositoryTree = action({
 // Get repository tree structure
 export const updateRepositoryTree = internalAction({
   args: {
-    userId: v.id("users"),
-    owner: v.string(),
-    repo: v.string(),
+    userId: id("users"),
+    owner: string(),
+    repo: string(),
   },
   handler: async (ctx, args) => {
     console.log("updateRepositoryTree", args);
