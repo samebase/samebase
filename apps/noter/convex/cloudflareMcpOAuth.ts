@@ -136,6 +136,16 @@ function logCloudflareMcpEvent(
   console.log(event, fields);
 }
 
+export function resolveCloudflareMcpRefreshClient(args: {
+  clientId?: string;
+}): { clientId: string | null; source: "stored_auth" | "missing" } {
+  const clientId = args.clientId?.trim() ?? "";
+  if (clientId.length > 0) {
+    return { clientId, source: "stored_auth" };
+  }
+  return { clientId: null, source: "missing" };
+}
+
 function sanitizeTokenHealthError(error: unknown): string | undefined {
   const rawMessage = error instanceof Error ? error.message : String(error);
   const trimmed = rawMessage.trim();
@@ -339,7 +349,9 @@ export const resolveConnectionForUser = internalAction({
 
     const expiresAt = connection.auth.credentialExpiresAt;
     const checkedAt = Date.now();
-    const storedClientId = connection.auth.clientId?.trim() ?? "";
+    const refreshClient = resolveCloudflareMcpRefreshClient({
+      clientId: connection.auth.clientId,
+    });
     const derivedTokenHealth: Infer<typeof mcpTokenHealthValidator> = {
       status: deriveMcpTokenStatusFromExpiry(expiresAt, checkedAt),
       checkedAt,
@@ -360,7 +372,7 @@ export const resolveConnectionForUser = internalAction({
       checkedAt,
       hasStoredTokenHealth: connection.tokenHealth !== undefined,
       shouldRefresh,
-      hasStoredClientId: storedClientId.length > 0,
+      hasStoredClientId: refreshClient.source === "stored_auth",
     });
     if (!shouldRefresh) {
       return {
@@ -396,9 +408,8 @@ export const resolveConnectionForUser = internalAction({
       throw new Error(message);
     }
 
-    const clientId = storedClientId;
-    const clientIdSource =
-      storedClientId.length > 0 ? "stored_auth" : "missing";
+    const clientId = refreshClient.clientId;
+    const clientIdSource = refreshClient.source;
     if (!clientId) {
       const message =
         "Cloudflare OAuth client ID is missing. Reconnect Cloudflare and retry.";
