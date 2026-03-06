@@ -5,6 +5,9 @@ metadata. That does not change the license of any third-party dependency.
 
 Current dependency review:
 
+- Reviewed on 2026-03-06 using `pnpm licenses list --prod`.
+- Raw report stored at `docs/compliance/licenses-prod-2026-03-06.txt`.
+
 - `pnpm licenses list --prod` did not surface GPL, AGPL, or LGPL dependencies.
 - The production dependency graph is dominated by permissive licenses,
   especially MIT and Apache-2.0.
