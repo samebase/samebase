@@ -1,7 +1,7 @@
 - noter is a collaborative markdown workspace on top of GitHub
 - noter: the senior stack for junior devs
 - noter: if Notion and Obsidian had a baby
-- noter: if Lovable were good enough to build Lovable
+- noter: if Lovable could build Lovable
 - noter disregards Gödel’s incompleteness theorems
 - noter is the tech stack for AI Agents
 - noter: ship a convex app in 3.4 seconds
