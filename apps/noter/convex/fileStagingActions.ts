@@ -1,5 +1,6 @@
 "use node";
 
+import { createHash } from "node:crypto";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { v, type Infer } from "convex/values";
 import { api, internal } from "./_generated/api";
@@ -328,6 +329,41 @@ export async function rebaseStagedFilesOnLatestHead(args: {
     return [];
   }
 
+  const contentMatchesSha = (content: string, sha: string): boolean => {
+    const contentBuffer = Buffer.from(content, "utf-8");
+    const headerBuffer = Buffer.from(`blob ${contentBuffer.length}\0`, "utf-8");
+    const computedSha = createHash("sha1")
+      .update(headerBuffer)
+      .update(contentBuffer)
+      .digest("hex");
+    return computedSha === sha;
+  };
+  const initialContentMatchesUpstreamCache = new Map<
+    StagedFileForCommit,
+    { upstreamSha: string; matches: boolean }
+  >();
+  const initialContentMatchesUpstream = (
+    file: StagedFileForCommit,
+    upstreamSha: string,
+  ): boolean => {
+    const cached = initialContentMatchesUpstreamCache.get(file);
+    if (cached && cached.upstreamSha === upstreamSha) {
+      return cached.matches;
+    }
+    const matches = contentMatchesSha(file.initialContent, upstreamSha);
+    initialContentMatchesUpstreamCache.set(file, {
+      upstreamSha,
+      matches,
+    });
+    return matches;
+  };
+  const shouldSkipFastPathRebase = (
+    file: StagedFileForCommit,
+    upstreamSha: string,
+  ): boolean =>
+    upstreamSha === file.parentCommitSha &&
+    initialContentMatchesUpstream(file, upstreamSha);
+
   const treeSha = args.branch.startsWith("refs/heads/")
     ? args.branch.slice("refs/".length)
     : args.branch.startsWith("heads/")
@@ -409,7 +445,10 @@ export async function rebaseStagedFilesOnLatestHead(args: {
       continue;
     }
     const upstreamSha = resolveUpstreamShaForFile(file);
-    if (!upstreamSha || upstreamSha === file.parentCommitSha) {
+    if (!upstreamSha) {
+      continue;
+    }
+    if (shouldSkipFastPathRebase(file, upstreamSha)) {
       continue;
     }
     upstreamShasToPrefetch.add(upstreamSha);
@@ -429,7 +468,11 @@ export async function rebaseStagedFilesOnLatestHead(args: {
     }
 
     const upstreamSha = resolveUpstreamShaForFile(file);
-    if (!upstreamSha || upstreamSha === file.parentCommitSha) {
+    if (!upstreamSha) {
+      rebasedFiles.push(file);
+      continue;
+    }
+    if (shouldSkipFastPathRebase(file, upstreamSha)) {
       rebasedFiles.push(file);
       continue;
     }

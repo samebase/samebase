@@ -358,6 +358,72 @@ describe("createCommitWithMultipleFiles", () => {
     );
   });
 
+  it("Test 1d: Rebases when parent SHA matches but initial content is stale", async () => {
+    const targetBranch = "feature/stale-parent-sha";
+    vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
+      makeGetRefResponse("abc123"),
+    );
+    vi.spyOn(octokit.rest.git, "getCommit").mockResolvedValue(
+      makeGetCommitResponse("tree123", "abc123"),
+    );
+    vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
+      makeGetTreeResponse("head-tree", [{ path: "TODO.md", sha: "upstream" }]),
+    );
+    const getBlobSpy = vi
+      .spyOn(octokit.rest.git, "getBlob")
+      .mockResolvedValue(
+        makeGetBlobResponse(
+          "upstream",
+          ["alpha", "beta", "gamma", "delta", ""].join("\n"),
+        ),
+      );
+    const createTreeSpy = vi
+      .spyOn(octokit.rest.git, "createTree")
+      .mockResolvedValue(makeCreateTreeResponse("newtree123"));
+    vi.spyOn(octokit.rest.git, "createCommit").mockResolvedValue(
+      makeCreateCommitResponse("newtree123", "commit123"),
+    );
+    vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(
+      makeUpdateRefResponse("commit123"),
+    );
+
+    await createCommitWithMultipleFiles({
+      octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      stagedFiles: [
+        {
+          filePath: "TODO.md",
+          content: ["alpha-updated", "beta", "gamma", ""].join("\n"),
+          fileDeleted: false,
+          initialFilePath: "TODO.md",
+          initialContent: ["alpha", "beta", "gamma", ""].join("\n"),
+          // Simulates stale metadata where parent SHA was updated without
+          // synchronizing initialContent.
+          parentCommitSha: "upstream",
+        },
+      ],
+      branch: targetBranch,
+    });
+
+    expect(getBlobSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ file_sha: "upstream" }),
+    );
+
+    const createTreeCall = createTreeSpy.mock.calls[0]?.[0];
+    if (!createTreeCall) {
+      throw new Error("createTree was not called");
+    }
+
+    const todoEntry = createTreeCall.tree.find(
+      (entry) => entry.path === "TODO.md",
+    );
+    const committedContent = readInlineContent(todoEntry);
+    expect(committedContent).toBe(
+      ["alpha-updated", "beta", "gamma", "delta", ""].join("\n"),
+    );
+  });
+
   it("Test 1c: skipRebase avoids extra head-tree lookups", async () => {
     vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
       makeGetRefResponse("abc123"),
