@@ -31,8 +31,11 @@ import { nonNullable } from "@/lib/utils";
 import {
   filterSimpleViewTreeItems,
   getSimpleViewPreferenceStorageKey,
+  hasSimpleViewConfigFile,
+  hasStagedSimpleViewConfigFile,
   parseSimpleViewConfig,
   SIMPLE_VIEW_CONFIG_PATH,
+  shouldLoadRepositorySimpleViewConfig,
 } from "@/lib/simpleView";
 import {
   getCommitStatusBadgeClassName,
@@ -590,20 +593,11 @@ function FileViewInner({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const hasRepositoryNoterFile = useMemo(
-    () =>
-      vault.treeData.tree.some(
-        (item: GithubTreeType) =>
-          item.type === "blob" && item.path === SIMPLE_VIEW_CONFIG_PATH,
-      ),
-    [vault.treeData.tree],
+  const hasStagedNoterFile = hasStagedSimpleViewConfigFile(stagedNoterFile);
+  const hasNoterConfigFile = hasSimpleViewConfigFile(
+    stagedNoterFile,
+    repositoryNoterContent,
   );
-
-  const hasNoterConfigFile =
-    hasRepositoryNoterFile ||
-    (stagedNoterFile !== undefined &&
-      stagedNoterFile !== null &&
-      !stagedNoterFile.fileDeleted);
 
   const simpleViewStorageKey = useMemo(
     () => getSimpleViewPreferenceStorageKey(vault._id),
@@ -621,7 +615,7 @@ function FileViewInner({
   useEffect(() => {
     setRepositoryNoterContent(null);
     setDidAttemptRepositoryNoterLoad(false);
-  }, [vault._id]);
+  }, [vault._id, branch]);
 
   useEffect(() => {
     setViewModeHydrated(false);
@@ -648,16 +642,12 @@ function FileViewInner({
   }, [viewMode, isPreviewOpen]);
 
   useEffect(() => {
-    if (stagedNoterFile === undefined) {
-      return;
-    }
-    if (!hasRepositoryNoterFile) {
-      return;
-    }
-    if (stagedNoterFile && !stagedNoterFile.fileDeleted) {
-      return;
-    }
-    if (didAttemptRepositoryNoterLoad) {
+    if (
+      !shouldLoadRepositorySimpleViewConfig(
+        stagedNoterFile,
+        didAttemptRepositoryNoterLoad,
+      )
+    ) {
       return;
     }
 
@@ -667,6 +657,7 @@ function FileViewInner({
     void loadRepositoryFileContent({
       repositoryFullName,
       filePath: SIMPLE_VIEW_CONFIG_PATH,
+      branch,
     })
       .then((result) => {
         if (cancelled) {
@@ -685,8 +676,9 @@ function FileViewInner({
       cancelled = true;
     };
   }, [
+    branch,
     didAttemptRepositoryNoterLoad,
-    hasRepositoryNoterFile,
+    hasStagedNoterFile,
     loadRepositoryFileContent,
     repositoryFullName,
     stagedNoterFile,
@@ -716,12 +708,9 @@ function FileViewInner({
     }
   }, [simpleViewMode, simpleViewStorageKey]);
 
-  const stagedNoterContent =
-    stagedNoterFile !== undefined &&
-    stagedNoterFile !== null &&
-    !stagedNoterFile.fileDeleted
-      ? stagedNoterFile.content
-      : null;
+  const stagedNoterContent = hasStagedSimpleViewConfigFile(stagedNoterFile)
+    ? stagedNoterFile.content
+    : null;
   const noterConfigContent = stagedNoterContent ?? repositoryNoterContent;
 
   const simpleViewConfig = useMemo(

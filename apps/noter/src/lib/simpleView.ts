@@ -5,6 +5,13 @@ import { parseDocument } from "yaml";
 export const SIMPLE_VIEW_CONFIG_PATH = "noter.md";
 const SIMPLE_VIEW_STORAGE_KEY_PREFIX = "noter-simple-view";
 
+type StagedSimpleViewConfigFile =
+  | {
+      fileDeleted: boolean;
+    }
+  | null
+  | undefined;
+
 const simpleViewFrontmatterSchema = z.object({
   simpleView: z
     .object({
@@ -37,6 +44,39 @@ function getFrontmatterSource(markdown: string): string | null {
 
 export function getSimpleViewPreferenceStorageKey(vaultId: string): string {
   return `${SIMPLE_VIEW_STORAGE_KEY_PREFIX}:${vaultId}`;
+}
+
+export function hasStagedSimpleViewConfigFile(
+  stagedConfigFile: StagedSimpleViewConfigFile,
+): stagedConfigFile is { fileDeleted: false } {
+  return (
+    stagedConfigFile !== undefined &&
+    stagedConfigFile !== null &&
+    !stagedConfigFile.fileDeleted
+  );
+}
+
+export function hasSimpleViewConfigFile(
+  stagedConfigFile: StagedSimpleViewConfigFile,
+  repositoryConfigContent: string | null,
+): boolean {
+  return (
+    hasStagedSimpleViewConfigFile(stagedConfigFile) ||
+    repositoryConfigContent !== null
+  );
+}
+
+export function shouldLoadRepositorySimpleViewConfig(
+  stagedConfigFile: StagedSimpleViewConfigFile,
+  didAttemptRepositoryLoad: boolean,
+): boolean {
+  if (stagedConfigFile === undefined) {
+    return false;
+  }
+  if (hasStagedSimpleViewConfigFile(stagedConfigFile)) {
+    return false;
+  }
+  return !didAttemptRepositoryLoad;
 }
 
 export function parseSimpleViewConfig(
