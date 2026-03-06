@@ -42,6 +42,7 @@ const formatDuration = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 const formatRepoRefreshReason = (reason: string) => {
   if (reason === "mode_always") return "forced by config";
   if (reason === "mode_never") return "disabled by config";
+  if (reason === "commit_pinned") return "commit pinned";
   if (reason === "repo_missing") return "repo was missing";
   if (reason === "remote_changed") return "remote changed";
   if (reason === "remote_unknown") return "remote tip unknown";

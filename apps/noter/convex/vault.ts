@@ -10,7 +10,10 @@ import { internal } from "./_generated/api";
 import { DaytonaSnapshotBuildStatus, GithubTreeData } from "./schema";
 import { Id } from "./_generated/dataModel";
 import { getUserId } from "./common";
-import { inferCommitPinnedSnapshotName } from "./daytonaSnapshotPolicy";
+import {
+  DAYTONA_COMMIT_PINNED_BRANCH,
+  inferCommitPinnedSnapshotName,
+} from "./daytonaSnapshotPolicy";
 import {
   hostingProviderValidator,
   hostingStateValidator,
@@ -119,7 +122,34 @@ export const removeVault = mutation({
       });
     }
 
-    // 8. Delete the vault
+    const hasOtherVaultsForRepository = await ctx.runQuery(
+      internal.vault.hasOtherVaultsForRepository,
+      {
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        excludeVaultId: vault._id,
+      },
+    );
+
+    // 8. Delete repo-scoped snapshot records only when this is the last vault for the repo.
+    if (!hasOtherVaultsForRepository) {
+      const snapshotRecords = await ctx.db
+        .query("daytonaSnapshots")
+        .withIndex("by_repo_branch", (q) =>
+          q
+            .eq("ghRepoOwner", vault.ghRepoOwner)
+            .eq("ghRepoName", vault.ghRepoName)
+            .eq("branch", DAYTONA_COMMIT_PINNED_BRANCH),
+        )
+        .collect();
+      for (const snapshotRecord of snapshotRecords) {
+        await ctx.db.delete(snapshotRecord._id).catch((e) => {
+          console.error("daytonaSnapshot delete", e);
+        });
+      }
+    }
+
+    // 9. Delete the vault
     await ctx.db.delete(vault._id).catch((e) => {
       console.error("vault delete", e);
     });

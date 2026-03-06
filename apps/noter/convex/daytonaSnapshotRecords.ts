@@ -6,7 +6,10 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { inferCommitPinnedSnapshotName } from "./daytonaSnapshotPolicy";
+import {
+  DAYTONA_COMMIT_PINNED_BRANCH,
+  inferCommitPinnedSnapshotName,
+} from "./daytonaSnapshotPolicy";
 import { DaytonaSnapshotBuildStatus } from "./schema";
 
 const { array, boolean, id, number, object, optional, string } = v;
@@ -123,7 +126,7 @@ export const listByRepo = internalQuery({
         q
           .eq("ghRepoOwner", args.owner)
           .eq("ghRepoName", args.repo)
-          .eq("branch", "main"),
+          .eq("branch", DAYTONA_COMMIT_PINNED_BRANCH),
       )
       .collect();
 
