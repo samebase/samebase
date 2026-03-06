@@ -909,6 +909,7 @@ function FileViewInner({
 
     void commitStaging({
       repositoryFullName: repositoryFullName,
+      branch,
     }).catch((error) => {
       console.error("Failed to commit changes:", error);
       const message =
@@ -917,21 +918,23 @@ function FileViewInner({
           : "Commit failed";
       setCommitError(message);
     });
-  }, [commitStaging, repositoryFullName, selectedFile]);
+  }, [branch, commitStaging, repositoryFullName, selectedFile]);
 
   const handleResetToGitHub = useCallback(() => {
     setCommitError(null);
     void clearAllStaging({
       vaultId: vault._id,
+      branch,
     }).catch((error) => {
       console.error("Failed to reset staged files:", error);
     });
-  }, [clearAllStaging, vault._id]);
+  }, [branch, clearAllStaging, vault._id]);
 
   const loadCommitPreview = useCallback(() => {
     setCommitPreviewError(null);
     return getCommitPreview({
       repositoryFullName,
+      branch,
       includePatch: true,
     })
       .then((preview) => {
@@ -944,7 +947,7 @@ function FileViewInner({
             : "Failed to load commit preview";
         setCommitPreviewError(message);
       });
-  }, [getCommitPreview, repositoryFullName]);
+  }, [branch, getCommitPreview, repositoryFullName]);
 
   const handleToggleReviewMode = useCallback(() => {
     if (commitReviewMode === "review") {

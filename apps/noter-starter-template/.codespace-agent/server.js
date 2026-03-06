@@ -9,6 +9,8 @@ app.use(express.json({ limit: "50mb" }));
 
 const AGENT_TOKEN_FILE = path.join(__dirname, ".agent-token");
 const WORKSPACE_DIR = process.env.WORKSPACE_DIR || "/workspaces";
+const WORKSPACE_ROOT_PATH = path.resolve(WORKSPACE_DIR);
+const WORKSPACE_ROOT_REAL_PATH = fsSync.realpathSync(WORKSPACE_ROOT_PATH);
 const CODEX_RPC_TIMEOUT_MS = 120000;
 const CODEX_INIT_TIMEOUT_MS = 30000;
 const CODEX_EVENT_BUFFER_SIZE = 500;
@@ -227,6 +229,13 @@ function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isWithinWorkspacePath(candidatePath) {
+  return (
+    candidatePath === WORKSPACE_ROOT_REAL_PATH ||
+    candidatePath.startsWith(`${WORKSPACE_ROOT_REAL_PATH}${path.sep}`)
+  );
+}
+
 function resolveWorkspacePath(inputPath, allowWorkspaceRoot = false) {
   if (typeof inputPath !== "string") {
     throw new Error("Path is required");
@@ -237,9 +246,8 @@ function resolveWorkspacePath(inputPath, allowWorkspaceRoot = false) {
     throw new Error("Path is required");
   }
 
-  const workspaceRoot = path.resolve(WORKSPACE_DIR);
-  const fullPath = path.resolve(workspaceRoot, normalizedInput);
-  const relativePath = path.relative(workspaceRoot, fullPath);
+  const fullPath = path.resolve(WORKSPACE_ROOT_PATH, normalizedInput);
+  const relativePath = path.relative(WORKSPACE_ROOT_PATH, fullPath);
 
   if (!allowWorkspaceRoot && relativePath.length === 0) {
     throw new Error("Path outside workspace not allowed");
@@ -253,9 +261,40 @@ function resolveWorkspacePath(inputPath, allowWorkspaceRoot = false) {
     throw new Error("Path outside workspace not allowed");
   }
 
+  if (relativePath.length === 0) {
+    return {
+      safePath: relativePath,
+      fullPath: WORKSPACE_ROOT_REAL_PATH,
+    };
+  }
+
+  const pathSegments = relativePath.split(path.sep).filter(Boolean);
+  let resolvedPrefix = WORKSPACE_ROOT_REAL_PATH;
+  for (let index = 0; index < pathSegments.length; index += 1) {
+    const segment = pathSegments[index];
+    const candidatePath = path.join(resolvedPrefix, segment);
+    if (!fsSync.existsSync(candidatePath)) {
+      return {
+        safePath: relativePath,
+        fullPath: path.join(resolvedPrefix, ...pathSegments.slice(index)),
+      };
+    }
+
+    const stats = fsSync.lstatSync(candidatePath);
+    if (stats.isSymbolicLink()) {
+      throw new Error("Path outside workspace not allowed");
+    }
+
+    const realPath = fsSync.realpathSync(candidatePath);
+    if (!isWithinWorkspacePath(realPath)) {
+      throw new Error("Path outside workspace not allowed");
+    }
+    resolvedPrefix = realPath;
+  }
+
   return {
     safePath: relativePath,
-    fullPath,
+    fullPath: resolvedPrefix,
   };
 }
 
@@ -1260,10 +1299,10 @@ app.get("/files/read", async (req, res) => {
 
 /**
  * List files in directory
- * GET /files/list?dirPath=<path>&recursive=<true|false>
+ * GET /files/list?dirPath=<path>
  */
 app.get("/files/list", async (req, res) => {
-  const { dirPath, recursive } = req.query;
+  const { dirPath } = req.query;
 
   let safePath;
   let fullPath;

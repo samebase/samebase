@@ -31,7 +31,6 @@ async function resolveThreadId(
   ctx: ActionCtx,
   userId: Id<"users">,
   vaultId: Id<"vaults">,
-  branch: string,
   threadId?: string,
 ): Promise<string> {
   if (threadId) {
@@ -48,7 +47,7 @@ async function resolveThreadId(
     }
   }
 
-  return ctx.runMutation(api.chat.index.createThread, { vaultId, branch });
+  return ctx.runMutation(api.chat.index.createThread, { vaultId });
 }
 
 async function buildToolContext(
@@ -194,22 +193,22 @@ export const sendAgentMessage = action({
       githubConnection?.kind === "github"
         ? githubConnection.auth.credential
         : undefined;
-    const fallbackBranch = await resolveFallbackBranch({
-      vault,
-      githubAccessToken,
-    });
-
     const resolvedThreadId = await resolveThreadId(
       ctx,
       userId,
       args.vaultId,
-      fallbackBranch,
       args.threadId,
     );
     const threadContext = await ctx.runQuery(
       internal.chat.index.getThreadContextForAction,
       { threadId: resolvedThreadId },
     );
+    const fallbackBranch =
+      threadContext?.branch ??
+      (await resolveFallbackBranch({
+        vault,
+        githubAccessToken,
+      }));
     const threadBranch = requireThreadBranch(
       threadContext?.branch ?? fallbackBranch,
     );

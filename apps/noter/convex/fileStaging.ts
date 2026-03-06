@@ -67,6 +67,7 @@ const listStagedFilesArgsValidator = {
 
 const listAllStagedFilesArgsValidator = {
   vaultId: vaultIdValidator,
+  branch: optional(branchValidator),
   includeUnchanged: optional(boolean()),
 };
 
@@ -169,9 +170,20 @@ export const listAllStagedFiles = internalQuery({
   args: listAllStagedFilesArgsValidator,
   returns: stagedFileListValidator,
   handler: async (ctx, args) => {
-    const files = await ctx.db
-      .query("fileStaging")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+    let query;
+    if (args.branch === undefined) {
+      query = ctx.db
+        .query("fileStaging")
+        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId));
+    } else {
+      const branch = args.branch;
+      query = ctx.db
+        .query("fileStaging")
+        .withIndex("by_vault_and_branch", (q) =>
+          q.eq("vaultId", args.vaultId).eq("branch", branch),
+        );
+    }
+    const files = await query
       .filter((q) =>
         args.includeUnchanged
           ? q.eq(true, true)
@@ -194,6 +206,7 @@ const DELETION_BATCH_SIZE = 500;
 export const clearAllStaging = mutation({
   args: {
     vaultId: vaultIdValidator,
+    branch: optional(branchValidator),
     skipTreeUpdate: optional(boolean()),
   },
   returns: nullResultValidator,
@@ -201,10 +214,21 @@ export const clearAllStaging = mutation({
     // Get vault info to schedule tree update
     const vault = await ctx.db.get(args.vaultId);
 
-    const stagingFiles = await ctx.db
-      .query("fileStaging")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .collect();
+    let stagingFiles;
+    if (args.branch === undefined) {
+      stagingFiles = await ctx.db
+        .query("fileStaging")
+        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+        .collect();
+    } else {
+      const branch = args.branch;
+      stagingFiles = await ctx.db
+        .query("fileStaging")
+        .withIndex("by_vault_and_branch", (q) =>
+          q.eq("vaultId", args.vaultId).eq("branch", branch),
+        )
+        .collect();
+    }
 
     for (const staging of stagingFiles) {
       await ctx.db.delete(staging._id);
@@ -215,7 +239,7 @@ export const clearAllStaging = mutation({
     await ctx.scheduler.runAfter(
       0,
       internal.fileStaging.deleteCollaborativeUpdatesBatch,
-      { vaultId: args.vaultId },
+      { vaultId: args.vaultId, branch: args.branch },
     );
 
     // Update tree to ensure it's fresh after clearing staging
@@ -236,13 +260,25 @@ export const clearAllStaging = mutation({
 export const deleteCollaborativeUpdatesBatch = internalMutation({
   args: {
     vaultId: vaultIdValidator,
+    branch: optional(branchValidator),
   },
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    const updates = await ctx.db
-      .query("collaborativeUpdates")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .take(DELETION_BATCH_SIZE);
+    let updates;
+    if (args.branch === undefined) {
+      updates = await ctx.db
+        .query("collaborativeUpdates")
+        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+        .take(DELETION_BATCH_SIZE);
+    } else {
+      const branch = args.branch;
+      updates = await ctx.db
+        .query("collaborativeUpdates")
+        .withIndex("by_vaultId_and_branch", (q) =>
+          q.eq("vaultId", args.vaultId).eq("branch", branch),
+        )
+        .take(DELETION_BATCH_SIZE);
+    }
 
     for (const update of updates) {
       await ctx.db.delete(update._id);
@@ -253,7 +289,7 @@ export const deleteCollaborativeUpdatesBatch = internalMutation({
       await ctx.scheduler.runAfter(
         0,
         internal.fileStaging.deleteCollaborativeUpdatesBatch,
-        { vaultId: args.vaultId },
+        { vaultId: args.vaultId, branch: args.branch },
       );
     }
 

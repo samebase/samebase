@@ -982,6 +982,7 @@ export const getFileForEditing = action({
 export const commitStaging = action({
   args: {
     repositoryFullName: v.string(),
+    branch: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1003,6 +1004,7 @@ export const commitStaging = action({
       vaultId: vault._id,
       repoOwner: vault.ghRepoOwner,
       repoName: vault.ghRepoName,
+      branch: args.branch,
     });
 
     return null;
@@ -1359,6 +1361,7 @@ export const batchReadFiles = action({
 export const getCommitPreview = action({
   args: {
     repositoryFullName: v.string(),
+    branch: v.optional(v.string()),
     includePatch: v.optional(v.boolean()),
   },
   returns: commitPreviewResult,
@@ -1378,6 +1381,7 @@ export const getCommitPreview = action({
       internal.fileStaging.listAllStagedFiles,
       {
         vaultId: vault._id,
+        branch: args.branch,
       },
     );
 
@@ -1394,6 +1398,7 @@ export const getCommitPreview = action({
       );
     }
     const branch =
+      args.branch ??
       stagedBranches[0] ??
       (await getVaultDefaultBranch(
         ctx,
@@ -1689,6 +1694,7 @@ export const commitAllStaged = internalAction({
     vaultId: v.id("vaults"),
     repoOwner: v.string(),
     repoName: v.string(),
+    branch: v.optional(v.string()),
     commitProposalMessageId: v.optional(v.string()),
   },
   returns: v.null(),
@@ -1728,6 +1734,7 @@ export const commitAllStaged = internalAction({
         internal.fileStaging.listAllStagedFiles,
         {
           vaultId: args.vaultId,
+          branch: args.branch,
         },
       );
 
@@ -1755,6 +1762,7 @@ export const commitAllStaged = internalAction({
         auth: githubAccessToken,
       });
       const commitBranch: string =
+        args.branch ??
         stagedBranches[0] ??
         (await getRepositoryDefaultBranch({
           octokit,
@@ -1824,6 +1832,7 @@ export const commitAllStaged = internalAction({
       // 4. NOW clear staging — client will refetch with correct tree + blobs
       await ctx.runMutation(api.fileStaging.clearAllStaging, {
         vaultId: args.vaultId,
+        branch: commitBranch,
         skipTreeUpdate: true,
       });
 

@@ -88,15 +88,6 @@ function selectAssistantMessageId(
   return undefined;
 }
 
-function requireThreadBranch(branch: string | undefined): string {
-  if (!branch) {
-    throw new Error(
-      "Thread branch is required for branch-sensitive chat tools",
-    );
-  }
-  return branch;
-}
-
 export const generateResponse = internalAction({
   args: {
     threadId: v.string(),
@@ -141,10 +132,11 @@ export const generateResponse = internalAction({
       }
     }
 
-    const hasToolAccess = Boolean(vault && githubAccessToken);
-    const toolBranch = hasToolAccess
-      ? requireThreadBranch(threadContext.branch)
-      : null;
+    const toolBranch =
+      vault && githubAccessToken && threadContext.branch
+        ? threadContext.branch
+        : null;
+    const hasToolAccess = Boolean(vault && githubAccessToken && toolBranch);
 
     // Gather context for the system prompt
     let fileContent: string | undefined;
