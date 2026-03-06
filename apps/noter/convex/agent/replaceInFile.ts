@@ -154,6 +154,8 @@ export function buildReplaceInFilePlan(args: {
     }
   }
 
+  // Split on LF only so CRLF files keep their `\r` bytes in line content.
+  // That preserves offsets computed against the original source string.
   const sourceDoc = Text.of(args.sourceContent.split("\n"));
   const changeSet = ChangeSet.of(
     sortedRanges.map((range) => ({

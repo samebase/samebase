@@ -715,6 +715,7 @@ async function waitForCodespaceAgent(args: {
     try {
       const response = await fetch(`${args.agentUrl}/health`, {
         method: "GET",
+        signal: AbortSignal.timeout(2000),
       });
       if (response.ok) {
         return;

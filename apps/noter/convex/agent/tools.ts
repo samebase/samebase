@@ -3,7 +3,7 @@
 import { createTool } from "@convex-dev/agent";
 import { z } from "zod";
 import { Octokit } from "@octokit/rest";
-import { internal } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { TOOL_CATALOG } from "./toolCatalog";
@@ -128,6 +128,7 @@ interface ExistingFileSnapshot {
   parentCommitSha: string | null;
   isStaged: boolean;
   version: number;
+  filePath: string;
 }
 
 function hasStatusCode(
@@ -146,14 +147,7 @@ async function loadExistingFileSnapshot(
   toolCtx: ToolContext,
   path: string,
 ): Promise<ExistingFileSnapshot> {
-  const staging = await toolCtx.ctx.runQuery(
-    internal.fileStaging.getByOriginalPath,
-    {
-      vaultId: toolCtx.vaultId,
-      originalFilePath: path,
-      branch: toolCtx.branch,
-    },
-  );
+  const staging = await loadStagedFileByPath(toolCtx, path);
   if (staging) {
     if (staging.fileDeleted === true) {
       throw new ReplaceInFileError(
@@ -166,6 +160,7 @@ async function loadExistingFileSnapshot(
       parentCommitSha: staging.parentCommitSha ?? null,
       isStaged: true,
       version: staging.version,
+      filePath: staging.filePath,
     };
   }
 
@@ -188,6 +183,7 @@ async function loadExistingFileSnapshot(
       parentCommitSha: file.data.sha,
       isStaged: false,
       version: 0,
+      filePath: path,
     };
   } catch (error) {
     if (error instanceof ReplaceInFileError) {
@@ -201,6 +197,26 @@ async function loadExistingFileSnapshot(
     }
     throw error;
   }
+}
+
+async function loadStagedFileByPath(toolCtx: ToolContext, path: string) {
+  const byOriginalPath = await toolCtx.ctx.runQuery(
+    internal.fileStaging.getByOriginalPath,
+    {
+      vaultId: toolCtx.vaultId,
+      originalFilePath: path,
+      branch: toolCtx.branch,
+    },
+  );
+  if (byOriginalPath) {
+    return byOriginalPath;
+  }
+
+  return toolCtx.ctx.runQuery(api.fileStaging.getByNewPath, {
+    vaultId: toolCtx.vaultId,
+    newPath: path,
+    branch: toolCtx.branch,
+  });
 }
 
 async function loadExistingFileSnapshotOrNull(
@@ -242,14 +258,7 @@ export async function executeReadFile(
   input: { path: string },
 ): Promise<string> {
   // 1. Check staging
-  const staging = await toolCtx.ctx.runQuery(
-    internal.fileStaging.getByOriginalPath,
-    {
-      vaultId: toolCtx.vaultId,
-      originalFilePath: input.path,
-      branch: toolCtx.branch,
-    },
-  );
+  const staging = await loadStagedFileByPath(toolCtx, input.path);
   if (staging) {
     return staging.content;
   }
@@ -302,21 +311,14 @@ async function executeEditFile(
   input: { path: string; content: string },
 ): Promise<string> {
   // Check if file is already staged (i.e. editor is open)
-  const staging = await toolCtx.ctx.runQuery(
-    internal.fileStaging.getByOriginalPath,
-    {
-      vaultId: toolCtx.vaultId,
-      originalFilePath: input.path,
-      branch: toolCtx.branch,
-    },
-  );
+  const staging = await loadStagedFileByPath(toolCtx, input.path);
 
   if (staging) {
     // File is staged — push through the collaborative editing stream
     // so open editors update in real-time.
     await toolCtx.ctx.runMutation(internal.collaborative.pushContentUpdate, {
       vaultId: toolCtx.vaultId,
-      filePath: input.path,
+      filePath: staging.filePath,
       branch: toolCtx.branch,
       newContent: input.content,
       userId: toolCtx.userId,
@@ -356,7 +358,7 @@ async function executeReplaceInFile(
       internal.collaborative.pushSerializedChangeSetUpdate,
       {
         vaultId: toolCtx.vaultId,
-        filePath: input.path,
+        filePath: snapshot.filePath,
         branch: toolCtx.branch,
         expectedVersion: snapshot.version,
         serializedChangeSet: plan.serializedChangeSet,
@@ -410,7 +412,7 @@ async function executeDeleteFile(
     internal.fileStaging.internalMarkFileForDeletion,
     {
       vaultId: toolCtx.vaultId,
-      filePath: input.path,
+      filePath: snapshot?.filePath ?? input.path,
       parentCommitSha: sha,
       branch: toolCtx.branch,
       userId: toolCtx.userId,
