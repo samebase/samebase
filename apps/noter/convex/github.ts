@@ -24,25 +24,60 @@ const {
   union,
 } = v;
 
+const githubRepositoryListItem = object({
+  id: number(),
+  name: string(),
+  full_name: string(),
+  html_url: string(),
+  description: union(string(), nullValidator()),
+  private: boolean(),
+  fork: boolean(),
+  created_at: string(),
+  updated_at: string(),
+  language: union(string(), nullValidator()),
+  stargazers_count: number(),
+  forks_count: number(),
+});
+
+type GitHubRepositoryListItem = Infer<typeof githubRepositoryListItem>;
+
+type CachedRepositoryBlob = {
+  storageId?: string | null;
+  text?: string | null;
+  mime?: string | undefined;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isGitHubRepositoryListItem(
+  value: unknown,
+): value is GitHubRepositoryListItem {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.id === "number" &&
+    typeof value.name === "string" &&
+    typeof value.full_name === "string" &&
+    typeof value.html_url === "string" &&
+    (typeof value.description === "string" || value.description === null) &&
+    typeof value.private === "boolean" &&
+    typeof value.fork === "boolean" &&
+    typeof value.created_at === "string" &&
+    typeof value.updated_at === "string" &&
+    (typeof value.language === "string" || value.language === null) &&
+    typeof value.stargazers_count === "number" &&
+    typeof value.forks_count === "number"
+  );
+}
+
 // List the current user's GitHub repositories
 export const listRepositories = action({
   args: {},
-  returns: array(
-    object({
-      id: number(),
-      name: string(),
-      full_name: string(),
-      html_url: string(),
-      description: union(string(), nullValidator()),
-      private: boolean(),
-      fork: boolean(),
-      created_at: string(),
-      updated_at: string(),
-      language: union(string(), nullValidator()),
-      stargazers_count: number(),
-      forks_count: number(),
-    }),
-  ),
+  returns: array(githubRepositoryListItem),
   handler: async (ctx) => {
     const userId = await getUserId(ctx);
     const githubConnection = await ctx.runQuery(
@@ -75,23 +110,18 @@ export const listRepositories = action({
       );
     }
 
-    const repos: any[] = await response.json();
+    const reposRaw: unknown = await response.json();
+    if (!Array.isArray(reposRaw)) {
+      throw new Error("Unexpected GitHub API response format");
+    }
 
-    const val = repos.map((repo: any) => ({
-      id: repo.id,
-      name: repo.name,
-      full_name: repo.full_name,
-      html_url: repo.html_url,
-      description: repo.description,
-      private: repo.private,
-      fork: repo.fork,
-      created_at: repo.created_at,
-      updated_at: repo.updated_at,
-      language: repo.language,
-      stargazers_count: repo.stargazers_count,
-      forks_count: repo.forks_count,
-    }));
-    return val;
+    return reposRaw.map((repo) => {
+      if (!isGitHubRepositoryListItem(repo)) {
+        throw new Error("Unexpected GitHub repository payload");
+      }
+
+      return repo;
+    });
   },
 });
 
@@ -138,6 +168,46 @@ function readStoredMimeType(
     return blobMime;
   }
   return guessMime(filePath);
+}
+
+async function resolveCachedRepositoryMediaAsset(
+  ctx: {
+    storage: {
+      getUrl(storageId: string): Promise<string | null>;
+    };
+  },
+  cachedBlob: CachedRepositoryBlob | null,
+  filePath: string,
+  mediaKind: "image",
+  fileName: string,
+): Promise<RepositoryMediaAsset | null> {
+  if (typeof cachedBlob?.storageId === "string") {
+    const url = await ctx.storage.getUrl(cachedBlob.storageId);
+    if (typeof url === "string" && url.length > 0) {
+      return {
+        found: true,
+        kind: mediaKind,
+        mimeType: readStoredMimeType(filePath, cachedBlob.mime),
+        url,
+        fileName,
+      };
+    }
+  }
+
+  if (
+    typeof cachedBlob?.text === "string" &&
+    isSvgRepositoryMediaPath(filePath)
+  ) {
+    return {
+      found: true,
+      kind: mediaKind,
+      mimeType: "image/svg+xml",
+      url: buildDataUrl("image/svg+xml", Buffer.from(cachedBlob.text, "utf-8")),
+      fileName,
+    };
+  }
+
+  return null;
 }
 
 function getRepositoryMediaFileName(filePath: string): string {
@@ -326,34 +396,15 @@ export const getRepositoryMediaAsset = action({
           sha: targetFile.sha,
         },
       );
-
-      if (cachedBlob?.storageId) {
-        const url = await ctx.storage.getUrl(cachedBlob.storageId);
-        if (typeof url === "string" && url.length > 0) {
-          return {
-            found: true,
-            kind: mediaKind,
-            mimeType: readStoredMimeType(args.filePath, cachedBlob.mime),
-            url,
-            fileName,
-          };
-        }
-      }
-
-      if (
-        typeof cachedBlob?.text === "string" &&
-        isSvgRepositoryMediaPath(args.filePath)
-      ) {
-        return {
-          found: true,
-          kind: mediaKind,
-          mimeType: "image/svg+xml",
-          url: buildDataUrl(
-            "image/svg+xml",
-            Buffer.from(cachedBlob.text, "utf-8"),
-          ),
-          fileName,
-        };
+      const resolvedCachedAsset = await resolveCachedRepositoryMediaAsset(
+        ctx,
+        cachedBlob,
+        args.filePath,
+        mediaKind,
+        fileName,
+      );
+      if (resolvedCachedAsset) {
+        return resolvedCachedAsset;
       }
     }
 
@@ -391,34 +442,15 @@ export const getRepositoryMediaAsset = action({
             sha: file.data.sha,
           },
         );
-
-        if (cachedBlob?.storageId) {
-          const url = await ctx.storage.getUrl(cachedBlob.storageId);
-          if (typeof url === "string" && url.length > 0) {
-            return {
-              found: true,
-              kind: mediaKind,
-              mimeType: readStoredMimeType(args.filePath, cachedBlob.mime),
-              url,
-              fileName,
-            };
-          }
-        }
-
-        if (
-          typeof cachedBlob?.text === "string" &&
-          isSvgRepositoryMediaPath(args.filePath)
-        ) {
-          return {
-            found: true,
-            kind: mediaKind,
-            mimeType: "image/svg+xml",
-            url: buildDataUrl(
-              "image/svg+xml",
-              Buffer.from(cachedBlob.text, "utf-8"),
-            ),
-            fileName,
-          };
+        const resolvedCachedAsset = await resolveCachedRepositoryMediaAsset(
+          ctx,
+          cachedBlob,
+          args.filePath,
+          mediaKind,
+          fileName,
+        );
+        if (resolvedCachedAsset) {
+          return resolvedCachedAsset;
         }
       }
 
