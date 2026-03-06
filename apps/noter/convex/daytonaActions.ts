@@ -25,6 +25,7 @@ import { internal } from "./_generated/api";
 import { getUserId } from "./common";
 import { getDaytonaEnvLabel } from "./daytonaEnv";
 import {
+  canonicalizeCommitPinnedDaytonaBranch,
   DAYTONA_COMMIT_PINNED_BRANCH,
   DAYTONA_SNAPSHOT_RETENTION_COUNT,
   calculateSnapshotRetryDelayMs,
@@ -1059,16 +1060,17 @@ export const startDaytonaWorkspace = action({
       throw new Error("Vault not found");
     }
 
-    const branch = args.branch?.trim() || "main";
+    const requestedBranch = args.branch?.trim() || DAYTONA_COMMIT_PINNED_BRANCH;
     const startupStartedAt = Date.now();
-    if (!isCommitPinnedDaytonaBranch(branch)) {
+    if (!isCommitPinnedDaytonaBranch(requestedBranch)) {
       return {
         ok: false,
         status: "not_configured",
         message: `Daytona commit-pinned snapshots currently support ${DAYTONA_COMMIT_PINNED_BRANCH} only.`,
-        branch,
+        branch: requestedBranch,
       };
     }
+    const branch = canonicalizeCommitPinnedDaytonaBranch(requestedBranch);
 
     const expectedCommitSha = vault.commitSHA?.trim();
     if (!expectedCommitSha) {
@@ -1427,7 +1429,10 @@ async function resolveDaytonaSandboxForVault(args: {
   | { ok: true; sandbox: Sandbox; sandboxName: string | undefined }
   | { ok: false; message: string }
 > {
-  const requestedBranch = args.requestedBranch?.trim();
+  const requestedBranchValue = args.requestedBranch?.trim();
+  const requestedBranch = requestedBranchValue
+    ? canonicalizeCommitPinnedDaytonaBranch(requestedBranchValue)
+    : undefined;
   const requestedCommitSha = args.requestedCommitSha?.trim();
   const matchesRequestedBranch = (candidate: Sandbox): boolean => {
     if (!requestedBranch) {
@@ -1548,7 +1553,9 @@ export const getDaytonaTerminalUrl = action({
       daytonaSandboxName: vault.daytonaSandboxName,
       requestedBranch: args.branch,
       requestedCommitSha:
-        (args.branch?.trim() || "main") === DAYTONA_COMMIT_PINNED_BRANCH
+        canonicalizeCommitPinnedDaytonaBranch(
+          args.branch?.trim() || DAYTONA_COMMIT_PINNED_BRANCH,
+        ) === DAYTONA_COMMIT_PINNED_BRANCH
           ? vault.commitSHA?.trim()
           : undefined,
     });
@@ -1623,7 +1630,9 @@ export const getDaytonaPreviewUrl = action({
       daytonaSandboxName: vault.daytonaSandboxName,
       requestedBranch: args.branch,
       requestedCommitSha:
-        (args.branch?.trim() || "main") === DAYTONA_COMMIT_PINNED_BRANCH
+        canonicalizeCommitPinnedDaytonaBranch(
+          args.branch?.trim() || DAYTONA_COMMIT_PINNED_BRANCH,
+        ) === DAYTONA_COMMIT_PINNED_BRANCH
           ? vault.commitSHA?.trim()
           : undefined,
     });
@@ -2254,7 +2263,7 @@ export const buildCommitPinnedSnapshot = internalAction({
     ctx,
     args,
   ): Promise<Infer<typeof prebuildDaytonaSnapshotResult>> => {
-    const branch = args.branch.trim();
+    const branch = canonicalizeCommitPinnedDaytonaBranch(args.branch);
     const snapshotName = inferPrebuildSnapshotName({
       owner: args.owner,
       repo: args.repo,
@@ -2703,13 +2712,14 @@ export const prebuildDaytonaSnapshot = action({
       throw new Error("Vault not found");
     }
 
-    const branch = args.branch?.trim() || "main";
-    if (!isCommitPinnedDaytonaBranch(branch)) {
+    const requestedBranch = args.branch?.trim() || DAYTONA_COMMIT_PINNED_BRANCH;
+    if (!isCommitPinnedDaytonaBranch(requestedBranch)) {
       return {
         ok: false,
         message: `Daytona commit-pinned snapshots currently support ${DAYTONA_COMMIT_PINNED_BRANCH} only.`,
       };
     }
+    const branch = canonicalizeCommitPinnedDaytonaBranch(requestedBranch);
     const commitSha = vault.commitSHA?.trim();
     if (!commitSha) {
       return {
@@ -2789,13 +2799,14 @@ export const getDaytonaPrebuildStatus = action({
       throw new Error("Vault not found");
     }
 
-    const branch = args.branch?.trim() || "main";
-    if (!isCommitPinnedDaytonaBranch(branch)) {
+    const requestedBranch = args.branch?.trim() || DAYTONA_COMMIT_PINNED_BRANCH;
+    if (!isCommitPinnedDaytonaBranch(requestedBranch)) {
       return {
         ok: false,
         message: `Daytona commit-pinned snapshots currently support ${DAYTONA_COMMIT_PINNED_BRANCH} only.`,
       };
     }
+    const branch = canonicalizeCommitPinnedDaytonaBranch(requestedBranch);
     const commitSha = vault.commitSHA?.trim();
     if (!commitSha) {
       return {
@@ -2850,15 +2861,16 @@ export const getDaytonaPrebuildLogs = action({
       throw new Error("Vault not found");
     }
 
-    const branch = args.branch?.trim() || "main";
-    if (!isCommitPinnedDaytonaBranch(branch)) {
+    const requestedBranch = args.branch?.trim() || DAYTONA_COMMIT_PINNED_BRANCH;
+    if (!isCommitPinnedDaytonaBranch(requestedBranch)) {
       return {
         ok: true,
         logs: "",
-        branch,
+        branch: requestedBranch,
         message: `Daytona commit-pinned snapshots currently support ${DAYTONA_COMMIT_PINNED_BRANCH} only.`,
       };
     }
+    const branch = canonicalizeCommitPinnedDaytonaBranch(requestedBranch);
 
     const commitSha = vault.commitSHA?.trim();
     let snapshotRecord = commitSha
@@ -3000,7 +3012,9 @@ export const removeDaytonaSnapshot = action({
       throw new Error("Vault not found");
     }
 
-    const branch = args.branch?.trim() || DAYTONA_COMMIT_PINNED_BRANCH;
+    const branch = canonicalizeCommitPinnedDaytonaBranch(
+      args.branch?.trim() || DAYTONA_COMMIT_PINNED_BRANCH,
+    );
     const apiConfig = resolveDaytonaApiConfig();
     if (!apiConfig.ok) {
       return {

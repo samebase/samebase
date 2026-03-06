@@ -143,7 +143,7 @@ Input:
 2. Queue a build record for that exact commit in Convex
 3. Checkout the exact commit
 4. Resolve the existing immutable deps image from the full dependency input hash
-5. Build a Daytona snapshot whose contents correspond exactly to the checked out
+5. Build a Daytona snapshot whose contents correspond exactly to the checked-out
    commit
 6. Mark the snapshot ready only after Daytona reports it as active
 7. Persist the commit-to-snapshot mapping in Noter

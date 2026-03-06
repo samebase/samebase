@@ -10,10 +10,8 @@ import { internal } from "./_generated/api";
 import { DaytonaSnapshotBuildStatus, GithubTreeData } from "./schema";
 import { Id } from "./_generated/dataModel";
 import { getUserId } from "./common";
-import {
-  DAYTONA_COMMIT_PINNED_BRANCH,
-  inferCommitPinnedSnapshotName,
-} from "./daytonaSnapshotPolicy";
+import { enqueueSnapshotBuild } from "./daytonaSnapshotRecords";
+import { DAYTONA_COMMIT_PINNED_BRANCH } from "./daytonaSnapshotPolicy";
 import {
   hostingProviderValidator,
   hostingStateValidator,
@@ -825,58 +823,14 @@ export const updateVaultTree = internalMutation({
       vault.ghRepoName.length > 0;
 
     if (shouldQueueDaytonaSnapshot) {
-      const snapshotName = inferCommitPinnedSnapshotName({
+      const queueResult = await enqueueSnapshotBuild(ctx, {
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
         branch: DAYTONA_COMMIT_PINNED_BRANCH,
         commitSha,
+        force: false,
       });
-      const existingSnapshot = await ctx.db
-        .query("daytonaSnapshots")
-        .withIndex("by_repo_branch_commit", (q) =>
-          q
-            .eq("ghRepoOwner", vault.ghRepoOwner)
-            .eq("ghRepoName", vault.ghRepoName)
-            .eq("branch", DAYTONA_COMMIT_PINNED_BRANCH)
-            .eq("commitSha", commitSha),
-        )
-        .first();
-      let shouldSchedule = false;
-
-      if (existingSnapshot) {
-        if (
-          existingSnapshot.status === "failed" ||
-          existingSnapshot.status === "removing"
-        ) {
-          await ctx.db.patch(existingSnapshot._id, {
-            snapshotName,
-            status: "queued",
-            updatedAt: Date.now(),
-            nextRetryAt: undefined,
-          });
-          shouldSchedule = true;
-        }
-      } else {
-        await ctx.db.insert("daytonaSnapshots", {
-          ghRepoOwner: vault.ghRepoOwner,
-          ghRepoName: vault.ghRepoName,
-          branch: DAYTONA_COMMIT_PINNED_BRANCH,
-          commitSha,
-          snapshotName,
-          snapshotId: undefined,
-          status: "queued",
-          attemptCount: 0,
-          lastError: undefined,
-          logs: "",
-          logsUpdatedAt: undefined,
-          nextRetryAt: undefined,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        });
-        shouldSchedule = true;
-      }
-
-      if (shouldSchedule) {
+      if (queueResult.shouldSchedule) {
         await ctx.scheduler.runAfter(
           0,
           internal.daytonaActions.buildCommitPinnedSnapshot,

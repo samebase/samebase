@@ -1,16 +1,17 @@
 import { cn } from "@/lib/utils";
+import {
+  shortenCommitSha,
+  type DaytonaSnapshotStatus,
+} from "@/lib/daytonaSnapshot";
 
 interface DaytonaSnapshotBannerProps {
   branch: string;
   commitSha?: string | null;
   snapshotName?: string | null;
-  snapshotStatus?: string | null;
+  snapshotStatus?: DaytonaSnapshotStatus | null;
   lastError?: string | null;
   className?: string;
 }
-
-const shortenCommitSha = (commitSha: string) =>
-  commitSha.length <= 7 ? commitSha : commitSha.slice(0, 7);
 
 export function DaytonaSnapshotBanner({
   branch,

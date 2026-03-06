@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  canonicalizeCommitPinnedDaytonaBranch,
   DAYTONA_COMMIT_PINNED_BRANCH,
   DAYTONA_SNAPSHOT_RETENTION_COUNT,
   calculateSnapshotRetryDelayMs,
@@ -30,6 +31,10 @@ describe("daytonaSnapshotPolicy", () => {
     expect(isCommitPinnedDaytonaBranch("main")).toBe(true);
     expect(isCommitPinnedDaytonaBranch("MAIN")).toBe(true);
     expect(isCommitPinnedDaytonaBranch("feature/demo")).toBe(false);
+    expect(canonicalizeCommitPinnedDaytonaBranch(" MAIN ")).toBe("main");
+    expect(canonicalizeCommitPinnedDaytonaBranch("feature/demo")).toBe(
+      "feature/demo",
+    );
   });
 
   it("includes the exact commit in snapshot names", () => {

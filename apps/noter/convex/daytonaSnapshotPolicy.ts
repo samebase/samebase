@@ -10,9 +10,21 @@ export function isCommitPinnedDaytonaBranch(branch: string): boolean {
   return branch.trim().toLowerCase() === DAYTONA_COMMIT_PINNED_BRANCH;
 }
 
+export function canonicalizeCommitPinnedDaytonaBranch(branch: string): string {
+  const normalized = branch.trim();
+  return isCommitPinnedDaytonaBranch(normalized)
+    ? DAYTONA_COMMIT_PINNED_BRANCH
+    : normalized;
+}
+
 export function shortenCommitSha(commitSha: string): string {
   const normalized = commitSha.trim();
   return normalized.length <= 7 ? normalized : normalized.slice(0, 7);
+}
+
+function inferSnapshotRepoFallback(owner: string, repo: string): string {
+  const safeFallback = toSafeRepoName(`${owner}-${repo}`);
+  return safeFallback || "repo";
 }
 
 export function inferCommitPinnedSnapshotName(args: {
@@ -28,7 +40,10 @@ export function inferCommitPinnedSnapshotName(args: {
   if (base) {
     return base;
   }
-  return `noter-prebuild-${envLabel}-${shortenCommitSha(args.commitSha)}`;
+  return `noter-prebuild-${envLabel}-${inferSnapshotRepoFallback(
+    args.owner,
+    args.repo,
+  )}-${shortenCommitSha(args.commitSha)}`;
 }
 
 export function inferCommitPinnedSnapshotPrefix(args: {
@@ -39,7 +54,13 @@ export function inferCommitPinnedSnapshotPrefix(args: {
   const prefix = toSafeRepoName(
     `noter-prebuild-${envLabel}-${args.owner}-${args.repo}-`,
   );
-  return prefix || `noter-prebuild-${envLabel}-`;
+  return (
+    prefix ||
+    `noter-prebuild-${envLabel}-${inferSnapshotRepoFallback(
+      args.owner,
+      args.repo,
+    )}-`
+  );
 }
 
 export function calculateSnapshotRetryDelayMs(attemptCount: number): number {

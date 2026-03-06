@@ -7,6 +7,7 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import {
+  canonicalizeCommitPinnedDaytonaBranch,
   DAYTONA_COMMIT_PINNED_BRANCH,
   inferCommitPinnedSnapshotName,
 } from "./daytonaSnapshotPolicy";
@@ -52,6 +53,14 @@ const enqueueSnapshotBuildResult = object({
 
 type SnapshotRecord = Infer<typeof daytonaSnapshotRecord>;
 
+type EnqueueSnapshotBuildArgs = {
+  owner: string;
+  repo: string;
+  branch: string;
+  commitSha: string;
+  force?: boolean;
+};
+
 async function getSnapshotRecordByCommit(
   ctx: QueryCtx | MutationCtx,
   args: {
@@ -71,6 +80,77 @@ async function getSnapshotRecordByCommit(
         .eq("commitSha", args.commitSha),
     )
     .first();
+}
+
+export async function enqueueSnapshotBuild(
+  ctx: MutationCtx,
+  args: EnqueueSnapshotBuildArgs,
+): Promise<Infer<typeof enqueueSnapshotBuildResult>> {
+  const branch = canonicalizeCommitPinnedDaytonaBranch(args.branch);
+  const normalizedArgs = {
+    ...args,
+    branch,
+  };
+  const now = Date.now();
+  const existing = await getSnapshotRecordByCommit(ctx, normalizedArgs);
+  const snapshotName = inferCommitPinnedSnapshotName(normalizedArgs);
+
+  if (existing) {
+    const retryBlocked =
+      existing.status === "failed" &&
+      args.force !== true &&
+      typeof existing.nextRetryAt === "number" &&
+      existing.nextRetryAt > now;
+    const shouldSchedule =
+      !retryBlocked &&
+      (existing.status === "failed" || existing.status === "removing");
+
+    if (!shouldSchedule) {
+      return {
+        snapshotRecordId: existing._id,
+        snapshotName: existing.snapshotName ?? snapshotName,
+        status: existing.status,
+        shouldSchedule: false,
+      };
+    }
+
+    await ctx.db.patch(existing._id, {
+      snapshotName,
+      status: "queued",
+      updatedAt: now,
+      nextRetryAt: undefined,
+    });
+    return {
+      snapshotRecordId: existing._id,
+      snapshotName,
+      status: "queued",
+      shouldSchedule: true,
+    };
+  }
+
+  const snapshotRecordId = await ctx.db.insert("daytonaSnapshots", {
+    ghRepoOwner: normalizedArgs.owner,
+    ghRepoName: normalizedArgs.repo,
+    branch,
+    commitSha: normalizedArgs.commitSha,
+    snapshotName,
+    snapshotId: undefined,
+    status: "queued",
+    attemptCount: 0,
+    lastError: undefined,
+    logs: "",
+    logsUpdatedAt: undefined,
+    nextRetryAt: undefined,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  return {
+    snapshotRecordId,
+    snapshotName,
+    status: "queued",
+    shouldSchedule: true,
+  };
 }
 
 export const getByRepoBranchCommit = internalQuery({
@@ -157,66 +237,7 @@ export const enqueueBuild = internalMutation({
     ctx,
     args,
   ): Promise<Infer<typeof enqueueSnapshotBuildResult>> => {
-    const now = Date.now();
-    const existing = await getSnapshotRecordByCommit(ctx, args);
-    const snapshotName = inferCommitPinnedSnapshotName(args);
-
-    if (existing) {
-      const retryBlocked =
-        existing.status === "failed" &&
-        args.force !== true &&
-        typeof existing.nextRetryAt === "number" &&
-        existing.nextRetryAt > now;
-      const shouldSchedule =
-        !retryBlocked &&
-        (existing.status === "failed" || existing.status === "removing");
-
-      if (!shouldSchedule) {
-        return {
-          snapshotRecordId: existing._id,
-          snapshotName: existing.snapshotName ?? snapshotName,
-          status: existing.status,
-          shouldSchedule: false,
-        };
-      }
-
-      await ctx.db.patch(existing._id, {
-        snapshotName,
-        status: "queued",
-        updatedAt: now,
-        nextRetryAt: undefined,
-      });
-      return {
-        snapshotRecordId: existing._id,
-        snapshotName,
-        status: "queued",
-        shouldSchedule: true,
-      };
-    }
-
-    const snapshotRecordId = await ctx.db.insert("daytonaSnapshots", {
-      ghRepoOwner: args.owner,
-      ghRepoName: args.repo,
-      branch: args.branch,
-      commitSha: args.commitSha,
-      snapshotName,
-      snapshotId: undefined,
-      status: "queued",
-      attemptCount: 0,
-      lastError: undefined,
-      logs: "",
-      logsUpdatedAt: undefined,
-      nextRetryAt: undefined,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    return {
-      snapshotRecordId,
-      snapshotName,
-      status: "queued",
-      shouldSchedule: true,
-    };
+    return await enqueueSnapshotBuild(ctx, args);
   },
 });
 
@@ -424,15 +445,17 @@ export const removeBySnapshotName = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const snapshot = await ctx.db
+    const snapshots = await ctx.db
       .query("daytonaSnapshots")
       .withIndex("by_snapshot_name", (q) =>
         q.eq("snapshotName", args.snapshotName),
       )
-      .first();
-    if (snapshot) {
-      await ctx.db.delete(snapshot._id);
-    }
+      .collect();
+    await Promise.all(
+      snapshots.map(async (snapshot) => {
+        await ctx.db.delete(snapshot._id);
+      }),
+    );
     return null;
   },
 });

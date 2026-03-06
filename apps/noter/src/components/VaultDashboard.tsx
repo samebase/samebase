@@ -24,6 +24,7 @@ import {
   formatRelativeTimeAgo,
   formatRelativeTimeUntil,
 } from "@/lib/formatRelativeTime";
+import type { DaytonaSnapshotStatus } from "@/lib/daytonaSnapshot";
 import {
   claimRefreshDebounce,
   releaseRefreshDebounce,
@@ -128,7 +129,7 @@ type DaytonaResourceFlags = {
   daytonaSnapshotName?: string | null;
   daytonaPrebuildLogsSnapshot?: string | null;
   daytonaCurrentSnapshotName?: string | null;
-  daytonaCurrentSnapshotStatus?: string | null;
+  daytonaCurrentSnapshotStatus?: DaytonaSnapshotStatus | null;
 };
 
 const hasDaytonaResourcesForVault = (
@@ -138,8 +139,7 @@ const hasDaytonaResourcesForVault = (
     vault?.daytonaSandboxId ||
       vault?.daytonaSnapshotName ||
       vault?.daytonaPrebuildLogsSnapshot ||
-      vault?.daytonaCurrentSnapshotName ||
-      vault?.daytonaCurrentSnapshotStatus,
+      vault?.daytonaCurrentSnapshotName,
   );
 
 type CreateTemplate = "app" | "agent";

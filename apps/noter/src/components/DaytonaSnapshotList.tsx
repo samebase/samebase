@@ -11,6 +11,7 @@ import {
   formatRelativeTimeAgo,
   formatRelativeTimeUntil,
 } from "@/lib/formatRelativeTime";
+import { shortenCommitSha } from "@/lib/daytonaSnapshot";
 import { cn } from "@/lib/utils";
 
 const SNAPSHOT_POLL_INTERVAL_MS = 5_000;
@@ -58,9 +59,6 @@ const getSnapshotStateClassName = (state: string) => {
   }
   return "text-muted-foreground";
 };
-
-const shortenCommitSha = (commitSha: string) =>
-  commitSha.length <= 7 ? commitSha : commitSha.slice(0, 7);
 
 const formatRetryTime = (timestamp: number, now: number = Date.now()) =>
   timestamp > now

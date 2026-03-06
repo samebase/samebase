@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import type { DaytonaSnapshotStatus } from "@/lib/daytonaSnapshot";
 import { cn } from "@/lib/utils";
 
 interface DaytonaWorkspaceButtonProps {
@@ -22,7 +23,7 @@ interface DaytonaWorkspaceButtonProps {
   sandboxId?: string;
   sandboxName?: string;
   commitSha?: string | null;
-  snapshotStatus?: string | null;
+  snapshotStatus?: DaytonaSnapshotStatus | null;
   snapshotName?: string | null;
   snapshotError?: string | null;
   disabled?: boolean;
