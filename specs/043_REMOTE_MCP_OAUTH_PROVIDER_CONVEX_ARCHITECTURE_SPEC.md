@@ -4,31 +4,35 @@
 
 - Status: Proposed
 - Owner: Noter platform
-- Last updated: 2026-03-06
+- Last updated: 2026-03-07
 - Related specs:
   - `specs/020_CONVEX_AGENT_ADOPTION_SPEC.md`
   - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `specs/029_PROVIDERS_PANEL_SETTINGS_SPEC.md`
   - `specs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
+  - `specs/032_CLOUDFLARE_HOSTING_PILOT_SPEC.md`
   - `specs/036_MCP_CONNECTION_TOKEN_HEALTH_VISIBILITY_SPEC.md`
+  - `specs/038_RAILWAY_REMOVAL_AND_DATA_CLEANUP_SPEC.md`
 
 ## Summary
 
 Build a hosted remote MCP server for `noter.md` plus an OAuth 2.1 provider for
-that server.
+that server, fronted by Cloudflare on the same public origin.
 
 The recommended architecture is:
 
-1. `mcp.noter.md` runs a dedicated edge service that owns the MCP transport and
-   OAuth provider surface.
-2. Convex remains the system of record for users, grants, approvals, audit, and
+1. Cloudflare fronts `https://noter.md` and owns routing, proxying,
+   observability, and access control.
+2. A Cloudflare Worker route on `noter.md` owns the MCP transport and OAuth
+   provider surface at path-based routes such as `/mcp` and `/oauth/mcp/*`.
+3. Convex remains the system of record for users, grants, approvals, audit, and
    business operations.
-3. The edge service talks to Convex as the authenticated user through a
-   dedicated internal JWT audience, not through the public MCP access token.
+4. The Worker talks to Convex as the authenticated user through a dedicated
+   internal JWT audience, not through the public MCP access token.
 
-This mirrors the shape of Cloudflare's remote MCP strategy closely enough to be
-compatible with current MCP clients, while preserving Noter's existing Convex
-data model and approval-first backend behavior.
+This keeps the public integration surface same-origin and Cloudflare-controlled
+while preserving Noter's existing Convex data model and approval-first backend
+behavior.
 
 ## Goals
 
@@ -87,22 +91,49 @@ Convex gives us the pieces we need, but not as a turnkey OAuth provider:
    transport concerns like session fan-out, resumable streams, and transport
    compatibility are a better fit for a purpose-built front door.
 
+### Cloudflare integration constraints
+
+Cloudflare is the default front door, but the practical implementation details
+matter:
+
+1. Workers Routes are the right fit when `noter.md` already has an external
+   origin and we want Cloudflare code to run on specific paths before proxying.
+2. Cloudflare Web Analytics is available on all plans and works well for the
+   browser-facing site, especially when traffic is proxied through Cloudflare.
+3. Web Analytics is not enough for API or MCP traffic; `/mcp` and `/oauth/mcp/*`
+   need Workers metrics and logs.
+4. Origin Rules host-header and DNS override are not broadly available on lower
+   plans, so a Worker route is a safer default than relying on origin rewrite
+   features for Convex integration.
+
 ## Decision
 
-Use a split architecture with a dedicated edge service on `mcp.noter.md` and
-Convex as the authoritative backend.
+Use a split architecture with Cloudflare as the same-origin edge layer on
+`https://noter.md` and Convex as the authoritative backend.
 
 ### Why this is the recommended shape
 
 1. It matches the way Cloudflare structures remote MCP auth: a hosted resource
    server plus hosted OAuth provider behavior.
-2. It keeps the protocol boundary narrow and explicit.
+2. It keeps the public `noter.md` origin under Cloudflare control, including
+   routing, WAF, analytics, and observability.
 3. It lets Convex remain focused on identity, grants, tool execution, and data.
 4. It avoids making public MCP bearer tokens directly valid against Convex.
 5. It gives us a clean place to support streaming HTTP, SSE if needed, and
    future transport upgrades without entangling them with Convex internals.
 
-### Rejected architecture: direct Convex-only final design
+### Why same-origin on `noter.md` is now the default
+
+1. The MCP spec allows the resource server and authorization server to share an
+   origin.
+2. ChatGPT does not require a dedicated `mcp.` subdomain.
+3. Cloudflare can proxy or terminate the MCP and OAuth paths directly on
+   `noter.md`.
+4. Same-origin keeps consent and auth UX simpler.
+5. Cloudflare becomes the single place to add edge auth protections, traffic
+   controls, request tracing, and analytics.
+
+### Rejected architecture: direct Convex-only public surface
 
 A pure Convex design is possible for a narrow MVP, but it is not the preferred
 end state.
@@ -110,10 +141,25 @@ end state.
 Reasons:
 
 1. Convex is not an OAuth provider framework.
-2. MCP transport evolution is likely to move faster than Convex-specific HTTP
+2. We want Cloudflare, not Convex, to own the public edge behavior for
+   `noter.md`.
+3. MCP transport evolution is likely to move faster than Convex-specific HTTP
    ergonomics.
-3. We want a clean issuer, JWKS, token surface, and resource domain that can be
-   evolved independently from the main app.
+4. We want a clean issuer, JWKS, token surface, and resource paths that can be
+   evolved behind Cloudflare without exposing Convex directly.
+
+### Rejected architecture: Cloudflare Origin Rules as the primary bridge
+
+Origin Rules are not the default bridge for this design.
+
+Reasons:
+
+1. The required host-header and DNS override controls are not broadly available
+   on lower plans.
+2. A Worker route gives us explicit code-level control over auth, headers,
+   caching, observability, and error handling.
+3. The Worker can call Convex directly with `ConvexHttpClient` instead of
+   treating Convex as a blind HTTP origin.
 
 ### Acceptable spike: narrow Convex-only MVP
 
@@ -131,18 +177,18 @@ This should be treated as a spike, not the target architecture.
 
 #### 1. Protected resource
 
-- Origin: `https://mcp.noter.md`
+- Origin: `https://noter.md`
 - Endpoints:
   - `/mcp`
   - `/.well-known/oauth-protected-resource`
 
 #### 2. Authorization server
 
-- Origin: `https://mcp.noter.md`
+- Origin: `https://noter.md`
 - Endpoints:
-  - `/authorize`
-  - `/token`
-  - `/register`
+  - `/oauth/mcp/authorize`
+  - `/oauth/mcp/token`
+  - `/oauth/mcp/register`
   - `/.well-known/oauth-authorization-server`
   - `/.well-known/jwks.json`
 
@@ -157,7 +203,7 @@ This should be treated as a spike, not the target architecture.
 
 ## Component Responsibilities
 
-### Edge service at `mcp.noter.md`
+### Cloudflare Worker at `noter.md`
 
 Responsibilities:
 
@@ -172,6 +218,14 @@ Responsibilities:
 Recommended implementation target:
 
 - A dedicated Worker app in this repo, for example `apps/noter-mcp`.
+
+Recommended route shape:
+
+- `noter.md/mcp`
+- `noter.md/oauth/mcp/*`
+- `noter.md/.well-known/oauth-protected-resource`
+- `noter.md/.well-known/oauth-authorization-server`
+- `noter.md/.well-known/jwks.json`
 
 ### Convex
 
@@ -192,6 +246,53 @@ Responsibilities:
 2. Let the signed-in user approve or deny a client request.
 3. Let the user review and revoke existing MCP grants.
 
+## Cloudflare Routing Model
+
+Default shape:
+
+1. Cloudflare continues serving or proxying the main `noter.md` application.
+2. A Worker Route handles MCP and OAuth paths only.
+3. The Worker does not proxy raw public MCP tokens into Convex.
+4. The Worker either:
+   - calls Convex via `ConvexHttpClient`, or
+   - proxies to narrowly-scoped Convex HTTP actions when that is the better fit
+     for a given operation.
+
+Recommended initial route patterns:
+
+- `noter.md/mcp*`
+- `noter.md/oauth/mcp/*`
+- `noter.md/.well-known/oauth-protected-resource`
+- `noter.md/.well-known/oauth-authorization-server`
+- `noter.md/.well-known/jwks.json`
+
+Convex custom domain note:
+
+1. The MCP and OAuth slice does not require a Convex custom domain.
+2. The Worker can call the Convex deployment URL directly.
+3. If we later want the broader app and realtime Convex traffic to appear on a
+   first-party domain, we should revisit Convex custom domains separately.
+
+## Cloudflare Observability and Analytics
+
+Cloudflare gives us useful built-in visibility, but the data sources are
+different:
+
+1. Use Cloudflare Web Analytics for browser-facing traffic on `noter.md`.
+2. Use Workers metrics, logs, and traces for MCP and OAuth traffic.
+3. Do not treat Web Analytics as a substitute for API-level or tool-level
+   observability.
+
+Implications:
+
+1. We can get website analytics without adding a third-party script stack.
+2. We can inspect `/mcp` request counts, errors, and durations at the Worker
+   layer.
+3. We can add request IDs, structured logs, and rate controls before Convex sees
+   the request.
+4. If we later remove Netlify entirely, Cloudflare becomes the natural place for
+   routing, analytics, WAF, and edge policy enforcement.
+
 ## Token Model
 
 ### 1. Browser session token
@@ -206,7 +307,7 @@ This is minted by the OAuth provider for the MCP client.
 Rules:
 
 1. It is first-party to `noter.md`.
-2. It is audience-bound to `https://mcp.noter.md`.
+2. It is audience-bound to `https://noter.md/mcp`.
 3. It is accepted only by the MCP edge service.
 4. It is never accepted directly by Convex.
 
@@ -216,9 +317,9 @@ Recommended shape:
 
 Required claims:
 
-- `iss = https://mcp.noter.md`
+- `iss = https://noter.md`
 - `sub = user:<convexUserId>`
-- `aud = https://mcp.noter.md`
+- `aud = https://noter.md/mcp`
 - `client_id`
 - `scope`
 - `jti`
@@ -248,7 +349,7 @@ Rules:
 
 Recommended claims:
 
-- `iss = https://mcp.noter.md`
+- `iss = https://noter.md`
 - `sub = user:<convexUserId>`
 - `aud = noter-mcp-internal`
 - `grant_id`
@@ -281,9 +382,9 @@ Extend `apps/noter/convex/auth.config.ts` with an additional provider:
 ```ts
 {
   type: "customJwt",
-  issuer: "https://mcp.noter.md",
+  issuer: "https://noter.md",
   applicationID: "noter-mcp-internal",
-  jwks: "https://mcp.noter.md/.well-known/jwks.json",
+  jwks: "https://noter.md/.well-known/jwks.json",
   algorithm: "RS256",
 }
 ```
@@ -400,13 +501,13 @@ Rules:
 
 1. MCP client discovers auth metadata.
 2. MCP client calls `/register`.
-3. Edge service validates metadata and persists the client in Convex.
-4. Edge service returns `client_id`.
+3. Cloudflare Worker validates metadata and persists the client in Convex.
+4. Cloudflare Worker returns `client_id`.
 
 ### 2. Authorization request
 
-1. MCP client redirects user to `/authorize`.
-2. Edge service validates request parameters and stores `mcpAuthRequests`.
+1. MCP client redirects user to `/oauth/mcp/authorize`.
+2. Cloudflare Worker validates request parameters and stores `mcpAuthRequests`.
 3. If the user is not authenticated in `noter.md`, redirect to sign-in.
 4. Show consent UI in the main app.
 5. On approval, create or reuse an `mcpGrant`.
@@ -414,9 +515,9 @@ Rules:
 
 ### 3. Token exchange
 
-1. Client posts authorization code plus PKCE verifier to `/token`.
-2. Edge service validates code, PKCE, client, redirect URI, and resource.
-3. Edge service issues:
+1. Client posts authorization code plus PKCE verifier to `/oauth/mcp/token`.
+2. Cloudflare Worker validates code, PKCE, client, redirect URI, and resource.
+3. Cloudflare Worker issues:
    - short-lived JWT access token
    - long-lived opaque refresh token
 4. Refresh token hash is stored in Convex.
@@ -425,18 +526,18 @@ Rules:
 ### 4. MCP call
 
 1. Client calls `/mcp` with `Authorization: Bearer <mcp_access_token>`.
-2. Edge service validates signature, issuer, audience, expiry, and scopes.
-3. Edge service mints a short-lived internal Convex JWT.
-4. Edge service calls Convex using `ConvexHttpClient.setAuth(...)`.
+2. Cloudflare Worker validates signature, issuer, audience, expiry, and scopes.
+3. Cloudflare Worker mints a short-lived internal Convex JWT.
+4. Cloudflare Worker calls Convex using `ConvexHttpClient.setAuth(...)`.
 5. Convex runs the tool implementation as the user.
-6. Edge service maps the result into MCP response format.
+6. Cloudflare Worker maps the result into MCP response format.
 
 ### 5. Refresh
 
-1. Client posts refresh token to `/token`.
-2. Edge service validates the stored hash and grant status.
-3. Edge service rotates refresh token.
-4. Edge service issues a new access token.
+1. Client posts refresh token to `/oauth/mcp/token`.
+2. Cloudflare Worker validates the stored hash and grant status.
+3. Cloudflare Worker rotates refresh token.
+4. Cloudflare Worker issues a new access token.
 
 ### 6. Revocation
 
@@ -516,13 +617,14 @@ These modules should own:
 1. Add the new spec-backed data model in Convex.
 2. Add the internal `customJwt` provider to Convex auth config.
 3. Scaffold `apps/noter-mcp`.
-4. Implement metadata, registration, authorize, token, and JWKS endpoints.
+4. Implement Cloudflare Worker metadata, registration, authorize, token, and
+   JWKS endpoints.
 
 ### Phase 2: narrow MCP server
 
 1. Implement `/mcp` with a minimal tool surface.
 2. Support only the scopes needed for those tools.
-3. Validate ChatGPT web connection end-to-end.
+3. Validate ChatGPT web connection end-to-end through the Cloudflare route.
 
 ### Phase 3: user controls
 
@@ -539,22 +641,26 @@ These modules should own:
 ## Acceptance Criteria
 
 1. ChatGPT web can connect to the hosted `noter.md` MCP server at
-   `https://mcp.noter.md/mcp` using OAuth.
+   `https://noter.md/mcp` using OAuth.
 2. Dynamic client registration works for a new client.
 3. The issued MCP access token is not directly usable against Convex.
-4. The edge service can call Convex as the user through the internal JWT path.
+4. The Cloudflare Worker can call Convex as the user through the internal JWT
+   path.
 5. Existing approval-first behavior for sensitive operations is preserved.
 6. Users can revoke grants and block refresh.
 
 ## Open Questions
 
 1. Should access tokens be JWTs from day one, or opaque with lookup in Convex?
-2. Should consent UI live fully on `mcp.noter.md` or deep-link into `noter.md`?
+2. Should consent UI live fully inside the Cloudflare Worker response path, or
+   deep-link into the main React app on `noter.md`?
 3. Do we want immediate access-token revocation via denylist in v1 or only
    natural expiry plus refresh revocation?
 4. Do we want to expose `files.write` directly, or only proposal-style write
    tools at launch?
 5. Which initial scopes are acceptable for the first public integration?
+6. Do we ever want to move the MCP surface to `mcp.noter.md`, or is same-origin
+   good enough permanently?
 
 ## Source Notes
 
@@ -563,7 +669,8 @@ Primary references used for this design:
 1. OpenAI remote MCP and custom connector docs
 2. MCP authorization and streamable HTTP specs
 3. Cloudflare remote MCP auth guidance and `workers-oauth-provider`
-4. Convex docs for HTTP actions, custom JWT auth providers, custom domains, and
+4. Cloudflare Workers Routes, Web Analytics, and Workers Observability docs
+5. Convex docs for HTTP actions, custom JWT auth providers, custom domains, and
    `ConvexHttpClient`
 
 Reference links:
@@ -574,6 +681,12 @@ Reference links:
 - `https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization`
 - `https://developers.cloudflare.com/agents/guides/remote-mcp-server/`
 - `https://github.com/cloudflare/workers-oauth-provider`
+- `https://developers.cloudflare.com/workers/configuration/routing/routes/`
+- `https://developers.cloudflare.com/rules/origin-rules/features/`
+- `https://developers.cloudflare.com/web-analytics/get-started/`
+- `https://developers.cloudflare.com/web-analytics/limits/`
+- `https://developers.cloudflare.com/workers/observability/`
+- `https://developers.cloudflare.com/workers/observability/logs/workers-logs/`
 - `https://docs.convex.dev/functions/http-actions`
 - `https://docs.convex.dev/auth/advanced/custom-jwt`
 - `https://docs.convex.dev/production/hosting/custom-domains`

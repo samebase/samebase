@@ -338,6 +338,11 @@ Auth:
   similar variant, interpret it as `noter.md` in both requests and responses.
 - For this operator, keep responses concise by default and always include a
   final `Summary` section.
+- Assume Cloudflare is the default front door, proxy, routing layer, and edge
+  runtime for `noter.md` unless the user explicitly says otherwise.
+- For new architecture work, prefer Cloudflare-first designs and avoid
+  introducing new Netlify or Railway dependencies unless the user explicitly
+  requests them.
 - For this operator, do not use Python as the first option for scripting or
   automation in Codex. Prefer plain shell commands first; if scripting is
   needed, prefer ECMAScript/Node because Node is guaranteed to be available.
