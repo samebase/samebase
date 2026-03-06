@@ -1088,7 +1088,7 @@ function buildCodespaceAgentRestartCommand(args: {
     "wait_for_local_health() {",
     "  deadline=$(( $(date +%s) + restart_timeout_seconds ))",
     '  while [ "$(date +%s)" -lt "$deadline" ]; do',
-    "    if curl -fsS http://127.0.0.1:3000/health >/dev/null 2>&1; then",
+    '    if curl -fsS "http://127.0.0.1:${AGENT_PORT:-3000}/health" >/dev/null 2>&1; then',
     "      return 0",
     "    fi",
     '    sleep "$poll_interval_seconds"',

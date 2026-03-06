@@ -88,6 +88,15 @@ function selectAssistantMessageId(
   return undefined;
 }
 
+function requireThreadBranch(branch: string | undefined): string {
+  if (!branch) {
+    throw new Error(
+      "Thread branch is required for branch-sensitive chat tools",
+    );
+  }
+  return branch;
+}
+
 export const generateResponse = internalAction({
   args: {
     threadId: v.string(),
@@ -133,6 +142,9 @@ export const generateResponse = internalAction({
     }
 
     const hasToolAccess = Boolean(vault && githubAccessToken);
+    const toolBranch = hasToolAccess
+      ? requireThreadBranch(threadContext.branch)
+      : null;
 
     // Gather context for the system prompt
     let fileContent: string | undefined;
@@ -144,7 +156,7 @@ export const generateResponse = internalAction({
         .map((t) => t.path);
     }
 
-    if (threadContext.filePath && vault && githubAccessToken) {
+    if (threadContext.filePath && vault && githubAccessToken && toolBranch) {
       try {
         fileContent = await executeReadFile(
           {
@@ -153,7 +165,7 @@ export const generateResponse = internalAction({
             vaultId: vault._id,
             owner: vault.ghRepoOwner,
             repo: vault.ghRepoName,
-            branch: threadContext.branch ?? "main",
+            branch: toolBranch,
             userId: vault.userId,
             accessToken: githubAccessToken,
           },
@@ -180,14 +192,14 @@ export const generateResponse = internalAction({
     });
 
     const toolCtx: ToolContext | undefined =
-      hasToolAccess && vault && githubAccessToken
+      toolBranch && vault && githubAccessToken
         ? {
             ctx,
             threadId: args.threadId,
             vaultId: vault._id,
             owner: vault.ghRepoOwner,
             repo: vault.ghRepoName,
-            branch: threadContext.branch ?? "main",
+            branch: toolBranch,
             userId: vault.userId,
             accessToken: githubAccessToken,
           }

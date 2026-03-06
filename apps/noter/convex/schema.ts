@@ -458,7 +458,13 @@ export default defineSchema({
     version: v.number(), // Current version for collaborative editing (defaults to 0)
   })
     .index("by_vault_and_path", ["vaultId", "filePath"])
+    .index("by_vault_and_branch_and_path", ["vaultId", "branch", "filePath"])
     .index("by_vault_and_initial_path", ["vaultId", "initialFilePath"])
+    .index("by_vault_and_branch_and_initial_path", [
+      "vaultId",
+      "branch",
+      "initialFilePath",
+    ])
     .index("by_vault", ["vaultId"])
     .index("by_user", ["lastEditUserId"]),
 

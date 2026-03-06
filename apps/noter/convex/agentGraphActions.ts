@@ -52,6 +52,7 @@ async function resolveThreadId(
 async function buildToolContext(
   ctx: ActionCtx,
   threadId: string,
+  branch: string,
   vault: {
     _id: Id<"vaults">;
     ghRepoOwner: string;
@@ -59,21 +60,25 @@ async function buildToolContext(
   },
   args: { userId: Id<"users">; githubAccessToken: string },
 ): Promise<ToolContext> {
-  const threadContext = await ctx.runQuery(
-    internal.chat.index.getThreadContextForAction,
-    { threadId },
-  );
-
   return {
     ctx,
     threadId,
     vaultId: vault._id,
     owner: vault.ghRepoOwner,
     repo: vault.ghRepoName,
-    branch: threadContext?.branch ?? "main",
+    branch,
     userId: args.userId,
     accessToken: args.githubAccessToken,
   };
+}
+
+function requireThreadBranch(branch: string | undefined): string {
+  if (!branch) {
+    throw new Error(
+      "Thread branch is required for branch-sensitive agent work",
+    );
+  }
+  return branch;
 }
 
 async function loadAgentPrompt(args: {
@@ -81,12 +86,14 @@ async function loadAgentPrompt(args: {
   vault: Doc<"vaults">;
   githubAccessToken?: string;
   agentPath: string;
+  branch: string;
 }): Promise<string> {
-  const { ctx, vault, githubAccessToken, agentPath } = args;
+  const { ctx, vault, githubAccessToken, agentPath, branch } = args;
 
   const staging = await ctx.runQuery(internal.fileStaging.getByOriginalPath, {
     vaultId: vault._id,
     originalFilePath: agentPath,
+    branch,
   });
   if (staging && typeof staging.content === "string") {
     return staging.content;
@@ -115,6 +122,7 @@ async function loadAgentPrompt(args: {
     owner: vault.ghRepoOwner,
     repo: vault.ghRepoName,
     path: agentPath,
+    ref: branch,
   });
   if (Array.isArray(file.data) || file.data.type !== "file") {
     throw new Error(`Error: ${agentPath} is a directory, not a file`);
@@ -171,9 +179,14 @@ export const sendAgentMessage = action({
       args.vaultId,
       args.threadId,
     );
+    const threadContext = await ctx.runQuery(
+      internal.chat.index.getThreadContextForAction,
+      { threadId: resolvedThreadId },
+    );
+    const threadBranch = requireThreadBranch(threadContext?.branch);
 
     const toolCtx = githubAccessToken
-      ? await buildToolContext(ctx, resolvedThreadId, vault, {
+      ? await buildToolContext(ctx, resolvedThreadId, threadBranch, vault, {
           userId: user._id,
           githubAccessToken,
         })
@@ -186,6 +199,7 @@ export const sendAgentMessage = action({
         vault,
         githubAccessToken,
         agentPath: args.agentPath,
+        branch: threadBranch,
       });
     } catch (error) {
       const message =

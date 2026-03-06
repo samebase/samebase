@@ -58,7 +58,11 @@ function loadInitialTokenState() {
 
 async function persistAgentToken(token) {
   try {
-    await fs.writeFile(AGENT_TOKEN_FILE, `${token}\n`, "utf8");
+    await fs.writeFile(AGENT_TOKEN_FILE, `${token}\n`, {
+      encoding: "utf8",
+      mode: 0o600,
+    });
+    await fs.chmod(AGENT_TOKEN_FILE, 0o600);
   } catch (error) {
     console.warn(
       `[AGENT] Failed to persist token to ${AGENT_TOKEN_FILE}: ${String(error)}`,
@@ -193,6 +197,34 @@ function isCodexRuntimeRunning() {
 
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function resolveWorkspacePath(inputPath, allowWorkspaceRoot = false) {
+  if (typeof inputPath !== "string") {
+    throw new Error("Path is required");
+  }
+
+  const normalizedInput = inputPath.trim();
+  if (!allowWorkspaceRoot && normalizedInput.length === 0) {
+    throw new Error("Path is required");
+  }
+
+  const workspaceRoot = path.resolve(WORKSPACE_DIR);
+  const fullPath = path.resolve(workspaceRoot, normalizedInput);
+  const relativePath = path.relative(workspaceRoot, fullPath);
+
+  if (
+    relativePath === ".." ||
+    relativePath.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativePath)
+  ) {
+    throw new Error("Path outside workspace not allowed");
+  }
+
+  return {
+    safePath: relativePath,
+    fullPath,
+  };
 }
 
 function cloneJsonValue(value) {
@@ -527,6 +559,11 @@ function parseCodexMessageLine(line) {
   } catch (error) {
     console.warn(`[CODEX] Failed to parse JSON-RPC line: ${trimmed}`);
     console.warn(`[CODEX] Parse error: ${parseErrorMessage(error)}`);
+    return;
+  }
+
+  if (!isRecord(message)) {
+    console.warn(`[CODEX] Ignoring non-object JSON-RPC payload: ${trimmed}`);
     return;
   }
 
@@ -1086,7 +1123,8 @@ app.post("/exec", (req, res) => {
       maxBuffer: 10 * 1024 * 1024, // 10MB
     },
     (error, stdout, stderr) => {
-      const exitCode = error?.code || 0;
+      const exitCode =
+        typeof error?.code === "number" ? error.code : error ? 1 : 0;
 
       console.log(`[EXEC] Command completed with exit code: ${exitCode}`);
       if (stdout) console.log(`[EXEC] stdout: ${stdout.substring(0, 200)}...`);
@@ -1118,12 +1156,11 @@ app.post("/files/write", async (req, res) => {
     return res.status(400).json({ error: "content is required" });
   }
 
-  // Prevent directory traversal attacks
-  const safePath = path.normalize(filePath).replace(/^(\.\.(\/|\\|$))+/, "");
-  const fullPath = path.join(WORKSPACE_DIR, safePath);
-
-  // Ensure path is within workspace
-  if (!fullPath.startsWith(WORKSPACE_DIR)) {
+  let safePath;
+  let fullPath;
+  try {
+    ({ safePath, fullPath } = resolveWorkspacePath(filePath));
+  } catch {
     return res
       .status(403)
       .json({ error: "Path outside workspace not allowed" });
@@ -1158,12 +1195,11 @@ app.get("/files/read", async (req, res) => {
     return res.status(400).json({ error: "filePath is required" });
   }
 
-  // Prevent directory traversal attacks
-  const safePath = path.normalize(filePath).replace(/^(\.\.(\/|\\|$))+/, "");
-  const fullPath = path.join(WORKSPACE_DIR, safePath);
-
-  // Ensure path is within workspace
-  if (!fullPath.startsWith(WORKSPACE_DIR)) {
+  let safePath;
+  let fullPath;
+  try {
+    ({ safePath, fullPath } = resolveWorkspacePath(filePath));
+  } catch {
     return res
       .status(403)
       .json({ error: "Path outside workspace not allowed" });
@@ -1197,13 +1233,14 @@ app.get("/files/read", async (req, res) => {
 app.get("/files/list", async (req, res) => {
   const { dirPath, recursive } = req.query;
 
-  const safePath = dirPath
-    ? path.normalize(dirPath).replace(/^(\.\.(\/|\\|$))+/, "")
-    : "";
-  const fullPath = path.join(WORKSPACE_DIR, safePath);
-
-  // Ensure path is within workspace
-  if (!fullPath.startsWith(WORKSPACE_DIR)) {
+  let safePath;
+  let fullPath;
+  try {
+    ({ safePath, fullPath } = resolveWorkspacePath(
+      typeof dirPath === "string" ? dirPath : "",
+      true,
+    ));
+  } catch {
     return res
       .status(403)
       .json({ error: "Path outside workspace not allowed" });
@@ -1249,11 +1286,11 @@ app.delete("/files/delete", async (req, res) => {
     return res.status(400).json({ error: "filePath is required" });
   }
 
-  const safePath = path.normalize(filePath).replace(/^(\.\.(\/|\\|$))+/, "");
-  const fullPath = path.join(WORKSPACE_DIR, safePath);
-
-  // Ensure path is within workspace
-  if (!fullPath.startsWith(WORKSPACE_DIR)) {
+  let safePath;
+  let fullPath;
+  try {
+    ({ safePath, fullPath } = resolveWorkspacePath(filePath));
+  } catch {
     return res
       .status(403)
       .json({ error: "Path outside workspace not allowed" });
@@ -1295,11 +1332,11 @@ app.get("/files/stat", async (req, res) => {
     return res.status(400).json({ error: "filePath is required" });
   }
 
-  const safePath = path.normalize(filePath).replace(/^(\.\.(\/|\\|$))+/, "");
-  const fullPath = path.join(WORKSPACE_DIR, safePath);
-
-  // Ensure path is within workspace
-  if (!fullPath.startsWith(WORKSPACE_DIR)) {
+  let safePath;
+  let fullPath;
+  try {
+    ({ safePath, fullPath } = resolveWorkspacePath(filePath));
+  } catch {
     return res
       .status(403)
       .json({ error: "Path outside workspace not allowed" });

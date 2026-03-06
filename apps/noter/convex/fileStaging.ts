@@ -148,13 +148,30 @@ export const markFileForDeletion = mutation({
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
 
-    // Check if there's already a staging record for this file
     const existingStaging = await ctx.db
       .query("fileStaging")
-      .withIndex("by_vault_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      .withIndex("by_vault_and_branch_and_path", (q) =>
+        q
+          .eq("vaultId", args.vaultId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.filePath),
       )
       .first();
+
+    const stagedOnOtherBranch =
+      existingStaging ??
+      (await ctx.db
+        .query("fileStaging")
+        .withIndex("by_vault_and_path", (q) =>
+          q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+        )
+        .first());
+
+    if (stagedOnOtherBranch && stagedOnOtherBranch.branch !== args.branch) {
+      throw new Error(
+        `File is already staged on branch ${stagedOnOtherBranch.branch}`,
+      );
+    }
 
     const currentTimestamp = Date.now();
 
@@ -288,15 +305,32 @@ export const saveToStaging = internalMutation({
   handler: async (ctx, args) => {
     const userId = args.userId ?? (await getUserId(ctx));
 
-    // Check if there's already a staging record for this file
     const existingStaging = await ctx.db
       .query("fileStaging")
-      .withIndex("by_vault_and_initial_path", (q) =>
+      .withIndex("by_vault_and_branch_and_initial_path", (q) =>
         q
           .eq("vaultId", args.vaultId)
+          .eq("branch", args.branch)
           .eq("initialFilePath", args.initialFilePath),
       )
       .first();
+
+    const stagedOnOtherBranch =
+      existingStaging ??
+      (await ctx.db
+        .query("fileStaging")
+        .withIndex("by_vault_and_initial_path", (q) =>
+          q
+            .eq("vaultId", args.vaultId)
+            .eq("initialFilePath", args.initialFilePath),
+        )
+        .first());
+
+    if (stagedOnOtherBranch && stagedOnOtherBranch.branch !== args.branch) {
+      throw new Error(
+        `File is already staged on branch ${stagedOnOtherBranch.branch}`,
+      );
+    }
 
     // console.log("saveToStaging", { args, existingStaging });
 
@@ -340,9 +374,10 @@ export const saveToStaging = internalMutation({
 
     const staging = await ctx.db
       .query("fileStaging")
-      .withIndex("by_vault_and_initial_path", (q) =>
+      .withIndex("by_vault_and_branch_and_initial_path", (q) =>
         q
           .eq("vaultId", args.vaultId)
+          .eq("branch", args.branch)
           .eq("initialFilePath", args.initialFilePath),
       )
       .first();
@@ -369,10 +404,28 @@ export const internalMarkFileForDeletion = internalMutation({
   handler: async (ctx, args) => {
     const existingStaging = await ctx.db
       .query("fileStaging")
-      .withIndex("by_vault_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      .withIndex("by_vault_and_branch_and_path", (q) =>
+        q
+          .eq("vaultId", args.vaultId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.filePath),
       )
       .first();
+
+    const stagedOnOtherBranch =
+      existingStaging ??
+      (await ctx.db
+        .query("fileStaging")
+        .withIndex("by_vault_and_path", (q) =>
+          q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+        )
+        .first());
+
+    if (stagedOnOtherBranch && stagedOnOtherBranch.branch !== args.branch) {
+      throw new Error(
+        `File is already staged on branch ${stagedOnOtherBranch.branch}`,
+      );
+    }
 
     const currentTimestamp = Date.now();
 
@@ -418,6 +471,7 @@ export const rename = internalMutation({
   args: {
     vaultId: v.id("vaults"),
     initialFilePath: v.string(),
+    branch: v.string(),
     newPath: v.string(),
   },
   handler: async (
@@ -451,12 +505,30 @@ export const rename = internalMutation({
 
     const file = await ctx.db
       .query("fileStaging")
-      .withIndex("by_vault_and_initial_path", (q) =>
+      .withIndex("by_vault_and_branch_and_initial_path", (q) =>
         q
           .eq("vaultId", args.vaultId)
+          .eq("branch", args.branch)
           .eq("initialFilePath", args.initialFilePath),
       )
       .first();
+
+    const stagedOnOtherBranch =
+      file ??
+      (await ctx.db
+        .query("fileStaging")
+        .withIndex("by_vault_and_initial_path", (q) =>
+          q
+            .eq("vaultId", args.vaultId)
+            .eq("initialFilePath", args.initialFilePath),
+        )
+        .first());
+
+    if (stagedOnOtherBranch && stagedOnOtherBranch.branch !== args.branch) {
+      throw new Error(
+        `File is already staged on branch ${stagedOnOtherBranch.branch}`,
+      );
+    }
 
     if (!file) {
       throw new Error("File not found");
@@ -510,14 +582,16 @@ export const getByOriginalPath = internalQuery({
   args: {
     vaultId: v.id("vaults"),
     originalFilePath: v.string(),
+    branch: v.string(),
   },
   returns: v.any(),
   handler: async (ctx, args) => {
     const staging = await ctx.db
       .query("fileStaging")
-      .withIndex("by_vault_and_initial_path", (q) =>
+      .withIndex("by_vault_and_branch_and_initial_path", (q) =>
         q
           .eq("vaultId", args.vaultId)
+          .eq("branch", args.branch)
           .eq("initialFilePath", args.originalFilePath),
       )
       .first();

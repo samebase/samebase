@@ -301,6 +301,7 @@ export const pushContentUpdate = internalMutation({
   args: {
     vaultId: v.id("vaults"),
     filePath: v.string(),
+    branch: v.string(),
     newContent: v.string(),
     userId: v.id("users"),
   },
@@ -308,8 +309,11 @@ export const pushContentUpdate = internalMutation({
   handler: async (ctx, args) => {
     const staging = await ctx.db
       .query("fileStaging")
-      .withIndex("by_vault_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      .withIndex("by_vault_and_branch_and_path", (q) =>
+        q
+          .eq("vaultId", args.vaultId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.filePath),
       )
       .first();
 
@@ -365,6 +369,7 @@ export const pushSerializedChangeSetUpdate = internalMutation({
   args: {
     vaultId: v.id("vaults"),
     filePath: v.string(),
+    branch: v.string(),
     serializedChangeSet: v.string(),
     userId: v.id("users"),
   },
@@ -372,8 +377,11 @@ export const pushSerializedChangeSetUpdate = internalMutation({
   handler: async (ctx, args) => {
     const staging = await ctx.db
       .query("fileStaging")
-      .withIndex("by_vault_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      .withIndex("by_vault_and_branch_and_path", (q) =>
+        q
+          .eq("vaultId", args.vaultId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.filePath),
       )
       .first();
 
@@ -420,6 +428,14 @@ export const pushSerializedChangeSetUpdate = internalMutation({
       lastEditTime: timestamp,
       lastEditUserId: args.userId,
     });
+
+    if (newVersion % 50 === 0) {
+      await ctx.scheduler.runAfter(0, internal.collaborative.pruneOldUpdates, {
+        vaultId: args.vaultId,
+        filePath: args.filePath,
+        currentVersion: newVersion,
+      });
+    }
 
     return null;
   },

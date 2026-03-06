@@ -82,8 +82,7 @@ function summarizeToolInput(input: unknown): unknown {
   for (const [key, value] of Object.entries(input)) {
     if (key === "content" && typeof value === "string") {
       summary.contentLength = value.length;
-      summary.contentPreview =
-        value.length > 120 ? `${value.slice(0, 120)}...` : value;
+      summary.contentRedacted = true;
       continue;
     }
     if (key === "replacements" && Array.isArray(value)) {
@@ -116,10 +115,7 @@ function getMissingRequiredToolKeys(call: ToolCallSnapshot): string[] {
     input !== null &&
     typeof input["path"] === "string" &&
     input["path"].trim().length > 0;
-  const hasContent =
-    input !== null &&
-    typeof input["content"] === "string" &&
-    input["content"].length > 0;
+  const hasContent = input !== null && typeof input["content"] === "string";
   const hasReplacements =
     input !== null &&
     Array.isArray(input["replacements"]) &&

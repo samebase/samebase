@@ -147,7 +147,11 @@ async function loadExistingFileSnapshot(
 ): Promise<ExistingFileSnapshot> {
   const staging = await toolCtx.ctx.runQuery(
     internal.fileStaging.getByOriginalPath,
-    { vaultId: toolCtx.vaultId, originalFilePath: path },
+    {
+      vaultId: toolCtx.vaultId,
+      originalFilePath: path,
+      branch: toolCtx.branch,
+    },
   );
   if (staging) {
     if (staging.fileDeleted === true) {
@@ -249,7 +253,11 @@ export async function executeReadFile(
   // 1. Check staging
   const staging = await toolCtx.ctx.runQuery(
     internal.fileStaging.getByOriginalPath,
-    { vaultId: toolCtx.vaultId, originalFilePath: input.path },
+    {
+      vaultId: toolCtx.vaultId,
+      originalFilePath: input.path,
+      branch: toolCtx.branch,
+    },
   );
   if (staging) {
     return staging.content;
@@ -323,7 +331,11 @@ async function executeEditFile(
   // Check if file is already staged (i.e. editor is open)
   const staging = await toolCtx.ctx.runQuery(
     internal.fileStaging.getByOriginalPath,
-    { vaultId: toolCtx.vaultId, originalFilePath: input.path },
+    {
+      vaultId: toolCtx.vaultId,
+      originalFilePath: input.path,
+      branch: toolCtx.branch,
+    },
   );
 
   if (staging) {
@@ -332,6 +344,7 @@ async function executeEditFile(
     await toolCtx.ctx.runMutation(internal.collaborative.pushContentUpdate, {
       vaultId: toolCtx.vaultId,
       filePath: input.path,
+      branch: toolCtx.branch,
       newContent: input.content,
       userId: toolCtx.userId,
     });
@@ -381,6 +394,7 @@ async function executeReplaceInFile(
       {
         vaultId: toolCtx.vaultId,
         filePath: input.path,
+        branch: toolCtx.branch,
         serializedChangeSet: plan.serializedChangeSet,
         userId: toolCtx.userId,
       },

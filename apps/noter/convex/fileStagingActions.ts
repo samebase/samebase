@@ -717,6 +717,11 @@ export const renameFileInStaging = action({
     content: string;
   }> => {
     await getUserId(ctx);
+    const branch =
+      args.branch ??
+      (() => {
+        throw new Error("Branch is required to rename a staged file");
+      })();
 
     const vault = await ctx.runQuery(internal.vault.getById, {
       id: args.vaultId,
@@ -730,21 +735,16 @@ export const renameFileInStaging = action({
     await ctx.runAction(api.fileStagingActions.getFileForEditing, {
       repositoryFullName: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
       originalFilePath: args.originalPath,
-      branch: args.branch,
+      branch,
     });
 
     // Update existing staging record with new path
     const updatedFile = await ctx.runMutation(internal.fileStaging.rename, {
       vaultId: args.vaultId,
       initialFilePath: args.originalPath,
+      branch,
       newPath: args.newPath,
     });
-
-    const {
-      content: _content,
-      initialContent: _initialContent,
-      ...rest
-    } = updatedFile;
 
     return {
       content: updatedFile.content,
@@ -800,6 +800,7 @@ export const getFileForEditing = action({
     const staging = await ctx.runQuery(internal.fileStaging.getByOriginalPath, {
       vaultId: vault._id,
       originalFilePath: args.originalFilePath,
+      branch: targetBranch,
     });
 
     // TODO: Maybe also check the github, if it has updates
@@ -1098,6 +1099,7 @@ export const pullFromGitHubInternal = internalAction({
     const blobFetchQueue: Array<{
       stagingId: (typeof allStaged)[0]["_id"];
       sha: string;
+      branch: string;
       filePath: string;
       stagedContent: string;
       initialContent: string;
@@ -1141,6 +1143,7 @@ export const pullFromGitHubInternal = internalAction({
         blobFetchQueue.push({
           stagingId: staged._id,
           sha: newSha,
+          branch: staged.branch,
           filePath: staged.filePath,
           stagedContent: staged.content,
           initialContent: staged.initialContent,
@@ -1171,6 +1174,7 @@ export const pullFromGitHubInternal = internalAction({
             await ctx.runMutation(internal.collaborative.pushContentUpdate, {
               vaultId: args.vaultId,
               filePath: item.filePath,
+              branch: item.branch,
               newContent: rebaseResult.content,
               userId: args.userId,
             });
