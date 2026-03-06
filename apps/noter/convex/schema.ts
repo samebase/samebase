@@ -307,7 +307,7 @@ export default defineSchema({
     infraLastError: v.optional(v.string()),
     infraLastProvisionedAt: v.optional(v.number()),
     infraProvisioningStartedAt: v.optional(v.number()),
-  }).index("by_repo", ["ghRepoOwner", "ghRepoName"]),
+  }).index("by_ghRepoOwner_and_ghRepoName", ["ghRepoOwner", "ghRepoName"]),
 
   /**
    * External infrastructure identifiers and status for a vault.
@@ -361,8 +361,12 @@ export default defineSchema({
     createdAt: number(),
     updatedAt: number(),
   })
-    .index("by_repo_branch", ["ghRepoOwner", "ghRepoName", "branch"])
-    .index("by_repo_branch_commit", [
+    .index("by_ghRepoOwner_and_ghRepoName_and_branch", [
+      "ghRepoOwner",
+      "ghRepoName",
+      "branch",
+    ])
+    .index("by_ghRepoOwner_and_ghRepoName_and_branch_and_commitSha", [
       "ghRepoOwner",
       "ghRepoName",
       "branch",

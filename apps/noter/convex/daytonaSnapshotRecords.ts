@@ -77,7 +77,7 @@ async function getSnapshotRecordByCommit(
 ): Promise<SnapshotRecord | null> {
   return await ctx.db
     .query("daytonaSnapshots")
-    .withIndex("by_repo_branch_commit", (q) =>
+    .withIndex("by_ghRepoOwner_and_ghRepoName_and_branch_and_commitSha", (q) =>
       q
         .eq("ghRepoOwner", args.owner)
         .eq("ghRepoName", args.repo)
@@ -198,7 +198,7 @@ export const listByRepoBranch = internalQuery({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("daytonaSnapshots")
-      .withIndex("by_repo_branch", (q) =>
+      .withIndex("by_ghRepoOwner_and_ghRepoName_and_branch", (q) =>
         q
           .eq("ghRepoOwner", args.owner)
           .eq("ghRepoName", args.repo)
@@ -217,7 +217,7 @@ export const listByRepo = internalQuery({
   handler: async (ctx, args) => {
     const mainBranchRecords = await ctx.db
       .query("daytonaSnapshots")
-      .withIndex("by_repo_branch", (q) =>
+      .withIndex("by_ghRepoOwner_and_ghRepoName_and_branch", (q) =>
         q
           .eq("ghRepoOwner", args.owner)
           .eq("ghRepoName", args.repo)

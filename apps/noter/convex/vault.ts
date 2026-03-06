@@ -133,7 +133,7 @@ export const removeVault = mutation({
     if (!hasOtherVaultsForRepository) {
       const snapshotRecords = await ctx.db
         .query("daytonaSnapshots")
-        .withIndex("by_repo_branch", (q) =>
+        .withIndex("by_ghRepoOwner_and_ghRepoName_and_branch", (q) =>
           q
             .eq("ghRepoOwner", vault.ghRepoOwner)
             .eq("ghRepoName", vault.ghRepoName)
@@ -348,7 +348,7 @@ async function getCurrentDaytonaSnapshotState(
 
   const snapshot = await ctx.db
     .query("daytonaSnapshots")
-    .withIndex("by_repo_branch_commit", (q) =>
+    .withIndex("by_ghRepoOwner_and_ghRepoName_and_branch_and_commitSha", (q) =>
       q
         .eq("ghRepoOwner", vault.ghRepoOwner)
         .eq("ghRepoName", vault.ghRepoName)
@@ -545,12 +545,11 @@ export const hasOtherVaultsForRepository = internalQuery({
   handler: async (ctx, args) => {
     const matches = await ctx.db
       .query("vaults")
-      .withIndex("by_repo", (q) =>
+      .withIndex("by_ghRepoOwner_and_ghRepoName", (q) =>
         q.eq("ghRepoOwner", args.owner).eq("ghRepoName", args.repo),
       )
-      .filter((q) => q.neq(q.field("_id"), args.excludeVaultId))
-      .take(1);
-    return matches.length > 0;
+      .take(2);
+    return matches.some((vault) => vault._id !== args.excludeVaultId);
   },
 });
 
@@ -791,6 +790,7 @@ export const updateVaultTree = internalMutation({
     treeData: GithubTreeData,
     commitSHA: v.optional(v.string()),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
 
