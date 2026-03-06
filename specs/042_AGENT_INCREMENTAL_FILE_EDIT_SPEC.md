@@ -132,13 +132,12 @@ all of the file.
 ### Input schema
 
 ```ts
-{
+type ReplaceInFileInput = {
   path: string
-  replacements: {
+  replacements: Array<{
     oldText: string
     newText: string
-  }
-  ;[]
+  }>
 }
 ```
 
