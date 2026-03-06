@@ -198,6 +198,7 @@ export const getRepositoryFileContent = action({
   },
   returns: repositoryFileContentResult,
   handler: async (ctx, args): Promise<RepositoryFileContent> => {
+    const requestedBranch = args.branch?.trim() || undefined;
     const userId = await getUserId(ctx);
 
     const currentUser = await ctx.runQuery(internal.users.getById, {
@@ -256,7 +257,7 @@ export const getRepositoryFileContent = action({
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
         path: args.filePath,
-        ref: args.branch,
+        ref: requestedBranch,
       });
 
       if (Array.isArray(file.data) || file.data.type !== "file") {
@@ -306,7 +307,7 @@ export const getRepositoryMediaAsset = action({
       throw new Error("Vault not found");
     }
 
-    const requestedBranch = args.branch?.trim();
+    const requestedBranch = args.branch?.trim() || undefined;
     const fileName = getRepositoryMediaFileName(args.filePath);
 
     if (!requestedBranch) {
