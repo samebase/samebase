@@ -41,6 +41,13 @@ export const TOOL_CATALOG: ToolMeta[] = [
     inputDisplayKey: "path",
   },
   {
+    name: "replace_in_file",
+    description:
+      "Edit an existing file by replacing exact text snippets without rewriting the whole file. Required inputs: path relative to the repository root and replacements, a non-empty array of { oldText, newText }. Prefer this over edit_file for localized changes. Each oldText must match exactly once in the current file content.",
+    uiDescription: "Replace exact text in a file",
+    inputDisplayKey: "path",
+  },
+  {
     name: "create_file",
     description:
       "Create a new file in the repository. Required inputs: path relative to the repository root and content containing the full file text.",

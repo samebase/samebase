@@ -26,6 +26,8 @@ export function buildSystemPrompt(context: {
       "When editing files:",
       "- Never call file tools with an empty object or missing required fields",
       "- If the user refers to the current file, use the current file path from context",
+      "- Prefer replace_in_file for localized edits to existing files",
+      "- replace_in_file requires BOTH path and a non-empty replacements array of exact oldText/newText pairs",
       "- edit_file requires BOTH path and the full replacement content for the file",
       "- Read the file first to understand its current content",
       "- Make precise, minimal edits",

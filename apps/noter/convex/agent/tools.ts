@@ -7,6 +7,11 @@ import { internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { TOOL_CATALOG } from "./toolCatalog";
+import {
+  buildReplaceInFilePlan,
+  ReplaceInFileError,
+  type ReplaceInFileReplacement,
+} from "./replaceInFile";
 
 const PROD_READ_SENTINEL = "__PROD_READ_PROPOSAL__:";
 type AllowedDataTable =
@@ -46,6 +51,14 @@ export interface ToolContext {
   userId: Id<"users">;
   accessToken: string;
 }
+
+const replaceInFileReplacementSchema = z.object({
+  oldText: z
+    .string()
+    .min(1)
+    .describe("Exact existing text to replace, including whitespace"),
+  newText: z.string().describe("Replacement text"),
+});
 
 // --- GitHub API Allowlist ---
 
@@ -112,6 +125,122 @@ const GITHUB_API_ALLOWLIST = new Set([
   "search.code",
   "search.commits",
 ]);
+
+interface ExistingFileSnapshot {
+  content: string;
+  parentCommitSha: string | null;
+  isStaged: boolean;
+}
+
+function hasStatusCode(
+  error: unknown,
+  status: number,
+): error is { status: number } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    error.status === status
+  );
+}
+
+async function loadExistingFileSnapshot(
+  toolCtx: ToolContext,
+  path: string,
+): Promise<ExistingFileSnapshot> {
+  const staging = await toolCtx.ctx.runQuery(
+    internal.fileStaging.getByOriginalPath,
+    { vaultId: toolCtx.vaultId, originalFilePath: path },
+  );
+  if (staging) {
+    if (staging.fileDeleted === true) {
+      throw new ReplaceInFileError(
+        `replace_in_file failed: ${path} is marked deleted in staging`,
+      );
+    }
+    return {
+      content: staging.content,
+      parentCommitSha: staging.parentCommitSha ?? null,
+      isStaged: true,
+    };
+  }
+
+  const vault = await toolCtx.ctx.runQuery(internal.vault.getById, {
+    id: toolCtx.vaultId,
+  });
+  const treeEntry = vault?.treeData.tree.find(
+    (entry: { path?: string }) => entry.path === path,
+  );
+
+  if (treeEntry?.type === "tree") {
+    throw new ReplaceInFileError(
+      `replace_in_file failed: ${path} is a directory, not a file`,
+    );
+  }
+
+  if (treeEntry?.sha) {
+    const blob = await toolCtx.ctx.runQuery(
+      internal.gitOperations.getBlobBySha,
+      {
+        sha: treeEntry.sha,
+      },
+    );
+    if (blob?.text !== undefined) {
+      return {
+        content: blob.text,
+        parentCommitSha: treeEntry.sha,
+        isStaged: false,
+      };
+    }
+  }
+
+  const octokit = new Octokit({ auth: toolCtx.accessToken });
+  try {
+    const file = await octokit.rest.repos.getContent({
+      owner: toolCtx.owner,
+      repo: toolCtx.repo,
+      path,
+    });
+    if (Array.isArray(file.data) || file.data.type !== "file") {
+      throw new ReplaceInFileError(
+        `replace_in_file failed: ${path} is a directory, not a file`,
+      );
+    }
+    return {
+      content: Buffer.from(file.data.content, "base64").toString("utf-8"),
+      parentCommitSha: file.data.sha,
+      isStaged: false,
+    };
+  } catch (error) {
+    if (error instanceof ReplaceInFileError) {
+      throw error;
+    }
+    if (hasStatusCode(error, 404)) {
+      throw new ReplaceInFileError(
+        `replace_in_file failed: ${path} does not exist; use create_file`,
+      );
+    }
+    throw error;
+  }
+}
+
+function formatReplaceInFileResult(
+  path: string,
+  replacements: ReplaceInFileReplacement[],
+  resolvedEdits: ReturnType<typeof buildReplaceInFilePlan>["resolvedEdits"],
+): string {
+  return JSON.stringify(
+    {
+      path,
+      applied: resolvedEdits.length,
+      replacementCount: replacements.length,
+      resolvedEdits,
+      result: `File edited: ${path}`,
+    },
+    null,
+    2,
+  );
+}
 
 // --- Tool Executor Functions ---
 
@@ -235,6 +364,45 @@ async function executeEditFile(
   }
 
   return `File edited: ${input.path}`;
+}
+
+async function executeReplaceInFile(
+  toolCtx: ToolContext,
+  input: { path: string; replacements: ReplaceInFileReplacement[] },
+): Promise<string> {
+  const snapshot = await loadExistingFileSnapshot(toolCtx, input.path);
+  const plan = buildReplaceInFilePlan({
+    sourceContent: snapshot.content,
+    replacements: input.replacements,
+  });
+
+  if (snapshot.isStaged) {
+    await toolCtx.ctx.runMutation(
+      internal.collaborative.pushSerializedChangeSetUpdate,
+      {
+        vaultId: toolCtx.vaultId,
+        filePath: input.path,
+        serializedChangeSet: plan.serializedChangeSet,
+        userId: toolCtx.userId,
+      },
+    );
+  } else {
+    await toolCtx.ctx.runMutation(internal.fileStaging.saveToStaging, {
+      vaultId: toolCtx.vaultId,
+      initialFilePath: input.path,
+      content: plan.finalContent,
+      initialContent: snapshot.content,
+      parentCommitSha: snapshot.parentCommitSha,
+      branch: toolCtx.branch,
+      userId: toolCtx.userId,
+    });
+  }
+
+  return formatReplaceInFileResult(
+    input.path,
+    input.replacements,
+    plan.resolvedEdits,
+  );
 }
 
 async function executeCreateFile(
@@ -604,6 +772,22 @@ export function createTools(toolCtx: ToolContext) {
       }),
       handler: async (_ctx, input) => {
         return await executeEditFile(toolCtx, input);
+      },
+    }),
+
+    replace_in_file: createTool({
+      description: catalogDescription("replace_in_file"),
+      args: z.object({
+        path: z.string().describe("File path relative to repository root"),
+        replacements: z
+          .array(replaceInFileReplacementSchema)
+          .min(1)
+          .describe(
+            "Exact oldText/newText replacements to apply atomically to the file",
+          ),
+      }),
+      handler: async (_ctx, input) => {
+        return await executeReplaceInFile(toolCtx, input);
       },
     }),
 

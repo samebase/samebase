@@ -213,15 +213,11 @@ export const pushUpdates = mutation({
     // Periodically prune old collaborative updates to prevent unbounded growth.
     // Only run every 50 versions to avoid scheduling too often.
     if (currentVersion % 50 === 0) {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.collaborative.pruneOldUpdates,
-        {
-          vaultId: vault._id,
-          filePath: args.filePath,
-          currentVersion,
-        },
-      );
+      await ctx.scheduler.runAfter(0, internal.collaborative.pruneOldUpdates, {
+        vaultId: vault._id,
+        filePath: args.filePath,
+        currentVersion,
+      });
     }
 
     return {
@@ -362,6 +358,63 @@ export const pushContentUpdate = internalMutation({
 });
 
 /**
+ * Push a precomputed incremental ChangeSet through the collaborative stream.
+ * Used by the AI agent when it can express a localized edit as exact ranges.
+ */
+export const pushSerializedChangeSetUpdate = internalMutation({
+  args: {
+    vaultId: v.id("vaults"),
+    filePath: v.string(),
+    serializedChangeSet: v.string(),
+    userId: v.id("users"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const staging = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_path", (q) =>
+        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      )
+      .first();
+
+    if (!staging) {
+      return null;
+    }
+
+    const currentDoc = Text.of(staging.content.split("\n"));
+    const changeSet = ChangeSet.fromJSON(JSON.parse(args.serializedChangeSet));
+    const updatedContent = changeSet.apply(currentDoc).toString();
+
+    if (updatedContent === staging.content) {
+      return null;
+    }
+
+    const currentVersion = staging.version;
+    const newVersion = currentVersion + 1;
+    const timestamp = Date.now();
+
+    await ctx.db.insert("collaborativeUpdates", {
+      vaultId: args.vaultId,
+      filePath: args.filePath,
+      version: newVersion,
+      clientId: "agent",
+      changes: args.serializedChangeSet,
+      userId: args.userId,
+      timestamp,
+    });
+
+    await ctx.db.patch(staging._id, {
+      content: updatedContent,
+      version: newVersion,
+      lastEditTime: timestamp,
+      lastEditUserId: args.userId,
+    });
+
+    return null;
+  },
+});
+
+/**
  * Prune old collaborative updates that are no longer needed.
  * Keeps the most recent MAX_UPDATES_TO_KEEP per file, deletes the rest in batches.
  */
@@ -393,15 +446,11 @@ export const pruneOldUpdates = internalMutation({
 
     // If we hit the batch limit, schedule another round.
     if (oldUpdates.length === CLEANUP_BATCH_SIZE) {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.collaborative.pruneOldUpdates,
-        {
-          vaultId: args.vaultId,
-          filePath: args.filePath,
-          currentVersion: args.currentVersion,
-        },
-      );
+      await ctx.scheduler.runAfter(0, internal.collaborative.pruneOldUpdates, {
+        vaultId: args.vaultId,
+        filePath: args.filePath,
+        currentVersion: args.currentVersion,
+      });
     }
 
     return null;

@@ -89,6 +89,25 @@ function summarizeToolInput(input: unknown): unknown {
         value.length > 120 ? `${value.slice(0, 120)}...` : value;
       continue;
     }
+    if (key === "replacements" && Array.isArray(value)) {
+      summary.replacementsCount = value.length;
+      summary.replacementsPreview = value.slice(0, 3).map((replacement) => {
+        if (!isRecord(replacement)) {
+          return replacement;
+        }
+        return {
+          oldTextLength:
+            typeof replacement["oldText"] === "string"
+              ? replacement["oldText"].length
+              : undefined,
+          newTextLength:
+            typeof replacement["newText"] === "string"
+              ? replacement["newText"].length
+              : undefined,
+        };
+      });
+      continue;
+    }
     summary[key] = value;
   }
   return summary;
@@ -104,6 +123,10 @@ function getMissingRequiredToolKeys(call: ToolCallSnapshot): string[] {
     input !== null &&
     typeof input["content"] === "string" &&
     input["content"].length > 0;
+  const hasReplacements =
+    input !== null &&
+    Array.isArray(input["replacements"]) &&
+    input["replacements"].length > 0;
 
   switch (call.toolName) {
     case "read_file":
@@ -117,6 +140,16 @@ function getMissingRequiredToolKeys(call: ToolCallSnapshot): string[] {
       }
       if (!hasContent) {
         missing.push("content");
+      }
+      return missing;
+    }
+    case "replace_in_file": {
+      const missing: string[] = [];
+      if (!hasPath) {
+        missing.push("path");
+      }
+      if (!hasReplacements) {
+        missing.push("replacements");
       }
       return missing;
     }
@@ -218,6 +251,7 @@ export async function runAgentGraph(opts: {
 
       if (
         call.toolName === "edit_file" ||
+        call.toolName === "replace_in_file" ||
         call.toolName === "create_file" ||
         call.toolName === "read_file" ||
         call.toolName === "delete_file"
