@@ -9,6 +9,7 @@ import type { ToolContext } from "./agent/tools";
 import { runAgentGraph } from "./agent/graph";
 import { saveMessage } from "@convex-dev/agent";
 import { Octokit } from "@octokit/rest";
+import { isRecord } from "./jsonUtils";
 
 const { object, string, optional, id } = v;
 
@@ -30,6 +31,7 @@ async function resolveThreadId(
   ctx: ActionCtx,
   userId: Id<"users">,
   vaultId: Id<"vaults">,
+  branch: string,
   threadId?: string,
 ): Promise<string> {
   if (threadId) {
@@ -46,7 +48,7 @@ async function resolveThreadId(
     }
   }
 
-  return ctx.runMutation(api.chat.index.createThread, { vaultId });
+  return ctx.runMutation(api.chat.index.createThread, { vaultId, branch });
 }
 
 async function buildToolContext(
@@ -79,6 +81,38 @@ function requireThreadBranch(branch: string | undefined): string {
     );
   }
   return branch;
+}
+
+function readDefaultBranch(repoData: unknown): string {
+  if (!isRecord(repoData)) {
+    return "main";
+  }
+
+  const defaultBranch = repoData.default_branch;
+  if (typeof defaultBranch === "string" && defaultBranch.length > 0) {
+    return defaultBranch;
+  }
+
+  return "main";
+}
+
+async function resolveFallbackBranch(args: {
+  vault: {
+    ghRepoOwner: string;
+    ghRepoName: string;
+  };
+  githubAccessToken?: string;
+}): Promise<string> {
+  if (!args.githubAccessToken) {
+    return "main";
+  }
+
+  const octokit = new Octokit({ auth: args.githubAccessToken });
+  const repo = await octokit.rest.repos.get({
+    owner: args.vault.ghRepoOwner,
+    repo: args.vault.ghRepoName,
+  });
+  return readDefaultBranch(repo.data);
 }
 
 async function loadAgentPrompt(args: {
@@ -160,18 +194,31 @@ export const sendAgentMessage = action({
       githubConnection?.kind === "github"
         ? githubConnection.auth.credential
         : undefined;
+    const fallbackBranch = await resolveFallbackBranch({
+      vault,
+      githubAccessToken,
+    });
 
     const resolvedThreadId = await resolveThreadId(
       ctx,
       userId,
       args.vaultId,
+      fallbackBranch,
       args.threadId,
     );
     const threadContext = await ctx.runQuery(
       internal.chat.index.getThreadContextForAction,
       { threadId: resolvedThreadId },
     );
-    const threadBranch = requireThreadBranch(threadContext?.branch);
+    const threadBranch = requireThreadBranch(
+      threadContext?.branch ?? fallbackBranch,
+    );
+    if (!threadContext?.branch) {
+      await ctx.runMutation(internal.chat.index.setThreadBranchInternal, {
+        threadId: resolvedThreadId,
+        branch: threadBranch,
+      });
+    }
 
     const toolCtx = githubAccessToken
       ? await buildToolContext(ctx, resolvedThreadId, threadBranch, vault, {

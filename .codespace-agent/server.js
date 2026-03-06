@@ -74,7 +74,7 @@ const initialTokenState = loadInitialTokenState()
 let AGENT_TOKEN = initialTokenState.token
 let AGENT_TOKEN_SOURCE = initialTokenState.source
 const serverStartAt = Date.now()
-let agentTokenBootstrapAttempts = 0
+const agentTokenBootstrapAttemptsByClient = new Map()
 
 const codexRuntime = {
   process: null,
@@ -138,8 +138,9 @@ function authenticateToken(req, res, next) {
         .json({ error: 'Agent token bootstrap window expired' })
     }
 
-    agentTokenBootstrapAttempts += 1
-    if (agentTokenBootstrapAttempts > AGENT_TOKEN_BOOTSTRAP_MAX_ATTEMPTS) {
+    const bootstrapClientKey = getBootstrapClientKey(req)
+    const bootstrapAttempts = recordBootstrapAttempt(bootstrapClientKey)
+    if (bootstrapAttempts > AGENT_TOKEN_BOOTSTRAP_MAX_ATTEMPTS) {
       console.warn(
         `Rejected bootstrap request from ${req.ip} to ${req.path} after too many attempts`,
       )
@@ -155,6 +156,7 @@ function authenticateToken(req, res, next) {
 
     AGENT_TOKEN = token
     AGENT_TOKEN_SOURCE = 'request'
+    agentTokenBootstrapAttemptsByClient.delete(bootstrapClientKey)
     void persistAgentToken(token)
     console.log('Agent token initialized from bootstrap request')
     return next()
@@ -166,6 +168,32 @@ function authenticateToken(req, res, next) {
   }
 
   next()
+}
+
+function getBootstrapClientKey(req) {
+  if (typeof req.ip === 'string' && req.ip.length > 0) {
+    return req.ip
+  }
+  return 'unknown'
+}
+
+function recordBootstrapAttempt(clientKey) {
+  const now = Date.now()
+  const entry = agentTokenBootstrapAttemptsByClient.get(clientKey)
+  if (!entry || entry.expiresAt <= now) {
+    agentTokenBootstrapAttemptsByClient.set(clientKey, {
+      attempts: 1,
+      expiresAt: now + AGENT_TOKEN_BOOTSTRAP_WINDOW_MS,
+    })
+    return 1
+  }
+
+  const attempts = entry.attempts + 1
+  agentTokenBootstrapAttemptsByClient.set(clientKey, {
+    attempts,
+    expiresAt: entry.expiresAt,
+  })
+  return attempts
 }
 
 app.use(authenticateToken)

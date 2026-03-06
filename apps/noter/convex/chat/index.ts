@@ -855,6 +855,20 @@ export const getThreadContextForAction = internalQuery({
   },
 });
 
+export const setThreadBranchInternal = internalMutation({
+  args: {
+    threadId: string(),
+    branch: string(),
+  },
+  returns: vNull(),
+  handler: async (ctx, args) => {
+    const thread = await getThreadById(ctx, args.threadId);
+    if (!thread) return null;
+    await ctx.db.patch(thread._id, { branch: args.branch });
+    return null;
+  },
+});
+
 export const saveThreadSystemPrompt = internalMutation({
   args: {
     threadId: string(),
