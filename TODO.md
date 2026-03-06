@@ -118,6 +118,17 @@
 ## Meta/Philosophy
 - [ ] the more our tooling for noter gets better (in terms of ai settings or integrations) the more our user's tooling gets better, since we use noter for building noter
 
+## Demo Ideas
+- [ ] **Live Demo Concept**: Conference/meeting screen sharing demo where:
+  1. Request AI to build an app on mobile phone in front of audience
+  2. Get deployment link in ~10 seconds (vs typical 6+ minute wait for other builders)
+  3. Could theoretically be instant since we know the Daytona URL beforehand
+  4. Initial app shows minimal template (even simpler than todo - maybe just empty screen with "hello")
+  5. Continue talking with AI while audience watches the site change in real-time via Vite
+  6. Generate QR code alongside the link for easy mobile scanning
+  7. Instruct audience to scan QR on their phones to verify mobile web compatibility
+  8. Demonstrate live collaborative editing where changes appear instantly across all viewers
+
 ## Ideas to Explore
 - [ ] check if I discussed this idea: noter could approach darklang because the logs are automatically in convex
 - [ ] add idea regarding the jokes about older people don't know how to convert to pdf. But now with noter
