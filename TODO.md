@@ -2,6 +2,7 @@
 
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 - [ ] maybe jupyterlab is not necessaryle necessary, or even a good idea, since developers usually don't use it; and vibecoders don't even use it; only academia?
+- [ ] replace precommit hook with something that can run in convex, or be automated
 - [ ] the keyboard takes a lot of space, noter should also provide simpler, without necessary key, using wispr, or Quaid that would make sense to ask
 - [ ] In Convex discord I've read that Convex storage is not a good option; R2 from Cloudflare is recommended; This is great is Cloudflare will be part of the stack;
 - [ ] I was just thinking about using some sort of .mdx + agent that's specifically trained and has tools to read from github,convex,cloudflare,something for logs; and just displays this in noter.md it's also easy to configure the dashboard since it's just markdown; It's similar in a way to what datadog is doing;
