@@ -244,6 +244,7 @@ function FileViewWrapper() {
   const vault = useLiveQuery(api.vault.getVaultByRepository, {
     repositoryFullName: repositoryFullName ?? "skip",
   });
+  const vaultId = vault?._id;
   const selectedTreeEntry = useMemo(
     () =>
       vault?.treeData.tree.find(
@@ -259,10 +260,10 @@ function FileViewWrapper() {
   >({});
 
   useEffect(() => {
-    if (vault?._id) {
+    if (vaultId) {
       setStorageBackedSelection({});
     }
-  }, [vault?._id]);
+  }, [vaultId]);
 
   useEffect(() => {
     if (vault === null) {
@@ -272,7 +273,7 @@ function FileViewWrapper() {
 
   const refreshTreeIfNeeded = useCallback(
     (trigger: RefreshTrigger = "focus") => {
-      if (!vault || !owner || !repoName) return;
+      if (!vaultId || !owner || !repoName) return;
       const key = `${owner}/${repoName}`;
       if (!claimRefreshDebounce("file_view", key)) return;
       void refreshTree({ owner, repo: repoName, trigger }).catch(
@@ -282,13 +283,13 @@ function FileViewWrapper() {
         },
       );
     },
-    [vault?._id, owner, repoName, refreshTree],
+    [vaultId, owner, repoName, refreshTree],
   );
 
   // Refresh tree from GitHub when the page regains focus (debounced to 2 min).
   // Initial page-load refreshes use a shorter server-side debounce window.
   useEffect(() => {
-    if (!vault || !owner || !repoName) return;
+    if (!vaultId || !owner || !repoName) return;
 
     const handleFocus = () => {
       refreshTreeIfNeeded();
@@ -311,7 +312,7 @@ function FileViewWrapper() {
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [vault?._id, owner, repoName, refreshTreeIfNeeded]);
+  }, [vaultId, owner, repoName, refreshTreeIfNeeded]);
 
   // Auto-redirect to best file when no file is selected
   useEffect(() => {

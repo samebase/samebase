@@ -1,26 +1,9 @@
-import { createContext, useState, ReactNode } from "react";
-
-interface DialogState {
-  fileCreationDialog: {
-    isOpen: boolean;
-    folderPath?: string;
-  };
-  folderCreationDialog: {
-    isOpen: boolean;
-    folderPath?: string;
-  };
-}
-
-export interface DialogContextType extends DialogState {
-  openFileCreation: (folderPath: string) => void;
-  closeFileCreation: () => void;
-  openFolderCreation: (folderPath: string) => void;
-  closeFolderCreation: () => void;
-}
-
-export const DialogContext = createContext<DialogContextType | undefined>(
-  undefined,
-);
+import { useState, ReactNode } from "react";
+import {
+  DialogContext,
+  type DialogContextType,
+  type DialogState,
+} from "./dialog-context-state";
 
 interface DialogProviderProps {
   children: ReactNode;

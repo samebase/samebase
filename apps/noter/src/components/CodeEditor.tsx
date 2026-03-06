@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-floating-promises */
 /* eslint-disable prefer-const */
 import { useRef, useEffect, useState } from "react";
-import { ChangeSet, EditorState, Extension, Text } from "@codemirror/state";
+import { ChangeSet, EditorState } from "@codemirror/state";
 import { EditorView } from "codemirror";
 import { languages } from "@codemirror/language-data";
 // Note: closeBrackets functionality requires @codemirror/autocomplete package
@@ -29,12 +29,7 @@ import {
   ViewUpdate,
 } from "@codemirror/view";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { javascript } from "@codemirror/lang-javascript";
 import { markdown } from "@codemirror/lang-markdown";
-import { json } from "@codemirror/lang-json";
-import { html } from "@codemirror/lang-html";
-import { css } from "@codemirror/lang-css";
-import { python } from "@codemirror/lang-python";
 import { useTheme } from "next-themes";
 import {
   collab,
@@ -104,7 +99,7 @@ async function pushUpdates({
 }
 
 // https://github.com/codemirror/website/blob/main/site/examples/collab/collab.ts#L89
-export function peerExtension({
+function peerExtension({
   startVersion,
   repositoryFullName,
   branch,
@@ -261,33 +256,6 @@ const customBasicSetup = [
     },
   }),
 ];
-// Language detection based on file extension
-const getLanguageExtension = (fileName: string): Extension => {
-  const ext = fileName.toLowerCase().split(".").pop();
-
-  switch (ext) {
-    case "js":
-    case "jsx":
-    case "ts":
-    case "tsx":
-      return javascript({ jsx: true, typescript: ext.includes("ts") });
-    case "md":
-    case "markdown":
-      return markdown();
-    case "json":
-      return json();
-    case "html":
-    case "htm":
-      return html();
-    case "css":
-      return css();
-    case "py":
-      return python();
-    default:
-      return markdown(); // Default to markdown for text files
-  }
-};
-
 // Prose files: use ProseMark/CodeMirror. Everything else: Monaco.
 const PROSE_EXTENSIONS = new Set(["md", "mdx", "mdc", "txt", "markdown"]);
 
@@ -301,7 +269,7 @@ export function CodeEditorWrapper({
   repositoryFullName,
   branch,
   filePath,
-  initialFilePath,
+  initialFilePath: _initialFilePath,
   stagedFile,
   vaultId,
   tree,
@@ -365,8 +333,6 @@ export function CodeEditor({
     ((updates: readonly Update[], version: number) => void) | null
   >(null);
   const { theme, systemTheme } = useTheme();
-  // 3 letters/digits to differentiate the mounted editor
-  const idRef = useRef(Math.random().toString(36).substring(2, 5));
   const [version, setVersion] = useState(firstDoc.version);
   const [syncError, setSyncError] = useState<string | null>(null);
 
@@ -391,7 +357,7 @@ export function CodeEditor({
       clientID: u.clientID,
     }));
     pullRef.current(cmUpdates, version);
-  }, [updates]);
+  }, [updates, version]);
 
   useEffect(() => {
     let cancelled = false;

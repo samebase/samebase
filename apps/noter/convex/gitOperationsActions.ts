@@ -14,8 +14,6 @@ import os from "node:os";
 import { allLimited } from "./common";
 import { Id } from "./_generated/dataModel";
 
-const ALWAYS_STORAGE_OVER = 900_000; // keep margin below ~1MB doc limit
-
 type StagedInline = {
   kind: "inline";
   filePath: string;
@@ -244,11 +242,6 @@ const toBlob = (u8: Uint8Array, type?: string) =>
   // @ts-expect-error - Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
   new Blob([u8], type ? { type } : undefined);
 
-function isLikelyText(p: string) {
-  return /\.(md|markdown|txt|json|yaml|yml|toml|csv|ts|js|tsx|jsx|css|html)$/i.test(
-    p,
-  );
-}
 /**
  * Guess a MIME type from the file extension.
  * Defaults to application/octet-stream if unknown.
