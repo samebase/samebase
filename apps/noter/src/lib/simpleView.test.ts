@@ -7,7 +7,11 @@ import { describe, expect, it } from "vitest";
 import {
   filterSimpleViewTreeItems,
   getSimpleViewPreferenceStorageKey,
+  hasSimpleViewConfigFile,
+  hasStagedSimpleViewConfigFile,
+  isStagedSimpleViewConfigDeleted,
   parseSimpleViewConfig,
+  shouldLoadRepositorySimpleViewConfig,
 } from "./simpleView";
 
 type TreeItem = {
@@ -127,6 +131,87 @@ describe("getSimpleViewPreferenceStorageKey", () => {
     expect(getSimpleViewPreferenceStorageKey("vault_123")).toBe(
       "noter-simple-view:vault_123",
     );
+  });
+});
+
+describe("simple view config source resolution", () => {
+  it("detects staged noter.md when present", () => {
+    expect(
+      hasStagedSimpleViewConfigFile({
+        fileDeleted: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not treat deleted staged noter.md as available", () => {
+    expect(
+      hasStagedSimpleViewConfigFile({
+        fileDeleted: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("detects staged noter.md deletion state", () => {
+    expect(
+      isStagedSimpleViewConfigDeleted({
+        fileDeleted: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("treats repository noter.md fallback as config when not staged", () => {
+    expect(
+      hasSimpleViewConfigFile(null, "---\nsimpleView:\n  exclude: []\n---"),
+    ).toBe(true);
+  });
+
+  it("does not fall back to repository config when staged noter.md is deleted", () => {
+    expect(
+      hasSimpleViewConfigFile(
+        {
+          fileDeleted: true,
+        },
+        "---\nsimpleView:\n  exclude: []\n---",
+      ),
+    ).toBe(false);
+  });
+
+  it("returns no config when staged is missing and repository content is missing", () => {
+    expect(hasSimpleViewConfigFile(null, null)).toBe(false);
+  });
+
+  it("does not load repository config before staged query resolves", () => {
+    expect(shouldLoadRepositorySimpleViewConfig(undefined, false)).toBe(false);
+  });
+
+  it("loads repository config when staged query resolved and file is not staged", () => {
+    expect(shouldLoadRepositorySimpleViewConfig(null, false)).toBe(true);
+  });
+
+  it("skips repository load after first attempt", () => {
+    expect(shouldLoadRepositorySimpleViewConfig(null, true)).toBe(false);
+  });
+
+  it("skips repository load when staged noter.md exists", () => {
+    expect(
+      shouldLoadRepositorySimpleViewConfig(
+        {
+          fileDeleted: false,
+        },
+        false,
+      ),
+    ).toBe(false);
+  });
+
+  it("skips repository load when staged noter.md is deleted", () => {
+    expect(
+      shouldLoadRepositorySimpleViewConfig(
+        {
+          fileDeleted: true,
+        },
+        false,
+      ),
+    ).toBe(false);
   });
 });
 
