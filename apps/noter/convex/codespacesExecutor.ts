@@ -1570,7 +1570,7 @@ export const startCodexThread = action({
 export const startCodexTurn = action({
   args: {
     codespaceId: v.id("codespaces"),
-    threadId: v.optional(v.string()),
+    threadId: v.string(),
     text: v.string(),
     cwd: v.optional(v.string()),
     approvalPolicy: v.optional(v.string()),

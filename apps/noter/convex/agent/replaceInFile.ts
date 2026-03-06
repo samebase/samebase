@@ -49,6 +49,12 @@ function normalizeSnippetLineEndings(
   return content.replace(/\r\n|\r|\n/g, lineEnding);
 }
 
+function createSourceDocument(content: string): Text {
+  // CodeMirror joins the provided lines with `\n`. Splitting on literal LF keeps
+  // any CR bytes inside the previous line text, so CRLF offsets still align.
+  return Text.of(content.split("\n"));
+}
+
 function findMatchOffsets(content: string, needle: string): number[] {
   const matches: number[] = [];
   let searchStart = 0;
@@ -154,9 +160,7 @@ export function buildReplaceInFilePlan(args: {
     }
   }
 
-  // Split on LF only so CRLF files keep their `\r` bytes in line content.
-  // That preserves offsets computed against the original source string.
-  const sourceDoc = Text.of(args.sourceContent.split("\n"));
+  const sourceDoc = createSourceDocument(args.sourceContent);
   const changeSet = ChangeSet.of(
     sortedRanges.map((range) => ({
       from: range.from,
