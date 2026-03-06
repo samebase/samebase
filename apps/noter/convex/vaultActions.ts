@@ -675,14 +675,6 @@ export const deleteVault = action({
 
       const daytona = new Daytona(config);
       const vaultIdLabel = String(args.vaultId);
-      const hasOtherVaultsForRepository = await ctx.runQuery(
-        internal.vault.hasOtherVaultsForRepository,
-        {
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
-          excludeVaultId: vault._id,
-        },
-      );
       const sandboxIds = new Set<string>();
       if (vault.daytonaSandboxId) {
         sandboxIds.add(vault.daytonaSandboxId);
@@ -708,6 +700,14 @@ export const deleteVault = action({
         }
       }
 
+      const hasOtherVaultsForRepository = await ctx.runQuery(
+        internal.vault.hasOtherVaultsForRepository,
+        {
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          excludeVaultId: vault._id,
+        },
+      );
       if (!hasOtherVaultsForRepository) {
         const snapshotPrefix = inferDaytonaSnapshotPrefix({
           owner: vault.ghRepoOwner,

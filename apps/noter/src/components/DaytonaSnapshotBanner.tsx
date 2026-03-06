@@ -41,6 +41,9 @@ export function DaytonaSnapshotBanner({
 
   return (
     <div
+      role={isFailure ? "alert" : "status"}
+      aria-atomic="true"
+      aria-live={isFailure ? "assertive" : "polite"}
       className={cn(
         "rounded-md border px-3 py-2 text-xs",
         isFailure

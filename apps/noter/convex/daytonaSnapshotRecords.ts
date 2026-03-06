@@ -51,6 +51,11 @@ const enqueueSnapshotBuildResult = object({
   shouldSchedule: boolean(),
 });
 
+const tryMarkBuildStartedResult = object({
+  started: boolean(),
+  snapshotRecord: union(daytonaSnapshotRecord, vnull()),
+});
+
 type SnapshotRecord = Infer<typeof daytonaSnapshotRecord>;
 
 type EnqueueSnapshotBuildArgs = {
@@ -241,7 +246,7 @@ export const enqueueBuild = internalMutation({
   },
 });
 
-export const markBuildStarted = internalMutation({
+export const tryMarkBuildStarted = internalMutation({
   args: {
     owner: string(),
     repo: string(),
@@ -250,16 +255,47 @@ export const markBuildStarted = internalMutation({
     startedAt: number(),
     logs: optional(string()),
   },
-  returns: union(daytonaSnapshotRecord, vnull()),
+  returns: tryMarkBuildStartedResult,
   handler: async (ctx, args) => {
-    const existing = await getSnapshotRecordByCommit(ctx, args);
+    const branch = canonicalizeCommitPinnedDaytonaBranch(args.branch);
+    const existing = await getSnapshotRecordByCommit(ctx, {
+      owner: args.owner,
+      repo: args.repo,
+      branch,
+      commitSha: args.commitSha,
+    });
     if (!existing) {
-      return null;
+      return {
+        started: false,
+        snapshotRecord: null,
+      };
+    }
+
+    const retryBlocked =
+      existing.status === "failed" &&
+      typeof existing.nextRetryAt === "number" &&
+      existing.nextRetryAt > args.startedAt;
+    if (
+      existing.status === "active" ||
+      existing.status === "building" ||
+      retryBlocked ||
+      (existing.status !== "queued" && existing.status !== "failed")
+    ) {
+      return {
+        started: false,
+        snapshotRecord: existing,
+      };
     }
 
     await ctx.db.patch(existing._id, {
       snapshotName:
-        existing.snapshotName ?? inferCommitPinnedSnapshotName(args),
+        existing.snapshotName ??
+        inferCommitPinnedSnapshotName({
+          owner: args.owner,
+          repo: args.repo,
+          branch,
+          commitSha: args.commitSha,
+        }),
       status: "building",
       attemptCount: existing.attemptCount + 1,
       lastError: undefined,
@@ -269,7 +305,10 @@ export const markBuildStarted = internalMutation({
       updatedAt: args.startedAt,
     });
 
-    return await ctx.db.get(existing._id);
+    return {
+      started: true,
+      snapshotRecord: (await ctx.db.get(existing._id)) ?? null,
+    };
   },
 });
 

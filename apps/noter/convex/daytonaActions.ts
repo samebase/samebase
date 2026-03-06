@@ -2270,45 +2270,12 @@ export const buildCommitPinnedSnapshot = internalAction({
       branch,
       commitSha: args.commitSha,
     });
-    const currentSnapshotRecord = await ctx.runQuery(
-      internal.daytonaSnapshotRecords.getByRepoBranchCommit,
-      {
-        owner: args.owner,
-        repo: args.repo,
-        branch,
-        commitSha: args.commitSha,
-      },
-    );
-    if (!currentSnapshotRecord) {
-      return {
-        ok: false,
-        snapshotName,
-        commitSha: args.commitSha,
-        message: "Snapshot record not found.",
-      };
-    }
-    if (currentSnapshotRecord.status === "active") {
-      return {
-        ok: true,
-        snapshotName: currentSnapshotRecord.snapshotName ?? snapshotName,
-        commitSha: args.commitSha,
-        message: `Snapshot for ${branch}@${shortenCommitSha(args.commitSha)} is already active.`,
-      };
-    }
-    if (currentSnapshotRecord.status === "building") {
-      return {
-        ok: true,
-        snapshotName: currentSnapshotRecord.snapshotName ?? snapshotName,
-        commitSha: args.commitSha,
-        message: `Snapshot for ${branch}@${shortenCommitSha(args.commitSha)} is already building.`,
-      };
-    }
     const prebuildStartedAt = Date.now();
     const prebuildStartLine = `Snapshot build started for ${branch}@${shortenCommitSha(
       args.commitSha,
     )} at ${new Date(prebuildStartedAt).toISOString()}\n`;
     const markStartedResult = await ctx.runMutation(
-      internal.daytonaSnapshotRecords.markBuildStarted,
+      internal.daytonaSnapshotRecords.tryMarkBuildStarted,
       {
         owner: args.owner,
         repo: args.repo,
@@ -2318,7 +2285,7 @@ export const buildCommitPinnedSnapshot = internalAction({
         logs: prebuildStartLine,
       },
     );
-    if (!markStartedResult) {
+    if (!markStartedResult.snapshotRecord) {
       return {
         ok: false,
         snapshotName,
@@ -2326,6 +2293,48 @@ export const buildCommitPinnedSnapshot = internalAction({
         message: "Snapshot record not found.",
       };
     }
+    if (!markStartedResult.started) {
+      if (markStartedResult.snapshotRecord.status === "active") {
+        return {
+          ok: true,
+          snapshotName:
+            markStartedResult.snapshotRecord.snapshotName ?? snapshotName,
+          commitSha: args.commitSha,
+          message: `Snapshot for ${branch}@${shortenCommitSha(args.commitSha)} is already active.`,
+        };
+      }
+      if (markStartedResult.snapshotRecord.status === "building") {
+        return {
+          ok: true,
+          snapshotName:
+            markStartedResult.snapshotRecord.snapshotName ?? snapshotName,
+          commitSha: args.commitSha,
+          message: `Snapshot for ${branch}@${shortenCommitSha(args.commitSha)} is already building.`,
+        };
+      }
+      if (
+        markStartedResult.snapshotRecord.status === "failed" &&
+        typeof markStartedResult.snapshotRecord.nextRetryAt === "number"
+      ) {
+        return {
+          ok: false,
+          snapshotName:
+            markStartedResult.snapshotRecord.snapshotName ?? snapshotName,
+          commitSha: args.commitSha,
+          message: `Snapshot retry is scheduled for ${new Date(
+            markStartedResult.snapshotRecord.nextRetryAt,
+          ).toISOString()}.`,
+        };
+      }
+      return {
+        ok: false,
+        snapshotName:
+          markStartedResult.snapshotRecord.snapshotName ?? snapshotName,
+        commitSha: args.commitSha,
+        message: `Snapshot record is ${markStartedResult.snapshotRecord.status}; skipping duplicate build.`,
+      };
+    }
+    const startedSnapshotRecord = markStartedResult.snapshotRecord;
 
     const prebuildLogState = {
       buffer: prebuildStartLine,
@@ -2367,7 +2376,7 @@ export const buildCommitPinnedSnapshot = internalAction({
     if (!apiConfig.ok) {
       const failedAt = Date.now();
       const retryDelayMs = calculateSnapshotRetryDelayMs(
-        markStartedResult.attemptCount,
+        startedSnapshotRecord.attemptCount,
       );
       await appendPrebuildLog(`${apiConfig.message}\n`);
       await ctx.runMutation(
@@ -2399,7 +2408,7 @@ export const buildCommitPinnedSnapshot = internalAction({
       await appendPrebuildLog(`${message}\n`);
       const failedAt = Date.now();
       const retryDelayMs = calculateSnapshotRetryDelayMs(
-        markStartedResult.attemptCount,
+        startedSnapshotRecord.attemptCount,
       );
       await ctx.runMutation(
         internal.daytonaSnapshotRecords.markBuildFailedAndScheduleRetry,
@@ -2435,7 +2444,7 @@ export const buildCommitPinnedSnapshot = internalAction({
       branch,
       commitSha: args.commitSha,
       snapshotName,
-      attemptCount: markStartedResult.attemptCount,
+      attemptCount: startedSnapshotRecord.attemptCount,
     });
 
     try {
@@ -2636,15 +2645,32 @@ export const buildCommitPinnedSnapshot = internalAction({
           snapshotId: createdSnapshot.id,
           updatedAt: completedAt,
         });
-        await pruneCommitPinnedSnapshots({
-          ctx,
-          daytona,
-          apiUrl: baseUrl,
-          apiToken: token,
-          owner: args.owner,
-          repo: args.repo,
-          branch,
-        });
+        try {
+          await pruneCommitPinnedSnapshots({
+            ctx,
+            daytona,
+            apiUrl: baseUrl,
+            apiToken: token,
+            owner: args.owner,
+            repo: args.repo,
+            branch,
+          });
+        } catch (pruneError) {
+          const pruneMessage =
+            pruneError instanceof Error
+              ? pruneError.message
+              : String(pruneError);
+          await appendPrebuildLog(
+            `Snapshot retention cleanup failed: ${pruneMessage}\n`,
+          );
+          await flushPrebuildLogs(true);
+          console.warn("daytona:prebuild:prune:failed", {
+            repo: `${args.owner}/${args.repo}`,
+            branch,
+            commitSha: args.commitSha,
+            message: pruneMessage,
+          });
+        }
 
         console.log("daytona:prebuild:done", {
           repo: `${args.owner}/${args.repo}`,
@@ -2671,7 +2697,7 @@ export const buildCommitPinnedSnapshot = internalAction({
       await appendPrebuildLog(`Snapshot build failed: ${errorMessage}\n`);
       await flushPrebuildLogs(true);
       const retryDelayMs = calculateSnapshotRetryDelayMs(
-        markStartedResult.attemptCount,
+        startedSnapshotRecord.attemptCount,
       );
       await ctx.runMutation(
         internal.daytonaSnapshotRecords.markBuildFailedAndScheduleRetry,

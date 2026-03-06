@@ -8,5 +8,7 @@ export const DAYTONA_SNAPSHOT_STATUSES = [
 
 export type DaytonaSnapshotStatus = (typeof DAYTONA_SNAPSHOT_STATUSES)[number];
 
-export const shortenCommitSha = (commitSha: string) =>
-  commitSha.length <= 7 ? commitSha : commitSha.slice(0, 7);
+export const shortenCommitSha = (commitSha: string) => {
+  const normalized = commitSha.trim().toLowerCase();
+  return normalized.length <= 7 ? normalized : normalized.slice(0, 7);
+};

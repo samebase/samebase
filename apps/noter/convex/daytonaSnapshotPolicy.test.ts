@@ -58,6 +58,7 @@ describe("daytonaSnapshotPolicy", () => {
   it("shortens commit shas for labels and messages", () => {
     expect(shortenCommitSha("abcdef1234567890")).toBe("abcdef1");
     expect(shortenCommitSha("abc123")).toBe("abc123");
+    expect(shortenCommitSha(" ABCDEF1234567890 ")).toBe("abcdef1");
   });
 
   it("backs off retries and caps the delay", () => {

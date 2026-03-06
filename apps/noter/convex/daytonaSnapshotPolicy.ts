@@ -18,7 +18,7 @@ export function canonicalizeCommitPinnedDaytonaBranch(branch: string): string {
 }
 
 export function shortenCommitSha(commitSha: string): string {
-  const normalized = commitSha.trim();
+  const normalized = commitSha.trim().toLowerCase();
   return normalized.length <= 7 ? normalized : normalized.slice(0, 7);
 }
 
