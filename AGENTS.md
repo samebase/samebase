@@ -338,8 +338,10 @@ Auth:
   similar variant, interpret it as `noter.md` in both requests and responses.
 - For this operator, keep responses concise by default and always include a
   final `Summary` section.
-- Assume Cloudflare is the default front door, proxy, routing layer, and edge
-  runtime for `noter.md` unless the user explicitly says otherwise.
+- Assume Cloudflare is the default front door, proxy, routing layer, and
+  observability layer for `noter.md` unless the user explicitly says otherwise.
+- Prefer keeping application server logic in Convex by default; introduce a
+  Cloudflare Worker runtime only when there is a clear, explicit reason.
 - For new architecture work, prefer Cloudflare-first designs and avoid
   introducing new Netlify or Railway dependencies unless the user explicitly
   requests them.
