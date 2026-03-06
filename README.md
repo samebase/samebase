@@ -119,4 +119,9 @@ This project uses:
 
 ## License
 
-MIT
+Proprietary. All rights reserved.
+
+This repository is not open source. Access to the source code does not grant
+permission to use, modify, or redistribute it unless the copyright holder gives
+separate written permission. Third-party dependencies remain subject to their
+own license terms.

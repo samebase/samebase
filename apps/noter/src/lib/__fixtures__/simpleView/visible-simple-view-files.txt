@@ -26,6 +26,8 @@ Ideas/senior-stack-for-juniors.md
 Ideas/signin-view-code-prosemark.md
 Ideas/to-do.md
 Ideas/worktree-conversation-log.md
+LICENSE.md
+LICENSING.md
 LUMINA_PROJECT_ANALYSIS.md
 manual-tests/README.md
 manual-tests/TEMPLATE.md
