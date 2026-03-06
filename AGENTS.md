@@ -334,6 +334,8 @@ Auth:
 - When the user says "remember this" (or equivalent), persist that preference in
   durable project memory (for example `AGENTS.md`) instead of keeping it only in
   chat context.
+- If voice transcription or Wispr Flow turns `noter.md` into `NotRmd` or a
+  similar variant, interpret it as `noter.md` in both requests and responses.
 - For this operator, keep responses concise by default and always include a
   final `Summary` section.
 - For this operator, do not use Python as the first option for scripting or
