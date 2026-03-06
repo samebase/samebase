@@ -217,16 +217,17 @@ use `--env-file` or an explicit deployment selector instead.
 Shorthand commands for git/GitHub workflows. When the user says these, execute
 them directly using CLI tools.
 
-| Command     | Action                                                                                       |
-| ----------- | -------------------------------------------------------------------------------------------- |
-| `commit`    | Stage all changes, commit with concise message                                               |
-| `push`      | Commit if needed, push to remote                                                             |
-| `create pr` | Push if needed, create PR, ensure a non-empty body, then mark ready                          |
-| `ready`     | Mark draft PR as ready: `gh pr ready`                                                        |
-| `wait`      | Monitor CI with `gh pr checks` or `gh run watch`, report status                              |
-| `ship`      | Full flow: commit → push → create PR → ready → fix Greptile+CodeRabbit feedback loops → wait |
-| `clean`     | After PR is shipped/merged: remove the current worktree and delete its branch                |
-| `status`    | Show branch, uncommitted changes, PR state                                                   |
+| Command        | Action                                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------------------ |
+| `commit`       | Stage all changes, commit with concise message                                                         |
+| `push`         | Commit if needed, push to remote                                                                       |
+| `create pr`    | Push if needed, create PR, ensure a non-empty body, then mark ready                                    |
+| `ready`        | Mark draft PR as ready: `gh pr ready`                                                                  |
+| `wait`         | Monitor CI with `gh pr checks` or `gh run watch`, report status                                        |
+| `ship`         | Full flow: commit → push → create PR → ready → fix Greptile+CodeRabbit feedback loops → wait           |
+| `clean vaults` | Remove temporary Noter-managed vaults/resources created for the current worktree                       |
+| `clean`        | After PR is shipped/merged: run `clean vaults`, then remove the current worktree and delete its branch |
+| `status`       | Show branch, uncommitted changes, PR state                                                             |
 
 ### Rules
 
@@ -239,9 +240,25 @@ them directly using CLI tools.
 - Before `create pr` or `ship`, verify the branch name is meaningful. If it's
   still an auto-generated random `codex/<word>-<word>-<word>` name, rename it to
   a descriptive `codex/<intent>` branch before pushing/creating the PR.
-- For `clean`, run it only after the PR is shipped/merged. Execute from CLI:
-  remove the current non-main worktree, delete its local branch, and delete its
-  remote branch if it still exists.
+- Temporary Noter-managed repos created for Playwright/manual testing from a
+  worktree must use the current worktree temp prefix from
+  `pnpm worktree:tmp -- <intent>` (or
+  `node scripts/worktree-temp-prefix.js <intent>`). Example:
+  `tmp-c507-chat-fab`.
+- `clean vaults` must use the exact current worktree temp prefix from
+  `pnpm worktree:tmp` to find candidate vaults. Only remove Noter-managed vaults
+  matching that exact prefix.
+- `clean vaults` must remove matching vaults through the existing Vault
+  Dashboard delete flow so GitHub repos, Convex projects/deployments, hosting
+  projects, Daytona resources, and Codespaces are torn down together. Leave the
+  destructive cleanup checkboxes enabled by default for matching temporary
+  vaults.
+- `clean vaults` must fail closed: never guess based on recency, plain `tmp-`,
+  or partial name matches, and never remove non-matching vaults.
+- For `clean`, run it only after the PR is shipped/merged. Execute from CLI: run
+  `clean vaults` first, then remove the current non-main worktree, delete its
+  local branch, and delete its remote branch if it still exists. If vault
+  cleanup cannot be verified safely, stop and report instead of guessing.
 - When the user asks to "open a PR" (or `create pr`), always write a normal PR
   description (summary, key changes, validation). Never leave the PR body empty.
 - When the user asks to "open a PR" (or `create pr`), mark it ready for review
@@ -340,6 +357,8 @@ Auth:
   `.../ms-playwright/mcp-chrome`).
 - Worktree frontend should avoid port `5173` so OAuth flows on main checkout
   stay unaffected (default worktree dev port: `5174`).
+- Use `pnpm worktree:tmp` as the source of truth for the current worktree's
+  temporary repo prefix/name. Do not invent ad-hoc temp prefixes.
 - When asked for OAuth redirect URLs or env vars, give a single exact
   recommendation. Do not present multiple options or alternate env var lookups.
 - Avoid adding unusual options or flags unless there is a clear, stated reason

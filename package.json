@@ -29,6 +29,7 @@
     "lint:starter": "turbo run lint --filter=noter-starter-template",
     "prepare": "husky",
     "daytona:refresh": "bash scripts/daytona-refresh.sh",
+    "worktree:tmp": "node scripts/worktree-temp-prefix.js",
     "typecheck:scripts": "tsc -p tsconfig.scripts.json --pretty false"
   },
   "devDependencies": {
