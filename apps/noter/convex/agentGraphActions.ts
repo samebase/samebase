@@ -49,7 +49,7 @@ async function resolveThreadId(
   return ctx.runMutation(api.chat.index.createThread, { vaultId });
 }
 
-function buildToolContext(
+async function buildToolContext(
   ctx: ActionCtx,
   threadId: string,
   vault: {
@@ -58,14 +58,19 @@ function buildToolContext(
     ghRepoName: string;
   },
   args: { userId: Id<"users">; githubAccessToken: string },
-): ToolContext {
+): Promise<ToolContext> {
+  const threadContext = await ctx.runQuery(
+    internal.chat.index.getThreadContextForAction,
+    { threadId },
+  );
+
   return {
     ctx,
     threadId,
     vaultId: vault._id,
     owner: vault.ghRepoOwner,
     repo: vault.ghRepoName,
-    branch: "main",
+    branch: threadContext?.branch ?? "main",
     userId: args.userId,
     accessToken: args.githubAccessToken,
   };
@@ -168,7 +173,7 @@ export const sendAgentMessage = action({
     );
 
     const toolCtx = githubAccessToken
-      ? buildToolContext(ctx, resolvedThreadId, vault, {
+      ? await buildToolContext(ctx, resolvedThreadId, vault, {
           userId: user._id,
           githubAccessToken,
         })
