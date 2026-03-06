@@ -39,6 +39,7 @@ const mcpOauthAuthValidator = object({
   credential: string(),
   refreshCredential: optional(string()),
   credentialExpiresAt: optional(number()),
+  clientId: optional(string()),
   mcpServerUrl: string(),
 });
 const apiKeyAuthValidator = object({
