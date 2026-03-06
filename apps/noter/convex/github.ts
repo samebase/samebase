@@ -490,6 +490,7 @@ export const refreshRepositoryTree = action({
     repo: string(),
     trigger: optional(union(literal("focus"), literal("page_load"))),
   },
+  returns: nullValidator(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
 
@@ -497,7 +498,7 @@ export const refreshRepositoryTree = action({
       repositoryFullName: `${args.owner}/${args.repo}`,
       userId,
     });
-    if (!vault) return;
+    if (!vault) return null;
 
     const debounceMs =
       args.trigger === "page_load" ? PAGE_LOAD_REFRESH_DEBOUNCE_MS : undefined;
@@ -507,7 +508,7 @@ export const refreshRepositoryTree = action({
       vaultId: vault._id,
       debounceMs,
     });
-    if (!claimed) return;
+    if (!claimed) return null;
 
     try {
       await ctx.runAction(internal.github.updateRepositoryTree, {
@@ -520,6 +521,8 @@ export const refreshRepositoryTree = action({
         vaultId: vault._id,
       });
     }
+
+    return null;
   },
 });
 
@@ -530,6 +533,7 @@ export const updateRepositoryTree = internalAction({
     owner: string(),
     repo: string(),
   },
+  returns: nullValidator(),
   handler: async (ctx, args) => {
     console.log("updateRepositoryTree", args);
     const currentUser = await ctx.runQuery(internal.users.getById, {
@@ -582,7 +586,7 @@ export const updateRepositoryTree = internalAction({
       latestCommitSha !== vault.commitSHA;
 
     if (!shouldUpdateTree && !shouldUpdateCommit) {
-      return;
+      return null;
     }
 
     await ctx.runMutation(internal.vault.updateVaultTree, {
@@ -590,5 +594,7 @@ export const updateRepositoryTree = internalAction({
       treeData: tree.data,
       commitSHA: latestCommitSha,
     });
+
+    return null;
   },
 });
