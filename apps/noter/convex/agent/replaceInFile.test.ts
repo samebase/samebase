@@ -78,6 +78,55 @@ describe("buildReplaceInFilePlan", () => {
     );
   });
 
+  it("fails when replacements are empty", () => {
+    expect(() =>
+      buildReplaceInFilePlan({
+        sourceContent: "const value = 1;\n",
+        replacements: [],
+      }),
+    ).toThrowError(
+      new ReplaceInFileError(
+        "replace_in_file failed: replacements must not be empty",
+      ),
+    );
+  });
+
+  it("fails when oldText is empty", () => {
+    expect(() =>
+      buildReplaceInFilePlan({
+        sourceContent: "const value = 1;\n",
+        replacements: [
+          {
+            oldText: "",
+            newText: "const value = 2;",
+          },
+        ],
+      }),
+    ).toThrowError(
+      new ReplaceInFileError(
+        "replace_in_file failed: replacement 1 has empty oldText",
+      ),
+    );
+  });
+
+  it("fails when a replacement does not match any text", () => {
+    expect(() =>
+      buildReplaceInFilePlan({
+        sourceContent: "const value = 1;\n",
+        replacements: [
+          {
+            oldText: "const missing = 1;",
+            newText: "const missing = 2;",
+          },
+        ],
+      }),
+    ).toThrowError(
+      new ReplaceInFileError(
+        "replace_in_file failed: replacement 1 did not match any text",
+      ),
+    );
+  });
+
   it("fails when replacements overlap", () => {
     expect(() =>
       buildReplaceInFilePlan({

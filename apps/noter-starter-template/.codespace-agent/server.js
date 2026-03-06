@@ -14,6 +14,10 @@ const CODEX_INIT_TIMEOUT_MS = 30000;
 const CODEX_EVENT_BUFFER_SIZE = 500;
 const CODEX_REQUEST_BUFFER_SIZE = 100;
 const CODEX_APPROVAL_CONTEXT_BUFFER_SIZE = 100;
+const AGENT_TOKEN_BOOTSTRAP_WINDOW_MS = 10 * 60 * 1000;
+const AGENT_TOKEN_BOOTSTRAP_MAX_ATTEMPTS = 5;
+const AGENT_TOKEN_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function normalizeToken(value) {
   if (typeof value !== "string") {
@@ -65,6 +69,8 @@ async function persistAgentToken(token) {
 const initialTokenState = loadInitialTokenState();
 let AGENT_TOKEN = initialTokenState.token;
 let AGENT_TOKEN_SOURCE = initialTokenState.source;
+const serverStartAt = Date.now();
+let agentTokenBootstrapAttempts = 0;
 
 const codexRuntime = {
   process: null,
@@ -93,7 +99,7 @@ if (AGENT_TOKEN) {
   );
 } else {
   console.log(
-    "Agent Token: <unset> (will initialize from first authenticated request)",
+    "Agent Token: <unset> (bootstrap allowed during initial startup window)",
   );
 }
 console.log(`Workspace Dir: ${WORKSPACE_DIR}`);
@@ -119,10 +125,34 @@ function authenticateToken(req, res, next) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
+    if (Date.now() - serverStartAt > AGENT_TOKEN_BOOTSTRAP_WINDOW_MS) {
+      console.warn(
+        `Rejected bootstrap request from ${req.ip} to ${req.path} after startup window expired`,
+      );
+      return res
+        .status(503)
+        .json({ error: "Agent token bootstrap window expired" });
+    }
+
+    agentTokenBootstrapAttempts += 1;
+    if (agentTokenBootstrapAttempts > AGENT_TOKEN_BOOTSTRAP_MAX_ATTEMPTS) {
+      console.warn(
+        `Rejected bootstrap request from ${req.ip} to ${req.path} after too many attempts`,
+      );
+      return res.status(429).json({ error: "Too many bootstrap attempts" });
+    }
+
+    if (!AGENT_TOKEN_PATTERN.test(token)) {
+      console.warn(
+        `Rejected bootstrap request from ${req.ip} to ${req.path} (invalid token format)`,
+      );
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
     AGENT_TOKEN = token;
     AGENT_TOKEN_SOURCE = "request";
     void persistAgentToken(token);
-    console.log("Agent token initialized from first authenticated request");
+    console.log("Agent token initialized from bootstrap request");
     return next();
   }
 
@@ -808,8 +838,6 @@ app.get("/health", (req, res) => {
   res.json({
     status: "ok",
     authConfigured: Boolean(AGENT_TOKEN),
-    tokenSource: AGENT_TOKEN_SOURCE,
-    token: AGENT_TOKEN ? AGENT_TOKEN.substring(0, 8) + "..." : null,
     uptime: process.uptime(),
     timestamp: Date.now(),
   });

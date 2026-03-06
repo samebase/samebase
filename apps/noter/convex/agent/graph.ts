@@ -6,6 +6,7 @@ import { z } from "zod";
 import { components } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import { isRecord } from "../jsonUtils";
 import type { ToolContext } from "./tools";
 import { createTools } from "./tools";
 import type { MessageDoc } from "@convex-dev/agent/validators";
@@ -53,10 +54,6 @@ function createNoterAgent(provider: string, model: string) {
     languageModel: createModel(provider, model),
     maxSteps: 12,
   });
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function formatToolCallError(error: unknown): string | undefined {

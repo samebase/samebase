@@ -382,8 +382,19 @@ export const pushSerializedChangeSetUpdate = internalMutation({
     }
 
     const currentDoc = Text.of(staging.content.split("\n"));
-    const changeSet = ChangeSet.fromJSON(JSON.parse(args.serializedChangeSet));
-    const updatedContent = changeSet.apply(currentDoc).toString();
+    let updatedContent: string;
+    try {
+      const changeSet = ChangeSet.fromJSON(
+        JSON.parse(args.serializedChangeSet),
+      );
+      updatedContent = changeSet.apply(currentDoc).toString();
+    } catch (error) {
+      console.error(
+        "pushSerializedChangeSetUpdate: invalid serializedChangeSet",
+        error,
+      );
+      return null;
+    }
 
     if (updatedContent === staging.content) {
       return null;

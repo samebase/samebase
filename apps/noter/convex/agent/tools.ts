@@ -7,11 +7,7 @@ import { internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { TOOL_CATALOG } from "./toolCatalog";
-import {
-  buildReplaceInFilePlan,
-  ReplaceInFileError,
-  type ReplaceInFileReplacement,
-} from "./replaceInFile";
+import { buildReplaceInFilePlan, ReplaceInFileError } from "./replaceInFile";
 
 const PROD_READ_SENTINEL = "__PROD_READ_PROPOSAL__:";
 type AllowedDataTable =
@@ -59,6 +55,7 @@ const replaceInFileReplacementSchema = z.object({
     .describe("Exact existing text to replace, including whitespace"),
   newText: z.string().describe("Replacement text"),
 });
+type ReplaceInFileReplacement = z.infer<typeof replaceInFileReplacementSchema>;
 
 // --- GitHub API Allowlist ---
 
@@ -200,6 +197,7 @@ async function loadExistingFileSnapshot(
       owner: toolCtx.owner,
       repo: toolCtx.repo,
       path,
+      ref: toolCtx.branch,
     });
     if (Array.isArray(file.data) || file.data.type !== "file") {
       throw new ReplaceInFileError(
@@ -282,6 +280,7 @@ export async function executeReadFile(
     owner: toolCtx.owner,
     repo: toolCtx.repo,
     path: input.path,
+    ref: toolCtx.branch,
   });
   if (Array.isArray(file.data) || file.data.type !== "file") {
     return `Error: ${input.path} is a directory, not a file`;
