@@ -12,7 +12,17 @@ import {
 } from "./daytonaSnapshotPolicy";
 import { DaytonaSnapshotBuildStatus } from "./schema";
 
-const { array, boolean, id, number, object, optional, string } = v;
+const {
+  array,
+  boolean,
+  id,
+  null: vnull,
+  number,
+  object,
+  optional,
+  string,
+  union,
+} = v;
 
 const daytonaSnapshotRecord = object({
   _id: id("daytonaSnapshots"),
@@ -70,7 +80,7 @@ export const getByRepoBranchCommit = internalQuery({
     branch: string(),
     commitSha: string(),
   },
-  returns: v.union(daytonaSnapshotRecord, v.null()),
+  returns: union(daytonaSnapshotRecord, vnull()),
   handler: async (ctx, args) => {
     return (await getSnapshotRecordByCommit(ctx, args)) ?? null;
   },
@@ -80,7 +90,7 @@ export const getBySnapshotName = internalQuery({
   args: {
     snapshotName: string(),
   },
-  returns: v.union(daytonaSnapshotRecord, v.null()),
+  returns: union(daytonaSnapshotRecord, vnull()),
   handler: async (ctx, args) => {
     return (
       (await ctx.db
@@ -219,7 +229,7 @@ export const markBuildStarted = internalMutation({
     startedAt: number(),
     logs: optional(string()),
   },
-  returns: v.union(daytonaSnapshotRecord, v.null()),
+  returns: union(daytonaSnapshotRecord, vnull()),
   handler: async (ctx, args) => {
     const existing = await getSnapshotRecordByCommit(ctx, args);
     if (!existing) {
@@ -279,7 +289,7 @@ export const markBuildActive = internalMutation({
     snapshotId: optional(string()),
     updatedAt: number(),
   },
-  returns: v.union(daytonaSnapshotRecord, v.null()),
+  returns: union(daytonaSnapshotRecord, vnull()),
   handler: async (ctx, args) => {
     const existing = await getSnapshotRecordByCommit(ctx, args);
     if (!existing) {
@@ -309,7 +319,7 @@ export const markBuildFailed = internalMutation({
     updatedAt: number(),
     nextRetryAt: optional(number()),
   },
-  returns: v.union(daytonaSnapshotRecord, v.null()),
+  returns: union(daytonaSnapshotRecord, vnull()),
   handler: async (ctx, args) => {
     const existing = await getSnapshotRecordByCommit(ctx, args);
     if (!existing) {
@@ -338,7 +348,7 @@ export const markBuildFailedAndScheduleRetry = internalMutation({
     updatedAt: number(),
     retryDelayMs: number(),
   },
-  returns: v.union(daytonaSnapshotRecord, v.null()),
+  returns: union(daytonaSnapshotRecord, vnull()),
   handler: async (ctx, args) => {
     const existing = await getSnapshotRecordByCommit(ctx, args);
     if (!existing) {

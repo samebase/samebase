@@ -120,14 +120,15 @@ export function DaytonaWorkspaceButton({
     mainOnlyReason ??
     (!commitSha
       ? "Latest main commit is not known yet. Refresh the repository first."
-      : normalizedSnapshotStatus.length > 0 &&
-          normalizedSnapshotStatus !== "active"
-        ? normalizedSnapshotStatus === "failed"
-          ? snapshotError && snapshotError.length > 0
-            ? `Latest snapshot failed: ${snapshotError}`
-            : "Latest snapshot failed. Launch is blocked while automatic retries continue."
-          : `Latest snapshot is ${normalizedSnapshotStatus}. Launch is blocked until it becomes active.`
-        : null);
+      : normalizedSnapshotStatus.length === 0
+        ? "Snapshot status is unknown. Launch is blocked until a snapshot becomes active."
+        : normalizedSnapshotStatus !== "active"
+          ? normalizedSnapshotStatus === "failed"
+            ? snapshotError && snapshotError.length > 0
+              ? `Latest snapshot failed: ${snapshotError}`
+              : "Latest snapshot failed. Launch is blocked while automatic retries continue."
+            : `Latest snapshot is ${normalizedSnapshotStatus}. Launch is blocked until it becomes active.`
+          : null);
   const buildBlockedReason =
     mainOnlyReason ??
     (!commitSha

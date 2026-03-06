@@ -78,12 +78,12 @@ export const InfraState = v.union(
   v.literal("partial"),
 );
 
-export const DaytonaSnapshotBuildStatus = v.union(
-  v.literal("queued"),
-  v.literal("building"),
-  v.literal("active"),
-  v.literal("failed"),
-  v.literal("removing"),
+export const DaytonaSnapshotBuildStatus = union(
+  literal("queued"),
+  literal("building"),
+  literal("active"),
+  literal("failed"),
+  literal("removing"),
 );
 export type DaytonaSnapshotBuildStatus = Infer<
   typeof DaytonaSnapshotBuildStatus
@@ -346,20 +346,20 @@ export default defineSchema({
     .index("by_status", ["status"]),
 
   daytonaSnapshots: defineTable({
-    ghRepoOwner: v.string(),
-    ghRepoName: v.string(),
-    branch: v.string(),
-    commitSha: v.string(),
-    snapshotName: v.optional(v.string()),
-    snapshotId: v.optional(v.string()),
+    ghRepoOwner: string(),
+    ghRepoName: string(),
+    branch: string(),
+    commitSha: string(),
+    snapshotName: optional(string()),
+    snapshotId: optional(string()),
     status: DaytonaSnapshotBuildStatus,
-    attemptCount: v.number(),
-    lastError: v.optional(v.string()),
-    logs: v.optional(v.string()),
-    logsUpdatedAt: v.optional(v.number()),
-    nextRetryAt: v.optional(v.number()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
+    attemptCount: number(),
+    lastError: optional(string()),
+    logs: optional(string()),
+    logsUpdatedAt: optional(number()),
+    nextRetryAt: optional(number()),
+    createdAt: number(),
+    updatedAt: number(),
   })
     .index("by_repo_branch", ["ghRepoOwner", "ghRepoName", "branch"])
     .index("by_repo_branch_commit", [

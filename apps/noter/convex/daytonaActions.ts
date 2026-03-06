@@ -2198,7 +2198,10 @@ async function pruneCommitPinnedSnapshots(args: {
       branch: args.branch,
     },
   );
-  const recordsToRemove = [...records]
+  const terminalRecords = records.filter(
+    (record) => record.status !== "queued" && record.status !== "building",
+  );
+  const recordsToRemove = [...terminalRecords]
     .sort((left, right) => right.createdAt - left.createdAt)
     .slice(DAYTONA_SNAPSHOT_RETENTION_COUNT);
 
@@ -2258,6 +2261,39 @@ export const buildCommitPinnedSnapshot = internalAction({
       branch,
       commitSha: args.commitSha,
     });
+    const currentSnapshotRecord = await ctx.runQuery(
+      internal.daytonaSnapshotRecords.getByRepoBranchCommit,
+      {
+        owner: args.owner,
+        repo: args.repo,
+        branch,
+        commitSha: args.commitSha,
+      },
+    );
+    if (!currentSnapshotRecord) {
+      return {
+        ok: false,
+        snapshotName,
+        commitSha: args.commitSha,
+        message: "Snapshot record not found.",
+      };
+    }
+    if (currentSnapshotRecord.status === "active") {
+      return {
+        ok: true,
+        snapshotName: currentSnapshotRecord.snapshotName ?? snapshotName,
+        commitSha: args.commitSha,
+        message: `Snapshot for ${branch}@${shortenCommitSha(args.commitSha)} is already active.`,
+      };
+    }
+    if (currentSnapshotRecord.status === "building") {
+      return {
+        ok: true,
+        snapshotName: currentSnapshotRecord.snapshotName ?? snapshotName,
+        commitSha: args.commitSha,
+        message: `Snapshot for ${branch}@${shortenCommitSha(args.commitSha)} is already building.`,
+      };
+    }
     const prebuildStartedAt = Date.now();
     const prebuildStartLine = `Snapshot build started for ${branch}@${shortenCommitSha(
       args.commitSha,

@@ -354,7 +354,7 @@ async function getCurrentDaytonaSnapshotState(
       q
         .eq("ghRepoOwner", vault.ghRepoOwner)
         .eq("ghRepoName", vault.ghRepoName)
-        .eq("branch", "main")
+        .eq("branch", DAYTONA_COMMIT_PINNED_BRANCH)
         .eq("commitSha", commitSha),
     )
     .first();
@@ -828,7 +828,7 @@ export const updateVaultTree = internalMutation({
       const snapshotName = inferCommitPinnedSnapshotName({
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
-        branch: "main",
+        branch: DAYTONA_COMMIT_PINNED_BRANCH,
         commitSha,
       });
       const existingSnapshot = await ctx.db
@@ -837,7 +837,7 @@ export const updateVaultTree = internalMutation({
           q
             .eq("ghRepoOwner", vault.ghRepoOwner)
             .eq("ghRepoName", vault.ghRepoName)
-            .eq("branch", "main")
+            .eq("branch", DAYTONA_COMMIT_PINNED_BRANCH)
             .eq("commitSha", commitSha),
         )
         .first();
@@ -860,7 +860,7 @@ export const updateVaultTree = internalMutation({
         await ctx.db.insert("daytonaSnapshots", {
           ghRepoOwner: vault.ghRepoOwner,
           ghRepoName: vault.ghRepoName,
-          branch: "main",
+          branch: DAYTONA_COMMIT_PINNED_BRANCH,
           commitSha,
           snapshotName,
           snapshotId: undefined,
@@ -884,7 +884,7 @@ export const updateVaultTree = internalMutation({
             userId: vault.userId,
             owner: vault.ghRepoOwner,
             repo: vault.ghRepoName,
-            branch: "main",
+            branch: DAYTONA_COMMIT_PINNED_BRANCH,
             commitSha,
           },
         );

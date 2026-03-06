@@ -7,7 +7,10 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
+import {
+  formatRelativeTimeAgo,
+  formatRelativeTimeUntil,
+} from "@/lib/formatRelativeTime";
 import { cn } from "@/lib/utils";
 
 const SNAPSHOT_POLL_INTERVAL_MS = 5_000;
@@ -58,6 +61,11 @@ const getSnapshotStateClassName = (state: string) => {
 
 const shortenCommitSha = (commitSha: string) =>
   commitSha.length <= 7 ? commitSha : commitSha.slice(0, 7);
+
+const formatRetryTime = (timestamp: number, now: number = Date.now()) =>
+  timestamp > now
+    ? formatRelativeTimeUntil(timestamp, now)
+    : formatRelativeTimeAgo(timestamp, now);
 
 export function DaytonaSnapshotList({
   vaultId,
@@ -274,9 +282,7 @@ export function DaytonaSnapshotList({
                   ) : null}
                   <span>{snapshot.attemptCount} attempt(s)</span>
                   {snapshot.nextRetryAt ? (
-                    <span>
-                      retry {formatRelativeTimeAgo(snapshot.nextRetryAt)}
-                    </span>
+                    <span>retry {formatRetryTime(snapshot.nextRetryAt)}</span>
                   ) : null}
                 </div>
                 {snapshot.errorReason && (

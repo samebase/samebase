@@ -21,17 +21,18 @@ export function DaytonaSnapshotBanner({
   className,
 }: DaytonaSnapshotBannerProps) {
   const normalizedBranch = branch.trim().toLowerCase();
+  const normalizedCommitSha = commitSha?.trim() ?? "";
   const normalizedStatus = snapshotStatus?.trim().toLowerCase() ?? "";
   if (
     normalizedBranch !== "main" ||
-    !commitSha ||
+    normalizedCommitSha.length === 0 ||
     normalizedStatus.length === 0 ||
     normalizedStatus === "active"
   ) {
     return null;
   }
 
-  const shortCommitSha = shortenCommitSha(commitSha);
+  const shortCommitSha = shortenCommitSha(normalizedCommitSha);
   const isFailure = normalizedStatus === "failed";
   const message = isFailure
     ? `Latest Daytona snapshot for ${shortCommitSha} failed. Launch is blocked while automatic retries continue.`
