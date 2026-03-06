@@ -29,9 +29,32 @@ function jsonStringifySafe(value: unknown): string {
 
 const CODEX_AGENT_PACKAGE_JSON_PATH = ".codespace-agent/package.json";
 const CODEX_AGENT_SERVER_PATH = ".codespace-agent/server.js";
+const CODEX_AGENT_SYNC_LOCK_DIR = ".codespace-agent/.sync-lock";
+const CODEX_AGENT_SYNC_STATUS_PATH = ".codespace-agent/.sync-status.json";
+const CODEX_AGENT_SYNC_BACKUP_PACKAGE_JSON_PATH =
+  ".codespace-agent/.sync-backup-package.json";
+const CODEX_AGENT_SYNC_BACKUP_SERVER_PATH =
+  ".codespace-agent/.sync-backup-server.js";
 const CODEX_AGENT_RESTART_TIMEOUT_MS = 30000;
 const CODEX_AGENT_RESTART_POLL_INTERVAL_MS = 1000;
 const CODEX_AGENT_INSTALL_TIMEOUT_MS = 120000;
+const CODEX_AGENT_SYNC_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
+const CODEX_AGENT_SYNC_SETTLE_TIMEOUT_MS =
+  CODEX_AGENT_RESTART_TIMEOUT_MS * 2 + CODEX_AGENT_INSTALL_TIMEOUT_MS;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
+}
+
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 function getBundledCodespaceAgentAsset(path: string): string {
   const content = starterTemplateManifest.files[path];
@@ -599,12 +622,25 @@ async function writeCodespaceFile(args: {
   }
 }
 
-async function executeCodespaceAgentCommand(args: {
+async function deleteCodespacePathIfExists(args: {
+  agentUrl: string;
+  agentToken: string;
+  filePath: string;
+}): Promise<void> {
+  await executeCodespaceAgentCommand({
+    agentUrl: args.agentUrl,
+    agentToken: args.agentToken,
+    command: `rm -rf ${shellQuote(args.filePath)}`,
+    timeoutMs: 5000,
+  });
+}
+
+async function executeCodespaceAgentCommandResult(args: {
   agentUrl: string;
   agentToken: string;
   command: string;
   timeoutMs: number;
-}): Promise<void> {
+}): Promise<Infer<typeof executeCommandResult>> {
   const response = await fetch(`${args.agentUrl}/exec`, {
     method: "POST",
     headers: {
@@ -627,17 +663,49 @@ async function executeCodespaceAgentCommand(args: {
     throw new Error("Invalid response from Codespace command execution");
   }
 
-  const success = readBoolean(payload, "success") ?? false;
-  if (!success) {
-    const stderr = readString(payload, "stderr") ?? "unknown error";
-    throw new Error(`Codespace command failed: ${stderr}`);
+  const stdout = readString(payload, "stdout");
+  const stderr = readString(payload, "stderr");
+  const exitCode = readNumber(payload, "exitCode");
+  const success = readBoolean(payload, "success");
+
+  if (
+    stdout === undefined ||
+    stderr === undefined ||
+    exitCode === undefined ||
+    success === undefined
+  ) {
+    throw new Error("Invalid Codespace command execution payload");
+  }
+
+  return {
+    stdout,
+    stderr,
+    exitCode,
+    success,
+  };
+}
+
+async function executeCodespaceAgentCommand(args: {
+  agentUrl: string;
+  agentToken: string;
+  command: string;
+  timeoutMs: number;
+}): Promise<void> {
+  const payload = await executeCodespaceAgentCommandResult(args);
+
+  if (!payload.success) {
+    throw new Error(
+      `Codespace command failed: ${payload.stderr || "unknown error"}`,
+    );
   }
 }
 
 async function waitForCodespaceAgent(args: {
   agentUrl: string;
+  timeoutMs?: number;
 }): Promise<void> {
-  const deadline = Date.now() + CODEX_AGENT_RESTART_TIMEOUT_MS;
+  const deadline =
+    Date.now() + (args.timeoutMs ?? CODEX_AGENT_RESTART_TIMEOUT_MS);
   let lastError = "Timed out waiting for Codespace agent restart";
 
   while (Date.now() < deadline) {
@@ -661,21 +729,89 @@ async function waitForCodespaceAgent(args: {
   throw new Error(`Codespace agent did not restart cleanly: ${lastError}`);
 }
 
-async function restartCodespaceAgent(args: {
+async function isCodespaceAgentHealthy(args: {
+  agentUrl: string;
+}): Promise<boolean> {
+  try {
+    const response = await fetch(`${args.agentUrl}/health`, {
+      method: "GET",
+      signal: AbortSignal.timeout(2000),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function tryAcquireCodespaceAgentSyncLock(args: {
   agentUrl: string;
   agentToken: string;
+  lockToken: string;
+}): Promise<boolean> {
+  const command = [
+    "set -eu",
+    `lock_dir=${shellQuote(CODEX_AGENT_SYNC_LOCK_DIR)}`,
+    `lock_token=${shellQuote(args.lockToken)}`,
+    `timeout_seconds=${Math.ceil(CODEX_AGENT_SYNC_LOCK_TIMEOUT_MS / 1000)}`,
+    'mkdir -p ".codespace-agent"',
+    'if mkdir "$lock_dir" 2>/dev/null; then',
+    '  date +%s >"$lock_dir/started_at"',
+    '  printf "%s\\n" "$lock_token" >"$lock_dir/token"',
+    '  printf "acquired"',
+    "  exit 0",
+    "fi",
+    "now=$(date +%s)",
+    "started_at=0",
+    'if [ -f "$lock_dir/started_at" ]; then',
+    '  started_at=$(cat "$lock_dir/started_at" 2>/dev/null || printf "0")',
+    "fi",
+    'if [ $((now - started_at)) -ge "$timeout_seconds" ]; then',
+    '  rm -rf "$lock_dir"',
+    '  mkdir "$lock_dir"',
+    '  date +%s >"$lock_dir/started_at"',
+    '  printf "%s\\n" "$lock_token" >"$lock_dir/token"',
+    '  printf "acquired"',
+    "  exit 0",
+    "fi",
+    'printf "busy"',
+  ].join("\n");
+
+  const result = await executeCodespaceAgentCommandResult({
+    agentUrl: args.agentUrl,
+    agentToken: args.agentToken,
+    command,
+    timeoutMs: 5000,
+  });
+
+  if (!result.success) {
+    throw new Error(
+      `Codespace command failed: ${result.stderr || "unknown error"}`,
+    );
+  }
+
+  return result.stdout.trim() === "acquired";
+}
+
+async function releaseCodespaceAgentSyncLock(args: {
+  agentUrl: string;
+  agentToken: string;
+  lockToken: string;
 }): Promise<void> {
   const command = [
-    "nohup bash -lc '",
-    'server_pid=$(pgrep -f "[n]ode server.js" | head -n 1); ',
-    'if [ -n "$server_pid" ]; then kill -TERM "$server_pid"; fi; ',
-    "for i in 1 2 3 4 5; do ",
-    'if [ -z "$server_pid" ] || ! kill -0 "$server_pid" 2>/dev/null; then break; fi; ',
-    "sleep 1; ",
-    "done; ",
-    "cd .codespace-agent && nohup npm start >/tmp/codespace-agent.log 2>&1 < /dev/null &' ",
-    "> /tmp/codespace-agent-restart.log 2>&1 < /dev/null & echo restart-scheduled",
-  ].join("");
+    "set -eu",
+    `lock_dir=${shellQuote(CODEX_AGENT_SYNC_LOCK_DIR)}`,
+    `lock_token=${shellQuote(args.lockToken)}`,
+    'if [ ! -d "$lock_dir" ]; then',
+    "  exit 0",
+    "fi",
+    'current_token=""',
+    'if [ -f "$lock_dir/token" ]; then',
+    '  current_token=$(cat "$lock_dir/token" 2>/dev/null || printf "")',
+    "fi",
+    'if [ "$current_token" = "$lock_token" ]; then',
+    '  rm -rf "$lock_dir"',
+    "fi",
+  ].join("\n");
 
   await executeCodespaceAgentCommand({
     agentUrl: args.agentUrl,
@@ -683,9 +819,345 @@ async function restartCodespaceAgent(args: {
     command,
     timeoutMs: 5000,
   });
+}
+
+async function isCodespaceAgentSyncLockHeld(args: {
+  agentUrl: string;
+  agentToken: string;
+}): Promise<boolean> {
+  const result = await executeCodespaceAgentCommandResult({
+    agentUrl: args.agentUrl,
+    agentToken: args.agentToken,
+    command: `if [ -d ${shellQuote(CODEX_AGENT_SYNC_LOCK_DIR)} ]; then printf "locked"; else printf "unlocked"; fi`,
+    timeoutMs: 5000,
+  });
+
+  if (!result.success) {
+    throw new Error(
+      `Codespace command failed: ${result.stderr || "unknown error"}`,
+    );
+  }
+
+  return result.stdout.trim() === "locked";
+}
+
+async function waitForCodespaceAgentSyncToSettle(args: {
+  agentUrl: string;
+  agentToken: string;
+}): Promise<void> {
+  const deadline = Date.now() + CODEX_AGENT_SYNC_LOCK_TIMEOUT_MS;
+  let lastError = "Timed out waiting for Codespace agent sync";
+
+  while (Date.now() < deadline) {
+    try {
+      const healthy = await isCodespaceAgentHealthy({
+        agentUrl: args.agentUrl,
+      });
+      if (!healthy) {
+        lastError = "agent is restarting";
+      } else if (!(await isCodespaceAgentSyncLockHeld(args))) {
+        return;
+      } else {
+        lastError = "sync lock still held";
+      }
+    } catch (error) {
+      lastError = describeError(error);
+    }
+
+    await sleep(CODEX_AGENT_RESTART_POLL_INTERVAL_MS);
+  }
+
+  throw new Error(`Codespace agent sync did not settle cleanly: ${lastError}`);
+}
+
+type CodespaceAgentSyncStatus = {
+  token: string;
+  status: "success" | "rolled_back";
+};
+
+function parseCodespaceAgentSyncStatus(
+  content: string | null,
+): CodespaceAgentSyncStatus | null {
+  if (content === null) {
+    return null;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return null;
+  }
+
+  if (!isRecord(parsed)) {
+    return null;
+  }
+
+  const token = readString(parsed, "token");
+  const status = readString(parsed, "status");
+  if (token === undefined) {
+    return null;
+  }
+  if (status !== "success" && status !== "rolled_back") {
+    return null;
+  }
+
+  return {
+    token,
+    status,
+  };
+}
+
+async function waitForCodespaceAgentSyncResult(args: {
+  agentUrl: string;
+  agentToken: string;
+  lockToken: string;
+}): Promise<CodespaceAgentSyncStatus> {
+  const deadline = Date.now() + CODEX_AGENT_SYNC_SETTLE_TIMEOUT_MS;
+  let lastError = "Timed out waiting for Codespace agent sync result";
+
+  while (Date.now() < deadline) {
+    try {
+      const healthy = await isCodespaceAgentHealthy({
+        agentUrl: args.agentUrl,
+      });
+      if (!healthy) {
+        lastError = "agent is not healthy yet";
+        await sleep(CODEX_AGENT_RESTART_POLL_INTERVAL_MS);
+        continue;
+      }
+
+      const lockHeld = await isCodespaceAgentSyncLockHeld(args);
+      if (lockHeld) {
+        lastError = "sync lock still held";
+        await sleep(CODEX_AGENT_RESTART_POLL_INTERVAL_MS);
+        continue;
+      }
+
+      const status = parseCodespaceAgentSyncStatus(
+        await readCodespaceFileOrNull({
+          agentUrl: args.agentUrl,
+          agentToken: args.agentToken,
+          filePath: CODEX_AGENT_SYNC_STATUS_PATH,
+        }),
+      );
+
+      if (status?.token === args.lockToken) {
+        return status;
+      }
+
+      lastError =
+        status === null
+          ? "sync status file missing"
+          : "sync status token mismatch";
+    } catch (error) {
+      lastError = describeError(error);
+    }
+
+    await sleep(CODEX_AGENT_RESTART_POLL_INTERVAL_MS);
+  }
+
+  throw new Error(
+    `Codespace agent sync did not report a completion status: ${lastError}`,
+  );
+}
+
+async function storeCodespaceAgentRollbackFile(args: {
+  agentUrl: string;
+  agentToken: string;
+  filePath: string;
+  content: string | null;
+}): Promise<void> {
+  if (args.content === null) {
+    await deleteCodespacePathIfExists({
+      agentUrl: args.agentUrl,
+      agentToken: args.agentToken,
+      filePath: args.filePath,
+    });
+    return;
+  }
+
+  await writeCodespaceFile({
+    agentUrl: args.agentUrl,
+    agentToken: args.agentToken,
+    filePath: args.filePath,
+    content: args.content,
+  });
+}
+
+async function cleanupCodespaceAgentSyncArtifacts(args: {
+  agentUrl: string;
+  agentToken: string;
+}): Promise<void> {
+  const command = [
+    "set -eu",
+    `rm -f ${shellQuote(CODEX_AGENT_SYNC_BACKUP_PACKAGE_JSON_PATH)}`,
+    `rm -f ${shellQuote(CODEX_AGENT_SYNC_BACKUP_SERVER_PATH)}`,
+  ].join("\n");
+
+  await executeCodespaceAgentCommand({
+    agentUrl: args.agentUrl,
+    agentToken: args.agentToken,
+    command,
+    timeoutMs: 5000,
+  });
+}
+
+async function restoreCodespaceAgentFiles(args: {
+  agentUrl: string;
+  agentToken: string;
+  packageContent: string | null;
+  serverContent: string | null;
+  packageChanged: boolean;
+  serverChanged: boolean;
+}): Promise<void> {
+  if (args.packageChanged) {
+    await storeCodespaceAgentRollbackFile({
+      agentUrl: args.agentUrl,
+      agentToken: args.agentToken,
+      filePath: CODEX_AGENT_PACKAGE_JSON_PATH,
+      content: args.packageContent,
+    });
+  }
+
+  if (args.serverChanged) {
+    await storeCodespaceAgentRollbackFile({
+      agentUrl: args.agentUrl,
+      agentToken: args.agentToken,
+      filePath: CODEX_AGENT_SERVER_PATH,
+      content: args.serverContent,
+    });
+  }
+
+  if (args.packageChanged && args.packageContent !== null) {
+    await executeCodespaceAgentCommand({
+      agentUrl: args.agentUrl,
+      agentToken: args.agentToken,
+      command: "cd .codespace-agent && npm install --no-package-lock",
+      timeoutMs: CODEX_AGENT_INSTALL_TIMEOUT_MS,
+    });
+  }
+}
+
+function buildCodespaceAgentRestartCommand(args: {
+  lockToken: string;
+  packageChanged: boolean;
+  packageBackupExists: boolean;
+  serverBackupExists: boolean;
+}): string {
+  const successStatus = JSON.stringify({
+    token: args.lockToken,
+    status: "success",
+  });
+  const rolledBackStatus = JSON.stringify({
+    token: args.lockToken,
+    status: "rolled_back",
+  });
+
+  const script = [
+    "set -eu",
+    `lock_dir=${shellQuote(CODEX_AGENT_SYNC_LOCK_DIR)}`,
+    `status_path=${shellQuote(CODEX_AGENT_SYNC_STATUS_PATH)}`,
+    `backup_package_path=${shellQuote(CODEX_AGENT_SYNC_BACKUP_PACKAGE_JSON_PATH)}`,
+    `backup_server_path=${shellQuote(CODEX_AGENT_SYNC_BACKUP_SERVER_PATH)}`,
+    `package_path=${shellQuote(CODEX_AGENT_PACKAGE_JSON_PATH)}`,
+    `server_path=${shellQuote(CODEX_AGENT_SERVER_PATH)}`,
+    `package_changed=${args.packageChanged ? "1" : "0"}`,
+    `package_backup_exists=${args.packageBackupExists ? "1" : "0"}`,
+    `server_backup_exists=${args.serverBackupExists ? "1" : "0"}`,
+    `restart_timeout_seconds=${Math.ceil(CODEX_AGENT_RESTART_TIMEOUT_MS / 1000)}`,
+    `poll_interval_seconds=${Math.max(
+      1,
+      Math.ceil(CODEX_AGENT_RESTART_POLL_INTERVAL_MS / 1000),
+    )}`,
+    "stop_agent() {",
+    '  server_pid=$(pgrep -f "[n]ode server.js" | head -n 1 || true)',
+    '  if [ -n "$server_pid" ]; then',
+    '    kill -TERM "$server_pid" || true',
+    "  fi",
+    "  for _ in 1 2 3 4 5; do",
+    '    if [ -z "$server_pid" ] || ! kill -0 "$server_pid" 2>/dev/null; then',
+    "      break",
+    "    fi",
+    '    sleep "$poll_interval_seconds"',
+    "  done",
+    "}",
+    "start_agent() {",
+    "  cd .codespace-agent && nohup npm start >/tmp/codespace-agent.log 2>&1 < /dev/null &",
+    "}",
+    "wait_for_local_health() {",
+    "  deadline=$(( $(date +%s) + restart_timeout_seconds ))",
+    '  while [ "$(date +%s)" -lt "$deadline" ]; do',
+    "    if curl -fsS http://127.0.0.1:3000/health >/dev/null 2>&1; then",
+    "      return 0",
+    "    fi",
+    '    sleep "$poll_interval_seconds"',
+    "  done",
+    "  return 1",
+    "}",
+    "restore_backups() {",
+    '  if [ "$package_backup_exists" = "1" ]; then',
+    '    cp "$backup_package_path" "$package_path"',
+    "  else",
+    '    rm -f "$package_path"',
+    "  fi",
+    '  if [ "$server_backup_exists" = "1" ]; then',
+    '    cp "$backup_server_path" "$server_path"',
+    "  else",
+    '    rm -f "$server_path"',
+    "  fi",
+    '  if [ "$package_changed" = "1" ] && [ "$package_backup_exists" = "1" ]; then',
+    "    (cd .codespace-agent && npm install --no-package-lock >/tmp/codespace-agent-rollback-install.log 2>&1) || true",
+    "  fi",
+    "}",
+    "cleanup() {",
+    '  rm -f "$backup_package_path" "$backup_server_path"',
+    '  rm -rf "$lock_dir"',
+    "}",
+    "stop_agent",
+    "start_agent",
+    "if wait_for_local_health; then",
+    `  printf '%s\\n' ${shellQuote(successStatus)} >"$status_path"`,
+    "  cleanup",
+    "  exit 0",
+    "fi",
+    "restore_backups",
+    "stop_agent",
+    "start_agent",
+    "if wait_for_local_health; then",
+    `  printf '%s\\n' ${shellQuote(rolledBackStatus)} >"$status_path"`,
+    "  cleanup",
+    "  exit 0",
+    "fi",
+    "cleanup",
+    "exit 1",
+  ].join("\n");
+
+  return [
+    "nohup bash -lc ",
+    shellQuote(script),
+    " >/tmp/codespace-agent-restart.log 2>&1 < /dev/null & echo restart-scheduled",
+  ].join("");
+}
+
+async function restartCodespaceAgent(args: {
+  agentUrl: string;
+  agentToken: string;
+  lockToken: string;
+  packageChanged: boolean;
+  packageBackupExists: boolean;
+  serverBackupExists: boolean;
+}): Promise<void> {
+  await executeCodespaceAgentCommand({
+    agentUrl: args.agentUrl,
+    agentToken: args.agentToken,
+    command: buildCodespaceAgentRestartCommand(args),
+    timeoutMs: 5000,
+  });
 
   await waitForCodespaceAgent({
     agentUrl: args.agentUrl,
+    timeoutMs: CODEX_AGENT_SYNC_SETTLE_TIMEOUT_MS,
   });
 }
 
@@ -698,52 +1170,189 @@ async function syncBundledCodespaceAgent(args: {
   );
   const bundledServer = getBundledCodespaceAgentAsset(CODEX_AGENT_SERVER_PATH);
 
-  const currentPackageJson = await readCodespaceFileOrNull({
-    agentUrl: args.agentUrl,
-    agentToken: args.agentToken,
-    filePath: CODEX_AGENT_PACKAGE_JSON_PATH,
-  });
-  const currentServer = await readCodespaceFileOrNull({
-    agentUrl: args.agentUrl,
-    agentToken: args.agentToken,
-    filePath: CODEX_AGENT_SERVER_PATH,
-  });
-
-  const packageChanged = currentPackageJson !== bundledPackageJson;
-  const serverChanged = currentServer !== bundledServer;
-
-  if (!packageChanged && !serverChanged) {
-    return;
-  }
-
-  if (packageChanged) {
-    await writeCodespaceFile({
+  for (;;) {
+    const currentPackageJson = await readCodespaceFileOrNull({
       agentUrl: args.agentUrl,
       agentToken: args.agentToken,
       filePath: CODEX_AGENT_PACKAGE_JSON_PATH,
-      content: bundledPackageJson,
     });
-  }
-
-  if (serverChanged) {
-    await writeCodespaceFile({
+    const currentServer = await readCodespaceFileOrNull({
       agentUrl: args.agentUrl,
       agentToken: args.agentToken,
       filePath: CODEX_AGENT_SERVER_PATH,
-      content: bundledServer,
     });
-  }
 
-  if (packageChanged) {
-    await executeCodespaceAgentCommand({
+    const packageChanged = currentPackageJson !== bundledPackageJson;
+    const serverChanged = currentServer !== bundledServer;
+
+    if (!packageChanged && !serverChanged) {
+      return;
+    }
+
+    const lockToken = crypto.randomUUID();
+    const acquiredLock = await tryAcquireCodespaceAgentSyncLock({
       agentUrl: args.agentUrl,
       agentToken: args.agentToken,
-      command: "cd .codespace-agent && npm install --no-package-lock",
-      timeoutMs: CODEX_AGENT_INSTALL_TIMEOUT_MS,
+      lockToken,
     });
-  }
 
-  await restartCodespaceAgent(args);
+    if (!acquiredLock) {
+      await waitForCodespaceAgentSyncToSettle(args);
+      continue;
+    }
+
+    let restartScheduled = false;
+    let syncCompleted = false;
+    let syncError: unknown = null;
+    let postSyncError: unknown = null;
+
+    try {
+      const lockedPackageJson = await readCodespaceFileOrNull({
+        agentUrl: args.agentUrl,
+        agentToken: args.agentToken,
+        filePath: CODEX_AGENT_PACKAGE_JSON_PATH,
+      });
+      const lockedServer = await readCodespaceFileOrNull({
+        agentUrl: args.agentUrl,
+        agentToken: args.agentToken,
+        filePath: CODEX_AGENT_SERVER_PATH,
+      });
+
+      const lockedPackageChanged = lockedPackageJson !== bundledPackageJson;
+      const lockedServerChanged = lockedServer !== bundledServer;
+
+      if (!lockedPackageChanged && !lockedServerChanged) {
+        syncCompleted = true;
+      } else {
+        await storeCodespaceAgentRollbackFile({
+          agentUrl: args.agentUrl,
+          agentToken: args.agentToken,
+          filePath: CODEX_AGENT_SYNC_BACKUP_PACKAGE_JSON_PATH,
+          content: lockedPackageJson,
+        });
+        await storeCodespaceAgentRollbackFile({
+          agentUrl: args.agentUrl,
+          agentToken: args.agentToken,
+          filePath: CODEX_AGENT_SYNC_BACKUP_SERVER_PATH,
+          content: lockedServer,
+        });
+
+        try {
+          if (lockedPackageChanged) {
+            await writeCodespaceFile({
+              agentUrl: args.agentUrl,
+              agentToken: args.agentToken,
+              filePath: CODEX_AGENT_PACKAGE_JSON_PATH,
+              content: bundledPackageJson,
+            });
+          }
+
+          if (lockedServerChanged) {
+            await writeCodespaceFile({
+              agentUrl: args.agentUrl,
+              agentToken: args.agentToken,
+              filePath: CODEX_AGENT_SERVER_PATH,
+              content: bundledServer,
+            });
+          }
+
+          if (lockedPackageChanged) {
+            await executeCodespaceAgentCommand({
+              agentUrl: args.agentUrl,
+              agentToken: args.agentToken,
+              command: "cd .codespace-agent && npm install --no-package-lock",
+              timeoutMs: CODEX_AGENT_INSTALL_TIMEOUT_MS,
+            });
+          }
+        } catch (error) {
+          const restorePrefix = `Failed to update bundled Codespace agent: ${describeError(
+            error,
+          )}`;
+
+          try {
+            await restoreCodespaceAgentFiles({
+              agentUrl: args.agentUrl,
+              agentToken: args.agentToken,
+              packageContent: lockedPackageJson,
+              serverContent: lockedServer,
+              packageChanged: lockedPackageChanged,
+              serverChanged: lockedServerChanged,
+            });
+          } catch (restoreError) {
+            syncError = new Error(
+              `${restorePrefix}; rollback failed before restart: ${describeError(
+                restoreError,
+              )}`,
+            );
+          }
+
+          if (syncError === null) {
+            syncError = error;
+          }
+        }
+
+        if (syncError === null) {
+          restartScheduled = true;
+          await restartCodespaceAgent({
+            agentUrl: args.agentUrl,
+            agentToken: args.agentToken,
+            lockToken,
+            packageChanged: lockedPackageChanged,
+            packageBackupExists: lockedPackageJson !== null,
+            serverBackupExists: lockedServer !== null,
+          });
+
+          const syncStatus = await waitForCodespaceAgentSyncResult({
+            agentUrl: args.agentUrl,
+            agentToken: args.agentToken,
+            lockToken,
+          });
+
+          if (syncStatus.status === "rolled_back") {
+            syncError = new Error(
+              "Bundled Codespace agent update was rolled back after the refreshed agent failed to become healthy",
+            );
+          } else {
+            syncCompleted = true;
+          }
+        }
+      }
+    } catch (error) {
+      syncError = error;
+    } finally {
+      if (!restartScheduled) {
+        try {
+          await cleanupCodespaceAgentSyncArtifacts(args);
+        } catch (artifactCleanupError) {
+          if (syncError === null) {
+            postSyncError = artifactCleanupError;
+          }
+        }
+
+        try {
+          await releaseCodespaceAgentSyncLock({
+            agentUrl: args.agentUrl,
+            agentToken: args.agentToken,
+            lockToken,
+          });
+        } catch (releaseError) {
+          if (syncError === null && postSyncError === null) {
+            postSyncError = releaseError;
+          }
+        }
+      }
+    }
+
+    if (syncError !== null) {
+      throw syncError;
+    }
+    if (postSyncError !== null) {
+      throw postSyncError;
+    }
+    if (syncCompleted) {
+      return;
+    }
+  }
 }
 
 function normalizeCodexStatus(
