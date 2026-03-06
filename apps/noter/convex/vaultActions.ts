@@ -747,15 +747,25 @@ export const deleteVault = action({
           }
         }
 
-        for (const snapshotName of snapshotNames) {
-          try {
-            const snapshot =
-              snapshotsByName.get(snapshotName) ??
-              (await daytona.snapshot.get(snapshotName));
-            await daytona.snapshot.delete(snapshot);
-          } catch (error) {
-            if (!isProviderNotFoundError(error)) {
-              throw error;
+        const hasOtherVaultsBeforeSnapshotDeletion = await ctx.runQuery(
+          internal.vault.hasOtherVaultsForRepository,
+          {
+            owner: vault.ghRepoOwner,
+            repo: vault.ghRepoName,
+            excludeVaultId: vault._id,
+          },
+        );
+        if (!hasOtherVaultsBeforeSnapshotDeletion) {
+          for (const snapshotName of snapshotNames) {
+            try {
+              const snapshot =
+                snapshotsByName.get(snapshotName) ??
+                (await daytona.snapshot.get(snapshotName));
+              await daytona.snapshot.delete(snapshot);
+            } catch (error) {
+              if (!isProviderNotFoundError(error)) {
+                throw error;
+              }
             }
           }
         }
