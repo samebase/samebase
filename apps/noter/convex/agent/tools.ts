@@ -42,6 +42,7 @@ export interface ToolContext {
   vaultId: Id<"vaults">;
   owner: string;
   repo: string;
+  branch: string;
   userId: Id<"users">;
   accessToken: string;
 }
@@ -228,7 +229,7 @@ async function executeEditFile(
       content: input.content,
       initialContent,
       parentCommitSha,
-      branch: "main",
+      branch: toolCtx.branch,
       userId: toolCtx.userId,
     });
   }
@@ -247,7 +248,7 @@ async function executeCreateFile(
     content: input.content,
     initialContent: "",
     parentCommitSha: null,
-    branch: "main",
+    branch: toolCtx.branch,
     userId: toolCtx.userId,
   });
   return `File created: ${input.path}`;
@@ -270,7 +271,7 @@ async function executeDeleteFile(
       vaultId: toolCtx.vaultId,
       filePath: input.path,
       parentCommitSha: sha,
-      branch: "main",
+      branch: toolCtx.branch,
       userId: toolCtx.userId,
     },
   );

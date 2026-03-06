@@ -65,6 +65,7 @@ function buildToolContext(
     vaultId: vault._id,
     owner: vault.ghRepoOwner,
     repo: vault.ghRepoName,
+    branch: "main",
     userId: args.userId,
     accessToken: args.githubAccessToken,
   };

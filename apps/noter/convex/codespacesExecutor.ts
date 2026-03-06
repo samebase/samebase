@@ -10,6 +10,7 @@ import {
   readNumber,
   readString,
 } from "./jsonUtils";
+import { starterTemplateManifest } from "./starterSeedManifest.generated";
 
 const executeCommandResult = v.object({
   stdout: v.string(),
@@ -24,6 +25,20 @@ function jsonStringifySafe(value: unknown): string {
   } catch {
     return '"[unserializable]"';
   }
+}
+
+const CODEX_AGENT_PACKAGE_JSON_PATH = ".codespace-agent/package.json";
+const CODEX_AGENT_SERVER_PATH = ".codespace-agent/server.js";
+const CODEX_AGENT_RESTART_TIMEOUT_MS = 30000;
+const CODEX_AGENT_RESTART_POLL_INTERVAL_MS = 1000;
+const CODEX_AGENT_INSTALL_TIMEOUT_MS = 120000;
+
+function getBundledCodespaceAgentAsset(path: string): string {
+  const content = starterTemplateManifest.files[path];
+  if (typeof content !== "string") {
+    throw new Error(`Starter template manifest missing ${path}`);
+  }
+  return content;
 }
 
 /**
@@ -523,6 +538,214 @@ async function getActiveRunningCodespace(
   };
 }
 
+async function readCodespaceFileOrNull(args: {
+  agentUrl: string;
+  agentToken: string;
+  filePath: string;
+}): Promise<string | null> {
+  const response = await fetch(
+    `${args.agentUrl}/files/read?filePath=${encodeURIComponent(args.filePath)}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${args.agentToken}`,
+      },
+    },
+  );
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to read ${args.filePath}: ${error}`);
+  }
+
+  const payload = await response.json();
+  if (!isRecord(payload)) {
+    throw new Error(`Invalid response while reading ${args.filePath}`);
+  }
+
+  const content = readString(payload, "content");
+  if (content === undefined) {
+    throw new Error(`Codespace file read missing content for ${args.filePath}`);
+  }
+
+  return content;
+}
+
+async function writeCodespaceFile(args: {
+  agentUrl: string;
+  agentToken: string;
+  filePath: string;
+  content: string;
+}): Promise<void> {
+  const response = await fetch(`${args.agentUrl}/files/write`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${args.agentToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      filePath: args.filePath,
+      content: args.content,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to write ${args.filePath}: ${error}`);
+  }
+}
+
+async function executeCodespaceAgentCommand(args: {
+  agentUrl: string;
+  agentToken: string;
+  command: string;
+  timeoutMs: number;
+}): Promise<void> {
+  const response = await fetch(`${args.agentUrl}/exec`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${args.agentToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      command: args.command,
+      timeoutMs: args.timeoutMs,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Codespace command failed: ${error}`);
+  }
+
+  const payload = await response.json();
+  if (!isRecord(payload)) {
+    throw new Error("Invalid response from Codespace command execution");
+  }
+
+  const success = readBoolean(payload, "success") ?? false;
+  if (!success) {
+    const stderr = readString(payload, "stderr") ?? "unknown error";
+    throw new Error(`Codespace command failed: ${stderr}`);
+  }
+}
+
+async function waitForCodespaceAgent(args: {
+  agentUrl: string;
+}): Promise<void> {
+  const deadline = Date.now() + CODEX_AGENT_RESTART_TIMEOUT_MS;
+  let lastError = "Timed out waiting for Codespace agent restart";
+
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(`${args.agentUrl}/health`, {
+        method: "GET",
+      });
+      if (response.ok) {
+        return;
+      }
+      lastError = `health returned ${response.status}`;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, CODEX_AGENT_RESTART_POLL_INTERVAL_MS);
+    });
+  }
+
+  throw new Error(`Codespace agent did not restart cleanly: ${lastError}`);
+}
+
+async function restartCodespaceAgent(args: {
+  agentUrl: string;
+  agentToken: string;
+}): Promise<void> {
+  const command = [
+    "nohup bash -lc '",
+    'server_pid=$(pgrep -f "[n]ode server.js" | head -n 1); ',
+    'if [ -n "$server_pid" ]; then kill -TERM "$server_pid"; fi; ',
+    "for i in 1 2 3 4 5; do ",
+    'if [ -z "$server_pid" ] || ! kill -0 "$server_pid" 2>/dev/null; then break; fi; ',
+    "sleep 1; ",
+    "done; ",
+    "cd .codespace-agent && nohup npm start >/tmp/codespace-agent.log 2>&1 < /dev/null &' ",
+    "> /tmp/codespace-agent-restart.log 2>&1 < /dev/null & echo restart-scheduled",
+  ].join("");
+
+  await executeCodespaceAgentCommand({
+    agentUrl: args.agentUrl,
+    agentToken: args.agentToken,
+    command,
+    timeoutMs: 5000,
+  });
+
+  await waitForCodespaceAgent({
+    agentUrl: args.agentUrl,
+  });
+}
+
+async function syncBundledCodespaceAgent(args: {
+  agentUrl: string;
+  agentToken: string;
+}): Promise<void> {
+  const bundledPackageJson = getBundledCodespaceAgentAsset(
+    CODEX_AGENT_PACKAGE_JSON_PATH,
+  );
+  const bundledServer = getBundledCodespaceAgentAsset(CODEX_AGENT_SERVER_PATH);
+
+  const currentPackageJson = await readCodespaceFileOrNull({
+    agentUrl: args.agentUrl,
+    agentToken: args.agentToken,
+    filePath: CODEX_AGENT_PACKAGE_JSON_PATH,
+  });
+  const currentServer = await readCodespaceFileOrNull({
+    agentUrl: args.agentUrl,
+    agentToken: args.agentToken,
+    filePath: CODEX_AGENT_SERVER_PATH,
+  });
+
+  const packageChanged = currentPackageJson !== bundledPackageJson;
+  const serverChanged = currentServer !== bundledServer;
+
+  if (!packageChanged && !serverChanged) {
+    return;
+  }
+
+  if (packageChanged) {
+    await writeCodespaceFile({
+      agentUrl: args.agentUrl,
+      agentToken: args.agentToken,
+      filePath: CODEX_AGENT_PACKAGE_JSON_PATH,
+      content: bundledPackageJson,
+    });
+  }
+
+  if (serverChanged) {
+    await writeCodespaceFile({
+      agentUrl: args.agentUrl,
+      agentToken: args.agentToken,
+      filePath: CODEX_AGENT_SERVER_PATH,
+      content: bundledServer,
+    });
+  }
+
+  if (packageChanged) {
+    await executeCodespaceAgentCommand({
+      agentUrl: args.agentUrl,
+      agentToken: args.agentToken,
+      command: "cd .codespace-agent && npm install --no-package-lock",
+      timeoutMs: CODEX_AGENT_INSTALL_TIMEOUT_MS,
+    });
+  }
+
+  await restartCodespaceAgent(args);
+}
+
 function normalizeCodexStatus(
   payload: unknown,
 ): Infer<typeof codexStatusResult> {
@@ -620,6 +843,7 @@ export const ensureCodexRuntime = action({
   returns: codexStatusResult,
   handler: async (ctx, args): Promise<Infer<typeof codexStatusResult>> => {
     const codespace = await getActiveRunningCodespace(ctx, args.codespaceId);
+    await syncBundledCodespaceAgent(codespace);
     const response = await fetch(`${codespace.agentUrl}/codex/runtime/ensure`, {
       method: "POST",
       headers: {
@@ -656,6 +880,7 @@ export const startCodexThread = action({
   returns: startCodexThreadResult,
   handler: async (ctx, args): Promise<Infer<typeof startCodexThreadResult>> => {
     const codespace = await getActiveRunningCodespace(ctx, args.codespaceId);
+    await syncBundledCodespaceAgent(codespace);
     const response = await fetch(`${codespace.agentUrl}/codex/thread/start`, {
       method: "POST",
       headers: {
@@ -705,6 +930,7 @@ export const startCodexTurn = action({
   returns: startCodexTurnResult,
   handler: async (ctx, args): Promise<Infer<typeof startCodexTurnResult>> => {
     const codespace = await getActiveRunningCodespace(ctx, args.codespaceId);
+    await syncBundledCodespaceAgent(codespace);
     const response = await fetch(`${codespace.agentUrl}/codex/turn/start`, {
       method: "POST",
       headers: {

@@ -153,6 +153,7 @@ export const generateResponse = internalAction({
             vaultId: vault._id,
             owner: vault.ghRepoOwner,
             repo: vault.ghRepoName,
+            branch: threadContext.branch ?? "main",
             userId: vault.userId,
             accessToken: githubAccessToken,
           },
@@ -186,6 +187,7 @@ export const generateResponse = internalAction({
             vaultId: vault._id,
             owner: vault.ghRepoOwner,
             repo: vault.ghRepoName,
+            branch: threadContext.branch ?? "main",
             userId: vault.userId,
             accessToken: githubAccessToken,
           }
