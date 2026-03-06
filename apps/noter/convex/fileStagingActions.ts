@@ -28,6 +28,10 @@ const RATE_LIMIT_COOLDOWN_FALLBACK_MS = 60_000;
 const STORAGE_BACKED_FILE_ERROR_MESSAGE =
   "File is in storage, not implemented yet";
 
+function isStaleBaseVersionError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("stale base version");
+}
+
 async function getGithubAccessToken(
   ctx: ActionCtx,
   userId: Id<"users">,
@@ -1115,7 +1119,9 @@ export const pullFromGitHubInternal = internalAction({
       stagingId: (typeof allStaged)[0]["_id"];
       sha: string;
       branch: string;
+      initialFilePath: string;
       filePath: string;
+      version: number;
       stagedContent: string;
       initialContent: string;
       fileDeleted: boolean;
@@ -1153,7 +1159,9 @@ export const pullFromGitHubInternal = internalAction({
           stagingId: staged._id,
           sha: newSha,
           branch: staged.branch,
+          initialFilePath: staged.initialFilePath,
           filePath: staged.filePath,
+          version: staged.version,
           stagedContent: staged.content,
           initialContent: staged.initialContent,
           fileDeleted: staged.fileDeleted,
@@ -1171,6 +1179,7 @@ export const pullFromGitHubInternal = internalAction({
         });
         const buffer = Buffer.from(blob.data.content, "base64");
         const newContent = buffer.toString("utf-8");
+        let shouldAdvanceParentCommit = true;
         if (!item.fileDeleted) {
           const rebaseResult = rebaseStagedContent({
             baseContent: item.initialContent,
@@ -1179,23 +1188,71 @@ export const pullFromGitHubInternal = internalAction({
           });
 
           if (rebaseResult.content !== item.stagedContent) {
-            await ctx.runMutation(internal.collaborative.pushContentUpdate, {
-              vaultId: args.vaultId,
-              filePath: item.filePath,
-              branch: item.branch,
-              newContent: rebaseResult.content,
-              userId: args.userId,
-            });
+            try {
+              await ctx.runMutation(internal.collaborative.pushContentUpdate, {
+                vaultId: args.vaultId,
+                filePath: item.filePath,
+                branch: item.branch,
+                expectedVersion: item.version,
+                newContent: rebaseResult.content,
+                userId: args.userId,
+              });
+            } catch (error) {
+              if (!isStaleBaseVersionError(error)) {
+                throw error;
+              }
+
+              const latestStaging = await ctx.runQuery(
+                internal.fileStaging.getByOriginalPath,
+                {
+                  vaultId: args.vaultId,
+                  originalFilePath: item.initialFilePath,
+                  branch: item.branch,
+                },
+              );
+
+              if (!latestStaging) {
+                shouldAdvanceParentCommit = false;
+              } else if (!latestStaging.fileDeleted) {
+                const retriedRebase = rebaseStagedContent({
+                  baseContent: latestStaging.initialContent,
+                  stagedContent: latestStaging.content,
+                  upstreamContent: newContent,
+                });
+
+                if (retriedRebase.content !== latestStaging.content) {
+                  await ctx.runMutation(
+                    internal.collaborative.pushContentUpdate,
+                    {
+                      vaultId: args.vaultId,
+                      filePath: latestStaging.filePath,
+                      branch: item.branch,
+                      expectedVersion: latestStaging.version,
+                      newContent: retriedRebase.content,
+                      userId: args.userId,
+                    },
+                  );
+                }
+              }
+            }
           }
         }
 
-        instructions.push({
-          action: "update",
-          stagingId: item.stagingId,
-          parentCommitSha: item.sha,
-          initialContent: newContent,
-        });
+        if (shouldAdvanceParentCommit) {
+          instructions.push({
+            action: "update",
+            stagingId: item.stagingId,
+            parentCommitSha: item.sha,
+            initialContent: newContent,
+          });
+        }
       } catch (error) {
+        if (isStaleBaseVersionError(error)) {
+          console.warn(
+            `Skipping stale staging rebase for ${item.branch}:${item.filePath}`,
+          );
+          continue;
+        }
         console.error(`Failed to fetch blob ${item.sha}:`, error);
         // Still update the parentCommitSha even if we can't get content
         instructions.push({

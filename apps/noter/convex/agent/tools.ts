@@ -143,6 +143,18 @@ function hasStatusCode(
   );
 }
 
+function toGitTreeRef(branch: string): string {
+  if (branch.startsWith("refs/heads/")) {
+    return branch.slice("refs/".length);
+  }
+
+  if (branch.startsWith("heads/")) {
+    return branch;
+  }
+
+  return `heads/${branch}`;
+}
+
 async function loadExistingFileSnapshot(
   toolCtx: ToolContext,
   path: string,
@@ -287,23 +299,60 @@ async function executeListFiles(
   });
   if (!vault) return "Error: vault not found";
 
-  let entries = vault.treeData.tree.filter(
-    (t: { type?: string }) => t.type === "blob",
+  const octokit = new Octokit({ auth: toolCtx.accessToken });
+  const tree = await octokit.rest.git.getTree({
+    owner: toolCtx.owner,
+    repo: toolCtx.repo,
+    tree_sha: toGitTreeRef(toolCtx.branch),
+    recursive: "1",
+  });
+
+  if (tree.data.truncated) {
+    return `Error: repository tree is too large to list safely for branch ${toolCtx.branch}`;
+  }
+
+  const paths = new Set<string>();
+  for (const entry of tree.data.tree) {
+    if (entry.type === "blob" && typeof entry.path === "string") {
+      paths.add(entry.path);
+    }
+  }
+
+  const stagedFiles = await toolCtx.ctx.runQuery(
+    api.fileStaging.listStagedFiles,
+    {
+      vaultId: toolCtx.vaultId,
+      branch: toolCtx.branch,
+      includeUnchanged: true,
+    },
   );
+
+  for (const stagedFile of stagedFiles) {
+    if (
+      stagedFile.fileDeleted ||
+      stagedFile.filePath !== stagedFile.initialFilePath
+    ) {
+      paths.delete(stagedFile.initialFilePath);
+    }
+
+    if (!stagedFile.fileDeleted) {
+      paths.add(stagedFile.filePath);
+    }
+  }
+
+  let entries = Array.from(paths).sort();
   if (input.directory) {
     const prefix = input.directory.endsWith("/")
       ? input.directory
       : input.directory + "/";
-    entries = entries.filter((t: { path?: string }) =>
-      t.path?.startsWith(prefix),
-    );
+    entries = entries.filter((path) => path.startsWith(prefix));
   }
   if (entries.length === 0) {
     return input.directory
       ? `No files found in directory: ${input.directory}`
       : "Repository has no files";
   }
-  return entries.map((t: { path?: string }) => t.path).join("\n");
+  return entries.join("\n");
 }
 
 async function executeEditFile(
@@ -320,6 +369,7 @@ async function executeEditFile(
       vaultId: toolCtx.vaultId,
       filePath: staging.filePath,
       branch: toolCtx.branch,
+      expectedVersion: staging.version,
       newContent: input.content,
       userId: toolCtx.userId,
     });

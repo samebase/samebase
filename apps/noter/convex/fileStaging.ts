@@ -458,11 +458,6 @@ export const saveToStaging = internalMutation({
         return existingStaging;
       }
 
-      console.log({
-        old: existingStaging.content,
-        new: args.content,
-      });
-
       // Update existing staging
       await ctx.db.patch(existingStaging._id, {
         content: args.content,

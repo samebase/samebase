@@ -318,6 +318,7 @@ export const pushContentUpdate = internalMutation({
     vaultId: v.id("vaults"),
     filePath: v.string(),
     branch: v.string(),
+    expectedVersion: v.number(),
     newContent: v.string(),
     userId: v.id("users"),
   },
@@ -336,6 +337,12 @@ export const pushContentUpdate = internalMutation({
     if (!staging) {
       // No staging record means no editor is open — nothing to sync
       return null;
+    }
+
+    if (staging.version !== args.expectedVersion) {
+      throw new Error(
+        `pushContentUpdate failed: stale base version (expected ${args.expectedVersion}, got ${staging.version})`,
+      );
     }
 
     const oldContent = staging.content;
@@ -373,6 +380,15 @@ export const pushContentUpdate = internalMutation({
       lastEditTime: timestamp,
       lastEditUserId: args.userId,
     });
+
+    if (newVersion % 50 === 0) {
+      await ctx.scheduler.runAfter(0, internal.collaborative.pruneOldUpdates, {
+        vaultId: args.vaultId,
+        branch: args.branch,
+        filePath: args.filePath,
+        currentVersion: newVersion,
+      });
+    }
 
     return null;
   },
