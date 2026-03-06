@@ -97,7 +97,7 @@ export const pullUpdates = query({
 
     const updates = await ctx.db
       .query("collaborativeUpdates")
-      .withIndex("by_file_branch_and_version", (q) =>
+      .withIndex("by_vaultId_and_branch_and_filePath_and_version", (q) =>
         q
           .eq("vaultId", vault._id)
           .eq("branch", args.branch)
@@ -387,6 +387,7 @@ export const pushSerializedChangeSetUpdate = internalMutation({
     vaultId: v.id("vaults"),
     filePath: v.string(),
     branch: v.string(),
+    expectedVersion: v.number(),
     serializedChangeSet: v.string(),
     userId: v.id("users"),
   },
@@ -403,7 +404,15 @@ export const pushSerializedChangeSetUpdate = internalMutation({
       .first();
 
     if (!staging) {
-      return null;
+      throw new Error(
+        "pushSerializedChangeSetUpdate failed: staging not found",
+      );
+    }
+
+    if (staging.version !== args.expectedVersion) {
+      throw new Error(
+        `pushSerializedChangeSetUpdate failed: stale base version (expected ${args.expectedVersion}, got ${staging.version})`,
+      );
     }
 
     const currentDoc = Text.of(staging.content.split("\n"));
@@ -479,7 +488,7 @@ export const pruneOldUpdates = internalMutation({
     // Grab a batch of old updates to delete (ascending version order).
     const oldUpdates = await ctx.db
       .query("collaborativeUpdates")
-      .withIndex("by_file_branch_and_version", (q) =>
+      .withIndex("by_vaultId_and_branch_and_filePath_and_version", (q) =>
         q
           .eq("vaultId", args.vaultId)
           .eq("branch", args.branch)
@@ -526,7 +535,7 @@ export const getActiveEditors = query({
     // Use .order("desc") and .take() to avoid scanning the entire update history.
     const recentUpdates = await ctx.db
       .query("collaborativeUpdates")
-      .withIndex("by_file_branch_and_timestamp", (q) =>
+      .withIndex("by_vaultId_and_branch_and_filePath_and_timestamp", (q) =>
         q
           .eq("vaultId", args.vaultId)
           .eq("branch", args.branch)

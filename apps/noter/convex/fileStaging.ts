@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 import {
   internalMutation,
   internalQuery,
@@ -6,21 +6,120 @@ import {
   query,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { Id } from "./_generated/dataModel";
 import { getUserId } from "./common";
 import type { GithubTreeType } from "./schema";
 
 export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
+const {
+  array,
+  boolean,
+  id,
+  literal,
+  null: nullValue,
+  number,
+  object,
+  optional,
+  string,
+  union,
+} = v;
+
+const vaultIdValidator = id("vaults");
+const fileStagingIdValidator = id("fileStaging");
+const userIdValidator = id("users");
+const branchValidator = string();
+const filePathValidator = string();
+const contentValidator = string();
+const nullableStringValidator = union(string(), nullValue());
+const nullResultValidator = nullValue();
+
+const stagedFileValidator = object({
+  _id: fileStagingIdValidator,
+  _creationTime: number(),
+  ownerId: userIdValidator,
+  vaultId: vaultIdValidator,
+  fileDeleted: boolean(),
+  filePath: filePathValidator,
+  initialFilePath: filePathValidator,
+  content: contentValidator,
+  initialContent: contentValidator,
+  parentCommitSha: nullableStringValidator,
+  lastEditTime: number(),
+  lastEditUserId: userIdValidator,
+  branch: branchValidator,
+  version: number(),
+});
+type StagedFile = Infer<typeof stagedFileValidator>;
+
+const stagedFileOrNullValidator = union(stagedFileValidator, nullValue());
+const stagedFileListValidator = array(stagedFileValidator);
+
+const getByNewPathArgsValidator = {
+  vaultId: vaultIdValidator,
+  branch: branchValidator,
+  newPath: filePathValidator,
+};
+
+const listStagedFilesArgsValidator = {
+  vaultId: vaultIdValidator,
+  branch: branchValidator,
+  includeUnchanged: optional(boolean()),
+};
+
+const listAllStagedFilesArgsValidator = {
+  vaultId: vaultIdValidator,
+  includeUnchanged: optional(boolean()),
+};
+
+const deletionArgsValidator = {
+  vaultId: vaultIdValidator,
+  filePath: filePathValidator,
+  parentCommitSha: nullableStringValidator,
+  branch: branchValidator,
+};
+
+const createFileArgsValidator = {
+  vaultId: vaultIdValidator,
+  filePath: filePathValidator,
+  content: contentValidator,
+  branch: branchValidator,
+};
+
+const saveToStagingArgsValidator = {
+  vaultId: vaultIdValidator,
+  initialFilePath: filePathValidator,
+  content: contentValidator,
+  initialContent: contentValidator,
+  parentCommitSha: nullableStringValidator,
+  branch: branchValidator,
+  userId: optional(userIdValidator),
+};
+
+const internalDeletionArgsValidator = {
+  vaultId: vaultIdValidator,
+  filePath: filePathValidator,
+  parentCommitSha: nullableStringValidator,
+  branch: branchValidator,
+  userId: userIdValidator,
+};
+
+const renameArgsValidator = {
+  vaultId: vaultIdValidator,
+  initialFilePath: filePathValidator,
+  branch: branchValidator,
+  newPath: filePathValidator,
+};
+
+const getByOriginalPathArgsValidator = {
+  vaultId: vaultIdValidator,
+  originalFilePath: filePathValidator,
+  branch: branchValidator,
+};
 
 // MARK: Public
 
 export const getByNewPath = query({
-  args: {
-    vaultId: v.id("vaults"),
-    branch: v.string(),
-    newPath: v.string(),
-  },
-  returns: v.any(),
+  args: getByNewPathArgsValidator,
+  returns: stagedFileOrNullValidator,
   handler: async (ctx, args) => {
     const staging = await ctx.db
       .query("fileStaging")
@@ -38,24 +137,14 @@ export const getByNewPath = query({
 
 // List all files currently in staging for a vault
 export const listStagedFiles = query({
-  args: {
-    vaultId: v.id("vaults"),
-    branch: v.optional(v.string()),
-    includeUnchanged: v.optional(v.boolean()),
-  },
-  returns: v.array(v.any()),
+  args: listStagedFilesArgsValidator,
+  returns: stagedFileListValidator,
   handler: async (ctx, args) => {
-    const filesQuery = args.branch
-      ? ctx.db
-          .query("fileStaging")
-          .withIndex("by_vault_and_branch", (q) =>
-            q.eq("vaultId", args.vaultId).eq("branch", args.branch!),
-          )
-      : ctx.db
-          .query("fileStaging")
-          .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId));
-
-    const files = await filesQuery
+    const files = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_branch", (q) =>
+        q.eq("vaultId", args.vaultId).eq("branch", args.branch),
+      )
       .filter((q) =>
         args.includeUnchanged
           ? q.eq(true, true)
@@ -76,15 +165,38 @@ export const listStagedFiles = query({
   },
 });
 
+export const listAllStagedFiles = internalQuery({
+  args: listAllStagedFilesArgsValidator,
+  returns: stagedFileListValidator,
+  handler: async (ctx, args) => {
+    const files = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .filter((q) =>
+        args.includeUnchanged
+          ? q.eq(true, true)
+          : q.or(
+              q.neq(q.field("content"), q.field("initialContent")),
+              q.eq(q.field("fileDeleted"), true),
+              q.neq(q.field("filePath"), q.field("initialFilePath")),
+              q.eq(q.field("parentCommitSha"), null),
+            ),
+      )
+      .collect();
+
+    return files;
+  },
+});
+
 const DELETION_BATCH_SIZE = 500;
 
 // Clear staging for a specific file (used after successful commit)
 export const clearAllStaging = mutation({
   args: {
-    vaultId: v.id("vaults"),
-    skipTreeUpdate: v.optional(v.boolean()),
+    vaultId: vaultIdValidator,
+    skipTreeUpdate: optional(boolean()),
   },
-  returns: v.null(),
+  returns: nullResultValidator,
   handler: async (ctx, args) => {
     // Get vault info to schedule tree update
     const vault = await ctx.db.get(args.vaultId);
@@ -123,9 +235,9 @@ export const clearAllStaging = mutation({
 // Delete collaborative updates in batches to stay under the 4096 read limit.
 export const deleteCollaborativeUpdatesBatch = internalMutation({
   args: {
-    vaultId: v.id("vaults"),
+    vaultId: vaultIdValidator,
   },
-  returns: v.null(),
+  returns: nullResultValidator,
   handler: async (ctx, args) => {
     const updates = await ctx.db
       .query("collaborativeUpdates")
@@ -151,13 +263,8 @@ export const deleteCollaborativeUpdatesBatch = internalMutation({
 
 // Mark a file for deletion in staging
 export const markFileForDeletion = mutation({
-  args: {
-    vaultId: v.id("vaults"),
-    filePath: v.string(),
-    parentCommitSha: v.union(v.string(), v.null()),
-    branch: v.string(),
-  },
-  returns: v.null(),
+  args: deletionArgsValidator,
+  returns: nullResultValidator,
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
 
@@ -216,13 +323,8 @@ export const markFileForDeletion = mutation({
 
 // Create a new file in staging (instead of immediately committing to GitHub)
 export const createFileInStaging = mutation({
-  args: {
-    vaultId: v.id("vaults"),
-    filePath: v.string(),
-    content: v.string(),
-    branch: v.string(),
-  },
-  returns: v.null(),
+  args: createFileArgsValidator,
+  returns: nullResultValidator,
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
 
@@ -295,17 +397,8 @@ export const createFileInStaging = mutation({
 
 // Save file content to staging for real-time editing
 export const saveToStaging = internalMutation({
-  args: {
-    vaultId: v.id("vaults"),
-    initialFilePath: v.string(),
-    content: v.string(),
-    initialContent: v.string(),
-    parentCommitSha: v.union(v.string(), v.null()),
-    branch: v.string(),
-    // Optional: pass userId explicitly when calling from an internal action
-    // (where auth context is unavailable, e.g. the AI agent).
-    userId: v.optional(v.id("users")),
-  },
+  args: saveToStagingArgsValidator,
+  returns: stagedFileValidator,
   handler: async (ctx, args) => {
     const userId = args.userId ?? (await getUserId(ctx));
 
@@ -380,14 +473,8 @@ export const saveToStaging = internalMutation({
 // Internal version of markFileForDeletion — callable from agent actions
 // without auth context.
 export const internalMarkFileForDeletion = internalMutation({
-  args: {
-    vaultId: v.id("vaults"),
-    filePath: v.string(),
-    parentCommitSha: v.union(v.string(), v.null()),
-    branch: v.string(),
-    userId: v.id("users"),
-  },
-  returns: v.null(),
+  args: internalDeletionArgsValidator,
+  returns: nullResultValidator,
   handler: async (ctx, args) => {
     const existingStaging = await ctx.db
       .query("fileStaging")
@@ -440,31 +527,9 @@ export const internalMarkFileForDeletion = internalMutation({
 });
 
 export const rename = internalMutation({
-  args: {
-    vaultId: v.id("vaults"),
-    initialFilePath: v.string(),
-    branch: v.string(),
-    newPath: v.string(),
-  },
-  handler: async (
-    ctx,
-    args,
-  ): Promise<{
-    _id: Id<"fileStaging">;
-    _creationTime: number;
-    ownerId: Id<"users">;
-    vaultId: Id<"vaults">;
-    fileDeleted: boolean;
-    filePath: string;
-    initialFilePath: string;
-    content: string;
-    initialContent: string;
-    parentCommitSha: string | null;
-    lastEditTime: number;
-    lastEditUserId: Id<"users">;
-    branch: string;
-    version: number;
-  }> => {
+  args: renameArgsValidator,
+  returns: stagedFileValidator,
+  handler: async (ctx, args): Promise<StagedFile> => {
     await getUserId(ctx);
 
     const vault = await ctx.runQuery(internal.vault.getById, {
@@ -540,12 +605,8 @@ export const rename = internalMutation({
 
 // Get staged content for a file (with real-time updates)
 export const getByOriginalPath = internalQuery({
-  args: {
-    vaultId: v.id("vaults"),
-    originalFilePath: v.string(),
-    branch: v.string(),
-  },
-  returns: v.any(),
+  args: getByOriginalPathArgsValidator,
+  returns: stagedFileOrNullValidator,
   handler: async (ctx, args) => {
     const staging = await ctx.db
       .query("fileStaging")
@@ -563,25 +624,25 @@ export const getByOriginalPath = internalQuery({
 
 // Reconcile staging records after pulling a fresh tree from GitHub.
 // Accepts a list of instructions describing what to do with each staging record.
-const reconcileInstructionValidator = v.union(
-  v.object({
-    action: v.literal("delete"),
-    stagingId: v.id("fileStaging"),
+const reconcileInstructionValidator = union(
+  object({
+    action: literal("delete"),
+    stagingId: fileStagingIdValidator,
   }),
-  v.object({
-    action: v.literal("update"),
-    stagingId: v.id("fileStaging"),
-    parentCommitSha: v.union(v.string(), v.null()),
-    initialContent: v.optional(v.string()),
+  object({
+    action: literal("update"),
+    stagingId: fileStagingIdValidator,
+    parentCommitSha: nullableStringValidator,
+    initialContent: optional(contentValidator),
   }),
 );
 
 export const reconcileStagingWithTree = internalMutation({
   args: {
-    vaultId: v.id("vaults"),
-    instructions: v.array(reconcileInstructionValidator),
+    vaultId: vaultIdValidator,
+    instructions: array(reconcileInstructionValidator),
   },
-  returns: v.null(),
+  returns: nullResultValidator,
   handler: async (ctx, args) => {
     for (const instruction of args.instructions) {
       if (instruction.action === "delete") {

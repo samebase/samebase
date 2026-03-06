@@ -573,6 +573,7 @@ async function readCodespaceFileOrNull(args: {
       headers: {
         Authorization: `Bearer ${args.agentToken}`,
       },
+      signal: AbortSignal.timeout(10000),
     },
   );
 
@@ -614,6 +615,7 @@ async function writeCodespaceFile(args: {
       filePath: args.filePath,
       content: args.content,
     }),
+    signal: AbortSignal.timeout(10000),
   });
 
   if (!response.ok) {
@@ -651,6 +653,7 @@ async function executeCodespaceAgentCommandResult(args: {
       command: args.command,
       timeoutMs: args.timeoutMs,
     }),
+    signal: AbortSignal.timeout(args.timeoutMs + 5000),
   });
 
   if (!response.ok) {
@@ -767,7 +770,13 @@ async function tryAcquireCodespaceAgentSyncLock(args: {
     "fi",
     'if [ $((now - started_at)) -ge "$timeout_seconds" ]; then',
     '  rm -rf "$lock_dir"',
-    '  mkdir "$lock_dir"',
+    '  if ! mkdir "$lock_dir" 2>/dev/null; then',
+    '    if [ -d "$lock_dir" ]; then',
+    '      printf "busy"',
+    "      exit 0",
+    "    fi",
+    "    exit 1",
+    "  fi",
     '  date +%s >"$lock_dir/started_at"',
     '  printf "%s\\n" "$lock_token" >"$lock_dir/token"',
     '  printf "acquired"',
@@ -1088,10 +1097,25 @@ function buildCodespaceAgentRestartCommand(args: {
     "  for _ in 1 2 3 4 5; do",
     '    if [ -z "$server_pid" ] || ! kill -0 "$server_pid" 2>/dev/null; then',
     '      rm -f "$pid_path"',
-    "      break",
+    "      return 0",
     "    fi",
     '    sleep "$poll_interval_seconds"',
     "  done",
+    '  if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then',
+    '    kill -KILL "$server_pid" || true',
+    "    for _ in 1 2 3 4 5; do",
+    '      if ! kill -0 "$server_pid" 2>/dev/null; then',
+    '        rm -f "$pid_path"',
+    "        return 0",
+    "      fi",
+    '      sleep "$poll_interval_seconds"',
+    "    done",
+    "  fi",
+    '  if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then',
+    "    return 1",
+    "  fi",
+    '  rm -f "$pid_path"',
+    "  return 0",
     "}",
     "start_agent() {",
     '  nohup node "$server_path" >/tmp/codespace-agent.log 2>&1 < /dev/null &',

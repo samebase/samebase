@@ -1071,10 +1071,13 @@ export const pullFromGitHubInternal = internalAction({
     });
 
     // 1. Read all staging records for this vault (including unchanged)
-    const allStaged = await ctx.runQuery(api.fileStaging.listStagedFiles, {
-      vaultId: args.vaultId,
-      includeUnchanged: true,
-    });
+    const allStaged = await ctx.runQuery(
+      internal.fileStaging.listAllStagedFiles,
+      {
+        vaultId: args.vaultId,
+        includeUnchanged: true,
+      },
+    );
 
     const treeMapByBranch = new Map<string, Promise<Map<string, string>>>();
     const getTreeMapForBranch = (
@@ -1372,7 +1375,7 @@ export const getCommitPreview = action({
     }
 
     const stagedFiles: StagedFileForCommit[] = await ctx.runQuery(
-      api.fileStaging.listStagedFiles,
+      internal.fileStaging.listAllStagedFiles,
       {
         vaultId: vault._id,
       },
@@ -1722,7 +1725,7 @@ export const commitAllStaged = internalAction({
     try {
       // Get the staging record
       const changedFiles: StagedFileForCommit[] = await ctx.runQuery(
-        api.fileStaging.listStagedFiles,
+        internal.fileStaging.listAllStagedFiles,
         {
           vaultId: args.vaultId,
         },

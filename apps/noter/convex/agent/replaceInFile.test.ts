@@ -74,6 +74,7 @@ describe("buildReplaceInFilePlan", () => {
     ).toThrowError(
       new ReplaceInFileError(
         "replace_in_file failed: replacement 1 matched multiple locations; include more surrounding context",
+        "ambiguous_match",
       ),
     );
   });
@@ -87,6 +88,7 @@ describe("buildReplaceInFilePlan", () => {
     ).toThrowError(
       new ReplaceInFileError(
         "replace_in_file failed: replacements must not be empty",
+        "invalid_replacement",
       ),
     );
   });
@@ -105,6 +107,7 @@ describe("buildReplaceInFilePlan", () => {
     ).toThrowError(
       new ReplaceInFileError(
         "replace_in_file failed: replacement 1 has empty oldText",
+        "invalid_replacement",
       ),
     );
   });
@@ -123,6 +126,7 @@ describe("buildReplaceInFilePlan", () => {
     ).toThrowError(
       new ReplaceInFileError(
         "replace_in_file failed: replacement 1 did not match any text",
+        "invalid_replacement",
       ),
     );
   });
@@ -145,6 +149,7 @@ describe("buildReplaceInFilePlan", () => {
     ).toThrowError(
       new ReplaceInFileError(
         "replace_in_file failed: replacements 1 and 2 overlap",
+        "invalid_replacement",
       ),
     );
   });

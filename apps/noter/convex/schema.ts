@@ -643,15 +643,19 @@ export default defineSchema({
     .index("by_vault", ["vaultId"])
     .index("by_file", ["vaultId", "filePath"])
     .index("by_file_and_version", ["vaultId", "filePath", "version"])
-    .index("by_branch", ["vaultId", "branch"])
-    .index("by_file_and_branch", ["vaultId", "branch", "filePath"])
-    .index("by_file_branch_and_version", [
+    .index("by_vaultId_and_branch", ["vaultId", "branch"])
+    .index("by_vaultId_and_branch_and_filePath", [
+      "vaultId",
+      "branch",
+      "filePath",
+    ])
+    .index("by_vaultId_and_branch_and_filePath_and_version", [
       "vaultId",
       "branch",
       "filePath",
       "version",
     ])
-    .index("by_file_branch_and_timestamp", [
+    .index("by_vaultId_and_branch_and_filePath_and_timestamp", [
       "vaultId",
       "branch",
       "filePath",

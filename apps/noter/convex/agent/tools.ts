@@ -127,6 +127,7 @@ interface ExistingFileSnapshot {
   content: string;
   parentCommitSha: string | null;
   isStaged: boolean;
+  version: number;
 }
 
 function hasStatusCode(
@@ -157,12 +158,14 @@ async function loadExistingFileSnapshot(
     if (staging.fileDeleted === true) {
       throw new ReplaceInFileError(
         `replace_in_file failed: ${path} is marked deleted in staging`,
+        "deleted",
       );
     }
     return {
       content: staging.content,
       parentCommitSha: staging.parentCommitSha ?? null,
       isStaged: true,
+      version: staging.version,
     };
   }
 
@@ -177,12 +180,14 @@ async function loadExistingFileSnapshot(
     if (Array.isArray(file.data) || file.data.type !== "file") {
       throw new ReplaceInFileError(
         `replace_in_file failed: ${path} is a directory, not a file`,
+        "not_file",
       );
     }
     return {
       content: Buffer.from(file.data.content, "base64").toString("utf-8"),
       parentCommitSha: file.data.sha,
       isStaged: false,
+      version: 0,
     };
   } catch (error) {
     if (error instanceof ReplaceInFileError) {
@@ -191,6 +196,7 @@ async function loadExistingFileSnapshot(
     if (hasStatusCode(error, 404)) {
       throw new ReplaceInFileError(
         `replace_in_file failed: ${path} does not exist; use create_file`,
+        "not_found",
       );
     }
     throw error;
@@ -204,7 +210,7 @@ async function loadExistingFileSnapshotOrNull(
   try {
     return await loadExistingFileSnapshot(toolCtx, path);
   } catch (error) {
-    if (error instanceof ReplaceInFileError) {
+    if (error instanceof ReplaceInFileError && error.code === "not_found") {
       return null;
     }
     throw error;
@@ -352,6 +358,7 @@ async function executeReplaceInFile(
         vaultId: toolCtx.vaultId,
         filePath: input.path,
         branch: toolCtx.branch,
+        expectedVersion: snapshot.version,
         serializedChangeSet: plan.serializedChangeSet,
         userId: toolCtx.userId,
       },

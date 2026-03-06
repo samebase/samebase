@@ -19,7 +19,22 @@ export interface ReplaceInFilePlan {
   resolvedEdits: ReplaceInFileResolvedEdit[];
 }
 
-export class ReplaceInFileError extends Error {}
+export type ReplaceInFileErrorCode =
+  | "ambiguous_match"
+  | "deleted"
+  | "invalid_replacement"
+  | "not_file"
+  | "not_found";
+
+export class ReplaceInFileError extends Error {
+  readonly code: ReplaceInFileErrorCode;
+
+  constructor(message: string, code: ReplaceInFileErrorCode) {
+    super(message);
+    this.name = "ReplaceInFileError";
+    this.code = code;
+  }
+}
 
 type LineEnding = "\n" | "\r\n";
 
@@ -67,6 +82,7 @@ export function buildReplaceInFilePlan(args: {
   if (args.replacements.length === 0) {
     throw new ReplaceInFileError(
       "replace_in_file failed: replacements must not be empty",
+      "invalid_replacement",
     );
   }
 
@@ -75,6 +91,7 @@ export function buildReplaceInFilePlan(args: {
     if (replacement.oldText.length === 0) {
       throw new ReplaceInFileError(
         `replace_in_file failed: replacement ${index + 1} has empty oldText`,
+        "invalid_replacement",
       );
     }
 
@@ -94,12 +111,14 @@ export function buildReplaceInFilePlan(args: {
     if (matchOffsets.length === 0) {
       throw new ReplaceInFileError(
         `replace_in_file failed: replacement ${index + 1} did not match any text`,
+        "invalid_replacement",
       );
     }
 
     if (matchOffsets.length > 1) {
       throw new ReplaceInFileError(
         `replace_in_file failed: replacement ${index + 1} matched multiple locations; include more surrounding context`,
+        "ambiguous_match",
       );
     }
 
@@ -130,6 +149,7 @@ export function buildReplaceInFilePlan(args: {
     if (current.from < previous.to) {
       throw new ReplaceInFileError(
         `replace_in_file failed: replacements ${previous.replacementIndex + 1} and ${current.replacementIndex + 1} overlap`,
+        "invalid_replacement",
       );
     }
   }
