@@ -56,10 +56,23 @@ export function hasStagedSimpleViewConfigFile(
   );
 }
 
+export function isStagedSimpleViewConfigDeleted(
+  stagedConfigFile: StagedSimpleViewConfigFile,
+): stagedConfigFile is { fileDeleted: true } {
+  return (
+    stagedConfigFile !== undefined &&
+    stagedConfigFile !== null &&
+    stagedConfigFile.fileDeleted
+  );
+}
+
 export function hasSimpleViewConfigFile(
   stagedConfigFile: StagedSimpleViewConfigFile,
   repositoryConfigContent: string | null,
 ): boolean {
+  if (isStagedSimpleViewConfigDeleted(stagedConfigFile)) {
+    return false;
+  }
   return (
     hasStagedSimpleViewConfigFile(stagedConfigFile) ||
     repositoryConfigContent !== null
@@ -74,6 +87,9 @@ export function shouldLoadRepositorySimpleViewConfig(
     return false;
   }
   if (hasStagedSimpleViewConfigFile(stagedConfigFile)) {
+    return false;
+  }
+  if (isStagedSimpleViewConfigDeleted(stagedConfigFile)) {
     return false;
   }
   return !didAttemptRepositoryLoad;

@@ -9,6 +9,7 @@ import {
   getSimpleViewPreferenceStorageKey,
   hasSimpleViewConfigFile,
   hasStagedSimpleViewConfigFile,
+  isStagedSimpleViewConfigDeleted,
   parseSimpleViewConfig,
   shouldLoadRepositorySimpleViewConfig,
 } from "./simpleView";
@@ -150,10 +151,29 @@ describe("simple view config source resolution", () => {
     ).toBe(false);
   });
 
+  it("detects staged noter.md deletion state", () => {
+    expect(
+      isStagedSimpleViewConfigDeleted({
+        fileDeleted: true,
+      }),
+    ).toBe(true);
+  });
+
   it("treats repository noter.md fallback as config when not staged", () => {
     expect(
       hasSimpleViewConfigFile(null, "---\nsimpleView:\n  exclude: []\n---"),
     ).toBe(true);
+  });
+
+  it("does not fall back to repository config when staged noter.md is deleted", () => {
+    expect(
+      hasSimpleViewConfigFile(
+        {
+          fileDeleted: true,
+        },
+        "---\nsimpleView:\n  exclude: []\n---",
+      ),
+    ).toBe(false);
   });
 
   it("returns no config when staged is missing and repository content is missing", () => {
@@ -177,6 +197,17 @@ describe("simple view config source resolution", () => {
       shouldLoadRepositorySimpleViewConfig(
         {
           fileDeleted: false,
+        },
+        false,
+      ),
+    ).toBe(false);
+  });
+
+  it("skips repository load when staged noter.md is deleted", () => {
+    expect(
+      shouldLoadRepositorySimpleViewConfig(
+        {
+          fileDeleted: true,
         },
         false,
       ),

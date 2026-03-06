@@ -2,6 +2,7 @@ import {
   filterSimpleViewTreeItems,
   hasSimpleViewConfigFile,
   hasStagedSimpleViewConfigFile,
+  isStagedSimpleViewConfigDeleted,
   parseSimpleViewConfig,
   shouldLoadRepositorySimpleViewConfig,
 } from "@/lib/simpleView";
@@ -89,8 +90,11 @@ export function SimpleViewVisualFixture({
     fixture.didAttemptRepositoryLoad,
   );
 
-  const noterConfigContent =
-    fixture.stagedNoterFile?.fileDeleted === false
+  const noterConfigContent = isStagedSimpleViewConfigDeleted(
+    fixture.stagedNoterFile,
+  )
+    ? null
+    : hasStagedSimpleViewConfigFile(fixture.stagedNoterFile)
       ? fixture.stagedNoterFile.content
       : fixture.repositoryNoterContent;
   const simpleViewConfig = parseSimpleViewConfig(noterConfigContent);
