@@ -4,4 +4,4 @@
 - noter: if Lovable were good enough to build Lovable
 - noter disregards Gödel’s incompleteness theorems
 - noter is the tech stack for AI Agents
-- noter: deploy a convex app in 3.4 seconds
+- noter: ship a convex app in 3.4 seconds
