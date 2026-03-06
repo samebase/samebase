@@ -130,9 +130,7 @@ const repositoryFileContentResult = union(
   object({ exists: literal(true), content: string() }),
 );
 
-type RepositoryFileContent =
-  | { exists: false }
-  | { exists: true; content: string };
+type RepositoryFileContent = Infer<typeof repositoryFileContentResult>;
 const PAGE_LOAD_REFRESH_DEBOUNCE_MS = 10 * 1000;
 
 const repositoryMediaAssetResult = union(
@@ -287,24 +285,26 @@ export const getRepositoryFileContent = action({
       throw new Error("Vault not found");
     }
 
-    const targetFile = vault.treeData.tree.find(
-      (item: { path: string; type: string; sha?: string }) =>
-        item.path === args.filePath && item.type === "blob",
-    );
+    if (!requestedBranch) {
+      const targetFile = vault.treeData.tree.find(
+        (item: { path: string; type: string; sha?: string }) =>
+          item.path === args.filePath && item.type === "blob",
+      );
 
-    if (!targetFile?.sha) {
-      return { exists: false };
-    }
+      if (!targetFile?.sha) {
+        return { exists: false };
+      }
 
-    const blobFile = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
-      sha: targetFile.sha,
-    });
+      const blobFile = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+        sha: targetFile.sha,
+      });
 
-    if (blobFile && typeof blobFile.text === "string") {
-      return {
-        exists: true,
-        content: blobFile.text,
-      };
+      if (blobFile && typeof blobFile.text === "string") {
+        return {
+          exists: true,
+          content: blobFile.text,
+        };
+      }
     }
 
     const githubConnection = await ctx.runQuery(
