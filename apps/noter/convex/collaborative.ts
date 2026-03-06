@@ -18,6 +18,7 @@ const CLEANUP_BATCH_SIZE = 500;
 export const getDocument = query({
   args: {
     vaultId: v.id("vaults"),
+    branch: v.string(),
     filePath: v.string(),
   },
   returns: v.object({
@@ -31,8 +32,11 @@ export const getDocument = query({
     // Check if there's staged content for this file
     const staging = await ctx.db
       .query("fileStaging")
-      .withIndex("by_vault_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      .withIndex("by_vault_and_branch_and_path", (q) =>
+        q
+          .eq("vaultId", args.vaultId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.filePath),
       )
       .first();
 
@@ -65,6 +69,7 @@ export const getDocument = query({
 export const pullUpdates = query({
   args: {
     repositoryFullName: v.string(),
+    branch: v.string(),
     filePath: v.string(),
     version: v.number(),
   },
@@ -92,9 +97,10 @@ export const pullUpdates = query({
 
     const updates = await ctx.db
       .query("collaborativeUpdates")
-      .withIndex("by_file_and_version", (q) =>
+      .withIndex("by_file_branch_and_version", (q) =>
         q
           .eq("vaultId", vault._id)
+          .eq("branch", args.branch)
           .eq("filePath", args.filePath)
           .gt("version", args.version),
       )
@@ -116,6 +122,7 @@ export const pullUpdates = query({
 export const pushUpdates = mutation({
   args: {
     repositoryFullName: v.string(),
+    branch: v.string(),
     filePath: v.string(),
     version: v.number(), // Client's current version
     updates: v.array(
@@ -147,8 +154,11 @@ export const pushUpdates = mutation({
     // Get current staging record
     const staging = await ctx.db
       .query("fileStaging")
-      .withIndex("by_vault_and_path", (q) =>
-        q.eq("vaultId", vault._id).eq("filePath", args.filePath),
+      .withIndex("by_vault_and_branch_and_path", (q) =>
+        q
+          .eq("vaultId", vault._id)
+          .eq("branch", args.branch)
+          .eq("filePath", args.filePath),
       )
       .first();
 
@@ -179,6 +189,7 @@ export const pushUpdates = mutation({
       // Store the update for other clients to pull
       const inserted = await ctx.db.insert("collaborativeUpdates", {
         vaultId: vault._id,
+        branch: args.branch,
         filePath: args.filePath,
         version: currentVersion,
         clientId: update.clientId,
@@ -215,6 +226,7 @@ export const pushUpdates = mutation({
     if (currentVersion % 50 === 0) {
       await ctx.scheduler.runAfter(0, internal.collaborative.pruneOldUpdates, {
         vaultId: vault._id,
+        branch: args.branch,
         filePath: args.filePath,
         currentVersion,
       });
@@ -234,6 +246,7 @@ export const pushUpdates = mutation({
 export const applyUpdatesToStaging = internalMutation({
   args: {
     vaultId: v.id("vaults"),
+    branch: v.string(),
     filePath: v.string(),
     updates: v.array(
       v.object({
@@ -247,8 +260,11 @@ export const applyUpdatesToStaging = internalMutation({
     // Get current staging record
     const staging = await ctx.db
       .query("fileStaging")
-      .withIndex("by_vault_and_path", (q) =>
-        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      .withIndex("by_vault_and_branch_and_path", (q) =>
+        q
+          .eq("vaultId", args.vaultId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.filePath),
       )
       .first();
 
@@ -341,6 +357,7 @@ export const pushContentUpdate = internalMutation({
     // Insert into the collaborative update stream so open editors pick it up
     await ctx.db.insert("collaborativeUpdates", {
       vaultId: args.vaultId,
+      branch: args.branch,
       filePath: args.filePath,
       version: newVersion,
       clientId: "agent",
@@ -414,6 +431,7 @@ export const pushSerializedChangeSetUpdate = internalMutation({
 
     await ctx.db.insert("collaborativeUpdates", {
       vaultId: args.vaultId,
+      branch: args.branch,
       filePath: args.filePath,
       version: newVersion,
       clientId: "agent",
@@ -432,6 +450,7 @@ export const pushSerializedChangeSetUpdate = internalMutation({
     if (newVersion % 50 === 0) {
       await ctx.scheduler.runAfter(0, internal.collaborative.pruneOldUpdates, {
         vaultId: args.vaultId,
+        branch: args.branch,
         filePath: args.filePath,
         currentVersion: newVersion,
       });
@@ -448,6 +467,7 @@ export const pushSerializedChangeSetUpdate = internalMutation({
 export const pruneOldUpdates = internalMutation({
   args: {
     vaultId: v.id("vaults"),
+    branch: v.string(),
     filePath: v.string(),
     currentVersion: v.number(),
   },
@@ -459,9 +479,10 @@ export const pruneOldUpdates = internalMutation({
     // Grab a batch of old updates to delete (ascending version order).
     const oldUpdates = await ctx.db
       .query("collaborativeUpdates")
-      .withIndex("by_file_and_version", (q) =>
+      .withIndex("by_file_branch_and_version", (q) =>
         q
           .eq("vaultId", args.vaultId)
+          .eq("branch", args.branch)
           .eq("filePath", args.filePath)
           .lte("version", cutoffVersion),
       )
@@ -475,6 +496,7 @@ export const pruneOldUpdates = internalMutation({
     if (oldUpdates.length === CLEANUP_BATCH_SIZE) {
       await ctx.scheduler.runAfter(0, internal.collaborative.pruneOldUpdates, {
         vaultId: args.vaultId,
+        branch: args.branch,
         filePath: args.filePath,
         currentVersion: args.currentVersion,
       });
@@ -490,6 +512,7 @@ export const pruneOldUpdates = internalMutation({
 export const getActiveEditors = query({
   args: {
     vaultId: v.id("vaults"),
+    branch: v.string(),
     filePath: v.string(),
   },
   returns: v.array(
@@ -503,8 +526,11 @@ export const getActiveEditors = query({
     // Use .order("desc") and .take() to avoid scanning the entire update history.
     const recentUpdates = await ctx.db
       .query("collaborativeUpdates")
-      .withIndex("by_file", (q) =>
-        q.eq("vaultId", args.vaultId).eq("filePath", args.filePath),
+      .withIndex("by_file_branch_and_timestamp", (q) =>
+        q
+          .eq("vaultId", args.vaultId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.filePath),
       )
       .order("desc")
       .take(100);

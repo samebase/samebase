@@ -63,7 +63,7 @@ export function VaultSyncStatus({
     (stagedFilesCount === undefined || stagedFilesCount > 0);
   const stagedFilesFromQuery = useQuery(
     api.fileStaging.listStagedFiles,
-    shouldFetchStagedFiles ? { vaultId } : "skip",
+    shouldFetchStagedFiles ? { vaultId, branch } : "skip",
   );
   const resolvedStagedFiles = stagedFiles ?? stagedFilesFromQuery ?? [];
 

@@ -87,6 +87,51 @@ async function getVaultDefaultBranch(
   });
 }
 
+function toGitTreeRef(branch: string): string {
+  if (branch.startsWith("refs/heads/")) {
+    return branch.slice("refs/".length);
+  }
+
+  if (branch.startsWith("heads/")) {
+    return branch;
+  }
+
+  return `heads/${branch}`;
+}
+
+async function getBranchTreeMap(args: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  branch: string;
+}): Promise<Map<string, string>> {
+  const treeResponse = await args.octokit.rest.git.getTree({
+    owner: args.owner,
+    repo: args.repo,
+    tree_sha: toGitTreeRef(args.branch),
+    recursive: "1",
+  });
+
+  if (treeResponse.data.truncated) {
+    throw new Error(
+      "Upstream tree is too large to validate staged changes safely.",
+    );
+  }
+
+  const shaByPath = new Map<string, string>();
+  for (const item of treeResponse.data.tree) {
+    if (
+      item.type === "blob" &&
+      typeof item.path === "string" &&
+      typeof item.sha === "string"
+    ) {
+      shaByPath.set(item.path, item.sha);
+    }
+  }
+
+  return shaByPath;
+}
+
 function toHeaderMap(value: unknown): HeaderMap | null {
   if (!isRecord(value)) {
     return null;
@@ -364,35 +409,12 @@ export async function rebaseStagedFilesOnLatestHead(args: {
     upstreamSha === file.parentCommitSha &&
     initialContentMatchesUpstream(file, upstreamSha);
 
-  const treeSha = args.branch.startsWith("refs/heads/")
-    ? args.branch.slice("refs/".length)
-    : args.branch.startsWith("heads/")
-      ? args.branch
-      : `heads/${args.branch}`;
-
-  const treeResponse = await args.octokit.rest.git.getTree({
+  const shaByPath = await getBranchTreeMap({
+    octokit: args.octokit,
     owner: args.owner,
     repo: args.repo,
-    tree_sha: treeSha,
-    recursive: "1",
+    branch: args.branch,
   });
-
-  if (treeResponse.data.truncated) {
-    throw new Error(
-      "Upstream tree is too large to validate staged changes safely.",
-    );
-  }
-
-  const shaByPath = new Map<string, string>();
-  for (const item of treeResponse.data.tree) {
-    if (
-      item.type === "blob" &&
-      typeof item.path === "string" &&
-      typeof item.sha === "string"
-    ) {
-      shaByPath.set(item.path, item.sha);
-    }
-  }
 
   const blobTextBySha = new Map<string, Promise<string>>();
   const getBlobText = (sha: string): Promise<string> => {
@@ -815,38 +837,48 @@ export const getFileForEditing = action({
       };
     }
 
-    // console.log("vault.treeData", vault.treeData);
-    console.log("args.originalFilePath", args.originalFilePath);
-
-    // read from blobs table
-    const fileSha = vault.treeData.tree.find(
-      (t: { path: string }) => t.path === args.originalFilePath,
-    )?.sha;
-
-    if (!fileSha) {
-      throw new Error("File not found in tree");
-    }
-
-    // Try getting it from blob sha
     try {
-      const blobFile = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
-        sha: fileSha,
+      const file = await octokit.rest.repos.getContent({
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        path: args.originalFilePath,
+        ref: targetBranch,
       });
 
-      if (blobFile) {
-        if (typeof blobFile.text !== "string") {
+      if (Array.isArray(file.data)) {
+        throw new Error("Path is a directory");
+      }
+
+      if (file.data.type !== "file") {
+        throw new Error("Path is not a file");
+      }
+
+      const filePath = file.data.path;
+      const fileSha = file.data.sha;
+      if (typeof fileSha !== "string" || fileSha.length === 0) {
+        throw new Error("File SHA is missing");
+      }
+
+      const cachedBlob = await ctx.runQuery(
+        internal.gitOperations.getBlobBySha,
+        {
+          sha: fileSha,
+        },
+      );
+
+      if (cachedBlob) {
+        if (typeof cachedBlob.text !== "string") {
           throw new Error(STORAGE_BACKED_FILE_ERROR_MESSAGE);
         }
 
-        // create new staging record
         const stagedFile = await ctx.runMutation(
           internal.fileStaging.saveToStaging,
           {
             branch: targetBranch,
             vaultId: vault._id,
             initialFilePath: args.originalFilePath,
-            content: blobFile.text,
-            initialContent: blobFile.text,
+            content: cachedBlob.text,
+            initialContent: cachedBlob.text,
             parentCommitSha: fileSha,
           },
         );
@@ -860,106 +892,83 @@ export const getFileForEditing = action({
         };
       }
 
-      // Otherwise get from github
+      const blobResponse = await octokit.rest.git.getBlob({
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        file_sha: fileSha,
+      });
+      const buffer = Buffer.from(blobResponse.data.content, "base64");
+      const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
+      const isText = isTextBuffer(new Uint8Array(buffer));
+      let mime = guessMime(filePath);
+      if (mime === "application/octet-stream" && isText) {
+        mime = "text/plain; charset=utf-8";
+      }
 
-      try {
-        const file = await octokit.rest.repos.getContent({
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
-          path: args.originalFilePath,
-          ref: targetBranch,
+      if (isText && file.data.size < INLINE_TEXT_MAX) {
+        await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+          vaultId: vault._id,
+          sha: fileSha,
+          size: file.data.size,
+          mime,
+          text: buffer.toString("utf-8"),
+          storageId: undefined,
+          ext,
+          debugFilePath: filePath,
         });
-
-        // Handle case where path is a directory (shouldn't happen in our use case)
-        if (Array.isArray(file.data)) {
-          throw new Error("Path is a directory");
-        }
-
-        if (file.data.type !== "file") {
-          throw new Error("Path is not a file");
-        }
-
-        const filePath = file.data.path;
-        const fileData = file.data;
-        const buffer = Buffer.from(fileData.content, "base64");
-        const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
-        const isText = isTextBuffer(new Uint8Array(buffer));
-        let mime = guessMime(filePath);
-        if (mime === "application/octet-stream" && isText) {
-          mime = "text/plain; charset=utf-8";
-        }
-
-        if (isText && fileData.size < INLINE_TEXT_MAX) {
-          await ctx.runMutation(internal.gitOperations.saveFileBlob, {
-            vaultId: vault._id,
-            sha: fileSha,
-            size: fileData.size,
-            mime,
-            text: buffer.toString("utf-8"),
-            storageId: undefined,
-            ext,
-            debugFilePath: filePath,
-          });
-        } else {
-          // store in storage
-          const storageId = await withRetry(() =>
-            ctx.storage.store(new Blob([buffer], { type: mime })),
-          );
-
-          await ctx.runMutation(internal.gitOperations.saveFileBlob, {
-            vaultId: vault._id,
-            sha: fileSha,
-            size: fileData.size,
-            mime,
-            text: undefined,
-            storageId,
-            ext,
-            debugFilePath: filePath,
-          });
-        }
-
-        const blobFile = await ctx.runQuery(
-          internal.gitOperations.getBlobBySha,
-          {
-            sha: fileSha,
-          },
+      } else {
+        const storageId = await withRetry(() =>
+          ctx.storage.store(new Blob([buffer], { type: mime })),
         );
 
-        if (!blobFile) {
-          throw new Error(
-            "File not found in blobs table after literally saving it there?!?",
-          );
-        }
-
-        if (typeof blobFile.text !== "string") {
-          throw new Error(STORAGE_BACKED_FILE_ERROR_MESSAGE);
-        }
-
-        const stagedFile = await ctx.runMutation(
-          internal.fileStaging.saveToStaging,
-          {
-            branch: targetBranch,
-            vaultId: vault._id,
-            initialFilePath: args.originalFilePath,
-            content: blobFile.text,
-            initialContent: blobFile.text,
-            parentCommitSha: fileSha,
-          },
-        );
-
-        return {
-          content: stagedFile.content,
-          parentCommitSha: stagedFile.parentCommitSha,
-          lastEditTime: stagedFile.lastEditTime,
-          branch: stagedFile.branch,
-          version: stagedFile.version,
-        };
-      } catch (error) {
-        if (!isStorageBackedFileError(error)) {
-          console.error("error", error);
-        }
-        throw error;
+        await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+          vaultId: vault._id,
+          sha: fileSha,
+          size: file.data.size,
+          mime,
+          text: undefined,
+          storageId,
+          ext,
+          debugFilePath: filePath,
+        });
       }
+
+      const savedBlob = await ctx.runQuery(
+        internal.gitOperations.getBlobBySha,
+        {
+          sha: fileSha,
+        },
+      );
+
+      if (!savedBlob) {
+        throw new Error(
+          "File not found in blobs table after literally saving it there?!?",
+        );
+      }
+
+      if (typeof savedBlob.text !== "string") {
+        throw new Error(STORAGE_BACKED_FILE_ERROR_MESSAGE);
+      }
+
+      const stagedFile = await ctx.runMutation(
+        internal.fileStaging.saveToStaging,
+        {
+          branch: targetBranch,
+          vaultId: vault._id,
+          initialFilePath: args.originalFilePath,
+          content: savedBlob.text,
+          initialContent: savedBlob.text,
+          parentCommitSha: fileSha,
+        },
+      );
+
+      return {
+        content: stagedFile.content,
+        parentCommitSha: stagedFile.parentCommitSha,
+        lastEditTime: stagedFile.lastEditTime,
+        branch: stagedFile.branch,
+        version: stagedFile.version,
+      };
     } catch (error) {
       if (!isStorageBackedFileError(error)) {
         console.error("error", error);
@@ -1061,31 +1070,32 @@ export const pullFromGitHubInternal = internalAction({
       auth: githubAccessToken,
     });
 
-    // 1. Fetch fresh tree from GitHub
-    const tree = await octokit.rest.git.getTree({
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
-      tree_sha: "HEAD",
-      recursive: "1",
-    });
-
-    const newTree = tree.data;
-
-    // Build a map of path → sha for quick lookups
-    const treeMap = new Map<string, string>();
-    for (const item of newTree.tree) {
-      if (item.path && item.sha) {
-        treeMap.set(item.path, item.sha);
-      }
-    }
-
-    // 2. Read all staging records for this vault (including unchanged)
+    // 1. Read all staging records for this vault (including unchanged)
     const allStaged = await ctx.runQuery(api.fileStaging.listStagedFiles, {
       vaultId: args.vaultId,
       includeUnchanged: true,
     });
 
-    // 3. Build reconciliation instructions
+    const treeMapByBranch = new Map<string, Promise<Map<string, string>>>();
+    const getTreeMapForBranch = (
+      branch: string,
+    ): Promise<Map<string, string>> => {
+      const existing = treeMapByBranch.get(branch);
+      if (existing) {
+        return existing;
+      }
+
+      const loaded = getBranchTreeMap({
+        octokit,
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        branch,
+      });
+      treeMapByBranch.set(branch, loaded);
+      return loaded;
+    };
+
+    // 2. Build reconciliation instructions
     type Instruction =
       | { action: "delete"; stagingId: (typeof allStaged)[0]["_id"] }
       | {
@@ -1107,39 +1117,33 @@ export const pullFromGitHubInternal = internalAction({
     }> = [];
 
     for (const staged of allStaged) {
+      const branchTreeMap = await getTreeMapForBranch(staged.branch);
       const isEdited =
         staged.content !== staged.initialContent ||
         staged.fileDeleted ||
         staged.filePath !== staged.initialFilePath;
       const isNewFile = staged.parentCommitSha === null;
 
-      // Rule 6: New file in staging → always keep
       if (isNewFile) {
         continue;
       }
 
       const pathInTree = staged.initialFilePath;
-      const newSha = treeMap.get(pathInTree);
+      const newSha = branchTreeMap.get(pathInTree);
       const fileExistsOnGitHub = newSha !== undefined;
 
       if (!isEdited) {
-        // Content === initialContent (unchanged edit)
-        // Rule 3 & 4: drop the staging record regardless of GitHub state
         instructions.push({ action: "delete", stagingId: staged._id });
         continue;
       }
 
-      // File has real edits (noter wins)
       if (!fileExistsOnGitHub) {
-        // Rule 2: Deleted on GitHub but edited in noter → treat as new file
         instructions.push({
           action: "update",
           stagingId: staged._id,
           parentCommitSha: null,
         });
       } else if (newSha !== staged.parentCommitSha) {
-        // File exists on GitHub with a new SHA → need to fetch new content
-        // for initialContent update, but preserve user's content
         blobFetchQueue.push({
           stagingId: staged._id,
           sha: newSha,
@@ -1150,10 +1154,9 @@ export const pullFromGitHubInternal = internalAction({
           fileDeleted: staged.fileDeleted,
         });
       }
-      // else: same SHA → no change needed (Rule 5)
     }
 
-    // 4. Fetch blobs for files that changed on GitHub (need new initialContent)
+    // 3. Fetch blobs for files that changed on GitHub (need new initialContent)
     for (const item of blobFetchQueue) {
       try {
         const blob = await octokit.rest.git.getBlob({
@@ -1198,7 +1201,7 @@ export const pullFromGitHubInternal = internalAction({
       }
     }
 
-    // 5. Apply reconciliation instructions
+    // 4. Apply reconciliation instructions
     if (instructions.length > 0) {
       await ctx.runMutation(internal.fileStaging.reconcileStagingWithTree, {
         vaultId: args.vaultId,
@@ -1206,10 +1209,16 @@ export const pullFromGitHubInternal = internalAction({
       });
     }
 
-    // 6. Update the vault tree
+    // 5. Update the vault tree
+    const latestVaultTree = await octokit.rest.git.getTree({
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+      tree_sha: "HEAD",
+      recursive: "1",
+    });
     await ctx.runMutation(internal.vault.updateVaultTree, {
       vaultId: args.vaultId,
-      treeData: newTree,
+      treeData: latestVaultTree.data,
     });
 
     return null;

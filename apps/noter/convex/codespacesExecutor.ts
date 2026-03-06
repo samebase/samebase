@@ -1306,7 +1306,6 @@ async function syncBundledCodespaceAgent(args: {
         }
 
         if (syncError === null) {
-          restartScheduled = true;
           await restartCodespaceAgent({
             agentUrl: args.agentUrl,
             agentToken: args.agentToken,
@@ -1315,6 +1314,7 @@ async function syncBundledCodespaceAgent(args: {
             packageBackupExists: lockedPackageJson !== null,
             serverBackupExists: lockedServer !== null,
           });
+          restartScheduled = true;
 
           const syncStatus = await waitForCodespaceAgentSyncResult({
             agentUrl: args.agentUrl,

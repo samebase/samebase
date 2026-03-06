@@ -197,6 +197,20 @@ async function loadExistingFileSnapshot(
   }
 }
 
+async function loadExistingFileSnapshotOrNull(
+  toolCtx: ToolContext,
+  path: string,
+): Promise<ExistingFileSnapshot | null> {
+  try {
+    return await loadExistingFileSnapshot(toolCtx, path);
+  } catch (error) {
+    if (error instanceof ReplaceInFileError) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 function formatReplaceInFileResult(
   path: string,
   replacements: ReplaceInFileReplacement[],
@@ -302,20 +316,10 @@ async function executeEditFile(
       userId: toolCtx.userId,
     });
   } else {
-    // Not yet staged — read current content for proper diffs, then create staging
-    let initialContent = "";
-    try {
-      initialContent = await executeReadFile(toolCtx, { path: input.path });
-    } catch {
-      initialContent = "";
-    }
-
-    const vault = await toolCtx.ctx.runQuery(internal.vault.getById, {
-      id: toolCtx.vaultId,
-    });
-    const parentCommitSha =
-      vault?.treeData.tree.find((t: { path?: string }) => t.path === input.path)
-        ?.sha ?? null;
+    // Not yet staged — read current content and parent SHA from the active branch.
+    const snapshot = await loadExistingFileSnapshotOrNull(toolCtx, input.path);
+    const initialContent = snapshot?.content ?? "";
+    const parentCommitSha = snapshot?.parentCommitSha ?? null;
 
     await toolCtx.ctx.runMutation(internal.fileStaging.saveToStaging, {
       vaultId: toolCtx.vaultId,
@@ -392,12 +396,8 @@ async function executeDeleteFile(
   toolCtx: ToolContext,
   input: { path: string },
 ): Promise<string> {
-  const vault = await toolCtx.ctx.runQuery(internal.vault.getById, {
-    id: toolCtx.vaultId,
-  });
-  const sha =
-    vault?.treeData.tree.find((t: { path?: string }) => t.path === input.path)
-      ?.sha ?? null;
+  const snapshot = await loadExistingFileSnapshotOrNull(toolCtx, input.path);
+  const sha = snapshot?.parentCommitSha ?? null;
 
   await toolCtx.ctx.runMutation(
     internal.fileStaging.internalMarkFileForDeletion,

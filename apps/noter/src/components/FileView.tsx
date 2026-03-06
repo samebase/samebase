@@ -330,6 +330,7 @@ function FileViewWrapper() {
     api.fileStaging.getByNewPath,
     vault
       ? {
+          branch,
           newPath: selectedFile,
           vaultId: vault._id,
         }
@@ -541,10 +542,12 @@ function FileViewInner({
   // Get count of staged files for this vault
   const stagedFiles = useQuery(api.fileStaging.listStagedFiles, {
     vaultId: vault._id,
+    branch,
   });
   const stagedNoterFile = useQuery(
     api.fileStaging.getByNewPath,
     {
+      branch,
       vaultId: vault._id,
       newPath: SIMPLE_VIEW_CONFIG_PATH,
     },
@@ -1663,10 +1666,11 @@ function FileViewInner({
                   <CodeEditorWrapper
                     key={`${branch}/${selectedFile}-${stagedFile.parentCommitSha ?? "new"}`}
                     repositoryFullName={repositoryFullName}
+                    branch={branch}
                     filePath={selectedFile}
+                    vaultId={vault._id}
                     initialFilePath={stagedFile.initialFilePath}
                     stagedFile={stagedFile}
-                    vaultId={vault._id}
                     tree={vault.treeData.tree}
                     treeSHA={vault.treeSHA}
                     showMobileLineNumbers={showMobileEditorLineNumbers}
