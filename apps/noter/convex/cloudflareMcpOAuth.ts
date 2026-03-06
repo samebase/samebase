@@ -276,10 +276,11 @@ const storeCloudflareMcpOauthConnectionArgs = {
   clientId: string(),
   oauthStateId: id("oauthStates"),
 } as const;
+const storeCloudflareMcpOauthConnectionResultValidator = nullValue();
 
 export const storeCloudflareMcpOauthConnection = internalMutation({
   args: storeCloudflareMcpOauthConnectionArgs,
-  returns: nullValue(),
+  returns: storeCloudflareMcpOauthConnectionResultValidator,
   handler: async (ctx, args) => {
     const checkedAt = Date.now();
     await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
@@ -329,6 +330,11 @@ const resolvedCloudflareConnectionValidator = object({
   accountId: optional(string()),
   tokenHealth: optional(mcpTokenHealthValidator),
 });
+const resolveConnectionForUserResultValidator = union(
+  resolvedCloudflareConnectionValidator,
+  nullValue(),
+);
+const getCloudflareMcpOAuthUrlResultValidator = string();
 type ResolvedCloudflareConnection = Infer<
   typeof resolvedCloudflareConnectionValidator
 >;
@@ -338,7 +344,7 @@ export const resolveConnectionForUser = internalAction({
     userId: id("users"),
     forceRefresh: optional(boolean()),
   },
-  returns: union(resolvedCloudflareConnectionValidator, nullValue()),
+  returns: resolveConnectionForUserResultValidator,
   handler: async (ctx, args): Promise<ResolvedCloudflareConnection | null> => {
     const connection = await ctx.runQuery(
       internal.providerConnections.getByUserAndKind,
@@ -531,7 +537,7 @@ export const resolveConnectionForUser = internalAction({
 
 export const getCloudflareMcpOAuthUrl = action({
   args: {},
-  returns: string(),
+  returns: getCloudflareMcpOAuthUrlResultValidator,
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
