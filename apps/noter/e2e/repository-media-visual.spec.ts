@@ -13,9 +13,10 @@ const SCENARIOS = [
 
 for (const scenario of SCENARIOS) {
   test(`repository media fixture (${scenario.mode})`, async ({ page }) => {
-    await page.goto(`/visual-fixture.html?mode=${scenario.mode}`);
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await page.waitForLoadState("networkidle");
+    await page.goto(`/visual-fixture.html?mode=${scenario.mode}`, {
+      waitUntil: "domcontentloaded",
+    });
 
     const image = page.getByTestId("repository-media-preview-panel-image");
 
@@ -43,7 +44,6 @@ for (const scenario of SCENARIOS) {
         }
       }
     });
-    await page.waitForTimeout(200);
     const screenshot = await page.screenshot({
       animations: "disabled",
       caret: "hide",

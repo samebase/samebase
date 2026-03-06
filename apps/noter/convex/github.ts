@@ -2,13 +2,12 @@
 
 import { action, internalAction } from "./_generated/server";
 import { getUserId } from "./common";
-import { v } from "convex/values";
+import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { guessMime, withRetry } from "./gitOperationsActions";
 import {
   getRepositoryMediaKind,
-  isRenderableRepositoryMediaPath,
   isSvgRepositoryMediaPath,
 } from "../shared/repositoryMedia";
 
@@ -94,7 +93,15 @@ type RepositoryFileContent =
 const PAGE_LOAD_REFRESH_DEBOUNCE_MS = 10 * 1000;
 
 const repositoryMediaAssetResult = v.union(
-  v.object({ found: v.literal(false) }),
+  v.object({
+    found: v.literal(false),
+    reason: v.literal("missing"),
+  }),
+  v.object({
+    found: v.literal(false),
+    reason: v.literal("unavailable"),
+    message: v.string(),
+  }),
   v.object({
     found: v.literal(true),
     kind: v.literal("image"),
@@ -104,15 +111,7 @@ const repositoryMediaAssetResult = v.union(
   }),
 );
 
-type RepositoryMediaAsset =
-  | { found: false }
-  | {
-      found: true;
-      kind: "image";
-      mimeType: string;
-      url: string;
-      fileName: string;
-    };
+type RepositoryMediaAsset = Infer<typeof repositoryMediaAssetResult>;
 
 function buildDataUrl(mimeType: string, content: Buffer): string {
   return `data:${mimeType};base64,${content.toString("base64")}`;
@@ -126,6 +125,56 @@ function readStoredMimeType(
     return blobMime;
   }
   return guessMime(filePath);
+}
+
+function getRepositoryMediaFileName(filePath: string): string {
+  return filePath.split("/").pop() ?? filePath;
+}
+
+function getRepositoryMediaExtension(filePath: string): string {
+  const fileName = getRepositoryMediaFileName(filePath);
+  const extensionStart = fileName.lastIndexOf(".");
+  if (extensionStart === -1 || extensionStart === fileName.length - 1) {
+    return "";
+  }
+  return fileName.slice(extensionStart + 1).toLowerCase();
+}
+
+function getRepositoryMediaErrorStatus(error: unknown): number | null {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    typeof error.status === "number"
+  ) {
+    return error.status;
+  }
+  return null;
+}
+
+function getRepositoryMediaErrorMessage(error: unknown): string {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+  return "Preview unavailable.";
+}
+
+function isRepositoryMediaTooLargeError(error: unknown): boolean {
+  if (getRepositoryMediaErrorStatus(error) !== 403) {
+    return false;
+  }
+
+  const message = getRepositoryMediaErrorMessage(error).toLowerCase();
+  return (
+    message.includes("too large") ||
+    message.includes("too_large") ||
+    message.includes("blobs up to 1 mb")
+  );
 }
 
 export const getRepositoryFileContent = action({
@@ -230,16 +279,12 @@ export const getRepositoryMediaAsset = action({
   },
   returns: repositoryMediaAssetResult,
   handler: async (ctx, args): Promise<RepositoryMediaAsset> => {
-    if (!isRenderableRepositoryMediaPath(args.filePath)) {
-      return { found: false };
+    const mediaKind = getRepositoryMediaKind(args.filePath);
+    if (mediaKind === null) {
+      return { found: false, reason: "missing" };
     }
 
     const userId = await getUserId(ctx);
-    const mediaKind = getRepositoryMediaKind(args.filePath);
-    if (mediaKind === null) {
-      return { found: false };
-    }
-
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
@@ -248,47 +293,54 @@ export const getRepositoryMediaAsset = action({
       throw new Error("Vault not found");
     }
 
-    const targetFile = vault.treeData.tree.find(
-      (item: { path: string; type: string; sha?: string }) =>
-        item.path === args.filePath && item.type === "blob",
-    );
+    const requestedBranch = args.branch?.trim();
+    const fileName = getRepositoryMediaFileName(args.filePath);
 
-    if (!targetFile?.sha) {
-      return { found: false };
-    }
+    if (!requestedBranch) {
+      const targetFile = vault.treeData.tree.find(
+        (item: { path: string; type: string; sha?: string }) =>
+          item.path === args.filePath && item.type === "blob",
+      );
 
-    const fileName = args.filePath.split("/").pop() ?? args.filePath;
-    const cachedBlob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
-      sha: targetFile.sha,
-    });
+      if (!targetFile?.sha) {
+        return { found: false, reason: "missing" };
+      }
 
-    if (cachedBlob?.storageId) {
-      const url = await ctx.storage.getUrl(cachedBlob.storageId);
-      if (typeof url === "string" && url.length > 0) {
+      const cachedBlob = await ctx.runQuery(
+        internal.gitOperations.getBlobBySha,
+        {
+          sha: targetFile.sha,
+        },
+      );
+
+      if (cachedBlob?.storageId) {
+        const url = await ctx.storage.getUrl(cachedBlob.storageId);
+        if (typeof url === "string" && url.length > 0) {
+          return {
+            found: true,
+            kind: mediaKind,
+            mimeType: readStoredMimeType(args.filePath, cachedBlob.mime),
+            url,
+            fileName,
+          };
+        }
+      }
+
+      if (
+        typeof cachedBlob?.text === "string" &&
+        isSvgRepositoryMediaPath(args.filePath)
+      ) {
         return {
           found: true,
           kind: mediaKind,
-          mimeType: readStoredMimeType(args.filePath, cachedBlob.mime),
-          url,
+          mimeType: "image/svg+xml",
+          url: buildDataUrl(
+            "image/svg+xml",
+            Buffer.from(cachedBlob.text, "utf-8"),
+          ),
           fileName,
         };
       }
-    }
-
-    if (
-      typeof cachedBlob?.text === "string" &&
-      isSvgRepositoryMediaPath(args.filePath)
-    ) {
-      return {
-        found: true,
-        kind: mediaKind,
-        mimeType: "image/svg+xml",
-        url: buildDataUrl(
-          "image/svg+xml",
-          Buffer.from(cachedBlob.text, "utf-8"),
-        ),
-        fileName,
-      };
     }
 
     const githubConnection = await ctx.runQuery(
@@ -311,11 +363,60 @@ export const getRepositoryMediaAsset = action({
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
         path: args.filePath,
-        ref: args.branch,
+        ref: requestedBranch,
       });
 
       if (Array.isArray(file.data) || file.data.type !== "file") {
-        return { found: false };
+        return { found: false, reason: "missing" };
+      }
+
+      if (typeof file.data.sha === "string") {
+        const cachedBlob = await ctx.runQuery(
+          internal.gitOperations.getBlobBySha,
+          {
+            sha: file.data.sha,
+          },
+        );
+
+        if (cachedBlob?.storageId) {
+          const url = await ctx.storage.getUrl(cachedBlob.storageId);
+          if (typeof url === "string" && url.length > 0) {
+            return {
+              found: true,
+              kind: mediaKind,
+              mimeType: readStoredMimeType(args.filePath, cachedBlob.mime),
+              url,
+              fileName,
+            };
+          }
+        }
+
+        if (
+          typeof cachedBlob?.text === "string" &&
+          isSvgRepositoryMediaPath(args.filePath)
+        ) {
+          return {
+            found: true,
+            kind: mediaKind,
+            mimeType: "image/svg+xml",
+            url: buildDataUrl(
+              "image/svg+xml",
+              Buffer.from(cachedBlob.text, "utf-8"),
+            ),
+            fileName,
+          };
+        }
+      }
+
+      if (
+        typeof file.data.content !== "string" ||
+        file.data.content.length === 0
+      ) {
+        return {
+          found: false,
+          reason: "unavailable",
+          message: "Preview unavailable for this file.",
+        };
       }
 
       const mimeType = guessMime(args.filePath);
@@ -325,17 +426,18 @@ export const getRepositoryMediaAsset = action({
         ctx.storage.store(new Blob([buffer], { type: mimeType })),
       );
 
-      const ext = args.filePath.split(".").pop()?.toLowerCase() ?? "";
-      await ctx.runMutation(internal.gitOperations.saveFileBlob, {
-        vaultId: vault._id,
-        sha: targetFile.sha,
-        size: buffer.byteLength,
-        mime: mimeType,
-        text: undefined,
-        storageId,
-        ext,
-        debugFilePath: args.filePath,
-      });
+      if (typeof file.data.sha === "string") {
+        await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+          vaultId: vault._id,
+          sha: file.data.sha,
+          size: buffer.byteLength,
+          mime: mimeType,
+          text: undefined,
+          storageId,
+          ext: getRepositoryMediaExtension(args.filePath),
+          debugFilePath: args.filePath,
+        });
+      }
 
       const url = await ctx.storage.getUrl(storageId);
       if (typeof url !== "string" || url.length === 0) {
@@ -350,14 +452,16 @@ export const getRepositoryMediaAsset = action({
         fileName,
       };
     } catch (error: unknown) {
-      if (
-        typeof error === "object" &&
-        error !== null &&
-        "status" in error &&
-        typeof error.status === "number" &&
-        error.status === 404
-      ) {
-        return { found: false };
+      if (getRepositoryMediaErrorStatus(error) === 404) {
+        return { found: false, reason: "missing" };
+      }
+
+      if (isRepositoryMediaTooLargeError(error)) {
+        return {
+          found: false,
+          reason: "unavailable",
+          message: "Preview unavailable for files larger than 1 MB.",
+        };
       }
 
       throw error;

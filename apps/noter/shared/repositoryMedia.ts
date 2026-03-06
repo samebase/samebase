@@ -16,8 +16,13 @@ function getNormalizedExtension(filePath: string): string | null {
     return null;
   }
 
-  const extension = trimmed.split(".").pop()?.toLowerCase();
-  return extension && extension.length > 0 ? extension : null;
+  const fileName = trimmed.split("/").pop() ?? "";
+  const extensionStart = fileName.lastIndexOf(".");
+  if (extensionStart <= 0 || extensionStart === fileName.length - 1) {
+    return null;
+  }
+
+  return fileName.slice(extensionStart + 1).toLowerCase();
 }
 
 export function getRepositoryMediaKind(

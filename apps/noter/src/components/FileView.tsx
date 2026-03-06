@@ -1188,6 +1188,7 @@ function FileViewInner({
             className="h-8 w-8 p-0 md:h-6 md:w-6"
             onClick={() => openFileCreation("")}
             title="Create new file"
+            aria-label="Create new file"
           >
             <PlusIcon className="h-4 w-4 md:h-3 md:w-3" />
           </Button>
@@ -1198,6 +1199,7 @@ function FileViewInner({
             className="h-8 w-8 p-0 md:h-6 md:w-6"
             onClick={() => openFolderCreation("")}
             title="Create new folder"
+            aria-label="Create new folder"
           >
             <FilePlusIcon className="h-4 w-4 md:h-3 md:w-3" />
           </Button>
@@ -1232,7 +1234,7 @@ function FileViewInner({
         </div>
       </div>
       {emptyRepository ? (
-        <div className="p-3 text-xs text-muted-foreground">No files found</div>
+        <div className="flex-1" />
       ) : (
         <div className="flex-1 overflow-auto">
           <FileTree

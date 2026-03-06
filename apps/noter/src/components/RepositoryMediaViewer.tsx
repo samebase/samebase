@@ -6,6 +6,12 @@ import { api } from "../../convex/_generated/api";
 export type RepositoryMediaAsset =
   | {
       found: false;
+      reason: "missing";
+    }
+  | {
+      found: false;
+      reason: "unavailable";
+      message: string;
     }
   | {
       found: true;
@@ -125,18 +131,32 @@ export function RepositoryMediaViewer({
     );
   }
 
-  if (error || asset?.found === false) {
+  if (error) {
     return (
       <div className="flex h-full min-h-[400px] items-center justify-center p-6">
         <div className="rounded-lg border bg-background px-4 py-3 text-sm text-muted-foreground">
-          {error ?? "Preview unavailable."}
+          {error}
+        </div>
+      </div>
+    );
+  }
+
+  if (asset?.found === false) {
+    if (asset.reason === "missing") {
+      return null;
+    }
+
+    return (
+      <div className="flex h-full min-h-[400px] items-center justify-center p-6">
+        <div className="rounded-lg border bg-background px-4 py-3 text-sm text-muted-foreground">
+          {asset.message}
         </div>
       </div>
     );
   }
 
   if (!asset) {
-    return null;
+    return <div className="h-full min-h-[400px]" />;
   }
 
   return (

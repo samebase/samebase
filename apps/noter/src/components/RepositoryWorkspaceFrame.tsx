@@ -40,6 +40,7 @@ export function RepositoryWorkspaceFrame({
                 className="h-8 w-8 p-0 md:h-6 md:w-6"
                 onClick={onQuickOpen}
                 title="Quick Open (Cmd+P)"
+                aria-label="Quick Open"
                 disabled={onQuickOpen === undefined}
               >
                 <MagnifyingGlassIcon className="h-4 w-4 md:h-3 md:w-3" />
