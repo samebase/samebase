@@ -17,6 +17,7 @@ apps/noter/public/lumina_icon.png
 apps/noter/public/media-visual-fixture.svg
 CHAT_SPEC.md
 CONVEX_CODEGEN_CI.md
+docs/compliance/licenses-prod-2026-03-06.txt
 Ideas/augment-code-research.md
 Ideas/E2b.md
 Ideas/main-agent-hub/README.md
@@ -26,6 +27,8 @@ Ideas/senior-stack-for-juniors.md
 Ideas/signin-view-code-prosemark.md
 Ideas/to-do.md
 Ideas/worktree-conversation-log.md
+LICENSE.md
+LICENSING.md
 LUMINA_PROJECT_ANALYSIS.md
 manual-tests/README.md
 manual-tests/TEMPLATE.md
