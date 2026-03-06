@@ -7,6 +7,8 @@ Current dependency review:
 
 - Reviewed on 2026-03-06 using `pnpm licenses list --prod`.
 - Raw report stored at `docs/compliance/licenses-prod-2026-03-06.txt`.
+- Lockfile snapshot: `pnpm-lock.yaml` SHA-256
+  `e69faa8f12309987d833caffdf086a8642e5ac20ec41350834d925fa149e6b00`.
 
 - `pnpm licenses list --prod` did not surface GPL, AGPL, or LGPL dependencies.
 - The production dependency graph is dominated by permissive licenses,
