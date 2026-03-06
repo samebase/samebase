@@ -545,13 +545,10 @@ export const hasOtherVaultsForRepository = internalQuery({
   handler: async (ctx, args) => {
     const matches = await ctx.db
       .query("vaults")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("ghRepoOwner"), args.owner),
-          q.eq(q.field("ghRepoName"), args.repo),
-          q.neq(q.field("_id"), args.excludeVaultId),
-        ),
+      .withIndex("by_repo", (q) =>
+        q.eq("ghRepoOwner", args.owner).eq("ghRepoName", args.repo),
       )
+      .filter((q) => q.neq(q.field("_id"), args.excludeVaultId))
       .take(1);
     return matches.length > 0;
   },

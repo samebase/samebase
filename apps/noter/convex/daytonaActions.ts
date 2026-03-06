@@ -66,6 +66,9 @@ const DAYTONA_DEV_LOG = "/tmp/noter-dev.log";
 const DEV_ENV_ORIGIN_ENV = "DEV_ENV_ORIGIN";
 const MAX_PREBUILD_LOG_CHARS = 50_000;
 const PREBUILD_LOG_FLUSH_MS = 1_000;
+const DAYTONA_SNAPSHOT_ACTIVE_TIMEOUT_MS = 10 * 60_000;
+const DAYTONA_SNAPSHOT_ACTIVE_POLL_INITIAL_DELAY_MS = 1_000;
+const DAYTONA_SNAPSHOT_ACTIVE_POLL_MAX_DELAY_MS = 10_000;
 const DAYTONA_REGISTRY_URL_ENV = "DAYTONA_REGISTRY_URL";
 const DAYTONA_REGISTRY_USERNAME_ENV = "DAYTONA_REGISTRY_USERNAME";
 const DAYTONA_REGISTRY_PASSWORD_ENV = "DAYTONA_REGISTRY_PASSWORD";
@@ -102,6 +105,7 @@ async function getGithubConnection(
 type DaytonaSnapshot = Awaited<
   ReturnType<Daytona["snapshot"]["list"]>
 >["items"][number];
+type DaytonaSnapshotDetails = Awaited<ReturnType<Daytona["snapshot"]["get"]>>;
 type SnapshotCacheEntry = {
   expiresAtMs: number;
   snapshots: DaytonaSnapshot[];
@@ -524,6 +528,12 @@ function truncateLogTail(input: string, maxChars: number): string {
   return input.slice(input.length - maxChars);
 }
 
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 function inferPrebuildSnapshotName(args: {
   owner: string;
   repo: string;
@@ -551,6 +561,67 @@ function inferDaytonaSnapshotPrefix(args: {
       message,
     });
     return null;
+  }
+}
+
+async function waitForDaytonaSnapshotActive(args: {
+  daytona: Daytona;
+  snapshotName: string;
+  appendPrebuildLog: (line: string) => Promise<void>;
+}): Promise<DaytonaSnapshotDetails> {
+  const startedAt = Date.now();
+  let pollDelayMs = DAYTONA_SNAPSHOT_ACTIVE_POLL_INITIAL_DELAY_MS;
+  let lastObservedState: string | null = null;
+
+  for (;;) {
+    let snapshot: DaytonaSnapshotDetails | null = null;
+    try {
+      snapshot = await args.daytona.snapshot.get(args.snapshotName);
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        throw error;
+      }
+      if (lastObservedState !== "missing") {
+        await args.appendPrebuildLog(
+          `Waiting for snapshot ${args.snapshotName} to appear in Daytona.\n`,
+        );
+        lastObservedState = "missing";
+      }
+    }
+
+    if (snapshot?.state === "active") {
+      return snapshot;
+    }
+
+    if (snapshot?.state === "error" || snapshot?.state === "build_failed") {
+      throw new Error(
+        `Snapshot ${args.snapshotName} entered ${snapshot.state} before activation.`,
+      );
+    }
+
+    if (snapshot && snapshot.state !== lastObservedState) {
+      await args.appendPrebuildLog(
+        `Waiting for snapshot ${args.snapshotName} to become active. Current Daytona state: ${snapshot.state}.\n`,
+      );
+      lastObservedState = snapshot.state;
+    }
+
+    const elapsedMs = Date.now() - startedAt;
+    if (elapsedMs >= DAYTONA_SNAPSHOT_ACTIVE_TIMEOUT_MS) {
+      const lastState = snapshot?.state ?? "missing";
+      throw new Error(
+        `Snapshot ${args.snapshotName} did not become active within ${Math.round(
+          DAYTONA_SNAPSHOT_ACTIVE_TIMEOUT_MS / 1000,
+        )} seconds. Last Daytona state: ${lastState}.`,
+      );
+    }
+
+    const remainingMs = DAYTONA_SNAPSHOT_ACTIVE_TIMEOUT_MS - elapsedMs;
+    await sleep(Math.min(pollDelayMs, remainingMs));
+    pollDelayMs = Math.min(
+      DAYTONA_SNAPSHOT_ACTIVE_POLL_MAX_DELAY_MS,
+      pollDelayMs * 2,
+    );
   }
 }
 
@@ -2630,7 +2701,11 @@ export const buildCommitPinnedSnapshot = internalAction({
           await createSnapshot(fallbackBaseImage, true);
         }
 
-        const createdSnapshot = await daytona.snapshot.get(snapshotName);
+        const activeSnapshot = await waitForDaytonaSnapshotActive({
+          daytona,
+          snapshotName,
+          appendPrebuildLog,
+        });
         const completedAt = Date.now();
         await appendPrebuildLog(
           `Snapshot build finished at ${new Date(completedAt).toISOString()}\n`,
@@ -2642,7 +2717,7 @@ export const buildCommitPinnedSnapshot = internalAction({
           branch,
           commitSha: args.commitSha,
           snapshotName,
-          snapshotId: createdSnapshot.id,
+          snapshotId: activeSnapshot.id,
           updatedAt: completedAt,
         });
         try {
@@ -2787,13 +2862,6 @@ export const prebuildDaytonaSnapshot = action({
           message: `Snapshot ${queueResult.snapshotName} is already ${queueResult.status}.`,
         };
       }
-    }
-
-    if (vault.commitSHA !== commitSha) {
-      await ctx.runMutation(internal.vault.updateVaultCommitSha, {
-        vaultId: vault._id,
-        commitSHA: commitSha,
-      });
     }
 
     return await ctx.runAction(
@@ -3108,6 +3176,21 @@ export const removeDaytonaSnapshot = action({
       apiUrl: apiConfig.baseUrl,
       apiToken: apiConfig.token,
     });
+    const hasOtherVaultsForRepository = await ctx.runQuery(
+      internal.vault.hasOtherVaultsForRepository,
+      {
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        excludeVaultId: vault._id,
+      },
+    );
+    if (hasOtherVaultsForRepository) {
+      return {
+        ok: true,
+        snapshotName,
+        message: `Snapshot ${snapshotName} is shared across vaults and was not deleted.`,
+      };
+    }
 
     try {
       const snapshot = await daytona.snapshot.get(snapshotName);

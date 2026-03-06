@@ -273,14 +273,19 @@ Keep only the latest 3 snapshots per branch.
 Rules:
 
 - prune older snapshots after a new snapshot becomes active
-- always retain the latest 3 commit snapshots for the branch
-- prune associated Noter mapping records for removed snapshots
+- count terminal commit records with statuses `active`, `failed`, or `removing`
+  toward that 3-commit window
+- do not count `queued` or `building` records toward the retention window
+- retries stay attached to the same commit record and do not consume extra
+  retention slots
+- always retain the latest 3 commit snapshots for the branch under that rule
+- prune associated Noter mapping records for removed snapshots at the same time
 - if Daytona has already inactivated an older snapshot, Noter can delete it
   immediately when it falls outside the retention window
 
 For the first rollout on `main`, this means:
 
-- keep the latest 3 `main` commit snapshots
+- keep the latest 3 `main` commit records, including failed commits
 - delete older `main` snapshots beyond that window
 
 ## Observability
@@ -322,7 +327,5 @@ Git history is sufficient for recovering old thinking if needed.
 
 ## Open Questions
 
-- Should the latest 3 retention window count only `active` snapshots, or all
-  snapshot attempts including failed ones?
 - Should existing already-running sandboxes on an older commit remain usable, or
   should Noter force recreation once a newer commit snapshot becomes active?

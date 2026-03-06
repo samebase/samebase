@@ -34,8 +34,9 @@ export function inferCommitPinnedSnapshotName(args: {
   commitSha: string;
 }): string {
   const envLabel = getDaytonaEnvLabel();
+  const normalizedCommitSha = args.commitSha.trim().toLowerCase();
   const base = toSafeRepoName(
-    `noter-prebuild-${envLabel}-${args.owner}-${args.repo}-${args.branch}-${args.commitSha}`,
+    `noter-prebuild-${envLabel}-${args.owner}-${args.repo}-${args.branch}-${normalizedCommitSha}`,
   );
   if (base) {
     return base;
@@ -43,7 +44,7 @@ export function inferCommitPinnedSnapshotName(args: {
   return `noter-prebuild-${envLabel}-${inferSnapshotRepoFallback(
     args.owner,
     args.repo,
-  )}-${shortenCommitSha(args.commitSha)}`;
+  )}-${shortenCommitSha(normalizedCommitSha)}`;
 }
 
 export function inferCommitPinnedSnapshotPrefix(args: {

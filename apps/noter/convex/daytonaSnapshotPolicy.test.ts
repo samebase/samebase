@@ -38,7 +38,7 @@ describe("daytonaSnapshotPolicy", () => {
   });
 
   it("includes the exact commit in snapshot names", () => {
-    const commitSha = "abcdef1234567890";
+    const commitSha = " ABCDEF1234567890 ";
     const snapshotName = inferCommitPinnedSnapshotName({
       owner: "OpenAI",
       repo: "Noter",
@@ -49,7 +49,7 @@ describe("daytonaSnapshotPolicy", () => {
     expect(snapshotName).toContain("OpenAI");
     expect(snapshotName).toContain("Noter");
     expect(snapshotName).toContain("main");
-    expect(snapshotName).toContain(commitSha);
+    expect(snapshotName).toContain("abcdef1234567890");
     expect(
       inferCommitPinnedSnapshotPrefix({ owner: "OpenAI", repo: "Noter" }),
     ).toContain("OpenAI");

@@ -307,7 +307,7 @@ export default defineSchema({
     infraLastError: v.optional(v.string()),
     infraLastProvisionedAt: v.optional(v.number()),
     infraProvisioningStartedAt: v.optional(v.number()),
-  }),
+  }).index("by_repo", ["ghRepoOwner", "ghRepoName"]),
 
   /**
    * External infrastructure identifiers and status for a vault.
