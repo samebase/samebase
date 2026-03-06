@@ -12,19 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
-import {
-  GitHubLogoIcon,
-  MagnifyingGlassIcon,
-  PlusIcon,
-  FilePlusIcon,
-} from "@radix-ui/react-icons";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarProvider,
-  SidebarTrigger,
-  SidebarInset,
-} from "@/components/ui/sidebar";
+import { GitHubLogoIcon, PlusIcon, FilePlusIcon } from "@radix-ui/react-icons";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { FileTree } from "./FileTree";
 import { CommandPalette } from "./CommandPalette";
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -60,7 +49,10 @@ import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
 import { DaytonaWorkspaceButton } from "./DaytonaWorkspaceButton";
 import { CommitReviewStatusChips } from "./CommitReviewStatusChips";
 import { VaultSyncStatus } from "./VaultSyncStatus";
+import { RepositoryMediaViewer } from "./RepositoryMediaViewer";
+import { RepositoryWorkspaceFrame } from "./RepositoryWorkspaceFrame";
 import { diffLines } from "diff";
+import { isRenderableRepositoryMediaPath } from "../../shared/repositoryMedia";
 
 // Function to find the best file to display
 function findBestInitialFile(files: GithubTreeType[]) {
@@ -255,6 +247,8 @@ function FileViewWrapper() {
     [vault, selectedFile],
   );
   const selectedFileExistsInTree = selectedTreeEntry?.type === "blob";
+  const selectedFileIsRenderableMedia =
+    isRenderableRepositoryMediaPath(selectedFile);
   const [storageBackedSelection, setStorageBackedSelection] = useState<
     Record<string, true>
   >({});
@@ -377,6 +371,7 @@ function FileViewWrapper() {
       vault &&
       stagedFile === null &&
       selectedFileExistsInTree &&
+      !selectedFileIsRenderableMedia &&
       storageBackedSelection[selectedFile] !== true
     ) {
       void firstDocAction({
@@ -400,6 +395,7 @@ function FileViewWrapper() {
     vault,
     stagedFile,
     selectedFileExistsInTree,
+    selectedFileIsRenderableMedia,
     storageBackedSelection,
     firstDocAction,
     owner,
@@ -456,6 +452,8 @@ function FileViewInner({
   } = useDialog();
 
   const repositoryFullName = `${owner}/${repoName}`;
+  const selectedFileIsRenderableMedia =
+    isRenderableRepositoryMediaPath(selectedFile);
   const commitSha = vault.commitSHA;
   const selectedFileGitHubUrl = `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/blob/${encodeGitHubPath(branch)}/${encodeGitHubPath(selectedFile)}`;
 
@@ -1160,550 +1158,522 @@ function FileViewInner({
 
   // MARK: Return
 
-  return (
-    <div className="flex h-full w-full">
-      <Sidebar variant="sidebar" className="border-r border-border/50">
-        <SidebarContent className="p-0">
-          <div className="p-3 border-b border-border/50">
-            <Link
-              to="/"
-              className={`flex items-center justify-between ${linkStyle}`}
+  const sidebarContent = (
+    <>
+      <div className="border-b border-border/50 p-3">
+        <Link
+          to="/"
+          className={`flex items-center justify-between ${linkStyle}`}
+        >
+          <UserMenu>{user?.name ?? user?.email ?? "..."}</UserMenu>
+        </Link>
+      </div>
+      <div className="border-b border-border/50 p-3">
+        <div className="flex items-center gap-2">
+          <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
+          <a
+            className={`truncate text-xs font-medium text-muted-foreground ${linkStyle}`}
+            href={`https://github.com/${owner}/${repoName}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {owner}/{repoName}
+          </a>
+
+          <div className="flex-1" />
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 md:h-6 md:w-6"
+            onClick={() => openFileCreation("")}
+            title="Create new file"
+            aria-label="Create new file"
+          >
+            <PlusIcon className="h-4 w-4 md:h-3 md:w-3" />
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 md:h-6 md:w-6"
+            onClick={() => openFolderCreation("")}
+            title="Create new folder"
+            aria-label="Create new folder"
+          >
+            <FilePlusIcon className="h-4 w-4 md:h-3 md:w-3" />
+          </Button>
+        </div>
+        <div className="mt-2">
+          <ToggleGroup
+            type="single"
+            size="sm"
+            value={simpleViewMode}
+            className="justify-start"
+            onValueChange={(value) => {
+              if (value === "simple" || value === "all") {
+                setSimpleViewMode(value);
+              }
+            }}
+          >
+            <ToggleGroupItem
+              value="simple"
+              aria-label="Simple View"
+              className="h-7 px-2 text-xs"
             >
-              <UserMenu>{user?.name ?? user?.email ?? "..."}</UserMenu>
-            </Link>
-          </div>
-          {/* Repo part */}
-          <div className="p-3 border-b border-border/50">
-            <div className="flex items-center gap-2">
-              <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
-              <a
-                className={`text-xs font-medium truncate text-muted-foreground ${linkStyle}`}
-                href={`https://github.com/${owner}/${repoName}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {owner}/{repoName}
-              </a>
+              Simple View
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="all"
+              aria-label="All Files"
+              className="h-7 px-2 text-xs"
+            >
+              All Files
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+      </div>
+      {emptyRepository ? (
+        <div className="flex-1" />
+      ) : (
+        <div className="flex-1 overflow-auto">
+          <FileTree
+            items={visibleTreeData}
+            onFileSelect={handleFileSelect}
+            onFileRename={(originalPath, newPath) =>
+              void handleFileRename(originalPath, newPath)
+            }
+            onFileCreate={handleCreateFileInFolder}
+            onFileDelete={(filePath) => void handleFileDelete(filePath)}
+            selectedFile={selectedFile}
+            folderExpansionStates={folderExpansionStates ?? []}
+            onFolderToggle={handleFolderToggle}
+          />
+        </div>
+      )}
+    </>
+  );
 
-              {/* element that takes as much space as possible to push the button to the right */}
-              <div className="flex-1" />
+  const headerTitle = selectedFile
+    ? selectedFile.split("/").slice(0, -1).join("/") || "/"
+    : undefined;
 
-              {/* icon button to add new file (+)*/}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 md:h-6 md:w-6 p-0"
-                onClick={() => openFileCreation("")}
-                title="Create new file"
-              >
-                <PlusIcon className="h-4 w-4 md:h-3 md:w-3" />
-              </Button>
-
-              {/* icon button to add new folder */}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 md:h-6 md:w-6 p-0"
-                onClick={() => openFolderCreation("")}
-                title="Create new folder"
-              >
-                <FilePlusIcon className="h-4 w-4 md:h-3 md:w-3" />
-              </Button>
-            </div>
-            <div className="mt-2">
-              <ToggleGroup
-                type="single"
-                size="sm"
-                value={simpleViewMode}
-                className="justify-start"
+  return (
+    <>
+      <RepositoryWorkspaceFrame
+        sidebarContent={sidebarContent}
+        headerTitle={headerTitle}
+        onQuickOpen={() => setIsCommandPaletteOpen(true)}
+      >
+        <div className="max-w-none h-full flex flex-col">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-3">
+              <h2 className="text-base md:text-sm font-medium">
+                <a
+                  className={`block truncate ${linkStyle}`}
+                  href={selectedFileGitHubUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {selectedFile}
+                </a>
+              </h2>
+              <Tabs
+                value={viewMode}
                 onValueChange={(value) => {
-                  if (value === "simple" || value === "all") {
-                    setSimpleViewMode(value);
+                  if (value === "editor" || value === "graph") {
+                    setViewMode(value);
                   }
                 }}
               >
-                <ToggleGroupItem
-                  value="simple"
-                  aria-label="Simple View"
-                  className="h-7 px-2 text-xs"
-                >
-                  Simple View
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="all"
-                  aria-label="All Files"
-                  className="h-7 px-2 text-xs"
-                >
-                  All Files
-                </ToggleGroupItem>
-              </ToggleGroup>
+                <TabsList className="h-7">
+                  <TabsTrigger value="editor" className="px-2 text-xs">
+                    Editor
+                  </TabsTrigger>
+                  <TabsTrigger value="graph" className="px-2 text-xs">
+                    Graph
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
-          </div>
-          {emptyRepository ? (
-            <div className="p-3 text-xs text-muted-foreground">
-              No files found
-            </div>
-          ) : (
-            <div className="flex-1 overflow-auto">
-              <FileTree
-                items={visibleTreeData}
-                onFileSelect={handleFileSelect}
-                onFileRename={(originalPath, newPath) =>
-                  void handleFileRename(originalPath, newPath)
-                }
-                onFileCreate={handleCreateFileInFolder}
-                onFileDelete={(filePath) => void handleFileDelete(filePath)}
-                selectedFile={selectedFile}
-                folderExpansionStates={folderExpansionStates ?? []}
-                onFolderToggle={handleFolderToggle}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <VaultSyncStatus
+                vaultId={vault._id}
+                repositoryFullName={repositoryFullName}
+                branch={branch}
+                owner={owner}
+                repoName={repoName}
+                commitSha={commitSha}
+                treeRefreshStartedAt={vault.treeRefreshStartedAt}
+                lastTreeRefreshAt={vault.lastTreeRefreshAt}
+                stagedFiles={stagedFiles}
+                disableStagedFilesQuery
               />
-            </div>
-          )}{" "}
-        </SidebarContent>
-      </Sidebar>
+              <DaytonaWorkspaceButton
+                vaultId={vault._id}
+                branch={branch}
+                mode="launch"
+                className="text-xs"
+              />
 
-      <SidebarInset className="flex-1">
-        <div className="flex h-full flex-col">
-          {/* Minimal editor header */}
-          <div className="flex items-center justify-between p-3 border-b border-border/50">
-            <div className="flex items-center gap-3">
-              <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 md:h-6 md:w-6 p-0"
-                onClick={() => setIsCommandPaletteOpen(true)}
-                title="Quick Open (Cmd+P)"
-              >
-                <MagnifyingGlassIcon className="h-4 w-4 md:h-3 md:w-3" />
-              </Button>
-              {selectedFile && (
-                <div className="flex items-center gap-2">
-                  <span className="text-base md:text-sm font-medium truncate">
-                    {selectedFile.split("/").slice(0, -1).join("/") || "/"}
-                  </span>
-                </div>
+              {viewMode === "editor" && (
+                <Button
+                  size="sm"
+                  variant={isPreviewOpen ? "secondary" : "outline"}
+                  onClick={() => setIsPreviewOpen((current) => !current)}
+                  className="h-6 px-2 text-xs"
+                >
+                  {isPreviewOpen ? "Hide Preview" : "Show Preview"}
+                </Button>
               )}
+
+              {viewMode === "editor" && (
+                <Button
+                  size="sm"
+                  variant={
+                    commitReviewMode === "review" ? "secondary" : "outline"
+                  }
+                  onClick={handleToggleReviewMode}
+                  disabled={
+                    commitReviewMode === "editor" &&
+                    (!hasChangesToCommit || commitPreviewStatus === "loading")
+                  }
+                  className="h-6 px-2 text-xs"
+                >
+                  {commitReviewMode === "review"
+                    ? "Back to Editor"
+                    : commitPreviewStatus === "loading"
+                      ? "Loading..."
+                      : "Review Changes"}
+                </Button>
+              )}
+
+              <Button
+                size="sm"
+                variant={hasChangesToCommit ? "default" : "outline"}
+                onClick={handleManualCommit}
+                disabled={
+                  manualComittingStatus === "loading" || !hasChangesToCommit
+                }
+                className={
+                  hasChangesToCommit
+                    ? "h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
+                    : "h-6 px-2 text-xs border-green-500 text-green-600 hover:bg-green-50"
+                }
+              >
+                {manualComittingStatus === "loading"
+                  ? "Committing..."
+                  : hasChangesToCommit
+                    ? "Commit Now"
+                    : "All Synced"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleResetToGitHub}
+                disabled={
+                  clearingStagingStatus === "loading" ||
+                  manualComittingStatus === "loading" ||
+                  !hasChangesToCommit
+                }
+                className="h-6 px-2 text-xs text-orange-600 hover:text-orange-700"
+              >
+                {clearingStagingStatus === "loading"
+                  ? "Resetting..."
+                  : "Reset to GitHub"}
+              </Button>
             </div>
           </div>
+          {commitError ? (
+            <div className="mb-3 rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">
+              Commit failed: {commitError}
+            </div>
+          ) : null}
 
-          <div className="flex-1 overflow-auto p-4">
-            <div className="max-w-none h-full flex flex-col">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-base md:text-sm font-medium">
-                    <a
-                      className={`block truncate ${linkStyle}`}
-                      href={selectedFileGitHubUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {selectedFile}
-                    </a>
-                  </h2>
-                  <Tabs
-                    value={viewMode}
-                    onValueChange={(value) => {
-                      if (value === "editor" || value === "graph") {
-                        setViewMode(value);
-                      }
-                    }}
-                  >
-                    <TabsList className="h-7">
-                      <TabsTrigger value="editor" className="px-2 text-xs">
-                        Editor
-                      </TabsTrigger>
-                      <TabsTrigger value="graph" className="px-2 text-xs">
-                        Graph
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                </div>
+          {viewMode === "editor" && isPreviewOpen && (
+            <DaytonaPreviewPanel vaultId={vault._id} className="mb-4" />
+          )}
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <VaultSyncStatus
-                    vaultId={vault._id}
-                    repositoryFullName={repositoryFullName}
-                    branch={branch}
-                    owner={owner}
-                    repoName={repoName}
-                    commitSha={commitSha}
-                    treeRefreshStartedAt={vault.treeRefreshStartedAt}
-                    lastTreeRefreshAt={vault.lastTreeRefreshAt}
-                    stagedFiles={stagedFiles}
-                    disableStagedFilesQuery
-                  />
-                  <DaytonaWorkspaceButton
-                    vaultId={vault._id}
-                    branch={branch}
-                    mode="launch"
-                    className="text-xs"
-                  />
+          <div className="flex-1 min-h-0">
+            {viewMode === "editor" ? (
+              commitReviewMode === "review" ? (
+                <div className="flex h-full min-h-0 flex-col overflow-hidden rounded border bg-muted/20">
+                  {commitPreviewStatus === "loading" &&
+                  commitPreview === null ? (
+                    <div className="px-4 py-6 text-sm text-muted-foreground">
+                      Loading commit preview...
+                    </div>
+                  ) : null}
 
-                  {viewMode === "editor" && (
-                    <Button
-                      size="sm"
-                      variant={isPreviewOpen ? "secondary" : "outline"}
-                      onClick={() => setIsPreviewOpen((current) => !current)}
-                      className="h-6 px-2 text-xs"
-                    >
-                      {isPreviewOpen ? "Hide Preview" : "Show Preview"}
-                    </Button>
-                  )}
+                  {commitPreviewError ? (
+                    <div className="mx-3 mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                      {commitPreviewError}
+                    </div>
+                  ) : null}
 
-                  {viewMode === "editor" && (
-                    <Button
-                      size="sm"
-                      variant={
-                        commitReviewMode === "review" ? "secondary" : "outline"
-                      }
-                      onClick={handleToggleReviewMode}
-                      disabled={
-                        commitReviewMode === "editor" &&
-                        (!hasChangesToCommit ||
-                          commitPreviewStatus === "loading")
-                      }
-                      className="h-6 px-2 text-xs"
-                    >
-                      {commitReviewMode === "review"
-                        ? "Back to Editor"
-                        : commitPreviewStatus === "loading"
-                          ? "Loading..."
-                          : "Review Changes"}
-                    </Button>
-                  )}
+                  {commitPreview ? (
+                    <div className="flex min-h-0 flex-1 flex-col">
+                      <div className="border-b px-3 py-2 text-xs text-muted-foreground">
+                        Branch:{" "}
+                        <span className="font-mono text-foreground">
+                          {commitPreview.branch}
+                        </span>
+                        {" · "}
+                        {commitPreview.totals.files} files
+                        {" · "}
+                        <span className="text-emerald-600 dark:text-emerald-400">
+                          +{commitPreview.totals.additions}
+                        </span>
+                        {" / "}
+                        <span className="text-rose-600 dark:text-rose-400">
+                          -{commitPreview.totals.deletions}
+                        </span>
+                        {commitPreview.hasDestructiveChanges
+                          ? " · includes deletions"
+                          : ""}
+                        {commitPreview.safety.includesTruncatedPatches
+                          ? ` · ${commitPreview.safety.truncatedPatchFileCount} patch${commitPreview.safety.truncatedPatchFileCount === 1 ? "" : "es"} truncated`
+                          : ""}
+                      </div>
 
-                  <Button
-                    size="sm"
-                    variant={hasChangesToCommit ? "default" : "outline"}
-                    onClick={handleManualCommit}
-                    disabled={
-                      manualComittingStatus === "loading" || !hasChangesToCommit
-                    }
-                    className={
-                      hasChangesToCommit
-                        ? "h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
-                        : "h-6 px-2 text-xs border-green-500 text-green-600 hover:bg-green-50"
-                    }
-                  >
-                    {manualComittingStatus === "loading"
-                      ? "Committing..."
-                      : hasChangesToCommit
-                        ? "Commit Now"
-                        : "All Synced"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleResetToGitHub}
-                    disabled={
-                      clearingStagingStatus === "loading" ||
-                      manualComittingStatus === "loading" ||
-                      !hasChangesToCommit
-                    }
-                    className="h-6 px-2 text-xs text-orange-600 hover:text-orange-700"
-                  >
-                    {clearingStagingStatus === "loading"
-                      ? "Resetting..."
-                      : "Reset to GitHub"}
-                  </Button>
-                </div>
-              </div>
-              {commitError ? (
-                <div className="mb-3 rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">
-                  Commit failed: {commitError}
-                </div>
-              ) : null}
+                      <div className="border-b px-3 py-2">
+                        <CommitReviewStatusChips
+                          totals={commitPreview.totals}
+                        />
+                      </div>
 
-              {viewMode === "editor" && isPreviewOpen && (
-                <DaytonaPreviewPanel vaultId={vault._id} className="mb-4" />
-              )}
-
-              <div className="flex-1 min-h-0">
-                {viewMode === "editor" ? (
-                  commitReviewMode === "review" ? (
-                    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded border bg-muted/20">
-                      {commitPreviewStatus === "loading" &&
-                      commitPreview === null ? (
-                        <div className="px-4 py-6 text-sm text-muted-foreground">
-                          Loading commit preview...
-                        </div>
-                      ) : null}
-
-                      {commitPreviewError ? (
-                        <div className="mx-3 mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                          {commitPreviewError}
-                        </div>
-                      ) : null}
-
-                      {commitPreview ? (
-                        <div className="flex min-h-0 flex-1 flex-col">
-                          <div className="border-b px-3 py-2 text-xs text-muted-foreground">
-                            Branch:{" "}
-                            <span className="font-mono text-foreground">
-                              {commitPreview.branch}
-                            </span>
-                            {" · "}
-                            {commitPreview.totals.files} files
-                            {" · "}
-                            <span className="text-emerald-600 dark:text-emerald-400">
-                              +{commitPreview.totals.additions}
-                            </span>
-                            {" / "}
-                            <span className="text-rose-600 dark:text-rose-400">
-                              -{commitPreview.totals.deletions}
-                            </span>
-                            {commitPreview.hasDestructiveChanges
-                              ? " · includes deletions"
-                              : ""}
-                            {commitPreview.safety.includesTruncatedPatches
-                              ? ` · ${commitPreview.safety.truncatedPatchFileCount} patch${commitPreview.safety.truncatedPatchFileCount === 1 ? "" : "es"} truncated`
-                              : ""}
+                      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+                        <aside className="shrink-0 border-b md:h-full md:w-80 md:border-b-0 md:border-r">
+                          <div className="px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                            Staged Files
                           </div>
-
-                          <div className="border-b px-3 py-2">
-                            <CommitReviewStatusChips
-                              totals={commitPreview.totals}
-                            />
-                          </div>
-
-                          <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-                            <aside className="shrink-0 border-b md:h-full md:w-80 md:border-b-0 md:border-r">
-                              <div className="px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                                Staged Files
-                              </div>
-                              <div className="max-h-52 overflow-auto md:h-full md:max-h-none">
-                                {commitPreview.files.length === 0
-                                  ? null
-                                  : commitPreview.files.map((file) => {
-                                      const isActive =
-                                        activePreviewFile?.path === file.path;
-                                      return (
-                                        <button
-                                          key={file.path}
-                                          className={`w-full border-t px-3 py-2 text-left transition-colors ${isActive ? "bg-muted/60" : "hover:bg-muted/40"}`}
-                                          onClick={() =>
-                                            handleFileSelect(file.path)
-                                          }
-                                        >
-                                          <div className="flex items-center gap-2">
-                                            <span
-                                              className={`inline-flex h-5 min-w-5 items-center justify-center rounded px-1 font-mono text-[10px] ${getCommitStatusBadgeClassName(file.status)}`}
-                                            >
-                                              {getCommitStatusToken(
-                                                file.status,
-                                              )}
-                                            </span>
-                                            <span className="truncate font-mono text-xs text-foreground">
-                                              {file.path}
-                                            </span>
-                                          </div>
-                                          <div className="mt-1 pl-7 text-[11px] text-muted-foreground">
-                                            {getCommitStatusLabel(file.status)}
-                                            {file.previousPath ? (
-                                              <>
-                                                {" · "}from{" "}
-                                                <span className="font-mono">
-                                                  {file.previousPath}
-                                                </span>
-                                              </>
-                                            ) : null}
-                                            {" · "}
-                                            <span className="text-emerald-600 dark:text-emerald-400">
-                                              +{file.additions}
-                                            </span>
-                                            {" / "}
-                                            <span className="text-rose-600 dark:text-rose-400">
-                                              -{file.deletions}
-                                            </span>
-                                          </div>
-                                        </button>
-                                      );
-                                    })}
-                              </div>
-                            </aside>
-
-                            {activePreviewFile ? (
-                              <div className="flex min-h-0 flex-1 flex-col">
-                                {selectedPreviewFile === null ? (
-                                  <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                                    Current file has no staged diff. Showing{" "}
-                                    <span className="font-mono text-amber-950">
-                                      {activePreviewFile.path}
-                                    </span>{" "}
-                                    instead.
-                                  </div>
-                                ) : null}
-
-                                <div className="border-b px-3 py-2">
-                                  <div className="mb-2 text-xs text-muted-foreground">
-                                    <span className="font-mono text-foreground">
-                                      {getCommitStatusToken(
-                                        activePreviewFile.status,
-                                      )}{" "}
-                                      {activePreviewFile.path}
-                                    </span>
-                                    {activePreviewFile.previousPath ? (
-                                      <span>
-                                        {" · "}from{" "}
-                                        <span className="font-mono">
-                                          {activePreviewFile.previousPath}
-                                        </span>
-                                      </span>
-                                    ) : null}
-                                    {" · "}
-                                    <span className="text-emerald-600 dark:text-emerald-400">
-                                      +{activePreviewFile.additions}
-                                    </span>
-                                    {" / "}
-                                    <span className="text-rose-600 dark:text-rose-400">
-                                      -{activePreviewFile.deletions}
-                                    </span>
-                                  </div>
-                                  {selectedPreviewCanRenderRichMarkdown ? (
-                                    <ToggleGroup
-                                      type="single"
-                                      size="sm"
-                                      value={commitPreviewDisplayMode}
-                                      className="justify-start"
-                                      onValueChange={(value) => {
-                                        if (
-                                          value === "rich" ||
-                                          value === "patch"
-                                        ) {
-                                          setCommitPreviewDisplayMode(value);
-                                          setCommitPreviewDisplayPreference(
-                                            value,
-                                          );
-                                        }
-                                      }}
+                          <div className="max-h-52 overflow-auto md:h-full md:max-h-none">
+                            {commitPreview.files.length === 0
+                              ? null
+                              : commitPreview.files.map((file) => {
+                                  const isActive =
+                                    activePreviewFile?.path === file.path;
+                                  return (
+                                    <button
+                                      key={file.path}
+                                      className={`w-full border-t px-3 py-2 text-left transition-colors ${isActive ? "bg-muted/60" : "hover:bg-muted/40"}`}
+                                      onClick={() =>
+                                        handleFileSelect(file.path)
+                                      }
                                     >
-                                      <ToggleGroupItem
-                                        value="rich"
-                                        aria-label="Rich markdown preview"
-                                        className="h-7 px-2 text-xs"
-                                      >
-                                        Rich
-                                      </ToggleGroupItem>
-                                      <ToggleGroupItem
-                                        value="patch"
-                                        aria-label="Source patch preview"
-                                        className="h-7 px-2 text-xs"
-                                      >
-                                        Patch
-                                      </ToggleGroupItem>
-                                    </ToggleGroup>
-                                  ) : null}
-                                </div>
-
-                                <div className="flex-1 overflow-auto">
-                                  {commitPreviewDisplayMode === "rich" &&
-                                  selectedPreviewCanRenderRichMarkdown ? (
-                                    <div>
-                                      {activePreviewFile.richContentTruncated ? (
-                                        <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                                          Rich markdown preview is truncated for
-                                          this file.
-                                        </div>
-                                      ) : null}
-
-                                      <div className="grid gap-3 p-3 md:grid-cols-2">
-                                        <div className="min-w-0 rounded border bg-background p-3">
-                                          <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">
-                                            Before
-                                          </div>
-                                          <ProsemarkReadOnly
-                                            value={
-                                              activePreviewFile.richOldContent ??
-                                              ""
-                                            }
-                                            highlightedLineNumbers={
-                                              selectedPreviewRichDiffLines?.oldLines ??
-                                              []
-                                            }
-                                            lineHighlightTone="remove"
-                                            className="text-sm leading-6"
-                                          />
-                                        </div>
-                                        <div className="min-w-0 rounded border bg-background p-3">
-                                          <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
-                                            After
-                                          </div>
-                                          <ProsemarkReadOnly
-                                            value={
-                                              activePreviewFile.richNewContent ??
-                                              ""
-                                            }
-                                            highlightedLineNumbers={
-                                              selectedPreviewRichDiffLines?.newLines ??
-                                              []
-                                            }
-                                            lineHighlightTone="add"
-                                            className="text-sm leading-6"
-                                          />
-                                        </div>
+                                      <div className="flex items-center gap-2">
+                                        <span
+                                          className={`inline-flex h-5 min-w-5 items-center justify-center rounded px-1 font-mono text-[10px] ${getCommitStatusBadgeClassName(file.status)}`}
+                                        >
+                                          {getCommitStatusToken(file.status)}
+                                        </span>
+                                        <span className="truncate font-mono text-xs text-foreground">
+                                          {file.path}
+                                        </span>
                                       </div>
-                                    </div>
-                                  ) : activePreviewFile.patch ? (
-                                    <div>
-                                      {activePreviewFile.patchTruncated ? (
-                                        <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                                          Patch output is truncated for this
-                                          file.
-                                        </div>
-                                      ) : null}
-                                      <div className="p-3 font-mono text-xs leading-5">
-                                        {activePreviewFile.patch
-                                          .split("\n")
-                                          .map((line, index) => (
-                                            <div
-                                              key={`${index}:${line}`}
-                                              className={`whitespace-pre-wrap rounded-sm px-1 ${getPatchLineClassName(line)}`}
-                                            >
-                                              {line.length > 0 ? line : " "}
-                                            </div>
-                                          ))}
+                                      <div className="mt-1 pl-7 text-[11px] text-muted-foreground">
+                                        {getCommitStatusLabel(file.status)}
+                                        {file.previousPath ? (
+                                          <>
+                                            {" · "}from{" "}
+                                            <span className="font-mono">
+                                              {file.previousPath}
+                                            </span>
+                                          </>
+                                        ) : null}
+                                        {" · "}
+                                        <span className="text-emerald-600 dark:text-emerald-400">
+                                          +{file.additions}
+                                        </span>
+                                        {" / "}
+                                        <span className="text-rose-600 dark:text-rose-400">
+                                          -{file.deletions}
+                                        </span>
                                       </div>
-                                    </div>
-                                  ) : null}
-                                </div>
+                                    </button>
+                                  );
+                                })}
+                          </div>
+                        </aside>
+
+                        {activePreviewFile ? (
+                          <div className="flex min-h-0 flex-1 flex-col">
+                            {selectedPreviewFile === null ? (
+                              <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                Current file has no staged diff. Showing{" "}
+                                <span className="font-mono text-amber-950">
+                                  {activePreviewFile.path}
+                                </span>{" "}
+                                instead.
                               </div>
                             ) : null}
+
+                            <div className="border-b px-3 py-2">
+                              <div className="mb-2 text-xs text-muted-foreground">
+                                <span className="font-mono text-foreground">
+                                  {getCommitStatusToken(
+                                    activePreviewFile.status,
+                                  )}{" "}
+                                  {activePreviewFile.path}
+                                </span>
+                                {activePreviewFile.previousPath ? (
+                                  <span>
+                                    {" · "}from{" "}
+                                    <span className="font-mono">
+                                      {activePreviewFile.previousPath}
+                                    </span>
+                                  </span>
+                                ) : null}
+                                {" · "}
+                                <span className="text-emerald-600 dark:text-emerald-400">
+                                  +{activePreviewFile.additions}
+                                </span>
+                                {" / "}
+                                <span className="text-rose-600 dark:text-rose-400">
+                                  -{activePreviewFile.deletions}
+                                </span>
+                              </div>
+                              {selectedPreviewCanRenderRichMarkdown ? (
+                                <ToggleGroup
+                                  type="single"
+                                  size="sm"
+                                  value={commitPreviewDisplayMode}
+                                  className="justify-start"
+                                  onValueChange={(value) => {
+                                    if (value === "rich" || value === "patch") {
+                                      setCommitPreviewDisplayMode(value);
+                                      setCommitPreviewDisplayPreference(value);
+                                    }
+                                  }}
+                                >
+                                  <ToggleGroupItem
+                                    value="rich"
+                                    aria-label="Rich markdown preview"
+                                    className="h-7 px-2 text-xs"
+                                  >
+                                    Rich
+                                  </ToggleGroupItem>
+                                  <ToggleGroupItem
+                                    value="patch"
+                                    aria-label="Source patch preview"
+                                    className="h-7 px-2 text-xs"
+                                  >
+                                    Patch
+                                  </ToggleGroupItem>
+                                </ToggleGroup>
+                              ) : null}
+                            </div>
+
+                            <div className="flex-1 overflow-auto">
+                              {commitPreviewDisplayMode === "rich" &&
+                              selectedPreviewCanRenderRichMarkdown ? (
+                                <div>
+                                  {activePreviewFile.richContentTruncated ? (
+                                    <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                      Rich markdown preview is truncated for
+                                      this file.
+                                    </div>
+                                  ) : null}
+
+                                  <div className="grid gap-3 p-3 md:grid-cols-2">
+                                    <div className="min-w-0 rounded border bg-background p-3">
+                                      <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">
+                                        Before
+                                      </div>
+                                      <ProsemarkReadOnly
+                                        value={
+                                          activePreviewFile.richOldContent ?? ""
+                                        }
+                                        highlightedLineNumbers={
+                                          selectedPreviewRichDiffLines?.oldLines ??
+                                          []
+                                        }
+                                        lineHighlightTone="remove"
+                                        className="text-sm leading-6"
+                                      />
+                                    </div>
+                                    <div className="min-w-0 rounded border bg-background p-3">
+                                      <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                                        After
+                                      </div>
+                                      <ProsemarkReadOnly
+                                        value={
+                                          activePreviewFile.richNewContent ?? ""
+                                        }
+                                        highlightedLineNumbers={
+                                          selectedPreviewRichDiffLines?.newLines ??
+                                          []
+                                        }
+                                        lineHighlightTone="add"
+                                        className="text-sm leading-6"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : activePreviewFile.patch ? (
+                                <div>
+                                  {activePreviewFile.patchTruncated ? (
+                                    <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                      Patch output is truncated for this file.
+                                    </div>
+                                  ) : null}
+                                  <div className="p-3 font-mono text-xs leading-5">
+                                    {activePreviewFile.patch
+                                      .split("\n")
+                                      .map((line, index) => (
+                                        <div
+                                          key={`${index}:${line}`}
+                                          className={`whitespace-pre-wrap rounded-sm px-1 ${getPatchLineClassName(line)}`}
+                                        >
+                                          {line.length > 0 ? line : " "}
+                                        </div>
+                                      ))}
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
                           </div>
-                        </div>
-                      ) : null}
+                        ) : null}
+                      </div>
                     </div>
-                  ) : (
-                    stagedFile && (
-                      <CodeEditorWrapper
-                        key={`${branch}/${selectedFile}-${stagedFile.parentCommitSha ?? "new"}`}
-                        repositoryFullName={repositoryFullName}
-                        filePath={selectedFile}
-                        initialFilePath={stagedFile.initialFilePath}
-                        stagedFile={stagedFile}
-                        vaultId={vault._id}
-                        tree={vault.treeData.tree}
-                        treeSHA={vault.treeSHA}
-                        showMobileLineNumbers={showMobileEditorLineNumbers}
-                      />
-                    )
-                  )
-                ) : (
-                  <AgentGraphView
-                    nodes={agentGraphNodes}
-                    edges={agentGraphEdges}
-                    onOpenFile={handleOpenFileFromGraph}
-                    vaultId={vault._id}
+                  ) : null}
+                </div>
+              ) : selectedFileIsRenderableMedia ? (
+                <RepositoryMediaViewer
+                  repositoryFullName={repositoryFullName}
+                  filePath={selectedFile}
+                  branch={branch}
+                />
+              ) : (
+                stagedFile && (
+                  <CodeEditorWrapper
+                    key={`${branch}/${selectedFile}-${stagedFile.parentCommitSha ?? "new"}`}
                     repositoryFullName={repositoryFullName}
-                    branch={branch}
                     filePath={selectedFile}
+                    initialFilePath={stagedFile.initialFilePath}
+                    stagedFile={stagedFile}
+                    vaultId={vault._id}
+                    tree={vault.treeData.tree}
+                    treeSHA={vault.treeSHA}
+                    showMobileLineNumbers={showMobileEditorLineNumbers}
                   />
-                )}
-              </div>
-            </div>
+                )
+              )
+            ) : (
+              <AgentGraphView
+                nodes={agentGraphNodes}
+                edges={agentGraphEdges}
+                onOpenFile={handleOpenFileFromGraph}
+                vaultId={vault._id}
+                repositoryFullName={repositoryFullName}
+                branch={branch}
+                filePath={selectedFile}
+              />
+            )}
           </div>
         </div>
-      </SidebarInset>
+      </RepositoryWorkspaceFrame>
 
       {/* File Creation Dialog */}
       {fileCreationDialog.isOpen && (
@@ -1739,7 +1709,7 @@ function FileViewInner({
         onFileSelect={handleFileSelect}
         selectedFile={selectedFile}
       />
-    </div>
+    </>
   );
 }
 

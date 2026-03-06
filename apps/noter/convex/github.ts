@@ -2,29 +2,82 @@
 
 import { action, internalAction } from "./_generated/server";
 import { getUserId } from "./common";
-import { v } from "convex/values";
+import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
+import { guessMime, withRetry } from "./gitOperationsActions";
+import {
+  getRepositoryMediaKind,
+  isSvgRepositoryMediaPath,
+} from "../shared/repositoryMedia";
+
+const {
+  array,
+  boolean,
+  id,
+  literal,
+  null: nullValidator,
+  number,
+  object,
+  optional,
+  string,
+  union,
+} = v;
+
+const githubRepositoryListItem = object({
+  id: number(),
+  name: string(),
+  full_name: string(),
+  html_url: string(),
+  description: union(string(), nullValidator()),
+  private: boolean(),
+  fork: boolean(),
+  created_at: string(),
+  updated_at: string(),
+  language: union(string(), nullValidator()),
+  stargazers_count: number(),
+  forks_count: number(),
+});
+
+type GitHubRepositoryListItem = Infer<typeof githubRepositoryListItem>;
+
+type CachedRepositoryBlob = {
+  storageId?: string | null;
+  text?: string | null;
+  mime?: string | undefined;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isGitHubRepositoryListItem(
+  value: unknown,
+): value is GitHubRepositoryListItem {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.id === "number" &&
+    typeof value.name === "string" &&
+    typeof value.full_name === "string" &&
+    typeof value.html_url === "string" &&
+    (typeof value.description === "string" || value.description === null) &&
+    typeof value.private === "boolean" &&
+    typeof value.fork === "boolean" &&
+    typeof value.created_at === "string" &&
+    typeof value.updated_at === "string" &&
+    (typeof value.language === "string" || value.language === null) &&
+    typeof value.stargazers_count === "number" &&
+    typeof value.forks_count === "number"
+  );
+}
 
 // List the current user's GitHub repositories
 export const listRepositories = action({
   args: {},
-  returns: v.array(
-    v.object({
-      id: v.number(),
-      name: v.string(),
-      full_name: v.string(),
-      html_url: v.string(),
-      description: v.union(v.string(), v.null()),
-      private: v.boolean(),
-      fork: v.boolean(),
-      created_at: v.string(),
-      updated_at: v.string(),
-      language: v.union(v.string(), v.null()),
-      stargazers_count: v.number(),
-      forks_count: v.number(),
-    }),
-  ),
+  returns: array(githubRepositoryListItem),
   handler: async (ctx) => {
     const userId = await getUserId(ctx);
     const githubConnection = await ctx.runQuery(
@@ -57,44 +110,163 @@ export const listRepositories = action({
       );
     }
 
-    const repos: any[] = await response.json();
+    const reposRaw: unknown = await response.json();
+    if (!Array.isArray(reposRaw)) {
+      throw new Error("Unexpected GitHub API response format");
+    }
 
-    const val = repos.map((repo: any) => ({
-      id: repo.id,
-      name: repo.name,
-      full_name: repo.full_name,
-      html_url: repo.html_url,
-      description: repo.description,
-      private: repo.private,
-      fork: repo.fork,
-      created_at: repo.created_at,
-      updated_at: repo.updated_at,
-      language: repo.language,
-      stargazers_count: repo.stargazers_count,
-      forks_count: repo.forks_count,
-    }));
-    return val;
+    return reposRaw.map((repo) => {
+      if (!isGitHubRepositoryListItem(repo)) {
+        throw new Error("Unexpected GitHub repository payload");
+      }
+
+      return repo;
+    });
   },
 });
 
-const repositoryFileContentResult = v.union(
-  v.object({ exists: v.literal(false) }),
-  v.object({ exists: v.literal(true), content: v.string() }),
+const repositoryFileContentResult = union(
+  object({ exists: literal(false) }),
+  object({ exists: literal(true), content: string() }),
 );
 
-type RepositoryFileContent =
-  | { exists: false }
-  | { exists: true; content: string };
+type RepositoryFileContent = Infer<typeof repositoryFileContentResult>;
 const PAGE_LOAD_REFRESH_DEBOUNCE_MS = 10 * 1000;
+
+const repositoryMediaAssetResult = union(
+  object({
+    found: literal(false),
+    reason: literal("missing"),
+  }),
+  object({
+    found: literal(false),
+    reason: literal("unavailable"),
+    message: string(),
+  }),
+  object({
+    found: literal(true),
+    kind: literal("image"),
+    mimeType: string(),
+    url: string(),
+    fileName: string(),
+  }),
+);
+
+type RepositoryMediaAsset = Infer<typeof repositoryMediaAssetResult>;
+
+function buildDataUrl(mimeType: string, content: Buffer): string {
+  return `data:${mimeType};base64,${content.toString("base64")}`;
+}
+
+function readStoredMimeType(
+  filePath: string,
+  blobMime: string | undefined,
+): string {
+  if (typeof blobMime === "string" && blobMime.includes("/")) {
+    return blobMime;
+  }
+  return guessMime(filePath);
+}
+
+async function resolveCachedRepositoryMediaAsset(
+  ctx: {
+    storage: {
+      getUrl(storageId: string): Promise<string | null>;
+    };
+  },
+  cachedBlob: CachedRepositoryBlob | null,
+  filePath: string,
+  mediaKind: "image",
+  fileName: string,
+): Promise<RepositoryMediaAsset | null> {
+  if (typeof cachedBlob?.storageId === "string") {
+    const url = await ctx.storage.getUrl(cachedBlob.storageId);
+    if (typeof url === "string" && url.length > 0) {
+      return {
+        found: true,
+        kind: mediaKind,
+        mimeType: readStoredMimeType(filePath, cachedBlob.mime),
+        url,
+        fileName,
+      };
+    }
+  }
+
+  if (
+    typeof cachedBlob?.text === "string" &&
+    isSvgRepositoryMediaPath(filePath)
+  ) {
+    return {
+      found: true,
+      kind: mediaKind,
+      mimeType: "image/svg+xml",
+      url: buildDataUrl("image/svg+xml", Buffer.from(cachedBlob.text, "utf-8")),
+      fileName,
+    };
+  }
+
+  return null;
+}
+
+function getRepositoryMediaFileName(filePath: string): string {
+  return filePath.split("/").pop() ?? filePath;
+}
+
+function getRepositoryMediaExtension(filePath: string): string {
+  const fileName = getRepositoryMediaFileName(filePath);
+  const extensionStart = fileName.lastIndexOf(".");
+  if (extensionStart === -1 || extensionStart === fileName.length - 1) {
+    return "";
+  }
+  return fileName.slice(extensionStart + 1).toLowerCase();
+}
+
+function getRepositoryMediaErrorStatus(error: unknown): number | null {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    typeof error.status === "number"
+  ) {
+    return error.status;
+  }
+  return null;
+}
+
+function getRepositoryMediaErrorMessage(error: unknown): string {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+  return "Preview unavailable.";
+}
+
+function isRepositoryMediaTooLargeError(error: unknown): boolean {
+  if (getRepositoryMediaErrorStatus(error) !== 403) {
+    return false;
+  }
+
+  const message = getRepositoryMediaErrorMessage(error).toLowerCase();
+  return (
+    message.includes("too large") ||
+    message.includes("too_large") ||
+    message.includes("blobs up to 1 mb")
+  );
+}
 
 export const getRepositoryFileContent = action({
   args: {
-    repositoryFullName: v.string(),
-    filePath: v.string(),
-    branch: v.optional(v.string()),
+    repositoryFullName: string(),
+    filePath: string(),
+    branch: optional(string()),
   },
   returns: repositoryFileContentResult,
   handler: async (ctx, args): Promise<RepositoryFileContent> => {
+    const requestedBranch = args.branch?.trim() || undefined;
     const userId = await getUserId(ctx);
 
     const currentUser = await ctx.runQuery(internal.users.getById, {
@@ -113,24 +285,26 @@ export const getRepositoryFileContent = action({
       throw new Error("Vault not found");
     }
 
-    const targetFile = vault.treeData.tree.find(
-      (item: { path: string; type: string; sha?: string }) =>
-        item.path === args.filePath && item.type === "blob",
-    );
+    if (!requestedBranch) {
+      const targetFile = vault.treeData.tree.find(
+        (item: { path: string; type: string; sha?: string }) =>
+          item.path === args.filePath && item.type === "blob",
+      );
 
-    if (!targetFile?.sha) {
-      return { exists: false };
-    }
+      if (!targetFile?.sha) {
+        return { exists: false };
+      }
 
-    const blobFile = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
-      sha: targetFile.sha,
-    });
+      const blobFile = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+        sha: targetFile.sha,
+      });
 
-    if (blobFile && typeof blobFile.text === "string") {
-      return {
-        exists: true,
-        content: blobFile.text,
-      };
+      if (blobFile && typeof blobFile.text === "string") {
+        return {
+          exists: true,
+          content: blobFile.text,
+        };
+      }
     }
 
     const githubConnection = await ctx.runQuery(
@@ -153,7 +327,7 @@ export const getRepositoryFileContent = action({
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
         path: args.filePath,
-        ref: args.branch,
+        ref: requestedBranch,
       });
 
       if (Array.isArray(file.data) || file.data.type !== "file") {
@@ -181,13 +355,174 @@ export const getRepositoryFileContent = action({
   },
 });
 
+export const getRepositoryMediaAsset = action({
+  args: {
+    repositoryFullName: string(),
+    filePath: string(),
+    branch: optional(string()),
+  },
+  returns: repositoryMediaAssetResult,
+  handler: async (ctx, args): Promise<RepositoryMediaAsset> => {
+    const mediaKind = getRepositoryMediaKind(args.filePath);
+    if (mediaKind === null) {
+      return { found: false, reason: "missing" };
+    }
+
+    const userId = await getUserId(ctx);
+    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
+    const requestedBranch = args.branch?.trim() || undefined;
+    const fileName = getRepositoryMediaFileName(args.filePath);
+
+    if (!requestedBranch) {
+      const targetFile = vault.treeData.tree.find(
+        (item: { path: string; type: string; sha?: string }) =>
+          item.path === args.filePath && item.type === "blob",
+      );
+
+      if (!targetFile?.sha) {
+        return { found: false, reason: "missing" };
+      }
+
+      const cachedBlob = await ctx.runQuery(
+        internal.gitOperations.getBlobBySha,
+        {
+          sha: targetFile.sha,
+        },
+      );
+      const resolvedCachedAsset = await resolveCachedRepositoryMediaAsset(
+        ctx,
+        cachedBlob,
+        args.filePath,
+        mediaKind,
+        fileName,
+      );
+      if (resolvedCachedAsset) {
+        return resolvedCachedAsset;
+      }
+    }
+
+    const githubConnection = await ctx.runQuery(
+      internal.providerConnections.getByUserAndKind,
+      {
+        userId,
+        kind: "github",
+      },
+    );
+    if (githubConnection?.kind !== "github") {
+      throw new Error("GitHub is not connected");
+    }
+
+    const octokit: Octokit = new Octokit({
+      auth: githubConnection.auth.credential,
+    });
+
+    try {
+      const file = await octokit.rest.repos.getContent({
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        path: args.filePath,
+        ref: requestedBranch,
+      });
+
+      if (Array.isArray(file.data) || file.data.type !== "file") {
+        return { found: false, reason: "missing" };
+      }
+
+      if (typeof file.data.sha === "string") {
+        const cachedBlob = await ctx.runQuery(
+          internal.gitOperations.getBlobBySha,
+          {
+            sha: file.data.sha,
+          },
+        );
+        const resolvedCachedAsset = await resolveCachedRepositoryMediaAsset(
+          ctx,
+          cachedBlob,
+          args.filePath,
+          mediaKind,
+          fileName,
+        );
+        if (resolvedCachedAsset) {
+          return resolvedCachedAsset;
+        }
+      }
+
+      if (
+        typeof file.data.content !== "string" ||
+        file.data.content.length === 0
+      ) {
+        return {
+          found: false,
+          reason: "unavailable",
+          message: "Preview unavailable for this file.",
+        };
+      }
+
+      const mimeType = guessMime(args.filePath);
+      const content = file.data.content.replace(/\n/g, "");
+      const buffer = Buffer.from(content, "base64");
+      const storageId = await withRetry(() =>
+        ctx.storage.store(new Blob([buffer], { type: mimeType })),
+      );
+
+      if (typeof file.data.sha === "string") {
+        await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+          vaultId: vault._id,
+          sha: file.data.sha,
+          size: buffer.byteLength,
+          mime: mimeType,
+          text: undefined,
+          storageId,
+          ext: getRepositoryMediaExtension(args.filePath),
+          debugFilePath: args.filePath,
+        });
+      }
+
+      const url = await ctx.storage.getUrl(storageId);
+      if (typeof url !== "string" || url.length === 0) {
+        throw new Error("Failed to create media preview URL");
+      }
+
+      return {
+        found: true,
+        kind: mediaKind,
+        mimeType,
+        url,
+        fileName,
+      };
+    } catch (error: unknown) {
+      if (getRepositoryMediaErrorStatus(error) === 404) {
+        return { found: false, reason: "missing" };
+      }
+
+      if (isRepositoryMediaTooLargeError(error)) {
+        return {
+          found: false,
+          reason: "unavailable",
+          message: "Preview unavailable for files larger than 1 MB.",
+        };
+      }
+
+      throw error;
+    }
+  },
+});
+
 // Public action to refresh repository tree (called from frontend on vault open)
 export const refreshRepositoryTree = action({
   args: {
-    owner: v.string(),
-    repo: v.string(),
-    trigger: v.optional(v.union(v.literal("focus"), v.literal("page_load"))),
+    owner: string(),
+    repo: string(),
+    trigger: optional(union(literal("focus"), literal("page_load"))),
   },
+  returns: nullValidator(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
 
@@ -195,7 +530,7 @@ export const refreshRepositoryTree = action({
       repositoryFullName: `${args.owner}/${args.repo}`,
       userId,
     });
-    if (!vault) return;
+    if (!vault) return null;
 
     const debounceMs =
       args.trigger === "page_load" ? PAGE_LOAD_REFRESH_DEBOUNCE_MS : undefined;
@@ -205,7 +540,7 @@ export const refreshRepositoryTree = action({
       vaultId: vault._id,
       debounceMs,
     });
-    if (!claimed) return;
+    if (!claimed) return null;
 
     try {
       await ctx.runAction(internal.github.updateRepositoryTree, {
@@ -218,16 +553,19 @@ export const refreshRepositoryTree = action({
         vaultId: vault._id,
       });
     }
+
+    return null;
   },
 });
 
 // Get repository tree structure
 export const updateRepositoryTree = internalAction({
   args: {
-    userId: v.id("users"),
-    owner: v.string(),
-    repo: v.string(),
+    userId: id("users"),
+    owner: string(),
+    repo: string(),
   },
+  returns: nullValidator(),
   handler: async (ctx, args) => {
     console.log("updateRepositoryTree", args);
     const currentUser = await ctx.runQuery(internal.users.getById, {
@@ -280,7 +618,7 @@ export const updateRepositoryTree = internalAction({
       latestCommitSha !== vault.commitSHA;
 
     if (!shouldUpdateTree && !shouldUpdateCommit) {
-      return;
+      return null;
     }
 
     await ctx.runMutation(internal.vault.updateVaultTree, {
@@ -288,5 +626,7 @@ export const updateRepositoryTree = internalAction({
       treeData: tree.data,
       commitSHA: latestCommitSha,
     });
+
+    return null;
   },
 });

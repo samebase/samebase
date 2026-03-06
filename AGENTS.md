@@ -336,6 +336,9 @@ Auth:
   chat context.
 - For this operator, keep responses concise by default and always include a
   final `Summary` section.
+- For this operator, do not use Python as the first option for scripting or
+  automation in Codex. Prefer plain shell commands first; if scripting is
+  needed, prefer ECMAScript/Node because Node is guaranteed to be available.
 - Format documents you write with Prettier by default so markdown/docs do not
   require manual cleanup.
 - Default to persisting user-visible UI state in Convex (per-user settings) so
