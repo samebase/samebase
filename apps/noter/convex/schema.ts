@@ -151,7 +151,7 @@ export const McpOAuthAuth = v.object({
   credential: v.string(),
   refreshCredential: v.optional(v.string()),
   credentialExpiresAt: v.optional(v.number()),
-  clientId: v.optional(v.string()),
+  clientId: optional(string()),
   mcpServerUrl: v.string(),
 });
 export const ApiKeyAuth = v.object({
