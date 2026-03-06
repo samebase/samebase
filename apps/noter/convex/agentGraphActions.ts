@@ -99,18 +99,6 @@ async function loadAgentPrompt(args: {
     return staging.content;
   }
 
-  const treeSha = vault.treeData.tree.find(
-    (entry) => entry.path === agentPath,
-  )?.sha;
-  if (treeSha) {
-    const blob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
-      sha: treeSha,
-    });
-    if (blob && typeof blob.text === "string") {
-      return blob.text;
-    }
-  }
-
   if (!githubAccessToken) {
     throw new Error(
       "Prompt not found in staging or repo; connect GitHub to fetch missing content",

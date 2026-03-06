@@ -166,35 +166,6 @@ async function loadExistingFileSnapshot(
     };
   }
 
-  const vault = await toolCtx.ctx.runQuery(internal.vault.getById, {
-    id: toolCtx.vaultId,
-  });
-  const treeEntry = vault?.treeData.tree.find(
-    (entry: { path?: string }) => entry.path === path,
-  );
-
-  if (treeEntry?.type === "tree") {
-    throw new ReplaceInFileError(
-      `replace_in_file failed: ${path} is a directory, not a file`,
-    );
-  }
-
-  if (treeEntry?.sha) {
-    const blob = await toolCtx.ctx.runQuery(
-      internal.gitOperations.getBlobBySha,
-      {
-        sha: treeEntry.sha,
-      },
-    );
-    if (blob?.text !== undefined) {
-      return {
-        content: blob.text,
-        parentCommitSha: treeEntry.sha,
-        isStaged: false,
-      };
-    }
-  }
-
   const octokit = new Octokit({ auth: toolCtx.accessToken });
   try {
     const file = await octokit.rest.repos.getContent({
@@ -263,26 +234,8 @@ export async function executeReadFile(
     return staging.content;
   }
 
-  // 2. Check blobs via vault tree
-  const vault = await toolCtx.ctx.runQuery(internal.vault.getById, {
-    id: toolCtx.vaultId,
-  });
-  if (vault) {
-    const treeSha = vault.treeData.tree.find(
-      (t: { path?: string }) => t.path === input.path,
-    )?.sha;
-    if (treeSha) {
-      const blob = await toolCtx.ctx.runQuery(
-        internal.gitOperations.getBlobBySha,
-        { sha: treeSha },
-      );
-      if (blob?.text !== undefined) {
-        return blob.text;
-      }
-    }
-  }
-
-  // 3. Fall back to GitHub API
+  // 2. Fall back to GitHub API. Branch-aware reads must bypass vault.treeData
+  // because that cache is not scoped to the active thread branch.
   const octokit = new Octokit({ auth: toolCtx.accessToken });
   const file = await octokit.rest.repos.getContent({
     owner: toolCtx.owner,

@@ -213,6 +213,10 @@ function resolveWorkspacePath(inputPath, allowWorkspaceRoot = false) {
   const fullPath = path.resolve(workspaceRoot, normalizedInput);
   const relativePath = path.relative(workspaceRoot, fullPath);
 
+  if (!allowWorkspaceRoot && relativePath.length === 0) {
+    throw new Error("Path outside workspace not allowed");
+  }
+
   if (
     relativePath === ".." ||
     relativePath.startsWith(`..${path.sep}`) ||

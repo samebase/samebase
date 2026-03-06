@@ -401,7 +401,7 @@ export const pushSerializedChangeSetUpdate = internalMutation({
         "pushSerializedChangeSetUpdate: invalid serializedChangeSet",
         error,
       );
-      return null;
+      throw new Error("Invalid serializedChangeSet");
     }
 
     if (updatedContent === staging.content) {
