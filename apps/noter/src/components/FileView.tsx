@@ -1299,6 +1299,14 @@ function FileViewInner({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <DaytonaSnapshotBanner
+                branch={branch}
+                commitSha={vault.commitSHA}
+                snapshotName={vault.daytonaCurrentSnapshotName}
+                snapshotStatus={vault.daytonaCurrentSnapshotStatus}
+                lastError={vault.daytonaCurrentSnapshotLastError}
+                className="w-full"
+              />
               <VaultSyncStatus
                 vaultId={vault._id}
                 repositoryFullName={repositoryFullName}
@@ -1314,6 +1322,10 @@ function FileViewInner({
               <DaytonaWorkspaceButton
                 vaultId={vault._id}
                 branch={branch}
+                commitSha={vault.commitSHA}
+                snapshotStatus={vault.daytonaCurrentSnapshotStatus}
+                snapshotName={vault.daytonaCurrentSnapshotName}
+                snapshotError={vault.daytonaCurrentSnapshotLastError}
                 mode="launch"
                 className="text-xs"
               />
@@ -1395,145 +1407,6 @@ function FileViewInner({
           {viewMode === "editor" && isPreviewOpen && (
             <DaytonaPreviewPanel vaultId={vault._id} className="mb-4" />
           )}
-          <div className="flex-1 overflow-auto p-4">
-            <div className="max-w-none h-full flex flex-col">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-base md:text-sm font-medium">
-                    <a
-                      className={`block truncate ${linkStyle}`}
-                      href={selectedFileGitHubUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {selectedFile}
-                    </a>
-                  </h2>
-                  <Tabs
-                    value={viewMode}
-                    onValueChange={(value) => {
-                      if (value === "editor" || value === "graph") {
-                        setViewMode(value);
-                      }
-                    }}
-                  >
-                    <TabsList className="h-7">
-                      <TabsTrigger value="editor" className="px-2 text-xs">
-                        Editor
-                      </TabsTrigger>
-                      <TabsTrigger value="graph" className="px-2 text-xs">
-                        Graph
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <DaytonaSnapshotBanner
-                    branch={branch}
-                    commitSha={vault.commitSHA}
-                    snapshotName={vault.daytonaCurrentSnapshotName}
-                    snapshotStatus={vault.daytonaCurrentSnapshotStatus}
-                    lastError={vault.daytonaCurrentSnapshotLastError}
-                    className="w-full"
-                  />
-                  <VaultSyncStatus
-                    vaultId={vault._id}
-                    repositoryFullName={repositoryFullName}
-                    branch={branch}
-                    owner={owner}
-                    repoName={repoName}
-                    commitSha={commitSha}
-                    treeRefreshStartedAt={vault.treeRefreshStartedAt}
-                    lastTreeRefreshAt={vault.lastTreeRefreshAt}
-                    stagedFiles={stagedFiles}
-                    disableStagedFilesQuery
-                  />
-                  <DaytonaWorkspaceButton
-                    vaultId={vault._id}
-                    branch={branch}
-                    commitSha={vault.commitSHA}
-                    snapshotStatus={vault.daytonaCurrentSnapshotStatus}
-                    snapshotName={vault.daytonaCurrentSnapshotName}
-                    snapshotError={vault.daytonaCurrentSnapshotLastError}
-                    mode="launch"
-                    className="text-xs"
-                  />
-
-                  {viewMode === "editor" && (
-                    <Button
-                      size="sm"
-                      variant={isPreviewOpen ? "secondary" : "outline"}
-                      onClick={() => setIsPreviewOpen((current) => !current)}
-                      className="h-6 px-2 text-xs"
-                    >
-                      {isPreviewOpen ? "Hide Preview" : "Show Preview"}
-                    </Button>
-                  )}
-
-                  {viewMode === "editor" && (
-                    <Button
-                      size="sm"
-                      variant={
-                        commitReviewMode === "review" ? "secondary" : "outline"
-                      }
-                      onClick={handleToggleReviewMode}
-                      disabled={
-                        commitReviewMode === "editor" &&
-                        (!hasChangesToCommit ||
-                          commitPreviewStatus === "loading")
-                      }
-                      className="h-6 px-2 text-xs"
-                    >
-                      {commitReviewMode === "review"
-                        ? "Back to Editor"
-                        : commitPreviewStatus === "loading"
-                          ? "Loading..."
-                          : "Review Changes"}
-                    </Button>
-                  )}
-
-                  <Button
-                    size="sm"
-                    variant={hasChangesToCommit ? "default" : "outline"}
-                    onClick={handleManualCommit}
-                    disabled={
-                      manualComittingStatus === "loading" || !hasChangesToCommit
-                    }
-                    className={
-                      hasChangesToCommit
-                        ? "h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
-                        : "h-6 px-2 text-xs border-green-500 text-green-600 hover:bg-green-50"
-                    }
-                  >
-                    {manualComittingStatus === "loading"
-                      ? "Committing..."
-                      : hasChangesToCommit
-                        ? "Commit Now"
-                        : "All Synced"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleResetToGitHub}
-                    disabled={
-                      clearingStagingStatus === "loading" ||
-                      manualComittingStatus === "loading" ||
-                      !hasChangesToCommit
-                    }
-                    className="h-6 px-2 text-xs text-orange-600 hover:text-orange-700"
-                  >
-                    {clearingStagingStatus === "loading"
-                      ? "Resetting..."
-                      : "Reset to GitHub"}
-                  </Button>
-                </div>
-              </div>
-              {commitError ? (
-                <div className="mb-3 rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">
-                  Commit failed: {commitError}
-                </div>
-              ) : null}
 
           <div className="flex-1 min-h-0">
             {viewMode === "editor" ? (
