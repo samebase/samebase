@@ -9,7 +9,7 @@ simpleView:
     - convex/** # Backend functions
     - node_modules/** # Dependencies
     - dist/** # Build output
-    - "**/*.{json,ts,tsx,js,jsx,cjs,mjs,css,html,yaml}" # Source file extensions
+    - "**/*.{json,ts,tsx,js,jsx,cjs,mjs,css,html,yaml,patch}" # Source file extensions
     - tsconfig.base.json
     - Makefile
     - Dockerfile.daytona-deps
