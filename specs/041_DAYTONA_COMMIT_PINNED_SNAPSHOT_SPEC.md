@@ -39,7 +39,7 @@ Later:
 
 ## Goals
 
-- Build a Daytona snapshot as soon as GitHub reports a new commit on `main`
+- Build a Daytona snapshot as soon as Noter detects a new commit on `main`
 - Make each snapshot immutable and tied to one exact commit SHA
 - Ensure new sandboxes start from the latest snapshot for the branch
 - Eliminate ambiguity about what code a new sandbox starts from
@@ -117,57 +117,60 @@ own data model.
 
 ### Trigger
 
-The authoritative trigger should be GitHub `push` to `main`, not delayed app
-polling.
+First implementation:
 
-Reason:
+- Trigger when Noter detects that `main` moved during GitHub sync
+- Use the exact `commitSHA` Noter just observed for that repo
 
-- GitHub push events expose the exact commit immediately
-- CI already runs on `push` to `main`
-- This avoids waiting for Noter to "notice" that `commitSHA` changed
+Later, if Noter adopts GitHub webhooks or repo-side automation, the same
+commit-pinned contract can move to a more immediate push-driven trigger.
 
 ## Build Flow
 
 ### Trigger source
 
-Use GitHub Actions on `push` to `main`.
+Use Noter's existing GitHub refresh path for the first rollout.
 
 Input:
 
 - repository owner/name
 - branch name
-- exact pushed commit SHA
+- exact detected commit SHA
 
 ### Build steps
 
-1. Checkout the pushed commit
-2. Resolve the existing immutable deps image from the full dependency input hash
-3. Build a Daytona snapshot whose contents correspond exactly to the checked out
+1. Detect that `main` advanced to a new commit in Noter
+2. Queue a build record for that exact commit in Convex
+3. Checkout the exact commit
+4. Resolve the existing immutable deps image from the full dependency input hash
+5. Build a Daytona snapshot whose contents correspond exactly to the checked out
    commit
-4. Mark the snapshot ready only after Daytona reports it as active
-5. Persist the commit-to-snapshot mapping in Noter
-6. Prune older snapshots so only the latest 3 commits for the branch remain
+6. Mark the snapshot ready only after Daytona reports it as active
+7. Persist the commit-to-snapshot mapping in Noter
+8. Prune older snapshots so only the latest 3 commits for the branch remain
 
 ### Commit correctness rule
 
-The snapshot build must be tied to the pushed commit SHA, not to "whatever
+The snapshot build must be tied to the detected commit SHA, not to "whatever
 `main` points to when the build starts later".
 
 Acceptable ways to satisfy this:
 
-- Build from the GitHub Actions checkout at `github.sha`
-- Or explicitly clone by commit SHA inside Daytona tooling
+- Clone by commit SHA inside Noter's Daytona build tooling
+- Or use an equivalent future push-triggered checkout that is already pinned to
+  one commit
 
 The important contract is that the built snapshot is for one exact commit.
 
 ## Noter Data Model
 
-Add a dedicated commit snapshot mapping table instead of overloading fields on
-`vaults`.
+Add a dedicated repo-scoped commit snapshot mapping table instead of overloading
+fields on `vaults`.
 
 Suggested shape:
 
-- `vaultId`
+- `ghRepoOwner`
+- `ghRepoName`
 - `branch`
 - `commitSha`
 - `snapshotName`
@@ -180,6 +183,9 @@ Suggested shape:
   - `removing`
 - `attemptCount`
 - `lastError`
+- `logs`
+- `logsUpdatedAt`
+- `nextRetryAt`
 - `createdAt`
 - `updatedAt`
 
@@ -287,7 +293,7 @@ Track:
 - snapshot queue latency
 - snapshot build duration
 - retry count
-- time from GitHub push to active snapshot
+- time from Noter detecting a new commit to active snapshot
 - time from active snapshot to successful sandbox launch
 
 ## Migration

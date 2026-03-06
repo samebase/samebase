@@ -20,10 +20,19 @@ import os from "os";
 import path from "path";
 import * as git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
-import { action, type ActionCtx } from "./_generated/server";
+import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getUserId } from "./common";
 import { getDaytonaEnvLabel } from "./daytonaEnv";
+import {
+  DAYTONA_COMMIT_PINNED_BRANCH,
+  DAYTONA_SNAPSHOT_RETENTION_COUNT,
+  calculateSnapshotRetryDelayMs,
+  inferCommitPinnedSnapshotName,
+  inferCommitPinnedSnapshotPrefix,
+  isCommitPinnedDaytonaBranch,
+  shortenCommitSha,
+} from "./daytonaSnapshotPolicy";
 import { toSafeRepoName } from "./repoName";
 import type { Id } from "./_generated/dataModel";
 
@@ -63,15 +72,11 @@ const DAYTONA_REGISTRY_PROJECT_ENV = "DAYTONA_REGISTRY_PROJECT";
 const DAYTONA_REGISTRY_NAME_ENV = "DAYTONA_REGISTRY_NAME";
 const DAYTONA_REGISTRY_SET_DEFAULT_ENV = "DAYTONA_REGISTRY_SET_DEFAULT";
 const DAYTONA_ORGANIZATION_ID_ENV = "DAYTONA_ORGANIZATION_ID";
-const DAYTONA_REPO_REFRESH_MODE_ENV = "DAYTONA_REPO_REFRESH_MODE";
-const DAYTONA_SNAPSHOT_LIST_LIMIT = 100;
-const DAYTONA_SNAPSHOT_CACHE_TTL_MS = 5_000;
 const DAYTONA_PREBUILD_RESOURCES: Resources = {
   cpu: 4,
   memory: 8,
   disk: 10,
 };
-const REPO_REFRESH_MARKER = "__NOTER_REPO_REFRESH__";
 
 type GithubConnection = {
   kind: "github";
@@ -92,21 +97,6 @@ async function getGithubConnection(
   );
   return connection?.kind === "github" ? connection : null;
 }
-
-type RepoRefreshReason =
-  | "mode_always"
-  | "mode_never"
-  | "repo_missing"
-  | "remote_changed"
-  | "remote_unknown"
-  | "up_to_date"
-  | "failed"
-  | "unknown";
-
-type RepoRefreshResult = {
-  refreshed: boolean;
-  reason: RepoRefreshReason;
-};
 
 type DaytonaSnapshot = Awaited<
   ReturnType<Daytona["snapshot"]["list"]>
@@ -197,20 +187,6 @@ function resolveDaytonaApiConfig():
   }
 
   return { ok: true, baseUrl, token };
-}
-
-function resolveRepoRefreshMode(): RepoRefreshMode {
-  const raw = process.env[DAYTONA_REPO_REFRESH_MODE_ENV]?.trim().toLowerCase();
-  if (raw === "always" || raw === "smart" || raw === "never") {
-    return raw;
-  }
-  if (raw && raw.length > 0) {
-    console.warn("daytona:repo:refresh:mode:invalid", {
-      value: raw,
-      fallback: "smart",
-    });
-  }
-  return "smart";
 }
 
 async function inferSandboxDevOrigin(args: {
@@ -551,15 +527,9 @@ function inferPrebuildSnapshotName(args: {
   owner: string;
   repo: string;
   branch: string;
+  commitSha: string;
 }): string {
-  const envLabel = getDaytonaEnvLabel();
-  const base = toSafeRepoName(
-    `noter-prebuild-${envLabel}-${args.owner}-${args.repo}-${args.branch}`,
-  );
-  if (base) {
-    return base;
-  }
-  return `noter-prebuild-${envLabel}-snapshot`;
+  return inferCommitPinnedSnapshotName(args);
 }
 
 function inferDaytonaSnapshotPrefix(args: {
@@ -567,10 +537,7 @@ function inferDaytonaSnapshotPrefix(args: {
   repo: string;
 }): string | null {
   try {
-    const envLabel = getDaytonaEnvLabel();
-    const prefix = toSafeRepoName(
-      `noter-prebuild-${envLabel}-${args.owner}-${args.repo}-`,
-    );
+    const prefix = inferCommitPinnedSnapshotPrefix(args);
     if (prefix.length > 0) {
       return prefix;
     }
@@ -636,72 +603,6 @@ function isVaultSnapshotName(args: {
   snapshotPrefix: string;
 }): boolean {
   return args.snapshotName.startsWith(args.snapshotPrefix);
-}
-
-function parseSnapshotTimestamp(
-  value: Date | string | number | null | undefined,
-): number | undefined {
-  if (value === null || value === undefined) {
-    return undefined;
-  }
-  if (value instanceof Date) {
-    const timestamp = value.getTime();
-    return Number.isFinite(timestamp) ? timestamp : undefined;
-  }
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : undefined;
-  }
-  const timestamp = Date.parse(value);
-  return Number.isNaN(timestamp) ? undefined : timestamp;
-}
-
-async function listDaytonaSnapshots(
-  daytona: Daytona,
-  cacheKey: string,
-): Promise<DaytonaSnapshot[]> {
-  const now = Date.now();
-  const cached = daytonaSnapshotCache.get(cacheKey);
-  if (cached && cached.expiresAtMs > now) {
-    return cached.snapshots;
-  }
-
-  const existingRequest = daytonaSnapshotInFlight.get(cacheKey);
-  if (existingRequest) {
-    return existingRequest;
-  }
-
-  const request = (async () => {
-    const snapshots: DaytonaSnapshot[] = [];
-    let page = 1;
-    let totalPages = 1;
-
-    do {
-      const result = await daytona.snapshot.list(
-        page,
-        DAYTONA_SNAPSHOT_LIST_LIMIT,
-      );
-      snapshots.push(...result.items);
-      totalPages = result.totalPages;
-      page += 1;
-    } while (page <= totalPages);
-    return snapshots;
-  })();
-
-  daytonaSnapshotInFlight.set(cacheKey, request);
-  try {
-    const snapshots = await request;
-    if (daytonaSnapshotInFlight.get(cacheKey) === request) {
-      daytonaSnapshotCache.set(cacheKey, {
-        expiresAtMs: Date.now() + DAYTONA_SNAPSHOT_CACHE_TTL_MS,
-        snapshots,
-      });
-    }
-    return snapshots;
-  } finally {
-    if (daytonaSnapshotInFlight.get(cacheKey) === request) {
-      daytonaSnapshotInFlight.delete(cacheKey);
-    }
-  }
 }
 
 function quoteForBash(input: string): string {
@@ -863,223 +764,8 @@ function parseDevServerStatus(raw: string): DevServerStatus {
   return { running, pid, logTail, message };
 }
 
-function parseMarkerFields(payload: string): Map<string, string> {
-  const values = new Map<string, string>();
-  for (const part of payload.split(";")) {
-    if (part.trim().length === 0) {
-      continue;
-    }
-    const separatorIndex = part.indexOf("=");
-    if (separatorIndex === -1) {
-      continue;
-    }
-    const key = part.slice(0, separatorIndex);
-    const value = part.slice(separatorIndex + 1);
-    values.set(key, value);
-  }
-  return values;
-}
-
-function parseRepoRefreshReason(value: string | undefined): RepoRefreshReason {
-  if (
-    value === "mode_always" ||
-    value === "mode_never" ||
-    value === "repo_missing" ||
-    value === "remote_changed" ||
-    value === "remote_unknown" ||
-    value === "up_to_date" ||
-    value === "failed"
-  ) {
-    return value;
-  }
-  return "unknown";
-}
-
-function parseRepoRefreshResult(raw: string): RepoRefreshResult {
-  const markerLine = raw
-    .split("\n")
-    .find((line) => line.startsWith(REPO_REFRESH_MARKER));
-  if (!markerLine) {
-    return {
-      refreshed: false,
-      reason: "unknown",
-    };
-  }
-  const values = parseMarkerFields(
-    markerLine.slice(REPO_REFRESH_MARKER.length),
-  );
-  const refreshedValue = values.get("refreshed");
-  return {
-    refreshed: refreshedValue === "1" || refreshedValue === "true",
-    reason: parseRepoRefreshReason(values.get("reason")),
-  };
-}
-
-function formatRepoRefreshReason(reason: RepoRefreshReason): string {
-  if (reason === "mode_always") {
-    return "forced by config";
-  }
-  if (reason === "mode_never") {
-    return "disabled by config";
-  }
-  if (reason === "repo_missing") {
-    return "repo was missing";
-  }
-  if (reason === "remote_changed") {
-    return "remote branch changed";
-  }
-  if (reason === "remote_unknown") {
-    return "remote tip unknown";
-  }
-  if (reason === "up_to_date") {
-    return "already up to date";
-  }
-  if (reason === "failed") {
-    return "refresh failed";
-  }
-  return "unknown";
-}
-
 function formatDurationMs(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
-}
-
-function buildRepoUrl(args: { owner: string; repo: string }): string {
-  return `https://github.com/${args.owner}/${args.repo}.git`;
-}
-
-function buildAutoCdCommand(repoDir: string): string {
-  const autoCdLine = `cd ${repoDir}`;
-  return stripIndent`
-    auto_cd_line=${quoteForBash(autoCdLine)}
-    for file in /root/.bashrc /home/daytona/.bashrc /etc/bash.bashrc; do
-      if [ -f "$file" ]; then
-        if ! grep -Fqx "$auto_cd_line" "$file"; then printf "%s\\n" "$auto_cd_line" >> "$file"; fi
-      else
-        printf "%s\\n" "$auto_cd_line" >> "$file"
-      fi
-    done
-  `;
-}
-
-function buildWriteConvexEnvCommand(repoDir: string): string {
-  return stripIndent`
-    if [ -n "$CONVEX_DEPLOY_KEY" ]; then
-      env_file="${repoDir}/apps/noter/.env.local";
-      if [ -f "$env_file" ]; then
-        grep -v '^CONVEX_DEPLOY_KEY=' "$env_file" > "$env_file.tmp" || true;
-        mv "$env_file.tmp" "$env_file";
-      else
-        mkdir -p "$(dirname "$env_file")";
-      fi;
-      printf "CONVEX_DEPLOY_KEY=%s\\n" "$CONVEX_DEPLOY_KEY" >> "$env_file";
-      chmod 600 "$env_file";
-    fi
-  `;
-}
-
-async function refreshSandboxRepo(args: {
-  sandbox: Sandbox;
-  owner: string;
-  repo: string;
-  branch: string;
-  token: string | null;
-  mode: RepoRefreshMode;
-}): Promise<RepoRefreshResult> {
-  const workspaceDir = DEFAULT_WORKSPACE_DIR;
-  const repoDir = `${workspaceDir}/${args.repo}`;
-  const repoUrl = buildRepoUrl({
-    owner: args.owner,
-    repo: args.repo,
-  });
-  const authToken = args.token ?? "";
-  const autoCdCommand = buildAutoCdCommand(repoDir);
-  const writeConvexEnvCommand = buildWriteConvexEnvCommand(repoDir);
-  const script = stripIndent`
-set -e
-export GIT_TERMINAL_PROMPT=0
-mode=${quoteForBash(args.mode)}
-branch_ref=${quoteForBash(args.branch)}
-repo_url=${quoteForBash(repoUrl)}
-auth_token=${quoteForBash(authToken)}
-mkdir -p "${workspaceDir}"
-if ! command -v git >/dev/null; then (command -v sudo >/dev/null && sudo apt-get update && sudo apt-get install -y git) || (apt-get update && apt-get install -y git); fi
-repo_missing="0"
-[ -d "${repoDir}" ] || { mkdir -p "${repoDir}"; repo_missing="1"; }
-cd "${repoDir}"
-if [ ! -d ".git" ]; then git init; repo_missing="1"; fi
-if git remote get-url origin >/dev/null 2>&1; then git remote set-url origin "$repo_url"; else git remote add origin "$repo_url"; fi
-auth_header=""
-if [ -n "$auth_token" ]; then
-  auth_basic=$(printf 'x-access-token:%s' "$auth_token" | base64 | tr -d '\n')
-  auth_header="AUTHORIZATION: basic $auth_basic"
-fi
-local_head=$(git rev-parse HEAD 2>/dev/null || true)
-if [ -n "$auth_header" ]; then
-  remote_head=$(git -c "http.extraHeader=$auth_header" ls-remote --heads origin "$branch_ref" 2>/dev/null | awk '{print $1}' | head -n 1 || true)
-else
-  remote_head=$(git ls-remote --heads origin "$branch_ref" 2>/dev/null | awk '{print $1}' | head -n 1 || true)
-fi
-should_fetch="0"
-reason="up_to_date"
-
-if [ "$repo_missing" = "1" ]; then
-  should_fetch="1"
-  reason="repo_missing"
-elif [ "$mode" = "always" ]; then
-  should_fetch="1"
-  reason="mode_always"
-elif [ "$mode" = "never" ]; then
-  should_fetch="0"
-  reason="mode_never"
-elif [ -z "$remote_head" ]; then
-  should_fetch="1"
-  reason="remote_unknown"
-elif [ "$local_head" != "$remote_head" ]; then
-  should_fetch="1"
-  reason="remote_changed"
-fi
-
-if [ "$should_fetch" = "1" ]; then
-  if [ -n "$auth_header" ]; then
-    git -c "http.extraHeader=$auth_header" fetch origin "$branch_ref" --depth=1
-  else
-    git fetch origin "$branch_ref" --depth=1
-  fi
-  git checkout -f -B "$branch_ref" FETCH_HEAD
-  git reset --hard FETCH_HEAD
-else
-  current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
-  if [ "$current_branch" != "$branch_ref" ] && [ -n "$local_head" ]; then
-    git checkout -f -B "$branch_ref" "$local_head"
-  fi
-fi
-${writeConvexEnvCommand}
-${autoCdCommand}
-echo "${REPO_REFRESH_MARKER}refreshed=\${should_fetch};reason=\${reason}"
-  `;
-  const command = `bash -lc ${quoteForBash(script)}`;
-  const result = await args.sandbox.process.executeCommand(
-    command,
-    undefined,
-    undefined,
-    600,
-  );
-
-  console.log("daytona:repo:refresh:result", {
-    sandboxId: args.sandbox.id,
-    repo: `${args.owner}/${args.repo}`,
-    branch: args.branch,
-    mode: args.mode,
-    parsed: parseRepoRefreshResult(result.result),
-    result,
-  });
-
-  if (result.exitCode !== 0) {
-    throw new Error(`Failed to refresh repo (exit ${result.exitCode}).`);
-  }
-
-  return parseRepoRefreshResult(result.result);
 }
 
 async function startDaytonaDevServer(args: {
@@ -1277,14 +963,25 @@ const prebuildDaytonaSnapshotResult = object({
   message: optional(string()),
 });
 
+const buildCommitPinnedSnapshotArgs = object({
+  userId: id("users"),
+  owner: string(),
+  repo: string(),
+  branch: string(),
+  commitSha: string(),
+});
+
 const daytonaSnapshotListItem = object({
   name: string(),
   state: string(),
-  dashboardUrl: string(),
+  commitSha: optional(string()),
+  dashboardUrl: optional(string()),
   errorReason: optional(string()),
+  attemptCount: number(),
   createdAt: optional(number()),
   updatedAt: optional(number()),
   lastUsedAt: optional(number()),
+  nextRetryAt: optional(number()),
 });
 
 const listDaytonaSnapshotsForVaultArgs = object({
@@ -1316,6 +1013,7 @@ const getDaytonaPrebuildStatusArgs = object({
 
 const getDaytonaPrebuildStatusResult = object({
   ok: boolean(),
+  commitSha: optional(string()),
   snapshotName: optional(string()),
   state: optional(string()),
   errorReason: optional(string()),
@@ -1363,7 +1061,79 @@ export const startDaytonaWorkspace = action({
 
     const branch = args.branch?.trim() || "main";
     const startupStartedAt = Date.now();
-    const repoRefreshMode = resolveRepoRefreshMode();
+    if (!isCommitPinnedDaytonaBranch(branch)) {
+      return {
+        ok: false,
+        status: "not_configured",
+        message: `Daytona commit-pinned snapshots currently support ${DAYTONA_COMMIT_PINNED_BRANCH} only.`,
+        branch,
+      };
+    }
+
+    const expectedCommitSha = vault.commitSHA?.trim();
+    if (!expectedCommitSha) {
+      return {
+        ok: false,
+        status: "not_configured",
+        message:
+          "Latest main commit is not known yet. Refresh the repository first.",
+        branch,
+      };
+    }
+
+    const snapshotRecord = await ctx.runQuery(
+      internal.daytonaSnapshotRecords.getByRepoBranchCommit,
+      {
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        branch,
+        commitSha: expectedCommitSha,
+      },
+    );
+    if (!snapshotRecord) {
+      return {
+        ok: false,
+        status: "not_configured",
+        message: `Snapshot for ${branch}@${shortenCommitSha(expectedCommitSha)} has not started building yet.`,
+        branch,
+      };
+    }
+    if (snapshotRecord.status === "queued") {
+      return {
+        ok: false,
+        status: "not_configured",
+        message: `Snapshot for ${branch}@${shortenCommitSha(expectedCommitSha)} is queued.`,
+        branch,
+      };
+    }
+    if (snapshotRecord.status === "building") {
+      return {
+        ok: false,
+        status: "not_configured",
+        message: `Snapshot for ${branch}@${shortenCommitSha(expectedCommitSha)} is still building.`,
+        branch,
+      };
+    }
+    if (snapshotRecord.status === "failed") {
+      return {
+        ok: false,
+        status: "not_configured",
+        message:
+          snapshotRecord.lastError && snapshotRecord.lastError.length > 0
+            ? `Latest snapshot for ${branch}@${shortenCommitSha(expectedCommitSha)} failed: ${snapshotRecord.lastError}`
+            : `Latest snapshot for ${branch}@${shortenCommitSha(expectedCommitSha)} failed.`,
+        branch,
+      };
+    }
+    if (snapshotRecord.status === "removing") {
+      return {
+        ok: false,
+        status: "not_configured",
+        message: `Snapshot for ${branch}@${shortenCommitSha(expectedCommitSha)} is being removed.`,
+        branch,
+      };
+    }
+
     const apiConfig = resolveDaytonaApiConfig();
     if (!apiConfig.ok) {
       return {
@@ -1384,7 +1154,9 @@ export const startDaytonaWorkspace = action({
 
     const envLabel = getDaytonaEnvLabel();
     const baseName = toSafeRepoName(
-      `noter-${envLabel}-${vault.ghRepoOwner}-${vault.ghRepoName}-${branch}`,
+      `noter-${envLabel}-${vault.ghRepoOwner}-${vault.ghRepoName}-${branch}-${shortenCommitSha(
+        expectedCommitSha,
+      )}`,
     );
     const sandboxName = baseName || `noter-${envLabel}-${args.vaultId}`;
 
@@ -1398,17 +1170,23 @@ export const startDaytonaWorkspace = action({
     const repoWorkdir = `${DEFAULT_WORKSPACE_DIR}/${vault.ghRepoName}`;
     const requestedVaultLabel = String(args.vaultId);
     const requestedBranchLabel = branch;
+    const requestedCommitLabel = expectedCommitSha;
     const hasMatchingLabels = (candidate: Sandbox): boolean => {
       const candidateVaultLabel = candidate.labels["noter.vault_id"]?.trim();
       if (candidateVaultLabel !== requestedVaultLabel) {
         return false;
       }
       const candidateBranchLabel = candidate.labels["noter.branch"]?.trim();
-      return candidateBranchLabel === requestedBranchLabel;
+      if (candidateBranchLabel !== requestedBranchLabel) {
+        return false;
+      }
+      const candidateCommitLabel =
+        candidate.labels["noter.commit_sha"]?.trim() ?? "";
+      return candidateCommitLabel === requestedCommitLabel;
     };
 
     let sandbox: Sandbox | null = null;
-    let snapshotToUse: string | null = null;
+    const snapshotToUse = snapshotRecord.snapshotName ?? null;
     let sandboxCreateMs = 0;
     let sandboxLifecycle: "created" | "resumed" | "reused" = "created";
 
@@ -1430,6 +1208,7 @@ export const startDaytonaWorkspace = action({
         {
           "noter.vault_id": requestedVaultLabel,
           "noter.branch": requestedBranchLabel,
+          "noter.commit_sha": requestedCommitLabel,
         },
         1,
         5,
@@ -1474,41 +1253,34 @@ export const startDaytonaWorkspace = action({
       }
     }
 
-    if (!sandbox) {
-      const prebuildSnapshotName = inferPrebuildSnapshotName({
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
+    if (!snapshotToUse) {
+      return {
+        ok: false,
+        status: "not_configured",
+        message: `Snapshot name is missing for ${branch}@${shortenCommitSha(expectedCommitSha)}.`,
         branch,
-      });
-      if (prebuildSnapshotName) {
-        try {
-          const snapshot = await daytona.snapshot.get(prebuildSnapshotName);
-          if (snapshot.state !== "active") {
-            return {
-              ok: false,
-              status: "not_configured",
-              message: `Snapshot ${prebuildSnapshotName} is ${snapshot.state}. Wait for it to become active.`,
-              branch,
-            };
-          }
-          snapshotToUse = prebuildSnapshotName;
-        } catch (error) {
-          if (!isNotFoundError(error)) {
-            throw error;
-          }
+      };
+    }
+
+    if (!sandbox) {
+      try {
+        const snapshot = await daytona.snapshot.get(snapshotToUse);
+        if (snapshot.state !== "active") {
           return {
             ok: false,
             status: "not_configured",
-            message: `No snapshot found for ${branch} yet. Build a snapshot before creating a workspace.`,
+            message: `Snapshot ${snapshotToUse} is ${snapshot.state}. Wait for it to become active.`,
             branch,
           };
         }
-      }
-      if (!snapshotToUse) {
+      } catch (error) {
+        if (!isNotFoundError(error)) {
+          throw error;
+        }
         return {
           ok: false,
           status: "not_configured",
-          message: "Snapshot name is missing.",
+          message: `Snapshot ${snapshotToUse} is missing.`,
           branch,
         };
       }
@@ -1523,6 +1295,7 @@ export const startDaytonaWorkspace = action({
             NOTER_VAULT_ID: args.vaultId,
             NOTER_REPO: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
             NOTER_BRANCH: branch,
+            NOTER_COMMIT_SHA: expectedCommitSha,
           };
 
           const convexDeployKey = process.env[DAYTONA_CONVEX_DEPLOY_KEY_ENV];
@@ -1535,6 +1308,7 @@ export const startDaytonaWorkspace = action({
           "noter.vault_id": args.vaultId,
           "noter.repo": `${vault.ghRepoOwner}/${vault.ghRepoName}`,
           "noter.branch": branch,
+          "noter.commit_sha": expectedCommitSha,
         },
       };
       const sandboxParams: CreateSandboxFromSnapshotParams = {
@@ -1555,58 +1329,13 @@ export const startDaytonaWorkspace = action({
 
     const resolvedSandboxName = sandbox.name;
 
-    const githubConnection = await getGithubConnection(ctx, userId);
-    const githubToken = githubConnection?.auth.credential ?? null;
-    let repoRefreshMs = 0;
+    const repoRefreshMode: RepoRefreshMode = "never";
+    const repoRefreshMs = 0;
     let devServerStartMs = 0;
-    let repoRefreshed = false;
-    let repoRefreshReason: RepoRefreshReason = "unknown";
-    let bootstrapMessage: string | null = null;
+    const repoRefreshed = false;
+    const repoRefreshReason = "commit_pinned";
+    const bootstrapMessage = `Using commit-pinned snapshot ${snapshotToUse} for ${shortenCommitSha(expectedCommitSha)}. Repo refresh skipped to preserve the exact commit.`;
     let devServerMessage: string | null = null;
-    const repoRefreshStartedAt = Date.now();
-    try {
-      console.log("daytona:repo:refresh:start", {
-        vaultId: args.vaultId,
-        repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-        branch,
-        mode: repoRefreshMode,
-      });
-      const refreshResult = await refreshSandboxRepo({
-        sandbox,
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
-        branch,
-        token: githubToken,
-        mode: repoRefreshMode,
-      });
-      repoRefreshMs = Date.now() - repoRefreshStartedAt;
-      repoRefreshed = refreshResult.refreshed;
-      repoRefreshReason = refreshResult.reason;
-      console.log("daytona:repo:refresh:done", {
-        vaultId: args.vaultId,
-        repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-        branch,
-        mode: repoRefreshMode,
-        refreshResult,
-      });
-      if (refreshResult.refreshed) {
-        bootstrapMessage = "Using snapshot; repo refreshed to latest branch.";
-      } else {
-        bootstrapMessage = `Using snapshot; repo refresh skipped (${formatRepoRefreshReason(
-          refreshResult.reason,
-        )}).`;
-      }
-    } catch (error) {
-      repoRefreshMs = Date.now() - repoRefreshStartedAt;
-      repoRefreshReason = "failed";
-      const message = error instanceof Error ? error.message : String(error);
-      console.warn("daytona:repo:refresh:failed", {
-        vaultId: args.vaultId,
-        message,
-        mode: repoRefreshMode,
-      });
-      bootstrapMessage = `Using snapshot; repo refresh failed: ${message}`;
-    }
 
     const devServerStartedAt = Date.now();
     try {
@@ -1657,7 +1386,7 @@ export const startDaytonaWorkspace = action({
       sandboxLifecycle === "created"
         ? `Daytona sandbox created from snapshot ${snapshotToUse}.`
         : sandboxLifecycle === "resumed"
-          ? `Daytona sandbox resumed (${resolvedSandboxName}).`
+          ? `Daytona sandbox resumed for ${shortenCommitSha(expectedCommitSha)} (${resolvedSandboxName}).`
           : `Reusing Daytona sandbox ${resolvedSandboxName}.`;
     const messageParts: string[] = [baseMessage];
     if (bootstrapMessage) {
@@ -1693,17 +1422,26 @@ async function resolveDaytonaSandboxForVault(args: {
   daytonaSandboxId?: string;
   daytonaSandboxName?: string;
   requestedBranch?: string;
+  requestedCommitSha?: string;
 }): Promise<
   | { ok: true; sandbox: Sandbox; sandboxName: string | undefined }
   | { ok: false; message: string }
 > {
   const requestedBranch = args.requestedBranch?.trim();
+  const requestedCommitSha = args.requestedCommitSha?.trim();
   const matchesRequestedBranch = (candidate: Sandbox): boolean => {
     if (!requestedBranch) {
       return true;
     }
     const branchLabel = candidate.labels["noter.branch"]?.trim();
-    return branchLabel === requestedBranch;
+    if (branchLabel !== requestedBranch) {
+      return false;
+    }
+    if (!requestedCommitSha) {
+      return true;
+    }
+    const commitLabel = candidate.labels["noter.commit_sha"]?.trim();
+    return commitLabel === requestedCommitSha;
   };
 
   let sandbox: Sandbox | null = null;
@@ -1727,6 +1465,9 @@ async function resolveDaytonaSandboxForVault(args: {
     const labels: Record<string, string> = { "noter.vault_id": args.vaultId };
     if (requestedBranch) {
       labels["noter.branch"] = requestedBranch;
+    }
+    if (requestedCommitSha) {
+      labels["noter.commit_sha"] = requestedCommitSha;
     }
     const matches = await args.daytona.list(labels, 1, 5);
     const match = matches.items[0];
@@ -1806,6 +1547,10 @@ export const getDaytonaTerminalUrl = action({
       daytonaSandboxId: vault.daytonaSandboxId,
       daytonaSandboxName: vault.daytonaSandboxName,
       requestedBranch: args.branch,
+      requestedCommitSha:
+        (args.branch?.trim() || "main") === DAYTONA_COMMIT_PINNED_BRANCH
+          ? vault.commitSHA?.trim()
+          : undefined,
     });
     if (!resolvedSandbox.ok) {
       return {
@@ -1877,6 +1622,10 @@ export const getDaytonaPreviewUrl = action({
       daytonaSandboxId: vault.daytonaSandboxId,
       daytonaSandboxName: vault.daytonaSandboxName,
       requestedBranch: args.branch,
+      requestedCommitSha:
+        (args.branch?.trim() || "main") === DAYTONA_COMMIT_PINNED_BRANCH
+          ? vault.commitSHA?.trim()
+          : undefined,
     });
     if (!resolvedSandbox.ok) {
       return {
@@ -2376,65 +2125,162 @@ export const getDaytonaBootstrapLogs = action({
   },
 });
 
-export const prebuildDaytonaSnapshot = action({
-  args: prebuildDaytonaSnapshotArgs,
+async function cloneRepoForSnapshotBuild(args: {
+  repoDir: string;
+  repoUrl: string;
+  branch: string;
+  githubToken: string;
+  commitSha: string;
+}): Promise<void> {
+  const cloneRepo = async (depth?: number) => {
+    await git.clone({
+      fs,
+      http,
+      dir: args.repoDir,
+      url: args.repoUrl,
+      ref: args.branch,
+      singleBranch: true,
+      depth,
+      onAuth: () => ({
+        username: args.githubToken,
+        password: "x-oauth-basic",
+      }),
+    });
+    await git.checkout({
+      fs,
+      dir: args.repoDir,
+      ref: args.commitSha,
+      force: true,
+    });
+  };
+
+  try {
+    await cloneRepo(50);
+  } catch (error) {
+    await fs.promises.rm(args.repoDir, { recursive: true, force: true });
+    await cloneRepo();
+    if (!isNotFoundError(error)) {
+      console.warn("daytona:prebuild:clone:retrying_with_full_history", {
+        repoUrl: args.repoUrl,
+        branch: args.branch,
+        commitSha: args.commitSha,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  const resolvedCommitSha = await git.resolveRef({
+    fs,
+    dir: args.repoDir,
+    ref: "HEAD",
+  });
+  if (resolvedCommitSha !== args.commitSha) {
+    throw new Error(
+      `Snapshot checkout mismatch: expected ${args.commitSha}, got ${resolvedCommitSha}.`,
+    );
+  }
+}
+
+async function pruneCommitPinnedSnapshots(args: {
+  ctx: ActionCtx;
+  daytona: Daytona;
+  apiUrl: string;
+  apiToken: string;
+  owner: string;
+  repo: string;
+  branch: string;
+}) {
+  const records = await args.ctx.runQuery(
+    internal.daytonaSnapshotRecords.listByRepoBranch,
+    {
+      owner: args.owner,
+      repo: args.repo,
+      branch: args.branch,
+    },
+  );
+  const recordsToRemove = [...records]
+    .sort((left, right) => right.createdAt - left.createdAt)
+    .slice(DAYTONA_SNAPSHOT_RETENTION_COUNT);
+
+  if (recordsToRemove.length === 0) {
+    return;
+  }
+
+  const snapshotIds = recordsToRemove.map((record) => record._id);
+  await args.ctx.runMutation(
+    internal.daytonaSnapshotRecords.markBuildRemoving,
+    {
+      snapshotIds,
+      updatedAt: Date.now(),
+    },
+  );
+
+  for (const record of recordsToRemove) {
+    if (!record.snapshotName) {
+      continue;
+    }
+    try {
+      const snapshot = await args.daytona.snapshot.get(record.snapshotName);
+      await args.daytona.snapshot.delete(snapshot);
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  await args.ctx.runMutation(
+    internal.daytonaSnapshotRecords.removeRecordsByIds,
+    {
+      snapshotIds,
+    },
+  );
+
+  const snapshotCacheKey = buildDaytonaSnapshotCacheKey({
+    apiUrl: args.apiUrl,
+    apiToken: args.apiToken,
+  });
+  daytonaSnapshotCache.delete(snapshotCacheKey);
+  daytonaSnapshotInFlight.delete(snapshotCacheKey);
+}
+
+export const buildCommitPinnedSnapshot = internalAction({
+  args: buildCommitPinnedSnapshotArgs,
   returns: prebuildDaytonaSnapshotResult,
   handler: async (
     ctx,
     args,
   ): Promise<Infer<typeof prebuildDaytonaSnapshotResult>> => {
-    const userId = await getUserId(ctx);
-    const vault = await ctx.runQuery(internal.vault.getById, {
-      id: args.vaultId,
-    });
-
-    if (!vault || vault.userId !== userId) {
-      throw new Error("Vault not found");
-    }
-
-    const branch = args.branch?.trim() || "main";
-    const apiConfig = resolveDaytonaApiConfig();
-    if (!apiConfig.ok) {
-      return {
-        ok: false,
-        message: apiConfig.message,
-      };
-    }
-    const baseUrl = apiConfig.baseUrl;
-    const token = apiConfig.token;
-
-    const githubConnection = await getGithubConnection(ctx, userId);
-    const githubToken = githubConnection?.auth.credential ?? null;
-    if (!githubToken) {
-      return {
-        ok: false,
-        message: "Missing GitHub token for snapshot clone.",
-      };
-    }
-
-    const config: { apiKey: string; apiUrl?: string } = {
-      apiKey: token,
-    };
-    if (baseUrl) {
-      config.apiUrl = baseUrl;
-    }
-    const daytona = new Daytona(config);
-
+    const branch = args.branch.trim();
     const snapshotName = inferPrebuildSnapshotName({
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
+      owner: args.owner,
+      repo: args.repo,
       branch,
+      commitSha: args.commitSha,
     });
-
     const prebuildStartedAt = Date.now();
-    const prebuildStartLine = `Snapshot build started for ${branch} at ${new Date(prebuildStartedAt).toISOString()}\n`;
-    await ctx.runMutation(internal.vault.updateVaultDaytonaPrebuildLogs, {
-      vaultId: args.vaultId,
-      branch,
-      snapshotName,
-      logs: prebuildStartLine,
-      updatedAt: prebuildStartedAt,
-    });
+    const prebuildStartLine = `Snapshot build started for ${branch}@${shortenCommitSha(
+      args.commitSha,
+    )} at ${new Date(prebuildStartedAt).toISOString()}\n`;
+    const markStartedResult = await ctx.runMutation(
+      internal.daytonaSnapshotRecords.markBuildStarted,
+      {
+        owner: args.owner,
+        repo: args.repo,
+        branch,
+        commitSha: args.commitSha,
+        startedAt: prebuildStartedAt,
+        logs: prebuildStartLine,
+      },
+    );
+    if (!markStartedResult) {
+      return {
+        ok: false,
+        snapshotName,
+        commitSha: args.commitSha,
+        message: "Snapshot record not found.",
+      };
+    }
 
     const prebuildLogState = {
       buffer: prebuildStartLine,
@@ -2450,9 +2296,11 @@ export const prebuildDaytonaSnapshot = action({
         return;
       }
       prebuildLogState.lastFlushAt = now;
-      await ctx.runMutation(internal.vault.updateVaultDaytonaPrebuildLogs, {
-        vaultId: args.vaultId,
+      await ctx.runMutation(internal.daytonaSnapshotRecords.updateLogs, {
+        owner: args.owner,
+        repo: args.repo,
         branch,
+        commitSha: args.commitSha,
         snapshotName,
         logs: prebuildLogState.buffer,
         updatedAt: now,
@@ -2470,241 +2318,422 @@ export const prebuildDaytonaSnapshot = action({
       await flushPrebuildLogs(false);
     };
 
+    const apiConfig = resolveDaytonaApiConfig();
+    if (!apiConfig.ok) {
+      const failedAt = Date.now();
+      const retryDelayMs = calculateSnapshotRetryDelayMs(
+        markStartedResult.attemptCount,
+      );
+      await appendPrebuildLog(`${apiConfig.message}\n`);
+      await ctx.runMutation(
+        internal.daytonaSnapshotRecords.markBuildFailedAndScheduleRetry,
+        {
+          owner: args.owner,
+          repo: args.repo,
+          branch,
+          commitSha: args.commitSha,
+          userId: args.userId,
+          error: apiConfig.message,
+          updatedAt: failedAt,
+          retryDelayMs,
+        },
+      );
+      return {
+        ok: false,
+        snapshotName,
+        commitSha: args.commitSha,
+        message: apiConfig.message,
+      };
+    }
+    const baseUrl = apiConfig.baseUrl;
+    const token = apiConfig.token;
+    const githubConnection = await getGithubConnection(ctx, args.userId);
+    const githubToken = githubConnection?.auth.credential ?? null;
+    if (!githubToken) {
+      const message = "Missing GitHub token for snapshot clone.";
+      await appendPrebuildLog(`${message}\n`);
+      const failedAt = Date.now();
+      const retryDelayMs = calculateSnapshotRetryDelayMs(
+        markStartedResult.attemptCount,
+      );
+      await ctx.runMutation(
+        internal.daytonaSnapshotRecords.markBuildFailedAndScheduleRetry,
+        {
+          owner: args.owner,
+          repo: args.repo,
+          branch,
+          commitSha: args.commitSha,
+          userId: args.userId,
+          error: message,
+          updatedAt: failedAt,
+          retryDelayMs,
+        },
+      );
+      return {
+        ok: false,
+        snapshotName,
+        commitSha: args.commitSha,
+        message,
+      };
+    }
+
+    const config: { apiKey: string; apiUrl?: string } = {
+      apiKey: token,
+    };
+    if (baseUrl) {
+      config.apiUrl = baseUrl;
+    }
+    const daytona = new Daytona(config);
+
     console.log("daytona:prebuild:start", {
-      vaultId: args.vaultId,
-      repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+      repo: `${args.owner}/${args.repo}`,
       branch,
+      commitSha: args.commitSha,
       snapshotName,
+      attemptCount: markStartedResult.attemptCount,
     });
 
     try {
-      const existing = await daytona.snapshot.get(snapshotName);
-      await daytona.snapshot.delete(existing);
-    } catch (error) {
-      if (!isNotFoundError(error)) {
-        throw error;
-      }
-    }
-
-    const tmpRoot = await fs.promises.mkdtemp(
-      path.join(os.tmpdir(), "noter-prebuild-"),
-    );
-    const repoDir = path.join(tmpRoot, "repo");
-    const repoUrl = `https://github.com/${vault.ghRepoOwner}/${vault.ghRepoName}.git`;
-
-    try {
-      await git.clone({
-        fs,
-        http,
-        dir: repoDir,
-        url: repoUrl,
-        ref: branch,
-        singleBranch: true,
-        depth: 1,
-        onAuth: () => ({
-          username: githubToken,
-          password: "x-oauth-basic",
-        }),
-      });
-
-      const headSha = await git.resolveRef({
-        fs,
-        dir: repoDir,
-        ref: "HEAD",
-      });
-
-      await fs.promises.writeFile(
-        path.join(repoDir, ".dockerignore"),
-        ".git\nnode_modules\n.pnpm\n",
-      );
-
-      const repoPath = `${DEFAULT_WORKSPACE_DIR}/${vault.ghRepoName}`;
-      const autoCdCommand = stripIndent`
-        auto_cd_line="cd ${repoPath}";
-        for file in /root/.bashrc /home/daytona/.bashrc /etc/bash.bashrc; do
-          if [ -f "$file" ]; then
-            if ! grep -Fqx "$auto_cd_line" "$file"; then printf "%s\\n" "$auto_cd_line" >> "$file"; fi;
-          else
-            printf "%s\\n" "$auto_cd_line" >> "$file";
-          fi;
-        done
-      `
-        // Dockerfile RUN instructions must be a single line; keep loop inline.
-        .replace(/\n/g, " ");
-
-      const lockHash = await readPnpmLockHash(repoDir);
-      const depsInputHash = await readDepsInputHash({
-        repoDir,
-        baseImage: resolveDaytonaBaseImage(),
-        pnpmVersion: DAYTONA_PNPM_VERSION,
-      });
-      const depsImageCandidates = resolveDepsImageNames({
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
-        inputHash: depsInputHash,
-        lockHash,
-      });
-
-      const registryConfigResult = readRegistryConfig();
-      if (
-        depsImageCandidates.length > 0 &&
-        registryConfigResult.missing.length > 0
-      ) {
-        await appendPrebuildLog(
-          `Registry config missing (${registryConfigResult.missing.join(
-            ", ",
-          )}); attempting to pull image without registry auth.\n`,
-        );
-      }
-      if (depsImageCandidates.length > 0 && registryConfigResult.config) {
-        await appendPrebuildLog(
-          `Ensuring registry access for ${registryConfigResult.config.url}...\n`,
-        );
-        try {
-          const registryStatus = await ensureDaytonaRegistry({
-            baseUrl,
-            token,
-            config: registryConfigResult.config,
-          });
-          await appendPrebuildLog(
-            `Registry ${registryStatus.status}: ${registryConfigResult.config.url}\n`,
-          );
-        } catch (error) {
-          const message = `Registry setup failed: ${
-            error instanceof Error ? error.message : String(error)
-          }\n`;
-          await appendPrebuildLog(message);
-          throw new Error(message.trim());
+      try {
+        const existing = await daytona.snapshot.get(snapshotName);
+        await daytona.snapshot.delete(existing);
+      } catch (error) {
+        if (!isNotFoundError(error)) {
+          throw error;
         }
       }
 
-      const baseCommands = [
-        "USER root",
-        `WORKDIR ${repoPath}`,
-        `COPY . ${repoPath}`,
-        `RUN corepack enable && corepack prepare pnpm@${DAYTONA_PNPM_VERSION} --activate`,
-      ];
-      const installCommand =
-        "RUN pnpm install --prod=false --force --node-linker=hoisted";
-      const autoCdStep = `RUN ${autoCdCommand}`;
+      const tmpRoot = await fs.promises.mkdtemp(
+        path.join(os.tmpdir(), "noter-prebuild-"),
+      );
+      const repoDir = path.join(tmpRoot, "repo");
+      const repoUrl = `https://github.com/${args.owner}/${args.repo}.git`;
 
-      const createSnapshot = async (
-        baseImage: string,
-        includeInstall: boolean,
-      ) => {
-        const dockerfileCommands = includeInstall
-          ? [...baseCommands, installCommand, autoCdStep]
-          : [...baseCommands, autoCdStep];
-        const image = Image.base(baseImage).dockerfileCommands(
-          dockerfileCommands,
+      try {
+        await cloneRepoForSnapshotBuild({
           repoDir,
-        );
-        await daytona.snapshot.create(
-          { name: snapshotName, image, resources: DAYTONA_PREBUILD_RESOURCES },
-          {
-            timeout: 0,
-            onLogs: (chunk) => {
-              if (chunk.trim().length > 0) {
-                console.log("daytona:prebuild:log", {
-                  vaultId: args.vaultId,
-                  snapshotName,
-                  chunk,
-                });
-                void appendPrebuildLog(chunk).catch((error) => {
-                  console.warn("daytona:prebuild:log-append-failed", {
-                    vaultId: args.vaultId,
-                    snapshotName,
-                    message:
-                      error instanceof Error ? error.message : String(error),
-                  });
-                });
-              }
-            },
-          },
-        );
-      };
+          repoUrl,
+          branch,
+          githubToken,
+          commitSha: args.commitSha,
+        });
 
-      if (depsImageCandidates.length > 0) {
-        let selectedDepsImage: string | null = null;
-        const missingDepsImages: string[] = [];
-        for (const depsImage of depsImageCandidates) {
+        await fs.promises.writeFile(
+          path.join(repoDir, ".dockerignore"),
+          ".git\nnode_modules\n.pnpm\n",
+        );
+
+        const repoPath = `${DEFAULT_WORKSPACE_DIR}/${args.repo}`;
+        const autoCdCommand = stripIndent`
+          auto_cd_line="cd ${repoPath}";
+          for file in /root/.bashrc /home/daytona/.bashrc /etc/bash.bashrc; do
+            if [ -f "$file" ]; then
+              if ! grep -Fqx "$auto_cd_line" "$file"; then printf "%s\\n" "$auto_cd_line" >> "$file"; fi;
+            else
+              printf "%s\\n" "$auto_cd_line" >> "$file";
+            fi;
+          done
+        `.replace(/\n/g, " ");
+
+        const lockHash = await readPnpmLockHash(repoDir);
+        const depsInputHash = await readDepsInputHash({
+          repoDir,
+          baseImage: resolveDaytonaBaseImage(),
+          pnpmVersion: DAYTONA_PNPM_VERSION,
+        });
+        const depsImageCandidates = resolveDepsImageNames({
+          owner: args.owner,
+          repo: args.repo,
+          inputHash: depsInputHash,
+          lockHash,
+        });
+
+        const registryConfigResult = readRegistryConfig();
+        if (
+          depsImageCandidates.length > 0 &&
+          registryConfigResult.missing.length > 0
+        ) {
+          await appendPrebuildLog(
+            `Registry config missing (${registryConfigResult.missing.join(
+              ", ",
+            )}); attempting to pull image without registry auth.\n`,
+          );
+        }
+        if (depsImageCandidates.length > 0 && registryConfigResult.config) {
+          await appendPrebuildLog(
+            `Ensuring registry access for ${registryConfigResult.config.url}...\n`,
+          );
           try {
-            console.log("daytona:prebuild:deps-image", {
-              vaultId: args.vaultId,
-              snapshotName,
-              depsImage,
-              inputHash: depsInputHash,
-              lockHash,
+            const registryStatus = await ensureDaytonaRegistry({
+              baseUrl,
+              token,
+              config: registryConfigResult.config,
             });
             await appendPrebuildLog(
-              `Trying deps image ${depsImage} (input hash ${depsInputHash ?? "unknown"}, lock hash ${lockHash ?? "unknown"})\n`,
+              `Registry ${registryStatus.status}: ${registryConfigResult.config.url}\n`,
             );
-            await createSnapshot(depsImage, false);
-            selectedDepsImage = depsImage;
-            await appendPrebuildLog(`Using deps image ${depsImage}\n`);
-            break;
           } catch (error) {
-            if (isNotFoundError(error)) {
-              missingDepsImages.push(depsImage);
-              await appendPrebuildLog(`Deps image not found: ${depsImage}\n`);
-              continue;
-            }
-            await appendPrebuildLog(
-              `Snapshot build failed: ${
-                error instanceof Error ? error.message : String(error)
-              }\n`,
-            );
-            throw error;
+            const message = `Registry setup failed: ${
+              error instanceof Error ? error.message : String(error)
+            }\n`;
+            await appendPrebuildLog(message);
+            throw new Error(message.trim());
           }
         }
 
-        if (!selectedDepsImage) {
-          const missingList =
-            missingDepsImages.length > 0
-              ? missingDepsImages.join(", ")
-              : "none";
-          const message = `Deps image not found for candidates: ${missingList}. Build and publish the deps image first.`;
-          await appendPrebuildLog(`${message}\n`);
-          throw new Error(message);
+        const baseCommands = [
+          "USER root",
+          `WORKDIR ${repoPath}`,
+          `COPY . ${repoPath}`,
+          `RUN corepack enable && corepack prepare pnpm@${DAYTONA_PNPM_VERSION} --activate`,
+        ];
+        const installCommand =
+          "RUN pnpm install --prod=false --force --node-linker=hoisted";
+        const autoCdStep = `RUN ${autoCdCommand}`;
+
+        const createSnapshot = async (
+          baseImage: string,
+          includeInstall: boolean,
+        ) => {
+          const dockerfileCommands = includeInstall
+            ? [...baseCommands, installCommand, autoCdStep]
+            : [...baseCommands, autoCdStep];
+          const image = Image.base(baseImage).dockerfileCommands(
+            dockerfileCommands,
+            repoDir,
+          );
+          await daytona.snapshot.create(
+            {
+              name: snapshotName,
+              image,
+              resources: DAYTONA_PREBUILD_RESOURCES,
+            },
+            {
+              timeout: 0,
+              onLogs: (chunk) => {
+                if (chunk.trim().length > 0) {
+                  console.log("daytona:prebuild:log", {
+                    snapshotName,
+                    chunk,
+                  });
+                  void appendPrebuildLog(chunk).catch((error) => {
+                    console.warn("daytona:prebuild:log-append-failed", {
+                      snapshotName,
+                      message:
+                        error instanceof Error ? error.message : String(error),
+                    });
+                  });
+                }
+              },
+            },
+          );
+        };
+
+        if (depsImageCandidates.length > 0) {
+          let selectedDepsImage: string | null = null;
+          const missingDepsImages: string[] = [];
+          for (const depsImage of depsImageCandidates) {
+            try {
+              await appendPrebuildLog(
+                `Trying deps image ${depsImage} (input hash ${depsInputHash ?? "unknown"}, lock hash ${lockHash ?? "unknown"})\n`,
+              );
+              await createSnapshot(depsImage, false);
+              selectedDepsImage = depsImage;
+              await appendPrebuildLog(`Using deps image ${depsImage}\n`);
+              break;
+            } catch (error) {
+              if (isNotFoundError(error)) {
+                missingDepsImages.push(depsImage);
+                await appendPrebuildLog(`Deps image not found: ${depsImage}\n`);
+                continue;
+              }
+              await appendPrebuildLog(
+                `Snapshot build failed: ${
+                  error instanceof Error ? error.message : String(error)
+                }\n`,
+              );
+              throw error;
+            }
+          }
+
+          if (!selectedDepsImage) {
+            const missingList =
+              missingDepsImages.length > 0
+                ? missingDepsImages.join(", ")
+                : "none";
+            const message = `Deps image not found for candidates: ${missingList}. Build and publish the deps image first.`;
+            await appendPrebuildLog(`${message}\n`);
+            throw new Error(message);
+          }
+        } else {
+          await appendPrebuildLog(
+            "No deps image configured; installing dependencies in snapshot.\n",
+          );
+          const fallbackBaseImage = resolveDaytonaBaseImage();
+          await appendPrebuildLog(
+            `Using base image ${fallbackBaseImage} for fallback snapshot build.\n`,
+          );
+          await createSnapshot(fallbackBaseImage, true);
         }
-      } else {
+
+        const createdSnapshot = await daytona.snapshot.get(snapshotName);
+        const completedAt = Date.now();
         await appendPrebuildLog(
-          "No deps image configured; installing dependencies in snapshot.\n",
+          `Snapshot build finished at ${new Date(completedAt).toISOString()}\n`,
         );
-        const fallbackBaseImage = resolveDaytonaBaseImage();
-        await appendPrebuildLog(
-          `Using base image ${fallbackBaseImage} for fallback snapshot build.\n`,
-        );
-        await createSnapshot(fallbackBaseImage, true);
+        await flushPrebuildLogs(true);
+        await ctx.runMutation(internal.daytonaSnapshotRecords.markBuildActive, {
+          owner: args.owner,
+          repo: args.repo,
+          branch,
+          commitSha: args.commitSha,
+          snapshotName,
+          snapshotId: createdSnapshot.id,
+          updatedAt: completedAt,
+        });
+        await pruneCommitPinnedSnapshots({
+          ctx,
+          daytona,
+          apiUrl: baseUrl,
+          apiToken: token,
+          owner: args.owner,
+          repo: args.repo,
+          branch,
+        });
+
+        console.log("daytona:prebuild:done", {
+          repo: `${args.owner}/${args.repo}`,
+          branch,
+          snapshotName,
+          commitSha: args.commitSha,
+        });
+
+        return {
+          ok: true,
+          snapshotName,
+          commitSha: args.commitSha,
+          message: `Snapshot ${snapshotName} created for ${branch}@${shortenCommitSha(
+            args.commitSha,
+          )}.`,
+        };
+      } finally {
+        await fs.promises.rm(tmpRoot, { recursive: true, force: true });
       }
-
-      console.log("daytona:prebuild:done", {
-        vaultId: args.vaultId,
-        snapshotName,
-        commitSha: headSha,
-      });
-
-      await appendPrebuildLog(
-        `Snapshot build finished at ${new Date().toISOString()}\n`,
-      );
-      await flushPrebuildLogs(true);
-
-      return {
-        ok: true,
-        snapshotName,
-        commitSha: headSha,
-        message: `Snapshot ${snapshotName} created for ${branch}@${headSha.slice(0, 7)}.`,
-      };
     } catch (error) {
-      const message = `Snapshot build failed: ${
-        error instanceof Error ? error.message : String(error)
-      }\n`;
-      await appendPrebuildLog(message);
+      const failedAt = Date.now();
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      await appendPrebuildLog(`Snapshot build failed: ${errorMessage}\n`);
       await flushPrebuildLogs(true);
-      throw error;
-    } finally {
-      await fs.promises.rm(tmpRoot, { recursive: true, force: true });
+      const retryDelayMs = calculateSnapshotRetryDelayMs(
+        markStartedResult.attemptCount,
+      );
+      await ctx.runMutation(
+        internal.daytonaSnapshotRecords.markBuildFailedAndScheduleRetry,
+        {
+          owner: args.owner,
+          repo: args.repo,
+          branch,
+          commitSha: args.commitSha,
+          userId: args.userId,
+          error: errorMessage,
+          updatedAt: failedAt,
+          retryDelayMs,
+        },
+      );
+      return {
+        ok: false,
+        snapshotName,
+        commitSha: args.commitSha,
+        message: `Snapshot build failed: ${errorMessage}`,
+      };
     }
+  },
+});
+
+export const prebuildDaytonaSnapshot = action({
+  args: prebuildDaytonaSnapshotArgs,
+  returns: prebuildDaytonaSnapshotResult,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof prebuildDaytonaSnapshotResult>> => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.runQuery(internal.vault.getById, {
+      id: args.vaultId,
+    });
+
+    if (!vault || vault.userId !== userId) {
+      throw new Error("Vault not found");
+    }
+
+    const branch = args.branch?.trim() || "main";
+    if (!isCommitPinnedDaytonaBranch(branch)) {
+      return {
+        ok: false,
+        message: `Daytona commit-pinned snapshots currently support ${DAYTONA_COMMIT_PINNED_BRANCH} only.`,
+      };
+    }
+    const commitSha = vault.commitSHA?.trim();
+    if (!commitSha) {
+      return {
+        ok: false,
+        message:
+          "Latest main commit is not known yet. Refresh the repository first.",
+      };
+    }
+
+    const queueResult = await ctx.runMutation(
+      internal.daytonaSnapshotRecords.enqueueBuild,
+      {
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        branch,
+        commitSha,
+        force: true,
+      },
+    );
+    if (!queueResult.shouldSchedule) {
+      if (queueResult.status === "active") {
+        return {
+          ok: true,
+          snapshotName: queueResult.snapshotName,
+          commitSha,
+          message: `Snapshot ${queueResult.snapshotName} is already active for ${branch}@${shortenCommitSha(
+            commitSha,
+          )}.`,
+        };
+      }
+      if (
+        queueResult.status === "building" ||
+        queueResult.status === "queued"
+      ) {
+        return {
+          ok: true,
+          snapshotName: queueResult.snapshotName,
+          commitSha,
+          message: `Snapshot ${queueResult.snapshotName} is already ${queueResult.status}.`,
+        };
+      }
+    }
+
+    if (vault.commitSHA !== commitSha) {
+      await ctx.runMutation(internal.vault.updateVaultCommitSha, {
+        vaultId: vault._id,
+        commitSHA: commitSha,
+      });
+    }
+
+    return await ctx.runAction(
+      internal.daytonaActions.buildCommitPinnedSnapshot,
+      {
+        userId,
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        branch,
+        commitSha,
+      },
+    );
   },
 });
 
@@ -2725,50 +2754,47 @@ export const getDaytonaPrebuildStatus = action({
     }
 
     const branch = args.branch?.trim() || "main";
-    const apiConfig = resolveDaytonaApiConfig();
-    if (!apiConfig.ok) {
+    if (!isCommitPinnedDaytonaBranch(branch)) {
       return {
         ok: false,
-        message: apiConfig.message,
+        message: `Daytona commit-pinned snapshots currently support ${DAYTONA_COMMIT_PINNED_BRANCH} only.`,
       };
     }
-    const baseUrl = apiConfig.baseUrl;
-    const token = apiConfig.token;
-
-    const config: { apiKey: string; apiUrl?: string } = {
-      apiKey: token,
-    };
-    if (baseUrl) {
-      config.apiUrl = baseUrl;
-    }
-    const daytona = new Daytona(config);
-
-    const snapshotName = inferPrebuildSnapshotName({
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
-      branch,
-    });
-
-    try {
-      const snapshot = await daytona.snapshot.get(snapshotName);
+    const commitSha = vault.commitSHA?.trim();
+    if (!commitSha) {
       return {
         ok: true,
-        snapshotName,
-        state: snapshot.state,
-        errorReason: snapshot.errorReason || undefined,
-        message: `Snapshot ${snapshotName} is ${snapshot.state}.`,
-      };
-    } catch (error) {
-      if (!isNotFoundError(error)) {
-        throw error;
-      }
-      return {
-        ok: true,
-        snapshotName,
         state: "missing",
-        message: `No snapshot found for ${branch} yet.`,
+        message: `No ${branch} commit is known yet.`,
       };
     }
+
+    const snapshotRecord = await ctx.runQuery(
+      internal.daytonaSnapshotRecords.getByRepoBranchCommit,
+      {
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        branch,
+        commitSha,
+      },
+    );
+    if (!snapshotRecord) {
+      return {
+        ok: true,
+        commitSha,
+        state: "missing",
+        message: `No snapshot found for ${branch}@${shortenCommitSha(commitSha)} yet.`,
+      };
+    }
+
+    return {
+      ok: true,
+      commitSha,
+      snapshotName: snapshotRecord.snapshotName,
+      state: snapshotRecord.status,
+      errorReason: snapshotRecord.lastError,
+      message: `Snapshot ${snapshotRecord.snapshotName ?? "record"} is ${snapshotRecord.status}.`,
+    };
   },
 });
 
@@ -2788,25 +2814,60 @@ export const getDaytonaPrebuildLogs = action({
       throw new Error("Vault not found");
     }
 
-    const branch = args.branch?.trim();
-    if (branch && vault.daytonaPrebuildLogsBranch !== branch) {
+    const branch = args.branch?.trim() || "main";
+    if (!isCommitPinnedDaytonaBranch(branch)) {
       return {
         ok: true,
         logs: "",
-        branch: vault.daytonaPrebuildLogsBranch,
-        snapshotName: vault.daytonaPrebuildLogsSnapshot,
-        updatedAt: vault.daytonaPrebuildLogsUpdatedAt,
-        message: "No snapshot logs for this branch yet.",
+        branch,
+        message: `Daytona commit-pinned snapshots currently support ${DAYTONA_COMMIT_PINNED_BRANCH} only.`,
+      };
+    }
+
+    const commitSha = vault.commitSHA?.trim();
+    let snapshotRecord = commitSha
+      ? await ctx.runQuery(
+          internal.daytonaSnapshotRecords.getByRepoBranchCommit,
+          {
+            owner: vault.ghRepoOwner,
+            repo: vault.ghRepoName,
+            branch,
+            commitSha,
+          },
+        )
+      : null;
+
+    if (!snapshotRecord) {
+      const records = await ctx.runQuery(
+        internal.daytonaSnapshotRecords.listByRepoBranch,
+        {
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          branch,
+        },
+      );
+      snapshotRecord =
+        [...records].sort(
+          (left, right) => right.updatedAt - left.updatedAt,
+        )[0] ?? null;
+    }
+
+    if (!snapshotRecord) {
+      return {
+        ok: true,
+        logs: "",
+        branch,
+        message: "No snapshot logs yet.",
       };
     }
 
     return {
       ok: true,
-      logs: vault.daytonaPrebuildLogs ?? "",
-      branch: vault.daytonaPrebuildLogsBranch,
-      snapshotName: vault.daytonaPrebuildLogsSnapshot,
-      updatedAt: vault.daytonaPrebuildLogsUpdatedAt,
-      message: vault.daytonaPrebuildLogs
+      logs: snapshotRecord.logs ?? "",
+      branch,
+      snapshotName: snapshotRecord.snapshotName,
+      updatedAt: snapshotRecord.logsUpdatedAt ?? snapshotRecord.updatedAt,
+      message: snapshotRecord.logs
         ? "Fetched snapshot logs."
         : "No snapshot logs yet.",
     };
@@ -2829,67 +2890,47 @@ export const listDaytonaSnapshotsForVault = action({
       throw new Error("Vault not found");
     }
 
-    const apiConfig = resolveDaytonaApiConfig();
-    if (!apiConfig.ok) {
-      return {
-        ok: false,
-        snapshots: [],
-        message: apiConfig.message,
-      };
-    }
-
-    const snapshotPrefix = inferDaytonaSnapshotPrefix({
-      owner: vault.ghRepoOwner,
-      repo: vault.ghRepoName,
-    });
-    if (!snapshotPrefix) {
-      return {
-        ok: false,
-        snapshots: [],
-        message: "Failed to infer snapshot prefix for this vault.",
-      };
-    }
-
-    const config: { apiKey: string; apiUrl?: string } = {
-      apiKey: apiConfig.token,
-    };
-    if (apiConfig.baseUrl) {
-      config.apiUrl = apiConfig.baseUrl;
-    }
-    const daytona = new Daytona(config);
-    const snapshotCacheKey = buildDaytonaSnapshotCacheKey({
-      apiUrl: apiConfig.baseUrl,
-      apiToken: apiConfig.token,
-    });
-    const dashboardBaseUrl = resolveDaytonaDashboardBaseUrl(apiConfig.baseUrl);
-
     try {
-      const snapshots = await listDaytonaSnapshots(daytona, snapshotCacheKey);
-      const filteredSnapshots = snapshots
-        .filter((snapshot) =>
-          isVaultSnapshotName({
-            snapshotName: snapshot.name,
-            snapshotPrefix,
-          }),
-        )
-        .map((snapshot) => ({
-          name: snapshot.name,
-          state: snapshot.state,
-          dashboardUrl: buildDaytonaSnapshotDashboardUrl({
-            dashboardBaseUrl,
-            snapshotId: snapshot.id,
-            snapshotName: snapshot.name,
-          }),
-          errorReason: snapshot.errorReason || undefined,
-          createdAt: parseSnapshotTimestamp(snapshot.createdAt),
-          updatedAt: parseSnapshotTimestamp(snapshot.updatedAt),
-          lastUsedAt: parseSnapshotTimestamp(snapshot.lastUsedAt),
-        }))
-        .sort((left, right) => {
-          const leftTime = left.updatedAt ?? left.createdAt ?? 0;
-          const rightTime = right.updatedAt ?? right.createdAt ?? 0;
-          return rightTime - leftTime;
-        });
+      const apiConfig = resolveDaytonaApiConfig();
+      const dashboardBaseUrl = apiConfig.ok
+        ? resolveDaytonaDashboardBaseUrl(apiConfig.baseUrl)
+        : null;
+      const records = await ctx.runQuery(
+        internal.daytonaSnapshotRecords.listByRepoBranch,
+        {
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          branch: DAYTONA_COMMIT_PINNED_BRANCH,
+        },
+      );
+      const filteredSnapshots = [...records]
+        .sort((left, right) => right.updatedAt - left.updatedAt)
+        .map((record) => ({
+          name:
+            record.snapshotName ??
+            inferPrebuildSnapshotName({
+              owner: record.ghRepoOwner,
+              repo: record.ghRepoName,
+              branch: record.branch,
+              commitSha: record.commitSha,
+            }),
+          state: record.status,
+          commitSha: record.commitSha,
+          dashboardUrl:
+            dashboardBaseUrl && record.snapshotId && record.snapshotName
+              ? buildDaytonaSnapshotDashboardUrl({
+                  dashboardBaseUrl,
+                  snapshotId: record.snapshotId,
+                  snapshotName: record.snapshotName,
+                })
+              : undefined,
+          errorReason: record.lastError,
+          attemptCount: record.attemptCount,
+          createdAt: record.createdAt,
+          updatedAt: record.updatedAt,
+          lastUsedAt: undefined,
+          nextRetryAt: record.nextRetryAt,
+        }));
 
       return {
         ok: true,
@@ -2923,6 +2964,7 @@ export const removeDaytonaSnapshot = action({
       throw new Error("Vault not found");
     }
 
+    const branch = args.branch?.trim() || DAYTONA_COMMIT_PINNED_BRANCH;
     const apiConfig = resolveDaytonaApiConfig();
     if (!apiConfig.ok) {
       return {
@@ -2943,14 +2985,23 @@ export const removeDaytonaSnapshot = action({
     }
 
     const explicitSnapshotName = args.snapshotName?.trim();
+    const currentCommitSha = vault.commitSHA?.trim();
+    const currentSnapshotRecord =
+      !explicitSnapshotName && currentCommitSha
+        ? await ctx.runQuery(
+            internal.daytonaSnapshotRecords.getByRepoBranchCommit,
+            {
+              owner: vault.ghRepoOwner,
+              repo: vault.ghRepoName,
+              branch,
+              commitSha: currentCommitSha,
+            },
+          )
+        : null;
     const snapshotName =
       explicitSnapshotName && explicitSnapshotName.length > 0
         ? explicitSnapshotName
-        : inferPrebuildSnapshotName({
-            owner: vault.ghRepoOwner,
-            repo: vault.ghRepoName,
-            branch: args.branch?.trim() || "main",
-          });
+        : currentSnapshotRecord?.snapshotName;
     if (!snapshotName) {
       return {
         ok: false,
@@ -2985,6 +3036,12 @@ export const removeDaytonaSnapshot = action({
     try {
       const snapshot = await daytona.snapshot.get(snapshotName);
       await daytona.snapshot.delete(snapshot);
+      await ctx.runMutation(
+        internal.daytonaSnapshotRecords.removeBySnapshotName,
+        {
+          snapshotName,
+        },
+      );
       daytonaSnapshotCache.delete(snapshotCacheKey);
       daytonaSnapshotInFlight.delete(snapshotCacheKey);
       return {
@@ -2994,6 +3051,12 @@ export const removeDaytonaSnapshot = action({
       };
     } catch (error) {
       if (isNotFoundError(error)) {
+        await ctx.runMutation(
+          internal.daytonaSnapshotRecords.removeBySnapshotName,
+          {
+            snapshotName,
+          },
+        );
         daytonaSnapshotCache.delete(snapshotCacheKey);
         daytonaSnapshotInFlight.delete(snapshotCacheKey);
         return {

@@ -78,6 +78,17 @@ export const InfraState = v.union(
   v.literal("partial"),
 );
 
+export const DaytonaSnapshotBuildStatus = v.union(
+  v.literal("queued"),
+  v.literal("building"),
+  v.literal("active"),
+  v.literal("failed"),
+  v.literal("removing"),
+);
+export type DaytonaSnapshotBuildStatus = Infer<
+  typeof DaytonaSnapshotBuildStatus
+>;
+
 export const VaultDomainKind = v.union(
   v.literal("main"),
   v.literal("branch_preview"),
@@ -333,6 +344,31 @@ export default defineSchema({
   })
     .index("by_vault", ["vaultId"])
     .index("by_status", ["status"]),
+
+  daytonaSnapshots: defineTable({
+    ghRepoOwner: v.string(),
+    ghRepoName: v.string(),
+    branch: v.string(),
+    commitSha: v.string(),
+    snapshotName: v.optional(v.string()),
+    snapshotId: v.optional(v.string()),
+    status: DaytonaSnapshotBuildStatus,
+    attemptCount: v.number(),
+    lastError: v.optional(v.string()),
+    logs: v.optional(v.string()),
+    logsUpdatedAt: v.optional(v.number()),
+    nextRetryAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_repo_branch", ["ghRepoOwner", "ghRepoName", "branch"])
+    .index("by_repo_branch_commit", [
+      "ghRepoOwner",
+      "ghRepoName",
+      "branch",
+      "commitSha",
+    ])
+    .index("by_snapshot_name", ["snapshotName"]),
 
   /**
    * Branch to domain mapping.

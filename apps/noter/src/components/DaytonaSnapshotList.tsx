@@ -27,6 +27,7 @@ const formatSnapshotState = (state: string) => {
   const normalized = state.trim().toLowerCase();
   if (normalized === "build_failed") return "Build failed";
   if (normalized === "active") return "Active";
+  if (normalized === "queued") return "Queued";
   if (normalized === "building") return "Building";
   if (normalized === "pending") return "Pending";
   if (normalized === "pulling") return "Pulling";
@@ -39,7 +40,11 @@ const formatSnapshotState = (state: string) => {
 const getSnapshotStateClassName = (state: string) => {
   const normalized = state.trim().toLowerCase();
   if (normalized === "active") return "text-emerald-700 border-emerald-300";
-  if (normalized === "building" || normalized === "pending") {
+  if (
+    normalized === "queued" ||
+    normalized === "building" ||
+    normalized === "pending"
+  ) {
     return "text-blue-700 border-blue-300";
   }
   if (normalized === "pulling" || normalized === "removing") {
@@ -50,6 +55,9 @@ const getSnapshotStateClassName = (state: string) => {
   }
   return "text-muted-foreground";
 };
+
+const shortenCommitSha = (commitSha: string) =>
+  commitSha.length <= 7 ? commitSha : commitSha.slice(0, 7);
 
 export function DaytonaSnapshotList({
   vaultId,
@@ -219,15 +227,21 @@ export function DaytonaSnapshotList({
                   >
                     {formatSnapshotState(snapshot.state)}
                   </Badge>
-                  <a
-                    href={snapshot.dashboardUrl}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="min-w-0 flex-1 truncate font-mono text-xs underline-offset-2 hover:underline"
-                    title="Open snapshot in Daytona"
-                  >
-                    {snapshot.name}
-                  </a>
+                  {snapshot.dashboardUrl ? (
+                    <a
+                      href={snapshot.dashboardUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="min-w-0 flex-1 truncate font-mono text-xs underline-offset-2 hover:underline"
+                      title="Open snapshot in Daytona"
+                    >
+                      {snapshot.name}
+                    </a>
+                  ) : (
+                    <div className="min-w-0 flex-1 truncate font-mono text-xs">
+                      {snapshot.name}
+                    </div>
+                  )}
                   {updatedAt !== undefined && (
                     <span className="shrink-0 text-[11px] text-muted-foreground">
                       {formatRelativeTimeAgo(updatedAt)}
@@ -251,6 +265,19 @@ export function DaytonaSnapshotList({
                       "Delete"
                     )}
                   </Button>
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                  {snapshot.commitSha ? (
+                    <span className="font-mono">
+                      {shortenCommitSha(snapshot.commitSha)}
+                    </span>
+                  ) : null}
+                  <span>{snapshot.attemptCount} attempt(s)</span>
+                  {snapshot.nextRetryAt ? (
+                    <span>
+                      retry {formatRelativeTimeAgo(snapshot.nextRetryAt)}
+                    </span>
+                  ) : null}
                 </div>
                 {snapshot.errorReason && (
                   <div className="mt-1 text-[11px] text-destructive">

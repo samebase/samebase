@@ -21,6 +21,10 @@ interface DaytonaWorkspaceButtonProps {
   branch: string;
   sandboxId?: string;
   sandboxName?: string;
+  commitSha?: string | null;
+  snapshotStatus?: string | null;
+  snapshotName?: string | null;
+  snapshotError?: string | null;
   disabled?: boolean;
   className?: string;
   mode?: "full" | "launch";
@@ -54,6 +58,10 @@ export function DaytonaWorkspaceButton({
   branch,
   sandboxId,
   sandboxName,
+  commitSha,
+  snapshotStatus,
+  snapshotName,
+  snapshotError,
   disabled,
   className,
   mode = "full",
@@ -101,6 +109,29 @@ export function DaytonaWorkspaceButton({
   const [timeToTerminalMs, setTimeToTerminalMs] = useState<number | null>(null);
   const [prebuildLogs, setPrebuildLogs] = useState<string | null>(null);
   const prebuildLogPollRef = useRef<number | null>(null);
+  const normalizedBranch = branch.trim().toLowerCase();
+  const normalizedSnapshotStatus = snapshotStatus?.trim().toLowerCase() ?? "";
+  const mainOnlyReason =
+    normalizedBranch !== "main"
+      ? "Daytona snapshots currently support main only."
+      : null;
+  const launchBlockedReason =
+    mainOnlyReason ??
+    (!commitSha
+      ? "Latest main commit is not known yet. Refresh the repository first."
+      : normalizedSnapshotStatus.length > 0 &&
+          normalizedSnapshotStatus !== "active"
+        ? normalizedSnapshotStatus === "failed"
+          ? snapshotError && snapshotError.length > 0
+            ? `Latest snapshot failed: ${snapshotError}`
+            : "Latest snapshot failed. Launch is blocked while automatic retries continue."
+          : `Latest snapshot is ${normalizedSnapshotStatus}. Launch is blocked until it becomes active.`
+        : null);
+  const buildBlockedReason =
+    mainOnlyReason ??
+    (!commitSha
+      ? "Latest main commit is not known yet. Refresh the repository first."
+      : null);
 
   const startPrebuildLogPolling = () => {
     if (prebuildLogPollRef.current !== null) {
@@ -129,7 +160,7 @@ export function DaytonaWorkspaceButton({
   }, []);
 
   const handleStart = async (openInTab: boolean) => {
-    if (disabled || isStarting) {
+    if (disabled || isStarting || launchBlockedReason) {
       return;
     }
     const launchTab = openInTab
@@ -338,7 +369,7 @@ export function DaytonaWorkspaceButton({
   };
 
   const handlePrebuildSnapshot = async () => {
-    if (disabled || isPrebuilding) {
+    if (disabled || isPrebuilding || buildBlockedReason) {
       return;
     }
     setIsPrebuilding(true);
@@ -444,7 +475,7 @@ export function DaytonaWorkspaceButton({
       onClick={() => {
         void handleStart(true);
       }}
-      disabled={disabled || isStarting}
+      disabled={disabled || isStarting || launchBlockedReason !== null}
     >
       {isStarting ? (
         <>
@@ -503,6 +534,9 @@ export function DaytonaWorkspaceButton({
           >
             {message}
           </div>
+        )}
+        {!message && launchBlockedReason && (
+          <div className="text-xs text-red-600">{launchBlockedReason}</div>
         )}
       </div>
     );
@@ -624,7 +658,7 @@ export function DaytonaWorkspaceButton({
           onClick={() => {
             void handlePrebuildSnapshot();
           }}
-          disabled={disabled || isPrebuilding}
+          disabled={disabled || isPrebuilding || buildBlockedReason !== null}
         >
           {isPrebuilding ? "Building snapshot..." : "Build snapshot"}
         </Button>
@@ -656,7 +690,9 @@ export function DaytonaWorkspaceButton({
           {isFetchingPrebuildLogs ? "Fetching logs..." : "View snapshot logs"}
         </Button>
         <span className="text-xs text-muted-foreground">
-          Snapshot name is inferred from vault + branch.
+          {snapshotName
+            ? `Latest snapshot: ${snapshotName}`
+            : "Snapshots are pinned to exact main commits."}
         </span>
       </div>
       {sandboxId && sandboxName && (
@@ -729,6 +765,11 @@ export function DaytonaWorkspaceButton({
           )}
         >
           {message}
+        </div>
+      )}
+      {!message && (launchBlockedReason || buildBlockedReason) && (
+        <div className="text-xs text-red-600">
+          {launchBlockedReason ?? buildBlockedReason}
         </div>
       )}
     </div>
