@@ -678,7 +678,6 @@ function FileViewInner({
   }, [
     branch,
     didAttemptRepositoryNoterLoad,
-    hasStagedNoterFile,
     loadRepositoryFileContent,
     repositoryFullName,
     stagedNoterFile,
