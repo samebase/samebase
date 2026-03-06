@@ -241,13 +241,12 @@ them directly using CLI tools.
   still an auto-generated random `codex/<word>-<word>-<word>` name, rename it to
   a descriptive `codex/<intent>` branch before pushing/creating the PR.
 - Temporary Noter-managed repos created for Playwright/manual testing from a
-  worktree must use the current worktree temp prefix from
-  `pnpm worktree:tmp -- <intent>` (or
-  `node scripts/worktree-temp-prefix.js <intent>`). Example:
-  `tmp-c507-chat-fab`.
-- `clean vaults` must use the exact current worktree temp prefix from
-  `pnpm worktree:tmp` to find candidate vaults. Only remove Noter-managed vaults
-  matching that exact prefix.
+  worktree must use the prefix `tmp-<worktree-id>-<intent>`. For Codex worktrees
+  under `~/.codex/worktrees/<id>/...`, use that folder id as the worktree id.
+  Example: `tmp-c507-chat-fab`.
+- `clean vaults` must use the exact current worktree prefix `tmp-<worktree-id>-`
+  to find candidate vaults. Only remove Noter-managed vaults matching that exact
+  prefix.
 - `clean vaults` must remove matching vaults through the existing Vault
   Dashboard delete flow so GitHub repos, Convex projects/deployments, hosting
   projects, Daytona resources, and Codespaces are torn down together. Leave the
@@ -357,8 +356,9 @@ Auth:
   `.../ms-playwright/mcp-chrome`).
 - Worktree frontend should avoid port `5173` so OAuth flows on main checkout
   stay unaffected (default worktree dev port: `5174`).
-- Use `pnpm worktree:tmp` as the source of truth for the current worktree's
-  temporary repo prefix/name. Do not invent ad-hoc temp prefixes.
+- For temporary Playwright/manual-test repos, use the exact
+  `tmp-<worktree-id>-<intent>` naming rule. Do not invent alternate temp
+  prefixes.
 - When asked for OAuth redirect URLs or env vars, give a single exact
   recommendation. Do not present multiple options or alternate env var lookups.
 - Avoid adding unusual options or flags unless there is a clear, stated reason
