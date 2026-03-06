@@ -6,6 +6,7 @@ import { z } from "zod";
 import { components } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import { isRecord } from "../jsonUtils";
 import type { ToolContext } from "./tools";
 import { createTools } from "./tools";
 import type { MessageDoc } from "@convex-dev/agent/validators";
@@ -36,6 +37,7 @@ type AgentStreamTextArgs = Parameters<typeof Agent.prototype.streamText>[2];
 type StepSnapshot = Parameters<
   NonNullable<AgentStreamTextArgs["onStepFinish"]>
 >[0];
+type ToolCallSnapshot = StepSnapshot["toolCalls"][number];
 
 function createModel(provider: string, model: string) {
   switch (provider) {
@@ -52,6 +54,101 @@ function createNoterAgent(provider: string, model: string) {
     languageModel: createModel(provider, model),
     maxSteps: 12,
   });
+}
+
+function formatToolCallError(error: unknown): string | undefined {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  if (error === undefined) {
+    return undefined;
+  }
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+function summarizeToolInput(input: unknown): unknown {
+  if (!isRecord(input)) {
+    return input;
+  }
+
+  const summary: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (key === "content" && typeof value === "string") {
+      summary.contentLength = value.length;
+      summary.contentRedacted = true;
+      continue;
+    }
+    if (key === "replacements" && Array.isArray(value)) {
+      summary.replacementsCount = value.length;
+      summary.replacementsPreview = value.slice(0, 3).map((replacement) => {
+        if (!isRecord(replacement)) {
+          return replacement;
+        }
+        return {
+          oldTextLength:
+            typeof replacement["oldText"] === "string"
+              ? replacement["oldText"].length
+              : undefined,
+          newTextLength:
+            typeof replacement["newText"] === "string"
+              ? replacement["newText"].length
+              : undefined,
+        };
+      });
+      continue;
+    }
+    summary[key] = value;
+  }
+  return summary;
+}
+
+function getMissingRequiredToolKeys(call: ToolCallSnapshot): string[] {
+  const input = isRecord(call.input) ? call.input : null;
+  const hasPath =
+    input !== null &&
+    typeof input["path"] === "string" &&
+    input["path"].trim().length > 0;
+  const hasContent = input !== null && typeof input["content"] === "string";
+  const hasReplacements =
+    input !== null &&
+    Array.isArray(input["replacements"]) &&
+    input["replacements"].length > 0;
+
+  switch (call.toolName) {
+    case "read_file":
+    case "delete_file":
+      return hasPath ? [] : ["path"];
+    case "edit_file":
+    case "create_file": {
+      const missing: string[] = [];
+      if (!hasPath) {
+        missing.push("path");
+      }
+      if (!hasContent) {
+        missing.push("content");
+      }
+      return missing;
+    }
+    case "replace_in_file": {
+      const missing: string[] = [];
+      if (!hasPath) {
+        missing.push("path");
+      }
+      if (!hasReplacements) {
+        missing.push("replacements");
+      }
+      return missing;
+    }
+    default:
+      return [];
+  }
 }
 
 export interface GraphResult {
@@ -132,10 +229,36 @@ export async function runAgentGraph(opts: {
 
   for (const step of steps) {
     for (const call of step.toolCalls) {
+      const missingKeys = getMissingRequiredToolKeys(call);
+      const invalid =
+        "invalid" in call && typeof call.invalid === "boolean"
+          ? call.invalid
+          : false;
+      const error =
+        "error" in call ? formatToolCallError(call.error) : undefined;
+
       toolActivity.push({
         tool: call.toolName,
         input: call.input,
       });
+
+      if (
+        call.toolName === "edit_file" ||
+        call.toolName === "replace_in_file" ||
+        call.toolName === "create_file" ||
+        call.toolName === "read_file" ||
+        call.toolName === "delete_file"
+      ) {
+        console.log("agentGraph:runAgentGraph:fileToolCall", {
+          threadId,
+          promptMessageId,
+          tool: call.toolName,
+          input: summarizeToolInput(call.input),
+          invalid,
+          error,
+          missingKeys,
+        });
+      }
     }
 
     for (const toolResult of step.toolResults) {
@@ -161,6 +284,30 @@ export async function runAgentGraph(opts: {
         }
       }
     }
+  }
+
+  const totalToolCalls = steps.reduce(
+    (count, step) => count + step.toolCalls.length,
+    0,
+  );
+  const totalToolResults = steps.reduce(
+    (count, step) => count + step.toolResults.length,
+    0,
+  );
+  if (tools && (totalToolCalls > 0 || totalToolResults > 0)) {
+    console.log("agentGraph:runAgentGraph:stepSummary", {
+      threadId,
+      promptMessageId,
+      stepCount: steps.length,
+      totalToolCalls,
+      totalToolResults,
+      perStep: steps.map((step, index) => ({
+        index,
+        finishReason: step.finishReason,
+        toolCalls: step.toolCalls.length,
+        toolResults: step.toolResults.length,
+      })),
+    });
   }
 
   const savedMessages = result.savedMessages;

@@ -75,11 +75,13 @@ const delay = 500;
 async function pushUpdates({
   version,
   repositoryFullName,
+  branch,
   filePath,
   fullUpdates,
 }: {
   version: number;
   repositoryFullName: string;
+  branch: string;
   filePath: string;
   fullUpdates: readonly Update[];
 }): Promise<boolean> {
@@ -93,6 +95,7 @@ async function pushUpdates({
   return client
     .mutation(api.collaborative.pushUpdates, {
       repositoryFullName,
+      branch,
       filePath,
       version,
       updates,
@@ -104,6 +107,7 @@ async function pushUpdates({
 export function peerExtension({
   startVersion,
   repositoryFullName,
+  branch,
   filePath,
   setVersion,
   setPull,
@@ -111,6 +115,7 @@ export function peerExtension({
 }: {
   startVersion: number;
   repositoryFullName: string;
+  branch: string;
   filePath: string;
   setVersion: (version: number) => void;
   setPull: (
@@ -145,6 +150,7 @@ export function peerExtension({
           const success = await pushUpdates({
             version,
             repositoryFullName,
+            branch,
             filePath,
             fullUpdates: updates,
           });
@@ -293,6 +299,7 @@ function isProseFile(filePath: string): boolean {
 
 export function CodeEditorWrapper({
   repositoryFullName,
+  branch,
   filePath,
   initialFilePath,
   stagedFile,
@@ -302,6 +309,7 @@ export function CodeEditorWrapper({
   showMobileLineNumbers = false,
 }: {
   repositoryFullName: string;
+  branch: string;
   filePath: string;
   initialFilePath: string;
   stagedFile: NonNullable<
@@ -315,9 +323,10 @@ export function CodeEditorWrapper({
   if (isProseFile(filePath)) {
     return (
       <CodeEditor
-        key={`${repositoryFullName}-${filePath}`}
+        key={`${repositoryFullName}-${branch}-${filePath}`}
         firstDoc={stagedFile}
         repositoryFullName={repositoryFullName}
+        branch={branch}
         filePath={filePath}
       />
     );
@@ -325,9 +334,10 @@ export function CodeEditorWrapper({
 
   return (
     <MonacoEditor
-      key={`${repositoryFullName}-${filePath}`}
+      key={`${repositoryFullName}-${branch}-${filePath}`}
       firstDoc={stagedFile}
       repositoryFullName={repositoryFullName}
+      branch={branch}
       filePath={filePath}
       vaultId={vaultId}
       tree={tree}
@@ -340,10 +350,12 @@ export function CodeEditorWrapper({
 export function CodeEditor({
   firstDoc,
   repositoryFullName,
+  branch,
   filePath,
 }: {
   firstDoc: { version: number; content: string };
   repositoryFullName: string;
+  branch: string;
   filePath: string;
 }) {
   const fileName = filePath.split("/").pop();
@@ -362,6 +374,7 @@ export function CodeEditor({
     api.collaborative.pullUpdates,
     {
       repositoryFullName,
+      branch,
       filePath,
       version,
     },
@@ -416,6 +429,7 @@ export function CodeEditor({
         peerExtension({
           startVersion: firstDoc.version,
           repositoryFullName,
+          branch,
           filePath,
           setVersion,
           setSyncError,
@@ -467,7 +481,7 @@ export function CodeEditor({
 
   useEffect(() => {
     setSyncError(null);
-  }, [repositoryFullName, filePath]);
+  }, [repositoryFullName, branch, filePath]);
 
   return (
     <div className="relative h-full min-h-0 w-full">

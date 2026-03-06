@@ -9,6 +9,7 @@ import type { ToolContext } from "./agent/tools";
 import { runAgentGraph } from "./agent/graph";
 import { saveMessage } from "@convex-dev/agent";
 import { Octokit } from "@octokit/rest";
+import { isRecord } from "./jsonUtils";
 
 const { object, string, optional, id } = v;
 
@@ -49,25 +50,68 @@ async function resolveThreadId(
   return ctx.runMutation(api.chat.index.createThread, { vaultId });
 }
 
-function buildToolContext(
+async function buildToolContext(
   ctx: ActionCtx,
   threadId: string,
+  branch: string,
   vault: {
     _id: Id<"vaults">;
     ghRepoOwner: string;
     ghRepoName: string;
   },
   args: { userId: Id<"users">; githubAccessToken: string },
-): ToolContext {
+): Promise<ToolContext> {
   return {
     ctx,
     threadId,
     vaultId: vault._id,
     owner: vault.ghRepoOwner,
     repo: vault.ghRepoName,
+    branch,
     userId: args.userId,
     accessToken: args.githubAccessToken,
   };
+}
+
+function requireThreadBranch(branch: string | undefined): string {
+  if (!branch) {
+    throw new Error(
+      "Thread branch is required for branch-sensitive agent work",
+    );
+  }
+  return branch;
+}
+
+function readDefaultBranch(repoData: unknown): string {
+  if (!isRecord(repoData)) {
+    return "main";
+  }
+
+  const defaultBranch = repoData.default_branch;
+  if (typeof defaultBranch === "string" && defaultBranch.length > 0) {
+    return defaultBranch;
+  }
+
+  return "main";
+}
+
+async function resolveFallbackBranch(args: {
+  vault: {
+    ghRepoOwner: string;
+    ghRepoName: string;
+  };
+  githubAccessToken?: string;
+}): Promise<string> {
+  if (!args.githubAccessToken) {
+    return "main";
+  }
+
+  const octokit = new Octokit({ auth: args.githubAccessToken });
+  const repo = await octokit.rest.repos.get({
+    owner: args.vault.ghRepoOwner,
+    repo: args.vault.ghRepoName,
+  });
+  return readDefaultBranch(repo.data);
 }
 
 async function loadAgentPrompt(args: {
@@ -75,27 +119,17 @@ async function loadAgentPrompt(args: {
   vault: Doc<"vaults">;
   githubAccessToken?: string;
   agentPath: string;
+  branch: string;
 }): Promise<string> {
-  const { ctx, vault, githubAccessToken, agentPath } = args;
+  const { ctx, vault, githubAccessToken, agentPath, branch } = args;
 
   const staging = await ctx.runQuery(internal.fileStaging.getByOriginalPath, {
     vaultId: vault._id,
     originalFilePath: agentPath,
+    branch,
   });
   if (staging && typeof staging.content === "string") {
     return staging.content;
-  }
-
-  const treeSha = vault.treeData.tree.find(
-    (entry) => entry.path === agentPath,
-  )?.sha;
-  if (treeSha) {
-    const blob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
-      sha: treeSha,
-    });
-    if (blob && typeof blob.text === "string") {
-      return blob.text;
-    }
   }
 
   if (!githubAccessToken) {
@@ -109,6 +143,7 @@ async function loadAgentPrompt(args: {
     owner: vault.ghRepoOwner,
     repo: vault.ghRepoName,
     path: agentPath,
+    ref: branch,
   });
   if (Array.isArray(file.data) || file.data.type !== "file") {
     throw new Error(`Error: ${agentPath} is a directory, not a file`);
@@ -158,16 +193,34 @@ export const sendAgentMessage = action({
       githubConnection?.kind === "github"
         ? githubConnection.auth.credential
         : undefined;
-
     const resolvedThreadId = await resolveThreadId(
       ctx,
       userId,
       args.vaultId,
       args.threadId,
     );
+    const threadContext = await ctx.runQuery(
+      internal.chat.index.getThreadContextForAction,
+      { threadId: resolvedThreadId },
+    );
+    const fallbackBranch =
+      threadContext?.branch ??
+      (await resolveFallbackBranch({
+        vault,
+        githubAccessToken,
+      }));
+    const threadBranch = requireThreadBranch(
+      threadContext?.branch ?? fallbackBranch,
+    );
+    if (!threadContext?.branch) {
+      await ctx.runMutation(internal.chat.index.setThreadBranchInternal, {
+        threadId: resolvedThreadId,
+        branch: threadBranch,
+      });
+    }
 
     const toolCtx = githubAccessToken
-      ? buildToolContext(ctx, resolvedThreadId, vault, {
+      ? await buildToolContext(ctx, resolvedThreadId, threadBranch, vault, {
           userId: user._id,
           githubAccessToken,
         })
@@ -180,6 +233,7 @@ export const sendAgentMessage = action({
         vault,
         githubAccessToken,
         agentPath: args.agentPath,
+        branch: threadBranch,
       });
     } catch (error) {
       const message =

@@ -132,7 +132,11 @@ export const generateResponse = internalAction({
       }
     }
 
-    const hasToolAccess = Boolean(vault && githubAccessToken);
+    const toolBranch =
+      vault && githubAccessToken && threadContext.branch
+        ? threadContext.branch
+        : null;
+    const hasToolAccess = Boolean(vault && githubAccessToken && toolBranch);
 
     // Gather context for the system prompt
     let fileContent: string | undefined;
@@ -144,7 +148,7 @@ export const generateResponse = internalAction({
         .map((t) => t.path);
     }
 
-    if (threadContext.filePath && vault && githubAccessToken) {
+    if (threadContext.filePath && vault && githubAccessToken && toolBranch) {
       try {
         fileContent = await executeReadFile(
           {
@@ -153,6 +157,7 @@ export const generateResponse = internalAction({
             vaultId: vault._id,
             owner: vault.ghRepoOwner,
             repo: vault.ghRepoName,
+            branch: toolBranch,
             userId: vault.userId,
             accessToken: githubAccessToken,
           },
@@ -179,13 +184,14 @@ export const generateResponse = internalAction({
     });
 
     const toolCtx: ToolContext | undefined =
-      hasToolAccess && vault && githubAccessToken
+      toolBranch && vault && githubAccessToken
         ? {
             ctx,
             threadId: args.threadId,
             vaultId: vault._id,
             owner: vault.ghRepoOwner,
             repo: vault.ghRepoName,
+            branch: toolBranch,
             userId: vault.userId,
             accessToken: githubAccessToken,
           }

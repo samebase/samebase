@@ -23,7 +23,7 @@ export const TOOL_CATALOG: ToolMeta[] = [
   {
     name: "read_file",
     description:
-      "Read the contents of a file in the repository. Returns the file content as text.",
+      "Read the contents of a file in the repository. Required input: path relative to the repository root. Returns the file content as text.",
     uiDescription: "Read a file's contents",
     inputDisplayKey: "path",
   },
@@ -36,19 +36,28 @@ export const TOOL_CATALOG: ToolMeta[] = [
   {
     name: "edit_file",
     description:
-      "Edit an existing file by replacing its entire content. The file must already exist.",
+      "Edit an existing file by replacing its entire content. Required inputs: path relative to the repository root and content containing the full new file text. The file must already exist.",
     uiDescription: "Replace a file's content",
     inputDisplayKey: "path",
   },
   {
+    name: "replace_in_file",
+    description:
+      "Edit an existing file by replacing exact text snippets without rewriting the whole file. Required inputs: path relative to the repository root and replacements, a non-empty array of { oldText, newText }. Prefer this over edit_file for localized changes. Each oldText must match exactly once in the current file content.",
+    uiDescription: "Replace exact text in a file",
+    inputDisplayKey: "path",
+  },
+  {
     name: "create_file",
-    description: "Create a new file in the repository.",
+    description:
+      "Create a new file in the repository. Required inputs: path relative to the repository root and content containing the full file text.",
     uiDescription: "Create a new file",
     inputDisplayKey: "path",
   },
   {
     name: "delete_file",
-    description: "Mark a file for deletion in the repository.",
+    description:
+      "Mark a file for deletion in the repository. Required input: path relative to the repository root.",
     uiDescription: "Mark a file for deletion",
     inputDisplayKey: "path",
   },

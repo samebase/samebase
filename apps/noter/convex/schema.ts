@@ -458,7 +458,14 @@ export default defineSchema({
     version: v.number(), // Current version for collaborative editing (defaults to 0)
   })
     .index("by_vault_and_path", ["vaultId", "filePath"])
+    .index("by_vault_and_branch_and_path", ["vaultId", "branch", "filePath"])
     .index("by_vault_and_initial_path", ["vaultId", "initialFilePath"])
+    .index("by_vault_and_branch", ["vaultId", "branch"])
+    .index("by_vault_and_branch_and_initial_path", [
+      "vaultId",
+      "branch",
+      "initialFilePath",
+    ])
     .index("by_vault", ["vaultId"])
     .index("by_user", ["lastEditUserId"]),
 
@@ -625,6 +632,7 @@ export default defineSchema({
 
   collaborativeUpdates: defineTable({
     vaultId: v.id("vaults"),
+    branch: v.optional(v.string()),
     filePath: v.string(),
     version: v.number(), // Version number when this update was applied
     clientId: v.string(), // Client identifier
@@ -634,5 +642,23 @@ export default defineSchema({
   })
     .index("by_vault", ["vaultId"])
     .index("by_file", ["vaultId", "filePath"])
-    .index("by_file_and_version", ["vaultId", "filePath", "version"]),
+    .index("by_file_and_version", ["vaultId", "filePath", "version"])
+    .index("by_vaultId_and_branch", ["vaultId", "branch"])
+    .index("by_vaultId_and_branch_and_filePath", [
+      "vaultId",
+      "branch",
+      "filePath",
+    ])
+    .index("by_vaultId_and_branch_and_filePath_and_version", [
+      "vaultId",
+      "branch",
+      "filePath",
+      "version",
+    ])
+    .index("by_vaultId_and_branch_and_filePath_and_timestamp", [
+      "vaultId",
+      "branch",
+      "filePath",
+      "timestamp",
+    ]),
 });
