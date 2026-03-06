@@ -593,7 +593,6 @@ function FileViewInner({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const hasStagedNoterFile = hasStagedSimpleViewConfigFile(stagedNoterFile);
   const hasNoterConfigFile = hasSimpleViewConfigFile(
     stagedNoterFile,
     repositoryNoterContent,
