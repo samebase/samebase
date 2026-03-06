@@ -7,9 +7,11 @@ import {
   QueryCtx,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { GithubTreeData } from "./schema";
+import { DaytonaSnapshotBuildStatus, GithubTreeData } from "./schema";
 import { Id } from "./_generated/dataModel";
 import { getUserId } from "./common";
+import { enqueueSnapshotBuild } from "./daytonaSnapshotRecords";
+import { DAYTONA_COMMIT_PINNED_BRANCH } from "./daytonaSnapshotPolicy";
 import {
   hostingProviderValidator,
   hostingStateValidator,
@@ -22,6 +24,8 @@ import {
   TREE_REFRESH_DEBOUNCE_MS,
   TREE_REFRESH_STALE_LOCK_MS,
 } from "../shared/treeRefresh";
+
+const nullValidator = v.null();
 
 // MARK: Public
 
@@ -118,7 +122,34 @@ export const removeVault = mutation({
       });
     }
 
-    // 8. Delete the vault
+    const hasOtherVaultsForRepository = await ctx.runQuery(
+      internal.vault.hasOtherVaultsForRepository,
+      {
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        excludeVaultId: vault._id,
+      },
+    );
+
+    // 8. Delete repo-scoped snapshot records only when this is the last vault for the repo.
+    if (!hasOtherVaultsForRepository) {
+      const snapshotRecords = await ctx.db
+        .query("daytonaSnapshots")
+        .withIndex("by_ghRepoOwner_and_ghRepoName_and_branch", (q) =>
+          q
+            .eq("ghRepoOwner", vault.ghRepoOwner)
+            .eq("ghRepoName", vault.ghRepoName)
+            .eq("branch", DAYTONA_COMMIT_PINNED_BRANCH),
+        )
+        .collect();
+      for (const snapshotRecord of snapshotRecords) {
+        await ctx.db.delete(snapshotRecord._id).catch((e) => {
+          console.error("daytonaSnapshot delete", e);
+        });
+      }
+    }
+
+    // 9. Delete the vault
     await ctx.db.delete(vault._id).catch((e) => {
       console.error("vault delete", e);
     });
@@ -218,7 +249,7 @@ export const updateVaultDevcontainerConfig = internalMutation({
     vaultId: v.id("vaults"),
     devcontainerConfig: v.string(),
   },
-  returns: v.null(),
+  returns: nullValidator,
   handler: async (ctx, args) => {
     await ctx.db.patch(args.vaultId, {
       devcontainerConfig: args.devcontainerConfig,
@@ -234,7 +265,7 @@ export const updateVaultDaytonaSandbox = internalMutation({
     sandboxName: v.optional(v.string()),
     createdAt: v.number(),
   },
-  returns: v.null(),
+  returns: nullValidator,
   handler: async (ctx, args) => {
     await ctx.db.patch(args.vaultId, {
       daytonaSandboxId: args.sandboxId,
@@ -250,7 +281,7 @@ export const updateVaultDaytonaSnapshot = internalMutation({
     vaultId: v.id("vaults"),
     snapshotName: v.optional(v.string()),
   },
-  returns: v.null(),
+  returns: nullValidator,
   handler: async (ctx, args) => {
     await ctx.db.patch(args.vaultId, {
       daytonaSnapshotName: args.snapshotName,
@@ -267,7 +298,7 @@ export const updateVaultDaytonaPrebuildLogs = internalMutation({
     logs: v.string(),
     updatedAt: v.number(),
   },
-  returns: v.null(),
+  returns: nullValidator,
   handler: async (ctx, args) => {
     await ctx.db.patch(args.vaultId, {
       daytonaPrebuildLogs: args.logs,
@@ -283,7 +314,7 @@ export const clearVaultDaytonaSandbox = internalMutation({
   args: {
     vaultId: v.id("vaults"),
   },
-  returns: v.null(),
+  returns: nullValidator,
   handler: async (ctx, args) => {
     await ctx.db.patch(args.vaultId, {
       daytonaSandboxId: undefined,
@@ -296,6 +327,49 @@ export const clearVaultDaytonaSandbox = internalMutation({
 
 const { array, boolean, id, literal, number, object, optional, string, union } =
   v;
+
+async function getCurrentDaytonaSnapshotState(
+  ctx: QueryCtx,
+  vault: {
+    ghRepoOwner: string;
+    ghRepoName: string;
+    commitSHA?: string;
+  },
+) {
+  if (!vault.commitSHA) {
+    return {
+      daytonaCurrentSnapshotCommitSha: undefined,
+      daytonaCurrentSnapshotName: undefined,
+      daytonaCurrentSnapshotStatus: undefined,
+      daytonaCurrentSnapshotLastError: undefined,
+      daytonaCurrentSnapshotUpdatedAt: undefined,
+      daytonaCurrentSnapshotAttemptCount: undefined,
+      daytonaCurrentSnapshotNextRetryAt: undefined,
+    };
+  }
+  const commitSha = vault.commitSHA;
+
+  const snapshot = await ctx.db
+    .query("daytonaSnapshots")
+    .withIndex("by_ghRepoOwner_and_ghRepoName_and_branch_and_commitSha", (q) =>
+      q
+        .eq("ghRepoOwner", vault.ghRepoOwner)
+        .eq("ghRepoName", vault.ghRepoName)
+        .eq("branch", DAYTONA_COMMIT_PINNED_BRANCH)
+        .eq("commitSha", commitSha),
+    )
+    .first();
+
+  return {
+    daytonaCurrentSnapshotCommitSha: snapshot?.commitSha,
+    daytonaCurrentSnapshotName: snapshot?.snapshotName,
+    daytonaCurrentSnapshotStatus: snapshot?.status,
+    daytonaCurrentSnapshotLastError: snapshot?.lastError,
+    daytonaCurrentSnapshotUpdatedAt: snapshot?.updatedAt,
+    daytonaCurrentSnapshotAttemptCount: snapshot?.attemptCount,
+    daytonaCurrentSnapshotNextRetryAt: snapshot?.nextRetryAt,
+  };
+}
 
 const getUserVaultsResult = array(
   object({
@@ -320,6 +394,13 @@ const getUserVaultsResult = array(
     daytonaSandboxCreatedAt: optional(number()),
     daytonaSnapshotName: optional(string()),
     daytonaPrebuildLogsSnapshot: optional(string()),
+    daytonaCurrentSnapshotCommitSha: optional(string()),
+    daytonaCurrentSnapshotName: optional(string()),
+    daytonaCurrentSnapshotStatus: optional(DaytonaSnapshotBuildStatus),
+    daytonaCurrentSnapshotLastError: optional(string()),
+    daytonaCurrentSnapshotUpdatedAt: optional(number()),
+    daytonaCurrentSnapshotAttemptCount: optional(number()),
+    daytonaCurrentSnapshotNextRetryAt: optional(number()),
     infraState: union(
       literal("not_started"),
       literal("provisioning"),
@@ -367,6 +448,10 @@ export const getUserVaults = query({
             : undefined;
 
         const repositoryFullName = `${vault.ghRepoOwner}/${vault.ghRepoName}`;
+        const daytonaSnapshotState = await getCurrentDaytonaSnapshotState(
+          ctx,
+          vault,
+        );
         const infra = await ctx.db
           .query("vaultInfrastructure")
           .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
@@ -407,6 +492,20 @@ export const getUserVaults = query({
           daytonaSandboxCreatedAt: vault.daytonaSandboxCreatedAt,
           daytonaSnapshotName: vault.daytonaSnapshotName,
           daytonaPrebuildLogsSnapshot: vault.daytonaPrebuildLogsSnapshot,
+          daytonaCurrentSnapshotCommitSha:
+            daytonaSnapshotState.daytonaCurrentSnapshotCommitSha,
+          daytonaCurrentSnapshotName:
+            daytonaSnapshotState.daytonaCurrentSnapshotName,
+          daytonaCurrentSnapshotStatus:
+            daytonaSnapshotState.daytonaCurrentSnapshotStatus,
+          daytonaCurrentSnapshotLastError:
+            daytonaSnapshotState.daytonaCurrentSnapshotLastError,
+          daytonaCurrentSnapshotUpdatedAt:
+            daytonaSnapshotState.daytonaCurrentSnapshotUpdatedAt,
+          daytonaCurrentSnapshotAttemptCount:
+            daytonaSnapshotState.daytonaCurrentSnapshotAttemptCount,
+          daytonaCurrentSnapshotNextRetryAt:
+            daytonaSnapshotState.daytonaCurrentSnapshotNextRetryAt,
           infraState: vault.infraState ?? "not_started",
           infraProductionUrl: resolveHostingMainUrl(infra),
         };
@@ -440,6 +539,24 @@ export const getInfrastructureByVaultId = internalQuery({
       .query("vaultInfrastructure")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .first();
+  },
+});
+
+export const hasOtherVaultsForRepository = internalQuery({
+  args: {
+    owner: string(),
+    repo: string(),
+    excludeVaultId: id("vaults"),
+  },
+  returns: boolean(),
+  handler: async (ctx, args) => {
+    const matches = await ctx.db
+      .query("vaults")
+      .withIndex("by_ghRepoOwner_and_ghRepoName", (q) =>
+        q.eq("ghRepoOwner", args.owner).eq("ghRepoName", args.repo),
+      )
+      .take(2);
+    return matches.some((vault) => vault._id !== args.excludeVaultId);
   },
 });
 
@@ -481,6 +598,7 @@ async function getVaultByRepositoryHelper(
     treeData: vault.treeData,
     treeRefreshStartedAt: vault.treeRefreshStartedAt,
     lastTreeRefreshAt: vault.lastTreeRefreshAt,
+    ...(await getCurrentDaytonaSnapshotState(ctx, vault)),
     infraState: vault.infraState ?? "not_started",
     infraLastError: vault.infraLastError,
     infraLastProvisionedAt: vault.infraLastProvisionedAt,
@@ -679,6 +797,7 @@ export const updateVaultTree = internalMutation({
     treeData: GithubTreeData,
     commitSHA: v.optional(v.string()),
   },
+  returns: nullValidator,
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
 
@@ -698,7 +817,38 @@ export const updateVaultTree = internalMutation({
     if (typeof args.commitSHA === "string") {
       patchData.commitSHA = args.commitSHA;
     }
+    await ctx.db.patch(args.vaultId, patchData);
 
-    return await ctx.db.patch(args.vaultId, patchData);
+    const commitSha = args.commitSHA;
+    const shouldQueueDaytonaSnapshot =
+      typeof commitSha === "string" &&
+      commitSha !== vault.commitSHA &&
+      vault.ghRepoOwner.length > 0 &&
+      vault.ghRepoName.length > 0;
+
+    if (shouldQueueDaytonaSnapshot) {
+      const queueResult = await enqueueSnapshotBuild(ctx, {
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        branch: DAYTONA_COMMIT_PINNED_BRANCH,
+        commitSha,
+        force: false,
+      });
+      if (queueResult.shouldSchedule) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.daytonaActions.buildCommitPinnedSnapshot,
+          {
+            userId: vault.userId,
+            owner: vault.ghRepoOwner,
+            repo: vault.ghRepoName,
+            branch: DAYTONA_COMMIT_PINNED_BRANCH,
+            commitSha,
+          },
+        );
+      }
+    }
+
+    return null;
   },
 });

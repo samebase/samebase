@@ -7,6 +7,7 @@ import { Octokit } from "@octokit/rest";
 import { Daytona } from "@daytonaio/sdk";
 import { getUserId } from "./common";
 import { getDaytonaEnvLabel } from "./daytonaEnv";
+import { DAYTONA_COMMIT_PINNED_BRANCH } from "./daytonaSnapshotPolicy";
 import { createInfraProviders } from "./infraProviders";
 import { deleteHostingResources } from "./hostingProviders";
 import { hostingProviderValidator } from "./hostingState";
@@ -699,39 +700,73 @@ export const deleteVault = action({
         }
       }
 
-      const snapshotNames = new Set<string>();
-      if (vault.daytonaSnapshotName) {
-        snapshotNames.add(vault.daytonaSnapshotName);
-      }
-      if (vault.daytonaPrebuildLogsSnapshot) {
-        snapshotNames.add(vault.daytonaPrebuildLogsSnapshot);
-      }
+      const hasOtherVaultsForRepository = await ctx.runQuery(
+        internal.vault.hasOtherVaultsForRepository,
+        {
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          excludeVaultId: vault._id,
+        },
+      );
+      if (!hasOtherVaultsForRepository) {
+        const snapshotPrefix = inferDaytonaSnapshotPrefix({
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+        });
 
-      const snapshotPrefix = inferDaytonaSnapshotPrefix({
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
-      });
+        const snapshotNames = new Set<string>();
+        if (vault.daytonaSnapshotName) {
+          snapshotNames.add(vault.daytonaSnapshotName);
+        }
+        if (vault.daytonaPrebuildLogsSnapshot) {
+          snapshotNames.add(vault.daytonaPrebuildLogsSnapshot);
+        }
 
-      const snapshotsByName = new Map<string, DaytonaSnapshot>();
-      if (snapshotPrefix) {
-        const snapshots = await listDaytonaSnapshots(daytona);
-        for (const snapshot of snapshots) {
-          if (snapshot.name.startsWith(snapshotPrefix)) {
-            snapshotsByName.set(snapshot.name, snapshot);
-            snapshotNames.add(snapshot.name);
+        const snapshotRecords = await ctx.runQuery(
+          internal.daytonaSnapshotRecords.listByRepoBranch,
+          {
+            owner: vault.ghRepoOwner,
+            repo: vault.ghRepoName,
+            branch: DAYTONA_COMMIT_PINNED_BRANCH,
+          },
+        );
+        for (const snapshotRecord of snapshotRecords) {
+          if (snapshotRecord.snapshotName) {
+            snapshotNames.add(snapshotRecord.snapshotName);
           }
         }
-      }
 
-      for (const snapshotName of snapshotNames) {
-        try {
-          const snapshot =
-            snapshotsByName.get(snapshotName) ??
-            (await daytona.snapshot.get(snapshotName));
-          await daytona.snapshot.delete(snapshot);
-        } catch (error) {
-          if (!isProviderNotFoundError(error)) {
-            throw error;
+        const snapshotsByName = new Map<string, DaytonaSnapshot>();
+        if (snapshotPrefix) {
+          const snapshots = await listDaytonaSnapshots(daytona);
+          for (const snapshot of snapshots) {
+            if (snapshot.name.startsWith(snapshotPrefix)) {
+              snapshotsByName.set(snapshot.name, snapshot);
+              snapshotNames.add(snapshot.name);
+            }
+          }
+        }
+
+        const hasOtherVaultsBeforeSnapshotDeletion = await ctx.runQuery(
+          internal.vault.hasOtherVaultsForRepository,
+          {
+            owner: vault.ghRepoOwner,
+            repo: vault.ghRepoName,
+            excludeVaultId: vault._id,
+          },
+        );
+        if (!hasOtherVaultsBeforeSnapshotDeletion) {
+          for (const snapshotName of snapshotNames) {
+            try {
+              const snapshot =
+                snapshotsByName.get(snapshotName) ??
+                (await daytona.snapshot.get(snapshotName));
+              await daytona.snapshot.delete(snapshot);
+            } catch (error) {
+              if (!isProviderNotFoundError(error)) {
+                throw error;
+              }
+            }
           }
         }
       }

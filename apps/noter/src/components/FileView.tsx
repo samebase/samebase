@@ -47,6 +47,7 @@ import {
 import { type GithubTreeType } from "convex/schema";
 import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
 import { DaytonaWorkspaceButton } from "./DaytonaWorkspaceButton";
+import { DaytonaSnapshotBanner } from "./DaytonaSnapshotBanner";
 import { CommitReviewStatusChips } from "./CommitReviewStatusChips";
 import { VaultSyncStatus } from "./VaultSyncStatus";
 import { RepositoryMediaViewer } from "./RepositoryMediaViewer";
@@ -1298,6 +1299,14 @@ function FileViewInner({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <DaytonaSnapshotBanner
+                branch={branch}
+                commitSha={vault.commitSHA}
+                snapshotName={vault.daytonaCurrentSnapshotName}
+                snapshotStatus={vault.daytonaCurrentSnapshotStatus}
+                lastError={vault.daytonaCurrentSnapshotLastError}
+                className="w-full"
+              />
               <VaultSyncStatus
                 vaultId={vault._id}
                 repositoryFullName={repositoryFullName}
@@ -1313,6 +1322,10 @@ function FileViewInner({
               <DaytonaWorkspaceButton
                 vaultId={vault._id}
                 branch={branch}
+                commitSha={vault.commitSHA}
+                snapshotStatus={vault.daytonaCurrentSnapshotStatus}
+                snapshotName={vault.daytonaCurrentSnapshotName}
+                snapshotError={vault.daytonaCurrentSnapshotLastError}
                 mode="launch"
                 className="text-xs"
               />

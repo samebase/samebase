@@ -24,6 +24,7 @@ import {
   formatRelativeTimeAgo,
   formatRelativeTimeUntil,
 } from "@/lib/formatRelativeTime";
+import type { DaytonaSnapshotStatus } from "@/lib/daytonaSnapshot";
 import {
   claimRefreshDebounce,
   releaseRefreshDebounce,
@@ -65,6 +66,7 @@ import {
   ButtonGroupSeparator,
 } from "@/components/ui/button-group";
 import { CodespaceStatus } from "@/components/CodespaceStatus";
+import { DaytonaSnapshotBanner } from "@/components/DaytonaSnapshotBanner";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
 import { VaultSyncStatus } from "@/components/VaultSyncStatus";
 import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
@@ -126,6 +128,8 @@ type DaytonaResourceFlags = {
   daytonaSandboxId?: string | null;
   daytonaSnapshotName?: string | null;
   daytonaPrebuildLogsSnapshot?: string | null;
+  daytonaCurrentSnapshotName?: string | null;
+  daytonaCurrentSnapshotStatus?: DaytonaSnapshotStatus | null;
 };
 
 const hasDaytonaResourcesForVault = (
@@ -134,7 +138,8 @@ const hasDaytonaResourcesForVault = (
   Boolean(
     vault?.daytonaSandboxId ||
       vault?.daytonaSnapshotName ||
-      vault?.daytonaPrebuildLogsSnapshot,
+      vault?.daytonaPrebuildLogsSnapshot ||
+      vault?.daytonaCurrentSnapshotName,
   );
 
 type CreateTemplate = "app" | "agent";
@@ -1198,6 +1203,16 @@ export function VaultDashboard() {
                     </div>
 
                     {isReady && (
+                      <DaytonaSnapshotBanner
+                        branch={defaultBranch}
+                        commitSha={vault.commitSHA}
+                        snapshotName={vault.daytonaCurrentSnapshotName}
+                        snapshotStatus={vault.daytonaCurrentSnapshotStatus}
+                        lastError={vault.daytonaCurrentSnapshotLastError}
+                      />
+                    )}
+
+                    {isReady && (
                       <Collapsible
                         className="space-y-1.5"
                         open={developerToolsOpen}
@@ -1228,6 +1243,12 @@ export function VaultDashboard() {
                             branch={defaultBranch}
                             sandboxId={vault.daytonaSandboxId}
                             sandboxName={vault.daytonaSandboxName}
+                            commitSha={vault.commitSHA}
+                            snapshotStatus={vault.daytonaCurrentSnapshotStatus}
+                            snapshotName={vault.daytonaCurrentSnapshotName}
+                            snapshotError={
+                              vault.daytonaCurrentSnapshotLastError
+                            }
                           />
                           <DaytonaSnapshotList vaultId={vault._id} />
                           {vault.isNoterManaged && (
