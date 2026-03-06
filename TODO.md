@@ -98,6 +98,55 @@
 - [ ] the ui is the following, the right side there's a fab that's opened with a chat window, on the left side it's a codex like chat, with all that standard stuff, and using this standard chat you can configure the fab that'll be on your site; commit this atomically
 - [ ] vscode has this hidden eye on the .md file
 
+## AI Agent Tools - Web Browsing & Search Capabilities
+
+### Essential Tools for Better Coding Assistance
+
+- [ ] **Web Search Tool** (`search_web`): Search for current documentation, Stack Overflow solutions, API changes, and programming best practices
+  - Use Serper API or Brave Search API for web search
+  - Focus on technical/programming queries
+  - Return 5-10 most relevant results with snippets
+  - Priority: HIGH - This would dramatically improve coding help
+
+- [ ] **URL Fetch Tool** (`fetch_url`): Read content from specific URLs (documentation, GitHub issues, blog posts)
+  - Extract readable text content from web pages
+  - Handle common documentation sites (MDN, npm, GitHub, etc.)
+  - Content cleanup and formatting for AI consumption
+  - Rate limiting and proper error handling
+
+- [ ] **NPM Package Info Tool** (`npm_package_info`): Get current package information, versions, dependencies
+  - Query NPM registry API directly
+  - Return package.json info, latest versions, changelogs
+  - Help with dependency management and version conflicts
+  - Include security advisory information when available
+
+- [ ] **GitHub Repository Search** (`search_github_repos`): Find relevant repositories, issues, and discussions
+  - Search across GitHub for similar codebases and solutions
+  - Find issues related to specific error messages
+  - Discover popular libraries and their usage patterns
+
+- [ ] **Documentation Lookup** (`lookup_docs`): Quick access to official documentation
+  - Pre-configured endpoints for popular frameworks (React, Next.js, Tailwind, etc.)
+  - API reference lookup for common libraries
+  - Version-specific documentation access
+
+### Implementation Notes
+- Add these tools to `toolCatalog.ts` with proper descriptions
+- Implement handlers in `tools.ts` with robust error handling
+- Update system prompt to know when to use these tools
+- Consider rate limiting and API key management
+- Start with `search_web` as the highest priority tool
+
+### Why These Are Critical
+Currently, as an AI assistant, I'm limited to repository files and training data. These tools would allow me to:
+- Look up current API documentation when helping with integrations
+- Find solutions to specific error messages and bugs  
+- Verify current best practices and security recommendations
+- Help with library selection and version compatibility
+- Provide up-to-date examples and usage patterns
+
+This would transform me from a "static knowledge" assistant to one that can access current, relevant information for better coding help.
+
 ## Features & Improvements
 - [ ] add line numbers to code display to fix line reference issues in AI assistant
 - [ ] improve file search functionality with better fuzzy matching
