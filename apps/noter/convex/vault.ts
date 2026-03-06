@@ -344,6 +344,7 @@ async function getCurrentDaytonaSnapshotState(
       daytonaCurrentSnapshotLastError: undefined,
       daytonaCurrentSnapshotUpdatedAt: undefined,
       daytonaCurrentSnapshotAttemptCount: undefined,
+      daytonaCurrentSnapshotNextRetryAt: undefined,
     };
   }
   const commitSha = vault.commitSHA;
@@ -366,6 +367,7 @@ async function getCurrentDaytonaSnapshotState(
     daytonaCurrentSnapshotLastError: snapshot?.lastError,
     daytonaCurrentSnapshotUpdatedAt: snapshot?.updatedAt,
     daytonaCurrentSnapshotAttemptCount: snapshot?.attemptCount,
+    daytonaCurrentSnapshotNextRetryAt: snapshot?.nextRetryAt,
   };
 }
 
@@ -398,6 +400,7 @@ const getUserVaultsResult = array(
     daytonaCurrentSnapshotLastError: optional(string()),
     daytonaCurrentSnapshotUpdatedAt: optional(number()),
     daytonaCurrentSnapshotAttemptCount: optional(number()),
+    daytonaCurrentSnapshotNextRetryAt: optional(number()),
     infraState: union(
       literal("not_started"),
       literal("provisioning"),
@@ -501,6 +504,8 @@ export const getUserVaults = query({
             daytonaSnapshotState.daytonaCurrentSnapshotUpdatedAt,
           daytonaCurrentSnapshotAttemptCount:
             daytonaSnapshotState.daytonaCurrentSnapshotAttemptCount,
+          daytonaCurrentSnapshotNextRetryAt:
+            daytonaSnapshotState.daytonaCurrentSnapshotNextRetryAt,
           infraState: vault.infraState ?? "not_started",
           infraProductionUrl: resolveHostingMainUrl(infra),
         };
@@ -844,20 +849,6 @@ export const updateVaultTree = internalMutation({
       }
     }
 
-    return null;
-  },
-});
-
-export const updateVaultCommitSha = internalMutation({
-  args: {
-    vaultId: v.id("vaults"),
-    commitSHA: string(),
-  },
-  returns: nullValidator,
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.vaultId, {
-      commitSHA: args.commitSHA,
-    });
     return null;
   },
 });
