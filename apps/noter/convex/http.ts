@@ -76,7 +76,19 @@ http.route({
 });
 
 http.route({
+  path: "/.well-known/oauth-protected-resource/mcp",
+  method: "GET",
+  handler: getMcpOauthProtectedResourceMetadata,
+});
+
+http.route({
   path: "/.well-known/oauth-authorization-server",
+  method: "GET",
+  handler: getMcpOauthAuthorizationServerMetadata,
+});
+
+http.route({
+  path: "/.well-known/oauth-authorization-server/mcp",
   method: "GET",
   handler: getMcpOauthAuthorizationServerMetadata,
 });
