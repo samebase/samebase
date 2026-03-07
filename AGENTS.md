@@ -415,6 +415,9 @@ Auth:
 - Use `make anon` as the default dev/bootstrap entrypoint in a worktree.
 - Never use `npx convex dev` as the normal worktree startup path; only use it
   for explicit low-level debugging requests.
+- Never run `npx convex dev` with `--env-file` pointing at another checkout's
+  `.env.local` from a worktree. It can rewrite the worktree
+  `apps/noter/.env.local` to a cloud `dev:*` deployment and break `make anon`.
 - Use `make run` in the primary local checkout (non-worktree).
 - Keep changes isolated per worktree (one idea per worktree) and avoid mixing
   branches in a single worktree.
