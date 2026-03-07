@@ -8,10 +8,12 @@ import { finishConvexOAuth, startConvexOAuth } from "./convexOAuth";
 import { finishGithubOAuth, startGithubOAuth } from "./githubOAuth";
 import {
   authorizeMcpOauthRequest,
+  exchangeMcpOauthToken,
   getMcpOauthAuthorizationServerMetadata,
   getMcpOauthProtectedResourceMetadata,
+  handleMcpRequest,
   registerMcpOauthClient,
-} from "./mcpHttp";
+} from "./mcp/http";
 import { finishNetlifyOAuthCallback, startNetlifyOAuth } from "./netlifyOAuth";
 import { handlePolarWebhook } from "./polarWebhooks";
 
@@ -89,6 +91,18 @@ http.route({
   path: "/oauth/mcp/authorize",
   method: "GET",
   handler: authorizeMcpOauthRequest,
+});
+
+http.route({
+  path: "/oauth/mcp/token",
+  method: "POST",
+  handler: exchangeMcpOauthToken,
+});
+
+http.route({
+  path: "/mcp",
+  method: "POST",
+  handler: handleMcpRequest,
 });
 
 http.route({

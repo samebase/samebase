@@ -1,4 +1,4 @@
-import { asRecord } from "./jsonUtils";
+import { asRecord } from "../jsonUtils";
 
 const DEFAULT_GRANT_TYPES = ["authorization_code", "refresh_token"] as const;
 const DEFAULT_RESPONSE_TYPES = ["code"] as const;
@@ -13,6 +13,7 @@ const MAX_CONTACT_LENGTH = 320;
 const MAX_STATE_LENGTH = 500;
 
 const codeChallengePattern = /^[A-Za-z0-9\-._~]{43,128}$/;
+const codeVerifierPattern = /^[A-Za-z0-9\-._~]{43,128}$/;
 
 export const MCP_V1_SUPPORTED_SCOPES = [
   "vaults.read",
@@ -41,7 +42,7 @@ type ValidationOk<T> = {
 
 type ValidationError = {
   ok: false;
-  status: 400;
+  status: number;
   error: string;
 };
 
@@ -55,6 +56,31 @@ export type AuthorizeRequestInput = {
   state: string | null;
   codeChallenge: string;
   codeChallengeMethod: "S256";
+};
+
+type AuthorizationCodeTokenRequestInput = {
+  grantType: "authorization_code";
+  clientId: string;
+  code: string;
+  redirectUri: string;
+  codeVerifier: string;
+};
+
+type RefreshTokenRequestInput = {
+  grantType: "refresh_token";
+  clientId: string;
+  refreshToken: string;
+};
+
+export type TokenRequestInput =
+  | AuthorizationCodeTokenRequestInput
+  | RefreshTokenRequestInput;
+
+export type JsonRpcRequestPayload = {
+  jsonrpc: "2.0";
+  method: string;
+  id: string | number | null;
+  params: unknown;
 };
 
 function trimTrailingSlash(url: string): string {
@@ -445,6 +471,179 @@ export function validateAuthorizeRequestFromUrl(
       state,
       codeChallenge,
       codeChallengeMethod: CODE_CHALLENGE_METHOD,
+    },
+  };
+}
+
+export function validateTokenRequestFromSearchParams(
+  params: URLSearchParams,
+): ValidationResult<TokenRequestInput> {
+  const grantType = params.get("grant_type")?.trim() ?? "";
+  if (grantType === "authorization_code") {
+    const code = params.get("code")?.trim() ?? "";
+    if (code.length === 0) {
+      return {
+        ok: false,
+        status: 400,
+        error: "code is required for authorization_code grant.",
+      };
+    }
+
+    const clientId = params.get("client_id")?.trim() ?? "";
+    if (clientId.length === 0) {
+      return {
+        ok: false,
+        status: 400,
+        error: "client_id is required.",
+      };
+    }
+
+    const redirectUriRaw = params.get("redirect_uri")?.trim() ?? "";
+    if (redirectUriRaw.length === 0) {
+      return {
+        ok: false,
+        status: 400,
+        error: "redirect_uri is required.",
+      };
+    }
+    const redirectUri = parseAndValidateUri(redirectUriRaw, true);
+    if (redirectUri === null) {
+      return {
+        ok: false,
+        status: 400,
+        error: "redirect_uri is invalid.",
+      };
+    }
+
+    const codeVerifier = params.get("code_verifier")?.trim() ?? "";
+    if (!codeVerifierPattern.test(codeVerifier)) {
+      return {
+        ok: false,
+        status: 400,
+        error: "code_verifier must be 43-128 URL-safe characters.",
+      };
+    }
+
+    return {
+      ok: true,
+      value: {
+        grantType: "authorization_code",
+        clientId,
+        code,
+        redirectUri: redirectUri.toString(),
+        codeVerifier,
+      },
+    };
+  }
+
+  if (grantType === "refresh_token") {
+    const clientId = params.get("client_id")?.trim() ?? "";
+    if (clientId.length === 0) {
+      return {
+        ok: false,
+        status: 400,
+        error: "client_id is required.",
+      };
+    }
+
+    const refreshToken = params.get("refresh_token")?.trim() ?? "";
+    if (refreshToken.length === 0) {
+      return {
+        ok: false,
+        status: 400,
+        error: "refresh_token is required for refresh_token grant.",
+      };
+    }
+
+    return {
+      ok: true,
+      value: {
+        grantType: "refresh_token",
+        clientId,
+        refreshToken,
+      },
+    };
+  }
+
+  return {
+    ok: false,
+    status: 400,
+    error: "grant_type must be authorization_code or refresh_token.",
+  };
+}
+
+export function readBearerTokenFromAuthorizationHeader(
+  authorization: string | null,
+): ValidationResult<string> {
+  if (!authorization) {
+    return {
+      ok: false,
+      status: 401,
+      error: "Authorization header must be provided.",
+    };
+  }
+
+  const trimmed = authorization.trim();
+  const prefix = "Bearer ";
+  if (!trimmed.startsWith(prefix)) {
+    return {
+      ok: false,
+      status: 401,
+      error: "Authorization header must use Bearer scheme.",
+    };
+  }
+
+  const token = trimmed.slice(prefix.length).trim();
+  if (token.length === 0) {
+    return {
+      ok: false,
+      status: 401,
+      error: "Bearer token is required.",
+    };
+  }
+
+  return {
+    ok: true,
+    value: token,
+  };
+}
+
+export function validateJsonRpcRequestPayload(
+  payload: unknown,
+): ValidationResult<JsonRpcRequestPayload> {
+  const record = asRecord(payload);
+
+  if (record.jsonrpc !== "2.0") {
+    return {
+      ok: false,
+      status: 400,
+      error: 'jsonrpc must be "2.0".',
+    };
+  }
+
+  if (typeof record.method !== "string" || record.method.trim().length === 0) {
+    return {
+      ok: false,
+      status: 400,
+      error: "method must be a non-empty string.",
+    };
+  }
+
+  const idValue = record.id;
+  const id =
+    typeof idValue === "string" ||
+    typeof idValue === "number" ||
+    idValue === null
+      ? idValue
+      : null;
+
+  return {
+    ok: true,
+    value: {
+      jsonrpc: "2.0",
+      method: record.method,
+      id,
+      params: record.params,
     },
   };
 }

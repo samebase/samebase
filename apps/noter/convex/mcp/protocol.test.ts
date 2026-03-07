@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   buildMcpAuthorizationServerMetadata,
   buildMcpProtectedResourceMetadata,
+  readBearerTokenFromAuthorizationHeader,
   validateAuthorizeRequestFromUrl,
   validateDynamicClientRegistrationPayload,
-} from "./mcpOAuthProtocol";
+  validateJsonRpcRequestPayload,
+  validateTokenRequestFromSearchParams,
+} from "./protocol";
 
 describe("buildMcpProtectedResourceMetadata", () => {
   it("returns canonical same-origin metadata for /mcp", () => {
@@ -122,6 +125,110 @@ describe("validateAuthorizeRequestFromUrl", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toContain("Unsupported scope");
+    }
+  });
+});
+
+describe("validateTokenRequestFromSearchParams", () => {
+  it("accepts authorization_code grant with PKCE verifier", () => {
+    const params = new URLSearchParams({
+      grant_type: "authorization_code",
+      code: "mcpac_example",
+      client_id: "client_123",
+      redirect_uri: "https://example.com/callback",
+      code_verifier:
+        "0123456789012345678901234567890123456789012345678901234567890123",
+    });
+
+    const result = validateTokenRequestFromSearchParams(params);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.grantType).toBe("authorization_code");
+      if (result.value.grantType === "authorization_code") {
+        expect(result.value.clientId).toBe("client_123");
+        expect(result.value.redirectUri).toBe("https://example.com/callback");
+      }
+    }
+  });
+
+  it("accepts refresh_token grant", () => {
+    const params = new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: "mcprt_example",
+      client_id: "client_123",
+    });
+
+    const result = validateTokenRequestFromSearchParams(params);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.grantType).toBe("refresh_token");
+      if (result.value.grantType === "refresh_token") {
+        expect(result.value.refreshToken).toBe("mcprt_example");
+      }
+    }
+  });
+
+  it("rejects unsupported grant_type values", () => {
+    const params = new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: "client_123",
+    });
+
+    const result = validateTokenRequestFromSearchParams(params);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("grant_type");
+    }
+  });
+});
+
+describe("readBearerTokenFromAuthorizationHeader", () => {
+  it("extracts bearer token", () => {
+    const result = readBearerTokenFromAuthorizationHeader(
+      "Bearer mcpat_example",
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toBe("mcpat_example");
+    }
+  });
+
+  it("rejects missing bearer token", () => {
+    const result = readBearerTokenFromAuthorizationHeader(null);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("Authorization");
+    }
+  });
+});
+
+describe("validateJsonRpcRequestPayload", () => {
+  it("accepts a valid JSON-RPC request envelope", () => {
+    const result = validateJsonRpcRequestPayload({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.method).toBe("initialize");
+      expect(result.value.id).toBe(1);
+    }
+  });
+
+  it('rejects non-"2.0" JSON-RPC version', () => {
+    const result = validateJsonRpcRequestPayload({
+      jsonrpc: "1.0",
+      id: 1,
+      method: "initialize",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("jsonrpc");
     }
   });
 });

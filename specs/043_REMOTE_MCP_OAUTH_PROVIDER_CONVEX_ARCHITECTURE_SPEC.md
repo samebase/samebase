@@ -581,22 +581,24 @@ No new app is required.
 Recommended additions inside `apps/noter/convex`:
 
 - `http.ts`
-- `mcpHttp.ts`
-- `mcpOAuth.ts`
-- `mcpTokens.ts`
-- `mcpGrants.ts`
-- `mcpAudit.ts`
-- `mcpTools.ts`
+- `mcp/http.ts`
+- `mcp/oauth.ts`
+- `mcp/protocol.ts`
+- `mcp/tokens.ts`
+- `mcp/grants.ts`
+- `mcp/audit.ts`
+- `mcp/tools.ts`
 
 Responsibilities:
 
 1. `http.ts` wires new public routes.
-2. `mcpHttp.ts` owns HTTP handlers and route-level parsing.
-3. `mcpOAuth.ts` owns registration, authorize, token, and metadata behavior.
-4. `mcpTokens.ts` owns token creation, hashing, validation, and rotation.
-5. `mcpGrants.ts` owns grant creation, listing, and revocation.
-6. `mcpAudit.ts` owns immutable audit writes.
-7. `mcpTools.ts` maps MCP tool calls into existing Noter backend operations.
+2. `mcp/http.ts` owns HTTP handlers and route-level parsing.
+3. `mcp/oauth.ts` owns registration, authorize, token, and metadata behavior.
+4. `mcp/protocol.ts` owns protocol validation and metadata shaping.
+5. `mcp/tokens.ts` owns token creation, hashing, validation, and rotation.
+6. `mcp/grants.ts` owns grant creation, listing, and revocation.
+7. `mcp/audit.ts` owns immutable audit writes.
+8. `mcp/tools.ts` maps MCP tool calls into existing Noter backend operations.
 
 Frontend additions can stay inside the existing app for:
 
@@ -719,14 +721,14 @@ Use this as the chat-independent implementation tracker so a new session can
 resume without relying on conversation context.
 
 - Last updated: 2026-03-07
-- Overall status: `0/4 phases complete`
-- Current next step: `Phase 1`
-- Latest checkpoint commit: `474fdd6`
+- Overall status: `1/4 phases complete`
+- Current next step: `Phase 2`
+- Latest checkpoint commit: `ce0af7f`
 - Test policy: `Phase-by-phase tests first; no long-lived failing future tests`
 
 Phase status:
 
-- [ ] Phase 1: data model and metadata skeleton
+- [x] Phase 1: data model and metadata skeleton
 - [ ] Phase 2: token issuance and narrow MCP server
 - [ ] Phase 3: user controls
 - [ ] Phase 4: hardening
