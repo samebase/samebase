@@ -363,6 +363,10 @@ Auth:
 - For temporary Playwright/manual-test repos, use the exact
   `tmp-<worktree-id>-<intent>` naming rule. Do not invent alternate temp
   prefixes.
+- For this operator, treat shadcn-generated files in
+  `apps/noter/src/components/ui/*` as read-only by default: do not modify them
+  (including from Greptile/CodeRabbit feedback) unless the user explicitly asks
+  to update shadcn output.
 - When asked for OAuth redirect URLs or env vars, give a single exact
   recommendation. Do not present multiple options or alternate env var lookups.
 - Avoid adding unusual options or flags unless there is a clear, stated reason
