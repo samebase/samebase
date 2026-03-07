@@ -79,8 +79,12 @@ export type TokenRequestInput =
 export type JsonRpcRequestPayload = {
   jsonrpc: "2.0";
   method: string;
-  id: string | number | null;
+  id?: string | number | null;
   params: unknown;
+};
+
+export type McpProtocolValidationOptions = {
+  allowLoopbackHttpRedirectUris?: boolean;
 };
 
 function trimTrailingSlash(url: string): string {
@@ -95,18 +99,29 @@ function isLoopbackHost(hostname: string): boolean {
   return (
     normalized === "localhost" ||
     normalized === "127.0.0.1" ||
-    normalized === "::1"
+    normalized === "::1" ||
+    normalized === "[::1]"
   );
 }
 
-function parseAndValidateUri(uri: string, forRedirect: boolean): URL | null {
+function parseAndValidateUri(
+  uri: string,
+  args: {
+    forRedirect: boolean;
+    allowLoopbackHttpRedirectUris: boolean;
+  },
+): URL | null {
   try {
     const parsed = new URL(uri);
-    if (forRedirect) {
+    if (args.forRedirect) {
       if (parsed.protocol === "https:") {
         return parsed;
       }
-      if (parsed.protocol === "http:" && isLoopbackHost(parsed.hostname)) {
+      if (
+        args.allowLoopbackHttpRedirectUris &&
+        parsed.protocol === "http:" &&
+        isLoopbackHost(parsed.hostname)
+      ) {
         return parsed;
       }
       return null;
@@ -117,6 +132,55 @@ function parseAndValidateUri(uri: string, forRedirect: boolean): URL | null {
   } catch {
     return null;
   }
+}
+
+function resolveAllowLoopbackHttpRedirectUris(
+  options?: McpProtocolValidationOptions,
+): boolean {
+  return options?.allowLoopbackHttpRedirectUris === true;
+}
+
+function normalizeUriForComparison(parsed: URL): string {
+  parsed.protocol = parsed.protocol.toLowerCase();
+  parsed.hostname = parsed.hostname.toLowerCase();
+  if (
+    (parsed.protocol === "https:" && parsed.port === "443") ||
+    (parsed.protocol === "http:" && parsed.port === "80")
+  ) {
+    parsed.port = "";
+  }
+  if (parsed.pathname.length === 0) {
+    parsed.pathname = "/";
+  }
+  return parsed.toString();
+}
+
+export function redirectUriMatchesRegistered(args: {
+  requestedRedirectUri: string;
+  registeredRedirectUris: string[];
+  options?: McpProtocolValidationOptions;
+}): boolean {
+  const allowLoopbackHttpRedirectUris = resolveAllowLoopbackHttpRedirectUris(
+    args.options,
+  );
+  const requested = parseAndValidateUri(args.requestedRedirectUri, {
+    forRedirect: true,
+    allowLoopbackHttpRedirectUris,
+  });
+  if (!requested) {
+    return false;
+  }
+  const normalizedRequested = normalizeUriForComparison(requested);
+  return args.registeredRedirectUris.some((registeredRedirectUri) => {
+    const parsedRegistered = parseAndValidateUri(registeredRedirectUri, {
+      forRedirect: true,
+      allowLoopbackHttpRedirectUris,
+    });
+    if (!parsedRegistered) {
+      return false;
+    }
+    return normalizeUriForComparison(parsedRegistered) === normalizedRequested;
+  });
 }
 
 function readStringArray(
@@ -227,8 +291,11 @@ export function buildMcpAuthorizationServerMetadata(baseUrl: string): {
 
 export function validateDynamicClientRegistrationPayload(
   payload: unknown,
+  options?: McpProtocolValidationOptions,
 ): ValidationResult<DynamicClientRegistrationInput> {
   const record = asRecord(payload);
+  const allowLoopbackHttpRedirectUris =
+    resolveAllowLoopbackHttpRedirectUris(options);
 
   const clientNameValue = record.client_name;
   let clientName: string | null = null;
@@ -266,13 +333,16 @@ export function validateDynamicClientRegistrationPayload(
   }
 
   for (const redirectUri of redirectUris) {
-    const parsed = parseAndValidateUri(redirectUri, true);
+    const parsed = parseAndValidateUri(redirectUri, {
+      forRedirect: true,
+      allowLoopbackHttpRedirectUris,
+    });
     if (parsed === null) {
       return {
         ok: false,
         status: 400,
         error:
-          "redirect_uris must use https, except localhost/loopback http for development.",
+          "redirect_uris must use https, except loopback http when explicitly enabled for development.",
       };
     }
   }
@@ -347,7 +417,10 @@ export function validateDynamicClientRegistrationPayload(
 
 export function validateAuthorizeRequestFromUrl(
   url: URL,
+  options?: McpProtocolValidationOptions,
 ): ValidationResult<AuthorizeRequestInput> {
+  const allowLoopbackHttpRedirectUris =
+    resolveAllowLoopbackHttpRedirectUris(options);
   const responseType = url.searchParams.get("response_type");
   if (responseType !== "code") {
     return {
@@ -375,7 +448,10 @@ export function validateAuthorizeRequestFromUrl(
     };
   }
 
-  const redirectUri = parseAndValidateUri(redirectUriRaw, true);
+  const redirectUri = parseAndValidateUri(redirectUriRaw, {
+    forRedirect: true,
+    allowLoopbackHttpRedirectUris,
+  });
   if (redirectUri === null) {
     return {
       ok: false,
@@ -392,7 +468,10 @@ export function validateAuthorizeRequestFromUrl(
       error: "resource is required.",
     };
   }
-  const resource = parseAndValidateUri(resourceRaw, false);
+  const resource = parseAndValidateUri(resourceRaw, {
+    forRedirect: false,
+    allowLoopbackHttpRedirectUris,
+  });
   if (resource === null) {
     return {
       ok: false,
@@ -477,7 +556,10 @@ export function validateAuthorizeRequestFromUrl(
 
 export function validateTokenRequestFromSearchParams(
   params: URLSearchParams,
+  options?: McpProtocolValidationOptions,
 ): ValidationResult<TokenRequestInput> {
+  const allowLoopbackHttpRedirectUris =
+    resolveAllowLoopbackHttpRedirectUris(options);
   const grantType = params.get("grant_type")?.trim() ?? "";
   if (grantType === "authorization_code") {
     const code = params.get("code")?.trim() ?? "";
@@ -506,7 +588,10 @@ export function validateTokenRequestFromSearchParams(
         error: "redirect_uri is required.",
       };
     }
-    const redirectUri = parseAndValidateUri(redirectUriRaw, true);
+    const redirectUri = parseAndValidateUri(redirectUriRaw, {
+      forRedirect: true,
+      allowLoopbackHttpRedirectUris,
+    });
     if (redirectUri === null) {
       return {
         ok: false,
@@ -583,9 +668,8 @@ export function readBearerTokenFromAuthorizationHeader(
     };
   }
 
-  const trimmed = authorization.trim();
-  const prefix = "Bearer ";
-  if (!trimmed.startsWith(prefix)) {
+  const match = authorization.trim().match(/^bearer\s+(.+)$/i);
+  if (!match) {
     return {
       ok: false,
       status: 401,
@@ -593,7 +677,7 @@ export function readBearerTokenFromAuthorizationHeader(
     };
   }
 
-  const token = trimmed.slice(prefix.length).trim();
+  const token = match[1].trim();
   if (token.length === 0) {
     return {
       ok: false,
@@ -630,12 +714,22 @@ export function validateJsonRpcRequestPayload(
   }
 
   const idValue = record.id;
-  const id =
+  let id: string | number | null | undefined;
+  if (idValue === undefined) {
+    id = undefined;
+  } else if (
     typeof idValue === "string" ||
     typeof idValue === "number" ||
     idValue === null
-      ? idValue
-      : null;
+  ) {
+    id = idValue;
+  } else {
+    return {
+      ok: false,
+      status: 400,
+      error: "id must be a string, number, null, or omitted.",
+    };
+  }
 
   return {
     ok: true,

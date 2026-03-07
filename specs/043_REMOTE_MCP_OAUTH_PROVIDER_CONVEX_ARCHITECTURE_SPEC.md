@@ -278,23 +278,26 @@ Rules:
 
 1. One-time use.
 2. Bound to `client_id`, `redirect_uri`, PKCE challenge, resource, and user.
-3. Short expiration.
+3. TTL must be 5-10 minutes (recommend 10 minutes in v1).
 
 ### 3. Access token
 
-Use an opaque bearer token stored only as a hash in Convex.
+Use an opaque bearer token generated with at least 128 bits of entropy and
+stored only as the SHA-256 hash in Convex.
 
 Rules:
 
 1. First-party to `noter.md`.
 2. Bound to `client_id`, `grant_id`, `user_id`, resource, and scope.
-3. Short TTL.
+3. TTL must be 1-24 hours (recommend 1 hour in v1; shorten further per threat
+   model).
 4. Validated by lookup inside Convex on every `/mcp` call.
 5. Not accepted by unrelated app routes or internal Convex auth.
 
 ### 4. Refresh token
 
-Use an opaque refresh token stored only as a hash in Convex.
+Use an opaque refresh token generated with at least 128 bits of entropy and
+stored only as the SHA-256 hash in Convex.
 
 Rules:
 
@@ -356,7 +359,7 @@ Fields:
 - `scope`
 - `state`
 - `codeChallenge`
-- `codeChallengeMethod`
+- `codeChallengeMethod` (must be `"S256"`; `"plain"` must be rejected)
 - `userId?`
 - `status` (`pending`, `approved`, `denied`, `expired`)
 - `createdAt`
@@ -480,7 +483,8 @@ Rules:
 5. Cloudflare applies per-IP throttling for `/oauth/mcp/register` and optional
    per-client throttling once a `client_id` exists.
 6. Dynamic registrations are created as `provisional` and auto-expire if no
-   token exchange occurs before `provisionalExpiresAt`.
+   token exchange occurs before `provisionalExpiresAt` (TTL must be 24-48 hours;
+   recommend 24 hours in v1).
 7. Convex returns `client_id`.
 
 ### 2. Authorization request
@@ -505,7 +509,8 @@ Rules:
 5. Convex issues:
    - short-lived opaque access token
    - long-lived opaque refresh token
-6. Token hashes are stored in Convex.
+6. Only SHA-256 token hashes are stored in Convex for both access and refresh
+   tokens.
 7. Issuance is recorded in `mcpAccessAudit`.
 
 ### 4. MCP call
@@ -559,10 +564,13 @@ Do not introduce a blanket `admin` scope.
 ## Security Rules
 
 1. Never hand third-party provider tokens to the MCP client.
-2. Require PKCE for public clients.
+2. Require PKCE for public clients with `code_challenge_method = "S256"` only;
+   reject `"plain"`.
 3. Require resource or audience validation on token exchange and `/mcp`
    requests.
-4. Store authorization codes, access tokens, and refresh tokens only as hashes.
+4. Store authorization codes, access tokens, and refresh tokens only as SHA-256
+   hashes of cryptographically random tokens (minimum 128-bit entropy) and
+   verify in constant time.
 5. Rotate refresh tokens.
 6. Keep access token TTL short.
 7. Audit registration, approval, issuance, refresh, use, and revocation.
@@ -573,6 +581,8 @@ Do not introduce a blanket `admin` scope.
 11. Automatically expire never-used provisional dynamic registrations.
 12. Enforce v1 `tokenEndpointAuthMethod = "none"` in both registration and token
     exchange.
+13. Recommended TTL defaults can be tightened further based on the deployment
+    threat model.
 
 ## Recommended Repo Layout
 
@@ -721,15 +731,15 @@ Use this as the chat-independent implementation tracker so a new session can
 resume without relying on conversation context.
 
 - Last updated: 2026-03-07
-- Overall status: `1/4 phases complete`
-- Current next step: `Phase 2`
+- Overall status: `2/4 phases complete`
+- Current next step: `Phase 3`
 - Latest checkpoint commit: `2befdeb`
 - Test policy: `Phase-by-phase tests first; no long-lived failing future tests`
 
 Phase status:
 
 - [x] Phase 1: data model and metadata skeleton
-- [ ] Phase 2: token issuance and narrow MCP server
+- [x] Phase 2: token issuance and narrow MCP server
 - [ ] Phase 3: user controls
 - [ ] Phase 4: hardening
 

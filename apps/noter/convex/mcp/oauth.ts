@@ -5,6 +5,7 @@ import {
   McpAuthRequestStatus,
   McpOauthClientRegistrationStatus,
 } from "../schema";
+import { redirectUriMatchesRegistered } from "./protocol";
 import { verifyPkceS256 } from "./tokens";
 
 const {
@@ -163,6 +164,8 @@ type ValidateAccessTokenResult = Infer<
   typeof validateAccessTokenResultValidator
 >;
 
+const MCP_LAST_USED_WRITE_THROTTLE_MS = 60 * 1000;
+
 function oauthError(args: {
   status: number;
   error: string;
@@ -174,6 +177,21 @@ function oauthError(args: {
     error: args.error,
     errorDescription: args.errorDescription,
   };
+}
+
+function isClientInactive(args: {
+  client: {
+    registrationStatus: Infer<typeof McpOauthClientRegistrationStatus>;
+    provisionalExpiresAt?: number;
+  };
+  now: number;
+}): boolean {
+  return (
+    args.client.registrationStatus === "expired" ||
+    args.client.registrationStatus === "disabled" ||
+    (typeof args.client.provisionalExpiresAt === "number" &&
+      args.client.provisionalExpiresAt <= args.now)
+  );
 }
 
 export const registerDynamicClient = internalMutation({
@@ -244,6 +262,34 @@ export const createAuthRequest = internalMutation({
       createdAt: args.createdAt,
       expiresAt: args.expiresAt,
     });
+  },
+});
+
+export const hasActiveGrantForAuthRequest = internalQuery({
+  args: {
+    requestId: string(),
+    userId: id("users"),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const authRequest = await ctx.db
+      .query("mcpAuthRequests")
+      .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
+      .first();
+    if (!authRequest) {
+      return false;
+    }
+    const userGrants = await ctx.db
+      .query("mcpGrants")
+      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+      .collect();
+    return userGrants.some(
+      (grant) =>
+        grant.clientId === authRequest.clientId &&
+        grant.resource === authRequest.resource &&
+        grant.scope === authRequest.scope &&
+        grant.status === "active",
+    );
   },
 });
 
@@ -323,8 +369,10 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
     }
 
     if (
-      client.registrationStatus === "expired" ||
-      client.registrationStatus === "disabled"
+      isClientInactive({
+        client,
+        now: args.now,
+      })
     ) {
       return oauthError({
         status: 400,
@@ -333,7 +381,15 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
       });
     }
 
-    if (!client.redirectUris.includes(authRequest.redirectUri)) {
+    if (
+      !redirectUriMatchesRegistered({
+        requestedRedirectUri: authRequest.redirectUri,
+        registeredRedirectUris: client.redirectUris,
+        options: {
+          allowLoopbackHttpRedirectUris: true,
+        },
+      })
+    ) {
       return oauthError({
         status: 400,
         error: "invalid_request",
@@ -493,8 +549,10 @@ export const exchangeAuthorizationCode = internalMutation({
     }
 
     if (
-      client.registrationStatus === "expired" ||
-      client.registrationStatus === "disabled"
+      isClientInactive({
+        client,
+        now: args.now,
+      })
     ) {
       return oauthError({
         status: 400,
@@ -503,7 +561,15 @@ export const exchangeAuthorizationCode = internalMutation({
       });
     }
 
-    if (!client.redirectUris.includes(args.redirectUri)) {
+    if (
+      !redirectUriMatchesRegistered({
+        requestedRedirectUri: args.redirectUri,
+        registeredRedirectUris: client.redirectUris,
+        options: {
+          allowLoopbackHttpRedirectUris: true,
+        },
+      })
+    ) {
       return oauthError({
         status: 400,
         error: "invalid_request",
@@ -763,13 +829,26 @@ export const validateAccessToken = internalMutation({
       });
     }
 
-    await ctx.db.patch(accessToken._id, {
-      lastUsedAt: args.now,
-    });
-    await ctx.db.patch(grant._id, {
-      updatedAt: args.now,
-      lastUsedAt: args.now,
-    });
+    const shouldUpdateAccessTokenLastUsedAt =
+      typeof accessToken.lastUsedAt !== "number" ||
+      args.now - accessToken.lastUsedAt >= MCP_LAST_USED_WRITE_THROTTLE_MS;
+    const shouldUpdateGrantLastUsedAt =
+      typeof grant.lastUsedAt !== "number" ||
+      args.now - grant.lastUsedAt >= MCP_LAST_USED_WRITE_THROTTLE_MS;
+
+    await Promise.all([
+      shouldUpdateAccessTokenLastUsedAt
+        ? ctx.db.patch(accessToken._id, {
+            lastUsedAt: args.now,
+          })
+        : Promise.resolve(),
+      shouldUpdateGrantLastUsedAt
+        ? ctx.db.patch(grant._id, {
+            updatedAt: args.now,
+            lastUsedAt: args.now,
+          })
+        : Promise.resolve(),
+    ]);
 
     return {
       ok: true,

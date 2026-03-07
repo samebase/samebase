@@ -40,10 +40,7 @@ describe("validateDynamicClientRegistrationPayload", () => {
   it("accepts a valid v1 public-client payload", () => {
     const result = validateDynamicClientRegistrationPayload({
       client_name: "Noter Manual Test",
-      redirect_uris: [
-        "https://example.com/callback",
-        "http://localhost:5174/callback",
-      ],
+      redirect_uris: ["https://example.com/callback"],
       contacts: ["founders@noter.md"],
       token_endpoint_auth_method: "none",
       grant_types: ["authorization_code", "refresh_token"],
@@ -53,9 +50,20 @@ describe("validateDynamicClientRegistrationPayload", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.tokenEndpointAuthMethod).toBe("none");
-      expect(result.value.redirectUris).toHaveLength(2);
+      expect(result.value.redirectUris).toHaveLength(1);
       expect(result.value.contacts).toEqual(["founders@noter.md"]);
     }
+  });
+
+  it("accepts loopback http redirect_uris when development mode is explicitly enabled", () => {
+    const result = validateDynamicClientRegistrationPayload(
+      {
+        redirect_uris: ["http://localhost:5174/callback"],
+      },
+      { allowLoopbackHttpRedirectUris: true },
+    );
+
+    expect(result.ok).toBe(true);
   });
 
   it("rejects unsupported token endpoint auth methods", () => {
@@ -75,6 +83,17 @@ describe("validateDynamicClientRegistrationPayload", () => {
   it("rejects insecure redirect uris outside loopback exceptions", () => {
     const result = validateDynamicClientRegistrationPayload({
       redirect_uris: ["http://example.com/callback"],
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("redirect_uris");
+    }
+  });
+
+  it("rejects loopback http redirect_uris when development mode is disabled", () => {
+    const result = validateDynamicClientRegistrationPayload({
+      redirect_uris: ["http://localhost:5174/callback"],
     });
 
     expect(result.ok).toBe(false);
@@ -126,6 +145,45 @@ describe("validateAuthorizeRequestFromUrl", () => {
     if (!result.ok) {
       expect(result.error).toContain("Unsupported scope");
     }
+  });
+
+  it("rejects loopback redirect_uri when development mode is disabled", () => {
+    const url = new URL("https://noter.md/oauth/mcp/authorize");
+    url.searchParams.set("response_type", "code");
+    url.searchParams.set("client_id", "client_123");
+    url.searchParams.set("redirect_uri", "http://localhost:5174/callback");
+    url.searchParams.set("resource", "https://noter.md/mcp");
+    url.searchParams.set("scope", "vaults.read");
+    url.searchParams.set(
+      "code_challenge",
+      "0123456789012345678901234567890123456789012",
+    );
+    url.searchParams.set("code_challenge_method", "S256");
+
+    const result = validateAuthorizeRequestFromUrl(url);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("redirect_uri");
+    }
+  });
+
+  it("accepts loopback redirect_uri when development mode is enabled", () => {
+    const url = new URL("https://noter.md/oauth/mcp/authorize");
+    url.searchParams.set("response_type", "code");
+    url.searchParams.set("client_id", "client_123");
+    url.searchParams.set("redirect_uri", "http://localhost:5174/callback");
+    url.searchParams.set("resource", "https://noter.md/mcp");
+    url.searchParams.set("scope", "vaults.read");
+    url.searchParams.set(
+      "code_challenge",
+      "0123456789012345678901234567890123456789012",
+    );
+    url.searchParams.set("code_challenge_method", "S256");
+
+    const result = validateAuthorizeRequestFromUrl(url, {
+      allowLoopbackHttpRedirectUris: true,
+    });
+    expect(result.ok).toBe(true);
   });
 });
 
@@ -180,12 +238,65 @@ describe("validateTokenRequestFromSearchParams", () => {
       expect(result.error).toContain("grant_type");
     }
   });
+
+  it("rejects loopback redirect_uri when development mode is disabled", () => {
+    const params = new URLSearchParams({
+      grant_type: "authorization_code",
+      code: "mcpac_example",
+      client_id: "client_123",
+      redirect_uri: "http://localhost:5174/callback",
+      code_verifier:
+        "0123456789012345678901234567890123456789012345678901234567890123",
+    });
+
+    const result = validateTokenRequestFromSearchParams(params);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("redirect_uri");
+    }
+  });
+
+  it("accepts loopback redirect_uri when development mode is enabled", () => {
+    const params = new URLSearchParams({
+      grant_type: "authorization_code",
+      code: "mcpac_example",
+      client_id: "client_123",
+      redirect_uri: "http://localhost:5174/callback",
+      code_verifier:
+        "0123456789012345678901234567890123456789012345678901234567890123",
+    });
+
+    const result = validateTokenRequestFromSearchParams(params, {
+      allowLoopbackHttpRedirectUris: true,
+    });
+    expect(result.ok).toBe(true);
+  });
 });
 
 describe("readBearerTokenFromAuthorizationHeader", () => {
   it("extracts bearer token", () => {
     const result = readBearerTokenFromAuthorizationHeader(
       "Bearer mcpat_example",
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toBe("mcpat_example");
+    }
+  });
+
+  it("accepts lowercase bearer scheme", () => {
+    const result = readBearerTokenFromAuthorizationHeader(
+      "bearer mcpat_example",
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toBe("mcpat_example");
+    }
+  });
+
+  it("accepts mixed-case bearer scheme", () => {
+    const result = readBearerTokenFromAuthorizationHeader(
+      "BeArEr mcpat_example",
     );
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -229,6 +340,31 @@ describe("validateJsonRpcRequestPayload", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toContain("jsonrpc");
+    }
+  });
+
+  it("keeps id undefined when omitted (notification shape)", () => {
+    const result = validateJsonRpcRequestPayload({
+      jsonrpc: "2.0",
+      method: "notifications/initialized",
+      params: {},
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.id).toBeUndefined();
+    }
+  });
+
+  it("rejects non-scalar JSON-RPC ids", () => {
+    const result = validateJsonRpcRequestPayload({
+      jsonrpc: "2.0",
+      id: { nested: "not-valid" },
+      method: "initialize",
+      params: {},
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("id");
     }
   });
 });

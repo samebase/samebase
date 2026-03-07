@@ -29,7 +29,7 @@ export const listVaultsForUser = internalQuery({
   ): Promise<ListVaultsForUserResult> => {
     const vaults = await ctx.db
       .query("vaults")
-      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .collect();
 
     return vaults.map((vault) => ({

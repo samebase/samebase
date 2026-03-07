@@ -15,7 +15,9 @@ import {
 import {
   buildMcpAuthorizationServerMetadata,
   buildMcpProtectedResourceMetadata,
+  type McpProtocolValidationOptions,
   readBearerTokenFromAuthorizationHeader,
+  redirectUriMatchesRegistered,
   validateAuthorizeRequestFromUrl,
   validateDynamicClientRegistrationPayload,
   validateJsonRpcRequestPayload,
@@ -72,8 +74,27 @@ function hasFormUrlEncodedContentType(request: Request): boolean {
     .startsWith("application/x-www-form-urlencoded");
 }
 
+function isLoopbackHostname(hostname: string): boolean {
+  const normalized = hostname.toLowerCase();
+  return (
+    normalized === "localhost" ||
+    normalized === "127.0.0.1" ||
+    normalized === "::1" ||
+    normalized === "[::1]"
+  );
+}
+
+function getProtocolValidationOptions(
+  request: Request,
+): McpProtocolValidationOptions {
+  const requestUrl = new URL(request.url);
+  return {
+    allowLoopbackHttpRedirectUris: isLoopbackHostname(requestUrl.hostname),
+  };
+}
+
 function jsonRpcSuccessResponse(args: {
-  id: string | number | null;
+  id?: string | number | null;
   result: unknown;
 }): Response {
   return jsonResponse({
@@ -84,7 +105,7 @@ function jsonRpcSuccessResponse(args: {
 }
 
 function jsonRpcErrorResponse(args: {
-  id: string | number | null;
+  id?: string | number | null;
   code: number;
   message: string;
   status?: number;
@@ -171,7 +192,10 @@ export const registerMcpOauthClient = httpAction(async (ctx, request) => {
     });
   }
 
-  const validation = validateDynamicClientRegistrationPayload(payload);
+  const validation = validateDynamicClientRegistrationPayload(
+    payload,
+    getProtocolValidationOptions(request),
+  );
   if (!validation.ok) {
     return oauthErrorResponse({
       status: validation.status,
@@ -212,8 +236,13 @@ export const registerMcpOauthClient = httpAction(async (ctx, request) => {
 });
 
 export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
+  const now = Date.now();
+  const protocolValidationOptions = getProtocolValidationOptions(request);
   const url = new URL(request.url);
-  const validation = validateAuthorizeRequestFromUrl(url);
+  const validation = validateAuthorizeRequestFromUrl(
+    url,
+    protocolValidationOptions,
+  );
   if (!validation.ok) {
     return oauthErrorResponse({
       status: validation.status,
@@ -235,7 +264,9 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
 
   if (
     client.registrationStatus === "expired" ||
-    client.registrationStatus === "disabled"
+    client.registrationStatus === "disabled" ||
+    (typeof client.provisionalExpiresAt === "number" &&
+      client.provisionalExpiresAt <= now)
   ) {
     return oauthErrorResponse({
       status: 400,
@@ -244,7 +275,13 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
     });
   }
 
-  if (!client.redirectUris.includes(validation.value.redirectUri)) {
+  if (
+    !redirectUriMatchesRegistered({
+      requestedRedirectUri: validation.value.redirectUri,
+      registeredRedirectUris: client.redirectUris,
+      options: protocolValidationOptions,
+    })
+  ) {
     return oauthErrorResponse({
       status: 400,
       error: "invalid_request",
@@ -261,7 +298,6 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
     });
   }
 
-  const now = Date.now();
   const requestId = `mcpar_${randomToken(24)}`;
   const userId = await getAuthUserId(ctx);
   await ctx.runMutation(internal.mcp.oauth.createAuthRequest, {
@@ -282,6 +318,19 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
     const consentUrl = new URL("/", parseOrigin(request));
     consentUrl.searchParams.set("mcp_consent_request", requestId);
     consentUrl.searchParams.set("mcp_login_required", "1");
+    return Response.redirect(consentUrl.toString(), 302);
+  }
+
+  const hasExistingGrant = await ctx.runQuery(
+    internal.mcp.oauth.hasActiveGrantForAuthRequest,
+    {
+      requestId,
+      userId,
+    },
+  );
+  if (!hasExistingGrant) {
+    const consentUrl = new URL("/", parseOrigin(request));
+    consentUrl.searchParams.set("mcp_consent_request", requestId);
     return Response.redirect(consentUrl.toString(), 302);
   }
 
@@ -326,7 +375,12 @@ export const exchangeMcpOauthToken = httpAction(async (ctx, request) => {
 
   const rawBody = await request.text();
   const params = new URLSearchParams(rawBody);
-  const validation = validateTokenRequestFromSearchParams(params);
+  const now = Date.now();
+  const protocolValidationOptions = getProtocolValidationOptions(request);
+  const validation = validateTokenRequestFromSearchParams(
+    params,
+    protocolValidationOptions,
+  );
   if (!validation.ok) {
     return oauthErrorResponse({
       status: validation.status,
@@ -348,7 +402,9 @@ export const exchangeMcpOauthToken = httpAction(async (ctx, request) => {
 
   if (
     client.registrationStatus === "expired" ||
-    client.registrationStatus === "disabled"
+    client.registrationStatus === "disabled" ||
+    (typeof client.provisionalExpiresAt === "number" &&
+      client.provisionalExpiresAt <= now)
   ) {
     return oauthErrorResponse({
       status: 400,
@@ -357,14 +413,19 @@ export const exchangeMcpOauthToken = httpAction(async (ctx, request) => {
     });
   }
 
-  const now = Date.now();
   const accessToken = createAccessTokenValue();
   const refreshToken = createRefreshTokenValue();
   const accessTokenHash = await sha256Hex(accessToken);
   const refreshTokenHash = await sha256Hex(refreshToken);
 
   if (validation.value.grantType === "authorization_code") {
-    if (!client.redirectUris.includes(validation.value.redirectUri)) {
+    if (
+      !redirectUriMatchesRegistered({
+        requestedRedirectUri: validation.value.redirectUri,
+        registeredRedirectUris: client.redirectUris,
+        options: protocolValidationOptions,
+      })
+    ) {
       return oauthErrorResponse({
         status: 400,
         error: "invalid_request",
