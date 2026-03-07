@@ -81,15 +81,11 @@ const STATE_STYLES: Record<
     label: "Failed",
   },
 };
-const DEFAULT_STATE_STYLE: {
-  icon: typeof Activity;
-  color: string;
-  label: string;
-} = {
+const DEFAULT_STATE_STYLE = {
   icon: Activity,
   color: "text-muted-foreground",
   label: "Unknown",
-};
+} as const;
 
 export function CodespaceStatus({
   vaultId,

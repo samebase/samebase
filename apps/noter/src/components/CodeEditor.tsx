@@ -122,6 +122,11 @@ function peerExtension({
     class {
       private pushing = false;
       private done = false;
+      private retryTimer: number | null = null;
+
+      private isDestroyed(): boolean {
+        return this.done;
+      }
 
       constructor(private view: EditorView) {
         // this.pull();
@@ -129,15 +134,19 @@ function peerExtension({
       }
 
       update(update: ViewUpdate) {
-        if (update.docChanged) this.push();
+        if (!this.isDestroyed() && update.docChanged) {
+          void this.push();
+        }
       }
 
       async push() {
+        if (this.isDestroyed()) return;
         let updates = sendableUpdates(this.view.state);
 
         if (this.pushing || !updates.length) return;
         this.pushing = true;
         let version = getSyncedVersion(this.view.state);
+        if (this.isDestroyed()) return;
         setVersion(version);
 
         let retryDelayMs = 100;
@@ -151,10 +160,14 @@ function peerExtension({
           });
 
           if (success) {
-            setSyncError(null);
+            if (!this.isDestroyed()) {
+              setSyncError(null);
+            }
           } else {
             retryDelayMs = 200;
-            setSyncError("Syncing latest remote changes...");
+            if (!this.isDestroyed()) {
+              setSyncError("Syncing latest remote changes...");
+            }
           }
         } catch (error) {
           retryDelayMs = 1000;
@@ -162,18 +175,27 @@ function peerExtension({
             error instanceof Error && error.message.length > 0
               ? error.message
               : "Failed to sync edits. Retrying...";
-          setSyncError(message);
+          if (!this.isDestroyed()) {
+            setSyncError(message);
+          }
           console.error("Failed to push collaborative editor updates:", error);
         } finally {
           this.pushing = false;
         }
         // Regardless of whether the push failed or new updates came in
         // while it was running, try again if there's updates remaining
-        if (sendableUpdates(this.view.state).length)
-          setTimeout(() => this.push(), retryDelayMs);
+        if (!this.isDestroyed() && sendableUpdates(this.view.state).length) {
+          this.retryTimer = window.setTimeout(() => {
+            this.retryTimer = null;
+            if (!this.isDestroyed()) {
+              void this.push();
+            }
+          }, retryDelayMs);
+        }
       }
 
       async pull(updates: readonly Update[], incomingVersion: number) {
+        if (this.isDestroyed()) return;
         let version = getSyncedVersion(this.view.state);
         if (version !== incomingVersion) return;
 
@@ -185,11 +207,17 @@ function peerExtension({
         this.view.dispatch(receiveUpdates(this.view.state, updates));
 
         const newVersion = getSyncedVersion(this.view.state);
-        setVersion(newVersion);
+        if (!this.isDestroyed()) {
+          setVersion(newVersion);
+        }
       }
 
       destroy() {
         this.done = true;
+        if (this.retryTimer !== null) {
+          window.clearTimeout(this.retryTimer);
+          this.retryTimer = null;
+        }
       }
     },
   );
@@ -269,7 +297,6 @@ export function CodeEditorWrapper({
   repositoryFullName,
   branch,
   filePath,
-  initialFilePath: _initialFilePath,
   stagedFile,
   vaultId,
   tree,
@@ -279,7 +306,6 @@ export function CodeEditorWrapper({
   repositoryFullName: string;
   branch: string;
   filePath: string;
-  initialFilePath: string;
   stagedFile: NonNullable<
     GetFunctionReferenceReturnType<typeof api.fileStaging.getByNewPath>
   >;

@@ -1695,7 +1695,6 @@ function FileViewInner({
                     branch={branch}
                     filePath={selectedFile}
                     vaultId={vault._id}
-                    initialFilePath={stagedFile.initialFilePath}
                     stagedFile={stagedFile}
                     tree={vault.treeData.tree}
                     treeSHA={vault.treeSHA}

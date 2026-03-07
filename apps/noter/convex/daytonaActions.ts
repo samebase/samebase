@@ -451,12 +451,17 @@ function getRegistryMatch(
       continue;
     }
     const registryProject = registry.project;
-    if (config.project && registryProject !== targetProject) {
+    if (registryProject !== targetProject) {
       continue;
     }
     return registry;
   }
   return null;
+}
+
+function readSandboxLabel(candidate: Sandbox, key: string): string {
+  const value = candidate.labels[key];
+  return typeof value === "string" ? value.trim() : "";
 }
 
 async function ensureDaytonaRegistry(args: {
@@ -1244,10 +1249,6 @@ export const startDaytonaWorkspace = action({
     const requestedVaultLabel = String(args.vaultId);
     const requestedBranchLabel = branch;
     const requestedCommitLabel = expectedCommitSha;
-    const readSandboxLabel = (candidate: Sandbox, key: string): string => {
-      const value = candidate.labels[key];
-      return typeof value === "string" ? value.trim() : "";
-    };
     const hasMatchingLabels = (candidate: Sandbox): boolean => {
       const candidateVaultLabel = readSandboxLabel(candidate, "noter.vault_id");
       if (candidateVaultLabel !== requestedVaultLabel) {
@@ -1505,10 +1506,6 @@ async function resolveDaytonaSandboxForVault(args: {
     ? canonicalizeCommitPinnedDaytonaBranch(requestedBranchValue)
     : undefined;
   const requestedCommitSha = args.requestedCommitSha?.trim();
-  const readSandboxLabel = (candidate: Sandbox, key: string): string => {
-    const value = candidate.labels[key];
-    return typeof value === "string" ? value.trim() : "";
-  };
   const matchesRequestedBranch = (candidate: Sandbox): boolean => {
     if (!requestedBranch) {
       return true;
@@ -1727,7 +1724,7 @@ export const getDaytonaPreviewUrl = action({
     }
     const { sandbox, sandboxName } = resolvedSandbox;
 
-    const branchLabel = sandbox.labels["noter.branch"];
+    const branchLabel = readSandboxLabel(sandbox, "noter.branch");
 
     try {
       const preview = sandbox.public
@@ -1739,10 +1736,7 @@ export const getDaytonaPreviewUrl = action({
       return {
         ok: true,
         url: preview.url,
-        branch:
-          branchLabel && branchLabel.trim().length > 0
-            ? branchLabel
-            : undefined,
+        branch: branchLabel.length > 0 ? branchLabel : undefined,
         message: sandboxName
           ? `Preview link ready for ${sandboxName}.`
           : "Preview link ready.",

@@ -5,7 +5,7 @@ import { cn } from "../lib/utils";
 
 const EMPTY_RESULT_RETRY_DELAYS_MS = [
   2_000, 3_000, 5_000, 8_000, 13_000, 21_000, 34_000, 55_000, 89_000,
-];
+] as const;
 const RUNNING_STATUS_POLL_INTERVAL_MS = 30_000;
 const RATE_LIMIT_FALLBACK_RETRY_MS = 60_000;
 const MIN_FETCH_GAP_MS = 5_000;

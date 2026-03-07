@@ -40,7 +40,14 @@ module.exports = {
     ],
 
     // Allow escaping the compiler
-    '@typescript-eslint/ban-ts-comment': 'error',
+    '@typescript-eslint/ban-ts-comment': [
+      'error',
+      {
+        'ts-expect-error': false,
+        'ts-ignore': true,
+        'ts-nocheck': true,
+      },
+    ],
 
     '@typescript-eslint/no-explicit-any': 'error',
     '@typescript-eslint/no-unsafe-argument': 'error',
