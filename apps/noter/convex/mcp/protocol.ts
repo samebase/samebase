@@ -341,8 +341,9 @@ export function validateDynamicClientRegistrationPayload(
       return {
         ok: false,
         status: 400,
-        error:
-          "redirect_uris must use https, except loopback http redirect URIs.",
+        error: allowLoopbackHttpRedirectUris
+          ? "redirect_uris must use https, except loopback http redirect URIs."
+          : "redirect_uris must use https.",
       };
     }
   }
@@ -470,14 +471,11 @@ export function validateAuthorizeRequestFromUrl(
     };
   }
 
-  const resourceRaw = url.searchParams.get("resource")?.trim() ?? "";
-  if (resourceRaw.length === 0) {
-    return {
-      ok: false,
-      status: 400,
-      error: "resource is required.",
-    };
-  }
+  // Some native MCP clients (including Codex desktop) omit `resource`.
+  // Defaulting to same-origin `/mcp` keeps OAuth interop while remaining
+  // bounded to this MCP server origin.
+  const resourceRaw =
+    url.searchParams.get("resource")?.trim() || `${url.origin}/mcp`;
   const resource = parseAndValidateUri(resourceRaw, {
     forRedirect: false,
     allowLoopbackHttpRedirectUris,
