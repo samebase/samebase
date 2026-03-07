@@ -443,6 +443,8 @@ function getRegistryMatch(
   registries: DockerRegistry[],
   config: RegistryConfig,
 ): DockerRegistry | null {
+  const normalizeProjectScope = (project: unknown): string =>
+    typeof project === "string" ? project : "";
   const targetUrl = normalizeRegistryUrl(config.url);
   const targetProject = config.project ?? "";
   for (const registry of registries) {
@@ -450,7 +452,7 @@ function getRegistryMatch(
     if (registryUrl !== targetUrl) {
       continue;
     }
-    const registryProject = registry.project;
+    const registryProject = normalizeProjectScope(registry.project);
     if (registryProject !== targetProject) {
       continue;
     }
