@@ -1744,12 +1744,10 @@ export function FileView() {
   );
 }
 
-// Component with sidebar context and swipe gesture
+// Component with sidebar context and mobile edge swipe gesture
 function FileViewWithSwipe() {
-  // Setup sidebar context and mobile swipe gesture
   const { isMobile, openMobile, setOpenMobile } = useSidebar();
 
-  // Enable swipe-to-open sidebar on mobile
   useSwipeToOpenSidebar(() => {
     if (isMobile && !openMobile) {
       setOpenMobile(true);
