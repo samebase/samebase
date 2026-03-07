@@ -439,14 +439,16 @@ function buildRegistryConfigFromGithub(args: {
   };
 }
 
+function normalizeProjectScope(project: unknown): string {
+  return typeof project === "string" ? project : "";
+}
+
 function getRegistryMatch(
   registries: DockerRegistry[],
   config: RegistryConfig,
 ): DockerRegistry | null {
-  const normalizeProjectScope = (project: unknown): string =>
-    typeof project === "string" ? project : "";
   const targetUrl = normalizeRegistryUrl(config.url);
-  const targetProject = config.project ?? "";
+  const targetProject = normalizeProjectScope(config.project);
   for (const registry of registries) {
     const registryUrl = normalizeRegistryUrl(registry.url);
     if (registryUrl !== targetUrl) {
@@ -501,7 +503,8 @@ async function ensureDaytonaRegistry(args: {
     return { registryId: created.data.id, status: "created" };
   }
 
-  const projectMatch = match.project === (args.config.project ?? "");
+  const targetProject = normalizeProjectScope(args.config.project);
+  const projectMatch = normalizeProjectScope(match.project) === targetProject;
   const needsUpdate =
     match.name !== args.config.name ||
     match.username !== args.config.username ||

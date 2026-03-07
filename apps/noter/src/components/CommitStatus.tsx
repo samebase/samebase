@@ -413,9 +413,11 @@ export function CommitStatus({
         setCheckRuns(null);
         setCommitStatuses(null);
       } finally {
-        inFlightRef.current = false;
-        if (isInitialLoad && requestTokenRef.current === requestToken) {
-          setLoading(false);
+        if (requestTokenRef.current === requestToken) {
+          inFlightRef.current = false;
+          if (isInitialLoad) {
+            setLoading(false);
+          }
         }
       }
     };

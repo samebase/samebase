@@ -236,6 +236,7 @@ function FileViewWrapper() {
   const parsedPath = branchAndFilePath ? branchAndFilePath.split("/") : [];
   const branch = parsedPath[0] || "main";
   const selectedFile = parsedPath.slice(1).join("/");
+  const storageBackedSelectionKey = `${branch}:${selectedFile}`;
   const repositoryFullName = owner && repoName ? `${owner}/${repoName}` : null;
 
   // Get vault for this repository
@@ -263,7 +264,7 @@ function FileViewWrapper() {
     if (vaultId) {
       setStorageBackedSelection({});
     }
-  }, [vaultId]);
+  }, [vaultId, branch]);
 
   useEffect(() => {
     if (vault === null) {
@@ -379,7 +380,7 @@ function FileViewWrapper() {
       stagedFile === null &&
       selectedFileExistsInTree &&
       !selectedFileIsRenderableMedia &&
-      !storageBackedSelection[selectedFile]
+      !storageBackedSelection[storageBackedSelectionKey]
     ) {
       void firstDocAction({
         repositoryFullName: `${owner}/${repoName}`,
@@ -389,7 +390,7 @@ function FileViewWrapper() {
         if (isStorageBackedFileError(error)) {
           setStorageBackedSelection((previous) => ({
             ...previous,
-            [selectedFile]: true,
+            [storageBackedSelectionKey]: true,
           }));
           return;
         }
@@ -404,6 +405,7 @@ function FileViewWrapper() {
     selectedFileExistsInTree,
     selectedFileIsRenderableMedia,
     storageBackedSelection,
+    storageBackedSelectionKey,
     firstDocAction,
     owner,
     repoName,
