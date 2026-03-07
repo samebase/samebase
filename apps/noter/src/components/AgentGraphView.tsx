@@ -100,7 +100,7 @@ function mergeGraphNodes(
       ...existing,
       ...node,
       data: mergedData,
-      position: existing.position,
+      position: node.position,
       selected: existing.selected ?? node.selected,
       dragging: existing.dragging ?? node.dragging,
       width: existingWidth ?? node.width,

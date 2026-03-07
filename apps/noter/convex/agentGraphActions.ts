@@ -41,7 +41,8 @@ async function resolveThreadId(
       const context = await ctx.runQuery(api.chat.index.getThreadContext, {
         threadId: existing._id,
       });
-      if (context.vaultId === vaultId) {
+      const contextVaultId = isRecord(context) ? context.vaultId : undefined;
+      if (contextVaultId === vaultId) {
         return existing._id;
       }
     }

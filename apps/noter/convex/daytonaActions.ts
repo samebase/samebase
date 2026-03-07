@@ -1244,16 +1244,23 @@ export const startDaytonaWorkspace = action({
     const requestedVaultLabel = String(args.vaultId);
     const requestedBranchLabel = branch;
     const requestedCommitLabel = expectedCommitSha;
+    const readSandboxLabel = (candidate: Sandbox, key: string): string => {
+      const value = candidate.labels[key];
+      return typeof value === "string" ? value.trim() : "";
+    };
     const hasMatchingLabels = (candidate: Sandbox): boolean => {
-      const candidateVaultLabel = candidate.labels["noter.vault_id"].trim();
+      const candidateVaultLabel = readSandboxLabel(candidate, "noter.vault_id");
       if (candidateVaultLabel !== requestedVaultLabel) {
         return false;
       }
-      const candidateBranchLabel = candidate.labels["noter.branch"].trim();
+      const candidateBranchLabel = readSandboxLabel(candidate, "noter.branch");
       if (candidateBranchLabel !== requestedBranchLabel) {
         return false;
       }
-      const candidateCommitLabel = candidate.labels["noter.commit_sha"].trim();
+      const candidateCommitLabel = readSandboxLabel(
+        candidate,
+        "noter.commit_sha",
+      );
       return candidateCommitLabel === requestedCommitLabel;
     };
 
@@ -1285,8 +1292,8 @@ export const startDaytonaWorkspace = action({
         1,
         5,
       );
-      const match = matches.items[0];
-      if (match.id) {
+      if (matches.items.length > 0) {
+        const match = matches.items[0];
         try {
           const matchedSandbox = await daytona.get(match.id);
           if (hasMatchingLabels(matchedSandbox)) {
@@ -1498,18 +1505,22 @@ async function resolveDaytonaSandboxForVault(args: {
     ? canonicalizeCommitPinnedDaytonaBranch(requestedBranchValue)
     : undefined;
   const requestedCommitSha = args.requestedCommitSha?.trim();
+  const readSandboxLabel = (candidate: Sandbox, key: string): string => {
+    const value = candidate.labels[key];
+    return typeof value === "string" ? value.trim() : "";
+  };
   const matchesRequestedBranch = (candidate: Sandbox): boolean => {
     if (!requestedBranch) {
       return true;
     }
-    const branchLabel = candidate.labels["noter.branch"].trim();
+    const branchLabel = readSandboxLabel(candidate, "noter.branch");
     if (branchLabel !== requestedBranch) {
       return false;
     }
     if (!requestedCommitSha) {
       return true;
     }
-    const commitLabel = candidate.labels["noter.commit_sha"].trim();
+    const commitLabel = readSandboxLabel(candidate, "noter.commit_sha");
     return commitLabel === requestedCommitSha;
   };
 
@@ -1539,6 +1550,14 @@ async function resolveDaytonaSandboxForVault(args: {
       labels["noter.commit_sha"] = requestedCommitSha;
     }
     const matches = await args.daytona.list(labels, 1, 5);
+    if (matches.items.length === 0) {
+      return {
+        ok: false,
+        message: requestedBranch
+          ? `No Daytona sandbox found for branch ${requestedBranch}. Click Launch Daytona first.`
+          : "No Daytona sandbox is connected to this vault yet. Click Launch Daytona first.",
+      };
+    }
     const match = matches.items[0];
     if (!match.id) {
       return {
