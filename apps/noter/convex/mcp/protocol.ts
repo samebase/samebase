@@ -341,8 +341,9 @@ export function validateDynamicClientRegistrationPayload(
       return {
         ok: false,
         status: 400,
-        error:
-          "redirect_uris must use https, except loopback http redirect URIs.",
+        error: allowLoopbackHttpRedirectUris
+          ? "redirect_uris must use https, except loopback http redirect URIs."
+          : "redirect_uris must use https.",
       };
     }
   }
