@@ -1,6 +1,6 @@
 module.exports = {
   root: true,
-  env: { browser: true, es2020: true, node: true },
+  env: { browser: true, es2020: true },
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended-type-checked',
@@ -42,17 +42,13 @@ module.exports = {
     // Allow escaping the compiler
     '@typescript-eslint/ban-ts-comment': 'error',
 
-    // Allow explicit `any`s
-    '@typescript-eslint/no-explicit-any': 'off',
+    '@typescript-eslint/no-explicit-any': 'error',
+    '@typescript-eslint/no-unsafe-argument': 'error',
+    '@typescript-eslint/no-unsafe-assignment': 'error',
+    '@typescript-eslint/no-unsafe-call': 'error',
+    '@typescript-eslint/no-unsafe-member-access': 'error',
+    '@typescript-eslint/no-unsafe-return': 'error',
 
-    // START: Allow implicit `any`s
-    '@typescript-eslint/no-unsafe-argument': 'off',
-    '@typescript-eslint/no-unsafe-assignment': 'off',
-    '@typescript-eslint/no-unsafe-call': 'off',
-    '@typescript-eslint/no-unsafe-member-access': 'off',
-    '@typescript-eslint/no-unsafe-return': 'off',
-
-    // END: Allow implicit `any`s
     '@typescript-eslint/no-unnecessary-condition': 'error',
 
     // Allow async functions without await
@@ -60,6 +56,37 @@ module.exports = {
     '@typescript-eslint/require-await': 'off',
   },
   overrides: [
+    {
+      files: [
+        '**/*.config.js',
+        '**/*.config.cjs',
+        '**/*.config.mjs',
+        '**/*.config.ts',
+        '**/*.cjs',
+        'scripts/**/*.{js,ts}',
+        'apps/noter/convex/**/*.{ts,tsx}',
+        'apps/noter-starter-template/convex/**/*.{ts,tsx}',
+        'apps/noter/*.js',
+      ],
+      env: {
+        node: true,
+      },
+    },
+    {
+      // Temporary local relaxations while migrating legacy code.
+      files: [
+        'apps/noter/**/*.{ts,tsx}',
+        'apps/noter-starter-template/**/*.{ts,tsx}',
+      ],
+      rules: {
+        '@typescript-eslint/no-explicit-any': 'off',
+        '@typescript-eslint/no-unsafe-argument': 'off',
+        '@typescript-eslint/no-unsafe-assignment': 'off',
+        '@typescript-eslint/no-unsafe-call': 'off',
+        '@typescript-eslint/no-unsafe-member-access': 'off',
+        '@typescript-eslint/no-unsafe-return': 'off',
+      },
+    },
     {
       // These files are outside typed TS project includes in this repo setup.
       files: [

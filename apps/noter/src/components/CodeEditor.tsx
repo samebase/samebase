@@ -357,7 +357,9 @@ export function CodeEditor({
       clientID: u.clientID,
     }));
     pullRef.current(cmUpdates, version);
-  }, [updates, version]);
+    // `version` must stay coupled to the fetched `updates` batch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updates]);
 
   useEffect(() => {
     let cancelled = false;
