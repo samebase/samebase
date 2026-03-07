@@ -606,6 +606,27 @@ Frontend additions can stay inside the existing app for:
 2. Add tighter Cloudflare proxy rules and rate controls if needed.
 3. Expand scopes and tools carefully based on real usage.
 
+## Execution Tracker
+
+Use this as the chat-independent implementation tracker so a new session can
+resume without relying on conversation context.
+
+- Last updated: 2026-03-07
+- Overall status: `0/4 phases complete`
+- Current next step: `Phase 1`
+
+Phase status:
+
+- [ ] Phase 1: data model and metadata skeleton
+- [ ] Phase 2: token issuance and narrow MCP server
+- [ ] Phase 3: user controls
+- [ ] Phase 4: hardening
+
+Checkpoint rule:
+
+- After each implementation checkpoint commit, update this section with the new
+  status and the latest commit SHA.
+
 ## Acceptance Criteria
 
 1. ChatGPT web can connect to `https://noter.md/mcp` using OAuth.
