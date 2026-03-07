@@ -827,8 +827,15 @@ async function runCloudflareMcpTokenRefresh(args: {
       );
       if (
         refreshedConnection.auth.method === "mcp_oauth" &&
-        (refreshedConnection.tokenHealth?.status === "invalid" ||
-          refreshedConnection.tokenHealth?.source === "runtime_error")
+        refreshedConnection.tokenHealth?.status === "invalid"
+      ) {
+        return buildCloudflareConnectionStatus(refreshedConnection, {
+          now: nowAfterFailure,
+        });
+      }
+      if (
+        refreshedConnection.auth.method === "mcp_oauth" &&
+        refreshedConnection.tokenHealth?.source === "runtime_error"
       ) {
         return buildCloudflareConnectionStatus(refreshedConnection, {
           now: nowAfterFailure,

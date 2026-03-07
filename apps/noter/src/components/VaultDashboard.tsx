@@ -555,6 +555,12 @@ export function VaultDashboard() {
       if (document.visibilityState !== "visible") {
         return;
       }
+      if (
+        typeof cloudflareConnection.mcpTokenNextAutoCheckAt === "number" &&
+        Date.now() < cloudflareConnection.mcpTokenNextAutoCheckAt
+      ) {
+        return;
+      }
       runAutoCheck("poll");
     }, CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS);
 
@@ -567,6 +573,7 @@ export function VaultDashboard() {
   }, [
     cloudflareConnection?.authMethod,
     cloudflareConnection?.connected,
+    cloudflareConnection?.mcpTokenNextAutoCheckAt,
     refreshCloudflareMcpTokenIfNeeded,
     user?._id,
   ]);
