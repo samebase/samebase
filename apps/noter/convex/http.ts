@@ -10,6 +10,7 @@ import {
   authorizeMcpOauthRequest,
   exchangeMcpOauthToken,
   getMcpOauthAuthorizationServerMetadata,
+  getMcpOauthAuthorizationServerMetadataForMcpPath,
   getMcpOauthProtectedResourceMetadata,
   handleMcpRequest,
   registerMcpOauthClient,
@@ -90,7 +91,7 @@ http.route({
 http.route({
   path: "/.well-known/oauth-authorization-server/mcp",
   method: "GET",
-  handler: getMcpOauthAuthorizationServerMetadata,
+  handler: getMcpOauthAuthorizationServerMetadataForMcpPath,
 });
 
 http.route({

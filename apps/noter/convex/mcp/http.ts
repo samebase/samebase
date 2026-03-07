@@ -172,6 +172,20 @@ export const getMcpOauthAuthorizationServerMetadata = httpAction(
   },
 );
 
+export const getMcpOauthAuthorizationServerMetadataForMcpPath = httpAction(
+  async (_ctx, request) => {
+    const origin = parseOrigin(request);
+    const metadata = buildMcpAuthorizationServerMetadata(origin);
+    return jsonResponse(
+      {
+        ...metadata,
+        issuer: `${origin}/mcp`,
+      },
+      200,
+    );
+  },
+);
+
 export const registerMcpOauthClient = httpAction(async (ctx, request) => {
   if (!hasJsonContentType(request)) {
     return oauthErrorResponse({
