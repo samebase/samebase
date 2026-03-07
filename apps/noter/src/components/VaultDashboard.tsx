@@ -518,9 +518,9 @@ export function VaultDashboard() {
       void refreshCloudflareMcpTokenIfNeeded({ trigger, force: false })
         .catch((error: unknown) => {
           console.error("Failed to auto-check Cloudflare token:", error);
-          releaseRefreshDebounce("cloudflare_token", debounceKey);
         })
         .finally(() => {
+          releaseRefreshDebounce("cloudflare_token", debounceKey);
           cloudflareAutoCheckInFlightRef.current = false;
           setIsAutoCheckingCloudflareToken(false);
         });

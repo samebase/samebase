@@ -225,7 +225,7 @@ function computeCloudflareRetryDelayMs(
       CLOUDFLARE_TOKEN_REFRESH_RETRY_BASE_MS * 4,
     );
   }
-  return CLOUDFLARE_TOKEN_REFRESH_RETRY_BASE_MS;
+  return CLOUDFLARE_TOKEN_REFRESH_RETRY_MAX_MS;
 }
 
 function buildCloudflareConnectionStatus(
@@ -786,6 +786,7 @@ async function runCloudflareMcpTokenRefresh(args: {
     });
   }
 
+  let shouldRecordLastTokenRefreshAt = false;
   try {
     const resolvedConnection = await args.ctx.runAction(
       internal.cloudflareMcpOAuth.resolveConnectionForUser,
@@ -797,6 +798,7 @@ async function runCloudflareMcpTokenRefresh(args: {
     if (resolvedConnection === null) {
       return { connected: false };
     }
+    shouldRecordLastTokenRefreshAt = true;
     const nowAfterRefresh = Date.now();
     return buildCloudflareConnectionStatus(resolvedConnection, {
       now: nowAfterRefresh,
@@ -846,6 +848,7 @@ async function runCloudflareMcpTokenRefresh(args: {
       internal.providerConnections.releaseCloudflareTokenRefresh,
       {
         userId,
+        recordLastTokenRefreshAt: shouldRecordLastTokenRefreshAt,
       },
     );
   }

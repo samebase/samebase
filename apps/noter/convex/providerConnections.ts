@@ -383,6 +383,18 @@ export const claimCloudflareTokenRefresh = internalMutation({
         ? Math.max(0, Math.floor(args.debounceMs))
         : CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS;
 
+    const tokenRefreshStartedAt = connection.tokenRefreshStartedAt;
+    if (
+      typeof tokenRefreshStartedAt === "number" &&
+      now - tokenRefreshStartedAt < CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS
+    ) {
+      return {
+        claimed: false,
+        nextAllowedRefreshAt:
+          tokenRefreshStartedAt + CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS,
+      };
+    }
+
     if (!args.force) {
       const lastTokenRefreshAt = connection.lastTokenRefreshAt;
       if (
@@ -392,18 +404,6 @@ export const claimCloudflareTokenRefresh = internalMutation({
         return {
           claimed: false,
           nextAllowedRefreshAt: lastTokenRefreshAt + debounceMs,
-        };
-      }
-
-      const tokenRefreshStartedAt = connection.tokenRefreshStartedAt;
-      if (
-        typeof tokenRefreshStartedAt === "number" &&
-        now - tokenRefreshStartedAt < CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS
-      ) {
-        return {
-          claimed: false,
-          nextAllowedRefreshAt:
-            tokenRefreshStartedAt + CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS,
         };
       }
     }
@@ -420,6 +420,7 @@ export const claimCloudflareTokenRefresh = internalMutation({
 export const releaseCloudflareTokenRefresh = internalMutation({
   args: {
     userId: id("users"),
+    recordLastTokenRefreshAt: optional(boolean()),
   },
   returns: object({
     lastTokenRefreshAt: optional(number()),
@@ -440,12 +441,12 @@ export const releaseCloudflareTokenRefresh = internalMutation({
     const now = Date.now();
     await ctx.db.patch(connection._id, {
       tokenRefreshStartedAt: undefined,
-      lastTokenRefreshAt: now,
       updatedAt: now,
+      ...(args.recordLastTokenRefreshAt ? { lastTokenRefreshAt: now } : {}),
     });
 
     return {
-      lastTokenRefreshAt: now,
+      ...(args.recordLastTokenRefreshAt ? { lastTokenRefreshAt: now } : {}),
     };
   },
 });
