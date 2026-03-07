@@ -41,12 +41,9 @@ export const getDocument = query({
       .first();
 
     if (staging) {
-      console.log(
-        "getDocument: found staging with version",
-        staging.version ?? 0,
-      );
+      console.log("getDocument: found staging with version", staging.version);
       return {
-        version: staging.version ?? 0,
+        version: staging.version,
         content: staging.content,
         exists: true,
       };

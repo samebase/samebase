@@ -121,7 +121,7 @@ export function useCacheQuery<Query extends FunctionReference<"query">>(
 
   // Hydrate from memory/IDB on mount/args change
   useEffect(() => {
-    let cancelled = false;
+    const lifecycle = { active: true };
 
     // 1) memory
     const mem = memoryCache.get(cacheKey);
@@ -137,7 +137,7 @@ export function useCacheQuery<Query extends FunctionReference<"query">>(
     // 2) IDB (async)
     void (async () => {
       const rec = await idbGet<any>(cacheKey);
-      if (cancelled) return;
+      if (!lifecycle.active) return;
       if (rec) {
         if (!rec.exp || Date.now() <= rec.exp) {
           setCached((prev: any) => (prev === undefined ? rec.data : prev)); // don't clobber mem
@@ -151,7 +151,7 @@ export function useCacheQuery<Query extends FunctionReference<"query">>(
     })();
 
     return () => {
-      cancelled = true;
+      lifecycle.active = false;
     };
   }, [cacheKey]);
 

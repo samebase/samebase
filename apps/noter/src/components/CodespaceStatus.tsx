@@ -152,7 +152,7 @@ export function CodespaceStatus({
     );
   }
 
-  const stateStyle = STATE_STYLES[codespace.state] || STATE_STYLES.stopped;
+  const stateStyle = STATE_STYLES[codespace.state];
   const Icon = stateStyle.icon;
 
   const isHealthy = codespace.agentHealthy ?? false;

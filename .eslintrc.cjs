@@ -59,4 +59,17 @@ module.exports = {
     // for consistency (esp. Convex `handler`s)
     '@typescript-eslint/require-await': 'off',
   },
+  overrides: [
+    {
+      // These files are outside typed TS project includes in this repo setup.
+      files: [
+        'apps/noter/e2e/**/*.ts',
+        'apps/noter/playwright.config.ts',
+        'apps/noter-starter-template/convex/**/*.ts',
+      ],
+      rules: {
+        '@typescript-eslint/no-unnecessary-condition': 'off',
+      },
+    },
+  ],
 }

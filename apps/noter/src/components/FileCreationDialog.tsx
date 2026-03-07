@@ -212,8 +212,8 @@ export function FileCreationDialog({
                   onClick={() => handleFolderSelect(folder.path)}
                 >
                   {folderInputValue.trim()
-                    ? highlightMatches(folder.path || "/", folder.matches || [])
-                    : folder.path || "/"}
+                    ? highlightMatches(folder.path, folder.matches)
+                    : folder.path}
                 </div>
               ))}
             </div>

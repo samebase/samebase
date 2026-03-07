@@ -860,7 +860,7 @@ export function ChatFab() {
 
   useEffect(() => {
     if (!threadId || !threadContextLoaded) return;
-    const remoteDraft = threadContext?.draftMessage ?? "";
+    const remoteDraft = threadContext.draftMessage ?? "";
     if (lastHydratedThreadRef.current !== threadId) {
       lastHydratedThreadRef.current = threadId;
       lastHydratedDraftRef.current = remoteDraft;

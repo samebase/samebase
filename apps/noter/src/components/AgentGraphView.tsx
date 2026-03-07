@@ -100,7 +100,7 @@ function mergeGraphNodes(
       ...existing,
       ...node,
       data: mergedData,
-      position: existing.position ?? node.position,
+      position: existing.position,
       selected: existing.selected ?? node.selected,
       dragging: existing.dragging ?? node.dragging,
       width: existingWidth ?? node.width,
@@ -143,12 +143,7 @@ function AgentNode({ data, id, width, height }: NodeProps<AgentGraphNode>) {
 
   const handleSend = useCallback(async () => {
     const trimmed = input.trim();
-    if (
-      !trimmed ||
-      isDisabled ||
-      !graphContext?.vaultId ||
-      !graphContext.onSendMessage
-    ) {
+    if (!trimmed || isDisabled) {
       return;
     }
     setSending(true);
@@ -502,7 +497,7 @@ export function AgentGraphView({
       if (message.role !== "assistant" && message.role !== "user") {
         return [];
       }
-      const content = message.text ?? "";
+      const content = message.text;
       if (!content.trim()) {
         return [];
       }

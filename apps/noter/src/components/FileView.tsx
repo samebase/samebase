@@ -256,7 +256,7 @@ function FileViewWrapper() {
   const selectedFileIsRenderableMedia =
     isRenderableRepositoryMediaPath(selectedFile);
   const [storageBackedSelection, setStorageBackedSelection] = useState<
-    Record<string, true>
+    Partial<Record<string, true>>
   >({});
 
   useEffect(() => {
@@ -349,7 +349,7 @@ function FileViewWrapper() {
     if (stagedFile === undefined) return;
     if (stagedFile || selectedFileExistsInTree) return;
 
-    const bestFile = findBestInitialFile(vault.treeData.tree ?? []);
+    const bestFile = findBestInitialFile(vault.treeData.tree);
     if (bestFile) {
       void navigate(`/vault/${owner}/${repoName}/${branch}/${bestFile}`, {
         replace: true,
@@ -379,7 +379,7 @@ function FileViewWrapper() {
       stagedFile === null &&
       selectedFileExistsInTree &&
       !selectedFileIsRenderableMedia &&
-      storageBackedSelection[selectedFile] !== true
+      !storageBackedSelection[selectedFile]
     ) {
       void firstDocAction({
         repositoryFullName: `${owner}/${repoName}`,
