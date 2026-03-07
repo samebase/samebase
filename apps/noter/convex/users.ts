@@ -256,25 +256,31 @@ function buildCloudflareConnectionStatus(
     connection.tokenHealth?.checkedAt === undefined ||
     derivedStatus === "expired" ||
     derivedStatus === "expiring_soon";
+  const mcpTokenStatus =
+    storedStatus === "invalid"
+      ? "invalid"
+      : shouldUseDerivedStatus
+        ? derivedStatus
+        : storedStatus ?? derivedStatus;
+  const nextAutoCheckAt =
+    mcpTokenStatus === "invalid"
+      ? undefined
+      : options?.nextAutoCheckAt ??
+        computeCloudflareNextAutoCheckAt({
+          expiresAt: effectiveExpiresAt,
+          now,
+          lastTokenRefreshAt: connection.lastTokenRefreshAt,
+          tokenCheckedAt: connection.tokenHealth?.checkedAt,
+        });
   return {
     ...baseStatus,
-    mcpTokenStatus:
-      storedStatus === "invalid"
-        ? "invalid"
-        : shouldUseDerivedStatus
-          ? derivedStatus
-          : storedStatus ?? derivedStatus,
+    mcpTokenStatus,
     mcpTokenExpiresAt: effectiveExpiresAt,
     mcpTokenCheckedAt: connection.tokenHealth?.checkedAt,
     mcpTokenError: connection.tokenHealth?.errorMessage,
-    mcpTokenNextAutoCheckAt:
-      options?.nextAutoCheckAt ??
-      computeCloudflareNextAutoCheckAt({
-        expiresAt: effectiveExpiresAt,
-        now,
-        lastTokenRefreshAt: connection.lastTokenRefreshAt,
-        tokenCheckedAt: connection.tokenHealth?.checkedAt,
-      }),
+    ...(typeof nextAutoCheckAt === "number"
+      ? { mcpTokenNextAutoCheckAt: nextAutoCheckAt }
+      : {}),
   };
 }
 
@@ -718,6 +724,9 @@ async function runCloudflareMcpTokenRefresh(args: {
 
   const forceRefresh = args.force === true || args.trigger === "manual";
   const now = Date.now();
+  if (!forceRefresh && connection.tokenHealth?.status === "invalid") {
+    return buildCloudflareConnectionStatus(connection, { now });
+  }
   const effectiveExpiresAt =
     connection.tokenHealth?.expiresAt ?? connection.auth.credentialExpiresAt;
   const nextAutoCheckAt = computeCloudflareNextAutoCheckAt({

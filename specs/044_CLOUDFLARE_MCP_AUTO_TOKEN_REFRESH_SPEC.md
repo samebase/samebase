@@ -129,13 +129,14 @@ Claim rules:
 2. Skip if auth method is not `mcp_oauth`.
 3. If `force !== true`:
    - skip if `lastTokenRefreshAt` is within debounce window
-   - skip if `tokenRefreshStartedAt` exists and lock is not stale
-4. If claimed, set `tokenRefreshStartedAt = now`.
+4. Regardless of `force`, skip if `tokenRefreshStartedAt` exists and lock is not
+   stale.
+5. If claimed, set `tokenRefreshStartedAt = now`.
 
 Release rules:
 
 1. Always clear `tokenRefreshStartedAt`.
-2. Set `lastTokenRefreshAt = now`.
+2. Set `lastTokenRefreshAt = now` only after a successful refresh.
 
 ### 3) Shared refresh constants
 
