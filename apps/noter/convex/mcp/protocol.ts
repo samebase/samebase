@@ -488,26 +488,14 @@ export function validateAuthorizeRequestFromUrl(
     };
   }
 
-  const scopeRaw = url.searchParams.get("scope")?.trim() ?? "";
-  if (scopeRaw.length === 0) {
-    return {
-      ok: false,
-      status: 400,
-      error: "scope is required.",
-    };
-  }
+  // Codex/native MCP OAuth clients may omit `scope` on authorize requests.
+  // OAuth allows server-defined defaults, so use the minimum read scope that
+  // keeps discovery/tool listing functional instead of failing early.
+  const scopeRaw = url.searchParams.get("scope")?.trim() || "vaults.read";
   const scopes = scopeRaw
     .split(" ")
     .map(normalizeScopeToken)
     .filter((scope) => scope.length > 0);
-
-  if (scopes.length === 0) {
-    return {
-      ok: false,
-      status: 400,
-      error: "scope is required.",
-    };
-  }
 
   const supportedScopes: McpSupportedScope[] = [];
   for (const scope of scopes) {
