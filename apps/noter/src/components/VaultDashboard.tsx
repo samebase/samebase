@@ -24,6 +24,10 @@ import {
   formatRelativeTimeAgo,
   formatRelativeTimeUntil,
 } from "@/lib/formatRelativeTime";
+import {
+  CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS,
+  CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
+} from "../../shared/cloudflareTokenRefresh";
 import type { DaytonaSnapshotStatus } from "@/lib/daytonaSnapshot";
 import {
   claimRefreshDebounce,
@@ -226,8 +230,8 @@ export function VaultDashboard() {
   const getCloudflareMcpOAuthUrl = useAction(
     api.cloudflareMcpOAuth.getCloudflareMcpOAuthUrl,
   );
-  const checkCloudflareMcpTokenHealth = useAction(
-    api.users.checkCloudflareMcpTokenHealth,
+  const refreshCloudflareMcpTokenIfNeeded = useAction(
+    api.users.refreshCloudflareMcpTokenIfNeeded,
   );
   const connectGithubWithApiKey = useAction(api.users.connectGithubWithApiKey);
   const connectConvexWithApiKey = useAction(api.users.connectConvexWithApiKey);
@@ -309,6 +313,13 @@ export function VaultDashboard() {
     useState<ProviderKey | null>(null);
   const [isCheckingCloudflareToken, setIsCheckingCloudflareToken] =
     useState(false);
+  const [isAutoCheckingCloudflareToken, setIsAutoCheckingCloudflareToken] =
+    useState(false);
+  const [cloudflarePollingPaused, setCloudflarePollingPaused] = useState(
+    typeof document !== "undefined"
+      ? document.visibilityState !== "visible"
+      : false,
+  );
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -325,6 +336,7 @@ export function VaultDashboard() {
     boolean | null
   >(null);
   const providersPanelPendingRef = useRef<boolean | null>(null);
+  const cloudflareAutoCheckInFlightRef = useRef(false);
 
   useEffect(() => {
     if (dashboardProvidersPanelOpen === undefined) {
@@ -477,6 +489,88 @@ export function VaultDashboard() {
     };
   }, [refreshVaultTreesIfNeeded, vaults]);
 
+  useEffect(() => {
+    const isCloudflareMcpConnected =
+      cloudflareConnection?.connected === true &&
+      cloudflareConnection.authMethod === "mcp_oauth";
+    if (!isCloudflareMcpConnected) {
+      setCloudflarePollingPaused(false);
+      return;
+    }
+
+    const debounceKey = user?._id ?? "cloudflare-dashboard";
+    const runAutoCheck = (trigger: "focus" | "page_load" | "poll") => {
+      if (cloudflareAutoCheckInFlightRef.current) {
+        return;
+      }
+      if (
+        !claimRefreshDebounce(
+          "cloudflare_token",
+          debounceKey,
+          CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
+        )
+      ) {
+        return;
+      }
+
+      cloudflareAutoCheckInFlightRef.current = true;
+      setIsAutoCheckingCloudflareToken(true);
+      void refreshCloudflareMcpTokenIfNeeded({ trigger, force: false })
+        .catch((error: unknown) => {
+          console.error("Failed to auto-check Cloudflare token:", error);
+          releaseRefreshDebounce("cloudflare_token", debounceKey);
+        })
+        .finally(() => {
+          cloudflareAutoCheckInFlightRef.current = false;
+          setIsAutoCheckingCloudflareToken(false);
+        });
+    };
+
+    const handleFocus = () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      setCloudflarePollingPaused(false);
+      runAutoCheck("focus");
+    };
+
+    const handleVisibilityChange = () => {
+      const isVisible = document.visibilityState === "visible";
+      setCloudflarePollingPaused(!isVisible);
+      if (isVisible) {
+        runAutoCheck("focus");
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    const isVisible = document.visibilityState === "visible";
+    setCloudflarePollingPaused(!isVisible);
+    if (isVisible) {
+      runAutoCheck("page_load");
+    }
+
+    const pollId = window.setInterval(() => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      runAutoCheck("poll");
+    }, CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.clearInterval(pollId);
+      cloudflareAutoCheckInFlightRef.current = false;
+    };
+  }, [
+    cloudflareConnection?.authMethod,
+    cloudflareConnection?.connected,
+    refreshCloudflareMcpTokenIfNeeded,
+    user?._id,
+  ]);
+
   const selectedVault =
     vaultToDelete && vaults
       ? vaults.find(
@@ -573,7 +667,10 @@ export function VaultDashboard() {
       setCreateError(null);
     }
     try {
-      await checkCloudflareMcpTokenHealth();
+      await refreshCloudflareMcpTokenIfNeeded({
+        trigger: "manual",
+        force: true,
+      });
     } catch (error) {
       setCreateError(
         error instanceof Error
@@ -734,6 +831,12 @@ export function VaultDashboard() {
   const cloudflareMcpTokenExpiresAt = cloudflareConnection?.mcpTokenExpiresAt;
   const cloudflareMcpTokenCheckedAt = cloudflareConnection?.mcpTokenCheckedAt;
   const cloudflareMcpTokenError = cloudflareConnection?.mcpTokenError;
+  const cloudflareMcpTokenNextAutoCheckAt =
+    cloudflareConnection?.mcpTokenNextAutoCheckAt;
+  const cloudflareRefreshWindowStartsAt =
+    typeof cloudflareMcpTokenExpiresAt === "number"
+      ? cloudflareMcpTokenExpiresAt - CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS
+      : undefined;
   const showCloudflareCreateWarning =
     createHostingProvider === "cloudflare" &&
     cloudflareConnected &&
@@ -775,6 +878,19 @@ export function VaultDashboard() {
             : ""
       : "";
   const cloudflareAuthMethod = cloudflareConnection?.authMethod;
+  const cloudflareSchedulerStatus =
+    cloudflareAuthMethod === "mcp_oauth"
+      ? isCheckingCloudflareToken || isAutoCheckingCloudflareToken
+        ? "Checking..."
+        : cloudflarePollingPaused
+          ? "Auto-check paused (tab hidden)."
+          : typeof cloudflareMcpTokenNextAutoCheckAt === "number"
+            ? typeof cloudflareRefreshWindowStartsAt === "number" &&
+              now < cloudflareRefreshWindowStartsAt
+              ? `Auto-refresh starts ${formatRelativeTimeUntil(cloudflareRefreshWindowStartsAt, now)}.`
+              : `Auto-refresh ${formatRelativeTimeUntil(cloudflareMcpTokenNextAutoCheckAt, now)}.`
+            : ""
+      : "";
   const cloudflareMcpTokenErrorStatus =
     cloudflareAuthMethod === "mcp_oauth" && cloudflareMcpTokenError
       ? `Error: ${cloudflareMcpTokenError}`
@@ -785,6 +901,7 @@ export function VaultDashboard() {
           "Connected (MCP OAuth).",
           `Token ${formatMcpTokenStatusLabel(cloudflareMcpTokenStatus)}.`,
           cloudflareMcpTokenTimeStatus,
+          cloudflareSchedulerStatus,
           cloudflareMcpTokenErrorStatus,
         ]
           .filter((part) => part.length > 0)
@@ -1017,7 +1134,8 @@ export function VaultDashboard() {
                           onClick={() => void handleCheckCloudflareToken()}
                           disabled={
                             disconnectingProvider !== null ||
-                            isCheckingCloudflareToken
+                            isCheckingCloudflareToken ||
+                            isAutoCheckingCloudflareToken
                           }
                         >
                           {isCheckingCloudflareToken ? (
@@ -1035,7 +1153,8 @@ export function VaultDashboard() {
                           onClick={() => void handleDisconnect(provider)}
                           disabled={
                             disconnectingProvider !== null ||
-                            isCheckingCloudflareToken
+                            isCheckingCloudflareToken ||
+                            isAutoCheckingCloudflareToken
                           }
                         >
                           {disconnectingProvider === provider ? (

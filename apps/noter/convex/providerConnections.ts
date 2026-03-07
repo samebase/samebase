@@ -7,9 +7,14 @@ import {
 } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mcpTokenHealthValidator } from "./mcpTokenHealth";
+import {
+  CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS,
+  CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS,
+} from "../shared/cloudflareTokenRefresh";
 
 const {
   array,
+  boolean,
   id,
   literal,
   null: vNull,
@@ -85,6 +90,8 @@ const cloudflareConnectionUpsertValidator = object({
   auth: cloudflareProviderAuthValidator,
   accountId: optional(string()),
   tokenHealth: optional(mcpTokenHealthValidator),
+  tokenRefreshStartedAt: optional(number()),
+  lastTokenRefreshAt: optional(number()),
 });
 
 const githubConnectionResultValidator = object({
@@ -127,6 +134,8 @@ const cloudflareConnectionResultValidator = object({
   auth: cloudflareProviderAuthValidator,
   accountId: optional(string()),
   tokenHealth: optional(mcpTokenHealthValidator),
+  tokenRefreshStartedAt: optional(number()),
+  lastTokenRefreshAt: optional(number()),
   createdAt: number(),
   updatedAt: number(),
 });
@@ -254,6 +263,12 @@ async function upsertCloudflareConnection(
       ...(args.tokenHealth !== undefined
         ? { tokenHealth: args.tokenHealth }
         : {}),
+      ...(args.tokenRefreshStartedAt !== undefined
+        ? { tokenRefreshStartedAt: args.tokenRefreshStartedAt }
+        : {}),
+      ...(args.lastTokenRefreshAt !== undefined
+        ? { lastTokenRefreshAt: args.lastTokenRefreshAt }
+        : {}),
     };
     await db.patch(existing._id, patch);
     return;
@@ -267,6 +282,12 @@ async function upsertCloudflareConnection(
     updatedAt: now,
     ...(args.tokenHealth !== undefined
       ? { tokenHealth: args.tokenHealth }
+      : {}),
+    ...(args.tokenRefreshStartedAt !== undefined
+      ? { tokenRefreshStartedAt: args.tokenRefreshStartedAt }
+      : {}),
+    ...(args.lastTokenRefreshAt !== undefined
+      ? { lastTokenRefreshAt: args.lastTokenRefreshAt }
       : {}),
   };
   await db.insert("providerConnections", doc);
@@ -329,6 +350,103 @@ export const upsertCloudflare = internalMutation({
   handler: async (ctx, args) => {
     await upsertCloudflareConnection(ctx.db, args);
     return null;
+  },
+});
+
+export const claimCloudflareTokenRefresh = internalMutation({
+  args: {
+    userId: id("users"),
+    force: optional(boolean()),
+    debounceMs: optional(number()),
+  },
+  returns: object({
+    claimed: boolean(),
+    nextAllowedRefreshAt: optional(number()),
+  }),
+  handler: async (ctx, args) => {
+    const connection = await getConnectionByUserAndKind(
+      ctx.db,
+      args.userId,
+      "cloudflare",
+    );
+
+    if (
+      connection?.kind !== "cloudflare" ||
+      connection.auth.method !== "mcp_oauth"
+    ) {
+      return { claimed: false };
+    }
+
+    const now = Date.now();
+    const debounceMs =
+      args.debounceMs !== undefined
+        ? Math.max(0, Math.floor(args.debounceMs))
+        : CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS;
+
+    if (!args.force) {
+      const lastTokenRefreshAt = connection.lastTokenRefreshAt;
+      if (
+        typeof lastTokenRefreshAt === "number" &&
+        now - lastTokenRefreshAt < debounceMs
+      ) {
+        return {
+          claimed: false,
+          nextAllowedRefreshAt: lastTokenRefreshAt + debounceMs,
+        };
+      }
+
+      const tokenRefreshStartedAt = connection.tokenRefreshStartedAt;
+      if (
+        typeof tokenRefreshStartedAt === "number" &&
+        now - tokenRefreshStartedAt < CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS
+      ) {
+        return {
+          claimed: false,
+          nextAllowedRefreshAt:
+            tokenRefreshStartedAt + CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS,
+        };
+      }
+    }
+
+    await ctx.db.patch(connection._id, {
+      tokenRefreshStartedAt: now,
+      updatedAt: now,
+    });
+
+    return { claimed: true };
+  },
+});
+
+export const releaseCloudflareTokenRefresh = internalMutation({
+  args: {
+    userId: id("users"),
+  },
+  returns: object({
+    lastTokenRefreshAt: optional(number()),
+  }),
+  handler: async (ctx, args) => {
+    const connection = await getConnectionByUserAndKind(
+      ctx.db,
+      args.userId,
+      "cloudflare",
+    );
+    if (
+      connection?.kind !== "cloudflare" ||
+      connection.auth.method !== "mcp_oauth"
+    ) {
+      return {};
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(connection._id, {
+      tokenRefreshStartedAt: undefined,
+      lastTokenRefreshAt: now,
+      updatedAt: now,
+    });
+
+    return {
+      lastTokenRefreshAt: now,
+    };
   },
 });
 
