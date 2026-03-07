@@ -10,6 +10,7 @@ import { verifyPkceS256 } from "./tokens";
 
 const {
   array,
+  boolean,
   id,
   literal,
   null: nullValue,
@@ -84,6 +85,7 @@ const issueAuthorizationCodeForAuthRequestArgsValidator = object({
   userId: id("users"),
   codeHash: string(),
   codeExpiresAt: number(),
+  allowLoopbackHttpRedirectUris: optional(boolean()),
   now: number(),
 });
 type IssueAuthorizationCodeForAuthRequestArgs = Infer<
@@ -107,6 +109,7 @@ const exchangeAuthorizationCodeArgsValidator = object({
   clientId: string(),
   redirectUri: string(),
   codeVerifier: string(),
+  allowLoopbackHttpRedirectUris: optional(boolean()),
   accessTokenHash: string(),
   refreshTokenHash: string(),
   accessTokenExpiresAt: number(),
@@ -317,6 +320,8 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
     ctx,
     args: IssueAuthorizationCodeForAuthRequestArgs,
   ): Promise<IssueAuthorizationCodeForAuthRequestResult> => {
+    const allowLoopbackHttpRedirectUris =
+      args.allowLoopbackHttpRedirectUris === true;
     const authRequest = await ctx.db
       .query("mcpAuthRequests")
       .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
@@ -386,7 +391,7 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
         requestedRedirectUri: authRequest.redirectUri,
         registeredRedirectUris: client.redirectUris,
         options: {
-          allowLoopbackHttpRedirectUris: true,
+          allowLoopbackHttpRedirectUris,
         },
       })
     ) {
@@ -471,6 +476,8 @@ export const exchangeAuthorizationCode = internalMutation({
     ctx,
     args: ExchangeAuthorizationCodeArgs,
   ): Promise<TokenExchangeResult> => {
+    const allowLoopbackHttpRedirectUris =
+      args.allowLoopbackHttpRedirectUris === true;
     const authorizationCode = await ctx.db
       .query("mcpAuthorizationCodes")
       .withIndex("by_code_hash", (q) => q.eq("codeHash", args.codeHash))
@@ -566,7 +573,7 @@ export const exchangeAuthorizationCode = internalMutation({
         requestedRedirectUri: args.redirectUri,
         registeredRedirectUris: client.redirectUris,
         options: {
-          allowLoopbackHttpRedirectUris: true,
+          allowLoopbackHttpRedirectUris,
         },
       })
     ) {
@@ -727,6 +734,29 @@ export const exchangeRefreshToken = internalMutation({
         errorDescription: "Grant is no longer active.",
       });
     }
+    const client = await ctx.db
+      .query("mcpOauthClients")
+      .withIndex("by_client_id", (q) => q.eq("clientId", grant.clientId))
+      .first();
+    if (!client) {
+      return oauthError({
+        status: 400,
+        error: "invalid_client",
+        errorDescription: "Unknown client_id.",
+      });
+    }
+    if (
+      isClientInactive({
+        client,
+        now: args.now,
+      })
+    ) {
+      return oauthError({
+        status: 400,
+        error: "invalid_client",
+        errorDescription: "Client is not active.",
+      });
+    }
 
     await ctx.db.patch(refreshToken._id, {
       status: "rotated",
@@ -826,6 +856,29 @@ export const validateAccessToken = internalMutation({
         status: 401,
         error: "invalid_token",
         errorDescription: "Grant is no longer active.",
+      });
+    }
+    const client = await ctx.db
+      .query("mcpOauthClients")
+      .withIndex("by_client_id", (q) => q.eq("clientId", grant.clientId))
+      .first();
+    if (!client) {
+      return oauthError({
+        status: 401,
+        error: "invalid_token",
+        errorDescription: "Client for access token is unknown.",
+      });
+    }
+    if (
+      isClientInactive({
+        client,
+        now: args.now,
+      })
+    ) {
+      return oauthError({
+        status: 401,
+        error: "invalid_token",
+        errorDescription: "Client for access token is not active.",
       });
     }
 

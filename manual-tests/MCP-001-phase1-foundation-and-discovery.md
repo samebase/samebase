@@ -13,11 +13,11 @@ validation for the Convex-hosted MCP OAuth provider.
 ## Steps
 
 1. Verify protected-resource metadata:
-   - `curl -sS http://127.0.0.1:11327/.well-known/oauth-protected-resource`
+   - `curl -i -sS http://127.0.0.1:11327/.well-known/oauth-protected-resource`
 2. Verify authorization-server metadata:
-   - `curl -sS http://127.0.0.1:11327/.well-known/oauth-authorization-server`
+   - `curl -i -sS http://127.0.0.1:11327/.well-known/oauth-authorization-server`
 3. Register a dynamic client:
-   - `curl -sS -X POST http://127.0.0.1:11327/oauth/mcp/register -H 'content-type: application/json' --data '{"redirect_uris":["https://example.com/callback"],"token_endpoint_auth_method":"none","response_types":["code"],"grant_types":["authorization_code","refresh_token"]}'`
+   - `curl -i -sS -X POST http://127.0.0.1:11327/oauth/mcp/register -H 'content-type: application/json' --data '{"redirect_uris":["https://example.com/callback"],"token_endpoint_auth_method":"none","response_types":["code"],"grant_types":["authorization_code","refresh_token"]}'`
 4. Hit authorize with missing parameters:
    - `curl -i "http://127.0.0.1:11327/oauth/mcp/authorize"`
 

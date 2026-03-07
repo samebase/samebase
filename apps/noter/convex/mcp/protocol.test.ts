@@ -80,6 +80,20 @@ describe("validateDynamicClientRegistrationPayload", () => {
     }
   });
 
+  it("rejects non-string token endpoint auth method values", () => {
+    const result = validateDynamicClientRegistrationPayload({
+      redirect_uris: ["https://example.com/callback"],
+      token_endpoint_auth_method: 123,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain(
+        'token_endpoint_auth_method must be "none"',
+      );
+    }
+  });
+
   it("rejects insecure redirect uris outside loopback exceptions", () => {
     const result = validateDynamicClientRegistrationPayload({
       redirect_uris: ["http://example.com/callback"],

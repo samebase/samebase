@@ -343,6 +343,8 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
       userId,
       codeHash: authorizationCodeHash,
       codeExpiresAt: now + MCP_AUTHORIZATION_CODE_TTL_MS,
+      allowLoopbackHttpRedirectUris:
+        protocolValidationOptions.allowLoopbackHttpRedirectUris === true,
       now,
     },
   );
@@ -441,6 +443,8 @@ export const exchangeMcpOauthToken = httpAction(async (ctx, request) => {
         clientId: validation.value.clientId,
         redirectUri: validation.value.redirectUri,
         codeVerifier: validation.value.codeVerifier,
+        allowLoopbackHttpRedirectUris:
+          protocolValidationOptions.allowLoopbackHttpRedirectUris === true,
         accessTokenHash,
         refreshTokenHash,
         accessTokenExpiresAt: now + MCP_ACCESS_TOKEN_TTL_MS,

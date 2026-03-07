@@ -389,10 +389,20 @@ export function validateDynamicClientRegistrationPayload(
     };
   }
 
+  const tokenEndpointAuthMethodValue = record.token_endpoint_auth_method;
+  if (
+    tokenEndpointAuthMethodValue !== undefined &&
+    typeof tokenEndpointAuthMethodValue !== "string"
+  ) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'token_endpoint_auth_method must be "none" in v1.',
+    };
+  }
   const tokenEndpointAuthMethod =
-    typeof record.token_endpoint_auth_method === "string"
-      ? record.token_endpoint_auth_method.trim()
-      : SUPPORTED_TOKEN_ENDPOINT_AUTH_METHOD;
+    tokenEndpointAuthMethodValue?.trim() ??
+    SUPPORTED_TOKEN_ENDPOINT_AUTH_METHOD;
 
   if (tokenEndpointAuthMethod !== SUPPORTED_TOKEN_ENDPOINT_AUTH_METHOD) {
     return {
