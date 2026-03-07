@@ -74,22 +74,10 @@ function hasFormUrlEncodedContentType(request: Request): boolean {
     .startsWith("application/x-www-form-urlencoded");
 }
 
-function isLoopbackHostname(hostname: string): boolean {
-  const normalized = hostname.toLowerCase();
-  return (
-    normalized === "localhost" ||
-    normalized === "127.0.0.1" ||
-    normalized === "::1" ||
-    normalized === "[::1]"
-  );
-}
-
-function getProtocolValidationOptions(
-  request: Request,
-): McpProtocolValidationOptions {
-  const requestUrl = new URL(request.url);
+function getProtocolValidationOptions(): McpProtocolValidationOptions {
   return {
-    allowLoopbackHttpRedirectUris: isLoopbackHostname(requestUrl.hostname),
+    // Native/desktop MCP clients use loopback callbacks over http://127.0.0.1:*.
+    allowLoopbackHttpRedirectUris: true,
   };
 }
 
@@ -208,7 +196,7 @@ export const registerMcpOauthClient = httpAction(async (ctx, request) => {
 
   const validation = validateDynamicClientRegistrationPayload(
     payload,
-    getProtocolValidationOptions(request),
+    getProtocolValidationOptions(),
   );
   if (!validation.ok) {
     return oauthErrorResponse({
@@ -251,7 +239,7 @@ export const registerMcpOauthClient = httpAction(async (ctx, request) => {
 
 export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
   const now = Date.now();
-  const protocolValidationOptions = getProtocolValidationOptions(request);
+  const protocolValidationOptions = getProtocolValidationOptions();
   const url = new URL(request.url);
   const validation = validateAuthorizeRequestFromUrl(
     url,
@@ -392,7 +380,7 @@ export const exchangeMcpOauthToken = httpAction(async (ctx, request) => {
   const rawBody = await request.text();
   const params = new URLSearchParams(rawBody);
   const now = Date.now();
-  const protocolValidationOptions = getProtocolValidationOptions(request);
+  const protocolValidationOptions = getProtocolValidationOptions();
   const validation = validateTokenRequestFromSearchParams(
     params,
     protocolValidationOptions,

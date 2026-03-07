@@ -342,7 +342,7 @@ export function validateDynamicClientRegistrationPayload(
         ok: false,
         status: 400,
         error:
-          "redirect_uris must use https, except loopback http when explicitly enabled for development.",
+          "redirect_uris must use https, except loopback http redirect URIs.",
       };
     }
   }
