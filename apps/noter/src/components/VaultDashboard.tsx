@@ -253,6 +253,7 @@ export function VaultDashboard() {
   const dashboardSettings = useConvexQuery(
     api.dashboardSettings.getDashboardSettings,
   );
+  const dashboardProvidersPanelOpen = dashboardSettings?.providersPanelOpen;
   const githubPopupRef = useRef<Window | null>(null);
   const convexPopupRef = useRef<Window | null>(null);
   const netlifyPopupRef = useRef<Window | null>(null);
@@ -326,10 +327,10 @@ export function VaultDashboard() {
   const providersPanelPendingRef = useRef<boolean | null>(null);
 
   useEffect(() => {
-    if (!dashboardSettings) {
+    if (dashboardProvidersPanelOpen === undefined) {
       return;
     }
-    const serverValue = dashboardSettings.providersPanelOpen;
+    const serverValue = dashboardProvidersPanelOpen;
     if (providersPanelPendingRef.current !== null) {
       if (providersPanelPendingRef.current === serverValue) {
         providersPanelPendingRef.current = null;
@@ -338,7 +339,7 @@ export function VaultDashboard() {
       }
     }
     setProvidersPanelOpenState(serverValue);
-  }, [dashboardSettings?.providersPanelOpen]);
+  }, [dashboardProvidersPanelOpen]);
 
   useEffect(() => {
     const expectedOrigin = window.location.origin;

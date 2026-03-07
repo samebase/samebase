@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-floating-promises */
 /* eslint-disable prefer-const */
 import { useRef, useEffect, useState } from "react";
-import { ChangeSet, EditorState, Extension, Text } from "@codemirror/state";
+import { ChangeSet, EditorState } from "@codemirror/state";
 import { EditorView } from "codemirror";
 import { languages } from "@codemirror/language-data";
 // Note: closeBrackets functionality requires @codemirror/autocomplete package
@@ -29,12 +29,7 @@ import {
   ViewUpdate,
 } from "@codemirror/view";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { javascript } from "@codemirror/lang-javascript";
 import { markdown } from "@codemirror/lang-markdown";
-import { json } from "@codemirror/lang-json";
-import { html } from "@codemirror/lang-html";
-import { css } from "@codemirror/lang-css";
-import { python } from "@codemirror/lang-python";
 import { useTheme } from "next-themes";
 import {
   collab,
@@ -104,7 +99,7 @@ async function pushUpdates({
 }
 
 // https://github.com/codemirror/website/blob/main/site/examples/collab/collab.ts#L89
-export function peerExtension({
+function peerExtension({
   startVersion,
   repositoryFullName,
   branch,
@@ -127,6 +122,11 @@ export function peerExtension({
     class {
       private pushing = false;
       private done = false;
+      private retryTimer: number | null = null;
+
+      private isDestroyed(): boolean {
+        return this.done;
+      }
 
       constructor(private view: EditorView) {
         // this.pull();
@@ -134,15 +134,19 @@ export function peerExtension({
       }
 
       update(update: ViewUpdate) {
-        if (update.docChanged) this.push();
+        if (!this.isDestroyed() && update.docChanged) {
+          void this.push();
+        }
       }
 
       async push() {
+        if (this.isDestroyed()) return;
         let updates = sendableUpdates(this.view.state);
 
         if (this.pushing || !updates.length) return;
         this.pushing = true;
         let version = getSyncedVersion(this.view.state);
+        if (this.isDestroyed()) return;
         setVersion(version);
 
         let retryDelayMs = 100;
@@ -156,10 +160,14 @@ export function peerExtension({
           });
 
           if (success) {
-            setSyncError(null);
+            if (!this.isDestroyed()) {
+              setSyncError(null);
+            }
           } else {
             retryDelayMs = 200;
-            setSyncError("Syncing latest remote changes...");
+            if (!this.isDestroyed()) {
+              setSyncError("Syncing latest remote changes...");
+            }
           }
         } catch (error) {
           retryDelayMs = 1000;
@@ -167,18 +175,27 @@ export function peerExtension({
             error instanceof Error && error.message.length > 0
               ? error.message
               : "Failed to sync edits. Retrying...";
-          setSyncError(message);
+          if (!this.isDestroyed()) {
+            setSyncError(message);
+          }
           console.error("Failed to push collaborative editor updates:", error);
         } finally {
           this.pushing = false;
         }
         // Regardless of whether the push failed or new updates came in
         // while it was running, try again if there's updates remaining
-        if (sendableUpdates(this.view.state).length)
-          setTimeout(() => this.push(), retryDelayMs);
+        if (!this.isDestroyed() && sendableUpdates(this.view.state).length) {
+          this.retryTimer = window.setTimeout(() => {
+            this.retryTimer = null;
+            if (!this.isDestroyed()) {
+              void this.push();
+            }
+          }, retryDelayMs);
+        }
       }
 
       async pull(updates: readonly Update[], incomingVersion: number) {
+        if (this.isDestroyed()) return;
         let version = getSyncedVersion(this.view.state);
         if (version !== incomingVersion) return;
 
@@ -190,11 +207,17 @@ export function peerExtension({
         this.view.dispatch(receiveUpdates(this.view.state, updates));
 
         const newVersion = getSyncedVersion(this.view.state);
-        setVersion(newVersion);
+        if (!this.isDestroyed()) {
+          setVersion(newVersion);
+        }
       }
 
       destroy() {
         this.done = true;
+        if (this.retryTimer !== null) {
+          window.clearTimeout(this.retryTimer);
+          this.retryTimer = null;
+        }
       }
     },
   );
@@ -261,33 +284,6 @@ const customBasicSetup = [
     },
   }),
 ];
-// Language detection based on file extension
-const getLanguageExtension = (fileName: string): Extension => {
-  const ext = fileName.toLowerCase().split(".").pop();
-
-  switch (ext) {
-    case "js":
-    case "jsx":
-    case "ts":
-    case "tsx":
-      return javascript({ jsx: true, typescript: ext.includes("ts") });
-    case "md":
-    case "markdown":
-      return markdown();
-    case "json":
-      return json();
-    case "html":
-    case "htm":
-      return html();
-    case "css":
-      return css();
-    case "py":
-      return python();
-    default:
-      return markdown(); // Default to markdown for text files
-  }
-};
-
 // Prose files: use ProseMark/CodeMirror. Everything else: Monaco.
 const PROSE_EXTENSIONS = new Set(["md", "mdx", "mdc", "txt", "markdown"]);
 
@@ -301,7 +297,6 @@ export function CodeEditorWrapper({
   repositoryFullName,
   branch,
   filePath,
-  initialFilePath,
   stagedFile,
   vaultId,
   tree,
@@ -311,7 +306,6 @@ export function CodeEditorWrapper({
   repositoryFullName: string;
   branch: string;
   filePath: string;
-  initialFilePath: string;
   stagedFile: NonNullable<
     GetFunctionReferenceReturnType<typeof api.fileStaging.getByNewPath>
   >;
@@ -365,8 +359,6 @@ export function CodeEditor({
     ((updates: readonly Update[], version: number) => void) | null
   >(null);
   const { theme, systemTheme } = useTheme();
-  // 3 letters/digits to differentiate the mounted editor
-  const idRef = useRef(Math.random().toString(36).substring(2, 5));
   const [version, setVersion] = useState(firstDoc.version);
   const [syncError, setSyncError] = useState<string | null>(null);
 
@@ -391,6 +383,8 @@ export function CodeEditor({
       clientID: u.clientID,
     }));
     pullRef.current(cmUpdates, version);
+    // `version` must stay coupled to the fetched `updates` batch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [updates]);
 
   useEffect(() => {

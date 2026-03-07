@@ -432,10 +432,9 @@ function CommitProposalCard({
 }
 
 function renderProdReadLabel(metadata: {
-  provider: ProdReadProposal["provider"];
   resourceKind: ProdReadProposal["resourceKind"];
 }) {
-  const { provider, resourceKind } = metadata;
+  const { resourceKind } = metadata;
   if (resourceKind === "deployment_status") return "Deployment status";
   if (resourceKind === "logs") return "Logs";
   if (resourceKind === "data_query") return "Data sample";
@@ -861,7 +860,7 @@ export function ChatFab() {
 
   useEffect(() => {
     if (!threadId || !threadContextLoaded) return;
-    const remoteDraft = threadContext?.draftMessage ?? "";
+    const remoteDraft = threadContext.draftMessage ?? "";
     if (lastHydratedThreadRef.current !== threadId) {
       lastHydratedThreadRef.current = threadId;
       lastHydratedDraftRef.current = remoteDraft;

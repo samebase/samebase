@@ -1,7 +1,13 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import "./App.css";
@@ -27,7 +33,11 @@ function readTodos(value: unknown): Todo[] {
     const text = Reflect.get(item, "text");
     const done = Reflect.get(item, "done");
 
-    if (typeof id === "string" && typeof text === "string" && typeof done === "boolean") {
+    if (
+      typeof id === "string" &&
+      typeof text === "string" &&
+      typeof done === "boolean"
+    ) {
       todos.push({
         _id: id,
         text,
@@ -69,18 +79,27 @@ function App() {
         <CardHeader>
           <CardTitle>Noter Starter</CardTitle>
           <CardDescription>
-            React + Vite + Convex + Tailwind + shadcn with a minimal todo CRUD flow.
+            React + Vite + Convex + Tailwind + shadcn with a minimal todo CRUD
+            flow.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <form onSubmit={onSubmit} className="flex gap-2">
+          <form
+            onSubmit={(event) => {
+              void onSubmit(event);
+            }}
+            className="flex gap-2"
+          >
             <Input
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               placeholder="Ship starter repo seeding"
               disabled={isSaving}
             />
-            <Button type="submit" disabled={isSaving || draft.trim().length === 0}>
+            <Button
+              type="submit"
+              disabled={isSaving || draft.trim().length === 0}
+            >
               {isSaving ? "Saving..." : "Add"}
             </Button>
           </form>

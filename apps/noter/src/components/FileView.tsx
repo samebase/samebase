@@ -236,6 +236,7 @@ function FileViewWrapper() {
   const parsedPath = branchAndFilePath ? branchAndFilePath.split("/") : [];
   const branch = parsedPath[0] || "main";
   const selectedFile = parsedPath.slice(1).join("/");
+  const storageBackedSelectionKey = `${branch}:${selectedFile}`;
   const repositoryFullName = owner && repoName ? `${owner}/${repoName}` : null;
 
   // Get vault for this repository
@@ -244,6 +245,7 @@ function FileViewWrapper() {
   const vault = useLiveQuery(api.vault.getVaultByRepository, {
     repositoryFullName: repositoryFullName ?? "skip",
   });
+  const vaultId = vault?._id;
   const selectedTreeEntry = useMemo(
     () =>
       vault?.treeData.tree.find(
@@ -255,14 +257,14 @@ function FileViewWrapper() {
   const selectedFileIsRenderableMedia =
     isRenderableRepositoryMediaPath(selectedFile);
   const [storageBackedSelection, setStorageBackedSelection] = useState<
-    Record<string, true>
+    Partial<Record<string, true>>
   >({});
 
   useEffect(() => {
-    if (vault?._id) {
+    if (vaultId) {
       setStorageBackedSelection({});
     }
-  }, [vault?._id]);
+  }, [vaultId, branch]);
 
   useEffect(() => {
     if (vault === null) {
@@ -272,7 +274,7 @@ function FileViewWrapper() {
 
   const refreshTreeIfNeeded = useCallback(
     (trigger: RefreshTrigger = "focus") => {
-      if (!vault || !owner || !repoName) return;
+      if (!vaultId || !owner || !repoName) return;
       const key = `${owner}/${repoName}`;
       if (!claimRefreshDebounce("file_view", key)) return;
       void refreshTree({ owner, repo: repoName, trigger }).catch(
@@ -282,13 +284,13 @@ function FileViewWrapper() {
         },
       );
     },
-    [vault?._id, owner, repoName, refreshTree],
+    [vaultId, owner, repoName, refreshTree],
   );
 
   // Refresh tree from GitHub when the page regains focus (debounced to 2 min).
   // Initial page-load refreshes use a shorter server-side debounce window.
   useEffect(() => {
-    if (!vault || !owner || !repoName) return;
+    if (!vaultId || !owner || !repoName) return;
 
     const handleFocus = () => {
       refreshTreeIfNeeded();
@@ -311,7 +313,7 @@ function FileViewWrapper() {
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [vault?._id, owner, repoName, refreshTreeIfNeeded]);
+  }, [vaultId, owner, repoName, refreshTreeIfNeeded]);
 
   // Auto-redirect to best file when no file is selected
   useEffect(() => {
@@ -348,7 +350,7 @@ function FileViewWrapper() {
     if (stagedFile === undefined) return;
     if (stagedFile || selectedFileExistsInTree) return;
 
-    const bestFile = findBestInitialFile(vault.treeData.tree ?? []);
+    const bestFile = findBestInitialFile(vault.treeData.tree);
     if (bestFile) {
       void navigate(`/vault/${owner}/${repoName}/${branch}/${bestFile}`, {
         replace: true,
@@ -378,7 +380,7 @@ function FileViewWrapper() {
       stagedFile === null &&
       selectedFileExistsInTree &&
       !selectedFileIsRenderableMedia &&
-      storageBackedSelection[selectedFile] !== true
+      !storageBackedSelection[storageBackedSelectionKey]
     ) {
       void firstDocAction({
         repositoryFullName: `${owner}/${repoName}`,
@@ -388,7 +390,7 @@ function FileViewWrapper() {
         if (isStorageBackedFileError(error)) {
           setStorageBackedSelection((previous) => ({
             ...previous,
-            [selectedFile]: true,
+            [storageBackedSelectionKey]: true,
           }));
           return;
         }
@@ -403,6 +405,7 @@ function FileViewWrapper() {
     selectedFileExistsInTree,
     selectedFileIsRenderableMedia,
     storageBackedSelection,
+    storageBackedSelectionKey,
     firstDocAction,
     owner,
     repoName,
@@ -1694,7 +1697,6 @@ function FileViewInner({
                     branch={branch}
                     filePath={selectedFile}
                     vaultId={vault._id}
-                    initialFilePath={stagedFile.initialFilePath}
                     stagedFile={stagedFile}
                     tree={vault.treeData.tree}
                     treeSHA={vault.treeSHA}

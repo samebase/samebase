@@ -132,10 +132,8 @@ export function CommandPalette({
   // Scroll selected item into view
   useEffect(() => {
     if (listRef.current && open) {
-      const selectedElement = listRef.current.children[
-        selectedIndex
-      ] as HTMLElement;
-      if (selectedElement) {
+      const selectedElement = listRef.current.children[selectedIndex];
+      if (selectedElement instanceof HTMLElement) {
         selectedElement.scrollIntoView({ block: "nearest" });
       }
     }

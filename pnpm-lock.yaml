@@ -330,6 +330,9 @@ importers:
         specifier: ^2.5.2
         version: 2.6.1
     devDependencies:
+      '@convex-dev/eslint-plugin':
+        specifier: 0.0.1-alpha.4
+        version: 0.0.1-alpha.4(eslint@8.57.1)(typescript@5.9.2)
       '@playwright/cli':
         specifier: ^0.1.1
         version: 0.1.1
@@ -339,12 +342,27 @@ importers:
       '@types/react-dom':
         specifier: ^18.3.0
         version: 18.3.7(@types/react@18.3.28)
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^7.13.1
+        version: 7.18.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1)(typescript@5.9.2)
+      '@typescript-eslint/parser':
+        specifier: ^7.13.1
+        version: 7.18.0(eslint@8.57.1)(typescript@5.9.2)
       '@vitejs/plugin-react':
         specifier: ^5.0.0
         version: 5.1.4(vite@6.4.1(@types/node@20.19.32)(jiti@1.21.7)(terser@5.46.0)(yaml@2.8.2))
       autoprefixer:
         specifier: ^10.4.20
         version: 10.4.24(postcss@8.5.6)
+      eslint:
+        specifier: ^8.57.0
+        version: 8.57.1
+      eslint-plugin-react-hooks:
+        specifier: ^4.6.2
+        version: 4.6.2(eslint@8.57.1)
+      eslint-plugin-react-refresh:
+        specifier: ^0.4.7
+        version: 0.4.26(eslint@8.57.1)
       husky:
         specifier: ^9.1.7
         version: 9.1.7

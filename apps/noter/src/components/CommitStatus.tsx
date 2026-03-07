@@ -4,16 +4,8 @@ import { api } from "../../convex/_generated/api";
 import { cn } from "../lib/utils";
 
 const EMPTY_RESULT_RETRY_DELAYS_MS = [
-  2_000,
-  3_000,
-  5_000,
-  8_000,
-  13_000,
-  21_000,
-  34_000,
-  55_000,
-  89_000,
-];
+  2_000, 3_000, 5_000, 8_000, 13_000, 21_000, 34_000, 55_000, 89_000,
+] as const;
 const RUNNING_STATUS_POLL_INTERVAL_MS = 30_000;
 const RATE_LIMIT_FALLBACK_RETRY_MS = 60_000;
 const MIN_FETCH_GAP_MS = 5_000;
@@ -315,8 +307,6 @@ export function CommitStatus({
       };
     }
 
-    let disposed = false;
-
     const scheduleFetch = (delayMs: number) => {
       clearScheduledFetch();
       timerRef.current = setTimeout(() => {
@@ -326,7 +316,7 @@ export function CommitStatus({
     };
 
     const fetchCommitStatus = async (isInitialLoad: boolean) => {
-      if (disposed || requestTokenRef.current !== requestToken) {
+      if (requestTokenRef.current !== requestToken) {
         return;
       }
       if (inFlightRef.current) {
@@ -358,7 +348,7 @@ export function CommitStatus({
           ref: commitSha,
         });
 
-        if (disposed || requestTokenRef.current !== requestToken) {
+        if (requestTokenRef.current !== requestToken) {
           return;
         }
 
@@ -411,7 +401,7 @@ export function CommitStatus({
           clearScheduledFetch();
         }
       } catch (err) {
-        if (disposed || requestTokenRef.current !== requestToken) {
+        if (requestTokenRef.current !== requestToken) {
           return;
         }
 
@@ -423,9 +413,11 @@ export function CommitStatus({
         setCheckRuns(null);
         setCommitStatuses(null);
       } finally {
-        inFlightRef.current = false;
-        if (isInitialLoad && !disposed && requestTokenRef.current === requestToken) {
-          setLoading(false);
+        if (requestTokenRef.current === requestToken) {
+          inFlightRef.current = false;
+          if (isInitialLoad) {
+            setLoading(false);
+          }
         }
       }
     };
@@ -435,7 +427,6 @@ export function CommitStatus({
     void fetchCommitStatus(true);
 
     return () => {
-      disposed = true;
       requestTokenRef.current += 1;
       clearScheduledFetch();
       inFlightRef.current = false;

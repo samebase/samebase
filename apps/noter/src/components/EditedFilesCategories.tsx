@@ -15,7 +15,7 @@ type StagedFile = NonNullable<
 >;
 
 // Helper function to categorize staged files by change type
-export function categorizeStagedFiles(stagedFiles: StagedFile[]) {
+function categorizeStagedFiles(stagedFiles: StagedFile[]) {
   const categories: {
     deleted: StagedFile[];
     renamed: StagedFile[];

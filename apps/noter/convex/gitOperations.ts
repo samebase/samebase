@@ -1,6 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, query } from "./_generated/server";
-import { Id } from "./_generated/dataModel";
+import { internalMutation, internalQuery } from "./_generated/server";
 
 // MARK: Public
 

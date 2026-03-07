@@ -505,8 +505,8 @@ export async function rebaseStagedFilesOnLatestHead(args: {
 
     const upstreamContent = await getBlobText(upstreamSha);
     const rebased = rebaseStagedContent({
-      baseContent: file.initialContent ?? "",
-      stagedContent: file.content ?? "",
+      baseContent: file.initialContent,
+      stagedContent: file.content,
       upstreamContent,
     });
     if (rebased.hasConflict) {
@@ -571,7 +571,7 @@ function computeLineStats(
   let deletions = 0;
 
   for (const part of parts) {
-    const value = part.value ?? "";
+    const value = part.value;
     const lineCount =
       typeof part.count === "number"
         ? part.count
@@ -609,8 +609,8 @@ export function buildCommitPreviewFromStagedFiles({
   let truncatedPatchFileCount = 0;
 
   for (const file of stagedFiles) {
-    const oldContent = file.initialContent ?? "";
-    const newContent = file.fileDeleted ? "" : file.content ?? "";
+    const oldContent = file.initialContent;
+    const newContent = file.fileDeleted ? "" : file.content;
     const renamed = file.filePath !== file.initialFilePath;
     const isMarkdown = isMarkdownPath(file.filePath);
     const status = file.fileDeleted
@@ -1456,7 +1456,7 @@ export const getCommitPreview = action({
     }
     const branch =
       args.branch ??
-      stagedBranches[0] ??
+      stagedBranches.at(0) ??
       (await getVaultDefaultBranch(
         ctx,
         userId,
@@ -1514,11 +1514,11 @@ export async function createCommitWithMultipleFiles({
     oldContent: string,
     newContent: string,
   ): Array<{ from: number; to: number }> => {
-    const parts = diffLines(oldContent ?? "", newContent ?? "");
+    const parts = diffLines(oldContent, newContent);
     const ranges: Array<{ from: number; to: number }> = [];
     let newLine = 1;
     for (const part of parts) {
-      const value = part.value ?? "";
+      const value = part.value;
       const lineCount =
         typeof part.count === "number"
           ? part.count
@@ -1574,12 +1574,8 @@ export async function createCommitWithMultipleFiles({
     initialFilePath: file.initialFilePath,
     modifiedLines: file.fileDeleted
       ? []
-      : computeModifiedLineRanges(
-          file.initialContent ?? "",
-          file.content ?? "",
-        ),
-    wasModified:
-      !file.fileDeleted && (file.initialContent ?? "") !== (file.content ?? ""),
+      : computeModifiedLineRanges(file.initialContent, file.content),
+    wasModified: !file.fileDeleted && file.initialContent !== file.content,
   }));
 
   // 1. Prepare file lists
@@ -1820,7 +1816,7 @@ export const commitAllStaged = internalAction({
       });
       const commitBranch: string =
         args.branch ??
-        stagedBranches[0] ??
+        stagedBranches.at(0) ??
         (await getRepositoryDefaultBranch({
           octokit,
           owner: args.repoOwner,

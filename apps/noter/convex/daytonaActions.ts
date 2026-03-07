@@ -439,24 +439,33 @@ function buildRegistryConfigFromGithub(args: {
   };
 }
 
+function normalizeProjectScope(project: unknown): string {
+  return typeof project === "string" ? project : "";
+}
+
 function getRegistryMatch(
   registries: DockerRegistry[],
   config: RegistryConfig,
 ): DockerRegistry | null {
   const targetUrl = normalizeRegistryUrl(config.url);
-  const targetProject = config.project ?? "";
+  const targetProject = normalizeProjectScope(config.project);
   for (const registry of registries) {
     const registryUrl = normalizeRegistryUrl(registry.url);
     if (registryUrl !== targetUrl) {
       continue;
     }
-    const registryProject = registry.project ?? "";
-    if (config.project && registryProject !== targetProject) {
+    const registryProject = normalizeProjectScope(registry.project);
+    if (registryProject !== targetProject) {
       continue;
     }
     return registry;
   }
   return null;
+}
+
+function readSandboxLabel(candidate: Sandbox, key: string): string {
+  const value = candidate.labels[key];
+  return typeof value === "string" ? value.trim() : "";
 }
 
 async function ensureDaytonaRegistry(args: {
@@ -494,7 +503,8 @@ async function ensureDaytonaRegistry(args: {
     return { registryId: created.data.id, status: "created" };
   }
 
-  const projectMatch = match.project === (args.config.project ?? "");
+  const targetProject = normalizeProjectScope(args.config.project);
+  const projectMatch = normalizeProjectScope(match.project) === targetProject;
   const needsUpdate =
     match.name !== args.config.name ||
     match.username !== args.config.username ||
@@ -1245,16 +1255,18 @@ export const startDaytonaWorkspace = action({
     const requestedBranchLabel = branch;
     const requestedCommitLabel = expectedCommitSha;
     const hasMatchingLabels = (candidate: Sandbox): boolean => {
-      const candidateVaultLabel = candidate.labels["noter.vault_id"]?.trim();
+      const candidateVaultLabel = readSandboxLabel(candidate, "noter.vault_id");
       if (candidateVaultLabel !== requestedVaultLabel) {
         return false;
       }
-      const candidateBranchLabel = candidate.labels["noter.branch"]?.trim();
+      const candidateBranchLabel = readSandboxLabel(candidate, "noter.branch");
       if (candidateBranchLabel !== requestedBranchLabel) {
         return false;
       }
-      const candidateCommitLabel =
-        candidate.labels["noter.commit_sha"]?.trim() ?? "";
+      const candidateCommitLabel = readSandboxLabel(
+        candidate,
+        "noter.commit_sha",
+      );
       return candidateCommitLabel === requestedCommitLabel;
     };
 
@@ -1286,8 +1298,8 @@ export const startDaytonaWorkspace = action({
         1,
         5,
       );
-      const match = matches.items[0];
-      if (match?.id) {
+      if (matches.items.length > 0) {
+        const match = matches.items[0];
         try {
           const matchedSandbox = await daytona.get(match.id);
           if (hasMatchingLabels(matchedSandbox)) {
@@ -1392,12 +1404,6 @@ export const startDaytonaWorkspace = action({
       sandbox = await daytona.create(sandboxParams);
       sandboxCreateMs = Date.now() - sandboxCreateStartedAt;
       sandboxLifecycle = "created";
-    }
-
-    if (sandbox === null) {
-      throw new Error(
-        "Invariant violation: Daytona sandbox should be available",
-      );
     }
 
     const resolvedSandboxName = sandbox.name;
@@ -1509,14 +1515,14 @@ async function resolveDaytonaSandboxForVault(args: {
     if (!requestedBranch) {
       return true;
     }
-    const branchLabel = candidate.labels["noter.branch"]?.trim();
+    const branchLabel = readSandboxLabel(candidate, "noter.branch");
     if (branchLabel !== requestedBranch) {
       return false;
     }
     if (!requestedCommitSha) {
       return true;
     }
-    const commitLabel = candidate.labels["noter.commit_sha"]?.trim();
+    const commitLabel = readSandboxLabel(candidate, "noter.commit_sha");
     return commitLabel === requestedCommitSha;
   };
 
@@ -1546,8 +1552,16 @@ async function resolveDaytonaSandboxForVault(args: {
       labels["noter.commit_sha"] = requestedCommitSha;
     }
     const matches = await args.daytona.list(labels, 1, 5);
+    if (matches.items.length === 0) {
+      return {
+        ok: false,
+        message: requestedBranch
+          ? `No Daytona sandbox found for branch ${requestedBranch}. Click Launch Daytona first.`
+          : "No Daytona sandbox is connected to this vault yet. Click Launch Daytona first.",
+      };
+    }
     const match = matches.items[0];
-    if (!match?.id) {
+    if (!match.id) {
       return {
         ok: false,
         message: requestedBranch
@@ -1715,7 +1729,7 @@ export const getDaytonaPreviewUrl = action({
     }
     const { sandbox, sandboxName } = resolvedSandbox;
 
-    const branchLabel = sandbox.labels?.["noter.branch"];
+    const branchLabel = readSandboxLabel(sandbox, "noter.branch");
 
     try {
       const preview = sandbox.public
@@ -1727,10 +1741,7 @@ export const getDaytonaPreviewUrl = action({
       return {
         ok: true,
         url: preview.url,
-        branch:
-          branchLabel && branchLabel.trim().length > 0
-            ? branchLabel
-            : undefined,
+        branch: branchLabel.length > 0 ? branchLabel : undefined,
         message: sandboxName
           ? `Preview link ready for ${sandboxName}.`
           : "Preview link ready.",
@@ -1788,7 +1799,7 @@ export const startDaytonaDevServerSafe = action({
         1,
         5,
       );
-      const match = matches.items[0];
+      const match = matches.items.at(0);
       if (!match) {
         return {
           ok: false,
@@ -1817,7 +1828,7 @@ export const startDaytonaDevServerSafe = action({
       60,
     );
     if (statusResult.exitCode === 0) {
-      const status = parseDevServerStatus(statusResult.result ?? "");
+      const status = parseDevServerStatus(statusResult.result);
       if (status.running) {
         return {
           ok: true,
@@ -1888,7 +1899,7 @@ export const startDaytonaDevServerFast = action({
         1,
         5,
       );
-      const match = matches.items[0];
+      const match = matches.items.at(0);
       if (!match) {
         return {
           ok: false,
@@ -1916,7 +1927,7 @@ export const startDaytonaDevServerFast = action({
       60,
     );
     if (statusResult.exitCode === 0) {
-      const status = parseDevServerStatus(statusResult.result ?? "");
+      const status = parseDevServerStatus(statusResult.result);
       if (status.running) {
         return {
           ok: true,
@@ -1946,7 +1957,7 @@ export const startDaytonaDevServerFast = action({
     );
 
     if (startResult.exitCode !== 0) {
-      const raw = startResult.result ?? "";
+      const raw = startResult.result;
       const message = raw.includes("__NOTER_REPO_MISSING__")
         ? "Repo directory not found in sandbox. Start Daytona first."
         : `Failed to start dev server (exit ${startResult.exitCode}).`;
@@ -2008,7 +2019,7 @@ export const getDaytonaDevServerStatus = action({
         1,
         5,
       );
-      const match = matches.items[0];
+      const match = matches.items.at(0);
       if (!match) {
         return {
           ok: false,
@@ -2044,7 +2055,7 @@ export const getDaytonaDevServerStatus = action({
       };
     }
 
-    const status = parseDevServerStatus(statusResult.result ?? "");
+    const status = parseDevServerStatus(statusResult.result);
     const defaultMessage = sandboxName
       ? `Dev status for ${sandboxName}.`
       : "Dev status ready.";
@@ -2101,7 +2112,7 @@ export const removeDaytonaSandbox = action({
         1,
         5,
       );
-      const match = matches.items[0];
+      const match = matches.items.at(0);
       if (!match) {
         return {
           ok: false,
@@ -2169,7 +2180,7 @@ export const getDaytonaBootstrapLogs = action({
         1,
         5,
       );
-      const match = matches.items[0];
+      const match = matches.items.at(0);
       if (!match) {
         return {
           ok: false,
@@ -2188,7 +2199,7 @@ export const getDaytonaBootstrapLogs = action({
       60,
     );
 
-    const rawLogs = result.result ?? "";
+    const rawLogs = result.result;
     const hasNoLog = rawLogs.includes("__NOTER_NO_LOG__");
     const cleanedLogs = hasNoLog
       ? rawLogs.replace(/__NOTER_NO_LOG__\n?/g, "")
@@ -2988,10 +2999,10 @@ export const getDaytonaPrebuildLogs = action({
           branch,
         },
       );
-      snapshotRecord =
-        [...records].sort(
-          (left, right) => right.updatedAt - left.updatedAt,
-        )[0] ?? null;
+      const latestSnapshotRecord = [...records]
+        .sort((left, right) => right.updatedAt - left.updatedAt)
+        .at(0);
+      snapshotRecord = latestSnapshotRecord ?? null;
     }
 
     if (!snapshotRecord) {
