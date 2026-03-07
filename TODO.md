@@ -171,12 +171,12 @@ This would transform me from a "static knowledge" assistant to one that can acce
 ## Demo Ideas
 - [ ] **Live Demo Concept**: Conference/meeting screen sharing demo where:
   1. Request AI to build an app on mobile phone in front of audience
-  2. Get deployment link in ~10 seconds (vs typical 6+ minute wait for other builders)
-  3. Could theoretically be instant since we know the Daytona URL beforehand
-  4. Initial app shows minimal template (even simpler than todo - maybe just empty screen with "hello")
-  5. Continue talking with AI while audience watches the site change in real-time via Vite
-  6. Generate QR code alongside the link for easy mobile scanning
-  7. Instruct audience to scan QR on their phones to verify mobile web compatibility
+  2. When `main` (or any selected branch) opens, show the live preview link immediately at the top
+  3. Instruct audience to open that link on their mobile phone so they can validate the site as soon as the preview is ready
+  4. Keep a QR code next to the link so people can scan instead of typing
+  5. Emphasize the differentiator: preview becomes available in ~10 seconds (vs typical 6+ minutes in other builders), then the page loads almost instantly on mobile
+  6. Initial app shows minimal template (even simpler than todo - maybe just empty screen with "hello")
+  7. Continue talking to AI while audience watches the site change in real-time via Vite
   8. Demonstrate live collaborative editing where changes appear instantly across all viewers
 
 ## Ideas to Explore
