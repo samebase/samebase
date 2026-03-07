@@ -606,6 +606,79 @@ Frontend additions can stay inside the existing app for:
 2. Add tighter Cloudflare proxy rules and rate controls if needed.
 3. Expand scopes and tools carefully based on real usage.
 
+## Implementation Policy
+
+This is the required execution approach for this project:
+
+1. Work phase-by-phase in order.
+2. For each phase, write phase-scoped automated tests first.
+3. Implement only enough code to make that phase pass.
+4. Run manual smoke checks for that phase before moving to the next one.
+5. Keep CI green; do not keep intentionally failing future-phase tests in the
+   branch.
+
+Rules:
+
+1. Future-phase coverage should be recorded as docs/checklists, not failing
+   tests.
+2. Do not remove tests that already passed in earlier phases; adapt only when
+   behavior changes with explicit spec updates.
+3. Each checkpoint commit should include code + tests + tracker update in this
+   spec.
+
+## Test Strategy
+
+### Test organization
+
+1. Keep a full test matrix documented up front in this spec and `manual-tests/`.
+2. Add automated tests incrementally per phase in `apps/noter/convex/*.test.ts`
+   and related frontend test files when needed.
+3. Keep manual test playbooks in `manual-tests/` as stable smoke checks.
+
+Recommended manual test docs to add:
+
+1. `manual-tests/MCP-001-phase1-foundation-and-discovery.md`
+2. `manual-tests/MCP-002-phase2-token-and-mcp-flow.md`
+3. `manual-tests/MCP-003-phase3-consent-and-revocation.md`
+4. `manual-tests/MCP-004-phase4-hardening-and-operations.md`
+
+### Phase gates
+
+Phase 1 gate:
+
+1. `/.well-known/oauth-protected-resource` and
+   `/.well-known/oauth-authorization-server` return valid JSON.
+2. `/oauth/mcp/register` validates input and persists clients.
+3. `/oauth/mcp/authorize` validates request shape and produces deterministic
+   redirect/error behavior.
+
+Phase 2 gate:
+
+1. Authorization code + PKCE exchange works at `/oauth/mcp/token`.
+2. Opaque access and refresh tokens are stored as hashes and audited.
+3. `/mcp` rejects missing/invalid tokens and enforces scope/resource checks.
+4. Minimal tool call (`vaults.list`) works with a valid scoped token.
+5. Refresh token rotation is enforced.
+
+Phase 3 gate:
+
+1. Consent UI can approve/deny pending auth requests.
+2. Connected-client list and revoke flow work for signed-in users.
+3. Revoked grants immediately block refresh and new MCP calls.
+
+Phase 4 gate:
+
+1. Expired auth artifacts are cleaned up by scheduled jobs.
+2. Cloudflare proxy and rate-control rules are documented and validated.
+3. Audit and logs are sufficient to trace failures end to end.
+
+### Standard test run per checkpoint
+
+1. `pnpm lint`
+2. `pnpm typecheck:scripts`
+3. `pnpm test`
+4. Phase-specific manual smoke checklist in `manual-tests/`
+
 ## Execution Tracker
 
 Use this as the chat-independent implementation tracker so a new session can
@@ -614,6 +687,8 @@ resume without relying on conversation context.
 - Last updated: 2026-03-07
 - Overall status: `0/4 phases complete`
 - Current next step: `Phase 1`
+- Latest checkpoint commit: `6ad2292`
+- Test policy: `Phase-by-phase tests first; no long-lived failing future tests`
 
 Phase status:
 
