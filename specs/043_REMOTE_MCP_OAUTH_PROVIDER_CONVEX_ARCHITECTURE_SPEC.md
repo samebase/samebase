@@ -334,10 +334,13 @@ Fields:
 - `redirectUris`
 - `grantTypes`
 - `responseTypes`
-- `tokenEndpointAuthMethod`
+- `tokenEndpointAuthMethod` (v1 must be `"none"`)
 - `createdAt`
 - `updatedAt`
 - `createdBy` (`"dynamic_registration"` or `"manual"`)
+- `registrationStatus` (`provisional`, `active`, `expired`, `disabled`)
+- `provisionalExpiresAt?`
+- `firstTokenExchangedAt?`
 - `metadataJson`
 
 ### 2. `mcpAuthRequests`
@@ -418,6 +421,7 @@ Fields:
 
 - `grantId`
 - `clientId`
+- `userId`
 - `tokenHash`
 - `status` (`active`, `rotated`, `revoked`, `expired`)
 - `createdAt`
@@ -465,8 +469,19 @@ Rules:
 
 1. MCP client discovers auth metadata.
 2. MCP client calls `/oauth/mcp/register`.
-3. Convex validates client metadata and persists the registration.
-4. Convex returns `client_id`.
+3. Convex applies strict metadata validation before persistence:
+   - reject malformed or oversized `redirect_uris`, `client_name`, and
+     `contacts`
+   - require https redirect URIs in production (with explicit localhost/dev
+     exceptions only where intended)
+   - enforce fixed v1 bounds for field lengths and list sizes
+4. Convex enforces `tokenEndpointAuthMethod = "none"` in v1 and rejects
+   registrations requesting other methods.
+5. Cloudflare applies per-IP throttling for `/oauth/mcp/register` and optional
+   per-client throttling once a `client_id` exists.
+6. Dynamic registrations are created as `provisional` and auto-expire if no
+   token exchange occurs before `provisionalExpiresAt`.
+7. Convex returns `client_id`.
 
 ### 2. Authorization request
 
@@ -482,11 +497,16 @@ Rules:
 
 1. Client posts the authorization code plus PKCE verifier to `/oauth/mcp/token`.
 2. Convex validates the code, PKCE verifier, client, redirect URI, and resource.
-3. Convex issues:
+3. Convex enforces registered `tokenEndpointAuthMethod`; in v1 this means:
+   - registered method must be `"none"`
+   - client-auth credentials in token requests are rejected
+4. On successful exchange, provisional clients are promoted to `active` and
+   `firstTokenExchangedAt` is set.
+5. Convex issues:
    - short-lived opaque access token
    - long-lived opaque refresh token
-4. Token hashes are stored in Convex.
-5. Issuance is recorded in `mcpAccessAudit`.
+6. Token hashes are stored in Convex.
+7. Issuance is recorded in `mcpAccessAudit`.
 
 ### 4. MCP call
 
@@ -548,6 +568,11 @@ Do not introduce a blanket `admin` scope.
 7. Audit registration, approval, issuance, refresh, use, and revocation.
 8. Preserve approval-first semantics for sensitive Noter operations.
 9. Keep Cloudflare proxy logic thin so there is one authoritative backend path.
+10. Enforce strict dynamic-registration validation and route throttling in
+    Phase 1.
+11. Automatically expire never-used provisional dynamic registrations.
+12. Enforce v1 `tokenEndpointAuthMethod = "none"` in both registration and token
+    exchange.
 
 ## Recommended Repo Layout
 
@@ -586,6 +611,10 @@ Frontend additions can stay inside the existing app for:
 1. Add the new Convex tables.
 2. Add metadata and registration routes in `convex/http.ts`.
 3. Add authorize route scaffolding and a minimal consent flow.
+4. Implement dynamic-registration abuse controls in v1:
+   - strict metadata validation
+   - Cloudflare throttling for `/oauth/mcp/register`
+   - provisional-registration expiry for never-used clients
 
 ### Phase 2: token issuance and narrow MCP server
 
@@ -651,6 +680,11 @@ Phase 1 gate:
 2. `/oauth/mcp/register` validates input and persists clients.
 3. `/oauth/mcp/authorize` validates request shape and produces deterministic
    redirect/error behavior.
+4. Dynamic-registration abuse controls are active:
+   - strict field validation and bounds
+   - Cloudflare per-IP throttling for `/oauth/mcp/register`
+   - provisional-registration expiry for never-used clients
+5. v1 registration rejects unsupported `tokenEndpointAuthMethod` values.
 
 Phase 2 gate:
 
@@ -687,7 +721,7 @@ resume without relying on conversation context.
 - Last updated: 2026-03-07
 - Overall status: `0/4 phases complete`
 - Current next step: `Phase 1`
-- Latest checkpoint commit: `6ad2292`
+- Latest checkpoint commit: `6ed39aa`
 - Test policy: `Phase-by-phase tests first; no long-lived failing future tests`
 
 Phase status:
