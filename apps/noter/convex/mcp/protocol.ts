@@ -470,6 +470,9 @@ export function validateAuthorizeRequestFromUrl(
     };
   }
 
+  // Some native MCP clients (including Codex desktop) omit `resource`.
+  // Defaulting to same-origin `/mcp` keeps OAuth interop while remaining
+  // bounded to this MCP server origin.
   const resourceRaw =
     url.searchParams.get("resource")?.trim() || `${url.origin}/mcp`;
   const resource = parseAndValidateUri(resourceRaw, {

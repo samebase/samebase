@@ -141,6 +141,25 @@ describe("validateAuthorizeRequestFromUrl", () => {
     }
   });
 
+  it("defaults missing resource to same-origin /mcp", () => {
+    const url = new URL("https://noter.md/oauth/mcp/authorize");
+    url.searchParams.set("response_type", "code");
+    url.searchParams.set("client_id", "client_123");
+    url.searchParams.set("redirect_uri", "https://example.com/callback");
+    url.searchParams.set("scope", "vaults.read");
+    url.searchParams.set(
+      "code_challenge",
+      "0123456789012345678901234567890123456789012",
+    );
+    url.searchParams.set("code_challenge_method", "S256");
+
+    const result = validateAuthorizeRequestFromUrl(url);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.resource).toBe("https://noter.md/mcp");
+    }
+  });
+
   it("rejects unsupported scopes", () => {
     const url = new URL("https://noter.md/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");
