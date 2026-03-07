@@ -179,7 +179,6 @@ describe("validateAuthorizeRequestFromUrl", () => {
       expect(result.value.resource).toBe("https://noter.md/mcp");
     }
   });
-
   it("rejects unsupported scopes", () => {
     const url = new URL("https://noter.md/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");
