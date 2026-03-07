@@ -74,22 +74,12 @@ function hasFormUrlEncodedContentType(request: Request): boolean {
     .startsWith("application/x-www-form-urlencoded");
 }
 
-function isLoopbackHostname(hostname: string): boolean {
-  const normalized = hostname.toLowerCase();
-  return (
-    normalized === "localhost" ||
-    normalized === "127.0.0.1" ||
-    normalized === "::1" ||
-    normalized === "[::1]"
-  );
-}
-
 function getProtocolValidationOptions(
-  request: Request,
+  _request: Request,
 ): McpProtocolValidationOptions {
-  const requestUrl = new URL(request.url);
   return {
-    allowLoopbackHttpRedirectUris: isLoopbackHostname(requestUrl.hostname),
+    // Native/desktop MCP clients use loopback callbacks over http://127.0.0.1:*.
+    allowLoopbackHttpRedirectUris: true,
   };
 }
 
