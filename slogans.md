@@ -5,3 +5,4 @@
 - noter disregards Gödel’s incompleteness theorems
 - noter is the tech stack for AI Agents
 - noter: ship a convex app in 3.4 seconds
+- noter: build MCP servers for ChatGPT

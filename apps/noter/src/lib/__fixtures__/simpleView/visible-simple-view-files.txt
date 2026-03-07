@@ -32,6 +32,8 @@ Ideas/worktree-conversation-log.md
 LICENSE.md
 LICENSING.md
 LUMINA_PROJECT_ANALYSIS.md
+manual-tests/MCP-001-phase1-foundation-and-discovery.md
+manual-tests/MCP-002-phase2-token-and-mcp-flow.md
 manual-tests/README.md
 manual-tests/TEMPLATE.md
 manual-tests/UI-001-landing-copy-hides-markdown.md
@@ -90,6 +92,7 @@ specs/039_CODEX_CLOUD_ENVIRONMENT_REPRODUCIBILITY_SPEC.md
 specs/040_DAYTONA_USAGE_AND_FLOW_SPEC.md
 specs/041_DAYTONA_COMMIT_PINNED_SNAPSHOT_SPEC.md
 specs/042_AGENT_INCREMENTAL_FILE_EDIT_SPEC.md
+specs/043_REMOTE_MCP_OAUTH_PROVIDER_CONVEX_ARCHITECTURE_SPEC.md
 TODO.md
 VISION.md
 worktree.md

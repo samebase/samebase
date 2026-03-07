@@ -334,8 +334,17 @@ Auth:
 - When the user says "remember this" (or equivalent), persist that preference in
   durable project memory (for example `AGENTS.md`) instead of keeping it only in
   chat context.
+- If voice transcription or Wispr Flow turns `noter.md` into `NotRmd` or a
+  similar variant, interpret it as `noter.md` in both requests and responses.
 - For this operator, keep responses concise by default and always include a
   final `Summary` section.
+- Assume Cloudflare is the default front door, proxy, routing layer, and
+  observability layer for `noter.md` unless the user explicitly says otherwise.
+- Prefer keeping application server logic in Convex by default; introduce a
+  Cloudflare Worker runtime only when there is a clear, explicit reason.
+- For new architecture work, prefer Cloudflare-first designs and avoid
+  introducing new Netlify or Railway dependencies unless the user explicitly
+  requests them.
 - For this operator, do not use Python as the first option for scripting or
   automation in Codex. Prefer plain shell commands first; if scripting is
   needed, prefer ECMAScript/Node because Node is guaranteed to be available.
@@ -407,6 +416,9 @@ Auth:
   single-line `--body` string.
 - After pushing fixes for PR review feedback, always request a fresh CodeRabbit
   review by commenting `@coderabbitai review`.
+- After fixing CodeRabbit findings, always reply on each relevant CodeRabbit
+  review thread with a short note describing exactly what was changed, then
+  resolve the thread.
 
 ### Worktree Protocol (Local)
 

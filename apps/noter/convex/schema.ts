@@ -151,6 +151,30 @@ export const ProviderKind = v.union(
 );
 export type ProviderKind = Infer<typeof ProviderKind>;
 
+export const McpOauthClientCreatedBy = union(
+  literal("dynamic_registration"),
+  literal("manual"),
+);
+export const McpOauthClientRegistrationStatus = union(
+  literal("provisional"),
+  literal("active"),
+  literal("expired"),
+  literal("disabled"),
+);
+export const McpAuthRequestStatus = union(
+  literal("pending"),
+  literal("approved"),
+  literal("denied"),
+  literal("expired"),
+);
+export const McpGrantStatus = union(literal("active"), literal("revoked"));
+export const McpRefreshTokenStatus = union(
+  literal("active"),
+  literal("rotated"),
+  literal("revoked"),
+  literal("expired"),
+);
+
 export const OAuthAuth = v.object({
   method: v.literal("oauth"),
   credential: v.string(),
@@ -307,7 +331,9 @@ export default defineSchema({
     infraLastError: v.optional(v.string()),
     infraLastProvisionedAt: v.optional(v.number()),
     infraProvisioningStartedAt: v.optional(v.number()),
-  }).index("by_ghRepoOwner_and_ghRepoName", ["ghRepoOwner", "ghRepoName"]),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_ghRepoOwner_and_ghRepoName", ["ghRepoOwner", "ghRepoName"]),
 
   /**
    * External infrastructure identifiers and status for a vault.
@@ -629,6 +655,146 @@ export default defineSchema({
   })
     .index("by_state", ["state"])
     .index("by_user", ["userId"]),
+
+  /**
+   * MCP OAuth clients registered against noter.md.
+   */
+  mcpOauthClients: defineTable({
+    clientId: string(),
+    clientName: optional(string()),
+    redirectUris: v.array(string()),
+    grantTypes: v.array(string()),
+    responseTypes: v.array(string()),
+    tokenEndpointAuthMethod: literal("none"),
+    createdAt: number(),
+    updatedAt: number(),
+    createdBy: McpOauthClientCreatedBy,
+    registrationStatus: McpOauthClientRegistrationStatus,
+    provisionalExpiresAt: optional(number()),
+    firstTokenExchangedAt: optional(number()),
+    metadataJson: string(),
+  })
+    .index("by_client_id", ["clientId"])
+    .index("by_registration_status", ["registrationStatus"])
+    .index("by_provisional_expires_at", ["provisionalExpiresAt"]),
+
+  /**
+   * Pending authorization requests for MCP OAuth consent.
+   */
+  mcpAuthRequests: defineTable({
+    requestId: string(),
+    clientId: string(),
+    redirectUri: string(),
+    resource: string(),
+    scope: string(),
+    state: optional(string()),
+    codeChallenge: string(),
+    codeChallengeMethod: literal("S256"),
+    userId: optional(v.id("users")),
+    status: McpAuthRequestStatus,
+    createdAt: number(),
+    expiresAt: number(),
+  })
+    .index("by_request_id", ["requestId"])
+    .index("by_client_id", ["clientId"])
+    .index("by_status", ["status"])
+    .index("by_expires_at", ["expiresAt"]),
+
+  /**
+   * One-time authorization codes for MCP OAuth.
+   */
+  mcpAuthorizationCodes: defineTable({
+    codeHash: string(),
+    requestId: string(),
+    grantId: string(),
+    clientId: string(),
+    userId: v.id("users"),
+    redirectUri: string(),
+    resource: string(),
+    scope: string(),
+    expiresAt: number(),
+    usedAt: optional(number()),
+  })
+    .index("by_code_hash", ["codeHash"])
+    .index("by_grant_id", ["grantId"])
+    .index("by_client_id", ["clientId"])
+    .index("by_expires_at", ["expiresAt"]),
+
+  /**
+   * Durable OAuth grants for MCP clients.
+   */
+  mcpGrants: defineTable({
+    grantId: string(),
+    userId: v.id("users"),
+    clientId: string(),
+    resource: string(),
+    scope: string(),
+    status: McpGrantStatus,
+    createdAt: number(),
+    updatedAt: number(),
+    lastUsedAt: optional(number()),
+    metadataJson: optional(string()),
+  })
+    .index("by_grant_id", ["grantId"])
+    .index("by_user_id", ["userId"])
+    .index("by_client_id", ["clientId"])
+    .index("by_status", ["status"]),
+
+  /**
+   * Opaque access tokens for MCP resource access.
+   */
+  mcpAccessTokens: defineTable({
+    tokenHash: string(),
+    grantId: string(),
+    clientId: string(),
+    userId: v.id("users"),
+    resource: string(),
+    scope: string(),
+    createdAt: number(),
+    expiresAt: number(),
+    lastUsedAt: optional(number()),
+    revokedAt: optional(number()),
+  })
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_grant_id", ["grantId"])
+    .index("by_user_id", ["userId"])
+    .index("by_expires_at", ["expiresAt"]),
+
+  /**
+   * Opaque refresh tokens for OAuth token rotation.
+   */
+  mcpRefreshTokens: defineTable({
+    grantId: string(),
+    clientId: string(),
+    userId: v.id("users"),
+    tokenHash: string(),
+    status: McpRefreshTokenStatus,
+    createdAt: number(),
+    expiresAt: optional(number()),
+    rotatedAt: optional(number()),
+    replacedByTokenHash: optional(string()),
+  })
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_grant_id", ["grantId"])
+    .index("by_user_id", ["userId"])
+    .index("by_status", ["status"])
+    .index("by_expires_at", ["expiresAt"]),
+
+  /**
+   * Immutable audit events for MCP OAuth lifecycle.
+   */
+  mcpAccessAudit: defineTable({
+    grantId: optional(string()),
+    clientId: optional(string()),
+    userId: optional(v.id("users")),
+    action: string(),
+    createdAt: number(),
+    detailsJson: optional(string()),
+  })
+    .index("by_grant_id", ["grantId"])
+    .index("by_client_id", ["clientId"])
+    .index("by_user_id", ["userId"])
+    .index("by_action", ["action"]),
 
   collaborativeUpdates: defineTable({
     vaultId: v.id("vaults"),
