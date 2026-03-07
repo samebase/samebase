@@ -465,9 +465,11 @@ export const exchangeMcpOauthToken = httpAction(async (ctx, request) => {
       access_token: accessToken,
       token_type: "Bearer",
       expires_in: Math.floor(MCP_ACCESS_TOKEN_TTL_MS / 1000),
-      refresh_token: refreshToken,
       scope: exchangeResult.scope,
       resource: exchangeResult.resource,
+      ...(exchangeResult.refreshTokenIssued
+        ? { refresh_token: refreshToken }
+        : {}),
     });
   }
 
@@ -497,9 +499,11 @@ export const exchangeMcpOauthToken = httpAction(async (ctx, request) => {
     access_token: accessToken,
     token_type: "Bearer",
     expires_in: Math.floor(MCP_ACCESS_TOKEN_TTL_MS / 1000),
-    refresh_token: refreshToken,
     scope: refreshResult.scope,
     resource: refreshResult.resource,
+    ...(refreshResult.refreshTokenIssued
+      ? { refresh_token: refreshToken }
+      : {}),
   });
 });
 
@@ -580,12 +584,16 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
   }
 
   const rpcRequest = jsonRpcValidation.value;
+  const isNotification = rpcRequest.id === undefined;
 
   if (rpcRequest.method === "notifications/initialized") {
     return new Response(null, { status: 202 });
   }
 
   if (rpcRequest.method === "initialize") {
+    if (isNotification) {
+      return new Response(null, { status: 202 });
+    }
     return jsonRpcSuccessResponse({
       id: rpcRequest.id,
       result: {
@@ -602,6 +610,9 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
   }
 
   if (rpcRequest.method === "tools/list") {
+    if (isNotification) {
+      return new Response(null, { status: 202 });
+    }
     if (!hasScope(tokenValidation.scope, "vaults.read")) {
       return jsonRpcErrorResponse({
         id: rpcRequest.id,
@@ -617,6 +628,9 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
   }
 
   if (rpcRequest.method === "tools/call") {
+    if (isNotification) {
+      return new Response(null, { status: 202 });
+    }
     const params = asRecord(rpcRequest.params);
     const toolNameValue = params.name;
     const toolName =
@@ -674,6 +688,9 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     });
   }
 
+  if (isNotification) {
+    return new Response(null, { status: 202 });
+  }
   return jsonRpcErrorResponse({
     id: rpcRequest.id,
     code: -32601,

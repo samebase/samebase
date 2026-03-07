@@ -127,6 +127,7 @@ const tokenExchangeSuccessValidator = object({
   clientId: string(),
   scope: string(),
   resource: string(),
+  refreshTokenIssued: boolean(),
 });
 
 const tokenExchangeResultValidator = union(
@@ -583,6 +584,7 @@ export const exchangeAuthorizationCode = internalMutation({
         errorDescription: "redirect_uri is not registered for this client.",
       });
     }
+    const supportsRefreshToken = client.grantTypes.includes("refresh_token");
 
     const grant = await ctx.db
       .query("mcpGrants")
@@ -628,15 +630,17 @@ export const exchangeAuthorizationCode = internalMutation({
       expiresAt: args.accessTokenExpiresAt,
     });
 
-    await ctx.db.insert("mcpRefreshTokens", {
-      grantId: grant.grantId,
-      clientId: grant.clientId,
-      userId: grant.userId,
-      tokenHash: args.refreshTokenHash,
-      status: "active",
-      createdAt: args.now,
-      expiresAt: args.refreshTokenExpiresAt,
-    });
+    if (supportsRefreshToken) {
+      await ctx.db.insert("mcpRefreshTokens", {
+        grantId: grant.grantId,
+        clientId: grant.clientId,
+        userId: grant.userId,
+        tokenHash: args.refreshTokenHash,
+        status: "active",
+        createdAt: args.now,
+        expiresAt: args.refreshTokenExpiresAt,
+      });
+    }
 
     await ctx.db.patch(grant._id, {
       updatedAt: args.now,
@@ -668,6 +672,7 @@ export const exchangeAuthorizationCode = internalMutation({
       clientId: grant.clientId,
       scope: grant.scope,
       resource: grant.resource,
+      refreshTokenIssued: supportsRefreshToken,
     };
   },
 });
@@ -757,6 +762,13 @@ export const exchangeRefreshToken = internalMutation({
         errorDescription: "Client is not active.",
       });
     }
+    if (!client.grantTypes.includes("refresh_token")) {
+      return oauthError({
+        status: 400,
+        error: "unauthorized_client",
+        errorDescription: "Client is not allowed to use refresh_token.",
+      });
+    }
 
     await ctx.db.patch(refreshToken._id, {
       status: "rotated",
@@ -808,6 +820,7 @@ export const exchangeRefreshToken = internalMutation({
       clientId: grant.clientId,
       scope: grant.scope,
       resource: grant.resource,
+      refreshTokenIssued: true,
     };
   },
 });
