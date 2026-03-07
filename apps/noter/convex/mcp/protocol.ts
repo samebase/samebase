@@ -497,14 +497,6 @@ export function validateAuthorizeRequestFromUrl(
     .map(normalizeScopeToken)
     .filter((scope) => scope.length > 0);
 
-  if (scopes.length === 0) {
-    return {
-      ok: false,
-      status: 400,
-      error: "scope is invalid.",
-    };
-  }
-
   const supportedScopes: McpSupportedScope[] = [];
   for (const scope of scopes) {
     if (!isMcpSupportedScope(scope)) {
