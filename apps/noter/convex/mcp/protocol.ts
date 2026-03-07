@@ -470,14 +470,8 @@ export function validateAuthorizeRequestFromUrl(
     };
   }
 
-  const resourceRaw = url.searchParams.get("resource")?.trim() ?? "";
-  if (resourceRaw.length === 0) {
-    return {
-      ok: false,
-      status: 400,
-      error: "resource is required.",
-    };
-  }
+  const resourceRaw =
+    url.searchParams.get("resource")?.trim() || `${url.origin}/mcp`;
   const resource = parseAndValidateUri(resourceRaw, {
     forRedirect: false,
     allowLoopbackHttpRedirectUris,
