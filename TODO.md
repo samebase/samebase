@@ -19,6 +19,7 @@
 
 ## Companies to Research
 - [ ] AFFiNE - https://affine.pro/ - Note-taking/collaboration platform
+- [ ] shadcn-editor - https://shadcn-editor.vercel.app/ - Rich text editor components
 
 # The most important right now is to fix rebaseing works, because we always accept only things on incoming side instead of even trying to reconcile!!!!
 
