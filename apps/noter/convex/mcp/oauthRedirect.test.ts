@@ -22,4 +22,16 @@ describe("applyMcpDenyErrorParamsToRedirectUrl", () => {
     );
     expect(redirectUrl.searchParams.get("state")).toBe("state_123");
   });
+
+  it("omits the state query param when state is undefined", () => {
+    const redirectUrl = new URL("http://127.0.0.1:62000/callback");
+
+    applyMcpDenyErrorParamsToRedirectUrl(redirectUrl, undefined);
+
+    expect(redirectUrl.searchParams.get("error")).toBe("access_denied");
+    expect(redirectUrl.searchParams.get("error_description")).toBe(
+      MCP_OAUTH_DENY_ERROR_DESCRIPTION,
+    );
+    expect(redirectUrl.searchParams.has("state")).toBe(false);
+  });
 });
