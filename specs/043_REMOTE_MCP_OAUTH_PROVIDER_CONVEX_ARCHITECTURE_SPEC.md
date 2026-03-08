@@ -733,7 +733,7 @@ resume without relying on conversation context.
 - Last updated: 2026-03-08
 - Overall status: `2/4 phases complete`
 - Current next step: `Phase 3`
-- Latest checkpoint commit: `2befdeb`
+- Latest checkpoint commit: `1894930`
 - Test policy: `Phase-by-phase tests first; no long-lived failing future tests`
 
 Phase status:
