@@ -33,6 +33,7 @@
 
 - [ ] codex: make worktrees work automatically
 - [ ] auth env vars: standardize on `AUTH_*` (or document precedence) and add a warning when multiple GitHub/Google env keys are set
+- [ ] MCP consent UX: improve logged-out/no-account flow so users get clear next steps before consent
 - [ ] add dashboard-level settings panel (currently logout only exists inside vault)
 - [ ] settings: add option to remove account
 - [ ] decide if Turborepo is necessary or if PNPM workspaces alone are enough
