@@ -10,7 +10,7 @@
 - [ ] everythin on a page can easily be configured by the agent; So if there's a form the agent can edit it directly (saved to convex); so you can even build your dashboard; or you can expose it to someone so someone can bpay for it and you get money
 - [ ] allow setting
 - [ ] talk with Alex
-- [ ] light panda https://lightpanda.io/
+- [ ] light panda https://lightpanda.io/ - research this browser engine/automation tool
 - [ ] if given enough instruction and context, it's good at categorizing, even on small models
 - [ ] preview deploys should be created in the pr. But locally in Daytona use local convex
 - [ ] add a Make target to stop any running local dev environments (at least processes bound to common dev ports like `5173`, `3000`, and `3210`)
