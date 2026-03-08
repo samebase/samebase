@@ -2,11 +2,29 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: In progress
 - Owner: Noter frontend/editor + Convex vault/github
 - Last updated: 2026-03-08
 - Depends on:
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
+
+## Delivery Status Snapshot (2026-03-08)
+
+1. Phase 1: complete in PR #174
+2. Phase 2: complete in PR #174
+3. Phase 3: complete in PR #174
+4. Phase 4: pending
+
+Implemented highlights in PR #174:
+
+1. Added `vaultRemoteBranches` and `vaultBranchTrees` storage
+2. Added branch-aware vault read path (`getVaultByRepository(..., branch?)`)
+3. Hardened `updateRepositoryTree` to keep legacy `vault.treeData/commitSHA`
+   default-branch-only while writing branch-scoped cache for all branches
+4. Propagated branch through commit/chat/staging read paths
+5. Moved codespace chat route to
+   `/vault/:owner/:repoName/codespace/:branch/chat`
+6. Added shared vault route helpers + tests
 
 ## Purpose
 
@@ -49,7 +67,8 @@ Break multi-branch support into low-risk slices with clear acceptance gates.
 
 ### Scope
 
-1. Move to explicit branch param routing for vault editor/chat routes
+1. Move to explicit branch param routing for vault editor routes and
+   non-colliding codespace chat namespace
 2. Add shared URL builder/parser for vault paths
 3. Ensure branch names containing `/` are encoded/decoded safely
 4. Replace hardcoded `main` fallbacks in route context extraction
@@ -96,6 +115,22 @@ Break multi-branch support into low-risk slices with clear acceptance gates.
 1. Editor state is branch-correct end-to-end
 2. Legacy `vault.treeData/commitSHA` remains compatible as fallback during
    rollout
+
+### Implementation Notes (Completed)
+
+1. Added `vaultBranchTrees` table with `by_vault_and_branch` index
+2. Added internal `vault.getVaultBranchTree` and `vault.upsertVaultBranchTree`
+3. `github.updateRepositoryTree` now:
+   - resolves requested/default branch,
+   - compares against branch-scoped cache,
+   - writes branch-scoped cache for selected branch,
+   - updates legacy vault tree fields only for default branch
+4. `chat.confirmCommit` now passes thread branch into
+   `fileStagingActions.commitAllStaged`
+5. Agent system prompt repo tree context now reads selected branch tree when
+   available
+6. Batch repo file reads for Monaco now accept a branch to avoid stale default
+   tree reads
 
 ## Phase 4: Deleted-Upstream Branch Recovery + Safe Cleanup
 

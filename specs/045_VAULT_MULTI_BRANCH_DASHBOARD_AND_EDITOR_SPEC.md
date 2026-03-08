@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: In progress
 - Owner: Noter frontend/editor + Convex vault/github
 - Last updated: 2026-03-08
 - Related specs:
@@ -227,7 +227,7 @@ Use explicit branch param routes:
 
 1. `/vault/:owner/:repoName/:branch`
 2. `/vault/:owner/:repoName/:branch/*`
-3. `/vault/:owner/:repoName/:branch/chat`
+3. `/vault/:owner/:repoName/codespace/:branch/chat`
 4. `/vault/:owner/:repoName` redirects to default branch route
 
 ### Encoding contract
@@ -312,6 +312,23 @@ Companion plan with concrete tasks and gates:
 2. Phase 2: branch-safe routing contract and branch context plumbing
 3. Phase 3: branch-scoped tree cache + branch-aware refresh/commit/chat paths
 4. Phase 4: deleted-upstream recovery UX + tombstone cleanup + legacy cleanup
+
+### Implementation Snapshot (PR #174)
+
+Completed:
+
+1. Phase 1 shipped (branch catalog + dashboard list/navigation)
+2. Phase 2 shipped (shared route parser/builder + encoded branch handling + no
+   hardcoded `main` route defaults + codespace chat moved under
+   `/codespace/:branch/chat`)
+3. Phase 3 shipped (branch-scoped tree cache, branch-aware refresh comparisons,
+   branch-aware chat/commit propagation, tests)
+
+Pending:
+
+1. Phase 4 deleted-upstream recovery UX and commit guardrails
+2. Optional follow-up: decouple branch catalog sync cadence from every tree
+   refresh call
 
 ### Step 1: additive schema
 
