@@ -8,6 +8,7 @@ import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
 import { createTwoFilesPatch, diffLines } from "diff";
 import { getUserId } from "./common";
 import type { Id } from "./_generated/dataModel";
+import type { GithubTreeType } from "./schema";
 import {
   guessMime,
   INLINE_TEXT_MAX,
@@ -16,6 +17,7 @@ import {
 } from "./gitOperationsActions";
 import { isObjectRecord as isRecord } from "./jsonUtils";
 import { rebaseStagedContent } from "./stagingRebase";
+import { selectRepositoryTreeForBranch } from "./fileStaging";
 
 type HeaderValue = string | number | readonly string[] | undefined;
 type HeaderMap = Record<string, HeaderValue>;
@@ -27,6 +29,43 @@ const githubRateLimitResetByUser = new Map<string, number>();
 const RATE_LIMIT_COOLDOWN_FALLBACK_MS = 60_000;
 const STORAGE_BACKED_FILE_ERROR_MESSAGE =
   "File is in storage, not implemented yet";
+
+export function selectBatchReadRepositoryTree(args: {
+  requestedBranch?: string;
+  defaultBranch?: string;
+  branchTree: GithubTreeType[] | null;
+  legacyTree: GithubTreeType[];
+}): GithubTreeType[] {
+  if (!args.requestedBranch) {
+    return args.legacyTree;
+  }
+  return selectRepositoryTreeForBranch({
+    requestedBranch: args.requestedBranch,
+    defaultBranch: args.defaultBranch,
+    branchTree: args.branchTree,
+    legacyTree: args.legacyTree,
+  });
+}
+
+export function listTouchedBranchesForRefresh(branches: string[]): string[] {
+  return Array.from(new Set(branches));
+}
+
+export async function runPostCommitTreeRefresh<T>(args: {
+  refreshBranchTree: () => Promise<void>;
+  refreshLegacyTree: () => Promise<void>;
+  loadUpdatedVault: () => Promise<T | null>;
+  onWarning: (error: unknown) => void;
+}): Promise<T | null> {
+  try {
+    await args.refreshBranchTree();
+    await args.refreshLegacyTree();
+    return await args.loadUpdatedVault();
+  } catch (error) {
+    args.onWarning(error);
+    return null;
+  }
+}
 
 function isStaleBaseVersionError(error: unknown): boolean {
   return error instanceof Error && error.message.includes("stale base version");
@@ -1271,16 +1310,24 @@ export const pullFromGitHubInternal = internalAction({
       });
     }
 
-    // 5. Update the vault tree
-    const latestVaultTree = await octokit.rest.git.getTree({
+    // 5. Refresh touched branch caches after reconciliation
+    const touchedBranches = listTouchedBranchesForRefresh(
+      allStaged.map((item) => item.branch),
+    );
+    for (const branch of touchedBranches) {
+      await ctx.runAction(internal.github.updateRepositoryTree, {
+        userId: args.userId,
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        branch,
+      });
+    }
+
+    // Keep legacy default-branch cache current as well.
+    await ctx.runAction(internal.github.updateRepositoryTree, {
+      userId: args.userId,
       owner: vault.ghRepoOwner,
       repo: vault.ghRepoName,
-      tree_sha: "HEAD",
-      recursive: "1",
-    });
-    await ctx.runMutation(internal.vault.updateVaultTree, {
-      vaultId: args.vaultId,
-      treeData: latestVaultTree.data,
     });
 
     return null;
@@ -1292,6 +1339,7 @@ export const pullFromGitHubInternal = internalAction({
 export const batchReadFiles = action({
   args: {
     vaultId: v.id("vaults"),
+    branch: v.optional(v.string()),
     filePaths: v.array(v.string()),
   },
   returns: v.array(v.object({ path: v.string(), content: v.string() })),
@@ -1306,9 +1354,55 @@ export const batchReadFiles = action({
       throw new Error("Vault not found");
     }
 
+    const requestedBranch =
+      typeof args.branch === "string" && args.branch.trim().length > 0
+        ? args.branch.trim()
+        : undefined;
+    let branchTreeData: GithubTreeType[] | null = null;
+    let defaultBranch: string | undefined;
+    if (requestedBranch) {
+      let branchTree = await ctx.runQuery(internal.vault.getVaultBranchTree, {
+        vaultId: args.vaultId,
+        branch: requestedBranch,
+      });
+
+      if (!branchTree) {
+        await ctx.runAction(internal.github.updateRepositoryTree, {
+          userId,
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          branch: requestedBranch,
+        });
+        branchTree = await ctx.runQuery(internal.vault.getVaultBranchTree, {
+          vaultId: args.vaultId,
+          branch: requestedBranch,
+        });
+      }
+
+      if (branchTree) {
+        branchTreeData = branchTree.treeData.tree;
+      } else {
+        const repositoryFullName = `${vault.ghRepoOwner}/${vault.ghRepoName}`;
+        const resolvedVault = await ctx.runQuery(
+          internal.vault.getByRepositoryFullName,
+          {
+            userId,
+            repositoryFullName,
+          },
+        );
+        defaultBranch = resolvedVault?.defaultBranch;
+      }
+    }
+    const repositoryTree = selectBatchReadRepositoryTree({
+      requestedBranch,
+      defaultBranch,
+      branchTree: branchTreeData,
+      legacyTree: vault.treeData.tree,
+    });
+
     // Build a map of path → tree entry for fast lookups
     const treeMap = new Map<string, { sha: string; size?: number }>();
-    for (const item of vault.treeData.tree) {
+    for (const item of repositoryTree) {
       if (item.type === "blob" && item.sha) {
         treeMap.set(item.path, { sha: item.sha, size: item.size });
       }
@@ -1840,45 +1934,68 @@ export const commitAllStaged = internalAction({
         skipRebase: true,
       });
 
-      // 1. Update the vault tree FIRST so new SHAs are available
-      await ctx.runAction(internal.github.updateRepositoryTree, {
-        userId: args.userId,
-        owner: args.repoOwner,
-        repo: args.repoName,
-      });
-
-      // 2. Re-read the vault to get the updated tree with new SHAs
-      const updatedVault = await ctx.runQuery(
-        internal.vault.getByRepositoryFullName,
-        {
-          repositoryFullName: fullRepo,
-          userId: args.userId,
+      // 1. Refresh branch/default tree caches and re-read the updated vault.
+      //    This is best-effort: upstream commit already succeeded.
+      const updatedVault = await runPostCommitTreeRefresh({
+        refreshBranchTree: async () => {
+          await ctx.runAction(internal.github.updateRepositoryTree, {
+            userId: args.userId,
+            owner: args.repoOwner,
+            repo: args.repoName,
+            branch: commitBranch,
+          });
         },
-      );
+        refreshLegacyTree: async () => {
+          await ctx.runAction(internal.github.updateRepositoryTree, {
+            userId: args.userId,
+            owner: args.repoOwner,
+            repo: args.repoName,
+          });
+        },
+        loadUpdatedVault: async () =>
+          await ctx.runQuery(internal.vault.getByRepositoryFullName, {
+            repositoryFullName: fullRepo,
+            userId: args.userId,
+            branch: commitBranch,
+          }),
+        onWarning: (error) => {
+          console.error(
+            "Post-commit tree refresh failed; continuing with cleanup:",
+            error,
+          );
+        },
+      });
 
       // 3. Save committed file contents into the blob cache under their new SHAs
       //    so that when the client re-fetches after staging is cleared, it gets
       //    the correct content immediately without hitting GitHub API
       if (updatedVault) {
-        for (const file of resolvedChangedFiles) {
-          if (file.fileDeleted) continue;
+        try {
+          for (const file of resolvedChangedFiles) {
+            if (file.fileDeleted) continue;
 
-          const newSha = updatedVault.treeData.tree.find(
-            (t: { path?: string }) => t.path === file.filePath,
-          )?.sha;
+            const newSha = updatedVault.treeData.tree.find(
+              (t: { path?: string }) => t.path === file.filePath,
+            )?.sha;
 
-          if (newSha && typeof file.content === "string") {
-            await ctx.runMutation(internal.gitOperations.saveFileBlob, {
-              vaultId: args.vaultId,
-              sha: newSha,
-              size: Buffer.byteLength(file.content, "utf-8"),
-              text: file.content,
-              storageId: undefined,
-              ext: file.filePath.split(".").pop()?.toLowerCase() ?? "",
-              mime: "text/plain; charset=utf-8",
-              debugFilePath: file.filePath,
-            });
+            if (newSha && typeof file.content === "string") {
+              await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+                vaultId: args.vaultId,
+                sha: newSha,
+                size: Buffer.byteLength(file.content, "utf-8"),
+                text: file.content,
+                storageId: undefined,
+                ext: file.filePath.split(".").pop()?.toLowerCase() ?? "",
+                mime: "text/plain; charset=utf-8",
+                debugFilePath: file.filePath,
+              });
+            }
           }
+        } catch (error) {
+          console.error(
+            "Failed to warm blob cache after commit; continuing cleanup:",
+            error,
+          );
         }
       }
 

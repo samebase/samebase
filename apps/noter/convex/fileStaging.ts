@@ -4,6 +4,7 @@ import {
   internalQuery,
   mutation,
   query,
+  type MutationCtx,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getUserId } from "./common";
@@ -52,6 +53,21 @@ type StagedFile = Infer<typeof stagedFileValidator>;
 
 const stagedFileOrNullValidator = union(stagedFileValidator, nullValue());
 const stagedFileListValidator = array(stagedFileValidator);
+const stagedFilesCategoryCountsValidator = object({
+  modified: number(),
+  deleted: number(),
+  new: number(),
+  renamed: number(),
+  renamedAndModified: number(),
+  total: number(),
+});
+const stagedFilesBranchSummaryValidator = object({
+  branch: branchValidator,
+  counts: stagedFilesCategoryCountsValidator,
+});
+const stagedFilesBranchSummaryListValidator = array(
+  stagedFilesBranchSummaryValidator,
+);
 
 const getByNewPathArgsValidator = {
   vaultId: vaultIdValidator,
@@ -116,6 +132,140 @@ const getByOriginalPathArgsValidator = {
   branch: branchValidator,
 };
 
+type StagedFilesCategoryCounts = Infer<
+  typeof stagedFilesCategoryCountsValidator
+>;
+type StagedFilesCategory = Exclude<keyof StagedFilesCategoryCounts, "total">;
+type StagedFileSummaryInput = Pick<
+  StagedFile,
+  | "branch"
+  | "fileDeleted"
+  | "parentCommitSha"
+  | "filePath"
+  | "initialFilePath"
+  | "content"
+  | "initialContent"
+>;
+
+function emptyStagedFilesCategoryCounts(): StagedFilesCategoryCounts {
+  return {
+    modified: 0,
+    deleted: 0,
+    new: 0,
+    renamed: 0,
+    renamedAndModified: 0,
+    total: 0,
+  };
+}
+
+function classifyStagedFile(
+  file: StagedFileSummaryInput,
+): StagedFilesCategory | null {
+  if (file.fileDeleted) {
+    return "deleted";
+  }
+  if (file.parentCommitSha === null) {
+    return "new";
+  }
+  if (file.filePath !== file.initialFilePath) {
+    return file.content !== file.initialContent
+      ? "renamedAndModified"
+      : "renamed";
+  }
+  if (file.content !== file.initialContent) {
+    return "modified";
+  }
+  return null;
+}
+
+export function canAccessVaultStaging(args: {
+  vaultOwnerId: string | undefined;
+  requesterUserId: string;
+}): boolean {
+  return args.vaultOwnerId === args.requesterUserId;
+}
+
+export function selectRepositoryTreeForBranch(args: {
+  requestedBranch: string;
+  defaultBranch?: string;
+  branchTree: GithubTreeType[] | null;
+  legacyTree: GithubTreeType[];
+}): GithubTreeType[] {
+  if (args.branchTree) {
+    return args.branchTree;
+  }
+  if (args.defaultBranch === args.requestedBranch) {
+    return args.legacyTree;
+  }
+  throw new Error(
+    `Branch tree is not cached for "${args.requestedBranch}". Refresh branch and retry.`,
+  );
+}
+
+type VaultRemoteBranchForResolution = {
+  name: string;
+  isDefault: boolean;
+  remoteState: "active" | "deleted_upstream";
+};
+
+function resolveDefaultBranchFromRemoteBranches(
+  branches: VaultRemoteBranchForResolution[],
+): string | undefined {
+  return (
+    branches.find(
+      (branch) => branch.remoteState === "active" && branch.isDefault,
+    )?.name ?? branches.find((branch) => branch.remoteState === "active")?.name
+  );
+}
+
+async function resolveRepositoryTreeForVault(args: {
+  ctx: MutationCtx;
+  vaultId: Infer<typeof vaultIdValidator>;
+  requestedBranch: string;
+  legacyTree: GithubTreeType[];
+}): Promise<GithubTreeType[]> {
+  const branchTree = await args.ctx.runQuery(
+    internal.vault.getVaultBranchTree,
+    {
+      vaultId: args.vaultId,
+      branch: args.requestedBranch,
+    },
+  );
+  const remoteBranches = await args.ctx.db
+    .query("vaultRemoteBranches")
+    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+    .collect();
+  const defaultBranch = resolveDefaultBranchFromRemoteBranches(remoteBranches);
+  return selectRepositoryTreeForBranch({
+    requestedBranch: args.requestedBranch,
+    defaultBranch,
+    branchTree: branchTree?.treeData.tree ?? null,
+    legacyTree: args.legacyTree,
+  });
+}
+
+export function summarizeStagedFilesByBranch(
+  files: StagedFileSummaryInput[],
+): Array<{ branch: string; counts: StagedFilesCategoryCounts }> {
+  const countsByBranch = new Map<string, StagedFilesCategoryCounts>();
+  for (const file of files) {
+    const category = classifyStagedFile(file);
+    if (!category) {
+      continue;
+    }
+
+    const existing =
+      countsByBranch.get(file.branch) ?? emptyStagedFilesCategoryCounts();
+    existing[category] += 1;
+    existing.total += 1;
+    countsByBranch.set(file.branch, existing);
+  }
+
+  return Array.from(countsByBranch.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([branch, counts]) => ({ branch, counts }));
+}
+
 // MARK: Public
 
 export const getByNewPath = query({
@@ -163,6 +313,30 @@ export const listStagedFiles = query({
       .collect();
 
     return files;
+  },
+});
+
+export const listStagedFilesBranchSummaries = query({
+  args: {
+    vaultId: vaultIdValidator,
+  },
+  returns: stagedFilesBranchSummaryListValidator,
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.db.get(args.vaultId);
+    if (
+      !canAccessVaultStaging({
+        vaultOwnerId: vault?.userId,
+        requesterUserId: userId,
+      })
+    ) {
+      throw new Error("Vault not found");
+    }
+    const files = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .collect();
+    return summarizeStagedFilesByBranch(files);
   },
 });
 
@@ -249,6 +423,7 @@ export const clearAllStaging = mutation({
         userId: vault.userId,
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
+        branch: args.branch,
       });
     }
 
@@ -399,7 +574,13 @@ export const createFileInStaging = mutation({
       throw new Error("A staged file already uses this path");
     }
 
-    const existsInRepository = vault.treeData.tree.some(
+    const repositoryTree = await resolveRepositoryTreeForVault({
+      ctx,
+      vaultId: args.vaultId,
+      requestedBranch: args.branch,
+      legacyTree: vault.treeData.tree,
+    });
+    const existsInRepository = repositoryTree.some(
       (entry: GithubTreeType) =>
         entry.type === "blob" && entry.path === args.filePath,
     );
@@ -602,7 +783,13 @@ export const rename = internalMutation({
       throw new Error("A staged file already uses this path");
     }
 
-    const existsInRepository = vault.treeData.tree.some(
+    const repositoryTree = await resolveRepositoryTreeForVault({
+      ctx,
+      vaultId: args.vaultId,
+      requestedBranch: args.branch,
+      legacyTree: vault.treeData.tree,
+    });
+    const existsInRepository = repositoryTree.some(
       (entry: GithubTreeType) =>
         entry.type === "blob" &&
         entry.path === args.newPath &&

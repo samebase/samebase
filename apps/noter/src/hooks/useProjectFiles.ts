@@ -3,18 +3,17 @@ import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { type GithubTreeType } from "convex/schema";
+import { buildProjectFilesCacheKey } from "@/lib/editorCacheKeys";
+import {
+  getCachedProjectFiles,
+  loadProjectFilesWithSharedPromise,
+  type ProjectFile,
+} from "@/lib/projectFilesCache";
 
 // ---------------------------------------------------------------------------
 // File extensions to load into Monaco models for import resolution
 // ---------------------------------------------------------------------------
-const SOURCE_EXTENSIONS = new Set([
-  "ts",
-  "tsx",
-  "js",
-  "jsx",
-  "json",
-  "d.ts",
-]);
+const SOURCE_EXTENSIONS = new Set(["ts", "tsx", "js", "jsx", "json", "d.ts"]);
 
 // Directories to skip entirely
 const IGNORED_DIRS = new Set([
@@ -89,7 +88,8 @@ function prioritizePaths(paths: string[], activeFilePath: string): string[] {
     rank: rankPath(path, scopePrefix),
   }));
 
-  const scoped = scopePrefix === null ? ranked : ranked.filter((p) => p.rank <= 4);
+  const scoped =
+    scopePrefix === null ? ranked : ranked.filter((p) => p.rank <= 4);
   const pool = scoped.length > 0 ? scoped : ranked;
 
   pool.sort((a, b) => a.rank - b.rank || a.index - b.index);
@@ -100,16 +100,11 @@ function prioritizePaths(paths: string[], activeFilePath: string): string[] {
 // Hook
 // ---------------------------------------------------------------------------
 
-export type ProjectFile = { path: string; content: string };
-
-// Module-level cache so project files survive component remounts
-// (MonacoEditor remounts on every file switch due to its key prop).
-const projectFilesCache = new Map<string, ProjectFile[]>();
-// Track in-flight fetches so we don't fire duplicates
-const pendingFetches = new Set<string>();
+export type { ProjectFile };
 
 export function useProjectFiles(
   vaultId: Id<"vaults"> | undefined,
+  branch: string,
   tree: GithubTreeType[],
   treeSHA: string,
   activeFilePath: string,
@@ -119,7 +114,16 @@ export function useProjectFiles(
 
   const [files, setFiles] = useState<ProjectFile[]>(() => {
     if (!vaultId) return [];
-    return projectFilesCache.get(`${vaultId}:${treeSHA}:${scopePrefix}`) ?? [];
+    return (
+      getCachedProjectFiles(
+        buildProjectFilesCacheKey({
+          vaultId,
+          branch,
+          treeSHA,
+          scopePrefix,
+        }),
+      ) ?? []
+    );
   });
   const [loading, setLoading] = useState(false);
 
@@ -130,18 +134,20 @@ export function useProjectFiles(
       return;
     }
 
-    const cacheKey = `${vaultId}:${treeSHA}:${scopePrefix}`;
+    const cacheKey = buildProjectFilesCacheKey({
+      vaultId,
+      branch,
+      treeSHA,
+      scopePrefix,
+    });
 
     // Already cached
-    const cached = projectFilesCache.get(cacheKey);
-    if (cached) {
+    const cached = getCachedProjectFiles(cacheKey);
+    if (cached !== null) {
       setFiles(cached);
       setLoading(false);
       return;
     }
-
-    // Already fetching
-    if (pendingFetches.has(cacheKey)) return;
 
     setFiles([]);
 
@@ -160,35 +166,45 @@ export function useProjectFiles(
       return;
     }
 
-    let cancelled = false;
+    const abortController = new AbortController();
     setLoading(true);
-    pendingFetches.add(cacheKey);
 
-    batchReadFiles({ vaultId, filePaths: paths })
-      .then((result) => {
-        projectFilesCache.set(cacheKey, result);
-        pendingFetches.delete(cacheKey);
-        if (!cancelled) {
+    void (async () => {
+      try {
+        const result = await loadProjectFilesWithSharedPromise({
+          cacheKey,
+          scope: {
+            vaultId,
+            branch,
+            treeSHA,
+          },
+          load: () =>
+            batchReadFiles({
+              vaultId,
+              branch,
+              filePaths: paths,
+            }),
+        });
+        if (!abortController.signal.aborted) {
           setFiles(result);
           setLoading(false);
         }
-      })
-      .catch((error) => {
-        pendingFetches.delete(cacheKey);
-        if (!cancelled) {
+      } catch (error) {
+        if (!abortController.signal.aborted) {
           console.error(
             "useProjectFiles: failed to load project files:",
             error,
           );
           setLoading(false);
         }
-      });
+      }
+    })();
 
     return () => {
-      cancelled = true;
+      abortController.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vaultId, treeSHA, scopePrefix, activeFilePath]);
+  }, [vaultId, branch, treeSHA, scopePrefix, activeFilePath]);
 
-  return { files, loading };
+  return { files, loading, scopePrefix };
 }

@@ -22,10 +22,7 @@ import { api } from "../convex/_generated/api";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
-
-function isChatOnlyCodespaceRoute(pathname: string): boolean {
-  return /^\/vault\/[^/]+\/[^/]+\/[^/]+\/chat\/?$/.test(pathname);
-}
+import { isChatOnlyCodespaceRoute } from "@/lib/vaultRoutes";
 
 function useCloseOAuthPopup(pathname: string, enabled: boolean) {
   const { isAuthenticated } = useConvexAuth();
@@ -302,11 +299,18 @@ export default function App() {
                 element={<NetlifyOAuthCallback />}
               />
               <Route
-                path="/vault/:owner/:repoName/:branch/chat"
+                path="/vault/:owner/:repoName/codespace/:branch/chat"
                 element={<CodespaceChatOnlyView />}
               />
+              <Route
+                path="/vault/:owner/:repoName/:branch"
+                element={<FileView />}
+              />
+              <Route
+                path="/vault/:owner/:repoName/:branch/*"
+                element={<FileView />}
+              />
               <Route path="/vault/:owner/:repoName" element={<FileView />} />
-              <Route path="/vault/:owner/:repoName/*" element={<FileView />} />
 
               {/* test route */}
               <Route path="/test" element={<div>Test</div>} />

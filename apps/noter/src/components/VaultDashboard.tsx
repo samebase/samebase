@@ -74,11 +74,13 @@ import { DaytonaSnapshotBanner } from "@/components/DaytonaSnapshotBanner";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
 import { VaultSyncStatus } from "@/components/VaultSyncStatus";
 import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
+import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";
 import {
   useApiKeyConnectDialog,
   type ApiKeyProvider,
 } from "@/components/ApiKeyConnectDialog";
 import type { Id } from "../../convex/_generated/dataModel";
+import { buildVaultCodespaceChatRoute } from "@/lib/vaultRoutes";
 
 const formatInfraState = (
   infraState: "not_started" | "provisioning" | "ready" | "failed" | "partial",
@@ -213,6 +215,118 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
     apiKeyProvider: null,
   },
 };
+
+interface StagedSummary {
+  modified: number;
+  deleted: number;
+  new: number;
+  renamed: number;
+  renamedAndModified: number;
+  total: number;
+}
+
+interface VaultRemoteBranchListItem {
+  name: string;
+  isDefault: boolean;
+  remoteState: "active" | "deleted_upstream";
+}
+
+interface VaultBranchLinkRowProps {
+  vaultId: Id<"vaults">;
+  repositoryFullName: string;
+  branchName: string;
+  isDefault: boolean;
+  isDeletedUpstream: boolean;
+  stagedSummary?: StagedSummary;
+}
+
+function VaultBranchLinkRow({
+  vaultId,
+  repositoryFullName,
+  branchName,
+  isDefault,
+  isDeletedUpstream,
+  stagedSummary,
+}: VaultBranchLinkRowProps) {
+  const hasStagedChanges = (stagedSummary?.total ?? 0) > 0;
+  const branchPath = encodeURIComponent(branchName);
+  const branchRoute = `/vault/${repositoryFullName}/${branchPath}`;
+
+  return (
+    <div className="flex items-center gap-2 border-b border-border/40 px-2 py-2 last:border-b-0">
+      {isDeletedUpstream ? (
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground/70 line-through">
+            {branchName}
+          </span>
+          <span className="shrink-0 rounded border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground/80">
+            deleted upstream
+          </span>
+        </div>
+      ) : (
+        <Link
+          to={branchRoute}
+          className={clsx(
+            "min-w-0 flex-1 truncate text-sm text-muted-foreground underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current",
+            isDefault && "font-medium text-foreground",
+          )}
+        >
+          {branchName}
+        </Link>
+      )}
+      {hasStagedChanges ? (
+        <div className="shrink-0">
+          <EditedFilesCategoriesPopover
+            vaultId={vaultId}
+            repositoryFullName={repositoryFullName}
+            branch={branchName}
+            summaryCounts={stagedSummary}
+          />
+        </div>
+      ) : (
+        <span className="w-4 shrink-0 text-right font-mono text-[11px] tabular-nums text-muted-foreground/70">
+          0
+        </span>
+      )}
+    </div>
+  );
+}
+
+interface VaultBranchListProps {
+  vaultId: Id<"vaults">;
+  repositoryFullName: string;
+  remoteBranches: VaultRemoteBranchListItem[];
+}
+
+function VaultBranchList({
+  vaultId,
+  repositoryFullName,
+  remoteBranches,
+}: VaultBranchListProps) {
+  const stagedSummaries =
+    useQuery(api.fileStaging.listStagedFilesBranchSummaries, {
+      vaultId,
+    }) ?? [];
+  const summaryByBranch = new Map(
+    stagedSummaries.map((summary) => [summary.branch, summary.counts]),
+  );
+
+  return (
+    <div className="overflow-hidden rounded-md border border-border/60 bg-muted/20">
+      {remoteBranches.map((branch) => (
+        <VaultBranchLinkRow
+          key={branch.name}
+          vaultId={vaultId}
+          repositoryFullName={repositoryFullName}
+          branchName={branch.name}
+          isDefault={branch.isDefault}
+          isDeletedUpstream={branch.remoteState === "deleted_upstream"}
+          stagedSummary={summaryByBranch.get(branch.name)}
+        />
+      ))}
+    </div>
+  );
+}
 
 export function VaultDashboard() {
   const vaults = useQuery(api.vault.getUserVaults);
@@ -1283,8 +1397,28 @@ export function VaultDashboard() {
         <div className="space-y-2">
           {vaults.map((vault: (typeof vaults)[0]) => {
             const isReady = vault.state === "ready";
-            const defaultBranch = "main";
-            const chatRoute = `/vault/${vault.repositoryFullName}/${defaultBranch}/chat`;
+            const activeRemoteBranches = vault.remoteBranches.filter(
+              (branch) => branch.remoteState === "active",
+            );
+            const defaultBranch = activeRemoteBranches.find(
+              (branch) => branch.isDefault,
+            )?.name;
+            const primaryBranch =
+              defaultBranch || activeRemoteBranches[0]?.name || "";
+            const primaryBranchPath =
+              primaryBranch.length > 0
+                ? encodeURIComponent(primaryBranch)
+                : null;
+            const defaultRoute = primaryBranchPath
+              ? `/vault/${vault.repositoryFullName}/${primaryBranchPath}`
+              : `/vault/${vault.repositoryFullName}`;
+            const chatRoute =
+              primaryBranch.length > 0
+                ? buildVaultCodespaceChatRoute({
+                    repositoryFullName: vault.repositoryFullName,
+                    branch: primaryBranch,
+                  })
+                : null;
             const githubRepositoryUrl = `https://github.com/${vault.ghRepoOwner}/${vault.ghRepoName}`;
             const developerToolsOpen =
               openDeveloperToolsByVaultId[vault._id] ?? false;
@@ -1331,9 +1465,22 @@ export function VaultDashboard() {
                       </a>
                     </div>
 
-                    {isReady && (
+                    {isReady && vault.remoteBranches.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+                          Branches
+                        </p>
+                        <VaultBranchList
+                          vaultId={vault._id}
+                          repositoryFullName={vault.repositoryFullName}
+                          remoteBranches={vault.remoteBranches}
+                        />
+                      </div>
+                    )}
+
+                    {isReady && primaryBranch.length > 0 && (
                       <DaytonaSnapshotBanner
-                        branch={defaultBranch}
+                        branch={primaryBranch}
                         commitSha={vault.commitSHA}
                         snapshotName={vault.daytonaCurrentSnapshotName}
                         snapshotStatus={vault.daytonaCurrentSnapshotStatus}
@@ -1367,18 +1514,22 @@ export function VaultDashboard() {
                             vaultId={vault._id}
                             repositoryFullName={vault.repositoryFullName}
                           />
-                          <DaytonaWorkspaceButton
-                            vaultId={vault._id}
-                            branch={defaultBranch}
-                            sandboxId={vault.daytonaSandboxId}
-                            sandboxName={vault.daytonaSandboxName}
-                            commitSha={vault.commitSHA}
-                            snapshotStatus={vault.daytonaCurrentSnapshotStatus}
-                            snapshotName={vault.daytonaCurrentSnapshotName}
-                            snapshotError={
-                              vault.daytonaCurrentSnapshotLastError
-                            }
-                          />
+                          {primaryBranch.length > 0 && (
+                            <DaytonaWorkspaceButton
+                              vaultId={vault._id}
+                              branch={primaryBranch}
+                              sandboxId={vault.daytonaSandboxId}
+                              sandboxName={vault.daytonaSandboxName}
+                              commitSha={vault.commitSHA}
+                              snapshotStatus={
+                                vault.daytonaCurrentSnapshotStatus
+                              }
+                              snapshotName={vault.daytonaCurrentSnapshotName}
+                              snapshotError={
+                                vault.daytonaCurrentSnapshotLastError
+                              }
+                            />
+                          )}
                           <DaytonaSnapshotList vaultId={vault._id} />
                           {vault.isNoterManaged && (
                             <div className="text-xs text-muted-foreground">
@@ -1402,11 +1553,11 @@ export function VaultDashboard() {
                 </div>
 
                 <div className="flex w-full flex-col items-end gap-2 sm:ml-2 sm:w-auto">
-                  {isReady && (
+                  {isReady && primaryBranch.length > 0 && (
                     <VaultSyncStatus
                       vaultId={vault._id}
                       repositoryFullName={vault.repositoryFullName}
-                      branch={defaultBranch}
+                      branch={primaryBranch}
                       owner={vault.ghRepoOwner}
                       repoName={vault.ghRepoName}
                       now={now}
@@ -1422,13 +1573,11 @@ export function VaultDashboard() {
                     {isReady ? (
                       <>
                         <Button asChild variant="secondary" size="sm">
-                          <Link
-                            to={`/vault/${vault.repositoryFullName}/${defaultBranch}`}
-                          >
-                            {defaultBranch}
+                          <Link to={defaultRoute}>
+                            {primaryBranch.length > 0 ? primaryBranch : "Open"}
                           </Link>
                         </Button>
-                        {developerToolsOpen && (
+                        {developerToolsOpen && chatRoute && (
                           <Button asChild variant="outline" size="sm">
                             <Link to={chatRoute}>Chat</Link>
                           </Button>
@@ -1437,7 +1586,9 @@ export function VaultDashboard() {
                     ) : (
                       <>
                         <Button variant="secondary" size="sm" disabled>
-                          {defaultBranch}
+                          {primaryBranch.length > 0
+                            ? primaryBranch
+                            : "Preparing..."}
                         </Button>
                       </>
                     )}

@@ -38,6 +38,10 @@ import {
 } from "./metadata";
 import { assertProdReadAccess, hashText } from "./prodAccess";
 import { ensureThreadAccess, getThreadById } from "./threads";
+import {
+  buildClaimedCommitProposalPayload,
+  canClaimCommitProposal,
+} from "./commitProposalClaim";
 
 const {
   string,
@@ -252,6 +256,11 @@ const listThreadMessagesStreamsValidator = optional(
     }),
   ),
 );
+
+const claimCommitProposalResultValidator = object({
+  claimed: boolean(),
+  branch: optional(string()),
+});
 
 const listThreadMessagesReturnValidator = object({
   page: array(vAny()),
@@ -629,16 +638,21 @@ export const confirmCommit = mutation({
     if (!vault) {
       throw new Error("Vault not found");
     }
-
-    await ctx.runMutation(
-      internal.chat.index.updateCommitProposalMessageCommittedInternal,
+    const claimResult = await ctx.runMutation(
+      internal.chat.index.claimCommitProposalExecutionInternal,
       {
+        threadId: args.threadId,
         messageId: args.messageId,
-        committed: false,
-        committing: true,
-        error: undefined,
       },
     );
+    if (!claimResult.claimed) {
+      return null;
+    }
+    const proposalBranch =
+      typeof claimResult.branch === "string" &&
+      claimResult.branch.trim().length > 0
+        ? claimResult.branch.trim()
+        : thread.branch;
 
     try {
       await ctx.scheduler.runAfter(
@@ -649,6 +663,7 @@ export const confirmCommit = mutation({
           vaultId: vault._id,
           repoOwner: vault.ghRepoOwner,
           repoName: vault.ghRepoName,
+          branch: proposalBranch,
           commitProposalMessageId: args.messageId,
         },
       );
@@ -672,6 +687,41 @@ export const confirmCommit = mutation({
     }
 
     return null;
+  },
+});
+
+export const claimCommitProposalExecutionInternal = internalMutation({
+  args: {
+    threadId: string(),
+    messageId: string(),
+  },
+  returns: claimCommitProposalResultValidator,
+  handler: async (ctx, args) => {
+    const row = await ctx.db
+      .query("chatMessageMetadata")
+      .withIndex("by_messageId", (q) => q.eq("messageId", args.messageId))
+      .first();
+    if (!row || row.threadId !== args.threadId) {
+      throw new Error("Commit proposal not found");
+    }
+    const parsed = parseCommitPayload(row.payloadJson);
+    if (!parsed) {
+      throw new Error("Commit proposal payload is invalid");
+    }
+    if (!canClaimCommitProposal(parsed)) {
+      return {
+        claimed: false,
+        branch: parsed.branch,
+      };
+    }
+
+    await ctx.db.patch(row._id, {
+      payloadJson: JSON.stringify(buildClaimedCommitProposalPayload(parsed)),
+    });
+    return {
+      claimed: true,
+      branch: parsed.branch,
+    };
   },
 });
 

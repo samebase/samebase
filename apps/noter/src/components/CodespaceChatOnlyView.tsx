@@ -24,7 +24,7 @@ export function CodespaceChatOnlyView() {
     repoName: string;
     branch: string;
   }>();
-  const targetBranch = branch ?? "main";
+  const targetBranch = branch;
   const repositoryFullName = useMemo(() => {
     if (!owner || !repoName) {
       return null;
@@ -34,7 +34,12 @@ export function CodespaceChatOnlyView() {
 
   const vault = useVaultQuery(
     api.vault.getVaultByRepository,
-    repositoryFullName ? { repositoryFullName } : "skip",
+    repositoryFullName
+      ? {
+          repositoryFullName,
+          branch: targetBranch,
+        }
+      : "skip",
   );
   const vaultId = vault?._id;
   const codespace = useQuery(
@@ -118,7 +123,10 @@ export function CodespaceChatOnlyView() {
     );
   }
 
-  const fileViewPath = `/vault/${owner}/${repoName}/${targetBranch}`;
+  const resolvedBranch = targetBranch ?? vault?.resolvedBranch;
+  const fileViewPath = resolvedBranch
+    ? `/vault/${owner}/${repoName}/${encodeURIComponent(resolvedBranch)}`
+    : `/vault/${owner}/${repoName}`;
 
   if (vault === undefined) {
     return null;
@@ -152,14 +160,18 @@ export function CodespaceChatOnlyView() {
             <Link to={fileViewPath}>Back</Link>
           </Button>
           <div className="min-w-0">
-            <div className="truncate text-sm font-medium">Codespace Chat View</div>
+            <div className="truncate text-sm font-medium">
+              Codespace Chat View
+            </div>
             <div className="truncate text-xs text-muted-foreground">
               {repositoryFullName}
             </div>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={stateBadgeVariant}>{formatCodespaceState(state)}</Badge>
+          <Badge variant={stateBadgeVariant}>
+            {formatCodespaceState(state)}
+          </Badge>
           <Button
             variant="outline"
             size="sm"

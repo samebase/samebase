@@ -18,6 +18,7 @@ import { Id } from "../../convex/_generated/dataModel";
 import { useLocation } from "react-router-dom";
 import { TOOL_CATALOG } from "../../convex/agent/toolCatalog";
 import { useUIMessages, type UIMessage } from "@convex-dev/agent/react";
+import { parseVaultPathContext } from "@/lib/vaultRoutes";
 import {
   messageMetadataSchema,
   type CommitProposalPayload as CommitProposal,
@@ -27,52 +28,28 @@ import {
 
 // --- Route context hook ---
 
-// ChatFab is rendered outside <Routes>, so useParams() returns {}.
-// Parse the URL manually via useLocation() instead.
-const VAULT_PATH_RE = /^\/vault\/([^/]+)\/([^/]+)(?:\/(.*))?$/;
-
 function useVaultContext() {
   const { pathname } = useLocation();
 
-  const { branch, filePath, repositoryFullName } = useMemo(() => {
-    const match = pathname.match(VAULT_PATH_RE);
-    if (!match) {
-      return {
-        branch: "main",
-        filePath: undefined,
-        repositoryFullName: undefined,
-      };
-    }
-
-    const _owner = match[1];
-    const _repoName = match[2];
-    const rest = match[3]; // "branch/path/to/file" or undefined
-
-    let branch = "main";
-    let filePath: string | undefined;
-    if (rest) {
-      const parts = rest.split("/");
-      branch = parts[0] || "main";
-      filePath = parts.slice(1).join("/") || undefined;
-    }
-
-    return {
-      branch,
-      filePath,
-      repositoryFullName: `${_owner}/${_repoName}`,
-    };
-  }, [pathname]);
+  const routeContext = useMemo(
+    () => parseVaultPathContext(pathname),
+    [pathname],
+  );
+  const repositoryFullName = routeContext.repositoryFullName;
+  const routeBranch = routeContext.branch;
+  const filePath = routeContext.filePath;
 
   const vault = useQuery(
     api.vault.getVaultByRepository,
-    repositoryFullName ? { repositoryFullName } : "skip",
+    repositoryFullName ? { repositoryFullName, branch: routeBranch } : "skip",
   );
 
   const vaultId = vault?._id;
+  const resolvedBranch = routeBranch ?? vault?.resolvedBranch;
 
   return {
     vaultId,
-    branch,
+    branch: resolvedBranch,
     filePath,
     repositoryFullName,
   };

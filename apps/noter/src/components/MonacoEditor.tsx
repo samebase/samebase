@@ -22,6 +22,8 @@ import {
 } from "./monaco/setupEditor";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useProjectFiles, type ProjectFile } from "@/hooks/useProjectFiles";
+import { buildMonacoAppliedCacheKey } from "@/lib/editorCacheKeys";
+import { buildMonacoFileUri } from "@/lib/monacoFileUri";
 
 // ---------------------------------------------------------------------------
 // Collab helpers (shared logic with CodeEditor.tsx)
@@ -88,11 +90,23 @@ const addedExtraLibs = new Set<string>();
  * avoids the out-of-memory crashes from the worker trying to validate
  * hundreds of models at once.
  */
-function syncProjectFiles(monaco: Monaco, projectFiles: ProjectFile[]) {
+interface SyncProjectFilesArgs {
+  monaco: Monaco;
+  projectFiles: ProjectFile[];
+  vaultId: Id<"vaults">;
+  branch: string;
+}
+
+function syncProjectFiles(args: SyncProjectFilesArgs) {
+  const { monaco, projectFiles, vaultId, branch } = args;
   const defaults = monaco.languages.typescript.typescriptDefaults;
 
   for (const file of projectFiles) {
-    const uri = `file:///${file.path}`;
+    const uri = buildMonacoFileUri({
+      vaultId,
+      branch,
+      filePath: file.path,
+    });
     if (addedExtraLibs.has(uri)) continue;
     addedExtraLibs.add(uri);
     defaults.addExtraLib(file.content, uri);
@@ -146,8 +160,9 @@ export function MonacoEditor({
   const isMobileViewport = useIsMobile();
 
   // ---- Project files for import resolution ----
-  const { files: projectFiles } = useProjectFiles(
+  const { files: projectFiles, scopePrefix } = useProjectFiles(
     vaultId,
+    branch,
     tree,
     treeSHA,
     filePath,
@@ -289,13 +304,23 @@ export function MonacoEditor({
   useEffect(() => {
     if (!monacoRef.current || projectFiles.length === 0) return;
 
-    const cacheKey = `${vaultId}:${treeSHA}`;
+    const cacheKey = buildMonacoAppliedCacheKey({
+      vaultId,
+      branch,
+      treeSHA,
+      scopePrefix,
+    });
     if (appliedCacheKeys.has(cacheKey)) return;
     appliedCacheKeys.add(cacheKey);
 
-    syncProjectFiles(monacoRef.current, projectFiles);
+    syncProjectFiles({
+      monaco: monacoRef.current,
+      projectFiles,
+      vaultId,
+      branch,
+    });
     applyTsConfigFromProject(monacoRef.current, projectFiles);
-  }, [projectFiles, vaultId, treeSHA]);
+  }, [projectFiles, vaultId, branch, treeSHA, scopePrefix]);
 
   useEffect(() => {
     setSyncError(null);
@@ -308,10 +333,20 @@ export function MonacoEditor({
 
     // If project files are already loaded (cache hit), sync immediately
     if (projectFiles.length > 0) {
-      const cacheKey = `${vaultId}:${treeSHA}`;
+      const cacheKey = buildMonacoAppliedCacheKey({
+        vaultId,
+        branch,
+        treeSHA,
+        scopePrefix,
+      });
       if (!appliedCacheKeys.has(cacheKey)) {
         appliedCacheKeys.add(cacheKey);
-        syncProjectFiles(monaco, projectFiles);
+        syncProjectFiles({
+          monaco,
+          projectFiles,
+          vaultId,
+          branch,
+        });
         applyTsConfigFromProject(monaco, projectFiles);
       }
     }
@@ -355,7 +390,7 @@ export function MonacoEditor({
     >
       <Editor
         height="100%"
-        path={`file:///${filePath}`}
+        path={buildMonacoFileUri({ vaultId, branch, filePath })}
         defaultValue={firstDoc.content}
         theme={isDark ? "vs-dark" : "vs"}
         onMount={handleMount}

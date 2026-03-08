@@ -101,6 +101,11 @@ export const VaultDomainSource = v.union(
   v.literal("cloudflare_pages_custom"),
 );
 
+export const VaultRemoteBranchState = v.union(
+  v.literal("active"),
+  v.literal("deleted_upstream"),
+);
+
 export const ProdAccessScope = v.union(v.literal("vault"), v.literal("global"));
 
 export const ProdAccessProvider = v.union(
@@ -336,6 +341,37 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_ghRepoOwner_and_ghRepoName", ["ghRepoOwner", "ghRepoName"]),
+
+  /**
+   * Remote Git branches mirrored from GitHub for a vault repository.
+   */
+  vaultRemoteBranches: defineTable({
+    vaultId: v.id("vaults"),
+    name: v.string(),
+    headCommitSha: v.string(),
+    lastCommitAt: v.optional(v.number()),
+    isDefault: v.boolean(),
+    isProtected: v.boolean(),
+    remoteState: VaultRemoteBranchState,
+    deletedUpstreamAt: v.optional(v.number()),
+    lastSyncedAt: v.number(),
+  })
+    .index("by_vault", ["vaultId"])
+    .index("by_vault_and_name", ["vaultId", "name"])
+    .index("by_vault_and_remote_state", ["vaultId", "remoteState"]),
+
+  /**
+   * Branch-scoped Git trees for each vault.
+   */
+  vaultBranchTrees: defineTable({
+    vaultId: v.id("vaults"),
+    branch: v.string(),
+    treeSHA: v.string(),
+    commitSHA: v.optional(v.string()),
+    treeData: GithubTreeData,
+    lastTreeRefreshAt: v.number(),
+    treeRefreshStartedAt: v.optional(v.number()),
+  }).index("by_vault_and_branch", ["vaultId", "branch"]),
 
   /**
    * External infrastructure identifiers and status for a vault.

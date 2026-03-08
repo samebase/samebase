@@ -21,6 +21,7 @@ const commitProposalSchema = z
   .object({
     type: z.literal("commit_proposal"),
     message: z.string(),
+    branch: z.string().optional(),
     committed: z.boolean().optional(),
     committing: z.boolean().optional(),
     error: z.string().optional(),

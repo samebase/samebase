@@ -122,6 +122,27 @@ export const removeVault = mutation({
       });
     }
 
+    // 8. Delete branch metadata/cache rows
+    const remoteBranches = await ctx.db
+      .query("vaultRemoteBranches")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .collect();
+    for (const branch of remoteBranches) {
+      await ctx.db.delete(branch._id).catch((e) => {
+        console.error("vaultRemoteBranch delete", e);
+      });
+    }
+
+    const branchTrees = await ctx.db
+      .query("vaultBranchTrees")
+      .withIndex("by_vault_and_branch", (q) => q.eq("vaultId", args.vaultId))
+      .collect();
+    for (const branchTree of branchTrees) {
+      await ctx.db.delete(branchTree._id).catch((e) => {
+        console.error("vaultBranchTree delete", e);
+      });
+    }
+
     const hasOtherVaultsForRepository = await ctx.runQuery(
       internal.vault.hasOtherVaultsForRepository,
       {
@@ -131,7 +152,7 @@ export const removeVault = mutation({
       },
     );
 
-    // 8. Delete repo-scoped snapshot records only when this is the last vault for the repo.
+    // 9. Delete repo-scoped snapshot records only when this is the last vault for the repo.
     if (!hasOtherVaultsForRepository) {
       const snapshotRecords = await ctx.db
         .query("daytonaSnapshots")
@@ -149,7 +170,7 @@ export const removeVault = mutation({
       }
     }
 
-    // 9. Delete the vault
+    // 10. Delete the vault
     await ctx.db.delete(vault._id).catch((e) => {
       console.error("vault delete", e);
     });
@@ -160,6 +181,7 @@ export const removeVault = mutation({
 export const getVaultByRepository = query({
   args: {
     repositoryFullName: v.string(),
+    branch: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
@@ -167,6 +189,7 @@ export const getVaultByRepository = query({
     return await getVaultByRepositoryHelper(ctx, {
       userId,
       repositoryFullName: args.repositoryFullName,
+      branch: args.branch,
     });
   },
 });
@@ -371,6 +394,57 @@ async function getCurrentDaytonaSnapshotState(
   };
 }
 
+function compareRemoteBranchSortOrder(
+  left: {
+    remoteState: "active" | "deleted_upstream";
+    lastCommitAt?: number;
+    isDefault: boolean;
+    name: string;
+  },
+  right: {
+    remoteState: "active" | "deleted_upstream";
+    lastCommitAt?: number;
+    isDefault: boolean;
+    name: string;
+  },
+): number {
+  if (left.remoteState !== right.remoteState) {
+    return left.remoteState === "active" ? -1 : 1;
+  }
+  // Keep the repository default branch pinned at the top regardless of activity.
+  // `isDefault` comes from GitHub's `default_branch`, so it works for `main`,
+  // `master`, or any custom default branch name.
+  if (left.isDefault !== right.isDefault) {
+    return left.isDefault ? -1 : 1;
+  }
+  const leftLastCommitAt = left.lastCommitAt ?? Number.NEGATIVE_INFINITY;
+  const rightLastCommitAt = right.lastCommitAt ?? Number.NEGATIVE_INFINITY;
+  if (leftLastCommitAt !== rightLastCommitAt) {
+    return rightLastCommitAt - leftLastCommitAt;
+  }
+  return left.name.localeCompare(right.name);
+}
+
+export function resolveSyncedBranchLastCommitAt(args: {
+  incomingHeadCommitSha: string;
+  incomingLastCommitAt?: number;
+  existingBranch?: {
+    headCommitSha: string;
+    lastCommitAt?: number;
+  };
+}): number | undefined {
+  if (args.incomingLastCommitAt !== undefined) {
+    return args.incomingLastCommitAt;
+  }
+  if (
+    args.existingBranch &&
+    args.existingBranch.headCommitSha === args.incomingHeadCommitSha
+  ) {
+    return args.existingBranch.lastCommitAt;
+  }
+  return undefined;
+}
+
 const getUserVaultsResult = array(
   object({
     _id: id("vaults"),
@@ -401,6 +475,14 @@ const getUserVaultsResult = array(
     daytonaCurrentSnapshotUpdatedAt: optional(number()),
     daytonaCurrentSnapshotAttemptCount: optional(number()),
     daytonaCurrentSnapshotNextRetryAt: optional(number()),
+    remoteBranches: array(
+      object({
+        name: string(),
+        lastCommitAt: optional(number()),
+        isDefault: boolean(),
+        remoteState: union(literal("active"), literal("deleted_upstream")),
+      }),
+    ),
     infraState: union(
       literal("not_started"),
       literal("provisioning"),
@@ -452,6 +534,10 @@ export const getUserVaults = query({
           ctx,
           vault,
         );
+        const remoteBranches = await ctx.db
+          .query("vaultRemoteBranches")
+          .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+          .collect();
         const infra = await ctx.db
           .query("vaultInfrastructure")
           .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
@@ -506,6 +592,14 @@ export const getUserVaults = query({
             daytonaSnapshotState.daytonaCurrentSnapshotAttemptCount,
           daytonaCurrentSnapshotNextRetryAt:
             daytonaSnapshotState.daytonaCurrentSnapshotNextRetryAt,
+          remoteBranches: remoteBranches
+            .sort(compareRemoteBranchSortOrder)
+            .map((branch) => ({
+              name: branch.name,
+              lastCommitAt: branch.lastCommitAt,
+              isDefault: branch.isDefault,
+              remoteState: branch.remoteState,
+            })),
           infraState: vault.infraState ?? "not_started",
           infraProductionUrl: resolveHostingMainUrl(infra),
         };
@@ -542,6 +636,185 @@ export const getInfrastructureByVaultId = internalQuery({
   },
 });
 
+export const getVaultRemoteBranches = query({
+  args: {
+    vaultId: id("vaults"),
+  },
+  returns: array(
+    object({
+      name: string(),
+      headCommitSha: string(),
+      lastCommitAt: optional(number()),
+      isDefault: boolean(),
+      isProtected: boolean(),
+      remoteState: union(literal("active"), literal("deleted_upstream")),
+      deletedUpstreamAt: optional(number()),
+      lastSyncedAt: number(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.userId !== userId) {
+      return [];
+    }
+
+    const branches = await ctx.db
+      .query("vaultRemoteBranches")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .collect();
+
+    return branches.sort(compareRemoteBranchSortOrder).map((branch) => ({
+      name: branch.name,
+      headCommitSha: branch.headCommitSha,
+      lastCommitAt: branch.lastCommitAt,
+      isDefault: branch.isDefault,
+      isProtected: branch.isProtected,
+      remoteState: branch.remoteState,
+      deletedUpstreamAt: branch.deletedUpstreamAt,
+      lastSyncedAt: branch.lastSyncedAt,
+    }));
+  },
+});
+
+export const syncVaultRemoteBranches = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    syncedAt: number(),
+    branches: array(
+      object({
+        name: string(),
+        headCommitSha: string(),
+        lastCommitAt: optional(number()),
+        isDefault: boolean(),
+        isProtected: boolean(),
+      }),
+    ),
+  },
+  returns: nullValidator,
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault) {
+      return null;
+    }
+
+    const existing = await ctx.db
+      .query("vaultRemoteBranches")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .collect();
+
+    const existingByName = new Map(
+      existing.map((branch) => [branch.name, branch]),
+    );
+    const seenNames = new Set<string>();
+
+    for (const branch of args.branches) {
+      seenNames.add(branch.name);
+      const existingBranch = existingByName.get(branch.name);
+      if (existingBranch) {
+        const nextLastCommitAt = resolveSyncedBranchLastCommitAt({
+          incomingHeadCommitSha: branch.headCommitSha,
+          incomingLastCommitAt: branch.lastCommitAt,
+          existingBranch,
+        });
+        await ctx.db.patch(existingBranch._id, {
+          headCommitSha: branch.headCommitSha,
+          lastCommitAt: nextLastCommitAt,
+          isDefault: branch.isDefault,
+          isProtected: branch.isProtected,
+          remoteState: "active",
+          deletedUpstreamAt: undefined,
+          lastSyncedAt: args.syncedAt,
+        });
+        continue;
+      }
+
+      await ctx.db.insert("vaultRemoteBranches", {
+        vaultId: args.vaultId,
+        name: branch.name,
+        headCommitSha: branch.headCommitSha,
+        lastCommitAt: branch.lastCommitAt,
+        isDefault: branch.isDefault,
+        isProtected: branch.isProtected,
+        remoteState: "active",
+        deletedUpstreamAt: undefined,
+        lastSyncedAt: args.syncedAt,
+      });
+    }
+
+    for (const branch of existing) {
+      if (seenNames.has(branch.name)) {
+        continue;
+      }
+      await ctx.db.patch(branch._id, {
+        isDefault: false,
+        remoteState: "deleted_upstream",
+        deletedUpstreamAt: branch.deletedUpstreamAt ?? args.syncedAt,
+        lastSyncedAt: args.syncedAt,
+      });
+    }
+
+    return null;
+  },
+});
+
+export const getVaultBranchTree = internalQuery({
+  args: {
+    vaultId: id("vaults"),
+    branch: string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("vaultBranchTrees")
+      .withIndex("by_vault_and_branch", (q) =>
+        q.eq("vaultId", args.vaultId).eq("branch", args.branch),
+      )
+      .first();
+  },
+});
+
+export const upsertVaultBranchTree = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    branch: string(),
+    treeData: GithubTreeData,
+    commitSHA: optional(string()),
+  },
+  returns: nullValidator,
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const existing = await ctx.db
+      .query("vaultBranchTrees")
+      .withIndex("by_vault_and_branch", (q) =>
+        q.eq("vaultId", args.vaultId).eq("branch", args.branch),
+      )
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        treeSHA: args.treeData.sha,
+        commitSHA: args.commitSHA,
+        treeData: args.treeData,
+        lastTreeRefreshAt: now,
+        treeRefreshStartedAt: undefined,
+      });
+      return null;
+    }
+
+    await ctx.db.insert("vaultBranchTrees", {
+      vaultId: args.vaultId,
+      branch: args.branch,
+      treeSHA: args.treeData.sha,
+      commitSHA: args.commitSHA,
+      treeData: args.treeData,
+      lastTreeRefreshAt: now,
+      treeRefreshStartedAt: undefined,
+    });
+
+    return null;
+  },
+});
+
 export const hasOtherVaultsForRepository = internalQuery({
   args: {
     owner: string(),
@@ -565,6 +838,7 @@ async function getVaultByRepositoryHelper(
   args: {
     userId: Id<"users">;
     repositoryFullName: string;
+    branch?: string;
   },
 ) {
   const [owner, name] = args.repositoryFullName.split("/");
@@ -587,21 +861,89 @@ async function getVaultByRepositoryHelper(
     return null;
   }
 
+  const requestedBranch =
+    typeof args.branch === "string" && args.branch.trim().length > 0
+      ? args.branch.trim()
+      : undefined;
+
+  const remoteBranches = await ctx.db
+    .query("vaultRemoteBranches")
+    .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+    .collect();
+  const { defaultBranch, resolvedBranch, branchNotFound } =
+    resolveVaultBranchSelection({
+      requestedBranch,
+      remoteBranches,
+    });
+
+  const branchTree = await ctx.db
+    .query("vaultBranchTrees")
+    .withIndex("by_vault_and_branch", (q) =>
+      q.eq("vaultId", vault._id).eq("branch", resolvedBranch),
+    )
+    .first();
+
   return {
     _id: vault._id,
     _creationTime: vault._creationTime,
     ghRepoOwner: vault.ghRepoOwner,
     ghRepoName: vault.ghRepoName,
     repositoryFullName: args.repositoryFullName,
-    treeSHA: vault.treeSHA,
-    commitSHA: vault.commitSHA,
-    treeData: vault.treeData,
-    treeRefreshStartedAt: vault.treeRefreshStartedAt,
-    lastTreeRefreshAt: vault.lastTreeRefreshAt,
+    treeSHA: branchTree?.treeSHA ?? vault.treeSHA,
+    commitSHA: branchTree?.commitSHA ?? vault.commitSHA,
+    treeData: branchTree?.treeData ?? vault.treeData,
+    treeRefreshStartedAt:
+      branchTree?.treeRefreshStartedAt ?? vault.treeRefreshStartedAt,
+    lastTreeRefreshAt: branchTree?.lastTreeRefreshAt ?? vault.lastTreeRefreshAt,
+    defaultBranch,
+    resolvedBranch,
+    branchNotFound,
     ...(await getCurrentDaytonaSnapshotState(ctx, vault)),
     infraState: vault.infraState ?? "not_started",
     infraLastError: vault.infraLastError,
     infraLastProvisionedAt: vault.infraLastProvisionedAt,
+  };
+}
+
+export function resolveVaultBranchSelection(args: {
+  requestedBranch?: string;
+  remoteBranches: Array<{
+    name: string;
+    isDefault: boolean;
+    remoteState: "active" | "deleted_upstream";
+  }>;
+}): {
+  defaultBranch?: string;
+  resolvedBranch: string;
+  branchNotFound: boolean;
+} {
+  const activeRemoteBranches = args.remoteBranches.filter(
+    (branch) => branch.remoteState === "active",
+  );
+  const defaultBranch =
+    activeRemoteBranches.find((branch) => branch.isDefault)?.name ??
+    activeRemoteBranches[0]?.name;
+  const canValidateRequestedBranch = activeRemoteBranches.length > 0;
+  const branchNotFound = Boolean(
+    args.requestedBranch &&
+      canValidateRequestedBranch &&
+      !activeRemoteBranches.some(
+        (branch) => branch.name === args.requestedBranch,
+      ),
+  );
+  let resolvedBranch = "main";
+  if (branchNotFound) {
+    resolvedBranch = defaultBranch;
+  } else if (args.requestedBranch) {
+    resolvedBranch = args.requestedBranch;
+  } else if (defaultBranch) {
+    resolvedBranch = defaultBranch;
+  }
+
+  return {
+    defaultBranch,
+    resolvedBranch,
+    branchNotFound,
   };
 }
 
@@ -709,11 +1051,13 @@ export const getByRepositoryFullName = internalQuery({
   args: {
     userId: v.id("users"),
     repositoryFullName: v.string(),
+    branch: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     return await getVaultByRepositoryHelper(ctx, {
       userId: args.userId,
       repositoryFullName: args.repositoryFullName,
+      branch: args.branch,
     });
   },
 });
@@ -778,15 +1122,23 @@ export const startTreeRefreshOptimistic = mutation({
 
 // Release the tree refresh lock and record completion time.
 export const releaseTreeRefresh = internalMutation({
-  args: { vaultId: v.id("vaults") },
+  args: {
+    vaultId: v.id("vaults"),
+    markRefreshed: v.optional(v.boolean()),
+  },
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
     if (!vault) return;
 
-    await ctx.db.patch(args.vaultId, {
-      lastTreeRefreshAt: Date.now(),
-      treeRefreshStartedAt: undefined,
-    });
+    await ctx.db.patch(
+      args.vaultId,
+      args.markRefreshed === false
+        ? { treeRefreshStartedAt: undefined }
+        : {
+            lastTreeRefreshAt: Date.now(),
+            treeRefreshStartedAt: undefined,
+          },
+    );
   },
 });
 

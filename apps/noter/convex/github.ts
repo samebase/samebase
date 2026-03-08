@@ -51,27 +51,59 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function isGitHubRepositoryListItem(
+export function normalizeGitHubRepositoryListItem(
   value: unknown,
-): value is GitHubRepositoryListItem {
+): GitHubRepositoryListItem | null {
   if (!isRecord(value)) {
-    return false;
+    return null;
   }
 
-  return (
-    typeof value.id === "number" &&
-    typeof value.name === "string" &&
-    typeof value.full_name === "string" &&
-    typeof value.html_url === "string" &&
-    (typeof value.description === "string" || value.description === null) &&
-    typeof value.private === "boolean" &&
-    typeof value.fork === "boolean" &&
-    typeof value.created_at === "string" &&
-    typeof value.updated_at === "string" &&
-    (typeof value.language === "string" || value.language === null) &&
-    typeof value.stargazers_count === "number" &&
-    typeof value.forks_count === "number"
-  );
+  const {
+    id,
+    name,
+    full_name,
+    html_url,
+    description,
+    private: isPrivate,
+    fork,
+    created_at,
+    updated_at,
+    language,
+    stargazers_count,
+    forks_count,
+  } = value;
+
+  if (
+    typeof id !== "number" ||
+    typeof name !== "string" ||
+    typeof full_name !== "string" ||
+    typeof html_url !== "string" ||
+    (typeof description !== "string" && description !== null) ||
+    typeof isPrivate !== "boolean" ||
+    typeof fork !== "boolean" ||
+    typeof created_at !== "string" ||
+    typeof updated_at !== "string" ||
+    (typeof language !== "string" && language !== null) ||
+    typeof stargazers_count !== "number" ||
+    typeof forks_count !== "number"
+  ) {
+    return null;
+  }
+
+  return {
+    id,
+    name,
+    full_name,
+    html_url,
+    description,
+    private: isPrivate,
+    fork,
+    created_at,
+    updated_at,
+    language,
+    stargazers_count,
+    forks_count,
+  };
 }
 
 // List the current user's GitHub repositories
@@ -116,11 +148,12 @@ export const listRepositories = action({
     }
 
     return reposRaw.map((repo) => {
-      if (!isGitHubRepositoryListItem(repo)) {
+      const normalized = normalizeGitHubRepositoryListItem(repo);
+      if (normalized === null) {
         throw new Error("Unexpected GitHub repository payload");
       }
 
-      return repo;
+      return normalized;
     });
   },
 });
@@ -153,6 +186,177 @@ const repositoryMediaAssetResult = union(
 );
 
 type RepositoryMediaAsset = Infer<typeof repositoryMediaAssetResult>;
+
+function toGitTreeRef(branch: string): string {
+  if (branch.startsWith("refs/heads/")) {
+    return branch.slice("refs/".length);
+  }
+  if (branch.startsWith("heads/")) {
+    return branch;
+  }
+  return `heads/${branch}`;
+}
+
+interface RemoteBranchSummary {
+  name: string;
+  headCommitSha: string;
+  lastCommitAt?: number;
+  isDefault: boolean;
+  isProtected: boolean;
+}
+
+interface CachedBranchTreeSnapshot {
+  treeSHA: string;
+  commitSHA?: string;
+}
+
+interface RepositoryTreeUpdatePlan {
+  shouldUpdateBranchTree: boolean;
+  shouldUpdateLegacyTree: boolean;
+  shouldUpdateLegacyCommit: boolean;
+}
+
+export function computeRepositoryTreeUpdatePlan(args: {
+  resolvedBranch: string;
+  defaultBranch?: string;
+  fetchedTreeSHA: string;
+  fetchedCommitSHA?: string;
+  cachedBranchTree: CachedBranchTreeSnapshot | null;
+  legacyTreeSHA: string;
+  legacyCommitSHA?: string;
+}): RepositoryTreeUpdatePlan {
+  const shouldUpdateBranchTree =
+    !args.cachedBranchTree ||
+    args.fetchedTreeSHA !== args.cachedBranchTree.treeSHA ||
+    args.fetchedCommitSHA !== args.cachedBranchTree.commitSHA;
+  const isDefaultBranch =
+    typeof args.defaultBranch === "string" &&
+    args.resolvedBranch === args.defaultBranch;
+  const shouldUpdateLegacyTree =
+    isDefaultBranch && args.fetchedTreeSHA !== args.legacyTreeSHA;
+  const shouldUpdateLegacyCommit =
+    isDefaultBranch &&
+    typeof args.fetchedCommitSHA === "string" &&
+    args.fetchedCommitSHA !== args.legacyCommitSHA;
+
+  return {
+    shouldUpdateBranchTree,
+    shouldUpdateLegacyTree,
+    shouldUpdateLegacyCommit,
+  };
+}
+
+function parseGitTimestamp(value: string | undefined): number | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) {
+    return undefined;
+  }
+  return timestamp;
+}
+
+async function getHeadCommitTimestamps(args: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  shas: string[];
+}): Promise<Map<string, number | undefined>> {
+  const uniqueShas = Array.from(new Set(args.shas));
+  const timestampsBySha = new Map<string, number | undefined>();
+  const chunkSize = 20;
+
+  for (let start = 0; start < uniqueShas.length; start += chunkSize) {
+    const chunk = uniqueShas.slice(start, start + chunkSize);
+    const chunkResults = await Promise.all(
+      chunk.map(async (sha) => {
+        try {
+          const response = await args.octokit.rest.git.getCommit({
+            owner: args.owner,
+            repo: args.repo,
+            commit_sha: sha,
+          });
+          const lastCommitAt =
+            parseGitTimestamp(response.data.committer.date) ??
+            parseGitTimestamp(response.data.author.date);
+          return { sha, lastCommitAt };
+        } catch {
+          return { sha, lastCommitAt: undefined };
+        }
+      }),
+    );
+
+    for (const result of chunkResults) {
+      timestampsBySha.set(result.sha, result.lastCommitAt);
+    }
+  }
+
+  return timestampsBySha;
+}
+
+async function listRemoteBranches(args: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+}): Promise<RemoteBranchSummary[]> {
+  const repoResponse = await args.octokit.rest.repos.get({
+    owner: args.owner,
+    repo: args.repo,
+  });
+  const defaultBranch =
+    typeof repoResponse.data.default_branch === "string"
+      ? repoResponse.data.default_branch
+      : "main";
+
+  const branches: RemoteBranchSummary[] = [];
+  const perPage = 100;
+  for (let page = 1; ; page += 1) {
+    const pageResponse = await args.octokit.rest.repos.listBranches({
+      owner: args.owner,
+      repo: args.repo,
+      per_page: perPage,
+      page,
+    });
+    if (pageResponse.data.length === 0) {
+      break;
+    }
+
+    for (const branch of pageResponse.data) {
+      if (typeof branch.name !== "string") {
+        continue;
+      }
+      const headCommitSha =
+        typeof branch.commit.sha === "string" ? branch.commit.sha : "";
+      if (headCommitSha.length === 0) {
+        continue;
+      }
+
+      branches.push({
+        name: branch.name,
+        headCommitSha,
+        isDefault: branch.name === defaultBranch,
+        isProtected: branch.protected === true,
+      });
+    }
+
+    if (pageResponse.data.length < perPage) {
+      break;
+    }
+  }
+
+  const timestampsBySha = await getHeadCommitTimestamps({
+    octokit: args.octokit,
+    owner: args.owner,
+    repo: args.repo,
+    shas: branches.map((branch) => branch.headCommitSha),
+  });
+
+  return branches.map((branch) => ({
+    ...branch,
+    lastCommitAt: timestampsBySha.get(branch.headCommitSha),
+  }));
+}
 
 function buildDataUrl(mimeType: string, content: Buffer): string {
   return `data:${mimeType};base64,${content.toString("base64")}`;
@@ -520,17 +724,32 @@ export const refreshRepositoryTree = action({
   args: {
     owner: string(),
     repo: string(),
+    branch: optional(string()),
     trigger: optional(union(literal("focus"), literal("page_load"))),
   },
   returns: nullValidator(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
+    const requestedBranch =
+      typeof args.branch === "string" && args.branch.trim().length > 0
+        ? args.branch.trim()
+        : undefined;
 
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: `${args.owner}/${args.repo}`,
       userId,
     });
     if (!vault) return null;
+
+    if (requestedBranch) {
+      await ctx.runAction(internal.github.updateRepositoryTree, {
+        userId,
+        owner: args.owner,
+        repo: args.repo,
+        branch: requestedBranch,
+      });
+      return null;
+    }
 
     const debounceMs =
       args.trigger === "page_load" ? PAGE_LOAD_REFRESH_DEBOUNCE_MS : undefined;
@@ -542,15 +761,18 @@ export const refreshRepositoryTree = action({
     });
     if (!claimed) return null;
 
+    let markRefreshed = false;
     try {
       await ctx.runAction(internal.github.updateRepositoryTree, {
         userId,
         owner: args.owner,
         repo: args.repo,
       });
+      markRefreshed = true;
     } finally {
       await ctx.runMutation(internal.vault.releaseTreeRefresh, {
         vaultId: vault._id,
+        markRefreshed,
       });
     }
 
@@ -564,6 +786,7 @@ export const updateRepositoryTree = internalAction({
     userId: id("users"),
     owner: string(),
     repo: string(),
+    branch: optional(string()),
   },
   returns: nullValidator(),
   handler: async (ctx, args) => {
@@ -599,33 +822,85 @@ export const updateRepositoryTree = internalAction({
       auth: githubConnection.auth.credential,
     });
 
+    const targetBranch =
+      typeof args.branch === "string" && args.branch.trim().length > 0
+        ? args.branch.trim()
+        : undefined;
+
+    const remoteBranches = await listRemoteBranches({
+      octokit,
+      owner: args.owner,
+      repo: args.repo,
+    });
+    await ctx.runMutation(internal.vault.syncVaultRemoteBranches, {
+      vaultId: vault._id,
+      syncedAt: Date.now(),
+      branches: remoteBranches,
+    });
+    const defaultBranch = remoteBranches.find(
+      (branch) => branch.isDefault,
+    )?.name;
+    const resolvedBranch = targetBranch ?? defaultBranch ?? "main";
+
     const tree = await octokit.rest.git.getTree({
       owner: args.owner,
       repo: args.repo,
-      tree_sha: "HEAD",
+      tree_sha: toGitTreeRef(resolvedBranch),
       recursive: "1",
     });
     const latestCommits = await octokit.rest.repos.listCommits({
       owner: args.owner,
       repo: args.repo,
+      sha: resolvedBranch,
       per_page: 1,
     });
     const latestCommitSha = latestCommits.data[0]?.sha;
 
-    const shouldUpdateTree = tree.data.sha !== vault.treeData.sha;
-    const shouldUpdateCommit =
-      typeof latestCommitSha === "string" &&
-      latestCommitSha !== vault.commitSHA;
+    const cachedBranchTree = await ctx.runQuery(
+      internal.vault.getVaultBranchTree,
+      {
+        vaultId: vault._id,
+        branch: resolvedBranch,
+      },
+    );
+    const {
+      shouldUpdateBranchTree,
+      shouldUpdateLegacyTree,
+      shouldUpdateLegacyCommit,
+    } = computeRepositoryTreeUpdatePlan({
+      resolvedBranch,
+      defaultBranch,
+      fetchedTreeSHA: tree.data.sha,
+      fetchedCommitSHA: latestCommitSha,
+      cachedBranchTree,
+      legacyTreeSHA: vault.treeData.sha,
+      legacyCommitSHA: vault.commitSHA,
+    });
 
-    if (!shouldUpdateTree && !shouldUpdateCommit) {
+    if (
+      !shouldUpdateBranchTree &&
+      !shouldUpdateLegacyTree &&
+      !shouldUpdateLegacyCommit
+    ) {
       return null;
     }
 
-    await ctx.runMutation(internal.vault.updateVaultTree, {
-      vaultId: vault._id,
-      treeData: tree.data,
-      commitSHA: latestCommitSha,
-    });
+    if (shouldUpdateBranchTree) {
+      await ctx.runMutation(internal.vault.upsertVaultBranchTree, {
+        vaultId: vault._id,
+        branch: resolvedBranch,
+        treeData: tree.data,
+        commitSHA: latestCommitSha,
+      });
+    }
+
+    if (shouldUpdateLegacyTree || shouldUpdateLegacyCommit) {
+      await ctx.runMutation(internal.vault.updateVaultTree, {
+        vaultId: vault._id,
+        treeData: tree.data,
+        commitSHA: latestCommitSha,
+      });
+    }
 
     return null;
   },

@@ -37,6 +37,8 @@ manual-tests/MCP-002-phase2-token-and-mcp-flow.md
 manual-tests/README.md
 manual-tests/TEMPLATE.md
 manual-tests/UI-001-landing-copy-hides-markdown.md
+manual-tests/UI-002-vault-branch-list-and-navigation.md
+manual-tests/UI-003-slash-branch-routing.md
 manual-tests/worktree/WT-001-anon-worktree-isolation.md
 manual-tests/worktree/WT-002-wt-001-local-and-worktree.md
 noter.md
@@ -94,6 +96,8 @@ specs/041_DAYTONA_COMMIT_PINNED_SNAPSHOT_SPEC.md
 specs/042_AGENT_INCREMENTAL_FILE_EDIT_SPEC.md
 specs/043_REMOTE_MCP_OAUTH_PROVIDER_CONVEX_ARCHITECTURE_SPEC.md
 specs/044_CLOUDFLARE_MCP_AUTO_TOKEN_REFRESH_SPEC.md
+specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md
+specs/046_VAULT_MULTI_BRANCH_ROLLOUT_PLAN.md
 TODO.md
 VISION.md
 worktree.md
