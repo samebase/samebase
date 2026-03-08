@@ -26,9 +26,10 @@ function isChatOnlyCodespaceRoute(pathname: string): boolean {
   return /^\/vault\/[^/]+\/[^/]+\/[^/]+\/chat\/?$/.test(pathname);
 }
 
-function useCloseOAuthPopup(pathname: string) {
+function useCloseOAuthPopup(pathname: string, enabled: boolean) {
   const { isAuthenticated } = useConvexAuth();
   useEffect(() => {
+    if (!enabled) return;
     if (!isAuthenticated) return;
     if (pathname.startsWith("/oauth/netlify")) return;
 
@@ -63,7 +64,7 @@ function useCloseOAuthPopup(pathname: string) {
     }
 
     window.close();
-  }, [isAuthenticated, pathname]);
+  }, [enabled, isAuthenticated, pathname]);
 }
 
 function ApprovalGate({ children }: { children: React.ReactNode }) {
@@ -256,9 +257,9 @@ function McpConsentView({ requestId }: { requestId: string }) {
 export default function App() {
   useAutoSignIn();
   const location = useLocation();
-  useCloseOAuthPopup(location.pathname);
-  const showChatFab = !isChatOnlyCodespaceRoute(location.pathname);
   const mcpConsentRequestId = readMcpConsentRequestId(location.search);
+  useCloseOAuthPopup(location.pathname, mcpConsentRequestId === null);
+  const showChatFab = !isChatOnlyCodespaceRoute(location.pathname);
 
   if (mcpConsentRequestId) {
     return (

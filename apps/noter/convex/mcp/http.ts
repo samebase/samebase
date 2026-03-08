@@ -67,7 +67,29 @@ function resolveAppUrl(request: Request): URL | null {
     );
     return null;
   }
-  return new URL(configuredSiteUrl, requestOrigin);
+
+  // Reject relative/malformed values so consent redirects always target the app origin.
+  try {
+    const appUrl = new URL(configuredSiteUrl);
+    if (appUrl.protocol !== "https:" && appUrl.protocol !== "http:") {
+      throw new Error(`Unsupported protocol: ${appUrl.protocol}`);
+    }
+    return appUrl;
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "Unknown SITE_URL validation error";
+    console.error(
+      "SITE_URL must be an absolute http(s) URL for MCP OAuth consent.",
+      {
+        configuredSiteUrl,
+        requestOrigin,
+        errorMessage,
+      },
+    );
+    return null;
+  }
 }
 
 function buildMcpConsentRedirectUrl(args: {
@@ -81,7 +103,8 @@ function buildMcpConsentRedirectUrl(args: {
   if (consentUrl === null) {
     return {
       ok: false,
-      errorDescription: "SITE_URL must be configured for MCP OAuth consent.",
+      errorDescription:
+        "SITE_URL must be an absolute http(s) URL for MCP OAuth consent.",
     };
   }
   consentUrl.searchParams.set("mcp_consent_request", args.requestId);
