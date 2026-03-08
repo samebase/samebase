@@ -178,6 +178,13 @@ function classifyStagedFile(
   return null;
 }
 
+export function canAccessVaultStaging(args: {
+  vaultOwnerId: string | undefined;
+  requesterUserId: string;
+}): boolean {
+  return args.vaultOwnerId === args.requesterUserId;
+}
+
 export function selectRepositoryTreeForBranch(args: {
   requestedBranch: string;
   defaultBranch?: string;
@@ -315,6 +322,16 @@ export const listStagedFilesBranchSummaries = query({
   },
   returns: stagedFilesBranchSummaryListValidator,
   handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.db.get(args.vaultId);
+    if (
+      !canAccessVaultStaging({
+        vaultOwnerId: vault?.userId,
+        requesterUserId: userId,
+      })
+    ) {
+      throw new Error("Vault not found");
+    }
     const files = await ctx.db
       .query("fileStaging")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))

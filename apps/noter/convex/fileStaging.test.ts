@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  canAccessVaultStaging,
   selectRepositoryTreeForBranch,
   summarizeStagedFilesByBranch,
 } from "./fileStaging";
@@ -141,5 +142,25 @@ describe("summarizeStagedFilesByBranch", () => {
         },
       },
     ]);
+  });
+});
+
+describe("canAccessVaultStaging", () => {
+  it("allows owner access", () => {
+    expect(
+      canAccessVaultStaging({
+        vaultOwnerId: "users:owner",
+        requesterUserId: "users:owner",
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects non-owner access", () => {
+    expect(
+      canAccessVaultStaging({
+        vaultOwnerId: "users:owner",
+        requesterUserId: "users:other",
+      }),
+    ).toBe(false);
   });
 });

@@ -22,6 +22,7 @@ import {
 } from "./monaco/setupEditor";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useProjectFiles, type ProjectFile } from "@/hooks/useProjectFiles";
+import { buildMonacoAppliedCacheKey } from "@/lib/editorCacheKeys";
 
 // ---------------------------------------------------------------------------
 // Collab helpers (shared logic with CodeEditor.tsx)
@@ -315,7 +316,11 @@ export function MonacoEditor({
   useEffect(() => {
     if (!monacoRef.current || projectFiles.length === 0) return;
 
-    const cacheKey = `${vaultId}:${treeSHA}`;
+    const cacheKey = buildMonacoAppliedCacheKey({
+      vaultId,
+      branch,
+      treeSHA,
+    });
     if (appliedCacheKeys.has(cacheKey)) return;
     appliedCacheKeys.add(cacheKey);
 
@@ -339,7 +344,11 @@ export function MonacoEditor({
 
     // If project files are already loaded (cache hit), sync immediately
     if (projectFiles.length > 0) {
-      const cacheKey = `${vaultId}:${treeSHA}`;
+      const cacheKey = buildMonacoAppliedCacheKey({
+        vaultId,
+        branch,
+        treeSHA,
+      });
       if (!appliedCacheKeys.has(cacheKey)) {
         appliedCacheKeys.add(cacheKey);
         syncProjectFiles({

@@ -164,6 +164,17 @@ Break multi-branch support into low-risk slices with clear acceptance gates.
 2. Branch-scoped cache is the only source of truth for editor tree/commit data
 3. Tests cover missing-branch-cache behavior without legacy fallback
 
+### Timeline and Blocking Criteria
+
+1. Target window: execute in the next PR immediately after PR #174 lands on
+   `main` (no parallel feature work that adds new `vault.treeData` reads).
+2. Block merge if any runtime `vault.treeData`, `vault.treeSHA`, or
+   `vault.commitSHA` access remains in branch selection/editor/staging paths.
+3. Block merge if build/lint/test is not green for both Convex and frontend
+   packages after legacy-field removal.
+4. Block merge if branch navigation or commit flows require restoring a runtime
+   legacy fallback during QA.
+
 ## Phase 5: Deleted-Upstream Branch Recovery + Safe Cleanup
 
 ### Scope

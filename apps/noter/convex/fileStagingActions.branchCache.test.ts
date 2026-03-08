@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   listTouchedBranchesForRefresh,
+  runPostCommitTreeRefresh,
   selectBatchReadRepositoryTree,
 } from "./fileStagingActions";
 
@@ -69,5 +70,47 @@ describe("listTouchedBranchesForRefresh", () => {
         "feature/a",
       ]),
     ).toEqual(["main", "feature/a", "feature/b"]);
+  });
+});
+
+describe("runPostCommitTreeRefresh", () => {
+  it("returns updated vault when refresh succeeds", async () => {
+    const calls: string[] = [];
+    const result = await runPostCommitTreeRefresh({
+      refreshBranchTree: async () => {
+        calls.push("branch");
+      },
+      refreshLegacyTree: async () => {
+        calls.push("legacy");
+      },
+      loadUpdatedVault: async () => {
+        calls.push("load");
+        return { treeSHA: "abc" };
+      },
+      onWarning: () => {
+        throw new Error("Unexpected warning callback");
+      },
+    });
+
+    expect(calls).toEqual(["branch", "legacy", "load"]);
+    expect(result).toEqual({ treeSHA: "abc" });
+  });
+
+  it("swallows refresh errors and returns null", async () => {
+    const warnings: unknown[] = [];
+    const result = await runPostCommitTreeRefresh({
+      refreshBranchTree: async () => {
+        throw new Error("network");
+      },
+      refreshLegacyTree: async () => undefined,
+      loadUpdatedVault: async () => ({ treeSHA: "abc" }),
+      onWarning: (error) => {
+        warnings.push(error);
+      },
+    });
+
+    expect(result).toBeNull();
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toBeInstanceOf(Error);
   });
 });

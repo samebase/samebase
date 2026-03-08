@@ -425,6 +425,26 @@ function compareRemoteBranchSortOrder(
   return left.name.localeCompare(right.name);
 }
 
+export function resolveSyncedBranchLastCommitAt(args: {
+  incomingHeadCommitSha: string;
+  incomingLastCommitAt?: number;
+  existingBranch?: {
+    headCommitSha: string;
+    lastCommitAt?: number;
+  };
+}): number | undefined {
+  if (args.incomingLastCommitAt !== undefined) {
+    return args.incomingLastCommitAt;
+  }
+  if (
+    args.existingBranch &&
+    args.existingBranch.headCommitSha === args.incomingHeadCommitSha
+  ) {
+    return args.existingBranch.lastCommitAt;
+  }
+  return undefined;
+}
+
 const getUserVaultsResult = array(
   object({
     _id: id("vaults"),
@@ -692,9 +712,14 @@ export const syncVaultRemoteBranches = internalMutation({
       seenNames.add(branch.name);
       const existingBranch = existingByName.get(branch.name);
       if (existingBranch) {
+        const nextLastCommitAt = resolveSyncedBranchLastCommitAt({
+          incomingHeadCommitSha: branch.headCommitSha,
+          incomingLastCommitAt: branch.lastCommitAt,
+          existingBranch,
+        });
         await ctx.db.patch(existingBranch._id, {
           headCommitSha: branch.headCommitSha,
-          lastCommitAt: branch.lastCommitAt,
+          lastCommitAt: nextLastCommitAt,
           isDefault: branch.isDefault,
           isProtected: branch.isProtected,
           remoteState: "active",

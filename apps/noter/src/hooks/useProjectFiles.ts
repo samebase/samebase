@@ -3,6 +3,7 @@ import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { type GithubTreeType } from "convex/schema";
+import { buildProjectFilesCacheKey } from "@/lib/editorCacheKeys";
 
 // ---------------------------------------------------------------------------
 // File extensions to load into Monaco models for import resolution
@@ -114,7 +115,16 @@ export function useProjectFiles(
 
   const [files, setFiles] = useState<ProjectFile[]>(() => {
     if (!vaultId) return [];
-    return projectFilesCache.get(`${vaultId}:${treeSHA}:${scopePrefix}`) ?? [];
+    return (
+      projectFilesCache.get(
+        buildProjectFilesCacheKey({
+          vaultId,
+          branch,
+          treeSHA,
+          scopePrefix,
+        }),
+      ) ?? []
+    );
   });
   const [loading, setLoading] = useState(false);
 
@@ -125,7 +135,12 @@ export function useProjectFiles(
       return;
     }
 
-    const cacheKey = `${vaultId}:${treeSHA}:${scopePrefix}`;
+    const cacheKey = buildProjectFilesCacheKey({
+      vaultId,
+      branch,
+      treeSHA,
+      scopePrefix,
+    });
 
     // Already cached
     const cached = projectFilesCache.get(cacheKey);

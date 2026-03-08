@@ -60,6 +60,7 @@ import { RepositoryWorkspaceFrame } from "./RepositoryWorkspaceFrame";
 import { diffLines } from "diff";
 import { isRenderableRepositoryMediaPath } from "../../shared/repositoryMedia";
 import { decodeRouteSegmentSafe } from "@/lib/vaultRoutes";
+import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
 
 // Function to find the best file to display
 function findBestInitialFile(files: GithubTreeType[]) {
@@ -248,7 +249,7 @@ function FileViewWrapper() {
     : undefined;
   const selectedFile = filePathParam ?? "";
   const selectedFileFromBranchlessRoute = branchParam
-    ? [branchParam, selectedFile]
+    ? [routeBranch ?? branchParam, selectedFile]
         .filter((segment) => segment.length > 0)
         .join("/")
     : selectedFile;
@@ -272,6 +273,18 @@ function FileViewWrapper() {
     [vault, selectedFile],
   );
   const selectedFileExistsInTree = selectedTreeEntry?.type === "blob";
+  const legacyBranchlessFilePath = useMemo(
+    () =>
+      vault &&
+      !vault.branchNotFound &&
+      resolveLegacyBranchlessFilePath({
+        branchSegment: routeBranch,
+        selectedFile,
+        selectedFileExistsInTree,
+        tree: vault.treeData.tree,
+      }),
+    [vault, routeBranch, selectedFile, selectedFileExistsInTree],
+  );
   const selectedFileIsRenderableMedia =
     isRenderableRepositoryMediaPath(selectedFile);
   const [storageBackedSelection, setStorageBackedSelection] = useState<
@@ -320,6 +333,27 @@ function FileViewWrapper() {
       : `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}`;
     void navigate(nextPath, { replace: true });
   }, [owner, repoName, branch, branchParam, selectedFile, navigate]);
+
+  useEffect(() => {
+    if (
+      !owner ||
+      !repoName ||
+      !branch ||
+      !branchParam ||
+      !legacyBranchlessFilePath
+    ) {
+      return;
+    }
+    const nextPath = `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${encodeVaultFilePath(legacyBranchlessFilePath)}`;
+    void navigate(nextPath, { replace: true });
+  }, [
+    owner,
+    repoName,
+    branch,
+    branchParam,
+    legacyBranchlessFilePath,
+    navigate,
+  ]);
 
   const refreshTreeIfNeeded = useCallback(
     (trigger: RefreshTrigger = "focus") => {

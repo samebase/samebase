@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveVaultBranchSelection } from "./vault";
+import {
+  resolveSyncedBranchLastCommitAt,
+  resolveVaultBranchSelection,
+} from "./vault";
 
 describe("resolveVaultBranchSelection", () => {
   it("resolves to requested branch when it exists remotely", () => {
@@ -59,5 +62,46 @@ describe("resolveVaultBranchSelection", () => {
       resolvedBranch: "main",
       branchNotFound: false,
     });
+  });
+});
+
+describe("resolveSyncedBranchLastCommitAt", () => {
+  it("uses incoming timestamp when provided", () => {
+    expect(
+      resolveSyncedBranchLastCommitAt({
+        incomingHeadCommitSha: "sha-new",
+        incomingLastCommitAt: 123,
+        existingBranch: {
+          headCommitSha: "sha-old",
+          lastCommitAt: 100,
+        },
+      }),
+    ).toBe(123);
+  });
+
+  it("preserves previous timestamp when SHA is unchanged and incoming timestamp is missing", () => {
+    expect(
+      resolveSyncedBranchLastCommitAt({
+        incomingHeadCommitSha: "sha-stable",
+        incomingLastCommitAt: undefined,
+        existingBranch: {
+          headCommitSha: "sha-stable",
+          lastCommitAt: 456,
+        },
+      }),
+    ).toBe(456);
+  });
+
+  it("clears timestamp when SHA changed and incoming timestamp is missing", () => {
+    expect(
+      resolveSyncedBranchLastCommitAt({
+        incomingHeadCommitSha: "sha-new",
+        incomingLastCommitAt: undefined,
+        existingBranch: {
+          headCommitSha: "sha-old",
+          lastCommitAt: 456,
+        },
+      }),
+    ).toBeUndefined();
   });
 });
