@@ -4,13 +4,13 @@ import {
   TrashIcon,
   UpdateIcon,
 } from "@radix-ui/react-icons";
-import { api } from "convex/_generated/api";
+import { api } from "../../convex/_generated/api";
 import { useCallback, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { linkStyle } from "./styles";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import type { Id } from "convex/_generated/dataModel";
+import type { Id } from "../../convex/_generated/dataModel";
 
 type StagedFile = NonNullable<
   Awaited<(typeof api.fileStaging.getByNewPath)["_returnType"]>
