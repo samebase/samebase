@@ -106,6 +106,10 @@ function readMcpConsentRequestId(search: string): string | null {
   return new URLSearchParams(search).get("mcp_consent_request")?.trim() || null;
 }
 
+function isMcpConsentRoute(pathname: string): boolean {
+  return pathname === "/oauth/mcp/consent";
+}
+
 function McpConsentView({ requestId }: { requestId: string }) {
   const authorizationRequest = useQuery(
     api.mcp.oauth.getAuthorizationRequestForCurrentUser,
@@ -257,11 +261,16 @@ function McpConsentView({ requestId }: { requestId: string }) {
 export default function App() {
   useAutoSignIn();
   const location = useLocation();
+  const onMcpConsentRoute = isMcpConsentRoute(location.pathname);
   const mcpConsentRequestId = readMcpConsentRequestId(location.search);
-  useCloseOAuthPopup(location.pathname, mcpConsentRequestId === null);
+  useCloseOAuthPopup(
+    location.pathname,
+    !(onMcpConsentRoute && mcpConsentRequestId !== null),
+  );
   const showChatFab = !isChatOnlyCodespaceRoute(location.pathname);
+  const showMcpConsent = onMcpConsentRoute && mcpConsentRequestId !== null;
 
-  if (mcpConsentRequestId) {
+  if (showMcpConsent) {
     return (
       <Layout>
         <>
