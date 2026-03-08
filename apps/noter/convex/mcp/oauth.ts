@@ -8,6 +8,7 @@ import {
   query,
 } from "../_generated/server";
 import { randomToken } from "../oauthUtils";
+import { applyMcpDenyErrorParamsToRedirectUrl } from "../../shared/mcpOAuth";
 import {
   McpAuthRequestStatus,
   McpOauthClientRegistrationStatus,
@@ -744,16 +745,7 @@ export const denyAuthorizationRequestForCurrentUser = action({
     }
 
     const redirectUrl = new URL(denyResult.redirectUri);
-    redirectUrl.searchParams.set("error", "access_denied");
-    // Codex's loopback callback parser treats OAuth errors as valid only when
-    // `error_description` is present; otherwise it reports "Invalid OAuth callback".
-    redirectUrl.searchParams.set(
-      "error_description",
-      "authorization_denied_by_user",
-    );
-    if (denyResult.state !== undefined) {
-      redirectUrl.searchParams.set("state", denyResult.state);
-    }
+    applyMcpDenyErrorParamsToRedirectUrl(redirectUrl, denyResult.state);
 
     return { redirectUrl: redirectUrl.toString() };
   },
