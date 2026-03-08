@@ -90,12 +90,14 @@ const addedExtraLibs = new Set<string>();
  * avoids the out-of-memory crashes from the worker trying to validate
  * hundreds of models at once.
  */
-function syncProjectFiles(args: {
+interface SyncProjectFilesArgs {
   monaco: Monaco;
   projectFiles: ProjectFile[];
   vaultId: Id<"vaults">;
   branch: string;
-}) {
+}
+
+function syncProjectFiles(args: SyncProjectFilesArgs) {
   const { monaco, projectFiles, vaultId, branch } = args;
   const defaults = monaco.languages.typescript.typescriptDefaults;
 

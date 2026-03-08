@@ -4,6 +4,11 @@ import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { type GithubTreeType } from "convex/schema";
 import { buildProjectFilesCacheKey } from "@/lib/editorCacheKeys";
+import {
+  getCachedProjectFiles,
+  loadProjectFilesWithSharedPromise,
+  type ProjectFile,
+} from "@/lib/projectFilesCache";
 
 // ---------------------------------------------------------------------------
 // File extensions to load into Monaco models for import resolution
@@ -95,13 +100,7 @@ function prioritizePaths(paths: string[], activeFilePath: string): string[] {
 // Hook
 // ---------------------------------------------------------------------------
 
-export type ProjectFile = { path: string; content: string };
-
-// Module-level cache so project files survive component remounts
-// (MonacoEditor remounts on every file switch due to its key prop).
-const projectFilesCache = new Map<string, ProjectFile[]>();
-// Track in-flight fetches so we don't fire duplicates
-const pendingFetches = new Set<string>();
+export type { ProjectFile };
 
 export function useProjectFiles(
   vaultId: Id<"vaults"> | undefined,
@@ -116,7 +115,7 @@ export function useProjectFiles(
   const [files, setFiles] = useState<ProjectFile[]>(() => {
     if (!vaultId) return [];
     return (
-      projectFilesCache.get(
+      getCachedProjectFiles(
         buildProjectFilesCacheKey({
           vaultId,
           branch,
@@ -143,15 +142,12 @@ export function useProjectFiles(
     });
 
     // Already cached
-    const cached = projectFilesCache.get(cacheKey);
-    if (cached) {
+    const cached = getCachedProjectFiles(cacheKey);
+    if (cached !== null) {
       setFiles(cached);
       setLoading(false);
       return;
     }
-
-    // Already fetching
-    if (pendingFetches.has(cacheKey)) return;
 
     setFiles([]);
 
@@ -172,23 +168,23 @@ export function useProjectFiles(
 
     const abortController = new AbortController();
     setLoading(true);
-    pendingFetches.add(cacheKey);
 
     void (async () => {
       try {
-        const result = await batchReadFiles({
-          vaultId,
-          branch,
-          filePaths: paths,
+        const result = await loadProjectFilesWithSharedPromise({
+          cacheKey,
+          load: () =>
+            batchReadFiles({
+              vaultId,
+              branch,
+              filePaths: paths,
+            }),
         });
-        projectFilesCache.set(cacheKey, result);
-        pendingFetches.delete(cacheKey);
         if (!abortController.signal.aborted) {
           setFiles(result);
           setLoading(false);
         }
       } catch (error) {
-        pendingFetches.delete(cacheKey);
         if (!abortController.signal.aborted) {
           console.error(
             "useProjectFiles: failed to load project files:",

@@ -221,10 +221,7 @@ function getPatchLineClassName(line: string): string {
 }
 
 function encodeGitHubPath(path: string): string {
-  return path
-    .split("/")
-    .map((segment) => encodeURIComponent(segment))
-    .join("/");
+  return encodeVaultFilePath(path);
 }
 
 function FileViewWrapper() {
@@ -856,10 +853,7 @@ function FileViewInner({
         reviewMode?: CommitReviewMode;
       },
     ) => {
-      const encodedPath = path
-        .split("/")
-        .map((segment) => encodeURIComponent(segment))
-        .join("/");
+      const encodedPath = encodeVaultFilePath(path);
       const searchParams = new URLSearchParams(search);
       const preserveCurrentReviewMode = options?.reviewMode === undefined;
       const includeDiff =

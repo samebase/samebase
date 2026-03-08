@@ -7,5 +7,9 @@ export interface FileViewRefreshArgs {
 export function buildFileViewRefreshDebounceKey(
   args: FileViewRefreshArgs,
 ): string {
-  return `${args.owner}/${args.repoName}:${args.branch ?? "__default__"}`;
+  if (args.branch === undefined) {
+    return `${args.owner}/${args.repoName}:default`;
+  }
+
+  return `${args.owner}/${args.repoName}:branch:${args.branch}`;
 }
