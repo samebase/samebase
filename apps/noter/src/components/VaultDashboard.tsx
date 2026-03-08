@@ -74,6 +74,7 @@ import { DaytonaSnapshotBanner } from "@/components/DaytonaSnapshotBanner";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
 import { VaultSyncStatus } from "@/components/VaultSyncStatus";
 import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
+import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";
 import {
   useApiKeyConnectDialog,
   type ApiKeyProvider,
@@ -213,6 +214,54 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
     apiKeyProvider: null,
   },
 };
+
+function VaultBranchLinkRow({
+  vaultId,
+  repositoryFullName,
+  branchName,
+  isDefault,
+}: {
+  vaultId: Id<"vaults">;
+  repositoryFullName: string;
+  branchName: string;
+  isDefault: boolean;
+}) {
+  const stagedFiles =
+    useQuery(api.fileStaging.listStagedFiles, {
+      vaultId,
+      branch: branchName,
+    }) ?? [];
+  const hasStagedChanges = stagedFiles.length > 0;
+  const branchPath = encodeURIComponent(branchName);
+  const branchRoute = `/vault/${repositoryFullName}/${branchPath}`;
+
+  return (
+    <div className="flex items-center gap-2 border-b border-border/40 px-2 py-2 last:border-b-0">
+      <Link
+        to={branchRoute}
+        className={clsx(
+          "min-w-0 flex-1 truncate text-sm text-muted-foreground underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current",
+          isDefault && "font-medium text-foreground",
+        )}
+      >
+        {branchName}
+      </Link>
+      {hasStagedChanges ? (
+        <div className="shrink-0">
+          <EditedFilesCategoriesPopover
+            repositoryFullName={repositoryFullName}
+            branch={branchName}
+            stagedFiles={stagedFiles}
+          />
+        </div>
+      ) : (
+        <span className="w-4 shrink-0 text-right font-mono text-[11px] tabular-nums text-muted-foreground/70">
+          0
+        </span>
+      )}
+    </div>
+  );
+}
 
 export function VaultDashboard() {
   const vaults = useQuery(api.vault.getUserVaults);
@@ -1337,23 +1386,23 @@ export function VaultDashboard() {
                     </div>
 
                     {isReady && (
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {remoteBranches.map((branch) => {
-                          const branchPath = encodeURIComponent(branch.name);
-                          const branchRoute = `/vault/${vault.repositoryFullName}/${branchPath}`;
-                          return (
-                            <Button
-                              key={branch.name}
-                              asChild
-                              variant={
-                                branch.isDefault ? "secondary" : "outline"
-                              }
-                              size="sm"
-                            >
-                              <Link to={branchRoute}>{branch.name}</Link>
-                            </Button>
-                          );
-                        })}
+                      <div className="space-y-1.5">
+                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+                          Branches
+                        </p>
+                        <div className="overflow-hidden rounded-md border border-border/60 bg-muted/20">
+                          {remoteBranches.map((branch) => {
+                            return (
+                              <VaultBranchLinkRow
+                                key={branch.name}
+                                vaultId={vault._id}
+                                repositoryFullName={vault.repositoryFullName}
+                                branchName={branch.name}
+                                isDefault={branch.isDefault}
+                              />
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
 

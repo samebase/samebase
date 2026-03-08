@@ -371,6 +371,34 @@ async function getCurrentDaytonaSnapshotState(
   };
 }
 
+function compareRemoteBranchSortOrder(
+  left: {
+    remoteState: "active" | "deleted_upstream";
+    lastCommitAt?: number;
+    isDefault: boolean;
+    name: string;
+  },
+  right: {
+    remoteState: "active" | "deleted_upstream";
+    lastCommitAt?: number;
+    isDefault: boolean;
+    name: string;
+  },
+): number {
+  if (left.remoteState !== right.remoteState) {
+    return left.remoteState === "active" ? -1 : 1;
+  }
+  const leftLastCommitAt = left.lastCommitAt ?? Number.NEGATIVE_INFINITY;
+  const rightLastCommitAt = right.lastCommitAt ?? Number.NEGATIVE_INFINITY;
+  if (leftLastCommitAt !== rightLastCommitAt) {
+    return rightLastCommitAt - leftLastCommitAt;
+  }
+  if (left.isDefault !== right.isDefault) {
+    return left.isDefault ? -1 : 1;
+  }
+  return left.name.localeCompare(right.name);
+}
+
 const getUserVaultsResult = array(
   object({
     _id: id("vaults"),
@@ -404,6 +432,7 @@ const getUserVaultsResult = array(
     remoteBranches: array(
       object({
         name: string(),
+        lastCommitAt: optional(number()),
         isDefault: boolean(),
         remoteState: union(literal("active"), literal("deleted_upstream")),
       }),
@@ -518,17 +547,10 @@ export const getUserVaults = query({
           daytonaCurrentSnapshotNextRetryAt:
             daytonaSnapshotState.daytonaCurrentSnapshotNextRetryAt,
           remoteBranches: remoteBranches
-            .sort((left, right) => {
-              if (left.remoteState !== right.remoteState) {
-                return left.remoteState === "active" ? -1 : 1;
-              }
-              if (left.isDefault !== right.isDefault) {
-                return left.isDefault ? -1 : 1;
-              }
-              return left.name.localeCompare(right.name);
-            })
+            .sort(compareRemoteBranchSortOrder)
             .map((branch) => ({
               name: branch.name,
+              lastCommitAt: branch.lastCommitAt,
               isDefault: branch.isDefault,
               remoteState: branch.remoteState,
             })),
@@ -576,6 +598,7 @@ export const getVaultRemoteBranches = query({
     object({
       name: string(),
       headCommitSha: string(),
+      lastCommitAt: optional(number()),
       isDefault: boolean(),
       isProtected: boolean(),
       remoteState: union(literal("active"), literal("deleted_upstream")),
@@ -595,25 +618,16 @@ export const getVaultRemoteBranches = query({
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .collect();
 
-    return branches
-      .sort((left, right) => {
-        if (left.remoteState !== right.remoteState) {
-          return left.remoteState === "active" ? -1 : 1;
-        }
-        if (left.isDefault !== right.isDefault) {
-          return left.isDefault ? -1 : 1;
-        }
-        return left.name.localeCompare(right.name);
-      })
-      .map((branch) => ({
-        name: branch.name,
-        headCommitSha: branch.headCommitSha,
-        isDefault: branch.isDefault,
-        isProtected: branch.isProtected,
-        remoteState: branch.remoteState,
-        deletedUpstreamAt: branch.deletedUpstreamAt,
-        lastSyncedAt: branch.lastSyncedAt,
-      }));
+    return branches.sort(compareRemoteBranchSortOrder).map((branch) => ({
+      name: branch.name,
+      headCommitSha: branch.headCommitSha,
+      lastCommitAt: branch.lastCommitAt,
+      isDefault: branch.isDefault,
+      isProtected: branch.isProtected,
+      remoteState: branch.remoteState,
+      deletedUpstreamAt: branch.deletedUpstreamAt,
+      lastSyncedAt: branch.lastSyncedAt,
+    }));
   },
 });
 
@@ -625,6 +639,7 @@ export const syncVaultRemoteBranches = internalMutation({
       object({
         name: string(),
         headCommitSha: string(),
+        lastCommitAt: optional(number()),
         isDefault: boolean(),
         isProtected: boolean(),
       }),
@@ -653,6 +668,7 @@ export const syncVaultRemoteBranches = internalMutation({
       if (existingBranch) {
         await ctx.db.patch(existingBranch._id, {
           headCommitSha: branch.headCommitSha,
+          lastCommitAt: branch.lastCommitAt,
           isDefault: branch.isDefault,
           isProtected: branch.isProtected,
           remoteState: "active",
@@ -666,6 +682,7 @@ export const syncVaultRemoteBranches = internalMutation({
         vaultId: args.vaultId,
         name: branch.name,
         headCommitSha: branch.headCommitSha,
+        lastCommitAt: branch.lastCommitAt,
         isDefault: branch.isDefault,
         isProtected: branch.isProtected,
         remoteState: "active",

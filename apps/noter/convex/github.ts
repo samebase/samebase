@@ -200,9 +200,59 @@ function toGitTreeRef(branch: string): string {
 type RemoteBranchSummary = {
   name: string;
   headCommitSha: string;
+  lastCommitAt?: number;
   isDefault: boolean;
   isProtected: boolean;
 };
+
+function parseGitTimestamp(value: string | undefined): number | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) {
+    return undefined;
+  }
+  return timestamp;
+}
+
+async function getHeadCommitTimestamps(args: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  shas: string[];
+}): Promise<Map<string, number | undefined>> {
+  const uniqueShas = Array.from(new Set(args.shas));
+  const timestampsBySha = new Map<string, number | undefined>();
+  const chunkSize = 20;
+
+  for (let start = 0; start < uniqueShas.length; start += chunkSize) {
+    const chunk = uniqueShas.slice(start, start + chunkSize);
+    const chunkResults = await Promise.all(
+      chunk.map(async (sha) => {
+        try {
+          const response = await args.octokit.rest.git.getCommit({
+            owner: args.owner,
+            repo: args.repo,
+            commit_sha: sha,
+          });
+          const lastCommitAt =
+            parseGitTimestamp(response.data.committer.date) ??
+            parseGitTimestamp(response.data.author.date);
+          return { sha, lastCommitAt };
+        } catch {
+          return { sha, lastCommitAt: undefined };
+        }
+      }),
+    );
+
+    for (const result of chunkResults) {
+      timestampsBySha.set(result.sha, result.lastCommitAt);
+    }
+  }
+
+  return timestampsBySha;
+}
 
 async function listRemoteBranches(args: {
   octokit: Octokit;
@@ -254,7 +304,17 @@ async function listRemoteBranches(args: {
     }
   }
 
-  return branches;
+  const timestampsBySha = await getHeadCommitTimestamps({
+    octokit: args.octokit,
+    owner: args.owner,
+    repo: args.repo,
+    shas: branches.map((branch) => branch.headCommitSha),
+  });
+
+  return branches.map((branch) => ({
+    ...branch,
+    lastCommitAt: timestampsBySha.get(branch.headCommitSha),
+  }));
 }
 
 function buildDataUrl(mimeType: string, content: Buffer): string {

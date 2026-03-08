@@ -367,6 +367,8 @@ Auth:
 - For UI automation, never kill all `Google Chrome` processes. Only terminate
   Playwright-owned sessions/profile paths (for example
   `.../ms-playwright/mcp-chrome`).
+- When asked to use Playwright for testing, start in mobile viewport/device mode
+  first, then validate desktop as needed.
 - Worktree frontend should avoid port `5173` so OAuth flows on main checkout
   stay unaffected (default worktree dev port: `5174`).
 - For temporary Playwright/manual-test repos, use the exact
