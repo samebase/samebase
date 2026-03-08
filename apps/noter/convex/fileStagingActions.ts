@@ -1845,6 +1845,7 @@ export const commitAllStaged = internalAction({
         userId: args.userId,
         owner: args.repoOwner,
         repo: args.repoName,
+        branch: commitBranch,
       });
 
       // 2. Re-read the vault to get the updated tree with new SHAs

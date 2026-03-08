@@ -120,9 +120,10 @@ export function EditedFilesCategories({
       searchParams.delete("diff");
       const baseQuery = searchParams.toString();
       const queryString = baseQuery.length > 0 ? `${baseQuery}&diff` : "diff";
+      const encodedBranch = encodeURIComponent(branch);
 
       void navigate(
-        `/vault/${repositoryFullName}/${branch}/${encodedFilePath}?${queryString}`,
+        `/vault/${repositoryFullName}/${encodedBranch}/${encodedFilePath}?${queryString}`,
       );
     },
     [branch, navigate, repositoryFullName, search],

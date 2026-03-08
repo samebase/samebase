@@ -1283,8 +1283,13 @@ export function VaultDashboard() {
         <div className="space-y-2">
           {vaults.map((vault: (typeof vaults)[0]) => {
             const isReady = vault.state === "ready";
-            const defaultBranch = "main";
-            const chatRoute = `/vault/${vault.repositoryFullName}/${defaultBranch}/chat`;
+            const remoteBranches = vault.remoteBranches.filter(
+              (branch) => branch.remoteState === "active",
+            );
+            const defaultBranch =
+              remoteBranches.find((branch) => branch.isDefault)?.name ?? "main";
+            const defaultBranchPath = encodeURIComponent(defaultBranch);
+            const chatRoute = `/vault/${vault.repositoryFullName}/${defaultBranchPath}/chat`;
             const githubRepositoryUrl = `https://github.com/${vault.ghRepoOwner}/${vault.ghRepoName}`;
             const developerToolsOpen =
               openDeveloperToolsByVaultId[vault._id] ?? false;
@@ -1330,6 +1335,27 @@ export function VaultDashboard() {
                         </h3>
                       </a>
                     </div>
+
+                    {isReady && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {remoteBranches.map((branch) => {
+                          const branchPath = encodeURIComponent(branch.name);
+                          const branchRoute = `/vault/${vault.repositoryFullName}/${branchPath}`;
+                          return (
+                            <Button
+                              key={branch.name}
+                              asChild
+                              variant={
+                                branch.isDefault ? "secondary" : "outline"
+                              }
+                              size="sm"
+                            >
+                              <Link to={branchRoute}>{branch.name}</Link>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    )}
 
                     {isReady && (
                       <DaytonaSnapshotBanner
@@ -1423,7 +1449,7 @@ export function VaultDashboard() {
                       <>
                         <Button asChild variant="secondary" size="sm">
                           <Link
-                            to={`/vault/${vault.repositoryFullName}/${defaultBranch}`}
+                            to={`/vault/${vault.repositoryFullName}/${defaultBranchPath}`}
                           >
                             {defaultBranch}
                           </Link>

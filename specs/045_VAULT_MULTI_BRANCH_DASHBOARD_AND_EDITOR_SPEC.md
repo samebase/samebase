@@ -1,0 +1,394 @@
+# 045 Vault Multi-Branch Dashboard and Editor Spec
+
+## Document Control
+
+- Status: Proposed
+- Owner: Noter frontend/editor + Convex vault/github
+- Last updated: 2026-03-08
+- Related specs:
+  - `specs/046_VAULT_MULTI_BRANCH_ROLLOUT_PLAN.md`
+  - `specs/037_EDITOR_COMMIT_DIFF_RELIABILITY_SPEC.md`
+  - `specs/041_DAYTONA_COMMIT_PINNED_SNAPSHOT_SPEC.md`
+  - `specs/008_CHAT_ONLY_CODESPACE_MODE_SPEC.md`
+  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+
+## Summary
+
+Enable working with multiple remote branches per vault by introducing:
+
+1. Remote branch catalog in dashboard cards (all remote branches, not local)
+2. Branch-select navigation from dashboard to editor
+3. Branch-scoped repository tree/commit state for editor correctness
+4. Branch-safe routing contract (including branch names with `/`)
+5. Safe tombstone handling when upstream branches are deleted while local
+   uncommitted work still exists
+
+This spec focuses on GitHub remote branches as the source of truth.
+
+## Product Intent
+
+Current workflow direction for Noter:
+
+1. Work against remote branches only
+2. Local branch state in Daytona/Codex sandboxes is implementation detail
+3. Commit in Noter implies push to the selected remote branch
+
+## Current State Research
+
+### What is already branch-aware
+
+1. `fileStaging` and `collaborativeUpdates` data models are branch-scoped
+2. Staging read/write/commit actions accept `branch` and rebase on branch head
+3. Chat thread context stores an optional branch
+4. Many editor actions already pass branch through API calls
+
+### What is still single-branch in practice
+
+1. Dashboard hardcodes `main` for vault links and status surfaces
+2. File view route parsing defaults to `main`
+3. ChatFab URL parsing defaults to `main`
+4. Vault tree cache (`vaults.treeData`, `vaults.commitSHA`) is effectively one
+   branch
+5. Repository tree refresh uses `HEAD` and no branch argument
+6. Commit pipeline refreshes tree without passing committed branch
+7. Agent/system prompt repo tree context comes from single cached vault tree
+
+### URL contract gap
+
+Current `/vault/:owner/:repoName/*` parsing splits wildcard into
+`branch/filePath`. That breaks correctness for branch names that contain `/`
+(for example `feature/oauth/login`).
+
+## Goals
+
+1. Show all remote branches per vault on dashboard
+2. Open editor on clicked branch from dashboard
+3. Keep editor tree, commit SHA, and staged view consistent with selected branch
+4. Support branch names with slashes and special characters safely in routes
+5. Preserve existing single-user vault ownership and auth model
+6. Keep solution incremental with compatibility for current data
+
+## Non-Goals (This Spec)
+
+1. Local branch creation/checkout semantics in sandboxes
+2. Branch create/delete/rename UI
+3. Multi-branch Daytona rollout (still main-only per spec 041)
+4. Per-branch infra/hosting lifecycle changes
+5. Git merge/rebase UX in Noter
+
+## Scope
+
+1. Convex schema and query/action contracts for remote branch catalogs
+2. Branch-scoped repository tree cache contracts
+3. Dashboard branch list UX and navigation wiring
+4. File/editor route and parsing contract updates
+5. Branch propagation hardening in chat/commit integration
+6. Deleted-upstream branch recovery and retention safety
+7. Migration and rollout plan
+
+## Proposed Architecture
+
+### 1) Persist remote branch catalog per vault
+
+Add a new table `vaultRemoteBranches`:
+
+1. `vaultId: Id<"vaults">`
+2. `name: string` (exact GitHub branch name)
+3. `headCommitSha: string`
+4. `isDefault: boolean`
+5. `isProtected: boolean`
+6. `remoteState: "active" | "deleted_upstream"`
+7. `deletedUpstreamAt?: number`
+8. `lastSyncedAt: number`
+
+Indexes:
+
+1. `by_vault` (`vaultId`)
+2. `by_vault_and_name` (`vaultId`, `name`)
+3. `by_vault_and_default` (`vaultId`, `isDefault`)
+4. `by_vault_and_remote_state` (`vaultId`, `remoteState`)
+
+Rationale:
+
+1. Query-friendly for dashboard rendering
+2. Avoids embedding large branch arrays in `vaults`
+3. Allows per-branch metadata updates without rewriting full vault docs
+4. Preserves user work when a remote branch is deleted upstream
+
+### 2) Add branch-scoped tree cache
+
+Add a new table `vaultBranchTrees`:
+
+1. `vaultId: Id<"vaults">`
+2. `branch: string`
+3. `treeData: GithubTreeData`
+4. `commitSHA?: string`
+5. `lastTreeRefreshAt?: number`
+6. `treeRefreshStartedAt?: number`
+
+Indexes:
+
+1. `by_vault_and_branch` (`vaultId`, `branch`)
+
+Rationale:
+
+1. Prevents one-branch cache from clobbering another
+2. Enables branch-correct file tree, commit status, and editor behavior
+3. Mirrors existing refresh lock/debounce pattern at branch scope
+
+### 3) Track default branch explicitly on vault
+
+Add `defaultBranch?: string` to `vaults`.
+
+Behavior:
+
+1. Set on `connectRepository` and `createRepository`
+2. Refresh during branch catalog sync when GitHub default changes
+3. Use as fallback when route omits branch
+
+## API Contract Changes
+
+### Branch catalog sync/read
+
+Add action:
+
+- `github.refreshVaultRemoteBranches({ vaultId, trigger? })`
+
+Behavior:
+
+1. Calls GitHub `repos.listBranches` with pagination (`per_page=100`)
+2. Upserts `vaultRemoteBranches`
+3. Marks one branch as `isDefault=true` (from repo metadata)
+4. Updates `vault.defaultBranch`
+5. For previously known branches missing upstream, set
+   `remoteState="deleted_upstream"` and `deletedUpstreamAt`
+6. If a previously deleted-upstream branch reappears remotely, restore it to
+   `remoteState="active"` and clear `deletedUpstreamAt`
+7. Garbage-collect deleted-upstream branch rows only when there are no
+   `fileStaging` or `collaborativeUpdates` rows for that branch
+
+Add query:
+
+- `vault.getVaultRemoteBranches({ vaultId })`
+
+Returns:
+
+1. Branch rows ordered by: `remoteState="active"` first, then `isDefault DESC`,
+   then `name ASC`
+
+### Branch-scoped vault read
+
+Update query:
+
+- `vault.getVaultByRepository({ repositoryFullName, branch?: string })`
+
+Returns additive fields:
+
+1. `resolvedBranch: string`
+2. `defaultBranch?: string`
+
+Behavior:
+
+1. Resolve target branch: `args.branch ?? vault.defaultBranch ?? "main"`
+2. Read tree/commit from `vaultBranchTrees` for `resolvedBranch`
+3. Legacy fallback: if branch row missing, use existing
+   `vault.treeData/commitSHA` only when `resolvedBranch` matches current default
+   branch
+
+### Branch-aware refresh
+
+Update actions:
+
+1. `github.refreshRepositoryTree({ owner, repo, branch?, trigger? })`
+2. `internal.github.updateRepositoryTree({ userId, owner, repo, branch? })`
+
+Behavior:
+
+1. Refresh only the requested branch tree
+2. Use GitHub refs for branch-specific tree/commit reads
+3. Write to `vaultBranchTrees`
+4. Keep legacy `vault.treeData/commitSHA` in sync for default branch only
+
+### Commit pipeline propagation
+
+Update commit path to pass explicit branch to tree refresh:
+
+1. `fileStagingActions.commitAllStaged` calls
+   `internal.github.updateRepositoryTree(..., branch: commitBranch)`
+2. Blob cache save reads branch tree from `vaultBranchTrees(commitBranch)`
+3. Commit to `remoteState="deleted_upstream"` branch is blocked unless user
+   explicitly chooses a recovery action that recreates or retargets the branch
+
+## Routing and URL Contract
+
+### Canonical routes
+
+Use explicit branch param routes:
+
+1. `/vault/:owner/:repoName/:branch`
+2. `/vault/:owner/:repoName/:branch/*`
+3. `/vault/:owner/:repoName/:branch/chat`
+4. `/vault/:owner/:repoName` redirects to default branch route
+
+### Encoding contract
+
+1. Branch must be encoded as one URL segment with `encodeURIComponent`
+2. Branch param must be decoded exactly once
+3. Do not derive branch by splitting wildcard path
+
+Implementation note:
+
+1. Add a single route helper module to build/parse vault URLs
+2. Replace ad-hoc string interpolation and regex parsing in dashboard/file/chat
+
+## Dashboard UX Changes
+
+For each ready vault card:
+
+1. Render a branch list section populated from `vaultRemoteBranches`
+2. Show all remote branches in a scrollable list region
+3. Mark default branch with badge/label
+4. Clicking a branch opens `/vault/:owner/:repoName/:encodedBranch`
+
+Constraints:
+
+1. Keep existing no-placeholder UX style
+2. Avoid noisy loading states; show branch list when available
+3. Keep infra/daytona summary aligned to default branch until multi-branch
+   Daytona spec is implemented
+
+## Editor Behavior Changes
+
+1. File view reads `branch` from explicit route param
+2. Query vault via `getVaultByRepository({ repositoryFullName, branch })`
+3. Use returned branch-scoped tree for file existence/navigation
+4. Refresh tree with selected branch
+5. Keep staging/commit preview/commit calls on selected branch (already mostly
+   present)
+
+Expected outcome:
+
+1. Opening `feature/*` branch shows that branch’s tree and commit SHA
+2. Committing in that view updates that branch’s head and cache
+
+## Deleted-Upstream Branch Policy
+
+When branch sync detects a branch no longer present on GitHub:
+
+1. Do not hard-delete branch metadata immediately
+2. Mark branch `remoteState="deleted_upstream"` and keep last known head SHA
+3. If branch has staged/collaborative edits, keep branch visible in dashboard
+   and editor as “deleted upstream”
+4. Block normal commit to that branch by default
+5. Offer explicit recovery actions:
+   - recreate remote branch from last known head (or selected base), then commit
+   - move staged changes to another active branch
+   - discard staged changes for that branch
+6. After branch has no staged/collaborative state, tombstone row may be
+   garbage-collected
+
+## Chat/Agent Integration Adjustments
+
+1. `ChatFab` route context should use shared route parser (no hardcoded `main`)
+2. `chat.confirmCommit` should pass thread branch when available to avoid
+   ambiguous multi-branch staging commits
+3. Agent system prompt repo tree context should come from selected branch cache
+   (or branch fetch), not default-only vault tree
+4. Tool catalog copy for `commit_and_push` should remove hardcoded “main branch”
+5. Commit approval UI must surface branch deleted-upstream status and require a
+   recovery action before commit can proceed
+
+## Migration and Delivery Strategy
+
+Delivery is intentionally phased; this work should not ship as one large change.
+
+Companion plan with concrete tasks and gates:
+
+1. `specs/046_VAULT_MULTI_BRANCH_ROLLOUT_PLAN.md`
+
+### Delivery Phases
+
+1. Phase 1: remote branch catalog + dashboard list + read-only navigation
+2. Phase 2: branch-safe routing contract and branch context plumbing
+3. Phase 3: branch-scoped tree cache + branch-aware refresh/commit/chat paths
+4. Phase 4: deleted-upstream recovery UX + tombstone cleanup + legacy cleanup
+
+### Step 1: additive schema
+
+1. Add `vault.defaultBranch?`
+2. Add `vaultRemoteBranches`
+3. Add `vaultBranchTrees`
+
+### Step 2: bootstrap existing vaults lazily
+
+1. On first dashboard load/sync, fetch remote branches and set `defaultBranch`
+2. Seed `vaultBranchTrees(defaultBranch)` from legacy `vault.treeData/commitSHA`
+   when available
+3. Backfill non-default branches on demand when opened
+
+### Step 3: switch reads
+
+1. Move FileView and dashboard branch list to new contracts
+2. Keep legacy fields as fallback during rollout
+
+### Step 4: cleanup (later)
+
+1. Remove dependency on legacy single-branch tree fields once all readers are
+   migrated
+
+## Failure Handling
+
+1. If branch catalog sync fails, keep last synced list and log error
+2. If selected branch is deleted upstream:
+   - if no staged/collaborative state, redirect to default branch
+   - if staged/collaborative state exists, open in deleted-upstream recovery
+     state (no silent redirect)
+3. If branch tree refresh fails, preserve last known tree for that branch
+4. Respect existing debounce/lock/stale-lock behavior to avoid refresh storms
+
+## Testing Plan
+
+### Backend
+
+1. `refreshVaultRemoteBranches` paginates and upserts correctly
+2. Default branch changes are reflected in `vault.defaultBranch`
+3. Branch tree refresh writes/reads by `(vaultId, branch)`
+4. Commit on non-default branch updates that branch tree cache
+5. Missing upstream branches are tombstoned, not hard-deleted, when branch-local
+   staged state exists
+6. Tombstoned branch rows are garbage-collected only after staged/collab state
+   is empty
+
+### Frontend
+
+1. Dashboard renders all remote branches for each vault
+2. Clicking branch navigates to encoded branch route
+3. Route parser handles `feature/x`, `bugfix/foo-bar`, and encoded characters
+4. FileView on non-default branch uses branch-specific tree and commit SHA
+5. Deleted-upstream branch with staged edits is visibly flagged and does not
+   disappear from branch list
+
+### Regression
+
+1. Existing `main` flow remains unchanged
+2. Staging isolation across branches remains enforced
+3. Chat commit approval still works when one branch is active
+4. Branch sync does not accidentally discard uncommitted branch-scoped work
+
+## Acceptance Criteria
+
+1. Dashboard card shows all remote branches for each ready vault
+2. Clicking a branch opens editor for that exact branch
+3. Editor tree and commit SHA are branch-correct
+4. Branch names containing `/` work end-to-end in routing and API calls
+5. Commit from non-default branch refreshes and displays that branch state
+6. Deleted-upstream branches with uncommitted work are preserved as tombstones
+   until user resolves that work
+7. No regression for existing default-branch users
+
+## Deferred Follow-Ups
+
+1. Branch create/delete/switch shortcuts from UI
+2. Branch-specific Daytona snapshots and launch UX (spec 041 follow-up)
+3. Branch-scoped infra preview domain surfacing in dashboard
+4. Branch-scoped thread model (optional UX improvement)

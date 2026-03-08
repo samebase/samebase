@@ -18,13 +18,21 @@ function formatCodespaceState(state: string): string {
   return `${state.charAt(0).toUpperCase()}${state.slice(1)}`;
 }
 
+function decodeRouteSegmentSafe(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
 export function CodespaceChatOnlyView() {
   const { owner, repoName, branch } = useParams<{
     owner: string;
     repoName: string;
     branch: string;
   }>();
-  const targetBranch = branch ?? "main";
+  const targetBranch = branch ? decodeRouteSegmentSafe(branch) : "main";
   const repositoryFullName = useMemo(() => {
     if (!owner || !repoName) {
       return null;
@@ -118,7 +126,7 @@ export function CodespaceChatOnlyView() {
     );
   }
 
-  const fileViewPath = `/vault/${owner}/${repoName}/${targetBranch}`;
+  const fileViewPath = `/vault/${owner}/${repoName}/${encodeURIComponent(targetBranch)}`;
 
   if (vault === undefined) {
     return null;
@@ -152,14 +160,18 @@ export function CodespaceChatOnlyView() {
             <Link to={fileViewPath}>Back</Link>
           </Button>
           <div className="min-w-0">
-            <div className="truncate text-sm font-medium">Codespace Chat View</div>
+            <div className="truncate text-sm font-medium">
+              Codespace Chat View
+            </div>
             <div className="truncate text-xs text-muted-foreground">
               {repositoryFullName}
             </div>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={stateBadgeVariant}>{formatCodespaceState(state)}</Badge>
+          <Badge variant={stateBadgeVariant}>
+            {formatCodespaceState(state)}
+          </Badge>
           <Button
             variant="outline"
             size="sm"

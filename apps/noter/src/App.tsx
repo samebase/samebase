@@ -305,8 +305,15 @@ export default function App() {
                 path="/vault/:owner/:repoName/:branch/chat"
                 element={<CodespaceChatOnlyView />}
               />
+              <Route
+                path="/vault/:owner/:repoName/:branch"
+                element={<FileView />}
+              />
+              <Route
+                path="/vault/:owner/:repoName/:branch/*"
+                element={<FileView />}
+              />
               <Route path="/vault/:owner/:repoName" element={<FileView />} />
-              <Route path="/vault/:owner/:repoName/*" element={<FileView />} />
 
               {/* test route */}
               <Route path="/test" element={<div>Test</div>} />

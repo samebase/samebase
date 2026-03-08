@@ -217,25 +217,33 @@ function encodeGitHubPath(path: string): string {
     .join("/");
 }
 
+function decodeRouteSegmentSafe(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
 function FileViewWrapper() {
   const navigate = useNavigate();
 
   const {
     owner,
     repoName,
-    "*": branchAndFilePath,
+    branch: branchParam,
+    "*": filePathParam,
   } = useParams<{
     owner: string;
     repoName: string;
+    branch: string;
     "*": string;
   }>();
 
   const firstDocAction = useAction(api.fileStagingActions.getFileForEditing);
   const refreshTree = useAction(api.github.refreshRepositoryTree);
-  // Parse branch and file path from the wildcard parameter
-  const parsedPath = branchAndFilePath ? branchAndFilePath.split("/") : [];
-  const branch = parsedPath[0] || "main";
-  const selectedFile = parsedPath.slice(1).join("/");
+  const branch = branchParam ? decodeRouteSegmentSafe(branchParam) : "main";
+  const selectedFile = filePathParam ?? "";
   const storageBackedSelectionKey = `${branch}:${selectedFile}`;
   const repositoryFullName = owner && repoName ? `${owner}/${repoName}` : null;
 
@@ -277,14 +285,14 @@ function FileViewWrapper() {
       if (!vaultId || !owner || !repoName) return;
       const key = `${owner}/${repoName}`;
       if (!claimRefreshDebounce("file_view", key)) return;
-      void refreshTree({ owner, repo: repoName, trigger }).catch(
+      void refreshTree({ owner, repo: repoName, branch, trigger }).catch(
         (error: unknown) => {
           console.error("Failed to refresh repository tree:", error);
           releaseRefreshDebounce("file_view", key);
         },
       );
     },
-    [vaultId, owner, repoName, refreshTree],
+    [vaultId, owner, repoName, branch, refreshTree],
   );
 
   // Refresh tree from GitHub when the page regains focus (debounced to 2 min).
@@ -325,9 +333,12 @@ function FileViewWrapper() {
     ) {
       const bestFile = findBestInitialFile(vault?.treeData.tree ?? []);
       if (bestFile) {
-        void navigate(`/vault/${owner}/${repoName}/${branch}/${bestFile}`, {
-          replace: true,
-        });
+        void navigate(
+          `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${bestFile}`,
+          {
+            replace: true,
+          },
+        );
       }
     }
   }, [selectedFile, vault, owner, repoName, branch, navigate, firstDocAction]);
@@ -352,13 +363,16 @@ function FileViewWrapper() {
 
     const bestFile = findBestInitialFile(vault.treeData.tree);
     if (bestFile) {
-      void navigate(`/vault/${owner}/${repoName}/${branch}/${bestFile}`, {
-        replace: true,
-      });
+      void navigate(
+        `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${bestFile}`,
+        {
+          replace: true,
+        },
+      );
       return;
     }
 
-    void navigate(`/vault/${owner}/${repoName}/${branch}`, {
+    void navigate(`/vault/${owner}/${repoName}/${encodeURIComponent(branch)}`, {
       replace: true,
     });
   }, [
@@ -461,6 +475,7 @@ function FileViewInner({
   } = useDialog();
 
   const repositoryFullName = `${owner}/${repoName}`;
+  const encodedBranch = encodeURIComponent(branch);
   const selectedFileIsRenderableMedia =
     isRenderableRepositoryMediaPath(selectedFile);
   const commitSha = vault.commitSHA;
@@ -776,9 +791,9 @@ function FileViewInner({
           ? `${baseQuery}&diff`
           : "diff"
         : baseQuery;
-      return `/vault/${owner}/${repoName}/${branch}/${encodedPath}${queryString.length > 0 ? `?${queryString}` : ""}`;
+      return `/vault/${owner}/${repoName}/${encodedBranch}/${encodedPath}${queryString.length > 0 ? `?${queryString}` : ""}`;
     },
-    [branch, owner, repoName, search],
+    [encodedBranch, owner, repoName, search],
   );
   const setReviewModeInQuery = useCallback(
     (
@@ -875,7 +890,7 @@ function FileViewInner({
         if (commitReviewMode === "review") {
           return;
         }
-        void navigate(`/vault/${owner}/${repoName}/${branch}`);
+        void navigate(`/vault/${owner}/${repoName}/${encodedBranch}`);
       }
 
       console.log(`File ${filePath} marked for deletion`);
@@ -898,7 +913,9 @@ function FileViewInner({
     })
       .then(() => {
         // Navigate to the new file
-        void navigate(`/vault/${owner}/${repoName}/${branch}/${filePath}`);
+        void navigate(
+          `/vault/${owner}/${repoName}/${encodedBranch}/${filePath}`,
+        );
       })
       .catch((error) => {
         console.error("Failed to create file:", error);

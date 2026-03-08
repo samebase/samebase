@@ -249,6 +249,7 @@ export const clearAllStaging = mutation({
         userId: vault.userId,
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
+        branch: args.branch,
       });
     }
 

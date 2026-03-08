@@ -154,6 +154,76 @@ const repositoryMediaAssetResult = union(
 
 type RepositoryMediaAsset = Infer<typeof repositoryMediaAssetResult>;
 
+function toGitTreeRef(branch: string): string {
+  if (branch.startsWith("refs/heads/")) {
+    return branch.slice("refs/".length);
+  }
+  if (branch.startsWith("heads/")) {
+    return branch;
+  }
+  return `heads/${branch}`;
+}
+
+type RemoteBranchSummary = {
+  name: string;
+  headCommitSha: string;
+  isDefault: boolean;
+  isProtected: boolean;
+};
+
+async function listRemoteBranches(args: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+}): Promise<RemoteBranchSummary[]> {
+  const repoResponse = await args.octokit.rest.repos.get({
+    owner: args.owner,
+    repo: args.repo,
+  });
+  const defaultBranch =
+    typeof repoResponse.data.default_branch === "string"
+      ? repoResponse.data.default_branch
+      : "main";
+
+  const branches: RemoteBranchSummary[] = [];
+  const perPage = 100;
+  for (let page = 1; ; page += 1) {
+    const pageResponse = await args.octokit.rest.repos.listBranches({
+      owner: args.owner,
+      repo: args.repo,
+      per_page: perPage,
+      page,
+    });
+    if (pageResponse.data.length === 0) {
+      break;
+    }
+
+    for (const branch of pageResponse.data) {
+      if (typeof branch.name !== "string") {
+        continue;
+      }
+      const headCommitSha =
+        typeof branch.commit.sha === "string" ? branch.commit.sha : "";
+      if (headCommitSha.length === 0) {
+        continue;
+      }
+
+      branches.push({
+        name: branch.name,
+        headCommitSha,
+        isDefault: branch.name === defaultBranch,
+        isProtected: branch.protected === true,
+      });
+    }
+
+    if (pageResponse.data.length < perPage) {
+      break;
+    }
+  }
+
+  return branches;
+}
+
 function buildDataUrl(mimeType: string, content: Buffer): string {
   return `data:${mimeType};base64,${content.toString("base64")}`;
 }
@@ -520,6 +590,7 @@ export const refreshRepositoryTree = action({
   args: {
     owner: string(),
     repo: string(),
+    branch: optional(string()),
     trigger: optional(union(literal("focus"), literal("page_load"))),
   },
   returns: nullValidator(),
@@ -547,6 +618,7 @@ export const refreshRepositoryTree = action({
         userId,
         owner: args.owner,
         repo: args.repo,
+        branch: args.branch,
       });
     } finally {
       await ctx.runMutation(internal.vault.releaseTreeRefresh, {
@@ -564,6 +636,7 @@ export const updateRepositoryTree = internalAction({
     userId: id("users"),
     owner: string(),
     repo: string(),
+    branch: optional(string()),
   },
   returns: nullValidator(),
   handler: async (ctx, args) => {
@@ -599,15 +672,32 @@ export const updateRepositoryTree = internalAction({
       auth: githubConnection.auth.credential,
     });
 
+    const targetBranch =
+      typeof args.branch === "string" && args.branch.trim().length > 0
+        ? args.branch.trim()
+        : undefined;
+
+    const remoteBranches = await listRemoteBranches({
+      octokit,
+      owner: args.owner,
+      repo: args.repo,
+    });
+    await ctx.runMutation(internal.vault.syncVaultRemoteBranches, {
+      vaultId: vault._id,
+      syncedAt: Date.now(),
+      branches: remoteBranches,
+    });
+
     const tree = await octokit.rest.git.getTree({
       owner: args.owner,
       repo: args.repo,
-      tree_sha: "HEAD",
+      tree_sha: targetBranch ? toGitTreeRef(targetBranch) : "HEAD",
       recursive: "1",
     });
     const latestCommits = await octokit.rest.repos.listCommits({
       owner: args.owner,
       repo: args.repo,
+      sha: targetBranch,
       per_page: 1,
     });
     const latestCommitSha = latestCommits.data[0]?.sha;

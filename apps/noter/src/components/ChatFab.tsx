@@ -29,14 +29,25 @@ import {
 
 // ChatFab is rendered outside <Routes>, so useParams() returns {}.
 // Parse the URL manually via useLocation() instead.
-const VAULT_PATH_RE = /^\/vault\/([^/]+)\/([^/]+)(?:\/(.*))?$/;
+function decodeRouteSegmentSafe(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
 
 function useVaultContext() {
   const { pathname } = useLocation();
 
   const { branch, filePath, repositoryFullName } = useMemo(() => {
-    const match = pathname.match(VAULT_PATH_RE);
-    if (!match) {
+    const rawSegments = pathname.split("/").filter((segment) => segment.length);
+    if (
+      rawSegments.length < 3 ||
+      rawSegments[0] !== "vault" ||
+      rawSegments[1].length === 0 ||
+      rawSegments[2].length === 0
+    ) {
       return {
         branch: "main",
         filePath: undefined,
@@ -44,22 +55,31 @@ function useVaultContext() {
       };
     }
 
-    const _owner = match[1];
-    const _repoName = match[2];
-    const rest = match[3]; // "branch/path/to/file" or undefined
-
-    let branch = "main";
-    let filePath: string | undefined;
-    if (rest) {
-      const parts = rest.split("/");
-      branch = parts[0] || "main";
-      filePath = parts.slice(1).join("/") || undefined;
+    const owner = decodeRouteSegmentSafe(rawSegments[1]);
+    const repoName = decodeRouteSegmentSafe(rawSegments[2]);
+    if (owner.length === 0 || repoName.length === 0) {
+      return {
+        branch: "main",
+        filePath: undefined,
+        repositoryFullName: undefined,
+      };
     }
+
+    const encodedBranch = rawSegments[3];
+    const branch =
+      typeof encodedBranch === "string" && encodedBranch.length > 0
+        ? decodeRouteSegmentSafe(encodedBranch)
+        : "main";
+    const rest = rawSegments.slice(4);
+    const filePath =
+      rest.length > 0 && rest[0] !== "chat"
+        ? rest.map((segment) => decodeRouteSegmentSafe(segment)).join("/")
+        : undefined;
 
     return {
       branch,
       filePath,
-      repositoryFullName: `${_owner}/${_repoName}`,
+      repositoryFullName: `${owner}/${repoName}`,
     };
   }, [pathname]);
 

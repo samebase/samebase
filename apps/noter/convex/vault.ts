@@ -401,6 +401,13 @@ const getUserVaultsResult = array(
     daytonaCurrentSnapshotUpdatedAt: optional(number()),
     daytonaCurrentSnapshotAttemptCount: optional(number()),
     daytonaCurrentSnapshotNextRetryAt: optional(number()),
+    remoteBranches: array(
+      object({
+        name: string(),
+        isDefault: boolean(),
+        remoteState: union(literal("active"), literal("deleted_upstream")),
+      }),
+    ),
     infraState: union(
       literal("not_started"),
       literal("provisioning"),
@@ -452,6 +459,10 @@ export const getUserVaults = query({
           ctx,
           vault,
         );
+        const remoteBranches = await ctx.db
+          .query("vaultRemoteBranches")
+          .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
+          .collect();
         const infra = await ctx.db
           .query("vaultInfrastructure")
           .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
@@ -506,6 +517,21 @@ export const getUserVaults = query({
             daytonaSnapshotState.daytonaCurrentSnapshotAttemptCount,
           daytonaCurrentSnapshotNextRetryAt:
             daytonaSnapshotState.daytonaCurrentSnapshotNextRetryAt,
+          remoteBranches: remoteBranches
+            .sort((left, right) => {
+              if (left.remoteState !== right.remoteState) {
+                return left.remoteState === "active" ? -1 : 1;
+              }
+              if (left.isDefault !== right.isDefault) {
+                return left.isDefault ? -1 : 1;
+              }
+              return left.name.localeCompare(right.name);
+            })
+            .map((branch) => ({
+              name: branch.name,
+              isDefault: branch.isDefault,
+              remoteState: branch.remoteState,
+            })),
           infraState: vault.infraState ?? "not_started",
           infraProductionUrl: resolveHostingMainUrl(infra),
         };
@@ -539,6 +565,128 @@ export const getInfrastructureByVaultId = internalQuery({
       .query("vaultInfrastructure")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .first();
+  },
+});
+
+export const getVaultRemoteBranches = query({
+  args: {
+    vaultId: id("vaults"),
+  },
+  returns: array(
+    object({
+      name: string(),
+      headCommitSha: string(),
+      isDefault: boolean(),
+      isProtected: boolean(),
+      remoteState: union(literal("active"), literal("deleted_upstream")),
+      deletedUpstreamAt: optional(number()),
+      lastSyncedAt: number(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.userId !== userId) {
+      return [];
+    }
+
+    const branches = await ctx.db
+      .query("vaultRemoteBranches")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .collect();
+
+    return branches
+      .sort((left, right) => {
+        if (left.remoteState !== right.remoteState) {
+          return left.remoteState === "active" ? -1 : 1;
+        }
+        if (left.isDefault !== right.isDefault) {
+          return left.isDefault ? -1 : 1;
+        }
+        return left.name.localeCompare(right.name);
+      })
+      .map((branch) => ({
+        name: branch.name,
+        headCommitSha: branch.headCommitSha,
+        isDefault: branch.isDefault,
+        isProtected: branch.isProtected,
+        remoteState: branch.remoteState,
+        deletedUpstreamAt: branch.deletedUpstreamAt,
+        lastSyncedAt: branch.lastSyncedAt,
+      }));
+  },
+});
+
+export const syncVaultRemoteBranches = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    syncedAt: number(),
+    branches: array(
+      object({
+        name: string(),
+        headCommitSha: string(),
+        isDefault: boolean(),
+        isProtected: boolean(),
+      }),
+    ),
+  },
+  returns: nullValidator,
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault) {
+      return null;
+    }
+
+    const existing = await ctx.db
+      .query("vaultRemoteBranches")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .collect();
+
+    const existingByName = new Map(
+      existing.map((branch) => [branch.name, branch]),
+    );
+    const seenNames = new Set<string>();
+
+    for (const branch of args.branches) {
+      seenNames.add(branch.name);
+      const existingBranch = existingByName.get(branch.name);
+      if (existingBranch) {
+        await ctx.db.patch(existingBranch._id, {
+          headCommitSha: branch.headCommitSha,
+          isDefault: branch.isDefault,
+          isProtected: branch.isProtected,
+          remoteState: "active",
+          deletedUpstreamAt: undefined,
+          lastSyncedAt: args.syncedAt,
+        });
+        continue;
+      }
+
+      await ctx.db.insert("vaultRemoteBranches", {
+        vaultId: args.vaultId,
+        name: branch.name,
+        headCommitSha: branch.headCommitSha,
+        isDefault: branch.isDefault,
+        isProtected: branch.isProtected,
+        remoteState: "active",
+        deletedUpstreamAt: undefined,
+        lastSyncedAt: args.syncedAt,
+      });
+    }
+
+    for (const branch of existing) {
+      if (seenNames.has(branch.name)) {
+        continue;
+      }
+      await ctx.db.patch(branch._id, {
+        isDefault: false,
+        remoteState: "deleted_upstream",
+        deletedUpstreamAt: branch.deletedUpstreamAt ?? args.syncedAt,
+        lastSyncedAt: args.syncedAt,
+      });
+    }
+
+    return null;
   },
 });
 
