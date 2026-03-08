@@ -20,8 +20,9 @@ Implemented highlights in PR #174:
 
 1. Added `vaultRemoteBranches` and `vaultBranchTrees` storage
 2. Added branch-aware vault read path (`getVaultByRepository(..., branch?)`)
-3. Hardened `updateRepositoryTree` to keep legacy `vault.treeData/commitSHA`
-   default-branch-only while writing branch-scoped cache for all branches
+3. Hardened `updateRepositoryTree` to keep legacy
+   `vault.treeData/treeSHA/commitSHA` default-branch-only while writing
+   branch-scoped cache for all branches
 4. Propagated branch through commit/chat/staging read paths
 5. Moved codespace chat route to
    `/vault/:owner/:repoName/codespace/:branch/chat`

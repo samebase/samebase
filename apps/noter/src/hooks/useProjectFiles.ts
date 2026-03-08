@@ -205,5 +205,5 @@ export function useProjectFiles(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vaultId, branch, treeSHA, scopePrefix, activeFilePath]);
 
-  return { files, loading };
+  return { files, loading, scopePrefix };
 }

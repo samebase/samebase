@@ -23,6 +23,7 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useProjectFiles, type ProjectFile } from "@/hooks/useProjectFiles";
 import { buildMonacoAppliedCacheKey } from "@/lib/editorCacheKeys";
+import { buildMonacoFileUri } from "@/lib/monacoFileUri";
 
 // ---------------------------------------------------------------------------
 // Collab helpers (shared logic with CodeEditor.tsx)
@@ -72,21 +73,6 @@ const TS_EXTENSIONS = new Set(["ts", "tsx"]);
 function isTypeScriptPath(path: string): boolean {
   const ext = path.split(".").pop()?.toLowerCase();
   return !!ext && TS_EXTENSIONS.has(ext);
-}
-
-function encodeUriPathSegments(path: string): string {
-  return path
-    .split("/")
-    .map((segment) => encodeURIComponent(segment))
-    .join("/");
-}
-
-function buildMonacoFileUri(args: {
-  vaultId: Id<"vaults">;
-  branch: string;
-  filePath: string;
-}): string {
-  return `file:///${encodeURIComponent(args.vaultId)}/${encodeUriPathSegments(args.branch)}/${encodeUriPathSegments(args.filePath)}`;
 }
 
 /** Detect Monaco language from file extension (for createModel). */
@@ -172,7 +158,7 @@ export function MonacoEditor({
   const isMobileViewport = useIsMobile();
 
   // ---- Project files for import resolution ----
-  const { files: projectFiles } = useProjectFiles(
+  const { files: projectFiles, scopePrefix } = useProjectFiles(
     vaultId,
     branch,
     tree,
@@ -320,6 +306,7 @@ export function MonacoEditor({
       vaultId,
       branch,
       treeSHA,
+      scopePrefix,
     });
     if (appliedCacheKeys.has(cacheKey)) return;
     appliedCacheKeys.add(cacheKey);
@@ -331,7 +318,7 @@ export function MonacoEditor({
       branch,
     });
     applyTsConfigFromProject(monacoRef.current, projectFiles);
-  }, [projectFiles, vaultId, branch, treeSHA]);
+  }, [projectFiles, vaultId, branch, treeSHA, scopePrefix]);
 
   useEffect(() => {
     setSyncError(null);
@@ -348,6 +335,7 @@ export function MonacoEditor({
         vaultId,
         branch,
         treeSHA,
+        scopePrefix,
       });
       if (!appliedCacheKeys.has(cacheKey)) {
         appliedCacheKeys.add(cacheKey);
