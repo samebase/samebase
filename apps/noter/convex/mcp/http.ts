@@ -56,6 +56,28 @@ function parseOrigin(request: Request): string {
   return new URL(request.url).origin;
 }
 
+function resolveAppUrl(request: Request): URL {
+  const requestOrigin = parseOrigin(request);
+  const configuredSiteUrl =
+    process.env.SITE_URL ?? process.env.CONVEX_SITE_URL ?? requestOrigin;
+  return new URL(configuredSiteUrl, requestOrigin);
+}
+
+function buildMcpConsentRedirectUrl(args: {
+  request: Request;
+  requestId: string;
+  loginRequired: boolean;
+}): string {
+  // Consent/login UX must happen in the React app origin. Convex HTTP routes do
+  // not serve "/" on convex.site, so redirecting there yields "No matching routes found".
+  const consentUrl = resolveAppUrl(args.request);
+  consentUrl.searchParams.set("mcp_consent_request", args.requestId);
+  if (args.loginRequired) {
+    consentUrl.searchParams.set("mcp_login_required", "1");
+  }
+  return consentUrl.toString();
+}
+
 function hasJsonContentType(request: Request): boolean {
   const contentType = request.headers.get("content-type");
   if (!contentType) {
@@ -317,10 +339,14 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
   });
 
   if (!userId) {
-    const consentUrl = new URL("/", parseOrigin(request));
-    consentUrl.searchParams.set("mcp_consent_request", requestId);
-    consentUrl.searchParams.set("mcp_login_required", "1");
-    return Response.redirect(consentUrl.toString(), 302);
+    return Response.redirect(
+      buildMcpConsentRedirectUrl({
+        request,
+        requestId,
+        loginRequired: true,
+      }),
+      302,
+    );
   }
 
   const hasExistingGrant = await ctx.runQuery(
@@ -331,9 +357,14 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
     },
   );
   if (!hasExistingGrant) {
-    const consentUrl = new URL("/", parseOrigin(request));
-    consentUrl.searchParams.set("mcp_consent_request", requestId);
-    return Response.redirect(consentUrl.toString(), 302);
+    return Response.redirect(
+      buildMcpConsentRedirectUrl({
+        request,
+        requestId,
+        loginRequired: false,
+      }),
+      302,
+    );
   }
 
   const authorizationCode = createAuthorizationCodeValue();

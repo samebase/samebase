@@ -4,7 +4,7 @@
 
 - Status: Proposed
 - Owner: Noter platform
-- Last updated: 2026-03-07
+- Last updated: 2026-03-08
 - Related specs:
   - `specs/020_CONVEX_AGENT_ADOPTION_SPEC.md`
   - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
@@ -730,7 +730,7 @@ Phase 4 gate:
 Use this as the chat-independent implementation tracker so a new session can
 resume without relying on conversation context.
 
-- Last updated: 2026-03-07
+- Last updated: 2026-03-08
 - Overall status: `2/4 phases complete`
 - Current next step: `Phase 3`
 - Latest checkpoint commit: `2befdeb`
@@ -742,6 +742,13 @@ Phase status:
 - [x] Phase 2: token issuance and narrow MCP server
 - [ ] Phase 3: user controls
 - [ ] Phase 4: hardening
+
+Phase 3 progress notes:
+
+- 2026-03-08: `/oauth/mcp/authorize` redirect-to-app flow now targets the React
+  app origin (instead of Convex `"/"`), and the app handles
+  `mcp_consent_request` by completing the pending auth request for authenticated
+  users and redirecting back to the MCP client callback.
 
 Checkpoint rule:
 

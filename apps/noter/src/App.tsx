@@ -13,13 +13,14 @@ import { Button } from "@/components/ui/button";
 import {
   Authenticated,
   Unauthenticated,
+  useAction,
   useConvexAuth,
   useQuery,
 } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../convex/_generated/api";
 import { Routes, Route, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 function isChatOnlyCodespaceRoute(pathname: string): boolean {
   return /^\/vault\/[^/]+\/[^/]+\/[^/]+\/chat\/?$/.test(pathname);
@@ -99,11 +100,81 @@ function ApprovalGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function readMcpConsentRequestId(search: string): string | null {
+  // Codex may send the query key with an empty value. Treat empty/whitespace as absent.
+  return new URLSearchParams(search).get("mcp_consent_request")?.trim() || null;
+}
+
+function McpConsentCompletionView({ requestId }: { requestId: string }) {
+  const completeAuthorizationRequest = useAction(
+    api.mcp.oauth.completeAuthorizationRequestForCurrentUser,
+  );
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void completeAuthorizationRequest({ requestId })
+      .then(({ redirectUrl }) => {
+        if (cancelled) {
+          return;
+        }
+        window.location.assign(redirectUrl);
+      })
+      .catch((completionError: unknown) => {
+        if (cancelled) {
+          return;
+        }
+        setError(
+          completionError instanceof Error
+            ? completionError.message
+            : "Failed to finish MCP authorization.",
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [completeAuthorizationRequest, requestId]);
+
+  return (
+    <div className="container my-auto">
+      <div className="max-w-[384px] mx-auto flex flex-col items-center gap-3 py-16 text-center">
+        <h2 className="font-semibold text-xl tracking-tight">
+          Finishing MCP authorization
+        </h2>
+        {error ? (
+          <p className="text-sm text-red-600">{error}</p>
+        ) : (
+          <p className="text-sm text-muted-foreground">Returning to Codex...</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   useAutoSignIn();
   const location = useLocation();
   useCloseOAuthPopup(location.pathname);
   const showChatFab = !isChatOnlyCodespaceRoute(location.pathname);
+  const mcpConsentRequestId = readMcpConsentRequestId(location.search);
+
+  if (mcpConsentRequestId) {
+    return (
+      <Layout>
+        <>
+          <Authenticated>
+            <ApprovalGate>
+              <McpConsentCompletionView requestId={mcpConsentRequestId} />
+            </ApprovalGate>
+          </Authenticated>
+          <Unauthenticated>
+            <SignInForm />
+          </Unauthenticated>
+        </>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>

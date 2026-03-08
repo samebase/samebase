@@ -1,12 +1,19 @@
 import { Infer, v } from "convex/values";
-import { internalMutation, internalQuery } from "../_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { internal } from "../_generated/api";
+import { action, internalMutation, internalQuery } from "../_generated/server";
 import { randomToken } from "../oauthUtils";
 import {
   McpAuthRequestStatus,
   McpOauthClientRegistrationStatus,
 } from "../schema";
 import { redirectUriMatchesRegistered } from "./protocol";
-import { verifyPkceS256 } from "./tokens";
+import {
+  createAuthorizationCodeValue,
+  MCP_AUTHORIZATION_CODE_TTL_MS,
+  sha256Hex,
+  verifyPkceS256,
+} from "./tokens";
 
 const {
   array,
@@ -102,6 +109,20 @@ const issueAuthorizationCodeForAuthRequestResultValidator = union(
 );
 type IssueAuthorizationCodeForAuthRequestResult = Infer<
   typeof issueAuthorizationCodeForAuthRequestResultValidator
+>;
+
+const completeAuthorizationRequestArgsValidator = object({
+  requestId: string(),
+});
+type CompleteAuthorizationRequestArgs = Infer<
+  typeof completeAuthorizationRequestArgsValidator
+>;
+
+const completeAuthorizationRequestResultValidator = object({
+  redirectUrl: string(),
+});
+type CompleteAuthorizationRequestResult = Infer<
+  typeof completeAuthorizationRequestResultValidator
 >;
 
 const exchangeAuthorizationCodeArgsValidator = object({
@@ -467,6 +488,46 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
       redirectUri: authRequest.redirectUri,
       state: authRequest.state,
     };
+  },
+});
+
+export const completeAuthorizationRequestForCurrentUser = action({
+  args: completeAuthorizationRequestArgsValidator,
+  returns: completeAuthorizationRequestResultValidator,
+  handler: async (
+    ctx,
+    args: CompleteAuthorizationRequestArgs,
+  ): Promise<CompleteAuthorizationRequestResult> => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      throw new Error("User not authenticated");
+    }
+
+    const now = Date.now();
+    const authorizationCode = createAuthorizationCodeValue();
+    const authorizationCodeHash = await sha256Hex(authorizationCode);
+    const issueResult = await ctx.runMutation(
+      internal.mcp.oauth.issueAuthorizationCodeForAuthRequest,
+      {
+        requestId: args.requestId,
+        userId,
+        codeHash: authorizationCodeHash,
+        codeExpiresAt: now + MCP_AUTHORIZATION_CODE_TTL_MS,
+        allowLoopbackHttpRedirectUris: true,
+        now,
+      },
+    );
+    if (!issueResult.ok) {
+      throw new Error(`${issueResult.error}: ${issueResult.errorDescription}`);
+    }
+
+    const redirectUrl = new URL(issueResult.redirectUri);
+    redirectUrl.searchParams.set("code", authorizationCode);
+    if (issueResult.state) {
+      redirectUrl.searchParams.set("state", issueResult.state);
+    }
+
+    return { redirectUrl: redirectUrl.toString() };
   },
 });
 
