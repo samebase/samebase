@@ -388,13 +388,16 @@ function compareRemoteBranchSortOrder(
   if (left.remoteState !== right.remoteState) {
     return left.remoteState === "active" ? -1 : 1;
   }
+  // Keep the repository default branch pinned at the top regardless of activity.
+  // `isDefault` comes from GitHub's `default_branch`, so it works for `main`,
+  // `master`, or any custom default branch name.
+  if (left.isDefault !== right.isDefault) {
+    return left.isDefault ? -1 : 1;
+  }
   const leftLastCommitAt = left.lastCommitAt ?? Number.NEGATIVE_INFINITY;
   const rightLastCommitAt = right.lastCommitAt ?? Number.NEGATIVE_INFINITY;
   if (leftLastCommitAt !== rightLastCommitAt) {
     return rightLastCommitAt - leftLastCommitAt;
-  }
-  if (left.isDefault !== right.isDefault) {
-    return left.isDefault ? -1 : 1;
   }
   return left.name.localeCompare(right.name);
 }
