@@ -31,12 +31,7 @@ export function parseVaultPathContext(
   pathname: string,
 ): ParsedVaultPathContext {
   const segments = pathname.split("/").filter((segment) => segment.length > 0);
-  if (
-    segments.length < 3 ||
-    segments[0] !== "vault" ||
-    segments[1].length === 0 ||
-    segments[2].length === 0
-  ) {
+  if (segments.length < 3 || segments[0] !== "vault") {
     return {};
   }
 
@@ -53,7 +48,11 @@ export function parseVaultPathContext(
     return { repositoryFullName };
   }
 
-  if (routeKind === "codespace") {
+  if (
+    routeKind === "codespace" &&
+    segments.length === 6 &&
+    segments[5] === "chat"
+  ) {
     const encodedBranch = segments[4];
     const branch =
       typeof encodedBranch === "string" && encodedBranch.length > 0

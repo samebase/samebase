@@ -845,12 +845,11 @@ async function getVaultByRepositoryHelper(
     .query("vaultRemoteBranches")
     .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
     .collect();
-  const defaultBranch =
-    remoteBranches.find(
-      (branch) => branch.remoteState === "active" && branch.isDefault,
-    )?.name ??
-    remoteBranches.find((branch) => branch.remoteState === "active")?.name;
-  const resolvedBranch = requestedBranch ?? defaultBranch ?? "main";
+  const { defaultBranch, resolvedBranch, branchNotFound } =
+    resolveVaultBranchSelection({
+      requestedBranch,
+      remoteBranches,
+    });
 
   const branchTree = await ctx.db
     .query("vaultBranchTrees")
@@ -872,10 +871,53 @@ async function getVaultByRepositoryHelper(
     lastTreeRefreshAt: vault.lastTreeRefreshAt,
     defaultBranch,
     resolvedBranch,
+    branchNotFound,
     ...(await getCurrentDaytonaSnapshotState(ctx, vault)),
     infraState: vault.infraState ?? "not_started",
     infraLastError: vault.infraLastError,
     infraLastProvisionedAt: vault.infraLastProvisionedAt,
+  };
+}
+
+export function resolveVaultBranchSelection(args: {
+  requestedBranch?: string;
+  remoteBranches: Array<{
+    name: string;
+    isDefault: boolean;
+    remoteState: "active" | "deleted_upstream";
+  }>;
+}): {
+  defaultBranch?: string;
+  resolvedBranch: string;
+  branchNotFound: boolean;
+} {
+  const activeRemoteBranches = args.remoteBranches.filter(
+    (branch) => branch.remoteState === "active",
+  );
+  const defaultBranch =
+    activeRemoteBranches.find((branch) => branch.isDefault)?.name ??
+    activeRemoteBranches[0]?.name;
+  const canValidateRequestedBranch = activeRemoteBranches.length > 0;
+  const branchNotFound = Boolean(
+    args.requestedBranch &&
+      canValidateRequestedBranch &&
+      !activeRemoteBranches.some(
+        (branch) => branch.name === args.requestedBranch,
+      ),
+  );
+  let resolvedBranch = "main";
+  if (branchNotFound) {
+    resolvedBranch = defaultBranch;
+  } else if (args.requestedBranch) {
+    resolvedBranch = args.requestedBranch;
+  } else if (defaultBranch) {
+    resolvedBranch = defaultBranch;
+  }
+
+  return {
+    defaultBranch,
+    resolvedBranch,
+    branchNotFound,
   };
 }
 

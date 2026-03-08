@@ -8,6 +8,7 @@ import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
 import { createTwoFilesPatch, diffLines } from "diff";
 import { getUserId } from "./common";
 import type { Id } from "./_generated/dataModel";
+import type { GithubTreeType } from "./schema";
 import {
   guessMime,
   INLINE_TEXT_MAX,
@@ -27,6 +28,30 @@ const githubRateLimitResetByUser = new Map<string, number>();
 const RATE_LIMIT_COOLDOWN_FALLBACK_MS = 60_000;
 const STORAGE_BACKED_FILE_ERROR_MESSAGE =
   "File is in storage, not implemented yet";
+
+export function selectBatchReadRepositoryTree(args: {
+  requestedBranch?: string;
+  defaultBranch?: string;
+  branchTree: GithubTreeType[] | null;
+  legacyTree: GithubTreeType[];
+}): GithubTreeType[] {
+  if (!args.requestedBranch) {
+    return args.legacyTree;
+  }
+  if (args.branchTree) {
+    return args.branchTree;
+  }
+  if (args.defaultBranch === args.requestedBranch) {
+    return args.legacyTree;
+  }
+  throw new Error(
+    `Branch tree is not cached for "${args.requestedBranch}". Refresh branch and retry.`,
+  );
+}
+
+export function listTouchedBranchesForRefresh(branches: string[]): string[] {
+  return Array.from(new Set(branches));
+}
 
 function isStaleBaseVersionError(error: unknown): boolean {
   return error instanceof Error && error.message.includes("stale base version");
@@ -1271,7 +1296,20 @@ export const pullFromGitHubInternal = internalAction({
       });
     }
 
-    // 5. Refresh default-branch tree caches after reconciliation
+    // 5. Refresh touched branch caches after reconciliation
+    const touchedBranches = listTouchedBranchesForRefresh(
+      allStaged.map((item) => item.branch),
+    );
+    for (const branch of touchedBranches) {
+      await ctx.runAction(internal.github.updateRepositoryTree, {
+        userId: args.userId,
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        branch,
+      });
+    }
+
+    // Keep legacy default-branch cache current as well.
     await ctx.runAction(internal.github.updateRepositoryTree, {
       userId: args.userId,
       owner: vault.ghRepoOwner,
@@ -1302,14 +1340,51 @@ export const batchReadFiles = action({
       throw new Error("Vault not found");
     }
 
-    const branchTree =
-      typeof args.branch === "string" && args.branch.length > 0
-        ? await ctx.runQuery(internal.vault.getVaultBranchTree, {
-            vaultId: args.vaultId,
-            branch: args.branch,
-          })
-        : null;
-    const repositoryTree = branchTree?.treeData.tree ?? vault.treeData.tree;
+    const requestedBranch =
+      typeof args.branch === "string" && args.branch.trim().length > 0
+        ? args.branch.trim()
+        : undefined;
+    let branchTreeData: GithubTreeType[] | null = null;
+    let defaultBranch: string | undefined;
+    if (requestedBranch) {
+      let branchTree = await ctx.runQuery(internal.vault.getVaultBranchTree, {
+        vaultId: args.vaultId,
+        branch: requestedBranch,
+      });
+
+      if (!branchTree) {
+        await ctx.runAction(internal.github.updateRepositoryTree, {
+          userId,
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          branch: requestedBranch,
+        });
+        branchTree = await ctx.runQuery(internal.vault.getVaultBranchTree, {
+          vaultId: args.vaultId,
+          branch: requestedBranch,
+        });
+      }
+
+      if (branchTree) {
+        branchTreeData = branchTree.treeData.tree;
+      } else {
+        const repositoryFullName = `${vault.ghRepoOwner}/${vault.ghRepoName}`;
+        const resolvedVault = await ctx.runQuery(
+          internal.vault.getByRepositoryFullName,
+          {
+            userId,
+            repositoryFullName,
+          },
+        );
+        defaultBranch = resolvedVault?.defaultBranch;
+      }
+    }
+    const repositoryTree = selectBatchReadRepositoryTree({
+      requestedBranch,
+      defaultBranch,
+      branchTree: branchTreeData,
+      legacyTree: vault.treeData.tree,
+    });
 
     // Build a map of path → tree entry for fast lookups
     const treeMap = new Map<string, { sha: string; size?: number }>();

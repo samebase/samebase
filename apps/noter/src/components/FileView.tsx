@@ -239,6 +239,11 @@ function FileViewWrapper() {
     ? decodeRouteSegmentSafe(branchParam)
     : undefined;
   const selectedFile = filePathParam ?? "";
+  const selectedFileFromBranchlessRoute = branchParam
+    ? [branchParam, selectedFile]
+        .filter((segment) => segment.length > 0)
+        .join("/")
+    : selectedFile;
   const repositoryFullName = owner && repoName ? `${owner}/${repoName}` : null;
 
   // Get vault for this repository
@@ -276,6 +281,27 @@ function FileViewWrapper() {
       void navigate("/", { replace: true });
     }
   }, [vault, navigate]);
+
+  useEffect(() => {
+    if (!owner || !repoName || !branchParam || !vault?.branchNotFound) {
+      return;
+    }
+
+    const resolvedBranch = vault.resolvedBranch;
+    const encodedResolvedBranch = encodeURIComponent(resolvedBranch);
+    const nextPath = selectedFileFromBranchlessRoute
+      ? `/vault/${owner}/${repoName}/${encodedResolvedBranch}/${selectedFileFromBranchlessRoute}`
+      : `/vault/${owner}/${repoName}/${encodedResolvedBranch}`;
+    void navigate(nextPath, { replace: true });
+  }, [
+    owner,
+    repoName,
+    branchParam,
+    selectedFileFromBranchlessRoute,
+    vault?.branchNotFound,
+    vault?.resolvedBranch,
+    navigate,
+  ]);
 
   useEffect(() => {
     if (!owner || !repoName || !branch || branchParam) {

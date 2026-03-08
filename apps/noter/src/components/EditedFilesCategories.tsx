@@ -5,14 +5,28 @@ import {
   UpdateIcon,
 } from "@radix-ui/react-icons";
 import { api } from "convex/_generated/api";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { linkStyle } from "./styles";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
+import type { Id } from "convex/_generated/dataModel";
 
 type StagedFile = NonNullable<
   Awaited<(typeof api.fileStaging.getByNewPath)["_returnType"]>
 >;
+type StagedFilesSummary = NonNullable<
+  (typeof api.fileStaging.listStagedFilesBranchSummaries)["_returnType"]
+>[number]["counts"];
+
+const EMPTY_STAGED_FILES_SUMMARY: StagedFilesSummary = {
+  modified: 0,
+  deleted: 0,
+  new: 0,
+  renamed: 0,
+  renamedAndModified: 0,
+  total: 0,
+};
 
 // Helper function to categorize staged files by change type
 function categorizeStagedFiles(stagedFiles: StagedFile[]) {
@@ -54,45 +68,62 @@ function categorizeStagedFiles(stagedFiles: StagedFile[]) {
   return categories;
 }
 
+function summarizeCategories(
+  categories: ReturnType<typeof categorizeStagedFiles>,
+): StagedFilesSummary {
+  const modified = categories.modified.length;
+  const deleted = categories.deleted.length;
+  const renamed = categories.renamed.length;
+  const renamedAndModified = categories.renamedAndModified.length;
+  const created = categories.new.length;
+
+  return {
+    modified,
+    deleted,
+    new: created,
+    renamed,
+    renamedAndModified,
+    total: modified + deleted + created + renamed + renamedAndModified,
+  };
+}
+
 export function EditedFilesCategoriesPopoverTrigger({
-  categories,
+  counts,
 }: {
-  categories: ReturnType<typeof categorizeStagedFiles>;
+  counts: StagedFilesSummary;
 }) {
   // Single line with all categories and different colors
   return (
     <div className="flex items-center gap-3">
-      {categories.modified.length > 0 && (
+      {counts.modified > 0 && (
         <div className="flex items-center gap-1 text-blue-600">
           <Pencil1Icon className="w-3 h-3" />
-          <span className="text-xs">{categories.modified.length}</span>
+          <span className="text-xs">{counts.modified}</span>
         </div>
       )}
-      {categories.deleted.length > 0 && (
+      {counts.deleted > 0 && (
         <div className="flex items-center gap-1 text-red-600">
           <TrashIcon className="w-3 h-3" />
-          <span className="text-xs">{categories.deleted.length}</span>
+          <span className="text-xs">{counts.deleted}</span>
         </div>
       )}
-      {categories.new.length > 0 && (
+      {counts.new > 0 && (
         <div className="flex items-center gap-1 text-green-600">
           <PlusIcon className="w-3 h-3" />
-          <span className="text-xs">{categories.new.length}</span>
+          <span className="text-xs">{counts.new}</span>
         </div>
       )}
-      {categories.renamed.length > 0 && (
+      {counts.renamed > 0 && (
         <div className="flex items-center gap-1 text-purple-600">
           <UpdateIcon className="w-3 h-3" />
-          <span className="text-xs">{categories.renamed.length}</span>
+          <span className="text-xs">{counts.renamed}</span>
         </div>
       )}
-      {categories.renamedAndModified.length > 0 && (
+      {counts.renamedAndModified > 0 && (
         <div className="flex items-center gap-1 text-orange-600">
           <UpdateIcon className="w-3 h-3" />
           <Pencil1Icon className="w-3 h-3" />
-          <span className="text-xs">
-            {categories.renamedAndModified.length}
-          </span>
+          <span className="text-xs">{counts.renamedAndModified}</span>
         </div>
       )}
     </div>
@@ -258,24 +289,45 @@ export function EditedFilesCategories({
 }
 
 export function EditedFilesCategoriesPopover({
+  vaultId,
   repositoryFullName,
   branch,
   stagedFiles,
+  summaryCounts,
 }: {
+  vaultId?: Id<"vaults">;
   repositoryFullName: string;
   branch: string;
-  stagedFiles: StagedFile[];
+  stagedFiles?: StagedFile[];
+  summaryCounts?: StagedFilesSummary;
 }) {
-  const categories = categorizeStagedFiles(stagedFiles);
+  const [open, setOpen] = useState(false);
+  const shouldLoadStagedFiles =
+    open && stagedFiles === undefined && vaultId !== undefined;
+  const stagedFilesFromQuery = useQuery(
+    api.fileStaging.listStagedFiles,
+    shouldLoadStagedFiles ? { vaultId, branch } : "skip",
+  );
+  const resolvedStagedFiles =
+    stagedFiles ??
+    (stagedFilesFromQuery === undefined ? undefined : stagedFilesFromQuery);
+  const categories =
+    resolvedStagedFiles !== undefined
+      ? categorizeStagedFiles(resolvedStagedFiles)
+      : null;
+  const counts =
+    categories !== null
+      ? summarizeCategories(categories)
+      : summaryCounts ?? EMPTY_STAGED_FILES_SUMMARY;
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           className={`text-xs text-muted-foreground ${linkStyle} flex items-center gap-2`}
         >
           <div className="flex items-center gap-1">
-            <EditedFilesCategoriesPopoverTrigger categories={categories} />
+            <EditedFilesCategoriesPopoverTrigger counts={counts} />
           </div>
         </button>
       </PopoverTrigger>
@@ -283,11 +335,13 @@ export function EditedFilesCategoriesPopover({
         <div className="space-y-3">
           <div className="text-sm font-medium">Staged Changes</div>
           <div className="space-y-3 max-h-64 overflow-y-auto">
-            <EditedFilesCategories
-              categories={categories}
-              repositoryFullName={repositoryFullName}
-              branch={branch}
-            />
+            {categories !== null && (
+              <EditedFilesCategories
+                categories={categories}
+                repositoryFullName={repositoryFullName}
+                branch={branch}
+              />
+            )}
           </div>
         </div>
       </PopoverContent>

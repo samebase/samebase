@@ -52,6 +52,21 @@ type StagedFile = Infer<typeof stagedFileValidator>;
 
 const stagedFileOrNullValidator = union(stagedFileValidator, nullValue());
 const stagedFileListValidator = array(stagedFileValidator);
+const stagedFilesCategoryCountsValidator = object({
+  modified: number(),
+  deleted: number(),
+  new: number(),
+  renamed: number(),
+  renamedAndModified: number(),
+  total: number(),
+});
+const stagedFilesBranchSummaryValidator = object({
+  branch: branchValidator,
+  counts: stagedFilesCategoryCountsValidator,
+});
+const stagedFilesBranchSummaryListValidator = array(
+  stagedFilesBranchSummaryValidator,
+);
 
 const getByNewPathArgsValidator = {
   vaultId: vaultIdValidator,
@@ -116,6 +131,91 @@ const getByOriginalPathArgsValidator = {
   branch: branchValidator,
 };
 
+type StagedFilesCategoryCounts = Infer<
+  typeof stagedFilesCategoryCountsValidator
+>;
+type StagedFilesCategory = Exclude<keyof StagedFilesCategoryCounts, "total">;
+type StagedFileSummaryInput = Pick<
+  StagedFile,
+  | "branch"
+  | "fileDeleted"
+  | "parentCommitSha"
+  | "filePath"
+  | "initialFilePath"
+  | "content"
+  | "initialContent"
+>;
+
+function emptyStagedFilesCategoryCounts(): StagedFilesCategoryCounts {
+  return {
+    modified: 0,
+    deleted: 0,
+    new: 0,
+    renamed: 0,
+    renamedAndModified: 0,
+    total: 0,
+  };
+}
+
+function classifyStagedFile(
+  file: StagedFileSummaryInput,
+): StagedFilesCategory | null {
+  if (file.fileDeleted) {
+    return "deleted";
+  }
+  if (file.parentCommitSha === null) {
+    return "new";
+  }
+  if (file.filePath !== file.initialFilePath) {
+    return file.content !== file.initialContent
+      ? "renamedAndModified"
+      : "renamed";
+  }
+  if (file.content !== file.initialContent) {
+    return "modified";
+  }
+  return null;
+}
+
+export function selectRepositoryTreeForBranch(args: {
+  requestedBranch: string;
+  defaultBranch?: string;
+  branchTree: GithubTreeType[] | null;
+  legacyTree: GithubTreeType[];
+}): GithubTreeType[] {
+  if (args.branchTree) {
+    return args.branchTree;
+  }
+  if (args.defaultBranch === args.requestedBranch) {
+    return args.legacyTree;
+  }
+  throw new Error(
+    `Branch tree is not cached for "${args.requestedBranch}". Refresh branch and retry.`,
+  );
+}
+
+export function summarizeStagedFilesByBranch(
+  files: StagedFileSummaryInput[],
+): Array<{ branch: string; counts: StagedFilesCategoryCounts }> {
+  const countsByBranch = new Map<string, StagedFilesCategoryCounts>();
+  for (const file of files) {
+    const category = classifyStagedFile(file);
+    if (!category) {
+      continue;
+    }
+
+    const existing =
+      countsByBranch.get(file.branch) ?? emptyStagedFilesCategoryCounts();
+    existing[category] += 1;
+    existing.total += 1;
+    countsByBranch.set(file.branch, existing);
+  }
+
+  return Array.from(countsByBranch.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([branch, counts]) => ({ branch, counts }));
+}
+
 // MARK: Public
 
 export const getByNewPath = query({
@@ -163,6 +263,20 @@ export const listStagedFiles = query({
       .collect();
 
     return files;
+  },
+});
+
+export const listStagedFilesBranchSummaries = query({
+  args: {
+    vaultId: vaultIdValidator,
+  },
+  returns: stagedFilesBranchSummaryListValidator,
+  handler: async (ctx, args) => {
+    const files = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .collect();
+    return summarizeStagedFilesByBranch(files);
   },
 });
 
@@ -404,7 +518,21 @@ export const createFileInStaging = mutation({
       vaultId: args.vaultId,
       branch: args.branch,
     });
-    const repositoryTree = branchTree?.treeData.tree ?? vault.treeData.tree;
+    const remoteBranches = await ctx.db
+      .query("vaultRemoteBranches")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .collect();
+    const defaultBranch =
+      remoteBranches.find(
+        (branch) => branch.remoteState === "active" && branch.isDefault,
+      )?.name ??
+      remoteBranches.find((branch) => branch.remoteState === "active")?.name;
+    const repositoryTree = selectRepositoryTreeForBranch({
+      requestedBranch: args.branch,
+      defaultBranch,
+      branchTree: branchTree?.treeData.tree ?? null,
+      legacyTree: vault.treeData.tree,
+    });
     const existsInRepository = repositoryTree.some(
       (entry: GithubTreeType) =>
         entry.type === "blob" && entry.path === args.filePath,
@@ -612,7 +740,21 @@ export const rename = internalMutation({
       vaultId: args.vaultId,
       branch: args.branch,
     });
-    const repositoryTree = branchTree?.treeData.tree ?? vault.treeData.tree;
+    const remoteBranches = await ctx.db
+      .query("vaultRemoteBranches")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .collect();
+    const defaultBranch =
+      remoteBranches.find(
+        (branch) => branch.remoteState === "active" && branch.isDefault,
+      )?.name ??
+      remoteBranches.find((branch) => branch.remoteState === "active")?.name;
+    const repositoryTree = selectRepositoryTreeForBranch({
+      requestedBranch: args.branch,
+      defaultBranch,
+      branchTree: branchTree?.treeData.tree ?? null,
+      legacyTree: vault.treeData.tree,
+    });
     const existsInRepository = repositoryTree.some(
       (entry: GithubTreeType) =>
         entry.type === "blob" &&

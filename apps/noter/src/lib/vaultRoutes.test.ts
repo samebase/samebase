@@ -27,6 +27,12 @@ describe("isChatOnlyCodespaceRoute", () => {
   it("does not match editor file routes", () => {
     expect(isChatOnlyCodespaceRoute("/vault/octo/repo/main/chat")).toBe(false);
   });
+
+  it("does not match non-chat routes under codespace namespace", () => {
+    expect(
+      isChatOnlyCodespaceRoute("/vault/octo/repo/codespace/main/src/index.ts"),
+    ).toBe(false);
+  });
 });
 
 describe("parseVaultPathContext", () => {
@@ -62,6 +68,16 @@ describe("parseVaultPathContext", () => {
     ).toEqual({
       repositoryFullName: "octo/repo",
       branch: "feature/login",
+    });
+  });
+
+  it("treats codespace as a normal branch outside chat-only route shape", () => {
+    expect(
+      parseVaultPathContext("/vault/octo/repo/codespace/src/index.ts"),
+    ).toEqual({
+      repositoryFullName: "octo/repo",
+      branch: "codespace",
+      filePath: "src/index.ts",
     });
   });
 });

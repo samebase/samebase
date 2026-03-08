@@ -221,18 +221,22 @@ function VaultBranchLinkRow({
   repositoryFullName,
   branchName,
   isDefault,
+  stagedSummary,
 }: {
   vaultId: Id<"vaults">;
   repositoryFullName: string;
   branchName: string;
   isDefault: boolean;
+  stagedSummary?: {
+    modified: number;
+    deleted: number;
+    new: number;
+    renamed: number;
+    renamedAndModified: number;
+    total: number;
+  };
 }) {
-  const stagedFiles =
-    useQuery(api.fileStaging.listStagedFiles, {
-      vaultId,
-      branch: branchName,
-    }) ?? [];
-  const hasStagedChanges = stagedFiles.length > 0;
+  const hasStagedChanges = (stagedSummary?.total ?? 0) > 0;
   const branchPath = encodeURIComponent(branchName);
   const branchRoute = `/vault/${repositoryFullName}/${branchPath}`;
 
@@ -250,9 +254,10 @@ function VaultBranchLinkRow({
       {hasStagedChanges ? (
         <div className="shrink-0">
           <EditedFilesCategoriesPopover
+            vaultId={vaultId}
             repositoryFullName={repositoryFullName}
             branch={branchName}
-            stagedFiles={stagedFiles}
+            summaryCounts={stagedSummary}
           />
         </div>
       ) : (
@@ -260,6 +265,43 @@ function VaultBranchLinkRow({
           0
         </span>
       )}
+    </div>
+  );
+}
+
+function VaultBranchList({
+  vaultId,
+  repositoryFullName,
+  remoteBranches,
+}: {
+  vaultId: Id<"vaults">;
+  repositoryFullName: string;
+  remoteBranches: Array<{
+    name: string;
+    isDefault: boolean;
+    remoteState: "active" | "deleted_upstream";
+  }>;
+}) {
+  const stagedSummaries =
+    useQuery(api.fileStaging.listStagedFilesBranchSummaries, {
+      vaultId,
+    }) ?? [];
+  const summaryByBranch = new Map(
+    stagedSummaries.map((summary) => [summary.branch, summary.counts]),
+  );
+
+  return (
+    <div className="overflow-hidden rounded-md border border-border/60 bg-muted/20">
+      {remoteBranches.map((branch) => (
+        <VaultBranchLinkRow
+          key={branch.name}
+          vaultId={vaultId}
+          repositoryFullName={repositoryFullName}
+          branchName={branch.name}
+          isDefault={branch.isDefault}
+          stagedSummary={summaryByBranch.get(branch.name)}
+        />
+      ))}
     </div>
   );
 }
@@ -1403,19 +1445,11 @@ export function VaultDashboard() {
                         <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
                           Branches
                         </p>
-                        <div className="overflow-hidden rounded-md border border-border/60 bg-muted/20">
-                          {remoteBranches.map((branch) => {
-                            return (
-                              <VaultBranchLinkRow
-                                key={branch.name}
-                                vaultId={vault._id}
-                                repositoryFullName={vault.repositoryFullName}
-                                branchName={branch.name}
-                                isDefault={branch.isDefault}
-                              />
-                            );
-                          })}
-                        </div>
+                        <VaultBranchList
+                          vaultId={vault._id}
+                          repositoryFullName={vault.repositoryFullName}
+                          remoteBranches={remoteBranches}
+                        />
                       </div>
                     )}
 
