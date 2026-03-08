@@ -1,13 +1,21 @@
 import { Infer, v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "../_generated/api";
-import { action, internalMutation, internalQuery } from "../_generated/server";
+import {
+  action,
+  internalMutation,
+  internalQuery,
+  query,
+} from "../_generated/server";
 import { randomToken } from "../oauthUtils";
 import {
   McpAuthRequestStatus,
   McpOauthClientRegistrationStatus,
 } from "../schema";
-import { redirectUriMatchesRegistered } from "./protocol";
+import {
+  getDefaultMcpProtocolValidationOptions,
+  redirectUriMatchesRegistered,
+} from "./protocol";
 import {
   createAuthorizationCodeValue,
   MCP_AUTHORIZATION_CODE_TTL_MS,
@@ -123,6 +131,67 @@ const completeAuthorizationRequestResultValidator = object({
 });
 type CompleteAuthorizationRequestResult = Infer<
   typeof completeAuthorizationRequestResultValidator
+>;
+
+const denyAuthorizationRequestForCurrentUserArgsValidator = object({
+  requestId: string(),
+});
+type DenyAuthorizationRequestForCurrentUserArgs = Infer<
+  typeof denyAuthorizationRequestForCurrentUserArgsValidator
+>;
+
+const denyAuthorizationRequestForCurrentUserResultValidator = object({
+  redirectUrl: string(),
+});
+type DenyAuthorizationRequestForCurrentUserResult = Infer<
+  typeof denyAuthorizationRequestForCurrentUserResultValidator
+>;
+
+const denyAuthorizationRequestArgsValidator = object({
+  requestId: string(),
+  userId: id("users"),
+  now: number(),
+});
+type DenyAuthorizationRequestArgs = Infer<
+  typeof denyAuthorizationRequestArgsValidator
+>;
+
+const denyAuthorizationRequestResultValidator = union(
+  object({
+    ok: literal(true),
+    redirectUri: string(),
+    state: optional(string()),
+  }),
+  mcpOauthErrorValidator,
+);
+type DenyAuthorizationRequestResult = Infer<
+  typeof denyAuthorizationRequestResultValidator
+>;
+
+const getAuthorizationRequestForCurrentUserArgsValidator = object({
+  requestId: string(),
+});
+type GetAuthorizationRequestForCurrentUserArgs = Infer<
+  typeof getAuthorizationRequestForCurrentUserArgsValidator
+>;
+
+const getAuthorizationRequestForCurrentUserResultValidator = union(
+  object({
+    requestId: string(),
+    clientId: string(),
+    clientName: optional(string()),
+    scope: string(),
+    scopes: array(string()),
+    resource: string(),
+    status: McpAuthRequestStatus,
+    dynamicallyRegistered: boolean(),
+    createdAt: number(),
+    expiresAt: number(),
+  }),
+  nullValue(),
+);
+type GetAuthorizationRequestForCurrentUserResult = Infer<
+  typeof getAuthorizationRequestForCurrentUserResultValidator
 >;
 
 const exchangeAuthorizationCodeArgsValidator = object({
@@ -287,6 +356,56 @@ export const createAuthRequest = internalMutation({
       createdAt: args.createdAt,
       expiresAt: args.expiresAt,
     });
+  },
+});
+
+export const getAuthorizationRequestForCurrentUser = query({
+  args: getAuthorizationRequestForCurrentUserArgsValidator,
+  returns: getAuthorizationRequestForCurrentUserResultValidator,
+  handler: async (
+    ctx,
+    args: GetAuthorizationRequestForCurrentUserArgs,
+  ): Promise<GetAuthorizationRequestForCurrentUserResult> => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      return null;
+    }
+
+    const authRequest = await ctx.db
+      .query("mcpAuthRequests")
+      .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
+      .first();
+    if (!authRequest) {
+      return null;
+    }
+    if (authRequest.userId && authRequest.userId !== userId) {
+      return null;
+    }
+
+    const client = await ctx.db
+      .query("mcpOauthClients")
+      .withIndex("by_client_id", (q) => q.eq("clientId", authRequest.clientId))
+      .first();
+    const effectiveStatus =
+      authRequest.status === "pending" && authRequest.expiresAt <= Date.now()
+        ? ("expired" satisfies Infer<typeof McpAuthRequestStatus>)
+        : authRequest.status;
+
+    return {
+      requestId: authRequest.requestId,
+      clientId: authRequest.clientId,
+      clientName: client?.clientName,
+      scope: authRequest.scope,
+      scopes: authRequest.scope
+        .split(" ")
+        .map((scope) => scope.trim())
+        .filter((scope) => scope.length > 0),
+      resource: authRequest.resource,
+      status: effectiveStatus,
+      dynamicallyRegistered: client?.createdBy === "dynamic_registration",
+      createdAt: authRequest.createdAt,
+      expiresAt: authRequest.expiresAt,
+    };
   },
 });
 
@@ -491,6 +610,72 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
   },
 });
 
+export const denyAuthorizationRequest = internalMutation({
+  args: denyAuthorizationRequestArgsValidator,
+  returns: denyAuthorizationRequestResultValidator,
+  handler: async (
+    ctx,
+    args: DenyAuthorizationRequestArgs,
+  ): Promise<DenyAuthorizationRequestResult> => {
+    const authRequest = await ctx.db
+      .query("mcpAuthRequests")
+      .withIndex("by_request_id", (q) => q.eq("requestId", args.requestId))
+      .first();
+    if (!authRequest) {
+      return oauthError({
+        status: 400,
+        error: "invalid_request",
+        errorDescription: "Unknown authorization request.",
+      });
+    }
+    if (authRequest.status !== "pending") {
+      return oauthError({
+        status: 400,
+        error: "invalid_request",
+        errorDescription: "Authorization request is no longer pending.",
+      });
+    }
+    if (authRequest.expiresAt <= args.now) {
+      await ctx.db.patch(authRequest._id, {
+        status: "expired" satisfies Infer<typeof McpAuthRequestStatus>,
+      });
+      return oauthError({
+        status: 400,
+        error: "invalid_request",
+        errorDescription: "Authorization request expired.",
+      });
+    }
+    if (authRequest.userId && authRequest.userId !== args.userId) {
+      return oauthError({
+        status: 403,
+        error: "invalid_request",
+        errorDescription: "Authorization request belongs to a different user.",
+      });
+    }
+
+    await ctx.db.patch(authRequest._id, {
+      status: "denied" satisfies Infer<typeof McpAuthRequestStatus>,
+      userId: args.userId,
+    });
+
+    await ctx.db.insert("mcpAccessAudit", {
+      clientId: authRequest.clientId,
+      userId: args.userId,
+      action: "authorization_denied",
+      createdAt: args.now,
+      detailsJson: JSON.stringify({
+        requestId: authRequest.requestId,
+      }),
+    });
+
+    return {
+      ok: true,
+      redirectUri: authRequest.redirectUri,
+      state: authRequest.state,
+    };
+  },
+});
+
 export const completeAuthorizationRequestForCurrentUser = action({
   args: completeAuthorizationRequestArgsValidator,
   returns: completeAuthorizationRequestResultValidator,
@@ -506,6 +691,7 @@ export const completeAuthorizationRequestForCurrentUser = action({
     const now = Date.now();
     const authorizationCode = createAuthorizationCodeValue();
     const authorizationCodeHash = await sha256Hex(authorizationCode);
+    const protocolValidationOptions = getDefaultMcpProtocolValidationOptions();
     const issueResult = await ctx.runMutation(
       internal.mcp.oauth.issueAuthorizationCodeForAuthRequest,
       {
@@ -513,7 +699,8 @@ export const completeAuthorizationRequestForCurrentUser = action({
         userId,
         codeHash: authorizationCodeHash,
         codeExpiresAt: now + MCP_AUTHORIZATION_CODE_TTL_MS,
-        allowLoopbackHttpRedirectUris: true,
+        allowLoopbackHttpRedirectUris:
+          protocolValidationOptions.allowLoopbackHttpRedirectUris === true,
         now,
       },
     );
@@ -525,6 +712,41 @@ export const completeAuthorizationRequestForCurrentUser = action({
     redirectUrl.searchParams.set("code", authorizationCode);
     if (issueResult.state) {
       redirectUrl.searchParams.set("state", issueResult.state);
+    }
+
+    return { redirectUrl: redirectUrl.toString() };
+  },
+});
+
+export const denyAuthorizationRequestForCurrentUser = action({
+  args: denyAuthorizationRequestForCurrentUserArgsValidator,
+  returns: denyAuthorizationRequestForCurrentUserResultValidator,
+  handler: async (
+    ctx,
+    args: DenyAuthorizationRequestForCurrentUserArgs,
+  ): Promise<DenyAuthorizationRequestForCurrentUserResult> => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      throw new Error("User not authenticated");
+    }
+
+    const now = Date.now();
+    const denyResult = await ctx.runMutation(
+      internal.mcp.oauth.denyAuthorizationRequest,
+      {
+        requestId: args.requestId,
+        userId,
+        now,
+      },
+    );
+    if (!denyResult.ok) {
+      throw new Error(`${denyResult.error}: ${denyResult.errorDescription}`);
+    }
+
+    const redirectUrl = new URL(denyResult.redirectUri);
+    redirectUrl.searchParams.set("error", "access_denied");
+    if (denyResult.state) {
+      redirectUrl.searchParams.set("state", denyResult.state);
     }
 
     return { redirectUrl: redirectUrl.toString() };

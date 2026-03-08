@@ -747,8 +747,8 @@ Phase 3 progress notes:
 
 - 2026-03-08: `/oauth/mcp/authorize` redirect-to-app flow now targets the React
   app origin (instead of Convex `"/"`), and the app handles
-  `mcp_consent_request` by completing the pending auth request for authenticated
-  users and redirecting back to the MCP client callback.
+  `mcp_consent_request` with explicit client/resource/scope consent
+  (Approve/Deny) before redirecting back to the MCP client callback.
 
 Checkpoint rule:
 
