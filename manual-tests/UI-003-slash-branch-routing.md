@@ -10,6 +10,8 @@ correctly from dashboard links into FileView without colliding with file paths.
 - `make anon` can run in the current checkout.
 - A connected vault has a remote branch containing `/` in the branch name.
 - Dashboard branch sync has completed for that vault.
+- Optional edge-case coverage: a second slash-containing branch and a branch
+  with multiple slash levels (for example `feature/mobile/v2/smoke`).
 
 ## Steps
 
@@ -24,6 +26,15 @@ correctly from dashboard links into FileView without colliding with file paths.
    to default branch).
 7. Navigate back to dashboard and open the default branch; confirm its URL and
    file tree are distinct from the slash branch route.
+8. Optional branch-depth check: open a branch with multiple slash levels (for
+   example `feature/mobile/v2/smoke`) and confirm the branch segment remains
+   correctly percent-encoded and stable in FileView.
+9. Optional branch-switch check: navigate from one slash branch to another slash
+   branch and confirm route transitions keep the selected target branch context.
+10. Optional direct-URL check: manually edit the encoded branch segment in the
+    address bar, reload, and confirm parsing/decoding either resolves to the
+    intended branch or safely reports branch-not-found behavior without loading
+    an incorrect branch tree.
 
 ## Expected Results
 
