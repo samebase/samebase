@@ -51,27 +51,59 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function isGitHubRepositoryListItem(
+export function normalizeGitHubRepositoryListItem(
   value: unknown,
-): value is GitHubRepositoryListItem {
+): GitHubRepositoryListItem | null {
   if (!isRecord(value)) {
-    return false;
+    return null;
   }
 
-  return (
-    typeof value.id === "number" &&
-    typeof value.name === "string" &&
-    typeof value.full_name === "string" &&
-    typeof value.html_url === "string" &&
-    (typeof value.description === "string" || value.description === null) &&
-    typeof value.private === "boolean" &&
-    typeof value.fork === "boolean" &&
-    typeof value.created_at === "string" &&
-    typeof value.updated_at === "string" &&
-    (typeof value.language === "string" || value.language === null) &&
-    typeof value.stargazers_count === "number" &&
-    typeof value.forks_count === "number"
-  );
+  const {
+    id,
+    name,
+    full_name,
+    html_url,
+    description,
+    private: isPrivate,
+    fork,
+    created_at,
+    updated_at,
+    language,
+    stargazers_count,
+    forks_count,
+  } = value;
+
+  if (
+    typeof id !== "number" ||
+    typeof name !== "string" ||
+    typeof full_name !== "string" ||
+    typeof html_url !== "string" ||
+    (typeof description !== "string" && description !== null) ||
+    typeof isPrivate !== "boolean" ||
+    typeof fork !== "boolean" ||
+    typeof created_at !== "string" ||
+    typeof updated_at !== "string" ||
+    (typeof language !== "string" && language !== null) ||
+    typeof stargazers_count !== "number" ||
+    typeof forks_count !== "number"
+  ) {
+    return null;
+  }
+
+  return {
+    id,
+    name,
+    full_name,
+    html_url,
+    description,
+    private: isPrivate,
+    fork,
+    created_at,
+    updated_at,
+    language,
+    stargazers_count,
+    forks_count,
+  };
 }
 
 // List the current user's GitHub repositories
@@ -116,11 +148,12 @@ export const listRepositories = action({
     }
 
     return reposRaw.map((repo) => {
-      if (!isGitHubRepositoryListItem(repo)) {
+      const normalized = normalizeGitHubRepositoryListItem(repo);
+      if (normalized === null) {
         throw new Error("Unexpected GitHub repository payload");
       }
 
-      return repo;
+      return normalized;
     });
   },
 });
