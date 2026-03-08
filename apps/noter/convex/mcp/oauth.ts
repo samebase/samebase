@@ -710,7 +710,7 @@ export const completeAuthorizationRequestForCurrentUser = action({
 
     const redirectUrl = new URL(issueResult.redirectUri);
     redirectUrl.searchParams.set("code", authorizationCode);
-    if (issueResult.state) {
+    if (issueResult.state !== undefined) {
       redirectUrl.searchParams.set("state", issueResult.state);
     }
 
@@ -745,7 +745,7 @@ export const denyAuthorizationRequestForCurrentUser = action({
 
     const redirectUrl = new URL(denyResult.redirectUri);
     redirectUrl.searchParams.set("error", "access_denied");
-    if (denyResult.state) {
+    if (denyResult.state !== undefined) {
       redirectUrl.searchParams.set("state", denyResult.state);
     }
 

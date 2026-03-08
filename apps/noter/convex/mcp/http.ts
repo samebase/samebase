@@ -414,7 +414,7 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
 
   const redirectUrl = new URL(issueResult.redirectUri);
   redirectUrl.searchParams.set("code", authorizationCode);
-  if (issueResult.state) {
+  if (issueResult.state !== undefined) {
     redirectUrl.searchParams.set("state", issueResult.state);
   }
 
