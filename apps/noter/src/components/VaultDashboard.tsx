@@ -1381,19 +1381,22 @@ export function VaultDashboard() {
             const defaultBranch = remoteBranches.find(
               (branch) => branch.isDefault,
             )?.name;
-            const primaryBranch = defaultBranch ?? remoteBranches[0]?.name;
-            const primaryBranchPath = primaryBranch
-              ? encodeURIComponent(primaryBranch)
-              : null;
+            const primaryBranch =
+              defaultBranch || remoteBranches[0]?.name || "";
+            const primaryBranchPath =
+              primaryBranch.length > 0
+                ? encodeURIComponent(primaryBranch)
+                : null;
             const defaultRoute = primaryBranchPath
               ? `/vault/${vault.repositoryFullName}/${primaryBranchPath}`
               : `/vault/${vault.repositoryFullName}`;
-            const chatRoute = primaryBranch
-              ? buildVaultCodespaceChatRoute({
-                  repositoryFullName: vault.repositoryFullName,
-                  branch: primaryBranch,
-                })
-              : null;
+            const chatRoute =
+              primaryBranch.length > 0
+                ? buildVaultCodespaceChatRoute({
+                    repositoryFullName: vault.repositoryFullName,
+                    branch: primaryBranch,
+                  })
+                : null;
             const githubRepositoryUrl = `https://github.com/${vault.ghRepoOwner}/${vault.ghRepoName}`;
             const developerToolsOpen =
               openDeveloperToolsByVaultId[vault._id] ?? false;
@@ -1440,7 +1443,7 @@ export function VaultDashboard() {
                       </a>
                     </div>
 
-                    {isReady && (
+                    {isReady && remoteBranches.length > 0 && (
                       <div className="space-y-1.5">
                         <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
                           Branches
@@ -1453,7 +1456,7 @@ export function VaultDashboard() {
                       </div>
                     )}
 
-                    {isReady && primaryBranch && (
+                    {isReady && primaryBranch.length > 0 && (
                       <DaytonaSnapshotBanner
                         branch={primaryBranch}
                         commitSha={vault.commitSHA}
@@ -1489,7 +1492,7 @@ export function VaultDashboard() {
                             vaultId={vault._id}
                             repositoryFullName={vault.repositoryFullName}
                           />
-                          {primaryBranch && (
+                          {primaryBranch.length > 0 && (
                             <DaytonaWorkspaceButton
                               vaultId={vault._id}
                               branch={primaryBranch}
@@ -1528,7 +1531,7 @@ export function VaultDashboard() {
                 </div>
 
                 <div className="flex w-full flex-col items-end gap-2 sm:ml-2 sm:w-auto">
-                  {isReady && primaryBranch && (
+                  {isReady && primaryBranch.length > 0 && (
                     <VaultSyncStatus
                       vaultId={vault._id}
                       repositoryFullName={vault.repositoryFullName}
@@ -1548,7 +1551,9 @@ export function VaultDashboard() {
                     {isReady ? (
                       <>
                         <Button asChild variant="secondary" size="sm">
-                          <Link to={defaultRoute}>{primaryBranch}</Link>
+                          <Link to={defaultRoute}>
+                            {primaryBranch.length > 0 ? primaryBranch : "Open"}
+                          </Link>
                         </Button>
                         {developerToolsOpen && chatRoute && (
                           <Button asChild variant="outline" size="sm">
@@ -1559,7 +1564,9 @@ export function VaultDashboard() {
                     ) : (
                       <>
                         <Button variant="secondary" size="sm" disabled>
-                          {primaryBranch}
+                          {primaryBranch.length > 0
+                            ? primaryBranch
+                            : "Preparing..."}
                         </Button>
                       </>
                     )}
