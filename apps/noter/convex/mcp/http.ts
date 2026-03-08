@@ -15,6 +15,7 @@ import {
 import {
   buildMcpAuthorizationServerMetadata,
   buildMcpProtectedResourceMetadata,
+  getDefaultMcpProtocolValidationOptions,
   type McpProtocolValidationOptions,
   readBearerTokenFromAuthorizationHeader,
   redirectUriMatchesRegistered,
@@ -56,6 +57,70 @@ function parseOrigin(request: Request): string {
   return new URL(request.url).origin;
 }
 
+function resolveAppUrl(request: Request): URL | null {
+  const requestOrigin = parseOrigin(request);
+  const configuredSiteUrl = process.env.SITE_URL;
+  if (!configuredSiteUrl) {
+    console.error(
+      "SITE_URL is not set; cannot redirect MCP OAuth consent to the React app.",
+      { requestOrigin },
+    );
+    return null;
+  }
+
+  // Reject relative/malformed values so consent redirects always target the app origin.
+  try {
+    const appUrl = new URL(configuredSiteUrl);
+    if (appUrl.protocol !== "https:" && appUrl.protocol !== "http:") {
+      throw new Error(`Unsupported protocol: ${appUrl.protocol}`);
+    }
+    return appUrl;
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "Unknown SITE_URL validation error";
+    console.error(
+      "SITE_URL must be an absolute http(s) URL for MCP OAuth consent.",
+      {
+        configuredSiteUrl,
+        requestOrigin,
+        errorMessage,
+      },
+    );
+    return null;
+  }
+}
+
+function buildMcpConsentRedirectUrl(args: {
+  request: Request;
+  requestId: string;
+  loginRequired: boolean;
+}): { ok: true; value: string } | { ok: false; errorDescription: string } {
+  // Consent/login UX must happen in the React app origin. Convex HTTP routes do
+  // not serve "/" on convex.site, so redirecting there yields "No matching routes found".
+  const consentUrl = resolveAppUrl(args.request);
+  if (consentUrl === null) {
+    return {
+      ok: false,
+      errorDescription:
+        "SITE_URL must be an absolute http(s) URL for MCP OAuth consent.",
+    };
+  }
+  consentUrl.searchParams.set("mcp_consent_request", args.requestId);
+  if (args.loginRequired) {
+    consentUrl.searchParams.set("mcp_login_required", "1");
+  }
+  return {
+    ok: true,
+    value: consentUrl.toString(),
+  };
+}
+
+function getProtocolValidationOptions(): McpProtocolValidationOptions {
+  return getDefaultMcpProtocolValidationOptions();
+}
+
 function hasJsonContentType(request: Request): boolean {
   const contentType = request.headers.get("content-type");
   if (!contentType) {
@@ -72,13 +137,6 @@ function hasFormUrlEncodedContentType(request: Request): boolean {
   return contentType
     .toLowerCase()
     .startsWith("application/x-www-form-urlencoded");
-}
-
-function getProtocolValidationOptions(): McpProtocolValidationOptions {
-  return {
-    // Native/desktop MCP clients use loopback callbacks over http://127.0.0.1:*.
-    allowLoopbackHttpRedirectUris: true,
-  };
 }
 
 function jsonRpcSuccessResponse(args: {
@@ -317,10 +375,19 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
   });
 
   if (!userId) {
-    const consentUrl = new URL("/", parseOrigin(request));
-    consentUrl.searchParams.set("mcp_consent_request", requestId);
-    consentUrl.searchParams.set("mcp_login_required", "1");
-    return Response.redirect(consentUrl.toString(), 302);
+    const consentRedirect = buildMcpConsentRedirectUrl({
+      request,
+      requestId,
+      loginRequired: true,
+    });
+    if (!consentRedirect.ok) {
+      return oauthErrorResponse({
+        status: 500,
+        error: "server_error",
+        errorDescription: consentRedirect.errorDescription,
+      });
+    }
+    return Response.redirect(consentRedirect.value, 302);
   }
 
   const hasExistingGrant = await ctx.runQuery(
@@ -331,9 +398,19 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
     },
   );
   if (!hasExistingGrant) {
-    const consentUrl = new URL("/", parseOrigin(request));
-    consentUrl.searchParams.set("mcp_consent_request", requestId);
-    return Response.redirect(consentUrl.toString(), 302);
+    const consentRedirect = buildMcpConsentRedirectUrl({
+      request,
+      requestId,
+      loginRequired: false,
+    });
+    if (!consentRedirect.ok) {
+      return oauthErrorResponse({
+        status: 500,
+        error: "server_error",
+        errorDescription: consentRedirect.errorDescription,
+      });
+    }
+    return Response.redirect(consentRedirect.value, 302);
   }
 
   const authorizationCode = createAuthorizationCodeValue();
@@ -360,7 +437,7 @@ export const authorizeMcpOauthRequest = httpAction(async (ctx, request) => {
 
   const redirectUrl = new URL(issueResult.redirectUri);
   redirectUrl.searchParams.set("code", authorizationCode);
-  if (issueResult.state) {
+  if (issueResult.state !== undefined) {
     redirectUrl.searchParams.set("state", issueResult.state);
   }
 

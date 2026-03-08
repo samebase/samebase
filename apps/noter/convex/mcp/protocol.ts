@@ -87,6 +87,13 @@ export type McpProtocolValidationOptions = {
   allowLoopbackHttpRedirectUris?: boolean;
 };
 
+export function getDefaultMcpProtocolValidationOptions(): McpProtocolValidationOptions {
+  return {
+    // Native/desktop MCP clients use loopback callbacks over http://127.0.0.1:*.
+    allowLoopbackHttpRedirectUris: true,
+  };
+}
+
 function trimTrailingSlash(url: string): string {
   if (url.endsWith("/")) {
     return url.slice(0, -1);
