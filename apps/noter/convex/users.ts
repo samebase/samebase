@@ -276,16 +276,19 @@ function buildCloudflareConnectionStatus(
       : shouldUseDerivedStatus
         ? derivedStatus
         : storedStatus ?? derivedStatus;
-  const nextAutoCheckAt =
-    mcpTokenStatus === "invalid"
-      ? undefined
-      : options?.nextAutoCheckAt ??
-        computeCloudflareNextAutoCheckAt({
+  const derivedNextAutoCheckAt =
+    connection.tokenHealth?.source === "runtime_error"
+      ? computeCloudflareRetryDueAt(connection.tokenHealth.checkedAt, now)
+      : computeCloudflareNextAutoCheckAt({
           expiresAt: effectiveExpiresAt,
           now,
           lastTokenRefreshAt: connection.lastTokenRefreshAt,
           tokenCheckedAt: connection.tokenHealth?.checkedAt,
         });
+  const nextAutoCheckAt =
+    mcpTokenStatus === "invalid"
+      ? undefined
+      : options?.nextAutoCheckAt ?? derivedNextAutoCheckAt;
   return {
     ...baseStatus,
     mcpTokenStatus,
@@ -704,6 +707,7 @@ export const getCloudflareConnectionStatus = query({
 
 const cloudflareAutoRefreshTriggerValidator = union(
   literal("focus"),
+  literal("visibility"),
   literal("page_load"),
   literal("poll"),
   literal("manual"),
@@ -741,28 +745,19 @@ async function runCloudflareMcpTokenRefresh(args: {
   if (!forceRefresh && connection.tokenHealth?.status === "invalid") {
     return buildCloudflareConnectionStatus(connection, { now });
   }
+  const statusAtNow = buildCloudflareConnectionStatus(connection, { now });
   const effectiveExpiresAt =
     connection.tokenHealth?.expiresAt ?? connection.auth.credentialExpiresAt;
-  const nextAutoCheckAt = computeCloudflareNextAutoCheckAt({
-    expiresAt: effectiveExpiresAt,
-    now,
-    lastTokenRefreshAt: connection.lastTokenRefreshAt,
-    tokenCheckedAt: connection.tokenHealth?.checkedAt,
-  });
-  let runtimeErrorRetryDueAt: number | undefined;
-  if (!forceRefresh && connection.tokenHealth?.source === "runtime_error") {
-    runtimeErrorRetryDueAt = computeCloudflareRetryDueAt(
-      connection.tokenHealth.checkedAt,
-      now,
-    );
-  }
+  const nextAutoCheckAt = statusAtNow.mcpTokenNextAutoCheckAt;
   if (
-    typeof runtimeErrorRetryDueAt === "number" &&
-    now < runtimeErrorRetryDueAt
+    !forceRefresh &&
+    connection.tokenHealth?.source === "runtime_error" &&
+    typeof nextAutoCheckAt === "number" &&
+    now < nextAutoCheckAt
   ) {
     return buildCloudflareConnectionStatus(connection, {
       now,
-      nextAutoCheckAt: runtimeErrorRetryDueAt,
+      nextAutoCheckAt,
     });
   }
   const refreshDueAt =
@@ -778,6 +773,7 @@ async function runCloudflareMcpTokenRefresh(args: {
   if (
     !forceRefresh &&
     typeof refreshDueAt !== "number" &&
+    typeof nextAutoCheckAt === "number" &&
     now < nextAutoCheckAt
   ) {
     return buildCloudflareConnectionStatus(connection, {

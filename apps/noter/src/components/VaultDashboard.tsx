@@ -499,7 +499,9 @@ export function VaultDashboard() {
     }
 
     const debounceKey = user?._id ?? "cloudflare-dashboard";
-    const runAutoCheck = (trigger: "focus" | "page_load" | "poll") => {
+    const runAutoCheck = (
+      trigger: "focus" | "visibility" | "page_load" | "poll",
+    ) => {
       if (cloudflareAutoCheckInFlightRef.current) {
         return;
       }
@@ -538,7 +540,7 @@ export function VaultDashboard() {
       const isVisible = document.visibilityState === "visible";
       setCloudflarePollingPaused(!isVisible);
       if (isVisible) {
-        runAutoCheck("focus");
+        runAutoCheck("visibility");
       }
     };
 
