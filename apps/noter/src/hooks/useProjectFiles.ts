@@ -173,6 +173,11 @@ export function useProjectFiles(
       try {
         const result = await loadProjectFilesWithSharedPromise({
           cacheKey,
+          scope: {
+            vaultId,
+            branch,
+            treeSHA,
+          },
           load: () =>
             batchReadFiles({
               vaultId,

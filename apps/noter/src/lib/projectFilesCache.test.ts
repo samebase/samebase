@@ -7,6 +7,14 @@ import {
   type ProjectFile,
 } from "./projectFilesCache";
 
+function buildScope(treeSHA: string) {
+  return {
+    vaultId: "vault_123",
+    branch: "main",
+    treeSHA,
+  };
+}
+
 describe("loadProjectFilesWithSharedPromise", () => {
   beforeEach(() => {
     clearProjectFilesCacheForTests();
@@ -18,10 +26,12 @@ describe("loadProjectFilesWithSharedPromise", () => {
 
     const firstPromise = loadProjectFilesWithSharedPromise({
       cacheKey: "vault:main:tree:repo",
+      scope: buildScope("tree"),
       load,
     });
     const secondPromise = loadProjectFilesWithSharedPromise({
       cacheKey: "vault:main:tree:repo",
+      scope: buildScope("tree"),
       load,
     });
 
@@ -44,6 +54,7 @@ describe("loadProjectFilesWithSharedPromise", () => {
     await expect(
       loadProjectFilesWithSharedPromise({
         cacheKey: "vault:main:tree:repo",
+        scope: buildScope("tree"),
         load: async () => {
           attempts += 1;
           throw new Error("boom");
@@ -54,6 +65,7 @@ describe("loadProjectFilesWithSharedPromise", () => {
     await expect(
       loadProjectFilesWithSharedPromise({
         cacheKey: "vault:main:tree:repo",
+        scope: buildScope("tree"),
         load: async () => {
           attempts += 1;
           return files;
@@ -75,6 +87,7 @@ describe("loadProjectFilesWithSharedPromise", () => {
     await expect(
       loadProjectFilesWithSharedPromise({
         cacheKey: "vault:main:tree:repo",
+        scope: buildScope("tree"),
         load: firstLoad,
       }),
     ).resolves.toEqual(files);
@@ -82,11 +95,66 @@ describe("loadProjectFilesWithSharedPromise", () => {
     await expect(
       loadProjectFilesWithSharedPromise({
         cacheKey: "vault:main:tree:repo",
+        scope: buildScope("tree"),
         load: secondLoad,
       }),
     ).resolves.toEqual(files);
 
     expect(firstLoad).toHaveBeenCalledTimes(1);
     expect(secondLoad).not.toHaveBeenCalled();
+  });
+
+  it("prunes older tree snapshots for the same vault branch", async () => {
+    const oldFiles: ProjectFile[] = [{ path: "src/old.ts", content: "old" }];
+    const newFiles: ProjectFile[] = [{ path: "src/new.ts", content: "new" }];
+    const oldKey = "vault:main:tree-old:repo";
+    const newKey = "vault:main:tree-new:repo";
+
+    await expect(
+      loadProjectFilesWithSharedPromise({
+        cacheKey: oldKey,
+        scope: buildScope("tree-old"),
+        load: async () => oldFiles,
+      }),
+    ).resolves.toEqual(oldFiles);
+
+    await expect(
+      loadProjectFilesWithSharedPromise({
+        cacheKey: newKey,
+        scope: buildScope("tree-new"),
+        load: async () => newFiles,
+      }),
+    ).resolves.toEqual(newFiles);
+
+    expect(getCachedProjectFiles(oldKey)).toBeNull();
+    expect(getCachedProjectFiles(newKey)).toEqual(newFiles);
+  });
+
+  it("does not repopulate cache from a stale pruned pending fetch", async () => {
+    const oldPending = Promise.withResolvers<ProjectFile[]>();
+    const oldFiles: ProjectFile[] = [{ path: "src/old.ts", content: "old" }];
+    const newFiles: ProjectFile[] = [{ path: "src/new.ts", content: "new" }];
+    const oldKey = "vault:main:tree-old:repo";
+    const newKey = "vault:main:tree-new:repo";
+
+    const oldPromise = loadProjectFilesWithSharedPromise({
+      cacheKey: oldKey,
+      scope: buildScope("tree-old"),
+      load: async () => oldPending.promise,
+    });
+
+    await expect(
+      loadProjectFilesWithSharedPromise({
+        cacheKey: newKey,
+        scope: buildScope("tree-new"),
+        load: async () => newFiles,
+      }),
+    ).resolves.toEqual(newFiles);
+
+    oldPending.resolve(oldFiles);
+    await expect(oldPromise).resolves.toEqual(oldFiles);
+
+    expect(getCachedProjectFiles(oldKey)).toBeNull();
+    expect(getCachedProjectFiles(newKey)).toEqual(newFiles);
   });
 });
