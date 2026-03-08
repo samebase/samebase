@@ -19,6 +19,7 @@ import {
 } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../convex/_generated/api";
+import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 
@@ -107,7 +108,7 @@ function readMcpConsentRequestId(search: string): string | null {
 }
 
 function isMcpConsentRoute(pathname: string): boolean {
-  return pathname === "/oauth/mcp/consent";
+  return pathname === MCP_CONSENT_APP_PATH;
 }
 
 function McpConsentView({ requestId }: { requestId: string }) {

@@ -3,6 +3,7 @@ import { asRecord } from "../jsonUtils";
 import { internal } from "../_generated/api";
 import { httpAction } from "../_generated/server";
 import { randomToken } from "../oauthUtils";
+import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 import {
   createAccessTokenValue,
   createAuthorizationCodeValue,
@@ -28,7 +29,6 @@ import {
 const MCP_PROVISIONAL_CLIENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MCP_AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
 const MCP_PROTOCOL_VERSION = "2025-03-26";
-const MCP_CONSENT_APP_PATH = "/oauth/mcp/consent";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
