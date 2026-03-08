@@ -37,6 +37,8 @@ manual-tests/MCP-002-phase2-token-and-mcp-flow.md
 manual-tests/README.md
 manual-tests/TEMPLATE.md
 manual-tests/UI-001-landing-copy-hides-markdown.md
+manual-tests/UI-002-vault-branch-list-and-navigation.md
+manual-tests/UI-003-slash-branch-routing.md
 manual-tests/worktree/WT-001-anon-worktree-isolation.md
 manual-tests/worktree/WT-002-wt-001-local-and-worktree.md
 noter.md
