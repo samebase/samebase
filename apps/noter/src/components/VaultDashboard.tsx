@@ -80,6 +80,7 @@ import {
   type ApiKeyProvider,
 } from "@/components/ApiKeyConnectDialog";
 import type { Id } from "../../convex/_generated/dataModel";
+import { buildVaultCodespaceChatRoute } from "@/lib/vaultRoutes";
 
 const formatInfraState = (
   infraState: "not_started" | "provisioning" | "ready" | "failed" | "partial",
@@ -1335,10 +1336,22 @@ export function VaultDashboard() {
             const remoteBranches = vault.remoteBranches.filter(
               (branch) => branch.remoteState === "active",
             );
-            const defaultBranch =
-              remoteBranches.find((branch) => branch.isDefault)?.name ?? "main";
-            const defaultBranchPath = encodeURIComponent(defaultBranch);
-            const chatRoute = `/vault/${vault.repositoryFullName}/${defaultBranchPath}/chat`;
+            const defaultBranch = remoteBranches.find(
+              (branch) => branch.isDefault,
+            )?.name;
+            const primaryBranch = defaultBranch ?? remoteBranches[0]?.name;
+            const primaryBranchPath = primaryBranch
+              ? encodeURIComponent(primaryBranch)
+              : null;
+            const defaultRoute = primaryBranchPath
+              ? `/vault/${vault.repositoryFullName}/${primaryBranchPath}`
+              : `/vault/${vault.repositoryFullName}`;
+            const chatRoute = primaryBranch
+              ? buildVaultCodespaceChatRoute({
+                  repositoryFullName: vault.repositoryFullName,
+                  branch: primaryBranch,
+                })
+              : null;
             const githubRepositoryUrl = `https://github.com/${vault.ghRepoOwner}/${vault.ghRepoName}`;
             const developerToolsOpen =
               openDeveloperToolsByVaultId[vault._id] ?? false;
@@ -1406,9 +1419,9 @@ export function VaultDashboard() {
                       </div>
                     )}
 
-                    {isReady && (
+                    {isReady && primaryBranch && (
                       <DaytonaSnapshotBanner
-                        branch={defaultBranch}
+                        branch={primaryBranch}
                         commitSha={vault.commitSHA}
                         snapshotName={vault.daytonaCurrentSnapshotName}
                         snapshotStatus={vault.daytonaCurrentSnapshotStatus}
@@ -1442,18 +1455,22 @@ export function VaultDashboard() {
                             vaultId={vault._id}
                             repositoryFullName={vault.repositoryFullName}
                           />
-                          <DaytonaWorkspaceButton
-                            vaultId={vault._id}
-                            branch={defaultBranch}
-                            sandboxId={vault.daytonaSandboxId}
-                            sandboxName={vault.daytonaSandboxName}
-                            commitSha={vault.commitSHA}
-                            snapshotStatus={vault.daytonaCurrentSnapshotStatus}
-                            snapshotName={vault.daytonaCurrentSnapshotName}
-                            snapshotError={
-                              vault.daytonaCurrentSnapshotLastError
-                            }
-                          />
+                          {primaryBranch && (
+                            <DaytonaWorkspaceButton
+                              vaultId={vault._id}
+                              branch={primaryBranch}
+                              sandboxId={vault.daytonaSandboxId}
+                              sandboxName={vault.daytonaSandboxName}
+                              commitSha={vault.commitSHA}
+                              snapshotStatus={
+                                vault.daytonaCurrentSnapshotStatus
+                              }
+                              snapshotName={vault.daytonaCurrentSnapshotName}
+                              snapshotError={
+                                vault.daytonaCurrentSnapshotLastError
+                              }
+                            />
+                          )}
                           <DaytonaSnapshotList vaultId={vault._id} />
                           {vault.isNoterManaged && (
                             <div className="text-xs text-muted-foreground">
@@ -1477,11 +1494,11 @@ export function VaultDashboard() {
                 </div>
 
                 <div className="flex w-full flex-col items-end gap-2 sm:ml-2 sm:w-auto">
-                  {isReady && (
+                  {isReady && primaryBranch && (
                     <VaultSyncStatus
                       vaultId={vault._id}
                       repositoryFullName={vault.repositoryFullName}
-                      branch={defaultBranch}
+                      branch={primaryBranch}
                       owner={vault.ghRepoOwner}
                       repoName={vault.ghRepoName}
                       now={now}
@@ -1497,13 +1514,9 @@ export function VaultDashboard() {
                     {isReady ? (
                       <>
                         <Button asChild variant="secondary" size="sm">
-                          <Link
-                            to={`/vault/${vault.repositoryFullName}/${defaultBranchPath}`}
-                          >
-                            {defaultBranch}
-                          </Link>
+                          <Link to={defaultRoute}>{primaryBranch}</Link>
                         </Button>
-                        {developerToolsOpen && (
+                        {developerToolsOpen && chatRoute && (
                           <Button asChild variant="outline" size="sm">
                             <Link to={chatRoute}>Chat</Link>
                           </Button>
@@ -1512,7 +1525,7 @@ export function VaultDashboard() {
                     ) : (
                       <>
                         <Button variant="secondary" size="sm" disabled>
-                          {defaultBranch}
+                          {primaryBranch}
                         </Button>
                       </>
                     )}

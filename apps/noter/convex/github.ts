@@ -197,13 +197,54 @@ function toGitTreeRef(branch: string): string {
   return `heads/${branch}`;
 }
 
-type RemoteBranchSummary = {
+interface RemoteBranchSummary {
   name: string;
   headCommitSha: string;
   lastCommitAt?: number;
   isDefault: boolean;
   isProtected: boolean;
-};
+}
+
+interface CachedBranchTreeSnapshot {
+  treeSHA: string;
+  commitSHA?: string;
+}
+
+interface RepositoryTreeUpdatePlan {
+  shouldUpdateBranchTree: boolean;
+  shouldUpdateLegacyTree: boolean;
+  shouldUpdateLegacyCommit: boolean;
+}
+
+export function computeRepositoryTreeUpdatePlan(args: {
+  resolvedBranch: string;
+  defaultBranch?: string;
+  fetchedTreeSHA: string;
+  fetchedCommitSHA?: string;
+  cachedBranchTree: CachedBranchTreeSnapshot | null;
+  legacyTreeSHA: string;
+  legacyCommitSHA?: string;
+}): RepositoryTreeUpdatePlan {
+  const shouldUpdateBranchTree =
+    !args.cachedBranchTree ||
+    args.fetchedTreeSHA !== args.cachedBranchTree.treeSHA ||
+    args.fetchedCommitSHA !== args.cachedBranchTree.commitSHA;
+  const isDefaultBranch =
+    typeof args.defaultBranch === "string" &&
+    args.resolvedBranch === args.defaultBranch;
+  const shouldUpdateLegacyTree =
+    isDefaultBranch && args.fetchedTreeSHA !== args.legacyTreeSHA;
+  const shouldUpdateLegacyCommit =
+    isDefaultBranch &&
+    typeof args.fetchedCommitSHA === "string" &&
+    args.fetchedCommitSHA !== args.legacyCommitSHA;
+
+  return {
+    shouldUpdateBranchTree,
+    shouldUpdateLegacyTree,
+    shouldUpdateLegacyCommit,
+  };
+}
 
 function parseGitTimestamp(value: string | undefined): number | undefined {
   if (typeof value !== "string") {
@@ -780,35 +821,70 @@ export const updateRepositoryTree = internalAction({
       syncedAt: Date.now(),
       branches: remoteBranches,
     });
+    const defaultBranch = remoteBranches.find(
+      (branch) => branch.isDefault,
+    )?.name;
+    const resolvedBranch = targetBranch ?? defaultBranch ?? "main";
 
     const tree = await octokit.rest.git.getTree({
       owner: args.owner,
       repo: args.repo,
-      tree_sha: targetBranch ? toGitTreeRef(targetBranch) : "HEAD",
+      tree_sha: toGitTreeRef(resolvedBranch),
       recursive: "1",
     });
     const latestCommits = await octokit.rest.repos.listCommits({
       owner: args.owner,
       repo: args.repo,
-      sha: targetBranch,
+      sha: resolvedBranch,
       per_page: 1,
     });
     const latestCommitSha = latestCommits.data[0]?.sha;
 
-    const shouldUpdateTree = tree.data.sha !== vault.treeData.sha;
-    const shouldUpdateCommit =
-      typeof latestCommitSha === "string" &&
-      latestCommitSha !== vault.commitSHA;
+    const cachedBranchTree = await ctx.runQuery(
+      internal.vault.getVaultBranchTree,
+      {
+        vaultId: vault._id,
+        branch: resolvedBranch,
+      },
+    );
+    const {
+      shouldUpdateBranchTree,
+      shouldUpdateLegacyTree,
+      shouldUpdateLegacyCommit,
+    } = computeRepositoryTreeUpdatePlan({
+      resolvedBranch,
+      defaultBranch,
+      fetchedTreeSHA: tree.data.sha,
+      fetchedCommitSHA: latestCommitSha,
+      cachedBranchTree,
+      legacyTreeSHA: vault.treeData.sha,
+      legacyCommitSHA: vault.commitSHA,
+    });
 
-    if (!shouldUpdateTree && !shouldUpdateCommit) {
+    if (
+      !shouldUpdateBranchTree &&
+      !shouldUpdateLegacyTree &&
+      !shouldUpdateLegacyCommit
+    ) {
       return null;
     }
 
-    await ctx.runMutation(internal.vault.updateVaultTree, {
-      vaultId: vault._id,
-      treeData: tree.data,
-      commitSHA: latestCommitSha,
-    });
+    if (shouldUpdateBranchTree) {
+      await ctx.runMutation(internal.vault.upsertVaultBranchTree, {
+        vaultId: vault._id,
+        branch: resolvedBranch,
+        treeData: tree.data,
+        commitSHA: latestCommitSha,
+      });
+    }
+
+    if (shouldUpdateLegacyTree || shouldUpdateLegacyCommit) {
+      await ctx.runMutation(internal.vault.updateVaultTree, {
+        vaultId: vault._id,
+        treeData: tree.data,
+        commitSHA: latestCommitSha,
+      });
+    }
 
     return null;
   },

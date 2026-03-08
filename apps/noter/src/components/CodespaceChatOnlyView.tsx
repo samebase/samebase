@@ -7,6 +7,7 @@ import { CodespaceIframe } from "./CodespaceIframe";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { useCacheQuery as useVaultQuery } from "@/lib/convexQueryCache";
+import { decodeRouteSegmentSafe } from "@/lib/vaultRoutes";
 
 const CODESPACE_STATES_REQUIRING_ENSURE = new Set([
   "stopped",
@@ -18,21 +19,13 @@ function formatCodespaceState(state: string): string {
   return `${state.charAt(0).toUpperCase()}${state.slice(1)}`;
 }
 
-function decodeRouteSegmentSafe(segment: string): string {
-  try {
-    return decodeURIComponent(segment);
-  } catch {
-    return segment;
-  }
-}
-
 export function CodespaceChatOnlyView() {
   const { owner, repoName, branch } = useParams<{
     owner: string;
     repoName: string;
     branch: string;
   }>();
-  const targetBranch = branch ? decodeRouteSegmentSafe(branch) : "main";
+  const targetBranch = branch ? decodeRouteSegmentSafe(branch) : undefined;
   const repositoryFullName = useMemo(() => {
     if (!owner || !repoName) {
       return null;
@@ -42,7 +35,12 @@ export function CodespaceChatOnlyView() {
 
   const vault = useVaultQuery(
     api.vault.getVaultByRepository,
-    repositoryFullName ? { repositoryFullName } : "skip",
+    repositoryFullName
+      ? {
+          repositoryFullName,
+          branch: targetBranch,
+        }
+      : "skip",
   );
   const vaultId = vault?._id;
   const codespace = useQuery(
@@ -126,7 +124,10 @@ export function CodespaceChatOnlyView() {
     );
   }
 
-  const fileViewPath = `/vault/${owner}/${repoName}/${encodeURIComponent(targetBranch)}`;
+  const resolvedBranch = targetBranch ?? vault?.resolvedBranch;
+  const fileViewPath = resolvedBranch
+    ? `/vault/${owner}/${repoName}/${encodeURIComponent(resolvedBranch)}`
+    : `/vault/${owner}/${repoName}`;
 
   if (vault === undefined) {
     return null;

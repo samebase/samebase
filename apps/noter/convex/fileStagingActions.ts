@@ -1271,16 +1271,11 @@ export const pullFromGitHubInternal = internalAction({
       });
     }
 
-    // 5. Update the vault tree
-    const latestVaultTree = await octokit.rest.git.getTree({
+    // 5. Refresh default-branch tree caches after reconciliation
+    await ctx.runAction(internal.github.updateRepositoryTree, {
+      userId: args.userId,
       owner: vault.ghRepoOwner,
       repo: vault.ghRepoName,
-      tree_sha: "HEAD",
-      recursive: "1",
-    });
-    await ctx.runMutation(internal.vault.updateVaultTree, {
-      vaultId: args.vaultId,
-      treeData: latestVaultTree.data,
     });
 
     return null;
@@ -1292,6 +1287,7 @@ export const pullFromGitHubInternal = internalAction({
 export const batchReadFiles = action({
   args: {
     vaultId: v.id("vaults"),
+    branch: v.optional(v.string()),
     filePaths: v.array(v.string()),
   },
   returns: v.array(v.object({ path: v.string(), content: v.string() })),
@@ -1306,9 +1302,18 @@ export const batchReadFiles = action({
       throw new Error("Vault not found");
     }
 
+    const branchTree =
+      typeof args.branch === "string" && args.branch.length > 0
+        ? await ctx.runQuery(internal.vault.getVaultBranchTree, {
+            vaultId: args.vaultId,
+            branch: args.branch,
+          })
+        : null;
+    const repositoryTree = branchTree?.treeData.tree ?? vault.treeData.tree;
+
     // Build a map of path → tree entry for fast lookups
     const treeMap = new Map<string, { sha: string; size?: number }>();
-    for (const item of vault.treeData.tree) {
+    for (const item of repositoryTree) {
       if (item.type === "blob" && item.sha) {
         treeMap.set(item.path, { sha: item.sha, size: item.size });
       }
@@ -1854,6 +1859,7 @@ export const commitAllStaged = internalAction({
         {
           repositoryFullName: fullRepo,
           userId: args.userId,
+          branch: commitBranch,
         },
       );
 

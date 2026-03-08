@@ -143,7 +143,16 @@ export const generateResponse = internalAction({
     let repoTree: string[] | undefined;
 
     if (vault) {
-      repoTree = vault.treeData.tree
+      const branchTree =
+        typeof threadContext.branch === "string" &&
+        threadContext.branch.length > 0
+          ? await ctx.runQuery(internal.vault.getVaultBranchTree, {
+              vaultId: vault._id,
+              branch: threadContext.branch,
+            })
+          : null;
+      const repositoryTree = branchTree?.treeData.tree ?? vault.treeData.tree;
+      repoTree = repositoryTree
         .filter((t) => t.type === "blob")
         .map((t) => t.path);
     }

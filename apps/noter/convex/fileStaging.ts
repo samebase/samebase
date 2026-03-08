@@ -400,7 +400,12 @@ export const createFileInStaging = mutation({
       throw new Error("A staged file already uses this path");
     }
 
-    const existsInRepository = vault.treeData.tree.some(
+    const branchTree = await ctx.runQuery(internal.vault.getVaultBranchTree, {
+      vaultId: args.vaultId,
+      branch: args.branch,
+    });
+    const repositoryTree = branchTree?.treeData.tree ?? vault.treeData.tree;
+    const existsInRepository = repositoryTree.some(
       (entry: GithubTreeType) =>
         entry.type === "blob" && entry.path === args.filePath,
     );
@@ -603,7 +608,12 @@ export const rename = internalMutation({
       throw new Error("A staged file already uses this path");
     }
 
-    const existsInRepository = vault.treeData.tree.some(
+    const branchTree = await ctx.runQuery(internal.vault.getVaultBranchTree, {
+      vaultId: args.vaultId,
+      branch: args.branch,
+    });
+    const repositoryTree = branchTree?.treeData.tree ?? vault.treeData.tree;
+    const existsInRepository = repositoryTree.some(
       (entry: GithubTreeType) =>
         entry.type === "blob" &&
         entry.path === args.newPath &&

@@ -18,6 +18,7 @@ import { Id } from "../../convex/_generated/dataModel";
 import { useLocation } from "react-router-dom";
 import { TOOL_CATALOG } from "../../convex/agent/toolCatalog";
 import { useUIMessages, type UIMessage } from "@convex-dev/agent/react";
+import { parseVaultPathContext } from "@/lib/vaultRoutes";
 import {
   messageMetadataSchema,
   type CommitProposalPayload as CommitProposal,
@@ -27,72 +28,28 @@ import {
 
 // --- Route context hook ---
 
-// ChatFab is rendered outside <Routes>, so useParams() returns {}.
-// Parse the URL manually via useLocation() instead.
-function decodeRouteSegmentSafe(segment: string): string {
-  try {
-    return decodeURIComponent(segment);
-  } catch {
-    return segment;
-  }
-}
-
 function useVaultContext() {
   const { pathname } = useLocation();
 
-  const { branch, filePath, repositoryFullName } = useMemo(() => {
-    const rawSegments = pathname.split("/").filter((segment) => segment.length);
-    if (
-      rawSegments.length < 3 ||
-      rawSegments[0] !== "vault" ||
-      rawSegments[1].length === 0 ||
-      rawSegments[2].length === 0
-    ) {
-      return {
-        branch: "main",
-        filePath: undefined,
-        repositoryFullName: undefined,
-      };
-    }
-
-    const owner = decodeRouteSegmentSafe(rawSegments[1]);
-    const repoName = decodeRouteSegmentSafe(rawSegments[2]);
-    if (owner.length === 0 || repoName.length === 0) {
-      return {
-        branch: "main",
-        filePath: undefined,
-        repositoryFullName: undefined,
-      };
-    }
-
-    const encodedBranch = rawSegments[3];
-    const branch =
-      typeof encodedBranch === "string" && encodedBranch.length > 0
-        ? decodeRouteSegmentSafe(encodedBranch)
-        : "main";
-    const rest = rawSegments.slice(4);
-    const filePath =
-      rest.length > 0 && rest[0] !== "chat"
-        ? rest.map((segment) => decodeRouteSegmentSafe(segment)).join("/")
-        : undefined;
-
-    return {
-      branch,
-      filePath,
-      repositoryFullName: `${owner}/${repoName}`,
-    };
-  }, [pathname]);
+  const routeContext = useMemo(
+    () => parseVaultPathContext(pathname),
+    [pathname],
+  );
+  const repositoryFullName = routeContext.repositoryFullName;
+  const routeBranch = routeContext.branch;
+  const filePath = routeContext.filePath;
 
   const vault = useQuery(
     api.vault.getVaultByRepository,
-    repositoryFullName ? { repositoryFullName } : "skip",
+    repositoryFullName ? { repositoryFullName, branch: routeBranch } : "skip",
   );
 
   const vaultId = vault?._id;
+  const resolvedBranch = routeBranch ?? vault?.resolvedBranch;
 
   return {
     vaultId,
-    branch,
+    branch: resolvedBranch,
     filePath,
     repositoryFullName,
   };

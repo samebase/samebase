@@ -58,6 +58,7 @@ import { RepositoryMediaViewer } from "./RepositoryMediaViewer";
 import { RepositoryWorkspaceFrame } from "./RepositoryWorkspaceFrame";
 import { diffLines } from "diff";
 import { isRenderableRepositoryMediaPath } from "../../shared/repositoryMedia";
+import { decodeRouteSegmentSafe } from "@/lib/vaultRoutes";
 
 // Function to find the best file to display
 function findBestInitialFile(files: GithubTreeType[]) {
@@ -217,14 +218,6 @@ function encodeGitHubPath(path: string): string {
     .join("/");
 }
 
-function decodeRouteSegmentSafe(segment: string): string {
-  try {
-    return decodeURIComponent(segment);
-  } catch {
-    return segment;
-  }
-}
-
 function FileViewWrapper() {
   const navigate = useNavigate();
 
@@ -236,15 +229,16 @@ function FileViewWrapper() {
   } = useParams<{
     owner: string;
     repoName: string;
-    branch: string;
+    branch?: string;
     "*": string;
   }>();
 
   const firstDocAction = useAction(api.fileStagingActions.getFileForEditing);
   const refreshTree = useAction(api.github.refreshRepositoryTree);
-  const branch = branchParam ? decodeRouteSegmentSafe(branchParam) : "main";
+  const routeBranch = branchParam
+    ? decodeRouteSegmentSafe(branchParam)
+    : undefined;
   const selectedFile = filePathParam ?? "";
-  const storageBackedSelectionKey = `${branch}:${selectedFile}`;
   const repositoryFullName = owner && repoName ? `${owner}/${repoName}` : null;
 
   // Get vault for this repository
@@ -252,7 +246,10 @@ function FileViewWrapper() {
   // freshness metadata (cached null can trigger a false redirect to dashboard).
   const vault = useLiveQuery(api.vault.getVaultByRepository, {
     repositoryFullName: repositoryFullName ?? "skip",
+    branch: routeBranch,
   });
+  const branch = routeBranch ?? vault?.resolvedBranch;
+  const storageBackedSelectionKey = `${branch ?? "unknown"}:${selectedFile}`;
   const vaultId = vault?._id;
   const selectedTreeEntry = useMemo(
     () =>
@@ -279,6 +276,16 @@ function FileViewWrapper() {
       void navigate("/", { replace: true });
     }
   }, [vault, navigate]);
+
+  useEffect(() => {
+    if (!owner || !repoName || !branch || branchParam) {
+      return;
+    }
+    const nextPath = selectedFile
+      ? `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${selectedFile}`
+      : `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}`;
+    void navigate(nextPath, { replace: true });
+  }, [owner, repoName, branch, branchParam, selectedFile, navigate]);
 
   const refreshTreeIfNeeded = useCallback(
     (trigger: RefreshTrigger = "focus") => {
@@ -327,6 +334,7 @@ function FileViewWrapper() {
   useEffect(() => {
     if (
       !selectedFile &&
+      branch &&
       (vault?.treeData.tree ?? []).length > 0 &&
       owner &&
       repoName
@@ -345,7 +353,7 @@ function FileViewWrapper() {
 
   const stagedFile = useQuery(
     api.fileStaging.getByNewPath,
-    vault
+    vault && branch
       ? {
           branch,
           newPath: selectedFile,
@@ -356,7 +364,7 @@ function FileViewWrapper() {
 
   // If a selected file path does not exist in this vault, redirect to the best initial file.
   useEffect(() => {
-    if (!selectedFile || !vault || !owner || !repoName) return;
+    if (!selectedFile || !vault || !owner || !repoName || !branch) return;
     // Wait until staging query resolves before deciding that the file is missing.
     if (stagedFile === undefined) return;
     if (stagedFile || selectedFileExistsInTree) return;
@@ -390,6 +398,7 @@ function FileViewWrapper() {
   useEffect(() => {
     if (
       selectedFile &&
+      branch &&
       vault &&
       stagedFile === null &&
       selectedFileExistsInTree &&
@@ -425,7 +434,7 @@ function FileViewWrapper() {
     repoName,
   ]);
 
-  if (!vault || !selectedFile || !owner || !repoName) {
+  if (!vault || !selectedFile || !owner || !repoName || !branch) {
     return null;
   }
 

@@ -148,6 +148,7 @@ export function MonacoEditor({
   // ---- Project files for import resolution ----
   const { files: projectFiles } = useProjectFiles(
     vaultId,
+    branch,
     tree,
     treeSHA,
     filePath,

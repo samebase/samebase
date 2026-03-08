@@ -361,6 +361,19 @@ export default defineSchema({
     .index("by_vault_and_remote_state", ["vaultId", "remoteState"]),
 
   /**
+   * Branch-scoped Git trees for each vault.
+   */
+  vaultBranchTrees: defineTable({
+    vaultId: v.id("vaults"),
+    branch: v.string(),
+    treeSHA: v.string(),
+    commitSHA: v.optional(v.string()),
+    treeData: GithubTreeData,
+    lastTreeRefreshAt: v.number(),
+    treeRefreshStartedAt: v.optional(v.number()),
+  }).index("by_vault_and_branch", ["vaultId", "branch"]),
+
+  /**
    * External infrastructure identifiers and status for a vault.
    */
   vaultInfrastructure: defineTable({

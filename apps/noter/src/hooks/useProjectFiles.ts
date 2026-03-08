@@ -7,14 +7,7 @@ import { type GithubTreeType } from "convex/schema";
 // ---------------------------------------------------------------------------
 // File extensions to load into Monaco models for import resolution
 // ---------------------------------------------------------------------------
-const SOURCE_EXTENSIONS = new Set([
-  "ts",
-  "tsx",
-  "js",
-  "jsx",
-  "json",
-  "d.ts",
-]);
+const SOURCE_EXTENSIONS = new Set(["ts", "tsx", "js", "jsx", "json", "d.ts"]);
 
 // Directories to skip entirely
 const IGNORED_DIRS = new Set([
@@ -89,7 +82,8 @@ function prioritizePaths(paths: string[], activeFilePath: string): string[] {
     rank: rankPath(path, scopePrefix),
   }));
 
-  const scoped = scopePrefix === null ? ranked : ranked.filter((p) => p.rank <= 4);
+  const scoped =
+    scopePrefix === null ? ranked : ranked.filter((p) => p.rank <= 4);
   const pool = scoped.length > 0 ? scoped : ranked;
 
   pool.sort((a, b) => a.rank - b.rank || a.index - b.index);
@@ -110,6 +104,7 @@ const pendingFetches = new Set<string>();
 
 export function useProjectFiles(
   vaultId: Id<"vaults"> | undefined,
+  branch: string,
   tree: GithubTreeType[],
   treeSHA: string,
   activeFilePath: string,
@@ -164,7 +159,7 @@ export function useProjectFiles(
     setLoading(true);
     pendingFetches.add(cacheKey);
 
-    batchReadFiles({ vaultId, filePaths: paths })
+    batchReadFiles({ vaultId, branch, filePaths: paths })
       .then((result) => {
         projectFilesCache.set(cacheKey, result);
         pendingFetches.delete(cacheKey);
@@ -188,7 +183,7 @@ export function useProjectFiles(
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vaultId, treeSHA, scopePrefix, activeFilePath]);
+  }, [vaultId, branch, treeSHA, scopePrefix, activeFilePath]);
 
   return { files, loading };
 }

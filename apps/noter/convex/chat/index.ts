@@ -649,6 +649,7 @@ export const confirmCommit = mutation({
           vaultId: vault._id,
           repoOwner: vault.ghRepoOwner,
           repoName: vault.ghRepoName,
+          branch: thread.branch,
           commitProposalMessageId: args.messageId,
         },
       );
