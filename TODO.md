@@ -60,6 +60,7 @@
 
 - [ ] cannot click on daytona allow button inside preview if it's rendered inside noter.md
 
+- [ ] sidebar UX: when opening the sidebar, auto-scroll to show the currently selected/highlighted file instead of requiring manual scrolling (especially important on mobile where file list may be long)
 - [ ] left to easily press enter
 - [ ] coding on vscode on mobile web is very good, we can try simplifying it for focus only on chat, 
 - [ ] https://vt.tiktok.com/ZSmrDkbnF/ https://x1.new
