@@ -105,8 +105,7 @@ Indexes:
 
 1. `by_vault` (`vaultId`)
 2. `by_vault_and_name` (`vaultId`, `name`)
-3. `by_vault_and_default` (`vaultId`, `isDefault`)
-4. `by_vault_and_remote_state` (`vaultId`, `remoteState`)
+3. `by_vault_and_remote_state` (`vaultId`, `remoteState`)
 
 Rationale:
 

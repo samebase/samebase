@@ -48,6 +48,7 @@ import {
   claimRefreshDebounce,
   releaseRefreshDebounce,
 } from "@/lib/treeRefreshDebounce";
+import { buildFileViewRefreshDebounceKey } from "@/lib/fileViewRefresh";
 import { type GithubTreeType } from "convex/schema";
 import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
 import { DaytonaWorkspaceButton } from "./DaytonaWorkspaceButton";
@@ -316,7 +317,11 @@ function FileViewWrapper() {
   const refreshTreeIfNeeded = useCallback(
     (trigger: RefreshTrigger = "focus") => {
       if (!vaultId || !owner || !repoName) return;
-      const key = `${owner}/${repoName}`;
+      const key = buildFileViewRefreshDebounceKey({
+        owner,
+        repoName,
+        branch,
+      });
       if (!claimRefreshDebounce("file_view", key)) return;
       void refreshTree({ owner, repo: repoName, branch, trigger }).catch(
         (error: unknown) => {
