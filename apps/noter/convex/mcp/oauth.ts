@@ -745,6 +745,12 @@ export const denyAuthorizationRequestForCurrentUser = action({
 
     const redirectUrl = new URL(denyResult.redirectUri);
     redirectUrl.searchParams.set("error", "access_denied");
+    // Codex's loopback callback parser treats OAuth errors as valid only when
+    // `error_description` is present; otherwise it reports "Invalid OAuth callback".
+    redirectUrl.searchParams.set(
+      "error_description",
+      "Authorization request was denied by the user.",
+    );
     if (denyResult.state !== undefined) {
       redirectUrl.searchParams.set("state", denyResult.state);
     }
