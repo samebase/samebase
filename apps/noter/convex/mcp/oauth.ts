@@ -749,7 +749,7 @@ export const denyAuthorizationRequestForCurrentUser = action({
     // `error_description` is present; otherwise it reports "Invalid OAuth callback".
     redirectUrl.searchParams.set(
       "error_description",
-      "Authorization request was denied by the user.",
+      "authorization_denied_by_user",
     );
     if (denyResult.state !== undefined) {
       redirectUrl.searchParams.set("state", denyResult.state);
