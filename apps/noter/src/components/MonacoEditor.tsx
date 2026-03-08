@@ -73,6 +73,21 @@ function isTypeScriptPath(path: string): boolean {
   return !!ext && TS_EXTENSIONS.has(ext);
 }
 
+function encodeUriPathSegments(path: string): string {
+  return path
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+}
+
+function buildMonacoFileUri(args: {
+  vaultId: Id<"vaults">;
+  branch: string;
+  filePath: string;
+}): string {
+  return `file:///${encodeURIComponent(args.vaultId)}/${encodeUriPathSegments(args.branch)}/${encodeUriPathSegments(args.filePath)}`;
+}
+
 /** Detect Monaco language from file extension (for createModel). */
 // ---------------------------------------------------------------------------
 // Project file type context
@@ -88,11 +103,21 @@ const addedExtraLibs = new Set<string>();
  * avoids the out-of-memory crashes from the worker trying to validate
  * hundreds of models at once.
  */
-function syncProjectFiles(monaco: Monaco, projectFiles: ProjectFile[]) {
+function syncProjectFiles(args: {
+  monaco: Monaco;
+  projectFiles: ProjectFile[];
+  vaultId: Id<"vaults">;
+  branch: string;
+}) {
+  const { monaco, projectFiles, vaultId, branch } = args;
   const defaults = monaco.languages.typescript.typescriptDefaults;
 
   for (const file of projectFiles) {
-    const uri = `file:///${file.path}`;
+    const uri = buildMonacoFileUri({
+      vaultId,
+      branch,
+      filePath: file.path,
+    });
     if (addedExtraLibs.has(uri)) continue;
     addedExtraLibs.add(uri);
     defaults.addExtraLib(file.content, uri);
@@ -294,9 +319,14 @@ export function MonacoEditor({
     if (appliedCacheKeys.has(cacheKey)) return;
     appliedCacheKeys.add(cacheKey);
 
-    syncProjectFiles(monacoRef.current, projectFiles);
+    syncProjectFiles({
+      monaco: monacoRef.current,
+      projectFiles,
+      vaultId,
+      branch,
+    });
     applyTsConfigFromProject(monacoRef.current, projectFiles);
-  }, [projectFiles, vaultId, treeSHA]);
+  }, [projectFiles, vaultId, branch, treeSHA]);
 
   useEffect(() => {
     setSyncError(null);
@@ -312,7 +342,12 @@ export function MonacoEditor({
       const cacheKey = `${vaultId}:${treeSHA}`;
       if (!appliedCacheKeys.has(cacheKey)) {
         appliedCacheKeys.add(cacheKey);
-        syncProjectFiles(monaco, projectFiles);
+        syncProjectFiles({
+          monaco,
+          projectFiles,
+          vaultId,
+          branch,
+        });
         applyTsConfigFromProject(monaco, projectFiles);
       }
     }
@@ -356,7 +391,7 @@ export function MonacoEditor({
     >
       <Editor
         height="100%"
-        path={`file:///${filePath}`}
+        path={buildMonacoFileUri({ vaultId, branch, filePath })}
         defaultValue={firstDoc.content}
         theme={isDark ? "vs-dark" : "vs"}
         onMount={handleMount}

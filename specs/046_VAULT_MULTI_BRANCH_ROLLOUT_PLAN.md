@@ -13,7 +13,8 @@
 1. Phase 1: complete in PR #174
 2. Phase 2: complete in PR #174
 3. Phase 3: complete in PR #174
-4. Phase 4: pending
+4. Phase 4: pending (next PR, required)
+5. Phase 5: pending
 
 Implemented highlights in PR #174:
 
@@ -25,6 +26,8 @@ Implemented highlights in PR #174:
 5. Moved codespace chat route to
    `/vault/:owner/:repoName/codespace/:branch/chat`
 6. Added shared vault route helpers + tests
+7. Left legacy cache fallback in place temporarily for compatibility while
+   branch caches backfill
 
 ## Purpose
 
@@ -33,7 +36,7 @@ Break multi-branch support into low-risk slices with clear acceptance gates.
 ## Principles
 
 1. Ship useful user value early (branch visibility + navigation)
-2. Preserve backward compatibility for existing default-branch flows
+2. Remove temporary compatibility paths quickly once branch caches are stable
 3. Fail closed for destructive branch-sync cases
 4. Never discard uncommitted work implicitly
 
@@ -132,7 +135,36 @@ Break multi-branch support into low-risk slices with clear acceptance gates.
 6. Batch repo file reads for Monaco now accept a branch to avoid stale default
    tree reads
 
-## Phase 4: Deleted-Upstream Branch Recovery + Safe Cleanup
+## Phase 4: Legacy Cache Removal (Required Next PR)
+
+### Scope
+
+1. Remove runtime fallback reads from legacy `vault.treeData/treeSHA/commitSHA`
+   in branch-selection paths
+2. Stop writing legacy tree/commit fields from branch refresh flows
+3. Ensure default-branch reads refresh/backfill `vaultBranchTrees` instead of
+   reading legacy fields
+4. Migrate remaining runtime call sites that still read legacy single-branch
+   fields (for example infra config/read paths) to branch-scoped sources
+5. Drop legacy single-branch tree fields from `vaults` schema after runtime
+   dependency is removed
+
+### Validation
+
+1. Opening default/non-default branches works with only `vaultBranchTrees`
+2. `updateRepositoryTree` no longer patches legacy tree/commit fields
+3. Search for runtime `vault.treeData`/`vault.treeSHA`/`vault.commitSHA` usage
+   returns no legacy fallback dependencies
+4. Existing branch navigation, staging, commit, and Monaco batch reads stay
+   green
+
+### Exit Criteria
+
+1. No runtime read/write path depends on legacy single-branch vault cache
+2. Branch-scoped cache is the only source of truth for editor tree/commit data
+3. Tests cover missing-branch-cache behavior without legacy fallback
+
+## Phase 5: Deleted-Upstream Branch Recovery + Safe Cleanup
 
 ### Scope
 
@@ -171,9 +203,10 @@ Break multi-branch support into low-risk slices with clear acceptance gates.
 
 1. Keep additive schema changes first
 2. Gate UI usage on available data; avoid blocking dashboard if sync is pending
-3. Preserve legacy fallback reads until Phase 4 exit
-4. Roll back by disabling new reads and falling back to legacy single-branch
-   vault fields if needed
+3. Legacy fallback reads are allowed only until Phase 4 begins, then removed
+   within that PR
+4. If rollback is needed after Phase 4, revert to pre-Phase-4 code and rebuild
+   branch caches from GitHub (do not reintroduce runtime legacy fallbacks)
 
 ## Definition of Done
 
@@ -181,3 +214,4 @@ Break multi-branch support into low-risk slices with clear acceptance gates.
 2. Multi-branch dashboard and editor behavior is stable in manual and automated
    validation
 3. No known data-loss path for branch deletion + uncommitted work
+4. Legacy single-branch vault cache is removed from runtime behavior

@@ -867,8 +867,9 @@ async function getVaultByRepositoryHelper(
     treeSHA: branchTree?.treeSHA ?? vault.treeSHA,
     commitSHA: branchTree?.commitSHA ?? vault.commitSHA,
     treeData: branchTree?.treeData ?? vault.treeData,
-    treeRefreshStartedAt: vault.treeRefreshStartedAt,
-    lastTreeRefreshAt: vault.lastTreeRefreshAt,
+    treeRefreshStartedAt:
+      branchTree?.treeRefreshStartedAt ?? vault.treeRefreshStartedAt,
+    lastTreeRefreshAt: branchTree?.lastTreeRefreshAt ?? vault.lastTreeRefreshAt,
     defaultBranch,
     resolvedBranch,
     branchNotFound,
@@ -1096,15 +1097,23 @@ export const startTreeRefreshOptimistic = mutation({
 
 // Release the tree refresh lock and record completion time.
 export const releaseTreeRefresh = internalMutation({
-  args: { vaultId: v.id("vaults") },
+  args: {
+    vaultId: v.id("vaults"),
+    markRefreshed: v.optional(v.boolean()),
+  },
   handler: async (ctx, args) => {
     const vault = await ctx.db.get(args.vaultId);
     if (!vault) return;
 
-    await ctx.db.patch(args.vaultId, {
-      lastTreeRefreshAt: Date.now(),
-      treeRefreshStartedAt: undefined,
-    });
+    await ctx.db.patch(
+      args.vaultId,
+      args.markRefreshed === false
+        ? { treeRefreshStartedAt: undefined }
+        : {
+            lastTreeRefreshAt: Date.now(),
+            treeRefreshStartedAt: undefined,
+          },
+    );
   },
 });
 

@@ -80,6 +80,15 @@ describe("summarizeStagedFilesByBranch", () => {
         initialContent: "same",
       },
       {
+        branch: "feature/login",
+        fileDeleted: false,
+        parentCommitSha: "abc123",
+        filePath: "src/new-login.ts",
+        initialFilePath: "src/old-login.ts",
+        content: "updated",
+        initialContent: "original",
+      },
+      {
         branch: "main",
         fileDeleted: true,
         parentCommitSha: "abc123",
@@ -116,8 +125,8 @@ describe("summarizeStagedFilesByBranch", () => {
           deleted: 0,
           new: 0,
           renamed: 1,
-          renamedAndModified: 0,
-          total: 2,
+          renamedAndModified: 1,
+          total: 3,
         },
       },
       {

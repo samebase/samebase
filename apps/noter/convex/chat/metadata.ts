@@ -63,9 +63,15 @@ export function buildToolActivityPayload(
 
 export function buildCommitProposalPayload(args: {
   message: string;
+  branch?: string;
   tools?: ToolActivityItem[];
 }): CommitProposalPayload {
-  return { type: "commit_proposal", message: args.message, tools: args.tools };
+  return {
+    type: "commit_proposal",
+    message: args.message,
+    branch: args.branch,
+    tools: args.tools,
+  };
 }
 
 type ProdReadProposalInput = Pick<

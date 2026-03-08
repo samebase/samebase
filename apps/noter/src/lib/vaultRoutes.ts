@@ -10,10 +10,14 @@ export function encodeVaultBranchSegment(branch: string): string {
   return encodeURIComponent(branch);
 }
 
-export function buildVaultCodespaceChatRoute(args: {
+export interface VaultCodespaceChatRouteArgs {
   repositoryFullName: string;
   branch: string;
-}): string {
+}
+
+export function buildVaultCodespaceChatRoute(
+  args: VaultCodespaceChatRouteArgs,
+): string {
   return `/vault/${args.repositoryFullName}/codespace/${encodeVaultBranchSegment(args.branch)}/chat`;
 }
 
@@ -21,11 +25,11 @@ export function isChatOnlyCodespaceRoute(pathname: string): boolean {
   return /^\/vault\/[^/]+\/[^/]+\/codespace\/[^/]+\/chat\/?$/.test(pathname);
 }
 
-type ParsedVaultPathContext = {
+export interface ParsedVaultPathContext {
   repositoryFullName?: string;
   branch?: string;
   filePath?: string;
-};
+}
 
 export function parseVaultPathContext(
   pathname: string,

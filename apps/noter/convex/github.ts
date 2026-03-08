@@ -730,12 +730,26 @@ export const refreshRepositoryTree = action({
   returns: nullValidator(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
+    const requestedBranch =
+      typeof args.branch === "string" && args.branch.trim().length > 0
+        ? args.branch.trim()
+        : undefined;
 
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: `${args.owner}/${args.repo}`,
       userId,
     });
     if (!vault) return null;
+
+    if (requestedBranch) {
+      await ctx.runAction(internal.github.updateRepositoryTree, {
+        userId,
+        owner: args.owner,
+        repo: args.repo,
+        branch: requestedBranch,
+      });
+      return null;
+    }
 
     const debounceMs =
       args.trigger === "page_load" ? PAGE_LOAD_REFRESH_DEBOUNCE_MS : undefined;
@@ -747,16 +761,18 @@ export const refreshRepositoryTree = action({
     });
     if (!claimed) return null;
 
+    let markRefreshed = false;
     try {
       await ctx.runAction(internal.github.updateRepositoryTree, {
         userId,
         owner: args.owner,
         repo: args.repo,
-        branch: args.branch,
       });
+      markRefreshed = true;
     } finally {
       await ctx.runMutation(internal.vault.releaseTreeRefresh, {
         vaultId: vault._id,
+        markRefreshed,
       });
     }
 

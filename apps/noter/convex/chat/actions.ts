@@ -143,18 +143,27 @@ export const generateResponse = internalAction({
     let repoTree: string[] | undefined;
 
     if (vault) {
-      const branchTree =
+      if (
         typeof threadContext.branch === "string" &&
         threadContext.branch.length > 0
-          ? await ctx.runQuery(internal.vault.getVaultBranchTree, {
-              vaultId: vault._id,
-              branch: threadContext.branch,
-            })
-          : null;
-      const repositoryTree = branchTree?.treeData.tree ?? vault.treeData.tree;
-      repoTree = repositoryTree
-        .filter((t) => t.type === "blob")
-        .map((t) => t.path);
+      ) {
+        const branchTree = await ctx.runQuery(
+          internal.vault.getVaultBranchTree,
+          {
+            vaultId: vault._id,
+            branch: threadContext.branch,
+          },
+        );
+        if (branchTree) {
+          repoTree = branchTree.treeData.tree
+            .filter((t) => t.type === "blob")
+            .map((t) => t.path);
+        }
+      } else {
+        repoTree = vault.treeData.tree
+          .filter((t) => t.type === "blob")
+          .map((t) => t.path);
+      }
     }
 
     if (threadContext.filePath && vault && githubAccessToken && toolBranch) {
@@ -258,6 +267,7 @@ export const generateResponse = internalAction({
 
       const payload = buildCommitProposalPayload({
         message: result.commitProposal,
+        branch: threadContext.branch,
         tools: result.toolActivity.length > 0 ? result.toolActivity : undefined,
       });
 

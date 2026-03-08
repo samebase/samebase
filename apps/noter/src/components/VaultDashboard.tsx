@@ -216,41 +216,64 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
   },
 };
 
+interface StagedSummary {
+  modified: number;
+  deleted: number;
+  new: number;
+  renamed: number;
+  renamedAndModified: number;
+  total: number;
+}
+
+interface VaultRemoteBranchListItem {
+  name: string;
+  isDefault: boolean;
+  remoteState: "active" | "deleted_upstream";
+}
+
+interface VaultBranchLinkRowProps {
+  vaultId: Id<"vaults">;
+  repositoryFullName: string;
+  branchName: string;
+  isDefault: boolean;
+  isDeletedUpstream: boolean;
+  stagedSummary?: StagedSummary;
+}
+
 function VaultBranchLinkRow({
   vaultId,
   repositoryFullName,
   branchName,
   isDefault,
+  isDeletedUpstream,
   stagedSummary,
-}: {
-  vaultId: Id<"vaults">;
-  repositoryFullName: string;
-  branchName: string;
-  isDefault: boolean;
-  stagedSummary?: {
-    modified: number;
-    deleted: number;
-    new: number;
-    renamed: number;
-    renamedAndModified: number;
-    total: number;
-  };
-}) {
+}: VaultBranchLinkRowProps) {
   const hasStagedChanges = (stagedSummary?.total ?? 0) > 0;
   const branchPath = encodeURIComponent(branchName);
   const branchRoute = `/vault/${repositoryFullName}/${branchPath}`;
 
   return (
     <div className="flex items-center gap-2 border-b border-border/40 px-2 py-2 last:border-b-0">
-      <Link
-        to={branchRoute}
-        className={clsx(
-          "min-w-0 flex-1 truncate text-sm text-muted-foreground underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current",
-          isDefault && "font-medium text-foreground",
-        )}
-      >
-        {branchName}
-      </Link>
+      {isDeletedUpstream ? (
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground/70 line-through">
+            {branchName}
+          </span>
+          <span className="shrink-0 rounded border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground/80">
+            deleted upstream
+          </span>
+        </div>
+      ) : (
+        <Link
+          to={branchRoute}
+          className={clsx(
+            "min-w-0 flex-1 truncate text-sm text-muted-foreground underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current",
+            isDefault && "font-medium text-foreground",
+          )}
+        >
+          {branchName}
+        </Link>
+      )}
       {hasStagedChanges ? (
         <div className="shrink-0">
           <EditedFilesCategoriesPopover
@@ -269,19 +292,17 @@ function VaultBranchLinkRow({
   );
 }
 
+interface VaultBranchListProps {
+  vaultId: Id<"vaults">;
+  repositoryFullName: string;
+  remoteBranches: VaultRemoteBranchListItem[];
+}
+
 function VaultBranchList({
   vaultId,
   repositoryFullName,
   remoteBranches,
-}: {
-  vaultId: Id<"vaults">;
-  repositoryFullName: string;
-  remoteBranches: Array<{
-    name: string;
-    isDefault: boolean;
-    remoteState: "active" | "deleted_upstream";
-  }>;
-}) {
+}: VaultBranchListProps) {
   const stagedSummaries =
     useQuery(api.fileStaging.listStagedFilesBranchSummaries, {
       vaultId,
@@ -299,6 +320,7 @@ function VaultBranchList({
           repositoryFullName={repositoryFullName}
           branchName={branch.name}
           isDefault={branch.isDefault}
+          isDeletedUpstream={branch.remoteState === "deleted_upstream"}
           stagedSummary={summaryByBranch.get(branch.name)}
         />
       ))}
@@ -1375,14 +1397,14 @@ export function VaultDashboard() {
         <div className="space-y-2">
           {vaults.map((vault: (typeof vaults)[0]) => {
             const isReady = vault.state === "ready";
-            const remoteBranches = vault.remoteBranches.filter(
+            const activeRemoteBranches = vault.remoteBranches.filter(
               (branch) => branch.remoteState === "active",
             );
-            const defaultBranch = remoteBranches.find(
+            const defaultBranch = activeRemoteBranches.find(
               (branch) => branch.isDefault,
             )?.name;
             const primaryBranch =
-              defaultBranch || remoteBranches[0]?.name || "";
+              defaultBranch || activeRemoteBranches[0]?.name || "";
             const primaryBranchPath =
               primaryBranch.length > 0
                 ? encodeURIComponent(primaryBranch)
@@ -1443,7 +1465,7 @@ export function VaultDashboard() {
                       </a>
                     </div>
 
-                    {isReady && remoteBranches.length > 0 && (
+                    {isReady && vault.remoteBranches.length > 0 && (
                       <div className="space-y-1.5">
                         <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
                           Branches
@@ -1451,7 +1473,7 @@ export function VaultDashboard() {
                         <VaultBranchList
                           vaultId={vault._id}
                           repositoryFullName={vault.repositoryFullName}
-                          remoteBranches={remoteBranches}
+                          remoteBranches={vault.remoteBranches}
                         />
                       </div>
                     )}

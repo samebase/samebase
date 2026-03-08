@@ -85,6 +85,13 @@ function findBestInitialFile(files: GithubTreeType[]) {
   return sortedFiles[0]?.path || null;
 }
 
+function encodeVaultFilePath(path: string): string {
+  return path
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+}
+
 type CommitPreviewFile = {
   status: CommitPreviewFileStatus;
   path: string;
@@ -291,7 +298,7 @@ function FileViewWrapper() {
     const resolvedBranch = vault.resolvedBranch;
     const encodedResolvedBranch = encodeURIComponent(resolvedBranch);
     const nextPath = selectedFileFromBranchlessRoute
-      ? `/vault/${owner}/${repoName}/${encodedResolvedBranch}/${selectedFileFromBranchlessRoute}`
+      ? `/vault/${owner}/${repoName}/${encodedResolvedBranch}/${encodeVaultFilePath(selectedFileFromBranchlessRoute)}`
       : `/vault/${owner}/${repoName}/${encodedResolvedBranch}`;
     void navigate(nextPath, { replace: true });
   }, [
@@ -309,7 +316,7 @@ function FileViewWrapper() {
       return;
     }
     const nextPath = selectedFile
-      ? `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${selectedFile}`
+      ? `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${encodeVaultFilePath(selectedFile)}`
       : `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}`;
     void navigate(nextPath, { replace: true });
   }, [owner, repoName, branch, branchParam, selectedFile, navigate]);
@@ -373,7 +380,7 @@ function FileViewWrapper() {
       const bestFile = findBestInitialFile(vault?.treeData.tree ?? []);
       if (bestFile) {
         void navigate(
-          `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${bestFile}`,
+          `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${encodeVaultFilePath(bestFile)}`,
           {
             replace: true,
           },
@@ -403,7 +410,7 @@ function FileViewWrapper() {
     const bestFile = findBestInitialFile(vault.treeData.tree);
     if (bestFile) {
       void navigate(
-        `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${bestFile}`,
+        `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${encodeVaultFilePath(bestFile)}`,
         {
           replace: true,
         },
@@ -954,7 +961,7 @@ function FileViewInner({
       .then(() => {
         // Navigate to the new file
         void navigate(
-          `/vault/${owner}/${repoName}/${encodedBranch}/${filePath}`,
+          `/vault/${owner}/${repoName}/${encodedBranch}/${encodeVaultFilePath(filePath)}`,
         );
       })
       .catch((error) => {

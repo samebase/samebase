@@ -7,7 +7,6 @@ import { CodespaceIframe } from "./CodespaceIframe";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { useCacheQuery as useVaultQuery } from "@/lib/convexQueryCache";
-import { decodeRouteSegmentSafe } from "@/lib/vaultRoutes";
 
 const CODESPACE_STATES_REQUIRING_ENSURE = new Set([
   "stopped",
@@ -25,7 +24,7 @@ export function CodespaceChatOnlyView() {
     repoName: string;
     branch: string;
   }>();
-  const targetBranch = branch ? decodeRouteSegmentSafe(branch) : undefined;
+  const targetBranch = branch;
   const repositoryFullName = useMemo(() => {
     if (!owner || !repoName) {
       return null;

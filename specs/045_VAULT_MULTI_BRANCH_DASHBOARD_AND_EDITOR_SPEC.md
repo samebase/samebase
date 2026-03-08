@@ -25,6 +25,13 @@ Enable working with multiple remote branches per vault by introducing:
 
 This spec focuses on GitHub remote branches as the source of truth.
 
+Current rollout note (PR #174):
+
+1. `vaultBranchTrees` is now the branch-scoped source of truth for tree/commit
+   data
+2. Legacy `vault.treeData/treeSHA/commitSHA` is still present as a temporary
+   default-branch compatibility mirror and fallback
+
 ## Product Intent
 
 Current workflow direction for Noter:
@@ -33,7 +40,21 @@ Current workflow direction for Noter:
 2. Local branch state in Daytona/Codex sandboxes is implementation detail
 3. Commit in Noter implies push to the selected remote branch
 
-## Current State Research
+## Current Runtime State (Post-PR #174)
+
+1. Dashboard branch links are branch-aware and URL-safe for names containing `/`
+2. Vault branch resolution reads active `vaultRemoteBranches` and returns
+   `defaultBranch`/`resolvedBranch` from that catalog
+3. Tree refresh writes branch-scoped cache for any refreshed branch
+   (`vaultBranchTrees`)
+4. Legacy `vault.treeData/commitSHA` is updated only when refreshed branch is
+   the current default branch
+5. Legacy fallback still exists in a few read paths and is the primary cleanup
+   target for the next PR
+
+## Pre-Implementation Baseline (Historical)
+
+The sections below describe the state before PR #174 and are kept for context.
 
 ### What is already branch-aware
 
@@ -95,11 +116,12 @@ Add a new table `vaultRemoteBranches`:
 1. `vaultId: Id<"vaults">`
 2. `name: string` (exact GitHub branch name)
 3. `headCommitSha: string`
-4. `isDefault: boolean`
-5. `isProtected: boolean`
-6. `remoteState: "active" | "deleted_upstream"`
-7. `deletedUpstreamAt?: number`
-8. `lastSyncedAt: number`
+4. `lastCommitAt?: number`
+5. `isDefault: boolean`
+6. `isProtected: boolean`
+7. `remoteState: "active" | "deleted_upstream"`
+8. `deletedUpstreamAt?: number`
+9. `lastSyncedAt: number`
 
 Indexes:
 
@@ -135,15 +157,16 @@ Rationale:
 2. Enables branch-correct file tree, commit status, and editor behavior
 3. Mirrors existing refresh lock/debounce pattern at branch scope
 
-### 3) Track default branch explicitly on vault
+### 3) Default branch source of truth
 
-Add `defaultBranch?: string` to `vaults`.
+Use `vaultRemoteBranches.isDefault` (where `remoteState="active"`) as the source
+of truth for default branch resolution.
 
 Behavior:
 
-1. Set on `connectRepository` and `createRepository`
-2. Refresh during branch catalog sync when GitHub default changes
-3. Use as fallback when route omits branch
+1. Keep default branch derivation in branch catalog sync/read paths
+2. Return `defaultBranch` from query helpers as a computed field
+3. Do not add a separate persisted `vault.defaultBranch` field
 
 ## API Contract Changes
 
@@ -158,7 +181,7 @@ Behavior:
 1. Calls GitHub `repos.listBranches` with pagination (`per_page=100`)
 2. Upserts `vaultRemoteBranches`
 3. Marks one branch as `isDefault=true` (from repo metadata)
-4. Updates `vault.defaultBranch`
+4. Computes default branch from active `isDefault` branch row
 5. For previously known branches missing upstream, set
    `remoteState="deleted_upstream"` and `deletedUpstreamAt`
 6. If a previously deleted-upstream branch reappears remotely, restore it to
@@ -173,7 +196,7 @@ Add query:
 Returns:
 
 1. Branch rows ordered by: `remoteState="active"` first, then `isDefault DESC`,
-   then `name ASC`
+   then `lastCommitAt DESC` (missing timestamps last), then `name ASC`
 
 ### Branch-scoped vault read
 
@@ -188,7 +211,8 @@ Returns additive fields:
 
 Behavior:
 
-1. Resolve target branch: `args.branch ?? vault.defaultBranch ?? "main"`
+1. Resolve target branch from active branch catalog:
+   `args.branch ?? activeDefaultBranch ?? firstActiveBranch ?? "main"`
 2. Read tree/commit from `vaultBranchTrees` for `resolvedBranch`
 3. Legacy fallback: if branch row missing, use existing
    `vault.treeData/commitSHA` only when `resolvedBranch` matches current default
@@ -310,7 +334,8 @@ Companion plan with concrete tasks and gates:
 1. Phase 1: remote branch catalog + dashboard list + read-only navigation
 2. Phase 2: branch-safe routing contract and branch context plumbing
 3. Phase 3: branch-scoped tree cache + branch-aware refresh/commit/chat paths
-4. Phase 4: deleted-upstream recovery UX + tombstone cleanup + legacy cleanup
+4. Phase 4: remove runtime dependency on legacy `vault.treeData/commitSHA`
+5. Phase 5: deleted-upstream recovery UX + tombstone cleanup
 
 ### Implementation Snapshot (PR #174)
 
@@ -325,19 +350,21 @@ Completed:
 
 Pending:
 
-1. Phase 4 deleted-upstream recovery UX and commit guardrails
-2. Optional follow-up: decouple branch catalog sync cadence from every tree
+1. Phase 4 (next PR, required): remove runtime fallback to legacy single-branch
+   cache and make branch cache mandatory
+2. Phase 5: deleted-upstream recovery UX and commit guardrails
+3. Optional follow-up: decouple branch catalog sync cadence from every tree
    refresh call
 
 ### Step 1: additive schema
 
-1. Add `vault.defaultBranch?`
-2. Add `vaultRemoteBranches`
-3. Add `vaultBranchTrees`
+1. Add `vaultRemoteBranches`
+2. Add `vaultBranchTrees`
 
 ### Step 2: bootstrap existing vaults lazily
 
-1. On first dashboard load/sync, fetch remote branches and set `defaultBranch`
+1. On first dashboard load/sync, fetch remote branches and derive default from
+   active `isDefault` row
 2. Seed `vaultBranchTrees(defaultBranch)` from legacy `vault.treeData/commitSHA`
    when available
 3. Backfill non-default branches on demand when opened
@@ -345,12 +372,16 @@ Pending:
 ### Step 3: switch reads
 
 1. Move FileView and dashboard branch list to new contracts
-2. Keep legacy fields as fallback during rollout
+2. Keep legacy fields as fallback only during transition
 
-### Step 4: cleanup (later)
+### Step 4: cleanup (next PR, required)
 
-1. Remove dependency on legacy single-branch tree fields once all readers are
-   migrated
+1. Remove fallback reads from `vault.treeData/commitSHA`
+2. Remove legacy writes in branch refresh paths
+3. Remove remaining runtime call sites that depend on legacy single-branch
+   fields
+4. Drop legacy single-branch fields from schema once no runtime dependency
+   remains
 
 ## Failure Handling
 
@@ -367,12 +398,14 @@ Pending:
 ### Backend
 
 1. `refreshVaultRemoteBranches` paginates and upserts correctly
-2. Default branch changes are reflected in `vault.defaultBranch`
+2. Default branch changes are reflected through active `isDefault` branch row
 3. Branch tree refresh writes/reads by `(vaultId, branch)`
 4. Commit on non-default branch updates that branch tree cache
-5. Missing upstream branches are tombstoned, not hard-deleted, when branch-local
+5. Legacy fallback is not required for default-branch editor/read paths after
+   branch cache backfill
+6. Missing upstream branches are tombstoned, not hard-deleted, when branch-local
    staged state exists
-6. Tombstoned branch rows are garbage-collected only after staged/collab state
+7. Tombstoned branch rows are garbage-collected only after staged/collab state
    is empty
 
 ### Frontend

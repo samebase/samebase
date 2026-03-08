@@ -4,6 +4,7 @@ import {
   internalQuery,
   mutation,
   query,
+  type MutationCtx,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getUserId } from "./common";
@@ -192,6 +193,48 @@ export function selectRepositoryTreeForBranch(args: {
   throw new Error(
     `Branch tree is not cached for "${args.requestedBranch}". Refresh branch and retry.`,
   );
+}
+
+type VaultRemoteBranchForResolution = {
+  name: string;
+  isDefault: boolean;
+  remoteState: "active" | "deleted_upstream";
+};
+
+function resolveDefaultBranchFromRemoteBranches(
+  branches: VaultRemoteBranchForResolution[],
+): string | undefined {
+  return (
+    branches.find(
+      (branch) => branch.remoteState === "active" && branch.isDefault,
+    )?.name ?? branches.find((branch) => branch.remoteState === "active")?.name
+  );
+}
+
+async function resolveRepositoryTreeForVault(args: {
+  ctx: MutationCtx;
+  vaultId: Infer<typeof vaultIdValidator>;
+  requestedBranch: string;
+  legacyTree: GithubTreeType[];
+}): Promise<GithubTreeType[]> {
+  const branchTree = await args.ctx.runQuery(
+    internal.vault.getVaultBranchTree,
+    {
+      vaultId: args.vaultId,
+      branch: args.requestedBranch,
+    },
+  );
+  const remoteBranches = await args.ctx.db
+    .query("vaultRemoteBranches")
+    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+    .collect();
+  const defaultBranch = resolveDefaultBranchFromRemoteBranches(remoteBranches);
+  return selectRepositoryTreeForBranch({
+    requestedBranch: args.requestedBranch,
+    defaultBranch,
+    branchTree: branchTree?.treeData.tree ?? null,
+    legacyTree: args.legacyTree,
+  });
 }
 
 export function summarizeStagedFilesByBranch(
@@ -514,23 +557,10 @@ export const createFileInStaging = mutation({
       throw new Error("A staged file already uses this path");
     }
 
-    const branchTree = await ctx.runQuery(internal.vault.getVaultBranchTree, {
+    const repositoryTree = await resolveRepositoryTreeForVault({
+      ctx,
       vaultId: args.vaultId,
-      branch: args.branch,
-    });
-    const remoteBranches = await ctx.db
-      .query("vaultRemoteBranches")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .collect();
-    const defaultBranch =
-      remoteBranches.find(
-        (branch) => branch.remoteState === "active" && branch.isDefault,
-      )?.name ??
-      remoteBranches.find((branch) => branch.remoteState === "active")?.name;
-    const repositoryTree = selectRepositoryTreeForBranch({
       requestedBranch: args.branch,
-      defaultBranch,
-      branchTree: branchTree?.treeData.tree ?? null,
       legacyTree: vault.treeData.tree,
     });
     const existsInRepository = repositoryTree.some(
@@ -736,23 +766,10 @@ export const rename = internalMutation({
       throw new Error("A staged file already uses this path");
     }
 
-    const branchTree = await ctx.runQuery(internal.vault.getVaultBranchTree, {
+    const repositoryTree = await resolveRepositoryTreeForVault({
+      ctx,
       vaultId: args.vaultId,
-      branch: args.branch,
-    });
-    const remoteBranches = await ctx.db
-      .query("vaultRemoteBranches")
-      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-      .collect();
-    const defaultBranch =
-      remoteBranches.find(
-        (branch) => branch.remoteState === "active" && branch.isDefault,
-      )?.name ??
-      remoteBranches.find((branch) => branch.remoteState === "active")?.name;
-    const repositoryTree = selectRepositoryTreeForBranch({
       requestedBranch: args.branch,
-      defaultBranch,
-      branchTree: branchTree?.treeData.tree ?? null,
       legacyTree: vault.treeData.tree,
     });
     const existsInRepository = repositoryTree.some(

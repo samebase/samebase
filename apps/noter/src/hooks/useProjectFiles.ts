@@ -155,32 +155,37 @@ export function useProjectFiles(
       return;
     }
 
-    let cancelled = false;
+    const abortController = new AbortController();
     setLoading(true);
     pendingFetches.add(cacheKey);
 
-    batchReadFiles({ vaultId, branch, filePaths: paths })
-      .then((result) => {
+    void (async () => {
+      try {
+        const result = await batchReadFiles({
+          vaultId,
+          branch,
+          filePaths: paths,
+        });
         projectFilesCache.set(cacheKey, result);
         pendingFetches.delete(cacheKey);
-        if (!cancelled) {
+        if (!abortController.signal.aborted) {
           setFiles(result);
           setLoading(false);
         }
-      })
-      .catch((error) => {
+      } catch (error) {
         pendingFetches.delete(cacheKey);
-        if (!cancelled) {
+        if (!abortController.signal.aborted) {
           console.error(
             "useProjectFiles: failed to load project files:",
             error,
           );
           setLoading(false);
         }
-      });
+      }
+    })();
 
     return () => {
-      cancelled = true;
+      abortController.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vaultId, branch, treeSHA, scopePrefix, activeFilePath]);

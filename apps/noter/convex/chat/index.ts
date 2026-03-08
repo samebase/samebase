@@ -629,6 +629,27 @@ export const confirmCommit = mutation({
     if (!vault) {
       throw new Error("Vault not found");
     }
+    const commitProposalMetadata = await ctx.db
+      .query("chatMessageMetadata")
+      .withIndex("by_messageId", (q) => q.eq("messageId", args.messageId))
+      .first();
+    if (
+      !commitProposalMetadata ||
+      commitProposalMetadata.threadId !== args.threadId
+    ) {
+      throw new Error("Commit proposal not found");
+    }
+    const commitProposal = parseCommitPayload(
+      commitProposalMetadata.payloadJson,
+    );
+    if (!commitProposal) {
+      throw new Error("Commit proposal payload is invalid");
+    }
+    const proposalBranch =
+      typeof commitProposal.branch === "string" &&
+      commitProposal.branch.trim().length > 0
+        ? commitProposal.branch.trim()
+        : thread.branch;
 
     await ctx.runMutation(
       internal.chat.index.updateCommitProposalMessageCommittedInternal,
@@ -649,7 +670,7 @@ export const confirmCommit = mutation({
           vaultId: vault._id,
           repoOwner: vault.ghRepoOwner,
           repoName: vault.ghRepoName,
-          branch: thread.branch,
+          branch: proposalBranch,
           commitProposalMessageId: args.messageId,
         },
       );

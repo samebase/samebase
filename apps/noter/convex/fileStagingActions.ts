@@ -17,6 +17,7 @@ import {
 } from "./gitOperationsActions";
 import { isObjectRecord as isRecord } from "./jsonUtils";
 import { rebaseStagedContent } from "./stagingRebase";
+import { selectRepositoryTreeForBranch } from "./fileStaging";
 
 type HeaderValue = string | number | readonly string[] | undefined;
 type HeaderMap = Record<string, HeaderValue>;
@@ -38,15 +39,12 @@ export function selectBatchReadRepositoryTree(args: {
   if (!args.requestedBranch) {
     return args.legacyTree;
   }
-  if (args.branchTree) {
-    return args.branchTree;
-  }
-  if (args.defaultBranch === args.requestedBranch) {
-    return args.legacyTree;
-  }
-  throw new Error(
-    `Branch tree is not cached for "${args.requestedBranch}". Refresh branch and retry.`,
-  );
+  return selectRepositoryTreeForBranch({
+    requestedBranch: args.requestedBranch,
+    defaultBranch: args.defaultBranch,
+    branchTree: args.branchTree,
+    legacyTree: args.legacyTree,
+  });
 }
 
 export function listTouchedBranchesForRefresh(branches: string[]): string[] {
@@ -1926,6 +1924,11 @@ export const commitAllStaged = internalAction({
         owner: args.repoOwner,
         repo: args.repoName,
         branch: commitBranch,
+      });
+      await ctx.runAction(internal.github.updateRepositoryTree, {
+        userId: args.userId,
+        owner: args.repoOwner,
+        repo: args.repoName,
       });
 
       // 2. Re-read the vault to get the updated tree with new SHAs
