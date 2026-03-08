@@ -29,6 +29,10 @@
 - [ ] it can use github files as its database, before using convex
 - [ ] replace enter with cmd-enter for chat input - will make mobile and PC easier
 
+## Medium Priority
+
+- [ ] move token/credential freshness from frontend-triggered polling to backend scheduling for background agent work (start with Cloudflare, then generalize for other provider connections), with shared retry/backoff and observability
+
 ## High Priority
 
 - [ ] codex: make worktrees work automatically
