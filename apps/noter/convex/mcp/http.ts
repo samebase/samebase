@@ -3,6 +3,7 @@ import { asRecord } from "../jsonUtils";
 import { internal } from "../_generated/api";
 import { httpAction } from "../_generated/server";
 import { randomToken } from "../oauthUtils";
+import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 import {
   createAccessTokenValue,
   createAuthorizationCodeValue,
@@ -69,6 +70,7 @@ function resolveAppUrl(request: Request): URL | null {
   }
 
   // Reject relative/malformed values so consent redirects always target the app origin.
+  // MCP consent intentionally requires SITE_URL and does not fall back to CONVEX_SITE_URL.
   try {
     const appUrl = new URL(configuredSiteUrl);
     if (appUrl.protocol !== "https:" && appUrl.protocol !== "http:") {
@@ -107,6 +109,9 @@ function buildMcpConsentRedirectUrl(args: {
         "SITE_URL must be an absolute http(s) URL for MCP OAuth consent.",
     };
   }
+  consentUrl.pathname = MCP_CONSENT_APP_PATH;
+  consentUrl.search = "";
+  consentUrl.hash = "";
   consentUrl.searchParams.set("mcp_consent_request", args.requestId);
   if (args.loginRequired) {
     consentUrl.searchParams.set("mcp_login_required", "1");

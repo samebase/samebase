@@ -19,6 +19,7 @@ import {
 } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../convex/_generated/api";
+import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 
@@ -104,6 +105,10 @@ function ApprovalGate({ children }: { children: React.ReactNode }) {
 function readMcpConsentRequestId(search: string): string | null {
   // Codex may send the query key with an empty value. Treat empty/whitespace as absent.
   return new URLSearchParams(search).get("mcp_consent_request")?.trim() || null;
+}
+
+function isMcpConsentRoute(pathname: string): boolean {
+  return pathname === MCP_CONSENT_APP_PATH;
 }
 
 function McpConsentView({ requestId }: { requestId: string }) {
@@ -257,11 +262,16 @@ function McpConsentView({ requestId }: { requestId: string }) {
 export default function App() {
   useAutoSignIn();
   const location = useLocation();
+  const onMcpConsentRoute = isMcpConsentRoute(location.pathname);
   const mcpConsentRequestId = readMcpConsentRequestId(location.search);
-  useCloseOAuthPopup(location.pathname, mcpConsentRequestId === null);
+  useCloseOAuthPopup(
+    location.pathname,
+    !(onMcpConsentRoute && mcpConsentRequestId !== null),
+  );
   const showChatFab = !isChatOnlyCodespaceRoute(location.pathname);
+  const showMcpConsent = onMcpConsentRoute && mcpConsentRequestId !== null;
 
-  if (mcpConsentRequestId) {
+  if (showMcpConsent) {
     return (
       <Layout>
         <>
