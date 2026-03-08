@@ -239,6 +239,8 @@ export const CloudflareProviderConnection = v.object({
   auth: CloudflareProviderAuth,
   accountId: v.optional(v.string()),
   tokenHealth: optional(McpTokenHealth),
+  tokenRefreshStartedAt: v.optional(v.number()),
+  lastTokenRefreshAt: v.optional(v.number()),
   createdAt: v.number(),
   updatedAt: v.number(),
 });
