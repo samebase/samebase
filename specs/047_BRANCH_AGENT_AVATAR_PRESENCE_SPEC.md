@@ -80,7 +80,7 @@ branch work presence explicitly.
 
 Add table `workActors`:
 
-1. `vaultId?`
+1. `vaultId`
 2. `userId`
 3. `kind: "noter_agent" | "mcp_client"`
 4. `displayName`
@@ -91,6 +91,10 @@ Add table `workActors`:
 9. `focusedBranch?`
 10. `lastActivityAt`
 11. `archivedAt?`
+
+For this spec, every actor rendered in branch presence is vault-owned. Global or
+cross-vault actors are out of scope and should not reuse this table shape
+without a separate ownership contract.
 
 Add table `branchActorPresence`:
 
@@ -133,10 +137,18 @@ Behavior:
    activity timestamps.
 2. Branch-scoped write signals upsert
    `branchActorPresence(vaultId, branch, actorId)` as `active`.
-3. When an actor stops producing signals for a branch and later works elsewhere,
-   prior branch rows may become `historical`.
-4. An actor may have presence on multiple branches over time.
-5. Archiving a Noter conversation archives the actor, but does not rewrite
+3. `branchActorPresence.state` must transition deterministically:
+   - when a qualifying signal lands on branch `B`, mark row
+     `(vaultId, B, actorId)` as `active`
+   - if the actor has a previously focused branch `A` in the same vault and the
+     actor records an explicit branch switch from `A` to `B`, mark row
+     `(vaultId, A, actorId)` as `historical` immediately
+   - otherwise, periodic reconciliation marks a row `historical` when
+     `lastWorkedAt < now - BRANCH_PRESENCE_ACTIVE_WINDOW_MS`
+4. `BRANCH_PRESENCE_ACTIVE_WINDOW_MS` is one shared runtime constant so all
+   surfaces derive the same facepile state from the same event stream.
+5. An actor may have presence on multiple branches over time.
+6. Archiving a Noter conversation archives the actor, but does not rewrite
    branch history.
 
 Actor-specific notes:
@@ -168,7 +180,10 @@ Migration note:
    actors where helpful.
 2. Reuse shared runtime context (`surface`, `vaultId`, `branch`, `threadId`,
    `requestId`) as the basis for actor presence derivation.
-3. Do not keep the one-thread-per-vault restriction for new Noter-managed
+3. When creating a new actor, always set `workActors.vaultId` so
+   `vault.listUnattachedActors({ vaultId })` can find unattached actors before
+   they have any branch rows.
+4. Do not keep the one-thread-per-vault restriction for new Noter-managed
    agents.
 
 ## Rollout Phases
