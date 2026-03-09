@@ -36,11 +36,15 @@ export function validateToolPolicy(args: {
     }
   }
 
-  if (tool.requiresVaultContext && request.vaultId === undefined) {
-    return {
-      ok: false,
-      message: `${tool.name} requires vaultId context.`,
-    };
+  if (tool.requiresVaultContext) {
+    const vaultId =
+      typeof request.vaultId === "string" ? request.vaultId.trim() : "";
+    if (vaultId.length === 0) {
+      return {
+        ok: false,
+        message: `${tool.name} requires vaultId context.`,
+      };
+    }
   }
 
   if (tool.requiresBranchContext) {

@@ -164,12 +164,106 @@ describe("executeRuntimeTool write dispatch", () => {
     });
   });
 
-  it("dispatches delete_file with staged metadata when available", async () => {
+  it("returns missing-file error when read_file targets a renamed staged original path", async () => {
+    const context = makeResolvedContext({
+      queryHandler: (queryArgs) => {
+        if (queryArgs.newPath === "src/old.ts") {
+          return null;
+        }
+        if (queryArgs.originalFilePath === "src/old.ts") {
+          return {
+            content: "staged content",
+            fileDeleted: false,
+            filePath: "src/new.ts",
+            initialFilePath: "src/old.ts",
+            parentCommitSha: "abc123",
+            version: 2,
+          };
+        }
+        return null;
+      },
+    });
+
+    const output = await executeRuntimeTool({
+      toolName: "read_file",
+      context,
+      input: { path: "src/old.ts" },
+    });
+
+    expect(output.text).toBe("Error: src/old.ts does not exist");
+  });
+
+  it("rejects edit_file when the path does not exist in the staged view", async () => {
     const mutationCalls: MutationCall[] = [];
     const context = makeResolvedContext({
       mutationCalls,
       queryHandler: (queryArgs) => {
-        if (typeof queryArgs.originalFilePath === "string") {
+        if (
+          queryArgs.newPath === "README.md" ||
+          queryArgs.originalFilePath === "README.md"
+        ) {
+          return {
+            content: "",
+            fileDeleted: true,
+            filePath: "README.md",
+            initialFilePath: "README.md",
+            parentCommitSha: "abc123",
+            version: 4,
+          };
+        }
+        return null;
+      },
+    });
+
+    await expect(
+      executeRuntimeTool({
+        toolName: "edit_file",
+        context,
+        input: { path: "README.md", content: "new content" },
+      }),
+    ).rejects.toThrow(
+      "edit_file failed: README.md does not exist; use create_file",
+    );
+    expect(mutationCalls).toHaveLength(0);
+  });
+
+  it("rejects create_file when the path already has staged history", async () => {
+    const mutationCalls: MutationCall[] = [];
+    const context = makeResolvedContext({
+      mutationCalls,
+      queryHandler: (queryArgs) => {
+        if (queryArgs.originalFilePath === "src/new.ts") {
+          return {
+            content: "old",
+            fileDeleted: false,
+            filePath: "src/new-renamed.ts",
+            initialFilePath: "src/new.ts",
+            parentCommitSha: "abc123",
+            version: 1,
+          };
+        }
+        return null;
+      },
+    });
+
+    await expect(
+      executeRuntimeTool({
+        toolName: "create_file",
+        context,
+        input: { path: "src/new.ts", content: "new file" },
+      }),
+    ).rejects.toThrow(
+      "create_file failed: src/new.ts already exists; use edit_file",
+    );
+    expect(mutationCalls).toHaveLength(0);
+  });
+
+  it("dispatches delete_file with staged metadata when current path is staged", async () => {
+    const mutationCalls: MutationCall[] = [];
+    const context = makeResolvedContext({
+      mutationCalls,
+      queryHandler: (queryArgs) => {
+        if (queryArgs.newPath === "src/renamed.ts") {
           return {
             content: "to delete",
             fileDeleted: false,
@@ -186,10 +280,10 @@ describe("executeRuntimeTool write dispatch", () => {
     const output = await executeRuntimeTool({
       toolName: "delete_file",
       context,
-      input: { path: "src/old.ts" },
+      input: { path: "src/renamed.ts" },
     });
 
-    expect(output.text).toBe("File marked for deletion: src/old.ts");
+    expect(output.text).toBe("File marked for deletion: src/renamed.ts");
     expect(mutationCalls).toHaveLength(1);
     expect(mutationCalls[0].args).toMatchObject({
       vaultId: "vault_test",

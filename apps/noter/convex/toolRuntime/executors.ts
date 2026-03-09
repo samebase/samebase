@@ -149,6 +149,10 @@ type ExistingFileSnapshot = {
   filePath: string;
 };
 
+class FileNotFoundError extends Error {
+  readonly status = 404;
+}
+
 function requireVault(context: ResolvedToolContext) {
   if (context.vault === null) {
     throw new Error("Vault context is required for this tool.");
@@ -217,24 +221,59 @@ async function loadStagedFileByPath(args: {
   context: ResolvedToolContext;
   path: string;
 }): Promise<StagedFile | null> {
+  const byNewPath = await loadStagedFileByNewPath(args);
+  if (byNewPath && !byNewPath.fileDeleted) {
+    return byNewPath;
+  }
+  const byOriginalPath = await loadStagedFileByOriginalPath(args);
+  if (!byOriginalPath) {
+    return null;
+  }
+  if (isPathHiddenByStagingChange(byOriginalPath)) {
+    return null;
+  }
+  return byOriginalPath;
+}
+
+async function loadStagedFileByOriginalPath(args: {
+  context: ResolvedToolContext;
+  path: string;
+}): Promise<StagedFile | null> {
   const vault = requireVault(args.context);
   const branch = requireBranch(args.context);
-  const byOriginalPath = await args.context.ctx.runQuery(
-    internal.fileStaging.getByOriginalPath,
-    {
-      vaultId: vault._id,
-      originalFilePath: args.path,
-      branch,
-    },
-  );
-  if (byOriginalPath) {
-    return byOriginalPath;
-  }
+  return args.context.ctx.runQuery(internal.fileStaging.getByOriginalPath, {
+    vaultId: vault._id,
+    originalFilePath: args.path,
+    branch,
+  });
+}
+
+async function loadStagedFileByNewPath(args: {
+  context: ResolvedToolContext;
+  path: string;
+}): Promise<StagedFile | null> {
+  const vault = requireVault(args.context);
+  const branch = requireBranch(args.context);
   return args.context.ctx.runQuery(api.fileStaging.getByNewPath, {
     vaultId: vault._id,
     branch,
     newPath: args.path,
   });
+}
+
+function isPathHiddenByStagingChange(staging: StagedFile): boolean {
+  return staging.fileDeleted || staging.filePath !== staging.initialFilePath;
+}
+
+async function isPathHiddenByStagingChangeForOriginal(args: {
+  context: ResolvedToolContext;
+  path: string;
+}): Promise<boolean> {
+  const byOriginalPath = await loadStagedFileByOriginalPath(args);
+  if (!byOriginalPath) {
+    return false;
+  }
+  return isPathHiddenByStagingChange(byOriginalPath);
 }
 
 function hasStatusCode(
@@ -247,6 +286,52 @@ function hasStatusCode(
     "status" in error &&
     error.status === status
   );
+}
+
+function createFileNotFoundError(message: string): FileNotFoundError {
+  return new FileNotFoundError(message);
+}
+
+async function repositoryTreeContainsPath(args: {
+  context: ResolvedToolContext;
+  path: string;
+}): Promise<boolean> {
+  const vault = requireVault(args.context);
+  const branch = requireBranch(args.context);
+  const branchTree = await args.context.ctx.runQuery(
+    internal.vault.getVaultBranchTree,
+    {
+      vaultId: vault._id,
+      branch,
+    },
+  );
+  const tree = branchTree?.treeData.tree ?? [];
+  return tree.some(
+    (entry) => entry.type === "blob" && entry.path === args.path,
+  );
+}
+
+async function assertCreateFilePathIsAvailable(args: {
+  context: ResolvedToolContext;
+  path: string;
+}): Promise<void> {
+  const byOriginalPath = await loadStagedFileByOriginalPath(args);
+  if (byOriginalPath) {
+    throw new Error(
+      `create_file failed: ${args.path} already exists; use edit_file`,
+    );
+  }
+  const byCurrentPath = await loadStagedFileByNewPath(args);
+  if (byCurrentPath && !byCurrentPath.fileDeleted) {
+    throw new Error(
+      `create_file failed: ${args.path} already exists; use edit_file`,
+    );
+  }
+  if (await repositoryTreeContainsPath(args)) {
+    throw new Error(
+      `create_file failed: ${args.path} already exists; use edit_file`,
+    );
+  }
 }
 
 async function loadExistingFileSnapshot(args: {
@@ -267,6 +352,16 @@ async function loadExistingFileSnapshot(args: {
       version: staging.version,
       filePath: staging.filePath,
     };
+  }
+  if (
+    await isPathHiddenByStagingChangeForOriginal({
+      context: args.context,
+      path: args.path,
+    })
+  ) {
+    throw createFileNotFoundError(
+      `edit_file failed: ${args.path} does not exist; use create_file`,
+    );
   }
 
   const githubAccessToken = requireGithubAccessToken(args.context);
@@ -453,6 +548,16 @@ export async function executeReadFile(
       },
     };
   }
+  if (
+    await isPathHiddenByStagingChangeForOriginal({
+      context,
+      path: input.path,
+    })
+  ) {
+    return {
+      text: `Error: ${input.path} does not exist`,
+    };
+  }
 
   const githubAccessToken = requireGithubAccessToken(context);
   const octokit = new Octokit({ auth: githubAccessToken });
@@ -580,15 +685,18 @@ export async function executeEditFile(
       context,
       path: input.path,
     });
-    const initialContent = snapshot?.content ?? "";
-    const parentCommitSha = snapshot?.parentCommitSha ?? null;
+    if (!snapshot) {
+      throw new Error(
+        `edit_file failed: ${input.path} does not exist; use create_file`,
+      );
+    }
 
     await context.ctx.runMutation(internal.fileStaging.saveToStaging, {
       vaultId: vault._id,
       initialFilePath: input.path,
       content: input.content,
-      initialContent,
-      parentCommitSha,
+      initialContent: snapshot.content,
+      parentCommitSha: snapshot.parentCommitSha,
       branch,
       userId: context.userId,
     });
@@ -665,6 +773,10 @@ export async function executeCreateFile(
 ): Promise<ToolExecutionOutput> {
   const vault = requireVault(context);
   const branch = requireBranch(context);
+  await assertCreateFilePathIsAvailable({
+    context,
+    path: input.path,
+  });
   await context.ctx.runMutation(internal.fileStaging.saveToStaging, {
     vaultId: vault._id,
     initialFilePath: input.path,

@@ -123,6 +123,29 @@ describe("validateToolPolicy", () => {
     expect(result.message).toBe("read_file requires vaultId context.");
   });
 
+  it("rejects blank vaultId when tool needs vault context", () => {
+    const tool = findToolInCatalog({ name: "read_file" });
+    expect(tool).not.toBeNull();
+    if (!tool) {
+      return;
+    }
+
+    const result = validateToolPolicy({
+      tool,
+      request: makeRequest({
+        toolName: tool.name,
+        input: { path: "README.md" },
+        surface: "mcp",
+        grantedScopes: ["files.read"],
+        vaultId: "   ",
+        branch: "main",
+      }),
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe("read_file requires vaultId context.");
+  });
+
   it("requires non-empty branch for branch-aware tools", () => {
     const tool = findToolInCatalog({ name: "read_file" });
     expect(tool).not.toBeNull();
