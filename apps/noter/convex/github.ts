@@ -262,6 +262,27 @@ function parseGitTimestamp(value: string | undefined): number | undefined {
   return timestamp;
 }
 
+function readPullRequestHeadRepositoryFullName(
+  pullRequest: unknown,
+): string | undefined {
+  if (!isRecord(pullRequest)) {
+    return undefined;
+  }
+  const head = pullRequest.head;
+  if (!isRecord(head)) {
+    return undefined;
+  }
+  const repo = head.repo;
+  if (!isRecord(repo)) {
+    return undefined;
+  }
+  const fullName = repo.full_name;
+  if (typeof fullName !== "string" || fullName.length === 0) {
+    return undefined;
+  }
+  return fullName;
+}
+
 export function resolveAheadBehindBaseBranch(args: {
   branchNames: string[];
   defaultBranch: string;
@@ -468,7 +489,8 @@ async function getOpenPullRequestUrlsByBranch(args: {
           continue;
         }
 
-        const pullRequestHeadRepo = pullRequest.head.repo.full_name;
+        const pullRequestHeadRepo =
+          readPullRequestHeadRepositoryFullName(pullRequest);
         if (
           typeof pullRequestHeadRepo !== "string" ||
           pullRequestHeadRepo.toLowerCase() !== repositoryFullName
