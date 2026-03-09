@@ -20,7 +20,9 @@ dependency.
 
 Full-color avatars mean the actor currently has working presence on that branch.
 Grayed out avatars mean the actor previously worked on that branch but is not
-currently active there.
+currently active there. A row becomes historical either when the actor
+explicitly switches away from that branch or when reconciliation expires it
+after `BRANCH_PRESENCE_ACTIVE_WINDOW_MS`.
 
 Important rule: a branch facepile means branch presence/activity, not generic
 capability. We should not show one vault-level agent avatar on every branch row
@@ -108,7 +110,7 @@ Add table `branchActorPresence`:
 Add table `toolExecutions` or equivalent execution ledger if shared runtime
 events are not already persisted:
 
-1. `actorId?`
+1. `actorId`
 2. `userId`
 3. `vaultId?`
 4. `branch?`
@@ -117,6 +119,10 @@ events are not already persisted:
 7. `threadId?`
 8. `requestId?`
 9. `executedAt`
+
+The shared runtime must resolve or create the actor before inserting a
+`toolExecutions` row. Execution ledger rows without `actorId` are invalid for
+this spec because they cannot drive deterministic branch presence attribution.
 
 Presence source rules:
 
