@@ -6,6 +6,7 @@ import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { guessMime, withRetry } from "./gitOperationsActions";
+import { isRecord } from "./jsonUtils";
 import {
   getRepositoryMediaKind,
   isSvgRepositoryMediaPath,
@@ -46,10 +47,6 @@ type CachedRepositoryBlob = {
   text?: string | null;
   mime?: string | undefined;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
 
 export function normalizeGitHubRepositoryListItem(
   value: unknown,
@@ -465,8 +462,10 @@ async function getOpenPullRequestUrlsByBranch(args: {
       { url: string; updatedAt: number }
     >();
     const perPage = 100;
+    const maxPages = 50;
+    let hitPageLimit = false;
 
-    for (let page = 1; ; page += 1) {
+    for (let page = 1; page <= maxPages; page += 1) {
       const pageResponse = await args.octokit.rest.pulls.list({
         owner: args.owner,
         repo: args.repo,
@@ -516,6 +515,21 @@ async function getOpenPullRequestUrlsByBranch(args: {
       if (pageResponse.data.length < perPage) {
         break;
       }
+      if (page === maxPages) {
+        hitPageLimit = true;
+      }
+    }
+
+    if (hitPageLimit) {
+      console.warn(
+        "listOpenPullRequests reached page limit",
+        JSON.stringify({
+          owner: args.owner,
+          repo: args.repo,
+          maxPages,
+          perPage,
+        }),
+      );
     }
 
     const urlsByBranch = new Map<string, string | undefined>();
