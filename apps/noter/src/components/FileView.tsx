@@ -698,7 +698,7 @@ function FileViewInner({
       branch,
     },
     {
-      dontCache: isDiffRequested,
+      dontCache: isDiffRequested || reviewOnMountRequested,
     },
   );
   const stagedNoterFile = useQuery(
