@@ -1137,20 +1137,24 @@ export function resolveVaultBranchSelection(args: {
   const activeRemoteBranches = args.remoteBranches.filter(
     (branch) => branch.remoteState === "active",
   );
+  const requestedBranchMatch =
+    args.requestedBranch === undefined
+      ? undefined
+      : args.remoteBranches.find(
+          (branch) => branch.name === args.requestedBranch,
+        );
   const defaultBranch =
     activeRemoteBranches.find((branch) => branch.isDefault)?.name ??
-    activeRemoteBranches[0]?.name;
-  const canValidateRequestedBranch = activeRemoteBranches.length > 0;
+    activeRemoteBranches.at(0)?.name ??
+    requestedBranchMatch?.name ??
+    args.remoteBranches.at(0)?.name;
+  const canValidateRequestedBranch = args.remoteBranches.length > 0;
   const branchNotFound = Boolean(
-    args.requestedBranch &&
-      canValidateRequestedBranch &&
-      !activeRemoteBranches.some(
-        (branch) => branch.name === args.requestedBranch,
-      ),
+    args.requestedBranch && canValidateRequestedBranch && !requestedBranchMatch,
   );
   let resolvedBranch = "main";
   if (branchNotFound) {
-    resolvedBranch = defaultBranch;
+    resolvedBranch = defaultBranch ?? "main";
   } else if (args.requestedBranch) {
     resolvedBranch = args.requestedBranch;
   } else if (defaultBranch) {

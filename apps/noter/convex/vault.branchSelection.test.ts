@@ -53,6 +53,26 @@ describe("resolveVaultBranchSelection", () => {
     });
   });
 
+  it("keeps requested deleted-upstream branches when they are still tracked locally", () => {
+    expect(
+      resolveVaultBranchSelection({
+        requestedBranch: "feature/local-work",
+        remoteBranches: [
+          { name: "main", isDefault: true, remoteState: "active" },
+          {
+            name: "feature/local-work",
+            isDefault: false,
+            remoteState: "deleted_upstream",
+          },
+        ],
+      }),
+    ).toEqual({
+      defaultBranch: "main",
+      resolvedBranch: "feature/local-work",
+      branchNotFound: false,
+    });
+  });
+
   it("falls back to main when nothing is specified", () => {
     expect(
       resolveVaultBranchSelection({
@@ -129,7 +149,7 @@ describe("hasBranchStagingChanges", () => {
         parentCommitSha: null,
         filePath: "src/new.ts",
         initialFilePath: "src/new.ts",
-        content: "new",
+        content: "",
         initialContent: "",
       }),
     ).toBe(true);
