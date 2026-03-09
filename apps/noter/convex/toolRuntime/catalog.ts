@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ToolDefinition, ToolJsonSchema, ToolSurface } from "./types";
+import { hasAllScopes } from "./utils";
 
 const emptyInputSchema = z.object({});
 const readFileInputSchema = z.object({
@@ -146,14 +147,6 @@ const requestConvexDataReadInputSchema = z.object({
 
 export type ToolCatalogEntry<TInput> = ToolDefinition<TInput>;
 
-function hasAllScopes(
-  grantedScopes: string[],
-  requiredScopes: string[],
-): boolean {
-  const granted = new Set(grantedScopes);
-  return requiredScopes.every((scope) => granted.has(scope));
-}
-
 function withRequiredFields(
   inputSchema: ToolJsonSchema,
   requiredFields: string[],
@@ -190,7 +183,7 @@ function contextRequiredFields(args: {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function parseRequiredFields(value: unknown): string[] | undefined {

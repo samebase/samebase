@@ -73,6 +73,27 @@ type ProdReadProposalPayload = {
   status: "proposed";
 };
 
+const PROD_READ_PROVIDER_LABELS: Record<ProdReadProvider, string> = {
+  convex: "Convex",
+  netlify: "Netlify",
+  cloudflare: "Cloudflare",
+};
+
+const PROD_READ_RESOURCE_LABELS: Record<ProdReadResourceKind, string> = {
+  deployment_status: "deployment status",
+  logs: "logs",
+  data_query: "data sample",
+  project_inventory: "project inventory",
+  site_inventory: "site inventory",
+  account_inventory: "account inventory",
+  pages_project_inventory: "Pages project inventory",
+};
+
+const PROD_READ_SCOPE_LABELS: Record<ProdReadScope, string> = {
+  vault: "this vault",
+  global: "global scope",
+};
+
 type RequestConvexLogsReadInput = {
   maxLines?: number;
   allowRawFallback?: boolean;
@@ -168,27 +189,9 @@ function buildProdReadSummary(args: {
   resourceKind: ProdReadResourceKind;
   scope: ProdReadScope;
 }): string {
-  const provider =
-    args.provider === "convex"
-      ? "Convex"
-      : args.provider === "netlify"
-        ? "Netlify"
-        : "Cloudflare";
-  const resource =
-    args.resourceKind === "deployment_status"
-      ? "deployment status"
-      : args.resourceKind === "logs"
-        ? "logs"
-        : args.resourceKind === "data_query"
-          ? "data sample"
-          : args.resourceKind === "project_inventory"
-            ? "project inventory"
-            : args.resourceKind === "site_inventory"
-              ? "site inventory"
-              : args.resourceKind === "account_inventory"
-                ? "account inventory"
-                : "Pages project inventory";
-  const scope = args.scope === "vault" ? "this vault" : "global scope";
+  const provider = PROD_READ_PROVIDER_LABELS[args.provider];
+  const resource = PROD_READ_RESOURCE_LABELS[args.resourceKind];
+  const scope = PROD_READ_SCOPE_LABELS[args.scope];
   return `I need your approval before reading ${provider} ${resource} for ${scope}.`;
 }
 
@@ -918,7 +921,7 @@ async function executeRequestConvexDataRead(
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function toRecord(value: unknown): Record<string, unknown> | null {

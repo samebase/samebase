@@ -165,12 +165,12 @@ export const getVaultContextForUser = internalQuery({
     ctx,
     args: GetVaultContextForUserArgs,
   ): Promise<VaultContextForUserResult> => {
-    const vault = await ctx.db
-      .query("vaults")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .filter((q) => q.eq(q.field("_id"), args.vaultId))
-      .first();
-    if (!vault) {
+    const vaultId = ctx.db.normalizeId("vaults", args.vaultId);
+    if (!vaultId) {
+      return null;
+    }
+    const vault = await ctx.db.get(vaultId);
+    if (!vault || vault.userId !== args.userId) {
       return null;
     }
     return {

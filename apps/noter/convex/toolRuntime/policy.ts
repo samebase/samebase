@@ -1,16 +1,9 @@
 import type { ToolDefinition, ToolRunRequest } from "./types";
+import { hasAllScopes } from "./utils";
 
 export interface PolicyCheckResult {
   ok: boolean;
   message?: string;
-}
-
-function hasAllScopes(
-  grantedScopes: string[],
-  requiredScopes: string[],
-): boolean {
-  const granted = new Set(grantedScopes);
-  return requiredScopes.every((scope) => granted.has(scope));
 }
 
 export function validateToolPolicy(args: {
