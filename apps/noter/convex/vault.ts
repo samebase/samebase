@@ -434,6 +434,10 @@ type BranchStagingChangeCandidate = {
   content: string;
   initialContent: string;
 };
+type BranchStagingRecord = BranchStagingChangeCandidate & {
+  _id: Id<"fileStaging">;
+  branch: string;
+};
 
 export function hasBranchStagingChanges(
   file: BranchStagingChangeCandidate,
@@ -482,11 +486,28 @@ export function selectDeletedUpstreamBranchesToAutoPrune(args: {
     .map((branch) => branch.name);
 }
 
+function groupStagingFilesByBranch(
+  stagingFiles: BranchStagingRecord[],
+): Map<string, BranchStagingRecord[]> {
+  const grouped = new Map<string, BranchStagingRecord[]>();
+  for (const stagingFile of stagingFiles) {
+    const existing = grouped.get(stagingFile.branch);
+    if (existing) {
+      existing.push(stagingFile);
+      continue;
+    }
+    grouped.set(stagingFile.branch, [stagingFile]);
+  }
+  return grouped;
+}
+
 async function deleteVaultBranchArtifacts(
   ctx: MutationCtx,
   args: {
     vaultId: Id<"vaults">;
     branch: string;
+    collaborativeUpdatesCutoffTimestamp: number;
+    stagingFiles: BranchStagingRecord[];
   },
 ): Promise<void> {
   const branchTree = await ctx.db
@@ -509,13 +530,7 @@ async function deleteVaultBranchArtifacts(
     await ctx.db.delete(domain._id);
   }
 
-  const stagingFiles = await ctx.db
-    .query("fileStaging")
-    .withIndex("by_vault_and_branch", (q) =>
-      q.eq("vaultId", args.vaultId).eq("branch", args.branch),
-    )
-    .collect();
-  for (const stagingFile of stagingFiles) {
+  for (const stagingFile of args.stagingFiles) {
     await ctx.db.delete(stagingFile._id);
   }
 
@@ -525,6 +540,7 @@ async function deleteVaultBranchArtifacts(
     {
       vaultId: args.vaultId,
       branch: args.branch,
+      cutoffTimestamp: args.collaborativeUpdatesCutoffTimestamp,
     },
   );
 }
@@ -543,14 +559,16 @@ async function pruneDeletedUpstreamBranchesForVault(
     return;
   }
 
+  const collaborativeUpdatesCutoffTimestamp = Date.now();
+  const stagingFilesByBranch = groupStagingFilesByBranch(
+    await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+      .collect(),
+  );
   const branchHasStagedChanges = new Map<string, boolean>();
   for (const branch of deletedUpstreamBranches) {
-    const branchStaging = await ctx.db
-      .query("fileStaging")
-      .withIndex("by_vault_and_branch", (q) =>
-        q.eq("vaultId", vaultId).eq("branch", branch.name),
-      )
-      .collect();
+    const branchStaging = stagingFilesByBranch.get(branch.name) ?? [];
     branchHasStagedChanges.set(
       branch.name,
       branchStaging.some(hasBranchStagingChanges),
@@ -571,6 +589,8 @@ async function pruneDeletedUpstreamBranchesForVault(
     await deleteVaultBranchArtifacts(ctx, {
       vaultId,
       branch: branch.name,
+      collaborativeUpdatesCutoffTimestamp,
+      stagingFiles: stagingFilesByBranch.get(branch.name) ?? [],
     });
     await ctx.db.delete(branch._id);
   }

@@ -390,6 +390,7 @@ type ClearAllStagingPlan<
   deleteCollaborativeUpdatesArgs: {
     vaultId: VaultId;
     branch?: string;
+    cutoffTimestamp: number;
   };
   treeRefreshArgs: {
     userId: UserId;
@@ -405,6 +406,7 @@ export function buildClearAllStagingPlan<
 >(args: {
   vaultId: VaultId;
   branch?: string;
+  cleanupCutoffTimestamp: number;
   vault: {
     userId: UserId;
     ghRepoOwner: string;
@@ -426,6 +428,7 @@ export function buildClearAllStagingPlan<
     deleteCollaborativeUpdatesArgs: {
       vaultId: args.vaultId,
       branch: args.branch,
+      cutoffTimestamp: args.cleanupCutoffTimestamp,
     },
     treeRefreshArgs: args.vault
       ? {
@@ -450,9 +453,11 @@ export async function clearAllStagingImpl(
 ) {
   // Get vault info to schedule tree update
   const vault = await ctx.db.get(args.vaultId);
+  const cleanupCutoffTimestamp = Date.now();
   const plan = buildClearAllStagingPlan({
     vaultId: args.vaultId,
     branch: args.branch,
+    cleanupCutoffTimestamp,
     vault: vault
       ? {
           userId: vault.userId,
@@ -521,24 +526,32 @@ export const deleteCollaborativeUpdatesBatch = internalMutation({
   args: {
     vaultId: vaultIdValidator,
     branch: optional(branchValidator),
+    cutoffTimestamp: optional(number()),
   },
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    let updates;
+    let updatesQuery;
     if (args.branch === undefined) {
-      updates = await ctx.db
+      updatesQuery = ctx.db
         .query("collaborativeUpdates")
-        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-        .take(DELETION_BATCH_SIZE);
+        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId));
     } else {
       const branch = args.branch;
-      updates = await ctx.db
+      updatesQuery = ctx.db
         .query("collaborativeUpdates")
         .withIndex("by_vaultId_and_branch", (q) =>
           q.eq("vaultId", args.vaultId).eq("branch", branch),
-        )
-        .take(DELETION_BATCH_SIZE);
+        );
     }
+
+    const cutoffTimestamp = args.cutoffTimestamp;
+    if (cutoffTimestamp !== undefined) {
+      updatesQuery = updatesQuery.filter((q) =>
+        q.lt(q.field("timestamp"), cutoffTimestamp),
+      );
+    }
+
+    const updates = await updatesQuery.take(DELETION_BATCH_SIZE);
 
     for (const update of updates) {
       await ctx.db.delete(update._id);
@@ -549,7 +562,11 @@ export const deleteCollaborativeUpdatesBatch = internalMutation({
       await ctx.scheduler.runAfter(
         0,
         internal.fileStaging.deleteCollaborativeUpdatesBatch,
-        { vaultId: args.vaultId, branch: args.branch },
+        {
+          vaultId: args.vaultId,
+          branch: args.branch,
+          cutoffTimestamp: args.cutoffTimestamp,
+        },
       );
     }
 
@@ -947,6 +964,7 @@ export const reconcileStagingWithTree = internalMutation({
   },
   returns: nullResultValidator,
   handler: async (ctx, args) => {
+    const cleanupCutoffTimestamp = Date.now();
     for (const instruction of args.instructions) {
       if (instruction.action === "delete") {
         await ctx.db.delete(instruction.stagingId);
@@ -968,7 +986,10 @@ export const reconcileStagingWithTree = internalMutation({
       await ctx.scheduler.runAfter(
         0,
         internal.fileStaging.deleteCollaborativeUpdatesBatch,
-        { vaultId: args.vaultId },
+        {
+          vaultId: args.vaultId,
+          cutoffTimestamp: cleanupCutoffTimestamp,
+        },
       );
     }
 
