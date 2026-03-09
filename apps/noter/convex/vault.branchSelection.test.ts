@@ -154,6 +154,45 @@ describe("hasBranchStagingChanges", () => {
       }),
     ).toBe(true);
   });
+
+  it("treats deleted files as uncommitted branch work", () => {
+    expect(
+      hasBranchStagingChanges({
+        fileDeleted: true,
+        parentCommitSha: "sha-1",
+        filePath: "src/app.ts",
+        initialFilePath: "src/app.ts",
+        content: "same",
+        initialContent: "same",
+      }),
+    ).toBe(true);
+  });
+
+  it("treats modified files as uncommitted branch work", () => {
+    expect(
+      hasBranchStagingChanges({
+        fileDeleted: false,
+        parentCommitSha: "sha-1",
+        filePath: "src/app.ts",
+        initialFilePath: "src/app.ts",
+        content: "updated",
+        initialContent: "same",
+      }),
+    ).toBe(true);
+  });
+
+  it("treats renamed files as uncommitted branch work", () => {
+    expect(
+      hasBranchStagingChanges({
+        fileDeleted: false,
+        parentCommitSha: "sha-1",
+        filePath: "src/renamed.ts",
+        initialFilePath: "src/app.ts",
+        content: "same",
+        initialContent: "same",
+      }),
+    ).toBe(true);
+  });
 });
 
 describe("selectDeletedUpstreamBranchesToAutoPrune", () => {
