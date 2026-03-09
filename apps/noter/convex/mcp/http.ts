@@ -3,6 +3,12 @@ import { asRecord } from "../jsonUtils";
 import { internal } from "../_generated/api";
 import { httpAction } from "../_generated/server";
 import { randomToken } from "../oauthUtils";
+import {
+  buildMcpToolInputSchema,
+  findToolInCatalog,
+  listCatalogToolsForSurface,
+} from "../toolRuntime/catalog";
+import type { ToolJsonSchema } from "../toolRuntime/types";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 import {
   createAccessTokenValue,
@@ -174,39 +180,58 @@ function jsonRpcErrorResponse(args: {
   );
 }
 
-function hasScope(grantedScope: string, requiredScope: string): boolean {
-  const scopeTokens = grantedScope
+function parseScopeTokens(grantedScope: string): string[] {
+  return grantedScope
     .split(" ")
     .map((scope) => scope.trim())
     .filter((scope) => scope.length > 0);
-  return scopeTokens.includes(requiredScope);
 }
 
-function buildMcpToolList(): {
+function buildMcpToolList(grantedScope: string): {
   tools: {
     name: string;
     description: string;
-    inputSchema: {
-      type: "object";
-      properties: Record<string, never>;
-      additionalProperties: false;
-    };
+    inputSchema: ToolJsonSchema;
   }[];
 } {
+  const tools = listCatalogToolsForSurface({
+    surface: "mcp",
+    grantedScopes: parseScopeTokens(grantedScope),
+  });
   return {
-    tools: [
-      {
-        name: "vaults.list",
-        description:
-          "List vault repositories available to the authenticated Noter user.",
-        inputSchema: {
-          type: "object",
-          properties: {},
-          additionalProperties: false,
-        },
-      },
-    ],
+    tools: tools.map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: buildMcpToolInputSchema(tool),
+    })),
   };
+}
+
+function readOptionalString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return undefined;
+  }
+  return trimmed;
+}
+
+function parseToolArguments(value: unknown): Record<string, unknown> {
+  const record = asRecord(value);
+  return record;
+}
+
+function parseStructuredContent(value: string | undefined): unknown {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
 }
 
 export const getMcpOauthProtectedResourceMetadata = httpAction(
@@ -697,17 +722,9 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     if (isNotification) {
       return new Response(null, { status: 202 });
     }
-    if (!hasScope(tokenValidation.scope, "vaults.read")) {
-      return jsonRpcErrorResponse({
-        id: rpcRequest.id,
-        code: -32001,
-        message: "Insufficient scope for tools/list.",
-        status: 403,
-      });
-    }
     return jsonRpcSuccessResponse({
       id: rpcRequest.id,
-      result: buildMcpToolList(),
+      result: buildMcpToolList(tokenValidation.scope),
     });
   }
 
@@ -715,48 +732,69 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     if (isNotification) {
       return new Response(null, { status: 202 });
     }
+
+    const grantedScopes = parseScopeTokens(tokenValidation.scope);
     const params = asRecord(rpcRequest.params);
-    const toolNameValue = params.name;
-    const toolName =
-      typeof toolNameValue === "string" ? toolNameValue.trim() : "";
-
-    if (toolName === "vaults.list") {
-      if (!hasScope(tokenValidation.scope, "vaults.read")) {
-        return jsonRpcErrorResponse({
-          id: rpcRequest.id,
-          code: -32001,
-          message: "Insufficient scope for vaults.list.",
-          status: 403,
-        });
-      }
-
-      const vaults = await ctx.runQuery(internal.mcp.tools.listVaultsForUser, {
-        userId: tokenValidation.userId,
-      });
-      const structuredContent = {
-        vaults: vaults.map((vault) => ({
-          id: vault.vaultId,
-          repositoryFullName: vault.repositoryFullName,
-          state: vault.state,
-          isNoterManaged: vault.isNoterManaged,
-          commitSha: vault.commitSha,
-          hostingProvider: vault.hostingProvider,
-        })),
-      };
-
+    const toolName = readOptionalString(params.name) ?? "";
+    if (toolName.length === 0) {
       return jsonRpcSuccessResponse({
         id: rpcRequest.id,
         result: {
           content: [
             {
               type: "text",
-              text: JSON.stringify(structuredContent, null, 2),
+              text: "Missing tool name.",
             },
           ],
-          structuredContent,
+          isError: true,
         },
       });
     }
+
+    const tool = findToolInCatalog({ name: toolName });
+    if (!tool) {
+      return jsonRpcSuccessResponse({
+        id: rpcRequest.id,
+        result: {
+          content: [
+            {
+              type: "text",
+              text: `Unknown tool: ${toolName}`,
+            },
+          ],
+          isError: true,
+        },
+      });
+    }
+
+    const args = parseToolArguments(params.arguments);
+    const toolInput: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(args)) {
+      if (key !== "vaultId" && key !== "branch") {
+        toolInput[key] = value;
+      }
+    }
+
+    const result = await ctx.runAction(internal.toolRuntime.runtime.runTool, {
+      toolName: tool.name,
+      inputJson: JSON.stringify(toolInput),
+      surface: "mcp",
+      userId: tokenValidation.userId,
+      grantedScopes,
+      ...(tool.requiresVaultContext
+        ? { vaultId: readOptionalString(args.vaultId) }
+        : {}),
+      ...(tool.requiresBranchContext
+        ? { branch: readOptionalString(args.branch) }
+        : {}),
+      ...(rpcRequest.id !== undefined && rpcRequest.id !== null
+        ? { requestId: String(rpcRequest.id) }
+        : {}),
+    });
+
+    const structuredContent = parseStructuredContent(
+      result.structuredContentJson,
+    );
 
     return jsonRpcSuccessResponse({
       id: rpcRequest.id,
@@ -764,10 +802,11 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
         content: [
           {
             type: "text",
-            text: `Unknown tool: ${toolName || "missing name"}`,
+            text: result.text,
           },
         ],
-        isError: true,
+        ...(structuredContent !== undefined ? { structuredContent } : {}),
+        ...(result.status !== "ok" ? { isError: true } : {}),
       },
     });
   }

@@ -1,0 +1,64 @@
+import type { ToolDefinition, ToolRunRequest } from "./types";
+
+export interface PolicyCheckResult {
+  ok: boolean;
+  message?: string;
+}
+
+function hasAllScopes(
+  grantedScopes: string[],
+  requiredScopes: string[],
+): boolean {
+  const granted = new Set(grantedScopes);
+  return requiredScopes.every((scope) => granted.has(scope));
+}
+
+export function validateToolPolicy(args: {
+  tool: Pick<
+    ToolDefinition<unknown>,
+    | "name"
+    | "surfaces"
+    | "requiredScopes"
+    | "requiresVaultContext"
+    | "requiresBranchContext"
+  >;
+  request: ToolRunRequest;
+}): PolicyCheckResult {
+  const { tool, request } = args;
+
+  if (!tool.surfaces.includes(request.surface)) {
+    return {
+      ok: false,
+      message: `Tool "${tool.name}" is not available on ${request.surface}.`,
+    };
+  }
+
+  if (request.surface === "mcp" && tool.requiredScopes.length > 0) {
+    if (!hasAllScopes(request.grantedScopes, tool.requiredScopes)) {
+      return {
+        ok: false,
+        message: `Insufficient scope for ${tool.name}.`,
+      };
+    }
+  }
+
+  if (tool.requiresVaultContext && request.vaultId === undefined) {
+    return {
+      ok: false,
+      message: `${tool.name} requires vaultId context.`,
+    };
+  }
+
+  if (tool.requiresBranchContext) {
+    const branch =
+      typeof request.branch === "string" ? request.branch.trim() : "";
+    if (branch.length === 0) {
+      return {
+        ok: false,
+        message: `${tool.name} requires branch context.`,
+      };
+    }
+  }
+
+  return { ok: true };
+}

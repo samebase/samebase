@@ -143,18 +143,6 @@ function hasStatusCode(
   );
 }
 
-function toGitTreeRef(branch: string): string {
-  if (branch.startsWith("refs/heads/")) {
-    return branch.slice("refs/".length);
-  }
-
-  if (branch.startsWith("heads/")) {
-    return branch;
-  }
-
-  return `heads/${branch}`;
-}
-
 async function loadExistingFileSnapshot(
   toolCtx: ToolContext,
   path: string,
@@ -265,94 +253,59 @@ function formatReplaceInFileResult(
 
 // --- Tool Executor Functions ---
 
+async function executeSharedRuntimeTool(
+  toolCtx: ToolContext,
+  args: {
+    toolName: string;
+    input: unknown;
+  },
+): Promise<string> {
+  const result = await toolCtx.ctx.runAction(
+    internal.toolRuntime.runtime.runTool,
+    {
+      toolName: args.toolName,
+      inputJson: JSON.stringify(args.input),
+      surface: "agent",
+      userId: toolCtx.userId,
+      grantedScopes: [],
+      vaultId: toolCtx.vaultId,
+      branch: toolCtx.branch,
+      threadId: toolCtx.threadId,
+    },
+  );
+  if (result.status === "ok") {
+    return result.text;
+  }
+  return `Error: ${result.text}`;
+}
+
 export async function executeReadFile(
   toolCtx: ToolContext,
   input: { path: string },
 ): Promise<string> {
-  // 1. Check staging
-  const staging = await loadStagedFileByPath(toolCtx, input.path);
-  if (staging) {
-    return staging.content;
-  }
-
-  // 2. Fall back to GitHub API. Branch-aware reads must bypass vault.treeData
-  // because that cache is not scoped to the active thread branch.
-  const octokit = new Octokit({ auth: toolCtx.accessToken });
-  const file = await octokit.rest.repos.getContent({
-    owner: toolCtx.owner,
-    repo: toolCtx.repo,
-    path: input.path,
-    ref: toolCtx.branch,
+  return await executeSharedRuntimeTool(toolCtx, {
+    toolName: "read_file",
+    input,
   });
-  if (Array.isArray(file.data) || file.data.type !== "file") {
-    return `Error: ${input.path} is a directory, not a file`;
-  }
-  return Buffer.from(file.data.content, "base64").toString("utf-8");
 }
 
 async function executeListFiles(
   toolCtx: ToolContext,
   input: { directory?: string },
 ): Promise<string> {
-  const vault = await toolCtx.ctx.runQuery(internal.vault.getById, {
-    id: toolCtx.vaultId,
+  return await executeSharedRuntimeTool(toolCtx, {
+    toolName: "list_files",
+    input,
   });
-  if (!vault) return "Error: vault not found";
+}
 
-  const octokit = new Octokit({ auth: toolCtx.accessToken });
-  const tree = await octokit.rest.git.getTree({
-    owner: toolCtx.owner,
-    repo: toolCtx.repo,
-    tree_sha: toGitTreeRef(toolCtx.branch),
-    recursive: "1",
+async function executeGetVaultRemoteBranches(
+  toolCtx: ToolContext,
+): Promise<string> {
+  return await executeSharedRuntimeTool(toolCtx, {
+    toolName: "get_vault_remote_branches",
+    input: {},
   });
-
-  if (tree.data.truncated) {
-    return `Error: repository tree is too large to list safely for branch ${toolCtx.branch}`;
-  }
-
-  const paths = new Set<string>();
-  for (const entry of tree.data.tree) {
-    if (entry.type === "blob" && typeof entry.path === "string") {
-      paths.add(entry.path);
-    }
-  }
-
-  const stagedFiles = await toolCtx.ctx.runQuery(
-    api.fileStaging.listStagedFiles,
-    {
-      vaultId: toolCtx.vaultId,
-      branch: toolCtx.branch,
-      includeUnchanged: true,
-    },
-  );
-
-  for (const stagedFile of stagedFiles) {
-    if (
-      stagedFile.fileDeleted ||
-      stagedFile.filePath !== stagedFile.initialFilePath
-    ) {
-      paths.delete(stagedFile.initialFilePath);
-    }
-
-    if (!stagedFile.fileDeleted) {
-      paths.add(stagedFile.filePath);
-    }
-  }
-
-  let entries = Array.from(paths).sort();
-  if (input.directory) {
-    const prefix = input.directory.endsWith("/")
-      ? input.directory
-      : input.directory + "/";
-    entries = entries.filter((path) => path.startsWith(prefix));
-  }
-  if (entries.length === 0) {
-    return input.directory
-      ? `No files found in directory: ${input.directory}`
-      : "Repository has no files";
-  }
-  return entries.join("\n");
 }
 
 async function executeEditFile(
@@ -786,6 +739,14 @@ export function createTools(toolCtx: ToolContext) {
       }),
       handler: async (_ctx, input) => {
         return await executeListFiles(toolCtx, input);
+      },
+    }),
+
+    get_vault_remote_branches: createTool({
+      description: catalogDescription("get_vault_remote_branches"),
+      args: z.object({}),
+      handler: async () => {
+        return await executeGetVaultRemoteBranches(toolCtx);
       },
     }),
 

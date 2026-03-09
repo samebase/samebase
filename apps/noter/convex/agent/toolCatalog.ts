@@ -34,6 +34,12 @@ export const TOOL_CATALOG: ToolMeta[] = [
     uiDescription: "List files (optionally by directory)",
   },
   {
+    name: "get_vault_remote_branches",
+    description:
+      "List remote branches for the current vault with ahead/behind and pull request metadata.",
+    uiDescription: "List remote branches and PR metadata",
+  },
+  {
     name: "edit_file",
     description:
       "Edit an existing file by replacing its entire content. Required inputs: path relative to the repository root and content containing the full new file text. The file must already exist.",
