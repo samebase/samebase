@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeRepositoryTreeUpdatePlan,
   normalizeGitHubRepositoryListItem,
+  resolveAheadBehindBaseBranch,
 } from "./github";
 
 describe("normalizeGitHubRepositoryListItem", () => {
@@ -100,5 +101,34 @@ describe("computeRepositoryTreeUpdatePlan", () => {
       shouldUpdateLegacyTree: true,
       shouldUpdateLegacyCommit: true,
     });
+  });
+});
+
+describe("resolveAheadBehindBaseBranch", () => {
+  it("uses repository default branch when it exists among remote branches", () => {
+    expect(
+      resolveAheadBehindBaseBranch({
+        branchNames: ["feature/a", "main", "feature/b"],
+        defaultBranch: "main",
+      }),
+    ).toBe("main");
+  });
+
+  it("returns undefined when default branch does not exist", () => {
+    expect(
+      resolveAheadBehindBaseBranch({
+        branchNames: ["master", "feature/a"],
+        defaultBranch: "trunk",
+      }),
+    ).toBeUndefined();
+  });
+
+  it("supports non-main default branches", () => {
+    expect(
+      resolveAheadBehindBaseBranch({
+        branchNames: ["feature/a", "trunk", "feature/b"],
+        defaultBranch: "trunk",
+      }),
+    ).toBe("trunk");
   });
 });

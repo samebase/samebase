@@ -479,6 +479,9 @@ const getUserVaultsResult = array(
       object({
         name: string(),
         lastCommitAt: optional(number()),
+        aheadBy: optional(number()),
+        behindBy: optional(number()),
+        pullRequestUrl: optional(string()),
         isDefault: boolean(),
         remoteState: union(literal("active"), literal("deleted_upstream")),
       }),
@@ -597,6 +600,9 @@ export const getUserVaults = query({
             .map((branch) => ({
               name: branch.name,
               lastCommitAt: branch.lastCommitAt,
+              aheadBy: branch.aheadBy,
+              behindBy: branch.behindBy,
+              pullRequestUrl: branch.pullRequestUrl,
               isDefault: branch.isDefault,
               remoteState: branch.remoteState,
             })),
@@ -645,6 +651,9 @@ export const getVaultRemoteBranches = query({
       name: string(),
       headCommitSha: string(),
       lastCommitAt: optional(number()),
+      aheadBy: optional(number()),
+      behindBy: optional(number()),
+      pullRequestUrl: optional(string()),
       isDefault: boolean(),
       isProtected: boolean(),
       remoteState: union(literal("active"), literal("deleted_upstream")),
@@ -668,6 +677,9 @@ export const getVaultRemoteBranches = query({
       name: branch.name,
       headCommitSha: branch.headCommitSha,
       lastCommitAt: branch.lastCommitAt,
+      aheadBy: branch.aheadBy,
+      behindBy: branch.behindBy,
+      pullRequestUrl: branch.pullRequestUrl,
       isDefault: branch.isDefault,
       isProtected: branch.isProtected,
       remoteState: branch.remoteState,
@@ -686,6 +698,15 @@ export const syncVaultRemoteBranches = internalMutation({
         name: string(),
         headCommitSha: string(),
         lastCommitAt: optional(number()),
+        aheadBy: optional(number()),
+        behindBy: optional(number()),
+        aheadBehindState: union(
+          literal("resolved"),
+          literal("unavailable"),
+          literal("preserve"),
+        ),
+        pullRequestUrl: optional(string()),
+        pullRequestState: union(literal("resolved"), literal("preserve")),
         isDefault: boolean(),
         isProtected: boolean(),
       }),
@@ -717,7 +738,18 @@ export const syncVaultRemoteBranches = internalMutation({
           incomingLastCommitAt: branch.lastCommitAt,
           existingBranch,
         });
-        await ctx.db.patch(existingBranch._id, {
+        const patchData: {
+          headCommitSha: string;
+          lastCommitAt?: number;
+          aheadBy?: number;
+          behindBy?: number;
+          pullRequestUrl?: string;
+          isDefault: boolean;
+          isProtected: boolean;
+          remoteState: "active";
+          deletedUpstreamAt?: number;
+          lastSyncedAt: number;
+        } = {
           headCommitSha: branch.headCommitSha,
           lastCommitAt: nextLastCommitAt,
           isDefault: branch.isDefault,
@@ -725,11 +757,35 @@ export const syncVaultRemoteBranches = internalMutation({
           remoteState: "active",
           deletedUpstreamAt: undefined,
           lastSyncedAt: args.syncedAt,
-        });
+        };
+        if (branch.aheadBehindState === "resolved") {
+          patchData.aheadBy = branch.aheadBy;
+          patchData.behindBy = branch.behindBy;
+        } else if (branch.aheadBehindState === "unavailable") {
+          patchData.aheadBy = undefined;
+          patchData.behindBy = undefined;
+        }
+        if (branch.pullRequestState === "resolved") {
+          patchData.pullRequestUrl = branch.pullRequestUrl;
+        }
+        await ctx.db.patch(existingBranch._id, patchData);
         continue;
       }
 
-      await ctx.db.insert("vaultRemoteBranches", {
+      const insertData: {
+        vaultId: Id<"vaults">;
+        name: string;
+        headCommitSha: string;
+        lastCommitAt?: number;
+        aheadBy?: number;
+        behindBy?: number;
+        pullRequestUrl?: string;
+        isDefault: boolean;
+        isProtected: boolean;
+        remoteState: "active";
+        deletedUpstreamAt?: number;
+        lastSyncedAt: number;
+      } = {
         vaultId: args.vaultId,
         name: branch.name,
         headCommitSha: branch.headCommitSha,
@@ -739,7 +795,15 @@ export const syncVaultRemoteBranches = internalMutation({
         remoteState: "active",
         deletedUpstreamAt: undefined,
         lastSyncedAt: args.syncedAt,
-      });
+      };
+      if (branch.aheadBehindState === "resolved") {
+        insertData.aheadBy = branch.aheadBy;
+        insertData.behindBy = branch.behindBy;
+      }
+      if (branch.pullRequestState === "resolved") {
+        insertData.pullRequestUrl = branch.pullRequestUrl;
+      }
+      await ctx.db.insert("vaultRemoteBranches", insertData);
     }
 
     for (const branch of existing) {

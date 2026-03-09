@@ -227,6 +227,9 @@ interface StagedSummary {
 
 interface VaultRemoteBranchListItem {
   name: string;
+  aheadBy?: number;
+  behindBy?: number;
+  pullRequestUrl?: string;
   isDefault: boolean;
   remoteState: "active" | "deleted_upstream";
 }
@@ -235,20 +238,48 @@ interface VaultBranchLinkRowProps {
   vaultId: Id<"vaults">;
   repositoryFullName: string;
   branchName: string;
+  aheadBy?: number;
+  behindBy?: number;
+  pullRequestUrl?: string;
   isDefault: boolean;
   isDeletedUpstream: boolean;
   stagedSummary?: StagedSummary;
+}
+
+function formatAheadBehindCounts(
+  aheadBy: number | undefined,
+  behindBy: number | undefined,
+): string | null {
+  if (typeof aheadBy !== "number" || typeof behindBy !== "number") {
+    return null;
+  }
+  return `↑${aheadBy} ↓${behindBy}`;
+}
+
+function formatAheadBehindAriaLabel(
+  aheadBy: number | undefined,
+  behindBy: number | undefined,
+): string | null {
+  if (typeof aheadBy !== "number" || typeof behindBy !== "number") {
+    return null;
+  }
+  return `Ahead ${aheadBy}, behind ${behindBy}, compared to the default branch`;
 }
 
 function VaultBranchLinkRow({
   vaultId,
   repositoryFullName,
   branchName,
+  aheadBy,
+  behindBy,
+  pullRequestUrl,
   isDefault,
   isDeletedUpstream,
   stagedSummary,
 }: VaultBranchLinkRowProps) {
   const hasStagedChanges = (stagedSummary?.total ?? 0) > 0;
+  const aheadBehindLabel = formatAheadBehindCounts(aheadBy, behindBy);
+  const aheadBehindAriaLabel = formatAheadBehindAriaLabel(aheadBy, behindBy);
   const branchPath = encodeURIComponent(branchName);
   const branchRoute = `/vault/${repositoryFullName}/${branchPath}`;
 
@@ -264,15 +295,38 @@ function VaultBranchLinkRow({
           </span>
         </div>
       ) : (
-        <Link
-          to={branchRoute}
-          className={clsx(
-            "min-w-0 flex-1 truncate text-sm text-muted-foreground underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current",
-            isDefault && "font-medium text-foreground",
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Link
+            to={branchRoute}
+            className={clsx(
+              "min-w-0 flex-1 truncate text-sm text-muted-foreground underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current",
+              isDefault && "font-medium text-foreground",
+            )}
+          >
+            {branchName}
+          </Link>
+          {aheadBehindLabel && (
+            <span
+              className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/80"
+              title="Ahead/behind vs default branch"
+              aria-label={aheadBehindAriaLabel ?? undefined}
+            >
+              {aheadBehindLabel}
+            </span>
           )}
-        >
-          {branchName}
-        </Link>
+          {typeof pullRequestUrl === "string" && pullRequestUrl.length > 0 ? (
+            <a
+              href={pullRequestUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-blue-600 hover:underline"
+              title="Open pull request"
+              aria-label={`Open pull request for branch ${branchName}`}
+            >
+              PR
+            </a>
+          ) : null}
+        </div>
       )}
       {hasStagedChanges ? (
         <div className="shrink-0">
@@ -319,6 +373,9 @@ function VaultBranchList({
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
           branchName={branch.name}
+          aheadBy={branch.aheadBy}
+          behindBy={branch.behindBy}
+          pullRequestUrl={branch.pullRequestUrl}
           isDefault={branch.isDefault}
           isDeletedUpstream={branch.remoteState === "deleted_upstream"}
           stagedSummary={summaryByBranch.get(branch.name)}
