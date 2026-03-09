@@ -449,7 +449,6 @@ function FileViewWrapper() {
     branch,
     state,
     navigate,
-    firstDocAction,
   ]);
 
   const stagedFile = useQuery(
@@ -1126,6 +1125,12 @@ function FileViewInner({
       });
   }, [branch, getCommitPreview, repositoryFullName]);
 
+  const resetCommitPreviewState = useCallback(() => {
+    setCommitPreview(null);
+    setCommitPreviewDisplayPreference("patch");
+    setCommitPreviewDisplayMode("patch");
+  }, []);
+
   const handleToggleReviewMode = useCallback(() => {
     if (commitReviewMode === "review") {
       setReviewModeInQuery("editor");
@@ -1133,11 +1138,9 @@ function FileViewInner({
     }
 
     setAllowAutoExitReview(true);
-    setCommitPreview(null);
-    setCommitPreviewDisplayPreference("patch");
-    setCommitPreviewDisplayMode("patch");
+    resetCommitPreviewState();
     setReviewModeInQuery("review");
-  }, [commitReviewMode, setReviewModeInQuery]);
+  }, [commitReviewMode, resetCommitPreviewState, setReviewModeInQuery]);
 
   const handleFolderToggle = useCallback(
     (folderPath: string, isExpanded: boolean) => {
@@ -1364,24 +1367,20 @@ function FileViewInner({
     ) {
       return;
     }
+    resetCommitPreviewState();
     if (!hasChangesToCommit) {
-      setCommitPreview(null);
-      setCommitPreviewDisplayPreference("patch");
-      setCommitPreviewDisplayMode("patch");
       setReviewModeInQuery("editor", { replace: true });
       return;
     }
     // Dashboard staged-file links enter through ?review so we wait for branch
     // staging to resolve before switching the canonical URL to ?diff.
-    setCommitPreview(null);
-    setCommitPreviewDisplayPreference("patch");
-    setCommitPreviewDisplayMode("patch");
     setReviewModeInQuery("review", { replace: true });
   }, [
     reviewOnMountRequested,
     commitReviewMode,
     didResolveStagedFiles,
     hasChangesToCommit,
+    resetCommitPreviewState,
     setReviewModeInQuery,
   ]);
 
