@@ -696,6 +696,11 @@ export const syncVaultRemoteBranches = internalMutation({
         lastCommitAt: optional(number()),
         aheadBy: optional(number()),
         behindBy: optional(number()),
+        aheadBehindState: union(
+          literal("resolved"),
+          literal("unavailable"),
+          literal("preserve"),
+        ),
         isDefault: boolean(),
         isProtected: boolean(),
       }),
@@ -727,33 +732,64 @@ export const syncVaultRemoteBranches = internalMutation({
           incomingLastCommitAt: branch.lastCommitAt,
           existingBranch,
         });
-        await ctx.db.patch(existingBranch._id, {
+        const patchData: {
+          headCommitSha: string;
+          lastCommitAt?: number;
+          aheadBy?: number;
+          behindBy?: number;
+          isDefault: boolean;
+          isProtected: boolean;
+          remoteState: "active";
+          deletedUpstreamAt?: number;
+          lastSyncedAt: number;
+        } = {
           headCommitSha: branch.headCommitSha,
           lastCommitAt: nextLastCommitAt,
-          aheadBy: branch.aheadBy,
-          behindBy: branch.behindBy,
           isDefault: branch.isDefault,
           isProtected: branch.isProtected,
           remoteState: "active",
           deletedUpstreamAt: undefined,
           lastSyncedAt: args.syncedAt,
-        });
+        };
+        if (branch.aheadBehindState === "resolved") {
+          patchData.aheadBy = branch.aheadBy;
+          patchData.behindBy = branch.behindBy;
+        } else if (branch.aheadBehindState === "unavailable") {
+          patchData.aheadBy = undefined;
+          patchData.behindBy = undefined;
+        }
+        await ctx.db.patch(existingBranch._id, patchData);
         continue;
       }
 
-      await ctx.db.insert("vaultRemoteBranches", {
+      const insertData: {
+        vaultId: Id<"vaults">;
+        name: string;
+        headCommitSha: string;
+        lastCommitAt?: number;
+        aheadBy?: number;
+        behindBy?: number;
+        isDefault: boolean;
+        isProtected: boolean;
+        remoteState: "active";
+        deletedUpstreamAt?: number;
+        lastSyncedAt: number;
+      } = {
         vaultId: args.vaultId,
         name: branch.name,
         headCommitSha: branch.headCommitSha,
         lastCommitAt: branch.lastCommitAt,
-        aheadBy: branch.aheadBy,
-        behindBy: branch.behindBy,
         isDefault: branch.isDefault,
         isProtected: branch.isProtected,
         remoteState: "active",
         deletedUpstreamAt: undefined,
         lastSyncedAt: args.syncedAt,
-      });
+      };
+      if (branch.aheadBehindState === "resolved") {
+        insertData.aheadBy = branch.aheadBy;
+        insertData.behindBy = branch.behindBy;
+      }
+      await ctx.db.insert("vaultRemoteBranches", insertData);
     }
 
     for (const branch of existing) {

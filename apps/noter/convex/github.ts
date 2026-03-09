@@ -203,6 +203,7 @@ interface RemoteBranchSummary {
   lastCommitAt?: number;
   aheadBy?: number;
   behindBy?: number;
+  aheadBehindState: "resolved" | "unavailable" | "preserve";
   isDefault: boolean;
   isProtected: boolean;
 }
@@ -261,9 +262,12 @@ function parseGitTimestamp(value: string | undefined): number | undefined {
 
 export function resolveAheadBehindBaseBranch(args: {
   branchNames: string[];
+  defaultBranch: string;
 }): string | undefined {
-  return args.branchNames.some((branchName) => branchName === "main")
-    ? "main"
+  return args.branchNames.some(
+    (branchName) => branchName === args.defaultBranch,
+  )
+    ? args.defaultBranch
     : undefined;
 }
 
@@ -273,19 +277,39 @@ async function getAheadBehindByBranch(args: {
   repo: string;
   baseBranch: string | undefined;
   branchNames: string[];
-}): Promise<Map<string, { aheadBy?: number; behindBy?: number }>> {
+}): Promise<
+  Map<
+    string,
+    {
+      state: "resolved" | "unavailable" | "preserve";
+      aheadBy?: number;
+      behindBy?: number;
+    }
+  >
+> {
   const countsByBranch = new Map<
     string,
-    { aheadBy?: number; behindBy?: number }
+    {
+      state: "resolved" | "unavailable" | "preserve";
+      aheadBy?: number;
+      behindBy?: number;
+    }
   >();
 
   if (!args.baseBranch) {
+    for (const branchName of args.branchNames) {
+      countsByBranch.set(branchName, { state: "unavailable" });
+    }
     return countsByBranch;
   }
 
   for (const branchName of args.branchNames) {
     if (branchName === args.baseBranch) {
-      countsByBranch.set(branchName, { aheadBy: 0, behindBy: 0 });
+      countsByBranch.set(branchName, {
+        state: "resolved",
+        aheadBy: 0,
+        behindBy: 0,
+      });
     }
   }
 
@@ -311,25 +335,49 @@ async function getAheadBehindByBranch(args: {
               repo: args.repo,
               basehead: `${args.baseBranch}...${branchName}`,
             });
+          const aheadBy = response.data.ahead_by;
+          const behindBy = response.data.behind_by;
+          if (typeof aheadBy !== "number" || typeof behindBy !== "number") {
+            return {
+              branchName,
+              state: "preserve" as const,
+              aheadBy: undefined,
+              behindBy: undefined,
+            };
+          }
           return {
             branchName,
-            aheadBy:
-              typeof response.data.ahead_by === "number"
-                ? response.data.ahead_by
-                : undefined,
-            behindBy:
-              typeof response.data.behind_by === "number"
-                ? response.data.behind_by
-                : undefined,
+            state: "resolved" as const,
+            aheadBy,
+            behindBy,
           };
-        } catch {
-          return { branchName, aheadBy: undefined, behindBy: undefined };
+        } catch (error: unknown) {
+          console.warn(
+            "compareCommitsWithBasehead failed",
+            JSON.stringify({
+              owner: args.owner,
+              repo: args.repo,
+              baseBranch: args.baseBranch,
+              branchName,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : String(error ?? "unknown"),
+            }),
+          );
+          return {
+            branchName,
+            state: "preserve" as const,
+            aheadBy: undefined,
+            behindBy: undefined,
+          };
         }
       }),
     );
 
     for (const chunkResult of chunkResults) {
       countsByBranch.set(chunkResult.branchName, {
+        state: chunkResult.state,
         aheadBy: chunkResult.aheadBy,
         behindBy: chunkResult.behindBy,
       });
@@ -381,6 +429,7 @@ async function listRemoteBranches(args: {
   octokit: Octokit;
   owner: string;
   repo: string;
+  includeAheadBehind: boolean;
 }): Promise<RemoteBranchSummary[]> {
   const repoResponse = await args.octokit.rest.repos.get({
     owner: args.owner,
@@ -417,6 +466,7 @@ async function listRemoteBranches(args: {
       branches.push({
         name: branch.name,
         headCommitSha,
+        aheadBehindState: "preserve",
         isDefault: branch.name === defaultBranch,
         isProtected: branch.protected === true,
       });
@@ -428,7 +478,26 @@ async function listRemoteBranches(args: {
   }
 
   const branchNames = branches.map((branch) => branch.name);
-  const baseBranch = resolveAheadBehindBaseBranch({ branchNames });
+  const baseBranch = resolveAheadBehindBaseBranch({
+    branchNames,
+    defaultBranch,
+  });
+  const aheadBehindByBranchPromise = args.includeAheadBehind
+    ? getAheadBehindByBranch({
+        octokit: args.octokit,
+        owner: args.owner,
+        repo: args.repo,
+        baseBranch,
+        branchNames,
+      })
+    : Promise.resolve(
+        new Map(
+          branchNames.map((branchName) => [
+            branchName,
+            { state: "preserve" as const },
+          ]),
+        ),
+      );
   const [timestampsBySha, aheadBehindByBranch] = await Promise.all([
     getHeadCommitTimestamps({
       octokit: args.octokit,
@@ -436,21 +505,23 @@ async function listRemoteBranches(args: {
       repo: args.repo,
       shas: branches.map((branch) => branch.headCommitSha),
     }),
-    getAheadBehindByBranch({
-      octokit: args.octokit,
-      owner: args.owner,
-      repo: args.repo,
-      baseBranch,
-      branchNames,
-    }),
+    aheadBehindByBranchPromise,
   ]);
 
-  return branches.map((branch) => ({
-    ...branch,
-    lastCommitAt: timestampsBySha.get(branch.headCommitSha),
-    aheadBy: aheadBehindByBranch.get(branch.name)?.aheadBy,
-    behindBy: aheadBehindByBranch.get(branch.name)?.behindBy,
-  }));
+  return branches.map((branch) => {
+    const aheadBehind = aheadBehindByBranch.get(branch.name) ?? {
+      state: "preserve" as const,
+    };
+    return {
+      ...branch,
+      lastCommitAt: timestampsBySha.get(branch.headCommitSha),
+      aheadBy:
+        aheadBehind.state === "resolved" ? aheadBehind.aheadBy : undefined,
+      behindBy:
+        aheadBehind.state === "resolved" ? aheadBehind.behindBy : undefined,
+      aheadBehindState: aheadBehind.state,
+    };
+  });
 }
 
 function buildDataUrl(mimeType: string, content: Buffer): string {
@@ -842,6 +913,7 @@ export const refreshRepositoryTree = action({
         owner: args.owner,
         repo: args.repo,
         branch: requestedBranch,
+        includeAheadBehind: false,
       });
       return null;
     }
@@ -862,6 +934,7 @@ export const refreshRepositoryTree = action({
         userId,
         owner: args.owner,
         repo: args.repo,
+        includeAheadBehind: args.trigger === "page_load",
       });
       markRefreshed = true;
     } finally {
@@ -882,6 +955,7 @@ export const updateRepositoryTree = internalAction({
     owner: string(),
     repo: string(),
     branch: optional(string()),
+    includeAheadBehind: optional(boolean()),
   },
   returns: nullValidator(),
   handler: async (ctx, args) => {
@@ -926,6 +1000,7 @@ export const updateRepositoryTree = internalAction({
       octokit,
       owner: args.owner,
       repo: args.repo,
+      includeAheadBehind: args.includeAheadBehind === true,
     });
     await ctx.runMutation(internal.vault.syncVaultRemoteBranches, {
       vaultId: vault._id,

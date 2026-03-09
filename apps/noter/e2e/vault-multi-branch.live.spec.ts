@@ -42,8 +42,11 @@ async function signInIfNeeded(page: Page): Promise<void> {
   const autofillButton = page.getByRole("button", {
     name: "Autofill & sign in",
   });
-  if ((await autofillButton.count()) > 0) {
-    await autofillButton.first().click();
+  try {
+    await autofillButton.waitFor({ state: "visible", timeout: 5_000 });
+    await autofillButton.click();
+  } catch {
+    // Sign-in button is not present when session is already active.
   }
   await expect(page.getByRole("heading", { name: "Your Vaults" })).toBeVisible({
     timeout: 30_000,
@@ -86,8 +89,13 @@ async function writeBranchFile(
       timeout: 10_000,
     })
     .toBe(true);
-  await expect(page.getByRole("button", { name: "Commit Now" })).toBeVisible({
+  const commitNowButton = page.getByRole("button", { name: "Commit Now" });
+  await expect(commitNowButton).toBeVisible({
     timeout: 10_000,
+  });
+  await commitNowButton.click();
+  await expect(page.getByRole("button", { name: "All Synced" })).toBeVisible({
+    timeout: 30_000,
   });
 }
 
@@ -112,7 +120,9 @@ test.describe("vault multi-branch live flows", () => {
     await page.goto("/");
     await signInIfNeeded(page);
     await requireVaultOrSkip(page);
-    await page.waitForTimeout(2_000);
+    await expect(branchLinkLocator(page, BRANCHES.main)).toBeVisible({
+      timeout: 15_000,
+    });
 
     const dashboardBranches = [
       BRANCHES.main,
@@ -154,6 +164,10 @@ test.describe("vault multi-branch live flows", () => {
 
     let beforeUnloadDialogCount = 0;
     page.on("dialog", async (dialog) => {
+      if (dialog.type() !== "beforeunload") {
+        await dialog.dismiss();
+        throw new Error(`Unexpected dialog type: ${dialog.type()}`);
+      }
       beforeUnloadDialogCount += 1;
       await dialog.accept();
     });
@@ -200,6 +214,8 @@ test.describe("vault multi-branch live flows", () => {
       contentType: "application/json",
     });
 
+    expect(markerObservations.betaHasOwnMarker).toBe(true);
+    expect(markerObservations.alphaHasOwnMarker).toBe(true);
     expect(markerObservations.betaHasAlphaMarker).toBe(false);
     expect(markerObservations.alphaHasBetaMarker).toBe(false);
     expect(markerObservations.slashHasBetaMarker).toBe(false);

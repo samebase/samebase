@@ -105,19 +105,30 @@ describe("computeRepositoryTreeUpdatePlan", () => {
 });
 
 describe("resolveAheadBehindBaseBranch", () => {
-  it("uses main when it exists among remote branches", () => {
+  it("uses repository default branch when it exists among remote branches", () => {
     expect(
       resolveAheadBehindBaseBranch({
         branchNames: ["feature/a", "main", "feature/b"],
+        defaultBranch: "main",
       }),
     ).toBe("main");
   });
 
-  it("returns undefined when main does not exist", () => {
+  it("returns undefined when default branch does not exist", () => {
     expect(
       resolveAheadBehindBaseBranch({
         branchNames: ["master", "feature/a"],
+        defaultBranch: "trunk",
       }),
     ).toBeUndefined();
+  });
+
+  it("supports non-main default branches", () => {
+    expect(
+      resolveAheadBehindBaseBranch({
+        branchNames: ["feature/a", "trunk", "feature/b"],
+        defaultBranch: "trunk",
+      }),
+    ).toBe("trunk");
   });
 });

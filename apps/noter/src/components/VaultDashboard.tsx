@@ -254,6 +254,16 @@ function formatAheadBehindCounts(
   return `↑${aheadBy} ↓${behindBy}`;
 }
 
+function formatAheadBehindAriaLabel(
+  aheadBy: number | undefined,
+  behindBy: number | undefined,
+): string | null {
+  if (typeof aheadBy !== "number" || typeof behindBy !== "number") {
+    return null;
+  }
+  return `Ahead ${aheadBy}, behind ${behindBy}, compared to the default branch`;
+}
+
 function VaultBranchLinkRow({
   vaultId,
   repositoryFullName,
@@ -266,6 +276,7 @@ function VaultBranchLinkRow({
 }: VaultBranchLinkRowProps) {
   const hasStagedChanges = (stagedSummary?.total ?? 0) > 0;
   const aheadBehindLabel = formatAheadBehindCounts(aheadBy, behindBy);
+  const aheadBehindAriaLabel = formatAheadBehindAriaLabel(aheadBy, behindBy);
   const branchPath = encodeURIComponent(branchName);
   const branchRoute = `/vault/${repositoryFullName}/${branchPath}`;
 
@@ -294,7 +305,8 @@ function VaultBranchLinkRow({
           {aheadBehindLabel && (
             <span
               className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/80"
-              title="Ahead/behind vs origin/main"
+              title="Ahead/behind vs default branch"
+              aria-label={aheadBehindAriaLabel ?? undefined}
             >
               {aheadBehindLabel}
             </span>
