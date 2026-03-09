@@ -350,6 +350,8 @@ export default defineSchema({
     name: v.string(),
     headCommitSha: v.string(),
     lastCommitAt: v.optional(v.number()),
+    aheadBy: v.optional(v.number()),
+    behindBy: v.optional(v.number()),
     isDefault: v.boolean(),
     isProtected: v.boolean(),
     remoteState: VaultRemoteBranchState,

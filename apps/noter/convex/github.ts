@@ -201,6 +201,8 @@ interface RemoteBranchSummary {
   name: string;
   headCommitSha: string;
   lastCommitAt?: number;
+  aheadBy?: number;
+  behindBy?: number;
   isDefault: boolean;
   isProtected: boolean;
 }
@@ -255,6 +257,86 @@ function parseGitTimestamp(value: string | undefined): number | undefined {
     return undefined;
   }
   return timestamp;
+}
+
+export function resolveAheadBehindBaseBranch(args: {
+  branchNames: string[];
+}): string | undefined {
+  return args.branchNames.some((branchName) => branchName === "main")
+    ? "main"
+    : undefined;
+}
+
+async function getAheadBehindByBranch(args: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  baseBranch: string | undefined;
+  branchNames: string[];
+}): Promise<Map<string, { aheadBy?: number; behindBy?: number }>> {
+  const countsByBranch = new Map<
+    string,
+    { aheadBy?: number; behindBy?: number }
+  >();
+
+  if (!args.baseBranch) {
+    return countsByBranch;
+  }
+
+  for (const branchName of args.branchNames) {
+    if (branchName === args.baseBranch) {
+      countsByBranch.set(branchName, { aheadBy: 0, behindBy: 0 });
+    }
+  }
+
+  const branchNamesToCompare = args.branchNames.filter(
+    (branchName) => branchName !== args.baseBranch,
+  );
+  const chunkSize = 10;
+  for (
+    let startIndex = 0;
+    startIndex < branchNamesToCompare.length;
+    startIndex += chunkSize
+  ) {
+    const chunk = branchNamesToCompare.slice(
+      startIndex,
+      startIndex + chunkSize,
+    );
+    const chunkResults = await Promise.all(
+      chunk.map(async (branchName) => {
+        try {
+          const response =
+            await args.octokit.rest.repos.compareCommitsWithBasehead({
+              owner: args.owner,
+              repo: args.repo,
+              basehead: `${args.baseBranch}...${branchName}`,
+            });
+          return {
+            branchName,
+            aheadBy:
+              typeof response.data.ahead_by === "number"
+                ? response.data.ahead_by
+                : undefined,
+            behindBy:
+              typeof response.data.behind_by === "number"
+                ? response.data.behind_by
+                : undefined,
+          };
+        } catch {
+          return { branchName, aheadBy: undefined, behindBy: undefined };
+        }
+      }),
+    );
+
+    for (const chunkResult of chunkResults) {
+      countsByBranch.set(chunkResult.branchName, {
+        aheadBy: chunkResult.aheadBy,
+        behindBy: chunkResult.behindBy,
+      });
+    }
+  }
+
+  return countsByBranch;
 }
 
 async function getHeadCommitTimestamps(args: {
@@ -345,16 +427,29 @@ async function listRemoteBranches(args: {
     }
   }
 
-  const timestampsBySha = await getHeadCommitTimestamps({
-    octokit: args.octokit,
-    owner: args.owner,
-    repo: args.repo,
-    shas: branches.map((branch) => branch.headCommitSha),
-  });
+  const branchNames = branches.map((branch) => branch.name);
+  const baseBranch = resolveAheadBehindBaseBranch({ branchNames });
+  const [timestampsBySha, aheadBehindByBranch] = await Promise.all([
+    getHeadCommitTimestamps({
+      octokit: args.octokit,
+      owner: args.owner,
+      repo: args.repo,
+      shas: branches.map((branch) => branch.headCommitSha),
+    }),
+    getAheadBehindByBranch({
+      octokit: args.octokit,
+      owner: args.owner,
+      repo: args.repo,
+      baseBranch,
+      branchNames,
+    }),
+  ]);
 
   return branches.map((branch) => ({
     ...branch,
     lastCommitAt: timestampsBySha.get(branch.headCommitSha),
+    aheadBy: aheadBehindByBranch.get(branch.name)?.aheadBy,
+    behindBy: aheadBehindByBranch.get(branch.name)?.behindBy,
   }));
 }
 

@@ -16,6 +16,7 @@
     "lint": "convex codegen && tsc --noEmit && cd ../.. && eslint apps/noter --ext ts,tsx --report-unused-disable-directives --config .eslintrc.cjs",
     "lint:ci": "tsc --noEmit && cd ../.. && eslint apps/noter --ext ts,tsx --report-unused-disable-directives --config .eslintrc.cjs",
     "test:visual": "playwright test -c playwright.config.ts",
+    "test:live": "playwright test -c playwright.live.config.ts",
     "preview": "vite preview"
   },
   "dependencies": {
