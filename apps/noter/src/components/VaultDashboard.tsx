@@ -229,6 +229,7 @@ interface VaultRemoteBranchListItem {
   name: string;
   aheadBy?: number;
   behindBy?: number;
+  pullRequestUrl?: string;
   isDefault: boolean;
   remoteState: "active" | "deleted_upstream";
 }
@@ -239,6 +240,7 @@ interface VaultBranchLinkRowProps {
   branchName: string;
   aheadBy?: number;
   behindBy?: number;
+  pullRequestUrl?: string;
   isDefault: boolean;
   isDeletedUpstream: boolean;
   stagedSummary?: StagedSummary;
@@ -270,6 +272,7 @@ function VaultBranchLinkRow({
   branchName,
   aheadBy,
   behindBy,
+  pullRequestUrl,
   isDefault,
   isDeletedUpstream,
   stagedSummary,
@@ -311,6 +314,18 @@ function VaultBranchLinkRow({
               {aheadBehindLabel}
             </span>
           )}
+          {typeof pullRequestUrl === "string" && pullRequestUrl.length > 0 ? (
+            <a
+              href={pullRequestUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-blue-600 hover:underline"
+              title="Open pull request"
+              aria-label={`Open pull request for branch ${branchName}`}
+            >
+              PR
+            </a>
+          ) : null}
         </div>
       )}
       {hasStagedChanges ? (
@@ -360,6 +375,7 @@ function VaultBranchList({
           branchName={branch.name}
           aheadBy={branch.aheadBy}
           behindBy={branch.behindBy}
+          pullRequestUrl={branch.pullRequestUrl}
           isDefault={branch.isDefault}
           isDeletedUpstream={branch.remoteState === "deleted_upstream"}
           stagedSummary={summaryByBranch.get(branch.name)}

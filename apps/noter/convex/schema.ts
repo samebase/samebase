@@ -352,6 +352,7 @@ export default defineSchema({
     lastCommitAt: v.optional(v.number()),
     aheadBy: v.optional(v.number()),
     behindBy: v.optional(v.number()),
+    pullRequestUrl: v.optional(v.string()),
     isDefault: v.boolean(),
     isProtected: v.boolean(),
     remoteState: VaultRemoteBranchState,

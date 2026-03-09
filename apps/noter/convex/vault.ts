@@ -481,6 +481,7 @@ const getUserVaultsResult = array(
         lastCommitAt: optional(number()),
         aheadBy: optional(number()),
         behindBy: optional(number()),
+        pullRequestUrl: optional(string()),
         isDefault: boolean(),
         remoteState: union(literal("active"), literal("deleted_upstream")),
       }),
@@ -601,6 +602,7 @@ export const getUserVaults = query({
               lastCommitAt: branch.lastCommitAt,
               aheadBy: branch.aheadBy,
               behindBy: branch.behindBy,
+              pullRequestUrl: branch.pullRequestUrl,
               isDefault: branch.isDefault,
               remoteState: branch.remoteState,
             })),
@@ -651,6 +653,7 @@ export const getVaultRemoteBranches = query({
       lastCommitAt: optional(number()),
       aheadBy: optional(number()),
       behindBy: optional(number()),
+      pullRequestUrl: optional(string()),
       isDefault: boolean(),
       isProtected: boolean(),
       remoteState: union(literal("active"), literal("deleted_upstream")),
@@ -676,6 +679,7 @@ export const getVaultRemoteBranches = query({
       lastCommitAt: branch.lastCommitAt,
       aheadBy: branch.aheadBy,
       behindBy: branch.behindBy,
+      pullRequestUrl: branch.pullRequestUrl,
       isDefault: branch.isDefault,
       isProtected: branch.isProtected,
       remoteState: branch.remoteState,
@@ -701,6 +705,8 @@ export const syncVaultRemoteBranches = internalMutation({
           literal("unavailable"),
           literal("preserve"),
         ),
+        pullRequestUrl: optional(string()),
+        pullRequestState: union(literal("resolved"), literal("preserve")),
         isDefault: boolean(),
         isProtected: boolean(),
       }),
@@ -737,6 +743,7 @@ export const syncVaultRemoteBranches = internalMutation({
           lastCommitAt?: number;
           aheadBy?: number;
           behindBy?: number;
+          pullRequestUrl?: string;
           isDefault: boolean;
           isProtected: boolean;
           remoteState: "active";
@@ -758,6 +765,9 @@ export const syncVaultRemoteBranches = internalMutation({
           patchData.aheadBy = undefined;
           patchData.behindBy = undefined;
         }
+        if (branch.pullRequestState === "resolved") {
+          patchData.pullRequestUrl = branch.pullRequestUrl;
+        }
         await ctx.db.patch(existingBranch._id, patchData);
         continue;
       }
@@ -769,6 +779,7 @@ export const syncVaultRemoteBranches = internalMutation({
         lastCommitAt?: number;
         aheadBy?: number;
         behindBy?: number;
+        pullRequestUrl?: string;
         isDefault: boolean;
         isProtected: boolean;
         remoteState: "active";
@@ -788,6 +799,9 @@ export const syncVaultRemoteBranches = internalMutation({
       if (branch.aheadBehindState === "resolved") {
         insertData.aheadBy = branch.aheadBy;
         insertData.behindBy = branch.behindBy;
+      }
+      if (branch.pullRequestState === "resolved") {
+        insertData.pullRequestUrl = branch.pullRequestUrl;
       }
       await ctx.db.insert("vaultRemoteBranches", insertData);
     }
