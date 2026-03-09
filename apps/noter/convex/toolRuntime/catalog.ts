@@ -13,6 +13,10 @@ const listFilesInputSchema = z.object({
       "Optional directory path to filter by (e.g. 'src/components'). Omit to list all files.",
     ),
 });
+const editFileInputSchema = z.object({
+  path: z.string().describe("File path relative to repository root"),
+  content: z.string().describe("The new full content of the file"),
+});
 
 export interface ToolCatalogEntry<TInput> extends ToolDefinition<TInput> {}
 
@@ -113,6 +117,22 @@ export const listFilesToolInputSchema: ToolJsonSchema = {
   additionalProperties: false,
 };
 
+export const editFileToolInputSchema: ToolJsonSchema = {
+  type: "object",
+  properties: {
+    path: {
+      type: "string",
+      description: "File path relative to repository root.",
+    },
+    content: {
+      type: "string",
+      description: "The new full content of the file.",
+    },
+  },
+  required: ["path", "content"],
+  additionalProperties: false,
+};
+
 export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
   {
     name: "vaults.list",
@@ -152,6 +172,19 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     safety: "read_only",
     inputSchema: listFilesToolInputSchema,
     agentArgs: listFilesInputSchema,
+  },
+  {
+    name: "edit_file",
+    description:
+      "Edit an existing file by replacing its entire content. Required inputs: path relative to the repository root and content containing the full new file text. The file must already exist.",
+    surfaces: ["agent", "mcp"],
+    requiredScopes: ["files.write"],
+    requiresVaultContext: true,
+    requiresBranchContext: true,
+    requiresGithubConnection: true,
+    safety: "write",
+    inputSchema: editFileToolInputSchema,
+    agentArgs: editFileInputSchema,
   },
   {
     name: "get_vault_remote_branches",

@@ -20,14 +20,21 @@ describe("listCatalogToolsForSurface", () => {
     }).map((tool) => tool.name);
     expect(fileTools).toEqual(["read_file", "list_files"]);
 
+    const writeTools = listCatalogToolsForSurface({
+      surface: "mcp",
+      grantedScopes: ["files.write"],
+    }).map((tool) => tool.name);
+    expect(writeTools).toEqual(["edit_file"]);
+
     const allTools = listCatalogToolsForSurface({
       surface: "mcp",
-      grantedScopes: ["vaults.read", "files.read"],
+      grantedScopes: ["vaults.read", "files.read", "files.write"],
     }).map((tool) => tool.name);
     expect(allTools).toEqual([
       "vaults.list",
       "read_file",
       "list_files",
+      "edit_file",
       "get_vault_remote_branches",
     ]);
   });
@@ -41,6 +48,7 @@ describe("listCatalogToolsForSurface", () => {
     expect(tools).toEqual([
       "read_file",
       "list_files",
+      "edit_file",
       "get_vault_remote_branches",
     ]);
   });

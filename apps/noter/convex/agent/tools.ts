@@ -312,38 +312,10 @@ async function executeEditFile(
   toolCtx: ToolContext,
   input: { path: string; content: string },
 ): Promise<string> {
-  // Check if file is already staged (i.e. editor is open)
-  const staging = await loadStagedFileByPath(toolCtx, input.path);
-
-  if (staging) {
-    // File is staged — push through the collaborative editing stream
-    // so open editors update in real-time.
-    await toolCtx.ctx.runMutation(internal.collaborative.pushContentUpdate, {
-      vaultId: toolCtx.vaultId,
-      filePath: staging.filePath,
-      branch: toolCtx.branch,
-      expectedVersion: staging.version,
-      newContent: input.content,
-      userId: toolCtx.userId,
-    });
-  } else {
-    // Not yet staged — read current content and parent SHA from the active branch.
-    const snapshot = await loadExistingFileSnapshotOrNull(toolCtx, input.path);
-    const initialContent = snapshot?.content ?? "";
-    const parentCommitSha = snapshot?.parentCommitSha ?? null;
-
-    await toolCtx.ctx.runMutation(internal.fileStaging.saveToStaging, {
-      vaultId: toolCtx.vaultId,
-      initialFilePath: input.path,
-      content: input.content,
-      initialContent,
-      parentCommitSha,
-      branch: toolCtx.branch,
-      userId: toolCtx.userId,
-    });
-  }
-
-  return `File edited: ${input.path}`;
+  return await executeSharedRuntimeTool(toolCtx, {
+    toolName: "edit_file",
+    input,
+  });
 }
 
 async function executeReplaceInFile(

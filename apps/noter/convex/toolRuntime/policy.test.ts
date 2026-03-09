@@ -145,4 +145,29 @@ describe("validateToolPolicy", () => {
 
     expect(result).toEqual({ ok: true });
   });
+
+  it("allows MCP write requests when files.write scope is granted", () => {
+    const tool = findToolInCatalog({ name: "edit_file" });
+    expect(tool).not.toBeNull();
+    if (!tool) {
+      return;
+    }
+
+    const result = validateToolPolicy({
+      tool,
+      request: makeRequest({
+        toolName: tool.name,
+        input: {
+          path: "README.md",
+          content: "updated",
+        },
+        surface: "mcp",
+        grantedScopes: ["files.write"],
+        vaultId: "vault_123",
+        branch: "main",
+      }),
+    });
+
+    expect(result).toEqual({ ok: true });
+  });
 });
