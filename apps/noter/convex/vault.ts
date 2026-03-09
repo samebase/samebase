@@ -9,6 +9,10 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { DaytonaSnapshotBuildStatus, GithubTreeData } from "./schema";
+import {
+  hasStagedFileChanges,
+  type StagedFileChangeCandidate,
+} from "./stagingChanges";
 import { Id } from "./_generated/dataModel";
 import { getUserId } from "./common";
 import { enqueueSnapshotBuild } from "./daytonaSnapshotRecords";
@@ -426,14 +430,7 @@ function compareRemoteBranchSortOrder(
   return left.name.localeCompare(right.name);
 }
 
-type BranchStagingChangeCandidate = {
-  fileDeleted: boolean;
-  parentCommitSha: string | null;
-  filePath: string;
-  initialFilePath: string;
-  content: string;
-  initialContent: string;
-};
+type BranchStagingChangeCandidate = StagedFileChangeCandidate;
 type BranchStagingRecord = BranchStagingChangeCandidate & {
   _id: Id<"fileStaging">;
   branch: string;
@@ -442,12 +439,7 @@ type BranchStagingRecord = BranchStagingChangeCandidate & {
 export function hasBranchStagingChanges(
   file: BranchStagingChangeCandidate,
 ): boolean {
-  return (
-    file.content !== file.initialContent ||
-    file.fileDeleted ||
-    file.filePath !== file.initialFilePath ||
-    file.parentCommitSha === null
-  );
+  return hasStagedFileChanges(file);
 }
 
 export function resolveSyncedBranchLastCommitAt(args: {

@@ -9,6 +9,10 @@ import {
 import { internal } from "./_generated/api";
 import { getUserId } from "./common";
 import type { GithubTreeType } from "./schema";
+import {
+  hasStagedFileChanges,
+  type StagedFileChangeCandidate,
+} from "./stagingChanges";
 
 export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
 const {
@@ -136,16 +140,8 @@ type StagedFilesCategoryCounts = Infer<
   typeof stagedFilesCategoryCountsValidator
 >;
 type StagedFilesCategory = Exclude<keyof StagedFilesCategoryCounts, "total">;
-type StagedFileSummaryInput = Pick<
-  StagedFile,
-  | "branch"
-  | "fileDeleted"
-  | "parentCommitSha"
-  | "filePath"
-  | "initialFilePath"
-  | "content"
-  | "initialContent"
->;
+type StagedFileSummaryInput = StagedFileChangeCandidate &
+  Pick<StagedFile, "branch">;
 
 function emptyStagedFilesCategoryCounts(): StagedFilesCategoryCounts {
   return {
@@ -161,6 +157,9 @@ function emptyStagedFilesCategoryCounts(): StagedFilesCategoryCounts {
 function classifyStagedFile(
   file: StagedFileSummaryInput,
 ): StagedFilesCategory | null {
+  if (!hasStagedFileChanges(file)) {
+    return null;
+  }
   if (file.fileDeleted) {
     return "deleted";
   }
@@ -172,10 +171,7 @@ function classifyStagedFile(
       ? "renamedAndModified"
       : "renamed";
   }
-  if (file.content !== file.initialContent) {
-    return "modified";
-  }
-  return null;
+  return "modified";
 }
 
 export function canAccessVaultStaging(args: {
