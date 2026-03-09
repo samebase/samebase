@@ -36,6 +36,7 @@
 
 ## High Priority
 
+- [ ] **NEXT TASK**: Research how Supabase and other app builders handle worktrees/branching - do they provision different sandboxes for each branch or use a single sandbox per project? Plan to use Codex + Playwright to automate this research across multiple platforms
 - [ ] codex: make worktrees work automatically
 - [ ] auth env vars: standardize on `AUTH_*` (or document precedence) and add a warning when multiple GitHub/Google env keys are set
 - [ ] MCP consent UX: improve logged-out/no-account flow so users get clear next steps before consent
