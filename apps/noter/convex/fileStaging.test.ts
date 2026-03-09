@@ -258,6 +258,7 @@ describe("buildClearAllStagingPlan", () => {
       buildClearAllStagingPlan({
         vaultId: "vault-1",
         branch: "feature/login",
+        cleanupCutoffTimestamp: 123,
         vault: {
           userId: "users:owner",
           ghRepoOwner: "octo",
@@ -273,6 +274,7 @@ describe("buildClearAllStagingPlan", () => {
       deleteCollaborativeUpdatesArgs: {
         vaultId: "vault-1",
         branch: "feature/login",
+        cutoffTimestamp: 123,
       },
       treeRefreshArgs: {
         userId: "users:owner",
@@ -287,6 +289,7 @@ describe("buildClearAllStagingPlan", () => {
     expect(
       buildClearAllStagingPlan({
         vaultId: "vault-1",
+        cleanupCutoffTimestamp: 456,
         vault: {
           userId: "users:owner",
           ghRepoOwner: "octo",
@@ -301,6 +304,7 @@ describe("buildClearAllStagingPlan", () => {
       deleteCollaborativeUpdatesArgs: {
         vaultId: "vault-1",
         branch: undefined,
+        cutoffTimestamp: 456,
       },
       treeRefreshArgs: {
         userId: "users:owner",
@@ -316,6 +320,7 @@ describe("buildClearAllStagingPlan", () => {
       buildClearAllStagingPlan({
         vaultId: "vault-1",
         branch: "feature/login",
+        cleanupCutoffTimestamp: 789,
         vault: null,
       }),
     ).toEqual({
@@ -327,6 +332,7 @@ describe("buildClearAllStagingPlan", () => {
       deleteCollaborativeUpdatesArgs: {
         vaultId: "vault-1",
         branch: "feature/login",
+        cutoffTimestamp: 789,
       },
       treeRefreshArgs: null,
     });
@@ -373,6 +379,7 @@ describe("buildClearAllStagingPlan", () => {
         args: {
           vaultId: targetVaultId,
           branch: targetBranch,
+          cutoffTimestamp: expect.any(Number),
         },
       },
       {
