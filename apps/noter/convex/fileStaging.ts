@@ -376,6 +376,68 @@ export const listAllStagedFiles = internalQuery({
 
 const DELETION_BATCH_SIZE = 500;
 
+type ClearAllStagingPlan<
+  VaultId extends string = string,
+  UserId extends string = string,
+> = {
+  stagingQuery:
+    | { indexName: "by_vault"; vaultId: VaultId }
+    | {
+        indexName: "by_vault_and_branch";
+        vaultId: VaultId;
+        branch: string;
+      };
+  deleteCollaborativeUpdatesArgs: {
+    vaultId: VaultId;
+    branch?: string;
+  };
+  treeRefreshArgs: {
+    userId: UserId;
+    owner: string;
+    repo: string;
+    branch?: string;
+  } | null;
+};
+
+export function buildClearAllStagingPlan<
+  VaultId extends string,
+  UserId extends string,
+>(args: {
+  vaultId: VaultId;
+  branch?: string;
+  vault: {
+    userId: UserId;
+    ghRepoOwner: string;
+    ghRepoName: string;
+  } | null;
+}): ClearAllStagingPlan<VaultId, UserId> {
+  return {
+    stagingQuery:
+      args.branch === undefined
+        ? {
+            indexName: "by_vault",
+            vaultId: args.vaultId,
+          }
+        : {
+            indexName: "by_vault_and_branch",
+            vaultId: args.vaultId,
+            branch: args.branch,
+          },
+    deleteCollaborativeUpdatesArgs: {
+      vaultId: args.vaultId,
+      branch: args.branch,
+    },
+    treeRefreshArgs: args.vault
+      ? {
+          userId: args.vault.userId,
+          owner: args.vault.ghRepoOwner,
+          repo: args.vault.ghRepoName,
+          branch: args.branch,
+        }
+      : null,
+  };
+}
+
 // Clear staging for a specific file (used after successful commit)
 export const clearAllStaging = mutation({
   args: {
@@ -387,19 +449,34 @@ export const clearAllStaging = mutation({
   handler: async (ctx, args) => {
     // Get vault info to schedule tree update
     const vault = await ctx.db.get(args.vaultId);
+    const plan = buildClearAllStagingPlan({
+      vaultId: args.vaultId,
+      branch: args.branch,
+      vault: vault
+        ? {
+            userId: vault.userId,
+            ghRepoOwner: vault.ghRepoOwner,
+            ghRepoName: vault.ghRepoName,
+          }
+        : null,
+    });
 
     let stagingFiles;
-    if (args.branch === undefined) {
+    if (plan.stagingQuery.indexName === "by_vault") {
       stagingFiles = await ctx.db
         .query("fileStaging")
-        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+        .withIndex("by_vault", (q) =>
+          q.eq("vaultId", plan.stagingQuery.vaultId),
+        )
         .collect();
     } else {
-      const branch = args.branch;
+      const branchScopedQuery = plan.stagingQuery;
       stagingFiles = await ctx.db
         .query("fileStaging")
         .withIndex("by_vault_and_branch", (q) =>
-          q.eq("vaultId", args.vaultId).eq("branch", branch),
+          q
+            .eq("vaultId", branchScopedQuery.vaultId)
+            .eq("branch", branchScopedQuery.branch),
         )
         .collect();
     }
@@ -413,18 +490,17 @@ export const clearAllStaging = mutation({
     await ctx.scheduler.runAfter(
       0,
       internal.fileStaging.deleteCollaborativeUpdatesBatch,
-      { vaultId: args.vaultId, branch: args.branch },
+      plan.deleteCollaborativeUpdatesArgs,
     );
 
     // Update tree to ensure it's fresh after clearing staging
     // Skip when called from commitAllStaged (tree is already updated there)
-    if (vault && !args.skipTreeUpdate) {
-      await ctx.scheduler.runAfter(0, internal.github.updateRepositoryTree, {
-        userId: vault.userId,
-        owner: vault.ghRepoOwner,
-        repo: vault.ghRepoName,
-        branch: args.branch,
-      });
+    if (plan.treeRefreshArgs && !args.skipTreeUpdate) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.github.updateRepositoryTree,
+        plan.treeRefreshArgs,
+      );
     }
 
     return null;
