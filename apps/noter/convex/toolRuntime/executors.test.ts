@@ -4,6 +4,12 @@ import { executeRuntimeTool } from "./executors";
 import type { ResolvedToolContext } from "./types";
 
 type MutationCall = {
+  ref: unknown;
+  args: Record<string, unknown>;
+};
+
+type QueryCall = {
+  ref: unknown;
   args: Record<string, unknown>;
 };
 
@@ -11,12 +17,14 @@ type QueryHandler = (args: Record<string, unknown>) => unknown;
 type MutationHandler = (args: Record<string, unknown>) => unknown;
 
 function makeResolvedContext(args?: {
+  queryCalls?: QueryCall[];
   queryHandler?: QueryHandler;
   mutationHandler?: MutationHandler;
   mutationCalls?: MutationCall[];
   branch?: string;
   threadId?: string;
 }): ResolvedToolContext {
+  const queryCalls = args?.queryCalls ?? [];
   const mutationCalls = args?.mutationCalls ?? [];
 
   const ctx = {
@@ -24,6 +32,7 @@ function makeResolvedContext(args?: {
       _queryRef: unknown,
       queryArgs: Record<string, unknown>,
     ): Promise<unknown> => {
+      queryCalls.push({ ref: _queryRef, args: queryArgs });
       if (args?.queryHandler) {
         return args.queryHandler(queryArgs);
       }
@@ -33,7 +42,7 @@ function makeResolvedContext(args?: {
       _mutationRef: unknown,
       mutationArgs: Record<string, unknown>,
     ): Promise<unknown> => {
-      mutationCalls.push({ args: mutationArgs });
+      mutationCalls.push({ ref: _mutationRef, args: mutationArgs });
       if (args?.mutationHandler) {
         return args.mutationHandler(mutationArgs);
       }
@@ -58,18 +67,20 @@ function makeResolvedContext(args?: {
       state: "ready",
     },
     branch: args?.branch ?? "main",
-    threadId: args?.threadId ?? "thread_test",
+    threadId: args?.threadId,
     githubAccessToken: "gho_test",
   };
 }
 
 describe("executeRuntimeTool write dispatch", () => {
   it("dispatches edit_file through collaborative mutation when file is staged", async () => {
+    const queryCalls: QueryCall[] = [];
     const mutationCalls: MutationCall[] = [];
     const context = makeResolvedContext({
+      queryCalls,
       mutationCalls,
       queryHandler: (queryArgs) => {
-        if (typeof queryArgs.originalFilePath === "string") {
+        if (queryArgs.newPath === "README.md") {
           return {
             content: "old",
             fileDeleted: false,
@@ -90,7 +101,10 @@ describe("executeRuntimeTool write dispatch", () => {
     });
 
     expect(output.text).toBe("File edited: README.md");
+    expect(queryCalls).toHaveLength(1);
+    expect(typeof queryCalls[0]?.ref).toBe("object");
     expect(mutationCalls).toHaveLength(1);
+    expect(typeof mutationCalls[0]?.ref).toBe("object");
     expect(mutationCalls[0].args).toMatchObject({
       vaultId: "vault_test",
       filePath: "README.md",
@@ -102,11 +116,13 @@ describe("executeRuntimeTool write dispatch", () => {
   });
 
   it("dispatches replace_in_file for staged files", async () => {
+    const queryCalls: QueryCall[] = [];
     const mutationCalls: MutationCall[] = [];
     const context = makeResolvedContext({
+      queryCalls,
       mutationCalls,
       queryHandler: (queryArgs) => {
-        if (typeof queryArgs.originalFilePath === "string") {
+        if (queryArgs.newPath === "README.md") {
           return {
             content: "hello old world",
             fileDeleted: false,
@@ -130,7 +146,10 @@ describe("executeRuntimeTool write dispatch", () => {
     });
 
     expect(output.text).toContain('"applied": 1');
+    expect(queryCalls).toHaveLength(1);
+    expect(typeof queryCalls[0]?.ref).toBe("object");
     expect(mutationCalls).toHaveLength(1);
+    expect(typeof mutationCalls[0]?.ref).toBe("object");
     expect(mutationCalls[0].args).toMatchObject({
       vaultId: "vault_test",
       filePath: "README.md",
@@ -142,8 +161,9 @@ describe("executeRuntimeTool write dispatch", () => {
   });
 
   it("dispatches create_file through staging mutation", async () => {
+    const queryCalls: QueryCall[] = [];
     const mutationCalls: MutationCall[] = [];
-    const context = makeResolvedContext({ mutationCalls });
+    const context = makeResolvedContext({ queryCalls, mutationCalls });
 
     const output = await executeRuntimeTool({
       toolName: "create_file",
@@ -152,7 +172,10 @@ describe("executeRuntimeTool write dispatch", () => {
     });
 
     expect(output.text).toBe("File created: src/new.ts");
+    expect(queryCalls).toHaveLength(3);
+    expect(new Set(queryCalls.map((call) => call.ref)).size).toBe(3);
     expect(mutationCalls).toHaveLength(1);
+    expect(typeof mutationCalls[0]?.ref).toBe("object");
     expect(mutationCalls[0].args).toMatchObject({
       vaultId: "vault_test",
       initialFilePath: "src/new.ts",
@@ -259,8 +282,10 @@ describe("executeRuntimeTool write dispatch", () => {
   });
 
   it("dispatches delete_file with staged metadata when current path is staged", async () => {
+    const queryCalls: QueryCall[] = [];
     const mutationCalls: MutationCall[] = [];
     const context = makeResolvedContext({
+      queryCalls,
       mutationCalls,
       queryHandler: (queryArgs) => {
         if (queryArgs.newPath === "src/renamed.ts") {
@@ -284,7 +309,10 @@ describe("executeRuntimeTool write dispatch", () => {
     });
 
     expect(output.text).toBe("File marked for deletion: src/renamed.ts");
+    expect(queryCalls).toHaveLength(1);
+    expect(typeof queryCalls[0]?.ref).toBe("object");
     expect(mutationCalls).toHaveLength(1);
+    expect(typeof mutationCalls[0]?.ref).toBe("object");
     expect(mutationCalls[0].args).toMatchObject({
       vaultId: "vault_test",
       filePath: "src/renamed.ts",
@@ -331,6 +359,7 @@ describe("executeRuntimeTool write dispatch", () => {
       status: "proposed",
     });
     expect(mutationCalls).toHaveLength(1);
+    expect(typeof mutationCalls[0]?.ref).toBe("object");
     expect(mutationCalls[0].args).toMatchObject({
       threadId: "thread_123",
       requesterUserId: "users_test",
