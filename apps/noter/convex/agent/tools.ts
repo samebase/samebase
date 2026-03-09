@@ -3,21 +3,12 @@
 import { createTool } from "@convex-dev/agent";
 import { z } from "zod";
 import { Octokit } from "@octokit/rest";
-import { api, internal } from "../_generated/api";
+import { internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { TOOL_CATALOG } from "./toolCatalog";
-import { buildReplaceInFilePlan, ReplaceInFileError } from "./replaceInFile";
 
 const PROD_READ_SENTINEL = "__PROD_READ_PROPOSAL__:";
-type AllowedDataTable =
-  | "vaults"
-  | "vaultInfrastructure"
-  | "vaultDomains"
-  | "codespaces"
-  | "fileStaging"
-  | "aiProdAccessRequests"
-  | "aiProdAccessAudit";
 
 const dataTableSchema = z.union([
   z.literal("vaults"),
@@ -123,352 +114,116 @@ const GITHUB_API_ALLOWLIST = new Set([
   "search.commits",
 ]);
 
-interface ExistingFileSnapshot {
-  content: string;
-  parentCommitSha: string | null;
-  isStaged: boolean;
-  version: number;
-  filePath: string;
-}
-
-function hasStatusCode(
-  error: unknown,
-  status: number,
-): error is { status: number } {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    error.status === status
-  );
-}
-
-function toGitTreeRef(branch: string): string {
-  if (branch.startsWith("refs/heads/")) {
-    return branch.slice("refs/".length);
-  }
-
-  if (branch.startsWith("heads/")) {
-    return branch;
-  }
-
-  return `heads/${branch}`;
-}
-
-async function loadExistingFileSnapshot(
-  toolCtx: ToolContext,
-  path: string,
-): Promise<ExistingFileSnapshot> {
-  const staging = await loadStagedFileByPath(toolCtx, path);
-  if (staging) {
-    if (staging.fileDeleted === true) {
-      throw new ReplaceInFileError(
-        `replace_in_file failed: ${path} is marked deleted in staging`,
-        "deleted",
-      );
-    }
-    return {
-      content: staging.content,
-      parentCommitSha: staging.parentCommitSha ?? null,
-      isStaged: true,
-      version: staging.version,
-      filePath: staging.filePath,
-    };
-  }
-
-  const octokit = new Octokit({ auth: toolCtx.accessToken });
-  try {
-    const file = await octokit.rest.repos.getContent({
-      owner: toolCtx.owner,
-      repo: toolCtx.repo,
-      path,
-      ref: toolCtx.branch,
-    });
-    if (Array.isArray(file.data) || file.data.type !== "file") {
-      throw new ReplaceInFileError(
-        `replace_in_file failed: ${path} is a directory, not a file`,
-        "not_file",
-      );
-    }
-    return {
-      content: Buffer.from(file.data.content, "base64").toString("utf-8"),
-      parentCommitSha: file.data.sha,
-      isStaged: false,
-      version: 0,
-      filePath: path,
-    };
-  } catch (error) {
-    if (error instanceof ReplaceInFileError) {
-      throw error;
-    }
-    if (hasStatusCode(error, 404)) {
-      throw new ReplaceInFileError(
-        `replace_in_file failed: ${path} does not exist; use create_file`,
-        "not_found",
-      );
-    }
-    throw error;
-  }
-}
-
-async function loadStagedFileByPath(toolCtx: ToolContext, path: string) {
-  const byOriginalPath = await toolCtx.ctx.runQuery(
-    internal.fileStaging.getByOriginalPath,
-    {
-      vaultId: toolCtx.vaultId,
-      originalFilePath: path,
-      branch: toolCtx.branch,
-    },
-  );
-  if (byOriginalPath) {
-    return byOriginalPath;
-  }
-
-  return toolCtx.ctx.runQuery(api.fileStaging.getByNewPath, {
-    vaultId: toolCtx.vaultId,
-    newPath: path,
-    branch: toolCtx.branch,
-  });
-}
-
-async function loadExistingFileSnapshotOrNull(
-  toolCtx: ToolContext,
-  path: string,
-): Promise<ExistingFileSnapshot | null> {
-  try {
-    return await loadExistingFileSnapshot(toolCtx, path);
-  } catch (error) {
-    if (error instanceof ReplaceInFileError && error.code === "not_found") {
-      return null;
-    }
-    throw error;
-  }
-}
-
-function formatReplaceInFileResult(
-  path: string,
-  replacements: ReplaceInFileReplacement[],
-  resolvedEdits: ReturnType<typeof buildReplaceInFilePlan>["resolvedEdits"],
-): string {
-  return JSON.stringify(
-    {
-      path,
-      applied: resolvedEdits.length,
-      replacementCount: replacements.length,
-      resolvedEdits,
-      result: `File edited: ${path}`,
-    },
-    null,
-    2,
-  );
-}
-
 // --- Tool Executor Functions ---
+
+async function executeSharedRuntimeTool(
+  toolCtx: ToolContext,
+  args: {
+    toolName: string;
+    input: unknown;
+  },
+): Promise<string> {
+  const result = await toolCtx.ctx.runAction(
+    internal.toolRuntime.runtime.runTool,
+    {
+      toolName: args.toolName,
+      inputJson: JSON.stringify(args.input),
+      surface: "agent",
+      userId: toolCtx.userId,
+      grantedScopes: [],
+      vaultId: toolCtx.vaultId,
+      branch: toolCtx.branch,
+      threadId: toolCtx.threadId,
+    },
+  );
+  if (result.status === "ok") {
+    if (typeof result.structuredContentJson === "string") {
+      try {
+        const parsed: unknown = JSON.parse(result.structuredContentJson);
+        if (
+          typeof parsed === "object" &&
+          parsed !== null &&
+          "type" in parsed &&
+          parsed.type === "prod_read_proposal"
+        ) {
+          return `${PROD_READ_SENTINEL}${JSON.stringify(parsed)}`;
+        }
+      } catch {
+        // Non-JSON structured content falls through to plain text.
+      }
+    }
+    return result.text;
+  }
+  return `Error: ${result.text}`;
+}
 
 export async function executeReadFile(
   toolCtx: ToolContext,
   input: { path: string },
 ): Promise<string> {
-  // 1. Check staging
-  const staging = await loadStagedFileByPath(toolCtx, input.path);
-  if (staging) {
-    return staging.content;
-  }
-
-  // 2. Fall back to GitHub API. Branch-aware reads must bypass vault.treeData
-  // because that cache is not scoped to the active thread branch.
-  const octokit = new Octokit({ auth: toolCtx.accessToken });
-  const file = await octokit.rest.repos.getContent({
-    owner: toolCtx.owner,
-    repo: toolCtx.repo,
-    path: input.path,
-    ref: toolCtx.branch,
+  return await executeSharedRuntimeTool(toolCtx, {
+    toolName: "read_file",
+    input,
   });
-  if (Array.isArray(file.data) || file.data.type !== "file") {
-    return `Error: ${input.path} is a directory, not a file`;
-  }
-  return Buffer.from(file.data.content, "base64").toString("utf-8");
 }
 
 async function executeListFiles(
   toolCtx: ToolContext,
   input: { directory?: string },
 ): Promise<string> {
-  const vault = await toolCtx.ctx.runQuery(internal.vault.getById, {
-    id: toolCtx.vaultId,
+  return await executeSharedRuntimeTool(toolCtx, {
+    toolName: "list_files",
+    input,
   });
-  if (!vault) return "Error: vault not found";
+}
 
-  const octokit = new Octokit({ auth: toolCtx.accessToken });
-  const tree = await octokit.rest.git.getTree({
-    owner: toolCtx.owner,
-    repo: toolCtx.repo,
-    tree_sha: toGitTreeRef(toolCtx.branch),
-    recursive: "1",
+async function executeGetVaultRemoteBranches(
+  toolCtx: ToolContext,
+): Promise<string> {
+  return await executeSharedRuntimeTool(toolCtx, {
+    toolName: "get_vault_remote_branches",
+    input: {},
   });
-
-  if (tree.data.truncated) {
-    return `Error: repository tree is too large to list safely for branch ${toolCtx.branch}`;
-  }
-
-  const paths = new Set<string>();
-  for (const entry of tree.data.tree) {
-    if (entry.type === "blob" && typeof entry.path === "string") {
-      paths.add(entry.path);
-    }
-  }
-
-  const stagedFiles = await toolCtx.ctx.runQuery(
-    api.fileStaging.listStagedFiles,
-    {
-      vaultId: toolCtx.vaultId,
-      branch: toolCtx.branch,
-      includeUnchanged: true,
-    },
-  );
-
-  for (const stagedFile of stagedFiles) {
-    if (
-      stagedFile.fileDeleted ||
-      stagedFile.filePath !== stagedFile.initialFilePath
-    ) {
-      paths.delete(stagedFile.initialFilePath);
-    }
-
-    if (!stagedFile.fileDeleted) {
-      paths.add(stagedFile.filePath);
-    }
-  }
-
-  let entries = Array.from(paths).sort();
-  if (input.directory) {
-    const prefix = input.directory.endsWith("/")
-      ? input.directory
-      : input.directory + "/";
-    entries = entries.filter((path) => path.startsWith(prefix));
-  }
-  if (entries.length === 0) {
-    return input.directory
-      ? `No files found in directory: ${input.directory}`
-      : "Repository has no files";
-  }
-  return entries.join("\n");
 }
 
 async function executeEditFile(
   toolCtx: ToolContext,
   input: { path: string; content: string },
 ): Promise<string> {
-  // Check if file is already staged (i.e. editor is open)
-  const staging = await loadStagedFileByPath(toolCtx, input.path);
-
-  if (staging) {
-    // File is staged — push through the collaborative editing stream
-    // so open editors update in real-time.
-    await toolCtx.ctx.runMutation(internal.collaborative.pushContentUpdate, {
-      vaultId: toolCtx.vaultId,
-      filePath: staging.filePath,
-      branch: toolCtx.branch,
-      expectedVersion: staging.version,
-      newContent: input.content,
-      userId: toolCtx.userId,
-    });
-  } else {
-    // Not yet staged — read current content and parent SHA from the active branch.
-    const snapshot = await loadExistingFileSnapshotOrNull(toolCtx, input.path);
-    const initialContent = snapshot?.content ?? "";
-    const parentCommitSha = snapshot?.parentCommitSha ?? null;
-
-    await toolCtx.ctx.runMutation(internal.fileStaging.saveToStaging, {
-      vaultId: toolCtx.vaultId,
-      initialFilePath: input.path,
-      content: input.content,
-      initialContent,
-      parentCommitSha,
-      branch: toolCtx.branch,
-      userId: toolCtx.userId,
-    });
-  }
-
-  return `File edited: ${input.path}`;
+  return await executeSharedRuntimeTool(toolCtx, {
+    toolName: "edit_file",
+    input,
+  });
 }
 
 async function executeReplaceInFile(
   toolCtx: ToolContext,
   input: { path: string; replacements: ReplaceInFileReplacement[] },
 ): Promise<string> {
-  const snapshot = await loadExistingFileSnapshot(toolCtx, input.path);
-  const plan = buildReplaceInFilePlan({
-    sourceContent: snapshot.content,
-    replacements: input.replacements,
+  return await executeSharedRuntimeTool(toolCtx, {
+    toolName: "replace_in_file",
+    input,
   });
-
-  if (snapshot.isStaged) {
-    await toolCtx.ctx.runMutation(
-      internal.collaborative.pushSerializedChangeSetUpdate,
-      {
-        vaultId: toolCtx.vaultId,
-        filePath: snapshot.filePath,
-        branch: toolCtx.branch,
-        expectedVersion: snapshot.version,
-        serializedChangeSet: plan.serializedChangeSet,
-        userId: toolCtx.userId,
-      },
-    );
-  } else {
-    await toolCtx.ctx.runMutation(internal.fileStaging.saveToStaging, {
-      vaultId: toolCtx.vaultId,
-      initialFilePath: input.path,
-      content: plan.finalContent,
-      initialContent: snapshot.content,
-      parentCommitSha: snapshot.parentCommitSha,
-      branch: toolCtx.branch,
-      userId: toolCtx.userId,
-    });
-  }
-
-  return formatReplaceInFileResult(
-    input.path,
-    input.replacements,
-    plan.resolvedEdits,
-  );
 }
 
 async function executeCreateFile(
   toolCtx: ToolContext,
   input: { path: string; content: string },
 ): Promise<string> {
-  // Use saveToStaging with empty initialContent (new file has no prior content)
-  await toolCtx.ctx.runMutation(internal.fileStaging.saveToStaging, {
-    vaultId: toolCtx.vaultId,
-    initialFilePath: input.path,
-    content: input.content,
-    initialContent: "",
-    parentCommitSha: null,
-    branch: toolCtx.branch,
-    userId: toolCtx.userId,
+  return await executeSharedRuntimeTool(toolCtx, {
+    toolName: "create_file",
+    input,
   });
-  return `File created: ${input.path}`;
 }
 
 async function executeDeleteFile(
   toolCtx: ToolContext,
   input: { path: string },
 ): Promise<string> {
-  const snapshot = await loadExistingFileSnapshotOrNull(toolCtx, input.path);
-  const sha = snapshot?.parentCommitSha ?? null;
-
-  await toolCtx.ctx.runMutation(
-    internal.fileStaging.internalMarkFileForDeletion,
-    {
-      vaultId: toolCtx.vaultId,
-      filePath: snapshot?.filePath ?? input.path,
-      parentCommitSha: sha,
-      branch: toolCtx.branch,
-      userId: toolCtx.userId,
-    },
-  );
-  return `File marked for deletion: ${input.path}`;
+  return await executeSharedRuntimeTool(toolCtx, {
+    toolName: "delete_file",
+    input,
+  });
 }
 
 async function executeGithubApi(
@@ -511,252 +266,6 @@ async function executeGithubApi(
   return json;
 }
 
-function buildProdReadSummary(args: {
-  provider: "convex" | "netlify" | "cloudflare";
-  resourceKind:
-    | "deployment_status"
-    | "logs"
-    | "data_query"
-    | "project_inventory"
-    | "site_inventory"
-    | "account_inventory"
-    | "pages_project_inventory";
-  scope: "vault" | "global";
-}): string {
-  const provider =
-    args.provider === "convex"
-      ? "Convex"
-      : args.provider === "netlify"
-        ? "Netlify"
-        : "Cloudflare";
-  const resource =
-    args.resourceKind === "deployment_status"
-      ? "deployment status"
-      : args.resourceKind === "logs"
-        ? "logs"
-        : args.resourceKind === "data_query"
-          ? "data sample"
-          : args.resourceKind === "project_inventory"
-            ? "project inventory"
-            : args.resourceKind === "site_inventory"
-              ? "site inventory"
-              : args.resourceKind === "account_inventory"
-                ? "account inventory"
-                : "Pages project inventory";
-  const scope = args.scope === "vault" ? "this vault" : "global scope";
-  return `I need your approval before reading ${provider} ${resource} for ${scope}.`;
-}
-
-function buildParamsPreview(params: Record<string, unknown>): string {
-  const json = JSON.stringify(params);
-  if (json.length <= 200) {
-    return json;
-  }
-  return `${json.slice(0, 200)}...`;
-}
-
-async function executeProdReadRequest(
-  toolCtx: ToolContext,
-  input: {
-    scope: "vault" | "global";
-    provider: "convex" | "netlify" | "cloudflare";
-    resourceKind:
-      | "deployment_status"
-      | "logs"
-      | "data_query"
-      | "project_inventory"
-      | "site_inventory"
-      | "account_inventory"
-      | "pages_project_inventory";
-    toolName: string;
-    params: Record<string, unknown>;
-    allowRawFallback?: boolean;
-  },
-): Promise<string> {
-  const paramsJson = JSON.stringify(input.params);
-  const proposal = await toolCtx.ctx.runMutation(
-    internal.chat.index.proposeProdReadInternal,
-    {
-      threadId: toolCtx.threadId,
-      requesterUserId: toolCtx.userId,
-      vaultId: input.scope === "vault" ? toolCtx.vaultId : undefined,
-      scope: input.scope,
-      provider: input.provider,
-      resourceKind: input.resourceKind,
-      toolName: input.toolName,
-      paramsJson,
-      allowRawFallback: input.allowRawFallback,
-    },
-  );
-
-  return (
-    `${PROD_READ_SENTINEL}` +
-    JSON.stringify({
-      requestId: proposal.requestId,
-      scope: input.scope,
-      provider: input.provider,
-      resourceKind: input.resourceKind,
-      toolName: input.toolName,
-      paramsPreview: buildParamsPreview(input.params),
-      summary: buildProdReadSummary({
-        scope: input.scope,
-        provider: input.provider,
-        resourceKind: input.resourceKind,
-      }),
-    })
-  );
-}
-
-async function executeRequestConvexStatusRead(
-  toolCtx: ToolContext,
-): Promise<string> {
-  return await executeProdReadRequest(toolCtx, {
-    scope: "vault",
-    provider: "convex",
-    resourceKind: "deployment_status",
-    toolName: "request_convex_status_read",
-    params: {},
-  });
-}
-
-async function executeRequestConvexLogsRead(
-  toolCtx: ToolContext,
-  input: { maxLines?: number; allowRawFallback?: boolean },
-): Promise<string> {
-  return await executeProdReadRequest(toolCtx, {
-    scope: "vault",
-    provider: "convex",
-    resourceKind: "logs",
-    toolName: "request_convex_logs_read",
-    params: {
-      ...(typeof input.maxLines === "number"
-        ? { maxLines: input.maxLines }
-        : {}),
-    },
-    allowRawFallback: input.allowRawFallback,
-  });
-}
-
-async function executeRequestConvexProjectsRead(
-  toolCtx: ToolContext,
-  input: { limit?: number; allowRawFallback?: boolean },
-): Promise<string> {
-  return await executeProdReadRequest(toolCtx, {
-    scope: "global",
-    provider: "convex",
-    resourceKind: "project_inventory",
-    toolName: "request_convex_projects_read",
-    params: {
-      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
-    },
-    allowRawFallback: input.allowRawFallback,
-  });
-}
-
-async function executeRequestNetlifyStatusRead(
-  toolCtx: ToolContext,
-): Promise<string> {
-  return await executeProdReadRequest(toolCtx, {
-    scope: "vault",
-    provider: "netlify",
-    resourceKind: "deployment_status",
-    toolName: "request_netlify_status_read",
-    params: {},
-  });
-}
-
-async function executeRequestNetlifyLogsRead(
-  toolCtx: ToolContext,
-  input: { maxEntries?: number; allowRawFallback?: boolean },
-): Promise<string> {
-  return await executeProdReadRequest(toolCtx, {
-    scope: "vault",
-    provider: "netlify",
-    resourceKind: "logs",
-    toolName: "request_netlify_logs_read",
-    params: {
-      ...(typeof input.maxEntries === "number"
-        ? { maxEntries: input.maxEntries }
-        : {}),
-    },
-    allowRawFallback: input.allowRawFallback,
-  });
-}
-
-async function executeRequestNetlifyProjectsRead(
-  toolCtx: ToolContext,
-  input: { limit?: number; allowRawFallback?: boolean },
-): Promise<string> {
-  return await executeProdReadRequest(toolCtx, {
-    scope: "global",
-    provider: "netlify",
-    resourceKind: "site_inventory",
-    toolName: "request_netlify_projects_read",
-    params: {
-      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
-    },
-    allowRawFallback: input.allowRawFallback,
-  });
-}
-
-async function executeRequestCloudflareAccountsRead(
-  toolCtx: ToolContext,
-  input: { limit?: number; allowRawFallback?: boolean },
-): Promise<string> {
-  return await executeProdReadRequest(toolCtx, {
-    scope: "global",
-    provider: "cloudflare",
-    resourceKind: "account_inventory",
-    toolName: "request_cloudflare_accounts_read",
-    params: {
-      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
-    },
-    allowRawFallback: input.allowRawFallback,
-  });
-}
-
-async function executeRequestCloudflarePagesProjectsRead(
-  toolCtx: ToolContext,
-  input: { accountId?: string; limit?: number; allowRawFallback?: boolean },
-): Promise<string> {
-  return await executeProdReadRequest(toolCtx, {
-    scope: "global",
-    provider: "cloudflare",
-    resourceKind: "pages_project_inventory",
-    toolName: "request_cloudflare_pages_projects_read",
-    params: {
-      ...(typeof input.accountId === "string"
-        ? { accountId: input.accountId }
-        : {}),
-      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
-    },
-    allowRawFallback: input.allowRawFallback,
-  });
-}
-
-async function executeRequestConvexDataRead(
-  toolCtx: ToolContext,
-  input: {
-    table: AllowedDataTable;
-    scope?: "vault" | "global";
-    limit?: number;
-    allowRawFallback?: boolean;
-  },
-): Promise<string> {
-  const scope = input.scope ?? "vault";
-  return await executeProdReadRequest(toolCtx, {
-    scope,
-    provider: "convex",
-    resourceKind: "data_query",
-    toolName: "request_convex_data_read",
-    params: {
-      table: input.table,
-      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
-    },
-    allowRawFallback: input.allowRawFallback,
-  });
-}
-
 // --- Convex Agent Tool Definitions ---
 
 /**
@@ -786,6 +295,14 @@ export function createTools(toolCtx: ToolContext) {
       }),
       handler: async (_ctx, input) => {
         return await executeListFiles(toolCtx, input);
+      },
+    }),
+
+    get_vault_remote_branches: createTool({
+      description: catalogDescription("get_vault_remote_branches"),
+      args: z.object({}),
+      handler: async () => {
+        return await executeGetVaultRemoteBranches(toolCtx);
       },
     }),
 
@@ -874,7 +391,10 @@ export function createTools(toolCtx: ToolContext) {
       description: catalogDescription("request_convex_status_read"),
       args: z.object({}),
       handler: async () => {
-        return await executeRequestConvexStatusRead(toolCtx);
+        return await executeSharedRuntimeTool(toolCtx, {
+          toolName: "request_convex_status_read",
+          input: {},
+        });
       },
     }),
 
@@ -894,7 +414,10 @@ export function createTools(toolCtx: ToolContext) {
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
       handler: async (_ctx, input) => {
-        return await executeRequestConvexLogsRead(toolCtx, input);
+        return await executeSharedRuntimeTool(toolCtx, {
+          toolName: "request_convex_logs_read",
+          input,
+        });
       },
     }),
 
@@ -902,7 +425,10 @@ export function createTools(toolCtx: ToolContext) {
       description: catalogDescription("request_netlify_status_read"),
       args: z.object({}),
       handler: async () => {
-        return await executeRequestNetlifyStatusRead(toolCtx);
+        return await executeSharedRuntimeTool(toolCtx, {
+          toolName: "request_netlify_status_read",
+          input: {},
+        });
       },
     }),
 
@@ -922,7 +448,10 @@ export function createTools(toolCtx: ToolContext) {
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
       handler: async (_ctx, input) => {
-        return await executeRequestNetlifyLogsRead(toolCtx, input);
+        return await executeSharedRuntimeTool(toolCtx, {
+          toolName: "request_netlify_logs_read",
+          input,
+        });
       },
     }),
 
@@ -942,7 +471,10 @@ export function createTools(toolCtx: ToolContext) {
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
       handler: async (_ctx, input) => {
-        return await executeRequestConvexProjectsRead(toolCtx, input);
+        return await executeSharedRuntimeTool(toolCtx, {
+          toolName: "request_convex_projects_read",
+          input,
+        });
       },
     }),
 
@@ -962,7 +494,10 @@ export function createTools(toolCtx: ToolContext) {
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
       handler: async (_ctx, input) => {
-        return await executeRequestNetlifyProjectsRead(toolCtx, input);
+        return await executeSharedRuntimeTool(toolCtx, {
+          toolName: "request_netlify_projects_read",
+          input,
+        });
       },
     }),
 
@@ -982,7 +517,10 @@ export function createTools(toolCtx: ToolContext) {
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
       handler: async (_ctx, input) => {
-        return await executeRequestCloudflareAccountsRead(toolCtx, input);
+        return await executeSharedRuntimeTool(toolCtx, {
+          toolName: "request_cloudflare_accounts_read",
+          input,
+        });
       },
     }),
 
@@ -1008,7 +546,10 @@ export function createTools(toolCtx: ToolContext) {
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
       handler: async (_ctx, input) => {
-        return await executeRequestCloudflarePagesProjectsRead(toolCtx, input);
+        return await executeSharedRuntimeTool(toolCtx, {
+          toolName: "request_cloudflare_pages_projects_read",
+          input,
+        });
       },
     }),
 
@@ -1033,7 +574,10 @@ export function createTools(toolCtx: ToolContext) {
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
       handler: async (_ctx, input) => {
-        return await executeRequestConvexDataRead(toolCtx, input);
+        return await executeSharedRuntimeTool(toolCtx, {
+          toolName: "request_convex_data_read",
+          input,
+        });
       },
     }),
   };
