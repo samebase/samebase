@@ -654,12 +654,7 @@ export const getUserVaults = query({
           .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
           .collect();
 
-        const fileCount = stagingData.filter(
-          (file) =>
-            file.content !== file.initialContent ||
-            file.fileDeleted ||
-            file.filePath !== file.initialFilePath,
-        ).length;
+        const fileCount = stagingData.filter(hasBranchStagingChanges).length;
 
         const lastEditTime =
           stagingData.length > 0
