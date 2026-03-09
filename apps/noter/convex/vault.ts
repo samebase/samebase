@@ -5,6 +5,7 @@ import {
   mutation,
   query,
   QueryCtx,
+  type MutationCtx,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { DaytonaSnapshotBuildStatus, GithubTreeData } from "./schema";
@@ -425,6 +426,26 @@ function compareRemoteBranchSortOrder(
   return left.name.localeCompare(right.name);
 }
 
+type BranchStagingChangeCandidate = {
+  fileDeleted: boolean;
+  parentCommitSha: string | null;
+  filePath: string;
+  initialFilePath: string;
+  content: string;
+  initialContent: string;
+};
+
+export function hasBranchStagingChanges(
+  file: BranchStagingChangeCandidate,
+): boolean {
+  return (
+    file.content !== file.initialContent ||
+    file.fileDeleted ||
+    file.filePath !== file.initialFilePath ||
+    file.parentCommitSha === null
+  );
+}
+
 export function resolveSyncedBranchLastCommitAt(args: {
   incomingHeadCommitSha: string;
   incomingLastCommitAt?: number;
@@ -443,6 +464,116 @@ export function resolveSyncedBranchLastCommitAt(args: {
     return args.existingBranch.lastCommitAt;
   }
   return undefined;
+}
+
+export function selectDeletedUpstreamBranchesToAutoPrune(args: {
+  branches: Array<{
+    name: string;
+    remoteState: "active" | "deleted_upstream";
+  }>;
+  branchHasStagedChanges: ReadonlyMap<string, boolean>;
+}): string[] {
+  return args.branches
+    .filter(
+      (branch) =>
+        branch.remoteState === "deleted_upstream" &&
+        args.branchHasStagedChanges.get(branch.name) !== true,
+    )
+    .map((branch) => branch.name);
+}
+
+async function deleteVaultBranchArtifacts(
+  ctx: MutationCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    branch: string;
+  },
+): Promise<void> {
+  const branchTree = await ctx.db
+    .query("vaultBranchTrees")
+    .withIndex("by_vault_and_branch", (q) =>
+      q.eq("vaultId", args.vaultId).eq("branch", args.branch),
+    )
+    .first();
+  if (branchTree) {
+    await ctx.db.delete(branchTree._id);
+  }
+
+  const domains = await ctx.db
+    .query("vaultDomains")
+    .withIndex("by_vault_and_branch", (q) =>
+      q.eq("vaultId", args.vaultId).eq("branch", args.branch),
+    )
+    .collect();
+  for (const domain of domains) {
+    await ctx.db.delete(domain._id);
+  }
+
+  const stagingFiles = await ctx.db
+    .query("fileStaging")
+    .withIndex("by_vault_and_branch", (q) =>
+      q.eq("vaultId", args.vaultId).eq("branch", args.branch),
+    )
+    .collect();
+  for (const stagingFile of stagingFiles) {
+    await ctx.db.delete(stagingFile._id);
+  }
+
+  await ctx.scheduler.runAfter(
+    0,
+    internal.fileStaging.deleteCollaborativeUpdatesBatch,
+    {
+      vaultId: args.vaultId,
+      branch: args.branch,
+    },
+  );
+}
+
+async function pruneDeletedUpstreamBranchesForVault(
+  ctx: MutationCtx,
+  vaultId: Id<"vaults">,
+): Promise<void> {
+  const deletedUpstreamBranches = await ctx.db
+    .query("vaultRemoteBranches")
+    .withIndex("by_vault_and_remote_state", (q) =>
+      q.eq("vaultId", vaultId).eq("remoteState", "deleted_upstream"),
+    )
+    .collect();
+  if (deletedUpstreamBranches.length === 0) {
+    return;
+  }
+
+  const branchHasStagedChanges = new Map<string, boolean>();
+  for (const branch of deletedUpstreamBranches) {
+    const branchStaging = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_branch", (q) =>
+        q.eq("vaultId", vaultId).eq("branch", branch.name),
+      )
+      .collect();
+    branchHasStagedChanges.set(
+      branch.name,
+      branchStaging.some(hasBranchStagingChanges),
+    );
+  }
+
+  const branchNamesToPrune = new Set(
+    selectDeletedUpstreamBranchesToAutoPrune({
+      branches: deletedUpstreamBranches,
+      branchHasStagedChanges,
+    }),
+  );
+
+  for (const branch of deletedUpstreamBranches) {
+    if (!branchNamesToPrune.has(branch.name)) {
+      continue;
+    }
+    await deleteVaultBranchArtifacts(ctx, {
+      vaultId,
+      branch: branch.name,
+    });
+    await ctx.db.delete(branch._id);
+  }
 }
 
 const getUserVaultsResult = array(
@@ -837,6 +968,8 @@ export const syncVaultRemoteBranches = internalMutation({
         lastSyncedAt: args.syncedAt,
       });
     }
+
+    await pruneDeletedUpstreamBranchesForVault(ctx, args.vaultId);
 
     return null;
   },

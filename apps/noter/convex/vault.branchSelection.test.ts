@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  hasBranchStagingChanges,
   resolveSyncedBranchLastCommitAt,
   resolveVaultBranchSelection,
+  selectDeletedUpstreamBranchesToAutoPrune,
 } from "./vault";
 
 describe("resolveVaultBranchSelection", () => {
@@ -103,5 +105,51 @@ describe("resolveSyncedBranchLastCommitAt", () => {
         },
       }),
     ).toBeUndefined();
+  });
+});
+
+describe("hasBranchStagingChanges", () => {
+  it("treats unchanged staging records as clean", () => {
+    expect(
+      hasBranchStagingChanges({
+        fileDeleted: false,
+        parentCommitSha: "sha-1",
+        filePath: "src/app.ts",
+        initialFilePath: "src/app.ts",
+        content: "same",
+        initialContent: "same",
+      }),
+    ).toBe(false);
+  });
+
+  it("treats new files as uncommitted branch work", () => {
+    expect(
+      hasBranchStagingChanges({
+        fileDeleted: false,
+        parentCommitSha: null,
+        filePath: "src/new.ts",
+        initialFilePath: "src/new.ts",
+        content: "new",
+        initialContent: "",
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("selectDeletedUpstreamBranchesToAutoPrune", () => {
+  it("selects only deleted-upstream branches without staged changes", () => {
+    expect(
+      selectDeletedUpstreamBranchesToAutoPrune({
+        branches: [
+          { name: "main", remoteState: "active" },
+          { name: "feature/merged", remoteState: "deleted_upstream" },
+          { name: "feature/local-work", remoteState: "deleted_upstream" },
+        ],
+        branchHasStagedChanges: new Map([
+          ["feature/merged", false],
+          ["feature/local-work", true],
+        ]),
+      }),
+    ).toEqual(["feature/merged"]);
   });
 });
