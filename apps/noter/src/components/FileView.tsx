@@ -580,7 +580,7 @@ function FileViewInner({
   const { setOpenMobile } = useSidebar();
 
   const navigate = useNavigate();
-  const { search } = useLocation();
+  const { search, state } = useLocation();
   const reviewOnMountRequested = useMemo(() => {
     const params = new URLSearchParams(search);
     return params.has("review");
@@ -938,21 +938,22 @@ function FileViewInner({
     ) => {
       void navigate(buildVaultFileUrl(selectedFile, { reviewMode: mode }), {
         replace: options?.replace,
+        state,
       });
     },
-    [buildVaultFileUrl, navigate, selectedFile],
+    [buildVaultFileUrl, navigate, selectedFile, state],
   );
 
   const handleFileSelect = useCallback(
     (path: string) => {
       if (owner && repoName) {
-        void navigate(buildVaultFileUrl(path));
+        void navigate(buildVaultFileUrl(path), { state });
 
         // close the sidebar
         setOpenMobile(false);
       }
     },
-    [buildVaultFileUrl, navigate, owner, repoName, setOpenMobile],
+    [buildVaultFileUrl, navigate, owner, repoName, setOpenMobile, state],
   );
 
   const handleOpenFileFromGraph = useCallback(
@@ -977,7 +978,7 @@ function FileViewInner({
 
       // If we're currently viewing the renamed file, navigate to the new path
       if (stagedFile.initialFilePath === originalPath) {
-        void navigate(buildVaultFileUrl(newPath));
+        void navigate(buildVaultFileUrl(newPath), { state });
       }
 
       console.log(`File ${originalPath} renamed to ${newPath} in staging`);
