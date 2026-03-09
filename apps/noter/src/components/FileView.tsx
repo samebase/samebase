@@ -1359,8 +1359,15 @@ function FileViewInner({
     if (
       !reviewOnMountRequested ||
       commitReviewMode === "review" ||
-      !hasChangesToCommit
+      !didResolveStagedFiles
     ) {
+      return;
+    }
+    if (!hasChangesToCommit) {
+      setCommitPreview(null);
+      setCommitPreviewDisplayPreference("patch");
+      setCommitPreviewDisplayMode("patch");
+      setReviewModeInQuery("editor", { replace: true });
       return;
     }
     // Dashboard staged-file links enter through ?review so we wait for branch
@@ -1372,6 +1379,7 @@ function FileViewInner({
   }, [
     reviewOnMountRequested,
     commitReviewMode,
+    didResolveStagedFiles,
     hasChangesToCommit,
     setReviewModeInQuery,
   ]);
