@@ -20,6 +20,19 @@ export function formatRelativeTimeAgo(
   return `${days}d ago`;
 }
 
+export function formatRelativeTimeAgoWithSeconds(
+  timestamp: number,
+  now: number = Date.now(),
+): string {
+  const diff = Math.max(0, now - timestamp);
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) {
+    return `${seconds}s ago`;
+  }
+
+  return formatRelativeTimeAgo(timestamp, now);
+}
+
 export function formatRelativeTimeUntil(
   timestamp: number,
   now: number = Date.now(),

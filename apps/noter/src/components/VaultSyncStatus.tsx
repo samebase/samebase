@@ -4,21 +4,11 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { TREE_REFRESH_STALE_LOCK_MS } from "../../shared/treeRefresh";
 import { useNow } from "@/hooks/useNow";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
+import { formatRelativeTimeAgoWithSeconds } from "@/lib/formatRelativeTime";
 import { cn } from "@/lib/utils";
 import { CommitStatus } from "./CommitStatus";
 import { EditedFilesCategoriesPopover } from "./EditedFilesCategories";
 import { linkStyle } from "./styles";
-
-function formatSecondsAgo(now: number, timestamp: number): string {
-  const seconds = Math.floor((now - timestamp) / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
 
 type StagedFile = NonNullable<
   (typeof api.fileStaging.listStagedFiles)["_returnType"]
@@ -127,7 +117,7 @@ export function VaultSyncStatus({
             <>
               <span>·</span>
               <span className="font-mono tabular-nums">
-                {formatSecondsAgo(now, lastTreeRefreshAt)}
+                {formatRelativeTimeAgoWithSeconds(lastTreeRefreshAt, now)}
               </span>
             </>
           )}

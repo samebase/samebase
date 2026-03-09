@@ -12,7 +12,6 @@ import {
   TrashIcon,
   UpdateIcon,
   ChevronDownIcon,
-  LightningBoltIcon,
   GlobeIcon,
 } from "@radix-ui/react-icons";
 import { Loader2 } from "lucide-react";
@@ -22,12 +21,14 @@ import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import {
   formatRelativeTimeAgo,
+  formatRelativeTimeAgoWithSeconds,
   formatRelativeTimeUntil,
 } from "@/lib/formatRelativeTime";
 import {
   CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS,
   CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
 } from "../../shared/cloudflareTokenRefresh";
+import { TREE_REFRESH_STALE_LOCK_MS } from "../../shared/treeRefresh";
 import type { DaytonaSnapshotStatus } from "@/lib/daytonaSnapshot";
 import {
   claimRefreshDebounce,
@@ -72,7 +73,6 @@ import {
 import { CodespaceStatus } from "@/components/CodespaceStatus";
 import { DaytonaSnapshotBanner } from "@/components/DaytonaSnapshotBanner";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
-import { VaultSyncStatus } from "@/components/VaultSyncStatus";
 import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
 import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";
 import {
@@ -181,13 +181,70 @@ type ProviderRuntimeConfig = {
   popupRef: MutableRefObject<Window | null>;
   popupOriginRef: MutableRefObject<string | null>;
 };
+
+const GitHubProviderLogo = ({ className }: { className?: string }) => (
+  <GitHubLogoIcon className={clsx("h-4 w-4", className)} />
+);
+
+const ConvexProviderLogo = ({ className }: { className?: string }) => (
+  <span className={clsx("inline-flex items-center justify-center", className)}>
+    <svg
+      aria-hidden="true"
+      viewBox="47 43 54 60"
+      className="h-4 w-4"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M82.2808 87.6516C89.652 86.8381 96.6012 82.9352 100.427 76.421C98.6156 92.533 80.8853 102.717 66.413 96.4643C65.0795 95.8897 63.9316 94.9339 63.1438 93.705C59.8915 88.6302 58.8224 82.1729 60.3585 76.3129C64.7475 83.8398 73.6717 88.4538 82.2808 87.6516Z"
+        fill="#F3B01C"
+      />
+      <path
+        d="M60.0895 71.5852C57.1016 78.4465 56.9722 86.4797 60.6353 93.0906C47.7442 83.453 47.8848 62.8294 60.4778 53.2885C61.6425 52.4067 63.0267 51.8833 64.4785 51.8036C70.4486 51.4907 76.5144 53.7835 80.7683 58.0561C72.1254 58.1415 63.7076 63.643 60.0895 71.5852Z"
+        fill="#8D2676"
+      />
+      <path
+        d="M84.9366 60.1673C80.5757 54.1253 73.7503 50.0119 66.2722 49.8868C80.7277 43.3669 98.5086 53.9375 100.444 69.5659C100.624 71.0167 100.388 72.4959 99.7409 73.8044C97.04 79.2547 92.032 83.4819 86.1801 85.0464C90.4678 77.144 89.9388 67.4893 84.9366 60.1673Z"
+        fill="#EE342F"
+      />
+    </svg>
+  </span>
+);
+
+const NetlifyProviderLogo = ({ className }: { className?: string }) => (
+  <GlobeIcon className={clsx("h-4 w-4", className)} />
+);
+
+const CloudflareProviderLogo = ({ className }: { className?: string }) => (
+  <span className={clsx("inline-flex items-center justify-center", className)}>
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 64 32"
+      className="h-4 w-auto"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        fill="#FAAE40"
+        d="M14.2 25.3a4.8 4.8 0 0 1 4.8-4.8c.4 0 .8 0 1.2.1a7.4 7.4 0 0 1 7.1-5.4c3 0 5.8 1.8 7 4.5.4-.1.9-.2 1.4-.2 2.2 0 4.1 1.6 4.5 3.8H14.2Z"
+      />
+      <path
+        fill="#F38020"
+        d="M9.2 25.3a7 7 0 0 1 7-7c.6 0 1.3.1 1.9.2A11.6 11.6 0 0 1 29.2 9c5.2 0 9.8 3.2 11.7 8a7.5 7.5 0 0 1 1.3-.1c3.8 0 7 2.9 7.4 6.6l.1 1.8H9.2v-.1Z"
+      />
+      <path
+        fill="#F38020"
+        d="M43.5 22.7a5.3 5.3 0 0 1 5.2-4.6c2.8 0 5.1 2.1 5.4 4.8l.2 2.4h-10l-.8-2.6Z"
+      />
+    </svg>
+  </span>
+);
+
 const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
   github: {
     label: "GitHub",
     oauthButtonLabel: "GitHub OAuth",
     popupName: "github-oauth",
     completionEventType: "github-oauth-complete",
-    icon: GitHubLogoIcon,
+    icon: GitHubProviderLogo,
     apiKeyProvider: "github",
   },
   convex: {
@@ -195,7 +252,7 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
     oauthButtonLabel: "Convex OAuth",
     popupName: "convex-oauth",
     completionEventType: "convex-oauth-complete",
-    icon: LightningBoltIcon,
+    icon: ConvexProviderLogo,
     apiKeyProvider: "convex",
   },
   netlify: {
@@ -203,7 +260,7 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
     oauthButtonLabel: "Netlify OAuth",
     popupName: "netlify-oauth",
     completionEventType: "netlify-oauth-complete",
-    icon: GlobeIcon,
+    icon: NetlifyProviderLogo,
     apiKeyProvider: "netlify",
   },
   cloudflare: {
@@ -211,7 +268,7 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
     oauthButtonLabel: "Cloudflare MCP OAuth",
     popupName: "cloudflare-mcp-oauth",
     completionEventType: "cloudflare-mcp-oauth-complete",
-    icon: GlobeIcon,
+    icon: CloudflareProviderLogo,
     apiKeyProvider: null,
   },
 };
@@ -227,22 +284,27 @@ interface StagedSummary {
 
 interface VaultRemoteBranchListItem {
   name: string;
+  headCommitSha: string;
+  isDefault: boolean;
+  remoteState: "active" | "deleted_upstream";
+  lastSyncedAt: number;
   aheadBy?: number;
   behindBy?: number;
   pullRequestUrl?: string;
-  isDefault: boolean;
-  remoteState: "active" | "deleted_upstream";
+  pullRequestNumber?: number;
 }
 
 interface VaultBranchLinkRowProps {
   vaultId: Id<"vaults">;
   repositoryFullName: string;
   branchName: string;
+  headCommitSha: string;
+  isDefault: boolean;
+  isDeletedUpstream: boolean;
   aheadBy?: number;
   behindBy?: number;
   pullRequestUrl?: string;
-  isDefault: boolean;
-  isDeletedUpstream: boolean;
+  pullRequestNumber?: number;
   stagedSummary?: StagedSummary;
 }
 
@@ -255,36 +317,29 @@ function formatAheadBehindCounts(
   }
   return `↑${aheadBy} ↓${behindBy}`;
 }
-
-function formatAheadBehindAriaLabel(
-  aheadBy: number | undefined,
-  behindBy: number | undefined,
-): string | null {
-  if (typeof aheadBy !== "number" || typeof behindBy !== "number") {
-    return null;
-  }
-  return `Ahead ${aheadBy}, behind ${behindBy}, compared to the default branch`;
-}
-
 function VaultBranchLinkRow({
   vaultId,
   repositoryFullName,
   branchName,
+  headCommitSha,
+  isDefault,
+  isDeletedUpstream,
   aheadBy,
   behindBy,
   pullRequestUrl,
-  isDefault,
-  isDeletedUpstream,
+  pullRequestNumber,
   stagedSummary,
 }: VaultBranchLinkRowProps) {
   const hasStagedChanges = (stagedSummary?.total ?? 0) > 0;
+  const commitUrl = `https://github.com/${repositoryFullName}/commit/${headCommitSha}`;
   const aheadBehindLabel = formatAheadBehindCounts(aheadBy, behindBy);
-  const aheadBehindAriaLabel = formatAheadBehindAriaLabel(aheadBy, behindBy);
+  const pullRequestLabel =
+    typeof pullRequestNumber === "number" ? `#${pullRequestNumber}` : "PR";
   const branchPath = encodeURIComponent(branchName);
   const branchRoute = `/vault/${repositoryFullName}/${branchPath}`;
 
   return (
-    <div className="flex items-center gap-2 border-b border-border/40 px-2 py-2 last:border-b-0">
+    <div className="flex items-start gap-3 border-b border-border/40 px-3 py-2.5 last:border-b-0">
       {isDeletedUpstream ? (
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground/70 line-through">
@@ -295,41 +350,56 @@ function VaultBranchLinkRow({
           </span>
         </div>
       ) : (
-        <div className="flex min-w-0 flex-1 items-center gap-2">
+        <div className="min-w-0 flex-1 space-y-1">
           <Link
             to={branchRoute}
             className={clsx(
-              "min-w-0 flex-1 truncate text-sm text-muted-foreground underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current",
+              "block truncate text-sm text-muted-foreground underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current",
               isDefault && "font-medium text-foreground",
             )}
           >
             {branchName}
           </Link>
-          {aheadBehindLabel && (
-            <span
-              className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/80"
-              title="Ahead/behind vs default branch"
-              aria-label={aheadBehindAriaLabel ?? undefined}
-            >
-              {aheadBehindLabel}
-            </span>
-          )}
-          {typeof pullRequestUrl === "string" && pullRequestUrl.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground/80">
             <a
-              href={pullRequestUrl}
+              href={commitUrl}
               target="_blank"
-              rel="noreferrer"
-              className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-blue-600 hover:underline"
-              title="Open pull request"
-              aria-label={`Open pull request for branch ${branchName}`}
+              rel="noreferrer noopener"
+              className={`font-mono ${linkStyle}`}
+              title="View commit on GitHub"
             >
-              PR
+              {headCommitSha.slice(0, 7)}
             </a>
-          ) : null}
+            {typeof pullRequestUrl === "string" && pullRequestUrl.length > 0 ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <a
+                  href={pullRequestUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={clsx("font-mono", linkStyle)}
+                  title="Open pull request"
+                >
+                  {pullRequestLabel}
+                </a>
+              </>
+            ) : null}
+            {aheadBehindLabel ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <span
+                  className="font-mono tabular-nums"
+                  title="Ahead/behind versus the default branch"
+                >
+                  {aheadBehindLabel}
+                </span>
+              </>
+            ) : null}
+          </div>
         </div>
       )}
       {hasStagedChanges ? (
-        <div className="shrink-0">
+        <div className="shrink-0 pt-0.5">
           <EditedFilesCategoriesPopover
             vaultId={vaultId}
             repositoryFullName={repositoryFullName}
@@ -338,7 +408,7 @@ function VaultBranchLinkRow({
           />
         </div>
       ) : (
-        <span className="w-4 shrink-0 text-right font-mono text-[11px] tabular-nums text-muted-foreground/70">
+        <span className="w-4 shrink-0 pt-1 text-right font-mono text-[11px] tabular-nums text-muted-foreground/70">
           0
         </span>
       )}
@@ -373,11 +443,13 @@ function VaultBranchList({
           vaultId={vaultId}
           repositoryFullName={repositoryFullName}
           branchName={branch.name}
+          headCommitSha={branch.headCommitSha}
+          isDefault={branch.isDefault}
+          isDeletedUpstream={branch.remoteState === "deleted_upstream"}
           aheadBy={branch.aheadBy}
           behindBy={branch.behindBy}
           pullRequestUrl={branch.pullRequestUrl}
-          isDefault={branch.isDefault}
-          isDeletedUpstream={branch.remoteState === "deleted_upstream"}
+          pullRequestNumber={branch.pullRequestNumber}
           stagedSummary={summaryByBranch.get(branch.name)}
         />
       ))}
@@ -1292,22 +1364,24 @@ export function VaultDashboard() {
               return (
                 <div
                   key={provider}
-                  className="flex items-center justify-between gap-3"
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3"
                 >
-                  <div className="flex items-center gap-2">
-                    <Icon className="h-4 w-4" />
-                    <div className="text-left">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="flex h-5 w-11 shrink-0 items-center justify-center">
+                      <Icon className="max-h-full max-w-full" />
+                    </div>
+                    <div className="min-w-0 text-left">
                       <div className="text-sm font-medium">
                         {providerMetadata.label}
                       </div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="break-words text-xs leading-5 text-muted-foreground">
                         {providerState.status}
                       </div>
                     </div>
                   </div>
                   {providerState.connected ? (
                     providerState.showTokenCheck ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex shrink-0 flex-wrap justify-end gap-2 self-start">
                         <Button
                           variant="outline"
                           size="sm"
@@ -1348,24 +1422,26 @@ export function VaultDashboard() {
                         </Button>
                       </div>
                     ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => void handleDisconnect(provider)}
-                        disabled={disconnectingProvider !== null}
-                      >
-                        {disconnectingProvider === provider ? (
-                          <>
-                            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                            Disconnecting...
-                          </>
-                        ) : (
-                          "Disconnect"
-                        )}
-                      </Button>
+                      <div className="flex shrink-0 justify-end self-start">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void handleDisconnect(provider)}
+                          disabled={disconnectingProvider !== null}
+                        >
+                          {disconnectingProvider === provider ? (
+                            <>
+                              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                              Disconnecting...
+                            </>
+                          ) : (
+                            "Disconnect"
+                          )}
+                        </Button>
+                      </div>
                     )
                   ) : (
-                    <div className="flex items-center gap-2">
+                    <div className="flex shrink-0 flex-wrap justify-end gap-2 self-start">
                       <Button
                         variant="outline"
                         size="sm"
@@ -1462,13 +1538,6 @@ export function VaultDashboard() {
             )?.name;
             const primaryBranch =
               defaultBranch || activeRemoteBranches[0]?.name || "";
-            const primaryBranchPath =
-              primaryBranch.length > 0
-                ? encodeURIComponent(primaryBranch)
-                : null;
-            const defaultRoute = primaryBranchPath
-              ? `/vault/${vault.repositoryFullName}/${primaryBranchPath}`
-              : `/vault/${vault.repositoryFullName}`;
             const chatRoute =
               primaryBranch.length > 0
                 ? buildVaultCodespaceChatRoute({
@@ -1482,226 +1551,215 @@ export function VaultDashboard() {
             const infraActionLabel = vault.isNoterManaged
               ? getInfraActionLabel(vault.infraState)
               : null;
+            const sharedLastSyncedAt =
+              activeRemoteBranches[0]?.lastSyncedAt ??
+              vault.remoteBranches[0]?.lastSyncedAt;
+            const isVaultSyncing =
+              typeof vault.treeRefreshStartedAt === "number" &&
+              now - vault.treeRefreshStartedAt < TREE_REFRESH_STALE_LOCK_MS;
             return (
               <div
                 key={vault._id}
                 className={clsx(
-                  "flex flex-col gap-3 p-4 border rounded-lg sm:flex-row sm:items-center sm:justify-between sm:gap-0",
+                  "relative rounded-lg border p-4",
                   !isReady && "bg-muted/30 opacity-75",
                 )}
               >
-                <div className="flex flex-col gap-3 flex-1 min-w-0 sm:flex-row sm:items-center sm:gap-4">
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <div className="flex flex-col items-start">
-                      <a
-                        href={githubRepositoryUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`flex min-w-0 flex-col items-start ${linkStyle}`}
-                        title={`Open ${vault.repositoryFullName} on GitHub`}
-                      >
-                        <span className="text-sm text-muted-foreground">
-                          {vault.ghRepoOwner}/
-                        </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Remove vault ${vault.repositoryFullName}`}
+                  onClick={() => {
+                    setVaultToDelete({
+                      id: vault._id,
+                      repositoryFullName: vault.repositoryFullName,
+                      isNoterManaged: vault.isNoterManaged,
+                      hasConvexProvision: vault.hasConvexProvision,
+                      hasHostingProvision: vault.hasHostingProvision,
+                      hostingProvider: vault.hostingProvider,
+                    });
+                    setRemoveGithubRepo(vault.isNoterManaged);
+                    setRemoveCodespaces(true);
+                    setRemoveConvexProvision(
+                      vault.isNoterManaged && vault.hasConvexProvision,
+                    );
+                    setRemoveHostingProvision(
+                      vault.isNoterManaged && vault.hasHostingProvision,
+                    );
+                    setRemoveDaytonaResources(
+                      hasDaytonaResourcesForVault(vault),
+                    );
+                    setCommitError(null);
+                    setDeleteError(null);
+                    setDidAttemptCommit(false);
+                  }}
+                  className="absolute right-4 top-4 text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  <TrashIcon className="h-4 w-4" aria-hidden="true" />
+                </Button>
 
-                        <h3 className="font-semibold">
-                          <span className="flex items-center gap-2 min-w-0">
-                            {!isReady && (
-                              <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
-                            )}
-                            <span className="min-w-0 truncate">
-                              {vault.ghRepoName}
-                            </span>
-                            {!isReady && (
-                              <span className="text-xs text-muted-foreground font-normal shrink-0">
-                                (setting up...)
-                              </span>
-                            )}
+                <div className="space-y-3">
+                  <div className="flex flex-col items-start pr-10">
+                    <a
+                      href={githubRepositoryUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`flex min-w-0 flex-col items-start ${linkStyle}`}
+                      title={`Open ${vault.repositoryFullName} on GitHub`}
+                    >
+                      <span className="text-sm text-muted-foreground">
+                        {vault.ghRepoOwner}/
+                      </span>
+
+                      <h3 className="font-semibold">
+                        <span className="flex min-w-0 items-center gap-2">
+                          {!isReady && (
+                            <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+                          )}
+                          <span className="min-w-0 truncate">
+                            {vault.ghRepoName}
                           </span>
-                        </h3>
-                      </a>
-                    </div>
-
-                    {isReady && vault.remoteBranches.length > 0 && (
-                      <div className="space-y-1.5">
-                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
-                          Branches
-                        </p>
-                        <VaultBranchList
-                          vaultId={vault._id}
-                          repositoryFullName={vault.repositoryFullName}
-                          remoteBranches={vault.remoteBranches}
-                        />
-                      </div>
-                    )}
-
-                    {isReady && primaryBranch.length > 0 && (
-                      <DaytonaSnapshotBanner
-                        branch={primaryBranch}
-                        commitSha={vault.commitSHA}
-                        snapshotName={vault.daytonaCurrentSnapshotName}
-                        snapshotStatus={vault.daytonaCurrentSnapshotStatus}
-                        lastError={vault.daytonaCurrentSnapshotLastError}
-                      />
-                    )}
-
-                    {isReady && (
-                      <Collapsible
-                        className="space-y-1.5"
-                        open={developerToolsOpen}
-                        onOpenChange={(isOpen: boolean) => {
-                          setOpenDeveloperToolsByVaultId((prev) => ({
-                            ...prev,
-                            [vault._id]: isOpen,
-                          }));
-                        }}
-                      >
-                        <CollapsibleTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-auto gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180"
-                          >
-                            Developer tools
-                            <ChevronDownIcon className="h-3.5 w-3.5 transition-transform" />
-                          </Button>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="space-y-1.5">
-                          <CodespaceStatus
-                            vaultId={vault._id}
-                            repositoryFullName={vault.repositoryFullName}
-                          />
-                          {primaryBranch.length > 0 && (
-                            <DaytonaWorkspaceButton
-                              vaultId={vault._id}
-                              branch={primaryBranch}
-                              sandboxId={vault.daytonaSandboxId}
-                              sandboxName={vault.daytonaSandboxName}
-                              commitSha={vault.commitSHA}
-                              snapshotStatus={
-                                vault.daytonaCurrentSnapshotStatus
-                              }
-                              snapshotName={vault.daytonaCurrentSnapshotName}
-                              snapshotError={
-                                vault.daytonaCurrentSnapshotLastError
-                              }
-                            />
+                          {!isReady && (
+                            <span className="shrink-0 text-xs font-normal text-muted-foreground">
+                              (setting up...)
+                            </span>
                           )}
-                          <DaytonaSnapshotList vaultId={vault._id} />
-                          {vault.isNoterManaged && (
-                            <div className="text-xs text-muted-foreground">
-                              Infra: {formatInfraState(vault.infraState)}
-                              {vault.infraProductionUrl && (
-                                <a
-                                  href={vault.infraProductionUrl}
-                                  target="_blank"
-                                  rel="noreferrer noopener"
-                                  className={`ml-2 font-mono break-all ${linkStyle}`}
-                                >
-                                  {vault.infraProductionUrl}
-                                </a>
+                        </span>
+                      </h3>
+                    </a>
+                    {isReady && (isVaultSyncing || sharedLastSyncedAt) ? (
+                      <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                        {isVaultSyncing ? (
+                          <>
+                            <UpdateIcon className="h-3 w-3 animate-spin" />
+                            <span>Syncing...</span>
+                          </>
+                        ) : typeof sharedLastSyncedAt === "number" ? (
+                          <>
+                            <span>Updated</span>
+                            <span className="font-mono tabular-nums">
+                              {formatRelativeTimeAgoWithSeconds(
+                                sharedLastSyncedAt,
+                                now,
                               )}
-                            </div>
-                          )}
-                        </CollapsibleContent>
-                      </Collapsible>
-                    )}
+                            </span>
+                          </>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
-                </div>
 
-                <div className="flex w-full flex-col items-end gap-2 sm:ml-2 sm:w-auto">
+                  {isReady && vault.remoteBranches.length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+                        Branches
+                      </p>
+                      <VaultBranchList
+                        vaultId={vault._id}
+                        repositoryFullName={vault.repositoryFullName}
+                        remoteBranches={vault.remoteBranches}
+                      />
+                    </div>
+                  )}
+
                   {isReady && primaryBranch.length > 0 && (
-                    <VaultSyncStatus
-                      vaultId={vault._id}
-                      repositoryFullName={vault.repositoryFullName}
+                    <DaytonaSnapshotBanner
                       branch={primaryBranch}
-                      owner={vault.ghRepoOwner}
-                      repoName={vault.ghRepoName}
-                      now={now}
                       commitSha={vault.commitSHA}
-                      treeRefreshStartedAt={vault.treeRefreshStartedAt}
-                      lastTreeRefreshAt={vault.lastTreeRefreshAt}
-                      stagedFilesCount={vault.fileCount}
-                      showChecks={false}
-                      className="w-full justify-end sm:w-auto"
+                      snapshotName={vault.daytonaCurrentSnapshotName}
+                      snapshotStatus={vault.daytonaCurrentSnapshotStatus}
+                      lastError={vault.daytonaCurrentSnapshotLastError}
                     />
                   )}
-                  <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap">
-                    {isReady ? (
-                      <>
-                        <Button asChild variant="secondary" size="sm">
-                          <Link to={defaultRoute}>
-                            {primaryBranch.length > 0 ? primaryBranch : "Open"}
-                          </Link>
-                        </Button>
-                        {developerToolsOpen && chatRoute && (
-                          <Button asChild variant="outline" size="sm">
-                            <Link to={chatRoute}>Chat</Link>
-                          </Button>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <Button variant="secondary" size="sm" disabled>
-                          {primaryBranch.length > 0
-                            ? primaryBranch
-                            : "Preparing..."}
-                        </Button>
-                      </>
-                    )}
-                    {infraActionLabel && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          void handleRetryInfrastructure(vault._id);
-                        }}
-                        disabled={retryingVaultId === vault._id}
-                      >
-                        {retryingVaultId === vault._id ? (
-                          <>
-                            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                            Retrying...
-                          </>
-                        ) : (
-                          infraActionLabel
-                        )}
-                      </Button>
-                    )}
 
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      aria-label={`Remove vault ${vault.repositoryFullName}`}
-                      onClick={() => {
-                        setVaultToDelete({
-                          id: vault._id,
-                          repositoryFullName: vault.repositoryFullName,
-                          isNoterManaged: vault.isNoterManaged,
-                          hasConvexProvision: vault.hasConvexProvision,
-                          hasHostingProvision: vault.hasHostingProvision,
-                          hostingProvider: vault.hostingProvider,
-                        });
-                        setRemoveGithubRepo(vault.isNoterManaged);
-                        setRemoveCodespaces(true);
-                        setRemoveConvexProvision(
-                          vault.isNoterManaged && vault.hasConvexProvision,
-                        );
-                        setRemoveHostingProvision(
-                          vault.isNoterManaged && vault.hasHostingProvision,
-                        );
-                        setRemoveDaytonaResources(
-                          hasDaytonaResourcesForVault(vault),
-                        );
-                        setCommitError(null);
-                        setDeleteError(null);
-                        setDidAttemptCommit(false);
+                  {isReady && (
+                    <Collapsible
+                      className="space-y-1.5"
+                      open={developerToolsOpen}
+                      onOpenChange={(isOpen: boolean) => {
+                        setOpenDeveloperToolsByVaultId((prev) => ({
+                          ...prev,
+                          [vault._id]: isOpen,
+                        }));
                       }}
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
                     >
-                      <TrashIcon className="h-4 w-4" aria-hidden="true" />
-                    </Button>
-                  </div>
+                      <CollapsibleTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180"
+                        >
+                          Developer tools
+                          <ChevronDownIcon className="h-3.5 w-3.5 transition-transform" />
+                        </Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-1.5">
+                        <CodespaceStatus
+                          vaultId={vault._id}
+                          repositoryFullName={vault.repositoryFullName}
+                        />
+                        {primaryBranch.length > 0 && (
+                          <DaytonaWorkspaceButton
+                            vaultId={vault._id}
+                            branch={primaryBranch}
+                            sandboxId={vault.daytonaSandboxId}
+                            sandboxName={vault.daytonaSandboxName}
+                            commitSha={vault.commitSHA}
+                            snapshotStatus={vault.daytonaCurrentSnapshotStatus}
+                            snapshotName={vault.daytonaCurrentSnapshotName}
+                            snapshotError={
+                              vault.daytonaCurrentSnapshotLastError
+                            }
+                          />
+                        )}
+                        <DaytonaSnapshotList vaultId={vault._id} />
+                        {vault.isNoterManaged && (
+                          <div className="text-xs text-muted-foreground">
+                            Infra: {formatInfraState(vault.infraState)}
+                            {vault.infraProductionUrl && (
+                              <a
+                                href={vault.infraProductionUrl}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className={`ml-2 font-mono break-all ${linkStyle}`}
+                              >
+                                {vault.infraProductionUrl}
+                              </a>
+                            )}
+                          </div>
+                        )}
+                      </CollapsibleContent>
+                    </Collapsible>
+                  )}
+
+                  {(infraActionLabel || (developerToolsOpen && chatRoute)) && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {developerToolsOpen && chatRoute && (
+                        <Button asChild variant="outline" size="sm">
+                          <Link to={chatRoute}>Chat</Link>
+                        </Button>
+                      )}
+                      {infraActionLabel && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            void handleRetryInfrastructure(vault._id);
+                          }}
+                          disabled={retryingVaultId === vault._id}
+                        >
+                          {retryingVaultId === vault._id ? (
+                            <>
+                              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                              Retrying...
+                            </>
+                          ) : (
+                            infraActionLabel
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             );

@@ -330,7 +330,7 @@ export const listStagedFilesBranchSummaries = query({
         requesterUserId: userId,
       })
     ) {
-      throw new Error("Vault not found");
+      return [];
     }
     const files = await ctx.db
       .query("fileStaging")

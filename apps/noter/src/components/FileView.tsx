@@ -16,7 +16,7 @@ import { GitHubLogoIcon, PlusIcon, FilePlusIcon } from "@radix-ui/react-icons";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { FileTree } from "./FileTree";
 import { CommandPalette } from "./CommandPalette";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
 import { useSidebar } from "@/components/ui/sidebar";
 import { UserMenu } from "@/components/UserMenu";
@@ -226,6 +226,8 @@ function encodeGitHubPath(path: string): string {
 
 function FileViewWrapper() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { search, state } = location;
 
   const {
     owner,
@@ -287,6 +289,10 @@ function FileViewWrapper() {
   const [storageBackedSelection, setStorageBackedSelection] = useState<
     Partial<Record<string, true>>
   >({});
+  const appendCurrentSearch = useCallback(
+    (path: string) => `${path}${search.length > 0 ? search : ""}`,
+    [search],
+  );
 
   useEffect(() => {
     if (vaultId) {
@@ -310,12 +316,14 @@ function FileViewWrapper() {
     const nextPath = selectedFileFromBranchlessRoute
       ? `/vault/${owner}/${repoName}/${encodedResolvedBranch}/${encodeVaultFilePath(selectedFileFromBranchlessRoute)}`
       : `/vault/${owner}/${repoName}/${encodedResolvedBranch}`;
-    void navigate(nextPath, { replace: true });
+    void navigate(appendCurrentSearch(nextPath), { replace: true, state });
   }, [
+    appendCurrentSearch,
     owner,
     repoName,
     branchParam,
     selectedFileFromBranchlessRoute,
+    state,
     vault?.branchNotFound,
     vault?.resolvedBranch,
     navigate,
@@ -328,8 +336,17 @@ function FileViewWrapper() {
     const nextPath = selectedFile
       ? `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${encodeVaultFilePath(selectedFile)}`
       : `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}`;
-    void navigate(nextPath, { replace: true });
-  }, [owner, repoName, branch, branchParam, selectedFile, navigate]);
+    void navigate(appendCurrentSearch(nextPath), { replace: true, state });
+  }, [
+    appendCurrentSearch,
+    owner,
+    repoName,
+    branch,
+    branchParam,
+    selectedFile,
+    state,
+    navigate,
+  ]);
 
   useEffect(() => {
     if (
@@ -342,13 +359,15 @@ function FileViewWrapper() {
       return;
     }
     const nextPath = `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${encodeVaultFilePath(legacyBranchlessFilePath)}`;
-    void navigate(nextPath, { replace: true });
+    void navigate(appendCurrentSearch(nextPath), { replace: true, state });
   }, [
+    appendCurrentSearch,
     owner,
     repoName,
     branch,
     branchParam,
     legacyBranchlessFilePath,
+    state,
     navigate,
   ]);
 
@@ -411,14 +430,27 @@ function FileViewWrapper() {
       const bestFile = findBestInitialFile(vault?.treeData.tree ?? []);
       if (bestFile) {
         void navigate(
-          `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${encodeVaultFilePath(bestFile)}`,
+          appendCurrentSearch(
+            `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${encodeVaultFilePath(bestFile)}`,
+          ),
           {
             replace: true,
+            state,
           },
         );
       }
     }
-  }, [selectedFile, vault, owner, repoName, branch, navigate, firstDocAction]);
+  }, [
+    appendCurrentSearch,
+    selectedFile,
+    vault,
+    owner,
+    repoName,
+    branch,
+    state,
+    navigate,
+    firstDocAction,
+  ]);
 
   const stagedFile = useQuery(
     api.fileStaging.getByNewPath,
@@ -441,18 +473,28 @@ function FileViewWrapper() {
     const bestFile = findBestInitialFile(vault.treeData.tree);
     if (bestFile) {
       void navigate(
-        `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${encodeVaultFilePath(bestFile)}`,
+        appendCurrentSearch(
+          `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}/${encodeVaultFilePath(bestFile)}`,
+        ),
         {
           replace: true,
+          state,
         },
       );
       return;
     }
 
-    void navigate(`/vault/${owner}/${repoName}/${encodeURIComponent(branch)}`, {
-      replace: true,
-    });
+    void navigate(
+      appendCurrentSearch(
+        `/vault/${owner}/${repoName}/${encodeURIComponent(branch)}`,
+      ),
+      {
+        replace: true,
+        state,
+      },
+    );
   }, [
+    appendCurrentSearch,
     selectedFile,
     vault,
     owner,
@@ -460,6 +502,7 @@ function FileViewWrapper() {
     stagedFile,
     selectedFileExistsInTree,
     branch,
+    state,
     navigate,
   ]);
 
@@ -538,6 +581,10 @@ function FileViewInner({
 
   const navigate = useNavigate();
   const { search } = useLocation();
+  const reviewOnMountRequested = useMemo(() => {
+    const params = new URLSearchParams(search);
+    return params.has("review");
+  }, [search]);
 
   // Get current user for sidebar
   const user = useQuery(api.users.viewer);
@@ -608,7 +655,7 @@ function FileViewInner({
     null,
   );
   const [commitPreviewDisplayPreference, setCommitPreviewDisplayPreference] =
-    useState<CommitPreviewDisplayMode>("rich");
+    useState<CommitPreviewDisplayMode>("patch");
   const [commitPreviewDisplayMode, setCommitPreviewDisplayMode] =
     useState<CommitPreviewDisplayMode>("patch");
   const [commitPreviewError, setCommitPreviewError] = useState<string | null>(
@@ -638,12 +685,22 @@ function FileViewInner({
   const stageFileForEditing = useAction(
     api.fileStagingActions.getFileForEditing,
   );
+  const isDiffRequested = useMemo(() => {
+    const params = new URLSearchParams(search);
+    return params.has("diff");
+  }, [search]);
 
   // Get count of staged files for this vault
-  const stagedFiles = useQuery(api.fileStaging.listStagedFiles, {
-    vaultId: vault._id,
-    branch,
-  });
+  const stagedFiles = useQuery(
+    api.fileStaging.listStagedFiles,
+    {
+      vaultId: vault._id,
+      branch,
+    },
+    {
+      dontCache: isDiffRequested,
+    },
+  );
   const stagedNoterFile = useQuery(
     api.fileStaging.getByNewPath,
     {
@@ -671,9 +728,12 @@ function FileViewInner({
     return params.get("mobileLineNumbers") === "1";
   }, [search]);
   const commitReviewMode = useMemo<CommitReviewMode>(() => {
-    const params = new URLSearchParams(search);
-    return params.has("diff") ? "review" : "editor";
-  }, [search]);
+    return isDiffRequested ? "review" : "editor";
+  }, [isDiffRequested]);
+  const [allowAutoExitReview, setAllowAutoExitReview] = useState(
+    () => commitReviewMode !== "review",
+  );
+  const reviewRouteKeyRef = useRef<string | null>(null);
 
   // Add command palette keyboard shortcut handler
   useEffect(() => {
@@ -860,6 +920,7 @@ function FileViewInner({
         options?.reviewMode === "review" ||
         (preserveCurrentReviewMode && searchParams.has("diff"));
       searchParams.delete("diff");
+      searchParams.delete("review");
       const baseQuery = searchParams.toString();
       const queryString = includeDiff
         ? baseQuery.length > 0
@@ -1072,8 +1133,9 @@ function FileViewInner({
       return;
     }
 
+    setAllowAutoExitReview(true);
     setCommitPreview(null);
-    setCommitPreviewDisplayPreference("rich");
+    setCommitPreviewDisplayPreference("patch");
     setCommitPreviewDisplayMode("patch");
     setReviewModeInQuery("review");
   }, [commitReviewMode, setReviewModeInQuery]);
@@ -1241,6 +1303,7 @@ function FileViewInner({
   }, [finalTreeData, simpleViewConfig, simpleViewMode]);
 
   const emptyRepository = visibleTreeData.length === 0;
+  const didResolveStagedFiles = stagedFiles !== undefined;
 
   // Check if there are any changes to commit
   const hasChangesToCommit =
@@ -1266,9 +1329,53 @@ function FileViewInner({
   );
 
   useEffect(() => {
-    if (hasChangesToCommit || commitReviewMode !== "review") return;
+    const nextRouteKey = `${branch}:${selectedFile}`;
+    if (reviewRouteKeyRef.current === nextRouteKey) {
+      return;
+    }
+    reviewRouteKeyRef.current = nextRouteKey;
+    setAllowAutoExitReview(commitReviewMode !== "review");
+  }, [branch, selectedFile, commitReviewMode]);
+
+  useEffect(() => {
+    if (
+      !didResolveStagedFiles ||
+      !allowAutoExitReview ||
+      hasChangesToCommit ||
+      commitReviewMode !== "review"
+    ) {
+      return;
+    }
     setReviewModeInQuery("editor", { replace: true });
-  }, [hasChangesToCommit, commitReviewMode, setReviewModeInQuery]);
+  }, [
+    allowAutoExitReview,
+    didResolveStagedFiles,
+    hasChangesToCommit,
+    commitReviewMode,
+    setReviewModeInQuery,
+  ]);
+
+  useEffect(() => {
+    if (
+      !reviewOnMountRequested ||
+      commitReviewMode === "review" ||
+      !hasChangesToCommit
+    ) {
+      return;
+    }
+    // Dashboard staged-file links enter through ?review so we wait for branch
+    // staging to resolve before switching the canonical URL to ?diff.
+    setAllowAutoExitReview(false);
+    setCommitPreview(null);
+    setCommitPreviewDisplayPreference("patch");
+    setCommitPreviewDisplayMode("patch");
+    setReviewModeInQuery("review", { replace: true });
+  }, [
+    reviewOnMountRequested,
+    commitReviewMode,
+    hasChangesToCommit,
+    setReviewModeInQuery,
+  ]);
 
   useEffect(() => {
     if (commitReviewMode !== "review" || !hasChangesToCommit) return;

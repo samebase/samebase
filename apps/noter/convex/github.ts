@@ -202,6 +202,7 @@ interface RemoteBranchSummary {
   behindBy?: number;
   aheadBehindState: "resolved" | "unavailable" | "preserve";
   pullRequestUrl?: string;
+  pullRequestNumber?: number;
   pullRequestState: "resolved" | "preserve";
   isDefault: boolean;
   isProtected: boolean;
@@ -406,7 +407,6 @@ async function getAheadBehindByBranch(args: {
 
   return countsByBranch;
 }
-
 async function getHeadCommitTimestamps(args: {
   octokit: Octokit;
   owner: string;
@@ -445,21 +445,24 @@ async function getHeadCommitTimestamps(args: {
   return timestampsBySha;
 }
 
-async function getOpenPullRequestUrlsByBranch(args: {
+async function getOpenPullRequestsByBranch(args: {
   octokit: Octokit;
   owner: string;
   repo: string;
   branchNames: string[];
 }): Promise<{
   state: "resolved" | "preserve";
-  urlsByBranch: Map<string, string | undefined>;
+  pullRequestsByBranch: Map<
+    string,
+    { url?: string; number?: number } | undefined
+  >;
 }> {
   try {
     const branchNameSet = new Set(args.branchNames);
     const repositoryFullName = `${args.owner}/${args.repo}`.toLowerCase();
     const latestByBranch = new Map<
       string,
-      { url: string; updatedAt: number }
+      { url: string; number: number; updatedAt: number }
     >();
     const perPage = 100;
     const maxPages = 50;
@@ -483,7 +486,8 @@ async function getOpenPullRequestUrlsByBranch(args: {
           typeof branchName !== "string" ||
           !branchNameSet.has(branchName) ||
           typeof pullRequest.html_url !== "string" ||
-          pullRequest.html_url.length === 0
+          pullRequest.html_url.length === 0 ||
+          typeof pullRequest.number !== "number"
         ) {
           continue;
         }
@@ -507,6 +511,7 @@ async function getOpenPullRequestUrlsByBranch(args: {
         if (!existing || updatedAt >= existing.updatedAt) {
           latestByBranch.set(branchName, {
             url: pullRequest.html_url,
+            number: pullRequest.number,
             updatedAt,
           });
         }
@@ -532,14 +537,23 @@ async function getOpenPullRequestUrlsByBranch(args: {
       );
     }
 
-    const urlsByBranch = new Map<string, string | undefined>();
+    const pullRequestsByBranch = new Map<
+      string,
+      { url?: string; number?: number } | undefined
+    >();
     for (const branchName of args.branchNames) {
-      urlsByBranch.set(branchName, latestByBranch.get(branchName)?.url);
+      const pullRequest = latestByBranch.get(branchName);
+      pullRequestsByBranch.set(
+        branchName,
+        pullRequest
+          ? { url: pullRequest.url, number: pullRequest.number }
+          : undefined,
+      );
     }
 
     return {
       state: "resolved",
-      urlsByBranch,
+      pullRequestsByBranch,
     };
   } catch (error: unknown) {
     console.warn(
@@ -553,11 +567,10 @@ async function getOpenPullRequestUrlsByBranch(args: {
     );
     return {
       state: "preserve",
-      urlsByBranch: new Map(),
+      pullRequestsByBranch: new Map(),
     };
   }
 }
-
 async function listRemoteBranches(args: {
   octokit: Octokit;
   owner: string;
@@ -633,8 +646,8 @@ async function listRemoteBranches(args: {
           ]),
         ),
       );
-  const pullRequestByBranchPromise = args.includePullRequestLinks
-    ? getOpenPullRequestUrlsByBranch({
+  const pullRequestsByBranchPromise = args.includePullRequestLinks
+    ? getOpenPullRequestsByBranch({
         octokit: args.octokit,
         owner: args.owner,
         repo: args.repo,
@@ -642,9 +655,13 @@ async function listRemoteBranches(args: {
       })
     : Promise.resolve({
         state: "preserve" as const,
-        urlsByBranch: new Map<string, string | undefined>(),
+        pullRequestsByBranch: new Map<
+          string,
+          { url?: string; number?: number } | undefined
+        >(),
       });
-  const [timestampsBySha, aheadBehindByBranch, pullRequestByBranch] =
+
+  const [timestampsBySha, aheadBehindByBranch, pullRequestsByBranch] =
     await Promise.all([
       getHeadCommitTimestamps({
         octokit: args.octokit,
@@ -653,17 +670,18 @@ async function listRemoteBranches(args: {
         shas: branches.map((branch) => branch.headCommitSha),
       }),
       aheadBehindByBranchPromise,
-      pullRequestByBranchPromise,
+      pullRequestsByBranchPromise,
     ]);
 
   return branches.map((branch) => {
     const aheadBehind = aheadBehindByBranch.get(branch.name) ?? {
       state: "preserve" as const,
     };
-    const pullRequestUrl =
-      pullRequestByBranch.state === "resolved"
-        ? pullRequestByBranch.urlsByBranch.get(branch.name)
+    const pullRequest =
+      pullRequestsByBranch.state === "resolved"
+        ? pullRequestsByBranch.pullRequestsByBranch.get(branch.name)
         : undefined;
+
     return {
       ...branch,
       lastCommitAt: timestampsBySha.get(branch.headCommitSha),
@@ -672,8 +690,9 @@ async function listRemoteBranches(args: {
       behindBy:
         aheadBehind.state === "resolved" ? aheadBehind.behindBy : undefined,
       aheadBehindState: aheadBehind.state,
-      pullRequestUrl,
-      pullRequestState: pullRequestByBranch.state,
+      pullRequestUrl: pullRequest?.url,
+      pullRequestNumber: pullRequest?.number,
+      pullRequestState: pullRequestsByBranch.state,
     };
   });
 }
@@ -1089,8 +1108,8 @@ export const refreshRepositoryTree = action({
         userId,
         owner: args.owner,
         repo: args.repo,
-        includeAheadBehind: args.trigger === "page_load",
-        includePullRequestLinks: args.trigger === "page_load",
+        includeAheadBehind: true,
+        includePullRequestLinks: true,
       });
       markRefreshed = true;
     } finally {
