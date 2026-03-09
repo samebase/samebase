@@ -9,6 +9,7 @@ import {
   listCatalogToolsForSurface,
 } from "../toolRuntime/catalog";
 import type { ToolJsonSchema } from "../toolRuntime/types";
+import { normalizeOptionalString } from "../toolRuntime/utils";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 import {
   createAccessTokenValue,
@@ -205,17 +206,6 @@ function buildMcpToolList(grantedScope: string): {
       inputSchema: buildMcpToolInputSchema(tool),
     })),
   };
-}
-
-function readOptionalString(value: unknown): string | undefined {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    return undefined;
-  }
-  return trimmed;
 }
 
 function parseToolArguments(value: unknown): Record<string, unknown> {
@@ -735,7 +725,7 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
 
     const grantedScopes = parseScopeTokens(tokenValidation.scope);
     const params = asRecord(rpcRequest.params);
-    const toolName = readOptionalString(params.name) ?? "";
+    const toolName = normalizeOptionalString(params.name) ?? "";
     if (toolName.length === 0) {
       return jsonRpcSuccessResponse({
         id: rpcRequest.id,
@@ -782,10 +772,10 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
       userId: tokenValidation.userId,
       grantedScopes,
       ...(tool.requiresVaultContext
-        ? { vaultId: readOptionalString(args.vaultId) }
+        ? { vaultId: normalizeOptionalString(args.vaultId) }
         : {}),
       ...(tool.requiresBranchContext
-        ? { branch: readOptionalString(args.branch) }
+        ? { branch: normalizeOptionalString(args.branch) }
         : {}),
       ...(rpcRequest.id !== undefined && rpcRequest.id !== null
         ? { requestId: String(rpcRequest.id) }

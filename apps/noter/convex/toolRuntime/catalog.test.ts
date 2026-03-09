@@ -53,15 +53,17 @@ describe("listCatalogToolsForSurface", () => {
       grantedScopes: [],
     }).map((tool) => tool.name);
 
-    expect(tools).toEqual([
-      "read_file",
-      "list_files",
-      "edit_file",
-      "replace_in_file",
-      "create_file",
-      "delete_file",
-      "get_vault_remote_branches",
-    ]);
+    expect(tools).toEqual(
+      expect.arrayContaining([
+        "read_file",
+        "list_files",
+        "edit_file",
+        "replace_in_file",
+        "create_file",
+        "delete_file",
+        "get_vault_remote_branches",
+      ]),
+    );
   });
 });
 

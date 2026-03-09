@@ -1,3 +1,5 @@
+"use node";
+
 import { Octokit } from "@octokit/rest";
 import { api, internal } from "../_generated/api";
 import type { ResolvedToolContext, ToolExecutionOutput } from "./types";

@@ -39,7 +39,7 @@ const deleteFileInputSchema = z.object({
   path: z.string().describe("File path relative to repository root"),
 });
 
-export interface ToolCatalogEntry<TInput> extends ToolDefinition<TInput> {}
+export type ToolCatalogEntry<TInput> = ToolDefinition<TInput>;
 
 function hasAllScopes(
   grantedScopes: string[],
@@ -78,6 +78,45 @@ function contextRequiredFields(args: {
   return Array.from(required);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function parseRequiredFields(value: unknown): string[] | undefined {
+  if (!Array.isArray(value) || value.length === 0) {
+    return undefined;
+  }
+  const requiredFields: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string") {
+      return undefined;
+    }
+    requiredFields.push(item);
+  }
+  return requiredFields;
+}
+
+function zodToToolInputSchema(schema: z.ZodType<unknown>): ToolJsonSchema {
+  const jsonSchema = z.toJSONSchema(schema);
+  if (jsonSchema.type !== "object") {
+    throw new Error(
+      "Tool input schemas must serialize to JSON object schemas.",
+    );
+  }
+
+  const properties = isRecord(jsonSchema.properties)
+    ? jsonSchema.properties
+    : {};
+  const required = parseRequiredFields(jsonSchema.required);
+
+  return {
+    type: "object",
+    properties,
+    ...(required ? { required } : {}),
+    additionalProperties: false,
+  };
+}
+
 export function buildMcpToolInputSchema(
   tool: Pick<
     ToolDefinition<unknown>,
@@ -108,111 +147,28 @@ export function buildMcpToolInputSchema(
   );
 }
 
-export const emptyToolInputSchema: ToolJsonSchema = {
-  type: "object",
-  properties: {},
-  additionalProperties: false,
-};
+export const emptyToolInputSchema = zodToToolInputSchema(emptyInputSchema);
 
-export const readFileToolInputSchema: ToolJsonSchema = {
-  type: "object",
-  properties: {
-    path: {
-      type: "string",
-      description: "File path relative to repository root.",
-    },
-  },
-  required: ["path"],
-  additionalProperties: false,
-};
+export const readFileToolInputSchema =
+  zodToToolInputSchema(readFileInputSchema);
 
-export const listFilesToolInputSchema: ToolJsonSchema = {
-  type: "object",
-  properties: {
-    directory: {
-      type: "string",
-      description:
-        "Optional directory path to filter by (e.g. 'src/components'). Omit to list all files.",
-    },
-  },
-  additionalProperties: false,
-};
+export const listFilesToolInputSchema =
+  zodToToolInputSchema(listFilesInputSchema);
 
-export const editFileToolInputSchema: ToolJsonSchema = {
-  type: "object",
-  properties: {
-    path: {
-      type: "string",
-      description: "File path relative to repository root.",
-    },
-    content: {
-      type: "string",
-      description: "The new full content of the file.",
-    },
-  },
-  required: ["path", "content"],
-  additionalProperties: false,
-};
+export const editFileToolInputSchema =
+  zodToToolInputSchema(editFileInputSchema);
 
-export const replaceInFileToolInputSchema: ToolJsonSchema = {
-  type: "object",
-  properties: {
-    path: {
-      type: "string",
-      description: "File path relative to repository root.",
-    },
-    replacements: {
-      type: "array",
-      description: "Exact oldText/newText replacements to apply atomically.",
-      items: {
-        type: "object",
-        properties: {
-          oldText: {
-            type: "string",
-            description: "Exact existing text to replace.",
-          },
-          newText: {
-            type: "string",
-            description: "Replacement text.",
-          },
-        },
-        required: ["oldText", "newText"],
-        additionalProperties: false,
-      },
-      minItems: 1,
-    },
-  },
-  required: ["path", "replacements"],
-  additionalProperties: false,
-};
+export const replaceInFileToolInputSchema = zodToToolInputSchema(
+  replaceInFileInputSchema,
+);
 
-export const createFileToolInputSchema: ToolJsonSchema = {
-  type: "object",
-  properties: {
-    path: {
-      type: "string",
-      description: "File path relative to repository root.",
-    },
-    content: {
-      type: "string",
-      description: "The content of the new file.",
-    },
-  },
-  required: ["path", "content"],
-  additionalProperties: false,
-};
+export const createFileToolInputSchema = zodToToolInputSchema(
+  createFileInputSchema,
+);
 
-export const deleteFileToolInputSchema: ToolJsonSchema = {
-  type: "object",
-  properties: {
-    path: {
-      type: "string",
-      description: "File path relative to repository root.",
-    },
-  },
-  required: ["path"],
-  additionalProperties: false,
-};
+export const deleteFileToolInputSchema = zodToToolInputSchema(
+  deleteFileInputSchema,
+);
 
 export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
   {

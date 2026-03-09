@@ -9,6 +9,7 @@ import { findToolInCatalog } from "./catalog";
 import { executeRuntimeTool } from "./executors";
 import { validateToolPolicy } from "./policy";
 import type { ResolvedToolContext, ToolExecutionOutput } from "./types";
+import { normalizeOptionalString } from "./utils";
 
 const { array, id, literal, object, optional, string, union } = v;
 
@@ -37,17 +38,6 @@ const runToolResultValidator = object({
   structuredContentJson: optional(string()),
 });
 type RunToolResult = Infer<typeof runToolResultValidator>;
-
-function normalizeBranch(branch: string | undefined): string | undefined {
-  if (typeof branch !== "string") {
-    return undefined;
-  }
-  const trimmed = branch.trim();
-  if (trimmed.length === 0) {
-    return undefined;
-  }
-  return trimmed;
-}
 
 function parseInputJson(
   inputJson: string,
@@ -95,7 +85,7 @@ async function resolveToolContext(
 ): Promise<
   { ok: true; value: ResolvedToolContext } | { ok: false; message: string }
 > {
-  const branch = normalizeBranch(args.branch);
+  const branch = normalizeOptionalString(args.branch);
   const vault =
     args.vaultId === undefined
       ? null
