@@ -189,6 +189,7 @@ This would transform me from a "static knowledge" assistant to one that can acce
   8. Demonstrate live collaborative editing where changes appear instantly across all viewers
 
 ## Ideas to Explore
+- [ ] **Multi-Branch Agent Dashboard**: Enable agents to work on multiple branches simultaneously. When viewing a vault author's dashboard with all branches, show presence indicators (circles) for agents working on specific branches - similar to how colleague presence is shown but for AI agents. This would make it clear which agents are actively working on which branches and provide visual feedback about ongoing automated work across the repository.
 - [ ] check if I discussed this idea: noter could approach darklang because the logs are automatically in convex
 - [ ] add idea regarding the jokes about older people don't know how to convert to pdf. But now with noter
 - [ ] Codex auth persistence across Codespaces (file-based credential storage):
