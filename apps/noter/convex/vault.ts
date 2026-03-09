@@ -478,12 +478,15 @@ const getUserVaultsResult = array(
     remoteBranches: array(
       object({
         name: string(),
+        headCommitSha: string(),
         lastCommitAt: optional(number()),
         aheadBy: optional(number()),
         behindBy: optional(number()),
         pullRequestUrl: optional(string()),
+        pullRequestNumber: optional(number()),
         isDefault: boolean(),
         remoteState: union(literal("active"), literal("deleted_upstream")),
+        lastSyncedAt: number(),
       }),
     ),
     infraState: union(
@@ -599,12 +602,15 @@ export const getUserVaults = query({
             .sort(compareRemoteBranchSortOrder)
             .map((branch) => ({
               name: branch.name,
+              headCommitSha: branch.headCommitSha,
               lastCommitAt: branch.lastCommitAt,
               aheadBy: branch.aheadBy,
               behindBy: branch.behindBy,
               pullRequestUrl: branch.pullRequestUrl,
+              pullRequestNumber: branch.pullRequestNumber,
               isDefault: branch.isDefault,
               remoteState: branch.remoteState,
+              lastSyncedAt: branch.lastSyncedAt,
             })),
           infraState: vault.infraState ?? "not_started",
           infraProductionUrl: resolveHostingMainUrl(infra),
@@ -654,6 +660,7 @@ export const getVaultRemoteBranches = query({
       aheadBy: optional(number()),
       behindBy: optional(number()),
       pullRequestUrl: optional(string()),
+      pullRequestNumber: optional(number()),
       isDefault: boolean(),
       isProtected: boolean(),
       remoteState: union(literal("active"), literal("deleted_upstream")),
@@ -680,6 +687,7 @@ export const getVaultRemoteBranches = query({
       aheadBy: branch.aheadBy,
       behindBy: branch.behindBy,
       pullRequestUrl: branch.pullRequestUrl,
+      pullRequestNumber: branch.pullRequestNumber,
       isDefault: branch.isDefault,
       isProtected: branch.isProtected,
       remoteState: branch.remoteState,
@@ -706,6 +714,7 @@ export const syncVaultRemoteBranches = internalMutation({
           literal("preserve"),
         ),
         pullRequestUrl: optional(string()),
+        pullRequestNumber: optional(number()),
         pullRequestState: union(literal("resolved"), literal("preserve")),
         isDefault: boolean(),
         isProtected: boolean(),
@@ -744,6 +753,7 @@ export const syncVaultRemoteBranches = internalMutation({
           aheadBy?: number;
           behindBy?: number;
           pullRequestUrl?: string;
+          pullRequestNumber?: number;
           isDefault: boolean;
           isProtected: boolean;
           remoteState: "active";
@@ -761,12 +771,16 @@ export const syncVaultRemoteBranches = internalMutation({
         if (branch.aheadBehindState === "resolved") {
           patchData.aheadBy = branch.aheadBy;
           patchData.behindBy = branch.behindBy;
-        } else if (branch.aheadBehindState === "unavailable") {
+        } else if (
+          branch.aheadBehindState === "unavailable" ||
+          existingBranch.headCommitSha !== branch.headCommitSha
+        ) {
           patchData.aheadBy = undefined;
           patchData.behindBy = undefined;
         }
         if (branch.pullRequestState === "resolved") {
           patchData.pullRequestUrl = branch.pullRequestUrl;
+          patchData.pullRequestNumber = branch.pullRequestNumber;
         }
         await ctx.db.patch(existingBranch._id, patchData);
         continue;
@@ -780,6 +794,7 @@ export const syncVaultRemoteBranches = internalMutation({
         aheadBy?: number;
         behindBy?: number;
         pullRequestUrl?: string;
+        pullRequestNumber?: number;
         isDefault: boolean;
         isProtected: boolean;
         remoteState: "active";
@@ -801,7 +816,12 @@ export const syncVaultRemoteBranches = internalMutation({
         insertData.behindBy = branch.behindBy;
       }
       if (branch.pullRequestState === "resolved") {
-        insertData.pullRequestUrl = branch.pullRequestUrl;
+        if (typeof branch.pullRequestUrl === "string") {
+          insertData.pullRequestUrl = branch.pullRequestUrl;
+        }
+        if (typeof branch.pullRequestNumber === "number") {
+          insertData.pullRequestNumber = branch.pullRequestNumber;
+        }
       }
       await ctx.db.insert("vaultRemoteBranches", insertData);
     }

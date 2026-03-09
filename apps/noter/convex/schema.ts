@@ -353,6 +353,7 @@ export default defineSchema({
     aheadBy: v.optional(v.number()),
     behindBy: v.optional(v.number()),
     pullRequestUrl: v.optional(v.string()),
+    pullRequestNumber: v.optional(v.number()),
     isDefault: v.boolean(),
     isProtected: v.boolean(),
     remoteState: VaultRemoteBranchState,

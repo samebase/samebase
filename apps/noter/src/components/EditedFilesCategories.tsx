@@ -149,13 +149,13 @@ export function EditedFilesCategories({
         .join("/");
       const searchParams = new URLSearchParams(search);
       searchParams.delete("diff");
+      searchParams.delete("review");
       const baseQuery = searchParams.toString();
-      const queryString = baseQuery.length > 0 ? `${baseQuery}&diff` : "diff";
+      const queryString =
+        baseQuery.length > 0 ? `${baseQuery}&review` : "review";
       const encodedBranch = encodeURIComponent(branch);
-
-      void navigate(
-        `/vault/${repositoryFullName}/${encodedBranch}/${encodedFilePath}?${queryString}`,
-      );
+      const nextPath = `/vault/${repositoryFullName}/${encodedBranch}/${encodedFilePath}`;
+      void navigate(`${nextPath}?${queryString}`);
     },
     [branch, navigate, repositoryFullName, search],
   );
