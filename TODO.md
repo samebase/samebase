@@ -190,6 +190,8 @@ This would transform me from a "static knowledge" assistant to one that can acce
 
 ## Ideas to Explore
 - [ ] **Multi-Branch Agent Dashboard**: Enable agents to work on multiple branches simultaneously. When viewing a vault author's dashboard with all branches, show presence indicators (circles) for agents working on specific branches - similar to how colleague presence is shown but for AI agents. This would make it clear which agents are actively working on which branches and provide visual feedback about ongoing automated work across the repository.
+- [ ] **Agent Work via Git Authors/Co-Authors**: Use git commit author and co-author fields to track agent work on different branches. This makes agent contributions visible in all git tooling (GitLens, GitHub UI, git log, etc.) without requiring Noter-specific infrastructure. Example: `Author: user@example.com, Co-authored-by: research-agent@noter.md`
+- [ ] **Conversation Storage Strategy**: Consider where to store all chat conversations for potential desktop app usage. Conversations tied to specific branches/commits could be stored as git notes or in structured commit messages, making the context portable across different development environments.
 - [ ] check if I discussed this idea: noter could approach darklang because the logs are automatically in convex
 - [ ] add idea regarding the jokes about older people don't know how to convert to pdf. But now with noter
 - [ ] Codex auth persistence across Codespaces (file-based credential storage):
