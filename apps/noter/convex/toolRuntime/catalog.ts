@@ -38,6 +38,111 @@ const createFileInputSchema = z.object({
 const deleteFileInputSchema = z.object({
   path: z.string().describe("File path relative to repository root"),
 });
+const prodReadScopeSchema = z.enum(["vault", "global"]);
+const prodReadAllowRawFallbackSchema = z.boolean().optional();
+const requestConvexLogsReadInputSchema = z.object({
+  maxLines: z
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe("Maximum log lines to include"),
+  allowRawFallback: prodReadAllowRawFallbackSchema.describe(
+    "In owner mode, allow explicit raw payload fallback",
+  ),
+});
+const requestConvexProjectsReadInputSchema = z.object({
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe("Maximum projects to include"),
+  allowRawFallback: prodReadAllowRawFallbackSchema.describe(
+    "In owner mode, allow explicit raw payload fallback",
+  ),
+});
+const requestNetlifyLogsReadInputSchema = z.object({
+  maxEntries: z
+    .number()
+    .int()
+    .min(1)
+    .max(50)
+    .optional()
+    .describe("Maximum deployment entries to include"),
+  allowRawFallback: prodReadAllowRawFallbackSchema.describe(
+    "In owner mode, allow explicit raw payload fallback",
+  ),
+});
+const requestNetlifyProjectsReadInputSchema = z.object({
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe("Maximum projects to include"),
+  allowRawFallback: prodReadAllowRawFallbackSchema.describe(
+    "In owner mode, allow explicit raw payload fallback",
+  ),
+});
+const requestCloudflareAccountsReadInputSchema = z.object({
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe("Maximum accounts to include"),
+  allowRawFallback: prodReadAllowRawFallbackSchema.describe(
+    "In owner mode, allow explicit raw payload fallback",
+  ),
+});
+const requestCloudflarePagesProjectsReadInputSchema = z.object({
+  accountId: z
+    .string()
+    .optional()
+    .describe(
+      "Cloudflare account ID to query (optional if already stored on the connection)",
+    ),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe("Maximum projects to include"),
+  allowRawFallback: prodReadAllowRawFallbackSchema.describe(
+    "In owner mode, allow explicit raw payload fallback",
+  ),
+});
+const convexDataTableSchema = z.enum([
+  "vaults",
+  "vaultInfrastructure",
+  "vaultDomains",
+  "codespaces",
+  "fileStaging",
+  "aiProdAccessRequests",
+  "aiProdAccessAudit",
+]);
+const requestConvexDataReadInputSchema = z.object({
+  table: convexDataTableSchema.describe("Convex table to sample"),
+  scope: prodReadScopeSchema
+    .optional()
+    .describe("Read scope. Defaults to vault scope."),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe("Maximum rows to return"),
+  allowRawFallback: prodReadAllowRawFallbackSchema.describe(
+    "In owner mode, allow explicit raw payload fallback",
+  ),
+});
 
 export type ToolCatalogEntry<TInput> = ToolDefinition<TInput>;
 
@@ -65,7 +170,10 @@ function withRequiredFields(
 function contextRequiredFields(args: {
   tool: Pick<
     ToolDefinition<unknown>,
-    "requiresVaultContext" | "requiresBranchContext" | "inputSchema"
+    | "requiresVaultContext"
+    | "requiresBranchContext"
+    | "requiresThreadContext"
+    | "inputSchema"
   >;
 }): string[] {
   const required = new Set(args.tool.inputSchema.required ?? []);
@@ -74,6 +182,9 @@ function contextRequiredFields(args: {
   }
   if (args.tool.requiresBranchContext) {
     required.add("branch");
+  }
+  if (args.tool.requiresThreadContext) {
+    required.add("threadId");
   }
   return Array.from(required);
 }
@@ -120,7 +231,10 @@ function zodToToolInputSchema(schema: z.ZodType<unknown>): ToolJsonSchema {
 export function buildMcpToolInputSchema(
   tool: Pick<
     ToolDefinition<unknown>,
-    "requiresVaultContext" | "requiresBranchContext" | "inputSchema"
+    | "requiresVaultContext"
+    | "requiresBranchContext"
+    | "requiresThreadContext"
+    | "inputSchema"
   >,
 ): ToolJsonSchema {
   const properties: Record<string, unknown> = {
@@ -136,6 +250,12 @@ export function buildMcpToolInputSchema(
     properties.branch = {
       type: "string",
       description: "Branch name to operate on.",
+    };
+  }
+  if (tool.requiresThreadContext) {
+    properties.threadId = {
+      type: "string",
+      description: "Thread ID used for proposal lifecycle tracking.",
     };
   }
   return withRequiredFields(
@@ -170,6 +290,32 @@ export const deleteFileToolInputSchema = zodToToolInputSchema(
   deleteFileInputSchema,
 );
 
+export const requestConvexLogsReadToolInputSchema = zodToToolInputSchema(
+  requestConvexLogsReadInputSchema,
+);
+
+export const requestConvexProjectsReadToolInputSchema = zodToToolInputSchema(
+  requestConvexProjectsReadInputSchema,
+);
+
+export const requestNetlifyLogsReadToolInputSchema = zodToToolInputSchema(
+  requestNetlifyLogsReadInputSchema,
+);
+
+export const requestNetlifyProjectsReadToolInputSchema = zodToToolInputSchema(
+  requestNetlifyProjectsReadInputSchema,
+);
+
+export const requestCloudflareAccountsReadToolInputSchema =
+  zodToToolInputSchema(requestCloudflareAccountsReadInputSchema);
+
+export const requestCloudflarePagesProjectsReadToolInputSchema =
+  zodToToolInputSchema(requestCloudflarePagesProjectsReadInputSchema);
+
+export const requestConvexDataReadToolInputSchema = zodToToolInputSchema(
+  requestConvexDataReadInputSchema,
+);
+
 export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
   {
     name: "vaults.list",
@@ -179,6 +325,7 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiredScopes: ["vaults.read"],
     requiresVaultContext: false,
     requiresBranchContext: false,
+    requiresThreadContext: false,
     requiresGithubConnection: false,
     safety: "read_only",
     inputSchema: emptyToolInputSchema,
@@ -192,6 +339,7 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiredScopes: ["files.read"],
     requiresVaultContext: true,
     requiresBranchContext: true,
+    requiresThreadContext: false,
     requiresGithubConnection: true,
     safety: "read_only",
     inputSchema: readFileToolInputSchema,
@@ -205,6 +353,7 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiredScopes: ["files.read"],
     requiresVaultContext: true,
     requiresBranchContext: true,
+    requiresThreadContext: false,
     requiresGithubConnection: true,
     safety: "read_only",
     inputSchema: listFilesToolInputSchema,
@@ -218,6 +367,7 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiredScopes: ["files.write"],
     requiresVaultContext: true,
     requiresBranchContext: true,
+    requiresThreadContext: false,
     requiresGithubConnection: true,
     safety: "write",
     inputSchema: editFileToolInputSchema,
@@ -231,6 +381,7 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiredScopes: ["files.write"],
     requiresVaultContext: true,
     requiresBranchContext: true,
+    requiresThreadContext: false,
     requiresGithubConnection: true,
     safety: "write",
     inputSchema: replaceInFileToolInputSchema,
@@ -244,6 +395,7 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiredScopes: ["files.write"],
     requiresVaultContext: true,
     requiresBranchContext: true,
+    requiresThreadContext: false,
     requiresGithubConnection: true,
     safety: "write",
     inputSchema: createFileToolInputSchema,
@@ -257,6 +409,7 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiredScopes: ["files.write"],
     requiresVaultContext: true,
     requiresBranchContext: true,
+    requiresThreadContext: false,
     requiresGithubConnection: true,
     safety: "destructive",
     inputSchema: deleteFileToolInputSchema,
@@ -270,10 +423,137 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiredScopes: ["vaults.read"],
     requiresVaultContext: true,
     requiresBranchContext: false,
+    requiresThreadContext: false,
     requiresGithubConnection: false,
     safety: "read_only",
     inputSchema: emptyToolInputSchema,
     agentArgs: emptyInputSchema,
+  },
+  {
+    name: "request_convex_status_read",
+    description:
+      "Request approval to read Convex deployment status for the current vault. This tool only creates an approval proposal and does not perform direct production reads.",
+    surfaces: ["agent", "mcp"],
+    requiredScopes: ["prod.read.propose"],
+    requiresVaultContext: true,
+    requiresBranchContext: false,
+    requiresThreadContext: true,
+    requiresGithubConnection: false,
+    safety: "proposal_only",
+    inputSchema: emptyToolInputSchema,
+    agentArgs: emptyInputSchema,
+  },
+  {
+    name: "request_convex_logs_read",
+    description:
+      "Request approval to read Convex deployment activity/log snapshot for the current vault. This tool only proposes access.",
+    surfaces: ["agent", "mcp"],
+    requiredScopes: ["prod.read.propose"],
+    requiresVaultContext: true,
+    requiresBranchContext: false,
+    requiresThreadContext: true,
+    requiresGithubConnection: false,
+    safety: "proposal_only",
+    inputSchema: requestConvexLogsReadToolInputSchema,
+    agentArgs: requestConvexLogsReadInputSchema,
+  },
+  {
+    name: "request_convex_projects_read",
+    description:
+      "Request approval to list Convex projects for the configured team. This tool only creates an approval proposal and does not execute direct reads.",
+    surfaces: ["agent", "mcp"],
+    requiredScopes: ["prod.read.propose"],
+    requiresVaultContext: false,
+    requiresBranchContext: false,
+    requiresThreadContext: true,
+    requiresGithubConnection: false,
+    safety: "proposal_only",
+    inputSchema: requestConvexProjectsReadToolInputSchema,
+    agentArgs: requestConvexProjectsReadInputSchema,
+  },
+  {
+    name: "request_netlify_status_read",
+    description:
+      "Request approval to read Netlify site status for the current vault. This tool only creates an approval proposal.",
+    surfaces: ["agent", "mcp"],
+    requiredScopes: ["prod.read.propose"],
+    requiresVaultContext: true,
+    requiresBranchContext: false,
+    requiresThreadContext: true,
+    requiresGithubConnection: false,
+    safety: "proposal_only",
+    inputSchema: emptyToolInputSchema,
+    agentArgs: emptyInputSchema,
+  },
+  {
+    name: "request_netlify_logs_read",
+    description:
+      "Request approval to read Netlify deploy/build logs for the current vault. This tool only proposes access.",
+    surfaces: ["agent", "mcp"],
+    requiredScopes: ["prod.read.propose"],
+    requiresVaultContext: true,
+    requiresBranchContext: false,
+    requiresThreadContext: true,
+    requiresGithubConnection: false,
+    safety: "proposal_only",
+    inputSchema: requestNetlifyLogsReadToolInputSchema,
+    agentArgs: requestNetlifyLogsReadInputSchema,
+  },
+  {
+    name: "request_netlify_projects_read",
+    description:
+      "Request approval to list Netlify sites for the configured team. This tool only creates an approval proposal and does not execute direct reads.",
+    surfaces: ["agent", "mcp"],
+    requiredScopes: ["prod.read.propose"],
+    requiresVaultContext: false,
+    requiresBranchContext: false,
+    requiresThreadContext: true,
+    requiresGithubConnection: false,
+    safety: "proposal_only",
+    inputSchema: requestNetlifyProjectsReadToolInputSchema,
+    agentArgs: requestNetlifyProjectsReadInputSchema,
+  },
+  {
+    name: "request_cloudflare_accounts_read",
+    description:
+      "Request approval to list Cloudflare accounts available to the connected token. This tool only creates an approval proposal and does not execute direct reads.",
+    surfaces: ["agent", "mcp"],
+    requiredScopes: ["prod.read.propose"],
+    requiresVaultContext: false,
+    requiresBranchContext: false,
+    requiresThreadContext: true,
+    requiresGithubConnection: false,
+    safety: "proposal_only",
+    inputSchema: requestCloudflareAccountsReadToolInputSchema,
+    agentArgs: requestCloudflareAccountsReadInputSchema,
+  },
+  {
+    name: "request_cloudflare_pages_projects_read",
+    description:
+      "Request approval to list Cloudflare Pages projects for an account. This tool only creates an approval proposal and does not execute direct reads.",
+    surfaces: ["agent", "mcp"],
+    requiredScopes: ["prod.read.propose"],
+    requiresVaultContext: false,
+    requiresBranchContext: false,
+    requiresThreadContext: true,
+    requiresGithubConnection: false,
+    safety: "proposal_only",
+    inputSchema: requestCloudflarePagesProjectsReadToolInputSchema,
+    agentArgs: requestCloudflarePagesProjectsReadInputSchema,
+  },
+  {
+    name: "request_convex_data_read",
+    description:
+      "Request approval to read a limited sample from allowed Convex tables. This tool never performs direct production data reads by itself.",
+    surfaces: ["agent", "mcp"],
+    requiredScopes: ["prod.read.propose"],
+    requiresVaultContext: true,
+    requiresBranchContext: false,
+    requiresThreadContext: true,
+    requiresGithubConnection: false,
+    safety: "proposal_only",
+    inputSchema: requestConvexDataReadToolInputSchema,
+    agentArgs: requestConvexDataReadInputSchema,
   },
 ];
 

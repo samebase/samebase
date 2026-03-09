@@ -25,6 +25,10 @@ function inputForTool(toolName: string): unknown {
         path: "README.md",
         replacements: [{ oldText: "old", newText: "new" }],
       };
+    case "request_convex_data_read":
+      return { table: "vaults" };
+    case "request_convex_projects_read":
+      return {};
     default:
       return {};
   }
@@ -219,5 +223,49 @@ describe("validateToolPolicy", () => {
       expect(result.ok).toBe(false);
       expect(result.message).toBe(`Insufficient scope for ${tool.name}.`);
     }
+  });
+
+  it("requires threadId for proposal tools", () => {
+    const tool = findToolInCatalog({ name: "request_convex_projects_read" });
+    expect(tool).not.toBeNull();
+    if (!tool) {
+      return;
+    }
+
+    const result = validateToolPolicy({
+      tool,
+      request: makeRequest({
+        toolName: tool.name,
+        input: inputForTool(tool.name),
+        surface: "mcp",
+        grantedScopes: ["prod.read.propose"],
+      }),
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe(
+      "request_convex_projects_read requires threadId context.",
+    );
+  });
+
+  it("allows proposal tools with prod.read.propose scope and threadId", () => {
+    const tool = findToolInCatalog({ name: "request_convex_projects_read" });
+    expect(tool).not.toBeNull();
+    if (!tool) {
+      return;
+    }
+
+    const result = validateToolPolicy({
+      tool,
+      request: makeRequest({
+        toolName: tool.name,
+        input: inputForTool(tool.name),
+        surface: "mcp",
+        grantedScopes: ["prod.read.propose"],
+        threadId: "thread_123",
+      }),
+    });
+
+    expect(result).toEqual({ ok: true });
   });
 });

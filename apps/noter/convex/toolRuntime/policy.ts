@@ -21,6 +21,7 @@ export function validateToolPolicy(args: {
     | "requiredScopes"
     | "requiresVaultContext"
     | "requiresBranchContext"
+    | "requiresThreadContext"
   >;
   request: ToolRunRequest;
 }): PolicyCheckResult {
@@ -56,6 +57,17 @@ export function validateToolPolicy(args: {
       return {
         ok: false,
         message: `${tool.name} requires branch context.`,
+      };
+    }
+  }
+
+  if (tool.requiresThreadContext) {
+    const threadId =
+      typeof request.threadId === "string" ? request.threadId.trim() : "";
+    if (threadId.length === 0) {
+      return {
+        ok: false,
+        message: `${tool.name} requires threadId context.`,
       };
     }
   }

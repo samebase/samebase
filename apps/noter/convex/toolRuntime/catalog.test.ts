@@ -31,9 +31,30 @@ describe("listCatalogToolsForSurface", () => {
       "delete_file",
     ]);
 
+    const prodProposalTools = listCatalogToolsForSurface({
+      surface: "mcp",
+      grantedScopes: ["prod.read.propose"],
+    }).map((tool) => tool.name);
+    expect(prodProposalTools).toEqual([
+      "request_convex_status_read",
+      "request_convex_logs_read",
+      "request_convex_projects_read",
+      "request_netlify_status_read",
+      "request_netlify_logs_read",
+      "request_netlify_projects_read",
+      "request_cloudflare_accounts_read",
+      "request_cloudflare_pages_projects_read",
+      "request_convex_data_read",
+    ]);
+
     const allTools = listCatalogToolsForSurface({
       surface: "mcp",
-      grantedScopes: ["vaults.read", "files.read", "files.write"],
+      grantedScopes: [
+        "vaults.read",
+        "files.read",
+        "files.write",
+        "prod.read.propose",
+      ],
     }).map((tool) => tool.name);
     expect(allTools).toEqual([
       "vaults.list",
@@ -44,6 +65,15 @@ describe("listCatalogToolsForSurface", () => {
       "create_file",
       "delete_file",
       "get_vault_remote_branches",
+      "request_convex_status_read",
+      "request_convex_logs_read",
+      "request_convex_projects_read",
+      "request_netlify_status_read",
+      "request_netlify_logs_read",
+      "request_netlify_projects_read",
+      "request_cloudflare_accounts_read",
+      "request_cloudflare_pages_projects_read",
+      "request_convex_data_read",
     ]);
   });
 
@@ -62,6 +92,8 @@ describe("listCatalogToolsForSurface", () => {
         "create_file",
         "delete_file",
         "get_vault_remote_branches",
+        "request_convex_status_read",
+        "request_convex_data_read",
       ]),
     );
   });
@@ -115,6 +147,22 @@ describe("buildMcpToolInputSchema", () => {
     expect(schema.properties).toHaveProperty("vaultId");
     expect(schema.properties).not.toHaveProperty("branch");
     expect(schema.required).toEqual(["vaultId"]);
+  });
+
+  it("adds threadId context for prod-read proposal tools", () => {
+    const proposalTool = findToolInCatalog({
+      name: "request_convex_data_read",
+    });
+    expect(proposalTool).not.toBeNull();
+    if (!proposalTool) {
+      return;
+    }
+
+    const schema = buildMcpToolInputSchema(proposalTool);
+    expect(schema.properties).toHaveProperty("table");
+    expect(schema.properties).toHaveProperty("vaultId");
+    expect(schema.properties).toHaveProperty("threadId");
+    expect(schema.required).toEqual(["table", "vaultId", "threadId"]);
   });
 
   it("keeps vaults.list as empty object input", () => {

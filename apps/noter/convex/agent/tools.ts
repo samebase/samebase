@@ -9,14 +9,6 @@ import type { Id } from "../_generated/dataModel";
 import { TOOL_CATALOG } from "./toolCatalog";
 
 const PROD_READ_SENTINEL = "__PROD_READ_PROPOSAL__:";
-type AllowedDataTable =
-  | "vaults"
-  | "vaultInfrastructure"
-  | "vaultDomains"
-  | "codespaces"
-  | "fileStaging"
-  | "aiProdAccessRequests"
-  | "aiProdAccessAudit";
 
 const dataTableSchema = z.union([
   z.literal("vaults"),
@@ -145,6 +137,21 @@ async function executeSharedRuntimeTool(
     },
   );
   if (result.status === "ok") {
+    if (typeof result.structuredContentJson === "string") {
+      try {
+        const parsed: unknown = JSON.parse(result.structuredContentJson);
+        if (
+          typeof parsed === "object" &&
+          parsed !== null &&
+          "type" in parsed &&
+          parsed.type === "prod_read_proposal"
+        ) {
+          return `${PROD_READ_SENTINEL}${JSON.stringify(parsed)}`;
+        }
+      } catch {
+        // Non-JSON structured content falls through to plain text.
+      }
+    }
     return result.text;
   }
   return `Error: ${result.text}`;
@@ -257,252 +264,6 @@ async function executeGithubApi(
     return json.slice(0, 15000) + "\n\n... (response truncated)";
   }
   return json;
-}
-
-function buildProdReadSummary(args: {
-  provider: "convex" | "netlify" | "cloudflare";
-  resourceKind:
-    | "deployment_status"
-    | "logs"
-    | "data_query"
-    | "project_inventory"
-    | "site_inventory"
-    | "account_inventory"
-    | "pages_project_inventory";
-  scope: "vault" | "global";
-}): string {
-  const provider =
-    args.provider === "convex"
-      ? "Convex"
-      : args.provider === "netlify"
-        ? "Netlify"
-        : "Cloudflare";
-  const resource =
-    args.resourceKind === "deployment_status"
-      ? "deployment status"
-      : args.resourceKind === "logs"
-        ? "logs"
-        : args.resourceKind === "data_query"
-          ? "data sample"
-          : args.resourceKind === "project_inventory"
-            ? "project inventory"
-            : args.resourceKind === "site_inventory"
-              ? "site inventory"
-              : args.resourceKind === "account_inventory"
-                ? "account inventory"
-                : "Pages project inventory";
-  const scope = args.scope === "vault" ? "this vault" : "global scope";
-  return `I need your approval before reading ${provider} ${resource} for ${scope}.`;
-}
-
-function buildParamsPreview(params: Record<string, unknown>): string {
-  const json = JSON.stringify(params);
-  if (json.length <= 200) {
-    return json;
-  }
-  return `${json.slice(0, 200)}...`;
-}
-
-async function executeProdReadRequest(
-  toolCtx: ToolContext,
-  input: {
-    scope: "vault" | "global";
-    provider: "convex" | "netlify" | "cloudflare";
-    resourceKind:
-      | "deployment_status"
-      | "logs"
-      | "data_query"
-      | "project_inventory"
-      | "site_inventory"
-      | "account_inventory"
-      | "pages_project_inventory";
-    toolName: string;
-    params: Record<string, unknown>;
-    allowRawFallback?: boolean;
-  },
-): Promise<string> {
-  const paramsJson = JSON.stringify(input.params);
-  const proposal = await toolCtx.ctx.runMutation(
-    internal.chat.index.proposeProdReadInternal,
-    {
-      threadId: toolCtx.threadId,
-      requesterUserId: toolCtx.userId,
-      vaultId: input.scope === "vault" ? toolCtx.vaultId : undefined,
-      scope: input.scope,
-      provider: input.provider,
-      resourceKind: input.resourceKind,
-      toolName: input.toolName,
-      paramsJson,
-      allowRawFallback: input.allowRawFallback,
-    },
-  );
-
-  return (
-    `${PROD_READ_SENTINEL}` +
-    JSON.stringify({
-      requestId: proposal.requestId,
-      scope: input.scope,
-      provider: input.provider,
-      resourceKind: input.resourceKind,
-      toolName: input.toolName,
-      paramsPreview: buildParamsPreview(input.params),
-      summary: buildProdReadSummary({
-        scope: input.scope,
-        provider: input.provider,
-        resourceKind: input.resourceKind,
-      }),
-    })
-  );
-}
-
-async function executeRequestConvexStatusRead(
-  toolCtx: ToolContext,
-): Promise<string> {
-  return await executeProdReadRequest(toolCtx, {
-    scope: "vault",
-    provider: "convex",
-    resourceKind: "deployment_status",
-    toolName: "request_convex_status_read",
-    params: {},
-  });
-}
-
-async function executeRequestConvexLogsRead(
-  toolCtx: ToolContext,
-  input: { maxLines?: number; allowRawFallback?: boolean },
-): Promise<string> {
-  return await executeProdReadRequest(toolCtx, {
-    scope: "vault",
-    provider: "convex",
-    resourceKind: "logs",
-    toolName: "request_convex_logs_read",
-    params: {
-      ...(typeof input.maxLines === "number"
-        ? { maxLines: input.maxLines }
-        : {}),
-    },
-    allowRawFallback: input.allowRawFallback,
-  });
-}
-
-async function executeRequestConvexProjectsRead(
-  toolCtx: ToolContext,
-  input: { limit?: number; allowRawFallback?: boolean },
-): Promise<string> {
-  return await executeProdReadRequest(toolCtx, {
-    scope: "global",
-    provider: "convex",
-    resourceKind: "project_inventory",
-    toolName: "request_convex_projects_read",
-    params: {
-      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
-    },
-    allowRawFallback: input.allowRawFallback,
-  });
-}
-
-async function executeRequestNetlifyStatusRead(
-  toolCtx: ToolContext,
-): Promise<string> {
-  return await executeProdReadRequest(toolCtx, {
-    scope: "vault",
-    provider: "netlify",
-    resourceKind: "deployment_status",
-    toolName: "request_netlify_status_read",
-    params: {},
-  });
-}
-
-async function executeRequestNetlifyLogsRead(
-  toolCtx: ToolContext,
-  input: { maxEntries?: number; allowRawFallback?: boolean },
-): Promise<string> {
-  return await executeProdReadRequest(toolCtx, {
-    scope: "vault",
-    provider: "netlify",
-    resourceKind: "logs",
-    toolName: "request_netlify_logs_read",
-    params: {
-      ...(typeof input.maxEntries === "number"
-        ? { maxEntries: input.maxEntries }
-        : {}),
-    },
-    allowRawFallback: input.allowRawFallback,
-  });
-}
-
-async function executeRequestNetlifyProjectsRead(
-  toolCtx: ToolContext,
-  input: { limit?: number; allowRawFallback?: boolean },
-): Promise<string> {
-  return await executeProdReadRequest(toolCtx, {
-    scope: "global",
-    provider: "netlify",
-    resourceKind: "site_inventory",
-    toolName: "request_netlify_projects_read",
-    params: {
-      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
-    },
-    allowRawFallback: input.allowRawFallback,
-  });
-}
-
-async function executeRequestCloudflareAccountsRead(
-  toolCtx: ToolContext,
-  input: { limit?: number; allowRawFallback?: boolean },
-): Promise<string> {
-  return await executeProdReadRequest(toolCtx, {
-    scope: "global",
-    provider: "cloudflare",
-    resourceKind: "account_inventory",
-    toolName: "request_cloudflare_accounts_read",
-    params: {
-      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
-    },
-    allowRawFallback: input.allowRawFallback,
-  });
-}
-
-async function executeRequestCloudflarePagesProjectsRead(
-  toolCtx: ToolContext,
-  input: { accountId?: string; limit?: number; allowRawFallback?: boolean },
-): Promise<string> {
-  return await executeProdReadRequest(toolCtx, {
-    scope: "global",
-    provider: "cloudflare",
-    resourceKind: "pages_project_inventory",
-    toolName: "request_cloudflare_pages_projects_read",
-    params: {
-      ...(typeof input.accountId === "string"
-        ? { accountId: input.accountId }
-        : {}),
-      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
-    },
-    allowRawFallback: input.allowRawFallback,
-  });
-}
-
-async function executeRequestConvexDataRead(
-  toolCtx: ToolContext,
-  input: {
-    table: AllowedDataTable;
-    scope?: "vault" | "global";
-    limit?: number;
-    allowRawFallback?: boolean;
-  },
-): Promise<string> {
-  const scope = input.scope ?? "vault";
-  return await executeProdReadRequest(toolCtx, {
-    scope,
-    provider: "convex",
-    resourceKind: "data_query",
-    toolName: "request_convex_data_read",
-    params: {
-      table: input.table,
-      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
-    },
-    allowRawFallback: input.allowRawFallback,
-  });
 }
 
 // --- Convex Agent Tool Definitions ---
@@ -630,7 +391,10 @@ export function createTools(toolCtx: ToolContext) {
       description: catalogDescription("request_convex_status_read"),
       args: z.object({}),
       handler: async () => {
-        return await executeRequestConvexStatusRead(toolCtx);
+        return await executeSharedRuntimeTool(toolCtx, {
+          toolName: "request_convex_status_read",
+          input: {},
+        });
       },
     }),
 
@@ -650,7 +414,10 @@ export function createTools(toolCtx: ToolContext) {
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
       handler: async (_ctx, input) => {
-        return await executeRequestConvexLogsRead(toolCtx, input);
+        return await executeSharedRuntimeTool(toolCtx, {
+          toolName: "request_convex_logs_read",
+          input,
+        });
       },
     }),
 
@@ -658,7 +425,10 @@ export function createTools(toolCtx: ToolContext) {
       description: catalogDescription("request_netlify_status_read"),
       args: z.object({}),
       handler: async () => {
-        return await executeRequestNetlifyStatusRead(toolCtx);
+        return await executeSharedRuntimeTool(toolCtx, {
+          toolName: "request_netlify_status_read",
+          input: {},
+        });
       },
     }),
 
@@ -678,7 +448,10 @@ export function createTools(toolCtx: ToolContext) {
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
       handler: async (_ctx, input) => {
-        return await executeRequestNetlifyLogsRead(toolCtx, input);
+        return await executeSharedRuntimeTool(toolCtx, {
+          toolName: "request_netlify_logs_read",
+          input,
+        });
       },
     }),
 
@@ -698,7 +471,10 @@ export function createTools(toolCtx: ToolContext) {
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
       handler: async (_ctx, input) => {
-        return await executeRequestConvexProjectsRead(toolCtx, input);
+        return await executeSharedRuntimeTool(toolCtx, {
+          toolName: "request_convex_projects_read",
+          input,
+        });
       },
     }),
 
@@ -718,7 +494,10 @@ export function createTools(toolCtx: ToolContext) {
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
       handler: async (_ctx, input) => {
-        return await executeRequestNetlifyProjectsRead(toolCtx, input);
+        return await executeSharedRuntimeTool(toolCtx, {
+          toolName: "request_netlify_projects_read",
+          input,
+        });
       },
     }),
 
@@ -738,7 +517,10 @@ export function createTools(toolCtx: ToolContext) {
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
       handler: async (_ctx, input) => {
-        return await executeRequestCloudflareAccountsRead(toolCtx, input);
+        return await executeSharedRuntimeTool(toolCtx, {
+          toolName: "request_cloudflare_accounts_read",
+          input,
+        });
       },
     }),
 
@@ -764,7 +546,10 @@ export function createTools(toolCtx: ToolContext) {
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
       handler: async (_ctx, input) => {
-        return await executeRequestCloudflarePagesProjectsRead(toolCtx, input);
+        return await executeSharedRuntimeTool(toolCtx, {
+          toolName: "request_cloudflare_pages_projects_read",
+          input,
+        });
       },
     }),
 
@@ -789,7 +574,10 @@ export function createTools(toolCtx: ToolContext) {
           .describe("In owner mode, allow explicit raw payload fallback"),
       }),
       handler: async (_ctx, input) => {
-        return await executeRequestConvexDataRead(toolCtx, input);
+        return await executeSharedRuntimeTool(toolCtx, {
+          toolName: "request_convex_data_read",
+          input,
+        });
       },
     }),
   };

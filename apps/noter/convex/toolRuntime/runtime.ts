@@ -86,6 +86,7 @@ async function resolveToolContext(
   { ok: true; value: ResolvedToolContext } | { ok: false; message: string }
 > {
   const branch = normalizeOptionalString(args.branch);
+  const threadId = normalizeOptionalString(args.threadId);
   const vault =
     args.vaultId === undefined
       ? null
@@ -131,7 +132,7 @@ async function resolveToolContext(
       vault,
       branch,
       githubAccessToken,
-      threadId: args.threadId,
+      threadId,
       requestId: args.requestId,
     },
   };

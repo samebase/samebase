@@ -760,7 +760,7 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     const args = parseToolArguments(params.arguments);
     const toolInput: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(args)) {
-      if (key !== "vaultId" && key !== "branch") {
+      if (key !== "vaultId" && key !== "branch" && key !== "threadId") {
         toolInput[key] = value;
       }
     }
@@ -776,6 +776,9 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
         : {}),
       ...(tool.requiresBranchContext
         ? { branch: normalizeOptionalString(args.branch) }
+        : {}),
+      ...(tool.requiresThreadContext
+        ? { threadId: normalizeOptionalString(args.threadId) }
         : {}),
       ...(rpcRequest.id !== undefined && rpcRequest.id !== null
         ? { requestId: String(rpcRequest.id) }

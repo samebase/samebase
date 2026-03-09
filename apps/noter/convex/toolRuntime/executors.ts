@@ -41,6 +41,76 @@ type DeleteFileInput = {
   path: string;
 };
 
+type ProdReadScope = "vault" | "global";
+type ProdReadProvider = "convex" | "netlify" | "cloudflare";
+type ProdReadResourceKind =
+  | "deployment_status"
+  | "logs"
+  | "data_query"
+  | "project_inventory"
+  | "site_inventory"
+  | "account_inventory"
+  | "pages_project_inventory";
+
+type AllowedDataTable =
+  | "vaults"
+  | "vaultInfrastructure"
+  | "vaultDomains"
+  | "codespaces"
+  | "fileStaging"
+  | "aiProdAccessRequests"
+  | "aiProdAccessAudit";
+
+type ProdReadProposalPayload = {
+  type: "prod_read_proposal";
+  requestId: string;
+  scope: ProdReadScope;
+  provider: ProdReadProvider;
+  resourceKind: ProdReadResourceKind;
+  toolName: string;
+  paramsPreview: string;
+  summary: string;
+  status: "proposed";
+};
+
+type RequestConvexLogsReadInput = {
+  maxLines?: number;
+  allowRawFallback?: boolean;
+};
+
+type RequestConvexProjectsReadInput = {
+  limit?: number;
+  allowRawFallback?: boolean;
+};
+
+type RequestNetlifyLogsReadInput = {
+  maxEntries?: number;
+  allowRawFallback?: boolean;
+};
+
+type RequestNetlifyProjectsReadInput = {
+  limit?: number;
+  allowRawFallback?: boolean;
+};
+
+type RequestCloudflareAccountsReadInput = {
+  limit?: number;
+  allowRawFallback?: boolean;
+};
+
+type RequestCloudflarePagesProjectsReadInput = {
+  accountId?: string;
+  limit?: number;
+  allowRawFallback?: boolean;
+};
+
+type RequestConvexDataReadInput = {
+  table: AllowedDataTable;
+  scope?: ProdReadScope;
+  limit?: number;
+  allowRawFallback?: boolean;
+};
+
 type StagedFile = {
   content: string;
   fileDeleted: boolean;
@@ -74,6 +144,15 @@ function requireBranch(context: ResolvedToolContext): string {
   return branch;
 }
 
+function requireThreadId(context: ResolvedToolContext): string {
+  const threadId =
+    typeof context.threadId === "string" ? context.threadId.trim() : "";
+  if (threadId.length === 0) {
+    throw new Error("Thread context is required for this tool.");
+  }
+  return threadId;
+}
+
 function requireGithubAccessToken(context: ResolvedToolContext): string {
   if (
     typeof context.githubAccessToken !== "string" ||
@@ -82,6 +161,43 @@ function requireGithubAccessToken(context: ResolvedToolContext): string {
     throw new Error("GitHub connection is required for this tool.");
   }
   return context.githubAccessToken;
+}
+
+function buildProdReadSummary(args: {
+  provider: ProdReadProvider;
+  resourceKind: ProdReadResourceKind;
+  scope: ProdReadScope;
+}): string {
+  const provider =
+    args.provider === "convex"
+      ? "Convex"
+      : args.provider === "netlify"
+        ? "Netlify"
+        : "Cloudflare";
+  const resource =
+    args.resourceKind === "deployment_status"
+      ? "deployment status"
+      : args.resourceKind === "logs"
+        ? "logs"
+        : args.resourceKind === "data_query"
+          ? "data sample"
+          : args.resourceKind === "project_inventory"
+            ? "project inventory"
+            : args.resourceKind === "site_inventory"
+              ? "site inventory"
+              : args.resourceKind === "account_inventory"
+                ? "account inventory"
+                : "Pages project inventory";
+  const scope = args.scope === "vault" ? "this vault" : "global scope";
+  return `I need your approval before reading ${provider} ${resource} for ${scope}.`;
+}
+
+function buildParamsPreview(params: Record<string, unknown>): string {
+  const json = JSON.stringify(params);
+  if (json.length <= 200) {
+    return json;
+  }
+  return `${json.slice(0, 200)}...`;
 }
 
 function toGitTreeRef(branch: string): string {
@@ -599,6 +715,208 @@ export async function executeDeleteFile(
   };
 }
 
+async function executeProdReadRequest(args: {
+  context: ResolvedToolContext;
+  scope: ProdReadScope;
+  provider: ProdReadProvider;
+  resourceKind: ProdReadResourceKind;
+  toolName: string;
+  params: Record<string, unknown>;
+  allowRawFallback?: boolean;
+}): Promise<ToolExecutionOutput> {
+  const threadId = requireThreadId(args.context);
+  const proposal = await args.context.ctx.runMutation(
+    internal.chat.index.proposeProdReadInternal,
+    {
+      threadId,
+      requesterUserId: args.context.userId,
+      vaultId:
+        args.scope === "vault" ? requireVault(args.context)._id : undefined,
+      scope: args.scope,
+      provider: args.provider,
+      resourceKind: args.resourceKind,
+      toolName: args.toolName,
+      paramsJson: JSON.stringify(args.params),
+      allowRawFallback: args.allowRawFallback,
+    },
+  );
+
+  const structuredContent: ProdReadProposalPayload = {
+    type: "prod_read_proposal",
+    requestId: proposal.requestId,
+    scope: args.scope,
+    provider: args.provider,
+    resourceKind: args.resourceKind,
+    toolName: args.toolName,
+    paramsPreview: buildParamsPreview(args.params),
+    summary: buildProdReadSummary({
+      scope: args.scope,
+      provider: args.provider,
+      resourceKind: args.resourceKind,
+    }),
+    status: "proposed",
+  };
+
+  return {
+    text: structuredContent.summary,
+    structuredContent,
+  };
+}
+
+async function executeRequestConvexStatusRead(
+  context: ResolvedToolContext,
+): Promise<ToolExecutionOutput> {
+  return executeProdReadRequest({
+    context,
+    scope: "vault",
+    provider: "convex",
+    resourceKind: "deployment_status",
+    toolName: "request_convex_status_read",
+    params: {},
+  });
+}
+
+async function executeRequestConvexLogsRead(
+  context: ResolvedToolContext,
+  input: RequestConvexLogsReadInput,
+): Promise<ToolExecutionOutput> {
+  return executeProdReadRequest({
+    context,
+    scope: "vault",
+    provider: "convex",
+    resourceKind: "logs",
+    toolName: "request_convex_logs_read",
+    params: {
+      ...(typeof input.maxLines === "number"
+        ? { maxLines: input.maxLines }
+        : {}),
+    },
+    allowRawFallback: input.allowRawFallback,
+  });
+}
+
+async function executeRequestConvexProjectsRead(
+  context: ResolvedToolContext,
+  input: RequestConvexProjectsReadInput,
+): Promise<ToolExecutionOutput> {
+  return executeProdReadRequest({
+    context,
+    scope: "global",
+    provider: "convex",
+    resourceKind: "project_inventory",
+    toolName: "request_convex_projects_read",
+    params: {
+      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
+    },
+    allowRawFallback: input.allowRawFallback,
+  });
+}
+
+async function executeRequestNetlifyStatusRead(
+  context: ResolvedToolContext,
+): Promise<ToolExecutionOutput> {
+  return executeProdReadRequest({
+    context,
+    scope: "vault",
+    provider: "netlify",
+    resourceKind: "deployment_status",
+    toolName: "request_netlify_status_read",
+    params: {},
+  });
+}
+
+async function executeRequestNetlifyLogsRead(
+  context: ResolvedToolContext,
+  input: RequestNetlifyLogsReadInput,
+): Promise<ToolExecutionOutput> {
+  return executeProdReadRequest({
+    context,
+    scope: "vault",
+    provider: "netlify",
+    resourceKind: "logs",
+    toolName: "request_netlify_logs_read",
+    params: {
+      ...(typeof input.maxEntries === "number"
+        ? { maxEntries: input.maxEntries }
+        : {}),
+    },
+    allowRawFallback: input.allowRawFallback,
+  });
+}
+
+async function executeRequestNetlifyProjectsRead(
+  context: ResolvedToolContext,
+  input: RequestNetlifyProjectsReadInput,
+): Promise<ToolExecutionOutput> {
+  return executeProdReadRequest({
+    context,
+    scope: "global",
+    provider: "netlify",
+    resourceKind: "site_inventory",
+    toolName: "request_netlify_projects_read",
+    params: {
+      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
+    },
+    allowRawFallback: input.allowRawFallback,
+  });
+}
+
+async function executeRequestCloudflareAccountsRead(
+  context: ResolvedToolContext,
+  input: RequestCloudflareAccountsReadInput,
+): Promise<ToolExecutionOutput> {
+  return executeProdReadRequest({
+    context,
+    scope: "global",
+    provider: "cloudflare",
+    resourceKind: "account_inventory",
+    toolName: "request_cloudflare_accounts_read",
+    params: {
+      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
+    },
+    allowRawFallback: input.allowRawFallback,
+  });
+}
+
+async function executeRequestCloudflarePagesProjectsRead(
+  context: ResolvedToolContext,
+  input: RequestCloudflarePagesProjectsReadInput,
+): Promise<ToolExecutionOutput> {
+  return executeProdReadRequest({
+    context,
+    scope: "global",
+    provider: "cloudflare",
+    resourceKind: "pages_project_inventory",
+    toolName: "request_cloudflare_pages_projects_read",
+    params: {
+      ...(typeof input.accountId === "string"
+        ? { accountId: input.accountId }
+        : {}),
+      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
+    },
+    allowRawFallback: input.allowRawFallback,
+  });
+}
+
+async function executeRequestConvexDataRead(
+  context: ResolvedToolContext,
+  input: RequestConvexDataReadInput,
+): Promise<ToolExecutionOutput> {
+  const scope = input.scope ?? "vault";
+  return executeProdReadRequest({
+    context,
+    scope,
+    provider: "convex",
+    resourceKind: "data_query",
+    toolName: "request_convex_data_read",
+    params: {
+      table: input.table,
+      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
+    },
+    allowRawFallback: input.allowRawFallback,
+  });
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -727,6 +1045,228 @@ function parseDeleteFileInput(value: unknown): DeleteFileInput | null {
   };
 }
 
+function parseOptionalBoolean(value: unknown): boolean | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function parseOptionalPositiveInteger(value: unknown): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    return undefined;
+  }
+  return value > 0 ? value : undefined;
+}
+
+function parseOptionalString(value: unknown): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  return typeof value === "string" ? value : undefined;
+}
+
+function parseRequestConvexLogsReadInput(
+  value: unknown,
+): RequestConvexLogsReadInput | null {
+  const record = toRecord(value);
+  if (!record) {
+    return null;
+  }
+
+  const maxLines = parseOptionalPositiveInteger(record.maxLines);
+  if (record.maxLines !== undefined && maxLines === undefined) {
+    return null;
+  }
+  const allowRawFallback = parseOptionalBoolean(record.allowRawFallback);
+  if (record.allowRawFallback !== undefined && allowRawFallback === undefined) {
+    return null;
+  }
+
+  return {
+    ...(maxLines !== undefined ? { maxLines } : {}),
+    ...(allowRawFallback !== undefined ? { allowRawFallback } : {}),
+  };
+}
+
+function parseRequestConvexProjectsReadInput(
+  value: unknown,
+): RequestConvexProjectsReadInput | null {
+  const record = toRecord(value);
+  if (!record) {
+    return null;
+  }
+
+  const limit = parseOptionalPositiveInteger(record.limit);
+  if (record.limit !== undefined && limit === undefined) {
+    return null;
+  }
+  const allowRawFallback = parseOptionalBoolean(record.allowRawFallback);
+  if (record.allowRawFallback !== undefined && allowRawFallback === undefined) {
+    return null;
+  }
+
+  return {
+    ...(limit !== undefined ? { limit } : {}),
+    ...(allowRawFallback !== undefined ? { allowRawFallback } : {}),
+  };
+}
+
+function parseRequestNetlifyLogsReadInput(
+  value: unknown,
+): RequestNetlifyLogsReadInput | null {
+  const record = toRecord(value);
+  if (!record) {
+    return null;
+  }
+
+  const maxEntries = parseOptionalPositiveInteger(record.maxEntries);
+  if (record.maxEntries !== undefined && maxEntries === undefined) {
+    return null;
+  }
+  const allowRawFallback = parseOptionalBoolean(record.allowRawFallback);
+  if (record.allowRawFallback !== undefined && allowRawFallback === undefined) {
+    return null;
+  }
+
+  return {
+    ...(maxEntries !== undefined ? { maxEntries } : {}),
+    ...(allowRawFallback !== undefined ? { allowRawFallback } : {}),
+  };
+}
+
+function parseRequestNetlifyProjectsReadInput(
+  value: unknown,
+): RequestNetlifyProjectsReadInput | null {
+  const record = toRecord(value);
+  if (!record) {
+    return null;
+  }
+
+  const limit = parseOptionalPositiveInteger(record.limit);
+  if (record.limit !== undefined && limit === undefined) {
+    return null;
+  }
+  const allowRawFallback = parseOptionalBoolean(record.allowRawFallback);
+  if (record.allowRawFallback !== undefined && allowRawFallback === undefined) {
+    return null;
+  }
+
+  return {
+    ...(limit !== undefined ? { limit } : {}),
+    ...(allowRawFallback !== undefined ? { allowRawFallback } : {}),
+  };
+}
+
+function parseRequestCloudflareAccountsReadInput(
+  value: unknown,
+): RequestCloudflareAccountsReadInput | null {
+  const record = toRecord(value);
+  if (!record) {
+    return null;
+  }
+
+  const limit = parseOptionalPositiveInteger(record.limit);
+  if (record.limit !== undefined && limit === undefined) {
+    return null;
+  }
+  const allowRawFallback = parseOptionalBoolean(record.allowRawFallback);
+  if (record.allowRawFallback !== undefined && allowRawFallback === undefined) {
+    return null;
+  }
+
+  return {
+    ...(limit !== undefined ? { limit } : {}),
+    ...(allowRawFallback !== undefined ? { allowRawFallback } : {}),
+  };
+}
+
+function parseRequestCloudflarePagesProjectsReadInput(
+  value: unknown,
+): RequestCloudflarePagesProjectsReadInput | null {
+  const record = toRecord(value);
+  if (!record) {
+    return null;
+  }
+
+  const accountId = parseOptionalString(record.accountId);
+  if (record.accountId !== undefined && accountId === undefined) {
+    return null;
+  }
+  const limit = parseOptionalPositiveInteger(record.limit);
+  if (record.limit !== undefined && limit === undefined) {
+    return null;
+  }
+  const allowRawFallback = parseOptionalBoolean(record.allowRawFallback);
+  if (record.allowRawFallback !== undefined && allowRawFallback === undefined) {
+    return null;
+  }
+
+  return {
+    ...(accountId !== undefined ? { accountId } : {}),
+    ...(limit !== undefined ? { limit } : {}),
+    ...(allowRawFallback !== undefined ? { allowRawFallback } : {}),
+  };
+}
+
+function parseConvexDataTable(value: unknown): AllowedDataTable | undefined {
+  if (
+    value === "vaults" ||
+    value === "vaultInfrastructure" ||
+    value === "vaultDomains" ||
+    value === "codespaces" ||
+    value === "fileStaging" ||
+    value === "aiProdAccessRequests" ||
+    value === "aiProdAccessAudit"
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+function parseProdReadScope(value: unknown): ProdReadScope | undefined {
+  if (value === "vault" || value === "global") {
+    return value;
+  }
+  return undefined;
+}
+
+function parseRequestConvexDataReadInput(
+  value: unknown,
+): RequestConvexDataReadInput | null {
+  const record = toRecord(value);
+  if (!record) {
+    return null;
+  }
+
+  const table = parseConvexDataTable(record.table);
+  if (!table) {
+    return null;
+  }
+  const scope = parseProdReadScope(record.scope);
+  if (record.scope !== undefined && scope === undefined) {
+    return null;
+  }
+  const limit = parseOptionalPositiveInteger(record.limit);
+  if (record.limit !== undefined && limit === undefined) {
+    return null;
+  }
+  const allowRawFallback = parseOptionalBoolean(record.allowRawFallback);
+  if (record.allowRawFallback !== undefined && allowRawFallback === undefined) {
+    return null;
+  }
+
+  return {
+    table,
+    ...(scope !== undefined ? { scope } : {}),
+    ...(limit !== undefined ? { limit } : {}),
+    ...(allowRawFallback !== undefined ? { allowRawFallback } : {}),
+  };
+}
+
 export async function executeRuntimeTool(args: {
   toolName: string;
   context: ResolvedToolContext;
@@ -778,6 +1318,61 @@ export async function executeRuntimeTool(args: {
         throw new Error("Invalid delete_file input.");
       }
       return executeDeleteFile(args.context, input);
+    }
+    case "request_convex_status_read":
+      return executeRequestConvexStatusRead(args.context);
+    case "request_convex_logs_read": {
+      const input = parseRequestConvexLogsReadInput(args.input);
+      if (!input) {
+        throw new Error("Invalid request_convex_logs_read input.");
+      }
+      return executeRequestConvexLogsRead(args.context, input);
+    }
+    case "request_convex_projects_read": {
+      const input = parseRequestConvexProjectsReadInput(args.input);
+      if (!input) {
+        throw new Error("Invalid request_convex_projects_read input.");
+      }
+      return executeRequestConvexProjectsRead(args.context, input);
+    }
+    case "request_netlify_status_read":
+      return executeRequestNetlifyStatusRead(args.context);
+    case "request_netlify_logs_read": {
+      const input = parseRequestNetlifyLogsReadInput(args.input);
+      if (!input) {
+        throw new Error("Invalid request_netlify_logs_read input.");
+      }
+      return executeRequestNetlifyLogsRead(args.context, input);
+    }
+    case "request_netlify_projects_read": {
+      const input = parseRequestNetlifyProjectsReadInput(args.input);
+      if (!input) {
+        throw new Error("Invalid request_netlify_projects_read input.");
+      }
+      return executeRequestNetlifyProjectsRead(args.context, input);
+    }
+    case "request_cloudflare_accounts_read": {
+      const input = parseRequestCloudflareAccountsReadInput(args.input);
+      if (!input) {
+        throw new Error("Invalid request_cloudflare_accounts_read input.");
+      }
+      return executeRequestCloudflareAccountsRead(args.context, input);
+    }
+    case "request_cloudflare_pages_projects_read": {
+      const input = parseRequestCloudflarePagesProjectsReadInput(args.input);
+      if (!input) {
+        throw new Error(
+          "Invalid request_cloudflare_pages_projects_read input.",
+        );
+      }
+      return executeRequestCloudflarePagesProjectsRead(args.context, input);
+    }
+    case "request_convex_data_read": {
+      const input = parseRequestConvexDataReadInput(args.input);
+      if (!input) {
+        throw new Error("Invalid request_convex_data_read input.");
+      }
+      return executeRequestConvexDataRead(args.context, input);
     }
     default:
       throw new Error(`No executor for tool: ${args.toolName}`);

@@ -8,11 +8,14 @@ type MutationCall = {
 };
 
 type QueryHandler = (args: Record<string, unknown>) => unknown;
+type MutationHandler = (args: Record<string, unknown>) => unknown;
 
 function makeResolvedContext(args?: {
   queryHandler?: QueryHandler;
+  mutationHandler?: MutationHandler;
   mutationCalls?: MutationCall[];
   branch?: string;
+  threadId?: string;
 }): ResolvedToolContext {
   const mutationCalls = args?.mutationCalls ?? [];
 
@@ -29,8 +32,11 @@ function makeResolvedContext(args?: {
     runMutation: async (
       _mutationRef: unknown,
       mutationArgs: Record<string, unknown>,
-    ): Promise<null> => {
+    ): Promise<unknown> => {
       mutationCalls.push({ args: mutationArgs });
+      if (args?.mutationHandler) {
+        return args.mutationHandler(mutationArgs);
+      }
       return null;
     },
   };
@@ -52,6 +58,7 @@ function makeResolvedContext(args?: {
       state: "ready",
     },
     branch: args?.branch ?? "main",
+    threadId: args?.threadId ?? "thread_test",
     githubAccessToken: "gho_test",
   };
 }
@@ -203,5 +210,41 @@ describe("executeRuntimeTool write dispatch", () => {
         input: {},
       }),
     ).rejects.toThrow("No executor for tool: not_a_tool");
+  });
+
+  it("creates a prod-read proposal payload through shared runtime executor", async () => {
+    const mutationCalls: MutationCall[] = [];
+    const context = makeResolvedContext({
+      mutationCalls,
+      threadId: "thread_123",
+      mutationHandler: () => ({ requestId: "request_123" }),
+    });
+
+    const output = await executeRuntimeTool({
+      toolName: "request_convex_data_read",
+      context,
+      input: { table: "vaults", scope: "global", limit: 5 },
+    });
+
+    expect(output.text).toContain("I need your approval before reading Convex");
+    expect(output.structuredContent).toMatchObject({
+      type: "prod_read_proposal",
+      requestId: "request_123",
+      scope: "global",
+      provider: "convex",
+      resourceKind: "data_query",
+      toolName: "request_convex_data_read",
+      status: "proposed",
+    });
+    expect(mutationCalls).toHaveLength(1);
+    expect(mutationCalls[0].args).toMatchObject({
+      threadId: "thread_123",
+      requesterUserId: "users_test",
+      scope: "global",
+      provider: "convex",
+      resourceKind: "data_query",
+      toolName: "request_convex_data_read",
+    });
+    expect(typeof mutationCalls[0].args.paramsJson).toBe("string");
   });
 });

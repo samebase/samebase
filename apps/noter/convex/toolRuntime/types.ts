@@ -31,6 +31,7 @@ export interface ToolDefinition<TInput> {
   requiredScopes: McpScope[];
   requiresVaultContext: boolean;
   requiresBranchContext: boolean;
+  requiresThreadContext: boolean;
   requiresGithubConnection: boolean;
   safety: ToolSafety;
   inputSchema: ToolJsonSchema;
