@@ -12,6 +12,24 @@ function makeRequest(request: Omit<ToolRunRequest, "userId">): ToolRunRequest {
   };
 }
 
+function inputForTool(toolName: string): unknown {
+  switch (toolName) {
+    case "edit_file":
+      return { path: "README.md", content: "updated" };
+    case "create_file":
+      return { path: "NEW.md", content: "new" };
+    case "delete_file":
+      return { path: "README.md" };
+    case "replace_in_file":
+      return {
+        path: "README.md",
+        replacements: [{ oldText: "old", newText: "new" }],
+      };
+    default:
+      return {};
+  }
+}
+
 describe("validateToolPolicy", () => {
   it("rejects calls on unsupported surfaces", () => {
     const tool = findToolInCatalog({ name: "vaults.list" });
@@ -169,5 +187,37 @@ describe("validateToolPolicy", () => {
     });
 
     expect(result).toEqual({ ok: true });
+  });
+
+  it("requires files.write scope for every write tool", () => {
+    const writeToolNames = [
+      "edit_file",
+      "replace_in_file",
+      "create_file",
+      "delete_file",
+    ];
+
+    for (const toolName of writeToolNames) {
+      const tool = findToolInCatalog({ name: toolName });
+      expect(tool).not.toBeNull();
+      if (!tool) {
+        continue;
+      }
+
+      const result = validateToolPolicy({
+        tool,
+        request: makeRequest({
+          toolName: tool.name,
+          input: inputForTool(tool.name),
+          surface: "mcp",
+          grantedScopes: ["files.read"],
+          vaultId: "vault_123",
+          branch: "main",
+        }),
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.message).toBe(`Insufficient scope for ${tool.name}.`);
+    }
   });
 });

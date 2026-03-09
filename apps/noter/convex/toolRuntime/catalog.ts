@@ -17,6 +17,27 @@ const editFileInputSchema = z.object({
   path: z.string().describe("File path relative to repository root"),
   content: z.string().describe("The new full content of the file"),
 });
+const replaceInFileReplacementSchema = z.object({
+  oldText: z
+    .string()
+    .min(1)
+    .describe("Exact existing text to replace, including whitespace"),
+  newText: z.string().describe("Replacement text"),
+});
+const replaceInFileInputSchema = z.object({
+  path: z.string().describe("File path relative to repository root"),
+  replacements: z
+    .array(replaceInFileReplacementSchema)
+    .min(1)
+    .describe("Exact oldText/newText replacements to apply atomically"),
+});
+const createFileInputSchema = z.object({
+  path: z.string().describe("File path relative to repository root"),
+  content: z.string().describe("The content of the new file"),
+});
+const deleteFileInputSchema = z.object({
+  path: z.string().describe("File path relative to repository root"),
+});
 
 export interface ToolCatalogEntry<TInput> extends ToolDefinition<TInput> {}
 
@@ -133,6 +154,66 @@ export const editFileToolInputSchema: ToolJsonSchema = {
   additionalProperties: false,
 };
 
+export const replaceInFileToolInputSchema: ToolJsonSchema = {
+  type: "object",
+  properties: {
+    path: {
+      type: "string",
+      description: "File path relative to repository root.",
+    },
+    replacements: {
+      type: "array",
+      description: "Exact oldText/newText replacements to apply atomically.",
+      items: {
+        type: "object",
+        properties: {
+          oldText: {
+            type: "string",
+            description: "Exact existing text to replace.",
+          },
+          newText: {
+            type: "string",
+            description: "Replacement text.",
+          },
+        },
+        required: ["oldText", "newText"],
+        additionalProperties: false,
+      },
+      minItems: 1,
+    },
+  },
+  required: ["path", "replacements"],
+  additionalProperties: false,
+};
+
+export const createFileToolInputSchema: ToolJsonSchema = {
+  type: "object",
+  properties: {
+    path: {
+      type: "string",
+      description: "File path relative to repository root.",
+    },
+    content: {
+      type: "string",
+      description: "The content of the new file.",
+    },
+  },
+  required: ["path", "content"],
+  additionalProperties: false,
+};
+
+export const deleteFileToolInputSchema: ToolJsonSchema = {
+  type: "object",
+  properties: {
+    path: {
+      type: "string",
+      description: "File path relative to repository root.",
+    },
+  },
+  required: ["path"],
+  additionalProperties: false,
+};
+
 export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
   {
     name: "vaults.list",
@@ -185,6 +266,45 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     safety: "write",
     inputSchema: editFileToolInputSchema,
     agentArgs: editFileInputSchema,
+  },
+  {
+    name: "replace_in_file",
+    description:
+      "Edit an existing file by replacing exact text snippets without rewriting the whole file. Required inputs: path and a non-empty replacements array of { oldText, newText }.",
+    surfaces: ["agent", "mcp"],
+    requiredScopes: ["files.write"],
+    requiresVaultContext: true,
+    requiresBranchContext: true,
+    requiresGithubConnection: true,
+    safety: "write",
+    inputSchema: replaceInFileToolInputSchema,
+    agentArgs: replaceInFileInputSchema,
+  },
+  {
+    name: "create_file",
+    description:
+      "Create a new file in the repository. Required inputs: path and content.",
+    surfaces: ["agent", "mcp"],
+    requiredScopes: ["files.write"],
+    requiresVaultContext: true,
+    requiresBranchContext: true,
+    requiresGithubConnection: true,
+    safety: "write",
+    inputSchema: createFileToolInputSchema,
+    agentArgs: createFileInputSchema,
+  },
+  {
+    name: "delete_file",
+    description:
+      "Mark a file for deletion in the repository. Required input: path.",
+    surfaces: ["agent", "mcp"],
+    requiredScopes: ["files.write"],
+    requiresVaultContext: true,
+    requiresBranchContext: true,
+    requiresGithubConnection: true,
+    safety: "destructive",
+    inputSchema: deleteFileToolInputSchema,
+    agentArgs: deleteFileInputSchema,
   },
   {
     name: "get_vault_remote_branches",

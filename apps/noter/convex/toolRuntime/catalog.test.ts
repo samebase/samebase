@@ -24,7 +24,12 @@ describe("listCatalogToolsForSurface", () => {
       surface: "mcp",
       grantedScopes: ["files.write"],
     }).map((tool) => tool.name);
-    expect(writeTools).toEqual(["edit_file"]);
+    expect(writeTools).toEqual([
+      "edit_file",
+      "replace_in_file",
+      "create_file",
+      "delete_file",
+    ]);
 
     const allTools = listCatalogToolsForSurface({
       surface: "mcp",
@@ -35,6 +40,9 @@ describe("listCatalogToolsForSurface", () => {
       "read_file",
       "list_files",
       "edit_file",
+      "replace_in_file",
+      "create_file",
+      "delete_file",
       "get_vault_remote_branches",
     ]);
   });
@@ -49,6 +57,9 @@ describe("listCatalogToolsForSurface", () => {
       "read_file",
       "list_files",
       "edit_file",
+      "replace_in_file",
+      "create_file",
+      "delete_file",
       "get_vault_remote_branches",
     ]);
   });
@@ -67,6 +78,26 @@ describe("buildMcpToolInputSchema", () => {
     expect(schema.properties).toHaveProperty("vaultId");
     expect(schema.properties).toHaveProperty("branch");
     expect(schema.required).toEqual(["path", "vaultId", "branch"]);
+  });
+
+  it("preserves write tool fields and adds context requirements", () => {
+    const replaceInFile = findToolInCatalog({ name: "replace_in_file" });
+    expect(replaceInFile).not.toBeNull();
+    if (!replaceInFile) {
+      return;
+    }
+
+    const schema = buildMcpToolInputSchema(replaceInFile);
+    expect(schema.properties).toHaveProperty("path");
+    expect(schema.properties).toHaveProperty("replacements");
+    expect(schema.properties).toHaveProperty("vaultId");
+    expect(schema.properties).toHaveProperty("branch");
+    expect(schema.required).toEqual([
+      "path",
+      "replacements",
+      "vaultId",
+      "branch",
+    ]);
   });
 
   it("adds only vault context to vault-scoped tools", () => {

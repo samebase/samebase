@@ -3,11 +3,10 @@
 import { createTool } from "@convex-dev/agent";
 import { z } from "zod";
 import { Octokit } from "@octokit/rest";
-import { api, internal } from "../_generated/api";
+import { internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { TOOL_CATALOG } from "./toolCatalog";
-import { buildReplaceInFilePlan, ReplaceInFileError } from "./replaceInFile";
 
 const PROD_READ_SENTINEL = "__PROD_READ_PROPOSAL__:";
 type AllowedDataTable =
@@ -123,134 +122,6 @@ const GITHUB_API_ALLOWLIST = new Set([
   "search.commits",
 ]);
 
-interface ExistingFileSnapshot {
-  content: string;
-  parentCommitSha: string | null;
-  isStaged: boolean;
-  version: number;
-  filePath: string;
-}
-
-function hasStatusCode(
-  error: unknown,
-  status: number,
-): error is { status: number } {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    error.status === status
-  );
-}
-
-async function loadExistingFileSnapshot(
-  toolCtx: ToolContext,
-  path: string,
-): Promise<ExistingFileSnapshot> {
-  const staging = await loadStagedFileByPath(toolCtx, path);
-  if (staging) {
-    if (staging.fileDeleted === true) {
-      throw new ReplaceInFileError(
-        `replace_in_file failed: ${path} is marked deleted in staging`,
-        "deleted",
-      );
-    }
-    return {
-      content: staging.content,
-      parentCommitSha: staging.parentCommitSha ?? null,
-      isStaged: true,
-      version: staging.version,
-      filePath: staging.filePath,
-    };
-  }
-
-  const octokit = new Octokit({ auth: toolCtx.accessToken });
-  try {
-    const file = await octokit.rest.repos.getContent({
-      owner: toolCtx.owner,
-      repo: toolCtx.repo,
-      path,
-      ref: toolCtx.branch,
-    });
-    if (Array.isArray(file.data) || file.data.type !== "file") {
-      throw new ReplaceInFileError(
-        `replace_in_file failed: ${path} is a directory, not a file`,
-        "not_file",
-      );
-    }
-    return {
-      content: Buffer.from(file.data.content, "base64").toString("utf-8"),
-      parentCommitSha: file.data.sha,
-      isStaged: false,
-      version: 0,
-      filePath: path,
-    };
-  } catch (error) {
-    if (error instanceof ReplaceInFileError) {
-      throw error;
-    }
-    if (hasStatusCode(error, 404)) {
-      throw new ReplaceInFileError(
-        `replace_in_file failed: ${path} does not exist; use create_file`,
-        "not_found",
-      );
-    }
-    throw error;
-  }
-}
-
-async function loadStagedFileByPath(toolCtx: ToolContext, path: string) {
-  const byOriginalPath = await toolCtx.ctx.runQuery(
-    internal.fileStaging.getByOriginalPath,
-    {
-      vaultId: toolCtx.vaultId,
-      originalFilePath: path,
-      branch: toolCtx.branch,
-    },
-  );
-  if (byOriginalPath) {
-    return byOriginalPath;
-  }
-
-  return toolCtx.ctx.runQuery(api.fileStaging.getByNewPath, {
-    vaultId: toolCtx.vaultId,
-    newPath: path,
-    branch: toolCtx.branch,
-  });
-}
-
-async function loadExistingFileSnapshotOrNull(
-  toolCtx: ToolContext,
-  path: string,
-): Promise<ExistingFileSnapshot | null> {
-  try {
-    return await loadExistingFileSnapshot(toolCtx, path);
-  } catch (error) {
-    if (error instanceof ReplaceInFileError && error.code === "not_found") {
-      return null;
-    }
-    throw error;
-  }
-}
-
-function formatReplaceInFileResult(
-  path: string,
-  replacements: ReplaceInFileReplacement[],
-  resolvedEdits: ReturnType<typeof buildReplaceInFilePlan>["resolvedEdits"],
-): string {
-  return JSON.stringify(
-    {
-      path,
-      applied: resolvedEdits.length,
-      replacementCount: replacements.length,
-      resolvedEdits,
-      result: `File edited: ${path}`,
-    },
-    null,
-    2,
-  );
-}
-
 // --- Tool Executor Functions ---
 
 async function executeSharedRuntimeTool(
@@ -322,78 +193,30 @@ async function executeReplaceInFile(
   toolCtx: ToolContext,
   input: { path: string; replacements: ReplaceInFileReplacement[] },
 ): Promise<string> {
-  const snapshot = await loadExistingFileSnapshot(toolCtx, input.path);
-  const plan = buildReplaceInFilePlan({
-    sourceContent: snapshot.content,
-    replacements: input.replacements,
+  return await executeSharedRuntimeTool(toolCtx, {
+    toolName: "replace_in_file",
+    input,
   });
-
-  if (snapshot.isStaged) {
-    await toolCtx.ctx.runMutation(
-      internal.collaborative.pushSerializedChangeSetUpdate,
-      {
-        vaultId: toolCtx.vaultId,
-        filePath: snapshot.filePath,
-        branch: toolCtx.branch,
-        expectedVersion: snapshot.version,
-        serializedChangeSet: plan.serializedChangeSet,
-        userId: toolCtx.userId,
-      },
-    );
-  } else {
-    await toolCtx.ctx.runMutation(internal.fileStaging.saveToStaging, {
-      vaultId: toolCtx.vaultId,
-      initialFilePath: input.path,
-      content: plan.finalContent,
-      initialContent: snapshot.content,
-      parentCommitSha: snapshot.parentCommitSha,
-      branch: toolCtx.branch,
-      userId: toolCtx.userId,
-    });
-  }
-
-  return formatReplaceInFileResult(
-    input.path,
-    input.replacements,
-    plan.resolvedEdits,
-  );
 }
 
 async function executeCreateFile(
   toolCtx: ToolContext,
   input: { path: string; content: string },
 ): Promise<string> {
-  // Use saveToStaging with empty initialContent (new file has no prior content)
-  await toolCtx.ctx.runMutation(internal.fileStaging.saveToStaging, {
-    vaultId: toolCtx.vaultId,
-    initialFilePath: input.path,
-    content: input.content,
-    initialContent: "",
-    parentCommitSha: null,
-    branch: toolCtx.branch,
-    userId: toolCtx.userId,
+  return await executeSharedRuntimeTool(toolCtx, {
+    toolName: "create_file",
+    input,
   });
-  return `File created: ${input.path}`;
 }
 
 async function executeDeleteFile(
   toolCtx: ToolContext,
   input: { path: string },
 ): Promise<string> {
-  const snapshot = await loadExistingFileSnapshotOrNull(toolCtx, input.path);
-  const sha = snapshot?.parentCommitSha ?? null;
-
-  await toolCtx.ctx.runMutation(
-    internal.fileStaging.internalMarkFileForDeletion,
-    {
-      vaultId: toolCtx.vaultId,
-      filePath: snapshot?.filePath ?? input.path,
-      parentCommitSha: sha,
-      branch: toolCtx.branch,
-      userId: toolCtx.userId,
-    },
-  );
-  return `File marked for deletion: ${input.path}`;
+  return await executeSharedRuntimeTool(toolCtx, {
+    toolName: "delete_file",
+    input,
+  });
 }
 
 async function executeGithubApi(
