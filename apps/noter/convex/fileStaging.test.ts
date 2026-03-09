@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildClearAllStagingPlan,
   canAccessVaultStaging,
+  clearAllStagingImpl,
   selectRepositoryTreeForBranch,
   summarizeStagedFilesByBranch,
 } from "./fileStaging";
@@ -24,6 +25,91 @@ const defaultTree = [
     sha: "main-sha",
   },
 ];
+
+function createClearAllStagingTestContext(args: {
+  targetVaultId: string;
+  vault: {
+    userId: string;
+    ghRepoOwner: string;
+    ghRepoName: string;
+  } | null;
+  stagedFiles: Array<{ _id: string; vaultId: string; branch: string }>;
+}) {
+  const deletedIds: string[] = [];
+  const scheduledCalls: Array<{ delayMs: number; args: unknown }> = [];
+  const queriedScopes: Array<{
+    table: string;
+    indexName: string;
+    constraints: Array<{ field: string; value: string }>;
+  }> = [];
+
+  return {
+    deletedIds,
+    queriedScopes,
+    scheduledCalls,
+    ctx: {
+      db: {
+        get: async (id: string) =>
+          id === args.targetVaultId ? args.vault : null,
+        query: (table: string) => ({
+          withIndex: (
+            indexName: string,
+            buildIndex: (q: {
+              eq: (
+                field: string,
+                value: string,
+              ) => { eq: (field: string, value: string) => unknown };
+            }) => unknown,
+          ) => {
+            const constraints: Array<{ field: string; value: string }> = [];
+            const queryBuilder = {
+              eq: (field: string, value: string) => {
+                constraints.push({ field, value });
+                return queryBuilder;
+              },
+            };
+            buildIndex(queryBuilder);
+
+            return {
+              collect: async () => {
+                queriedScopes.push({ table, indexName, constraints });
+                if (table !== "fileStaging") {
+                  return [];
+                }
+
+                const vaultIdConstraint = constraints.find(
+                  (constraint) => constraint.field === "vaultId",
+                )?.value;
+                const branchConstraint = constraints.find(
+                  (constraint) => constraint.field === "branch",
+                )?.value;
+
+                return args.stagedFiles.filter(
+                  (file) =>
+                    file.vaultId === vaultIdConstraint &&
+                    (branchConstraint === undefined ||
+                      file.branch === branchConstraint),
+                );
+              },
+            };
+          },
+        }),
+        delete: async (id: string) => {
+          deletedIds.push(id);
+        },
+      },
+      scheduler: {
+        runAfter: async (
+          delayMs: number,
+          _fnRef: unknown,
+          scheduledArgs: unknown,
+        ) => {
+          scheduledCalls.push({ delayMs, args: scheduledArgs });
+        },
+      },
+    },
+  };
+}
 
 describe("selectRepositoryTreeForBranch", () => {
   it("returns the branch-scoped tree when it exists", () => {
@@ -244,5 +330,60 @@ describe("buildClearAllStagingPlan", () => {
       },
       treeRefreshArgs: null,
     });
+  });
+
+  it("clears only the requested branch and refreshes that branch", async () => {
+    const targetVaultId = "vault-1";
+    const targetBranch = "feature/login";
+    const context = createClearAllStagingTestContext({
+      targetVaultId,
+      vault: {
+        userId: "users:owner",
+        ghRepoOwner: "octo",
+        ghRepoName: "repo",
+      },
+      stagedFiles: [
+        { _id: "feature-1", vaultId: targetVaultId, branch: targetBranch },
+        { _id: "feature-2", vaultId: targetVaultId, branch: targetBranch },
+        { _id: "main-1", vaultId: targetVaultId, branch: "main" },
+        { _id: "other-vault", vaultId: "vault-2", branch: targetBranch },
+      ],
+    });
+
+    // @ts-expect-error Regression test uses a minimal MutationCtx stub that only includes accessed fields.
+    await clearAllStagingImpl(context.ctx, {
+      vaultId: targetVaultId,
+      branch: targetBranch,
+    });
+
+    expect(context.queriedScopes).toEqual([
+      {
+        table: "fileStaging",
+        indexName: "by_vault_and_branch",
+        constraints: [
+          { field: "vaultId", value: targetVaultId },
+          { field: "branch", value: targetBranch },
+        ],
+      },
+    ]);
+    expect(context.deletedIds).toEqual(["feature-1", "feature-2"]);
+    expect(context.scheduledCalls).toEqual([
+      {
+        delayMs: 0,
+        args: {
+          vaultId: targetVaultId,
+          branch: targetBranch,
+        },
+      },
+      {
+        delayMs: 0,
+        args: {
+          userId: "users:owner",
+          owner: "octo",
+          repo: "repo",
+          branch: targetBranch,
+        },
+      },
+    ]);
   });
 });
