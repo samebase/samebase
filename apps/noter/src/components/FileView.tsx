@@ -730,9 +730,7 @@ function FileViewInner({
   const commitReviewMode = useMemo<CommitReviewMode>(() => {
     return isDiffRequested ? "review" : "editor";
   }, [isDiffRequested]);
-  const [allowAutoExitReview, setAllowAutoExitReview] = useState(
-    () => commitReviewMode !== "review",
-  );
+  const [allowAutoExitReview, setAllowAutoExitReview] = useState(true);
   const reviewRouteKeyRef = useRef<string | null>(null);
 
   // Add command palette keyboard shortcut handler
@@ -1334,7 +1332,9 @@ function FileViewInner({
       return;
     }
     reviewRouteKeyRef.current = nextRouteKey;
-    setAllowAutoExitReview(commitReviewMode !== "review");
+    setAllowAutoExitReview((current) =>
+      commitReviewMode === "review" ? current : true,
+    );
   }, [branch, selectedFile, commitReviewMode]);
 
   useEffect(() => {
@@ -1365,7 +1365,6 @@ function FileViewInner({
     }
     // Dashboard staged-file links enter through ?review so we wait for branch
     // staging to resolve before switching the canonical URL to ?diff.
-    setAllowAutoExitReview(false);
     setCommitPreview(null);
     setCommitPreviewDisplayPreference("patch");
     setCommitPreviewDisplayMode("patch");

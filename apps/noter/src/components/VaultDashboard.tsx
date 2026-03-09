@@ -1551,9 +1551,7 @@ export function VaultDashboard() {
             const infraActionLabel = vault.isNoterManaged
               ? getInfraActionLabel(vault.infraState)
               : null;
-            const sharedLastSyncedAt =
-              activeRemoteBranches[0]?.lastSyncedAt ??
-              vault.remoteBranches[0]?.lastSyncedAt;
+            const sharedLastSyncedAt = vault.lastTreeRefreshAt;
             const isVaultSyncing =
               typeof vault.treeRefreshStartedAt === "number" &&
               now - vault.treeRefreshStartedAt < TREE_REFRESH_STALE_LOCK_MS;

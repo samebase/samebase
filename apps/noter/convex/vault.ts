@@ -771,7 +771,10 @@ export const syncVaultRemoteBranches = internalMutation({
         if (branch.aheadBehindState === "resolved") {
           patchData.aheadBy = branch.aheadBy;
           patchData.behindBy = branch.behindBy;
-        } else if (branch.aheadBehindState === "unavailable") {
+        } else if (
+          branch.aheadBehindState === "unavailable" ||
+          existingBranch.headCommitSha !== branch.headCommitSha
+        ) {
           patchData.aheadBy = undefined;
           patchData.behindBy = undefined;
         }
