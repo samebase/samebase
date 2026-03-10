@@ -202,7 +202,7 @@ describe("hasBranchStagingChanges", () => {
         filePath: "src/tmp.ts",
         initialFilePath: "src/tmp.ts",
         content: "temp",
-        initialContent: "temp",
+        initialContent: "",
       }),
     ).toBe(false);
   });

@@ -292,29 +292,9 @@ export const listStagedFiles = query({
       .withIndex("by_vault_and_branch", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", args.branch),
       )
-      .filter((q) =>
-        args.includeUnchanged
-          ? q.eq(true, true)
-          : q.or(
-              // content changed
-              q.neq(q.field("content"), q.field("initialContent")),
-              // file renamed
-              q.neq(q.field("filePath"), q.field("initialFilePath")),
-              // repository-backed deletions still count as staged work
-              q.and(
-                q.eq(q.field("fileDeleted"), true),
-                q.neq(q.field("parentCommitSha"), null),
-              ),
-              // brand-new files count only while they still exist in staging
-              q.and(
-                q.eq(q.field("parentCommitSha"), null),
-                q.eq(q.field("fileDeleted"), false),
-              ),
-            ),
-      )
       .collect();
 
-    return files;
+    return args.includeUnchanged ? files : files.filter(hasStagedFileChanges);
   },
 });
 
@@ -346,39 +326,23 @@ export const listAllStagedFiles = internalQuery({
   args: listAllStagedFilesArgsValidator,
   returns: stagedFileListValidator,
   handler: async (ctx, args) => {
-    let query;
+    let files;
     if (args.branch === undefined) {
-      query = ctx.db
+      files = await ctx.db
         .query("fileStaging")
-        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId));
+        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+        .collect();
     } else {
       const branch = args.branch;
-      query = ctx.db
+      files = await ctx.db
         .query("fileStaging")
         .withIndex("by_vault_and_branch", (q) =>
           q.eq("vaultId", args.vaultId).eq("branch", branch),
-        );
+        )
+        .collect();
     }
-    const files = await query
-      .filter((q) =>
-        args.includeUnchanged
-          ? q.eq(true, true)
-          : q.or(
-              q.neq(q.field("content"), q.field("initialContent")),
-              q.neq(q.field("filePath"), q.field("initialFilePath")),
-              q.and(
-                q.eq(q.field("fileDeleted"), true),
-                q.neq(q.field("parentCommitSha"), null),
-              ),
-              q.and(
-                q.eq(q.field("parentCommitSha"), null),
-                q.eq(q.field("fileDeleted"), false),
-              ),
-            ),
-      )
-      .collect();
 
-    return files;
+    return args.includeUnchanged ? files : files.filter(hasStagedFileChanges);
   },
 });
 
