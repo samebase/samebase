@@ -3,6 +3,8 @@ import {
   ProsemarkMergeEditor,
   type ProsemarkMergeEditorOptions,
 } from "@/components/ProsemarkMergeEditor";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { type CommitReviewFileStatus } from "@/lib/commitReviewStatus";
 
@@ -321,13 +323,60 @@ export function CommitReviewVisualFixture({
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="flex-1 overflow-auto">
                   {canRenderInline ? (
-                    <ProsemarkMergeEditor
-                      value={activeFile.richNewContent ?? ""}
-                      baseValue={activeFile.richOldContent ?? ""}
-                      options={INLINE_FIXTURE_OPTIONS}
-                      editable
-                      className="text-sm leading-6"
-                    />
+                    <div className="min-h-full">
+                      <div className="border-b px-3 py-2">
+                        <div className="flex flex-wrap gap-x-4 gap-y-2">
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id="fixture-inline-option-show-path"
+                              checked={false}
+                              disabled
+                            />
+                            <Label
+                              htmlFor="fixture-inline-option-show-path"
+                              className="text-xs font-medium text-muted-foreground"
+                            >
+                              Show path
+                            </Label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id="fixture-inline-option-allow-inline-diffs"
+                              checked={INLINE_FIXTURE_OPTIONS.allowInlineDiffs}
+                              disabled
+                            />
+                            <Label
+                              htmlFor="fixture-inline-option-allow-inline-diffs"
+                              className="text-xs font-medium text-muted-foreground"
+                            >
+                              Inline diffs
+                            </Label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id="fixture-inline-option-syntax-deletions"
+                              checked={
+                                INLINE_FIXTURE_OPTIONS.syntaxHighlightDeletions
+                              }
+                              disabled
+                            />
+                            <Label
+                              htmlFor="fixture-inline-option-syntax-deletions"
+                              className="text-xs font-medium text-muted-foreground"
+                            >
+                              Syntax deleted
+                            </Label>
+                          </div>
+                        </div>
+                      </div>
+                      <ProsemarkMergeEditor
+                        value={activeFile.richNewContent ?? ""}
+                        baseValue={activeFile.richOldContent ?? ""}
+                        options={INLINE_FIXTURE_OPTIONS}
+                        editable
+                        className="text-sm leading-6"
+                      />
+                    </div>
                   ) : (
                     <div className="p-3 font-mono text-xs leading-5">
                       {(activeFile.patch ?? "")

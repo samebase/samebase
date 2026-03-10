@@ -9,6 +9,8 @@ import {
   type AgentGraphNode,
 } from "@/components/AgentGraphView";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
@@ -180,6 +182,8 @@ const DEFAULT_INLINE_PREVIEW_OPTIONS = {
   syntaxHighlightDeletions: true,
   collapseUnchanged: false,
 } satisfies ProsemarkMergeEditorOptions;
+
+const DEFAULT_SHOW_INLINE_PREVIEW_PATH = false;
 
 function getStagedFileStatus(
   file: StagedFileRecord,
@@ -639,8 +643,11 @@ function FileViewInner({
     useState<StagedFileRecord["_id"] | null>(null);
   const [inlinePreviewDraftContent, setInlinePreviewDraftContent] =
     useState("");
-  const inlinePreviewOptions: ProsemarkMergeEditorOptions =
-    DEFAULT_INLINE_PREVIEW_OPTIONS;
+  const [inlinePreviewOptions, setInlinePreviewOptions] =
+    useState<ProsemarkMergeEditorOptions>(DEFAULT_INLINE_PREVIEW_OPTIONS);
+  const [showInlinePreviewPath, setShowInlinePreviewPath] = useState(
+    DEFAULT_SHOW_INLINE_PREVIEW_PATH,
+  );
   const [inlinePreviewSaveError, setInlinePreviewSaveError] = useState<
     string | null
   >(null);
@@ -1159,7 +1166,6 @@ function FileViewInner({
   const sidebarSelectedFile = selectedFile;
   const selectedPreviewCanRenderRichMarkdown = Boolean(
     selectedPreviewStagedFile &&
-      !selectedPreviewStagedFile.fileDeleted &&
       (selectedPreviewFile
         ? selectedPreviewFile.isMarkdown &&
           typeof selectedPreviewFile.richOldContent === "string" &&
@@ -1167,6 +1173,11 @@ function FileViewInner({
         : selectedFileSupportsInlineReview),
   );
   const selectedPreviewBaseContent = selectedPreviewFile?.richOldContent ?? "";
+  const selectedPreviewPathLabel =
+    selectedPreviewFile?.previousPath &&
+    selectedPreviewFile.previousPath !== selectedFile
+      ? `${selectedPreviewFile.previousPath} -> ${selectedFile}`
+      : selectedFile;
   const activePreviewPersistedContent = selectedPreviewStagedFile
     ? selectedPreviewStagedFile.fileDeleted
       ? ""
@@ -1787,6 +1798,78 @@ function FileViewInner({
                             <div className="flex-1 overflow-auto">
                               {selectedPreviewCanRenderInlineMarkdown ? (
                                 <div className="min-h-full">
+                                  <div className="border-b px-3 py-2">
+                                    <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                      <div className="flex items-center gap-2">
+                                        <Checkbox
+                                          id="inline-option-show-path"
+                                          checked={showInlinePreviewPath}
+                                          onCheckedChange={(checked) => {
+                                            setShowInlinePreviewPath(
+                                              checked === true,
+                                            );
+                                          }}
+                                        />
+                                        <Label
+                                          htmlFor="inline-option-show-path"
+                                          className="text-xs font-medium text-muted-foreground"
+                                        >
+                                          Show path
+                                        </Label>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <Checkbox
+                                          id="inline-option-allow-inline-diffs"
+                                          checked={
+                                            inlinePreviewOptions.allowInlineDiffs
+                                          }
+                                          onCheckedChange={(checked) => {
+                                            setInlinePreviewOptions(
+                                              (current) => ({
+                                                ...current,
+                                                allowInlineDiffs:
+                                                  checked === true,
+                                              }),
+                                            );
+                                          }}
+                                        />
+                                        <Label
+                                          htmlFor="inline-option-allow-inline-diffs"
+                                          className="text-xs font-medium text-muted-foreground"
+                                        >
+                                          Inline diffs
+                                        </Label>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <Checkbox
+                                          id="inline-option-syntax-deletions"
+                                          checked={
+                                            inlinePreviewOptions.syntaxHighlightDeletions
+                                          }
+                                          onCheckedChange={(checked) => {
+                                            setInlinePreviewOptions(
+                                              (current) => ({
+                                                ...current,
+                                                syntaxHighlightDeletions:
+                                                  checked === true,
+                                              }),
+                                            );
+                                          }}
+                                        />
+                                        <Label
+                                          htmlFor="inline-option-syntax-deletions"
+                                          className="text-xs font-medium text-muted-foreground"
+                                        >
+                                          Syntax deleted
+                                        </Label>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  {showInlinePreviewPath ? (
+                                    <div className="border-b px-3 py-1.5 font-mono text-[11px] text-muted-foreground">
+                                      {selectedPreviewPathLabel}
+                                    </div>
+                                  ) : null}
                                   {inlinePreviewSaveError ? (
                                     <div className="border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
                                       {inlinePreviewSaveError}
