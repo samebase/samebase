@@ -631,6 +631,12 @@ function FileViewInner({
     useState<StagedFileRecord["_id"] | null>(null);
   const [inlinePreviewDraftContent, setInlinePreviewDraftContent] =
     useState("");
+  const [inlinePreviewDraftBaseVersion, setInlinePreviewDraftBaseVersion] =
+    useState(0);
+  const [
+    inlinePreviewHasPendingLocalEdit,
+    setInlinePreviewHasPendingLocalEdit,
+  ] = useState(false);
   const [inlinePreviewOptions, setInlinePreviewOptions] =
     useState<ProsemarkMergeEditorOptions>(DEFAULT_INLINE_PREVIEW_OPTIONS);
   const [showInlinePreviewPatch, setShowInlinePreviewPatch] = useState(
@@ -935,9 +941,14 @@ function FileViewInner({
   );
 
   const handleFileSelect = useCallback(
-    (path: string) => {
+    (path: string, status?: CommitPreviewFileStatus) => {
       if (owner && repoName) {
-        void navigate(buildVaultFileUrl(path), { state });
+        void navigate(
+          buildVaultFileUrl(path, {
+            reviewMode: status === "deleted" ? "review" : undefined,
+          }),
+          { state },
+        );
 
         // close the sidebar
         setOpenMobile(false);
@@ -978,13 +989,16 @@ function FileViewInner({
   };
 
   // Handler for deleting files from the file tree
-  const handleFileDelete = async (filePath: string) => {
+  const handleFileDelete = async (
+    filePath: string,
+    originalPath = filePath,
+  ) => {
     if (!owner || !repoName) return;
 
     try {
       // Get the file's SHA from the tree (null for new files)
       const fileSha =
-        vault.treeData.tree.find((t: GithubTreeType) => t.path === filePath)
+        vault.treeData.tree.find((t: GithubTreeType) => t.path === originalPath)
           ?.sha ?? null;
 
       // Ensure we retain original file content in staging for review mode.
@@ -992,7 +1006,7 @@ function FileViewInner({
         try {
           await stageFileForEditing({
             repositoryFullName: `${owner}/${repoName}`,
-            originalFilePath: filePath,
+            originalFilePath: originalPath,
             branch,
           });
         } catch (error) {
@@ -1159,22 +1173,38 @@ function FileViewInner({
       ? ""
       : selectedPreviewStagedFile.content
     : selectedPreviewFile?.richNewContent ?? "";
+  const activePreviewPersistedVersion = selectedPreviewStagedFile?.version ?? 0;
   const activePreviewStagingId = selectedPreviewStagedFile?._id ?? null;
+  const inlinePreviewEditable = Boolean(
+    selectedPreviewStagedFile && !selectedPreviewStagedFile.fileDeleted,
+  );
   const inlinePreviewEditorContent =
     inlinePreviewDraftStagingId === activePreviewStagingId
       ? inlinePreviewDraftContent
       : activePreviewPersistedContent;
 
   useEffect(() => {
-    if (inlinePreviewDraftStagingId === activePreviewStagingId) {
+    if (inlinePreviewDraftStagingId !== activePreviewStagingId) {
+      setInlinePreviewDraftStagingId(activePreviewStagingId);
+      setInlinePreviewDraftContent(activePreviewPersistedContent);
+      setInlinePreviewDraftBaseVersion(activePreviewPersistedVersion);
+      setInlinePreviewHasPendingLocalEdit(false);
+      setInlinePreviewSaveError(null);
       return;
     }
-    setInlinePreviewDraftStagingId(activePreviewStagingId);
+
+    if (inlinePreviewHasPendingLocalEdit) {
+      return;
+    }
+
     setInlinePreviewDraftContent(activePreviewPersistedContent);
+    setInlinePreviewDraftBaseVersion(activePreviewPersistedVersion);
     setInlinePreviewSaveError(null);
   }, [
     activePreviewPersistedContent,
+    activePreviewPersistedVersion,
     activePreviewStagingId,
+    inlinePreviewHasPendingLocalEdit,
     inlinePreviewDraftStagingId,
   ]);
 
@@ -1184,23 +1214,36 @@ function FileViewInner({
 
   useEffect(() => {
     if (
+      commitReviewMode !== "review" ||
+      !inlinePreviewEditable ||
       !activePreviewStagingId ||
       inlinePreviewDraftStagingId !== activePreviewStagingId ||
-      inlinePreviewDraftContent === activePreviewPersistedContent
+      !inlinePreviewHasPendingLocalEdit
     ) {
+      return;
+    }
+
+    if (inlinePreviewDraftContent === activePreviewPersistedContent) {
+      setInlinePreviewDraftBaseVersion(activePreviewPersistedVersion);
+      setInlinePreviewHasPendingLocalEdit(false);
+      setInlinePreviewSaveError(null);
       return;
     }
 
     let cancelled = false;
     const nextStagingId = activePreviewStagingId;
     const nextContent = inlinePreviewDraftContent;
+    const nextBaseVersion = inlinePreviewDraftBaseVersion;
     const timeoutId = window.setTimeout(() => {
       void updateStagedFileContent({
         stagingId: nextStagingId,
         content: nextContent,
+        expectedVersion: nextBaseVersion,
       })
-        .then(() => {
+        .then((updatedStaging) => {
           if (!cancelled) {
+            setInlinePreviewDraftBaseVersion(updatedStaging.version);
+            setInlinePreviewHasPendingLocalEdit(false);
             setInlinePreviewSaveError(null);
           }
         })
@@ -1209,9 +1252,13 @@ function FileViewInner({
             return;
           }
           const message =
-            error instanceof Error && error.message.length > 0
-              ? error.message
-              : "Failed to save inline review edits.";
+            error instanceof Error &&
+            error.message.includes("stale base version")
+              ? "Inline review is out of date. Reopen the file to continue editing."
+              : error instanceof Error && error.message.length > 0
+                ? error.message
+                : "Failed to save inline review edits.";
+          setInlinePreviewHasPendingLocalEdit(false);
           setInlinePreviewSaveError(message);
         });
     }, 350);
@@ -1222,8 +1269,13 @@ function FileViewInner({
     };
   }, [
     activePreviewPersistedContent,
+    activePreviewPersistedVersion,
     activePreviewStagingId,
+    commitReviewMode,
     inlinePreviewDraftContent,
+    inlinePreviewDraftBaseVersion,
+    inlinePreviewEditable,
+    inlinePreviewHasPendingLocalEdit,
     inlinePreviewDraftStagingId,
     updateStagedFileContent,
   ]);
@@ -1579,7 +1631,9 @@ function FileViewInner({
               void handleFileRename(originalPath, newPath)
             }
             onFileCreate={handleCreateFileInFolder}
-            onFileDelete={(filePath) => void handleFileDelete(filePath)}
+            onFileDelete={(filePath, originalPath) =>
+              void handleFileDelete(filePath, originalPath)
+            }
             selectedFile={sidebarSelectedFile}
             folderExpansionStates={folderExpansionStates ?? []}
             onFolderToggle={handleFolderToggle}
@@ -1589,6 +1643,12 @@ function FileViewInner({
       )}
     </>
   );
+
+  const handleInlinePreviewChange = useCallback((nextContent: string) => {
+    setInlinePreviewDraftContent(nextContent);
+    setInlinePreviewHasPendingLocalEdit(true);
+    setInlinePreviewSaveError(null);
+  }, []);
 
   const headerTitle = selectedFile
     ? selectedFile.split("/").slice(0, -1).join("/") || "/"
@@ -1870,8 +1930,8 @@ function FileViewInner({
                                         ""
                                       }
                                       options={inlinePreviewOptions}
-                                      editable
-                                      onChange={setInlinePreviewDraftContent}
+                                      editable={inlinePreviewEditable}
+                                      onChange={handleInlinePreviewChange}
                                       className="text-sm leading-6"
                                     />
                                   )}

@@ -13,9 +13,8 @@ implementation that can:
 ## Current State
 
 The current `Inline` mode is a custom layer on top of
-`[ProsemarkReadOnly](/Users/nicu/.codex/worktrees/6543/noter/apps/noter/src/components/ProsemarkReadOnly.tsx)`
-and
-`[FileView](/Users/nicu/.codex/worktrees/6543/noter/apps/noter/src/components/FileView.tsx)`.
+[`ProsemarkReadOnly`](../apps/noter/src/components/ProsemarkReadOnly.tsx) and
+[`FileView`](../apps/noter/src/components/FileView.tsx).
 
 It currently:
 
@@ -104,7 +103,7 @@ This is the closest official solution to the UX we want.
 
 ### Existing repo constraints
 
-- `apps/noter/package.json` currently includes `diff`, but **does not** include
+- `apps/noter/package.json` currently includes `diff`, and this change adds
   `@codemirror/merge`
 - current inline mode is hand-rolled on top of `diffLines`
 - current markdown editor stack is based on `@prosemark/core`

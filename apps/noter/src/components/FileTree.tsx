@@ -48,10 +48,10 @@ interface FolderExpansionState {
 
 interface FileTreeProps {
   items: FileTreeItem[];
-  onFileSelect?: (path: string) => void;
+  onFileSelect?: (path: string, status?: CommitReviewFileStatus) => void;
   onFileRename?: (oldPath: string, newPath: string) => void;
   onFileCreate?: (folderPath: string, fileName: string) => void;
-  onFileDelete?: (path: string) => void;
+  onFileDelete?: (path: string, originalPath: string) => void;
   selectedFile?: string;
   folderExpansionStates: FolderExpansionState[];
   onFolderToggle?: (folderPath: string, isExpanded: boolean) => void;
@@ -130,10 +130,10 @@ function TreeNodeComponent({
 }: {
   node: TreeNode;
   level?: number;
-  onFileSelect?: (path: string) => void;
+  onFileSelect?: (path: string, status?: CommitReviewFileStatus) => void;
   onFileRename?: (originalPath: string, newPath: string) => void;
   onFileCreate?: (folderPath: string, fileName: string) => void;
-  onFileDelete?: (path: string) => void;
+  onFileDelete?: (path: string, originalPath: string) => void;
   selectedFile?: string;
   folderExpansionStates: FolderExpansionState[];
   onFolderToggle?: (folderPath: string, isExpanded: boolean) => void;
@@ -145,8 +145,9 @@ function TreeNodeComponent({
   const expansionState = folderExpansionStates.find(
     (state) => state.folderPath === node.path,
   );
-  const isOpen =
-    autoExpandedPaths.has(node.path) || expansionState?.isExpanded === true;
+  const isOpen = expansionState
+    ? expansionState.isExpanded === true
+    : autoExpandedPaths.has(node.path);
   const isMobile = useIsMobile();
 
   const [isRenaming, setIsRenaming] = useState(false);
@@ -174,15 +175,15 @@ function TreeNodeComponent({
       const newIsOpen = !isOpen;
       onFolderToggle?.(node.path, newIsOpen);
     } else {
-      onFileSelect?.(node.path);
+      onFileSelect?.(node.path, fileStatus);
     }
   };
 
   const handleRightClick = (e: React.MouseEvent) => {
+    e.preventDefault();
     if (isDeletedFile) {
       return;
     }
-    e.preventDefault();
     setContextMenu({ x: e.clientX, y: e.clientY });
   };
 
@@ -408,7 +409,7 @@ function TreeNodeComponent({
                 <button
                   className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50 text-destructive flex items-center gap-2"
                   onClick={() => {
-                    onFileDelete?.(node.path);
+                    onFileDelete?.(node.path, node.originalPath);
                     setContextMenu(null);
                   }}
                 >

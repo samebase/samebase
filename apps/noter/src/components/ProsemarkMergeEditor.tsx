@@ -1,11 +1,10 @@
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-} from "react";
-import { Compartment, EditorSelection, EditorState } from "@codemirror/state";
+  Annotation,
+  Compartment,
+  EditorSelection,
+  EditorState,
+} from "@codemirror/state";
 import {
   EditorView,
   drawSelection,
@@ -45,6 +44,8 @@ type ProsemarkMergeEditorProps = {
   options: ProsemarkMergeEditorOptions;
   onChange?: (value: string) => void;
 };
+
+const externalValueSyncAnnotation = Annotation.define<boolean>();
 
 function buildMergeExtensions(
   baseValue: string,
@@ -106,11 +107,15 @@ export function ProsemarkMergeEditor({
   const { theme, systemTheme } = useTheme();
   const effectiveTheme = theme === "system" ? systemTheme : theme;
   const isDark = effectiveTheme === "dark";
+  const { allowInlineDiffs, syntaxHighlightDeletions } = options;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const lastValueRef = useRef(value);
+  const lastBaseValueRef = useRef(baseValue);
+  const lastThemeIsDarkRef = useRef(isDark);
+  const lastOptionsRef = useRef<ProsemarkMergeEditorOptions>(options);
   const editableRef = useRef(editable);
   const themeCompartmentRef = useRef(new Compartment());
   const interactionCompartmentRef = useRef(new Compartment());
@@ -118,13 +123,6 @@ export function ProsemarkMergeEditor({
   const mergeCompartmentRef = useRef(new Compartment());
   const lastWidthRef = useRef<number | null>(null);
   const onChangeRef = useRef(onChange);
-  const normalizedOptions = useMemo<ProsemarkMergeEditorOptions>(
-    () => ({
-      allowInlineDiffs: options.allowInlineDiffs,
-      syntaxHighlightDeletions: options.syntaxHighlightDeletions,
-    }),
-    [options],
-  );
 
   const resizeToContent = useCallback(() => {
     const container = containerRef.current;
@@ -145,6 +143,18 @@ export function ProsemarkMergeEditor({
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
+
+  useEffect(() => {
+    lastBaseValueRef.current = baseValue;
+  }, [baseValue]);
+
+  useEffect(() => {
+    lastThemeIsDarkRef.current = isDark;
+  }, [isDark]);
+
+  useEffect(() => {
+    lastOptionsRef.current = options;
+  }, [options]);
 
   useLayoutEffect(() => {
     const host = hostRef.current;
@@ -175,15 +185,27 @@ export function ProsemarkMergeEditor({
           !editableRef.current ? prosemarkHiddenCursorTheme : [],
         ),
         mergeCompartmentRef.current.of(
-          buildMergeExtensions(baseValue, normalizedOptions),
+          buildMergeExtensions(
+            lastBaseValueRef.current,
+            lastOptionsRef.current,
+          ),
         ),
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) return;
           lastValueRef.current = update.state.doc.toString();
           resizeToContent();
+          if (
+            update.transactions.some((transaction) =>
+              transaction.annotation(externalValueSyncAnnotation),
+            )
+          ) {
+            return;
+          }
           onChangeRef.current?.(lastValueRef.current);
         }),
-        themeCompartmentRef.current.of(isDark ? oneDark : []),
+        themeCompartmentRef.current.of(
+          lastThemeIsDarkRef.current ? oneDark : [],
+        ),
       ],
     });
 
@@ -199,7 +221,7 @@ export function ProsemarkMergeEditor({
       view.destroy();
       viewRef.current = null;
     };
-  }, [baseValue, isDark, normalizedOptions, resizeToContent]);
+  }, [resizeToContent]);
 
   useEffect(() => {
     const view = viewRef.current;
@@ -230,11 +252,14 @@ export function ProsemarkMergeEditor({
     if (!view) return;
     view.dispatch({
       effects: mergeCompartmentRef.current.reconfigure(
-        buildMergeExtensions(baseValue, normalizedOptions),
+        buildMergeExtensions(baseValue, {
+          allowInlineDiffs,
+          syntaxHighlightDeletions,
+        }),
       ),
     });
     resizeToContent();
-  }, [baseValue, normalizedOptions, resizeToContent]);
+  }, [baseValue, allowInlineDiffs, syntaxHighlightDeletions, resizeToContent]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -264,6 +289,7 @@ export function ProsemarkMergeEditor({
     }
 
     view.dispatch({
+      annotations: externalValueSyncAnnotation.of(true),
       changes: {
         from: 0,
         to: view.state.doc.length,

@@ -108,6 +108,7 @@ const createFileArgsValidator = {
 const updateStagedFileContentArgsValidator = {
   stagingId: fileStagingIdValidator,
   content: contentValidator,
+  expectedVersion: number(),
 };
 
 const saveToStagingArgsValidator = {
@@ -747,19 +748,21 @@ export const updateStagedFileContent = mutation({
       throw new Error("Unauthorized");
     }
 
-    if (
-      existingStaging.content === args.content &&
-      existingStaging.fileDeleted === false
-    ) {
+    if (existingStaging.fileDeleted) {
+      throw new Error("Cannot update content for a deleted staged file.");
+    }
+
+    if (existingStaging.content === args.content) {
       return existingStaging;
     }
 
-    await ctx.db.patch(existingStaging._id, {
-      content: args.content,
-      fileDeleted: false,
-      lastEditTime: Date.now(),
-      lastEditUserId: userId,
-      version: existingStaging.version + 1,
+    await ctx.runMutation(internal.collaborative.pushContentUpdate, {
+      vaultId: existingStaging.vaultId,
+      filePath: existingStaging.filePath,
+      branch: existingStaging.branch,
+      expectedVersion: args.expectedVersion,
+      newContent: args.content,
+      userId,
     });
 
     const updatedStaging = await ctx.db.get(existingStaging._id);
