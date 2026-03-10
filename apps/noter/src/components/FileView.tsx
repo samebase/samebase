@@ -1334,10 +1334,7 @@ function FileViewInner({
     inlinePreviewInFlightSave,
     persistInlinePreviewSave,
   ]);
-
-  useEffect(() => {
-    flushPendingInlinePreviewSaveRef.current = flushPendingInlinePreviewSave;
-  }, [flushPendingInlinePreviewSave]);
+  flushPendingInlinePreviewSaveRef.current = flushPendingInlinePreviewSave;
 
   useEffect(() => {
     return () => {
