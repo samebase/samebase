@@ -39,6 +39,7 @@ manual-tests/TEMPLATE.md
 manual-tests/UI-001-landing-copy-hides-markdown.md
 manual-tests/UI-002-vault-branch-list-and-navigation.md
 manual-tests/UI-003-slash-branch-routing.md
+manual-tests/UI-004-vault-branch-delete.md
 manual-tests/worktree/WT-001-anon-worktree-isolation.md
 manual-tests/worktree/WT-002-wt-001-local-and-worktree.md
 noter.md
@@ -99,6 +100,7 @@ specs/044_CLOUDFLARE_MCP_AUTO_TOKEN_REFRESH_SPEC.md
 specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md
 specs/046_VAULT_MULTI_BRANCH_ROLLOUT_PLAN.md
 specs/047_UNIFIED_TOOL_RUNTIME_AND_SURFACE_ADAPTERS_SPEC.md
+specs/048_DASHBOARD_REMOTE_BRANCH_DELETE_SPEC.md
 TODO.md
 VISION.md
 worktree.md

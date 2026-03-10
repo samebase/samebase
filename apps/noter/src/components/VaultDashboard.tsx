@@ -28,6 +28,7 @@ import {
   CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS,
   CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
 } from "../../shared/cloudflareTokenRefresh";
+import { getRemoteBranchDeleteEligibility } from "../../shared/remoteBranchDelete";
 import { TREE_REFRESH_STALE_LOCK_MS } from "../../shared/treeRefresh";
 import type { DaytonaSnapshotStatus } from "@/lib/daytonaSnapshot";
 import {
@@ -286,6 +287,7 @@ interface VaultRemoteBranchListItem {
   name: string;
   headCommitSha: string;
   isDefault: boolean;
+  isProtected: boolean;
   remoteState: "active" | "deleted_upstream";
   lastSyncedAt: number;
   aheadBy?: number;
@@ -306,6 +308,9 @@ interface VaultBranchLinkRowProps {
   pullRequestUrl?: string;
   pullRequestNumber?: number;
   stagedSummary?: StagedSummary;
+  canDeleteBranch: boolean;
+  isDeletingBranch: boolean;
+  onDeleteBranch: () => void;
 }
 
 function formatAheadBehindCounts(
@@ -329,6 +334,9 @@ function VaultBranchLinkRow({
   pullRequestUrl,
   pullRequestNumber,
   stagedSummary,
+  canDeleteBranch,
+  isDeletingBranch,
+  onDeleteBranch,
 }: VaultBranchLinkRowProps) {
   const hasStagedChanges = (stagedSummary?.total ?? 0) > 0;
   const commitUrl = `https://github.com/${repositoryFullName}/commit/${headCommitSha}`;
@@ -398,20 +406,40 @@ function VaultBranchLinkRow({
           </div>
         </div>
       )}
-      {hasStagedChanges ? (
-        <div className="shrink-0 pt-0.5">
-          <EditedFilesCategoriesPopover
-            vaultId={vaultId}
-            repositoryFullName={repositoryFullName}
-            branch={branchName}
-            summaryCounts={stagedSummary}
-          />
-        </div>
-      ) : (
-        <span className="w-4 shrink-0 pt-1 text-right font-mono text-[11px] tabular-nums text-muted-foreground/70">
-          0
-        </span>
-      )}
+      <div className="flex shrink-0 items-start gap-2">
+        {hasStagedChanges ? (
+          <div className="pt-0.5">
+            <EditedFilesCategoriesPopover
+              vaultId={vaultId}
+              repositoryFullName={repositoryFullName}
+              branch={branchName}
+              summaryCounts={stagedSummary}
+            />
+          </div>
+        ) : (
+          <span className="w-4 pt-1 text-right font-mono text-[11px] tabular-nums text-muted-foreground/70">
+            0
+          </span>
+        )}
+        {canDeleteBranch ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
+            onClick={onDeleteBranch}
+            disabled={isDeletingBranch}
+            aria-label={`Delete branch ${branchName}`}
+            title="Delete branch on GitHub"
+          >
+            {isDeletingBranch ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <TrashIcon className="h-3.5 w-3.5" aria-hidden="true" />
+            )}
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -420,12 +448,16 @@ interface VaultBranchListProps {
   vaultId: Id<"vaults">;
   repositoryFullName: string;
   remoteBranches: VaultRemoteBranchListItem[];
+  deletingBranchName: string | null;
+  onDeleteBranch: (branchName: string) => void;
 }
 
 function VaultBranchList({
   vaultId,
   repositoryFullName,
   remoteBranches,
+  deletingBranchName,
+  onDeleteBranch,
 }: VaultBranchListProps) {
   const stagedSummaries =
     useQuery(api.fileStaging.listStagedFilesBranchSummaries, {
@@ -437,22 +469,37 @@ function VaultBranchList({
 
   return (
     <div className="overflow-hidden rounded-md border border-border/60 bg-muted/20">
-      {remoteBranches.map((branch) => (
-        <VaultBranchLinkRow
-          key={branch.name}
-          vaultId={vaultId}
-          repositoryFullName={repositoryFullName}
-          branchName={branch.name}
-          headCommitSha={branch.headCommitSha}
-          isDefault={branch.isDefault}
-          isDeletedUpstream={branch.remoteState === "deleted_upstream"}
-          aheadBy={branch.aheadBy}
-          behindBy={branch.behindBy}
-          pullRequestUrl={branch.pullRequestUrl}
-          pullRequestNumber={branch.pullRequestNumber}
-          stagedSummary={summaryByBranch.get(branch.name)}
-        />
-      ))}
+      {remoteBranches.map((branch) =>
+        (() => {
+          const stagedSummary = summaryByBranch.get(branch.name);
+          const deleteEligibility = getRemoteBranchDeleteEligibility({
+            remoteState: branch.remoteState,
+            isDefault: branch.isDefault,
+            isProtected: branch.isProtected,
+            stagedFilesCount: stagedSummary?.total ?? 0,
+            aheadBy: branch.aheadBy,
+          });
+          return (
+            <VaultBranchLinkRow
+              key={branch.name}
+              vaultId={vaultId}
+              repositoryFullName={repositoryFullName}
+              branchName={branch.name}
+              headCommitSha={branch.headCommitSha}
+              isDefault={branch.isDefault}
+              isDeletedUpstream={branch.remoteState === "deleted_upstream"}
+              aheadBy={branch.aheadBy}
+              behindBy={branch.behindBy}
+              pullRequestUrl={branch.pullRequestUrl}
+              pullRequestNumber={branch.pullRequestNumber}
+              stagedSummary={stagedSummary}
+              canDeleteBranch={deleteEligibility.canDelete}
+              isDeletingBranch={deletingBranchName === branch.name}
+              onDeleteBranch={() => onDeleteBranch(branch.name)}
+            />
+          );
+        })(),
+      )}
     </div>
   );
 }
@@ -465,6 +512,7 @@ export function VaultDashboard() {
   const retryInfrastructureProvisioning = useAction(
     api.vaultActions.retryInfrastructureProvisioning,
   );
+  const deleteRemoteBranch = useAction(api.vaultActions.deleteRemoteBranch);
   const commitStaging = useAction(api.fileStagingActions.commitStaging);
   const refreshTree = useAction(api.github.refreshRepositoryTree);
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
@@ -548,6 +596,11 @@ export function VaultDashboard() {
   const [removeConvexProvision, setRemoveConvexProvision] = useState(false);
   const [removeHostingProvision, setRemoveHostingProvision] = useState(false);
   const [removeDaytonaResources, setRemoveDaytonaResources] = useState(false);
+  const [branchToDelete, setBranchToDelete] = useState<{
+    vaultId: Id<"vaults">;
+    repositoryFullName: string;
+    branchName: string;
+  } | null>(null);
   const [newRepositoryName, setNewRepositoryName] = useState("");
   const [createTemplate, setCreateTemplate] = useState<CreateTemplate>("app");
   const [createHostingProvider, setCreateHostingProvider] =
@@ -566,9 +619,13 @@ export function VaultDashboard() {
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeletingBranch, setIsDeletingBranch] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteBranchError, setDeleteBranchError] = useState<string | null>(
+    null,
+  );
   const [didAttemptCommit, setDidAttemptCommit] = useState(false);
   const [retryingVaultId, setRetryingVaultId] = useState<Id<"vaults"> | null>(
     null,
@@ -855,6 +912,10 @@ export function VaultDashboard() {
     setDeleteError(null);
     setDidAttemptCommit(false);
   };
+  const resetDeleteBranchDialogState = () => {
+    setBranchToDelete(null);
+    setDeleteBranchError(null);
+  };
 
   const connectedCodespacesCount = useConvexQuery(
     api.codespacesMutations.getConnectedCodespacesCount,
@@ -965,6 +1026,26 @@ export function VaultDashboard() {
       );
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleRemoveBranch = async () => {
+    if (!branchToDelete || isDeletingBranch) return;
+    setDeleteBranchError(null);
+    try {
+      setIsDeletingBranch(true);
+      await deleteRemoteBranch({
+        vaultId: branchToDelete.vaultId,
+        branchName: branchToDelete.branchName,
+      });
+      resetDeleteBranchDialogState();
+    } catch (error) {
+      console.error("Failed to delete remote branch:", error);
+      setDeleteBranchError(
+        error instanceof Error ? error.message : "Failed to delete branch",
+      );
+    } finally {
+      setIsDeletingBranch(false);
     }
   };
 
@@ -1656,6 +1737,20 @@ export function VaultDashboard() {
                         vaultId={vault._id}
                         repositoryFullName={vault.repositoryFullName}
                         remoteBranches={vault.remoteBranches}
+                        deletingBranchName={
+                          isDeletingBranch &&
+                          branchToDelete?.vaultId === vault._id
+                            ? branchToDelete.branchName
+                            : null
+                        }
+                        onDeleteBranch={(branchName) => {
+                          setBranchToDelete({
+                            vaultId: vault._id,
+                            repositoryFullName: vault.repositoryFullName,
+                            branchName,
+                          });
+                          setDeleteBranchError(null);
+                        }}
                       />
                     </div>
                   )}
@@ -1763,6 +1858,66 @@ export function VaultDashboard() {
             );
           })}
         </div>
+
+        <Dialog
+          open={branchToDelete !== null}
+          onOpenChange={() => {
+            if (isDeletingBranch) return;
+            resetDeleteBranchDialogState();
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {branchToDelete
+                  ? `Delete Branch ${branchToDelete.branchName}`
+                  : "Delete Branch"}
+              </DialogTitle>
+              <DialogDescription>
+                {branchToDelete
+                  ? `This will delete ${branchToDelete.branchName} from GitHub for ${branchToDelete.repositoryFullName}.`
+                  : "This will delete the selected branch from GitHub."}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Only branches with no staged files and no commits ahead of the
+                default branch can be deleted here.
+              </p>
+              {deleteBranchError ? (
+                <div className="text-sm text-red-600">{deleteBranchError}</div>
+              ) : null}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (isDeletingBranch) return;
+                  resetDeleteBranchDialogState();
+                }}
+                disabled={isDeletingBranch}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  void handleRemoveBranch();
+                }}
+                disabled={isDeletingBranch}
+              >
+                {isDeletingBranch ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete Branch"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Confirmation Dialog */}
         <Dialog

@@ -628,6 +628,7 @@ const getUserVaultsResult = array(
         pullRequestUrl: optional(string()),
         pullRequestNumber: optional(number()),
         isDefault: boolean(),
+        isProtected: boolean(),
         remoteState: union(literal("active"), literal("deleted_upstream")),
         lastSyncedAt: number(),
       }),
@@ -747,6 +748,7 @@ export const getUserVaults = query({
               pullRequestUrl: branch.pullRequestUrl,
               pullRequestNumber: branch.pullRequestNumber,
               isDefault: branch.isDefault,
+              isProtected: branch.isProtected,
               remoteState: branch.remoteState,
               lastSyncedAt: branch.lastSyncedAt,
             })),
@@ -832,6 +834,52 @@ export const getVaultRemoteBranches = query({
       deletedUpstreamAt: branch.deletedUpstreamAt,
       lastSyncedAt: branch.lastSyncedAt,
     }));
+  },
+});
+
+export const getVaultRemoteBranch = internalQuery({
+  args: {
+    vaultId: id("vaults"),
+    branchName: string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("vaultRemoteBranches")
+      .withIndex("by_vault_and_name", (q) =>
+        q.eq("vaultId", args.vaultId).eq("name", args.branchName),
+      )
+      .first();
+  },
+});
+
+export const pruneVaultRemoteBranchCache = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    branchName: string(),
+  },
+  returns: nullValidator,
+  handler: async (ctx, args) => {
+    const remoteBranch = await ctx.db
+      .query("vaultRemoteBranches")
+      .withIndex("by_vault_and_name", (q) =>
+        q.eq("vaultId", args.vaultId).eq("name", args.branchName),
+      )
+      .first();
+    if (remoteBranch) {
+      await ctx.db.delete(remoteBranch._id);
+    }
+
+    const branchTree = await ctx.db
+      .query("vaultBranchTrees")
+      .withIndex("by_vault_and_branch", (q) =>
+        q.eq("vaultId", args.vaultId).eq("branch", args.branchName),
+      )
+      .first();
+    if (branchTree) {
+      await ctx.db.delete(branchTree._id);
+    }
+
+    return null;
   },
 });
 
