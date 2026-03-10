@@ -34,3 +34,18 @@ export function getCommitStatusBadgeClassName(
   }
   return "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300";
 }
+
+export function getCommitStatusTextClassName(
+  status: CommitReviewFileStatus,
+): string {
+  if (status === "added") {
+    return "text-emerald-700 dark:text-emerald-300";
+  }
+  if (status === "modified") {
+    return "text-sky-700 dark:text-sky-300";
+  }
+  if (status === "deleted") {
+    return "text-rose-700 dark:text-rose-300";
+  }
+  return "text-amber-700 dark:text-amber-300";
+}

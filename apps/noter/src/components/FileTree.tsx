@@ -16,6 +16,10 @@ import {
 } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDialog } from "@/hooks/useDialog";
+import {
+  getCommitStatusTextClassName,
+  type CommitReviewFileStatus,
+} from "@/lib/commitReviewStatus";
 
 interface FileTreeItem {
   path: string;
@@ -23,6 +27,7 @@ interface FileTreeItem {
   type: "tree" | "blob";
   size?: number;
   deleted?: boolean;
+  status?: CommitReviewFileStatus;
 }
 
 interface TreeNode {
@@ -33,6 +38,7 @@ interface TreeNode {
   children?: TreeNode[];
   size?: number;
   deleted?: boolean;
+  status?: CommitReviewFileStatus;
 }
 
 interface FolderExpansionState {
@@ -49,6 +55,7 @@ interface FileTreeProps {
   selectedFile?: string;
   folderExpansionStates: FolderExpansionState[];
   onFolderToggle?: (folderPath: string, isExpanded: boolean) => void;
+  autoExpandedPaths?: string[];
 }
 
 function buildTree(items: FileTreeItem[]): TreeNode[] {
@@ -82,6 +89,7 @@ function buildTree(items: FileTreeItem[]): TreeNode[] {
             index === parts.length - 1 && item.type === "blob" ? undefined : [],
           size: index === parts.length - 1 ? item.size : undefined,
           deleted: index === parts.length - 1 ? item.deleted : undefined,
+          status: index === parts.length - 1 ? item.status : undefined,
         };
 
         pathToNode.set(path, existingNode);
@@ -96,6 +104,7 @@ function buildTree(items: FileTreeItem[]): TreeNode[] {
       }
       if (index === parts.length - 1) {
         existingNode.deleted = item.deleted;
+        existingNode.status = item.status;
       }
 
       if (index < parts.length - 1) {
@@ -117,7 +126,7 @@ function TreeNodeComponent({
   selectedFile,
   folderExpansionStates,
   onFolderToggle,
-  allItems,
+  autoExpandedPaths,
 }: {
   node: TreeNode;
   level?: number;
@@ -128,7 +137,7 @@ function TreeNodeComponent({
   selectedFile?: string;
   folderExpansionStates: FolderExpansionState[];
   onFolderToggle?: (folderPath: string, isExpanded: boolean) => void;
-  allItems: FileTreeItem[];
+  autoExpandedPaths: Set<string>;
 }) {
   const { openFileCreation, openFolderCreation } = useDialog();
 
@@ -136,7 +145,8 @@ function TreeNodeComponent({
   const expansionState = folderExpansionStates.find(
     (state) => state.folderPath === node.path,
   );
-  const isOpen = expansionState?.isExpanded ?? false; // Default to collapsed
+  const isOpen =
+    autoExpandedPaths.has(node.path) || expansionState?.isExpanded === true;
   const isMobile = useIsMobile();
 
   const [isRenaming, setIsRenaming] = useState(false);
@@ -153,7 +163,11 @@ function TreeNodeComponent({
   const hasChildren = node.children && node.children.length > 0;
   const isSelected = selectedFile === node.path;
   const isFolder = node.type === "tree";
-  const isDeletedFile = node.type === "blob" && node.deleted === true;
+  const fileStatus = node.type === "blob" ? node.status : undefined;
+  const isDeletedFile = fileStatus === "deleted" || node.deleted === true;
+  const fileStatusClassName = fileStatus
+    ? getCommitStatusTextClassName(fileStatus)
+    : undefined;
 
   const handleClick = () => {
     if (hasChildren) {
@@ -165,6 +179,9 @@ function TreeNodeComponent({
   };
 
   const handleRightClick = (e: React.MouseEvent) => {
+    if (isDeletedFile) {
+      return;
+    }
     e.preventDefault();
     setContextMenu({ x: e.clientX, y: e.clientY });
   };
@@ -253,7 +270,6 @@ function TreeNodeComponent({
                   "flex items-center gap-2 py-3 px-3 md:py-1 md:px-2 text-base md:text-sm cursor-pointer hover:bg-muted/30 rounded-none",
                   isSelected &&
                     "bg-primary/15 hover:bg-primary/20 ring-1 ring-inset ring-primary/40",
-                  isDeletedFile && "text-rose-700 dark:text-rose-300",
                   "transition-colors",
                   "min-h-[44px] md:min-h-[auto]", // Touch-friendly height on mobile
                 )}
@@ -282,8 +298,8 @@ function TreeNodeComponent({
                   <FileIcon
                     className={cn(
                       "h-4 w-4 md:h-3 md:w-3 text-muted-foreground flex-shrink-0",
-                      isSelected && "text-primary",
-                      isDeletedFile && "text-rose-600 dark:text-rose-300",
+                      fileStatusClassName,
+                      !fileStatus && isSelected && "text-primary",
                     )}
                   />
                 )}
@@ -304,8 +320,12 @@ function TreeNodeComponent({
                   <span
                     className={cn(
                       "truncate text-muted-foreground text-sm md:text-xs",
-                      isSelected && "text-foreground font-medium",
-                      isDeletedFile && "text-rose-700 dark:text-rose-300",
+                      fileStatusClassName,
+                      !fileStatus &&
+                        isSelected &&
+                        "text-foreground font-medium",
+                      isSelected && "font-medium",
+                      isDeletedFile && "line-through decoration-current",
                     )}
                   >
                     {node.name}
@@ -319,7 +339,9 @@ function TreeNodeComponent({
                   ? "Long press to create file in this folder"
                   : "Right-click to create file in this folder"
                 : node.type === "blob"
-                  ? "Right-click to rename"
+                  ? isDeletedFile
+                    ? "Click to review deleted file"
+                    : "Right-click to rename"
                   : "Click to open"}
             </TooltipContent>
           </Tooltip>
@@ -339,7 +361,7 @@ function TreeNodeComponent({
                 selectedFile={selectedFile}
                 folderExpansionStates={folderExpansionStates}
                 onFolderToggle={onFolderToggle}
-                allItems={allItems}
+                autoExpandedPaths={autoExpandedPaths}
               />
             ))}
           </div>
@@ -375,7 +397,7 @@ function TreeNodeComponent({
                 </button>
               </>
             )}
-            {node.type === "blob" && (
+            {node.type === "blob" && !isDeletedFile && (
               <>
                 <button
                   className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50"
@@ -411,8 +433,13 @@ export function FileTree({
   selectedFile,
   folderExpansionStates,
   onFolderToggle,
+  autoExpandedPaths = [],
 }: FileTreeProps) {
   const tree = useMemo(() => buildTree(items), [items]);
+  const autoExpandedPathSet = useMemo(
+    () => new Set(autoExpandedPaths),
+    [autoExpandedPaths],
+  );
 
   if (items.length === 0) {
     return (
@@ -435,7 +462,7 @@ export function FileTree({
           selectedFile={selectedFile}
           folderExpansionStates={folderExpansionStates}
           onFolderToggle={onFolderToggle}
-          allItems={items}
+          autoExpandedPaths={autoExpandedPathSet}
         />
       ))}
     </div>

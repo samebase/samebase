@@ -1,13 +1,7 @@
 import { FileTree } from "@/components/FileTree";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { CommitReviewStatusChips } from "./CommitReviewStatusChips";
-import {
-  getCommitStatusBadgeClassName as getStatusBadgeClassName,
-  getCommitStatusLabel as getStatusLabel,
-  getCommitStatusToken as getStatusToken,
-  type CommitReviewFileStatus,
-} from "@/lib/commitReviewStatus";
+import { type CommitReviewFileStatus } from "@/lib/commitReviewStatus";
 
 const README_OLD = `# Noter Starter Template
 
@@ -176,30 +170,6 @@ const FIXTURE_FILES: FixtureFile[] = [
   },
 ];
 
-const FIXTURE_TOTALS = FIXTURE_FILES.reduce(
-  (totals, file) => {
-    totals.files += 1;
-    totals.additions += file.additions;
-    totals.deletions += file.deletions;
-
-    if (file.status === "added") totals.added += 1;
-    if (file.status === "modified") totals.modified += 1;
-    if (file.status === "renamed") totals.renamed += 1;
-    if (file.status === "deleted") totals.deleted += 1;
-
-    return totals;
-  },
-  {
-    files: 0,
-    additions: 0,
-    deletions: 0,
-    added: 0,
-    modified: 0,
-    renamed: 0,
-    deleted: 0,
-  },
-);
-
 function getPatchLineClassName(line: string): string {
   if (line.startsWith("+") && !line.startsWith("+++")) {
     return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
@@ -243,114 +213,81 @@ export function CommitReviewVisualFixture({
       <div className="grid h-full grid-cols-[240px_minmax(0,1fr)] gap-4">
         <aside className="overflow-hidden rounded border">
           <div className="border-b px-3 py-2 text-xs text-muted-foreground">
-            Fixture Tree
+            Sidebar
+          </div>
+          <div className="border-b px-3 py-2">
+            <ToggleGroup
+              type="single"
+              size="sm"
+              value="changes"
+              className="justify-start"
+            >
+              <ToggleGroupItem
+                value="simple"
+                aria-label="Simple View"
+                className="h-7 px-2 text-xs"
+              >
+                Simple View
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value="all"
+                aria-label="All Files"
+                className="h-7 px-2 text-xs"
+              >
+                All Files
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value="changes"
+                aria-label="Changes"
+                className="h-7 px-2 text-xs"
+              >
+                Changes
+              </ToggleGroupItem>
+            </ToggleGroup>
           </div>
           <div className="overflow-auto">
             <FileTree
               items={[
                 {
-                  path: ".gitignore",
-                  originalPath: ".gitignore",
-                  type: "blob",
-                  deleted: false,
-                },
-                {
                   path: "README.md",
                   originalPath: "README.md",
                   type: "blob",
                   deleted: false,
+                  status: "modified",
                 },
                 {
                   path: "docs/quickstart.md",
                   originalPath: "docs/quickstart.md",
                   type: "blob",
                   deleted: false,
+                  status: "added",
                 },
                 {
                   path: "src/new-name.ts",
                   originalPath: "src/old-name.ts",
                   type: "blob",
                   deleted: false,
+                  status: "renamed",
                 },
                 {
                   path: "components.json",
                   originalPath: "components.json",
                   type: "blob",
                   deleted: true,
+                  status: "deleted",
                 },
               ]}
-              selectedFile={selectedFile}
+              selectedFile={
+                showFallbackBanner ? activeFile?.path : selectedFile
+              }
               folderExpansionStates={[]}
+              autoExpandedPaths={["docs", "src"]}
             />
           </div>
         </aside>
 
         <section className="flex h-full min-h-0 flex-col overflow-hidden rounded border bg-muted/20">
-          <div className="border-b px-3 py-2 text-xs text-muted-foreground">
-            Branch: <span className="font-mono text-foreground">main</span> ·{" "}
-            {FIXTURE_TOTALS.files} files ·{" "}
-            <span className="text-emerald-600 dark:text-emerald-400">
-              +{FIXTURE_TOTALS.additions}
-            </span>{" "}
-            /{" "}
-            <span className="text-rose-600 dark:text-rose-400">
-              -{FIXTURE_TOTALS.deletions}
-            </span>{" "}
-            · includes deletions
-          </div>
-
-          <div className="border-b px-3 py-2">
-            <CommitReviewStatusChips totals={FIXTURE_TOTALS} />
-          </div>
-
-          <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-            <aside className="shrink-0 border-b md:h-full md:w-80 md:border-b-0 md:border-r">
-              <div className="px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Staged Files
-              </div>
-              <div className="max-h-52 overflow-auto md:h-full md:max-h-none">
-                {FIXTURE_FILES.map((file) => {
-                  const isActive = activeFile?.path === file.path;
-                  return (
-                    <div
-                      key={file.path}
-                      className={`w-full border-t px-3 py-2 text-left transition-colors ${isActive ? "bg-muted/60" : "hover:bg-muted/40"}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`inline-flex h-5 min-w-5 items-center justify-center rounded px-1 font-mono text-[10px] ${getStatusBadgeClassName(file.status)}`}
-                        >
-                          {getStatusToken(file.status)}
-                        </span>
-                        <span className="truncate font-mono text-xs text-foreground">
-                          {file.path}
-                        </span>
-                      </div>
-                      <div className="mt-1 pl-7 text-[11px] text-muted-foreground">
-                        {getStatusLabel(file.status)}
-                        {file.previousPath ? (
-                          <>
-                            {" · "}from{" "}
-                            <span className="font-mono">
-                              {file.previousPath}
-                            </span>
-                          </>
-                        ) : null}
-                        {" · "}
-                        <span className="text-emerald-600 dark:text-emerald-400">
-                          +{file.additions}
-                        </span>
-                        {" / "}
-                        <span className="text-rose-600 dark:text-rose-400">
-                          -{file.deletions}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </aside>
-
+          <div className="flex min-h-0 flex-1 flex-col">
             {activeFile ? (
               <div className="flex min-h-0 flex-1 flex-col">
                 {showFallbackBanner ? (
@@ -363,50 +300,31 @@ export function CommitReviewVisualFixture({
                   </div>
                 ) : null}
 
-                <div className="border-b px-3 py-2">
-                  <div className="mb-2 text-xs text-muted-foreground">
-                    <span className="font-mono text-foreground">
-                      {getStatusToken(activeFile.status)} {activeFile.path}
-                    </span>
-                    {activeFile.previousPath ? (
-                      <span>
-                        {" · "}from{" "}
-                        <span className="font-mono">
-                          {activeFile.previousPath}
-                        </span>
-                      </span>
-                    ) : null}
-                    {" · "}
-                    <span className="text-emerald-600 dark:text-emerald-400">
-                      +{activeFile.additions}
-                    </span>
-                    {" / "}
-                    <span className="text-rose-600 dark:text-rose-400">
-                      -{activeFile.deletions}
-                    </span>
-                  </div>
-                  <ToggleGroup
-                    type="single"
-                    size="sm"
-                    value={canRenderRich ? "rich" : "patch"}
-                    className="justify-start"
-                  >
-                    <ToggleGroupItem
+                {canRenderRich ? (
+                  <div className="border-b px-3 py-2">
+                    <ToggleGroup
+                      type="single"
+                      size="sm"
                       value="rich"
-                      aria-label="Rich markdown preview"
-                      className="h-7 px-2 text-xs"
+                      className="justify-start"
                     >
-                      Rich
-                    </ToggleGroupItem>
-                    <ToggleGroupItem
-                      value="patch"
-                      aria-label="Source patch preview"
-                      className="h-7 px-2 text-xs"
-                    >
-                      Patch
-                    </ToggleGroupItem>
-                  </ToggleGroup>
-                </div>
+                      <ToggleGroupItem
+                        value="rich"
+                        aria-label="Rich markdown preview"
+                        className="h-7 px-2 text-xs"
+                      >
+                        Rich
+                      </ToggleGroupItem>
+                      <ToggleGroupItem
+                        value="patch"
+                        aria-label="Source patch preview"
+                        className="h-7 px-2 text-xs"
+                      >
+                        Patch
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </div>
+                ) : null}
 
                 <div className="flex-1 overflow-auto">
                   {canRenderRich ? (

@@ -38,12 +38,7 @@ import {
   SIMPLE_VIEW_CONFIG_PATH,
   shouldLoadRepositorySimpleViewConfig,
 } from "@/lib/simpleView";
-import {
-  getCommitStatusBadgeClassName,
-  getCommitStatusLabel,
-  getCommitStatusToken,
-  type CommitReviewFileStatus as CommitPreviewFileStatus,
-} from "@/lib/commitReviewStatus";
+import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/lib/commitReviewStatus";
 import {
   claimRefreshDebounce,
   releaseRefreshDebounce,
@@ -53,7 +48,6 @@ import { type GithubTreeType } from "convex/schema";
 import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
 import { DaytonaWorkspaceButton } from "./DaytonaWorkspaceButton";
 import { DaytonaSnapshotBanner } from "./DaytonaSnapshotBanner";
-import { CommitReviewStatusChips } from "./CommitReviewStatusChips";
 import { VaultSyncStatus } from "./VaultSyncStatus";
 import { RepositoryMediaViewer } from "./RepositoryMediaViewer";
 import { RepositoryWorkspaceFrame } from "./RepositoryWorkspaceFrame";
@@ -131,6 +125,10 @@ type CommitPreview = {
 
 type CommitPreviewDisplayMode = "rich" | "patch";
 type CommitReviewMode = "editor" | "review";
+type SidebarMode = "simple" | "all" | "changes";
+type StagedFileRecord = NonNullable<
+  (typeof api.fileStaging.listStagedFiles)["_returnType"]
+>[number];
 
 type RefreshTrigger = "focus" | "page_load";
 
@@ -218,6 +216,24 @@ function getPatchLineClassName(line: string): string {
     return "text-muted-foreground";
   }
   return "";
+}
+
+function getStagedFileStatus(
+  file: StagedFileRecord,
+): CommitPreviewFileStatus | null {
+  if (file.fileDeleted) {
+    return "deleted";
+  }
+  if (file.parentCommitSha === null) {
+    return "added";
+  }
+  if (file.filePath !== file.initialFilePath) {
+    return "renamed";
+  }
+  if (file.content !== file.initialContent) {
+    return "modified";
+  }
+  return null;
 }
 
 function encodeGitHubPath(path: string): string {
@@ -718,8 +734,8 @@ function FileViewInner({
     useState(false);
   const [didResolveRepositoryNoterLoad, setDidResolveRepositoryNoterLoad] =
     useState(false);
-  const [simpleViewMode, setSimpleViewMode] = useState<"simple" | "all">("all");
-  const [simpleViewModeHydrated, setSimpleViewModeHydrated] = useState(false);
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>("all");
+  const [sidebarModeHydrated, setSidebarModeHydrated] = useState(false);
 
   const createFileInStaging = useMutation(api.fileStaging.createFileInStaging);
   const showMobileEditorLineNumbers = useMemo(() => {
@@ -731,6 +747,9 @@ function FileViewInner({
   }, [isDiffRequested]);
   const [allowAutoExitReview, setAllowAutoExitReview] = useState(true);
   const reviewRouteKeyRef = useRef<string | null>(null);
+  const reviewSidebarModeRef = useRef<Exclude<SidebarMode, "changes"> | null>(
+    null,
+  );
 
   // Add command palette keyboard shortcut handler
   useEffect(() => {
@@ -762,7 +781,7 @@ function FileViewInner({
       hasDeletedStagedNoterFile ||
       didResolveRepositoryNoterLoad);
 
-  const simpleViewStorageKey = useMemo(
+  const sidebarModeStorageKey = useMemo(
     () => getSimpleViewPreferenceStorageKey(vault._id),
     [vault._id],
   );
@@ -779,7 +798,7 @@ function FileViewInner({
     setRepositoryNoterContent(null);
     setDidAttemptRepositoryNoterLoad(false);
     setDidResolveRepositoryNoterLoad(false);
-    setSimpleViewModeHydrated(false);
+    setSidebarModeHydrated(false);
   }, [vault._id, branch]);
 
   useEffect(() => {
@@ -855,41 +874,47 @@ function FileViewInner({
     if (!didResolveSimpleViewConfigSource) {
       return;
     }
-    const defaultMode = hasNoterConfigFile ? "simple" : "all";
+    const defaultMode: Exclude<SidebarMode, "changes"> = hasNoterConfigFile
+      ? "simple"
+      : "all";
 
     try {
-      const storedMode = localStorage.getItem(simpleViewStorageKey);
+      const storedMode = localStorage.getItem(sidebarModeStorageKey);
       if (storedMode === "simple" || storedMode === "all") {
-        setSimpleViewMode(storedMode);
-        setSimpleViewModeHydrated(true);
+        setSidebarMode(storedMode);
+        setSidebarModeHydrated(true);
         return;
       }
     } catch (error) {
-      console.warn("Failed to read simple view preference", error);
+      console.warn("Failed to read sidebar view preference", error);
     }
 
-    setSimpleViewMode(defaultMode);
-    setSimpleViewModeHydrated(true);
+    setSidebarMode(defaultMode);
+    setSidebarModeHydrated(true);
   }, [
     didResolveSimpleViewConfigSource,
     hasNoterConfigFile,
-    simpleViewStorageKey,
+    sidebarModeStorageKey,
   ]);
 
   useEffect(() => {
-    if (!didResolveSimpleViewConfigSource || !simpleViewModeHydrated) {
+    if (
+      !didResolveSimpleViewConfigSource ||
+      !sidebarModeHydrated ||
+      sidebarMode === "changes"
+    ) {
       return;
     }
     try {
-      localStorage.setItem(simpleViewStorageKey, simpleViewMode);
+      localStorage.setItem(sidebarModeStorageKey, sidebarMode);
     } catch (error) {
-      console.warn("Failed to persist simple view preference", error);
+      console.warn("Failed to persist sidebar view preference", error);
     }
   }, [
     didResolveSimpleViewConfigSource,
-    simpleViewMode,
-    simpleViewModeHydrated,
-    simpleViewStorageKey,
+    sidebarMode,
+    sidebarModeHydrated,
+    sidebarModeStorageKey,
   ]);
 
   const stagedNoterContent = hasStagedSimpleViewConfigFile(stagedNoterFile)
@@ -1161,6 +1186,10 @@ function FileViewInner({
     commitPreview?.files.find((file) => file.path === selectedFile) ?? null;
   const fallbackPreviewFile = commitPreview?.files[0] ?? null;
   const activePreviewFile = selectedPreviewFile ?? fallbackPreviewFile;
+  const sidebarSelectedFile =
+    commitReviewMode === "review"
+      ? activePreviewFile?.path ?? selectedFile
+      : selectedFile;
   const selectedPreviewCanRenderRichMarkdown = Boolean(
     activePreviewFile?.isMarkdown &&
       typeof activePreviewFile.richOldContent === "string" &&
@@ -1190,24 +1219,22 @@ function FileViewInner({
   ]);
 
   const finalTreeData = useMemo(() => {
+    const stagedFilesByInitialPath = new Map(
+      (stagedFiles ?? []).map((file) => [file.initialFilePath, file]),
+    );
     const treeItems = vault.treeData.tree
       .map((item: GithubTreeType) => {
-        const stagedFile = stagedFiles?.find(
-          (staged: NonNullable<typeof stagedFiles>[number]) =>
-            staged.initialFilePath === item.path,
-        );
-
+        const stagedFile = stagedFilesByInitialPath.get(item.path);
         const path = stagedFile ? stagedFile.filePath : item.path;
-        const deleted = stagedFile ? stagedFile.fileDeleted : false;
-
-        if (deleted && commitReviewMode !== "review") return null;
+        const status = stagedFile ? getStagedFileStatus(stagedFile) : null;
 
         return {
-          deleted,
+          deleted: status === "deleted",
           path,
           originalPath: item.path,
           type: item.type as "tree" | "blob",
           size: item.size,
+          status: status ?? undefined,
         };
       })
       .filter(nonNullable);
@@ -1215,37 +1242,37 @@ function FileViewInner({
     // Add new files from staging (parentCommitSha is null)
     const newFiles = (stagedFiles || [])
       .filter(
-        (staged: NonNullable<typeof stagedFiles>[number]) =>
-          staged.parentCommitSha === null && !staged.fileDeleted,
+        (staged: StagedFileRecord) =>
+          getStagedFileStatus(staged) === "added" && !staged.fileDeleted,
       )
-      .map((staged: NonNullable<typeof stagedFiles>[number]) => ({
+      .map((staged: StagedFileRecord) => ({
         deleted: false,
         path: staged.filePath,
         originalPath: staged.initialFilePath,
         type: "blob" as const,
         size: undefined,
+        status: "added" as const,
       }));
     const existingPaths = new Set(
       [...treeItems, ...newFiles].map((item) => item.path),
     );
-    const deletedFiles =
-      commitReviewMode === "review"
-        ? (stagedFiles || [])
-            .filter(
-              (staged: NonNullable<typeof stagedFiles>[number]) =>
-                staged.fileDeleted && !existingPaths.has(staged.filePath),
-            )
-            .map((staged: NonNullable<typeof stagedFiles>[number]) => ({
-              deleted: true,
-              path: staged.filePath,
-              originalPath: staged.initialFilePath,
-              type: "blob" as const,
-              size: undefined,
-            }))
-        : [];
+    const deletedFiles = (stagedFiles || [])
+      .filter(
+        (staged: StagedFileRecord) =>
+          getStagedFileStatus(staged) === "deleted" &&
+          !existingPaths.has(staged.filePath),
+      )
+      .map((staged: StagedFileRecord) => ({
+        deleted: true,
+        path: staged.filePath,
+        originalPath: staged.initialFilePath,
+        type: "blob" as const,
+        size: undefined,
+        status: "deleted" as const,
+      }));
 
     return [...treeItems, ...newFiles, ...deletedFiles];
-  }, [vault.treeData.tree, stagedFiles, commitReviewMode]);
+  }, [vault.treeData.tree, stagedFiles]);
 
   const { agentGraphNodes, agentGraphEdges } = useMemo(() => {
     const nodes: AgentGraphNode[] = [];
@@ -1286,8 +1313,17 @@ function FileViewInner({
     return { agentGraphNodes: nodes, agentGraphEdges: edges };
   }, [finalTreeData]);
 
+  const changedTreeData = useMemo(
+    () => finalTreeData.filter((item) => item.type === "blob" && item.status),
+    [finalTreeData],
+  );
+
   const visibleTreeData = useMemo(() => {
-    if (simpleViewMode !== "simple") {
+    if (sidebarMode === "changes") {
+      return changedTreeData;
+    }
+
+    if (sidebarMode !== "simple") {
       return finalTreeData;
     }
 
@@ -1302,7 +1338,28 @@ function FileViewInner({
       finalTreeData,
       simpleViewConfig.excludePatterns,
     );
-  }, [finalTreeData, simpleViewConfig, simpleViewMode]);
+  }, [changedTreeData, finalTreeData, simpleViewConfig, sidebarMode]);
+
+  const autoExpandedSidebarPaths = useMemo(() => {
+    if (sidebarMode !== "changes") {
+      return [];
+    }
+
+    const expandedPaths = new Set<string>();
+    for (const item of changedTreeData) {
+      const pathSegments = item.path.split("/");
+      let currentPath = "";
+      for (let index = 0; index < pathSegments.length - 1; index += 1) {
+        currentPath =
+          index === 0
+            ? pathSegments[index]
+            : `${currentPath}/${pathSegments[index]}`;
+        expandedPaths.add(currentPath);
+      }
+    }
+
+    return [...expandedPaths];
+  }, [changedTreeData, sidebarMode]);
 
   const emptyRepository = visibleTreeData.length === 0;
   const didResolveStagedFiles = stagedFiles !== undefined;
@@ -1340,6 +1397,25 @@ function FileViewInner({
       commitReviewMode === "review" ? current : true,
     );
   }, [branch, selectedFile, commitReviewMode]);
+
+  useEffect(() => {
+    if (!sidebarModeHydrated) {
+      return;
+    }
+    if (commitReviewMode === "review" && hasChangesToCommit) {
+      if (reviewSidebarModeRef.current === null && sidebarMode !== "changes") {
+        reviewSidebarModeRef.current = sidebarMode;
+        setSidebarMode("changes");
+      }
+      return;
+    }
+
+    const previousSidebarMode = reviewSidebarModeRef.current;
+    reviewSidebarModeRef.current = null;
+    if (previousSidebarMode && sidebarMode === "changes") {
+      setSidebarMode(previousSidebarMode);
+    }
+  }, [commitReviewMode, hasChangesToCommit, sidebarMode, sidebarModeHydrated]);
 
   useEffect(() => {
     if (
@@ -1446,11 +1522,15 @@ function FileViewInner({
           <ToggleGroup
             type="single"
             size="sm"
-            value={simpleViewMode}
+            value={sidebarMode}
             className="justify-start"
             onValueChange={(value) => {
-              if (value === "simple" || value === "all") {
-                setSimpleViewMode(value);
+              if (
+                value === "simple" ||
+                value === "all" ||
+                value === "changes"
+              ) {
+                setSidebarMode(value);
               }
             }}
           >
@@ -1468,6 +1548,13 @@ function FileViewInner({
             >
               All Files
             </ToggleGroupItem>
+            <ToggleGroupItem
+              value="changes"
+              aria-label="Changes"
+              className="h-7 px-2 text-xs"
+            >
+              Changes
+            </ToggleGroupItem>
           </ToggleGroup>
         </div>
       </div>
@@ -1483,9 +1570,10 @@ function FileViewInner({
             }
             onFileCreate={handleCreateFileInFolder}
             onFileDelete={(filePath) => void handleFileDelete(filePath)}
-            selectedFile={selectedFile}
+            selectedFile={sidebarSelectedFile}
             folderExpansionStates={folderExpansionStates ?? []}
             onFolderToggle={handleFolderToggle}
+            autoExpandedPaths={autoExpandedSidebarPaths}
           />
         </div>
       )}
@@ -1505,17 +1593,22 @@ function FileViewInner({
       >
         <div className="max-w-none h-full flex flex-col">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-3">
-              <h2 className="text-base md:text-sm font-medium">
-                <a
-                  className={`block truncate ${linkStyle}`}
-                  href={selectedFileGitHubUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {selectedFile}
-                </a>
-              </h2>
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="min-w-0">
+                <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">
+                  {branch}
+                </div>
+                <h2 className="text-base md:text-sm font-medium">
+                  <a
+                    className={`block truncate ${linkStyle}`}
+                    href={selectedFileGitHubUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {selectedFile}
+                  </a>
+                </h2>
+              </div>
               <Tabs
                 value={viewMode}
                 onValueChange={(value) => {
@@ -1664,89 +1757,7 @@ function FileViewInner({
 
                   {commitPreview ? (
                     <div className="flex min-h-0 flex-1 flex-col">
-                      <div className="border-b px-3 py-2 text-xs text-muted-foreground">
-                        Branch:{" "}
-                        <span className="font-mono text-foreground">
-                          {commitPreview.branch}
-                        </span>
-                        {" · "}
-                        {commitPreview.totals.files} files
-                        {" · "}
-                        <span className="text-emerald-600 dark:text-emerald-400">
-                          +{commitPreview.totals.additions}
-                        </span>
-                        {" / "}
-                        <span className="text-rose-600 dark:text-rose-400">
-                          -{commitPreview.totals.deletions}
-                        </span>
-                        {commitPreview.hasDestructiveChanges
-                          ? " · includes deletions"
-                          : ""}
-                        {commitPreview.safety.includesTruncatedPatches
-                          ? ` · ${commitPreview.safety.truncatedPatchFileCount} patch${commitPreview.safety.truncatedPatchFileCount === 1 ? "" : "es"} truncated`
-                          : ""}
-                      </div>
-
-                      <div className="border-b px-3 py-2">
-                        <CommitReviewStatusChips
-                          totals={commitPreview.totals}
-                        />
-                      </div>
-
-                      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-                        <aside className="shrink-0 border-b md:h-full md:w-80 md:border-b-0 md:border-r">
-                          <div className="px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                            Staged Files
-                          </div>
-                          <div className="max-h-52 overflow-auto md:h-full md:max-h-none">
-                            {commitPreview.files.length === 0
-                              ? null
-                              : commitPreview.files.map((file) => {
-                                  const isActive =
-                                    activePreviewFile?.path === file.path;
-                                  return (
-                                    <button
-                                      key={file.path}
-                                      className={`w-full border-t px-3 py-2 text-left transition-colors ${isActive ? "bg-muted/60" : "hover:bg-muted/40"}`}
-                                      onClick={() =>
-                                        handleFileSelect(file.path)
-                                      }
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        <span
-                                          className={`inline-flex h-5 min-w-5 items-center justify-center rounded px-1 font-mono text-[10px] ${getCommitStatusBadgeClassName(file.status)}`}
-                                        >
-                                          {getCommitStatusToken(file.status)}
-                                        </span>
-                                        <span className="truncate font-mono text-xs text-foreground">
-                                          {file.path}
-                                        </span>
-                                      </div>
-                                      <div className="mt-1 pl-7 text-[11px] text-muted-foreground">
-                                        {getCommitStatusLabel(file.status)}
-                                        {file.previousPath ? (
-                                          <>
-                                            {" · "}from{" "}
-                                            <span className="font-mono">
-                                              {file.previousPath}
-                                            </span>
-                                          </>
-                                        ) : null}
-                                        {" · "}
-                                        <span className="text-emerald-600 dark:text-emerald-400">
-                                          +{file.additions}
-                                        </span>
-                                        {" / "}
-                                        <span className="text-rose-600 dark:text-rose-400">
-                                          -{file.deletions}
-                                        </span>
-                                      </div>
-                                    </button>
-                                  );
-                                })}
-                          </div>
-                        </aside>
-
+                      <div className="flex min-h-0 flex-1 flex-col">
                         {activePreviewFile ? (
                           <div className="flex min-h-0 flex-1 flex-col">
                             {selectedPreviewFile === null ? (
@@ -1759,32 +1770,8 @@ function FileViewInner({
                               </div>
                             ) : null}
 
-                            <div className="border-b px-3 py-2">
-                              <div className="mb-2 text-xs text-muted-foreground">
-                                <span className="font-mono text-foreground">
-                                  {getCommitStatusToken(
-                                    activePreviewFile.status,
-                                  )}{" "}
-                                  {activePreviewFile.path}
-                                </span>
-                                {activePreviewFile.previousPath ? (
-                                  <span>
-                                    {" · "}from{" "}
-                                    <span className="font-mono">
-                                      {activePreviewFile.previousPath}
-                                    </span>
-                                  </span>
-                                ) : null}
-                                {" · "}
-                                <span className="text-emerald-600 dark:text-emerald-400">
-                                  +{activePreviewFile.additions}
-                                </span>
-                                {" / "}
-                                <span className="text-rose-600 dark:text-rose-400">
-                                  -{activePreviewFile.deletions}
-                                </span>
-                              </div>
-                              {selectedPreviewCanRenderRichMarkdown ? (
+                            {selectedPreviewCanRenderRichMarkdown ? (
+                              <div className="border-b px-3 py-2">
                                 <ToggleGroup
                                   type="single"
                                   size="sm"
@@ -1812,8 +1799,8 @@ function FileViewInner({
                                     Patch
                                   </ToggleGroupItem>
                                 </ToggleGroup>
-                              ) : null}
-                            </div>
+                              </div>
+                            ) : null}
 
                             <div className="flex-1 overflow-auto">
                               {commitPreviewDisplayMode === "rich" &&
