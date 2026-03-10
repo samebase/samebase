@@ -105,6 +105,12 @@ const createFileArgsValidator = {
   branch: branchValidator,
 };
 
+const updateStagedFileContentArgsValidator = {
+  stagingId: fileStagingIdValidator,
+  content: contentValidator,
+  expectedVersion: number(),
+};
+
 const saveToStagingArgsValidator = {
   vaultId: vaultIdValidator,
   initialFilePath: filePathValidator,
@@ -724,6 +730,47 @@ export const createFileInStaging = mutation({
     });
 
     return null;
+  },
+});
+
+export const updateStagedFileContent = mutation({
+  args: updateStagedFileContentArgsValidator,
+  returns: stagedFileValidator,
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+    const existingStaging = await ctx.db.get(args.stagingId);
+
+    if (!existingStaging) {
+      throw new Error("Staged file not found");
+    }
+
+    if (existingStaging.ownerId !== userId) {
+      throw new Error("Unauthorized");
+    }
+
+    if (existingStaging.fileDeleted) {
+      throw new Error("Cannot update content for a deleted staged file.");
+    }
+
+    if (existingStaging.content === args.content) {
+      return existingStaging;
+    }
+
+    await ctx.runMutation(internal.collaborative.pushContentUpdate, {
+      vaultId: existingStaging.vaultId,
+      filePath: existingStaging.filePath,
+      branch: existingStaging.branch,
+      expectedVersion: args.expectedVersion,
+      newContent: args.content,
+      userId,
+    });
+
+    const updatedStaging = await ctx.db.get(existingStaging._id);
+    if (!updatedStaging) {
+      throw new Error("Staged file disappeared while saving");
+    }
+
+    return updatedStaging;
   },
 });
 

@@ -4,18 +4,25 @@ import { Input } from "@/components/ui/input";
 import { FileIcon, ChevronRightIcon } from "@radix-ui/react-icons";
 import { cn } from "@/lib/utils";
 import { fuzzyMatch } from "@/lib/fuzzySearch.tsx";
+import { type CommitReviewFileStatus } from "@/lib/commitReviewStatus";
 
 interface FileItem {
   path: string;
   type: "tree" | "blob";
   size?: number;
+  status?: CommitReviewFileStatus;
 }
+
+type FilteredFile = FileItem & {
+  score: number;
+  matches: number[];
+};
 
 interface CommandPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   files: FileItem[];
-  onFileSelect: (path: string) => void;
+  onFileSelect: (path: string, status?: CommitReviewFileStatus) => void;
   selectedFile?: string;
 }
 
@@ -62,14 +69,15 @@ export function CommandPalette({
   const listRef = useRef<HTMLDivElement>(null);
 
   // Filter and sort files based on fuzzy search
-  const filteredFiles = useMemo(() => {
+  const filteredFiles = useMemo<FilteredFile[]>(() => {
     if (!query.trim()) {
       return files
         .filter((file) => file.type === "blob") // Only show files, not directories
-        .slice(0, 50); // Limit results for performance
+        .slice(0, 50)
+        .map((file) => ({ ...file, score: 0, matches: [] }));
     }
 
-    const results = files
+    return files
       .filter((file) => file.type === "blob")
       .map((file) => {
         const match = fuzzyMatch(query.trim(), file.path);
@@ -78,8 +86,6 @@ export function CommandPalette({
       .filter((file) => file.score >= 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 50);
-
-    return results;
   }, [files, query]);
 
   // Reset selection when results change
@@ -115,7 +121,10 @@ export function CommandPalette({
         case "Enter":
           e.preventDefault();
           if (filteredFiles[selectedIndex]) {
-            onFileSelect(filteredFiles[selectedIndex].path);
+            onFileSelect(
+              filteredFiles[selectedIndex].path,
+              filteredFiles[selectedIndex].status,
+            );
             onOpenChange(false);
           }
           break;
@@ -139,8 +148,8 @@ export function CommandPalette({
     }
   }, [selectedIndex, open]);
 
-  const handleFileClick = (path: string) => {
-    onFileSelect(path);
+  const handleFileClick = (file: FilteredFile) => {
+    onFileSelect(file.path, file.status);
     onOpenChange(false);
   };
 
@@ -182,7 +191,7 @@ export function CommandPalette({
                       isSelected && "bg-accent",
                       isCurrentFile && "text-blue-600 dark:text-blue-400",
                     )}
-                    onClick={() => handleFileClick(file.path)}
+                    onClick={() => handleFileClick(file)}
                   >
                     <FileIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -190,15 +199,11 @@ export function CommandPalette({
                         {query
                           ? highlightMatches(
                               fileName,
-                              (file as any).matches
-                                ?.filter(
-                                  (m: number) =>
-                                    m >= file.path.lastIndexOf("/") + 1,
+                              file.matches
+                                .filter(
+                                  (m) => m >= file.path.lastIndexOf("/") + 1,
                                 )
-                                .map(
-                                  (m: number) =>
-                                    m - file.path.lastIndexOf("/") - 1,
-                                ) || [],
+                                .map((m) => m - file.path.lastIndexOf("/") - 1),
                             )
                           : fileName}
                       </div>
@@ -207,9 +212,9 @@ export function CommandPalette({
                           {query
                             ? highlightMatches(
                                 filePath,
-                                (file as any).matches?.filter(
-                                  (m: number) => m < file.path.lastIndexOf("/"),
-                                ) || [],
+                                file.matches.filter(
+                                  (m) => m < file.path.lastIndexOf("/"),
+                                ),
                               )
                             : filePath}
                         </div>

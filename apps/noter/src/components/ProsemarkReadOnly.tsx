@@ -6,6 +6,7 @@ import {
   useRef,
 } from "react";
 import {
+  Annotation,
   Compartment,
   EditorSelection,
   EditorState,
@@ -30,6 +31,13 @@ import {
 import { oneDark } from "@codemirror/theme-one-dark";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
+import {
+  blurOnOutsidePointerDownExtension,
+  collapseSelectionOnBlurExtension,
+  findInitialSafeSelectionAnchor,
+  prosemarkHiddenCursorTheme,
+  prosemarkSurfaceTheme,
+} from "@/components/prosemarkSurface";
 
 type ProsemarkReadOnlyProps = {
   value: string;
@@ -37,6 +45,7 @@ type ProsemarkReadOnlyProps = {
   editable?: boolean;
   highlightedLineNumbers?: number[];
   lineHighlightTone?: "add" | "remove";
+  onChange?: (value: string) => void;
 };
 
 function getHighlightClassName(lineHighlightTone: "add" | "remove"): string {
@@ -106,184 +115,16 @@ function createLineHighlightExtension(
   );
 }
 
-function isBlankLineText(text: string): boolean {
-  return text.trim().length === 0;
-}
-
-function findFirstBlankLineAnchorInString(docText: string): number {
-  let lineStart = 0;
-  for (let i = 0; i <= docText.length; i++) {
-    const isLineEnd = i === docText.length || docText.charCodeAt(i) === 10;
-    if (!isLineEnd) continue;
-
-    const lineText = docText.slice(lineStart, i);
-    if (isBlankLineText(lineText)) return lineStart;
-
-    lineStart = i + 1;
-  }
-  return docText.length;
-}
-
-function findFirstBlankLineAnchorInDoc(doc: EditorState["doc"]): number {
-  for (let i = 1; i <= doc.lines; i++) {
-    const line = doc.line(i);
-    if (isBlankLineText(line.text)) return line.from;
-  }
-  return doc.length;
-}
-
-function findInitialSafeSelectionAnchor(docText: string): number {
-  // Prefer the start of the first blank line so markdown stays folded by
-  // default (avoids revealing markers at document start).
-  return findFirstBlankLineAnchorInString(docText);
-}
-
-const blurOnOutsidePointerDownExtension = ViewPlugin.fromClass(
-  class {
-    private blurTimeout: number | null = null;
-
-    private onPointerDown = (event: PointerEvent) => {
-      // If we click/tap on a non-focusable element (for example whitespace),
-      // contenteditable won't necessarily blur by default. Mirror the common
-      // "tap outside to dismiss" behavior so we always refold on blur.
-      if (!this.view.hasFocus) return;
-      if (event.button !== 0) return;
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (this.view.dom.contains(target)) return;
-
-      // Defer to avoid browsers immediately restoring focus during the pointer
-      // event sequence when no other focusable target exists.
-      if (this.blurTimeout !== null) return;
-      this.blurTimeout = window.setTimeout(() => {
-        this.blurTimeout = null;
-        if (!this.view.hasFocus) return;
-        this.view.contentDOM.blur();
-      }, 0);
-    };
-
-    constructor(private view: EditorView) {
-      document.addEventListener("pointerdown", this.onPointerDown, true);
-    }
-
-    destroy() {
-      if (this.blurTimeout !== null) {
-        window.clearTimeout(this.blurTimeout);
-        this.blurTimeout = null;
-      }
-      document.removeEventListener("pointerdown", this.onPointerDown, true);
-    }
-  },
-);
-
-const collapseSelectionOnBlurExtension = ViewPlugin.fromClass(
-  class {
-    private isScheduled = false;
-    private collapseTimeout: number | null = null;
-
-    update(update: ViewUpdate) {
-      if (!update.focusChanged || update.view.hasFocus) return;
-
-      const view = update.view;
-      if (this.isScheduled) return;
-
-      const safeAnchor = () => findFirstBlankLineAnchorInDoc(view.state.doc);
-
-      const shouldCollapse = () => {
-        const anchor = safeAnchor();
-        const main = view.state.selection.main;
-        return !(
-          view.state.selection.ranges.length === 1 &&
-          main.anchor === anchor &&
-          main.head === anchor
-        );
-      };
-
-      if (!shouldCollapse()) return;
-
-      this.isScheduled = true;
-      // Defer dispatch to avoid "Calls to EditorView.update are not allowed
-      // while an update is in progress".
-      this.collapseTimeout = window.setTimeout(() => {
-        this.collapseTimeout = null;
-        this.isScheduled = false;
-        if (view.hasFocus || !view.dom.isConnected) return;
-        if (!shouldCollapse()) return;
-
-        // Collapse selection on a markdown-neutral line so Prosemark re-folds
-        // list markers (`-`) into bullets and heading markers (`##`) into
-        // headings.
-        view.dispatch({
-          selection: EditorSelection.single(safeAnchor()),
-          scrollIntoView: false,
-        });
-      }, 0);
-    }
-
-    destroy() {
-      if (this.collapseTimeout !== null) {
-        window.clearTimeout(this.collapseTimeout);
-        this.collapseTimeout = null;
-      }
-      this.isScheduled = false;
-    }
-  },
-);
-
 const prosemarkReadOnlyTheme = EditorView.theme({
-  "&": {
-    backgroundColor: "transparent",
-    color: "inherit",
-  },
-  ".cm-editor": {
-    backgroundColor: "transparent",
-    color: "inherit",
-    fontFamily: "inherit",
-    fontSize: "inherit",
-    lineHeight: "inherit",
-  },
-  ".cm-focused": {
-    outline: "none",
-  },
-  ".cm-content": {
-    padding: "0",
-    fontFamily: "inherit",
-    fontSize: "inherit",
-    lineHeight: "inherit",
-  },
-  ".cm-line": {
-    padding: "0",
-  },
   ".cm-line.cm-line-highlight-add": {
     backgroundColor: "rgba(16, 185, 129, 0.1)",
-    borderRadius: "4px",
   },
   ".cm-line.cm-line-highlight-remove": {
     backgroundColor: "rgba(244, 63, 94, 0.1)",
-    borderRadius: "4px",
-  },
-  ".cm-scroller": {
-    fontFamily: "inherit",
-    lineHeight: "inherit",
-    overflow: "visible",
-    height: "auto",
-  },
-  ".cm-gutters": {
-    display: "none",
-  },
-  "& .cm-rendered-list-mark": {
-    display: "inline-block",
-    width: "1ch !important",
-    margin: "0 !important",
-    textAlign: "center",
   },
 });
 
-const prosemarkHiddenCursorTheme = EditorView.theme({
-  ".cm-cursor": {
-    display: "none",
-  },
-});
+const externalValueSyncAnnotation = Annotation.define<boolean>();
 
 export function ProsemarkReadOnly({
   value,
@@ -291,6 +132,7 @@ export function ProsemarkReadOnly({
   editable = false,
   highlightedLineNumbers = [],
   lineHighlightTone = "add",
+  onChange,
 }: ProsemarkReadOnlyProps) {
   const { theme, systemTheme } = useTheme();
   const effectiveTheme = theme === "system" ? systemTheme : theme;
@@ -305,9 +147,10 @@ export function ProsemarkReadOnly({
   const themeCompartmentRef = useRef(new Compartment());
   const interactionCompartmentRef = useRef(new Compartment());
   const cursorCompartmentRef = useRef(new Compartment());
-  const lineHighlightsCompartmentRef = useRef(new Compartment());
+  const decorationsCompartmentRef = useRef(new Compartment());
   const lineHighlightToneRef = useRef(lineHighlightTone);
   const lastWidthRef = useRef<number | null>(null);
+  const onChangeRef = useRef(onChange);
   const normalizedHighlightedLineNumbers = useMemo(() => {
     const deduped = Array.from(
       new Set(
@@ -348,6 +191,10 @@ export function ProsemarkReadOnly({
   }, [lineHighlightTone]);
 
   useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  useEffect(() => {
     normalizedHighlightedLineNumbersRef.current =
       normalizedHighlightedLineNumbers;
   }, [normalizedHighlightedLineNumbers]);
@@ -370,6 +217,7 @@ export function ProsemarkReadOnly({
         prosemarkBaseThemeSetup(),
         blurOnOutsidePointerDownExtension,
         collapseSelectionOnBlurExtension,
+        prosemarkSurfaceTheme,
         prosemarkReadOnlyTheme,
         interactionCompartmentRef.current.of([
           EditorState.readOnly.of(!editableRef.current),
@@ -378,12 +226,28 @@ export function ProsemarkReadOnly({
         cursorCompartmentRef.current.of(
           !editableRef.current ? prosemarkHiddenCursorTheme : [],
         ),
-        lineHighlightsCompartmentRef.current.of(
+        decorationsCompartmentRef.current.of(
           createLineHighlightExtension(
             normalizedHighlightedLineNumbersRef.current,
             lineHighlightToneRef.current,
           ),
         ),
+        EditorView.updateListener.of((update) => {
+          if (!update.docChanged) {
+            return;
+          }
+          if (
+            update.transactions.some((transaction) =>
+              transaction.annotation(externalValueSyncAnnotation),
+            )
+          ) {
+            resizeToContent();
+            return;
+          }
+          lastValueRef.current = update.state.doc.toString();
+          resizeToContent();
+          onChangeRef.current?.(lastValueRef.current);
+        }),
         themeCompartmentRef.current.of(isDarkRef.current ? oneDark : []),
       ],
     });
@@ -429,7 +293,7 @@ export function ProsemarkReadOnly({
     const view = viewRef.current;
     if (!view) return;
     view.dispatch({
-      effects: lineHighlightsCompartmentRef.current.reconfigure(
+      effects: decorationsCompartmentRef.current.reconfigure(
         createLineHighlightExtension(
           normalizedHighlightedLineNumbers,
           lineHighlightTone,
@@ -462,14 +326,11 @@ export function ProsemarkReadOnly({
       resizeToContent();
       return;
     }
-    const transaction: {
-      changes: { from: number; to: number; insert: string };
-      scrollIntoView: boolean;
-    } = {
+    view.dispatch({
+      annotations: externalValueSyncAnnotation.of(true),
       changes: { from: 0, to: view.state.doc.length, insert: value },
       scrollIntoView: false,
-    };
-    view.dispatch(transaction);
+    });
     resizeToContent();
   }, [value, resizeToContent]);
 

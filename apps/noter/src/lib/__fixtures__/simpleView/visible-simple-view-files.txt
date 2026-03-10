@@ -6,9 +6,8 @@ apps/noter-starter-template/AGENTS.md
 apps/noter-starter-template/noter.md
 apps/noter-starter-template/README.md
 apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-deleted.png
-apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-fallback.png
-apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-patch.png
-apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-rich.png
+apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-inline.png
+apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-unchanged.png
 apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-png.png
 apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-svg.png
 apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-missing-config.png
@@ -56,6 +55,7 @@ specs/001_CODESPACE_CONNECTION_SPEC.md
 specs/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md
 specs/003_VAULT_INFRA_PROVISIONING_SPEC.md
 specs/004_AI_PROD_ACCESS_POLICY_SPEC.md
+specs/005_COMMIT_REVIEW_SIDEBAR_SPEC.md
 specs/005_STARTER_TEMPLATE_STRATEGY_SPEC.md
 specs/006_DNS_DOMAIN_STRATEGY_SPEC.md
 specs/007_SIMPLE_VIEW_FRONTMATTER_SPEC.md
@@ -101,6 +101,7 @@ specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md
 specs/046_VAULT_MULTI_BRANCH_ROLLOUT_PLAN.md
 specs/047_UNIFIED_TOOL_RUNTIME_AND_SURFACE_ADAPTERS_SPEC.md
 specs/048_DASHBOARD_REMOTE_BRANCH_DELETE_SPEC.md
+specs/048_INLINE_MARKDOWN_DIFF_RETHINK_SPEC.md
 TODO.md
 VISION.md
 worktree.md

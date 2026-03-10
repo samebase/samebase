@@ -58,6 +58,12 @@ module.exports = {
 
     '@typescript-eslint/no-unnecessary-condition': 'error',
 
+    // Surface type assertions repo-wide while allowing incremental cleanup.
+    '@typescript-eslint/consistent-type-assertions': [
+      'warn',
+      { assertionStyle: 'never' },
+    ],
+
     // Allow async functions without await
     // for consistency (esp. Convex `handler`s)
     '@typescript-eslint/require-await': 'off',

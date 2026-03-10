@@ -2,20 +2,16 @@ import { expect, test } from "@playwright/test";
 
 const SCENARIOS = [
   {
-    mode: "rich",
-    snapshotName: "commit-review-rich.png",
-  },
-  {
-    mode: "patch",
-    snapshotName: "commit-review-patch.png",
+    mode: "inline",
+    snapshotName: "commit-review-inline.png",
   },
   {
     mode: "deleted",
     snapshotName: "commit-review-deleted.png",
   },
   {
-    mode: "fallback",
-    snapshotName: "commit-review-fallback.png",
+    mode: "unchanged",
+    snapshotName: "commit-review-unchanged.png",
   },
 ] as const;
 

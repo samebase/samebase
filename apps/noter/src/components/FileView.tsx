@@ -9,6 +9,8 @@ import {
   type AgentGraphNode,
 } from "@/components/AgentGraphView";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
@@ -16,7 +18,14 @@ import { GitHubLogoIcon, PlusIcon, FilePlusIcon } from "@radix-ui/react-icons";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { FileTree } from "./FileTree";
 import { CommandPalette } from "./CommandPalette";
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+  useLayoutEffect,
+} from "react";
 import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
 import { useSidebar } from "@/components/ui/sidebar";
 import { UserMenu } from "@/components/UserMenu";
@@ -26,7 +35,10 @@ import { DialogProvider } from "@/contexts/DialogContext";
 import { useDialog } from "@/hooks/useDialog";
 import { FileCreationDialog } from "@/components/FileCreationDialog";
 import { FolderCreationDialog } from "@/components/FolderCreationDialog";
-import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
+import {
+  ProsemarkMergeEditor,
+  type ProsemarkMergeEditorOptions,
+} from "@/components/ProsemarkMergeEditor";
 import { nonNullable } from "@/lib/utils";
 import {
   filterSimpleViewTreeItems,
@@ -38,12 +50,7 @@ import {
   SIMPLE_VIEW_CONFIG_PATH,
   shouldLoadRepositorySimpleViewConfig,
 } from "@/lib/simpleView";
-import {
-  getCommitStatusBadgeClassName,
-  getCommitStatusLabel,
-  getCommitStatusToken,
-  type CommitReviewFileStatus as CommitPreviewFileStatus,
-} from "@/lib/commitReviewStatus";
+import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/lib/commitReviewStatus";
 import {
   claimRefreshDebounce,
   releaseRefreshDebounce,
@@ -53,14 +60,17 @@ import { type GithubTreeType } from "convex/schema";
 import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
 import { DaytonaWorkspaceButton } from "./DaytonaWorkspaceButton";
 import { DaytonaSnapshotBanner } from "./DaytonaSnapshotBanner";
-import { CommitReviewStatusChips } from "./CommitReviewStatusChips";
 import { VaultSyncStatus } from "./VaultSyncStatus";
 import { RepositoryMediaViewer } from "./RepositoryMediaViewer";
 import { RepositoryWorkspaceFrame } from "./RepositoryWorkspaceFrame";
-import { diffLines } from "diff";
 import { isRenderableRepositoryMediaPath } from "../../shared/repositoryMedia";
+import { isStaleBaseVersionError } from "../../shared/stagingErrors";
 import { decodeRouteSegmentSafe } from "@/lib/vaultRoutes";
 import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
+
+function isFileTreeNodeType(type: string): type is "tree" | "blob" {
+  return type === "tree" || type === "blob";
+}
 
 // Function to find the best file to display
 function findBestInitialFile(files: GithubTreeType[]) {
@@ -129,8 +139,16 @@ type CommitPreview = {
   };
 };
 
-type CommitPreviewDisplayMode = "rich" | "patch";
 type CommitReviewMode = "editor" | "review";
+type SidebarMode = "simple" | "all" | "changes";
+type StagedFileRecord = NonNullable<
+  (typeof api.fileStaging.listStagedFiles)["_returnType"]
+>[number];
+type InlinePreviewSaveSnapshot = {
+  stagingId: StagedFileRecord["_id"];
+  content: string;
+  baseVersion: number;
+};
 
 type RefreshTrigger = "focus" | "page_load";
 
@@ -152,61 +170,6 @@ function readGraphViewMode(storageKey: string): "editor" | "graph" | null {
   return null;
 }
 
-function getLineCountFromDiffPart(
-  value: string | undefined,
-  count: number | undefined,
-): number {
-  if (typeof count === "number") {
-    return count;
-  }
-  if (!value || value.length === 0) {
-    return 0;
-  }
-  return value.split("\n").length;
-}
-
-function getRichDiffLineHighlights(
-  oldContent: string,
-  newContent: string,
-): {
-  oldLines: number[];
-  newLines: number[];
-} {
-  const oldLines = new Set<number>();
-  const newLines = new Set<number>();
-  let oldLinePointer = 1;
-  let newLinePointer = 1;
-
-  for (const part of diffLines(oldContent, newContent)) {
-    const lineCount = getLineCountFromDiffPart(part.value, part.count);
-    if (lineCount === 0) continue;
-
-    if (part.removed) {
-      for (let index = 0; index < lineCount; index += 1) {
-        oldLines.add(oldLinePointer + index);
-      }
-      oldLinePointer += lineCount;
-      continue;
-    }
-
-    if (part.added) {
-      for (let index = 0; index < lineCount; index += 1) {
-        newLines.add(newLinePointer + index);
-      }
-      newLinePointer += lineCount;
-      continue;
-    }
-
-    oldLinePointer += lineCount;
-    newLinePointer += lineCount;
-  }
-
-  return {
-    oldLines: [...oldLines].sort((left, right) => left - right),
-    newLines: [...newLines].sort((left, right) => left - right),
-  };
-}
-
 function getPatchLineClassName(line: string): string {
   if (line.startsWith("+") && !line.startsWith("+++")) {
     return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
@@ -218,6 +181,50 @@ function getPatchLineClassName(line: string): string {
     return "text-muted-foreground";
   }
   return "";
+}
+
+function matchesInlinePreviewSaveSnapshot(
+  left: InlinePreviewSaveSnapshot | null,
+  right: InlinePreviewSaveSnapshot,
+): boolean {
+  return (
+    left?.stagingId === right.stagingId &&
+    left.content === right.content &&
+    left.baseVersion === right.baseVersion
+  );
+}
+
+function buildInlinePreviewAutosaveContextKey(
+  reviewMode: CommitReviewMode,
+  activeStagingId: StagedFileRecord["_id"] | null,
+  draftStagingId: StagedFileRecord["_id"] | null,
+): string {
+  return `${reviewMode}:${activeStagingId ?? "none"}:${draftStagingId ?? "none"}`;
+}
+
+const DEFAULT_INLINE_PREVIEW_OPTIONS = {
+  allowInlineDiffs: false,
+  syntaxHighlightDeletions: true,
+} satisfies ProsemarkMergeEditorOptions;
+
+const DEFAULT_SHOW_INLINE_PREVIEW_PATCH = false;
+
+function getStagedFileStatus(
+  file: StagedFileRecord,
+): CommitPreviewFileStatus | null {
+  if (file.fileDeleted) {
+    return "deleted";
+  }
+  if (file.parentCommitSha === null) {
+    return "added";
+  }
+  if (file.filePath !== file.initialFilePath) {
+    return "renamed";
+  }
+  if (file.content !== file.initialContent) {
+    return "modified";
+  }
+  return null;
 }
 
 function encodeGitHubPath(path: string): string {
@@ -653,13 +660,38 @@ function FileViewInner({
   const [commitPreview, setCommitPreview] = useState<CommitPreview | null>(
     null,
   );
-  const [commitPreviewDisplayPreference, setCommitPreviewDisplayPreference] =
-    useState<CommitPreviewDisplayMode>("patch");
-  const [commitPreviewDisplayMode, setCommitPreviewDisplayMode] =
-    useState<CommitPreviewDisplayMode>("patch");
   const [commitPreviewError, setCommitPreviewError] = useState<string | null>(
     null,
   );
+  const [inlinePreviewDraftStagingId, setInlinePreviewDraftStagingId] =
+    useState<StagedFileRecord["_id"] | null>(null);
+  const [inlinePreviewDraftContent, setInlinePreviewDraftContent] =
+    useState("");
+  const [inlinePreviewDraftBaseVersion, setInlinePreviewDraftBaseVersion] =
+    useState(0);
+  const [
+    inlinePreviewHasPendingLocalEdit,
+    setInlinePreviewHasPendingLocalEdit,
+  ] = useState(false);
+  const [inlinePreviewOptions, setInlinePreviewOptions] =
+    useState<ProsemarkMergeEditorOptions>(DEFAULT_INLINE_PREVIEW_OPTIONS);
+  const [showInlinePreviewPatch, setShowInlinePreviewPatch] = useState(
+    DEFAULT_SHOW_INLINE_PREVIEW_PATCH,
+  );
+  const [inlinePreviewSaveError, setInlinePreviewSaveError] = useState<
+    string | null
+  >(null);
+  const [inlinePreviewInFlightSave, setInlinePreviewInFlightSave] =
+    useState<InlinePreviewSaveSnapshot | null>(null);
+  const [inlinePreviewFailedSave, setInlinePreviewFailedSave] =
+    useState<InlinePreviewSaveSnapshot | null>(null);
+  const inlinePreviewDraftContentRef = useRef("");
+  const activePreviewStagingIdRef = useRef<StagedFileRecord["_id"] | null>(
+    null,
+  );
+  const flushPendingInlinePreviewSaveRef = useRef<(() => void) | null>(null);
+  const inlinePreviewAutosaveContextKeyRef = useRef("");
+  const inlinePreviewMountedRef = useRef(true);
 
   // Convex hooks for staging
   const [commitStaging, manualComittingStatus] = useConvexAction(
@@ -670,6 +702,9 @@ function FileViewInner({
   );
   const [clearAllStaging, clearingStagingStatus] = useConvexMutation(
     api.fileStaging.clearAllStaging,
+  );
+  const [updateStagedFileContent] = useConvexMutation(
+    api.fileStaging.updateStagedFileContent,
   );
 
   const [markFileForDeletion] = useConvexMutation(
@@ -718,8 +753,8 @@ function FileViewInner({
     useState(false);
   const [didResolveRepositoryNoterLoad, setDidResolveRepositoryNoterLoad] =
     useState(false);
-  const [simpleViewMode, setSimpleViewMode] = useState<"simple" | "all">("all");
-  const [simpleViewModeHydrated, setSimpleViewModeHydrated] = useState(false);
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>("all");
+  const [sidebarModeHydrated, setSidebarModeHydrated] = useState(false);
 
   const createFileInStaging = useMutation(api.fileStaging.createFileInStaging);
   const showMobileEditorLineNumbers = useMemo(() => {
@@ -731,6 +766,9 @@ function FileViewInner({
   }, [isDiffRequested]);
   const [allowAutoExitReview, setAllowAutoExitReview] = useState(true);
   const reviewRouteKeyRef = useRef<string | null>(null);
+  const reviewSidebarModeRef = useRef<Exclude<SidebarMode, "changes"> | null>(
+    null,
+  );
 
   // Add command palette keyboard shortcut handler
   useEffect(() => {
@@ -762,7 +800,7 @@ function FileViewInner({
       hasDeletedStagedNoterFile ||
       didResolveRepositoryNoterLoad);
 
-  const simpleViewStorageKey = useMemo(
+  const sidebarModeStorageKey = useMemo(
     () => getSimpleViewPreferenceStorageKey(vault._id),
     [vault._id],
   );
@@ -779,7 +817,7 @@ function FileViewInner({
     setRepositoryNoterContent(null);
     setDidAttemptRepositoryNoterLoad(false);
     setDidResolveRepositoryNoterLoad(false);
-    setSimpleViewModeHydrated(false);
+    setSidebarModeHydrated(false);
   }, [vault._id, branch]);
 
   useEffect(() => {
@@ -855,41 +893,47 @@ function FileViewInner({
     if (!didResolveSimpleViewConfigSource) {
       return;
     }
-    const defaultMode = hasNoterConfigFile ? "simple" : "all";
+    const defaultMode: Exclude<SidebarMode, "changes"> = hasNoterConfigFile
+      ? "simple"
+      : "all";
 
     try {
-      const storedMode = localStorage.getItem(simpleViewStorageKey);
+      const storedMode = localStorage.getItem(sidebarModeStorageKey);
       if (storedMode === "simple" || storedMode === "all") {
-        setSimpleViewMode(storedMode);
-        setSimpleViewModeHydrated(true);
+        setSidebarMode(storedMode);
+        setSidebarModeHydrated(true);
         return;
       }
     } catch (error) {
-      console.warn("Failed to read simple view preference", error);
+      console.warn("Failed to read sidebar view preference", error);
     }
 
-    setSimpleViewMode(defaultMode);
-    setSimpleViewModeHydrated(true);
+    setSidebarMode(defaultMode);
+    setSidebarModeHydrated(true);
   }, [
     didResolveSimpleViewConfigSource,
     hasNoterConfigFile,
-    simpleViewStorageKey,
+    sidebarModeStorageKey,
   ]);
 
   useEffect(() => {
-    if (!didResolveSimpleViewConfigSource || !simpleViewModeHydrated) {
+    if (
+      !didResolveSimpleViewConfigSource ||
+      !sidebarModeHydrated ||
+      sidebarMode === "changes"
+    ) {
       return;
     }
     try {
-      localStorage.setItem(simpleViewStorageKey, simpleViewMode);
+      localStorage.setItem(sidebarModeStorageKey, sidebarMode);
     } catch (error) {
-      console.warn("Failed to persist simple view preference", error);
+      console.warn("Failed to persist sidebar view preference", error);
     }
   }, [
     didResolveSimpleViewConfigSource,
-    simpleViewMode,
-    simpleViewModeHydrated,
-    simpleViewStorageKey,
+    sidebarMode,
+    sidebarModeHydrated,
+    sidebarModeStorageKey,
   ]);
 
   const stagedNoterContent = hasStagedSimpleViewConfigFile(stagedNoterFile)
@@ -944,9 +988,14 @@ function FileViewInner({
   );
 
   const handleFileSelect = useCallback(
-    (path: string) => {
+    (path: string, status?: CommitPreviewFileStatus) => {
       if (owner && repoName) {
-        void navigate(buildVaultFileUrl(path), { state });
+        void navigate(
+          buildVaultFileUrl(path, {
+            reviewMode: status === "deleted" ? "review" : undefined,
+          }),
+          { state },
+        );
 
         // close the sidebar
         setOpenMobile(false);
@@ -987,13 +1036,16 @@ function FileViewInner({
   };
 
   // Handler for deleting files from the file tree
-  const handleFileDelete = async (filePath: string) => {
+  const handleFileDelete = async (
+    filePath: string,
+    originalPath = filePath,
+  ) => {
     if (!owner || !repoName) return;
 
     try {
       // Get the file's SHA from the tree (null for new files)
       const fileSha =
-        vault.treeData.tree.find((t: GithubTreeType) => t.path === filePath)
+        vault.treeData.tree.find((t: GithubTreeType) => t.path === originalPath)
           ?.sha ?? null;
 
       // Ensure we retain original file content in staging for review mode.
@@ -1001,7 +1053,7 @@ function FileViewInner({
         try {
           await stageFileForEditing({
             repositoryFullName: `${owner}/${repoName}`,
-            originalFilePath: filePath,
+            originalFilePath: originalPath,
             branch,
           });
         } catch (error) {
@@ -1127,8 +1179,7 @@ function FileViewInner({
 
   const resetCommitPreviewState = useCallback(() => {
     setCommitPreview(null);
-    setCommitPreviewDisplayPreference("patch");
-    setCommitPreviewDisplayMode("patch");
+    setInlinePreviewSaveError(null);
   }, []);
 
   const handleToggleReviewMode = useCallback(() => {
@@ -1159,55 +1210,275 @@ function FileViewInner({
 
   const selectedPreviewFile =
     commitPreview?.files.find((file) => file.path === selectedFile) ?? null;
-  const fallbackPreviewFile = commitPreview?.files[0] ?? null;
-  const activePreviewFile = selectedPreviewFile ?? fallbackPreviewFile;
-  const selectedPreviewCanRenderRichMarkdown = Boolean(
-    activePreviewFile?.isMarkdown &&
-      typeof activePreviewFile.richOldContent === "string" &&
-      typeof activePreviewFile.richNewContent === "string",
+  const selectedPreviewStagedFile = stagedFile ?? null;
+  const sidebarSelectedFile = selectedFile;
+  const selectedPreviewCanRenderInline = Boolean(
+    selectedPreviewStagedFile && !selectedFileIsRenderableMedia,
   );
-  const selectedPreviewRichDiffLines = useMemo(
-    () =>
-      selectedPreviewCanRenderRichMarkdown && activePreviewFile
-        ? getRichDiffLineHighlights(
-            activePreviewFile.richOldContent ?? "",
-            activePreviewFile.richNewContent ?? "",
-          )
-        : null,
-    [selectedPreviewCanRenderRichMarkdown, activePreviewFile],
+  const activePreviewPersistedContent = selectedPreviewStagedFile
+    ? selectedPreviewStagedFile.fileDeleted
+      ? ""
+      : selectedPreviewStagedFile.content
+    : selectedPreviewFile?.richNewContent ?? "";
+  const activePreviewPersistedVersion = selectedPreviewStagedFile?.version ?? 0;
+  const activePreviewStagingId = selectedPreviewStagedFile?._id ?? null;
+  const inlinePreviewEditable = Boolean(
+    selectedPreviewStagedFile && !selectedPreviewStagedFile.fileDeleted,
+  );
+  const inlinePreviewEditorContent =
+    inlinePreviewDraftStagingId === activePreviewStagingId
+      ? inlinePreviewDraftContent
+      : activePreviewPersistedContent;
+  const inlinePreviewAutosaveContextKey = buildInlinePreviewAutosaveContextKey(
+    commitReviewMode,
+    activePreviewStagingId,
+    inlinePreviewDraftStagingId,
+  );
+  inlinePreviewDraftContentRef.current = inlinePreviewDraftContent;
+  activePreviewStagingIdRef.current = activePreviewStagingId;
+  inlinePreviewAutosaveContextKeyRef.current = inlinePreviewAutosaveContextKey;
+
+  const persistInlinePreviewSave = useCallback(
+    (
+      nextSave: InlinePreviewSaveSnapshot,
+      options?: {
+        trackStartState?: boolean;
+      },
+    ) => {
+      if (options?.trackStartState !== false) {
+        setInlinePreviewInFlightSave(nextSave);
+      }
+      void updateStagedFileContent({
+        stagingId: nextSave.stagingId,
+        content: nextSave.content,
+        expectedVersion: nextSave.baseVersion,
+      })
+        .then((updatedStaging) => {
+          if (!inlinePreviewMountedRef.current) {
+            return;
+          }
+          setInlinePreviewInFlightSave((current) =>
+            matchesInlinePreviewSaveSnapshot(current, nextSave)
+              ? null
+              : current,
+          );
+          if (activePreviewStagingIdRef.current !== nextSave.stagingId) {
+            return;
+          }
+          setInlinePreviewDraftBaseVersion(updatedStaging.version);
+          setInlinePreviewFailedSave(null);
+          setInlinePreviewSaveError(null);
+          if (inlinePreviewDraftContentRef.current === nextSave.content) {
+            setInlinePreviewHasPendingLocalEdit(false);
+          }
+        })
+        .catch((error: unknown) => {
+          if (!inlinePreviewMountedRef.current) {
+            return;
+          }
+          setInlinePreviewInFlightSave((current) =>
+            matchesInlinePreviewSaveSnapshot(current, nextSave)
+              ? null
+              : current,
+          );
+          if (activePreviewStagingIdRef.current !== nextSave.stagingId) {
+            return;
+          }
+          const message = isStaleBaseVersionError(error)
+            ? "Inline review is out of date. Reopen the file to continue editing."
+            : error instanceof Error && error.message.length > 0
+              ? error.message
+              : "Failed to save inline review edits.";
+          setInlinePreviewFailedSave(nextSave);
+          setInlinePreviewSaveError(message);
+        });
+    },
+    [updateStagedFileContent],
   );
 
-  useEffect(() => {
-    if (selectedPreviewCanRenderRichMarkdown) {
-      setCommitPreviewDisplayMode(commitPreviewDisplayPreference);
+  const flushPendingInlinePreviewSave = useCallback(() => {
+    if (
+      !activePreviewStagingId ||
+      inlinePreviewDraftStagingId !== activePreviewStagingId ||
+      !inlinePreviewEditable ||
+      !inlinePreviewHasPendingLocalEdit
+    ) {
       return;
     }
-    setCommitPreviewDisplayMode("patch");
+
+    if (
+      activePreviewPersistedVersion >= inlinePreviewDraftBaseVersion &&
+      inlinePreviewDraftContent === activePreviewPersistedContent
+    ) {
+      return;
+    }
+
+    if (inlinePreviewInFlightSave?.stagingId === activePreviewStagingId) {
+      return;
+    }
+
+    const nextSave: InlinePreviewSaveSnapshot = {
+      stagingId: activePreviewStagingId,
+      content: inlinePreviewDraftContent,
+      baseVersion: inlinePreviewDraftBaseVersion,
+    };
+
+    if (matchesInlinePreviewSaveSnapshot(inlinePreviewFailedSave, nextSave)) {
+      return;
+    }
+
+    persistInlinePreviewSave(nextSave, { trackStartState: false });
   }, [
-    commitPreviewDisplayPreference,
-    selectedPreviewCanRenderRichMarkdown,
-    activePreviewFile?.path,
+    activePreviewPersistedContent,
+    activePreviewPersistedVersion,
+    activePreviewStagingId,
+    inlinePreviewDraftBaseVersion,
+    inlinePreviewDraftContent,
+    inlinePreviewDraftStagingId,
+    inlinePreviewEditable,
+    inlinePreviewFailedSave,
+    inlinePreviewHasPendingLocalEdit,
+    inlinePreviewInFlightSave,
+    persistInlinePreviewSave,
+  ]);
+
+  useLayoutEffect(() => {
+    flushPendingInlinePreviewSaveRef.current = flushPendingInlinePreviewSave;
+  }, [flushPendingInlinePreviewSave]);
+
+  useEffect(() => {
+    return () => {
+      flushPendingInlinePreviewSaveRef.current?.();
+      inlinePreviewMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (inlinePreviewDraftStagingId !== activePreviewStagingId) {
+      setInlinePreviewDraftStagingId(activePreviewStagingId);
+      setInlinePreviewDraftContent(activePreviewPersistedContent);
+      setInlinePreviewDraftBaseVersion(activePreviewPersistedVersion);
+      setInlinePreviewHasPendingLocalEdit(false);
+      setInlinePreviewInFlightSave(null);
+      setInlinePreviewFailedSave(null);
+      setInlinePreviewSaveError(null);
+      return;
+    }
+
+    if (activePreviewPersistedVersion < inlinePreviewDraftBaseVersion) {
+      return;
+    }
+
+    if (inlinePreviewHasPendingLocalEdit) {
+      return;
+    }
+
+    setInlinePreviewDraftContent(activePreviewPersistedContent);
+    setInlinePreviewDraftBaseVersion(activePreviewPersistedVersion);
+    setInlinePreviewFailedSave(null);
+    setInlinePreviewSaveError(null);
+  }, [
+    activePreviewPersistedContent,
+    activePreviewPersistedVersion,
+    activePreviewStagingId,
+    inlinePreviewDraftBaseVersion,
+    inlinePreviewHasPendingLocalEdit,
+    inlinePreviewDraftStagingId,
+  ]);
+
+  useEffect(() => {
+    setShowInlinePreviewPatch(false);
+  }, [selectedFile]);
+
+  useEffect(() => {
+    if (
+      commitReviewMode !== "review" ||
+      !inlinePreviewEditable ||
+      !activePreviewStagingId ||
+      inlinePreviewDraftStagingId !== activePreviewStagingId ||
+      !inlinePreviewHasPendingLocalEdit
+    ) {
+      return;
+    }
+
+    if (
+      activePreviewPersistedVersion >= inlinePreviewDraftBaseVersion &&
+      inlinePreviewDraftContent === activePreviewPersistedContent
+    ) {
+      setInlinePreviewDraftBaseVersion(activePreviewPersistedVersion);
+      setInlinePreviewHasPendingLocalEdit(false);
+      setInlinePreviewFailedSave(null);
+      setInlinePreviewSaveError(null);
+      return;
+    }
+
+    if (inlinePreviewInFlightSave?.stagingId === activePreviewStagingId) {
+      return;
+    }
+
+    const nextSave: InlinePreviewSaveSnapshot = {
+      stagingId: activePreviewStagingId,
+      content: inlinePreviewDraftContent,
+      baseVersion: inlinePreviewDraftBaseVersion,
+    };
+
+    if (matchesInlinePreviewSaveSnapshot(inlinePreviewFailedSave, nextSave)) {
+      return;
+    }
+
+    let didStartSave = false;
+    const timeoutId = window.setTimeout(() => {
+      didStartSave = true;
+      persistInlinePreviewSave(nextSave);
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      if (
+        didStartSave ||
+        inlinePreviewAutosaveContextKeyRef.current ===
+          inlinePreviewAutosaveContextKey
+      ) {
+        return;
+      }
+      persistInlinePreviewSave(nextSave, { trackStartState: false });
+    };
+  }, [
+    activePreviewPersistedContent,
+    activePreviewPersistedVersion,
+    activePreviewStagingId,
+    commitReviewMode,
+    inlinePreviewDraftContent,
+    inlinePreviewDraftBaseVersion,
+    inlinePreviewEditable,
+    inlinePreviewFailedSave,
+    inlinePreviewHasPendingLocalEdit,
+    inlinePreviewInFlightSave,
+    inlinePreviewDraftStagingId,
+    inlinePreviewAutosaveContextKey,
+    persistInlinePreviewSave,
   ]);
 
   const finalTreeData = useMemo(() => {
+    const stagedFilesByInitialPath = new Map(
+      (stagedFiles ?? []).map((file) => [file.initialFilePath, file]),
+    );
     const treeItems = vault.treeData.tree
       .map((item: GithubTreeType) => {
-        const stagedFile = stagedFiles?.find(
-          (staged: NonNullable<typeof stagedFiles>[number]) =>
-            staged.initialFilePath === item.path,
-        );
-
+        if (!isFileTreeNodeType(item.type)) {
+          return null;
+        }
+        const stagedFile = stagedFilesByInitialPath.get(item.path);
         const path = stagedFile ? stagedFile.filePath : item.path;
-        const deleted = stagedFile ? stagedFile.fileDeleted : false;
-
-        if (deleted && commitReviewMode !== "review") return null;
+        const status = stagedFile ? getStagedFileStatus(stagedFile) : null;
 
         return {
-          deleted,
+          deleted: status === "deleted",
           path,
           originalPath: item.path,
-          type: item.type as "tree" | "blob",
+          type: item.type,
           size: item.size,
+          status: status ?? undefined,
         };
       })
       .filter(nonNullable);
@@ -1215,37 +1486,37 @@ function FileViewInner({
     // Add new files from staging (parentCommitSha is null)
     const newFiles = (stagedFiles || [])
       .filter(
-        (staged: NonNullable<typeof stagedFiles>[number]) =>
-          staged.parentCommitSha === null && !staged.fileDeleted,
+        (staged: StagedFileRecord) =>
+          getStagedFileStatus(staged) === "added" && !staged.fileDeleted,
       )
-      .map((staged: NonNullable<typeof stagedFiles>[number]) => ({
+      .map((staged: StagedFileRecord) => ({
         deleted: false,
         path: staged.filePath,
         originalPath: staged.initialFilePath,
         type: "blob" as const,
         size: undefined,
+        status: "added" as const,
       }));
     const existingPaths = new Set(
       [...treeItems, ...newFiles].map((item) => item.path),
     );
-    const deletedFiles =
-      commitReviewMode === "review"
-        ? (stagedFiles || [])
-            .filter(
-              (staged: NonNullable<typeof stagedFiles>[number]) =>
-                staged.fileDeleted && !existingPaths.has(staged.filePath),
-            )
-            .map((staged: NonNullable<typeof stagedFiles>[number]) => ({
-              deleted: true,
-              path: staged.filePath,
-              originalPath: staged.initialFilePath,
-              type: "blob" as const,
-              size: undefined,
-            }))
-        : [];
+    const deletedFiles = (stagedFiles || [])
+      .filter(
+        (staged: StagedFileRecord) =>
+          getStagedFileStatus(staged) === "deleted" &&
+          !existingPaths.has(staged.filePath),
+      )
+      .map((staged: StagedFileRecord) => ({
+        deleted: true,
+        path: staged.filePath,
+        originalPath: staged.initialFilePath,
+        type: "blob" as const,
+        size: undefined,
+        status: "deleted" as const,
+      }));
 
     return [...treeItems, ...newFiles, ...deletedFiles];
-  }, [vault.treeData.tree, stagedFiles, commitReviewMode]);
+  }, [vault.treeData.tree, stagedFiles]);
 
   const { agentGraphNodes, agentGraphEdges } = useMemo(() => {
     const nodes: AgentGraphNode[] = [];
@@ -1286,8 +1557,17 @@ function FileViewInner({
     return { agentGraphNodes: nodes, agentGraphEdges: edges };
   }, [finalTreeData]);
 
+  const changedTreeData = useMemo(
+    () => finalTreeData.filter((item) => item.type === "blob" && item.status),
+    [finalTreeData],
+  );
+
   const visibleTreeData = useMemo(() => {
-    if (simpleViewMode !== "simple") {
+    if (sidebarMode === "changes") {
+      return changedTreeData;
+    }
+
+    if (sidebarMode !== "simple") {
       return finalTreeData;
     }
 
@@ -1302,7 +1582,28 @@ function FileViewInner({
       finalTreeData,
       simpleViewConfig.excludePatterns,
     );
-  }, [finalTreeData, simpleViewConfig, simpleViewMode]);
+  }, [changedTreeData, finalTreeData, simpleViewConfig, sidebarMode]);
+
+  const autoExpandedSidebarPaths = useMemo(() => {
+    if (sidebarMode !== "changes") {
+      return [];
+    }
+
+    const expandedPaths = new Set<string>();
+    for (const item of changedTreeData) {
+      const pathSegments = item.path.split("/");
+      let currentPath = "";
+      for (let index = 0; index < pathSegments.length - 1; index += 1) {
+        currentPath =
+          index === 0
+            ? pathSegments[index]
+            : `${currentPath}/${pathSegments[index]}`;
+        expandedPaths.add(currentPath);
+      }
+    }
+
+    return [...expandedPaths];
+  }, [changedTreeData, sidebarMode]);
 
   const emptyRepository = visibleTreeData.length === 0;
   const didResolveStagedFiles = stagedFiles !== undefined;
@@ -1340,6 +1641,25 @@ function FileViewInner({
       commitReviewMode === "review" ? current : true,
     );
   }, [branch, selectedFile, commitReviewMode]);
+
+  useEffect(() => {
+    if (!sidebarModeHydrated) {
+      return;
+    }
+    if (commitReviewMode === "review" && hasChangesToCommit) {
+      if (reviewSidebarModeRef.current === null && sidebarMode !== "changes") {
+        reviewSidebarModeRef.current = sidebarMode;
+        setSidebarMode("changes");
+      }
+      return;
+    }
+
+    const previousSidebarMode = reviewSidebarModeRef.current;
+    reviewSidebarModeRef.current = null;
+    if (previousSidebarMode && sidebarMode === "changes") {
+      setSidebarMode(previousSidebarMode);
+    }
+  }, [commitReviewMode, hasChangesToCommit, sidebarMode, sidebarModeHydrated]);
 
   useEffect(() => {
     if (
@@ -1446,11 +1766,15 @@ function FileViewInner({
           <ToggleGroup
             type="single"
             size="sm"
-            value={simpleViewMode}
+            value={sidebarMode}
             className="justify-start"
             onValueChange={(value) => {
-              if (value === "simple" || value === "all") {
-                setSimpleViewMode(value);
+              if (
+                value === "simple" ||
+                value === "all" ||
+                value === "changes"
+              ) {
+                setSidebarMode(value);
               }
             }}
           >
@@ -1468,6 +1792,13 @@ function FileViewInner({
             >
               All Files
             </ToggleGroupItem>
+            <ToggleGroupItem
+              value="changes"
+              aria-label="Changes"
+              className="h-7 px-2 text-xs"
+            >
+              Changes
+            </ToggleGroupItem>
           </ToggleGroup>
         </div>
       </div>
@@ -1482,15 +1813,26 @@ function FileViewInner({
               void handleFileRename(originalPath, newPath)
             }
             onFileCreate={handleCreateFileInFolder}
-            onFileDelete={(filePath) => void handleFileDelete(filePath)}
-            selectedFile={selectedFile}
+            onFileDelete={(filePath, originalPath) =>
+              void handleFileDelete(filePath, originalPath)
+            }
+            selectedFile={sidebarSelectedFile}
             folderExpansionStates={folderExpansionStates ?? []}
             onFolderToggle={handleFolderToggle}
+            autoExpandedPaths={autoExpandedSidebarPaths}
+            forceAutoExpandedPaths={sidebarMode === "changes"}
           />
         </div>
       )}
     </>
   );
+
+  const handleInlinePreviewChange = useCallback((nextContent: string) => {
+    setInlinePreviewDraftContent(nextContent);
+    setInlinePreviewHasPendingLocalEdit(true);
+    setInlinePreviewFailedSave(null);
+    setInlinePreviewSaveError(null);
+  }, []);
 
   const headerTitle = selectedFile
     ? selectedFile.split("/").slice(0, -1).join("/") || "/"
@@ -1505,17 +1847,22 @@ function FileViewInner({
       >
         <div className="max-w-none h-full flex flex-col">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-3">
-              <h2 className="text-base md:text-sm font-medium">
-                <a
-                  className={`block truncate ${linkStyle}`}
-                  href={selectedFileGitHubUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {selectedFile}
-                </a>
-              </h2>
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="min-w-0">
+                <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">
+                  {branch}
+                </div>
+                <h2 className="text-base md:text-sm font-medium">
+                  <a
+                    className={`block truncate ${linkStyle}`}
+                    href={selectedFileGitHubUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {selectedFile}
+                  </a>
+                </h2>
+              </div>
               <Tabs
                 value={viewMode}
                 onValueChange={(value) => {
@@ -1648,14 +1995,7 @@ function FileViewInner({
           <div className="flex-1 min-h-0">
             {viewMode === "editor" ? (
               commitReviewMode === "review" ? (
-                <div className="flex h-full min-h-0 flex-col overflow-hidden rounded border bg-muted/20">
-                  {commitPreviewStatus === "loading" &&
-                  commitPreview === null ? (
-                    <div className="px-4 py-6 text-sm text-muted-foreground">
-                      Loading commit preview...
-                    </div>
-                  ) : null}
-
+                <div className="flex h-full min-h-0 flex-col overflow-hidden">
                   {commitPreviewError ? (
                     <div className="mx-3 mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                       {commitPreviewError}
@@ -1664,212 +2004,131 @@ function FileViewInner({
 
                   {commitPreview ? (
                     <div className="flex min-h-0 flex-1 flex-col">
-                      <div className="border-b px-3 py-2 text-xs text-muted-foreground">
-                        Branch:{" "}
-                        <span className="font-mono text-foreground">
-                          {commitPreview.branch}
-                        </span>
-                        {" · "}
-                        {commitPreview.totals.files} files
-                        {" · "}
-                        <span className="text-emerald-600 dark:text-emerald-400">
-                          +{commitPreview.totals.additions}
-                        </span>
-                        {" / "}
-                        <span className="text-rose-600 dark:text-rose-400">
-                          -{commitPreview.totals.deletions}
-                        </span>
-                        {commitPreview.hasDestructiveChanges
-                          ? " · includes deletions"
-                          : ""}
-                        {commitPreview.safety.includesTruncatedPatches
-                          ? ` · ${commitPreview.safety.truncatedPatchFileCount} patch${commitPreview.safety.truncatedPatchFileCount === 1 ? "" : "es"} truncated`
-                          : ""}
-                      </div>
-
-                      <div className="border-b px-3 py-2">
-                        <CommitReviewStatusChips
-                          totals={commitPreview.totals}
-                        />
-                      </div>
-
-                      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-                        <aside className="shrink-0 border-b md:h-full md:w-80 md:border-b-0 md:border-r">
-                          <div className="px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                            Staged Files
-                          </div>
-                          <div className="max-h-52 overflow-auto md:h-full md:max-h-none">
-                            {commitPreview.files.length === 0
-                              ? null
-                              : commitPreview.files.map((file) => {
-                                  const isActive =
-                                    activePreviewFile?.path === file.path;
-                                  return (
-                                    <button
-                                      key={file.path}
-                                      className={`w-full border-t px-3 py-2 text-left transition-colors ${isActive ? "bg-muted/60" : "hover:bg-muted/40"}`}
-                                      onClick={() =>
-                                        handleFileSelect(file.path)
-                                      }
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        <span
-                                          className={`inline-flex h-5 min-w-5 items-center justify-center rounded px-1 font-mono text-[10px] ${getCommitStatusBadgeClassName(file.status)}`}
-                                        >
-                                          {getCommitStatusToken(file.status)}
-                                        </span>
-                                        <span className="truncate font-mono text-xs text-foreground">
-                                          {file.path}
-                                        </span>
-                                      </div>
-                                      <div className="mt-1 pl-7 text-[11px] text-muted-foreground">
-                                        {getCommitStatusLabel(file.status)}
-                                        {file.previousPath ? (
-                                          <>
-                                            {" · "}from{" "}
-                                            <span className="font-mono">
-                                              {file.previousPath}
-                                            </span>
-                                          </>
-                                        ) : null}
-                                        {" · "}
-                                        <span className="text-emerald-600 dark:text-emerald-400">
-                                          +{file.additions}
-                                        </span>
-                                        {" / "}
-                                        <span className="text-rose-600 dark:text-rose-400">
-                                          -{file.deletions}
-                                        </span>
-                                      </div>
-                                    </button>
-                                  );
-                                })}
-                          </div>
-                        </aside>
-
-                        {activePreviewFile ? (
+                      <div className="flex min-h-0 flex-1 flex-col">
+                        {selectedFile ? (
                           <div className="flex min-h-0 flex-1 flex-col">
-                            {selectedPreviewFile === null ? (
-                              <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                                Current file has no staged diff. Showing{" "}
-                                <span className="font-mono text-amber-950">
-                                  {activePreviewFile.path}
-                                </span>{" "}
-                                instead.
-                              </div>
-                            ) : null}
-
-                            <div className="border-b px-3 py-2">
-                              <div className="mb-2 text-xs text-muted-foreground">
-                                <span className="font-mono text-foreground">
-                                  {getCommitStatusToken(
-                                    activePreviewFile.status,
-                                  )}{" "}
-                                  {activePreviewFile.path}
-                                </span>
-                                {activePreviewFile.previousPath ? (
-                                  <span>
-                                    {" · "}from{" "}
-                                    <span className="font-mono">
-                                      {activePreviewFile.previousPath}
-                                    </span>
-                                  </span>
-                                ) : null}
-                                {" · "}
-                                <span className="text-emerald-600 dark:text-emerald-400">
-                                  +{activePreviewFile.additions}
-                                </span>
-                                {" / "}
-                                <span className="text-rose-600 dark:text-rose-400">
-                                  -{activePreviewFile.deletions}
-                                </span>
-                              </div>
-                              {selectedPreviewCanRenderRichMarkdown ? (
-                                <ToggleGroup
-                                  type="single"
-                                  size="sm"
-                                  value={commitPreviewDisplayMode}
-                                  className="justify-start"
-                                  onValueChange={(value) => {
-                                    if (value === "rich" || value === "patch") {
-                                      setCommitPreviewDisplayMode(value);
-                                      setCommitPreviewDisplayPreference(value);
-                                    }
-                                  }}
-                                >
-                                  <ToggleGroupItem
-                                    value="rich"
-                                    aria-label="Rich markdown preview"
-                                    className="h-7 px-2 text-xs"
-                                  >
-                                    Rich
-                                  </ToggleGroupItem>
-                                  <ToggleGroupItem
-                                    value="patch"
-                                    aria-label="Source patch preview"
-                                    className="h-7 px-2 text-xs"
-                                  >
-                                    Patch
-                                  </ToggleGroupItem>
-                                </ToggleGroup>
-                              ) : null}
-                            </div>
-
                             <div className="flex-1 overflow-auto">
-                              {commitPreviewDisplayMode === "rich" &&
-                              selectedPreviewCanRenderRichMarkdown ? (
-                                <div>
-                                  {activePreviewFile.richContentTruncated ? (
-                                    <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                                      Rich markdown preview is truncated for
-                                      this file.
-                                    </div>
-                                  ) : null}
-
-                                  <div className="grid gap-3 p-3 md:grid-cols-2">
-                                    <div className="min-w-0 rounded border bg-background p-3">
-                                      <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">
-                                        Before
+                              {selectedPreviewCanRenderInline ? (
+                                <div className="min-h-full">
+                                  <div className="border-b px-3 py-2">
+                                    <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                      <div className="flex items-center gap-2">
+                                        <Checkbox
+                                          id="inline-option-show-patch"
+                                          checked={showInlinePreviewPatch}
+                                          disabled={!selectedPreviewFile?.patch}
+                                          onCheckedChange={(checked) => {
+                                            setShowInlinePreviewPatch(
+                                              checked === true,
+                                            );
+                                          }}
+                                        />
+                                        <Label
+                                          htmlFor="inline-option-show-patch"
+                                          className="text-xs font-medium text-muted-foreground"
+                                        >
+                                          Show patch
+                                        </Label>
                                       </div>
-                                      <ProsemarkReadOnly
-                                        value={
-                                          activePreviewFile.richOldContent ?? ""
-                                        }
-                                        highlightedLineNumbers={
-                                          selectedPreviewRichDiffLines?.oldLines ??
-                                          []
-                                        }
-                                        lineHighlightTone="remove"
-                                        className="text-sm leading-6"
-                                      />
-                                    </div>
-                                    <div className="min-w-0 rounded border bg-background p-3">
-                                      <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
-                                        After
+                                      <div className="flex items-center gap-2">
+                                        <Checkbox
+                                          id="inline-option-allow-inline-diffs"
+                                          checked={
+                                            inlinePreviewOptions.allowInlineDiffs
+                                          }
+                                          onCheckedChange={(checked) => {
+                                            setInlinePreviewOptions(
+                                              (current) => ({
+                                                ...current,
+                                                allowInlineDiffs:
+                                                  checked === true,
+                                              }),
+                                            );
+                                          }}
+                                        />
+                                        <Label
+                                          htmlFor="inline-option-allow-inline-diffs"
+                                          className="text-xs font-medium text-muted-foreground"
+                                        >
+                                          Inline diffs
+                                        </Label>
                                       </div>
-                                      <ProsemarkReadOnly
-                                        value={
-                                          activePreviewFile.richNewContent ?? ""
-                                        }
-                                        highlightedLineNumbers={
-                                          selectedPreviewRichDiffLines?.newLines ??
-                                          []
-                                        }
-                                        lineHighlightTone="add"
-                                        className="text-sm leading-6"
-                                      />
+                                      <div className="flex items-center gap-2">
+                                        <Checkbox
+                                          id="inline-option-syntax-deletions"
+                                          checked={
+                                            inlinePreviewOptions.syntaxHighlightDeletions
+                                          }
+                                          onCheckedChange={(checked) => {
+                                            setInlinePreviewOptions(
+                                              (current) => ({
+                                                ...current,
+                                                syntaxHighlightDeletions:
+                                                  checked === true,
+                                              }),
+                                            );
+                                          }}
+                                        />
+                                        <Label
+                                          htmlFor="inline-option-syntax-deletions"
+                                          className="text-xs font-medium text-muted-foreground"
+                                        >
+                                          Syntax deleted
+                                        </Label>
+                                      </div>
                                     </div>
                                   </div>
+                                  {inlinePreviewSaveError ? (
+                                    <div className="border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                                      {inlinePreviewSaveError}
+                                    </div>
+                                  ) : null}
+                                  {showInlinePreviewPatch &&
+                                  selectedPreviewFile?.patch ? (
+                                    <div>
+                                      {selectedPreviewFile.patchTruncated ? (
+                                        <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                          Patch output is truncated for this
+                                          file.
+                                        </div>
+                                      ) : null}
+                                      <div className="p-3 font-mono text-xs leading-5">
+                                        {selectedPreviewFile.patch
+                                          .split("\n")
+                                          .map((line, index) => (
+                                            <div
+                                              key={`${index}:${line}`}
+                                              className={`whitespace-pre-wrap rounded-sm px-1 ${getPatchLineClassName(line)}`}
+                                            >
+                                              {line.length > 0 ? line : " "}
+                                            </div>
+                                          ))}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <ProsemarkMergeEditor
+                                      key={`${selectedFile}:${activePreviewStagingId ?? "inline"}`}
+                                      value={inlinePreviewEditorContent}
+                                      baseValue={
+                                        selectedPreviewStagedFile?.initialContent ??
+                                        ""
+                                      }
+                                      options={inlinePreviewOptions}
+                                      editable={inlinePreviewEditable}
+                                      onChange={handleInlinePreviewChange}
+                                      className="text-sm leading-6"
+                                    />
+                                  )}
                                 </div>
-                              ) : activePreviewFile.patch ? (
+                              ) : selectedPreviewFile?.patch ? (
                                 <div>
-                                  {activePreviewFile.patchTruncated ? (
+                                  {selectedPreviewFile.patchTruncated ? (
                                     <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                                       Patch output is truncated for this file.
                                     </div>
                                   ) : null}
                                   <div className="p-3 font-mono text-xs leading-5">
-                                    {activePreviewFile.patch
+                                    {selectedPreviewFile.patch
                                       .split("\n")
                                       .map((line, index) => (
                                         <div
@@ -1881,6 +2140,12 @@ function FileViewInner({
                                       ))}
                                   </div>
                                 </div>
+                              ) : selectedFileIsRenderableMedia ? (
+                                <RepositoryMediaViewer
+                                  repositoryFullName={repositoryFullName}
+                                  filePath={selectedFile}
+                                  branch={branch}
+                                />
                               ) : null}
                             </div>
                           </div>
@@ -1932,11 +2197,19 @@ function FileViewInner({
           onClose={closeFileCreation}
           initialFolderPath={fileCreationDialog.folderPath || ""}
           onFileCreate={handleCreateFileInFolder}
-          folders={vault.treeData.tree.map((item: GithubTreeType) => ({
-            path: item.path,
-            type: item.type as "tree" | "blob",
-            size: item.size,
-          }))}
+          folders={vault.treeData.tree
+            .map((item: GithubTreeType) => {
+              if (!isFileTreeNodeType(item.type)) {
+                return null;
+              }
+
+              return {
+                path: item.path,
+                type: item.type,
+                size: item.size,
+              };
+            })
+            .filter(nonNullable)}
         />
       )}
 
