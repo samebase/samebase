@@ -58,6 +58,12 @@ module.exports = {
 
     '@typescript-eslint/no-unnecessary-condition': 'error',
 
+    // Surface type assertions repo-wide while allowing incremental cleanup.
+    '@typescript-eslint/consistent-type-assertions': [
+      'warn',
+      { assertionStyle: 'never' },
+    ],
+
     // Allow async functions without await
     // for consistency (esp. Convex `handler`s)
     '@typescript-eslint/require-await': 'off',
@@ -89,22 +95,6 @@ module.exports = {
         '@typescript-eslint/no-unsafe-call': 'off',
         '@typescript-eslint/no-unsafe-member-access': 'off',
         '@typescript-eslint/no-unsafe-return': 'off',
-      },
-    },
-    {
-      // Newer review/editor code should not introduce explicit type assertions.
-      files: [
-        'apps/noter/shared/**/*.{ts,tsx}',
-        'apps/noter/src/components/FileTree.tsx',
-        'apps/noter/src/components/FileTree.test.ts',
-        'apps/noter/src/components/FileView.tsx',
-        'apps/noter/src/lib/fileTreeState.ts',
-      ],
-      rules: {
-        '@typescript-eslint/consistent-type-assertions': [
-          'error',
-          { assertionStyle: 'never' },
-        ],
       },
     },
     {

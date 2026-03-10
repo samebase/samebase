@@ -428,6 +428,10 @@ Auth:
 - When creating or editing PR descriptions with `gh`, use `--body-file` (or
   stdin/heredoc) so real newlines are preserved; never pass escaped `\n` in a
   single-line `--body` string.
+- For new lint rules, default to repo-wide rollout. If legacy violations make an
+  immediate error-level rollout impractical, use a repo-wide warning first
+  instead of scoping the rule to a narrow set of files unless the user
+  explicitly asks for that.
 - After pushing fixes for PR review feedback, always request a fresh CodeRabbit
   review by commenting `@coderabbitai review`.
 - After fixing CodeRabbit findings, always reply on each relevant CodeRabbit
