@@ -8,10 +8,13 @@ export type StagedFileChangeCandidate = {
 };
 
 export function hasStagedFileChanges(file: StagedFileChangeCandidate): boolean {
+  if (file.parentCommitSha === null) {
+    return !file.fileDeleted;
+  }
+
   return (
     file.content !== file.initialContent ||
     file.fileDeleted ||
-    file.filePath !== file.initialFilePath ||
-    file.parentCommitSha === null
+    file.filePath !== file.initialFilePath
   );
 }

@@ -298,12 +298,18 @@ export const listStagedFiles = query({
           : q.or(
               // content changed
               q.neq(q.field("content"), q.field("initialContent")),
-              // file deleted
-              q.eq(q.field("fileDeleted"), true),
               // file renamed
               q.neq(q.field("filePath"), q.field("initialFilePath")),
-              // new file (parentCommitSha is null)
-              q.eq(q.field("parentCommitSha"), null),
+              // repository-backed deletions still count as staged work
+              q.and(
+                q.eq(q.field("fileDeleted"), true),
+                q.neq(q.field("parentCommitSha"), null),
+              ),
+              // brand-new files count only while they still exist in staging
+              q.and(
+                q.eq(q.field("parentCommitSha"), null),
+                q.eq(q.field("fileDeleted"), false),
+              ),
             ),
       )
       .collect();
@@ -359,9 +365,15 @@ export const listAllStagedFiles = internalQuery({
           ? q.eq(true, true)
           : q.or(
               q.neq(q.field("content"), q.field("initialContent")),
-              q.eq(q.field("fileDeleted"), true),
               q.neq(q.field("filePath"), q.field("initialFilePath")),
-              q.eq(q.field("parentCommitSha"), null),
+              q.and(
+                q.eq(q.field("fileDeleted"), true),
+                q.neq(q.field("parentCommitSha"), null),
+              ),
+              q.and(
+                q.eq(q.field("parentCommitSha"), null),
+                q.eq(q.field("fileDeleted"), false),
+              ),
             ),
       )
       .collect();

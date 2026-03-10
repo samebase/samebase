@@ -193,6 +193,19 @@ describe("hasBranchStagingChanges", () => {
       }),
     ).toBe(true);
   });
+
+  it("treats create-then-delete tombstones as clean", () => {
+    expect(
+      hasBranchStagingChanges({
+        fileDeleted: true,
+        parentCommitSha: null,
+        filePath: "src/tmp.ts",
+        initialFilePath: "src/tmp.ts",
+        content: "temp",
+        initialContent: "temp",
+      }),
+    ).toBe(false);
+  });
 });
 
 describe("selectDeletedUpstreamBranchesToAutoPrune", () => {

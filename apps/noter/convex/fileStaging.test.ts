@@ -203,6 +203,15 @@ describe("summarizeStagedFilesByBranch", () => {
         content: "same",
         initialContent: "same",
       },
+      {
+        branch: "main",
+        fileDeleted: true,
+        parentCommitSha: null,
+        filePath: "src/tmp.ts",
+        initialFilePath: "src/tmp.ts",
+        content: "temp",
+        initialContent: "temp",
+      },
     ]);
 
     expect(summaries).toEqual([
