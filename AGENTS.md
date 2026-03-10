@@ -336,6 +336,10 @@ Auth:
   chat context.
 - If voice transcription or Wispr Flow turns `noter.md` into `NotRmd` or a
   similar variant, interpret it as `noter.md` in both requests and responses.
+- The user often uses voice-to-text, so malformed filenames or phrases may be
+  transcription errors rather than literal targets. Infer the most likely intent
+  first and ask a brief clarifying question only if multiple plausible
+  interpretations remain.
 - For this operator, keep responses concise by default and always include a
   final `Summary` section.
 - Assume Cloudflare is the default front door, proxy, routing layer, and
