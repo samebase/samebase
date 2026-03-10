@@ -20,7 +20,7 @@ export function readTaggedErrorCode(error: unknown): string | null {
     return error.name;
   }
 
-  const match = /^\[([A-Z0-9_]+)\]/.exec(error.message);
+  const match = /\[([A-Z0-9_]+)\]/.exec(error.message);
   return match?.[1] ?? null;
 }
 

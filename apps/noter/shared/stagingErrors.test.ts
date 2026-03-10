@@ -31,6 +31,20 @@ describe("stagingErrors", () => {
     expect(isStaleBaseVersionError(error)).toBe(true);
   });
 
+  it("detects stale-base-version errors when Convex wraps the message", () => {
+    const error = new Error(
+      `[CONVEX M(collaborative:pushContentUpdate)] Uncaught Error: ${buildStaleBaseVersionErrorMessage(
+        {
+          expectedVersion: 2,
+          actualVersion: 3,
+        },
+      )}`,
+    );
+
+    expect(readTaggedErrorCode(error)).toBe(STALE_BASE_VERSION_ERROR_CODE);
+    expect(isStaleBaseVersionError(error)).toBe(true);
+  });
+
   it("detects stale-base-version errors by error name", () => {
     const error = new Error("Version conflict");
     error.name = STALE_BASE_VERSION_ERROR_CODE;

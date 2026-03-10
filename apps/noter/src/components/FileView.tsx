@@ -1720,6 +1720,7 @@ function FileViewInner({
             folderExpansionStates={folderExpansionStates ?? []}
             onFolderToggle={handleFolderToggle}
             autoExpandedPaths={autoExpandedSidebarPaths}
+            forceAutoExpandedPaths={sidebarMode === "changes"}
           />
         </div>
       )}

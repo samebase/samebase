@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useCallback } from "react";
+import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import {
   ChevronRightIcon,
   ChevronDownIcon,
@@ -20,6 +20,10 @@ import {
   getCommitStatusTextClassName,
   type CommitReviewFileStatus,
 } from "@/lib/commitReviewStatus";
+import {
+  buildEffectiveFolderExpansionStates,
+  type FolderExpansionState,
+} from "@/lib/fileTreeState";
 
 interface FileTreeItem {
   path: string;
@@ -41,11 +45,6 @@ interface TreeNode {
   status?: CommitReviewFileStatus;
 }
 
-interface FolderExpansionState {
-  folderPath: string;
-  isExpanded: boolean;
-}
-
 interface FileTreeProps {
   items: FileTreeItem[];
   onFileSelect?: (path: string, status?: CommitReviewFileStatus) => void;
@@ -56,6 +55,7 @@ interface FileTreeProps {
   folderExpansionStates: FolderExpansionState[];
   onFolderToggle?: (folderPath: string, isExpanded: boolean) => void;
   autoExpandedPaths?: string[];
+  forceAutoExpandedPaths?: boolean;
 }
 
 function buildTree(items: FileTreeItem[]): TreeNode[] {
@@ -141,7 +141,6 @@ function TreeNodeComponent({
 }) {
   const { openFileCreation, openFolderCreation } = useDialog();
 
-  // Get expansion state from database instead of auto-expanding
   const expansionState = folderExpansionStates.find(
     (state) => state.folderPath === node.path,
   );
@@ -435,11 +434,47 @@ export function FileTree({
   folderExpansionStates,
   onFolderToggle,
   autoExpandedPaths = [],
+  forceAutoExpandedPaths = false,
 }: FileTreeProps) {
   const tree = useMemo(() => buildTree(items), [items]);
   const autoExpandedPathSet = useMemo(
     () => new Set(autoExpandedPaths),
     [autoExpandedPaths],
+  );
+  const [manualExpansionOverrides, setManualExpansionOverrides] = useState(
+    () => new Map<string, boolean>(),
+  );
+
+  useEffect(() => {
+    if (!forceAutoExpandedPaths) {
+      setManualExpansionOverrides(new Map());
+    }
+  }, [forceAutoExpandedPaths]);
+
+  const effectiveFolderExpansionStates = useMemo(() => {
+    return buildEffectiveFolderExpansionStates({
+      folderExpansionStates,
+      autoExpandedPaths: autoExpandedPathSet,
+      manualExpansionOverrides,
+      forceAutoExpandedPaths,
+    });
+  }, [
+    autoExpandedPathSet,
+    folderExpansionStates,
+    forceAutoExpandedPaths,
+    manualExpansionOverrides,
+  ]);
+
+  const handleFolderToggleWithSessionOverride = useCallback(
+    (folderPath: string, isExpanded: boolean) => {
+      setManualExpansionOverrides((previous) => {
+        const next = new Map(previous);
+        next.set(folderPath, isExpanded);
+        return next;
+      });
+      onFolderToggle?.(folderPath, isExpanded);
+    },
+    [onFolderToggle],
   );
 
   if (items.length === 0) {
@@ -461,8 +496,8 @@ export function FileTree({
           onFileCreate={onFileCreate}
           onFileDelete={onFileDelete}
           selectedFile={selectedFile}
-          folderExpansionStates={folderExpansionStates}
-          onFolderToggle={onFolderToggle}
+          folderExpansionStates={effectiveFolderExpansionStates}
+          onFolderToggle={handleFolderToggleWithSessionOverride}
           autoExpandedPaths={autoExpandedPathSet}
         />
       ))}
