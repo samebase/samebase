@@ -276,15 +276,23 @@ them directly using CLI tools.
   fresh review with `@coderabbitai review`, wait for it to finish, fix all
   actionable findings, push, and repeat until the latest CodeRabbit pass reports
   no actionable findings.
+- During `ship`, also review Codex PR feedback when Codex review is enabled for
+  the repo. Treat actionable Codex findings the same way as CodeRabbit/Greptile
+  findings, and request a fresh review with `@codex review` after pushes that
+  materially change the PR.
 - Do not merge while CodeRabbit is in progress; after each review request, wait
   for completion and re-check new comments before deciding merge readiness.
 - Treat CodeRabbit actionable comments and nitpicks as required fixes during
   `ship`, same as Greptile findings.
+- Treat Codex actionable review comments and nitpicks as required fixes during
+  `ship`, same as CodeRabbit and Greptile findings.
 - CodeRabbit UI/status rule: your `@coderabbitai review` comment is only a
   trigger. Read the first/top-level CodeRabbit summary comment for outcome;
   CodeRabbit updates that existing comment in place rather than reliably posting
   a new one. Also check the CodeRabbit status/check and validate findings
   against the latest commit SHA before fixing.
+- Codex review rule: check inline PR review comments from
+  `chatgpt-codex-connector[bot]`, not just the top-level summary review entry.
 - On CI failure, report the error and offer to fix
 - **NEVER merge a PR until CI is green** - always wait for checks to pass.
 - Preferred merge style for this repo: rebase the branch onto `origin/main`

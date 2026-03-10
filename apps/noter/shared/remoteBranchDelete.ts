@@ -60,3 +60,7 @@ export function getRemoteBranchDeleteEligibility(
     reason: null,
   };
 }
+
+export function buildRemoteBranchDeleteRef(branchName: string): string {
+  return `heads/${branchName}`;
+}

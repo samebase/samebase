@@ -21,7 +21,10 @@ import {
   seedRepositoryWithStarter,
 } from "./starterSeed";
 import { agentTemplateManifest } from "./agentSeedManifest.generated";
-import { getRemoteBranchDeleteEligibility } from "../shared/remoteBranchDelete";
+import {
+  buildRemoteBranchDeleteRef,
+  getRemoteBranchDeleteEligibility,
+} from "../shared/remoteBranchDelete";
 
 const { optional } = v;
 
@@ -61,16 +64,6 @@ function readDefaultBranch(repoData: unknown): string {
     return value;
   }
   return "main";
-}
-
-function toGitBranchRef(branch: string): string {
-  if (branch.startsWith("refs/heads/")) {
-    return branch.slice("refs/".length);
-  }
-  if (branch.startsWith("heads/")) {
-    return branch;
-  }
-  return `heads/${branch}`;
 }
 
 function getRemoteBranchDeleteErrorMessage(
@@ -1032,7 +1025,7 @@ export const deleteRemoteBranch = action({
       await octokit.rest.git.deleteRef({
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
-        ref: toGitBranchRef(args.branchName),
+        ref: buildRemoteBranchDeleteRef(args.branchName),
       });
     } catch (error) {
       if (isProviderNotFoundError(error)) {

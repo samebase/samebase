@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { getRemoteBranchDeleteEligibility } from "./remoteBranchDelete";
+import {
+  buildRemoteBranchDeleteRef,
+  getRemoteBranchDeleteEligibility,
+} from "./remoteBranchDelete";
 
 describe("getRemoteBranchDeleteEligibility", () => {
   it("allows deleting an active branch with no staged files and no commits ahead", () => {
@@ -105,5 +108,22 @@ describe("getRemoteBranchDeleteEligibility", () => {
       canDelete: false,
       reason: "ahead_of_default",
     });
+  });
+});
+
+describe("buildRemoteBranchDeleteRef", () => {
+  it("always prefixes the exact branch name with heads/", () => {
+    expect(buildRemoteBranchDeleteRef("feature/alpha")).toBe(
+      "heads/feature/alpha",
+    );
+  });
+
+  it("preserves literal branch names that already contain heads prefixes", () => {
+    expect(buildRemoteBranchDeleteRef("heads/release")).toBe(
+      "heads/heads/release",
+    );
+    expect(buildRemoteBranchDeleteRef("refs/heads/release")).toBe(
+      "heads/refs/heads/release",
+    );
   });
 });

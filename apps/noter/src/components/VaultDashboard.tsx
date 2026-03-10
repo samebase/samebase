@@ -448,15 +448,61 @@ interface VaultBranchListProps {
   vaultId: Id<"vaults">;
   repositoryFullName: string;
   remoteBranches: VaultRemoteBranchListItem[];
-  deletingBranchName: string | null;
+  activeDeletingBranchName: string | null;
   onDeleteBranch: (branchName: string) => void;
+}
+
+interface VaultBranchListRowProps {
+  branch: VaultRemoteBranchListItem;
+  vaultId: Id<"vaults">;
+  repositoryFullName: string;
+  stagedSummary?: StagedSummary;
+  activeDeletingBranchName: string | null;
+  onDeleteBranch: (branchName: string) => void;
+}
+
+function VaultBranchListRow({
+  branch,
+  vaultId,
+  repositoryFullName,
+  stagedSummary,
+  activeDeletingBranchName,
+  onDeleteBranch,
+}: VaultBranchListRowProps) {
+  const deleteEligibility = getRemoteBranchDeleteEligibility({
+    remoteState: branch.remoteState,
+    isDefault: branch.isDefault,
+    isProtected: branch.isProtected,
+    stagedFilesCount: stagedSummary?.total ?? 0,
+    aheadBy: branch.aheadBy,
+  });
+
+  return (
+    <VaultBranchLinkRow
+      key={branch.name}
+      vaultId={vaultId}
+      repositoryFullName={repositoryFullName}
+      branchName={branch.name}
+      headCommitSha={branch.headCommitSha}
+      isDefault={branch.isDefault}
+      isDeletedUpstream={branch.remoteState === "deleted_upstream"}
+      aheadBy={branch.aheadBy}
+      behindBy={branch.behindBy}
+      pullRequestUrl={branch.pullRequestUrl}
+      pullRequestNumber={branch.pullRequestNumber}
+      stagedSummary={stagedSummary}
+      canDeleteBranch={deleteEligibility.canDelete}
+      isDeletingBranch={activeDeletingBranchName === branch.name}
+      onDeleteBranch={() => onDeleteBranch(branch.name)}
+    />
+  );
 }
 
 function VaultBranchList({
   vaultId,
   repositoryFullName,
   remoteBranches,
-  deletingBranchName,
+  activeDeletingBranchName,
   onDeleteBranch,
 }: VaultBranchListProps) {
   const stagedSummaries =
@@ -469,37 +515,17 @@ function VaultBranchList({
 
   return (
     <div className="overflow-hidden rounded-md border border-border/60 bg-muted/20">
-      {remoteBranches.map((branch) =>
-        (() => {
-          const stagedSummary = summaryByBranch.get(branch.name);
-          const deleteEligibility = getRemoteBranchDeleteEligibility({
-            remoteState: branch.remoteState,
-            isDefault: branch.isDefault,
-            isProtected: branch.isProtected,
-            stagedFilesCount: stagedSummary?.total ?? 0,
-            aheadBy: branch.aheadBy,
-          });
-          return (
-            <VaultBranchLinkRow
-              key={branch.name}
-              vaultId={vaultId}
-              repositoryFullName={repositoryFullName}
-              branchName={branch.name}
-              headCommitSha={branch.headCommitSha}
-              isDefault={branch.isDefault}
-              isDeletedUpstream={branch.remoteState === "deleted_upstream"}
-              aheadBy={branch.aheadBy}
-              behindBy={branch.behindBy}
-              pullRequestUrl={branch.pullRequestUrl}
-              pullRequestNumber={branch.pullRequestNumber}
-              stagedSummary={stagedSummary}
-              canDeleteBranch={deleteEligibility.canDelete}
-              isDeletingBranch={deletingBranchName === branch.name}
-              onDeleteBranch={() => onDeleteBranch(branch.name)}
-            />
-          );
-        })(),
-      )}
+      {remoteBranches.map((branch) => (
+        <VaultBranchListRow
+          key={branch.name}
+          branch={branch}
+          vaultId={vaultId}
+          repositoryFullName={repositoryFullName}
+          stagedSummary={summaryByBranch.get(branch.name)}
+          activeDeletingBranchName={activeDeletingBranchName}
+          onDeleteBranch={onDeleteBranch}
+        />
+      ))}
     </div>
   );
 }
@@ -1737,7 +1763,7 @@ export function VaultDashboard() {
                         vaultId={vault._id}
                         repositoryFullName={vault.repositoryFullName}
                         remoteBranches={vault.remoteBranches}
-                        deletingBranchName={
+                        activeDeletingBranchName={
                           isDeletingBranch &&
                           branchToDelete?.vaultId === vault._id
                             ? branchToDelete.branchName
