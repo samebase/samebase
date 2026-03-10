@@ -1773,13 +1773,6 @@ function FileViewInner({
             {viewMode === "editor" ? (
               commitReviewMode === "review" ? (
                 <div className="flex h-full min-h-0 flex-col overflow-hidden">
-                  {commitPreviewStatus === "loading" &&
-                  commitPreview === null ? (
-                    <div className="px-4 py-6 text-sm text-muted-foreground">
-                      Loading commit preview...
-                    </div>
-                  ) : null}
-
                   {commitPreviewError ? (
                     <div className="mx-3 mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                       {commitPreviewError}
