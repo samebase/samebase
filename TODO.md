@@ -168,6 +168,7 @@ This would transform me from a "static knowledge" assistant to one that can acce
 - [ ] simple view: consider switching from exclude-only to explicit include allowlist (ex: `**/*.md`, `**/config.json`, `**/tools.json`)
 - [ ] add command "auto-push" "stop auto push" or similar to allows
 - [ ] use mermaid?
+- [ ] explore a lightweight GitLens-like git graph inside noter.md so branch/commit history can be viewed without opening VS Code; start simple and compare a native React graph vs Mermaid gitgraph vs embedding a small web Git UI
 - [ ] remove the "auto delete GitHub repo" option once repos move to the noter.md org flow
 - [ ] show actionable error when delete fails due to missing GitHub `delete_repo` scope, with a re-login CTA
 - [ ] When repository name already exists show better error
