@@ -61,6 +61,10 @@ import { isStaleBaseVersionError } from "../../shared/stagingErrors";
 import { decodeRouteSegmentSafe } from "@/lib/vaultRoutes";
 import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
 
+function isFileTreeNodeType(type: string): type is "tree" | "blob" {
+  return type === "tree" || type === "blob";
+}
+
 // Function to find the best file to display
 function findBestInitialFile(files: GithubTreeType[]) {
   // Only consider blob (file) types, not directories
@@ -1368,6 +1372,9 @@ function FileViewInner({
     );
     const treeItems = vault.treeData.tree
       .map((item: GithubTreeType) => {
+        if (!isFileTreeNodeType(item.type)) {
+          return null;
+        }
         const stagedFile = stagedFilesByInitialPath.get(item.path);
         const path = stagedFile ? stagedFile.filePath : item.path;
         const status = stagedFile ? getStagedFileStatus(stagedFile) : null;
@@ -1376,7 +1383,7 @@ function FileViewInner({
           deleted: status === "deleted",
           path,
           originalPath: item.path,
-          type: item.type as "tree" | "blob",
+          type: item.type,
           size: item.size,
           status: status ?? undefined,
         };
@@ -2097,11 +2104,19 @@ function FileViewInner({
           onClose={closeFileCreation}
           initialFolderPath={fileCreationDialog.folderPath || ""}
           onFileCreate={handleCreateFileInFolder}
-          folders={vault.treeData.tree.map((item: GithubTreeType) => ({
-            path: item.path,
-            type: item.type as "tree" | "blob",
-            size: item.size,
-          }))}
+          folders={vault.treeData.tree
+            .map((item: GithubTreeType) => {
+              if (!isFileTreeNodeType(item.type)) {
+                return null;
+              }
+
+              return {
+                path: item.path,
+                type: item.type,
+                size: item.size,
+              };
+            })
+            .filter(nonNullable)}
         />
       )}
 

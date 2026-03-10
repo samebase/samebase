@@ -92,6 +92,22 @@ module.exports = {
       },
     },
     {
+      // Newer review/editor code should not introduce explicit type assertions.
+      files: [
+        'apps/noter/shared/**/*.{ts,tsx}',
+        'apps/noter/src/components/FileTree.tsx',
+        'apps/noter/src/components/FileTree.test.ts',
+        'apps/noter/src/components/FileView.tsx',
+        'apps/noter/src/lib/fileTreeState.ts',
+      ],
+      rules: {
+        '@typescript-eslint/consistent-type-assertions': [
+          'error',
+          { assertionStyle: 'never' },
+        ],
+      },
+    },
+    {
       // Keep starter-template no-unsafe relaxations until that cleanup pass.
       files: ['apps/noter-starter-template/**/*.{ts,tsx}'],
       rules: {
