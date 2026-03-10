@@ -432,9 +432,14 @@ export const pushSerializedChangeSetUpdate = internalMutation({
     }
 
     if (staging.version !== args.expectedVersion) {
-      throw new Error(
-        `pushSerializedChangeSetUpdate failed: stale base version (expected ${args.expectedVersion}, got ${staging.version})`,
+      const error = new Error(
+        buildStaleBaseVersionErrorMessage({
+          expectedVersion: args.expectedVersion,
+          actualVersion: staging.version,
+        }),
       );
+      error.name = STALE_BASE_VERSION_ERROR_CODE;
+      throw error;
     }
 
     const currentDoc = Text.of(staging.content.split("\n"));
