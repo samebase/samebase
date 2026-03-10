@@ -187,6 +187,14 @@ function matchesInlinePreviewSaveSnapshot(
   );
 }
 
+function buildInlinePreviewAutosaveContextKey(
+  reviewMode: CommitReviewMode,
+  activeStagingId: StagedFileRecord["_id"] | null,
+  draftStagingId: StagedFileRecord["_id"] | null,
+): string {
+  return `${reviewMode}:${activeStagingId ?? "none"}:${draftStagingId ?? "none"}`;
+}
+
 const DEFAULT_INLINE_PREVIEW_OPTIONS = {
   allowInlineDiffs: false,
   syntaxHighlightDeletions: true,
@@ -674,6 +682,8 @@ function FileViewInner({
   const activePreviewStagingIdRef = useRef<StagedFileRecord["_id"] | null>(
     null,
   );
+  const flushPendingInlinePreviewSaveRef = useRef<(() => void) | null>(null);
+  const inlinePreviewAutosaveContextKeyRef = useRef("");
   const inlinePreviewMountedRef = useRef(true);
 
   // Convex hooks for staging
@@ -1212,17 +1222,126 @@ function FileViewInner({
     inlinePreviewDraftStagingId === activePreviewStagingId
       ? inlinePreviewDraftContent
       : activePreviewPersistedContent;
+  const inlinePreviewAutosaveContextKey = buildInlinePreviewAutosaveContextKey(
+    commitReviewMode,
+    activePreviewStagingId,
+    inlinePreviewDraftStagingId,
+  );
+  inlinePreviewDraftContentRef.current = inlinePreviewDraftContent;
+  activePreviewStagingIdRef.current = activePreviewStagingId;
+  inlinePreviewAutosaveContextKeyRef.current = inlinePreviewAutosaveContextKey;
+
+  const persistInlinePreviewSave = useCallback(
+    (
+      nextSave: InlinePreviewSaveSnapshot,
+      options?: {
+        trackStartState?: boolean;
+      },
+    ) => {
+      if (options?.trackStartState !== false) {
+        setInlinePreviewInFlightSave(nextSave);
+      }
+      void updateStagedFileContent({
+        stagingId: nextSave.stagingId,
+        content: nextSave.content,
+        expectedVersion: nextSave.baseVersion,
+      })
+        .then((updatedStaging) => {
+          if (!inlinePreviewMountedRef.current) {
+            return;
+          }
+          setInlinePreviewInFlightSave((current) =>
+            matchesInlinePreviewSaveSnapshot(current, nextSave)
+              ? null
+              : current,
+          );
+          if (activePreviewStagingIdRef.current !== nextSave.stagingId) {
+            return;
+          }
+          setInlinePreviewDraftBaseVersion(updatedStaging.version);
+          setInlinePreviewFailedSave(null);
+          setInlinePreviewSaveError(null);
+          if (inlinePreviewDraftContentRef.current === nextSave.content) {
+            setInlinePreviewHasPendingLocalEdit(false);
+          }
+        })
+        .catch((error: unknown) => {
+          if (!inlinePreviewMountedRef.current) {
+            return;
+          }
+          setInlinePreviewInFlightSave((current) =>
+            matchesInlinePreviewSaveSnapshot(current, nextSave)
+              ? null
+              : current,
+          );
+          if (activePreviewStagingIdRef.current !== nextSave.stagingId) {
+            return;
+          }
+          const message = isStaleBaseVersionError(error)
+            ? "Inline review is out of date. Reopen the file to continue editing."
+            : error instanceof Error && error.message.length > 0
+              ? error.message
+              : "Failed to save inline review edits.";
+          setInlinePreviewFailedSave(nextSave);
+          setInlinePreviewSaveError(message);
+        });
+    },
+    [updateStagedFileContent],
+  );
+
+  const flushPendingInlinePreviewSave = useCallback(() => {
+    if (
+      !activePreviewStagingId ||
+      inlinePreviewDraftStagingId !== activePreviewStagingId ||
+      !inlinePreviewEditable ||
+      !inlinePreviewHasPendingLocalEdit
+    ) {
+      return;
+    }
+
+    if (
+      activePreviewPersistedVersion >= inlinePreviewDraftBaseVersion &&
+      inlinePreviewDraftContent === activePreviewPersistedContent
+    ) {
+      return;
+    }
+
+    if (inlinePreviewInFlightSave?.stagingId === activePreviewStagingId) {
+      return;
+    }
+
+    const nextSave: InlinePreviewSaveSnapshot = {
+      stagingId: activePreviewStagingId,
+      content: inlinePreviewDraftContent,
+      baseVersion: inlinePreviewDraftBaseVersion,
+    };
+
+    if (matchesInlinePreviewSaveSnapshot(inlinePreviewFailedSave, nextSave)) {
+      return;
+    }
+
+    persistInlinePreviewSave(nextSave, { trackStartState: false });
+  }, [
+    activePreviewPersistedContent,
+    activePreviewPersistedVersion,
+    activePreviewStagingId,
+    inlinePreviewDraftBaseVersion,
+    inlinePreviewDraftContent,
+    inlinePreviewDraftStagingId,
+    inlinePreviewEditable,
+    inlinePreviewFailedSave,
+    inlinePreviewHasPendingLocalEdit,
+    inlinePreviewInFlightSave,
+    persistInlinePreviewSave,
+  ]);
 
   useEffect(() => {
-    inlinePreviewDraftContentRef.current = inlinePreviewDraftContent;
-  }, [inlinePreviewDraftContent]);
-
-  useEffect(() => {
-    activePreviewStagingIdRef.current = activePreviewStagingId;
-  }, [activePreviewStagingId]);
+    flushPendingInlinePreviewSaveRef.current = flushPendingInlinePreviewSave;
+  }, [flushPendingInlinePreviewSave]);
 
   useEffect(() => {
     return () => {
+      flushPendingInlinePreviewSaveRef.current?.();
       inlinePreviewMountedRef.current = false;
     };
   }, []);
@@ -1300,56 +1419,22 @@ function FileViewInner({
       return;
     }
 
+    let didStartSave = false;
     const timeoutId = window.setTimeout(() => {
-      setInlinePreviewInFlightSave(nextSave);
-      void updateStagedFileContent({
-        stagingId: nextSave.stagingId,
-        content: nextSave.content,
-        expectedVersion: nextSave.baseVersion,
-      })
-        .then((updatedStaging) => {
-          if (!inlinePreviewMountedRef.current) {
-            return;
-          }
-          setInlinePreviewInFlightSave((current) =>
-            matchesInlinePreviewSaveSnapshot(current, nextSave)
-              ? null
-              : current,
-          );
-          if (activePreviewStagingIdRef.current !== nextSave.stagingId) {
-            return;
-          }
-          setInlinePreviewDraftBaseVersion(updatedStaging.version);
-          setInlinePreviewFailedSave(null);
-          setInlinePreviewSaveError(null);
-          if (inlinePreviewDraftContentRef.current === nextSave.content) {
-            setInlinePreviewHasPendingLocalEdit(false);
-          }
-        })
-        .catch((error: unknown) => {
-          if (!inlinePreviewMountedRef.current) {
-            return;
-          }
-          setInlinePreviewInFlightSave((current) =>
-            matchesInlinePreviewSaveSnapshot(current, nextSave)
-              ? null
-              : current,
-          );
-          if (activePreviewStagingIdRef.current !== nextSave.stagingId) {
-            return;
-          }
-          const message = isStaleBaseVersionError(error)
-            ? "Inline review is out of date. Reopen the file to continue editing."
-            : error instanceof Error && error.message.length > 0
-              ? error.message
-              : "Failed to save inline review edits.";
-          setInlinePreviewFailedSave(nextSave);
-          setInlinePreviewSaveError(message);
-        });
+      didStartSave = true;
+      persistInlinePreviewSave(nextSave);
     }, 350);
 
     return () => {
       window.clearTimeout(timeoutId);
+      if (
+        didStartSave ||
+        inlinePreviewAutosaveContextKeyRef.current ===
+          inlinePreviewAutosaveContextKey
+      ) {
+        return;
+      }
+      persistInlinePreviewSave(nextSave, { trackStartState: false });
     };
   }, [
     activePreviewPersistedContent,
@@ -1363,7 +1448,8 @@ function FileViewInner({
     inlinePreviewHasPendingLocalEdit,
     inlinePreviewInFlightSave,
     inlinePreviewDraftStagingId,
-    updateStagedFileContent,
+    inlinePreviewAutosaveContextKey,
+    persistInlinePreviewSave,
   ]);
 
   const finalTreeData = useMemo(() => {
