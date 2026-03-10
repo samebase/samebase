@@ -274,6 +274,8 @@ cache optimization as separate decisions.
    https://developers.openai.com/codex/app/local-environments/
 3. Daytona volumes: https://www.daytona.io/docs/en/volumes/
 4. Local installed SDK volume mount types:
-   [Daytona.d.ts](/Users/nicu/.codex/worktrees/7ac1/noter/apps/noter/node_modules/@daytonaio/sdk/src/Daytona.d.ts#L7)
+   `apps/noter/node_modules/@daytonaio/sdk/src/Daytona.d.ts` (`VolumeMount`,
+   line 7)
 5. Local installed API `subpath` type:
-   [sandbox-volume.d.ts](/Users/nicu/.codex/worktrees/7ac1/noter/apps/noter/node_modules/@daytonaio/api-client/src/models/sandbox-volume.d.ts#L17)
+   `apps/noter/node_modules/@daytonaio/api-client/src/models/sandbox-volume.d.ts`
+   (`subpath`, line 17)
