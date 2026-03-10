@@ -3,8 +3,6 @@ import {
   ProsemarkMergeEditor,
   type ProsemarkMergeEditorOptions,
 } from "@/components/ProsemarkMergeEditor";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { type CommitReviewFileStatus } from "@/lib/commitReviewStatus";
 
@@ -76,6 +74,13 @@ const README_PATCH = `Index: README.md
 -\`\`\`
 -
 +This line was edited to test **markdown rich diff**.
+`;
+
+const AGENTS_CONTENT = `# AGENTS.md
+
+- Keep the review surface flush with the standard editor.
+- Do not switch files when the selected file has no staged changes.
+- Use the same editor footprint for diff and non-diff markdown views.
 `;
 
 const DELETED_PATCH = `Index: components.json
@@ -198,7 +203,7 @@ function getPatchLineClassName(line: string): string {
   return "";
 }
 
-export type CommitReviewVisualMode = "inline" | "deleted" | "fallback";
+export type CommitReviewVisualMode = "inline" | "deleted" | "unchanged";
 
 export function CommitReviewVisualFixture({
   mode,
@@ -208,17 +213,28 @@ export function CommitReviewVisualFixture({
   const selectedFile =
     mode === "deleted"
       ? "components.json"
-      : mode === "fallback"
-        ? "src/main.ts"
+      : mode === "unchanged"
+        ? "AGENTS.md"
         : "README.md";
 
   const activeFile =
     mode === "deleted"
       ? FIXTURE_FILES.find((file) => file.path === "components.json")
-      : FIXTURE_FILES.find((file) => file.path === "README.md");
+      : mode === "unchanged"
+        ? {
+            status: "modified" as const,
+            path: "AGENTS.md",
+            additions: 0,
+            deletions: 0,
+            isMarkdown: true,
+            richOldContent: AGENTS_CONTENT,
+            richNewContent: AGENTS_CONTENT,
+          }
+        : FIXTURE_FILES.find((file) => file.path === "README.md");
 
-  const canRenderInline = mode === "inline" && activeFile?.isMarkdown;
-  const showFallbackBanner = mode === "fallback";
+  const canRenderInline = Boolean(
+    activeFile?.isMarkdown && (mode === "inline" || mode === "unchanged"),
+  );
 
   return (
     <div
@@ -292,9 +308,7 @@ export function CommitReviewVisualFixture({
                   status: "deleted",
                 },
               ]}
-              selectedFile={
-                showFallbackBanner ? activeFile?.path : selectedFile
-              }
+              selectedFile={selectedFile}
               folderExpansionStates={[]}
               autoExpandedPaths={["docs", "src"]}
             />
@@ -305,59 +319,15 @@ export function CommitReviewVisualFixture({
           <div className="flex min-h-0 flex-1 flex-col">
             {activeFile ? (
               <div className="flex min-h-0 flex-1 flex-col">
-                {showFallbackBanner ? (
-                  <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                    Current file has no staged diff. Showing{" "}
-                    <span className="font-mono text-amber-950">
-                      {activeFile.path}
-                    </span>{" "}
-                    instead.
-                  </div>
-                ) : null}
-
                 <div className="flex-1 overflow-auto">
                   {canRenderInline ? (
-                    <div className="min-h-full">
-                      <div className="px-3 pt-2">
-                        <div className="flex flex-wrap gap-x-4 gap-y-2">
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              id="fixture-inline-option-allow-inline-diffs"
-                              checked={INLINE_FIXTURE_OPTIONS.allowInlineDiffs}
-                              disabled
-                            />
-                            <Label
-                              htmlFor="fixture-inline-option-allow-inline-diffs"
-                              className="text-xs font-medium text-muted-foreground"
-                            >
-                              Inline diffs
-                            </Label>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              id="fixture-inline-option-syntax-deletions"
-                              checked={
-                                INLINE_FIXTURE_OPTIONS.syntaxHighlightDeletions
-                              }
-                              disabled
-                            />
-                            <Label
-                              htmlFor="fixture-inline-option-syntax-deletions"
-                              className="text-xs font-medium text-muted-foreground"
-                            >
-                              Syntax deleted
-                            </Label>
-                          </div>
-                        </div>
-                      </div>
-                      <ProsemarkMergeEditor
-                        value={activeFile.richNewContent ?? ""}
-                        baseValue={activeFile.richOldContent ?? ""}
-                        options={INLINE_FIXTURE_OPTIONS}
-                        editable
-                        className="text-sm leading-6"
-                      />
-                    </div>
+                    <ProsemarkMergeEditor
+                      value={activeFile.richNewContent ?? ""}
+                      baseValue={activeFile.richOldContent ?? ""}
+                      options={INLINE_FIXTURE_OPTIONS}
+                      editable
+                      className="text-sm leading-6"
+                    />
                   ) : (
                     <div className="p-3 font-mono text-xs leading-5">
                       {(activeFile.patch ?? "")

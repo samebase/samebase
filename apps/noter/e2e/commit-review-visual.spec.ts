@@ -10,8 +10,8 @@ const SCENARIOS = [
     snapshotName: "commit-review-deleted.png",
   },
   {
-    mode: "fallback",
-    snapshotName: "commit-review-fallback.png",
+    mode: "unchanged",
+    snapshotName: "commit-review-unchanged.png",
   },
 ] as const;
 

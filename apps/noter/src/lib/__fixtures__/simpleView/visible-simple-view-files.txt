@@ -6,8 +6,8 @@ apps/noter-starter-template/AGENTS.md
 apps/noter-starter-template/noter.md
 apps/noter-starter-template/README.md
 apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-deleted.png
-apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-fallback.png
 apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-inline.png
+apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-unchanged.png
 apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-png.png
 apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-svg.png
 apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-missing-config.png

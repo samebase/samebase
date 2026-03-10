@@ -9,8 +9,6 @@ import {
   type AgentGraphNode,
 } from "@/components/AgentGraphView";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
@@ -89,6 +87,13 @@ function encodeVaultFilePath(path: string): string {
     .split("/")
     .map((segment) => encodeURIComponent(segment))
     .join("/");
+}
+
+const PROSE_FILE_EXTENSIONS = new Set(["md", "mdx", "mdc", "txt", "markdown"]);
+
+function isProseReviewFile(path: string): boolean {
+  const extension = path.split(".").pop()?.toLowerCase();
+  return extension !== undefined && PROSE_FILE_EXTENSIONS.has(extension);
 }
 
 type CommitPreviewFile = {
@@ -634,8 +639,8 @@ function FileViewInner({
     useState<StagedFileRecord["_id"] | null>(null);
   const [inlinePreviewDraftContent, setInlinePreviewDraftContent] =
     useState("");
-  const [inlinePreviewOptions, setInlinePreviewOptions] =
-    useState<ProsemarkMergeEditorOptions>(DEFAULT_INLINE_PREVIEW_OPTIONS);
+  const inlinePreviewOptions: ProsemarkMergeEditorOptions =
+    DEFAULT_INLINE_PREVIEW_OPTIONS;
   const [inlinePreviewSaveError, setInlinePreviewSaveError] = useState<
     string | null
   >(null);
@@ -1149,32 +1154,37 @@ function FileViewInner({
 
   const selectedPreviewFile =
     commitPreview?.files.find((file) => file.path === selectedFile) ?? null;
-  const fallbackPreviewFile = commitPreview?.files[0] ?? null;
-  const activePreviewFile = selectedPreviewFile ?? fallbackPreviewFile;
-  const activePreviewStagedFile =
-    (stagedFiles ?? []).find(
-      (file: StagedFileRecord) => file.filePath === activePreviewFile?.path,
-    ) ?? null;
-  const sidebarSelectedFile =
-    commitReviewMode === "review"
-      ? activePreviewFile?.path ?? selectedFile
-      : selectedFile;
+  const selectedPreviewStagedFile = stagedFile ?? null;
+  const selectedFileSupportsInlineReview = isProseReviewFile(selectedFile);
+  const sidebarSelectedFile = selectedFile;
   const selectedPreviewCanRenderRichMarkdown = Boolean(
-    activePreviewFile?.isMarkdown &&
-      typeof activePreviewFile.richOldContent === "string" &&
-      typeof activePreviewFile.richNewContent === "string",
+    selectedPreviewStagedFile &&
+      !selectedPreviewStagedFile.fileDeleted &&
+      (selectedPreviewFile
+        ? selectedPreviewFile.isMarkdown &&
+          typeof selectedPreviewFile.richOldContent === "string" &&
+          typeof selectedPreviewFile.richNewContent === "string"
+        : selectedFileSupportsInlineReview),
   );
-  const activePreviewPersistedContent = activePreviewStagedFile
-    ? activePreviewStagedFile.fileDeleted
+  const selectedPreviewBaseContent = selectedPreviewFile?.richOldContent ?? "";
+  const activePreviewPersistedContent = selectedPreviewStagedFile
+    ? selectedPreviewStagedFile.fileDeleted
       ? ""
-      : activePreviewStagedFile.content
-    : activePreviewFile?.richNewContent ?? "";
+      : selectedPreviewStagedFile.content
+    : selectedPreviewFile?.richNewContent ?? "";
   const selectedPreviewCanRenderInlineMarkdown = Boolean(
     selectedPreviewCanRenderRichMarkdown &&
-      activePreviewStagedFile &&
-      !activePreviewFile?.richContentTruncated,
+      selectedPreviewStagedFile &&
+      !selectedPreviewFile?.richContentTruncated,
   );
-  const activePreviewStagingId = activePreviewStagedFile?._id ?? null;
+  const selectedPreviewShouldRenderStandardEditor = Boolean(
+    !selectedPreviewFile &&
+      selectedPreviewStagedFile &&
+      !selectedPreviewStagedFile.fileDeleted &&
+      !selectedFileIsRenderableMedia &&
+      !selectedPreviewCanRenderInlineMarkdown,
+  );
+  const activePreviewStagingId = selectedPreviewStagedFile?._id ?? null;
   const inlinePreviewEditorContent =
     inlinePreviewDraftStagingId === activePreviewStagingId
       ? inlinePreviewDraftContent
@@ -1779,81 +1789,24 @@ function FileViewInner({
                   {commitPreview ? (
                     <div className="flex min-h-0 flex-1 flex-col">
                       <div className="flex min-h-0 flex-1 flex-col">
-                        {activePreviewFile ? (
+                        {selectedFile ? (
                           <div className="flex min-h-0 flex-1 flex-col">
-                            {selectedPreviewFile === null ? (
-                              <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                                Current file has no staged diff. Showing{" "}
-                                <span className="font-mono text-amber-950">
-                                  {activePreviewFile.path}
-                                </span>{" "}
-                                instead.
-                              </div>
-                            ) : null}
-
                             <div className="flex-1 overflow-auto">
                               {selectedPreviewCanRenderInlineMarkdown ? (
                                 <div className="min-h-full">
-                                  <div className="px-3 pt-2">
-                                    <div className="flex flex-wrap gap-x-4 gap-y-2">
-                                      <div className="flex items-center gap-2">
-                                        <Checkbox
-                                          id="inline-option-allow-inline-diffs"
-                                          checked={
-                                            inlinePreviewOptions.allowInlineDiffs
-                                          }
-                                          onCheckedChange={(checked) => {
-                                            setInlinePreviewOptions(
-                                              (current) => ({
-                                                ...current,
-                                                allowInlineDiffs:
-                                                  checked === true,
-                                              }),
-                                            );
-                                          }}
-                                        />
-                                        <Label
-                                          htmlFor="inline-option-allow-inline-diffs"
-                                          className="text-xs font-medium text-muted-foreground"
-                                        >
-                                          Inline diffs
-                                        </Label>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <Checkbox
-                                          id="inline-option-syntax-deletions"
-                                          checked={
-                                            inlinePreviewOptions.syntaxHighlightDeletions
-                                          }
-                                          onCheckedChange={(checked) => {
-                                            setInlinePreviewOptions(
-                                              (current) => ({
-                                                ...current,
-                                                syntaxHighlightDeletions:
-                                                  checked === true,
-                                              }),
-                                            );
-                                          }}
-                                        />
-                                        <Label
-                                          htmlFor="inline-option-syntax-deletions"
-                                          className="text-xs font-medium text-muted-foreground"
-                                        >
-                                          Syntax deleted
-                                        </Label>
-                                      </div>
-                                    </div>
-                                  </div>
                                   {inlinePreviewSaveError ? (
                                     <div className="border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
                                       {inlinePreviewSaveError}
                                     </div>
                                   ) : null}
                                   <ProsemarkMergeEditor
-                                    key={`${activePreviewFile.path}:${activePreviewStagingId ?? "inline"}`}
+                                    key={`${selectedFile}:${activePreviewStagingId ?? "inline"}`}
                                     value={inlinePreviewEditorContent}
                                     baseValue={
-                                      activePreviewFile.richOldContent ?? ""
+                                      selectedPreviewFile
+                                        ? selectedPreviewBaseContent
+                                        : selectedPreviewStagedFile?.initialContent ??
+                                          ""
                                     }
                                     options={inlinePreviewOptions}
                                     editable
@@ -1861,15 +1814,15 @@ function FileViewInner({
                                     className="text-sm leading-6"
                                   />
                                 </div>
-                              ) : activePreviewFile.patch ? (
+                              ) : selectedPreviewFile?.patch ? (
                                 <div>
-                                  {activePreviewFile.patchTruncated ? (
+                                  {selectedPreviewFile.patchTruncated ? (
                                     <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                                       Patch output is truncated for this file.
                                     </div>
                                   ) : null}
                                   <div className="p-3 font-mono text-xs leading-5">
-                                    {activePreviewFile.patch
+                                    {selectedPreviewFile.patch
                                       .split("\n")
                                       .map((line, index) => (
                                         <div
@@ -1881,6 +1834,27 @@ function FileViewInner({
                                       ))}
                                   </div>
                                 </div>
+                              ) : selectedFileIsRenderableMedia ? (
+                                <RepositoryMediaViewer
+                                  repositoryFullName={repositoryFullName}
+                                  filePath={selectedFile}
+                                  branch={branch}
+                                />
+                              ) : selectedPreviewShouldRenderStandardEditor &&
+                                selectedPreviewStagedFile ? (
+                                <CodeEditorWrapper
+                                  key={`${branch}/${selectedFile}-${selectedPreviewStagedFile.parentCommitSha ?? "new"}`}
+                                  repositoryFullName={repositoryFullName}
+                                  branch={branch}
+                                  filePath={selectedFile}
+                                  vaultId={vault._id}
+                                  stagedFile={selectedPreviewStagedFile}
+                                  tree={vault.treeData.tree}
+                                  treeSHA={vault.treeSHA}
+                                  showMobileLineNumbers={
+                                    showMobileEditorLineNumbers
+                                  }
+                                />
                               ) : null}
                             </div>
                           </div>
