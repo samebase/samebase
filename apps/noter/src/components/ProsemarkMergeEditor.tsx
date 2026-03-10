@@ -192,15 +192,16 @@ export function ProsemarkMergeEditor({
         ),
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) return;
-          lastValueRef.current = update.state.doc.toString();
-          resizeToContent();
           if (
             update.transactions.some((transaction) =>
               transaction.annotation(externalValueSyncAnnotation),
             )
           ) {
+            resizeToContent();
             return;
           }
+          lastValueRef.current = update.state.doc.toString();
+          resizeToContent();
           onChangeRef.current?.(lastValueRef.current);
         }),
         themeCompartmentRef.current.of(

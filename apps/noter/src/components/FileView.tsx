@@ -57,6 +57,7 @@ import { VaultSyncStatus } from "./VaultSyncStatus";
 import { RepositoryMediaViewer } from "./RepositoryMediaViewer";
 import { RepositoryWorkspaceFrame } from "./RepositoryWorkspaceFrame";
 import { isRenderableRepositoryMediaPath } from "../../shared/repositoryMedia";
+import { isStaleBaseVersionError } from "../../shared/stagingErrors";
 import { decodeRouteSegmentSafe } from "@/lib/vaultRoutes";
 import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
 
@@ -132,6 +133,11 @@ type SidebarMode = "simple" | "all" | "changes";
 type StagedFileRecord = NonNullable<
   (typeof api.fileStaging.listStagedFiles)["_returnType"]
 >[number];
+type InlinePreviewSaveSnapshot = {
+  stagingId: StagedFileRecord["_id"];
+  content: string;
+  baseVersion: number;
+};
 
 type RefreshTrigger = "focus" | "page_load";
 
@@ -164,6 +170,17 @@ function getPatchLineClassName(line: string): string {
     return "text-muted-foreground";
   }
   return "";
+}
+
+function matchesInlinePreviewSaveSnapshot(
+  left: InlinePreviewSaveSnapshot | null,
+  right: InlinePreviewSaveSnapshot,
+): boolean {
+  return (
+    left?.stagingId === right.stagingId &&
+    left.content === right.content &&
+    left.baseVersion === right.baseVersion
+  );
 }
 
 const DEFAULT_INLINE_PREVIEW_OPTIONS = {
@@ -645,6 +662,15 @@ function FileViewInner({
   const [inlinePreviewSaveError, setInlinePreviewSaveError] = useState<
     string | null
   >(null);
+  const [inlinePreviewInFlightSave, setInlinePreviewInFlightSave] =
+    useState<InlinePreviewSaveSnapshot | null>(null);
+  const [inlinePreviewFailedSave, setInlinePreviewFailedSave] =
+    useState<InlinePreviewSaveSnapshot | null>(null);
+  const inlinePreviewDraftContentRef = useRef("");
+  const activePreviewStagingIdRef = useRef<StagedFileRecord["_id"] | null>(
+    null,
+  );
+  const inlinePreviewMountedRef = useRef(true);
 
   // Convex hooks for staging
   const [commitStaging, manualComittingStatus] = useConvexAction(
@@ -1184,12 +1210,32 @@ function FileViewInner({
       : activePreviewPersistedContent;
 
   useEffect(() => {
+    inlinePreviewDraftContentRef.current = inlinePreviewDraftContent;
+  }, [inlinePreviewDraftContent]);
+
+  useEffect(() => {
+    activePreviewStagingIdRef.current = activePreviewStagingId;
+  }, [activePreviewStagingId]);
+
+  useEffect(() => {
+    return () => {
+      inlinePreviewMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (inlinePreviewDraftStagingId !== activePreviewStagingId) {
       setInlinePreviewDraftStagingId(activePreviewStagingId);
       setInlinePreviewDraftContent(activePreviewPersistedContent);
       setInlinePreviewDraftBaseVersion(activePreviewPersistedVersion);
       setInlinePreviewHasPendingLocalEdit(false);
+      setInlinePreviewInFlightSave(null);
+      setInlinePreviewFailedSave(null);
       setInlinePreviewSaveError(null);
+      return;
+    }
+
+    if (activePreviewPersistedVersion < inlinePreviewDraftBaseVersion) {
       return;
     }
 
@@ -1199,11 +1245,13 @@ function FileViewInner({
 
     setInlinePreviewDraftContent(activePreviewPersistedContent);
     setInlinePreviewDraftBaseVersion(activePreviewPersistedVersion);
+    setInlinePreviewFailedSave(null);
     setInlinePreviewSaveError(null);
   }, [
     activePreviewPersistedContent,
     activePreviewPersistedVersion,
     activePreviewStagingId,
+    inlinePreviewDraftBaseVersion,
     inlinePreviewHasPendingLocalEdit,
     inlinePreviewDraftStagingId,
   ]);
@@ -1223,48 +1271,80 @@ function FileViewInner({
       return;
     }
 
-    if (inlinePreviewDraftContent === activePreviewPersistedContent) {
+    if (
+      activePreviewPersistedVersion >= inlinePreviewDraftBaseVersion &&
+      inlinePreviewDraftContent === activePreviewPersistedContent
+    ) {
       setInlinePreviewDraftBaseVersion(activePreviewPersistedVersion);
       setInlinePreviewHasPendingLocalEdit(false);
+      setInlinePreviewFailedSave(null);
       setInlinePreviewSaveError(null);
       return;
     }
 
-    let cancelled = false;
-    const nextStagingId = activePreviewStagingId;
-    const nextContent = inlinePreviewDraftContent;
-    const nextBaseVersion = inlinePreviewDraftBaseVersion;
+    if (inlinePreviewInFlightSave?.stagingId === activePreviewStagingId) {
+      return;
+    }
+
+    const nextSave: InlinePreviewSaveSnapshot = {
+      stagingId: activePreviewStagingId,
+      content: inlinePreviewDraftContent,
+      baseVersion: inlinePreviewDraftBaseVersion,
+    };
+
+    if (matchesInlinePreviewSaveSnapshot(inlinePreviewFailedSave, nextSave)) {
+      return;
+    }
+
     const timeoutId = window.setTimeout(() => {
+      setInlinePreviewInFlightSave(nextSave);
       void updateStagedFileContent({
-        stagingId: nextStagingId,
-        content: nextContent,
-        expectedVersion: nextBaseVersion,
+        stagingId: nextSave.stagingId,
+        content: nextSave.content,
+        expectedVersion: nextSave.baseVersion,
       })
         .then((updatedStaging) => {
-          if (!cancelled) {
-            setInlinePreviewDraftBaseVersion(updatedStaging.version);
+          if (!inlinePreviewMountedRef.current) {
+            return;
+          }
+          setInlinePreviewInFlightSave((current) =>
+            matchesInlinePreviewSaveSnapshot(current, nextSave)
+              ? null
+              : current,
+          );
+          if (activePreviewStagingIdRef.current !== nextSave.stagingId) {
+            return;
+          }
+          setInlinePreviewDraftBaseVersion(updatedStaging.version);
+          setInlinePreviewFailedSave(null);
+          setInlinePreviewSaveError(null);
+          if (inlinePreviewDraftContentRef.current === nextSave.content) {
             setInlinePreviewHasPendingLocalEdit(false);
-            setInlinePreviewSaveError(null);
           }
         })
         .catch((error: unknown) => {
-          if (cancelled) {
+          if (!inlinePreviewMountedRef.current) {
             return;
           }
-          const message =
-            error instanceof Error &&
-            error.message.includes("stale base version")
-              ? "Inline review is out of date. Reopen the file to continue editing."
-              : error instanceof Error && error.message.length > 0
-                ? error.message
-                : "Failed to save inline review edits.";
-          setInlinePreviewHasPendingLocalEdit(false);
+          setInlinePreviewInFlightSave((current) =>
+            matchesInlinePreviewSaveSnapshot(current, nextSave)
+              ? null
+              : current,
+          );
+          if (activePreviewStagingIdRef.current !== nextSave.stagingId) {
+            return;
+          }
+          const message = isStaleBaseVersionError(error)
+            ? "Inline review is out of date. Reopen the file to continue editing."
+            : error instanceof Error && error.message.length > 0
+              ? error.message
+              : "Failed to save inline review edits.";
+          setInlinePreviewFailedSave(nextSave);
           setInlinePreviewSaveError(message);
         });
     }, 350);
 
     return () => {
-      cancelled = true;
       window.clearTimeout(timeoutId);
     };
   }, [
@@ -1275,7 +1355,9 @@ function FileViewInner({
     inlinePreviewDraftContent,
     inlinePreviewDraftBaseVersion,
     inlinePreviewEditable,
+    inlinePreviewFailedSave,
     inlinePreviewHasPendingLocalEdit,
+    inlinePreviewInFlightSave,
     inlinePreviewDraftStagingId,
     updateStagedFileContent,
   ]);
@@ -1647,6 +1729,7 @@ function FileViewInner({
   const handleInlinePreviewChange = useCallback((nextContent: string) => {
     setInlinePreviewDraftContent(nextContent);
     setInlinePreviewHasPendingLocalEdit(true);
+    setInlinePreviewFailedSave(null);
     setInlinePreviewSaveError(null);
   }, []);
 

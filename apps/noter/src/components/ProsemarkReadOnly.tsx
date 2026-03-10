@@ -6,6 +6,7 @@ import {
   useRef,
 } from "react";
 import {
+  Annotation,
   Compartment,
   EditorSelection,
   EditorState,
@@ -123,6 +124,8 @@ const prosemarkReadOnlyTheme = EditorView.theme({
   },
 });
 
+const externalValueSyncAnnotation = Annotation.define<boolean>();
+
 export function ProsemarkReadOnly({
   value,
   className,
@@ -233,6 +236,14 @@ export function ProsemarkReadOnly({
           if (!update.docChanged) {
             return;
           }
+          if (
+            update.transactions.some((transaction) =>
+              transaction.annotation(externalValueSyncAnnotation),
+            )
+          ) {
+            resizeToContent();
+            return;
+          }
           lastValueRef.current = update.state.doc.toString();
           resizeToContent();
           onChangeRef.current?.(lastValueRef.current);
@@ -315,14 +326,11 @@ export function ProsemarkReadOnly({
       resizeToContent();
       return;
     }
-    const transaction: {
-      changes: { from: number; to: number; insert: string };
-      scrollIntoView: boolean;
-    } = {
+    view.dispatch({
+      annotations: externalValueSyncAnnotation.of(true),
       changes: { from: 0, to: view.state.doc.length, insert: value },
       scrollIntoView: false,
-    };
-    view.dispatch(transaction);
+    });
     resizeToContent();
   }, [value, resizeToContent]);
 

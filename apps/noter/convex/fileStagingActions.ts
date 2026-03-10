@@ -18,6 +18,7 @@ import {
 import { isObjectRecord as isRecord } from "./jsonUtils";
 import { rebaseStagedContent } from "./stagingRebase";
 import { selectRepositoryTreeForBranch } from "./fileStaging";
+import { isStaleBaseVersionError } from "../shared/stagingErrors";
 
 type HeaderValue = string | number | readonly string[] | undefined;
 type HeaderMap = Record<string, HeaderValue>;
@@ -65,10 +66,6 @@ export async function runPostCommitTreeRefresh<T>(args: {
     args.onWarning(error);
     return null;
   }
-}
-
-function isStaleBaseVersionError(error: unknown): boolean {
-  return error instanceof Error && error.message.includes("stale base version");
 }
 
 async function getGithubAccessToken(

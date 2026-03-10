@@ -5,6 +5,10 @@ import { getUserId } from "./common";
 import { ChangeSet, Text } from "@codemirror/state";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+import {
+  STALE_BASE_VERSION_ERROR_CODE,
+  buildStaleBaseVersionErrorMessage,
+} from "../shared/stagingErrors";
 
 // Keep this many recent updates per file for clients to catch up.
 // Older updates are pruned since the content is already applied to staging.
@@ -337,9 +341,14 @@ export const pushContentUpdate = internalMutation({
     }
 
     if (staging.version !== args.expectedVersion) {
-      throw new Error(
-        `pushContentUpdate failed: stale base version (expected ${args.expectedVersion}, got ${staging.version})`,
+      const error = new Error(
+        buildStaleBaseVersionErrorMessage({
+          expectedVersion: args.expectedVersion,
+          actualVersion: staging.version,
+        }),
       );
+      error.name = STALE_BASE_VERSION_ERROR_CODE;
+      throw error;
     }
 
     const oldContent = staging.content;

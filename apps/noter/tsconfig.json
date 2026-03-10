@@ -24,6 +24,6 @@
     "sourceMap": true,
     "inlineSources": true
   },
-  "include": ["src/**/*", "vite.config.ts", "convex/**/*"],
+  "include": ["src/**/*", "shared/**/*", "vite.config.ts", "convex/**/*"],
   "exclude": ["node_modules", "convex/_generated"]
 }
