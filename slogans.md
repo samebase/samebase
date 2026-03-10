@@ -6,3 +6,4 @@
 - noter is the tech stack for AI Agents
 - noter: ship a convex app in 3.4 seconds
 - noter: build MCP servers for ChatGPT
+- noter: monitor & edit your apps when you're on the go
