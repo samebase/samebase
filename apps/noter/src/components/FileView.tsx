@@ -171,7 +171,7 @@ const DEFAULT_INLINE_PREVIEW_OPTIONS = {
   syntaxHighlightDeletions: true,
 } satisfies ProsemarkMergeEditorOptions;
 
-const DEFAULT_SHOW_INLINE_PREVIEW_PATH = false;
+const DEFAULT_SHOW_INLINE_PREVIEW_PATCH = false;
 
 function getStagedFileStatus(
   file: StagedFileRecord,
@@ -633,8 +633,8 @@ function FileViewInner({
     useState("");
   const [inlinePreviewOptions, setInlinePreviewOptions] =
     useState<ProsemarkMergeEditorOptions>(DEFAULT_INLINE_PREVIEW_OPTIONS);
-  const [showInlinePreviewPath, setShowInlinePreviewPath] = useState(
-    DEFAULT_SHOW_INLINE_PREVIEW_PATH,
+  const [showInlinePreviewPatch, setShowInlinePreviewPatch] = useState(
+    DEFAULT_SHOW_INLINE_PREVIEW_PATCH,
   );
   const [inlinePreviewSaveError, setInlinePreviewSaveError] = useState<
     string | null
@@ -1154,11 +1154,6 @@ function FileViewInner({
   const selectedPreviewCanRenderInline = Boolean(
     selectedPreviewStagedFile && !selectedFileIsRenderableMedia,
   );
-  const selectedPreviewPathLabel =
-    selectedPreviewFile?.previousPath &&
-    selectedPreviewFile.previousPath !== selectedFile
-      ? `${selectedPreviewFile.previousPath} -> ${selectedFile}`
-      : selectedFile;
   const activePreviewPersistedContent = selectedPreviewStagedFile
     ? selectedPreviewStagedFile.fileDeleted
       ? ""
@@ -1182,6 +1177,10 @@ function FileViewInner({
     activePreviewStagingId,
     inlinePreviewDraftStagingId,
   ]);
+
+  useEffect(() => {
+    setShowInlinePreviewPatch(false);
+  }, [selectedFile]);
 
   useEffect(() => {
     if (
@@ -1771,19 +1770,20 @@ function FileViewInner({
                                     <div className="flex flex-wrap gap-x-4 gap-y-2">
                                       <div className="flex items-center gap-2">
                                         <Checkbox
-                                          id="inline-option-show-path"
-                                          checked={showInlinePreviewPath}
+                                          id="inline-option-show-patch"
+                                          checked={showInlinePreviewPatch}
+                                          disabled={!selectedPreviewFile?.patch}
                                           onCheckedChange={(checked) => {
-                                            setShowInlinePreviewPath(
+                                            setShowInlinePreviewPatch(
                                               checked === true,
                                             );
                                           }}
                                         />
                                         <Label
-                                          htmlFor="inline-option-show-path"
+                                          htmlFor="inline-option-show-patch"
                                           className="text-xs font-medium text-muted-foreground"
                                         >
-                                          Show path
+                                          Show patch
                                         </Label>
                                       </div>
                                       <div className="flex items-center gap-2">
@@ -1834,28 +1834,47 @@ function FileViewInner({
                                       </div>
                                     </div>
                                   </div>
-                                  {showInlinePreviewPath ? (
-                                    <div className="border-b px-3 py-1.5 font-mono text-[11px] text-muted-foreground">
-                                      {selectedPreviewPathLabel}
-                                    </div>
-                                  ) : null}
                                   {inlinePreviewSaveError ? (
                                     <div className="border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
                                       {inlinePreviewSaveError}
                                     </div>
                                   ) : null}
-                                  <ProsemarkMergeEditor
-                                    key={`${selectedFile}:${activePreviewStagingId ?? "inline"}`}
-                                    value={inlinePreviewEditorContent}
-                                    baseValue={
-                                      selectedPreviewStagedFile?.initialContent ??
-                                      ""
-                                    }
-                                    options={inlinePreviewOptions}
-                                    editable
-                                    onChange={setInlinePreviewDraftContent}
-                                    className="text-sm leading-6"
-                                  />
+                                  {showInlinePreviewPatch &&
+                                  selectedPreviewFile?.patch ? (
+                                    <div>
+                                      {selectedPreviewFile.patchTruncated ? (
+                                        <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                          Patch output is truncated for this
+                                          file.
+                                        </div>
+                                      ) : null}
+                                      <div className="p-3 font-mono text-xs leading-5">
+                                        {selectedPreviewFile.patch
+                                          .split("\n")
+                                          .map((line, index) => (
+                                            <div
+                                              key={`${index}:${line}`}
+                                              className={`whitespace-pre-wrap rounded-sm px-1 ${getPatchLineClassName(line)}`}
+                                            >
+                                              {line.length > 0 ? line : " "}
+                                            </div>
+                                          ))}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <ProsemarkMergeEditor
+                                      key={`${selectedFile}:${activePreviewStagingId ?? "inline"}`}
+                                      value={inlinePreviewEditorContent}
+                                      baseValue={
+                                        selectedPreviewStagedFile?.initialContent ??
+                                        ""
+                                      }
+                                      options={inlinePreviewOptions}
+                                      editable
+                                      onChange={setInlinePreviewDraftContent}
+                                      className="text-sm leading-6"
+                                    />
+                                  )}
                                 </div>
                               ) : selectedPreviewFile?.patch ? (
                                 <div>

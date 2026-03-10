@@ -240,15 +240,15 @@ export function CommitReviewVisualFixture({
                         <div className="flex flex-wrap gap-x-4 gap-y-2">
                           <div className="flex items-center gap-2">
                             <Checkbox
-                              id="fixture-inline-option-show-path"
+                              id="fixture-inline-option-show-patch"
                               checked={false}
                               disabled
                             />
                             <Label
-                              htmlFor="fixture-inline-option-show-path"
+                              htmlFor="fixture-inline-option-show-patch"
                               className="text-xs font-medium text-muted-foreground"
                             >
-                              Show path
+                              Show patch
                             </Label>
                           </div>
                           <div className="flex items-center gap-2">
