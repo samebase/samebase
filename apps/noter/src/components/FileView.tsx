@@ -91,13 +91,6 @@ function encodeVaultFilePath(path: string): string {
     .join("/");
 }
 
-const PROSE_FILE_EXTENSIONS = new Set(["md", "mdx", "mdc", "txt", "markdown"]);
-
-function isProseReviewFile(path: string): boolean {
-  const extension = path.split(".").pop()?.toLowerCase();
-  return extension !== undefined && PROSE_FILE_EXTENSIONS.has(extension);
-}
-
 type CommitPreviewFile = {
   status: CommitPreviewFileStatus;
   path: string;
@@ -1157,17 +1150,10 @@ function FileViewInner({
   const selectedPreviewFile =
     commitPreview?.files.find((file) => file.path === selectedFile) ?? null;
   const selectedPreviewStagedFile = stagedFile ?? null;
-  const selectedFileSupportsInlineReview = isProseReviewFile(selectedFile);
   const sidebarSelectedFile = selectedFile;
-  const selectedPreviewCanRenderRichMarkdown = Boolean(
-    selectedPreviewStagedFile &&
-      (selectedPreviewFile
-        ? selectedPreviewFile.isMarkdown &&
-          typeof selectedPreviewFile.richOldContent === "string" &&
-          typeof selectedPreviewFile.richNewContent === "string"
-        : selectedFileSupportsInlineReview),
+  const selectedPreviewCanRenderInline = Boolean(
+    selectedPreviewStagedFile && !selectedFileIsRenderableMedia,
   );
-  const selectedPreviewBaseContent = selectedPreviewFile?.richOldContent ?? "";
   const selectedPreviewPathLabel =
     selectedPreviewFile?.previousPath &&
     selectedPreviewFile.previousPath !== selectedFile
@@ -1178,18 +1164,6 @@ function FileViewInner({
       ? ""
       : selectedPreviewStagedFile.content
     : selectedPreviewFile?.richNewContent ?? "";
-  const selectedPreviewCanRenderInlineMarkdown = Boolean(
-    selectedPreviewCanRenderRichMarkdown &&
-      selectedPreviewStagedFile &&
-      !selectedPreviewFile?.richContentTruncated,
-  );
-  const selectedPreviewShouldRenderStandardEditor = Boolean(
-    !selectedPreviewFile &&
-      selectedPreviewStagedFile &&
-      !selectedPreviewStagedFile.fileDeleted &&
-      !selectedFileIsRenderableMedia &&
-      !selectedPreviewCanRenderInlineMarkdown,
-  );
   const activePreviewStagingId = selectedPreviewStagedFile?._id ?? null;
   const inlinePreviewEditorContent =
     inlinePreviewDraftStagingId === activePreviewStagingId
@@ -1791,7 +1765,7 @@ function FileViewInner({
                         {selectedFile ? (
                           <div className="flex min-h-0 flex-1 flex-col">
                             <div className="flex-1 overflow-auto">
-                              {selectedPreviewCanRenderInlineMarkdown ? (
+                              {selectedPreviewCanRenderInline ? (
                                 <div className="min-h-full">
                                   <div className="border-b px-3 py-2">
                                     <div className="flex flex-wrap gap-x-4 gap-y-2">
@@ -1874,10 +1848,8 @@ function FileViewInner({
                                     key={`${selectedFile}:${activePreviewStagingId ?? "inline"}`}
                                     value={inlinePreviewEditorContent}
                                     baseValue={
-                                      selectedPreviewFile
-                                        ? selectedPreviewBaseContent
-                                        : selectedPreviewStagedFile?.initialContent ??
-                                          ""
+                                      selectedPreviewStagedFile?.initialContent ??
+                                      ""
                                     }
                                     options={inlinePreviewOptions}
                                     editable
@@ -1910,21 +1882,6 @@ function FileViewInner({
                                   repositoryFullName={repositoryFullName}
                                   filePath={selectedFile}
                                   branch={branch}
-                                />
-                              ) : selectedPreviewShouldRenderStandardEditor &&
-                                selectedPreviewStagedFile ? (
-                                <CodeEditorWrapper
-                                  key={`${branch}/${selectedFile}-${selectedPreviewStagedFile.parentCommitSha ?? "new"}`}
-                                  repositoryFullName={repositoryFullName}
-                                  branch={branch}
-                                  filePath={selectedFile}
-                                  vaultId={vault._id}
-                                  stagedFile={selectedPreviewStagedFile}
-                                  tree={vault.treeData.tree}
-                                  treeSHA={vault.treeSHA}
-                                  showMobileLineNumbers={
-                                    showMobileEditorLineNumbers
-                                  }
                                 />
                               ) : null}
                             </div>

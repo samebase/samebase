@@ -148,9 +148,7 @@ export function CommitReviewVisualFixture({
           }
         : FIXTURE_FILES.find((file) => file.path === "README.md");
 
-  const canRenderInline = Boolean(
-    activeFile?.isMarkdown && (mode === "inline" || mode === "unchanged"),
-  );
+  const canRenderInline = Boolean(activeFile);
 
   return (
     <div
