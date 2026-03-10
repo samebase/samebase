@@ -167,7 +167,7 @@ function getPatchLineClassName(line: string): string {
 }
 
 const DEFAULT_INLINE_PREVIEW_OPTIONS = {
-  allowInlineDiffs: true,
+  allowInlineDiffs: false,
   allowMultipleSelections: true,
   dropCursor: true,
   rectangularSelection: true,
@@ -1762,7 +1762,7 @@ function FileViewInner({
           <div className="flex-1 min-h-0">
             {viewMode === "editor" ? (
               commitReviewMode === "review" ? (
-                <div className="flex h-full min-h-0 flex-col overflow-hidden rounded border bg-muted/20">
+                <div className="flex h-full min-h-0 flex-col overflow-hidden">
                   {commitPreviewStatus === "loading" &&
                   commitPreview === null ? (
                     <div className="px-4 py-6 text-sm text-muted-foreground">
@@ -1791,57 +1791,59 @@ function FileViewInner({
                               </div>
                             ) : null}
 
-                            {selectedPreviewCanRenderInlineMarkdown ? (
-                              <div className="border-b px-3 py-2">
-                                <div className="flex flex-wrap gap-x-4 gap-y-2">
-                                  <div className="flex items-center gap-2">
-                                    <Checkbox
-                                      id="inline-option-allow-inline-diffs"
-                                      checked={
-                                        inlinePreviewOptions.allowInlineDiffs
-                                      }
-                                      onCheckedChange={(checked) => {
-                                        setInlinePreviewOptions((current) => ({
-                                          ...current,
-                                          allowInlineDiffs: checked === true,
-                                        }));
-                                      }}
-                                    />
-                                    <Label
-                                      htmlFor="inline-option-allow-inline-diffs"
-                                      className="text-xs font-medium text-muted-foreground"
-                                    >
-                                      Inline diffs
-                                    </Label>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Checkbox
-                                      id="inline-option-syntax-deletions"
-                                      checked={
-                                        inlinePreviewOptions.syntaxHighlightDeletions
-                                      }
-                                      onCheckedChange={(checked) => {
-                                        setInlinePreviewOptions((current) => ({
-                                          ...current,
-                                          syntaxHighlightDeletions:
-                                            checked === true,
-                                        }));
-                                      }}
-                                    />
-                                    <Label
-                                      htmlFor="inline-option-syntax-deletions"
-                                      className="text-xs font-medium text-muted-foreground"
-                                    >
-                                      Syntax deleted
-                                    </Label>
-                                  </div>
-                                </div>
-                              </div>
-                            ) : null}
-
                             <div className="flex-1 overflow-auto">
                               {selectedPreviewCanRenderInlineMarkdown ? (
                                 <div className="min-h-full">
+                                  <div className="px-3 pt-2">
+                                    <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                      <div className="flex items-center gap-2">
+                                        <Checkbox
+                                          id="inline-option-allow-inline-diffs"
+                                          checked={
+                                            inlinePreviewOptions.allowInlineDiffs
+                                          }
+                                          onCheckedChange={(checked) => {
+                                            setInlinePreviewOptions(
+                                              (current) => ({
+                                                ...current,
+                                                allowInlineDiffs:
+                                                  checked === true,
+                                              }),
+                                            );
+                                          }}
+                                        />
+                                        <Label
+                                          htmlFor="inline-option-allow-inline-diffs"
+                                          className="text-xs font-medium text-muted-foreground"
+                                        >
+                                          Inline diffs
+                                        </Label>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <Checkbox
+                                          id="inline-option-syntax-deletions"
+                                          checked={
+                                            inlinePreviewOptions.syntaxHighlightDeletions
+                                          }
+                                          onCheckedChange={(checked) => {
+                                            setInlinePreviewOptions(
+                                              (current) => ({
+                                                ...current,
+                                                syntaxHighlightDeletions:
+                                                  checked === true,
+                                              }),
+                                            );
+                                          }}
+                                        />
+                                        <Label
+                                          htmlFor="inline-option-syntax-deletions"
+                                          className="text-xs font-medium text-muted-foreground"
+                                        >
+                                          Syntax deleted
+                                        </Label>
+                                      </div>
+                                    </div>
+                                  </div>
                                   {inlinePreviewSaveError ? (
                                     <div className="border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
                                       {inlinePreviewSaveError}
