@@ -6,7 +6,6 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { type CommitReviewFileStatus } from "@/lib/commitReviewStatus";
 
 const README_OLD = `# Noter Starter Template
 
@@ -51,33 +50,6 @@ This project is the seeded baseline for newly created noter-managed repositories
 This line was edited to test **markdown rich diff**.
 `;
 
-const README_PATCH = `Index: README.md
-===================================================================
---- README.md
-+++ README.md
-@@ -9,27 +9,6 @@
-- Tailwind CSS
-- shadcn/ui primitives
--
--## Scripts
-+## Rich preview demo
--
--\`\`\`bash
--pnpm install
--pnpm run dev
--pnpm run build
--pnpm run lint
--\`\`\`
--
--## Template Manifest
--
--\`\`\`bash
--pnpm run template:export
--\`\`\`
--
-+This line was edited to test **markdown rich diff**.
-`;
-
 const AGENTS_CONTENT = `# AGENTS.md
 
 - Keep the review surface flush with the standard editor.
@@ -109,22 +81,9 @@ const DELETED_PATCH = `Index: components.json
 -}
 `;
 
-const RENAMED_PATCH = `Index: src/new-name.ts
-===================================================================
---- src/old-name.ts
-+++ src/new-name.ts
-@@ -1,3 +1,3 @@
--export const title = "Old Name";
-+export const title = "New Name";
- export const enabled = true;
-`;
-
 type FixtureFile = {
-  status: CommitReviewFileStatus;
   path: string;
   previousPath?: string;
-  additions: number;
-  deletions: number;
   isMarkdown: boolean;
   richOldContent?: string;
   richNewContent?: string;
@@ -133,50 +92,13 @@ type FixtureFile = {
 
 const FIXTURE_FILES: FixtureFile[] = [
   {
-    status: "modified",
     path: "README.md",
-    additions: 2,
-    deletions: 14,
     isMarkdown: true,
     richOldContent: README_OLD,
     richNewContent: README_NEW,
-    patch: README_PATCH,
   },
   {
-    status: "added",
-    path: "docs/quickstart.md",
-    additions: 6,
-    deletions: 0,
-    isMarkdown: true,
-    richOldContent: "",
-    richNewContent:
-      "# Quickstart\n\n- Install deps\n- Run dev\n- Open review mode\n",
-    patch: `Index: docs/quickstart.md
-===================================================================
---- docs/quickstart.md
-+++ docs/quickstart.md
-@@ -0,0 +1,6 @@
-+# Quickstart
-+
-+- Install deps
-+- Run dev
-+- Open review mode
-+`,
-  },
-  {
-    status: "renamed",
-    path: "src/new-name.ts",
-    previousPath: "src/old-name.ts",
-    additions: 1,
-    deletions: 1,
-    isMarkdown: false,
-    patch: RENAMED_PATCH,
-  },
-  {
-    status: "deleted",
     path: "components.json",
-    additions: 0,
-    deletions: 17,
     isMarkdown: false,
     patch: DELETED_PATCH,
   },
@@ -184,12 +106,7 @@ const FIXTURE_FILES: FixtureFile[] = [
 
 const INLINE_FIXTURE_OPTIONS = {
   allowInlineDiffs: false,
-  allowMultipleSelections: true,
-  dropCursor: true,
-  rectangularSelection: true,
-  highlightWhitespace: false,
   syntaxHighlightDeletions: true,
-  collapseUnchanged: false,
 } satisfies ProsemarkMergeEditorOptions;
 
 function getPatchLineClassName(line: string): string {
@@ -224,10 +141,7 @@ export function CommitReviewVisualFixture({
       ? FIXTURE_FILES.find((file) => file.path === "components.json")
       : mode === "unchanged"
         ? {
-            status: "modified" as const,
             path: "AGENTS.md",
-            additions: 0,
-            deletions: 0,
             isMarkdown: true,
             richOldContent: AGENTS_CONTENT,
             richNewContent: AGENTS_CONTENT,

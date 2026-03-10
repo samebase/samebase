@@ -175,12 +175,7 @@ function getPatchLineClassName(line: string): string {
 
 const DEFAULT_INLINE_PREVIEW_OPTIONS = {
   allowInlineDiffs: false,
-  allowMultipleSelections: true,
-  dropCursor: true,
-  rectangularSelection: true,
-  highlightWhitespace: false,
   syntaxHighlightDeletions: true,
-  collapseUnchanged: false,
 } satisfies ProsemarkMergeEditorOptions;
 
 const DEFAULT_SHOW_INLINE_PREVIEW_PATH = false;

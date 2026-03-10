@@ -10,7 +10,6 @@ import {
   EditorView,
   drawSelection,
   dropCursor,
-  highlightWhitespace,
   rectangularSelection,
 } from "@codemirror/view";
 import { markdown } from "@codemirror/lang-markdown";
@@ -35,12 +34,7 @@ import {
 
 export type ProsemarkMergeEditorOptions = {
   allowInlineDiffs: boolean;
-  allowMultipleSelections: boolean;
-  dropCursor: boolean;
-  rectangularSelection: boolean;
-  highlightWhitespace: boolean;
   syntaxHighlightDeletions: boolean;
-  collapseUnchanged: boolean;
 };
 
 type ProsemarkMergeEditorProps = {
@@ -56,24 +50,14 @@ function buildMergeExtensions(
   baseValue: string,
   options: ProsemarkMergeEditorOptions,
 ) {
-  const allowMultipleSelections =
-    options.allowMultipleSelections || options.rectangularSelection;
-
   return [
-    EditorState.allowMultipleSelections.of(allowMultipleSelections),
+    EditorState.allowMultipleSelections.of(true),
     drawSelection(),
-    options.dropCursor ? dropCursor() : [],
-    options.rectangularSelection ? rectangularSelection() : [],
-    options.highlightWhitespace ? highlightWhitespace() : [],
+    dropCursor(),
+    rectangularSelection(),
     unifiedMergeView({
       original: baseValue,
       allowInlineDiffs: options.allowInlineDiffs,
-      collapseUnchanged: options.collapseUnchanged
-        ? {
-            margin: 3,
-            minSize: 4,
-          }
-        : undefined,
       gutter: false,
       highlightChanges: true,
       mergeControls: false,
@@ -137,13 +121,7 @@ export function ProsemarkMergeEditor({
   const normalizedOptions = useMemo<ProsemarkMergeEditorOptions>(
     () => ({
       allowInlineDiffs: options.allowInlineDiffs,
-      allowMultipleSelections: options.allowMultipleSelections,
-      dropCursor: options.dropCursor,
-      rectangularSelection:
-        options.allowMultipleSelections && options.rectangularSelection,
-      highlightWhitespace: options.highlightWhitespace,
       syntaxHighlightDeletions: options.syntaxHighlightDeletions,
-      collapseUnchanged: options.collapseUnchanged,
     }),
     [options],
   );
