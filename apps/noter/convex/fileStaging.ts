@@ -505,24 +505,43 @@ export const deleteCollaborativeUpdatesBatch = internalMutation({
   returns: nullResultValidator,
   handler: async (ctx, args) => {
     const cutoffTimestamp = args.cutoffTimestamp;
-    const updatesQueryBase =
-      args.branch === undefined
-        ? ctx.db
-            .query("collaborativeUpdates")
-            .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-        : ctx.db
-            .query("collaborativeUpdates")
-            .withIndex("by_vaultId_and_branch", (q) =>
-              q.eq("vaultId", args.vaultId).eq("branch", args.branch),
-            );
     const updatesQuery =
-      cutoffTimestamp === undefined
-        ? updatesQueryBase
-        : updatesQueryBase.filter((q) =>
-            q.lt(q.field("timestamp"), cutoffTimestamp),
-          );
-
-    const updates = await updatesQuery.take(DELETION_BATCH_SIZE);
+      args.branch === undefined
+        ? cutoffTimestamp === undefined
+          ? ctx.db
+              .query("collaborativeUpdates")
+              .withIndex("by_vault_and_timestamp", (q) =>
+                q.eq("vaultId", args.vaultId),
+              )
+          : ctx.db
+              .query("collaborativeUpdates")
+              .withIndex("by_vault_and_timestamp", (q) =>
+                q.eq("vaultId", args.vaultId).lt("timestamp", cutoffTimestamp),
+              )
+        : (() => {
+            const branch = args.branch;
+            return cutoffTimestamp === undefined
+              ? ctx.db
+                  .query("collaborativeUpdates")
+                  .withIndex("by_vaultId_and_branch_and_timestamp", (q) =>
+                    q.eq("vaultId", args.vaultId).eq("branch", branch),
+                  )
+              : ctx.db
+                  .query("collaborativeUpdates")
+                  .withIndex("by_vaultId_and_branch_and_timestamp", (q) =>
+                    q
+                      .eq("vaultId", args.vaultId)
+                      .eq("branch", branch)
+                      .lt("timestamp", cutoffTimestamp),
+                  );
+          })();
+    const updates = [];
+    for await (const update of updatesQuery) {
+      updates.push(update);
+      if (updates.length === DELETION_BATCH_SIZE) {
+        break;
+      }
+    }
 
     for (const update of updates) {
       await ctx.db.delete(update._id);

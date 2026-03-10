@@ -849,9 +849,15 @@ export default defineSchema({
     timestamp: v.number(),
   })
     .index("by_vault", ["vaultId"])
+    .index("by_vault_and_timestamp", ["vaultId", "timestamp"])
     .index("by_file", ["vaultId", "filePath"])
     .index("by_file_and_version", ["vaultId", "filePath", "version"])
     .index("by_vaultId_and_branch", ["vaultId", "branch"])
+    .index("by_vaultId_and_branch_and_timestamp", [
+      "vaultId",
+      "branch",
+      "timestamp",
+    ])
     .index("by_vaultId_and_branch_and_filePath", [
       "vaultId",
       "branch",
