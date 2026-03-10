@@ -551,7 +551,7 @@ async function pruneDeletedUpstreamBranchesForVault(
     return;
   }
 
-  const collaborativeUpdatesCutoffTimestamp = Date.now();
+  const collaborativeUpdatesCutoffTimestamp = Date.now() + 1;
   const stagingFilesByBranch = groupStagingFilesByBranch(
     await ctx.db
       .query("fileStaging")
