@@ -18,7 +18,14 @@ import { GitHubLogoIcon, PlusIcon, FilePlusIcon } from "@radix-ui/react-icons";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { FileTree } from "./FileTree";
 import { CommandPalette } from "./CommandPalette";
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+  useLayoutEffect,
+} from "react";
 import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
 import { useSidebar } from "@/components/ui/sidebar";
 import { UserMenu } from "@/components/UserMenu";
@@ -1334,7 +1341,10 @@ function FileViewInner({
     inlinePreviewInFlightSave,
     persistInlinePreviewSave,
   ]);
-  flushPendingInlinePreviewSaveRef.current = flushPendingInlinePreviewSave;
+
+  useLayoutEffect(() => {
+    flushPendingInlinePreviewSaveRef.current = flushPendingInlinePreviewSave;
+  }, [flushPendingInlinePreviewSave]);
 
   useEffect(() => {
     return () => {
