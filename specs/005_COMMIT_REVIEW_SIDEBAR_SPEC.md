@@ -27,8 +27,10 @@ single place for navigating staged changes.
 - The in-panel `Staged Files` list is removed from review mode.
 - The review pane removes commit summary metadata such as branch name, file
   count, deletion summary, and per-file line counts.
-- The review pane keeps only the `Rich` / `Patch` mode switch when markdown rich
-  preview is available, plus the file preview itself.
+- Markdown review keeps `Rich`, `Inline`, and `Patch` modes when rich preview is
+  available.
+  - `Inline` is a single editable rich markdown surface that shows additions in
+    place and removed lines as non-editable red strikethrough blocks.
 - The branch name moves into the standard file header above the file path so it
   is visible in editor and review mode for every branch.
 - The diff header does not repeat the current file path.
@@ -45,6 +47,7 @@ single place for navigating staged changes.
 
 ## Scope
 
-- Frontend only.
-- No backend or commit-preview payload changes.
-- No new review concepts beyond the sidebar mode and styling updates.
+- Primarily frontend work.
+- Small staging save support is allowed when required to make inline review
+  edits persist.
+- No commit-preview payload changes.

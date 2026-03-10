@@ -24,8 +24,7 @@ type VisualFixtureMode =
 function readMode(): VisualFixtureMode {
   const value = new URLSearchParams(window.location.search).get("mode");
   if (
-    value === "rich" ||
-    value === "patch" ||
+    value === "inline" ||
     value === "deleted" ||
     value === "fallback" ||
     value === "media-png" ||
@@ -35,7 +34,7 @@ function readMode(): VisualFixtureMode {
   ) {
     return value;
   }
-  return "rich";
+  return "inline";
 }
 
 const mode = readMode();

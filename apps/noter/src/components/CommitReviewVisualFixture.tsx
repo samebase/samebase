@@ -1,5 +1,10 @@
 import { FileTree } from "@/components/FileTree";
-import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
+import {
+  ProsemarkMergeEditor,
+  type ProsemarkMergeEditorOptions,
+} from "@/components/ProsemarkMergeEditor";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { type CommitReviewFileStatus } from "@/lib/commitReviewStatus";
 
@@ -170,6 +175,16 @@ const FIXTURE_FILES: FixtureFile[] = [
   },
 ];
 
+const INLINE_FIXTURE_OPTIONS = {
+  allowInlineDiffs: true,
+  allowMultipleSelections: true,
+  dropCursor: true,
+  rectangularSelection: true,
+  highlightWhitespace: false,
+  syntaxHighlightDeletions: true,
+  collapseUnchanged: false,
+} satisfies ProsemarkMergeEditorOptions;
+
 function getPatchLineClassName(line: string): string {
   if (line.startsWith("+") && !line.startsWith("+++")) {
     return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
@@ -183,7 +198,7 @@ function getPatchLineClassName(line: string): string {
   return "";
 }
 
-export type CommitReviewVisualMode = "rich" | "patch" | "deleted" | "fallback";
+export type CommitReviewVisualMode = "inline" | "deleted" | "fallback";
 
 export function CommitReviewVisualFixture({
   mode,
@@ -202,7 +217,7 @@ export function CommitReviewVisualFixture({
       ? FIXTURE_FILES.find((file) => file.path === "components.json")
       : FIXTURE_FILES.find((file) => file.path === "README.md");
 
-  const canRenderRich = mode === "rich" && activeFile?.isMarkdown;
+  const canRenderInline = mode === "inline" && activeFile?.isMarkdown;
   const showFallbackBanner = mode === "fallback";
 
   return (
@@ -300,60 +315,50 @@ export function CommitReviewVisualFixture({
                   </div>
                 ) : null}
 
-                {canRenderRich ? (
+                {canRenderInline ? (
                   <div className="border-b px-3 py-2">
-                    <ToggleGroup
-                      type="single"
-                      size="sm"
-                      value="rich"
-                      className="justify-start"
-                    >
-                      <ToggleGroupItem
-                        value="rich"
-                        aria-label="Rich markdown preview"
-                        className="h-7 px-2 text-xs"
-                      >
-                        Rich
-                      </ToggleGroupItem>
-                      <ToggleGroupItem
-                        value="patch"
-                        aria-label="Source patch preview"
-                        className="h-7 px-2 text-xs"
-                      >
-                        Patch
-                      </ToggleGroupItem>
-                    </ToggleGroup>
+                    <div className="flex flex-wrap gap-x-4 gap-y-2">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="fixture-inline-option-allow-inline-diffs"
+                          checked={INLINE_FIXTURE_OPTIONS.allowInlineDiffs}
+                          disabled
+                        />
+                        <Label
+                          htmlFor="fixture-inline-option-allow-inline-diffs"
+                          className="text-xs font-medium text-muted-foreground"
+                        >
+                          Inline diffs
+                        </Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="fixture-inline-option-syntax-deletions"
+                          checked={
+                            INLINE_FIXTURE_OPTIONS.syntaxHighlightDeletions
+                          }
+                          disabled
+                        />
+                        <Label
+                          htmlFor="fixture-inline-option-syntax-deletions"
+                          className="text-xs font-medium text-muted-foreground"
+                        >
+                          Syntax deleted
+                        </Label>
+                      </div>
+                    </div>
                   </div>
                 ) : null}
 
                 <div className="flex-1 overflow-auto">
-                  {canRenderRich ? (
-                    <div className="grid gap-3 p-3 md:grid-cols-2">
-                      <div className="min-w-0 rounded border bg-background p-3">
-                        <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">
-                          Before
-                        </div>
-                        <ProsemarkReadOnly
-                          value={activeFile.richOldContent ?? ""}
-                          highlightedLineNumbers={[
-                            10, 11, 13, 15, 16, 17, 18, 19, 20,
-                          ]}
-                          lineHighlightTone="remove"
-                          className="text-sm leading-6"
-                        />
-                      </div>
-                      <div className="min-w-0 rounded border bg-background p-3">
-                        <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
-                          After
-                        </div>
-                        <ProsemarkReadOnly
-                          value={activeFile.richNewContent ?? ""}
-                          highlightedLineNumbers={[10, 12]}
-                          lineHighlightTone="add"
-                          className="text-sm leading-6"
-                        />
-                      </div>
-                    </div>
+                  {canRenderInline ? (
+                    <ProsemarkMergeEditor
+                      value={activeFile.richNewContent ?? ""}
+                      baseValue={activeFile.richOldContent ?? ""}
+                      options={INLINE_FIXTURE_OPTIONS}
+                      editable
+                      className="px-3 py-2 text-sm leading-6"
+                    />
                   ) : (
                     <div className="p-3 font-mono text-xs leading-5">
                       {(activeFile.patch ?? "")

@@ -9,6 +9,8 @@ import {
   type AgentGraphNode,
 } from "@/components/AgentGraphView";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
@@ -26,7 +28,10 @@ import { DialogProvider } from "@/contexts/DialogContext";
 import { useDialog } from "@/hooks/useDialog";
 import { FileCreationDialog } from "@/components/FileCreationDialog";
 import { FolderCreationDialog } from "@/components/FolderCreationDialog";
-import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
+import {
+  ProsemarkMergeEditor,
+  type ProsemarkMergeEditorOptions,
+} from "@/components/ProsemarkMergeEditor";
 import { nonNullable } from "@/lib/utils";
 import {
   filterSimpleViewTreeItems,
@@ -51,7 +56,6 @@ import { DaytonaSnapshotBanner } from "./DaytonaSnapshotBanner";
 import { VaultSyncStatus } from "./VaultSyncStatus";
 import { RepositoryMediaViewer } from "./RepositoryMediaViewer";
 import { RepositoryWorkspaceFrame } from "./RepositoryWorkspaceFrame";
-import { diffLines } from "diff";
 import { isRenderableRepositoryMediaPath } from "../../shared/repositoryMedia";
 import { decodeRouteSegmentSafe } from "@/lib/vaultRoutes";
 import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
@@ -123,7 +127,6 @@ type CommitPreview = {
   };
 };
 
-type CommitPreviewDisplayMode = "rich" | "patch";
 type CommitReviewMode = "editor" | "review";
 type SidebarMode = "simple" | "all" | "changes";
 type StagedFileRecord = NonNullable<
@@ -150,61 +153,6 @@ function readGraphViewMode(storageKey: string): "editor" | "graph" | null {
   return null;
 }
 
-function getLineCountFromDiffPart(
-  value: string | undefined,
-  count: number | undefined,
-): number {
-  if (typeof count === "number") {
-    return count;
-  }
-  if (!value || value.length === 0) {
-    return 0;
-  }
-  return value.split("\n").length;
-}
-
-function getRichDiffLineHighlights(
-  oldContent: string,
-  newContent: string,
-): {
-  oldLines: number[];
-  newLines: number[];
-} {
-  const oldLines = new Set<number>();
-  const newLines = new Set<number>();
-  let oldLinePointer = 1;
-  let newLinePointer = 1;
-
-  for (const part of diffLines(oldContent, newContent)) {
-    const lineCount = getLineCountFromDiffPart(part.value, part.count);
-    if (lineCount === 0) continue;
-
-    if (part.removed) {
-      for (let index = 0; index < lineCount; index += 1) {
-        oldLines.add(oldLinePointer + index);
-      }
-      oldLinePointer += lineCount;
-      continue;
-    }
-
-    if (part.added) {
-      for (let index = 0; index < lineCount; index += 1) {
-        newLines.add(newLinePointer + index);
-      }
-      newLinePointer += lineCount;
-      continue;
-    }
-
-    oldLinePointer += lineCount;
-    newLinePointer += lineCount;
-  }
-
-  return {
-    oldLines: [...oldLines].sort((left, right) => left - right),
-    newLines: [...newLines].sort((left, right) => left - right),
-  };
-}
-
 function getPatchLineClassName(line: string): string {
   if (line.startsWith("+") && !line.startsWith("+++")) {
     return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
@@ -217,6 +165,16 @@ function getPatchLineClassName(line: string): string {
   }
   return "";
 }
+
+const DEFAULT_INLINE_PREVIEW_OPTIONS = {
+  allowInlineDiffs: true,
+  allowMultipleSelections: true,
+  dropCursor: true,
+  rectangularSelection: true,
+  highlightWhitespace: false,
+  syntaxHighlightDeletions: true,
+  collapseUnchanged: false,
+} satisfies ProsemarkMergeEditorOptions;
 
 function getStagedFileStatus(
   file: StagedFileRecord,
@@ -669,13 +627,18 @@ function FileViewInner({
   const [commitPreview, setCommitPreview] = useState<CommitPreview | null>(
     null,
   );
-  const [commitPreviewDisplayPreference, setCommitPreviewDisplayPreference] =
-    useState<CommitPreviewDisplayMode>("patch");
-  const [commitPreviewDisplayMode, setCommitPreviewDisplayMode] =
-    useState<CommitPreviewDisplayMode>("patch");
   const [commitPreviewError, setCommitPreviewError] = useState<string | null>(
     null,
   );
+  const [inlinePreviewDraftStagingId, setInlinePreviewDraftStagingId] =
+    useState<StagedFileRecord["_id"] | null>(null);
+  const [inlinePreviewDraftContent, setInlinePreviewDraftContent] =
+    useState("");
+  const [inlinePreviewOptions, setInlinePreviewOptions] =
+    useState<ProsemarkMergeEditorOptions>(DEFAULT_INLINE_PREVIEW_OPTIONS);
+  const [inlinePreviewSaveError, setInlinePreviewSaveError] = useState<
+    string | null
+  >(null);
 
   // Convex hooks for staging
   const [commitStaging, manualComittingStatus] = useConvexAction(
@@ -686,6 +649,9 @@ function FileViewInner({
   );
   const [clearAllStaging, clearingStagingStatus] = useConvexMutation(
     api.fileStaging.clearAllStaging,
+  );
+  const [updateStagedFileContent] = useConvexMutation(
+    api.fileStaging.updateStagedFileContent,
   );
 
   const [markFileForDeletion] = useConvexMutation(
@@ -1152,8 +1118,7 @@ function FileViewInner({
 
   const resetCommitPreviewState = useCallback(() => {
     setCommitPreview(null);
-    setCommitPreviewDisplayPreference("patch");
-    setCommitPreviewDisplayMode("patch");
+    setInlinePreviewSaveError(null);
   }, []);
 
   const handleToggleReviewMode = useCallback(() => {
@@ -1186,6 +1151,10 @@ function FileViewInner({
     commitPreview?.files.find((file) => file.path === selectedFile) ?? null;
   const fallbackPreviewFile = commitPreview?.files[0] ?? null;
   const activePreviewFile = selectedPreviewFile ?? fallbackPreviewFile;
+  const activePreviewStagedFile =
+    (stagedFiles ?? []).find(
+      (file: StagedFileRecord) => file.filePath === activePreviewFile?.path,
+    ) ?? null;
   const sidebarSelectedFile =
     commitReviewMode === "review"
       ? activePreviewFile?.path ?? selectedFile
@@ -1195,27 +1164,79 @@ function FileViewInner({
       typeof activePreviewFile.richOldContent === "string" &&
       typeof activePreviewFile.richNewContent === "string",
   );
-  const selectedPreviewRichDiffLines = useMemo(
-    () =>
-      selectedPreviewCanRenderRichMarkdown && activePreviewFile
-        ? getRichDiffLineHighlights(
-            activePreviewFile.richOldContent ?? "",
-            activePreviewFile.richNewContent ?? "",
-          )
-        : null,
-    [selectedPreviewCanRenderRichMarkdown, activePreviewFile],
+  const activePreviewPersistedContent = activePreviewStagedFile
+    ? activePreviewStagedFile.fileDeleted
+      ? ""
+      : activePreviewStagedFile.content
+    : activePreviewFile?.richNewContent ?? "";
+  const selectedPreviewCanRenderInlineMarkdown = Boolean(
+    selectedPreviewCanRenderRichMarkdown &&
+      activePreviewStagedFile &&
+      !activePreviewFile?.richContentTruncated,
   );
+  const activePreviewStagingId = activePreviewStagedFile?._id ?? null;
+  const inlinePreviewEditorContent =
+    inlinePreviewDraftStagingId === activePreviewStagingId
+      ? inlinePreviewDraftContent
+      : activePreviewPersistedContent;
 
   useEffect(() => {
-    if (selectedPreviewCanRenderRichMarkdown) {
-      setCommitPreviewDisplayMode(commitPreviewDisplayPreference);
+    if (inlinePreviewDraftStagingId === activePreviewStagingId) {
       return;
     }
-    setCommitPreviewDisplayMode("patch");
+    setInlinePreviewDraftStagingId(activePreviewStagingId);
+    setInlinePreviewDraftContent(activePreviewPersistedContent);
+    setInlinePreviewSaveError(null);
   }, [
-    commitPreviewDisplayPreference,
-    selectedPreviewCanRenderRichMarkdown,
-    activePreviewFile?.path,
+    activePreviewPersistedContent,
+    activePreviewStagingId,
+    inlinePreviewDraftStagingId,
+  ]);
+
+  useEffect(() => {
+    if (
+      !activePreviewStagingId ||
+      inlinePreviewDraftStagingId !== activePreviewStagingId ||
+      inlinePreviewDraftContent === activePreviewPersistedContent
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    const nextStagingId = activePreviewStagingId;
+    const nextContent = inlinePreviewDraftContent;
+    const timeoutId = window.setTimeout(() => {
+      void updateStagedFileContent({
+        stagingId: nextStagingId,
+        content: nextContent,
+      })
+        .then(() => {
+          if (!cancelled) {
+            setInlinePreviewSaveError(null);
+          }
+        })
+        .catch((error: unknown) => {
+          if (cancelled) {
+            return;
+          }
+          const message =
+            error instanceof Error && error.message.length > 0
+              ? error.message
+              : "Failed to save inline review edits.";
+          setInlinePreviewSaveError(message);
+        });
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    activePreviewPersistedContent,
+    activePreviewStagingId,
+    inlinePreviewDraftContent,
+    inlinePreviewDraftStagingId,
+    updateStagedFileContent,
   ]);
 
   const finalTreeData = useMemo(() => {
@@ -1770,83 +1791,73 @@ function FileViewInner({
                               </div>
                             ) : null}
 
-                            {selectedPreviewCanRenderRichMarkdown ? (
+                            {selectedPreviewCanRenderInlineMarkdown ? (
                               <div className="border-b px-3 py-2">
-                                <ToggleGroup
-                                  type="single"
-                                  size="sm"
-                                  value={commitPreviewDisplayMode}
-                                  className="justify-start"
-                                  onValueChange={(value) => {
-                                    if (value === "rich" || value === "patch") {
-                                      setCommitPreviewDisplayMode(value);
-                                      setCommitPreviewDisplayPreference(value);
-                                    }
-                                  }}
-                                >
-                                  <ToggleGroupItem
-                                    value="rich"
-                                    aria-label="Rich markdown preview"
-                                    className="h-7 px-2 text-xs"
-                                  >
-                                    Rich
-                                  </ToggleGroupItem>
-                                  <ToggleGroupItem
-                                    value="patch"
-                                    aria-label="Source patch preview"
-                                    className="h-7 px-2 text-xs"
-                                  >
-                                    Patch
-                                  </ToggleGroupItem>
-                                </ToggleGroup>
+                                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox
+                                      id="inline-option-allow-inline-diffs"
+                                      checked={
+                                        inlinePreviewOptions.allowInlineDiffs
+                                      }
+                                      onCheckedChange={(checked) => {
+                                        setInlinePreviewOptions((current) => ({
+                                          ...current,
+                                          allowInlineDiffs: checked === true,
+                                        }));
+                                      }}
+                                    />
+                                    <Label
+                                      htmlFor="inline-option-allow-inline-diffs"
+                                      className="text-xs font-medium text-muted-foreground"
+                                    >
+                                      Inline diffs
+                                    </Label>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox
+                                      id="inline-option-syntax-deletions"
+                                      checked={
+                                        inlinePreviewOptions.syntaxHighlightDeletions
+                                      }
+                                      onCheckedChange={(checked) => {
+                                        setInlinePreviewOptions((current) => ({
+                                          ...current,
+                                          syntaxHighlightDeletions:
+                                            checked === true,
+                                        }));
+                                      }}
+                                    />
+                                    <Label
+                                      htmlFor="inline-option-syntax-deletions"
+                                      className="text-xs font-medium text-muted-foreground"
+                                    >
+                                      Syntax deleted
+                                    </Label>
+                                  </div>
+                                </div>
                               </div>
                             ) : null}
 
                             <div className="flex-1 overflow-auto">
-                              {commitPreviewDisplayMode === "rich" &&
-                              selectedPreviewCanRenderRichMarkdown ? (
-                                <div>
-                                  {activePreviewFile.richContentTruncated ? (
-                                    <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                                      Rich markdown preview is truncated for
-                                      this file.
+                              {selectedPreviewCanRenderInlineMarkdown ? (
+                                <div className="min-h-full">
+                                  {inlinePreviewSaveError ? (
+                                    <div className="border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                                      {inlinePreviewSaveError}
                                     </div>
                                   ) : null}
-
-                                  <div className="grid gap-3 p-3 md:grid-cols-2">
-                                    <div className="min-w-0 rounded border bg-background p-3">
-                                      <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">
-                                        Before
-                                      </div>
-                                      <ProsemarkReadOnly
-                                        value={
-                                          activePreviewFile.richOldContent ?? ""
-                                        }
-                                        highlightedLineNumbers={
-                                          selectedPreviewRichDiffLines?.oldLines ??
-                                          []
-                                        }
-                                        lineHighlightTone="remove"
-                                        className="text-sm leading-6"
-                                      />
-                                    </div>
-                                    <div className="min-w-0 rounded border bg-background p-3">
-                                      <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
-                                        After
-                                      </div>
-                                      <ProsemarkReadOnly
-                                        value={
-                                          activePreviewFile.richNewContent ?? ""
-                                        }
-                                        highlightedLineNumbers={
-                                          selectedPreviewRichDiffLines?.newLines ??
-                                          []
-                                        }
-                                        lineHighlightTone="add"
-                                        className="text-sm leading-6"
-                                      />
-                                    </div>
-                                  </div>
+                                  <ProsemarkMergeEditor
+                                    key={`${activePreviewFile.path}:${activePreviewStagingId ?? "inline"}`}
+                                    value={inlinePreviewEditorContent}
+                                    baseValue={
+                                      activePreviewFile.richOldContent ?? ""
+                                    }
+                                    options={inlinePreviewOptions}
+                                    editable
+                                    onChange={setInlinePreviewDraftContent}
+                                    className="px-3 py-2 text-sm leading-6"
+                                  />
                                 </div>
                               ) : activePreviewFile.patch ? (
                                 <div>

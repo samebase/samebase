@@ -2,12 +2,8 @@ import { expect, test } from "@playwright/test";
 
 const SCENARIOS = [
   {
-    mode: "rich",
-    snapshotName: "commit-review-rich.png",
-  },
-  {
-    mode: "patch",
-    snapshotName: "commit-review-patch.png",
+    mode: "inline",
+    snapshotName: "commit-review-inline.png",
   },
   {
     mode: "deleted",
