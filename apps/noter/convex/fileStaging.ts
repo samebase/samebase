@@ -322,6 +322,31 @@ export const listStagedFilesBranchSummaries = query({
   },
 });
 
+export const hasStagedFilesForBranch = internalQuery({
+  args: {
+    vaultId: vaultIdValidator,
+    branch: branchValidator,
+  },
+  returns: boolean(),
+  handler: async (ctx, args) => {
+    const files = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_branch", (q) =>
+        q.eq("vaultId", args.vaultId).eq("branch", args.branch),
+      )
+      .filter((q) =>
+        q.or(
+          q.neq(q.field("content"), q.field("initialContent")),
+          q.eq(q.field("fileDeleted"), true),
+          q.neq(q.field("filePath"), q.field("initialFilePath")),
+          q.eq(q.field("parentCommitSha"), null),
+        ),
+      )
+      .take(1);
+    return files.length > 0;
+  },
+});
+
 export const listAllStagedFiles = internalQuery({
   args: listAllStagedFilesArgsValidator,
   returns: stagedFileListValidator,
