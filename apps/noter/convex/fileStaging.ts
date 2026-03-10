@@ -9,6 +9,10 @@ import {
 import { internal } from "./_generated/api";
 import { getUserId } from "./common";
 import type { GithubTreeType } from "./schema";
+import {
+  hasStagedFileChanges,
+  type StagedFileChangeCandidate,
+} from "./stagingChanges";
 
 export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
 const {
@@ -136,16 +140,8 @@ type StagedFilesCategoryCounts = Infer<
   typeof stagedFilesCategoryCountsValidator
 >;
 type StagedFilesCategory = Exclude<keyof StagedFilesCategoryCounts, "total">;
-type StagedFileSummaryInput = Pick<
-  StagedFile,
-  | "branch"
-  | "fileDeleted"
-  | "parentCommitSha"
-  | "filePath"
-  | "initialFilePath"
-  | "content"
-  | "initialContent"
->;
+type StagedFileSummaryInput = StagedFileChangeCandidate &
+  Pick<StagedFile, "branch">;
 
 function emptyStagedFilesCategoryCounts(): StagedFilesCategoryCounts {
   return {
@@ -161,6 +157,9 @@ function emptyStagedFilesCategoryCounts(): StagedFilesCategoryCounts {
 function classifyStagedFile(
   file: StagedFileSummaryInput,
 ): StagedFilesCategory | null {
+  if (!hasStagedFileChanges(file)) {
+    return null;
+  }
   if (file.fileDeleted) {
     return "deleted";
   }
@@ -172,10 +171,7 @@ function classifyStagedFile(
       ? "renamedAndModified"
       : "renamed";
   }
-  if (file.content !== file.initialContent) {
-    return "modified";
-  }
-  return null;
+  return "modified";
 }
 
 export function canAccessVaultStaging(args: {
@@ -296,23 +292,9 @@ export const listStagedFiles = query({
       .withIndex("by_vault_and_branch", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", args.branch),
       )
-      .filter((q) =>
-        args.includeUnchanged
-          ? q.eq(true, true)
-          : q.or(
-              // content changed
-              q.neq(q.field("content"), q.field("initialContent")),
-              // file deleted
-              q.eq(q.field("fileDeleted"), true),
-              // file renamed
-              q.neq(q.field("filePath"), q.field("initialFilePath")),
-              // new file (parentCommitSha is null)
-              q.eq(q.field("parentCommitSha"), null),
-            ),
-      )
       .collect();
 
-    return files;
+    return args.includeUnchanged ? files : files.filter(hasStagedFileChanges);
   },
 });
 
@@ -344,33 +326,23 @@ export const listAllStagedFiles = internalQuery({
   args: listAllStagedFilesArgsValidator,
   returns: stagedFileListValidator,
   handler: async (ctx, args) => {
-    let query;
-    if (args.branch === undefined) {
-      query = ctx.db
-        .query("fileStaging")
-        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId));
-    } else {
-      const branch = args.branch;
-      query = ctx.db
-        .query("fileStaging")
-        .withIndex("by_vault_and_branch", (q) =>
-          q.eq("vaultId", args.vaultId).eq("branch", branch),
-        );
-    }
-    const files = await query
-      .filter((q) =>
-        args.includeUnchanged
-          ? q.eq(true, true)
-          : q.or(
-              q.neq(q.field("content"), q.field("initialContent")),
-              q.eq(q.field("fileDeleted"), true),
-              q.neq(q.field("filePath"), q.field("initialFilePath")),
-              q.eq(q.field("parentCommitSha"), null),
-            ),
-      )
-      .collect();
+    const files =
+      args.branch === undefined
+        ? await ctx.db
+            .query("fileStaging")
+            .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+            .collect()
+        : await (() => {
+            const branch = args.branch;
+            return ctx.db
+              .query("fileStaging")
+              .withIndex("by_vault_and_branch", (q) =>
+                q.eq("vaultId", args.vaultId).eq("branch", branch),
+              )
+              .collect();
+          })();
 
-    return files;
+    return args.includeUnchanged ? files : files.filter(hasStagedFileChanges);
   },
 });
 
@@ -390,6 +362,7 @@ type ClearAllStagingPlan<
   deleteCollaborativeUpdatesArgs: {
     vaultId: VaultId;
     branch?: string;
+    cutoffTimestamp: number;
   };
   treeRefreshArgs: {
     userId: UserId;
@@ -405,6 +378,7 @@ export function buildClearAllStagingPlan<
 >(args: {
   vaultId: VaultId;
   branch?: string;
+  cleanupCutoffTimestamp: number;
   vault: {
     userId: UserId;
     ghRepoOwner: string;
@@ -426,6 +400,7 @@ export function buildClearAllStagingPlan<
     deleteCollaborativeUpdatesArgs: {
       vaultId: args.vaultId,
       branch: args.branch,
+      cutoffTimestamp: args.cleanupCutoffTimestamp,
     },
     treeRefreshArgs: args.vault
       ? {
@@ -450,9 +425,11 @@ export async function clearAllStagingImpl(
 ) {
   // Get vault info to schedule tree update
   const vault = await ctx.db.get(args.vaultId);
+  const cleanupCutoffTimestamp = Date.now() + 1;
   const plan = buildClearAllStagingPlan({
     vaultId: args.vaultId,
     branch: args.branch,
+    cleanupCutoffTimestamp,
     vault: vault
       ? {
           userId: vault.userId,
@@ -462,23 +439,25 @@ export async function clearAllStagingImpl(
       : null,
   });
 
-  let stagingFiles;
-  if (plan.stagingQuery.indexName === "by_vault") {
-    stagingFiles = await ctx.db
-      .query("fileStaging")
-      .withIndex("by_vault", (q) => q.eq("vaultId", plan.stagingQuery.vaultId))
-      .collect();
-  } else {
-    const branchScopedQuery = plan.stagingQuery;
-    stagingFiles = await ctx.db
-      .query("fileStaging")
-      .withIndex("by_vault_and_branch", (q) =>
-        q
-          .eq("vaultId", branchScopedQuery.vaultId)
-          .eq("branch", branchScopedQuery.branch),
-      )
-      .collect();
-  }
+  const stagingFiles =
+    plan.stagingQuery.indexName === "by_vault"
+      ? await ctx.db
+          .query("fileStaging")
+          .withIndex("by_vault", (q) =>
+            q.eq("vaultId", plan.stagingQuery.vaultId),
+          )
+          .collect()
+      : await (() => {
+          const branchScopedQuery = plan.stagingQuery;
+          return ctx.db
+            .query("fileStaging")
+            .withIndex("by_vault_and_branch", (q) =>
+              q
+                .eq("vaultId", branchScopedQuery.vaultId)
+                .eq("branch", branchScopedQuery.branch),
+            )
+            .collect();
+        })();
 
   for (const staging of stagingFiles) {
     await ctx.db.delete(staging._id);
@@ -521,23 +500,47 @@ export const deleteCollaborativeUpdatesBatch = internalMutation({
   args: {
     vaultId: vaultIdValidator,
     branch: optional(branchValidator),
+    cutoffTimestamp: optional(number()),
   },
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    let updates;
-    if (args.branch === undefined) {
-      updates = await ctx.db
-        .query("collaborativeUpdates")
-        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-        .take(DELETION_BATCH_SIZE);
-    } else {
-      const branch = args.branch;
-      updates = await ctx.db
-        .query("collaborativeUpdates")
-        .withIndex("by_vaultId_and_branch", (q) =>
-          q.eq("vaultId", args.vaultId).eq("branch", branch),
-        )
-        .take(DELETION_BATCH_SIZE);
+    const cutoffTimestamp = args.cutoffTimestamp;
+    const updatesQuery =
+      args.branch === undefined
+        ? cutoffTimestamp === undefined
+          ? ctx.db
+              .query("collaborativeUpdates")
+              .withIndex("by_vault_and_timestamp", (q) =>
+                q.eq("vaultId", args.vaultId),
+              )
+          : ctx.db
+              .query("collaborativeUpdates")
+              .withIndex("by_vault_and_timestamp", (q) =>
+                q.eq("vaultId", args.vaultId).lt("timestamp", cutoffTimestamp),
+              )
+        : (() => {
+            const branch = args.branch;
+            return cutoffTimestamp === undefined
+              ? ctx.db
+                  .query("collaborativeUpdates")
+                  .withIndex("by_vaultId_and_branch_and_timestamp", (q) =>
+                    q.eq("vaultId", args.vaultId).eq("branch", branch),
+                  )
+              : ctx.db
+                  .query("collaborativeUpdates")
+                  .withIndex("by_vaultId_and_branch_and_timestamp", (q) =>
+                    q
+                      .eq("vaultId", args.vaultId)
+                      .eq("branch", branch)
+                      .lt("timestamp", cutoffTimestamp),
+                  );
+          })();
+    const updates = [];
+    for await (const update of updatesQuery) {
+      updates.push(update);
+      if (updates.length === DELETION_BATCH_SIZE) {
+        break;
+      }
     }
 
     for (const update of updates) {
@@ -549,7 +552,11 @@ export const deleteCollaborativeUpdatesBatch = internalMutation({
       await ctx.scheduler.runAfter(
         0,
         internal.fileStaging.deleteCollaborativeUpdatesBatch,
-        { vaultId: args.vaultId, branch: args.branch },
+        {
+          vaultId: args.vaultId,
+          branch: args.branch,
+          cutoffTimestamp: args.cutoffTimestamp,
+        },
       );
     }
 
@@ -947,6 +954,7 @@ export const reconcileStagingWithTree = internalMutation({
   },
   returns: nullResultValidator,
   handler: async (ctx, args) => {
+    const cleanupCutoffTimestamp = Date.now() + 1;
     for (const instruction of args.instructions) {
       if (instruction.action === "delete") {
         await ctx.db.delete(instruction.stagingId);
@@ -968,7 +976,10 @@ export const reconcileStagingWithTree = internalMutation({
       await ctx.scheduler.runAfter(
         0,
         internal.fileStaging.deleteCollaborativeUpdatesBatch,
-        { vaultId: args.vaultId },
+        {
+          vaultId: args.vaultId,
+          cutoffTimestamp: cleanupCutoffTimestamp,
+        },
       );
     }
 

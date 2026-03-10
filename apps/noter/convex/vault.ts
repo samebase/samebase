@@ -5,9 +5,14 @@ import {
   mutation,
   query,
   QueryCtx,
+  type MutationCtx,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { DaytonaSnapshotBuildStatus, GithubTreeData } from "./schema";
+import {
+  hasStagedFileChanges,
+  type StagedFileChangeCandidate,
+} from "./stagingChanges";
 import { Id } from "./_generated/dataModel";
 import { getUserId } from "./common";
 import { enqueueSnapshotBuild } from "./daytonaSnapshotRecords";
@@ -425,6 +430,18 @@ function compareRemoteBranchSortOrder(
   return left.name.localeCompare(right.name);
 }
 
+type BranchStagingChangeCandidate = StagedFileChangeCandidate;
+type BranchStagingRecord = BranchStagingChangeCandidate & {
+  _id: Id<"fileStaging">;
+  branch: string;
+};
+
+export function hasBranchStagingChanges(
+  file: BranchStagingChangeCandidate,
+): boolean {
+  return hasStagedFileChanges(file);
+}
+
 export function resolveSyncedBranchLastCommitAt(args: {
   incomingHeadCommitSha: string;
   incomingLastCommitAt?: number;
@@ -443,6 +460,132 @@ export function resolveSyncedBranchLastCommitAt(args: {
     return args.existingBranch.lastCommitAt;
   }
   return undefined;
+}
+
+export function selectDeletedUpstreamBranchesToAutoPrune(args: {
+  branches: Array<{
+    name: string;
+    remoteState: "active" | "deleted_upstream";
+  }>;
+  branchHasStagedChanges: ReadonlyMap<string, boolean>;
+}): string[] {
+  return args.branches
+    .filter(
+      (branch) =>
+        branch.remoteState === "deleted_upstream" &&
+        args.branchHasStagedChanges.get(branch.name) !== true,
+    )
+    .map((branch) => branch.name);
+}
+
+function groupStagingFilesByBranch(
+  stagingFiles: BranchStagingRecord[],
+): Map<string, BranchStagingRecord[]> {
+  const grouped = new Map<string, BranchStagingRecord[]>();
+  for (const stagingFile of stagingFiles) {
+    const existing = grouped.get(stagingFile.branch);
+    if (existing) {
+      existing.push(stagingFile);
+      continue;
+    }
+    grouped.set(stagingFile.branch, [stagingFile]);
+  }
+  return grouped;
+}
+
+async function deleteVaultBranchArtifacts(
+  ctx: MutationCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    branch: string;
+    collaborativeUpdatesCutoffTimestamp: number;
+    stagingFiles: BranchStagingRecord[];
+  },
+): Promise<void> {
+  const branchTree = await ctx.db
+    .query("vaultBranchTrees")
+    .withIndex("by_vault_and_branch", (q) =>
+      q.eq("vaultId", args.vaultId).eq("branch", args.branch),
+    )
+    .first();
+  if (branchTree) {
+    await ctx.db.delete(branchTree._id);
+  }
+
+  const domains = await ctx.db
+    .query("vaultDomains")
+    .withIndex("by_vault_and_branch", (q) =>
+      q.eq("vaultId", args.vaultId).eq("branch", args.branch),
+    )
+    .collect();
+  for (const domain of domains) {
+    await ctx.db.delete(domain._id);
+  }
+
+  for (const stagingFile of args.stagingFiles) {
+    await ctx.db.delete(stagingFile._id);
+  }
+
+  await ctx.scheduler.runAfter(
+    0,
+    internal.fileStaging.deleteCollaborativeUpdatesBatch,
+    {
+      vaultId: args.vaultId,
+      branch: args.branch,
+      cutoffTimestamp: args.collaborativeUpdatesCutoffTimestamp,
+    },
+  );
+}
+
+async function pruneDeletedUpstreamBranchesForVault(
+  ctx: MutationCtx,
+  vaultId: Id<"vaults">,
+): Promise<void> {
+  const deletedUpstreamBranches = await ctx.db
+    .query("vaultRemoteBranches")
+    .withIndex("by_vault_and_remote_state", (q) =>
+      q.eq("vaultId", vaultId).eq("remoteState", "deleted_upstream"),
+    )
+    .collect();
+  if (deletedUpstreamBranches.length === 0) {
+    return;
+  }
+
+  const collaborativeUpdatesCutoffTimestamp = Date.now() + 1;
+  const stagingFilesByBranch = groupStagingFilesByBranch(
+    await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+      .collect(),
+  );
+  const branchHasStagedChanges = new Map<string, boolean>();
+  for (const branch of deletedUpstreamBranches) {
+    const branchStaging = stagingFilesByBranch.get(branch.name) ?? [];
+    branchHasStagedChanges.set(
+      branch.name,
+      branchStaging.some(hasBranchStagingChanges),
+    );
+  }
+
+  const branchNamesToPrune = new Set(
+    selectDeletedUpstreamBranchesToAutoPrune({
+      branches: deletedUpstreamBranches,
+      branchHasStagedChanges,
+    }),
+  );
+
+  for (const branch of deletedUpstreamBranches) {
+    if (!branchNamesToPrune.has(branch.name)) {
+      continue;
+    }
+    await deleteVaultBranchArtifacts(ctx, {
+      vaultId,
+      branch: branch.name,
+      collaborativeUpdatesCutoffTimestamp,
+      stagingFiles: stagingFilesByBranch.get(branch.name) ?? [],
+    });
+    await ctx.db.delete(branch._id);
+  }
 }
 
 const getUserVaultsResult = array(
@@ -523,12 +666,7 @@ export const getUserVaults = query({
           .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
           .collect();
 
-        const fileCount = stagingData.filter(
-          (file) =>
-            file.content !== file.initialContent ||
-            file.fileDeleted ||
-            file.filePath !== file.initialFilePath,
-        ).length;
+        const fileCount = stagingData.filter(hasBranchStagingChanges).length;
 
         const lastEditTime =
           stagingData.length > 0
@@ -838,6 +976,8 @@ export const syncVaultRemoteBranches = internalMutation({
       });
     }
 
+    await pruneDeletedUpstreamBranchesForVault(ctx, args.vaultId);
+
     return null;
   },
 });
@@ -1004,20 +1144,24 @@ export function resolveVaultBranchSelection(args: {
   const activeRemoteBranches = args.remoteBranches.filter(
     (branch) => branch.remoteState === "active",
   );
+  const requestedBranchMatch =
+    args.requestedBranch === undefined
+      ? undefined
+      : args.remoteBranches.find(
+          (branch) => branch.name === args.requestedBranch,
+        );
   const defaultBranch =
     activeRemoteBranches.find((branch) => branch.isDefault)?.name ??
-    activeRemoteBranches[0]?.name;
-  const canValidateRequestedBranch = activeRemoteBranches.length > 0;
+    activeRemoteBranches.at(0)?.name ??
+    requestedBranchMatch?.name ??
+    args.remoteBranches.at(0)?.name;
+  const canValidateRequestedBranch = args.remoteBranches.length > 0;
   const branchNotFound = Boolean(
-    args.requestedBranch &&
-      canValidateRequestedBranch &&
-      !activeRemoteBranches.some(
-        (branch) => branch.name === args.requestedBranch,
-      ),
+    args.requestedBranch && canValidateRequestedBranch && !requestedBranchMatch,
   );
   let resolvedBranch = "main";
   if (branchNotFound) {
-    resolvedBranch = defaultBranch;
+    resolvedBranch = defaultBranch ?? "main";
   } else if (args.requestedBranch) {
     resolvedBranch = args.requestedBranch;
   } else if (defaultBranch) {
