@@ -355,7 +355,7 @@ export function CommitReviewVisualFixture({
                         baseValue={activeFile.richOldContent ?? ""}
                         options={INLINE_FIXTURE_OPTIONS}
                         editable
-                        className="px-3 py-2 text-sm leading-6"
+                        className="text-sm leading-6"
                       />
                     </div>
                   ) : (

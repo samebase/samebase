@@ -1858,7 +1858,7 @@ function FileViewInner({
                                     options={inlinePreviewOptions}
                                     editable
                                     onChange={setInlinePreviewDraftContent}
-                                    className="px-3 py-2 text-sm leading-6"
+                                    className="text-sm leading-6"
                                   />
                                 </div>
                               ) : activePreviewFile.patch ? (
