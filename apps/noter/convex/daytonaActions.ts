@@ -750,6 +750,10 @@ async function resolveDaytonaCodexAuthSandboxImagePlan(args: {
   depsImageCandidates: string[];
   fallbackImage: Image;
 }> {
+  // TODO: Move user-facing Daytona sandboxes onto a single Noter-maintained
+  // standard image so auth and workspace flows run on a known-good baseline for
+  // every user, instead of depending on repo-specific deps images or ad hoc
+  // fallback installs.
   const workspaceRoot = findWorkspaceRootDir(process.cwd());
   const baseImage = resolveDaytonaBaseImage();
   const fallbackImage = Image.base(baseImage).dockerfileCommands(
