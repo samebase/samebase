@@ -215,6 +215,122 @@ function clampTerminalSize(
   return Math.min(maximum, Math.max(minimum, rounded));
 }
 
+function quoteForShell(input: string): string {
+  return `'${input.replace(/'/g, `'\\''`)}'`;
+}
+
+type TemplateValue = string | number | boolean | null | undefined;
+
+function stripIndent(
+  strings: TemplateStringsArray,
+  ...values: TemplateValue[]
+): string {
+  let combined = "";
+  for (let index = 0; index < strings.length; index += 1) {
+    combined += strings[index];
+    if (index < values.length) {
+      combined += String(values[index]);
+    }
+  }
+
+  const trimmed = combined.trim();
+  if (trimmed.length === 0) {
+    return "";
+  }
+
+  const lines = trimmed.split("\n");
+  let minIndent: number | null = null;
+  for (const line of lines) {
+    if (line.trim().length === 0) {
+      continue;
+    }
+    const match = line.match(/^ +/);
+    const indent = match ? match[0].length : 0;
+    if (minIndent === null || indent < minIndent) {
+      minIndent = indent;
+      if (minIndent === 0) {
+        break;
+      }
+    }
+  }
+
+  if (!minIndent) {
+    return trimmed;
+  }
+
+  return lines.map((line) => line.slice(minIndent)).join("\n");
+}
+
+async function ensureFishInSandbox(args: {
+  sandbox: Sandbox;
+}): Promise<"already_present" | "installed"> {
+  const checkResult = await args.sandbox.process.executeCommand(
+    `command -v fish >/dev/null 2>&1 && [ "$(grep "^$(id -un):" /etc/passwd | cut -d: -f7 | head -n 1 || true)" = "$(command -v fish)" ]`,
+    undefined,
+    undefined,
+    30,
+  );
+  if (checkResult.exitCode === 0) {
+    return "already_present";
+  }
+
+  const installScript = stripIndent`
+    set -e
+    if command -v fish >/dev/null 2>&1 && [ "$(grep "^$(id -un):" /etc/passwd | cut -d: -f7 | head -n 1 || true)" = "$(command -v fish)" ]; then
+      exit 0
+    fi
+    if ! command -v apt-get >/dev/null 2>&1; then
+      echo "__NOTER_APT_MISSING__"
+      exit 1
+    fi
+    prefix=""
+    if [ "$(id -u)" != "0" ]; then
+      if command -v sudo >/dev/null 2>&1; then
+        prefix="sudo "
+      else
+        echo "__NOTER_FISH_PRIVILEGE_MISSING__"
+        exit 1
+      fi
+    fi
+    ${"$"}{prefix}apt-get update
+    ${"$"}{prefix}apt-get install -y --no-install-recommends fish
+    fish_path="$(command -v fish)"
+    current_user="$(id -un)"
+    current_shell="$(grep "^${"$"}current_user:" /etc/passwd | cut -d: -f7 | head -n 1 || true)"
+    if [ "$current_shell" != "$fish_path" ]; then
+      ${"$"}{prefix}usermod -s "$fish_path" "$current_user"
+    fi
+    ${"$"}{prefix}rm -rf /var/lib/apt/lists/*
+  `;
+  const installCommand = `bash -lc ${quoteForShell(installScript)}`;
+  const installResult = await args.sandbox.process.executeCommand(
+    installCommand,
+    undefined,
+    undefined,
+    300,
+  );
+  if (installResult.exitCode !== 0) {
+    const output = installResult.result.trim();
+    if (output.includes("__NOTER_APT_MISSING__")) {
+      throw new Error(
+        "fish is missing and apt-get is unavailable in this sandbox.",
+      );
+    }
+    if (output.includes("__NOTER_FISH_PRIVILEGE_MISSING__")) {
+      throw new Error(
+        "fish is missing and this sandbox cannot install it automatically.",
+      );
+    }
+    throw new Error(
+      output.length > 0
+        ? output
+        : "Failed to install fish in the Daytona sandbox.",
+    );
+  }
+
+  return "installed";
+}
+
 function buildWorkspacePtySessionId(vaultId: Id<"vaults">): string {
   return `noter-pty-${vaultId}-${randomUUID()}`;
 }
@@ -577,6 +693,7 @@ export const openWorkspacePtySession = action({
     const sessionId = buildWorkspacePtySessionId(args.vaultId);
 
     try {
+      await ensureFishInSandbox({ sandbox: resolved.sandbox });
       const connection = await openPtySession({
         sandbox: resolved.sandbox,
         baseUrl: resolved.baseUrl,

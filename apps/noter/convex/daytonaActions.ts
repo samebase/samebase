@@ -50,6 +50,10 @@ const DAYTONA_DEPS_IMAGE_TEMPLATE_ENV = "DAYTONA_DEPS_IMAGE_TEMPLATE";
 const DAYTONA_BASE_IMAGE_ENV = "DAYTONA_BASE_IMAGE";
 const DAYTONA_PNPM_VERSION = "9.15.0";
 const DAYTONA_CODEX_CLI_VERSION = "0.114.0";
+const DAYTONA_RUNTIME_APT_PACKAGES = ["fish", "make", "tmux"] as const;
+const DAYTONA_RUNTIME_APT_PACKAGE_LIST = DAYTONA_RUNTIME_APT_PACKAGES.join(" ");
+const DAYTONA_SET_FISH_DEFAULT_SHELL_IMAGE_COMMAND =
+  'fish_path="$(command -v fish)" && usermod -s "$fish_path" root && if id -u daytona >/dev/null 2>&1; then usermod -s "$fish_path" daytona; fi';
 const PNPM_LOCKFILE_NAME = "pnpm-lock.yaml";
 const DAYTONA_DEPS_HASH_INPUT_FILES = [
   "Dockerfile.daytona-deps",
@@ -763,7 +767,8 @@ async function resolveDaytonaCodexAuthSandboxImagePlan(args: {
   const baseImage = resolveDaytonaBaseImage();
   const fallbackImage = Image.base(baseImage).dockerfileCommands(
     [
-      "RUN apt-get update && apt-get install -y --no-install-recommends make tmux && rm -rf /var/lib/apt/lists/*",
+      `RUN apt-get update && apt-get install -y --no-install-recommends ${DAYTONA_RUNTIME_APT_PACKAGE_LIST} && rm -rf /var/lib/apt/lists/*`,
+      `RUN ${DAYTONA_SET_FISH_DEFAULT_SHELL_IMAGE_COMMAND}`,
       `RUN npm install -g @openai/codex@${DAYTONA_CODEX_CLI_VERSION}`,
     ],
     workspaceRoot ?? process.cwd(),
@@ -1520,11 +1525,11 @@ function formatDurationMs(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-async function ensureTmuxInSandbox(args: {
+async function ensureDaytonaRuntimePackagesInSandbox(args: {
   sandbox: Sandbox;
 }): Promise<"already_present" | "installed"> {
   const checkResult = await args.sandbox.process.executeCommand(
-    "command -v tmux",
+    `command -v tmux >/dev/null 2>&1 && command -v fish >/dev/null 2>&1 && [ "$(grep "^$(id -un):" /etc/passwd | cut -d: -f7 | head -n 1 || true)" = "$(command -v fish)" ]`,
     undefined,
     undefined,
     30,
@@ -1535,7 +1540,7 @@ async function ensureTmuxInSandbox(args: {
 
   const installScript = stripIndent`
     set -e
-    if command -v tmux >/dev/null 2>&1; then
+    if command -v tmux >/dev/null 2>&1 && command -v fish >/dev/null 2>&1 && [ "$(grep "^$(id -un):" /etc/passwd | cut -d: -f7 | head -n 1 || true)" = "$(command -v fish)" ]; then
       exit 0
     fi
     if ! command -v apt-get >/dev/null 2>&1; then
@@ -1547,12 +1552,18 @@ async function ensureTmuxInSandbox(args: {
       if command -v sudo >/dev/null 2>&1; then
         prefix="sudo "
       else
-        echo "__NOTER_TMUX_PRIVILEGE_MISSING__"
+        echo "__NOTER_RUNTIME_PRIVILEGE_MISSING__"
         exit 1
       fi
     fi
     ${"$"}{prefix}apt-get update
-    ${"$"}{prefix}apt-get install -y --no-install-recommends make tmux
+    ${"$"}{prefix}apt-get install -y --no-install-recommends ${DAYTONA_RUNTIME_APT_PACKAGE_LIST}
+    fish_path="$(command -v fish)"
+    current_user="$(id -un)"
+    current_shell="$(grep "^${"$"}current_user:" /etc/passwd | cut -d: -f7 | head -n 1 || true)"
+    if [ "$current_shell" != "$fish_path" ]; then
+      ${"$"}{prefix}usermod -s "$fish_path" "$current_user"
+    fi
     ${"$"}{prefix}rm -rf /var/lib/apt/lists/*
   `;
   const installCommand = `bash -lc ${quoteForBash(installScript)}`;
@@ -1566,18 +1577,18 @@ async function ensureTmuxInSandbox(args: {
     const output = installResult.result.trim();
     if (output.includes("__NOTER_APT_MISSING__")) {
       throw new Error(
-        "tmux is missing and apt-get is unavailable in this sandbox.",
+        "Daytona runtime packages are missing and apt-get is unavailable in this sandbox.",
       );
     }
-    if (output.includes("__NOTER_TMUX_PRIVILEGE_MISSING__")) {
+    if (output.includes("__NOTER_RUNTIME_PRIVILEGE_MISSING__")) {
       throw new Error(
-        "tmux is missing and this sandbox cannot install it automatically.",
+        "Daytona runtime packages are missing and this sandbox cannot install them automatically.",
       );
     }
     throw new Error(
       output.length > 0
         ? output
-        : "Failed to install tmux in the Daytona sandbox.",
+        : "Failed to install Daytona runtime packages in the sandbox.",
     );
   }
 
@@ -1778,7 +1789,7 @@ async function startDaytonaDevServer(args: {
   }
 
   try {
-    await ensureTmuxInSandbox({ sandbox: args.sandbox });
+    await ensureDaytonaRuntimePackagesInSandbox({ sandbox: args.sandbox });
     const tmuxStatus = await startDaytonaTmuxSession({
       sandbox: args.sandbox,
       sessionName: DAYTONA_DEV_SERVER_TMUX_SESSION,
@@ -3886,12 +3897,22 @@ export const buildCommitPinnedSnapshot = internalAction({
 
         const repoPath = `${DEFAULT_WORKSPACE_DIR}/${args.repo}`;
         const autoCdCommand = stripIndent`
-          auto_cd_line="cd ${repoPath}";
+          bash_auto_cd_line="cd ${repoPath}";
           for file in /root/.bashrc /home/daytona/.bashrc /etc/bash.bashrc; do
             if [ -f "$file" ]; then
-              if ! grep -Fqx "$auto_cd_line" "$file"; then printf "%s\\n" "$auto_cd_line" >> "$file"; fi;
+              if ! grep -Fqx "$bash_auto_cd_line" "$file"; then printf "%s\\n" "$bash_auto_cd_line" >> "$file"; fi;
             else
-              printf "%s\\n" "$auto_cd_line" >> "$file";
+              printf "%s\\n" "$bash_auto_cd_line" >> "$file";
+            fi;
+          done
+          fish_auto_cd_line="cd ${repoPath}";
+          for file in /root/.config/fish/config.fish /home/daytona/.config/fish/config.fish; do
+            dir=$(dirname "$file");
+            mkdir -p "$dir";
+            if [ -f "$file" ]; then
+              if ! grep -Fqx "$fish_auto_cd_line" "$file"; then printf "%s\\n" "$fish_auto_cd_line" >> "$file"; fi;
+            else
+              printf "%s\\n" "$fish_auto_cd_line" >> "$file";
             fi;
           done
         `.replace(/\n/g, " ");
@@ -3946,7 +3967,8 @@ export const buildCommitPinnedSnapshot = internalAction({
           "USER root",
           `WORKDIR ${repoPath}`,
           `COPY . ${repoPath}`,
-          "RUN apt-get update && apt-get install -y --no-install-recommends make tmux && rm -rf /var/lib/apt/lists/*",
+          `RUN apt-get update && apt-get install -y --no-install-recommends ${DAYTONA_RUNTIME_APT_PACKAGE_LIST} && rm -rf /var/lib/apt/lists/*`,
+          `RUN ${DAYTONA_SET_FISH_DEFAULT_SHELL_IMAGE_COMMAND}`,
           `RUN corepack enable && corepack prepare pnpm@${DAYTONA_PNPM_VERSION} --activate`,
           `RUN npm install -g @openai/codex@${DAYTONA_CODEX_CLI_VERSION}`,
         ];

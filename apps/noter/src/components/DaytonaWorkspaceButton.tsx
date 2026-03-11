@@ -409,7 +409,6 @@ export function DaytonaWorkspaceButton({
         setMessage(result.message ?? "Failed to open Daytona terminal.");
         return null;
       }
-
       terminalSessionRef.current = nextSession;
       setTerminalSession(nextSession);
       setActiveTerminalKind("shell");
