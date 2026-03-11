@@ -50,8 +50,8 @@ type OpenWorkspaceDevServerPtySessionResult = FunctionReturnType<
 
 type WorkspaceTerminalKind = "shell" | "dev_server";
 
-const DEV_SERVER_LOG_FOLLOW_COMMAND =
-  "clear >/dev/null 2>&1; exec tail -n 200 -F '/tmp/noter-dev.log'\n";
+const DEV_SERVER_TMUX_ATTACH_COMMAND =
+  "clear >/dev/null 2>&1; exec tmux attach-session -r -t 'noter-dev-server'\n";
 
 const formatDuration = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 
@@ -461,7 +461,7 @@ export function DaytonaWorkspaceButton({
       }
       const nextDevServerSession: DaytonaPtySession = {
         ...nextSession,
-        initialInput: DEV_SERVER_LOG_FOLLOW_COMMAND,
+        initialInput: DEV_SERVER_TMUX_ATTACH_COMMAND,
       };
 
       terminalSessionRef.current = nextDevServerSession;
@@ -981,7 +981,7 @@ export function DaytonaWorkspaceButton({
           />
           <div className="text-xs text-muted-foreground">
             {activeTerminalKind === "dev_server"
-              ? "The dev server view is read-only and streams the tmux-backed dev server output."
+              ? "The dev server view is a read-only attachment to the sandbox tmux session."
               : "Use “Open in tab” if the embedded PTY hits a Daytona or browser edge case."}
           </div>
         </div>

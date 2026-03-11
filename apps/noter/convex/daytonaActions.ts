@@ -1687,6 +1687,8 @@ async function startDaytonaTmuxSession(args: {
     tmux new-session -d -s "$session" ${quoteForBash(
       `bash -lc ${quoteForBash(loggedCommand)}`,
     )}
+    tmux set-option -t "$session" status off >/dev/null
+    tmux set-option -t "$session" mouse off >/dev/null
     tmux set-option -t "$session" remain-on-exit on >/dev/null
     sleep 1
     tmux has-session -t "$session"
