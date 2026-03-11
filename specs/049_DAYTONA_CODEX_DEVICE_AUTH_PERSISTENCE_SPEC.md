@@ -23,9 +23,10 @@ Keep Codex login alive across Daytona sandbox recreation without storing
 
 This spec defines one MVP path only:
 
-1. The user already has an active Daytona sandbox for the vault.
+1. The user starts the Codex connect flow for a vault.
 2. Noter ensures the user's dedicated Codex auth volume exists.
-3. Noter mounts that volume into the sandbox at `/home/daytona/.codex`.
+3. Noter launches a Daytona sandbox for the vault with that volume mounted at
+   `/home/daytona/.codex`.
 4. The sandbox sets `CODEX_HOME=/home/daytona/.codex`.
 5. Noter opens a terminal in that sandbox and shows `codex login --device-auth`.
 6. The user completes device auth in that sandbox.
@@ -190,19 +191,27 @@ The volume is storage only. It does not execute anything. A Daytona sandbox is
 required because `codex login --device-auth` and `codex login status` run inside
 that sandbox with the mounted volume.
 
-1. User launches a Daytona workspace.
-2. User clicks `Connect in Daytona`.
-3. Noter ensures the per-user Codex volume exists.
-4. Noter mounts the volume at `/home/daytona/.codex`.
-5. Noter opens the terminal and shows:
+How mounting works:
+
+1. Noter calls Daytona with sandbox create or recreate params that include
+   `volumes: [{ volumeId, mountPath: "/home/daytona/.codex" }]`.
+2. Daytona starts the sandbox with that path attached to the volume.
+3. Inside the sandbox, `/home/daytona/.codex` behaves like a normal directory.
+4. Reads and writes under that path go to the persistent Daytona volume, not
+   just the sandbox's ephemeral disk.
+
+5. User clicks `Connect in Daytona`.
+6. Noter ensures the per-user Codex volume exists.
+7. Noter launches the Daytona workspace with the Codex volume mounted.
+8. Noter opens the terminal and shows:
 
 ```bash
 codex login --device-auth
 ```
 
-6. User completes device auth.
-7. Noter runs `codex login status`.
-8. On success, Noter writes or updates the Codex provider metadata row.
+5. User completes device auth.
+6. Noter runs `codex login status`.
+7. On success, Noter writes or updates the Codex provider metadata row.
 
 ## Backend Changes
 
@@ -289,8 +298,8 @@ Included in that phase:
 
 1. Codex provider row with the Codex app logo
 2. per-user Codex auth volume creation and metadata
-3. volume attach on Daytona sandbox create and recreate
-4. terminal-based device auth in the existing sandbox
+3. volume attach through Daytona sandbox create and recreate params
+4. terminal-based device auth in the launched sandbox
 5. login verification and provider status updates
 6. disconnect flow
 
