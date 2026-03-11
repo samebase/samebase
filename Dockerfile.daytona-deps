@@ -5,6 +5,7 @@ FROM ${BASE_IMAGE}
 ARG WORKSPACE_DIR=/home/daytona/workspace
 ARG REPO_NAME=noter
 ARG PNPM_VERSION=9.15.0
+ARG CODEX_CLI_VERSION=0.114.0
 
 WORKDIR ${WORKSPACE_DIR}/${REPO_NAME}
 
@@ -18,5 +19,6 @@ COPY apps/noter/package.json apps/noter/package.json
 COPY apps/noter-starter-template/package.json apps/noter-starter-template/package.json
 
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+RUN npm install -g @openai/codex@${CODEX_CLI_VERSION}
 RUN --mount=type=cache,id=noter-pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --prod=false --force --node-linker=hoisted

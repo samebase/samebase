@@ -153,6 +153,7 @@ export const ProviderKind = v.union(
   v.literal("convex"),
   v.literal("netlify"),
   v.literal("cloudflare"),
+  v.literal("codex"),
 );
 export type ProviderKind = Infer<typeof ProviderKind>;
 
@@ -199,11 +200,30 @@ export const ApiKeyAuth = v.object({
   credential: v.string(),
   credentialExpiresAt: v.optional(v.number()),
 });
+export const CodexDeviceAuth = v.object({
+  method: v.literal("device_auth"),
+  storage: v.literal("daytona_volume"),
+  volumeId: v.string(),
+  volumeName: v.string(),
+  codexHome: v.string(),
+  authSandboxId: v.optional(v.string()),
+  authSandboxName: v.optional(v.string()),
+  lastCheckAt: v.optional(v.number()),
+  lastCheckStatus: v.optional(
+    v.union(v.literal("ready"), v.literal("needs_reauth"), v.literal("error")),
+  ),
+  lastError: v.optional(v.string()),
+});
 export const StandardProviderAuth = v.union(OAuthAuth, ApiKeyAuth);
 export type StandardProviderAuth = Infer<typeof StandardProviderAuth>;
 export const CloudflareProviderAuth = v.union(McpOAuthAuth, ApiKeyAuth);
 export type CloudflareProviderAuth = Infer<typeof CloudflareProviderAuth>;
-export const ProviderAuth = v.union(OAuthAuth, McpOAuthAuth, ApiKeyAuth);
+export const ProviderAuth = v.union(
+  OAuthAuth,
+  McpOAuthAuth,
+  ApiKeyAuth,
+  CodexDeviceAuth,
+);
 export type ProviderAuth = Infer<typeof ProviderAuth>;
 export const McpTokenHealthStatus = mcpTokenHealthStatusValidator;
 export type McpTokenHealthStatus = Infer<typeof McpTokenHealthStatus>;
@@ -249,11 +269,19 @@ export const CloudflareProviderConnection = v.object({
   createdAt: v.number(),
   updatedAt: v.number(),
 });
+export const CodexProviderConnection = v.object({
+  kind: v.literal("codex"),
+  userId: v.id("users"),
+  auth: CodexDeviceAuth,
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
 export const ProviderConnection = v.union(
   GithubProviderConnection,
   ConvexProviderConnection,
   NetlifyProviderConnection,
   CloudflareProviderConnection,
+  CodexProviderConnection,
 );
 export type ProviderConnection = Infer<typeof ProviderConnection>;
 

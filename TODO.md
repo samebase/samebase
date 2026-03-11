@@ -24,6 +24,7 @@
 # The most important right now is to fix rebaseing works, because we always accept only things on incoming side instead of even trying to reconcile!!!!
 
 - [ ] add better rebase skill/workflow: when conflict is only `pnpm-lock.yaml`, regenerate lockfile from manifests instead of manual conflict edits
+- [ ] bootstrap: make `make anon` / `make anon-once` non-interactive when Convex wants a backend upgrade, or document the exact prompt/answer (`Yes` + `transfer data`)
 - [ ] We need less of a profit from AI, if we allow them to stay with their paid tools, for codex/claude, so we don't even need to run any serious ai infra. And the price we can provide is much lower than any competitions, since we don't choose that battle at all
 - [ ] in landing, we need to ask users what tech they know, for github, convex, etc
 - [ ] but there's always a chat to just ask to understand, and also mention that the page and agent are built in noter

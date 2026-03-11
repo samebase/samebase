@@ -9,8 +9,8 @@
 
 Persist Codex CLI login for Daytona by mounting a **per-user Daytona volume** at
 `CODEX_HOME` inside each sandbox. The user completes `codex login --device-auth`
-from the Daytona terminal. Noter stores only connection metadata in Convex, not
-the auth file itself.
+from the existing Daytona terminal iframe. Noter stores only connection metadata
+in Convex, not the auth file itself.
 
 This is a Daytona-specific provider flow, not a popup OAuth flow.
 
@@ -19,19 +19,27 @@ This is a Daytona-specific provider flow, not a popup OAuth flow.
 Keep Codex login alive across Daytona sandbox recreation without storing
 `auth.json` in Convex, git, env vars, snapshots, or repo files.
 
+This spec only solves persistent Codex identity reuse in Daytona. It does not
+yet make Noter drive Codex directly.
+
 ## MVP Path
 
 This spec defines one MVP path only:
 
-1. The user starts the Codex connect flow for a vault.
-2. Noter ensures the user's dedicated Codex auth volume exists.
-3. Noter launches a Daytona sandbox for the vault with that volume mounted at
-   `/home/daytona/.codex`.
-4. The sandbox sets `CODEX_HOME=/home/daytona/.codex`.
-5. Noter opens a terminal in that sandbox and shows `codex login --device-auth`.
-6. The user completes device auth in that sandbox.
-7. Noter verifies with `codex login status` in that same sandbox.
-8. Noter stores only metadata in `providerConnections`.
+1. The user opens Providers and clicks `Connect in Daytona` on the `Codex` row.
+2. Noter ensures the user's dedicated Codex auth volume exists and is ready.
+3. Noter creates or reuses a lightweight per-user Daytona auth sandbox with that
+   volume mounted at `/root/.codex`.
+4. The auth sandbox sets `CODEX_HOME=/root/.codex`.
+5. Noter verifies that `codex` is installed in that sandbox before prompting for
+   login.
+6. Noter opens the existing Daytona terminal iframe for that auth sandbox and
+   shows `codex login --device-auth`.
+7. The user completes device auth in that sandbox.
+8. Noter verifies with `codex login status` in that same sandbox.
+9. Noter stores only metadata in `providerConnections`.
+10. Later, vault sandboxes mount that same per-user volume at `/root/.codex` so
+    the login is reused across vaults.
 
 There is no second login path, popup OAuth path, or secret-copying fallback in
 MVP.
@@ -43,6 +51,10 @@ MVP.
 3. No Codex cloud-environment integration for this feature.
 4. No snapshot-based auth persistence.
 5. No package-cache volume work in MVP.
+6. No custom xterm terminal in this spec.
+7. No `codex app-server` runtime in this spec.
+8. No ChatFab or Codex-observer integration in this spec.
+9. No Noter-driven Codex task execution in this spec.
 
 ## Verified Facts
 
@@ -71,8 +83,16 @@ MVP.
 1. Provider connections already exist as first-class per-user records in
    `providerConnections`.
 2. The Providers panel is the right UI home for Codex connection state.
-3. Daytona launch is currently vault-scoped, so the Codex connect flow should
-   attach to an existing Daytona workspace in MVP.
+3. The Providers panel is the right place to start Codex login because Codex
+   auth is per-user, not per-vault.
+4. Noter already has a Daytona terminal iframe surface that is good enough for
+   this first auth flow.
+5. The existing repo already treats Codex as a machine-level CLI in dev
+   environments rather than as a normal workspace dependency.
+6. The current Daytona terminal flow in Noter runs as `root` in practice, so the
+   tested Codex auth path is `/root/.codex`.
+7. The existing Daytona deps image already installs Codex globally, which makes
+   it a good base for a lightweight auth sandbox.
 
 ## Main Decision
 
@@ -109,11 +129,11 @@ Example name:
 
 Mount it at:
 
-- `/home/daytona/.codex`
+- `/root/.codex`
 
 Set:
 
-- `CODEX_HOME=/home/daytona/.codex`
+- `CODEX_HOME=/root/.codex`
 
 Why this shape:
 
@@ -136,10 +156,9 @@ Do not place Codex secrets in:
 
 Inside the sandbox:
 
-1. create `CODEX_HOME` if missing as a normal bootstrap step
-2. keep it outside `/home/daytona/workspace/<repo>`
-3. set restrictive permissions on the directory
-4. never print `auth.json`
+1. keep `CODEX_HOME` outside `/home/daytona/workspace/<repo>`
+2. let the Daytona volume mount provide that path
+3. never print `auth.json`
 
 ## Deletion / Safety Concern
 
@@ -148,7 +167,7 @@ Your concern about an agent deleting its own persisted folder is valid.
 Current conclusion:
 
 1. Mounting outside the repo workspace is the first protection. The agent is
-   less likely to touch `/home/daytona/.codex` than workspace files.
+   less likely to touch `/root/.codex` than workspace files.
 2. Use a dedicated Codex-auth volume, not a general-purpose user data volume.
 3. The current installed Daytona types do not show a read-only mount option, so
    we should **not** assume Daytona can hard-protect this path from the sandbox
@@ -185,6 +204,11 @@ Needs reauth:
 This row should **not** reuse the popup OAuth flow used by GitHub, Convex,
 Netlify, or Cloudflare.
 
+For MVP, `Open terminal` uses the existing Daytona terminal iframe, not a custom
+terminal implementation.
+
+The Codex row should not require the user to create or choose a vault first.
+
 ## User Flow
 
 The volume is storage only. It does not execute anything. A Daytona sandbox is
@@ -194,24 +218,36 @@ that sandbox with the mounted volume.
 How mounting works:
 
 1. Noter calls Daytona with sandbox create or recreate params that include
-   `volumes: [{ volumeId, mountPath: "/home/daytona/.codex" }]`.
+   `volumes: [{ volumeId, mountPath: "/root/.codex" }]`.
 2. Daytona starts the sandbox with that path attached to the volume.
-3. Inside the sandbox, `/home/daytona/.codex` behaves like a normal directory.
+3. Inside the sandbox, `/root/.codex` behaves like a normal directory.
 4. Reads and writes under that path go to the persistent Daytona volume, not
    just the sandbox's ephemeral disk.
 
-5. User clicks `Connect in Daytona`.
-6. Noter ensures the per-user Codex volume exists.
-7. Noter launches the Daytona workspace with the Codex volume mounted.
-8. Noter opens the terminal and shows:
+5. User opens Providers.
+6. User clicks `Connect in Daytona` on the `Codex` row.
+7. Noter ensures the per-user Codex volume exists and waits for it to reach a
+   ready state before sandbox creation.
+8. Noter creates or reuses a dedicated per-user auth sandbox such as
+   `noter-codex-auth-<env>-<userId>`.
+9. That auth sandbox is not tied to any vault repo checkout. It is just a light
+   terminal environment for Codex login and status checks.
+10. Noter bases that auth sandbox on the existing Daytona deps image so `codex`
+    is already available without waiting for a vault snapshot.
+11. Noter runs a preflight check like `command -v codex`.
+12. If `codex` is missing, stop here and show an explicit failure state. Do not
+    start a fallback auth flow.
+13. If `codex` is present, Noter opens the existing Daytona terminal iframe and
+    tells the user to run `codex login --device-auth` there.
+14. User runs the command and completes device auth.
+15. Noter runs `codex login status`.
+16. On success, Noter writes or updates the Codex provider metadata row.
+17. When a vault sandbox is later launched, Noter mounts the same per-user Codex
+    volume into that vault sandbox so the login is reused there too, but only
+    while the Codex provider connection exists for that user.
 
-```bash
-codex login --device-auth
-```
-
-5. User completes device auth.
-6. Noter runs `codex login status`.
-7. On success, Noter writes or updates the Codex provider metadata row.
+This flow intentionally stops at "Codex is authenticated and reusable in
+Daytona." It does not yet cover how Noter talks to a running Codex runtime.
 
 ## Backend Changes
 
@@ -231,9 +267,10 @@ Add a small module, for example:
 Actions:
 
 1. `ensureCodexAuthVolume`
-2. `verifyCodexLoginInSandbox`
-3. `disconnectCodex`
-4. `getCodexConnectionStatus`
+2. `prepareCodexAuthSandbox`
+3. `verifyCodexLoginInSandbox`
+4. `disconnectCodex`
+5. `getCodexConnectionStatus`
 
 Authorization rule for all Codex auth actions:
 
@@ -245,14 +282,30 @@ Authorization rule for all Codex auth actions:
 4. If `verifyCodexLoginInSandbox` targets an existing sandbox, verify that the
    sandbox also belongs to the authenticated user before attaching or checking
    anything inside it.
+5. `prepareCodexAuthSandbox` must only create, reuse, or inspect the
+   authenticated user's dedicated Codex auth sandbox.
 
-### Daytona create path
+### Daytona create paths
 
-When the authenticated user has a Codex provider connection, attach only that
-user’s Codex auth volume during sandbox creation and recreate.
+Auth sandbox path:
 
-This should happen in the Daytona creation path, not by copying secrets into the
-repo after boot.
+1. The Providers flow creates or reuses only the authenticated user's dedicated
+   Codex auth sandbox.
+2. That auth sandbox mounts only the authenticated user's Codex auth volume.
+3. This should happen in the Daytona creation path, not by copying secrets into
+   the repo after boot.
+
+Vault sandbox path:
+
+1. When a vault sandbox is created or recreated, and the user has a Codex
+   provider connection, attach only that user's Codex auth volume there too.
+2. If an older vault sandbox is missing the expected Codex mount, recreate it so
+   it becomes compatible.
+3. If the user disconnects Codex, new vault sandboxes must stop mounting the
+   Codex auth volume.
+4. Disconnect should clear the shared Codex auth directory before removing
+   metadata, even if Daytona cannot immediately delete the volume because
+   another sandbox still has it mounted.
 
 ## Frontend Changes
 
@@ -264,9 +317,15 @@ adds a third mode:
 Minimal frontend work:
 
 1. allow provider rows to use a custom action model
-2. add Codex actions
-3. keep Codex out of API-key dialogs
-4. disable the connect action when no Daytona workspace exists yet
+2. add a `Codex` provider row with the Codex app logo
+3. keep Codex out of popup OAuth and API-key dialogs
+4. route `Connect in Daytona` through the new per-user auth-sandbox flow
+5. show the existing Daytona terminal iframe directly from that provider flow
+6. later, let vault Daytona launches reuse the stored provider connection
+
+For Noter-managed Daytona snapshots, install the Codex CLI globally in the
+snapshot baseline so the terminal can run bare `codex` commands. Keep the
+runtime preflight check anyway to catch old snapshots or other unexpected drift.
 
 ## What Volumes Solve
 
@@ -298,25 +357,33 @@ Included in that phase:
 
 1. Codex provider row with the Codex app logo
 2. per-user Codex auth volume creation and metadata
-3. volume attach through Daytona sandbox create and recreate params
-4. terminal-based device auth in the launched sandbox
-5. login verification and provider status updates
-6. disconnect flow
+3. dedicated per-user Daytona auth sandbox from Providers
+4. existing-Daytona-terminal-iframe device auth in that auth sandbox
+5. `codex` preflight presence check before login
+6. login verification and provider status updates
+7. volume attach through vault Daytona sandbox create and recreate params
+8. disconnect flow
 
 Explicitly out of scope for this phase:
 
 1. package-cache volumes
 2. read-only volume mount research
 3. recovery/export tooling
-4. a separate provider-only sandbox provisioning flow
+4. xterm or custom terminal work
+5. `codex app-server` integration
+6. ChatFab/Codex observer integration
+7. Noter-driven Codex execution beyond manual terminal use
 
 ## Acceptance Criteria
 
 1. User logs into Codex once in Daytona.
-2. User deletes and recreates the sandbox.
-3. `codex login status` still succeeds in the new sandbox.
-4. No Codex secret is stored in Convex or repo files.
-5. Codex provider UI is clearly different from popup OAuth providers.
+2. The login is initiated from Providers without requiring an existing vault.
+3. User deletes and recreates a vault sandbox.
+4. `codex login status` still succeeds in the new vault sandbox.
+5. If `codex` is missing in the sandbox, the UI fails fast with a clear error.
+6. No Codex secret is stored in Convex or repo files.
+7. Codex provider UI is clearly different from popup OAuth providers.
+8. MVP uses the existing Daytona terminal iframe, not a new terminal stack.
 
 ## References
 

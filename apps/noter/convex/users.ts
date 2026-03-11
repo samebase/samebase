@@ -52,6 +52,12 @@ const providerAuthMethodValidator = union(
   literal("oauth"),
   literal("mcp_oauth"),
   literal("api_key"),
+  literal("device_auth"),
+);
+const codexCheckStatusValidator = union(
+  literal("ready"),
+  literal("needs_reauth"),
+  literal("error"),
 );
 const cloudflareConnectionStatusValidator = object({
   connected: boolean(),
@@ -68,6 +74,18 @@ const cloudflareConnectionStatusValidator = object({
 type CloudflareConnectionStatus = Infer<
   typeof cloudflareConnectionStatusValidator
 >;
+const codexConnectionStatusValidator = object({
+  connected: boolean(),
+  authMethod: optional(providerAuthMethodValidator),
+  volumeName: optional(string()),
+  codexHome: optional(string()),
+  authSandboxId: optional(string()),
+  authSandboxName: optional(string()),
+  lastCheckAt: optional(number()),
+  lastCheckStatus: optional(codexCheckStatusValidator),
+  lastError: optional(string()),
+});
+type CodexConnectionStatus = Infer<typeof codexConnectionStatusValidator>;
 type CloudflareAuthMethod = Extract<
   Infer<typeof providerAuthMethodValidator>,
   "mcp_oauth" | "api_key"
@@ -702,6 +720,37 @@ export const getCloudflareConnectionStatus = query({
     }
 
     return buildCloudflareConnectionStatus(connection);
+  },
+});
+
+export const getCodexConnectionStatus = query({
+  args: {},
+  returns: codexConnectionStatusValidator,
+  handler: async (ctx): Promise<CodexConnectionStatus> => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      return { connected: false };
+    }
+    const connection = await getConnectionByUserAndKind(
+      ctx.db,
+      userId,
+      "codex",
+    );
+    if (connection?.kind !== "codex") {
+      return { connected: false };
+    }
+
+    return {
+      connected: true,
+      authMethod: connection.auth.method,
+      volumeName: connection.auth.volumeName,
+      codexHome: connection.auth.codexHome,
+      authSandboxId: connection.auth.authSandboxId,
+      authSandboxName: connection.auth.authSandboxName,
+      lastCheckAt: connection.auth.lastCheckAt,
+      lastCheckStatus: connection.auth.lastCheckStatus,
+      lastError: connection.auth.lastError,
+    };
   },
 });
 
