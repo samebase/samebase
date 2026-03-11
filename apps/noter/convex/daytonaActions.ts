@@ -49,6 +49,7 @@ const DAYTONA_CONVEX_DEPLOY_KEY_ENV = "DAYTONA_CONVEX_DEPLOY_KEY";
 const DAYTONA_DEPS_IMAGE_TEMPLATE_ENV = "DAYTONA_DEPS_IMAGE_TEMPLATE";
 const DAYTONA_BASE_IMAGE_ENV = "DAYTONA_BASE_IMAGE";
 const DAYTONA_PNPM_VERSION = "9.15.0";
+const DAYTONA_CODEX_CLI_VERSION = "0.114.0";
 const PNPM_LOCKFILE_NAME = "pnpm-lock.yaml";
 const DAYTONA_DEPS_HASH_INPUT_FILES = [
   "Dockerfile.daytona-deps",
@@ -62,7 +63,15 @@ const PNPM_INSTALL_LOG = "/tmp/noter-pnpm-install.log";
 const PNPM_INSTALL_STATUS = "/tmp/noter-pnpm-install.status";
 const DAYTONA_PREVIEW_PORT = 5173;
 const DAYTONA_PREVIEW_TTL_SECONDS = 3600;
+const DAYTONA_TERMINAL_PORT = 22222;
+const DAYTONA_TERMINAL_TTL_SECONDS = 300;
 const DAYTONA_DEV_LOG = "/tmp/noter-dev.log";
+// Daytona terminals currently run with a root home in our tested sandbox setup.
+const DAYTONA_CODEX_HOME = "/root/.codex";
+const DAYTONA_CODEX_AUTH_VOLUME_PREFIX = "noter-codex-auth";
+const DAYTONA_CODEX_AUTH_SANDBOX_PREFIX = "noter-codex-auth";
+const DAYTONA_VOLUME_READY_TIMEOUT_MS = 60_000;
+const DAYTONA_VOLUME_READY_POLL_MS = 2_000;
 const DEV_ENV_ORIGIN_ENV = "DEV_ENV_ORIGIN";
 const MAX_PREBUILD_LOG_CHARS = 50_000;
 const PREBUILD_LOG_FLUSH_MS = 1_000;
@@ -466,6 +475,650 @@ function getRegistryMatch(
 function readSandboxLabel(candidate: Sandbox, key: string): string {
   const value = candidate.labels[key];
   return typeof value === "string" ? value.trim() : "";
+}
+
+function buildDaytonaCodexAuthVolumeName(args: {
+  envLabel: string;
+  userId: Id<"users">;
+}): string {
+  const safeName = toSafeRepoName(
+    `${DAYTONA_CODEX_AUTH_VOLUME_PREFIX}-${args.envLabel}-${args.userId}`,
+  );
+  return safeName || `${DAYTONA_CODEX_AUTH_VOLUME_PREFIX}-${args.envLabel}`;
+}
+
+function buildDaytonaCodexAuthSandboxName(args: {
+  envLabel: string;
+  userId: Id<"users">;
+}): string {
+  const safeName = toSafeRepoName(
+    `${DAYTONA_CODEX_AUTH_SANDBOX_PREFIX}-${args.envLabel}-${args.userId}`,
+  );
+  return safeName || `${DAYTONA_CODEX_AUTH_SANDBOX_PREFIX}-${args.envLabel}`;
+}
+
+function buildDaytonaCodexAuthSandboxLabels(args: { userId: Id<"users"> }) {
+  return {
+    "noter.kind": "codex_auth",
+    "noter.user_id": String(args.userId),
+  };
+}
+
+function hasMatchingCodexAuthSandboxLabels(args: {
+  sandbox: Sandbox;
+  userId: Id<"users">;
+}): boolean {
+  return (
+    readSandboxLabel(args.sandbox, "noter.kind") === "codex_auth" &&
+    readSandboxLabel(args.sandbox, "noter.user_id") === String(args.userId)
+  );
+}
+
+function parseGithubRepoFromRemote(remoteUrl: string): {
+  owner: string;
+  repo: string;
+} | null {
+  const trimmed = remoteUrl.trim().replace(/\.git$/i, "");
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  const sshMatch = /^git@github\.com:(?<owner>[^/]+)\/(?<repo>[^/]+)$/i.exec(
+    trimmed,
+  );
+  if (sshMatch?.groups?.owner && sshMatch.groups.repo) {
+    return {
+      owner: sshMatch.groups.owner,
+      repo: sshMatch.groups.repo,
+    };
+  }
+
+  try {
+    const url = new URL(trimmed);
+    if (url.hostname.toLowerCase() !== "github.com") {
+      return null;
+    }
+    const [owner, repo] = url.pathname.replace(/^\/+/, "").split("/");
+    if (!owner || !repo) {
+      return null;
+    }
+    return { owner, repo };
+  } catch {
+    return null;
+  }
+}
+
+function findWorkspaceRootDir(startDir: string): string | null {
+  let currentDir = path.resolve(startDir);
+  for (;;) {
+    const hasWorkspaceManifest = fs.existsSync(
+      path.join(currentDir, "pnpm-workspace.yaml"),
+    );
+    const hasPackageJson = fs.existsSync(path.join(currentDir, "package.json"));
+    if (hasWorkspaceManifest && hasPackageJson) {
+      return currentDir;
+    }
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      return null;
+    }
+    currentDir = parentDir;
+  }
+}
+
+async function resolveCurrentRepoIdentity(repoDir: string): Promise<{
+  owner: string;
+  repo: string;
+} | null> {
+  const originUrl = await git.getConfig({
+    fs,
+    dir: repoDir,
+    path: "remote.origin.url",
+  });
+  if (typeof originUrl !== "string") {
+    return null;
+  }
+  return parseGithubRepoFromRemote(originUrl);
+}
+
+async function ensureDaytonaCodexAuthVolume(args: {
+  daytona: Daytona;
+  envLabel: string;
+  userId: Id<"users">;
+}) {
+  const volumeName = buildDaytonaCodexAuthVolumeName({
+    envLabel: args.envLabel,
+    userId: args.userId,
+  });
+  let volume = await args.daytona.volume.get(volumeName, true);
+  const startedAt = Date.now();
+
+  for (;;) {
+    const currentState = volume.state.trim().toLowerCase();
+    if (currentState === "ready") {
+      return volume;
+    }
+    if (
+      currentState === "error" ||
+      currentState === "deleting" ||
+      currentState === "deleted" ||
+      currentState === "pending_delete"
+    ) {
+      throw new Error(
+        `Volume ${volume.name} entered ${volume.state} before becoming ready.`,
+      );
+    }
+
+    const elapsedMs = Date.now() - startedAt;
+    if (elapsedMs >= DAYTONA_VOLUME_READY_TIMEOUT_MS) {
+      throw new Error(
+        `Volume ${volume.name} did not become ready within ${Math.round(
+          DAYTONA_VOLUME_READY_TIMEOUT_MS / 1000,
+        )} seconds. Last Daytona state: ${volume.state}.`,
+      );
+    }
+
+    await sleep(DAYTONA_VOLUME_READY_POLL_MS);
+    volume = await args.daytona.volume.get(volumeName);
+  }
+}
+
+function hasCodexAuthVolumeMount(args: {
+  sandbox: Sandbox;
+  volumeId: string;
+}): boolean {
+  const volumes = Array.isArray(args.sandbox.volumes)
+    ? args.sandbox.volumes
+    : [];
+  return volumes.some((volume) => {
+    const mountPath =
+      typeof volume.mountPath === "string" ? volume.mountPath.trim() : "";
+    const mountedVolumeId =
+      typeof volume.volumeId === "string" ? volume.volumeId.trim() : "";
+    return (
+      mountPath === DAYTONA_CODEX_HOME && mountedVolumeId === args.volumeId
+    );
+  });
+}
+
+function hasAnyCodexAuthMount(sandbox: Sandbox): boolean {
+  const volumes = Array.isArray(sandbox.volumes) ? sandbox.volumes : [];
+  return volumes.some((volume) => {
+    const mountPath =
+      typeof volume.mountPath === "string" ? volume.mountPath.trim() : "";
+    return mountPath === DAYTONA_CODEX_HOME;
+  });
+}
+
+function hasCodexHomeEnv(sandbox: Sandbox): boolean {
+  const codexHomeValue =
+    typeof sandbox.env.CODEX_HOME === "string"
+      ? sandbox.env.CODEX_HOME.trim()
+      : "";
+  return codexHomeValue === DAYTONA_CODEX_HOME;
+}
+
+function hasCompatibleCodexAuthSetup(args: {
+  sandbox: Sandbox;
+  volumeId: string;
+}): boolean {
+  return (
+    hasCodexHomeEnv(args.sandbox) &&
+    hasCodexAuthVolumeMount({
+      sandbox: args.sandbox,
+      volumeId: args.volumeId,
+    })
+  );
+}
+
+function hasExpectedCodexAuthSetup(args: {
+  sandbox: Sandbox;
+  volumeId?: string;
+}): boolean {
+  if (args.volumeId) {
+    return hasCompatibleCodexAuthSetup({
+      sandbox: args.sandbox,
+      volumeId: args.volumeId,
+    });
+  }
+  return !hasCodexHomeEnv(args.sandbox) && !hasAnyCodexAuthMount(args.sandbox);
+}
+
+async function listDaytonaSandboxIdsUsingVolume(args: {
+  daytona: Daytona;
+  volumeId: string;
+}): Promise<string[]> {
+  const sandboxIds: string[] = [];
+  let page = 1;
+  const perPage = 100;
+
+  for (;;) {
+    const result = await args.daytona.list(undefined, page, perPage);
+    for (const sandbox of result.items) {
+      if (
+        hasCodexAuthVolumeMount({
+          sandbox,
+          volumeId: args.volumeId,
+        })
+      ) {
+        sandboxIds.push(sandbox.id);
+      }
+    }
+    if (result.items.length < perPage) {
+      break;
+    }
+    page += 1;
+  }
+
+  return sandboxIds;
+}
+
+async function clearCodexAuthHomeInSandbox(args: {
+  sandbox: Sandbox;
+}): Promise<void> {
+  if (args.sandbox.state?.toLowerCase() !== "started") {
+    await args.sandbox.start();
+    await args.sandbox.refreshData();
+  }
+
+  const result = await args.sandbox.process.executeCommand(
+    `mkdir -p ${DAYTONA_CODEX_HOME} && find ${DAYTONA_CODEX_HOME} -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +`,
+    undefined,
+    undefined,
+    30,
+  );
+  if (result.exitCode !== 0) {
+    throw new Error(result.result.trim() || "Failed to clear Codex auth data.");
+  }
+}
+
+type CodexAuthCheckStatus = "ready" | "needs_reauth" | "error";
+
+type CodexAuthSandboxResolution = {
+  sandbox: Sandbox;
+  sandboxName: string;
+  lifecycle: "created" | "resumed" | "reused";
+};
+
+async function resolveDaytonaCodexAuthSandboxImagePlan(args: {
+  ctx: ActionCtx;
+  userId: Id<"users">;
+  daytona: Daytona;
+  baseUrl: string;
+  token: string;
+}): Promise<{
+  depsImageCandidates: string[];
+  fallbackImage: Image;
+}> {
+  const workspaceRoot = findWorkspaceRootDir(process.cwd());
+  const baseImage = resolveDaytonaBaseImage();
+  const fallbackImage = Image.base(baseImage).dockerfileCommands(
+    [`RUN npm install -g @openai/codex@${DAYTONA_CODEX_CLI_VERSION}`],
+    workspaceRoot ?? process.cwd(),
+  );
+
+  if (!workspaceRoot) {
+    return { depsImageCandidates: [], fallbackImage };
+  }
+
+  const repoIdentity = await resolveCurrentRepoIdentity(workspaceRoot);
+  if (!repoIdentity) {
+    return { depsImageCandidates: [], fallbackImage };
+  }
+
+  const [depsInputHash, lockHash] = await Promise.all([
+    readDepsInputHash({
+      repoDir: workspaceRoot,
+      baseImage,
+      pnpmVersion: DAYTONA_PNPM_VERSION,
+    }),
+    readPnpmLockHash(workspaceRoot),
+  ]);
+  const depsImageCandidates = resolveDepsImageNames({
+    owner: repoIdentity.owner,
+    repo: repoIdentity.repo,
+    inputHash: depsInputHash,
+    lockHash,
+  });
+
+  if (depsImageCandidates.length === 0) {
+    return { depsImageCandidates, fallbackImage };
+  }
+
+  const githubConnection = await getGithubConnection(args.ctx, args.userId);
+  if (githubConnection?.auth.credential && githubConnection.username) {
+    try {
+      await ensureDaytonaRegistry({
+        baseUrl: args.baseUrl,
+        token: args.token,
+        config: buildRegistryConfigFromGithub({
+          githubUsername: githubConnection.username,
+          githubAccessToken: githubConnection.auth.credential,
+        }),
+      });
+    } catch (error) {
+      console.warn("daytona:codex-auth:registry:failed", {
+        userId: args.userId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return { depsImageCandidates, fallbackImage };
+}
+
+async function createDaytonaCodexAuthSandbox(args: {
+  ctx: ActionCtx;
+  userId: Id<"users">;
+  daytona: Daytona;
+  baseUrl: string;
+  token: string;
+  sandboxName: string;
+  volumeId: string;
+}): Promise<Sandbox> {
+  const imagePlan = await resolveDaytonaCodexAuthSandboxImagePlan({
+    ctx: args.ctx,
+    userId: args.userId,
+    daytona: args.daytona,
+    baseUrl: args.baseUrl,
+    token: args.token,
+  });
+
+  const baseParams = {
+    name: args.sandboxName,
+    language: "typescript",
+    user: "daytona",
+    public: true,
+    envVars: {
+      CODEX_HOME: DAYTONA_CODEX_HOME,
+    },
+    labels: buildDaytonaCodexAuthSandboxLabels({
+      userId: args.userId,
+    }),
+    volumes: [
+      {
+        volumeId: args.volumeId,
+        mountPath: DAYTONA_CODEX_HOME,
+      },
+    ],
+  };
+
+  for (const depsImage of imagePlan.depsImageCandidates) {
+    let sandbox: Sandbox | null = null;
+    try {
+      sandbox = await args.daytona.create({
+        ...baseParams,
+        image: depsImage,
+      });
+      await verifyCodexBinaryInSandbox({ sandbox });
+      return sandbox;
+    } catch (error) {
+      if (sandbox) {
+        try {
+          await sandbox.delete();
+        } catch (deleteError) {
+          if (!isNotFoundError(deleteError)) {
+            console.warn("daytona:codex-auth:create:cleanup-failed", {
+              userId: args.userId,
+              image: depsImage,
+              sandboxId: sandbox.id,
+              message:
+                deleteError instanceof Error
+                  ? deleteError.message
+                  : String(deleteError),
+            });
+          }
+        }
+      }
+      console.warn("daytona:codex-auth:create:deps-image-failed", {
+        userId: args.userId,
+        image: depsImage,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      continue;
+    }
+  }
+
+  const sandbox = await args.daytona.create({
+    ...baseParams,
+    image: imagePlan.fallbackImage,
+  });
+  await verifyCodexBinaryInSandbox({ sandbox });
+  return sandbox;
+}
+
+async function resolveDaytonaCodexAuthSandbox(args: {
+  ctx: ActionCtx;
+  userId: Id<"users">;
+  daytona: Daytona;
+  baseUrl: string;
+  token: string;
+  volumeId: string;
+  persistedSandboxId?: string;
+}): Promise<CodexAuthSandboxResolution> {
+  const envLabel = getDaytonaEnvLabel();
+  const sandboxName = buildDaytonaCodexAuthSandboxName({
+    envLabel,
+    userId: args.userId,
+  });
+
+  let sandbox: Sandbox | null = null;
+  let lifecycle: CodexAuthSandboxResolution["lifecycle"] = "created";
+
+  if (args.persistedSandboxId) {
+    try {
+      const persistedSandbox = await args.daytona.get(args.persistedSandboxId);
+      if (
+        hasMatchingCodexAuthSandboxLabels({
+          sandbox: persistedSandbox,
+          userId: args.userId,
+        })
+      ) {
+        if (
+          hasCompatibleCodexAuthSetup({
+            sandbox: persistedSandbox,
+            volumeId: args.volumeId,
+          })
+        ) {
+          sandbox = persistedSandbox;
+        } else {
+          await persistedSandbox.delete();
+        }
+      }
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  if (!sandbox) {
+    const matches = await args.daytona.list(
+      buildDaytonaCodexAuthSandboxLabels({
+        userId: args.userId,
+      }),
+      1,
+      10,
+    );
+    for (const match of matches.items) {
+      try {
+        const matchedSandbox = await args.daytona.get(match.id);
+        if (
+          !hasMatchingCodexAuthSandboxLabels({
+            sandbox: matchedSandbox,
+            userId: args.userId,
+          })
+        ) {
+          continue;
+        }
+        if (
+          hasCompatibleCodexAuthSetup({
+            sandbox: matchedSandbox,
+            volumeId: args.volumeId,
+          })
+        ) {
+          sandbox = matchedSandbox;
+          break;
+        }
+        await matchedSandbox.delete();
+      } catch (error) {
+        if (!isNotFoundError(error)) {
+          throw error;
+        }
+      }
+    }
+  }
+
+  if (sandbox) {
+    if (sandbox.state?.toLowerCase() === "started") {
+      lifecycle = "reused";
+    } else {
+      await sandbox.start();
+      await sandbox.refreshData();
+      lifecycle = "resumed";
+    }
+    return {
+      sandbox,
+      sandboxName: sandbox.name,
+      lifecycle,
+    };
+  }
+
+  const createdSandbox = await createDaytonaCodexAuthSandbox({
+    ctx: args.ctx,
+    userId: args.userId,
+    daytona: args.daytona,
+    baseUrl: args.baseUrl,
+    token: args.token,
+    sandboxName,
+    volumeId: args.volumeId,
+  });
+  return {
+    sandbox: createdSandbox,
+    sandboxName: createdSandbox.name,
+    lifecycle: "created",
+  };
+}
+
+async function resolveVerifiedDaytonaCodexAuthSandbox(args: {
+  ctx: ActionCtx;
+  userId: Id<"users">;
+  daytona: Daytona;
+  baseUrl: string;
+  token: string;
+  volumeId: string;
+  persistedSandboxId?: string;
+}): Promise<CodexAuthSandboxResolution> {
+  const authSandbox = await resolveDaytonaCodexAuthSandbox(args);
+
+  try {
+    await verifyCodexBinaryInSandbox({ sandbox: authSandbox.sandbox });
+    return authSandbox;
+  } catch (error) {
+    try {
+      await authSandbox.sandbox.delete();
+    } catch (deleteError) {
+      if (!isNotFoundError(deleteError)) {
+        throw deleteError;
+      }
+    }
+
+    const recreatedSandbox = await createDaytonaCodexAuthSandbox({
+      ctx: args.ctx,
+      userId: args.userId,
+      daytona: args.daytona,
+      baseUrl: args.baseUrl,
+      token: args.token,
+      sandboxName: buildDaytonaCodexAuthSandboxName({
+        envLabel: getDaytonaEnvLabel(),
+        userId: args.userId,
+      }),
+      volumeId: args.volumeId,
+    });
+
+    return {
+      sandbox: recreatedSandbox,
+      sandboxName: recreatedSandbox.name,
+      lifecycle: "created",
+    };
+  }
+}
+
+async function getDaytonaSandboxTerminalUrl(args: { sandbox: Sandbox }) {
+  const preview = await args.sandbox.getSignedPreviewUrl(
+    DAYTONA_TERMINAL_PORT,
+    DAYTONA_TERMINAL_TTL_SECONDS,
+  );
+  return preview.url;
+}
+
+async function checkCodexLoginInSandbox(args: { sandbox: Sandbox }): Promise<{
+  status: CodexAuthCheckStatus;
+  checkedAt: number;
+  message?: string;
+}> {
+  const checkedAt = Date.now();
+  try {
+    const result = await args.sandbox.process.executeCommand(
+      "codex login status",
+      undefined,
+      undefined,
+      30,
+    );
+    if (result.exitCode === 0) {
+      return {
+        status: "ready",
+        checkedAt,
+      };
+    }
+    return {
+      status: "needs_reauth",
+      checkedAt,
+      message: result.result.trim() || "Codex login is missing.",
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      checkedAt,
+      message: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+async function verifyCodexBinaryInSandbox(args: { sandbox: Sandbox }) {
+  const result = await args.sandbox.process.executeCommand(
+    "command -v codex",
+    undefined,
+    undefined,
+    30,
+  );
+  if (result.exitCode !== 0) {
+    throw new Error("Codex CLI is not installed in the Daytona auth sandbox.");
+  }
+}
+
+async function ensureCodexBinaryInSandbox(args: {
+  sandbox: Sandbox;
+}): Promise<"already_present" | "installed"> {
+  try {
+    await verifyCodexBinaryInSandbox(args);
+    return "already_present";
+  } catch {
+    const installResult = await args.sandbox.process.executeCommand(
+      `npm install -g @openai/codex@${DAYTONA_CODEX_CLI_VERSION}`,
+      undefined,
+      undefined,
+      300,
+    );
+    if (installResult.exitCode !== 0) {
+      throw new Error(
+        installResult.result.trim() ||
+          "Failed to install Codex CLI in the Daytona sandbox.",
+      );
+    }
+    await verifyCodexBinaryInSandbox(args);
+    return "installed";
+  }
 }
 
 async function ensureDaytonaRegistry(args: {
@@ -983,6 +1636,41 @@ const getDaytonaPreviewUrlResult = object({
   branch: optional(string()),
 });
 
+const codexCheckStatusValidator = union(
+  literal("ready"),
+  literal("needs_reauth"),
+  literal("error"),
+);
+
+const prepareCodexAuthSandboxArgs = object({
+  openTerminal: optional(boolean()),
+});
+
+const prepareCodexAuthSandboxResult = object({
+  ok: boolean(),
+  sandboxId: optional(string()),
+  sandboxName: optional(string()),
+  terminalUrl: optional(string()),
+  lastCheckStatus: optional(codexCheckStatusValidator),
+  message: optional(string()),
+});
+
+const verifyCodexLoginInSandboxArgs = object({});
+
+const verifyCodexLoginInSandboxResult = object({
+  ok: boolean(),
+  connected: boolean(),
+  lastCheckStatus: optional(codexCheckStatusValidator),
+  message: optional(string()),
+});
+
+const disconnectCodexProviderArgs = object({});
+
+const disconnectCodexProviderResult = object({
+  ok: boolean(),
+  message: optional(string()),
+});
+
 const startDaytonaDevServerSafeArgs = object({
   vaultId: id("vaults"),
 });
@@ -1254,6 +1942,37 @@ export const startDaytonaWorkspace = action({
     const requestedVaultLabel = String(args.vaultId);
     const requestedBranchLabel = branch;
     const requestedCommitLabel = expectedCommitSha;
+    const codexConnection = await ctx.runQuery(
+      internal.providerConnections.getByUserAndKind,
+      {
+        userId,
+        kind: "codex",
+      },
+    );
+    let codexWorkspaceWarning: string | null = null;
+    const codexAuthVolume =
+      codexConnection?.kind === "codex"
+        ? await (async () => {
+            try {
+              return await ensureDaytonaCodexAuthVolume({
+                daytona,
+                envLabel,
+                userId,
+              });
+            } catch (error) {
+              const message =
+                error instanceof Error ? error.message : String(error);
+              console.warn("daytona:workspace:codex-volume:failed", {
+                vaultId: args.vaultId,
+                userId,
+                message,
+              });
+              codexWorkspaceWarning =
+                "Codex auth volume is unavailable, so this workspace launched without Codex auth reuse.";
+              return null;
+            }
+          })()
+        : null;
     const hasMatchingLabels = (candidate: Sandbox): boolean => {
       const candidateVaultLabel = readSandboxLabel(candidate, "noter.vault_id");
       if (candidateVaultLabel !== requestedVaultLabel) {
@@ -1269,6 +1988,11 @@ export const startDaytonaWorkspace = action({
       );
       return candidateCommitLabel === requestedCommitLabel;
     };
+    const hasCompatibleSandboxSetup = (candidate: Sandbox): boolean =>
+      hasExpectedCodexAuthSetup({
+        sandbox: candidate,
+        volumeId: codexAuthVolume?.id,
+      });
 
     let sandbox: Sandbox | null = null;
     const snapshotToUse = snapshotRecord.snapshotName ?? null;
@@ -1279,7 +2003,16 @@ export const startDaytonaWorkspace = action({
       try {
         const persistedSandbox = await daytona.get(vault.daytonaSandboxId);
         if (hasMatchingLabels(persistedSandbox)) {
-          sandbox = persistedSandbox;
+          if (hasCompatibleSandboxSetup(persistedSandbox)) {
+            sandbox = persistedSandbox;
+          } else {
+            console.log("daytona:workspace:recreate-for-codex-auth", {
+              vaultId: args.vaultId,
+              sandboxId: persistedSandbox.id,
+              reason: "mismatched_codex_auth_setup",
+            });
+            await persistedSandbox.delete();
+          }
         }
       } catch (error) {
         if (!isNotFoundError(error)) {
@@ -1298,12 +2031,20 @@ export const startDaytonaWorkspace = action({
         1,
         5,
       );
-      if (matches.items.length > 0) {
-        const match = matches.items[0];
+      for (const match of matches.items) {
         try {
           const matchedSandbox = await daytona.get(match.id);
           if (hasMatchingLabels(matchedSandbox)) {
-            sandbox = matchedSandbox;
+            if (hasCompatibleSandboxSetup(matchedSandbox)) {
+              sandbox = matchedSandbox;
+              break;
+            }
+            console.log("daytona:workspace:recreate-for-codex-auth", {
+              vaultId: args.vaultId,
+              sandboxId: matchedSandbox.id,
+              reason: "mismatched_codex_auth_setup",
+            });
+            await matchedSandbox.delete();
           }
         } catch (error) {
           if (!isNotFoundError(error)) {
@@ -1335,6 +2076,22 @@ export const startDaytonaWorkspace = action({
           });
           sandbox = null;
         }
+      }
+    }
+
+    let codexBinaryStatus: "already_present" | "installed" | null = null;
+    if (sandbox && codexAuthVolume) {
+      try {
+        codexBinaryStatus = await ensureCodexBinaryInSandbox({ sandbox });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn("daytona:workspace:codex-binary:failed", {
+          vaultId: args.vaultId,
+          sandboxId: sandbox.id,
+          message,
+        });
+        codexWorkspaceWarning =
+          "Codex is connected, but the CLI could not be prepared in this workspace yet.";
       }
     }
 
@@ -1382,6 +2139,9 @@ export const startDaytonaWorkspace = action({
             NOTER_BRANCH: branch,
             NOTER_COMMIT_SHA: expectedCommitSha,
           };
+          if (codexAuthVolume) {
+            envVars.CODEX_HOME = DAYTONA_CODEX_HOME;
+          }
 
           const convexDeployKey = process.env[DAYTONA_CONVEX_DEPLOY_KEY_ENV];
           if (convexDeployKey) {
@@ -1395,6 +2155,16 @@ export const startDaytonaWorkspace = action({
           "noter.branch": branch,
           "noter.commit_sha": expectedCommitSha,
         },
+        ...(codexAuthVolume
+          ? {
+              volumes: [
+                {
+                  volumeId: codexAuthVolume.id,
+                  mountPath: DAYTONA_CODEX_HOME,
+                },
+              ],
+            }
+          : {}),
       };
       const sandboxParams: CreateSandboxFromSnapshotParams = {
         ...baseParams,
@@ -1474,6 +2244,12 @@ export const startDaytonaWorkspace = action({
     if (devServerMessage) {
       messageParts.push(devServerMessage);
     }
+    if (codexBinaryStatus === "installed") {
+      messageParts.push("Codex CLI was installed for this workspace.");
+    }
+    if (codexWorkspaceWarning) {
+      messageParts.push(codexWorkspaceWarning);
+    }
     messageParts.push(
       `Startup timing: total ${formatDurationMs(startupMetrics.totalMs)} (sandbox ${formatDurationMs(
         startupMetrics.sandboxCreateMs,
@@ -1490,6 +2266,319 @@ export const startDaytonaWorkspace = action({
       sandboxId: sandbox.id,
       sandboxName: resolvedSandboxName,
       startupMetrics,
+    };
+  },
+});
+
+export const prepareCodexAuthSandbox = action({
+  args: prepareCodexAuthSandboxArgs,
+  returns: prepareCodexAuthSandboxResult,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof prepareCodexAuthSandboxResult>> => {
+    const userId = await getUserId(ctx);
+    const apiConfig = resolveDaytonaApiConfig();
+    if (!apiConfig.ok) {
+      return {
+        ok: false,
+        message: apiConfig.message,
+      };
+    }
+
+    const daytona = new Daytona({
+      apiKey: apiConfig.token,
+      ...(apiConfig.baseUrl ? { apiUrl: apiConfig.baseUrl } : {}),
+    });
+    const envLabel = getDaytonaEnvLabel();
+    const existingConnection = await ctx.runQuery(
+      internal.providerConnections.getByUserAndKind,
+      {
+        userId,
+        kind: "codex",
+      },
+    );
+    const codexAuthVolume = await ensureDaytonaCodexAuthVolume({
+      daytona,
+      envLabel,
+      userId,
+    });
+    const authSandbox = await resolveVerifiedDaytonaCodexAuthSandbox({
+      ctx,
+      userId,
+      daytona,
+      baseUrl: apiConfig.baseUrl,
+      token: apiConfig.token,
+      volumeId: codexAuthVolume.id,
+      persistedSandboxId:
+        existingConnection?.kind === "codex"
+          ? existingConnection.auth.authSandboxId
+          : undefined,
+    });
+
+    const loginCheck = await checkCodexLoginInSandbox({
+      sandbox: authSandbox.sandbox,
+    });
+    await ctx.runMutation(internal.providerConnections.upsertCodex, {
+      userId,
+      auth: {
+        method: "device_auth",
+        storage: "daytona_volume",
+        volumeId: codexAuthVolume.id,
+        volumeName: codexAuthVolume.name,
+        codexHome: DAYTONA_CODEX_HOME,
+        authSandboxId: authSandbox.sandbox.id,
+        authSandboxName: authSandbox.sandboxName,
+        lastCheckAt: loginCheck.checkedAt,
+        lastCheckStatus: loginCheck.status,
+        ...(loginCheck.message ? { lastError: loginCheck.message } : {}),
+      },
+    });
+
+    const shouldOpenTerminal =
+      args.openTerminal === true || loginCheck.status !== "ready";
+
+    let terminalUrl: string | undefined;
+    if (shouldOpenTerminal) {
+      try {
+        terminalUrl = await getDaytonaSandboxTerminalUrl({
+          sandbox: authSandbox.sandbox,
+        });
+      } catch (error) {
+        return {
+          ok: false,
+          sandboxId: authSandbox.sandbox.id,
+          sandboxName: authSandbox.sandboxName,
+          lastCheckStatus: loginCheck.status,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to create a Daytona terminal link.",
+        };
+      }
+    }
+
+    return {
+      ok: true,
+      sandboxId: authSandbox.sandbox.id,
+      sandboxName: authSandbox.sandboxName,
+      terminalUrl,
+      lastCheckStatus: loginCheck.status,
+      message:
+        loginCheck.status === "ready"
+          ? authSandbox.lifecycle === "created"
+            ? "Codex auth sandbox is ready and already logged in."
+            : "Codex is already logged in."
+          : "Codex auth sandbox is ready. Run codex login --device-auth in Daytona, finish the browser step, then click Check login.",
+    };
+  },
+});
+
+export const verifyCodexLoginInSandbox = action({
+  args: verifyCodexLoginInSandboxArgs,
+  returns: verifyCodexLoginInSandboxResult,
+  handler: async (
+    ctx,
+  ): Promise<Infer<typeof verifyCodexLoginInSandboxResult>> => {
+    const userId = await getUserId(ctx);
+    const connection = await ctx.runQuery(
+      internal.providerConnections.getByUserAndKind,
+      {
+        userId,
+        kind: "codex",
+      },
+    );
+    if (connection?.kind !== "codex") {
+      return {
+        ok: false,
+        connected: false,
+        message: "Codex is not configured in Daytona yet.",
+      };
+    }
+
+    const apiConfig = resolveDaytonaApiConfig();
+    if (!apiConfig.ok) {
+      return {
+        ok: false,
+        connected: false,
+        message: apiConfig.message,
+      };
+    }
+
+    const daytona = new Daytona({
+      apiKey: apiConfig.token,
+      ...(apiConfig.baseUrl ? { apiUrl: apiConfig.baseUrl } : {}),
+    });
+    const codexAuthVolume = await ensureDaytonaCodexAuthVolume({
+      daytona,
+      envLabel: getDaytonaEnvLabel(),
+      userId,
+    });
+    const authSandbox = await resolveVerifiedDaytonaCodexAuthSandbox({
+      ctx,
+      userId,
+      daytona,
+      baseUrl: apiConfig.baseUrl,
+      token: apiConfig.token,
+      volumeId: codexAuthVolume.id,
+      persistedSandboxId: connection.auth.authSandboxId,
+    });
+
+    const loginCheck = await checkCodexLoginInSandbox({
+      sandbox: authSandbox.sandbox,
+    });
+    await ctx.runMutation(internal.providerConnections.upsertCodex, {
+      userId,
+      auth: {
+        method: "device_auth",
+        storage: "daytona_volume",
+        volumeId: codexAuthVolume.id,
+        volumeName: codexAuthVolume.name,
+        codexHome: DAYTONA_CODEX_HOME,
+        authSandboxId: authSandbox.sandbox.id,
+        authSandboxName: authSandbox.sandboxName,
+        lastCheckAt: loginCheck.checkedAt,
+        lastCheckStatus: loginCheck.status,
+        ...(loginCheck.message ? { lastError: loginCheck.message } : {}),
+      },
+    });
+
+    return {
+      ok: true,
+      connected: loginCheck.status === "ready",
+      lastCheckStatus: loginCheck.status,
+      message:
+        loginCheck.status === "ready"
+          ? "Codex is logged in and ready in Daytona."
+          : loginCheck.message ?? "Codex login is still missing in Daytona.",
+    };
+  },
+});
+
+export const disconnectCodexProvider = action({
+  args: disconnectCodexProviderArgs,
+  returns: disconnectCodexProviderResult,
+  handler: async (
+    ctx,
+  ): Promise<Infer<typeof disconnectCodexProviderResult>> => {
+    const userId = await getUserId(ctx);
+    const connection = await ctx.runQuery(
+      internal.providerConnections.getByUserAndKind,
+      {
+        userId,
+        kind: "codex",
+      },
+    );
+    if (connection?.kind !== "codex") {
+      return {
+        ok: true,
+        message: "Codex is already disconnected.",
+      };
+    }
+
+    const apiConfig = resolveDaytonaApiConfig();
+    if (!apiConfig.ok) {
+      return {
+        ok: false,
+        message: `${apiConfig.message} Codex disconnect was not completed so the Daytona auth resources can be retried.`,
+      };
+    }
+
+    const warningMessages: string[] = [];
+    const daytona = new Daytona({
+      apiKey: apiConfig.token,
+      ...(apiConfig.baseUrl ? { apiUrl: apiConfig.baseUrl } : {}),
+    });
+    let clearedAuthData = false;
+    let clearAuthError: string | null = null;
+
+    const mountedSandboxIds = await listDaytonaSandboxIdsUsingVolume({
+      daytona,
+      volumeId: connection.auth.volumeId,
+    });
+    const cleanupSandboxIds = [
+      ...(connection.auth.authSandboxId ? [connection.auth.authSandboxId] : []),
+      ...mountedSandboxIds.filter(
+        (sandboxId) => sandboxId !== connection.auth.authSandboxId,
+      ),
+    ];
+
+    if (cleanupSandboxIds.length > 0) {
+      for (const sandboxId of cleanupSandboxIds) {
+        try {
+          const sandbox = await daytona.get(sandboxId);
+          if (
+            !hasCodexAuthVolumeMount({
+              sandbox,
+              volumeId: connection.auth.volumeId,
+            })
+          ) {
+            continue;
+          }
+          await clearCodexAuthHomeInSandbox({ sandbox });
+          clearedAuthData = true;
+          clearAuthError = null;
+          break;
+        } catch (error) {
+          clearAuthError =
+            error instanceof Error
+              ? error.message
+              : "Failed to clear Codex auth data.";
+        }
+      }
+    }
+
+    if (connection.auth.authSandboxId) {
+      try {
+        const sandbox = await daytona.get(connection.auth.authSandboxId);
+        await sandbox.delete();
+      } catch (error) {
+        if (!isNotFoundError(error)) {
+          warningMessages.push(
+            error instanceof Error
+              ? error.message
+              : "Failed to delete the Codex auth sandbox.",
+          );
+        }
+      }
+    }
+
+    let deletedVolume = false;
+    try {
+      const volume = await daytona.volume.get(connection.auth.volumeName);
+      await daytona.volume.delete(volume);
+      deletedVolume = true;
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        deletedVolume = true;
+      } else {
+        warningMessages.push(
+          error instanceof Error
+            ? error.message
+            : "Failed to delete the Codex auth volume.",
+        );
+      }
+    }
+
+    if (!clearedAuthData && clearAuthError && !deletedVolume) {
+      warningMessages.push(clearAuthError);
+    }
+
+    if (warningMessages.length > 0) {
+      return {
+        ok: false,
+        message: `Codex disconnect did not finish. Cleanup failed: ${warningMessages.join(" ")}`,
+      };
+    }
+
+    await ctx.runMutation(internal.providerConnections.removeByUserAndKind, {
+      userId,
+      kind: "codex",
+    });
+
+    return {
+      ok: true,
+      message: "Codex disconnected from Daytona.",
     };
   },
 });
@@ -2622,6 +3711,7 @@ export const buildCommitPinnedSnapshot = internalAction({
           `WORKDIR ${repoPath}`,
           `COPY . ${repoPath}`,
           `RUN corepack enable && corepack prepare pnpm@${DAYTONA_PNPM_VERSION} --activate`,
+          `RUN npm install -g @openai/codex@${DAYTONA_CODEX_CLI_VERSION}`,
         ];
         const installCommand =
           "RUN pnpm install --prod=false --force --node-linker=hoisted";
@@ -2875,7 +3965,8 @@ export const prebuildDaytonaSnapshot = action({
       }
     }
 
-    return await ctx.runAction(
+    await ctx.scheduler.runAfter(
+      0,
       internal.daytonaActions.buildCommitPinnedSnapshot,
       {
         userId,
@@ -2885,6 +3976,15 @@ export const prebuildDaytonaSnapshot = action({
         commitSha,
       },
     );
+
+    return {
+      ok: true,
+      snapshotName: queueResult.snapshotName,
+      commitSha,
+      message: `Snapshot ${queueResult.snapshotName} queued for ${branch}@${shortenCommitSha(
+        commitSha,
+      )}.`,
+    };
   },
 });
 

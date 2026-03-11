@@ -75,6 +75,7 @@ import { CodespaceStatus } from "@/components/CodespaceStatus";
 import { DaytonaSnapshotBanner } from "@/components/DaytonaSnapshotBanner";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
 import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
+import { CodexProviderRow } from "@/components/CodexProviderRow";
 import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";
 import {
   useApiKeyConnectDialog,
@@ -1205,9 +1206,10 @@ export function VaultDashboard() {
     githubConnected && convexConnected && requiredHostingConnected,
   );
   const formatAuthMethod = (
-    method: "oauth" | "mcp_oauth" | "api_key" | undefined,
+    method: "oauth" | "mcp_oauth" | "api_key" | "device_auth" | undefined,
   ) => {
     if (method === "api_key") return "API key";
+    if (method === "device_auth") return "Device auth";
     if (method === "oauth") return "OAuth";
     if (method === "mcp_oauth") return "MCP OAuth";
     return "Unknown";
@@ -1572,6 +1574,7 @@ export function VaultDashboard() {
                 </div>
               );
             })}
+            <CodexProviderRow />
           </div>
         </CollapsibleContent>
       </Collapsible>

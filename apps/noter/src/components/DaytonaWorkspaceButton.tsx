@@ -111,8 +111,13 @@ export function DaytonaWorkspaceButton({
   const [timeToTerminalMs, setTimeToTerminalMs] = useState<number | null>(null);
   const [prebuildLogs, setPrebuildLogs] = useState<string | null>(null);
   const prebuildLogPollRef = useRef<number | null>(null);
+  const isFetchingPrebuildLogsRef = useRef(false);
+  const isPollingPrebuildLogsRef = useRef(false);
   const normalizedBranch = branch.trim().toLowerCase();
   const normalizedSnapshotStatus = snapshotStatus?.trim().toLowerCase() ?? "";
+  const shouldPollPrebuildLogs =
+    normalizedSnapshotStatus === "queued" ||
+    normalizedSnapshotStatus === "building";
   const mainOnlyReason =
     normalizedBranch !== "main"
       ? "Daytona snapshots currently support main only."
@@ -136,15 +141,6 @@ export function DaytonaWorkspaceButton({
       ? "Latest main commit is not known yet. Refresh the repository first."
       : null);
 
-  const startPrebuildLogPolling = () => {
-    if (prebuildLogPollRef.current !== null) {
-      return;
-    }
-    prebuildLogPollRef.current = window.setInterval(() => {
-      void fetchPrebuildLogs(true);
-    }, 2_000);
-  };
-
   const stopPrebuildLogPolling = () => {
     if (prebuildLogPollRef.current === null) {
       return;
@@ -162,13 +158,51 @@ export function DaytonaWorkspaceButton({
     };
   }, []);
 
-  const handleStart = async (openInTab: boolean) => {
+  useEffect(() => {
+    if (disabled || !shouldPollPrebuildLogs) {
+      stopPrebuildLogPolling();
+      return;
+    }
+
+    const pollLogs = () => {
+      if (
+        isFetchingPrebuildLogsRef.current ||
+        isPollingPrebuildLogsRef.current
+      ) {
+        return;
+      }
+      isPollingPrebuildLogsRef.current = true;
+
+      void getDaytonaPrebuildLogs({ vaultId, branch })
+        .then((result) => {
+          if (!result.ok) {
+            return;
+          }
+          setPrebuildLogs(result.logs ?? "");
+        })
+        .finally(() => {
+          isPollingPrebuildLogsRef.current = false;
+        });
+    };
+
+    pollLogs();
+    prebuildLogPollRef.current = window.setInterval(pollLogs, 2_000);
+
+    return () => {
+      stopPrebuildLogPolling();
+    };
+  }, [
+    branch,
+    disabled,
+    getDaytonaPrebuildLogs,
+    shouldPollPrebuildLogs,
+    vaultId,
+  ]);
+
+  const handleStart = async () => {
     if (disabled || isStarting || launchBlockedReason) {
       return;
     }
-    const launchTab = openInTab
-      ? window.open("about:blank", "_blank", "noopener,noreferrer")
-      : null;
     setIsStarting(true);
     setMessage(null);
     setHasError(false);
@@ -183,9 +217,6 @@ export function DaytonaWorkspaceButton({
       });
 
       if (!result.ok) {
-        if (launchTab && !launchTab.closed) {
-          launchTab.close();
-        }
         setHasError(true);
         setMessage(result.message ?? "Daytona is not configured.");
       } else {
@@ -197,25 +228,11 @@ export function DaytonaWorkspaceButton({
         );
         setBootstrapLogs(null);
         const terminalLink = await fetchTerminalUrl(true);
-        if (terminalLink && launchTab && !launchTab.closed) {
-          launchTab.location.href = terminalLink;
-        } else if (!terminalLink && launchTab && !launchTab.closed) {
-          launchTab.close();
-        } else if (terminalLink && openInTab && !launchTab) {
-          setMessage((previous) =>
-            previous
-              ? `${previous} Popup blocked; use Open in tab.`
-              : "Terminal link ready. Popup blocked; use Open in tab.",
-          );
-        }
         if (terminalLink) {
           setTimeToTerminalMs(Math.round(performance.now() - startClickedAt));
         }
       }
     } catch (error) {
-      if (launchTab && !launchTab.closed) {
-        launchTab.close();
-      }
       setHasError(true);
       setMessage(
         error instanceof Error
@@ -379,7 +396,6 @@ export function DaytonaWorkspaceButton({
     setMessage(null);
     setHasError(false);
     setPrebuildLogs("");
-    startPrebuildLogPolling();
 
     try {
       const result = await prebuildDaytonaSnapshot({ vaultId, branch });
@@ -401,15 +417,15 @@ export function DaytonaWorkspaceButton({
       );
     } finally {
       setIsPrebuilding(false);
-      stopPrebuildLogPolling();
       void fetchPrebuildLogs(true);
     }
   };
 
   const fetchPrebuildLogs = async (silent: boolean) => {
-    if (disabled || isFetchingPrebuildLogs) {
+    if (disabled || isFetchingPrebuildLogsRef.current) {
       return;
     }
+    isFetchingPrebuildLogsRef.current = true;
     setIsFetchingPrebuildLogs(true);
     if (!silent) {
       setMessage(null);
@@ -439,6 +455,7 @@ export function DaytonaWorkspaceButton({
         );
       }
     } finally {
+      isFetchingPrebuildLogsRef.current = false;
       setIsFetchingPrebuildLogs(false);
     }
   };
@@ -476,7 +493,7 @@ export function DaytonaWorkspaceButton({
       variant="outline"
       size="sm"
       onClick={() => {
-        void handleStart(true);
+        void handleStart();
       }}
       disabled={disabled || isStarting || launchBlockedReason !== null}
     >
