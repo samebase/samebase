@@ -589,7 +589,7 @@ async function ensureDaytonaCodexAuthVolume(args: {
     envLabel: args.envLabel,
     userId: args.userId,
   });
-  const volume = await args.daytona.volume.get(volumeName, true);
+  let volume = await args.daytona.volume.get(volumeName, true);
   const startedAt = Date.now();
 
   for (;;) {
@@ -618,11 +618,7 @@ async function ensureDaytonaCodexAuthVolume(args: {
     }
 
     await sleep(DAYTONA_VOLUME_READY_POLL_MS);
-    const refreshedVolume = await args.daytona.volume.get(volumeName);
-    volume.state = refreshedVolume.state;
-    volume.updatedAt = refreshedVolume.updatedAt;
-    volume.lastUsedAt = refreshedVolume.lastUsedAt;
-    volume.errorReason = refreshedVolume.errorReason;
+    volume = await args.daytona.volume.get(volumeName);
   }
 }
 
