@@ -44,6 +44,11 @@ type StartupMetrics = NonNullable<
 type OpenWorkspacePtySessionResult = FunctionReturnType<
   typeof api.daytonaTerminal.openWorkspacePtySession
 >;
+type OpenWorkspaceDevServerPtySessionResult = FunctionReturnType<
+  typeof api.daytonaTerminal.openWorkspaceDevServerPtySession
+>;
+
+type WorkspaceTerminalKind = "shell" | "dev_server";
 
 const formatDuration = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 
@@ -84,6 +89,9 @@ export function DaytonaWorkspaceButton({
   const openWorkspacePtySession = useAction(
     api.daytonaTerminal.openWorkspacePtySession,
   );
+  const openWorkspaceDevServerPtySession = useAction(
+    api.daytonaTerminal.openWorkspaceDevServerPtySession,
+  );
   const resizeWorkspacePtySession = useAction(
     api.daytonaTerminal.resizeWorkspacePtySession,
   );
@@ -98,6 +106,9 @@ export function DaytonaWorkspaceButton({
   );
   const getDaytonaBootstrapLogs = useAction(
     api.daytonaActions.getDaytonaBootstrapLogs,
+  );
+  const startDaytonaDevServerSafe = useAction(
+    api.daytonaActions.startDaytonaDevServerSafe,
   );
   const prebuildDaytonaSnapshot = useAction(
     api.daytonaActions.prebuildDaytonaSnapshot,
@@ -121,6 +132,8 @@ export function DaytonaWorkspaceButton({
   const [hasError, setHasError] = useState(false);
   const [terminalSession, setTerminalSession] =
     useState<DaytonaPtySession | null>(null);
+  const [activeTerminalKind, setActiveTerminalKind] =
+    useState<WorkspaceTerminalKind | null>(null);
   const [bootstrapLogs, setBootstrapLogs] = useState<string | null>(null);
   const [startupMetrics, setStartupMetrics] = useState<StartupMetrics | null>(
     null,
@@ -316,7 +329,9 @@ export function DaytonaWorkspaceButton({
   };
 
   const toTerminalSession = (
-    result: OpenWorkspacePtySessionResult,
+    result:
+      | OpenWorkspacePtySessionResult
+      | OpenWorkspaceDevServerPtySessionResult,
   ): DaytonaPtySession | null => {
     if (
       !result.ok ||
@@ -342,6 +357,7 @@ export function DaytonaWorkspaceButton({
 
     terminalSessionRef.current = null;
     setTerminalSession(null);
+    setActiveTerminalKind(null);
 
     try {
       const result = await closeWorkspacePtySession({
@@ -396,6 +412,7 @@ export function DaytonaWorkspaceButton({
 
       terminalSessionRef.current = nextSession;
       setTerminalSession(nextSession);
+      setActiveTerminalKind("shell");
       if (!isSilent) {
         setHasError(false);
         setMessage(result.message ?? "Terminal session ready.");
@@ -414,12 +431,85 @@ export function DaytonaWorkspaceButton({
     }
   };
 
-  const handleToggleTerminal = async () => {
-    if (terminalSession) {
+  const openDevServerTerminalSession = async (
+    silent?: boolean,
+  ): Promise<DaytonaPtySession | null> => {
+    const isSilent = silent === true;
+    if (disabled || isOpeningTerminal) {
+      return null;
+    }
+    setIsOpeningTerminal(true);
+    if (!isSilent) {
+      setMessage(null);
+      setHasError(false);
+    }
+
+    await closeActiveTerminalSession(true);
+
+    try {
+      const startResult = await startDaytonaDevServerSafe({ vaultId });
+      if (!startResult.ok) {
+        setHasError(true);
+        setMessage(
+          startResult.message ?? "Failed to start Daytona dev server.",
+        );
+        return null;
+      }
+
+      const result = await openWorkspaceDevServerPtySession({
+        vaultId,
+        branch,
+      });
+      const nextSession = toTerminalSession(result);
+      if (!nextSession) {
+        setHasError(true);
+        setMessage(
+          result.message ??
+            startResult.message ??
+            "Failed to open Daytona dev server terminal.",
+        );
+        return null;
+      }
+
+      terminalSessionRef.current = nextSession;
+      setTerminalSession(nextSession);
+      setActiveTerminalKind("dev_server");
+      if (!isSilent) {
+        setHasError(false);
+        setMessage(
+          result.message ??
+            startResult.message ??
+            "Dev server terminal session ready.",
+        );
+      }
+      return nextSession;
+    } catch (error) {
+      setHasError(true);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to open Daytona dev server terminal.",
+      );
+      return null;
+    } finally {
+      setIsOpeningTerminal(false);
+    }
+  };
+
+  const handleToggleShellTerminal = async () => {
+    if (terminalSession && activeTerminalKind === "shell") {
       await closeActiveTerminalSession(true);
       return;
     }
     await openTerminalSession();
+  };
+
+  const handleToggleDevServerTerminal = async () => {
+    if (terminalSession && activeTerminalKind === "dev_server") {
+      await closeActiveTerminalSession(true);
+      return;
+    }
+    await openDevServerTerminalSession();
   };
 
   const handleOpenTerminalTab = async () => {
@@ -696,10 +786,14 @@ export function DaytonaWorkspaceButton({
       <div className="flex flex-wrap items-center gap-2">
         {launchButton}
         <Button
-          variant={terminalSession ? "secondary" : "outline"}
+          variant={
+            terminalSession && activeTerminalKind === "shell"
+              ? "secondary"
+              : "outline"
+          }
           size="sm"
           onClick={() => {
-            void handleToggleTerminal();
+            void handleToggleShellTerminal();
           }}
           disabled={disabled || isOpeningTerminal}
         >
@@ -708,10 +802,33 @@ export function DaytonaWorkspaceButton({
               <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
               Opening...
             </>
-          ) : terminalSession ? (
-            "Hide Terminal"
+          ) : terminalSession && activeTerminalKind === "shell" ? (
+            "Hide Shell"
           ) : (
-            "Open Terminal"
+            "Open Shell"
+          )}
+        </Button>
+        <Button
+          variant={
+            terminalSession && activeTerminalKind === "dev_server"
+              ? "secondary"
+              : "outline"
+          }
+          size="sm"
+          onClick={() => {
+            void handleToggleDevServerTerminal();
+          }}
+          disabled={disabled || isOpeningTerminal}
+        >
+          {isOpeningTerminal ? (
+            <>
+              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              Opening...
+            </>
+          ) : terminalSession && activeTerminalKind === "dev_server" ? (
+            "Hide Dev Server"
+          ) : (
+            "Open Dev Server"
           )}
         </Button>
         <Button
@@ -853,6 +970,8 @@ export function DaytonaWorkspaceButton({
         <div className="mt-2 space-y-2">
           <DaytonaPtyTerminal
             session={terminalSession}
+            title={activeTerminalKind === "dev_server" ? "Dev Server" : "Shell"}
+            allowInput={activeTerminalKind !== "dev_server"}
             onResizeSession={(sessionId, cols, rows) => {
               void resizeWorkspacePtySession({
                 vaultId,
@@ -872,8 +991,9 @@ export function DaytonaWorkspaceButton({
             }}
           />
           <div className="text-xs text-muted-foreground">
-            Use “Open in tab” if the embedded PTY hits a Daytona or browser edge
-            case.
+            {activeTerminalKind === "dev_server"
+              ? "The dev server view is read-only and attaches to the sandbox tmux session."
+              : "Use “Open in tab” if the embedded PTY hits a Daytona or browser edge case."}
           </div>
         </div>
       )}

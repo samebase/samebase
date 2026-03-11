@@ -66,6 +66,7 @@ const DAYTONA_PREVIEW_TTL_SECONDS = 3600;
 const DAYTONA_TERMINAL_PORT = 22222;
 const DAYTONA_TERMINAL_TTL_SECONDS = 300;
 const DAYTONA_DEV_LOG = "/tmp/noter-dev.log";
+const DAYTONA_DEV_SERVER_TMUX_SESSION = "noter-dev-server";
 // Daytona terminals currently run with a root home in our tested sandbox setup.
 const DAYTONA_CODEX_HOME = "/root/.codex";
 const DAYTONA_CODEX_AUTH_VOLUME_PREFIX = "noter-codex-auth";
@@ -757,7 +758,10 @@ async function resolveDaytonaCodexAuthSandboxImagePlan(args: {
   const workspaceRoot = findWorkspaceRootDir(process.cwd());
   const baseImage = resolveDaytonaBaseImage();
   const fallbackImage = Image.base(baseImage).dockerfileCommands(
-    [`RUN npm install -g @openai/codex@${DAYTONA_CODEX_CLI_VERSION}`],
+    [
+      "RUN apt-get update && apt-get install -y --no-install-recommends make tmux && rm -rf /var/lib/apt/lists/*",
+      `RUN npm install -g @openai/codex@${DAYTONA_CODEX_CLI_VERSION}`,
+    ],
     workspaceRoot ?? process.cwd(),
   );
 
@@ -1406,6 +1410,11 @@ type DevServerStatus = {
   message?: string;
 };
 
+type DaytonaDevServerLaunch = {
+  status: "started" | "already_running";
+  transport: "tmux" | "background";
+};
+
 function buildDevServerStatusScript(): string {
   return stripIndent`
     port=${DAYTONA_PREVIEW_PORT}
@@ -1507,10 +1516,74 @@ function formatDurationMs(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-async function startDaytonaDevServer(args: {
+async function ensureTmuxInSandbox(args: {
   sandbox: Sandbox;
+}): Promise<"already_present" | "installed"> {
+  const checkResult = await args.sandbox.process.executeCommand(
+    "command -v tmux",
+    undefined,
+    undefined,
+    30,
+  );
+  if (checkResult.exitCode === 0) {
+    return "already_present";
+  }
+
+  const installScript = stripIndent`
+    set -e
+    if command -v tmux >/dev/null 2>&1; then
+      exit 0
+    fi
+    if ! command -v apt-get >/dev/null 2>&1; then
+      echo "__NOTER_APT_MISSING__"
+      exit 1
+    fi
+    prefix=""
+    if [ "$(id -u)" != "0" ]; then
+      if command -v sudo >/dev/null 2>&1; then
+        prefix="sudo "
+      else
+        echo "__NOTER_TMUX_PRIVILEGE_MISSING__"
+        exit 1
+      fi
+    fi
+    ${"$"}{prefix}apt-get update
+    ${"$"}{prefix}apt-get install -y --no-install-recommends make tmux
+    ${"$"}{prefix}rm -rf /var/lib/apt/lists/*
+  `;
+  const installCommand = `bash -lc ${quoteForBash(installScript)}`;
+  const installResult = await args.sandbox.process.executeCommand(
+    installCommand,
+    undefined,
+    undefined,
+    300,
+  );
+  if (installResult.exitCode !== 0) {
+    const output = installResult.result.trim();
+    if (output.includes("__NOTER_APT_MISSING__")) {
+      throw new Error(
+        "tmux is missing and apt-get is unavailable in this sandbox.",
+      );
+    }
+    if (output.includes("__NOTER_TMUX_PRIVILEGE_MISSING__")) {
+      throw new Error(
+        "tmux is missing and this sandbox cannot install it automatically.",
+      );
+    }
+    throw new Error(
+      output.length > 0
+        ? output
+        : "Failed to install tmux in the Daytona sandbox.",
+    );
+  }
+
+  return "installed";
+}
+
+function buildDaytonaSafeDevServerCommand(args: {
   repoDir: string;
-}): Promise<void> {
+  devOrigin: string | null;
+}): string {
   const ensurePnpm = stripIndent`
     if ! command -v pnpm >/dev/null; then
       if command -v corepack >/dev/null; then
@@ -1520,17 +1593,6 @@ async function startDaytonaDevServer(args: {
       fi
     fi
   `;
-  const devOrigin = await inferSandboxDevOrigin({
-    sandbox: args.sandbox,
-    port: DAYTONA_PREVIEW_PORT,
-    ttlSeconds: DAYTONA_PREVIEW_TTL_SECONDS,
-  });
-  if (devOrigin) {
-    console.log("daytona:dev-origin", {
-      sandboxId: args.sandbox.id,
-      origin: devOrigin,
-    });
-  }
   const installFallback = stripIndent`
     if [ ! -d "node_modules" ] \\
       && [ ! -d "apps/noter/node_modules" ] \\
@@ -1539,19 +1601,18 @@ async function startDaytonaDevServer(args: {
       NPM_CONFIG_ENGINE_STRICT=false pnpm install --prod=false --force --node-linker=hoisted;
     fi
   `;
-  const devEnv = [
-    devOrigin ? `${DEV_ENV_ORIGIN_ENV}=${quoteForBash(devOrigin)}` : "",
-    "NOTER_DEV_HOST=0.0.0.0",
-    `NOTER_DEV_PORT=${DAYTONA_PREVIEW_PORT}`,
-    "NOTER_DEV_STRICT_PORT=1",
+  const devEnvExports = [
+    args.devOrigin
+      ? `export ${DEV_ENV_ORIGIN_ENV}=${quoteForBash(args.devOrigin)}`
+      : "",
+    "export NOTER_DEV_HOST=0.0.0.0",
+    `export NOTER_DEV_PORT=${DAYTONA_PREVIEW_PORT}`,
+    "export NOTER_DEV_STRICT_PORT=1",
   ]
     .filter((part) => part.length > 0)
-    .join(" ");
-  const devCommand = `cd "${args.repoDir}" && make anon`;
-  const installLogPath = quoteForBash(PNPM_INSTALL_LOG);
-  const devLogPath = quoteForBash(DAYTONA_DEV_LOG);
-  const wrappedCommand = `${devCommand} 2>&1 | tee ${installLogPath}`;
-  const script = stripIndent`
+    .join("\n");
+
+  return stripIndent`
     set -e
     cd "${args.repoDir}"
     ${ensurePnpm}
@@ -1563,9 +1624,83 @@ async function startDaytonaDevServer(args: {
       fi;
     fi
     ${installFallback}
-    ${devEnv} nohup bash -lc ${quoteForBash(
-      wrappedCommand,
-    )} > ${devLogPath} 2>&1 &
+    ${devEnvExports}
+    make anon
+  `;
+}
+
+async function hasDaytonaTmuxSession(args: {
+  sandbox: Sandbox;
+  sessionName: string;
+}): Promise<boolean> {
+  const command = `bash -lc ${quoteForBash(
+    `tmux has-session -t ${quoteForBash(args.sessionName)}`,
+  )}`;
+  const result = await args.sandbox.process.executeCommand(
+    command,
+    undefined,
+    undefined,
+    30,
+  );
+  return result.exitCode === 0;
+}
+
+async function startDaytonaTmuxSession(args: {
+  sandbox: Sandbox;
+  sessionName: string;
+  command: string;
+}): Promise<"started" | "already_running"> {
+  if (
+    await hasDaytonaTmuxSession({
+      sandbox: args.sandbox,
+      sessionName: args.sessionName,
+    })
+  ) {
+    return "already_running";
+  }
+
+  const pipeCommand = `tee -a ${quoteForBash(PNPM_INSTALL_LOG)} >> ${quoteForBash(
+    DAYTONA_DEV_LOG,
+  )}`;
+  const startScript = stripIndent`
+    set -e
+    session=${quoteForBash(args.sessionName)}
+    rm -f ${quoteForBash(DAYTONA_DEV_LOG)} ${quoteForBash(PNPM_INSTALL_LOG)}
+    tmux new-session -d -s "$session" bash -lc ${quoteForBash(args.command)}
+    tmux pipe-pane -o -t "$session:0.0" bash -lc ${quoteForBash(pipeCommand)}
+    sleep 1
+    tmux has-session -t "$session"
+  `;
+  const startCommand = `bash -lc ${quoteForBash(startScript)}`;
+  const result = await args.sandbox.process.executeCommand(
+    startCommand,
+    undefined,
+    undefined,
+    600,
+  );
+  if (result.exitCode !== 0) {
+    throw new Error(
+      result.result.trim() || "Failed to start Daytona tmux session.",
+    );
+  }
+  return "started";
+}
+
+async function startDaytonaDevServerBackground(args: {
+  sandbox: Sandbox;
+  repoDir: string;
+  devOrigin: string | null;
+}): Promise<void> {
+  const installLogPath = quoteForBash(PNPM_INSTALL_LOG);
+  const devLogPath = quoteForBash(DAYTONA_DEV_LOG);
+  const wrappedCommand = `${buildDaytonaSafeDevServerCommand({
+    repoDir: args.repoDir,
+    devOrigin: args.devOrigin,
+  })} 2>&1 | tee ${installLogPath}`;
+  const script = stripIndent`
+    set -e
+    rm -f ${quoteForBash(PNPM_INSTALL_LOG)} ${quoteForBash(DAYTONA_DEV_LOG)}
+    nohup bash -lc ${quoteForBash(wrappedCommand)} > ${devLogPath} 2>&1 &
   `;
   const command = `bash -lc ${quoteForBash(script)}`;
   const result = await args.sandbox.process.executeCommand(
@@ -1574,14 +1709,78 @@ async function startDaytonaDevServer(args: {
     undefined,
     600,
   );
-
-  console.log("daytona:dev-server:result", {
-    sandboxId: args.sandbox.id,
-    result,
-  });
-
   if (result.exitCode !== 0) {
     throw new Error(`Failed to start dev server (exit ${result.exitCode}).`);
+  }
+}
+
+async function startDaytonaDevServer(args: {
+  sandbox: Sandbox;
+  repoDir: string;
+}): Promise<DaytonaDevServerLaunch> {
+  const devOrigin = await inferSandboxDevOrigin({
+    sandbox: args.sandbox,
+    port: DAYTONA_PREVIEW_PORT,
+    ttlSeconds: DAYTONA_PREVIEW_TTL_SECONDS,
+  });
+  if (devOrigin) {
+    console.log("daytona:dev-origin", {
+      sandboxId: args.sandbox.id,
+      origin: devOrigin,
+    });
+  }
+
+  const statusCommand = `bash -lc ${quoteForBash(buildDevServerStatusScript())}`;
+  const statusResult = await args.sandbox.process.executeCommand(
+    statusCommand,
+    undefined,
+    undefined,
+    60,
+  );
+  if (statusResult.exitCode === 0) {
+    const status = parseDevServerStatus(statusResult.result);
+    if (status.running) {
+      const transport = (await hasDaytonaTmuxSession({
+        sandbox: args.sandbox,
+        sessionName: DAYTONA_DEV_SERVER_TMUX_SESSION,
+      }))
+        ? "tmux"
+        : "background";
+      return {
+        status: "already_running",
+        transport,
+      };
+    }
+  }
+
+  try {
+    await ensureTmuxInSandbox({ sandbox: args.sandbox });
+    const tmuxStatus = await startDaytonaTmuxSession({
+      sandbox: args.sandbox,
+      sessionName: DAYTONA_DEV_SERVER_TMUX_SESSION,
+      command: buildDaytonaSafeDevServerCommand({
+        repoDir: args.repoDir,
+        devOrigin,
+      }),
+    });
+    return {
+      status: tmuxStatus,
+      transport: "tmux",
+    };
+  } catch (error) {
+    console.warn("daytona:dev-server:tmux-fallback", {
+      sandboxId: args.sandbox.id,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    await startDaytonaDevServerBackground({
+      sandbox: args.sandbox,
+      repoDir: args.repoDir,
+      devOrigin,
+    });
+    return {
+      status: "started",
+      transport: "background",
+    };
   }
 }
 
@@ -2192,10 +2391,16 @@ export const startDaytonaWorkspace = action({
 
     const devServerStartedAt = Date.now();
     try {
-      await startDaytonaDevServer({ sandbox, repoDir: repoWorkdir });
+      const devServerLaunch = await startDaytonaDevServer({
+        sandbox,
+        repoDir: repoWorkdir,
+      });
       devServerStartMs = Date.now() - devServerStartedAt;
 
-      devServerMessage = `Dev server starting on port ${DAYTONA_PREVIEW_PORT} (logs: ${DAYTONA_DEV_LOG}).`;
+      devServerMessage =
+        devServerLaunch.transport === "tmux"
+          ? `Dev server ${devServerLaunch.status === "already_running" ? "already running" : "starting"} on port ${DAYTONA_PREVIEW_PORT} in tmux session ${DAYTONA_DEV_SERVER_TMUX_SESSION}.`
+          : `Dev server ${devServerLaunch.status === "already_running" ? "already running" : "starting"} on port ${DAYTONA_PREVIEW_PORT} (logs: ${DAYTONA_DEV_LOG}).`;
     } catch (error) {
       devServerStartMs = Date.now() - devServerStartedAt;
       const message = error instanceof Error ? error.message : String(error);
@@ -3714,6 +3919,7 @@ export const buildCommitPinnedSnapshot = internalAction({
           "USER root",
           `WORKDIR ${repoPath}`,
           `COPY . ${repoPath}`,
+          "RUN apt-get update && apt-get install -y --no-install-recommends make tmux && rm -rf /var/lib/apt/lists/*",
           `RUN corepack enable && corepack prepare pnpm@${DAYTONA_PNPM_VERSION} --activate`,
           `RUN npm install -g @openai/codex@${DAYTONA_CODEX_CLI_VERSION}`,
         ];

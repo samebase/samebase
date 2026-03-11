@@ -30,6 +30,7 @@ const MIN_TERMINAL_COLS = 20;
 const MIN_TERMINAL_ROWS = 8;
 const MAX_TERMINAL_COLS = 320;
 const MAX_TERMINAL_ROWS = 120;
+const DAYTONA_DEV_SERVER_TMUX_SESSION = "noter-dev-server";
 const CODEX_DEVICE_AUTH_COMMAND =
   "clear >/dev/null 2>&1; codex login --device-auth; exit\n";
 
@@ -41,6 +42,22 @@ const openWorkspacePtySessionArgs = object({
 });
 
 const openWorkspacePtySessionResult = object({
+  ok: boolean(),
+  sessionId: optional(string()),
+  webSocketUrl: optional(string()),
+  previewToken: optional(string()),
+  sandboxName: optional(string()),
+  message: optional(string()),
+});
+
+const openWorkspaceDevServerPtySessionArgs = object({
+  vaultId: id("vaults"),
+  branch: optional(string()),
+  cols: optional(number()),
+  rows: optional(number()),
+});
+
+const openWorkspaceDevServerPtySessionResult = object({
   ok: boolean(),
   sessionId: optional(string()),
   webSocketUrl: optional(string()),
@@ -203,8 +220,16 @@ function buildWorkspacePtySessionId(vaultId: Id<"vaults">): string {
   return `noter-pty-${vaultId}-${randomUUID()}`;
 }
 
+function buildWorkspaceDevServerPtySessionId(vaultId: Id<"vaults">): string {
+  return `noter-dev-server-pty-${vaultId}-${randomUUID()}`;
+}
+
 function buildCodexAuthPtySessionId(): string {
   return `noter-codex-auth-pty-${randomUUID()}`;
+}
+
+function quoteForBash(input: string): string {
+  return `'${input.replace(/'/g, `'\\''`)}'`;
 }
 
 async function ensureSandboxStarted(sandbox: Sandbox): Promise<void> {
@@ -584,6 +609,92 @@ export const openWorkspacePtySession = action({
           error instanceof Error
             ? error.message
             : "Failed to open Daytona terminal session.",
+      };
+    }
+  },
+});
+
+export const openWorkspaceDevServerPtySession = action({
+  args: openWorkspaceDevServerPtySessionArgs,
+  returns: openWorkspaceDevServerPtySessionResult,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof openWorkspaceDevServerPtySessionResult>> => {
+    const resolved = await resolveWorkspacePtyContext({
+      ctx,
+      vaultId: args.vaultId,
+      branch: args.branch,
+    });
+    if (!resolved.ok) {
+      return {
+        ok: false,
+        message: resolved.message,
+      };
+    }
+
+    const tmuxCheckCommand = `bash -lc ${quoteForBash(
+      `tmux has-session -t ${quoteForBash(DAYTONA_DEV_SERVER_TMUX_SESSION)}`,
+    )}`;
+    const tmuxCheckResult = await resolved.sandbox.process.executeCommand(
+      tmuxCheckCommand,
+      undefined,
+      undefined,
+      30,
+    );
+    if (tmuxCheckResult.exitCode !== 0) {
+      return {
+        ok: false,
+        message:
+          "Daytona dev server session is not available in tmux yet. Launch or restart the dev server first.",
+      };
+    }
+
+    const cols = clampTerminalSize(
+      args.cols,
+      DEFAULT_TERMINAL_COLS,
+      MIN_TERMINAL_COLS,
+      MAX_TERMINAL_COLS,
+    );
+    const rows = clampTerminalSize(
+      args.rows,
+      DEFAULT_TERMINAL_ROWS,
+      MIN_TERMINAL_ROWS,
+      MAX_TERMINAL_ROWS,
+    );
+    const sessionId = buildWorkspaceDevServerPtySessionId(args.vaultId);
+
+    try {
+      const connection = await openPtySession({
+        sandbox: resolved.sandbox,
+        baseUrl: resolved.baseUrl,
+        token: resolved.token,
+        sessionId,
+        cwd: resolved.repoDir,
+        cols,
+        rows,
+        initialInput: `tmux attach-session -r -t ${quoteForBash(
+          DAYTONA_DEV_SERVER_TMUX_SESSION,
+        )}\n`,
+      });
+
+      return {
+        ok: true,
+        sessionId,
+        webSocketUrl: connection.webSocketUrl,
+        previewToken: connection.previewToken,
+        sandboxName: resolved.sandboxName,
+        message: resolved.sandboxName
+          ? `Dev server terminal ready for ${resolved.sandboxName}.`
+          : "Dev server terminal ready.",
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to open Daytona dev server terminal session.",
       };
     }
   },
