@@ -14,6 +14,7 @@ export type DaytonaPtySession = {
   sessionId: string;
   webSocketUrl: string;
   previewToken: string;
+  initialInput?: string;
 };
 
 interface DaytonaPtyTerminalProps {
@@ -134,6 +135,8 @@ export function DaytonaPtyTerminal({
     socket.binaryType = "arraybuffer";
 
     let isDisposed = false;
+    let initialInputSent = false;
+    let initialInputTimeout: number | null = null;
 
     const dataDisposable = allowInput
       ? terminal.onData((data) => {
@@ -154,6 +157,20 @@ export function DaytonaPtyTerminal({
           if (controlMessage.status === "connected") {
             setConnectionState("connected");
             setStatusMessage("Connected");
+            if (
+              !initialInputSent &&
+              typeof session.initialInput === "string" &&
+              session.initialInput.length > 0 &&
+              socket.readyState === WebSocket.OPEN
+            ) {
+              initialInputSent = true;
+              initialInputTimeout = window.setTimeout(() => {
+                if (isDisposed || socket.readyState !== WebSocket.OPEN) {
+                  return;
+                }
+                socket.send(textEncoder.encode(session.initialInput ?? ""));
+              }, 200);
+            }
             window.setTimeout(sendResize, 0);
             return;
           }
@@ -214,6 +231,9 @@ export function DaytonaPtyTerminal({
 
     return () => {
       isDisposed = true;
+      if (initialInputTimeout !== null) {
+        window.clearTimeout(initialInputTimeout);
+      }
       resizeObserver.disconnect();
       dataDisposable?.dispose();
       socket.close();
@@ -221,6 +241,7 @@ export function DaytonaPtyTerminal({
     };
   }, [
     allowInput,
+    session.initialInput,
     session.previewToken,
     session.sessionId,
     session.webSocketUrl,

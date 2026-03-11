@@ -50,6 +50,9 @@ type OpenWorkspaceDevServerPtySessionResult = FunctionReturnType<
 
 type WorkspaceTerminalKind = "shell" | "dev_server";
 
+const DEV_SERVER_LOG_FOLLOW_COMMAND =
+  "clear >/dev/null 2>&1; exec tail -n 200 -F '/tmp/noter-dev.log'\n";
+
 const formatDuration = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 
 const formatRepoRefreshReason = (reason: string) => {
@@ -106,9 +109,6 @@ export function DaytonaWorkspaceButton({
   );
   const getDaytonaBootstrapLogs = useAction(
     api.daytonaActions.getDaytonaBootstrapLogs,
-  );
-  const startDaytonaDevServerSafe = useAction(
-    api.daytonaActions.startDaytonaDevServerSafe,
   );
   const prebuildDaytonaSnapshot = useAction(
     api.daytonaActions.prebuildDaytonaSnapshot,
@@ -447,15 +447,6 @@ export function DaytonaWorkspaceButton({
     await closeActiveTerminalSession(true);
 
     try {
-      const startResult = await startDaytonaDevServerSafe({ vaultId });
-      if (!startResult.ok) {
-        setHasError(true);
-        setMessage(
-          startResult.message ?? "Failed to start Daytona dev server.",
-        );
-        return null;
-      }
-
       const result = await openWorkspaceDevServerPtySession({
         vaultId,
         branch,
@@ -464,25 +455,23 @@ export function DaytonaWorkspaceButton({
       if (!nextSession) {
         setHasError(true);
         setMessage(
-          result.message ??
-            startResult.message ??
-            "Failed to open Daytona dev server terminal.",
+          result.message ?? "Failed to open Daytona dev server terminal.",
         );
         return null;
       }
+      const nextDevServerSession: DaytonaPtySession = {
+        ...nextSession,
+        initialInput: DEV_SERVER_LOG_FOLLOW_COMMAND,
+      };
 
-      terminalSessionRef.current = nextSession;
-      setTerminalSession(nextSession);
+      terminalSessionRef.current = nextDevServerSession;
+      setTerminalSession(nextDevServerSession);
       setActiveTerminalKind("dev_server");
       if (!isSilent) {
         setHasError(false);
-        setMessage(
-          result.message ??
-            startResult.message ??
-            "Dev server terminal session ready.",
-        );
+        setMessage(result.message ?? "Dev server terminal session ready.");
       }
-      return nextSession;
+      return nextDevServerSession;
     } catch (error) {
       setHasError(true);
       setMessage(
@@ -992,7 +981,7 @@ export function DaytonaWorkspaceButton({
           />
           <div className="text-xs text-muted-foreground">
             {activeTerminalKind === "dev_server"
-              ? "The dev server view is read-only and attaches to the sandbox tmux session."
+              ? "The dev server view is read-only and streams the tmux-backed dev server output."
               : "Use “Open in tab” if the embedded PTY hits a Daytona or browser edge case."}
           </div>
         </div>

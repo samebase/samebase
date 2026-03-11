@@ -717,10 +717,7 @@ async function listDaytonaSandboxIdsUsingVolume(args: {
 async function clearCodexAuthHomeInSandbox(args: {
   sandbox: Sandbox;
 }): Promise<void> {
-  if (args.sandbox.state?.toLowerCase() !== "started") {
-    await args.sandbox.start();
-    await args.sandbox.refreshData();
-  }
+  await ensureDaytonaSandboxStarted(args.sandbox);
 
   const result = await args.sandbox.process.executeCommand(
     `mkdir -p ${DAYTONA_CODEX_HOME} && find ${DAYTONA_CODEX_HOME} -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +`,
@@ -731,6 +728,13 @@ async function clearCodexAuthHomeInSandbox(args: {
   if (result.exitCode !== 0) {
     throw new Error(result.result.trim() || "Failed to clear Codex auth data.");
   }
+}
+
+async function ensureDaytonaSandboxStarted(sandbox: Sandbox): Promise<void> {
+  if (sandbox.state?.toLowerCase() !== "started") {
+    await sandbox.start();
+  }
+  await sandbox.refreshData();
 }
 
 type CodexAuthCheckStatus = "ready" | "needs_reauth" | "error";
@@ -1659,15 +1663,21 @@ async function startDaytonaTmuxSession(args: {
     return "already_running";
   }
 
-  const pipeCommand = `tee -a ${quoteForBash(PNPM_INSTALL_LOG)} >> ${quoteForBash(
-    DAYTONA_DEV_LOG,
-  )}`;
+  const loggedCommand = stripIndent`
+    set -e
+    set -o pipefail
+    bash -lc ${quoteForBash(args.command)} 2>&1 | tee -a ${quoteForBash(
+      PNPM_INSTALL_LOG,
+    )} ${quoteForBash(DAYTONA_DEV_LOG)}
+  `;
   const startScript = stripIndent`
     set -e
     session=${quoteForBash(args.sessionName)}
     rm -f ${quoteForBash(DAYTONA_DEV_LOG)} ${quoteForBash(PNPM_INSTALL_LOG)}
-    tmux new-session -d -s "$session" bash -lc ${quoteForBash(args.command)}
-    tmux pipe-pane -o -t "$session:0.0" bash -lc ${quoteForBash(pipeCommand)}
+    tmux new-session -d -s "$session" ${quoteForBash(
+      `bash -lc ${quoteForBash(loggedCommand)}`,
+    )}
+    tmux set-option -t "$session" remain-on-exit on >/dev/null
     sleep 1
     tmux has-session -t "$session"
   `;
@@ -1718,17 +1728,7 @@ async function startDaytonaDevServer(args: {
   sandbox: Sandbox;
   repoDir: string;
 }): Promise<DaytonaDevServerLaunch> {
-  const devOrigin = await inferSandboxDevOrigin({
-    sandbox: args.sandbox,
-    port: DAYTONA_PREVIEW_PORT,
-    ttlSeconds: DAYTONA_PREVIEW_TTL_SECONDS,
-  });
-  if (devOrigin) {
-    console.log("daytona:dev-origin", {
-      sandboxId: args.sandbox.id,
-      origin: devOrigin,
-    });
-  }
+  await ensureDaytonaSandboxStarted(args.sandbox);
 
   const statusCommand = `bash -lc ${quoteForBash(buildDevServerStatusScript())}`;
   const statusResult = await args.sandbox.process.executeCommand(
@@ -1751,6 +1751,18 @@ async function startDaytonaDevServer(args: {
         transport,
       };
     }
+  }
+
+  const devOrigin = await inferSandboxDevOrigin({
+    sandbox: args.sandbox,
+    port: DAYTONA_PREVIEW_PORT,
+    ttlSeconds: DAYTONA_PREVIEW_TTL_SECONDS,
+  });
+  if (devOrigin) {
+    console.log("daytona:dev-origin", {
+      sandboxId: args.sandbox.id,
+      origin: devOrigin,
+    });
   }
 
   try {
@@ -3116,6 +3128,7 @@ export const startDaytonaDevServerSafe = action({
     }
 
     const sandbox = await daytona.get(sandboxId);
+    await ensureDaytonaSandboxStarted(sandbox);
     const repoDir = `${DEFAULT_WORKSPACE_DIR}/${vault.ghRepoName}`;
 
     const statusCommand = `bash -lc ${quoteForBash(buildDevServerStatusScript())}`;

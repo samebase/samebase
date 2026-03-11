@@ -30,7 +30,6 @@ const MIN_TERMINAL_COLS = 20;
 const MIN_TERMINAL_ROWS = 8;
 const MAX_TERMINAL_COLS = 320;
 const MAX_TERMINAL_ROWS = 120;
-const DAYTONA_DEV_SERVER_TMUX_SESSION = "noter-dev-server";
 const CODEX_DEVICE_AUTH_COMMAND =
   "clear >/dev/null 2>&1; codex login --device-auth; exit\n";
 
@@ -226,10 +225,6 @@ function buildWorkspaceDevServerPtySessionId(vaultId: Id<"vaults">): string {
 
 function buildCodexAuthPtySessionId(): string {
   return `noter-codex-auth-pty-${randomUUID()}`;
-}
-
-function quoteForBash(input: string): string {
-  return `'${input.replace(/'/g, `'\\''`)}'`;
 }
 
 async function ensureSandboxStarted(sandbox: Sandbox): Promise<void> {
@@ -633,23 +628,6 @@ export const openWorkspaceDevServerPtySession = action({
       };
     }
 
-    const tmuxCheckCommand = `bash -lc ${quoteForBash(
-      `tmux has-session -t ${quoteForBash(DAYTONA_DEV_SERVER_TMUX_SESSION)}`,
-    )}`;
-    const tmuxCheckResult = await resolved.sandbox.process.executeCommand(
-      tmuxCheckCommand,
-      undefined,
-      undefined,
-      30,
-    );
-    if (tmuxCheckResult.exitCode !== 0) {
-      return {
-        ok: false,
-        message:
-          "Daytona dev server session is not available in tmux yet. Launch or restart the dev server first.",
-      };
-    }
-
     const cols = clampTerminalSize(
       args.cols,
       DEFAULT_TERMINAL_COLS,
@@ -673,9 +651,6 @@ export const openWorkspaceDevServerPtySession = action({
         cwd: resolved.repoDir,
         cols,
         rows,
-        initialInput: `tmux attach-session -r -t ${quoteForBash(
-          DAYTONA_DEV_SERVER_TMUX_SESSION,
-        )}\n`,
       });
 
       return {
