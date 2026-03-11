@@ -189,7 +189,9 @@ export function DaytonaPtyTerminal({
       }
 
       if (event.data instanceof ArrayBuffer) {
-        terminal.write(textDecoder.decode(new Uint8Array(event.data)));
+        terminal.write(
+          textDecoder.decode(new Uint8Array(event.data), { stream: true }),
+        );
       }
     });
 
@@ -206,6 +208,10 @@ export function DaytonaPtyTerminal({
       if (isDisposed) {
         return;
       }
+      const trailingText = textDecoder.decode();
+      if (trailingText.length > 0) {
+        terminal.write(trailingText);
+      }
       const closeMessage = parseDaytonaPtyCloseMessage(event.reason);
       const exitLabel =
         typeof closeMessage?.exitCode === "number"
@@ -213,10 +219,16 @@ export function DaytonaPtyTerminal({
           : event.code === 1000
             ? "Terminal session closed."
             : "Terminal connection closed.";
-      const detail =
-        closeMessage?.error ?? closeMessage?.exitReason ?? undefined;
+      const errorDetail = closeMessage?.error;
+      const detail = errorDetail ?? closeMessage?.exitReason ?? undefined;
       const message = detail ? `${exitLabel} ${detail}` : exitLabel;
-      const nextState: ConnectionState = detail ? "error" : "closed";
+      const nextState: ConnectionState =
+        errorDetail ||
+        (typeof closeMessage?.exitCode === "number" &&
+          closeMessage.exitCode !== 0) ||
+        event.code !== 1000
+          ? "error"
+          : "closed";
       setConnectionState(nextState);
       setStatusMessage(message);
       terminal.writeln(`\r\n[session ended] ${message}`);

@@ -76,32 +76,44 @@ export function CodexProviderRow() {
       if (!activeSession) {
         return;
       }
+      terminalSessionRef.current = null;
       void closeCodexAuthPtySession({
         sessionId: activeSession.sessionId,
       });
     };
   }, [closeCodexAuthPtySession]);
 
+  const clearTerminalSessionState = () => {
+    terminalSessionRef.current = null;
+    setTerminalSession(null);
+  };
+
   const closeActiveTerminalSession = async (silent?: boolean) => {
     const activeSession = terminalSessionRef.current;
     if (!activeSession) {
-      return;
+      return true;
     }
-
-    terminalSessionRef.current = null;
-    setTerminalSession(null);
+    clearTerminalSessionState();
 
     try {
       const result = await closeCodexAuthPtySession({
         sessionId: activeSession.sessionId,
       });
-      if (!silent && !result.ok) {
+      if (result.ok) {
+        return true;
+      }
+      terminalSessionRef.current = activeSession;
+      setTerminalSession(activeSession);
+      if (!silent) {
         setHasError(true);
         setMessage(
           result.message ?? "Failed to close Daytona terminal session.",
         );
       }
+      return false;
     } catch (error) {
+      terminalSessionRef.current = activeSession;
+      setTerminalSession(activeSession);
       if (!silent) {
         setHasError(true);
         setMessage(
@@ -110,6 +122,7 @@ export function CodexProviderRow() {
             : "Failed to close Daytona terminal session.",
         );
       }
+      return false;
     }
   };
 
@@ -117,7 +130,10 @@ export function CodexProviderRow() {
     silent?: boolean,
   ): Promise<DaytonaPtySession | null> => {
     const isSilent = silent === true;
-    await closeActiveTerminalSession(true);
+    const closedExistingSession = await closeActiveTerminalSession(true);
+    if (!closedExistingSession) {
+      return null;
+    }
 
     try {
       const result = await openCodexAuthPtySession({});
@@ -138,6 +154,7 @@ export function CodexProviderRow() {
         sessionId: result.sessionId,
         webSocketUrl: result.webSocketUrl,
         previewToken: result.previewToken,
+        initialInput: result.initialInput,
       };
       terminalSessionRef.current = nextSession;
       setTerminalSession(nextSession);
@@ -442,9 +459,14 @@ export function CodexProviderRow() {
                 variant="link"
                 size="sm"
                 onClick={() => {
-                  void closeActiveTerminalSession(true);
-                  setTerminalTabUrl(null);
-                  setTerminalStatus(null);
+                  void (async () => {
+                    const closedSession = await closeActiveTerminalSession();
+                    if (!closedSession) {
+                      return;
+                    }
+                    setTerminalTabUrl(null);
+                    setTerminalStatus(null);
+                  })();
                 }}
                 disabled={isPreparing || isVerifying || isDisconnecting}
                 className="h-auto px-0 text-xs"

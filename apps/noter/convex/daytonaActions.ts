@@ -1658,8 +1658,28 @@ async function hasDaytonaTmuxSession(args: {
   sandbox: Sandbox;
   sessionName: string;
 }): Promise<boolean> {
+  const state = await getDaytonaTmuxSessionState(args);
+  return state !== "missing";
+}
+
+async function getDaytonaTmuxSessionState(args: {
+  sandbox: Sandbox;
+  sessionName: string;
+}): Promise<"missing" | "running" | "dead"> {
   const command = `bash -lc ${quoteForBash(
-    `tmux has-session -t ${quoteForBash(args.sessionName)}`,
+    stripIndent`
+      session=${quoteForBash(args.sessionName)}
+      if ! tmux has-session -t "$session" 2>/dev/null; then
+        echo missing
+        exit 0
+      fi
+      pane_dead="$(tmux list-panes -t "$session" -F '#{pane_dead}' 2>/dev/null | head -n 1 || true)"
+      if [ "$pane_dead" = "1" ]; then
+        echo dead
+      else
+        echo running
+      fi
+    `,
   )}`;
   const result = await args.sandbox.process.executeCommand(
     command,
@@ -1667,7 +1687,14 @@ async function hasDaytonaTmuxSession(args: {
     undefined,
     30,
   );
-  return result.exitCode === 0;
+  if (result.exitCode !== 0) {
+    throw new Error(result.result.trim() || "Failed to inspect tmux session.");
+  }
+  const state = result.result.trim();
+  if (state === "running" || state === "dead" || state === "missing") {
+    return state;
+  }
+  throw new Error(`Unexpected tmux session state: ${state || "<empty>"}.`);
 }
 
 async function startDaytonaTmuxSession(args: {
@@ -1675,13 +1702,28 @@ async function startDaytonaTmuxSession(args: {
   sessionName: string;
   command: string;
 }): Promise<"started" | "already_running"> {
-  if (
-    await hasDaytonaTmuxSession({
-      sandbox: args.sandbox,
-      sessionName: args.sessionName,
-    })
-  ) {
+  const existingSessionState = await getDaytonaTmuxSessionState({
+    sandbox: args.sandbox,
+    sessionName: args.sessionName,
+  });
+  if (existingSessionState === "running") {
     return "already_running";
+  }
+  if (existingSessionState === "dead") {
+    const cleanupCommand = `bash -lc ${quoteForBash(
+      `tmux kill-session -t ${quoteForBash(args.sessionName)}`,
+    )}`;
+    const cleanupResult = await args.sandbox.process.executeCommand(
+      cleanupCommand,
+      undefined,
+      undefined,
+      30,
+    );
+    if (cleanupResult.exitCode !== 0) {
+      throw new Error(
+        cleanupResult.result.trim() || "Failed to reset dead tmux session.",
+      );
+    }
   }
 
   const loggedCommand = stripIndent`

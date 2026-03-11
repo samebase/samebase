@@ -193,8 +193,10 @@ Initial roles:
 
 - read-only by default in UI
 - backed by a named `tmux` session
-- command starts the existing safe dev path (`make anon`) inside the sandbox
+- command starts the existing safe dev path inside the sandbox
 - intended for server output, requests, rebuilds, and crashes
+- backend must enforce read-only behavior for this role by rejecting PTY input,
+  not merely by hiding input controls in the UI
 
 ### `codex_auth`
 
@@ -203,6 +205,8 @@ Initial roles:
 - may remain non-interactive/read-only at the Noter UI level after launch
 - does not require `tmux` immediately, but should stay compatible with the same
   session abstraction
+- this role may keep a separate `openCodexAuthPtySession` API because it is
+  user-scoped provider auth, not a workspace-scoped terminal role
 
 ## Dev Server Lifecycle
 
@@ -213,13 +217,20 @@ When the user opens the `Dev Server` surface for a workspace sandbox:
 1. Noter ensures the workspace sandbox is running.
 2. Noter ensures the standard runtime image provides `tmux`.
 3. Noter ensures a named `tmux` session exists for that sandbox and role.
-4. If the session does not exist, Noter starts:
+4. This ensure step must be idempotent per sandbox and role. Concurrent opens,
+   reconnects, or retries must treat an existing session as success.
+5. If the session does not exist, Noter starts a quoted command like:
 
 ```bash
-tmux new-session -d -s noter-dev-server 'cd /home/daytona/workspace/<repo> && make anon'
+tmux new-session -d -s noter-dev-server \
+  'cd /home/daytona/workspace/<repo> && <sandbox-dev-command> 2>&1 | tee -a /tmp/noter-dev.log'
 ```
 
-5. Noter opens a Daytona PTY session that attaches to that `tmux` session in
+`<sandbox-dev-command>` should resolve to the repo's supported dev entrypoint.
+Dynamic values such as repo paths must be validated and shell-quoted before
+interpolation.
+
+6. Noter opens a Daytona PTY session that attaches to that `tmux` session in
    read-only mode.
 
 ### Reattach
@@ -276,9 +287,10 @@ Recommended shape:
 
 1. `openWorkspaceShellPtySession`
 2. `openWorkspaceDevServerPtySession`
-3. `restartWorkspaceDevServerSession`
-4. `closeWorkspacePtySession`
-5. `resizeWorkspacePtySession`
+3. `openCodexAuthPtySession`
+4. `restartWorkspaceDevServerSession`
+5. `closeWorkspacePtySession`
+6. `resizeWorkspacePtySession`
 
 Implementation note:
 
@@ -311,6 +323,10 @@ Log files like `/tmp/noter-dev.log` may remain for:
 2. failure fallback
 3. postmortem inspection
 
+When the dev server is tmux-backed, the runtime should still populate
+`/tmp/noter-dev.log` by wrapping the dev command with `tee` so the PTY session
+and the log file receive the same output stream.
+
 But the main observability surface should be the PTY-attached session.
 
 ## Security / Isolation
@@ -320,6 +336,8 @@ But the main observability surface should be the PTY-attached session.
 3. Do not expose arbitrary command execution through the read-only `Dev Server`
    surface.
 4. Treat session names as internal implementation details, not user input.
+5. Enforce read-only terminal roles on the backend as well as the UI.
+6. Validate and shell-quote any dynamic command parameters before interpolation.
 
 ## Phased Plan
 
@@ -348,6 +366,7 @@ But the main observability surface should be the PTY-attached session.
 
 - [ ] Add backend support for a tmux-backed `dev_server` PTY role.
 - [ ] Add deterministic session naming per sandbox and role.
+- [ ] Make session creation and reconnect idempotent for concurrent opens.
 - [ ] Add reattach behavior for existing running tmux sessions.
 - [ ] Add `Restart dev server` backend support.
 - [ ] Keep `/tmp/noter-dev.log` as fallback/debug output only.

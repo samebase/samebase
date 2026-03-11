@@ -100,6 +100,7 @@ const openCodexAuthPtySessionResult = object({
   webSocketUrl: optional(string()),
   previewToken: optional(string()),
   sandboxName: optional(string()),
+  initialInput: optional(string()),
   message: optional(string()),
 });
 
@@ -631,32 +632,53 @@ async function openPtySession(args: {
   cwd: string;
   cols: number;
   rows: number;
-  initialInput?: string;
 }): Promise<{ webSocketUrl: string; previewToken: string }> {
   await ensureSandboxStarted(args.sandbox);
-  const ptyHandle = await args.sandbox.process.createPty({
-    id: args.sessionId,
-    cwd: args.cwd,
-    envs: {
-      TERM: "xterm-256color",
-      COLORTERM: "truecolor",
-    },
-    cols: args.cols,
-    rows: args.rows,
-    onData: async () => {},
-  });
-  await ptyHandle.waitForConnection();
-  if (args.initialInput) {
-    await ptyHandle.sendInput(args.initialInput);
-  }
-  await ptyHandle.disconnect();
+  let ptyHandle: Awaited<ReturnType<Sandbox["process"]["createPty"]>> | null =
+    null;
+  try {
+    ptyHandle = await args.sandbox.process.createPty({
+      id: args.sessionId,
+      cwd: args.cwd,
+      envs: {
+        TERM: "xterm-256color",
+        COLORTERM: "truecolor",
+      },
+      cols: args.cols,
+      rows: args.rows,
+      onData: async () => {},
+    });
+    await ptyHandle.waitForConnection();
+    await ptyHandle.disconnect();
 
-  return getPtyConnection({
-    sandbox: args.sandbox,
-    baseUrl: args.baseUrl,
-    token: args.token,
-    sessionId: args.sessionId,
-  });
+    return await getPtyConnection({
+      sandbox: args.sandbox,
+      baseUrl: args.baseUrl,
+      token: args.token,
+      sessionId: args.sessionId,
+    });
+  } catch (error) {
+    try {
+      await args.sandbox.process.killPtySession(args.sessionId);
+    } catch (killError) {
+      if (!isNotFoundError(killError)) {
+        console.warn("daytona:pty:cleanup:failed", {
+          sandboxId: args.sandbox.id,
+          sessionId: args.sessionId,
+          message:
+            killError instanceof Error ? killError.message : String(killError),
+        });
+      }
+    }
+    if (ptyHandle) {
+      try {
+        await ptyHandle.disconnect();
+      } catch {
+        // Best-effort disconnect only.
+      }
+    }
+    throw error;
+  }
 }
 
 export const openWorkspacePtySession = action({
@@ -830,7 +852,6 @@ export const openCodexAuthPtySession = action({
         cwd: DEFAULT_CODEX_AUTH_DIR,
         cols,
         rows,
-        initialInput: CODEX_DEVICE_AUTH_COMMAND,
       });
 
       return {
@@ -839,6 +860,7 @@ export const openCodexAuthPtySession = action({
         webSocketUrl: connection.webSocketUrl,
         previewToken: connection.previewToken,
         sandboxName: resolved.sandboxName,
+        initialInput: CODEX_DEVICE_AUTH_COMMAND,
         message: resolved.sandboxName
           ? `Terminal session ready for ${resolved.sandboxName}.`
           : "Terminal session ready.",

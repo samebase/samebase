@@ -199,6 +199,9 @@ export function DaytonaWorkspaceButton({
       if (!activeSession) {
         return;
       }
+      terminalSessionRef.current = null;
+      setTerminalSession(null);
+      setActiveTerminalKind(null);
       void closeWorkspacePtySession({
         vaultId,
         branch,
@@ -274,9 +277,13 @@ export function DaytonaWorkspaceButton({
         setHasError(false);
         setMessage(result.message ?? `Daytona sandbox ${label} is ready.`);
         setBootstrapLogs(null);
-        const nextTerminalSession = await openTerminalSession(true);
-        if (nextTerminalSession) {
-          setTimeToTerminalMs(Math.round(performance.now() - startClickedAt));
+        if (mode !== "launch") {
+          const nextTerminalSession = await openTerminalSession(true);
+          if (nextTerminalSession) {
+            setTimeToTerminalMs(Math.round(performance.now() - startClickedAt));
+          }
+        } else {
+          setTimeToTerminalMs(null);
         }
       }
     } catch (error) {
@@ -347,15 +354,19 @@ export function DaytonaWorkspaceButton({
     };
   };
 
-  const closeActiveTerminalSession = async (silent?: boolean) => {
-    const activeSession = terminalSessionRef.current;
-    if (!activeSession) {
-      return;
-    }
-
+  const clearTerminalSessionState = () => {
     terminalSessionRef.current = null;
     setTerminalSession(null);
     setActiveTerminalKind(null);
+  };
+
+  const closeActiveTerminalSession = async (silent?: boolean) => {
+    const activeSession = terminalSessionRef.current;
+    if (!activeSession) {
+      return true;
+    }
+    const activeKind = activeTerminalKind;
+    clearTerminalSessionState();
 
     try {
       const result = await closeWorkspacePtySession({
@@ -363,13 +374,23 @@ export function DaytonaWorkspaceButton({
         branch,
         sessionId: activeSession.sessionId,
       });
-      if (!silent && !result.ok) {
+      if (result.ok) {
+        return true;
+      }
+      terminalSessionRef.current = activeSession;
+      setTerminalSession(activeSession);
+      setActiveTerminalKind(activeKind);
+      if (!silent) {
         setHasError(true);
         setMessage(
           result.message ?? "Failed to close Daytona terminal session.",
         );
       }
+      return false;
     } catch (error) {
+      terminalSessionRef.current = activeSession;
+      setTerminalSession(activeSession);
+      setActiveTerminalKind(activeKind);
       if (!silent) {
         setHasError(true);
         setMessage(
@@ -378,6 +399,7 @@ export function DaytonaWorkspaceButton({
             : "Failed to close Daytona terminal session.",
         );
       }
+      return false;
     }
   };
 
@@ -394,7 +416,11 @@ export function DaytonaWorkspaceButton({
       setHasError(false);
     }
 
-    await closeActiveTerminalSession(true);
+    const closedExistingSession = await closeActiveTerminalSession(true);
+    if (!closedExistingSession) {
+      setIsOpeningTerminal(false);
+      return null;
+    }
 
     try {
       const result = await openWorkspacePtySession({
@@ -441,7 +467,11 @@ export function DaytonaWorkspaceButton({
       setHasError(false);
     }
 
-    await closeActiveTerminalSession(true);
+    const closedExistingSession = await closeActiveTerminalSession(true);
+    if (!closedExistingSession) {
+      setIsOpeningTerminal(false);
+      return null;
+    }
 
     try {
       const result = await openWorkspaceDevServerPtySession({
@@ -484,7 +514,7 @@ export function DaytonaWorkspaceButton({
 
   const handleToggleShellTerminal = async () => {
     if (terminalSession && activeTerminalKind === "shell") {
-      await closeActiveTerminalSession(true);
+      await closeActiveTerminalSession();
       return;
     }
     await openTerminalSession();
@@ -492,7 +522,7 @@ export function DaytonaWorkspaceButton({
 
   const handleToggleDevServerTerminal = async () => {
     if (terminalSession && activeTerminalKind === "dev_server") {
-      await closeActiveTerminalSession(true);
+      await closeActiveTerminalSession();
       return;
     }
     await openDevServerTerminalSession();
