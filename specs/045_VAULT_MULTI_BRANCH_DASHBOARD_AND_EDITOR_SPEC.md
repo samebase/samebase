@@ -441,3 +441,7 @@ Pending:
 2. Branch-specific Daytona snapshots and launch UX (spec 041 follow-up)
 3. Branch-scoped infra preview domain surfacing in dashboard
 4. Branch-scoped thread model (optional UX improvement)
+5. Agent-owned sandbox model for branch presence: prefer one sandbox per agent,
+   not one sandbox per branch. Agents may create worktrees inside their sandbox
+   when needed, and dashboard facepiles/avatar circles should reflect that
+   sandbox/worktree activity per branch.
