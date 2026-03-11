@@ -66,6 +66,7 @@ const DAYTONA_PREVIEW_TTL_SECONDS = 3600;
 const DAYTONA_TERMINAL_PORT = 22222;
 const DAYTONA_TERMINAL_TTL_SECONDS = 300;
 const DAYTONA_DEV_LOG = "/tmp/noter-dev.log";
+// Daytona terminals currently run with a root home in our tested sandbox setup.
 const DAYTONA_CODEX_HOME = "/root/.codex";
 const DAYTONA_CODEX_AUTH_VOLUME_PREFIX = "noter-codex-auth";
 const DAYTONA_CODEX_AUTH_SANDBOX_PREFIX = "noter-codex-auth";
@@ -1096,6 +1097,30 @@ async function verifyCodexBinaryInSandbox(args: { sandbox: Sandbox }) {
   }
 }
 
+async function ensureCodexBinaryInSandbox(args: {
+  sandbox: Sandbox;
+}): Promise<"already_present" | "installed"> {
+  try {
+    await verifyCodexBinaryInSandbox(args);
+    return "already_present";
+  } catch {
+    const installResult = await args.sandbox.process.executeCommand(
+      `npm install -g @openai/codex@${DAYTONA_CODEX_CLI_VERSION}`,
+      undefined,
+      undefined,
+      300,
+    );
+    if (installResult.exitCode !== 0) {
+      throw new Error(
+        installResult.result.trim() ||
+          "Failed to install Codex CLI in the Daytona sandbox.",
+      );
+    }
+    await verifyCodexBinaryInSandbox(args);
+    return "installed";
+  }
+}
+
 async function ensureDaytonaRegistry(args: {
   baseUrl: string;
   token: string;
@@ -1924,13 +1949,29 @@ export const startDaytonaWorkspace = action({
         kind: "codex",
       },
     );
+    let codexWorkspaceWarning: string | null = null;
     const codexAuthVolume =
       codexConnection?.kind === "codex"
-        ? await ensureDaytonaCodexAuthVolume({
-            daytona,
-            envLabel,
-            userId,
-          })
+        ? await (async () => {
+            try {
+              return await ensureDaytonaCodexAuthVolume({
+                daytona,
+                envLabel,
+                userId,
+              });
+            } catch (error) {
+              const message =
+                error instanceof Error ? error.message : String(error);
+              console.warn("daytona:workspace:codex-volume:failed", {
+                vaultId: args.vaultId,
+                userId,
+                message,
+              });
+              codexWorkspaceWarning =
+                "Codex auth volume is unavailable, so this workspace launched without Codex auth reuse.";
+              return null;
+            }
+          })()
         : null;
     const hasMatchingLabels = (candidate: Sandbox): boolean => {
       const candidateVaultLabel = readSandboxLabel(candidate, "noter.vault_id");
@@ -2035,6 +2076,22 @@ export const startDaytonaWorkspace = action({
           });
           sandbox = null;
         }
+      }
+    }
+
+    let codexBinaryStatus: "already_present" | "installed" | null = null;
+    if (sandbox && codexAuthVolume) {
+      try {
+        codexBinaryStatus = await ensureCodexBinaryInSandbox({ sandbox });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn("daytona:workspace:codex-binary:failed", {
+          vaultId: args.vaultId,
+          sandboxId: sandbox.id,
+          message,
+        });
+        codexWorkspaceWarning =
+          "Codex is connected, but the CLI could not be prepared in this workspace yet.";
       }
     }
 
@@ -2186,6 +2243,12 @@ export const startDaytonaWorkspace = action({
     }
     if (devServerMessage) {
       messageParts.push(devServerMessage);
+    }
+    if (codexBinaryStatus === "installed") {
+      messageParts.push("Codex CLI was installed for this workspace.");
+    }
+    if (codexWorkspaceWarning) {
+      messageParts.push(codexWorkspaceWarning);
     }
     messageParts.push(
       `Startup timing: total ${formatDurationMs(startupMetrics.totalMs)} (sandbox ${formatDurationMs(
