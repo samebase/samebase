@@ -1,8 +1,7 @@
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { ReactNode, useEffect, type MouseEvent } from "react";
-import { useConvexAuth, useQuery } from "convex/react";
+import { useConvexAuth } from "convex/react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { api } from "../convex/_generated/api";
 
 export function Layout({ children }: { children: ReactNode }) {
   const appCommit = __APP_COMMIT__ || "unknown";
@@ -10,7 +9,6 @@ export function Layout({ children }: { children: ReactNode }) {
   const repoUrl = __APP_REPO_URL__ || "";
   const commitUrl =
     repoUrl && appCommit !== "unknown" ? `${repoUrl}/commit/${appCommit}` : "";
-  const viewer = useQuery(api.users.viewer);
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -39,14 +37,6 @@ export function Layout({ children }: { children: ReactNode }) {
     event.preventDefault();
     void navigate(landingDevToggleHref);
   };
-  const isOwner = viewer?.githubUsername === "nicu-chiciuc";
-  const showGuestBadge = Boolean(viewer && !isOwner);
-  const guestName =
-    viewer?.githubUsername ?? viewer?.name ?? viewer?.email ?? "there";
-  const guestTitle = viewer
-    ? `Welcome, ${guestName}. You're viewing the dev build.`
-    : "Viewing the dev build.";
-
   useEffect(() => {
     console.info("[noter] build metadata", {
       appCommit: __APP_COMMIT__,
@@ -58,14 +48,6 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="flex h-full w-full flex-col">
       <div className="border-b border-border/50">
         <div className="container flex items-center justify-end gap-2 px-3 py-1 text-[11px] text-muted-foreground">
-          {showGuestBadge && (
-            <span
-              className="rounded-full border border-border/60 bg-muted/70 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-foreground/70"
-              title={guestTitle}
-            >
-              Curious Mode
-            </span>
-          )}
           {showLandingDevToggle && (
             <a
               href={landingDevToggleHref}
