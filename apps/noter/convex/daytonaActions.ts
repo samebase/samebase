@@ -1615,6 +1615,16 @@ function buildDaytonaSafeDevServerCommand(args: {
   ]
     .filter((part) => part.length > 0)
     .join("\n");
+  const runDevCommand = stripIndent`
+    if [ -f "Makefile" ] && grep -Eq '^[[:space:]]*anon:' Makefile; then
+      make anon
+    elif [ -f "package.json" ]; then
+      pnpm run dev
+    else
+      echo "__NOTER_DEV_COMMAND_MISSING__"
+      exit 1
+    fi
+  `;
 
   return stripIndent`
     set -e
@@ -1629,7 +1639,7 @@ function buildDaytonaSafeDevServerCommand(args: {
     fi
     ${installFallback}
     ${devEnvExports}
-    make anon
+    ${runDevCommand}
   `;
 }
 
@@ -3248,16 +3258,18 @@ export const startDaytonaDevServerFast = action({
     }
 
     const repoDir = `${DEFAULT_WORKSPACE_DIR}/${vault.ghRepoName}`;
-    const devCommand = `cd "${repoDir}" && pnpm run dev`;
     const startScript = stripIndent`
       set -e
       if [ ! -d "${repoDir}" ]; then
         echo "__NOTER_REPO_MISSING__"
         exit 1
       fi
-      NOTER_DEV_HOST=0.0.0.0 NOTER_DEV_PORT=${DAYTONA_PREVIEW_PORT} NOTER_DEV_STRICT_PORT=1 nohup bash -lc ${quoteForBash(
-        devCommand,
-      )} > ${quoteForBash(DAYTONA_DEV_LOG)} 2>&1 &
+      nohup bash -lc ${quoteForBash(
+        `${buildDaytonaSafeDevServerCommand({
+          repoDir,
+          devOrigin: null,
+        })} > ${quoteForBash(DAYTONA_DEV_LOG)} 2>&1`,
+      )} >/dev/null 2>&1 &
     `;
     const startCommand = `bash -lc ${quoteForBash(startScript)}`;
     const startResult = await sandbox.process.executeCommand(
