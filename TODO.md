@@ -11,6 +11,7 @@
 - [ ] allow setting
 - [ ] talk with Alex
 - [ ] light panda https://lightpanda.io/ - research this browser engine/automation tool
+- [ ] review Observable notebooks docs for potential use/integration: https://observablehq.com/documentation/notebooks/
 - [ ] if given enough instruction and context, it's good at categorizing, even on small models
 - [ ] preview deploys should be created in the pr. But locally in Daytona use local convex
 - [ ] add a Make target to stop any running local dev environments (at least processes bound to common dev ports like `5173`, `3000`, and `3210`)
@@ -40,6 +41,7 @@
 - [ ] codex: make worktrees work automatically
 - [ ] auth env vars: standardize on `AUTH_*` (or document precedence) and add a warning when multiple GitHub/Google env keys are set
 - [ ] MCP consent UX: improve logged-out/no-account flow so users get clear next steps before consent
+- [ ] branch actor presence: show Noter agents and MCP clients as per-branch facepiles based on shared tool-runtime activity/attribution
 - [ ] add dashboard-level settings panel (currently logout only exists inside vault)
 - [ ] settings: add option to remove account
 - [ ] decide if Turborepo is necessary or if PNPM workspaces alone are enough
