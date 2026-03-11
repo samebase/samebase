@@ -14,6 +14,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DaytonaPtyTerminal,
+  type DaytonaPtySession,
+} from "@/components/DaytonaPtyTerminal";
 import type { DaytonaSnapshotStatus } from "@/lib/daytonaSnapshot";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +40,9 @@ type StartDaytonaWorkspaceResult = FunctionReturnType<
 >;
 type StartupMetrics = NonNullable<
   StartDaytonaWorkspaceResult["startupMetrics"]
+>;
+type OpenWorkspacePtySessionResult = FunctionReturnType<
+  typeof api.daytonaTerminal.openWorkspacePtySession
 >;
 
 const formatDuration = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
@@ -74,6 +81,15 @@ export function DaytonaWorkspaceButton({
   const getDaytonaTerminalUrl = useAction(
     api.daytonaActions.getDaytonaTerminalUrl,
   );
+  const openWorkspacePtySession = useAction(
+    api.daytonaTerminal.openWorkspacePtySession,
+  );
+  const resizeWorkspacePtySession = useAction(
+    api.daytonaTerminal.resizeWorkspacePtySession,
+  );
+  const closeWorkspacePtySession = useAction(
+    api.daytonaTerminal.closeWorkspacePtySession,
+  );
   const getDaytonaPreviewUrl = useAction(
     api.daytonaActions.getDaytonaPreviewUrl,
   );
@@ -103,7 +119,8 @@ export function DaytonaWorkspaceButton({
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
-  const [terminalUrl, setTerminalUrl] = useState<string | null>(null);
+  const [terminalSession, setTerminalSession] =
+    useState<DaytonaPtySession | null>(null);
   const [bootstrapLogs, setBootstrapLogs] = useState<string | null>(null);
   const [startupMetrics, setStartupMetrics] = useState<StartupMetrics | null>(
     null,
@@ -113,6 +130,7 @@ export function DaytonaWorkspaceButton({
   const prebuildLogPollRef = useRef<number | null>(null);
   const isFetchingPrebuildLogsRef = useRef(false);
   const isPollingPrebuildLogsRef = useRef(false);
+  const terminalSessionRef = useRef<DaytonaPtySession | null>(null);
   const normalizedBranch = branch.trim().toLowerCase();
   const normalizedSnapshotStatus = snapshotStatus?.trim().toLowerCase() ?? "";
   const shouldPollPrebuildLogs =
@@ -157,6 +175,24 @@ export function DaytonaWorkspaceButton({
       }
     };
   }, []);
+
+  useEffect(() => {
+    terminalSessionRef.current = terminalSession;
+  }, [terminalSession]);
+
+  useEffect(() => {
+    return () => {
+      const activeSession = terminalSessionRef.current;
+      if (!activeSession) {
+        return;
+      }
+      void closeWorkspacePtySession({
+        vaultId,
+        branch,
+        sessionId: activeSession.sessionId,
+      });
+    };
+  }, [branch, closeWorkspacePtySession, vaultId]);
 
   useEffect(() => {
     if (disabled || !shouldPollPrebuildLogs) {
@@ -227,8 +263,8 @@ export function DaytonaWorkspaceButton({
           result.message ?? `Daytona ${label} created. Check Daytona UI.`,
         );
         setBootstrapLogs(null);
-        const terminalLink = await fetchTerminalUrl(true);
-        if (terminalLink) {
+        const nextTerminalSession = await openTerminalSession(true);
+        if (nextTerminalSession) {
           setTimeToTerminalMs(Math.round(performance.now() - startClickedAt));
         }
       }
@@ -262,8 +298,6 @@ export function DaytonaWorkspaceButton({
         setMessage(result.message ?? "Failed to open Daytona terminal.");
         return null;
       }
-
-      setTerminalUrl(result.url);
       if (!isSilent) {
         setMessage(result.message ?? "Terminal link ready.");
       }
@@ -281,20 +315,115 @@ export function DaytonaWorkspaceButton({
     }
   };
 
-  const handleToggleTerminal = async () => {
-    if (terminalUrl) {
-      setTerminalUrl(null);
-      return;
+  const toTerminalSession = (
+    result: OpenWorkspacePtySessionResult,
+  ): DaytonaPtySession | null => {
+    if (
+      !result.ok ||
+      !result.sessionId ||
+      !result.webSocketUrl ||
+      !result.previewToken
+    ) {
+      return null;
     }
-    await fetchTerminalUrl();
+
+    return {
+      sessionId: result.sessionId,
+      webSocketUrl: result.webSocketUrl,
+      previewToken: result.previewToken,
+    };
   };
 
-  const handleRefreshTerminal = async () => {
-    await fetchTerminalUrl();
+  const closeActiveTerminalSession = async (silent?: boolean) => {
+    const activeSession = terminalSessionRef.current;
+    if (!activeSession) {
+      return;
+    }
+
+    terminalSessionRef.current = null;
+    setTerminalSession(null);
+
+    try {
+      const result = await closeWorkspacePtySession({
+        vaultId,
+        branch,
+        sessionId: activeSession.sessionId,
+      });
+      if (!silent && !result.ok) {
+        setHasError(true);
+        setMessage(
+          result.message ?? "Failed to close Daytona terminal session.",
+        );
+      }
+    } catch (error) {
+      if (!silent) {
+        setHasError(true);
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Failed to close Daytona terminal session.",
+        );
+      }
+    }
+  };
+
+  const openTerminalSession = async (
+    silent?: boolean,
+  ): Promise<DaytonaPtySession | null> => {
+    const isSilent = silent === true;
+    if (disabled || isOpeningTerminal) {
+      return null;
+    }
+    setIsOpeningTerminal(true);
+    if (!isSilent) {
+      setMessage(null);
+      setHasError(false);
+    }
+
+    await closeActiveTerminalSession(true);
+
+    try {
+      const result = await openWorkspacePtySession({
+        vaultId,
+        branch,
+      });
+      const nextSession = toTerminalSession(result);
+      if (!nextSession) {
+        setHasError(true);
+        setMessage(result.message ?? "Failed to open Daytona terminal.");
+        return null;
+      }
+
+      terminalSessionRef.current = nextSession;
+      setTerminalSession(nextSession);
+      if (!isSilent) {
+        setHasError(false);
+        setMessage(result.message ?? "Terminal session ready.");
+      }
+      return nextSession;
+    } catch (error) {
+      setHasError(true);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to open Daytona terminal.",
+      );
+      return null;
+    } finally {
+      setIsOpeningTerminal(false);
+    }
+  };
+
+  const handleToggleTerminal = async () => {
+    if (terminalSession) {
+      await closeActiveTerminalSession(true);
+      return;
+    }
+    await openTerminalSession();
   };
 
   const handleOpenTerminalTab = async () => {
-    const url = terminalUrl ?? (await fetchTerminalUrl());
+    const url = await fetchTerminalUrl();
     if (!url) {
       return;
     }
@@ -337,13 +466,13 @@ export function DaytonaWorkspaceButton({
     setHasError(false);
 
     try {
+      await closeActiveTerminalSession(true);
       const result = await removeDaytonaSandbox({ vaultId });
       if (!result.ok) {
         setHasError(true);
         setMessage(result.message ?? "Failed to remove Daytona sandbox.");
         return;
       }
-      setTerminalUrl(null);
       setBootstrapLogs(null);
       setMessage(result.message ?? "Daytona sandbox removed.");
       setIsRemoveDialogOpen(false);
@@ -567,7 +696,7 @@ export function DaytonaWorkspaceButton({
       <div className="flex flex-wrap items-center gap-2">
         {launchButton}
         <Button
-          variant={terminalUrl ? "secondary" : "outline"}
+          variant={terminalSession ? "secondary" : "outline"}
           size="sm"
           onClick={() => {
             void handleToggleTerminal();
@@ -579,7 +708,7 @@ export function DaytonaWorkspaceButton({
               <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
               Opening...
             </>
-          ) : terminalUrl ? (
+          ) : terminalSession ? (
             "Hide Terminal"
           ) : (
             "Open Terminal"
@@ -720,31 +849,31 @@ export function DaytonaWorkspaceButton({
           Daytona: {sandboxName}
         </div>
       )}
-      {terminalUrl && (
-        <div className="mt-2 overflow-hidden rounded-md border bg-muted/10">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/20 px-2 py-1 text-xs text-muted-foreground">
-            <span>Daytona Terminal (iframe)</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                void handleRefreshTerminal();
-              }}
-              disabled={disabled || isOpeningTerminal}
-            >
-              Refresh link
-            </Button>
-          </div>
-          <iframe
-            title="Daytona Terminal"
-            src={terminalUrl}
-            className="h-[360px] w-full bg-white"
-            allow="clipboard-read; clipboard-write"
-            referrerPolicy="no-referrer"
+      {terminalSession && (
+        <div className="mt-2 space-y-2">
+          <DaytonaPtyTerminal
+            session={terminalSession}
+            onResizeSession={(sessionId, cols, rows) => {
+              void resizeWorkspacePtySession({
+                vaultId,
+                branch,
+                sessionId,
+                cols,
+                rows,
+              });
+            }}
+            onSessionError={(terminalMessage) => {
+              setHasError(true);
+              setMessage(terminalMessage);
+            }}
+            onSessionExit={(terminalMessage) => {
+              setHasError(false);
+              setMessage(terminalMessage);
+            }}
           />
-          <div className="px-2 py-1 text-xs text-muted-foreground">
-            If the terminal does not render, Daytona may block embedding. Use
-            “Open in tab”.
+          <div className="text-xs text-muted-foreground">
+            Use “Open in tab” if the embedded PTY hits a Daytona or browser edge
+            case.
           </div>
         </div>
       )}

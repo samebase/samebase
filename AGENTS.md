@@ -400,6 +400,10 @@ Auth:
   minimal solution works.
 - When removing legacy systems, prefer clean removal and rely on git history for
   recovery instead of keeping deprecated code or data structures around.
+- Make checkpoint commits during active implementation instead of letting large
+  local diffs accumulate. As a rule of thumb, commit at each meaningful
+  milestone and before uncommitted changes grow much beyond roughly 100-200
+  lines, unless the work is too intertwined to split safely.
 - Always create a working branch (use `codex/` prefix when needed), and push
   after every commit so the remote stays up to date.
 - Do not introduce new `.mjs` files; keep `type: "module"` and prefer `.js`
