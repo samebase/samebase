@@ -272,9 +272,7 @@ export function DaytonaWorkspaceButton({
         const label = result.sandboxName ?? result.sandboxId ?? "sandbox";
         setStartupMetrics(result.startupMetrics ?? null);
         setHasError(false);
-        setMessage(
-          result.message ?? `Daytona ${label} created. Check Daytona UI.`,
-        );
+        setMessage(result.message ?? `Daytona sandbox ${label} is ready.`);
         setBootstrapLogs(null);
         const nextTerminalSession = await openTerminalSession(true);
         if (nextTerminalSession) {
@@ -286,7 +284,7 @@ export function DaytonaWorkspaceButton({
       setMessage(
         error instanceof Error
           ? error.message
-          : "Failed to start Daytona workspace",
+          : "Failed to create Daytona sandbox",
       );
     } finally {
       setIsStarting(false);
@@ -707,10 +705,10 @@ export function DaytonaWorkspaceButton({
       {isStarting ? (
         <>
           <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-          Launching Daytona...
+          Creating sandbox...
         </>
       ) : (
-        "Launch Daytona"
+        "Create sandbox"
       )}
     </Button>
   );

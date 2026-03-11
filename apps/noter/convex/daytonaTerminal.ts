@@ -417,8 +417,8 @@ async function resolveDaytonaSandboxForVault(args: {
       return {
         ok: false,
         message: requestedBranch
-          ? `No Daytona sandbox found for branch ${requestedBranch}. Click Launch Daytona first.`
-          : "No Daytona sandbox is connected to this vault yet. Click Launch Daytona first.",
+          ? `No Daytona sandbox found for branch ${requestedBranch}. Click Create sandbox first.`
+          : "No Daytona sandbox is connected to this vault yet. Click Create sandbox first.",
       };
     }
 
@@ -427,8 +427,8 @@ async function resolveDaytonaSandboxForVault(args: {
       return {
         ok: false,
         message: requestedBranch
-          ? `No Daytona sandbox found for branch ${requestedBranch}. Click Launch Daytona first.`
-          : "No Daytona sandbox is connected to this vault yet. Click Launch Daytona first.",
+          ? `No Daytona sandbox found for branch ${requestedBranch}. Click Create sandbox first.`
+          : "No Daytona sandbox is connected to this vault yet. Click Create sandbox first.",
       };
     }
 
@@ -437,8 +437,8 @@ async function resolveDaytonaSandboxForVault(args: {
       return {
         ok: false,
         message: requestedBranch
-          ? `No Daytona sandbox found for branch ${requestedBranch}. Click Launch Daytona first.`
-          : "No Daytona sandbox is connected to this vault yet. Click Launch Daytona first.",
+          ? `No Daytona sandbox found for branch ${requestedBranch}. Click Create sandbox first.`
+          : "No Daytona sandbox is connected to this vault yet. Click Create sandbox first.",
       };
     }
 
