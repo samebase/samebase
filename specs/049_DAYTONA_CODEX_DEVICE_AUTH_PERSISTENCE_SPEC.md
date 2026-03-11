@@ -3,7 +3,7 @@
 ## Status
 
 - Proposed
-- Last updated: 2026-03-10
+- Last updated: 2026-03-11
 
 ## Summary
 
@@ -207,10 +207,21 @@ Actions:
 3. `disconnectCodex`
 4. `getCodexConnectionStatus`
 
+Authorization rule for all Codex auth actions:
+
+1. Resolve the Codex provider connection from the authenticated user on the
+   server.
+2. Derive the Daytona `volumeId` from that server-owned record.
+3. Do not trust raw client-supplied `volumeId` values or another user's
+   connection identifiers.
+4. If `verifyCodexLoginInSandbox` targets an existing sandbox, verify that the
+   sandbox also belongs to the authenticated user before attaching or checking
+   anything inside it.
+
 ### Daytona create path
 
-When a user has a Codex provider connection, attach that user’s Codex auth
-volume during sandbox creation and recreate.
+When the authenticated user has a Codex provider connection, attach only that
+user’s Codex auth volume during sandbox creation and recreate.
 
 This should happen in the Daytona creation path, not by copying secrets into the
 repo after boot.
