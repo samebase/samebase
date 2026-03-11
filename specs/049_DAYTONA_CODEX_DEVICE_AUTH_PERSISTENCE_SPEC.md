@@ -19,6 +19,22 @@ This is a Daytona-specific provider flow, not a popup OAuth flow.
 Keep Codex login alive across Daytona sandbox recreation without storing
 `auth.json` in Convex, git, env vars, snapshots, or repo files.
 
+## MVP Path
+
+This spec defines one MVP path only:
+
+1. The user already has an active Daytona sandbox for the vault.
+2. Noter ensures the user's dedicated Codex auth volume exists.
+3. Noter mounts that volume into the sandbox at `/home/daytona/.codex`.
+4. The sandbox sets `CODEX_HOME=/home/daytona/.codex`.
+5. Noter opens a terminal in that sandbox and shows `codex login --device-auth`.
+6. The user completes device auth in that sandbox.
+7. Noter verifies with `codex login status` in that same sandbox.
+8. Noter stores only metadata in `providerConnections`.
+
+There is no second login path, popup OAuth path, or secret-copying fallback in
+MVP.
+
 ## Non-Goals
 
 1. No shared multi-user volume design.
@@ -119,7 +135,7 @@ Do not place Codex secrets in:
 
 Inside the sandbox:
 
-1. create `CODEX_HOME` if missing
+1. create `CODEX_HOME` if missing as a normal bootstrap step
 2. keep it outside `/home/daytona/workspace/<repo>`
 3. set restrictive permissions on the directory
 4. never print `auth.json`
@@ -139,12 +155,11 @@ Current conclusion:
 4. MVP should treat accidental deletion as recoverable: the user reconnects with
    `codex login --device-auth`.
 
-If we later need stronger protection, we can add a recovery/export path or
-revisit whether newer Daytona APIs support read-only mounts.
-
 ## UI Contract
 
 Add a `Codex` row to Providers.
+
+Use the Codex app logo for this row.
 
 Disconnected:
 
@@ -170,6 +185,10 @@ This row should **not** reuse the popup OAuth flow used by GitHub, Convex,
 Netlify, or Cloudflare.
 
 ## User Flow
+
+The volume is storage only. It does not execute anything. A Daytona sandbox is
+required because `codex login --device-auth` and `codex login status` run inside
+that sandbox with the mounted volume.
 
 1. User launches a Daytona workspace.
 2. User clicks `Connect in Daytona`.
@@ -262,12 +281,25 @@ For snapshot speed, volumes are more relevant to **runtime cache reuse** than to
 the snapshot artifact itself. I would keep snapshot optimization and volume
 cache optimization as separate decisions.
 
-## Recommended Follow-Up
+## Delivery
 
-1. Implement the Codex auth volume first.
-2. Do not add pnpm cache volumes yet.
-3. After Codex auth works, measure whether a separate package-cache volume is
-   worth the extra complexity.
+Implement this in one phase.
+
+Included in that phase:
+
+1. Codex provider row with the Codex app logo
+2. per-user Codex auth volume creation and metadata
+3. volume attach on Daytona sandbox create and recreate
+4. terminal-based device auth in the existing sandbox
+5. login verification and provider status updates
+6. disconnect flow
+
+Explicitly out of scope for this phase:
+
+1. package-cache volumes
+2. read-only volume mount research
+3. recovery/export tooling
+4. a separate provider-only sandbox provisioning flow
 
 ## Acceptance Criteria
 
