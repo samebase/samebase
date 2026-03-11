@@ -161,6 +161,18 @@ must extend or remain compatible with the same Noter standard runtime baseline.
 The fallback path should move away from an ad hoc generic base image and toward
 the standard Noter runtime image.
 
+Snapshot/deps-image compatibility here mainly refers to workspace sandboxes and
+snapshot builds, not only the lightweight Codex auth sandbox.
+
+Concretely:
+
+1. commit-pinned workspace snapshots should still boot correctly from the new
+   standard runtime baseline
+2. repo-specific Daytona deps images should either derive from that baseline or
+   stay provably compatible with it
+3. Codex auth sandboxes should stop relying on a separate ad hoc fallback image
+   path
+
 ## Session Model
 
 Noter should treat terminal-backed sandbox sessions as explicit roles.
@@ -309,16 +321,48 @@ But the main observability surface should be the PTY-attached session.
    surface.
 4. Treat session names as internal implementation details, not user input.
 
-## Rollout Plan
+## Phased Plan
 
-1. Define and publish a Noter standard Daytona runtime image that includes
-   `tmux`.
-2. Move user-facing Daytona sandbox fallbacks onto that image baseline.
-3. Add backend support for a tmux-backed `dev_server` PTY role.
-4. Add a `Dev Server` tab next to the existing shell terminal.
-5. Keep `/tmp/noter-dev.log` as fallback only.
-6. Later, decide whether `codex_auth` should also adopt tmux-backed persistence
-   or remain a simpler one-shot session.
+### Phase 0: Existing foundation
+
+- [x] Embedded Daytona PTY transport exists in Noter.
+- [x] Shared `xterm` terminal component exists for Daytona PTY sessions.
+- [x] Workspace shell terminal no longer depends on the Daytona iframe.
+- [x] Codex auth terminal no longer depends on the Daytona iframe.
+- [x] Codex auth can run as a single-purpose, read-only embedded PTY flow.
+- [x] Standard-image follow-up is captured in the Daytona backend TODO and in
+      this spec set.
+
+### Phase 1: Standard runtime image
+
+- [ ] Define and publish a Noter standard Daytona runtime image.
+- [ ] Include `tmux` in that image.
+- [ ] Move user-facing Daytona fallback/base-image paths onto that baseline.
+- [ ] Verify commit-pinned workspace snapshots remain compatible.
+- [ ] Verify repo-specific Daytona deps images derive from or remain compatible
+      with the same baseline.
+- [ ] Verify Codex auth sandboxes use that same runtime family.
+
+### Phase 2: Backend tmux-backed session roles
+
+- [ ] Add backend support for a tmux-backed `dev_server` PTY role.
+- [ ] Add deterministic session naming per sandbox and role.
+- [ ] Add reattach behavior for existing running tmux sessions.
+- [ ] Add `Restart dev server` backend support.
+- [ ] Keep `/tmp/noter-dev.log` as fallback/debug output only.
+
+### Phase 3: UI surface
+
+- [ ] Split Daytona workspace terminal UI into `Shell` and `Dev Server`
+      surfaces.
+- [ ] Make `Dev Server` read-only by default.
+- [ ] Add `Restart dev server` in the workspace UI.
+- [ ] Keep `Open in tab` as fallback until the PTY surfaces are proven stable.
+
+### Phase 4: Follow-up decision
+
+- [ ] Decide whether `codex_auth` should also move to tmux-backed persistence or
+      remain a simpler one-shot PTY session.
 
 ## Acceptance Criteria
 
