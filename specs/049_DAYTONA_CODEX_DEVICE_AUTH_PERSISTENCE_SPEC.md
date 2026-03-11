@@ -158,7 +158,14 @@ Inside the sandbox:
 
 1. keep `CODEX_HOME` outside `/home/daytona/workspace/<repo>`
 2. let the Daytona volume mount provide that path
-3. never print `auth.json`
+3. set `CODEX_HOME` ownership to the runtime user and group for the sandbox
+   session
+4. set `CODEX_HOME` directory mode to `0700`
+5. set `auth.json` mode to `0600`
+6. never print `auth.json`
+
+For the current Daytona terminal path, the runtime user is `root`, so MVP should
+assume `root:root` ownership for `/root/.codex` and `auth.json`.
 
 ## Deletion / Safety Concern
 
@@ -174,6 +181,16 @@ Current conclusion:
    process.
 4. MVP should treat accidental deletion as recoverable: the user reconnects with
    `codex login --device-auth`.
+
+Optional hardening to revisit only if MVP proves too weak:
+
+1. tighter UID separation if Daytona starts exposing a better non-root terminal
+   path for this flow
+2. a recovery or export path for the auth directory
+3. immutable or append-only filesystem flags if they are supported in the target
+   Daytona runtime
+4. platform-level protections such as dedicated labels or mount policies if
+   Daytona later exposes them cleanly
 
 ## UI Contract
 
@@ -241,8 +258,15 @@ How mounting works:
     tells the user to run `codex login --device-auth` there.
 14. User runs the command and completes device auth.
 15. Noter runs `codex login status`.
-16. On success, Noter writes or updates the Codex provider metadata row.
-17. When a vault sandbox is later launched, Noter mounts the same per-user Codex
+16. If `codex login status` exits `0`, Noter writes or updates the Codex
+    provider metadata row with `lastCheckStatus = "ready"`.
+17. If `codex login status` exits non-zero or times out, Noter still updates the
+    provider metadata row, but only with `lastCheckStatus = "needs_reauth"` or
+    `"error"` plus the failure message. Noter must not mark the provider
+    connected in that case.
+18. The UI shows that failure state with a retry path (`Reconnect in Daytona`
+    and `Check login`) instead of pretending login succeeded.
+19. When a vault sandbox is later launched, Noter mounts the same per-user Codex
     volume into that vault sandbox so the login is reused there too, but only
     while the Codex provider connection exists for that user.
 
@@ -384,6 +408,14 @@ Explicitly out of scope for this phase:
 6. No Codex secret is stored in Convex or repo files.
 7. Codex provider UI is clearly different from popup OAuth providers.
 8. MVP uses the existing Daytona terminal iframe, not a new terminal stack.
+9. The Codex row shows explicit loading, ready, reconnect, and error states.
+10. A failed `Check login` attempt leaves the provider in `needs_reauth` or
+    `error`, with a retry action and no false "connected" state.
+11. Disconnect removes the provider row state for that user and clears the
+    shared auth directory even if Daytona delays final volume deletion because
+    another sandbox still has it mounted.
+12. Error flows do not leak `auth.json` or other Codex secrets into Convex, repo
+    files, or user-facing logs.
 
 ## References
 
