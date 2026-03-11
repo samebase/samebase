@@ -847,23 +847,47 @@ async function createDaytonaCodexAuthSandbox(args: {
   };
 
   for (const depsImage of imagePlan.depsImageCandidates) {
+    let sandbox: Sandbox | null = null;
     try {
-      return await args.daytona.create({
+      sandbox = await args.daytona.create({
         ...baseParams,
         image: depsImage,
       });
+      await verifyCodexBinaryInSandbox({ sandbox });
+      return sandbox;
     } catch (error) {
-      if (isNotFoundError(error)) {
-        continue;
+      if (sandbox) {
+        try {
+          await sandbox.delete();
+        } catch (deleteError) {
+          if (!isNotFoundError(deleteError)) {
+            console.warn("daytona:codex-auth:create:cleanup-failed", {
+              userId: args.userId,
+              image: depsImage,
+              sandboxId: sandbox.id,
+              message:
+                deleteError instanceof Error
+                  ? deleteError.message
+                  : String(deleteError),
+            });
+          }
+        }
       }
-      throw error;
+      console.warn("daytona:codex-auth:create:deps-image-failed", {
+        userId: args.userId,
+        image: depsImage,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      continue;
     }
   }
 
-  return await args.daytona.create({
+  const sandbox = await args.daytona.create({
     ...baseParams,
     image: imagePlan.fallbackImage,
   });
+  await verifyCodexBinaryInSandbox({ sandbox });
+  return sandbox;
 }
 
 async function resolveDaytonaCodexAuthSandbox(args: {
@@ -977,6 +1001,50 @@ async function resolveDaytonaCodexAuthSandbox(args: {
     sandboxName: createdSandbox.name,
     lifecycle: "created",
   };
+}
+
+async function resolveVerifiedDaytonaCodexAuthSandbox(args: {
+  ctx: ActionCtx;
+  userId: Id<"users">;
+  daytona: Daytona;
+  baseUrl: string;
+  token: string;
+  volumeId: string;
+  persistedSandboxId?: string;
+}): Promise<CodexAuthSandboxResolution> {
+  const authSandbox = await resolveDaytonaCodexAuthSandbox(args);
+
+  try {
+    await verifyCodexBinaryInSandbox({ sandbox: authSandbox.sandbox });
+    return authSandbox;
+  } catch (error) {
+    try {
+      await authSandbox.sandbox.delete();
+    } catch (deleteError) {
+      if (!isNotFoundError(deleteError)) {
+        throw deleteError;
+      }
+    }
+
+    const recreatedSandbox = await createDaytonaCodexAuthSandbox({
+      ctx: args.ctx,
+      userId: args.userId,
+      daytona: args.daytona,
+      baseUrl: args.baseUrl,
+      token: args.token,
+      sandboxName: buildDaytonaCodexAuthSandboxName({
+        envLabel: getDaytonaEnvLabel(),
+        userId: args.userId,
+      }),
+      volumeId: args.volumeId,
+    });
+
+    return {
+      sandbox: recreatedSandbox,
+      sandboxName: recreatedSandbox.name,
+      lifecycle: "created",
+    };
+  }
 }
 
 async function getDaytonaSandboxTerminalUrl(args: { sandbox: Sandbox }) {
@@ -2176,7 +2244,7 @@ export const prepareCodexAuthSandbox = action({
       envLabel,
       userId,
     });
-    const authSandbox = await resolveDaytonaCodexAuthSandbox({
+    const authSandbox = await resolveVerifiedDaytonaCodexAuthSandbox({
       ctx,
       userId,
       daytona,
@@ -2188,35 +2256,6 @@ export const prepareCodexAuthSandbox = action({
           ? existingConnection.auth.authSandboxId
           : undefined,
     });
-
-    try {
-      await verifyCodexBinaryInSandbox({ sandbox: authSandbox.sandbox });
-    } catch (error) {
-      await ctx.runMutation(internal.providerConnections.upsertCodex, {
-        userId,
-        auth: {
-          method: "device_auth",
-          storage: "daytona_volume",
-          volumeId: codexAuthVolume.id,
-          volumeName: codexAuthVolume.name,
-          codexHome: DAYTONA_CODEX_HOME,
-          authSandboxId: authSandbox.sandbox.id,
-          authSandboxName: authSandbox.sandboxName,
-          lastCheckAt: Date.now(),
-          lastCheckStatus: "error",
-          lastError:
-            error instanceof Error ? error.message : "Codex CLI is missing.",
-        },
-      });
-      return {
-        ok: false,
-        sandboxId: authSandbox.sandbox.id,
-        sandboxName: authSandbox.sandboxName,
-        lastCheckStatus: "error",
-        message:
-          error instanceof Error ? error.message : "Codex CLI is missing.",
-      };
-    }
 
     const loginCheck = await checkCodexLoginInSandbox({
       sandbox: authSandbox.sandbox,
@@ -2316,7 +2355,7 @@ export const verifyCodexLoginInSandbox = action({
       envLabel: getDaytonaEnvLabel(),
       userId,
     });
-    const authSandbox = await resolveDaytonaCodexAuthSandbox({
+    const authSandbox = await resolveVerifiedDaytonaCodexAuthSandbox({
       ctx,
       userId,
       daytona,
@@ -2379,84 +2418,98 @@ export const disconnectCodexProvider = action({
     }
 
     const apiConfig = resolveDaytonaApiConfig();
+    if (!apiConfig.ok) {
+      return {
+        ok: false,
+        message: `${apiConfig.message} Codex disconnect was not completed so the Daytona auth resources can be retried.`,
+      };
+    }
+
     const warningMessages: string[] = [];
-    if (apiConfig.ok) {
-      const daytona = new Daytona({
-        apiKey: apiConfig.token,
-        ...(apiConfig.baseUrl ? { apiUrl: apiConfig.baseUrl } : {}),
-      });
-      let clearedAuthData = false;
+    const daytona = new Daytona({
+      apiKey: apiConfig.token,
+      ...(apiConfig.baseUrl ? { apiUrl: apiConfig.baseUrl } : {}),
+    });
+    let clearedAuthData = false;
+    let clearAuthError: string | null = null;
 
-      const mountedSandboxIds = await listDaytonaSandboxIdsUsingVolume({
-        daytona,
-        volumeId: connection.auth.volumeId,
-      });
-      const cleanupSandboxIds = [
-        ...(connection.auth.authSandboxId
-          ? [connection.auth.authSandboxId]
-          : []),
-        ...mountedSandboxIds.filter(
-          (sandboxId) => sandboxId !== connection.auth.authSandboxId,
-        ),
-      ];
+    const mountedSandboxIds = await listDaytonaSandboxIdsUsingVolume({
+      daytona,
+      volumeId: connection.auth.volumeId,
+    });
+    const cleanupSandboxIds = [
+      ...(connection.auth.authSandboxId ? [connection.auth.authSandboxId] : []),
+      ...mountedSandboxIds.filter(
+        (sandboxId) => sandboxId !== connection.auth.authSandboxId,
+      ),
+    ];
 
-      if (cleanupSandboxIds.length > 0) {
-        let clearAuthError: string | null = null;
-        for (const sandboxId of cleanupSandboxIds) {
-          try {
-            const sandbox = await daytona.get(sandboxId);
-            if (
-              !hasCodexAuthVolumeMount({
-                sandbox,
-                volumeId: connection.auth.volumeId,
-              })
-            ) {
-              continue;
-            }
-            await clearCodexAuthHomeInSandbox({ sandbox });
-            clearedAuthData = true;
-            clearAuthError = null;
-            break;
-          } catch (error) {
-            clearAuthError =
-              error instanceof Error
-                ? error.message
-                : "Failed to clear Codex auth data.";
-          }
-        }
-
-        if (!clearedAuthData && clearAuthError) {
-          warningMessages.push(clearAuthError);
-        }
-      }
-
-      if (connection.auth.authSandboxId) {
+    if (cleanupSandboxIds.length > 0) {
+      for (const sandboxId of cleanupSandboxIds) {
         try {
-          const sandbox = await daytona.get(connection.auth.authSandboxId);
-          await sandbox.delete();
-        } catch (error) {
-          if (!isNotFoundError(error)) {
-            warningMessages.push(
-              error instanceof Error
-                ? error.message
-                : "Failed to delete the Codex auth sandbox.",
-            );
+          const sandbox = await daytona.get(sandboxId);
+          if (
+            !hasCodexAuthVolumeMount({
+              sandbox,
+              volumeId: connection.auth.volumeId,
+            })
+          ) {
+            continue;
           }
+          await clearCodexAuthHomeInSandbox({ sandbox });
+          clearedAuthData = true;
+          clearAuthError = null;
+          break;
+        } catch (error) {
+          clearAuthError =
+            error instanceof Error
+              ? error.message
+              : "Failed to clear Codex auth data.";
         }
       }
+    }
 
+    if (connection.auth.authSandboxId) {
       try {
-        const volume = await daytona.volume.get(connection.auth.volumeName);
-        await daytona.volume.delete(volume);
+        const sandbox = await daytona.get(connection.auth.authSandboxId);
+        await sandbox.delete();
       } catch (error) {
         if (!isNotFoundError(error)) {
           warningMessages.push(
             error instanceof Error
               ? error.message
-              : "Failed to delete the Codex auth volume.",
+              : "Failed to delete the Codex auth sandbox.",
           );
         }
       }
+    }
+
+    let deletedVolume = false;
+    try {
+      const volume = await daytona.volume.get(connection.auth.volumeName);
+      await daytona.volume.delete(volume);
+      deletedVolume = true;
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        deletedVolume = true;
+      } else {
+        warningMessages.push(
+          error instanceof Error
+            ? error.message
+            : "Failed to delete the Codex auth volume.",
+        );
+      }
+    }
+
+    if (!clearedAuthData && clearAuthError && !deletedVolume) {
+      warningMessages.push(clearAuthError);
+    }
+
+    if (warningMessages.length > 0) {
+      return {
+        ok: false,
+        message: `Codex disconnect did not finish. Cleanup failed: ${warningMessages.join(" ")}`,
+      };
     }
 
     await ctx.runMutation(internal.providerConnections.removeByUserAndKind, {
@@ -2466,10 +2519,7 @@ export const disconnectCodexProvider = action({
 
     return {
       ok: true,
-      message:
-        warningMessages.length === 0
-          ? "Codex disconnected from Daytona."
-          : `Codex disconnected from Daytona. Cleanup warning: ${warningMessages.join(" ")}`,
+      message: "Codex disconnected from Daytona.",
     };
   },
 });

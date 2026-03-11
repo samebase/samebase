@@ -112,6 +112,7 @@ export function DaytonaWorkspaceButton({
   const [prebuildLogs, setPrebuildLogs] = useState<string | null>(null);
   const prebuildLogPollRef = useRef<number | null>(null);
   const isFetchingPrebuildLogsRef = useRef(false);
+  const isPollingPrebuildLogsRef = useRef(false);
   const normalizedBranch = branch.trim().toLowerCase();
   const normalizedSnapshotStatus = snapshotStatus?.trim().toLowerCase() ?? "";
   const shouldPollPrebuildLogs =
@@ -164,11 +165,13 @@ export function DaytonaWorkspaceButton({
     }
 
     const pollLogs = () => {
-      if (isFetchingPrebuildLogsRef.current) {
+      if (
+        isFetchingPrebuildLogsRef.current ||
+        isPollingPrebuildLogsRef.current
+      ) {
         return;
       }
-      isFetchingPrebuildLogsRef.current = true;
-      setIsFetchingPrebuildLogs(true);
+      isPollingPrebuildLogsRef.current = true;
 
       void getDaytonaPrebuildLogs({ vaultId, branch })
         .then((result) => {
@@ -178,8 +181,7 @@ export function DaytonaWorkspaceButton({
           setPrebuildLogs(result.logs ?? "");
         })
         .finally(() => {
-          isFetchingPrebuildLogsRef.current = false;
-          setIsFetchingPrebuildLogs(false);
+          isPollingPrebuildLogsRef.current = false;
         });
     };
 
