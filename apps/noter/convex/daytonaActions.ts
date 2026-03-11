@@ -1529,7 +1529,7 @@ async function ensureDaytonaRuntimePackagesInSandbox(args: {
   sandbox: Sandbox;
 }): Promise<"already_present" | "installed"> {
   const checkResult = await args.sandbox.process.executeCommand(
-    `command -v tmux >/dev/null 2>&1 && command -v fish >/dev/null 2>&1 && [ "$(grep "^$(id -un):" /etc/passwd | cut -d: -f7 | head -n 1 || true)" = "$(command -v fish)" ]`,
+    `command -v tmux >/dev/null 2>&1 && command -v fish >/dev/null 2>&1 && command -v make >/dev/null 2>&1 && [ "$(grep "^$(id -un):" /etc/passwd | cut -d: -f7 | head -n 1 || true)" = "$(command -v fish)" ]`,
     undefined,
     undefined,
     30,
@@ -1540,7 +1540,7 @@ async function ensureDaytonaRuntimePackagesInSandbox(args: {
 
   const installScript = stripIndent`
     set -e
-    if command -v tmux >/dev/null 2>&1 && command -v fish >/dev/null 2>&1 && [ "$(grep "^$(id -un):" /etc/passwd | cut -d: -f7 | head -n 1 || true)" = "$(command -v fish)" ]; then
+    if command -v tmux >/dev/null 2>&1 && command -v fish >/dev/null 2>&1 && command -v make >/dev/null 2>&1 && [ "$(grep "^$(id -un):" /etc/passwd | cut -d: -f7 | head -n 1 || true)" = "$(command -v fish)" ]; then
       exit 0
     fi
     if ! command -v apt-get >/dev/null 2>&1; then
@@ -1726,25 +1726,24 @@ async function startDaytonaTmuxSession(args: {
     }
   }
 
-  const loggedCommand = stripIndent`
-    set -e
-    set -o pipefail
-    bash -lc ${quoteForBash(args.command)} 2>&1 | tee -a ${quoteForBash(
-      PNPM_INSTALL_LOG,
-    )} ${quoteForBash(DAYTONA_DEV_LOG)}
-  `;
   const startScript = stripIndent`
     set -e
     session=${quoteForBash(args.sessionName)}
     rm -f ${quoteForBash(DAYTONA_DEV_LOG)} ${quoteForBash(PNPM_INSTALL_LOG)}
     tmux new-session -d -s "$session" ${quoteForBash(
-      `bash -lc ${quoteForBash(loggedCommand)}`,
+      `bash -lc ${quoteForBash(args.command)}`,
+    )}
+    tmux pipe-pane -o -t "$session":0.0 ${quoteForBash(
+      `tee -a ${quoteForBash(PNPM_INSTALL_LOG)} ${quoteForBash(
+        DAYTONA_DEV_LOG,
+      )} >/dev/null`,
     )}
     tmux set-option -t "$session" status off >/dev/null
     tmux set-option -t "$session" mouse off >/dev/null
     tmux set-option -t "$session" remain-on-exit on >/dev/null
     sleep 1
-    tmux has-session -t "$session"
+    pane_dead="$(tmux list-panes -t "$session" -F '#{pane_dead}' 2>/dev/null | head -n 1 || true)"
+    [ "$pane_dead" = "0" ]
   `;
   const startCommand = `bash -lc ${quoteForBash(startScript)}`;
   const result = await args.sandbox.process.executeCommand(

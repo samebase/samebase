@@ -66,6 +66,9 @@ export function DaytonaPtyTerminal({
     if (!container) {
       return;
     }
+    lastSizeRef.current = null;
+
+    let isDisposed = false;
 
     const terminal = new Terminal({
       disableStdin: !allowInput,
@@ -102,12 +105,16 @@ export function DaytonaPtyTerminal({
     const fitAddon = new FitAddon();
     const textDecoder = new TextDecoder();
     const textEncoder = new TextEncoder();
+    const resizeTimeoutIds = new Set<number>();
 
     terminal.loadAddon(fitAddon);
     terminal.open(container);
     terminal.writeln("Connecting to Daytona terminal...");
 
     const sendResize = () => {
+      if (isDisposed) {
+        return;
+      }
       fitAddon.fit();
       const cols = terminal.cols;
       const rows = terminal.rows;
@@ -119,8 +126,16 @@ export function DaytonaPtyTerminal({
       onResizeSessionRef.current(session.sessionId, cols, rows);
     };
 
+    const queueResize = () => {
+      const timeoutId = window.setTimeout(() => {
+        resizeTimeoutIds.delete(timeoutId);
+        sendResize();
+      }, 0);
+      resizeTimeoutIds.add(timeoutId);
+    };
+
     const resizeObserver = new ResizeObserver(() => {
-      window.setTimeout(sendResize, 0);
+      queueResize();
     });
     resizeObserver.observe(container);
 
@@ -134,7 +149,6 @@ export function DaytonaPtyTerminal({
     );
     socket.binaryType = "arraybuffer";
 
-    let isDisposed = false;
     let initialInputSent = false;
     let initialInputTimeout: number | null = null;
 
@@ -171,7 +185,7 @@ export function DaytonaPtyTerminal({
                 socket.send(textEncoder.encode(session.initialInput ?? ""));
               }, 200);
             }
-            window.setTimeout(sendResize, 0);
+            queueResize();
             return;
           }
 
@@ -239,13 +253,17 @@ export function DaytonaPtyTerminal({
       onSessionExitRef.current?.(message);
     });
 
-    window.setTimeout(sendResize, 0);
+    queueResize();
 
     return () => {
       isDisposed = true;
       if (initialInputTimeout !== null) {
         window.clearTimeout(initialInputTimeout);
       }
+      for (const timeoutId of resizeTimeoutIds) {
+        window.clearTimeout(timeoutId);
+      }
+      resizeTimeoutIds.clear();
       resizeObserver.disconnect();
       dataDisposable?.dispose();
       socket.close();
