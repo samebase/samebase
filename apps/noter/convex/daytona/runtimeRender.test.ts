@@ -58,8 +58,10 @@ describe("Daytona runtime source of truth", () => {
     const authFallbackCommands = renderDaytonaAuthFallbackDockerfileCommands();
     const prebuildCommands = renderDaytonaPrebuildDockerfileCommands();
 
-    expect(prebuildCommands[0]).toBe(authFallbackCommands[0]);
-    expect(prebuildCommands[1]).toBe(authFallbackCommands[1]);
+    expect(prebuildCommands).toHaveLength(authFallbackCommands.length + 1);
+    expect(prebuildCommands.slice(0, 2)).toEqual(
+      authFallbackCommands.slice(0, 2),
+    );
     expect(prebuildCommands.at(-1)).toBe(authFallbackCommands.at(-1));
   });
 });

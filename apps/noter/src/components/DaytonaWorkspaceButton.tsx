@@ -50,9 +50,6 @@ type OpenWorkspaceDevServerPtySessionResult = FunctionReturnType<
 
 type WorkspaceTerminalKind = "shell" | "dev_server";
 
-const DEV_SERVER_LOG_FOLLOW_COMMAND =
-  "clear >/dev/null 2>&1; exec tail -n 200 -F '/tmp/noter-dev.log'\n";
-
 const formatDuration = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 
 const formatRepoRefreshReason = (reason: string) => {
@@ -205,6 +202,7 @@ export function DaytonaWorkspaceButton({
       void closeWorkspacePtySession({
         vaultId,
         branch,
+        sandboxId: activeSession.sandboxId,
         sessionId: activeSession.sessionId,
       });
     };
@@ -351,6 +349,9 @@ export function DaytonaWorkspaceButton({
       sessionId: result.sessionId,
       webSocketUrl: result.webSocketUrl,
       previewToken: result.previewToken,
+      sandboxId: result.sandboxId,
+      initialOutput:
+        "initialOutput" in result ? result.initialOutput : undefined,
     };
   };
 
@@ -372,6 +373,7 @@ export function DaytonaWorkspaceButton({
       const result = await closeWorkspacePtySession({
         vaultId,
         branch,
+        sandboxId: activeSession.sandboxId,
         sessionId: activeSession.sessionId,
       });
       if (result.ok) {
@@ -486,19 +488,14 @@ export function DaytonaWorkspaceButton({
         );
         return null;
       }
-      const nextDevServerSession: DaytonaPtySession = {
-        ...nextSession,
-        initialInput: DEV_SERVER_LOG_FOLLOW_COMMAND,
-      };
-
-      terminalSessionRef.current = nextDevServerSession;
-      setTerminalSession(nextDevServerSession);
+      terminalSessionRef.current = nextSession;
+      setTerminalSession(nextSession);
       setActiveTerminalKind("dev_server");
       if (!isSilent) {
         setHasError(false);
         setMessage(result.message ?? "Dev server terminal session ready.");
       }
-      return nextDevServerSession;
+      return nextSession;
     } catch (error) {
       setHasError(true);
       setMessage(
@@ -992,9 +989,20 @@ export function DaytonaWorkspaceButton({
               void resizeWorkspacePtySession({
                 vaultId,
                 branch,
+                sandboxId: terminalSession.sandboxId,
                 sessionId,
                 cols,
                 rows,
+              }).catch((error) => {
+                console.warn("daytona:workspace:pty:resize-failed", {
+                  vaultId,
+                  branch,
+                  sessionId,
+                  cols,
+                  rows,
+                  message:
+                    error instanceof Error ? error.message : String(error),
+                });
               });
             }}
             onSessionError={(terminalMessage) => {

@@ -185,8 +185,6 @@ FROM \${BASE_IMAGE}
 
 ARG WORKSPACE_DIR=${manifest.workspaceDir}
 ARG REPO_NAME=${manifest.repoName}
-ARG PNPM_VERSION=${manifest.pnpmVersion}
-ARG CODEX_CLI_VERSION=${manifest.codexCliVersion}
 
 WORKDIR \${WORKSPACE_DIR}/\${REPO_NAME}
 

@@ -1716,7 +1716,10 @@ async function startDaytonaTmuxSession(args: {
     sandbox: args.sandbox,
     sessionName: args.sessionName,
   });
-  if (existingSessionState === "running" || existingSessionState === "dead") {
+  if (existingSessionState === "running") {
+    return "already_running";
+  }
+  if (existingSessionState === "dead") {
     const cleanupCommand = `bash -lc ${quoteForBash(
       `tmux kill-session -t ${quoteForBash(args.sessionName)}`,
     )}`;
@@ -1772,12 +1775,17 @@ async function startDaytonaDevServerBackground(args: {
   repoDir: string;
   devOrigin: string | null;
 }): Promise<void> {
-  const installLogPath = quoteForBash(PNPM_INSTALL_LOG);
-  const devLogPath = quoteForBash(DAYTONA_DEV_LOG);
-  const wrappedCommand = `${buildDaytonaSafeDevServerCommand({
+  const devServerScript = buildDaytonaSafeDevServerCommand({
     repoDir: args.repoDir,
     devOrigin: args.devOrigin,
-  })} 2>&1 | tee ${installLogPath}`;
+  });
+  const installLogPath = quoteForBash(PNPM_INSTALL_LOG);
+  const devLogPath = quoteForBash(DAYTONA_DEV_LOG);
+  const wrappedCommand = stripIndent`
+    (
+    ${devServerScript}
+    ) 2>&1 | tee ${installLogPath}
+  `;
   const script = stripIndent`
     set -e
     rm -f ${quoteForBash(PNPM_INSTALL_LOG)} ${quoteForBash(DAYTONA_DEV_LOG)}
@@ -3363,18 +3371,25 @@ export const startDaytonaDevServerFast = action({
     }
 
     const repoDir = `${DEFAULT_WORKSPACE_DIR}/${vault.ghRepoName}`;
+    const installLogPath = quoteForBash(PNPM_INSTALL_LOG);
+    const devLogPath = quoteForBash(DAYTONA_DEV_LOG);
+    const devServerScript = buildDaytonaSafeDevServerCommand({
+      repoDir,
+      devOrigin: null,
+    });
+    const wrappedCommand = stripIndent`
+      (
+      ${devServerScript}
+      ) 2>&1 | tee ${installLogPath}
+    `;
     const startScript = stripIndent`
       set -e
       if [ ! -d "${repoDir}" ]; then
         echo "__NOTER_REPO_MISSING__"
         exit 1
       fi
-      nohup bash -lc ${quoteForBash(
-        `${buildDaytonaSafeDevServerCommand({
-          repoDir,
-          devOrigin: null,
-        })} > ${quoteForBash(DAYTONA_DEV_LOG)} 2>&1`,
-      )} >/dev/null 2>&1 &
+      rm -f ${quoteForBash(PNPM_INSTALL_LOG)} ${quoteForBash(DAYTONA_DEV_LOG)}
+      nohup bash -lc ${quoteForBash(wrappedCommand)} > ${devLogPath} 2>&1 &
     `;
     const startCommand = `bash -lc ${quoteForBash(startScript)}`;
     const startResult = await sandbox.process.executeCommand(

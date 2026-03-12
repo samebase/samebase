@@ -14,7 +14,9 @@ export type DaytonaPtySession = {
   sessionId: string;
   webSocketUrl: string;
   previewToken: string;
+  sandboxId?: string;
   initialInput?: string;
+  initialOutput?: string;
 };
 
 interface DaytonaPtyTerminalProps {
@@ -113,6 +115,12 @@ export function DaytonaPtyTerminal({
     terminal.loadAddon(fitAddon);
     terminal.open(container);
     terminal.writeln("Connecting to Daytona terminal...");
+    if (
+      typeof session.initialOutput === "string" &&
+      session.initialOutput.length > 0
+    ) {
+      terminal.write(session.initialOutput);
+    }
 
     const reportSessionError = (message: string) => {
       if (isDisposed || sessionErrorReported) {
@@ -283,6 +291,7 @@ export function DaytonaPtyTerminal({
   }, [
     allowInput,
     session.initialInput,
+    session.initialOutput,
     session.previewToken,
     session.sessionId,
     session.webSocketUrl,

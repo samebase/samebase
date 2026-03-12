@@ -32,6 +32,10 @@ const MAX_TERMINAL_COLS = 320;
 const MAX_TERMINAL_ROWS = 120;
 const CODEX_DEVICE_AUTH_COMMAND =
   "clear >/dev/null 2>&1; codex login --device-auth; exit\n";
+const DEV_SERVER_LOG_FOLLOW_COMMAND =
+  "clear >/dev/null 2>&1; exec tail -n 200 -F '/tmp/noter-dev.log'\n";
+const DEFAULT_PTY_IDLE_CAPTURE_MS = 150;
+const DEFAULT_PTY_CAPTURE_TIMEOUT_MS = 600;
 
 const openWorkspacePtySessionArgs = object({
   vaultId: id("vaults"),
@@ -45,6 +49,7 @@ const openWorkspacePtySessionResult = object({
   sessionId: optional(string()),
   webSocketUrl: optional(string()),
   previewToken: optional(string()),
+  sandboxId: optional(string()),
   sandboxName: optional(string()),
   message: optional(string()),
 });
@@ -61,13 +66,16 @@ const openWorkspaceDevServerPtySessionResult = object({
   sessionId: optional(string()),
   webSocketUrl: optional(string()),
   previewToken: optional(string()),
+  sandboxId: optional(string()),
   sandboxName: optional(string()),
+  initialOutput: optional(string()),
   message: optional(string()),
 });
 
 const resizeWorkspacePtySessionArgs = object({
   vaultId: id("vaults"),
   branch: optional(string()),
+  sandboxId: optional(string()),
   sessionId: string(),
   cols: number(),
   rows: number(),
@@ -81,6 +89,7 @@ const resizeWorkspacePtySessionResult = object({
 const closeWorkspacePtySessionArgs = object({
   vaultId: id("vaults"),
   branch: optional(string()),
+  sandboxId: optional(string()),
   sessionId: string(),
 });
 
@@ -142,10 +151,7 @@ function resolveDaytonaApiConfig():
   if (missing.length > 0) {
     return {
       ok: false,
-      message:
-        missing.length === 0
-          ? "Daytona is not configured."
-          : `Daytona is not configured. Missing ${missing.join(", ")}.`,
+      message: `Daytona is not configured. Missing ${missing.join(", ")}.`,
     };
   }
 
@@ -465,6 +471,7 @@ async function resolveWorkspacePtyContext(args: {
   ctx: ActionCtx;
   vaultId: Id<"vaults">;
   branch?: string;
+  sandboxId?: string;
 }): Promise<
   | {
       ok: true;
@@ -499,13 +506,14 @@ async function resolveWorkspacePtyContext(args: {
     ctx: args.ctx,
     daytona,
     vaultId: args.vaultId,
-    daytonaSandboxId: vault.daytonaSandboxId,
+    daytonaSandboxId: args.sandboxId?.trim() || vault.daytonaSandboxId,
     daytonaSandboxName: vault.daytonaSandboxName,
     requestedBranch,
-    requestedCommitSha:
-      canonicalizeCommitPinnedDaytonaBranch(
-        requestedBranch || DAYTONA_COMMIT_PINNED_BRANCH,
-      ) === DAYTONA_COMMIT_PINNED_BRANCH
+    requestedCommitSha: args.sandboxId
+      ? undefined
+      : canonicalizeCommitPinnedDaytonaBranch(
+            requestedBranch || DAYTONA_COMMIT_PINNED_BRANCH,
+          ) === DAYTONA_COMMIT_PINNED_BRANCH
         ? vault.commitSHA?.trim()
         : undefined,
   });
@@ -681,6 +689,65 @@ async function openPtySession(args: {
   }
 }
 
+async function waitForPtyOutputIdle(args: {
+  lastChunkAtRef: { current: number };
+  sawOutputRef: { current: boolean };
+  idleMs?: number;
+  timeoutMs?: number;
+}): Promise<void> {
+  const idleMs = args.idleMs ?? DEFAULT_PTY_IDLE_CAPTURE_MS;
+  const timeoutMs = args.timeoutMs ?? DEFAULT_PTY_CAPTURE_TIMEOUT_MS;
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    if (
+      args.sawOutputRef.current &&
+      Date.now() - args.lastChunkAtRef.current >= idleMs
+    ) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
+async function primePtySession(args: {
+  sandbox: Sandbox;
+  sessionId: string;
+  initialInput: string;
+}): Promise<string> {
+  const textDecoder = new TextDecoder();
+  const outputChunks: string[] = [];
+  const lastChunkAtRef = { current: Date.now() };
+  const sawOutputRef = { current: false };
+
+  let ptyHandle: Awaited<ReturnType<Sandbox["process"]["connectPty"]>> | null =
+    null;
+  try {
+    ptyHandle = await args.sandbox.process.connectPty(args.sessionId, {
+      onData: async (data) => {
+        outputChunks.push(textDecoder.decode(data, { stream: true }));
+        lastChunkAtRef.current = Date.now();
+        sawOutputRef.current = true;
+      },
+    });
+    await ptyHandle.waitForConnection();
+    await ptyHandle.sendInput(args.initialInput);
+    await waitForPtyOutputIdle({
+      lastChunkAtRef,
+      sawOutputRef,
+    });
+    return `${outputChunks.join("")}${textDecoder.decode()}`;
+  } finally {
+    if (ptyHandle) {
+      try {
+        await ptyHandle.disconnect();
+      } catch {
+        // Best-effort disconnect only.
+      }
+    }
+  }
+}
+
 export const openWorkspacePtySession = action({
   args: openWorkspacePtySessionArgs,
   returns: openWorkspacePtySessionResult,
@@ -716,7 +783,14 @@ export const openWorkspacePtySession = action({
 
     try {
       await ensureSandboxStarted(resolved.sandbox);
-      await ensureFishInSandbox({ sandbox: resolved.sandbox });
+      try {
+        await ensureFishInSandbox({ sandbox: resolved.sandbox });
+      } catch (error) {
+        console.warn("daytona:pty:fish-setup-skipped", {
+          sandboxId: resolved.sandbox.id,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
       const connection = await openPtySession({
         sandbox: resolved.sandbox,
         baseUrl: resolved.baseUrl,
@@ -732,6 +806,7 @@ export const openWorkspacePtySession = action({
         sessionId,
         webSocketUrl: connection.webSocketUrl,
         previewToken: connection.previewToken,
+        sandboxId: resolved.sandbox.id,
         sandboxName: resolved.sandboxName,
         message: resolved.sandboxName
           ? `Terminal session ready for ${resolved.sandboxName}.`
@@ -792,18 +867,39 @@ export const openWorkspaceDevServerPtySession = action({
         cols,
         rows,
       });
+      const initialOutput = await primePtySession({
+        sandbox: resolved.sandbox,
+        sessionId,
+        initialInput: DEV_SERVER_LOG_FOLLOW_COMMAND,
+      });
 
       return {
         ok: true,
         sessionId,
         webSocketUrl: connection.webSocketUrl,
         previewToken: connection.previewToken,
+        sandboxId: resolved.sandbox.id,
         sandboxName: resolved.sandboxName,
+        initialOutput,
         message: resolved.sandboxName
           ? `Dev server terminal ready for ${resolved.sandboxName}.`
           : "Dev server terminal ready.",
       };
     } catch (error) {
+      try {
+        await resolved.sandbox.process.killPtySession(sessionId);
+      } catch (killError) {
+        if (!isNotFoundError(killError)) {
+          console.warn("daytona:dev-server-pty:cleanup:failed", {
+            sandboxId: resolved.sandbox.id,
+            sessionId,
+            message:
+              killError instanceof Error
+                ? killError.message
+                : String(killError),
+          });
+        }
+      }
       return {
         ok: false,
         message:
@@ -889,6 +985,7 @@ export const resizeWorkspacePtySession = action({
       ctx,
       vaultId: args.vaultId,
       branch: args.branch,
+      sandboxId: args.sandboxId,
     });
     if (!resolved.ok) {
       return {
@@ -948,6 +1045,7 @@ export const closeWorkspacePtySession = action({
       ctx,
       vaultId: args.vaultId,
       branch: args.branch,
+      sandboxId: args.sandboxId,
     });
     if (!resolved.ok) {
       return {
