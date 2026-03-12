@@ -26,6 +26,9 @@ This spec supersedes the file-tail-first direction from
 `011_DAYTONA_DEV_SERVER_STATUS_AND_LOGS_SPEC.md` for the primary dev-server UI.
 Log files remain acceptable as fallback/debug artifacts, not the main UX.
 
+Authorship and generation details for the Daytona runtime contract are covered
+separately in `052_DAYTONA_RUNTIME_MANIFEST_AND_SANDBOX_PROGRAMS_SPEC.md`.
+
 ## Problem
 
 Noter now has embedded Daytona PTY terminals, which makes a better in-app
