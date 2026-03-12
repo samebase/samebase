@@ -1711,15 +1711,18 @@ async function startDaytonaTmuxSession(args: {
   sandbox: Sandbox;
   sessionName: string;
   command: string;
+  replaceRunning?: boolean;
 }): Promise<"started" | "already_running"> {
   const existingSessionState = await getDaytonaTmuxSessionState({
     sandbox: args.sandbox,
     sessionName: args.sessionName,
   });
   if (existingSessionState === "running") {
-    return "already_running";
+    if (args.replaceRunning !== true) {
+      return "already_running";
+    }
   }
-  if (existingSessionState === "dead") {
+  if (existingSessionState === "dead" || existingSessionState === "running") {
     const cleanupCommand = `bash -lc ${quoteForBash(
       `tmux kill-session -t ${quoteForBash(args.sessionName)}`,
     )}`;
@@ -1895,6 +1898,7 @@ async function startDaytonaDevServer(args: {
         repoDir: args.repoDir,
         devOrigin,
       }),
+      replaceRunning: true,
     });
     return {
       status: tmuxStatus,
