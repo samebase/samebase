@@ -70,13 +70,23 @@ module.exports = {
   },
   overrides: [
     {
+      files: ['scripts/**/*.js', 'runtime/**/*.js'],
+      env: {
+        node: true,
+      },
+      parserOptions: {
+        EXPERIMENTAL_useProjectService: false,
+        project: ['./tsconfig.scripts.json'],
+        tsconfigRootDir: __dirname,
+      },
+    },
+    {
       files: [
         '**/*.config.js',
         '**/*.config.cjs',
         '**/*.config.mjs',
         '**/*.config.ts',
         '**/*.cjs',
-        'scripts/**/*.{js,ts}',
         'apps/noter/convex/**/*.{ts,tsx}',
         'apps/noter-starter-template/convex/**/*.{ts,tsx}',
         'apps/noter/*.js',

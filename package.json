@@ -13,8 +13,8 @@
     "dev": "turbo run dev --filter=noter",
     "build": "turbo run build --filter=noter",
     "build:ci": "turbo run build:ci --filter=noter",
-    "lint": "turbo run lint --filter=noter && pnpm typecheck:scripts",
-    "lint:ci": "turbo run lint:ci --filter=noter && pnpm typecheck:scripts",
+    "lint": "turbo run lint --filter=noter && pnpm typecheck:scripts && pnpm lint:scripts",
+    "lint:ci": "turbo run lint:ci --filter=noter && pnpm typecheck:scripts && pnpm lint:scripts",
     "ci:convex-bootstrap": "CONVEX_AGENT_MODE=anonymous pnpm --filter noter exec convex dev --until-success --typecheck=disable --tail-logs=disable",
     "format": "prettier --write .",
     "preview": "turbo run preview",
@@ -31,6 +31,7 @@
     "daytona:refresh": "bash scripts/daytona-refresh.sh",
     "daytona:runtime:render": "node scripts/render-daytona-runtime.js",
     "daytona:runtime:check": "node scripts/render-daytona-runtime.js --check",
+    "lint:scripts": "pnpm exec eslint runtime scripts --ext js --config .eslintrc.cjs",
     "typecheck:scripts": "tsc -p tsconfig.scripts.json --pretty false"
   },
   "devDependencies": {
