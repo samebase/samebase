@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 const SNAPSHOT_POLL_INTERVAL_MS = 5_000;
 
 type ListSnapshotsResult = FunctionReturnType<
-  typeof api.daytonaActions.listDaytonaSnapshotsForVault
+  typeof api.daytona.actions.listDaytonaSnapshotsForVault
 >;
 type SnapshotRow = ListSnapshotsResult["snapshots"][number];
 
@@ -71,10 +71,10 @@ export function DaytonaSnapshotList({
   className,
 }: DaytonaSnapshotListProps) {
   const listDaytonaSnapshotsForVault = useAction(
-    api.daytonaActions.listDaytonaSnapshotsForVault,
+    api.daytona.actions.listDaytonaSnapshotsForVault,
   );
   const removeDaytonaSnapshot = useAction(
-    api.daytonaActions.removeDaytonaSnapshot,
+    api.daytona.actions.removeDaytonaSnapshot,
   );
   const fetchInFlightRef = useRef(false);
 

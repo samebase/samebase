@@ -1,5 +1,5 @@
-import { getDaytonaEnvLabel } from "./daytonaEnv";
-import { toSafeRepoName } from "./repoName";
+import { getDaytonaEnvLabel } from "./env";
+import { toSafeRepoName } from "../repoName";
 
 export const DAYTONA_COMMIT_PINNED_BRANCH = "main";
 export const DAYTONA_SNAPSHOT_RETENTION_COUNT = 3;

@@ -7,14 +7,14 @@ import {
 import { Daytona, type Sandbox } from "@daytonaio/sdk";
 import { randomUUID } from "crypto";
 import { Infer, v } from "convex/values";
-import { action, type ActionCtx } from "./_generated/server";
-import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
-import { getUserId } from "./common";
+import { action, type ActionCtx } from "../_generated/server";
+import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
+import { getUserId } from "../common";
 import {
   canonicalizeCommitPinnedDaytonaBranch,
   DAYTONA_COMMIT_PINNED_BRANCH,
-} from "./daytonaSnapshotPolicy";
+} from "./snapshotPolicy";
 
 const { object, id, string, optional, number, boolean } = v;
 

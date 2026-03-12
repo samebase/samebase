@@ -4,14 +4,14 @@ import {
   internalQuery,
   type MutationCtx,
   type QueryCtx,
-} from "./_generated/server";
-import { internal } from "./_generated/api";
+} from "../_generated/server";
+import { internal } from "../_generated/api";
 import {
   canonicalizeCommitPinnedDaytonaBranch,
   DAYTONA_COMMIT_PINNED_BRANCH,
   inferCommitPinnedSnapshotName,
-} from "./daytonaSnapshotPolicy";
-import { DaytonaSnapshotBuildStatus } from "./schema";
+} from "./snapshotPolicy";
+import { DaytonaSnapshotBuildStatus } from "../schema";
 
 const {
   array,
@@ -436,7 +436,7 @@ export const markBuildFailedAndScheduleRetry = internalMutation({
 
     await ctx.scheduler.runAfter(
       args.retryDelayMs,
-      internal.daytonaActions.buildCommitPinnedSnapshot,
+      internal.daytona.actions.buildCommitPinnedSnapshot,
       {
         userId: args.userId,
         owner: args.owner,

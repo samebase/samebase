@@ -15,15 +15,17 @@ export function DaytonaPreviewPanel({
   vaultId,
   className,
 }: DaytonaPreviewPanelProps) {
-  const getDaytonaPreviewUrl = useAction(api.daytonaActions.getDaytonaPreviewUrl);
+  const getDaytonaPreviewUrl = useAction(
+    api.daytona.actions.getDaytonaPreviewUrl,
+  );
   const startDaytonaDevServerSafe = useAction(
-    api.daytonaActions.startDaytonaDevServerSafe,
+    api.daytona.actions.startDaytonaDevServerSafe,
   );
   const startDaytonaDevServerFast = useAction(
-    api.daytonaActions.startDaytonaDevServerFast,
+    api.daytona.actions.startDaytonaDevServerFast,
   );
   const getDaytonaDevServerStatus = useAction(
-    api.daytonaActions.getDaytonaDevServerStatus,
+    api.daytona.actions.getDaytonaDevServerStatus,
   );
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -150,9 +152,7 @@ export function DaytonaPreviewPanel({
     } catch (error) {
       setHasError(true);
       setMessage(
-        error instanceof Error
-          ? error.message
-          : "Failed to start dev server.",
+        error instanceof Error ? error.message : "Failed to start dev server.",
       );
     } finally {
       setIsStartingDevSafe(false);
@@ -179,9 +179,7 @@ export function DaytonaPreviewPanel({
     } catch (error) {
       setHasError(true);
       setMessage(
-        error instanceof Error
-          ? error.message
-          : "Failed to start dev server.",
+        error instanceof Error ? error.message : "Failed to start dev server.",
       );
     } finally {
       setIsStartingDevFast(false);

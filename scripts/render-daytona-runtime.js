@@ -16,7 +16,7 @@ const outputFiles = [
     contents: renderDockerfileDaytonaDeps(),
   },
   {
-    path: path.join(repoRoot, 'apps/noter/convex/daytonaRuntime.generated.ts'),
+    path: path.join(repoRoot, 'apps/noter/convex/daytona/runtime.generated.ts'),
     contents: renderDaytonaRuntimeGeneratedTsModule(),
   },
 ]

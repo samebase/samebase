@@ -36,16 +36,16 @@ interface DaytonaWorkspaceButtonProps {
 }
 
 type StartDaytonaWorkspaceResult = FunctionReturnType<
-  typeof api.daytonaActions.startDaytonaWorkspace
+  typeof api.daytona.actions.startDaytonaWorkspace
 >;
 type StartupMetrics = NonNullable<
   StartDaytonaWorkspaceResult["startupMetrics"]
 >;
 type OpenWorkspacePtySessionResult = FunctionReturnType<
-  typeof api.daytonaTerminal.openWorkspacePtySession
+  typeof api.daytona.terminal.openWorkspacePtySession
 >;
 type OpenWorkspaceDevServerPtySessionResult = FunctionReturnType<
-  typeof api.daytonaTerminal.openWorkspaceDevServerPtySession
+  typeof api.daytona.terminal.openWorkspaceDevServerPtySession
 >;
 
 type WorkspaceTerminalKind = "shell" | "dev_server";
@@ -84,40 +84,40 @@ export function DaytonaWorkspaceButton({
   mode = "full",
 }: DaytonaWorkspaceButtonProps) {
   const startDaytonaWorkspace = useAction(
-    api.daytonaActions.startDaytonaWorkspace,
+    api.daytona.actions.startDaytonaWorkspace,
   );
   const getDaytonaTerminalUrl = useAction(
-    api.daytonaActions.getDaytonaTerminalUrl,
+    api.daytona.actions.getDaytonaTerminalUrl,
   );
   const openWorkspacePtySession = useAction(
-    api.daytonaTerminal.openWorkspacePtySession,
+    api.daytona.terminal.openWorkspacePtySession,
   );
   const openWorkspaceDevServerPtySession = useAction(
-    api.daytonaTerminal.openWorkspaceDevServerPtySession,
+    api.daytona.terminal.openWorkspaceDevServerPtySession,
   );
   const resizeWorkspacePtySession = useAction(
-    api.daytonaTerminal.resizeWorkspacePtySession,
+    api.daytona.terminal.resizeWorkspacePtySession,
   );
   const closeWorkspacePtySession = useAction(
-    api.daytonaTerminal.closeWorkspacePtySession,
+    api.daytona.terminal.closeWorkspacePtySession,
   );
   const getDaytonaPreviewUrl = useAction(
-    api.daytonaActions.getDaytonaPreviewUrl,
+    api.daytona.actions.getDaytonaPreviewUrl,
   );
   const removeDaytonaSandbox = useAction(
-    api.daytonaActions.removeDaytonaSandbox,
+    api.daytona.actions.removeDaytonaSandbox,
   );
   const getDaytonaBootstrapLogs = useAction(
-    api.daytonaActions.getDaytonaBootstrapLogs,
+    api.daytona.actions.getDaytonaBootstrapLogs,
   );
   const prebuildDaytonaSnapshot = useAction(
-    api.daytonaActions.prebuildDaytonaSnapshot,
+    api.daytona.actions.prebuildDaytonaSnapshot,
   );
   const getDaytonaPrebuildLogs = useAction(
-    api.daytonaActions.getDaytonaPrebuildLogs,
+    api.daytona.actions.getDaytonaPrebuildLogs,
   );
   const ensureDaytonaRegistryForVault = useAction(
-    api.daytonaActions.ensureDaytonaRegistryForVault,
+    api.daytona.actions.ensureDaytonaRegistryForVault,
   );
   const [isStarting, setIsStarting] = useState(false);
   const [isOpeningTerminal, setIsOpeningTerminal] = useState(false);

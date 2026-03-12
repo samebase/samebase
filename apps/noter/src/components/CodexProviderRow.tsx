@@ -19,22 +19,22 @@ const CodexProviderLogo = ({ className }: { className?: string }) => (
 export function CodexProviderRow() {
   const codexConnection = useQuery(api.users.getCodexConnectionStatus);
   const prepareCodexAuthSandbox = useAction(
-    api.daytonaActions.prepareCodexAuthSandbox,
+    api.daytona.actions.prepareCodexAuthSandbox,
   );
   const verifyCodexLoginInSandbox = useAction(
-    api.daytonaActions.verifyCodexLoginInSandbox,
+    api.daytona.actions.verifyCodexLoginInSandbox,
   );
   const disconnectCodexProvider = useAction(
-    api.daytonaActions.disconnectCodexProvider,
+    api.daytona.actions.disconnectCodexProvider,
   );
   const openCodexAuthPtySession = useAction(
-    api.daytonaTerminal.openCodexAuthPtySession,
+    api.daytona.terminal.openCodexAuthPtySession,
   );
   const resizeCodexAuthPtySession = useAction(
-    api.daytonaTerminal.resizeCodexAuthPtySession,
+    api.daytona.terminal.resizeCodexAuthPtySession,
   );
   const closeCodexAuthPtySession = useAction(
-    api.daytonaTerminal.closeCodexAuthPtySession,
+    api.daytona.terminal.closeCodexAuthPtySession,
   );
   const [isPreparing, setIsPreparing] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);

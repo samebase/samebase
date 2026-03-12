@@ -20,10 +20,10 @@ import os from "os";
 import path from "path";
 import * as git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
-import { action, internalAction, type ActionCtx } from "./_generated/server";
-import { internal } from "./_generated/api";
-import { getUserId } from "./common";
-import { getDaytonaEnvLabel } from "./daytonaEnv";
+import { action, internalAction, type ActionCtx } from "../_generated/server";
+import { internal } from "../_generated/api";
+import { getUserId } from "../common";
+import { getDaytonaEnvLabel } from "./env";
 import {
   DEFAULT_BASE_IMAGE,
   DAYTONA_CODEX_CLI_VERSION,
@@ -31,7 +31,7 @@ import {
   DAYTONA_RUNTIME_APT_PACKAGE_LIST,
   DAYTONA_RUNTIME_AUTH_FALLBACK_DOCKERFILE_COMMANDS,
   DAYTONA_RUNTIME_PREBUILD_DOCKERFILE_COMMANDS,
-} from "./daytonaRuntime.generated";
+} from "./runtime.generated";
 import {
   canonicalizeCommitPinnedDaytonaBranch,
   DAYTONA_COMMIT_PINNED_BRANCH,
@@ -41,9 +41,9 @@ import {
   inferCommitPinnedSnapshotPrefix,
   isCommitPinnedDaytonaBranch,
   shortenCommitSha,
-} from "./daytonaSnapshotPolicy";
-import { toSafeRepoName } from "./repoName";
-import type { Id } from "./_generated/dataModel";
+} from "./snapshotPolicy";
+import { toSafeRepoName } from "../repoName";
+import type { Id } from "../_generated/dataModel";
 
 const { object, id, string, optional, boolean, union, literal, number, array } =
   v;
@@ -2182,7 +2182,7 @@ export const startDaytonaWorkspace = action({
     }
 
     const snapshotRecord = await ctx.runQuery(
-      internal.daytonaSnapshotRecords.getByRepoBranchCommit,
+      internal.daytona.snapshotRecords.getByRepoBranchCommit,
       {
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
@@ -3710,7 +3710,7 @@ async function pruneCommitPinnedSnapshots(args: {
   branch: string;
 }) {
   const records = await args.ctx.runQuery(
-    internal.daytonaSnapshotRecords.listByRepoBranch,
+    internal.daytona.snapshotRecords.listByRepoBranch,
     {
       owner: args.owner,
       repo: args.repo,
@@ -3730,7 +3730,7 @@ async function pruneCommitPinnedSnapshots(args: {
 
   const snapshotIds = recordsToRemove.map((record) => record._id);
   await args.ctx.runMutation(
-    internal.daytonaSnapshotRecords.markBuildRemoving,
+    internal.daytona.snapshotRecords.markBuildRemoving,
     {
       snapshotIds,
       updatedAt: Date.now(),
@@ -3752,7 +3752,7 @@ async function pruneCommitPinnedSnapshots(args: {
   }
 
   await args.ctx.runMutation(
-    internal.daytonaSnapshotRecords.removeRecordsByIds,
+    internal.daytona.snapshotRecords.removeRecordsByIds,
     {
       snapshotIds,
     },
@@ -3785,7 +3785,7 @@ export const buildCommitPinnedSnapshot = internalAction({
       args.commitSha,
     )} at ${new Date(prebuildStartedAt).toISOString()}\n`;
     const markStartedResult = await ctx.runMutation(
-      internal.daytonaSnapshotRecords.tryMarkBuildStarted,
+      internal.daytona.snapshotRecords.tryMarkBuildStarted,
       {
         owner: args.owner,
         repo: args.repo,
@@ -3860,7 +3860,7 @@ export const buildCommitPinnedSnapshot = internalAction({
         return;
       }
       prebuildLogState.lastFlushAt = now;
-      await ctx.runMutation(internal.daytonaSnapshotRecords.updateLogs, {
+      await ctx.runMutation(internal.daytona.snapshotRecords.updateLogs, {
         owner: args.owner,
         repo: args.repo,
         branch,
@@ -3890,7 +3890,7 @@ export const buildCommitPinnedSnapshot = internalAction({
       );
       await appendPrebuildLog(`${apiConfig.message}\n`);
       await ctx.runMutation(
-        internal.daytonaSnapshotRecords.markBuildFailedAndScheduleRetry,
+        internal.daytona.snapshotRecords.markBuildFailedAndScheduleRetry,
         {
           owner: args.owner,
           repo: args.repo,
@@ -3921,7 +3921,7 @@ export const buildCommitPinnedSnapshot = internalAction({
         startedSnapshotRecord.attemptCount,
       );
       await ctx.runMutation(
-        internal.daytonaSnapshotRecords.markBuildFailedAndScheduleRetry,
+        internal.daytona.snapshotRecords.markBuildFailedAndScheduleRetry,
         {
           owner: args.owner,
           repo: args.repo,
@@ -4160,15 +4160,18 @@ export const buildCommitPinnedSnapshot = internalAction({
           `Snapshot build finished at ${new Date(completedAt).toISOString()}\n`,
         );
         await flushPrebuildLogs(true);
-        await ctx.runMutation(internal.daytonaSnapshotRecords.markBuildActive, {
-          owner: args.owner,
-          repo: args.repo,
-          branch,
-          commitSha: args.commitSha,
-          snapshotName,
-          snapshotId: activeSnapshot.id,
-          updatedAt: completedAt,
-        });
+        await ctx.runMutation(
+          internal.daytona.snapshotRecords.markBuildActive,
+          {
+            owner: args.owner,
+            repo: args.repo,
+            branch,
+            commitSha: args.commitSha,
+            snapshotName,
+            snapshotId: activeSnapshot.id,
+            updatedAt: completedAt,
+          },
+        );
         try {
           await pruneCommitPinnedSnapshots({
             ctx,
@@ -4224,7 +4227,7 @@ export const buildCommitPinnedSnapshot = internalAction({
         startedSnapshotRecord.attemptCount,
       );
       await ctx.runMutation(
-        internal.daytonaSnapshotRecords.markBuildFailedAndScheduleRetry,
+        internal.daytona.snapshotRecords.markBuildFailedAndScheduleRetry,
         {
           owner: args.owner,
           repo: args.repo,
@@ -4280,7 +4283,7 @@ export const prebuildDaytonaSnapshot = action({
     }
 
     const queueResult = await ctx.runMutation(
-      internal.daytonaSnapshotRecords.enqueueBuild,
+      internal.daytona.snapshotRecords.enqueueBuild,
       {
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
@@ -4315,7 +4318,7 @@ export const prebuildDaytonaSnapshot = action({
 
     await ctx.scheduler.runAfter(
       0,
-      internal.daytonaActions.buildCommitPinnedSnapshot,
+      internal.daytona.actions.buildCommitPinnedSnapshot,
       {
         userId,
         owner: vault.ghRepoOwner,
@@ -4370,7 +4373,7 @@ export const getDaytonaPrebuildStatus = action({
     }
 
     const snapshotRecord = await ctx.runQuery(
-      internal.daytonaSnapshotRecords.getByRepoBranchCommit,
+      internal.daytona.snapshotRecords.getByRepoBranchCommit,
       {
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
@@ -4428,7 +4431,7 @@ export const getDaytonaPrebuildLogs = action({
     const commitSha = vault.commitSHA?.trim();
     let snapshotRecord = commitSha
       ? await ctx.runQuery(
-          internal.daytonaSnapshotRecords.getByRepoBranchCommit,
+          internal.daytona.snapshotRecords.getByRepoBranchCommit,
           {
             owner: vault.ghRepoOwner,
             repo: vault.ghRepoName,
@@ -4440,7 +4443,7 @@ export const getDaytonaPrebuildLogs = action({
 
     if (!snapshotRecord) {
       const records = await ctx.runQuery(
-        internal.daytonaSnapshotRecords.listByRepoBranch,
+        internal.daytona.snapshotRecords.listByRepoBranch,
         {
           owner: vault.ghRepoOwner,
           repo: vault.ghRepoName,
@@ -4497,7 +4500,7 @@ export const listDaytonaSnapshotsForVault = action({
         ? resolveDaytonaDashboardBaseUrl(apiConfig.baseUrl)
         : null;
       const records = await ctx.runQuery(
-        internal.daytonaSnapshotRecords.listByRepoBranch,
+        internal.daytona.snapshotRecords.listByRepoBranch,
         {
           owner: vault.ghRepoOwner,
           repo: vault.ghRepoName,
@@ -4592,7 +4595,7 @@ export const removeDaytonaSnapshot = action({
     const currentSnapshotRecord =
       !explicitSnapshotName && currentCommitSha
         ? await ctx.runQuery(
-            internal.daytonaSnapshotRecords.getByRepoBranchCommit,
+            internal.daytona.snapshotRecords.getByRepoBranchCommit,
             {
               owner: vault.ghRepoOwner,
               repo: vault.ghRepoName,
@@ -4655,7 +4658,7 @@ export const removeDaytonaSnapshot = action({
       const snapshot = await daytona.snapshot.get(snapshotName);
       await daytona.snapshot.delete(snapshot);
       await ctx.runMutation(
-        internal.daytonaSnapshotRecords.removeBySnapshotName,
+        internal.daytona.snapshotRecords.removeBySnapshotName,
         {
           snapshotName,
         },
@@ -4670,7 +4673,7 @@ export const removeDaytonaSnapshot = action({
     } catch (error) {
       if (isNotFoundError(error)) {
         await ctx.runMutation(
-          internal.daytonaSnapshotRecords.removeBySnapshotName,
+          internal.daytona.snapshotRecords.removeBySnapshotName,
           {
             snapshotName,
           },

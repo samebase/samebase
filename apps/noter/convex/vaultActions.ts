@@ -6,8 +6,8 @@ import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { Daytona } from "@daytonaio/sdk";
 import { getUserId } from "./common";
-import { getDaytonaEnvLabel } from "./daytonaEnv";
-import { DAYTONA_COMMIT_PINNED_BRANCH } from "./daytonaSnapshotPolicy";
+import { getDaytonaEnvLabel } from "./daytona/env";
+import { DAYTONA_COMMIT_PINNED_BRANCH } from "./daytona/snapshotPolicy";
 import { createInfraProviders } from "./infraProviders";
 import { deleteHostingResources } from "./hostingProviders";
 import { hostingProviderValidator } from "./hostingState";
@@ -787,7 +787,7 @@ export const deleteVault = action({
         }
 
         const snapshotRecords = await ctx.runQuery(
-          internal.daytonaSnapshotRecords.listByRepoBranch,
+          internal.daytona.snapshotRecords.listByRepoBranch,
           {
             owner: vault.ghRepoOwner,
             repo: vault.ghRepoName,

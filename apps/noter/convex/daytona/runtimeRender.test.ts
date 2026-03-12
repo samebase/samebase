@@ -8,10 +8,10 @@ import {
   renderDaytonaPrebuildDockerfileCommands,
   renderDaytonaRuntimeGeneratedTsModule,
   renderDockerfileDaytonaDeps,
-} from "../../../runtime/daytonaRuntime.js";
+} from "../../../../runtime/daytonaRuntime.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(__dirname, "../../..");
+const repoRoot = path.resolve(__dirname, "../../../..");
 
 function normalizeFileContents(contents: string): string {
   return contents.endsWith("\n") ? contents : `${contents}\n`;
@@ -27,7 +27,7 @@ async function renderGeneratedTypeScript(contents: string): Promise<string> {
     await prettier.format(contents, {
       filepath: path.join(
         repoRoot,
-        "apps/noter/convex/daytonaRuntime.generated.ts",
+        "apps/noter/convex/daytona/runtime.generated.ts",
       ),
     }),
   );
@@ -48,7 +48,7 @@ describe("Daytona runtime source of truth", () => {
       renderDaytonaRuntimeGeneratedTsModule(),
     );
     const existing = normalizeFileContents(
-      await readRepoFile("apps/noter/convex/daytonaRuntime.generated.ts"),
+      await readRepoFile("apps/noter/convex/daytona/runtime.generated.ts"),
     );
 
     expect(rendered).toBe(existing);

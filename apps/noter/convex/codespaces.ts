@@ -6,7 +6,7 @@ import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { getUserId } from "./common";
 import { Id } from "./_generated/dataModel";
-import { getDaytonaEnvLabel } from "./daytonaEnv";
+import { getDaytonaEnvLabel } from "./daytona/env";
 
 async function getGithubAccessToken(
   ctx: ActionCtx,
