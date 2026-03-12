@@ -42,6 +42,12 @@ import {
   isCommitPinnedDaytonaBranch,
   shortenCommitSha,
 } from "./snapshotPolicy";
+import {
+  decideExistingDaytonaTmuxLaunch,
+  describeDaytonaDevServerLaunchStatus,
+  type DaytonaDevServerLaunchStatus,
+  type DaytonaTmuxSessionState,
+} from "./devServerLaunchPolicy";
 import { toSafeRepoName } from "../repoName";
 import type { Id } from "../_generated/dataModel";
 
@@ -69,6 +75,7 @@ const DAYTONA_PREVIEW_PORT = 5173;
 const DAYTONA_PREVIEW_TTL_SECONDS = 3600;
 const DAYTONA_DEV_SERVER_VERIFY_TIMEOUT_MS = 15_000;
 const DAYTONA_DEV_SERVER_VERIFY_POLL_MS = 1_000;
+const DAYTONA_TMUX_STARTUP_GRACE_MS = 120_000;
 const DAYTONA_TERMINAL_PORT = 22222;
 const DAYTONA_TERMINAL_TTL_SECONDS = 300;
 const DAYTONA_DEV_LOG = "/tmp/noter-dev.log";
@@ -1418,7 +1425,7 @@ type DevServerStatus = {
 };
 
 type DaytonaDevServerLaunch = {
-  status: "started" | "already_running";
+  status: DaytonaDevServerLaunchStatus;
   transport: "tmux" | "background";
 };
 
@@ -1672,22 +1679,31 @@ async function getDaytonaTmuxSessionState(args: {
   sandbox: Sandbox;
   sessionName: string;
 }): Promise<"missing" | "running" | "dead"> {
+  const inspection = await inspectDaytonaTmuxSession(args);
+  return inspection.state;
+}
+
+async function inspectDaytonaTmuxSession(args: {
+  sandbox: Sandbox;
+  sessionName: string;
+}): Promise<{ state: DaytonaTmuxSessionState; createdAtMs?: number }> {
   const command = `bash -lc ${quoteForBash(
     stripIndent`
       session=${quoteForBash(args.sessionName)}
       if ! command -v tmux >/dev/null 2>&1; then
-        echo missing
+        echo "state=missing"
         exit 0
       fi
       if ! tmux has-session -t "$session" 2>/dev/null; then
-        echo missing
+        echo "state=missing"
         exit 0
       fi
+      created="$(tmux display-message -p -t "$session" '#{session_created}' 2>/dev/null || true)"
       pane_dead="$(tmux list-panes -t "$session" -F '#{pane_dead}' 2>/dev/null | head -n 1 || true)"
       if [ "$pane_dead" = "1" ]; then
-        echo dead
+        echo "state=dead;created=$created"
       else
-        echo running
+        echo "state=running;created=$created"
       fi
     `,
   )}`;
@@ -1700,11 +1716,35 @@ async function getDaytonaTmuxSessionState(args: {
   if (result.exitCode !== 0) {
     throw new Error(result.result.trim() || "Failed to inspect tmux session.");
   }
-  const state = result.result.trim();
-  if (state === "running" || state === "dead" || state === "missing") {
-    return state;
+  const values = new Map<string, string>();
+  for (const part of result.result.trim().split(";")) {
+    if (part.trim().length === 0) {
+      continue;
+    }
+    const separatorIndex = part.indexOf("=");
+    if (separatorIndex === -1) {
+      continue;
+    }
+    values.set(part.slice(0, separatorIndex), part.slice(separatorIndex + 1));
   }
-  throw new Error(`Unexpected tmux session state: ${state || "<empty>"}.`);
+  const state = values.get("state");
+  if (state !== "running" && state !== "dead" && state !== "missing") {
+    throw new Error(
+      `Unexpected tmux session state: ${state ?? (result.result.trim() || "<empty>")}.`,
+    );
+  }
+  const createdValue = values.get("created");
+  if (!createdValue || createdValue.trim().length === 0) {
+    return { state };
+  }
+  const createdAtSeconds = Number(createdValue);
+  if (!Number.isFinite(createdAtSeconds)) {
+    return { state };
+  }
+  return {
+    state,
+    createdAtMs: Math.round(createdAtSeconds * 1000),
+  };
 }
 
 async function startDaytonaTmuxSession(args: {
@@ -1874,6 +1914,48 @@ async function startDaytonaDevServer(args: {
         status: "already_running",
         transport,
       };
+    }
+  }
+
+  const existingTmuxSession = await inspectDaytonaTmuxSession({
+    sandbox: args.sandbox,
+    sessionName: DAYTONA_DEV_SERVER_TMUX_SESSION,
+  });
+  if (existingTmuxSession.state === "running") {
+    const deadline = Date.now() + DAYTONA_DEV_SERVER_VERIFY_TIMEOUT_MS;
+    let shouldKeepWaitingForTmux = true;
+    while (shouldKeepWaitingForTmux) {
+      const nextStatus = await readDaytonaDevServerStatus({
+        sandbox: args.sandbox,
+      });
+      const nextInspection = await inspectDaytonaTmuxSession({
+        sandbox: args.sandbox,
+        sessionName: DAYTONA_DEV_SERVER_TMUX_SESSION,
+      });
+      const launchDecision = decideExistingDaytonaTmuxLaunch({
+        portRunning: nextStatus?.running === true,
+        sessionState: nextInspection.state,
+        sessionCreatedAtMs: nextInspection.createdAtMs,
+        nowMs: Date.now(),
+        startupGraceMs: DAYTONA_TMUX_STARTUP_GRACE_MS,
+      });
+      if (launchDecision === "reuse_running") {
+        return {
+          status: "already_running",
+          transport: "tmux",
+        };
+      }
+      if (launchDecision === "replace") {
+        shouldKeepWaitingForTmux = false;
+        continue;
+      }
+      if (Date.now() >= deadline) {
+        return {
+          status: "already_starting",
+          transport: "tmux",
+        };
+      }
+      await sleep(DAYTONA_DEV_SERVER_VERIFY_POLL_MS);
     }
   }
 
@@ -2537,8 +2619,8 @@ export const startDaytonaWorkspace = action({
 
       devServerMessage =
         devServerLaunch.transport === "tmux"
-          ? `Dev server ${devServerLaunch.status === "already_running" ? "already running" : "starting"} on port ${DAYTONA_PREVIEW_PORT} in tmux session ${DAYTONA_DEV_SERVER_TMUX_SESSION}.`
-          : `Dev server ${devServerLaunch.status === "already_running" ? "already running" : "starting"} on port ${DAYTONA_PREVIEW_PORT} (logs: ${DAYTONA_DEV_LOG}).`;
+          ? `Dev server ${describeDaytonaDevServerLaunchStatus(devServerLaunch.status)} on port ${DAYTONA_PREVIEW_PORT} in tmux session ${DAYTONA_DEV_SERVER_TMUX_SESSION}.`
+          : `Dev server ${describeDaytonaDevServerLaunchStatus(devServerLaunch.status)} on port ${DAYTONA_PREVIEW_PORT} (logs: ${DAYTONA_DEV_LOG}).`;
     } catch (error) {
       devServerStartMs = Date.now() - devServerStartedAt;
       const message = error instanceof Error ? error.message : String(error);

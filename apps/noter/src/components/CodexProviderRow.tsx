@@ -39,6 +39,7 @@ export function CodexProviderRow() {
   const [isPreparing, setIsPreparing] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isClosingTerminal, setIsClosingTerminal] = useState(false);
   const [terminalTabUrl, setTerminalTabUrl] = useState<string | null>(null);
   const [terminalSession, setTerminalSession] =
     useState<DaytonaPtySession | null>(null);
@@ -48,6 +49,7 @@ export function CodexProviderRow() {
   const [message, setMessage] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
   const terminalSessionRef = useRef<DaytonaPtySession | null>(null);
+  const pendingTerminalClosePromiseRef = useRef<Promise<boolean> | null>(null);
 
   const isReady =
     codexConnection?.connected === true &&
@@ -94,47 +96,66 @@ export function CodexProviderRow() {
   };
 
   const closeActiveTerminalSession = async (silent?: boolean) => {
+    const pendingClosePromise = pendingTerminalClosePromiseRef.current;
+    if (pendingClosePromise) {
+      return await pendingClosePromise;
+    }
     const activeSession = terminalSessionRef.current;
     if (!activeSession) {
       return true;
     }
-    clearTerminalSessionState();
+    const closePromise = (async () => {
+      setIsClosingTerminal(true);
+      clearTerminalSessionState();
 
-    try {
-      const result = await closeCodexAuthPtySession({
-        sessionId: activeSession.sessionId,
-      });
-      if (result.ok) {
-        return true;
+      try {
+        const result = await closeCodexAuthPtySession({
+          sessionId: activeSession.sessionId,
+        });
+        if (result.ok) {
+          return true;
+        }
+        terminalSessionRef.current = activeSession;
+        setTerminalSession(activeSession);
+        if (!silent) {
+          setHasError(true);
+          setMessage(
+            result.message ?? "Failed to close Daytona terminal session.",
+          );
+        }
+        return false;
+      } catch (error) {
+        terminalSessionRef.current = activeSession;
+        setTerminalSession(activeSession);
+        if (!silent) {
+          setHasError(true);
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "Failed to close Daytona terminal session.",
+          );
+        }
+        return false;
+      } finally {
+        pendingTerminalClosePromiseRef.current = null;
+        setIsClosingTerminal(false);
       }
-      terminalSessionRef.current = activeSession;
-      setTerminalSession(activeSession);
-      if (!silent) {
-        setHasError(true);
-        setMessage(
-          result.message ?? "Failed to close Daytona terminal session.",
-        );
-      }
-      return false;
-    } catch (error) {
-      terminalSessionRef.current = activeSession;
-      setTerminalSession(activeSession);
-      if (!silent) {
-        setHasError(true);
-        setMessage(
-          error instanceof Error
-            ? error.message
-            : "Failed to close Daytona terminal session.",
-        );
-      }
-      return false;
-    }
+    })();
+    pendingTerminalClosePromiseRef.current = closePromise;
+    return await closePromise;
   };
 
   const openTerminalSession = async (
     silent?: boolean,
   ): Promise<DaytonaPtySession | null> => {
     const isSilent = silent === true;
+    const pendingClosePromise = pendingTerminalClosePromiseRef.current;
+    if (pendingClosePromise) {
+      const closedPendingSession = await pendingClosePromise;
+      if (!closedPendingSession) {
+        throw new Error("Failed to close Daytona terminal session.");
+      }
+    }
     const closedExistingSession = await closeActiveTerminalSession(true);
     if (!closedExistingSession) {
       throw new Error("Failed to close Daytona terminal session.");
@@ -182,7 +203,7 @@ export function CodexProviderRow() {
   };
 
   const handlePrepare = async (forceOpenTerminal: boolean) => {
-    if (isPreparing || isVerifying || isDisconnecting) {
+    if (isPreparing || isVerifying || isDisconnecting || isClosingTerminal) {
       return;
     }
     setIsPreparing(true);
@@ -233,7 +254,7 @@ export function CodexProviderRow() {
   };
 
   const handleVerify = async () => {
-    if (isPreparing || isVerifying || isDisconnecting) {
+    if (isPreparing || isVerifying || isDisconnecting || isClosingTerminal) {
       return;
     }
     setIsVerifying(true);
@@ -265,7 +286,7 @@ export function CodexProviderRow() {
   };
 
   const handleDisconnect = async () => {
-    if (isPreparing || isVerifying || isDisconnecting) {
+    if (isPreparing || isVerifying || isDisconnecting || isClosingTerminal) {
       return;
     }
     setIsDisconnecting(true);
@@ -319,7 +340,12 @@ export function CodexProviderRow() {
                 variant="outline"
                 size="sm"
                 onClick={() => void handlePrepare(true)}
-                disabled={isPreparing || isVerifying || isDisconnecting}
+                disabled={
+                  isPreparing ||
+                  isVerifying ||
+                  isDisconnecting ||
+                  isClosingTerminal
+                }
                 className="w-full sm:w-auto"
               >
                 {isPreparing ? (
@@ -335,7 +361,12 @@ export function CodexProviderRow() {
                 variant="outline"
                 size="sm"
                 onClick={() => void handleVerify()}
-                disabled={isPreparing || isVerifying || isDisconnecting}
+                disabled={
+                  isPreparing ||
+                  isVerifying ||
+                  isDisconnecting ||
+                  isClosingTerminal
+                }
                 className="w-full sm:w-auto"
               >
                 {isVerifying ? (
@@ -351,7 +382,12 @@ export function CodexProviderRow() {
                 variant="outline"
                 size="sm"
                 onClick={() => void handleDisconnect()}
-                disabled={isPreparing || isVerifying || isDisconnecting}
+                disabled={
+                  isPreparing ||
+                  isVerifying ||
+                  isDisconnecting ||
+                  isClosingTerminal
+                }
                 className="w-full sm:w-auto"
               >
                 {isDisconnecting ? (
@@ -370,7 +406,12 @@ export function CodexProviderRow() {
                 variant="outline"
                 size="sm"
                 onClick={() => void handlePrepare(false)}
-                disabled={isPreparing || isVerifying || isDisconnecting}
+                disabled={
+                  isPreparing ||
+                  isVerifying ||
+                  isDisconnecting ||
+                  isClosingTerminal
+                }
                 className="w-full sm:w-auto"
               >
                 {isPreparing ? (
@@ -388,7 +429,12 @@ export function CodexProviderRow() {
                     variant="outline"
                     size="sm"
                     onClick={() => void handleVerify()}
-                    disabled={isPreparing || isVerifying || isDisconnecting}
+                    disabled={
+                      isPreparing ||
+                      isVerifying ||
+                      isDisconnecting ||
+                      isClosingTerminal
+                    }
                     className="w-full sm:w-auto"
                   >
                     {isVerifying ? (
@@ -404,7 +450,12 @@ export function CodexProviderRow() {
                     variant="outline"
                     size="sm"
                     onClick={() => void handleDisconnect()}
-                    disabled={isPreparing || isVerifying || isDisconnecting}
+                    disabled={
+                      isPreparing ||
+                      isVerifying ||
+                      isDisconnecting ||
+                      isClosingTerminal
+                    }
                     className="w-full sm:w-auto"
                   >
                     {isDisconnecting ? (
@@ -473,7 +524,12 @@ export function CodexProviderRow() {
                       "noopener,noreferrer",
                     );
                   }}
-                  disabled={isPreparing || isVerifying || isDisconnecting}
+                  disabled={
+                    isPreparing ||
+                    isVerifying ||
+                    isDisconnecting ||
+                    isClosingTerminal
+                  }
                   className="h-auto px-0 text-xs"
                 >
                   Open in tab
@@ -492,10 +548,15 @@ export function CodexProviderRow() {
                     setTerminalStatus(null);
                   })();
                 }}
-                disabled={isPreparing || isVerifying || isDisconnecting}
+                disabled={
+                  isPreparing ||
+                  isVerifying ||
+                  isDisconnecting ||
+                  isClosingTerminal
+                }
                 className="h-auto px-0 text-xs"
               >
-                Hide terminal
+                {isClosingTerminal ? "Hiding..." : "Hide terminal"}
               </Button>
             </div>
           </div>
