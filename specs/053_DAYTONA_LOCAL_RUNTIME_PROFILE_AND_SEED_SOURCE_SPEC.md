@@ -2,8 +2,8 @@
 
 ## Status
 
-- Proposed
-- Last updated: 2026-03-12
+- In progress
+- Last updated: 2026-03-13
 
 ## Related Specs
 
@@ -17,10 +17,12 @@
 
 Define an explicit separation between:
 
-1. the active Convex runtime target used by a Daytona workspace sandbox
-2. the cloud dev deployment used as a read-only seed source
-3. the Daytona control-plane deployment identity used for naming and auth
-4. the explicit Daytona-local bootstrap entrypoint used by the current repo
+1. the workspace materialization mode used to construct or refresh a Daytona
+   sandbox
+2. the active Convex runtime target used by a Daytona workspace sandbox
+3. the cloud dev deployment used as a read-only seed source
+4. the Daytona control-plane deployment identity used for naming and auth
+5. the explicit Daytona-local bootstrap entrypoint used by the current repo
    shape
 
 Default Daytona workspace sandboxes to:
@@ -28,6 +30,13 @@ Default Daytona workspace sandboxes to:
 1. one normal repo checkout inside the sandbox
 2. a local anonymous Convex runtime in `.env.local`
 3. a separate explicit source file only for copying allowlisted seed variables
+
+Require both Daytona provisioning modes:
+
+1. optimized snapshot-backed materialization
+2. live/debug materialization
+
+to converge on the same final `daytona-local` runtime contract.
 
 The cloud dev deployment must remain available for seed copying, but it must not
 silently become the active runtime target for `make anon` inside the sandbox.
@@ -78,6 +87,32 @@ Manual verification of the current PR branch found additional concrete gaps:
    `DAYTONA_CONVEX_DEPLOY_KEY`
 4. because of 1-3, the starter repo never generates an explicit source env,
    never runs the seed-copy bootstrap, and instead starts raw `convex dev`
+
+Follow-up validation on 2026-03-13 proved the main-repo bootstrap fixes in
+isolation:
+
+1. the sandbox receives `DAYTONA_CONVEX_DEPLOY_KEY`
+2. `make daytona-local-once` succeeds inside the sandbox when the repo checkout
+   is refreshed to the PR branch
+3. the sandbox produces `.env.local`, `.env.daytona-source.local`, and
+   `.env.anon-seed.local`
+4. Daytona preview loads successfully once the frontend is started on `5173`
+   against that bootstrapped anonymous backend
+
+The remaining product gap is different from "non-main branches":
+
+1. snapshot-backed materialization and live/debug materialization are not yet
+   first-class provisioning modes
+2. the dashboard should remain the control surface, but today reproducing or
+   debugging bootstrap failures still requires direct sandbox mutation
+3. there is no normalized runtime equivalence check proving that the optimized
+   path and the live/debug path end in the same final state
+
+So the next spec scope is:
+
+- separate workspace materialization from runtime bootstrap
+- guarantee both provisioning modes converge on the same runtime contract
+- prove that convergence with a normalized runtime manifest
 
 ## Terms
 
@@ -131,6 +166,40 @@ Examples:
 Unless otherwise noted, env-file paths in this spec are relative to the app
 root.
 
+### Provisioning Mode
+
+The way Daytona materializes repo contents before bootstrap starts.
+
+Initial modes:
+
+- `snapshot-backed`
+- `live/debug`
+
+Provisioning mode chooses how the repo checkout and dependency layer are
+materialized. It does not change the runtime profile or the bootstrap contract.
+
+### Runtime Manifest
+
+A normalized, redacted JSON summary of the final bootstrapped sandbox state.
+
+This is the contract used to compare two Daytona provisioning modes for the same
+commit.
+
+It should include deterministic facts such as:
+
+1. repo `HEAD`
+2. normalized env artifacts
+3. bootstrap outputs
+4. listening services
+5. preview or health success
+
+It should exclude nondeterministic facts such as:
+
+1. timestamps
+2. raw logs
+3. PIDs
+4. full image bytes
+
 ## Goals
 
 1. Keep Daytona workspace dev servers on local anonymous Convex by default.
@@ -143,6 +212,11 @@ root.
 6. Reuse the existing `make anon` / `make anon-once` flow where practical.
 7. Ensure seeded starter-template repos boot Daytona through an explicit local
    bootstrap entrypoint instead of raw `pnpm run dev`.
+8. Distinguish workspace materialization from runtime bootstrap.
+9. Add a first-class live/debug provisioning mode for debugging bootstrap
+   failures without changing the runtime contract.
+10. Add a normalized runtime-manifest comparison proving the optimized path and
+    the live/debug path converge on the same final state.
 
 ## Non-Goals
 
@@ -152,6 +226,7 @@ root.
 4. Solving Daytona naming/worktree scoping in this spec.
 5. Turning `convex-dev.js` into a fully generic multi-profile runtime launcher
    in the first rollout.
+6. Comparing raw Daytona snapshot/image bytes as the primary correctness signal.
 
 ## Locked Decisions
 
@@ -208,8 +283,10 @@ Contract:
 
 1. the file is generated inside the sandbox
 2. it is not committed
-3. it contains only the minimum deployment selector needed for the source side
-4. it does not become the active runtime file
+3. it contains the source-side deployment selector
+4. when required by the Convex CLI, it also contains scoped source auth
+5. it is only passed to the seed-copy step
+6. it does not become the active runtime file
 
 At minimum, it should contain:
 
@@ -217,6 +294,16 @@ At minimum, it should contain:
 
 where `<deployment-name>` is derived from the Daytona-side dev deployment
 identity.
+
+When source-side auth is required for
+`npx convex env list --env-file <app-root>/.env.daytona-source.local`, it must
+also contain:
+
+- `CONVEX_DEPLOY_KEY=<deploy-key>`
+
+This auth lives in the explicit Daytona source file because the current Convex
+CLI path does not reliably honor parent-process `CONVEX_DEPLOY_KEY` when
+`--env-file` is used.
 
 Examples:
 
@@ -237,6 +324,9 @@ Rules:
    `make anon`
 4. `DAYTONA_CONVEX_DEPLOY_KEY` may remain available to Daytona-specific backend
    logic and/or local Convex env when intentionally seeded for Daytona features
+5. writing `CONVEX_DEPLOY_KEY` into `<app-root>/.env.daytona-source.local` is
+   allowed only because that file is passed explicitly to the seed-copy step and
+   is not the active runtime file
 
 The local-mode invariant is:
 
@@ -301,6 +391,41 @@ Preferred first rollout:
 3. keep `pnpm run dev` as the inner dev command started after bootstrap
 4. do not treat raw `pnpm run dev` as a sufficient Daytona bootstrap contract
 
+### 10. Snapshot-Backed And Live/Debug Are Provisioning Modes, Not Runtime Profiles
+
+Daytona needs at least two provisioning modes:
+
+1. `snapshot-backed`
+2. `live/debug`
+
+These choose how a sandbox reaches the target repo contents.
+
+They must not define different runtime behavior.
+
+Both modes must end in the same:
+
+1. repo content
+2. env-file contract
+3. anonymous local Convex bootstrap
+4. frontend preview contract
+
+The live/debug path exists to reproduce bootstrap failures and validate fixes,
+not to invent an alternate runtime profile.
+
+### 11. Runtime Equivalence Is Validated By A Normalized Runtime Manifest
+
+Do not compare raw snapshot/image bytes.
+
+Instead, compare a normalized runtime manifest collected after bootstrap.
+
+That manifest should be:
+
+1. deterministic
+2. redacted for secrets
+3. stable across timestamps and process IDs
+4. strict enough to prove both provisioning modes converge on the same final
+   runtime state
+
 ## File And Env Contract
 
 ### Active Runtime
@@ -332,8 +457,10 @@ Requirements:
 
 1. generated only for Daytona-managed sandbox bootstrap
 2. contains source-side deployment selection data
-3. is passed explicitly via `--source-env`
-4. is not used by `convex-dev.js` as the active runtime file
+3. contains scoped source auth when the Convex CLI needs it for
+   `--env-file`-based cloud reads
+4. is passed explicitly via `--source-env`
+5. is not used by `convex-dev.js` as the active runtime file
 
 ### Env Var Roles
 
@@ -391,6 +518,39 @@ The key invariant is:
 For Noter-managed starter repos, raw `pnpm run dev` is not a substitute for
 steps 2-9.
 
+## Provisioning Contract
+
+### Snapshot-Backed Materialization
+
+The optimized path may:
+
+1. use a commit-pinned Daytona snapshot
+2. optionally reuse a cached dependency image
+3. materialize repo contents before bootstrap begins
+
+But after materialization it must still run the same `daytona-local` bootstrap
+contract.
+
+Snapshot-backed materialization is an optimization, not a different runtime
+mode.
+
+### Live/Debug Materialization
+
+The debug path may:
+
+1. create or reuse a normal sandbox without depending on matching snapshot
+   freshness
+2. fetch or reset the repo to the target commit or branch
+3. then run the same `daytona-local` bootstrap contract
+
+This path exists so bootstrap failures can be reproduced and fixed without
+depending on the snapshot pipeline.
+
+### Shared Invariant
+
+For the same target commit, both provisioning modes must converge on the same
+normalized runtime manifest.
+
 ## Make And Script Contract
 
 The preferred implementation is a minimal extension of the current bootstrap
@@ -440,6 +600,18 @@ This script should continue to:
 2. read the source env file separately
 3. write `<app-root>/.env.anon-seed.local`
 
+### `scripts/daytona-write-source-env.js`
+
+This script is responsible for generating the explicit Daytona source file.
+
+It should:
+
+1. derive `CONVEX_DEPLOYMENT=dev:*` from `DAYTONA_CONVEX_DEPLOY_KEY`
+2. write `CONVEX_DEPLOY_KEY` into the source file when the Convex CLI requires
+   it for `--env-file` auth
+3. avoid touching `<app-root>/.env.local`
+4. remain Daytona-specific rather than becoming the active runtime selector
+
 ### `convex-dev.js`
 
 Do not make `convex-dev.js` fully multi-profile in the first rollout.
@@ -485,9 +657,12 @@ Rules:
 
 For `Create sandbox` followed by `Open Dev Server`:
 
-1. the sandbox uses local anonymous Convex runtime
-2. the shared cloud dev deployment is used only as a seed source
-3. internal git worktrees are not created by default
+1. the dashboard remains the control surface
+2. the sandbox uses local anonymous Convex runtime
+3. the shared cloud dev deployment is used only as a seed source
+4. internal git worktrees are not created by default
+5. product may choose snapshot-backed or live/debug materialization, but both
+   must end in the same `daytona-local` runtime contract
 
 ### Future Optional UX
 
@@ -501,61 +676,104 @@ That is a separate follow-up and not part of the default flow in this spec.
 
 ## Acceptance Criteria
 
-1. In a fresh Daytona workspace sandbox seeded from
-   `apps/noter-starter-template`, `Open Dev Server` uses an explicit
-   Daytona-local bootstrap entrypoint instead of raw `pnpm run dev`.
+1. In the existing `noter` repo shape, the dashboard never silently falls back
+   to raw `make run` or `pnpm run dev` when explicit `daytona-local` bootstrap
+   is required.
 2. `DAYTONA_CONVEX_DEPLOY_KEY` is available inside the sandbox env when it is
    configured on the Daytona control plane.
-3. `<app-root>/.env.local` inside the sandbox still resolves to a local
+3. `<app-root>/.env.daytona-source.local` contains the explicit source-side
+   deployment selector and, when needed by the Convex CLI, scoped source auth.
+4. `<app-root>/.env.local` inside the sandbox still resolves to a local
    anonymous deployment after bootstrap.
-4. The seed-copy step can still read allowlisted values from the shared cloud
-   dev deployment using an explicit source env.
-5. `CONVEX_DEPLOY_KEY` is not present as a long-lived global runtime env var in
+5. `make daytona-local-once` succeeds for the target commit inside a Daytona
+   sandbox and produces `<app-root>/.env.local`,
+   `<app-root>/.env.daytona-source.local`, and
+   `<app-root>/.env.anon-seed.local`.
+6. `CONVEX_DEPLOY_KEY` is not present as a long-lived global runtime env var in
    the default Daytona local mode.
-6. `Open Dev Server` no longer shows the interactive Convex login prompt in the
-   default Daytona local flow.
-7. The Daytona preview no longer fails with
-   `Missing VITE_CONVEX_URL in environment`.
-8. Multiple Daytona sandboxes can run concurrently without relying on internal
-   git worktrees.
-9. Any future switch to shared dev runtime is explicit and not the default.
+7. The bootstrapped sandbox can serve the frontend on port `5173` and the
+   Daytona preview loads successfully.
+8. Product supports both snapshot-backed and live/debug provisioning modes, and
+   both run the same `daytona-local` bootstrap contract.
+9. For the same target commit, the normalized runtime manifest matches between
+   snapshot-backed and live/debug provisioning modes.
+10. The dashboard remains the operator control surface for both provisioning
+    modes; reproducing bootstrap failures must not require vault-route-only or
+    CLI-only steps in the product path.
+11. In a fresh Daytona workspace sandbox seeded from
+    `apps/noter-starter-template`, `Open Dev Server` uses an explicit
+    Daytona-local bootstrap entrypoint instead of raw `pnpm run dev`.
+12. Multiple Daytona sandboxes can run concurrently without relying on internal
+    git worktrees.
+13. Any future switch to shared dev runtime is explicit and not the default.
 
 ## Implementation Plan
 
-1. Generalize the file/env contract to app-root-relative paths so both repo
-   shapes are covered.
-2. Inject `DAYTONA_CONVEX_DEPLOY_KEY` into created Daytona sandboxes.
-3. Add explicit Daytona-local bootstrap entrypoints to the seeded starter repo
-   shape.
-4. Keep main-repo Daytona wrapper targets over the shared anon flow.
-5. Extend bootstrap scripts/targets with optional explicit source-selection
-   inputs.
-6. Scope cloud source auth only to the seed-copy step.
-7. Update Daytona launcher resolution so Noter-managed starter repos do not fall
-   back to raw `pnpm run dev`.
-8. Add regression coverage and manual validation for the seeded starter-repo
+1. Lock the runtime contract around `daytona-local`, explicit source env, and
+   scoped source auth.
+2. Add a normalized runtime-manifest collector and comparer.
+3. Add a first-class live/debug provisioning mode for the existing `noter` repo
    path.
+4. Teach the dashboard to choose between snapshot-backed and live/debug
+   materialization while always converging on the same bootstrap contract.
+5. Reset dev-server and bootstrap log state per run so the dashboard reflects
+   the current attempt rather than stale output.
+6. Extend the same explicit contract to the starter-template repo shape.
+7. Add regression coverage and manual validation proving runtime equivalence
+   between provisioning modes.
 
 ## Implementation Checklist
+
+### Baseline Already Proven On The Existing `noter` Repo Path
 
 - [x] Add a Daytona-specific explicit source env generator for the main-repo
       flow.
 - [x] Add main-repo `make daytona-local` / `make daytona-local-once` wrapper
       targets.
-- [x] Extend main-repo `make anon` / `make anon-once` with optional source
-      inputs.
-- [x] Scope cloud source auth only to the seed-copy step.
+- [x] Extend main-repo `make anon` / `make anon-once` with optional explicit
+      source inputs.
+- [x] Scope cloud source auth to the explicit seed-copy contract instead of the
+      long-lived runtime environment.
+- [x] Inject `DAYTONA_CONVEX_DEPLOY_KEY` into created Daytona sandboxes.
+- [x] Make the main-repo Daytona launcher fail closed instead of silently
+      falling back to raw dev startup.
+- [x] Write `CONVEX_DEPLOY_KEY` into `.env.daytona-source.local` when Convex CLI
+      `--env-file` auth requires it.
+- [x] Prove inside a Daytona sandbox that `make daytona-local-once` reaches the
+      anonymous local + seed-copy success state for the target commit.
+
+### Immediate Next Work
+
+- [ ] Add `scripts/daytona-runtime-manifest.js` to emit a redacted normalized
+      runtime manifest from a bootstrapped sandbox.
+- [ ] Add a comparer or integration validation that diffs runtime manifests
+      between snapshot-backed and live/debug provisioning modes for the same
+      commit.
+- [ ] Add a first-class live/debug provisioning mode for the existing `noter`
+      repo path that refreshes the target commit without relying on snapshot
+      freshness.
+- [ ] Teach dashboard Daytona actions to choose snapshot-backed vs live/debug
+      materialization while always invoking the same `daytona-local` contract.
+- [ ] Reset dev-server and install-log state per run so the dashboard shows the
+      current bootstrap result instead of stale output after repo refresh or
+      reprovision.
+- [ ] Re-run Playwright from the dashboard-only flow and confirm both
+      provisioning modes converge on the same runtime manifest and a working
+      preview.
+
+### Follow-On Work For The Starter Repo Shape
+
 - [ ] Generalize the Daytona env-file contract to app-root-relative paths so
       seeded starter repos use repo-root `.env*` files.
-- [ ] Inject `DAYTONA_CONVEX_DEPLOY_KEY` into created Daytona sandboxes.
 - [ ] Add repo-root Daytona bootstrap entrypoints to
       `apps/noter-starter-template`.
-- [ ] Ensure the Daytona launcher uses the explicit starter-template bootstrap
+- [ ] Ensure the starter-template Daytona launcher uses the explicit bootstrap
       path and does not fall back to raw `pnpm run dev`.
 - [ ] Regenerate/export starter template assets so seeded repos receive the new
       bootstrap files.
 - [ ] Re-run Playwright on a fresh Noter-managed starter repo and confirm no
-      Convex login prompt and no `Missing VITE_CONVEX_URL` preview failure.
+      Convex login prompt, no `Missing VITE_CONVEX_URL` preview failure, and the
+      same runtime-manifest contract as the main repo shape.
 
 ## Deferred Follow-Ups
 
@@ -565,5 +783,7 @@ That is a separate follow-up and not part of the default flow in this spec.
    repos, this follow-up should be evaluated against repo-root `.env*` files.
 3. Whether the Convex CLI should gain a more direct first-class deploy-key +
    source-env workflow that reduces wrapper logic further.
-4. Whether non-Noter-managed connected repos should eventually advertise an
+4. Branch-specific snapshot materialization. This is an optimization follow-up,
+   not the core fix for bootstrap reproducibility.
+5. Whether non-Noter-managed connected repos should eventually advertise an
    explicit Daytona-local contract or fail with a tailored unsupported message.
