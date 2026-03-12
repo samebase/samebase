@@ -22,6 +22,14 @@ export const DEFAULT_FISH_PROFILE_FILES = [
 ]
 
 /**
+ * @param {string} value
+ * @returns {string}
+ */
+function quoteForShell(value) {
+  return `'${value.replace(/'/g, `'\\''`)}'`
+}
+
+/**
  * @param {unknown} error
  * @returns {error is NodeJS.ErrnoException}
  */
@@ -71,7 +79,7 @@ async function ensureLineInFile(filePath, line, { ensureParentDir }) {
  * @param {EnsureRepoAutoCdArgs} args
  */
 export async function ensureRepoAutoCd(args) {
-  const line = `cd ${args.repoPath}`
+  const line = `cd ${quoteForShell(args.repoPath)}`
 
   for (const filePath of args.bashProfileFiles ?? DEFAULT_BASH_PROFILE_FILES) {
     await ensureLineInFile(filePath, line, { ensureParentDir: false })

@@ -34,10 +34,10 @@ describe("ensureRepoAutoCd", () => {
     });
 
     await expect(fs.readFile(bashrc, "utf8")).resolves.toBe(
-      "cd /home/daytona/workspace/noter\n",
+      "cd '/home/daytona/workspace/noter'\n",
     );
     await expect(fs.readFile(fishConfig, "utf8")).resolves.toBe(
-      "cd /home/daytona/workspace/noter\n",
+      "cd '/home/daytona/workspace/noter'\n",
     );
   });
 
@@ -58,7 +58,7 @@ describe("ensureRepoAutoCd", () => {
     });
 
     await expect(fs.readFile(bashrc, "utf8")).resolves.toBe(
-      "set -gx FOO bar\ncd /home/daytona/workspace/noter\n",
+      "set -gx FOO bar\ncd '/home/daytona/workspace/noter'\n",
     );
   });
 });

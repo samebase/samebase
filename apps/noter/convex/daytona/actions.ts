@@ -582,6 +582,27 @@ function findWorkspaceRootDir(startDir: string): string | null {
   }
 }
 
+async function vendorDaytonaSandboxProgramIntoRepo(args: {
+  repoDir: string;
+  programRelativePath: string;
+}): Promise<void> {
+  const workspaceRoot = findWorkspaceRootDir(process.cwd());
+  if (!workspaceRoot) {
+    throw new Error("Could not find the Noter workspace root.");
+  }
+
+  const sourcePath = path.join(workspaceRoot, args.programRelativePath);
+  if (!fs.existsSync(sourcePath)) {
+    throw new Error(
+      `Missing Daytona sandbox helper at ${args.programRelativePath}.`,
+    );
+  }
+
+  const targetPath = path.join(args.repoDir, args.programRelativePath);
+  await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
+  await fs.promises.copyFile(sourcePath, targetPath);
+}
+
 async function resolveCurrentRepoIdentity(repoDir: string): Promise<{
   owner: string;
   repo: string;
@@ -4090,6 +4111,10 @@ export const buildCommitPinnedSnapshot = internalAction({
           path.join(repoDir, ".dockerignore"),
           ".git\nnode_modules\n.pnpm\n",
         );
+        await vendorDaytonaSandboxProgramIntoRepo({
+          repoDir,
+          programRelativePath: DAYTONA_ENSURE_REPO_AUTO_CD_PROGRAM,
+        });
 
         const repoPath = `${DEFAULT_WORKSPACE_DIR}/${args.repo}`;
 
