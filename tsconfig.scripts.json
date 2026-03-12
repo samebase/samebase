@@ -12,6 +12,6 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["scripts/**/*.js"],
+  "include": ["scripts/**/*.js", "runtime/**/*.js"],
   "exclude": ["node_modules"]
 }

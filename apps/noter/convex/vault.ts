@@ -15,8 +15,8 @@ import {
 } from "./stagingChanges";
 import { Id } from "./_generated/dataModel";
 import { getUserId } from "./common";
-import { enqueueSnapshotBuild } from "./daytonaSnapshotRecords";
-import { DAYTONA_COMMIT_PINNED_BRANCH } from "./daytonaSnapshotPolicy";
+import { enqueueSnapshotBuild } from "./daytona/snapshotRecords";
+import { DAYTONA_COMMIT_PINNED_BRANCH } from "./daytona/snapshotPolicy";
 import {
   hostingProviderValidator,
   hostingStateValidator,
@@ -1465,7 +1465,7 @@ export const updateVaultTree = internalMutation({
       if (queueResult.shouldSchedule) {
         await ctx.scheduler.runAfter(
           0,
-          internal.daytonaActions.buildCommitPinnedSnapshot,
+          internal.daytona.actions.buildCommitPinnedSnapshot,
           {
             userId: vault.userId,
             owner: vault.ghRepoOwner,

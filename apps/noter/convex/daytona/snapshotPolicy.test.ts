@@ -8,7 +8,7 @@ import {
   inferCommitPinnedSnapshotPrefix,
   isCommitPinnedDaytonaBranch,
   shortenCommitSha,
-} from "./daytonaSnapshotPolicy";
+} from "./snapshotPolicy";
 
 const originalDaytonaDeployKey = process.env.DAYTONA_CONVEX_DEPLOY_KEY;
 

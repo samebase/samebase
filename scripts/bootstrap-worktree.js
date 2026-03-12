@@ -209,7 +209,7 @@ function getCurrentBranch() {
     return ''
   }
 
-  return (result.stdout ?? '').trim()
+  return result.stdout.trim()
 }
 
 /** @returns {string} */
@@ -309,7 +309,7 @@ function readBranchLines(args) {
     return []
   }
 
-  return (result.stdout ?? '')
+  return result.stdout
     .split('\n')
     .map(line => line.trim())
     .filter(line => line.length > 0)

@@ -1,14 +1,22 @@
 # 011 Daytona Dev Server Status & Logs Spec
 
+## Status
+
+- Historical
+- Superseded for the primary dev-server UX by
+  `051_DAYTONA_STANDARD_RUNTIME_AND_PTY_SESSIONS_SPEC.md`
+
 ## Summary
 
 Add visibility and control for Daytona dev server runs:
 
 - Keep the existing **safe** start (ensures pnpm + install fallback).
 - Add a **fast start** button that only `cd`s + runs `pnpm dev`.
-- Add a **status/logs panel** that surfaces whether the dev server is running and shows a log tail.
+- Add a **status/logs panel** that surfaces whether the dev server is running
+  and shows a log tail.
 
-This removes ambiguity from `exitCode: 0` on the background launch by surfacing runtime status and logs.
+This removes ambiguity from `exitCode: 0` on the background launch by surfacing
+runtime status and logs.
 
 ## Goals
 
@@ -74,7 +82,8 @@ NOTER_DEV_HOST=0.0.0.0 NOTER_DEV_PORT=5173 NOTER_DEV_STRICT_PORT=1 nohup bash -l
 
 **Behavior:**
 
-- If port `5173` is already listening, return `ok: true` with message "Already running."
+- If port `5173` is already listening, return `ok: true` with message "Already
+  running."
 - No dependency checks or installs.
 
 ## Implementation Details
@@ -112,7 +121,8 @@ Fallbacks if `ss` is missing:
 
 ## Rollout Plan
 
-1. Add Convex actions `getDaytonaDevServerStatus` and `startDaytonaDevServerFast`.
+1. Add Convex actions `getDaytonaDevServerStatus` and
+   `startDaytonaDevServerFast`.
 2. Update UI to show:
    - Start Dev (Safe)
    - Start Dev (Fast)
@@ -121,4 +131,3 @@ Fallbacks if `ss` is missing:
    - Safe start still works.
    - Fast start works when deps already installed.
    - Status correctly reports running vs stopped.
-

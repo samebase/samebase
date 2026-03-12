@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 import { execSync } from "node:child_process";
+import { readPackageVersion } from "../../scripts/readPackageVersion.js";
 
 const gitRoot = path.resolve(__dirname, "..", "..");
 
@@ -26,12 +27,14 @@ const appCommit =
   "unknown";
 
 const appRepoUrl = "https://github.com/nicu-chiciuc/noter";
+const daytonaSdkVersion = readPackageVersion("@daytonaio/sdk", import.meta.url);
 
 // https://vitejs.dev/config/
 export default defineConfig({
   define: {
     __APP_COMMIT__: JSON.stringify(appCommit),
     __APP_REPO_URL__: JSON.stringify(appRepoUrl),
+    __DAYTONA_SDK_VERSION__: JSON.stringify(daytonaSdkVersion),
   },
   plugins: [
     react(),

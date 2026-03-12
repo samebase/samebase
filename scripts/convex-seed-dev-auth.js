@@ -11,7 +11,7 @@ import {
 } from '../apps/noter/convex-local-utils.js'
 
 /**
- * @typedef {{ path: string, vars: Record<string, string> }} EnvFile
+ * @typedef {{ path: string, vars: Record<string, string | undefined> }} EnvFile
  */
 
 const repoRoot = resolveRepoRoot()
@@ -54,22 +54,21 @@ const backend = spawn(
     stdio: 'inherit',
   },
 )
-const backendPid = backend.pid
-
-let backendExited = false
-backend.on('exit', () => {
-  backendExited = true
-})
 const waitForBackendExit = async () => {
-  if (backendExited) {
+  if (backend.exitCode !== null || backend.signalCode !== null) {
     return
   }
   backend.kill('SIGTERM')
   const deadline = Date.now() + 5000
-  while (!backendExited && Date.now() < deadline) {
+  while (Date.now() < deadline) {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (backend.exitCode !== null || backend.signalCode !== null) {
+      return
+    }
     await sleep(100)
   }
-  if (!backendExited) {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (backend.exitCode === null && backend.signalCode === null) {
     backend.kill('SIGKILL')
   }
 }
@@ -189,7 +188,7 @@ function resolveRepoRoot() {
   if (result.status !== 0) {
     return process.cwd()
   }
-  const root = (result.stdout ?? '').trim()
+  const root = result.stdout.trim()
   return root.length > 0 ? root : process.cwd()
 }
 
@@ -224,13 +223,21 @@ function readEnvFile(filePath) {
 }
 
 /**
- * @param {Record<string, string>} vars
+ * @param {Record<string, string | undefined>} vars
  * @returns {number | null}
  */
 function resolveBackendPort(vars) {
-  const url = vars.VITE_CONVEX_URL ?? vars.CONVEX_URL
-  if (!url) return null
-  return parsePort(url)
+  for (const key of ['CONVEX_URL', 'VITE_CONVEX_URL']) {
+    const url = vars[key]
+    if (typeof url !== 'string' || url.trim().length === 0) {
+      continue
+    }
+    const port = parsePort(url)
+    if (port !== null) {
+      return port
+    }
+  }
+  return null
 }
 
 /**

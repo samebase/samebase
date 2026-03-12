@@ -1,8 +1,12 @@
 import { useAction, useQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
+import {
+  DaytonaPtyTerminal,
+  type DaytonaPtySession,
+} from "@/components/DaytonaPtyTerminal";
 import { clsx } from "clsx";
 import codexAppLogo from "@/assets/codex-app.png";
 
@@ -15,23 +19,37 @@ const CodexProviderLogo = ({ className }: { className?: string }) => (
 export function CodexProviderRow() {
   const codexConnection = useQuery(api.users.getCodexConnectionStatus);
   const prepareCodexAuthSandbox = useAction(
-    api.daytonaActions.prepareCodexAuthSandbox,
+    api.daytona.actions.prepareCodexAuthSandbox,
   );
   const verifyCodexLoginInSandbox = useAction(
-    api.daytonaActions.verifyCodexLoginInSandbox,
+    api.daytona.actions.verifyCodexLoginInSandbox,
   );
   const disconnectCodexProvider = useAction(
-    api.daytonaActions.disconnectCodexProvider,
+    api.daytona.actions.disconnectCodexProvider,
+  );
+  const openCodexAuthPtySession = useAction(
+    api.daytona.terminal.openCodexAuthPtySession,
+  );
+  const resizeCodexAuthPtySession = useAction(
+    api.daytona.terminal.resizeCodexAuthPtySession,
+  );
+  const closeCodexAuthPtySession = useAction(
+    api.daytona.terminal.closeCodexAuthPtySession,
   );
   const [isPreparing, setIsPreparing] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
-  const [terminalUrl, setTerminalUrl] = useState<string | null>(null);
+  const [isClosingTerminal, setIsClosingTerminal] = useState(false);
+  const [terminalTabUrl, setTerminalTabUrl] = useState<string | null>(null);
+  const [terminalSession, setTerminalSession] =
+    useState<DaytonaPtySession | null>(null);
   const [terminalStatus, setTerminalStatus] = useState<
     "ready" | "needs_reauth" | "error" | null
   >(null);
   const [message, setMessage] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
+  const terminalSessionRef = useRef<DaytonaPtySession | null>(null);
+  const pendingTerminalClosePromiseRef = useRef<Promise<boolean> | null>(null);
 
   const isReady =
     codexConnection?.connected === true &&
@@ -50,8 +68,142 @@ export function CodexProviderRow() {
         ? codexConnection.lastError?.trim() || "Daytona auth sandbox error"
         : "Login missing or expired";
 
+  useEffect(() => {
+    terminalSessionRef.current = terminalSession;
+  }, [terminalSession]);
+
+  useEffect(() => {
+    return () => {
+      const activeSession = terminalSessionRef.current;
+      if (!activeSession) {
+        return;
+      }
+      terminalSessionRef.current = null;
+      void closeCodexAuthPtySession({
+        sessionId: activeSession.sessionId,
+      }).catch((error) => {
+        console.warn("codex:pty:cleanup-close-failed", {
+          sessionId: activeSession.sessionId,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      });
+    };
+  }, [closeCodexAuthPtySession]);
+
+  const clearTerminalSessionState = () => {
+    terminalSessionRef.current = null;
+    setTerminalSession(null);
+  };
+
+  const closeActiveTerminalSession = async (silent?: boolean) => {
+    const pendingClosePromise = pendingTerminalClosePromiseRef.current;
+    if (pendingClosePromise) {
+      return await pendingClosePromise;
+    }
+    const activeSession = terminalSessionRef.current;
+    if (!activeSession) {
+      return true;
+    }
+    const closePromise = (async () => {
+      setIsClosingTerminal(true);
+      clearTerminalSessionState();
+
+      try {
+        const result = await closeCodexAuthPtySession({
+          sessionId: activeSession.sessionId,
+        });
+        if (result.ok) {
+          return true;
+        }
+        terminalSessionRef.current = activeSession;
+        setTerminalSession(activeSession);
+        if (!silent) {
+          setHasError(true);
+          setMessage(
+            result.message ?? "Failed to close Daytona terminal session.",
+          );
+        }
+        return false;
+      } catch (error) {
+        terminalSessionRef.current = activeSession;
+        setTerminalSession(activeSession);
+        if (!silent) {
+          setHasError(true);
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "Failed to close Daytona terminal session.",
+          );
+        }
+        return false;
+      } finally {
+        pendingTerminalClosePromiseRef.current = null;
+        setIsClosingTerminal(false);
+      }
+    })();
+    pendingTerminalClosePromiseRef.current = closePromise;
+    return await closePromise;
+  };
+
+  const openTerminalSession = async (
+    silent?: boolean,
+  ): Promise<DaytonaPtySession | null> => {
+    const isSilent = silent === true;
+    const pendingClosePromise = pendingTerminalClosePromiseRef.current;
+    if (pendingClosePromise) {
+      const closedPendingSession = await pendingClosePromise;
+      if (!closedPendingSession) {
+        throw new Error("Failed to close Daytona terminal session.");
+      }
+    }
+    const closedExistingSession = await closeActiveTerminalSession(true);
+    if (!closedExistingSession) {
+      throw new Error("Failed to close Daytona terminal session.");
+    }
+
+    try {
+      const result = await openCodexAuthPtySession({});
+      if (
+        !result.ok ||
+        !result.sessionId ||
+        !result.webSocketUrl ||
+        !result.previewToken
+      ) {
+        if (!isSilent) {
+          setHasError(true);
+          setMessage(result.message ?? "Failed to open Daytona terminal.");
+        }
+        return null;
+      }
+
+      const nextSession = {
+        sessionId: result.sessionId,
+        webSocketUrl: result.webSocketUrl,
+        previewToken: result.previewToken,
+        initialInput: result.initialInput,
+      };
+      terminalSessionRef.current = nextSession;
+      setTerminalSession(nextSession);
+      if (!isSilent) {
+        setHasError(false);
+        setMessage(result.message ?? "Terminal session ready.");
+      }
+      return nextSession;
+    } catch (error) {
+      if (!isSilent) {
+        setHasError(true);
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Failed to open Daytona terminal.",
+        );
+      }
+      return null;
+    }
+  };
+
   const handlePrepare = async (forceOpenTerminal: boolean) => {
-    if (isPreparing || isVerifying || isDisconnecting) {
+    if (isPreparing || isVerifying || isDisconnecting || isClosingTerminal) {
       return;
     }
     setIsPreparing(true);
@@ -73,7 +225,22 @@ export function CodexProviderRow() {
       setTerminalStatus(
         shouldShowTerminal ? result.lastCheckStatus ?? null : null,
       );
-      setTerminalUrl(shouldShowTerminal ? result.terminalUrl ?? null : null);
+      setTerminalTabUrl(shouldShowTerminal ? result.terminalUrl ?? null : null);
+      if (!shouldShowTerminal) {
+        const closedSession = await closeActiveTerminalSession(true);
+        if (!closedSession) {
+          setHasError(true);
+          setMessage("Failed to close Daytona terminal session.");
+          return;
+        }
+        return;
+      }
+
+      const nextSession = await openTerminalSession(true);
+      if (!nextSession && !result.terminalUrl) {
+        setHasError(true);
+        setMessage("Failed to open Daytona terminal.");
+      }
     } catch (error) {
       setHasError(true);
       setMessage(
@@ -87,7 +254,7 @@ export function CodexProviderRow() {
   };
 
   const handleVerify = async () => {
-    if (isPreparing || isVerifying || isDisconnecting) {
+    if (isPreparing || isVerifying || isDisconnecting || isClosingTerminal) {
       return;
     }
     setIsVerifying(true);
@@ -102,7 +269,7 @@ export function CodexProviderRow() {
         return;
       }
       setHasError(result.lastCheckStatus === "error");
-      if (terminalUrl) {
+      if (terminalSession || terminalTabUrl) {
         setTerminalStatus(result.lastCheckStatus ?? null);
       }
       setMessage(result.message ?? "Codex login checked.");
@@ -119,7 +286,7 @@ export function CodexProviderRow() {
   };
 
   const handleDisconnect = async () => {
-    if (isPreparing || isVerifying || isDisconnecting) {
+    if (isPreparing || isVerifying || isDisconnecting || isClosingTerminal) {
       return;
     }
     setIsDisconnecting(true);
@@ -127,6 +294,12 @@ export function CodexProviderRow() {
     setHasError(false);
 
     try {
+      const closedTerminal = await closeActiveTerminalSession(true);
+      if (!closedTerminal) {
+        setHasError(true);
+        setMessage("Failed to close Daytona terminal session.");
+        return;
+      }
       const result = await disconnectCodexProvider({});
       if (!result.ok) {
         setHasError(true);
@@ -134,7 +307,7 @@ export function CodexProviderRow() {
         return;
       }
       setTerminalStatus(null);
-      setTerminalUrl(null);
+      setTerminalTabUrl(null);
       setMessage(result.message ?? "Codex disconnected from Daytona.");
     } catch (error) {
       setHasError(true);
@@ -148,7 +321,7 @@ export function CodexProviderRow() {
 
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+      <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
         <div className="flex min-w-0 items-start gap-3">
           <div className="flex h-5 w-11 shrink-0 items-center justify-center">
             <CodexProviderLogo className="max-h-full max-w-full" />
@@ -160,14 +333,20 @@ export function CodexProviderRow() {
             </div>
           </div>
         </div>
-        <div className="flex shrink-0 flex-wrap justify-end gap-2 self-start">
+        <div className="flex w-full shrink-0 flex-col gap-2 self-start sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
           {isReady ? (
             <>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => void handlePrepare(true)}
-                disabled={isPreparing || isVerifying || isDisconnecting}
+                disabled={
+                  isPreparing ||
+                  isVerifying ||
+                  isDisconnecting ||
+                  isClosingTerminal
+                }
+                className="w-full sm:w-auto"
               >
                 {isPreparing ? (
                   <>
@@ -175,14 +354,20 @@ export function CodexProviderRow() {
                     Opening...
                   </>
                 ) : (
-                  "Open terminal"
+                  "Reconnect in Daytona"
                 )}
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => void handleVerify()}
-                disabled={isPreparing || isVerifying || isDisconnecting}
+                disabled={
+                  isPreparing ||
+                  isVerifying ||
+                  isDisconnecting ||
+                  isClosingTerminal
+                }
+                className="w-full sm:w-auto"
               >
                 {isVerifying ? (
                   <>
@@ -197,7 +382,13 @@ export function CodexProviderRow() {
                 variant="outline"
                 size="sm"
                 onClick={() => void handleDisconnect()}
-                disabled={isPreparing || isVerifying || isDisconnecting}
+                disabled={
+                  isPreparing ||
+                  isVerifying ||
+                  isDisconnecting ||
+                  isClosingTerminal
+                }
+                className="w-full sm:w-auto"
               >
                 {isDisconnecting ? (
                   <>
@@ -215,7 +406,13 @@ export function CodexProviderRow() {
                 variant="outline"
                 size="sm"
                 onClick={() => void handlePrepare(false)}
-                disabled={isPreparing || isVerifying || isDisconnecting}
+                disabled={
+                  isPreparing ||
+                  isVerifying ||
+                  isDisconnecting ||
+                  isClosingTerminal
+                }
+                className="w-full sm:w-auto"
               >
                 {isPreparing ? (
                   <>
@@ -232,7 +429,13 @@ export function CodexProviderRow() {
                     variant="outline"
                     size="sm"
                     onClick={() => void handleVerify()}
-                    disabled={isPreparing || isVerifying || isDisconnecting}
+                    disabled={
+                      isPreparing ||
+                      isVerifying ||
+                      isDisconnecting ||
+                      isClosingTerminal
+                    }
+                    className="w-full sm:w-auto"
                   >
                     {isVerifying ? (
                       <>
@@ -247,7 +450,13 @@ export function CodexProviderRow() {
                     variant="outline"
                     size="sm"
                     onClick={() => void handleDisconnect()}
-                    disabled={isPreparing || isVerifying || isDisconnecting}
+                    disabled={
+                      isPreparing ||
+                      isVerifying ||
+                      isDisconnecting ||
+                      isClosingTerminal
+                    }
+                    className="w-full sm:w-auto"
                   >
                     {isDisconnecting ? (
                       <>
@@ -264,35 +473,92 @@ export function CodexProviderRow() {
           )}
         </div>
       </div>
-      {terminalUrl ? (
-        <div className="overflow-hidden rounded-md border bg-muted/10">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/20 px-2 py-1 text-xs text-muted-foreground">
-            <span>Daytona Terminal (iframe)</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setTerminalUrl(null);
-                setTerminalStatus(null);
+      {terminalSession || terminalTabUrl ? (
+        <div className="space-y-2 rounded-md border bg-muted/10 p-2">
+          {terminalSession ? (
+            <DaytonaPtyTerminal
+              session={terminalSession}
+              showHeader={false}
+              allowInput={false}
+              onResizeSession={(sessionId, cols, rows) => {
+                void resizeCodexAuthPtySession({
+                  sessionId,
+                  cols,
+                  rows,
+                }).catch((error) => {
+                  console.warn("codex:pty:resize-failed", {
+                    sessionId,
+                    message:
+                      error instanceof Error ? error.message : String(error),
+                  });
+                });
               }}
-              disabled={isPreparing || isVerifying || isDisconnecting}
-            >
-              Hide terminal
-            </Button>
-          </div>
-          <iframe
-            title="Codex Daytona Terminal"
-            src={terminalUrl}
-            className="h-[360px] w-full bg-white"
-            allow="clipboard-read; clipboard-write"
-            referrerPolicy="no-referrer"
-          />
-          <div className="px-2 py-1 text-xs text-muted-foreground">
-            {terminalStatus === "ready"
-              ? "Codex is already logged in. Use this terminal for manual Codex commands."
-              : terminalStatus === "error"
-                ? "Codex could not be verified automatically. Inspect the terminal, then try Check login again."
-                : "Run codex login --device-auth here, finish the browser step, then click Check login."}
+              onSessionError={(terminalMessage) => {
+                setTerminalStatus("error");
+                setHasError(true);
+                setMessage(terminalMessage);
+              }}
+              onSessionExit={(terminalMessage) => {
+                setHasError(false);
+                setMessage(terminalMessage);
+              }}
+            />
+          ) : null}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-xs text-muted-foreground">
+              {terminalStatus === "error"
+                ? "Codex could not be verified automatically. Finish the login and try Check login again."
+                : terminalSession
+                  ? "The device-auth login starts automatically here. Finish the browser step, then click Check login."
+                  : "Open the Daytona terminal in a new tab to finish the device-auth login, then click Check login."}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {terminalTabUrl ? (
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() => {
+                    window.open(
+                      terminalTabUrl,
+                      "_blank",
+                      "noopener,noreferrer",
+                    );
+                  }}
+                  disabled={
+                    isPreparing ||
+                    isVerifying ||
+                    isDisconnecting ||
+                    isClosingTerminal
+                  }
+                  className="h-auto px-0 text-xs"
+                >
+                  Open in tab
+                </Button>
+              ) : null}
+              <Button
+                variant="link"
+                size="sm"
+                onClick={() => {
+                  void (async () => {
+                    const closedSession = await closeActiveTerminalSession();
+                    if (!closedSession) {
+                      return;
+                    }
+                    setTerminalTabUrl(null);
+                    setTerminalStatus(null);
+                  })();
+                }}
+                disabled={
+                  isPreparing ||
+                  isVerifying ||
+                  isDisconnecting ||
+                  isClosingTerminal
+                }
+                className="h-auto px-0 text-xs"
+              >
+                {isClosingTerminal ? "Hiding..." : "Hide terminal"}
+              </Button>
+            </div>
           </div>
         </div>
       ) : null}
