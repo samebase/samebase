@@ -20,6 +20,8 @@ Define an explicit separation between:
 1. the active Convex runtime target used by a Daytona workspace sandbox
 2. the cloud dev deployment used as a read-only seed source
 3. the Daytona control-plane deployment identity used for naming and auth
+4. the explicit Daytona-local bootstrap entrypoint used by the current repo
+   shape
 
 Default Daytona workspace sandboxes to:
 
@@ -30,6 +32,12 @@ Default Daytona workspace sandboxes to:
 The cloud dev deployment must remain available for seed copying, but it must not
 silently become the active runtime target for `make anon` inside the sandbox.
 
+This spec also covers the gap between the two repo shapes Noter currently boots
+in Daytona:
+
+1. the local monorepo/worktree shape (`apps/noter` app root)
+2. the seeded starter-template repo shape (repo-root app root)
+
 ## Problem
 
 On 2026-03-12, the Daytona workspace bootstrap flow reproduced this failure:
@@ -37,12 +45,14 @@ On 2026-03-12, the Daytona workspace bootstrap flow reproduced this failure:
 1. Remove sandbox.
 2. Create sandbox.
 3. Open `Dev Server`.
-4. Observe `make anon` fail inside the sandbox.
+4. Observe Vite start, Convex prompt for login, and the preview fail.
 
-Concrete failures seen in the dev-server/install logs:
+Concrete failures seen across the 2026-03-12 Daytona reruns:
 
 - `InvalidDeploymentName: Couldn't parse deployment name local-1c49`
 - `Local deployment must be anonymous/local (got dev:quiet-robin-508 ...)`
+- `Welcome to Convex! Would you like to login to your account?`
+- `Missing VITE_CONVEX_URL in environment`
 
 The underlying issue is architectural, not just one bad string:
 
@@ -58,6 +68,17 @@ separate `.env.anon-seed.local` file. The missing contract is how Daytona should
 provide that source env and any required auth without changing the active
 runtime target.
 
+Manual verification of the current PR branch found additional concrete gaps:
+
+1. the main repo now exposes `make daytona-local`, but the seeded starter repo
+   does not expose an equivalent explicit Daytona-local entrypoint
+2. the Daytona launcher therefore falls back to raw `pnpm run dev` in the
+   starter repo, which skips the anonymous bootstrap entirely
+3. created Daytona sandboxes currently inject `NOTER_*` metadata, but not
+   `DAYTONA_CONVEX_DEPLOY_KEY`
+4. because of 1-3, the starter repo never generates an explicit source env,
+   never runs the seed-copy bootstrap, and instead starts raw `convex dev`
+
 ## Terms
 
 ### Runtime Profile
@@ -68,12 +89,12 @@ For Daytona workspaces, the default runtime profile must be:
 
 - `local anonymous`
 
-This is represented by `apps/noter/.env.local`.
+This is represented by `<app-root>/.env.local`.
 
 ### Seed Source
 
 A read-only source deployment used only to copy allowlisted values into
-`apps/noter/.env.anon-seed.local`.
+`<app-root>/.env.anon-seed.local`.
 
 For Daytona workspaces, the default seed source is:
 
@@ -92,6 +113,24 @@ The deployment information used by Daytona-facing backend logic for:
 This may come from `DAYTONA_CONVEX_DEPLOY_KEY`, but it must not implicitly
 change the runtime profile of the sandbox dev server.
 
+### App Root
+
+The directory in the current repo shape that owns the runtime files for the app:
+
+1. `package.json`
+2. `convex/`
+3. `.env.local`
+4. `.env.anon-seed.local`
+5. `.env.daytona-source.local`
+
+Examples:
+
+- monorepo/worktree repo shape: `apps/noter`
+- seeded starter-template repo shape: repo root
+
+Unless otherwise noted, env-file paths in this spec are relative to the app
+root.
+
 ## Goals
 
 1. Keep Daytona workspace dev servers on local anonymous Convex by default.
@@ -102,6 +141,8 @@ change the runtime profile of the sandbox dev server.
 5. Prevent `CONVEX_DEPLOY_KEY` leakage into the long-lived shell/dev-server
    runtime environment.
 6. Reuse the existing `make anon` / `make anon-once` flow where practical.
+7. Ensure seeded starter-template repos boot Daytona through an explicit local
+   bootstrap entrypoint instead of raw `pnpm run dev`.
 
 ## Non-Goals
 
@@ -126,20 +167,25 @@ This follows the direction already noted in
 `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`: worktrees inside a
 sandbox are optional, not the baseline model.
 
-### 2. `.env.local` Remains The Active Runtime File
+### 2. App-Root `.env.local` Remains The Active Runtime File
 
 Inside a Daytona workspace sandbox:
 
-1. `apps/noter/.env.local` remains the active runtime file
+1. `<app-root>/.env.local` remains the active runtime file
 2. it must resolve to a local anonymous deployment by default
 3. `convex-dev.js`, `predev.js`, and related runtime scripts may continue to
    treat `.env.local` as the active runtime contract in the first rollout
 
 This avoids a wide refactor of the local runtime path.
 
-### 3. `.env.anon-seed.local` Remains A Seed Output File
+Examples:
 
-`apps/noter/.env.anon-seed.local` remains:
+1. monorepo/worktree: `apps/noter/.env.local`
+2. seeded starter repo: `.env.local`
+
+### 3. App-Root `.env.anon-seed.local` Remains A Seed Output File
+
+`<app-root>/.env.anon-seed.local` remains:
 
 1. a generated seed file
 2. the input to the local seed replay flow
@@ -156,7 +202,7 @@ Instead, Daytona must provide an explicit source env file to the seed-copy step.
 
 Recommended file:
 
-- `apps/noter/.env.daytona-source.local`
+- `<app-root>/.env.daytona-source.local`
 
 Contract:
 
@@ -172,6 +218,11 @@ At minimum, it should contain:
 where `<deployment-name>` is derived from the Daytona-side dev deployment
 identity.
 
+Examples:
+
+1. monorepo/worktree: `apps/noter/.env.daytona-source.local`
+2. seeded starter repo: `.env.daytona-source.local`
+
 ### 5. Source Auth Must Be Scoped To The Copy Step Only
 
 If the Convex CLI inside the sandbox needs a deploy key to read the shared dev
@@ -181,7 +232,7 @@ Rules:
 
 1. `CONVEX_DEPLOY_KEY` must not be exported globally into the long-lived Daytona
    shell/dev-server environment for local mode
-2. `CONVEX_DEPLOY_KEY` must not be written into `apps/noter/.env.local`
+2. `CONVEX_DEPLOY_KEY` must not be written into `<app-root>/.env.local`
 3. `CONVEX_DEPLOY_KEY` must not be used as the active runtime selector for
    `make anon`
 4. `DAYTONA_CONVEX_DEPLOY_KEY` may remain available to Daytona-specific backend
@@ -221,11 +272,40 @@ Contract:
 4. `make anon` remains the reusable low-level primitive, not the clearest
    Daytona-facing command name
 
+For repo shapes that ship a root `Makefile`, Daytona should invoke those target
+names directly.
+
+### 8. `DAYTONA_CONVEX_DEPLOY_KEY` Must Be Available Inside The Sandbox
+
+When the Daytona control plane has `DAYTONA_CONVEX_DEPLOY_KEY`, the created
+sandbox must receive that same env var.
+
+Rules:
+
+1. it may remain available in the sandbox environment as
+   `DAYTONA_CONVEX_DEPLOY_KEY`
+2. bootstrap scripts may read it to derive
+   `<app-root>/.env.daytona-source.local`
+3. it must not be blindly rewritten to a long-lived global `CONVEX_DEPLOY_KEY`
+4. it must not be written into `<app-root>/.env.local`
+
+### 9. Noter-Managed Starter Repos Must Expose An Explicit Daytona Entry Point
+
+The seeded repo created from `apps/noter-starter-template` must expose an
+explicit Daytona-local bootstrap entrypoint at the repo root.
+
+Preferred first rollout:
+
+1. add a repo-root `Makefile` to the starter template
+2. expose `daytona-local` and `daytona-local-once`
+3. keep `pnpm run dev` as the inner dev command started after bootstrap
+4. do not treat raw `pnpm run dev` as a sufficient Daytona bootstrap contract
+
 ## File And Env Contract
 
 ### Active Runtime
 
-`apps/noter/.env.local`
+`<app-root>/.env.local`
 
 Requirements:
 
@@ -235,7 +315,7 @@ Requirements:
 
 ### Seed Output
 
-`apps/noter/.env.anon-seed.local`
+`<app-root>/.env.anon-seed.local`
 
 Requirements:
 
@@ -246,7 +326,7 @@ Requirements:
 
 ### Daytona Source File
 
-`apps/noter/.env.daytona-source.local`
+`<app-root>/.env.daytona-source.local`
 
 Requirements:
 
@@ -263,6 +343,8 @@ Requirements:
 2. optional source-auth input for seed copying
 3. may be stored in local Convex env only where Daytona backend features require
    it
+4. must be injected into the created Daytona sandbox when available so local
+   bootstrap can derive the explicit source env file
 
 `CONVEX_DEPLOY_KEY`
 
@@ -288,20 +370,26 @@ This spec does not replace that flow.
 
 The Daytona workspace bootstrap flow must be:
 
-1. start local anonymous Convex runtime in `apps/noter/.env.local`
-2. generate `apps/noter/.env.daytona-source.local`
-3. run
-   `scripts/convex-sync-dev-env.js --source-env apps/noter/.env.daytona-source.local`
-4. if needed, provide source auth only to that sync command
-5. write `apps/noter/.env.anon-seed.local`
-6. run `scripts/convex-seed-dev-auth.js`
-7. refresh local anonymous auth keys
-8. start the normal dev runtime
+1. create the sandbox with `DAYTONA_CONVEX_DEPLOY_KEY` available in sandbox env
+   when configured on the control plane
+2. resolve the repo's explicit Daytona-local bootstrap entrypoint
+3. start local anonymous Convex runtime in `<app-root>/.env.local`
+4. generate `<app-root>/.env.daytona-source.local`
+5. run
+   `scripts/convex-sync-dev-env.js --source-env <app-root>/.env.daytona-source.local`
+6. if needed, provide source auth only to that sync command
+7. write `<app-root>/.env.anon-seed.local`
+8. run `scripts/convex-seed-dev-auth.js`
+9. refresh local anonymous auth keys
+10. start the normal dev runtime
 
 The key invariant is:
 
 - the source env is explicit
 - the active runtime stays local anonymous
+
+For Noter-managed starter repos, raw `pnpm run dev` is not a substitute for
+steps 2-9.
 
 ## Make And Script Contract
 
@@ -310,11 +398,12 @@ path, not a full runtime-profile rewrite.
 
 ### `make daytona-local` / `make daytona-local-once`
 
-These wrapper targets are the preferred Daytona sandbox entrypoints.
+For repos that ship a root `Makefile`, these wrapper targets are the preferred
+Daytona sandbox entrypoints.
 
 They should:
 
-1. generate `apps/noter/.env.daytona-source.local` when a Daytona cloud dev
+1. generate `<app-root>/.env.daytona-source.local` when a Daytona cloud dev
    source can be derived
 2. delegate to `make anon` / `make anon-once`
 3. pass `--no-branch` so sandboxes do not invent internal worktree branches
@@ -349,7 +438,7 @@ This script should continue to:
 
 1. read local anonymous `.env.local` as the target runtime identity
 2. read the source env file separately
-3. write `apps/noter/.env.anon-seed.local`
+3. write `<app-root>/.env.anon-seed.local`
 
 ### `convex-dev.js`
 
@@ -359,6 +448,36 @@ Keep the simpler contract:
 
 1. `.env.local` is the active runtime file
 2. Daytona source selection is handled outside `convex-dev.js`
+
+### `apps/noter-starter-template`
+
+The seeded starter repo must carry its own explicit Daytona bootstrap contract.
+
+Required first-rollout changes:
+
+1. add a repo-root bootstrap entrypoint to the template
+2. preferred initial implementation: repo-root `Makefile` exposing
+   `daytona-local` and `daytona-local-once`
+3. use repo-root env files (`.env.local`, `.env.anon-seed.local`,
+   `.env.daytona-source.local`) instead of `apps/noter/...`
+4. keep `pnpm run dev` as the inner app runtime, not the outer Daytona bootstrap
+   command
+5. ensure the starter export/manifest flow includes any new root bootstrap
+   assets so seeded repos receive them
+
+### Daytona Launcher Resolution
+
+For Noter-managed repos, the launcher must prefer explicit Daytona-local
+bootstrap entrypoints and fail closed when they are missing.
+
+Rules:
+
+1. prefer explicit Daytona-local wrapper entrypoints over raw dev commands
+2. do not silently fall back to raw `pnpm run dev` for
+   `apps/noter-starter-template`-derived repos
+3. if a Noter-managed repo lacks the required explicit Daytona-local entrypoint,
+   return an actionable error instead of starting a partially bootstrapped dev
+   server
 
 ## Product Contract
 
@@ -382,43 +501,69 @@ That is a separate follow-up and not part of the default flow in this spec.
 
 ## Acceptance Criteria
 
-1. In a fresh Daytona workspace sandbox, `Open Dev Server` no longer fails with
-   `InvalidDeploymentName` or
-   `Local deployment must be anonymous/local (got dev:...)`.
-2. `apps/noter/.env.local` inside the sandbox still resolves to a local
+1. In a fresh Daytona workspace sandbox seeded from
+   `apps/noter-starter-template`, `Open Dev Server` uses an explicit
+   Daytona-local bootstrap entrypoint instead of raw `pnpm run dev`.
+2. `DAYTONA_CONVEX_DEPLOY_KEY` is available inside the sandbox env when it is
+   configured on the Daytona control plane.
+3. `<app-root>/.env.local` inside the sandbox still resolves to a local
    anonymous deployment after bootstrap.
-3. The seed-copy step can still read allowlisted values from the shared cloud
+4. The seed-copy step can still read allowlisted values from the shared cloud
    dev deployment using an explicit source env.
-4. `CONVEX_DEPLOY_KEY` is not present as a long-lived global runtime env var in
+5. `CONVEX_DEPLOY_KEY` is not present as a long-lived global runtime env var in
    the default Daytona local mode.
-5. Multiple Daytona sandboxes can run concurrently without relying on internal
+6. `Open Dev Server` no longer shows the interactive Convex login prompt in the
+   default Daytona local flow.
+7. The Daytona preview no longer fails with
+   `Missing VITE_CONVEX_URL in environment`.
+8. Multiple Daytona sandboxes can run concurrently without relying on internal
    git worktrees.
-6. Any future switch to shared dev runtime is explicit and not the default.
+9. Any future switch to shared dev runtime is explicit and not the default.
 
 ## Implementation Plan
 
-1. Add a Daytona-specific explicit source env file contract.
-2. Add Daytona wrapper bootstrap targets over the shared anon flow.
-3. Extend `make anon` / `make anon-once` with optional source-selection inputs.
-4. Scope cloud source auth only to the seed-copy step.
-5. Update Daytona dev-server bootstrap to use the explicit Daytona local
-   wrapper.
-6. Add regression coverage for the default Daytona local-mode path.
+1. Generalize the file/env contract to app-root-relative paths so both repo
+   shapes are covered.
+2. Inject `DAYTONA_CONVEX_DEPLOY_KEY` into created Daytona sandboxes.
+3. Add explicit Daytona-local bootstrap entrypoints to the seeded starter repo
+   shape.
+4. Keep main-repo Daytona wrapper targets over the shared anon flow.
+5. Extend bootstrap scripts/targets with optional explicit source-selection
+   inputs.
+6. Scope cloud source auth only to the seed-copy step.
+7. Update Daytona launcher resolution so Noter-managed starter repos do not fall
+   back to raw `pnpm run dev`.
+8. Add regression coverage and manual validation for the seeded starter-repo
+   path.
 
 ## Implementation Checklist
 
-- [x] Add a Daytona-specific explicit source env generator.
-- [x] Add `make daytona-local` / `make daytona-local-once` wrapper targets.
-- [x] Extend `make anon` / `make anon-once` with optional source inputs.
+- [x] Add a Daytona-specific explicit source env generator for the main-repo
+      flow.
+- [x] Add main-repo `make daytona-local` / `make daytona-local-once` wrapper
+      targets.
+- [x] Extend main-repo `make anon` / `make anon-once` with optional source
+      inputs.
 - [x] Scope cloud source auth only to the seed-copy step.
-- [x] Update Daytona dev-server bootstrap to use the explicit Daytona local
-      wrapper.
-- [x] Add regression coverage for the default Daytona local-mode path.
+- [ ] Generalize the Daytona env-file contract to app-root-relative paths so
+      seeded starter repos use repo-root `.env*` files.
+- [ ] Inject `DAYTONA_CONVEX_DEPLOY_KEY` into created Daytona sandboxes.
+- [ ] Add repo-root Daytona bootstrap entrypoints to
+      `apps/noter-starter-template`.
+- [ ] Ensure the Daytona launcher uses the explicit starter-template bootstrap
+      path and does not fall back to raw `pnpm run dev`.
+- [ ] Regenerate/export starter template assets so seeded repos receive the new
+      bootstrap files.
+- [ ] Re-run Playwright on a fresh Noter-managed starter repo and confirm no
+      Convex login prompt and no `Missing VITE_CONVEX_URL` preview failure.
 
 ## Deferred Follow-Ups
 
 1. Local/worktree-unique Daytona resource naming.
-2. Whether `apps/noter/.env.daytona-source.local` should persist in-repo or be
-   generated under `/tmp` and referenced by absolute path.
+2. Whether `<app-root>/.env.daytona-source.local` should persist in-repo or be
+   generated under `/tmp` and referenced by absolute path. For starter-template
+   repos, this follow-up should be evaluated against repo-root `.env*` files.
 3. Whether the Convex CLI should gain a more direct first-class deploy-key +
    source-env workflow that reduces wrapper logic further.
+4. Whether non-Noter-managed connected repos should eventually advertise an
+   explicit Daytona-local contract or fail with a tailored unsupported message.

@@ -1040,7 +1040,7 @@ export function DaytonaWorkspaceButton({
           <DaytonaPtyTerminal
             session={terminalSession}
             title={activeTerminalKind === "dev_server" ? "Dev Server" : "Shell"}
-            allowInput={activeTerminalKind !== "dev_server"}
+            allowInput
             onResizeSession={(sessionId, cols, rows) => {
               void resizeWorkspacePtySession({
                 vaultId,
@@ -1073,7 +1073,7 @@ export function DaytonaWorkspaceButton({
           />
           <div className="text-xs text-muted-foreground">
             {activeTerminalKind === "dev_server"
-              ? "The dev server view is read-only and streams the tmux-backed dev server output."
+              ? "The dev server terminal is temporarily writable so Daytona bootstrap issues can be debugged in place."
               : "Use “Open in tab” if the embedded PTY hits a Daytona or browser edge case."}
           </div>
         </div>

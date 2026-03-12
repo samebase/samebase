@@ -11,9 +11,13 @@ export function resolveDaytonaDevServerCommand(args: {
   hasRunTarget: boolean;
   hasPackageJson: boolean;
   hasAnonTarget: boolean;
+  isNoterMonorepo: boolean;
 }): DaytonaDevServerCommand | null {
   if (args.hasDaytonaLocalTarget) {
     return "make daytona-local";
+  }
+  if (args.isNoterMonorepo) {
+    return null;
   }
   if (args.hasRunTarget) {
     return "make run";

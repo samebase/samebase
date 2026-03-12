@@ -51,6 +51,7 @@ import {
   type DaytonaTmuxSessionState,
 } from "./devServerLaunchPolicy";
 import { DAYTONA_LOCAL_DEV_MAKE_TARGET } from "./devServerCommand";
+import { buildDaytonaSandboxEnvVars } from "./sandboxEnv";
 import { toSafeRepoName } from "../repoName";
 import type { Id } from "../_generated/dataModel";
 
@@ -1652,6 +1653,7 @@ function buildDaytonaSafeDevServerCommand(args: {
       : "",
     "export NOTER_DEV_HOST=0.0.0.0",
     `export NOTER_DEV_PORT=${DAYTONA_PREVIEW_PORT}`,
+    `export VITE_PORT=${DAYTONA_PREVIEW_PORT}`,
     "export NOTER_DEV_STRICT_PORT=1",
   ]
     .filter((part) => part.length > 0)
@@ -1659,6 +1661,9 @@ function buildDaytonaSafeDevServerCommand(args: {
   const runDevCommand = stripIndent`
     if [ -f "Makefile" ] && grep -Eq '^[[:space:]]*${DAYTONA_LOCAL_DEV_MAKE_TARGET}:' Makefile; then
       make ${DAYTONA_LOCAL_DEV_MAKE_TARGET}
+    elif [ -f "Makefile" ] && [ -f "apps/noter/package.json" ] && [ -f "pnpm-workspace.yaml" ]; then
+      echo "Noter monorepo is missing the Daytona bootstrap target '${DAYTONA_LOCAL_DEV_MAKE_TARGET}'; refusing to fall back to raw dev startup."
+      exit 1
     elif [ -f "Makefile" ] && grep -Eq '^[[:space:]]*run:' Makefile; then
       make run
     elif [ -f "package.json" ]; then
@@ -2577,18 +2582,14 @@ export const startDaytonaWorkspace = action({
         language: "typescript",
         user: "daytona",
         public: true,
-        envVars: (() => {
-          const envVars: Record<string, string> = {
-            NOTER_VAULT_ID: args.vaultId,
-            NOTER_REPO: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-            NOTER_BRANCH: branch,
-            NOTER_COMMIT_SHA: expectedCommitSha,
-          };
-          if (codexAuthVolume) {
-            envVars.CODEX_HOME = DAYTONA_CODEX_HOME;
-          }
-          return envVars;
-        })(),
+        envVars: buildDaytonaSandboxEnvVars({
+          vaultId: args.vaultId,
+          repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+          branch,
+          commitSha: expectedCommitSha,
+          codexHome: codexAuthVolume ? DAYTONA_CODEX_HOME : null,
+          daytonaConvexDeployKey: process.env.DAYTONA_CONVEX_DEPLOY_KEY ?? null,
+        }),
         labels: {
           "noter.vault_id": args.vaultId,
           "noter.repo": `${vault.ghRepoOwner}/${vault.ghRepoName}`,

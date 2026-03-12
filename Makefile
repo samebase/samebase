@@ -6,7 +6,8 @@ ANON_SETUP_ONCE_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-d
 ANON_SYNC_ENV_CMD = $(if $(strip $(ANON_SOURCE_DEPLOY_KEY)),CONVEX_DEPLOY_KEY="$(ANON_SOURCE_DEPLOY_KEY)" ,)node ./scripts/convex-sync-dev-env.js $(if $(strip $(ANON_SOURCE_ENV)),--source-env "$(ANON_SOURCE_ENV)",)
 ANON_SEED_PASSWORD_ACCOUNT_CMD = node ./scripts/convex-seed-dev-auth.js
 ANON_REFRESH_AUTH_KEYS_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --refresh-anon-auth --codegen=disable --tail-logs=disable --typecheck=disable
-ANON_VITE_PORT = 5174
+ANON_VITE_PORT ?= 5174
+DAYTONA_VITE_PORT ?= 5173
 BOOTSTRAP_ANON_ARGS ?=
 DAYTONA_SOURCE_ENV ?= apps/noter/.env.daytona-source.local
 DAYTONA_WRITE_SOURCE_ENV_CMD = node ./scripts/daytona-write-source-env.js --output "$(DAYTONA_SOURCE_ENV)" --optional
@@ -49,17 +50,17 @@ anon-once:
 daytona-local:
 	$(DAYTONA_WRITE_SOURCE_ENV_CMD)
 	@if [ -f "$(DAYTONA_SOURCE_ENV)" ]; then \
-		$(MAKE) anon BOOTSTRAP_ANON_ARGS=--no-branch ANON_SOURCE_ENV="$(DAYTONA_SOURCE_ENV)" ANON_SOURCE_DEPLOY_KEY="$(DAYTONA_CONVEX_DEPLOY_KEY)"; \
+		$(MAKE) anon BOOTSTRAP_ANON_ARGS=--no-branch ANON_VITE_PORT="$(DAYTONA_VITE_PORT)" ANON_SOURCE_ENV="$(DAYTONA_SOURCE_ENV)" ANON_SOURCE_DEPLOY_KEY="$(DAYTONA_CONVEX_DEPLOY_KEY)"; \
 	else \
-		$(MAKE) anon BOOTSTRAP_ANON_ARGS=--no-branch; \
+		$(MAKE) anon BOOTSTRAP_ANON_ARGS=--no-branch ANON_VITE_PORT="$(DAYTONA_VITE_PORT)"; \
 	fi
 
 daytona-local-once:
 	$(DAYTONA_WRITE_SOURCE_ENV_CMD)
 	@if [ -f "$(DAYTONA_SOURCE_ENV)" ]; then \
-		$(MAKE) anon-once BOOTSTRAP_ANON_ARGS=--no-branch ANON_SOURCE_ENV="$(DAYTONA_SOURCE_ENV)" ANON_SOURCE_DEPLOY_KEY="$(DAYTONA_CONVEX_DEPLOY_KEY)"; \
+		$(MAKE) anon-once BOOTSTRAP_ANON_ARGS=--no-branch ANON_VITE_PORT="$(DAYTONA_VITE_PORT)" ANON_SOURCE_ENV="$(DAYTONA_SOURCE_ENV)" ANON_SOURCE_DEPLOY_KEY="$(DAYTONA_CONVEX_DEPLOY_KEY)"; \
 	else \
-		$(MAKE) anon-once BOOTSTRAP_ANON_ARGS=--no-branch; \
+		$(MAKE) anon-once BOOTSTRAP_ANON_ARGS=--no-branch ANON_VITE_PORT="$(DAYTONA_VITE_PORT)"; \
 	fi
 
 update-fixtures:

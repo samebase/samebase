@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { resolveDaytonaDevServerCommand } from "./devServerCommand";
+import { buildDaytonaSandboxEnvVars } from "./sandboxEnv";
 
 const testDir = mkdtempSync(path.join(os.tmpdir(), "noter-daytona-local-"));
 const repoRoot = path.resolve(
@@ -25,8 +26,41 @@ describe("daytonaLocalBootstrap", () => {
         hasRunTarget: true,
         hasPackageJson: true,
         hasAnonTarget: true,
+        isNoterMonorepo: true,
       }),
     ).toBe("make daytona-local");
+  });
+
+  it("fails closed for the noter monorepo when the Daytona target is missing", () => {
+    expect(
+      resolveDaytonaDevServerCommand({
+        hasDaytonaLocalTarget: false,
+        hasRunTarget: true,
+        hasPackageJson: true,
+        hasAnonTarget: true,
+        isNoterMonorepo: true,
+      }),
+    ).toBeNull();
+  });
+
+  it("injects the Daytona deploy key into sandbox env vars", () => {
+    expect(
+      buildDaytonaSandboxEnvVars({
+        vaultId: "vault-123",
+        repo: "nicu-chiciuc/noter",
+        branch: "main",
+        commitSha: "abc123",
+        codexHome: "/root/.codex",
+        daytonaConvexDeployKey: "dev:quiet-robin-508|secret-token",
+      }),
+    ).toEqual({
+      NOTER_VAULT_ID: "vault-123",
+      NOTER_REPO: "nicu-chiciuc/noter",
+      NOTER_BRANCH: "main",
+      NOTER_COMMIT_SHA: "abc123",
+      CODEX_HOME: "/root/.codex",
+      DAYTONA_CONVEX_DEPLOY_KEY: "dev:quiet-robin-508|secret-token",
+    });
   });
 
   it("writes a cloud dev source env file from DAYTONA_CONVEX_DEPLOY_KEY", () => {
