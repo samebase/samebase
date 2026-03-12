@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import prettier from 'prettier'
 import {
+  renderDaytonaSandboxProgramsGeneratedTsModule,
   renderDaytonaRuntimeGeneratedTsModule,
   renderDockerfileDaytonaDeps,
 } from '../runtime/daytonaRuntime.js'
@@ -18,6 +19,13 @@ const outputFiles = [
   {
     path: path.join(repoRoot, 'apps/noter/convex/daytona/runtime.generated.ts'),
     contents: renderDaytonaRuntimeGeneratedTsModule(),
+  },
+  {
+    path: path.join(
+      repoRoot,
+      'apps/noter/convex/daytona/sandboxPrograms.generated.ts',
+    ),
+    contents: renderDaytonaSandboxProgramsGeneratedTsModule(),
   },
 ]
 

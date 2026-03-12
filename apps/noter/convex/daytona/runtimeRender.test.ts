@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import prettier from "prettier";
 import { describe, expect, it } from "vitest";
 import {
+  renderDaytonaSandboxProgramsGeneratedTsModule,
   renderDaytonaAuthFallbackDockerfileCommands,
   renderDaytonaPrebuildDockerfileCommands,
   renderDaytonaRuntimeGeneratedTsModule,
@@ -22,13 +23,13 @@ async function readRepoFile(relativePath: string): Promise<string> {
   return fs.readFile(absolutePath, "utf8");
 }
 
-async function renderGeneratedTypeScript(contents: string): Promise<string> {
+async function renderGeneratedTypeScript(
+  relativePath: string,
+  contents: string,
+): Promise<string> {
   return normalizeFileContents(
     await prettier.format(contents, {
-      filepath: path.join(
-        repoRoot,
-        "apps/noter/convex/daytona/runtime.generated.ts",
-      ),
+      filepath: path.join(repoRoot, relativePath),
     }),
   );
 }
@@ -45,10 +46,25 @@ describe("Daytona runtime source of truth", () => {
 
   it("renders the generated Convex runtime module from the runtime manifest", async () => {
     const rendered = await renderGeneratedTypeScript(
+      "apps/noter/convex/daytona/runtime.generated.ts",
       renderDaytonaRuntimeGeneratedTsModule(),
     );
     const existing = normalizeFileContents(
       await readRepoFile("apps/noter/convex/daytona/runtime.generated.ts"),
+    );
+
+    expect(rendered).toBe(existing);
+  });
+
+  it("renders the generated Daytona sandbox programs module from source", async () => {
+    const rendered = await renderGeneratedTypeScript(
+      "apps/noter/convex/daytona/sandboxPrograms.generated.ts",
+      renderDaytonaSandboxProgramsGeneratedTsModule(),
+    );
+    const existing = normalizeFileContents(
+      await readRepoFile(
+        "apps/noter/convex/daytona/sandboxPrograms.generated.ts",
+      ),
     );
 
     expect(rendered).toBe(existing);

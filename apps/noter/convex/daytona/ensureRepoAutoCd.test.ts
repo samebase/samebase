@@ -44,21 +44,25 @@ describe("ensureRepoAutoCd", () => {
   it("keeps the profile update idempotent", async () => {
     const tempDir = await createTempDir();
     const bashrc = path.join(tempDir, ".bashrc");
+    const fishConfig = path.join(tempDir, ".config/fish/config.fish");
     await fs.writeFile(bashrc, "set -gx FOO bar\n", "utf8");
 
     await ensureRepoAutoCd({
       repoPath: "/home/daytona/workspace/noter",
       bashProfileFiles: [bashrc],
-      fishProfileFiles: [],
+      fishProfileFiles: [fishConfig],
     });
     await ensureRepoAutoCd({
       repoPath: "/home/daytona/workspace/noter",
       bashProfileFiles: [bashrc],
-      fishProfileFiles: [],
+      fishProfileFiles: [fishConfig],
     });
 
     await expect(fs.readFile(bashrc, "utf8")).resolves.toBe(
       "set -gx FOO bar\ncd '/home/daytona/workspace/noter'\n",
+    );
+    await expect(fs.readFile(fishConfig, "utf8")).resolves.toBe(
+      "cd '/home/daytona/workspace/noter'\n",
     );
   });
 });

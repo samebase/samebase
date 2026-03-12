@@ -32,6 +32,7 @@ import {
   DAYTONA_RUNTIME_AUTH_FALLBACK_DOCKERFILE_COMMANDS,
   DAYTONA_RUNTIME_PREBUILD_DOCKERFILE_COMMANDS,
 } from "./runtime.generated";
+import { DAYTONA_ENSURE_REPO_AUTO_CD_PROGRAM_SOURCE } from "./sandboxPrograms.generated";
 import {
   canonicalizeCommitPinnedDaytonaBranch,
   DAYTONA_COMMIT_PINNED_BRANCH,
@@ -99,8 +100,11 @@ const DAYTONA_REGISTRY_PROJECT_ENV = "DAYTONA_REGISTRY_PROJECT";
 const DAYTONA_REGISTRY_NAME_ENV = "DAYTONA_REGISTRY_NAME";
 const DAYTONA_REGISTRY_SET_DEFAULT_ENV = "DAYTONA_REGISTRY_SET_DEFAULT";
 const DAYTONA_ORGANIZATION_ID_ENV = "DAYTONA_ORGANIZATION_ID";
-const DAYTONA_ENSURE_REPO_AUTO_CD_PROGRAM =
-  "runtime/daytonaSandboxPrograms/ensureRepoAutoCd.js";
+const DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR = "repo";
+const DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_PATH =
+  ".noter/daytona/ensureRepoAutoCd.js";
+const DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_MOUNT_PATH =
+  "/tmp/noter-daytona-ensureRepoAutoCd.js";
 const DAYTONA_PREBUILD_RESOURCES: Resources = {
   cpu: 4,
   memory: 8,
@@ -582,25 +586,14 @@ function findWorkspaceRootDir(startDir: string): string | null {
   }
 }
 
-async function vendorDaytonaSandboxProgramIntoRepo(args: {
-  repoDir: string;
+async function writeDaytonaSandboxProgramToBuildContext(args: {
+  buildContextDir: string;
   programRelativePath: string;
+  source: string;
 }): Promise<void> {
-  const workspaceRoot = findWorkspaceRootDir(process.cwd());
-  if (!workspaceRoot) {
-    throw new Error("Could not find the Noter workspace root.");
-  }
-
-  const sourcePath = path.join(workspaceRoot, args.programRelativePath);
-  if (!fs.existsSync(sourcePath)) {
-    throw new Error(
-      `Missing Daytona sandbox helper at ${args.programRelativePath}.`,
-    );
-  }
-
-  const targetPath = path.join(args.repoDir, args.programRelativePath);
+  const targetPath = path.join(args.buildContextDir, args.programRelativePath);
   await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
-  await fs.promises.copyFile(sourcePath, targetPath);
+  await fs.promises.writeFile(targetPath, args.source, "utf8");
 }
 
 async function resolveCurrentRepoIdentity(repoDir: string): Promise<{
@@ -3842,8 +3835,7 @@ async function pruneCommitPinnedSnapshots(args: {
     },
   );
   const terminalRecords = records.filter(
-    (record: (typeof records)[number]) =>
-      record.status !== "queued" && record.status !== "building",
+    (record) => record.status !== "queued" && record.status !== "building",
   );
   const recordsToRemove = [...terminalRecords]
     .sort((left, right) => right.createdAt - left.createdAt)
@@ -4095,7 +4087,11 @@ export const buildCommitPinnedSnapshot = internalAction({
       const tmpRoot = await fs.promises.mkdtemp(
         path.join(os.tmpdir(), "noter-prebuild-"),
       );
-      const repoDir = path.join(tmpRoot, "repo");
+      const buildContextDir = tmpRoot;
+      const repoDir = path.join(
+        buildContextDir,
+        DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR,
+      );
       const repoUrl = `https://github.com/${args.owner}/${args.repo}.git`;
 
       try {
@@ -4108,12 +4104,15 @@ export const buildCommitPinnedSnapshot = internalAction({
         });
 
         await fs.promises.writeFile(
-          path.join(repoDir, ".dockerignore"),
-          ".git\nnode_modules\n.pnpm\n",
+          path.join(buildContextDir, ".dockerignore"),
+          `${DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR}/.git\n${DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR}/node_modules\n${DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR}/.pnpm\n`,
+          "utf8",
         );
-        await vendorDaytonaSandboxProgramIntoRepo({
-          repoDir,
-          programRelativePath: DAYTONA_ENSURE_REPO_AUTO_CD_PROGRAM,
+        await writeDaytonaSandboxProgramToBuildContext({
+          buildContextDir,
+          programRelativePath:
+            DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_PATH,
+          source: DAYTONA_ENSURE_REPO_AUTO_CD_PROGRAM_SOURCE,
         });
 
         const repoPath = `${DEFAULT_WORKSPACE_DIR}/${args.repo}`;
@@ -4167,14 +4166,16 @@ export const buildCommitPinnedSnapshot = internalAction({
         const baseCommands = [
           "USER root",
           `WORKDIR ${repoPath}`,
-          `COPY . ${repoPath}`,
+          `COPY ${DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR}/ ${repoPath}`,
           ...DAYTONA_RUNTIME_PREBUILD_DOCKERFILE_COMMANDS,
         ];
         const installCommand =
           "RUN pnpm install --prod=false --force --node-linker=hoisted";
-        const autoCdStep = `RUN node ${JSON.stringify(
-          path.posix.join(repoPath, DAYTONA_ENSURE_REPO_AUTO_CD_PROGRAM),
-        )} ${JSON.stringify(repoPath)}`;
+        const autoCdStep =
+          `RUN --mount=type=bind,source=${DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_PATH},target=${DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_MOUNT_PATH},readonly ` +
+          `node ${JSON.stringify(
+            DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_MOUNT_PATH,
+          )} ${JSON.stringify(repoPath)}`;
 
         const createSnapshot = async (
           baseImage: string,
@@ -4185,7 +4186,7 @@ export const buildCommitPinnedSnapshot = internalAction({
             : [...baseCommands, autoCdStep];
           const image = Image.base(baseImage).dockerfileCommands(
             dockerfileCommands,
-            repoDir,
+            buildContextDir,
           );
           await daytona.snapshot.create(
             {

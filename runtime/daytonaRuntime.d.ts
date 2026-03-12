@@ -49,6 +49,8 @@ export function renderDaytonaRuntimeGeneratedTsModule(
   manifest?: DaytonaRuntimeManifest,
 ): string
 
+export function renderDaytonaSandboxProgramsGeneratedTsModule(): string
+
 export function renderDockerfileDaytonaDeps(
   manifest?: DaytonaRuntimeManifest,
 ): string
