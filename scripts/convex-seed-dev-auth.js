@@ -55,20 +55,20 @@ const backend = spawn(
   },
 )
 const waitForBackendExit = async () => {
-  if (backend.exitCode !== null) {
+  if (backend.exitCode !== null || backend.signalCode !== null) {
     return
   }
   backend.kill('SIGTERM')
   const deadline = Date.now() + 5000
   while (Date.now() < deadline) {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (backend.exitCode !== null) {
+    if (backend.exitCode !== null || backend.signalCode !== null) {
       return
     }
     await sleep(100)
   }
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  if (backend.exitCode === null) {
+  if (backend.exitCode === null && backend.signalCode === null) {
     backend.kill('SIGKILL')
   }
 }

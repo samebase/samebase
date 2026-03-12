@@ -1,4 +1,4 @@
-export const DAYTONA_PTY_WEBSOCKET_PROTOCOL = "X-Daytona-SDK-Version~0.143.0";
+export const DAYTONA_PTY_WEBSOCKET_PROTOCOL = `X-Daytona-SDK-Version~${__DAYTONA_SDK_VERSION__}`;
 
 type DaytonaPtyControlStatus = "connected" | "error";
 
@@ -20,7 +20,7 @@ export type DaytonaPtyCloseOutcome = {
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function buildAuthenticatedDaytonaPtyUrl(args: {

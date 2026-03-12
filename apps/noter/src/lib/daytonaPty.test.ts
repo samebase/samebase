@@ -53,6 +53,7 @@ describe("daytonaPty helpers", () => {
 
   it("ignores malformed or unsupported control messages", () => {
     expect(parseDaytonaPtyControlMessage("not json")).toBeNull();
+    expect(parseDaytonaPtyControlMessage("[]")).toBeNull();
     expect(
       parseDaytonaPtyControlMessage(
         JSON.stringify({
@@ -88,6 +89,7 @@ describe("daytonaPty helpers", () => {
 
   it("returns null for close payloads with no usable fields", () => {
     expect(parseDaytonaPtyCloseMessage("not json")).toBeNull();
+    expect(parseDaytonaPtyCloseMessage("[]")).toBeNull();
     expect(parseDaytonaPtyCloseMessage(JSON.stringify({}))).toBeNull();
   });
 

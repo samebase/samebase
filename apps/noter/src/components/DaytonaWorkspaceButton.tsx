@@ -204,6 +204,14 @@ export function DaytonaWorkspaceButton({
         branch,
         sandboxId: activeSession.sandboxId,
         sessionId: activeSession.sessionId,
+      }).catch((error) => {
+        console.warn("daytona:workspace:pty:close-failed", {
+          vaultId,
+          branch,
+          sandboxId: activeSession.sandboxId,
+          sessionId: activeSession.sessionId,
+          message: error instanceof Error ? error.message : String(error),
+        });
       });
     };
   }, [branch, closeWorkspacePtySession, vaultId]);
@@ -418,7 +426,7 @@ export function DaytonaWorkspaceButton({
       setHasError(false);
     }
 
-    const closedExistingSession = await closeActiveTerminalSession(true);
+    const closedExistingSession = await closeActiveTerminalSession(isSilent);
     if (!closedExistingSession) {
       setIsOpeningTerminal(false);
       return null;
@@ -469,7 +477,7 @@ export function DaytonaWorkspaceButton({
       setHasError(false);
     }
 
-    const closedExistingSession = await closeActiveTerminalSession(true);
+    const closedExistingSession = await closeActiveTerminalSession(isSilent);
     if (!closedExistingSession) {
       setIsOpeningTerminal(false);
       return null;
@@ -1010,6 +1018,7 @@ export function DaytonaWorkspaceButton({
               setMessage(terminalMessage);
             }}
             onSessionExit={(terminalMessage) => {
+              clearTerminalSessionState();
               setHasError(false);
               setMessage(terminalMessage);
             }}

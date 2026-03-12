@@ -33,7 +33,7 @@ const MAX_TERMINAL_ROWS = 120;
 const CODEX_DEVICE_AUTH_COMMAND =
   "clear >/dev/null 2>&1; codex login --device-auth; exit\n";
 const DEV_SERVER_LOG_FOLLOW_COMMAND =
-  "clear >/dev/null 2>&1; exec tail -n 200 -F '/tmp/noter-dev.log'\n";
+  "clear >/dev/null 2>&1; stty -echo -icanon -isig; exec tail -n 200 -F '/tmp/noter-dev.log' </dev/null\n";
 const DEFAULT_PTY_IDLE_CAPTURE_MS = 150;
 const DEFAULT_PTY_CAPTURE_TIMEOUT_MS = 600;
 

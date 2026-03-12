@@ -6,7 +6,7 @@ export const DAYTONA_PNPM_VERSION = "9.15.0";
 export const DAYTONA_CODEX_CLI_VERSION = "0.114.0";
 export const DAYTONA_RUNTIME_APT_PACKAGES = ["fish", "make", "tmux"] as const;
 export const DAYTONA_RUNTIME_APT_PACKAGE_LIST = "fish make tmux";
-export const DAYTONA_SET_FISH_DEFAULT_SHELL_IMAGE_COMMAND =
+export const DAYTONA_SET_DEFAULT_SHELL_IMAGE_COMMAND =
   'fish_path="$(command -v fish)" && usermod -s "$fish_path" root && if id -u daytona >/dev/null 2>&1; then usermod -s "$fish_path" daytona; fi';
 export const DAYTONA_RUNTIME_INSTALL_PACKAGES_RUN_COMMAND =
   "RUN apt-get update && apt-get install -y --no-install-recommends fish make tmux && rm -rf /var/lib/apt/lists/*";
