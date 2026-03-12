@@ -118,6 +118,7 @@ export function DaytonaWorkspaceButton({
   );
   const [isStarting, setIsStarting] = useState(false);
   const [isOpeningTerminal, setIsOpeningTerminal] = useState(false);
+  const [isClosingTerminal, setIsClosingTerminal] = useState(false);
   const [isOpeningPreview, setIsOpeningPreview] = useState(false);
   const [isRemovingSandbox, setIsRemovingSandbox] = useState(false);
   const [isFetchingLogs, setIsFetchingLogs] = useState(false);
@@ -141,6 +142,7 @@ export function DaytonaWorkspaceButton({
   const isFetchingPrebuildLogsRef = useRef(false);
   const isPollingPrebuildLogsRef = useRef(false);
   const terminalSessionRef = useRef<DaytonaPtySession | null>(null);
+  const workspaceContextRef = useRef({ vaultId, branch });
   const normalizedBranch = branch.trim().toLowerCase();
   const normalizedSnapshotStatus = snapshotStatus?.trim().toLowerCase() ?? "";
   const shouldPollPrebuildLogs =
@@ -189,6 +191,10 @@ export function DaytonaWorkspaceButton({
   useEffect(() => {
     terminalSessionRef.current = terminalSession;
   }, [terminalSession]);
+
+  useEffect(() => {
+    workspaceContextRef.current = { vaultId, branch };
+  }, [branch, vaultId]);
 
   useEffect(() => {
     return () => {
@@ -374,6 +380,7 @@ export function DaytonaWorkspaceButton({
     if (!activeSession) {
       return true;
     }
+    setIsClosingTerminal(true);
     const activeKind = activeTerminalKind;
     clearTerminalSessionState();
 
@@ -410,6 +417,8 @@ export function DaytonaWorkspaceButton({
         );
       }
       return false;
+    } finally {
+      setIsClosingTerminal(false);
     }
   };
 
@@ -417,7 +426,9 @@ export function DaytonaWorkspaceButton({
     silent?: boolean,
   ): Promise<DaytonaPtySession | null> => {
     const isSilent = silent === true;
-    if (disabled || isOpeningTerminal) {
+    const requestedVaultId = vaultId;
+    const requestedBranch = branch;
+    if (disabled || isOpeningTerminal || isClosingTerminal) {
       return null;
     }
     setIsOpeningTerminal(true);
@@ -434,8 +445,8 @@ export function DaytonaWorkspaceButton({
 
     try {
       const result = await openWorkspacePtySession({
-        vaultId,
-        branch,
+        vaultId: requestedVaultId,
+        branch: requestedBranch,
       });
       const nextSession = toTerminalSession(result);
       if (!nextSession) {
@@ -443,6 +454,26 @@ export function DaytonaWorkspaceButton({
           setHasError(true);
           setMessage(result.message ?? "Failed to open Daytona terminal.");
         }
+        return null;
+      }
+      if (
+        workspaceContextRef.current.vaultId !== requestedVaultId ||
+        workspaceContextRef.current.branch !== requestedBranch
+      ) {
+        void closeWorkspacePtySession({
+          vaultId: requestedVaultId,
+          branch: requestedBranch,
+          sandboxId: nextSession.sandboxId,
+          sessionId: nextSession.sessionId,
+        }).catch((error) => {
+          console.warn("daytona:workspace:pty:stale-close-failed", {
+            vaultId: requestedVaultId,
+            branch: requestedBranch,
+            sandboxId: nextSession.sandboxId,
+            sessionId: nextSession.sessionId,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        });
         return null;
       }
       terminalSessionRef.current = nextSession;
@@ -472,7 +503,9 @@ export function DaytonaWorkspaceButton({
     silent?: boolean,
   ): Promise<DaytonaPtySession | null> => {
     const isSilent = silent === true;
-    if (disabled || isOpeningTerminal) {
+    const requestedVaultId = vaultId;
+    const requestedBranch = branch;
+    if (disabled || isOpeningTerminal || isClosingTerminal) {
       return null;
     }
     setIsOpeningTerminal(true);
@@ -489,8 +522,8 @@ export function DaytonaWorkspaceButton({
 
     try {
       const result = await openWorkspaceDevServerPtySession({
-        vaultId,
-        branch,
+        vaultId: requestedVaultId,
+        branch: requestedBranch,
       });
       const nextSession = toTerminalSession(result);
       if (!nextSession) {
@@ -500,6 +533,26 @@ export function DaytonaWorkspaceButton({
             result.message ?? "Failed to open Daytona dev server terminal.",
           );
         }
+        return null;
+      }
+      if (
+        workspaceContextRef.current.vaultId !== requestedVaultId ||
+        workspaceContextRef.current.branch !== requestedBranch
+      ) {
+        void closeWorkspacePtySession({
+          vaultId: requestedVaultId,
+          branch: requestedBranch,
+          sandboxId: nextSession.sandboxId,
+          sessionId: nextSession.sessionId,
+        }).catch((error) => {
+          console.warn("daytona:workspace:pty:stale-close-failed", {
+            vaultId: requestedVaultId,
+            branch: requestedBranch,
+            sandboxId: nextSession.sandboxId,
+            sessionId: nextSession.sessionId,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        });
         return null;
       }
       terminalSessionRef.current = nextSession;
@@ -577,7 +630,7 @@ export function DaytonaWorkspaceButton({
   };
 
   const handleRemoveSandbox = async () => {
-    if (disabled || isRemovingSandbox) {
+    if (disabled || isRemovingSandbox || isClosingTerminal) {
       return;
     }
     setIsRemovingSandbox(true);
@@ -585,7 +638,10 @@ export function DaytonaWorkspaceButton({
     setHasError(false);
 
     try {
-      await closeActiveTerminalSession(true);
+      const closedTerminal = await closeActiveTerminalSession();
+      if (!closedTerminal) {
+        return;
+      }
       const result = await removeDaytonaSandbox({ vaultId });
       if (!result.ok) {
         setHasError(true);
@@ -824,9 +880,14 @@ export function DaytonaWorkspaceButton({
           onClick={() => {
             void handleToggleShellTerminal();
           }}
-          disabled={disabled || isOpeningTerminal}
+          disabled={disabled || isOpeningTerminal || isClosingTerminal}
         >
-          {isOpeningTerminal ? (
+          {isClosingTerminal ? (
+            <>
+              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              Closing...
+            </>
+          ) : isOpeningTerminal ? (
             <>
               <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
               Opening...
@@ -847,9 +908,14 @@ export function DaytonaWorkspaceButton({
           onClick={() => {
             void handleToggleDevServerTerminal();
           }}
-          disabled={disabled || isOpeningTerminal}
+          disabled={disabled || isOpeningTerminal || isClosingTerminal}
         >
-          {isOpeningTerminal ? (
+          {isClosingTerminal ? (
+            <>
+              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              Closing...
+            </>
+          ) : isOpeningTerminal ? (
             <>
               <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
               Opening...
@@ -912,7 +978,7 @@ export function DaytonaWorkspaceButton({
                 variant="ghost"
                 size="sm"
                 className="text-destructive hover:text-destructive"
-                disabled={disabled}
+                disabled={disabled || isClosingTerminal}
               >
                 Remove sandbox
               </Button>
@@ -928,7 +994,7 @@ export function DaytonaWorkspaceButton({
                 <Button
                   variant="outline"
                   onClick={() => setIsRemoveDialogOpen(false)}
-                  disabled={isRemovingSandbox}
+                  disabled={isRemovingSandbox || isClosingTerminal}
                 >
                   Cancel
                 </Button>
@@ -937,7 +1003,7 @@ export function DaytonaWorkspaceButton({
                   onClick={() => {
                     void handleRemoveSandbox();
                   }}
-                  disabled={isRemovingSandbox}
+                  disabled={isRemovingSandbox || isClosingTerminal}
                 >
                   {isRemovingSandbox ? "Removing..." : "Remove sandbox"}
                 </Button>

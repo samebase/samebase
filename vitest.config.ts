@@ -2,7 +2,10 @@ import path from 'path'
 import { defineConfig } from 'vitest/config'
 import { readPackageVersion } from './scripts/readPackageVersion.js'
 
-const daytonaSdkVersion = readPackageVersion('@daytonaio/sdk')
+const daytonaSdkVersion = readPackageVersion(
+  '@daytonaio/sdk',
+  new URL('./apps/noter/package.json', import.meta.url),
+)
 
 export default defineConfig({
   define: {

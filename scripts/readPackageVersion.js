@@ -1,12 +1,12 @@
 import { createRequire } from 'node:module'
 
-const require = createRequire(import.meta.url)
-
 /**
  * @param {string} packageName
+ * @param {string | URL=} fromUrl
  * @returns {string}
  */
-export function readPackageVersion(packageName) {
+export function readPackageVersion(packageName, fromUrl = import.meta.url) {
+  const require = createRequire(fromUrl)
   const packageJson = /** @type {unknown} */ (
     require(`${packageName}/package.json`)
   )

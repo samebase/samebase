@@ -27,7 +27,7 @@ const appCommit =
   "unknown";
 
 const appRepoUrl = "https://github.com/nicu-chiciuc/noter";
-const daytonaSdkVersion = readPackageVersion("@daytonaio/sdk");
+const daytonaSdkVersion = readPackageVersion("@daytonaio/sdk", import.meta.url);
 
 // https://vitejs.dev/config/
 export default defineConfig({
