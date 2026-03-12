@@ -6,6 +6,7 @@ import {
   calculateSnapshotRetryDelayMs,
   inferCommitPinnedSnapshotName,
   inferCommitPinnedSnapshotPrefix,
+  inferCommitPinnedSnapshotPrefixes,
   inferDaytonaWorkspaceSandboxName,
   isCommitPinnedDaytonaBranch,
   shortenCommitSha,
@@ -94,6 +95,61 @@ describe("daytonaSnapshotPolicy", () => {
     expect(sandboxName).toContain("dev-anonymous-1c49");
   });
 
+  it("prefers the Daytona deploy key when CONVEX_DEPLOYMENT is local", () => {
+    process.env.DAYTONA_CONVEX_DEPLOY_KEY = "dev:quiet-robin-508|secret-token";
+    process.env.CONVEX_DEPLOYMENT = "local-1c49";
+
+    const snapshotName = inferCommitPinnedSnapshotName({
+      owner: "OpenAI",
+      repo: "Noter",
+      branch: "main",
+      commitSha: "abcdef1234567890",
+    });
+    const snapshotPrefix = inferCommitPinnedSnapshotPrefix({
+      owner: "OpenAI",
+      repo: "Noter",
+    });
+    const sandboxName = inferDaytonaWorkspaceSandboxName({
+      owner: "OpenAI",
+      repo: "Noter",
+      branch: "main",
+      commitSha: "abcdef1234567890",
+      vaultId: "vault123",
+    });
+
+    expect(snapshotName).toContain("dev-quiet-robin-508");
+    expect(snapshotPrefix).toContain("dev-quiet-robin-508");
+    expect(sandboxName).toContain("dev-quiet-robin-508");
+    expect(snapshotName).not.toContain("local-1c49");
+  });
+
+  it("falls back to the deploy key scope when CONVEX_DEPLOYMENT is unset", () => {
+    process.env.DAYTONA_CONVEX_DEPLOY_KEY = "prod:test";
+    delete process.env.CONVEX_DEPLOYMENT;
+
+    const snapshotName = inferCommitPinnedSnapshotName({
+      owner: "OpenAI",
+      repo: "Noter",
+      branch: "main",
+      commitSha: "abcdef1234567890",
+    });
+    const snapshotPrefix = inferCommitPinnedSnapshotPrefix({
+      owner: "OpenAI",
+      repo: "Noter",
+    });
+    const sandboxName = inferDaytonaWorkspaceSandboxName({
+      owner: "OpenAI",
+      repo: "Noter",
+      branch: "main",
+      commitSha: "abcdef1234567890",
+      vaultId: "vault123",
+    });
+
+    expect(snapshotName).toContain("noter-prebuild-prod-");
+    expect(snapshotPrefix).toContain("noter-prebuild-prod-");
+    expect(sandboxName).toContain("noter-prod-");
+  });
+
   it("keeps prod Daytona resources on the stable prod scope", () => {
     process.env.DAYTONA_CONVEX_DEPLOY_KEY = "prod:test";
     process.env.CONVEX_DEPLOYMENT = "prod:noter";
@@ -116,6 +172,20 @@ describe("daytonaSnapshotPolicy", () => {
     expect(snapshotName).not.toContain("prod-noter");
     expect(sandboxName).toContain("noter-prod-");
     expect(sandboxName).not.toContain("prod-noter");
+    expect(
+      inferCommitPinnedSnapshotPrefixes({ owner: "OpenAI", repo: "Noter" }),
+    ).toEqual([expect.stringContaining("noter-prebuild-prod-")]);
+  });
+
+  it("accepts legacy dev snapshot prefixes during migration", () => {
+    process.env.CONVEX_DEPLOYMENT = "dev:anonymous-1c49";
+
+    expect(
+      inferCommitPinnedSnapshotPrefixes({ owner: "OpenAI", repo: "Noter" }),
+    ).toEqual([
+      expect.stringContaining("dev-anonymous-1c49"),
+      "noter-prebuild-dev-OpenAI-Noter-",
+    ]);
   });
 
   it("shortens commit shas for labels and messages", () => {

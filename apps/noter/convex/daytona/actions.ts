@@ -38,8 +38,8 @@ import {
   DAYTONA_COMMIT_PINNED_BRANCH,
   DAYTONA_SNAPSHOT_RETENTION_COUNT,
   calculateSnapshotRetryDelayMs,
+  inferCommitPinnedSnapshotPrefixes,
   inferCommitPinnedSnapshotName,
-  inferCommitPinnedSnapshotPrefix,
   inferDaytonaWorkspaceSandboxName,
   isCommitPinnedDaytonaBranch,
   shortenCommitSha,
@@ -1253,14 +1253,16 @@ function inferPrebuildSnapshotName(args: {
   return inferCommitPinnedSnapshotName(args);
 }
 
-function inferDaytonaSnapshotPrefix(args: {
+function inferDaytonaSnapshotPrefixes(args: {
   owner: string;
   repo: string;
-}): string | null {
+}): string[] | null {
   try {
-    const prefix = inferCommitPinnedSnapshotPrefix(args);
-    if (prefix.length > 0) {
-      return prefix;
+    const prefixes = inferCommitPinnedSnapshotPrefixes(args).filter(
+      (prefix) => prefix.length > 0,
+    );
+    if (prefixes.length > 0) {
+      return prefixes;
     }
     return null;
   } catch (error) {
@@ -1382,9 +1384,11 @@ function buildDaytonaSnapshotDashboardUrl(args: {
 
 function isVaultSnapshotName(args: {
   snapshotName: string;
-  snapshotPrefix: string;
+  snapshotPrefixes: string[];
 }): boolean {
-  return args.snapshotName.startsWith(args.snapshotPrefix);
+  return args.snapshotPrefixes.some((prefix) =>
+    args.snapshotName.startsWith(prefix),
+  );
 }
 
 function quoteForBash(input: string): string {
@@ -1636,6 +1640,7 @@ async function ensureDaytonaRuntimePackagesInSandbox(args: {
 function buildDaytonaSafeDevServerCommand(args: {
   repoDir: string;
   devOrigin: string | null;
+  preferDaytonaLocalTarget: boolean;
 }): string {
   const ensurePnpm = stripIndent`
     if ! command -v pnpm >/dev/null; then
@@ -1666,9 +1671,10 @@ function buildDaytonaSafeDevServerCommand(args: {
     .filter((part) => part.length > 0)
     .join("\n");
   const runDevCommand = stripIndent`
-    if [ -f "Makefile" ] && grep -Eq '^[[:space:]]*${DAYTONA_LOCAL_DEV_MAKE_TARGET}:' Makefile; then
+    prefer_daytona_local=${args.preferDaytonaLocalTarget ? "1" : "0"}
+    if [ "$prefer_daytona_local" = "1" ] && [ -f "Makefile" ] && grep -Eq '^[[:space:]]*${DAYTONA_LOCAL_DEV_MAKE_TARGET}:' Makefile; then
       make ${DAYTONA_LOCAL_DEV_MAKE_TARGET}
-    elif [ -f "Makefile" ] && [ -f "apps/noter/package.json" ] && [ -f "pnpm-workspace.yaml" ]; then
+    elif [ "$prefer_daytona_local" = "1" ] && [ -f "Makefile" ] && [ -f "apps/noter/package.json" ] && [ -f "pnpm-workspace.yaml" ]; then
       echo "Noter monorepo is missing the Daytona bootstrap target '${DAYTONA_LOCAL_DEV_MAKE_TARGET}'; refusing to fall back to raw dev startup."
       exit 1
     elif [ -f "Makefile" ] && grep -Eq '^[[:space:]]*run:' Makefile; then
@@ -1850,10 +1856,12 @@ async function startDaytonaDevServerBackground(args: {
   sandbox: Sandbox;
   repoDir: string;
   devOrigin: string | null;
+  preferDaytonaLocalTarget: boolean;
 }): Promise<void> {
   const devServerScript = buildDaytonaSafeDevServerCommand({
     repoDir: args.repoDir,
     devOrigin: args.devOrigin,
+    preferDaytonaLocalTarget: args.preferDaytonaLocalTarget,
   });
   const installLogPath = quoteForBash(PNPM_INSTALL_LOG);
   const devLogPath = quoteForBash(DAYTONA_DEV_LOG);
@@ -1931,6 +1939,7 @@ async function waitForDaytonaDevServerRunning(args: {
 async function startDaytonaDevServer(args: {
   sandbox: Sandbox;
   repoDir: string;
+  preferDaytonaLocalTarget: boolean;
 }): Promise<DaytonaDevServerLaunch> {
   await ensureDaytonaSandboxStarted(args.sandbox);
 
@@ -2012,6 +2021,7 @@ async function startDaytonaDevServer(args: {
       command: buildDaytonaSafeDevServerCommand({
         repoDir: args.repoDir,
         devOrigin,
+        preferDaytonaLocalTarget: args.preferDaytonaLocalTarget,
       }),
       replaceRunning: true,
     });
@@ -2028,6 +2038,7 @@ async function startDaytonaDevServer(args: {
       sandbox: args.sandbox,
       repoDir: args.repoDir,
       devOrigin,
+      preferDaytonaLocalTarget: args.preferDaytonaLocalTarget,
     });
     await waitForDaytonaDevServerRunning({ sandbox: args.sandbox });
     return {
@@ -2792,6 +2803,7 @@ export const startDaytonaWorkspace = action({
       const devServerLaunch = await startDaytonaDevServer({
         sandbox,
         repoDir: repoWorkdir,
+        preferDaytonaLocalTarget: envLabel === "dev",
       });
       devServerStartMs = Date.now() - devServerStartedAt;
 
@@ -3613,7 +3625,11 @@ export const startDaytonaDevServerSafe = action({
     }
 
     try {
-      await startDaytonaDevServer({ sandbox, repoDir });
+      await startDaytonaDevServer({
+        sandbox,
+        repoDir,
+        preferDaytonaLocalTarget: getDaytonaEnvLabel() === "dev",
+      });
       return {
         ok: true,
         message: sandboxName
@@ -3718,6 +3734,7 @@ export const startDaytonaDevServerFast = action({
     const devServerScript = buildDaytonaSafeDevServerCommand({
       repoDir,
       devOrigin: null,
+      preferDaytonaLocalTarget: getDaytonaEnvLabel() === "dev",
     });
     const wrappedCommand = stripIndent`
       (
@@ -3730,7 +3747,7 @@ export const startDaytonaDevServerFast = action({
         echo "__NOTER_REPO_MISSING__"
         exit 1
       fi
-      rm -f ${quoteForBash(PNPM_INSTALL_LOG)} ${quoteForBash(DAYTONA_DEV_LOG)}
+      rm -f ${quoteForBash(PNPM_INSTALL_LOG)} ${quoteForBash(DAYTONA_DEV_LOG)} ${quoteForBash(PNPM_INSTALL_STATUS)}
       nohup bash -lc ${quoteForBash(wrappedCommand)} > ${devLogPath} 2>&1 &
     `;
     const startCommand = `bash -lc ${quoteForBash(startScript)}`;
@@ -4932,14 +4949,14 @@ export const removeDaytonaSnapshot = action({
       };
     }
 
-    const snapshotPrefix = inferDaytonaSnapshotPrefix({
+    const snapshotPrefixes = inferDaytonaSnapshotPrefixes({
       owner: vault.ghRepoOwner,
       repo: vault.ghRepoName,
     });
-    if (!snapshotPrefix) {
+    if (!snapshotPrefixes) {
       return {
         ok: false,
-        message: "Failed to infer snapshot prefix for this vault.",
+        message: "Failed to infer snapshot prefixes for this vault.",
       };
     }
 
@@ -4970,7 +4987,7 @@ export const removeDaytonaSnapshot = action({
     if (
       !isVaultSnapshotName({
         snapshotName,
-        snapshotPrefix,
+        snapshotPrefixes,
       })
     ) {
       return {

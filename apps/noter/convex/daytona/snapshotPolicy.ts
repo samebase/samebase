@@ -64,6 +64,34 @@ export function inferCommitPinnedSnapshotPrefix(args: {
   );
 }
 
+function inferLegacyDevCommitPinnedSnapshotPrefix(args: {
+  owner: string;
+  repo: string;
+}): string {
+  const prefix = toSafeRepoName(
+    `noter-prebuild-dev-${args.owner}-${args.repo}-`,
+  );
+  return (
+    prefix ||
+    `noter-prebuild-dev-${inferSnapshotRepoFallback(args.owner, args.repo)}-`
+  );
+}
+
+export function inferCommitPinnedSnapshotPrefixes(args: {
+  owner: string;
+  repo: string;
+}): string[] {
+  const currentPrefix = inferCommitPinnedSnapshotPrefix(args);
+  if (getDaytonaResourceScope() === "prod") {
+    return [currentPrefix];
+  }
+
+  const legacyDevPrefix = inferLegacyDevCommitPinnedSnapshotPrefix(args);
+  return currentPrefix === legacyDevPrefix
+    ? [currentPrefix]
+    : [currentPrefix, legacyDevPrefix];
+}
+
 export function inferDaytonaWorkspaceSandboxName(args: {
   owner: string;
   repo: string;

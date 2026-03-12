@@ -27,6 +27,7 @@ describe("daytonaLocalBootstrap", () => {
         hasPackageJson: true,
         hasAnonTarget: true,
         isNoterMonorepo: true,
+        preferDaytonaLocalTarget: true,
       }),
     ).toBe("make daytona-local");
   });
@@ -39,8 +40,22 @@ describe("daytonaLocalBootstrap", () => {
         hasPackageJson: true,
         hasAnonTarget: true,
         isNoterMonorepo: true,
+        preferDaytonaLocalTarget: true,
       }),
     ).toBeNull();
+  });
+
+  it("falls back to make run when daytona-local is not preferred", () => {
+    expect(
+      resolveDaytonaDevServerCommand({
+        hasDaytonaLocalTarget: true,
+        hasRunTarget: true,
+        hasPackageJson: true,
+        hasAnonTarget: true,
+        isNoterMonorepo: true,
+        preferDaytonaLocalTarget: false,
+      }),
+    ).toBe("make run");
   });
 
   it("injects the Daytona deploy key into sandbox env vars", () => {
