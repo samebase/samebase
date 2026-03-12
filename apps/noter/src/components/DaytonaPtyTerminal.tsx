@@ -179,12 +179,16 @@ export function DaytonaPtyTerminal({
     let promptWakeupTimeout: number | null = null;
     let sawTerminalPayload = hasDaytonaPtyInitialOutput(initialOutput);
 
-    const markTerminalPayloadReceived = () => {
-      sawTerminalPayload = true;
+    const cancelPromptWakeup = () => {
       if (promptWakeupTimeout !== null) {
         window.clearTimeout(promptWakeupTimeout);
         promptWakeupTimeout = null;
       }
+    };
+
+    const markTerminalPayloadReceived = () => {
+      sawTerminalPayload = true;
+      cancelPromptWakeup();
     };
 
     const schedulePromptWakeup = () => {
@@ -210,6 +214,7 @@ export function DaytonaPtyTerminal({
 
     const dataDisposable = allowInput
       ? terminal.onData((data) => {
+          cancelPromptWakeup();
           if (socket.readyState !== WebSocket.OPEN) {
             return;
           }

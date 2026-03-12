@@ -50,6 +50,7 @@ import {
   type DaytonaDevServerLaunchStatus,
   type DaytonaTmuxSessionState,
 } from "./devServerLaunchPolicy";
+import { DAYTONA_LOCAL_DEV_MAKE_TARGET } from "./devServerCommand";
 import { toSafeRepoName } from "../repoName";
 import type { Id } from "../_generated/dataModel";
 
@@ -1656,7 +1657,9 @@ function buildDaytonaSafeDevServerCommand(args: {
     .filter((part) => part.length > 0)
     .join("\n");
   const runDevCommand = stripIndent`
-    if [ -f "Makefile" ] && grep -Eq '^[[:space:]]*run:' Makefile; then
+    if [ -f "Makefile" ] && grep -Eq '^[[:space:]]*${DAYTONA_LOCAL_DEV_MAKE_TARGET}:' Makefile; then
+      make ${DAYTONA_LOCAL_DEV_MAKE_TARGET}
+    elif [ -f "Makefile" ] && grep -Eq '^[[:space:]]*run:' Makefile; then
       make run
     elif [ -f "package.json" ]; then
       pnpm run dev

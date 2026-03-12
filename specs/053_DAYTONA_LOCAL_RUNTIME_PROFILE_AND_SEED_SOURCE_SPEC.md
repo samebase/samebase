@@ -205,6 +205,22 @@ The default Daytona workspace path remains:
 
 - local anonymous runtime
 
+### 7. Daytona Uses Wrapper Targets Over The Shared Anon Primitive
+
+Inside Daytona sandboxes, the preferred operator-facing bootstrap commands are:
+
+- `make daytona-local`
+- `make daytona-local-once`
+
+Contract:
+
+1. these are Daytona-specific wrappers over the shared anon flow
+2. they delegate to `make anon` / `make anon-once`
+3. they may pass Daytona-only concerns such as explicit source env selection,
+   scoped source auth, and `--no-branch`
+4. `make anon` remains the reusable low-level primitive, not the clearest
+   Daytona-facing command name
+
 ## File And Env Contract
 
 ### Active Runtime
@@ -292,11 +308,23 @@ The key invariant is:
 The preferred implementation is a minimal extension of the current bootstrap
 path, not a full runtime-profile rewrite.
 
+### `make daytona-local` / `make daytona-local-once`
+
+These wrapper targets are the preferred Daytona sandbox entrypoints.
+
+They should:
+
+1. generate `apps/noter/.env.daytona-source.local` when a Daytona cloud dev
+   source can be derived
+2. delegate to `make anon` / `make anon-once`
+3. pass `--no-branch` so sandboxes do not invent internal worktree branches
+4. pass explicit source-selection inputs only when the source env exists
+
 ### `make anon` / `make anon-once`
 
-These targets should remain the canonical bootstrap entrypoints.
+These targets remain the shared low-level bootstrap entrypoints.
 
-They should gain optional source-selection inputs for Daytona use:
+They should gain optional source-selection inputs used by Daytona wrappers:
 
 1. `ANON_SOURCE_ENV`
 2. `ANON_SOURCE_DEPLOY_KEY` or equivalent scoped input
@@ -370,10 +398,22 @@ That is a separate follow-up and not part of the default flow in this spec.
 ## Implementation Plan
 
 1. Add a Daytona-specific explicit source env file contract.
-2. Extend `make anon` / `make anon-once` with optional source-selection inputs.
-3. Scope cloud source auth only to the seed-copy step.
-4. Update Daytona dev-server bootstrap to use the explicit source env.
-5. Add regression coverage for the default Daytona local-mode path.
+2. Add Daytona wrapper bootstrap targets over the shared anon flow.
+3. Extend `make anon` / `make anon-once` with optional source-selection inputs.
+4. Scope cloud source auth only to the seed-copy step.
+5. Update Daytona dev-server bootstrap to use the explicit Daytona local
+   wrapper.
+6. Add regression coverage for the default Daytona local-mode path.
+
+## Implementation Checklist
+
+- [x] Add a Daytona-specific explicit source env generator.
+- [x] Add `make daytona-local` / `make daytona-local-once` wrapper targets.
+- [x] Extend `make anon` / `make anon-once` with optional source inputs.
+- [x] Scope cloud source auth only to the seed-copy step.
+- [x] Update Daytona dev-server bootstrap to use the explicit Daytona local
+      wrapper.
+- [x] Add regression coverage for the default Daytona local-mode path.
 
 ## Deferred Follow-Ups
 
