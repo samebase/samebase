@@ -263,13 +263,18 @@ export function CodexProviderRow() {
     setHasError(false);
 
     try {
+      const closedTerminal = await closeActiveTerminalSession(true);
+      if (!closedTerminal) {
+        setHasError(true);
+        setMessage("Failed to close Daytona terminal session.");
+        return;
+      }
       const result = await disconnectCodexProvider({});
       if (!result.ok) {
         setHasError(true);
         setMessage(result.message ?? "Failed to disconnect Codex.");
         return;
       }
-      await closeActiveTerminalSession(true);
       setTerminalStatus(null);
       setTerminalTabUrl(null);
       setMessage(result.message ?? "Codex disconnected from Daytona.");
