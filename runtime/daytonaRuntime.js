@@ -29,7 +29,7 @@ export const daytonaRuntimeSourcePath = path
   .relative(repoRoot, runtimeModulePath)
   .split(path.sep)
   .join('/')
-export const daytonaEnsureRepoAutoCdProgramSourcePath = path
+const daytonaEnsureRepoAutoCdProgramSourcePath = path
   .relative(repoRoot, ensureRepoAutoCdProgramPath)
   .split(path.sep)
   .join('/')

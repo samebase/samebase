@@ -91,8 +91,8 @@ export async function ensureRepoAutoCd(args) {
 }
 
 async function main() {
-  const repoPath = process.argv[2]?.trim()
-  if (!repoPath) {
+  const repoPath = process.argv.at(2)
+  if (repoPath === undefined || repoPath === '') {
     throw new Error(
       'Usage: node runtime/daytonaSandboxPrograms/ensureRepoAutoCd.js <repoPath>',
     )
