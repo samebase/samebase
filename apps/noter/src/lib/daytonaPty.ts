@@ -14,6 +14,11 @@ export type DaytonaPtyCloseMessage = {
   exitReason?: string;
 };
 
+export type DaytonaPtyCloseOutcome = {
+  message: string;
+  state: "closed" | "error";
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -94,4 +99,30 @@ export function parseDaytonaPtyCloseMessage(
   } catch {
     return null;
   }
+}
+
+export function resolveDaytonaPtyCloseOutcome(args: {
+  eventCode: number;
+  rawReason: string;
+}): DaytonaPtyCloseOutcome {
+  const closeMessage = parseDaytonaPtyCloseMessage(args.rawReason);
+  const exitLabel =
+    typeof closeMessage?.exitCode === "number"
+      ? `Process exited with code ${closeMessage.exitCode}.`
+      : args.eventCode === 1000
+        ? "Terminal session closed."
+        : "Terminal connection closed.";
+  const errorDetail = closeMessage?.error;
+  const detail = errorDetail ?? closeMessage?.exitReason ?? undefined;
+
+  return {
+    message: detail ? `${exitLabel} ${detail}` : exitLabel,
+    state:
+      errorDetail ||
+      (typeof closeMessage?.exitCode === "number" &&
+        closeMessage.exitCode !== 0) ||
+      args.eventCode !== 1000
+        ? "error"
+        : "closed",
+  };
 }

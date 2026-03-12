@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
 import {
   buildAuthenticatedDaytonaPtyUrl,
   DAYTONA_PTY_WEBSOCKET_PROTOCOL,
-  parseDaytonaPtyCloseMessage,
   parseDaytonaPtyControlMessage,
+  resolveDaytonaPtyCloseOutcome,
 } from "@/lib/daytonaPty";
 
 export type DaytonaPtySession = {
@@ -245,23 +245,11 @@ export function DaytonaPtyTerminal({
       if (trailingText.length > 0) {
         terminal.write(trailingText);
       }
-      const closeMessage = parseDaytonaPtyCloseMessage(event.reason);
-      const exitLabel =
-        typeof closeMessage?.exitCode === "number"
-          ? `Process exited with code ${closeMessage.exitCode}.`
-          : event.code === 1000
-            ? "Terminal session closed."
-            : "Terminal connection closed.";
-      const errorDetail = closeMessage?.error;
-      const detail = errorDetail ?? closeMessage?.exitReason ?? undefined;
-      const message = detail ? `${exitLabel} ${detail}` : exitLabel;
-      const nextState: ConnectionState =
-        errorDetail ||
-        (typeof closeMessage?.exitCode === "number" &&
-          closeMessage.exitCode !== 0) ||
-        event.code !== 1000
-          ? "error"
-          : "closed";
+      const { message, state } = resolveDaytonaPtyCloseOutcome({
+        eventCode: event.code,
+        rawReason: event.reason,
+      });
+      const nextState: ConnectionState = state;
       setConnectionState(nextState);
       setStatusMessage(message);
       terminal.writeln(`\r\n[session ended] ${message}`);
