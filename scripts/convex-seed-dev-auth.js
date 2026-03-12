@@ -227,9 +227,17 @@ function readEnvFile(filePath) {
  * @returns {number | null}
  */
 function resolveBackendPort(vars) {
-  const url = vars['VITE_CONVEX_URL'] || vars['CONVEX_URL']
-  if (typeof url !== 'string' || url.length === 0) return null
-  return parsePort(url)
+  for (const key of ['CONVEX_URL', 'VITE_CONVEX_URL']) {
+    const url = vars[key]
+    if (typeof url !== 'string' || url.trim().length === 0) {
+      continue
+    }
+    const port = parsePort(url)
+    if (port !== null) {
+      return port
+    }
+  }
+  return null
 }
 
 /**

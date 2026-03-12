@@ -1,22 +1,6 @@
-import { createRequire } from 'node:module'
 import path from 'path'
 import { defineConfig } from 'vitest/config'
-
-const require = createRequire(import.meta.url)
-
-function readPackageVersion(packageName: string): string {
-  const packageJson: unknown = require(`${packageName}/package.json`)
-  if (
-    typeof packageJson !== 'object' ||
-    packageJson === null ||
-    !('version' in packageJson) ||
-    typeof packageJson.version !== 'string'
-  ) {
-    throw new Error(`Package ${packageName} is missing a string version field`)
-  }
-
-  return packageJson.version
-}
+import { readPackageVersion } from './scripts/readPackageVersion.js'
 
 const daytonaSdkVersion = readPackageVersion('@daytonaio/sdk')
 

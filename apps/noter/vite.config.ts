@@ -3,24 +3,9 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 import { execSync } from "node:child_process";
-import { createRequire } from "node:module";
+import { readPackageVersion } from "../../scripts/readPackageVersion.js";
 
 const gitRoot = path.resolve(__dirname, "..", "..");
-const require = createRequire(import.meta.url);
-
-function readPackageVersion(packageName: string): string {
-  const packageJson: unknown = require(`${packageName}/package.json`);
-  if (
-    typeof packageJson !== "object" ||
-    packageJson === null ||
-    !("version" in packageJson) ||
-    typeof packageJson.version !== "string"
-  ) {
-    throw new Error(`Package ${packageName} is missing a string version field`);
-  }
-
-  return packageJson.version;
-}
 
 function readGitOutput(command: string): string | null {
   try {

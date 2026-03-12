@@ -439,8 +439,10 @@ export function DaytonaWorkspaceButton({
       });
       const nextSession = toTerminalSession(result);
       if (!nextSession) {
-        setHasError(true);
-        setMessage(result.message ?? "Failed to open Daytona terminal.");
+        if (!isSilent) {
+          setHasError(true);
+          setMessage(result.message ?? "Failed to open Daytona terminal.");
+        }
         return null;
       }
       terminalSessionRef.current = nextSession;
@@ -452,12 +454,14 @@ export function DaytonaWorkspaceButton({
       }
       return nextSession;
     } catch (error) {
-      setHasError(true);
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Failed to open Daytona terminal.",
-      );
+      if (!isSilent) {
+        setHasError(true);
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Failed to open Daytona terminal.",
+        );
+      }
       return null;
     } finally {
       setIsOpeningTerminal(false);
@@ -490,10 +494,12 @@ export function DaytonaWorkspaceButton({
       });
       const nextSession = toTerminalSession(result);
       if (!nextSession) {
-        setHasError(true);
-        setMessage(
-          result.message ?? "Failed to open Daytona dev server terminal.",
-        );
+        if (!isSilent) {
+          setHasError(true);
+          setMessage(
+            result.message ?? "Failed to open Daytona dev server terminal.",
+          );
+        }
         return null;
       }
       terminalSessionRef.current = nextSession;
@@ -505,12 +511,14 @@ export function DaytonaWorkspaceButton({
       }
       return nextSession;
     } catch (error) {
-      setHasError(true);
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Failed to open Daytona dev server terminal.",
-      );
+      if (!isSilent) {
+        setHasError(true);
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Failed to open Daytona dev server terminal.",
+        );
+      }
       return null;
     } finally {
       setIsOpeningTerminal(false);

@@ -1447,8 +1447,8 @@ function buildDevServerStatusScript(): string {
     elif (exec 3<>/dev/tcp/127.0.0.1/\${port}) 2>/dev/null; then
       check="tcp"
       running="true"
-      exec 3<&-
-      exec 3>&-
+      exec 3<&- 2>/dev/null || true
+      exec 3>&- 2>/dev/null || true
     else
       check="tcp"
       running="false"
