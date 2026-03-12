@@ -54,6 +54,7 @@ if (resolved.status === 'invalid') {
 
 writeEnvFile(outputPath, [
   { name: 'CONVEX_DEPLOYMENT', value: resolved.deployment },
+  ...buildSourceAuthEntries(process.env.DAYTONA_CONVEX_DEPLOY_KEY),
 ])
 console.log(`Wrote ${outputPath}`)
 
@@ -229,6 +230,18 @@ function parseSourceDeployment(rawDeployment, sourceName) {
     status: 'invalid',
     message: `${sourceName} has an unsupported deployment type: "${deploymentType}".`,
   }
+}
+
+/**
+ * @param {string | undefined} rawDeployKey
+ * @returns {EnvEntry[]}
+ */
+function buildSourceAuthEntries(rawDeployKey) {
+  const normalized = rawDeployKey?.trim() ?? ''
+  if (normalized.length === 0) {
+    return []
+  }
+  return [{ name: 'CONVEX_DEPLOY_KEY', value: normalized }]
 }
 
 /**

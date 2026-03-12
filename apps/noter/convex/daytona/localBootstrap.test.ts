@@ -77,7 +77,11 @@ describe("daytonaLocalBootstrap", () => {
 
     expect(result.status).toBe(0);
     expect(readFileSync(outputPath, "utf8")).toBe(
-      "CONVEX_DEPLOYMENT=dev:quiet-robin-508\n",
+      [
+        "CONVEX_DEPLOYMENT=dev:quiet-robin-508",
+        "CONVEX_DEPLOY_KEY=dev:quiet-robin-508|secret-token",
+        "",
+      ].join("\n"),
     );
   });
 
