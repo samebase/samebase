@@ -1656,10 +1656,12 @@ function buildDaytonaSafeDevServerCommand(args: {
     .filter((part) => part.length > 0)
     .join("\n");
   const runDevCommand = stripIndent`
-    if [ -f "Makefile" ] && grep -Eq '^[[:space:]]*anon:' Makefile; then
-      make anon
+    if [ -f "Makefile" ] && grep -Eq '^[[:space:]]*run:' Makefile; then
+      make run
     elif [ -f "package.json" ]; then
       pnpm run dev
+    elif [ -f "Makefile" ] && grep -Eq '^[[:space:]]*anon:' Makefile; then
+      make anon
     else
       echo "__NOTER_DEV_COMMAND_MISSING__"
       exit 1

@@ -51,6 +51,7 @@ const openWorkspacePtySessionResult = object({
   previewToken: optional(string()),
   sandboxId: optional(string()),
   sandboxName: optional(string()),
+  initialOutput: optional(string()),
   message: optional(string()),
 });
 
@@ -646,8 +647,17 @@ async function openPtySession(args: {
   cwd: string;
   cols: number;
   rows: number;
-}): Promise<{ webSocketUrl: string; previewToken: string }> {
+  captureInitialOutput?: boolean;
+}): Promise<{
+  webSocketUrl: string;
+  previewToken: string;
+  initialOutput?: string;
+}> {
   await ensureSandboxStarted(args.sandbox);
+  const textDecoder = new TextDecoder();
+  const outputChunks: string[] = [];
+  const lastChunkAtRef = { current: Date.now() };
+  const sawOutputRef = { current: false };
   let ptyHandle: Awaited<ReturnType<Sandbox["process"]["createPty"]>> | null =
     null;
   try {
@@ -660,17 +670,41 @@ async function openPtySession(args: {
       },
       cols: args.cols,
       rows: args.rows,
-      onData: async () => {},
+      onData: async (data) => {
+        if (args.captureInitialOutput !== true) {
+          return;
+        }
+        outputChunks.push(textDecoder.decode(data, { stream: true }));
+        lastChunkAtRef.current = Date.now();
+        sawOutputRef.current = true;
+      },
     });
     await ptyHandle.waitForConnection();
+    if (args.captureInitialOutput === true) {
+      await waitForPtyOutputIdle({
+        lastChunkAtRef,
+        sawOutputRef,
+      });
+    }
     await ptyHandle.disconnect();
 
-    return await getPtyConnection({
+    const connection = await getPtyConnection({
       sandbox: args.sandbox,
       baseUrl: args.baseUrl,
       token: args.token,
       sessionId: args.sessionId,
     });
+    const initialOutput =
+      args.captureInitialOutput === true
+        ? `${outputChunks.join("")}${textDecoder.decode()}`
+        : undefined;
+    return {
+      ...connection,
+      initialOutput:
+        typeof initialOutput === "string" && initialOutput.length > 0
+          ? initialOutput
+          : undefined,
+    };
   } catch (error) {
     try {
       await args.sandbox.process.killPtySession(args.sessionId);
@@ -805,6 +839,7 @@ export const openWorkspacePtySession = action({
         cwd: resolved.repoDir,
         cols,
         rows,
+        captureInitialOutput: true,
       });
 
       return {
@@ -814,6 +849,7 @@ export const openWorkspacePtySession = action({
         previewToken: connection.previewToken,
         sandboxId: resolved.sandbox.id,
         sandboxName: resolved.sandboxName,
+        initialOutput: connection.initialOutput,
         message: resolved.sandboxName
           ? `Terminal session ready for ${resolved.sandboxName}.`
           : "Terminal session ready.",

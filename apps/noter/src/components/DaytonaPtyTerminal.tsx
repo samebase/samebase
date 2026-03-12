@@ -114,12 +114,12 @@ export function DaytonaPtyTerminal({
 
     terminal.loadAddon(fitAddon);
     terminal.open(container);
-    terminal.writeln("Connecting to Daytona terminal...");
-    if (
-      typeof session.initialOutput === "string" &&
-      session.initialOutput.length > 0
-    ) {
-      terminal.write(session.initialOutput);
+    const initialOutput =
+      typeof session.initialOutput === "string" ? session.initialOutput : "";
+    if (initialOutput.length > 0) {
+      terminal.write(initialOutput);
+    } else {
+      terminal.writeln("Connecting to Daytona terminal...");
     }
 
     const reportSessionError = (message: string) => {
