@@ -103,7 +103,7 @@ const DAYTONA_ORGANIZATION_ID_ENV = "DAYTONA_ORGANIZATION_ID";
 const DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR = "repo";
 const DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_PATH =
   ".noter/daytona/ensureRepoAutoCd.js";
-const DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_MOUNT_PATH =
+const DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_TEMP_PATH =
   "/tmp/noter-daytona-ensureRepoAutoCd.js";
 const DAYTONA_PREBUILD_RESOURCES: Resources = {
   cpu: 4,
@@ -4167,15 +4167,16 @@ export const buildCommitPinnedSnapshot = internalAction({
           "USER root",
           `WORKDIR ${repoPath}`,
           `COPY ${DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR}/ ${repoPath}`,
+          `COPY ${DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_PATH} ${DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_TEMP_PATH}`,
           ...DAYTONA_RUNTIME_PREBUILD_DOCKERFILE_COMMANDS,
         ];
         const installCommand =
           "RUN pnpm install --prod=false --force --node-linker=hoisted";
-        const autoCdStep =
-          `RUN --mount=type=bind,source=${DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_PATH},target=${DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_MOUNT_PATH},readonly ` +
-          `node ${JSON.stringify(
-            DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_MOUNT_PATH,
-          )} ${JSON.stringify(repoPath)}`;
+        const autoCdStep = `RUN node ${JSON.stringify(
+          DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_TEMP_PATH,
+        )} ${JSON.stringify(repoPath)} && rm -f ${JSON.stringify(
+          DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_TEMP_PATH,
+        )}`;
 
         const createSnapshot = async (
           baseImage: string,
