@@ -1,4 +1,5 @@
 export const DAYTONA_PTY_WEBSOCKET_PROTOCOL = `X-Daytona-SDK-Version~${__DAYTONA_SDK_VERSION__}`;
+export const DAYTONA_PTY_PROMPT_WAKEUP_INPUT = "\r";
 
 type DaytonaPtyControlStatus = "connected" | "error";
 
@@ -30,6 +31,28 @@ export function buildAuthenticatedDaytonaPtyUrl(args: {
   const url = new URL(args.webSocketUrl);
   url.searchParams.set("DAYTONA_SANDBOX_AUTH_KEY", args.previewToken);
   return url.toString();
+}
+
+export function hasDaytonaPtyInitialOutput(
+  initialOutput: string | undefined,
+): boolean {
+  return typeof initialOutput === "string" && initialOutput.length > 0;
+}
+
+export function shouldWakeDaytonaPtyPrompt(args: {
+  allowInput: boolean;
+  initialInput: string | undefined;
+  initialOutput: string | undefined;
+}): boolean {
+  if (!args.allowInput) {
+    return false;
+  }
+  if (hasDaytonaPtyInitialOutput(args.initialOutput)) {
+    return false;
+  }
+  return !(
+    typeof args.initialInput === "string" && args.initialInput.length > 0
+  );
 }
 
 export function parseDaytonaPtyControlMessage(

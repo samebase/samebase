@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildAuthenticatedDaytonaPtyUrl,
+  hasDaytonaPtyInitialOutput,
   parseDaytonaPtyCloseMessage,
   parseDaytonaPtyControlMessage,
   resolveDaytonaPtyCloseOutcome,
+  shouldWakeDaytonaPtyPrompt,
 } from "./daytonaPty";
 
 describe("daytonaPty helpers", () => {
@@ -142,5 +144,45 @@ describe("daytonaPty helpers", () => {
       message: "Terminal connection closed.",
       state: "error",
     });
+  });
+
+  it("detects when a PTY session already has initial output", () => {
+    expect(hasDaytonaPtyInitialOutput(undefined)).toBe(false);
+    expect(hasDaytonaPtyInitialOutput("")).toBe(false);
+    expect(hasDaytonaPtyInitialOutput("root prompt")).toBe(true);
+  });
+
+  it("only wakes the shell prompt for interactive sessions with no startup output", () => {
+    expect(
+      shouldWakeDaytonaPtyPrompt({
+        allowInput: true,
+        initialInput: undefined,
+        initialOutput: undefined,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldWakeDaytonaPtyPrompt({
+        allowInput: false,
+        initialInput: undefined,
+        initialOutput: undefined,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldWakeDaytonaPtyPrompt({
+        allowInput: true,
+        initialInput: "codex login --device-auth\n",
+        initialOutput: undefined,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldWakeDaytonaPtyPrompt({
+        allowInput: true,
+        initialInput: undefined,
+        initialOutput: "root prompt",
+      }),
+    ).toBe(false);
   });
 });

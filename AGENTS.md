@@ -198,6 +198,11 @@ use `--env-file` or an explicit deployment selector instead.
 
 - **Better mobile keyboard handling** - improve window size handling when
   virtual keyboard appears on mobile devices
+- **High: local/worktree Daytona naming** - `make anon` currently seeds
+  `DAYTONA_CONVEX_DEPLOY_KEY` from shared cloud dev env, so local Daytona
+  snapshot/sandbox names can still inherit shared dev scope instead of a true
+  local/worktree scope. Defer this follow-up; current sandbox behavior check is
+  separate.
 
 ## Technology Stack
 
@@ -381,6 +386,10 @@ Auth:
   `.../ms-playwright/mcp-chrome`).
 - When asked to use Playwright for testing, start in mobile viewport/device mode
   first, then validate desktop as needed.
+- If the user says to "remove mobile constraints" (or equivalent) during
+  Playwright/UI work, remove all explicit viewport/device constraints instead of
+  switching to a forced desktop size; let the page render at its normal,
+  unconstrained browser layout unless the user asks for a specific viewport.
 - Worktree frontend should avoid port `5173` so OAuth flows on main checkout
   stay unaffected (default worktree dev port: `5174`).
 - For temporary Playwright/manual-test repos, use the exact

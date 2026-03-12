@@ -40,6 +40,7 @@ import {
   calculateSnapshotRetryDelayMs,
   inferCommitPinnedSnapshotName,
   inferCommitPinnedSnapshotPrefix,
+  inferDaytonaWorkspaceSandboxName,
   isCommitPinnedDaytonaBranch,
   shortenCommitSha,
 } from "./snapshotPolicy";
@@ -58,7 +59,6 @@ const DEFAULT_WORKSPACE_DIR = "/home/daytona/workspace";
 const DAYTONA_API_URL_ENV = "DAYTONA_API_URL";
 const DAYTONA_API_TOKEN_ENV = "DAYTONA_API_TOKEN";
 const DAYTONA_API_KEY_ENV = "DAYTONA_API_KEY";
-const DAYTONA_CONVEX_DEPLOY_KEY_ENV = "DAYTONA_CONVEX_DEPLOY_KEY";
 const DAYTONA_DEPS_IMAGE_TEMPLATE_ENV = "DAYTONA_DEPS_IMAGE_TEMPLATE";
 const DAYTONA_BASE_IMAGE_ENV = "DAYTONA_BASE_IMAGE";
 const PNPM_LOCKFILE_NAME = "pnpm-lock.yaml";
@@ -2365,12 +2365,13 @@ export const startDaytonaWorkspace = action({
     });
 
     const envLabel = getDaytonaEnvLabel();
-    const baseName = toSafeRepoName(
-      `noter-${envLabel}-${vault.ghRepoOwner}-${vault.ghRepoName}-${branch}-${shortenCommitSha(
-        expectedCommitSha,
-      )}`,
-    );
-    const sandboxName = baseName || `noter-${envLabel}-${args.vaultId}`;
+    const sandboxName = inferDaytonaWorkspaceSandboxName({
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+      branch,
+      commitSha: expectedCommitSha,
+      vaultId: args.vaultId,
+    });
 
     const config: { apiKey: string; apiUrl?: string; target?: string } = {
       apiKey: token,
@@ -2582,11 +2583,6 @@ export const startDaytonaWorkspace = action({
           };
           if (codexAuthVolume) {
             envVars.CODEX_HOME = DAYTONA_CODEX_HOME;
-          }
-
-          const convexDeployKey = process.env[DAYTONA_CONVEX_DEPLOY_KEY_ENV];
-          if (convexDeployKey) {
-            envVars.CONVEX_DEPLOY_KEY = convexDeployKey;
           }
           return envVars;
         })(),
