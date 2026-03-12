@@ -32,6 +32,7 @@ import {
   DAYTONA_RUNTIME_AUTH_FALLBACK_DOCKERFILE_COMMANDS,
   DAYTONA_RUNTIME_PREBUILD_DOCKERFILE_COMMANDS,
 } from "./runtime.generated";
+import { DAYTONA_ENSURE_REPO_AUTO_CD_PROGRAM_SOURCE } from "./sandboxPrograms.generated";
 import {
   canonicalizeCommitPinnedDaytonaBranch,
   DAYTONA_COMMIT_PINNED_BRANCH,
@@ -99,6 +100,11 @@ const DAYTONA_REGISTRY_PROJECT_ENV = "DAYTONA_REGISTRY_PROJECT";
 const DAYTONA_REGISTRY_NAME_ENV = "DAYTONA_REGISTRY_NAME";
 const DAYTONA_REGISTRY_SET_DEFAULT_ENV = "DAYTONA_REGISTRY_SET_DEFAULT";
 const DAYTONA_ORGANIZATION_ID_ENV = "DAYTONA_ORGANIZATION_ID";
+const DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR = "repo";
+const DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_PATH =
+  ".noter/daytona/ensureRepoAutoCd.js";
+const DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_TEMP_PATH =
+  "/tmp/noter-daytona-ensureRepoAutoCd.js";
 const DAYTONA_PREBUILD_RESOURCES: Resources = {
   cpu: 4,
   memory: 8,
@@ -578,6 +584,16 @@ function findWorkspaceRootDir(startDir: string): string | null {
     }
     currentDir = parentDir;
   }
+}
+
+async function writeDaytonaSandboxProgramToBuildContext(args: {
+  buildContextDir: string;
+  programRelativePath: string;
+  source: string;
+}): Promise<void> {
+  const targetPath = path.join(args.buildContextDir, args.programRelativePath);
+  await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
+  await fs.promises.writeFile(targetPath, args.source, "utf8");
 }
 
 async function resolveCurrentRepoIdentity(repoDir: string): Promise<{
@@ -4071,7 +4087,11 @@ export const buildCommitPinnedSnapshot = internalAction({
       const tmpRoot = await fs.promises.mkdtemp(
         path.join(os.tmpdir(), "noter-prebuild-"),
       );
-      const repoDir = path.join(tmpRoot, "repo");
+      const buildContextDir = tmpRoot;
+      const repoDir = path.join(
+        buildContextDir,
+        DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR,
+      );
       const repoUrl = `https://github.com/${args.owner}/${args.repo}.git`;
 
       try {
@@ -4084,31 +4104,18 @@ export const buildCommitPinnedSnapshot = internalAction({
         });
 
         await fs.promises.writeFile(
-          path.join(repoDir, ".dockerignore"),
-          ".git\nnode_modules\n.pnpm\n",
+          path.join(buildContextDir, ".dockerignore"),
+          `${DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR}/.git\n${DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR}/node_modules\n${DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR}/.pnpm\n`,
+          "utf8",
         );
+        await writeDaytonaSandboxProgramToBuildContext({
+          buildContextDir,
+          programRelativePath:
+            DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_PATH,
+          source: DAYTONA_ENSURE_REPO_AUTO_CD_PROGRAM_SOURCE,
+        });
 
         const repoPath = `${DEFAULT_WORKSPACE_DIR}/${args.repo}`;
-        const autoCdCommand = stripIndent`
-          bash_auto_cd_line="cd ${repoPath}";
-          for file in /root/.bashrc /home/daytona/.bashrc /etc/bash.bashrc; do
-            if [ -f "$file" ]; then
-              if ! grep -Fqx "$bash_auto_cd_line" "$file"; then printf "%s\\n" "$bash_auto_cd_line" >> "$file"; fi;
-            else
-              printf "%s\\n" "$bash_auto_cd_line" >> "$file";
-            fi;
-          done
-          fish_auto_cd_line="cd ${repoPath}";
-          for file in /root/.config/fish/config.fish /home/daytona/.config/fish/config.fish; do
-            dir=$(dirname "$file");
-            mkdir -p "$dir";
-            if [ -f "$file" ]; then
-              if ! grep -Fqx "$fish_auto_cd_line" "$file"; then printf "%s\\n" "$fish_auto_cd_line" >> "$file"; fi;
-            else
-              printf "%s\\n" "$fish_auto_cd_line" >> "$file";
-            fi;
-          done
-        `.replace(/\n/g, " ");
 
         const lockHash = await readPnpmLockHash(repoDir);
         const depsInputHash = await readDepsInputHash({
@@ -4159,12 +4166,17 @@ export const buildCommitPinnedSnapshot = internalAction({
         const baseCommands = [
           "USER root",
           `WORKDIR ${repoPath}`,
-          `COPY . ${repoPath}`,
+          `COPY ${DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR}/ ${repoPath}`,
+          `COPY ${DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_PATH} ${DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_TEMP_PATH}`,
           ...DAYTONA_RUNTIME_PREBUILD_DOCKERFILE_COMMANDS,
         ];
         const installCommand =
           "RUN pnpm install --prod=false --force --node-linker=hoisted";
-        const autoCdStep = `RUN ${autoCdCommand}`;
+        const autoCdStep = `RUN node ${JSON.stringify(
+          DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_TEMP_PATH,
+        )} ${JSON.stringify(repoPath)} && rm -f ${JSON.stringify(
+          DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_TEMP_PATH,
+        )}`;
 
         const createSnapshot = async (
           baseImage: string,
@@ -4175,7 +4187,7 @@ export const buildCommitPinnedSnapshot = internalAction({
             : [...baseCommands, autoCdStep];
           const image = Image.base(baseImage).dockerfileCommands(
             dockerfileCommands,
-            repoDir,
+            buildContextDir,
           );
           await daytona.snapshot.create(
             {
