@@ -67,8 +67,11 @@ export function DaytonaPtyTerminal({
       return;
     }
     lastSizeRef.current = null;
+    setConnectionState("connecting");
+    setStatusMessage("Connecting to Daytona…");
 
     let isDisposed = false;
+    let sessionErrorReported = false;
 
     const terminal = new Terminal({
       disableStdin: !allowInput,
@@ -110,6 +113,14 @@ export function DaytonaPtyTerminal({
     terminal.loadAddon(fitAddon);
     terminal.open(container);
     terminal.writeln("Connecting to Daytona terminal...");
+
+    const reportSessionError = (message: string) => {
+      if (isDisposed || sessionErrorReported) {
+        return;
+      }
+      sessionErrorReported = true;
+      onSessionErrorRef.current?.(message);
+    };
 
     const sendResize = () => {
       if (isDisposed) {
@@ -194,7 +205,7 @@ export function DaytonaPtyTerminal({
           setConnectionState("error");
           setStatusMessage(message);
           terminal.writeln(`\r\n[terminal error] ${message}`);
-          onSessionErrorRef.current?.(message);
+          reportSessionError(message);
           return;
         }
 
@@ -215,7 +226,7 @@ export function DaytonaPtyTerminal({
       }
       setConnectionState("error");
       setStatusMessage("Terminal connection error.");
-      onSessionErrorRef.current?.("Terminal connection error.");
+      reportSessionError("Terminal connection error.");
     });
 
     socket.addEventListener("close", (event) => {
@@ -247,7 +258,7 @@ export function DaytonaPtyTerminal({
       setStatusMessage(message);
       terminal.writeln(`\r\n[session ended] ${message}`);
       if (nextState === "error") {
-        onSessionErrorRef.current?.(message);
+        reportSessionError(message);
         return;
       }
       onSessionExitRef.current?.(message);

@@ -67,6 +67,8 @@ const PNPM_INSTALL_LOG = "/tmp/noter-pnpm-install.log";
 const PNPM_INSTALL_STATUS = "/tmp/noter-pnpm-install.status";
 const DAYTONA_PREVIEW_PORT = 5173;
 const DAYTONA_PREVIEW_TTL_SECONDS = 3600;
+const DAYTONA_DEV_SERVER_VERIFY_TIMEOUT_MS = 15_000;
+const DAYTONA_DEV_SERVER_VERIFY_POLL_MS = 1_000;
 const DAYTONA_TERMINAL_PORT = 22222;
 const DAYTONA_TERMINAL_TTL_SECONDS = 300;
 const DAYTONA_DEV_LOG = "/tmp/noter-dev.log";
@@ -1446,6 +1448,14 @@ function buildDevServerStatusScript(): string {
         running="true"
         pid=$(printf "%s\n" "$line" | awk '{print $2}')
       fi
+    elif (exec 3<>/dev/tcp/127.0.0.1/\${port}) 2>/dev/null; then
+      check="tcp"
+      running="true"
+      exec 3<&-
+      exec 3>&-
+    else
+      check="tcp"
+      running="false"
     fi
     echo "${DEV_SERVER_STATUS_MARKER}running=\${running};pid=\${pid};check=\${check}"
     echo "${DEV_SERVER_LOG_MARKER}"
@@ -1659,7 +1669,7 @@ async function hasDaytonaTmuxSession(args: {
   sessionName: string;
 }): Promise<boolean> {
   const state = await getDaytonaTmuxSessionState(args);
-  return state !== "missing";
+  return state === "running";
 }
 
 async function getDaytonaTmuxSessionState(args: {
@@ -1792,12 +1802,9 @@ async function startDaytonaDevServerBackground(args: {
   }
 }
 
-async function startDaytonaDevServer(args: {
+async function readDaytonaDevServerStatus(args: {
   sandbox: Sandbox;
-  repoDir: string;
-}): Promise<DaytonaDevServerLaunch> {
-  await ensureDaytonaSandboxStarted(args.sandbox);
-
+}): Promise<DevServerStatus | null> {
   const statusCommand = `bash -lc ${quoteForBash(buildDevServerStatusScript())}`;
   const statusResult = await args.sandbox.process.executeCommand(
     statusCommand,
@@ -1805,8 +1812,53 @@ async function startDaytonaDevServer(args: {
     undefined,
     60,
   );
-  if (statusResult.exitCode === 0) {
-    const status = parseDevServerStatus(statusResult.result);
+  if (statusResult.exitCode !== 0) {
+    return null;
+  }
+  return parseDevServerStatus(statusResult.result);
+}
+
+async function waitForDaytonaDevServerRunning(args: {
+  sandbox: Sandbox;
+  timeoutMs?: number;
+  pollMs?: number;
+}): Promise<DevServerStatus> {
+  const timeoutMs = args.timeoutMs ?? DAYTONA_DEV_SERVER_VERIFY_TIMEOUT_MS;
+  const pollMs = args.pollMs ?? DAYTONA_DEV_SERVER_VERIFY_POLL_MS;
+  const deadline = Date.now() + timeoutMs;
+  let lastStatus: DevServerStatus | null = null;
+
+  while (Date.now() <= deadline) {
+    const status = await readDaytonaDevServerStatus({ sandbox: args.sandbox });
+    if (status) {
+      lastStatus = status;
+      if (status.running) {
+        return status;
+      }
+    }
+    if (Date.now() + pollMs > deadline) {
+      break;
+    }
+    await sleep(pollMs);
+  }
+
+  const logTail = lastStatus?.logTail?.trim();
+  const message =
+    logTail && logTail.length > 0
+      ? truncateLogTail(logTail, 800)
+      : lastStatus?.message ??
+        "Dev server exited before it bound the preview port.";
+  throw new Error(message);
+}
+
+async function startDaytonaDevServer(args: {
+  sandbox: Sandbox;
+  repoDir: string;
+}): Promise<DaytonaDevServerLaunch> {
+  await ensureDaytonaSandboxStarted(args.sandbox);
+
+  const status = await readDaytonaDevServerStatus({ sandbox: args.sandbox });
+  if (status) {
     if (status.running) {
       const transport = (await hasDaytonaTmuxSession({
         sandbox: args.sandbox,
@@ -1857,6 +1909,7 @@ async function startDaytonaDevServer(args: {
       repoDir: args.repoDir,
       devOrigin,
     });
+    await waitForDaytonaDevServerRunning({ sandbox: args.sandbox });
     return {
       status: "started",
       transport: "background",
