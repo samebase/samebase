@@ -25,6 +25,14 @@ import { internal } from "./_generated/api";
 import { getUserId } from "./common";
 import { getDaytonaEnvLabel } from "./daytonaEnv";
 import {
+  DEFAULT_BASE_IMAGE,
+  DAYTONA_CODEX_CLI_VERSION,
+  DAYTONA_PNPM_VERSION,
+  DAYTONA_RUNTIME_APT_PACKAGE_LIST,
+  DAYTONA_RUNTIME_AUTH_FALLBACK_DOCKERFILE_COMMANDS,
+  DAYTONA_RUNTIME_PREBUILD_DOCKERFILE_COMMANDS,
+} from "./daytonaRuntime.generated";
+import {
   canonicalizeCommitPinnedDaytonaBranch,
   DAYTONA_COMMIT_PINNED_BRANCH,
   DAYTONA_SNAPSHOT_RETENTION_COUNT,
@@ -39,8 +47,6 @@ import type { Id } from "./_generated/dataModel";
 
 const { object, id, string, optional, boolean, union, literal, number, array } =
   v;
-const DEFAULT_BASE_IMAGE =
-  "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm";
 const DEFAULT_WORKSPACE_DIR = "/home/daytona/workspace";
 const DAYTONA_API_URL_ENV = "DAYTONA_API_URL";
 const DAYTONA_API_TOKEN_ENV = "DAYTONA_API_TOKEN";
@@ -48,12 +54,6 @@ const DAYTONA_API_KEY_ENV = "DAYTONA_API_KEY";
 const DAYTONA_CONVEX_DEPLOY_KEY_ENV = "DAYTONA_CONVEX_DEPLOY_KEY";
 const DAYTONA_DEPS_IMAGE_TEMPLATE_ENV = "DAYTONA_DEPS_IMAGE_TEMPLATE";
 const DAYTONA_BASE_IMAGE_ENV = "DAYTONA_BASE_IMAGE";
-const DAYTONA_PNPM_VERSION = "9.15.0";
-const DAYTONA_CODEX_CLI_VERSION = "0.114.0";
-const DAYTONA_RUNTIME_APT_PACKAGES = ["fish", "make", "tmux"] as const;
-const DAYTONA_RUNTIME_APT_PACKAGE_LIST = DAYTONA_RUNTIME_APT_PACKAGES.join(" ");
-const DAYTONA_SET_FISH_DEFAULT_SHELL_IMAGE_COMMAND =
-  'fish_path="$(command -v fish)" && usermod -s "$fish_path" root && if id -u daytona >/dev/null 2>&1; then usermod -s "$fish_path" daytona; fi';
 const PNPM_LOCKFILE_NAME = "pnpm-lock.yaml";
 const DAYTONA_DEPS_HASH_INPUT_FILES = [
   "Dockerfile.daytona-deps",
@@ -768,11 +768,7 @@ async function resolveDaytonaCodexAuthSandboxImagePlan(args: {
   const workspaceRoot = findWorkspaceRootDir(process.cwd());
   const baseImage = resolveDaytonaBaseImage();
   const fallbackImage = Image.base(baseImage).dockerfileCommands(
-    [
-      `RUN apt-get update && apt-get install -y --no-install-recommends ${DAYTONA_RUNTIME_APT_PACKAGE_LIST} && rm -rf /var/lib/apt/lists/*`,
-      `RUN ${DAYTONA_SET_FISH_DEFAULT_SHELL_IMAGE_COMMAND}`,
-      `RUN npm install -g @openai/codex@${DAYTONA_CODEX_CLI_VERSION}`,
-    ],
+    [...DAYTONA_RUNTIME_AUTH_FALLBACK_DOCKERFILE_COMMANDS],
     workspaceRoot ?? process.cwd(),
   );
 
@@ -4063,10 +4059,7 @@ export const buildCommitPinnedSnapshot = internalAction({
           "USER root",
           `WORKDIR ${repoPath}`,
           `COPY . ${repoPath}`,
-          `RUN apt-get update && apt-get install -y --no-install-recommends ${DAYTONA_RUNTIME_APT_PACKAGE_LIST} && rm -rf /var/lib/apt/lists/*`,
-          `RUN ${DAYTONA_SET_FISH_DEFAULT_SHELL_IMAGE_COMMAND}`,
-          `RUN corepack enable && corepack prepare pnpm@${DAYTONA_PNPM_VERSION} --activate`,
-          `RUN npm install -g @openai/codex@${DAYTONA_CODEX_CLI_VERSION}`,
+          ...DAYTONA_RUNTIME_PREBUILD_DOCKERFILE_COMMANDS,
         ];
         const installCommand =
           "RUN pnpm install --prod=false --force --node-linker=hoisted";

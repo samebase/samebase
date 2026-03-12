@@ -29,6 +29,8 @@
     "lint:starter": "turbo run lint --filter=noter-starter-template",
     "prepare": "husky",
     "daytona:refresh": "bash scripts/daytona-refresh.sh",
+    "daytona:runtime:render": "node scripts/render-daytona-runtime.js",
+    "daytona:runtime:check": "node scripts/render-daytona-runtime.js --check",
     "typecheck:scripts": "tsc -p tsconfig.scripts.json --pretty false"
   },
   "devDependencies": {
