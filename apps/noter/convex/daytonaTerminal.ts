@@ -715,6 +715,7 @@ export const openWorkspacePtySession = action({
     const sessionId = buildWorkspacePtySessionId(args.vaultId);
 
     try {
+      await ensureSandboxStarted(resolved.sandbox);
       await ensureFishInSandbox({ sandbox: resolved.sandbox });
       const connection = await openPtySession({
         sandbox: resolved.sandbox,

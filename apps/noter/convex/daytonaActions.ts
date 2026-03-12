@@ -1720,10 +1720,7 @@ async function startDaytonaTmuxSession(args: {
     sandbox: args.sandbox,
     sessionName: args.sessionName,
   });
-  if (existingSessionState === "running") {
-    return "already_running";
-  }
-  if (existingSessionState === "dead") {
+  if (existingSessionState === "running" || existingSessionState === "dead") {
     const cleanupCommand = `bash -lc ${quoteForBash(
       `tmux kill-session -t ${quoteForBash(args.sessionName)}`,
     )}`;
@@ -3350,6 +3347,7 @@ export const startDaytonaDevServerFast = action({
     }
 
     const sandbox = await daytona.get(sandboxId);
+    await ensureDaytonaSandboxStarted(sandbox);
 
     const statusCommand = `bash -lc ${quoteForBash(buildDevServerStatusScript())}`;
     const statusResult = await sandbox.process.executeCommand(

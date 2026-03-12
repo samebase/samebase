@@ -137,7 +137,7 @@ export function CodexProviderRow() {
     const isSilent = silent === true;
     const closedExistingSession = await closeActiveTerminalSession(true);
     if (!closedExistingSession) {
-      return null;
+      throw new Error("Failed to close Daytona terminal session.");
     }
 
     try {
@@ -443,6 +443,7 @@ export function CodexProviderRow() {
                 });
               }}
               onSessionError={(terminalMessage) => {
+                setTerminalStatus("error");
                 setHasError(true);
                 setMessage(terminalMessage);
               }}
