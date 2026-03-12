@@ -51,6 +51,12 @@ import {
   type DaytonaTmuxSessionState,
 } from "./devServerLaunchPolicy";
 import { DAYTONA_LOCAL_DEV_MAKE_TARGET } from "./devServerCommand";
+import {
+  DAYTONA_PROVISIONING_MODE_LIVE_DEBUG,
+  DAYTONA_PROVISIONING_MODE_SNAPSHOT_BACKED,
+  findLatestActiveDaytonaSnapshotRecord,
+  resolveDaytonaProvisioningMode,
+} from "./provisioning";
 import { buildDaytonaSandboxEnvVars } from "./sandboxEnv";
 import { toSafeRepoName } from "../repoName";
 import type { Id } from "../_generated/dataModel";
@@ -83,6 +89,7 @@ const DAYTONA_TERMINAL_PORT = 22222;
 const DAYTONA_TERMINAL_TTL_SECONDS = 300;
 const DAYTONA_DEV_LOG = "/tmp/noter-dev.log";
 const DAYTONA_DEV_SERVER_TMUX_SESSION = "noter-dev-server";
+const DAYTONA_PROVISIONING_MODE_LABEL = "noter.provisioning_mode";
 // Daytona terminals currently run with a root home in our tested sandbox setup.
 const DAYTONA_CODEX_HOME = "/root/.codex";
 const DAYTONA_CODEX_AUTH_VOLUME_PREFIX = "noter-codex-auth";
@@ -1808,7 +1815,7 @@ async function startDaytonaTmuxSession(args: {
   const startScript = stripIndent`
     set -e
     session=${quoteForBash(args.sessionName)}
-    rm -f ${quoteForBash(DAYTONA_DEV_LOG)} ${quoteForBash(PNPM_INSTALL_LOG)}
+    rm -f ${quoteForBash(DAYTONA_DEV_LOG)} ${quoteForBash(PNPM_INSTALL_LOG)} ${quoteForBash(PNPM_INSTALL_STATUS)}
     tmux new-session -d -s "$session" ${quoteForBash(
       `bash -lc ${quoteForBash(args.command)}`,
     )}
@@ -1857,7 +1864,7 @@ async function startDaytonaDevServerBackground(args: {
   `;
   const script = stripIndent`
     set -e
-    rm -f ${quoteForBash(PNPM_INSTALL_LOG)} ${quoteForBash(DAYTONA_DEV_LOG)}
+    rm -f ${quoteForBash(PNPM_INSTALL_LOG)} ${quoteForBash(DAYTONA_DEV_LOG)} ${quoteForBash(PNPM_INSTALL_STATUS)}
     nohup bash -lc ${quoteForBash(wrappedCommand)} > ${devLogPath} 2>&1 &
   `;
   const command = `bash -lc ${quoteForBash(script)}`;
@@ -2033,6 +2040,12 @@ async function startDaytonaDevServer(args: {
 const startDaytonaWorkspaceArgs = object({
   vaultId: id("vaults"),
   branch: optional(string()),
+  provisioningMode: optional(
+    union(
+      literal(DAYTONA_PROVISIONING_MODE_SNAPSHOT_BACKED),
+      literal(DAYTONA_PROVISIONING_MODE_LIVE_DEBUG),
+    ),
+  ),
 });
 
 const daytonaRepoRefreshMode = union(
@@ -2042,11 +2055,17 @@ const daytonaRepoRefreshMode = union(
 );
 type RepoRefreshMode = Infer<typeof daytonaRepoRefreshMode>;
 
+const daytonaProvisioningModeValidator = union(
+  literal(DAYTONA_PROVISIONING_MODE_SNAPSHOT_BACKED),
+  literal(DAYTONA_PROVISIONING_MODE_LIVE_DEBUG),
+);
+
 const daytonaStartupMetrics = object({
   totalMs: number(),
   sandboxCreateMs: number(),
   repoRefreshMs: number(),
   devServerStartMs: number(),
+  provisioningMode: daytonaProvisioningModeValidator,
   repoRefreshMode: daytonaRepoRefreshMode,
   repoRefreshed: boolean(),
   repoRefreshReason: string(),
@@ -2279,12 +2298,18 @@ export const startDaytonaWorkspace = action({
     }
 
     const requestedBranch = args.branch?.trim() || DAYTONA_COMMIT_PINNED_BRANCH;
+    const provisioningMode = resolveDaytonaProvisioningMode(
+      args.provisioningMode,
+    );
     const startupStartedAt = Date.now();
-    if (!isCommitPinnedDaytonaBranch(requestedBranch)) {
+    if (
+      provisioningMode === DAYTONA_PROVISIONING_MODE_SNAPSHOT_BACKED &&
+      !isCommitPinnedDaytonaBranch(requestedBranch)
+    ) {
       return {
         ok: false,
         status: "not_configured",
-        message: `Daytona commit-pinned snapshots currently support ${DAYTONA_COMMIT_PINNED_BRANCH} only.`,
+        message: `Snapshot-backed Daytona sandboxes currently support ${DAYTONA_COMMIT_PINNED_BRANCH} only. Use live/debug mode for other branches.`,
         branch: requestedBranch,
       };
     }
@@ -2310,48 +2335,50 @@ export const startDaytonaWorkspace = action({
         commitSha: expectedCommitSha,
       },
     );
-    if (!snapshotRecord) {
-      return {
-        ok: false,
-        status: "not_configured",
-        message: `Snapshot for ${branch}@${shortenCommitSha(expectedCommitSha)} has not started building yet.`,
-        branch,
-      };
-    }
-    if (snapshotRecord.status === "queued") {
-      return {
-        ok: false,
-        status: "not_configured",
-        message: `Snapshot for ${branch}@${shortenCommitSha(expectedCommitSha)} is queued.`,
-        branch,
-      };
-    }
-    if (snapshotRecord.status === "building") {
-      return {
-        ok: false,
-        status: "not_configured",
-        message: `Snapshot for ${branch}@${shortenCommitSha(expectedCommitSha)} is still building.`,
-        branch,
-      };
-    }
-    if (snapshotRecord.status === "failed") {
-      return {
-        ok: false,
-        status: "not_configured",
-        message:
-          snapshotRecord.lastError && snapshotRecord.lastError.length > 0
-            ? `Latest snapshot for ${branch}@${shortenCommitSha(expectedCommitSha)} failed: ${snapshotRecord.lastError}`
-            : `Latest snapshot for ${branch}@${shortenCommitSha(expectedCommitSha)} failed.`,
-        branch,
-      };
-    }
-    if (snapshotRecord.status === "removing") {
-      return {
-        ok: false,
-        status: "not_configured",
-        message: `Snapshot for ${branch}@${shortenCommitSha(expectedCommitSha)} is being removed.`,
-        branch,
-      };
+    if (provisioningMode === DAYTONA_PROVISIONING_MODE_SNAPSHOT_BACKED) {
+      if (!snapshotRecord) {
+        return {
+          ok: false,
+          status: "not_configured",
+          message: `Snapshot for ${branch}@${shortenCommitSha(expectedCommitSha)} has not started building yet.`,
+          branch,
+        };
+      }
+      if (snapshotRecord.status === "queued") {
+        return {
+          ok: false,
+          status: "not_configured",
+          message: `Snapshot for ${branch}@${shortenCommitSha(expectedCommitSha)} is queued.`,
+          branch,
+        };
+      }
+      if (snapshotRecord.status === "building") {
+        return {
+          ok: false,
+          status: "not_configured",
+          message: `Snapshot for ${branch}@${shortenCommitSha(expectedCommitSha)} is still building.`,
+          branch,
+        };
+      }
+      if (snapshotRecord.status === "failed") {
+        return {
+          ok: false,
+          status: "not_configured",
+          message:
+            snapshotRecord.lastError && snapshotRecord.lastError.length > 0
+              ? `Latest snapshot for ${branch}@${shortenCommitSha(expectedCommitSha)} failed: ${snapshotRecord.lastError}`
+              : `Latest snapshot for ${branch}@${shortenCommitSha(expectedCommitSha)} failed.`,
+          branch,
+        };
+      }
+      if (snapshotRecord.status === "removing") {
+        return {
+          ok: false,
+          status: "not_configured",
+          message: `Snapshot for ${branch}@${shortenCommitSha(expectedCommitSha)} is being removed.`,
+          branch,
+        };
+      }
     }
 
     const apiConfig = resolveDaytonaApiConfig();
@@ -2389,9 +2416,62 @@ export const startDaytonaWorkspace = action({
     }
     const daytona = new Daytona(config);
     const repoWorkdir = `${DEFAULT_WORKSPACE_DIR}/${vault.ghRepoName}`;
+    const githubConnection =
+      provisioningMode === DAYTONA_PROVISIONING_MODE_LIVE_DEBUG
+        ? await getGithubConnection(ctx, userId)
+        : null;
+    const githubToken = githubConnection?.auth.credential.trim() ?? "";
+    if (
+      provisioningMode === DAYTONA_PROVISIONING_MODE_LIVE_DEBUG &&
+      githubToken.length === 0
+    ) {
+      return {
+        ok: false,
+        status: "not_configured",
+        message:
+          "Live/debug Daytona provisioning requires a GitHub connection so the sandbox repo can be refreshed to the requested commit.",
+        branch,
+      };
+    }
+
+    const exactActiveSnapshotRecord =
+      snapshotRecord &&
+      snapshotRecord.status === "active" &&
+      (snapshotRecord.snapshotName?.trim() ?? "").length > 0
+        ? snapshotRecord
+        : null;
+    const liveDebugBaseSnapshotRecord =
+      provisioningMode === DAYTONA_PROVISIONING_MODE_LIVE_DEBUG
+        ? exactActiveSnapshotRecord ??
+          (await findLatestActiveMainSnapshotRecord({
+            ctx,
+            owner: vault.ghRepoOwner,
+            repo: vault.ghRepoName,
+          }))
+        : null;
+    const materializationSnapshotName =
+      provisioningMode === DAYTONA_PROVISIONING_MODE_LIVE_DEBUG
+        ? liveDebugBaseSnapshotRecord?.snapshotName?.trim() ?? null
+        : exactActiveSnapshotRecord?.snapshotName?.trim() ?? null;
+    const materializationSnapshotCommitSha =
+      provisioningMode === DAYTONA_PROVISIONING_MODE_LIVE_DEBUG
+        ? liveDebugBaseSnapshotRecord?.commitSha ?? null
+        : exactActiveSnapshotRecord?.commitSha ?? null;
+    if (!materializationSnapshotName) {
+      return {
+        ok: false,
+        status: "not_configured",
+        message:
+          provisioningMode === DAYTONA_PROVISIONING_MODE_LIVE_DEBUG
+            ? `Live/debug Daytona launch requires at least one active ${DAYTONA_COMMIT_PINNED_BRANCH} snapshot for ${vault.ghRepoOwner}/${vault.ghRepoName}. Build a main snapshot first.`
+            : `Snapshot name is missing for ${branch}@${shortenCommitSha(expectedCommitSha)}.`,
+        branch,
+      };
+    }
     const requestedVaultLabel = String(args.vaultId);
     const requestedBranchLabel = branch;
     const requestedCommitLabel = expectedCommitSha;
+    const requestedProvisioningModeLabel = provisioningMode;
     const codexConnection = await ctx.runQuery(
       internal.providerConnections.getByUserAndKind,
       {
@@ -2436,7 +2516,14 @@ export const startDaytonaWorkspace = action({
         candidate,
         "noter.commit_sha",
       );
-      return candidateCommitLabel === requestedCommitLabel;
+      if (candidateCommitLabel !== requestedCommitLabel) {
+        return false;
+      }
+      const candidateProvisioningModeLabel = readSandboxLabel(
+        candidate,
+        DAYTONA_PROVISIONING_MODE_LABEL,
+      );
+      return candidateProvisioningModeLabel === requestedProvisioningModeLabel;
     };
     const hasCompatibleSandboxSetup = (candidate: Sandbox): boolean =>
       hasExpectedCodexAuthSetup({
@@ -2445,7 +2532,6 @@ export const startDaytonaWorkspace = action({
       });
 
     let sandbox: Sandbox | null = null;
-    const snapshotToUse = snapshotRecord.snapshotName ?? null;
     let sandboxCreateMs = 0;
     let sandboxLifecycle: "created" | "resumed" | "reused" = "created";
 
@@ -2463,6 +2549,16 @@ export const startDaytonaWorkspace = action({
             });
             await persistedSandbox.delete();
           }
+        } else if (
+          readSandboxLabel(persistedSandbox, "noter.vault_id") ===
+          requestedVaultLabel
+        ) {
+          console.log("daytona:workspace:recreate-for-request", {
+            vaultId: args.vaultId,
+            sandboxId: persistedSandbox.id,
+            reason: "mismatched_labels",
+          });
+          await persistedSandbox.delete();
         }
       } catch (error) {
         if (!isNotFoundError(error)) {
@@ -2477,6 +2573,7 @@ export const startDaytonaWorkspace = action({
           "noter.vault_id": requestedVaultLabel,
           "noter.branch": requestedBranchLabel,
           "noter.commit_sha": requestedCommitLabel,
+          [DAYTONA_PROVISIONING_MODE_LABEL]: requestedProvisioningModeLabel,
         },
         1,
         5,
@@ -2545,23 +2642,16 @@ export const startDaytonaWorkspace = action({
       }
     }
 
-    if (!snapshotToUse) {
-      return {
-        ok: false,
-        status: "not_configured",
-        message: `Snapshot name is missing for ${branch}@${shortenCommitSha(expectedCommitSha)}.`,
-        branch,
-      };
-    }
-
     if (!sandbox) {
       try {
-        const snapshot = await daytona.snapshot.get(snapshotToUse);
+        const snapshot = await daytona.snapshot.get(
+          materializationSnapshotName,
+        );
         if (snapshot.state !== "active") {
           return {
             ok: false,
             status: "not_configured",
-            message: `Snapshot ${snapshotToUse} is ${snapshot.state}. Wait for it to become active.`,
+            message: `Snapshot ${materializationSnapshotName} is ${snapshot.state}. Wait for it to become active.`,
             branch,
           };
         }
@@ -2572,7 +2662,7 @@ export const startDaytonaWorkspace = action({
         return {
           ok: false,
           status: "not_configured",
-          message: `Snapshot ${snapshotToUse} is missing.`,
+          message: `Snapshot ${materializationSnapshotName} is missing.`,
           branch,
         };
       }
@@ -2595,6 +2685,7 @@ export const startDaytonaWorkspace = action({
           "noter.repo": `${vault.ghRepoOwner}/${vault.ghRepoName}`,
           "noter.branch": branch,
           "noter.commit_sha": expectedCommitSha,
+          [DAYTONA_PROVISIONING_MODE_LABEL]: provisioningMode,
         },
         ...(codexAuthVolume
           ? {
@@ -2609,7 +2700,7 @@ export const startDaytonaWorkspace = action({
       };
       const sandboxParams: CreateSandboxFromSnapshotParams = {
         ...baseParams,
-        snapshot: snapshotToUse,
+        snapshot: materializationSnapshotName,
       };
       const sandboxCreateStartedAt = Date.now();
       sandbox = await daytona.create(sandboxParams);
@@ -2618,14 +2709,83 @@ export const startDaytonaWorkspace = action({
     }
 
     const resolvedSandboxName = sandbox.name;
+    await ctx.runMutation(internal.vault.updateVaultDaytonaSandbox, {
+      vaultId: args.vaultId,
+      sandboxId: sandbox.id,
+      sandboxName: resolvedSandboxName,
+      createdAt: Date.now(),
+    });
 
-    const repoRefreshMode: RepoRefreshMode = "never";
-    const repoRefreshMs = 0;
+    const baseMessage =
+      sandboxLifecycle === "created"
+        ? `Daytona sandbox created from snapshot ${materializationSnapshotName}.`
+        : sandboxLifecycle === "resumed"
+          ? `Daytona sandbox resumed for ${shortenCommitSha(expectedCommitSha)} (${resolvedSandboxName}).`
+          : `Reusing Daytona sandbox ${resolvedSandboxName}.`;
+
+    const repoRefreshMode: RepoRefreshMode =
+      provisioningMode === DAYTONA_PROVISIONING_MODE_LIVE_DEBUG
+        ? "always"
+        : "never";
+    let repoRefreshMs = 0;
     let devServerStartMs = 0;
-    const repoRefreshed = false;
-    const repoRefreshReason = "commit_pinned";
-    const bootstrapMessage = `Using commit-pinned snapshot ${snapshotToUse} for ${shortenCommitSha(expectedCommitSha)}. Repo refresh skipped to preserve the exact commit.`;
+    let repoRefreshed = false;
+    let repoRefreshReason =
+      provisioningMode === DAYTONA_PROVISIONING_MODE_LIVE_DEBUG
+        ? "mode_always"
+        : "commit_pinned";
+    const bootstrapMessage =
+      provisioningMode === DAYTONA_PROVISIONING_MODE_LIVE_DEBUG
+        ? `Live/debug mode uses base snapshot ${materializationSnapshotName} (${shortenCommitSha(materializationSnapshotCommitSha ?? expectedCommitSha)}) and refreshes the repo to ${branch}@${shortenCommitSha(expectedCommitSha)} before bootstrap.`
+        : `Using commit-pinned snapshot ${materializationSnapshotName} for ${shortenCommitSha(expectedCommitSha)}. Repo refresh skipped to preserve the exact commit.`;
     let devServerMessage: string | null = null;
+
+    if (provisioningMode === DAYTONA_PROVISIONING_MODE_LIVE_DEBUG) {
+      const repoRefreshStartedAt = Date.now();
+      try {
+        await refreshDaytonaRepoForLiveDebug({
+          sandbox,
+          repoDir: repoWorkdir,
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          branch,
+          commitSha: expectedCommitSha,
+          githubToken,
+        });
+        repoRefreshMs = Date.now() - repoRefreshStartedAt;
+        repoRefreshed = true;
+      } catch (error) {
+        repoRefreshMs = Date.now() - repoRefreshStartedAt;
+        repoRefreshReason = "failed";
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn("daytona:workspace:refresh:failed", {
+          vaultId: args.vaultId,
+          sandboxId: sandbox.id,
+          branch,
+          commitSha: expectedCommitSha,
+          message,
+        });
+        const startupMetrics: Infer<typeof daytonaStartupMetrics> = {
+          totalMs: Date.now() - startupStartedAt,
+          sandboxCreateMs,
+          repoRefreshMs,
+          devServerStartMs,
+          provisioningMode,
+          repoRefreshMode,
+          repoRefreshed,
+          repoRefreshReason,
+        };
+        return {
+          ok: false,
+          status: "not_configured",
+          message: `${baseMessage} Live/debug repo refresh failed: ${message}`,
+          branch,
+          sandboxId: sandbox.id,
+          sandboxName: resolvedSandboxName,
+          startupMetrics,
+        };
+      }
+    }
 
     const devServerStartedAt = Date.now();
     try {
@@ -2649,18 +2809,12 @@ export const startDaytonaWorkspace = action({
       devServerMessage = `Dev server failed to start: ${message}`;
     }
 
-    await ctx.runMutation(internal.vault.updateVaultDaytonaSandbox, {
-      vaultId: args.vaultId,
-      sandboxId: sandbox.id,
-      sandboxName: resolvedSandboxName,
-      createdAt: Date.now(),
-    });
-
     const startupMetrics: Infer<typeof daytonaStartupMetrics> = {
       totalMs: Date.now() - startupStartedAt,
       sandboxCreateMs,
       repoRefreshMs,
       devServerStartMs,
+      provisioningMode,
       repoRefreshMode,
       repoRefreshed,
       repoRefreshReason,
@@ -2678,12 +2832,6 @@ export const startDaytonaWorkspace = action({
       sandboxName: resolvedSandboxName,
     });
 
-    const baseMessage =
-      sandboxLifecycle === "created"
-        ? `Daytona sandbox created from snapshot ${snapshotToUse}.`
-        : sandboxLifecycle === "resumed"
-          ? `Daytona sandbox resumed for ${shortenCommitSha(expectedCommitSha)} (${resolvedSandboxName}).`
-          : `Reusing Daytona sandbox ${resolvedSandboxName}.`;
     const messageParts: string[] = [baseMessage];
     if (bootstrapMessage) {
       messageParts.push(bootstrapMessage);
@@ -3131,6 +3279,96 @@ async function resolveDaytonaSandboxForVault(args: {
     sandbox,
     sandboxName,
   };
+}
+
+async function findLatestActiveMainSnapshotRecord(args: {
+  ctx: ActionCtx;
+  owner: string;
+  repo: string;
+}) {
+  const records = await args.ctx.runQuery(
+    internal.daytona.snapshotRecords.listByRepoBranch,
+    {
+      owner: args.owner,
+      repo: args.repo,
+      branch: DAYTONA_COMMIT_PINNED_BRANCH,
+    },
+  );
+  return findLatestActiveDaytonaSnapshotRecord(records);
+}
+
+async function refreshDaytonaRepoForLiveDebug(args: {
+  sandbox: Sandbox;
+  repoDir: string;
+  owner: string;
+  repo: string;
+  branch: string;
+  commitSha: string;
+  githubToken: string;
+}): Promise<void> {
+  await ensureDaytonaSandboxStarted(args.sandbox);
+
+  const refreshScript = stripIndent`
+    set -e
+    repo_dir=${quoteForBash(args.repoDir)}
+    branch=${quoteForBash(args.branch)}
+    commit_sha=${quoteForBash(args.commitSha)}
+    remote_url=${quoteForBash(`https://github.com/${args.owner}/${args.repo}.git`)}
+
+    if [ ! -d "$repo_dir/.git" ]; then
+      echo "__NOTER_REPO_MISSING__"
+      exit 1
+    fi
+
+    cd "$repo_dir"
+    auth_header="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+
+    git remote set-url origin "$remote_url"
+    git -c "http.extraHeader=$auth_header" fetch origin "$branch"
+    git checkout -f -B "$branch" FETCH_HEAD
+    git reset --hard "$commit_sha"
+    git clean -ffd \
+      -e node_modules \
+      -e apps/noter/node_modules \
+      -e apps/noter-starter-template/node_modules
+
+    rm -f ${quoteForBash(PNPM_INSTALL_LOG)} ${quoteForBash(DAYTONA_DEV_LOG)} ${quoteForBash(PNPM_INSTALL_STATUS)}
+    rm -f apps/noter/.env.local apps/noter/.env.daytona-source.local apps/noter/.env.anon-seed.local
+    rm -rf apps/noter/.convex/local
+
+    resolved_sha="$(git rev-parse HEAD)"
+    if [ "$resolved_sha" != "$commit_sha" ]; then
+      echo "__NOTER_COMMIT_MISMATCH__:$resolved_sha"
+      exit 1
+    fi
+  `;
+
+  const result = await args.sandbox.process.executeCommand(
+    `bash -lc ${quoteForBash(refreshScript)}`,
+    undefined,
+    {
+      GITHUB_TOKEN: args.githubToken,
+    },
+    600,
+  );
+
+  if (result.exitCode === 0) {
+    return;
+  }
+
+  const output = result.result.trim();
+  if (output.includes("__NOTER_REPO_MISSING__")) {
+    throw new Error("Repo directory is missing from the sandbox workspace.");
+  }
+  if (output.includes("__NOTER_COMMIT_MISMATCH__")) {
+    throw new Error(
+      `Live/debug repo refresh checked out the wrong commit: ${output}.`,
+    );
+  }
+
+  throw new Error(
+    output || "Failed to refresh the sandbox repo for live/debug mode.",
+  );
 }
 
 export const getDaytonaTerminalUrl = action({
