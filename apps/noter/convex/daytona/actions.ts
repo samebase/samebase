@@ -99,6 +99,8 @@ const DAYTONA_REGISTRY_PROJECT_ENV = "DAYTONA_REGISTRY_PROJECT";
 const DAYTONA_REGISTRY_NAME_ENV = "DAYTONA_REGISTRY_NAME";
 const DAYTONA_REGISTRY_SET_DEFAULT_ENV = "DAYTONA_REGISTRY_SET_DEFAULT";
 const DAYTONA_ORGANIZATION_ID_ENV = "DAYTONA_ORGANIZATION_ID";
+const DAYTONA_ENSURE_REPO_AUTO_CD_PROGRAM =
+  "runtime/daytonaSandboxPrograms/ensureRepoAutoCd.js";
 const DAYTONA_PREBUILD_RESOURCES: Resources = {
   cpu: 4,
   memory: 8,
@@ -3819,7 +3821,8 @@ async function pruneCommitPinnedSnapshots(args: {
     },
   );
   const terminalRecords = records.filter(
-    (record) => record.status !== "queued" && record.status !== "building",
+    (record: (typeof records)[number]) =>
+      record.status !== "queued" && record.status !== "building",
   );
   const recordsToRemove = [...terminalRecords]
     .sort((left, right) => right.createdAt - left.createdAt)
@@ -4089,26 +4092,6 @@ export const buildCommitPinnedSnapshot = internalAction({
         );
 
         const repoPath = `${DEFAULT_WORKSPACE_DIR}/${args.repo}`;
-        const autoCdCommand = stripIndent`
-          bash_auto_cd_line="cd ${repoPath}";
-          for file in /root/.bashrc /home/daytona/.bashrc /etc/bash.bashrc; do
-            if [ -f "$file" ]; then
-              if ! grep -Fqx "$bash_auto_cd_line" "$file"; then printf "%s\\n" "$bash_auto_cd_line" >> "$file"; fi;
-            else
-              printf "%s\\n" "$bash_auto_cd_line" >> "$file";
-            fi;
-          done
-          fish_auto_cd_line="cd ${repoPath}";
-          for file in /root/.config/fish/config.fish /home/daytona/.config/fish/config.fish; do
-            dir=$(dirname "$file");
-            mkdir -p "$dir";
-            if [ -f "$file" ]; then
-              if ! grep -Fqx "$fish_auto_cd_line" "$file"; then printf "%s\\n" "$fish_auto_cd_line" >> "$file"; fi;
-            else
-              printf "%s\\n" "$fish_auto_cd_line" >> "$file";
-            fi;
-          done
-        `.replace(/\n/g, " ");
 
         const lockHash = await readPnpmLockHash(repoDir);
         const depsInputHash = await readDepsInputHash({
@@ -4164,7 +4147,9 @@ export const buildCommitPinnedSnapshot = internalAction({
         ];
         const installCommand =
           "RUN pnpm install --prod=false --force --node-linker=hoisted";
-        const autoCdStep = `RUN ${autoCdCommand}`;
+        const autoCdStep = `RUN node ${JSON.stringify(
+          path.posix.join(repoPath, DAYTONA_ENSURE_REPO_AUTO_CD_PROGRAM),
+        )} ${JSON.stringify(repoPath)}`;
 
         const createSnapshot = async (
           baseImage: string,
