@@ -1669,6 +1669,10 @@ async function getDaytonaTmuxSessionState(args: {
   const command = `bash -lc ${quoteForBash(
     stripIndent`
       session=${quoteForBash(args.sessionName)}
+      if ! command -v tmux >/dev/null 2>&1; then
+        echo missing
+        exit 0
+      fi
       if ! tmux has-session -t "$session" 2>/dev/null; then
         echo missing
         exit 0
