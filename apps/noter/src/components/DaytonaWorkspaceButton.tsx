@@ -49,6 +49,9 @@ type OpenWorkspaceDevServerPtySessionResult = FunctionReturnType<
 >;
 
 type WorkspaceTerminalKind = "shell" | "dev_server";
+type OpenWorkspaceSessionResult =
+  | OpenWorkspacePtySessionResult
+  | OpenWorkspaceDevServerPtySessionResult;
 
 const formatDuration = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 
@@ -422,10 +425,38 @@ export function DaytonaWorkspaceButton({
     }
   };
 
-  const openTerminalSession = async (
-    silent?: boolean,
-  ): Promise<DaytonaPtySession | null> => {
-    const isSilent = silent === true;
+  const closeStaleTerminalSession = (
+    session: DaytonaPtySession,
+    requestedVaultId: Id<"vaults">,
+    requestedBranch: string,
+  ) => {
+    void closeWorkspacePtySession({
+      vaultId: requestedVaultId,
+      branch: requestedBranch,
+      sandboxId: session.sandboxId,
+      sessionId: session.sessionId,
+    }).catch((error) => {
+      console.warn("daytona:workspace:pty:stale-close-failed", {
+        vaultId: requestedVaultId,
+        branch: requestedBranch,
+        sandboxId: session.sandboxId,
+        sessionId: session.sessionId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
+  };
+
+  const openPtySession = async (args: {
+    silent?: boolean;
+    targetKind: WorkspaceTerminalKind;
+    openSession: (args: {
+      vaultId: Id<"vaults">;
+      branch: string;
+    }) => Promise<OpenWorkspaceSessionResult>;
+    successMessage: string;
+    failureMessage: string;
+  }): Promise<DaytonaPtySession | null> => {
+    const isSilent = args.silent === true;
     const requestedVaultId = vaultId;
     const requestedBranch = branch;
     if (disabled || isOpeningTerminal || isClosingTerminal) {
@@ -444,7 +475,7 @@ export function DaytonaWorkspaceButton({
     }
 
     try {
-      const result = await openWorkspacePtySession({
+      const result = await args.openSession({
         vaultId: requestedVaultId,
         branch: requestedBranch,
       });
@@ -452,7 +483,7 @@ export function DaytonaWorkspaceButton({
       if (!nextSession) {
         if (!isSilent) {
           setHasError(true);
-          setMessage(result.message ?? "Failed to open Daytona terminal.");
+          setMessage(result.message ?? args.failureMessage);
         }
         return null;
       }
@@ -460,37 +491,26 @@ export function DaytonaWorkspaceButton({
         workspaceContextRef.current.vaultId !== requestedVaultId ||
         workspaceContextRef.current.branch !== requestedBranch
       ) {
-        void closeWorkspacePtySession({
-          vaultId: requestedVaultId,
-          branch: requestedBranch,
-          sandboxId: nextSession.sandboxId,
-          sessionId: nextSession.sessionId,
-        }).catch((error) => {
-          console.warn("daytona:workspace:pty:stale-close-failed", {
-            vaultId: requestedVaultId,
-            branch: requestedBranch,
-            sandboxId: nextSession.sandboxId,
-            sessionId: nextSession.sessionId,
-            message: error instanceof Error ? error.message : String(error),
-          });
-        });
+        closeStaleTerminalSession(
+          nextSession,
+          requestedVaultId,
+          requestedBranch,
+        );
         return null;
       }
       terminalSessionRef.current = nextSession;
       setTerminalSession(nextSession);
-      setActiveTerminalKind("shell");
+      setActiveTerminalKind(args.targetKind);
       if (!isSilent) {
         setHasError(false);
-        setMessage(result.message ?? "Terminal session ready.");
+        setMessage(result.message ?? args.successMessage);
       }
       return nextSession;
     } catch (error) {
       if (!isSilent) {
         setHasError(true);
         setMessage(
-          error instanceof Error
-            ? error.message
-            : "Failed to open Daytona terminal.",
+          error instanceof Error ? error.message : args.failureMessage,
         );
       }
       return null;
@@ -499,83 +519,28 @@ export function DaytonaWorkspaceButton({
     }
   };
 
+  const openTerminalSession = async (
+    silent?: boolean,
+  ): Promise<DaytonaPtySession | null> => {
+    return await openPtySession({
+      silent,
+      targetKind: "shell",
+      openSession: openWorkspacePtySession,
+      successMessage: "Terminal session ready.",
+      failureMessage: "Failed to open Daytona terminal.",
+    });
+  };
+
   const openDevServerTerminalSession = async (
     silent?: boolean,
   ): Promise<DaytonaPtySession | null> => {
-    const isSilent = silent === true;
-    const requestedVaultId = vaultId;
-    const requestedBranch = branch;
-    if (disabled || isOpeningTerminal || isClosingTerminal) {
-      return null;
-    }
-    setIsOpeningTerminal(true);
-    if (!isSilent) {
-      setMessage(null);
-      setHasError(false);
-    }
-
-    const closedExistingSession = await closeActiveTerminalSession(isSilent);
-    if (!closedExistingSession) {
-      setIsOpeningTerminal(false);
-      return null;
-    }
-
-    try {
-      const result = await openWorkspaceDevServerPtySession({
-        vaultId: requestedVaultId,
-        branch: requestedBranch,
-      });
-      const nextSession = toTerminalSession(result);
-      if (!nextSession) {
-        if (!isSilent) {
-          setHasError(true);
-          setMessage(
-            result.message ?? "Failed to open Daytona dev server terminal.",
-          );
-        }
-        return null;
-      }
-      if (
-        workspaceContextRef.current.vaultId !== requestedVaultId ||
-        workspaceContextRef.current.branch !== requestedBranch
-      ) {
-        void closeWorkspacePtySession({
-          vaultId: requestedVaultId,
-          branch: requestedBranch,
-          sandboxId: nextSession.sandboxId,
-          sessionId: nextSession.sessionId,
-        }).catch((error) => {
-          console.warn("daytona:workspace:pty:stale-close-failed", {
-            vaultId: requestedVaultId,
-            branch: requestedBranch,
-            sandboxId: nextSession.sandboxId,
-            sessionId: nextSession.sessionId,
-            message: error instanceof Error ? error.message : String(error),
-          });
-        });
-        return null;
-      }
-      terminalSessionRef.current = nextSession;
-      setTerminalSession(nextSession);
-      setActiveTerminalKind("dev_server");
-      if (!isSilent) {
-        setHasError(false);
-        setMessage(result.message ?? "Dev server terminal session ready.");
-      }
-      return nextSession;
-    } catch (error) {
-      if (!isSilent) {
-        setHasError(true);
-        setMessage(
-          error instanceof Error
-            ? error.message
-            : "Failed to open Daytona dev server terminal.",
-        );
-      }
-      return null;
-    } finally {
-      setIsOpeningTerminal(false);
-    }
+    return await openPtySession({
+      silent,
+      targetKind: "dev_server",
+      openSession: openWorkspaceDevServerPtySession,
+      successMessage: "Dev server terminal session ready.",
+      failureMessage: "Failed to open Daytona dev server terminal.",
+    });
   };
 
   const handleToggleShellTerminal = async () => {
@@ -630,7 +595,12 @@ export function DaytonaWorkspaceButton({
   };
 
   const handleRemoveSandbox = async () => {
-    if (disabled || isRemovingSandbox || isClosingTerminal) {
+    if (
+      disabled ||
+      isRemovingSandbox ||
+      isOpeningTerminal ||
+      isClosingTerminal
+    ) {
       return;
     }
     setIsRemovingSandbox(true);
@@ -978,7 +948,7 @@ export function DaytonaWorkspaceButton({
                 variant="ghost"
                 size="sm"
                 className="text-destructive hover:text-destructive"
-                disabled={disabled || isClosingTerminal}
+                disabled={disabled || isOpeningTerminal || isClosingTerminal}
               >
                 Remove sandbox
               </Button>
@@ -994,7 +964,9 @@ export function DaytonaWorkspaceButton({
                 <Button
                   variant="outline"
                   onClick={() => setIsRemoveDialogOpen(false)}
-                  disabled={isRemovingSandbox || isClosingTerminal}
+                  disabled={
+                    isRemovingSandbox || isOpeningTerminal || isClosingTerminal
+                  }
                 >
                   Cancel
                 </Button>
@@ -1003,7 +975,9 @@ export function DaytonaWorkspaceButton({
                   onClick={() => {
                     void handleRemoveSandbox();
                   }}
-                  disabled={isRemovingSandbox || isClosingTerminal}
+                  disabled={
+                    isRemovingSandbox || isOpeningTerminal || isClosingTerminal
+                  }
                 >
                   {isRemovingSandbox ? "Removing..." : "Remove sandbox"}
                 </Button>

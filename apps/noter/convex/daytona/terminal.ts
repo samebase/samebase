@@ -390,6 +390,9 @@ async function resolveDaytonaSandboxForVault(args: {
     const commitLabel = readSandboxLabel(candidate, "noter.commit_sha");
     return commitLabel === requestedCommitSha;
   };
+  const matchesRequestedVault = (candidate: Sandbox) => {
+    return readSandboxLabel(candidate, "noter.vault_id") === args.vaultId;
+  };
 
   let sandbox: Sandbox | null = null;
   let sandboxName = args.daytonaSandboxName;
@@ -397,7 +400,10 @@ async function resolveDaytonaSandboxForVault(args: {
   if (args.daytonaSandboxId) {
     try {
       const persistedSandbox = await args.daytona.get(args.daytonaSandboxId);
-      if (matchesRequestedBranch(persistedSandbox)) {
+      if (
+        matchesRequestedVault(persistedSandbox) &&
+        matchesRequestedBranch(persistedSandbox)
+      ) {
         sandbox = persistedSandbox;
         sandboxName = persistedSandbox.name;
       }
