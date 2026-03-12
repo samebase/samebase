@@ -79,6 +79,11 @@ export function CodexProviderRow() {
       terminalSessionRef.current = null;
       void closeCodexAuthPtySession({
         sessionId: activeSession.sessionId,
+      }).catch((error) => {
+        console.warn("codex:pty:cleanup-close-failed", {
+          sessionId: activeSession.sessionId,
+          message: error instanceof Error ? error.message : String(error),
+        });
       });
     };
   }, [closeCodexAuthPtySession]);
@@ -201,7 +206,12 @@ export function CodexProviderRow() {
       );
       setTerminalTabUrl(shouldShowTerminal ? result.terminalUrl ?? null : null);
       if (!shouldShowTerminal) {
-        await closeActiveTerminalSession(true);
+        const closedSession = await closeActiveTerminalSession(true);
+        if (!closedSession) {
+          setHasError(true);
+          setMessage("Failed to close Daytona terminal session.");
+          return;
+        }
         return;
       }
 
@@ -424,6 +434,12 @@ export function CodexProviderRow() {
                   sessionId,
                   cols,
                   rows,
+                }).catch((error) => {
+                  console.warn("codex:pty:resize-failed", {
+                    sessionId,
+                    message:
+                      error instanceof Error ? error.message : String(error),
+                  });
                 });
               }}
               onSessionError={(terminalMessage) => {
@@ -440,7 +456,9 @@ export function CodexProviderRow() {
             <div className="text-xs text-muted-foreground">
               {terminalStatus === "error"
                 ? "Codex could not be verified automatically. Finish the login and try Check login again."
-                : "The device-auth login starts automatically here. Finish the browser step, then click Check login."}
+                : terminalSession
+                  ? "The device-auth login starts automatically here. Finish the browser step, then click Check login."
+                  : "Open the Daytona terminal in a new tab to finish the device-auth login, then click Check login."}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {terminalTabUrl ? (
