@@ -402,6 +402,13 @@ Auth:
 - For UI automation, never kill all `Google Chrome` processes. Only terminate
   Playwright-owned sessions/profile paths (for example
   `.../ms-playwright/mcp-chrome`).
+- For concurrent Playwright work across multiple agents, default to isolated
+  Playwright browser sessions or contexts per agent. Do not rely on separate
+  tabs in a shared Chrome instance unless the user explicitly accepts the
+  interference risk.
+- For concurrent Playwright agents, assign each isolated browser profile a
+  random distinguishing color/theme so parallel sessions are easier to tell
+  apart at a glance.
 - When asked to use Playwright for testing, start in mobile viewport/device mode
   first, then validate desktop as needed.
 - If the user says to "remove mobile constraints" (or equivalent) during
