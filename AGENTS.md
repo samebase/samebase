@@ -216,6 +216,12 @@ use `--env-file` or an explicit deployment selector instead.
 
 - **Better mobile keyboard handling** - improve window size handling when
   virtual keyboard appears on mobile devices
+- **High: Daytona Codex shared home semantics** - treat the mounted Codex volume
+  as a desirable shared state surface, not just an auth cache. Shared `~/.codex`
+  memories/state across Daytona sandboxes and agents is intentional. Prefer
+  fixes that preserve one writable shared Codex home (ideally under the active
+  user home such as `/home/daytona/.codex`) over workarounds that copy only auth
+  into an isolated per-sandbox home and strand memories/agent state.
 - **High: local/worktree Daytona naming** - `make anon` currently seeds
   `DAYTONA_CONVEX_DEPLOY_KEY` from shared cloud dev env, so local Daytona
   snapshot/sandbox names can still inherit shared dev scope instead of a true

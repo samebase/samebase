@@ -81,7 +81,7 @@ describe("daytonaLocalBootstrap", () => {
         repo: "nicu-chiciuc/noter",
         branch: "main",
         commitSha: "abc123",
-        codexHome: "/root/.codex",
+        codexHome: "/home/daytona/.codex",
         daytonaConvexDeployKey: "dev:quiet-robin-508|secret-token",
       }),
     ).toEqual({
@@ -89,7 +89,7 @@ describe("daytonaLocalBootstrap", () => {
       NOTER_REPO: "nicu-chiciuc/noter",
       NOTER_BRANCH: "main",
       NOTER_COMMIT_SHA: "abc123",
-      CODEX_HOME: "/root/.codex",
+      CODEX_HOME: "/home/daytona/.codex",
       DAYTONA_CONVEX_DEPLOY_KEY: "dev:quiet-robin-508|secret-token",
     });
   });
