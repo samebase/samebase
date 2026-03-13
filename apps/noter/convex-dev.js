@@ -1,13 +1,11 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { createHash } from "crypto";
 import { spawn, spawnSync } from "child_process";
 import { isPortInUse, parsePort, sleep } from "./convex-local-utils.js";
+import { pickAvailableAnonymousLocalPorts } from "../../runtime/anonymousLocalPorts.js";
 
 const SUPPORTED_NODE_MAJORS = ["24", "22", "20", "18"];
-const ANONYMOUS_LOCAL_CLOUD_PORT_START = 11000;
-const ANONYMOUS_LOCAL_PORT_PAIR_COUNT = 2000;
 
 const semverCompare = (a, b) => {
   const aParts = a.slice(1).split(".").map(Number);
@@ -111,17 +109,9 @@ const resolveWorktreeRoot = () => {
 
 const pickAnonymousLocalPorts = () => {
   const worktreeRoot = resolveWorktreeRoot();
-  const digest = createHash("sha256").update(worktreeRoot).digest();
-  const startIndex = digest.readUInt32BE(0) % ANONYMOUS_LOCAL_PORT_PAIR_COUNT;
-
-  for (let offset = 0; offset < ANONYMOUS_LOCAL_PORT_PAIR_COUNT; offset += 1) {
-    const index = (startIndex + offset) % ANONYMOUS_LOCAL_PORT_PAIR_COUNT;
-    const cloud = ANONYMOUS_LOCAL_CLOUD_PORT_START + index * 2;
-    const site = cloud + 1;
-    if (isPortInUse(cloud) || isPortInUse(site)) {
-      continue;
-    }
-    return { cloud, site };
+  const ports = pickAvailableAnonymousLocalPorts(worktreeRoot, isPortInUse);
+  if (ports) {
+    return ports;
   }
 
   console.warn(
