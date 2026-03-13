@@ -129,7 +129,6 @@ type GithubConnection = {
 
 async function resolveRequestedDaytonaCommitSha(args: {
   ctx: ActionCtx;
-  userId: Id<"users">;
   vault: {
     _id: Id<"vaults">;
     ghRepoOwner: string;
@@ -138,27 +137,20 @@ async function resolveRequestedDaytonaCommitSha(args: {
   };
   branch: string;
 }): Promise<string | undefined> {
-  const branchScopedVault = await args.ctx.runQuery(
-    internal.vault.getByRepositoryFullName,
+  const branchRecord = await args.ctx.runQuery(
+    internal.vault.getVaultRemoteBranch,
     {
-      userId: args.userId,
-      repositoryFullName: `${args.vault.ghRepoOwner}/${args.vault.ghRepoName}`,
-      branch: args.branch,
+      vaultId: args.vault._id,
+      branchName: args.branch,
     },
   );
-  const resolvedBranch =
-    branchScopedVault &&
-    canonicalizeCommitPinnedDaytonaBranch(branchScopedVault.resolvedBranch) ===
-      args.branch
-      ? branchScopedVault
-      : null;
-
-  return (
-    resolvedBranch?.commitSHA?.trim() ??
-    (args.branch === DAYTONA_COMMIT_PINNED_BRANCH
-      ? args.vault.commitSHA?.trim()
-      : undefined)
-  );
+  const branchCommitSha = branchRecord?.headCommitSha.trim();
+  if (branchCommitSha) {
+    return branchCommitSha;
+  }
+  return args.branch === DAYTONA_COMMIT_PINNED_BRANCH
+    ? args.vault.commitSHA?.trim() || undefined
+    : undefined;
 }
 
 async function getGithubConnection(
@@ -2363,7 +2355,6 @@ export const startDaytonaWorkspace = action({
 
     const expectedCommitSha = await resolveRequestedDaytonaCommitSha({
       ctx,
-      userId,
       vault,
       branch,
     });
@@ -3252,19 +3243,20 @@ async function resolveDaytonaSandboxForVault(args: {
     : undefined;
   const requestedCommitSha = args.requestedCommitSha?.trim();
   const requestedProvisioningMode = args.requestedProvisioningMode;
-  const matchesRequestedBranch = (candidate: Sandbox): boolean => {
-    if (!requestedBranch) {
-      return true;
+  const matchesRequestedRef = (candidate: Sandbox): boolean => {
+    if (requestedBranch) {
+      const branchLabel = readSandboxLabel(candidate, "noter.branch");
+      if (branchLabel !== requestedBranch) {
+        return false;
+      }
     }
-    const branchLabel = readSandboxLabel(candidate, "noter.branch");
-    if (branchLabel !== requestedBranch) {
-      return false;
+    if (requestedCommitSha) {
+      const commitLabel = readSandboxLabel(candidate, "noter.commit_sha");
+      if (commitLabel !== requestedCommitSha) {
+        return false;
+      }
     }
-    if (!requestedCommitSha) {
-      return true;
-    }
-    const commitLabel = readSandboxLabel(candidate, "noter.commit_sha");
-    return commitLabel === requestedCommitSha;
+    return true;
   };
   const matchesRequestedProvisioningMode = (candidate: Sandbox): boolean => {
     if (!requestedProvisioningMode) {
@@ -3283,7 +3275,7 @@ async function resolveDaytonaSandboxForVault(args: {
     try {
       const persistedSandbox = await args.daytona.get(args.daytonaSandboxId);
       if (
-        matchesRequestedBranch(persistedSandbox) &&
+        matchesRequestedRef(persistedSandbox) &&
         matchesRequestedProvisioningMode(persistedSandbox)
       ) {
         sandbox = persistedSandbox;
@@ -3328,7 +3320,7 @@ async function resolveDaytonaSandboxForVault(args: {
 
     const matchedSandbox = await args.daytona.get(match.id);
     if (
-      !matchesRequestedBranch(matchedSandbox) ||
+      !matchesRequestedRef(matchedSandbox) ||
       !matchesRequestedProvisioningMode(matchedSandbox)
     ) {
       return {
@@ -3487,7 +3479,6 @@ export const getDaytonaTerminalUrl = action({
       canonicalizeCommitPinnedDaytonaBranch(requestedBranch);
     const requestedCommitSha = await resolveRequestedDaytonaCommitSha({
       ctx,
-      userId,
       vault,
       branch: resolvedBranch,
     });
@@ -3497,7 +3488,7 @@ export const getDaytonaTerminalUrl = action({
       vaultId: args.vaultId,
       daytonaSandboxId: vault.daytonaSandboxId,
       daytonaSandboxName: vault.daytonaSandboxName,
-      requestedBranch: args.branch,
+      requestedBranch: resolvedBranch,
       requestedCommitSha,
       requestedProvisioningMode: vault.daytonaSandboxProvisioningMode,
     });
@@ -3569,7 +3560,6 @@ export const getDaytonaPreviewUrl = action({
       canonicalizeCommitPinnedDaytonaBranch(requestedBranch);
     const requestedCommitSha = await resolveRequestedDaytonaCommitSha({
       ctx,
-      userId,
       vault,
       branch: resolvedBranch,
     });
@@ -3579,7 +3569,7 @@ export const getDaytonaPreviewUrl = action({
       vaultId: args.vaultId,
       daytonaSandboxId: vault.daytonaSandboxId,
       daytonaSandboxName: vault.daytonaSandboxName,
-      requestedBranch: args.branch,
+      requestedBranch: resolvedBranch,
       requestedCommitSha,
       requestedProvisioningMode: vault.daytonaSandboxProvisioningMode,
     });
@@ -3656,11 +3646,12 @@ export const startDaytonaDevServerSafe = action({
     let sandboxName = vault.daytonaSandboxName;
 
     if (!sandboxId) {
-      const matches = await daytona.list(
-        { "noter.vault_id": args.vaultId },
-        1,
-        5,
-      );
+      const labels: Record<string, string> = { "noter.vault_id": args.vaultId };
+      if (vault.daytonaSandboxProvisioningMode) {
+        labels[DAYTONA_PROVISIONING_MODE_LABEL] =
+          vault.daytonaSandboxProvisioningMode;
+      }
+      const matches = await daytona.list(labels, 1, 5);
       const match = matches.items.at(0);
       if (!match) {
         return {
@@ -3676,6 +3667,7 @@ export const startDaytonaDevServerSafe = action({
         sandboxId,
         sandboxName,
         createdAt: Date.now(),
+        provisioningMode: vault.daytonaSandboxProvisioningMode,
       });
     }
 
@@ -3761,11 +3753,12 @@ export const startDaytonaDevServerFast = action({
     let sandboxName = vault.daytonaSandboxName;
 
     if (!sandboxId) {
-      const matches = await daytona.list(
-        { "noter.vault_id": args.vaultId },
-        1,
-        5,
-      );
+      const labels: Record<string, string> = { "noter.vault_id": args.vaultId };
+      if (vault.daytonaSandboxProvisioningMode) {
+        labels[DAYTONA_PROVISIONING_MODE_LABEL] =
+          vault.daytonaSandboxProvisioningMode;
+      }
+      const matches = await daytona.list(labels, 1, 5);
       const match = matches.items.at(0);
       if (!match) {
         return {
@@ -3781,6 +3774,7 @@ export const startDaytonaDevServerFast = action({
         sandboxId,
         sandboxName,
         createdAt: Date.now(),
+        provisioningMode: vault.daytonaSandboxProvisioningMode,
       });
     }
 
@@ -3892,11 +3886,12 @@ export const getDaytonaDevServerStatus = action({
     let sandboxName = vault.daytonaSandboxName;
 
     if (!sandboxId) {
-      const matches = await daytona.list(
-        { "noter.vault_id": args.vaultId },
-        1,
-        5,
-      );
+      const labels: Record<string, string> = { "noter.vault_id": args.vaultId };
+      if (vault.daytonaSandboxProvisioningMode) {
+        labels[DAYTONA_PROVISIONING_MODE_LABEL] =
+          vault.daytonaSandboxProvisioningMode;
+      }
+      const matches = await daytona.list(labels, 1, 5);
       const match = matches.items.at(0);
       if (!match) {
         return {
@@ -3913,6 +3908,7 @@ export const getDaytonaDevServerStatus = action({
         sandboxId,
         sandboxName,
         createdAt: Date.now(),
+        provisioningMode: vault.daytonaSandboxProvisioningMode,
       });
     }
 

@@ -355,8 +355,8 @@ export default defineSchema({
     daytonaSandboxId: v.optional(v.string()),
     daytonaSandboxName: v.optional(v.string()),
     daytonaSandboxCreatedAt: v.optional(v.number()),
-    daytonaSandboxProvisioningMode: v.optional(
-      v.union(v.literal("snapshot_backed"), v.literal("live_debug")),
+    daytonaSandboxProvisioningMode: optional(
+      union(literal("snapshot_backed"), literal("live_debug")),
     ),
     daytonaSnapshotName: v.optional(v.string()),
     daytonaPrebuildLogs: v.optional(v.string()),

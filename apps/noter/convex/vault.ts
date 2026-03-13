@@ -35,6 +35,8 @@ import {
 } from "../shared/treeRefresh";
 
 const nullValidator = v.null();
+const { array, boolean, id, literal, number, object, optional, string, union } =
+  v;
 
 // MARK: Public
 
@@ -296,21 +298,31 @@ export const updateVaultDaytonaSandbox = internalMutation({
     sandboxId: v.string(),
     sandboxName: v.optional(v.string()),
     createdAt: v.number(),
-    provisioningMode: v.optional(
-      v.union(
-        v.literal(DAYTONA_PROVISIONING_MODE_SNAPSHOT_BACKED),
-        v.literal(DAYTONA_PROVISIONING_MODE_LIVE_DEBUG),
+    provisioningMode: optional(
+      union(
+        literal(DAYTONA_PROVISIONING_MODE_SNAPSHOT_BACKED),
+        literal(DAYTONA_PROVISIONING_MODE_LIVE_DEBUG),
       ),
     ),
   },
   returns: nullValidator,
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.vaultId, {
+    const patch: {
+      daytonaSandboxId: string;
+      daytonaSandboxName?: string;
+      daytonaSandboxCreatedAt: number;
+      daytonaSandboxProvisioningMode?:
+        | typeof DAYTONA_PROVISIONING_MODE_SNAPSHOT_BACKED
+        | typeof DAYTONA_PROVISIONING_MODE_LIVE_DEBUG;
+    } = {
       daytonaSandboxId: args.sandboxId,
       daytonaSandboxName: args.sandboxName,
       daytonaSandboxCreatedAt: args.createdAt,
-      daytonaSandboxProvisioningMode: args.provisioningMode,
-    });
+    };
+    if (args.provisioningMode !== undefined) {
+      patch.daytonaSandboxProvisioningMode = args.provisioningMode;
+    }
+    await ctx.db.patch(args.vaultId, patch);
     return null;
   },
 });
@@ -364,9 +376,6 @@ export const clearVaultDaytonaSandbox = internalMutation({
     return null;
   },
 });
-
-const { array, boolean, id, literal, number, object, optional, string, union } =
-  v;
 
 async function getCurrentDaytonaSnapshotState(
   ctx: QueryCtx,

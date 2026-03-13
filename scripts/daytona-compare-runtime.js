@@ -109,10 +109,15 @@ function parseArgs(args) {
  * @returns {unknown}
  */
 function readJsonFile(filePath) {
-  const raw = fs.readFileSync(filePath, 'utf8')
-  /** @type {unknown} */
-  const parsed = JSON.parse(raw)
-  return validateManifest(filePath, parsed)
+  try {
+    const raw = fs.readFileSync(filePath, 'utf8')
+    /** @type {unknown} */
+    const parsed = JSON.parse(raw)
+    return validateManifest(filePath, parsed)
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    exitWithError(`Failed to read ${filePath}: ${reason}`)
+  }
 }
 
 /**
