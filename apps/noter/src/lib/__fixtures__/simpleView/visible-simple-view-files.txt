@@ -21,6 +21,7 @@ CHAT_SPEC.md
 CONVEX_CODEGEN_CI.md
 docs/compliance/licenses-prod-2026-03-06.txt
 Ideas/augment-code-research.md
+Ideas/daytona-terminal-ui-transparency.md
 Ideas/E2b.md
 Ideas/main-agent-hub/README.md
 Ideas/mdxeditor-research.md
