@@ -2,8 +2,14 @@
 // @ts-check
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { WORKTREE_ENV_ALLOWLIST } from './worktree-env-allowlist.js'
+import {
+  buildCloudDeploymentUrl,
+  extractMatchingDeploymentDeployKey,
+  normalizeEnvQueryResult,
+} from '../runtime/convexSyncDevEnv.js'
 
 /**
  * @typedef {'dev' | 'prod' | 'preview'} DeploymentType
@@ -35,6 +41,27 @@ import { WORKTREE_ENV_ALLOWLIST } from './worktree-env-allowlist.js'
  *   worktree: string
  *   branch: string | null
  * }} WorktreeInfo
+ *
+ * @typedef {{
+ *   new (
+ *     address: string,
+ *     options?: { logger?: boolean },
+ *   ): {
+ *     setAdminAuth(token: string): void
+ *     query(
+ *       functionReference: unknown,
+ *       args: Record<string, never>,
+ *     ): Promise<unknown>
+ *   }
+ * }} ConvexHttpClientConstructor
+ *
+ * @typedef {{
+ *   ConvexHttpClient: ConvexHttpClientConstructor
+ * }} ConvexBrowserModule
+ *
+ * @typedef {{
+ *   makeFunctionReference(functionName: string): unknown
+ * }} ConvexServerModule
  */
 
 const HELP_TEXT = `Usage: scripts/convex-sync-dev-env.js [options]
@@ -63,93 +90,102 @@ const targetEnvPath = path.resolve(
 )
 const localAnonEnvPath = path.join(appDir, '.env.local')
 
-const localAnonEnv = readEnvFile(localAnonEnvPath)
-if (!localAnonEnv) {
-  exitWithError(
-    `Local env file not found: ${localAnonEnvPath}\n` +
-      'Run anonymous Convex dev once before generating the seed env.',
-  )
-}
+await main()
 
-const localAnonDeployment = parseDeploymentFromEnv(localAnonEnv.vars)
-if (!localAnonDeployment) {
-  exitWithError(
-    `Local env file does not contain a usable CONVEX_DEPLOYMENT: ${localAnonEnvPath}`,
-  )
-}
-if (!isAnonymousLikeDeploymentName(localAnonDeployment.name)) {
-  exitWithError(
-    `Local deployment must be anonymous/local (got ${localAnonDeployment.raw}).`,
-  )
-}
+async function main() {
+  const localAnonEnv = readEnvFile(localAnonEnvPath)
+  if (!localAnonEnv) {
+    exitWithError(
+      `Local env file not found: ${localAnonEnvPath}\n` +
+        'Run anonymous Convex dev once before generating the seed env.',
+    )
+  }
 
-const sourceEnvPath = options.sourceEnv
-  ? path.resolve(options.sourceEnv)
-  : findSourceEnvFile(repoRoot)
+  const localAnonDeployment = parseDeploymentFromEnv(localAnonEnv.vars)
+  if (!localAnonDeployment) {
+    exitWithError(
+      `Local env file does not contain a usable CONVEX_DEPLOYMENT: ${localAnonEnvPath}`,
+    )
+  }
+  if (!isAnonymousLikeDeploymentName(localAnonDeployment.name)) {
+    exitWithError(
+      `Local deployment must be anonymous/local (got ${localAnonDeployment.raw}).`,
+    )
+  }
 
-if (!sourceEnvPath) {
-  if (options.dryRun) {
-    console.log(`Would write 1 seed var to ${targetEnvPath}`)
-    console.log('- CONVEX_DEPLOYMENT')
+  const sourceEnvPath = options.sourceEnv
+    ? path.resolve(options.sourceEnv)
+    : findSourceEnvFile(repoRoot)
+
+  if (!sourceEnvPath) {
+    if (options.dryRun) {
+      console.log(`Would write 1 seed var to ${targetEnvPath}`)
+      console.log('- CONVEX_DEPLOYMENT')
+      process.exit(0)
+    }
+    writeEnvFile(targetEnvPath, [
+      { name: 'CONVEX_DEPLOYMENT', value: localAnonDeployment.raw },
+    ])
+    console.log(
+      'No cloud dev env source found. Wrote seed env file with local CONVEX_DEPLOYMENT only.',
+    )
     process.exit(0)
   }
+
+  const sourceEnv = readEnvFile(sourceEnvPath)
+  if (!sourceEnv) {
+    exitWithError(`Source env file not found: ${sourceEnvPath}`)
+  }
+
+  const sourceDeployment = parseDeploymentFromEnv(sourceEnv.vars)
+  if (!sourceDeployment) {
+    exitWithError(
+      `Source env does not contain a usable CONVEX_DEPLOYMENT: ${sourceEnvPath}`,
+    )
+  }
+  if (sourceDeployment.type !== 'dev') {
+    exitWithError(
+      `Source deployment must be dev (got ${sourceDeployment.raw}).`,
+    )
+  }
+  if (isAnonymousLikeDeploymentName(sourceDeployment.name)) {
+    exitWithError(
+      `Source deployment is anonymous (${sourceDeployment.raw}). ` +
+        'Use a cloud dev deployment as source.',
+    )
+  }
+
+  const entries = (
+    await listDeploymentEnvVars({
+      appDir,
+      envFile: sourceEnvPath,
+      sourceDeployment,
+    })
+  ).filter(({ name }) => WORKTREE_ENV_ALLOWLIST.has(name))
+
+  const sorted = entries.slice().sort((a, b) => a.name.localeCompare(b.name))
+
+  if (options.dryRun) {
+    console.log(
+      `Would write ${sorted.length + 1} seed var${sorted.length + 1 === 1 ? '' : 's'} ` +
+        `from ${sourceDeployment.raw} to ${targetEnvPath}`,
+    )
+    console.log('- CONVEX_DEPLOYMENT')
+    for (const { name } of sorted) {
+      console.log(`- ${name}`)
+    }
+    process.exit(0)
+  }
+
   writeEnvFile(targetEnvPath, [
     { name: 'CONVEX_DEPLOYMENT', value: localAnonDeployment.raw },
+    ...sorted,
   ])
   console.log(
-    'No cloud dev env source found. Wrote seed env file with local CONVEX_DEPLOYMENT only.',
-  )
-  process.exit(0)
-}
-
-const sourceEnv = readEnvFile(sourceEnvPath)
-if (!sourceEnv) {
-  exitWithError(`Source env file not found: ${sourceEnvPath}`)
-}
-
-const sourceDeployment = parseDeploymentFromEnv(sourceEnv.vars)
-if (!sourceDeployment) {
-  exitWithError(
-    `Source env does not contain a usable CONVEX_DEPLOYMENT: ${sourceEnvPath}`,
+    `Wrote ${sorted.length + 1} seed var${sorted.length + 1 === 1 ? '' : 's'} ` +
+      `to ${targetEnvPath}`,
   )
 }
-if (sourceDeployment.type !== 'dev') {
-  exitWithError(`Source deployment must be dev (got ${sourceDeployment.raw}).`)
-}
-if (isAnonymousLikeDeploymentName(sourceDeployment.name)) {
-  exitWithError(
-    `Source deployment is anonymous (${sourceDeployment.raw}). ` +
-      'Use a cloud dev deployment as source.',
-  )
-}
-
-const entries = listDeploymentEnvVars({
-  appDir,
-  envFile: sourceEnvPath,
-}).filter(({ name }) => WORKTREE_ENV_ALLOWLIST.has(name))
-
-const sorted = entries.slice().sort((a, b) => a.name.localeCompare(b.name))
-
-if (options.dryRun) {
-  console.log(
-    `Would write ${sorted.length + 1} seed var${sorted.length + 1 === 1 ? '' : 's'} ` +
-      `from ${sourceDeployment.raw} to ${targetEnvPath}`,
-  )
-  console.log('- CONVEX_DEPLOYMENT')
-  for (const { name } of sorted) {
-    console.log(`- ${name}`)
-  }
-  process.exit(0)
-}
-
-writeEnvFile(targetEnvPath, [
-  { name: 'CONVEX_DEPLOYMENT', value: localAnonDeployment.raw },
-  ...sorted,
-])
-console.log(
-  `Wrote ${sorted.length + 1} seed var${sorted.length + 1 === 1 ? '' : 's'} ` +
-    `to ${targetEnvPath}`,
-)
 
 /**
  * @param {string[]} args
@@ -304,10 +340,27 @@ function isAnonymousLikeDeploymentName(name) {
 }
 
 /**
- * @param {{ appDir: string; envFile: string }} args
- * @returns {EnvEntry[]}
+ * @param {{
+ *   appDir: string
+ *   envFile: string
+ *   sourceDeployment: Deployment
+ * }} args
+ * @returns {Promise<EnvEntry[]>}
  */
-function listDeploymentEnvVars({ appDir, envFile }) {
+async function listDeploymentEnvVars({ appDir, envFile, sourceDeployment }) {
+  const matchingDeployKey = extractMatchingDeploymentDeployKey({
+    rawDeployKey: process.env.CONVEX_DEPLOY_KEY,
+    sourceDeployment,
+  })
+
+  if (matchingDeployKey !== null) {
+    return await listDeploymentEnvVarsWithDeployKey({
+      appDir,
+      deploymentName: sourceDeployment.name,
+      deployKey: matchingDeployKey,
+    })
+  }
+
   const result = spawnSync(
     'npx',
     ['convex', 'env', 'list', '--env-file', envFile],
@@ -337,6 +390,50 @@ function listDeploymentEnvVars({ appDir, envFile }) {
     entries.push({ name, value })
   }
   return entries
+}
+
+/**
+ * @param {{
+ *   appDir: string
+ *   deploymentName: string
+ *   deployKey: string
+ * }} args
+ * @returns {Promise<EnvEntry[]>}
+ */
+async function listDeploymentEnvVarsWithDeployKey({
+  appDir,
+  deploymentName,
+  deployKey,
+}) {
+  const requireFromApp = createRequire(path.join(appDir, 'package.json'))
+  /** @type {unknown} */
+  const convexBrowserModule = requireFromApp('convex/browser')
+  /** @type {unknown} */
+  const convexServerModule = requireFromApp('convex/server')
+  if (!isConvexBrowserModule(convexBrowserModule)) {
+    exitWithError('Failed to load Convex browser client from apps/noter.')
+  }
+  if (!isConvexServerModule(convexServerModule)) {
+    exitWithError('Failed to load Convex server helpers from apps/noter.')
+  }
+
+  const ConvexHttpClient = convexBrowserModule.ConvexHttpClient
+  const client = new ConvexHttpClient(buildCloudDeploymentUrl(deploymentName), {
+    logger: false,
+  })
+  client.setAdminAuth(deployKey)
+
+  try {
+    const result = await client.query(
+      convexServerModule.makeFunctionReference(
+        '_system/cli/queryEnvironmentVariables',
+      ),
+      {},
+    )
+    return normalizeEnvQueryResult(result)
+  } catch (error) {
+    exitWithError(error instanceof Error ? error.message : String(error))
+  }
 }
 
 /**
@@ -453,4 +550,30 @@ function parseWorktreeBlock(block) {
 function exitWithError(message) {
   console.error(message)
   process.exit(1)
+}
+
+/**
+ * @param {unknown} value
+ * @returns {value is ConvexBrowserModule}
+ */
+function isConvexBrowserModule(value) {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false
+  }
+
+  const candidate = /** @type {Record<string, unknown>} */ (value)
+  return typeof candidate.ConvexHttpClient === 'function'
+}
+
+/**
+ * @param {unknown} value
+ * @returns {value is ConvexServerModule}
+ */
+function isConvexServerModule(value) {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false
+  }
+
+  const candidate = /** @type {Record<string, unknown>} */ (value)
+  return typeof candidate.makeFunctionReference === 'function'
 }
