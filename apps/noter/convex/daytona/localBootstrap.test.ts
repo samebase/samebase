@@ -1,13 +1,19 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { resolveDaytonaDevServerCommand } from "./devServerCommand";
 import { buildDaytonaSandboxEnvVars } from "./sandboxEnv";
 
-const testDir = mkdtempSync(path.join(os.tmpdir(), "noter-daytona-local-"));
+let testDir = "";
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../../../",
@@ -19,6 +25,16 @@ const scriptPath = path.join(
 );
 
 describe("daytonaLocalBootstrap", () => {
+  beforeAll(() => {
+    testDir = mkdtempSync(path.join(os.tmpdir(), "noter-daytona-local-"));
+  });
+
+  afterAll(() => {
+    if (testDir.length > 0 && existsSync(testDir)) {
+      rmSync(testDir, { recursive: true, force: true });
+    }
+  });
+
   it("prefers the explicit Daytona wrapper target over make run", () => {
     expect(
       resolveDaytonaDevServerCommand({
@@ -92,11 +108,7 @@ describe("daytonaLocalBootstrap", () => {
 
     expect(result.status).toBe(0);
     expect(readFileSync(outputPath, "utf8")).toBe(
-      [
-        "CONVEX_DEPLOYMENT=dev:quiet-robin-508",
-        "CONVEX_DEPLOY_KEY=dev:quiet-robin-508|secret-token",
-        "",
-      ].join("\n"),
+      ["CONVEX_DEPLOYMENT=dev:quiet-robin-508", ""].join("\n"),
     );
   });
 
@@ -113,7 +125,7 @@ describe("daytonaLocalBootstrap", () => {
         env: {
           ...process.env,
           DAYTONA_CONVEX_DEPLOY_KEY: "",
-          CONVEX_DEPLOYMENT: "local-1c49",
+          CONVEX_DEPLOYMENT: "local:1c49",
         },
       },
     );

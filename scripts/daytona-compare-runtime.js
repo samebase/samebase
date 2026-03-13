@@ -110,7 +110,55 @@ function parseArgs(args) {
  */
 function readJsonFile(filePath) {
   const raw = fs.readFileSync(filePath, 'utf8')
-  return JSON.parse(raw)
+  /** @type {unknown} */
+  const parsed = JSON.parse(raw)
+  return validateManifest(filePath, parsed)
+}
+
+/**
+ * @param {string} filePath
+ * @param {unknown} value
+ * @returns {Record<string, unknown>}
+ */
+function validateManifest(filePath, value) {
+  if (!isRecord(value)) {
+    exitWithError(`${filePath} must contain a JSON object.`)
+  }
+  if (Reflect.get(value, 'version') !== 1) {
+    exitWithError(
+      `${filePath} must contain a Daytona runtime manifest with version 1.`,
+    )
+  }
+  const repo = Reflect.get(value, 'repo')
+  if (!isRecord(repo) || typeof Reflect.get(repo, 'headSha') !== 'string') {
+    exitWithError(`${filePath} is missing repo.headSha.`)
+  }
+  if (typeof Reflect.get(value, 'appRoot') !== 'string') {
+    exitWithError(`${filePath} is missing appRoot.`)
+  }
+  const envFiles = Reflect.get(value, 'envFiles')
+  if (!isRecord(envFiles)) {
+    exitWithError(`${filePath} is missing envFiles.`)
+  }
+  const services = Reflect.get(value, 'services')
+  if (
+    !isRecord(services) ||
+    typeof Reflect.get(services, 'previewPort') !== 'number' ||
+    typeof Reflect.get(services, 'previewPortListening') !== 'boolean'
+  ) {
+    exitWithError(
+      `${filePath} is missing services.previewPort or services.previewPortListening.`,
+    )
+  }
+  return value
+}
+
+/**
+ * @param {unknown} value
+ * @returns {value is Record<string, unknown>}
+ */
+function isRecord(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 /**

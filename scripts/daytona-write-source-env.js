@@ -54,7 +54,6 @@ if (resolved.status === 'invalid') {
 
 writeEnvFile(outputPath, [
   { name: 'CONVEX_DEPLOYMENT', value: resolved.deployment },
-  ...buildSourceAuthEntries(process.env.DAYTONA_CONVEX_DEPLOY_KEY),
 ])
 console.log(`Wrote ${outputPath}`)
 
@@ -233,23 +232,17 @@ function parseSourceDeployment(rawDeployment, sourceName) {
 }
 
 /**
- * @param {string | undefined} rawDeployKey
- * @returns {EnvEntry[]}
- */
-function buildSourceAuthEntries(rawDeployKey) {
-  const normalized = rawDeployKey?.trim() ?? ''
-  if (normalized.length === 0) {
-    return []
-  }
-  return [{ name: 'CONVEX_DEPLOY_KEY', value: normalized }]
-}
-
-/**
  * @param {string} name
  * @returns {boolean}
  */
 function isAnonymousLikeDeploymentName(name) {
-  return name.startsWith('anonymous-') || name.startsWith('local-')
+  const normalized = name.trim().toLowerCase()
+  return (
+    normalized.startsWith('anonymous-') ||
+    normalized.startsWith('local-') ||
+    normalized.startsWith('anonymous:') ||
+    normalized.startsWith('local:')
+  )
 }
 
 /**

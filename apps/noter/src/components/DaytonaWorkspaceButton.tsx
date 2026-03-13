@@ -20,6 +20,7 @@ import {
 } from "@/components/DaytonaPtyTerminal";
 import type { DaytonaSnapshotStatus } from "@/lib/daytonaSnapshot";
 import { cn } from "@/lib/utils";
+import type { DaytonaProvisioningMode as WorkspaceProvisioningMode } from "../../convex/daytona/provisioning";
 
 interface DaytonaWorkspaceButtonProps {
   vaultId: Id<"vaults">;
@@ -49,7 +50,6 @@ type OpenWorkspaceDevServerPtySessionResult = FunctionReturnType<
 >;
 
 type WorkspaceTerminalKind = "shell" | "dev_server";
-type WorkspaceProvisioningMode = "snapshot_backed" | "live_debug";
 type OpenWorkspaceSessionResult =
   | OpenWorkspacePtySessionResult
   | OpenWorkspaceDevServerPtySessionResult;

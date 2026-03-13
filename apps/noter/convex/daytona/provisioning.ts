@@ -1,5 +1,6 @@
 export const DAYTONA_PROVISIONING_MODE_SNAPSHOT_BACKED = "snapshot_backed";
 export const DAYTONA_PROVISIONING_MODE_LIVE_DEBUG = "live_debug";
+export const DAYTONA_PROVISIONING_MODE_LABEL = "noter.provisioning_mode";
 
 export const DAYTONA_PROVISIONING_MODES = [
   DAYTONA_PROVISIONING_MODE_SNAPSHOT_BACKED,
@@ -8,6 +9,16 @@ export const DAYTONA_PROVISIONING_MODES = [
 
 export type DaytonaProvisioningMode =
   (typeof DAYTONA_PROVISIONING_MODES)[number];
+
+export function parseDaytonaProvisioningMode(
+  value?: string | null,
+): DaytonaProvisioningMode | undefined {
+  return value === DAYTONA_PROVISIONING_MODE_LIVE_DEBUG
+    ? DAYTONA_PROVISIONING_MODE_LIVE_DEBUG
+    : value === DAYTONA_PROVISIONING_MODE_SNAPSHOT_BACKED
+      ? DAYTONA_PROVISIONING_MODE_SNAPSHOT_BACKED
+      : undefined;
+}
 
 type SnapshotRecordLike = {
   status: string;

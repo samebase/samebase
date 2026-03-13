@@ -149,17 +149,25 @@ export function normalizeDaytonaEnvFileContents(contents) {
  * }}
  */
 function buildEnvFileManifest(filePath) {
-  if (!fs.existsSync(filePath)) {
-    return {
-      path: filePath,
-      exists: false,
-      keys: [],
-      normalizedLines: [],
-      normalizedHash: null,
+  let contents = ''
+  try {
+    contents = fs.readFileSync(filePath, 'utf8')
+  } catch (error) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      Reflect.get(error, 'code') === 'ENOENT'
+    ) {
+      return {
+        path: filePath,
+        exists: false,
+        keys: [],
+        normalizedLines: [],
+        normalizedHash: null,
+      }
     }
+    throw error
   }
-
-  const contents = fs.readFileSync(filePath, 'utf8')
   const normalized = normalizeDaytonaEnvFileContents(contents)
   return {
     path: filePath,

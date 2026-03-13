@@ -52,9 +52,11 @@ import {
 } from "./devServerLaunchPolicy";
 import { DAYTONA_LOCAL_DEV_MAKE_TARGET } from "./devServerCommand";
 import {
+  DAYTONA_PROVISIONING_MODE_LABEL,
   DAYTONA_PROVISIONING_MODE_LIVE_DEBUG,
   DAYTONA_PROVISIONING_MODE_SNAPSHOT_BACKED,
   findLatestActiveDaytonaSnapshotRecord,
+  parseDaytonaProvisioningMode,
   resolveDaytonaProvisioningMode,
 } from "./provisioning";
 import { buildDaytonaSandboxEnvVars } from "./sandboxEnv";
@@ -89,7 +91,6 @@ const DAYTONA_TERMINAL_PORT = 22222;
 const DAYTONA_TERMINAL_TTL_SECONDS = 300;
 const DAYTONA_DEV_LOG = "/tmp/noter-dev.log";
 const DAYTONA_DEV_SERVER_TMUX_SESSION = "noter-dev-server";
-const DAYTONA_PROVISIONING_MODE_LABEL = "noter.provisioning_mode";
 // Daytona terminals currently run with a root home in our tested sandbox setup.
 const DAYTONA_CODEX_HOME = "/root/.codex";
 const DAYTONA_CODEX_AUTH_VOLUME_PREFIX = "noter-codex-auth";
@@ -125,6 +126,40 @@ type GithubConnection = {
   auth: { credential: string };
   username?: string;
 } | null;
+
+async function resolveRequestedDaytonaCommitSha(args: {
+  ctx: ActionCtx;
+  userId: Id<"users">;
+  vault: {
+    _id: Id<"vaults">;
+    ghRepoOwner: string;
+    ghRepoName: string;
+    commitSHA?: string;
+  };
+  branch: string;
+}): Promise<string | undefined> {
+  const branchScopedVault = await args.ctx.runQuery(
+    internal.vault.getByRepositoryFullName,
+    {
+      userId: args.userId,
+      repositoryFullName: `${args.vault.ghRepoOwner}/${args.vault.ghRepoName}`,
+      branch: args.branch,
+    },
+  );
+  const resolvedBranch =
+    branchScopedVault &&
+    canonicalizeCommitPinnedDaytonaBranch(branchScopedVault.resolvedBranch) ===
+      args.branch
+      ? branchScopedVault
+      : null;
+
+  return (
+    resolvedBranch?.commitSHA?.trim() ??
+    (args.branch === DAYTONA_COMMIT_PINNED_BRANCH
+      ? args.vault.commitSHA?.trim()
+      : undefined)
+  );
+}
 
 async function getGithubConnection(
   ctx: ActionCtx,
@@ -2326,13 +2361,20 @@ export const startDaytonaWorkspace = action({
     }
     const branch = canonicalizeCommitPinnedDaytonaBranch(requestedBranch);
 
-    const expectedCommitSha = vault.commitSHA?.trim();
+    const expectedCommitSha = await resolveRequestedDaytonaCommitSha({
+      ctx,
+      userId,
+      vault,
+      branch,
+    });
     if (!expectedCommitSha) {
       return {
         ok: false,
         status: "not_configured",
         message:
-          "Latest main commit is not known yet. Refresh the repository first.",
+          branch === DAYTONA_COMMIT_PINNED_BRANCH
+            ? "Latest main commit is not known yet. Refresh the repository first."
+            : `Latest ${branch} commit is not known yet. Refresh the repository first.`,
         branch,
       };
     }
@@ -2725,6 +2767,7 @@ export const startDaytonaWorkspace = action({
       sandboxId: sandbox.id,
       sandboxName: resolvedSandboxName,
       createdAt: Date.now(),
+      provisioningMode,
     });
 
     const baseMessage =
@@ -3198,6 +3241,7 @@ async function resolveDaytonaSandboxForVault(args: {
   daytonaSandboxName?: string;
   requestedBranch?: string;
   requestedCommitSha?: string;
+  requestedProvisioningMode?: Infer<typeof daytonaProvisioningModeValidator>;
 }): Promise<
   | { ok: true; sandbox: Sandbox; sandboxName: string | undefined }
   | { ok: false; message: string }
@@ -3207,6 +3251,7 @@ async function resolveDaytonaSandboxForVault(args: {
     ? canonicalizeCommitPinnedDaytonaBranch(requestedBranchValue)
     : undefined;
   const requestedCommitSha = args.requestedCommitSha?.trim();
+  const requestedProvisioningMode = args.requestedProvisioningMode;
   const matchesRequestedBranch = (candidate: Sandbox): boolean => {
     if (!requestedBranch) {
       return true;
@@ -3221,6 +3266,15 @@ async function resolveDaytonaSandboxForVault(args: {
     const commitLabel = readSandboxLabel(candidate, "noter.commit_sha");
     return commitLabel === requestedCommitSha;
   };
+  const matchesRequestedProvisioningMode = (candidate: Sandbox): boolean => {
+    if (!requestedProvisioningMode) {
+      return true;
+    }
+    return (
+      readSandboxLabel(candidate, DAYTONA_PROVISIONING_MODE_LABEL) ===
+      requestedProvisioningMode
+    );
+  };
 
   let sandbox: Sandbox | null = null;
   let sandboxName = args.daytonaSandboxName;
@@ -3228,7 +3282,10 @@ async function resolveDaytonaSandboxForVault(args: {
   if (args.daytonaSandboxId) {
     try {
       const persistedSandbox = await args.daytona.get(args.daytonaSandboxId);
-      if (matchesRequestedBranch(persistedSandbox)) {
+      if (
+        matchesRequestedBranch(persistedSandbox) &&
+        matchesRequestedProvisioningMode(persistedSandbox)
+      ) {
         sandbox = persistedSandbox;
         sandboxName = persistedSandbox.name;
       }
@@ -3246,6 +3303,9 @@ async function resolveDaytonaSandboxForVault(args: {
     }
     if (requestedCommitSha) {
       labels["noter.commit_sha"] = requestedCommitSha;
+    }
+    if (requestedProvisioningMode) {
+      labels[DAYTONA_PROVISIONING_MODE_LABEL] = requestedProvisioningMode;
     }
     const matches = await args.daytona.list(labels, 1, 5);
     if (matches.items.length === 0) {
@@ -3267,7 +3327,10 @@ async function resolveDaytonaSandboxForVault(args: {
     }
 
     const matchedSandbox = await args.daytona.get(match.id);
-    if (!matchesRequestedBranch(matchedSandbox)) {
+    if (
+      !matchesRequestedBranch(matchedSandbox) ||
+      !matchesRequestedProvisioningMode(matchedSandbox)
+    ) {
       return {
         ok: false,
         message: requestedBranch
@@ -3283,6 +3346,9 @@ async function resolveDaytonaSandboxForVault(args: {
       sandboxId: sandbox.id,
       sandboxName,
       createdAt: Date.now(),
+      provisioningMode: parseDaytonaProvisioningMode(
+        readSandboxLabel(sandbox, DAYTONA_PROVISIONING_MODE_LABEL),
+      ),
     });
   }
 
@@ -3416,6 +3482,15 @@ export const getDaytonaTerminalUrl = action({
       config.apiUrl = baseUrl;
     }
     const daytona = new Daytona(config);
+    const requestedBranch = args.branch?.trim() || DAYTONA_COMMIT_PINNED_BRANCH;
+    const resolvedBranch =
+      canonicalizeCommitPinnedDaytonaBranch(requestedBranch);
+    const requestedCommitSha = await resolveRequestedDaytonaCommitSha({
+      ctx,
+      userId,
+      vault,
+      branch: resolvedBranch,
+    });
     const resolvedSandbox = await resolveDaytonaSandboxForVault({
       ctx,
       daytona,
@@ -3423,12 +3498,8 @@ export const getDaytonaTerminalUrl = action({
       daytonaSandboxId: vault.daytonaSandboxId,
       daytonaSandboxName: vault.daytonaSandboxName,
       requestedBranch: args.branch,
-      requestedCommitSha:
-        canonicalizeCommitPinnedDaytonaBranch(
-          args.branch?.trim() || DAYTONA_COMMIT_PINNED_BRANCH,
-        ) === DAYTONA_COMMIT_PINNED_BRANCH
-          ? vault.commitSHA?.trim()
-          : undefined,
+      requestedCommitSha,
+      requestedProvisioningMode: vault.daytonaSandboxProvisioningMode,
     });
     if (!resolvedSandbox.ok) {
       return {
@@ -3493,6 +3564,15 @@ export const getDaytonaPreviewUrl = action({
       config.apiUrl = baseUrl;
     }
     const daytona = new Daytona(config);
+    const requestedBranch = args.branch?.trim() || DAYTONA_COMMIT_PINNED_BRANCH;
+    const resolvedBranch =
+      canonicalizeCommitPinnedDaytonaBranch(requestedBranch);
+    const requestedCommitSha = await resolveRequestedDaytonaCommitSha({
+      ctx,
+      userId,
+      vault,
+      branch: resolvedBranch,
+    });
     const resolvedSandbox = await resolveDaytonaSandboxForVault({
       ctx,
       daytona,
@@ -3500,12 +3580,8 @@ export const getDaytonaPreviewUrl = action({
       daytonaSandboxId: vault.daytonaSandboxId,
       daytonaSandboxName: vault.daytonaSandboxName,
       requestedBranch: args.branch,
-      requestedCommitSha:
-        canonicalizeCommitPinnedDaytonaBranch(
-          args.branch?.trim() || DAYTONA_COMMIT_PINNED_BRANCH,
-        ) === DAYTONA_COMMIT_PINNED_BRANCH
-          ? vault.commitSHA?.trim()
-          : undefined,
+      requestedCommitSha,
+      requestedProvisioningMode: vault.daytonaSandboxProvisioningMode,
     });
     if (!resolvedSandbox.ok) {
       return {

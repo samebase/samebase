@@ -15,6 +15,10 @@ import {
   canonicalizeCommitPinnedDaytonaBranch,
   DAYTONA_COMMIT_PINNED_BRANCH,
 } from "./snapshotPolicy";
+import {
+  DAYTONA_PROVISIONING_MODE_LABEL,
+  parseDaytonaProvisioningMode,
+} from "./provisioning";
 
 const { object, id, string, optional, number, boolean } = v;
 
@@ -367,6 +371,7 @@ async function resolveDaytonaSandboxForVault(args: {
   daytonaSandboxName?: string;
   requestedBranch?: string;
   requestedCommitSha?: string;
+  requestedProvisioningMode?: "snapshot_backed" | "live_debug";
 }): Promise<
   | { ok: true; sandbox: Sandbox; sandboxName: string | undefined }
   | { ok: false; message: string }
@@ -376,6 +381,7 @@ async function resolveDaytonaSandboxForVault(args: {
     ? canonicalizeCommitPinnedDaytonaBranch(requestedBranchValue)
     : undefined;
   const requestedCommitSha = args.requestedCommitSha?.trim();
+  const requestedProvisioningMode = args.requestedProvisioningMode;
 
   const matchesRequestedBranch = (candidate: Sandbox) => {
     if (!requestedBranch) {
@@ -391,6 +397,15 @@ async function resolveDaytonaSandboxForVault(args: {
     const commitLabel = readSandboxLabel(candidate, "noter.commit_sha");
     return commitLabel === requestedCommitSha;
   };
+  const matchesRequestedProvisioningMode = (candidate: Sandbox) => {
+    if (!requestedProvisioningMode) {
+      return true;
+    }
+    return (
+      readSandboxLabel(candidate, DAYTONA_PROVISIONING_MODE_LABEL) ===
+      requestedProvisioningMode
+    );
+  };
   const matchesRequestedVault = (candidate: Sandbox) => {
     return readSandboxLabel(candidate, "noter.vault_id") === args.vaultId;
   };
@@ -403,7 +418,8 @@ async function resolveDaytonaSandboxForVault(args: {
       const persistedSandbox = await args.daytona.get(args.daytonaSandboxId);
       if (
         matchesRequestedVault(persistedSandbox) &&
-        matchesRequestedBranch(persistedSandbox)
+        matchesRequestedBranch(persistedSandbox) &&
+        matchesRequestedProvisioningMode(persistedSandbox)
       ) {
         sandbox = persistedSandbox;
         sandboxName = persistedSandbox.name;
@@ -424,6 +440,9 @@ async function resolveDaytonaSandboxForVault(args: {
     }
     if (requestedCommitSha) {
       labels["noter.commit_sha"] = requestedCommitSha;
+    }
+    if (requestedProvisioningMode) {
+      labels[DAYTONA_PROVISIONING_MODE_LABEL] = requestedProvisioningMode;
     }
 
     const matches = await args.daytona.list(labels, 1, 5);
@@ -447,7 +466,10 @@ async function resolveDaytonaSandboxForVault(args: {
     }
 
     const matchedSandbox = await args.daytona.get(match.id);
-    if (!matchesRequestedBranch(matchedSandbox)) {
+    if (
+      !matchesRequestedBranch(matchedSandbox) ||
+      !matchesRequestedProvisioningMode(matchedSandbox)
+    ) {
       return {
         ok: false,
         message: requestedBranch
@@ -464,6 +486,9 @@ async function resolveDaytonaSandboxForVault(args: {
       sandboxName: sandbox.name,
       createdAt:
         typeof sandbox.createdAt === "number" ? sandbox.createdAt : Date.now(),
+      provisioningMode: parseDaytonaProvisioningMode(
+        readSandboxLabel(sandbox, DAYTONA_PROVISIONING_MODE_LABEL),
+      ),
     });
   }
 
@@ -509,6 +534,26 @@ async function resolveWorkspacePtyContext(args: {
 
   const daytona = createDaytonaClient(apiConfig);
   const requestedBranch = args.branch?.trim();
+  const resolvedBranch = canonicalizeCommitPinnedDaytonaBranch(
+    requestedBranch || DAYTONA_COMMIT_PINNED_BRANCH,
+  );
+  const branchScopedVault = await args.ctx.runQuery(
+    internal.vault.getByRepositoryFullName,
+    {
+      userId,
+      repositoryFullName: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+      branch: resolvedBranch,
+    },
+  );
+  const requestedCommitSha =
+    !args.sandboxId &&
+    branchScopedVault &&
+    canonicalizeCommitPinnedDaytonaBranch(branchScopedVault.resolvedBranch) ===
+      resolvedBranch
+      ? branchScopedVault.commitSHA?.trim()
+      : !args.sandboxId && resolvedBranch === DAYTONA_COMMIT_PINNED_BRANCH
+        ? vault.commitSHA?.trim()
+        : undefined;
   const resolvedSandbox = await resolveDaytonaSandboxForVault({
     ctx: args.ctx,
     daytona,
@@ -516,13 +561,8 @@ async function resolveWorkspacePtyContext(args: {
     daytonaSandboxId: args.sandboxId?.trim() || vault.daytonaSandboxId,
     daytonaSandboxName: vault.daytonaSandboxName,
     requestedBranch,
-    requestedCommitSha: args.sandboxId
-      ? undefined
-      : canonicalizeCommitPinnedDaytonaBranch(
-            requestedBranch || DAYTONA_COMMIT_PINNED_BRANCH,
-          ) === DAYTONA_COMMIT_PINNED_BRANCH
-        ? vault.commitSHA?.trim()
-        : undefined,
+    requestedCommitSha,
+    requestedProvisioningMode: vault.daytonaSandboxProvisioningMode,
   });
 
   if (!resolvedSandbox.ok) {

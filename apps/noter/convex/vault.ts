@@ -18,6 +18,10 @@ import { getUserId } from "./common";
 import { enqueueSnapshotBuild } from "./daytona/snapshotRecords";
 import { DAYTONA_COMMIT_PINNED_BRANCH } from "./daytona/snapshotPolicy";
 import {
+  DAYTONA_PROVISIONING_MODE_LIVE_DEBUG,
+  DAYTONA_PROVISIONING_MODE_SNAPSHOT_BACKED,
+} from "./daytona/provisioning";
+import {
   hostingProviderValidator,
   hostingStateValidator,
 } from "./hostingState";
@@ -292,6 +296,12 @@ export const updateVaultDaytonaSandbox = internalMutation({
     sandboxId: v.string(),
     sandboxName: v.optional(v.string()),
     createdAt: v.number(),
+    provisioningMode: v.optional(
+      v.union(
+        v.literal(DAYTONA_PROVISIONING_MODE_SNAPSHOT_BACKED),
+        v.literal(DAYTONA_PROVISIONING_MODE_LIVE_DEBUG),
+      ),
+    ),
   },
   returns: nullValidator,
   handler: async (ctx, args) => {
@@ -299,6 +309,7 @@ export const updateVaultDaytonaSandbox = internalMutation({
       daytonaSandboxId: args.sandboxId,
       daytonaSandboxName: args.sandboxName,
       daytonaSandboxCreatedAt: args.createdAt,
+      daytonaSandboxProvisioningMode: args.provisioningMode,
     });
     return null;
   },
@@ -348,6 +359,7 @@ export const clearVaultDaytonaSandbox = internalMutation({
       daytonaSandboxId: undefined,
       daytonaSandboxName: undefined,
       daytonaSandboxCreatedAt: undefined,
+      daytonaSandboxProvisioningMode: undefined,
     });
     return null;
   },
