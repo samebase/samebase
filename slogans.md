@@ -7,4 +7,4 @@
 - noter: ship a convex app in 3.4 seconds
 - noter: build MCP servers for ChatGPT
 - noter: monitor & edit your apps when you're on the go
-- noter let's you focus on your business instead of your tech stack
+- noter lets you focus on your business instead of your tech stack
