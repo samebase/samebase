@@ -100,6 +100,17 @@ the live writable Codex home so:
 3. Codex memories and other future state remain shared across sandboxes and
    agents
 
+### 6. Persist Daytona terminal compatibility in shared Codex config
+
+The Daytona web terminal currently does not reliably deliver trust-prompt input
+once Codex switches to alternate-screen mode. To keep interactive Codex usable
+from Daytona terminals, the shared Daytona Codex config should persist:
+
+- `no_alt_screen = true`
+
+This setting belongs in the shared Daytona `config.toml` because it is part of
+the live interactive behavior expected from that shared Codex home.
+
 ## Acceptance Criteria
 
 1. Connecting or verifying Codex in Daytona stores `codexHome` as
@@ -111,8 +122,10 @@ the live writable Codex home so:
 5. In a fresh Daytona workspace sandbox terminal:
    - `echo $CODEX_HOME` prints `/home/daytona/.codex`
    - `codex login status` succeeds
-   - interactive `codex` reaches the trust prompt
-   - after confirming trust, Codex enters the normal interactive TUI
+   - `config.toml` under the shared Daytona Codex home contains
+     `no_alt_screen = true`
+   - interactive `codex` stays usable in the Daytona web terminal without
+     alternate-screen input loss
    - interactive `codex` no longer fails while persisting `config.toml` under
      `/root/.codex`
 
