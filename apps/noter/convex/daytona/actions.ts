@@ -20,6 +20,7 @@ import os from "os";
 import path from "path";
 import * as git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
+import { listAnonymousLocalPortCandidates } from "../../../../runtime/anonymousLocalPorts.js";
 import { action, internalAction, type ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { getUserId } from "../common";
@@ -98,6 +99,7 @@ const DAYTONA_CODEX_AUTH_SANDBOX_PREFIX = "noter-codex-auth";
 const DAYTONA_VOLUME_READY_TIMEOUT_MS = 60_000;
 const DAYTONA_VOLUME_READY_POLL_MS = 2_000;
 const DEV_ENV_ORIGIN_ENV = "DEV_ENV_ORIGIN";
+const VITE_CONVEX_URL_ENV = "VITE_CONVEX_URL";
 const MAX_PREBUILD_LOG_CHARS = 50_000;
 const PREBUILD_LOG_FLUSH_MS = 1_000;
 const DAYTONA_SNAPSHOT_ACTIVE_TIMEOUT_MS = 10 * 60_000;
@@ -274,6 +276,135 @@ async function inferSandboxDevOrigin(args: {
     const message = error instanceof Error ? error.message : String(error);
     console.log("daytona:dev-origin:failed", {
       sandboxId: args.sandbox.id,
+      message,
+    });
+    return null;
+  }
+}
+
+type AnonymousLocalPortPair = ReturnType<
+  typeof listAnonymousLocalPortCandidates
+>[number];
+
+function parseAnonymousLocalPortPair(
+  output: string,
+): AnonymousLocalPortPair | null {
+  const match = output.trim().match(/^(\d+)\s+(\d+)$/);
+  if (!match) {
+    return null;
+  }
+
+  const cloud = Number(match[1]);
+  const site = Number(match[2]);
+  if (!Number.isFinite(cloud) || !Number.isFinite(site)) {
+    return null;
+  }
+
+  return { cloud, site };
+}
+
+function buildAnonymousLocalPortProbeScript(
+  candidates: readonly AnonymousLocalPortPair[],
+): string {
+  const candidateList = candidates
+    .map((candidate) => `${candidate.cloud}:${candidate.site}`)
+    .join(" ");
+
+  return stripIndent`
+    set -e
+    candidates=${quoteForBash(candidateList)}
+
+    is_port_in_use() {
+      port="$1"
+      if command -v ss >/dev/null 2>&1; then
+        ss -ltn 2>/dev/null | awk 'NR > 1 { print $4 }' | grep -Eq "(^|:)$port$"
+        return $?
+      fi
+      if command -v lsof >/dev/null 2>&1; then
+        lsof -iTCP:"$port" -sTCP:LISTEN -n -P >/dev/null 2>&1
+        return $?
+      fi
+      if (exec 3<>/dev/tcp/127.0.0.1/"$port") 2>/dev/null; then
+        exec 3<&- 2>/dev/null || true
+        exec 3>&- 2>/dev/null || true
+        return 0
+      fi
+      return 1
+    }
+
+    for pair in $candidates; do
+      cloud="\${pair%%:*}"
+      site="\${pair##*:}"
+      if is_port_in_use "$cloud" || is_port_in_use "$site"; then
+        continue
+      fi
+      printf '%s %s\n' "$cloud" "$site"
+      exit 0
+    done
+
+    exit 1
+  `;
+}
+
+async function resolveSandboxAnonymousLocalPortPair(args: {
+  sandbox: Sandbox;
+  repoDir: string;
+}): Promise<AnonymousLocalPortPair | null> {
+  const candidates = listAnonymousLocalPortCandidates(args.repoDir);
+  const probeCandidates = candidates.slice(0, 64);
+  if (probeCandidates.length === 0) {
+    return null;
+  }
+
+  const probeScript = buildAnonymousLocalPortProbeScript(probeCandidates);
+  const probeCommand = `bash -lc ${quoteForBash(probeScript)}`;
+
+  try {
+    const result = await args.sandbox.process.executeCommand(
+      probeCommand,
+      undefined,
+      undefined,
+      60,
+    );
+    if (result.exitCode === 0) {
+      const parsed = parseAnonymousLocalPortPair(result.result);
+      if (parsed) {
+        return parsed;
+      }
+    }
+  } catch (error) {
+    console.log("daytona:browser-convex-port-probe:failed", {
+      sandboxId: args.sandbox.id,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  return probeCandidates[0] ?? null;
+}
+
+async function inferSandboxBrowserConvexUrl(args: {
+  sandbox: Sandbox;
+  repoDir: string;
+  ttlSeconds: number;
+}): Promise<string | null> {
+  const portPair = await resolveSandboxAnonymousLocalPortPair({
+    sandbox: args.sandbox,
+    repoDir: args.repoDir,
+  });
+  if (!portPair) {
+    return null;
+  }
+
+  try {
+    const preview = args.sandbox.public
+      ? await args.sandbox.getPreviewLink(portPair.cloud)
+      : await args.sandbox.getSignedPreviewUrl(portPair.cloud, args.ttlSeconds);
+    return preview.url.trim().length > 0 ? preview.url : null;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log("daytona:browser-convex-url:failed", {
+      sandboxId: args.sandbox.id,
+      port: portPair.cloud,
       message,
     });
     return null;
@@ -1667,6 +1798,7 @@ async function ensureDaytonaRuntimePackagesInSandbox(args: {
 function buildDaytonaSafeDevServerCommand(args: {
   repoDir: string;
   devOrigin: string | null;
+  browserConvexUrl: string | null;
   preferDaytonaLocalTarget: boolean;
 }): string {
   const ensurePnpm = stripIndent`
@@ -1689,6 +1821,9 @@ function buildDaytonaSafeDevServerCommand(args: {
   const devEnvExports = [
     args.devOrigin
       ? `export ${DEV_ENV_ORIGIN_ENV}=${quoteForBash(args.devOrigin)}`
+      : "",
+    args.browserConvexUrl
+      ? `export ${VITE_CONVEX_URL_ENV}=${quoteForBash(args.browserConvexUrl)}`
       : "",
     "export NOTER_DEV_HOST=0.0.0.0",
     `export NOTER_DEV_PORT=${DAYTONA_PREVIEW_PORT}`,
@@ -1883,11 +2018,13 @@ async function startDaytonaDevServerBackground(args: {
   sandbox: Sandbox;
   repoDir: string;
   devOrigin: string | null;
+  browserConvexUrl: string | null;
   preferDaytonaLocalTarget: boolean;
 }): Promise<void> {
   const devServerScript = buildDaytonaSafeDevServerCommand({
     repoDir: args.repoDir,
     devOrigin: args.devOrigin,
+    browserConvexUrl: args.browserConvexUrl,
     preferDaytonaLocalTarget: args.preferDaytonaLocalTarget,
   });
   const installLogPath = quoteForBash(PNPM_INSTALL_LOG);
@@ -2033,10 +2170,21 @@ async function startDaytonaDevServer(args: {
     port: DAYTONA_PREVIEW_PORT,
     ttlSeconds: DAYTONA_PREVIEW_TTL_SECONDS,
   });
+  const browserConvexUrl = await inferSandboxBrowserConvexUrl({
+    sandbox: args.sandbox,
+    repoDir: args.repoDir,
+    ttlSeconds: DAYTONA_PREVIEW_TTL_SECONDS,
+  });
   if (devOrigin) {
     console.log("daytona:dev-origin", {
       sandboxId: args.sandbox.id,
       origin: devOrigin,
+    });
+  }
+  if (browserConvexUrl) {
+    console.log("daytona:browser-convex-url", {
+      sandboxId: args.sandbox.id,
+      url: browserConvexUrl,
     });
   }
 
@@ -2048,6 +2196,7 @@ async function startDaytonaDevServer(args: {
       command: buildDaytonaSafeDevServerCommand({
         repoDir: args.repoDir,
         devOrigin,
+        browserConvexUrl,
         preferDaytonaLocalTarget: args.preferDaytonaLocalTarget,
       }),
       replaceRunning: true,
@@ -2065,6 +2214,7 @@ async function startDaytonaDevServer(args: {
       sandbox: args.sandbox,
       repoDir: args.repoDir,
       devOrigin,
+      browserConvexUrl,
       preferDaytonaLocalTarget: args.preferDaytonaLocalTarget,
     });
     await waitForDaytonaDevServerRunning({ sandbox: args.sandbox });
@@ -3801,9 +3951,20 @@ export const startDaytonaDevServerFast = action({
     const repoDir = `${DEFAULT_WORKSPACE_DIR}/${vault.ghRepoName}`;
     const installLogPath = quoteForBash(PNPM_INSTALL_LOG);
     const devLogPath = quoteForBash(DAYTONA_DEV_LOG);
+    const devOrigin = await inferSandboxDevOrigin({
+      sandbox,
+      port: DAYTONA_PREVIEW_PORT,
+      ttlSeconds: DAYTONA_PREVIEW_TTL_SECONDS,
+    });
+    const browserConvexUrl = await inferSandboxBrowserConvexUrl({
+      sandbox,
+      repoDir,
+      ttlSeconds: DAYTONA_PREVIEW_TTL_SECONDS,
+    });
     const devServerScript = buildDaytonaSafeDevServerCommand({
       repoDir,
-      devOrigin: null,
+      devOrigin,
+      browserConvexUrl,
       preferDaytonaLocalTarget: getDaytonaEnvLabel() === "dev",
     });
     const wrappedCommand = stripIndent`
