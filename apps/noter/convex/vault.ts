@@ -18,6 +18,10 @@ import { getUserId } from "./common";
 import { enqueueSnapshotBuild } from "./daytona/snapshotRecords";
 import { DAYTONA_COMMIT_PINNED_BRANCH } from "./daytona/snapshotPolicy";
 import {
+  DAYTONA_PROVISIONING_MODE_LIVE_DEBUG,
+  DAYTONA_PROVISIONING_MODE_SNAPSHOT_BACKED,
+} from "./daytona/provisioning";
+import {
   hostingProviderValidator,
   hostingStateValidator,
 } from "./hostingState";
@@ -31,6 +35,8 @@ import {
 } from "../shared/treeRefresh";
 
 const nullValidator = v.null();
+const { array, boolean, id, literal, number, object, optional, string, union } =
+  v;
 
 // MARK: Public
 
@@ -292,14 +298,31 @@ export const updateVaultDaytonaSandbox = internalMutation({
     sandboxId: v.string(),
     sandboxName: v.optional(v.string()),
     createdAt: v.number(),
+    provisioningMode: optional(
+      union(
+        literal(DAYTONA_PROVISIONING_MODE_SNAPSHOT_BACKED),
+        literal(DAYTONA_PROVISIONING_MODE_LIVE_DEBUG),
+      ),
+    ),
   },
   returns: nullValidator,
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.vaultId, {
+    const patch: {
+      daytonaSandboxId: string;
+      daytonaSandboxName?: string;
+      daytonaSandboxCreatedAt: number;
+      daytonaSandboxProvisioningMode?:
+        | typeof DAYTONA_PROVISIONING_MODE_SNAPSHOT_BACKED
+        | typeof DAYTONA_PROVISIONING_MODE_LIVE_DEBUG;
+    } = {
       daytonaSandboxId: args.sandboxId,
       daytonaSandboxName: args.sandboxName,
       daytonaSandboxCreatedAt: args.createdAt,
-    });
+    };
+    if (args.provisioningMode !== undefined) {
+      patch.daytonaSandboxProvisioningMode = args.provisioningMode;
+    }
+    await ctx.db.patch(args.vaultId, patch);
     return null;
   },
 });
@@ -348,13 +371,11 @@ export const clearVaultDaytonaSandbox = internalMutation({
       daytonaSandboxId: undefined,
       daytonaSandboxName: undefined,
       daytonaSandboxCreatedAt: undefined,
+      daytonaSandboxProvisioningMode: undefined,
     });
     return null;
   },
 });
-
-const { array, boolean, id, literal, number, object, optional, string, union } =
-  v;
 
 async function getCurrentDaytonaSnapshotState(
   ctx: QueryCtx,

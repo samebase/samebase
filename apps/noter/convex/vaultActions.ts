@@ -6,8 +6,10 @@ import { api, internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { Daytona } from "@daytonaio/sdk";
 import { getUserId } from "./common";
-import { getDaytonaEnvLabel } from "./daytona/env";
-import { DAYTONA_COMMIT_PINNED_BRANCH } from "./daytona/snapshotPolicy";
+import {
+  DAYTONA_COMMIT_PINNED_BRANCH,
+  inferCommitPinnedSnapshotPrefix,
+} from "./daytona/snapshotPolicy";
 import { createInfraProviders } from "./infraProviders";
 import { deleteHostingResources } from "./hostingProviders";
 import { hostingProviderValidator } from "./hostingState";
@@ -180,10 +182,7 @@ function inferDaytonaSnapshotPrefix(args: {
   repo: string;
 }): string | null {
   try {
-    const envLabel = getDaytonaEnvLabel();
-    const base = toSafeRepoName(
-      `noter-prebuild-${envLabel}-${args.owner}-${args.repo}-`,
-    );
+    const base = inferCommitPinnedSnapshotPrefix(args);
     return base.length > 0 ? base : null;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

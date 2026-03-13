@@ -29,6 +29,8 @@
     "lint:starter": "turbo run lint --filter=noter-starter-template",
     "prepare": "husky",
     "daytona:refresh": "bash scripts/daytona-refresh.sh",
+    "daytona:runtime:manifest": "node scripts/daytona-runtime-manifest.js",
+    "daytona:runtime:compare": "node scripts/daytona-compare-runtime.js",
     "daytona:runtime:render": "node scripts/render-daytona-runtime.js",
     "daytona:runtime:check": "node scripts/render-daytona-runtime.js --check",
     "lint:scripts": "pnpm exec eslint runtime scripts --ext js --config .eslintrc.cjs",

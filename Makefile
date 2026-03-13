@@ -1,12 +1,16 @@
 # set default  to be `make run`
 # .PHONY ensures targets run even if a file with the same name exists.
-.PHONY: bootstrap bootstrap-anon run anon anon-once update-fixtures record-start record-stop
+.PHONY: bootstrap bootstrap-anon run anon anon-once daytona-local daytona-local-once update-fixtures record-start record-stop
 
 ANON_SETUP_ONCE_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --once --codegen=enable --tail-logs=disable --typecheck=disable
-ANON_SYNC_ENV_CMD = node ./scripts/convex-sync-dev-env.js
+ANON_SYNC_ENV_CMD = $(if $(strip $(ANON_SOURCE_DEPLOY_KEY)),CONVEX_DEPLOY_KEY="$(ANON_SOURCE_DEPLOY_KEY)" ,)node ./scripts/convex-sync-dev-env.js $(if $(strip $(ANON_SOURCE_ENV)),--source-env "$(ANON_SOURCE_ENV)",)
 ANON_SEED_PASSWORD_ACCOUNT_CMD = node ./scripts/convex-seed-dev-auth.js
 ANON_REFRESH_AUTH_KEYS_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --refresh-anon-auth --codegen=disable --tail-logs=disable --typecheck=disable
-ANON_VITE_PORT = 5174
+ANON_VITE_PORT ?= 5174
+DAYTONA_VITE_PORT ?= 5173
+BOOTSTRAP_ANON_ARGS ?=
+DAYTONA_SOURCE_ENV ?= apps/noter/.env.daytona-source.local
+DAYTONA_WRITE_SOURCE_ENV_CMD = node ./scripts/daytona-write-source-env.js --output "$(DAYTONA_SOURCE_ENV)" --optional
 PLAYWRIGHT_CLI = npx --yes @playwright/cli
 PLAYWRIGHT_SESSION ?= noter-$(notdir $(CURDIR))-$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null | tr '/' '-')
 PLAYWRIGHT_URL ?= http://127.0.0.1:$(ANON_VITE_PORT)
@@ -18,7 +22,7 @@ bootstrap:
 	./scripts/bootstrap-worktree.js
 
 bootstrap-anon:
-	./scripts/bootstrap-worktree.js --anon
+	./scripts/bootstrap-worktree.js --anon $(BOOTSTRAP_ANON_ARGS)
 
 run:
 	$(MAKE) bootstrap
@@ -40,6 +44,24 @@ anon-once:
 	$(ANON_SYNC_ENV_CMD)
 	$(ANON_SEED_PASSWORD_ACCOUNT_CMD)
 	$(ANON_REFRESH_AUTH_KEYS_CMD)
+
+# Daytona-local bootstrap: one repo checkout, no internal branch creation,
+# explicit source env when Daytona exposes a cloud dev deployment identity.
+daytona-local:
+	$(DAYTONA_WRITE_SOURCE_ENV_CMD)
+	@if [ -f "$(DAYTONA_SOURCE_ENV)" ]; then \
+		$(MAKE) anon BOOTSTRAP_ANON_ARGS=--no-branch ANON_VITE_PORT="$(DAYTONA_VITE_PORT)" ANON_SOURCE_ENV="$(DAYTONA_SOURCE_ENV)" ANON_SOURCE_DEPLOY_KEY="$(DAYTONA_CONVEX_DEPLOY_KEY)"; \
+	else \
+		$(MAKE) anon BOOTSTRAP_ANON_ARGS=--no-branch ANON_VITE_PORT="$(DAYTONA_VITE_PORT)"; \
+	fi
+
+daytona-local-once:
+	$(DAYTONA_WRITE_SOURCE_ENV_CMD)
+	@if [ -f "$(DAYTONA_SOURCE_ENV)" ]; then \
+		$(MAKE) anon-once BOOTSTRAP_ANON_ARGS=--no-branch ANON_VITE_PORT="$(DAYTONA_VITE_PORT)" ANON_SOURCE_ENV="$(DAYTONA_SOURCE_ENV)" ANON_SOURCE_DEPLOY_KEY="$(DAYTONA_CONVEX_DEPLOY_KEY)"; \
+	else \
+		$(MAKE) anon-once BOOTSTRAP_ANON_ARGS=--no-branch ANON_VITE_PORT="$(DAYTONA_VITE_PORT)"; \
+	fi
 
 update-fixtures:
 	UPDATE_SIMPLE_VIEW_FIXTURES=1 pnpm exec vitest run apps/noter/src/lib/simpleView.test.ts

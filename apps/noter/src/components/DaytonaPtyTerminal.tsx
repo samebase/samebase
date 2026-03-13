@@ -5,9 +5,12 @@ import "@xterm/xterm/css/xterm.css";
 import { cn } from "@/lib/utils";
 import {
   buildAuthenticatedDaytonaPtyUrl,
+  DAYTONA_PTY_PROMPT_WAKEUP_INPUT,
   DAYTONA_PTY_WEBSOCKET_PROTOCOL,
+  hasDaytonaPtyInitialOutput,
   parseDaytonaPtyControlMessage,
   resolveDaytonaPtyCloseOutcome,
+  shouldWakeDaytonaPtyPrompt,
 } from "@/lib/daytonaPty";
 
 export type DaytonaPtySession = {
@@ -111,15 +114,18 @@ export function DaytonaPtyTerminal({
     const textDecoder = new TextDecoder();
     const textEncoder = new TextEncoder();
     const resizeTimeoutIds = new Set<number>();
+    const initialOutput =
+      typeof session.initialOutput === "string" ? session.initialOutput : "";
+    const shouldWakePrompt = shouldWakeDaytonaPtyPrompt({
+      allowInput,
+      initialInput: session.initialInput,
+      initialOutput,
+    });
 
     terminal.loadAddon(fitAddon);
     terminal.open(container);
-    const initialOutput =
-      typeof session.initialOutput === "string" ? session.initialOutput : "";
-    if (initialOutput.length > 0) {
+    if (hasDaytonaPtyInitialOutput(initialOutput)) {
       terminal.write(initialOutput);
-    } else {
-      terminal.writeln("Connecting to Daytona terminal...");
     }
 
     const reportSessionError = (message: string) => {
@@ -170,9 +176,45 @@ export function DaytonaPtyTerminal({
 
     let initialInputSent = false;
     let initialInputTimeout: number | null = null;
+    let promptWakeupTimeout: number | null = null;
+    let sawTerminalPayload = hasDaytonaPtyInitialOutput(initialOutput);
+
+    const cancelPromptWakeup = () => {
+      if (promptWakeupTimeout !== null) {
+        window.clearTimeout(promptWakeupTimeout);
+        promptWakeupTimeout = null;
+      }
+    };
+
+    const markTerminalPayloadReceived = () => {
+      sawTerminalPayload = true;
+      cancelPromptWakeup();
+    };
+
+    const schedulePromptWakeup = () => {
+      if (
+        !shouldWakePrompt ||
+        sawTerminalPayload ||
+        promptWakeupTimeout !== null
+      ) {
+        return;
+      }
+      promptWakeupTimeout = window.setTimeout(() => {
+        promptWakeupTimeout = null;
+        if (
+          isDisposed ||
+          sawTerminalPayload ||
+          socket.readyState !== WebSocket.OPEN
+        ) {
+          return;
+        }
+        socket.send(textEncoder.encode(DAYTONA_PTY_PROMPT_WAKEUP_INPUT));
+      }, 250);
+    };
 
     const dataDisposable = allowInput
       ? terminal.onData((data) => {
+          cancelPromptWakeup();
           if (socket.readyState !== WebSocket.OPEN) {
             return;
           }
@@ -204,6 +246,7 @@ export function DaytonaPtyTerminal({
                 socket.send(textEncoder.encode(session.initialInput ?? ""));
               }, 200);
             }
+            schedulePromptWakeup();
             queueResize();
             return;
           }
@@ -217,11 +260,13 @@ export function DaytonaPtyTerminal({
           return;
         }
 
+        markTerminalPayloadReceived();
         terminal.write(event.data);
         return;
       }
 
       if (event.data instanceof ArrayBuffer) {
+        markTerminalPayloadReceived();
         terminal.write(
           textDecoder.decode(new Uint8Array(event.data), { stream: true }),
         );
@@ -266,6 +311,9 @@ export function DaytonaPtyTerminal({
       isDisposed = true;
       if (initialInputTimeout !== null) {
         window.clearTimeout(initialInputTimeout);
+      }
+      if (promptWakeupTimeout !== null) {
+        window.clearTimeout(promptWakeupTimeout);
       }
       for (const timeoutId of resizeTimeoutIds) {
         window.clearTimeout(timeoutId);

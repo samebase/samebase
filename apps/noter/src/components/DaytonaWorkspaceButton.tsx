@@ -20,6 +20,7 @@ import {
 } from "@/components/DaytonaPtyTerminal";
 import type { DaytonaSnapshotStatus } from "@/lib/daytonaSnapshot";
 import { cn } from "@/lib/utils";
+import type { DaytonaProvisioningMode as WorkspaceProvisioningMode } from "../../convex/daytona/provisioning";
 
 interface DaytonaWorkspaceButtonProps {
   vaultId: Id<"vaults">;
@@ -54,6 +55,8 @@ type OpenWorkspaceSessionResult =
   | OpenWorkspaceDevServerPtySessionResult;
 
 const formatDuration = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
+const formatProvisioningMode = (mode: WorkspaceProvisioningMode) =>
+  mode === "live_debug" ? "Debug" : "Snapshot-backed";
 
 const formatRepoRefreshReason = (reason: string) => {
   if (reason === "mode_always") return "forced by config";
@@ -68,7 +71,7 @@ const formatRepoRefreshReason = (reason: string) => {
 };
 
 const formatStartupMetricsSummary = (metrics: StartupMetrics) =>
-  `Startup ${formatDuration(metrics.totalMs)} (sandbox ${formatDuration(metrics.sandboxCreateMs)}, repo ${formatDuration(metrics.repoRefreshMs)} ${metrics.repoRefreshed ? "refreshed" : `skipped: ${formatRepoRefreshReason(metrics.repoRefreshReason)}`}, dev ${formatDuration(metrics.devServerStartMs)}).`;
+  `${formatProvisioningMode(metrics.provisioningMode)} startup ${formatDuration(metrics.totalMs)} (sandbox ${formatDuration(metrics.sandboxCreateMs)}, repo ${formatDuration(metrics.repoRefreshMs)} ${metrics.repoRefreshed ? "refreshed" : `skipped: ${formatRepoRefreshReason(metrics.repoRefreshReason)}`}, dev ${formatDuration(metrics.devServerStartMs)}).`;
 
 export function DaytonaWorkspaceButton({
   vaultId,
@@ -131,6 +134,8 @@ export function DaytonaWorkspaceButton({
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
+  const [startingProvisioningMode, setStartingProvisioningMode] =
+    useState<WorkspaceProvisioningMode | null>(null);
   const [terminalSession, setTerminalSession] =
     useState<DaytonaPtySession | null>(null);
   const [activeTerminalKind, setActiveTerminalKind] =
@@ -151,14 +156,19 @@ export function DaytonaWorkspaceButton({
   const shouldPollPrebuildLogs =
     normalizedSnapshotStatus === "queued" ||
     normalizedSnapshotStatus === "building";
+  const commitUnavailableReason = !commitSha
+    ? normalizedBranch === "main"
+      ? "Latest main commit is not known yet. Refresh the repository first."
+      : `Latest ${branch} commit is not known yet. Refresh the repository first.`
+    : null;
   const mainOnlyReason =
     normalizedBranch !== "main"
-      ? "Daytona snapshots currently support main only."
+      ? "Snapshot-backed Daytona sandboxes currently support main only."
       : null;
-  const launchBlockedReason =
+  const snapshotLaunchBlockedReason =
     mainOnlyReason ??
-    (!commitSha
-      ? "Latest main commit is not known yet. Refresh the repository first."
+    (commitUnavailableReason
+      ? commitUnavailableReason
       : normalizedSnapshotStatus.length === 0
         ? "Snapshot status is unknown. Launch is blocked until a snapshot becomes active."
         : normalizedSnapshotStatus !== "active"
@@ -168,11 +178,20 @@ export function DaytonaWorkspaceButton({
               : "Latest snapshot failed. Launch is blocked while automatic retries continue."
             : `Latest snapshot is ${normalizedSnapshotStatus}. Launch is blocked until it becomes active.`
           : null);
+  const debugLaunchBlockedReason = commitUnavailableReason;
+  const launchBlockedMessage =
+    snapshotLaunchBlockedReason && debugLaunchBlockedReason
+      ? snapshotLaunchBlockedReason === debugLaunchBlockedReason
+        ? snapshotLaunchBlockedReason
+        : `Snapshot-backed: ${snapshotLaunchBlockedReason} Live/debug: ${debugLaunchBlockedReason}`
+      : snapshotLaunchBlockedReason
+        ? `Snapshot-backed: ${snapshotLaunchBlockedReason}`
+        : debugLaunchBlockedReason
+          ? `Live/debug: ${debugLaunchBlockedReason}`
+          : null;
   const buildBlockedReason =
     mainOnlyReason ??
-    (!commitSha
-      ? "Latest main commit is not known yet. Refresh the repository first."
-      : null);
+    (commitUnavailableReason ? commitUnavailableReason : null);
 
   const stopPrebuildLogPolling = () => {
     if (prebuildLogPollRef.current === null) {
@@ -266,13 +285,19 @@ export function DaytonaWorkspaceButton({
     vaultId,
   ]);
 
-  const handleStart = async () => {
-    if (disabled || isStarting || launchBlockedReason) {
+  const handleStart = async (provisioningMode: WorkspaceProvisioningMode) => {
+    const blockedReason =
+      provisioningMode === "live_debug"
+        ? debugLaunchBlockedReason
+        : snapshotLaunchBlockedReason;
+    if (disabled || isStarting || blockedReason) {
       return;
     }
     setIsStarting(true);
+    setStartingProvisioningMode(provisioningMode);
     setMessage(null);
     setHasError(false);
+    setBootstrapLogs(null);
     setStartupMetrics(null);
     setTimeToTerminalMs(null);
     const startClickedAt = performance.now();
@@ -281,6 +306,7 @@ export function DaytonaWorkspaceButton({
       const result = await startDaytonaWorkspace({
         vaultId,
         branch,
+        provisioningMode,
       });
 
       if (!result.ok) {
@@ -310,6 +336,7 @@ export function DaytonaWorkspaceButton({
       );
     } finally {
       setIsStarting(false);
+      setStartingProvisioningMode(null);
     }
   };
 
@@ -762,16 +789,18 @@ export function DaytonaWorkspaceButton({
     }
   };
 
+  const isStartingSnapshot = startingProvisioningMode === "snapshot_backed";
+  const isStartingDebug = startingProvisioningMode === "live_debug";
   const launchButton = (
     <Button
       variant="outline"
       size="sm"
       onClick={() => {
-        void handleStart();
+        void handleStart("snapshot_backed");
       }}
-      disabled={disabled || isStarting || launchBlockedReason !== null}
+      disabled={disabled || isStarting || snapshotLaunchBlockedReason !== null}
     >
-      {isStarting ? (
+      {isStartingSnapshot ? (
         <>
           <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
           Creating sandbox...
@@ -782,9 +811,30 @@ export function DaytonaWorkspaceButton({
     </Button>
   );
 
+  const debugLaunchButton = (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => {
+        void handleStart("live_debug");
+      }}
+      disabled={disabled || isStarting || debugLaunchBlockedReason !== null}
+    >
+      {isStartingDebug ? (
+        <>
+          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+          Creating debug sandbox...
+        </>
+      ) : (
+        "Create debug sandbox"
+      )}
+    </Button>
+  );
+
   const launchControls = (
     <div className="flex flex-wrap items-center gap-2">
       {launchButton}
+      {debugLaunchButton}
       <Button
         variant="ghost"
         size="sm"
@@ -829,8 +879,8 @@ export function DaytonaWorkspaceButton({
             {message}
           </div>
         )}
-        {!message && launchBlockedReason && (
-          <div className="text-xs text-red-600">{launchBlockedReason}</div>
+        {!message && launchBlockedMessage && (
+          <div className="text-xs text-red-600">{launchBlockedMessage}</div>
         )}
       </div>
     );
@@ -840,6 +890,7 @@ export function DaytonaWorkspaceButton({
     <div className={cn("flex flex-col gap-1", className)}>
       <div className="flex flex-wrap items-center gap-2">
         {launchButton}
+        {debugLaunchButton}
         <Button
           variant={
             terminalSession && activeTerminalKind === "shell"
@@ -1040,7 +1091,7 @@ export function DaytonaWorkspaceButton({
           <DaytonaPtyTerminal
             session={terminalSession}
             title={activeTerminalKind === "dev_server" ? "Dev Server" : "Shell"}
-            allowInput={activeTerminalKind !== "dev_server"}
+            allowInput
             onResizeSession={(sessionId, cols, rows) => {
               void resizeWorkspacePtySession({
                 vaultId,
@@ -1073,7 +1124,7 @@ export function DaytonaWorkspaceButton({
           />
           <div className="text-xs text-muted-foreground">
             {activeTerminalKind === "dev_server"
-              ? "The dev server view is read-only and streams the tmux-backed dev server output."
+              ? "The dev server terminal is temporarily writable so Daytona bootstrap issues can be debugged in place."
               : "Use “Open in tab” if the embedded PTY hits a Daytona or browser edge case."}
           </div>
         </div>
@@ -1117,9 +1168,9 @@ export function DaytonaWorkspaceButton({
           {message}
         </div>
       )}
-      {!message && (launchBlockedReason || buildBlockedReason) && (
+      {!message && (launchBlockedMessage || buildBlockedReason) && (
         <div className="text-xs text-red-600">
-          {launchBlockedReason ?? buildBlockedReason}
+          {launchBlockedMessage ?? buildBlockedReason}
         </div>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { getDaytonaEnvLabel } from "./env";
+import { getDaytonaResourceScope } from "./env";
 import { toSafeRepoName } from "../repoName";
 
 export const DAYTONA_COMMIT_PINNED_BRANCH = "main";
@@ -33,15 +33,15 @@ export function inferCommitPinnedSnapshotName(args: {
   branch: string;
   commitSha: string;
 }): string {
-  const envLabel = getDaytonaEnvLabel();
+  const resourceScope = getDaytonaResourceScope();
   const normalizedCommitSha = args.commitSha.trim().toLowerCase();
   const base = toSafeRepoName(
-    `noter-prebuild-${envLabel}-${args.owner}-${args.repo}-${args.branch}-${normalizedCommitSha}`,
+    `noter-prebuild-${resourceScope}-${args.owner}-${args.repo}-${args.branch}-${normalizedCommitSha}`,
   );
   if (base) {
     return base;
   }
-  return `noter-prebuild-${envLabel}-${inferSnapshotRepoFallback(
+  return `noter-prebuild-${resourceScope}-${inferSnapshotRepoFallback(
     args.owner,
     args.repo,
   )}-${shortenCommitSha(normalizedCommitSha)}`;
@@ -51,17 +51,61 @@ export function inferCommitPinnedSnapshotPrefix(args: {
   owner: string;
   repo: string;
 }): string {
-  const envLabel = getDaytonaEnvLabel();
+  const resourceScope = getDaytonaResourceScope();
   const prefix = toSafeRepoName(
-    `noter-prebuild-${envLabel}-${args.owner}-${args.repo}-`,
+    `noter-prebuild-${resourceScope}-${args.owner}-${args.repo}-`,
   );
   return (
     prefix ||
-    `noter-prebuild-${envLabel}-${inferSnapshotRepoFallback(
+    `noter-prebuild-${resourceScope}-${inferSnapshotRepoFallback(
       args.owner,
       args.repo,
     )}-`
   );
+}
+
+function inferLegacyDevCommitPinnedSnapshotPrefix(args: {
+  owner: string;
+  repo: string;
+}): string {
+  const prefix = toSafeRepoName(
+    `noter-prebuild-dev-${args.owner}-${args.repo}-`,
+  );
+  return (
+    prefix ||
+    `noter-prebuild-dev-${inferSnapshotRepoFallback(args.owner, args.repo)}-`
+  );
+}
+
+export function inferCommitPinnedSnapshotPrefixes(args: {
+  owner: string;
+  repo: string;
+}): string[] {
+  const currentPrefix = inferCommitPinnedSnapshotPrefix(args);
+  if (getDaytonaResourceScope() === "prod") {
+    return [currentPrefix];
+  }
+
+  const legacyDevPrefix = inferLegacyDevCommitPinnedSnapshotPrefix(args);
+  return currentPrefix === legacyDevPrefix
+    ? [currentPrefix]
+    : [currentPrefix, legacyDevPrefix];
+}
+
+export function inferDaytonaWorkspaceSandboxName(args: {
+  owner: string;
+  repo: string;
+  branch: string;
+  commitSha: string;
+  vaultId: string;
+}): string {
+  const resourceScope = getDaytonaResourceScope();
+  const base = toSafeRepoName(
+    `noter-${resourceScope}-${args.owner}-${args.repo}-${args.branch}-${shortenCommitSha(
+      args.commitSha,
+    )}`,
+  );
+  return base || `noter-${resourceScope}-${args.vaultId}`;
 }
 
 export function calculateSnapshotRetryDelayMs(attemptCount: number): number {

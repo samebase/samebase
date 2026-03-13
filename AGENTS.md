@@ -171,6 +171,24 @@ use `--env-file` or an explicit deployment selector instead.
 - **Runtime directives** - avoid `"use node"` unless it is truly necessary;
   prefer runtime-agnostic modules that can run in both node and non-node
   environments
+- **No speculative code** - do not add helpers, abstractions, flags, env vars,
+  allowlist entries, branches, or compatibility paths unless the current patch
+  uses them end-to-end in real runtime code
+- **No placeholder fallbacks** - prefer one explicit source of truth; if the
+  expected env var/config/command is missing, fail with a clear error instead of
+  probing backup names or future-facing alternatives
+- **Fallbacks require an active migration** - only add alternate env vars,
+  compatibility branches, or multi-path resolution when the repo is already in a
+  real migration and the same patch documents and uses both paths
+- **No test-only abstractions** - do not add or keep production helpers that are
+  referenced only by tests; tests must cover the code path that production
+  actually executes
+- **Delete incomplete extractions** - if a refactor extracts a helper but the
+  runtime path does not call it yet, remove the helper instead of leaving dead
+  scaffolding behind
+- **Keep config surfaces minimal** - allowlists and config maps should contain
+  only entries that are currently used by this repo; do not add placeholders for
+  possible future integrations
 
 ## UI/UX Guidelines
 
@@ -198,6 +216,11 @@ use `--env-file` or an explicit deployment selector instead.
 
 - **Better mobile keyboard handling** - improve window size handling when
   virtual keyboard appears on mobile devices
+- **High: local/worktree Daytona naming** - `make anon` currently seeds
+  `DAYTONA_CONVEX_DEPLOY_KEY` from shared cloud dev env, so local Daytona
+  snapshot/sandbox names can still inherit shared dev scope instead of a true
+  local/worktree scope. Defer this follow-up; current sandbox behavior check is
+  separate.
 
 ## Technology Stack
 
@@ -381,6 +404,10 @@ Auth:
   `.../ms-playwright/mcp-chrome`).
 - When asked to use Playwright for testing, start in mobile viewport/device mode
   first, then validate desktop as needed.
+- If the user says to "remove mobile constraints" (or equivalent) during
+  Playwright/UI work, remove all explicit viewport/device constraints instead of
+  switching to a forced desktop size; let the page render at its normal,
+  unconstrained browser layout unless the user asks for a specific viewport.
 - Worktree frontend should avoid port `5173` so OAuth flows on main checkout
   stay unaffected (default worktree dev port: `5174`).
 - For temporary Playwright/manual-test repos, use the exact
@@ -396,6 +423,17 @@ Auth:
   for them.
 - Do not introduce new environment variables as fallback mechanisms unless the
   user explicitly asks for that behavior.
+- Treat speculative future-proofing as a bug, not a virtue. Do not add support
+  for imagined future env vars, backup code paths, or placeholder config "just
+  in case."
+- When reading env/config, prefer one exact variable or one exact file. If it is
+  missing, fail closed with an actionable error unless the user explicitly asked
+  for migration/fallback behavior.
+- Every new exported helper, env var, allowlist entry, or branch in control flow
+  must have a present-tense consumer in the same patch. If nothing uses it
+  today, do not add it.
+- If a test passes after deleting the new helper/abstraction without changing
+  runtime behavior, that helper/abstraction should not exist.
 - Prefer breadth-first, simplest-viable fixes before deeper changes; stop once a
   minimal solution works.
 - When removing legacy systems, prefer clean removal and rely on git history for
