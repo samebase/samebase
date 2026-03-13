@@ -28,6 +28,8 @@
 - [ ] add better rebase skill/workflow: when conflict is only `pnpm-lock.yaml`, regenerate lockfile from manifests instead of manual conflict edits
 - [ ] bootstrap: make `make anon` / `make anon-once` non-interactive when Convex wants a backend upgrade, or document the exact prompt/answer (`Yes` + `transfer data`)
 - [ ] We need less of a profit from AI, if we allow them to stay with their paid tools, for codex/claude, so we don't even need to run any serious ai infra. And the price we can provide is much lower than any competitions, since we don't choose that battle at all
+- [ ] pricing: inactive accounts should stay close to $0 cost for us because they mostly sit on Codex + Cloudflare; if someone signs up, tries it once, then disappears for a month or a year, we are not paying bandwidth or Daytona until they actively start developing again
+- [ ] pricing model idea: charge more by released features / shipped output than by per-user seats; active development can then map to small usage-based costs (for example ~$5 once someone is actually building)
 - [ ] in landing, we need to ask users what tech they know, for github, convex, etc
 - [ ] but there's always a chat to just ask to understand, and also mention that the page and agent are built in noter
 - [ ] it can use github files as its database, before using convex
