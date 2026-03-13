@@ -50,4 +50,70 @@ describe("rebaseStagedContent", () => {
     expect(result.hasConflict).toBe(false);
     expect(result.content).toBe(upstreamContent);
   });
+
+  it("merges insertion-only edits when upstream inserted nearby lines", () => {
+    const baseContent = [
+      "# TODO",
+      "",
+      "- light panda",
+      "- if given enough instruction",
+      "",
+      "## Companies to Research",
+      "- AFFiNE",
+      "- shadcn-editor",
+      "",
+      "# Important",
+      "",
+      "- add better rebase",
+      "- We need less",
+      "",
+    ].join("\n");
+    const stagedContent = [
+      "# TODO",
+      "",
+      "- light panda",
+      "- if given enough instruction",
+      "",
+      "## Companies to Research",
+      "- AFFiNE",
+      "- shadcn-editor",
+      "- void.cloud",
+      "",
+      "# Important",
+      "",
+      "- add better rebase",
+      "- We need less",
+      "",
+    ].join("\n");
+    const upstreamContent = [
+      "# TODO",
+      "",
+      "- light panda",
+      "- review Observable notebooks docs",
+      "- if given enough instruction",
+      "",
+      "## Companies to Research",
+      "- AFFiNE",
+      "- shadcn-editor",
+      "- Tuple",
+      "",
+      "# Important",
+      "",
+      "- add better rebase",
+      "- bootstrap make anon non-interactive",
+      "- We need less",
+      "",
+    ].join("\n");
+
+    const result = rebaseStagedContent({
+      baseContent,
+      stagedContent,
+      upstreamContent,
+    });
+
+    expect(result.hasConflict).toBe(false);
+    expect(result.content).toContain("- void.cloud\n- Tuple");
+    expect(result.content).toContain("- review Observable notebooks docs");
+    expect(result.content).toContain("- bootstrap make anon non-interactive");
+  });
 });

@@ -384,9 +384,31 @@ const commitPreviewResult = v.object({
   }),
 });
 
+const rebaseConflictPreviewFile = v.object({
+  path: v.string(),
+  previousPath: v.optional(v.string()),
+  isMarkdown: v.boolean(),
+  baseBlobSha: v.string(),
+  upstreamBlobSha: v.string(),
+  baseContent: v.string(),
+  stagedContent: v.string(),
+  upstreamContent: v.string(),
+  baseToStagedPatchTruncated: v.boolean(),
+  baseToStagedPatch: v.optional(v.string()),
+  baseToUpstreamPatchTruncated: v.boolean(),
+  baseToUpstreamPatch: v.optional(v.string()),
+});
+
+const rebaseConflictPreviewResult = v.object({
+  branch: v.string(),
+  files: v.array(rebaseConflictPreviewFile),
+});
+
 type CommitPreviewFile = Infer<typeof commitPreviewFile>;
 type CommitPreviewTotals = Infer<typeof commitPreviewTotals>;
 type CommitPreviewResult = Infer<typeof commitPreviewResult>;
+type RebaseConflictPreviewFile = Infer<typeof rebaseConflictPreviewFile>;
+type RebaseConflictPreviewResult = Infer<typeof rebaseConflictPreviewResult>;
 
 type StagedFileForCommit = {
   filePath: string;
@@ -398,20 +420,28 @@ type StagedFileForCommit = {
   branch: string;
 };
 
+type StagedFileRebaseConflict = StagedFileForCommit & {
+  upstreamContent: string;
+  upstreamSha: string;
+};
+
 function formatUpstreamConflictError(paths: string[]): string {
   const uniquePaths = Array.from(new Set(paths)).sort();
   return `Commit conflicts with upstream changes. Resolve and retry: ${uniquePaths.join(", ")}`;
 }
 
-export async function rebaseStagedFilesOnLatestHead(args: {
+export async function inspectStagedFilesAgainstLatestHead(args: {
   octokit: Octokit;
   owner: string;
   repo: string;
   branch: string;
   stagedFiles: StagedFileForCommit[];
-}): Promise<StagedFileForCommit[]> {
+}): Promise<{
+  rebasedFiles: StagedFileForCommit[];
+  conflicts: StagedFileRebaseConflict[];
+}> {
   if (args.stagedFiles.length === 0) {
-    return [];
+    return { rebasedFiles: [], conflicts: [] };
   }
 
   const contentMatchesSha = (content: string, sha: string): boolean => {
@@ -520,7 +550,7 @@ export async function rebaseStagedFilesOnLatestHead(args: {
     Array.from(upstreamShasToPrefetch).map((sha) => getBlobText(sha)),
   );
 
-  const conflictPaths: string[] = [];
+  const conflicts: StagedFileRebaseConflict[] = [];
   const rebasedFiles: StagedFileForCommit[] = [];
 
   for (const file of args.stagedFiles) {
@@ -546,7 +576,11 @@ export async function rebaseStagedFilesOnLatestHead(args: {
       upstreamContent,
     });
     if (rebased.hasConflict) {
-      conflictPaths.push(file.filePath);
+      conflicts.push({
+        ...file,
+        upstreamContent,
+        upstreamSha,
+      });
       rebasedFiles.push(file);
       continue;
     }
@@ -559,16 +593,115 @@ export async function rebaseStagedFilesOnLatestHead(args: {
     });
   }
 
-  if (conflictPaths.length > 0) {
-    throw new Error(formatUpstreamConflictError(conflictPaths));
+  return {
+    rebasedFiles,
+    conflicts,
+  };
+}
+
+export async function rebaseStagedFilesOnLatestHead(args: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  branch: string;
+  stagedFiles: StagedFileForCommit[];
+}): Promise<StagedFileForCommit[]> {
+  const inspection = await inspectStagedFilesAgainstLatestHead(args);
+  if (inspection.conflicts.length > 0) {
+    throw new Error(
+      formatUpstreamConflictError(
+        inspection.conflicts.map((file) => file.filePath),
+      ),
+    );
   }
 
-  return rebasedFiles;
+  return inspection.rebasedFiles;
 }
 
 const MAX_COMMIT_PREVIEW_PATCH_CHARS_PER_FILE = 25_000;
 const MAX_COMMIT_PREVIEW_PATCH_CHARS_TOTAL = 150_000;
 const MAX_COMMIT_PREVIEW_MARKDOWN_RICH_CHARS_PER_FIELD = 40_000;
+const MAX_CONFLICT_PREVIEW_PATCH_CHARS_PER_PATCH = 25_000;
+
+function buildBoundedPatch(args: {
+  oldPath: string;
+  newPath: string;
+  oldContent: string;
+  newContent: string;
+  maxChars: number;
+}): {
+  patch: string;
+  truncated: boolean;
+} {
+  const fullPatch = createTwoFilesPatch(
+    args.oldPath,
+    args.newPath,
+    args.oldContent,
+    args.newContent,
+    "",
+    "",
+    { context: 3 },
+  );
+
+  if (fullPatch.length <= args.maxChars) {
+    return {
+      patch: fullPatch,
+      truncated: false,
+    };
+  }
+
+  return {
+    patch: `${fullPatch.slice(0, args.maxChars)}\n... [patch truncated]`,
+    truncated: true,
+  };
+}
+
+export function buildRebaseConflictPreviewFromStagedFiles(args: {
+  conflicts: StagedFileRebaseConflict[];
+  branch: string;
+}): RebaseConflictPreviewResult {
+  const files: RebaseConflictPreviewFile[] = args.conflicts.map((file) => {
+    const baseToStagedPatch = buildBoundedPatch({
+      oldPath: file.initialFilePath,
+      newPath: file.filePath,
+      oldContent: file.initialContent,
+      newContent: file.content,
+      maxChars: MAX_CONFLICT_PREVIEW_PATCH_CHARS_PER_PATCH,
+    });
+    const baseToUpstreamPatch = buildBoundedPatch({
+      oldPath: file.initialFilePath,
+      newPath: file.initialFilePath,
+      oldContent: file.initialContent,
+      newContent: file.upstreamContent,
+      maxChars: MAX_CONFLICT_PREVIEW_PATCH_CHARS_PER_PATCH,
+    });
+    const renamed = file.filePath !== file.initialFilePath;
+
+    return {
+      path: file.filePath,
+      previousPath: renamed ? file.initialFilePath : undefined,
+      isMarkdown: isMarkdownPath(file.filePath),
+      baseBlobSha:
+        file.parentCommitSha ??
+        (() => {
+          throw new Error("Conflict preview requires an existing base blob");
+        })(),
+      upstreamBlobSha: file.upstreamSha,
+      baseContent: file.initialContent,
+      stagedContent: file.content,
+      upstreamContent: file.upstreamContent,
+      baseToStagedPatchTruncated: baseToStagedPatch.truncated,
+      baseToStagedPatch: baseToStagedPatch.patch,
+      baseToUpstreamPatchTruncated: baseToUpstreamPatch.truncated,
+      baseToUpstreamPatch: baseToUpstreamPatch.patch,
+    };
+  });
+
+  return {
+    branch: args.branch,
+    files,
+  };
+}
 
 function truncateMarkdownRichContent(content: string): {
   content: string;
@@ -1571,6 +1704,73 @@ export const getCommitPreview = action({
       stagedFiles: rebasedStagedFiles,
       branch,
       includePatch,
+    });
+  },
+});
+
+export const getRebaseConflictPreview = action({
+  args: {
+    repositoryFullName: v.string(),
+    branch: v.optional(v.string()),
+  },
+  returns: rebaseConflictPreviewResult,
+  handler: async (ctx, args): Promise<RebaseConflictPreviewResult> => {
+    const userId = await getUserId(ctx);
+
+    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
+    const stagedFiles: StagedFileForCommit[] = await ctx.runQuery(
+      internal.fileStaging.listAllStagedFiles,
+      {
+        vaultId: vault._id,
+        branch: args.branch,
+      },
+    );
+
+    const stagedBranches: string[] = Array.from(
+      new Set(
+        stagedFiles
+          .map((file: StagedFileForCommit) => file.branch)
+          .filter((branch): branch is string => typeof branch === "string"),
+      ),
+    );
+    if (stagedBranches.length > 1) {
+      throw new Error(
+        `Cannot inspect staged conflicts across multiple branches: ${stagedBranches.join(", ")}`,
+      );
+    }
+
+    const branch =
+      args.branch ??
+      stagedBranches.at(0) ??
+      (await getVaultDefaultBranch(
+        ctx,
+        userId,
+        vault.ghRepoOwner,
+        vault.ghRepoName,
+      ));
+
+    const githubAccessToken = await getGithubAccessToken(ctx, userId);
+    const octokit: Octokit = new Octokit({
+      auth: githubAccessToken,
+    });
+    const inspection = await inspectStagedFilesAgainstLatestHead({
+      octokit,
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+      branch,
+      stagedFiles,
+    });
+
+    return buildRebaseConflictPreviewFromStagedFiles({
+      branch,
+      conflicts: inspection.conflicts,
     });
   },
 });

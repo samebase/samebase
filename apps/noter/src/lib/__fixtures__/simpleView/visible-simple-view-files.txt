@@ -5,6 +5,7 @@ apps/noter-agent-template/subagents/researcher/AGENTS.md
 apps/noter-starter-template/AGENTS.md
 apps/noter-starter-template/noter.md
 apps/noter-starter-template/README.md
+apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-conflict.png
 apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-deleted.png
 apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-inline.png
 apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-unchanged.png
@@ -108,6 +109,7 @@ specs/051_DAYTONA_STANDARD_RUNTIME_AND_PTY_SESSIONS_SPEC.md
 specs/052_DAYTONA_RUNTIME_MANIFEST_AND_SANDBOX_PROGRAMS_SPEC.md
 specs/053_DAYTONA_LOCAL_RUNTIME_PROFILE_AND_SEED_SOURCE_SPEC.md
 specs/054_DAYTONA_BROWSER_CONVEX_TRANSPORT_SPEC.md
+specs/055_STAGING_REBASE_CONFLICT_RESOLUTION_SPEC.md
 TODO.md
 VISION.md
 worktree.md

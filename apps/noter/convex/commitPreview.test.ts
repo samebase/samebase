@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildCommitPreviewFromStagedFiles } from "./fileStagingActions";
+import {
+  buildCommitPreviewFromStagedFiles,
+  buildRebaseConflictPreviewFromStagedFiles,
+} from "./fileStagingActions";
 
 type BuildCommitPreviewArgs = Parameters<
   typeof buildCommitPreviewFromStagedFiles
@@ -177,5 +180,40 @@ describe("buildCommitPreviewFromStagedFiles", () => {
     expect(preview.files[0]?.richOldContent).toBeUndefined();
     expect(preview.files[0]?.richNewContent).toBeUndefined();
     expect(preview.files[0]?.richContentTruncated).toBeUndefined();
+  });
+
+  it("builds rebase conflict preview payloads with base and upstream patches", () => {
+    const preview = buildRebaseConflictPreviewFromStagedFiles({
+      branch: "main",
+      conflicts: [
+        {
+          filePath: "TODO.md",
+          initialFilePath: "TODO.md",
+          content: ["alpha", "ours", ""].join("\n"),
+          initialContent: ["alpha", "base", ""].join("\n"),
+          upstreamContent: ["alpha", "theirs", ""].join("\n"),
+          upstreamSha: "upstream-sha",
+          fileDeleted: false,
+          parentCommitSha: "base-sha",
+          branch: "main",
+        },
+      ],
+    });
+
+    expect(preview.branch).toBe("main");
+    expect(preview.files).toHaveLength(1);
+    expect(preview.files[0]).toMatchObject({
+      path: "TODO.md",
+      isMarkdown: true,
+      baseBlobSha: "base-sha",
+      upstreamBlobSha: "upstream-sha",
+      baseContent: ["alpha", "base", ""].join("\n"),
+      stagedContent: ["alpha", "ours", ""].join("\n"),
+      upstreamContent: ["alpha", "theirs", ""].join("\n"),
+      baseToStagedPatchTruncated: false,
+      baseToUpstreamPatchTruncated: false,
+    });
+    expect(preview.files[0]?.baseToStagedPatch).toContain("ours");
+    expect(preview.files[0]?.baseToUpstreamPatch).toContain("theirs");
   });
 });

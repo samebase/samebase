@@ -3,6 +3,7 @@ import {
   ProsemarkMergeEditor,
   type ProsemarkMergeEditorOptions,
 } from "@/components/ProsemarkMergeEditor";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -81,6 +82,47 @@ const DELETED_PATCH = `Index: components.json
 -}
 `;
 
+const CONFLICT_OURS = `# TODO
+
+- [ ] review Observable
+- [ ] void.cloud
+- [ ] Tuple
+`;
+
+const CONFLICT_UPSTREAM = `# TODO
+
+- [ ] review Observable
+- [ ] bootstrap examples
+- [ ] Tuple
+- [ ] agent graph polish
+`;
+
+const CONFLICT_BASE_TO_OURS_PATCH = `Index: TODO.md
+===================================================================
+--- TODO.md
++++ TODO.md
+@@ -1,4 +1,4 @@
+ # TODO
+ 
+ - [ ] review Observable
+-- [ ] bootstrap examples
++- [ ] void.cloud
+ - [ ] Tuple
+`;
+
+const CONFLICT_BASE_TO_UPSTREAM_PATCH = `Index: TODO.md
+===================================================================
+--- TODO.md
++++ TODO.md
+@@ -1,4 +1,5 @@
+ # TODO
+ 
+ - [ ] review Observable
+ - [ ] bootstrap examples
+ - [ ] Tuple
++- [ ] agent graph polish
+`;
+
 type FixtureFile = {
   path: string;
   previousPath?: string;
@@ -122,7 +164,22 @@ function getPatchLineClassName(line: string): string {
   return "";
 }
 
-export type CommitReviewVisualMode = "inline" | "deleted" | "unchanged";
+export type CommitReviewVisualMode =
+  | "inline"
+  | "deleted"
+  | "unchanged"
+  | "conflict";
+
+function renderPatchLines(patch: string) {
+  return patch.split("\n").map((line, index) => (
+    <div
+      key={`${index}:${line}`}
+      className={`whitespace-pre-wrap rounded-sm px-1 ${getPatchLineClassName(line)}`}
+    >
+      {line.length > 0 ? line : " "}
+    </div>
+  ));
+}
 
 export function CommitReviewVisualFixture({
   mode,
@@ -130,23 +187,30 @@ export function CommitReviewVisualFixture({
   mode: CommitReviewVisualMode;
 }) {
   const selectedFile =
-    mode === "deleted"
-      ? "components.json"
-      : mode === "unchanged"
-        ? "AGENTS.md"
-        : "README.md";
+    mode === "conflict"
+      ? "TODO.md"
+      : mode === "deleted"
+        ? "components.json"
+        : mode === "unchanged"
+          ? "AGENTS.md"
+          : "README.md";
 
   const activeFile =
-    mode === "deleted"
-      ? FIXTURE_FILES.find((file) => file.path === "components.json")
-      : mode === "unchanged"
-        ? {
-            path: "AGENTS.md",
-            isMarkdown: true,
-            richOldContent: AGENTS_CONTENT,
-            richNewContent: AGENTS_CONTENT,
-          }
-        : FIXTURE_FILES.find((file) => file.path === "README.md");
+    mode === "conflict"
+      ? {
+          path: "TODO.md",
+          isMarkdown: true,
+        }
+      : mode === "deleted"
+        ? FIXTURE_FILES.find((file) => file.path === "components.json")
+        : mode === "unchanged"
+          ? {
+              path: "AGENTS.md",
+              isMarkdown: true,
+              richOldContent: AGENTS_CONTENT,
+              richNewContent: AGENTS_CONTENT,
+            }
+          : FIXTURE_FILES.find((file) => file.path === "README.md");
 
   const canRenderInline = Boolean(
     activeFile &&
@@ -205,6 +269,13 @@ export function CommitReviewVisualFixture({
                   status: "modified",
                 },
                 {
+                  path: "TODO.md",
+                  originalPath: "TODO.md",
+                  type: "blob",
+                  deleted: false,
+                  status: "modified",
+                },
+                {
                   path: "docs/quickstart.md",
                   originalPath: "docs/quickstart.md",
                   type: "blob",
@@ -238,7 +309,63 @@ export function CommitReviewVisualFixture({
             {activeFile ? (
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="flex-1 overflow-auto">
-                  {canRenderInline ? (
+                  {mode === "conflict" ? (
+                    <div className="min-h-full">
+                      <div className="border-b border-amber-200 bg-amber-50 px-3 py-3">
+                        <div className="text-sm font-medium text-amber-950">
+                          Commit blocked by upstream changes in TODO.md
+                        </div>
+                        <div className="mt-1 text-xs text-amber-900/80">
+                          Review the conflict patches below, then rebase staging
+                          onto the latest GitHub state before editing a manual
+                          resolution.
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <Button size="sm" className="h-7 px-2 text-xs">
+                            Rebase onto latest GitHub
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-xs"
+                          >
+                            Copy conflict bundle
+                          </Button>
+                        </div>
+                        <div className="mt-2 text-[11px] text-amber-950/70">
+                          Base blob: base-sha Upstream blob: upstream-sha
+                        </div>
+                      </div>
+                      <div className="grid min-h-0 md:grid-cols-2 md:divide-x">
+                        <div className="min-h-0">
+                          <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
+                            Base -&gt; Yours
+                          </div>
+                          <div className="p-3 font-mono text-xs leading-5">
+                            {renderPatchLines(CONFLICT_BASE_TO_OURS_PATCH)}
+                          </div>
+                        </div>
+                        <div className="min-h-0 border-t md:border-t-0">
+                          <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
+                            Base -&gt; Upstream
+                          </div>
+                          <div className="p-3 font-mono text-xs leading-5">
+                            {renderPatchLines(CONFLICT_BASE_TO_UPSTREAM_PATCH)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="border-t px-3 py-2 text-xs font-medium text-muted-foreground">
+                        Resolved result after rebase
+                      </div>
+                      <ProsemarkMergeEditor
+                        value={CONFLICT_OURS}
+                        baseValue={CONFLICT_UPSTREAM}
+                        options={INLINE_FIXTURE_OPTIONS}
+                        editable
+                        className="text-sm leading-6"
+                      />
+                    </div>
+                  ) : canRenderInline ? (
                     <div className="min-h-full">
                       <div className="border-b px-3 py-2">
                         <div className="flex flex-wrap gap-x-4 gap-y-2">
@@ -295,16 +422,7 @@ export function CommitReviewVisualFixture({
                     </div>
                   ) : (
                     <div className="p-3 font-mono text-xs leading-5">
-                      {(activeFile.patch ?? "")
-                        .split("\n")
-                        .map((line, index) => (
-                          <div
-                            key={`${index}:${line}`}
-                            className={`whitespace-pre-wrap rounded-sm px-1 ${getPatchLineClassName(line)}`}
-                          >
-                            {line.length > 0 ? line : " "}
-                          </div>
-                        ))}
+                      {renderPatchLines(activeFile.patch ?? "")}
                     </div>
                   )}
                 </div>

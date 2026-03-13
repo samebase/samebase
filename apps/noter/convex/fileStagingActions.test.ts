@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
-import { createCommitWithMultipleFiles } from "./fileStagingActions";
+import {
+  createCommitWithMultipleFiles,
+  inspectStagedFilesAgainstLatestHead,
+} from "./fileStagingActions";
 
 type GitApi = RestEndpointMethodTypes["git"];
 type GetRefResponse = GitApi["getRef"]["response"];
@@ -422,6 +425,44 @@ describe("createCommitWithMultipleFiles", () => {
     expect(committedContent).toBe(
       ["alpha-updated", "beta", "gamma", "delta", ""].join("\n"),
     );
+  });
+
+  it("collects rebase conflict payloads for files that cannot apply cleanly", async () => {
+    vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
+      makeGetTreeResponse("head-tree", [{ path: "TODO.md", sha: "upstream" }]),
+    );
+    vi.spyOn(octokit.rest.git, "getBlob").mockResolvedValue(
+      makeGetBlobResponse("upstream", ["alpha", "theirs", ""].join("\n")),
+    );
+
+    const inspection = await inspectStagedFilesAgainstLatestHead({
+      octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "main",
+      stagedFiles: [
+        {
+          filePath: "TODO.md",
+          content: ["alpha", "ours", ""].join("\n"),
+          fileDeleted: false,
+          initialFilePath: "TODO.md",
+          initialContent: ["alpha", "base", ""].join("\n"),
+          parentCommitSha: "base-sha",
+          branch: "main",
+        },
+      ],
+    });
+
+    expect(inspection.rebasedFiles).toHaveLength(1);
+    expect(inspection.conflicts).toHaveLength(1);
+    expect(inspection.conflicts[0]).toMatchObject({
+      filePath: "TODO.md",
+      initialFilePath: "TODO.md",
+      initialContent: ["alpha", "base", ""].join("\n"),
+      content: ["alpha", "ours", ""].join("\n"),
+      upstreamContent: ["alpha", "theirs", ""].join("\n"),
+      upstreamSha: "upstream",
+    });
   });
 
   it("Test 1c: skipRebase avoids extra head-tree lookups", async () => {
