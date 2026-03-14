@@ -268,6 +268,11 @@ them directly using CLI tools.
 - Always use CLI tools (`gh`, `git`) - never tell user to click UI buttons
 - Execute, don't instruct
 - Adapt to context (if PR exists, update it; if already ready, skip)
+- In the first user-facing message of a task, decide whether the current branch
+  name should change. If it's still an auto-generated random
+  `codex/<word>-<word>-<word>` name, default to renaming it immediately because
+  the first prompt usually provides enough context; only defer renaming when the
+  task intent is still genuinely unclear.
 - Before `commit`, verify the branch name is meaningful. If it's still an
   auto-generated random `codex/<word>-<word>-<word>` name, rename it to a
   descriptive `codex/<intent>` branch before committing.
@@ -342,8 +347,10 @@ them directly using CLI tools.
 
 - If HEAD is detached, use `./scripts/bootstrap-worktree.js` to auto-create a
   branch in the format `codex/<word>-<word>-<word>`.
-- After an auto-created random branch, rename it to a meaningful `codex/<name>`
-  branch as soon as intent is clear.
+- After an auto-created random branch, make the rename decision in the first
+  user-facing message. In most cases, rename it immediately to a meaningful
+  `codex/<name>` branch because the initial prompt already provides enough
+  context.
 - To rename the current branch: `git branch -m codex/new-name`.
 - If the branch was pushed already, push the new name and delete the old remote:
   `git push -u origin codex/new-name` then
