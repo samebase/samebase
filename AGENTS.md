@@ -375,6 +375,16 @@ Auth:
   final `Summary` section.
 - Assume Cloudflare is the default front door, proxy, routing layer, and
   observability layer for `noter.md` unless the user explicitly says otherwise.
+- For high-risk infrastructure or domain mutations, prefer identity anchored to
+  the user's Google account email rather than GitHub email alone, since GitHub
+  accounts can have multiple emails and ambiguous ownership.
+- For high-risk infrastructure or domain mutations, treat the change as normal
+  operational work when it is initiated by a trusted provisioner path and fully
+  audited; prefer explicit approval plus durable logs over extra email
+  round-trips by default.
+- If ownership is ambiguous, the target was not previously provisioned by Noter,
+  or the mutation crosses account/domain boundaries, require an explicit
+  approval request and consider an email confirmation path.
 - Prefer keeping application server logic in Convex by default; introduce a
   Cloudflare Worker runtime only when there is a clear, explicit reason.
 - For new architecture work, prefer Cloudflare-first designs and avoid
