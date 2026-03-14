@@ -1229,7 +1229,7 @@ export function DaytonaWorkspaceButton({
                     <button
                       type="button"
                       aria-label={`Close ${title} tab`}
-                      className="mr-1 rounded p-1 text-slate-400 transition hover:bg-slate-700 hover:text-slate-100"
+                      className="mr-1 rounded p-1 text-slate-400 transition hover:bg-slate-700 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-950"
                       onClick={() => {
                         void closeTerminalSession({ kind });
                       }}
