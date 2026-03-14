@@ -86,29 +86,41 @@ function mergeInsertionOnlyEdits(args: RebaseInput): string | null {
       continue;
     }
 
-    const previousContextLines = (() => {
+    const previousContextPartLines = (() => {
       for (let previousIndex = index - 1; previousIndex >= 0; previousIndex--) {
         const previousPart = parts[previousIndex];
         if (previousPart.added) {
           continue;
         }
-        const lines = splitDiffPartLines(previousPart.value);
-        return lines.slice(-ANCHOR_CONTEXT_LINE_COUNT);
+        return splitDiffPartLines(previousPart.value);
       }
-      return [];
+      return null;
     })();
 
-    const nextContextLines = (() => {
+    const nextContextPartLines = (() => {
       for (let nextIndex = index + 1; nextIndex < parts.length; nextIndex++) {
         const nextPart = parts[nextIndex];
         if (nextPart.added) {
           continue;
         }
-        const lines = splitDiffPartLines(nextPart.value);
-        return lines.slice(0, ANCHOR_CONTEXT_LINE_COUNT);
+        return splitDiffPartLines(nextPart.value);
       }
-      return [];
+      return null;
     })();
+
+    const previousContextLines =
+      previousContextPartLines === null
+        ? []
+        : nextContextPartLines === null
+          ? previousContextPartLines
+          : previousContextPartLines.slice(-ANCHOR_CONTEXT_LINE_COUNT);
+
+    const nextContextLines =
+      nextContextPartLines === null
+        ? []
+        : previousContextPartLines === null
+          ? nextContextPartLines
+          : nextContextPartLines.slice(0, ANCHOR_CONTEXT_LINE_COUNT);
 
     const insertionStart =
       previousContextLines.length === 0
@@ -140,7 +152,7 @@ function mergeInsertionOnlyEdits(args: RebaseInput): string | null {
       insertedLines,
       insertionStart,
     );
-    if (existingInsertion !== null && existingInsertion <= nextMatch) {
+    if (existingInsertion === insertionStart) {
       searchCursor = existingInsertion + insertedLines.length;
       continue;
     }

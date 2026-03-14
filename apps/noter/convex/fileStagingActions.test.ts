@@ -465,6 +465,74 @@ describe("createCommitWithMultipleFiles", () => {
     });
   });
 
+  it("marks delete-vs-upstream-edit as a conflict", async () => {
+    vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
+      makeGetTreeResponse("head-tree", [{ path: "TODO.md", sha: "upstream" }]),
+    );
+    vi.spyOn(octokit.rest.git, "getBlob").mockResolvedValue(
+      makeGetBlobResponse("upstream", ["alpha", "theirs", ""].join("\n")),
+    );
+
+    const inspection = await inspectStagedFilesAgainstLatestHead({
+      octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "main",
+      stagedFiles: [
+        {
+          filePath: "TODO.md",
+          content: "",
+          fileDeleted: true,
+          initialFilePath: "TODO.md",
+          initialContent: ["alpha", "base", ""].join("\n"),
+          parentCommitSha: "base-sha",
+          branch: "main",
+        },
+      ],
+    });
+
+    expect(inspection.conflicts).toHaveLength(1);
+    expect(inspection.conflicts[0]).toMatchObject({
+      fileDeleted: true,
+      upstreamSha: "upstream",
+      upstreamContent: ["alpha", "theirs", ""].join("\n"),
+    });
+  });
+
+  it("marks add-vs-upstream-add with different content as a conflict", async () => {
+    vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
+      makeGetTreeResponse("head-tree", [{ path: "TODO.md", sha: "upstream" }]),
+    );
+    vi.spyOn(octokit.rest.git, "getBlob").mockResolvedValue(
+      makeGetBlobResponse("upstream", "theirs\n"),
+    );
+
+    const inspection = await inspectStagedFilesAgainstLatestHead({
+      octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "main",
+      stagedFiles: [
+        {
+          filePath: "TODO.md",
+          content: "ours\n",
+          fileDeleted: false,
+          initialFilePath: "TODO.md",
+          initialContent: "",
+          parentCommitSha: null,
+          branch: "main",
+        },
+      ],
+    });
+
+    expect(inspection.conflicts).toHaveLength(1);
+    expect(inspection.conflicts[0]).toMatchObject({
+      parentCommitSha: null,
+      upstreamSha: "upstream",
+      upstreamContent: "theirs\n",
+    });
+  });
+
   it("Test 1c: skipRebase avoids extra head-tree lookups", async () => {
     vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
       makeGetRefResponse("abc123"),

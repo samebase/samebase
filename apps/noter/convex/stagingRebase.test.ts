@@ -116,4 +116,15 @@ describe("rebaseStagedContent", () => {
     expect(result.content).toContain("- review Observable notebooks docs");
     expect(result.content).toContain("- bootstrap make anon non-interactive");
   });
+
+  it("returns a conflict when repeated context makes insertion placement ambiguous", () => {
+    const result = rebaseStagedContent({
+      baseContent: "A\nA\nA\nA\n",
+      stagedContent: "A\nA\nA\nA\nB\n",
+      upstreamContent: "A\nA\nA\nB\n",
+    });
+
+    expect(result.hasConflict).toBe(true);
+    expect(result.content).toContain("<<<<<<< noter");
+  });
 });

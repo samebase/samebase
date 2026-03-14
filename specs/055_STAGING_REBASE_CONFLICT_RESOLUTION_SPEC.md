@@ -458,7 +458,7 @@ Acceptance:
    surface.
 5. The backend distinguishes between "auto-rebased", "conflict requiring user
    action", and "hard failure".
-6. Nearby insertion-only upstream edits do not false-conflict in common markdown
+6. Nearby insertion-only upstream edits do not false-conflict in common Markdown
    list cases.
 
 ## Open Questions

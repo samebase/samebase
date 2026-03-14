@@ -143,11 +143,8 @@ type RebaseConflictPreviewFile = {
   path: string;
   previousPath?: string;
   isMarkdown: boolean;
-  baseBlobSha: string;
+  baseBlobSha?: string;
   upstreamBlobSha: string;
-  baseContent: string;
-  stagedContent: string;
-  upstreamContent: string;
   baseToStagedPatchTruncated: boolean;
   baseToStagedPatch?: string;
   baseToUpstreamPatchTruncated: boolean;
@@ -241,55 +238,6 @@ function parseUpstreamConflictPaths(message: string | null): string[] {
     .split(",")
     .map((path) => path.trim())
     .filter((path) => path.length > 0);
-}
-
-function buildConflictBundleMarkdown(args: {
-  repositoryFullName: string;
-  preview: RebaseConflictPreview;
-}): string {
-  const sections = args.preview.files.flatMap((file) => {
-    const fileLines = [
-      `## ${file.path}`,
-      `- Base blob SHA: ${file.baseBlobSha}`,
-      `- Upstream blob SHA: ${file.upstreamBlobSha}`,
-    ];
-
-    if (file.previousPath && file.previousPath !== file.path) {
-      fileLines.splice(1, 0, `- Previous path: ${file.previousPath}`);
-    }
-
-    return [
-      fileLines.join("\n"),
-      "### Base",
-      "````text",
-      file.baseContent,
-      "````",
-      "### Ours",
-      "````text",
-      file.stagedContent,
-      "````",
-      "### Upstream",
-      "````text",
-      file.upstreamContent,
-      "````",
-      "### Base -> Ours patch",
-      "````diff",
-      file.baseToStagedPatch ?? "",
-      "````",
-      "### Base -> Upstream patch",
-      "````diff",
-      file.baseToUpstreamPatch ?? "",
-      "````",
-    ];
-  });
-
-  return [
-    "# Noter rebase conflict bundle",
-    `- Repository: ${args.repositoryFullName}`,
-    `- Branch: ${args.preview.branch}`,
-    "",
-    ...sections,
-  ].join("\n");
 }
 
 function getStagedFileStatus(
@@ -792,6 +740,9 @@ function FileViewInner({
   );
   const [getRebaseConflictPreview, rebaseConflictPreviewStatus] =
     useConvexAction(api.fileStagingActions.getRebaseConflictPreview);
+  const [getRebaseConflictBundle, rebaseConflictBundleStatus] = useConvexAction(
+    api.fileStagingActions.getRebaseConflictBundle,
+  );
   const [pullFromGitHub, pullFromGitHubStatus] = useConvexAction(
     api.fileStagingActions.pullFromGitHub,
   );
@@ -1098,15 +1049,17 @@ function FileViewInner({
         .then((preview) => {
           setCommitPreview(null);
           setCommitPreviewError(null);
-          setRebaseConflictPreview(preview);
 
           if (preview.files.length === 0) {
+            setRebaseConflictPreview(null);
             setRebaseConflictPreviewError(
               fallbackMessage ??
                 "Commit was blocked by upstream changes, but no current conflict preview was found.",
             );
-            return preview;
+            return null;
           }
+
+          setRebaseConflictPreview(preview);
 
           if (!preview.files.some((file) => file.path === selectedFile)) {
             void navigate(
@@ -1126,7 +1079,6 @@ function FileViewInner({
               : "Failed to load rebase conflict preview";
           setRebaseConflictPreview(null);
           setRebaseConflictPreviewError(message);
-          throw error;
         });
     },
     [
@@ -1158,13 +1110,11 @@ function FileViewInner({
     }
 
     try {
-      void navigator.clipboard
-        .writeText(
-          buildConflictBundleMarkdown({
-            repositoryFullName,
-            preview: rebaseConflictPreview,
-          }),
-        )
+      void getRebaseConflictBundle({
+        repositoryFullName,
+        branch: rebaseConflictPreview.branch,
+      })
+        .then((bundle) => navigator.clipboard.writeText(bundle))
         .then(() => {
           setRebaseConflictBundleFeedback("Conflict bundle copied.");
         })
@@ -1182,7 +1132,7 @@ function FileViewInner({
           : "Clipboard is unavailable in this browser.";
       setRebaseConflictBundleFeedback(message);
     }
-  }, [rebaseConflictPreview, repositoryFullName]);
+  }, [getRebaseConflictBundle, rebaseConflictPreview, repositoryFullName]);
 
   const handleFileSelect = useCallback(
     (path: string, status?: CommitPreviewFileStatus) => {
@@ -2304,19 +2254,31 @@ function FileViewInner({
                                         disabled={
                                           rebaseConflictPreviewStatus ===
                                             "loading" ||
+                                          rebaseConflictBundleStatus ===
+                                            "loading" ||
                                           !rebaseConflictPreview ||
                                           rebaseConflictPreview.files.length ===
                                             0
                                         }
                                         className="h-7 px-2 text-xs"
                                       >
-                                        Copy conflict bundle
+                                        {rebaseConflictBundleStatus ===
+                                        "loading"
+                                          ? "Copying..."
+                                          : "Copy conflict bundle"}
                                       </Button>
                                     </div>
                                     <div className="mt-2 text-[11px] text-amber-950/70">
-                                      Base blob:{" "}
-                                      {selectedRebaseConflictFile.baseBlobSha}
-                                      {"  "}Upstream blob:{" "}
+                                      {selectedRebaseConflictFile.baseBlobSha ? (
+                                        <>
+                                          Base blob:{" "}
+                                          {
+                                            selectedRebaseConflictFile.baseBlobSha
+                                          }
+                                          {"  "}
+                                        </>
+                                      ) : null}
+                                      Upstream blob:{" "}
                                       {
                                         selectedRebaseConflictFile.upstreamBlobSha
                                       }

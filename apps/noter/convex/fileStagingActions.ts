@@ -388,11 +388,8 @@ const rebaseConflictPreviewFile = v.object({
   path: v.string(),
   previousPath: v.optional(v.string()),
   isMarkdown: v.boolean(),
-  baseBlobSha: v.string(),
+  baseBlobSha: v.optional(v.string()),
   upstreamBlobSha: v.string(),
-  baseContent: v.string(),
-  stagedContent: v.string(),
-  upstreamContent: v.string(),
   baseToStagedPatchTruncated: v.boolean(),
   baseToStagedPatch: v.optional(v.string()),
   baseToUpstreamPatchTruncated: v.boolean(),
@@ -533,11 +530,21 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
 
   const upstreamShasToPrefetch = new Set<string>();
   for (const file of args.stagedFiles) {
-    if (file.fileDeleted || file.parentCommitSha === null) {
-      continue;
-    }
     const upstreamSha = resolveUpstreamShaForFile(file);
     if (!upstreamSha) {
+      continue;
+    }
+    if (file.fileDeleted) {
+      if (
+        file.parentCommitSha !== null &&
+        !shouldSkipFastPathRebase(file, upstreamSha)
+      ) {
+        upstreamShasToPrefetch.add(upstreamSha);
+      }
+      continue;
+    }
+    if (file.parentCommitSha === null) {
+      upstreamShasToPrefetch.add(upstreamSha);
       continue;
     }
     if (shouldSkipFastPathRebase(file, upstreamSha)) {
@@ -554,17 +561,54 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
   const rebasedFiles: StagedFileForCommit[] = [];
 
   for (const file of args.stagedFiles) {
-    if (file.fileDeleted || file.parentCommitSha === null) {
+    const upstreamSha = resolveUpstreamShaForFile(file);
+    if (file.fileDeleted) {
+      if (
+        file.parentCommitSha === null ||
+        !upstreamSha ||
+        shouldSkipFastPathRebase(file, upstreamSha)
+      ) {
+        rebasedFiles.push(file);
+        continue;
+      }
+
+      const upstreamContent = await getBlobText(upstreamSha);
+      conflicts.push({
+        ...file,
+        upstreamContent,
+        upstreamSha,
+      });
       rebasedFiles.push(file);
       continue;
     }
 
-    const upstreamSha = resolveUpstreamShaForFile(file);
-    if (!upstreamSha) {
+    if (file.parentCommitSha === null) {
+      if (!upstreamSha) {
+        rebasedFiles.push(file);
+        continue;
+      }
+
+      const upstreamContent = await getBlobText(upstreamSha);
+      if (upstreamContent === file.content) {
+        rebasedFiles.push({
+          ...file,
+          initialFilePath: file.filePath,
+          initialContent: upstreamContent,
+          parentCommitSha: upstreamSha,
+        });
+        continue;
+      }
+
+      conflicts.push({
+        ...file,
+        upstreamContent,
+        upstreamSha,
+      });
       rebasedFiles.push(file);
       continue;
     }
-    if (shouldSkipFastPathRebase(file, upstreamSha)) {
+
+    if (!upstreamSha || shouldSkipFastPathRebase(file, upstreamSha)) {
       rebasedFiles.push(file);
       continue;
     }
@@ -656,40 +700,49 @@ function buildBoundedPatch(args: {
   };
 }
 
-export function buildRebaseConflictPreviewFromStagedFiles(args: {
-  conflicts: StagedFileRebaseConflict[];
-  branch: string;
-}): RebaseConflictPreviewResult {
-  const files: RebaseConflictPreviewFile[] = args.conflicts.map((file) => {
-    const baseToStagedPatch = buildBoundedPatch({
+function buildConflictPatchPair(file: StagedFileRebaseConflict): {
+  baseToStagedPatch: {
+    patch: string;
+    truncated: boolean;
+  };
+  baseToUpstreamPatch: {
+    patch: string;
+    truncated: boolean;
+  };
+} {
+  return {
+    baseToStagedPatch: buildBoundedPatch({
       oldPath: file.initialFilePath,
       newPath: file.filePath,
       oldContent: file.initialContent,
       newContent: file.content,
       maxChars: MAX_CONFLICT_PREVIEW_PATCH_CHARS_PER_PATCH,
-    });
-    const baseToUpstreamPatch = buildBoundedPatch({
+    }),
+    baseToUpstreamPatch: buildBoundedPatch({
       oldPath: file.initialFilePath,
       newPath: file.initialFilePath,
       oldContent: file.initialContent,
       newContent: file.upstreamContent,
       maxChars: MAX_CONFLICT_PREVIEW_PATCH_CHARS_PER_PATCH,
-    });
+    }),
+  };
+}
+
+export function buildRebaseConflictPreviewFromStagedFiles(args: {
+  conflicts: StagedFileRebaseConflict[];
+  branch: string;
+}): RebaseConflictPreviewResult {
+  const files: RebaseConflictPreviewFile[] = args.conflicts.map((file) => {
+    const { baseToStagedPatch, baseToUpstreamPatch } =
+      buildConflictPatchPair(file);
     const renamed = file.filePath !== file.initialFilePath;
 
     return {
       path: file.filePath,
       previousPath: renamed ? file.initialFilePath : undefined,
       isMarkdown: isMarkdownPath(file.filePath),
-      baseBlobSha:
-        file.parentCommitSha ??
-        (() => {
-          throw new Error("Conflict preview requires an existing base blob");
-        })(),
+      baseBlobSha: file.parentCommitSha ?? undefined,
       upstreamBlobSha: file.upstreamSha,
-      baseContent: file.initialContent,
-      stagedContent: file.content,
-      upstreamContent: file.upstreamContent,
       baseToStagedPatchTruncated: baseToStagedPatch.truncated,
       baseToStagedPatch: baseToStagedPatch.patch,
       baseToUpstreamPatchTruncated: baseToUpstreamPatch.truncated,
@@ -701,6 +754,59 @@ export function buildRebaseConflictPreviewFromStagedFiles(args: {
     branch: args.branch,
     files,
   };
+}
+
+function buildRebaseConflictBundleMarkdown(args: {
+  repositoryFullName: string;
+  branch: string;
+  conflicts: StagedFileRebaseConflict[];
+}): string {
+  const sections = args.conflicts.flatMap((file) => {
+    const { baseToStagedPatch, baseToUpstreamPatch } =
+      buildConflictPatchPair(file);
+    const fileLines = [
+      `## ${file.filePath}`,
+      ...(file.filePath !== file.initialFilePath
+        ? [`- Previous path: ${file.initialFilePath}`]
+        : []),
+      ...(file.parentCommitSha
+        ? [`- Base blob SHA: ${file.parentCommitSha}`]
+        : []),
+      `- Upstream blob SHA: ${file.upstreamSha}`,
+    ];
+
+    return [
+      fileLines.join("\n"),
+      "### Base",
+      "````text",
+      file.initialContent,
+      "````",
+      "### Ours",
+      "````text",
+      file.content,
+      "````",
+      "### Upstream",
+      "````text",
+      file.upstreamContent,
+      "````",
+      "### Base -> Ours patch",
+      "````diff",
+      baseToStagedPatch.patch,
+      "````",
+      "### Base -> Upstream patch",
+      "````diff",
+      baseToUpstreamPatch.patch,
+      "````",
+    ];
+  });
+
+  return [
+    "# Noter rebase conflict bundle",
+    `- Repository: ${args.repositoryFullName}`,
+    `- Branch: ${args.branch}`,
+    "",
+    ...sections,
+  ].join("\n");
 }
 
 function truncateMarkdownRichContent(content: string): {
@@ -1769,6 +1875,78 @@ export const getRebaseConflictPreview = action({
     });
 
     return buildRebaseConflictPreviewFromStagedFiles({
+      branch,
+      conflicts: inspection.conflicts,
+    });
+  },
+});
+
+export const getRebaseConflictBundle = action({
+  args: {
+    repositoryFullName: v.string(),
+    branch: v.optional(v.string()),
+  },
+  returns: v.string(),
+  handler: async (ctx, args): Promise<string> => {
+    const userId = await getUserId(ctx);
+
+    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
+    const stagedFiles: StagedFileForCommit[] = await ctx.runQuery(
+      internal.fileStaging.listAllStagedFiles,
+      {
+        vaultId: vault._id,
+        branch: args.branch,
+      },
+    );
+
+    const stagedBranches: string[] = Array.from(
+      new Set(
+        stagedFiles
+          .map((file: StagedFileForCommit) => file.branch)
+          .filter((branch): branch is string => typeof branch === "string"),
+      ),
+    );
+    if (stagedBranches.length > 1) {
+      throw new Error(
+        `Cannot inspect staged conflicts across multiple branches: ${stagedBranches.join(", ")}`,
+      );
+    }
+
+    const branch =
+      args.branch ??
+      stagedBranches.at(0) ??
+      (await getVaultDefaultBranch(
+        ctx,
+        userId,
+        vault.ghRepoOwner,
+        vault.ghRepoName,
+      ));
+
+    const githubAccessToken = await getGithubAccessToken(ctx, userId);
+    const octokit: Octokit = new Octokit({
+      auth: githubAccessToken,
+    });
+    const inspection = await inspectStagedFilesAgainstLatestHead({
+      octokit,
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+      branch,
+      stagedFiles,
+    });
+
+    if (inspection.conflicts.length === 0) {
+      throw new Error("No current rebase conflicts found");
+    }
+
+    return buildRebaseConflictBundleMarkdown({
+      repositoryFullName: args.repositoryFullName,
       branch,
       conflicts: inspection.conflicts,
     });

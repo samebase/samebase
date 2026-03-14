@@ -181,7 +181,9 @@ describe("buildCommitPreviewFromStagedFiles", () => {
     expect(preview.files[0]?.richNewContent).toBeUndefined();
     expect(preview.files[0]?.richContentTruncated).toBeUndefined();
   });
+});
 
+describe("buildRebaseConflictPreviewFromStagedFiles", () => {
   it("builds rebase conflict preview payloads with base and upstream patches", () => {
     const preview = buildRebaseConflictPreviewFromStagedFiles({
       branch: "main",
@@ -207,13 +209,33 @@ describe("buildCommitPreviewFromStagedFiles", () => {
       isMarkdown: true,
       baseBlobSha: "base-sha",
       upstreamBlobSha: "upstream-sha",
-      baseContent: ["alpha", "base", ""].join("\n"),
-      stagedContent: ["alpha", "ours", ""].join("\n"),
-      upstreamContent: ["alpha", "theirs", ""].join("\n"),
       baseToStagedPatchTruncated: false,
       baseToUpstreamPatchTruncated: false,
     });
     expect(preview.files[0]?.baseToStagedPatch).toContain("ours");
     expect(preview.files[0]?.baseToUpstreamPatch).toContain("theirs");
+  });
+
+  it("omits the base blob sha for add-vs-upstream-add conflicts", () => {
+    const preview = buildRebaseConflictPreviewFromStagedFiles({
+      branch: "main",
+      conflicts: [
+        {
+          filePath: "TODO.md",
+          initialFilePath: "TODO.md",
+          content: "ours\n",
+          initialContent: "",
+          upstreamContent: "theirs\n",
+          upstreamSha: "upstream-sha",
+          fileDeleted: false,
+          parentCommitSha: null,
+          branch: "main",
+        },
+      ],
+    });
+
+    expect(preview.files[0]?.baseBlobSha).toBeUndefined();
+    expect(preview.files[0]?.baseToStagedPatch).toContain("+ours");
+    expect(preview.files[0]?.baseToUpstreamPatch).toContain("+theirs");
   });
 });
