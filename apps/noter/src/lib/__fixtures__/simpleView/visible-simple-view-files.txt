@@ -43,6 +43,7 @@ manual-tests/UI-004-vault-branch-delete.md
 manual-tests/worktree/WT-001-anon-worktree-isolation.md
 manual-tests/worktree/WT-002-wt-001-local-and-worktree.md
 noter.md
+notes/chatgpt-frontend-frameworks-llms-convex-2026-03-14.md
 README.md
 RECOVERED_IDEAS.md
 REFERENCES.md
