@@ -239,8 +239,60 @@ export function DaytonaWorkspaceButton({
   }, [terminalState]);
 
   useEffect(() => {
+    const previousWorkspace = workspaceContextRef.current;
+    if (
+      previousWorkspace.vaultId === vaultId &&
+      previousWorkspace.branch === branch
+    ) {
+      return;
+    }
+
     workspaceContextRef.current = { vaultId, branch };
-  }, [branch, vaultId]);
+    const sessions = terminalStateRef.current.sessions;
+    const kinds = listOpenWorkspaceTerminalKinds(sessions);
+    if (kinds.length === 0) {
+      setHasError(false);
+      setMessage(null);
+      setBootstrapLogs(null);
+      setStartupMetrics(null);
+      setTimeToTerminalMs(null);
+      setPrebuildLogs(null);
+      setTerminalConnectionStates({});
+      return;
+    }
+
+    terminalStateRef.current =
+      createWorkspaceTerminalState<DaytonaPtySession>();
+    dispatchTerminalState({ type: "reset" });
+    setTerminalConnectionStates({});
+    setHasError(false);
+    setMessage(null);
+    setBootstrapLogs(null);
+    setStartupMetrics(null);
+    setTimeToTerminalMs(null);
+    setPrebuildLogs(null);
+    for (const kind of kinds) {
+      const session = sessions[kind];
+      if (!session) {
+        continue;
+      }
+      void closeWorkspacePtySession({
+        vaultId: previousWorkspace.vaultId,
+        branch: previousWorkspace.branch,
+        sandboxId: session.sandboxId,
+        sessionId: session.sessionId,
+      }).catch((error) => {
+        console.warn("daytona:workspace:pty:close-failed", {
+          vaultId: previousWorkspace.vaultId,
+          branch: previousWorkspace.branch,
+          kind,
+          sandboxId: session.sandboxId,
+          sessionId: session.sessionId,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      });
+    }
+  }, [branch, closeWorkspacePtySession, vaultId]);
 
   useEffect(() => {
     return () => {
@@ -249,20 +301,21 @@ export function DaytonaWorkspaceButton({
       if (kinds.length === 0) {
         return;
       }
+      const currentWorkspace = workspaceContextRef.current;
       for (const kind of kinds) {
         const session = sessions[kind];
         if (!session) {
           continue;
         }
         void closeWorkspacePtySession({
-          vaultId,
-          branch,
+          vaultId: currentWorkspace.vaultId,
+          branch: currentWorkspace.branch,
           sandboxId: session.sandboxId,
           sessionId: session.sessionId,
         }).catch((error) => {
           console.warn("daytona:workspace:pty:close-failed", {
-            vaultId,
-            branch,
+            vaultId: currentWorkspace.vaultId,
+            branch: currentWorkspace.branch,
             kind,
             sandboxId: session.sandboxId,
             sessionId: session.sessionId,
@@ -544,12 +597,6 @@ export function DaytonaWorkspaceButton({
         type: "activated",
         kind: args.targetKind,
       });
-      if (!isSilent) {
-        setHasError(false);
-        setMessage(
-          `${getWorkspaceTerminalTitle(args.targetKind)} tab already open.`,
-        );
-      }
       return existingSession;
     }
     setIsOpeningTerminal(true);
@@ -1165,7 +1212,7 @@ export function DaytonaWorkspaceButton({
                       type="button"
                       role="tab"
                       aria-selected={isActive}
-                      className="flex items-center gap-2 px-3 py-1.5 font-medium outline-none"
+                      className="flex items-center gap-2 px-3 py-1.5 font-medium outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
                       onClick={() => {
                         dispatchTerminalState({
                           type: "activated",

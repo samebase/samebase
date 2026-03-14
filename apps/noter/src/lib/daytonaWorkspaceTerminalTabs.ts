@@ -22,6 +22,9 @@ export type WorkspaceTerminalAction<Session> =
   | {
       type: "closed";
       kind: WorkspaceTerminalKind;
+    }
+  | {
+      type: "reset";
     };
 
 export const WORKSPACE_TERMINAL_KIND_ORDER = [
@@ -62,6 +65,10 @@ export function reduceWorkspaceTerminalState<Session>(
   state: WorkspaceTerminalState<Session>,
   action: WorkspaceTerminalAction<Session>,
 ): WorkspaceTerminalState<Session> {
+  if (action.type === "reset") {
+    return createWorkspaceTerminalState<Session>();
+  }
+
   if (action.type === "opened") {
     return {
       activeKind: action.kind,

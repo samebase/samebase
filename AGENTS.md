@@ -219,9 +219,9 @@ use `--env-file` or an explicit deployment selector instead.
 - **High: Daytona Codex shared home semantics** - treat the mounted Codex volume
   as a desirable shared state surface, not just an auth cache. Shared `~/.codex`
   memories/state across Daytona sandboxes and agents is intentional. Prefer
-  fixes that preserve one writable shared Codex home (ideally under the active
-  user home such as `/home/daytona/.codex`) over workarounds that copy only auth
-  into an isolated per-sandbox home and strand memories/agent state.
+  fixes that preserve one writable shared Codex home via `DAYTONA_CODEX_HOME`
+  over workarounds that copy only auth into an isolated per-sandbox home and
+  strand memories/agent state.
 - **Idea: Daytona terminal UI transparency** - do not over-hide tmux/session
   chrome if exposing it improves operator control. Prefer a VS Code-like web
   terminal surface with simple tabs, splits, and top-bar actions over a "hidden

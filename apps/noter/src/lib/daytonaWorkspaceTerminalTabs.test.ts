@@ -62,6 +62,27 @@ describe("daytonaWorkspaceTerminalTabs", () => {
     expect(nextState).toEqual(initialState);
   });
 
+  it("resets all tabs at once", () => {
+    const withShell = reduceWorkspaceTerminalState(
+      createWorkspaceTerminalState<string>(),
+      {
+        type: "opened",
+        kind: "shell",
+        session: "shell",
+      },
+    );
+    const withBoth = reduceWorkspaceTerminalState(withShell, {
+      type: "opened",
+      kind: "dev_server",
+      session: "dev",
+    });
+    const resetState = reduceWorkspaceTerminalState(withBoth, {
+      type: "reset",
+    });
+
+    expect(resetState).toEqual(createWorkspaceTerminalState<string>());
+  });
+
   it("returns stable labels for each terminal kind", () => {
     expect(getWorkspaceTerminalTitle("shell")).toBe("Shell");
     expect(getWorkspaceTerminalTitle("dev_server")).toBe("Dev Server");
