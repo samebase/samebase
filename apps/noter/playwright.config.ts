@@ -14,6 +14,9 @@ export default defineConfig({
     headless: true,
     trace: "off",
     screenshot: "only-on-failure",
+    launchOptions: {
+      args: ["--disable-session-crashed-bubble"],
+    },
   },
   webServer: {
     command: "VITE_PORT=4173 npm run dev:frontend",

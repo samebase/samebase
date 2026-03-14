@@ -6,6 +6,10 @@ const SCENARIOS = [
     snapshotName: "commit-review-inline.png",
   },
   {
+    mode: "conflict",
+    snapshotName: "commit-review-conflict.png",
+  },
+  {
     mode: "deleted",
     snapshotName: "commit-review-deleted.png",
   },

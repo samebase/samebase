@@ -27,6 +27,7 @@ function readMode(): VisualFixtureMode {
     value === "inline" ||
     value === "deleted" ||
     value === "unchanged" ||
+    value === "conflict" ||
     value === "media-png" ||
     value === "media-svg" ||
     value === "simple-repository-config" ||

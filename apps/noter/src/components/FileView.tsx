@@ -139,6 +139,23 @@ type CommitPreview = {
   };
 };
 
+type RebaseConflictPreviewFile = {
+  path: string;
+  previousPath?: string;
+  isMarkdown: boolean;
+  baseBlobSha?: string;
+  upstreamBlobSha: string;
+  baseToStagedPatchTruncated: boolean;
+  baseToStagedPatch?: string;
+  baseToUpstreamPatchTruncated: boolean;
+  baseToUpstreamPatch?: string;
+};
+
+type RebaseConflictPreview = {
+  branch: string;
+  files: RebaseConflictPreviewFile[];
+};
+
 type CommitReviewMode = "editor" | "review";
 type SidebarMode = "simple" | "all" | "changes";
 type StagedFileRecord = NonNullable<
@@ -208,6 +225,20 @@ const DEFAULT_INLINE_PREVIEW_OPTIONS = {
 } satisfies ProsemarkMergeEditorOptions;
 
 const DEFAULT_SHOW_INLINE_PREVIEW_PATCH = false;
+const UPSTREAM_CONFLICT_ERROR_PREFIX =
+  "Commit conflicts with upstream changes. Resolve and retry: ";
+
+function parseUpstreamConflictPaths(message: string | null): string[] {
+  if (!message || !message.startsWith(UPSTREAM_CONFLICT_ERROR_PREFIX)) {
+    return [];
+  }
+
+  return message
+    .slice(UPSTREAM_CONFLICT_ERROR_PREFIX.length)
+    .split(",")
+    .map((path) => path.trim())
+    .filter((path) => path.length > 0);
+}
 
 function getStagedFileStatus(
   file: StagedFileRecord,
@@ -663,6 +694,13 @@ function FileViewInner({
   const [commitPreviewError, setCommitPreviewError] = useState<string | null>(
     null,
   );
+  const [rebaseConflictPreview, setRebaseConflictPreview] =
+    useState<RebaseConflictPreview | null>(null);
+  const [rebaseConflictPreviewError, setRebaseConflictPreviewError] = useState<
+    string | null
+  >(null);
+  const [rebaseConflictBundleFeedback, setRebaseConflictBundleFeedback] =
+    useState<string | null>(null);
   const [inlinePreviewDraftStagingId, setInlinePreviewDraftStagingId] =
     useState<StagedFileRecord["_id"] | null>(null);
   const [inlinePreviewDraftContent, setInlinePreviewDraftContent] =
@@ -699,6 +737,14 @@ function FileViewInner({
   );
   const [getCommitPreview, commitPreviewStatus] = useConvexAction(
     api.fileStagingActions.getCommitPreview,
+  );
+  const [getRebaseConflictPreview, rebaseConflictPreviewStatus] =
+    useConvexAction(api.fileStagingActions.getRebaseConflictPreview);
+  const [getRebaseConflictBundle, rebaseConflictBundleStatus] = useConvexAction(
+    api.fileStagingActions.getRebaseConflictBundle,
+  );
+  const [pullFromGitHub, pullFromGitHubStatus] = useConvexAction(
+    api.fileStagingActions.pullFromGitHub,
   );
   const [clearAllStaging, clearingStagingStatus] = useConvexMutation(
     api.fileStaging.clearAllStaging,
@@ -986,6 +1032,107 @@ function FileViewInner({
     },
     [buildVaultFileUrl, navigate, selectedFile, state],
   );
+  const resetRebaseConflictState = useCallback(() => {
+    setRebaseConflictPreview(null);
+    setRebaseConflictPreviewError(null);
+    setRebaseConflictBundleFeedback(null);
+  }, []);
+  const loadRebaseConflictPreview = useCallback(
+    (fallbackMessage?: string) => {
+      setRebaseConflictPreviewError(null);
+      setRebaseConflictBundleFeedback(null);
+
+      return getRebaseConflictPreview({
+        repositoryFullName,
+        branch,
+      })
+        .then((preview) => {
+          setCommitPreview(null);
+          setCommitPreviewError(null);
+
+          if (preview.files.length === 0) {
+            setRebaseConflictPreview(null);
+            setRebaseConflictPreviewError(
+              fallbackMessage ??
+                "Commit was blocked by upstream changes, but no current conflict preview was found.",
+            );
+            return null;
+          }
+
+          setRebaseConflictPreview(preview);
+
+          if (!preview.files.some((file) => file.path === selectedFile)) {
+            void navigate(
+              buildVaultFileUrl(preview.files[0].path, {
+                reviewMode: "review",
+              }),
+              { state },
+            );
+          }
+
+          return preview;
+        })
+        .catch((error) => {
+          const message =
+            error instanceof Error && error.message.length > 0
+              ? error.message
+              : "Failed to load rebase conflict preview";
+          setRebaseConflictPreview(null);
+          setRebaseConflictPreviewError(message);
+        });
+    },
+    [
+      branch,
+      buildVaultFileUrl,
+      getRebaseConflictPreview,
+      navigate,
+      repositoryFullName,
+      selectedFile,
+      state,
+    ],
+  );
+  const handleUpstreamConflictDetected = useCallback(
+    (message: string) => {
+      setAllowAutoExitReview(false);
+      setCommitError(message);
+      setCommitPreview(null);
+      setCommitPreviewError(null);
+      if (commitReviewMode !== "review") {
+        setReviewModeInQuery("review");
+      }
+      void loadRebaseConflictPreview(message);
+    },
+    [commitReviewMode, loadRebaseConflictPreview, setReviewModeInQuery],
+  );
+  const handleCopyRebaseConflictBundle = useCallback(() => {
+    if (!rebaseConflictPreview || rebaseConflictPreview.files.length === 0) {
+      return;
+    }
+
+    try {
+      void getRebaseConflictBundle({
+        repositoryFullName,
+        branch: rebaseConflictPreview.branch,
+      })
+        .then((bundle) => navigator.clipboard.writeText(bundle))
+        .then(() => {
+          setRebaseConflictBundleFeedback("Conflict bundle copied.");
+        })
+        .catch((error: unknown) => {
+          const message =
+            error instanceof Error && error.message.length > 0
+              ? error.message
+              : "Failed to copy conflict bundle.";
+          setRebaseConflictBundleFeedback(message);
+        });
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error && error.message.length > 0
+          ? error.message
+          : "Clipboard is unavailable in this browser.";
+      setRebaseConflictBundleFeedback(message);
+    }
+  }, [getRebaseConflictBundle, rebaseConflictPreview, repositoryFullName]);
 
   const handleFileSelect = useCallback(
     (path: string, status?: CommitPreviewFileStatus) => {
@@ -1134,6 +1281,9 @@ function FileViewInner({
   const handleManualCommit = useCallback(() => {
     if (!selectedFile) return;
     setCommitError(null);
+    setCommitPreviewError(null);
+    setRebaseConflictPreviewError(null);
+    setRebaseConflictBundleFeedback(null);
 
     void commitStaging({
       repositoryFullName: repositoryFullName,
@@ -1144,19 +1294,31 @@ function FileViewInner({
         error instanceof Error && error.message.length > 0
           ? error.message
           : "Commit failed";
+      if (parseUpstreamConflictPaths(message).length > 0) {
+        handleUpstreamConflictDetected(message);
+        return;
+      }
       setCommitError(message);
     });
-  }, [branch, commitStaging, repositoryFullName, selectedFile]);
+  }, [
+    branch,
+    commitStaging,
+    handleUpstreamConflictDetected,
+    repositoryFullName,
+    selectedFile,
+  ]);
 
   const handleResetToGitHub = useCallback(() => {
     setCommitError(null);
+    setCommitPreviewError(null);
+    resetRebaseConflictState();
     void clearAllStaging({
       vaultId: vault._id,
       branch,
     }).catch((error) => {
       console.error("Failed to reset staged files:", error);
     });
-  }, [branch, clearAllStaging, vault._id]);
+  }, [branch, clearAllStaging, resetRebaseConflictState, vault._id]);
 
   const loadCommitPreview = useCallback(() => {
     setCommitPreviewError(null);
@@ -1167,20 +1329,53 @@ function FileViewInner({
     })
       .then((preview) => {
         setCommitPreview(preview);
+        resetRebaseConflictState();
       })
       .catch((error) => {
         const message =
           error instanceof Error && error.message.length > 0
             ? error.message
             : "Failed to load commit preview";
+        if (parseUpstreamConflictPaths(message).length > 0) {
+          handleUpstreamConflictDetected(message);
+          return;
+        }
         setCommitPreviewError(message);
       });
-  }, [branch, getCommitPreview, repositoryFullName]);
+  }, [
+    branch,
+    getCommitPreview,
+    handleUpstreamConflictDetected,
+    repositoryFullName,
+    resetRebaseConflictState,
+  ]);
+
+  const handleRebaseOntoLatestGitHub = useCallback(() => {
+    setAllowAutoExitReview(false);
+    setCommitError(null);
+    setCommitPreviewError(null);
+    setRebaseConflictPreviewError(null);
+    setRebaseConflictBundleFeedback(null);
+
+    void pullFromGitHub({ vaultId: vault._id })
+      .then(() => {
+        resetRebaseConflictState();
+        return loadCommitPreview();
+      })
+      .catch((error) => {
+        const message =
+          error instanceof Error && error.message.length > 0
+            ? error.message
+            : "Failed to rebase staging onto latest GitHub.";
+        setRebaseConflictPreviewError(message);
+      });
+  }, [loadCommitPreview, pullFromGitHub, resetRebaseConflictState, vault._id]);
 
   const resetCommitPreviewState = useCallback(() => {
     setCommitPreview(null);
     setInlinePreviewSaveError(null);
-  }, []);
+    resetRebaseConflictState();
+  }, [resetRebaseConflictState]);
 
   const handleToggleReviewMode = useCallback(() => {
     if (commitReviewMode === "review") {
@@ -1208,6 +1403,9 @@ function FileViewInner({
     void navigate("/");
   }
 
+  const selectedRebaseConflictFile =
+    rebaseConflictPreview?.files.find((file) => file.path === selectedFile) ??
+    null;
   const selectedPreviewFile =
     commitPreview?.files.find((file) => file.path === selectedFile) ?? null;
   const selectedPreviewStagedFile = stagedFile ?? null;
@@ -1833,6 +2031,16 @@ function FileViewInner({
     setInlinePreviewFailedSave(null);
     setInlinePreviewSaveError(null);
   }, []);
+  const renderPatchLines = useCallback((patch: string) => {
+    return patch.split("\n").map((line, index) => (
+      <div
+        key={`${index}:${line}`}
+        className={`whitespace-pre-wrap rounded-sm px-1 ${getPatchLineClassName(line)}`}
+      >
+        {line.length > 0 ? line : " "}
+      </div>
+    ));
+  }, []);
 
   const headerTitle = selectedFile
     ? selectedFile.split("/").slice(0, -1).join("/") || "/"
@@ -2001,14 +2209,130 @@ function FileViewInner({
                       {commitPreviewError}
                     </div>
                   ) : null}
+                  {rebaseConflictPreviewError ? (
+                    <div className="mx-3 mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                      {rebaseConflictPreviewError}
+                    </div>
+                  ) : null}
 
-                  {commitPreview ? (
+                  {commitPreview || rebaseConflictPreview ? (
                     <div className="flex min-h-0 flex-1 flex-col">
                       <div className="flex min-h-0 flex-1 flex-col">
                         {selectedFile ? (
                           <div className="flex min-h-0 flex-1 flex-col">
                             <div className="flex-1 overflow-auto">
-                              {selectedPreviewCanRenderInline ? (
+                              {selectedRebaseConflictFile ? (
+                                <div className="min-h-full">
+                                  <div className="border-b border-amber-200 bg-amber-50 px-3 py-3">
+                                    <div className="text-sm font-medium text-amber-950">
+                                      Commit blocked by upstream changes in{" "}
+                                      {selectedRebaseConflictFile.path}
+                                    </div>
+                                    <div className="mt-1 text-xs text-amber-900/80">
+                                      {rebaseConflictPreview &&
+                                      rebaseConflictPreview.files.length > 1
+                                        ? `${rebaseConflictPreview.files.length} files need review. Rebase staging onto the latest GitHub state to materialize conflict markers or auto-merge clean files.`
+                                        : "Review the conflict patches below, then rebase staging onto the latest GitHub state before editing a manual resolution."}
+                                    </div>
+                                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                                      <Button
+                                        size="sm"
+                                        onClick={handleRebaseOntoLatestGitHub}
+                                        disabled={
+                                          pullFromGitHubStatus === "loading"
+                                        }
+                                        className="h-7 px-2 text-xs"
+                                      >
+                                        {pullFromGitHubStatus === "loading"
+                                          ? "Rebasing..."
+                                          : "Rebase onto latest GitHub"}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={handleCopyRebaseConflictBundle}
+                                        disabled={
+                                          rebaseConflictPreviewStatus ===
+                                            "loading" ||
+                                          rebaseConflictBundleStatus ===
+                                            "loading" ||
+                                          !rebaseConflictPreview ||
+                                          rebaseConflictPreview.files.length ===
+                                            0
+                                        }
+                                        className="h-7 px-2 text-xs"
+                                      >
+                                        {rebaseConflictBundleStatus ===
+                                        "loading"
+                                          ? "Copying..."
+                                          : "Copy conflict bundle"}
+                                      </Button>
+                                    </div>
+                                    <div className="mt-2 text-[11px] text-amber-950/70">
+                                      {selectedRebaseConflictFile.baseBlobSha ? (
+                                        <>
+                                          Base blob:{" "}
+                                          {
+                                            selectedRebaseConflictFile.baseBlobSha
+                                          }
+                                          {"  "}
+                                        </>
+                                      ) : null}
+                                      Upstream blob:{" "}
+                                      {
+                                        selectedRebaseConflictFile.upstreamBlobSha
+                                      }
+                                    </div>
+                                    {rebaseConflictBundleFeedback ? (
+                                      <div className="mt-2 text-xs text-amber-950">
+                                        {rebaseConflictBundleFeedback}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                  <div className="grid min-h-0 md:grid-cols-2 md:divide-x">
+                                    <div className="min-h-0">
+                                      <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
+                                        Base -&gt; Yours
+                                      </div>
+                                      {selectedRebaseConflictFile.baseToStagedPatchTruncated ? (
+                                        <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                          Patch output is truncated for this
+                                          file.
+                                        </div>
+                                      ) : null}
+                                      <div className="p-3 font-mono text-xs leading-5">
+                                        {selectedRebaseConflictFile.baseToStagedPatch
+                                          ? renderPatchLines(
+                                              selectedRebaseConflictFile.baseToStagedPatch,
+                                            )
+                                          : null}
+                                      </div>
+                                    </div>
+                                    <div className="min-h-0 border-t md:border-t-0">
+                                      <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
+                                        Base -&gt; Upstream
+                                      </div>
+                                      {selectedRebaseConflictFile.baseToUpstreamPatchTruncated ? (
+                                        <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                          Patch output is truncated for this
+                                          file.
+                                        </div>
+                                      ) : null}
+                                      <div className="p-3 font-mono text-xs leading-5">
+                                        {selectedRebaseConflictFile.baseToUpstreamPatch
+                                          ? renderPatchLines(
+                                              selectedRebaseConflictFile.baseToUpstreamPatch,
+                                            )
+                                          : null}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : rebaseConflictPreview ? (
+                                <div className="p-3 text-sm text-muted-foreground">
+                                  Loading conflicting file...
+                                </div>
+                              ) : selectedPreviewCanRenderInline ? (
                                 <div className="min-h-full">
                                   <div className="border-b px-3 py-2">
                                     <div className="flex flex-wrap gap-x-4 gap-y-2">
@@ -2093,16 +2417,9 @@ function FileViewInner({
                                         </div>
                                       ) : null}
                                       <div className="p-3 font-mono text-xs leading-5">
-                                        {selectedPreviewFile.patch
-                                          .split("\n")
-                                          .map((line, index) => (
-                                            <div
-                                              key={`${index}:${line}`}
-                                              className={`whitespace-pre-wrap rounded-sm px-1 ${getPatchLineClassName(line)}`}
-                                            >
-                                              {line.length > 0 ? line : " "}
-                                            </div>
-                                          ))}
+                                        {renderPatchLines(
+                                          selectedPreviewFile.patch,
+                                        )}
                                       </div>
                                     </div>
                                   ) : (
@@ -2128,16 +2445,9 @@ function FileViewInner({
                                     </div>
                                   ) : null}
                                   <div className="p-3 font-mono text-xs leading-5">
-                                    {selectedPreviewFile.patch
-                                      .split("\n")
-                                      .map((line, index) => (
-                                        <div
-                                          key={`${index}:${line}`}
-                                          className={`whitespace-pre-wrap rounded-sm px-1 ${getPatchLineClassName(line)}`}
-                                        >
-                                          {line.length > 0 ? line : " "}
-                                        </div>
-                                      ))}
+                                    {renderPatchLines(
+                                      selectedPreviewFile.patch,
+                                    )}
                                   </div>
                                 </div>
                               ) : selectedFileIsRenderableMedia ? (
