@@ -17,10 +17,19 @@ interface QueryProviderProps {
 }
 
 export function QueryProvider({ children }: QueryProviderProps) {
+  const shouldShowDevtools =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).has("devtools");
+
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
+      {shouldShowDevtools ? (
+        <ReactQueryDevtools
+          initialIsOpen={false}
+          buttonPosition="bottom-left"
+        />
+      ) : null}
     </QueryClientProvider>
   );
 }

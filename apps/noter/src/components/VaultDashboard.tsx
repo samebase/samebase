@@ -1640,7 +1640,10 @@ export function VaultDashboard() {
         <div className="space-y-2">
           {vaults.map((vault: (typeof vaults)[0]) => {
             const isReady = vault.state === "ready";
-            const activeRemoteBranches = vault.remoteBranches.filter(
+            const remoteBranches = Array.isArray(vault.remoteBranches)
+              ? vault.remoteBranches
+              : [];
+            const activeRemoteBranches = remoteBranches.filter(
               (branch) => branch.remoteState === "active",
             );
             const defaultBranch = activeRemoteBranches.find(
@@ -1757,7 +1760,7 @@ export function VaultDashboard() {
                     ) : null}
                   </div>
 
-                  {isReady && vault.remoteBranches.length > 0 && (
+                  {isReady && remoteBranches.length > 0 && (
                     <div className="space-y-1.5">
                       <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
                         Branches
@@ -1765,7 +1768,7 @@ export function VaultDashboard() {
                       <VaultBranchList
                         vaultId={vault._id}
                         repositoryFullName={vault.repositoryFullName}
-                        remoteBranches={vault.remoteBranches}
+                        remoteBranches={remoteBranches}
                         activeDeletingBranchName={
                           isDeletingBranch &&
                           branchToDelete?.vaultId === vault._id
