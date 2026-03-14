@@ -15,6 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  DaytonaPtyConnectionState,
   DaytonaPtyTerminal,
   type DaytonaPtySession,
 } from "@/components/DaytonaPtyTerminal";
@@ -151,6 +152,17 @@ export function DaytonaWorkspaceButton({
   const [startupMetrics, setStartupMetrics] = useState<StartupMetrics | null>(
     null,
   );
+  const [terminalConnectionStates, setTerminalConnectionStates] = useState<
+    Partial<
+      Record<
+        WorkspaceTerminalKind,
+        {
+          state: DaytonaPtyConnectionState;
+          message: string;
+        }
+      >
+    >
+  >({});
   const [timeToTerminalMs, setTimeToTerminalMs] = useState<number | null>(null);
   const [prebuildLogs, setPrebuildLogs] = useState<string | null>(null);
   const prebuildLogPollRef = useRef<number | null>(null);
@@ -440,6 +452,11 @@ export function DaytonaWorkspaceButton({
           type: "closed",
           kind: args.kind,
         });
+        setTerminalConnectionStates((current) => {
+          const next = { ...current };
+          delete next[args.kind];
+          return next;
+        });
         return true;
       }
       if (!args.silent) {
@@ -570,6 +587,13 @@ export function DaytonaWorkspaceButton({
         kind: args.targetKind,
         session: nextSession,
       });
+      setTerminalConnectionStates((current) => ({
+        ...current,
+        [args.targetKind]: {
+          state: "connecting",
+          message: "Connecting to Daytona…",
+        },
+      }));
       if (!isSilent) {
         setHasError(false);
         setMessage(result.message ?? args.successMessage);
@@ -1117,6 +1141,15 @@ export function DaytonaWorkspaceButton({
               {openTerminalKinds.map((kind) => {
                 const isActive = terminalState.activeKind === kind;
                 const title = getWorkspaceTerminalTitle(kind);
+                const terminalStatus = terminalConnectionStates[kind];
+                const statusTone =
+                  terminalStatus?.state === "connected"
+                    ? "bg-emerald-400"
+                    : terminalStatus?.state === "error"
+                      ? "bg-rose-400"
+                      : terminalStatus?.state === "closed"
+                        ? "bg-slate-500"
+                        : "bg-amber-400";
 
                 return (
                   <div
@@ -1132,7 +1165,7 @@ export function DaytonaWorkspaceButton({
                       type="button"
                       role="tab"
                       aria-selected={isActive}
-                      className="px-3 py-1.5 font-medium outline-none"
+                      className="flex items-center gap-2 px-3 py-1.5 font-medium outline-none"
                       onClick={() => {
                         dispatchTerminalState({
                           type: "activated",
@@ -1140,6 +1173,10 @@ export function DaytonaWorkspaceButton({
                         });
                       }}
                     >
+                      <span
+                        aria-hidden="true"
+                        className={cn("h-2 w-2 rounded-full", statusTone)}
+                      />
                       {title}
                     </button>
                     <button
@@ -1202,10 +1239,24 @@ export function DaytonaWorkspaceButton({
                         setHasError(true);
                         setMessage(terminalMessage);
                       }}
+                      onConnectionStateChange={(state, statusMessage) => {
+                        setTerminalConnectionStates((current) => ({
+                          ...current,
+                          [kind]: {
+                            state,
+                            message: statusMessage,
+                          },
+                        }));
+                      }}
                       onSessionExit={(terminalMessage) => {
                         dispatchTerminalState({
                           type: "closed",
                           kind,
+                        });
+                        setTerminalConnectionStates((current) => {
+                          const next = { ...current };
+                          delete next[kind];
+                          return next;
                         });
                         setHasError(false);
                         setMessage(terminalMessage);
