@@ -218,7 +218,7 @@ use `--env-file` or an explicit deployment selector instead.
   virtual keyboard appears on mobile devices
 - **High: Daytona Codex shared home semantics** - treat the mounted Codex volume
   as a desirable shared state surface, not just an auth cache. Shared `~/.codex`
-  memories/state across Daytona sandboxes and agents is intentional. Prefer
+  memories/state across Daytona sandboxes and agents is intentional.
   fixes that preserve one writable shared Codex home via `DAYTONA_CODEX_HOME`
   over workarounds that copy only auth into an isolated per-sandbox home and
   strand memories/agent state.

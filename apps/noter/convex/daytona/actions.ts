@@ -92,8 +92,11 @@ const DAYTONA_TERMINAL_PORT = 22222;
 const DAYTONA_TERMINAL_TTL_SECONDS = 300;
 const DAYTONA_DEV_LOG = "/tmp/noter-dev.log";
 const DAYTONA_DEV_SERVER_TMUX_SESSION = "noter-dev-server";
-// Daytona terminals currently run with a root home in our tested sandbox setup.
-const DAYTONA_CODEX_HOME = "/root/.codex";
+const DAYTONA_SANDBOX_USER = "daytona";
+const DAYTONA_SANDBOX_HOME = "/home/daytona";
+// Keep the shared Codex volume under the active sandbox user home so the same
+// writable Codex state is reused across auth and workspace sandboxes.
+const DAYTONA_CODEX_HOME = `${DAYTONA_SANDBOX_HOME}/.codex`;
 const DAYTONA_CODEX_AUTH_VOLUME_PREFIX = "noter-codex-auth";
 const DAYTONA_CODEX_AUTH_SANDBOX_PREFIX = "noter-codex-auth";
 const DAYTONA_VOLUME_READY_TIMEOUT_MS = 60_000;
@@ -1032,7 +1035,7 @@ async function createDaytonaCodexAuthSandbox(args: {
   const baseParams = {
     name: args.sandboxName,
     language: "typescript",
-    user: "daytona",
+    user: DAYTONA_SANDBOX_USER,
     public: true,
     envVars: {
       CODEX_HOME: DAYTONA_CODEX_HOME,
@@ -2864,7 +2867,7 @@ export const startDaytonaWorkspace = action({
       const baseParams: CreateSandboxFromSnapshotParams = {
         name: sandboxName,
         language: "typescript",
-        user: "daytona",
+        user: DAYTONA_SANDBOX_USER,
         public: true,
         envVars: buildDaytonaSandboxEnvVars({
           vaultId: args.vaultId,

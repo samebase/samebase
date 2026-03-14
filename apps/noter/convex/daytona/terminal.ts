@@ -7,6 +7,7 @@ import {
 import { Daytona, type Sandbox } from "@daytonaio/sdk";
 import { randomUUID } from "crypto";
 import { Infer, v } from "convex/values";
+import { upsertCodexNoAltScreenConfig } from "../../../../runtime/codexConfig.js";
 import { action, type ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -40,6 +41,7 @@ const DEV_SERVER_LOG_FOLLOW_COMMAND =
   "clear >/dev/null 2>&1; stty -echo -icanon -isig; exec tail -n 200 -F '/tmp/noter-dev.log' </dev/null\n";
 const DEFAULT_PTY_IDLE_CAPTURE_MS = 150;
 const DEFAULT_PTY_CAPTURE_TIMEOUT_MS = 600;
+const CODEX_CONFIG_SYNC_TIMEOUT_SECONDS = 30;
 
 const openWorkspacePtySessionArgs = object({
   vaultId: id("vaults"),
@@ -676,6 +678,82 @@ async function getPtyConnection(args: {
   };
 }
 
+function readCodexHomeInSandbox(sandbox: Sandbox): string | null {
+  const codexHome =
+    typeof sandbox.env.CODEX_HOME === "string" ? sandbox.env.CODEX_HOME : "";
+  const trimmed = codexHome.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+async function readCodexConfigInSandbox(args: {
+  sandbox: Sandbox;
+  codexHome: string;
+}): Promise<string> {
+  const result = await args.sandbox.process.executeCommand(
+    `bash -lc ${quoteForShell(
+      `if [ -f ${quoteForShell(`${args.codexHome}/config.toml`)} ]; then cat ${quoteForShell(`${args.codexHome}/config.toml`)}; fi`,
+    )}`,
+    undefined,
+    undefined,
+    CODEX_CONFIG_SYNC_TIMEOUT_SECONDS,
+  );
+  if (result.exitCode !== 0) {
+    throw new Error(
+      result.result.trim() || "Failed to read Codex config in sandbox.",
+    );
+  }
+  return result.result;
+}
+
+async function writeCodexConfigInSandbox(args: {
+  sandbox: Sandbox;
+  codexHome: string;
+  configToml: string;
+}): Promise<void> {
+  const encodedConfig = Buffer.from(args.configToml, "utf8").toString("base64");
+  const configPath = `${args.codexHome}/config.toml`;
+  const writeScript = stripIndent`
+    set -e
+    mkdir -p ${quoteForShell(args.codexHome)}
+    printf '%s' ${quoteForShell(encodedConfig)} | base64 --decode > ${quoteForShell(configPath)}
+  `;
+  const result = await args.sandbox.process.executeCommand(
+    `bash -lc ${quoteForShell(writeScript)}`,
+    undefined,
+    undefined,
+    CODEX_CONFIG_SYNC_TIMEOUT_SECONDS,
+  );
+  if (result.exitCode !== 0) {
+    throw new Error(
+      result.result.trim() || "Failed to write Codex config in sandbox.",
+    );
+  }
+}
+
+async function ensureCodexNoAltScreenConfigInSandbox(args: {
+  sandbox: Sandbox;
+}): Promise<void> {
+  const codexHome = readCodexHomeInSandbox(args.sandbox);
+  if (!codexHome) {
+    return;
+  }
+
+  const existingConfig = await readCodexConfigInSandbox({
+    sandbox: args.sandbox,
+    codexHome,
+  });
+  const nextConfig = upsertCodexNoAltScreenConfig(existingConfig);
+  if (nextConfig === existingConfig) {
+    return;
+  }
+
+  await writeCodexConfigInSandbox({
+    sandbox: args.sandbox,
+    codexHome,
+    configToml: nextConfig,
+  });
+}
+
 async function openPtySession(args: {
   sandbox: Sandbox;
   baseUrl: string;
@@ -691,6 +769,16 @@ async function openPtySession(args: {
   initialOutput?: string;
 }> {
   await ensureSandboxStarted(args.sandbox);
+  try {
+    await ensureCodexNoAltScreenConfigInSandbox({
+      sandbox: args.sandbox,
+    });
+  } catch (error) {
+    console.warn("daytona:pty:codex-config-sync-skipped", {
+      sandboxId: args.sandbox.id,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
   const textDecoder = new TextDecoder();
   const outputChunks: string[] = [];
   const lastChunkAtRef = { current: Date.now() };
