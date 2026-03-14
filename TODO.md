@@ -17,10 +17,13 @@
 - [ ] add a Make target to stop any running local dev environments (at least processes bound to common dev ports like `5173`, `3000`, and `3210`)
 - [ ] enforce the importance of using web apps when you're trying to do something on an older phone, that's not supported anymore. Mobile apps are a liability
 - [ ] for netlify, just don't deploy if it's a md change (optimization? )
+- [ ] use AST to validate user input; where user input is a JS function; cloudflare already does this with mcp calls
+- [ ]  using UI, for example, let's say every time I write something in to-do, I would like there to be an agent that reacts to this and does some action. This could be a new. I think the graph could be used for this. It could use GitHub Actions or stuff like that. GitHub Actions are already graph-based, so we could just allow editing it to search with what product already did this or tried this 
 
 ## Companies to Research
 - [ ] AFFiNE - https://affine.pro/ - Note-taking/collaboration platform
 - [ ] shadcn-editor - https://shadcn-editor.vercel.app/ - Rich text editor components
+- [ ] void.cloud - https://void.cloud/ - Research later
 - [ ] Tuple - https://tuple.app/ - Remote pair programming app; study its screen sharing, remote control, and collaboration UX for noter
 
 # The most important right now is to fix rebaseing works, because we always accept only things on incoming side instead of even trying to reconcile!!!!
@@ -28,6 +31,8 @@
 - [ ] add better rebase skill/workflow: when conflict is only `pnpm-lock.yaml`, regenerate lockfile from manifests instead of manual conflict edits
 - [ ] bootstrap: make `make anon` / `make anon-once` non-interactive when Convex wants a backend upgrade, or document the exact prompt/answer (`Yes` + `transfer data`)
 - [ ] We need less of a profit from AI, if we allow them to stay with their paid tools, for codex/claude, so we don't even need to run any serious ai infra. And the price we can provide is much lower than any competitions, since we don't choose that battle at all
+- [ ] pricing: inactive accounts should stay close to $0 cost for us because they mostly sit on Codex + Cloudflare; if someone signs up, tries it once, then disappears for a month or a year, we are not paying bandwidth or Daytona until they actively start developing again
+- [ ] pricing model idea: charge more by released features / shipped output than by per-user seats; active development can then map to small usage-based costs (for example ~$5 once someone is actually building)
 - [ ] in landing, we need to ask users what tech they know, for github, convex, etc
 - [ ] but there's always a chat to just ask to understand, and also mention that the page and agent are built in noter
 - [ ] it can use github files as its database, before using convex

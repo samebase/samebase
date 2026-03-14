@@ -6,4 +6,8 @@
 - noter is the tech stack for AI Agents
 - noter: ship a convex app in 3.4 seconds
 - noter: build MCP servers for ChatGPT
+- noter: orchestrate multiple agents from anywhere via MCP
 - noter: monitor & edit your apps when you're on the go
+- noter lets you focus on your business instead of your tech stack
+- noter makes the change easy, so you can make the easy change
+- noter is a dev environment for your codex agent

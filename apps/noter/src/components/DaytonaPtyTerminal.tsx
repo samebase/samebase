@@ -22,6 +22,12 @@ export type DaytonaPtySession = {
   initialOutput?: string;
 };
 
+export type DaytonaPtyConnectionState =
+  | "connecting"
+  | "connected"
+  | "closed"
+  | "error";
+
 interface DaytonaPtyTerminalProps {
   session: DaytonaPtySession;
   className?: string;
@@ -31,9 +37,11 @@ interface DaytonaPtyTerminalProps {
   onResizeSession: (sessionId: string, cols: number, rows: number) => void;
   onSessionError?: (message: string) => void;
   onSessionExit?: (message: string) => void;
+  onConnectionStateChange?: (
+    state: DaytonaPtyConnectionState,
+    statusMessage: string,
+  ) => void;
 }
-
-type ConnectionState = "connecting" | "connected" | "closed" | "error";
 
 export function DaytonaPtyTerminal({
   session,
@@ -44,14 +52,16 @@ export function DaytonaPtyTerminal({
   onResizeSession,
   onSessionError,
   onSessionExit,
+  onConnectionStateChange,
 }: DaytonaPtyTerminalProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const onResizeSessionRef = useRef(onResizeSession);
   const onSessionErrorRef = useRef(onSessionError);
   const onSessionExitRef = useRef(onSessionExit);
+  const onConnectionStateChangeRef = useRef(onConnectionStateChange);
   const lastSizeRef = useRef<{ cols: number; rows: number } | null>(null);
   const [connectionState, setConnectionState] =
-    useState<ConnectionState>("connecting");
+    useState<DaytonaPtyConnectionState>("connecting");
   const [statusMessage, setStatusMessage] = useState("Connecting to Daytona…");
 
   useEffect(() => {
@@ -65,6 +75,14 @@ export function DaytonaPtyTerminal({
   useEffect(() => {
     onSessionExitRef.current = onSessionExit;
   }, [onSessionExit]);
+
+  useEffect(() => {
+    onConnectionStateChangeRef.current = onConnectionStateChange;
+  }, [onConnectionStateChange]);
+
+  useEffect(() => {
+    onConnectionStateChangeRef.current?.(connectionState, statusMessage);
+  }, [connectionState, statusMessage]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -294,7 +312,7 @@ export function DaytonaPtyTerminal({
         eventCode: event.code,
         rawReason: event.reason,
       });
-      const nextState: ConnectionState = state;
+      const nextState: DaytonaPtyConnectionState = state;
       setConnectionState(nextState);
       setStatusMessage(message);
       terminal.writeln(`\r\n[session ended] ${message}`);

@@ -218,10 +218,15 @@ use `--env-file` or an explicit deployment selector instead.
   virtual keyboard appears on mobile devices
 - **High: Daytona Codex shared home semantics** - treat the mounted Codex volume
   as a desirable shared state surface, not just an auth cache. Shared `~/.codex`
-  memories/state across Daytona sandboxes and agents is intentional. Prefer
-  fixes that preserve one writable shared Codex home (ideally under the active
-  user home such as `/home/daytona/.codex`) over workarounds that copy only auth
-  into an isolated per-sandbox home and strand memories/agent state.
+  memories/state across Daytona sandboxes and agents is intentional.
+  fixes that preserve one writable shared Codex home via `DAYTONA_CODEX_HOME`
+  over workarounds that copy only auth into an isolated per-sandbox home and
+  strand memories/agent state.
+- **Idea: Daytona terminal UI transparency** - do not over-hide tmux/session
+  chrome if exposing it improves operator control. Prefer a VS Code-like web
+  terminal surface with simple tabs, splits, and top-bar actions over a "hidden
+  tmux magic" model, but keep it simple enough that the operator does not need
+  to learn tmux just to use it.
 - **High: local/worktree Daytona naming** - `make anon` currently seeds
   `DAYTONA_CONVEX_DEPLOY_KEY` from shared cloud dev env, so local Daytona
   snapshot/sandbox names can still inherit shared dev scope instead of a true
@@ -263,6 +268,11 @@ them directly using CLI tools.
 - Always use CLI tools (`gh`, `git`) - never tell user to click UI buttons
 - Execute, don't instruct
 - Adapt to context (if PR exists, update it; if already ready, skip)
+- In the first user-facing message of a task, decide whether the current branch
+  name should change. If it's still an auto-generated random
+  `codex/<word>-<word>-<word>` name, default to renaming it immediately because
+  the first prompt usually provides enough context; only defer renaming when the
+  task intent is still genuinely unclear.
 - Before `commit`, verify the branch name is meaningful. If it's still an
   auto-generated random `codex/<word>-<word>-<word>` name, rename it to a
   descriptive `codex/<intent>` branch before committing.
@@ -337,8 +347,10 @@ them directly using CLI tools.
 
 - If HEAD is detached, use `./scripts/bootstrap-worktree.js` to auto-create a
   branch in the format `codex/<word>-<word>-<word>`.
-- After an auto-created random branch, rename it to a meaningful `codex/<name>`
-  branch as soon as intent is clear.
+- After an auto-created random branch, make the rename decision in the first
+  user-facing message. In most cases, rename it immediately to a meaningful
+  `codex/<name>` branch because the initial prompt already provides enough
+  context.
 - To rename the current branch: `git branch -m codex/new-name`.
 - If the branch was pushed already, push the new name and delete the old remote:
   `git push -u origin codex/new-name` then
@@ -408,6 +420,13 @@ Auth:
 - For UI automation, never kill all `Google Chrome` processes. Only terminate
   Playwright-owned sessions/profile paths (for example
   `.../ms-playwright/mcp-chrome`).
+- For concurrent Playwright work across multiple agents, default to isolated
+  Playwright browser sessions or contexts per agent. Do not rely on separate
+  tabs in a shared Chrome instance unless the user explicitly accepts the
+  interference risk.
+- For concurrent Playwright agents, assign each isolated browser profile a
+  random distinguishing color/theme so parallel sessions are easier to tell
+  apart at a glance.
 - When asked to use Playwright for testing, start in mobile viewport/device mode
   first, then validate desktop as needed.
 - If the user says to "remove mobile constraints" (or equivalent) during
