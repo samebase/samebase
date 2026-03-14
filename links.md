@@ -1,0 +1,1 @@
+https://automerge.org/ from https://stack.convex.dev/automerge-and-convex
