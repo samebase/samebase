@@ -1,6 +1,8 @@
 # TODO
 
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
+- [ ] specifically left blank
+- [ ] Make the chat always open at the bottom on mobile. Make it part of the UI, the same way chats are like Claude Code on mobile. 
 - [ ] maybe jupyterlab is not necessaryle necessary, or even a good idea, since developers usually don't use it; and vibecoders don't even use it; only academia?
 - [ ] replace precommit hook with something that can run in convex, or be automated
 - [ ] the keyboard takes a lot of space, noter should also provide simpler, without necessary key, using wispr, or Quaid that would make sense to ask
