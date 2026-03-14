@@ -9,3 +9,4 @@
 - noter: monitor & edit your apps when you're on the go
 - noter lets you focus on your business instead of your tech stack
 - noter makes the change easy, so you can make the easy change
+- noter is a dev environment for your codex agent
