@@ -18,6 +18,7 @@
 - [ ] enforce the importance of using web apps when you're trying to do something on an older phone, that's not supported anymore. Mobile apps are a liability
 - [ ] for netlify, just don't deploy if it's a md change (optimization? )
 - [ ] use AST to validate user input; where user input is a JS function; cloudflare already does this with mcp calls
+- [ ]  using UI, for example, let's say every time I write something in to-do, I would like there to be an agent that reacts to this and does some action. This could be a new. I think the graph could be used for this. It could use GitHub Actions or stuff like that. GitHub Actions are already graph-based, so we could just allow editing it to search with what product already did this or tried this 
 
 ## Companies to Research
 - [ ] AFFiNE - https://affine.pro/ - Note-taking/collaboration platform
