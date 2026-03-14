@@ -17,6 +17,7 @@
 - [ ] add a Make target to stop any running local dev environments (at least processes bound to common dev ports like `5173`, `3000`, and `3210`)
 - [ ] enforce the importance of using web apps when you're trying to do something on an older phone, that's not supported anymore. Mobile apps are a liability
 - [ ] for netlify, just don't deploy if it's a md change (optimization? )
+- [ ] use AST to validate user input; where user input is a JS function; cloudflare already does this with mcp calls
 
 ## Companies to Research
 - [ ] AFFiNE - https://affine.pro/ - Note-taking/collaboration platform
