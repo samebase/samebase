@@ -984,7 +984,6 @@ async function ensureCodexHomeWritableInSandbox(args: {
     );
   }
 }
-
 async function ensureDaytonaSandboxStarted(sandbox: Sandbox): Promise<void> {
   if (sandbox.state?.toLowerCase() !== "started") {
     await sandbox.start();
