@@ -6,7 +6,6 @@ import { fileURLToPath } from 'node:url'
  * @typedef {{
  *   repoPath: string
  *   bashProfileFiles?: readonly string[]
- *   fishProfileFiles?: readonly string[]
  * }} EnsureRepoAutoCdArgs
  */
 
@@ -14,11 +13,6 @@ export const DEFAULT_BASH_PROFILE_FILES = [
   '/root/.bashrc',
   '/home/daytona/.bashrc',
   '/etc/bash.bashrc',
-]
-
-export const DEFAULT_FISH_PROFILE_FILES = [
-  '/root/.config/fish/config.fish',
-  '/home/daytona/.config/fish/config.fish',
 ]
 
 /**
@@ -83,10 +77,6 @@ export async function ensureRepoAutoCd(args) {
 
   for (const filePath of args.bashProfileFiles ?? DEFAULT_BASH_PROFILE_FILES) {
     await ensureLineInFile(filePath, line, { ensureParentDir: false })
-  }
-
-  for (const filePath of args.fishProfileFiles ?? DEFAULT_FISH_PROFILE_FILES) {
-    await ensureLineInFile(filePath, line, { ensureParentDir: true })
   }
 }
 

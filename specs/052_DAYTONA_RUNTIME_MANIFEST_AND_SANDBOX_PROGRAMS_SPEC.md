@@ -148,12 +148,8 @@ Illustrative shape:
 ```ts
 export const daytonaRuntimeManifest = {
   baseImage: 'mcr.microsoft.com/devcontainers/javascript-node:24-bookworm',
-  aptPackages: ['fish', 'make', 'tmux'],
+  aptPackages: ['make', 'tmux'],
   globalNpmPackages: [{ name: '@openai/codex', version: '0.114.0' }],
-  shell: {
-    default: 'fish',
-    users: ['root', 'daytona'],
-  },
   pnpmVersion: '9.15.0',
 } as const
 ```
@@ -225,7 +221,7 @@ export const daytonaSandboxPrograms = {
 Shell should remain acceptable for:
 
 1. Docker `RUN` steps
-2. tiny probes like `command -v fish`
+2. tiny probes like `command -v tmux`
 3. direct tool invocation wrappers such as `tmux new-session ...`
 4. short glue code where shell is clearer than a Node script
 
@@ -243,7 +239,7 @@ Best first candidates:
 
 1. dev-server status probing
 2. background/fallback dev-server start verification
-3. fish/runtime bootstrap checks
+3. runtime package/bootstrap checks
 4. other sandbox-side state inspection logic that is currently encoded as ad hoc
    shell programs
 

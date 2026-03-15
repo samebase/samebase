@@ -150,7 +150,7 @@ This applies to:
 Required properties of that runtime image:
 
 1. pinned, versioned, and known-good
-2. includes `fish` and `tmux`
+2. includes `tmux`
 3. includes `make`, `corepack`, and supported `pnpm`
 4. includes Codex CLI when the sandbox role requires it, or derives from a base
    that guarantees compatible installation
@@ -190,7 +190,7 @@ Initial roles:
 
 - interactive
 - full input enabled
-- attached to `fish` in the workspace sandbox when available
+- attached to the default login shell in the workspace sandbox as user `daytona`
 
 ### `dev_server`
 
@@ -351,14 +351,14 @@ But the main observability surface should be the PTY-attached session.
 - [x] Workspace shell terminal no longer depends on the Daytona iframe.
 - [x] Codex auth terminal no longer depends on the Daytona iframe.
 - [x] Codex auth can run as a single-purpose, read-only embedded PTY flow.
-- [x] Workspace shell PTY can prefer `fish` for interactive sessions.
+- [x] Workspace shell PTY opens as `daytona` in the repo workspace.
 - [x] Standard-image follow-up is captured in the Daytona backend TODO and in
       this spec set.
 
 ### Phase 1: Standard runtime image
 
 - [ ] Define and publish a Noter standard Daytona runtime image.
-- [ ] Include `fish` and `tmux` in that image.
+- [ ] Include `tmux` in that image.
 - [ ] Move user-facing Daytona fallback/base-image paths onto that baseline.
 - [ ] Verify commit-pinned workspace snapshots remain compatible.
 - [ ] Verify repo-specific Daytona deps images derive from or remain compatible

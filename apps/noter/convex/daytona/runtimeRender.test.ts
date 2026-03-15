@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   renderDaytonaSandboxProgramsGeneratedTsModule,
   renderDaytonaAuthFallbackDockerfileCommands,
+  renderDaytonaCorepackPnpmRunCommand,
   renderDaytonaPrebuildDockerfileCommands,
   renderDaytonaRuntimeGeneratedTsModule,
   renderDockerfileDaytonaDeps,
@@ -75,9 +76,8 @@ describe("Daytona runtime source of truth", () => {
     const prebuildCommands = renderDaytonaPrebuildDockerfileCommands();
 
     expect(prebuildCommands).toHaveLength(authFallbackCommands.length + 1);
-    expect(prebuildCommands.slice(0, 2)).toEqual(
-      authFallbackCommands.slice(0, 2),
-    );
+    expect(prebuildCommands[0]).toBe(authFallbackCommands[0]);
+    expect(prebuildCommands[1]).toBe(renderDaytonaCorepackPnpmRunCommand());
     expect(prebuildCommands.at(-1)).toBe(authFallbackCommands.at(-1));
   });
 });

@@ -5,10 +5,6 @@ export type DaytonaRuntimeManifest = {
   pnpmVersion: string
   codexCliVersion: string
   aptPackages: readonly string[]
-  defaultShell: {
-    name: string
-    users: readonly string[]
-  }
 }
 
 export const daytonaRuntimeManifest: DaytonaRuntimeManifest
@@ -18,14 +14,6 @@ export function renderDaytonaRuntimeAptPackageList(
 ): string
 
 export function renderDaytonaRuntimeInstallPackagesRunCommand(
-  manifest?: DaytonaRuntimeManifest,
-): string
-
-export function renderDaytonaSetDefaultShellImageCommand(
-  manifest?: DaytonaRuntimeManifest,
-): string
-
-export function renderDaytonaSetDefaultShellRunCommand(
   manifest?: DaytonaRuntimeManifest,
 ): string
 

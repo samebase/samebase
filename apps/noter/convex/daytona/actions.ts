@@ -1799,7 +1799,7 @@ async function ensureDaytonaRuntimePackagesInSandbox(args: {
   sandbox: Sandbox;
 }): Promise<"already_present" | "installed"> {
   const checkResult = await args.sandbox.process.executeCommand(
-    `command -v tmux >/dev/null 2>&1 && command -v fish >/dev/null 2>&1 && command -v make >/dev/null 2>&1 && [ "$(grep "^$(id -un):" /etc/passwd | cut -d: -f7 | head -n 1 || true)" = "$(command -v fish)" ]`,
+    "command -v tmux >/dev/null 2>&1 && command -v make >/dev/null 2>&1",
     undefined,
     undefined,
     30,
@@ -1810,7 +1810,7 @@ async function ensureDaytonaRuntimePackagesInSandbox(args: {
 
   const installScript = stripIndent`
     set -e
-    if command -v tmux >/dev/null 2>&1 && command -v fish >/dev/null 2>&1 && command -v make >/dev/null 2>&1 && [ "$(grep "^$(id -un):" /etc/passwd | cut -d: -f7 | head -n 1 || true)" = "$(command -v fish)" ]; then
+    if command -v tmux >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
       exit 0
     fi
     if ! command -v apt-get >/dev/null 2>&1; then
@@ -1828,12 +1828,6 @@ async function ensureDaytonaRuntimePackagesInSandbox(args: {
     fi
     ${"$"}{prefix}apt-get update
     ${"$"}{prefix}apt-get install -y --no-install-recommends ${DAYTONA_RUNTIME_APT_PACKAGE_LIST}
-    fish_path="$(command -v fish)"
-    current_user="$(id -un)"
-    current_shell="$(grep "^${"$"}current_user:" /etc/passwd | cut -d: -f7 | head -n 1 || true)"
-    if [ "$current_shell" != "$fish_path" ]; then
-      ${"$"}{prefix}usermod -s "$fish_path" "$current_user"
-    fi
     ${"$"}{prefix}rm -rf /var/lib/apt/lists/*
   `;
   const installCommand = `bash -lc ${quoteForBash(installScript)}`;

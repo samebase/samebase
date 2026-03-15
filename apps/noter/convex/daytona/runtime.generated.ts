@@ -4,26 +4,20 @@ export const DEFAULT_BASE_IMAGE =
   "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm";
 export const DAYTONA_PNPM_VERSION = "9.15.0";
 export const DAYTONA_CODEX_CLI_VERSION = "0.114.0";
-export const DAYTONA_RUNTIME_APT_PACKAGES = ["fish", "make", "tmux"] as const;
-export const DAYTONA_RUNTIME_APT_PACKAGE_LIST = "fish make tmux";
-export const DAYTONA_SET_DEFAULT_SHELL_IMAGE_COMMAND =
-  'fish_path="$(command -v fish)" && usermod -s "$fish_path" root && if id -u daytona >/dev/null 2>&1; then usermod -s "$fish_path" daytona; else groupadd -f daytona && useradd -m -s "$fish_path" -g daytona daytona; fi';
+export const DAYTONA_RUNTIME_APT_PACKAGES = ["make", "tmux"] as const;
+export const DAYTONA_RUNTIME_APT_PACKAGE_LIST = "make tmux";
 export const DAYTONA_RUNTIME_INSTALL_PACKAGES_RUN_COMMAND =
-  "RUN apt-get update && apt-get install -y --no-install-recommends fish make tmux && rm -rf /var/lib/apt/lists/*";
-export const DAYTONA_RUNTIME_SET_DEFAULT_SHELL_RUN_COMMAND =
-  'RUN fish_path="$(command -v fish)" && usermod -s "$fish_path" root && if id -u daytona >/dev/null 2>&1; then usermod -s "$fish_path" daytona; else groupadd -f daytona && useradd -m -s "$fish_path" -g daytona daytona; fi';
+  "RUN apt-get update && apt-get install -y --no-install-recommends make tmux && rm -rf /var/lib/apt/lists/*";
 export const DAYTONA_RUNTIME_COREPACK_PNPM_RUN_COMMAND =
   "RUN corepack enable && corepack prepare pnpm@9.15.0 --activate";
 export const DAYTONA_RUNTIME_CODEX_INSTALL_RUN_COMMAND =
   "RUN npm install -g @openai/codex@0.114.0";
 export const DAYTONA_RUNTIME_AUTH_FALLBACK_DOCKERFILE_COMMANDS = [
-  "RUN apt-get update && apt-get install -y --no-install-recommends fish make tmux && rm -rf /var/lib/apt/lists/*",
-  'RUN fish_path="$(command -v fish)" && usermod -s "$fish_path" root && if id -u daytona >/dev/null 2>&1; then usermod -s "$fish_path" daytona; else groupadd -f daytona && useradd -m -s "$fish_path" -g daytona daytona; fi',
+  "RUN apt-get update && apt-get install -y --no-install-recommends make tmux && rm -rf /var/lib/apt/lists/*",
   "RUN npm install -g @openai/codex@0.114.0",
 ] as const;
 export const DAYTONA_RUNTIME_PREBUILD_DOCKERFILE_COMMANDS = [
-  "RUN apt-get update && apt-get install -y --no-install-recommends fish make tmux && rm -rf /var/lib/apt/lists/*",
-  'RUN fish_path="$(command -v fish)" && usermod -s "$fish_path" root && if id -u daytona >/dev/null 2>&1; then usermod -s "$fish_path" daytona; else groupadd -f daytona && useradd -m -s "$fish_path" -g daytona daytona; fi',
+  "RUN apt-get update && apt-get install -y --no-install-recommends make tmux && rm -rf /var/lib/apt/lists/*",
   "RUN corepack enable && corepack prepare pnpm@9.15.0 --activate",
   "RUN npm install -g @openai/codex@0.114.0",
 ] as const;

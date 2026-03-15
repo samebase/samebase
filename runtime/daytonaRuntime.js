@@ -10,10 +10,6 @@ import { fileURLToPath } from 'node:url'
  *   pnpmVersion: string;
  *   codexCliVersion: string;
  *   aptPackages: readonly string[];
- *   defaultShell: {
- *     name: string;
- *     users: readonly string[];
- *   };
  * }} DaytonaRuntimeManifest
  */
 
@@ -41,11 +37,7 @@ export const daytonaRuntimeManifest = {
   repoName: 'noter',
   pnpmVersion: '9.15.0',
   codexCliVersion: '0.114.0',
-  aptPackages: ['fish', 'make', 'tmux'],
-  defaultShell: {
-    name: 'fish',
-    users: ['root', 'daytona'],
-  },
+  aptPackages: ['make', 'tmux'],
 }
 
 /**
@@ -70,29 +62,6 @@ export function renderDaytonaRuntimeInstallPackagesRunCommand(
   )} && rm -rf /var/lib/apt/lists/*`
 }
 
-export function renderDaytonaSetDefaultShellImageCommand(
-  manifest = daytonaRuntimeManifest,
-) {
-  const shellName = manifest.defaultShell.name
-  const shellPathVar = `${shellName}_path`
-  const shellPathReference = `"$${shellPathVar}"`
-  const shellSetupParts = [
-    `${shellPathVar}="$(command -v ${shellName})"`,
-    ...manifest.defaultShell.users.map(user =>
-      user === 'root'
-        ? `usermod -s ${shellPathReference} root`
-        : `if id -u ${user} >/dev/null 2>&1; then usermod -s ${shellPathReference} ${user}; else groupadd -f ${user} && useradd -m -s ${shellPathReference} -g ${user} ${user}; fi`,
-    ),
-  ]
-  return shellSetupParts.join(' && ')
-}
-
-export function renderDaytonaSetDefaultShellRunCommand(
-  manifest = daytonaRuntimeManifest,
-) {
-  return `RUN ${renderDaytonaSetDefaultShellImageCommand(manifest)}`
-}
-
 export function renderDaytonaCorepackPnpmRunCommand(
   manifest = daytonaRuntimeManifest,
 ) {
@@ -110,7 +79,6 @@ export function renderDaytonaAuthFallbackDockerfileCommands(
 ) {
   return [
     renderDaytonaRuntimeInstallPackagesRunCommand(manifest),
-    renderDaytonaSetDefaultShellRunCommand(manifest),
     renderDaytonaCodexInstallRunCommand(manifest),
   ]
 }
@@ -120,7 +88,6 @@ export function renderDaytonaPrebuildDockerfileCommands(
 ) {
   return [
     renderDaytonaRuntimeInstallPackagesRunCommand(manifest),
-    renderDaytonaSetDefaultShellRunCommand(manifest),
     renderDaytonaCorepackPnpmRunCommand(manifest),
     renderDaytonaCodexInstallRunCommand(manifest),
   ]
@@ -136,14 +103,8 @@ export function renderDaytonaRuntimeGeneratedTsModule(
   const aptPackageList = JSON.stringify(
     renderDaytonaRuntimeAptPackageList(manifest),
   )
-  const setDefaultShellImageCommand = JSON.stringify(
-    renderDaytonaSetDefaultShellImageCommand(manifest),
-  )
   const installPackagesRunCommand = JSON.stringify(
     renderDaytonaRuntimeInstallPackagesRunCommand(manifest),
-  )
-  const setDefaultShellRunCommand = JSON.stringify(
-    renderDaytonaSetDefaultShellRunCommand(manifest),
   )
   const corepackPnpmRunCommand = JSON.stringify(
     renderDaytonaCorepackPnpmRunCommand(manifest),
@@ -169,9 +130,7 @@ export const DAYTONA_PNPM_VERSION = ${pnpmVersion};
 export const DAYTONA_CODEX_CLI_VERSION = ${codexCliVersion};
 export const DAYTONA_RUNTIME_APT_PACKAGES = ${aptPackages} as const;
 export const DAYTONA_RUNTIME_APT_PACKAGE_LIST = ${aptPackageList};
-export const DAYTONA_SET_DEFAULT_SHELL_IMAGE_COMMAND = ${setDefaultShellImageCommand};
 export const DAYTONA_RUNTIME_INSTALL_PACKAGES_RUN_COMMAND = ${installPackagesRunCommand};
-export const DAYTONA_RUNTIME_SET_DEFAULT_SHELL_RUN_COMMAND = ${setDefaultShellRunCommand};
 export const DAYTONA_RUNTIME_COREPACK_PNPM_RUN_COMMAND = ${corepackPnpmRunCommand};
 export const DAYTONA_RUNTIME_CODEX_INSTALL_RUN_COMMAND = ${codexInstallRunCommand};
 export const DAYTONA_RUNTIME_AUTH_FALLBACK_DOCKERFILE_COMMANDS = ${authFallbackDockerfileCommands} as const;
@@ -194,8 +153,6 @@ export const DAYTONA_ENSURE_REPO_AUTO_CD_PROGRAM_SOURCE = ${ensureRepoAutoCdProg
 export function renderDockerfileDaytonaDeps(manifest = daytonaRuntimeManifest) {
   const installPackagesRunCommand =
     renderDaytonaRuntimeInstallPackagesRunCommand(manifest)
-  const setDefaultShellRunCommand =
-    renderDaytonaSetDefaultShellRunCommand(manifest)
   const corepackPnpmRunCommand = renderDaytonaCorepackPnpmRunCommand(manifest)
   const codexInstallRunCommand = renderDaytonaCodexInstallRunCommand(manifest)
 
@@ -210,7 +167,6 @@ ARG REPO_NAME=${manifest.repoName}
 WORKDIR \${WORKSPACE_DIR}/\${REPO_NAME}
 
 ${installPackagesRunCommand}
-${setDefaultShellRunCommand}
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY patches patches
