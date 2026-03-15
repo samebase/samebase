@@ -1,6 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DAYTONA_CODEX_HOME } from "./sandboxUser";
+
+const originalDaytonaApiUrl = process.env.DAYTONA_API_URL;
+const originalDaytonaApiToken = process.env.DAYTONA_API_TOKEN;
 
 const mockState = vi.hoisted(() => {
   let sandbox: unknown = null;
@@ -256,6 +259,19 @@ describe("openWorkspacePtySession", () => {
     mockState.getToolboxProxyUrl.mockClear();
   });
 
+  afterEach(() => {
+    if (originalDaytonaApiUrl === undefined) {
+      delete process.env.DAYTONA_API_URL;
+    } else {
+      process.env.DAYTONA_API_URL = originalDaytonaApiUrl;
+    }
+    if (originalDaytonaApiToken === undefined) {
+      delete process.env.DAYTONA_API_TOKEN;
+    } else {
+      process.env.DAYTONA_API_TOKEN = originalDaytonaApiToken;
+    }
+  });
+
   it("returns the actual Daytona PTY session id after createPty rewrites it", async () => {
     const handler = readActionHandler(openWorkspacePtySession);
     const result = await handler(createWorkspaceActionContext(), {
@@ -300,6 +316,42 @@ describe("openWorkspacePtySession", () => {
       sandboxId: "sandbox-1",
       sandboxName: "noter-sandbox",
       initialOutput: "dev-server logs\n",
+    });
+  });
+
+  it("cleans up dev server PTYs using the rewritten session id on failure", async () => {
+    const sandbox = createSandbox();
+    const killedSessionIds: string[] = [];
+    sandbox.process.connectPty = async () => {
+      return {
+        waitForConnection: async () => {},
+        sendInput: async () => {
+          throw new Error("simulated sendInput failure");
+        },
+        disconnect: async () => {},
+      };
+    };
+    sandbox.process.killPtySession = async (sessionId) => {
+      killedSessionIds.push(sessionId);
+    };
+    mockState.sandbox = sandbox;
+
+    const handler = readActionHandler(openWorkspaceDevServerPtySession);
+    const result = await handler(createWorkspaceActionContext(), {
+      vaultId: "vault-1",
+      branch: "main",
+      cols: 120,
+      rows: 32,
+    });
+
+    expect(mockState.requestedSessionId).toMatch(
+      /^noter-dev-server-pty-vault-1-/,
+    );
+    expect(mockState.requestedSessionId).not.toBe("actual-pty-session-1");
+    expect(killedSessionIds).toEqual(["actual-pty-session-1"]);
+    expect(result).toMatchObject({
+      ok: false,
+      message: "simulated sendInput failure",
     });
   });
 
