@@ -39,7 +39,7 @@ describe("ensureRepoAutoCd", () => {
   it("keeps the profile update idempotent", async () => {
     const tempDir = await createTempDir();
     const bashrc = path.join(tempDir, ".bashrc");
-    await fs.writeFile(bashrc, "set -gx FOO bar\n", "utf8");
+    await fs.writeFile(bashrc, "export FOO=bar\n", "utf8");
 
     await ensureRepoAutoCd({
       repoPath: "/home/daytona/workspace/noter",
@@ -51,7 +51,7 @@ describe("ensureRepoAutoCd", () => {
     });
 
     await expect(fs.readFile(bashrc, "utf8")).resolves.toBe(
-      "set -gx FOO bar\ncd '/home/daytona/workspace/noter'\n",
+      "export FOO=bar\ncd '/home/daytona/workspace/noter'\n",
     );
   });
 });
