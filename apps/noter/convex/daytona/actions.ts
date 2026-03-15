@@ -775,6 +775,16 @@ async function writeDaytonaSandboxProgramToBuildContext(args: {
   await fs.promises.writeFile(targetPath, args.source, "utf8");
 }
 
+async function copyDaytonaDirectoryToBuildContext(args: {
+  buildContextDir: string;
+  sourceDir: string;
+  targetRelativePath: string;
+}): Promise<void> {
+  const targetPath = path.join(args.buildContextDir, args.targetRelativePath);
+  await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
+  await fs.promises.cp(args.sourceDir, targetPath, { recursive: true });
+}
+
 async function resolveCurrentRepoIdentity(repoDir: string): Promise<{
   owner: string;
   repo: string;
@@ -1804,6 +1814,7 @@ async function ensureDaytonaRuntimePackagesInSandbox(args: {
   sandbox: Sandbox;
 }): Promise<"already_present" | "installed"> {
   const shellSyncCheckScript = stripIndent`
+    shells_mismatch=0
     command -v tmux >/dev/null 2>&1
     command -v fish >/dev/null 2>&1
     command -v make >/dev/null 2>&1
@@ -1811,9 +1822,11 @@ async function ensureDaytonaRuntimePackagesInSandbox(args: {
     for target_user in root daytona; do
       current_shell="$(grep "^${"$"}target_user:" /etc/passwd | cut -d: -f7 | head -n 1 || true)"
       if [ "$current_shell" != "$fish_path" ]; then
-        exit 1
+        shells_mismatch=1
+        break
       fi
     done
+    [ "$shells_mismatch" = "0" ]
   `;
   const checkScript = stripIndent`
     set -e
@@ -4721,6 +4734,10 @@ export const buildCommitPinnedSnapshot = internalAction({
         path.join(os.tmpdir(), "noter-prebuild-"),
       );
       const buildContextDir = tmpRoot;
+      const workspaceRoot = findWorkspaceRootDir(process.cwd());
+      if (!workspaceRoot) {
+        throw new Error("Failed to locate the Noter workspace root.");
+      }
       const repoDir = path.join(
         buildContextDir,
         DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR,
@@ -4746,6 +4763,11 @@ export const buildCommitPinnedSnapshot = internalAction({
           programRelativePath:
             DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_PATH,
           source: DAYTONA_ENSURE_REPO_AUTO_CD_PROGRAM_SOURCE,
+        });
+        await copyDaytonaDirectoryToBuildContext({
+          buildContextDir,
+          sourceDir: path.join(workspaceRoot, DAYTONA_FISH_ASSETS_REPO_PATH),
+          targetRelativePath: DAYTONA_FISH_ASSETS_REPO_PATH,
         });
 
         const repoPath = `${DEFAULT_WORKSPACE_DIR}/${args.repo}`;
@@ -4800,7 +4822,7 @@ export const buildCommitPinnedSnapshot = internalAction({
           "USER root",
           `WORKDIR ${repoPath}`,
           `COPY ${DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR}/ ${repoPath}`,
-          `COPY ${DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR}/${DAYTONA_FISH_ASSETS_REPO_PATH} ${DAYTONA_FISH_ASSETS_IMAGE_PATH}`,
+          `COPY ${DAYTONA_FISH_ASSETS_REPO_PATH} ${DAYTONA_FISH_ASSETS_IMAGE_PATH}`,
           `COPY ${DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_PATH} ${DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_TEMP_PATH}`,
           ...DAYTONA_RUNTIME_PREBUILD_DOCKERFILE_COMMANDS,
         ];
