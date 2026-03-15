@@ -1,4 +1,5 @@
 const CODEX_NO_ALT_SCREEN_LINE = 'no_alt_screen = true'
+const CODEX_DEFAULT_MODEL_LINE = 'model = "gpt-5.4"'
 const CODEX_TRUSTED_LINE = 'trust_level = "trusted"'
 
 /**
@@ -50,6 +51,47 @@ export function upsertCodexNoAltScreenConfig(existingConfig) {
 
   return ensureTrailingNewline(
     `${normalized.replace(/\s*$/u, '')}\n${CODEX_NO_ALT_SCREEN_LINE}`,
+  )
+}
+
+/**
+ * Ensure the shared Daytona Codex config pins the default model so startup does
+ * not stop on the one-time model migration chooser.
+ *
+ * @param {string} existingConfig
+ * @returns {string}
+ */
+export function upsertCodexDefaultModelConfig(existingConfig) {
+  const normalized = existingConfig.replace(/\r\n/g, '\n')
+  const existingSettingPattern = /^model\s*=.*$/m
+
+  if (existingSettingPattern.test(normalized)) {
+    return ensureTrailingNewline(
+      normalized.replace(existingSettingPattern, CODEX_DEFAULT_MODEL_LINE),
+    )
+  }
+
+  const firstTableMatch = normalized.match(/^\[[^\]\n]+\]\s*$/m)
+  if (firstTableMatch && typeof firstTableMatch.index === 'number') {
+    const beforeTables = normalized
+      .slice(0, firstTableMatch.index)
+      .replace(/\s*$/u, '')
+    const fromFirstTable = normalized
+      .slice(firstTableMatch.index)
+      .replace(/^\n+/u, '')
+    const prefix = beforeTables.length > 0 ? `${beforeTables}\n\n` : ''
+    return ensureTrailingNewline(
+      `${prefix}${CODEX_DEFAULT_MODEL_LINE}\n\n${fromFirstTable}`,
+    )
+  }
+
+  const trimmed = normalized.trim()
+  if (trimmed.length === 0) {
+    return `${CODEX_DEFAULT_MODEL_LINE}\n`
+  }
+
+  return ensureTrailingNewline(
+    `${normalized.replace(/\s*$/u, '')}\n${CODEX_DEFAULT_MODEL_LINE}`,
   )
 }
 

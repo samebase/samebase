@@ -8,6 +8,7 @@ import { Daytona, type Sandbox } from "@daytonaio/sdk";
 import { randomUUID } from "crypto";
 import { Infer, v } from "convex/values";
 import {
+  upsertCodexDefaultModelConfig,
   upsertCodexNoAltScreenConfig,
   upsertCodexProjectTrustConfig,
 } from "../../../../runtime/codexConfig.js";
@@ -745,7 +746,8 @@ async function ensureCodexConfigInSandbox(args: {
     codexHome,
   });
   const nextConfig = (() => {
-    const withNoAltScreen = upsertCodexNoAltScreenConfig(existingConfig);
+    const withDefaultModel = upsertCodexDefaultModelConfig(existingConfig);
+    const withNoAltScreen = upsertCodexNoAltScreenConfig(withDefaultModel);
     const trustedProjectPath = args.trustedProjectPath?.trim();
     if (!trustedProjectPath) {
       return withNoAltScreen;

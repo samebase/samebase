@@ -1,10 +1,33 @@
 import { describe, expect, it } from "vitest";
 import {
+  upsertCodexDefaultModelConfig,
   upsertCodexNoAltScreenConfig,
   upsertCodexProjectTrustConfig,
 } from "../../../../runtime/codexConfig.js";
 
 describe("codexConfig", () => {
+  it("adds the default model to an empty config", () => {
+    expect(upsertCodexDefaultModelConfig("")).toBe('model = "gpt-5.4"\n');
+  });
+
+  it("replaces an existing model setting", () => {
+    expect(
+      upsertCodexDefaultModelConfig(
+        `model = "gpt-5.3-codex"\nno_alt_screen = true\n`,
+      ),
+    ).toBe(`model = "gpt-5.4"\nno_alt_screen = true\n`);
+  });
+
+  it("inserts the default model before the first table", () => {
+    expect(
+      upsertCodexDefaultModelConfig(
+        `no_alt_screen = true\n\n[projects."/repo"]\ntrust_level = "trusted"\n`,
+      ),
+    ).toBe(
+      `no_alt_screen = true\n\nmodel = "gpt-5.4"\n\n[projects."/repo"]\ntrust_level = "trusted"\n`,
+    );
+  });
+
   it("adds no_alt_screen to an empty config", () => {
     expect(upsertCodexNoAltScreenConfig("")).toBe("no_alt_screen = true\n");
   });

@@ -73,7 +73,9 @@ If running this from a Codex worktree, use the exact temporary repo prefix
 4. The in-app shell opens as `daytona`, not `root`, and starts in the repo
    workspace directory.
 5. Typing `codex` enters the Codex CLI immediately in the workspace sandbox.
-6. The repo should already be trusted; there should be no interactive
+6. There should be no model-migration chooser such as `Try new model` /
+   `Use existing model`.
+7. The repo should already be trusted; there should be no interactive
    `Yes, continue` / `No, quit` trust prompt for that repo path.
 
 ## Variant B: Existing repo
@@ -101,7 +103,9 @@ If running this from a Codex worktree, use the exact temporary repo prefix
 3. The in-app shell opens as `daytona`, not `root`, and starts in the repo
    workspace directory.
 4. Typing `codex` enters the Codex CLI immediately in the workspace sandbox.
-5. The repo should already be trusted; there should be no interactive trust
+5. There should be no model-migration chooser such as `Try new model` /
+   `Use existing model`.
+6. The repo should already be trusted; there should be no interactive trust
    prompt for that repo path.
 
 ## Optional Evidence
