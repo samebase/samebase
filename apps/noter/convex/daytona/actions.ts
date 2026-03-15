@@ -846,7 +846,14 @@ async function ensureDaytonaCodexAuthVolume(args: {
     }
 
     await sleep(DAYTONA_VOLUME_READY_POLL_MS);
-    volume = await args.daytona.volume.get(volumeName);
+    try {
+      volume = await args.daytona.volume.get(volumeName);
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        throw error;
+      }
+      volume = await args.daytona.volume.get(volumeName, true);
+    }
   }
 }
 
