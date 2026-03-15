@@ -82,4 +82,18 @@ describe("Daytona runtime source of truth", () => {
       authFallbackCommands.at(-1),
     ]);
   });
+
+  it("creates and owns fish config directories before verifying the daytona user", () => {
+    const dockerfile = renderDockerfileDaytonaDeps();
+
+    expect(dockerfile).toContain(
+      "ensure_fish_home_dirs /home/daytona daytona daytona",
+    );
+    expect(dockerfile).toContain(
+      'mkdir -p "$target_home" "$target_home/.config/fish/functions" "$target_home/.config/fish/completions" "$target_home/.config/fish/conf.d" "$target_home/.cache" "$target_home/.local/share"',
+    );
+    expect(dockerfile).toContain(
+      'chown "$target_owner:$target_group" "$target_home"',
+    );
+  });
 });
