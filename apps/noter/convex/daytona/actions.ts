@@ -93,6 +93,7 @@ const DAYTONA_TERMINAL_TTL_SECONDS = 300;
 const DAYTONA_DEV_LOG = "/tmp/noter-dev.log";
 const DAYTONA_DEV_SERVER_TMUX_SESSION = "noter-dev-server";
 const DAYTONA_SANDBOX_USER = "daytona";
+const DAYTONA_SANDBOX_GROUP = "daytona";
 const DAYTONA_SANDBOX_HOME = "/home/daytona";
 // Keep the shared Codex volume under the active sandbox user home so the same
 // writable Codex state is reused across auth and workspace sandboxes.
@@ -943,20 +944,32 @@ async function ensureCodexHomeWritableInSandbox(args: {
   const fixScript = stripIndent`
     set -e
     codex_home=${quoteForBash(DAYTONA_CODEX_HOME)}
+    target_user=${quoteForBash(DAYTONA_SANDBOX_USER)}
+    target_group=${quoteForBash(DAYTONA_SANDBOX_GROUP)}
     mkdir -p "$codex_home"
-    current_user="$(id -un)"
-    current_group="$(id -gn)"
-    if [ ! -w "$codex_home" ]; then
-      if [ "$(id -u)" = "0" ]; then
-        chown -R "$current_user:$current_group" "$codex_home"
-      elif command -v sudo >/dev/null 2>&1; then
-        sudo chown -R "$current_user:$current_group" "$codex_home"
-      fi
+    if [ "$(id -u)" = "0" ]; then
+      chown -R "$target_user:$target_group" "$codex_home"
+    elif command -v sudo >/dev/null 2>&1; then
+      sudo chown -R "$target_user:$target_group" "$codex_home"
     fi
-    chmod -R u+rwX "$codex_home" || true
+    chmod -R u+rwX "$codex_home"
     mkdir -p "$codex_home/log"
-    touch "$codex_home/.noter-write-check"
-    rm -f "$codex_home/.noter-write-check"
+    for path in "$codex_home" "$codex_home/log"; do
+      if [ ! -w "$path" ]; then
+        echo "__NOTER_CODEX_HOME_NOT_WRITABLE__:$path"
+        exit 1
+      fi
+    done
+    for path in "$codex_home/auth.json" "$codex_home/config.toml"; do
+      if [ -e "$path" ] && [ ! -w "$path" ]; then
+        echo "__NOTER_CODEX_FILE_NOT_WRITABLE__:$path"
+        exit 1
+      fi
+    done
+    for path in "$codex_home/.noter-write-check" "$codex_home/log/.noter-write-check"; do
+      : > "$path"
+      rm -f "$path"
+    done
   `;
   const result = await args.sandbox.process.executeCommand(
     `bash -lc ${quoteForBash(fixScript)}`,
