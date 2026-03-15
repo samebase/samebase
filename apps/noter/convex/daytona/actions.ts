@@ -101,6 +101,8 @@ const DAYTONA_TERMINAL_PORT = 22222;
 const DAYTONA_TERMINAL_TTL_SECONDS = 300;
 const DAYTONA_DEV_LOG = "/tmp/noter-dev.log";
 const DAYTONA_DEV_SERVER_TMUX_SESSION = "noter-dev-server";
+const DAYTONA_RUNTIME_COMMAND_PROBE =
+  "command -v tmux >/dev/null 2>&1 && command -v make >/dev/null 2>&1";
 // Keep the shared Codex volume under the active sandbox user home so the same
 // writable Codex state is reused across auth and workspace sandboxes.
 const DAYTONA_CODEX_HOME_FIX_TIMEOUT_SECONDS = 60;
@@ -1799,7 +1801,7 @@ async function ensureDaytonaRuntimePackagesInSandbox(args: {
   sandbox: Sandbox;
 }): Promise<"already_present" | "installed"> {
   const checkResult = await args.sandbox.process.executeCommand(
-    "command -v tmux >/dev/null 2>&1 && command -v make >/dev/null 2>&1",
+    DAYTONA_RUNTIME_COMMAND_PROBE,
     undefined,
     undefined,
     30,
@@ -1810,7 +1812,7 @@ async function ensureDaytonaRuntimePackagesInSandbox(args: {
 
   const installScript = stripIndent`
     set -e
-    if command -v tmux >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+    if ${DAYTONA_RUNTIME_COMMAND_PROBE}; then
       exit 0
     fi
     if ! command -v apt-get >/dev/null 2>&1; then
