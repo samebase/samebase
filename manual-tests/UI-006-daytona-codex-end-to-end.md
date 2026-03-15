@@ -11,9 +11,20 @@ This test intentionally covers two workspace variants:
 1. a newly created noter-managed repo
 2. an existing repo with a pre-existing Daytona snapshot path
 
+## Current Validated Scope
+
+- Validated locally from the worktree app at
+  [http://127.0.0.1:5174/](http://127.0.0.1:5174/).
+- Validated for Variant B only.
+- Production coverage and Variant A should be run separately and recorded when
+  completed.
+
 ## Preconditions
 
-- Production app is reachable at [https://noter.md](https://noter.md).
+- The target app under test is reachable.
+- For local/worktree validation, use
+  [http://127.0.0.1:5174/](http://127.0.0.1:5174/).
+- For deployed validation, use [https://noter.md](https://noter.md).
 - Tester is signed in.
 - Required provider connections for repo creation already exist.
 - Run in an unconstrained browser layout. Do not force mobile viewport or
@@ -24,8 +35,8 @@ This test intentionally covers two workspace variants:
 ## Test Data
 
 - Temporary repo name for variant A: `tmp-<worktree-id>-codex-e2e`
-- Existing repo for variant B: any reachable repo that already has Daytona
-  developer tools enabled
+- Existing repo for variant B: the connected `noter` repo under test. Do not
+  substitute an arbitrary repo.
 
 If running this from a Codex worktree, use the exact temporary repo prefix
 `tmp-<worktree-id>-` required by repo policy.
@@ -82,7 +93,7 @@ If running this from a Codex worktree, use the exact temporary repo prefix
 
 ### Steps
 
-1. Choose an existing repo card with Daytona developer tools.
+1. Choose the existing connected `noter` repo card under test.
 2. Expand `Developer tools`.
 3. Check the latest snapshot shown in the UI.
 4. Again, verify the snapshot name in the UI matches the expected repo and
