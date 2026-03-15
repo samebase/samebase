@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   renderDaytonaSandboxProgramsGeneratedTsModule,
   renderDaytonaAuthFallbackDockerfileCommands,
+  renderDaytonaCorepackPnpmRunCommand,
   renderDaytonaPrebuildDockerfileCommands,
   renderDaytonaRuntimeGeneratedTsModule,
   renderDockerfileDaytonaDeps,
@@ -75,9 +76,29 @@ describe("Daytona runtime source of truth", () => {
     const prebuildCommands = renderDaytonaPrebuildDockerfileCommands();
 
     expect(prebuildCommands).toHaveLength(authFallbackCommands.length + 1);
-    expect(prebuildCommands.slice(0, 2)).toEqual(
-      authFallbackCommands.slice(0, 2),
+    expect(prebuildCommands).toEqual([
+      ...authFallbackCommands.slice(0, -1),
+      renderDaytonaCorepackPnpmRunCommand(),
+      authFallbackCommands.at(-1),
+    ]);
+  });
+
+  it("creates and owns fish config directories before verifying the daytona user", () => {
+    const dockerfile = renderDockerfileDaytonaDeps();
+
+    expect(dockerfile).toContain(
+      "ensure_fish_home_dirs /home/daytona daytona daytona",
     );
-    expect(prebuildCommands.at(-1)).toBe(authFallbackCommands.at(-1));
+    expect(dockerfile).toContain(
+      'mkdir -p "$target_home" "$target_home/.config/fish/functions" "$target_home/.config/fish/completions" "$target_home/.config/fish/conf.d" "$target_home/.cache" "$target_home/.local/share"',
+    );
+    expect(dockerfile).toContain(
+      'chown "$target_owner:$target_group" "$target_home"',
+    );
+    expect(dockerfile).toContain(
+      'curl -fsSL "$fisher_url" -o "$target_home/.config/fish/functions/fisher.fish"',
+    );
+    expect(dockerfile).toContain("fisher install $fisher_plugin $pure_plugin");
+    expect(dockerfile).not.toContain("COPY runtime/daytonaFishAssets");
   });
 });

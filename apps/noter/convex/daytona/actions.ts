@@ -1798,8 +1798,27 @@ function formatDurationMs(ms: number): string {
 async function ensureDaytonaRuntimePackagesInSandbox(args: {
   sandbox: Sandbox;
 }): Promise<"already_present" | "installed"> {
+  const shellSyncCheckScript = stripIndent`
+    shells_mismatch=0
+    command -v tmux >/dev/null 2>&1
+    command -v fish >/dev/null 2>&1
+    command -v make >/dev/null 2>&1
+    fish_path="$(command -v fish)"
+    for target_user in root daytona; do
+      current_shell="$(grep "^${"$"}target_user:" /etc/passwd | cut -d: -f7 | head -n 1 || true)"
+      if [ "$current_shell" != "$fish_path" ]; then
+        shells_mismatch=1
+        break
+      fi
+    done
+    [ "$shells_mismatch" = "0" ]
+  `;
+  const checkScript = stripIndent`
+    set -e
+    ${shellSyncCheckScript}
+  `;
   const checkResult = await args.sandbox.process.executeCommand(
-    `command -v tmux >/dev/null 2>&1 && command -v fish >/dev/null 2>&1 && command -v make >/dev/null 2>&1 && [ "$(grep "^$(id -un):" /etc/passwd | cut -d: -f7 | head -n 1 || true)" = "$(command -v fish)" ]`,
+    `bash -lc ${quoteForBash(checkScript)}`,
     undefined,
     undefined,
     30,
@@ -1810,7 +1829,9 @@ async function ensureDaytonaRuntimePackagesInSandbox(args: {
 
   const installScript = stripIndent`
     set -e
-    if command -v tmux >/dev/null 2>&1 && command -v fish >/dev/null 2>&1 && command -v make >/dev/null 2>&1 && [ "$(grep "^$(id -un):" /etc/passwd | cut -d: -f7 | head -n 1 || true)" = "$(command -v fish)" ]; then
+    if
+      ${shellSyncCheckScript}
+    then
       exit 0
     fi
     if ! command -v apt-get >/dev/null 2>&1; then
@@ -1829,11 +1850,23 @@ async function ensureDaytonaRuntimePackagesInSandbox(args: {
     ${"$"}{prefix}apt-get update
     ${"$"}{prefix}apt-get install -y --no-install-recommends ${DAYTONA_RUNTIME_APT_PACKAGE_LIST}
     fish_path="$(command -v fish)"
-    current_user="$(id -un)"
-    current_shell="$(grep "^${"$"}current_user:" /etc/passwd | cut -d: -f7 | head -n 1 || true)"
-    if [ "$current_shell" != "$fish_path" ]; then
-      ${"$"}{prefix}usermod -s "$fish_path" "$current_user"
-    fi
+    ensure_user_shell() {
+      target_user="$1"
+      current_shell="$(grep "^${"$"}target_user:" /etc/passwd | cut -d: -f7 | head -n 1 || true)"
+      if [ -n "$current_shell" ]; then
+        if [ "$current_shell" != "$fish_path" ]; then
+          ${"$"}{prefix}usermod -s "$fish_path" "$target_user"
+        fi
+        return 0
+      fi
+      if [ "$target_user" = "root" ]; then
+        return 0
+      fi
+      ${"$"}{prefix}groupadd -f "$target_user"
+      ${"$"}{prefix}useradd -m -s "$fish_path" -g "$target_user" "$target_user"
+    }
+    ensure_user_shell root
+    ensure_user_shell daytona
     ${"$"}{prefix}rm -rf /var/lib/apt/lists/*
   `;
   const installCommand = `bash -lc ${quoteForBash(installScript)}`;

@@ -41,12 +41,14 @@ export const daytonaRuntimeManifest = {
   repoName: 'noter',
   pnpmVersion: '9.15.0',
   codexCliVersion: '0.114.0',
-  aptPackages: ['fish', 'make', 'tmux'],
+  aptPackages: ['curl', 'fish', 'make', 'tmux'],
   defaultShell: {
     name: 'fish',
     users: ['root', 'daytona'],
   },
 }
+export const DAYTONA_FISHER_VERSION = '4.4.8'
+export const DAYTONA_PURE_VERSION = 'v4.9.0'
 
 /**
  * @param {readonly string[]} values
@@ -54,6 +56,18 @@ export const daytonaRuntimeManifest = {
  */
 function renderStringArrayLiteral(values) {
   return values.map(value => JSON.stringify(value)).join(', ')
+}
+
+/**
+ * @param {string} value
+ * @returns {string}
+ */
+export function renderTemplateLiteralString(value) {
+  const escaped = value
+    .replace(/\\/g, '\\\\')
+    .replace(/`/g, '\\`')
+    .replace(/\$\{/g, '\\${')
+  return `\`${escaped}\``
 }
 
 export function renderDaytonaRuntimeAptPackageList(
@@ -99,6 +113,80 @@ export function renderDaytonaCorepackPnpmRunCommand(
   return `RUN corepack enable && corepack prepare pnpm@${manifest.pnpmVersion} --activate`
 }
 
+export function renderDaytonaInstallFishToolingScript(
+  _manifest = daytonaRuntimeManifest,
+) {
+  return [
+    'set -e',
+    'if ! command -v fish >/dev/null 2>&1; then',
+    '  echo "__NOTER_FISH_MISSING__"',
+    '  exit 1',
+    'fi',
+    `fisher_url="https://raw.githubusercontent.com/jorgebucaran/fisher/${DAYTONA_FISHER_VERSION}/functions/fisher.fish"`,
+    `fisher_plugin="jorgebucaran/fisher@${DAYTONA_FISHER_VERSION}"`,
+    `pure_plugin="pure-fish/pure@${DAYTONA_PURE_VERSION}"`,
+    'ensure_fish_home_dirs() {',
+    '  target_home="$1"',
+    '  target_owner="$2"',
+    '  target_group="$3"',
+    '  mkdir -p "$target_home" "$target_home/.config/fish/functions" "$target_home/.config/fish/completions" "$target_home/.config/fish/conf.d" "$target_home/.cache" "$target_home/.local/share"',
+    '  chown "$target_owner:$target_group" "$target_home"',
+    '  chown -R "$target_owner:$target_group" "$target_home/.config" "$target_home/.cache" "$target_home/.local"',
+    '}',
+    'run_fish_command() {',
+    '  target_user="$1"',
+    '  target_home="$2"',
+    '  fish_command="$3"',
+    '  if [ "$target_user" = "root" ]; then',
+    '    HOME="$target_home" XDG_CONFIG_HOME="$target_home/.config" XDG_CACHE_HOME="$target_home/.cache" XDG_DATA_HOME="$target_home/.local/share" fish -lc "$fish_command"',
+    '    return 0',
+    '  fi',
+    '  env HOME="$target_home" USER="$target_user" LOGNAME="$target_user" XDG_CONFIG_HOME="$target_home/.config" XDG_CACHE_HOME="$target_home/.cache" XDG_DATA_HOME="$target_home/.local/share" su -m -s "$(command -v fish)" "$target_user" -c "$fish_command"',
+    '}',
+    'install_fish_tooling() {',
+    '  target_user="$1"',
+    '  target_home="$2"',
+    '  target_owner="$3"',
+    '  target_group="$4"',
+    '  ensure_fish_home_dirs "$target_home" "$target_owner" "$target_group"',
+    '  curl -fsSL "$fisher_url" -o "$target_home/.config/fish/functions/fisher.fish"',
+    '  chown -R "$target_owner:$target_group" "$target_home/.config" "$target_home/.cache" "$target_home/.local"',
+    '  fish_command="functions -q fisher; or source ~/.config/fish/functions/fisher.fish; fisher install $fisher_plugin $pure_plugin"',
+    '  run_fish_command "$target_user" "$target_home" "$fish_command"',
+    '  chown -R "$target_owner:$target_group" "$target_home/.config" "$target_home/.cache" "$target_home/.local"',
+    '}',
+    'verify_fish_tooling() {',
+    '  target_user="$1"',
+    '  target_home="$2"',
+    '  fish_command="functions -q fisher; and test -f ~/.config/fish/conf.d/pure.fish; and test -f ~/.config/fish/functions/fish_prompt.fish; and fisher list | string match -q \'*pure-fish/pure*\'"',
+    '  run_fish_command "$target_user" "$target_home" "$fish_command"',
+    '}',
+    'ensure_fish_home_dirs /root root root',
+    'if id -u daytona >/dev/null 2>&1; then',
+    '  ensure_fish_home_dirs /home/daytona daytona daytona',
+    'fi',
+    'if verify_fish_tooling root /root; then',
+    '  if ! id -u daytona >/dev/null 2>&1 || verify_fish_tooling daytona /home/daytona; then',
+    '    exit 0',
+    '  fi',
+    'fi',
+    'install_fish_tooling root /root root root',
+    'if id -u daytona >/dev/null 2>&1; then',
+    '  install_fish_tooling daytona /home/daytona daytona daytona',
+    'fi',
+    'verify_fish_tooling root /root',
+    'if id -u daytona >/dev/null 2>&1; then',
+    '  verify_fish_tooling daytona /home/daytona',
+    'fi',
+  ].join('\n')
+}
+
+export function renderDaytonaInstallFishToolingRunCommand(
+  manifest = daytonaRuntimeManifest,
+) {
+  return `RUN <<'EOF'\n${renderDaytonaInstallFishToolingScript(manifest)}\nEOF`
+}
+
 export function renderDaytonaCodexInstallRunCommand(
   manifest = daytonaRuntimeManifest,
 ) {
@@ -111,6 +199,7 @@ export function renderDaytonaAuthFallbackDockerfileCommands(
   return [
     renderDaytonaRuntimeInstallPackagesRunCommand(manifest),
     renderDaytonaSetDefaultShellRunCommand(manifest),
+    renderDaytonaInstallFishToolingRunCommand(manifest),
     renderDaytonaCodexInstallRunCommand(manifest),
   ]
 }
@@ -121,6 +210,7 @@ export function renderDaytonaPrebuildDockerfileCommands(
   return [
     renderDaytonaRuntimeInstallPackagesRunCommand(manifest),
     renderDaytonaSetDefaultShellRunCommand(manifest),
+    renderDaytonaInstallFishToolingRunCommand(manifest),
     renderDaytonaCorepackPnpmRunCommand(manifest),
     renderDaytonaCodexInstallRunCommand(manifest),
   ]
@@ -180,7 +270,7 @@ export const DAYTONA_RUNTIME_PREBUILD_DOCKERFILE_COMMANDS = ${prebuildDockerfile
 }
 
 export function renderDaytonaSandboxProgramsGeneratedTsModule() {
-  const ensureRepoAutoCdProgramSource = JSON.stringify(
+  const ensureRepoAutoCdProgramSource = renderTemplateLiteralString(
     fs.readFileSync(ensureRepoAutoCdProgramPath, 'utf8'),
   )
 
@@ -196,6 +286,8 @@ export function renderDockerfileDaytonaDeps(manifest = daytonaRuntimeManifest) {
     renderDaytonaRuntimeInstallPackagesRunCommand(manifest)
   const setDefaultShellRunCommand =
     renderDaytonaSetDefaultShellRunCommand(manifest)
+  const installFishToolingRunCommand =
+    renderDaytonaInstallFishToolingRunCommand(manifest)
   const corepackPnpmRunCommand = renderDaytonaCorepackPnpmRunCommand(manifest)
   const codexInstallRunCommand = renderDaytonaCodexInstallRunCommand(manifest)
 
@@ -211,6 +303,7 @@ WORKDIR \${WORKSPACE_DIR}/\${REPO_NAME}
 
 ${installPackagesRunCommand}
 ${setDefaultShellRunCommand}
+${installFishToolingRunCommand}
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY patches patches
