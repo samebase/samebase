@@ -312,6 +312,15 @@ export async function ensureSandboxPreferredInteractiveShell(args: {
   const timeoutSeconds = args.timeoutSeconds ?? DEFAULT_REPAIR_TIMEOUT_SECONDS;
   const ensureScript = stripIndent`
     set -e
+    prefix=""
+    if [ "$(id -u)" != "0" ]; then
+      if command -v sudo >/dev/null 2>&1; then
+        prefix="sudo "
+      else
+        echo "__NOTER_INTERACTIVE_SHELL_PRIVILEGE_MISSING__"
+        exit 1
+      fi
+    fi
     if ! command -v fish >/dev/null 2>&1; then
       exit 0
     fi
@@ -321,15 +330,15 @@ export async function ensureSandboxPreferredInteractiveShell(args: {
       current_shell="$(grep "^${"$"}target_user:" /etc/passwd | cut -d: -f7 | head -n 1 || true)"
       if [ -n "$current_shell" ]; then
         if [ "$current_shell" != "$target_shell" ]; then
-          usermod -s "$target_shell" "$target_user"
+          ${"$"}{prefix}usermod -s "$target_shell" "$target_user"
         fi
         return 0
       fi
       if [ "$target_user" = "root" ]; then
         return 0
       fi
-      groupadd -f "$target_user"
-      useradd -m -s "$target_shell" -g "$target_user" "$target_user"
+      ${"$"}{prefix}groupadd -f "$target_user"
+      ${"$"}{prefix}useradd -m -s "$target_shell" -g "$target_user" "$target_user"
     }
     ensure_user_shell root
     ensure_user_shell ${quoteForShell(DAYTONA_SANDBOX_USER)}
@@ -342,6 +351,13 @@ export async function ensureSandboxPreferredInteractiveShell(args: {
     timeoutSeconds,
   );
   if (result.exitCode !== 0) {
+    if (
+      result.result.includes("__NOTER_INTERACTIVE_SHELL_PRIVILEGE_MISSING__")
+    ) {
+      throw new Error(
+        "Failed to set the preferred interactive shell because this sandbox cannot elevate privileges.",
+      );
+    }
     throw new Error(
       result.result.trim() ||
         "Failed to set the preferred interactive shell in the sandbox.",

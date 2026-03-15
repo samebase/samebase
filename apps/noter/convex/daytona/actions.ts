@@ -28,6 +28,7 @@ import { getDaytonaEnvLabel } from "./env";
 import {
   DEFAULT_BASE_IMAGE,
   DAYTONA_CODEX_CLI_VERSION,
+  DAYTONA_FISH_ASSETS_IMAGE_PATH,
   DAYTONA_PNPM_VERSION,
   DAYTONA_RUNTIME_APT_PACKAGE_LIST,
   DAYTONA_RUNTIME_AUTH_FALLBACK_DOCKERFILE_COMMANDS,
@@ -127,6 +128,7 @@ const DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_PATH =
   ".noter/daytona/ensureRepoAutoCd.js";
 const DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_TEMP_PATH =
   "/tmp/noter-daytona-ensureRepoAutoCd.js";
+const DAYTONA_FISH_ASSETS_REPO_PATH = "runtime/daytonaFishAssets";
 const DAYTONA_PREBUILD_RESOURCES: Resources = {
   cpu: 4,
   memory: 8,
@@ -1010,7 +1012,10 @@ async function resolveDaytonaCodexAuthSandboxImagePlan(args: {
   const workspaceRoot = findWorkspaceRootDir(process.cwd());
   const baseImage = resolveDaytonaBaseImage();
   const fallbackImage = Image.base(baseImage).dockerfileCommands(
-    [...DAYTONA_RUNTIME_AUTH_FALLBACK_DOCKERFILE_COMMANDS],
+    [
+      `COPY ${DAYTONA_FISH_ASSETS_REPO_PATH} ${DAYTONA_FISH_ASSETS_IMAGE_PATH}`,
+      ...DAYTONA_RUNTIME_AUTH_FALLBACK_DOCKERFILE_COMMANDS,
+    ],
     workspaceRoot ?? process.cwd(),
   );
 
@@ -4795,6 +4800,7 @@ export const buildCommitPinnedSnapshot = internalAction({
           "USER root",
           `WORKDIR ${repoPath}`,
           `COPY ${DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR}/ ${repoPath}`,
+          `COPY ${DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR}/${DAYTONA_FISH_ASSETS_REPO_PATH} ${DAYTONA_FISH_ASSETS_IMAGE_PATH}`,
           `COPY ${DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_PATH} ${DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_TEMP_PATH}`,
           ...DAYTONA_RUNTIME_PREBUILD_DOCKERFILE_COMMANDS,
         ];
