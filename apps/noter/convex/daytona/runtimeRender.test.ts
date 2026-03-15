@@ -95,5 +95,10 @@ describe("Daytona runtime source of truth", () => {
     expect(dockerfile).toContain(
       'chown "$target_owner:$target_group" "$target_home"',
     );
+    expect(dockerfile).toContain(
+      'curl -fsSL "$fisher_url" -o "$target_home/.config/fish/functions/fisher.fish"',
+    );
+    expect(dockerfile).toContain("fisher install $fisher_plugin $pure_plugin");
+    expect(dockerfile).not.toContain("COPY runtime/daytonaFishAssets");
   });
 });

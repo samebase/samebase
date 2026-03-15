@@ -41,13 +41,14 @@ export const daytonaRuntimeManifest = {
   repoName: 'noter',
   pnpmVersion: '9.15.0',
   codexCliVersion: '0.114.0',
-  aptPackages: ['fish', 'make', 'tmux'],
+  aptPackages: ['curl', 'fish', 'make', 'tmux'],
   defaultShell: {
     name: 'fish',
     users: ['root', 'daytona'],
   },
 }
-export const DAYTONA_FISH_ASSETS_IMAGE_PATH = '/tmp/noter-daytona-fish-assets'
+export const DAYTONA_FISHER_VERSION = '4.4.8'
+export const DAYTONA_PURE_VERSION = 'v4.9.0'
 
 /**
  * @param {readonly string[]} values
@@ -121,11 +122,9 @@ export function renderDaytonaInstallFishToolingScript(
     '  echo "__NOTER_FISH_MISSING__"',
     '  exit 1',
     'fi',
-    `assets_root=${JSON.stringify(DAYTONA_FISH_ASSETS_IMAGE_PATH)}`,
-    'if [ ! -d "$assets_root" ]; then',
-    '  echo "__NOTER_FISH_ASSETS_MISSING__"',
-    '  exit 1',
-    'fi',
+    `fisher_url="https://raw.githubusercontent.com/jorgebucaran/fisher/${DAYTONA_FISHER_VERSION}/functions/fisher.fish"`,
+    `fisher_plugin="jorgebucaran/fisher@${DAYTONA_FISHER_VERSION}"`,
+    `pure_plugin="pure-fish/pure@${DAYTONA_PURE_VERSION}"`,
     'ensure_fish_home_dirs() {',
     '  target_home="$1"',
     '  target_owner="$2"',
@@ -134,25 +133,33 @@ export function renderDaytonaInstallFishToolingScript(
     '  chown "$target_owner:$target_group" "$target_home"',
     '  chown -R "$target_owner:$target_group" "$target_home/.config" "$target_home/.cache" "$target_home/.local"',
     '}',
+    'run_fish_command() {',
+    '  target_user="$1"',
+    '  target_home="$2"',
+    '  fish_command="$3"',
+    '  if [ "$target_user" = "root" ]; then',
+    '    HOME="$target_home" XDG_CONFIG_HOME="$target_home/.config" XDG_CACHE_HOME="$target_home/.cache" XDG_DATA_HOME="$target_home/.local/share" fish -lc "$fish_command"',
+    '    return 0',
+    '  fi',
+    '  env HOME="$target_home" USER="$target_user" LOGNAME="$target_user" XDG_CONFIG_HOME="$target_home/.config" XDG_CACHE_HOME="$target_home/.cache" XDG_DATA_HOME="$target_home/.local/share" su -m -s "$(command -v fish)" "$target_user" -c "$fish_command"',
+    '}',
     'install_fish_tooling() {',
-    '  target_home="$1"',
-    '  target_owner="$2"',
-    '  target_group="$3"',
+    '  target_user="$1"',
+    '  target_home="$2"',
+    '  target_owner="$3"',
+    '  target_group="$4"',
     '  ensure_fish_home_dirs "$target_home" "$target_owner" "$target_group"',
-    '  cp "$assets_root/fisher/functions/fisher.fish" "$target_home/.config/fish/functions/fisher.fish"',
-    '  cp "$assets_root/fisher/completions/fisher.fish" "$target_home/.config/fish/completions/fisher.fish"',
-    '  cp -R "$assets_root/pure/conf.d/." "$target_home/.config/fish/conf.d/"',
-    '  cp -R "$assets_root/pure/functions/." "$target_home/.config/fish/functions/"',
+    '  curl -fsSL "$fisher_url" -o "$target_home/.config/fish/functions/fisher.fish"',
+    '  chown -R "$target_owner:$target_group" "$target_home/.config" "$target_home/.cache" "$target_home/.local"',
+    '  fish_command="functions -q fisher; or source ~/.config/fish/functions/fisher.fish; fisher install $fisher_plugin $pure_plugin"',
+    '  run_fish_command "$target_user" "$target_home" "$fish_command"',
     '  chown -R "$target_owner:$target_group" "$target_home/.config" "$target_home/.cache" "$target_home/.local"',
     '}',
     'verify_fish_tooling() {',
     '  target_user="$1"',
     '  target_home="$2"',
-    '  if [ "$target_user" = "root" ]; then',
-    `    HOME="$target_home" XDG_CONFIG_HOME="$target_home/.config" XDG_CACHE_HOME="$target_home/.cache" XDG_DATA_HOME="$target_home/.local/share" fish -lc 'functions -q fisher; and test -f ~/.config/fish/conf.d/pure.fish; and test -f ~/.config/fish/functions/fish_prompt.fish'`,
-    '    return 0',
-    '  fi',
-    `  env HOME="$target_home" USER="$target_user" LOGNAME="$target_user" XDG_CONFIG_HOME="$target_home/.config" XDG_CACHE_HOME="$target_home/.cache" XDG_DATA_HOME="$target_home/.local/share" su -m -s "$(command -v fish)" "$target_user" -c 'functions -q fisher; and test -f ~/.config/fish/conf.d/pure.fish; and test -f ~/.config/fish/functions/fish_prompt.fish'`,
+    '  fish_command="functions -q fisher; and test -f ~/.config/fish/conf.d/pure.fish; and test -f ~/.config/fish/functions/fish_prompt.fish; and fisher list | string match -q \'*pure-fish/pure*\'"',
+    '  run_fish_command "$target_user" "$target_home" "$fish_command"',
     '}',
     'ensure_fish_home_dirs /root root root',
     'if id -u daytona >/dev/null 2>&1; then',
@@ -163,9 +170,9 @@ export function renderDaytonaInstallFishToolingScript(
     '    exit 0',
     '  fi',
     'fi',
-    'install_fish_tooling /root root root',
+    'install_fish_tooling root /root root root',
     'if id -u daytona >/dev/null 2>&1; then',
-    '  install_fish_tooling /home/daytona daytona daytona',
+    '  install_fish_tooling daytona /home/daytona daytona daytona',
     'fi',
     'verify_fish_tooling root /root',
     'if id -u daytona >/dev/null 2>&1; then',
@@ -213,7 +220,6 @@ export function renderDaytonaRuntimeGeneratedTsModule(
   manifest = daytonaRuntimeManifest,
 ) {
   const defaultBaseImage = JSON.stringify(manifest.baseImage)
-  const fishAssetsImagePath = JSON.stringify(DAYTONA_FISH_ASSETS_IMAGE_PATH)
   const pnpmVersion = JSON.stringify(manifest.pnpmVersion)
   const codexCliVersion = JSON.stringify(manifest.codexCliVersion)
   const aptPackages = `[${renderStringArrayLiteral(manifest.aptPackages)}]`
@@ -249,7 +255,6 @@ export function renderDaytonaRuntimeGeneratedTsModule(
   return `// @generated by ${daytonaRuntimeSourcePath}
 
 export const DEFAULT_BASE_IMAGE = ${defaultBaseImage};
-export const DAYTONA_FISH_ASSETS_IMAGE_PATH = ${fishAssetsImagePath};
 export const DAYTONA_PNPM_VERSION = ${pnpmVersion};
 export const DAYTONA_CODEX_CLI_VERSION = ${codexCliVersion};
 export const DAYTONA_RUNTIME_APT_PACKAGES = ${aptPackages} as const;
@@ -298,7 +303,6 @@ WORKDIR \${WORKSPACE_DIR}/\${REPO_NAME}
 
 ${installPackagesRunCommand}
 ${setDefaultShellRunCommand}
-COPY runtime/daytonaFishAssets ${DAYTONA_FISH_ASSETS_IMAGE_PATH}
 ${installFishToolingRunCommand}
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./

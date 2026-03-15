@@ -8,20 +8,17 @@ ARG REPO_NAME=noter
 
 WORKDIR ${WORKSPACE_DIR}/${REPO_NAME}
 
-RUN apt-get update && apt-get install -y --no-install-recommends fish make tmux && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends curl fish make tmux && rm -rf /var/lib/apt/lists/*
 RUN fish_path="$(command -v fish)" && usermod -s "$fish_path" root && if id -u daytona >/dev/null 2>&1; then usermod -s "$fish_path" daytona; else groupadd -f daytona && useradd -m -s "$fish_path" -g daytona daytona; fi
-COPY runtime/daytonaFishAssets /tmp/noter-daytona-fish-assets
 RUN <<'EOF'
 set -e
 if ! command -v fish >/dev/null 2>&1; then
   echo "__NOTER_FISH_MISSING__"
   exit 1
 fi
-assets_root="/tmp/noter-daytona-fish-assets"
-if [ ! -d "$assets_root" ]; then
-  echo "__NOTER_FISH_ASSETS_MISSING__"
-  exit 1
-fi
+fisher_url="https://raw.githubusercontent.com/jorgebucaran/fisher/4.4.8/functions/fisher.fish"
+fisher_plugin="jorgebucaran/fisher@4.4.8"
+pure_plugin="pure-fish/pure@v4.9.0"
 ensure_fish_home_dirs() {
   target_home="$1"
   target_owner="$2"
@@ -30,25 +27,33 @@ ensure_fish_home_dirs() {
   chown "$target_owner:$target_group" "$target_home"
   chown -R "$target_owner:$target_group" "$target_home/.config" "$target_home/.cache" "$target_home/.local"
 }
+run_fish_command() {
+  target_user="$1"
+  target_home="$2"
+  fish_command="$3"
+  if [ "$target_user" = "root" ]; then
+    HOME="$target_home" XDG_CONFIG_HOME="$target_home/.config" XDG_CACHE_HOME="$target_home/.cache" XDG_DATA_HOME="$target_home/.local/share" fish -lc "$fish_command"
+    return 0
+  fi
+  env HOME="$target_home" USER="$target_user" LOGNAME="$target_user" XDG_CONFIG_HOME="$target_home/.config" XDG_CACHE_HOME="$target_home/.cache" XDG_DATA_HOME="$target_home/.local/share" su -m -s "$(command -v fish)" "$target_user" -c "$fish_command"
+}
 install_fish_tooling() {
-  target_home="$1"
-  target_owner="$2"
-  target_group="$3"
+  target_user="$1"
+  target_home="$2"
+  target_owner="$3"
+  target_group="$4"
   ensure_fish_home_dirs "$target_home" "$target_owner" "$target_group"
-  cp "$assets_root/fisher/functions/fisher.fish" "$target_home/.config/fish/functions/fisher.fish"
-  cp "$assets_root/fisher/completions/fisher.fish" "$target_home/.config/fish/completions/fisher.fish"
-  cp -R "$assets_root/pure/conf.d/." "$target_home/.config/fish/conf.d/"
-  cp -R "$assets_root/pure/functions/." "$target_home/.config/fish/functions/"
+  curl -fsSL "$fisher_url" -o "$target_home/.config/fish/functions/fisher.fish"
+  chown -R "$target_owner:$target_group" "$target_home/.config" "$target_home/.cache" "$target_home/.local"
+  fish_command="functions -q fisher; or source ~/.config/fish/functions/fisher.fish; fisher install $fisher_plugin $pure_plugin"
+  run_fish_command "$target_user" "$target_home" "$fish_command"
   chown -R "$target_owner:$target_group" "$target_home/.config" "$target_home/.cache" "$target_home/.local"
 }
 verify_fish_tooling() {
   target_user="$1"
   target_home="$2"
-  if [ "$target_user" = "root" ]; then
-    HOME="$target_home" XDG_CONFIG_HOME="$target_home/.config" XDG_CACHE_HOME="$target_home/.cache" XDG_DATA_HOME="$target_home/.local/share" fish -lc 'functions -q fisher; and test -f ~/.config/fish/conf.d/pure.fish; and test -f ~/.config/fish/functions/fish_prompt.fish'
-    return 0
-  fi
-  env HOME="$target_home" USER="$target_user" LOGNAME="$target_user" XDG_CONFIG_HOME="$target_home/.config" XDG_CACHE_HOME="$target_home/.cache" XDG_DATA_HOME="$target_home/.local/share" su -m -s "$(command -v fish)" "$target_user" -c 'functions -q fisher; and test -f ~/.config/fish/conf.d/pure.fish; and test -f ~/.config/fish/functions/fish_prompt.fish'
+  fish_command="functions -q fisher; and test -f ~/.config/fish/conf.d/pure.fish; and test -f ~/.config/fish/functions/fish_prompt.fish; and fisher list | string match -q '*pure-fish/pure*'"
+  run_fish_command "$target_user" "$target_home" "$fish_command"
 }
 ensure_fish_home_dirs /root root root
 if id -u daytona >/dev/null 2>&1; then
@@ -59,9 +64,9 @@ if verify_fish_tooling root /root; then
     exit 0
   fi
 fi
-install_fish_tooling /root root root
+install_fish_tooling root /root root root
 if id -u daytona >/dev/null 2>&1; then
-  install_fish_tooling /home/daytona daytona daytona
+  install_fish_tooling daytona /home/daytona daytona daytona
 fi
 verify_fish_tooling root /root
 if id -u daytona >/dev/null 2>&1; then

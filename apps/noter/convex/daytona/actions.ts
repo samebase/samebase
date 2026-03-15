@@ -28,7 +28,6 @@ import { getDaytonaEnvLabel } from "./env";
 import {
   DEFAULT_BASE_IMAGE,
   DAYTONA_CODEX_CLI_VERSION,
-  DAYTONA_FISH_ASSETS_IMAGE_PATH,
   DAYTONA_PNPM_VERSION,
   DAYTONA_RUNTIME_APT_PACKAGE_LIST,
   DAYTONA_RUNTIME_AUTH_FALLBACK_DOCKERFILE_COMMANDS,
@@ -128,7 +127,6 @@ const DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_PATH =
   ".noter/daytona/ensureRepoAutoCd.js";
 const DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_TEMP_PATH =
   "/tmp/noter-daytona-ensureRepoAutoCd.js";
-const DAYTONA_FISH_ASSETS_REPO_PATH = "runtime/daytonaFishAssets";
 const DAYTONA_PREBUILD_RESOURCES: Resources = {
   cpu: 4,
   memory: 8,
@@ -775,16 +773,6 @@ async function writeDaytonaSandboxProgramToBuildContext(args: {
   await fs.promises.writeFile(targetPath, args.source, "utf8");
 }
 
-async function copyDaytonaDirectoryToBuildContext(args: {
-  buildContextDir: string;
-  sourceDir: string;
-  targetRelativePath: string;
-}): Promise<void> {
-  const targetPath = path.join(args.buildContextDir, args.targetRelativePath);
-  await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
-  await fs.promises.cp(args.sourceDir, targetPath, { recursive: true });
-}
-
 async function resolveCurrentRepoIdentity(repoDir: string): Promise<{
   owner: string;
   repo: string;
@@ -1022,10 +1010,7 @@ async function resolveDaytonaCodexAuthSandboxImagePlan(args: {
   const workspaceRoot = findWorkspaceRootDir(process.cwd());
   const baseImage = resolveDaytonaBaseImage();
   const fallbackImage = Image.base(baseImage).dockerfileCommands(
-    [
-      `COPY ${DAYTONA_FISH_ASSETS_REPO_PATH} ${DAYTONA_FISH_ASSETS_IMAGE_PATH}`,
-      ...DAYTONA_RUNTIME_AUTH_FALLBACK_DOCKERFILE_COMMANDS,
-    ],
+    [...DAYTONA_RUNTIME_AUTH_FALLBACK_DOCKERFILE_COMMANDS],
     workspaceRoot ?? process.cwd(),
   );
 
@@ -4734,10 +4719,6 @@ export const buildCommitPinnedSnapshot = internalAction({
         path.join(os.tmpdir(), "noter-prebuild-"),
       );
       const buildContextDir = tmpRoot;
-      const workspaceRoot = findWorkspaceRootDir(process.cwd());
-      if (!workspaceRoot) {
-        throw new Error("Failed to locate the Noter workspace root.");
-      }
       const repoDir = path.join(
         buildContextDir,
         DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR,
@@ -4763,11 +4744,6 @@ export const buildCommitPinnedSnapshot = internalAction({
           programRelativePath:
             DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_PATH,
           source: DAYTONA_ENSURE_REPO_AUTO_CD_PROGRAM_SOURCE,
-        });
-        await copyDaytonaDirectoryToBuildContext({
-          buildContextDir,
-          sourceDir: path.join(workspaceRoot, DAYTONA_FISH_ASSETS_REPO_PATH),
-          targetRelativePath: DAYTONA_FISH_ASSETS_REPO_PATH,
         });
 
         const repoPath = `${DEFAULT_WORKSPACE_DIR}/${args.repo}`;
@@ -4822,7 +4798,6 @@ export const buildCommitPinnedSnapshot = internalAction({
           "USER root",
           `WORKDIR ${repoPath}`,
           `COPY ${DAYTONA_SNAPSHOT_BUILD_CONTEXT_REPO_DIR}/ ${repoPath}`,
-          `COPY ${DAYTONA_FISH_ASSETS_REPO_PATH} ${DAYTONA_FISH_ASSETS_IMAGE_PATH}`,
           `COPY ${DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_PATH} ${DAYTONA_SNAPSHOT_BUILD_CONTEXT_AUTO_CD_PROGRAM_TEMP_PATH}`,
           ...DAYTONA_RUNTIME_PREBUILD_DOCKERFILE_COMMANDS,
         ];
