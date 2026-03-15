@@ -9,13 +9,15 @@ workspace sandbox.
 This test intentionally covers two workspace variants:
 
 1. a newly created noter-managed repo
-2. an existing repo with a pre-existing Daytona snapshot path
+2. the existing `nicu-chiciuc/noter` repo connected through the app
 
 ## Current Validated Scope
 
 - Validated locally from the worktree app at
   [http://127.0.0.1:5174/](http://127.0.0.1:5174/).
 - Validated for Variant B only.
+- Variant B was validated specifically against `nicu-chiciuc/noter` after
+  connecting that repo through `/add` in the local app.
 - Production coverage and Variant A should be run separately and recorded when
   completed.
 
@@ -34,9 +36,8 @@ This test intentionally covers two workspace variants:
 
 ## Test Data
 
-- Temporary repo name for variant A: `tmp-<worktree-id>-codex-e2e`
-- Existing repo for variant B: the connected `noter` repo under test. Do not
-  substitute an arbitrary repo.
+- Temporary repo name for Variant A: `tmp-<worktree-id>-codex-e2e`
+- Existing repo for Variant B: `nicu-chiciuc/noter`
 
 If running this from a Codex worktree, use the exact temporary repo prefix
 `tmp-<worktree-id>-` required by repo policy.
@@ -89,46 +90,53 @@ If running this from a Codex worktree, use the exact temporary repo prefix
 7. The repo should already be trusted; there should be no interactive
    `Yes, continue` / `No, quit` trust prompt for that repo path.
 
-## Variant B: Existing repo
+## Variant B: Existing `nicu-chiciuc/noter` repo
 
 ### Steps
 
-1. Choose the existing connected `noter` repo card under test.
-2. Expand `Developer tools`.
-3. Check the latest snapshot shown in the UI.
-4. Again, verify the snapshot name in the UI matches the expected repo and
-   branch. Do not assume a stale similarly named snapshot is the correct one.
-5. If no usable snapshot exists, build one and wait for it to become ready.
-6. Click `Create sandbox` if no sandbox exists yet. If a sandbox already exists,
+1. If `nicu-chiciuc/noter` is not already connected in the current app, open
+   `/add`, connect `nicu-chiciuc/noter`, then return to the dashboard.
+2. Choose the `nicu-chiciuc/noter` vault card. Do not substitute any other
+   existing repo for this variant.
+3. Expand `Developer tools`.
+4. Check the latest snapshot shown in the UI.
+5. Verify the snapshot name in the UI matches `nicu-chiciuc/noter` on `main`. Do
+   not assume a stale similarly named snapshot is the correct one.
+6. If no usable snapshot exists, build one and wait for it to become ready.
+7. Click `Create sandbox` if no sandbox exists yet. If a sandbox already exists,
    open its shell.
-7. Wait for the shell terminal to be ready.
-8. In the sandbox terminal, run `whoami` and confirm it prints `daytona`.
-9. Run `pwd` and confirm it points at the repo workspace directory.
-10. Type `codex` and submit it.
+8. Wait for the in-app shell terminal to be ready.
+9. In the sandbox terminal, run `whoami` and confirm it prints `daytona`.
+10. Run `pwd` and confirm it is `/home/daytona/workspace/noter`.
+11. Type `codex` and submit it.
 
 ### Expected Results
 
-1. Existing-repo Daytona flow reuses the already connected Codex state.
-2. Sandbox creation or reuse succeeds without requiring a second device-auth
+1. The `nicu-chiciuc/noter` Daytona flow reuses the already connected Codex
+   state.
+2. Connecting `nicu-chiciuc/noter` through `/add` works and produces a usable
+   vault card on the dashboard.
+3. Sandbox creation or reuse succeeds without requiring a second device-auth
    flow.
-3. The in-app shell opens as `daytona`, not `root`, and starts in the repo
-   workspace directory.
-4. Typing `codex` enters the Codex CLI immediately in the workspace sandbox.
-5. There should be no model-migration chooser such as `Try new model` /
+4. The in-app shell opens as `daytona`, not `root`, and starts in
+   `/home/daytona/workspace/noter`.
+5. Typing `codex` enters the Codex CLI immediately in the `noter` workspace
+   sandbox.
+6. There should be no model-migration chooser such as `Try new model` /
    `Use existing model`.
-6. The repo should already be trusted; there should be no interactive trust
+7. The repo should already be trusted; there should be no interactive trust
    prompt for that repo path.
 
 ## Optional Evidence
 
 - Screenshot of the Codex provider row after `Check login`.
 - Screenshot of the snapshot name shown before sandbox creation.
-- Screenshot of the workspace shell after typing `codex`.
+- Screenshot of the `noter` workspace shell after typing `codex` for Variant B.
 - Short note if a snapshot-name mismatch or stale snapshot display is observed.
 
 ## Cleanup
 
-1. Remove the temporary repo created for variant A if it is no longer needed.
+1. Remove the temporary repo created for Variant A if it is no longer needed.
 2. Remove temporary sandboxes created during the run if they are no longer
    needed.
 
