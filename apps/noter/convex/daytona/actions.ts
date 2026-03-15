@@ -4299,8 +4299,23 @@ export const removeDaytonaSandbox = action({
       sandboxName = match.name;
     }
 
-    const sandbox = await daytona.get(sandboxId);
-    await sandbox.delete();
+    let sandboxAlreadyRemoved = false;
+    try {
+      const sandbox = await daytona.get(sandboxId);
+      try {
+        await sandbox.delete();
+      } catch (error) {
+        if (!isNotFoundError(error)) {
+          throw error;
+        }
+        sandboxAlreadyRemoved = true;
+      }
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        throw error;
+      }
+      sandboxAlreadyRemoved = true;
+    }
 
     await ctx.runMutation(internal.vault.clearVaultDaytonaSandbox, {
       vaultId: args.vaultId,
@@ -4309,8 +4324,12 @@ export const removeDaytonaSandbox = action({
     return {
       ok: true,
       message: sandboxName
-        ? `Removed Daytona sandbox ${sandboxName}.`
-        : "Removed Daytona sandbox.",
+        ? sandboxAlreadyRemoved
+          ? `Daytona sandbox ${sandboxName} is already removed.`
+          : `Removed Daytona sandbox ${sandboxName}.`
+        : sandboxAlreadyRemoved
+          ? "Daytona sandbox is already removed."
+          : "Removed Daytona sandbox.",
     };
   },
 });
