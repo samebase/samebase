@@ -59,7 +59,9 @@ If running this from a Codex worktree, use the exact temporary repo prefix
 8. Wait for the sandbox state to become ready and for `Open Shell` or
    `Show Shell` to be available.
 9. Open the shell terminal for that sandbox.
-10. In the sandbox terminal, type `codex` and submit it.
+10. In the sandbox terminal, run `whoami` and confirm it prints `daytona`.
+11. Run `pwd` and confirm it points at the repo workspace directory.
+12. Type `codex` and submit it.
 
 ### Expected Results
 
@@ -68,8 +70,10 @@ If running this from a Codex worktree, use the exact temporary repo prefix
 2. Snapshot creation eventually reaches a ready/active state without requiring a
    second repo login flow.
 3. Sandbox creation succeeds for the new repo.
-4. Typing `codex` enters the Codex CLI immediately in the workspace sandbox.
-5. The repo should already be trusted; there should be no interactive
+4. The in-app shell opens as `daytona`, not `root`, and starts in the repo
+   workspace directory.
+5. Typing `codex` enters the Codex CLI immediately in the workspace sandbox.
+6. The repo should already be trusted; there should be no interactive
    `Yes, continue` / `No, quit` trust prompt for that repo path.
 
 ## Variant B: Existing repo
@@ -85,15 +89,19 @@ If running this from a Codex worktree, use the exact temporary repo prefix
 6. Click `Create sandbox` if no sandbox exists yet. If a sandbox already exists,
    open its shell.
 7. Wait for the shell terminal to be ready.
-8. In the sandbox terminal, type `codex` and submit it.
+8. In the sandbox terminal, run `whoami` and confirm it prints `daytona`.
+9. Run `pwd` and confirm it points at the repo workspace directory.
+10. Type `codex` and submit it.
 
 ### Expected Results
 
 1. Existing-repo Daytona flow reuses the already connected Codex state.
 2. Sandbox creation or reuse succeeds without requiring a second device-auth
    flow.
-3. Typing `codex` enters the Codex CLI immediately in the workspace sandbox.
-4. The repo should already be trusted; there should be no interactive trust
+3. The in-app shell opens as `daytona`, not `root`, and starts in the repo
+   workspace directory.
+4. Typing `codex` enters the Codex CLI immediately in the workspace sandbox.
+5. The repo should already be trusted; there should be no interactive trust
    prompt for that repo path.
 
 ## Optional Evidence

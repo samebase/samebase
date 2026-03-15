@@ -323,70 +323,6 @@ function stripIndent(
   return lines.map((line) => line.slice(minIndent)).join("\n");
 }
 
-async function ensureFishInSandbox(args: {
-  sandbox: Sandbox;
-}): Promise<"already_present" | "installed"> {
-  const checkResult = await args.sandbox.process.executeCommand(
-    "command -v fish >/dev/null 2>&1",
-    undefined,
-    undefined,
-    30,
-  );
-  if (checkResult.exitCode === 0) {
-    return "already_present";
-  }
-
-  const installScript = stripIndent`
-    set -e
-    if command -v fish >/dev/null 2>&1; then
-      exit 0
-    fi
-    if ! command -v apt-get >/dev/null 2>&1; then
-      echo "__NOTER_APT_MISSING__"
-      exit 1
-    fi
-    prefix=""
-    if [ "$(id -u)" != "0" ]; then
-      if command -v sudo >/dev/null 2>&1; then
-        prefix="sudo "
-      else
-        echo "__NOTER_FISH_PRIVILEGE_MISSING__"
-        exit 1
-      fi
-    fi
-    ${"$"}{prefix}apt-get update
-    ${"$"}{prefix}apt-get install -y --no-install-recommends fish
-    ${"$"}{prefix}rm -rf /var/lib/apt/lists/*
-  `;
-  const installCommand = `bash -lc ${quoteForShell(installScript)}`;
-  const installResult = await args.sandbox.process.executeCommand(
-    installCommand,
-    undefined,
-    undefined,
-    300,
-  );
-  if (installResult.exitCode !== 0) {
-    const output = installResult.result.trim();
-    if (output.includes("__NOTER_APT_MISSING__")) {
-      throw new Error(
-        "fish is missing and apt-get is unavailable in this sandbox.",
-      );
-    }
-    if (output.includes("__NOTER_FISH_PRIVILEGE_MISSING__")) {
-      throw new Error(
-        "fish is missing and this sandbox cannot install it automatically.",
-      );
-    }
-    throw new Error(
-      output.length > 0
-        ? output
-        : "Failed to install fish in the Daytona sandbox.",
-    );
-  }
-
-  return "installed";
-}
-
 function buildWorkspacePtySessionId(vaultId: Id<"vaults">): string {
   return `noter-pty-${vaultId}-${randomUUID()}`;
 }
@@ -836,6 +772,7 @@ async function openPtySession(args: {
   cols: number;
   rows: number;
   captureInitialOutput?: boolean;
+  initialInput?: string;
   trustedProjectPath?: string;
 }): Promise<{
   webSocketUrl: string;
@@ -858,6 +795,9 @@ async function openPtySession(args: {
   const outputChunks: string[] = [];
   const lastChunkAtRef = { current: Date.now() };
   const sawOutputRef = { current: false };
+  const shouldCaptureOutput =
+    args.captureInitialOutput === true ||
+    (typeof args.initialInput === "string" && args.initialInput.length > 0);
   let ptyHandle: Awaited<ReturnType<Sandbox["process"]["createPty"]>> | null =
     null;
   try {
@@ -867,11 +807,16 @@ async function openPtySession(args: {
       envs: {
         TERM: "xterm-256color",
         COLORTERM: "truecolor",
+        HOME: DAYTONA_SANDBOX_HOME,
+        USER: DAYTONA_SANDBOX_USER,
+        LOGNAME: DAYTONA_SANDBOX_USER,
+        CODEX_HOME: DAYTONA_CODEX_HOME,
+        SHELL: "/bin/bash",
       },
       cols: args.cols,
       rows: args.rows,
       onData: async (data) => {
-        if (args.captureInitialOutput !== true) {
+        if (!shouldCaptureOutput) {
           return;
         }
         outputChunks.push(textDecoder.decode(data, { stream: true }));
@@ -880,7 +825,10 @@ async function openPtySession(args: {
       },
     });
     await ptyHandle.waitForConnection();
-    if (args.captureInitialOutput === true) {
+    if (typeof args.initialInput === "string" && args.initialInput.length > 0) {
+      await ptyHandle.sendInput(args.initialInput);
+    }
+    if (shouldCaptureOutput) {
       await waitForPtyOutputIdle({
         lastChunkAtRef,
         sawOutputRef,
@@ -1032,14 +980,6 @@ export const openWorkspacePtySession = action({
         path: resolved.repoDir,
         timeoutSeconds: 300,
       });
-      try {
-        await ensureFishInSandbox({ sandbox: resolved.sandbox });
-      } catch (error) {
-        console.warn("daytona:pty:fish-setup-skipped", {
-          sandboxId: resolved.sandbox.id,
-          message: error instanceof Error ? error.message : String(error),
-        });
-      }
       const connection = await openPtySession({
         sandbox: resolved.sandbox,
         baseUrl: resolved.baseUrl,
@@ -1048,14 +988,10 @@ export const openWorkspacePtySession = action({
         cwd: resolved.repoDir,
         cols,
         rows,
-        trustedProjectPath: resolved.repoDir,
-      });
-      await primePtySession({
-        sandbox: resolved.sandbox,
-        sessionId,
         initialInput: buildSwitchPtySessionToSandboxUserInput({
           cwd: resolved.repoDir,
         }),
+        trustedProjectPath: resolved.repoDir,
       });
 
       return {
@@ -1134,14 +1070,10 @@ export const openWorkspaceDevServerPtySession = action({
         cwd: resolved.repoDir,
         cols,
         rows,
-        trustedProjectPath: resolved.repoDir,
-      });
-      await primePtySession({
-        sandbox: resolved.sandbox,
-        sessionId,
         initialInput: buildSwitchPtySessionToSandboxUserInput({
           cwd: resolved.repoDir,
         }),
+        trustedProjectPath: resolved.repoDir,
       });
       const initialOutput = await primePtySession({
         sandbox: resolved.sandbox,
@@ -1230,10 +1162,6 @@ export const openCodexAuthPtySession = action({
         cwd: DEFAULT_CODEX_AUTH_DIR,
         cols,
         rows,
-      });
-      await primePtySession({
-        sandbox: resolved.sandbox,
-        sessionId,
         initialInput: buildSwitchPtySessionToSandboxUserInput({
           cwd: DEFAULT_CODEX_AUTH_DIR,
         }),

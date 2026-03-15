@@ -306,42 +306,16 @@ export async function ensureProjectedCodexHomeInSandbox(args: {
 export function buildSwitchPtySessionToSandboxUserInput(args: {
   cwd: string;
 }): string {
-  const cwd = args.cwd.trim();
-  const userShellCommand = stripIndent`
-    if command -v fish >/dev/null 2>&1; then
-      target_shell="$(command -v fish)"
-    else
-      target_shell="/bin/bash"
-    fi
-    export HOME=${quoteForShell(DAYTONA_SANDBOX_HOME)}
-    export USER=${quoteForShell(DAYTONA_SANDBOX_USER)}
-    export LOGNAME=${quoteForShell(DAYTONA_SANDBOX_USER)}
-    export SHELL="$target_shell"
-    export CODEX_HOME=${quoteForShell(DAYTONA_CODEX_HOME)}
-    if [ -n ${quoteForShell(cwd)} ]; then
-      cd ${quoteForShell(cwd)}
-    fi
-    clear >/dev/null 2>&1 || true
-    exec "$target_shell" -i
-  `;
-  const rootShellCommand = stripIndent`
-    target_user=${quoteForShell(DAYTONA_SANDBOX_USER)}
-    target_cwd=${quoteForShell(cwd)}
-    if command -v fish >/dev/null 2>&1; then
-      target_shell="$(command -v fish)"
-    else
-      target_shell="/bin/bash"
-    fi
-    if [ -n "$target_cwd" ] && [ ! -d "$target_cwd" ]; then
-      echo "__NOTER_CWD_MISSING__:$target_cwd"
-      exit 1
-    fi
-    if [ "$(id -un)" = "$target_user" ]; then
-      ${userShellCommand}
-    fi
-    exec su -m -s "$target_shell" "$target_user" -c ${quoteForShell(
-      userShellCommand,
-    )}
-  `;
-  return `${rootShellCommand}\n`;
+  return [
+    `exec env HOME=${quoteForShell(DAYTONA_SANDBOX_HOME)} USER=${quoteForShell(DAYTONA_SANDBOX_USER)} LOGNAME=${quoteForShell(DAYTONA_SANDBOX_USER)} CODEX_HOME=${quoteForShell(DAYTONA_CODEX_HOME)} SHELL=${quoteForShell("/bin/bash")} su -m -s /bin/bash ${quoteForShell(DAYTONA_SANDBOX_USER)}`,
+    `export HOME=${quoteForShell(DAYTONA_SANDBOX_HOME)}`,
+    `export USER=${quoteForShell(DAYTONA_SANDBOX_USER)}`,
+    `export LOGNAME=${quoteForShell(DAYTONA_SANDBOX_USER)}`,
+    `export CODEX_HOME=${quoteForShell(DAYTONA_CODEX_HOME)}`,
+    `export SHELL=${quoteForShell("/bin/bash")}`,
+    `cd ${quoteForShell(args.cwd)}`,
+    "clear >/dev/null 2>&1 || true",
+    "exec /bin/bash -i",
+    "",
+  ].join("\n");
 }
