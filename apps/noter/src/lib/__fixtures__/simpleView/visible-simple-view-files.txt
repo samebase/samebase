@@ -43,6 +43,7 @@ manual-tests/UI-002-vault-branch-list-and-navigation.md
 manual-tests/UI-003-slash-branch-routing.md
 manual-tests/UI-004-vault-branch-delete.md
 manual-tests/UI-005-daytona-codex-auth-permissions.md
+manual-tests/UI-006-daytona-codex-end-to-end.md
 manual-tests/worktree/WT-001-anon-worktree-isolation.md
 manual-tests/worktree/WT-002-wt-001-local-and-worktree.md
 noter.md

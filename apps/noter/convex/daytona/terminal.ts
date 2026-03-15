@@ -7,7 +7,11 @@ import {
 import { Daytona, type Sandbox } from "@daytonaio/sdk";
 import { randomUUID } from "crypto";
 import { Infer, v } from "convex/values";
-import { upsertCodexNoAltScreenConfig } from "../../../../runtime/codexConfig.js";
+import {
+  upsertCodexDefaultModelConfig,
+  upsertCodexNoAltScreenConfig,
+  upsertCodexProjectTrustConfig,
+} from "../../../../runtime/codexConfig.js";
 import { action, type ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -20,11 +24,20 @@ import {
   DAYTONA_PROVISIONING_MODE_LABEL,
   parseDaytonaProvisioningMode,
 } from "./provisioning";
+import {
+  buildSwitchPtySessionToSandboxUserInput,
+  DAYTONA_CODEX_HOME,
+  DAYTONA_SANDBOX_HOME,
+  DAYTONA_SANDBOX_USER,
+  DAYTONA_WORKSPACE_DIR,
+  ensureProjectedCodexHomeInSandbox,
+  ensureSandboxPathWritableByUser,
+} from "./sandboxUser";
 
 const { object, id, string, optional, number, boolean } = v;
 
-const DEFAULT_WORKSPACE_DIR = "/home/daytona/workspace";
-const DEFAULT_CODEX_AUTH_DIR = "/";
+const DEFAULT_WORKSPACE_DIR = DAYTONA_WORKSPACE_DIR;
+const DEFAULT_CODEX_AUTH_DIR = DAYTONA_SANDBOX_HOME;
 const DAYTONA_API_URL_ENV = "DAYTONA_API_URL";
 const DAYTONA_API_TOKEN_ENV = "DAYTONA_API_TOKEN";
 const DAYTONA_API_KEY_ENV = "DAYTONA_API_KEY";
@@ -202,6 +215,42 @@ function readSandboxLabel(candidate: Sandbox, key: string): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function readSandboxEnv(candidate: Sandbox, key: string): string {
+  const value = candidate.env[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function hasLegacyCodexHomeMount(sandbox: Sandbox): boolean {
+  const volumes = Array.isArray(sandbox.volumes) ? sandbox.volumes : [];
+  return volumes.some((volume) => volume.mountPath === DAYTONA_CODEX_HOME);
+}
+
+function hasCompatibleTerminalSandboxSetup(sandbox: Sandbox): boolean {
+  if (sandbox.user.trim() !== DAYTONA_SANDBOX_USER) {
+    return false;
+  }
+
+  const codexHome = readSandboxEnv(sandbox, "CODEX_HOME");
+  if (codexHome.length > 0 && codexHome !== DAYTONA_CODEX_HOME) {
+    return false;
+  }
+
+  return !hasLegacyCodexHomeMount(sandbox);
+}
+
+function getSandboxCreatedAtMs(sandbox: Sandbox): number {
+  if (typeof sandbox.createdAt === "number") {
+    return sandbox.createdAt;
+  }
+  if (typeof sandbox.createdAt === "string") {
+    const createdAtMs = Date.parse(sandbox.createdAt);
+    if (Number.isFinite(createdAtMs)) {
+      return createdAtMs;
+    }
+  }
+  return 0;
+}
+
 function isNotFoundError(error: unknown): boolean {
   if (typeof error === "object" && error !== null) {
     const status = Reflect.get(error, "status");
@@ -273,76 +322,6 @@ function stripIndent(
   }
 
   return lines.map((line) => line.slice(minIndent)).join("\n");
-}
-
-async function ensureFishInSandbox(args: {
-  sandbox: Sandbox;
-}): Promise<"already_present" | "installed"> {
-  const checkResult = await args.sandbox.process.executeCommand(
-    `command -v fish >/dev/null 2>&1 && [ "$(grep "^$(id -un):" /etc/passwd | cut -d: -f7 | head -n 1 || true)" = "$(command -v fish)" ]`,
-    undefined,
-    undefined,
-    30,
-  );
-  if (checkResult.exitCode === 0) {
-    return "already_present";
-  }
-
-  const installScript = stripIndent`
-    set -e
-    if command -v fish >/dev/null 2>&1 && [ "$(grep "^$(id -un):" /etc/passwd | cut -d: -f7 | head -n 1 || true)" = "$(command -v fish)" ]; then
-      exit 0
-    fi
-    if ! command -v apt-get >/dev/null 2>&1; then
-      echo "__NOTER_APT_MISSING__"
-      exit 1
-    fi
-    prefix=""
-    if [ "$(id -u)" != "0" ]; then
-      if command -v sudo >/dev/null 2>&1; then
-        prefix="sudo "
-      else
-        echo "__NOTER_FISH_PRIVILEGE_MISSING__"
-        exit 1
-      fi
-    fi
-    ${"$"}{prefix}apt-get update
-    ${"$"}{prefix}apt-get install -y --no-install-recommends fish
-    fish_path="$(command -v fish)"
-    current_user="$(id -un)"
-    current_shell="$(grep "^${"$"}current_user:" /etc/passwd | cut -d: -f7 | head -n 1 || true)"
-    if [ "$current_shell" != "$fish_path" ]; then
-      ${"$"}{prefix}usermod -s "$fish_path" "$current_user"
-    fi
-    ${"$"}{prefix}rm -rf /var/lib/apt/lists/*
-  `;
-  const installCommand = `bash -lc ${quoteForShell(installScript)}`;
-  const installResult = await args.sandbox.process.executeCommand(
-    installCommand,
-    undefined,
-    undefined,
-    300,
-  );
-  if (installResult.exitCode !== 0) {
-    const output = installResult.result.trim();
-    if (output.includes("__NOTER_APT_MISSING__")) {
-      throw new Error(
-        "fish is missing and apt-get is unavailable in this sandbox.",
-      );
-    }
-    if (output.includes("__NOTER_FISH_PRIVILEGE_MISSING__")) {
-      throw new Error(
-        "fish is missing and this sandbox cannot install it automatically.",
-      );
-    }
-    throw new Error(
-      output.length > 0
-        ? output
-        : "Failed to install fish in the Daytona sandbox.",
-    );
-  }
-
-  return "installed";
 }
 
 function buildWorkspacePtySessionId(vaultId: Id<"vaults">): string {
@@ -424,8 +403,17 @@ async function resolveDaytonaSandboxForVault(args: {
         matchesRequestedRef(persistedSandbox) &&
         matchesRequestedProvisioningMode(persistedSandbox)
       ) {
-        sandbox = persistedSandbox;
-        sandboxName = persistedSandbox.name;
+        if (hasCompatibleTerminalSandboxSetup(persistedSandbox)) {
+          sandbox = persistedSandbox;
+          sandboxName = persistedSandbox.name;
+        } else {
+          console.warn("daytona:terminal:delete-incompatible-sandbox", {
+            sandboxId: persistedSandbox.id,
+            sandboxName: persistedSandbox.name,
+            reason: "legacy_codex_home_mount",
+          });
+          await persistedSandbox.delete();
+        }
       }
     } catch (error) {
       if (!isNotFoundError(error)) {
@@ -458,8 +446,31 @@ async function resolveDaytonaSandboxForVault(args: {
       };
     }
 
-    const match = matches.items[0];
-    if (!match.id) {
+    const compatibleMatches: Sandbox[] = [];
+    for (const match of matches.items) {
+      if (!match.id) {
+        continue;
+      }
+      const matchedSandbox = await args.daytona.get(match.id);
+      if (
+        !matchesRequestedRef(matchedSandbox) ||
+        !matchesRequestedProvisioningMode(matchedSandbox)
+      ) {
+        continue;
+      }
+      if (!hasCompatibleTerminalSandboxSetup(matchedSandbox)) {
+        console.warn("daytona:terminal:delete-incompatible-sandbox", {
+          sandboxId: matchedSandbox.id,
+          sandboxName: matchedSandbox.name,
+          reason: "legacy_codex_home_mount",
+        });
+        await matchedSandbox.delete();
+        continue;
+      }
+      compatibleMatches.push(matchedSandbox);
+    }
+
+    if (compatibleMatches.length === 0) {
       return {
         ok: false,
         message: requestedBranch
@@ -468,20 +479,11 @@ async function resolveDaytonaSandboxForVault(args: {
       };
     }
 
-    const matchedSandbox = await args.daytona.get(match.id);
-    if (
-      !matchesRequestedRef(matchedSandbox) ||
-      !matchesRequestedProvisioningMode(matchedSandbox)
-    ) {
-      return {
-        ok: false,
-        message: requestedBranch
-          ? `No Daytona sandbox found for branch ${requestedBranch}. Click Create sandbox first.`
-          : "No Daytona sandbox is connected to this vault yet. Click Create sandbox first.",
-      };
-    }
-
-    sandbox = matchedSandbox;
+    compatibleMatches.sort(
+      (left, right) =>
+        getSandboxCreatedAtMs(right) - getSandboxCreatedAtMs(left),
+    );
+    sandbox = compatibleMatches[0];
     sandboxName = sandbox.name;
     await args.ctx.runMutation(internal.vault.updateVaultDaytonaSandbox, {
       vaultId: args.vaultId,
@@ -730,8 +732,9 @@ async function writeCodexConfigInSandbox(args: {
   }
 }
 
-async function ensureCodexNoAltScreenConfigInSandbox(args: {
+async function ensureCodexConfigInSandbox(args: {
   sandbox: Sandbox;
+  trustedProjectPath?: string;
 }): Promise<void> {
   const codexHome = readCodexHomeInSandbox(args.sandbox);
   if (!codexHome) {
@@ -742,7 +745,15 @@ async function ensureCodexNoAltScreenConfigInSandbox(args: {
     sandbox: args.sandbox,
     codexHome,
   });
-  const nextConfig = upsertCodexNoAltScreenConfig(existingConfig);
+  const nextConfig = (() => {
+    const withDefaultModel = upsertCodexDefaultModelConfig(existingConfig);
+    const withNoAltScreen = upsertCodexNoAltScreenConfig(withDefaultModel);
+    const trustedProjectPath = args.trustedProjectPath?.trim();
+    if (!trustedProjectPath) {
+      return withNoAltScreen;
+    }
+    return upsertCodexProjectTrustConfig(withNoAltScreen, trustedProjectPath);
+  })();
   if (nextConfig === existingConfig) {
     return;
   }
@@ -763,6 +774,8 @@ async function openPtySession(args: {
   cols: number;
   rows: number;
   captureInitialOutput?: boolean;
+  initialInput?: string;
+  trustedProjectPath?: string;
 }): Promise<{
   webSocketUrl: string;
   previewToken: string;
@@ -770,8 +783,9 @@ async function openPtySession(args: {
 }> {
   await ensureSandboxStarted(args.sandbox);
   try {
-    await ensureCodexNoAltScreenConfigInSandbox({
+    await ensureCodexConfigInSandbox({
       sandbox: args.sandbox,
+      trustedProjectPath: args.trustedProjectPath,
     });
   } catch (error) {
     console.warn("daytona:pty:codex-config-sync-skipped", {
@@ -783,6 +797,9 @@ async function openPtySession(args: {
   const outputChunks: string[] = [];
   const lastChunkAtRef = { current: Date.now() };
   const sawOutputRef = { current: false };
+  const shouldCaptureOutput =
+    args.captureInitialOutput === true ||
+    (typeof args.initialInput === "string" && args.initialInput.length > 0);
   let ptyHandle: Awaited<ReturnType<Sandbox["process"]["createPty"]>> | null =
     null;
   try {
@@ -792,11 +809,16 @@ async function openPtySession(args: {
       envs: {
         TERM: "xterm-256color",
         COLORTERM: "truecolor",
+        HOME: DAYTONA_SANDBOX_HOME,
+        USER: DAYTONA_SANDBOX_USER,
+        LOGNAME: DAYTONA_SANDBOX_USER,
+        CODEX_HOME: DAYTONA_CODEX_HOME,
+        SHELL: "/bin/bash",
       },
       cols: args.cols,
       rows: args.rows,
       onData: async (data) => {
-        if (args.captureInitialOutput !== true) {
+        if (!shouldCaptureOutput) {
           return;
         }
         outputChunks.push(textDecoder.decode(data, { stream: true }));
@@ -805,7 +827,10 @@ async function openPtySession(args: {
       },
     });
     await ptyHandle.waitForConnection();
-    if (args.captureInitialOutput === true) {
+    if (typeof args.initialInput === "string" && args.initialInput.length > 0) {
+      await ptyHandle.sendInput(args.initialInput);
+    }
+    if (shouldCaptureOutput) {
       await waitForPtyOutputIdle({
         lastChunkAtRef,
         sawOutputRef,
@@ -948,14 +973,15 @@ export const openWorkspacePtySession = action({
 
     try {
       await ensureSandboxStarted(resolved.sandbox);
-      try {
-        await ensureFishInSandbox({ sandbox: resolved.sandbox });
-      } catch (error) {
-        console.warn("daytona:pty:fish-setup-skipped", {
-          sandboxId: resolved.sandbox.id,
-          message: error instanceof Error ? error.message : String(error),
-        });
-      }
+      await ensureProjectedCodexHomeInSandbox({
+        sandbox: resolved.sandbox,
+        timeoutSeconds: 300,
+      });
+      await ensureSandboxPathWritableByUser({
+        sandbox: resolved.sandbox,
+        path: resolved.repoDir,
+        timeoutSeconds: 300,
+      });
       const connection = await openPtySession({
         sandbox: resolved.sandbox,
         baseUrl: resolved.baseUrl,
@@ -964,7 +990,10 @@ export const openWorkspacePtySession = action({
         cwd: resolved.repoDir,
         cols,
         rows,
-        captureInitialOutput: true,
+        initialInput: buildSwitchPtySessionToSandboxUserInput({
+          cwd: resolved.repoDir,
+        }),
+        trustedProjectPath: resolved.repoDir,
       });
 
       return {
@@ -1025,6 +1054,16 @@ export const openWorkspaceDevServerPtySession = action({
     const sessionId = buildWorkspaceDevServerPtySessionId(args.vaultId);
 
     try {
+      await ensureSandboxStarted(resolved.sandbox);
+      await ensureProjectedCodexHomeInSandbox({
+        sandbox: resolved.sandbox,
+        timeoutSeconds: 300,
+      });
+      await ensureSandboxPathWritableByUser({
+        sandbox: resolved.sandbox,
+        path: resolved.repoDir,
+        timeoutSeconds: 300,
+      });
       const connection = await openPtySession({
         sandbox: resolved.sandbox,
         baseUrl: resolved.baseUrl,
@@ -1033,6 +1072,10 @@ export const openWorkspaceDevServerPtySession = action({
         cwd: resolved.repoDir,
         cols,
         rows,
+        initialInput: buildSwitchPtySessionToSandboxUserInput({
+          cwd: resolved.repoDir,
+        }),
+        trustedProjectPath: resolved.repoDir,
       });
       const initialOutput = await primePtySession({
         sandbox: resolved.sandbox,
@@ -1108,6 +1151,11 @@ export const openCodexAuthPtySession = action({
     const sessionId = buildCodexAuthPtySessionId();
 
     try {
+      await ensureSandboxStarted(resolved.sandbox);
+      await ensureProjectedCodexHomeInSandbox({
+        sandbox: resolved.sandbox,
+        timeoutSeconds: 300,
+      });
       const connection = await openPtySession({
         sandbox: resolved.sandbox,
         baseUrl: resolved.baseUrl,
@@ -1116,6 +1164,9 @@ export const openCodexAuthPtySession = action({
         cwd: DEFAULT_CODEX_AUTH_DIR,
         cols,
         rows,
+        initialInput: buildSwitchPtySessionToSandboxUserInput({
+          cwd: DEFAULT_CODEX_AUTH_DIR,
+        }),
       });
 
       return {

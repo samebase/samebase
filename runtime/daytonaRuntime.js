@@ -81,7 +81,7 @@ export function renderDaytonaSetDefaultShellImageCommand(
     ...manifest.defaultShell.users.map(user =>
       user === 'root'
         ? `usermod -s ${shellPathReference} root`
-        : `if id -u ${user} >/dev/null 2>&1; then usermod -s ${shellPathReference} ${user}; fi`,
+        : `if id -u ${user} >/dev/null 2>&1; then usermod -s ${shellPathReference} ${user}; else groupadd -f ${user} && useradd -m -s ${shellPathReference} -g ${user} ${user}; fi`,
     ),
   ]
   return shellSetupParts.join(' && ')

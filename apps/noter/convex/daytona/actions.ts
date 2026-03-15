@@ -33,6 +33,15 @@ import {
   DAYTONA_RUNTIME_AUTH_FALLBACK_DOCKERFILE_COMMANDS,
   DAYTONA_RUNTIME_PREBUILD_DOCKERFILE_COMMANDS,
 } from "./runtime.generated";
+import {
+  DAYTONA_CODEX_HOME,
+  DAYTONA_CODEX_SHARED_HOME,
+  DAYTONA_SANDBOX_USER,
+  DAYTONA_WORKSPACE_DIR,
+  ensureProjectedCodexHomeInSandbox,
+  ensureSandboxPathWritableByUser,
+  executeCommandAsSandboxUser,
+} from "./sandboxUser";
 import { DAYTONA_ENSURE_REPO_AUTO_CD_PROGRAM_SOURCE } from "./sandboxPrograms.generated";
 import {
   canonicalizeCommitPinnedDaytonaBranch,
@@ -66,7 +75,7 @@ import type { Id } from "../_generated/dataModel";
 
 const { object, id, string, optional, boolean, union, literal, number, array } =
   v;
-const DEFAULT_WORKSPACE_DIR = "/home/daytona/workspace";
+const DEFAULT_WORKSPACE_DIR = DAYTONA_WORKSPACE_DIR;
 const DAYTONA_API_URL_ENV = "DAYTONA_API_URL";
 const DAYTONA_API_TOKEN_ENV = "DAYTONA_API_TOKEN";
 const DAYTONA_API_KEY_ENV = "DAYTONA_API_KEY";
@@ -92,12 +101,8 @@ const DAYTONA_TERMINAL_PORT = 22222;
 const DAYTONA_TERMINAL_TTL_SECONDS = 300;
 const DAYTONA_DEV_LOG = "/tmp/noter-dev.log";
 const DAYTONA_DEV_SERVER_TMUX_SESSION = "noter-dev-server";
-const DAYTONA_SANDBOX_USER = "daytona";
-const DAYTONA_SANDBOX_GROUP = "daytona";
-const DAYTONA_SANDBOX_HOME = "/home/daytona";
 // Keep the shared Codex volume under the active sandbox user home so the same
 // writable Codex state is reused across auth and workspace sandboxes.
-const DAYTONA_CODEX_HOME = `${DAYTONA_SANDBOX_HOME}/.codex`;
 const DAYTONA_CODEX_HOME_FIX_TIMEOUT_SECONDS = 60;
 const DAYTONA_CODEX_AUTH_VOLUME_PREFIX = "noter-codex-auth";
 const DAYTONA_CODEX_AUTH_SANDBOX_PREFIX = "noter-codex-auth";
@@ -794,21 +799,12 @@ async function ensureDaytonaCodexAuthVolume(args: {
   });
   let volume = await args.daytona.volume.get(volumeName, true);
   const startedAt = Date.now();
+  let attemptedErrorRecovery = false;
 
   for (;;) {
     const currentState = volume.state.trim().toLowerCase();
     if (currentState === "ready") {
       return volume;
-    }
-    if (
-      currentState === "error" ||
-      currentState === "deleting" ||
-      currentState === "deleted" ||
-      currentState === "pending_delete"
-    ) {
-      throw new Error(
-        `Volume ${volume.name} entered ${volume.state} before becoming ready.`,
-      );
     }
 
     const elapsedMs = Date.now() - startedAt;
@@ -820,8 +816,44 @@ async function ensureDaytonaCodexAuthVolume(args: {
       );
     }
 
+    if (
+      currentState === "deleting" ||
+      currentState === "deleted" ||
+      currentState === "pending_delete"
+    ) {
+      await sleep(DAYTONA_VOLUME_READY_POLL_MS);
+      volume = await args.daytona.volume.get(volumeName, true);
+      continue;
+    }
+
+    if (currentState === "error") {
+      if (attemptedErrorRecovery) {
+        throw new Error(
+          `Volume ${volume.name} entered ${volume.state} before becoming ready.`,
+        );
+      }
+      attemptedErrorRecovery = true;
+      try {
+        await args.daytona.volume.delete(volume);
+      } catch (error) {
+        if (!isNotFoundError(error)) {
+          throw error;
+        }
+      }
+      await sleep(DAYTONA_VOLUME_READY_POLL_MS);
+      volume = await args.daytona.volume.get(volumeName, true);
+      continue;
+    }
+
     await sleep(DAYTONA_VOLUME_READY_POLL_MS);
-    volume = await args.daytona.volume.get(volumeName);
+    try {
+      volume = await args.daytona.volume.get(volumeName);
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        throw error;
+      }
+      volume = await args.daytona.volume.get(volumeName, true);
+    }
   }
 }
 
@@ -838,7 +870,8 @@ function hasCodexAuthVolumeMount(args: {
     const mountedVolumeId =
       typeof volume.volumeId === "string" ? volume.volumeId.trim() : "";
     return (
-      mountPath === DAYTONA_CODEX_HOME && mountedVolumeId === args.volumeId
+      mountPath === DAYTONA_CODEX_SHARED_HOME &&
+      mountedVolumeId === args.volumeId
     );
   });
 }
@@ -848,7 +881,7 @@ function hasAnyCodexAuthMount(sandbox: Sandbox): boolean {
   return volumes.some((volume) => {
     const mountPath =
       typeof volume.mountPath === "string" ? volume.mountPath.trim() : "";
-    return mountPath === DAYTONA_CODEX_HOME;
+    return mountPath === DAYTONA_CODEX_SHARED_HOME;
   });
 }
 
@@ -926,7 +959,7 @@ async function clearCodexAuthHomeInSandbox(args: {
   await ensureDaytonaSandboxStarted(args.sandbox);
 
   const result = await args.sandbox.process.executeCommand(
-    `mkdir -p ${DAYTONA_CODEX_HOME} && find ${DAYTONA_CODEX_HOME} -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +`,
+    `mkdir -p ${DAYTONA_CODEX_SHARED_HOME} && find ${DAYTONA_CODEX_SHARED_HOME} -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +`,
     undefined,
     undefined,
     30,
@@ -940,51 +973,11 @@ async function ensureCodexHomeWritableInSandbox(args: {
   sandbox: Sandbox;
 }): Promise<void> {
   await ensureDaytonaSandboxStarted(args.sandbox);
-
-  const fixScript = stripIndent`
-    set -e
-    codex_home=${quoteForBash(DAYTONA_CODEX_HOME)}
-    target_user=${quoteForBash(DAYTONA_SANDBOX_USER)}
-    target_group=${quoteForBash(DAYTONA_SANDBOX_GROUP)}
-    mkdir -p "$codex_home"
-    if [ "$(id -u)" = "0" ]; then
-      chown -R "$target_user:$target_group" "$codex_home"
-    elif command -v sudo >/dev/null 2>&1; then
-      sudo chown -R "$target_user:$target_group" "$codex_home"
-    fi
-    chmod -R u+rwX "$codex_home"
-    mkdir -p "$codex_home/log"
-    for path in "$codex_home" "$codex_home/log"; do
-      if [ ! -w "$path" ]; then
-        echo "__NOTER_CODEX_HOME_NOT_WRITABLE__:$path"
-        exit 1
-      fi
-    done
-    for path in "$codex_home/auth.json" "$codex_home/config.toml"; do
-      if [ -e "$path" ] && [ ! -w "$path" ]; then
-        echo "__NOTER_CODEX_FILE_NOT_WRITABLE__:$path"
-        exit 1
-      fi
-    done
-    for path in "$codex_home/.noter-write-check" "$codex_home/log/.noter-write-check"; do
-      : > "$path"
-      rm -f "$path"
-    done
-  `;
-  const result = await args.sandbox.process.executeCommand(
-    `bash -lc ${quoteForBash(fixScript)}`,
-    undefined,
-    undefined,
-    DAYTONA_CODEX_HOME_FIX_TIMEOUT_SECONDS,
-  );
-  if (result.exitCode !== 0) {
-    throw new Error(
-      result.result.trim() ||
-        "Codex auth home is not writable in the Daytona sandbox.",
-    );
-  }
+  await ensureProjectedCodexHomeInSandbox({
+    sandbox: args.sandbox,
+    timeoutSeconds: DAYTONA_CODEX_HOME_FIX_TIMEOUT_SECONDS,
+  });
 }
-
 async function ensureDaytonaSandboxStarted(sandbox: Sandbox): Promise<void> {
   if (sandbox.state?.toLowerCase() !== "started") {
     await sandbox.start();
@@ -1102,7 +1095,7 @@ async function createDaytonaCodexAuthSandbox(args: {
     volumes: [
       {
         volumeId: args.volumeId,
-        mountPath: DAYTONA_CODEX_HOME,
+        mountPath: DAYTONA_CODEX_SHARED_HOME,
       },
     ],
   };
@@ -1343,12 +1336,11 @@ async function checkCodexLoginInSandbox(args: { sandbox: Sandbox }): Promise<{
   }
 
   try {
-    const result = await args.sandbox.process.executeCommand(
-      "codex login status",
-      undefined,
-      undefined,
-      30,
-    );
+    const result = await executeCommandAsSandboxUser({
+      sandbox: args.sandbox,
+      command: "codex login status",
+      timeoutSeconds: 30,
+    });
     if (result.exitCode === 0) {
       return {
         status: "ready",
@@ -1370,12 +1362,11 @@ async function checkCodexLoginInSandbox(args: { sandbox: Sandbox }): Promise<{
 }
 
 async function verifyCodexBinaryInSandbox(args: { sandbox: Sandbox }) {
-  const result = await args.sandbox.process.executeCommand(
-    "command -v codex",
-    undefined,
-    undefined,
-    30,
-  );
+  const result = await executeCommandAsSandboxUser({
+    sandbox: args.sandbox,
+    command: "command -v codex",
+    timeoutSeconds: 30,
+  });
   if (result.exitCode !== 0) {
     throw new Error("Codex CLI is not installed in the Daytona auth sandbox.");
   }
@@ -2965,7 +2956,7 @@ export const startDaytonaWorkspace = action({
               volumes: [
                 {
                   volumeId: codexAuthVolume.id,
-                  mountPath: DAYTONA_CODEX_HOME,
+                  mountPath: DAYTONA_CODEX_SHARED_HOME,
                 },
               ],
             }
@@ -2979,6 +2970,26 @@ export const startDaytonaWorkspace = action({
       sandbox = await daytona.create(sandboxParams);
       sandboxCreateMs = Date.now() - sandboxCreateStartedAt;
       sandboxLifecycle = "created";
+    }
+
+    await ensureDaytonaSandboxStarted(sandbox);
+
+    try {
+      await ensureSandboxPathWritableByUser({
+        sandbox,
+        path: repoWorkdir,
+        timeoutSeconds: 300,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        ok: false,
+        status: "not_configured",
+        message: `Daytona sandbox workspace is not writable as ${DAYTONA_SANDBOX_USER}: ${message}`,
+        branch,
+        sandboxId: sandbox.id,
+        sandboxName: sandbox.name,
+      };
     }
 
     const resolvedSandboxName = sandbox.name;
@@ -3147,100 +3158,112 @@ export const prepareCodexAuthSandbox = action({
     ctx,
     args,
   ): Promise<Infer<typeof prepareCodexAuthSandboxResult>> => {
-    const userId = await getUserId(ctx);
-    const apiConfig = resolveDaytonaApiConfig();
-    if (!apiConfig.ok) {
-      return {
-        ok: false,
-        message: apiConfig.message,
-      };
-    }
-
-    const daytona = new Daytona({
-      apiKey: apiConfig.token,
-      ...(apiConfig.baseUrl ? { apiUrl: apiConfig.baseUrl } : {}),
-    });
-    const envLabel = getDaytonaEnvLabel();
-    const existingConnection = await ctx.runQuery(
-      internal.providerConnections.getByUserAndKind,
-      {
-        userId,
-        kind: "codex",
-      },
-    );
-    const codexAuthVolume = await ensureDaytonaCodexAuthVolume({
-      daytona,
-      envLabel,
-      userId,
-    });
-    const authSandbox = await resolveVerifiedDaytonaCodexAuthSandbox({
-      ctx,
-      userId,
-      daytona,
-      baseUrl: apiConfig.baseUrl,
-      token: apiConfig.token,
-      volumeId: codexAuthVolume.id,
-      persistedSandboxId:
-        existingConnection?.kind === "codex"
-          ? existingConnection.auth.authSandboxId
-          : undefined,
-    });
-
-    const loginCheck = await checkCodexLoginInSandbox({
-      sandbox: authSandbox.sandbox,
-    });
-    await ctx.runMutation(internal.providerConnections.upsertCodex, {
-      userId,
-      auth: {
-        method: "device_auth",
-        storage: "daytona_volume",
-        volumeId: codexAuthVolume.id,
-        volumeName: codexAuthVolume.name,
-        codexHome: DAYTONA_CODEX_HOME,
-        authSandboxId: authSandbox.sandbox.id,
-        authSandboxName: authSandbox.sandboxName,
-        lastCheckAt: loginCheck.checkedAt,
-        lastCheckStatus: loginCheck.status,
-        ...(loginCheck.message ? { lastError: loginCheck.message } : {}),
-      },
-    });
-
-    const shouldOpenTerminal =
-      args.openTerminal === true || loginCheck.status !== "ready";
-
-    let terminalUrl: string | undefined;
-    if (shouldOpenTerminal) {
-      try {
-        terminalUrl = await getDaytonaSandboxTerminalUrl({
-          sandbox: authSandbox.sandbox,
-        });
-      } catch (error) {
+    try {
+      const userId = await getUserId(ctx);
+      const apiConfig = resolveDaytonaApiConfig();
+      if (!apiConfig.ok) {
         return {
           ok: false,
-          sandboxId: authSandbox.sandbox.id,
-          sandboxName: authSandbox.sandboxName,
-          lastCheckStatus: loginCheck.status,
-          message:
-            error instanceof Error
-              ? error.message
-              : "Failed to create a Daytona terminal link.",
+          message: apiConfig.message,
         };
       }
-    }
 
-    return {
-      ok: true,
-      sandboxId: authSandbox.sandbox.id,
-      sandboxName: authSandbox.sandboxName,
-      terminalUrl,
-      lastCheckStatus: loginCheck.status,
-      message:
-        loginCheck.status === "ready"
-          ? authSandbox.lifecycle === "created"
-            ? "Codex auth sandbox is ready and already logged in."
-            : "Codex is already logged in."
-          : "Codex auth sandbox is ready. Run codex login --device-auth in Daytona, finish the browser step, then click Check login.",
-    };
+      const daytona = new Daytona({
+        apiKey: apiConfig.token,
+        ...(apiConfig.baseUrl ? { apiUrl: apiConfig.baseUrl } : {}),
+      });
+      const envLabel = getDaytonaEnvLabel();
+      const existingConnection = await ctx.runQuery(
+        internal.providerConnections.getByUserAndKind,
+        {
+          userId,
+          kind: "codex",
+        },
+      );
+      const codexAuthVolume = await ensureDaytonaCodexAuthVolume({
+        daytona,
+        envLabel,
+        userId,
+      });
+      const authSandbox = await resolveVerifiedDaytonaCodexAuthSandbox({
+        ctx,
+        userId,
+        daytona,
+        baseUrl: apiConfig.baseUrl,
+        token: apiConfig.token,
+        volumeId: codexAuthVolume.id,
+        persistedSandboxId:
+          existingConnection?.kind === "codex"
+            ? existingConnection.auth.authSandboxId
+            : undefined,
+      });
+
+      const loginCheck = await checkCodexLoginInSandbox({
+        sandbox: authSandbox.sandbox,
+      });
+      await ctx.runMutation(internal.providerConnections.upsertCodex, {
+        userId,
+        auth: {
+          method: "device_auth",
+          storage: "daytona_volume",
+          volumeId: codexAuthVolume.id,
+          volumeName: codexAuthVolume.name,
+          codexHome: DAYTONA_CODEX_HOME,
+          authSandboxId: authSandbox.sandbox.id,
+          authSandboxName: authSandbox.sandboxName,
+          lastCheckAt: loginCheck.checkedAt,
+          lastCheckStatus: loginCheck.status,
+          ...(loginCheck.message ? { lastError: loginCheck.message } : {}),
+        },
+      });
+
+      const shouldOpenTerminal =
+        args.openTerminal === true || loginCheck.status !== "ready";
+
+      let terminalUrl: string | undefined;
+      if (shouldOpenTerminal) {
+        try {
+          terminalUrl = await getDaytonaSandboxTerminalUrl({
+            sandbox: authSandbox.sandbox,
+          });
+        } catch (error) {
+          return {
+            ok: false,
+            sandboxId: authSandbox.sandbox.id,
+            sandboxName: authSandbox.sandboxName,
+            lastCheckStatus: loginCheck.status,
+            message:
+              error instanceof Error
+                ? error.message
+                : "Failed to create a Daytona terminal link.",
+          };
+        }
+      }
+
+      return {
+        ok: true,
+        sandboxId: authSandbox.sandbox.id,
+        sandboxName: authSandbox.sandboxName,
+        terminalUrl,
+        lastCheckStatus: loginCheck.status,
+        message:
+          loginCheck.status === "ready"
+            ? authSandbox.lifecycle === "created"
+              ? "Codex auth sandbox is ready and already logged in."
+              : "Codex is already logged in."
+            : "Codex auth sandbox is ready. Run codex login --device-auth in Daytona, finish the browser step, then click Check login.",
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn("daytona:codex-auth:prepare:failed", {
+        message,
+      });
+      return {
+        ok: false,
+        message:
+          "Daytona could not finish preparing the Codex auth sandbox yet. If you just removed or recreated Codex resources, wait a few seconds and try Connect in Daytona again.",
+      };
+    }
   },
 });
 
@@ -3606,6 +3629,11 @@ async function refreshDaytonaRepoForLiveDebug(args: {
   githubToken: string;
 }): Promise<void> {
   await ensureDaytonaSandboxStarted(args.sandbox);
+  await ensureSandboxPathWritableByUser({
+    sandbox: args.sandbox,
+    path: args.repoDir,
+    timeoutSeconds: 300,
+  });
 
   const refreshScript = stripIndent`
     set -e
@@ -3642,14 +3670,15 @@ async function refreshDaytonaRepoForLiveDebug(args: {
     fi
   `;
 
-  const result = await args.sandbox.process.executeCommand(
-    `bash -lc ${quoteForBash(refreshScript)}`,
-    undefined,
-    {
+  const result = await executeCommandAsSandboxUser({
+    sandbox: args.sandbox,
+    command: refreshScript,
+    cwd: args.repoDir,
+    envs: {
       GITHUB_TOKEN: args.githubToken,
     },
-    600,
-  );
+    timeoutSeconds: 600,
+  });
 
   if (result.exitCode === 0) {
     return;

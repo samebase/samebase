@@ -3,136 +3,257 @@
 ## Status
 
 - Implemented
-- Last updated: 2026-03-13
+- Source of truth for Daytona Codex home behavior
+- Last updated: 2026-03-15
 
 ## Summary
 
-Daytona currently mounts the shared per-user Codex volume at `/root/.codex` and
-sets `CODEX_HOME` to that path. In production, `codex login status` works, but
-interactive `codex` fails in sandbox terminals when it tries to persist the
-directory trust decision for the repo.
+Noter keeps one shared Codex state surface per user across Daytona auth and
+workspace sandboxes, but the shared Daytona volume is no longer mounted directly
+at `CODEX_HOME`.
 
-The desired model is still one shared writable Codex home across Daytona auth
-and workspace sandboxes. The fix is to move that shared home under the active
-sandbox user home at `/home/daytona/.codex` and treat that path as the single
-Codex state surface.
+The implemented contract is:
+
+- app-level Codex usage runs as sandbox user `daytona`
+- live `CODEX_HOME` is a local writable directory at `/home/daytona/.codex`
+- the shared Daytona volume is mounted at `/home/daytona/.codex-shared`
+- persistent shared entries are projected from the backing mount into the local
+  Codex home
+- shared Codex config also pretrusts the active repo path for workspace shells
+- sandbox-local temp/log paths stay local to avoid Daytona volume permission
+  edge cases
+- legacy sandboxes that still mount the volume directly at
+  `/home/daytona/.codex` are incompatible and must be recreated
+
+This preserves shared auth/config/memories without relying on a direct mutable
+volume mount for the whole live Codex home.
 
 ## Problem
 
-Observed in production on 2026-03-13:
+Two earlier models were not good enough:
 
-1. `codex login status` succeeds inside the sandbox.
-2. `codex --help` succeeds inside the sandbox.
-3. Interactive `codex` fails before entering the TUI.
-4. Codex logs report:
-   - failed to persist `config.toml`
-   - path: `/root/.codex/config.toml`
-   - error: `Operation not permitted (os error 1)`
+1. the original auth-volume model mounted the shared Codex volume at
+   `/root/.codex`
+2. the first shared-home follow-up mounted the same shared volume directly at
+   `/home/daytona/.codex`
 
-This means auth reuse works, but the mounted shared home is not valid enough for
-live interactive Codex usage in the current Daytona terminal flow.
+The direct `/home/daytona/.codex` mount still failed in real sandboxes. Observed
+behavior during local and production-style validation:
 
-## Goal
+1. sandbox commands often still started as `root` unless explicitly switched to
+   `daytona`
+2. the mounted Daytona volume materialized under the sandbox with ownership that
+   behaved like `nobody:nogroup`
+3. Codex could read auth, but operations that expect a normal writable home,
+   especially temp-file chmod/chown behavior, failed with
+   `Operation not permitted`
+4. opening a workspace shell could attach to a stale legacy sandbox and fail
+   while trying to repair `/home/daytona/.codex`
 
-Keep one shared writable Codex home per user across Daytona sandboxes while
-making interactive Codex work in the sandbox terminal without copy-based auth
-workarounds.
+The critical concrete failure observed under `strace` was a chmod failure inside
+Codex temp-file handling under the directly mounted shared home.
+
+## Goals
+
+1. Keep one shared Codex identity/config/memory surface per user across Daytona
+   sandboxes.
+2. Make `codex login status` and normal interactive Codex usage work in both the
+   auth sandbox and repo workspace sandboxes.
+3. Run Noter-managed Codex commands and PTY sessions as the intended sandbox
+   user `daytona` even when the raw Daytona process default is `root`.
+4. Remove compatibility with stale direct-mount sandboxes instead of carrying
+   indefinite fallback logic.
 
 ## Non-Goals
 
-1. Do not switch to per-sandbox isolated Codex homes.
-2. Do not copy only `auth.json` into a local sandbox directory as the primary
-   design.
-3. Do not mount over the entire `/home/daytona` directory.
-4. Do not store Codex auth or memories in Convex documents.
+1. Do not store Codex auth in Convex documents, repo files, env vars, or
+   snapshots.
+2. Do not fall back to per-sandbox isolated auth copies as the primary design.
+3. Do not treat the shared volume as an auth-only cache; shared Codex state is a
+   deliberate product behavior.
+4. Do not preserve old `/root/.codex` or direct `/home/daytona/.codex` mount
+   behavior for backward compatibility.
 
-## Design
+## Runtime Contract
 
-### 1. Shared volume stays the source of truth
+### 1. Sandbox user contract
 
-Keep the per-user Daytona Codex volume introduced in spec 049. It remains the
-single persisted Codex state surface across auth sandboxes and workspace
-sandboxes.
+The intended Noter-facing runtime user is:
 
-### 2. Move the shared Codex home under the sandbox user home
+- user: `daytona`
+- group: `daytona`
+- home: `/home/daytona`
 
-Use:
+Noter must not assume the raw Daytona command execution default is already that
+user. The implementation therefore explicitly switches command execution and PTY
+startup into `daytona` for Codex-facing flows.
 
-- sandbox user: `daytona`
-- sandbox home: `/home/daytona`
-- shared Codex home: `/home/daytona/.codex`
+Implications:
 
-Do not use `/root/.codex` as the Codex home going forward.
+1. direct `sandbox.process.executeCommand("id -un")` may still return `root`
+2. Noter-managed command helpers must run Codex commands as `daytona`
+3. embedded PTY shells must auto-switch into `daytona` before handing control to
+   the user
 
-### 3. Mount the same volume at the new path in both sandbox types
+### 2. Projected Codex home layout
 
-For:
+The live sandbox layout is:
 
-1. the lightweight Codex auth sandbox
-2. normal Daytona workspace sandboxes
+- local live Codex home: `/home/daytona/.codex`
+- shared backing mount: `/home/daytona/.codex-shared`
 
-mount the same per-user Codex volume at:
+The shared Daytona volume is mounted only at:
 
-- `/home/daytona/.codex`
+- `/home/daytona/.codex-shared`
 
-Set:
+Noter sets:
 
 - `CODEX_HOME=/home/daytona/.codex`
 
-Codex compatibility should be keyed off that explicit mount path and
-`CODEX_HOME` value. The shell prompt may still appear as `root` in some Daytona
-terminal surfaces, but Codex state must no longer depend on `/root/.codex`.
+### 3. Shared vs local entries
 
-### 4. Use the mount path as the compatibility boundary
+The projected Codex home is split intentionally.
 
-Existing sandboxes or auth sandboxes using `/root/.codex` should be considered
-incompatible and recreated automatically. The current setup checks already use
-the configured `DAYTONA_CODEX_HOME`, so changing the shared constant is enough
-to invalidate old mount-path setups.
+Local sandbox-owned paths:
 
-### 5. Preserve shared Codex state semantics
+- `/home/daytona/.codex`
+- `/home/daytona/.codex/tmp`
+- `/home/daytona/.codex/log`
 
-This path change is not an auth-only migration. The mounted volume should remain
-the live writable Codex home so:
+Shared persistent entries projected from the backing mount:
 
-1. auth persists
-2. trust decisions persist
-3. Codex memories and other future state remain shared across sandboxes and
-   agents
+- `/home/daytona/.codex/auth.json`
+- `/home/daytona/.codex/config.toml`
+- `/home/daytona/.codex/memories`
 
-### 6. Persist Daytona terminal compatibility in shared Codex config
+The local home stays writable by `daytona`. The shared entries are surfaced from
+`/home/daytona/.codex-shared` into that live home so that auth/config/memories
+remain shared across sandboxes while temp/log behavior remains compatible with
+Codex file-system expectations.
 
-The Daytona web terminal currently does not reliably deliver trust-prompt input
-once Codex switches to alternate-screen mode. To keep interactive Codex usable
-from Daytona terminals, the shared Daytona Codex config should persist:
+### 4. Sandbox creation contract
 
-- `no_alt_screen = true`
+For both:
 
-This setting belongs in the shared Daytona `config.toml` because it is part of
-the live interactive behavior expected from that shared Codex home.
+1. the per-user Codex auth sandbox
+2. normal Daytona workspace sandboxes
 
-## Acceptance Criteria
+Noter must:
 
-1. Connecting or verifying Codex in Daytona stores `codexHome` as
-   `/home/daytona/.codex`.
-2. New auth sandboxes mount the shared volume at `/home/daytona/.codex`.
-3. New workspace sandboxes mount the shared volume at `/home/daytona/.codex`.
-4. Existing sandboxes mounted at `/root/.codex` are treated as incompatible and
-   recreated on demand.
-5. In a fresh Daytona workspace sandbox terminal:
-   - `echo $CODEX_HOME` prints `/home/daytona/.codex`
-   - `codex login status` succeeds
-   - `config.toml` under the shared Daytona Codex home contains
-     `no_alt_screen = true`
-   - interactive `codex` stays usable in the Daytona web terminal without
-     alternate-screen input loss
-   - interactive `codex` no longer fails while persisting `config.toml` under
-     `/root/.codex`
+1. create the sandbox with `user: "daytona"`
+2. set `CODEX_HOME=/home/daytona/.codex`
+3. mount the shared Codex volume at `/home/daytona/.codex-shared`
+4. ensure the projected local Codex home exists before Codex commands or PTY
+   sessions are opened
+
+### 5. Compatibility boundary
+
+A Daytona sandbox is incompatible with the current Codex contract if any of the
+following is true:
+
+1. sandbox user is not `daytona`
+2. `CODEX_HOME` is set to anything other than `/home/daytona/.codex`
+3. the shared Codex volume is mounted directly at `/home/daytona/.codex`
+4. the shared Codex auth volume is missing when the sandbox is expected to reuse
+   Codex state
+
+Incompatible sandboxes should be deleted and recreated. Noter should not keep
+reattaching terminal sessions to them.
+
+### 6. Terminal contract
+
+For workspace shell, workspace dev-server terminal, and Codex auth terminal:
+
+1. ensure the sandbox is started
+2. ensure the projected Codex home exists and is writable
+3. ensure repo workdir ownership is writable by `daytona` for workspace shells
+4. open the PTY session with initial input that switches into a `daytona` shell
+
+This is required because the PTY transport alone does not guarantee the desired
+user context.
+
+### 7. Shared-state semantics
+
+This design still preserves one shared Codex state surface per user.
+
+Shared across auth/workspace sandboxes:
+
+- login state
+- shared Codex config
+- memories
+- other future durable Codex state represented by projected shared entries
+
+Sandbox-local only:
+
+- temp files
+- log files
+- ephemeral process state
+
+This is the minimum split that preserves the intended product behavior while
+avoiding the direct-mount permission failures.
+
+### 8. Workspace trust behavior
+
+For Daytona workspace shells, Noter should prewrite the shared Codex config so
+the active repo path is trusted by default.
+
+The expected shared config behavior is:
+
+1. keep `no_alt_screen = true`
+2. ensure the active workspace repo path is present under `[projects."<path>"]`
+3. set `trust_level = "trusted"` for that repo path before the operator runs
+   interactive `codex`
+
+This avoids the extra interactive trust prompt for the repo that Noter itself
+just opened as the active Daytona workspace.
+
+## Migration / Cleanup Rules
+
+1. Legacy `/root/.codex` auth sandboxes are obsolete.
+2. Legacy workspace sandboxes with direct `/home/daytona/.codex` volume mounts
+   are obsolete.
+3. Terminal resolution must not reattach to those legacy sandboxes by persisted
+   id alone.
+4. The workspace start path and terminal path must converge on the same
+   compatibility contract.
+5. If a stale sandbox is discovered, recreate it instead of adding another
+   compatibility branch.
 
 ## Validation
 
-1. Update the existing sandbox env/bootstrap test expectations to the new
-   `CODEX_HOME`.
-2. Re-run the production-style Daytona sandbox flow.
-3. In the Daytona terminal, verify interactive `codex` works without overriding
-   `CODEX_HOME` manually.
+The expected validation surface is:
+
+1. Providers -> Codex -> `Connect in Daytona`
+2. complete `codex login --device-auth`
+3. `Check login` reports ready
+4. create or open a Daytona workspace sandbox for a repo
+5. inside the workspace sandbox, verify:
+   - wrapped command user resolves to `daytona`
+   - `echo $CODEX_HOME` prints `/home/daytona/.codex`
+   - `/home/daytona/.codex` is writable by `daytona`
+   - `/home/daytona/.codex-shared` is the mounted backing store
+   - shared `config.toml` contains the repo path with `trust_level = "trusted"`
+   - `command -v codex` succeeds
+   - `codex login status` succeeds without the old PATH/log/chmod permission
+     warnings
+
+## Concrete Validation Completed On 2026-03-15
+
+Validated locally against the real Daytona API and a temporary repo workspace:
+
+1. auth sandbox reached `Ready in Daytona`
+2. workspace sandbox selected by Noter mounted the shared volume at
+   `/home/daytona/.codex-shared`
+3. wrapped command execution reported user `daytona`
+4. live `CODEX_HOME` was `/home/daytona/.codex`
+5. `codex login status` in the workspace sandbox returned
+   `Logged in using ChatGPT`
+6. the prior direct-mount failure
+   (`chown ... /home/daytona/.codex: Operation not permitted`) was reproduced on
+   a stale sandbox and resolved by treating that sandbox layout as incompatible
+
+## Implementation Files
+
+- `apps/noter/convex/daytona/sandboxUser.ts`
+- `apps/noter/convex/daytona/actions.ts`
+- `apps/noter/convex/daytona/terminal.ts`

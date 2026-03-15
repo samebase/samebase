@@ -429,7 +429,8 @@ Auth:
   apart at a glance.
 - When asked to use Playwright for testing, start with an unconstrained browser
   layout by default (no explicit viewport/device override) unless the user asks
-  for a specific viewport.
+  for a specific viewport. Do not call Playwright/browser resize just to force a
+  desktop-like size.
 - Include a mobile viewport/device pass as a pre-ship validation step when it is
   relevant, rather than as the default starting mode.
 - If the user says to "remove mobile constraints" (or equivalent) during
