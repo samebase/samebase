@@ -1,0 +1,228 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mockState = vi.hoisted(() => {
+  let sandbox: unknown = null;
+  const state = {
+    get sandbox() {
+      return sandbox;
+    },
+    set sandbox(value: unknown) {
+      sandbox = value;
+    },
+    requestedSessionId: "",
+    daytonaGet: vi.fn(async () => {
+      if (!sandbox) {
+        throw new Error("Sandbox mock is missing.");
+      }
+      return sandbox;
+    }),
+    daytonaList: vi.fn(async () => ({ items: [] })),
+    getToolboxProxyUrl: vi.fn(async () => ({
+      data: { url: "https://toolbox.example" },
+    })),
+  };
+  state.daytonaGet.mockImplementation(async () => {
+    if (!state.sandbox) {
+      throw new Error("Sandbox mock is missing.");
+    }
+    return state.sandbox;
+  });
+  return state;
+});
+
+vi.mock("../common", () => ({
+  getUserId: vi.fn(async () => "user-1"),
+}));
+
+vi.mock("@daytonaio/api-client", () => ({
+  Configuration: class Configuration {},
+  SandboxApi: class SandboxApi {
+    async getToolboxProxyUrl() {
+      return await mockState.getToolboxProxyUrl();
+    }
+  },
+}));
+
+vi.mock("@daytonaio/sdk", () => ({
+  Daytona: class Daytona {
+    async get() {
+      return await mockState.daytonaGet();
+    }
+
+    async list() {
+      return await mockState.daytonaList();
+    }
+  },
+}));
+
+type FakeCommandResult = {
+  exitCode: number;
+  result: string;
+};
+
+type FakeCreatePtyOptions = {
+  id?: string;
+  cwd?: string;
+  envs?: Record<string, string>;
+  cols?: number;
+  rows?: number;
+  onData?: (data: Uint8Array) => void | Promise<void>;
+};
+
+type FakePtyHandle = {
+  sessionId: string;
+  waitForConnection: () => Promise<void>;
+  sendInput: (input: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+};
+
+type FakeSandbox = {
+  id: string;
+  name: string;
+  state: string;
+  user: string;
+  env: Record<string, string>;
+  labels: Record<string, string>;
+  volumes: Array<{ mountPath: string }>;
+  createdAt: number;
+  process: {
+    executeCommand: (command: string) => Promise<FakeCommandResult>;
+    createPty: (options: FakeCreatePtyOptions) => Promise<FakePtyHandle>;
+    killPtySession: (sessionId: string) => Promise<void>;
+  };
+  getPreviewLink: (port: number) => Promise<{ token: string }>;
+};
+
+import { openWorkspacePtySession } from "./terminal";
+
+function readActionHandler(
+  value: unknown,
+): (...args: unknown[]) => Promise<unknown> {
+  if (
+    (typeof value !== "function" && typeof value !== "object") ||
+    value === null
+  ) {
+    throw new Error("Expected a registered Convex action.");
+  }
+  const handler = Reflect.get(value, "_handler");
+  if (typeof handler !== "function") {
+    throw new Error("Registered Convex action is missing its handler.");
+  }
+  return handler;
+}
+
+function createSandbox(): FakeSandbox {
+  const textEncoder = new TextEncoder();
+  return {
+    id: "sandbox-1",
+    name: "noter-sandbox",
+    state: "started",
+    user: "daytona",
+    env: {
+      CODEX_HOME: "/home/daytona/.codex",
+    },
+    labels: {
+      "noter.vault_id": "vault-1",
+      "noter.branch": "main",
+      "noter.commit_sha": "commit-sha-1",
+    },
+    volumes: [{ mountPath: "/home/daytona/.codex-shared" }],
+    createdAt: Date.now(),
+    process: {
+      executeCommand: async (command: string) => {
+        if (command.includes("cat '/home/daytona/.codex/config.toml'")) {
+          return {
+            exitCode: 0,
+            result: "",
+          };
+        }
+        return {
+          exitCode: 0,
+          result: "",
+        };
+      },
+      createPty: async (options) => {
+        mockState.requestedSessionId = options.id ?? "";
+        if (typeof options.onData === "function") {
+          await options.onData(textEncoder.encode("prompt$ "));
+        }
+        return {
+          sessionId: "actual-pty-session-1",
+          waitForConnection: async () => {},
+          sendInput: async () => {},
+          disconnect: async () => {},
+        };
+      },
+      killPtySession: async () => {},
+    },
+    getPreviewLink: async (port) => {
+      expect(port).toBe(1);
+      return { token: "preview-token-1" };
+    },
+  };
+}
+
+describe("openWorkspacePtySession", () => {
+  beforeEach(() => {
+    process.env.DAYTONA_API_URL = "https://daytona.example";
+    process.env.DAYTONA_API_TOKEN = "token-1";
+    mockState.sandbox = createSandbox();
+    mockState.requestedSessionId = "";
+    mockState.daytonaGet.mockClear();
+    mockState.daytonaList.mockClear();
+    mockState.getToolboxProxyUrl.mockClear();
+  });
+
+  it("returns the actual Daytona PTY session id after createPty rewrites it", async () => {
+    const handler = readActionHandler(openWorkspacePtySession);
+    const result = await handler(
+      {
+        auth: {},
+        runQuery: async (_reference: unknown, args: unknown) => {
+          const candidateArgs =
+            typeof args === "object" && args !== null ? args : {};
+          const id = Reflect.get(candidateArgs, "id");
+          const branchName = Reflect.get(candidateArgs, "branchName");
+          if (id === "vault-1") {
+            return {
+              _id: "vault-1",
+              userId: "user-1",
+              ghRepoName: "noter",
+              commitSHA: "commit-sha-1",
+              daytonaSandboxId: "sandbox-1",
+              daytonaSandboxName: "noter-sandbox",
+              daytonaSandboxProvisioningMode: undefined,
+            };
+          }
+          if (branchName === "main") {
+            return {
+              headCommitSha: "commit-sha-1",
+            };
+          }
+          throw new Error(
+            `Unexpected runQuery args: ${JSON.stringify(candidateArgs)}`,
+          );
+        },
+        runMutation: async () => null,
+      },
+      {
+        vaultId: "vault-1",
+        branch: "main",
+        cols: 120,
+        rows: 32,
+      },
+    );
+
+    expect(mockState.requestedSessionId).toMatch(/^noter-pty-vault-1-/);
+    expect(mockState.requestedSessionId).not.toBe("actual-pty-session-1");
+    expect(result).toMatchObject({
+      ok: true,
+      sessionId: "actual-pty-session-1",
+      webSocketUrl:
+        "wss://toolbox.example/sandbox-1/process/pty/actual-pty-session-1/connect",
+      previewToken: "preview-token-1",
+      sandboxId: "sandbox-1",
+      sandboxName: "noter-sandbox",
+    });
+  });
+});
