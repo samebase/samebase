@@ -218,10 +218,10 @@ use `--env-file` or an explicit deployment selector instead.
   virtual keyboard appears on mobile devices
 - **High: Daytona Codex shared home semantics** - treat the mounted Codex volume
   as a desirable shared state surface, not just an auth cache. Shared `~/.codex`
-  memories/state across Daytona sandboxes and agents is intentional.
-  fixes that preserve one writable shared Codex home via `DAYTONA_CODEX_HOME`
-  over workarounds that copy only auth into an isolated per-sandbox home and
-  strand memories/agent state.
+  memories/state across Daytona sandboxes and agents is intentional. fixes that
+  preserve one writable shared Codex home via `DAYTONA_CODEX_HOME` over
+  workarounds that copy only auth into an isolated per-sandbox home and strand
+  memories/agent state.
 - **Idea: Daytona terminal UI transparency** - do not over-hide tmux/session
   chrome if exposing it improves operator control. Prefer a VS Code-like web
   terminal surface with simple tabs, splits, and top-bar actions over a "hidden
@@ -427,8 +427,11 @@ Auth:
 - For concurrent Playwright agents, assign each isolated browser profile a
   random distinguishing color/theme so parallel sessions are easier to tell
   apart at a glance.
-- When asked to use Playwright for testing, start in mobile viewport/device mode
-  first, then validate desktop as needed.
+- When asked to use Playwright for testing, start with an unconstrained browser
+  layout by default (no explicit viewport/device override) unless the user asks
+  for a specific viewport.
+- Include a mobile viewport/device pass as a pre-ship validation step when it is
+  relevant, rather than as the default starting mode.
 - If the user says to "remove mobile constraints" (or equivalent) during
   Playwright/UI work, remove all explicit viewport/device constraints instead of
   switching to a forced desktop size; let the page render at its normal,

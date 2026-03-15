@@ -97,6 +97,7 @@ const DAYTONA_SANDBOX_HOME = "/home/daytona";
 // Keep the shared Codex volume under the active sandbox user home so the same
 // writable Codex state is reused across auth and workspace sandboxes.
 const DAYTONA_CODEX_HOME = `${DAYTONA_SANDBOX_HOME}/.codex`;
+const DAYTONA_CODEX_HOME_FIX_TIMEOUT_SECONDS = 60;
 const DAYTONA_CODEX_AUTH_VOLUME_PREFIX = "noter-codex-auth";
 const DAYTONA_CODEX_AUTH_SANDBOX_PREFIX = "noter-codex-auth";
 const DAYTONA_VOLUME_READY_TIMEOUT_MS = 60_000;
@@ -858,11 +859,16 @@ function hasCodexHomeEnv(sandbox: Sandbox): boolean {
   return codexHomeValue === DAYTONA_CODEX_HOME;
 }
 
+function hasExpectedSandboxUser(sandbox: Sandbox): boolean {
+  return sandbox.user.trim() === DAYTONA_SANDBOX_USER;
+}
+
 function hasCompatibleCodexAuthSetup(args: {
   sandbox: Sandbox;
   volumeId: string;
 }): boolean {
   return (
+    hasExpectedSandboxUser(args.sandbox) &&
     hasCodexHomeEnv(args.sandbox) &&
     hasCodexAuthVolumeMount({
       sandbox: args.sandbox,
@@ -926,6 +932,43 @@ async function clearCodexAuthHomeInSandbox(args: {
   );
   if (result.exitCode !== 0) {
     throw new Error(result.result.trim() || "Failed to clear Codex auth data.");
+  }
+}
+
+async function ensureCodexHomeWritableInSandbox(args: {
+  sandbox: Sandbox;
+}): Promise<void> {
+  await ensureDaytonaSandboxStarted(args.sandbox);
+
+  const fixScript = stripIndent`
+    set -e
+    codex_home=${quoteForBash(DAYTONA_CODEX_HOME)}
+    mkdir -p "$codex_home"
+    current_user="$(id -un)"
+    current_group="$(id -gn)"
+    if [ ! -w "$codex_home" ]; then
+      if [ "$(id -u)" = "0" ]; then
+        chown -R "$current_user:$current_group" "$codex_home"
+      elif command -v sudo >/dev/null 2>&1; then
+        sudo chown -R "$current_user:$current_group" "$codex_home"
+      fi
+    fi
+    chmod -R u+rwX "$codex_home" || true
+    mkdir -p "$codex_home/log"
+    touch "$codex_home/.noter-write-check"
+    rm -f "$codex_home/.noter-write-check"
+  `;
+  const result = await args.sandbox.process.executeCommand(
+    `bash -lc ${quoteForBash(fixScript)}`,
+    undefined,
+    undefined,
+    DAYTONA_CODEX_HOME_FIX_TIMEOUT_SECONDS,
+  );
+  if (result.exitCode !== 0) {
+    throw new Error(
+      result.result.trim() ||
+        "Codex auth home is not writable in the Daytona sandbox.",
+    );
   }
 }
 
@@ -1185,6 +1228,7 @@ async function resolveDaytonaCodexAuthSandbox(args: {
       await sandbox.refreshData();
       lifecycle = "resumed";
     }
+    await ensureCodexHomeWritableInSandbox({ sandbox });
     return {
       sandbox,
       sandboxName: sandbox.name,
@@ -1201,6 +1245,7 @@ async function resolveDaytonaCodexAuthSandbox(args: {
     sandboxName,
     volumeId: args.volumeId,
   });
+  await ensureCodexHomeWritableInSandbox({ sandbox: createdSandbox });
   return {
     sandbox: createdSandbox,
     sandboxName: createdSandbox.name,
@@ -1266,6 +1311,24 @@ async function checkCodexLoginInSandbox(args: { sandbox: Sandbox }): Promise<{
   message?: string;
 }> {
   const checkedAt = Date.now();
+  if (!hasExpectedSandboxUser(args.sandbox)) {
+    return {
+      status: "needs_reauth",
+      checkedAt,
+      message:
+        "Codex auth sandbox user is out of date. Reconnect Codex in Daytona to recreate it.",
+    };
+  }
+  try {
+    await ensureCodexHomeWritableInSandbox({ sandbox: args.sandbox });
+  } catch (error) {
+    return {
+      status: "needs_reauth",
+      checkedAt,
+      message: error instanceof Error ? error.message : String(error),
+    };
+  }
+
   try {
     const result = await args.sandbox.process.executeCommand(
       "codex login status",
