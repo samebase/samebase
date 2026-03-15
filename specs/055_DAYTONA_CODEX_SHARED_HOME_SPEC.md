@@ -19,6 +19,7 @@ The implemented contract is:
 - the shared Daytona volume is mounted at `/home/daytona/.codex-shared`
 - persistent shared entries are projected from the backing mount into the local
   Codex home
+- shared Codex config also pretrusts the active repo path for workspace shells
 - sandbox-local temp/log paths stay local to avoid Daytona volume permission
   edge cases
 - legacy sandboxes that still mount the volume directly at
@@ -191,6 +192,21 @@ Sandbox-local only:
 This is the minimum split that preserves the intended product behavior while
 avoiding the direct-mount permission failures.
 
+### 8. Workspace trust behavior
+
+For Daytona workspace shells, Noter should prewrite the shared Codex config so
+the active repo path is trusted by default.
+
+The expected shared config behavior is:
+
+1. keep `no_alt_screen = true`
+2. ensure the active workspace repo path is present under `[projects."<path>"]`
+3. set `trust_level = "trusted"` for that repo path before the operator runs
+   interactive `codex`
+
+This avoids the extra interactive trust prompt for the repo that Noter itself
+just opened as the active Daytona workspace.
+
 ## Migration / Cleanup Rules
 
 1. Legacy `/root/.codex` auth sandboxes are obsolete.
@@ -216,6 +232,7 @@ The expected validation surface is:
    - `echo $CODEX_HOME` prints `/home/daytona/.codex`
    - `/home/daytona/.codex` is writable by `daytona`
    - `/home/daytona/.codex-shared` is the mounted backing store
+   - shared `config.toml` contains the repo path with `trust_level = "trusted"`
    - `command -v codex` succeeds
    - `codex login status` succeeds without the old PATH/log/chmod permission
      warnings

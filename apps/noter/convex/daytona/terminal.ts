@@ -7,7 +7,10 @@ import {
 import { Daytona, type Sandbox } from "@daytonaio/sdk";
 import { randomUUID } from "crypto";
 import { Infer, v } from "convex/values";
-import { upsertCodexNoAltScreenConfig } from "../../../../runtime/codexConfig.js";
+import {
+  upsertCodexNoAltScreenConfig,
+  upsertCodexProjectTrustConfig,
+} from "../../../../runtime/codexConfig.js";
 import { action, type ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -324,7 +327,7 @@ async function ensureFishInSandbox(args: {
   sandbox: Sandbox;
 }): Promise<"already_present" | "installed"> {
   const checkResult = await args.sandbox.process.executeCommand(
-    `command -v fish >/dev/null 2>&1 && [ "$(grep "^$(id -un):" /etc/passwd | cut -d: -f7 | head -n 1 || true)" = "$(command -v fish)" ]`,
+    "command -v fish >/dev/null 2>&1",
     undefined,
     undefined,
     30,
@@ -335,7 +338,7 @@ async function ensureFishInSandbox(args: {
 
   const installScript = stripIndent`
     set -e
-    if command -v fish >/dev/null 2>&1 && [ "$(grep "^$(id -un):" /etc/passwd | cut -d: -f7 | head -n 1 || true)" = "$(command -v fish)" ]; then
+    if command -v fish >/dev/null 2>&1; then
       exit 0
     fi
     if ! command -v apt-get >/dev/null 2>&1; then
@@ -353,12 +356,6 @@ async function ensureFishInSandbox(args: {
     fi
     ${"$"}{prefix}apt-get update
     ${"$"}{prefix}apt-get install -y --no-install-recommends fish
-    fish_path="$(command -v fish)"
-    current_user="$(id -un)"
-    current_shell="$(grep "^${"$"}current_user:" /etc/passwd | cut -d: -f7 | head -n 1 || true)"
-    if [ "$current_shell" != "$fish_path" ]; then
-      ${"$"}{prefix}usermod -s "$fish_path" "$current_user"
-    fi
     ${"$"}{prefix}rm -rf /var/lib/apt/lists/*
   `;
   const installCommand = `bash -lc ${quoteForShell(installScript)}`;
@@ -798,8 +795,9 @@ async function writeCodexConfigInSandbox(args: {
   }
 }
 
-async function ensureCodexNoAltScreenConfigInSandbox(args: {
+async function ensureCodexConfigInSandbox(args: {
   sandbox: Sandbox;
+  trustedProjectPath?: string;
 }): Promise<void> {
   const codexHome = readCodexHomeInSandbox(args.sandbox);
   if (!codexHome) {
@@ -810,7 +808,14 @@ async function ensureCodexNoAltScreenConfigInSandbox(args: {
     sandbox: args.sandbox,
     codexHome,
   });
-  const nextConfig = upsertCodexNoAltScreenConfig(existingConfig);
+  const nextConfig = (() => {
+    const withNoAltScreen = upsertCodexNoAltScreenConfig(existingConfig);
+    const trustedProjectPath = args.trustedProjectPath?.trim();
+    if (!trustedProjectPath) {
+      return withNoAltScreen;
+    }
+    return upsertCodexProjectTrustConfig(withNoAltScreen, trustedProjectPath);
+  })();
   if (nextConfig === existingConfig) {
     return;
   }
@@ -831,7 +836,7 @@ async function openPtySession(args: {
   cols: number;
   rows: number;
   captureInitialOutput?: boolean;
-  initialInput?: string;
+  trustedProjectPath?: string;
 }): Promise<{
   webSocketUrl: string;
   previewToken: string;
@@ -839,8 +844,9 @@ async function openPtySession(args: {
 }> {
   await ensureSandboxStarted(args.sandbox);
   try {
-    await ensureCodexNoAltScreenConfigInSandbox({
+    await ensureCodexConfigInSandbox({
       sandbox: args.sandbox,
+      trustedProjectPath: args.trustedProjectPath,
     });
   } catch (error) {
     console.warn("daytona:pty:codex-config-sync-skipped", {
@@ -852,9 +858,6 @@ async function openPtySession(args: {
   const outputChunks: string[] = [];
   const lastChunkAtRef = { current: Date.now() };
   const sawOutputRef = { current: false };
-  const shouldCaptureOutput =
-    args.captureInitialOutput === true ||
-    (typeof args.initialInput === "string" && args.initialInput.length > 0);
   let ptyHandle: Awaited<ReturnType<Sandbox["process"]["createPty"]>> | null =
     null;
   try {
@@ -868,7 +871,7 @@ async function openPtySession(args: {
       cols: args.cols,
       rows: args.rows,
       onData: async (data) => {
-        if (!shouldCaptureOutput) {
+        if (args.captureInitialOutput !== true) {
           return;
         }
         outputChunks.push(textDecoder.decode(data, { stream: true }));
@@ -877,10 +880,7 @@ async function openPtySession(args: {
       },
     });
     await ptyHandle.waitForConnection();
-    if (typeof args.initialInput === "string" && args.initialInput.length > 0) {
-      await ptyHandle.sendInput(args.initialInput);
-    }
-    if (shouldCaptureOutput) {
+    if (args.captureInitialOutput === true) {
       await waitForPtyOutputIdle({
         lastChunkAtRef,
         sawOutputRef,
@@ -1048,7 +1048,11 @@ export const openWorkspacePtySession = action({
         cwd: resolved.repoDir,
         cols,
         rows,
-        captureInitialOutput: true,
+        trustedProjectPath: resolved.repoDir,
+      });
+      await primePtySession({
+        sandbox: resolved.sandbox,
+        sessionId,
         initialInput: buildSwitchPtySessionToSandboxUserInput({
           cwd: resolved.repoDir,
         }),
@@ -1130,6 +1134,11 @@ export const openWorkspaceDevServerPtySession = action({
         cwd: resolved.repoDir,
         cols,
         rows,
+        trustedProjectPath: resolved.repoDir,
+      });
+      await primePtySession({
+        sandbox: resolved.sandbox,
+        sessionId,
         initialInput: buildSwitchPtySessionToSandboxUserInput({
           cwd: resolved.repoDir,
         }),
@@ -1221,6 +1230,10 @@ export const openCodexAuthPtySession = action({
         cwd: DEFAULT_CODEX_AUTH_DIR,
         cols,
         rows,
+      });
+      await primePtySession({
+        sandbox: resolved.sandbox,
+        sessionId,
         initialInput: buildSwitchPtySessionToSandboxUserInput({
           cwd: DEFAULT_CODEX_AUTH_DIR,
         }),

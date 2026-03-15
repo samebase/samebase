@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { upsertCodexNoAltScreenConfig } from "../../../../runtime/codexConfig.js";
+import {
+  upsertCodexNoAltScreenConfig,
+  upsertCodexProjectTrustConfig,
+} from "../../../../runtime/codexConfig.js";
 
 describe("codexConfig", () => {
   it("adds no_alt_screen to an empty config", () => {
@@ -31,6 +34,39 @@ describe("codexConfig", () => {
       ),
     ).toBe(
       `# Shared Daytona Codex config\n\nno_alt_screen = true\n\n[projects."/repo"]\ntrust_level = "trusted"\n`,
+    );
+  });
+
+  it("adds a trusted project entry when missing", () => {
+    expect(
+      upsertCodexProjectTrustConfig(
+        `no_alt_screen = true\n`,
+        "/home/daytona/workspace/noter",
+      ),
+    ).toBe(
+      `no_alt_screen = true\n\n[projects."/home/daytona/workspace/noter"]\ntrust_level = "trusted"\n`,
+    );
+  });
+
+  it("replaces an existing project trust level", () => {
+    expect(
+      upsertCodexProjectTrustConfig(
+        `[projects."/home/daytona/workspace/noter"]\ntrust_level = "ask"\n`,
+        "/home/daytona/workspace/noter",
+      ),
+    ).toBe(
+      `[projects."/home/daytona/workspace/noter"]\ntrust_level = "trusted"\n`,
+    );
+  });
+
+  it("leaves other project entries intact when trusting the target project", () => {
+    expect(
+      upsertCodexProjectTrustConfig(
+        `[projects."/other"]\ntrust_level = "ask"\n\n[projects."/home/daytona/workspace/noter"]\nmodel = "gpt-5"\n`,
+        "/home/daytona/workspace/noter",
+      ),
+    ).toBe(
+      `[projects."/other"]\ntrust_level = "ask"\n\n[projects."/home/daytona/workspace/noter"]\ntrust_level = "trusted"\nmodel = "gpt-5"\n`,
     );
   });
 });

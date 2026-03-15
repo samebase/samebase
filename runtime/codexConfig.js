@@ -1,4 +1,5 @@
 const CODEX_NO_ALT_SCREEN_LINE = 'no_alt_screen = true'
+const CODEX_TRUSTED_LINE = 'trust_level = "trusted"'
 
 /**
  * @param {string} value
@@ -50,4 +51,58 @@ export function upsertCodexNoAltScreenConfig(existingConfig) {
   return ensureTrailingNewline(
     `${normalized.replace(/\s*$/u, '')}\n${CODEX_NO_ALT_SCREEN_LINE}`,
   )
+}
+
+/**
+ * @param {string} value
+ * @returns {string}
+ */
+function quoteTomlString(value) {
+  return JSON.stringify(value)
+}
+
+/**
+ * Ensure the shared Daytona Codex config trusts the given project path.
+ *
+ * @param {string} existingConfig
+ * @param {string} projectPath
+ * @returns {string}
+ */
+export function upsertCodexProjectTrustConfig(existingConfig, projectPath) {
+  const normalized = existingConfig.replace(/\r\n/g, '\n')
+  const trimmedProjectPath = projectPath.trim()
+  if (trimmedProjectPath.length === 0) {
+    return ensureTrailingNewline(normalized)
+  }
+
+  const projectHeader = `[projects.${quoteTomlString(trimmedProjectPath)}]`
+  const lines = normalized.length > 0 ? normalized.split('\n') : []
+  const headerIndex = lines.findIndex(line => line.trim() === projectHeader)
+
+  if (headerIndex === -1) {
+    const trimmed = normalized.trim()
+    const prefix = trimmed.length > 0 ? `${trimmed}\n\n` : ''
+    return ensureTrailingNewline(
+      `${prefix}${projectHeader}\n${CODEX_TRUSTED_LINE}`,
+    )
+  }
+
+  const nextTableIndex = lines.findIndex((line, index) => {
+    if (index <= headerIndex) {
+      return false
+    }
+    return /^\[[^\]\n]+\]\s*$/u.test(line.trim())
+  })
+  const tableEndIndex = nextTableIndex === -1 ? lines.length : nextTableIndex
+  const trustPattern = /^\s*trust_level\s*=.*$/u
+
+  for (let index = headerIndex + 1; index < tableEndIndex; index += 1) {
+    if (trustPattern.test(lines[index])) {
+      lines[index] = CODEX_TRUSTED_LINE
+      return ensureTrailingNewline(lines.join('\n'))
+    }
+  }
+
+  lines.splice(headerIndex + 1, 0, CODEX_TRUSTED_LINE)
+  return ensureTrailingNewline(lines.join('\n'))
 }

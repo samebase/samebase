@@ -308,18 +308,30 @@ export function buildSwitchPtySessionToSandboxUserInput(args: {
 }): string {
   const cwd = args.cwd.trim();
   const userShellCommand = stripIndent`
+    if command -v fish >/dev/null 2>&1; then
+      target_shell="$(command -v fish)"
+    else
+      target_shell="/bin/bash"
+    fi
     export HOME=${quoteForShell(DAYTONA_SANDBOX_HOME)}
     export USER=${quoteForShell(DAYTONA_SANDBOX_USER)}
     export LOGNAME=${quoteForShell(DAYTONA_SANDBOX_USER)}
+    export SHELL="$target_shell"
     export CODEX_HOME=${quoteForShell(DAYTONA_CODEX_HOME)}
     if [ -n ${quoteForShell(cwd)} ]; then
       cd ${quoteForShell(cwd)}
     fi
-    exec bash -i
+    clear >/dev/null 2>&1 || true
+    exec "$target_shell" -i
   `;
   const rootShellCommand = stripIndent`
     target_user=${quoteForShell(DAYTONA_SANDBOX_USER)}
     target_cwd=${quoteForShell(cwd)}
+    if command -v fish >/dev/null 2>&1; then
+      target_shell="$(command -v fish)"
+    else
+      target_shell="/bin/bash"
+    fi
     if [ -n "$target_cwd" ] && [ ! -d "$target_cwd" ]; then
       echo "__NOTER_CWD_MISSING__:$target_cwd"
       exit 1
@@ -327,7 +339,9 @@ export function buildSwitchPtySessionToSandboxUserInput(args: {
     if [ "$(id -un)" = "$target_user" ]; then
       ${userShellCommand}
     fi
-    exec su -m -s /bin/bash "$target_user" -c ${quoteForShell(userShellCommand)}
+    exec su -m -s "$target_shell" "$target_user" -c ${quoteForShell(
+      userShellCommand,
+    )}
   `;
   return `${rootShellCommand}\n`;
 }
