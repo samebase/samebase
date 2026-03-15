@@ -56,6 +56,18 @@ function renderStringArrayLiteral(values) {
   return values.map(value => JSON.stringify(value)).join(', ')
 }
 
+/**
+ * @param {string} value
+ * @returns {string}
+ */
+export function renderTemplateLiteralString(value) {
+  const escaped = value
+    .replace(/\\/g, '\\\\')
+    .replace(/`/g, '\\`')
+    .replace(/\$\{/g, '\\${')
+  return `\`${escaped}\``
+}
+
 export function renderDaytonaRuntimeAptPackageList(
   manifest = daytonaRuntimeManifest,
 ) {
@@ -180,7 +192,7 @@ export const DAYTONA_RUNTIME_PREBUILD_DOCKERFILE_COMMANDS = ${prebuildDockerfile
 }
 
 export function renderDaytonaSandboxProgramsGeneratedTsModule() {
-  const ensureRepoAutoCdProgramSource = JSON.stringify(
+  const ensureRepoAutoCdProgramSource = renderTemplateLiteralString(
     fs.readFileSync(ensureRepoAutoCdProgramPath, 'utf8'),
   )
 

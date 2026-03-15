@@ -72,8 +72,9 @@ If running this from a Codex worktree, use the exact temporary repo prefix
    `Show Shell` to be available.
 9. Open the shell terminal for that sandbox.
 10. In the sandbox terminal, run `whoami` and confirm it prints `daytona`.
-11. Run `pwd` and confirm it points at the repo workspace directory.
-12. Type `codex` and submit it.
+11. Run `status fish-path` and confirm it prints `/usr/bin/fish`.
+12. Run `pwd` and confirm it points at the repo workspace directory.
+13. Type `codex` and submit it.
 
 ### Expected Results
 
@@ -82,8 +83,8 @@ If running this from a Codex worktree, use the exact temporary repo prefix
 2. Snapshot creation eventually reaches a ready/active state without requiring a
    second repo login flow.
 3. Sandbox creation succeeds for the new repo.
-4. The in-app shell opens as `daytona`, not `root`, and starts in the repo
-   workspace directory.
+4. The in-app shell opens as `daytona`, not `root`, uses `fish`, and starts in
+   the repo workspace directory.
 5. Typing `codex` enters the Codex CLI immediately in the workspace sandbox.
 6. There should be no model-migration chooser such as `Try new model` /
    `Use existing model`.
@@ -107,8 +108,9 @@ If running this from a Codex worktree, use the exact temporary repo prefix
    open its shell.
 8. Wait for the in-app shell terminal to be ready.
 9. In the sandbox terminal, run `whoami` and confirm it prints `daytona`.
-10. Run `pwd` and confirm it is `/home/daytona/workspace/noter`.
-11. Type `codex` and submit it.
+10. Run `status fish-path` and confirm it prints `/usr/bin/fish`.
+11. Run `pwd` and confirm it is `/home/daytona/workspace/noter`.
+12. Type `codex` and submit it.
 
 ### Expected Results
 
@@ -118,7 +120,7 @@ If running this from a Codex worktree, use the exact temporary repo prefix
    vault card on the dashboard.
 3. Sandbox creation or reuse succeeds without requiring a second device-auth
    flow.
-4. The in-app shell opens as `daytona`, not `root`, and starts in
+4. The in-app shell opens as `daytona`, not `root`, uses `fish`, and starts in
    `/home/daytona/workspace/noter`.
 5. Typing `codex` enters the Codex CLI immediately in the `noter` workspace
    sandbox.

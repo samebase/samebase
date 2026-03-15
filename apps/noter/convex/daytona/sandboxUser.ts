@@ -10,6 +10,8 @@ export const DAYTONA_CODEX_HOME = `${DAYTONA_SANDBOX_HOME}/.codex`;
 export const DAYTONA_CODEX_SHARED_HOME = `${DAYTONA_SANDBOX_HOME}/.codex-shared`;
 
 const DEFAULT_REPAIR_TIMEOUT_SECONDS = 300;
+export const DAYTONA_PREFERRED_INTERACTIVE_SHELL = "/usr/bin/fish";
+const DAYTONA_FALLBACK_INTERACTIVE_SHELL = "/bin/bash";
 const DAYTONA_CODEX_LOCAL_DIRS = ["tmp", "log"] as const;
 const DAYTONA_CODEX_SHARED_ENTRY_NAMES = [
   "auth.json",
@@ -303,19 +305,66 @@ export async function ensureProjectedCodexHomeInSandbox(args: {
   }
 }
 
+export async function ensureSandboxPreferredInteractiveShell(args: {
+  sandbox: Sandbox;
+  timeoutSeconds?: number;
+}): Promise<void> {
+  const timeoutSeconds = args.timeoutSeconds ?? DEFAULT_REPAIR_TIMEOUT_SECONDS;
+  const ensureScript = stripIndent`
+    set -e
+    if ! command -v fish >/dev/null 2>&1; then
+      exit 0
+    fi
+    target_shell="$(command -v fish)"
+    ensure_user_shell() {
+      target_user="$1"
+      current_shell="$(grep "^${"$"}target_user:" /etc/passwd | cut -d: -f7 | head -n 1 || true)"
+      if [ -n "$current_shell" ]; then
+        if [ "$current_shell" != "$target_shell" ]; then
+          usermod -s "$target_shell" "$target_user"
+        fi
+        return 0
+      fi
+      if [ "$target_user" = "root" ]; then
+        return 0
+      fi
+      groupadd -f "$target_user"
+      useradd -m -s "$target_shell" -g "$target_user" "$target_user"
+    }
+    ensure_user_shell root
+    ensure_user_shell ${quoteForShell(DAYTONA_SANDBOX_USER)}
+  `;
+  const command = `bash -lc ${quoteForShell(ensureScript)}`;
+  const result = await args.sandbox.process.executeCommand(
+    command,
+    undefined,
+    undefined,
+    timeoutSeconds,
+  );
+  if (result.exitCode !== 0) {
+    throw new Error(
+      result.result.trim() ||
+        "Failed to set the preferred interactive shell in the sandbox.",
+    );
+  }
+}
+
 export function buildSwitchPtySessionToSandboxUserInput(args: {
   cwd: string;
 }): string {
-  return [
-    `exec env HOME=${quoteForShell(DAYTONA_SANDBOX_HOME)} USER=${quoteForShell(DAYTONA_SANDBOX_USER)} LOGNAME=${quoteForShell(DAYTONA_SANDBOX_USER)} CODEX_HOME=${quoteForShell(DAYTONA_CODEX_HOME)} SHELL=${quoteForShell("/bin/bash")} su -m -s /bin/bash ${quoteForShell(DAYTONA_SANDBOX_USER)}`,
-    `export HOME=${quoteForShell(DAYTONA_SANDBOX_HOME)}`,
-    `export USER=${quoteForShell(DAYTONA_SANDBOX_USER)}`,
-    `export LOGNAME=${quoteForShell(DAYTONA_SANDBOX_USER)}`,
-    `export CODEX_HOME=${quoteForShell(DAYTONA_CODEX_HOME)}`,
-    `export SHELL=${quoteForShell("/bin/bash")}`,
-    `cd ${quoteForShell(args.cwd)}`,
-    "clear >/dev/null 2>&1 || true",
-    "exec /bin/bash -i",
-    "",
-  ].join("\n");
+  return `${stripIndent`
+    target_shell=${quoteForShell(DAYTONA_FALLBACK_INTERACTIVE_SHELL)}
+    if command -v fish >/dev/null 2>&1; then
+      target_shell="$(command -v fish)"
+    fi
+    exec env HOME=${quoteForShell(DAYTONA_SANDBOX_HOME)} USER=${quoteForShell(DAYTONA_SANDBOX_USER)} LOGNAME=${quoteForShell(DAYTONA_SANDBOX_USER)} CODEX_HOME=${quoteForShell(DAYTONA_CODEX_HOME)} SHELL="$target_shell" su -m -s "$target_shell" ${quoteForShell(DAYTONA_SANDBOX_USER)}
+    export HOME=${quoteForShell(DAYTONA_SANDBOX_HOME)}
+    export USER=${quoteForShell(DAYTONA_SANDBOX_USER)}
+    export LOGNAME=${quoteForShell(DAYTONA_SANDBOX_USER)}
+    export CODEX_HOME=${quoteForShell(DAYTONA_CODEX_HOME)}
+    export SHELL="$target_shell"
+    cd ${quoteForShell(args.cwd)}
+    clear >/dev/null 2>&1 || true
+    exec "$target_shell" -i
+  `}\n`;
 }

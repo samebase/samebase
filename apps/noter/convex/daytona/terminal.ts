@@ -27,10 +27,12 @@ import {
 import {
   buildSwitchPtySessionToSandboxUserInput,
   DAYTONA_CODEX_HOME,
+  DAYTONA_PREFERRED_INTERACTIVE_SHELL,
   DAYTONA_SANDBOX_HOME,
   DAYTONA_SANDBOX_USER,
   DAYTONA_WORKSPACE_DIR,
   ensureProjectedCodexHomeInSandbox,
+  ensureSandboxPreferredInteractiveShell,
   ensureSandboxPathWritableByUser,
 } from "./sandboxUser";
 
@@ -793,6 +795,17 @@ async function openPtySession(args: {
       message: error instanceof Error ? error.message : String(error),
     });
   }
+  try {
+    await ensureSandboxPreferredInteractiveShell({
+      sandbox: args.sandbox,
+      timeoutSeconds: 30,
+    });
+  } catch (error) {
+    console.warn("daytona:pty:interactive-shell-sync-skipped", {
+      sandboxId: args.sandbox.id,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
   const textDecoder = new TextDecoder();
   const outputChunks: string[] = [];
   const lastChunkAtRef = { current: Date.now() };
@@ -813,7 +826,7 @@ async function openPtySession(args: {
         USER: DAYTONA_SANDBOX_USER,
         LOGNAME: DAYTONA_SANDBOX_USER,
         CODEX_HOME: DAYTONA_CODEX_HOME,
-        SHELL: "/bin/bash",
+        SHELL: DAYTONA_PREFERRED_INTERACTIVE_SHELL,
       },
       cols: args.cols,
       rows: args.rows,
