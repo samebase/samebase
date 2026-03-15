@@ -779,6 +779,7 @@ async function openPtySession(args: {
   initialInput?: string;
   trustedProjectPath?: string;
 }): Promise<{
+  sessionId: string;
   webSocketUrl: string;
   previewToken: string;
   initialOutput?: string;
@@ -840,6 +841,7 @@ async function openPtySession(args: {
       },
     });
     await ptyHandle.waitForConnection();
+    const connectedSessionId = ptyHandle.sessionId;
     if (typeof args.initialInput === "string" && args.initialInput.length > 0) {
       await ptyHandle.sendInput(args.initialInput);
     }
@@ -855,13 +857,14 @@ async function openPtySession(args: {
       sandbox: args.sandbox,
       baseUrl: args.baseUrl,
       token: args.token,
-      sessionId: args.sessionId,
+      sessionId: connectedSessionId,
     });
     const initialOutput =
       args.captureInitialOutput === true
         ? `${outputChunks.join("")}${textDecoder.decode()}`
         : undefined;
     return {
+      sessionId: connectedSessionId,
       ...connection,
       initialOutput:
         typeof initialOutput === "string" && initialOutput.length > 0
@@ -869,13 +872,14 @@ async function openPtySession(args: {
           : undefined,
     };
   } catch (error) {
+    const cleanupSessionId = ptyHandle?.sessionId ?? args.sessionId;
     try {
-      await args.sandbox.process.killPtySession(args.sessionId);
+      await args.sandbox.process.killPtySession(cleanupSessionId);
     } catch (killError) {
       if (!isNotFoundError(killError)) {
         console.warn("daytona:pty:cleanup:failed", {
           sandboxId: args.sandbox.id,
-          sessionId: args.sessionId,
+          sessionId: cleanupSessionId,
           message:
             killError instanceof Error ? killError.message : String(killError),
         });
@@ -1011,7 +1015,7 @@ export const openWorkspacePtySession = action({
 
       return {
         ok: true,
-        sessionId,
+        sessionId: connection.sessionId,
         webSocketUrl: connection.webSocketUrl,
         previewToken: connection.previewToken,
         sandboxId: resolved.sandbox.id,
@@ -1065,6 +1069,7 @@ export const openWorkspaceDevServerPtySession = action({
       MAX_TERMINAL_ROWS,
     );
     const sessionId = buildWorkspaceDevServerPtySessionId(args.vaultId);
+    let connectedSessionId = sessionId;
 
     try {
       await ensureSandboxStarted(resolved.sandbox);
@@ -1090,15 +1095,16 @@ export const openWorkspaceDevServerPtySession = action({
         }),
         trustedProjectPath: resolved.repoDir,
       });
+      connectedSessionId = connection.sessionId;
       const initialOutput = await primePtySession({
         sandbox: resolved.sandbox,
-        sessionId,
+        sessionId: connectedSessionId,
         initialInput: DEV_SERVER_LOG_FOLLOW_COMMAND,
       });
 
       return {
         ok: true,
-        sessionId,
+        sessionId: connection.sessionId,
         webSocketUrl: connection.webSocketUrl,
         previewToken: connection.previewToken,
         sandboxId: resolved.sandbox.id,
@@ -1110,12 +1116,12 @@ export const openWorkspaceDevServerPtySession = action({
       };
     } catch (error) {
       try {
-        await resolved.sandbox.process.killPtySession(sessionId);
+        await resolved.sandbox.process.killPtySession(connectedSessionId);
       } catch (killError) {
         if (!isNotFoundError(killError)) {
           console.warn("daytona:dev-server-pty:cleanup:failed", {
             sandboxId: resolved.sandbox.id,
-            sessionId,
+            sessionId: connectedSessionId,
             message:
               killError instanceof Error
                 ? killError.message
@@ -1184,7 +1190,7 @@ export const openCodexAuthPtySession = action({
 
       return {
         ok: true,
-        sessionId,
+        sessionId: connection.sessionId,
         webSocketUrl: connection.webSocketUrl,
         previewToken: connection.previewToken,
         sandboxName: resolved.sandboxName,
