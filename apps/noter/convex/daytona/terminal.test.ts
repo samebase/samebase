@@ -78,6 +78,12 @@ type FakePtyHandle = {
   disconnect: () => Promise<void>;
 };
 
+type FakeConnectedPtyHandle = {
+  waitForConnection: () => Promise<void>;
+  sendInput: (input: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+};
+
 type FakeSandbox = {
   id: string;
   name: string;
@@ -90,12 +96,20 @@ type FakeSandbox = {
   process: {
     executeCommand: (command: string) => Promise<FakeCommandResult>;
     createPty: (options: FakeCreatePtyOptions) => Promise<FakePtyHandle>;
+    connectPty: (
+      sessionId: string,
+      options: { onData?: (data: Uint8Array) => void | Promise<void> },
+    ) => Promise<FakeConnectedPtyHandle>;
     killPtySession: (sessionId: string) => Promise<void>;
   };
   getPreviewLink: (port: number) => Promise<{ token: string }>;
 };
 
-import { openWorkspacePtySession } from "./terminal";
+import {
+  openCodexAuthPtySession,
+  openWorkspaceDevServerPtySession,
+  openWorkspacePtySession,
+} from "./terminal";
 
 function readActionHandler(
   value: unknown,
@@ -155,12 +169,79 @@ function createSandbox(): FakeSandbox {
           disconnect: async () => {},
         };
       },
+      connectPty: async (_sessionId, options) => {
+        return {
+          waitForConnection: async () => {},
+          sendInput: async (_input) => {
+            if (typeof options.onData === "function") {
+              await options.onData(textEncoder.encode("dev-server logs\n"));
+            }
+          },
+          disconnect: async () => {},
+        };
+      },
       killPtySession: async () => {},
     },
     getPreviewLink: async (port) => {
       expect(port).toBe(1);
       return { token: "preview-token-1" };
     },
+  };
+}
+
+function createWorkspaceActionContext() {
+  return {
+    auth: {},
+    runQuery: async (_reference: unknown, args: unknown) => {
+      const candidateArgs =
+        typeof args === "object" && args !== null ? args : {};
+      const id = Reflect.get(candidateArgs, "id");
+      const branchName = Reflect.get(candidateArgs, "branchName");
+      if (id === "vault-1") {
+        return {
+          _id: "vault-1",
+          userId: "user-1",
+          ghRepoName: "noter",
+          commitSHA: "commit-sha-1",
+          daytonaSandboxId: "sandbox-1",
+          daytonaSandboxName: "noter-sandbox",
+          daytonaSandboxProvisioningMode: undefined,
+        };
+      }
+      if (branchName === "main") {
+        return {
+          headCommitSha: "commit-sha-1",
+        };
+      }
+      throw new Error(
+        `Unexpected runQuery args: ${JSON.stringify(candidateArgs)}`,
+      );
+    },
+    runMutation: async () => null,
+  };
+}
+
+function createCodexAuthActionContext() {
+  return {
+    auth: {},
+    runQuery: async (_reference: unknown, args: unknown) => {
+      const candidateArgs =
+        typeof args === "object" && args !== null ? args : {};
+      const kind = Reflect.get(candidateArgs, "kind");
+      const userId = Reflect.get(candidateArgs, "userId");
+      if (kind === "codex" && userId === "user-1") {
+        return {
+          kind: "codex",
+          auth: {
+            authSandboxId: "sandbox-1",
+          },
+        };
+      }
+      throw new Error(
+        `Unexpected runQuery args: ${JSON.stringify(candidateArgs)}`,
+      );
+    },
+    runMutation: async () => null,
   };
 }
 
@@ -177,43 +258,12 @@ describe("openWorkspacePtySession", () => {
 
   it("returns the actual Daytona PTY session id after createPty rewrites it", async () => {
     const handler = readActionHandler(openWorkspacePtySession);
-    const result = await handler(
-      {
-        auth: {},
-        runQuery: async (_reference: unknown, args: unknown) => {
-          const candidateArgs =
-            typeof args === "object" && args !== null ? args : {};
-          const id = Reflect.get(candidateArgs, "id");
-          const branchName = Reflect.get(candidateArgs, "branchName");
-          if (id === "vault-1") {
-            return {
-              _id: "vault-1",
-              userId: "user-1",
-              ghRepoName: "noter",
-              commitSHA: "commit-sha-1",
-              daytonaSandboxId: "sandbox-1",
-              daytonaSandboxName: "noter-sandbox",
-              daytonaSandboxProvisioningMode: undefined,
-            };
-          }
-          if (branchName === "main") {
-            return {
-              headCommitSha: "commit-sha-1",
-            };
-          }
-          throw new Error(
-            `Unexpected runQuery args: ${JSON.stringify(candidateArgs)}`,
-          );
-        },
-        runMutation: async () => null,
-      },
-      {
-        vaultId: "vault-1",
-        branch: "main",
-        cols: 120,
-        rows: 32,
-      },
-    );
+    const result = await handler(createWorkspaceActionContext(), {
+      vaultId: "vault-1",
+      branch: "main",
+      cols: 120,
+      rows: 32,
+    });
 
     expect(mockState.requestedSessionId).toMatch(/^noter-pty-vault-1-/);
     expect(mockState.requestedSessionId).not.toBe("actual-pty-session-1");
@@ -224,6 +274,50 @@ describe("openWorkspacePtySession", () => {
         "wss://toolbox.example/sandbox-1/process/pty/actual-pty-session-1/connect",
       previewToken: "preview-token-1",
       sandboxId: "sandbox-1",
+      sandboxName: "noter-sandbox",
+    });
+  });
+
+  it("returns the actual Daytona PTY session id for dev server PTYs too", async () => {
+    const handler = readActionHandler(openWorkspaceDevServerPtySession);
+    const result = await handler(createWorkspaceActionContext(), {
+      vaultId: "vault-1",
+      branch: "main",
+      cols: 120,
+      rows: 32,
+    });
+
+    expect(mockState.requestedSessionId).toMatch(
+      /^noter-dev-server-pty-vault-1-/,
+    );
+    expect(mockState.requestedSessionId).not.toBe("actual-pty-session-1");
+    expect(result).toMatchObject({
+      ok: true,
+      sessionId: "actual-pty-session-1",
+      webSocketUrl:
+        "wss://toolbox.example/sandbox-1/process/pty/actual-pty-session-1/connect",
+      previewToken: "preview-token-1",
+      sandboxId: "sandbox-1",
+      sandboxName: "noter-sandbox",
+      initialOutput: "dev-server logs\n",
+    });
+  });
+
+  it("returns the actual Daytona PTY session id for Codex auth PTYs too", async () => {
+    const handler = readActionHandler(openCodexAuthPtySession);
+    const result = await handler(createCodexAuthActionContext(), {
+      cols: 120,
+      rows: 32,
+    });
+
+    expect(mockState.requestedSessionId).toMatch(/^noter-codex-auth-pty-/);
+    expect(mockState.requestedSessionId).not.toBe("actual-pty-session-1");
+    expect(result).toMatchObject({
+      ok: true,
+      sessionId: "actual-pty-session-1",
+      webSocketUrl:
+        "wss://toolbox.example/sandbox-1/process/pty/actual-pty-session-1/connect",
+      previewToken: "preview-token-1",
       sandboxName: "noter-sandbox",
     });
   });
