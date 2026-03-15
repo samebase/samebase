@@ -794,21 +794,12 @@ async function ensureDaytonaCodexAuthVolume(args: {
   });
   let volume = await args.daytona.volume.get(volumeName, true);
   const startedAt = Date.now();
+  let attemptedErrorRecovery = false;
 
   for (;;) {
     const currentState = volume.state.trim().toLowerCase();
     if (currentState === "ready") {
       return volume;
-    }
-    if (
-      currentState === "error" ||
-      currentState === "deleting" ||
-      currentState === "deleted" ||
-      currentState === "pending_delete"
-    ) {
-      throw new Error(
-        `Volume ${volume.name} entered ${volume.state} before becoming ready.`,
-      );
     }
 
     const elapsedMs = Date.now() - startedAt;
@@ -818,6 +809,35 @@ async function ensureDaytonaCodexAuthVolume(args: {
           DAYTONA_VOLUME_READY_TIMEOUT_MS / 1000,
         )} seconds. Last Daytona state: ${volume.state}.`,
       );
+    }
+
+    if (
+      currentState === "deleting" ||
+      currentState === "deleted" ||
+      currentState === "pending_delete"
+    ) {
+      await sleep(DAYTONA_VOLUME_READY_POLL_MS);
+      volume = await args.daytona.volume.get(volumeName, true);
+      continue;
+    }
+
+    if (currentState === "error") {
+      if (attemptedErrorRecovery) {
+        throw new Error(
+          `Volume ${volume.name} entered ${volume.state} before becoming ready.`,
+        );
+      }
+      attemptedErrorRecovery = true;
+      try {
+        await args.daytona.volume.delete(volume);
+      } catch (error) {
+        if (!isNotFoundError(error)) {
+          throw error;
+        }
+      }
+      await sleep(DAYTONA_VOLUME_READY_POLL_MS);
+      volume = await args.daytona.volume.get(volumeName, true);
+      continue;
     }
 
     await sleep(DAYTONA_VOLUME_READY_POLL_MS);
@@ -3146,100 +3166,112 @@ export const prepareCodexAuthSandbox = action({
     ctx,
     args,
   ): Promise<Infer<typeof prepareCodexAuthSandboxResult>> => {
-    const userId = await getUserId(ctx);
-    const apiConfig = resolveDaytonaApiConfig();
-    if (!apiConfig.ok) {
-      return {
-        ok: false,
-        message: apiConfig.message,
-      };
-    }
-
-    const daytona = new Daytona({
-      apiKey: apiConfig.token,
-      ...(apiConfig.baseUrl ? { apiUrl: apiConfig.baseUrl } : {}),
-    });
-    const envLabel = getDaytonaEnvLabel();
-    const existingConnection = await ctx.runQuery(
-      internal.providerConnections.getByUserAndKind,
-      {
-        userId,
-        kind: "codex",
-      },
-    );
-    const codexAuthVolume = await ensureDaytonaCodexAuthVolume({
-      daytona,
-      envLabel,
-      userId,
-    });
-    const authSandbox = await resolveVerifiedDaytonaCodexAuthSandbox({
-      ctx,
-      userId,
-      daytona,
-      baseUrl: apiConfig.baseUrl,
-      token: apiConfig.token,
-      volumeId: codexAuthVolume.id,
-      persistedSandboxId:
-        existingConnection?.kind === "codex"
-          ? existingConnection.auth.authSandboxId
-          : undefined,
-    });
-
-    const loginCheck = await checkCodexLoginInSandbox({
-      sandbox: authSandbox.sandbox,
-    });
-    await ctx.runMutation(internal.providerConnections.upsertCodex, {
-      userId,
-      auth: {
-        method: "device_auth",
-        storage: "daytona_volume",
-        volumeId: codexAuthVolume.id,
-        volumeName: codexAuthVolume.name,
-        codexHome: DAYTONA_CODEX_HOME,
-        authSandboxId: authSandbox.sandbox.id,
-        authSandboxName: authSandbox.sandboxName,
-        lastCheckAt: loginCheck.checkedAt,
-        lastCheckStatus: loginCheck.status,
-        ...(loginCheck.message ? { lastError: loginCheck.message } : {}),
-      },
-    });
-
-    const shouldOpenTerminal =
-      args.openTerminal === true || loginCheck.status !== "ready";
-
-    let terminalUrl: string | undefined;
-    if (shouldOpenTerminal) {
-      try {
-        terminalUrl = await getDaytonaSandboxTerminalUrl({
-          sandbox: authSandbox.sandbox,
-        });
-      } catch (error) {
+    try {
+      const userId = await getUserId(ctx);
+      const apiConfig = resolveDaytonaApiConfig();
+      if (!apiConfig.ok) {
         return {
           ok: false,
-          sandboxId: authSandbox.sandbox.id,
-          sandboxName: authSandbox.sandboxName,
-          lastCheckStatus: loginCheck.status,
-          message:
-            error instanceof Error
-              ? error.message
-              : "Failed to create a Daytona terminal link.",
+          message: apiConfig.message,
         };
       }
-    }
 
-    return {
-      ok: true,
-      sandboxId: authSandbox.sandbox.id,
-      sandboxName: authSandbox.sandboxName,
-      terminalUrl,
-      lastCheckStatus: loginCheck.status,
-      message:
-        loginCheck.status === "ready"
-          ? authSandbox.lifecycle === "created"
-            ? "Codex auth sandbox is ready and already logged in."
-            : "Codex is already logged in."
-          : "Codex auth sandbox is ready. Run codex login --device-auth in Daytona, finish the browser step, then click Check login.",
-    };
+      const daytona = new Daytona({
+        apiKey: apiConfig.token,
+        ...(apiConfig.baseUrl ? { apiUrl: apiConfig.baseUrl } : {}),
+      });
+      const envLabel = getDaytonaEnvLabel();
+      const existingConnection = await ctx.runQuery(
+        internal.providerConnections.getByUserAndKind,
+        {
+          userId,
+          kind: "codex",
+        },
+      );
+      const codexAuthVolume = await ensureDaytonaCodexAuthVolume({
+        daytona,
+        envLabel,
+        userId,
+      });
+      const authSandbox = await resolveVerifiedDaytonaCodexAuthSandbox({
+        ctx,
+        userId,
+        daytona,
+        baseUrl: apiConfig.baseUrl,
+        token: apiConfig.token,
+        volumeId: codexAuthVolume.id,
+        persistedSandboxId:
+          existingConnection?.kind === "codex"
+            ? existingConnection.auth.authSandboxId
+            : undefined,
+      });
+
+      const loginCheck = await checkCodexLoginInSandbox({
+        sandbox: authSandbox.sandbox,
+      });
+      await ctx.runMutation(internal.providerConnections.upsertCodex, {
+        userId,
+        auth: {
+          method: "device_auth",
+          storage: "daytona_volume",
+          volumeId: codexAuthVolume.id,
+          volumeName: codexAuthVolume.name,
+          codexHome: DAYTONA_CODEX_HOME,
+          authSandboxId: authSandbox.sandbox.id,
+          authSandboxName: authSandbox.sandboxName,
+          lastCheckAt: loginCheck.checkedAt,
+          lastCheckStatus: loginCheck.status,
+          ...(loginCheck.message ? { lastError: loginCheck.message } : {}),
+        },
+      });
+
+      const shouldOpenTerminal =
+        args.openTerminal === true || loginCheck.status !== "ready";
+
+      let terminalUrl: string | undefined;
+      if (shouldOpenTerminal) {
+        try {
+          terminalUrl = await getDaytonaSandboxTerminalUrl({
+            sandbox: authSandbox.sandbox,
+          });
+        } catch (error) {
+          return {
+            ok: false,
+            sandboxId: authSandbox.sandbox.id,
+            sandboxName: authSandbox.sandboxName,
+            lastCheckStatus: loginCheck.status,
+            message:
+              error instanceof Error
+                ? error.message
+                : "Failed to create a Daytona terminal link.",
+          };
+        }
+      }
+
+      return {
+        ok: true,
+        sandboxId: authSandbox.sandbox.id,
+        sandboxName: authSandbox.sandboxName,
+        terminalUrl,
+        lastCheckStatus: loginCheck.status,
+        message:
+          loginCheck.status === "ready"
+            ? authSandbox.lifecycle === "created"
+              ? "Codex auth sandbox is ready and already logged in."
+              : "Codex is already logged in."
+            : "Codex auth sandbox is ready. Run codex login --device-auth in Daytona, finish the browser step, then click Check login.",
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn("daytona:codex-auth:prepare:failed", {
+        message,
+      });
+      return {
+        ok: false,
+        message:
+          "Daytona could not finish preparing the Codex auth sandbox yet. If you just removed or recreated Codex resources, wait a few seconds and try Connect in Daytona again.",
+      };
+    }
   },
 });
 
