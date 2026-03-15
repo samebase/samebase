@@ -1,1 +1,2 @@
-https://automerge.org/ from https://stack.convex.dev/automerge-and-convex
+- https://automerge.org/ from https://stack.convex.dev/automerge-and-convex
+- https://www.blacksmith.sh/
