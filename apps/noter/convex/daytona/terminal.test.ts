@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { DAYTONA_CODEX_HOME } from "./sandboxUser";
+
 const mockState = vi.hoisted(() => {
   let sandbox: unknown = null;
   const state = {
@@ -119,7 +121,7 @@ function createSandbox(): FakeSandbox {
     state: "started",
     user: "daytona",
     env: {
-      CODEX_HOME: "/home/daytona/.codex",
+      CODEX_HOME: DAYTONA_CODEX_HOME,
     },
     labels: {
       "noter.vault_id": "vault-1",
@@ -130,7 +132,7 @@ function createSandbox(): FakeSandbox {
     createdAt: Date.now(),
     process: {
       executeCommand: async (command: string) => {
-        if (command.includes("cat '/home/daytona/.codex/config.toml'")) {
+        if (command.includes(`cat '${DAYTONA_CODEX_HOME}/config.toml'`)) {
           return {
             exitCode: 0,
             result: "",

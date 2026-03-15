@@ -872,15 +872,14 @@ async function openPtySession(args: {
           : undefined,
     };
   } catch (error) {
+    const cleanupSessionId = ptyHandle?.sessionId ?? args.sessionId;
     try {
-      await args.sandbox.process.killPtySession(
-        ptyHandle?.sessionId ?? args.sessionId,
-      );
+      await args.sandbox.process.killPtySession(cleanupSessionId);
     } catch (killError) {
       if (!isNotFoundError(killError)) {
         console.warn("daytona:pty:cleanup:failed", {
           sandboxId: args.sandbox.id,
-          sessionId: args.sessionId,
+          sessionId: cleanupSessionId,
           message:
             killError instanceof Error ? killError.message : String(killError),
         });
