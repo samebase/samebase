@@ -20,11 +20,20 @@ import {
   DAYTONA_PROVISIONING_MODE_LABEL,
   parseDaytonaProvisioningMode,
 } from "./provisioning";
+import {
+  buildSwitchPtySessionToSandboxUserInput,
+  DAYTONA_CODEX_HOME,
+  DAYTONA_SANDBOX_HOME,
+  DAYTONA_SANDBOX_USER,
+  DAYTONA_WORKSPACE_DIR,
+  ensureProjectedCodexHomeInSandbox,
+  ensureSandboxPathWritableByUser,
+} from "./sandboxUser";
 
 const { object, id, string, optional, number, boolean } = v;
 
-const DEFAULT_WORKSPACE_DIR = "/home/daytona/workspace";
-const DEFAULT_CODEX_AUTH_DIR = "/";
+const DEFAULT_WORKSPACE_DIR = DAYTONA_WORKSPACE_DIR;
+const DEFAULT_CODEX_AUTH_DIR = DAYTONA_SANDBOX_HOME;
 const DAYTONA_API_URL_ENV = "DAYTONA_API_URL";
 const DAYTONA_API_TOKEN_ENV = "DAYTONA_API_TOKEN";
 const DAYTONA_API_KEY_ENV = "DAYTONA_API_KEY";
@@ -200,6 +209,42 @@ function createSandboxApi(args: {
 function readSandboxLabel(candidate: Sandbox, key: string): string {
   const value = candidate.labels[key];
   return typeof value === "string" ? value.trim() : "";
+}
+
+function readSandboxEnv(candidate: Sandbox, key: string): string {
+  const value = candidate.env[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function hasLegacyCodexHomeMount(sandbox: Sandbox): boolean {
+  const volumes = Array.isArray(sandbox.volumes) ? sandbox.volumes : [];
+  return volumes.some((volume) => volume.mountPath === DAYTONA_CODEX_HOME);
+}
+
+function hasCompatibleTerminalSandboxSetup(sandbox: Sandbox): boolean {
+  if (sandbox.user.trim() !== DAYTONA_SANDBOX_USER) {
+    return false;
+  }
+
+  const codexHome = readSandboxEnv(sandbox, "CODEX_HOME");
+  if (codexHome.length > 0 && codexHome !== DAYTONA_CODEX_HOME) {
+    return false;
+  }
+
+  return !hasLegacyCodexHomeMount(sandbox);
+}
+
+function getSandboxCreatedAtMs(sandbox: Sandbox): number {
+  if (typeof sandbox.createdAt === "number") {
+    return sandbox.createdAt;
+  }
+  if (typeof sandbox.createdAt === "string") {
+    const createdAtMs = Date.parse(sandbox.createdAt);
+    if (Number.isFinite(createdAtMs)) {
+      return createdAtMs;
+    }
+  }
+  return 0;
 }
 
 function isNotFoundError(error: unknown): boolean {
@@ -424,8 +469,17 @@ async function resolveDaytonaSandboxForVault(args: {
         matchesRequestedRef(persistedSandbox) &&
         matchesRequestedProvisioningMode(persistedSandbox)
       ) {
-        sandbox = persistedSandbox;
-        sandboxName = persistedSandbox.name;
+        if (hasCompatibleTerminalSandboxSetup(persistedSandbox)) {
+          sandbox = persistedSandbox;
+          sandboxName = persistedSandbox.name;
+        } else {
+          console.warn("daytona:terminal:delete-incompatible-sandbox", {
+            sandboxId: persistedSandbox.id,
+            sandboxName: persistedSandbox.name,
+            reason: "legacy_codex_home_mount",
+          });
+          await persistedSandbox.delete();
+        }
       }
     } catch (error) {
       if (!isNotFoundError(error)) {
@@ -458,8 +512,31 @@ async function resolveDaytonaSandboxForVault(args: {
       };
     }
 
-    const match = matches.items[0];
-    if (!match.id) {
+    const compatibleMatches: Sandbox[] = [];
+    for (const match of matches.items) {
+      if (!match.id) {
+        continue;
+      }
+      const matchedSandbox = await args.daytona.get(match.id);
+      if (
+        !matchesRequestedRef(matchedSandbox) ||
+        !matchesRequestedProvisioningMode(matchedSandbox)
+      ) {
+        continue;
+      }
+      if (!hasCompatibleTerminalSandboxSetup(matchedSandbox)) {
+        console.warn("daytona:terminal:delete-incompatible-sandbox", {
+          sandboxId: matchedSandbox.id,
+          sandboxName: matchedSandbox.name,
+          reason: "legacy_codex_home_mount",
+        });
+        await matchedSandbox.delete();
+        continue;
+      }
+      compatibleMatches.push(matchedSandbox);
+    }
+
+    if (compatibleMatches.length === 0) {
       return {
         ok: false,
         message: requestedBranch
@@ -468,20 +545,11 @@ async function resolveDaytonaSandboxForVault(args: {
       };
     }
 
-    const matchedSandbox = await args.daytona.get(match.id);
-    if (
-      !matchesRequestedRef(matchedSandbox) ||
-      !matchesRequestedProvisioningMode(matchedSandbox)
-    ) {
-      return {
-        ok: false,
-        message: requestedBranch
-          ? `No Daytona sandbox found for branch ${requestedBranch}. Click Create sandbox first.`
-          : "No Daytona sandbox is connected to this vault yet. Click Create sandbox first.",
-      };
-    }
-
-    sandbox = matchedSandbox;
+    compatibleMatches.sort(
+      (left, right) =>
+        getSandboxCreatedAtMs(right) - getSandboxCreatedAtMs(left),
+    );
+    sandbox = compatibleMatches[0];
     sandboxName = sandbox.name;
     await args.ctx.runMutation(internal.vault.updateVaultDaytonaSandbox, {
       vaultId: args.vaultId,
@@ -763,6 +831,7 @@ async function openPtySession(args: {
   cols: number;
   rows: number;
   captureInitialOutput?: boolean;
+  initialInput?: string;
 }): Promise<{
   webSocketUrl: string;
   previewToken: string;
@@ -783,6 +852,9 @@ async function openPtySession(args: {
   const outputChunks: string[] = [];
   const lastChunkAtRef = { current: Date.now() };
   const sawOutputRef = { current: false };
+  const shouldCaptureOutput =
+    args.captureInitialOutput === true ||
+    (typeof args.initialInput === "string" && args.initialInput.length > 0);
   let ptyHandle: Awaited<ReturnType<Sandbox["process"]["createPty"]>> | null =
     null;
   try {
@@ -796,7 +868,7 @@ async function openPtySession(args: {
       cols: args.cols,
       rows: args.rows,
       onData: async (data) => {
-        if (args.captureInitialOutput !== true) {
+        if (!shouldCaptureOutput) {
           return;
         }
         outputChunks.push(textDecoder.decode(data, { stream: true }));
@@ -805,7 +877,10 @@ async function openPtySession(args: {
       },
     });
     await ptyHandle.waitForConnection();
-    if (args.captureInitialOutput === true) {
+    if (typeof args.initialInput === "string" && args.initialInput.length > 0) {
+      await ptyHandle.sendInput(args.initialInput);
+    }
+    if (shouldCaptureOutput) {
       await waitForPtyOutputIdle({
         lastChunkAtRef,
         sawOutputRef,
@@ -948,6 +1023,15 @@ export const openWorkspacePtySession = action({
 
     try {
       await ensureSandboxStarted(resolved.sandbox);
+      await ensureProjectedCodexHomeInSandbox({
+        sandbox: resolved.sandbox,
+        timeoutSeconds: 300,
+      });
+      await ensureSandboxPathWritableByUser({
+        sandbox: resolved.sandbox,
+        path: resolved.repoDir,
+        timeoutSeconds: 300,
+      });
       try {
         await ensureFishInSandbox({ sandbox: resolved.sandbox });
       } catch (error) {
@@ -965,6 +1049,9 @@ export const openWorkspacePtySession = action({
         cols,
         rows,
         captureInitialOutput: true,
+        initialInput: buildSwitchPtySessionToSandboxUserInput({
+          cwd: resolved.repoDir,
+        }),
       });
 
       return {
@@ -1025,6 +1112,16 @@ export const openWorkspaceDevServerPtySession = action({
     const sessionId = buildWorkspaceDevServerPtySessionId(args.vaultId);
 
     try {
+      await ensureSandboxStarted(resolved.sandbox);
+      await ensureProjectedCodexHomeInSandbox({
+        sandbox: resolved.sandbox,
+        timeoutSeconds: 300,
+      });
+      await ensureSandboxPathWritableByUser({
+        sandbox: resolved.sandbox,
+        path: resolved.repoDir,
+        timeoutSeconds: 300,
+      });
       const connection = await openPtySession({
         sandbox: resolved.sandbox,
         baseUrl: resolved.baseUrl,
@@ -1033,6 +1130,9 @@ export const openWorkspaceDevServerPtySession = action({
         cwd: resolved.repoDir,
         cols,
         rows,
+        initialInput: buildSwitchPtySessionToSandboxUserInput({
+          cwd: resolved.repoDir,
+        }),
       });
       const initialOutput = await primePtySession({
         sandbox: resolved.sandbox,
@@ -1108,6 +1208,11 @@ export const openCodexAuthPtySession = action({
     const sessionId = buildCodexAuthPtySessionId();
 
     try {
+      await ensureSandboxStarted(resolved.sandbox);
+      await ensureProjectedCodexHomeInSandbox({
+        sandbox: resolved.sandbox,
+        timeoutSeconds: 300,
+      });
       const connection = await openPtySession({
         sandbox: resolved.sandbox,
         baseUrl: resolved.baseUrl,
@@ -1116,6 +1221,9 @@ export const openCodexAuthPtySession = action({
         cwd: DEFAULT_CODEX_AUTH_DIR,
         cols,
         rows,
+        initialInput: buildSwitchPtySessionToSandboxUserInput({
+          cwd: DEFAULT_CODEX_AUTH_DIR,
+        }),
       });
 
       return {
