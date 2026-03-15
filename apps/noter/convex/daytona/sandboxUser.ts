@@ -368,19 +368,22 @@ export async function ensureSandboxPreferredInteractiveShell(args: {
 export function buildSwitchPtySessionToSandboxUserInput(args: {
   cwd: string;
 }): string {
+  const handoffCommand = stripIndent`
+    set -e
+    export HOME=${quoteForShell(DAYTONA_SANDBOX_HOME)}
+    export USER=${quoteForShell(DAYTONA_SANDBOX_USER)}
+    export LOGNAME=${quoteForShell(DAYTONA_SANDBOX_USER)}
+    export CODEX_HOME=${quoteForShell(DAYTONA_CODEX_HOME)}
+    cd ${quoteForShell(args.cwd)}
+    clear >/dev/null 2>&1 || true
+    exec "$SHELL" -i
+  `;
+
   return `${stripIndent`
     target_shell=${quoteForShell(DAYTONA_FALLBACK_INTERACTIVE_SHELL)}
     if command -v fish >/dev/null 2>&1; then
       target_shell="$(command -v fish)"
     fi
-    exec env HOME=${quoteForShell(DAYTONA_SANDBOX_HOME)} USER=${quoteForShell(DAYTONA_SANDBOX_USER)} LOGNAME=${quoteForShell(DAYTONA_SANDBOX_USER)} CODEX_HOME=${quoteForShell(DAYTONA_CODEX_HOME)} SHELL="$target_shell" su -m -s "$target_shell" ${quoteForShell(DAYTONA_SANDBOX_USER)}
-    export HOME=${quoteForShell(DAYTONA_SANDBOX_HOME)}
-    export USER=${quoteForShell(DAYTONA_SANDBOX_USER)}
-    export LOGNAME=${quoteForShell(DAYTONA_SANDBOX_USER)}
-    export CODEX_HOME=${quoteForShell(DAYTONA_CODEX_HOME)}
-    export SHELL="$target_shell"
-    cd ${quoteForShell(args.cwd)}
-    clear >/dev/null 2>&1 || true
-    exec "$target_shell" -i
+    exec env HOME=${quoteForShell(DAYTONA_SANDBOX_HOME)} USER=${quoteForShell(DAYTONA_SANDBOX_USER)} LOGNAME=${quoteForShell(DAYTONA_SANDBOX_USER)} CODEX_HOME=${quoteForShell(DAYTONA_CODEX_HOME)} SHELL="$target_shell" su -m -s "$target_shell" ${quoteForShell(DAYTONA_SANDBOX_USER)} -c ${quoteForShell(handoffCommand)}
   `}\n`;
 }

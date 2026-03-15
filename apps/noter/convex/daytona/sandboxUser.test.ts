@@ -9,8 +9,11 @@ describe("buildSwitchPtySessionToSandboxUserInput", () => {
 
     expect(script).toContain("if command -v fish >/dev/null 2>&1; then");
     expect(script).toContain('target_shell="$(command -v fish)"');
-    expect(script).toContain('exec "$target_shell" -i');
+    expect(script).toContain("su -m -s \"$target_shell\" 'daytona' -c");
+    expect(script).toContain("/home/daytona/workspace/noter");
+    expect(script).toContain('exec "$SHELL" -i');
     expect(script).not.toContain('SHELL="/bin/bash"');
+    expect(script).not.toContain('exec "$target_shell" -i');
     expect(script).not.toContain("exec /bin/bash -i");
   });
 });
