@@ -48,4 +48,24 @@ describe("daytonaDepsImage", () => {
       }),
     ).toEqual([]);
   });
+
+  it("returns no candidates when owner or repo are blank", () => {
+    expect(
+      resolveDaytonaDepsImageCandidates({
+        owner: " ",
+        repo: "Noter",
+        inputHash: "input-hash",
+        lockHash: null,
+      }),
+    ).toEqual([]);
+
+    expect(
+      resolveDaytonaDepsImageCandidates({
+        owner: "OpenAI",
+        repo: " ",
+        inputHash: "input-hash",
+        lockHash: null,
+      }),
+    ).toEqual([]);
+  });
 });

@@ -233,6 +233,30 @@ function isMissingFileError(error: unknown): boolean {
   return false;
 }
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isRegistryAccessError(error: unknown): boolean {
+  if (typeof error === "object" && error !== null) {
+    const status = Reflect.get(error, "status");
+    if (status === 401 || status === 403) {
+      return true;
+    }
+  }
+
+  const message = getErrorMessage(error).toLowerCase();
+  return (
+    message.includes("401") ||
+    message.includes("403") ||
+    message.includes("unauthorized") ||
+    message.includes("forbidden") ||
+    message.includes("denied") ||
+    message.includes("no basic auth credentials") ||
+    message.includes("authentication required")
+  );
+}
+
 function resolveDaytonaBaseImage(): string {
   const configured = process.env[DAYTONA_BASE_IMAGE_ENV]?.trim();
   if (configured && configured.length > 0) {
@@ -4787,11 +4811,12 @@ export const buildCommitPinnedSnapshot = internalAction({
               `Registry ${registryStatus.status}: ${registryConfigResult.config.url}\n`,
             );
           } catch (error) {
-            const message = `Registry setup failed: ${
-              error instanceof Error ? error.message : String(error)
-            }\n`;
-            await appendPrebuildLog(message);
-            throw new Error(message.trim());
+            await appendPrebuildLog(
+              `Registry setup failed: ${getErrorMessage(error)}\n`,
+            );
+            await appendPrebuildLog(
+              "Continuing without refreshed registry auth and falling back if deps images remain unavailable.\n",
+            );
           }
         }
 
@@ -4866,10 +4891,15 @@ export const buildCommitPinnedSnapshot = internalAction({
                 await appendPrebuildLog(`Deps image not found: ${depsImage}\n`);
                 continue;
               }
+              if (isRegistryAccessError(error)) {
+                missingDepsImages.push(depsImage);
+                await appendPrebuildLog(
+                  `Deps image unavailable due to registry access: ${depsImage} (${getErrorMessage(error)})\n`,
+                );
+                continue;
+              }
               await appendPrebuildLog(
-                `Snapshot build failed: ${
-                  error instanceof Error ? error.message : String(error)
-                }\n`,
+                `Snapshot build failed: ${getErrorMessage(error)}\n`,
               );
               throw error;
             }

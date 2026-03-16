@@ -23,6 +23,12 @@ export function resolveDaytonaDepsImageCandidates(args: {
   inputHash: string | null;
   lockHash: string | null;
 }): string[] {
+  const normalizedOwner = args.owner.trim();
+  const normalizedRepo = args.repo.trim();
+  if (normalizedOwner.length === 0 || normalizedRepo.length === 0) {
+    return [];
+  }
+
   const candidates = new Set<string>();
 
   for (const tag of [args.inputHash, args.lockHash]) {
@@ -32,8 +38,8 @@ export function resolveDaytonaDepsImageCandidates(args: {
     }
     candidates.add(
       buildDaytonaDepsImageName({
-        owner: args.owner,
-        repo: args.repo,
+        owner: normalizedOwner,
+        repo: normalizedRepo,
         tag: normalizedTag,
       }),
     );
