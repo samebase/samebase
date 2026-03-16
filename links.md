@@ -1,2 +1,3 @@
 - https://automerge.org/ from https://stack.convex.dev/automerge-and-convex
 - https://www.blacksmith.sh/
+- https://x.com/matteocollina/status/2033590124919787819
