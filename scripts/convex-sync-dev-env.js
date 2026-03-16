@@ -17,6 +17,7 @@ import {
  * @typedef {{
  *   sourceEnv: string | null
  *   targetEnv: string | null
+ *   checkPrereqs: boolean
  *   dryRun: boolean
  *   showHelp: boolean
  * }} SyncOptions
@@ -73,6 +74,7 @@ Options:
                           If omitted, the script scans git worktrees and picks main.
   --target-env <path>     Output env file path.
                           Default: apps/noter/.env.anon-seed.local
+  --check-prereqs         Validate the source env and deploy key without generating a seed file.
   --dry-run               Show what would be written.
   -h, --help              Show this help message.
 `
@@ -93,6 +95,12 @@ const localAnonEnvPath = path.join(appDir, '.env.local')
 await main()
 
 async function main() {
+  const validatedSource = validateSourceEnvPrereqs()
+  if (options.checkPrereqs) {
+    console.log(`Validated worktree seed source env: ${validatedSource.path}`)
+    process.exit(0)
+  }
+
   const localAnonEnv = readEnvFile(localAnonEnvPath)
   if (!localAnonEnv) {
     exitWithError(
@@ -113,53 +121,11 @@ async function main() {
     )
   }
 
-  const sourceEnvPath = options.sourceEnv
-    ? path.resolve(options.sourceEnv)
-    : findSourceEnvFile(repoRoot)
-
-  if (!sourceEnvPath) {
-    if (options.dryRun) {
-      console.log(`Would write 1 seed var to ${targetEnvPath}`)
-      console.log('- CONVEX_DEPLOYMENT')
-      process.exit(0)
-    }
-    writeEnvFile(targetEnvPath, [
-      { name: 'CONVEX_DEPLOYMENT', value: localAnonDeployment.raw },
-    ])
-    console.log(
-      'No cloud dev env source found. Wrote seed env file with local CONVEX_DEPLOYMENT only.',
-    )
-    process.exit(0)
-  }
-
-  const sourceEnv = readEnvFile(sourceEnvPath)
-  if (!sourceEnv) {
-    exitWithError(`Source env file not found: ${sourceEnvPath}`)
-  }
-
-  const sourceDeployment = parseDeploymentFromEnv(sourceEnv.vars)
-  if (!sourceDeployment) {
-    exitWithError(
-      `Source env does not contain a usable CONVEX_DEPLOYMENT: ${sourceEnvPath}`,
-    )
-  }
-  if (sourceDeployment.type !== 'dev') {
-    exitWithError(
-      `Source deployment must be dev (got ${sourceDeployment.raw}).`,
-    )
-  }
-  if (isAnonymousLikeDeploymentName(sourceDeployment.name)) {
-    exitWithError(
-      `Source deployment is anonymous (${sourceDeployment.raw}). ` +
-        'Use a cloud dev deployment as source.',
-    )
-  }
-
   const entries = (
     await listDeploymentEnvVars({
       appDir,
-      envFile: sourceEnvPath,
-      sourceDeployment,
+      envFile: validatedSource.path,
+      sourceDeployment: validatedSource.deployment,
     })
   ).filter(({ name }) => WORKTREE_ENV_ALLOWLIST.has(name))
 
@@ -168,7 +134,7 @@ async function main() {
   if (options.dryRun) {
     console.log(
       `Would write ${sorted.length + 1} seed var${sorted.length + 1 === 1 ? '' : 's'} ` +
-        `from ${sourceDeployment.raw} to ${targetEnvPath}`,
+        `from ${validatedSource.deployment.raw} to ${targetEnvPath}`,
     )
     console.log('- CONVEX_DEPLOYMENT')
     for (const { name } of sorted) {
@@ -196,6 +162,7 @@ function parseArgs(args) {
   const result = {
     sourceEnv: null,
     targetEnv: null,
+    checkPrereqs: false,
     dryRun: false,
     showHelp: false,
   }
@@ -218,6 +185,10 @@ function parseArgs(args) {
       }
       result.targetEnv = value
       i += 1
+      continue
+    }
+    if (arg === '--check-prereqs') {
+      result.checkPrereqs = true
       continue
     }
     if (arg === '--dry-run') {
@@ -295,7 +266,7 @@ function parseDeploymentFromEnv(vars) {
   if (!raw) {
     return null
   }
-  const value = raw.trim()
+  const value = stripTrailingInlineComment(raw.trim())
   if (!value) {
     return null
   }
@@ -325,6 +296,14 @@ function parseDeploymentFromEnv(vars) {
 
 /**
  * @param {string} value
+ * @returns {string}
+ */
+function stripTrailingInlineComment(value) {
+  return value.replace(/\s+#.*$/, '').trim()
+}
+
+/**
+ * @param {string} value
  * @returns {value is DeploymentType}
  */
 function isDeploymentType(value) {
@@ -337,6 +316,75 @@ function isDeploymentType(value) {
  */
 function isAnonymousLikeDeploymentName(name) {
   return name.startsWith('anonymous-') || name.startsWith('local-')
+}
+
+/**
+ * @returns {{ path: string, envFile: EnvFile, deployment: Deployment }}
+ */
+function validateSourceEnvPrereqs() {
+  const sourceEnvPath = options.sourceEnv
+    ? path.resolve(options.sourceEnv)
+    : findSourceEnvFile(repoRoot)
+
+  if (!sourceEnvPath) {
+    exitWithMissingSourceEnvError()
+  }
+
+  const sourceEnv = readEnvFile(sourceEnvPath)
+  if (!sourceEnv) {
+    exitWithError(`Source env file not found: ${sourceEnvPath}`)
+  }
+
+  const sourceDeployment = parseDeploymentFromEnv(sourceEnv.vars)
+  if (!sourceDeployment) {
+    exitWithError(
+      `Source env does not contain a usable CONVEX_DEPLOYMENT: ${sourceEnvPath}`,
+    )
+  }
+  if (sourceDeployment.type !== 'dev') {
+    exitWithError(
+      `Source deployment must be dev (got ${sourceDeployment.raw}).`,
+    )
+  }
+  if (isAnonymousLikeDeploymentName(sourceDeployment.name)) {
+    exitWithError(
+      `Source deployment is anonymous (${sourceDeployment.raw}). ` +
+        'Use a cloud dev deployment as source.',
+    )
+  }
+
+  if (findMatchingSourceDeployKey(sourceEnv, sourceDeployment) === null) {
+    exitWithMissingSourceDeployKeyError({
+      envFile: sourceEnv.path,
+      deployment: sourceDeployment.raw,
+    })
+  }
+
+  return {
+    path: sourceEnv.path,
+    envFile: sourceEnv,
+    deployment: sourceDeployment,
+  }
+}
+
+/**
+ * @param {EnvFile} sourceEnv
+ * @param {Deployment} sourceDeployment
+ * @returns {string | null}
+ */
+function findMatchingSourceDeployKey(sourceEnv, sourceDeployment) {
+  const envDeployKey = extractMatchingDeploymentDeployKey({
+    rawDeployKey: process.env.CONVEX_DEPLOY_KEY,
+    sourceDeployment,
+  })
+  if (envDeployKey !== null) {
+    return envDeployKey
+  }
+
+  return extractMatchingDeploymentDeployKey({
+    rawDeployKey: sourceEnv.vars.CONVEX_DEPLOY_KEY,
+    sourceDeployment,
+  })
 }
 
 /**
@@ -369,6 +417,12 @@ async function listDeploymentEnvVars({ appDir, envFile, sourceDeployment }) {
 
   if (result.status !== 0) {
     const output = `${result.stdout || ''}\n${result.stderr || ''}`.trim()
+    if (output.includes('MissingAccessToken')) {
+      exitWithMissingSourceDeployKeyError({
+        envFile,
+        deployment: sourceDeployment.raw,
+      })
+    }
     const message = output || 'convex env list failed'
     exitWithError(message)
   }
@@ -550,6 +604,41 @@ function parseWorktreeBlock(block) {
 function exitWithError(message) {
   console.error(message)
   process.exit(1)
+}
+
+/**
+ * @returns {never}
+ */
+function exitWithMissingSourceEnvError() {
+  exitWithError(
+    'Missing source env file for worktree bootstrap.\n' +
+      'Copy apps/noter/.env.local from a working checkout, including CONVEX_DEPLOY_KEY, or pass --source-env <path>.',
+  )
+}
+
+/**
+ * @param {{ envFile: string, deployment: string }} args
+ * @returns {never}
+ */
+function exitWithMissingSourceDeployKeyError({ envFile, deployment }) {
+  const seedCommand = formatSeedEnvCommand(envFile)
+  exitWithError(
+    `Missing CONVEX_DEPLOY_KEY in source env file: ${envFile}\n` +
+      `The worktree seed generator needs a deployment-scoped key for ${deployment} in that file.\n` +
+      `Add \`CONVEX_DEPLOY_KEY=${deployment}|<deployment-key>\` to ${envFile}, then run \`${seedCommand}\`.`,
+  )
+}
+
+/**
+ * @param {string | null} sourceEnvPath
+ * @returns {string}
+ */
+function formatSeedEnvCommand(sourceEnvPath) {
+  const explicitSourceEnvPath = sourceEnvPath ?? options.sourceEnv
+  const sourceArg = explicitSourceEnvPath
+    ? ` --source-env ${JSON.stringify(path.resolve(explicitSourceEnvPath))}`
+    : ''
+  return `node ./scripts/convex-sync-dev-env.js${sourceArg}`
 }
 
 /**

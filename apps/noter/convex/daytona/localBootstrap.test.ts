@@ -23,6 +23,12 @@ const scriptPath = path.join(
   "scripts",
   "daytona-write-source-env.js",
 );
+const convexSyncDevEnvScriptPath = path.join(
+  repoRoot,
+  "scripts",
+  "convex-sync-dev-env.js",
+);
+const makefilePath = path.join(repoRoot, "Makefile");
 
 describe("daytonaLocalBootstrap", () => {
   beforeAll(() => {
@@ -148,5 +154,77 @@ describe("daytonaLocalBootstrap", () => {
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("cloud dev deployment");
     expect(existsSync(outputPath)).toBe(false);
+  });
+
+  it("fails fast when the source env file is missing CONVEX_DEPLOY_KEY", () => {
+    const sourceEnvPath = path.join(testDir, "missing-deploy-key.env.local");
+    writeFileSync(
+      sourceEnvPath,
+      ["CONVEX_DEPLOYMENT=dev:quiet-robin-508", ""].join("\n"),
+      "utf8",
+    );
+
+    const result = spawnSync(
+      "node",
+      [
+        convexSyncDevEnvScriptPath,
+        "--check-prereqs",
+        "--source-env",
+        sourceEnvPath,
+      ],
+      {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: process.env,
+      },
+    );
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain(
+      "Missing CONVEX_DEPLOY_KEY in source env file",
+    );
+    expect(result.stderr).toContain(sourceEnvPath);
+  });
+
+  it("validates the source env file when CONVEX_DEPLOY_KEY is present", () => {
+    const sourceEnvPath = path.join(testDir, "with-deploy-key.env.local");
+    writeFileSync(
+      sourceEnvPath,
+      [
+        "CONVEX_DEPLOYMENT=dev:quiet-robin-508 # team: nicu, project: noter",
+        "CONVEX_DEPLOY_KEY=dev:quiet-robin-508|secret-token",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const result = spawnSync(
+      "node",
+      [
+        convexSyncDevEnvScriptPath,
+        "--check-prereqs",
+        "--source-env",
+        sourceEnvPath,
+      ],
+      {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: process.env,
+      },
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Validated worktree seed source env");
+    expect(result.stdout).toContain(sourceEnvPath);
+  });
+
+  it("runs the source env preflight before make anon", () => {
+    const makefile = readFileSync(makefilePath, "utf8");
+
+    expect(makefile).toContain(
+      "node ./scripts/convex-sync-dev-env.js --check-prereqs",
+    );
+    expect(makefile).toContain("anon:\n\t$(ANON_VALIDATE_SOURCE_ENV_CMD)");
+    expect(makefile).toContain("anon-once:\n\t$(ANON_VALIDATE_SOURCE_ENV_CMD)");
   });
 });

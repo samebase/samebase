@@ -3,6 +3,7 @@
 .PHONY: bootstrap bootstrap-anon run anon anon-once daytona-local daytona-local-once update-fixtures record-start record-stop
 
 ANON_SETUP_ONCE_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --once --codegen=enable --tail-logs=disable --typecheck=disable
+ANON_VALIDATE_SOURCE_ENV_CMD = $(if $(strip $(ANON_SOURCE_DEPLOY_KEY)),CONVEX_DEPLOY_KEY="$(ANON_SOURCE_DEPLOY_KEY)" ,)node ./scripts/convex-sync-dev-env.js --check-prereqs $(if $(strip $(ANON_SOURCE_ENV)),--source-env "$(ANON_SOURCE_ENV)",)
 ANON_SYNC_ENV_CMD = $(if $(strip $(ANON_SOURCE_DEPLOY_KEY)),CONVEX_DEPLOY_KEY="$(ANON_SOURCE_DEPLOY_KEY)" ,)node ./scripts/convex-sync-dev-env.js $(if $(strip $(ANON_SOURCE_ENV)),--source-env "$(ANON_SOURCE_ENV)",)
 ANON_SEED_PASSWORD_ACCOUNT_CMD = node ./scripts/convex-seed-dev-auth.js
 ANON_REFRESH_AUTH_KEYS_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --refresh-anon-auth --codegen=disable --tail-logs=disable --typecheck=disable
@@ -30,6 +31,7 @@ run:
 
 # Full dev (frontend + backend) with anonymous Convex mode.
 anon:
+	$(ANON_VALIDATE_SOURCE_ENV_CMD)
 	$(MAKE) bootstrap-anon
 	$(ANON_SETUP_ONCE_CMD)
 	$(ANON_SYNC_ENV_CMD)
@@ -39,6 +41,7 @@ anon:
 
 # One-off anonymous Convex bootstrap (codegen + push), then exit.
 anon-once:
+	$(ANON_VALIDATE_SOURCE_ENV_CMD)
 	$(MAKE) bootstrap-anon
 	$(ANON_SETUP_ONCE_CMD)
 	$(ANON_SYNC_ENV_CMD)
