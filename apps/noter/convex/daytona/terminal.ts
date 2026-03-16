@@ -864,6 +864,17 @@ async function openPtySession(args: {
       message: error instanceof Error ? error.message : String(error),
     });
   }
+  try {
+    await ensureSandboxFishTooling({
+      sandbox: args.sandbox,
+      timeoutSeconds: 30,
+    });
+  } catch (error) {
+    console.warn("daytona:pty:fish-tooling-sync-skipped", {
+      sandboxId: args.sandbox.id,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
   const textDecoder = new TextDecoder();
   const outputChunks: string[] = [];
   const lastChunkAtRef = { current: Date.now() };
@@ -1010,10 +1021,6 @@ export const openWorkspacePtySession = action({
     try {
       await ensureSandboxStarted(resolved.sandbox);
       await ensureProjectedCodexHomeInSandbox({
-        sandbox: resolved.sandbox,
-        timeoutSeconds: 300,
-      });
-      await ensureSandboxFishTooling({
         sandbox: resolved.sandbox,
         timeoutSeconds: 300,
       });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildEnsureSandboxPreferredInteractiveShellCommand,
+  buildRunPtySessionAsSandboxUserInput,
   buildSwitchPtySessionToSandboxUserInput,
   ensureProjectedCodexHomeInSandbox,
   ensureSandboxFishTooling,
@@ -46,6 +47,25 @@ describe("buildSwitchPtySessionToSandboxUserInput", () => {
     expect(script).not.toContain(" -c ");
     expect(script).not.toContain('exec "$SHELL" -i');
     expect(script.trimEnd()).not.toContain("\n");
+  });
+});
+
+describe("buildRunPtySessionAsSandboxUserInput", () => {
+  it("routes explicit bootstrap commands through bash and stops if cd fails", () => {
+    const script = buildRunPtySessionAsSandboxUserInput({
+      cwd: "/home/daytona/workspace/noter",
+      command:
+        "if command -v tmux >/dev/null 2>&1; then tmux new-session -A -s noter-shell; fi",
+    });
+
+    expect(script).toContain("target_command=");
+    expect(script).toContain("/home/daytona/workspace/noter");
+    expect(script).toContain("&& exec");
+    expect(script).toContain("/bin/bash");
+    expect(script).toContain('su -m -s "$target_shell"');
+    expect(script).toContain(
+      "if command -v tmux >/dev/null 2>&1; then tmux new-session -A -s noter-shell; fi",
+    );
   });
 });
 

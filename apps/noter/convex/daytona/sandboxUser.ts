@@ -504,7 +504,9 @@ export function buildRunPtySessionAsSandboxUserInput(args: {
 }): string {
   const sandboxUserCommand =
     args.command && args.command.trim().length > 0
-      ? [`cd ${quoteForShell(args.cwd)}`, args.command].join("; ")
+      ? `cd ${quoteForShell(args.cwd)} && exec ${quoteForShell(
+          DAYTONA_FALLBACK_INTERACTIVE_SHELL,
+        )} -lc ${quoteForShell(args.command)}`
       : null;
   const handoffCommand = [
     `target_cwd=${quoteForShell(args.cwd)}`,
@@ -515,7 +517,7 @@ export function buildRunPtySessionAsSandboxUserInput(args: {
       : null,
     sandboxUserCommand
       ? `exec env HOME=${quoteForShell(DAYTONA_SANDBOX_HOME)} USER=${quoteForShell(DAYTONA_SANDBOX_USER)} LOGNAME=${quoteForShell(DAYTONA_SANDBOX_USER)} CODEX_HOME=${quoteForShell(DAYTONA_CODEX_HOME)} SHELL="$target_shell" XDG_CONFIG_HOME=${quoteForShell(`${DAYTONA_SANDBOX_HOME}/.config`)} XDG_CACHE_HOME=${quoteForShell(`${DAYTONA_SANDBOX_HOME}/.cache`)} XDG_DATA_HOME=${quoteForShell(`${DAYTONA_SANDBOX_HOME}/.local/share`)} su -m -s "$target_shell" ${quoteForShell(DAYTONA_SANDBOX_USER)} -c "$target_command"`
-      : `cd "$target_cwd"; exec env HOME=${quoteForShell(DAYTONA_SANDBOX_HOME)} USER=${quoteForShell(DAYTONA_SANDBOX_USER)} LOGNAME=${quoteForShell(DAYTONA_SANDBOX_USER)} CODEX_HOME=${quoteForShell(DAYTONA_CODEX_HOME)} SHELL="$target_shell" XDG_CONFIG_HOME=${quoteForShell(`${DAYTONA_SANDBOX_HOME}/.config`)} XDG_CACHE_HOME=${quoteForShell(`${DAYTONA_SANDBOX_HOME}/.cache`)} XDG_DATA_HOME=${quoteForShell(`${DAYTONA_SANDBOX_HOME}/.local/share`)} su -m -s "$target_shell" ${quoteForShell(DAYTONA_SANDBOX_USER)}`,
+      : `cd "$target_cwd" && exec env HOME=${quoteForShell(DAYTONA_SANDBOX_HOME)} USER=${quoteForShell(DAYTONA_SANDBOX_USER)} LOGNAME=${quoteForShell(DAYTONA_SANDBOX_USER)} CODEX_HOME=${quoteForShell(DAYTONA_CODEX_HOME)} SHELL="$target_shell" XDG_CONFIG_HOME=${quoteForShell(`${DAYTONA_SANDBOX_HOME}/.config`)} XDG_CACHE_HOME=${quoteForShell(`${DAYTONA_SANDBOX_HOME}/.cache`)} XDG_DATA_HOME=${quoteForShell(`${DAYTONA_SANDBOX_HOME}/.local/share`)} su -m -s "$target_shell" ${quoteForShell(DAYTONA_SANDBOX_USER)}`,
   ]
     .filter((value): value is string => value !== null)
     .join("; ");

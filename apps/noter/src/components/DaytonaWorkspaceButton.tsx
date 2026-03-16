@@ -398,9 +398,20 @@ export function DaytonaWorkspaceButton({
         setHasError(false);
         setMessage(result.message ?? `Daytona sandbox ${label} is ready.`);
         setBootstrapLogs(null);
-        const shellTerminalSession = await openTerminalSession(true);
-        const devServerTerminalSession =
-          await openDevServerTerminalSession(true);
+        const shellTerminalSession = await openTerminalSession(
+          true,
+          result.sandboxId,
+        );
+        const devServerTerminalSession = await openDevServerTerminalSession(
+          true,
+          result.sandboxId,
+        );
+        if (shellTerminalSession) {
+          dispatchTerminalState({
+            type: "activated",
+            kind: "shell",
+          });
+        }
         if (shellTerminalSession && devServerTerminalSession) {
           setTimeToTerminalMs(Math.round(performance.now() - startClickedAt));
         } else {
@@ -596,6 +607,7 @@ export function DaytonaWorkspaceButton({
   const openPtySession = async (args: {
     silent?: boolean;
     targetKind: WorkspaceTerminalKind;
+    expectedSandboxId?: string;
     openSession: (args: {
       vaultId: Id<"vaults">;
       branch: string;
@@ -609,13 +621,33 @@ export function DaytonaWorkspaceButton({
     if (disabled || isOpeningTerminal || isClosingTerminal) {
       return null;
     }
+    const expectedSandboxId = args.expectedSandboxId ?? sandboxId;
     const existingSession = terminalStateRef.current.sessions[args.targetKind];
-    if (existingSession) {
+    if (
+      existingSession &&
+      expectedSandboxId &&
+      existingSession.sandboxId !== expectedSandboxId
+    ) {
+      const closed = await closeTerminalSession({
+        kind: args.targetKind,
+        silent: true,
+      });
+      if (!closed) {
+        if (!isSilent) {
+          setHasError(true);
+          setMessage("Failed to refresh Daytona terminal session.");
+        }
+        return null;
+      }
+    }
+    const nextExistingSession =
+      terminalStateRef.current.sessions[args.targetKind];
+    if (nextExistingSession) {
       dispatchTerminalState({
         type: "activated",
         kind: args.targetKind,
       });
-      return existingSession;
+      return nextExistingSession;
     }
     setIsOpeningTerminal(true);
     if (!isSilent) {
@@ -679,10 +711,12 @@ export function DaytonaWorkspaceButton({
 
   const openTerminalSession = async (
     silent?: boolean,
+    expectedSandboxId?: string,
   ): Promise<DaytonaPtySession | null> => {
     return await openPtySession({
       silent,
       targetKind: "shell",
+      expectedSandboxId,
       openSession: openWorkspacePtySession,
       successMessage: "Terminal session ready.",
       failureMessage: "Failed to open Daytona terminal.",
@@ -691,10 +725,12 @@ export function DaytonaWorkspaceButton({
 
   const openDevServerTerminalSession = async (
     silent?: boolean,
+    expectedSandboxId?: string,
   ): Promise<DaytonaPtySession | null> => {
     return await openPtySession({
       silent,
       targetKind: "dev_server",
+      expectedSandboxId,
       openSession: openWorkspaceDevServerPtySession,
       successMessage: "Dev server terminal session ready.",
       failureMessage: "Failed to open Daytona dev server terminal.",

@@ -393,6 +393,43 @@ describe("openWorkspacePtySession", () => {
     );
     expect(createPtyIndex).toBeGreaterThan(fisherCommandIndex);
   });
+
+  it("keeps opening a workspace shell when fish tooling repair fails", async () => {
+    const sandbox = createSandbox();
+    sandbox.process.executeCommand = async (command: string) => {
+      if (command.includes('fish -lc "$verify_command"')) {
+        return {
+          exitCode: 1,
+          result: "simulated fish tooling failure",
+        };
+      }
+      if (command.includes(`cat '${DAYTONA_CODEX_HOME}/config.toml'`)) {
+        return {
+          exitCode: 0,
+          result: "",
+        };
+      }
+      return {
+        exitCode: 0,
+        result: "",
+      };
+    };
+    mockState.sandbox = sandbox;
+
+    const handler = readActionHandler(openWorkspacePtySession);
+    const result = await handler(createWorkspaceActionContext(), {
+      vaultId: "vault-1",
+      branch: "main",
+      cols: 120,
+      rows: 32,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      sessionId: "actual-pty-session-1",
+    });
+    expect(mockState.requestedSessionId).toMatch(/^noter-pty-vault-1-/);
+  });
   it("returns the actual Daytona PTY session id for dev server PTYs too", async () => {
     const handler = readActionHandler(openWorkspaceDevServerPtySession);
     const result = await handler(createWorkspaceActionContext(), {
