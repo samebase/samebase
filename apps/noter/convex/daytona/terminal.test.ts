@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { DAYTONA_CODEX_HOME } from "./sandboxUser";
+import { DAYTONA_CODEX_HOME, DAYTONA_CODEX_SHARED_HOME } from "./sandboxUser";
 
 const originalDaytonaApiUrl = process.env.DAYTONA_API_URL;
 const originalDaytonaApiToken = process.env.DAYTONA_API_TOKEN;
@@ -109,6 +109,7 @@ type FakeSandbox = {
 };
 
 import {
+  closeWorkspacePtySession,
   openCodexAuthPtySession,
   openWorkspaceDevServerPtySession,
   openWorkspacePtySession,
@@ -130,7 +131,7 @@ function readActionHandler(
   return handler;
 }
 
-function createSandbox(): FakeSandbox {
+function createSandbox(executedCommands: string[] = []): FakeSandbox {
   const textEncoder = new TextEncoder();
   return {
     id: "sandbox-1",
@@ -149,6 +150,7 @@ function createSandbox(): FakeSandbox {
     createdAt: Date.now(),
     process: {
       executeCommand: async (command: string) => {
+        executedCommands.push(command);
         if (command.includes(`cat '${DAYTONA_CODEX_HOME}/config.toml'`)) {
           return {
             exitCode: 0,
@@ -294,6 +296,30 @@ describe("openWorkspacePtySession", () => {
     });
   });
 
+  it("writes Codex config as the sandbox user into the local Codex home", async () => {
+    const executedCommands: string[] = [];
+    mockState.sandbox = createSandbox(executedCommands);
+
+    const handler = readActionHandler(openWorkspacePtySession);
+    const result = await handler(createWorkspaceActionContext(), {
+      vaultId: "vault-1",
+      branch: "main",
+      cols: 120,
+      rows: 32,
+    });
+
+    expect(result).toMatchObject({ ok: true });
+    const configWriteCommand = executedCommands.find((command) =>
+      command.includes('base64 --decode > "$config_path"'),
+    );
+    expect(configWriteCommand).toBeDefined();
+    expect(configWriteCommand).toContain(`${DAYTONA_CODEX_HOME}/config.toml`);
+    expect(configWriteCommand).toContain(
+      'exec su -m -s /bin/bash "$target_user" -c',
+    );
+    expect(configWriteCommand).not.toContain(DAYTONA_CODEX_SHARED_HOME);
+  });
+
   it("returns the actual Daytona PTY session id for dev server PTYs too", async () => {
     const handler = readActionHandler(openWorkspaceDevServerPtySession);
     const result = await handler(createWorkspaceActionContext(), {
@@ -372,5 +398,32 @@ describe("openWorkspacePtySession", () => {
       previewToken: "preview-token-1",
       sandboxName: "noter-sandbox",
     });
+  });
+
+  it("syncs the local Codex config back to the shared volume when a workspace PTY closes", async () => {
+    const executedCommands: string[] = [];
+    const sandbox = createSandbox(executedCommands);
+    const killedSessionIds: string[] = [];
+    sandbox.process.killPtySession = async (sessionId) => {
+      killedSessionIds.push(sessionId);
+    };
+    mockState.sandbox = sandbox;
+
+    const handler = readActionHandler(closeWorkspacePtySession);
+    const result = await handler(createWorkspaceActionContext(), {
+      vaultId: "vault-1",
+      branch: "main",
+      sessionId: "workspace-pty-1",
+    });
+
+    expect(result).toMatchObject({ ok: true });
+    expect(killedSessionIds).toEqual(["workspace-pty-1"]);
+    const syncCommand = executedCommands.find(
+      (command) =>
+        command.includes(`${DAYTONA_CODEX_SHARED_HOME}/config.toml`) &&
+        command.includes('cat "$local_path" > "$shared_path"'),
+    );
+    expect(syncCommand).toBeDefined();
+    expect(syncCommand).toContain('exec su -m -s /bin/bash "$target_user" -c');
   });
 });
