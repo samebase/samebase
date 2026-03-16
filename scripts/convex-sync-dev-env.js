@@ -18,6 +18,7 @@ import {
  *   sourceEnv: string | null
  *   targetEnv: string | null
  *   checkPrereqs: boolean
+ *   allowMissingSourceEnv: boolean
  *   dryRun: boolean
  *   showHelp: boolean
  * }} SyncOptions
@@ -75,6 +76,8 @@ Options:
   --target-env <path>     Output env file path.
                           Default: apps/noter/.env.anon-seed.local
   --check-prereqs         Validate the source env and deploy key without generating a seed file.
+  --allow-missing-source-env
+                          Allow local-only seed generation when no cloud dev source env is discoverable.
   --dry-run               Show what would be written.
   -h, --help              Show this help message.
 `
@@ -97,6 +100,12 @@ await main()
 async function main() {
   const validatedSource = validateSourceEnvPrereqs()
   if (options.checkPrereqs) {
+    if (validatedSource === null) {
+      console.log(
+        'No cloud dev source env found; allowing local-only seed env.',
+      )
+      process.exit(0)
+    }
     console.log(`Validated worktree seed source env: ${validatedSource.path}`)
     process.exit(0)
   }
@@ -119,6 +128,22 @@ async function main() {
     exitWithError(
       `Local deployment must be anonymous/local (got ${localAnonDeployment.raw}).`,
     )
+  }
+
+  if (validatedSource === null) {
+    if (options.dryRun) {
+      console.log(`Would write 1 seed var to ${targetEnvPath}`)
+      console.log('- CONVEX_DEPLOYMENT')
+      process.exit(0)
+    }
+
+    writeEnvFile(targetEnvPath, [
+      { name: 'CONVEX_DEPLOYMENT', value: localAnonDeployment.raw },
+    ])
+    console.log(
+      'No cloud dev source env found. Wrote seed env file with local CONVEX_DEPLOYMENT only.',
+    )
+    process.exit(0)
   }
 
   const entries = (
@@ -163,6 +188,7 @@ function parseArgs(args) {
     sourceEnv: null,
     targetEnv: null,
     checkPrereqs: false,
+    allowMissingSourceEnv: false,
     dryRun: false,
     showHelp: false,
   }
@@ -189,6 +215,10 @@ function parseArgs(args) {
     }
     if (arg === '--check-prereqs') {
       result.checkPrereqs = true
+      continue
+    }
+    if (arg === '--allow-missing-source-env') {
+      result.allowMissingSourceEnv = true
       continue
     }
     if (arg === '--dry-run') {
@@ -319,7 +349,7 @@ function isAnonymousLikeDeploymentName(name) {
 }
 
 /**
- * @returns {{ path: string, envFile: EnvFile, deployment: Deployment }}
+ * @returns {{ path: string, envFile: EnvFile, deployment: Deployment } | null}
  */
 function validateSourceEnvPrereqs() {
   const sourceEnvPath = options.sourceEnv
@@ -327,6 +357,9 @@ function validateSourceEnvPrereqs() {
     : findSourceEnvFile(repoRoot)
 
   if (!sourceEnvPath) {
+    if (options.allowMissingSourceEnv) {
+      return null
+    }
     exitWithMissingSourceEnvError()
   }
 

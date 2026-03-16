@@ -29,6 +29,23 @@ const convexSyncDevEnvScriptPath = path.join(
   "convex-sync-dev-env.js",
 );
 const makefilePath = path.join(repoRoot, "Makefile");
+const buildIsolatedChildEnv = (
+  overrides: Record<string, string> = {},
+): NodeJS.ProcessEnv => {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    ...overrides,
+  };
+
+  delete env.GIT_DIR;
+  delete env.GIT_WORK_TREE;
+  delete env.GIT_PREFIX;
+  delete env.GIT_INDEX_FILE;
+  delete env.GIT_OBJECT_DIRECTORY;
+  delete env.GIT_COMMON_DIR;
+
+  return env;
+};
 
 describe("daytonaLocalBootstrap", () => {
   beforeAll(() => {
@@ -175,7 +192,9 @@ describe("daytonaLocalBootstrap", () => {
       {
         cwd: repoRoot,
         encoding: "utf8",
-        env: process.env,
+        env: buildIsolatedChildEnv({
+          CONVEX_DEPLOY_KEY: "",
+        }),
       },
     );
 
@@ -209,7 +228,9 @@ describe("daytonaLocalBootstrap", () => {
       {
         cwd: repoRoot,
         encoding: "utf8",
-        env: process.env,
+        env: buildIsolatedChildEnv({
+          CONVEX_DEPLOY_KEY: "",
+        }),
       },
     );
 
@@ -218,13 +239,44 @@ describe("daytonaLocalBootstrap", () => {
     expect(result.stdout).toContain(sourceEnvPath);
   });
 
+  it("allows daytona-local fallback when no source env is discoverable", () => {
+    const emptyDir = mkdtempSync(
+      path.join(os.tmpdir(), "noter-no-source-env-"),
+    );
+
+    try {
+      const result = spawnSync(
+        "node",
+        [
+          convexSyncDevEnvScriptPath,
+          "--check-prereqs",
+          "--allow-missing-source-env",
+        ],
+        {
+          cwd: emptyDir,
+          encoding: "utf8",
+          env: buildIsolatedChildEnv(),
+        },
+      );
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain(
+        "No cloud dev source env found; allowing local-only seed env.",
+      );
+    } finally {
+      rmSync(emptyDir, { recursive: true, force: true });
+    }
+  });
+
   it("runs the source env preflight before make anon", () => {
     const makefile = readFileSync(makefilePath, "utf8");
 
     expect(makefile).toContain(
       "node ./scripts/convex-sync-dev-env.js --check-prereqs",
     );
+    expect(makefile).toContain("--allow-missing-source-env");
     expect(makefile).toContain("anon:\n\t$(ANON_VALIDATE_SOURCE_ENV_CMD)");
     expect(makefile).toContain("anon-once:\n\t$(ANON_VALIDATE_SOURCE_ENV_CMD)");
+    expect(makefile).toContain("ANON_ALLOW_MISSING_SOURCE_ENV=1; \\");
   });
 });
