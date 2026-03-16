@@ -20,6 +20,7 @@ export default {
       "2xl": "0px",
       "3xl": "0px",
       full: "0px",
+      ui: "var(--radius)",
     },
     container: {
       center: true,

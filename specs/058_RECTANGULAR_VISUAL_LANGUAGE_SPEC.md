@@ -63,6 +63,8 @@ Individual screens or components should not reintroduce radius because it feels
 - The Tailwind border-radius scale resolves to `0` for all supported radius
   utilities, including `DEFAULT`, `sm`, `md`, `lg`, `xl`, `2xl`, `3xl`, and
   `full`.
+- Tailwind also exposes `rounded-ui` as the semantic app-chrome utility, and it
+  resolves through the shared `--radius` token.
 - Directional radius utilities such as `rounded-t-lg` and `rounded-r-md` must
   also render square because they derive from the same zeroed scale.
 - Arbitrary radius utilities such as `rounded-[6px]` are not allowed in
@@ -109,6 +111,8 @@ For Noter, the rectangular rule is enforced as follows:
   set `--radius: 0`.
 - `tailwind.config.js` must zero the radius scale so generated shadcn utilities
   resolve to square corners by default.
+- `tailwind.config.js` should expose `rounded-ui` so hand-written app chrome can
+  express intent without relying on raw `rounded-none`.
 - New shadcn components must be added through the CLI, but repo-level theme
   configuration must neutralize radius without requiring ad hoc edits to each
   generated file.
@@ -137,6 +141,8 @@ For Noter, the rectangular rule is enforced as follows:
 - Set `--radius: 0` in `apps/noter/src/index.css`.
 - Zero the Tailwind border-radius scale in `apps/noter/tailwind.config.js`,
   including `full`.
+- Add `rounded-ui` in `apps/noter/tailwind.config.js` as the semantic utility
+  for explicit app-owned chrome.
 
 ### Phase 2. Codebase Audit
 

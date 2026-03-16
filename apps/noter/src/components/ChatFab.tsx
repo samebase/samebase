@@ -206,7 +206,7 @@ function ToolCallList({ toolCalls }: { toolCalls: ToolCallInfo[] }) {
                   {stateLabel && (
                     <span
                       className={cn(
-                        "rounded-none px-1.5 py-0.5 text-[9px] uppercase tracking-wide",
+                        "rounded-ui px-1.5 py-0.5 text-[9px] uppercase tracking-wide",
                         stateLabel === "error"
                           ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
                           : stateLabel === "done"
@@ -299,7 +299,7 @@ function CapabilitiesPanel({
         <span className="font-medium">Chat tools</span>
         <span
           className={cn(
-            "ml-auto rounded-none px-2 py-0.5 text-[10px] font-medium",
+            "ml-auto rounded-ui px-2 py-0.5 text-[10px] font-medium",
             toolsEnabled
               ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
               : "bg-muted text-muted-foreground",
@@ -917,7 +917,7 @@ export function ChatFab() {
       {/* Chat Window */}
       {isOpen && (
         <div
-          className="fixed bottom-16 right-3 z-[9999] flex max-sm:!left-0 max-sm:!right-0 max-sm:!bottom-16 max-sm:!w-auto max-sm:!h-[calc(100%-5rem)] max-sm:rounded-none flex-col rounded-xl border border-border bg-popover shadow-xl"
+          className="fixed bottom-16 right-3 z-[9999] flex max-sm:!left-0 max-sm:!right-0 max-sm:!bottom-16 max-sm:!w-auto max-sm:!h-[calc(100%-5rem)] max-sm:rounded-ui flex-col rounded-xl border border-border bg-popover shadow-xl"
           style={{
             width: size.w,
             height: size.h,
@@ -1031,7 +1031,7 @@ export function ChatFab() {
       <button
         onClick={() => setIsOpen((prev) => !prev)}
         className={cn(
-          "fixed bottom-3 right-3 z-[9999] flex h-11 w-11 items-center justify-center rounded-none shadow-lg transition-colors",
+          "fixed bottom-3 right-3 z-[9999] flex h-11 w-11 items-center justify-center rounded-ui shadow-lg transition-colors",
           isOpen
             ? "bg-muted text-foreground hover:bg-muted/80"
             : "bg-primary text-primary-foreground hover:bg-primary/90",

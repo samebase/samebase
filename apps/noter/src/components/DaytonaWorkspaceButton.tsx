@@ -1222,7 +1222,7 @@ export function DaytonaWorkspaceButton({
                     >
                       <span
                         aria-hidden="true"
-                        className={cn("h-2 w-2 rounded-none", statusTone)}
+                        className={cn("h-2 w-2 rounded-ui", statusTone)}
                       />
                       {title}
                     </button>

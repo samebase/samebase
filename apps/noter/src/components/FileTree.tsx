@@ -267,7 +267,7 @@ function TreeNodeComponent({
             <TooltipTrigger asChild>
               <div
                 className={cn(
-                  "flex items-center gap-2 py-3 px-3 md:py-1 md:px-2 text-base md:text-sm cursor-pointer hover:bg-muted/30 rounded-none",
+                  "flex items-center gap-2 py-3 px-3 md:py-1 md:px-2 text-base md:text-sm cursor-pointer hover:bg-muted/30 rounded-ui",
                   isSelected &&
                     "bg-primary/15 hover:bg-primary/20 ring-1 ring-inset ring-primary/40",
                   "transition-colors",

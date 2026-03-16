@@ -200,7 +200,8 @@ use `--env-file` or an explicit deployment selector instead.
 - **Prefer existing shadcn/ui components** over custom Tailwind-only solutions
   when available
 - **Use rectangular app chrome** - app-owned UI surfaces default to zero border
-  radius; keep the shared radius token/Tailwind radius scale at `0` and do not
+  radius; keep the shared radius token/Tailwind radius scale at `0`, prefer
+  `rounded-ui` when an explicit semantic radius utility is needed, and do not
   introduce `rounded-full` or arbitrary `rounded-[...]` classes for app chrome
 - **Async destructive actions** - disable the trigger while pending and show a
   spinner/label (e.g. "Removing...") to prevent double-submit
