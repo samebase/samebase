@@ -89,13 +89,14 @@ describe("ensureProjectedCodexHomeInSandbox", () => {
     await ensureProjectedCodexHomeInSandbox({ sandbox, timeoutSeconds: 1 });
 
     expect(commands).toHaveLength(2);
-    expect(commands[0]).not.toContain(
+    const combinedCommands = commands.join("\n");
+    expect(combinedCommands).not.toContain(
       'chown "$target_user:$target_group" "$shared_home"',
     );
-    expect(commands[0]).not.toContain(
+    expect(combinedCommands).not.toContain(
       'sudo chown "$target_user:$target_group" "$shared_home"',
     );
-    expect(commands[0]).not.toContain("noter-owner-ready");
+    expect(combinedCommands).not.toContain("noter-owner-ready");
     expect(commands[1]).toContain('mkdir -p "$shared_home/memories"');
   });
 });
