@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildEnsureSandboxPreferredInteractiveShellCommand,
+  ensureProjectedCodexHomeInSandbox,
   buildSwitchPtySessionToSandboxUserInput,
 } from "./sandboxUser";
 
@@ -44,5 +45,31 @@ describe("buildSwitchPtySessionToSandboxUserInput", () => {
     expect(script).not.toContain(" -c ");
     expect(script).not.toContain('exec "$SHELL" -i');
     expect(script.trimEnd()).not.toContain("\n");
+  });
+});
+
+describe("ensureProjectedCodexHomeInSandbox", () => {
+  it("repairs shared Codex home ownership before projecting shared entries", async () => {
+    const commands: string[] = [];
+    const sandbox = {
+      process: {
+        executeCommand: async (command: string) => {
+          commands.push(command);
+          return {
+            exitCode: 0,
+            result: "",
+          };
+        },
+      },
+    };
+
+    // @ts-expect-error Test double only implements executeCommand used here.
+    await ensureProjectedCodexHomeInSandbox({ sandbox, timeoutSeconds: 1 });
+
+    expect(commands).toHaveLength(2);
+    expect(commands[0]).toContain(
+      'chown -R "$target_user:$target_group" "$shared_home"',
+    );
+    expect(commands[1]).toContain('mkdir -p "$shared_home/memories"');
   });
 });

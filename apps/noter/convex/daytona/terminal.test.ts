@@ -303,12 +303,18 @@ describe("openWorkspacePtySession", () => {
       previewToken: "preview-token-1",
       sandboxId: "sandbox-1",
       sandboxName: "noter-sandbox",
+      initialInput: expect.stringContaining("noter-shell"),
     });
     expect(mockState.sentInputs).toHaveLength(1);
-    expect(mockState.sentInputs[0]).toContain("noter-shell");
-    expect(mockState.sentInputs[0]).toContain("tmux_status=$?");
-    expect(mockState.sentInputs[0]).toContain('exec "$SHELL" -l');
-    expect(mockState.sentInputs[0]).not.toContain("exec tmux");
+    expect(mockState.sentInputs[0]).toContain('su -m -s "$target_shell"');
+    expect(mockState.sentInputs[0]).toContain("/home/daytona/workspace/noter");
+    if (typeof result !== "object" || result === null) {
+      throw new Error("Expected workspace PTY result to be an object.");
+    }
+    const initialInput = Reflect.get(result, "initialInput");
+    expect(initialInput).toContain("tmux_status=$?");
+    expect(initialInput).toContain('exec "$SHELL" -l');
+    expect(initialInput).not.toContain("exec tmux");
   });
 
   it("writes Codex config as the sandbox user into the local Codex home", async () => {
@@ -356,15 +362,20 @@ describe("openWorkspacePtySession", () => {
       previewToken: "preview-token-1",
       sandboxId: "sandbox-1",
       sandboxName: "noter-sandbox",
-      initialOutput: expect.stringContaining("dev-server logs"),
+      initialInput: expect.stringContaining("noter-dev-server"),
     });
     expect(mockState.sentInputs).toHaveLength(1);
-    expect(mockState.sentInputs[0]).toContain("attach-session -r -t");
-    expect(mockState.sentInputs[0]).toContain("noter-dev-server");
-    expect(mockState.sentInputs[0]).toContain("tmux_status=$?");
-    expect(mockState.sentInputs[0]).toContain("tail -n 200 -F");
-    expect(mockState.sentInputs[0]).toContain("/tmp/noter-dev.log");
-    expect(mockState.sentInputs[0]).not.toContain("exec tmux");
+    expect(mockState.sentInputs[0]).toContain('su -m -s "$target_shell"');
+    expect(mockState.sentInputs[0]).toContain("/home/daytona/workspace/noter");
+    if (typeof result !== "object" || result === null) {
+      throw new Error("Expected dev server PTY result to be an object.");
+    }
+    const initialInput = Reflect.get(result, "initialInput");
+    expect(initialInput).toContain("attach-session -r -t");
+    expect(initialInput).toContain("tmux_status=$?");
+    expect(initialInput).toContain("tail -n 200 -F");
+    expect(initialInput).toContain("/tmp/noter-dev.log");
+    expect(initialInput).not.toContain("exec tmux");
   });
 
   it("cleans up dev server PTYs using the rewritten session id on failure", async () => {

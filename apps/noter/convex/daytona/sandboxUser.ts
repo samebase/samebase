@@ -223,12 +223,14 @@ export async function ensureProjectedCodexHomeInSandbox(args: {
       ensure_target_user
       chown "$target_user:$target_group" "$sandbox_home"
       chown "$target_user:$target_group" "$local_home"
+      chown -R "$target_user:$target_group" "$shared_home"
       exit 0
     fi
     if command -v sudo >/dev/null 2>&1; then
       sudo bash -lc "$(declare -f ensure_target_user); ensure_target_user"
       sudo chown "$target_user:$target_group" "$sandbox_home"
       sudo chown "$target_user:$target_group" "$local_home"
+      sudo chown -R "$target_user:$target_group" "$shared_home"
       exit 0
     fi
   `;

@@ -25,7 +25,6 @@ import {
   parseDaytonaProvisioningMode,
 } from "./provisioning";
 import {
-  buildRunPtySessionAsSandboxUserInput,
   buildSwitchPtySessionToSandboxUserInput,
   DAYTONA_CODEX_HOME,
   DAYTONA_PREFERRED_INTERACTIVE_SHELL,
@@ -78,6 +77,7 @@ const openWorkspacePtySessionResult = object({
   previewToken: optional(string()),
   sandboxId: optional(string()),
   sandboxName: optional(string()),
+  initialInput: optional(string()),
   initialOutput: optional(string()),
   message: optional(string()),
 });
@@ -96,6 +96,7 @@ const openWorkspaceDevServerPtySessionResult = object({
   previewToken: optional(string()),
   sandboxId: optional(string()),
   sandboxName: optional(string()),
+  initialInput: optional(string()),
   initialOutput: optional(string()),
   message: optional(string()),
 });
@@ -334,6 +335,10 @@ function stripIndent(
 
 function buildNonExecTmuxCommand(command: string): string {
   return command.startsWith("exec ") ? command.slice(5) : command;
+}
+
+function buildInteractiveShellInput(command: string): string {
+  return `bash -lc ${quoteForShell(command)}\n`;
 }
 
 function buildOpenWorkspaceShellCommand(cwd: string): string {
@@ -1020,10 +1025,8 @@ export const openWorkspacePtySession = action({
         cwd: resolved.repoDir,
         cols,
         rows,
-        captureInitialOutput: true,
-        initialInput: buildRunPtySessionAsSandboxUserInput({
+        initialInput: buildSwitchPtySessionToSandboxUserInput({
           cwd: resolved.repoDir,
-          command: buildOpenWorkspaceShellCommand(resolved.repoDir),
         }),
         trustedProjectPath: resolved.repoDir,
       });
@@ -1035,7 +1038,9 @@ export const openWorkspacePtySession = action({
         previewToken: connection.previewToken,
         sandboxId: resolved.sandbox.id,
         sandboxName: resolved.sandboxName,
-        initialOutput: connection.initialOutput,
+        initialInput: buildInteractiveShellInput(
+          buildOpenWorkspaceShellCommand(resolved.repoDir),
+        ),
         message: resolved.sandboxName
           ? `Terminal session ready for ${resolved.sandboxName}.`
           : "Terminal session ready.",
@@ -1104,10 +1109,8 @@ export const openWorkspaceDevServerPtySession = action({
         cwd: resolved.repoDir,
         cols,
         rows,
-        captureInitialOutput: true,
-        initialInput: buildRunPtySessionAsSandboxUserInput({
+        initialInput: buildSwitchPtySessionToSandboxUserInput({
           cwd: resolved.repoDir,
-          command: buildOpenWorkspaceDevServerCommand(),
         }),
         trustedProjectPath: resolved.repoDir,
       });
@@ -1119,7 +1122,9 @@ export const openWorkspaceDevServerPtySession = action({
         previewToken: connection.previewToken,
         sandboxId: resolved.sandbox.id,
         sandboxName: resolved.sandboxName,
-        initialOutput: connection.initialOutput,
+        initialInput: buildInteractiveShellInput(
+          buildOpenWorkspaceDevServerCommand(),
+        ),
         message: resolved.sandboxName
           ? `Dev server terminal ready for ${resolved.sandboxName}.`
           : "Dev server terminal ready.",

@@ -495,6 +495,7 @@ export function DaytonaWorkspaceButton({
       webSocketUrl: result.webSocketUrl,
       previewToken: result.previewToken,
       sandboxId: result.sandboxId,
+      initialInput: "initialInput" in result ? result.initialInput : undefined,
       initialOutput:
         "initialOutput" in result ? result.initialOutput : undefined,
     };
