@@ -1179,7 +1179,12 @@ export function DaytonaWorkspaceButton({
       )}
       {openTerminalKinds.length > 0 && (
         <div className="mt-2 space-y-2">
-          <div className="overflow-hidden rounded-md border border-slate-800 bg-slate-950 text-slate-100 shadow-sm">
+          <div
+            className={cn(
+              "overflow-hidden rounded-md border border-slate-800 bg-slate-950 text-slate-100 shadow-sm",
+              "max-sm:relative max-sm:left-1/2 max-sm:w-screen max-sm:-translate-x-1/2 max-sm:rounded-none max-sm:border-x-0",
+            )}
+          >
             <div
               role="tablist"
               aria-label="Sandbox terminals"
@@ -1241,7 +1246,7 @@ export function DaytonaWorkspaceButton({
                 );
               })}
             </div>
-            <div className="p-2">
+            <div className="px-0 py-2 sm:p-2">
               {openTerminalKinds.map((kind) => {
                 const session = terminalState.sessions[kind];
                 if (!session) {
