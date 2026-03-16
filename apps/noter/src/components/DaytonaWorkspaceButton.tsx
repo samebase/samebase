@@ -401,12 +401,11 @@ export function DaytonaWorkspaceButton({
         setMessage(result.message ?? `Daytona sandbox ${label} is ready.`);
         setBootstrapLogs(null);
         if (mode !== "launch") {
-          void openTerminalSession(true).then((nextTerminalSession) => {
-            if (!nextTerminalSession) {
-              return;
-            }
+          const nextTerminalSession = await openTerminalSession(true);
+          if (nextTerminalSession) {
             setTimeToTerminalMs(Math.round(performance.now() - startClickedAt));
-          });
+          }
+          await openDevServerTerminalSession(true);
         } else {
           setTimeToTerminalMs(null);
         }
@@ -1264,7 +1263,7 @@ export function DaytonaWorkspaceButton({
                       session={session}
                       title={getWorkspaceTerminalTitle(kind)}
                       showHeader={false}
-                      allowInput
+                      allowInput={kind === "shell"}
                       onResizeSession={(sessionId, cols, rows) => {
                         void resizeWorkspacePtySession({
                           vaultId,

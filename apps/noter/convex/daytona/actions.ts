@@ -71,6 +71,7 @@ import {
   resolveDaytonaProvisioningMode,
 } from "./provisioning";
 import { buildDaytonaSandboxEnvVars } from "./sandboxEnv";
+import { DAYTONA_DEV_SERVER_TMUX_SESSION } from "./tmuxSessions";
 import { toSafeRepoName } from "../repoName";
 import type { Id } from "../_generated/dataModel";
 
@@ -100,7 +101,6 @@ const DAYTONA_TMUX_STARTUP_GRACE_MS = 120_000;
 const DAYTONA_TERMINAL_PORT = 22222;
 const DAYTONA_TERMINAL_TTL_SECONDS = 300;
 const DAYTONA_DEV_LOG = "/tmp/noter-dev.log";
-const DAYTONA_DEV_SERVER_TMUX_SESSION = "noter-dev-server";
 // Keep the shared Codex volume under the active sandbox user home so the same
 // writable Codex state is reused across auth and workspace sandboxes.
 const DAYTONA_CODEX_HOME_FIX_TIMEOUT_SECONDS = 60;

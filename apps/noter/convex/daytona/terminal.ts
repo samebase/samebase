@@ -25,6 +25,7 @@ import {
   parseDaytonaProvisioningMode,
 } from "./provisioning";
 import {
+  buildRunPtySessionAsSandboxUserInput,
   buildSwitchPtySessionToSandboxUserInput,
   DAYTONA_CODEX_HOME,
   DAYTONA_PREFERRED_INTERACTIVE_SHELL,
@@ -37,6 +38,10 @@ import {
   executeCommandAsSandboxUser,
   syncCodexConfigToSharedInSandbox,
 } from "./sandboxUser";
+import {
+  buildAttachDevServerTmuxCommand,
+  buildCreateOrAttachShellTmuxCommand,
+} from "./tmuxSessions";
 
 const { object, id, string, optional, number, boolean } = v;
 
@@ -54,8 +59,6 @@ const MAX_TERMINAL_COLS = 320;
 const MAX_TERMINAL_ROWS = 120;
 const CODEX_DEVICE_AUTH_COMMAND =
   "clear >/dev/null 2>&1; codex login --device-auth; exit\n";
-const DEV_SERVER_LOG_FOLLOW_COMMAND =
-  "clear >/dev/null 2>&1; stty -echo -icanon -isig; exec tail -n 200 -F '/tmp/noter-dev.log' </dev/null\n";
 const DEFAULT_PTY_IDLE_CAPTURE_MS = 150;
 const DEFAULT_PTY_CAPTURE_TIMEOUT_MS = 600;
 const CODEX_CONFIG_SYNC_TIMEOUT_SECONDS = 30;
@@ -925,44 +928,6 @@ async function waitForPtyOutputIdle(args: {
   }
 }
 
-async function primePtySession(args: {
-  sandbox: Sandbox;
-  sessionId: string;
-  initialInput: string;
-}): Promise<string> {
-  const textDecoder = new TextDecoder();
-  const outputChunks: string[] = [];
-  const lastChunkAtRef = { current: Date.now() };
-  const sawOutputRef = { current: false };
-
-  let ptyHandle: Awaited<ReturnType<Sandbox["process"]["connectPty"]>> | null =
-    null;
-  try {
-    ptyHandle = await args.sandbox.process.connectPty(args.sessionId, {
-      onData: async (data) => {
-        outputChunks.push(textDecoder.decode(data, { stream: true }));
-        lastChunkAtRef.current = Date.now();
-        sawOutputRef.current = true;
-      },
-    });
-    await ptyHandle.waitForConnection();
-    await ptyHandle.sendInput(args.initialInput);
-    await waitForPtyOutputIdle({
-      lastChunkAtRef,
-      sawOutputRef,
-    });
-    return `${outputChunks.join("")}${textDecoder.decode()}`;
-  } finally {
-    if (ptyHandle) {
-      try {
-        await ptyHandle.disconnect();
-      } catch {
-        // Best-effort disconnect only.
-      }
-    }
-  }
-}
-
 export const openWorkspacePtySession = action({
   args: openWorkspacePtySessionArgs,
   returns: openWorkspacePtySessionResult,
@@ -1015,8 +980,12 @@ export const openWorkspacePtySession = action({
         cwd: resolved.repoDir,
         cols,
         rows,
-        initialInput: buildSwitchPtySessionToSandboxUserInput({
+        captureInitialOutput: true,
+        initialInput: buildRunPtySessionAsSandboxUserInput({
           cwd: resolved.repoDir,
+          command: buildCreateOrAttachShellTmuxCommand({
+            cwd: resolved.repoDir,
+          }),
         }),
         trustedProjectPath: resolved.repoDir,
       });
@@ -1077,7 +1046,6 @@ export const openWorkspaceDevServerPtySession = action({
       MAX_TERMINAL_ROWS,
     );
     const sessionId = buildWorkspaceDevServerPtySessionId(args.vaultId);
-    let connectedSessionId = sessionId;
 
     try {
       await ensureSandboxStarted(resolved.sandbox);
@@ -1098,16 +1066,11 @@ export const openWorkspaceDevServerPtySession = action({
         cwd: resolved.repoDir,
         cols,
         rows,
-        initialInput: buildSwitchPtySessionToSandboxUserInput({
+        initialInput: buildRunPtySessionAsSandboxUserInput({
           cwd: resolved.repoDir,
+          command: buildAttachDevServerTmuxCommand(),
         }),
         trustedProjectPath: resolved.repoDir,
-      });
-      connectedSessionId = connection.sessionId;
-      const initialOutput = await primePtySession({
-        sandbox: resolved.sandbox,
-        sessionId: connectedSessionId,
-        initialInput: DEV_SERVER_LOG_FOLLOW_COMMAND,
       });
 
       return {
@@ -1117,26 +1080,12 @@ export const openWorkspaceDevServerPtySession = action({
         previewToken: connection.previewToken,
         sandboxId: resolved.sandbox.id,
         sandboxName: resolved.sandboxName,
-        initialOutput,
+        initialOutput: connection.initialOutput,
         message: resolved.sandboxName
           ? `Dev server terminal ready for ${resolved.sandboxName}.`
           : "Dev server terminal ready.",
       };
     } catch (error) {
-      try {
-        await resolved.sandbox.process.killPtySession(connectedSessionId);
-      } catch (killError) {
-        if (!isNotFoundError(killError)) {
-          console.warn("daytona:dev-server-pty:cleanup:failed", {
-            sandboxId: resolved.sandbox.id,
-            sessionId: connectedSessionId,
-            message:
-              killError instanceof Error
-                ? killError.message
-                : String(killError),
-          });
-        }
-      }
       return {
         ok: false,
         message:

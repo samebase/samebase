@@ -86,9 +86,9 @@ describe("daytonaWorkspaceTerminalTabs", () => {
   it("returns stable labels for each terminal kind", () => {
     expect(getWorkspaceTerminalTitle("shell")).toBe("Shell");
     expect(getWorkspaceTerminalTitle("dev_server")).toBe("Dev Server");
+    expect(getWorkspaceTerminalHelperText("shell")).toContain("tmux");
     expect(getWorkspaceTerminalHelperText("shell")).toContain("Open in tab");
-    expect(getWorkspaceTerminalHelperText("dev_server")).toContain(
-      "temporarily writable",
-    );
+    expect(getWorkspaceTerminalHelperText("dev_server")).toContain("read-only");
+    expect(getWorkspaceTerminalHelperText("dev_server")).toContain("tmux");
   });
 });

@@ -25,6 +25,7 @@ const mockState = vi.hoisted(() => {
     getToolboxProxyUrl: vi.fn(async () => ({
       data: { url: "https://toolbox.example" },
     })),
+    sentInputs: new Array<string>(),
   };
   state.daytonaGet.mockImplementation(async () => {
     if (!state.sandbox) {
@@ -170,7 +171,15 @@ function createSandbox(executedCommands: string[] = []): FakeSandbox {
         return {
           sessionId: "actual-pty-session-1",
           waitForConnection: async () => {},
-          sendInput: async () => {},
+          sendInput: async (input) => {
+            mockState.sentInputs.push(input);
+            if (
+              typeof options.onData === "function" &&
+              input.includes("noter-dev-server")
+            ) {
+              await options.onData(textEncoder.encode("dev-server logs\n"));
+            }
+          },
           disconnect: async () => {},
         };
       },
@@ -256,6 +265,7 @@ describe("openWorkspacePtySession", () => {
     process.env.DAYTONA_API_TOKEN = "token-1";
     mockState.sandbox = createSandbox();
     mockState.requestedSessionId = "";
+    mockState.sentInputs = [];
     mockState.daytonaGet.mockClear();
     mockState.daytonaList.mockClear();
     mockState.getToolboxProxyUrl.mockClear();
@@ -294,6 +304,8 @@ describe("openWorkspacePtySession", () => {
       sandboxId: "sandbox-1",
       sandboxName: "noter-sandbox",
     });
+    expect(mockState.sentInputs).toHaveLength(1);
+    expect(mockState.sentInputs[0]).toContain("noter-shell");
   });
 
   it("writes Codex config as the sandbox user into the local Codex home", async () => {
@@ -341,15 +353,19 @@ describe("openWorkspacePtySession", () => {
       previewToken: "preview-token-1",
       sandboxId: "sandbox-1",
       sandboxName: "noter-sandbox",
-      initialOutput: "dev-server logs\n",
     });
+    expect(mockState.sentInputs).toHaveLength(1);
+    expect(mockState.sentInputs[0]).toContain("attach-session -r -t");
+    expect(mockState.sentInputs[0]).toContain("noter-dev-server");
   });
 
   it("cleans up dev server PTYs using the rewritten session id on failure", async () => {
     const sandbox = createSandbox();
     const killedSessionIds: string[] = [];
-    sandbox.process.connectPty = async () => {
+    sandbox.process.createPty = async (options) => {
+      mockState.requestedSessionId = options.id ?? "";
       return {
+        sessionId: "actual-pty-session-1",
         waitForConnection: async () => {},
         sendInput: async () => {
           throw new Error("simulated sendInput failure");
