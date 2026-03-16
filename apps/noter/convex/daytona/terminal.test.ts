@@ -341,6 +341,58 @@ describe("openWorkspacePtySession", () => {
     expect(configWriteCommand).not.toContain(DAYTONA_CODEX_SHARED_HOME);
   });
 
+  it("repairs fisher/pure before creating a workspace shell PTY", async () => {
+    const commands: string[] = [];
+    const sandbox = createSandbox();
+    sandbox.process.executeCommand = async (command: string) => {
+      commands.push(command);
+      if (command.includes(`cat '${DAYTONA_CODEX_HOME}/config.toml'`)) {
+        return {
+          exitCode: 0,
+          result: "",
+        };
+      }
+      return {
+        exitCode: 0,
+        result: "",
+      };
+    };
+    sandbox.process.createPty = async (options) => {
+      commands.push("createPty");
+      mockState.requestedSessionId = options.id ?? "";
+      return {
+        sessionId: "actual-pty-session-1",
+        waitForConnection: async () => {},
+        sendInput: async (input) => {
+          mockState.sentInputs.push(input);
+        },
+        disconnect: async () => {},
+      };
+    };
+    mockState.sandbox = sandbox;
+
+    const handler = readActionHandler(openWorkspacePtySession);
+    const result = await handler(createWorkspaceActionContext(), {
+      vaultId: "vault-1",
+      branch: "main",
+      cols: 120,
+      rows: 32,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      sessionId: "actual-pty-session-1",
+    });
+    const fisherCommandIndex = commands.findIndex((command) =>
+      command.includes('fish -lc "$verify_command"'),
+    );
+    const createPtyIndex = commands.indexOf("createPty");
+    expect(fisherCommandIndex).toBeGreaterThanOrEqual(0);
+    expect(commands[fisherCommandIndex]).toContain(
+      "fisher install $fisher_plugin $pure_plugin",
+    );
+    expect(createPtyIndex).toBeGreaterThan(fisherCommandIndex);
+  });
   it("returns the actual Daytona PTY session id for dev server PTYs too", async () => {
     const handler = readActionHandler(openWorkspaceDevServerPtySession);
     const result = await handler(createWorkspaceActionContext(), {

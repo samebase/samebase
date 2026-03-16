@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   buildEnsureSandboxPreferredInteractiveShellCommand,
-  ensureProjectedCodexHomeInSandbox,
   buildSwitchPtySessionToSandboxUserInput,
+  ensureProjectedCodexHomeInSandbox,
+  ensureSandboxFishTooling,
 } from "./sandboxUser";
 
 describe("buildEnsureSandboxPreferredInteractiveShellCommand", () => {
@@ -71,5 +72,32 @@ describe("ensureProjectedCodexHomeInSandbox", () => {
       'chown -R "$target_user:$target_group" "$shared_home"',
     );
     expect(commands[1]).toContain('mkdir -p "$shared_home/memories"');
+  });
+});
+
+describe("ensureSandboxFishTooling", () => {
+  it("verifies and installs fisher/pure in the sandbox user's fish home", async () => {
+    const commands: string[] = [];
+    const sandbox = {
+      process: {
+        executeCommand: async (command: string) => {
+          commands.push(command);
+          return {
+            exitCode: 0,
+            result: "",
+          };
+        },
+      },
+    };
+
+    // @ts-expect-error Test double only implements executeCommand used here.
+    await ensureSandboxFishTooling({ sandbox, timeoutSeconds: 1 });
+
+    expect(commands).toHaveLength(1);
+    expect(commands[0]).toContain("if ! command -v fish >/dev/null 2>&1; then");
+    expect(commands[0]).toContain('curl -fsSL "$fisher_url" -o "$fisher_path"');
+    expect(commands[0]).toContain("fisher install $fisher_plugin $pure_plugin");
+    expect(commands[0]).toContain('fish -lc "$verify_command"');
+    expect(commands[0]).toContain("pure-fish/pure@v4.9.0");
   });
 });

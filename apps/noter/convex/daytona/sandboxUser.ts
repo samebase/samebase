@@ -12,6 +12,10 @@ export const DAYTONA_CODEX_SHARED_HOME = `${DAYTONA_SANDBOX_HOME}/.codex-shared`
 const DEFAULT_REPAIR_TIMEOUT_SECONDS = 300;
 export const DAYTONA_PREFERRED_INTERACTIVE_SHELL = "/usr/bin/fish";
 const DAYTONA_FALLBACK_INTERACTIVE_SHELL = "/bin/bash";
+const DAYTONA_FISHER_URL =
+  "https://raw.githubusercontent.com/jorgebucaran/fisher/4.4.8/functions/fisher.fish";
+const DAYTONA_FISHER_PLUGIN = "jorgebucaran/fisher@4.4.8";
+const DAYTONA_PURE_PLUGIN = "pure-fish/pure@v4.9.0";
 const DAYTONA_CODEX_LOCAL_DIRS = ["tmp", "log"] as const;
 const DAYTONA_CODEX_SHARED_ENTRY_NAMES = ["auth.json", "memories"] as const;
 const DAYTONA_CODEX_LOCAL_SYNCED_FILE_NAMES = ["config.toml"] as const;
@@ -388,6 +392,51 @@ export async function ensureSandboxPreferredInteractiveShell(args: {
     throw new Error(
       result.result.trim() ||
         "Failed to set the preferred interactive shell in the sandbox.",
+    );
+  }
+}
+
+export async function ensureSandboxFishTooling(args: {
+  sandbox: Sandbox;
+  timeoutSeconds?: number;
+}): Promise<void> {
+  const timeoutSeconds = args.timeoutSeconds ?? DEFAULT_REPAIR_TIMEOUT_SECONDS;
+  const command = stripIndent`
+    set -e
+    if ! command -v fish >/dev/null 2>&1; then
+      echo "__NOTER_FISH_MISSING__"
+      exit 1
+    fi
+    config_home="$HOME/.config/fish"
+    mkdir -p "$config_home/functions" "$config_home/completions" "$config_home/conf.d" "$HOME/.cache" "$HOME/.local/share"
+    fisher_path="$config_home/functions/fisher.fish"
+    fisher_url=${quoteForShell(DAYTONA_FISHER_URL)}
+    fisher_plugin=${quoteForShell(DAYTONA_FISHER_PLUGIN)}
+    pure_plugin=${quoteForShell(DAYTONA_PURE_PLUGIN)}
+    if [ ! -f "$fisher_path" ]; then
+      curl -fsSL "$fisher_url" -o "$fisher_path"
+    fi
+    verify_command="functions -q fisher; and test -f ~/.config/fish/conf.d/pure.fish; and test -f ~/.config/fish/functions/fish_prompt.fish; and fisher list | string match -q '*pure-fish/pure*'"
+    if fish -lc "$verify_command"; then
+      exit 0
+    fi
+    install_command="functions -q fisher; or source ~/.config/fish/functions/fisher.fish; fisher install $fisher_plugin $pure_plugin"
+    fish -lc "$install_command"
+    fish -lc "$verify_command"
+  `;
+  const result = await executeCommandAsSandboxUser({
+    sandbox: args.sandbox,
+    command,
+    timeoutSeconds,
+  });
+  if (result.exitCode !== 0) {
+    if (result.result.includes("__NOTER_FISH_MISSING__")) {
+      throw new Error(
+        "Failed to install fisher/pure because fish is missing in this sandbox.",
+      );
+    }
+    throw new Error(
+      result.result.trim() || "Failed to install fisher/pure in the sandbox.",
     );
   }
 }

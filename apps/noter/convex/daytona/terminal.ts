@@ -32,6 +32,7 @@ import {
   DAYTONA_SANDBOX_USER,
   DAYTONA_WORKSPACE_DIR,
   ensureProjectedCodexHomeInSandbox,
+  ensureSandboxFishTooling,
   ensureSandboxPreferredInteractiveShell,
   ensureSandboxPathWritableByUser,
   executeCommandAsSandboxUser,
@@ -1009,6 +1010,10 @@ export const openWorkspacePtySession = action({
     try {
       await ensureSandboxStarted(resolved.sandbox);
       await ensureProjectedCodexHomeInSandbox({
+        sandbox: resolved.sandbox,
+        timeoutSeconds: 300,
+      });
+      await ensureSandboxFishTooling({
         sandbox: resolved.sandbox,
         timeoutSeconds: 300,
       });
