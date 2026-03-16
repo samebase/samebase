@@ -12,8 +12,8 @@
 Daytona snapshot builds should derive the deps image name directly from repo
 identity plus the computed deps input hash.
 
-Noter should stop relying on `DAYTONA_DEPS_IMAGE_TEMPLATE` as the normal source
-of truth for Daytona deps images.
+Noter should stop relying on the legacy Daytona deps-image template env var as
+the normal source of truth for Daytona deps images.
 
 Target resolution:
 
@@ -27,10 +27,8 @@ with the same hash that the GitHub workflow already publishes.
 
 ## Problem
 
-The current production flow still depends on Convex env for deps image
-discovery:
-
-- `DAYTONA_DEPS_IMAGE_TEMPLATE`
+The current production flow still depends on Convex env for deps image discovery
+through the legacy Daytona deps-image template env var.
 
 That creates an unnecessary control surface and a real failure mode:
 
@@ -89,8 +87,8 @@ It is not:
 
 ## Why Env Is The Wrong Primitive
 
-`DAYTONA_DEPS_IMAGE_TEMPLATE` does not represent business configuration. It
-represents a deterministic derived artifact path.
+The legacy Daytona deps-image template env var does not represent business
+configuration. It represents a deterministic derived artifact path.
 
 That makes env the wrong storage layer because:
 
@@ -155,8 +153,8 @@ alias path.
 
 ### No normal env dependency
 
-`DAYTONA_DEPS_IMAGE_TEMPLATE` should no longer be required for normal runtime
-resolution.
+The legacy Daytona deps-image template env var should no longer be required for
+normal runtime resolution.
 
 Preferred end state:
 
@@ -174,7 +172,8 @@ If there is no active migration, the cleaner option is to remove it entirely.
 
 In `apps/noter/convex/daytona/actions.ts`:
 
-1. remove the normal dependency on `DAYTONA_DEPS_IMAGE_TEMPLATE`
+1. remove the normal dependency on the legacy Daytona deps-image template env
+   var
 2. replace `resolveDepsImageNameForTag(...)` with direct GHCR derivation from:
    - owner
    - repo
@@ -243,8 +242,8 @@ the most recently published package.
 
 ## Acceptance Criteria
 
-- Snapshot builds no longer require `DAYTONA_DEPS_IMAGE_TEMPLATE` for normal
-  operation
+- Snapshot builds no longer require the legacy Daytona deps-image template env
+  var for normal operation
 - A merge that changes Daytona deps inputs requires no manual prod env update
 - Snapshot logs show the hash-derived image name directly
 - Fresh snapshots automatically pick the correct newly published deps image when
@@ -258,7 +257,7 @@ the most recently published package.
 
 1. Add direct hash-derived image resolution in runtime code
 2. Keep lock-hash fallback during the migration window
-3. Remove `DAYTONA_DEPS_IMAGE_TEMPLATE` from normal prod usage
+3. Remove the legacy Daytona deps-image template env var from normal prod usage
 4. Validate with a real Daytona deps change:
    - publish image
    - rebuild snapshot

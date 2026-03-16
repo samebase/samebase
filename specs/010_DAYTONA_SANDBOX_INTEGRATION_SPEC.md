@@ -102,13 +102,9 @@ Required:
 - `DAYTONA_API_URL`
 - `DAYTONA_API_KEY` (or `DAYTONA_API_TOKEN`)
 
-Optional (prebuild deps image):
+Optional:
 
-- `DAYTONA_DEPS_IMAGE_TEMPLATE` (example:
-  `ghcr.io/<owner>/<repo>-daytona-deps:{inputHash}`; supports `{inputHash}` and
-  `{lockHash}`)
-- `DAYTONA_BASE_IMAGE` (optional fallback image when no deps image is
-  configured)
+- `DAYTONA_BASE_IMAGE` (optional fallback image when no deps image is available)
 
 Optional (private registry automation):
 
@@ -154,8 +150,8 @@ Daytona’s prebuild is faster and tightly integrated.
    - Sandbox uses prebuilt image from registry.
    - This repo includes `Dockerfile.daytona-deps` +
      `.github/workflows/daytona-deps-image.yml` to build a deps image when
-     `pnpm-lock.yaml` changes; set `DAYTONA_DEPS_IMAGE_TEMPLATE` to enable it in
-     prebuilds.
+     `pnpm-lock.yaml` changes; current runtime derives the matching image name
+     directly from repo identity plus the deps hash.
 
 ## Registry Automation (Implemented)
 
