@@ -110,6 +110,8 @@ const DAYTONA_VOLUME_READY_TIMEOUT_MS = 60_000;
 const DAYTONA_VOLUME_READY_POLL_MS = 2_000;
 const DEV_ENV_ORIGIN_ENV = "DEV_ENV_ORIGIN";
 const VITE_CONVEX_URL_ENV = "VITE_CONVEX_URL";
+const DAYTONA_BROWSER_CONVEX_PROXY_TARGET_ENV =
+  "NOTER_DAYTONA_BROWSER_CONVEX_PROXY_TARGET";
 const MAX_PREBUILD_LOG_CHARS = 50_000;
 const PREBUILD_LOG_FLUSH_MS = 1_000;
 const DAYTONA_SNAPSHOT_ACTIVE_TIMEOUT_MS = 10 * 60_000;
@@ -429,13 +431,10 @@ async function resolveSandboxAnonymousLocalPortPair(args: {
 
 async function inferSandboxBrowserConvexUrl(args: {
   sandbox: Sandbox;
-  repoDir: string;
+  portPair: AnonymousLocalPortPair | null;
   ttlSeconds: number;
 }): Promise<string | null> {
-  const portPair = await resolveSandboxAnonymousLocalPortPair({
-    sandbox: args.sandbox,
-    repoDir: args.repoDir,
-  });
+  const portPair = args.portPair;
   if (!portPair) {
     return null;
   }
@@ -454,6 +453,12 @@ async function inferSandboxBrowserConvexUrl(args: {
     });
     return null;
   }
+}
+
+function buildSandboxBrowserConvexProxyTarget(
+  portPair: AnonymousLocalPortPair | null,
+): string | null {
+  return portPair ? `http://127.0.0.1:${portPair.cloud}` : null;
 }
 
 async function readPnpmLockHash(repoDir: string): Promise<string | null> {
@@ -1868,6 +1873,7 @@ function buildDaytonaSafeDevServerCommand(args: {
   repoDir: string;
   devOrigin: string | null;
   browserConvexUrl: string | null;
+  browserConvexProxyTarget: string | null;
   preferDaytonaLocalTarget: boolean;
 }): string {
   const ensurePnpm = stripIndent`
@@ -1893,6 +1899,9 @@ function buildDaytonaSafeDevServerCommand(args: {
       : "",
     args.browserConvexUrl
       ? `export ${VITE_CONVEX_URL_ENV}=${quoteForBash(args.browserConvexUrl)}`
+      : "",
+    args.browserConvexProxyTarget
+      ? `export ${DAYTONA_BROWSER_CONVEX_PROXY_TARGET_ENV}=${quoteForBash(args.browserConvexProxyTarget)}`
       : "",
     "export NOTER_DEV_HOST=0.0.0.0",
     `export NOTER_DEV_PORT=${DAYTONA_PREVIEW_PORT}`,
@@ -2088,12 +2097,14 @@ async function startDaytonaDevServerBackground(args: {
   repoDir: string;
   devOrigin: string | null;
   browserConvexUrl: string | null;
+  browserConvexProxyTarget: string | null;
   preferDaytonaLocalTarget: boolean;
 }): Promise<void> {
   const devServerScript = buildDaytonaSafeDevServerCommand({
     repoDir: args.repoDir,
     devOrigin: args.devOrigin,
     browserConvexUrl: args.browserConvexUrl,
+    browserConvexProxyTarget: args.browserConvexProxyTarget,
     preferDaytonaLocalTarget: args.preferDaytonaLocalTarget,
   });
   const installLogPath = quoteForBash(PNPM_INSTALL_LOG);
@@ -2239,11 +2250,18 @@ async function startDaytonaDevServer(args: {
     port: DAYTONA_PREVIEW_PORT,
     ttlSeconds: DAYTONA_PREVIEW_TTL_SECONDS,
   });
-  const browserConvexUrl = await inferSandboxBrowserConvexUrl({
+  const browserConvexPortPair = await resolveSandboxAnonymousLocalPortPair({
     sandbox: args.sandbox,
     repoDir: args.repoDir,
+  });
+  const browserConvexUrl = await inferSandboxBrowserConvexUrl({
+    sandbox: args.sandbox,
+    portPair: browserConvexPortPair,
     ttlSeconds: DAYTONA_PREVIEW_TTL_SECONDS,
   });
+  const browserConvexProxyTarget = buildSandboxBrowserConvexProxyTarget(
+    browserConvexPortPair,
+  );
   if (devOrigin) {
     console.log("daytona:dev-origin", {
       sandboxId: args.sandbox.id,
@@ -2266,6 +2284,7 @@ async function startDaytonaDevServer(args: {
         repoDir: args.repoDir,
         devOrigin,
         browserConvexUrl,
+        browserConvexProxyTarget,
         preferDaytonaLocalTarget: args.preferDaytonaLocalTarget,
       }),
       replaceRunning: true,
@@ -2284,6 +2303,7 @@ async function startDaytonaDevServer(args: {
       repoDir: args.repoDir,
       devOrigin,
       browserConvexUrl,
+      browserConvexProxyTarget,
       preferDaytonaLocalTarget: args.preferDaytonaLocalTarget,
     });
     await waitForDaytonaDevServerRunning({ sandbox: args.sandbox });
@@ -4103,15 +4123,23 @@ export const startDaytonaDevServerFast = action({
       port: DAYTONA_PREVIEW_PORT,
       ttlSeconds: DAYTONA_PREVIEW_TTL_SECONDS,
     });
-    const browserConvexUrl = await inferSandboxBrowserConvexUrl({
+    const browserConvexPortPair = await resolveSandboxAnonymousLocalPortPair({
       sandbox,
       repoDir,
+    });
+    const browserConvexUrl = await inferSandboxBrowserConvexUrl({
+      sandbox,
+      portPair: browserConvexPortPair,
       ttlSeconds: DAYTONA_PREVIEW_TTL_SECONDS,
     });
+    const browserConvexProxyTarget = buildSandboxBrowserConvexProxyTarget(
+      browserConvexPortPair,
+    );
     const devServerScript = buildDaytonaSafeDevServerCommand({
       repoDir,
       devOrigin,
       browserConvexUrl,
+      browserConvexProxyTarget,
       preferDaytonaLocalTarget: getDaytonaEnvLabel() === "dev",
     });
     const wrappedCommand = stripIndent`
