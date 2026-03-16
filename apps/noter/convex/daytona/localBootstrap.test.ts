@@ -275,8 +275,12 @@ describe("daytonaLocalBootstrap", () => {
       "node ./scripts/convex-sync-dev-env.js --check-prereqs",
     );
     expect(makefile).toContain("--allow-missing-source-env");
-    expect(makefile).toContain("anon:\n\t$(ANON_VALIDATE_SOURCE_ENV_CMD)");
-    expect(makefile).toContain("anon-once:\n\t$(ANON_VALIDATE_SOURCE_ENV_CMD)");
+    expect(makefile).toMatch(
+      /^anon:\s*\n\s*\$\(ANON_VALIDATE_SOURCE_ENV_CMD\)/m,
+    );
+    expect(makefile).toMatch(
+      /^anon-once:\s*\n\s*\$\(ANON_VALIDATE_SOURCE_ENV_CMD\)/m,
+    );
     expect(makefile).toContain("ANON_ALLOW_MISSING_SOURCE_ENV=1; \\");
   });
 });
