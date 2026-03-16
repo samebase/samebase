@@ -6,6 +6,7 @@ import { execSync } from "node:child_process";
 import { readPackageVersion } from "../../scripts/readPackageVersion.js";
 
 const gitRoot = path.resolve(__dirname, "..", "..");
+const DAYTONA_CONVEX_PROXY_PATH = "/__noter_daytona_convex";
 
 function readGitOutput(command: string): string | null {
   try {
@@ -28,6 +29,35 @@ const appCommit =
 
 const appRepoUrl = "https://github.com/nicu-chiciuc/noter";
 const daytonaSdkVersion = readPackageVersion("@daytonaio/sdk", import.meta.url);
+const daytonaConvexProxyTarget =
+  process.env.NOTER_DAYTONA_BROWSER_CONVEX_PROXY_TARGET?.trim() || undefined;
+const daytonaConvexProxyPath = daytonaConvexProxyTarget
+  ? DAYTONA_CONVEX_PROXY_PATH
+  : null;
+
+function stripDaytonaConvexProxyPrefix(requestPath: string): string {
+  if (
+    requestPath !== DAYTONA_CONVEX_PROXY_PATH &&
+    !requestPath.startsWith(`${DAYTONA_CONVEX_PROXY_PATH}/`)
+  ) {
+    return requestPath;
+  }
+  const strippedPath = requestPath.slice(DAYTONA_CONVEX_PROXY_PATH.length);
+  return strippedPath.length > 0 ? strippedPath : "/";
+}
+
+const daytonaConvexProxyServerConfig = daytonaConvexProxyTarget
+  ? {
+      proxy: {
+        [DAYTONA_CONVEX_PROXY_PATH]: {
+          target: daytonaConvexProxyTarget,
+          changeOrigin: true,
+          ws: true,
+          rewrite: stripDaytonaConvexProxyPrefix,
+        },
+      },
+    }
+  : undefined;
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -35,6 +65,7 @@ export default defineConfig({
     __APP_COMMIT__: JSON.stringify(appCommit),
     __APP_REPO_URL__: JSON.stringify(appRepoUrl),
     __DAYTONA_SDK_VERSION__: JSON.stringify(daytonaSdkVersion),
+    __DAYTONA_CONVEX_PROXY_PATH__: JSON.stringify(daytonaConvexProxyPath),
   },
   plugins: [
     react(),
@@ -71,6 +102,7 @@ export default defineConfig({
   esbuild: {
     logOverride: { "this-is-undefined-in-esm": "silent" },
   },
+  server: daytonaConvexProxyServerConfig,
   build: {
     rollupOptions: {
       onwarn(warning, warn) {
