@@ -519,6 +519,8 @@ Auth:
   explicitly asks for that.
 - After pushing fixes for PR review feedback, always request a fresh CodeRabbit
   review by commenting `@coderabbitai review`.
+- After pushing fixes for PR review feedback, always request a fresh Codex
+  review by commenting `@codex review`.
 - After fixing CodeRabbit findings, always reply on each relevant CodeRabbit
   review thread with a short note describing exactly what was changed, then
   resolve the thread.

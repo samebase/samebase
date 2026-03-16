@@ -8,7 +8,7 @@
 - Related files: `apps/noter/components.json`, `apps/noter/tailwind.config.js`,
   `apps/noter/src/index.css`, `apps/noter/src/components/ui/*`, `AGENTS.md`
 
-## Summary
+## Conclusion
 
 Noter adopts a hard-edged visual language for application chrome. All app-owned
 surfaces, controls, overlays, and indicators render with zero border radius. The
