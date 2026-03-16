@@ -1,5 +1,3 @@
-"use node";
-
 function quoteForShell(input: string): string {
   return `'${input.replace(/'/g, `'\\''`)}'`;
 }

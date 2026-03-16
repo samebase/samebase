@@ -59,6 +59,7 @@ const MAX_TERMINAL_COLS = 320;
 const MAX_TERMINAL_ROWS = 120;
 const CODEX_DEVICE_AUTH_COMMAND =
   "clear >/dev/null 2>&1; codex login --device-auth; exit\n";
+const DAYTONA_DEV_LOG = "/tmp/noter-dev.log";
 const DEFAULT_PTY_IDLE_CAPTURE_MS = 150;
 const DEFAULT_PTY_CAPTURE_TIMEOUT_MS = 600;
 const CODEX_CONFIG_SYNC_TIMEOUT_SECONDS = 30;
@@ -329,6 +330,45 @@ function stripIndent(
   }
 
   return lines.map((line) => line.slice(minIndent)).join("\n");
+}
+
+function buildNonExecTmuxCommand(command: string): string {
+  return command.startsWith("exec ") ? command.slice(5) : command;
+}
+
+function buildOpenWorkspaceShellCommand(cwd: string): string {
+  const tmuxCommand = buildNonExecTmuxCommand(
+    buildCreateOrAttachShellTmuxCommand({ cwd }),
+  );
+  return stripIndent`
+    if command -v tmux >/dev/null 2>&1; then
+      ${tmuxCommand}
+      tmux_status=$?
+      if [ "$tmux_status" -eq 0 ]; then
+        exit 0
+      fi
+    fi
+    cd ${quoteForShell(cwd)}
+    exec "$SHELL" -l
+  `;
+}
+
+function buildOpenWorkspaceDevServerCommand(): string {
+  const tmuxCommand = buildNonExecTmuxCommand(
+    buildAttachDevServerTmuxCommand(),
+  );
+  return stripIndent`
+    if command -v tmux >/dev/null 2>&1; then
+      ${tmuxCommand}
+      tmux_status=$?
+      if [ "$tmux_status" -eq 0 ]; then
+        exit 0
+      fi
+    fi
+    clear >/dev/null 2>&1
+    stty -echo -icanon -isig
+    exec tail -n 200 -F ${quoteForShell(DAYTONA_DEV_LOG)} </dev/null
+  `;
 }
 
 function buildWorkspacePtySessionId(vaultId: Id<"vaults">): string {
@@ -983,9 +1023,7 @@ export const openWorkspacePtySession = action({
         captureInitialOutput: true,
         initialInput: buildRunPtySessionAsSandboxUserInput({
           cwd: resolved.repoDir,
-          command: buildCreateOrAttachShellTmuxCommand({
-            cwd: resolved.repoDir,
-          }),
+          command: buildOpenWorkspaceShellCommand(resolved.repoDir),
         }),
         trustedProjectPath: resolved.repoDir,
       });
@@ -1066,9 +1104,10 @@ export const openWorkspaceDevServerPtySession = action({
         cwd: resolved.repoDir,
         cols,
         rows,
+        captureInitialOutput: true,
         initialInput: buildRunPtySessionAsSandboxUserInput({
           cwd: resolved.repoDir,
-          command: buildAttachDevServerTmuxCommand(),
+          command: buildOpenWorkspaceDevServerCommand(),
         }),
         trustedProjectPath: resolved.repoDir,
       });

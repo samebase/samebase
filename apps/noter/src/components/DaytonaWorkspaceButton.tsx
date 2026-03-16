@@ -398,11 +398,35 @@ export function DaytonaWorkspaceButton({
         setHasError(false);
         setMessage(result.message ?? `Daytona sandbox ${label} is ready.`);
         setBootstrapLogs(null);
-        const nextTerminalSession = await openTerminalSession(true);
-        if (nextTerminalSession) {
+        const shellTerminalSession = await openTerminalSession(true);
+        const devServerTerminalSession =
+          await openDevServerTerminalSession(true);
+        if (shellTerminalSession && devServerTerminalSession) {
           setTimeToTerminalMs(Math.round(performance.now() - startClickedAt));
+        } else {
+          const missingTabs: string[] = [];
+          if (!shellTerminalSession) {
+            missingTabs.push("Shell");
+          }
+          if (!devServerTerminalSession) {
+            missingTabs.push("Dev Server");
+          }
+          console.warn("daytona:workspace:auto-open-partial", {
+            vaultId,
+            branch,
+            provisioningMode,
+            missingTabs,
+          });
+          setMessage((current) => {
+            const base =
+              current ?? result.message ?? `Daytona sandbox ${label} is ready.`;
+            const missingLabel =
+              missingTabs.length > 1
+                ? `${missingTabs.slice(0, -1).join(", ")} and ${missingTabs.at(-1)}`
+                : missingTabs[0];
+            return `${base} ${missingLabel} did not auto-open; open ${missingLabel} manually.`;
+          });
         }
-        await openDevServerTerminalSession(true);
       }
     } catch (error) {
       setHasError(true);
@@ -689,7 +713,27 @@ export function DaytonaWorkspaceButton({
     if (!url) {
       return;
     }
-    window.open(url, "_blank", "noopener,noreferrer");
+    const openedWindow = window.open(url, "_blank", "noopener,noreferrer");
+    if (openedWindow) {
+      return;
+    }
+    let copiedToClipboard = false;
+    try {
+      await navigator.clipboard.writeText(url);
+      copiedToClipboard = true;
+    } catch (error) {
+      console.warn("daytona:workspace:external-terminal-copy-failed", {
+        vaultId,
+        branch,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    setHasError(true);
+    setMessage(
+      copiedToClipboard
+        ? "External terminal was blocked by the browser. The URL was copied to your clipboard."
+        : `External terminal was blocked by the browser. Allow popups and retry: ${url}`,
+    );
   };
 
   const handleOpenPreview = async () => {

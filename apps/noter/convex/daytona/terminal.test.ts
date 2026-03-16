@@ -306,6 +306,9 @@ describe("openWorkspacePtySession", () => {
     });
     expect(mockState.sentInputs).toHaveLength(1);
     expect(mockState.sentInputs[0]).toContain("noter-shell");
+    expect(mockState.sentInputs[0]).toContain("tmux_status=$?");
+    expect(mockState.sentInputs[0]).toContain('exec "$SHELL" -l');
+    expect(mockState.sentInputs[0]).not.toContain("exec tmux");
   });
 
   it("writes Codex config as the sandbox user into the local Codex home", async () => {
@@ -353,10 +356,15 @@ describe("openWorkspacePtySession", () => {
       previewToken: "preview-token-1",
       sandboxId: "sandbox-1",
       sandboxName: "noter-sandbox",
+      initialOutput: expect.stringContaining("dev-server logs"),
     });
     expect(mockState.sentInputs).toHaveLength(1);
     expect(mockState.sentInputs[0]).toContain("attach-session -r -t");
     expect(mockState.sentInputs[0]).toContain("noter-dev-server");
+    expect(mockState.sentInputs[0]).toContain("tmux_status=$?");
+    expect(mockState.sentInputs[0]).toContain("tail -n 200 -F");
+    expect(mockState.sentInputs[0]).toContain("/tmp/noter-dev.log");
+    expect(mockState.sentInputs[0]).not.toContain("exec tmux");
   });
 
   it("cleans up dev server PTYs using the rewritten session id on failure", async () => {

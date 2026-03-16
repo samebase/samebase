@@ -379,7 +379,7 @@ attach path exists.
 ## References
 
 - Daytona docs:
-  [Open Source SDK PTY sessions](https://www.daytona.io/docs/oss/sdk/terminal-ssh-and-vscode)
+  [Open-source SDK PTY sessions](https://www.daytona.io/docs/oss/sdk/terminal-ssh-and-vscode)
 - Daytona docs:
   [TypeScript SDK interactive sessions](https://www.daytona.io/docs/oss/sdk/interactive-sessions)
 - Daytona docs:
