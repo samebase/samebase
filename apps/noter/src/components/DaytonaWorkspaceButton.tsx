@@ -26,6 +26,7 @@ import {
   getWorkspaceTerminalTitle,
   listOpenWorkspaceTerminalKinds,
   reduceWorkspaceTerminalState,
+  type WorkspaceTerminalAction,
   type WorkspaceTerminalKind,
 } from "@/lib/daytonaWorkspaceTerminalTabs";
 import { cn } from "@/lib/utils";
@@ -168,6 +169,15 @@ export function DaytonaWorkspaceButton({
   const isPollingPrebuildLogsRef = useRef(false);
   const terminalStateRef = useRef(terminalState);
   const workspaceContextRef = useRef({ vaultId, branch });
+  const applyTerminalStateAction = (
+    action: WorkspaceTerminalAction<DaytonaPtySession>,
+  ) => {
+    terminalStateRef.current = reduceWorkspaceTerminalState(
+      terminalStateRef.current,
+      action,
+    );
+    dispatchTerminalState(action);
+  };
   const openTerminalKinds = listOpenWorkspaceTerminalKinds(
     terminalState.sessions,
   );
@@ -259,9 +269,7 @@ export function DaytonaWorkspaceButton({
       return;
     }
 
-    terminalStateRef.current =
-      createWorkspaceTerminalState<DaytonaPtySession>();
-    dispatchTerminalState({ type: "reset" });
+    applyTerminalStateAction({ type: "reset" });
     setTerminalConnectionStates({});
     setHasError(false);
     setMessage(null);
@@ -407,7 +415,7 @@ export function DaytonaWorkspaceButton({
           result.sandboxId,
         );
         if (shellTerminalSession) {
-          dispatchTerminalState({
+          applyTerminalStateAction({
             type: "activated",
             kind: "shell",
           });
@@ -530,7 +538,7 @@ export function DaytonaWorkspaceButton({
         sessionId: activeSession.sessionId,
       });
       if (result.ok) {
-        dispatchTerminalState({
+        applyTerminalStateAction({
           type: "closed",
           kind: args.kind,
         });
@@ -643,7 +651,7 @@ export function DaytonaWorkspaceButton({
     const nextExistingSession =
       terminalStateRef.current.sessions[args.targetKind];
     if (nextExistingSession) {
-      dispatchTerminalState({
+      applyTerminalStateAction({
         type: "activated",
         kind: args.targetKind,
       });
@@ -679,7 +687,7 @@ export function DaytonaWorkspaceButton({
         );
         return null;
       }
-      dispatchTerminalState({
+      applyTerminalStateAction({
         type: "opened",
         kind: args.targetKind,
         session: nextSession,
@@ -1238,7 +1246,7 @@ export function DaytonaWorkspaceButton({
                       aria-selected={isActive}
                       className="flex items-center gap-2 px-3 py-1.5 font-medium outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
                       onClick={() => {
-                        dispatchTerminalState({
+                        applyTerminalStateAction({
                           type: "activated",
                           kind,
                         });
@@ -1320,7 +1328,7 @@ export function DaytonaWorkspaceButton({
                         }));
                       }}
                       onSessionExit={(terminalMessage) => {
-                        dispatchTerminalState({
+                        applyTerminalStateAction({
                           type: "closed",
                           kind,
                         });
