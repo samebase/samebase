@@ -1,0 +1,51 @@
+import fs from "node:fs";
+
+function normalizeEnvValue(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+export function readEnvFileValue(
+  envPath: string,
+  key: string,
+): string | undefined {
+  if (!fs.existsSync(envPath)) {
+    return undefined;
+  }
+
+  const prefix = `${key}=`;
+  const contents = fs.readFileSync(envPath, "utf8");
+  for (const line of contents.split(/\r?\n/)) {
+    if (!line.startsWith(prefix)) {
+      continue;
+    }
+    return normalizeEnvValue(line.slice(prefix.length));
+  }
+
+  return undefined;
+}
+
+export function resolveDaytonaConvexProxyTarget(args: {
+  devOrigin: string | undefined;
+  envProxyTarget: string | undefined;
+  localEnvConvexUrl: string | undefined;
+}): string | undefined {
+  const devOrigin = normalizeEnvValue(args.devOrigin);
+  const envProxyTarget = normalizeEnvValue(args.envProxyTarget);
+  const localEnvConvexUrl = normalizeEnvValue(args.localEnvConvexUrl);
+
+  if (!devOrigin) {
+    return envProxyTarget;
+  }
+
+  return localEnvConvexUrl ?? envProxyTarget;
+}
