@@ -3,6 +3,7 @@ import os from "os";
 import path from "path";
 import { spawn, spawnSync } from "child_process";
 import { isPortInUse, parsePort, sleep } from "./convex-local-utils.js";
+import { normalizeEnvValue } from "./normalizeEnvValue.js";
 import { pickAvailableAnonymousLocalPorts } from "../../runtime/anonymousLocalPorts.js";
 
 const SUPPORTED_NODE_MAJORS = ["24", "22", "20", "18"];
@@ -204,17 +205,6 @@ const removeEnvVar = (name, env) => {
   });
 };
 
-const normalizeEnvValue = (value) => {
-  const trimmed = value.trim();
-  if (
-    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-    (trimmed.startsWith("'") && trimmed.endsWith("'"))
-  ) {
-    return trimmed.slice(1, -1);
-  }
-  return trimmed;
-};
-
 const readEnvVar = (name, env) => {
   const result = spawnSync("npx", ["convex", "env", "get", name], {
     stdio: "pipe",
@@ -224,7 +214,7 @@ const readEnvVar = (name, env) => {
   if (result.status !== 0) {
     return null;
   }
-  return normalizeEnvValue(result.stdout ?? "");
+  return normalizeEnvValue(result.stdout ?? "") ?? null;
 };
 
 const hasValidPrivateKey = (value) =>
