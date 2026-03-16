@@ -310,40 +310,7 @@ export async function ensureSandboxPreferredInteractiveShell(args: {
   timeoutSeconds?: number;
 }): Promise<void> {
   const timeoutSeconds = args.timeoutSeconds ?? DEFAULT_REPAIR_TIMEOUT_SECONDS;
-  const ensureScript = stripIndent`
-    set -e
-    prefix=""
-    if [ "$(id -u)" != "0" ]; then
-      if command -v sudo >/dev/null 2>&1; then
-        prefix="sudo "
-      else
-        echo "__NOTER_INTERACTIVE_SHELL_PRIVILEGE_MISSING__"
-        exit 1
-      fi
-    fi
-    if ! command -v fish >/dev/null 2>&1; then
-      exit 0
-    fi
-    target_shell="$(command -v fish)"
-    ensure_user_shell() {
-      target_user="$1"
-      current_shell="$(grep "^${"$"}target_user:" /etc/passwd | cut -d: -f7 | head -n 1 || true)"
-      if [ -n "$current_shell" ]; then
-        if [ "$current_shell" != "$target_shell" ]; then
-          ${"$"}{prefix}usermod -s "$target_shell" "$target_user"
-        fi
-        return 0
-      fi
-      if [ "$target_user" = "root" ]; then
-        return 0
-      fi
-      ${"$"}{prefix}groupadd -f "$target_user"
-      ${"$"}{prefix}useradd -m -s "$target_shell" -g "$target_user" "$target_user"
-    }
-    ensure_user_shell root
-    ensure_user_shell ${quoteForShell(DAYTONA_SANDBOX_USER)}
-  `;
-  const command = `bash -lc ${quoteForShell(ensureScript)}`;
+  const command = buildEnsureSandboxPreferredInteractiveShellCommand();
   const result = await args.sandbox.process.executeCommand(
     command,
     undefined,
@@ -365,25 +332,67 @@ export async function ensureSandboxPreferredInteractiveShell(args: {
   }
 }
 
+export function buildEnsureSandboxPreferredInteractiveShellCommand(): string {
+  const ensureScript = stripIndent`
+    set -e
+    run_privileged() {
+      if [ "$(id -u)" = "0" ]; then
+        "$@"
+        return 0
+      fi
+      if command -v sudo >/dev/null 2>&1; then
+        sudo "$@"
+        return 0
+      fi
+      echo "__NOTER_INTERACTIVE_SHELL_PRIVILEGE_MISSING__"
+      exit 1
+    }
+    if ! command -v fish >/dev/null 2>&1; then
+      exit 0
+    fi
+    target_shell="$(command -v fish)"
+    ensure_user_shell() {
+      target_user="$1"
+      target_group="$2"
+      current_shell="$(grep "^${"$"}target_user:" /etc/passwd | cut -d: -f7 | head -n 1 || true)"
+      if [ -n "$current_shell" ]; then
+        if [ "$current_shell" != "$target_shell" ]; then
+          run_privileged usermod -s "$target_shell" "$target_user"
+        fi
+        return 0
+      fi
+      if [ "$target_user" = "root" ]; then
+        return 0
+      fi
+      run_privileged groupadd -f "$target_group"
+      run_privileged useradd -m -s "$target_shell" -g "$target_group" "$target_user"
+    }
+    ensure_user_home_dirs() {
+      target_user="$1"
+      target_group="$2"
+      target_home="$3"
+      run_privileged mkdir -p "$target_home" "$target_home/.config/fish" "$target_home/.cache" "$target_home/.local/share"
+      run_privileged chown "$target_user:$target_group" "$target_home"
+      run_privileged chown -R "$target_user:$target_group" "$target_home/.config" "$target_home/.cache" "$target_home/.local"
+    }
+    ensure_user_shell root root
+    ensure_user_home_dirs root root /root
+    ensure_user_shell ${quoteForShell(DAYTONA_SANDBOX_USER)} ${quoteForShell(DAYTONA_SANDBOX_GROUP)}
+    ensure_user_home_dirs ${quoteForShell(DAYTONA_SANDBOX_USER)} ${quoteForShell(DAYTONA_SANDBOX_GROUP)} ${quoteForShell(DAYTONA_SANDBOX_HOME)}
+  `;
+  return `bash -lc ${quoteForShell(ensureScript)}`;
+}
+
 export function buildSwitchPtySessionToSandboxUserInput(args: {
   cwd: string;
 }): string {
-  const handoffCommand = stripIndent`
-    set -e
-    export HOME=${quoteForShell(DAYTONA_SANDBOX_HOME)}
-    export USER=${quoteForShell(DAYTONA_SANDBOX_USER)}
-    export LOGNAME=${quoteForShell(DAYTONA_SANDBOX_USER)}
-    export CODEX_HOME=${quoteForShell(DAYTONA_CODEX_HOME)}
-    cd ${quoteForShell(args.cwd)}
-    clear >/dev/null 2>&1 || true
-    exec "$SHELL" -i
-  `;
+  const handoffCommand = [
+    `target_cwd=${quoteForShell(args.cwd)}`,
+    `target_shell=${quoteForShell(DAYTONA_PREFERRED_INTERACTIVE_SHELL)}`,
+    `if [ ! -x "$target_shell" ]; then target_shell=${quoteForShell(DAYTONA_FALLBACK_INTERACTIVE_SHELL)}; fi`,
+    `cd "$target_cwd"`,
+    `exec env HOME=${quoteForShell(DAYTONA_SANDBOX_HOME)} USER=${quoteForShell(DAYTONA_SANDBOX_USER)} LOGNAME=${quoteForShell(DAYTONA_SANDBOX_USER)} CODEX_HOME=${quoteForShell(DAYTONA_CODEX_HOME)} SHELL="$target_shell" XDG_CONFIG_HOME=${quoteForShell(`${DAYTONA_SANDBOX_HOME}/.config`)} XDG_CACHE_HOME=${quoteForShell(`${DAYTONA_SANDBOX_HOME}/.cache`)} XDG_DATA_HOME=${quoteForShell(`${DAYTONA_SANDBOX_HOME}/.local/share`)} su -m -s "$target_shell" ${quoteForShell(DAYTONA_SANDBOX_USER)}`,
+  ].join("; ");
 
-  return `${stripIndent`
-    target_shell=${quoteForShell(DAYTONA_FALLBACK_INTERACTIVE_SHELL)}
-    if command -v fish >/dev/null 2>&1; then
-      target_shell="$(command -v fish)"
-    fi
-    exec env HOME=${quoteForShell(DAYTONA_SANDBOX_HOME)} USER=${quoteForShell(DAYTONA_SANDBOX_USER)} LOGNAME=${quoteForShell(DAYTONA_SANDBOX_USER)} CODEX_HOME=${quoteForShell(DAYTONA_CODEX_HOME)} SHELL="$target_shell" su -m -s "$target_shell" ${quoteForShell(DAYTONA_SANDBOX_USER)} -c ${quoteForShell(handoffCommand)}
-  `}\n`;
+  return `exec ${quoteForShell(DAYTONA_FALLBACK_INTERACTIVE_SHELL)} -lc ${quoteForShell(handoffCommand)}\n`;
 }

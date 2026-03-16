@@ -205,6 +205,26 @@ function isNotFoundError(error: unknown): boolean {
   return false;
 }
 
+function isAlreadyExistsError(error: unknown): boolean {
+  if (typeof error === "object" && error !== null) {
+    const status = Reflect.get(error, "status");
+    if (typeof status === "number" && status === 409) {
+      return true;
+    }
+
+    const message = Reflect.get(error, "message");
+    if (typeof message === "string") {
+      return message.toLowerCase().includes("already exists");
+    }
+  }
+
+  if (error instanceof Error) {
+    return error.message.toLowerCase().includes("already exists");
+  }
+
+  return String(error).toLowerCase().includes("already exists");
+}
+
 function isMissingFileError(error: unknown): boolean {
   if (typeof error === "object" && error !== null) {
     const code = Reflect.get(error, "code");
@@ -3000,9 +3020,49 @@ export const startDaytonaWorkspace = action({
         snapshot: materializationSnapshotName,
       };
       const sandboxCreateStartedAt = Date.now();
-      sandbox = await daytona.create(sandboxParams);
-      sandboxCreateMs = Date.now() - sandboxCreateStartedAt;
-      sandboxLifecycle = "created";
+      try {
+        sandbox = await daytona.create(sandboxParams);
+        sandboxCreateMs = Date.now() - sandboxCreateStartedAt;
+        sandboxLifecycle = "created";
+      } catch (error) {
+        sandboxCreateMs = Date.now() - sandboxCreateStartedAt;
+        if (!isAlreadyExistsError(error)) {
+          throw error;
+        }
+
+        let existingSandbox: Sandbox;
+        try {
+          existingSandbox = await daytona.get(sandboxName);
+        } catch (lookupError) {
+          if (isNotFoundError(lookupError)) {
+            throw error;
+          }
+          throw lookupError;
+        }
+        const existingSandboxMatchesLabels = hasMatchingLabels(existingSandbox);
+        const existingSandboxHasCompatibleSetup =
+          hasCompatibleSandboxSetup(existingSandbox);
+        if (
+          !existingSandboxMatchesLabels ||
+          !existingSandboxHasCompatibleSetup
+        ) {
+          console.log("daytona:workspace:recreate-after-create-conflict", {
+            vaultId: args.vaultId,
+            sandboxId: existingSandbox.id,
+            sandboxName,
+            reason: !existingSandboxMatchesLabels
+              ? "mismatched_labels"
+              : "mismatched_codex_auth_setup",
+          });
+          await existingSandbox.delete();
+          sandbox = await daytona.create(sandboxParams);
+          sandboxCreateMs = Date.now() - sandboxCreateStartedAt;
+          sandboxLifecycle = "created";
+        } else {
+          sandbox = existingSandbox;
+          sandboxLifecycle = "reused";
+        }
+      }
     }
 
     await ensureDaytonaSandboxStarted(sandbox);
