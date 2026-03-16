@@ -199,6 +199,10 @@ use `--env-file` or an explicit deployment selector instead.
 - **Prefer silent, smooth UX** over chatty, jumpy interfaces
 - **Prefer existing shadcn/ui components** over custom Tailwind-only solutions
   when available
+- **Use rectangular app chrome** - app-owned UI surfaces default to zero border
+  radius; keep the shared radius token/Tailwind radius scale at `0`, prefer
+  `rounded-ui` when an explicit semantic radius utility is needed, and do not
+  introduce `rounded-full` or arbitrary `rounded-[...]` classes for app chrome
 - **Async destructive actions** - disable the trigger while pending and show a
   spinner/label (e.g. "Removing...") to prevent double-submit
 
@@ -521,6 +525,8 @@ Auth:
   explicitly asks for that.
 - After pushing fixes for PR review feedback, always request a fresh CodeRabbit
   review by commenting `@coderabbitai review`.
+- After pushing fixes for PR review feedback, always request a fresh Codex
+  review by commenting `@codex review`.
 - After fixing CodeRabbit findings, always reply on each relevant CodeRabbit
   review thread with a short note describing exactly what was changed, then
   resolve the thread.

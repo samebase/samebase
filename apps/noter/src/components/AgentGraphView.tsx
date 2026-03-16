@@ -343,12 +343,12 @@ function AgentNode({ data, id, width, height }: NodeProps<AgentGraphNode>) {
       <Handle
         type="target"
         position={Position.Left}
-        className="h-2 w-2 rounded-full border border-background bg-foreground/70"
+        className="h-2 w-2 rounded-ui border border-background bg-foreground/70"
       />
       <Handle
         type="source"
         position={Position.Right}
-        className="h-2 w-2 rounded-full border border-background bg-foreground/70"
+        className="h-2 w-2 rounded-ui border border-background bg-foreground/70"
       />
       <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
         <span className="text-[11px] font-semibold tracking-wide text-muted-foreground">

@@ -12,7 +12,7 @@ import codexAppLogo from "@/assets/codex-app.png";
 
 const CodexProviderLogo = ({ className }: { className?: string }) => (
   <span className={clsx("inline-flex items-center justify-center", className)}>
-    <img src={codexAppLogo} alt="" className="h-5 w-5 rounded-[6px]" />
+    <img src={codexAppLogo} alt="" className="h-5 w-5" />
   </span>
 );
 

@@ -225,7 +225,7 @@ function StatusBadge({
       target="_blank"
       rel="noopener noreferrer"
     >
-      <span className={cn("h-2 w-2 rounded-full", style.dot)} />
+      <span className={cn("h-2 w-2 rounded-ui", style.dot)} />
       <span className="font-medium">{label}</span>
       <span className="tabular-nums text-[10px] text-muted-foreground">
         {summary.total}

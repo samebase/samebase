@@ -36,7 +36,9 @@ export function CodespaceIframe({
   className,
   kioskMode = false,
 }: CodespaceIframeProps) {
-  const codespace = useQuery(api.codespacesMutations.getActiveCodespace, { vaultId });
+  const codespace = useQuery(api.codespacesMutations.getActiveCodespace, {
+    vaultId,
+  });
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [iframeFailureReason, setIframeFailureReason] = useState<
     "error" | "timeout" | "csp_or_login" | null
@@ -156,7 +158,9 @@ export function CodespaceIframe({
 
   if (iframeFailureReason) {
     return (
-      <div className={cn("flex items-center justify-center h-full p-4", className)}>
+      <div
+        className={cn("flex items-center justify-center h-full p-4", className)}
+      >
         <div className="text-center space-y-4 max-w-md">
           <AlertCircle className="h-8 w-8 mx-auto text-red-600" />
           <p className="text-sm text-muted-foreground">
@@ -176,7 +180,10 @@ export function CodespaceIframe({
             >
               Retry Embed
             </Button>
-            <Button onClick={() => window.open(iframeUrl, "_blank")} variant="outline">
+            <Button
+              onClick={() => window.open(iframeUrl, "_blank")}
+              variant="outline"
+            >
               <ExternalLink className="h-4 w-4 mr-2" />
               Open in New Tab
             </Button>
@@ -190,7 +197,7 @@ export function CodespaceIframe({
     <div
       className={cn(
         "relative h-full w-full overflow-hidden border bg-background",
-        kioskMode ? "border-0 rounded-none" : "rounded-lg",
+        kioskMode ? "border-0 rounded-ui" : "rounded-lg",
         className,
       )}
     >
@@ -198,9 +205,7 @@ export function CodespaceIframe({
         <div className="absolute inset-0 flex items-center justify-center bg-background">
           <div className="text-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
-            <p className="text-sm text-muted-foreground">
-              Loading VS Code...
-            </p>
+            <p className="text-sm text-muted-foreground">Loading VS Code...</p>
           </div>
         </div>
       )}

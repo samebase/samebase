@@ -182,7 +182,7 @@ export function CodespaceStatus({
           href={agentHealthUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex rounded-full no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="inline-flex rounded-ui no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           onClick={(event) => {
             event.stopPropagation();
           }}
@@ -227,7 +227,7 @@ export function CodespaceStatus({
                 {isRunning && (
                   <div
                     className={cn(
-                      "h-2 w-2 rounded-full",
+                      "h-2 w-2 rounded-ui",
                       isHealthy ? "bg-emerald-500" : "bg-red-500",
                     )}
                     title={isHealthy ? "Agent healthy" : "Agent unhealthy"}
