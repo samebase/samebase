@@ -474,7 +474,13 @@ export function CodexProviderRow() {
         </div>
       </div>
       {terminalSession || terminalTabUrl ? (
-        <div className="space-y-2 rounded-md border bg-muted/10 p-2">
+        <div
+          className={clsx(
+            "space-y-2 rounded-md border bg-muted/10 p-2",
+            terminalSession &&
+              "max-sm:relative max-sm:left-1/2 max-sm:w-screen max-sm:-translate-x-1/2 max-sm:rounded-none max-sm:border-x-0 max-sm:px-0 max-sm:py-2",
+          )}
+        >
           {terminalSession ? (
             <DaytonaPtyTerminal
               session={terminalSession}
@@ -504,25 +510,50 @@ export function CodexProviderRow() {
               }}
             />
           ) : null}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="text-xs text-muted-foreground">
-              {terminalStatus === "error"
-                ? "Codex could not be verified automatically. Finish the login and try Check login again."
-                : terminalSession
-                  ? "The device-auth login starts automatically here. Finish the browser step, then click Check login."
-                  : "Open the Daytona terminal in a new tab to finish the device-auth login, then click Check login."}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {terminalTabUrl ? (
+          <div className={clsx(terminalSession && "px-4 sm:px-0")}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-xs text-muted-foreground">
+                {terminalStatus === "error"
+                  ? "Codex could not be verified automatically. Finish the login and try Check login again."
+                  : terminalSession
+                    ? "The device-auth login starts automatically here. Finish the browser step, then click Check login."
+                    : "Open the Daytona terminal in a new tab to finish the device-auth login, then click Check login."}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {terminalTabUrl ? (
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => {
+                      window.open(
+                        terminalTabUrl,
+                        "_blank",
+                        "noopener,noreferrer",
+                      );
+                    }}
+                    disabled={
+                      isPreparing ||
+                      isVerifying ||
+                      isDisconnecting ||
+                      isClosingTerminal
+                    }
+                    className="h-auto px-0 text-xs"
+                  >
+                    Open in tab
+                  </Button>
+                ) : null}
                 <Button
                   variant="link"
                   size="sm"
                   onClick={() => {
-                    window.open(
-                      terminalTabUrl,
-                      "_blank",
-                      "noopener,noreferrer",
-                    );
+                    void (async () => {
+                      const closedSession = await closeActiveTerminalSession();
+                      if (!closedSession) {
+                        return;
+                      }
+                      setTerminalTabUrl(null);
+                      setTerminalStatus(null);
+                    })();
                   }}
                   disabled={
                     isPreparing ||
@@ -532,32 +563,9 @@ export function CodexProviderRow() {
                   }
                   className="h-auto px-0 text-xs"
                 >
-                  Open in tab
+                  {isClosingTerminal ? "Hiding..." : "Hide terminal"}
                 </Button>
-              ) : null}
-              <Button
-                variant="link"
-                size="sm"
-                onClick={() => {
-                  void (async () => {
-                    const closedSession = await closeActiveTerminalSession();
-                    if (!closedSession) {
-                      return;
-                    }
-                    setTerminalTabUrl(null);
-                    setTerminalStatus(null);
-                  })();
-                }}
-                disabled={
-                  isPreparing ||
-                  isVerifying ||
-                  isDisconnecting ||
-                  isClosingTerminal
-                }
-                className="h-auto px-0 text-xs"
-              >
-                {isClosingTerminal ? "Hiding..." : "Hide terminal"}
-              </Button>
+              </div>
             </div>
           </div>
         </div>
