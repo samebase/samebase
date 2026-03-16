@@ -227,6 +227,11 @@ use `--env-file` or an explicit deployment selector instead.
   terminal surface with simple tabs, splits, and top-bar actions over a "hidden
   tmux magic" model, but keep it simple enough that the operator does not need
   to learn tmux just to use it.
+- **High: Daytona deps image rollout drift** - prod
+  `DAYTONA_DEPS_IMAGE_TEMPLATE` can lag the current `Dockerfile.daytona-deps`
+  hash on `main`, which leaves fish tooling like `fisher`/`pure` missing even
+  when the repo code is correct. Add an explicit rollout or validation step for
+  Daytona deps image updates after merges that change the image inputs.
 - **High: local/worktree Daytona naming** - `make anon` currently seeds
   `DAYTONA_CONVEX_DEPLOY_KEY` from shared cloud dev env, so local Daytona
   snapshot/sandbox names can still inherit shared dev scope instead of a true
