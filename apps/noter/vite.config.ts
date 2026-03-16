@@ -36,7 +36,10 @@ const daytonaConvexProxyPath = daytonaConvexProxyTarget
   : null;
 
 function stripDaytonaConvexProxyPrefix(requestPath: string): string {
-  if (!requestPath.startsWith(DAYTONA_CONVEX_PROXY_PATH)) {
+  if (
+    requestPath !== DAYTONA_CONVEX_PROXY_PATH &&
+    !requestPath.startsWith(`${DAYTONA_CONVEX_PROXY_PATH}/`)
+  ) {
     return requestPath;
   }
   const strippedPath = requestPath.slice(DAYTONA_CONVEX_PROXY_PATH.length);
