@@ -2215,6 +2215,8 @@ function FileViewInner({
                   <DaytonaWorkspaceButton
                     vaultId={vault._id}
                     branch={branch}
+                    sandboxId={vault.daytonaSandboxId}
+                    sandboxName={vault.daytonaSandboxName}
                     commitSha={vault.commitSHA}
                     snapshotStatus={vault.daytonaCurrentSnapshotStatus}
                     snapshotName={vault.daytonaCurrentSnapshotName}

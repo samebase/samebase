@@ -20,6 +20,7 @@ const DAYTONA_PURE_ARCHIVE_ROOT = "pure-4.9.0";
 const DAYTONA_CODEX_LOCAL_DIRS = ["tmp", "log"] as const;
 const DAYTONA_CODEX_SHARED_ENTRY_NAMES = ["auth.json", "memories"] as const;
 const DAYTONA_CODEX_LOCAL_SYNCED_FILE_NAMES = ["config.toml"] as const;
+const DAYTONA_CODEX_SHARED_OWNERSHIP_STAMP = ".noter-owner-ready";
 
 type TemplateValue = string | number | boolean | null | undefined;
 
@@ -212,6 +213,7 @@ export async function ensureProjectedCodexHomeInSandbox(args: {
     sandbox_home=${quoteForShell(DAYTONA_SANDBOX_HOME)}
     local_home=${quoteForShell(DAYTONA_CODEX_HOME)}
     shared_home=${quoteForShell(DAYTONA_CODEX_SHARED_HOME)}
+    shared_ownership_stamp="$shared_home/${DAYTONA_CODEX_SHARED_OWNERSHIP_STAMP}"
     target_user=${quoteForShell(DAYTONA_SANDBOX_USER)}
     target_group=${quoteForShell(DAYTONA_SANDBOX_GROUP)}
     ensure_target_user() {
@@ -226,16 +228,32 @@ export async function ensureProjectedCodexHomeInSandbox(args: {
     mkdir -p "$sandbox_home" "$local_home" "$shared_home"
     if [ "$(id -u)" = "0" ]; then
       ensure_target_user
+      expected_shared_owner="$(id -u "$target_user"):$(id -g "$target_user")"
+      stamp_owner="$(stat -c '%u:%g' "$shared_ownership_stamp" 2>/dev/null || printf '%s' missing)"
       chown "$target_user:$target_group" "$sandbox_home"
       chown "$target_user:$target_group" "$local_home"
-      chown -R "$target_user:$target_group" "$shared_home"
+      chown "$target_user:$target_group" "$shared_home"
+      if [ "$stamp_owner" != "$expected_shared_owner" ]; then
+        chown -R "$target_user:$target_group" "$shared_home"
+      fi
+      touch "$shared_ownership_stamp"
+      chown "$target_user:$target_group" "$shared_ownership_stamp"
+      chmod 600 "$shared_ownership_stamp"
       exit 0
     fi
     if command -v sudo >/dev/null 2>&1; then
       sudo bash -lc "$(declare -f ensure_target_user); ensure_target_user"
+      expected_shared_owner="$(id -u "$target_user"):$(id -g "$target_user")"
+      stamp_owner="$(sudo stat -c '%u:%g' "$shared_ownership_stamp" 2>/dev/null || printf '%s' missing)"
       sudo chown "$target_user:$target_group" "$sandbox_home"
       sudo chown "$target_user:$target_group" "$local_home"
-      sudo chown -R "$target_user:$target_group" "$shared_home"
+      sudo chown "$target_user:$target_group" "$shared_home"
+      if [ "$stamp_owner" != "$expected_shared_owner" ]; then
+        sudo chown -R "$target_user:$target_group" "$shared_home"
+      fi
+      sudo touch "$shared_ownership_stamp"
+      sudo chown "$target_user:$target_group" "$shared_ownership_stamp"
+      sudo chmod 600 "$shared_ownership_stamp"
       exit 0
     fi
   `;

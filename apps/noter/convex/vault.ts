@@ -1191,6 +1191,8 @@ async function getVaultByRepositoryHelper(
     defaultBranch,
     resolvedBranch,
     branchNotFound,
+    daytonaSandboxId: vault.daytonaSandboxId,
+    daytonaSandboxName: vault.daytonaSandboxName,
     ...(await getCurrentDaytonaSnapshotState(ctx, vault)),
     infraState: vault.infraState ?? "not_started",
     infraLastError: vault.infraLastError,

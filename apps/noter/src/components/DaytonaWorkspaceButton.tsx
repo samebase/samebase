@@ -777,7 +777,7 @@ export function DaytonaWorkspaceButton({
     setMessage(
       copiedToClipboard
         ? "External terminal was blocked by the browser. The URL was copied to your clipboard."
-        : `External terminal was blocked by the browser. Allow popups and retry: ${url}`,
+        : "External terminal was blocked by the browser. Allow popups and retry.",
     );
   };
 

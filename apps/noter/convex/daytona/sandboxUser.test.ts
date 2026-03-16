@@ -71,7 +71,7 @@ describe("buildRunPtySessionAsSandboxUserInput", () => {
 });
 
 describe("ensureProjectedCodexHomeInSandbox", () => {
-  it("repairs shared Codex home ownership before projecting shared entries", async () => {
+  it("repairs shared Codex home ownership once and then reuses an ownership stamp", async () => {
     const commands: string[] = [];
     const sandbox = {
       process: {
@@ -90,8 +90,15 @@ describe("ensureProjectedCodexHomeInSandbox", () => {
 
     expect(commands).toHaveLength(2);
     expect(commands[0]).toContain(
+      'shared_ownership_stamp="$shared_home/.noter-owner-ready"',
+    );
+    expect(commands[0]).toContain(
+      'if [ "$stamp_owner" != "$expected_shared_owner" ]; then',
+    );
+    expect(commands[0]).toContain(
       'chown -R "$target_user:$target_group" "$shared_home"',
     );
+    expect(commands[0]).toContain('touch "$shared_ownership_stamp"');
     expect(commands[1]).toContain('mkdir -p "$shared_home/memories"');
   });
 });
