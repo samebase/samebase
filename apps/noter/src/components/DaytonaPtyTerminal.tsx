@@ -363,7 +363,7 @@ export function DaytonaPtyTerminal({
           <span className="font-medium text-slate-200">{title}</span>
           <span
             className={cn(
-              "rounded-full px-2 py-0.5 text-[11px]",
+              "rounded-none px-2 py-0.5 text-[11px]",
               connectionState === "connected"
                 ? "bg-emerald-500/15 text-emerald-300"
                 : connectionState === "error"

@@ -1596,7 +1596,7 @@ export function VaultDashboard() {
             {userMenu}
           </div>
           <div className="text-center space-y-6">
-            <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center">
+            <div className="mx-auto h-24 w-24 rounded-none bg-muted flex items-center justify-center">
               <GitHubLogoIcon className="h-12 w-12 text-muted-foreground" />
             </div>
 

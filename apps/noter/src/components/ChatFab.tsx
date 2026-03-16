@@ -206,7 +206,7 @@ function ToolCallList({ toolCalls }: { toolCalls: ToolCallInfo[] }) {
                   {stateLabel && (
                     <span
                       className={cn(
-                        "rounded-full px-1.5 py-0.5 text-[9px] uppercase tracking-wide",
+                        "rounded-none px-1.5 py-0.5 text-[9px] uppercase tracking-wide",
                         stateLabel === "error"
                           ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
                           : stateLabel === "done"
@@ -299,7 +299,7 @@ function CapabilitiesPanel({
         <span className="font-medium">Chat tools</span>
         <span
           className={cn(
-            "ml-auto rounded-full px-2 py-0.5 text-[10px] font-medium",
+            "ml-auto rounded-none px-2 py-0.5 text-[10px] font-medium",
             toolsEnabled
               ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
               : "bg-muted text-muted-foreground",
@@ -1031,7 +1031,7 @@ export function ChatFab() {
       <button
         onClick={() => setIsOpen((prev) => !prev)}
         className={cn(
-          "fixed bottom-3 right-3 z-[9999] flex h-11 w-11 items-center justify-center rounded-full shadow-lg transition-colors",
+          "fixed bottom-3 right-3 z-[9999] flex h-11 w-11 items-center justify-center rounded-none shadow-lg transition-colors",
           isOpen
             ? "bg-muted text-foreground hover:bg-muted/80"
             : "bg-primary text-primary-foreground hover:bg-primary/90",
