@@ -13,11 +13,8 @@ const DEFAULT_REPAIR_TIMEOUT_SECONDS = 300;
 export const DAYTONA_PREFERRED_INTERACTIVE_SHELL = "/usr/bin/fish";
 const DAYTONA_FALLBACK_INTERACTIVE_SHELL = "/bin/bash";
 const DAYTONA_CODEX_LOCAL_DIRS = ["tmp", "log"] as const;
-const DAYTONA_CODEX_SHARED_ENTRY_NAMES = [
-  "auth.json",
-  "config.toml",
-  "memories",
-] as const;
+const DAYTONA_CODEX_SHARED_ENTRY_NAMES = ["auth.json", "memories"] as const;
+const DAYTONA_CODEX_LOCAL_SYNCED_FILE_NAMES = ["config.toml"] as const;
 
 type TemplateValue = string | number | boolean | null | undefined;
 
@@ -252,6 +249,14 @@ export async function ensureProjectedCodexHomeInSandbox(args: {
     set -e
     local_home=${quoteForShell(DAYTONA_CODEX_HOME)}
     shared_home=${quoteForShell(DAYTONA_CODEX_SHARED_HOME)}
+    write_file_copy() {
+      source_path="$1"
+      target_path="$2"
+      mkdir -p "$(dirname "$target_path")"
+      rm -f "$target_path"
+      umask 077
+      cat "$source_path" > "$target_path"
+    }
     for dir_name in ${DAYTONA_CODEX_LOCAL_DIRS.map((value) => quoteForShell(value)).join(" ")}; do
       local_path="$local_home/$dir_name"
       if [ -L "$local_path" ] || [ -f "$local_path" ]; then
@@ -282,6 +287,26 @@ export async function ensureProjectedCodexHomeInSandbox(args: {
         ln -s "$shared_path" "$local_path"
       fi
     done
+    for file_name in ${DAYTONA_CODEX_LOCAL_SYNCED_FILE_NAMES.map((value) => quoteForShell(value)).join(" ")}; do
+      local_path="$local_home/$file_name"
+      shared_path="$shared_home/$file_name"
+      if [ -L "$local_path" ] || [ -d "$local_path" ]; then
+        rm -rf "$local_path"
+      fi
+      if [ -d "$shared_path" ]; then
+        rm -rf "$shared_path"
+      fi
+      if [ -f "$shared_path" ] && { [ ! -f "$local_path" ] || [ "$shared_path" -nt "$local_path" ]; }; then
+        write_file_copy "$shared_path" "$local_path"
+      fi
+      if [ -f "$local_path" ] && { [ ! -f "$shared_path" ] || [ "$local_path" -nt "$shared_path" ]; }; then
+        write_file_copy "$local_path" "$shared_path"
+      fi
+      if [ -f "$local_path" ] && [ ! -w "$local_path" ]; then
+        echo "__NOTER_CODEX_LOCAL_FILE_NOT_WRITABLE__:$local_path"
+        exit 1
+      fi
+    done
     for local_path in "$local_home" "$local_home/tmp" "$local_home/log"; do
       if [ ! -w "$local_path" ]; then
         echo "__NOTER_CODEX_LOCAL_HOME_NOT_WRITABLE__:$local_path"
@@ -301,6 +326,39 @@ export async function ensureProjectedCodexHomeInSandbox(args: {
     throw new Error(
       projectResult.result.trim() ||
         "Failed to project the shared Codex home into a writable local home.",
+    );
+  }
+}
+
+export async function syncCodexConfigToSharedInSandbox(args: {
+  sandbox: Sandbox;
+  timeoutSeconds?: number;
+}): Promise<void> {
+  const timeoutSeconds = args.timeoutSeconds ?? DEFAULT_REPAIR_TIMEOUT_SECONDS;
+  const syncScript = stripIndent`
+    set -e
+    local_path=${quoteForShell(`${DAYTONA_CODEX_HOME}/config.toml`)}
+    shared_path=${quoteForShell(`${DAYTONA_CODEX_SHARED_HOME}/config.toml`)}
+    if [ -L "$local_path" ]; then
+      exit 0
+    fi
+    if [ ! -f "$local_path" ]; then
+      exit 0
+    fi
+    mkdir -p "$(dirname "$shared_path")"
+    rm -f "$shared_path"
+    umask 077
+    cat "$local_path" > "$shared_path"
+  `;
+  const result = await executeCommandAsSandboxUser({
+    sandbox: args.sandbox,
+    command: syncScript,
+    timeoutSeconds,
+  });
+  if (result.exitCode !== 0) {
+    throw new Error(
+      result.result.trim() ||
+        "Failed to sync Codex config back to the shared Daytona volume.",
     );
   }
 }

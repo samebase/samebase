@@ -4,7 +4,7 @@
 
 - Implemented
 - Source of truth for Daytona Codex home behavior
-- Last updated: 2026-03-15
+- Last updated: 2026-03-16
 
 ## Summary
 
@@ -123,13 +123,18 @@ Local sandbox-owned paths:
 Shared persistent entries projected from the backing mount:
 
 - `/home/daytona/.codex/auth.json`
-- `/home/daytona/.codex/config.toml`
 - `/home/daytona/.codex/memories`
 
-The local home stays writable by `daytona`. The shared entries are surfaced from
-`/home/daytona/.codex-shared` into that live home so that auth/config/memories
-remain shared across sandboxes while temp/log behavior remains compatible with
-Codex file-system expectations.
+Sandbox-local durable file mirrored to the shared backing mount:
+
+- `/home/daytona/.codex/config.toml`
+
+The local home stays writable by `daytona`. Shared entries are surfaced from
+`/home/daytona/.codex-shared` into that live home, but `config.toml` is kept as
+a normal local file and synchronized with the shared backing store. Codex
+rewrites `config.toml` with an atomic save path that still hits Daytona volume
+permission edge cases when the live file itself points directly at the mounted
+volume.
 
 ### 4. Sandbox creation contract
 
@@ -179,7 +184,7 @@ This design still preserves one shared Codex state surface per user.
 Shared across auth/workspace sandboxes:
 
 - login state
-- shared Codex config
+- shared Codex config state (mirrored from the local live `config.toml`)
 - memories
 - other future durable Codex state represented by projected shared entries
 
@@ -194,8 +199,9 @@ avoiding the direct-mount permission failures.
 
 ### 8. Workspace trust behavior
 
-For Daytona workspace shells, Noter should prewrite the shared Codex config so
-the active repo path is trusted by default.
+For Daytona workspace shells, Noter should prewrite the local live Codex config
+and mirror it back to the shared backing store so the active repo path is
+trusted by default.
 
 The expected shared config behavior is:
 
@@ -231,8 +237,10 @@ The expected validation surface is:
    - wrapped command user resolves to `daytona`
    - `echo $CODEX_HOME` prints `/home/daytona/.codex`
    - `/home/daytona/.codex` is writable by `daytona`
+   - `/home/daytona/.codex/config.toml` is a regular local file, not a symlink
    - `/home/daytona/.codex-shared` is the mounted backing store
    - shared `config.toml` contains the repo path with `trust_level = "trusted"`
+   - toggling Codex mode inside the PTY does not emit a config persistence error
    - `command -v codex` succeeds
    - `codex login status` succeeds without the old PATH/log/chmod permission
      warnings

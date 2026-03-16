@@ -48,6 +48,7 @@ manual-tests/worktree/WT-001-anon-worktree-isolation.md
 manual-tests/worktree/WT-002-wt-001-local-and-worktree.md
 noter.md
 notes/chatgpt-frontend-frameworks-llms-convex-2026-03-14.md
+notes/daytona-volume-direct-mount-research-2026-03-16.md
 README.md
 RECOVERED_IDEAS.md
 REFERENCES.md

@@ -34,6 +34,8 @@ import {
   ensureProjectedCodexHomeInSandbox,
   ensureSandboxPreferredInteractiveShell,
   ensureSandboxPathWritableByUser,
+  executeCommandAsSandboxUser,
+  syncCodexConfigToSharedInSandbox,
 } from "./sandboxUser";
 
 const { object, id, string, optional, number, boolean } = v;
@@ -718,15 +720,17 @@ async function writeCodexConfigInSandbox(args: {
   const configPath = `${args.codexHome}/config.toml`;
   const writeScript = stripIndent`
     set -e
+    config_path=${quoteForShell(configPath)}
     mkdir -p ${quoteForShell(args.codexHome)}
-    printf '%s' ${quoteForShell(encodedConfig)} | base64 --decode > ${quoteForShell(configPath)}
+    rm -f "$config_path"
+    umask 077
+    printf '%s' ${quoteForShell(encodedConfig)} | base64 --decode > "$config_path"
   `;
-  const result = await args.sandbox.process.executeCommand(
-    `bash -lc ${quoteForShell(writeScript)}`,
-    undefined,
-    undefined,
-    CODEX_CONFIG_SYNC_TIMEOUT_SECONDS,
-  );
+  const result = await executeCommandAsSandboxUser({
+    sandbox: args.sandbox,
+    command: writeScript,
+    timeoutSeconds: CODEX_CONFIG_SYNC_TIMEOUT_SECONDS,
+  });
   if (result.exitCode !== 0) {
     throw new Error(
       result.result.trim() || "Failed to write Codex config in sandbox.",
@@ -764,6 +768,10 @@ async function ensureCodexConfigInSandbox(args: {
     sandbox: args.sandbox,
     codexHome,
     configToml: nextConfig,
+  });
+  await syncCodexConfigToSharedInSandbox({
+    sandbox: args.sandbox,
+    timeoutSeconds: CODEX_CONFIG_SYNC_TIMEOUT_SECONDS,
   });
 }
 
@@ -1298,11 +1306,29 @@ export const closeWorkspacePtySession = action({
         };
       }
       await resolved.sandbox.process.killPtySession(args.sessionId);
+      await syncCodexConfigToSharedInSandbox({
+        sandbox: resolved.sandbox,
+        timeoutSeconds: CODEX_CONFIG_SYNC_TIMEOUT_SECONDS,
+      });
       return {
         ok: true,
       };
     } catch (error) {
       if (isNotFoundError(error)) {
+        try {
+          await syncCodexConfigToSharedInSandbox({
+            sandbox: resolved.sandbox,
+            timeoutSeconds: CODEX_CONFIG_SYNC_TIMEOUT_SECONDS,
+          });
+        } catch (syncError) {
+          return {
+            ok: false,
+            message:
+              syncError instanceof Error
+                ? syncError.message
+                : "Failed to sync Codex config after the terminal session ended.",
+          };
+        }
         return {
           ok: true,
         };
@@ -1395,11 +1421,29 @@ export const closeCodexAuthPtySession = action({
         };
       }
       await resolved.sandbox.process.killPtySession(args.sessionId);
+      await syncCodexConfigToSharedInSandbox({
+        sandbox: resolved.sandbox,
+        timeoutSeconds: CODEX_CONFIG_SYNC_TIMEOUT_SECONDS,
+      });
       return {
         ok: true,
       };
     } catch (error) {
       if (isNotFoundError(error)) {
+        try {
+          await syncCodexConfigToSharedInSandbox({
+            sandbox: resolved.sandbox,
+            timeoutSeconds: CODEX_CONFIG_SYNC_TIMEOUT_SECONDS,
+          });
+        } catch (syncError) {
+          return {
+            ok: false,
+            message:
+              syncError instanceof Error
+                ? syncError.message
+                : "Failed to sync Codex config after the terminal session ended.",
+          };
+        }
         return {
           ok: true,
         };
