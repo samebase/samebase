@@ -23,6 +23,29 @@ const scriptPath = path.join(
   "scripts",
   "daytona-write-source-env.js",
 );
+const convexSyncDevEnvScriptPath = path.join(
+  repoRoot,
+  "scripts",
+  "convex-sync-dev-env.js",
+);
+const makefilePath = path.join(repoRoot, "Makefile");
+const buildIsolatedChildEnv = (
+  overrides: Record<string, string> = {},
+): NodeJS.ProcessEnv => {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    ...overrides,
+  };
+
+  delete env.GIT_DIR;
+  delete env.GIT_WORK_TREE;
+  delete env.GIT_PREFIX;
+  delete env.GIT_INDEX_FILE;
+  delete env.GIT_OBJECT_DIRECTORY;
+  delete env.GIT_COMMON_DIR;
+
+  return env;
+};
 
 describe("daytonaLocalBootstrap", () => {
   beforeAll(() => {
@@ -148,5 +171,116 @@ describe("daytonaLocalBootstrap", () => {
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("cloud dev deployment");
     expect(existsSync(outputPath)).toBe(false);
+  });
+
+  it("fails fast when the source env file is missing CONVEX_DEPLOY_KEY", () => {
+    const sourceEnvPath = path.join(testDir, "missing-deploy-key.env.local");
+    writeFileSync(
+      sourceEnvPath,
+      ["CONVEX_DEPLOYMENT=dev:quiet-robin-508", ""].join("\n"),
+      "utf8",
+    );
+
+    const result = spawnSync(
+      "node",
+      [
+        convexSyncDevEnvScriptPath,
+        "--check-prereqs",
+        "--source-env",
+        sourceEnvPath,
+      ],
+      {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: buildIsolatedChildEnv({
+          CONVEX_DEPLOY_KEY: "",
+        }),
+      },
+    );
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain(
+      "Missing CONVEX_DEPLOY_KEY in source env file",
+    );
+    expect(result.stderr).toContain(sourceEnvPath);
+  });
+
+  it("validates the source env file when CONVEX_DEPLOY_KEY is present", () => {
+    const sourceEnvPath = path.join(testDir, "with-deploy-key.env.local");
+    writeFileSync(
+      sourceEnvPath,
+      [
+        "CONVEX_DEPLOYMENT=dev:quiet-robin-508 # team: nicu, project: noter",
+        "CONVEX_DEPLOY_KEY=dev:quiet-robin-508|secret-token",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const result = spawnSync(
+      "node",
+      [
+        convexSyncDevEnvScriptPath,
+        "--check-prereqs",
+        "--source-env",
+        sourceEnvPath,
+      ],
+      {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: buildIsolatedChildEnv({
+          CONVEX_DEPLOY_KEY: "",
+        }),
+      },
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Validated worktree seed source env");
+    expect(result.stdout).toContain(sourceEnvPath);
+  });
+
+  it("allows daytona-local fallback when no source env is discoverable", () => {
+    const emptyDir = mkdtempSync(
+      path.join(os.tmpdir(), "noter-no-source-env-"),
+    );
+
+    try {
+      const result = spawnSync(
+        "node",
+        [
+          convexSyncDevEnvScriptPath,
+          "--check-prereqs",
+          "--allow-missing-source-env",
+        ],
+        {
+          cwd: emptyDir,
+          encoding: "utf8",
+          env: buildIsolatedChildEnv(),
+        },
+      );
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain(
+        "No cloud dev source env found; allowing local-only seed env.",
+      );
+    } finally {
+      rmSync(emptyDir, { recursive: true, force: true });
+    }
+  });
+
+  it("runs the source env preflight before make anon", () => {
+    const makefile = readFileSync(makefilePath, "utf8");
+
+    expect(makefile).toContain(
+      "node ./scripts/convex-sync-dev-env.js --check-prereqs",
+    );
+    expect(makefile).toContain("--allow-missing-source-env");
+    expect(makefile).toMatch(
+      /^anon:\s*\n\s*\$\(ANON_VALIDATE_SOURCE_ENV_CMD\)/m,
+    );
+    expect(makefile).toMatch(
+      /^anon-once:\s*\n\s*\$\(ANON_VALIDATE_SOURCE_ENV_CMD\)/m,
+    );
+    expect(makefile).toContain("ANON_ALLOW_MISSING_SOURCE_ENV=1; \\");
   });
 });

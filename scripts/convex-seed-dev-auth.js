@@ -26,7 +26,11 @@ if (!localEnv) {
 
 const seedEnv = readEnvFile(seedEnvPath)
 if (!seedEnv) {
-  exitWithError(`Seed env file not found: ${seedEnvPath}`)
+  exitWithError(
+    `Missing required worktree seed env file: ${seedEnvPath}\n` +
+      `Worktree bootstrap requires ${seedEnvPath} before auth seeding can continue.\n` +
+      'Run `node ./scripts/convex-sync-dev-env.js` to generate it, then retry `make anon`.',
+  )
 }
 
 const backendPort = resolveBackendPort(localEnv.vars)
