@@ -87,7 +87,9 @@ describe("daytonaWorkspaceTerminalTabs", () => {
     expect(getWorkspaceTerminalTitle("shell")).toBe("Shell");
     expect(getWorkspaceTerminalTitle("dev_server")).toBe("Dev Server");
     expect(getWorkspaceTerminalHelperText("shell")).toContain("tmux");
-    expect(getWorkspaceTerminalHelperText("shell")).toContain("Open in tab");
+    expect(getWorkspaceTerminalHelperText("shell")).toContain(
+      "Open External Terminal",
+    );
     expect(getWorkspaceTerminalHelperText("dev_server")).toContain("read-only");
     expect(getWorkspaceTerminalHelperText("dev_server")).toContain("tmux");
   });

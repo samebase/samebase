@@ -42,7 +42,6 @@ interface DaytonaWorkspaceButtonProps {
   snapshotError?: string | null;
   disabled?: boolean;
   className?: string;
-  mode?: "full" | "launch";
 }
 
 type StartDaytonaWorkspaceResult = FunctionReturnType<
@@ -91,7 +90,6 @@ export function DaytonaWorkspaceButton({
   snapshotError,
   disabled,
   className,
-  mode = "full",
 }: DaytonaWorkspaceButtonProps) {
   const startDaytonaWorkspace = useAction(
     api.daytona.actions.startDaytonaWorkspace,
@@ -400,15 +398,11 @@ export function DaytonaWorkspaceButton({
         setHasError(false);
         setMessage(result.message ?? `Daytona sandbox ${label} is ready.`);
         setBootstrapLogs(null);
-        if (mode !== "launch") {
-          const nextTerminalSession = await openTerminalSession(true);
-          if (nextTerminalSession) {
-            setTimeToTerminalMs(Math.round(performance.now() - startClickedAt));
-          }
-          await openDevServerTerminalSession(true);
-        } else {
-          setTimeToTerminalMs(null);
+        const nextTerminalSession = await openTerminalSession(true);
+        if (nextTerminalSession) {
+          setTimeToTerminalMs(Math.round(performance.now() - startClickedAt));
         }
+        await openDevServerTerminalSession(true);
       }
     } catch (error) {
       setHasError(true);
@@ -690,7 +684,7 @@ export function DaytonaWorkspaceButton({
     await openDevServerTerminalSession();
   };
 
-  const handleOpenTerminalTab = async () => {
+  const handleOpenExternalTerminal = async () => {
     const url = await fetchTerminalUrl();
     if (!url) {
       return;
@@ -935,61 +929,6 @@ export function DaytonaWorkspaceButton({
     </Button>
   );
 
-  const launchControls = (
-    <div className="flex flex-wrap items-center gap-2">
-      {launchButton}
-      {debugLaunchButton}
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => {
-          void handleOpenTerminalTab();
-        }}
-        disabled={disabled || isOpeningTerminal}
-      >
-        {isOpeningTerminal ? (
-          <>
-            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-            Opening...
-          </>
-        ) : (
-          "Open Terminal"
-        )}
-      </Button>
-    </div>
-  );
-
-  if (mode === "launch") {
-    return (
-      <div className={cn("flex flex-col gap-1", className)}>
-        {launchControls}
-        {startupMetrics && (
-          <div className="text-xs text-muted-foreground">
-            {formatStartupMetricsSummary(startupMetrics)}
-          </div>
-        )}
-        {timeToTerminalMs !== null && (
-          <div className="text-xs text-muted-foreground">
-            Terminal link ready in {formatDuration(timeToTerminalMs)}.
-          </div>
-        )}
-        {message && (
-          <div
-            className={cn(
-              "text-xs",
-              hasError ? "text-red-600" : "text-muted-foreground",
-            )}
-          >
-            {message}
-          </div>
-        )}
-        {!message && launchBlockedMessage && (
-          <div className="text-xs text-red-600">{launchBlockedMessage}</div>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div className={cn("flex flex-col gap-1", className)}>
       <div className="flex flex-wrap items-center gap-2">
@@ -1058,11 +997,11 @@ export function DaytonaWorkspaceButton({
           variant="ghost"
           size="sm"
           onClick={() => {
-            void handleOpenTerminalTab();
+            void handleOpenExternalTerminal();
           }}
           disabled={disabled || isOpeningTerminal}
         >
-          Open in tab
+          Open External Terminal
         </Button>
         <Button
           variant="ghost"
@@ -1351,7 +1290,7 @@ export function DaytonaWorkspaceButton({
       )}
       {timeToTerminalMs !== null && (
         <div className="text-xs text-muted-foreground">
-          Terminal link ready in {formatDuration(timeToTerminalMs)}.
+          Terminal tabs ready in {formatDuration(timeToTerminalMs)}.
         </div>
       )}
       {message && (

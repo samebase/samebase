@@ -167,8 +167,10 @@ When `startDaytonaWorkspace` succeeds for a workspace sandbox:
 3. the response should give the UI enough information to render stable workspace
    terminal tabs immediately
 
-For the first rollout, `mode="launch"` may still skip eager attachment, but it
-should not skip durable session creation.
+The branch/file workspace UI should use the same Daytona control surface as the
+dashboard: create sandbox, create debug sandbox, open shell, open dev server,
+and the terminal tabs. Opening a raw Daytona terminal in a separate browser tab
+remains available only as an explicitly named fallback action.
 
 ### Shell ensure behavior
 
@@ -249,6 +251,11 @@ After creating or opening a sandbox from the full workspace UI:
 2. `Dev Server` also appears immediately as an available tab
 
 This matches the mental model that both durable sessions already exist.
+
+### External terminal fallback
+
+If the embedded PTY hits a Daytona/browser edge case, the UI may still expose a
+manual escape hatch labeled `Open External Terminal`.
 
 ### Reconnect behavior
 

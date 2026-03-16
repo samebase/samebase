@@ -2118,7 +2118,6 @@ function FileViewInner({
                 snapshotStatus={vault.daytonaCurrentSnapshotStatus}
                 snapshotName={vault.daytonaCurrentSnapshotName}
                 snapshotError={vault.daytonaCurrentSnapshotLastError}
-                mode="launch"
                 className="text-xs"
               />
 
