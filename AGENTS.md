@@ -279,6 +279,11 @@ them directly using CLI tools.
 - Before `create pr` or `ship`, verify the branch name is meaningful. If it's
   still an auto-generated random `codex/<word>-<word>-<word>` name, rename it to
   a descriptive `codex/<intent>` branch before pushing/creating the PR.
+- Before `commit`, `create pr`, or `ship`, inspect the diff shape with
+  `git diff --stat` (and `git diff --cached --stat` when relevant). Treat an
+  unusually large burst of added files, vendored third-party trees, or copied
+  upstream assets as suspicious by default. Stop and simplify or explicitly
+  justify the bulk addition before proceeding.
 - Temporary Noter-managed repos created for Playwright/manual testing from a
   worktree must use the prefix `tmp-<worktree-id>-<intent>`. For Codex worktrees
   under `~/.codex/worktrees/<id>/...`, use that folder id as the worktree id.
