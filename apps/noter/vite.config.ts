@@ -4,6 +4,10 @@ import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 import { execSync } from "node:child_process";
 import { readPackageVersion } from "../../scripts/readPackageVersion.js";
+import {
+  readEnvFileValue,
+  resolveDaytonaConvexProxyTarget,
+} from "./daytonaConvexProxy";
 
 const gitRoot = path.resolve(__dirname, "..", "..");
 const DAYTONA_CONVEX_PROXY_PATH = "/__noter_daytona_convex";
@@ -29,8 +33,12 @@ const appCommit =
 
 const appRepoUrl = "https://github.com/nicu-chiciuc/noter";
 const daytonaSdkVersion = readPackageVersion("@daytonaio/sdk", import.meta.url);
-const daytonaConvexProxyTarget =
-  process.env.NOTER_DAYTONA_BROWSER_CONVEX_PROXY_TARGET?.trim() || undefined;
+const daytonaLocalEnvPath = path.resolve(__dirname, ".env.local");
+const daytonaConvexProxyTarget = resolveDaytonaConvexProxyTarget({
+  devOrigin: process.env.DEV_ENV_ORIGIN,
+  envProxyTarget: process.env.NOTER_DAYTONA_BROWSER_CONVEX_PROXY_TARGET,
+  localEnvConvexUrl: readEnvFileValue(daytonaLocalEnvPath, "VITE_CONVEX_URL"),
+});
 const daytonaConvexProxyPath = daytonaConvexProxyTarget
   ? DAYTONA_CONVEX_PROXY_PATH
   : null;

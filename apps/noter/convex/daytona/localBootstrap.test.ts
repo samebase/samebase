@@ -117,6 +117,34 @@ describe("daytonaLocalBootstrap", () => {
     });
   });
 
+  it("passes the Daytona browser Convex proxy target through the root dev task", () => {
+    const turboConfigPath = path.join(repoRoot, "turbo.json");
+    const turboConfig: unknown = JSON.parse(
+      readFileSync(turboConfigPath, "utf8"),
+    );
+    const turboTasks =
+      turboConfig &&
+      typeof turboConfig === "object" &&
+      "tasks" in turboConfig &&
+      turboConfig.tasks &&
+      typeof turboConfig.tasks === "object"
+        ? turboConfig.tasks
+        : undefined;
+    const turboDevTask =
+      turboTasks &&
+      "dev" in turboTasks &&
+      turboTasks.dev &&
+      typeof turboTasks.dev === "object"
+        ? turboTasks.dev
+        : undefined;
+    const devEnv =
+      turboDevTask && "env" in turboDevTask && Array.isArray(turboDevTask.env)
+        ? turboDevTask.env
+        : [];
+
+    expect(devEnv).toContain("NOTER_DAYTONA_BROWSER_CONVEX_PROXY_TARGET");
+  });
+
   it("writes a cloud dev source env file from DAYTONA_CONVEX_DEPLOY_KEY", () => {
     const outputPath = path.join(testDir, "daytona-source.local");
     const result = spawnSync("node", [scriptPath, "--output", outputPath], {

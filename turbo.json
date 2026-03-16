@@ -12,7 +12,12 @@
     "dev": {
       "cache": false,
       "persistent": true,
-      "env": ["CONVEX_DEPLOY_KEY", "CONVEX_AGENT_MODE", "DEV_ENV_ORIGIN"]
+      "env": [
+        "CONVEX_DEPLOY_KEY",
+        "CONVEX_AGENT_MODE",
+        "DEV_ENV_ORIGIN",
+        "NOTER_DAYTONA_BROWSER_CONVEX_PROXY_TARGET"
+      ]
     },
     "lint": {
       "dependsOn": ["^build"]
