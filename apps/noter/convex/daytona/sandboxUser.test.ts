@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildEnsureSandboxFishToolingCommand,
   buildEnsureSandboxPreferredInteractiveShellCommand,
   buildRunPtySessionAsSandboxUserInput,
   buildSwitchPtySessionToSandboxUserInput,
+  buildVerifySandboxFishToolingCommand,
   ensureProjectedCodexHomeInSandbox,
-  ensureSandboxFishTooling,
 } from "./sandboxUser";
 
 describe("buildEnsureSandboxPreferredInteractiveShellCommand", () => {
@@ -95,29 +96,38 @@ describe("ensureProjectedCodexHomeInSandbox", () => {
   });
 });
 
-describe("ensureSandboxFishTooling", () => {
-  it("verifies and installs fisher/pure in the sandbox user's fish home", async () => {
-    const commands: string[] = [];
-    const sandbox = {
-      process: {
-        executeCommand: async (command: string) => {
-          commands.push(command);
-          return {
-            exitCode: 0,
-            result: "",
-          };
-        },
-      },
-    };
+describe("buildVerifySandboxFishToolingCommand", () => {
+  it("verifies fisher/pure without mutating the sandbox fish home", () => {
+    const command = buildVerifySandboxFishToolingCommand();
 
-    // @ts-expect-error Test double only implements executeCommand used here.
-    await ensureSandboxFishTooling({ sandbox, timeoutSeconds: 1 });
+    expect(command).toContain("if ! command -v fish >/dev/null 2>&1; then");
+    expect(command).toContain('test -f "$config_home/functions/fisher.fish"');
+    expect(command).toContain('test -f "$config_home/conf.d/_pure_init.fish"');
+    expect(command).toContain('test -f "$config_home/conf.d/pure.fish"');
+    expect(command).not.toContain("curl -fsSL");
+    expect(command).not.toContain("codeload.github.com");
+    expect(command).not.toContain("fish -lc");
+  });
+});
 
-    expect(commands).toHaveLength(1);
-    expect(commands[0]).toContain("if ! command -v fish >/dev/null 2>&1; then");
-    expect(commands[0]).toContain('curl -fsSL "$fisher_url" -o "$fisher_path"');
-    expect(commands[0]).toContain("fisher install $fisher_plugin $pure_plugin");
-    expect(commands[0]).toContain('fish -lc "$verify_command"');
-    expect(commands[0]).toContain("pure-fish/pure@v4.9.0");
+describe("buildEnsureSandboxFishToolingCommand", () => {
+  it("verifies and installs fisher/pure in the sandbox user's fish home", () => {
+    const command = buildEnsureSandboxFishToolingCommand();
+
+    expect(command).toContain("if ! command -v fish >/dev/null 2>&1; then");
+    expect(command).toContain('curl -fsSL "$fisher_url" -o "$fisher_path"');
+    expect(command).toContain(
+      'curl -fsSL "$pure_tarball_url" -o "$tarball_path"',
+    );
+    expect(command).toContain('tar -xzf "$tarball_path" -C "$temp_dir"');
+    expect(command).toContain(
+      'cp -f "$pure_root/conf.d/"*.fish "$config_home/conf.d/"',
+    );
+    expect(command).toContain(
+      "https://codeload.github.com/pure-fish/pure/tar.gz/v4.9.0",
+    );
+    expect(command).toContain(
+      'test -f "$config_home/functions/fish_prompt.fish"',
+    );
   });
 });

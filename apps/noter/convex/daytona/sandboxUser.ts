@@ -14,8 +14,9 @@ export const DAYTONA_PREFERRED_INTERACTIVE_SHELL = "/usr/bin/fish";
 const DAYTONA_FALLBACK_INTERACTIVE_SHELL = "/bin/bash";
 const DAYTONA_FISHER_URL =
   "https://raw.githubusercontent.com/jorgebucaran/fisher/4.4.8/functions/fisher.fish";
-const DAYTONA_FISHER_PLUGIN = "jorgebucaran/fisher@4.4.8";
-const DAYTONA_PURE_PLUGIN = "pure-fish/pure@v4.9.0";
+const DAYTONA_PURE_TARBALL_URL =
+  "https://codeload.github.com/pure-fish/pure/tar.gz/v4.9.0";
+const DAYTONA_PURE_ARCHIVE_ROOT = "pure-4.9.0";
 const DAYTONA_CODEX_LOCAL_DIRS = ["tmp", "log"] as const;
 const DAYTONA_CODEX_SHARED_ENTRY_NAMES = ["auth.json", "memories"] as const;
 const DAYTONA_CODEX_LOCAL_SYNCED_FILE_NAMES = ["config.toml"] as const;
@@ -396,12 +397,23 @@ export async function ensureSandboxPreferredInteractiveShell(args: {
   }
 }
 
-export async function ensureSandboxFishTooling(args: {
-  sandbox: Sandbox;
-  timeoutSeconds?: number;
-}): Promise<void> {
-  const timeoutSeconds = args.timeoutSeconds ?? DEFAULT_REPAIR_TIMEOUT_SECONDS;
-  const command = stripIndent`
+export function buildVerifySandboxFishToolingCommand(): string {
+  return stripIndent`
+    if ! command -v fish >/dev/null 2>&1; then
+      echo "__NOTER_FISH_MISSING__"
+      exit 1
+    fi
+    config_home="$HOME/.config/fish"
+    test -f "$config_home/functions/fisher.fish"
+    test -f "$config_home/conf.d/_pure_init.fish"
+    test -f "$config_home/conf.d/pure.fish"
+    test -f "$config_home/functions/fish_prompt.fish"
+  `;
+}
+
+export function buildEnsureSandboxFishToolingCommand(): string {
+  const verifyCommand = buildVerifySandboxFishToolingCommand();
+  return stripIndent`
     set -e
     if ! command -v fish >/dev/null 2>&1; then
       echo "__NOTER_FISH_MISSING__"
@@ -411,34 +423,30 @@ export async function ensureSandboxFishTooling(args: {
     mkdir -p "$config_home/functions" "$config_home/completions" "$config_home/conf.d" "$HOME/.cache" "$HOME/.local/share"
     fisher_path="$config_home/functions/fisher.fish"
     fisher_url=${quoteForShell(DAYTONA_FISHER_URL)}
-    fisher_plugin=${quoteForShell(DAYTONA_FISHER_PLUGIN)}
-    pure_plugin=${quoteForShell(DAYTONA_PURE_PLUGIN)}
+    pure_tarball_url=${quoteForShell(DAYTONA_PURE_TARBALL_URL)}
+    pure_archive_root=${quoteForShell(DAYTONA_PURE_ARCHIVE_ROOT)}
     if [ ! -f "$fisher_path" ]; then
       curl -fsSL "$fisher_url" -o "$fisher_path"
     fi
-    verify_command="functions -q fisher; and test -f ~/.config/fish/conf.d/pure.fish; and test -f ~/.config/fish/functions/fish_prompt.fish; and fisher list | string match -q '*pure-fish/pure*'"
-    if fish -lc "$verify_command"; then
+    if (
+      ${verifyCommand}
+    ) >/dev/null 2>&1; then
       exit 0
     fi
-    install_command="functions -q fisher; or source ~/.config/fish/functions/fisher.fish; fisher install $fisher_plugin $pure_plugin"
-    fish -lc "$install_command"
-    fish -lc "$verify_command"
+    temp_dir="$(mktemp -d)"
+    tarball_path="$temp_dir/pure.tar.gz"
+    pure_root="$temp_dir/$pure_archive_root"
+    curl -fsSL "$pure_tarball_url" -o "$tarball_path"
+    tar -xzf "$tarball_path" -C "$temp_dir"
+    if [ ! -d "$pure_root/conf.d" ] || [ ! -d "$pure_root/functions" ]; then
+      echo "__NOTER_PURE_ARCHIVE_INVALID__"
+      exit 1
+    fi
+    cp -f "$pure_root/conf.d/"*.fish "$config_home/conf.d/"
+    cp -f "$pure_root/functions/"*.fish "$config_home/functions/"
+    rm -rf "$temp_dir"
+    ${verifyCommand}
   `;
-  const result = await executeCommandAsSandboxUser({
-    sandbox: args.sandbox,
-    command,
-    timeoutSeconds,
-  });
-  if (result.exitCode !== 0) {
-    if (result.result.includes("__NOTER_FISH_MISSING__")) {
-      throw new Error(
-        "Failed to install fisher/pure because fish is missing in this sandbox.",
-      );
-    }
-    throw new Error(
-      result.result.trim() || "Failed to install fisher/pure in the sandbox.",
-    );
-  }
 }
 
 export function buildEnsureSandboxPreferredInteractiveShellCommand(): string {

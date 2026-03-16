@@ -25,14 +25,15 @@ import {
   parseDaytonaProvisioningMode,
 } from "./provisioning";
 import {
+  buildEnsureSandboxFishToolingCommand,
   buildSwitchPtySessionToSandboxUserInput,
+  buildVerifySandboxFishToolingCommand,
   DAYTONA_CODEX_HOME,
   DAYTONA_PREFERRED_INTERACTIVE_SHELL,
   DAYTONA_SANDBOX_HOME,
   DAYTONA_SANDBOX_USER,
   DAYTONA_WORKSPACE_DIR,
   ensureProjectedCodexHomeInSandbox,
-  ensureSandboxFishTooling,
   ensureSandboxPreferredInteractiveShell,
   ensureSandboxPathWritableByUser,
   executeCommandAsSandboxUser,
@@ -60,6 +61,7 @@ const MAX_TERMINAL_ROWS = 120;
 const CODEX_DEVICE_AUTH_COMMAND =
   "clear >/dev/null 2>&1; codex login --device-auth; exit\n";
 const DAYTONA_DEV_LOG = "/tmp/noter-dev.log";
+const DAYTONA_FISH_TOOLING_LOG = "/tmp/noter-fish-tooling.log";
 const DEFAULT_PTY_IDLE_CAPTURE_MS = 150;
 const DEFAULT_PTY_CAPTURE_TIMEOUT_MS = 600;
 const CODEX_CONFIG_SYNC_TIMEOUT_SECONDS = 30;
@@ -346,7 +348,22 @@ function buildOpenWorkspaceShellCommand(cwd: string): string {
   const tmuxCommand = buildNonExecTmuxCommand(
     buildCreateOrAttachShellTmuxCommand({ cwd }),
   );
+  const verifyFishToolingCommand = buildVerifySandboxFishToolingCommand();
+  const ensureFishToolingCommand = buildEnsureSandboxFishToolingCommand();
   return stripIndent`
+    if command -v fish >/dev/null 2>&1; then
+      if ! (
+        ${verifyFishToolingCommand}
+      ) >/dev/null 2>&1; then
+        printf '%s\n' '[noter] Installing fisher/pure before opening the shell...'
+        if ! (
+          ${ensureFishToolingCommand}
+        ) >${quoteForShell(DAYTONA_FISH_TOOLING_LOG)} 2>&1; then
+          printf '%s\n' '[noter] fisher/pure install failed; continuing without it.'
+          printf '%s\n' '[noter] See /tmp/noter-fish-tooling.log for details.'
+        fi
+      fi
+    fi
     if command -v tmux >/dev/null 2>&1; then
       ${tmuxCommand}
       tmux_status=$?
@@ -860,17 +877,6 @@ async function openPtySession(args: {
     });
   } catch (error) {
     console.warn("daytona:pty:interactive-shell-sync-skipped", {
-      sandboxId: args.sandbox.id,
-      message: error instanceof Error ? error.message : String(error),
-    });
-  }
-  try {
-    await ensureSandboxFishTooling({
-      sandbox: args.sandbox,
-      timeoutSeconds: 30,
-    });
-  } catch (error) {
-    console.warn("daytona:pty:fish-tooling-sync-skipped", {
       sandboxId: args.sandbox.id,
       message: error instanceof Error ? error.message : String(error),
     });

@@ -341,7 +341,7 @@ describe("openWorkspacePtySession", () => {
     expect(configWriteCommand).not.toContain(DAYTONA_CODEX_SHARED_HOME);
   });
 
-  it("repairs fisher/pure before creating a workspace shell PTY", async () => {
+  it("moves fisher/pure repair into the shell bootstrap input", async () => {
     const commands: string[] = [];
     const sandbox = createSandbox();
     sandbox.process.executeCommand = async (command: string) => {
@@ -383,39 +383,26 @@ describe("openWorkspacePtySession", () => {
       ok: true,
       sessionId: "actual-pty-session-1",
     });
-    const fisherCommandIndex = commands.findIndex((command) =>
-      command.includes('fish -lc "$verify_command"'),
+    expect(
+      commands.some((command) =>
+        command.includes("codeload.github.com/pure-fish/pure/tar.gz/v4.9.0"),
+      ),
+    ).toBe(false);
+    if (typeof result !== "object" || result === null) {
+      throw new Error("Expected workspace PTY result to be an object.");
+    }
+    const initialInput = Reflect.get(result, "initialInput");
+    expect(initialInput).toContain(
+      "Installing fisher/pure before opening the shell",
     );
-    const createPtyIndex = commands.indexOf("createPty");
-    expect(fisherCommandIndex).toBeGreaterThanOrEqual(0);
-    expect(commands[fisherCommandIndex]).toContain(
-      "fisher install $fisher_plugin $pure_plugin",
+    expect(initialInput).toContain("/tmp/noter-fish-tooling.log");
+    expect(initialInput).toContain(
+      "codeload.github.com/pure-fish/pure/tar.gz/v4.9.0",
     );
-    expect(createPtyIndex).toBeGreaterThan(fisherCommandIndex);
+    expect(initialInput).toContain('cp -f "$pure_root/functions/"*.fish');
   });
 
-  it("keeps opening a workspace shell when fish tooling repair fails", async () => {
-    const sandbox = createSandbox();
-    sandbox.process.executeCommand = async (command: string) => {
-      if (command.includes('fish -lc "$verify_command"')) {
-        return {
-          exitCode: 1,
-          result: "simulated fish tooling failure",
-        };
-      }
-      if (command.includes(`cat '${DAYTONA_CODEX_HOME}/config.toml'`)) {
-        return {
-          exitCode: 0,
-          result: "",
-        };
-      }
-      return {
-        exitCode: 0,
-        result: "",
-      };
-    };
-    mockState.sandbox = sandbox;
-
+  it("keeps the shell bootstrap best-effort when fisher/pure install fails", async () => {
     const handler = readActionHandler(openWorkspacePtySession);
     const result = await handler(createWorkspaceActionContext(), {
       vaultId: "vault-1",
@@ -428,8 +415,16 @@ describe("openWorkspacePtySession", () => {
       ok: true,
       sessionId: "actual-pty-session-1",
     });
-    expect(mockState.requestedSessionId).toMatch(/^noter-pty-vault-1-/);
+    if (typeof result !== "object" || result === null) {
+      throw new Error("Expected workspace PTY result to be an object.");
+    }
+    const initialInput = Reflect.get(result, "initialInput");
+    expect(initialInput).toContain(
+      "fisher/pure install failed; continuing without it.",
+    );
+    expect(initialInput).toContain("/tmp/noter-fish-tooling.log");
   });
+
   it("returns the actual Daytona PTY session id for dev server PTYs too", async () => {
     const handler = readActionHandler(openWorkspaceDevServerPtySession);
     const result = await handler(createWorkspaceActionContext(), {
