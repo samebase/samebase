@@ -3039,12 +3039,20 @@ export const startDaytonaWorkspace = action({
           }
           throw lookupError;
         }
-        if (!hasCompatibleSandboxSetup(existingSandbox)) {
+        const existingSandboxMatchesLabels = hasMatchingLabels(existingSandbox);
+        const existingSandboxHasCompatibleSetup =
+          hasCompatibleSandboxSetup(existingSandbox);
+        if (
+          !existingSandboxMatchesLabels ||
+          !existingSandboxHasCompatibleSetup
+        ) {
           console.log("daytona:workspace:recreate-after-create-conflict", {
             vaultId: args.vaultId,
             sandboxId: existingSandbox.id,
             sandboxName,
-            reason: "mismatched_codex_auth_setup",
+            reason: !existingSandboxMatchesLabels
+              ? "mismatched_labels"
+              : "mismatched_codex_auth_setup",
           });
           await existingSandbox.delete();
           sandbox = await daytona.create(sandboxParams);
