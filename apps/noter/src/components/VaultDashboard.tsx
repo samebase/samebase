@@ -1818,7 +1818,10 @@ export function VaultDashboard() {
                           <ChevronDownIcon className="h-3.5 w-3.5 transition-transform" />
                         </Button>
                       </CollapsibleTrigger>
-                      <CollapsibleContent className="space-y-1.5">
+                      <CollapsibleContent
+                        forceMount
+                        className="space-y-1.5 data-[state=closed]:hidden"
+                      >
                         <CodespaceStatus
                           vaultId={vault._id}
                           repositoryFullName={vault.repositoryFullName}

@@ -57,8 +57,8 @@ export function getWorkspaceTerminalHelperText(
   kind: WorkspaceTerminalKind,
 ): string {
   return kind === "dev_server"
-    ? "The dev server terminal is temporarily writable so Daytona bootstrap issues can be debugged in place."
-    : "Use “Open in tab” if the embedded PTY hits a Daytona or browser edge case.";
+    ? "The dev server tab is read-only and reattaches to the sandbox tmux session."
+    : "The shell tab reattaches to the sandbox tmux session. Use “Open External Terminal” if the embedded PTY hits a Daytona or browser edge case.";
 }
 
 export function reduceWorkspaceTerminalState<Session>(

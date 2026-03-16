@@ -17,8 +17,8 @@ if ! command -v fish >/dev/null 2>&1; then
   exit 1
 fi
 fisher_url="https://raw.githubusercontent.com/jorgebucaran/fisher/4.4.8/functions/fisher.fish"
-fisher_plugin="jorgebucaran/fisher@4.4.8"
-pure_plugin="pure-fish/pure@v4.9.0"
+pure_tarball_url="https://codeload.github.com/pure-fish/pure/tar.gz/v4.9.0"
+pure_archive_root="pure-4.9.0"
 ensure_fish_home_dirs() {
   target_home="$1"
   target_owner="$2"
@@ -26,16 +26,6 @@ ensure_fish_home_dirs() {
   mkdir -p "$target_home" "$target_home/.config/fish/functions" "$target_home/.config/fish/completions" "$target_home/.config/fish/conf.d" "$target_home/.cache" "$target_home/.local/share"
   chown "$target_owner:$target_group" "$target_home"
   chown -R "$target_owner:$target_group" "$target_home/.config" "$target_home/.cache" "$target_home/.local"
-}
-run_fish_command() {
-  target_user="$1"
-  target_home="$2"
-  fish_command="$3"
-  if [ "$target_user" = "root" ]; then
-    HOME="$target_home" XDG_CONFIG_HOME="$target_home/.config" XDG_CACHE_HOME="$target_home/.cache" XDG_DATA_HOME="$target_home/.local/share" fish -lc "$fish_command"
-    return 0
-  fi
-  env HOME="$target_home" USER="$target_user" LOGNAME="$target_user" XDG_CONFIG_HOME="$target_home/.config" XDG_CACHE_HOME="$target_home/.cache" XDG_DATA_HOME="$target_home/.local/share" su -m -s "$(command -v fish)" "$target_user" -c "$fish_command"
 }
 install_fish_tooling() {
   target_user="$1"
@@ -45,15 +35,27 @@ install_fish_tooling() {
   ensure_fish_home_dirs "$target_home" "$target_owner" "$target_group"
   curl -fsSL "$fisher_url" -o "$target_home/.config/fish/functions/fisher.fish"
   chown -R "$target_owner:$target_group" "$target_home/.config" "$target_home/.cache" "$target_home/.local"
-  fish_command="functions -q fisher; or source ~/.config/fish/functions/fisher.fish; fisher install $fisher_plugin $pure_plugin"
-  run_fish_command "$target_user" "$target_home" "$fish_command"
+  temp_dir="$(mktemp -d)"
+  tarball_path="$temp_dir/pure.tar.gz"
+  pure_root="$temp_dir/$pure_archive_root"
+  curl -fsSL "$pure_tarball_url" -o "$tarball_path"
+  tar -xzf "$tarball_path" -C "$temp_dir"
+  if [ ! -d "$pure_root/conf.d" ] || [ ! -d "$pure_root/functions" ]; then
+    echo "__NOTER_PURE_ARCHIVE_INVALID__"
+    exit 1
+  fi
+  cp -f "$pure_root/conf.d/"*.fish "$target_home/.config/fish/conf.d/"
+  cp -f "$pure_root/functions/"*.fish "$target_home/.config/fish/functions/"
+  rm -rf "$temp_dir"
   chown -R "$target_owner:$target_group" "$target_home/.config" "$target_home/.cache" "$target_home/.local"
 }
 verify_fish_tooling() {
   target_user="$1"
   target_home="$2"
-  fish_command="functions -q fisher; and test -f ~/.config/fish/conf.d/pure.fish; and test -f ~/.config/fish/functions/fish_prompt.fish; and fisher list | string match -q '*pure-fish/pure*'"
-  run_fish_command "$target_user" "$target_home" "$fish_command"
+  test -f "$target_home/.config/fish/functions/fisher.fish"
+  test -f "$target_home/.config/fish/conf.d/_pure_init.fish"
+  test -f "$target_home/.config/fish/conf.d/pure.fish"
+  test -f "$target_home/.config/fish/functions/fish_prompt.fish"
 }
 ensure_fish_home_dirs /root root root
 if id -u daytona >/dev/null 2>&1; then

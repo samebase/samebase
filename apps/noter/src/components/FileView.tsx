@@ -10,11 +10,21 @@ import {
 } from "@/components/AgentGraphView";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
-import { GitHubLogoIcon, PlusIcon, FilePlusIcon } from "@radix-ui/react-icons";
+import {
+  ChevronDownIcon,
+  GitHubLogoIcon,
+  PlusIcon,
+  FilePlusIcon,
+} from "@radix-ui/react-icons";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { FileTree } from "./FileTree";
 import { CommandPalette } from "./CommandPalette";
@@ -58,6 +68,7 @@ import {
 import { buildFileViewRefreshDebounceKey } from "@/lib/fileViewRefresh";
 import { type GithubTreeType } from "convex/schema";
 import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
+import { DaytonaSnapshotList } from "./DaytonaSnapshotList";
 import { DaytonaWorkspaceButton } from "./DaytonaWorkspaceButton";
 import { DaytonaSnapshotBanner } from "./DaytonaSnapshotBanner";
 import { VaultSyncStatus } from "./VaultSyncStatus";
@@ -716,6 +727,7 @@ function FileViewInner({
   const [showInlinePreviewPatch, setShowInlinePreviewPatch] = useState(
     DEFAULT_SHOW_INLINE_PREVIEW_PATCH,
   );
+  const [developerToolsOpen, setDeveloperToolsOpen] = useState(false);
   const [inlinePreviewSaveError, setInlinePreviewSaveError] = useState<
     string | null
   >(null);
@@ -2090,7 +2102,7 @@ function FileViewInner({
               </Tabs>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-col gap-2">
               <DaytonaSnapshotBanner
                 branch={branch}
                 commitSha={vault.commitSHA}
@@ -2099,95 +2111,121 @@ function FileViewInner({
                 lastError={vault.daytonaCurrentSnapshotLastError}
                 className="w-full"
               />
-              <VaultSyncStatus
-                vaultId={vault._id}
-                repositoryFullName={repositoryFullName}
-                branch={branch}
-                owner={owner}
-                repoName={repoName}
-                commitSha={commitSha}
-                treeRefreshStartedAt={vault.treeRefreshStartedAt}
-                lastTreeRefreshAt={vault.lastTreeRefreshAt}
-                stagedFiles={stagedFiles}
-                disableStagedFilesQuery
-              />
-              <DaytonaWorkspaceButton
-                vaultId={vault._id}
-                branch={branch}
-                commitSha={vault.commitSHA}
-                snapshotStatus={vault.daytonaCurrentSnapshotStatus}
-                snapshotName={vault.daytonaCurrentSnapshotName}
-                snapshotError={vault.daytonaCurrentSnapshotLastError}
-                mode="launch"
-                className="text-xs"
-              />
+              <div className="flex flex-wrap items-center gap-2">
+                <VaultSyncStatus
+                  vaultId={vault._id}
+                  repositoryFullName={repositoryFullName}
+                  branch={branch}
+                  owner={owner}
+                  repoName={repoName}
+                  commitSha={commitSha}
+                  treeRefreshStartedAt={vault.treeRefreshStartedAt}
+                  lastTreeRefreshAt={vault.lastTreeRefreshAt}
+                  stagedFiles={stagedFiles}
+                  disableStagedFilesQuery
+                />
 
-              {viewMode === "editor" && (
+                {viewMode === "editor" && (
+                  <Button
+                    size="sm"
+                    variant={isPreviewOpen ? "secondary" : "outline"}
+                    onClick={() => setIsPreviewOpen((current) => !current)}
+                    className="h-6 px-2 text-xs"
+                  >
+                    {isPreviewOpen ? "Hide Preview" : "Show Preview"}
+                  </Button>
+                )}
+
+                {viewMode === "editor" && (
+                  <Button
+                    size="sm"
+                    variant={
+                      commitReviewMode === "review" ? "secondary" : "outline"
+                    }
+                    onClick={handleToggleReviewMode}
+                    disabled={
+                      commitReviewMode === "editor" &&
+                      (!hasChangesToCommit || commitPreviewStatus === "loading")
+                    }
+                    className="h-6 px-2 text-xs"
+                  >
+                    {commitReviewMode === "review"
+                      ? "Back to Editor"
+                      : commitPreviewStatus === "loading"
+                        ? "Loading..."
+                        : "Review Changes"}
+                  </Button>
+                )}
+
                 <Button
                   size="sm"
-                  variant={isPreviewOpen ? "secondary" : "outline"}
-                  onClick={() => setIsPreviewOpen((current) => !current)}
-                  className="h-6 px-2 text-xs"
-                >
-                  {isPreviewOpen ? "Hide Preview" : "Show Preview"}
-                </Button>
-              )}
-
-              {viewMode === "editor" && (
-                <Button
-                  size="sm"
-                  variant={
-                    commitReviewMode === "review" ? "secondary" : "outline"
-                  }
-                  onClick={handleToggleReviewMode}
+                  variant={hasChangesToCommit ? "default" : "outline"}
+                  onClick={handleManualCommit}
                   disabled={
-                    commitReviewMode === "editor" &&
-                    (!hasChangesToCommit || commitPreviewStatus === "loading")
+                    manualComittingStatus === "loading" || !hasChangesToCommit
                   }
-                  className="h-6 px-2 text-xs"
+                  className={
+                    hasChangesToCommit
+                      ? "h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
+                      : "h-6 px-2 text-xs border-green-500 text-green-600 hover:bg-green-50"
+                  }
                 >
-                  {commitReviewMode === "review"
-                    ? "Back to Editor"
-                    : commitPreviewStatus === "loading"
-                      ? "Loading..."
-                      : "Review Changes"}
+                  {manualComittingStatus === "loading"
+                    ? "Committing..."
+                    : hasChangesToCommit
+                      ? "Commit Now"
+                      : "All Synced"}
                 </Button>
-              )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleResetToGitHub}
+                  disabled={
+                    clearingStagingStatus === "loading" ||
+                    manualComittingStatus === "loading" ||
+                    !hasChangesToCommit
+                  }
+                  className="h-6 px-2 text-xs text-orange-600 hover:text-orange-700"
+                >
+                  {clearingStagingStatus === "loading"
+                    ? "Resetting..."
+                    : "Reset to GitHub"}
+                </Button>
+              </div>
 
-              <Button
-                size="sm"
-                variant={hasChangesToCommit ? "default" : "outline"}
-                onClick={handleManualCommit}
-                disabled={
-                  manualComittingStatus === "loading" || !hasChangesToCommit
-                }
-                className={
-                  hasChangesToCommit
-                    ? "h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
-                    : "h-6 px-2 text-xs border-green-500 text-green-600 hover:bg-green-50"
-                }
+              <Collapsible
+                className="space-y-1.5"
+                open={developerToolsOpen}
+                onOpenChange={setDeveloperToolsOpen}
               >
-                {manualComittingStatus === "loading"
-                  ? "Committing..."
-                  : hasChangesToCommit
-                    ? "Commit Now"
-                    : "All Synced"}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleResetToGitHub}
-                disabled={
-                  clearingStagingStatus === "loading" ||
-                  manualComittingStatus === "loading" ||
-                  !hasChangesToCommit
-                }
-                className="h-6 px-2 text-xs text-orange-600 hover:text-orange-700"
-              >
-                {clearingStagingStatus === "loading"
-                  ? "Resetting..."
-                  : "Reset to GitHub"}
-              </Button>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto self-start gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180"
+                  >
+                    Developer tools
+                    <ChevronDownIcon className="h-3.5 w-3.5 transition-transform" />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent
+                  forceMount
+                  className="space-y-1.5 data-[state=closed]:hidden"
+                >
+                  <DaytonaWorkspaceButton
+                    vaultId={vault._id}
+                    branch={branch}
+                    sandboxId={vault.daytonaSandboxId}
+                    sandboxName={vault.daytonaSandboxName}
+                    commitSha={vault.commitSHA}
+                    snapshotStatus={vault.daytonaCurrentSnapshotStatus}
+                    snapshotName={vault.daytonaCurrentSnapshotName}
+                    snapshotError={vault.daytonaCurrentSnapshotLastError}
+                    className="text-xs"
+                  />
+                  <DaytonaSnapshotList vaultId={vault._id} />
+                </CollapsibleContent>
+              </Collapsible>
             </div>
           </div>
           {commitError ? (
