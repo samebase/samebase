@@ -66,7 +66,7 @@ Daytona fields are persisted on `vaults`:
 1. Requires user GitHub token.
 2. Clones target branch to a temp dir.
 3. Tries deps image candidates from hash/lock hash.
-4. Falls back to base image + install if no deps image template is configured.
+4. Falls back to base image + install if no compatible deps image is available.
 5. Streams build logs into vault fields.
 
 ### 6) Dev control behavior today
