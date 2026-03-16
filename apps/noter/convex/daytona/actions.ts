@@ -25,6 +25,7 @@ import { action, internalAction, type ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { getUserId } from "../common";
 import { getDaytonaEnvLabel } from "./env";
+import { resolveDaytonaDepsImageCandidates } from "./depsImage";
 import {
   DEFAULT_BASE_IMAGE,
   DAYTONA_CODEX_CLI_VERSION,
@@ -79,7 +80,6 @@ const DEFAULT_WORKSPACE_DIR = DAYTONA_WORKSPACE_DIR;
 const DAYTONA_API_URL_ENV = "DAYTONA_API_URL";
 const DAYTONA_API_TOKEN_ENV = "DAYTONA_API_TOKEN";
 const DAYTONA_API_KEY_ENV = "DAYTONA_API_KEY";
-const DAYTONA_DEPS_IMAGE_TEMPLATE_ENV = "DAYTONA_DEPS_IMAGE_TEMPLATE";
 const DAYTONA_BASE_IMAGE_ENV = "DAYTONA_BASE_IMAGE";
 const PNPM_LOCKFILE_NAME = "pnpm-lock.yaml";
 const DAYTONA_DEPS_HASH_INPUT_FILES = [
@@ -233,13 +233,28 @@ function isMissingFileError(error: unknown): boolean {
   return false;
 }
 
-function hasImageTagOrDigest(image: string): boolean {
-  if (image.includes("@")) {
-    return true;
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isRegistryAccessError(error: unknown): boolean {
+  if (typeof error === "object" && error !== null) {
+    const status = Reflect.get(error, "status");
+    if (status === 401 || status === 403) {
+      return true;
+    }
   }
-  const lastColon = image.lastIndexOf(":");
-  const lastSlash = image.lastIndexOf("/");
-  return lastColon > lastSlash;
+
+  const message = getErrorMessage(error).toLowerCase();
+  return (
+    message.includes("401") ||
+    message.includes("403") ||
+    message.includes("unauthorized") ||
+    message.includes("forbidden") ||
+    message.includes("denied") ||
+    message.includes("no basic auth credentials") ||
+    message.includes("authentication required")
+  );
 }
 
 function resolveDaytonaBaseImage(): string {
@@ -492,75 +507,6 @@ async function readDepsInputHash(args: {
 
   return hash.digest("hex");
 }
-
-function replaceTemplateTokens(
-  template: string,
-  replacements: Record<string, string>,
-): string {
-  let result = template;
-  for (const [key, value] of Object.entries(replacements)) {
-    result = result.split(`{${key}}`).join(value);
-    result = result.split("${" + key + "}").join(value);
-  }
-  return result;
-}
-
-function resolveDepsImageNameForTag(args: {
-  owner: string;
-  repo: string;
-  tag: string;
-}): string | null {
-  const templateRaw = process.env[DAYTONA_DEPS_IMAGE_TEMPLATE_ENV];
-  if (!templateRaw || templateRaw.trim().length === 0) {
-    return null;
-  }
-
-  const owner = args.owner.toLowerCase();
-  const repo = args.repo.toLowerCase();
-  let resolved = replaceTemplateTokens(templateRaw.trim(), {
-    owner,
-    repo,
-    inputHash: args.tag,
-    lockHash: args.tag,
-  });
-
-  if (!hasImageTagOrDigest(resolved)) {
-    resolved = `${resolved}:${args.tag}`;
-  }
-
-  return resolved;
-}
-
-function resolveDepsImageNames(args: {
-  owner: string;
-  repo: string;
-  inputHash: string | null;
-  lockHash: string | null;
-}): string[] {
-  const names = new Set<string>();
-  if (args.inputHash) {
-    const image = resolveDepsImageNameForTag({
-      owner: args.owner,
-      repo: args.repo,
-      tag: args.inputHash,
-    });
-    if (image) {
-      names.add(image);
-    }
-  }
-  if (args.lockHash && args.lockHash !== args.inputHash) {
-    const image = resolveDepsImageNameForTag({
-      owner: args.owner,
-      repo: args.repo,
-      tag: args.lockHash,
-    });
-    if (image) {
-      names.add(image);
-    }
-  }
-  return [...names];
-}
-
 type RegistryConfig = {
   url: string;
   username: string;
@@ -1051,7 +997,7 @@ async function resolveDaytonaCodexAuthSandboxImagePlan(args: {
     }),
     readPnpmLockHash(workspaceRoot),
   ]);
-  const depsImageCandidates = resolveDepsImageNames({
+  const depsImageCandidates = resolveDaytonaDepsImageCandidates({
     owner: repoIdentity.owner,
     repo: repoIdentity.repo,
     inputHash: depsInputHash,
@@ -4833,7 +4779,7 @@ export const buildCommitPinnedSnapshot = internalAction({
           baseImage: resolveDaytonaBaseImage(),
           pnpmVersion: DAYTONA_PNPM_VERSION,
         });
-        const depsImageCandidates = resolveDepsImageNames({
+        const depsImageCandidates = resolveDaytonaDepsImageCandidates({
           owner: args.owner,
           repo: args.repo,
           inputHash: depsInputHash,
@@ -4865,11 +4811,12 @@ export const buildCommitPinnedSnapshot = internalAction({
               `Registry ${registryStatus.status}: ${registryConfigResult.config.url}\n`,
             );
           } catch (error) {
-            const message = `Registry setup failed: ${
-              error instanceof Error ? error.message : String(error)
-            }\n`;
-            await appendPrebuildLog(message);
-            throw new Error(message.trim());
+            await appendPrebuildLog(
+              `Registry setup failed: ${getErrorMessage(error)}\n`,
+            );
+            await appendPrebuildLog(
+              "Continuing without refreshed registry auth and falling back if deps images remain unavailable.\n",
+            );
           }
         }
 
@@ -4926,8 +4873,8 @@ export const buildCommitPinnedSnapshot = internalAction({
           );
         };
 
+        let selectedDepsImage: string | null = null;
         if (depsImageCandidates.length > 0) {
-          let selectedDepsImage: string | null = null;
           const missingDepsImages: string[] = [];
           for (const depsImage of depsImageCandidates) {
             try {
@@ -4944,29 +4891,38 @@ export const buildCommitPinnedSnapshot = internalAction({
                 await appendPrebuildLog(`Deps image not found: ${depsImage}\n`);
                 continue;
               }
+              if (isRegistryAccessError(error)) {
+                missingDepsImages.push(depsImage);
+                await appendPrebuildLog(
+                  `Deps image unavailable due to registry access: ${depsImage} (${getErrorMessage(error)})\n`,
+                );
+                continue;
+              }
               await appendPrebuildLog(
-                `Snapshot build failed: ${
-                  error instanceof Error ? error.message : String(error)
-                }\n`,
+                `Snapshot build failed: ${getErrorMessage(error)}\n`,
               );
               throw error;
             }
           }
-
           if (!selectedDepsImage) {
             const missingList =
               missingDepsImages.length > 0
                 ? missingDepsImages.join(", ")
                 : "none";
-            const message = `Deps image not found for candidates: ${missingList}. Build and publish the deps image first.`;
-            await appendPrebuildLog(`${message}\n`);
-            throw new Error(message);
+            await appendPrebuildLog(
+              `Deps images unavailable (${missingList}); installing dependencies in snapshot instead.\n`,
+            );
           }
-        } else {
-          await appendPrebuildLog(
-            "No deps image configured; installing dependencies in snapshot.\n",
-          );
+        }
+        if (!selectedDepsImage) {
+          const fallbackReason =
+            depsImageCandidates.length > 0
+              ? null
+              : "No hash-derived deps image candidates resolved; installing dependencies in snapshot.\n";
           const fallbackBaseImage = resolveDaytonaBaseImage();
+          if (fallbackReason) {
+            await appendPrebuildLog(fallbackReason);
+          }
           await appendPrebuildLog(
             `Using base image ${fallbackBaseImage} for fallback snapshot build.\n`,
           );
