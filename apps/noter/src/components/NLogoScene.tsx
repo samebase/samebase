@@ -23,6 +23,7 @@ const DRAG_ELEVATION_DEGREES_PER_PIXEL = 0.18;
 const DRAG_THRESHOLD_PX = 4;
 const RAYCAST_OFFSET = 0.001;
 const ORBIT_RIGHT_AXIS = new THREE.Vector3(1, 0, -1).normalize();
+const CAMERA_FRUSTUM_PADDING = 1.12;
 
 type Rectangle = {
   row: number;
@@ -53,6 +54,7 @@ type SceneState = {
   logoMesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial[]>;
   raycaster: THREE.Raycaster;
   renderer: THREE.WebGLRenderer;
+  resizeScene: () => void;
 };
 
 type NLogoSceneProps = {
@@ -478,15 +480,12 @@ export function NLogoScene({
     );
     scene.add(logoMesh);
 
-    sceneStateRef.current = {
-      camera,
-      filledVoxels: initialFilledVoxels,
-      logoMesh,
-      raycaster: new THREE.Raycaster(),
-      renderer,
+    const getFrustumHalfSpan = () => {
+      const radius =
+        logoMesh.geometry.boundingSphere?.radius ?? HALF_GRID * Math.sqrt(3);
+      return radius * CAMERA_FRUSTUM_PADDING;
     };
 
-    const frustumHeight = 3.7;
     const updateCameraPosition = () => {
       const elevationRadians = THREE.MathUtils.degToRad(
         elevationDegreesRef.current,
@@ -505,24 +504,38 @@ export function NLogoScene({
       camera.lookAt(0, 0, 0);
     };
 
-    const resize = () => {
+    const resizeScene = () => {
       const width = container.clientWidth || 640;
       const height = container.clientHeight || 768;
       const aspect = width / height;
+      const frustumHalfSpan = getFrustumHalfSpan();
+      const frustumHalfHeight = Math.max(
+        frustumHalfSpan,
+        frustumHalfSpan / Math.max(aspect, 0.0001),
+      );
       renderer.setSize(width, height, false);
-      camera.left = -frustumHeight * aspect;
-      camera.right = frustumHeight * aspect;
-      camera.top = frustumHeight;
-      camera.bottom = -frustumHeight;
+      camera.left = -frustumHalfHeight * aspect;
+      camera.right = frustumHalfHeight * aspect;
+      camera.top = frustumHalfHeight;
+      camera.bottom = -frustumHalfHeight;
       updateCameraPosition();
       camera.updateProjectionMatrix();
       renderer.render(scene, camera);
     };
 
-    resize();
+    sceneStateRef.current = {
+      camera,
+      filledVoxels: initialFilledVoxels,
+      logoMesh,
+      raycaster: new THREE.Raycaster(),
+      renderer,
+      resizeScene,
+    };
+
+    resizeScene();
 
     const resizeObserver = new ResizeObserver(() => {
-      resize();
+      resizeScene();
     });
     resizeObserver.observe(container);
 
@@ -570,6 +583,7 @@ export function NLogoScene({
     const previousGeometry = sceneState.logoMesh.geometry;
     sceneState.logoMesh.geometry = buildVoxelSurfaceGeometry(nextFilledVoxels);
     sceneState.filledVoxels = nextFilledVoxels;
+    sceneState.resizeScene();
     previousGeometry.dispose();
   }, [voxelState]);
 
