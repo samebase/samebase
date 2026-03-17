@@ -2,6 +2,7 @@ import {
   getTailwindColorHex,
   type FaceColors,
 } from "@/components/logoTailwindColors";
+import { getShuffleOriginCandidates } from "@/components/logoShuffleRules";
 import {
   HALF_GRID,
   GRID_SIZE,
@@ -33,14 +34,6 @@ const CAMERA_FRUSTUM_PADDING = 1.12;
 const SHUFFLE_MOVE_DURATION_MS = 1800;
 const SHUFFLE_MOVE_STAGGER_MS = 520;
 const WORLD_CENTER_OFFSET = (GRID_SIZE - 1) / 2;
-const ADJACENT_VOXEL_OFFSETS = [
-  [1, 0, 0],
-  [-1, 0, 0],
-  [0, 1, 0],
-  [0, -1, 0],
-  [0, 0, 1],
-  [0, 0, -1],
-] as const;
 
 export const LOGO_SHUFFLE_PARALLEL_OPTIONS = [1, 2, 3] as const;
 export type LogoShuffleParallelMoves =
@@ -162,14 +155,6 @@ function randomValueFrom<T>(values: readonly T[]): T | null {
   }
 
   return values[Math.floor(Math.random() * values.length)] ?? null;
-}
-
-function voxelCoordinateFromKey(key: string): VoxelCoordinate {
-  const [xText, yText, zText] = key.split(",");
-  const x = Number.parseInt(xText, 10);
-  const y = Number.parseInt(yText, 10);
-  const z = Number.parseInt(zText, 10);
-  return [x, y, z];
 }
 
 function isVoxelFilled(
@@ -535,36 +520,11 @@ function resetShuffleAnimation(
   lastMovedCubeKeyRef.current = null;
 }
 
-function getAdjacentFreeDestinations(
-  filledVoxels: Set<string>,
-  blockedKeys: Set<string>,
-  from: VoxelCoordinate,
-): VoxelCoordinate[] {
-  const destinations: VoxelCoordinate[] = [];
-
-  for (const [offsetX, offsetY, offsetZ] of ADJACENT_VOXEL_OFFSETS) {
-    const nextX = from[0] + offsetX;
-    const nextY = from[1] + offsetY;
-    const nextZ = from[2] + offsetZ;
-
-    if (!isWithinGrid(nextX, nextY, nextZ)) {
-      continue;
-    }
-
-    const nextKey = voxelKey(nextX, nextY, nextZ);
-    if (filledVoxels.has(nextKey) || blockedKeys.has(nextKey)) {
-      continue;
-    }
-
-    destinations.push([nextX, nextY, nextZ]);
-  }
-
-  return destinations;
-}
-
 function scheduleNextCubeMove(
   sceneState: SceneState,
+  elevationDegrees: number,
   lastMovedCubeKeyRef: MutableRefObject<string | null>,
+  rotationDegrees: number,
   startTimeMs: number,
 ): boolean {
   const blockedKeys = new Set<string>();
@@ -573,32 +533,13 @@ function scheduleNextCubeMove(
     blockedKeys.add(move.toKey);
   }
 
-  const originCandidates: Array<{
-    destinations: VoxelCoordinate[];
-    from: VoxelCoordinate;
-    fromKey: string;
-  }> = [];
-  for (const fromKey of sceneState.currentFilledVoxels) {
-    if (blockedKeys.has(fromKey) || fromKey === lastMovedCubeKeyRef.current) {
-      continue;
-    }
-
-    const fromCoordinate = voxelCoordinateFromKey(fromKey);
-    const destinations = getAdjacentFreeDestinations(
-      sceneState.currentFilledVoxels,
-      blockedKeys,
-      fromCoordinate,
-    );
-    if (destinations.length === 0) {
-      continue;
-    }
-
-    originCandidates.push({
-      destinations,
-      from: fromCoordinate,
-      fromKey,
-    });
-  }
+  const originCandidates = getShuffleOriginCandidates({
+    blockedKeys,
+    elevationDegrees,
+    filledVoxels: sceneState.currentFilledVoxels,
+    lastMovedCubeKey: lastMovedCubeKeyRef.current,
+    rotationDegrees,
+  });
 
   const nextMove = randomValueFrom(originCandidates);
   if (!nextMove) {
@@ -633,8 +574,10 @@ function scheduleNextCubeMove(
 
 function syncCubeShuffleAnimation(
   sceneState: SceneState,
+  elevationDegrees: number,
   lastMovedCubeKeyRef: MutableRefObject<string | null>,
   parallelMoves: LogoShuffleParallelMoves,
+  rotationDegrees: number,
   timestampMs: number,
 ) {
   const completedMoves: ActiveCubeMove[] = [];
@@ -684,7 +627,9 @@ function syncCubeShuffleAnimation(
   while (sceneState.activeCubeMoves.length < parallelMoves) {
     const didScheduleMove = scheduleNextCubeMove(
       sceneState,
+      elevationDegrees,
       lastMovedCubeKeyRef,
+      rotationDegrees,
       timestampMs + sceneState.activeCubeMoves.length * SHUFFLE_MOVE_STAGGER_MS,
     );
     if (!didScheduleMove) {
@@ -882,8 +827,10 @@ export function NLogoScene({
       if (sceneState && shuffleAnimationRef.current.enabled) {
         syncCubeShuffleAnimation(
           sceneState,
+          elevationDegreesRef.current,
           lastMovedCubeKeyRef,
           shuffleAnimationRef.current.parallelMoves,
+          rotationDegreesRef.current,
           timestampMs,
         );
       }
