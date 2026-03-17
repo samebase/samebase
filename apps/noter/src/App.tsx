@@ -7,6 +7,7 @@ import { FileView } from "@/components/FileView";
 import { AddRepository } from "@/components/AddRepository";
 import { ChatFab } from "@/components/ChatFab";
 import { CodespaceChatOnlyView } from "@/components/CodespaceChatOnlyView";
+import { LogoPreviewPage } from "@/components/LogoPreviewPage";
 import { PricingPage } from "@/components/PricingPage";
 import { NetlifyOAuthCallback } from "@/components/NetlifyOAuthCallback";
 import { Button } from "@/components/ui/button";
@@ -267,6 +268,11 @@ export default function App() {
   );
   const showChatFab = !isChatOnlyCodespaceRoute(location.pathname);
   const showMcpConsent = onMcpConsentRoute && mcpConsentRequestId !== null;
+  const showLogoPreview = location.pathname === "/logo";
+
+  if (showLogoPreview) {
+    return <LogoPreviewPage />;
+  }
 
   if (showMcpConsent) {
     return (
