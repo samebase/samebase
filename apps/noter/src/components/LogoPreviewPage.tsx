@@ -33,7 +33,7 @@ import {
   MAX_ELEVATION_DEGREES,
   MIN_ELEVATION_DEGREES,
   applyVoxelEdit,
-  clampElevationDegrees,
+  normalizeElevationDegrees,
   normalizeRotationDegrees,
   parseVoxelState,
   serializeVoxelState,
@@ -164,7 +164,7 @@ export function LogoPreviewPage() {
 
   const handleElevationChange = (event: ChangeEvent<HTMLInputElement>) => {
     setIsAutoRotating(false);
-    setElevationDegrees(clampElevationDegrees(Number(event.target.value)));
+    setElevationDegrees(normalizeElevationDegrees(Number(event.target.value)));
   };
 
   const handleRotationInputChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -182,7 +182,7 @@ export function LogoPreviewPage() {
       return;
     }
     setIsAutoRotating(false);
-    setElevationDegrees(clampElevationDegrees(nextValue));
+    setElevationDegrees(normalizeElevationDegrees(nextValue));
   };
 
   const handleSceneViewChange = ({

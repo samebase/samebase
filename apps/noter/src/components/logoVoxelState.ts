@@ -2,8 +2,8 @@ export const GRID_SIZE = 3;
 export const HALF_GRID = GRID_SIZE / 2;
 export const DEFAULT_ROTATION_DEGREES = 0;
 export const DEFAULT_ELEVATION_DEGREES = 29.5;
-export const MIN_ELEVATION_DEGREES = -75;
-export const MAX_ELEVATION_DEGREES = 75;
+export const MIN_ELEVATION_DEGREES = 0;
+export const MAX_ELEVATION_DEGREES = 360;
 const LEGACY_VOXEL_LAYER_SEPARATOR = ",";
 const LEGACY_VOXEL_ROW_SEPARATOR = "/";
 const VOXEL_LAYER_SEPARATOR = "-";
@@ -56,11 +56,8 @@ export function normalizeRotationDegrees(value: number): number {
   return wrappedValue;
 }
 
-export function clampElevationDegrees(value: number): number {
-  return Math.min(
-    MAX_ELEVATION_DEGREES,
-    Math.max(MIN_ELEVATION_DEGREES, value),
-  );
+export function normalizeElevationDegrees(value: number): number {
+  return normalizeRotationDegrees(value);
 }
 
 export function createFilledVoxelSet(

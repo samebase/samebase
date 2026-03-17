@@ -5,9 +5,9 @@ import {
 import {
   HALF_GRID,
   GRID_SIZE,
-  clampElevationDegrees,
   createDefaultFilledVoxelSet,
   isWithinGrid,
+  normalizeElevationDegrees,
   normalizeRotationDegrees,
   parseVoxelState,
   type VoxelCoordinate,
@@ -22,6 +22,7 @@ const DRAG_ROTATION_DEGREES_PER_PIXEL = 0.35;
 const DRAG_ELEVATION_DEGREES_PER_PIXEL = 0.18;
 const DRAG_THRESHOLD_PX = 4;
 const RAYCAST_OFFSET = 0.001;
+const ORBIT_RIGHT_AXIS = new THREE.Vector3(1, 0, -1).normalize();
 
 type Rectangle = {
   row: number;
@@ -497,6 +498,10 @@ export function NLogoScene({
       camera.position
         .set(diagonalComponent, verticalComponent, diagonalComponent)
         .setLength(ISOMETRIC_CAMERA_DISTANCE);
+      const forward = camera.position.clone().normalize().multiplyScalar(-1);
+      camera.up.copy(
+        new THREE.Vector3().crossVectors(ORBIT_RIGHT_AXIS, forward).normalize(),
+      );
       camera.lookAt(0, 0, 0);
     };
 
@@ -698,7 +703,7 @@ export function NLogoScene({
     }
 
     onViewChangeRef.current({
-      elevationDegrees: clampElevationDegrees(
+      elevationDegrees: normalizeElevationDegrees(
         interaction.startElevationDegrees +
           deltaY * DRAG_ELEVATION_DEGREES_PER_PIXEL,
       ),
