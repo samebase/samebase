@@ -13,6 +13,11 @@ import {
   type FaceColors,
 } from "@/components/logoTailwindColors";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -34,14 +39,15 @@ import {
   serializeVoxelState,
   type VoxelEdit,
 } from "@/components/logoVoxelState";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const FACE_COLOR_LABELS: Record<FaceColorKey, string> = {
-  left: "Left face",
-  right: "Right face",
-  top: "Top face",
+  left: "Left",
+  right: "Right",
+  top: "Top",
 };
 
 function ColorSwatch({
@@ -102,6 +108,8 @@ export function LogoPreviewPage() {
   );
   const [faceColors, setFaceColors] = useState<FaceColors>(DEFAULT_FACE_COLORS);
   const [isAutoRotating, setIsAutoRotating] = useState(false);
+  const [isFaceColorsOpen, setIsFaceColorsOpen] = useState(false);
+  const [isVoxelMapOpen, setIsVoxelMapOpen] = useState(false);
   const lastFrameTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -222,19 +230,36 @@ export function LogoPreviewPage() {
   };
 
   return (
-    <div className="flex min-h-screen w-full flex-col overflow-hidden bg-[#f5f5f0]">
-      <div className="mx-auto flex w-full max-w-[960px] px-8 pt-8 sm:px-12">
-        <div className="w-full max-w-[520px] border border-black/10 bg-white/80 p-4 backdrop-blur-sm">
-          <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-            View Controls
+    <div className="min-h-screen w-full bg-[#f5f5f0]">
+      <div className="mx-auto grid min-h-screen w-full max-w-[1280px] gap-4 px-4 py-4 sm:px-8 lg:grid-cols-[320px_minmax(0,1fr)] lg:gap-6 lg:px-8 lg:py-6">
+        <div className="border border-black/10 bg-white/80 p-3 backdrop-blur-sm lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:self-start lg:overflow-y-auto">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                Logo
+              </div>
+              <div className="mt-1 text-xs text-black/55">
+                Drag to orbit. Left adds. Right removes.
+              </div>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              className="rounded-none"
+              onClick={() => {
+                setIsAutoRotating((currentValue) => !currentValue);
+              }}
+            >
+              {isAutoRotating ? "Stop" : "Auto"}
+            </Button>
           </div>
-          <div className="mt-4 grid gap-4">
+          <div className="mt-4 grid gap-3">
             <div className="grid gap-2">
               <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                 <span>Yaw</span>
                 <span>{rotationDegrees.toFixed(1)}°</span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <input
                   type="range"
                   min="0"
@@ -252,7 +277,7 @@ export function LogoPreviewPage() {
                   step="0.1"
                   value={rotationDegrees.toFixed(1)}
                   onChange={handleRotationInputChange}
-                  className="w-24 border-black/10 bg-white/90 font-mono text-sm"
+                  className="h-9 w-20 rounded-none border-black/10 bg-white/90 px-2 font-mono text-sm"
                 />
               </div>
             </div>
@@ -261,7 +286,7 @@ export function LogoPreviewPage() {
                 <span>Elevation</span>
                 <span>{elevationDegrees.toFixed(1)}°</span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <input
                   type="range"
                   min={MIN_ELEVATION_DEGREES}
@@ -279,39 +304,112 @@ export function LogoPreviewPage() {
                   step="0.1"
                   value={elevationDegrees.toFixed(1)}
                   onChange={handleElevationInputChange}
-                  className="w-24 border-black/10 bg-white/90 font-mono text-sm"
+                  className="h-9 w-20 rounded-none border-black/10 bg-white/90 px-2 font-mono text-sm"
                 />
               </div>
             </div>
-            <div className="grid gap-3">
-              <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                Face Colors
-              </div>
-              <div className="grid gap-3">
-                {FACE_COLOR_KEYS.map((faceColorKey) => {
-                  const currentToken = faceColors[faceColorKey];
-                  const currentFamily = getTailwindColorFamily(currentToken);
-                  const currentShade = getTailwindColorShade(currentToken);
-                  const availableShades = getTailwindColorShades(currentFamily);
-                  const currentFamilyHex =
-                    getTailwindColorFamilyHex(currentFamily);
-
-                  return (
-                    <div key={faceColorKey} className="grid gap-2">
-                      <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                        <Label className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                          {FACE_COLOR_LABELS[faceColorKey]}
-                        </Label>
-                        <span className="font-mono normal-case tracking-normal text-black/70">
-                          {currentToken}
-                        </span>
-                      </div>
-                      <div className="flex items-start gap-3">
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-none"
+                onClick={() => {
+                  setIsAutoRotating(false);
+                  setRotationDegrees(DEFAULT_ROTATION_DEGREES);
+                  setElevationDegrees(DEFAULT_ELEVATION_DEGREES);
+                }}
+              >
+                Reset view
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-none"
+                onClick={() => {
+                  setFaceColors(DEFAULT_FACE_COLORS);
+                }}
+              >
+                Reset colors
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-none"
+                onClick={() => {
+                  setIsAutoRotating(false);
+                  setVoxelState(DEFAULT_VOXEL_STATE);
+                }}
+              >
+                Reset shape
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-none"
+                onClick={() => {
+                  setRotationDegrees((currentRotationDegrees) =>
+                    normalizeRotationDegrees(currentRotationDegrees + 45),
+                  );
+                }}
+              >
+                +45°
+              </Button>
+            </div>
+            <Collapsible
+              open={isFaceColorsOpen}
+              onOpenChange={setIsFaceColorsOpen}
+            >
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between border border-black/10 bg-white/70 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.2em] text-black/55"
+                >
+                  <span>Face Colors</span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      {FACE_COLOR_KEYS.map((faceColorKey) => (
                         <ColorSwatch
-                          color={getTailwindColorHex(currentToken)}
-                          sizeClassName="h-10 w-10"
+                          key={faceColorKey}
+                          color={getTailwindColorHex(faceColors[faceColorKey])}
+                          sizeClassName="h-3.5 w-3.5"
                         />
-                        <div className="grid w-full gap-2 sm:grid-cols-2">
+                      ))}
+                    </div>
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform ${
+                        isFaceColorsOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </div>
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-3">
+                <div className="grid gap-3">
+                  {FACE_COLOR_KEYS.map((faceColorKey) => {
+                    const currentToken = faceColors[faceColorKey];
+                    const currentFamily = getTailwindColorFamily(currentToken);
+                    const currentShade = getTailwindColorShade(currentToken);
+                    const availableShades =
+                      getTailwindColorShades(currentFamily);
+                    const currentFamilyHex =
+                      getTailwindColorFamilyHex(currentFamily);
+
+                    return (
+                      <div key={faceColorKey} className="grid gap-2">
+                        <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                          <ColorSwatch
+                            color={getTailwindColorHex(currentToken)}
+                            sizeClassName="h-3.5 w-3.5"
+                          />
+                          <Label className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                            {FACE_COLOR_LABELS[faceColorKey]}
+                          </Label>
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-2">
                           <Select
                             value={currentFamily}
                             onValueChange={(value) =>
@@ -320,7 +418,7 @@ export function LogoPreviewPage() {
                           >
                             <SelectTrigger
                               aria-label={`${FACE_COLOR_LABELS[faceColorKey]} family`}
-                              className="h-10 rounded-none border-black/10 bg-white/90 text-sm text-black/80 shadow-none"
+                              className="h-9 rounded-none border-black/10 bg-white/90 px-2 text-sm text-black/80 shadow-none"
                             >
                               <ColorOptionContent
                                 color={currentFamilyHex}
@@ -350,7 +448,7 @@ export function LogoPreviewPage() {
                           >
                             <SelectTrigger
                               aria-label={`${FACE_COLOR_LABELS[faceColorKey]} shade`}
-                              className="h-10 rounded-none border-black/10 bg-white/90 text-sm text-black/80 shadow-none"
+                              className="h-9 rounded-none border-black/10 bg-white/90 px-2 text-sm text-black/80 shadow-none"
                             >
                               <ColorOptionContent
                                 color={getTailwindColorHex(currentToken)}
@@ -385,80 +483,47 @@ export function LogoPreviewPage() {
                           </Select>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                Voxel Map
-              </div>
-              <pre className="overflow-x-auto border border-black/10 bg-white/90 p-3 font-mono text-xs text-black/70">
-                {voxelState}
-              </pre>
-            </div>
-          </div>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <Button
-              type="button"
-              onClick={() => {
-                setIsAutoRotating((currentValue) => !currentValue);
-              }}
-            >
-              {isAutoRotating ? "Stop auto-rotate" : "Auto-rotate"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsAutoRotating(false);
-                setRotationDegrees(DEFAULT_ROTATION_DEGREES);
-                setElevationDegrees(DEFAULT_ELEVATION_DEGREES);
-              }}
-            >
-              Reset view
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setFaceColors(DEFAULT_FACE_COLORS);
-              }}
-            >
-              Reset colors
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsAutoRotating(false);
-                setVoxelState(DEFAULT_VOXEL_STATE);
-              }}
-            >
-              Reset shape
-            </Button>
-          </div>
-          <div className="mt-3 text-xs text-black/55">
-            Drag the logo to orbit it. Left click adds a cube on the clicked
-            face. Right click removes the clicked cube. `vox` uses rows split by
-            `_` and layers split by `-`.
+                    );
+                  })}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+            <Collapsible open={isVoxelMapOpen} onOpenChange={setIsVoxelMapOpen}>
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between border border-black/10 bg-white/70 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.2em] text-black/55"
+                >
+                  <span>Voxel Map</span>
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform ${
+                      isVoxelMapOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-3">
+                <pre className="overflow-x-auto border border-black/10 bg-white/90 p-3 font-mono text-[11px] text-black/70">
+                  {voxelState}
+                </pre>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
         </div>
-      </div>
-      <div className="mx-auto flex w-full max-w-[960px] flex-1 items-center justify-center px-8 pb-10 pt-6 sm:px-12">
-        <NLogoScene
-          className="aspect-[5/6] w-full max-w-[640px] cursor-grab touch-none select-none active:cursor-grabbing"
-          elevationDegrees={elevationDegrees}
-          faceColors={faceColors}
-          onInteractionStart={() => {
-            setIsAutoRotating(false);
-          }}
-          onViewChange={handleSceneViewChange}
-          onVoxelEdit={handleVoxelEdit}
-          rotationDegrees={rotationDegrees}
-          voxelState={voxelState}
-        />
+        <div className="flex min-h-[52vh] items-center justify-center lg:min-h-[calc(100vh-3rem)]">
+          <NLogoScene
+            className="h-[52vh] min-h-[360px] w-full cursor-grab touch-none select-none active:cursor-grabbing lg:h-[calc(100vh-3rem)]"
+            elevationDegrees={elevationDegrees}
+            faceColors={faceColors}
+            onInteractionStart={() => {
+              setIsAutoRotating(false);
+            }}
+            onViewChange={handleSceneViewChange}
+            onVoxelEdit={handleVoxelEdit}
+            rotationDegrees={rotationDegrees}
+            voxelState={voxelState}
+          />
+        </div>
       </div>
     </div>
   );
