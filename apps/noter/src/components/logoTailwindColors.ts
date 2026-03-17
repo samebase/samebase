@@ -4,6 +4,103 @@ export type FaceColorKey = "left" | "right" | "top";
 export type FaceColors = Record<FaceColorKey, string>;
 export type TailwindColorFamily = string;
 export type TailwindColorShade = string;
+type ThemeColorSource = {
+  cssVariable: `--${string}`;
+  fallbackHex: string;
+};
+type ColorSource = string | ThemeColorSource;
+
+function readThemeColor(cssVariable: `--${string}`): string | null {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const hslValue = window
+    .getComputedStyle(document.documentElement)
+    .getPropertyValue(cssVariable)
+    .trim();
+  if (!hslValue) {
+    return null;
+  }
+
+  const parts = hslValue
+    .replaceAll("/", " ")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 3)
+    .map((part) => Number.parseFloat(part.replace("%", "")));
+  if (parts.length !== 3 || parts.some((part) => Number.isNaN(part))) {
+    return null;
+  }
+
+  const [hue, saturation, lightness] = parts;
+  const normalizedSaturation = saturation / 100;
+  const normalizedLightness = lightness / 100;
+  const chroma =
+    (1 - Math.abs(2 * normalizedLightness - 1)) * normalizedSaturation;
+  const secondary = chroma * (1 - Math.abs(((hue / 60) % 2) - 1));
+  const match = normalizedLightness - chroma / 2;
+
+  let red = 0;
+  let green = 0;
+  let blue = 0;
+
+  if (hue < 60) {
+    red = chroma;
+    green = secondary;
+  } else if (hue < 120) {
+    red = secondary;
+    green = chroma;
+  } else if (hue < 180) {
+    green = chroma;
+    blue = secondary;
+  } else if (hue < 240) {
+    green = secondary;
+    blue = chroma;
+  } else if (hue < 300) {
+    red = secondary;
+    blue = chroma;
+  } else {
+    red = chroma;
+    blue = secondary;
+  }
+
+  const toHex = (value: number) =>
+    Math.round((value + match) * 255)
+      .toString(16)
+      .padStart(2, "0");
+
+  return `#${toHex(red)}${toHex(green)}${toHex(blue)}`;
+}
+
+function resolveColorSource(source: ColorSource): string {
+  if (typeof source === "string") {
+    return source;
+  }
+
+  return readThemeColor(source.cssVariable) ?? source.fallbackHex;
+}
+
+const themeTailwindColorScales = {
+  primary: {
+    base: {
+      cssVariable: "--primary",
+      fallbackHex: "#1c1917",
+    },
+  },
+  background: {
+    base: {
+      cssVariable: "--background",
+      fallbackHex: "#ffffff",
+    },
+  },
+  secondary: {
+    base: {
+      cssVariable: "--secondary",
+      fallbackHex: "#f5f5f4",
+    },
+  },
+} as const satisfies Record<string, Record<string, ThemeColorSource>>;
 
 const docsOnlyTailwindColorScales = {
   mauve: {
@@ -67,6 +164,21 @@ const docsOnlyTailwindColorScales = {
 } as const;
 
 const tailwindColorFamilies = [
+  {
+    key: "primary",
+    label: "Primary",
+    scale: themeTailwindColorScales.primary,
+  },
+  {
+    key: "background",
+    label: "Background",
+    scale: themeTailwindColorScales.background,
+  },
+  {
+    key: "secondary",
+    label: "Secondary",
+    scale: themeTailwindColorScales.secondary,
+  },
   { key: "slate", label: "Slate", scale: tailwindColors.slate },
   { key: "gray", label: "Gray", scale: tailwindColors.gray },
   { key: "zinc", label: "Zinc", scale: tailwindColors.zinc },
@@ -102,17 +214,17 @@ type TailwindColorFamilyKey = (typeof tailwindColorFamilies)[number]["key"];
 type TailwindColorOption = {
   family: TailwindColorFamily;
   familyKey: TailwindColorFamilyKey;
-  hex: string;
+  source: ColorSource;
   shade: TailwindColorShade;
   token: string;
 };
 
 const tailwindColorOptions: TailwindColorOption[] =
   tailwindColorFamilies.flatMap(({ key, label, scale }) =>
-    Object.entries(scale).map(([shade, hex]) => ({
+    Object.entries(scale).map(([shade, source]) => ({
       family: label,
       familyKey: key,
-      hex,
+      source,
       shade,
       token: `${key}-${shade}`,
     })),
@@ -136,9 +248,9 @@ for (const option of tailwindColorOptions) {
 export const FACE_COLOR_KEYS = ["left", "right", "top"] as const;
 
 export const DEFAULT_FACE_COLORS: FaceColors = {
-  left: "stone-100",
-  right: "violet-400",
-  top: "violet-300",
+  left: "primary-base",
+  right: "background-base",
+  top: "secondary-base",
 };
 
 export const TAILWIND_COLOR_FAMILIES = tailwindColorFamilies.map(
@@ -152,7 +264,7 @@ function getTailwindColorOption(
 }
 
 export function getTailwindColorHex(token: string): string {
-  return getTailwindColorOption(token)?.hex ?? "#000000";
+  return resolveColorSource(getTailwindColorOption(token)?.source ?? "#000000");
 }
 
 export function getTailwindColorFamily(token: string): TailwindColorFamily {
