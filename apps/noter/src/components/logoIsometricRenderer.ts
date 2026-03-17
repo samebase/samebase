@@ -20,6 +20,12 @@ type Point = {
   y: number;
 };
 
+type RowSpan = {
+  endX: number;
+  startX: number;
+  y: number;
+};
+
 type CubePosition = readonly [number, number, number];
 
 type RenderFace = {
@@ -45,6 +51,18 @@ export type IsometricMovingVoxel = {
   position: CubePosition;
 };
 
+type LogoIsometricEdgeMode = "none" | "shaded";
+
+type LogoIsometricStyle = {
+  capWidth: 2 | 3 | 4;
+  description: string;
+  edgeMode: LogoIsometricEdgeMode;
+  id: LogoIsometricStyleId;
+  label: string;
+};
+
+export type LogoIsometricStyleId = "flat" | "shaded-edge" | "cap-3" | "cap-4";
+
 const FACE_NORMALS: Record<IsometricFaceDirection, VoxelCoordinate> = {
   left: [0, 0, 1],
   right: [1, 0, 0],
@@ -56,6 +74,61 @@ const FACE_DRAW_ORDER: Record<IsometricFaceDirection, number> = {
   right: 1,
   top: 2,
 };
+
+export const DEFAULT_LOGO_ISOMETRIC_STYLE_ID: LogoIsometricStyleId = "flat";
+
+export const LOGO_ISOMETRIC_STYLES = [
+  {
+    capWidth: 2,
+    description: "Standard 2:1 isometric fill with no outlines.",
+    edgeMode: "none",
+    id: "flat",
+    label: "Flat 2:1",
+  },
+  {
+    capWidth: 2,
+    description:
+      "Standard 2:1 fill with shaded edge pixels on silhouettes and ridges.",
+    edgeMode: "shaded",
+    id: "shaded-edge",
+    label: "Shaded Edge",
+  },
+  {
+    capWidth: 3,
+    description:
+      "Keeps 2:1 slopes but widens the top and bottom cap rows to 3 pixels.",
+    edgeMode: "none",
+    id: "cap-3",
+    label: "Cap 3",
+  },
+  {
+    capWidth: 4,
+    description:
+      "Keeps 2:1 slopes but widens the top and bottom cap rows to 4 pixels.",
+    edgeMode: "none",
+    id: "cap-4",
+    label: "Cap 4",
+  },
+] as const satisfies readonly LogoIsometricStyle[];
+
+export function isLogoIsometricStyleId(
+  value: string | null,
+): value is LogoIsometricStyleId {
+  if (value === null) {
+    return false;
+  }
+
+  return LOGO_ISOMETRIC_STYLES.some((style) => style.id === value);
+}
+
+export function getLogoIsometricStyle(
+  styleId: LogoIsometricStyleId,
+): LogoIsometricStyle {
+  return (
+    LOGO_ISOMETRIC_STYLES.find((style) => style.id === styleId) ??
+    LOGO_ISOMETRIC_STYLES[0]
+  );
+}
 
 function projectPoint(position: CubePosition): Point {
   return {
@@ -149,26 +222,152 @@ function isVoxelFilled(
   return filledVoxels.has(voxelKey(x, y, z));
 }
 
-function fillPolygonPixels(
-  context: CanvasRenderingContext2D,
-  polygon: readonly Point[],
-  fillStyle: string,
-) {
+function collectPolygonRowSpans(polygon: readonly Point[]): RowSpan[] {
   const xs = polygon.map((point) => point.x);
   const ys = polygon.map((point) => point.y);
   const minX = Math.floor(Math.min(...xs));
   const maxX = Math.ceil(Math.max(...xs));
   const minY = Math.floor(Math.min(...ys));
   const maxY = Math.ceil(Math.max(...ys));
+  const rowSpans: RowSpan[] = [];
 
-  context.fillStyle = fillStyle;
   for (let y = minY; y <= maxY; y += 1) {
+    let startX: number | null = null;
+    let endX: number | null = null;
+
     for (let x = minX; x <= maxX; x += 1) {
       if (isPointInsidePolygon(x + 0.5, y + 0.5, polygon)) {
-        context.fillRect(x, y, 1, 1);
+        startX ??= x;
+        endX = x;
       }
     }
+
+    if (startX !== null && endX !== null) {
+      rowSpans.push({ endX, startX, y });
+    }
   }
+
+  return rowSpans;
+}
+
+function widenCapRows(
+  rowSpans: readonly RowSpan[],
+  capWidth: 2 | 3 | 4,
+): readonly RowSpan[] {
+  if (capWidth === 2 || rowSpans.length < 2) {
+    return rowSpans;
+  }
+
+  return rowSpans.map((rowSpan, index) => {
+    if (index !== 0 && index !== rowSpans.length - 1) {
+      return rowSpan;
+    }
+
+    const width = rowSpan.endX - rowSpan.startX + 1;
+    if (width >= capWidth) {
+      return rowSpan;
+    }
+
+    const expansion = capWidth - width;
+    return {
+      endX: rowSpan.endX + Math.ceil(expansion / 2),
+      startX: rowSpan.startX - Math.floor(expansion / 2),
+      y: rowSpan.y,
+    };
+  });
+}
+
+function fillRowSpans(
+  context: CanvasRenderingContext2D,
+  rowSpans: readonly RowSpan[],
+  fillStyle: string,
+) {
+  context.fillStyle = fillStyle;
+  for (const rowSpan of rowSpans) {
+    context.fillRect(
+      rowSpan.startX,
+      rowSpan.y,
+      rowSpan.endX - rowSpan.startX + 1,
+      1,
+    );
+  }
+}
+
+function fillStyledFace(
+  context: CanvasRenderingContext2D,
+  polygon: readonly Point[],
+  fillStyle: string,
+  capWidth: 2 | 3 | 4,
+) {
+  const rowSpans = collectPolygonRowSpans(polygon);
+  fillRowSpans(context, widenCapRows(rowSpans, capWidth), fillStyle);
+}
+
+function applyShadedEdges(context: CanvasRenderingContext2D) {
+  const imageData = context.getImageData(
+    0,
+    0,
+    LOGO_ISOMETRIC_CANVAS_WIDTH,
+    LOGO_ISOMETRIC_CANVAS_HEIGHT,
+  );
+  const source = imageData.data.slice();
+  const next = imageData.data;
+  const width = LOGO_ISOMETRIC_CANVAS_WIDTH;
+  const height = LOGO_ISOMETRIC_CANVAS_HEIGHT;
+
+  const isOpaque = (x: number, y: number) => {
+    if (x < 0 || x >= width || y < 0 || y >= height) {
+      return false;
+    }
+
+    return source[(y * width + x) * 4 + 3] > 0;
+  };
+
+  const hasDifferentNeighbor = (
+    x: number,
+    y: number,
+    offsetX: number,
+    offsetY: number,
+  ) => {
+    const neighborX = x + offsetX;
+    const neighborY = y + offsetY;
+    if (!isOpaque(neighborX, neighborY)) {
+      return true;
+    }
+
+    const sourceIndex = (y * width + x) * 4;
+    const neighborIndex = (neighborY * width + neighborX) * 4;
+    return (
+      source[sourceIndex] !== source[neighborIndex] ||
+      source[sourceIndex + 1] !== source[neighborIndex + 1] ||
+      source[sourceIndex + 2] !== source[neighborIndex + 2]
+    );
+  };
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = (y * width + x) * 4;
+      if (source[index + 3] === 0) {
+        continue;
+      }
+
+      const shouldShade =
+        hasDifferentNeighbor(x, y, -1, 0) ||
+        hasDifferentNeighbor(x, y, 1, 0) ||
+        hasDifferentNeighbor(x, y, 0, -1) ||
+        hasDifferentNeighbor(x, y, 0, 1);
+
+      if (!shouldShade) {
+        continue;
+      }
+
+      next[index] = Math.round(source[index] * 0.55);
+      next[index + 1] = Math.round(source[index + 1] * 0.55);
+      next[index + 2] = Math.round(source[index + 2] * 0.55);
+    }
+  }
+
+  context.putImageData(imageData, 0, 0);
 }
 
 function parseVoxelCoordinate(key: string): VoxelCoordinate {
@@ -362,21 +561,18 @@ export function drawLogoIsometricFrame({
   faceColors,
   filledVoxels,
   movingVoxels = [],
+  styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
 }: {
   backgroundColor: string;
   context: CanvasRenderingContext2D;
   faceColors: FaceColors;
   filledVoxels: ReadonlySet<string>;
   movingVoxels?: readonly IsometricMovingVoxel[];
+  styleId?: LogoIsometricStyleId;
 }): readonly IsometricVisibleFace[] {
+  const style = getLogoIsometricStyle(styleId);
+
   context.clearRect(
-    0,
-    0,
-    LOGO_ISOMETRIC_CANVAS_WIDTH,
-    LOGO_ISOMETRIC_CANVAS_HEIGHT,
-  );
-  context.fillStyle = backgroundColor;
-  context.fillRect(
     0,
     0,
     LOGO_ISOMETRIC_CANVAS_WIDTH,
@@ -389,8 +585,28 @@ export function drawLogoIsometricFrame({
   ].sort(compareRenderFaces);
 
   for (const renderFace of renderFaces) {
-    fillPolygonPixels(context, renderFace.polygon, renderFace.color);
+    fillStyledFace(
+      context,
+      renderFace.polygon,
+      renderFace.color,
+      style.capWidth,
+    );
   }
+
+  if (style.edgeMode === "shaded") {
+    applyShadedEdges(context);
+  }
+
+  context.save();
+  context.globalCompositeOperation = "destination-over";
+  context.fillStyle = backgroundColor;
+  context.fillRect(
+    0,
+    0,
+    LOGO_ISOMETRIC_CANVAS_WIDTH,
+    LOGO_ISOMETRIC_CANVAS_HEIGHT,
+  );
+  context.restore();
 
   return renderFaces.map(({ coordinate, direction, normal, polygon }) => ({
     coordinate,

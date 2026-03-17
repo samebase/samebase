@@ -5,6 +5,13 @@ import {
 } from "@/components/NLogoScene";
 import { LogoIsoThumbnail, NLogoIsoScene } from "@/components/NLogoIsoScene";
 import {
+  DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+  LOGO_ISOMETRIC_STYLES,
+  getLogoIsometricStyle,
+  isLogoIsometricStyleId,
+  type LogoIsometricStyleId,
+} from "@/components/logoIsometricRenderer";
+import {
   DEFAULT_FACE_COLORS,
   FACE_COLOR_KEYS,
   TAILWIND_COLOR_FAMILIES,
@@ -141,6 +148,15 @@ function readLogoPresetSelection(
   return getLogoPresetSelection(readVoxelState(searchParams));
 }
 
+function readIsoStyleId(searchParams: URLSearchParams): LogoIsometricStyleId {
+  const isoStyle = searchParams.get("isoStyle");
+  if (!isLogoIsometricStyleId(isoStyle)) {
+    return DEFAULT_LOGO_ISOMETRIC_STYLE_ID;
+  }
+
+  return isoStyle;
+}
+
 function isLogoPresetId(value: string): value is LogoPresetId {
   return LOGO_PRESETS.some((preset) => preset.id === value);
 }
@@ -166,6 +182,9 @@ export function LogoPreviewPage({
   const [selectedPresetId, setSelectedPresetId] = useState<LogoPresetSelection>(
     () => readLogoPresetSelection(searchParams),
   );
+  const [isoStyleId, setIsoStyleId] = useState<LogoIsometricStyleId>(() =>
+    readIsoStyleId(searchParams),
+  );
   const [faceColors, setFaceColors] = useState<FaceColors>(() =>
     isIsometricMode ? ISO_DEFAULT_FACE_COLORS : DEFAULT_FACE_COLORS,
   );
@@ -182,16 +201,20 @@ export function LogoPreviewPage({
   useEffect(() => {
     setVoxelState(readVoxelState(searchParams));
     setSelectedPresetId(readLogoPresetSelection(searchParams));
+    setIsoStyleId(readIsoStyleId(searchParams));
   }, [searchParams]);
 
   useEffect(() => {
     const nextSearchParams = new URLSearchParams();
     nextSearchParams.set("vox", voxelState);
+    if (isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID) {
+      nextSearchParams.set("isoStyle", isoStyleId);
+    }
 
     if (nextSearchParams.toString() !== searchParams.toString()) {
       setSearchParams(nextSearchParams, { replace: true });
     }
-  }, [searchParams, setSearchParams, voxelState]);
+  }, [isoStyleId, searchParams, setSearchParams, voxelState]);
 
   useEffect(() => {
     if (isIsometricMode || !isAutoRotating) {
@@ -291,6 +314,7 @@ export function LogoPreviewPage({
     selectedPresetId === CUSTOM_LOGO_PRESET_ID
       ? null
       : getLogoPreset(selectedPresetId);
+  const selectedIsoStyle = getLogoIsometricStyle(isoStyleId);
   const isPresetDirty =
     selectedPreset !== null && selectedPreset.voxelState !== voxelState;
 
@@ -348,6 +372,7 @@ export function LogoPreviewPage({
             enabled: isShuffleEnabled,
             parallelMoves: shuffleParallelMoves,
           }}
+          styleId={isoStyleId}
           voxelState={voxelState}
         />
       ) : (
@@ -624,31 +649,93 @@ export function LogoPreviewPage({
               </div>
               {isIsometricMode && (
                 <div className="grid gap-2 border border-black/10 bg-white/70 p-3">
-                  <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                    Icon Preview
-                  </div>
-                  <div className="text-xs text-black/55">
-                    Quick favicon-scale check for the fixed-view renderer.
-                  </div>
-                  <div className="mt-1 flex items-end gap-3">
-                    {[16, 32, 64].map((size) => (
-                      <div
-                        key={size}
-                        className="grid justify-items-center gap-1"
-                      >
-                        <div className="flex min-h-16 min-w-16 items-center justify-center border border-black/10 bg-white/90 p-2">
-                          <LogoIsoThumbnail
-                            backgroundColor={backgroundColor}
-                            faceColors={faceColors}
-                            size={size}
-                            voxelState={voxelState}
-                          />
-                        </div>
-                        <span className="font-mono text-[10px] text-black/55">
-                          {size}px
-                        </span>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                        Iso Studies
                       </div>
+                      <div className="mt-1 text-xs text-black/55">
+                        Compare alternate cube treatments before choosing a
+                        favicon direction.
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                        Active
+                      </div>
+                      <div className="mt-1 text-xs text-black/70">
+                        {selectedIsoStyle.label}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {LOGO_ISOMETRIC_STYLES.map((style) => (
+                      <button
+                        key={style.id}
+                        type="button"
+                        className={`grid gap-2 border p-2 text-left transition-colors ${
+                          isoStyleId === style.id
+                            ? "border-black bg-white"
+                            : "border-black/10 bg-white/90 hover:border-black/30"
+                        }`}
+                        onClick={() => {
+                          setIsoStyleId(style.id);
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="text-sm font-medium text-black/80">
+                            {style.label}
+                          </div>
+                          <div className="font-mono text-[10px] text-black/45">
+                            {style.capWidth}px cap
+                            {style.edgeMode === "shaded" ? " + edge" : ""}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="flex min-h-20 min-w-20 items-center justify-center border border-black/10 bg-white p-2">
+                            <LogoIsoThumbnail
+                              backgroundColor={backgroundColor}
+                              faceColors={faceColors}
+                              size={72}
+                              styleId={style.id}
+                              voxelState={voxelState}
+                            />
+                          </div>
+                          <div className="text-xs leading-5 text-black/55">
+                            {style.description}
+                          </div>
+                        </div>
+                      </button>
                     ))}
+                  </div>
+                  <div className="border-t border-black/10 pt-2">
+                    <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                      Icon Preview
+                    </div>
+                    <div className="mt-1 text-xs text-black/55">
+                      Active style at favicon-relevant sizes.
+                    </div>
+                    <div className="mt-2 flex items-end gap-3">
+                      {[16, 32, 64].map((size) => (
+                        <div
+                          key={size}
+                          className="grid justify-items-center gap-1"
+                        >
+                          <div className="flex min-h-16 min-w-16 items-center justify-center border border-black/10 bg-white/90 p-2">
+                            <LogoIsoThumbnail
+                              backgroundColor={backgroundColor}
+                              faceColors={faceColors}
+                              size={size}
+                              styleId={isoStyleId}
+                              voxelState={voxelState}
+                            />
+                          </div>
+                          <span className="font-mono text-[10px] text-black/55">
+                            {size}px
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
