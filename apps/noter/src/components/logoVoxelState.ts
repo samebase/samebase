@@ -4,6 +4,10 @@ export const DEFAULT_ROTATION_DEGREES = 0;
 export const DEFAULT_ELEVATION_DEGREES = 29.5;
 export const MIN_ELEVATION_DEGREES = -75;
 export const MAX_ELEVATION_DEGREES = 75;
+const LEGACY_VOXEL_LAYER_SEPARATOR = ",";
+const LEGACY_VOXEL_ROW_SEPARATOR = "/";
+const VOXEL_LAYER_SEPARATOR = "-";
+const VOXEL_ROW_SEPARATOR = "_";
 
 export type VoxelCoordinate = readonly [number, number, number];
 
@@ -85,10 +89,10 @@ export function serializeVoxelState(filledVoxels: Set<string>): string {
       rows.push(row);
     }
 
-    layers.push(rows.join("/"));
+    layers.push(rows.join(VOXEL_ROW_SEPARATOR));
   }
 
-  return layers.join(",");
+  return layers.join(VOXEL_LAYER_SEPARATOR);
 }
 
 export function parseVoxelState(
@@ -98,7 +102,14 @@ export function parseVoxelState(
     return null;
   }
 
-  const layers = serializedState.trim().toLowerCase().split(",");
+  const layers = serializedState
+    .trim()
+    .toLowerCase()
+    .split(
+      serializedState.includes(VOXEL_LAYER_SEPARATOR)
+        ? VOXEL_LAYER_SEPARATOR
+        : LEGACY_VOXEL_LAYER_SEPARATOR,
+    );
   if (layers.length !== GRID_SIZE) {
     return null;
   }
@@ -106,7 +117,10 @@ export function parseVoxelState(
   const filledVoxels = new Set<string>();
 
   for (const [layerIndex, layer] of layers.entries()) {
-    const rows = layer.split("/");
+    const rowSeparator = layer.includes(VOXEL_ROW_SEPARATOR)
+      ? VOXEL_ROW_SEPARATOR
+      : LEGACY_VOXEL_ROW_SEPARATOR;
+    const rows = layer.split(rowSeparator);
     if (rows.length !== GRID_SIZE) {
       return null;
     }

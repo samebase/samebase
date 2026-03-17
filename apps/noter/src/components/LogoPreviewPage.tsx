@@ -382,7 +382,7 @@ export function LogoPreviewPage() {
           <div className="mt-3 text-xs text-black/55">
             Drag the logo to orbit it. Left click adds a cube on the clicked
             face. Right click removes the clicked cube. `vox` uses rows split by
-            `/` and layers split by `,`.
+            `_` and layers split by `-`.
           </div>
         </div>
       </div>
