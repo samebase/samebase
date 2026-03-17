@@ -1,27 +1,22 @@
 import { isInIframe, openAuthPopup, setAuthProvider } from "@/authClient";
-import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
+import { LandingCopy } from "@/components/LandingCopy";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
-import { parseLandingSlogans, selectLandingSlogan } from "@/lib/landingSlogans";
+import { landingPageMarkdown } from "@/lib/landingCopy";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
 import { Chrome } from "lucide-react";
-import { useState } from "react";
+import { Suspense, lazy, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../convex/_generated/api";
-import slogansRaw from "../../../slogans.md?raw";
 
 const DEV_PASSWORD_EMAIL = "nicu@noter.md";
 const DEV_PASSWORD_VALUE = "pass1234";
-const LANDING_PAGE_SLOGANS = parseLandingSlogans(slogansRaw);
-const LANDING_PAGE_SLOGAN = selectLandingSlogan(LANDING_PAGE_SLOGANS);
-const LANDING_PAGE_COPY = `## ${LANDING_PAGE_SLOGAN}
-
-- your notes and code live in a real repository
-- collaborate in real time with your team
-- work from desktop or mobile without context switching
-- use Codex to ship small apps directly from your workspace`;
+const EditableLandingCopy = lazy(async () => {
+  const module = await import("@/components/ProsemarkReadOnly");
+  return { default: module.ProsemarkReadOnly };
+});
 
 export function SignInForm() {
   const [searchParams] = useSearchParams();
@@ -31,11 +26,17 @@ export function SignInForm() {
   return (
     <div className="container my-auto">
       <div className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8">
-        <ProsemarkReadOnly
-          value={LANDING_PAGE_COPY}
-          className="text-sm"
-          editable={isLandingCopyEditable}
-        />
+        {isLandingCopyEditable ? (
+          <Suspense fallback={<LandingCopy className="text-sm" />}>
+            <EditableLandingCopy
+              value={landingPageMarkdown}
+              className="text-sm"
+              editable
+            />
+          </Suspense>
+        ) : (
+          <LandingCopy className="text-sm" />
+        )}
         <div className="flex flex-col gap-2">
           <SignInWithGoogle />
           {showPasswordAuth ? <PasswordAuthForm /> : null}

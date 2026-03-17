@@ -116,7 +116,7 @@ export function useAutoSignIn() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const auth = params.get("auth");
-    if (auth === "google" && window.opener) {
+    if (auth === "google") {
       setAuthProvider(auth);
       params.delete("auth");
       const newUrl =
