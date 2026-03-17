@@ -408,6 +408,14 @@ export function LogoPreviewPage({
               >
                 <Link to={modeHref("/logo-iso")}>Iso</Link>
               </Button>
+              <Button
+                asChild
+                size="sm"
+                variant="outline"
+                className="rounded-none"
+              >
+                <Link to="/logo-iso-study">Study</Link>
+              </Button>
             </div>
             {!isIsometricMode && (
               <Button
