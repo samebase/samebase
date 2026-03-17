@@ -21,8 +21,13 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../convex/_generated/api";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 import { Routes, Route, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { isChatOnlyCodespaceRoute } from "@/lib/vaultRoutes";
+
+const LogoPreviewPage = lazy(async () => {
+  const module = await import("@/components/LogoPreviewPage");
+  return { default: module.LogoPreviewPage };
+});
 
 function useCloseOAuthPopup(pathname: string, enabled: boolean) {
   const { isAuthenticated } = useConvexAuth();
@@ -267,6 +272,15 @@ export default function App() {
   );
   const showChatFab = !isChatOnlyCodespaceRoute(location.pathname);
   const showMcpConsent = onMcpConsentRoute && mcpConsentRequestId !== null;
+  const showLogoPreview = location.pathname === "/logo";
+
+  if (showLogoPreview) {
+    return (
+      <Suspense fallback={null}>
+        <LogoPreviewPage />
+      </Suspense>
+    );
+  }
 
   if (showMcpConsent) {
     return (

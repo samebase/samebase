@@ -1,0 +1,81 @@
+import {
+  DEFAULT_VOXEL_STATE,
+  GRID_SIZE,
+  createFilledVoxelSet,
+  serializeVoxelState,
+  type VoxelCoordinate,
+} from "@/components/logoVoxelState";
+
+export const CUSTOM_LOGO_PRESET_ID = "custom";
+export const DEFAULT_LOGO_PRESET_ID = "n-logo";
+
+export type LogoPresetId = "cornerless-cube" | "n-logo";
+export type LogoPresetSelection = LogoPresetId | typeof CUSTOM_LOGO_PRESET_ID;
+
+type LogoPreset = {
+  description: string;
+  id: LogoPresetId;
+  label: string;
+  voxelState: string;
+};
+
+function createCornerlessCubeVoxelState(): string {
+  const coordinates: VoxelCoordinate[] = [];
+
+  for (let x = 0; x < GRID_SIZE; x += 1) {
+    for (let y = 0; y < GRID_SIZE; y += 1) {
+      for (let z = 0; z < GRID_SIZE; z += 1) {
+        const isCornerX = x === 0 || x === GRID_SIZE - 1;
+        const isCornerY = y === 0 || y === GRID_SIZE - 1;
+        const isCornerZ = z === 0 || z === GRID_SIZE - 1;
+
+        if (isCornerX && isCornerY && isCornerZ) {
+          continue;
+        }
+
+        coordinates.push([x, y, z] as const);
+      }
+    }
+  }
+
+  return serializeVoxelState(createFilledVoxelSet(coordinates));
+}
+
+export const LOGO_PRESETS = [
+  {
+    description: "Current lowercase n logo",
+    id: "n-logo",
+    label: "N Logo",
+    voxelState: DEFAULT_VOXEL_STATE,
+  },
+  {
+    description: "3x3x3 cube with all 8 corner cubes removed",
+    id: "cornerless-cube",
+    label: "Cornerless Cube",
+    voxelState: createCornerlessCubeVoxelState(),
+  },
+] as const satisfies readonly LogoPreset[];
+
+export function getLogoPresetSelection(
+  voxelState: string,
+): LogoPresetSelection {
+  for (const preset of LOGO_PRESETS) {
+    if (preset.voxelState === voxelState) {
+      return preset.id;
+    }
+  }
+
+  return CUSTOM_LOGO_PRESET_ID;
+}
+
+export function getLogoPreset(
+  presetId: LogoPresetId,
+): (typeof LOGO_PRESETS)[number] {
+  for (const preset of LOGO_PRESETS) {
+    if (preset.id === presetId) {
+      return preset;
+    }
+  }
+
+  return LOGO_PRESETS[0];
+}
