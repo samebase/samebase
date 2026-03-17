@@ -1,4 +1,8 @@
-import { NLogoScene } from "@/components/NLogoScene";
+import {
+  LOGO_SHUFFLE_PARALLEL_OPTIONS,
+  NLogoScene,
+  type LogoShuffleParallelMoves,
+} from "@/components/NLogoScene";
 import {
   DEFAULT_FACE_COLORS,
   FACE_COLOR_KEYS,
@@ -55,6 +59,17 @@ const FACE_COLOR_LABELS: Record<FaceColorKey, string> = {
   top: "Top",
 };
 
+function parseShuffleParallelMoves(value: string): LogoShuffleParallelMoves {
+  switch (value) {
+    case "2":
+      return 2;
+    case "3":
+      return 3;
+    default:
+      return 1;
+  }
+}
+
 function ColorSwatch({
   color,
   sizeClassName = "h-4 w-4",
@@ -102,6 +117,7 @@ function readVoxelState(searchParams: URLSearchParams): string {
 
 export function LogoPreviewPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const backgroundColor = getTailwindColorHex("background-base");
   const [rotationDegrees, setRotationDegrees] = useState(
     DEFAULT_ROTATION_DEGREES,
   );
@@ -113,6 +129,9 @@ export function LogoPreviewPage() {
   );
   const [faceColors, setFaceColors] = useState<FaceColors>(DEFAULT_FACE_COLORS);
   const [isAutoRotating, setIsAutoRotating] = useState(false);
+  const [isShuffleEnabled, setIsShuffleEnabled] = useState(false);
+  const [shuffleParallelMoves, setShuffleParallelMoves] =
+    useState<LogoShuffleParallelMoves>(1);
   const [isControlsOpen, setIsControlsOpen] = useState(false);
   const [isViewControlsOpen, setIsViewControlsOpen] = useState(false);
   const [isFaceColorsOpen, setIsFaceColorsOpen] = useState(false);
@@ -203,6 +222,7 @@ export function LogoPreviewPage() {
   };
 
   const handleVoxelEdit = (edit: VoxelEdit) => {
+    setIsShuffleEnabled(false);
     setVoxelState((currentVoxelState) =>
       applyVoxelEdit(currentVoxelState, edit),
     );
@@ -237,8 +257,12 @@ export function LogoPreviewPage() {
   };
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-[#f5f5f0]">
+    <div
+      className="relative h-screen w-full overflow-hidden"
+      style={{ backgroundColor }}
+    >
       <NLogoScene
+        backgroundColor={backgroundColor}
         className="absolute inset-0 h-full w-full cursor-grab touch-none select-none active:cursor-grabbing"
         elevationDegrees={elevationDegrees}
         faceColors={faceColors}
@@ -248,6 +272,10 @@ export function LogoPreviewPage() {
         onViewChange={handleSceneViewChange}
         onVoxelEdit={handleVoxelEdit}
         rotationDegrees={rotationDegrees}
+        shuffleAnimation={{
+          enabled: isShuffleEnabled,
+          parallelMoves: shuffleParallelMoves,
+        }}
         voxelState={voxelState}
       />
       <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-3 sm:inset-x-4 sm:top-4">
@@ -272,6 +300,17 @@ export function LogoPreviewPage() {
               }}
             >
               {isAutoRotating ? "Stop" : "Auto"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={isShuffleEnabled ? "default" : "outline"}
+              className="rounded-none"
+              onClick={() => {
+                setIsShuffleEnabled((currentValue) => !currentValue);
+              }}
+            >
+              Shuffle
             </Button>
           </div>
           <PopoverContent
@@ -399,6 +438,56 @@ export function LogoPreviewPage() {
                   </div>
                 </CollapsibleContent>
               </Collapsible>
+              <div className="grid gap-2 border border-black/10 bg-white/70 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                      Cube Shuffle
+                    </div>
+                    <div className="mt-1 text-xs text-black/55">
+                      Staggered starts. No immediate repeat on the same cube.
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={isShuffleEnabled ? "default" : "outline"}
+                    className="rounded-none"
+                    onClick={() => {
+                      setIsShuffleEnabled((currentValue) => !currentValue);
+                    }}
+                  >
+                    {isShuffleEnabled ? "Stop" : "Start"}
+                  </Button>
+                </div>
+                <div className="grid gap-2">
+                  <Label className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                    Parallel Cubes
+                  </Label>
+                  <Select
+                    value={`${shuffleParallelMoves}`}
+                    onValueChange={(value) => {
+                      setShuffleParallelMoves(parseShuffleParallelMoves(value));
+                    }}
+                  >
+                    <SelectTrigger className="h-9 rounded-none border-black/10 bg-white/90 px-2 text-sm text-black/80 shadow-none">
+                      {shuffleParallelMoves}{" "}
+                      {shuffleParallelMoves === 1 ? "cube" : "cubes"}
+                    </SelectTrigger>
+                    <SelectContent className="rounded-none border-black/10">
+                      {LOGO_SHUFFLE_PARALLEL_OPTIONS.map((option) => (
+                        <SelectItem
+                          key={option}
+                          value={`${option}`}
+                          className="rounded-none"
+                        >
+                          {option} {option === 1 ? "cube" : "cubes"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   type="button"
@@ -418,6 +507,7 @@ export function LogoPreviewPage() {
                   className="rounded-none"
                   onClick={() => {
                     setIsAutoRotating(false);
+                    setIsShuffleEnabled(false);
                     setVoxelState(DEFAULT_VOXEL_STATE);
                   }}
                 >

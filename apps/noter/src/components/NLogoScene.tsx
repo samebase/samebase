@@ -14,7 +14,13 @@ import {
   type VoxelEdit,
   voxelKey,
 } from "@/components/logoVoxelState";
-import { useEffect, useRef, type MouseEvent, type PointerEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  type MouseEvent,
+  type MutableRefObject,
+  type PointerEvent,
+} from "react";
 import * as THREE from "three";
 
 const ISOMETRIC_CAMERA_DISTANCE = 11;
@@ -24,6 +30,25 @@ const DRAG_THRESHOLD_PX = 4;
 const RAYCAST_OFFSET = 0.001;
 const ORBIT_RIGHT_AXIS = new THREE.Vector3(1, 0, -1).normalize();
 const CAMERA_FRUSTUM_PADDING = 1.12;
+const SHUFFLE_MOVE_DURATION_MS = 1800;
+const SHUFFLE_MOVE_STAGGER_MS = 520;
+const WORLD_CENTER_OFFSET = (GRID_SIZE - 1) / 2;
+const ADJACENT_VOXEL_OFFSETS = [
+  [1, 0, 0],
+  [-1, 0, 0],
+  [0, 1, 0],
+  [0, -1, 0],
+  [0, 0, 1],
+  [0, 0, -1],
+] as const;
+
+export const LOGO_SHUFFLE_PARALLEL_OPTIONS = [1, 2, 3] as const;
+export type LogoShuffleParallelMoves =
+  (typeof LOGO_SHUFFLE_PARALLEL_OPTIONS)[number];
+export type LogoShuffleAnimationConfig = {
+  enabled: boolean;
+  parallelMoves: LogoShuffleParallelMoves;
+};
 
 type Rectangle = {
   row: number;
@@ -48,16 +73,35 @@ type SceneInteraction = {
   status: "idle" | "pending" | "dragging";
 };
 
+type ActiveCubeMove = {
+  durationMs: number;
+  from: VoxelCoordinate;
+  fromKey: string;
+  hasDeparted: boolean;
+  mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial[]>;
+  startTimeMs: number;
+  to: VoxelCoordinate;
+  toKey: string;
+};
+
 type SceneState = {
   camera: THREE.OrthographicCamera;
-  filledVoxels: Set<string>;
+  cameraFitRadius: number;
+  cubeGeometry: THREE.BoxGeometry;
+  cubeMaterials: THREE.MeshBasicMaterial[];
+  currentFilledVoxels: Set<string>;
+  activeCubeMoves: ActiveCubeMove[];
+  homeFilledVoxels: Set<string>;
+  logoGroup: THREE.Group;
   logoMesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial[]>;
   raycaster: THREE.Raycaster;
   renderer: THREE.WebGLRenderer;
   resizeScene: () => void;
+  scene: THREE.Scene;
 };
 
 type NLogoSceneProps = {
+  backgroundColor: string;
   className?: string;
   elevationDegrees: number;
   faceColors: FaceColors;
@@ -68,8 +112,65 @@ type NLogoSceneProps = {
   }) => void;
   onVoxelEdit: (edit: VoxelEdit) => void;
   rotationDegrees: number;
+  shuffleAnimation: LogoShuffleAnimationConfig;
   voxelState: string;
 };
+
+function getVoxelWorldCenter(
+  coordinate: VoxelCoordinate,
+): readonly [number, number, number] {
+  return [
+    coordinate[0] - WORLD_CENTER_OFFSET,
+    coordinate[1] - WORLD_CENTER_OFFSET,
+    coordinate[2] - WORLD_CENTER_OFFSET,
+  ];
+}
+
+function setCubeMeshPosition(
+  mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial[]>,
+  coordinate: VoxelCoordinate,
+) {
+  const [x, y, z] = getVoxelWorldCenter(coordinate);
+  mesh.position.set(x, y, z);
+}
+
+function easeInOutCubic(value: number): number {
+  if (value < 0.5) {
+    return 4 * value * value * value;
+  }
+
+  return 1 - Math.pow(-2 * value + 2, 3) / 2;
+}
+
+function getCubeMovePosition(
+  move: ActiveCubeMove,
+  progress: number,
+): readonly [number, number, number] {
+  const [startX, startY, startZ] = getVoxelWorldCenter(move.from);
+  const [endX, endY, endZ] = getVoxelWorldCenter(move.to);
+  const travelProgress = easeInOutCubic(progress);
+  return [
+    startX + (endX - startX) * travelProgress,
+    startY + (endY - startY) * travelProgress,
+    startZ + (endZ - startZ) * travelProgress,
+  ];
+}
+
+function randomValueFrom<T>(values: readonly T[]): T | null {
+  if (values.length === 0) {
+    return null;
+  }
+
+  return values[Math.floor(Math.random() * values.length)] ?? null;
+}
+
+function voxelCoordinateFromKey(key: string): VoxelCoordinate {
+  const [xText, yText, zText] = key.split(",");
+  const x = Number.parseInt(xText, 10);
+  const y = Number.parseInt(yText, 10);
+  const z = Number.parseInt(zText, 10);
+  return [x, y, z];
+}
 
 function isVoxelFilled(
   filledVoxels: Set<string>,
@@ -396,7 +497,204 @@ function applyFaceColors(
   materials[5].color.set(leftHex);
 }
 
+function replaceLogoGeometry(
+  sceneState: SceneState,
+  nextFilledVoxels: Set<string>,
+  syncCameraFitRadius: boolean,
+) {
+  const nextGeometry = buildVoxelSurfaceGeometry(nextFilledVoxels);
+  const previousGeometry = sceneState.logoMesh.geometry;
+  sceneState.logoMesh.geometry = nextGeometry;
+  sceneState.currentFilledVoxels = new Set(nextFilledVoxels);
+  if (syncCameraFitRadius) {
+    sceneState.cameraFitRadius =
+      nextGeometry.boundingSphere?.radius ?? sceneState.cameraFitRadius;
+  }
+  previousGeometry.dispose();
+  sceneState.resizeScene();
+}
+
+function clearActiveCubeMoves(sceneState: SceneState) {
+  for (const move of sceneState.activeCubeMoves) {
+    sceneState.logoGroup.remove(move.mesh);
+  }
+  sceneState.activeCubeMoves = [];
+}
+
+function resetShuffleAnimation(
+  sceneState: SceneState,
+  lastMovedCubeKeyRef: MutableRefObject<string | null>,
+  syncCameraFitRadius: boolean,
+) {
+  clearActiveCubeMoves(sceneState);
+  replaceLogoGeometry(
+    sceneState,
+    new Set(sceneState.homeFilledVoxels),
+    syncCameraFitRadius,
+  );
+  lastMovedCubeKeyRef.current = null;
+}
+
+function getAdjacentFreeDestinations(
+  filledVoxels: Set<string>,
+  blockedKeys: Set<string>,
+  from: VoxelCoordinate,
+): VoxelCoordinate[] {
+  const destinations: VoxelCoordinate[] = [];
+
+  for (const [offsetX, offsetY, offsetZ] of ADJACENT_VOXEL_OFFSETS) {
+    const nextX = from[0] + offsetX;
+    const nextY = from[1] + offsetY;
+    const nextZ = from[2] + offsetZ;
+
+    if (!isWithinGrid(nextX, nextY, nextZ)) {
+      continue;
+    }
+
+    const nextKey = voxelKey(nextX, nextY, nextZ);
+    if (filledVoxels.has(nextKey) || blockedKeys.has(nextKey)) {
+      continue;
+    }
+
+    destinations.push([nextX, nextY, nextZ]);
+  }
+
+  return destinations;
+}
+
+function scheduleNextCubeMove(
+  sceneState: SceneState,
+  lastMovedCubeKeyRef: MutableRefObject<string | null>,
+  startTimeMs: number,
+): boolean {
+  const blockedKeys = new Set<string>();
+  for (const move of sceneState.activeCubeMoves) {
+    blockedKeys.add(move.fromKey);
+    blockedKeys.add(move.toKey);
+  }
+
+  const originCandidates: Array<{
+    destinations: VoxelCoordinate[];
+    from: VoxelCoordinate;
+    fromKey: string;
+  }> = [];
+  for (const fromKey of sceneState.currentFilledVoxels) {
+    if (blockedKeys.has(fromKey) || fromKey === lastMovedCubeKeyRef.current) {
+      continue;
+    }
+
+    const fromCoordinate = voxelCoordinateFromKey(fromKey);
+    const destinations = getAdjacentFreeDestinations(
+      sceneState.currentFilledVoxels,
+      blockedKeys,
+      fromCoordinate,
+    );
+    if (destinations.length === 0) {
+      continue;
+    }
+
+    originCandidates.push({
+      destinations,
+      from: fromCoordinate,
+      fromKey,
+    });
+  }
+
+  const nextMove = randomValueFrom(originCandidates);
+  if (!nextMove) {
+    return false;
+  }
+
+  const toCoordinate = randomValueFrom(nextMove.destinations);
+  if (!toCoordinate) {
+    return false;
+  }
+
+  const toKey = voxelKey(toCoordinate[0], toCoordinate[1], toCoordinate[2]);
+  const moveMesh = new THREE.Mesh(
+    sceneState.cubeGeometry,
+    sceneState.cubeMaterials,
+  );
+  moveMesh.visible = false;
+  setCubeMeshPosition(moveMesh, nextMove.from);
+  sceneState.logoGroup.add(moveMesh);
+  sceneState.activeCubeMoves.push({
+    durationMs: SHUFFLE_MOVE_DURATION_MS,
+    from: nextMove.from,
+    fromKey: nextMove.fromKey,
+    hasDeparted: false,
+    mesh: moveMesh,
+    startTimeMs,
+    to: toCoordinate,
+    toKey,
+  });
+  return true;
+}
+
+function syncCubeShuffleAnimation(
+  sceneState: SceneState,
+  lastMovedCubeKeyRef: MutableRefObject<string | null>,
+  parallelMoves: LogoShuffleParallelMoves,
+  timestampMs: number,
+) {
+  const completedMoves: ActiveCubeMove[] = [];
+  let didChangeOccupancy = false;
+
+  for (const move of sceneState.activeCubeMoves) {
+    if (!move.hasDeparted && timestampMs >= move.startTimeMs) {
+      move.hasDeparted = true;
+      move.mesh.visible = true;
+      sceneState.currentFilledVoxels.delete(move.fromKey);
+      didChangeOccupancy = true;
+    }
+
+    if (!move.hasDeparted) {
+      continue;
+    }
+
+    const progress = Math.min(
+      Math.max((timestampMs - move.startTimeMs) / move.durationMs, 0),
+      1,
+    );
+    const [x, y, z] = getCubeMovePosition(move, progress);
+    move.mesh.position.set(x, y, z);
+
+    if (progress >= 1) {
+      completedMoves.push(move);
+    }
+  }
+
+  if (completedMoves.length > 0) {
+    const completedMoveSet = new Set(completedMoves);
+    sceneState.activeCubeMoves = sceneState.activeCubeMoves.filter(
+      (move) => !completedMoveSet.has(move),
+    );
+    for (const move of completedMoves) {
+      sceneState.currentFilledVoxels.add(move.toKey);
+      sceneState.logoGroup.remove(move.mesh);
+      lastMovedCubeKeyRef.current = move.toKey;
+      didChangeOccupancy = true;
+    }
+  }
+
+  if (didChangeOccupancy) {
+    replaceLogoGeometry(sceneState, sceneState.currentFilledVoxels, false);
+  }
+
+  while (sceneState.activeCubeMoves.length < parallelMoves) {
+    const didScheduleMove = scheduleNextCubeMove(
+      sceneState,
+      lastMovedCubeKeyRef,
+      timestampMs + sceneState.activeCubeMoves.length * SHUFFLE_MOVE_STAGGER_MS,
+    );
+    if (!didScheduleMove) {
+      break;
+    }
+  }
+}
+
 export function NLogoScene({
+  backgroundColor,
   className,
   elevationDegrees,
   faceColors,
@@ -404,17 +702,21 @@ export function NLogoScene({
   onViewChange,
   onVoxelEdit,
   rotationDegrees,
+  shuffleAnimation,
   voxelState,
 }: NLogoSceneProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const sceneStateRef = useRef<SceneState | null>(null);
+  const backgroundColorRef = useRef(backgroundColor);
   const rotationDegreesRef = useRef(rotationDegrees);
   const elevationDegreesRef = useRef(elevationDegrees);
   const voxelStateRef = useRef(voxelState);
   const faceColorsRef = useRef(faceColors);
+  const shuffleAnimationRef = useRef(shuffleAnimation);
   const onInteractionStartRef = useRef(onInteractionStart);
   const onViewChangeRef = useRef(onViewChange);
   const onVoxelEditRef = useRef(onVoxelEdit);
+  const lastMovedCubeKeyRef = useRef<string | null>(null);
   const interactionRef = useRef<SceneInteraction>({
     button: null,
     pointerId: null,
@@ -424,6 +726,10 @@ export function NLogoScene({
     startY: 0,
     status: "idle",
   });
+
+  useEffect(() => {
+    backgroundColorRef.current = backgroundColor;
+  }, [backgroundColor]);
 
   useEffect(() => {
     rotationDegreesRef.current = rotationDegrees;
@@ -446,13 +752,27 @@ export function NLogoScene({
   }, [onVoxelEdit]);
 
   useEffect(() => {
+    const wasEnabled = shuffleAnimationRef.current.enabled;
+    shuffleAnimationRef.current = shuffleAnimation;
+
+    const sceneState = sceneStateRef.current;
+    if (!sceneState) {
+      return;
+    }
+
+    if (shuffleAnimation.enabled !== wasEnabled) {
+      resetShuffleAnimation(sceneState, lastMovedCubeKeyRef, false);
+    }
+  }, [shuffleAnimation]);
+
+  useEffect(() => {
     const container = mountRef.current;
     if (!container) {
       return;
     }
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf5f5f0);
+    scene.background = new THREE.Color(backgroundColorRef.current);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -478,11 +798,16 @@ export function NLogoScene({
       buildVoxelSurfaceGeometry(initialFilledVoxels),
       materials,
     );
-    scene.add(logoMesh);
+    const logoGroup = new THREE.Group();
+    logoGroup.add(logoMesh);
+    scene.add(logoGroup);
+    const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+    const initialCameraFitRadius =
+      logoMesh.geometry.boundingSphere?.radius ?? HALF_GRID * Math.sqrt(3);
 
     const getFrustumHalfSpan = () => {
       const radius =
-        logoMesh.geometry.boundingSphere?.radius ?? HALF_GRID * Math.sqrt(3);
+        sceneStateRef.current?.cameraFitRadius ?? initialCameraFitRadius;
       return radius * CAMERA_FRUSTUM_PADDING;
     };
 
@@ -525,11 +850,18 @@ export function NLogoScene({
 
     sceneStateRef.current = {
       camera,
-      filledVoxels: initialFilledVoxels,
+      cameraFitRadius: initialCameraFitRadius,
+      cubeGeometry,
+      cubeMaterials: materials,
+      currentFilledVoxels: new Set(initialFilledVoxels),
+      activeCubeMoves: [],
+      homeFilledVoxels: new Set(initialFilledVoxels),
+      logoGroup,
       logoMesh,
       raycaster: new THREE.Raycaster(),
       renderer,
       resizeScene,
+      scene,
     };
 
     resizeScene();
@@ -545,7 +877,17 @@ export function NLogoScene({
 
     const animate = (timestamp?: number) => {
       timer.update(timestamp);
-      logoMesh.rotation.y = THREE.MathUtils.degToRad(
+      const timestampMs = timestamp ?? performance.now();
+      const sceneState = sceneStateRef.current;
+      if (sceneState && shuffleAnimationRef.current.enabled) {
+        syncCubeShuffleAnimation(
+          sceneState,
+          lastMovedCubeKeyRef,
+          shuffleAnimationRef.current.parallelMoves,
+          timestampMs,
+        );
+      }
+      logoGroup.rotation.y = THREE.MathUtils.degToRad(
         rotationDegreesRef.current,
       );
       updateCameraPosition();
@@ -559,7 +901,12 @@ export function NLogoScene({
       window.cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
       timer.dispose();
+      const activeSceneState = sceneStateRef.current;
+      if (activeSceneState) {
+        clearActiveCubeMoves(activeSceneState);
+      }
       logoMesh.geometry.dispose();
+      cubeGeometry.dispose();
       for (const material of materials) {
         material.dispose();
       }
@@ -580,11 +927,8 @@ export function NLogoScene({
 
     const nextFilledVoxels =
       parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
-    const previousGeometry = sceneState.logoMesh.geometry;
-    sceneState.logoMesh.geometry = buildVoxelSurfaceGeometry(nextFilledVoxels);
-    sceneState.filledVoxels = nextFilledVoxels;
-    sceneState.resizeScene();
-    previousGeometry.dispose();
+    sceneState.homeFilledVoxels = new Set(nextFilledVoxels);
+    resetShuffleAnimation(sceneState, lastMovedCubeKeyRef, true);
   }, [voxelState]);
 
   useEffect(() => {
@@ -595,8 +939,18 @@ export function NLogoScene({
       return;
     }
 
-    applyFaceColors(sceneState.logoMesh.material, faceColors);
+    applyFaceColors(sceneState.cubeMaterials, faceColors);
   }, [faceColors]);
+
+  useEffect(() => {
+    const sceneState = sceneStateRef.current;
+    if (!sceneState) {
+      return;
+    }
+
+    sceneState.scene.background = new THREE.Color(backgroundColor);
+    sceneState.renderer.render(sceneState.scene, sceneState.camera);
+  }, [backgroundColor]);
 
   const pickVoxelEdit = (
     clientX: number,
@@ -604,7 +958,7 @@ export function NLogoScene({
     kind: VoxelEdit["kind"],
   ): VoxelEdit | null => {
     const sceneState = sceneStateRef.current;
-    if (!sceneState) {
+    if (!sceneState || shuffleAnimationRef.current.enabled) {
       return null;
     }
 
@@ -652,10 +1006,10 @@ export function NLogoScene({
     }
 
     const key = voxelKey(coordinate[0], coordinate[1], coordinate[2]);
-    if (kind === "add" && sceneState.filledVoxels.has(key)) {
+    if (kind === "add" && sceneState.currentFilledVoxels.has(key)) {
       return null;
     }
-    if (kind === "remove" && !sceneState.filledVoxels.has(key)) {
+    if (kind === "remove" && !sceneState.currentFilledVoxels.has(key)) {
       return null;
     }
 
