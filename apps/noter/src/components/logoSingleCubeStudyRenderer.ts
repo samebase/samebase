@@ -3,9 +3,9 @@ import {
   getTailwindColorHex,
 } from "@/components/logoTailwindColors";
 
-const CANVAS_SIZE = 160;
+const CANVAS_SIZE = 96;
 const GRID_STEP = 8;
-const CUBE_SCALE = 58;
+const CUBE_SCALE = 16;
 const CAMERA_PITCH_DEGREES = 35.26438968;
 
 type Point2D = {
