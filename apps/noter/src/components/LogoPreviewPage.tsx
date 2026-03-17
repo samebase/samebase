@@ -66,6 +66,12 @@ const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 
 type LogoPreviewRenderMode = "three" | "iso";
 
+const ISO_DEFAULT_FACE_COLORS: FaceColors = {
+  left: "primary-base",
+  right: "stone-300",
+  top: "white-base",
+};
+
 const FACE_COLOR_LABELS: Record<FaceColorKey, string> = {
   left: "Left",
   right: "Right",
@@ -160,7 +166,9 @@ export function LogoPreviewPage({
   const [selectedPresetId, setSelectedPresetId] = useState<LogoPresetSelection>(
     () => readLogoPresetSelection(searchParams),
   );
-  const [faceColors, setFaceColors] = useState<FaceColors>(DEFAULT_FACE_COLORS);
+  const [faceColors, setFaceColors] = useState<FaceColors>(() =>
+    isIsometricMode ? ISO_DEFAULT_FACE_COLORS : DEFAULT_FACE_COLORS,
+  );
   const [isAutoRotating, setIsAutoRotating] = useState(false);
   const [isShuffleEnabled, setIsShuffleEnabled] = useState(false);
   const [shuffleParallelMoves, setShuffleParallelMoves] =
@@ -223,6 +231,14 @@ export function LogoPreviewPage({
 
     setIsAutoRotating(false);
     setIsViewControlsOpen(false);
+
+    setFaceColors((currentFaceColors) =>
+      currentFaceColors.left === DEFAULT_FACE_COLORS.left &&
+      currentFaceColors.right === DEFAULT_FACE_COLORS.right &&
+      currentFaceColors.top === DEFAULT_FACE_COLORS.top
+        ? ISO_DEFAULT_FACE_COLORS
+        : currentFaceColors,
+    );
   }, [isIsometricMode]);
 
   const handleRotationChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -693,7 +709,11 @@ export function LogoPreviewPage({
                   variant="outline"
                   className="rounded-none"
                   onClick={() => {
-                    setFaceColors(DEFAULT_FACE_COLORS);
+                    setFaceColors(
+                      isIsometricMode
+                        ? ISO_DEFAULT_FACE_COLORS
+                        : DEFAULT_FACE_COLORS,
+                    );
                   }}
                 >
                   Reset colors
