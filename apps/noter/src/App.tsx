@@ -50,6 +50,11 @@ const LogoPreviewPage = lazy(async () => {
   return { default: module.LogoPreviewPage };
 });
 
+const LogoSingleCubeStudyPage = lazy(async () => {
+  const module = await import("@/components/LogoSingleCubeStudyPage");
+  return { default: module.LogoSingleCubeStudyPage };
+});
+
 function useCloseOAuthPopup(pathname: string, enabled: boolean) {
   const { isAuthenticated } = useConvexAuth();
   useEffect(() => {
@@ -299,11 +304,20 @@ export default function App() {
       : location.pathname === "/logo-iso"
         ? "iso"
         : null;
+  const showLogoIsoStudy = location.pathname === "/logo-iso-study";
 
   if (logoPreviewMode !== null) {
     return (
       <Suspense fallback={null}>
         <LogoPreviewPage renderMode={logoPreviewMode} />
+      </Suspense>
+    );
+  }
+
+  if (showLogoIsoStudy) {
+    return (
+      <Suspense fallback={null}>
+        <LogoSingleCubeStudyPage />
       </Suspense>
     );
   }
