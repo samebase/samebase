@@ -14,3 +14,4 @@
 - noter can disappear tomorrow and your app will be completely unimpacted
 - noter is web first so that any agent can use it
 - noter: add ai agent to your existing apps
+- noter is data for your ai
