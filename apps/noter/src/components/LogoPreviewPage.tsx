@@ -5,6 +5,7 @@ import {
   TAILWIND_COLOR_FAMILIES,
   getTailwindColorHex,
   getTailwindColorFamily,
+  getTailwindColorFamilyHex,
   getTailwindColorShade,
   getTailwindColorShades,
   getTailwindColorTokenForSelection,
@@ -19,7 +20,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import {
   DEFAULT_ELEVATION_DEGREES,
@@ -43,6 +43,43 @@ const FACE_COLOR_LABELS: Record<FaceColorKey, string> = {
   right: "Right face",
   top: "Top face",
 };
+
+function ColorSwatch({
+  color,
+  sizeClassName = "h-4 w-4",
+}: {
+  color: string;
+  sizeClassName?: string;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`${sizeClassName} shrink-0 border border-black/10`}
+      style={{ backgroundColor: color }}
+    />
+  );
+}
+
+function ColorOptionContent({
+  color,
+  label,
+}: {
+  color: string;
+  label: string;
+}) {
+  return (
+    <div
+      className="flex items-center gap-2 rounded-sm border px-2 py-1"
+      style={{
+        backgroundColor: `${color}18`,
+        borderColor: `${color}40`,
+      }}
+    >
+      <ColorSwatch color={color} />
+      <span className="font-medium text-black/80">{label}</span>
+    </div>
+  );
+}
 
 function readVoxelState(searchParams: URLSearchParams): string {
   const parsedState = parseVoxelState(searchParams.get("vox"));
@@ -256,6 +293,8 @@ export function LogoPreviewPage() {
                   const currentFamily = getTailwindColorFamily(currentToken);
                   const currentShade = getTailwindColorShade(currentToken);
                   const availableShades = getTailwindColorShades(currentFamily);
+                  const currentFamilyHex =
+                    getTailwindColorFamilyHex(currentFamily);
 
                   return (
                     <div key={faceColorKey} className="grid gap-2">
@@ -268,11 +307,9 @@ export function LogoPreviewPage() {
                         </span>
                       </div>
                       <div className="flex items-start gap-3">
-                        <span
-                          className="h-10 w-10 shrink-0 border border-black/10"
-                          style={{
-                            backgroundColor: getTailwindColorHex(currentToken),
-                          }}
+                        <ColorSwatch
+                          color={getTailwindColorHex(currentToken)}
+                          sizeClassName="h-10 w-10"
                         />
                         <div className="grid w-full gap-2 sm:grid-cols-2">
                           <Select
@@ -285,7 +322,10 @@ export function LogoPreviewPage() {
                               aria-label={`${FACE_COLOR_LABELS[faceColorKey]} family`}
                               className="h-10 rounded-none border-black/10 bg-white/90 text-sm text-black/80 shadow-none"
                             >
-                              <SelectValue placeholder="Family" />
+                              <ColorOptionContent
+                                color={currentFamilyHex}
+                                label={currentFamily}
+                              />
                             </SelectTrigger>
                             <SelectContent className="rounded-none border-black/10">
                               {TAILWIND_COLOR_FAMILIES.map((family) => (
@@ -294,7 +334,10 @@ export function LogoPreviewPage() {
                                   value={family}
                                   className="rounded-none"
                                 >
-                                  {family}
+                                  <ColorOptionContent
+                                    color={getTailwindColorFamilyHex(family)}
+                                    label={family}
+                                  />
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -309,18 +352,35 @@ export function LogoPreviewPage() {
                               aria-label={`${FACE_COLOR_LABELS[faceColorKey]} shade`}
                               className="h-10 rounded-none border-black/10 bg-white/90 text-sm text-black/80 shadow-none"
                             >
-                              <SelectValue placeholder="Shade" />
+                              <ColorOptionContent
+                                color={getTailwindColorHex(currentToken)}
+                                label={currentShade}
+                              />
                             </SelectTrigger>
                             <SelectContent className="rounded-none border-black/10">
-                              {availableShades.map((shade) => (
-                                <SelectItem
-                                  key={shade}
-                                  value={shade}
-                                  className="rounded-none"
-                                >
-                                  {shade}
-                                </SelectItem>
-                              ))}
+                              {availableShades.map((shade) => {
+                                const shadeToken =
+                                  getTailwindColorTokenForSelection(
+                                    currentFamily,
+                                    shade,
+                                    currentToken,
+                                  );
+                                const shadeHex =
+                                  getTailwindColorHex(shadeToken);
+
+                                return (
+                                  <SelectItem
+                                    key={shade}
+                                    value={shade}
+                                    className="rounded-none"
+                                  >
+                                    <ColorOptionContent
+                                      color={shadeHex}
+                                      label={shade}
+                                    />
+                                  </SelectItem>
+                                );
+                              })}
                             </SelectContent>
                           </Select>
                         </div>

@@ -1,60 +1,65 @@
+import tailwindColors from "tailwindcss/colors";
+
 export type FaceColorKey = "left" | "right" | "top";
 export type FaceColors = Record<FaceColorKey, string>;
 export type TailwindColorFamily = string;
 export type TailwindColorShade = string;
 
+const tailwindColorFamilies = [
+  { key: "slate", label: "Slate" },
+  { key: "gray", label: "Gray" },
+  { key: "zinc", label: "Zinc" },
+  { key: "neutral", label: "Neutral" },
+  { key: "stone", label: "Stone" },
+  { key: "red", label: "Red" },
+  { key: "orange", label: "Orange" },
+  { key: "amber", label: "Amber" },
+  { key: "yellow", label: "Yellow" },
+  { key: "lime", label: "Lime" },
+  { key: "green", label: "Green" },
+  { key: "emerald", label: "Emerald" },
+  { key: "teal", label: "Teal" },
+  { key: "cyan", label: "Cyan" },
+  { key: "sky", label: "Sky" },
+  { key: "blue", label: "Blue" },
+  { key: "indigo", label: "Indigo" },
+  { key: "violet", label: "Violet" },
+  { key: "purple", label: "Purple" },
+  { key: "fuchsia", label: "Fuchsia" },
+  { key: "pink", label: "Pink" },
+  { key: "rose", label: "Rose" },
+] as const;
+
+type TailwindColorFamilyKey = (typeof tailwindColorFamilies)[number]["key"];
+
 type TailwindColorOption = {
-  family: string;
+  family: TailwindColorFamily;
+  familyKey: TailwindColorFamilyKey;
   hex: string;
+  shade: TailwindColorShade;
   token: string;
 };
 
-const tailwindColorOptions = [
-  { family: "Stone", token: "stone-50", hex: "#fafaf9" },
-  { family: "Stone", token: "stone-100", hex: "#f5f5f4" },
-  { family: "Stone", token: "stone-200", hex: "#e7e5e4" },
-  { family: "Stone", token: "stone-300", hex: "#d6d3d1" },
-  { family: "Slate", token: "slate-100", hex: "#f1f5f9" },
-  { family: "Slate", token: "slate-200", hex: "#e2e8f0" },
-  { family: "Slate", token: "slate-300", hex: "#cbd5e1" },
-  { family: "Slate", token: "slate-400", hex: "#94a3b8" },
-  { family: "Sky", token: "sky-200", hex: "#bae6fd" },
-  { family: "Sky", token: "sky-300", hex: "#7dd3fc" },
-  { family: "Sky", token: "sky-400", hex: "#38bdf8" },
-  { family: "Blue", token: "blue-200", hex: "#bfdbfe" },
-  { family: "Blue", token: "blue-300", hex: "#93c5fd" },
-  { family: "Blue", token: "blue-400", hex: "#60a5fa" },
-  { family: "Indigo", token: "indigo-200", hex: "#c7d2fe" },
-  { family: "Indigo", token: "indigo-300", hex: "#a5b4fc" },
-  { family: "Indigo", token: "indigo-400", hex: "#818cf8" },
-  { family: "Violet", token: "violet-200", hex: "#ddd6fe" },
-  { family: "Violet", token: "violet-300", hex: "#c4b5fd" },
-  { family: "Violet", token: "violet-400", hex: "#a78bfa" },
-  { family: "Emerald", token: "emerald-200", hex: "#a7f3d0" },
-  { family: "Emerald", token: "emerald-300", hex: "#6ee7b7" },
-  { family: "Emerald", token: "emerald-400", hex: "#34d399" },
-  { family: "Teal", token: "teal-200", hex: "#99f6e4" },
-  { family: "Teal", token: "teal-300", hex: "#5eead4" },
-  { family: "Teal", token: "teal-400", hex: "#2dd4bf" },
-  { family: "Amber", token: "amber-200", hex: "#fde68a" },
-  { family: "Amber", token: "amber-300", hex: "#fcd34d" },
-  { family: "Amber", token: "amber-400", hex: "#fbbf24" },
-  { family: "Rose", token: "rose-200", hex: "#fecdd3" },
-  { family: "Rose", token: "rose-300", hex: "#fda4af" },
-  { family: "Rose", token: "rose-400", hex: "#fb7185" },
-] as const satisfies readonly TailwindColorOption[];
+function getTailwindColorScale(
+  familyKey: TailwindColorFamilyKey,
+): Record<string, string> {
+  return tailwindColors[familyKey];
+}
+
+const tailwindColorOptions: TailwindColorOption[] =
+  tailwindColorFamilies.flatMap(({ key, label }) =>
+    Object.entries(getTailwindColorScale(key)).map(([shade, hex]) => ({
+      family: label,
+      familyKey: key,
+      hex,
+      shade,
+      token: `${key}-${shade}`,
+    })),
+  );
 
 const tailwindColorOptionMap = new Map<string, TailwindColorOption>(
   tailwindColorOptions.map((option) => [option.token, option]),
 );
-
-export const FACE_COLOR_KEYS = ["left", "right", "top"] as const;
-
-export const DEFAULT_FACE_COLORS: FaceColors = {
-  left: "stone-100",
-  right: "violet-400",
-  top: "violet-300",
-};
 
 const tailwindColorOptionsByFamily = new Map<
   TailwindColorFamily,
@@ -67,13 +72,17 @@ for (const option of tailwindColorOptions) {
   tailwindColorOptionsByFamily.set(option.family, currentOptions);
 }
 
-export const TAILWIND_COLOR_FAMILIES = Array.from(
-  tailwindColorOptionsByFamily.keys(),
-);
+export const FACE_COLOR_KEYS = ["left", "right", "top"] as const;
 
-export function getTailwindColorHex(token: string): string {
-  return tailwindColorOptionMap.get(token)?.hex ?? "#000000";
-}
+export const DEFAULT_FACE_COLORS: FaceColors = {
+  left: "stone-100",
+  right: "violet-400",
+  top: "violet-300",
+};
+
+export const TAILWIND_COLOR_FAMILIES = tailwindColorFamilies.map(
+  ({ label }) => label,
+);
 
 function getTailwindColorOption(
   token: string,
@@ -81,14 +90,8 @@ function getTailwindColorOption(
   return tailwindColorOptionMap.get(token);
 }
 
-function readTailwindColorShade(token: string): string {
-  const option = tailwindColorOptionMap.get(token);
-  if (!option) {
-    return "";
-  }
-
-  const [, shade = ""] = option.token.split("-");
-  return shade;
+export function getTailwindColorHex(token: string): string {
+  return getTailwindColorOption(token)?.hex ?? "#000000";
 }
 
 export function getTailwindColorFamily(token: string): TailwindColorFamily {
@@ -101,8 +104,8 @@ export function getTailwindColorFamily(token: string): TailwindColorFamily {
 
 export function getTailwindColorShade(token: string): TailwindColorShade {
   return (
-    readTailwindColorShade(token) ||
-    readTailwindColorShade(DEFAULT_FACE_COLORS.left) ||
+    getTailwindColorOption(token)?.shade ??
+    getTailwindColorOption(DEFAULT_FACE_COLORS.left)?.shade ??
     "100"
   );
 }
@@ -110,8 +113,8 @@ export function getTailwindColorShade(token: string): TailwindColorShade {
 export function getTailwindColorShades(
   family: TailwindColorFamily,
 ): TailwindColorShade[] {
-  return (tailwindColorOptionsByFamily.get(family) ?? []).map((option) =>
-    readTailwindColorShade(option.token),
+  return (tailwindColorOptionsByFamily.get(family) ?? []).map(
+    ({ shade }) => shade,
   );
 }
 
@@ -125,9 +128,7 @@ export function getTailwindColorTokenForSelection(
     return fallbackToken;
   }
 
-  const exactMatch = familyOptions.find(
-    (option) => readTailwindColorShade(option.token) === shade,
-  );
+  const exactMatch = familyOptions.find((option) => option.shade === shade);
   if (exactMatch) {
     return exactMatch.token;
   }
@@ -138,7 +139,7 @@ export function getTailwindColorTokenForSelection(
     let nearestDistance = Number.POSITIVE_INFINITY;
 
     for (const option of familyOptions) {
-      const optionShade = Number(readTailwindColorShade(option.token));
+      const optionShade = Number(option.shade);
       if (Number.isNaN(optionShade)) {
         continue;
       }
@@ -154,4 +155,10 @@ export function getTailwindColorTokenForSelection(
   }
 
   return familyOptions[0].token;
+}
+
+export function getTailwindColorFamilyHex(family: TailwindColorFamily): string {
+  return getTailwindColorHex(
+    getTailwindColorTokenForSelection(family, "500", DEFAULT_FACE_COLORS.left),
+  );
 }
