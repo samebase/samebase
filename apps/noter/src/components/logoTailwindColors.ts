@@ -5,29 +5,96 @@ export type FaceColors = Record<FaceColorKey, string>;
 export type TailwindColorFamily = string;
 export type TailwindColorShade = string;
 
+const docsOnlyTailwindColorScales = {
+  mauve: {
+    "50": "#fafafa",
+    "100": "#f3f1f3",
+    "200": "#e7e4e7",
+    "300": "#d7d0d7",
+    "400": "#a89ea9",
+    "500": "#79697b",
+    "600": "#594c5b",
+    "700": "#463947",
+    "800": "#2a212c",
+    "900": "#1d161e",
+    "950": "#0c090c",
+  },
+  olive: {
+    "50": "#fbfbf9",
+    "100": "#f4f4f0",
+    "200": "#e8e8e3",
+    "300": "#d8d8d0",
+    "400": "#abab9c",
+    "500": "#7c7c67",
+    "600": "#5b5b4b",
+    "700": "#474739",
+    "800": "#2b2b22",
+    "900": "#1d1d16",
+    "950": "#0c0c09",
+  },
+  mist: {
+    "50": "#f9fbfb",
+    "100": "#f1f3f3",
+    "200": "#e3e7e8",
+    "300": "#d0d6d8",
+    "400": "#9ca8ab",
+    "500": "#67787c",
+    "600": "#4b585b",
+    "700": "#394447",
+    "800": "#22292b",
+    "900": "#161b1d",
+    "950": "#090b0c",
+  },
+  taupe: {
+    "50": "#fbfaf9",
+    "100": "#f3f1f1",
+    "200": "#e8e4e3",
+    "300": "#d8d2d0",
+    "400": "#aba09c",
+    "500": "#7c6d67",
+    "600": "#5b4f4b",
+    "700": "#473c39",
+    "800": "#2b2422",
+    "900": "#1d1816",
+    "950": "#0c0a09",
+  },
+  black: {
+    base: "#000000",
+  },
+  white: {
+    base: "#ffffff",
+  },
+} as const;
+
 const tailwindColorFamilies = [
-  { key: "slate", label: "Slate" },
-  { key: "gray", label: "Gray" },
-  { key: "zinc", label: "Zinc" },
-  { key: "neutral", label: "Neutral" },
-  { key: "stone", label: "Stone" },
-  { key: "red", label: "Red" },
-  { key: "orange", label: "Orange" },
-  { key: "amber", label: "Amber" },
-  { key: "yellow", label: "Yellow" },
-  { key: "lime", label: "Lime" },
-  { key: "green", label: "Green" },
-  { key: "emerald", label: "Emerald" },
-  { key: "teal", label: "Teal" },
-  { key: "cyan", label: "Cyan" },
-  { key: "sky", label: "Sky" },
-  { key: "blue", label: "Blue" },
-  { key: "indigo", label: "Indigo" },
-  { key: "violet", label: "Violet" },
-  { key: "purple", label: "Purple" },
-  { key: "fuchsia", label: "Fuchsia" },
-  { key: "pink", label: "Pink" },
-  { key: "rose", label: "Rose" },
+  { key: "slate", label: "Slate", scale: tailwindColors.slate },
+  { key: "gray", label: "Gray", scale: tailwindColors.gray },
+  { key: "zinc", label: "Zinc", scale: tailwindColors.zinc },
+  { key: "neutral", label: "Neutral", scale: tailwindColors.neutral },
+  { key: "stone", label: "Stone", scale: tailwindColors.stone },
+  { key: "mauve", label: "Mauve", scale: docsOnlyTailwindColorScales.mauve },
+  { key: "olive", label: "Olive", scale: docsOnlyTailwindColorScales.olive },
+  { key: "mist", label: "Mist", scale: docsOnlyTailwindColorScales.mist },
+  { key: "taupe", label: "Taupe", scale: docsOnlyTailwindColorScales.taupe },
+  { key: "red", label: "Red", scale: tailwindColors.red },
+  { key: "orange", label: "Orange", scale: tailwindColors.orange },
+  { key: "amber", label: "Amber", scale: tailwindColors.amber },
+  { key: "yellow", label: "Yellow", scale: tailwindColors.yellow },
+  { key: "lime", label: "Lime", scale: tailwindColors.lime },
+  { key: "green", label: "Green", scale: tailwindColors.green },
+  { key: "emerald", label: "Emerald", scale: tailwindColors.emerald },
+  { key: "teal", label: "Teal", scale: tailwindColors.teal },
+  { key: "cyan", label: "Cyan", scale: tailwindColors.cyan },
+  { key: "sky", label: "Sky", scale: tailwindColors.sky },
+  { key: "blue", label: "Blue", scale: tailwindColors.blue },
+  { key: "indigo", label: "Indigo", scale: tailwindColors.indigo },
+  { key: "violet", label: "Violet", scale: tailwindColors.violet },
+  { key: "purple", label: "Purple", scale: tailwindColors.purple },
+  { key: "fuchsia", label: "Fuchsia", scale: tailwindColors.fuchsia },
+  { key: "pink", label: "Pink", scale: tailwindColors.pink },
+  { key: "rose", label: "Rose", scale: tailwindColors.rose },
+  { key: "black", label: "Black", scale: docsOnlyTailwindColorScales.black },
+  { key: "white", label: "White", scale: docsOnlyTailwindColorScales.white },
 ] as const;
 
 type TailwindColorFamilyKey = (typeof tailwindColorFamilies)[number]["key"];
@@ -40,15 +107,9 @@ type TailwindColorOption = {
   token: string;
 };
 
-function getTailwindColorScale(
-  familyKey: TailwindColorFamilyKey,
-): Record<string, string> {
-  return tailwindColors[familyKey];
-}
-
 const tailwindColorOptions: TailwindColorOption[] =
-  tailwindColorFamilies.flatMap(({ key, label }) =>
-    Object.entries(getTailwindColorScale(key)).map(([shade, hex]) => ({
+  tailwindColorFamilies.flatMap(({ key, label, scale }) =>
+    Object.entries(scale).map(([shade, hex]) => ({
       family: label,
       familyKey: key,
       hex,
