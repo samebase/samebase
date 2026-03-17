@@ -2,7 +2,7 @@ export const GRID_SIZE = 3;
 export const HALF_GRID = GRID_SIZE / 2;
 export const DEFAULT_ROTATION_DEGREES = 0;
 export const DEFAULT_ELEVATION_DEGREES = 29.5;
-export const MIN_ELEVATION_DEGREES = 10;
+export const MIN_ELEVATION_DEGREES = -75;
 export const MAX_ELEVATION_DEGREES = 75;
 
 export type VoxelCoordinate = readonly [number, number, number];
