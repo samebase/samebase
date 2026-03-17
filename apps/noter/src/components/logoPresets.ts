@@ -9,7 +9,7 @@ import {
 export const CUSTOM_LOGO_PRESET_ID = "custom";
 export const DEFAULT_LOGO_PRESET_ID = "n-logo";
 
-export type LogoPresetId = "cornerless-cube" | "n-logo";
+export type LogoPresetId = "cornerless-cube" | "n-logo" | "single-cube";
 export type LogoPresetSelection = LogoPresetId | typeof CUSTOM_LOGO_PRESET_ID;
 
 type LogoPreset = {
@@ -41,6 +41,10 @@ function createCornerlessCubeVoxelState(): string {
   return serializeVoxelState(createFilledVoxelSet(coordinates));
 }
 
+function createSingleCubeVoxelState(): string {
+  return serializeVoxelState(createFilledVoxelSet([[1, 1, 1]]));
+}
+
 export const LOGO_PRESETS = [
   {
     description: "Current lowercase n logo",
@@ -53,6 +57,12 @@ export const LOGO_PRESETS = [
     id: "cornerless-cube",
     label: "Cornerless Cube",
     voxelState: createCornerlessCubeVoxelState(),
+  },
+  {
+    description: "Single cube study for the isometric renderer",
+    id: "single-cube",
+    label: "Single Cube",
+    voxelState: createSingleCubeVoxelState(),
   },
 ] as const satisfies readonly LogoPreset[];
 
