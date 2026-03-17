@@ -20,21 +20,16 @@ type Point = {
   y: number;
 };
 
-type Rectangle = {
-  row: number;
-  column: number;
-  height: number;
-  width: number;
-};
-
-type PixelQuad = {
-  color: string;
-  points: readonly Point[];
-  sortX: number;
-  sortY: number;
-};
-
 type CubePosition = readonly [number, number, number];
+
+type RenderFace = {
+  color: string;
+  coordinate: VoxelCoordinate;
+  direction: IsometricFaceDirection;
+  normal: VoxelCoordinate;
+  polygon: readonly Point[];
+  position: CubePosition;
+};
 
 type IsometricFaceDirection = "left" | "right" | "top";
 
@@ -54,6 +49,12 @@ const FACE_NORMALS: Record<IsometricFaceDirection, VoxelCoordinate> = {
   left: [0, 0, 1],
   right: [1, 0, 0],
   top: [0, 1, 0],
+};
+
+const FACE_DRAW_ORDER: Record<IsometricFaceDirection, number> = {
+  left: 0,
+  right: 1,
+  top: 2,
 };
 
 function projectPoint(position: CubePosition): Point {
@@ -93,64 +94,6 @@ function getCubeFacePolygon(
         projectPoint([x, y, z + 1]),
       ];
   }
-}
-
-function collectRectangles(mask: boolean[][]): Rectangle[] {
-  const visited = mask.map((row) => row.map(() => false));
-  const rectangles: Rectangle[] = [];
-
-  for (let row = 0; row < mask.length; row += 1) {
-    for (let column = 0; column < mask[row].length; column += 1) {
-      if (!mask[row][column] || visited[row][column]) {
-        continue;
-      }
-
-      let width = 1;
-      while (
-        column + width < mask[row].length &&
-        mask[row][column + width] &&
-        !visited[row][column + width]
-      ) {
-        width += 1;
-      }
-
-      let height = 1;
-      let canGrow = true;
-      while (row + height < mask.length && canGrow) {
-        for (
-          let nextColumn = column;
-          nextColumn < column + width;
-          nextColumn += 1
-        ) {
-          if (
-            !mask[row + height][nextColumn] ||
-            visited[row + height][nextColumn]
-          ) {
-            canGrow = false;
-            break;
-          }
-        }
-
-        if (canGrow) {
-          height += 1;
-        }
-      }
-
-      for (let nextRow = row; nextRow < row + height; nextRow += 1) {
-        for (
-          let nextColumn = column;
-          nextColumn < column + width;
-          nextColumn += 1
-        ) {
-          visited[nextRow][nextColumn] = true;
-        }
-      }
-
-      rectangles.push({ row, column, height, width });
-    }
-  }
-
-  return rectangles;
 }
 
 function buildSceneBounds() {
@@ -228,194 +171,93 @@ function fillPolygonPixels(
   }
 }
 
-function fillQuad(context: CanvasRenderingContext2D, quad: PixelQuad) {
-  fillPolygonPixels(context, quad.points, quad.color);
+function parseVoxelCoordinate(key: string): VoxelCoordinate {
+  const [xText, yText, zText] = key.split(",");
+  return [
+    Number.parseInt(xText, 10),
+    Number.parseInt(yText, 10),
+    Number.parseInt(zText, 10),
+  ];
 }
 
-function averagePoint(points: readonly Point[]): Point {
-  const total = points.reduce(
-    (accumulator, point) => ({
-      x: accumulator.x + point.x,
-      y: accumulator.y + point.y,
-    }),
-    { x: 0, y: 0 },
-  );
-
-  return {
-    x: total.x / points.length,
-    y: total.y / points.length,
-  };
+function getFaceSortPosition(
+  position: CubePosition,
+  direction: IsometricFaceDirection,
+): CubePosition {
+  switch (direction) {
+    case "top":
+      return [position[0] + 0.5, position[1] + 1, position[2] + 0.5];
+    case "right":
+      return [position[0] + 1, position[1] + 0.5, position[2] + 0.5];
+    case "left":
+      return [position[0] + 0.5, position[1] + 0.5, position[2] + 1];
+  }
 }
 
-function quadFromPolygon(color: string, points: readonly Point[]): PixelQuad {
-  const center = averagePoint(points);
+function compareFaceLayers(
+  leftPosition: CubePosition,
+  leftDirection: IsometricFaceDirection,
+  rightPosition: CubePosition,
+  rightDirection: IsometricFaceDirection,
+): number {
+  const leftSortPosition = getFaceSortPosition(leftPosition, leftDirection);
+  const rightSortPosition = getFaceSortPosition(rightPosition, rightDirection);
+  const leftDepth =
+    leftSortPosition[0] + leftSortPosition[1] + leftSortPosition[2];
+  const rightDepth =
+    rightSortPosition[0] + rightSortPosition[1] + rightSortPosition[2];
+
+  if (leftDepth !== rightDepth) {
+    return leftDepth - rightDepth;
+  }
+
+  if (leftSortPosition[1] !== rightSortPosition[1]) {
+    return leftSortPosition[1] - rightSortPosition[1];
+  }
+
+  if (leftSortPosition[0] !== rightSortPosition[0]) {
+    return leftSortPosition[0] - rightSortPosition[0];
+  }
+
+  if (leftSortPosition[2] !== rightSortPosition[2]) {
+    return leftSortPosition[2] - rightSortPosition[2];
+  }
+
+  return FACE_DRAW_ORDER[leftDirection] - FACE_DRAW_ORDER[rightDirection];
+}
+
+function createRenderFace({
+  color,
+  coordinate,
+  direction,
+  position,
+}: {
+  color: string;
+  coordinate: VoxelCoordinate;
+  direction: IsometricFaceDirection;
+  position: CubePosition;
+}): RenderFace {
   return {
     color,
-    points,
-    sortX: center.x,
-    sortY: center.y,
+    coordinate,
+    direction,
+    normal: FACE_NORMALS[direction],
+    polygon: translatePolygon(getCubeFacePolygon(position, direction)),
+    position,
   };
 }
 
-function buildMergedSurfaceQuads(
+function buildStaticRenderFaces(
   filledVoxels: ReadonlySet<string>,
   faceColors: FaceColors,
-): PixelQuad[] {
-  const quads: PixelQuad[] = [];
+): RenderFace[] {
+  const renderFaces: RenderFace[] = [];
   const topColor = getTailwindColorHex(faceColors.top);
   const rightColor = getTailwindColorHex(faceColors.right);
   const leftColor = getTailwindColorHex(faceColors.left);
-
-  for (let y = 0; y < GRID_SIZE; y += 1) {
-    const topMask = Array.from({ length: GRID_SIZE }, (_, x) =>
-      Array.from(
-        { length: GRID_SIZE },
-        (_, z) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x, y + 1, z),
-      ),
-    );
-
-    for (const rectangle of collectRectangles(topMask)) {
-      const points = translatePolygon([
-        projectPoint([rectangle.row, y + 1, rectangle.column]),
-        projectPoint([
-          rectangle.row + rectangle.height,
-          y + 1,
-          rectangle.column,
-        ]),
-        projectPoint([
-          rectangle.row + rectangle.height,
-          y + 1,
-          rectangle.column + rectangle.width,
-        ]),
-        projectPoint([
-          rectangle.row,
-          y + 1,
-          rectangle.column + rectangle.width,
-        ]),
-      ]);
-      quads.push(quadFromPolygon(topColor, points));
-    }
-  }
-
-  for (let x = 0; x < GRID_SIZE; x += 1) {
-    const rightMask = Array.from({ length: GRID_SIZE }, (_, y) =>
-      Array.from(
-        { length: GRID_SIZE },
-        (_, z) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x + 1, y, z),
-      ),
-    );
-
-    for (const rectangle of collectRectangles(rightMask)) {
-      const points = translatePolygon([
-        projectPoint([
-          x + 1,
-          rectangle.row + rectangle.height,
-          rectangle.column,
-        ]),
-        projectPoint([x + 1, rectangle.row, rectangle.column]),
-        projectPoint([
-          x + 1,
-          rectangle.row,
-          rectangle.column + rectangle.width,
-        ]),
-        projectPoint([
-          x + 1,
-          rectangle.row + rectangle.height,
-          rectangle.column + rectangle.width,
-        ]),
-      ]);
-      quads.push(quadFromPolygon(rightColor, points));
-    }
-  }
-
-  for (let z = 0; z < GRID_SIZE; z += 1) {
-    const leftMask = Array.from({ length: GRID_SIZE }, (_, y) =>
-      Array.from(
-        { length: GRID_SIZE },
-        (_, x) =>
-          isVoxelFilled(filledVoxels, x, y, z) &&
-          !isVoxelFilled(filledVoxels, x, y, z + 1),
-      ),
-    );
-
-    for (const rectangle of collectRectangles(leftMask)) {
-      const points = translatePolygon([
-        projectPoint([
-          rectangle.column,
-          rectangle.row + rectangle.height,
-          z + 1,
-        ]),
-        projectPoint([
-          rectangle.column + rectangle.width,
-          rectangle.row + rectangle.height,
-          z + 1,
-        ]),
-        projectPoint([
-          rectangle.column + rectangle.width,
-          rectangle.row,
-          z + 1,
-        ]),
-        projectPoint([rectangle.column, rectangle.row, z + 1]),
-      ]);
-      quads.push(quadFromPolygon(leftColor, points));
-    }
-  }
-
-  return quads;
-}
-
-function buildMovingVoxelQuads(
-  faceColors: FaceColors,
-  movingVoxels: readonly IsometricMovingVoxel[],
-): PixelQuad[] {
-  const topColor = getTailwindColorHex(faceColors.top);
-  const rightColor = getTailwindColorHex(faceColors.right);
-  const leftColor = getTailwindColorHex(faceColors.left);
-
-  return movingVoxels.flatMap((movingVoxel) => {
-    const topPoints = translatePolygon(
-      getCubeFacePolygon(movingVoxel.position, "top"),
-    );
-    const rightPoints = translatePolygon(
-      getCubeFacePolygon(movingVoxel.position, "right"),
-    );
-    const leftPoints = translatePolygon(
-      getCubeFacePolygon(movingVoxel.position, "left"),
-    );
-
-    return [
-      quadFromPolygon(leftColor, leftPoints),
-      quadFromPolygon(rightColor, rightPoints),
-      quadFromPolygon(topColor, topPoints),
-    ];
-  });
-}
-
-function compareQuads(left: PixelQuad, right: PixelQuad): number {
-  if (left.sortY !== right.sortY) {
-    return left.sortY - right.sortY;
-  }
-
-  return left.sortX - right.sortX;
-}
-
-function buildVisibleFaces(
-  filledVoxels: ReadonlySet<string>,
-  movingVoxels: readonly IsometricMovingVoxel[],
-): IsometricVisibleFace[] {
-  const visibleFaces: IsometricVisibleFace[] = [];
 
   for (const key of filledVoxels) {
-    const [xText, yText, zText] = key.split(",");
-    const coordinate: VoxelCoordinate = [
-      Number.parseInt(xText, 10),
-      Number.parseInt(yText, 10),
-      Number.parseInt(zText, 10),
-    ];
+    const coordinate = parseVoxelCoordinate(key);
 
     if (
       !isVoxelFilled(
@@ -425,12 +267,14 @@ function buildVisibleFaces(
         coordinate[2] + 1,
       )
     ) {
-      visibleFaces.push({
-        coordinate,
-        direction: "left",
-        normal: FACE_NORMALS.left,
-        polygon: translatePolygon(getCubeFacePolygon(coordinate, "left")),
-      });
+      renderFaces.push(
+        createRenderFace({
+          color: leftColor,
+          coordinate,
+          direction: "left",
+          position: coordinate,
+        }),
+      );
     }
 
     if (
@@ -441,12 +285,14 @@ function buildVisibleFaces(
         coordinate[2],
       )
     ) {
-      visibleFaces.push({
-        coordinate,
-        direction: "right",
-        normal: FACE_NORMALS.right,
-        polygon: translatePolygon(getCubeFacePolygon(coordinate, "right")),
-      });
+      renderFaces.push(
+        createRenderFace({
+          color: rightColor,
+          coordinate,
+          direction: "right",
+          position: coordinate,
+        }),
+      );
     }
 
     if (
@@ -457,43 +303,57 @@ function buildVisibleFaces(
         coordinate[2],
       )
     ) {
-      visibleFaces.push({
-        coordinate,
-        direction: "top",
-        normal: FACE_NORMALS.top,
-        polygon: translatePolygon(getCubeFacePolygon(coordinate, "top")),
-      });
+      renderFaces.push(
+        createRenderFace({
+          color: topColor,
+          coordinate,
+          direction: "top",
+          position: coordinate,
+        }),
+      );
     }
   }
 
-  for (const movingVoxel of movingVoxels) {
-    visibleFaces.push({
+  return renderFaces;
+}
+
+function buildMovingRenderFaces(
+  faceColors: FaceColors,
+  movingVoxels: readonly IsometricMovingVoxel[],
+): RenderFace[] {
+  const topColor = getTailwindColorHex(faceColors.top);
+  const rightColor = getTailwindColorHex(faceColors.right);
+  const leftColor = getTailwindColorHex(faceColors.left);
+
+  return movingVoxels.flatMap((movingVoxel) => [
+    createRenderFace({
+      color: leftColor,
       coordinate: movingVoxel.coordinate,
       direction: "left",
-      normal: FACE_NORMALS.left,
-      polygon: translatePolygon(
-        getCubeFacePolygon(movingVoxel.position, "left"),
-      ),
-    });
-    visibleFaces.push({
+      position: movingVoxel.position,
+    }),
+    createRenderFace({
+      color: rightColor,
       coordinate: movingVoxel.coordinate,
       direction: "right",
-      normal: FACE_NORMALS.right,
-      polygon: translatePolygon(
-        getCubeFacePolygon(movingVoxel.position, "right"),
-      ),
-    });
-    visibleFaces.push({
+      position: movingVoxel.position,
+    }),
+    createRenderFace({
+      color: topColor,
       coordinate: movingVoxel.coordinate,
       direction: "top",
-      normal: FACE_NORMALS.top,
-      polygon: translatePolygon(
-        getCubeFacePolygon(movingVoxel.position, "top"),
-      ),
-    });
-  }
+      position: movingVoxel.position,
+    }),
+  ]);
+}
 
-  return visibleFaces;
+function compareRenderFaces(left: RenderFace, right: RenderFace): number {
+  return compareFaceLayers(
+    left.position,
+    left.direction,
+    right.position,
+    right.direction,
+  );
 }
 
 export function drawLogoIsometricFrame({
@@ -523,16 +383,21 @@ export function drawLogoIsometricFrame({
     LOGO_ISOMETRIC_CANVAS_HEIGHT,
   );
 
-  const quads = [
-    ...buildMergedSurfaceQuads(filledVoxels, faceColors),
-    ...buildMovingVoxelQuads(faceColors, movingVoxels),
-  ].sort(compareQuads);
+  const renderFaces = [
+    ...buildStaticRenderFaces(filledVoxels, faceColors),
+    ...buildMovingRenderFaces(faceColors, movingVoxels),
+  ].sort(compareRenderFaces);
 
-  for (const quad of quads) {
-    fillQuad(context, quad);
+  for (const renderFace of renderFaces) {
+    fillPolygonPixels(context, renderFace.polygon, renderFace.color);
   }
 
-  return buildVisibleFaces(filledVoxels, movingVoxels);
+  return renderFaces.map(({ coordinate, direction, normal, polygon }) => ({
+    coordinate,
+    direction,
+    normal,
+    polygon,
+  }));
 }
 
 export function getIsometricAddCoordinate(
