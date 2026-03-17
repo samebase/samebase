@@ -7,7 +7,6 @@ import { FileView } from "@/components/FileView";
 import { AddRepository } from "@/components/AddRepository";
 import { ChatFab } from "@/components/ChatFab";
 import { CodespaceChatOnlyView } from "@/components/CodespaceChatOnlyView";
-import { LogoPreviewPage } from "@/components/LogoPreviewPage";
 import { PricingPage } from "@/components/PricingPage";
 import { NetlifyOAuthCallback } from "@/components/NetlifyOAuthCallback";
 import { Button } from "@/components/ui/button";
@@ -22,8 +21,13 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../convex/_generated/api";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 import { Routes, Route, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { isChatOnlyCodespaceRoute } from "@/lib/vaultRoutes";
+
+const LogoPreviewPage = lazy(async () => {
+  const module = await import("@/components/LogoPreviewPage");
+  return { default: module.LogoPreviewPage };
+});
 
 function useCloseOAuthPopup(pathname: string, enabled: boolean) {
   const { isAuthenticated } = useConvexAuth();
@@ -271,7 +275,11 @@ export default function App() {
   const showLogoPreview = location.pathname === "/logo";
 
   if (showLogoPreview) {
-    return <LogoPreviewPage />;
+    return (
+      <Suspense fallback={null}>
+        <LogoPreviewPage />
+      </Suspense>
+    );
   }
 
   if (showMcpConsent) {
