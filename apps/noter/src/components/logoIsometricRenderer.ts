@@ -9,9 +9,10 @@ import {
   type FaceColors,
 } from "@/components/logoTailwindColors";
 
-const TILE_HALF_WIDTH = 4;
-const TILE_HALF_HEIGHT = 2;
-const VOXEL_SCREEN_HEIGHT = 4;
+// Use a larger source cube so the shape stays readable before favicon downscaling.
+const TILE_HALF_WIDTH = 16;
+const TILE_HALF_HEIGHT = 8;
+const VOXEL_SCREEN_HEIGHT = 16;
 const FRAME_PADDING = 4;
 
 type Point = {
