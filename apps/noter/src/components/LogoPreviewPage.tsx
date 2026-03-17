@@ -67,9 +67,9 @@ const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 type LogoPreviewRenderMode = "three" | "iso";
 
 const ISO_DEFAULT_FACE_COLORS: FaceColors = {
-  left: "primary-base",
-  right: "stone-300",
-  top: "white-base",
+  left: "red-500",
+  right: "green-500",
+  top: "blue-500",
 };
 
 const FACE_COLOR_LABELS: Record<FaceColorKey, string> = {
