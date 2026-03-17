@@ -3,6 +3,8 @@
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 - [ ] specifically left blank
 
+- [ ] idea.md -> lightbulb.md -> lumina.md ?!?!?!?!?!
+
 - [ ] web is more transparent than mobile apps
 
 - [ ] load everything without editor and three. js to increase time to see
