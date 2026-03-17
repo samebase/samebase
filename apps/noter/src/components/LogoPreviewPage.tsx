@@ -108,6 +108,7 @@ export function LogoPreviewPage() {
   );
   const [faceColors, setFaceColors] = useState<FaceColors>(DEFAULT_FACE_COLORS);
   const [isAutoRotating, setIsAutoRotating] = useState(false);
+  const [isViewControlsOpen, setIsViewControlsOpen] = useState(false);
   const [isFaceColorsOpen, setIsFaceColorsOpen] = useState(false);
   const [isVoxelMapOpen, setIsVoxelMapOpen] = useState(false);
   const lastFrameTimeRef = useRef<number | null>(null);
@@ -254,74 +255,117 @@ export function LogoPreviewPage() {
             </Button>
           </div>
           <div className="mt-4 grid gap-3">
-            <div className="grid gap-2">
-              <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                <span>Yaw</span>
-                <span>{rotationDegrees.toFixed(1)}°</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="range"
-                  min="0"
-                  max="360"
-                  step="0.1"
-                  value={rotationDegrees}
-                  onChange={handleRotationChange}
-                  className="h-2 w-full cursor-pointer accent-[#8a88ac]"
-                />
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  max="360"
-                  step="0.1"
-                  value={rotationDegrees.toFixed(1)}
-                  onChange={handleRotationInputChange}
-                  className="h-9 w-20 rounded-none border-black/10 bg-white/90 px-2 font-mono text-sm"
-                />
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                <span>Elevation</span>
-                <span>{elevationDegrees.toFixed(1)}°</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="range"
-                  min={MIN_ELEVATION_DEGREES}
-                  max={MAX_ELEVATION_DEGREES}
-                  step="0.1"
-                  value={elevationDegrees}
-                  onChange={handleElevationChange}
-                  className="h-2 w-full cursor-pointer accent-[#8a88ac]"
-                />
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  min={MIN_ELEVATION_DEGREES}
-                  max={MAX_ELEVATION_DEGREES}
-                  step="0.1"
-                  value={elevationDegrees.toFixed(1)}
-                  onChange={handleElevationInputChange}
-                  className="h-9 w-20 rounded-none border-black/10 bg-white/90 px-2 font-mono text-sm"
-                />
-              </div>
-            </div>
+            <Collapsible
+              open={isViewControlsOpen}
+              onOpenChange={setIsViewControlsOpen}
+            >
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between border border-black/10 bg-white/70 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.2em] text-black/55"
+                >
+                  <span>View</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[10px] tracking-normal text-black/60">
+                      {rotationDegrees.toFixed(0)}° /{" "}
+                      {elevationDegrees.toFixed(0)}°
+                    </span>
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform ${
+                        isViewControlsOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </div>
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-3">
+                <div className="grid gap-3">
+                  <div className="grid gap-2">
+                    <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                      <span>Yaw</span>
+                      <span>{rotationDegrees.toFixed(1)}°</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min="0"
+                        max="360"
+                        step="0.1"
+                        value={rotationDegrees}
+                        onChange={handleRotationChange}
+                        className="h-2 w-full cursor-pointer accent-[#8a88ac]"
+                      />
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        max="360"
+                        step="0.1"
+                        value={rotationDegrees.toFixed(1)}
+                        onChange={handleRotationInputChange}
+                        className="h-9 w-20 rounded-none border-black/10 bg-white/90 px-2 font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                      <span>Elevation</span>
+                      <span>{elevationDegrees.toFixed(1)}°</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min={MIN_ELEVATION_DEGREES}
+                        max={MAX_ELEVATION_DEGREES}
+                        step="0.1"
+                        value={elevationDegrees}
+                        onChange={handleElevationChange}
+                        className="h-2 w-full cursor-pointer accent-[#8a88ac]"
+                      />
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        min={MIN_ELEVATION_DEGREES}
+                        max={MAX_ELEVATION_DEGREES}
+                        step="0.1"
+                        value={elevationDegrees.toFixed(1)}
+                        onChange={handleElevationInputChange}
+                        className="h-9 w-20 rounded-none border-black/10 bg-white/90 px-2 font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="rounded-none"
+                      onClick={() => {
+                        setIsAutoRotating(false);
+                        setRotationDegrees(DEFAULT_ROTATION_DEGREES);
+                        setElevationDegrees(DEFAULT_ELEVATION_DEGREES);
+                      }}
+                    >
+                      Reset view
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="rounded-none"
+                      onClick={() => {
+                        setRotationDegrees((currentRotationDegrees) =>
+                          normalizeRotationDegrees(currentRotationDegrees + 45),
+                        );
+                      }}
+                    >
+                      +45°
+                    </Button>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
             <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="rounded-none"
-                onClick={() => {
-                  setIsAutoRotating(false);
-                  setRotationDegrees(DEFAULT_ROTATION_DEGREES);
-                  setElevationDegrees(DEFAULT_ELEVATION_DEGREES);
-                }}
-              >
-                Reset view
-              </Button>
               <Button
                 type="button"
                 size="sm"
@@ -344,19 +388,6 @@ export function LogoPreviewPage() {
                 }}
               >
                 Reset shape
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="rounded-none"
-                onClick={() => {
-                  setRotationDegrees((currentRotationDegrees) =>
-                    normalizeRotationDegrees(currentRotationDegrees + 45),
-                  );
-                }}
-              >
-                +45°
               </Button>
             </div>
             <Collapsible
