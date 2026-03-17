@@ -16,6 +16,15 @@ import {
   type FaceColorKey,
   type FaceColors,
 } from "@/components/logoTailwindColors";
+import {
+  CUSTOM_LOGO_PRESET_ID,
+  DEFAULT_LOGO_PRESET_ID,
+  LOGO_PRESETS,
+  getLogoPreset,
+  getLogoPresetSelection,
+  type LogoPresetId,
+  type LogoPresetSelection,
+} from "@/components/logoPresets";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
@@ -115,6 +124,16 @@ function readVoxelState(searchParams: URLSearchParams): string {
   return serializeVoxelState(parsedState);
 }
 
+function readLogoPresetSelection(
+  searchParams: URLSearchParams,
+): LogoPresetSelection {
+  return getLogoPresetSelection(readVoxelState(searchParams));
+}
+
+function isLogoPresetId(value: string): value is LogoPresetId {
+  return LOGO_PRESETS.some((preset) => preset.id === value);
+}
+
 export function LogoPreviewPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const backgroundColor = getTailwindColorHex("background-base");
@@ -126,6 +145,9 @@ export function LogoPreviewPage() {
   );
   const [voxelState, setVoxelState] = useState(() =>
     readVoxelState(searchParams),
+  );
+  const [selectedPresetId, setSelectedPresetId] = useState<LogoPresetSelection>(
+    () => readLogoPresetSelection(searchParams),
   );
   const [faceColors, setFaceColors] = useState<FaceColors>(DEFAULT_FACE_COLORS);
   const [isAutoRotating, setIsAutoRotating] = useState(false);
@@ -140,6 +162,7 @@ export function LogoPreviewPage() {
 
   useEffect(() => {
     setVoxelState(readVoxelState(searchParams));
+    setSelectedPresetId(readLogoPresetSelection(searchParams));
   }, [searchParams]);
 
   useEffect(() => {
@@ -226,6 +249,21 @@ export function LogoPreviewPage() {
     setVoxelState((currentVoxelState) =>
       applyVoxelEdit(currentVoxelState, edit),
     );
+  };
+
+  const selectedPreset =
+    selectedPresetId === CUSTOM_LOGO_PRESET_ID
+      ? null
+      : getLogoPreset(selectedPresetId);
+  const isPresetDirty =
+    selectedPreset !== null && selectedPreset.voxelState !== voxelState;
+
+  const applyPreset = (presetId: Exclude<LogoPresetSelection, "custom">) => {
+    const preset = getLogoPreset(presetId);
+    setIsAutoRotating(false);
+    setIsShuffleEnabled(false);
+    setSelectedPresetId(presetId);
+    setVoxelState(preset.voxelState);
   };
 
   const handleFaceColorFamilyChange = (
@@ -442,6 +480,75 @@ export function LogoPreviewPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                      Shape Preset
+                    </div>
+                    <div className="mt-1 text-xs text-black/55">
+                      {selectedPreset === null
+                        ? "Current URL shape is custom."
+                        : isPresetDirty
+                          ? `Edited from ${selectedPreset.label}.`
+                          : selectedPreset.description}
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="rounded-none"
+                    disabled={selectedPreset === null}
+                    onClick={() => {
+                      if (selectedPreset !== null) {
+                        applyPreset(selectedPreset.id);
+                      }
+                    }}
+                  >
+                    Reset preset
+                  </Button>
+                </div>
+                <Select
+                  value={selectedPresetId}
+                  onValueChange={(value) => {
+                    if (value === CUSTOM_LOGO_PRESET_ID) {
+                      setSelectedPresetId(CUSTOM_LOGO_PRESET_ID);
+                      return;
+                    }
+
+                    if (isLogoPresetId(value)) {
+                      applyPreset(value);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-9 rounded-none border-black/10 bg-white/90 px-2 text-sm text-black/80 shadow-none">
+                    {selectedPreset === null ? "Custom" : selectedPreset.label}
+                  </SelectTrigger>
+                  <SelectContent className="rounded-none border-black/10">
+                    <SelectItem
+                      value={CUSTOM_LOGO_PRESET_ID}
+                      className="rounded-none"
+                    >
+                      Custom
+                    </SelectItem>
+                    {LOGO_PRESETS.map((preset) => (
+                      <SelectItem
+                        key={preset.id}
+                        value={preset.id}
+                        className="rounded-none"
+                      >
+                        <div className="grid gap-0.5">
+                          <span>{preset.label}</span>
+                          <span className="text-xs text-black/55">
+                            {preset.description}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2 border border-black/10 bg-white/70 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                       Cube Shuffle
                     </div>
                     <div className="mt-1 text-xs text-black/55">
@@ -506,9 +613,12 @@ export function LogoPreviewPage() {
                   variant="outline"
                   className="rounded-none"
                   onClick={() => {
-                    setIsAutoRotating(false);
-                    setIsShuffleEnabled(false);
-                    setVoxelState(DEFAULT_VOXEL_STATE);
+                    if (selectedPreset !== null) {
+                      applyPreset(selectedPreset.id);
+                      return;
+                    }
+
+                    applyPreset(DEFAULT_LOGO_PRESET_ID);
                   }}
                 >
                   Reset shape
