@@ -2,7 +2,10 @@
 
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 - [ ] specifically left blank
-- [ ] 
+
+- [ ] web is more transparent than mobile apps
+
+- [ ] load everything without editor and three. js to increase time to see
 - [ ] https://x.com/matteocollina/status/2033590124919787819
 - [ ] Make the chat always open at the bottom on mobile. Make it part of the UI, the same way chats are like Claude Code on mobile. 
 - [ ] maybe jupyterlab is not necessaryle necessary, or even a good idea, since developers usually don't use it; and vibecoders don't even use it; only academia?
