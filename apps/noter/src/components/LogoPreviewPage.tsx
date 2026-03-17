@@ -153,7 +153,7 @@ export function LogoPreviewPage() {
   const [isAutoRotating, setIsAutoRotating] = useState(false);
   const [isShuffleEnabled, setIsShuffleEnabled] = useState(false);
   const [shuffleParallelMoves, setShuffleParallelMoves] =
-    useState<LogoShuffleParallelMoves>(1);
+    useState<LogoShuffleParallelMoves>(3);
   const [isControlsOpen, setIsControlsOpen] = useState(false);
   const [isViewControlsOpen, setIsViewControlsOpen] = useState(false);
   const [isFaceColorsOpen, setIsFaceColorsOpen] = useState(false);
