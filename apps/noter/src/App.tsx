@@ -272,12 +272,17 @@ export default function App() {
   );
   const showChatFab = !isChatOnlyCodespaceRoute(location.pathname);
   const showMcpConsent = onMcpConsentRoute && mcpConsentRequestId !== null;
-  const showLogoPreview = location.pathname === "/logo";
+  const logoPreviewMode =
+    location.pathname === "/logo"
+      ? "three"
+      : location.pathname === "/logo-iso"
+        ? "iso"
+        : null;
 
-  if (showLogoPreview) {
+  if (logoPreviewMode !== null) {
     return (
       <Suspense fallback={null}>
-        <LogoPreviewPage />
+        <LogoPreviewPage renderMode={logoPreviewMode} />
       </Suspense>
     );
   }
