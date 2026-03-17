@@ -3,6 +3,14 @@ import {
   NLogoScene,
   type LogoShuffleParallelMoves,
 } from "@/components/NLogoScene";
+import { LogoIsoThumbnail, NLogoIsoScene } from "@/components/NLogoIsoScene";
+import {
+  DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+  LOGO_ISOMETRIC_STYLES,
+  getLogoIsometricStyle,
+  isLogoIsometricStyleId,
+  type LogoIsometricStyleId,
+} from "@/components/logoIsometricRenderer";
 import {
   DEFAULT_FACE_COLORS,
   FACE_COLOR_KEYS,
@@ -57,14 +65,15 @@ import {
   serializeVoxelState,
   type VoxelEdit,
 } from "@/components/logoVoxelState";
-import { ChevronDown } from "lucide-react";
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { useSearchParams } from "react-router-dom";
 import {
+  buildPathWithQuery,
   buildSearchString,
   setQueryParam,
   updateQueryParams,
 } from "@/lib/queryParams";
+import { ChevronDown } from "lucide-react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const CONTROLS_POPOVER_SIDE_OFFSET_PX = 10;
@@ -75,6 +84,8 @@ const DEFAULT_LOGO_OPACITY = 1;
 const MIN_LOGO_OPACITY = 0;
 const MAX_LOGO_OPACITY = 1;
 const LOGO_OPACITY_STEP = 0.01;
+
+type LogoPreviewRenderMode = "three" | "iso";
 const FACE_COLOR_LABELS: Record<FaceColorKey, string> = {
   left: "Left",
   right: "Right",
@@ -147,6 +158,7 @@ function readVoxelState(searchParams: URLSearchParams): string {
   if (parsedState === null) {
     return DEFAULT_VOXEL_STATE;
   }
+
   return serializeVoxelState(parsedState);
 }
 
@@ -156,14 +168,29 @@ function readLogoPresetSelection(
   return getLogoPresetSelection(readVoxelState(searchParams));
 }
 
+function readIsoStyleId(searchParams: URLSearchParams): LogoIsometricStyleId {
+  const isoStyle = searchParams.get("isoStyle");
+  if (!isLogoIsometricStyleId(isoStyle)) {
+    return DEFAULT_LOGO_ISOMETRIC_STYLE_ID;
+  }
+
+  return isoStyle;
+}
+
 function isLogoPresetId(value: string): value is LogoPresetId {
   return LOGO_PRESETS.some((preset) => preset.id === value);
 }
 
-export function LogoPreviewPage() {
+export function LogoPreviewPage({
+  renderMode = "three",
+}: {
+  renderMode?: LogoPreviewRenderMode;
+}) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const isIsometricMode = renderMode === "iso";
   const backgroundColor = getTailwindColorHex("background-base");
   const controlsToolbarRef = useRef<HTMLDivElement | null>(null);
+  const currentSearch = buildSearchString(searchParams);
   const [rotationDegrees, setRotationDegrees] = useState(
     DEFAULT_ROTATION_DEGREES,
   );
@@ -176,6 +203,9 @@ export function LogoPreviewPage() {
   const [editMode, setEditMode] = useState<VoxelEdit["kind"]>("add");
   const [selectedPresetId, setSelectedPresetId] = useState<LogoPresetSelection>(
     () => readLogoPresetSelection(searchParams),
+  );
+  const [isoStyleId, setIsoStyleId] = useState<LogoIsometricStyleId>(() =>
+    readIsoStyleId(searchParams),
   );
   const [faceColors, setFaceColors] = useState<FaceColors>(DEFAULT_FACE_COLORS);
   const [logoOpacity, setLogoOpacity] = useState(DEFAULT_LOGO_OPACITY);
@@ -195,20 +225,34 @@ export function LogoPreviewPage() {
   useEffect(() => {
     setVoxelState(readVoxelState(searchParams));
     setSelectedPresetId(readLogoPresetSelection(searchParams));
+    setIsoStyleId(readIsoStyleId(searchParams));
   }, [searchParams]);
 
   useEffect(() => {
     const nextSearch = buildSearchString(
       updateQueryParams(searchParams, (nextSearchParams) => {
         setQueryParam(nextSearchParams, "vox", voxelState);
+        setQueryParam(
+          nextSearchParams,
+          "isoStyle",
+          isIsometricMode && isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID
+            ? isoStyleId
+            : null,
+        );
       }),
     );
-    const currentSearch = buildSearchString(searchParams);
 
     if (nextSearch !== currentSearch) {
       setSearchParams(nextSearch, { replace: true });
     }
-  }, [searchParams, setSearchParams, voxelState]);
+  }, [
+    currentSearch,
+    isIsometricMode,
+    isoStyleId,
+    searchParams,
+    setSearchParams,
+    voxelState,
+  ]);
 
   useEffect(() => {
     const documentElementStyle = document.documentElement.style;
@@ -267,6 +311,7 @@ export function LogoPreviewPage() {
 
   useEffect(() => {
     if (!isAutoRotating) {
+    if (isIsometricMode || !isAutoRotating) {
       lastFrameTimeRef.current = null;
       return;
     }
@@ -294,7 +339,16 @@ export function LogoPreviewPage() {
       window.cancelAnimationFrame(animationFrameId);
       lastFrameTimeRef.current = null;
     };
-  }, [isAutoRotating]);
+  }, [isAutoRotating, isIsometricMode]);
+
+  useEffect(() => {
+    if (!isIsometricMode) {
+      return;
+    }
+
+    setIsAutoRotating(false);
+    setIsViewControlsOpen(false);
+  }, [isIsometricMode]);
 
   const handleRotationChange = (event: ChangeEvent<HTMLInputElement>) => {
     setIsAutoRotating(false);
@@ -359,6 +413,7 @@ export function LogoPreviewPage() {
     selectedPresetId === CUSTOM_LOGO_PRESET_ID
       ? null
       : getLogoPreset(selectedPresetId);
+  const selectedIsoStyle = getLogoIsometricStyle(isoStyleId);
   const isPresetDirty =
     selectedPreset !== null && selectedPreset.voxelState !== voxelState;
 
@@ -398,27 +453,50 @@ export function LogoPreviewPage() {
     }));
   };
 
+  const modeHref = (
+    pathname: "/logo" | "/logo-iso" | "/logo-svg" | "/logo-iso-study",
+  ) =>
+    buildPathWithQuery({
+      pathname,
+      search: searchParams,
+    });
+
   return (
     <div className="fixed inset-0 overflow-hidden" style={{ backgroundColor }}>
-      <NLogoScene
-        backgroundColor={backgroundColor}
-        className="absolute inset-0 h-full w-full cursor-grab touch-none select-none active:cursor-grabbing"
-        editMode={editMode}
-        elevationDegrees={elevationDegrees}
-        faceColors={faceColors}
-        opacity={logoOpacity}
-        onInteractionStart={() => {
-          setIsAutoRotating(false);
-        }}
-        onViewChange={handleSceneViewChange}
-        onVoxelEdit={handleVoxelEdit}
-        rotationDegrees={rotationDegrees}
-        shuffleAnimation={{
-          enabled: isShuffleEnabled,
-          parallelMoves: shuffleParallelMoves,
-        }}
-        voxelState={voxelState}
-      />
+      {isIsometricMode ? (
+        <NLogoIsoScene
+          backgroundColor={backgroundColor}
+          className="absolute inset-0 h-full w-full touch-none select-none"
+          faceColors={faceColors}
+          onVoxelEdit={handleVoxelEdit}
+          shuffleAnimation={{
+            enabled: isShuffleEnabled,
+            parallelMoves: shuffleParallelMoves,
+          }}
+          styleId={isoStyleId}
+          voxelState={voxelState}
+        />
+      ) : (
+        <NLogoScene
+          backgroundColor={backgroundColor}
+          className="absolute inset-0 h-full w-full cursor-grab touch-none select-none active:cursor-grabbing"
+          editMode={editMode}
+          elevationDegrees={elevationDegrees}
+          faceColors={faceColors}
+          opacity={logoOpacity}
+          onInteractionStart={() => {
+            setIsAutoRotating(false);
+          }}
+          onViewChange={handleSceneViewChange}
+          onVoxelEdit={handleVoxelEdit}
+          rotationDegrees={rotationDegrees}
+          shuffleAnimation={{
+            enabled: isShuffleEnabled,
+            parallelMoves: shuffleParallelMoves,
+          }}
+          voxelState={voxelState}
+        />
+      )}
       <div
         className="pointer-events-none fixed inset-x-2 top-2 z-10 flex items-start justify-between gap-2 sm:inset-x-4 sm:top-4"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
@@ -438,16 +516,52 @@ export function LogoPreviewPage() {
                 Controls
               </Button>
             </PopoverTrigger>
-            <Button
-              type="button"
-              size="sm"
-              className="rounded-none"
-              onClick={() => {
-                setIsAutoRotating((currentValue) => !currentValue);
-              }}
-            >
-              {isAutoRotating ? "Stop" : "Auto"}
-            </Button>
+            <div className="flex items-center gap-1 border border-black/10 bg-white/70 p-1">
+              <Button
+                asChild
+                size="sm"
+                variant={isIsometricMode ? "outline" : "default"}
+                className="rounded-none"
+              >
+                <Link to={modeHref("/logo")}>3D</Link>
+              </Button>
+              <Button
+                asChild
+                size="sm"
+                variant={isIsometricMode ? "default" : "outline"}
+                className="rounded-none"
+              >
+                <Link to={modeHref("/logo-iso")}>Iso</Link>
+              </Button>
+              <Button
+                asChild
+                size="sm"
+                variant="outline"
+                className="rounded-none"
+              >
+                <Link to="/logo-svg">SVG</Link>
+              </Button>
+              <Button
+                asChild
+                size="sm"
+                variant="outline"
+                className="rounded-none"
+              >
+                <Link to="/logo-iso-study">Study</Link>
+              </Button>
+            </div>
+            {!isIsometricMode && (
+              <Button
+                type="button"
+                size="sm"
+                className="rounded-none"
+                onClick={() => {
+                  setIsAutoRotating((currentValue) => !currentValue);
+                }}
+              >
+                {isAutoRotating ? "Stop" : "Auto"}
+              </Button>
+            )}
             <Button
               type="button"
               size="sm"
@@ -487,175 +601,181 @@ export function LogoPreviewPage() {
               Logo Controls
             </div>
             <div className="mt-1 text-xs text-black/55">
-              Drag to orbit. Tap or click to {editMode}. Use the green or red
-              toolbar toggle to switch modes.
+              {isIsometricMode
+                ? `Fixed isometric view. Tap or click to ${editMode}. Use the green or red toolbar toggle to switch modes.`
+                : `Drag to orbit. Tap or click to ${editMode}. Use the green or red toolbar toggle to switch modes.`}
             </div>
             <div className="mt-4 grid gap-3">
-              <Collapsible
-                open={isViewControlsOpen}
-                onOpenChange={setIsViewControlsOpen}
-              >
-                <CollapsibleTrigger asChild>
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between border border-black/10 bg-white/70 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.2em] text-black/55"
-                  >
-                    <span>View</span>
+              {!isIsometricMode && (
+                <>
+                <Collapsible
+                  open={isViewControlsOpen}
+                  onOpenChange={setIsViewControlsOpen}
+                >
+                  <CollapsibleTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between border border-black/10 bg-white/70 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.2em] text-black/55"
+                    >
+                      <span>View</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[10px] tracking-normal text-black/60">
+                          {rotationDegrees.toFixed(0)}° /{" "}
+                          {elevationDegrees.toFixed(0)}°
+                        </span>
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform ${
+                            isViewControlsOpen ? "rotate-180" : ""
+                          }`}
+                        />
+                      </div>
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-3">
+                    <div className="grid gap-3">
+                      <div className="grid gap-2">
+                        <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                          <span>Yaw</span>
+                          <span>{rotationDegrees.toFixed(1)}°</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min="0"
+                            max="360"
+                            step="0.1"
+                            value={rotationDegrees}
+                            onChange={handleRotationChange}
+                            className="h-2 w-full cursor-pointer accent-[#8a88ac]"
+                          />
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            max="360"
+                            step="0.1"
+                            value={rotationDegrees.toFixed(1)}
+                            onChange={handleRotationInputChange}
+                            className="h-9 w-20 rounded-none border-black/10 bg-white/90 px-2 font-mono text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid gap-2">
+                        <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                          <span>Elevation</span>
+                          <span>{elevationDegrees.toFixed(1)}°</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min={MIN_ELEVATION_DEGREES}
+                            max={MAX_ELEVATION_DEGREES}
+                            step="0.1"
+                            value={elevationDegrees}
+                            onChange={handleElevationChange}
+                            className="h-2 w-full cursor-pointer accent-[#8a88ac]"
+                          />
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            min={MIN_ELEVATION_DEGREES}
+                            max={MAX_ELEVATION_DEGREES}
+                            step="0.1"
+                            value={elevationDegrees.toFixed(1)}
+                            onChange={handleElevationInputChange}
+                            className="h-9 w-20 rounded-none border-black/10 bg-white/90 px-2 font-mono text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="rounded-none"
+                          onClick={() => {
+                            setIsAutoRotating(false);
+                            setRotationDegrees(DEFAULT_ROTATION_DEGREES);
+                            setElevationDegrees(DEFAULT_ELEVATION_DEGREES);
+                          }}
+                        >
+                          Reset view
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="rounded-none"
+                          onClick={() => {
+                            setRotationDegrees((currentRotationDegrees) =>
+                              normalizeRotationDegrees(
+                                currentRotationDegrees + 45,
+                              ),
+                            );
+                          }}
+                        >
+                          +45°
+                        </Button>
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+                <div className="grid gap-3 border border-black/10 bg-white/70 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                        Material
+                      </div>
+                      <div className="mt-1 text-xs text-black/55">
+                        Drives Three.js material opacity for quick alpha
+                        studies.
+                      </div>
+                    </div>
+                    <span className="font-mono text-[11px] text-black/60">
+                      {(logoOpacity * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                  <div className="grid gap-2">
+                    <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                      <span>Opacity</span>
+                      <span>{logoOpacity.toFixed(2)}</span>
+                    </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-[10px] tracking-normal text-black/60">
-                        {rotationDegrees.toFixed(0)}° /{" "}
-                        {elevationDegrees.toFixed(0)}°
-                      </span>
-                      <ChevronDown
-                        className={`h-4 w-4 transition-transform ${
-                          isViewControlsOpen ? "rotate-180" : ""
-                        }`}
+                      <input
+                        type="range"
+                        min={MIN_LOGO_OPACITY}
+                        max={MAX_LOGO_OPACITY}
+                        step={LOGO_OPACITY_STEP}
+                        value={logoOpacity}
+                        onChange={handleOpacityChange}
+                        className="h-2 w-full cursor-pointer accent-[#8a88ac]"
+                      />
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        min={MIN_LOGO_OPACITY}
+                        max={MAX_LOGO_OPACITY}
+                        step={LOGO_OPACITY_STEP}
+                        value={logoOpacity.toFixed(2)}
+                        onChange={handleOpacityInputChange}
+                        className="h-9 w-20 rounded-none border-black/10 bg-white/90 px-2 font-mono text-sm"
                       />
                     </div>
-                  </button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-3">
-                  <div className="grid gap-3">
-                    <div className="grid gap-2">
-                      <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                        <span>Yaw</span>
-                        <span>{rotationDegrees.toFixed(1)}°</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="range"
-                          min="0"
-                          max="360"
-                          step="0.1"
-                          value={rotationDegrees}
-                          onChange={handleRotationChange}
-                          className="h-2 w-full cursor-pointer accent-[#8a88ac]"
-                        />
-                        <Input
-                          type="number"
-                          inputMode="decimal"
-                          min="0"
-                          max="360"
-                          step="0.1"
-                          value={rotationDegrees.toFixed(1)}
-                          onChange={handleRotationInputChange}
-                          className="h-9 w-20 rounded-none border-black/10 bg-white/90 px-2 font-mono text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid gap-2">
-                      <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                        <span>Elevation</span>
-                        <span>{elevationDegrees.toFixed(1)}°</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="range"
-                          min={MIN_ELEVATION_DEGREES}
-                          max={MAX_ELEVATION_DEGREES}
-                          step="0.1"
-                          value={elevationDegrees}
-                          onChange={handleElevationChange}
-                          className="h-2 w-full cursor-pointer accent-[#8a88ac]"
-                        />
-                        <Input
-                          type="number"
-                          inputMode="decimal"
-                          min={MIN_ELEVATION_DEGREES}
-                          max={MAX_ELEVATION_DEGREES}
-                          step="0.1"
-                          value={elevationDegrees.toFixed(1)}
-                          onChange={handleElevationInputChange}
-                          className="h-9 w-20 rounded-none border-black/10 bg-white/90 px-2 font-mono text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="rounded-none"
-                        onClick={() => {
-                          setIsAutoRotating(false);
-                          setRotationDegrees(DEFAULT_ROTATION_DEGREES);
-                          setElevationDegrees(DEFAULT_ELEVATION_DEGREES);
-                        }}
-                      >
-                        Reset view
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="rounded-none"
-                        onClick={() => {
-                          setRotationDegrees((currentRotationDegrees) =>
-                            normalizeRotationDegrees(
-                              currentRotationDegrees + 45,
-                            ),
-                          );
-                        }}
-                      >
-                        +45°
-                      </Button>
-                    </div>
                   </div>
-                </CollapsibleContent>
-              </Collapsible>
-              <div className="grid gap-3 border border-black/10 bg-white/70 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                      Material
-                    </div>
-                    <div className="mt-1 text-xs text-black/55">
-                      Drives Three.js material opacity for quick alpha studies.
-                    </div>
-                  </div>
-                  <span className="font-mono text-[11px] text-black/60">
-                    {(logoOpacity * 100).toFixed(0)}%
-                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="rounded-none"
+                    onClick={() => {
+                      setLogoOpacity(DEFAULT_LOGO_OPACITY);
+                    }}
+                  >
+                    Reset opacity
+                  </Button>
                 </div>
-                <div className="grid gap-2">
-                  <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                    <span>Opacity</span>
-                    <span>{logoOpacity.toFixed(2)}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="range"
-                      min={MIN_LOGO_OPACITY}
-                      max={MAX_LOGO_OPACITY}
-                      step={LOGO_OPACITY_STEP}
-                      value={logoOpacity}
-                      onChange={handleOpacityChange}
-                      className="h-2 w-full cursor-pointer accent-[#8a88ac]"
-                    />
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      min={MIN_LOGO_OPACITY}
-                      max={MAX_LOGO_OPACITY}
-                      step={LOGO_OPACITY_STEP}
-                      value={logoOpacity.toFixed(2)}
-                      onChange={handleOpacityInputChange}
-                      className="h-9 w-20 rounded-none border-black/10 bg-white/90 px-2 font-mono text-sm"
-                    />
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="rounded-none"
-                  onClick={() => {
-                    setLogoOpacity(DEFAULT_LOGO_OPACITY);
-                  }}
-                >
-                  Reset opacity
-                </Button>
-              </div>
+                </>
+              )}
               <div className="grid gap-2 border border-black/10 bg-white/70 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -725,6 +845,98 @@ export function LogoPreviewPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {isIsometricMode && (
+                <div className="grid gap-2 border border-black/10 bg-white/70 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                        Iso Studies
+                      </div>
+                      <div className="mt-1 text-xs text-black/55">
+                        Compare alternate cube treatments before choosing a
+                        favicon direction.
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                        Active
+                      </div>
+                      <div className="mt-1 text-xs text-black/70">
+                        {selectedIsoStyle.label}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {LOGO_ISOMETRIC_STYLES.map((style) => (
+                      <button
+                        key={style.id}
+                        type="button"
+                        className={`grid gap-2 border p-2 text-left transition-colors ${
+                          isoStyleId === style.id
+                            ? "border-black bg-white"
+                            : "border-black/10 bg-white/90 hover:border-black/30"
+                        }`}
+                        onClick={() => {
+                          setIsoStyleId(style.id);
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="text-sm font-medium text-black/80">
+                            {style.label}
+                          </div>
+                          <div className="font-mono text-[10px] text-black/45">
+                            {style.capWidth}px cap
+                            {style.edgeMode === "shaded" ? " + edge" : ""}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="flex min-h-20 min-w-20 items-center justify-center border border-black/10 bg-white p-2">
+                            <LogoIsoThumbnail
+                              backgroundColor={backgroundColor}
+                              faceColors={faceColors}
+                              size={72}
+                              styleId={style.id}
+                              voxelState={voxelState}
+                            />
+                          </div>
+                          <div className="text-xs leading-5 text-black/55">
+                            {style.description}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="border-t border-black/10 pt-2">
+                    <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                      Icon Preview
+                    </div>
+                    <div className="mt-1 text-xs text-black/55">
+                      Active style at favicon-relevant sizes.
+                    </div>
+                    <div className="mt-2 flex items-end gap-3">
+                      {[16, 32, 64].map((size) => (
+                        <div
+                          key={size}
+                          className="grid justify-items-center gap-1"
+                        >
+                          <div className="flex min-h-16 min-w-16 items-center justify-center border border-black/10 bg-white/90 p-2">
+                            <LogoIsoThumbnail
+                              backgroundColor={backgroundColor}
+                              faceColors={faceColors}
+                              size={size}
+                              styleId={isoStyleId}
+                              voxelState={voxelState}
+                            />
+                          </div>
+                          <span className="font-mono text-[10px] text-black/55">
+                            {size}px
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="grid gap-2 border border-black/10 bg-white/70 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
