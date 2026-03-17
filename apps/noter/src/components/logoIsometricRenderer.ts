@@ -13,7 +13,6 @@ const TILE_HALF_WIDTH = 4;
 const TILE_HALF_HEIGHT = 2;
 const VOXEL_SCREEN_HEIGHT = 4;
 const FRAME_PADDING = 4;
-const OUTLINE_HEX = "#201b18";
 
 type Point = {
   x: number;
@@ -29,7 +28,6 @@ type Rectangle = {
 
 type PixelQuad = {
   color: string;
-  direction: IsometricFaceDirection;
   points: readonly Point[];
   sortX: number;
   sortY: number;
@@ -229,163 +227,8 @@ function fillPolygonPixels(
   }
 }
 
-function drawPixelLine(
-  context: CanvasRenderingContext2D,
-  start: Point,
-  end: Point,
-  color: string,
-) {
-  let x0 = Math.round(start.x);
-  let y0 = Math.round(start.y);
-  const x1 = Math.round(end.x);
-  const y1 = Math.round(end.y);
-  const deltaX = Math.abs(x1 - x0);
-  const deltaY = Math.abs(y1 - y0);
-  const stepX = x0 < x1 ? 1 : -1;
-  const stepY = y0 < y1 ? 1 : -1;
-  let error = deltaX - deltaY;
-  let isComplete = false;
-
-  context.fillStyle = color;
-  while (!isComplete) {
-    context.fillRect(x0, y0, 1, 1);
-    if (x0 === x1 && y0 === y1) {
-      isComplete = true;
-      continue;
-    }
-
-    const doubledError = error * 2;
-    if (doubledError > -deltaY) {
-      error -= deltaY;
-      x0 += stepX;
-    }
-    if (doubledError < deltaX) {
-      error += deltaX;
-      y0 += stepY;
-    }
-  }
-}
-
 function fillQuad(context: CanvasRenderingContext2D, quad: PixelQuad) {
   fillPolygonPixels(context, quad.points, quad.color);
-}
-
-function hexToRgb(hex: string) {
-  const normalizedHex = hex.replace("#", "");
-  const expandedHex =
-    normalizedHex.length === 3
-      ? normalizedHex
-          .split("")
-          .map((value) => `${value}${value}`)
-          .join("")
-      : normalizedHex;
-
-  return {
-    blue: Number.parseInt(expandedHex.slice(4, 6), 16),
-    green: Number.parseInt(expandedHex.slice(2, 4), 16),
-    red: Number.parseInt(expandedHex.slice(0, 2), 16),
-  };
-}
-
-function rgbToHex({
-  blue,
-  green,
-  red,
-}: {
-  blue: number;
-  green: number;
-  red: number;
-}): string {
-  const toHex = (value: number) =>
-    Math.round(Math.max(0, Math.min(255, value)))
-      .toString(16)
-      .padStart(2, "0");
-
-  return `#${toHex(red)}${toHex(green)}${toHex(blue)}`;
-}
-
-function mixHexColors(
-  left: string,
-  right: string,
-  rightWeight: number,
-): string {
-  const leftRgb = hexToRgb(left);
-  const rightRgb = hexToRgb(right);
-  const leftWeight = 1 - rightWeight;
-
-  return rgbToHex({
-    blue: leftRgb.blue * leftWeight + rightRgb.blue * rightWeight,
-    green: leftRgb.green * leftWeight + rightRgb.green * rightWeight,
-    red: leftRgb.red * leftWeight + rightRgb.red * rightWeight,
-  });
-}
-
-function getRelativeLuminance(hex: string): number {
-  const { blue, green, red } = hexToRgb(hex);
-  return red * 0.2126 + green * 0.7152 + blue * 0.0722;
-}
-
-function buildEdgeKey(start: Point, end: Point): string {
-  const startKey = `${Math.round(start.x)},${Math.round(start.y)}`;
-  const endKey = `${Math.round(end.x)},${Math.round(end.y)}`;
-  return startKey < endKey ? `${startKey}|${endKey}` : `${endKey}|${startKey}`;
-}
-
-function getInternalEdgeColor(quads: readonly PixelQuad[]): string {
-  const [darkestQuad] = [...quads].sort(
-    (left, right) =>
-      getRelativeLuminance(left.color) - getRelativeLuminance(right.color),
-  );
-
-  if (darkestQuad.direction === "top") {
-    return mixHexColors(darkestQuad.color, OUTLINE_HEX, 0.22);
-  }
-
-  return mixHexColors(darkestQuad.color, OUTLINE_HEX, 0.38);
-}
-
-function drawQuadEdges(
-  context: CanvasRenderingContext2D,
-  quads: readonly PixelQuad[],
-) {
-  const edgeMap = new Map<
-    string,
-    {
-      end: Point;
-      quads: PixelQuad[];
-      start: Point;
-    }
-  >();
-
-  for (const quad of quads) {
-    for (let index = 0; index < quad.points.length; index += 1) {
-      const nextIndex = (index + 1) % quad.points.length;
-      const start = quad.points[index];
-      const end = quad.points[nextIndex];
-      const edgeKey = buildEdgeKey(start, end);
-      const currentEntry = edgeMap.get(edgeKey);
-
-      if (currentEntry) {
-        currentEntry.quads.push(quad);
-        continue;
-      }
-
-      edgeMap.set(edgeKey, {
-        end,
-        quads: [quad],
-        start,
-      });
-    }
-  }
-
-  for (const edge of edgeMap.values()) {
-    drawPixelLine(
-      context,
-      edge.start,
-      edge.end,
-      edge.quads.length === 1 ? OUTLINE_HEX : getInternalEdgeColor(edge.quads),
-    );
-  }
 }
 
 function averagePoint(points: readonly Point[]): Point {
@@ -403,15 +246,10 @@ function averagePoint(points: readonly Point[]): Point {
   };
 }
 
-function quadFromPolygon(
-  direction: IsometricFaceDirection,
-  color: string,
-  points: readonly Point[],
-): PixelQuad {
+function quadFromPolygon(color: string, points: readonly Point[]): PixelQuad {
   const center = averagePoint(points);
   return {
     color,
-    direction,
     points,
     sortX: center.x,
     sortY: center.y,
@@ -456,7 +294,7 @@ function buildMergedSurfaceQuads(
           rectangle.column + rectangle.width,
         ]),
       ]);
-      quads.push(quadFromPolygon("top", topColor, points));
+      quads.push(quadFromPolygon(topColor, points));
     }
   }
 
@@ -489,7 +327,7 @@ function buildMergedSurfaceQuads(
           rectangle.column + rectangle.width,
         ]),
       ]);
-      quads.push(quadFromPolygon("right", rightColor, points));
+      quads.push(quadFromPolygon(rightColor, points));
     }
   }
 
@@ -522,7 +360,7 @@ function buildMergedSurfaceQuads(
         ]),
         projectPoint([rectangle.column, rectangle.row, z + 1]),
       ]);
-      quads.push(quadFromPolygon("left", leftColor, points));
+      quads.push(quadFromPolygon(leftColor, points));
     }
   }
 
@@ -549,9 +387,9 @@ function buildMovingVoxelQuads(
     );
 
     return [
-      quadFromPolygon("left", leftColor, leftPoints),
-      quadFromPolygon("right", rightColor, rightPoints),
-      quadFromPolygon("top", topColor, topPoints),
+      quadFromPolygon(leftColor, leftPoints),
+      quadFromPolygon(rightColor, rightPoints),
+      quadFromPolygon(topColor, topPoints),
     ];
   });
 }
@@ -692,7 +530,6 @@ export function drawLogoIsometricFrame({
   for (const quad of quads) {
     fillQuad(context, quad);
   }
-  drawQuadEdges(context, quads);
 
   return buildVisibleFaces(filledVoxels, movingVoxels);
 }
