@@ -1,5 +1,6 @@
 import { getShuffleOriginCandidates } from "@/components/logoShuffleRules";
 import {
+  DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
   LOGO_ISOMETRIC_CANVAS_HEIGHT,
   LOGO_ISOMETRIC_CANVAS_WIDTH,
   LOGO_ISOMETRIC_ELEVATION_DEGREES,
@@ -7,6 +8,7 @@ import {
   drawLogoIsometricFrame,
   getIsometricAddCoordinate,
   isPointInsidePolygon,
+  type LogoIsometricStyleId,
   type IsometricVisibleFace,
 } from "@/components/logoIsometricRenderer";
 import { type FaceColors } from "@/components/logoTailwindColors";
@@ -72,6 +74,7 @@ type NLogoIsoSceneProps = {
   faceColors: FaceColors;
   onVoxelEdit: (edit: VoxelEdit) => void;
   shuffleAnimation: LogoShuffleAnimationConfig;
+  styleId?: LogoIsometricStyleId;
   voxelState: string;
 };
 
@@ -213,12 +216,14 @@ export function LogoIsoThumbnail({
   className,
   faceColors,
   size,
+  styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
   voxelState,
 }: {
   backgroundColor: string;
   className?: string;
   faceColors: FaceColors;
   size: number;
+  styleId?: LogoIsometricStyleId;
   voxelState: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -229,7 +234,9 @@ export function LogoIsoThumbnail({
       return;
     }
 
-    const context = canvas.getContext("2d");
+    const context = canvas.getContext("2d", {
+      willReadFrequently: true,
+    });
     if (!context) {
       return;
     }
@@ -241,8 +248,9 @@ export function LogoIsoThumbnail({
       context,
       faceColors,
       filledVoxels,
+      styleId,
     });
-  }, [backgroundColor, faceColors, voxelState]);
+  }, [backgroundColor, faceColors, styleId, voxelState]);
 
   return (
     <canvas
@@ -265,6 +273,7 @@ export function NLogoIsoScene({
   faceColors,
   onVoxelEdit,
   shuffleAnimation,
+  styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
   voxelState,
 }: NLogoIsoSceneProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -345,7 +354,9 @@ export function NLogoIsoScene({
     }
 
     const offscreenCanvas = offscreenCanvasRef.current;
-    const offscreenContext = offscreenCanvas.getContext("2d");
+    const offscreenContext = offscreenCanvas.getContext("2d", {
+      willReadFrequently: true,
+    });
     if (!offscreenContext) {
       return;
     }
@@ -385,6 +396,7 @@ export function NLogoIsoScene({
         faceColors: faceColorsRef.current,
         filledVoxels: sceneState.currentFilledVoxels,
         movingVoxels,
+        styleId,
       });
 
       const containerWidth = container.clientWidth || 640;
@@ -466,7 +478,7 @@ export function NLogoIsoScene({
       sceneStateRef.current = null;
       viewportRef.current = null;
     };
-  }, []);
+  }, [styleId]);
 
   const resetInteraction = (target: HTMLDivElement, pointerId: number) => {
     if (target.hasPointerCapture(pointerId)) {
