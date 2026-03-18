@@ -27,7 +27,6 @@ coverage
 # Tooling caches
 .eslintcache
 *.tsbuildinfo
-.turbo
 .vite
 
 # Environment variables

@@ -5,7 +5,7 @@ working with this repository.
 
 ## Project Structure
 
-noter is a Turborepo monorepo (PNPM + Node 24) with two apps:
+noter is a pnpm workspace monorepo (Node 24) with two apps:
 
 - **`apps/noter`**: React + Vite + Convex collaborative code editor with GitHub
   integration
@@ -285,7 +285,7 @@ use `--env-file` or an explicit deployment selector instead.
 
 ## Technology Stack
 
-- **Runtime**: Node 24, PNPM 9, Turborepo
+- **Runtime**: Node 24, PNPM 9
 - **Frontend**: React 18, TypeScript, Vite, React Router 7
 - **Backend**: Convex (real-time database + serverless functions)
 - **Editor**: CodeMirror 6 + `@prosemark/core` (npm)
