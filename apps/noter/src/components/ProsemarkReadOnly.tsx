@@ -45,6 +45,7 @@ type ProsemarkReadOnlyProps = {
   editable?: boolean;
   highlightedLineNumbers?: number[];
   lineHighlightTone?: "add" | "remove";
+  styleVariant?: "default" | "landingCopy";
   onChange?: (value: string) => void;
 };
 
@@ -115,6 +116,60 @@ function createLineHighlightExtension(
   );
 }
 
+function buildLandingCopyLineDecorations(
+  doc: EditorState["doc"],
+): DecorationSet {
+  const builder = new RangeSetBuilder<Decoration>();
+  let firstListLineFound = false;
+
+  for (let lineNumber = 1; lineNumber <= doc.lines; lineNumber += 1) {
+    const line = doc.line(lineNumber);
+    const trimmed = line.text.trim();
+    const classNames: string[] = [];
+
+    if (/^#{1,6}\s+/.test(line.text.trimStart())) {
+      classNames.push("cm-landing-copy-heading");
+    } else if (trimmed.length === 0) {
+      classNames.push("cm-landing-copy-gap");
+    } else if (/^(- |\* |\d+\.\s+)/.test(trimmed)) {
+      classNames.push("cm-landing-copy-list");
+      if (!firstListLineFound) {
+        classNames.push("cm-landing-copy-list-first");
+        firstListLineFound = true;
+      }
+    }
+
+    if (classNames.length === 0) continue;
+    builder.add(
+      line.from,
+      line.from,
+      Decoration.line({ class: classNames.join(" ") }),
+    );
+  }
+
+  return builder.finish();
+}
+
+function createLandingCopyStyleVariantExtension(): Extension {
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet;
+
+      constructor(view: EditorView) {
+        this.decorations = buildLandingCopyLineDecorations(view.state.doc);
+      }
+
+      update(update: ViewUpdate) {
+        if (!update.docChanged) return;
+        this.decorations = buildLandingCopyLineDecorations(update.state.doc);
+      }
+    },
+    {
+      decorations: (plugin) => plugin.decorations,
+    },
+  );
+}
+
 const prosemarkReadOnlyTheme = EditorView.theme({
   ".cm-line.cm-line-highlight-add": {
     backgroundColor: "rgba(16, 185, 129, 0.1)",
@@ -126,12 +181,71 @@ const prosemarkReadOnlyTheme = EditorView.theme({
 
 const externalValueSyncAnnotation = Annotation.define<boolean>();
 
+const landingCopyStyleVariantTheme = EditorView.theme({
+  "& .cm-content": {
+    fontSize: "0.875rem !important",
+    lineHeight: "1.25rem !important",
+  },
+  "& .cm-line.cm-landing-copy-heading": {
+    lineHeight: "1.75rem",
+  },
+  "& .cm-line.cm-landing-copy-heading > span:not(.cm-hidden-token)": {
+    fontSize: "1.125rem !important",
+    lineHeight: "1.75rem",
+    fontWeight: "500 !important",
+    letterSpacing: "-0.025em !important",
+  },
+  "& .cm-line.cm-landing-copy-gap": {
+    height: "0 !important",
+    lineHeight: "0 !important",
+    fontSize: "0 !important",
+  },
+  "& .cm-line.cm-landing-copy-list": {
+    color: "hsl(var(--muted-foreground))",
+  },
+  "& .cm-line.cm-landing-copy-list-first": {
+    paddingTop: "9px",
+  },
+  "& .cm-line.cm-landing-copy-list + .cm-line.cm-landing-copy-list": {
+    paddingTop: "0.5rem",
+  },
+  "& .cm-line.cm-landing-copy-list .cm-rendered-list-mark": {
+    display: "inline-flex",
+    width: "0.25rem !important",
+    margin: "0 !important",
+    overflow: "visible",
+    color: "transparent !important",
+    fontSize: "0 !important",
+    textAlign: "left",
+  },
+  "& .cm-line.cm-landing-copy-list .cm-rendered-list-mark::before": {
+    content: '"-"',
+    color: "hsl(var(--foreground))",
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+  },
+});
+
+function getStyleVariantExtension(
+  styleVariant: ProsemarkReadOnlyProps["styleVariant"],
+): Extension {
+  if (styleVariant !== "landingCopy") {
+    return [];
+  }
+
+  return [
+    landingCopyStyleVariantTheme,
+    createLandingCopyStyleVariantExtension(),
+  ];
+}
+
 export function ProsemarkReadOnly({
   value,
   className,
   editable = false,
   highlightedLineNumbers = [],
   lineHighlightTone = "add",
+  styleVariant = "default",
   onChange,
 }: ProsemarkReadOnlyProps) {
   const { theme, systemTheme } = useTheme();
@@ -148,6 +262,7 @@ export function ProsemarkReadOnly({
   const interactionCompartmentRef = useRef(new Compartment());
   const cursorCompartmentRef = useRef(new Compartment());
   const decorationsCompartmentRef = useRef(new Compartment());
+  const styleVariantCompartmentRef = useRef(new Compartment());
   const lineHighlightToneRef = useRef(lineHighlightTone);
   const lastWidthRef = useRef<number | null>(null);
   const onChangeRef = useRef(onChange);
@@ -232,6 +347,9 @@ export function ProsemarkReadOnly({
             lineHighlightToneRef.current,
           ),
         ),
+        styleVariantCompartmentRef.current.of(
+          getStyleVariantExtension(styleVariant),
+        ),
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) {
             return;
@@ -263,7 +381,7 @@ export function ProsemarkReadOnly({
       view.destroy();
       viewRef.current = null;
     };
-  }, [resizeToContent]);
+  }, [resizeToContent, styleVariant]);
 
   useEffect(() => {
     const view = viewRef.current;
@@ -302,6 +420,17 @@ export function ProsemarkReadOnly({
     });
     resizeToContent();
   }, [lineHighlightTone, normalizedHighlightedLineNumbers, resizeToContent]);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({
+      effects: styleVariantCompartmentRef.current.reconfigure(
+        getStyleVariantExtension(styleVariant),
+      ),
+    });
+    resizeToContent();
+  }, [resizeToContent, styleVariant]);
 
   useEffect(() => {
     const container = containerRef.current;

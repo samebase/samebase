@@ -43,25 +43,19 @@ export function SignInForm() {
         className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8"
       >
         <PublicLandingLogo autoRotate={isLandingCopyEditable} />
-        {isLandingCopyEditable ? (
-          <Suspense
-            fallback={
-              <LandingCopy
-                className="text-sm"
-                markdown={landingMarkdownDraft}
-              />
-            }
-          >
-            <EditableLandingCopy
-              value={landingMarkdownDraft}
-              className="text-sm"
-              editable
-              onChange={setLandingMarkdownDraft}
-            />
-          </Suspense>
-        ) : (
-          <LandingCopy className="text-sm" markdown={landingMarkdownDraft} />
-        )}
+        <Suspense
+          fallback={
+            <LandingCopy className="text-sm" markdown={landingMarkdownDraft} />
+          }
+        >
+          <EditableLandingCopy
+            value={landingMarkdownDraft}
+            className="text-sm"
+            editable={isLandingCopyEditable}
+            styleVariant="landingCopy"
+            onChange={setLandingMarkdownDraft}
+          />
+        </Suspense>
         <div className="flex flex-col gap-2">
           <SignInWithGoogle />
           {showPasswordAuth ? <PasswordAuthForm /> : null}
