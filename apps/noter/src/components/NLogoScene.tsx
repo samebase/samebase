@@ -487,17 +487,24 @@ function applyMaterialOpacity(
 ) {
   const normalizedOpacity = THREE.MathUtils.clamp(opacity, 0, 1);
   const isTransparent = normalizedOpacity < 1;
+  const nextSide = isTransparent ? THREE.DoubleSide : THREE.FrontSide;
 
   for (const material of materials) {
     material.opacity = normalizedOpacity;
-    // Avoid front faces writing depth when alpha blending the merged logo mesh.
+    // Avoid transparent draws writing depth while alpha blending the logo study.
     material.depthWrite = !isTransparent;
-    if (material.transparent === isTransparent) {
-      continue;
+    let needsUpdate = false;
+    if (material.side !== nextSide) {
+      material.side = nextSide;
+      needsUpdate = true;
     }
-
-    material.transparent = isTransparent;
-    material.needsUpdate = true;
+    if (material.transparent !== isTransparent) {
+      material.transparent = isTransparent;
+      needsUpdate = true;
+    }
+    if (needsUpdate) {
+      material.needsUpdate = true;
+    }
   }
 }
 
@@ -533,7 +540,13 @@ function syncTransparentFaceRenderOrder(sceneState: SceneState) {
   sceneState.camera.updateMatrixWorld();
   sceneState.logoGroup.updateMatrixWorld(true);
 
-  const meshDepths = sceneState.logoMeshes.map((mesh) => {
+  const meshes = [
+    ...sceneState.logoMeshes,
+    ...sceneState.activeCubeMoves
+      .filter((move) => move.mesh.visible)
+      .map((move) => move.mesh),
+  ];
+  const meshDepths = meshes.map((mesh) => {
     const cameraSpaceCenter = (
       mesh.geometry.boundingSphere?.center.clone() ?? new THREE.Vector3()
     ).applyMatrix4(mesh.matrixWorld);
@@ -920,9 +933,13 @@ export function NLogoScene({
       const activeSceneState = sceneStateRef.current;
       if (activeSceneState) {
         clearActiveCubeMoves(activeSceneState);
-      }
-      for (const logoMesh of logoMeshes) {
-        logoMesh.geometry.dispose();
+        for (const logoMesh of activeSceneState.logoMeshes) {
+          logoMesh.geometry.dispose();
+        }
+      } else {
+        for (const logoMesh of logoMeshes) {
+          logoMesh.geometry.dispose();
+        }
       }
       cubeGeometry.dispose();
       for (const material of materials) {
