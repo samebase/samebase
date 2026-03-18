@@ -62,6 +62,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
+const CONTROLS_POPOVER_TOP_OFFSET = "5.5rem";
 const FACE_COLOR_LABELS: Record<FaceColorKey, string> = {
   left: "Left",
   right: "Right",
@@ -380,8 +381,7 @@ export function LogoPreviewPage() {
             sideOffset={10}
             className="w-[min(22rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-none border-black/10 bg-white/92 p-3 shadow-lg backdrop-blur-sm"
             style={{
-              maxHeight:
-                "calc(100dvh - env(safe-area-inset-top, 0px) - 5.5rem)",
+              maxHeight: `calc(100dvh - env(safe-area-inset-top, 0px) - ${CONTROLS_POPOVER_TOP_OFFSET})`,
             }}
           >
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
