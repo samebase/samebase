@@ -493,6 +493,8 @@ function applyMaterialOpacity(
 
   for (const material of materials) {
     material.opacity = normalizedOpacity;
+    // Avoid front faces writing depth when alpha blending the merged logo mesh.
+    material.depthWrite = !isTransparent;
     if (material.transparent === isTransparent) {
       continue;
     }
