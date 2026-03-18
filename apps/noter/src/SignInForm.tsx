@@ -19,6 +19,7 @@ import { Chrome } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../convex/_generated/api";
+import { buildPathWithUpdatedQuery, setQueryParam } from "./lib/queryParams";
 
 const DEV_PASSWORD_EMAIL = "nicu@noter.md";
 const DEV_PASSWORD_VALUE = "pass1234";
@@ -62,6 +63,12 @@ export function SignInForm() {
       </div>
     </div>
   );
+}
+
+function buildCurrentGoogleRedirectTo() {
+  return buildPathWithUpdatedQuery(window.location, (searchParams) => {
+    setQueryParam(searchParams, "auth", false);
+  });
 }
 
 function WaitlistForm() {
@@ -247,7 +254,9 @@ export function SignInWithGoogle() {
           openAuthPopup("google");
         } else {
           setAuthProvider("google");
-          void signIn("google");
+          void signIn("google", {
+            redirectTo: buildCurrentGoogleRedirectTo(),
+          });
         }
       }}
     >
