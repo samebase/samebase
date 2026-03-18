@@ -235,7 +235,7 @@ The current seam-mitigation approach is:
 - a very thin fill-colored stroke on each polygon to hide browser hairline
   cracks between shared edges
 
-### 4. Pixel-art relationship
+### 5. Pixel-art relationship
 
 `apps/noter/src/components/logoIsometricRenderer.ts` remains valuable, but it is
 not the primary geometry source for the smooth logo.

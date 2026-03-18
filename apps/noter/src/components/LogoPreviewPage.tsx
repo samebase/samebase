@@ -243,13 +243,7 @@ export function LogoPreviewPage({
     if (nextSearch !== currentSearch) {
       setSearchParams(nextSearch, { replace: true });
     }
-  }, [
-    currentSearch,
-    isoStyleId,
-    searchParams,
-    setSearchParams,
-    voxelState,
-  ]);
+  }, [currentSearch, isoStyleId, searchParams, setSearchParams, voxelState]);
 
   useEffect(() => {
     const documentElementStyle = document.documentElement.style;
@@ -451,11 +445,20 @@ export function LogoPreviewPage({
 
   const modeHref = (
     pathname: "/logo" | "/logo-iso" | "/logo-svg" | "/logo-iso-study",
-  ) =>
-    buildPathWithQuery({
+  ) => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    setQueryParam(nextSearchParams, "vox", voxelState);
+    setQueryParam(
+      nextSearchParams,
+      "isoStyle",
+      isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID ? isoStyleId : null,
+    );
+
+    return buildPathWithQuery({
       pathname,
-      search: searchParams,
+      search: nextSearchParams,
     });
+  };
 
   return (
     <div className="fixed inset-0 overflow-hidden" style={{ backgroundColor }}>
@@ -463,6 +466,7 @@ export function LogoPreviewPage({
         <NLogoIsoScene
           backgroundColor={backgroundColor}
           className="absolute inset-0 h-full w-full touch-none select-none"
+          editMode={editMode}
           faceColors={faceColors}
           onVoxelEdit={handleVoxelEdit}
           shuffleAnimation={{

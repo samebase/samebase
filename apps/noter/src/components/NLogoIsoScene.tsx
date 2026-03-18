@@ -71,6 +71,7 @@ type SceneViewport = {
 type NLogoIsoSceneProps = {
   backgroundColor: string;
   className?: string;
+  editMode: VoxelEdit["kind"];
   faceColors: FaceColors;
   onVoxelEdit: (edit: VoxelEdit) => void;
   shuffleAnimation: LogoShuffleAnimationConfig;
@@ -273,6 +274,7 @@ export function LogoIsoThumbnail({
 export function NLogoIsoScene({
   backgroundColor,
   className,
+  editMode,
   faceColors,
   onVoxelEdit,
   shuffleAnimation,
@@ -592,7 +594,9 @@ export function NLogoIsoScene({
       const sceneState = sceneStateRef.current;
 
       if (face && sceneState) {
-        if (interaction.button === 0) {
+        const nextEditMode = interaction.button === 2 ? "remove" : editMode;
+
+        if (nextEditMode === "add") {
           const coordinate = getIsometricAddCoordinate(
             face,
             sceneState.currentFilledVoxels,
@@ -603,7 +607,7 @@ export function NLogoIsoScene({
           }
         }
 
-        if (interaction.button === 2) {
+        if (nextEditMode === "remove") {
           onVoxelEditRef.current({
             coordinate: face.coordinate,
             kind: "remove",

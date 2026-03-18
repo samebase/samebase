@@ -13,8 +13,8 @@
     "build": "convex codegen && tsc && vite build",
     "build:ci": "tsc && vite build",
     "build:vercel": "vite build",
-    "lint": "convex codegen && tsc --noEmit && cd ../.. && eslint apps/noter --ext ts,tsx --report-unused-disable-directives --config .eslintrc.cjs --rulesdir eslint-rules",
-    "lint:ci": "tsc --noEmit && cd ../.. && eslint apps/noter --ext ts,tsx --report-unused-disable-directives --config .eslintrc.cjs --rulesdir eslint-rules",
+    "lint": "convex codegen && tsc --noEmit && cd ../.. && NODE_OPTIONS=--max-old-space-size=4096 eslint apps/noter --ext ts,tsx --report-unused-disable-directives --config .eslintrc.cjs --rulesdir eslint-rules",
+    "lint:ci": "tsc --noEmit && cd ../.. && NODE_OPTIONS=--max-old-space-size=4096 eslint apps/noter --ext ts,tsx --report-unused-disable-directives --config .eslintrc.cjs --rulesdir eslint-rules",
     "test:visual": "playwright test -c playwright.config.ts",
     "test:live": "playwright test -c playwright.live.config.ts",
     "preview": "vite preview"

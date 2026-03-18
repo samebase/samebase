@@ -538,33 +538,84 @@ function buildStaticRenderFaces(
 }
 
 function buildMovingRenderFaces(
+  filledVoxels: ReadonlySet<string>,
   faceColors: FaceColors,
   movingVoxels: readonly IsometricMovingVoxel[],
 ): RenderFace[] {
   const topColor = getTailwindColorHex(faceColors.top);
   const rightColor = getTailwindColorHex(faceColors.right);
   const leftColor = getTailwindColorHex(faceColors.left);
+  const occupiedVoxelKeys = new Set(filledVoxels);
 
-  return movingVoxels.flatMap((movingVoxel) => [
-    createRenderFace({
-      color: leftColor,
-      coordinate: movingVoxel.coordinate,
-      direction: "left",
-      position: movingVoxel.position,
-    }),
-    createRenderFace({
-      color: rightColor,
-      coordinate: movingVoxel.coordinate,
-      direction: "right",
-      position: movingVoxel.position,
-    }),
-    createRenderFace({
-      color: topColor,
-      coordinate: movingVoxel.coordinate,
-      direction: "top",
-      position: movingVoxel.position,
-    }),
-  ]);
+  for (const movingVoxel of movingVoxels) {
+    occupiedVoxelKeys.add(
+      voxelKey(
+        movingVoxel.coordinate[0],
+        movingVoxel.coordinate[1],
+        movingVoxel.coordinate[2],
+      ),
+    );
+  }
+
+  return movingVoxels.flatMap((movingVoxel) => {
+    const renderFaces: RenderFace[] = [];
+
+    if (
+      !isVoxelFilled(
+        occupiedVoxelKeys,
+        movingVoxel.coordinate[0],
+        movingVoxel.coordinate[1],
+        movingVoxel.coordinate[2] + 1,
+      )
+    ) {
+      renderFaces.push(
+        createRenderFace({
+          color: leftColor,
+          coordinate: movingVoxel.coordinate,
+          direction: "left",
+          position: movingVoxel.position,
+        }),
+      );
+    }
+
+    if (
+      !isVoxelFilled(
+        occupiedVoxelKeys,
+        movingVoxel.coordinate[0] + 1,
+        movingVoxel.coordinate[1],
+        movingVoxel.coordinate[2],
+      )
+    ) {
+      renderFaces.push(
+        createRenderFace({
+          color: rightColor,
+          coordinate: movingVoxel.coordinate,
+          direction: "right",
+          position: movingVoxel.position,
+        }),
+      );
+    }
+
+    if (
+      !isVoxelFilled(
+        occupiedVoxelKeys,
+        movingVoxel.coordinate[0],
+        movingVoxel.coordinate[1] + 1,
+        movingVoxel.coordinate[2],
+      )
+    ) {
+      renderFaces.push(
+        createRenderFace({
+          color: topColor,
+          coordinate: movingVoxel.coordinate,
+          direction: "top",
+          position: movingVoxel.position,
+        }),
+      );
+    }
+
+    return renderFaces;
+  });
 }
 
 function compareRenderFaces(left: RenderFace, right: RenderFace): number {
@@ -602,7 +653,7 @@ export function drawLogoIsometricFrame({
 
   const renderFaces = [
     ...buildStaticRenderFaces(filledVoxels, faceColors),
-    ...buildMovingRenderFaces(faceColors, movingVoxels),
+    ...buildMovingRenderFaces(filledVoxels, faceColors, movingVoxels),
   ].sort(compareRenderFaces);
 
   for (const renderFace of renderFaces) {
@@ -658,7 +709,7 @@ export function createLogoIsometricSvgMarkup({
 
   const renderFaces = [
     ...buildStaticRenderFaces(filledVoxels, faceColors),
-    ...buildMovingRenderFaces(faceColors, movingVoxels),
+    ...buildMovingRenderFaces(filledVoxels, faceColors, movingVoxels),
   ].sort(compareRenderFaces);
   const backgroundRect = `<rect x="0" y="0" width="${LOGO_ISOMETRIC_CANVAS_WIDTH}" height="${LOGO_ISOMETRIC_CANVAS_HEIGHT}" fill="${escapeSvgAttribute(backgroundColor)}"/>`;
   const renderFacePolygons = renderFaces

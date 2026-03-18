@@ -9,6 +9,7 @@ import {
   PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME,
   PUBLIC_LANDING_LOGO_HEIGHT,
   PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME,
+  PUBLIC_LANDING_LOGO_SCENE_TEST_ID,
   PUBLIC_LANDING_LOGO_SRC,
   PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME,
   PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
@@ -272,6 +273,12 @@ function renderFastLandingShell() {
                   fetchpriority="high"
                   class="${PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME}"
                 />
+                <div
+                  aria-hidden="true"
+                  data-testid="${PUBLIC_LANDING_LOGO_SCENE_TEST_ID}"
+                  data-state="loading"
+                  class="pointer-events-none absolute inset-0 z-0"
+                ></div>
               </div>
             </div>
             <div class="space-y-4 text-sm">
