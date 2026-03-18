@@ -4,7 +4,7 @@
 
 - Status: Proposed
 - Owner: Noter frontend
-- Last updated: 2026-03-17
+- Last updated: 2026-03-18
 - Related files: `apps/noter/src/App.tsx`,
   `apps/noter/src/components/LogoPreviewPage.tsx`,
   `apps/noter/src/components/NLogoScene.tsx`,
@@ -78,11 +78,11 @@ voxel mark with a small, opinionated control surface.
 
 Example:
 
-- `xxx_oox_xxo-xoo_ooo_xox-oxx_xox_xox`
+- `ooo_oxo_ooo-oxo_xox_oxo-ooo_oxo_ooo`
 
 ### 3. Default shape
 
-- The default voxel arrangement is: `xxx_oox_xxo-xoo_ooo_xox-oxx_xox_xox`
+- The default voxel arrangement is: `ooo_oxo_ooo-oxo_xox_oxo-ooo_oxo_ooo`
 - Loading `/logo` without `vox` should normalize to that exact state.
 
 ### 4. Editing
@@ -98,6 +98,7 @@ Example:
 
 The playground should expose at least these presets:
 
+- `Open Cross`
 - `N Logo`
 - `Cornerless Cube`
 
@@ -209,11 +210,11 @@ The playground should expose at least these presets:
   between joined cubes.
 - The scene should not show fake panel gaps where cubes meet.
 
-### 2. Face glyphs
+### 2. Preset silhouettes
 
-- The left face is the primary lowercase `n`.
-- The right face reads as the rotated counterpart.
-- The top face also reads as a lowercase `n`, rotated relative to the left face.
+- The default `Open Cross` preset should read as a plus-like skeleton with the
+  center cube removed.
+- The `N Logo` preset should preserve the lowercase `n` face glyphs.
 
 ## Implemented Baseline
 
