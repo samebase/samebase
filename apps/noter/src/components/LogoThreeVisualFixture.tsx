@@ -15,7 +15,7 @@ import { useEffect, useRef, useState } from "react";
 
 export type LogoThreeVisualMode = "logo-three-reference";
 
-const PREVIEW_SIZE = 360;
+const PREVIEW_SIZE = 1000;
 const PREVIEW_BACKGROUND_COLOR = "#f8fafc";
 
 export function LogoThreeVisualFixture() {
@@ -159,7 +159,7 @@ export function LogoThreeVisualFixture() {
       className="min-h-screen p-8 text-slate-900"
       style={{ backgroundColor }}
     >
-      <div className="mx-auto grid max-w-[92rem] gap-6 border border-slate-300 bg-white p-8 shadow-sm">
+      <div className="mx-auto grid max-w-[212rem] gap-6 border border-slate-300 bg-white p-8 shadow-sm">
         <div className="grid gap-1">
           <h1 className="text-xl font-semibold">
             Logo Three Reference Fixture
@@ -167,11 +167,11 @@ export function LogoThreeVisualFixture() {
           <p className="text-sm text-slate-600">
             Left: current Three renderer at a fixed camera angle. Center:
             rasterized SVG at the same display size. Right: per-pixel browser
-            diff after both are rasterized to a `360x360` comparison surface.
+            diff after both are rasterized to a `1000x1000` comparison surface.
           </p>
         </div>
 
-        <div className="grid gap-5 xl:grid-cols-3">
+        <div className="grid gap-5 2xl:grid-cols-3">
           <section className="grid gap-3 border border-slate-200 p-4">
             <div className="text-sm font-medium text-slate-800">
               Three Reference
@@ -180,8 +180,12 @@ export function LogoThreeVisualFixture() {
               <div
                 ref={referenceContainerRef}
                 data-testid="logo-three-parity-reference"
-                className="h-[360px] w-[360px] overflow-hidden border border-slate-200"
-                style={{ backgroundColor: PREVIEW_BACKGROUND_COLOR }}
+                className="overflow-hidden border border-slate-200"
+                style={{
+                  backgroundColor: PREVIEW_BACKGROUND_COLOR,
+                  height: `${PREVIEW_SIZE}px`,
+                  width: `${PREVIEW_SIZE}px`,
+                }}
               >
                 <NLogoScene
                   backgroundColor={PREVIEW_BACKGROUND_COLOR}

@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test.use({ serviceWorkers: "block" });
 
 test("logo three reference fixture", async ({ page }) => {
-  await page.setViewportSize({ width: 1680, height: 1200 });
+  await page.setViewportSize({ width: 3400, height: 1600 });
   await page.goto("/visual-fixture.html?mode=logo-three-reference", {
     waitUntil: "domcontentloaded",
   });

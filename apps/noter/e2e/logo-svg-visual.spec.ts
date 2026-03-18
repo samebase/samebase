@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test("logo svg parity fixture", async ({ page }) => {
-  await page.setViewportSize({ width: 1480, height: 1080 });
+  await page.setViewportSize({ width: 2400, height: 1600 });
   await page.goto("/visual-fixture.html?mode=logo-svg-parity", {
     waitUntil: "domcontentloaded",
   });
