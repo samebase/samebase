@@ -1,5 +1,6 @@
 import { isInIframe, openAuthPopup, setAuthProvider } from "@/authClient";
 import { LandingCopy } from "@/components/LandingCopy";
+import { PublicLandingLogo } from "@/components/PublicLandingLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
@@ -41,6 +42,7 @@ export function SignInForm() {
         data-testid="public-landing-content"
         className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8"
       >
+        <PublicLandingLogo />
         {isLandingCopyEditable ? (
           <Suspense
             fallback={

@@ -33,6 +33,11 @@ dev-only exploration tools. `/logo` remains the interactive reference for the
 orthographic main logo. `/logo-iso` remains a separate pixel-art exploration
 surface.
 
+The public landing page should show the same static SVG at the top of the fast
+bootstrap shell and the hydrated React view. The landing bootstrap path must
+reference a committed public SVG image directly and must not import the logo
+renderer modules.
+
 ## Context and Evidence
 
 ### 1. Current implementation
@@ -126,6 +131,9 @@ Reasons:
 - SVG remains the simplest static delivery format for the main logo
 - SVG is a good fit for the current logo because the visible faces already map
   to projected quads from the orthographic reference view
+- web performance guidance treats `<img src="...svg">` as an image candidate,
+  while inline root `<svg>` is not the same LCP path, so the public landing
+  should use a normal image element for the visible logo
 
 ### 3. Main logo projection should follow the orthographic Three view
 
@@ -236,12 +244,25 @@ The user-facing route or component that displays the logo must remain
 independent from the playground chunk. A user who only needs the product logo
 must not download the interactive playground implementation.
 
+This applies especially to `apps/noter/src/bootstrap.ts` and the public landing
+route:
+
+- the fast shell must reference a committed public asset path such as
+  `/favicon.svg`
+- the bootstrap module must not import `logoStaticSvgAsset.ts`,
+  `logoThreeSvgRenderer.ts`, `logoIsometricRenderer.ts`, or any scene module
+- if the landing shell needs faster image discovery than the JS-inserted `<img>`
+  alone provides, use HTML image preload metadata instead of importing renderer
+  code into the shell bundle
+
 ### 3. Accessibility and sizing
 
 - If the logo is informative, the image must provide a meaningful `alt`.
 - If the logo is decorative, it should use empty alt text or CSS background
   usage as appropriate.
 - Width and height should be explicit where layout stability matters.
+- Landing-shell and hydrated React layouts should use the same intrinsic logo
+  dimensions so the handoff does not shift.
 
 ## Dev Playground Contract
 
@@ -363,6 +384,8 @@ Current review sizes:
 
 - move user-visible logo surfaces to the generated SVG asset
 - ensure those surfaces no longer import the playground module graph
+- for the public landing page, render that asset in both the bootstrap shell and
+  the hydrated React content so the first paint and final state stay aligned
 
 ### 5. Keep dev routes intact
 
@@ -411,6 +434,7 @@ the simpler and stricter boundary.
 - [MDN: `<polygon>`](https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Element/polygon)
 - [MDN: SVG as an image](https://developer.mozilla.org/en-US/docs/Web/SVG/Guides/SVG_as_an_image)
 - [MDN: Canvas API](https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API)
+- [web.dev: Largest Contentful Paint](https://web.dev/articles/lcp)
 - [Playwright: Visual comparisons](https://playwright.dev/docs/test-snapshots)
 
 ## Summary

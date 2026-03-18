@@ -310,7 +310,6 @@ export function LogoPreviewPage({
   }, []);
 
   useEffect(() => {
-    if (!isAutoRotating) {
     if (isIsometricMode || !isAutoRotating) {
       lastFrameTimeRef.current = null;
       return;

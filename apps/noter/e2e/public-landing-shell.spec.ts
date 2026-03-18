@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { FAST_LANDING_APP_BOOT_DELAY_MS } from "../src/lib/fastLandingBoot";
+import { PUBLIC_LANDING_LOGO_TEST_ID } from "../src/lib/publicLandingLogo";
 import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
 
 // These budgets target the local production preview used in CI.
@@ -40,12 +41,27 @@ async function insertLandingHeadingMarker(
   await expect(editor).toContainText(marker);
 }
 
+async function expectLandingLogoReady(image: Locator) {
+  await expect(image).toBeVisible();
+  await expect
+    .poll(async () =>
+      image.evaluate(
+        (element) =>
+          element instanceof HTMLImageElement &&
+          element.complete &&
+          element.naturalWidth > 0,
+      ),
+    )
+    .toBe(true);
+}
+
 test("public landing shell renders before the full app UI takes over", async ({
   page,
 }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   await expect(page.getByTestId("public-landing-shell")).toBeVisible();
+  await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
   await expect(
     page.getByTestId("public-landing-waitlist-placeholder"),
   ).toBeVisible();
@@ -116,6 +132,7 @@ test("public landing handoff keeps the card height stable", async ({
 
   const landingContent = page.getByTestId("public-landing-content");
   await expect(landingContent).toBeVisible();
+  await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
 
   const shellHeight = await landingContent.evaluate((element) =>
     Math.round(element.getBoundingClientRect().height),
@@ -141,6 +158,7 @@ test("prod-ui landing handoff stays visually aligned", async ({
   const landingContent = page.getByTestId("public-landing-content");
   await expect(page.getByTestId("public-landing-shell")).toBeVisible();
   await expect(landingContent).toBeVisible();
+  await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
 
   const shellScreenshot = await takeStableScreenshot(landingContent);
 
