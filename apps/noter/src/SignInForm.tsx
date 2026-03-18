@@ -30,6 +30,10 @@ export function SignInForm() {
   const showPasswordAuth = import.meta.env.DEV && !prodUiModeEnabled;
   const isLandingCopyEditable =
     !prodUiModeEnabled && isLandingDevModeEnabled(searchParams);
+  // Keep the editable `/?dev` view and the plain landing view on the same
+  // in-memory draft so query-param toggles do not reset the current copy.
+  const [landingMarkdownDraft, setLandingMarkdownDraft] =
+    useState(landingPageMarkdown);
 
   return (
     <div className="container my-auto">
@@ -38,15 +42,23 @@ export function SignInForm() {
         className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8"
       >
         {isLandingCopyEditable ? (
-          <Suspense fallback={<LandingCopy className="text-sm" />}>
+          <Suspense
+            fallback={
+              <LandingCopy
+                className="text-sm"
+                markdown={landingMarkdownDraft}
+              />
+            }
+          >
             <EditableLandingCopy
-              value={landingPageMarkdown}
+              value={landingMarkdownDraft}
               className="text-sm"
               editable
+              onChange={setLandingMarkdownDraft}
             />
           </Suspense>
         ) : (
-          <LandingCopy className="text-sm" />
+          <LandingCopy className="text-sm" markdown={landingMarkdownDraft} />
         )}
         <div className="flex flex-col gap-2">
           <SignInWithGoogle />

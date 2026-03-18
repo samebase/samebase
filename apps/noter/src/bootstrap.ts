@@ -280,11 +280,6 @@ function renderFastLandingShell() {
     .querySelector<HTMLInputElement>(
       `#${PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID}`,
     )
-    ?.addEventListener("focus", beginWaitlistInteraction);
-  root
-    .querySelector<HTMLInputElement>(
-      `#${PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID}`,
-    )
     ?.addEventListener("input", (event) => {
       const shellInput = event.currentTarget;
       if (!(shellInput instanceof HTMLInputElement)) {

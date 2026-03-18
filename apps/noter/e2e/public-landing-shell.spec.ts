@@ -205,3 +205,30 @@ test("landing dev toggle preserves unrelated query params", async ({
   const appToggleLink = page.getByRole("link", { name: "/" });
   await expect(appToggleLink).toHaveAttribute("href", "/?prod-ui");
 });
+
+test("landing dev edits stay visible after toggling back to the plain landing view", async ({
+  page,
+}) => {
+  await page.goto("/?dev", { waitUntil: "domcontentloaded" });
+
+  const editor = page.getByRole("textbox").first();
+  await expect(editor).toBeVisible();
+  await editor.fill(`## Updated heading
+
+- updated bullet
+- second updated bullet`);
+
+  const appToggleLink = page.getByRole("link", { name: "/" });
+  await expect(appToggleLink).toBeVisible();
+  await appToggleLink.click();
+
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.locator(".cm-editor")).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Updated heading" }),
+  ).toBeVisible();
+  await expect(page.getByText("updated bullet", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("second updated bullet", { exact: true }),
+  ).toBeVisible();
+});
