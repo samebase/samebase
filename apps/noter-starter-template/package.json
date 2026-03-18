@@ -12,7 +12,7 @@
     "build": "vite build",
     "build:frontend": "vite build",
     "preview": "vite preview",
-    "lint": "tsc --noEmit",
+    "lint": "tsc --noEmit && eslint . --ext ts,tsx --report-unused-disable-directives --config .eslintrc.cjs",
     "test": "vitest run --passWithNoTests",
     "prepare": "husky",
     "template:sync-codespace": "node scripts/sync-codespace-assets.mjs",
