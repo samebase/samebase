@@ -4,7 +4,12 @@ import {
 } from "@/lib/landingDevMode";
 import { ReactNode, useEffect, type MouseEvent } from "react";
 import { useConvexAuth } from "convex/react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 
 export function Layout({ children }: { children: ReactNode }) {
   const appCommit = __APP_COMMIT__ || "unknown";
@@ -21,6 +26,7 @@ export function Layout({ children }: { children: ReactNode }) {
     !isAuthenticated &&
     location.pathname === "/" &&
     !searchParams.has("auth");
+  const showPublicNavigation = !isLoading && !isAuthenticated;
   const landingDevToggleHref = buildLandingDevToggleHref(location);
   const landingDevToggleLabel = getLandingDevToggleLabel(searchParams);
   const handleLandingDevToggleClick = (
@@ -51,6 +57,22 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="flex h-full w-full flex-col">
       <div className="border-b border-border/50">
         <div className="container flex items-center justify-end gap-2 px-3 py-1 text-[11px] text-muted-foreground">
+          {showPublicNavigation && (
+            <>
+              <Link
+                to="/"
+                className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
+              >
+                Home
+              </Link>
+              <Link
+                to="/pricing"
+                className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
+              >
+                Pricing
+              </Link>
+            </>
+          )}
           {showLandingDevToggle && (
             <a
               href={landingDevToggleHref}

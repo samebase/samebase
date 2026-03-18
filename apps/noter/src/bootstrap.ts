@@ -250,6 +250,9 @@ function renderFastLandingShell() {
     <div data-testid="public-landing-shell" class="flex h-full w-full flex-col">
       <div class="border-b border-border/50">
         <div class="container flex items-center justify-end gap-2 px-3 py-1 text-[11px] text-muted-foreground">
+          <a href="/pricing" class="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground">
+            Pricing
+          </a>
           <a href="${escapeHtml(landingDevToggleHref)}" class="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground">
             ${escapeHtml(landingDevToggleLabel)}
           </a>

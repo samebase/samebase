@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /add
+Disallow: /oauth/
+Disallow: /test
+Disallow: /vault/
+Disallow: /logo
+Disallow: /logo-iso
+Disallow: /logo-iso-study
+Disallow: /logo-svg
+
+Sitemap: https://noter.md/sitemap.xml

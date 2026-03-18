@@ -14,8 +14,15 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../convex/_generated/api";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 import { Routes, Route, useLocation } from "react-router-dom";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { isChatOnlyCodespaceRoute } from "@/lib/vaultRoutes";
+import {
+  APP_PAGE_METADATA,
+  HOME_PAGE_METADATA,
+  PRICING_PAGE_METADATA,
+  usePageMetadata,
+  type PageMetadata,
+} from "@/lib/pageMetadata";
 
 const VaultDashboard = lazy(async () => {
   const module = await import("@/components/VaultDashboard");
@@ -40,6 +47,10 @@ const CodespaceChatOnlyView = lazy(async () => {
 const PricingPage = lazy(async () => {
   const module = await import("@/components/PricingPage");
   return { default: module.PricingPage };
+});
+const PublicPricingPage = lazy(async () => {
+  const module = await import("@/components/PublicPricingPage");
+  return { default: module.PublicPricingPage };
 });
 const NetlifyOAuthCallback = lazy(async () => {
   const module = await import("@/components/NetlifyOAuthCallback");
@@ -295,6 +306,7 @@ function McpConsentView({ requestId }: { requestId: string }) {
 export default function App() {
   useAutoSignIn();
   const location = useLocation();
+  const { isAuthenticated } = useConvexAuth();
   const onMcpConsentRoute = isMcpConsentRoute(location.pathname);
   const mcpConsentRequestId = readMcpConsentRequestId(location.search);
   useCloseOAuthPopup(
@@ -311,6 +323,28 @@ export default function App() {
         : null;
   const showLogoStaticSvg = location.pathname === "/logo-svg";
   const showLogoIsoStudy = location.pathname === "/logo-iso-study";
+
+  const pageMetadata: PageMetadata = useMemo(() => {
+    if (location.pathname === "/pricing") {
+      return PRICING_PAGE_METADATA;
+    }
+
+    if (!isAuthenticated && location.pathname === "/") {
+      return HOME_PAGE_METADATA;
+    }
+
+    return {
+      ...APP_PAGE_METADATA,
+      canonicalPath: location.pathname,
+      title:
+        location.pathname === "/"
+          ? "Vaults | Noter"
+          : location.pathname.startsWith("/vault/")
+            ? "Workspace | Noter"
+            : "Noter App",
+    };
+  }, [isAuthenticated, location.pathname]);
+  usePageMetadata(pageMetadata);
 
   if (logoPreviewMode !== null) {
     return (
@@ -389,7 +423,13 @@ export default function App() {
           </ApprovalGate>
         </Authenticated>
         <Unauthenticated>
-          <SignInForm />
+          <Suspense fallback={null}>
+            <Routes>
+              <Route path="/" element={<SignInForm />} />
+              <Route path="/pricing" element={<PublicPricingPage />} />
+              <Route path="*" element={<SignInForm />} />
+            </Routes>
+          </Suspense>
         </Unauthenticated>
       </>
     </Layout>
