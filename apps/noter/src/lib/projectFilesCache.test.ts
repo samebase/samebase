@@ -15,13 +15,24 @@ function buildScope(treeSHA: string) {
   };
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+
+  return { promise, resolve, reject };
+}
+
 describe("loadProjectFilesWithSharedPromise", () => {
   beforeEach(() => {
     clearProjectFilesCacheForTests();
   });
 
   it("shares a single in-flight fetch for identical cache keys", async () => {
-    const pending = Promise.withResolvers<ProjectFile[]>();
+    const pending = createDeferred<ProjectFile[]>();
     const load = vi.fn(async () => pending.promise);
 
     const firstPromise = loadProjectFilesWithSharedPromise({
@@ -131,7 +142,7 @@ describe("loadProjectFilesWithSharedPromise", () => {
   });
 
   it("does not repopulate cache from a stale pruned pending fetch", async () => {
-    const oldPending = Promise.withResolvers<ProjectFile[]>();
+    const oldPending = createDeferred<ProjectFile[]>();
     const oldFiles: ProjectFile[] = [{ path: "src/old.ts", content: "old" }];
     const newFiles: ProjectFile[] = [{ path: "src/new.ts", content: "new" }];
     const oldKey = "vault:main:tree-old:repo";

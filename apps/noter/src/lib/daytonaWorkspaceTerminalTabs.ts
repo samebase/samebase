@@ -32,6 +32,13 @@ export const WORKSPACE_TERMINAL_KIND_ORDER = [
   "dev_server",
 ] as const satisfies readonly WorkspaceTerminalKind[];
 
+function hasSessionForKind<Session>(
+  sessions: WorkspaceTerminalSessions<Session>,
+  kind: WorkspaceTerminalKind,
+): boolean {
+  return Object.prototype.hasOwnProperty.call(sessions, kind);
+}
+
 export function createWorkspaceTerminalState<
   Session,
 >(): WorkspaceTerminalState<Session> {
@@ -45,7 +52,7 @@ export function listOpenWorkspaceTerminalKinds<Session>(
   sessions: WorkspaceTerminalSessions<Session>,
 ): WorkspaceTerminalKind[] {
   return WORKSPACE_TERMINAL_KIND_ORDER.filter((kind) =>
-    Object.hasOwn(sessions, kind),
+    hasSessionForKind(sessions, kind),
   );
 }
 
@@ -80,7 +87,7 @@ export function reduceWorkspaceTerminalState<Session>(
   }
 
   if (action.type === "activated") {
-    if (!Object.hasOwn(state.sessions, action.kind)) {
+    if (!hasSessionForKind(state.sessions, action.kind)) {
       return state;
     }
     return {
@@ -89,7 +96,7 @@ export function reduceWorkspaceTerminalState<Session>(
     };
   }
 
-  if (!Object.hasOwn(state.sessions, action.kind)) {
+  if (!hasSessionForKind(state.sessions, action.kind)) {
     return state;
   }
 

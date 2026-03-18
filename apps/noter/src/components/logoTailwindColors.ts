@@ -24,12 +24,12 @@ function readThemeColor(cssVariable: `--${string}`): string | null {
   }
 
   const parts = hslValue
-    .replaceAll("/", " ")
+    .replace(/\//g, " ")
     .trim()
     .split(/\s+/)
     .slice(0, 3)
-    .map((part) => Number.parseFloat(part.replace("%", "")));
-  if (parts.length !== 3 || parts.some((part) => Number.isNaN(part))) {
+    .map((part: string) => Number.parseFloat(part.replace("%", "")));
+  if (parts.length !== 3 || parts.some((part: number) => Number.isNaN(part))) {
     return null;
   }
 

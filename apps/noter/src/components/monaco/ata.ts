@@ -11,7 +11,6 @@ const BLOCKED_PACKAGES = new Set([
   "typescript",
   "vite",
   "@vitejs/plugin-react",
-  "vite-plugin-pwa",
   "esbuild",
   "rollup",
   "webpack",
@@ -43,8 +42,6 @@ const BLOCKED_PACKAGES = new Set([
   // Dev utilities
   "npm-run-all",
   "dotenv",
-  "workbox-window",
-  "workbox-build",
 
   // Monaco (avoid self-referencing)
   "monaco-editor",
