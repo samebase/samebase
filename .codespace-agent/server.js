@@ -675,17 +675,33 @@ function parseCodexMessageLine(line) {
       message.method,
       message.params,
     )
+    if (codexRuntime.pendingApprovals.size >= CODEX_REQUEST_BUFFER_SIZE) {
+      console.warn(
+        `[CODEX] Rejected approval request ${String(message.id)} because the pending approval buffer is full`,
+      )
+      try {
+        writeCodexMessage({
+          id: message.id,
+          result: {
+            decision: 'cancel',
+          },
+        })
+      } catch (error) {
+        console.warn(
+          `[CODEX] Failed to cancel approval request ${String(message.id)} after buffer rejection: ${parseErrorMessage(
+            error,
+          )}`,
+        )
+      }
+      return
+    }
+
     codexRuntime.pendingApprovals.set(message.id, {
       id: message.id,
       method: message.method,
       params: approvalParams,
       createdAt: Date.now(),
     })
-
-    if (codexRuntime.pendingApprovals.size > CODEX_REQUEST_BUFFER_SIZE) {
-      const oldestRequestId = codexRuntime.pendingApprovals.keys().next().value
-      codexRuntime.pendingApprovals.delete(oldestRequestId)
-    }
 
     pushCodexEvent(message.method, approvalParams)
     return
@@ -814,7 +830,16 @@ async function stopCodexRuntime() {
 
 async function startCodexRuntime(forceRestart = false) {
   if (forceRestart) {
+    const previousStartPromise = codexRuntime.startPromise
     await stopCodexRuntime()
+    if (previousStartPromise) {
+      codexRuntime.startPromise = null
+      try {
+        await previousStartPromise
+      } catch {
+        // Forced restarts should continue with a fresh start attempt.
+      }
+    }
   }
 
   if (codexRuntime.initialized && isCodexRuntimeRunning()) {
@@ -826,7 +851,7 @@ async function startCodexRuntime(forceRestart = false) {
     return
   }
 
-  codexRuntime.startPromise = (async () => {
+  const startPromise = (async () => {
     const version = await ensureCodexBinary()
     console.log(`[CODEX] Found codex binary: ${version}`)
 
@@ -907,11 +932,14 @@ async function startCodexRuntime(forceRestart = false) {
       throw error
     }
   })()
+  codexRuntime.startPromise = startPromise
 
   try {
-    await codexRuntime.startPromise
+    await startPromise
   } finally {
-    codexRuntime.startPromise = null
+    if (codexRuntime.startPromise === startPromise) {
+      codexRuntime.startPromise = null
+    }
   }
 }
 
