@@ -47,6 +47,7 @@ monorepo with React + Vite on the frontend and Convex on the backend.
 │   │   ├── src/
 │   │   └── convex/
 │   └── noter-starter-template/
+├── research/
 ├── scripts/
 ├── specs/
 ├── package.json

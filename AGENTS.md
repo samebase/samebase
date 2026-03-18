@@ -39,6 +39,15 @@ Low-signal/historical docs (do not treat as source of truth):
 - `LUMINA_PROJECT_ANALYSIS.md`
 - `apps/noter/src/components/Untitled-1.md`
 
+## Document Naming
+
+- `specs/` keeps the existing three-digit ID convention.
+- New durable research documents live in top-level `research/`.
+- Research filenames use increasing three-digit IDs, matching the spec style.
+- Format: `research/001_TOPIC_NAME_RESEARCH.md`.
+- Existing date-based files under `notes/` are historical notes and do not need
+  to be renamed retroactively.
+
 ## Development Commands
 
 ```bash
