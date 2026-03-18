@@ -58,6 +58,15 @@ const AGENTS_CONTENT = `# AGENTS.md
 - Use the same editor footprint for diff and non-diff markdown views.
 `;
 
+const LINKS_OLD = `# Links
+
+- https://automerge.org/ from https://stack.convex.dev/automerge-and-convex
+- https://www.blacksmith.sh/
+- https://x.com/matteocollina/status/2033590124919787819`;
+
+const LINKS_NEW = `${LINKS_OLD}
+- https://tree.md/`;
+
 const DELETED_PATCH = `Index: components.json
 ===================================================================
 --- components.json
@@ -167,6 +176,8 @@ function getPatchLineClassName(line: string): string {
 export type CommitReviewVisualMode =
   | "inline"
   | "deleted"
+  | "deleted-markdown-link"
+  | "trailing-newline-only"
   | "unchanged"
   | "conflict";
 
@@ -186,31 +197,53 @@ export function CommitReviewVisualFixture({
 }: {
   mode: CommitReviewVisualMode;
 }) {
-  const selectedFile =
-    mode === "conflict"
-      ? "TODO.md"
-      : mode === "deleted"
-        ? "components.json"
-        : mode === "unchanged"
-          ? "AGENTS.md"
-          : "README.md";
+  let selectedFile = "README.md";
+  let activeFile = FIXTURE_FILES.find((file) => file.path === "README.md");
 
-  const activeFile =
-    mode === "conflict"
-      ? {
-          path: "TODO.md",
-          isMarkdown: true,
-        }
-      : mode === "deleted"
-        ? FIXTURE_FILES.find((file) => file.path === "components.json")
-        : mode === "unchanged"
-          ? {
-              path: "AGENTS.md",
-              isMarkdown: true,
-              richOldContent: AGENTS_CONTENT,
-              richNewContent: AGENTS_CONTENT,
-            }
-          : FIXTURE_FILES.find((file) => file.path === "README.md");
+  switch (mode) {
+    case "conflict":
+      selectedFile = "TODO.md";
+      activeFile = {
+        path: "TODO.md",
+        isMarkdown: true,
+      };
+      break;
+    case "deleted-markdown-link":
+      selectedFile = "links.md";
+      activeFile = {
+        path: "links.md",
+        isMarkdown: true,
+        richOldContent: LINKS_OLD,
+        richNewContent: LINKS_NEW,
+      };
+      break;
+    case "trailing-newline-only":
+      selectedFile = "links.md";
+      activeFile = {
+        path: "links.md",
+        isMarkdown: true,
+        richOldContent: LINKS_OLD,
+        richNewContent: `${LINKS_OLD}\n`,
+      };
+      break;
+    case "deleted":
+      selectedFile = "components.json";
+      activeFile = FIXTURE_FILES.find(
+        (file) => file.path === "components.json",
+      );
+      break;
+    case "unchanged":
+      selectedFile = "AGENTS.md";
+      activeFile = {
+        path: "AGENTS.md",
+        isMarkdown: true,
+        richOldContent: AGENTS_CONTENT,
+        richNewContent: AGENTS_CONTENT,
+      };
+      break;
+    case "inline":
+      break;
+  }
 
   const canRenderInline = Boolean(
     activeFile &&
