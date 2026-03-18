@@ -247,6 +247,12 @@ use `--env-file` or an explicit deployment selector instead.
   snapshot/sandbox names can still inherit shared dev scope instead of a true
   local/worktree scope. Defer this follow-up; current sandbox behavior check is
   separate.
+- **High: PR review bot connectivity after repo rename** - after moving the repo
+  from `nicu-chiciuc/noter` to `noter-md/noter`, Codex review and CodeRabbit
+  review may stop appearing on PRs even after posting `@codex review` and
+  `@coderabbitai review`. Treat missing bot reviews after the rename as a known
+  integration issue and investigate app installation, webhook, and repo-binding
+  drift before assuming the bots are healthy.
 
 ## Technology Stack
 
