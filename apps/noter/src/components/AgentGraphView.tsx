@@ -250,7 +250,7 @@ function AgentNode({ data, id, width, height }: NodeProps<AgentGraphNode>) {
 
   return (
     <div
-      className="relative flex h-full w-full flex-col rounded-lg border border-border/70 bg-background p-2 shadow-sm nowheel nopan"
+      className="relative flex h-full w-full flex-col corner-notch-1 border border-border/70 bg-background p-2 shadow-sm nowheel nopan"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -392,8 +392,8 @@ function AgentNode({ data, id, width, height }: NodeProps<AgentGraphNode>) {
                     key={`${message.role}-${index}`}
                     className={
                       message.role === "assistant"
-                        ? "rounded-md bg-muted/70 px-2 py-1 text-muted-foreground"
-                        : "rounded-md border border-border/70 px-2 py-1 text-foreground"
+                        ? "corner-notch-1 bg-muted/70 px-2 py-1 text-muted-foreground"
+                        : "corner-notch-1 border border-border/70 px-2 py-1 text-foreground"
                     }
                   >
                     <div className="font-medium">
@@ -614,8 +614,8 @@ export function AgentGraphView({
   );
 
   return (
-    <div className="relative h-full w-full rounded-md border border-border/50">
-      <div className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-1 rounded-md bg-background/80 px-2 py-1 text-[11px] text-muted-foreground shadow-sm">
+    <div className="relative h-full w-full corner-notch-1 border border-border/50">
+      <div className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-1 corner-notch-1 bg-background/80 px-2 py-1 text-[11px] text-muted-foreground shadow-sm">
         <span>Zoom:</span>
         <KbdGroup>
           <Kbd>Cmd</Kbd>

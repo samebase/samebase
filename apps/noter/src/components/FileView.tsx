@@ -2053,7 +2053,7 @@ function FileViewInner({
     return patch.split("\n").map((line, index) => (
       <div
         key={`${index}:${line}`}
-        className={`whitespace-pre-wrap rounded-sm px-1 ${getPatchLineClassName(line)}`}
+        className={`whitespace-pre-wrap corner-notch-1 px-1 ${getPatchLineClassName(line)}`}
       >
         {line.length > 0 ? line : " "}
       </div>
@@ -2235,7 +2235,7 @@ function FileViewInner({
             </div>
           </div>
           {commitError ? (
-            <div className="mb-3 rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">
+            <div className="mb-3 corner-notch-1 border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">
               Commit failed: {commitError}
             </div>
           ) : null}
@@ -2249,12 +2249,12 @@ function FileViewInner({
               commitReviewMode === "review" ? (
                 <div className="flex h-full min-h-0 flex-col overflow-hidden">
                   {commitPreviewError ? (
-                    <div className="mx-3 mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    <div className="mx-3 mt-3 corner-notch-1 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                       {commitPreviewError}
                     </div>
                   ) : null}
                   {rebaseConflictPreviewError ? (
-                    <div className="mx-3 mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    <div className="mx-3 mt-3 corner-notch-1 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                       {rebaseConflictPreviewError}
                     </div>
                   ) : null}

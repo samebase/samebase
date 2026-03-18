@@ -146,7 +146,7 @@ const SimpleChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
           rows={rows}
           disabled={disabled}
           className={cn(
-            "max-h-60 min-h-[4.5rem] flex-1 resize-none rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring",
+            "max-h-60 min-h-[4.5rem] flex-1 resize-none corner-notch-1 border border-input bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring",
             textareaClassName,
           )}
         />
@@ -154,7 +154,7 @@ const SimpleChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
           onClick={() => onSend()}
           disabled={!canSend}
           className={cn(
-            "flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40",
+            "flex h-8 w-8 shrink-0 items-center justify-center corner-notch-1 bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40",
             sendButtonClassName,
           )}
         >
@@ -370,7 +370,7 @@ const ProsemarkChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
       <div className={cn("flex items-end gap-2", className)}>
         <div
           className={cn(
-            "max-h-60 min-h-[4.5rem] flex-1 overflow-y-auto rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground focus-within:outline-none focus-within:ring-1 focus-within:ring-ring",
+            "max-h-60 min-h-[4.5rem] flex-1 overflow-y-auto corner-notch-1 border border-input bg-background px-3 py-1.5 text-sm text-foreground focus-within:outline-none focus-within:ring-1 focus-within:ring-ring",
             disabled && "opacity-60",
             textareaClassName,
           )}
@@ -382,7 +382,7 @@ const ProsemarkChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
           onClick={() => onSend()}
           disabled={!canSend}
           className={cn(
-            "flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40",
+            "flex h-8 w-8 shrink-0 items-center justify-center corner-notch-1 bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40",
             sendButtonClassName,
           )}
         >

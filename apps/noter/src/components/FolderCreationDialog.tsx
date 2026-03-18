@@ -208,7 +208,7 @@ export function FolderCreationDialog({
           {showFolderDropdown && (
             <div
               ref={dropdownRef}
-              className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md"
+              className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto corner-notch-1 border bg-popover text-popover-foreground shadow-md"
             >
               {filteredFolders.map((folder, index) => (
                 <div

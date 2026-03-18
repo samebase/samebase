@@ -176,13 +176,13 @@ export function AddRepository() {
       </div>
 
       {error && (
-        <div className="mb-4 p-4 text-sm text-red-600 bg-red-50 rounded-md border border-red-200 flex-shrink-0">
+        <div className="mb-4 p-4 text-sm text-red-600 bg-red-50 corner-notch-1 border border-red-200 flex-shrink-0">
           {error}
         </div>
       )}
 
       {!githubConnected && (
-        <div className="mb-6 rounded-lg border border-border bg-background p-4">
+        <div className="mb-6 corner-notch-1 border border-border bg-background p-4">
           <div className="text-sm font-medium">GitHub connection required</div>
           <p className="mt-1 text-sm text-muted-foreground">
             Connect GitHub to list your repositories.
@@ -249,7 +249,7 @@ export function AddRepository() {
               return (
                 <div
                   key={repo.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                  className="flex items-center justify-between p-4 border corner-notch-1 hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-4 flex-1 min-w-0">
                     <div className="flex-1 min-w-0">

@@ -45,7 +45,7 @@ export function DaytonaSnapshotBanner({
       aria-atomic="true"
       aria-live={isFailure ? "assertive" : "polite"}
       className={cn(
-        "rounded-md border px-3 py-2 text-xs",
+        "corner-notch-1 border px-3 py-2 text-xs",
         isFailure
           ? "border-destructive/40 bg-destructive/5 text-destructive"
           : "border-amber-300 bg-amber-50/80 text-amber-900",

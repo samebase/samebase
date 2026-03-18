@@ -181,7 +181,7 @@ export function EditedFilesCategories({
               onClick={() => {
                 navigateToDiffViewer(file.filePath);
               }}
-              className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 rounded truncate w-full ${linkStyle}`}
+              className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 corner-notch-1 truncate w-full ${linkStyle}`}
             >
               {file.filePath}
             </button>
@@ -205,7 +205,7 @@ export function EditedFilesCategories({
               onClick={() => {
                 navigateToDiffViewer(file.filePath);
               }}
-              className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 rounded truncate w-full ${linkStyle}`}
+              className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 corner-notch-1 truncate w-full ${linkStyle}`}
             >
               <div className="text-muted-foreground">
                 {file.initialFilePath} →
@@ -233,7 +233,7 @@ export function EditedFilesCategories({
               onClick={() => {
                 navigateToDiffViewer(file.filePath);
               }}
-              className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 rounded truncate w-full ${linkStyle}`}
+              className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 corner-notch-1 truncate w-full ${linkStyle}`}
             >
               <div className="text-muted-foreground">
                 {file.initialFilePath} →
@@ -257,7 +257,7 @@ export function EditedFilesCategories({
           {categories.deleted.map((file) => (
             <div
               key={file.filePath}
-              className="block text-xs text-left p-1 rounded truncate w-full text-muted-foreground line-through"
+              className="block text-xs text-left p-1 corner-notch-1 truncate w-full text-muted-foreground line-through"
             >
               {file.filePath}
             </div>
@@ -281,7 +281,7 @@ export function EditedFilesCategories({
               onClick={() => {
                 navigateToDiffViewer(file.filePath);
               }}
-              className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 rounded truncate w-full ${linkStyle}`}
+              className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 corner-notch-1 truncate w-full ${linkStyle}`}
             >
               {file.filePath}
             </button>

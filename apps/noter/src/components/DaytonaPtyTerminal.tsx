@@ -354,7 +354,7 @@ export function DaytonaPtyTerminal({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-md border border-slate-800 bg-slate-950 text-slate-100 shadow-sm",
+        "overflow-hidden corner-notch-1 border border-slate-800 bg-slate-950 text-slate-100 shadow-sm",
         className,
       )}
     >
@@ -363,7 +363,7 @@ export function DaytonaPtyTerminal({
           <span className="font-medium text-slate-200">{title}</span>
           <span
             className={cn(
-              "rounded-ui px-2 py-0.5 text-[11px]",
+              "corner-notch-1 px-2 py-0.5 text-[11px]",
               connectionState === "connected"
                 ? "bg-emerald-500/15 text-emerald-300"
                 : connectionState === "error"

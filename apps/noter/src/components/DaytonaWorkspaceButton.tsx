@@ -1208,7 +1208,7 @@ export function DaytonaWorkspaceButton({
         <div className="mt-2 space-y-2">
           <div
             className={cn(
-              "overflow-hidden rounded-md border border-slate-800 bg-slate-950 text-slate-100 shadow-sm",
+              "overflow-hidden corner-notch-1 border border-slate-800 bg-slate-950 text-slate-100 shadow-sm",
               "max-sm:relative max-sm:left-1/2 max-sm:w-screen max-sm:-translate-x-1/2 max-sm:rounded-none max-sm:border-x-0",
             )}
           >
@@ -1234,7 +1234,7 @@ export function DaytonaWorkspaceButton({
                   <div
                     key={kind}
                     className={cn(
-                      "flex shrink-0 items-center rounded-md border text-xs",
+                      "flex shrink-0 items-center corner-notch-1 border text-xs",
                       isActive
                         ? "border-slate-600 bg-slate-800 text-slate-50"
                         : "border-slate-800 bg-slate-950/70 text-slate-300",
@@ -1261,7 +1261,7 @@ export function DaytonaWorkspaceButton({
                     <button
                       type="button"
                       aria-label={`Close ${title} tab`}
-                      className="mr-1 rounded p-1 text-slate-400 transition hover:bg-slate-700 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-950"
+                      className="mr-1 corner-notch-1 p-1 text-slate-400 transition hover:bg-slate-700 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-950"
                       onClick={() => {
                         void closeTerminalSession({ kind });
                       }}
@@ -1354,7 +1354,7 @@ export function DaytonaWorkspaceButton({
         </div>
       )}
       {bootstrapLogs !== null && (
-        <div className="mt-2 rounded-md border bg-muted/5 p-2 text-xs">
+        <div className="mt-2 corner-notch-1 border bg-muted/5 p-2 text-xs">
           <div className="mb-1 text-muted-foreground">Install log</div>
           <pre className="max-h-48 overflow-auto whitespace-pre-wrap">
             {bootstrapLogs || "No output yet."}
@@ -1362,12 +1362,12 @@ export function DaytonaWorkspaceButton({
         </div>
       )}
       {prebuildLogs !== null && (
-        <div className="mt-2 rounded-md border bg-muted/5 p-2 text-xs">
+        <div className="mt-2 corner-notch-1 border bg-muted/5 p-2 text-xs">
           <div className="mb-1 text-muted-foreground">Snapshot log</div>
           <textarea
             readOnly
             rows={10}
-            className="max-h-64 min-h-[160px] w-full resize-y overflow-auto whitespace-pre-wrap rounded border bg-background/70 p-2 text-xs"
+            className="max-h-64 min-h-[160px] w-full resize-y overflow-auto whitespace-pre-wrap corner-notch-1 border bg-background/70 p-2 text-xs"
             value={prebuildLogs || "No output yet."}
           />
         </div>

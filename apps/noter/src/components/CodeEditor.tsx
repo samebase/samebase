@@ -485,7 +485,7 @@ export function CodeEditor({
         translate="no"
       />
       {syncError ? (
-        <div className="pointer-events-none absolute bottom-2 right-2 rounded bg-red-600/90 px-2 py-1 text-[11px] text-white">
+        <div className="pointer-events-none absolute bottom-2 right-2 corner-notch-1 bg-red-600/90 px-2 py-1 text-[11px] text-white">
           {syncError}
         </div>
       ) : null}

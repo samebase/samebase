@@ -88,7 +88,7 @@ function ToolActivityBadge({
     <div className="mb-1">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="inline-flex items-center gap-1 rounded-md bg-background/50 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-background/80"
+        className="inline-flex items-center gap-1 corner-notch-1 bg-background/50 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-background/80"
       >
         <Wrench className="h-2.5 w-2.5" />
         {tools.length} tool{tools.length !== 1 ? "s" : ""} used
@@ -175,7 +175,7 @@ function formatToolState(state: string | undefined): string | null {
 function ToolCallList({ toolCalls }: { toolCalls: ToolCallInfo[] }) {
   if (toolCalls.length === 0) return null;
   return (
-    <div className="mb-1 rounded-md border border-border/60 bg-background/70 px-2 py-1.5 text-[11px] text-muted-foreground">
+    <div className="mb-1 corner-notch-1 border border-border/60 bg-background/70 px-2 py-1.5 text-[11px] text-muted-foreground">
       <div className="flex items-center gap-1 text-foreground">
         <Wrench className="h-3 w-3" />
         Tool calls ({toolCalls.length})
@@ -193,7 +193,7 @@ function ToolCallList({ toolCalls }: { toolCalls: ToolCallInfo[] }) {
           return (
             <details
               key={`${call.tool}-${idx}`}
-              className="rounded border border-border/60 bg-muted/40 px-2 py-1"
+              className="corner-notch-1 border border-border/60 bg-muted/40 px-2 py-1"
             >
               <summary className="cursor-pointer list-none">
                 <span className="flex items-center gap-2 text-foreground">
@@ -206,7 +206,7 @@ function ToolCallList({ toolCalls }: { toolCalls: ToolCallInfo[] }) {
                   {stateLabel && (
                     <span
                       className={cn(
-                        "rounded-ui px-1.5 py-0.5 text-[9px] uppercase tracking-wide",
+                        "corner-notch-1 px-1.5 py-0.5 text-[9px] uppercase tracking-wide",
                         stateLabel === "error"
                           ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
                           : stateLabel === "done"
@@ -223,7 +223,7 @@ function ToolCallList({ toolCalls }: { toolCalls: ToolCallInfo[] }) {
                 {call.input !== undefined && (
                   <div>
                     <div className="font-medium text-foreground">Input</div>
-                    <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-background/60 p-1">
+                    <pre className="max-h-40 overflow-auto whitespace-pre-wrap corner-notch-1 bg-background/60 p-1">
                       {formatToolPayload(call.input)}
                     </pre>
                   </div>
@@ -231,7 +231,7 @@ function ToolCallList({ toolCalls }: { toolCalls: ToolCallInfo[] }) {
                 {call.output !== undefined && (
                   <div>
                     <div className="font-medium text-foreground">Output</div>
-                    <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-background/60 p-1">
+                    <pre className="max-h-40 overflow-auto whitespace-pre-wrap corner-notch-1 bg-background/60 p-1">
                       {formatToolPayload(call.output)}
                     </pre>
                   </div>
@@ -285,7 +285,7 @@ function CapabilitiesPanel({
   }
 
   return (
-    <div className="mb-2 rounded-lg border border-border bg-muted/50 text-xs">
+    <div className="mb-2 corner-notch-1 border border-border bg-muted/50 text-xs">
       <button
         onClick={() => setExpanded(!expanded)}
         className="flex w-full items-center gap-1.5 px-3 py-1.5 text-muted-foreground hover:text-foreground"
@@ -299,7 +299,7 @@ function CapabilitiesPanel({
         <span className="font-medium">Chat tools</span>
         <span
           className={cn(
-            "ml-auto rounded-ui px-2 py-0.5 text-[10px] font-medium",
+            "ml-auto corner-notch-1 px-2 py-0.5 text-[10px] font-medium",
             toolsEnabled
               ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
               : "bg-muted text-muted-foreground",
@@ -365,7 +365,7 @@ function CommitProposalCard({
   }
 
   return (
-    <div className="my-1 rounded-lg border border-border bg-background p-2.5">
+    <div className="my-1 corner-notch-1 border border-border bg-background p-2.5">
       <div className="flex items-center gap-2 text-xs font-medium text-foreground">
         <GitCommitHorizontal className="h-3.5 w-3.5" />
         Commit proposal
@@ -388,7 +388,7 @@ function CommitProposalCard({
           <button
             onClick={() => void handleApprove()}
             disabled={confirming}
-            className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            className="mt-2 inline-flex items-center gap-1.5 corner-notch-1 bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
           >
             {confirming ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -475,7 +475,7 @@ function ProdReadProposalCard({
     metadata.scope === "vault" ? "Vault scope" : "Global scope";
 
   return (
-    <div className="my-1 rounded-lg border border-border bg-background p-2.5">
+    <div className="my-1 corner-notch-1 border border-border bg-background p-2.5">
       <div className="text-xs font-medium text-foreground">
         Production read approval
       </div>
@@ -515,7 +515,7 @@ function ProdReadProposalCard({
           <button
             onClick={() => void handleApprove()}
             disabled={action !== null}
-            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 corner-notch-1 bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
           >
             {action === "approve" ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -527,7 +527,7 @@ function ProdReadProposalCard({
           <button
             onClick={() => void handleReject()}
             disabled={action !== null}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 corner-notch-1 border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
           >
             {action === "reject" ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -555,7 +555,7 @@ function MessageBubble({
 
   if (msg.role === "user") {
     return (
-      <div className="mb-2 ml-auto max-w-[85%] rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground">
+      <div className="mb-2 ml-auto max-w-[85%] corner-notch-1 bg-primary px-3 py-2 text-sm text-primary-foreground">
         <ProsemarkReadOnly value={msg.text} className="text-sm" />
       </div>
     );
@@ -575,7 +575,7 @@ function MessageBubble({
   const showToolBadge = toolCalls.length === 0 && Boolean(toolsUsed?.length);
 
   return (
-    <div className="mb-2 max-w-[85%] rounded-lg bg-muted px-3 py-2 text-sm text-foreground">
+    <div className="mb-2 max-w-[85%] corner-notch-1 bg-muted px-3 py-2 text-sm text-foreground">
       {showToolBadge ? <ToolActivityBadge tools={toolsUsed ?? []} /> : null}
       <ToolCallList toolCalls={toolCalls} />
       <ProsemarkReadOnly value={msg.text} className="text-sm" />
@@ -917,7 +917,7 @@ export function ChatFab() {
       {/* Chat Window */}
       {isOpen && (
         <div
-          className="fixed bottom-16 right-3 z-[9999] flex max-sm:!left-0 max-sm:!right-0 max-sm:!bottom-16 max-sm:!w-auto max-sm:!h-[calc(100%-5rem)] max-sm:rounded-ui flex-col rounded-xl border border-border bg-popover shadow-xl"
+          className="fixed bottom-16 right-3 z-[9999] flex max-sm:!left-0 max-sm:!right-0 max-sm:!bottom-16 max-sm:!w-auto max-sm:!h-[calc(100%-5rem)] max-sm:rounded-ui flex-col corner-notch-1 border border-border bg-popover shadow-xl"
           style={{
             width: size.w,
             height: size.h,
@@ -969,7 +969,7 @@ export function ChatFab() {
                   disabled={isDeleting}
                   aria-disabled={isDeleting}
                   className={cn(
-                    "rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
+                    "corner-notch-1 p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
                   )}
                 >
                   {isDeleting ? (
@@ -981,7 +981,7 @@ export function ChatFab() {
               )}
               <button
                 onClick={() => setIsOpen(false)}
-                className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="corner-notch-1 p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1001,7 +1001,7 @@ export function ChatFab() {
                 <MessageBubble key={msg.id} msg={msg} threadId={threadId} />
               ))}
             {isWaitingForResponse && (
-              <div className="mb-2 flex max-w-[85%] items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
+              <div className="mb-2 flex max-w-[85%] items-center gap-2 corner-notch-1 bg-muted px-3 py-2 text-sm text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 <span>Thinking...</span>
               </div>
@@ -1031,7 +1031,7 @@ export function ChatFab() {
       <button
         onClick={() => setIsOpen((prev) => !prev)}
         className={cn(
-          "fixed bottom-3 right-3 z-[9999] flex h-11 w-11 items-center justify-center rounded-ui shadow-lg transition-colors",
+          "fixed bottom-3 right-3 z-[9999] flex h-11 w-11 items-center justify-center corner-notch-1 shadow-lg transition-colors",
           isOpen
             ? "bg-muted text-foreground hover:bg-muted/80"
             : "bg-primary text-primary-foreground hover:bg-primary/90",

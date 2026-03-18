@@ -117,23 +117,23 @@ export function SimpleViewVisualFixture({
       data-testid="simple-view-visual-fixture"
       className="min-h-screen bg-slate-100 p-8 text-slate-900"
     >
-      <div className="mx-auto max-w-5xl rounded-xl border border-slate-300 bg-white p-6 shadow-sm">
+      <div className="mx-auto max-w-5xl corner-notch-1 border border-slate-300 bg-white p-6 shadow-sm">
         <h1 className="text-xl font-semibold">Simple View Visual Fixture</h1>
         <p className="mt-1 text-sm text-slate-600">{fixture.title}</p>
 
         <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-slate-700 md:grid-cols-4">
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
+          <div className="corner-notch-1 border border-slate-200 bg-slate-50 p-2">
             mode: <span className="font-medium">{simpleViewMode}</span>
           </div>
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
+          <div className="corner-notch-1 border border-slate-200 bg-slate-50 p-2">
             has staged noter.md:{" "}
             <span className="font-medium">{String(hasStagedNoterFile)}</span>
           </div>
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
+          <div className="corner-notch-1 border border-slate-200 bg-slate-50 p-2">
             has config file:{" "}
             <span className="font-medium">{String(hasNoterConfigFile)}</span>
           </div>
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
+          <div className="corner-notch-1 border border-slate-200 bg-slate-50 p-2">
             should load repository noter.md:{" "}
             <span className="font-medium">
               {String(shouldLoadRepositoryNoterFile)}
@@ -142,7 +142,7 @@ export function SimpleViewVisualFixture({
         </div>
 
         <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <section className="rounded-md border border-slate-200 p-3">
+          <section className="corner-notch-1 border border-slate-200 p-3">
             <h2 className="text-sm font-medium">All Files</h2>
             <ul className="mt-2 space-y-1 font-mono text-xs text-slate-700">
               {allFiles.map((filePath) => (
@@ -151,7 +151,7 @@ export function SimpleViewVisualFixture({
             </ul>
           </section>
 
-          <section className="rounded-md border border-slate-200 p-3">
+          <section className="corner-notch-1 border border-slate-200 p-3">
             <h2 className="text-sm font-medium">Visible Files</h2>
             <ul className="mt-2 space-y-1 font-mono text-xs text-slate-700">
               {visibleFiles.map((filePath) => (

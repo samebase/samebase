@@ -476,7 +476,7 @@ export function CodexProviderRow() {
       {terminalSession || terminalTabUrl ? (
         <div
           className={clsx(
-            "space-y-2 rounded-md border bg-muted/10 p-2",
+            "space-y-2 corner-notch-1 border bg-muted/10 p-2",
             terminalSession &&
               "max-sm:relative max-sm:left-1/2 max-sm:w-screen max-sm:-translate-x-1/2 max-sm:rounded-none max-sm:border-x-0 max-sm:px-0 max-sm:py-2",
           )}

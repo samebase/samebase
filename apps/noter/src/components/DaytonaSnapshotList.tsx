@@ -214,14 +214,14 @@ export function DaytonaSnapshotList({
       </div>
 
       {isExpanded && snapshots !== null && snapshots.length > 0 && (
-        <div className="space-y-1 rounded-md border bg-muted/5 p-2">
+        <div className="space-y-1 corner-notch-1 border bg-muted/5 p-2">
           {snapshots.map((snapshot) => {
             const updatedAt = snapshot.updatedAt ?? snapshot.createdAt;
             const isDeleting = deletingSnapshotName === snapshot.name;
             return (
               <div
                 key={snapshot.name}
-                className="rounded border bg-background p-2"
+                className="corner-notch-1 border bg-background p-2"
               >
                 <div className="flex items-center gap-2">
                   <Badge
