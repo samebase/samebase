@@ -10,6 +10,7 @@ apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-deleted.png
 apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-inline.png
 apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-unchanged.png
 apps/noter/e2e/logo-svg-visual.spec.ts-snapshots/logo-svg-parity.png
+apps/noter/e2e/logo-three-visual.spec.ts-snapshots/logo-three-reference.png
 apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-png.png
 apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-svg.png
 apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-missing-config.png

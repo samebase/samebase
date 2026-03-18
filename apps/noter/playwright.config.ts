@@ -22,7 +22,13 @@ export default defineConfig({
     trace: "off",
     screenshot: "only-on-failure",
     launchOptions: {
-      args: ["--disable-session-crashed-bubble"],
+      // Three-based visual fixtures need explicit WebGL software rendering in headless Chromium.
+      args: [
+        "--disable-session-crashed-bubble",
+        "--use-angle=swiftshader",
+        "--enable-unsafe-swiftshader",
+        "--ignore-gpu-blocklist",
+      ],
     },
   },
   webServer: {
