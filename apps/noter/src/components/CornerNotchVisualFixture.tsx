@@ -1,9 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-
-const CORNER_NOTCH_CLASS = "corner-notch-1";
-const EMPHASIZED_BORDER_CLASS = "border";
+import { CORNER_NOTCH_CLASS, EMPHASIZED_BORDER_CLASS } from "@/lib/cornerNotch";
 
 export function CornerNotchVisualFixture() {
   return (
@@ -57,7 +55,7 @@ export function CornerNotchVisualFixture() {
 
           <div className="space-y-4">
             <div
-              className={`rounded-md border border-stone-300 bg-white p-4 shadow-sm ${CORNER_NOTCH_CLASS}`}
+              className={`border border-stone-300 bg-white p-4 shadow-sm ${CORNER_NOTCH_CLASS}`}
             >
               <div className="text-xs uppercase tracking-[0.2em] text-stone-500">
                 Surface
@@ -70,12 +68,12 @@ export function CornerNotchVisualFixture() {
 
             <div className="grid grid-cols-2 gap-3">
               <div
-                className={`rounded-md border border-stone-300 bg-stone-950 p-4 text-stone-50 ${CORNER_NOTCH_CLASS}`}
+                className={`border border-stone-300 bg-stone-950 p-4 text-stone-50 ${CORNER_NOTCH_CLASS}`}
               >
                 Dark panel
               </div>
               <div
-                className={`rounded-md border border-stone-300 bg-amber-100 p-4 ${CORNER_NOTCH_CLASS}`}
+                className={`border border-stone-300 bg-amber-100 p-4 ${CORNER_NOTCH_CLASS}`}
               >
                 Warm panel
               </div>
