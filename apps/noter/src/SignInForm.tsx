@@ -42,7 +42,7 @@ export function SignInForm() {
         data-testid="public-landing-content"
         className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8"
       >
-        <PublicLandingLogo />
+        <PublicLandingLogo autoRotate={isLandingCopyEditable} />
         {isLandingCopyEditable ? (
           <Suspense
             fallback={
