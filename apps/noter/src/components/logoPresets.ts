@@ -7,9 +7,9 @@ import {
 } from "@/components/logoVoxelState";
 
 export const CUSTOM_LOGO_PRESET_ID = "custom";
-export const DEFAULT_LOGO_PRESET_ID = "open-cross";
+export const DEFAULT_LOGO_PRESET_ID = "checker-lattice";
 
-export type LogoPresetId = "cornerless-cube" | "n-logo" | "open-cross";
+export type LogoPresetId = "checker-lattice" | "cornerless-cube" | "n-logo";
 export type LogoPresetSelection = LogoPresetId | typeof CUSTOM_LOGO_PRESET_ID;
 
 type LogoPreset = {
@@ -65,9 +65,8 @@ function createCornerlessCubeVoxelState(): string {
 
 export const LOGO_PRESETS = [
   {
-    description:
-      "Three-layer alternating lattice derived from the default voxel map",
-    id: "open-cross",
+    description: "Three-layer alternating lattice with the center cube removed",
+    id: "checker-lattice",
     label: "Checker Lattice",
     voxelState: DEFAULT_VOXEL_STATE,
   },

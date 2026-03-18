@@ -1,16 +1,13 @@
 import { NLogoScene } from "@/components/NLogoScene";
 import {
-  LOGO_ISOMETRIC_CANVAS_HEIGHT,
-  LOGO_ISOMETRIC_CANVAS_WIDTH,
-  LOGO_ISOMETRIC_ELEVATION_DEGREES,
-  LOGO_ISOMETRIC_ROTATION_DEGREES,
-} from "@/components/logoIsometricRenderer";
-import { DEFAULT_STATIC_LOGO_SVG_DATA_URL } from "@/components/logoStaticSvgAsset";
-import {
-  DEFAULT_FACE_COLORS,
-  getTailwindColorHex,
-} from "@/components/logoTailwindColors";
-import { DEFAULT_VOXEL_STATE } from "@/components/logoVoxelState";
+  DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE,
+  DEFAULT_STATIC_LOGO_SVG_URL,
+  STATIC_LOGO_ELEVATION_DEGREES,
+  STATIC_LOGO_FACE_COLORS,
+  STATIC_LOGO_ROTATION_DEGREES,
+  STATIC_LOGO_VOXEL_STATE,
+} from "@/components/logoStaticSvgAsset";
+import { getTailwindColorHex } from "@/components/logoTailwindColors";
 import { useEffect, useRef, useState } from "react";
 
 export type LogoThreeVisualMode = "logo-three-reference";
@@ -53,13 +50,13 @@ function LogoThreeScalePreview({
             <NLogoScene
               backgroundColor={previewBackgroundColor}
               className="h-full w-full"
-              elevationDegrees={LOGO_ISOMETRIC_ELEVATION_DEGREES}
-              faceColors={DEFAULT_FACE_COLORS}
+              elevationDegrees={STATIC_LOGO_ELEVATION_DEGREES}
+              faceColors={STATIC_LOGO_FACE_COLORS}
               onViewChange={(_nextView) => {}}
               onVoxelEdit={(_edit) => {}}
-              rotationDegrees={LOGO_ISOMETRIC_ROTATION_DEGREES}
+              rotationDegrees={STATIC_LOGO_ROTATION_DEGREES}
               shuffleAnimation={{ enabled: false, parallelMoves: 1 }}
-              voxelState={DEFAULT_VOXEL_STATE}
+              voxelState={STATIC_LOGO_VOXEL_STATE}
             />
           </div>
         </div>
@@ -77,10 +74,10 @@ function LogoThreeScalePreview({
             }}
           >
             <img
-              src={DEFAULT_STATIC_LOGO_SVG_DATA_URL}
+              src={DEFAULT_STATIC_LOGO_SVG_URL}
               alt=""
-              width={LOGO_ISOMETRIC_CANVAS_WIDTH}
-              height={LOGO_ISOMETRIC_CANVAS_HEIGHT}
+              width={DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE.width}
+              height={DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE.height}
               className="block"
               style={{
                 height: `${size}px`,
@@ -297,13 +294,13 @@ export function LogoThreeVisualFixture() {
                 <NLogoScene
                   backgroundColor={previewBackgroundColor}
                   className="h-full w-full"
-                  elevationDegrees={LOGO_ISOMETRIC_ELEVATION_DEGREES}
-                  faceColors={DEFAULT_FACE_COLORS}
+                  elevationDegrees={STATIC_LOGO_ELEVATION_DEGREES}
+                  faceColors={STATIC_LOGO_FACE_COLORS}
                   onViewChange={(_nextView) => {}}
                   onVoxelEdit={(_edit) => {}}
-                  rotationDegrees={LOGO_ISOMETRIC_ROTATION_DEGREES}
+                  rotationDegrees={STATIC_LOGO_ROTATION_DEGREES}
                   shuffleAnimation={{ enabled: false, parallelMoves: 1 }}
-                  voxelState={DEFAULT_VOXEL_STATE}
+                  voxelState={STATIC_LOGO_VOXEL_STATE}
                 />
               </div>
             </div>
@@ -325,10 +322,10 @@ export function LogoThreeVisualFixture() {
                 <img
                   ref={svgImageRef}
                   data-testid="logo-three-parity-svg"
-                  src={DEFAULT_STATIC_LOGO_SVG_DATA_URL}
+                  src={DEFAULT_STATIC_LOGO_SVG_URL}
                   alt=""
-                  width={LOGO_ISOMETRIC_CANVAS_WIDTH}
-                  height={LOGO_ISOMETRIC_CANVAS_HEIGHT}
+                  width={DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE.width}
+                  height={DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE.height}
                   className="block"
                   style={{
                     height: `${PREVIEW_SIZE}px`,

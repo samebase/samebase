@@ -235,9 +235,7 @@ export function LogoPreviewPage({
         setQueryParam(
           nextSearchParams,
           "isoStyle",
-          isIsometricMode && isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID
-            ? isoStyleId
-            : null,
+          isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID ? isoStyleId : null,
         );
       }),
     );
@@ -247,7 +245,6 @@ export function LogoPreviewPage({
     }
   }, [
     currentSearch,
-    isIsometricMode,
     isoStyleId,
     searchParams,
     setSearchParams,
@@ -497,8 +494,8 @@ export function LogoPreviewPage({
         />
       )}
       <div
-        className="pointer-events-none fixed inset-x-2 top-2 z-10 flex items-start justify-between gap-2 sm:inset-x-4 sm:top-4"
-        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+        className="pointer-events-none absolute inset-x-3 top-0 z-10 flex items-start justify-between gap-3 pt-3 sm:inset-x-4 sm:pt-4"
+        style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
       >
         <Popover open={isControlsOpen} onOpenChange={setIsControlsOpen}>
           <div
@@ -538,7 +535,7 @@ export function LogoPreviewPage({
                 variant="outline"
                 className="rounded-none"
               >
-                <Link to="/logo-svg">SVG</Link>
+                <Link to={modeHref("/logo-svg")}>SVG</Link>
               </Button>
               <Button
                 asChild
@@ -546,7 +543,7 @@ export function LogoPreviewPage({
                 variant="outline"
                 className="rounded-none"
               >
-                <Link to="/logo-iso-study">Study</Link>
+                <Link to={modeHref("/logo-iso-study")}>Study</Link>
               </Button>
             </div>
             {!isIsometricMode && (
@@ -870,6 +867,7 @@ export function LogoPreviewPage({
                       <button
                         key={style.id}
                         type="button"
+                        aria-pressed={isoStyleId === style.id}
                         className={`grid gap-2 border p-2 text-left transition-colors ${
                           isoStyleId === style.id
                             ? "border-black bg-white"

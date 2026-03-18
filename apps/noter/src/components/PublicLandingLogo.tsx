@@ -1,11 +1,10 @@
+import { getTailwindColorHex } from "@/components/logoTailwindColors";
 import {
-  DEFAULT_FACE_COLORS,
-  getTailwindColorHex,
-} from "@/components/logoTailwindColors";
-import {
-  LOGO_ISOMETRIC_ELEVATION_DEGREES,
-  LOGO_ISOMETRIC_ROTATION_DEGREES,
-} from "@/components/logoIsometricRenderer";
+  STATIC_LOGO_ELEVATION_DEGREES,
+  STATIC_LOGO_FACE_COLORS,
+  STATIC_LOGO_ROTATION_DEGREES,
+  STATIC_LOGO_VOXEL_STATE,
+} from "@/components/logoStaticSvgAsset";
 import {
   PUBLIC_LANDING_LOGO_ALT,
   PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME,
@@ -18,7 +17,6 @@ import {
   PUBLIC_LANDING_LOGO_TEST_ID,
   PUBLIC_LANDING_LOGO_WIDTH,
 } from "@/lib/publicLandingLogo";
-import { DEFAULT_VOXEL_STATE } from "@/components/logoVoxelState";
 import { useEffect, useState } from "react";
 
 type LandingLogoSceneComponent =
@@ -31,10 +29,10 @@ export function PublicLandingLogo() {
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [isSvgVisible, setIsSvgVisible] = useState(true);
   const [rotationDegrees, setRotationDegrees] = useState(
-    LOGO_ISOMETRIC_ROTATION_DEGREES,
+    STATIC_LOGO_ROTATION_DEGREES,
   );
   const [elevationDegrees, setElevationDegrees] = useState(
-    LOGO_ISOMETRIC_ELEVATION_DEGREES,
+    STATIC_LOGO_ELEVATION_DEGREES,
   );
   const backgroundColor = getTailwindColorHex("background-base");
 
@@ -120,10 +118,10 @@ export function PublicLandingLogo() {
             className={`absolute inset-0 z-0 ${isSvgVisible ? "pointer-events-none" : ""}`}
           >
             <LogoScene
-              className="h-full w-full touch-none"
+              className="h-full w-full"
               backgroundColor={backgroundColor}
               elevationDegrees={elevationDegrees}
-              faceColors={DEFAULT_FACE_COLORS}
+              faceColors={STATIC_LOGO_FACE_COLORS}
               onRenderReady={() => {
                 setIsSceneReady(true);
               }}
@@ -134,7 +132,7 @@ export function PublicLandingLogo() {
               onVoxelEdit={() => {}}
               rotationDegrees={rotationDegrees}
               shuffleAnimation={{ enabled: false, parallelMoves: 1 }}
-              voxelState={DEFAULT_VOXEL_STATE}
+              voxelState={STATIC_LOGO_VOXEL_STATE}
             />
           </div>
         ) : null}

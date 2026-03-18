@@ -9,8 +9,6 @@ apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-conflict.png
 apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-deleted.png
 apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-inline.png
 apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-unchanged.png
-apps/noter/e2e/logo-png-visual.spec.ts-snapshots/logo-pixel-parity.png
-apps/noter/e2e/logo-png-visual.spec.ts-snapshots/logo-pixel-surface.png
 apps/noter/e2e/logo-three-visual.spec.ts-snapshots/logo-three-diff.png
 apps/noter/e2e/logo-three-visual.spec.ts-snapshots/logo-three-reference.png
 apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-png.png
@@ -20,7 +18,6 @@ apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-repository-confi
 apps/noter/fixtures/daytona-convex-proxy.env
 apps/noter/public/favicon.png
 apps/noter/public/favicon.svg
-apps/noter/public/logo-isometric.png
 apps/noter/public/lumina_icon.png
 apps/noter/public/media-visual-fixture.svg
 CHAT_SPEC.md

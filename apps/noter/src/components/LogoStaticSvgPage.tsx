@@ -1,13 +1,46 @@
 import {
-  DEFAULT_STATIC_LOGO_SVG_DATA_URL,
   DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE,
+  DEFAULT_STATIC_LOGO_SVG_URL,
+  STATIC_LOGO_BACKGROUND_COLOR,
+  STATIC_LOGO_ELEVATION_DEGREES,
+  STATIC_LOGO_FACE_COLORS,
+  STATIC_LOGO_ROTATION_DEGREES,
+  STATIC_LOGO_VOXEL_STATE,
 } from "@/components/logoStaticSvgAsset";
+import { createLogoThreeSvgMarkup } from "@/components/logoThreeSvgRenderer";
 import { getTailwindColorHex } from "@/components/logoTailwindColors";
+import { parseVoxelState } from "@/components/logoVoxelState";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { useMemo } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 
 export function LogoStaticSvgPage() {
+  const [searchParams] = useSearchParams();
   const backgroundColor = getTailwindColorHex("background-base");
+  const currentSearch = searchParams.toString();
+  const staticSvgSrc = useMemo(() => {
+    const voxelState = searchParams.get("vox");
+    if (!voxelState || voxelState === STATIC_LOGO_VOXEL_STATE) {
+      return DEFAULT_STATIC_LOGO_SVG_URL;
+    }
+
+    const filledVoxels = parseVoxelState(voxelState);
+    if (!filledVoxels) {
+      return DEFAULT_STATIC_LOGO_SVG_URL;
+    }
+
+    const markup = createLogoThreeSvgMarkup({
+      backgroundColor: STATIC_LOGO_BACKGROUND_COLOR,
+      elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
+      faceColors: STATIC_LOGO_FACE_COLORS,
+      filledVoxels,
+      rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
+    });
+
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;
+  }, [searchParams]);
+  const modeHref = (pathname: "/logo" | "/logo-iso" | "/logo-iso-study") =>
+    currentSearch ? `${pathname}?${currentSearch}` : pathname;
 
   return (
     <div
@@ -16,16 +49,16 @@ export function LogoStaticSvgPage() {
     >
       <div className="absolute left-3 top-3 flex items-center gap-2 border border-black/10 bg-white/84 p-2 backdrop-blur-sm sm:left-4 sm:top-4">
         <Button asChild size="sm" variant="outline" className="rounded-none">
-          <Link to="/logo">3D</Link>
+          <Link to={modeHref("/logo")}>3D</Link>
         </Button>
         <Button asChild size="sm" variant="outline" className="rounded-none">
-          <Link to="/logo-iso">Iso</Link>
+          <Link to={modeHref("/logo-iso")}>Iso</Link>
         </Button>
         <Button size="sm" className="rounded-none">
           SVG
         </Button>
         <Button asChild size="sm" variant="outline" className="rounded-none">
-          <Link to="/logo-iso-study">Study</Link>
+          <Link to={modeHref("/logo-iso-study")}>Study</Link>
         </Button>
       </div>
 
@@ -43,7 +76,7 @@ export function LogoStaticSvgPage() {
         <div className="flex items-center justify-center border border-black/10 bg-white p-6 sm:p-10">
           <img
             data-testid="logo-static-svg-image"
-            src={DEFAULT_STATIC_LOGO_SVG_DATA_URL}
+            src={staticSvgSrc}
             alt="Noter logo"
             width={DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE.width}
             height={DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE.height}

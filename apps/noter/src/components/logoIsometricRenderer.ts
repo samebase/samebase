@@ -62,6 +62,7 @@ type LogoIsometricStyle = {
 };
 
 export type LogoIsometricStyleId = "flat" | "shaded-edge" | "cap-3" | "cap-4";
+export type LogoIsometricSvgSafeStyleId = Extract<LogoIsometricStyleId, "flat">;
 
 const FACE_NORMALS: Record<IsometricFaceDirection, VoxelCoordinate> = {
   left: [0, 0, 1],
@@ -641,13 +642,13 @@ export function createLogoIsometricSvgMarkup({
   faceColors,
   filledVoxels,
   movingVoxels = [],
-  styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+  styleId = "flat",
 }: {
   backgroundColor: string;
   faceColors: FaceColors;
   filledVoxels: ReadonlySet<string>;
   movingVoxels?: readonly IsometricMovingVoxel[];
-  styleId?: LogoIsometricStyleId;
+  styleId?: LogoIsometricSvgSafeStyleId;
 }): string {
   const style = getLogoIsometricStyle(styleId);
 

@@ -5,7 +5,7 @@ import {
   drawSingleCubeStudy,
 } from "@/components/logoSingleCubeStudyRenderer";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 function CubeStudyCanvas({
   angleDegrees,
@@ -57,27 +57,33 @@ function CubeStudyCanvas({
 }
 
 export function LogoSingleCubeStudyPage() {
+  const location = useLocation();
   const [angleDegrees, setAngleDegrees] = useState(45);
   const [showEdges, setShowEdges] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
   const [vividColors, setVividColors] = useState(true);
+  const modeHref = (pathname: "/logo" | "/logo-iso" | "/logo-svg") =>
+    location.search ? `${pathname}${location.search}` : pathname;
 
   return (
     <div className="min-h-screen bg-[#f5f4ef] text-black">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-4 py-4 sm:px-6">
         <div className="flex flex-wrap items-center gap-2 border border-black/10 bg-white/88 p-2 backdrop-blur-sm">
           <Button asChild size="sm" variant="outline" className="rounded-none">
-            <Link to="/logo">3D</Link>
+            <Link to={modeHref("/logo")}>3D</Link>
           </Button>
           <Button asChild size="sm" variant="outline" className="rounded-none">
-            <Link to="/logo-iso">Iso</Link>
+            <Link to={modeHref("/logo-iso")}>Iso</Link>
           </Button>
           <Button asChild size="sm" variant="outline" className="rounded-none">
-            <Link to="/logo-svg">SVG</Link>
+            <Link to={modeHref("/logo-svg")}>SVG</Link>
           </Button>
-          <Button size="sm" className="rounded-none">
+          <div
+            aria-current="page"
+            className="inline-flex h-9 items-center border border-black bg-black px-3 text-sm font-medium text-white"
+          >
             Single Cube Study
-          </Button>
+          </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">

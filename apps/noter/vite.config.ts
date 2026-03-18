@@ -113,6 +113,10 @@ export default defineConfig({
   server: daytonaConvexProxyServerConfig,
   build: {
     rollupOptions: {
+      input: {
+        app: path.resolve(__dirname, "index.html"),
+        visualFixture: path.resolve(__dirname, "visual-fixture.html"),
+      },
       onwarn(warning, warn) {
         // Skip certain warnings
         if (warning.code === "UNUSED_EXTERNAL_IMPORT") return;

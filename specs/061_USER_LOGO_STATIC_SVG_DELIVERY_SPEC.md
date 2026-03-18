@@ -113,6 +113,7 @@ These sources support the choice of:
 - Shipping a live SVG scene with pointer-driven matrix math on the user path.
 - Converging the pixel-art isometric renderer with the main smooth logo path in
   this phase.
+- Shipping a production pixel-art PNG export pipeline in this phase.
 - Solving future drag rotation for user surfaces in this phase.
 
 ## Decision
@@ -202,7 +203,21 @@ Three reference view.
 If future product surfaces need alternate themes or variants, they should be
 added as explicit generated assets, not as runtime controls.
 
-### 3. Coordinate discipline
+### 3. Asset boundary
+
+The committed public smooth-logo asset boundary is:
+
+- `apps/noter/public/favicon.svg` for the shipped SVG image
+- `apps/noter/public/favicon.png` for the derived raster favicon
+
+User-visible product code should reference the committed public SVG path
+directly. It should not embed the smooth SVG as a `data:` URL on the normal
+product path.
+
+Tests may compare generated markup to the committed SVG file, but that
+generator-level contract is for validation, not for runtime delivery.
+
+### 4. Coordinate discipline
 
 To maximize visual stability and reduce browser rasterization artifacts, the SVG
 generator shall:
@@ -230,6 +245,10 @@ It should be treated as:
 - a pixel-art/art-direction renderer
 - the source of truth for future pixel-art exports
 - a separate visual system from the main orthographic logo
+
+Pixel-art PNG fixtures or export experiments that are not consumed by current
+product surfaces should stay out of this patch. They can return in a dedicated
+pixel-art export phase.
 
 ## User Delivery Contract
 

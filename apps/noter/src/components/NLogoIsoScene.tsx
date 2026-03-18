@@ -289,6 +289,8 @@ export function NLogoIsoScene({
   const onVoxelEditRef = useRef(onVoxelEdit);
   const sceneStateRef = useRef<SceneState | null>(null);
   const viewportRef = useRef<SceneViewport | null>(null);
+  const renderSceneRef = useRef<(timestampMs: number) => void>(() => {});
+  const syncAnimationLoopRef = useRef<() => void>(() => {});
   const lastMovedCubeKeyRef = useRef<string | null>(null);
   const interactionRef = useRef<SceneInteraction>({
     button: null,
@@ -299,10 +301,12 @@ export function NLogoIsoScene({
 
   useEffect(() => {
     backgroundColorRef.current = backgroundColor;
+    renderSceneRef.current(performance.now());
   }, [backgroundColor]);
 
   useEffect(() => {
     faceColorsRef.current = faceColors;
+    renderSceneRef.current(performance.now());
   }, [faceColors]);
 
   useEffect(() => {
@@ -321,6 +325,9 @@ export function NLogoIsoScene({
     if (wasEnabled !== shuffleAnimation.enabled) {
       resetShuffleAnimation(sceneState, lastMovedCubeKeyRef);
     }
+
+    syncAnimationLoopRef.current();
+    renderSceneRef.current(performance.now());
   }, [shuffleAnimation]);
 
   useEffect(() => {
@@ -335,6 +342,7 @@ export function NLogoIsoScene({
       parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
     sceneState.homeFilledVoxels = new Set(nextFilledVoxels);
     resetShuffleAnimation(sceneState, lastMovedCubeKeyRef);
+    renderSceneRef.current(performance.now());
   }, [voxelState]);
 
   useEffect(() => {
@@ -446,7 +454,14 @@ export function NLogoIsoScene({
       };
     };
 
-    let animationFrameId = 0;
+    let animationFrameId: number | null = null;
+
+    const stopAnimation = () => {
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+    };
 
     const animate = (timestampMs: number) => {
       const sceneState = sceneStateRef.current;
@@ -464,11 +479,28 @@ export function NLogoIsoScene({
       }
 
       renderScene(timestampMs);
-      animationFrameId = window.requestAnimationFrame(animate);
+      if (shuffleAnimationRef.current.enabled) {
+        animationFrameId = window.requestAnimationFrame(animate);
+        return;
+      }
+
+      animationFrameId = null;
+    };
+
+    renderSceneRef.current = renderScene;
+    syncAnimationLoopRef.current = () => {
+      if (shuffleAnimationRef.current.enabled) {
+        if (animationFrameId === null) {
+          animationFrameId = window.requestAnimationFrame(animate);
+        }
+        return;
+      }
+
+      stopAnimation();
     };
 
     renderScene(performance.now());
-    animationFrameId = window.requestAnimationFrame(animate);
+    syncAnimationLoopRef.current();
 
     const resizeObserver = new ResizeObserver(() => {
       renderScene(performance.now());
@@ -476,10 +508,12 @@ export function NLogoIsoScene({
     resizeObserver.observe(container);
 
     return () => {
-      window.cancelAnimationFrame(animationFrameId);
+      stopAnimation();
       resizeObserver.disconnect();
       sceneStateRef.current = null;
       viewportRef.current = null;
+      renderSceneRef.current = () => {};
+      syncAnimationLoopRef.current = () => {};
     };
   }, [styleId]);
 
