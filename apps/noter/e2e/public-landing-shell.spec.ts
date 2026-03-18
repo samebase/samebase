@@ -26,10 +26,10 @@ test("public landing shell renders before the full app UI takes over", async ({
     page.getByTestId("public-landing-waitlist-placeholder"),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
-  await expect(page.getByPlaceholder("email@example.com")).toHaveCount(0, {
+  await expect(page.getByPlaceholder("email@example.com")).toBeDisabled({
     timeout: 200,
   });
-  await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
+  await expect(page.getByPlaceholder("email@example.com")).toBeEditable();
 });
 
 test("public landing handoff keeps the card height stable", async ({

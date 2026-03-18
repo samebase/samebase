@@ -26,6 +26,30 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
+function renderChromeIconSvg() {
+  return `
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class="lucide lucide-chrome mr-2 h-4 w-4"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="10"></circle>
+      <circle cx="12" cy="12" r="4"></circle>
+      <line x1="21.17" x2="12" y1="8" y2="8"></line>
+      <line x1="3.95" x2="8.54" y1="6.06" y2="14"></line>
+      <line x1="10.88" x2="15.46" y1="21.94" y2="14"></line>
+    </svg>
+  `;
+}
+
 function isFastLandingRoute(location: Location): boolean {
   const searchParams = new URLSearchParams(location.search);
   return (
@@ -161,25 +185,36 @@ function renderFastLandingShell() {
                   .join("")}
               </ul>
             </div>
-            <button
-              id="${GOOGLE_AUTH_BUTTON_ID}"
-              type="button"
-              class="inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
-            >
-              Google
-            </button>
+            <div class="flex flex-col gap-2">
+              <button
+                id="${GOOGLE_AUTH_BUTTON_ID}"
+                type="button"
+                class="inline-flex h-9 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+              >
+                ${renderChromeIconSvg()}
+                <span>Google</span>
+              </button>
+            </div>
             <div
               data-testid="${PUBLIC_LANDING_WAITLIST_PLACEHOLDER_TEST_ID}"
-              aria-hidden="true"
               class="flex flex-col gap-2 border-t pt-2"
             >
               <div class="flex gap-2">
-                <div class="flex h-9 flex-1 items-center rounded-md border border-input bg-transparent px-3 py-1 text-sm text-muted-foreground">
-                  email@example.com
-                </div>
-                <div class="inline-flex h-9 shrink-0 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-muted-foreground shadow-sm">
+                <input
+                  type="email"
+                  placeholder="email@example.com"
+                  disabled
+                  tabindex="-1"
+                  class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                />
+                <button
+                  type="button"
+                  disabled
+                  tabindex="-1"
+                  class="inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+                >
                   Join Waitlist
-                </div>
+                </button>
               </div>
             </div>
           </div>
