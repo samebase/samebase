@@ -21,6 +21,7 @@ const PUBLIC_LANDING_WAITLIST_SUBMIT_BUTTON_ID =
 const UNKNOWN_SHORT_COMMIT_PLACEHOLDER = "xxxxxxx";
 
 let appLoadPromise: Promise<void> | null = null;
+let restoreHydratedWaitlistFocus = false;
 
 function escapeHtml(value: string): string {
   return value
@@ -136,6 +137,7 @@ function ensureAppLoaded(): Promise<void> {
     appLoadPromise = import("./main")
       .then((module) => {
         module.mountApp();
+        flushHydratedWaitlistFocusRestore();
       })
       .catch((error: unknown) => {
         appLoadPromise = null;
@@ -143,7 +145,9 @@ function ensureAppLoaded(): Promise<void> {
       });
   }
 
-  return appLoadPromise;
+  return appLoadPromise.then(() => {
+    flushHydratedWaitlistFocusRestore();
+  });
 }
 
 function beginGoogleSignInFromShell() {
@@ -163,17 +167,45 @@ function beginGoogleSignInFromShell() {
   void ensureAppLoaded();
 }
 
-function focusHydratedWaitlistInput() {
+function focusHydratedWaitlistInput(attempt = 0) {
+  if (document.querySelector('[data-testid="public-landing-shell"]') !== null) {
+    if (attempt < 10) {
+      window.setTimeout(() => {
+        focusHydratedWaitlistInput(attempt + 1);
+      }, 16);
+    }
+    return;
+  }
+
   const waitlistInput = document.querySelector<HTMLInputElement>(
     `[data-testid="${PUBLIC_LANDING_CONTENT_TEST_ID}"] input[placeholder="email@example.com"]`,
   );
   if (!waitlistInput) {
+    if (attempt < 10) {
+      window.setTimeout(() => {
+        focusHydratedWaitlistInput(attempt + 1);
+      }, 16);
+    }
     return;
   }
 
   waitlistInput.focus();
-  const caretPosition = waitlistInput.value.length;
-  waitlistInput.setSelectionRange(caretPosition, caretPosition);
+  if (document.activeElement !== waitlistInput && attempt < 10) {
+    window.setTimeout(() => {
+      focusHydratedWaitlistInput(attempt + 1);
+    }, 16);
+  }
+}
+
+function flushHydratedWaitlistFocusRestore() {
+  if (!restoreHydratedWaitlistFocus) {
+    return;
+  }
+
+  restoreHydratedWaitlistFocus = false;
+  globalThis.requestAnimationFrame(() => {
+    focusHydratedWaitlistInput();
+  });
 }
 
 function beginWaitlistInteraction() {
@@ -184,9 +216,7 @@ function beginWaitlistInteraction() {
     writePublicLandingWaitlistDraft(shellInput.value);
   }
 
-  void ensureAppLoaded().then(() => {
-    focusHydratedWaitlistInput();
-  });
+  void ensureAppLoaded();
 }
 
 function renderFastLandingShell() {
@@ -276,24 +306,27 @@ function renderFastLandingShell() {
   root
     .querySelector<HTMLButtonElement>(`#${GOOGLE_AUTH_BUTTON_ID}`)
     ?.addEventListener("click", beginGoogleSignInFromShell);
-  root
-    .querySelector<HTMLInputElement>(
-      `#${PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID}`,
-    )
-    ?.addEventListener("focus", beginWaitlistInteraction);
-  root
-    .querySelector<HTMLInputElement>(
-      `#${PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID}`,
-    )
-    ?.addEventListener("input", (event) => {
-      const shellInput = event.currentTarget;
-      if (!(shellInput instanceof HTMLInputElement)) {
-        return;
-      }
+  const shellWaitlistInput = root.querySelector<HTMLInputElement>(
+    `#${PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID}`,
+  );
 
-      writePublicLandingWaitlistDraft(shellInput.value);
-      void ensureAppLoaded();
-    });
+  shellWaitlistInput?.addEventListener("focus", () => {
+    restoreHydratedWaitlistFocus = true;
+  });
+  shellWaitlistInput?.addEventListener("blur", (event) => {
+    if (event.relatedTarget instanceof HTMLElement) {
+      restoreHydratedWaitlistFocus = false;
+    }
+  });
+  shellWaitlistInput?.addEventListener("input", (event) => {
+    const shellInput = event.currentTarget;
+    if (!(shellInput instanceof HTMLInputElement)) {
+      return;
+    }
+
+    writePublicLandingWaitlistDraft(shellInput.value);
+    void ensureAppLoaded();
+  });
   root
     .querySelector<HTMLButtonElement>(
       `#${PUBLIC_LANDING_WAITLIST_SUBMIT_BUTTON_ID}`,

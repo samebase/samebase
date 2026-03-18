@@ -27,6 +27,19 @@ async function readNavigationTiming(page: Parameters<typeof test>[0]["page"]) {
   });
 }
 
+async function insertLandingHeadingMarker(
+  page: Parameters<typeof test>[0]["page"],
+  marker: string,
+) {
+  const editor = page.locator(".cm-content").first();
+  const headingLine = editor.locator(".cm-line").first();
+
+  await expect(headingLine).toBeVisible();
+  await headingLine.click();
+  await editor.pressSequentially(` ${marker}`);
+  await expect(editor).toContainText(marker);
+}
+
 test("public landing shell renders before the full app UI takes over", async ({
   page,
 }) => {
@@ -67,6 +80,33 @@ test("shell waitlist input preserves typed email through handoff", async ({
   await expect(page.getByPlaceholder("email@example.com")).toHaveValue(
     "shell@example.com",
   );
+});
+
+test("shell waitlist focus survives the scheduled handoff", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const waitlistInput = page.getByPlaceholder("email@example.com");
+  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
+  await waitlistInput.click();
+  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
+  await expect(page.getByPlaceholder("email@example.com")).toBeFocused();
+});
+
+test("shell waitlist blur clears pending focus restore intent", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const waitlistInput = page.getByPlaceholder("email@example.com");
+  const waitlistButton = page.getByRole("button", { name: "Join Waitlist" });
+
+  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
+  await waitlistInput.click();
+  await waitlistButton.click();
+  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
+  await expect(page.getByPlaceholder("email@example.com")).not.toBeFocused();
 });
 
 test("public landing handoff keeps the card height stable", async ({
@@ -204,4 +244,22 @@ test("landing dev toggle preserves unrelated query params", async ({
 
   const appToggleLink = page.getByRole("link", { name: "/" });
   await expect(appToggleLink).toHaveAttribute("href", "/?prod-ui");
+});
+
+test("landing dev edits stay visible after toggling back to the plain landing view", async ({
+  page,
+}) => {
+  const headingMarker = "codex-marker";
+
+  await page.goto("/?dev", { waitUntil: "domcontentloaded" });
+
+  await insertLandingHeadingMarker(page, headingMarker);
+
+  const appToggleLink = page.getByRole("link", { name: "/" });
+  await expect(appToggleLink).toBeVisible();
+  await appToggleLink.click();
+
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.locator(".cm-editor")).toHaveCount(0);
+  await expect(page.getByRole("heading")).toContainText(headingMarker);
 });
