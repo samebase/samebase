@@ -16,10 +16,10 @@ import { useEffect, useRef, useState } from "react";
 export type LogoThreeVisualMode = "logo-three-reference";
 
 const PREVIEW_SIZE = 1000;
-const PREVIEW_BACKGROUND_COLOR = "#f8fafc";
 
 export function LogoThreeVisualFixture() {
   const backgroundColor = getTailwindColorHex("background-base");
+  const previewBackgroundColor = getTailwindColorHex("background-base");
   const referenceContainerRef = useRef<HTMLDivElement | null>(null);
   const svgImageRef = useRef<HTMLImageElement | null>(null);
   const diffCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -182,13 +182,13 @@ export function LogoThreeVisualFixture() {
                 data-testid="logo-three-parity-reference"
                 className="overflow-hidden border border-slate-200"
                 style={{
-                  backgroundColor: PREVIEW_BACKGROUND_COLOR,
+                  backgroundColor: previewBackgroundColor,
                   height: `${PREVIEW_SIZE}px`,
                   width: `${PREVIEW_SIZE}px`,
                 }}
               >
                 <NLogoScene
-                  backgroundColor={PREVIEW_BACKGROUND_COLOR}
+                  backgroundColor={previewBackgroundColor}
                   className="h-full w-full"
                   elevationDegrees={LOGO_ISOMETRIC_ELEVATION_DEGREES}
                   faceColors={DEFAULT_FACE_COLORS}
@@ -210,7 +210,7 @@ export function LogoThreeVisualFixture() {
               <div
                 className="flex items-center justify-center border border-slate-200"
                 style={{
-                  backgroundColor: PREVIEW_BACKGROUND_COLOR,
+                  backgroundColor: previewBackgroundColor,
                   height: `${PREVIEW_SIZE}px`,
                   width: `${PREVIEW_SIZE}px`,
                 }}

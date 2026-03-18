@@ -17,6 +17,7 @@ const PREVIEW_SIZE = 1000;
 
 export function LogoSvgVisualFixture() {
   const backgroundColor = getTailwindColorHex("background-base");
+  const previewBackgroundColor = getTailwindColorHex("background-base");
 
   return (
     <div
@@ -38,7 +39,10 @@ export function LogoSvgVisualFixture() {
             <div className="text-sm font-medium text-slate-800">
               Canvas Reference
             </div>
-            <div className="flex items-center justify-center border border-slate-200 bg-slate-50 p-4">
+            <div
+              className="flex items-center justify-center border border-slate-200 p-4"
+              style={{ backgroundColor: previewBackgroundColor }}
+            >
               <LogoIsoThumbnail
                 backgroundColor="transparent"
                 className="block"
@@ -55,7 +59,10 @@ export function LogoSvgVisualFixture() {
             <div className="text-sm font-medium text-slate-800">
               Static SVG Image
             </div>
-            <div className="flex items-center justify-center border border-slate-200 bg-slate-50 p-4">
+            <div
+              className="flex items-center justify-center border border-slate-200 p-4"
+              style={{ backgroundColor: previewBackgroundColor }}
+            >
               <img
                 data-testid="logo-svg-parity-svg"
                 src={DEFAULT_LOGO_ISOMETRIC_SVG_DATA_URL}
