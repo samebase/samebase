@@ -14,6 +14,7 @@ const FAST_LANDING_APP_BOOT_DELAY_MS = 150;
 const PUBLIC_LANDING_CONTENT_TEST_ID = "public-landing-content";
 const PUBLIC_LANDING_WAITLIST_PLACEHOLDER_TEST_ID =
   "public-landing-waitlist-placeholder";
+const UNKNOWN_SHORT_COMMIT_PLACEHOLDER = "xxxxxxx";
 
 let appLoadPromise: Promise<void> | null = null;
 
@@ -48,6 +49,21 @@ function renderChromeIconSvg() {
       <line x1="10.88" x2="15.46" y1="21.94" y2="14"></line>
     </svg>
   `;
+}
+
+function getShellCommitMetadata() {
+  const appCommit = __APP_COMMIT__ || "unknown";
+  const shortCommit =
+    appCommit === "unknown"
+      ? UNKNOWN_SHORT_COMMIT_PLACEHOLDER
+      : appCommit.length > 12
+        ? appCommit.slice(0, 7)
+        : appCommit;
+  const repoUrl = __APP_REPO_URL__ || "";
+  const commitUrl =
+    repoUrl && appCommit !== "unknown" ? `${repoUrl}/commit/${appCommit}` : "";
+
+  return { appCommit, shortCommit, commitUrl };
 }
 
 function isFastLandingRoute(location: Location): boolean {
@@ -153,6 +169,10 @@ function renderFastLandingShell() {
   const searchParams = new URLSearchParams(window.location.search);
   const landingDevToggleHref = buildLandingDevToggleHref(window.location);
   const landingDevToggleLabel = getLandingDevToggleLabel(searchParams);
+  const { appCommit, shortCommit, commitUrl } = getShellCommitMetadata();
+  const commitMarkup = commitUrl
+    ? `<a class="font-mono transition-colors hover:text-foreground" href="${escapeHtml(commitUrl)}" target="_blank" rel="noreferrer noopener" title="${escapeHtml(appCommit)}">${escapeHtml(shortCommit)}</a>`
+    : `<span class="font-mono" title="${escapeHtml(appCommit)}">${escapeHtml(shortCommit)}</span>`;
 
   root.innerHTML = `
     <div data-testid="public-landing-shell" class="flex h-full w-full flex-col">
@@ -161,6 +181,8 @@ function renderFastLandingShell() {
           <a href="${escapeHtml(landingDevToggleHref)}" class="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground">
             ${escapeHtml(landingDevToggleLabel)}
           </a>
+          <span>Commit</span>
+          ${commitMarkup}
         </div>
       </div>
       <main class="flex grow flex-col overflow-hidden">
