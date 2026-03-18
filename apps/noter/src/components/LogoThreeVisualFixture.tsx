@@ -50,6 +50,7 @@ function LogoThreeScalePreview({
             <NLogoScene
               backgroundColor={previewBackgroundColor}
               className="h-full w-full"
+              editMode="add"
               elevationDegrees={STATIC_LOGO_ELEVATION_DEGREES}
               faceColors={STATIC_LOGO_FACE_COLORS}
               onViewChange={(_nextView) => {}}
@@ -294,6 +295,7 @@ export function LogoThreeVisualFixture() {
                 <NLogoScene
                   backgroundColor={previewBackgroundColor}
                   className="h-full w-full"
+                  editMode="add"
                   elevationDegrees={STATIC_LOGO_ELEVATION_DEGREES}
                   faceColors={STATIC_LOGO_FACE_COLORS}
                   onViewChange={(_nextView) => {}}

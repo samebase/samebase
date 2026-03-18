@@ -120,6 +120,7 @@ export function PublicLandingLogo() {
             <LogoScene
               className="h-full w-full"
               backgroundColor={backgroundColor}
+              editMode="add"
               elevationDegrees={elevationDegrees}
               faceColors={STATIC_LOGO_FACE_COLORS}
               onRenderReady={() => {
