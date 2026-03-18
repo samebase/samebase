@@ -6,7 +6,6 @@ import { ThemeProvider } from "next-themes";
 import { ConvexReactClient } from "convex/react";
 import { registerSW } from "virtual:pwa-register";
 import App from "./App.tsx";
-import "./index.css";
 import "@xyflow/react/dist/style.css";
 import { QueryProvider } from "./lib/providers/query-provider";
 
@@ -33,16 +32,25 @@ if (!convexUrl) {
 
 export const client = new ConvexReactClient(convexUrl);
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <ThemeProvider attribute="class">
-        <ConvexAuthProvider client={client}>
-          <QueryProvider>
-            <App />
-          </QueryProvider>
-        </ConvexAuthProvider>
-      </ThemeProvider>
-    </BrowserRouter>
-  </React.StrictMode>,
-);
+let mounted = false;
+
+export function mountApp() {
+  if (mounted) {
+    return;
+  }
+  mounted = true;
+
+  ReactDOM.createRoot(document.getElementById("root")!).render(
+    <React.StrictMode>
+      <BrowserRouter>
+        <ThemeProvider attribute="class">
+          <ConvexAuthProvider client={client}>
+            <QueryProvider>
+              <App />
+            </QueryProvider>
+          </ConvexAuthProvider>
+        </ThemeProvider>
+      </BrowserRouter>
+    </React.StrictMode>,
+  );
+}

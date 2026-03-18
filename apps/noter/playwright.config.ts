@@ -1,5 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const playwrightVitePort = process.env.PLAYWRIGHT_VITE_PORT ?? "4173";
+const playwrightBaseUrl = `http://127.0.0.1:${playwrightVitePort}`;
+const useDevServer = process.env.PLAYWRIGHT_USE_DEV_SERVER === "1";
+const webServerCommand = useDevServer
+  ? `VITE_PORT=${playwrightVitePort} npm run dev:frontend`
+  : `npm run build:ci && npm run preview -- --host 0.0.0.0 --port ${playwrightVitePort}`;
+
 export default defineConfig({
   testDir: "./e2e",
   testIgnore: ["**/*.live.spec.ts"],
@@ -10,7 +17,7 @@ export default defineConfig({
   reporter: "list",
   snapshotPathTemplate: "{testDir}/{testFilePath}-snapshots/{arg}{ext}",
   use: {
-    baseURL: "http://127.0.0.1:4173",
+    baseURL: playwrightBaseUrl,
     headless: true,
     trace: "off",
     screenshot: "only-on-failure",
@@ -19,9 +26,9 @@ export default defineConfig({
     },
   },
   webServer: {
-    command: "VITE_PORT=4173 npm run dev:frontend",
-    url: "http://127.0.0.1:4173/visual-fixture.html?mode=rich",
-    reuseExistingServer: true,
+    command: webServerCommand,
+    url: `${playwrightBaseUrl}/visual-fixture.html?mode=rich`,
+    reuseExistingServer: process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === "1",
     timeout: 120_000,
   },
   projects: [

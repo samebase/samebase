@@ -2,13 +2,6 @@ import { Layout } from "@/Layout";
 import { clearAuthFlag, setAuthFlag, useAutoSignIn } from "@/authClient";
 import { SignInForm } from "@/SignInForm";
 
-import { VaultDashboard } from "@/components/VaultDashboard";
-import { FileView } from "@/components/FileView";
-import { AddRepository } from "@/components/AddRepository";
-import { ChatFab } from "@/components/ChatFab";
-import { CodespaceChatOnlyView } from "@/components/CodespaceChatOnlyView";
-import { PricingPage } from "@/components/PricingPage";
-import { NetlifyOAuthCallback } from "@/components/NetlifyOAuthCallback";
 import { Button } from "@/components/ui/button";
 import {
   Authenticated,
@@ -24,6 +17,34 @@ import { Routes, Route, useLocation } from "react-router-dom";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { isChatOnlyCodespaceRoute } from "@/lib/vaultRoutes";
 
+const VaultDashboard = lazy(async () => {
+  const module = await import("@/components/VaultDashboard");
+  return { default: module.VaultDashboard };
+});
+const FileView = lazy(async () => {
+  const module = await import("@/components/FileView");
+  return { default: module.FileView };
+});
+const AddRepository = lazy(async () => {
+  const module = await import("@/components/AddRepository");
+  return { default: module.AddRepository };
+});
+const ChatFab = lazy(async () => {
+  const module = await import("@/components/ChatFab");
+  return { default: module.ChatFab };
+});
+const CodespaceChatOnlyView = lazy(async () => {
+  const module = await import("@/components/CodespaceChatOnlyView");
+  return { default: module.CodespaceChatOnlyView };
+});
+const PricingPage = lazy(async () => {
+  const module = await import("@/components/PricingPage");
+  return { default: module.PricingPage };
+});
+const NetlifyOAuthCallback = lazy(async () => {
+  const module = await import("@/components/NetlifyOAuthCallback");
+  return { default: module.NetlifyOAuthCallback };
+});
 const LogoPreviewPage = lazy(async () => {
   const module = await import("@/components/LogoPreviewPage");
   return { default: module.LogoPreviewPage };
@@ -304,32 +325,34 @@ export default function App() {
       <>
         <Authenticated>
           <ApprovalGate>
-            <Routes>
-              <Route path="/" element={<VaultDashboard />} />
-              <Route path="/pricing" element={<PricingPage />} />
-              <Route path="/add" element={<AddRepository />} />
-              <Route
-                path="/oauth/netlify/callback"
-                element={<NetlifyOAuthCallback />}
-              />
-              <Route
-                path="/vault/:owner/:repoName/codespace/:branch/chat"
-                element={<CodespaceChatOnlyView />}
-              />
-              <Route
-                path="/vault/:owner/:repoName/:branch"
-                element={<FileView />}
-              />
-              <Route
-                path="/vault/:owner/:repoName/:branch/*"
-                element={<FileView />}
-              />
-              <Route path="/vault/:owner/:repoName" element={<FileView />} />
+            <Suspense fallback={null}>
+              <Routes>
+                <Route path="/" element={<VaultDashboard />} />
+                <Route path="/pricing" element={<PricingPage />} />
+                <Route path="/add" element={<AddRepository />} />
+                <Route
+                  path="/oauth/netlify/callback"
+                  element={<NetlifyOAuthCallback />}
+                />
+                <Route
+                  path="/vault/:owner/:repoName/codespace/:branch/chat"
+                  element={<CodespaceChatOnlyView />}
+                />
+                <Route
+                  path="/vault/:owner/:repoName/:branch"
+                  element={<FileView />}
+                />
+                <Route
+                  path="/vault/:owner/:repoName/:branch/*"
+                  element={<FileView />}
+                />
+                <Route path="/vault/:owner/:repoName" element={<FileView />} />
 
-              {/* test route */}
-              <Route path="/test" element={<div>Test</div>} />
-            </Routes>
-            {showChatFab && <ChatFab />}
+                {/* test route */}
+                <Route path="/test" element={<div>Test</div>} />
+              </Routes>
+              {showChatFab ? <ChatFab /> : null}
+            </Suspense>
           </ApprovalGate>
         </Authenticated>
         <Unauthenticated>
