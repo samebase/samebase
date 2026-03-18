@@ -88,7 +88,10 @@ export function openAuthPopup(provider: "google") {
   window.addEventListener("message", handler);
 
   const popupPath = buildPathWithUpdatedQuery(
-    window.location,
+    {
+      pathname: "/",
+      search: window.location.search,
+    },
     (searchParams) => {
       setQueryParam(searchParams, "auth", provider);
     },

@@ -1015,16 +1015,21 @@ function FileViewInner({
     ) => {
       const encodedPath = encodeVaultFilePath(path);
       const preserveCurrentReviewMode = options?.reviewMode === undefined;
+      const currentSearchParams = new URLSearchParams(search);
+      const preserveReviewOnMount =
+        preserveCurrentReviewMode &&
+        currentSearchParams.has("review") &&
+        !currentSearchParams.has("diff");
       const includeDiff =
         options?.reviewMode === "review" ||
-        (preserveCurrentReviewMode && new URLSearchParams(search).has("diff"));
+        (preserveCurrentReviewMode && currentSearchParams.has("diff"));
       return buildPathWithUpdatedQuery(
         {
           pathname: `/vault/${owner}/${repoName}/${encodedBranch}/${encodedPath}`,
           search,
         },
         (searchParams) => {
-          setQueryParam(searchParams, "review", false);
+          setQueryParam(searchParams, "review", preserveReviewOnMount);
           setQueryParam(searchParams, "diff", includeDiff);
         },
       );
