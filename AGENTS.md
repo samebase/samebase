@@ -474,6 +474,8 @@ Auth:
 
 - For this repository, when running CLI commands in Codex, prefer requesting the
   user's shell/escalated execution rather than sandboxed execution.
+- For this operator, prefer SSH GitHub remotes and clone URLs over HTTPS by
+  default because Git auth is handled through 1Password.
 - When the user says "remember this" (or equivalent), persist that preference in
   durable project memory (for example `AGENTS.md`) instead of keeping it only in
   chat context.
