@@ -27,6 +27,7 @@ function readMode(): VisualFixtureMode {
     value === "inline" ||
     value === "deleted" ||
     value === "deleted-markdown-link" ||
+    value === "trailing-newline-only" ||
     value === "unchanged" ||
     value === "conflict" ||
     value === "media-png" ||

@@ -68,6 +68,7 @@ function resolveMergeOriginal(
   }
   if (
     value.length <= baseValue.length ||
+    value.length === baseValue.length + 1 ||
     value.charAt(baseValue.length) !== "\n"
   ) {
     return {

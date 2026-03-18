@@ -177,6 +177,7 @@ export type CommitReviewVisualMode =
   | "inline"
   | "deleted"
   | "deleted-markdown-link"
+  | "trailing-newline-only"
   | "unchanged"
   | "conflict";
 
@@ -214,6 +215,15 @@ export function CommitReviewVisualFixture({
         isMarkdown: true,
         richOldContent: LINKS_OLD,
         richNewContent: LINKS_NEW,
+      };
+      break;
+    case "trailing-newline-only":
+      selectedFile = "links.md";
+      activeFile = {
+        path: "links.md",
+        isMarkdown: true,
+        richOldContent: LINKS_OLD,
+        richNewContent: `${LINKS_OLD}\n`,
       };
       break;
     case "deleted":
