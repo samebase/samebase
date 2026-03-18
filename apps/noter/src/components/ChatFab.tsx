@@ -917,13 +917,82 @@ export function ChatFab() {
       {/* Chat Window */}
       {isOpen && (
         <div
-          className="fixed bottom-16 right-3 z-[9999] flex max-sm:!left-0 max-sm:!right-0 max-sm:!bottom-16 max-sm:!w-auto max-sm:!h-[calc(100%-5rem)] max-sm:rounded-ui flex-col corner-notch-1 border border-border bg-popover shadow-xl"
+          className="fixed bottom-16 right-3 z-[9999] max-sm:!left-0 max-sm:!right-0 max-sm:!bottom-16 max-sm:!w-auto max-sm:!h-[calc(100%-5rem)]"
           style={{
             width: size.w,
             height: size.h,
             maxHeight: "calc(100vh - 5rem)",
           }}
         >
+          <div className="absolute inset-0 flex max-sm:rounded-ui flex-col corner-notch-1 border border-border bg-popover shadow-xl">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+              <span className="text-sm font-medium text-foreground">Chat</span>
+              <div className="flex items-center gap-0.5">
+                {threadId && (
+                  <button
+                    onClick={() => void handleNewConversation()}
+                    title={isDeleting ? "Removing..." : "New conversation"}
+                    disabled={isDeleting}
+                    aria-disabled={isDeleting}
+                    className={cn(
+                      "corner-notch-1 p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
+                    )}
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="corner-notch-1 p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto px-3 py-2">
+              <CapabilitiesPanel
+                repositoryFullName={repositoryFullName}
+                vaultId={vaultId}
+                hasGithubConnection={Boolean(viewer?.hasGithubConnection)}
+                systemPrompt={threadContext?.systemPrompt}
+              />
+              {threadId &&
+                messageResults.map((msg) => (
+                  <MessageBubble key={msg.id} msg={msg} threadId={threadId} />
+                ))}
+              {isWaitingForResponse && (
+                <div className="mb-2 flex max-w-[85%] items-center gap-2 corner-notch-1 bg-muted px-3 py-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Thinking...</span>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input */}
+            <div className="border-t border-border px-2.5 py-2">
+              <ChatInput
+                ref={inputRef}
+                value={input}
+                onValueChange={(value) => {
+                  setInput(value);
+                  isDirtyDraftRef.current = true;
+                }}
+                onSend={() => void handleSend()}
+                disabled={sending || isWaitingForResponse}
+                mode={inputMode}
+                autoResize
+              />
+            </div>
+          </div>
+
           {/* Drag handle (top-left corner) */}
           <div
             onPointerDown={onDragStart}
@@ -956,73 +1025,6 @@ export function ChatFab() {
                 fill="none"
               />
             </svg>
-          </div>
-
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-            <span className="text-sm font-medium text-foreground">Chat</span>
-            <div className="flex items-center gap-0.5">
-              {threadId && (
-                <button
-                  onClick={() => void handleNewConversation()}
-                  title={isDeleting ? "Removing..." : "New conversation"}
-                  disabled={isDeleting}
-                  aria-disabled={isDeleting}
-                  className={cn(
-                    "corner-notch-1 p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
-                  )}
-                >
-                  {isDeleting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Plus className="h-4 w-4" />
-                  )}
-                </button>
-              )}
-              <button
-                onClick={() => setIsOpen(false)}
-                className="corner-notch-1 p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-3 py-2">
-            <CapabilitiesPanel
-              repositoryFullName={repositoryFullName}
-              vaultId={vaultId}
-              hasGithubConnection={Boolean(viewer?.hasGithubConnection)}
-              systemPrompt={threadContext?.systemPrompt}
-            />
-            {threadId &&
-              messageResults.map((msg) => (
-                <MessageBubble key={msg.id} msg={msg} threadId={threadId} />
-              ))}
-            {isWaitingForResponse && (
-              <div className="mb-2 flex max-w-[85%] items-center gap-2 corner-notch-1 bg-muted px-3 py-2 text-sm text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                <span>Thinking...</span>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input */}
-          <div className="border-t border-border px-2.5 py-2">
-            <ChatInput
-              ref={inputRef}
-              value={input}
-              onValueChange={(value) => {
-                setInput(value);
-                isDirtyDraftRef.current = true;
-              }}
-              onSend={() => void handleSend()}
-              disabled={sending || isWaitingForResponse}
-              mode={inputMode}
-              autoResize
-            />
           </div>
         </div>
       )}

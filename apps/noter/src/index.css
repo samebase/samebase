@@ -207,6 +207,11 @@
     );
   }
 
+  .corner-notch-1:focus-visible,
+  .corner-notch-1:focus-within {
+    clip-path: none;
+  }
+
   @keyframes underline-color-cycle {
     0% {
       text-decoration-color: theme("colors.blue.600");
