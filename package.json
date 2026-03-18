@@ -33,7 +33,7 @@
     "daytona:runtime:compare": "node scripts/daytona-compare-runtime.js",
     "daytona:runtime:render": "node scripts/render-daytona-runtime.js",
     "daytona:runtime:check": "node scripts/render-daytona-runtime.js --check",
-    "lint:scripts": "pnpm exec eslint runtime scripts --ext js --config .eslintrc.cjs",
+    "lint:scripts": "pnpm exec eslint runtime scripts --ext js --config .eslintrc.cjs --rulesdir eslint-rules",
     "typecheck:scripts": "tsc -p tsconfig.scripts.json --pretty false"
   },
   "devDependencies": {
