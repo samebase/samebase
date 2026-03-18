@@ -44,6 +44,7 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_ROTATION_DEGREES,
@@ -147,6 +148,7 @@ export function LogoPreviewPage() {
   const [voxelState, setVoxelState] = useState(() =>
     readVoxelState(searchParams),
   );
+  const [editMode, setEditMode] = useState<VoxelEdit["kind"]>("add");
   const [selectedPresetId, setSelectedPresetId] = useState<LogoPresetSelection>(
     () => readLogoPresetSelection(searchParams),
   );
@@ -323,6 +325,7 @@ export function LogoPreviewPage() {
       <NLogoScene
         backgroundColor={backgroundColor}
         className="absolute inset-0 h-full w-full cursor-grab touch-none select-none active:cursor-grabbing"
+        editMode={editMode}
         elevationDegrees={elevationDegrees}
         faceColors={faceColors}
         onInteractionStart={() => {
@@ -342,7 +345,7 @@ export function LogoPreviewPage() {
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
         <Popover open={isControlsOpen} onOpenChange={setIsControlsOpen}>
-          <div className="pointer-events-auto flex items-center gap-2 border border-black/10 bg-white/84 p-2 backdrop-blur-sm">
+          <div className="pointer-events-auto flex flex-wrap items-center gap-2 border border-black/10 bg-white/84 p-2 backdrop-blur-sm">
             <PopoverTrigger asChild>
               <Button
                 type="button"
@@ -374,6 +377,38 @@ export function LogoPreviewPage() {
             >
               Shuffle
             </Button>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-black/55">
+                Mode
+              </span>
+              <ToggleGroup
+                type="single"
+                size="sm"
+                variant="outline"
+                value={editMode}
+                className="gap-0"
+                onValueChange={(value) => {
+                  if (value === "add" || value === "remove") {
+                    setEditMode(value);
+                  }
+                }}
+              >
+                <ToggleGroupItem
+                  value="add"
+                  aria-label="Add cubes"
+                  className="rounded-none border-black/10 px-2.5 text-xs"
+                >
+                  Add
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="remove"
+                  aria-label="Remove cubes"
+                  className="rounded-none border-black/10 px-2.5 text-xs"
+                >
+                  Remove
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
           </div>
           <PopoverContent
             align="start"
@@ -388,7 +423,8 @@ export function LogoPreviewPage() {
               Logo Controls
             </div>
             <div className="mt-1 text-xs text-black/55">
-              Drag to orbit. Left adds. Right removes.
+              Drag to orbit. Tap or click to {editMode}. Switch modes from the
+              toolbar toggle.
             </div>
             <div className="mt-4 grid gap-3">
               <Collapsible
