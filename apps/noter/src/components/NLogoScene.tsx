@@ -57,7 +57,7 @@ type FaceBuckets = {
 };
 
 type SceneInteraction = {
-  button: 0 | 2 | null;
+  button: 0 | null;
   pointerId: number | null;
   startElevationDegrees: number;
   startRotationDegrees: number;

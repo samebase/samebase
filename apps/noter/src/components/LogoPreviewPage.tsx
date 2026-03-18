@@ -69,6 +69,14 @@ const FACE_COLOR_LABELS: Record<FaceColorKey, string> = {
   right: "Right",
   top: "Top",
 };
+const VOXEL_EDIT_MODE_OPTIONS = [
+  { value: "add", label: "Add", ariaLabel: "Add cubes" },
+  { value: "remove", label: "Remove", ariaLabel: "Remove cubes" },
+] as const;
+
+function isVoxelEditKind(value: string): value is VoxelEdit["kind"] {
+  return VOXEL_EDIT_MODE_OPTIONS.some((option) => option.value === value);
+}
 
 function parseShuffleParallelMoves(value: string): LogoShuffleParallelMoves {
   switch (value) {
@@ -148,7 +156,9 @@ export function LogoPreviewPage() {
   const [voxelState, setVoxelState] = useState(() =>
     readVoxelState(searchParams),
   );
-  const [editMode, setEditMode] = useState<VoxelEdit["kind"]>("add");
+  const [editMode, setEditMode] = useState<VoxelEdit["kind"]>(
+    VOXEL_EDIT_MODE_OPTIONS[0].value,
+  );
   const [selectedPresetId, setSelectedPresetId] = useState<LogoPresetSelection>(
     () => readLogoPresetSelection(searchParams),
   );
@@ -388,25 +398,21 @@ export function LogoPreviewPage() {
                 value={editMode}
                 className="gap-0"
                 onValueChange={(value) => {
-                  if (value === "add" || value === "remove") {
+                  if (isVoxelEditKind(value)) {
                     setEditMode(value);
                   }
                 }}
               >
-                <ToggleGroupItem
-                  value="add"
-                  aria-label="Add cubes"
-                  className="rounded-none border-black/10 px-2.5 text-xs"
-                >
-                  Add
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="remove"
-                  aria-label="Remove cubes"
-                  className="rounded-none border-black/10 px-2.5 text-xs"
-                >
-                  Remove
-                </ToggleGroupItem>
+                {VOXEL_EDIT_MODE_OPTIONS.map((option) => (
+                  <ToggleGroupItem
+                    key={option.value}
+                    value={option.value}
+                    aria-label={option.ariaLabel}
+                    className="rounded-none border-black/10 px-2.5 text-xs"
+                  >
+                    {option.label}
+                  </ToggleGroupItem>
+                ))}
               </ToggleGroup>
             </div>
           </div>
