@@ -188,6 +188,25 @@
     -webkit-line-clamp: 2;
   }
 
+  .corner-notch-1 {
+    --noter-corner-notch-size: 1px;
+    clip-path: polygon(
+      var(--noter-corner-notch-size) 0,
+      calc(100% - var(--noter-corner-notch-size)) 0,
+      calc(100% - var(--noter-corner-notch-size)) var(--noter-corner-notch-size),
+      100% var(--noter-corner-notch-size),
+      100% calc(100% - var(--noter-corner-notch-size)),
+      calc(100% - var(--noter-corner-notch-size))
+        calc(100% - var(--noter-corner-notch-size)),
+      calc(100% - var(--noter-corner-notch-size)) 100%,
+      var(--noter-corner-notch-size) 100%,
+      var(--noter-corner-notch-size) calc(100% - var(--noter-corner-notch-size)),
+      0 calc(100% - var(--noter-corner-notch-size)),
+      0 var(--noter-corner-notch-size),
+      var(--noter-corner-notch-size) var(--noter-corner-notch-size)
+    );
+  }
+
   @keyframes underline-color-cycle {
     0% {
       text-decoration-color: theme("colors.blue.600");
