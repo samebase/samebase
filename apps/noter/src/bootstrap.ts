@@ -168,6 +168,15 @@ function beginGoogleSignInFromShell() {
 }
 
 function focusHydratedWaitlistInput(attempt = 0) {
+  if (document.querySelector('[data-testid="public-landing-shell"]') !== null) {
+    if (attempt < 10) {
+      window.setTimeout(() => {
+        focusHydratedWaitlistInput(attempt + 1);
+      }, 16);
+    }
+    return;
+  }
+
   const waitlistInput = document.querySelector<HTMLInputElement>(
     `[data-testid="${PUBLIC_LANDING_CONTENT_TEST_ID}"] input[placeholder="email@example.com"]`,
   );
@@ -181,8 +190,6 @@ function focusHydratedWaitlistInput(attempt = 0) {
   }
 
   waitlistInput.focus();
-  const caretPosition = waitlistInput.value.length;
-  waitlistInput.setSelectionRange(caretPosition, caretPosition);
   if (document.activeElement !== waitlistInput && attempt < 10) {
     window.setTimeout(() => {
       focusHydratedWaitlistInput(attempt + 1);

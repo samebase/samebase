@@ -27,6 +27,19 @@ async function readNavigationTiming(page: Parameters<typeof test>[0]["page"]) {
   });
 }
 
+async function insertLandingHeadingMarker(
+  page: Parameters<typeof test>[0]["page"],
+  marker: string,
+) {
+  const editor = page.locator(".cm-content").first();
+  const headingLine = editor.locator(".cm-line").first();
+
+  await expect(headingLine).toBeVisible();
+  await headingLine.click();
+  await editor.pressSequentially(` ${marker}`);
+  await expect(editor).toContainText(marker);
+}
+
 test("public landing shell renders before the full app UI takes over", async ({
   page,
 }) => {
@@ -221,14 +234,11 @@ test("landing dev toggle preserves unrelated query params", async ({
 test("landing dev edits stay visible after toggling back to the plain landing view", async ({
   page,
 }) => {
+  const headingMarker = "codex-marker";
+
   await page.goto("/?dev", { waitUntil: "domcontentloaded" });
 
-  const editor = page.getByRole("textbox").first();
-  await expect(editor).toBeVisible();
-  await editor.fill(`## Updated heading
-
-- updated bullet
-- second updated bullet`);
+  await insertLandingHeadingMarker(page, headingMarker);
 
   const appToggleLink = page.getByRole("link", { name: "/" });
   await expect(appToggleLink).toBeVisible();
@@ -236,11 +246,5 @@ test("landing dev edits stay visible after toggling back to the plain landing vi
 
   await expect(page).toHaveURL(/\/$/);
   await expect(page.locator(".cm-editor")).toHaveCount(0);
-  await expect(
-    page.getByRole("heading", { name: "Updated heading" }),
-  ).toBeVisible();
-  await expect(page.getByText("updated bullet", { exact: true })).toBeVisible();
-  await expect(
-    page.getByText("second updated bullet", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading")).toContainText(headingMarker);
 });

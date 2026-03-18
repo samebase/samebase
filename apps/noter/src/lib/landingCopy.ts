@@ -23,10 +23,10 @@ export type LandingCopyContent = {
 
 export function parseLandingCopyMarkdown(markdown: string): LandingCopyContent {
   const lines = markdown.split(/\r?\n/);
-  const headingLine = lines.find((line) => line.trimStart().startsWith("## "));
+  const headingLine = lines.find((line) => /^#{1,6}\s+/.test(line.trimStart()));
   const parsedSlogan = headingLine
     ?.trimStart()
-    .replace(/^##\s+/, "")
+    .replace(/^#{1,6}\s+/, "")
     .trim();
   const parsedBullets = lines
     .map((line) => line.trim())
@@ -40,10 +40,7 @@ export function parseLandingCopyMarkdown(markdown: string): LandingCopyContent {
     .filter((line) => line.length > 0);
 
   return {
-    slogan:
-      parsedSlogan && parsedSlogan.length > 0
-        ? parsedSlogan
-        : landingPageSlogan,
-    bullets: parsedBullets.length > 0 ? parsedBullets : [...landingPageBullets],
+    slogan: parsedSlogan ?? "",
+    bullets: parsedBullets,
   };
 }
