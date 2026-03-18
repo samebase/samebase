@@ -21,9 +21,10 @@ const EditableLandingCopy = lazy(async () => {
 
 export function SignInForm() {
   const [searchParams] = useSearchParams();
-  const showPasswordAuth =
-    import.meta.env.DEV && !isProdUiModeEnabled(searchParams);
-  const isLandingCopyEditable = isLandingDevModeEnabled(searchParams);
+  const prodUiModeEnabled = isProdUiModeEnabled(searchParams);
+  const showPasswordAuth = import.meta.env.DEV && !prodUiModeEnabled;
+  const isLandingCopyEditable =
+    !prodUiModeEnabled && isLandingDevModeEnabled(searchParams);
 
   return (
     <div className="container my-auto">

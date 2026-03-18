@@ -48,7 +48,7 @@ function isRawRootQueryString(value) {
 function templateContainsRawRootQuery(node) {
   return node.quasis.some(quasi => {
     const value = quasi.value.cooked ?? quasi.value.raw ?? ''
-    return value.includes('/?') || (value.startsWith('?') && value.length > 1)
+    return isRawRootQueryString(value)
   })
 }
 

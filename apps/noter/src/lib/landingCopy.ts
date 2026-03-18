@@ -14,7 +14,4 @@ export const landingPageSlogan = selectLandingSlogan(landingPageSlogans);
 
 export const landingPageMarkdown = `## ${landingPageSlogan}
 
-- ${landingPageBullets[0]}
-- ${landingPageBullets[1]}
-- ${landingPageBullets[2]}
-- ${landingPageBullets[3]}`;
+${landingPageBullets.map((bullet) => `- ${bullet}`).join("\n")}`;

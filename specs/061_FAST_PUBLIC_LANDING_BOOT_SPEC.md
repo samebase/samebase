@@ -144,7 +144,7 @@ Current budget:
 - `domContentLoaded < 250ms`
 - `load < 300ms`
 
-These thresholds are intentionally browser-visible and local-preview based.
+These thresholds are intentionally browser-visible and local-preview-based.
 
 ## 2. Build validation
 

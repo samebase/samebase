@@ -23,7 +23,9 @@ test("public landing shell renders before the full app UI takes over", async ({
 
   await expect(page.getByTestId("public-landing-shell")).toBeVisible();
   await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
-  await expect(page.getByPlaceholder("email@example.com")).toHaveCount(0);
+  await expect(page.getByPlaceholder("email@example.com")).toHaveCount(0, {
+    timeout: 200,
+  });
   await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
 });
 
@@ -54,6 +56,14 @@ test("prod-ui mode hides developer password auth controls", async ({
     page.getByRole("button", { name: "Autofill & sign in" }),
   ).toHaveCount(0);
   await expect(page.getByPlaceholder("you@example.com")).toHaveCount(0);
+});
+
+test("prod-ui mode overrides the landing dev editor", async ({ page }) => {
+  await page.goto("/?prod-ui&dev", { waitUntil: "domcontentloaded" });
+
+  await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
+  await expect(page.getByText("Password auth (dev)")).toHaveCount(0);
+  await expect(page.locator(".cm-editor")).toHaveCount(0);
 });
 
 test("landing dev toggle preserves unrelated query params", async ({

@@ -1,3 +1,4 @@
+import { isInIframe, openAuthPopup } from "@/authClient";
 import {
   buildLandingDevToggleHref,
   getLandingDevToggleLabel,
@@ -7,6 +8,7 @@ import { landingPageBullets, landingPageSlogan } from "@/lib/landingCopy";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
+const CONVEX_AUTH_STORAGE_KEY_PREFIX = "__convexAuth";
 const GOOGLE_AUTH_BUTTON_ID = "public-landing-google-button";
 const FAST_LANDING_APP_BOOT_DELAY_MS = 150;
 
@@ -27,8 +29,20 @@ function isFastLandingRoute(location: Location): boolean {
     location.pathname === "/" &&
     !isLandingDevModeEnabled(searchParams) &&
     !searchParams.has("auth") &&
-    localStorage.getItem(AUTH_FLAG_KEY) !== "1"
+    localStorage.getItem(AUTH_FLAG_KEY) !== "1" &&
+    !hasRestoredAuthTokens(localStorage)
   );
+}
+
+function hasRestoredAuthTokens(storage: Storage): boolean {
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index);
+    if (key !== null && key.startsWith(CONVEX_AUTH_STORAGE_KEY_PREFIX)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function scheduleBackgroundAppLoad() {
@@ -55,12 +69,34 @@ function scheduleBackgroundAppLoad() {
 
 function ensureAppLoaded(): Promise<void> {
   if (appLoadPromise === null) {
-    appLoadPromise = import("./main").then((module) => {
-      module.mountApp();
-    });
+    appLoadPromise = import("./main")
+      .then((module) => {
+        module.mountApp();
+      })
+      .catch((error: unknown) => {
+        appLoadPromise = null;
+        throw error;
+      });
   }
 
   return appLoadPromise;
+}
+
+function beginGoogleSignInFromShell() {
+  if (isInIframe()) {
+    openAuthPopup("google");
+    return;
+  }
+
+  const nextUrl = buildPathWithUpdatedQuery(
+    window.location,
+    (nextSearchParams) => {
+      setQueryParam(nextSearchParams, "auth", "google");
+    },
+  );
+
+  window.history.replaceState(window.history.state, "", nextUrl);
+  void ensureAppLoaded();
 }
 
 function renderFastLandingShell() {
@@ -120,17 +156,7 @@ function renderFastLandingShell() {
 
   root
     .querySelector<HTMLButtonElement>(`#${GOOGLE_AUTH_BUTTON_ID}`)
-    ?.addEventListener("click", () => {
-      const nextUrl = buildPathWithUpdatedQuery(
-        window.location,
-        (nextSearchParams) => {
-          setQueryParam(nextSearchParams, "auth", "google");
-        },
-      );
-
-      window.history.replaceState({}, "", nextUrl);
-      void ensureAppLoaded();
-    });
+    ?.addEventListener("click", beginGoogleSignInFromShell);
 }
 
 if (isFastLandingRoute(window.location)) {
