@@ -153,6 +153,18 @@ Behavior:
 2. workspace installs use the shared store and stay mostly local/offline
 3. `node_modules` remains sandbox-local and disposable
 
+Implementation note:
+
+1. This spec assumes the current Noter-facing sandbox user contract from
+   `specs/055_DAYTONA_CODEX_SHARED_HOME_SPEC.md`: sandbox user `daytona`, home
+   `/home/daytona`, and a runtime-facing writable home under that path.
+2. Daytona may still start some raw commands as `root`, but Noter-managed
+   bootstrap must validate the pnpm store mount against the same effective
+   `daytona` user contract used for shared Codex state.
+3. A sandbox whose pnpm store mount is not writable by `daytona` should be
+   treated as incompatible and recreated or repaired before bootstrap, rather
+   than gaining a separate root-only fallback path.
+
 ### 3. Existing Codex shared volume
 
 Keep the current shared Codex state contract unchanged:
@@ -304,7 +316,9 @@ behavior rather than using the full Noter monorepo as the first probe.
 3. The first workspace after a new commit can materialize from a local
    volume-backed git mirror instead of cloning from GitHub over the network.
 4. Repeated `pnpm install` runs in fresh sandboxes use the shared pnpm store and
-   show a measurable speedup.
+   show at least 25% median wall-clock improvement and 15% p95 improvement
+   across at least 30 fresh-sandbox runs per condition versus a no-shared-store
+   baseline, with identical repo commit and sandbox sizing.
 5. Snapshot-backed startup remains available as a fallback during rollout.
 
 ## Open Questions
