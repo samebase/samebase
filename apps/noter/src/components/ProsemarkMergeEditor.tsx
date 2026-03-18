@@ -24,6 +24,11 @@ import { oneDark } from "@codemirror/theme-one-dark";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import {
+  prosemarkMergeViewConfigsEqual,
+  resolveProsemarkMergeViewConfig,
+  type ProsemarkMergeViewConfig,
+} from "@/lib/prosemarkMergeViewConfig";
+import {
   blurOnOutsidePointerDownExtension,
   collapseSelectionOnBlurExtension,
   findInitialSafeSelectionAnchor,
@@ -47,64 +52,24 @@ type ProsemarkMergeEditorProps = {
 
 const externalValueSyncAnnotation = Annotation.define<boolean>();
 
-function resolveMergeOriginal(
-  value: string,
-  baseValue: string,
-): {
-  hideSyntheticTrailingNewlineDeletion: boolean;
-  original: string;
-} {
-  if (baseValue.length === 0 || baseValue.endsWith("\n")) {
-    return {
-      hideSyntheticTrailingNewlineDeletion: false,
-      original: baseValue,
-    };
-  }
-  if (!value.startsWith(baseValue)) {
-    return {
-      hideSyntheticTrailingNewlineDeletion: false,
-      original: baseValue,
-    };
-  }
-  if (
-    value.length <= baseValue.length ||
-    value.length === baseValue.length + 1 ||
-    value.charAt(baseValue.length) !== "\n"
-  ) {
-    return {
-      hideSyntheticTrailingNewlineDeletion: false,
-      original: baseValue,
-    };
-  }
-  return {
-    hideSyntheticTrailingNewlineDeletion: true,
-    original: `${baseValue}\n`,
-  };
-}
-
-function buildMergeExtensions(
-  value: string,
-  baseValue: string,
-  options: ProsemarkMergeEditorOptions,
-) {
-  const mergeOriginal = resolveMergeOriginal(value, baseValue);
+function buildMergeExtensions(mergeConfig: ProsemarkMergeViewConfig) {
   return [
     EditorState.allowMultipleSelections.of(true),
     drawSelection(),
     dropCursor(),
     rectangularSelection(),
-    mergeOriginal.hideSyntheticTrailingNewlineDeletion
+    mergeConfig.hideSyntheticTrailingNewlineDeletion
       ? EditorView.editorAttributes.of({
           class: "cm-merge-hide-synthetic-trailing-newline",
         })
       : [],
     unifiedMergeView({
-      original: mergeOriginal.original,
-      allowInlineDiffs: options.allowInlineDiffs,
+      original: mergeConfig.original,
+      allowInlineDiffs: mergeConfig.allowInlineDiffs,
       gutter: false,
       highlightChanges: true,
       mergeControls: false,
-      syntaxHighlightDeletions: options.syntaxHighlightDeletions,
+      syntaxHighlightDeletions: mergeConfig.syntaxHighlightDeletions,
     }),
   ];
 }
@@ -173,6 +138,7 @@ export function ProsemarkMergeEditor({
   const interactionCompartmentRef = useRef(new Compartment());
   const cursorCompartmentRef = useRef(new Compartment());
   const mergeCompartmentRef = useRef(new Compartment());
+  const lastMergeConfigRef = useRef<ProsemarkMergeViewConfig | null>(null);
   const lastWidthRef = useRef<number | null>(null);
   const onChangeRef = useRef(onChange);
 
@@ -211,6 +177,13 @@ export function ProsemarkMergeEditor({
   useLayoutEffect(() => {
     const host = hostRef.current;
     if (!host) return;
+    const initialMergeConfig = resolveProsemarkMergeViewConfig(
+      lastValueRef.current,
+      lastBaseValueRef.current,
+      lastOptionsRef.current.allowInlineDiffs,
+      lastOptionsRef.current.syntaxHighlightDeletions,
+    );
+    lastMergeConfigRef.current = initialMergeConfig;
 
     const state = EditorState.create({
       doc: lastValueRef.current,
@@ -237,11 +210,7 @@ export function ProsemarkMergeEditor({
           !editableRef.current ? prosemarkHiddenCursorTheme : [],
         ),
         mergeCompartmentRef.current.of(
-          buildMergeExtensions(
-            lastValueRef.current,
-            lastBaseValueRef.current,
-            lastOptionsRef.current,
-          ),
+          buildMergeExtensions(initialMergeConfig),
         ),
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) return;
@@ -304,12 +273,26 @@ export function ProsemarkMergeEditor({
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
+    const nextMergeConfig = resolveProsemarkMergeViewConfig(
+      value,
+      baseValue,
+      allowInlineDiffs,
+      syntaxHighlightDeletions,
+    );
+    if (
+      lastMergeConfigRef.current &&
+      prosemarkMergeViewConfigsEqual(
+        lastMergeConfigRef.current,
+        nextMergeConfig,
+      )
+    ) {
+      resizeToContent();
+      return;
+    }
+    lastMergeConfigRef.current = nextMergeConfig;
     view.dispatch({
       effects: mergeCompartmentRef.current.reconfigure(
-        buildMergeExtensions(value, baseValue, {
-          allowInlineDiffs,
-          syntaxHighlightDeletions,
-        }),
+        buildMergeExtensions(nextMergeConfig),
       ),
     });
     resizeToContent();
