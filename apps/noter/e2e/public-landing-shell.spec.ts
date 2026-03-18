@@ -209,6 +209,33 @@ test("prod-ui landing logo enhancement stays visually aligned", async ({
   });
 });
 
+test("prod-ui landing logo becomes draggable after the SVG fallback is removed", async ({
+  page,
+}) => {
+  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+
+  const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
+  const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
+
+  await expectLandingLogoReady(landingLogo);
+  await expectLandingLogoSceneReady(landingLogoScene);
+  await expect(landingLogo).toHaveClass(/pointer-events-none opacity-0/);
+  await expect(landingLogoScene).toHaveClass(/pointer-events-auto/);
+
+  await expect
+    .poll(async () =>
+      landingLogoScene.evaluate((element) => {
+        const sceneRoot = element.firstElementChild;
+        if (!(sceneRoot instanceof HTMLElement)) {
+          return null;
+        }
+
+        return window.getComputedStyle(sceneRoot).cursor;
+      }),
+    )
+    .toBe("grab");
+});
+
 test("prod-ui landing logo keeps the SVG fallback when WebGL is unavailable", async ({
   page,
 }) => {
