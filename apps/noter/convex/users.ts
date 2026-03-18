@@ -35,6 +35,7 @@ const ADMIN_EMAILS = new Set([
 const ALLOWED_EMAILS = new Set([
   "nicu.dev@gmail.com",
   "nicuchiciuc@gmail.com",
+  "mihaisubscription@gmail.com",
   "nicu@noter.md",
 ]);
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
