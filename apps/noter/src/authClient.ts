@@ -1,5 +1,6 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useEffect } from "react";
+import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
 const AUTH_PROVIDER_KEY = "noter_auth_provider";
@@ -86,8 +87,14 @@ export function openAuthPopup(provider: "google") {
   };
   window.addEventListener("message", handler);
 
+  const popupPath = buildPathWithUpdatedQuery(
+    window.location,
+    (searchParams) => {
+      setQueryParam(searchParams, "auth", provider);
+    },
+  );
   popup = window.open(
-    `${window.location.origin}/?auth=${provider}`,
+    `${window.location.origin}${popupPath}`,
     `${provider}-oauth`,
     "width=600,height=700,popup=true",
   );
@@ -118,10 +125,12 @@ export function useAutoSignIn() {
     const auth = params.get("auth");
     if (auth === "google") {
       setAuthProvider(auth);
-      params.delete("auth");
-      const newUrl =
-        window.location.pathname +
-        (params.toString() ? `?${params.toString()}` : "");
+      const newUrl = buildPathWithUpdatedQuery(
+        window.location,
+        (nextSearchParams) => {
+          setQueryParam(nextSearchParams, "auth", false);
+        },
+      );
       window.history.replaceState({}, "", newUrl);
       void signIn(auth);
     }

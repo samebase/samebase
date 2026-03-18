@@ -10,6 +10,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { linkStyle } from "./styles";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
+import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import type { Id } from "../../convex/_generated/dataModel";
 
 type StagedFile = NonNullable<
@@ -147,15 +148,20 @@ export function EditedFilesCategories({
         .split("/")
         .map((segment) => encodeURIComponent(segment))
         .join("/");
-      const searchParams = new URLSearchParams(search);
-      searchParams.delete("diff");
-      searchParams.delete("review");
-      const baseQuery = searchParams.toString();
-      const queryString =
-        baseQuery.length > 0 ? `${baseQuery}&review` : "review";
       const encodedBranch = encodeURIComponent(branch);
       const nextPath = `/vault/${repositoryFullName}/${encodedBranch}/${encodedFilePath}`;
-      void navigate(`${nextPath}?${queryString}`);
+      void navigate(
+        buildPathWithUpdatedQuery(
+          {
+            pathname: nextPath,
+            search,
+          },
+          (searchParams) => {
+            setQueryParam(searchParams, "diff", false);
+            setQueryParam(searchParams, "review", true);
+          },
+        ),
+      );
     },
     [branch, navigate, repositoryFullName, search],
   );

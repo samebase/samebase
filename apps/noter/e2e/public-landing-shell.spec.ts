@@ -39,3 +39,34 @@ test("public landing shell stays within the fast navigation budget", async ({
   expect(navigationTiming?.domContentLoadedMs ?? Infinity).toBeLessThan(250);
   expect(navigationTiming?.loadMs ?? Infinity).toBeLessThan(300);
 });
+
+test("prod-ui mode hides developer password auth controls", async ({
+  page,
+}) => {
+  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+
+  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
+
+  await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
+  await expect(page.getByText("Password auth (dev)")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Autofill & sign in" }),
+  ).toHaveCount(0);
+  await expect(page.getByPlaceholder("you@example.com")).toHaveCount(0);
+});
+
+test("landing dev toggle preserves unrelated query params", async ({
+  page,
+}) => {
+  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+
+  const shellToggleLink = page.getByRole("link", { name: "/?dev" });
+  await expect(shellToggleLink).toHaveAttribute("href", "/?prod-ui&dev");
+
+  await shellToggleLink.click();
+  await expect(page).toHaveURL(/\/\?prod-ui&dev$/);
+
+  const appToggleLink = page.getByRole("link", { name: "/" });
+  await expect(appToggleLink).toHaveAttribute("href", "/?prod-ui");
+});

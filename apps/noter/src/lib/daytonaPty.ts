@@ -1,3 +1,5 @@
+import { setQueryParam } from "@/lib/queryParams";
+
 export const DAYTONA_PTY_WEBSOCKET_PROTOCOL = `X-Daytona-SDK-Version~${__DAYTONA_SDK_VERSION__}`;
 export const DAYTONA_PTY_PROMPT_WAKEUP_INPUT = "\r";
 
@@ -29,7 +31,11 @@ export function buildAuthenticatedDaytonaPtyUrl(args: {
   previewToken: string;
 }): string {
   const url = new URL(args.webSocketUrl);
-  url.searchParams.set("DAYTONA_SANDBOX_AUTH_KEY", args.previewToken);
+  setQueryParam(
+    url.searchParams,
+    "DAYTONA_SANDBOX_AUTH_KEY",
+    args.previewToken,
+  );
   return url.toString();
 }
 

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { landingPageMarkdown } from "@/lib/landingCopy";
+import { isProdUiModeEnabled } from "@/lib/prodUiMode";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
 import { Chrome } from "lucide-react";
@@ -20,7 +21,8 @@ const EditableLandingCopy = lazy(async () => {
 
 export function SignInForm() {
   const [searchParams] = useSearchParams();
-  const showPasswordAuth = import.meta.env.DEV;
+  const showPasswordAuth =
+    import.meta.env.DEV && !isProdUiModeEnabled(searchParams);
   const isLandingCopyEditable = isLandingDevModeEnabled(searchParams);
 
   return (

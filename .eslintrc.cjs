@@ -108,6 +108,17 @@ module.exports = {
       },
     },
     {
+      files: ['apps/noter/src/**/*.{ts,tsx}'],
+      excludedFiles: [
+        'apps/noter/src/lib/queryParams.ts',
+        'apps/noter/src/lib/landingDevMode.ts',
+        'apps/noter/src/**/*.test.ts',
+      ],
+      rules: {
+        'use-query-param-helpers': 'error',
+      },
+    },
+    {
       // Keep starter-template no-unsafe relaxations until that cleanup pass.
       files: ['apps/noter-starter-template/**/*.{ts,tsx}'],
       rules: {

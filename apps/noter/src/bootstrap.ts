@@ -1,5 +1,10 @@
-import { LANDING_DEV_MODE_QUERY_PARAM } from "@/lib/landingDevMode";
+import {
+  buildLandingDevToggleHref,
+  getLandingDevToggleLabel,
+  isLandingDevModeEnabled,
+} from "@/lib/landingDevMode";
 import { landingPageBullets, landingPageSlogan } from "@/lib/landingCopy";
+import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
 const GOOGLE_AUTH_BUTTON_ID = "public-landing-google-button";
@@ -20,7 +25,7 @@ function isFastLandingRoute(location: Location): boolean {
   const searchParams = new URLSearchParams(location.search);
   return (
     location.pathname === "/" &&
-    !searchParams.has(LANDING_DEV_MODE_QUERY_PARAM) &&
+    !isLandingDevModeEnabled(searchParams) &&
     !searchParams.has("auth") &&
     localStorage.getItem(AUTH_FLAG_KEY) !== "1"
   );
@@ -65,12 +70,16 @@ function renderFastLandingShell() {
     throw new Error("Missing root container");
   }
 
+  const searchParams = new URLSearchParams(window.location.search);
+  const landingDevToggleHref = buildLandingDevToggleHref(window.location);
+  const landingDevToggleLabel = getLandingDevToggleLabel(searchParams);
+
   root.innerHTML = `
     <div data-testid="public-landing-shell" class="flex h-full w-full flex-col">
       <div class="border-b border-border/50">
         <div class="container flex items-center justify-end gap-2 px-3 py-1 text-[11px] text-muted-foreground">
-          <a href="/?dev" class="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground">
-            /?dev
+          <a href="${escapeHtml(landingDevToggleHref)}" class="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground">
+            ${escapeHtml(landingDevToggleLabel)}
           </a>
         </div>
       </div>
@@ -112,10 +121,12 @@ function renderFastLandingShell() {
   root
     .querySelector<HTMLButtonElement>(`#${GOOGLE_AUTH_BUTTON_ID}`)
     ?.addEventListener("click", () => {
-      const searchParams = new URLSearchParams(window.location.search);
-      searchParams.set("auth", "google");
-      const nextSearch = searchParams.toString();
-      const nextUrl = nextSearch.length > 0 ? `/?${nextSearch}` : "/";
+      const nextUrl = buildPathWithUpdatedQuery(
+        window.location,
+        (nextSearchParams) => {
+          setQueryParam(nextSearchParams, "auth", "google");
+        },
+      );
 
       window.history.replaceState({}, "", nextUrl);
       void ensureAppLoaded();
