@@ -4,13 +4,13 @@ import {
   getLandingDevToggleLabel,
   isLandingDevModeEnabled,
 } from "@/lib/landingDevMode";
+import { FAST_LANDING_APP_BOOT_DELAY_MS } from "@/lib/fastLandingBoot";
 import { landingPageBullets, landingPageSlogan } from "@/lib/landingCopy";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
 const CONVEX_AUTH_STORAGE_KEY_PREFIX = "__convexAuth";
 const GOOGLE_AUTH_BUTTON_ID = "public-landing-google-button";
-const FAST_LANDING_APP_BOOT_DELAY_MS = 150;
 const PUBLIC_LANDING_CONTENT_TEST_ID = "public-landing-content";
 const PUBLIC_LANDING_WAITLIST_PLACEHOLDER_TEST_ID =
   "public-landing-waitlist-placeholder";

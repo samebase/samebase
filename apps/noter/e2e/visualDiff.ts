@@ -16,9 +16,7 @@ const STABLE_SCREENSHOT_OPTIONS = {
   scale: "css",
 } as const;
 
-export async function takeStableScreenshot(
-  locator: Locator,
-): Promise<Buffer<ArrayBufferLike>> {
+export async function takeStableScreenshot(locator: Locator): Promise<Buffer> {
   return locator.screenshot(STABLE_SCREENSHOT_OPTIONS);
 }
 

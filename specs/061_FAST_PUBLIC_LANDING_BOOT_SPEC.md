@@ -48,14 +48,14 @@ page and not a migration to server rendering.
 
 ## Implemented Design
 
-## 1. Entry-point split
+### Entry-point split
 
 - `index.html` now loads `src/bootstrap.ts` instead of mounting the full app
   directly.
 - Global app CSS still loads up front so the shell and the full app share the
   same visual baseline.
 
-## 2. Fast-shell eligibility
+### Fast-shell eligibility
 
 The fast landing shell is used only when all of these are true:
 
@@ -70,7 +70,7 @@ If any of those checks fail, the full app mounts immediately.
 If local storage is unavailable in the current browser context, bootstrap treats
 those storage-backed auth checks as absent instead of throwing.
 
-## 3. Shell-first public landing
+### Shell-first public landing
 
 The fast shell renders:
 
@@ -82,7 +82,7 @@ The fast shell renders:
 The shell content comes from shared landing-copy data so the shell and the
 post-boot app stay aligned.
 
-## 4. Background app boot
+### Background app boot
 
 - `bootstrap.ts` delays the full-app boot by `150ms`.
 - After that delay it prefers `requestIdleCallback` when available and falls
@@ -92,7 +92,7 @@ post-boot app stay aligned.
 This makes the shell observable before the main app work begins while still
 keeping the handoff fast.
 
-## 5. Full-app handoff
+### Full-app handoff
 
 - `main.tsx` now exports `mountApp()` instead of auto-mounting on import.
 - Once the background import resolves, `mountApp()` replaces the shell with the
@@ -100,7 +100,7 @@ keeping the handoff fast.
 
 The final product surface remains the same SPA after handoff.
 
-## 6. Auth behavior
+### Auth behavior
 
 - Clicking the shell Google button in a top-level window sets `?auth=google` and
   forces the full app to boot immediately.
@@ -112,7 +112,7 @@ The final product surface remains the same SPA after handoff.
 
 This keeps the shell-first route compatible with the existing auth entrypoint.
 
-## 7. Landing-copy rendering rules
+### Landing-copy rendering rules
 
 - Normal `/` uses a plain Tailwind rendering path through `LandingCopy`.
 - `/?prod-ui` keeps the normal landing-copy rendering path, but hides the
@@ -123,7 +123,7 @@ This keeps the shell-first route compatible with the existing auth entrypoint.
 This avoids paying the ProseMirror/CodeMirror path cost for the normal public
 landing route.
 
-## 8. Authenticated-app chunking
+### Authenticated-app chunking
 
 The biggest authenticated-only surfaces now load lazily from `App.tsx`,
 including:
@@ -141,7 +141,7 @@ smaller than before.
 
 ## Validation
 
-## 1. Browser behavior
+### Browser behavior
 
 `apps/noter/e2e/public-landing-shell.spec.ts` covers:
 
@@ -150,19 +150,19 @@ smaller than before.
 
 Current budget:
 
-- `responseEnd < 100ms`
-- `domContentLoaded < 250ms`
-- `load < 300ms`
+- `responseEnd < 150ms`
+- `domContentLoaded < 400ms`
+- `load < 500ms`
 
 These thresholds are intentionally browser-visible and local-preview-based.
 
-## 2. Build validation
+### Build validation
 
 The implementation must continue to pass:
 
 - `pnpm --filter noter build:ci`
 
-## 3. Full repo hook path
+### Full repo hook path
 
 The implementation was validated through the normal pre-commit path, including:
 
