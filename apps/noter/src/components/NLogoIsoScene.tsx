@@ -7,7 +7,7 @@ import {
   LOGO_ISOMETRIC_ROTATION_DEGREES,
   drawLogoIsometricFrame,
   getIsometricAddCoordinate,
-  isPointInsidePolygon,
+  isPointInsideRowSpans,
   type LogoIsometricStyleId,
   type IsometricVisibleFace,
 } from "@/components/logoIsometricRenderer";
@@ -246,27 +246,40 @@ export function LogoIsoThumbnail({
 
     const filledVoxels =
       parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
+    const rasterCanvas = document.createElement("canvas");
+    rasterCanvas.width = LOGO_ISOMETRIC_CANVAS_WIDTH;
+    rasterCanvas.height = LOGO_ISOMETRIC_CANVAS_HEIGHT;
+    const rasterContext = rasterCanvas.getContext("2d", {
+      willReadFrequently: true,
+    });
+    if (!rasterContext) {
+      return;
+    }
+
     drawLogoIsometricFrame({
       backgroundColor,
-      context,
+      context: rasterContext,
       faceColors,
       filledVoxels,
       styleId,
     });
-  }, [backgroundColor, faceColors, styleId, voxelState]);
+    context.clearRect(0, 0, size, size);
+    context.imageSmoothingEnabled = false;
+    context.drawImage(rasterCanvas, 0, 0, size, size);
+  }, [backgroundColor, faceColors, size, styleId, voxelState]);
 
   return (
     <canvas
       ref={canvasRef}
       data-testid={dataTestId}
       className={className}
-      height={LOGO_ISOMETRIC_CANVAS_HEIGHT}
+      height={size}
       style={{
         height: `${size}px`,
         imageRendering: "pixelated",
         width: `${size}px`,
       }}
-      width={LOGO_ISOMETRIC_CANVAS_WIDTH}
+      width={size}
     />
   );
 }
@@ -553,7 +566,7 @@ export function NLogoIsoScene({
       (clientY - canvasRect.top - viewport.offsetY) / viewport.pixelScale;
 
     for (const face of [...viewport.faces].reverse()) {
-      if (isPointInsidePolygon(x, y, face.polygon)) {
+      if (isPointInsideRowSpans(x, y, face.hitRows)) {
         return face;
       }
     }

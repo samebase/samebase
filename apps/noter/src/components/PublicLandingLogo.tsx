@@ -119,6 +119,7 @@ export function PublicLandingLogo() {
               editMode="add"
               elevationDegrees={STATIC_LOGO_ELEVATION_DEGREES}
               faceColors={STATIC_LOGO_FACE_COLORS}
+              opacity={1}
               onRenderReady={() => {
                 setIsSceneReady(true);
               }}

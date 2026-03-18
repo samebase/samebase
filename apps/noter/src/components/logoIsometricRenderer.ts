@@ -26,6 +26,8 @@ type RowSpan = {
   y: number;
 };
 
+export type IsometricHitRowSpan = RowSpan;
+
 type CubePosition = readonly [number, number, number];
 
 type RenderFace = {
@@ -42,6 +44,7 @@ type IsometricFaceDirection = "left" | "right" | "top";
 export type IsometricVisibleFace = {
   coordinate: VoxelCoordinate;
   direction: IsometricFaceDirection;
+  hitRows: readonly IsometricHitRowSpan[];
   normal: VoxelCoordinate;
   polygon: readonly Point[];
 };
@@ -294,14 +297,20 @@ function fillRowSpans(
   }
 }
 
+function getStyledFaceRowSpans(
+  polygon: readonly Point[],
+  capWidth: 2 | 3 | 4,
+): readonly RowSpan[] {
+  return widenCapRows(collectPolygonRowSpans(polygon), capWidth);
+}
+
 function fillStyledFace(
   context: CanvasRenderingContext2D,
   polygon: readonly Point[],
   fillStyle: string,
   capWidth: 2 | 3 | 4,
 ) {
-  const rowSpans = collectPolygonRowSpans(polygon);
-  fillRowSpans(context, widenCapRows(rowSpans, capWidth), fillStyle);
+  fillRowSpans(context, getStyledFaceRowSpans(polygon, capWidth), fillStyle);
 }
 
 function escapeSvgAttribute(value: string): string {
@@ -683,6 +692,7 @@ export function drawLogoIsometricFrame({
   return renderFaces.map(({ coordinate, direction, normal, polygon }) => ({
     coordinate,
     direction,
+    hitRows: getStyledFaceRowSpans(polygon, style.capWidth),
     normal,
     polygon,
   }));
@@ -776,4 +786,22 @@ export function isPointInsidePolygon(
   }
 
   return isInside;
+}
+
+export function isPointInsideRowSpans(
+  pointX: number,
+  pointY: number,
+  rowSpans: readonly IsometricHitRowSpan[],
+): boolean {
+  const row = Math.floor(pointY);
+  if (row < 0) {
+    return false;
+  }
+
+  return rowSpans.some(
+    (rowSpan) =>
+      rowSpan.y === row &&
+      pointX >= rowSpan.startX &&
+      pointX < rowSpan.endX + 1,
+  );
 }

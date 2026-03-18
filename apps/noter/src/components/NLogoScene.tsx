@@ -259,15 +259,18 @@ function getGeometryFitRadius(
   let fitRadius = 0;
 
   for (const geometry of geometries) {
-    const boundingSphere = geometry.boundingSphere;
-    if (!boundingSphere) {
-      continue;
-    }
+    const positions = geometry.attributes.position;
 
-    fitRadius = Math.max(
-      fitRadius,
-      boundingSphere.center.length() + boundingSphere.radius,
-    );
+    for (let index = 0; index < positions.count; index += 1) {
+      fitRadius = Math.max(
+        fitRadius,
+        Math.hypot(
+          positions.getX(index),
+          positions.getY(index),
+          positions.getZ(index),
+        ),
+      );
+    }
   }
 
   return fitRadius || HALF_GRID * Math.sqrt(3);

@@ -16,10 +16,14 @@ const PREVIEW_SIZE = 1000;
 const SECONDARY_PREVIEW_SIZES = [240, 128, 64, 32] as const;
 
 function LogoThreeScalePreview({
+  isReferenceUnavailable,
   mismatchPixels,
+  onRenderUnavailable,
   size,
 }: {
+  isReferenceUnavailable: boolean;
   mismatchPixels: number | null;
+  onRenderUnavailable: () => void;
   size: (typeof SECONDARY_PREVIEW_SIZES)[number];
 }) {
   const previewBackgroundColor = getTailwindColorHex("background-base");
@@ -30,7 +34,9 @@ function LogoThreeScalePreview({
         <div className="text-sm font-medium text-slate-800">{size}px</div>
         <div className="text-xs tabular-nums text-slate-600">
           {mismatchPixels === null
-            ? "Comparing..."
+            ? isReferenceUnavailable
+              ? "WebGL unavailable"
+              : "Comparing..."
             : `${mismatchPixels.toLocaleString()} mismatches`}
         </div>
       </div>
@@ -53,6 +59,8 @@ function LogoThreeScalePreview({
               editMode="add"
               elevationDegrees={STATIC_LOGO_ELEVATION_DEGREES}
               faceColors={STATIC_LOGO_FACE_COLORS}
+              opacity={1}
+              onRenderUnavailable={onRenderUnavailable}
               onViewChange={(_nextView) => {}}
               onVoxelEdit={(_edit) => {}}
               rotationDegrees={STATIC_LOGO_ROTATION_DEGREES}
@@ -99,12 +107,21 @@ export function LogoThreeVisualFixture() {
   const svgImageRef = useRef<HTMLImageElement | null>(null);
   const diffCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isReferenceReady, setIsReferenceReady] = useState(false);
+  const [isReferenceUnavailable, setIsReferenceUnavailable] = useState(false);
   const [mismatchPixelsBySize, setMismatchPixelsBySize] = useState<
     Partial<Record<number, number>>
   >({});
 
   useEffect(() => {
-    if (!isReferenceReady) {
+    if (!isReferenceUnavailable) {
+      return;
+    }
+
+    setMismatchPixelsBySize({});
+  }, [isReferenceUnavailable]);
+
+  useEffect(() => {
+    if (!isReferenceReady || isReferenceUnavailable) {
       return;
     }
 
@@ -286,7 +303,7 @@ export function LogoThreeVisualFixture() {
     return () => {
       cancelled = true;
     };
-  }, [isReferenceReady]);
+  }, [isReferenceReady, isReferenceUnavailable]);
 
   return (
     <div
@@ -330,8 +347,12 @@ export function LogoThreeVisualFixture() {
                   editMode="add"
                   elevationDegrees={STATIC_LOGO_ELEVATION_DEGREES}
                   faceColors={STATIC_LOGO_FACE_COLORS}
+                  opacity={1}
                   onRenderReady={() => {
                     setIsReferenceReady(true);
+                  }}
+                  onRenderUnavailable={() => {
+                    setIsReferenceUnavailable(true);
                   }}
                   onViewChange={(_nextView) => {}}
                   onVoxelEdit={(_edit) => {}}
@@ -383,23 +404,38 @@ export function LogoThreeVisualFixture() {
                 className="text-sm tabular-nums text-slate-600"
               >
                 {mismatchPixelsBySize[PREVIEW_SIZE] === undefined
-                  ? "Comparing..."
+                  ? isReferenceUnavailable
+                    ? "WebGL unavailable"
+                    : "Comparing..."
                   : `${mismatchPixelsBySize[PREVIEW_SIZE].toLocaleString()} mismatched pixels`}
               </div>
             </div>
             <div className="flex items-center justify-center border border-slate-200 p-4">
-              <canvas
-                ref={diffCanvasRef}
-                data-testid="logo-three-parity-diff"
-                className="block border border-slate-200"
-                style={{
-                  backgroundColor: "#ffffff",
-                  height: `${PREVIEW_SIZE}px`,
-                  width: `${PREVIEW_SIZE}px`,
-                }}
-                width={PREVIEW_SIZE}
-                height={PREVIEW_SIZE}
-              />
+              {isReferenceUnavailable ? (
+                <div
+                  className="flex items-center justify-center border border-slate-200 text-sm text-slate-500"
+                  style={{
+                    backgroundColor: "#ffffff",
+                    height: `${PREVIEW_SIZE}px`,
+                    width: `${PREVIEW_SIZE}px`,
+                  }}
+                >
+                  WebGL unavailable
+                </div>
+              ) : (
+                <canvas
+                  ref={diffCanvasRef}
+                  data-testid="logo-three-parity-diff"
+                  className="block border border-slate-200"
+                  style={{
+                    backgroundColor: "#ffffff",
+                    height: `${PREVIEW_SIZE}px`,
+                    width: `${PREVIEW_SIZE}px`,
+                  }}
+                  width={PREVIEW_SIZE}
+                  height={PREVIEW_SIZE}
+                />
+              )}
             </div>
           </section>
         </div>
@@ -408,7 +444,11 @@ export function LogoThreeVisualFixture() {
           {SECONDARY_PREVIEW_SIZES.map((size) => (
             <LogoThreeScalePreview
               key={size}
+              isReferenceUnavailable={isReferenceUnavailable}
               mismatchPixels={mismatchPixelsBySize[size] ?? null}
+              onRenderUnavailable={() => {
+                setIsReferenceUnavailable(true);
+              }}
               size={size}
             />
           ))}
