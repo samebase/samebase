@@ -18,6 +18,17 @@ describe("parseLandingCopyMarkdown", () => {
     });
   });
 
+  it("trims leading whitespace before parsing the landing heading", () => {
+    expect(
+      parseLandingCopyMarkdown(`  ## Indented heading
+
+- edited bullet`),
+    ).toEqual({
+      slogan: "Indented heading",
+      bullets: ["edited bullet"],
+    });
+  });
+
   it("falls back to the default landing content when markdown is incomplete", () => {
     expect(parseLandingCopyMarkdown("not a heading")).toEqual({
       slogan: landingPageSlogan,

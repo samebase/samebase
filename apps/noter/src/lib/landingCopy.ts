@@ -24,7 +24,10 @@ export type LandingCopyContent = {
 export function parseLandingCopyMarkdown(markdown: string): LandingCopyContent {
   const lines = markdown.split(/\r?\n/);
   const headingLine = lines.find((line) => line.trimStart().startsWith("## "));
-  const parsedSlogan = headingLine?.replace(/^##\s+/, "").trim();
+  const parsedSlogan = headingLine
+    ?.trimStart()
+    .replace(/^##\s+/, "")
+    .trim();
   const parsedBullets = lines
     .map((line) => line.trim())
     .filter(
