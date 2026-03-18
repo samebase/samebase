@@ -87,9 +87,10 @@ export function LogoSingleCubeStudyPage() {
                 Single Cube Rotation Lab
               </h1>
               <p className="mt-2 text-sm leading-6 text-black/60">
-                One cube, one fixed camera pitch, multiple yaw angles. Use this
-                to see which snapped views still produce legible pixel steps
-                before we change the full logo again.
+                One cube, one exact pixel baseline at 45°, and cleaner integer
+                variants between 0° and 90°. Use this to see which snapped views
+                still produce legible pixel steps before we change the full logo
+                again.
               </p>
             </div>
 
@@ -176,8 +177,8 @@ export function LogoSingleCubeStudyPage() {
               </div>
               <p className="mt-2">
                 Look for repeated stair-step rhythms, readable top corners, and
-                whether the side faces still feel like a cube instead of a
-                warped diamond. Turn on the pixel grid only when you need it.
+                whether 45° matches the expected 2:1 diagonal baseline. Turn on
+                the pixel grid only when you need it.
               </p>
             </div>
           </div>
@@ -195,7 +196,7 @@ export function LogoSingleCubeStudyPage() {
                   </div>
                 </div>
                 <div className="font-mono text-[11px] text-black/45">
-                  pitch 35.264°
+                  45° = exact 2:1
                 </div>
               </div>
               <div className="flex min-h-[40rem] items-center justify-center border border-black/10 bg-[#fcfbf7] p-0">

@@ -5,31 +5,25 @@ import {
 
 const CANVAS_SIZE = 36;
 const GRID_STEP = 1;
-const CUBE_SCALE = 16;
-const CAMERA_PITCH_DEGREES = 35.26438968;
 const CANVAS_MARGIN = 1;
+const CUBE_HALF_WIDTH = 8;
+const TOP_FACE_RISE = 4;
+const CUBE_HEIGHT = 8;
 
 type Point2D = {
   x: number;
   y: number;
 };
 
-type Point3D = {
-  x: number;
-  y: number;
-  z: number;
-};
-
 type CubeFace = {
   color: string;
-  depth: number;
   points: readonly Point2D[];
 };
 
-type CubeFaceDefinition = {
-  colorKey: "left" | "right" | "top";
-  normal: Point3D;
-  vertices: readonly [number, number, number, number];
+type ProjectedAxes = {
+  xAxis: Point2D;
+  yAxis: Point2D;
+  zAxis: Point2D;
 };
 
 export const SINGLE_CUBE_STUDY_CANVAS_SIZE = CANVAS_SIZE;
@@ -37,35 +31,6 @@ export const SINGLE_CUBE_STUDY_CANVAS_SIZE = CANVAS_SIZE;
 export const SINGLE_CUBE_STUDY_SAMPLE_ANGLES = [
   0, 15, 30, 45, 60, 75, 90,
 ] as const;
-
-const CUBE_VERTICES = [
-  { x: -0.5, y: -0.5, z: -0.5 },
-  { x: 0.5, y: -0.5, z: -0.5 },
-  { x: 0.5, y: 0.5, z: -0.5 },
-  { x: -0.5, y: 0.5, z: -0.5 },
-  { x: -0.5, y: -0.5, z: 0.5 },
-  { x: 0.5, y: -0.5, z: 0.5 },
-  { x: 0.5, y: 0.5, z: 0.5 },
-  { x: -0.5, y: 0.5, z: 0.5 },
-] as const satisfies readonly Point3D[];
-
-const CUBE_FACES = [
-  {
-    colorKey: "right",
-    normal: { x: 1, y: 0, z: 0 },
-    vertices: [1, 5, 6, 2],
-  },
-  {
-    colorKey: "left",
-    normal: { x: 0, y: 0, z: 1 },
-    vertices: [4, 5, 6, 7],
-  },
-  {
-    colorKey: "top",
-    normal: { x: 0, y: 1, z: 0 },
-    vertices: [3, 2, 6, 7],
-  },
-] as const satisfies readonly CubeFaceDefinition[];
 
 const VIVID_FACE_COLORS = {
   left: "#ef4444",
@@ -79,42 +44,67 @@ const DEFAULT_STUDY_FACE_COLORS = {
   top: getTailwindColorHex(DEFAULT_FACE_COLORS.top),
 } as const;
 
-function degreesToRadians(value: number): number {
-  return (value * Math.PI) / 180;
-}
-
-function rotateAroundY(point: Point3D, yawRadians: number): Point3D {
-  const cosine = Math.cos(yawRadians);
-  const sine = Math.sin(yawRadians);
-  return {
-    x: point.x * cosine + point.z * sine,
-    y: point.y,
-    z: -point.x * sine + point.z * cosine,
-  };
-}
-
-function rotateAroundX(point: Point3D, pitchRadians: number): Point3D {
-  const cosine = Math.cos(pitchRadians);
-  const sine = Math.sin(pitchRadians);
-  return {
-    x: point.x,
-    y: point.y * cosine - point.z * sine,
-    z: point.y * sine + point.z * cosine,
-  };
-}
-
-function transformPoint(point: Point3D, yawRadians: number): Point3D {
-  return rotateAroundX(
-    rotateAroundY(point, yawRadians),
-    degreesToRadians(CAMERA_PITCH_DEGREES),
+function addPoints(...points: readonly Point2D[]): Point2D {
+  return points.reduce(
+    (sum, point) => ({
+      x: sum.x + point.x,
+      y: sum.y + point.y,
+    }),
+    { x: 0, y: 0 },
   );
 }
 
-function projectPoint(point: Point3D): Point2D {
+function interpolateInteger(startValue: number, endValue: number, t: number) {
+  return Math.round(startValue + (endValue - startValue) * t);
+}
+
+function getProjectedAxes(yawDegrees: number): ProjectedAxes {
+  if (yawDegrees <= 45) {
+    const t = yawDegrees / 45;
+    return {
+      xAxis: {
+        x: interpolateInteger(0, CUBE_HALF_WIDTH, t),
+        y: TOP_FACE_RISE,
+      },
+      yAxis: {
+        x: 0,
+        y: CUBE_HEIGHT,
+      },
+      zAxis: {
+        x: -CUBE_HALF_WIDTH,
+        y: interpolateInteger(0, TOP_FACE_RISE, t),
+      },
+    };
+  }
+
+  const t = (yawDegrees - 45) / 45;
   return {
-    x: Math.round(point.x * CUBE_SCALE),
-    y: Math.round(-point.y * CUBE_SCALE),
+    xAxis: {
+      x: CUBE_HALF_WIDTH,
+      y: interpolateInteger(TOP_FACE_RISE, 0, t),
+    },
+    yAxis: {
+      x: 0,
+      y: CUBE_HEIGHT,
+    },
+    zAxis: {
+      x: interpolateInteger(-CUBE_HALF_WIDTH, 0, t),
+      y: TOP_FACE_RISE,
+    },
   };
+}
+
+function getPolygonArea(points: readonly Point2D[]) {
+  let area = 0;
+
+  for (let index = 0; index < points.length; index += 1) {
+    const nextIndex = (index + 1) % points.length;
+    area +=
+      points[index].x * points[nextIndex].y -
+      points[nextIndex].x * points[index].y;
+  }
+
+  return Math.abs(area) / 2;
 }
 
 function getFaceBounds(faces: readonly CubeFace[]) {
@@ -238,38 +228,34 @@ function buildVisibleFaces(
   yawDegrees: number,
   vividColors: boolean,
 ): CubeFace[] {
-  const yawRadians = degreesToRadians(yawDegrees - 90);
-  const transformedVertices = CUBE_VERTICES.map((vertex) =>
-    transformPoint(vertex, yawRadians),
-  );
-  const projectedVertices = transformedVertices.map(projectPoint);
   const palette = vividColors ? VIVID_FACE_COLORS : DEFAULT_STUDY_FACE_COLORS;
+  const axes = getProjectedAxes(yawDegrees);
+  const topFront = { x: 0, y: 0 };
+  const topRight = addPoints(topFront, axes.xAxis);
+  const topLeft = addPoints(topFront, axes.zAxis);
+  const topBack = addPoints(topFront, axes.xAxis, axes.zAxis);
+  const lowerRight = addPoints(topRight, axes.yAxis);
+  const lowerLeft = addPoints(topLeft, axes.yAxis);
+  const lowerBack = addPoints(topBack, axes.yAxis);
 
-  const visibleFaces = CUBE_FACES.map((face) => {
-    const transformedNormal = transformPoint(face.normal, yawRadians);
-    const points = face.vertices.map(
-      (vertexIndex) => projectedVertices[vertexIndex],
-    );
-    return {
-      color: palette[face.colorKey],
-      depth:
-        face.vertices.reduce(
-          (sum, vertexIndex) => sum + transformedVertices[vertexIndex].z,
-          0,
-        ) / face.vertices.length,
-      isVisible: transformedNormal.z > 0,
-      points,
-    };
-  })
-    .filter((face) => face.isVisible)
-    .sort((left, right) => left.depth - right.depth)
-    .map(({ color, depth, points }) => ({
-      color,
-      depth,
-      points,
-    }));
+  const faces = [
+    {
+      color: palette.left,
+      points: [topLeft, topBack, lowerBack, lowerLeft],
+    },
+    {
+      color: palette.right,
+      points: [topRight, topBack, lowerBack, lowerRight],
+    },
+    {
+      color: palette.top,
+      points: [topFront, topRight, topBack, topLeft],
+    },
+  ] satisfies readonly CubeFace[];
 
-  return translateFacesToCanvas(visibleFaces);
+  return translateFacesToCanvas(
+    faces.filter((face) => getPolygonArea(face.points) > 0.5),
+  );
 }
 
 function drawGrid(context: CanvasRenderingContext2D) {
