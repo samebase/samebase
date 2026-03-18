@@ -24,6 +24,7 @@ coverage
 
 # Tooling caches
 .eslintcache
+.turbo
 *.tsbuildinfo
 .vite
 .playwright-cli/
