@@ -71,6 +71,11 @@ const CONTROLS_POPOVER_SIDE_OFFSET_PX = 10;
 const CONTROLS_POPOVER_VIEWPORT_PADDING_PX = 16;
 const DEFAULT_CONTROLS_POPOVER_MAX_HEIGHT =
   "calc(100dvh - env(safe-area-inset-top, 0px) - 5.5rem)";
+const CONTROLS_POPOVER_TOP_OFFSET = "5.5rem";
+const DEFAULT_LOGO_OPACITY = 1;
+const MIN_LOGO_OPACITY = 0;
+const MAX_LOGO_OPACITY = 1;
+const LOGO_OPACITY_STEP = 0.01;
 const FACE_COLOR_LABELS: Record<FaceColorKey, string> = {
   left: "Left",
   right: "Right",
@@ -80,6 +85,10 @@ const EDIT_MODE_BUTTON_CLASS_NAMES: Record<VoxelEdit["kind"], string> = {
   add: "border-emerald-500/30 bg-emerald-500/15 text-emerald-950 hover:bg-emerald-500/25",
   remove: "border-red-500/30 bg-red-500/15 text-red-950 hover:bg-red-500/25",
 };
+
+function clampLogoOpacity(value: number): number {
+  return Math.min(Math.max(value, MIN_LOGO_OPACITY), MAX_LOGO_OPACITY);
+}
 
 function parseShuffleParallelMoves(value: string): LogoShuffleParallelMoves {
   switch (value) {
@@ -165,6 +174,7 @@ export function LogoPreviewPage() {
     () => readLogoPresetSelection(searchParams),
   );
   const [faceColors, setFaceColors] = useState<FaceColors>(DEFAULT_FACE_COLORS);
+  const [logoOpacity, setLogoOpacity] = useState(DEFAULT_LOGO_OPACITY);
   const [isAutoRotating, setIsAutoRotating] = useState(false);
   const [isShuffleEnabled, setIsShuffleEnabled] = useState(false);
   const [shuffleParallelMoves, setShuffleParallelMoves] =
@@ -310,6 +320,19 @@ export function LogoPreviewPage() {
     setElevationDegrees(normalizeElevationDegrees(nextValue));
   };
 
+  const handleOpacityChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setLogoOpacity(clampLogoOpacity(Number(event.target.value)));
+  };
+
+  const handleOpacityInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextValue = Number(event.target.value);
+    if (Number.isNaN(nextValue)) {
+      return;
+    }
+
+    setLogoOpacity(clampLogoOpacity(nextValue));
+  };
+
   const handleSceneViewChange = ({
     elevationDegrees: nextElevationDegrees,
     rotationDegrees: nextRotationDegrees,
@@ -379,6 +402,7 @@ export function LogoPreviewPage() {
         editMode={editMode}
         elevationDegrees={elevationDegrees}
         faceColors={faceColors}
+        opacity={logoOpacity}
         onInteractionStart={() => {
           setIsAutoRotating(false);
         }}
@@ -575,6 +599,59 @@ export function LogoPreviewPage() {
                   </div>
                 </CollapsibleContent>
               </Collapsible>
+              <div className="grid gap-3 border border-black/10 bg-white/70 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                      Material
+                    </div>
+                    <div className="mt-1 text-xs text-black/55">
+                      Drives Three.js material opacity for quick alpha studies.
+                    </div>
+                  </div>
+                  <span className="font-mono text-[11px] text-black/60">
+                    {(logoOpacity * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <div className="grid gap-2">
+                  <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                    <span>Opacity</span>
+                    <span>{logoOpacity.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min={MIN_LOGO_OPACITY}
+                      max={MAX_LOGO_OPACITY}
+                      step={LOGO_OPACITY_STEP}
+                      value={logoOpacity}
+                      onChange={handleOpacityChange}
+                      className="h-2 w-full cursor-pointer accent-[#8a88ac]"
+                    />
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      min={MIN_LOGO_OPACITY}
+                      max={MAX_LOGO_OPACITY}
+                      step={LOGO_OPACITY_STEP}
+                      value={logoOpacity.toFixed(2)}
+                      onChange={handleOpacityInputChange}
+                      className="h-9 w-20 rounded-none border-black/10 bg-white/90 px-2 font-mono text-sm"
+                    />
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="rounded-none"
+                  onClick={() => {
+                    setLogoOpacity(DEFAULT_LOGO_OPACITY);
+                  }}
+                >
+                  Reset opacity
+                </Button>
+              </div>
               <div className="grid gap-2 border border-black/10 bg-white/70 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>

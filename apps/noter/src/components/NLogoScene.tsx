@@ -99,6 +99,7 @@ type NLogoSceneProps = {
   editMode: VoxelEdit["kind"];
   elevationDegrees: number;
   faceColors: FaceColors;
+  opacity: number;
   onInteractionStart?: () => void;
   onViewChange: (nextView: {
     elevationDegrees: number;
@@ -483,6 +484,24 @@ function applyFaceColors(
   materials[5].color.set(leftHex);
 }
 
+function applyMaterialOpacity(
+  materials: THREE.MeshBasicMaterial[],
+  opacity: number,
+) {
+  const normalizedOpacity = THREE.MathUtils.clamp(opacity, 0, 1);
+  const isTransparent = normalizedOpacity < 1;
+
+  for (const material of materials) {
+    material.opacity = normalizedOpacity;
+    if (material.transparent === isTransparent) {
+      continue;
+    }
+
+    material.transparent = isTransparent;
+    material.needsUpdate = true;
+  }
+}
+
 function replaceLogoGeometry(
   sceneState: SceneState,
   nextFilledVoxels: Set<string>,
@@ -645,6 +664,7 @@ export function NLogoScene({
   editMode,
   elevationDegrees,
   faceColors,
+  opacity,
   onInteractionStart,
   onViewChange,
   onVoxelEdit,
@@ -660,6 +680,7 @@ export function NLogoScene({
   const elevationDegreesRef = useRef(elevationDegrees);
   const voxelStateRef = useRef(voxelState);
   const faceColorsRef = useRef(faceColors);
+  const opacityRef = useRef(opacity);
   const shuffleAnimationRef = useRef(shuffleAnimation);
   const onInteractionStartRef = useRef(onInteractionStart);
   const onViewChangeRef = useRef(onViewChange);
@@ -694,6 +715,10 @@ export function NLogoScene({
   useEffect(() => {
     onInteractionStartRef.current = onInteractionStart;
   }, [onInteractionStart]);
+
+  useEffect(() => {
+    opacityRef.current = opacity;
+  }, [opacity]);
 
   useEffect(() => {
     onViewChangeRef.current = onViewChange;
@@ -744,6 +769,7 @@ export function NLogoScene({
       new THREE.MeshBasicMaterial(),
     ];
     applyFaceColors(materials, faceColorsRef.current);
+    applyMaterialOpacity(materials, opacityRef.current);
     const initialFilledVoxels =
       parseVoxelState(voxelStateRef.current) ?? createDefaultFilledVoxelSet();
     const logoMesh = new THREE.Mesh(
@@ -895,6 +921,17 @@ export function NLogoScene({
 
     applyFaceColors(sceneState.cubeMaterials, faceColors);
   }, [faceColors]);
+
+  useEffect(() => {
+    opacityRef.current = opacity;
+
+    const sceneState = sceneStateRef.current;
+    if (!sceneState) {
+      return;
+    }
+
+    applyMaterialOpacity(sceneState.cubeMaterials, opacity);
+  }, [opacity]);
 
   useEffect(() => {
     const sceneState = sceneStateRef.current;
