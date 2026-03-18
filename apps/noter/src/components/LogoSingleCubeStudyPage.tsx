@@ -98,10 +98,11 @@ export function LogoSingleCubeStudyPage() {
 
             <div className="grid gap-2">
               <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                <span>Yaw</span>
+                <label htmlFor="single-cube-study-yaw-range">Yaw</label>
                 <span>{angleDegrees.toFixed(0)}°</span>
               </div>
               <input
+                id="single-cube-study-yaw-range"
                 type="range"
                 min="0"
                 max="90"
@@ -117,6 +118,7 @@ export function LogoSingleCubeStudyPage() {
                   <Button
                     key={presetAngle}
                     type="button"
+                    aria-pressed={angleDegrees === presetAngle}
                     size="sm"
                     variant={
                       angleDegrees === presetAngle ? "default" : "outline"
@@ -225,6 +227,7 @@ export function LogoSingleCubeStudyPage() {
                   <button
                     key={sampleAngle}
                     type="button"
+                    aria-pressed={angleDegrees === sampleAngle}
                     className={`grid gap-2 border p-3 text-left transition-colors ${
                       angleDegrees === sampleAngle
                         ? "border-black bg-[#fcfbf7]"

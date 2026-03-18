@@ -38,7 +38,7 @@ export function LogoThreeVisualFixture() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <section className="grid gap-3 rounded-md border border-slate-200 p-4">
+          <section className="grid gap-3 border border-slate-200 p-4">
             <div className="text-sm font-medium text-slate-800">
               Three Reference
             </div>
@@ -63,7 +63,7 @@ export function LogoThreeVisualFixture() {
             </div>
           </section>
 
-          <section className="grid gap-3 rounded-md border border-slate-200 p-4">
+          <section className="grid gap-3 border border-slate-200 p-4">
             <div className="text-sm font-medium text-slate-800">
               Static SVG Image
             </div>

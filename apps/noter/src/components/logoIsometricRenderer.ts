@@ -386,12 +386,20 @@ function applyShadedEdges(context: CanvasRenderingContext2D) {
 }
 
 function parseVoxelCoordinate(key: string): VoxelCoordinate {
-  const [xText, yText, zText] = key.split(",");
-  return [
-    Number.parseInt(xText, 10),
-    Number.parseInt(yText, 10),
-    Number.parseInt(zText, 10),
-  ];
+  const parts = key.split(",");
+  if (parts.length !== 3) {
+    throw new Error(`Invalid voxel coordinate key: ${key}`);
+  }
+
+  const x = Number.parseInt(parts[0].trim(), 10);
+  const y = Number.parseInt(parts[1].trim(), 10);
+  const z = Number.parseInt(parts[2].trim(), 10);
+
+  if (Number.isNaN(x) || Number.isNaN(y) || Number.isNaN(z)) {
+    throw new Error(`Invalid voxel coordinate key: ${key}`);
+  }
+
+  return [x, y, z];
 }
 
 function getFaceSortPosition(

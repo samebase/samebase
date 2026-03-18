@@ -8,8 +8,14 @@ describe("logoStaticSvgAsset", () => {
     const faviconSvg = readFileSync(
       new URL("../../public/favicon.svg", import.meta.url),
       "utf8",
+    )
+      .replace(/\r\n/g, "\n")
+      .trim();
+    const generatedSvg = DEFAULT_STATIC_LOGO_SVG_MARKUP.replace(
+      /\r\n/g,
+      "\n",
     ).trim();
 
-    expect(faviconSvg).toBe(DEFAULT_STATIC_LOGO_SVG_MARKUP);
+    expect(faviconSvg).toBe(generatedSvg);
   });
 });

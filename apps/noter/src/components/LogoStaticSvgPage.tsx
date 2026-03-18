@@ -1,4 +1,7 @@
-import { DEFAULT_STATIC_LOGO_SVG_DATA_URL } from "@/components/logoStaticSvgAsset";
+import {
+  DEFAULT_STATIC_LOGO_SVG_DATA_URL,
+  DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE,
+} from "@/components/logoStaticSvgAsset";
 import { getTailwindColorHex } from "@/components/logoTailwindColors";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -43,6 +46,8 @@ export function LogoStaticSvgPage() {
             data-testid="logo-static-svg-image"
             src={DEFAULT_STATIC_LOGO_SVG_DATA_URL}
             alt="Noter logo"
+            width={DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE.width}
+            height={DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE.height}
             className="block h-auto w-full max-w-[24rem]"
             style={{ imageRendering: "pixelated" }}
           />
