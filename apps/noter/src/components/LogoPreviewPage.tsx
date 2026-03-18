@@ -136,7 +136,7 @@ function isLogoPresetId(value: string): value is LogoPresetId {
 
 export function LogoPreviewPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const backgroundColor = getTailwindColorHex("background-base");
+  const backgroundColor = getTailwindColorHex("white-base");
   const [rotationDegrees, setRotationDegrees] = useState(
     DEFAULT_ROTATION_DEGREES,
   );
