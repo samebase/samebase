@@ -15,9 +15,9 @@ import {
   type SimpleViewVisualMode,
 } from "@/components/SimpleViewVisualFixture";
 import {
-  LogoSvgVisualFixture,
-  type LogoSvgVisualMode,
-} from "@/components/LogoSvgVisualFixture";
+  LogoPngVisualFixture,
+  type LogoPngVisualMode,
+} from "@/components/LogoPngVisualFixture";
 import {
   LogoThreeVisualFixture,
   type LogoThreeVisualMode,
@@ -26,10 +26,10 @@ import "./index.css";
 
 type VisualFixtureMode =
   | CommitReviewVisualMode
+  | LogoPngVisualMode
   | LogoThreeVisualMode
   | RepositoryMediaVisualMode
-  | SimpleViewVisualMode
-  | LogoSvgVisualMode;
+  | SimpleViewVisualMode;
 
 function readMode(): VisualFixtureMode {
   const value = new URLSearchParams(window.location.search).get("mode");
@@ -40,10 +40,10 @@ function readMode(): VisualFixtureMode {
     value === "trailing-newline-only" ||
     value === "unchanged" ||
     value === "conflict" ||
+    value === "logo-png-parity" ||
     value === "logo-three-reference" ||
     value === "media-png" ||
     value === "media-svg" ||
-    value === "logo-svg-parity" ||
     value === "simple-repository-config" ||
     value === "simple-missing-config"
   ) {
@@ -62,8 +62,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <RepositoryMediaVisualFixture mode={mode} />
         ) : mode === "logo-three-reference" ? (
           <LogoThreeVisualFixture />
-        ) : mode === "logo-svg-parity" ? (
-          <LogoSvgVisualFixture />
+        ) : mode === "logo-png-parity" ? (
+          <LogoPngVisualFixture />
         ) : mode === "simple-repository-config" ||
           mode === "simple-missing-config" ? (
           <SimpleViewVisualFixture mode={mode} />
