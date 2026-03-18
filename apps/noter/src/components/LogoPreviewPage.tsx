@@ -81,6 +81,11 @@ const FACE_COLOR_LABELS: Record<FaceColorKey, string> = {
   right: "Right",
   top: "Top",
 };
+const RGB_FACE_COLORS: FaceColors = {
+  left: "red-500",
+  right: "green-500",
+  top: "blue-500",
+};
 const EDIT_MODE_BUTTON_CLASS_NAMES: Record<VoxelEdit["kind"], string> = {
   add: "border-emerald-500/30 bg-emerald-500/15 text-emerald-950 hover:bg-emerald-500/25",
   remove: "border-red-500/30 bg-red-500/15 text-red-950 hover:bg-red-500/25",
@@ -771,7 +776,7 @@ export function LogoPreviewPage() {
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid gap-2 sm:grid-cols-3">
                 <Button
                   type="button"
                   size="sm"
@@ -781,7 +786,18 @@ export function LogoPreviewPage() {
                     setFaceColors(DEFAULT_FACE_COLORS);
                   }}
                 >
-                  Reset colors
+                  Default colors
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="rounded-none"
+                  onClick={() => {
+                    setFaceColors(RGB_FACE_COLORS);
+                  }}
+                >
+                  RGB colors
                 </Button>
                 <Button
                   type="button"
