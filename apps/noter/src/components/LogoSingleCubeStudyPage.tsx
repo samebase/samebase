@@ -58,7 +58,7 @@ function CubeStudyCanvas({
 
 export function LogoSingleCubeStudyPage() {
   const [angleDegrees, setAngleDegrees] = useState(45);
-  const [showEdges, setShowEdges] = useState(true);
+  const [showEdges, setShowEdges] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const [vividColors, setVividColors] = useState(true);
 
@@ -111,7 +111,7 @@ export function LogoSingleCubeStudyPage() {
                 className="h-2 w-full cursor-pointer accent-black"
               />
               <div className="grid grid-cols-4 gap-2">
-                {[0, 30, 45, 60].map((presetAngle) => (
+                {SINGLE_CUBE_STUDY_SAMPLE_ANGLES.map((presetAngle) => (
                   <Button
                     key={presetAngle}
                     type="button"
