@@ -50,10 +50,9 @@ type Rectangle = {
   width: number;
 };
 
-type FaceBuckets = {
-  positions: number[];
-  normals: number[];
-  indices: number[];
+type LogoSurfacePart = {
+  geometry: THREE.BufferGeometry;
+  materialIndex: number;
 };
 
 type SceneInteraction = {
@@ -229,51 +228,27 @@ function collectRectangles(mask: boolean[][]): Rectangle[] {
   return rectangles;
 }
 
-function appendQuad(
-  bucket: FaceBuckets,
+function buildQuadGeometry(
   vertices: ReadonlyArray<readonly [number, number, number]>,
   normal: readonly [number, number, number],
-) {
-  const vertexOffset = bucket.positions.length / 3;
+): THREE.BufferGeometry {
+  const geometry = new THREE.BufferGeometry();
+  const positions = vertices.flatMap(([x, y, z]) => [x, y, z]);
+  const normals = vertices.flatMap(() => [normal[0], normal[1], normal[2]]);
 
-  for (const [x, y, z] of vertices) {
-    bucket.positions.push(x, y, z);
-    bucket.normals.push(normal[0], normal[1], normal[2]);
-  }
-
-  bucket.indices.push(
-    vertexOffset,
-    vertexOffset + 1,
-    vertexOffset + 2,
-    vertexOffset,
-    vertexOffset + 2,
-    vertexOffset + 3,
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(positions, 3),
   );
+  geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+  geometry.setIndex([0, 1, 2, 0, 2, 3]);
+  geometry.computeBoundingSphere();
+
+  return geometry;
 }
 
 function toWorld(boundaryIndex: number): number {
   return boundaryIndex - HALF_GRID;
-}
-
-function buildBucketGeometry(bucket: FaceBuckets): THREE.BufferGeometry {
-  const geometry = new THREE.BufferGeometry();
-
-  if (bucket.positions.length === 0) {
-    return geometry;
-  }
-
-  geometry.setAttribute(
-    "position",
-    new THREE.Float32BufferAttribute(bucket.positions, 3),
-  );
-  geometry.setAttribute(
-    "normal",
-    new THREE.Float32BufferAttribute(bucket.normals, 3),
-  );
-  geometry.setIndex(bucket.indices);
-  geometry.computeBoundingSphere();
-
-  return geometry;
 }
 
 function getGeometryFitRadius(
@@ -298,12 +273,8 @@ function getGeometryFitRadius(
 
 function buildVoxelSurfaceGeometries(
   filledVoxels: Set<string>,
-): THREE.BufferGeometry[] {
-  const buckets: FaceBuckets[] = Array.from({ length: 6 }, () => ({
-    positions: [],
-    normals: [],
-    indices: [],
-  }));
+): LogoSurfacePart[] {
+  const parts: LogoSurfacePart[] = [];
 
   for (let x = 0; x < GRID_SIZE; x += 1) {
     const positiveXMask = Array.from({ length: GRID_SIZE }, (_, y) =>
@@ -320,16 +291,18 @@ function buildVoxelSurfaceGeometries(
       const y1 = toWorld(rectangle.row + rectangle.height);
       const z0 = toWorld(rectangle.column);
       const z1 = toWorld(rectangle.column + rectangle.width);
-      appendQuad(
-        buckets[0],
-        [
-          [plane, y0, z0],
-          [plane, y1, z0],
-          [plane, y1, z1],
-          [plane, y0, z1],
-        ],
-        [1, 0, 0],
-      );
+      parts.push({
+        geometry: buildQuadGeometry(
+          [
+            [plane, y0, z0],
+            [plane, y1, z0],
+            [plane, y1, z1],
+            [plane, y0, z1],
+          ],
+          [1, 0, 0],
+        ),
+        materialIndex: 0,
+      });
     }
 
     const negativeXMask = Array.from({ length: GRID_SIZE }, (_, y) =>
@@ -346,16 +319,18 @@ function buildVoxelSurfaceGeometries(
       const y1 = toWorld(rectangle.row + rectangle.height);
       const z0 = toWorld(rectangle.column);
       const z1 = toWorld(rectangle.column + rectangle.width);
-      appendQuad(
-        buckets[1],
-        [
-          [plane, y0, z1],
-          [plane, y1, z1],
-          [plane, y1, z0],
-          [plane, y0, z0],
-        ],
-        [-1, 0, 0],
-      );
+      parts.push({
+        geometry: buildQuadGeometry(
+          [
+            [plane, y0, z1],
+            [plane, y1, z1],
+            [plane, y1, z0],
+            [plane, y0, z0],
+          ],
+          [-1, 0, 0],
+        ),
+        materialIndex: 1,
+      });
     }
   }
 
@@ -374,16 +349,18 @@ function buildVoxelSurfaceGeometries(
       const x1 = toWorld(rectangle.row + rectangle.height);
       const z0 = toWorld(rectangle.column);
       const z1 = toWorld(rectangle.column + rectangle.width);
-      appendQuad(
-        buckets[2],
-        [
-          [x0, plane, z1],
-          [x1, plane, z1],
-          [x1, plane, z0],
-          [x0, plane, z0],
-        ],
-        [0, 1, 0],
-      );
+      parts.push({
+        geometry: buildQuadGeometry(
+          [
+            [x0, plane, z1],
+            [x1, plane, z1],
+            [x1, plane, z0],
+            [x0, plane, z0],
+          ],
+          [0, 1, 0],
+        ),
+        materialIndex: 2,
+      });
     }
 
     const negativeYMask = Array.from({ length: GRID_SIZE }, (_, x) =>
@@ -400,16 +377,18 @@ function buildVoxelSurfaceGeometries(
       const x1 = toWorld(rectangle.row + rectangle.height);
       const z0 = toWorld(rectangle.column);
       const z1 = toWorld(rectangle.column + rectangle.width);
-      appendQuad(
-        buckets[3],
-        [
-          [x0, plane, z0],
-          [x1, plane, z0],
-          [x1, plane, z1],
-          [x0, plane, z1],
-        ],
-        [0, -1, 0],
-      );
+      parts.push({
+        geometry: buildQuadGeometry(
+          [
+            [x0, plane, z0],
+            [x1, plane, z0],
+            [x1, plane, z1],
+            [x0, plane, z1],
+          ],
+          [0, -1, 0],
+        ),
+        materialIndex: 3,
+      });
     }
   }
 
@@ -428,16 +407,18 @@ function buildVoxelSurfaceGeometries(
       const x1 = toWorld(rectangle.row + rectangle.height);
       const y0 = toWorld(rectangle.column);
       const y1 = toWorld(rectangle.column + rectangle.width);
-      appendQuad(
-        buckets[4],
-        [
-          [x0, y0, plane],
-          [x1, y0, plane],
-          [x1, y1, plane],
-          [x0, y1, plane],
-        ],
-        [0, 0, 1],
-      );
+      parts.push({
+        geometry: buildQuadGeometry(
+          [
+            [x0, y0, plane],
+            [x1, y0, plane],
+            [x1, y1, plane],
+            [x0, y1, plane],
+          ],
+          [0, 0, 1],
+        ),
+        materialIndex: 4,
+      });
     }
 
     const negativeZMask = Array.from({ length: GRID_SIZE }, (_, x) =>
@@ -454,20 +435,22 @@ function buildVoxelSurfaceGeometries(
       const x1 = toWorld(rectangle.row + rectangle.height);
       const y0 = toWorld(rectangle.column);
       const y1 = toWorld(rectangle.column + rectangle.width);
-      appendQuad(
-        buckets[5],
-        [
-          [x0, y1, plane],
-          [x1, y1, plane],
-          [x1, y0, plane],
-          [x0, y0, plane],
-        ],
-        [0, 0, -1],
-      );
+      parts.push({
+        geometry: buildQuadGeometry(
+          [
+            [x0, y1, plane],
+            [x1, y1, plane],
+            [x1, y0, plane],
+            [x0, y0, plane],
+          ],
+          [0, 0, -1],
+        ),
+        materialIndex: 5,
+      });
     }
   }
 
-  return buckets.map((bucket) => buildBucketGeometry(bucket));
+  return parts;
 }
 
 function pointToVoxelCoordinate(point: THREE.Vector3): VoxelCoordinate | null {
@@ -523,15 +506,25 @@ function replaceLogoGeometry(
   nextFilledVoxels: Set<string>,
   syncCameraFitRadius: boolean,
 ) {
-  const nextGeometries = buildVoxelSurfaceGeometries(nextFilledVoxels);
-  for (const [index, nextGeometry] of nextGeometries.entries()) {
-    const previousGeometry = sceneState.logoMeshes[index].geometry;
-    sceneState.logoMeshes[index].geometry = nextGeometry;
-    previousGeometry.dispose();
+  const nextParts = buildVoxelSurfaceGeometries(nextFilledVoxels);
+  const previousLogoMeshes = sceneState.logoMeshes;
+  for (const logoMesh of previousLogoMeshes) {
+    sceneState.logoGroup.remove(logoMesh);
+    logoMesh.geometry.dispose();
   }
+  sceneState.logoMeshes = nextParts.map(({ geometry, materialIndex }) => {
+    const logoMesh = new THREE.Mesh(
+      geometry,
+      sceneState.cubeMaterials[materialIndex],
+    );
+    sceneState.logoGroup.add(logoMesh);
+    return logoMesh;
+  });
   sceneState.currentFilledVoxels = new Set(nextFilledVoxels);
   if (syncCameraFitRadius) {
-    sceneState.cameraFitRadius = getGeometryFitRadius(nextGeometries);
+    sceneState.cameraFitRadius = getGeometryFitRadius(
+      nextParts.map(({ geometry }) => geometry),
+    );
   }
   sceneState.resizeScene();
 }
@@ -808,9 +801,9 @@ export function NLogoScene({
     applyMaterialOpacity(materials, opacityRef.current);
     const initialFilledVoxels =
       parseVoxelState(voxelStateRef.current) ?? createDefaultFilledVoxelSet();
-    const logoGeometries = buildVoxelSurfaceGeometries(initialFilledVoxels);
-    const logoMeshes = logoGeometries.map(
-      (geometry, materialIndex) =>
+    const logoParts = buildVoxelSurfaceGeometries(initialFilledVoxels);
+    const logoMeshes = logoParts.map(
+      ({ geometry, materialIndex }) =>
         new THREE.Mesh(geometry, materials[materialIndex]),
     );
     const logoGroup = new THREE.Group();
@@ -819,7 +812,9 @@ export function NLogoScene({
     }
     scene.add(logoGroup);
     const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const initialCameraFitRadius = getGeometryFitRadius(logoGeometries);
+    const initialCameraFitRadius = getGeometryFitRadius(
+      logoParts.map(({ geometry }) => geometry),
+    );
 
     const getFrustumHalfSpan = () => {
       const radius =
