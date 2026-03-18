@@ -64,6 +64,17 @@ async function expectLandingLogoSceneReady(scene: Locator) {
   await expect(scene).toHaveAttribute("data-state", "ready");
 }
 
+async function readLandingLogoSceneImage(
+  page: Parameters<typeof test>[0]["page"],
+) {
+  return page.evaluate(() => {
+    const canvas = document.querySelector(
+      '[data-testid="public-landing-logo-scene"] canvas',
+    );
+    return canvas instanceof HTMLCanvasElement ? canvas.toDataURL() : null;
+  });
+}
+
 test("public landing shell renders before the full app UI takes over", async ({
   page,
 }) => {
@@ -216,11 +227,12 @@ test("prod-ui landing logo becomes draggable after the SVG fallback is removed",
 
   const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
   const landingLogoScene = page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID);
+  const landingLogoCanvas = landingLogoScene.locator("canvas");
 
   await expectLandingLogoReady(landingLogo);
   await expectLandingLogoSceneReady(landingLogoScene);
   await expect(landingLogo).toHaveClass(/pointer-events-none opacity-0/);
-  await expect(landingLogoScene).toHaveClass(/pointer-events-auto/);
+  await expect(landingLogoScene).toHaveClass(/pointer-events-auto touch-none/);
 
   await expect
     .poll(async () =>
@@ -234,6 +246,31 @@ test("prod-ui landing logo becomes draggable after the SVG fallback is removed",
       }),
     )
     .toBe("grab");
+
+  const imageBeforeDrag = await readLandingLogoSceneImage(page);
+  expect(imageBeforeDrag).not.toBeNull();
+
+  const canvasBounds = await landingLogoCanvas.boundingBox();
+  expect(canvasBounds).not.toBeNull();
+  if (!canvasBounds) {
+    return;
+  }
+
+  await page.mouse.move(
+    canvasBounds.x + canvasBounds.width / 2,
+    canvasBounds.y + canvasBounds.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    canvasBounds.x + canvasBounds.width / 2 + 48,
+    canvasBounds.y + canvasBounds.height / 2 + 16,
+    { steps: 8 },
+  );
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => readLandingLogoSceneImage(page))
+    .not.toBe(imageBeforeDrag);
 });
 
 test("prod-ui landing logo keeps the SVG fallback when WebGL is unavailable", async ({
