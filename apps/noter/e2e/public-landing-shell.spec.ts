@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
 
 async function readNavigationTiming(page: Parameters<typeof test>[0]["page"]) {
   return page.evaluate(() => {
@@ -54,6 +55,29 @@ test("public landing handoff keeps the card height stable", async ({
   );
 
   expect(Math.abs(fullAppHeight - shellHeight)).toBeLessThanOrEqual(8);
+});
+
+test("prod-ui landing handoff stays visually aligned", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+
+  const landingContent = page.getByTestId("public-landing-content");
+  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
+  await expect(landingContent).toBeVisible();
+
+  const shellScreenshot = await takeStableScreenshot(landingContent);
+
+  await expect(page.getByPlaceholder("email@example.com")).toBeEditable();
+  const hydratedScreenshot = await takeStableScreenshot(landingContent);
+
+  await expectScreenshotsToMatch({
+    actual: hydratedScreenshot,
+    artifactPrefix: "public-landing-prod-ui-handoff",
+    expected: shellScreenshot,
+    maxDiffPixelRatio: 0.01,
+    testInfo,
+  });
 });
 
 test("public landing shell still renders when localStorage access is denied", async ({
