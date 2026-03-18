@@ -24,7 +24,7 @@ export function LogoSvgVisualFixture() {
       className="min-h-screen p-8 text-slate-900"
       style={{ backgroundColor }}
     >
-      <div className="mx-auto grid max-w-5xl gap-5 border border-slate-300 bg-white p-6 shadow-sm">
+      <div className="mx-auto grid max-w-[76rem] gap-6 border border-slate-300 bg-white p-8 shadow-sm">
         <div className="grid gap-1">
           <h1 className="text-xl font-semibold">Logo SVG Parity Fixture</h1>
           <p className="text-sm text-slate-600">
@@ -33,7 +33,7 @@ export function LogoSvgVisualFixture() {
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-5 lg:grid-cols-2">
           <section className="grid gap-3 rounded-md border border-slate-200 p-4">
             <div className="text-sm font-medium text-slate-800">
               Canvas Reference

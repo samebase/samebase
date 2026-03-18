@@ -159,7 +159,7 @@ export function LogoThreeVisualFixture() {
       className="min-h-screen p-8 text-slate-900"
       style={{ backgroundColor }}
     >
-      <div className="mx-auto grid max-w-5xl gap-5 border border-slate-300 bg-white p-6 shadow-sm">
+      <div className="mx-auto grid max-w-[92rem] gap-6 border border-slate-300 bg-white p-8 shadow-sm">
         <div className="grid gap-1">
           <h1 className="text-xl font-semibold">
             Logo Three Reference Fixture
@@ -171,7 +171,7 @@ export function LogoThreeVisualFixture() {
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-5 xl:grid-cols-3">
           <section className="grid gap-3 border border-slate-200 p-4">
             <div className="text-sm font-medium text-slate-800">
               Three Reference
