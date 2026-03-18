@@ -3,10 +3,11 @@ import {
   getTailwindColorHex,
 } from "@/components/logoTailwindColors";
 
-const CANVAS_SIZE = 96;
-const GRID_STEP = 8;
+const CANVAS_SIZE = 36;
+const GRID_STEP = 1;
 const CUBE_SCALE = 16;
 const CAMERA_PITCH_DEGREES = 35.26438968;
+const CANVAS_MARGIN = 1;
 
 type Point2D = {
   x: number;
@@ -111,9 +112,38 @@ function transformPoint(point: Point3D, yawRadians: number): Point3D {
 
 function projectPoint(point: Point3D): Point2D {
   return {
-    x: Math.round(point.x * CUBE_SCALE + CANVAS_SIZE / 2),
-    y: Math.round(-point.y * CUBE_SCALE + CANVAS_SIZE / 2),
+    x: Math.round(point.x * CUBE_SCALE),
+    y: Math.round(-point.y * CUBE_SCALE),
   };
+}
+
+function getFaceBounds(faces: readonly CubeFace[]) {
+  const points = faces.flatMap((face) => face.points);
+  return {
+    maxX: Math.max(...points.map((point) => point.x)),
+    maxY: Math.max(...points.map((point) => point.y)),
+    minX: Math.min(...points.map((point) => point.x)),
+    minY: Math.min(...points.map((point) => point.y)),
+  };
+}
+
+function translateFacesToCanvas(faces: readonly CubeFace[]): CubeFace[] {
+  const bounds = getFaceBounds(faces);
+  const cubeWidth = bounds.maxX - bounds.minX + 1;
+  const cubeHeight = bounds.maxY - bounds.minY + 1;
+  const availableSize = CANVAS_SIZE - CANVAS_MARGIN * 2;
+  const offsetX =
+    CANVAS_MARGIN + Math.round((availableSize - cubeWidth) / 2) - bounds.minX;
+  const offsetY =
+    CANVAS_MARGIN + Math.round((availableSize - cubeHeight) / 2) - bounds.minY;
+
+  return faces.map((face) => ({
+    ...face,
+    points: face.points.map((point) => ({
+      x: point.x + offsetX,
+      y: point.y + offsetY,
+    })),
+  }));
 }
 
 function collectPolygonRowSpans(points: readonly Point2D[]) {
@@ -215,7 +245,7 @@ function buildVisibleFaces(
   const projectedVertices = transformedVertices.map(projectPoint);
   const palette = vividColors ? VIVID_FACE_COLORS : DEFAULT_STUDY_FACE_COLORS;
 
-  return CUBE_FACES.map((face) => {
+  const visibleFaces = CUBE_FACES.map((face) => {
     const transformedNormal = transformPoint(face.normal, yawRadians);
     const points = face.vertices.map(
       (vertexIndex) => projectedVertices[vertexIndex],
@@ -238,10 +268,12 @@ function buildVisibleFaces(
       depth,
       points,
     }));
+
+  return translateFacesToCanvas(visibleFaces);
 }
 
 function drawGrid(context: CanvasRenderingContext2D) {
-  context.fillStyle = "#e5e7eb";
+  context.fillStyle = "#e7e5e4";
   for (let x = 0; x < CANVAS_SIZE; x += GRID_STEP) {
     for (let y = 0; y < CANVAS_SIZE; y += 1) {
       context.fillRect(x, y, 1, 1);

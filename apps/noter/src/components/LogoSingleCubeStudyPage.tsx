@@ -59,7 +59,7 @@ function CubeStudyCanvas({
 export function LogoSingleCubeStudyPage() {
   const [angleDegrees, setAngleDegrees] = useState(45);
   const [showEdges, setShowEdges] = useState(true);
-  const [showGrid, setShowGrid] = useState(true);
+  const [showGrid, setShowGrid] = useState(false);
   const [vividColors, setVividColors] = useState(true);
 
   return (
@@ -165,7 +165,7 @@ export function LogoSingleCubeStudyPage() {
                     setShowGrid((currentValue) => !currentValue);
                   }}
                 >
-                  {showGrid ? "Hide grid" : "Show grid"}
+                  {showGrid ? "Hide pixel grid" : "Show pixel grid"}
                 </Button>
               </div>
             </div>
@@ -177,30 +177,31 @@ export function LogoSingleCubeStudyPage() {
               <p className="mt-2">
                 Look for repeated stair-step rhythms, readable top corners, and
                 whether the side faces still feel like a cube instead of a
-                warped diamond. The grid makes irregular jumps easier to spot.
+                warped diamond. Turn on the pixel grid only when you need it.
               </p>
             </div>
           </div>
 
           <div className="grid gap-6">
-            <div className="grid gap-3 border border-black/10 bg-white/88 p-4">
+            <div className="grid gap-3 border border-black/10 bg-white/88 p-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                     Workspace
                   </div>
                   <div className="mt-1 text-sm text-black/60">
-                    Current study angle: {angleDegrees.toFixed(0)}°
+                    Tight crop, enlarged pixels, current angle{" "}
+                    {angleDegrees.toFixed(0)}°
                   </div>
                 </div>
                 <div className="font-mono text-[11px] text-black/45">
                   pitch 35.264°
                 </div>
               </div>
-              <div className="flex min-h-[22rem] items-center justify-center border border-black/10 bg-[#fcfbf7] p-4">
+              <div className="flex min-h-[40rem] items-center justify-center border border-black/10 bg-[#fcfbf7] p-0">
                 <CubeStudyCanvas
                   angleDegrees={angleDegrees}
-                  className="h-[22rem] w-[22rem] max-w-full"
+                  className="h-[40rem] w-[40rem] max-w-full"
                   showEdges={showEdges}
                   showGrid={showGrid}
                   vividColors={vividColors}
@@ -208,7 +209,7 @@ export function LogoSingleCubeStudyPage() {
               </div>
             </div>
 
-            <div className="grid gap-3 border border-black/10 bg-white/88 p-4">
+            <div className="grid gap-3 border border-black/10 bg-white/88 p-3">
               <div>
                 <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                   Snap Comparison
@@ -222,7 +223,7 @@ export function LogoSingleCubeStudyPage() {
                   <button
                     key={sampleAngle}
                     type="button"
-                    className={`grid gap-2 border p-3 text-left transition-colors ${
+                    className={`grid gap-2 border p-2 text-left transition-colors ${
                       angleDegrees === sampleAngle
                         ? "border-black bg-[#fcfbf7]"
                         : "border-black/10 bg-white hover:border-black/30"
@@ -239,10 +240,10 @@ export function LogoSingleCubeStudyPage() {
                         yaw
                       </span>
                     </div>
-                    <div className="flex items-center justify-center border border-black/10 bg-[#fcfbf7] p-2">
+                    <div className="flex items-center justify-center border border-black/10 bg-[#fcfbf7] p-0">
                       <CubeStudyCanvas
                         angleDegrees={sampleAngle}
-                        className="h-28 w-28"
+                        className="h-44 w-44"
                         showEdges={showEdges}
                         showGrid={showGrid}
                         vividColors={vividColors}
