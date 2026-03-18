@@ -29,6 +29,10 @@ export function PublicLandingLogo() {
   const [didSceneFail, setDidSceneFail] = useState(false);
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [isSvgVisible, setIsSvgVisible] = useState(true);
+  const [view, setView] = useState(() => ({
+    elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
+    rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
+  }));
   const backgroundColor = getTailwindColorHex("background-base");
   const isSceneInteractive = isSceneReady && !isSvgVisible;
 
@@ -112,13 +116,13 @@ export function PublicLandingLogo() {
             aria-hidden="true"
             data-testid={PUBLIC_LANDING_LOGO_SCENE_TEST_ID}
             data-state={isSceneReady ? "ready" : "loading"}
-            className={`absolute inset-0 z-0 ${isSceneInteractive ? "pointer-events-auto" : "pointer-events-none"}`}
+            className={`absolute inset-0 z-0 ${isSceneInteractive ? "pointer-events-auto touch-none" : "pointer-events-none"}`}
           >
             <LogoScene
               className={`h-full w-full ${isSceneInteractive ? "cursor-grab active:cursor-grabbing" : ""}`}
               backgroundColor={backgroundColor}
               editMode="add"
-              elevationDegrees={STATIC_LOGO_ELEVATION_DEGREES}
+              elevationDegrees={view.elevationDegrees}
               faceColors={STATIC_LOGO_FACE_COLORS}
               opacity={1}
               onRenderReady={() => {
@@ -127,9 +131,11 @@ export function PublicLandingLogo() {
               onRenderUnavailable={() => {
                 setDidSceneFail(true);
               }}
-              onViewChange={(_nextView) => {}}
+              onViewChange={(nextView) => {
+                setView(nextView);
+              }}
               onVoxelEdit={() => {}}
-              rotationDegrees={STATIC_LOGO_ROTATION_DEGREES}
+              rotationDegrees={view.rotationDegrees}
               shuffleAnimation={{ enabled: false, parallelMoves: 1 }}
               voxelState={STATIC_LOGO_VOXEL_STATE}
             />
