@@ -4,24 +4,9 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { ConvexReactClient } from "convex/react";
-import { registerSW } from "virtual:pwa-register";
 import App from "./App.tsx";
 import "@xyflow/react/dist/style.css";
 import { QueryProvider } from "./lib/providers/query-provider";
-
-registerSW({
-  immediate: true,
-  onRegisteredSW(_swUrl, registration) {
-    if (registration) {
-      setInterval(() => void registration.update(), 60 * 1000);
-      document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "visible") {
-          void registration.update();
-        }
-      });
-    }
-  },
-});
 
 const convexUrl = __DAYTONA_CONVEX_PROXY_PATH__
   ? new URL(__DAYTONA_CONVEX_PROXY_PATH__, window.location.origin).toString()

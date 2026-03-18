@@ -49,7 +49,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 function shellQuote(value: string): string {
-  return `'${value.replaceAll("'", `'"'"'`)}'`;
+  return `'${value.split("'").join(`'"'"'`)}'`;
 }
 
 function describeError(error: unknown): string {
