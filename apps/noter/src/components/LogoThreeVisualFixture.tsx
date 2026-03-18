@@ -33,7 +33,7 @@ export function LogoThreeVisualFixture() {
           </h1>
           <p className="text-sm text-slate-600">
             Left: current Three renderer at a fixed camera angle. Right: static
-            SVG asset generated from the isometric pixel renderer.
+            SVG asset built from four-point face polygons.
           </p>
         </div>
 
@@ -85,7 +85,6 @@ export function LogoThreeVisualFixture() {
                   className="block"
                   style={{
                     height: `${PREVIEW_SIZE}px`,
-                    imageRendering: "pixelated",
                     width: `${PREVIEW_SIZE}px`,
                   }}
                 />

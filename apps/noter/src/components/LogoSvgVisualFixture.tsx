@@ -28,8 +28,8 @@ export function LogoSvgVisualFixture() {
         <div className="grid gap-1">
           <h1 className="text-xl font-semibold">Logo SVG Parity Fixture</h1>
           <p className="text-sm text-slate-600">
-            Left: current canvas reference. Right: static SVG generated from the
-            same row-span math.
+            Left: current canvas reference. Right: static SVG built from the
+            same visible-face geometry.
           </p>
         </div>
 
@@ -65,7 +65,6 @@ export function LogoSvgVisualFixture() {
                 className="block"
                 style={{
                   height: `${PREVIEW_SIZE}px`,
-                  imageRendering: "pixelated",
                   width: `${PREVIEW_SIZE}px`,
                 }}
               />

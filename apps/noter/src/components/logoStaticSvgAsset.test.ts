@@ -18,4 +18,9 @@ describe("logoStaticSvgAsset", () => {
 
     expect(faviconSvg).toBe(generatedSvg);
   });
+
+  it("exports real face polygons instead of a raster traced into one-pixel rects", () => {
+    expect(DEFAULT_STATIC_LOGO_SVG_MARKUP).toContain("<polygon ");
+    expect(DEFAULT_STATIC_LOGO_SVG_MARKUP).not.toContain(' height="1" ');
+  });
 });

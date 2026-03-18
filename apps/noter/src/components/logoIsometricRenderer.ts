@@ -311,11 +311,8 @@ function escapeSvgAttribute(value: string): string {
     .replaceAll(">", "&gt;");
 }
 
-function getStyledFaceRowSpans(
-  polygon: readonly Point[],
-  capWidth: 2 | 3 | 4,
-): readonly RowSpan[] {
-  return widenCapRows(collectPolygonRowSpans(polygon), capWidth);
+function serializeSvgPolygon(points: readonly Point[]): string {
+  return points.map((point) => `${point.x},${point.y}`).join(" ");
 }
 
 function applyShadedEdges(context: CanvasRenderingContext2D) {
@@ -654,8 +651,8 @@ export function createLogoIsometricSvgMarkup({
 }): string {
   const style = getLogoIsometricStyle(styleId);
 
-  if (style.edgeMode !== "none") {
-    throw new Error("SVG export only supports non-shaded isometric styles.");
+  if (style.edgeMode !== "none" || style.capWidth !== 2) {
+    throw new Error("SVG export only supports flat four-point face geometry.");
   }
 
   const renderFaces = [
@@ -663,19 +660,17 @@ export function createLogoIsometricSvgMarkup({
     ...buildMovingRenderFaces(faceColors, movingVoxels),
   ].sort(compareRenderFaces);
   const backgroundRect = `<rect x="0" y="0" width="${LOGO_ISOMETRIC_CANVAS_WIDTH}" height="${LOGO_ISOMETRIC_CANVAS_HEIGHT}" fill="${escapeSvgAttribute(backgroundColor)}"/>`;
-  const renderFaceRects = renderFaces
+  const renderFacePolygons = renderFaces
     .map((renderFace) => {
       const fill = escapeSvgAttribute(renderFace.color);
-      return getStyledFaceRowSpans(renderFace.polygon, style.capWidth)
-        .map(
-          (rowSpan) =>
-            `<rect x="${rowSpan.startX}" y="${rowSpan.y}" width="${rowSpan.endX - rowSpan.startX + 1}" height="1" fill="${fill}"/>`,
-        )
-        .join("");
+      const points = escapeSvgAttribute(
+        serializeSvgPolygon(renderFace.polygon),
+      );
+      return `<polygon points="${points}" fill="${fill}"/>`;
     })
     .join("");
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${LOGO_ISOMETRIC_CANVAS_WIDTH} ${LOGO_ISOMETRIC_CANVAS_HEIGHT}" width="${LOGO_ISOMETRIC_CANVAS_WIDTH}" height="${LOGO_ISOMETRIC_CANVAS_HEIGHT}" shape-rendering="crispEdges">${backgroundRect}${renderFaceRects}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${LOGO_ISOMETRIC_CANVAS_WIDTH} ${LOGO_ISOMETRIC_CANVAS_HEIGHT}" width="${LOGO_ISOMETRIC_CANVAS_WIDTH}" height="${LOGO_ISOMETRIC_CANVAS_HEIGHT}">${backgroundRect}${renderFacePolygons}</svg>`;
 }
 
 export function getIsometricAddCoordinate(

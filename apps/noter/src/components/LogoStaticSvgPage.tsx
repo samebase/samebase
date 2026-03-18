@@ -35,9 +35,8 @@ export function LogoStaticSvgPage() {
             Static SVG Preview
           </h1>
           <p className="max-w-2xl text-sm leading-6">
-            This route renders the isometric logo as a static image sourced from
-            shared row-span math instead of the interactive canvas or WebGL
-            scenes.
+            This route renders the isometric logo as true SVG face polygons
+            instead of the interactive canvas or WebGL scenes.
           </p>
         </div>
 
@@ -49,7 +48,6 @@ export function LogoStaticSvgPage() {
             width={DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE.width}
             height={DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE.height}
             className="block h-auto w-full max-w-[24rem]"
-            style={{ imageRendering: "pixelated" }}
           />
         </div>
       </div>
