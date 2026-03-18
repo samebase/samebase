@@ -65,9 +65,10 @@ function createCornerlessCubeVoxelState(): string {
 
 export const LOGO_PRESETS = [
   {
-    description: "Six-arm cross with the center cube removed",
+    description:
+      "Three-layer alternating lattice derived from the default voxel map",
     id: "open-cross",
-    label: "Open Cross",
+    label: "Checker Lattice",
     voxelState: DEFAULT_VOXEL_STATE,
   },
   {
