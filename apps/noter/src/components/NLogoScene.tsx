@@ -50,10 +50,9 @@ type Rectangle = {
   width: number;
 };
 
-type FaceBuckets = {
-  positions: number[];
-  normals: number[];
-  indices: number[];
+type LogoSurfacePart = {
+  geometry: THREE.BufferGeometry;
+  materialIndex: number;
 };
 
 type SceneInteraction = {
@@ -86,7 +85,7 @@ type SceneState = {
   activeCubeMoves: ActiveCubeMove[];
   homeFilledVoxels: Set<string>;
   logoGroup: THREE.Group;
-  logoMesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial[]>;
+  logoMeshes: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>[];
   raycaster: THREE.Raycaster;
   renderer: THREE.WebGLRenderer;
   resizeScene: () => void;
@@ -99,6 +98,7 @@ type NLogoSceneProps = {
   editMode: VoxelEdit["kind"];
   elevationDegrees: number;
   faceColors: FaceColors;
+  opacity: number;
   onInteractionStart?: () => void;
   onViewChange: (nextView: {
     elevationDegrees: number;
@@ -228,40 +228,53 @@ function collectRectangles(mask: boolean[][]): Rectangle[] {
   return rectangles;
 }
 
-function appendQuad(
-  bucket: FaceBuckets,
+function buildQuadGeometry(
   vertices: ReadonlyArray<readonly [number, number, number]>,
   normal: readonly [number, number, number],
-) {
-  const vertexOffset = bucket.positions.length / 3;
+): THREE.BufferGeometry {
+  const geometry = new THREE.BufferGeometry();
+  const positions = vertices.flatMap(([x, y, z]) => [x, y, z]);
+  const normals = vertices.flatMap(() => [normal[0], normal[1], normal[2]]);
 
-  for (const [x, y, z] of vertices) {
-    bucket.positions.push(x, y, z);
-    bucket.normals.push(normal[0], normal[1], normal[2]);
-  }
-
-  bucket.indices.push(
-    vertexOffset,
-    vertexOffset + 1,
-    vertexOffset + 2,
-    vertexOffset,
-    vertexOffset + 2,
-    vertexOffset + 3,
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(positions, 3),
   );
+  geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+  geometry.setIndex([0, 1, 2, 0, 2, 3]);
+  geometry.computeBoundingSphere();
+
+  return geometry;
 }
 
 function toWorld(boundaryIndex: number): number {
   return boundaryIndex - HALF_GRID;
 }
 
-function buildVoxelSurfaceGeometry(
+function getGeometryFitRadius(
+  geometries: readonly THREE.BufferGeometry[],
+): number {
+  let fitRadius = 0;
+
+  for (const geometry of geometries) {
+    const boundingSphere = geometry.boundingSphere;
+    if (!boundingSphere) {
+      continue;
+    }
+
+    fitRadius = Math.max(
+      fitRadius,
+      boundingSphere.center.length() + boundingSphere.radius,
+    );
+  }
+
+  return fitRadius || HALF_GRID * Math.sqrt(3);
+}
+
+function buildVoxelSurfaceGeometries(
   filledVoxels: Set<string>,
-): THREE.BufferGeometry {
-  const buckets: FaceBuckets[] = Array.from({ length: 6 }, () => ({
-    positions: [],
-    normals: [],
-    indices: [],
-  }));
+): LogoSurfacePart[] {
+  const parts: LogoSurfacePart[] = [];
 
   for (let x = 0; x < GRID_SIZE; x += 1) {
     const positiveXMask = Array.from({ length: GRID_SIZE }, (_, y) =>
@@ -278,16 +291,18 @@ function buildVoxelSurfaceGeometry(
       const y1 = toWorld(rectangle.row + rectangle.height);
       const z0 = toWorld(rectangle.column);
       const z1 = toWorld(rectangle.column + rectangle.width);
-      appendQuad(
-        buckets[0],
-        [
-          [plane, y0, z0],
-          [plane, y1, z0],
-          [plane, y1, z1],
-          [plane, y0, z1],
-        ],
-        [1, 0, 0],
-      );
+      parts.push({
+        geometry: buildQuadGeometry(
+          [
+            [plane, y0, z0],
+            [plane, y1, z0],
+            [plane, y1, z1],
+            [plane, y0, z1],
+          ],
+          [1, 0, 0],
+        ),
+        materialIndex: 0,
+      });
     }
 
     const negativeXMask = Array.from({ length: GRID_SIZE }, (_, y) =>
@@ -304,16 +319,18 @@ function buildVoxelSurfaceGeometry(
       const y1 = toWorld(rectangle.row + rectangle.height);
       const z0 = toWorld(rectangle.column);
       const z1 = toWorld(rectangle.column + rectangle.width);
-      appendQuad(
-        buckets[1],
-        [
-          [plane, y0, z1],
-          [plane, y1, z1],
-          [plane, y1, z0],
-          [plane, y0, z0],
-        ],
-        [-1, 0, 0],
-      );
+      parts.push({
+        geometry: buildQuadGeometry(
+          [
+            [plane, y0, z1],
+            [plane, y1, z1],
+            [plane, y1, z0],
+            [plane, y0, z0],
+          ],
+          [-1, 0, 0],
+        ),
+        materialIndex: 1,
+      });
     }
   }
 
@@ -332,16 +349,18 @@ function buildVoxelSurfaceGeometry(
       const x1 = toWorld(rectangle.row + rectangle.height);
       const z0 = toWorld(rectangle.column);
       const z1 = toWorld(rectangle.column + rectangle.width);
-      appendQuad(
-        buckets[2],
-        [
-          [x0, plane, z1],
-          [x1, plane, z1],
-          [x1, plane, z0],
-          [x0, plane, z0],
-        ],
-        [0, 1, 0],
-      );
+      parts.push({
+        geometry: buildQuadGeometry(
+          [
+            [x0, plane, z1],
+            [x1, plane, z1],
+            [x1, plane, z0],
+            [x0, plane, z0],
+          ],
+          [0, 1, 0],
+        ),
+        materialIndex: 2,
+      });
     }
 
     const negativeYMask = Array.from({ length: GRID_SIZE }, (_, x) =>
@@ -358,16 +377,18 @@ function buildVoxelSurfaceGeometry(
       const x1 = toWorld(rectangle.row + rectangle.height);
       const z0 = toWorld(rectangle.column);
       const z1 = toWorld(rectangle.column + rectangle.width);
-      appendQuad(
-        buckets[3],
-        [
-          [x0, plane, z0],
-          [x1, plane, z0],
-          [x1, plane, z1],
-          [x0, plane, z1],
-        ],
-        [0, -1, 0],
-      );
+      parts.push({
+        geometry: buildQuadGeometry(
+          [
+            [x0, plane, z0],
+            [x1, plane, z0],
+            [x1, plane, z1],
+            [x0, plane, z1],
+          ],
+          [0, -1, 0],
+        ),
+        materialIndex: 3,
+      });
     }
   }
 
@@ -386,16 +407,18 @@ function buildVoxelSurfaceGeometry(
       const x1 = toWorld(rectangle.row + rectangle.height);
       const y0 = toWorld(rectangle.column);
       const y1 = toWorld(rectangle.column + rectangle.width);
-      appendQuad(
-        buckets[4],
-        [
-          [x0, y0, plane],
-          [x1, y0, plane],
-          [x1, y1, plane],
-          [x0, y1, plane],
-        ],
-        [0, 0, 1],
-      );
+      parts.push({
+        geometry: buildQuadGeometry(
+          [
+            [x0, y0, plane],
+            [x1, y0, plane],
+            [x1, y1, plane],
+            [x0, y1, plane],
+          ],
+          [0, 0, 1],
+        ),
+        materialIndex: 4,
+      });
     }
 
     const negativeZMask = Array.from({ length: GRID_SIZE }, (_, x) =>
@@ -412,47 +435,22 @@ function buildVoxelSurfaceGeometry(
       const x1 = toWorld(rectangle.row + rectangle.height);
       const y0 = toWorld(rectangle.column);
       const y1 = toWorld(rectangle.column + rectangle.width);
-      appendQuad(
-        buckets[5],
-        [
-          [x0, y1, plane],
-          [x1, y1, plane],
-          [x1, y0, plane],
-          [x0, y0, plane],
-        ],
-        [0, 0, -1],
-      );
+      parts.push({
+        geometry: buildQuadGeometry(
+          [
+            [x0, y1, plane],
+            [x1, y1, plane],
+            [x1, y0, plane],
+            [x0, y0, plane],
+          ],
+          [0, 0, -1],
+        ),
+        materialIndex: 5,
+      });
     }
   }
 
-  const positions: number[] = [];
-  const normals: number[] = [];
-  const indices: number[] = [];
-  const geometry = new THREE.BufferGeometry();
-  let vertexOffset = 0;
-  let indexOffset = 0;
-
-  for (const [materialIndex, bucket] of buckets.entries()) {
-    positions.push(...bucket.positions);
-    normals.push(...bucket.normals);
-    indices.push(...bucket.indices.map((index) => index + vertexOffset));
-    geometry.addGroup(indexOffset, bucket.indices.length, materialIndex);
-    vertexOffset += bucket.positions.length / 3;
-    indexOffset += bucket.indices.length;
-  }
-
-  geometry.setAttribute(
-    "position",
-    new THREE.Float32BufferAttribute(positions, 3),
-  );
-  geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
-  geometry.setIndex(indices);
-
-  if (positions.length > 0) {
-    geometry.computeBoundingSphere();
-  }
-
-  return geometry;
+  return parts;
 }
 
 function pointToVoxelCoordinate(point: THREE.Vector3): VoxelCoordinate | null {
@@ -483,21 +481,84 @@ function applyFaceColors(
   materials[5].color.set(leftHex);
 }
 
+function applyMaterialOpacity(
+  materials: THREE.MeshBasicMaterial[],
+  opacity: number,
+) {
+  const normalizedOpacity = THREE.MathUtils.clamp(opacity, 0, 1);
+  const isTransparent = normalizedOpacity < 1;
+  const nextSide = isTransparent ? THREE.DoubleSide : THREE.FrontSide;
+
+  for (const material of materials) {
+    material.opacity = normalizedOpacity;
+    // Avoid transparent draws writing depth while alpha blending the logo study.
+    material.depthWrite = !isTransparent;
+    let needsUpdate = false;
+    if (material.side !== nextSide) {
+      material.side = nextSide;
+      needsUpdate = true;
+    }
+    if (material.transparent !== isTransparent) {
+      material.transparent = isTransparent;
+      needsUpdate = true;
+    }
+    if (needsUpdate) {
+      material.needsUpdate = true;
+    }
+  }
+}
+
 function replaceLogoGeometry(
   sceneState: SceneState,
   nextFilledVoxels: Set<string>,
   syncCameraFitRadius: boolean,
 ) {
-  const nextGeometry = buildVoxelSurfaceGeometry(nextFilledVoxels);
-  const previousGeometry = sceneState.logoMesh.geometry;
-  sceneState.logoMesh.geometry = nextGeometry;
+  const nextParts = buildVoxelSurfaceGeometries(nextFilledVoxels);
+  const previousLogoMeshes = sceneState.logoMeshes;
+  for (const logoMesh of previousLogoMeshes) {
+    sceneState.logoGroup.remove(logoMesh);
+    logoMesh.geometry.dispose();
+  }
+  sceneState.logoMeshes = nextParts.map(({ geometry, materialIndex }) => {
+    const logoMesh = new THREE.Mesh(
+      geometry,
+      sceneState.cubeMaterials[materialIndex],
+    );
+    sceneState.logoGroup.add(logoMesh);
+    return logoMesh;
+  });
   sceneState.currentFilledVoxels = new Set(nextFilledVoxels);
   if (syncCameraFitRadius) {
-    sceneState.cameraFitRadius =
-      nextGeometry.boundingSphere?.radius ?? sceneState.cameraFitRadius;
+    sceneState.cameraFitRadius = getGeometryFitRadius(
+      nextParts.map(({ geometry }) => geometry),
+    );
   }
-  previousGeometry.dispose();
   sceneState.resizeScene();
+}
+
+function syncTransparentFaceRenderOrder(sceneState: SceneState) {
+  sceneState.camera.updateMatrixWorld();
+  sceneState.logoGroup.updateMatrixWorld(true);
+
+  const meshes = [
+    ...sceneState.logoMeshes,
+    ...sceneState.activeCubeMoves
+      .filter((move) => move.mesh.visible)
+      .map((move) => move.mesh),
+  ];
+  const meshDepths = meshes.map((mesh) => {
+    const cameraSpaceCenter = (
+      mesh.geometry.boundingSphere?.center.clone() ?? new THREE.Vector3()
+    ).applyMatrix4(mesh.matrixWorld);
+    cameraSpaceCenter.applyMatrix4(sceneState.camera.matrixWorldInverse);
+    return { depth: cameraSpaceCenter.z, mesh };
+  });
+
+  meshDepths
+    .sort((left, right) => left.depth - right.depth)
+    .forEach(({ mesh }, index) => {
+      mesh.renderOrder = index;
+    });
 }
 
 function clearActiveCubeMoves(sceneState: SceneState) {
@@ -645,6 +706,7 @@ export function NLogoScene({
   editMode,
   elevationDegrees,
   faceColors,
+  opacity,
   onInteractionStart,
   onViewChange,
   onVoxelEdit,
@@ -660,6 +722,7 @@ export function NLogoScene({
   const elevationDegreesRef = useRef(elevationDegrees);
   const voxelStateRef = useRef(voxelState);
   const faceColorsRef = useRef(faceColors);
+  const opacityRef = useRef(opacity);
   const shuffleAnimationRef = useRef(shuffleAnimation);
   const onInteractionStartRef = useRef(onInteractionStart);
   const onViewChangeRef = useRef(onViewChange);
@@ -694,6 +757,10 @@ export function NLogoScene({
   useEffect(() => {
     onInteractionStartRef.current = onInteractionStart;
   }, [onInteractionStart]);
+
+  useEffect(() => {
+    opacityRef.current = opacity;
+  }, [opacity]);
 
   useEffect(() => {
     onViewChangeRef.current = onViewChange;
@@ -744,18 +811,23 @@ export function NLogoScene({
       new THREE.MeshBasicMaterial(),
     ];
     applyFaceColors(materials, faceColorsRef.current);
+    applyMaterialOpacity(materials, opacityRef.current);
     const initialFilledVoxels =
       parseVoxelState(voxelStateRef.current) ?? createDefaultFilledVoxelSet();
-    const logoMesh = new THREE.Mesh(
-      buildVoxelSurfaceGeometry(initialFilledVoxels),
-      materials,
+    const logoParts = buildVoxelSurfaceGeometries(initialFilledVoxels);
+    const logoMeshes = logoParts.map(
+      ({ geometry, materialIndex }) =>
+        new THREE.Mesh(geometry, materials[materialIndex]),
     );
     const logoGroup = new THREE.Group();
-    logoGroup.add(logoMesh);
+    for (const logoMesh of logoMeshes) {
+      logoGroup.add(logoMesh);
+    }
     scene.add(logoGroup);
     const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const initialCameraFitRadius =
-      logoMesh.geometry.boundingSphere?.radius ?? HALF_GRID * Math.sqrt(3);
+    const initialCameraFitRadius = getGeometryFitRadius(
+      logoParts.map(({ geometry }) => geometry),
+    );
 
     const getFrustumHalfSpan = () => {
       const radius =
@@ -809,7 +881,7 @@ export function NLogoScene({
       activeCubeMoves: [],
       homeFilledVoxels: new Set(initialFilledVoxels),
       logoGroup,
-      logoMesh,
+      logoMeshes,
       raycaster: new THREE.Raycaster(),
       renderer,
       resizeScene,
@@ -845,6 +917,9 @@ export function NLogoScene({
         rotationDegreesRef.current,
       );
       updateCameraPosition();
+      if (sceneState) {
+        syncTransparentFaceRenderOrder(sceneState);
+      }
       renderer.render(scene, camera);
       animationFrameId = window.requestAnimationFrame(animate);
     };
@@ -858,8 +933,14 @@ export function NLogoScene({
       const activeSceneState = sceneStateRef.current;
       if (activeSceneState) {
         clearActiveCubeMoves(activeSceneState);
+        for (const logoMesh of activeSceneState.logoMeshes) {
+          logoMesh.geometry.dispose();
+        }
+      } else {
+        for (const logoMesh of logoMeshes) {
+          logoMesh.geometry.dispose();
+        }
       }
-      logoMesh.geometry.dispose();
       cubeGeometry.dispose();
       for (const material of materials) {
         material.dispose();
@@ -897,6 +978,17 @@ export function NLogoScene({
   }, [faceColors]);
 
   useEffect(() => {
+    opacityRef.current = opacity;
+
+    const sceneState = sceneStateRef.current;
+    if (!sceneState) {
+      return;
+    }
+
+    applyMaterialOpacity(sceneState.cubeMaterials, opacity);
+  }, [opacity]);
+
+  useEffect(() => {
     const sceneState = sceneStateRef.current;
     if (!sceneState) {
       return;
@@ -932,8 +1024,8 @@ export function NLogoScene({
       new THREE.Vector2(x, y),
       sceneState.camera,
     );
-    const intersections = sceneState.raycaster.intersectObject(
-      sceneState.logoMesh,
+    const intersections = sceneState.raycaster.intersectObjects(
+      sceneState.logoMeshes,
       false,
     );
     if (intersections.length === 0) {
@@ -941,7 +1033,7 @@ export function NLogoScene({
     }
     const intersection = intersections[0];
 
-    const localPoint = sceneState.logoMesh.worldToLocal(
+    const localPoint = sceneState.logoGroup.worldToLocal(
       intersection.point.clone(),
     );
     const intersectionNormal = intersection.normal ?? intersection.face?.normal;
