@@ -11,6 +11,9 @@ const AUTH_FLAG_KEY = "noter_was_authenticated";
 const CONVEX_AUTH_STORAGE_KEY_PREFIX = "__convexAuth";
 const GOOGLE_AUTH_BUTTON_ID = "public-landing-google-button";
 const FAST_LANDING_APP_BOOT_DELAY_MS = 150;
+const PUBLIC_LANDING_CONTENT_TEST_ID = "public-landing-content";
+const PUBLIC_LANDING_WAITLIST_PLACEHOLDER_TEST_ID =
+  "public-landing-waitlist-placeholder";
 
 let appLoadPromise: Promise<void> | null = null;
 
@@ -138,7 +141,7 @@ function renderFastLandingShell() {
       </div>
       <main class="flex grow flex-col overflow-hidden">
         <div class="container my-auto">
-          <div class="mx-auto flex max-w-[384px] flex-col gap-4 pb-8">
+          <div data-testid="${PUBLIC_LANDING_CONTENT_TEST_ID}" class="mx-auto flex max-w-[384px] flex-col gap-4 pb-8">
             <div class="space-y-4 text-sm">
               <div class="space-y-2">
                 <h1 class="text-pretty text-lg font-medium tracking-tight">${escapeHtml(
@@ -161,10 +164,24 @@ function renderFastLandingShell() {
             <button
               id="${GOOGLE_AUTH_BUTTON_ID}"
               type="button"
-              class="inline-flex h-10 items-center justify-center whitespace-nowrap border border-input bg-background px-4 py-2 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+              class="inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
             >
               Google
             </button>
+            <div
+              data-testid="${PUBLIC_LANDING_WAITLIST_PLACEHOLDER_TEST_ID}"
+              aria-hidden="true"
+              class="flex flex-col gap-2 border-t pt-2"
+            >
+              <div class="flex gap-2">
+                <div class="flex h-9 flex-1 items-center rounded-md border border-input bg-transparent px-3 py-1 text-sm text-muted-foreground">
+                  email@example.com
+                </div>
+                <div class="inline-flex h-9 shrink-0 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-muted-foreground shadow-sm">
+                  Join Waitlist
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </main>

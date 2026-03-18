@@ -28,7 +28,10 @@ export function SignInForm() {
 
   return (
     <div className="container my-auto">
-      <div className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8">
+      <div
+        data-testid="public-landing-content"
+        className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8"
+      >
         {isLandingCopyEditable ? (
           <Suspense fallback={<LandingCopy className="text-sm" />}>
             <EditableLandingCopy

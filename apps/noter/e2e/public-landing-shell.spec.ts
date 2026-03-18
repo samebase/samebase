@@ -22,11 +22,38 @@ test("public landing shell renders before the full app UI takes over", async ({
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   await expect(page.getByTestId("public-landing-shell")).toBeVisible();
+  await expect(
+    page.getByTestId("public-landing-waitlist-placeholder"),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
   await expect(page.getByPlaceholder("email@example.com")).toHaveCount(0, {
     timeout: 200,
   });
   await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
+});
+
+test("public landing handoff keeps the card height stable", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const landingContent = page.getByTestId("public-landing-content");
+  await expect(landingContent).toBeVisible();
+
+  const shellHeight = await landingContent.evaluate((element) =>
+    Math.round(element.getBoundingClientRect().height),
+  );
+
+  await expect(
+    page.getByTestId("public-landing-waitlist-placeholder"),
+  ).toBeVisible();
+  await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
+
+  const fullAppHeight = await landingContent.evaluate((element) =>
+    Math.round(element.getBoundingClientRect().height),
+  );
+
+  expect(Math.abs(fullAppHeight - shellHeight)).toBeLessThanOrEqual(8);
 });
 
 test("public landing shell still renders when localStorage access is denied", async ({
