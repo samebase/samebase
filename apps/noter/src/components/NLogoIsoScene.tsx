@@ -214,6 +214,7 @@ function syncCubeShuffleAnimation(
 export function LogoIsoThumbnail({
   backgroundColor,
   className,
+  dataTestId,
   faceColors,
   size,
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
@@ -221,6 +222,7 @@ export function LogoIsoThumbnail({
 }: {
   backgroundColor: string;
   className?: string;
+  dataTestId?: string;
   faceColors: FaceColors;
   size: number;
   styleId?: LogoIsometricStyleId;
@@ -255,6 +257,7 @@ export function LogoIsoThumbnail({
   return (
     <canvas
       ref={canvasRef}
+      data-testid={dataTestId}
       className={className}
       height={LOGO_ISOMETRIC_CANVAS_HEIGHT}
       style={{

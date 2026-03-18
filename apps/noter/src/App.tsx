@@ -55,6 +55,11 @@ const LogoSingleCubeStudyPage = lazy(async () => {
   return { default: module.LogoSingleCubeStudyPage };
 });
 
+const LogoStaticSvgPage = lazy(async () => {
+  const module = await import("@/components/LogoStaticSvgPage");
+  return { default: module.LogoStaticSvgPage };
+});
+
 function useCloseOAuthPopup(pathname: string, enabled: boolean) {
   const { isAuthenticated } = useConvexAuth();
   useEffect(() => {
@@ -304,6 +309,7 @@ export default function App() {
       : location.pathname === "/logo-iso"
         ? "iso"
         : null;
+  const showLogoStaticSvg = location.pathname === "/logo-svg";
   const showLogoIsoStudy = location.pathname === "/logo-iso-study";
 
   if (logoPreviewMode !== null) {
@@ -318,6 +324,14 @@ export default function App() {
     return (
       <Suspense fallback={null}>
         <LogoSingleCubeStudyPage />
+      </Suspense>
+    );
+  }
+
+  if (showLogoStaticSvg) {
+    return (
+      <Suspense fallback={null}>
+        <LogoStaticSvgPage />
       </Suspense>
     );
   }

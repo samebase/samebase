@@ -14,12 +14,17 @@ import {
   SimpleViewVisualFixture,
   type SimpleViewVisualMode,
 } from "@/components/SimpleViewVisualFixture";
+import {
+  LogoSvgVisualFixture,
+  type LogoSvgVisualMode,
+} from "@/components/LogoSvgVisualFixture";
 import "./index.css";
 
 type VisualFixtureMode =
   | CommitReviewVisualMode
   | RepositoryMediaVisualMode
-  | SimpleViewVisualMode;
+  | SimpleViewVisualMode
+  | LogoSvgVisualMode;
 
 function readMode(): VisualFixtureMode {
   const value = new URLSearchParams(window.location.search).get("mode");
@@ -32,6 +37,7 @@ function readMode(): VisualFixtureMode {
     value === "conflict" ||
     value === "media-png" ||
     value === "media-svg" ||
+    value === "logo-svg-parity" ||
     value === "simple-repository-config" ||
     value === "simple-missing-config"
   ) {
@@ -48,6 +54,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <DialogProvider>
         {mode === "media-png" || mode === "media-svg" ? (
           <RepositoryMediaVisualFixture mode={mode} />
+        ) : mode === "logo-svg-parity" ? (
+          <LogoSvgVisualFixture />
         ) : mode === "simple-repository-config" ||
           mode === "simple-missing-config" ? (
           <SimpleViewVisualFixture mode={mode} />

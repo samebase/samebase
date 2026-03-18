@@ -72,6 +72,9 @@ export function LogoSingleCubeStudyPage() {
           <Button asChild size="sm" variant="outline" className="rounded-none">
             <Link to="/logo-iso">Iso</Link>
           </Button>
+          <Button asChild size="sm" variant="outline" className="rounded-none">
+            <Link to="/logo-svg">SVG</Link>
+          </Button>
           <Button size="sm" className="rounded-none">
             Single Cube Study
           </Button>
