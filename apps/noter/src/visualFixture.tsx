@@ -26,6 +26,7 @@ function readMode(): VisualFixtureMode {
   if (
     value === "inline" ||
     value === "deleted" ||
+    value === "deleted-markdown-link" ||
     value === "unchanged" ||
     value === "conflict" ||
     value === "media-png" ||

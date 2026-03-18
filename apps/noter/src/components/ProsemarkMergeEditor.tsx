@@ -47,17 +47,58 @@ type ProsemarkMergeEditorProps = {
 
 const externalValueSyncAnnotation = Annotation.define<boolean>();
 
+function resolveMergeOriginal(
+  value: string,
+  baseValue: string,
+): {
+  hideSyntheticTrailingNewlineDeletion: boolean;
+  original: string;
+} {
+  if (baseValue.length === 0 || baseValue.endsWith("\n")) {
+    return {
+      hideSyntheticTrailingNewlineDeletion: false,
+      original: baseValue,
+    };
+  }
+  if (!value.startsWith(baseValue)) {
+    return {
+      hideSyntheticTrailingNewlineDeletion: false,
+      original: baseValue,
+    };
+  }
+  if (
+    value.length <= baseValue.length ||
+    value.charAt(baseValue.length) !== "\n"
+  ) {
+    return {
+      hideSyntheticTrailingNewlineDeletion: false,
+      original: baseValue,
+    };
+  }
+  return {
+    hideSyntheticTrailingNewlineDeletion: true,
+    original: `${baseValue}\n`,
+  };
+}
+
 function buildMergeExtensions(
+  value: string,
   baseValue: string,
   options: ProsemarkMergeEditorOptions,
 ) {
+  const mergeOriginal = resolveMergeOriginal(value, baseValue);
   return [
     EditorState.allowMultipleSelections.of(true),
     drawSelection(),
     dropCursor(),
     rectangularSelection(),
+    mergeOriginal.hideSyntheticTrailingNewlineDeletion
+      ? EditorView.editorAttributes.of({
+          class: "cm-merge-hide-synthetic-trailing-newline",
+        })
+      : [],
     unifiedMergeView({
-      original: baseValue,
+      original: mergeOriginal.original,
       allowInlineDiffs: options.allowInlineDiffs,
       gutter: false,
       highlightChanges: true,
@@ -90,6 +131,16 @@ const prosemarkMergeTheme = EditorView.theme({
     {
       color: "rgb(190 24 93)",
       textDecoration: "none",
+    },
+  ".cm-deletedChunk .cm-url, .cm-deletedChunk .cm-rendered-link": {
+    color: "inherit",
+    cursor: "inherit",
+    pointerEvents: "none",
+    textDecoration: "none",
+  },
+  "&.cm-merge-hide-synthetic-trailing-newline .cm-deletedChunk:has(.cm-deletedLine:only-child > del:only-child > br:only-child)":
+    {
+      display: "none",
     },
   ".cm-deletedChunk .cm-chunkButtons": {
     display: "none",
@@ -186,6 +237,7 @@ export function ProsemarkMergeEditor({
         ),
         mergeCompartmentRef.current.of(
           buildMergeExtensions(
+            lastValueRef.current,
             lastBaseValueRef.current,
             lastOptionsRef.current,
           ),
@@ -253,14 +305,20 @@ export function ProsemarkMergeEditor({
     if (!view) return;
     view.dispatch({
       effects: mergeCompartmentRef.current.reconfigure(
-        buildMergeExtensions(baseValue, {
+        buildMergeExtensions(value, baseValue, {
           allowInlineDiffs,
           syntaxHighlightDeletions,
         }),
       ),
     });
     resizeToContent();
-  }, [baseValue, allowInlineDiffs, syntaxHighlightDeletions, resizeToContent]);
+  }, [
+    value,
+    baseValue,
+    allowInlineDiffs,
+    syntaxHighlightDeletions,
+    resizeToContent,
+  ]);
 
   useEffect(() => {
     const container = containerRef.current;
