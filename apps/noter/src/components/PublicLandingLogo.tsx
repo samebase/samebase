@@ -30,6 +30,7 @@ export function PublicLandingLogo() {
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [isSvgVisible, setIsSvgVisible] = useState(true);
   const backgroundColor = getTailwindColorHex("background-base");
+  const isSceneInteractive = isSceneReady && !isSvgVisible;
 
   useEffect(() => {
     let cancelled = false;
@@ -111,10 +112,10 @@ export function PublicLandingLogo() {
             aria-hidden="true"
             data-testid={PUBLIC_LANDING_LOGO_SCENE_TEST_ID}
             data-state={isSceneReady ? "ready" : "loading"}
-            className="pointer-events-none absolute inset-0 z-0"
+            className={`absolute inset-0 z-0 ${isSceneInteractive ? "pointer-events-auto" : "pointer-events-none"}`}
           >
             <LogoScene
-              className="h-full w-full"
+              className={`h-full w-full ${isSceneInteractive ? "cursor-grab active:cursor-grabbing" : ""}`}
               backgroundColor={backgroundColor}
               editMode="add"
               elevationDegrees={STATIC_LOGO_ELEVATION_DEGREES}
