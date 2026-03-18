@@ -94,6 +94,21 @@ test("shell waitlist focus survives the scheduled handoff", async ({
   await expect(page.getByPlaceholder("email@example.com")).toBeFocused();
 });
 
+test("shell waitlist blur clears pending focus restore intent", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const waitlistInput = page.getByPlaceholder("email@example.com");
+  const waitlistButton = page.getByRole("button", { name: "Join Waitlist" });
+
+  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
+  await waitlistInput.click();
+  await waitlistButton.click();
+  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
+  await expect(page.getByPlaceholder("email@example.com")).not.toBeFocused();
+});
+
 test("public landing handoff keeps the card height stable", async ({
   page,
 }) => {

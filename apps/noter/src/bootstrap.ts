@@ -306,26 +306,27 @@ function renderFastLandingShell() {
   root
     .querySelector<HTMLButtonElement>(`#${GOOGLE_AUTH_BUTTON_ID}`)
     ?.addEventListener("click", beginGoogleSignInFromShell);
-  root
-    .querySelector<HTMLInputElement>(
-      `#${PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID}`,
-    )
-    ?.addEventListener("focus", () => {
-      restoreHydratedWaitlistFocus = true;
-    });
-  root
-    .querySelector<HTMLInputElement>(
-      `#${PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID}`,
-    )
-    ?.addEventListener("input", (event) => {
-      const shellInput = event.currentTarget;
-      if (!(shellInput instanceof HTMLInputElement)) {
-        return;
-      }
+  const shellWaitlistInput = root.querySelector<HTMLInputElement>(
+    `#${PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID}`,
+  );
 
-      writePublicLandingWaitlistDraft(shellInput.value);
-      void ensureAppLoaded();
-    });
+  shellWaitlistInput?.addEventListener("focus", () => {
+    restoreHydratedWaitlistFocus = true;
+  });
+  shellWaitlistInput?.addEventListener("blur", (event) => {
+    if (event.relatedTarget instanceof HTMLElement) {
+      restoreHydratedWaitlistFocus = false;
+    }
+  });
+  shellWaitlistInput?.addEventListener("input", (event) => {
+    const shellInput = event.currentTarget;
+    if (!(shellInput instanceof HTMLInputElement)) {
+      return;
+    }
+
+    writePublicLandingWaitlistDraft(shellInput.value);
+    void ensureAppLoaded();
+  });
   root
     .querySelector<HTMLButtonElement>(
       `#${PUBLIC_LANDING_WAITLIST_SUBMIT_BUTTON_ID}`,
