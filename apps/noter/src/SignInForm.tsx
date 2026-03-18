@@ -1,5 +1,6 @@
 import { isInIframe, openAuthPopup, setAuthProvider } from "@/authClient";
 import { LandingCopy } from "@/components/LandingCopy";
+import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { PublicLandingLogo } from "@/components/PublicLandingLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,16 +15,12 @@ import {
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
 import { Chrome } from "lucide-react";
-import { Suspense, lazy, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../convex/_generated/api";
 
 const DEV_PASSWORD_EMAIL = "nicu@noter.md";
 const DEV_PASSWORD_VALUE = "pass1234";
-const EditableLandingCopy = lazy(async () => {
-  const module = await import("@/components/ProsemarkReadOnly");
-  return { default: module.ProsemarkReadOnly };
-});
 
 export function SignInForm() {
   const [searchParams] = useSearchParams();
@@ -43,19 +40,17 @@ export function SignInForm() {
         className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8"
       >
         <PublicLandingLogo autoRotate={isLandingCopyEditable} />
-        <Suspense
-          fallback={
-            <LandingCopy className="text-sm" markdown={landingMarkdownDraft} />
-          }
-        >
-          <EditableLandingCopy
+        {isLandingCopyEditable ? (
+          <ProsemarkReadOnly
             value={landingMarkdownDraft}
             className="text-sm"
-            editable={isLandingCopyEditable}
+            editable
             styleVariant="landingCopy"
             onChange={setLandingMarkdownDraft}
           />
-        </Suspense>
+        ) : (
+          <LandingCopy className="text-sm" markdown={landingMarkdownDraft} />
+        )}
         <div className="flex flex-col gap-2">
           <SignInWithGoogle />
           {showPasswordAuth ? <PasswordAuthForm /> : null}

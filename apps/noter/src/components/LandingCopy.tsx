@@ -1,10 +1,5 @@
-import {
-  landingPageBullets,
-  landingPageMarkdown,
-  landingPageSlogan,
-  parseLandingCopyMarkdown,
-} from "@/lib/landingCopy";
-import { cn } from "@/lib/utils";
+import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
+import { landingPageMarkdown } from "@/lib/landingCopy";
 
 export function LandingCopy({
   className,
@@ -13,32 +8,11 @@ export function LandingCopy({
   className?: string;
   markdown?: string;
 }) {
-  const { bullets, slogan } =
-    markdown === landingPageMarkdown
-      ? { bullets: [...landingPageBullets], slogan: landingPageSlogan }
-      : parseLandingCopyMarkdown(markdown);
-
   return (
-    <div className={cn("space-y-4", className)}>
-      {slogan.length > 0 ? (
-        <div className="space-y-2">
-          <h1 className="text-pretty text-lg font-medium tracking-tight">
-            {slogan}
-          </h1>
-        </div>
-      ) : null}
-      {bullets.length > 0 ? (
-        <ul className="space-y-2 text-muted-foreground">
-          {bullets.map((bullet, index) => (
-            <li key={`${index}:${bullet}`} className="flex gap-2">
-              <span aria-hidden="true" className="text-foreground">
-                -
-              </span>
-              <span>{bullet}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
+    <ProsemarkReadOnly
+      value={markdown}
+      className={className}
+      styleVariant="landingCopy"
+    />
   );
 }

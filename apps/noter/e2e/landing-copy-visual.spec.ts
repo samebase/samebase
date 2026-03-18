@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
 
-test("landing copy default and editable render identically", async ({
+test("landing copy and prosemark render identically", async ({
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -18,17 +18,17 @@ test("landing copy default and editable render identically", async ({
     maxDiffPixelRatio: 0.01,
   });
 
-  const defaultCopy = page.getByTestId("landing-copy-default");
-  const editableCopy = page.getByTestId("landing-copy-editable");
+  const landingCopy = page.getByTestId("landing-copy-tailwind");
+  const prosemarkCopy = page.getByTestId("landing-copy-prosemark");
 
-  const [defaultScreenshot, editableScreenshot] = await Promise.all([
-    takeStableScreenshot(defaultCopy),
-    takeStableScreenshot(editableCopy),
+  const [landingScreenshot, prosemarkScreenshot] = await Promise.all([
+    takeStableScreenshot(landingCopy),
+    takeStableScreenshot(prosemarkCopy),
   ]);
 
   await expectScreenshotsToMatch({
-    actual: defaultScreenshot,
-    expected: editableScreenshot,
+    actual: landingScreenshot,
+    expected: prosemarkScreenshot,
     artifactPrefix: "landing-copy-parity",
     maxDiffPixelRatio: 0,
     testInfo,
