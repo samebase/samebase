@@ -318,7 +318,11 @@ them directly using CLI tools.
   local branch, and delete its remote branch if it still exists. If vault
   cleanup cannot be verified safely, stop and report instead of guessing.
 - When the user asks to "open a PR" (or `create pr`), always write a normal PR
-  description (summary, key changes, validation). Never leave the PR body empty.
+  description (`Why`, summary, key changes, validation). Never leave the PR body
+  empty.
+- PR descriptions must explain why the change exists, not just what changed. If
+  a PR is split out from a broader branch or effort, say that explicitly in the
+  `Why` section so reviewers have the missing context.
 - When the user asks to "open a PR" (or `create pr`), mark it ready for review
   by default. Only keep it as draft if the user explicitly asks for draft.
 - Update PR description with `gh pr edit --body` when commits change scope
