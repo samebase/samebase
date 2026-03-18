@@ -145,15 +145,18 @@ The playground should expose at least these presets:
 
 ### 2. Palette source
 
-- The palette should come from a fixed Tailwind-style color set exposed by the
-  playground.
+- The palette should come from the Tailwind color system used by the app.
+- Theme-backed families must also be available:
+  - `Primary`
+  - `Background`
+  - `Secondary`
 
 ### 3. Defaults
 
-- Left face defaults to `Stone 900`.
-- Right face defaults to `White`.
-- Top face defaults to `Stone 100`.
-- The page background uses `White`.
+- Left face defaults to app `Primary`.
+- Right face defaults to app `Background`.
+- Top face defaults to app `Secondary`.
+- The page background uses the app `Background` token.
 
 ### 4. Query-param scope
 
@@ -228,6 +231,10 @@ The current implemented baseline includes:
 
 ## Open Questions
 
+- Should app-wide theme experimentation be supported through query params such
+  as `theme-primary=lime-700`?
+- If theme query params are added, should they affect only `/logo` or the full
+  app shell?
 - Should hidden/internal voxels eventually get a secondary editing affordance,
   such as layer grids, or remain intentionally inaccessible?
 
