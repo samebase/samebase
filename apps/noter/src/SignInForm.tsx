@@ -5,10 +5,15 @@ import { Input } from "@/components/ui/input";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { landingPageMarkdown } from "@/lib/landingCopy";
 import { isProdUiModeEnabled } from "@/lib/prodUiMode";
+import {
+  clearPublicLandingWaitlistDraft,
+  readPublicLandingWaitlistDraft,
+  writePublicLandingWaitlistDraft,
+} from "@/lib/publicLandingWaitlistDraft";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
 import { Chrome } from "lucide-react";
-import { Suspense, lazy, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../convex/_generated/api";
 
@@ -55,8 +60,18 @@ export function SignInForm() {
 
 function WaitlistForm() {
   const joinWaitlist = useMutation(api.waitlist.joinWaitlist);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(readPublicLandingWaitlistDraft);
   const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    writePublicLandingWaitlistDraft(email);
+  }, [email]);
+
+  useEffect(() => {
+    return () => {
+      clearPublicLandingWaitlistDraft();
+    };
+  }, []);
 
   if (submitted) {
     return (
@@ -73,9 +88,10 @@ function WaitlistForm() {
         onSubmit={(e) => {
           e.preventDefault();
           if (!email.trim()) return;
-          void joinWaitlist({ email: email.trim() }).then(() =>
-            setSubmitted(true),
-          );
+          void joinWaitlist({ email: email.trim() }).then(() => {
+            clearPublicLandingWaitlistDraft();
+            setSubmitted(true);
+          });
         }}
       >
         <Input
