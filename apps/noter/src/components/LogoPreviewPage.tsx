@@ -136,7 +136,7 @@ function isLogoPresetId(value: string): value is LogoPresetId {
 
 export function LogoPreviewPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const backgroundColor = getTailwindColorHex("white-base");
+  const backgroundColor = getTailwindColorHex("background-base");
   const [rotationDegrees, setRotationDegrees] = useState(
     DEFAULT_ROTATION_DEGREES,
   );
@@ -173,6 +173,29 @@ export function LogoPreviewPage() {
       setSearchParams(nextSearchParams, { replace: true });
     }
   }, [searchParams, setSearchParams, voxelState]);
+
+  useEffect(() => {
+    const documentElementStyle = document.documentElement.style;
+    const bodyStyle = document.body.style;
+    const previousDocumentOverflow = documentElementStyle.overflow;
+    const previousDocumentOverscrollBehavior =
+      documentElementStyle.overscrollBehavior;
+    const previousBodyOverflow = bodyStyle.overflow;
+    const previousBodyOverscrollBehavior = bodyStyle.overscrollBehavior;
+
+    documentElementStyle.overflow = "hidden";
+    documentElementStyle.overscrollBehavior = "none";
+    bodyStyle.overflow = "hidden";
+    bodyStyle.overscrollBehavior = "none";
+
+    return () => {
+      documentElementStyle.overflow = previousDocumentOverflow;
+      documentElementStyle.overscrollBehavior =
+        previousDocumentOverscrollBehavior;
+      bodyStyle.overflow = previousBodyOverflow;
+      bodyStyle.overscrollBehavior = previousBodyOverscrollBehavior;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isAutoRotating) {
@@ -295,10 +318,7 @@ export function LogoPreviewPage() {
   };
 
   return (
-    <div
-      className="relative h-screen w-full overflow-hidden"
-      style={{ backgroundColor }}
-    >
+    <div className="fixed inset-0 overflow-hidden" style={{ backgroundColor }}>
       <NLogoScene
         backgroundColor={backgroundColor}
         className="absolute inset-0 h-full w-full cursor-grab touch-none select-none active:cursor-grabbing"
@@ -316,7 +336,10 @@ export function LogoPreviewPage() {
         }}
         voxelState={voxelState}
       />
-      <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-3 sm:inset-x-4 sm:top-4">
+      <div
+        className="pointer-events-none fixed inset-x-3 top-3 z-10 flex items-start justify-between gap-3 sm:inset-x-4 sm:top-4"
+        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+      >
         <Popover open={isControlsOpen} onOpenChange={setIsControlsOpen}>
           <div className="pointer-events-auto flex items-center gap-2 border border-black/10 bg-white/84 p-2 backdrop-blur-sm">
             <PopoverTrigger asChild>
@@ -355,7 +378,11 @@ export function LogoPreviewPage() {
             align="start"
             side="bottom"
             sideOffset={10}
-            className="w-[min(22rem,calc(100vw-1.5rem))] max-h-[calc(100vh-5.5rem)] overflow-y-auto rounded-none border-black/10 bg-white/92 p-3 shadow-lg backdrop-blur-sm"
+            className="w-[min(22rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-none border-black/10 bg-white/92 p-3 shadow-lg backdrop-blur-sm"
+            style={{
+              maxHeight:
+                "calc(100dvh - env(safe-area-inset-top, 0px) - 5.5rem)",
+            }}
           >
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
               Logo Controls
