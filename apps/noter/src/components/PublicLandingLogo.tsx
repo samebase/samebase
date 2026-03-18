@@ -5,6 +5,7 @@ import {
   STATIC_LOGO_ROTATION_DEGREES,
   STATIC_LOGO_VOXEL_STATE,
 } from "@/components/logoStaticSvgContract";
+import { normalizeRotationDegrees } from "@/components/logoVoxelState";
 import {
   PUBLIC_LANDING_LOGO_ALT,
   PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME,
@@ -17,22 +18,30 @@ import {
   PUBLIC_LANDING_LOGO_TEST_ID,
   PUBLIC_LANDING_LOGO_WIDTH,
 } from "@/lib/publicLandingLogo";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type LandingLogoSceneComponent =
   typeof import("@/components/NLogoScene").NLogoScene;
 
-export function PublicLandingLogo() {
+const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
+
+export function PublicLandingLogo({
+  autoRotate = false,
+}: {
+  autoRotate?: boolean;
+}) {
   const [LogoScene, setLogoScene] = useState<LandingLogoSceneComponent | null>(
     null,
   );
   const [didSceneFail, setDidSceneFail] = useState(false);
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [isSvgVisible, setIsSvgVisible] = useState(true);
+  const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
   const [view, setView] = useState(() => ({
     elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
     rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
   }));
+  const lastFrameTimeRef = useRef<number | null>(null);
   const backgroundColor = getTailwindColorHex("background-base");
   const isSceneInteractive = isSceneReady && !isSvgVisible;
 
@@ -94,6 +103,52 @@ export function PublicLandingLogo() {
     };
   }, [isSceneReady, isSvgVisible]);
 
+  useEffect(() => {
+    setIsAutoRotating(autoRotate);
+    lastFrameTimeRef.current = null;
+
+    if (autoRotate) {
+      return;
+    }
+
+    setView({
+      elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
+      rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
+    });
+  }, [autoRotate]);
+
+  useEffect(() => {
+    if (!isAutoRotating) {
+      lastFrameTimeRef.current = null;
+      return;
+    }
+
+    let animationFrameId = 0;
+
+    const step = (timestamp: number) => {
+      const lastFrameTime = lastFrameTimeRef.current;
+      if (lastFrameTime !== null) {
+        const deltaSeconds = (timestamp - lastFrameTime) / 1000;
+        setView((currentView) => ({
+          ...currentView,
+          rotationDegrees: normalizeRotationDegrees(
+            currentView.rotationDegrees +
+              deltaSeconds * AUTO_ROTATE_DEGREES_PER_SECOND,
+          ),
+        }));
+      }
+      lastFrameTimeRef.current = timestamp;
+      animationFrameId = window.requestAnimationFrame(step);
+    };
+
+    animationFrameId = window.requestAnimationFrame(step);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrameId);
+      lastFrameTimeRef.current = null;
+    };
+  }, [isAutoRotating]);
+
   return (
     <div className={PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME}>
       <div
@@ -125,6 +180,9 @@ export function PublicLandingLogo() {
               elevationDegrees={view.elevationDegrees}
               faceColors={STATIC_LOGO_FACE_COLORS}
               opacity={1}
+              onInteractionStart={() => {
+                setIsAutoRotating(false);
+              }}
               onRenderReady={() => {
                 setIsSceneReady(true);
               }}
