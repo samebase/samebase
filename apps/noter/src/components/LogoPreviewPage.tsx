@@ -67,11 +67,18 @@ import {
 } from "@/lib/queryParams";
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
-const CONTROLS_POPOVER_TOP_OFFSET = "5.5rem";
+const CONTROLS_POPOVER_SIDE_OFFSET_PX = 10;
+const CONTROLS_POPOVER_VIEWPORT_PADDING_PX = 16;
+const DEFAULT_CONTROLS_POPOVER_MAX_HEIGHT =
+  "calc(100dvh - env(safe-area-inset-top, 0px) - 5.5rem)";
 const FACE_COLOR_LABELS: Record<FaceColorKey, string> = {
   left: "Left",
   right: "Right",
   top: "Top",
+};
+const EDIT_MODE_BUTTON_CLASS_NAMES: Record<VoxelEdit["kind"], string> = {
+  add: "border-emerald-500/30 bg-emerald-500/15 text-emerald-950 hover:bg-emerald-500/25",
+  remove: "border-red-500/30 bg-red-500/15 text-red-950 hover:bg-red-500/25",
 };
 
 function parseShuffleParallelMoves(value: string): LogoShuffleParallelMoves {
@@ -143,6 +150,7 @@ function isLogoPresetId(value: string): value is LogoPresetId {
 export function LogoPreviewPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const backgroundColor = getTailwindColorHex("background-base");
+  const controlsToolbarRef = useRef<HTMLDivElement | null>(null);
   const [rotationDegrees, setRotationDegrees] = useState(
     DEFAULT_ROTATION_DEGREES,
   );
@@ -152,6 +160,7 @@ export function LogoPreviewPage() {
   const [voxelState, setVoxelState] = useState(() =>
     readVoxelState(searchParams),
   );
+  const [editMode, setEditMode] = useState<VoxelEdit["kind"]>("add");
   const [selectedPresetId, setSelectedPresetId] = useState<LogoPresetSelection>(
     () => readLogoPresetSelection(searchParams),
   );
@@ -165,6 +174,9 @@ export function LogoPreviewPage() {
   const [isFaceColorsOpen, setIsFaceColorsOpen] = useState(false);
   const [isVoxelMapOpen, setIsVoxelMapOpen] = useState(false);
   const lastFrameTimeRef = useRef<number | null>(null);
+  const [controlsPopoverMaxHeight, setControlsPopoverMaxHeight] = useState(
+    DEFAULT_CONTROLS_POPOVER_MAX_HEIGHT,
+  );
 
   useEffect(() => {
     setVoxelState(readVoxelState(searchParams));
@@ -204,6 +216,38 @@ export function LogoPreviewPage() {
         previousDocumentOverscrollBehavior;
       bodyStyle.overflow = previousBodyOverflow;
       bodyStyle.overscrollBehavior = previousBodyOverscrollBehavior;
+    };
+  }, []);
+
+  useEffect(() => {
+    const toolbar = controlsToolbarRef.current;
+    if (!toolbar) {
+      return;
+    }
+
+    const updateControlsPopoverMaxHeight = () => {
+      const nextMaxHeight = Math.max(
+        window.innerHeight -
+          toolbar.getBoundingClientRect().bottom -
+          CONTROLS_POPOVER_SIDE_OFFSET_PX -
+          CONTROLS_POPOVER_VIEWPORT_PADDING_PX,
+        160,
+      );
+      setControlsPopoverMaxHeight(`${nextMaxHeight}px`);
+    };
+
+    updateControlsPopoverMaxHeight();
+
+    const resizeObserver = new ResizeObserver(() => {
+      window.requestAnimationFrame(updateControlsPopoverMaxHeight);
+    });
+    resizeObserver.observe(toolbar);
+
+    window.addEventListener("resize", updateControlsPopoverMaxHeight);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateControlsPopoverMaxHeight);
     };
   }, []);
 
@@ -332,6 +376,7 @@ export function LogoPreviewPage() {
       <NLogoScene
         backgroundColor={backgroundColor}
         className="absolute inset-0 h-full w-full cursor-grab touch-none select-none active:cursor-grabbing"
+        editMode={editMode}
         elevationDegrees={elevationDegrees}
         faceColors={faceColors}
         onInteractionStart={() => {
@@ -347,11 +392,14 @@ export function LogoPreviewPage() {
         voxelState={voxelState}
       />
       <div
-        className="pointer-events-none fixed inset-x-3 top-3 z-10 flex items-start justify-between gap-3 sm:inset-x-4 sm:top-4"
+        className="pointer-events-none fixed inset-x-2 top-2 z-10 flex items-start justify-between gap-2 sm:inset-x-4 sm:top-4"
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
         <Popover open={isControlsOpen} onOpenChange={setIsControlsOpen}>
-          <div className="pointer-events-auto flex items-center gap-2 border border-black/10 bg-white/84 p-2 backdrop-blur-sm">
+          <div
+            ref={controlsToolbarRef}
+            className="pointer-events-auto flex flex-wrap items-center gap-1.5 border border-black/10 bg-white/84 p-1.5 backdrop-blur-sm sm:gap-2 sm:p-2"
+          >
             <PopoverTrigger asChild>
               <Button
                 type="button"
@@ -383,21 +431,36 @@ export function LogoPreviewPage() {
             >
               Shuffle
             </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              aria-label={`Current edit mode: ${editMode}. Tap to switch modes.`}
+              className={`rounded-none border-black/10 text-xs ${EDIT_MODE_BUTTON_CLASS_NAMES[editMode]}`}
+              onClick={() => {
+                setEditMode((currentMode) =>
+                  currentMode === "add" ? "remove" : "add",
+                );
+              }}
+            >
+              {editMode === "add" ? "Add" : "Remove"}
+            </Button>
           </div>
           <PopoverContent
             align="start"
             side="bottom"
-            sideOffset={10}
+            sideOffset={CONTROLS_POPOVER_SIDE_OFFSET_PX}
             className="w-[min(22rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-none border-black/10 bg-white/92 p-3 shadow-lg backdrop-blur-sm"
             style={{
-              maxHeight: `calc(100dvh - env(safe-area-inset-top, 0px) - ${CONTROLS_POPOVER_TOP_OFFSET})`,
+              maxHeight: controlsPopoverMaxHeight,
             }}
           >
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
               Logo Controls
             </div>
             <div className="mt-1 text-xs text-black/55">
-              Drag to orbit. Left adds. Right removes.
+              Drag to orbit. Tap or click to {editMode}. Use the green or red
+              toolbar toggle to switch modes.
             </div>
             <div className="mt-4 grid gap-3">
               <Collapsible

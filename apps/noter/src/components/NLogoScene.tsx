@@ -57,7 +57,7 @@ type FaceBuckets = {
 };
 
 type SceneInteraction = {
-  button: 0 | 2 | null;
+  button: 0 | null;
   pointerId: number | null;
   startElevationDegrees: number;
   startRotationDegrees: number;
@@ -96,6 +96,7 @@ type SceneState = {
 type NLogoSceneProps = {
   backgroundColor: string;
   className?: string;
+  editMode: VoxelEdit["kind"];
   elevationDegrees: number;
   faceColors: FaceColors;
   onInteractionStart?: () => void;
@@ -641,6 +642,7 @@ function syncCubeShuffleAnimation(
 export function NLogoScene({
   backgroundColor,
   className,
+  editMode,
   elevationDegrees,
   faceColors,
   onInteractionStart,
@@ -653,6 +655,7 @@ export function NLogoScene({
   const mountRef = useRef<HTMLDivElement | null>(null);
   const sceneStateRef = useRef<SceneState | null>(null);
   const backgroundColorRef = useRef(backgroundColor);
+  const editModeRef = useRef(editMode);
   const rotationDegreesRef = useRef(rotationDegrees);
   const elevationDegreesRef = useRef(elevationDegrees);
   const voxelStateRef = useRef(voxelState);
@@ -675,6 +678,10 @@ export function NLogoScene({
   useEffect(() => {
     backgroundColorRef.current = backgroundColor;
   }, [backgroundColor]);
+
+  useEffect(() => {
+    editModeRef.current = editMode;
+  }, [editMode]);
 
   useEffect(() => {
     rotationDegreesRef.current = rotationDegrees;
@@ -980,7 +987,7 @@ export function NLogoScene({
   };
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0 && event.button !== 2) {
+    if (event.button !== 0) {
       return;
     }
 
@@ -1038,15 +1045,12 @@ export function NLogoScene({
       return;
     }
 
-    if (interaction.button === 0 && interaction.status !== "dragging") {
-      const edit = pickVoxelEdit(event.clientX, event.clientY, "add");
-      if (edit) {
-        onVoxelEditRef.current(edit);
-      }
-    }
-
-    if (interaction.button === 2) {
-      const edit = pickVoxelEdit(event.clientX, event.clientY, "remove");
+    if (interaction.status !== "dragging") {
+      const edit = pickVoxelEdit(
+        event.clientX,
+        event.clientY,
+        editModeRef.current,
+      );
       if (edit) {
         onVoxelEditRef.current(edit);
       }
