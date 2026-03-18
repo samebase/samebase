@@ -1,4 +1,7 @@
-import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
+import {
+  buildLandingDevToggleHref,
+  getLandingDevToggleLabel,
+} from "@/lib/landingDevMode";
 import { ReactNode, useEffect, type MouseEvent } from "react";
 import { useConvexAuth } from "convex/react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -13,13 +16,13 @@ export function Layout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const landingDevModeEnabled = isLandingDevModeEnabled(searchParams);
   const showLandingDevToggle =
     !isLoading &&
     !isAuthenticated &&
     location.pathname === "/" &&
     !searchParams.has("auth");
-  const landingDevToggleHref = landingDevModeEnabled ? "/" : "/?dev";
+  const landingDevToggleHref = buildLandingDevToggleHref(location);
+  const landingDevToggleLabel = getLandingDevToggleLabel(searchParams);
   const handleLandingDevToggleClick = (
     event: MouseEvent<HTMLAnchorElement>,
   ) => {
@@ -54,7 +57,7 @@ export function Layout({ children }: { children: ReactNode }) {
               onClick={handleLandingDevToggleClick}
               className="inline-flex min-w-[3ch] items-center justify-center rounded px-1 hover:text-foreground transition-colors"
             >
-              {landingDevToggleHref}
+              {landingDevToggleLabel}
             </a>
           )}
           <span>Commit</span>

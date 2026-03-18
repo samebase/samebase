@@ -435,6 +435,10 @@ Auth:
   are clickable in Codex.
 - For boolean URL query params, prefer key-only flags (for example `?diff`)
   instead of assigning values (`?diff=1`); treat key presence as enabled.
+- When changing app URLs that already have query params, update only the owned
+  param and preserve unrelated params. Use `apps/noter/src/lib/queryParams.ts`
+  helpers instead of hand-building `/?...` URLs or calling
+  `URLSearchParams#set/delete/append` directly outside the helper modules.
 - Runtime bootstrap rule: use `make anon` when operating from a git worktree,
   and use `make run` when operating from the primary local checkout.
 - In a worktree, `make anon` is the full startup command (do not run `pnpm dev`

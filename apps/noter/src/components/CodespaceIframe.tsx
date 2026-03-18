@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { ExternalLink, Loader2, AlertCircle } from "lucide-react";
 import { cn } from "../lib/utils";
+import { setQueryParam } from "@/lib/queryParams";
 
 interface CodespaceIframeProps {
   vaultId: Id<"vaults">;
@@ -26,7 +27,7 @@ function buildCodespaceUrl(webUrl: string, filePath?: string): string {
   const normalizedPath = filePath.startsWith("/")
     ? filePath
     : `/workspaces/${filePath}`;
-  url.searchParams.set("file", normalizedPath);
+  setQueryParam(url.searchParams, "file", normalizedPath);
   return url.toString();
 }
 

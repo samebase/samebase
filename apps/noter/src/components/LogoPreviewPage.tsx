@@ -60,6 +60,11 @@ import {
 import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useSearchParams } from "react-router-dom";
+import {
+  buildSearchString,
+  setQueryParam,
+  updateQueryParams,
+} from "@/lib/queryParams";
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const CONTROLS_POPOVER_TOP_OFFSET = "5.5rem";
@@ -167,11 +172,15 @@ export function LogoPreviewPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    const nextSearchParams = new URLSearchParams();
-    nextSearchParams.set("vox", voxelState);
+    const nextSearch = buildSearchString(
+      updateQueryParams(searchParams, (nextSearchParams) => {
+        setQueryParam(nextSearchParams, "vox", voxelState);
+      }),
+    );
+    const currentSearch = buildSearchString(searchParams);
 
-    if (nextSearchParams.toString() !== searchParams.toString()) {
-      setSearchParams(nextSearchParams, { replace: true });
+    if (nextSearch !== currentSearch) {
+      setSearchParams(nextSearch, { replace: true });
     }
   }, [searchParams, setSearchParams, voxelState]);
 

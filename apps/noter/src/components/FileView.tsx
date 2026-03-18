@@ -26,6 +26,7 @@ import {
   FilePlusIcon,
 } from "@radix-ui/react-icons";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import { FileTree } from "./FileTree";
 import { CommandPalette } from "./CommandPalette";
 import {
@@ -1013,20 +1014,25 @@ function FileViewInner({
       },
     ) => {
       const encodedPath = encodeVaultFilePath(path);
-      const searchParams = new URLSearchParams(search);
       const preserveCurrentReviewMode = options?.reviewMode === undefined;
+      const currentSearchParams = new URLSearchParams(search);
+      const preserveReviewOnMount =
+        preserveCurrentReviewMode &&
+        currentSearchParams.has("review") &&
+        !currentSearchParams.has("diff");
       const includeDiff =
         options?.reviewMode === "review" ||
-        (preserveCurrentReviewMode && searchParams.has("diff"));
-      searchParams.delete("diff");
-      searchParams.delete("review");
-      const baseQuery = searchParams.toString();
-      const queryString = includeDiff
-        ? baseQuery.length > 0
-          ? `${baseQuery}&diff`
-          : "diff"
-        : baseQuery;
-      return `/vault/${owner}/${repoName}/${encodedBranch}/${encodedPath}${queryString.length > 0 ? `?${queryString}` : ""}`;
+        (preserveCurrentReviewMode && currentSearchParams.has("diff"));
+      return buildPathWithUpdatedQuery(
+        {
+          pathname: `/vault/${owner}/${repoName}/${encodedBranch}/${encodedPath}`,
+          search,
+        },
+        (searchParams) => {
+          setQueryParam(searchParams, "review", preserveReviewOnMount);
+          setQueryParam(searchParams, "diff", includeDiff);
+        },
+      );
     },
     [encodedBranch, owner, repoName, search],
   );
