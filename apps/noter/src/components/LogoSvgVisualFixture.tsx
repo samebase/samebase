@@ -4,7 +4,7 @@ import {
   LOGO_ISOMETRIC_CANVAS_HEIGHT,
   LOGO_ISOMETRIC_CANVAS_WIDTH,
 } from "@/components/logoIsometricRenderer";
-import { DEFAULT_STATIC_LOGO_SVG_DATA_URL } from "@/components/logoStaticSvgAsset";
+import { DEFAULT_LOGO_ISOMETRIC_SVG_DATA_URL } from "@/components/logoStaticSvgAsset";
 import {
   DEFAULT_FACE_COLORS,
   getTailwindColorHex,
@@ -58,7 +58,7 @@ export function LogoSvgVisualFixture() {
             <div className="flex items-center justify-center border border-slate-200 bg-slate-50 p-4">
               <img
                 data-testid="logo-svg-parity-svg"
-                src={DEFAULT_STATIC_LOGO_SVG_DATA_URL}
+                src={DEFAULT_LOGO_ISOMETRIC_SVG_DATA_URL}
                 alt=""
                 width={LOGO_ISOMETRIC_CANVAS_WIDTH}
                 height={LOGO_ISOMETRIC_CANVAS_HEIGHT}

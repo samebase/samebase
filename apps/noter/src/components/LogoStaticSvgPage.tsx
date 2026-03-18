@@ -35,8 +35,8 @@ export function LogoStaticSvgPage() {
             Static SVG Preview
           </h1>
           <p className="max-w-2xl text-sm leading-6">
-            This route renders the isometric logo as true SVG face polygons
-            instead of the interactive canvas or WebGL scenes.
+            This route renders the default Three camera view as true SVG face
+            polygons instead of the interactive WebGL scene.
           </p>
         </div>
 
