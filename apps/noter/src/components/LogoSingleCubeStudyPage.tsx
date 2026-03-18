@@ -9,12 +9,16 @@ import { Link, useLocation } from "react-router-dom";
 
 function CubeStudyCanvas({
   angleDegrees,
+  ariaHidden,
+  ariaLabel,
   className,
   showEdges,
   showGrid,
   vividColors,
 }: {
   angleDegrees: number;
+  ariaHidden?: boolean;
+  ariaLabel?: string;
   className?: string;
   showEdges: boolean;
   showGrid: boolean;
@@ -46,8 +50,11 @@ function CubeStudyCanvas({
   return (
     <canvas
       ref={canvasRef}
+      aria-hidden={ariaHidden}
+      aria-label={ariaHidden ? undefined : ariaLabel}
       className={className}
       height={SINGLE_CUBE_STUDY_CANVAS_SIZE}
+      role={ariaHidden ? "presentation" : "img"}
       style={{
         imageRendering: "pixelated",
       }}
@@ -147,6 +154,7 @@ export function LogoSingleCubeStudyPage() {
               <div className="grid grid-cols-1 gap-2">
                 <Button
                   type="button"
+                  aria-pressed={showEdges}
                   size="sm"
                   variant={showEdges ? "default" : "outline"}
                   className="justify-start rounded-none"
@@ -158,6 +166,7 @@ export function LogoSingleCubeStudyPage() {
                 </Button>
                 <Button
                   type="button"
+                  aria-pressed={vividColors}
                   size="sm"
                   variant={vividColors ? "default" : "outline"}
                   className="justify-start rounded-none"
@@ -169,6 +178,7 @@ export function LogoSingleCubeStudyPage() {
                 </Button>
                 <Button
                   type="button"
+                  aria-pressed={showGrid}
                   size="sm"
                   variant={showGrid ? "default" : "outline"}
                   className="justify-start rounded-none"
@@ -211,6 +221,7 @@ export function LogoSingleCubeStudyPage() {
               <div className="flex min-h-[22rem] items-center justify-center border border-black/10 bg-[#fcfbf7] p-4">
                 <CubeStudyCanvas
                   angleDegrees={angleDegrees}
+                  ariaLabel={`Single cube study at ${angleDegrees.toFixed(0)} degrees yaw`}
                   className="h-[22rem] w-[22rem] max-w-full"
                   showEdges={showEdges}
                   showGrid={showGrid}
@@ -254,6 +265,7 @@ export function LogoSingleCubeStudyPage() {
                     <div className="flex items-center justify-center border border-black/10 bg-[#fcfbf7] p-2">
                       <CubeStudyCanvas
                         angleDegrees={sampleAngle}
+                        ariaHidden
                         className="h-28 w-28"
                         showEdges={showEdges}
                         showGrid={showGrid}

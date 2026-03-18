@@ -101,6 +101,7 @@ type NLogoSceneProps = {
   opacity: number;
   onInteractionStart?: () => void;
   onRenderReady?: () => void;
+  onRenderUnavailable?: () => void;
   onViewChange: (nextView: {
     elevationDegrees: number;
     rotationDegrees: number;
@@ -710,6 +711,7 @@ export function NLogoScene({
   opacity,
   onInteractionStart,
   onRenderReady,
+  onRenderUnavailable,
   onViewChange,
   onVoxelEdit,
   rotationDegrees,
@@ -728,6 +730,7 @@ export function NLogoScene({
   const shuffleAnimationRef = useRef(shuffleAnimation);
   const onInteractionStartRef = useRef(onInteractionStart);
   const onRenderReadyRef = useRef(onRenderReady);
+  const onRenderUnavailableRef = useRef(onRenderUnavailable);
   const onViewChangeRef = useRef(onViewChange);
   const onVoxelEditRef = useRef(onVoxelEdit);
   const renderSceneRef = useRef<(timestampMs: number) => void>(() => {});
@@ -781,6 +784,10 @@ export function NLogoScene({
   }, [onRenderReady]);
 
   useEffect(() => {
+    onRenderUnavailableRef.current = onRenderUnavailable;
+  }, [onRenderUnavailable]);
+
+  useEffect(() => {
     onViewChangeRef.current = onViewChange;
   }, [onViewChange]);
 
@@ -814,7 +821,14 @@ export function NLogoScene({
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(backgroundColorRef.current);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    } catch (error) {
+      console.error("Failed to initialize logo scene renderer", error);
+      onRenderUnavailableRef.current?.();
+      return;
+    }
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.domElement.style.display = "block";

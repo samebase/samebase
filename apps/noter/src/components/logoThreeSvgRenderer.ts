@@ -1,12 +1,11 @@
-import {
-  LOGO_ISOMETRIC_ELEVATION_DEGREES,
-  LOGO_ISOMETRIC_ROTATION_DEGREES,
-} from "@/components/logoIsometricRenderer";
+import { LOGO_THREE_SVG_VIEWBOX_SIZE } from "@/components/logoStaticSvgContract";
 import {
   getTailwindColorHex,
   type FaceColors,
 } from "@/components/logoTailwindColors";
 import {
+  DEFAULT_ELEVATION_DEGREES,
+  DEFAULT_ROTATION_DEGREES,
   GRID_SIZE,
   HALF_GRID,
   isWithinGrid,
@@ -39,11 +38,10 @@ type SurfaceQuad = {
 };
 
 const CAMERA_FRUSTUM_PADDING = 1.12;
-const DEFAULT_VIEWBOX_SIZE = 360;
 // Browsers can still show hairline cracks between adjacent projected polygons
-// even when the math is exact. A slightly larger same-color stroke closes those
-// seams without changing the visible silhouette materially.
-const FACE_STROKE_WIDTH = 0.35;
+// even when the math is exact. A thin same-color stroke closes those seams
+// while still scaling down with the delivered SVG on smaller surfaces.
+const FACE_STROKE_WIDTH = 0.14;
 const ORBIT_RIGHT_AXIS = normalizeVector({
   x: 1,
   y: 0,
@@ -380,11 +378,11 @@ function serializePolygon(points: readonly Point[]): string {
 
 export function createLogoThreeSvgMarkup({
   backgroundColor,
-  elevationDegrees = LOGO_ISOMETRIC_ELEVATION_DEGREES,
+  elevationDegrees = DEFAULT_ELEVATION_DEGREES,
   faceColors,
   filledVoxels,
-  rotationDegrees = LOGO_ISOMETRIC_ROTATION_DEGREES,
-  viewBoxSize = DEFAULT_VIEWBOX_SIZE,
+  rotationDegrees = DEFAULT_ROTATION_DEGREES,
+  viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
 }: {
   backgroundColor: string;
   elevationDegrees?: number;
@@ -472,11 +470,9 @@ export function createLogoThreeSvgMarkup({
   const polygons = projectedQuads
     .map((quad) => {
       const fill = escapeSvgAttribute(quad.color);
-      return `<polygon points="${escapeSvgAttribute(serializePolygon(quad.points))}" fill="${fill}" stroke="${fill}" stroke-width="${FACE_STROKE_WIDTH}" stroke-linejoin="round" vector-effect="non-scaling-stroke" paint-order="stroke fill"/>`;
+      return `<polygon points="${escapeSvgAttribute(serializePolygon(quad.points))}" fill="${fill}" stroke="${fill}" stroke-width="${FACE_STROKE_WIDTH}" stroke-linejoin="round" paint-order="stroke fill"/>`;
     })
     .join("");
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewBoxSize} ${viewBoxSize}" width="${viewBoxSize}" height="${viewBoxSize}">${backgroundRect}${polygons}</svg>`;
 }
-
-export const LOGO_THREE_SVG_VIEWBOX_SIZE = DEFAULT_VIEWBOX_SIZE;

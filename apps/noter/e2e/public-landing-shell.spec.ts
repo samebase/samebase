@@ -209,6 +209,47 @@ test("prod-ui landing logo enhancement stays visually aligned", async ({
   });
 });
 
+test("prod-ui landing logo keeps the SVG fallback when WebGL is unavailable", async ({
+  page,
+}) => {
+  const pageErrors: Error[] = [];
+  page.on("pageerror", (error) => {
+    pageErrors.push(error);
+  });
+
+  await page.addInitScript(() => {
+    const originalGetContextDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLCanvasElement.prototype,
+      "getContext",
+    );
+    const originalGetContext = originalGetContextDescriptor?.value;
+    if (typeof originalGetContext !== "function") {
+      return;
+    }
+
+    HTMLCanvasElement.prototype.getContext = function (contextId, ...args) {
+      if (
+        contextId === "webgl" ||
+        contextId === "webgl2" ||
+        contextId === "experimental-webgl"
+      ) {
+        return null;
+      }
+
+      return Reflect.apply(originalGetContext, this, [contextId, ...args]);
+    };
+  });
+
+  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+
+  await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
+  await expect(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID)).toHaveCount(
+    0,
+  );
+  await page.waitForTimeout(200);
+  expect(pageErrors).toEqual([]);
+});
+
 test("public landing shell still renders when localStorage access is denied", async ({
   page,
 }) => {

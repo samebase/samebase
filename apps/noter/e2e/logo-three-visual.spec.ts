@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 
 test.use({ serviceWorkers: "block" });
 
+const MAX_PARITY_MISMATCH_PIXELS = 20_000;
+
 test("logo three reference fixture", async ({ page }) => {
   await page.setViewportSize({ width: 3400, height: 2600 });
   await page.goto("/visual-fixture.html?mode=logo-three-reference", {
@@ -30,7 +32,17 @@ test("logo three reference fixture", async ({ page }) => {
     });
   });
 
-  await expect(mismatchCount).toContainText("mismatched pixels");
+  await expect
+    .poll(async () => {
+      const textContent = await mismatchCount.textContent();
+      const mismatchMatch = textContent?.match(/([\d,]+) mismatched pixels/);
+      if (!mismatchMatch) {
+        return null;
+      }
+
+      return Number(mismatchMatch[1].replaceAll(",", ""));
+    })
+    .toBeLessThanOrEqual(MAX_PARITY_MISMATCH_PIXELS);
 
   await expect(fixture).toHaveScreenshot("logo-three-reference.png", {
     animations: "disabled",

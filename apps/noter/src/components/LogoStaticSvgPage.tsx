@@ -6,7 +6,7 @@ import {
   STATIC_LOGO_FACE_COLORS,
   STATIC_LOGO_ROTATION_DEGREES,
   STATIC_LOGO_VOXEL_STATE,
-} from "@/components/logoStaticSvgAsset";
+} from "@/components/logoStaticSvgContract";
 import { createLogoThreeSvgMarkup } from "@/components/logoThreeSvgRenderer";
 import { getTailwindColorHex } from "@/components/logoTailwindColors";
 import { parseVoxelState } from "@/components/logoVoxelState";

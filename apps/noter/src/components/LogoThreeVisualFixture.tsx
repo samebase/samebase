@@ -6,7 +6,7 @@ import {
   STATIC_LOGO_FACE_COLORS,
   STATIC_LOGO_ROTATION_DEGREES,
   STATIC_LOGO_VOXEL_STATE,
-} from "@/components/logoStaticSvgAsset";
+} from "@/components/logoStaticSvgContract";
 import { getTailwindColorHex } from "@/components/logoTailwindColors";
 import { useEffect, useRef, useState } from "react";
 
@@ -98,11 +98,16 @@ export function LogoThreeVisualFixture() {
   const referenceContainerRef = useRef<HTMLDivElement | null>(null);
   const svgImageRef = useRef<HTMLImageElement | null>(null);
   const diffCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [isReferenceReady, setIsReferenceReady] = useState(false);
   const [mismatchPixelsBySize, setMismatchPixelsBySize] = useState<
     Partial<Record<number, number>>
   >({});
 
   useEffect(() => {
+    if (!isReferenceReady) {
+      return;
+    }
+
     let cancelled = false;
 
     const renderDiff = async () => {
@@ -128,13 +133,40 @@ export function LogoThreeVisualFixture() {
         }
       }
 
-      await new Promise<void>((resolve) => {
-        window.requestAnimationFrame(() => {
-          window.requestAnimationFrame(() => resolve());
-        });
-      });
+      const referenceCanvas = await new Promise<HTMLCanvasElement | null>(
+        (resolve) => {
+          const waitForSizedCanvas = () => {
+            if (cancelled) {
+              resolve(null);
+              return;
+            }
 
-      const referenceCanvas = referenceContainer.querySelector("canvas");
+            const nextReferenceCanvas =
+              referenceContainer.querySelector("canvas");
+            if (!(nextReferenceCanvas instanceof HTMLCanvasElement)) {
+              window.requestAnimationFrame(waitForSizedCanvas);
+              return;
+            }
+
+            const containerRect = referenceContainer.getBoundingClientRect();
+            const canvasRect = nextReferenceCanvas.getBoundingClientRect();
+            const hasStableSize =
+              Math.abs(canvasRect.width - containerRect.width) <= 2 &&
+              Math.abs(canvasRect.height - containerRect.height) <= 2 &&
+              nextReferenceCanvas.width > 0 &&
+              nextReferenceCanvas.height > 0;
+
+            if (!hasStableSize) {
+              window.requestAnimationFrame(waitForSizedCanvas);
+              return;
+            }
+
+            resolve(nextReferenceCanvas);
+          };
+
+          waitForSizedCanvas();
+        },
+      );
       if (!(referenceCanvas instanceof HTMLCanvasElement)) {
         return;
       }
@@ -254,7 +286,7 @@ export function LogoThreeVisualFixture() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isReferenceReady]);
 
   return (
     <div
@@ -298,6 +330,9 @@ export function LogoThreeVisualFixture() {
                   editMode="add"
                   elevationDegrees={STATIC_LOGO_ELEVATION_DEGREES}
                   faceColors={STATIC_LOGO_FACE_COLORS}
+                  onRenderReady={() => {
+                    setIsReferenceReady(true);
+                  }}
                   onViewChange={(_nextView) => {}}
                   onVoxelEdit={(_edit) => {}}
                   rotationDegrees={STATIC_LOGO_ROTATION_DEGREES}

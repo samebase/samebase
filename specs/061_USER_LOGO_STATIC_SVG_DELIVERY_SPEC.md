@@ -36,7 +36,7 @@ surface.
 
 The public landing page should show the same static SVG at the top of the fast
 bootstrap shell and the hydrated React view before enhancement. The landing
-bootstrap path must reference a committed public SVG image directly and must not
+bootstrap path must reference a committed public SVG directly and must not
 import the logo renderer modules. After hydration, the landing React view may
 background-load the interactive Three scene and fade it in only after the first
 rendered frame is ready.
@@ -207,7 +207,7 @@ added as explicit generated assets, not as runtime controls.
 
 The committed public smooth-logo asset boundary is:
 
-- `apps/noter/public/favicon.svg` for the shipped SVG image
+- `apps/noter/public/favicon.svg` for the shipped SVG
 - `apps/noter/public/favicon.png` for the derived raster favicon
 
 User-visible product code should reference the committed public SVG path

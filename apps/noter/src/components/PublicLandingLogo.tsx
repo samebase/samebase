@@ -4,7 +4,7 @@ import {
   STATIC_LOGO_FACE_COLORS,
   STATIC_LOGO_ROTATION_DEGREES,
   STATIC_LOGO_VOXEL_STATE,
-} from "@/components/logoStaticSvgAsset";
+} from "@/components/logoStaticSvgContract";
 import {
   PUBLIC_LANDING_LOGO_ALT,
   PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME,
@@ -26,14 +26,9 @@ export function PublicLandingLogo() {
   const [LogoScene, setLogoScene] = useState<LandingLogoSceneComponent | null>(
     null,
   );
+  const [didSceneFail, setDidSceneFail] = useState(false);
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [isSvgVisible, setIsSvgVisible] = useState(true);
-  const [rotationDegrees, setRotationDegrees] = useState(
-    STATIC_LOGO_ROTATION_DEGREES,
-  );
-  const [elevationDegrees, setElevationDegrees] = useState(
-    STATIC_LOGO_ELEVATION_DEGREES,
-  );
   const backgroundColor = getTailwindColorHex("background-base");
 
   useEffect(() => {
@@ -53,6 +48,7 @@ export function PublicLandingLogo() {
         })
         .catch((error: unknown) => {
           console.error("Failed to load landing logo scene", error);
+          setDidSceneFail(true);
         });
     };
 
@@ -110,28 +106,28 @@ export function PublicLandingLogo() {
           fetchPriority="high"
           className={`${PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME} relative z-10 ${isSvgVisible ? "opacity-100" : "pointer-events-none opacity-0"}`}
         />
-        {LogoScene ? (
+        {LogoScene && !didSceneFail ? (
           <div
             aria-hidden="true"
             data-testid={PUBLIC_LANDING_LOGO_SCENE_TEST_ID}
             data-state={isSceneReady ? "ready" : "loading"}
-            className={`absolute inset-0 z-0 ${isSvgVisible ? "pointer-events-none" : ""}`}
+            className="pointer-events-none absolute inset-0 z-0"
           >
             <LogoScene
               className="h-full w-full"
               backgroundColor={backgroundColor}
               editMode="add"
-              elevationDegrees={elevationDegrees}
+              elevationDegrees={STATIC_LOGO_ELEVATION_DEGREES}
               faceColors={STATIC_LOGO_FACE_COLORS}
               onRenderReady={() => {
                 setIsSceneReady(true);
               }}
-              onViewChange={(nextView) => {
-                setElevationDegrees(nextView.elevationDegrees);
-                setRotationDegrees(nextView.rotationDegrees);
+              onRenderUnavailable={() => {
+                setDidSceneFail(true);
               }}
+              onViewChange={(_nextView) => {}}
               onVoxelEdit={() => {}}
-              rotationDegrees={rotationDegrees}
+              rotationDegrees={STATIC_LOGO_ROTATION_DEGREES}
               shuffleAnimation={{ enabled: false, parallelMoves: 1 }}
               voxelState={STATIC_LOGO_VOXEL_STATE}
             />
