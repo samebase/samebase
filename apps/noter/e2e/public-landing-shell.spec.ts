@@ -69,6 +69,18 @@ test("shell waitlist input preserves typed email through handoff", async ({
   );
 });
 
+test("shell waitlist focus survives the scheduled handoff", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const waitlistInput = page.getByPlaceholder("email@example.com");
+  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
+  await waitlistInput.click();
+  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
+  await expect(page.getByPlaceholder("email@example.com")).toBeFocused();
+});
+
 test("public landing handoff keeps the card height stable", async ({
   page,
 }) => {
