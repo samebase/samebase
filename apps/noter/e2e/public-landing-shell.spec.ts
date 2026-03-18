@@ -38,8 +38,35 @@ test("public landing shell renders before the full app UI takes over", async ({
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
   await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
-  await expect(page.getByPlaceholder("email@example.com")).toBeDisabled();
   await expect(page.getByPlaceholder("email@example.com")).toBeEditable();
+  await expect(
+    page.getByRole("button", { name: "Join Waitlist" }),
+  ).toBeEnabled();
+});
+
+test("shell waitlist input preserves typed email through handoff", async ({
+  page,
+}) => {
+  await page.addInitScript((bootDelayMs) => {
+    const originalSetTimeout = window.setTimeout.bind(window);
+    window.setTimeout = (handler, timeout, ...args) => {
+      if (timeout === bootDelayMs) {
+        return originalSetTimeout(handler, 600, ...args);
+      }
+      return originalSetTimeout(handler, timeout, ...args);
+    };
+  }, FAST_LANDING_APP_BOOT_DELAY_MS);
+
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const waitlistInput = page.getByPlaceholder("email@example.com");
+  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
+  await waitlistInput.fill("shell@example.com");
+  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
+  await expect(page.getByPlaceholder("email@example.com")).toBeEditable();
+  await expect(page.getByPlaceholder("email@example.com")).toHaveValue(
+    "shell@example.com",
+  );
 });
 
 test("public landing handoff keeps the card height stable", async ({

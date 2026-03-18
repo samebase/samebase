@@ -6,14 +6,18 @@ import {
 } from "@/lib/landingDevMode";
 import { FAST_LANDING_APP_BOOT_DELAY_MS } from "@/lib/fastLandingBoot";
 import { landingPageBullets, landingPageSlogan } from "@/lib/landingCopy";
+import { writePublicLandingWaitlistDraft } from "@/lib/publicLandingWaitlistDraft";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
 const CONVEX_AUTH_STORAGE_KEY_PREFIX = "__convexAuth";
 const GOOGLE_AUTH_BUTTON_ID = "public-landing-google-button";
 const PUBLIC_LANDING_CONTENT_TEST_ID = "public-landing-content";
+const PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID = "public-landing-waitlist-email";
 const PUBLIC_LANDING_WAITLIST_PLACEHOLDER_TEST_ID =
   "public-landing-waitlist-placeholder";
+const PUBLIC_LANDING_WAITLIST_SUBMIT_BUTTON_ID =
+  "public-landing-waitlist-submit";
 const UNKNOWN_SHORT_COMMIT_PLACEHOLDER = "xxxxxxx";
 
 let appLoadPromise: Promise<void> | null = null;
@@ -159,6 +163,32 @@ function beginGoogleSignInFromShell() {
   void ensureAppLoaded();
 }
 
+function focusHydratedWaitlistInput() {
+  const waitlistInput = document.querySelector<HTMLInputElement>(
+    `[data-testid="${PUBLIC_LANDING_CONTENT_TEST_ID}"] input[placeholder="email@example.com"]`,
+  );
+  if (!waitlistInput) {
+    return;
+  }
+
+  waitlistInput.focus();
+  const caretPosition = waitlistInput.value.length;
+  waitlistInput.setSelectionRange(caretPosition, caretPosition);
+}
+
+function beginWaitlistInteraction() {
+  const shellInput = document.getElementById(
+    PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID,
+  );
+  if (shellInput instanceof HTMLInputElement) {
+    writePublicLandingWaitlistDraft(shellInput.value);
+  }
+
+  void ensureAppLoaded().then(() => {
+    focusHydratedWaitlistInput();
+  });
+}
+
 function renderFastLandingShell() {
   const root = document.getElementById("root");
 
@@ -223,16 +253,14 @@ function renderFastLandingShell() {
             >
               <div class="flex gap-2">
                 <input
+                  id="${PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID}"
                   type="email"
                   placeholder="email@example.com"
-                  disabled
-                  tabindex="-1"
                   class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
                 />
                 <button
+                  id="${PUBLIC_LANDING_WAITLIST_SUBMIT_BUTTON_ID}"
                   type="button"
-                  disabled
-                  tabindex="-1"
                   class="inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
                 >
                   Join Waitlist
@@ -248,6 +276,29 @@ function renderFastLandingShell() {
   root
     .querySelector<HTMLButtonElement>(`#${GOOGLE_AUTH_BUTTON_ID}`)
     ?.addEventListener("click", beginGoogleSignInFromShell);
+  root
+    .querySelector<HTMLInputElement>(
+      `#${PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID}`,
+    )
+    ?.addEventListener("focus", beginWaitlistInteraction);
+  root
+    .querySelector<HTMLInputElement>(
+      `#${PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID}`,
+    )
+    ?.addEventListener("input", (event) => {
+      const shellInput = event.currentTarget;
+      if (!(shellInput instanceof HTMLInputElement)) {
+        return;
+      }
+
+      writePublicLandingWaitlistDraft(shellInput.value);
+      void ensureAppLoaded();
+    });
+  root
+    .querySelector<HTMLButtonElement>(
+      `#${PUBLIC_LANDING_WAITLIST_SUBMIT_BUTTON_ID}`,
+    )
+    ?.addEventListener("click", beginWaitlistInteraction);
 }
 
 if (isFastLandingRoute(window.location)) {
