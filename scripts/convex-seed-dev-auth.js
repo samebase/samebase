@@ -43,6 +43,13 @@ if (!backendPort) {
 const seedEntries = Object.entries(seedEnv.vars).filter(([name]) =>
   WORKTREE_ENV_ALLOWLIST.has(name),
 )
+const BACKEND_READY_MARKERS = [
+  'Convex functions ready!',
+  'Preparing to watch files...',
+]
+
+let backendReady = false
+let backendOutputTail = ''
 
 const backend = spawn(
   'node',
@@ -55,9 +62,13 @@ const backend = spawn(
   {
     cwd: appDir,
     env: { ...process.env, CONVEX_AGENT_MODE: 'anonymous' },
-    stdio: 'inherit',
+    stdio: ['ignore', 'pipe', 'pipe'],
   },
 )
+
+attachBackendStream(backend.stdout, process.stdout)
+attachBackendStream(backend.stderr, process.stderr)
+
 const waitForBackendExit = async () => {
   if (backend.exitCode !== null || backend.signalCode !== null) {
     return
@@ -251,11 +262,15 @@ function resolveBackendPort(vars) {
 async function waitForBackend(port) {
   const deadline = Date.now() + 20000
   while (Date.now() < deadline) {
+    if (backend.exitCode !== null || backend.signalCode !== null) {
+      return false
+    }
+
     try {
       const response = await fetch(`http://127.0.0.1:${port}/instance_name`, {
         signal: AbortSignal.timeout(500),
       })
-      if (response.ok) {
+      if (response.ok && backendReady) {
         return true
       }
     } catch {
@@ -272,4 +287,33 @@ async function waitForBackend(port) {
  */
 function exitWithError(message) {
   throw new Error(message)
+}
+
+/**
+ * @param {import('node:stream').Readable | null} stream
+ * @param {NodeJS.WriteStream} target
+ * @returns {void}
+ */
+function attachBackendStream(stream, target) {
+  if (!stream) {
+    return
+  }
+
+  stream.setEncoding('utf8')
+  stream.on('data', chunk => {
+    if (typeof chunk !== 'string') {
+      return
+    }
+    target.write(chunk)
+    if (backendReady) {
+      return
+    }
+
+    backendOutputTail = `${backendOutputTail}${chunk}`.slice(-2048)
+    if (
+      BACKEND_READY_MARKERS.some(marker => backendOutputTail.includes(marker))
+    ) {
+      backendReady = true
+    }
+  })
 }
