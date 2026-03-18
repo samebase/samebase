@@ -116,7 +116,8 @@ export function openAuthPopup(provider: "google") {
 }
 
 /**
- * Auto-trigger provider sign-in when opened as a popup with ?auth=google.
+ * Auto-trigger provider sign-in when opened as a popup with ?auth=google
+ * or when the fast public shell forces top-level ?auth=google on `/`.
  * The popup handles the full OAuth redirect flow (not blocked by CSP
  * since it's a top-level window). After auth completes, the popup
  * auto-closes and the token syncs to the parent via localStorage.
@@ -126,7 +127,7 @@ export function useAutoSignIn() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const auth = params.get("auth");
-    if (auth === "google" && window.opener) {
+    if (auth === "google") {
       setAuthProvider(auth);
       const newUrl = buildPathWithUpdatedQuery(
         window.location,

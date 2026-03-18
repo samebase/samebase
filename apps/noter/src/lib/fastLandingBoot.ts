@@ -1,0 +1,1 @@
+export const FAST_LANDING_APP_BOOT_DELAY_MS = 150;
