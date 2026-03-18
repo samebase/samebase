@@ -97,7 +97,7 @@ const themeTailwindColorScales = {
   secondary: {
     base: {
       cssVariable: "--secondary",
-      fallbackHex: "#f7fee7",
+      fallbackHex: "#ecfccb",
     },
   },
 } as const satisfies Record<string, Record<string, ThemeColorSource>>;

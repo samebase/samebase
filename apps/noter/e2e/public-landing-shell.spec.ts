@@ -1,6 +1,10 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { FAST_LANDING_APP_BOOT_DELAY_MS } from "../src/lib/fastLandingBoot";
-import { PUBLIC_LANDING_LOGO_TEST_ID } from "../src/lib/publicLandingLogo";
+import {
+  PUBLIC_LANDING_LOGO_SCENE_TEST_ID,
+  PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
+  PUBLIC_LANDING_LOGO_TEST_ID,
+} from "../src/lib/publicLandingLogo";
 import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
 
 // These budgets target the local production preview used in CI.
@@ -53,6 +57,11 @@ async function expectLandingLogoReady(image: Locator) {
       ),
     )
     .toBe(true);
+}
+
+async function expectLandingLogoSceneReady(scene: Locator) {
+  await expect(scene).toBeVisible();
+  await expect(scene).toHaveAttribute("data-state", "ready");
 }
 
 test("public landing shell renders before the full app UI takes over", async ({
@@ -170,6 +179,32 @@ test("prod-ui landing handoff stays visually aligned", async ({
     artifactPrefix: "public-landing-prod-ui-handoff",
     expected: shellScreenshot,
     maxDiffPixelRatio: 0.01,
+    testInfo,
+  });
+});
+
+test("prod-ui landing logo enhancement stays visually aligned", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+
+  const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
+  const landingLogoStage = page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID);
+  await expectLandingLogoReady(landingLogo);
+
+  const initialLogoScreenshot = await takeStableScreenshot(landingLogoStage);
+
+  await expectLandingLogoSceneReady(
+    page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID),
+  );
+
+  const enhancedLogoScreenshot = await takeStableScreenshot(landingLogoStage);
+
+  await expectScreenshotsToMatch({
+    actual: enhancedLogoScreenshot,
+    artifactPrefix: "public-landing-logo-enhancement",
+    expected: initialLogoScreenshot,
+    maxDiffPixelRatio: 0.015,
     testInfo,
   });
 });

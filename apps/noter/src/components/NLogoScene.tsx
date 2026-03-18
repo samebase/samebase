@@ -100,6 +100,7 @@ type NLogoSceneProps = {
   faceColors: FaceColors;
   opacity: number;
   onInteractionStart?: () => void;
+  onRenderReady?: () => void;
   onViewChange: (nextView: {
     elevationDegrees: number;
     rotationDegrees: number;
@@ -708,6 +709,7 @@ export function NLogoScene({
   faceColors,
   opacity,
   onInteractionStart,
+  onRenderReady,
   onViewChange,
   onVoxelEdit,
   rotationDegrees,
@@ -725,6 +727,7 @@ export function NLogoScene({
   const opacityRef = useRef(opacity);
   const shuffleAnimationRef = useRef(shuffleAnimation);
   const onInteractionStartRef = useRef(onInteractionStart);
+  const onRenderReadyRef = useRef(onRenderReady);
   const onViewChangeRef = useRef(onViewChange);
   const onVoxelEditRef = useRef(onVoxelEdit);
   const lastMovedCubeKeyRef = useRef<string | null>(null);
@@ -761,6 +764,10 @@ export function NLogoScene({
   useEffect(() => {
     opacityRef.current = opacity;
   }, [opacity]);
+
+  useEffect(() => {
+    onRenderReadyRef.current = onRenderReady;
+  }, [onRenderReady]);
 
   useEffect(() => {
     onViewChangeRef.current = onViewChange;
@@ -890,6 +897,14 @@ export function NLogoScene({
 
     resizeScene();
 
+    let readyFrameId = 0;
+    let readyFrameId2 = 0;
+    readyFrameId = window.requestAnimationFrame(() => {
+      readyFrameId2 = window.requestAnimationFrame(() => {
+        onRenderReadyRef.current?.();
+      });
+    });
+
     const resizeObserver = new ResizeObserver(() => {
       resizeScene();
     });
@@ -928,6 +943,8 @@ export function NLogoScene({
 
     return () => {
       window.cancelAnimationFrame(animationFrameId);
+      window.cancelAnimationFrame(readyFrameId);
+      window.cancelAnimationFrame(readyFrameId2);
       resizeObserver.disconnect();
       timer.dispose();
       const activeSceneState = sceneStateRef.current;

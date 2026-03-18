@@ -40,7 +40,10 @@ type SurfaceQuad = {
 
 const CAMERA_FRUSTUM_PADDING = 1.12;
 const DEFAULT_VIEWBOX_SIZE = 360;
-const FACE_STROKE_WIDTH = 0.15;
+// Browsers can still show hairline cracks between adjacent projected polygons
+// even when the math is exact. A slightly larger same-color stroke closes those
+// seams without changing the visible silhouette materially.
+const FACE_STROKE_WIDTH = 0.35;
 const ORBIT_RIGHT_AXIS = normalizeVector({
   x: 1,
   y: 0,

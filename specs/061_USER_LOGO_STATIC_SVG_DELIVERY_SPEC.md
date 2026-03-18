@@ -19,9 +19,10 @@ Noter should stop treating the interactive logo playground as the user-facing
 delivery format, but it should also stop treating the pixel-art isometric study
 as the primary logo geometry source.
 
-For user-visible product surfaces, the main logo should be delivered as a
-generated static SVG loaded as an image, with no runtime `three.js`, no live
-canvas math, and no React-side scene graph on the user path.
+For user-visible product surfaces, the main logo should default to a generated
+static SVG loaded as an image. The public landing hero is the one explicit
+exception: it should paint the static SVG immediately, then progressively
+enhance to the interactive Three renderer after the page is already visible.
 
 The canonical geometry for that smooth SVG should come from the fixed
 orthographic Three camera projection, not from the pixel-art isometric helper.
@@ -34,9 +35,11 @@ orthographic main logo. `/logo-iso` remains a separate pixel-art exploration
 surface.
 
 The public landing page should show the same static SVG at the top of the fast
-bootstrap shell and the hydrated React view. The landing bootstrap path must
-reference a committed public SVG image directly and must not import the logo
-renderer modules.
+bootstrap shell and the hydrated React view before enhancement. The landing
+bootstrap path must reference a committed public SVG image directly and must not
+import the logo renderer modules. After hydration, the landing React view may
+background-load the interactive Three scene and fade it in only after the first
+rendered frame is ready.
 
 ## Context and Evidence
 
@@ -93,13 +96,15 @@ These sources support the choice of:
 
 ## Goals
 
-- Remove `three.js` from user-facing logo delivery.
-- Keep the user-facing logo path as close to zero-runtime as practical.
+- Remove `three.js` from the initial user-facing logo paint.
+- Keep the initial user-facing logo path as close to zero-runtime as practical.
 - Preserve the current orthographic logo appearance closely enough that the
   static SVG can track the interactive Three reference across large and small
   display sizes.
 - Keep the existing interactive playground available for design and dev work.
 - Maintain one geometry source of truth for the main smooth logo path.
+- Allow the landing hero to become interactive after first paint without
+  regressing perceived load speed.
 
 ## Non-Goals
 
@@ -112,17 +117,19 @@ These sources support the choice of:
 
 ## Decision
 
-### 1. Separate user delivery from dev tooling
+### 1. Separate initial delivery from enhancement
 
 - User-visible logo surfaces shall consume a generated static SVG asset.
+- The public landing hero may progressively enhance from that SVG to the
+  interactive Three scene after the initial content is already visible.
 - Dev-only logo exploration shall continue to use the existing playground routes
   and may continue to use `three.js` until a separate dev simplification is
   justified.
 
-### 2. Use static SVG, not live SVG
+### 2. Use static SVG for first paint, then enhance selectively
 
-The chosen user format is an external SVG file loaded as an image, not inline
-live SVG driven by runtime React state.
+The chosen first-paint user format is an external SVG file loaded as an image,
+not inline live SVG driven by runtime React state.
 
 Reasons:
 
@@ -134,6 +141,8 @@ Reasons:
 - web performance guidance treats `<img src="...svg">` as an image candidate,
   while inline root `<svg>` is not the same LCP path, so the public landing
   should use a normal image element for the visible logo
+- landing interactivity can be loaded after paint as a progressive enhancement
+  instead of competing with the initial response and shell render
 
 ### 3. Main logo projection should follow the orthographic Three view
 
@@ -231,12 +240,15 @@ User surfaces shall load the generated logo through a normal image path:
 - HTML `<img>`
 - or CSS `background-image` when the surface is decorative
 
-The user path shall not import:
+The initial user path shall not import:
 
 - `LogoPreviewPage`
 - `NLogoScene`
 - `NLogoIsoScene`
 - `three`
+
+The landing React route may lazy-load `NLogoScene` only after the static SVG is
+already on screen.
 
 ### 2. Bundle contract
 
@@ -254,6 +266,11 @@ route:
 - if the landing shell needs faster image discovery than the JS-inserted `<img>`
   alone provides, use HTML image preload metadata instead of importing renderer
   code into the shell bundle
+- the hydrated landing logo component may lazy-import the Three scene in a
+  separate chunk, but it must keep the SVG visible until the first interactive
+  frame is ready
+- the SVG-to-Three handoff should use the same box geometry and dimensions so
+  the swap remains visually indistinguishable
 
 ### 3. Accessibility and sizing
 
