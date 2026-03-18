@@ -63,7 +63,10 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
-const CONTROLS_POPOVER_TOP_OFFSET = "5.5rem";
+const CONTROLS_POPOVER_SIDE_OFFSET_PX = 10;
+const CONTROLS_POPOVER_VIEWPORT_PADDING_PX = 16;
+const DEFAULT_CONTROLS_POPOVER_MAX_HEIGHT =
+  "calc(100dvh - env(safe-area-inset-top, 0px) - 5.5rem)";
 const FACE_COLOR_LABELS: Record<FaceColorKey, string> = {
   left: "Left",
   right: "Right",
@@ -147,6 +150,7 @@ function isLogoPresetId(value: string): value is LogoPresetId {
 export function LogoPreviewPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const backgroundColor = getTailwindColorHex("background-base");
+  const controlsToolbarRef = useRef<HTMLDivElement | null>(null);
   const [rotationDegrees, setRotationDegrees] = useState(
     DEFAULT_ROTATION_DEGREES,
   );
@@ -172,6 +176,9 @@ export function LogoPreviewPage() {
   const [isFaceColorsOpen, setIsFaceColorsOpen] = useState(false);
   const [isVoxelMapOpen, setIsVoxelMapOpen] = useState(false);
   const lastFrameTimeRef = useRef<number | null>(null);
+  const [controlsPopoverMaxHeight, setControlsPopoverMaxHeight] = useState(
+    DEFAULT_CONTROLS_POPOVER_MAX_HEIGHT,
+  );
 
   useEffect(() => {
     setVoxelState(readVoxelState(searchParams));
@@ -207,6 +214,38 @@ export function LogoPreviewPage() {
         previousDocumentOverscrollBehavior;
       bodyStyle.overflow = previousBodyOverflow;
       bodyStyle.overscrollBehavior = previousBodyOverscrollBehavior;
+    };
+  }, []);
+
+  useEffect(() => {
+    const toolbar = controlsToolbarRef.current;
+    if (!toolbar) {
+      return;
+    }
+
+    const updateControlsPopoverMaxHeight = () => {
+      const nextMaxHeight = Math.max(
+        window.innerHeight -
+          toolbar.getBoundingClientRect().bottom -
+          CONTROLS_POPOVER_SIDE_OFFSET_PX -
+          CONTROLS_POPOVER_VIEWPORT_PADDING_PX,
+        160,
+      );
+      setControlsPopoverMaxHeight(`${nextMaxHeight}px`);
+    };
+
+    updateControlsPopoverMaxHeight();
+
+    const resizeObserver = new ResizeObserver(() => {
+      window.requestAnimationFrame(updateControlsPopoverMaxHeight);
+    });
+    resizeObserver.observe(toolbar);
+
+    window.addEventListener("resize", updateControlsPopoverMaxHeight);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateControlsPopoverMaxHeight);
     };
   }, []);
 
@@ -355,7 +394,10 @@ export function LogoPreviewPage() {
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
         <Popover open={isControlsOpen} onOpenChange={setIsControlsOpen}>
-          <div className="pointer-events-auto flex flex-wrap items-center gap-2 border border-black/10 bg-white/84 p-2 backdrop-blur-sm">
+          <div
+            ref={controlsToolbarRef}
+            className="pointer-events-auto flex flex-wrap items-center gap-2 border border-black/10 bg-white/84 p-2 backdrop-blur-sm"
+          >
             <PopoverTrigger asChild>
               <Button
                 type="button"
@@ -422,7 +464,7 @@ export function LogoPreviewPage() {
             sideOffset={10}
             className="w-[min(22rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-none border-black/10 bg-white/92 p-3 shadow-lg backdrop-blur-sm"
             style={{
-              maxHeight: `calc(100dvh - env(safe-area-inset-top, 0px) - ${CONTROLS_POPOVER_TOP_OFFSET})`,
+              maxHeight: controlsPopoverMaxHeight,
             }}
           >
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
