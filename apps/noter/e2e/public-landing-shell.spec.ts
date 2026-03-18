@@ -29,6 +29,38 @@ test("public landing shell renders before the full app UI takes over", async ({
   await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
 });
 
+test("public landing shell still renders when localStorage access is denied", async ({
+  page,
+}) => {
+  const pageErrors: Error[] = [];
+  page.on("pageerror", (error) => {
+    pageErrors.push(error);
+  });
+
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      get() {
+        throw new DOMException("Access denied", "SecurityError");
+      },
+    });
+
+    const originalSetTimeout = window.setTimeout.bind(window);
+    window.setTimeout = (handler, timeout, ...args) => {
+      if (timeout === 150) {
+        return 0;
+      }
+      return originalSetTimeout(handler, timeout, ...args);
+    };
+  });
+
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  await expect(page.getByTestId("public-landing-shell")).toBeVisible();
+  await page.waitForTimeout(200);
+  expect(pageErrors).toEqual([]);
+});
+
 test("public landing shell stays within the fast navigation budget", async ({
   page,
 }) => {

@@ -29,20 +29,37 @@ function isFastLandingRoute(location: Location): boolean {
     location.pathname === "/" &&
     !isLandingDevModeEnabled(searchParams) &&
     !searchParams.has("auth") &&
-    localStorage.getItem(AUTH_FLAG_KEY) !== "1" &&
-    !hasRestoredAuthTokens(localStorage)
+    readLocalStorageValue(AUTH_FLAG_KEY) !== "1" &&
+    !hasRestoredAuthTokens()
   );
 }
 
-function hasRestoredAuthTokens(storage: Storage): boolean {
-  for (let index = 0; index < storage.length; index += 1) {
-    const key = storage.key(index);
-    if (key !== null && key.startsWith(CONVEX_AUTH_STORAGE_KEY_PREFIX)) {
-      return true;
-    }
+function withLocalStorage<T>(reader: (storage: Storage) => T, fallback: T): T {
+  try {
+    return reader(window.localStorage);
+  } catch {
+    return fallback;
   }
+}
 
-  return false;
+function readLocalStorageValue(key: string): string | null {
+  return withLocalStorage((storage) => storage.getItem(key), null);
+}
+
+function hasRestoredAuthTokens(): boolean {
+  return withLocalStorage((storage) => {
+    for (let index = 0; index < storage.length; index += 1) {
+      const storageKey = storage.key(index);
+      if (
+        storageKey !== null &&
+        storageKey.startsWith(CONVEX_AUTH_STORAGE_KEY_PREFIX)
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  }, false);
 }
 
 function scheduleBackgroundAppLoad() {

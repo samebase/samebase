@@ -63,8 +63,12 @@ The fast landing shell is used only when all of these are true:
 - query param `dev` is absent
 - query param `auth` is absent
 - local auth flag `noter_was_authenticated` is not set
+- no restored Convex auth token is present in local storage
 
 If any of those checks fail, the full app mounts immediately.
+
+If local storage is unavailable in the current browser context, bootstrap treats
+those storage-backed auth checks as absent instead of throwing.
 
 ## 3. Shell-first public landing
 
@@ -98,15 +102,21 @@ The final product surface remains the same SPA after handoff.
 
 ## 6. Auth behavior
 
-- Clicking the shell Google button sets `?auth=google` and forces the full app
-  to boot immediately.
+- Clicking the shell Google button in a top-level window sets `?auth=google` and
+  forces the full app to boot immediately.
+- Clicking the shell Google button inside an iframe reuses the existing popup
+  auth flow through `openAuthPopup("google")`.
 - `useAutoSignIn()` now honors top-level `?auth=google`, not just popup windows.
+- After popup auth restores Convex auth tokens into storage, the next `/` load
+  skips the public shell and mounts the full app immediately.
 
 This keeps the shell-first route compatible with the existing auth entrypoint.
 
 ## 7. Landing-copy rendering rules
 
 - Normal `/` uses a plain Tailwind rendering path through `LandingCopy`.
+- `/?prod-ui` keeps the normal landing-copy rendering path, but hides the
+  dev-only password auth affordances and editable landing mode.
 - `/?dev` still supports editable copy, but `ProsemarkReadOnly` is lazy-loaded
   only for that mode.
 
@@ -163,8 +173,12 @@ The implementation was validated through the normal pre-commit path, including:
 ## Acceptance Criteria
 
 - Plain `/` shows the landing shell before the full app UI renders.
+- `/?prod-ui` keeps the prod-like landing path and suppresses dev-only auth and
+  editable landing-copy affordances.
 - `/?dev` continues to use the editable landing-copy path.
 - Shell Google CTA still reaches the existing Google auth flow.
+- Restored popup-auth tokens prevent the public shell from flashing on the next
+  `/` load.
 - Full-app boot still happens automatically after the shell appears.
 - Heavy authenticated surfaces are not bundled into the initial public app entry
   chunk.
