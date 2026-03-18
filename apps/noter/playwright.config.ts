@@ -5,7 +5,7 @@ const playwrightBaseUrl = `http://127.0.0.1:${playwrightVitePort}`;
 const useDevServer = process.env.PLAYWRIGHT_USE_DEV_SERVER === "1";
 const webServerCommand = useDevServer
   ? `VITE_PORT=${playwrightVitePort} npm run dev:frontend`
-  : `npm run build:ci && npm run preview -- --host 0.0.0.0 --port ${playwrightVitePort}`;
+  : `PLAYWRIGHT=1 npm run build:ci && npm run preview -- --host 0.0.0.0 --port ${playwrightVitePort}`;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -22,7 +22,13 @@ export default defineConfig({
     trace: "off",
     screenshot: "only-on-failure",
     launchOptions: {
-      args: ["--disable-session-crashed-bubble"],
+      // Three-based visual fixtures need explicit WebGL software rendering in headless Chromium.
+      args: [
+        "--disable-session-crashed-bubble",
+        "--use-angle=swiftshader",
+        "--enable-unsafe-swiftshader",
+        "--ignore-gpu-blocklist",
+      ],
     },
   },
   webServer: {

@@ -1,5 +1,10 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { FAST_LANDING_APP_BOOT_DELAY_MS } from "../src/lib/fastLandingBoot";
+import {
+  PUBLIC_LANDING_LOGO_SCENE_TEST_ID,
+  PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
+  PUBLIC_LANDING_LOGO_TEST_ID,
+} from "../src/lib/publicLandingLogo";
 import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
 
 // These budgets target the local production preview used in CI.
@@ -40,12 +45,32 @@ async function insertLandingHeadingMarker(
   await expect(editor).toContainText(marker);
 }
 
+async function expectLandingLogoReady(image: Locator) {
+  await expect(image).toBeVisible();
+  await expect
+    .poll(async () =>
+      image.evaluate(
+        (element) =>
+          element instanceof HTMLImageElement &&
+          element.complete &&
+          element.naturalWidth > 0,
+      ),
+    )
+    .toBe(true);
+}
+
+async function expectLandingLogoSceneReady(scene: Locator) {
+  await expect(scene).toBeVisible();
+  await expect(scene).toHaveAttribute("data-state", "ready");
+}
+
 test("public landing shell renders before the full app UI takes over", async ({
   page,
 }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   await expect(page.getByTestId("public-landing-shell")).toBeVisible();
+  await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
   await expect(
     page.getByTestId("public-landing-waitlist-placeholder"),
   ).toBeVisible();
@@ -116,6 +141,7 @@ test("public landing handoff keeps the card height stable", async ({
 
   const landingContent = page.getByTestId("public-landing-content");
   await expect(landingContent).toBeVisible();
+  await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
 
   const shellHeight = await landingContent.evaluate((element) =>
     Math.round(element.getBoundingClientRect().height),
@@ -141,6 +167,7 @@ test("prod-ui landing handoff stays visually aligned", async ({
   const landingContent = page.getByTestId("public-landing-content");
   await expect(page.getByTestId("public-landing-shell")).toBeVisible();
   await expect(landingContent).toBeVisible();
+  await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
 
   const shellScreenshot = await takeStableScreenshot(landingContent);
 
@@ -154,6 +181,73 @@ test("prod-ui landing handoff stays visually aligned", async ({
     maxDiffPixelRatio: 0.01,
     testInfo,
   });
+});
+
+test("prod-ui landing logo enhancement stays visually aligned", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+
+  const landingLogo = page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID);
+  const landingLogoStage = page.getByTestId(PUBLIC_LANDING_LOGO_STAGE_TEST_ID);
+  await expectLandingLogoReady(landingLogo);
+
+  const initialLogoScreenshot = await takeStableScreenshot(landingLogoStage);
+
+  await expectLandingLogoSceneReady(
+    page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID),
+  );
+
+  const enhancedLogoScreenshot = await takeStableScreenshot(landingLogoStage);
+
+  await expectScreenshotsToMatch({
+    actual: enhancedLogoScreenshot,
+    artifactPrefix: "public-landing-logo-enhancement",
+    expected: initialLogoScreenshot,
+    maxDiffPixelRatio: 0.015,
+    testInfo,
+  });
+});
+
+test("prod-ui landing logo keeps the SVG fallback when WebGL is unavailable", async ({
+  page,
+}) => {
+  const pageErrors: Error[] = [];
+  page.on("pageerror", (error) => {
+    pageErrors.push(error);
+  });
+
+  await page.addInitScript(() => {
+    const originalGetContextDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLCanvasElement.prototype,
+      "getContext",
+    );
+    const originalGetContext = originalGetContextDescriptor?.value;
+    if (typeof originalGetContext !== "function") {
+      return;
+    }
+
+    HTMLCanvasElement.prototype.getContext = function (contextId, ...args) {
+      if (
+        contextId === "webgl" ||
+        contextId === "webgl2" ||
+        contextId === "experimental-webgl"
+      ) {
+        return null;
+      }
+
+      return Reflect.apply(originalGetContext, this, [contextId, ...args]);
+    };
+  });
+
+  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+
+  await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
+  await expect(page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID)).toHaveCount(
+    0,
+  );
+  await page.waitForTimeout(200);
+  expect(pageErrors).toEqual([]);
 });
 
 test("public landing shell still renders when localStorage access is denied", async ({

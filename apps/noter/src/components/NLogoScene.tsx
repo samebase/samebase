@@ -100,6 +100,8 @@ type NLogoSceneProps = {
   faceColors: FaceColors;
   opacity: number;
   onInteractionStart?: () => void;
+  onRenderReady?: () => void;
+  onRenderUnavailable?: () => void;
   onViewChange: (nextView: {
     elevationDegrees: number;
     rotationDegrees: number;
@@ -257,15 +259,18 @@ function getGeometryFitRadius(
   let fitRadius = 0;
 
   for (const geometry of geometries) {
-    const boundingSphere = geometry.boundingSphere;
-    if (!boundingSphere) {
-      continue;
-    }
+    const positions = geometry.attributes.position;
 
-    fitRadius = Math.max(
-      fitRadius,
-      boundingSphere.center.length() + boundingSphere.radius,
-    );
+    for (let index = 0; index < positions.count; index += 1) {
+      fitRadius = Math.max(
+        fitRadius,
+        Math.hypot(
+          positions.getX(index),
+          positions.getY(index),
+          positions.getZ(index),
+        ),
+      );
+    }
   }
 
   return fitRadius || HALF_GRID * Math.sqrt(3);
@@ -708,6 +713,8 @@ export function NLogoScene({
   faceColors,
   opacity,
   onInteractionStart,
+  onRenderReady,
+  onRenderUnavailable,
   onViewChange,
   onVoxelEdit,
   rotationDegrees,
@@ -725,8 +732,12 @@ export function NLogoScene({
   const opacityRef = useRef(opacity);
   const shuffleAnimationRef = useRef(shuffleAnimation);
   const onInteractionStartRef = useRef(onInteractionStart);
+  const onRenderReadyRef = useRef(onRenderReady);
+  const onRenderUnavailableRef = useRef(onRenderUnavailable);
   const onViewChangeRef = useRef(onViewChange);
   const onVoxelEditRef = useRef(onVoxelEdit);
+  const renderSceneRef = useRef<(timestampMs: number) => void>(() => {});
+  const syncAnimationLoopRef = useRef<() => void>(() => {});
   const lastMovedCubeKeyRef = useRef<string | null>(null);
   const interactionRef = useRef<SceneInteraction>({
     button: null,
@@ -740,6 +751,13 @@ export function NLogoScene({
 
   useEffect(() => {
     backgroundColorRef.current = backgroundColor;
+    const sceneState = sceneStateRef.current;
+    if (!sceneState) {
+      return;
+    }
+
+    sceneState.scene.background = new THREE.Color(backgroundColor);
+    renderSceneRef.current(performance.now());
   }, [backgroundColor]);
 
   useEffect(() => {
@@ -748,10 +766,12 @@ export function NLogoScene({
 
   useEffect(() => {
     rotationDegreesRef.current = rotationDegrees;
+    renderSceneRef.current(performance.now());
   }, [rotationDegrees]);
 
   useEffect(() => {
     elevationDegreesRef.current = elevationDegrees;
+    renderSceneRef.current(performance.now());
   }, [elevationDegrees]);
 
   useEffect(() => {
@@ -761,6 +781,14 @@ export function NLogoScene({
   useEffect(() => {
     opacityRef.current = opacity;
   }, [opacity]);
+
+  useEffect(() => {
+    onRenderReadyRef.current = onRenderReady;
+  }, [onRenderReady]);
+
+  useEffect(() => {
+    onRenderUnavailableRef.current = onRenderUnavailable;
+  }, [onRenderUnavailable]);
 
   useEffect(() => {
     onViewChangeRef.current = onViewChange;
@@ -782,6 +810,9 @@ export function NLogoScene({
     if (shuffleAnimation.enabled !== wasEnabled) {
       resetShuffleAnimation(sceneState, lastMovedCubeKeyRef, false);
     }
+
+    syncAnimationLoopRef.current();
+    renderSceneRef.current(performance.now());
   }, [shuffleAnimation]);
 
   useEffect(() => {
@@ -793,7 +824,14 @@ export function NLogoScene({
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(backgroundColorRef.current);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    } catch (error) {
+      console.error("Failed to initialize logo scene renderer", error);
+      onRenderUnavailableRef.current?.();
+      return;
+    }
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.domElement.style.display = "block";
@@ -897,11 +935,19 @@ export function NLogoScene({
 
     const timer = new THREE.Timer();
     timer.connect(document);
-    let animationFrameId = 0;
+    let animationFrameId: number | null = null;
+    let readyFrameId = 0;
+    let readyFrameId2 = 0;
 
-    const animate = (timestamp?: number) => {
-      timer.update(timestamp);
-      const timestampMs = timestamp ?? performance.now();
+    const stopAnimation = () => {
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+    };
+
+    const renderScene = (timestampMs: number) => {
+      timer.update(timestampMs);
       const sceneState = sceneStateRef.current;
       if (sceneState && shuffleAnimationRef.current.enabled) {
         syncCubeShuffleAnimation(
@@ -921,13 +967,42 @@ export function NLogoScene({
         syncTransparentFaceRenderOrder(sceneState);
       }
       renderer.render(scene, camera);
-      animationFrameId = window.requestAnimationFrame(animate);
     };
 
-    animate();
+    const animate = (timestamp?: number) => {
+      renderScene(timestamp ?? performance.now());
+      if (shuffleAnimationRef.current.enabled) {
+        animationFrameId = window.requestAnimationFrame(animate);
+        return;
+      }
+
+      animationFrameId = null;
+    };
+
+    renderSceneRef.current = renderScene;
+    syncAnimationLoopRef.current = () => {
+      if (shuffleAnimationRef.current.enabled) {
+        if (animationFrameId === null) {
+          animationFrameId = window.requestAnimationFrame(animate);
+        }
+        return;
+      }
+
+      stopAnimation();
+    };
+
+    renderScene(performance.now());
+    readyFrameId = window.requestAnimationFrame(() => {
+      readyFrameId2 = window.requestAnimationFrame(() => {
+        onRenderReadyRef.current?.();
+        syncAnimationLoopRef.current();
+      });
+    });
 
     return () => {
-      window.cancelAnimationFrame(animationFrameId);
+      stopAnimation();
+      window.cancelAnimationFrame(readyFrameId);
+      window.cancelAnimationFrame(readyFrameId2);
       resizeObserver.disconnect();
       timer.dispose();
       const activeSceneState = sceneStateRef.current;
@@ -947,6 +1022,8 @@ export function NLogoScene({
       }
       scene.clear();
       sceneStateRef.current = null;
+      renderSceneRef.current = () => {};
+      syncAnimationLoopRef.current = () => {};
       renderer.dispose();
       container.replaceChildren();
     };
@@ -964,6 +1041,7 @@ export function NLogoScene({
       parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
     sceneState.homeFilledVoxels = new Set(nextFilledVoxels);
     resetShuffleAnimation(sceneState, lastMovedCubeKeyRef, true);
+    renderSceneRef.current(performance.now());
   }, [voxelState]);
 
   useEffect(() => {
@@ -975,6 +1053,7 @@ export function NLogoScene({
     }
 
     applyFaceColors(sceneState.cubeMaterials, faceColors);
+    renderSceneRef.current(performance.now());
   }, [faceColors]);
 
   useEffect(() => {
@@ -997,7 +1076,6 @@ export function NLogoScene({
     sceneState.scene.background = new THREE.Color(backgroundColor);
     sceneState.renderer.render(sceneState.scene, sceneState.camera);
   }, [backgroundColor]);
-
   const pickVoxelEdit = (
     clientX: number,
     clientY: number,

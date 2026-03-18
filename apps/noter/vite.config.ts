@@ -42,6 +42,7 @@ const daytonaConvexProxyTarget = resolveDaytonaConvexProxyTarget({
 const daytonaConvexProxyPath = daytonaConvexProxyTarget
   ? DAYTONA_CONVEX_PROXY_PATH
   : null;
+const shouldIncludeVisualFixture = process.env.PLAYWRIGHT === "1";
 
 function stripDaytonaConvexProxyPrefix(requestPath: string): string {
   if (
@@ -113,6 +114,14 @@ export default defineConfig({
   server: daytonaConvexProxyServerConfig,
   build: {
     rollupOptions: {
+      input: {
+        app: path.resolve(__dirname, "index.html"),
+        ...(shouldIncludeVisualFixture
+          ? {
+              visualFixture: path.resolve(__dirname, "visual-fixture.html"),
+            }
+          : {}),
+      },
       onwarn(warning, warn) {
         // Skip certain warnings
         if (warning.code === "UNUSED_EXTERNAL_IMPORT") return;

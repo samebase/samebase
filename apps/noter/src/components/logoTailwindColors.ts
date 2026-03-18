@@ -85,7 +85,7 @@ const themeTailwindColorScales = {
   primary: {
     base: {
       cssVariable: "--primary",
-      fallbackHex: "#1c1917",
+      fallbackHex: "#394447",
     },
   },
   background: {
@@ -97,7 +97,7 @@ const themeTailwindColorScales = {
   secondary: {
     base: {
       cssVariable: "--secondary",
-      fallbackHex: "#f5f5f4",
+      fallbackHex: "#ecfccb",
     },
   },
 } as const satisfies Record<string, Record<string, ThemeColorSource>>;
@@ -264,6 +264,10 @@ function getTailwindColorOption(
 }
 
 export function getTailwindColorHex(token: string): string {
+  if (/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(token)) {
+    return token;
+  }
+
   return resolveColorSource(getTailwindColorOption(token)?.source ?? "#000000");
 }
 

@@ -50,6 +50,16 @@ const LogoPreviewPage = lazy(async () => {
   return { default: module.LogoPreviewPage };
 });
 
+const LogoSingleCubeStudyPage = lazy(async () => {
+  const module = await import("@/components/LogoSingleCubeStudyPage");
+  return { default: module.LogoSingleCubeStudyPage };
+});
+
+const LogoStaticSvgPage = lazy(async () => {
+  const module = await import("@/components/LogoStaticSvgPage");
+  return { default: module.LogoStaticSvgPage };
+});
+
 function useCloseOAuthPopup(pathname: string, enabled: boolean) {
   const { isAuthenticated } = useConvexAuth();
   useEffect(() => {
@@ -293,12 +303,35 @@ export default function App() {
   );
   const showChatFab = !isChatOnlyCodespaceRoute(location.pathname);
   const showMcpConsent = onMcpConsentRoute && mcpConsentRequestId !== null;
-  const showLogoPreview = location.pathname === "/logo";
+  const logoPreviewMode =
+    location.pathname === "/logo"
+      ? "three"
+      : location.pathname === "/logo-iso"
+        ? "iso"
+        : null;
+  const showLogoStaticSvg = location.pathname === "/logo-svg";
+  const showLogoIsoStudy = location.pathname === "/logo-iso-study";
 
-  if (showLogoPreview) {
+  if (logoPreviewMode !== null) {
     return (
       <Suspense fallback={null}>
-        <LogoPreviewPage />
+        <LogoPreviewPage renderMode={logoPreviewMode} />
+      </Suspense>
+    );
+  }
+
+  if (showLogoIsoStudy) {
+    return (
+      <Suspense fallback={null}>
+        <LogoSingleCubeStudyPage />
+      </Suspense>
+    );
+  }
+
+  if (showLogoStaticSvg) {
+    return (
+      <Suspense fallback={null}>
+        <LogoStaticSvgPage />
       </Suspense>
     );
   }

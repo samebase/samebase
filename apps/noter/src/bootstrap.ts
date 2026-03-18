@@ -4,6 +4,18 @@ import {
   getLandingDevToggleLabel,
   isLandingDevModeEnabled,
 } from "@/lib/landingDevMode";
+import {
+  PUBLIC_LANDING_LOGO_ALT,
+  PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME,
+  PUBLIC_LANDING_LOGO_HEIGHT,
+  PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME,
+  PUBLIC_LANDING_LOGO_SCENE_TEST_ID,
+  PUBLIC_LANDING_LOGO_SRC,
+  PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME,
+  PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
+  PUBLIC_LANDING_LOGO_TEST_ID,
+  PUBLIC_LANDING_LOGO_WIDTH,
+} from "@/lib/publicLandingLogo";
 import { FAST_LANDING_APP_BOOT_DELAY_MS } from "@/lib/fastLandingBoot";
 import { landingPageBullets, landingPageSlogan } from "@/lib/landingCopy";
 import { writePublicLandingWaitlistDraft } from "@/lib/publicLandingWaitlistDraft";
@@ -248,6 +260,27 @@ function renderFastLandingShell() {
       <main class="flex grow flex-col overflow-hidden">
         <div class="container my-auto">
           <div data-testid="${PUBLIC_LANDING_CONTENT_TEST_ID}" class="mx-auto flex max-w-[384px] flex-col gap-4 pb-8">
+            <div class="${PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME}">
+              <div data-testid="${PUBLIC_LANDING_LOGO_STAGE_TEST_ID}" class="${PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME}">
+                <img
+                  data-testid="${PUBLIC_LANDING_LOGO_TEST_ID}"
+                  src="${escapeHtml(PUBLIC_LANDING_LOGO_SRC)}"
+                  alt="${escapeHtml(PUBLIC_LANDING_LOGO_ALT)}"
+                  width="${String(PUBLIC_LANDING_LOGO_WIDTH)}"
+                  height="${String(PUBLIC_LANDING_LOGO_HEIGHT)}"
+                  loading="eager"
+                  decoding="async"
+                  fetchpriority="high"
+                  class="${PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME}"
+                />
+                <div
+                  aria-hidden="true"
+                  data-testid="${PUBLIC_LANDING_LOGO_SCENE_TEST_ID}"
+                  data-state="loading"
+                  class="pointer-events-none absolute inset-0 z-0"
+                ></div>
+              </div>
+            </div>
             <div class="space-y-4 text-sm">
               <div class="space-y-2">
                 <h1 class="text-pretty text-lg font-medium tracking-tight">${escapeHtml(

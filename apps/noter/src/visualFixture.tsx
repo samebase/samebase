@@ -14,10 +14,15 @@ import {
   SimpleViewVisualFixture,
   type SimpleViewVisualMode,
 } from "@/components/SimpleViewVisualFixture";
+import {
+  LogoThreeVisualFixture,
+  type LogoThreeVisualMode,
+} from "@/components/LogoThreeVisualFixture";
 import "./index.css";
 
 type VisualFixtureMode =
   | CommitReviewVisualMode
+  | LogoThreeVisualMode
   | RepositoryMediaVisualMode
   | SimpleViewVisualMode;
 
@@ -30,6 +35,7 @@ function readMode(): VisualFixtureMode {
     value === "trailing-newline-only" ||
     value === "unchanged" ||
     value === "conflict" ||
+    value === "logo-three-reference" ||
     value === "media-png" ||
     value === "media-svg" ||
     value === "simple-repository-config" ||
@@ -48,6 +54,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <DialogProvider>
         {mode === "media-png" || mode === "media-svg" ? (
           <RepositoryMediaVisualFixture mode={mode} />
+        ) : mode === "logo-three-reference" ? (
+          <LogoThreeVisualFixture />
         ) : mode === "simple-repository-config" ||
           mode === "simple-missing-config" ? (
           <SimpleViewVisualFixture mode={mode} />

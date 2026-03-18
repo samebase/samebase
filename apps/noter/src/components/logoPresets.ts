@@ -7,9 +7,9 @@ import {
 } from "@/components/logoVoxelState";
 
 export const CUSTOM_LOGO_PRESET_ID = "custom";
-export const DEFAULT_LOGO_PRESET_ID = "n-logo";
+export const DEFAULT_LOGO_PRESET_ID = "checker-lattice";
 
-export type LogoPresetId = "cornerless-cube" | "n-logo";
+export type LogoPresetId = "checker-lattice" | "cornerless-cube" | "n-logo";
 export type LogoPresetSelection = LogoPresetId | typeof CUSTOM_LOGO_PRESET_ID;
 
 type LogoPreset = {
@@ -18,6 +18,28 @@ type LogoPreset = {
   label: string;
   voxelState: string;
 };
+
+function createNLogoVoxelState(): string {
+  return serializeVoxelState(
+    createFilledVoxelSet([
+      [0, 0, 1],
+      [0, 0, 2],
+      [0, 1, 0],
+      [0, 1, 2],
+      [0, 2, 0],
+      [0, 2, 2],
+      [1, 0, 0],
+      [1, 2, 0],
+      [1, 2, 2],
+      [2, 0, 0],
+      [2, 0, 1],
+      [2, 0, 2],
+      [2, 1, 2],
+      [2, 2, 0],
+      [2, 2, 1],
+    ]),
+  );
+}
 
 function createCornerlessCubeVoxelState(): string {
   const coordinates: VoxelCoordinate[] = [];
@@ -43,10 +65,16 @@ function createCornerlessCubeVoxelState(): string {
 
 export const LOGO_PRESETS = [
   {
-    description: "Current lowercase n logo",
+    description: "Three-layer alternating lattice with the center cube removed",
+    id: "checker-lattice",
+    label: "Checker Lattice",
+    voxelState: DEFAULT_VOXEL_STATE,
+  },
+  {
+    description: "Original lowercase n voxel mark",
     id: "n-logo",
     label: "N Logo",
-    voxelState: DEFAULT_VOXEL_STATE,
+    voxelState: createNLogoVoxelState(),
   },
   {
     description: "3x3x3 cube with all 8 corner cubes removed",

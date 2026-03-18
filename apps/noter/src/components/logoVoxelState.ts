@@ -1,7 +1,7 @@
 export const GRID_SIZE = 3;
 export const HALF_GRID = GRID_SIZE / 2;
 export const DEFAULT_ROTATION_DEGREES = 0;
-export const DEFAULT_ELEVATION_DEGREES = 29.5;
+export const DEFAULT_ELEVATION_DEGREES = 35.26438968;
 export const MIN_ELEVATION_DEGREES = 0;
 export const MAX_ELEVATION_DEGREES = 360;
 const LEGACY_VOXEL_LAYER_SEPARATOR = ",";
@@ -17,21 +17,18 @@ export type VoxelEdit = {
 };
 
 const defaultVoxelCoordinates = [
-  [0, 0, 1],
-  [0, 0, 2],
-  [0, 1, 0],
-  [0, 1, 2],
-  [0, 2, 0],
-  [0, 2, 2],
-  [1, 0, 0],
   [1, 2, 0],
-  [1, 2, 2],
-  [2, 0, 0],
-  [2, 0, 1],
-  [2, 0, 2],
-  [2, 1, 2],
-  [2, 2, 0],
+  [0, 2, 1],
   [2, 2, 1],
+  [1, 2, 2],
+  [0, 1, 0],
+  [2, 1, 0],
+  [0, 1, 2],
+  [2, 1, 2],
+  [1, 0, 0],
+  [0, 0, 1],
+  [2, 0, 1],
+  [1, 0, 2],
 ] as const satisfies readonly VoxelCoordinate[];
 
 export function voxelKey(x: number, y: number, z: number): string {

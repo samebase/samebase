@@ -9,6 +9,8 @@ apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-conflict.png
 apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-deleted.png
 apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-inline.png
 apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-unchanged.png
+apps/noter/e2e/logo-three-visual.spec.ts-snapshots/logo-three-diff.png
+apps/noter/e2e/logo-three-visual.spec.ts-snapshots/logo-three-reference.png
 apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-png.png
 apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-svg.png
 apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-missing-config.png
@@ -125,6 +127,7 @@ specs/058_RECTANGULAR_VISUAL_LANGUAGE_SPEC.md
 specs/059_DAYTONA_PERSISTENT_TMUX_TERMINALS_SPEC.md
 specs/060_LOGO_PREVIEW_PLAYGROUND_SPEC.md
 specs/061_FAST_PUBLIC_LANDING_BOOT_SPEC.md
+specs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md
 TODO.md
 VISION.md
 worktree.md
