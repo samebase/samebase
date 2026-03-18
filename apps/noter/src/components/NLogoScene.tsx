@@ -86,7 +86,7 @@ type SceneState = {
   activeCubeMoves: ActiveCubeMove[];
   homeFilledVoxels: Set<string>;
   logoGroup: THREE.Group;
-  logoMesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial[]>;
+  logoMeshes: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>[];
   raycaster: THREE.Raycaster;
   renderer: THREE.WebGLRenderer;
   resizeScene: () => void;
@@ -255,9 +255,50 @@ function toWorld(boundaryIndex: number): number {
   return boundaryIndex - HALF_GRID;
 }
 
-function buildVoxelSurfaceGeometry(
+function buildBucketGeometry(bucket: FaceBuckets): THREE.BufferGeometry {
+  const geometry = new THREE.BufferGeometry();
+
+  if (bucket.positions.length === 0) {
+    return geometry;
+  }
+
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(bucket.positions, 3),
+  );
+  geometry.setAttribute(
+    "normal",
+    new THREE.Float32BufferAttribute(bucket.normals, 3),
+  );
+  geometry.setIndex(bucket.indices);
+  geometry.computeBoundingSphere();
+
+  return geometry;
+}
+
+function getGeometryFitRadius(
+  geometries: readonly THREE.BufferGeometry[],
+): number {
+  let fitRadius = 0;
+
+  for (const geometry of geometries) {
+    const boundingSphere = geometry.boundingSphere;
+    if (!boundingSphere) {
+      continue;
+    }
+
+    fitRadius = Math.max(
+      fitRadius,
+      boundingSphere.center.length() + boundingSphere.radius,
+    );
+  }
+
+  return fitRadius || HALF_GRID * Math.sqrt(3);
+}
+
+function buildVoxelSurfaceGeometries(
   filledVoxels: Set<string>,
-): THREE.BufferGeometry {
+): THREE.BufferGeometry[] {
   const buckets: FaceBuckets[] = Array.from({ length: 6 }, () => ({
     positions: [],
     normals: [],
@@ -426,34 +467,7 @@ function buildVoxelSurfaceGeometry(
     }
   }
 
-  const positions: number[] = [];
-  const normals: number[] = [];
-  const indices: number[] = [];
-  const geometry = new THREE.BufferGeometry();
-  let vertexOffset = 0;
-  let indexOffset = 0;
-
-  for (const [materialIndex, bucket] of buckets.entries()) {
-    positions.push(...bucket.positions);
-    normals.push(...bucket.normals);
-    indices.push(...bucket.indices.map((index) => index + vertexOffset));
-    geometry.addGroup(indexOffset, bucket.indices.length, materialIndex);
-    vertexOffset += bucket.positions.length / 3;
-    indexOffset += bucket.indices.length;
-  }
-
-  geometry.setAttribute(
-    "position",
-    new THREE.Float32BufferAttribute(positions, 3),
-  );
-  geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
-  geometry.setIndex(indices);
-
-  if (positions.length > 0) {
-    geometry.computeBoundingSphere();
-  }
-
-  return geometry;
+  return buckets.map((bucket) => buildBucketGeometry(bucket));
 }
 
 function pointToVoxelCoordinate(point: THREE.Vector3): VoxelCoordinate | null {
@@ -509,16 +523,36 @@ function replaceLogoGeometry(
   nextFilledVoxels: Set<string>,
   syncCameraFitRadius: boolean,
 ) {
-  const nextGeometry = buildVoxelSurfaceGeometry(nextFilledVoxels);
-  const previousGeometry = sceneState.logoMesh.geometry;
-  sceneState.logoMesh.geometry = nextGeometry;
+  const nextGeometries = buildVoxelSurfaceGeometries(nextFilledVoxels);
+  for (const [index, nextGeometry] of nextGeometries.entries()) {
+    const previousGeometry = sceneState.logoMeshes[index].geometry;
+    sceneState.logoMeshes[index].geometry = nextGeometry;
+    previousGeometry.dispose();
+  }
   sceneState.currentFilledVoxels = new Set(nextFilledVoxels);
   if (syncCameraFitRadius) {
-    sceneState.cameraFitRadius =
-      nextGeometry.boundingSphere?.radius ?? sceneState.cameraFitRadius;
+    sceneState.cameraFitRadius = getGeometryFitRadius(nextGeometries);
   }
-  previousGeometry.dispose();
   sceneState.resizeScene();
+}
+
+function syncTransparentFaceRenderOrder(sceneState: SceneState) {
+  sceneState.camera.updateMatrixWorld();
+  sceneState.logoGroup.updateMatrixWorld(true);
+
+  const meshDepths = sceneState.logoMeshes.map((mesh) => {
+    const cameraSpaceCenter = (
+      mesh.geometry.boundingSphere?.center.clone() ?? new THREE.Vector3()
+    ).applyMatrix4(mesh.matrixWorld);
+    cameraSpaceCenter.applyMatrix4(sceneState.camera.matrixWorldInverse);
+    return { depth: cameraSpaceCenter.z, mesh };
+  });
+
+  meshDepths
+    .sort((left, right) => left.depth - right.depth)
+    .forEach(({ mesh }, index) => {
+      mesh.renderOrder = index;
+    });
 }
 
 function clearActiveCubeMoves(sceneState: SceneState) {
@@ -774,16 +808,18 @@ export function NLogoScene({
     applyMaterialOpacity(materials, opacityRef.current);
     const initialFilledVoxels =
       parseVoxelState(voxelStateRef.current) ?? createDefaultFilledVoxelSet();
-    const logoMesh = new THREE.Mesh(
-      buildVoxelSurfaceGeometry(initialFilledVoxels),
-      materials,
+    const logoGeometries = buildVoxelSurfaceGeometries(initialFilledVoxels);
+    const logoMeshes = logoGeometries.map(
+      (geometry, materialIndex) =>
+        new THREE.Mesh(geometry, materials[materialIndex]),
     );
     const logoGroup = new THREE.Group();
-    logoGroup.add(logoMesh);
+    for (const logoMesh of logoMeshes) {
+      logoGroup.add(logoMesh);
+    }
     scene.add(logoGroup);
     const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const initialCameraFitRadius =
-      logoMesh.geometry.boundingSphere?.radius ?? HALF_GRID * Math.sqrt(3);
+    const initialCameraFitRadius = getGeometryFitRadius(logoGeometries);
 
     const getFrustumHalfSpan = () => {
       const radius =
@@ -837,7 +873,7 @@ export function NLogoScene({
       activeCubeMoves: [],
       homeFilledVoxels: new Set(initialFilledVoxels),
       logoGroup,
-      logoMesh,
+      logoMeshes,
       raycaster: new THREE.Raycaster(),
       renderer,
       resizeScene,
@@ -873,6 +909,9 @@ export function NLogoScene({
         rotationDegreesRef.current,
       );
       updateCameraPosition();
+      if (sceneState) {
+        syncTransparentFaceRenderOrder(sceneState);
+      }
       renderer.render(scene, camera);
       animationFrameId = window.requestAnimationFrame(animate);
     };
@@ -887,7 +926,9 @@ export function NLogoScene({
       if (activeSceneState) {
         clearActiveCubeMoves(activeSceneState);
       }
-      logoMesh.geometry.dispose();
+      for (const logoMesh of logoMeshes) {
+        logoMesh.geometry.dispose();
+      }
       cubeGeometry.dispose();
       for (const material of materials) {
         material.dispose();
@@ -971,8 +1012,8 @@ export function NLogoScene({
       new THREE.Vector2(x, y),
       sceneState.camera,
     );
-    const intersections = sceneState.raycaster.intersectObject(
-      sceneState.logoMesh,
+    const intersections = sceneState.raycaster.intersectObjects(
+      sceneState.logoMeshes,
       false,
     );
     if (intersections.length === 0) {
@@ -980,7 +1021,7 @@ export function NLogoScene({
     }
     const intersection = intersections[0];
 
-    const localPoint = sceneState.logoMesh.worldToLocal(
+    const localPoint = sceneState.logoGroup.worldToLocal(
       intersection.point.clone(),
     );
     const intersectionNormal = intersection.normal ?? intersection.face?.normal;
