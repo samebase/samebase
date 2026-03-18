@@ -16,6 +16,83 @@ import { useEffect, useRef, useState } from "react";
 export type LogoThreeVisualMode = "logo-three-reference";
 
 const PREVIEW_SIZE = 1000;
+const SECONDARY_PREVIEW_SIZES = [240, 128, 64, 32] as const;
+
+function LogoThreeScalePreview({
+  mismatchPixels,
+  size,
+}: {
+  mismatchPixels: number | null;
+  size: (typeof SECONDARY_PREVIEW_SIZES)[number];
+}) {
+  const previewBackgroundColor = getTailwindColorHex("background-base");
+
+  return (
+    <section className="grid gap-3 border border-slate-200 p-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="text-sm font-medium text-slate-800">{size}px</div>
+        <div className="text-xs tabular-nums text-slate-600">
+          {mismatchPixels === null
+            ? "Comparing..."
+            : `${mismatchPixels.toLocaleString()} mismatches`}
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-2">
+          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            Three
+          </div>
+          <div
+            className="overflow-hidden border border-slate-200"
+            style={{
+              backgroundColor: previewBackgroundColor,
+              height: `${size}px`,
+              width: `${size}px`,
+            }}
+          >
+            <NLogoScene
+              backgroundColor={previewBackgroundColor}
+              className="h-full w-full"
+              elevationDegrees={LOGO_ISOMETRIC_ELEVATION_DEGREES}
+              faceColors={DEFAULT_FACE_COLORS}
+              onViewChange={(_nextView) => {}}
+              onVoxelEdit={(_edit) => {}}
+              rotationDegrees={LOGO_ISOMETRIC_ROTATION_DEGREES}
+              shuffleAnimation={{ enabled: false, parallelMoves: 1 }}
+              voxelState={DEFAULT_VOXEL_STATE}
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-2">
+          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            SVG
+          </div>
+          <div
+            className="flex items-center justify-center border border-slate-200"
+            style={{
+              backgroundColor: previewBackgroundColor,
+              height: `${size}px`,
+              width: `${size}px`,
+            }}
+          >
+            <img
+              src={DEFAULT_STATIC_LOGO_SVG_DATA_URL}
+              alt=""
+              width={LOGO_ISOMETRIC_CANVAS_WIDTH}
+              height={LOGO_ISOMETRIC_CANVAS_HEIGHT}
+              className="block"
+              style={{
+                height: `${size}px`,
+                width: `${size}px`,
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export function LogoThreeVisualFixture() {
   const backgroundColor = getTailwindColorHex("background-base");
@@ -23,7 +100,9 @@ export function LogoThreeVisualFixture() {
   const referenceContainerRef = useRef<HTMLDivElement | null>(null);
   const svgImageRef = useRef<HTMLImageElement | null>(null);
   const diffCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [mismatchPixels, setMismatchPixels] = useState<number | null>(null);
+  const [mismatchPixelsBySize, setMismatchPixelsBySize] = useState<
+    Partial<Record<number, number>>
+  >({});
 
   useEffect(() => {
     let cancelled = false;
@@ -67,44 +146,40 @@ export function LogoThreeVisualFixture() {
       const background =
         window.getComputedStyle(referenceContainer).backgroundColor;
 
-      const createRasterContext = () => {
+      const createRasterContext = (size: number) => {
         const canvas = document.createElement("canvas");
-        canvas.width = compareWidth;
-        canvas.height = compareHeight;
+        canvas.width = size;
+        canvas.height = size;
         const context = canvas.getContext("2d", { willReadFrequently: true });
         if (!context) {
           throw new Error("Missing raster context.");
         }
         context.fillStyle = background;
-        context.fillRect(0, 0, compareWidth, compareHeight);
+        context.fillRect(0, 0, size, size);
         context.imageSmoothingEnabled = true;
-        return { canvas, context };
+        return context;
       };
 
-      const referenceRaster = createRasterContext();
-      referenceRaster.context.drawImage(
-        referenceCanvas,
-        0,
-        0,
-        compareWidth,
-        compareHeight,
-      );
+      const collectDiff = (size: number) => {
+        const referenceContext = createRasterContext(size);
+        referenceContext.drawImage(referenceCanvas, 0, 0, size, size);
 
-      const svgRaster = createRasterContext();
-      svgRaster.context.drawImage(svgImage, 0, 0, compareWidth, compareHeight);
+        const svgContext = createRasterContext(size);
+        svgContext.drawImage(svgImage, 0, 0, size, size);
 
-      const referenceData = referenceRaster.context.getImageData(
-        0,
-        0,
-        compareWidth,
-        compareHeight,
-      ).data;
-      const svgData = svgRaster.context.getImageData(
-        0,
-        0,
-        compareWidth,
-        compareHeight,
-      ).data;
+        const referenceData = referenceContext.getImageData(
+          0,
+          0,
+          size,
+          size,
+        ).data;
+        const svgData = svgContext.getImageData(0, 0, size, size).data;
+
+        return {
+          referenceData,
+          svgData,
+        };
+      };
 
       const diffContext = diffCanvas.getContext("2d", {
         willReadFrequently: true,
@@ -119,14 +194,22 @@ export function LogoThreeVisualFixture() {
         compareWidth,
         compareHeight,
       );
+      const primaryDiff = collectDiff(PREVIEW_SIZE);
       let mismatches = 0;
 
-      for (let index = 0; index < referenceData.length; index += 4) {
+      for (
+        let index = 0;
+        index < primaryDiff.referenceData.length;
+        index += 4
+      ) {
         const samePixel =
-          referenceData[index] === svgData[index] &&
-          referenceData[index + 1] === svgData[index + 1] &&
-          referenceData[index + 2] === svgData[index + 2] &&
-          referenceData[index + 3] === svgData[index + 3];
+          primaryDiff.referenceData[index] === primaryDiff.svgData[index] &&
+          primaryDiff.referenceData[index + 1] ===
+            primaryDiff.svgData[index + 1] &&
+          primaryDiff.referenceData[index + 2] ===
+            primaryDiff.svgData[index + 2] &&
+          primaryDiff.referenceData[index + 3] ===
+            primaryDiff.svgData[index + 3];
 
         if (!samePixel) {
           mismatches += 1;
@@ -143,7 +226,29 @@ export function LogoThreeVisualFixture() {
       }
 
       diffContext.putImageData(diffImage, 0, 0);
-      setMismatchPixels(mismatches);
+      const nextMismatchPixelsBySize: Partial<Record<number, number>> = {
+        [PREVIEW_SIZE]: mismatches,
+      };
+
+      for (const size of SECONDARY_PREVIEW_SIZES) {
+        const diff = collectDiff(size);
+        let sizeMismatches = 0;
+        for (let index = 0; index < diff.referenceData.length; index += 4) {
+          const samePixel =
+            diff.referenceData[index] === diff.svgData[index] &&
+            diff.referenceData[index + 1] === diff.svgData[index + 1] &&
+            diff.referenceData[index + 2] === diff.svgData[index + 2] &&
+            diff.referenceData[index + 3] === diff.svgData[index + 3];
+
+          if (!samePixel) {
+            sizeMismatches += 1;
+          }
+        }
+
+        nextMismatchPixelsBySize[size] = sizeMismatches;
+      }
+
+      setMismatchPixelsBySize(nextMismatchPixelsBySize);
     };
 
     void renderDiff();
@@ -168,6 +273,8 @@ export function LogoThreeVisualFixture() {
             Left: current Three renderer at a fixed camera angle. Center:
             rasterized SVG at the same display size. Right: per-pixel browser
             diff after both are rasterized to a `1000x1000` comparison surface.
+            The lower row shows how the same pair behaves at smaller display
+            sizes.
           </p>
         </div>
 
@@ -241,9 +348,9 @@ export function LogoThreeVisualFixture() {
                 data-testid="logo-three-parity-mismatch-count"
                 className="text-sm tabular-nums text-slate-600"
               >
-                {mismatchPixels === null
+                {mismatchPixelsBySize[PREVIEW_SIZE] === undefined
                   ? "Comparing..."
-                  : `${mismatchPixels.toLocaleString()} mismatched pixels`}
+                  : `${mismatchPixelsBySize[PREVIEW_SIZE].toLocaleString()} mismatched pixels`}
               </div>
             </div>
             <div className="flex items-center justify-center border border-slate-200 p-4">
@@ -261,6 +368,16 @@ export function LogoThreeVisualFixture() {
               />
             </div>
           </section>
+        </div>
+
+        <div className="grid gap-5 xl:grid-cols-2 2xl:grid-cols-4">
+          {SECONDARY_PREVIEW_SIZES.map((size) => (
+            <LogoThreeScalePreview
+              key={size}
+              mismatchPixels={mismatchPixelsBySize[size] ?? null}
+              size={size}
+            />
+          ))}
         </div>
       </div>
     </div>

@@ -16,16 +16,22 @@
 ## Conclusion
 
 Noter should stop treating the interactive logo playground as the user-facing
-delivery format.
+delivery format, but it should also stop treating the pixel-art isometric study
+as the primary logo geometry source.
 
-For user-visible product surfaces, the logo should be delivered as a generated
-static SVG loaded as an image, with no runtime `three.js`, no live canvas math,
-and no React-side scene graph.
+For user-visible product surfaces, the main logo should be delivered as a
+generated static SVG loaded as an image, with no runtime `three.js`, no live
+canvas math, and no React-side scene graph on the user path.
+
+The canonical geometry for that smooth SVG should come from the fixed
+orthographic Three camera projection, not from the pixel-art isometric helper.
+The pixel-art isometric renderer remains useful, but as a separate artistic
+representation rather than the primary logo contract.
 
 The existing `/logo`, `/logo-iso`, and `/logo-iso-study` routes should remain as
-dev-only exploration tools. If user-facing drag returns later, it should be
-implemented as a pre-rendered frame scrubber sourced from the same generator,
-not as a live 3D runtime.
+dev-only exploration tools. `/logo` remains the interactive reference for the
+orthographic main logo. `/logo-iso` remains a separate pixel-art exploration
+surface.
 
 ## Context and Evidence
 
@@ -60,7 +66,8 @@ The current user requirement is materially narrower than the dev requirement:
 
 This changes the decision completely: the problem is no longer "which smaller 3D
 library should replace Three?" It is "how do we avoid shipping a 3D runtime to
-users at all?"
+users at all, while keeping the delivered logo visually aligned with the main
+interactive Three representation?"
 
 ### 4. External research summary
 
@@ -76,24 +83,26 @@ users at all?"
 These sources support the choice of:
 
 - static SVG for user delivery
-- generated pixel comparison for exact equivalence checks
+- a browser-rasterized comparison harness for same-run visual checks
 - keeping screenshot baselines as reviewer aid, not the sole correctness gate
 
 ## Goals
 
 - Remove `three.js` from user-facing logo delivery.
 - Keep the user-facing logo path as close to zero-runtime as practical.
-- Preserve the current logo appearance exactly enough to support strict visual
-  equivalence testing.
+- Preserve the current orthographic logo appearance closely enough that the
+  static SVG can track the interactive Three reference across large and small
+  display sizes.
 - Keep the existing interactive playground available for design and dev work.
-- Maintain one geometry source of truth for both dev and user outputs.
+- Maintain one geometry source of truth for the main smooth logo path.
 
 ## Non-Goals
 
 - Replacing `three.js` everywhere immediately.
 - Rebuilding the dev playground in another 3D library.
 - Shipping a live SVG scene with pointer-driven matrix math on the user path.
-- Introducing a PNG fallback pipeline unless a concrete consumer requires it.
+- Converging the pixel-art isometric renderer with the main smooth logo path in
+  this phase.
 - Solving future drag rotation for user surfaces in this phase.
 
 ## Decision
@@ -114,11 +123,25 @@ Reasons:
 
 - external SVG removes almost all runtime JavaScript from the user path
 - browser image loading and caching are simpler than mounting a scene component
-- SVG remains crisp at multiple display sizes
+- SVG remains the simplest static delivery format for the main logo
 - SVG is a good fit for the current logo because the visible faces already map
-  cleanly to polygons
+  to projected quads from the orthographic reference view
 
-### 3. Do not replace Three with another runtime 3D library for users
+### 3. Main logo projection should follow the orthographic Three view
+
+The canonical smooth logo should match the fixed orthographic view used by the
+interactive Three playground.
+
+Reasons:
+
+- this is the main interactive logo representation
+- it avoids visible "projection jumps" between the dev reference and the shipped
+  static mark
+- the current pixel-art isometric helper is intentionally a snapped artistic
+  projection, not mathematically exact orthographic geometry
+- one primary projection contract is easier to defend and easier to evolve
+
+### 4. Do not replace Three with another runtime 3D library for users
 
 Options such as `ogl`, `regl`, or `zdog` do not solve the user problem well.
 
@@ -137,15 +160,16 @@ runtime entirely.
 
 ### 1. Geometry source
 
-`apps/noter/src/components/logoIsometricRenderer.ts` should remain the geometry
-source of truth for the user-facing static mark.
+`apps/noter/src/components/logoThreeSvgRenderer.ts` should remain the geometry
+source of truth for the user-facing smooth static mark.
 
-The SVG generator shall reuse the same concepts already implemented there:
+The SVG generator shall reuse the same concepts already implemented in the
+interactive Three path:
 
 - visible-face selection
 - face ordering
 - per-face fills
-- fixed projection
+- fixed orthographic projection
 
 ### 2. Fixed presentation contract
 
@@ -153,22 +177,42 @@ The user-facing SVG shall use one explicit presentation contract:
 
 - one fixed camera angle
 - one fixed voxel state
-- one fixed isometric style
 - one fixed face-color set per asset variant
+
+For the main smooth logo, that camera contract is the current fixed orthographic
+Three reference view.
 
 If future product surfaces need alternate themes or variants, they should be
 added as explicit generated assets, not as runtime controls.
 
 ### 3. Coordinate discipline
 
-To maximize exact equivalence with the current raster output, the SVG generator
-shall:
+To maximize visual stability and reduce browser rasterization artifacts, the SVG
+generator shall:
 
-- emit whole-number coordinates
-- avoid fractional transforms
-- avoid blur, filters, shadows, and strokes
-- prefer direct polygon fills
+- avoid runtime transforms on the delivered image
+- avoid blur, filters, and shadows
 - preserve deterministic face ordering
+- use seam-mitigation attributes when browser SVG rasterization produces cracks
+  between adjacent faces
+
+The current seam-mitigation approach is:
+
+- projected face polygons from the orthographic reference view
+- deterministic painter's-order rendering
+- a very thin fill-colored stroke on each polygon to hide browser hairline
+  cracks between shared edges
+
+### 4. Pixel-art relationship
+
+`apps/noter/src/components/logoIsometricRenderer.ts` remains valuable, but it is
+not the primary geometry source for the smooth logo.
+
+It should be treated as:
+
+- a pixel-art/art-direction renderer
+- the source of truth for future pixel-art exports
+- a separate visual system from the main orthographic logo
 
 ## User Delivery Contract
 
@@ -243,7 +287,7 @@ Add narrow tests for the generator so the asset build is stable:
 - color mapping
 - final SVG string or DOM structure
 
-### 2. Exact visual equivalence test
+### 2. Browser-rasterized comparison fixture
 
 Add a Playwright fixture that renders:
 
@@ -253,32 +297,54 @@ Add a Playwright fixture that renders:
 Both outputs must be rasterized in the same browser run and compared as pixel
 data inside the page.
 
-The exact check should be:
+The comparison fixture should keep these invariants:
 
 - same viewport
 - same background
 - same dimensions
 - same device-pixel-ratio handling
-- mismatch count must equal `0`
 
-This is stricter and more meaningful than comparing two separate screenshots
-captured on different machines.
+The current comparison output should include:
+
+- a large reference pair and diff view
+- mismatch counts at the main display size
+- additional smaller-size comparison samples
+
+The current release gate is not strict `0` mismatch for the smooth Three-vs-SVG
+path, because WebGL MSAA and browser SVG rasterization do not currently converge
+to exact byte-identical output even when the geometry is aligned. The goal in
+this phase is to reduce seam artifacts and track drift with same-browser diff
+counts and reviewer-visible snapshots.
 
 ### 3. Snapshot reviewer aid
 
 Keep a normal Playwright screenshot snapshot alongside the exact compare test so
 reviewers can inspect the rendered result visually.
 
-That snapshot is a review artifact, not the primary proof of exact equality,
-because Playwright explicitly documents environment-sensitive screenshot output.
+That snapshot is a review artifact, not the primary proof of exact geometry
+alignment, because Playwright explicitly documents environment-sensitive
+screenshot output.
+
+### 4. Multi-size review
+
+The smooth Three/SVG fixture should also show the pair at smaller display sizes
+so seam behavior is visible before favicon-scale work begins.
+
+Current review sizes:
+
+- `1000px` main comparison
+- `240px`
+- `128px`
+- `64px`
+- `32px`
 
 ## Implementation Plan
 
-### 1. Extract generator
+### 1. Maintain the orthographic smooth generator
 
-- add a generator that emits static SVG from the existing isometric geometry
-- keep the generator logic close to `logoIsometricRenderer.ts`
-- avoid creating a second geometry system
+- keep a generator that emits static SVG from the orthographic reference view
+- keep the generator logic close to the interactive Three geometry contract
+- keep seam mitigation explicit and testable
 
 ### 2. Add visual fixture
 
@@ -289,8 +355,9 @@ because Playwright explicitly documents environment-sensitive screenshot output.
 ### 3. Add tests
 
 - generator unit tests
-- Playwright exact pixel-equivalence test
+- Playwright browser-rasterized diff fixture
 - Playwright snapshot test for human review
+- smaller-size preview coverage inside the comparison fixture
 
 ### 4. Switch user consumption
 
@@ -317,7 +384,7 @@ remove the need for custom scene logic.
 ### 3. Use live canvas for the user logo
 
 Rejected for phase one because the user path does not need runtime drawing.
-Canvas remains useful for dev tools and for exact comparison harnesses.
+Canvas remains useful for dev tools and for same-run comparison harnesses.
 
 ### 4. Use live inline SVG for the user logo
 
@@ -327,12 +394,17 @@ the simpler and stricter boundary.
 
 ## Open Questions
 
-- Which concrete production surfaces should switch first to the generated SVG?
-- Should the generator also produce favicon-specific variants, or should favicon
-  work stay separate from this change?
-- Should the reference renderer for the exact equivalence test be the current
-  isometric canvas renderer or a frozen expected SVG fixture once migration is
-  complete?
+- Which concrete production surfaces should switch first to the orthographic
+  static SVG?
+- Should the smooth SVG generator eventually derive its projected quads from a
+  deeper shared runtime geometry module with `NLogoScene`, or is the current
+  generator-local projection contract sufficient?
+- When favicon work resumes, should the pixel-art system adopt explicit
+  profile-based exports such as `favicon-16`, `ui-32`, and larger cube-size
+  variants?
+- If strict `0` mismatch becomes mandatory for the smooth path, should the
+  comparison move to a non-antialiased reference fixture instead of the current
+  WebGL MSAA output?
 
 ## External References
 
@@ -344,7 +416,10 @@ the simpler and stricter boundary.
 ## Summary
 
 The correct user-facing replacement for the current logo scene is not another 3D
-library. It is a generated static SVG asset with exact pixel-equivalence tests
-against the current renderer. The interactive playground remains a dev tool, and
-any future user drag should be a pre-rendered frame scrubber rather than a live
-rendering runtime.
+library. It is a generated static SVG asset derived from the fixed orthographic
+Three reference view, delivered as an image with no user-path 3D runtime. The
+pixel-art isometric renderer remains a separate artistic system, not the primary
+logo geometry source. The current validation strategy is a same-browser
+Three-vs-SVG diff fixture with smaller-size review samples, plus explicit seam
+mitigation in the SVG generator while exact zero-mismatch remains out of scope
+for the antialiased smooth path.

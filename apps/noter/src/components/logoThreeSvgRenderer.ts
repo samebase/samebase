@@ -40,6 +40,7 @@ type SurfaceQuad = {
 
 const CAMERA_FRUSTUM_PADDING = 1.12;
 const DEFAULT_VIEWBOX_SIZE = 360;
+const FACE_STROKE_WIDTH = 0.15;
 const ORBIT_RIGHT_AXIS = normalizeVector({
   x: 1,
   y: 0,
@@ -467,7 +468,8 @@ export function createLogoThreeSvgMarkup({
   const backgroundRect = `<rect x="0" y="0" width="${viewBoxSize}" height="${viewBoxSize}" fill="${escapeSvgAttribute(backgroundColor)}"/>`;
   const polygons = projectedQuads
     .map((quad) => {
-      return `<polygon points="${escapeSvgAttribute(serializePolygon(quad.points))}" fill="${escapeSvgAttribute(quad.color)}"/>`;
+      const fill = escapeSvgAttribute(quad.color);
+      return `<polygon points="${escapeSvgAttribute(serializePolygon(quad.points))}" fill="${fill}" stroke="${fill}" stroke-width="${FACE_STROKE_WIDTH}" stroke-linejoin="round" vector-effect="non-scaling-stroke" paint-order="stroke fill"/>`;
     })
     .join("");
 
