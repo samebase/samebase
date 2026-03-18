@@ -440,7 +440,7 @@ export function LogoPreviewPage() {
           <PopoverContent
             align="start"
             side="bottom"
-            sideOffset={10}
+            sideOffset={CONTROLS_POPOVER_SIDE_OFFSET_PX}
             className="w-[min(22rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-none border-black/10 bg-white/92 p-3 shadow-lg backdrop-blur-sm"
             style={{
               maxHeight: controlsPopoverMaxHeight,
