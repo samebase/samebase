@@ -196,40 +196,44 @@ export function CommitReviewVisualFixture({
 }: {
   mode: CommitReviewVisualMode;
 }) {
-  const selectedFile =
-    mode === "conflict"
-      ? "TODO.md"
-      : mode === "deleted-markdown-link"
-        ? "links.md"
-        : mode === "deleted"
-          ? "components.json"
-          : mode === "unchanged"
-            ? "AGENTS.md"
-            : "README.md";
+  let selectedFile = "README.md";
+  let activeFile = FIXTURE_FILES.find((file) => file.path === "README.md");
 
-  const activeFile =
-    mode === "conflict"
-      ? {
-          path: "TODO.md",
-          isMarkdown: true,
-        }
-      : mode === "deleted-markdown-link"
-        ? {
-            path: "links.md",
-            isMarkdown: true,
-            richOldContent: LINKS_OLD,
-            richNewContent: LINKS_NEW,
-          }
-        : mode === "deleted"
-          ? FIXTURE_FILES.find((file) => file.path === "components.json")
-          : mode === "unchanged"
-            ? {
-                path: "AGENTS.md",
-                isMarkdown: true,
-                richOldContent: AGENTS_CONTENT,
-                richNewContent: AGENTS_CONTENT,
-              }
-            : FIXTURE_FILES.find((file) => file.path === "README.md");
+  switch (mode) {
+    case "conflict":
+      selectedFile = "TODO.md";
+      activeFile = {
+        path: "TODO.md",
+        isMarkdown: true,
+      };
+      break;
+    case "deleted-markdown-link":
+      selectedFile = "links.md";
+      activeFile = {
+        path: "links.md",
+        isMarkdown: true,
+        richOldContent: LINKS_OLD,
+        richNewContent: LINKS_NEW,
+      };
+      break;
+    case "deleted":
+      selectedFile = "components.json";
+      activeFile = FIXTURE_FILES.find(
+        (file) => file.path === "components.json",
+      );
+      break;
+    case "unchanged":
+      selectedFile = "AGENTS.md";
+      activeFile = {
+        path: "AGENTS.md",
+        isMarkdown: true,
+        richOldContent: AGENTS_CONTENT,
+        richNewContent: AGENTS_CONTENT,
+      };
+      break;
+    case "inline":
+      break;
+  }
 
   const canRenderInline = Boolean(
     activeFile &&
