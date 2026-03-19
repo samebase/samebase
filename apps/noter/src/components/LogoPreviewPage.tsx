@@ -34,6 +34,7 @@ import {
   type LogoPresetId,
   type LogoPresetSelection,
 } from "@/components/logoPresets";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
@@ -73,7 +74,7 @@ import {
   updateQueryParams,
 } from "@/lib/queryParams";
 import { ChevronDown } from "lucide-react";
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useId, useRef, useState, type ChangeEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
@@ -290,6 +291,8 @@ export function LogoPreviewPage({
     readFaceColors(searchParams),
   );
   const [logoOpacity, setLogoOpacity] = useState(DEFAULT_LOGO_OPACITY);
+  const [isFaceColorAnimationEnabled, setIsFaceColorAnimationEnabled] =
+    useState(false);
   const [isAutoRotating, setIsAutoRotating] = useState(false);
   const [isShuffleEnabled, setIsShuffleEnabled] = useState(false);
   const [shuffleParallelMoves, setShuffleParallelMoves] =
@@ -302,6 +305,7 @@ export function LogoPreviewPage({
   const [controlsPopoverMaxHeight, setControlsPopoverMaxHeight] = useState(
     DEFAULT_CONTROLS_POPOVER_MAX_HEIGHT,
   );
+  const faceColorAnimationCheckboxId = useId();
 
   useEffect(() => {
     setRotationDegrees(readRotationDegrees(searchParams));
@@ -666,6 +670,7 @@ export function LogoPreviewPage({
             enabled: isShuffleEnabled,
             parallelMoves: shuffleParallelMoves,
           }}
+          animateFaceColors={isFaceColorAnimationEnabled}
           voxelState={voxelState}
         />
       )}
@@ -1236,6 +1241,30 @@ export function LogoPreviewPage({
                   Reset shape
                 </Button>
               </div>
+              {!isIsometricMode && (
+                <div className="flex items-start gap-3 border border-black/10 bg-white/70 p-3">
+                  <Checkbox
+                    id={faceColorAnimationCheckboxId}
+                    checked={isFaceColorAnimationEnabled}
+                    onCheckedChange={(checked) =>
+                      setIsFaceColorAnimationEnabled(checked === true)
+                    }
+                    className="mt-0.5 border-black/20"
+                  />
+                  <label
+                    htmlFor={faceColorAnimationCheckboxId}
+                    className="grid gap-1 text-xs text-black/55"
+                  >
+                    <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                      Animate Face Colors
+                    </span>
+                    <span>
+                      Slowly cycle the visible cube faces through nearby hues
+                      from the current palette.
+                    </span>
+                  </label>
+                </div>
+              )}
               <Collapsible
                 open={isFaceColorsOpen}
                 onOpenChange={setIsFaceColorsOpen}

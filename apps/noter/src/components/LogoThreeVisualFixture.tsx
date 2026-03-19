@@ -65,6 +65,7 @@ function LogoThreeScalePreview({
               onVoxelEdit={(_edit) => {}}
               rotationDegrees={STATIC_LOGO_ROTATION_DEGREES}
               shuffleAnimation={{ enabled: false, parallelMoves: 1 }}
+              animateFaceColors={false}
               voxelState={STATIC_LOGO_VOXEL_STATE}
             />
           </div>
@@ -358,6 +359,7 @@ export function LogoThreeVisualFixture() {
                   onVoxelEdit={(_edit) => {}}
                   rotationDegrees={STATIC_LOGO_ROTATION_DEGREES}
                   shuffleAnimation={{ enabled: false, parallelMoves: 1 }}
+                  animateFaceColors={false}
                   voxelState={STATIC_LOGO_VOXEL_STATE}
                 />
               </div>

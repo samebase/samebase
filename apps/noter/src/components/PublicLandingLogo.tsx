@@ -235,6 +235,7 @@ export function PublicLandingLogo({
               onVoxelEdit={() => {}}
               rotationDegrees={view.rotationDegrees}
               shuffleAnimation={{ enabled: false, parallelMoves: 1 }}
+              animateFaceColors={false}
               voxelState={STATIC_LOGO_VOXEL_STATE}
             />
           </div>
