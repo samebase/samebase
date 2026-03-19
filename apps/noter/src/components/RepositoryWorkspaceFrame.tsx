@@ -6,7 +6,7 @@ import {
   SidebarContent,
   SidebarInset,
   SidebarTrigger,
-} from "@/components/ui/sidebar";
+} from "@/components/sidebar";
 
 export function RepositoryWorkspaceFrame({
   sidebarContent,

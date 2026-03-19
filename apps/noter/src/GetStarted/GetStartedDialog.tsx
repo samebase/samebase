@@ -1,7 +1,7 @@
 import { ConvexLogo } from "@/GetStarted/ConvexLogo";
 import { Code } from "@/components/Code";
 import { Button } from "@/components/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
 import {
   Dialog,
   DialogClose,
@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "@/components/dialog";
 import {
   CodeIcon,
   ExternalLinkIcon,

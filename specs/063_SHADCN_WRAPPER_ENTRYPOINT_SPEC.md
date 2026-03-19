@@ -14,9 +14,28 @@ When Noter wants to apply shared product styling or behavior to a shadcn
 primitive, app code should import a repo-owned wrapper entrypoint, not the
 generated primitive directly.
 
-For buttons, the canonical app-facing import becomes `@/components/button`. The
-generated shadcn primitive at `@/components/ui/button` remains the internal base
-implementation.
+The canonical app-facing import for a wrapped primitive is
+`@/components/<name>`, while the generated shadcn primitive remains under
+`@/components/ui/<name>`.
+
+Current rollout includes:
+
+- `@/components/button`
+- `@/components/badge`
+- `@/components/card`
+- `@/components/checkbox`
+- `@/components/collapsible`
+- `@/components/dialog`
+- `@/components/dropdown-menu`
+- `@/components/input`
+- `@/components/label`
+- `@/components/popover`
+- `@/components/select`
+- `@/components/sheet`
+- `@/components/sidebar`
+- `@/components/tabs`
+- `@/components/toggle-group`
+- `@/components/tooltip`
 
 ## Goals
 
@@ -47,10 +66,12 @@ implementation.
 
 ### 2. Canonical App Import
 
-- App code should import the button from `@/components/button`.
-- The wrapper should continue exporting the canonical product-facing name
-  `Button`.
-- The wrapper implementation should alias the generated primitive as
+- App code should import a wrapped primitive from `@/components/<name>`.
+- A single-component wrapper should continue exporting the canonical
+  product-facing component name, for example `Button`.
+- A multi-export wrapper module should preserve the generated public API while
+  changing the import path ownership boundary.
+- When a wrapper needs an internal base alias, it should use names such as
   `BaseButton`.
 
 ### 3. Styling Contract
@@ -66,8 +87,10 @@ implementation.
 - Generated shadcn components may continue importing from
   `@/components/ui/button` internally when they compose other generated
   primitives.
-- Product surfaces should not depend on the generated button path when the
-  wrapper exists.
+- Generated shadcn components may continue importing other generated
+  `@/components/ui/*` primitives internally.
+- Product surfaces should not depend on a generated `@/components/ui/*` path
+  when the app-owned wrapper exists.
 
 ### 5. Naming Guidance
 
@@ -79,17 +102,18 @@ implementation.
 
 ## Acceptance Criteria
 
-- App-owned product code imports buttons from `@/components/button`.
-- The generated shadcn `button.tsx` file remains unchanged for this policy
-  shift.
-- The wrapper preserves the generated button API so call sites do not need
-  semantic rewrites.
+- App-owned product code imports wrapped shadcn primitives from
+  `@/components/<name>`.
+- Generated shadcn files under `apps/noter/src/components/ui/*` remain unchanged
+  for this policy shift.
+- Wrapper modules preserve the generated public API closely enough that call
+  sites only need import-path rewrites.
 - Repo guidance documents the wrapper convention as the default path for future
   styling ownership.
 
 ## Summary
 
-Noter should keep using shadcn as the button primitive source while moving the
-app-facing import to a repo-owned `Button` wrapper. This preserves clean product
-code, keeps generated files internal, and creates one stable place to own future
-styling decisions.
+Noter should keep using shadcn as the primitive source while moving app-facing
+imports to repo-owned wrapper entrypoints. This preserves clean product code,
+keeps generated files internal, and creates stable places to own future styling
+decisions without editing generated shadcn files by default.

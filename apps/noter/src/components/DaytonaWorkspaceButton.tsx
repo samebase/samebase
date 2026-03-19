@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "@/components/dialog";
 import {
   DaytonaPtyConnectionState,
   DaytonaPtyTerminal,

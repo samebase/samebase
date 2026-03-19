@@ -4,9 +4,9 @@ import {
   type ProsemarkMergeEditorOptions,
 } from "@/components/ProsemarkMergeEditor";
 import { Button } from "@/components/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Checkbox } from "@/components/checkbox";
+import { Label } from "@/components/label";
+import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";
 
 const README_OLD = `# Noter Starter Template
 

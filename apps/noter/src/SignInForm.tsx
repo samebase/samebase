@@ -3,7 +3,7 @@ import { LandingCopy } from "@/components/LandingCopy";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { PublicLandingLogo } from "@/components/PublicLandingLogo";
 import { Button } from "@/components/button";
-import { Input } from "@/components/ui/input";
+import { Input } from "@/components/input";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { landingPageMarkdown } from "@/lib/landingCopy";
 import { PUBLIC_LANDING_COPY_TEST_ID } from "@/lib/publicLanding";

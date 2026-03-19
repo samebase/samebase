@@ -6,14 +6,9 @@ import { api } from "../../convex/_generated/api";
 import type { BillingCycle } from "../../convex/dashboardSettings";
 import { Button } from "@/components/button";
 import { PLAN_DISPLAY_PRICE, PLAN_FEATURES } from "@/lib/pricingContent";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-} from "@/components/ui/card";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/card";
+import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";
+import { Badge } from "@/components/badge";
 
 function readCheckoutState(): "success" | "cancel" | null {
   if (typeof window === "undefined") {

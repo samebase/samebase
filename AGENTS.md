@@ -233,10 +233,12 @@ use `--env-file` or an explicit deployment selector instead.
 - **Prefer app-owned wrapper entrypoints for styled primitives** - when Noter
   needs a shared styling or behavior layer over a generated primitive, expose a
   repo-owned wrapper outside `components/ui/*` with the canonical app-facing
-  name (for example `apps/noter/src/components/button.tsx` exporting `Button`).
-  Keep the generated primitive internal and alias it as `BaseButton` inside the
-  wrapper instead of leaking names like `NButton` or editing the generated file
-  by default
+  name (for example `apps/noter/src/components/button.tsx`,
+  `apps/noter/src/components/dialog.tsx`, or
+  `apps/noter/src/components/input.tsx`). App code should import the wrapper
+  path when it exists. Keep the generated primitive internal and alias it as
+  `BaseButton` inside the wrapper instead of leaking names like `NButton` or
+  editing the generated file by default
 - **If manual edits are explicitly requested**, keep them minimal and call out
   that they diverge from generated output
 

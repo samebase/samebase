@@ -1,12 +1,12 @@
 import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Checkbox } from "@/components/checkbox";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { Input } from "@/components/ui/input";
+} from "@/components/collapsible";
+import { Input } from "@/components/input";
 import {
   GitHubLogoIcon,
   TrashIcon,
@@ -58,7 +58,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/components/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,11 +66,8 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  ButtonGroup,
-  ButtonGroupSeparator,
-} from "@/components/ui/button-group";
+} from "@/components/dropdown-menu";
+import { ButtonGroup, ButtonGroupSeparator } from "@/components/button-group";
 import { CodespaceStatus } from "@/components/CodespaceStatus";
 import { DaytonaSnapshotBanner } from "@/components/DaytonaSnapshotBanner";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";

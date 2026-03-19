@@ -1,5 +1,5 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
+import { Input } from "@/components/input";
 import { Button } from "@/components/button";
 import { CORNER_NOTCH_CLASS, EMPHASIZED_BORDER_CLASS } from "@/lib/cornerNotch";
 
