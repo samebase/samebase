@@ -20,9 +20,9 @@ const generatedStaticLogoSvgMarkup = createLogoThreeSvgMarkup({
 });
 
 describe("logoStaticSvgAsset", () => {
-  it("keeps the committed favicon svg in sync with the generated markup", () => {
-    const faviconSvg = readFileSync(
-      new URL("../../public/favicon.svg", import.meta.url),
+  it("keeps the committed static logo svg in sync with the generated markup", () => {
+    const staticLogoSvg = readFileSync(
+      new URL("../../public/logo-static.svg", import.meta.url),
       "utf8",
     )
       .replace(/\r\n/g, "\n")
@@ -31,7 +31,7 @@ describe("logoStaticSvgAsset", () => {
       .replace(/\r\n/g, "\n")
       .trim();
 
-    expect(faviconSvg).toBe(generatedSvg);
+    expect(staticLogoSvg).toBe(generatedSvg);
   });
 
   it("exports real face polygons instead of a raster traced into one-pixel rects", () => {

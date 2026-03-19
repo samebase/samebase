@@ -17,9 +17,12 @@ apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-svg.pn
 apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-missing-config.png
 apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-repository-config.png
 apps/noter/fixtures/daytona-convex-proxy.env
+apps/noter/public/favicon-dark.png
+apps/noter/public/favicon-dark.svg
 apps/noter/public/favicon.png
 apps/noter/public/favicon.svg
 apps/noter/public/logo_pick.svg
+apps/noter/public/logo-static.svg
 apps/noter/public/lumina_icon.png
 apps/noter/public/media-visual-fixture.svg
 apps/noter/public/robots.txt
