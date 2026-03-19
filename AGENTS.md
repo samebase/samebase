@@ -39,6 +39,23 @@ Low-signal/historical docs (do not treat as source of truth):
 - `LUMINA_PROJECT_ANALYSIS.md`
 - `apps/noter/src/components/Untitled-1.md`
 
+## Spec Organization
+
+- `specs/` is for accepted/current source-of-truth docs only. A doc belongs here
+  only when it describes current behavior or an accepted implementation plan
+  that the team intends to execute.
+- `rfcs/` is for proposals, pilots, rollout plans, and requests for comments
+  that are still under discussion or not yet committed roadmap work. When in
+  doubt, put new exploratory docs here instead of `specs/`.
+- `archive/` is for superseded, canceled, or historical docs that are worth
+  keeping for context but should not guide new implementation.
+- Move a doc from `rfcs/` to `specs/` only after the decision is accepted and
+  intended implementation is active.
+- Move a doc from `specs/` to `archive/` when it no longer describes current
+  reality or has been replaced by a newer source of truth.
+- During active branch churn, avoid bulk doc-folder migrations. Reclassify docs
+  in small batches and update references/fixtures in the same change.
+
 ## Development Commands
 
 ```bash
