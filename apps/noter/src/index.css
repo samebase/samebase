@@ -116,7 +116,6 @@
     line-height: 1.25rem !important;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
-    word-break: break-word;
   }
 
   .cm-landing-copy .cm-line {
