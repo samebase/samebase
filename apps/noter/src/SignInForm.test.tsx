@@ -26,7 +26,7 @@ vi.mock("@convex-dev/auth/react", () => ({
   }),
 }));
 
-import { SignInWithGoogle } from "./SignInForm";
+import { SignInWithGoogle } from "./SignInWithGoogle";
 
 describe("SignInWithGoogle", () => {
   const originalWindow = globalThis.window;
