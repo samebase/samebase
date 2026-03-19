@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+  <rect x="71.81" y="48.643" width="360" height="360" fill="transparent" style="stroke-width: 1;"/>
+  <polygon points="199.668 138.33 251.81 168.435 303.953 138.33 251.81 108.226" fill="#ecfccb" stroke="#ecfccb" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="303.953 198.539 303.953 138.33 251.81 168.435 251.81 228.644" fill="#ffffff" stroke="#ffffff" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="199.668 198.539 251.81 228.644 251.81 168.435 199.668 138.33" fill="#394447" stroke="#394447" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="147.525 228.644 199.668 258.748 251.81 228.644 199.668 198.539" fill="#ecfccb" stroke="#ecfccb" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="251.81 228.644 303.953 258.748 356.095 228.644 303.953 198.539" fill="#ecfccb" stroke="#ecfccb" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="251.81 288.853 251.81 228.644 199.668 258.748 199.668 318.957" fill="#ffffff" stroke="#ffffff" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="356.095 288.853 356.095 228.644 303.953 258.748 303.953 318.957" fill="#ffffff" stroke="#ffffff" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="251.81 288.853 303.953 318.957 303.953 258.748 251.81 228.644" fill="#394447" stroke="#394447" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="147.525 288.853 199.668 318.957 199.668 258.748 147.525 228.644" fill="#394447" stroke="#394447" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="147.525 108.226 199.668 138.33 251.81 108.226 199.668 78.121" fill="#ecfccb" stroke="#ecfccb" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="251.81 108.226 303.953 138.33 356.095 108.226 303.953 78.121" fill="#ecfccb" stroke="#ecfccb" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="356.095 168.435 356.095 108.226 303.953 138.33 303.953 198.539" fill="#ffffff" stroke="#ffffff" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="251.81 168.435 251.81 108.226 199.668 138.33 199.668 198.539" fill="#ffffff" stroke="#ffffff" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="251.81 168.435 303.953 198.539 303.953 138.33 251.81 108.226" fill="#394447" stroke="#394447" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="147.525 168.435 199.668 198.539 199.668 138.33 147.525 108.226" fill="#394447" stroke="#394447" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="303.953 198.539 356.095 228.644 408.238 198.539 356.095 168.435" fill="#ecfccb" stroke="#ecfccb" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="95.383 198.539 147.525 228.644 199.668 198.539 147.525 168.435" fill="#ecfccb" stroke="#ecfccb" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="408.238 258.748 408.238 198.539 356.095 228.644 356.095 288.853" fill="#ffffff" stroke="#ffffff" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="95.383 258.748 147.525 288.853 147.525 228.644 95.383 198.539" fill="#394447" stroke="#394447" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="199.668 258.748 199.668 198.539 147.525 228.644 147.525 288.853" fill="#ffffff" stroke="#ffffff" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="303.953 258.748 356.095 288.853 356.095 228.644 303.953 198.539" fill="#394447" stroke="#394447" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="147.525 288.853 199.668 318.957 251.81 288.853 199.668 258.748" fill="#ecfccb" stroke="#ecfccb" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="251.81 288.853 303.953 318.957 356.095 288.853 303.953 258.748" fill="#ecfccb" stroke="#ecfccb" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="356.095 349.062 356.095 288.853 303.953 318.957 303.953 379.166" fill="#ffffff" stroke="#ffffff" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="147.525 349.062 199.668 379.166 199.668 318.957 147.525 288.853" fill="#394447" stroke="#394447" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="251.81 349.062 251.81 288.853 199.668 318.957 199.668 379.166" fill="#ffffff" stroke="#ffffff" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="251.81 349.062 303.953 379.166 303.953 318.957 251.81 288.853" fill="#394447" stroke="#394447" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="147.525 168.435 199.668 198.539 251.81 168.435 199.668 138.33" fill="#ecfccb" stroke="#ecfccb" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="251.81 168.435 303.953 198.539 356.095 168.435 303.953 138.33" fill="#ecfccb" stroke="#ecfccb" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+
+  <!-- escher cube top-left  -->
+  <polygon points="251.81 228.644 251.81 168.435 199.668 198.539 199.668 258.748" fill="#ffffff" stroke="#ffffff" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.16;">
+
+  </polygon>
+  <polygon points="356.095 228.644 356.095 168.435 303.953 198.539 303.953 258.748" fill="#ffffff" stroke="#ffffff" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+
+  <!-- escher cube top-right  -->
+  <polygon points="251.81 228.644 303.953 258.748 303.953 198.539 251.81 168.435" 
+  fill="#390000"
+   stroke="#394447" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.15;">
+  <!-- move diagonally to down-left -->
+  <animateTransform
+    attributeName="transform"
+    attributeType="XML"
+    type="translate"
+    dur="1s"
+    repeatCount="indefinite"
+    from="0 0"
+    to="-30.104 52.142"
+  />
+
+  </polygon>
+  
+
+  <polygon points="147.525 228.644 199.668 258.748 199.668 198.539 147.525 168.435" fill="#394447" stroke="#394447" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <!-- escher cube down  -->
+  <polygon points="199.668 258.748 251.81 288.853 303.953 258.748 251.81 228.644" fill="#ecfccb" stroke="#ecfccb" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.17;"/>
+  <polygon points="303.953 318.957 303.953 258.748 251.81 288.853 251.81 349.062" fill="#ffffff" stroke="#ffffff" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="199.668 318.957 251.81 349.062 251.81 288.853 199.668 258.748" fill="#394447" stroke="#394447" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.14;"/>
+  <polygon points="199.668 258.748 251.81 288.853 303.953 258.748 251.81 228.644" fill="#ecfccb" stroke="#ecfccb" stroke-width="0.14" stroke-linejoin="round" paint-order="stroke fill" style="stroke-width: 0.17;"/>
+</svg>

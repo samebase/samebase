@@ -67,6 +67,11 @@ const LogoStaticSvgPage = lazy(async () => {
   return { default: module.LogoStaticSvgPage };
 });
 
+const LogoTransitionLabPage = lazy(async () => {
+  const module = await import("@/components/LogoTransitionLabPage");
+  return { default: module.LogoTransitionLabPage };
+});
+
 function useCloseOAuthPopup(pathname: string, enabled: boolean) {
   const { isAuthenticated } = useConvexAuth();
   useEffect(() => {
@@ -319,6 +324,7 @@ export default function App() {
         : null;
   const showLogoStaticSvg = location.pathname === "/logo-svg";
   const showLogoIsoStudy = location.pathname === "/logo-iso-study";
+  const showLogoTransitionLab = location.pathname === "/logo-transition-lab";
 
   const pageMetadata: PageMetadata = useMemo(() => {
     if (!isAuthenticated && location.pathname === "/") {
@@ -353,6 +359,14 @@ export default function App() {
     return (
       <Suspense fallback={null}>
         <LogoStaticSvgPage />
+      </Suspense>
+    );
+  }
+
+  if (showLogoTransitionLab) {
+    return (
+      <Suspense fallback={null}>
+        <LogoTransitionLabPage />
       </Suspense>
     );
   }
