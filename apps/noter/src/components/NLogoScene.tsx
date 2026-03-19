@@ -14,13 +14,12 @@ import {
   GRID_SIZE,
   createDefaultFilledVoxelSet,
   isWithinGrid,
-  normalizeElevationDegrees,
-  normalizeRotationDegrees,
   parseVoxelState,
   type VoxelCoordinate,
   type VoxelEdit,
   voxelKey,
 } from "@/components/logoVoxelState";
+import { resolveDraggedAngleDegrees } from "@/components/logoViewDrag";
 import {
   useEffect,
   useRef,
@@ -127,6 +126,14 @@ type NLogoSceneProps = {
   rotationDegrees: number;
   shuffleAnimation: LogoShuffleAnimationConfig;
   animateFaceColors: boolean;
+  viewDragConfig?: {
+    angleStepDegrees?: number;
+    snapAngles?: {
+      elevationDegrees: readonly number[];
+      rotationDegrees: readonly number[];
+      thresholdDegrees: number;
+    };
+  };
   voxelState: string;
 };
 
@@ -786,6 +793,7 @@ export function NLogoScene({
   rotationDegrees,
   shuffleAnimation,
   animateFaceColors,
+  viewDragConfig,
   voxelState,
 }: NLogoSceneProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -1335,15 +1343,27 @@ export function NLogoScene({
       return;
     }
 
+    const disableSnap = event.altKey || event.shiftKey;
+    const snapAngles = viewDragConfig?.snapAngles;
     onViewChangeRef.current({
-      elevationDegrees: normalizeElevationDegrees(
-        interaction.startElevationDegrees +
+      elevationDegrees: resolveDraggedAngleDegrees({
+        disableSnap,
+        snapDegrees: snapAngles?.elevationDegrees,
+        snapThresholdDegrees: snapAngles?.thresholdDegrees,
+        stepDegrees: viewDragConfig?.angleStepDegrees,
+        value:
+          interaction.startElevationDegrees +
           deltaY * DRAG_ELEVATION_DEGREES_PER_PIXEL,
-      ),
-      rotationDegrees: normalizeRotationDegrees(
-        interaction.startRotationDegrees +
+      }),
+      rotationDegrees: resolveDraggedAngleDegrees({
+        disableSnap,
+        snapDegrees: snapAngles?.rotationDegrees,
+        snapThresholdDegrees: snapAngles?.thresholdDegrees,
+        stepDegrees: viewDragConfig?.angleStepDegrees,
+        value:
+          interaction.startRotationDegrees +
           deltaX * DRAG_ROTATION_DEGREES_PER_PIXEL,
-      ),
+      }),
     });
   };
 

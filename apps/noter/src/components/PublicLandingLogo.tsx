@@ -9,13 +9,17 @@ import { normalizeRotationDegrees } from "@/components/logoVoxelState";
 import {
   PUBLIC_LANDING_LOGO_ALT,
   PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME,
+  PUBLIC_LANDING_LOGO_ELEVATION_SNAP_DEGREES,
   PUBLIC_LANDING_LOGO_HEIGHT,
   PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME,
+  PUBLIC_LANDING_LOGO_ROTATION_SNAP_DEGREES,
   PUBLIC_LANDING_LOGO_SCENE_TEST_ID,
   PUBLIC_LANDING_LOGO_SRC,
   PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME,
   PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
   PUBLIC_LANDING_LOGO_TEST_ID,
+  PUBLIC_LANDING_LOGO_VIEW_SNAP_THRESHOLD_DEGREES,
+  PUBLIC_LANDING_LOGO_VIEW_STEP_DEGREES,
   PUBLIC_LANDING_LOGO_WIDTH,
 } from "@/lib/publicLandingLogo";
 import { useEffect, useRef, useState } from "react";
@@ -36,6 +40,14 @@ const DEFAULT_LANDING_LOGO_VIEW: LandingLogoView = {
   elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
   rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
 };
+const LANDING_LOGO_VIEW_DRAG_CONFIG = {
+  angleStepDegrees: PUBLIC_LANDING_LOGO_VIEW_STEP_DEGREES,
+  snapAngles: {
+    elevationDegrees: PUBLIC_LANDING_LOGO_ELEVATION_SNAP_DEGREES,
+    rotationDegrees: PUBLIC_LANDING_LOGO_ROTATION_SNAP_DEGREES,
+    thresholdDegrees: PUBLIC_LANDING_LOGO_VIEW_SNAP_THRESHOLD_DEGREES,
+  },
+} as const;
 
 let persistedLandingLogoView: LandingLogoView = {
   ...DEFAULT_LANDING_LOGO_VIEW,
@@ -47,8 +59,10 @@ function easeOutCubic(value: number) {
 
 export function PublicLandingLogo({
   autoRotate = false,
+  enableViewSnapping = true,
 }: {
   autoRotate?: boolean;
+  enableViewSnapping?: boolean;
 }) {
   const [LogoScene, setLogoScene] = useState<LandingLogoSceneComponent | null>(
     null,
@@ -229,6 +243,9 @@ export function PublicLandingLogo({
               rotationDegrees={view.rotationDegrees}
               shuffleAnimation={{ enabled: false, parallelMoves: 1 }}
               animateFaceColors={false}
+              viewDragConfig={
+                enableViewSnapping ? LANDING_LOGO_VIEW_DRAG_CONFIG : undefined
+              }
               voxelState={STATIC_LOGO_VOXEL_STATE}
             />
           </div>
