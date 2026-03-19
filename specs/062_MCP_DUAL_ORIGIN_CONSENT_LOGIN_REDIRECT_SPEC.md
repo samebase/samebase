@@ -90,8 +90,9 @@ flow currently defaults back to `SITE_URL` instead of the current consent route.
    - `api.noter.md` for MCP/OAuth protocol endpoints
    - `noter.md` for browser UI
 3. Keep using Convex Auth as-is; do not replace the auth provider.
-4. Fix both top-level browser sign-in and popup/auto-sign-in entrypoints.
-5. Add regression tests that fail on today’s behavior and pass only once the
+4. Fix the top-level browser sign-in entrypoint in this patch.
+5. Keep popup/auto-sign-in behavior unchanged in this patch.
+6. Add regression tests that fail on today’s behavior and pass only once the
    route is preserved.
 
 ## Non-Goals
@@ -175,8 +176,8 @@ currently `signIn("google")`.
 
 ### Follow-up coverage
 
-Add a second focused test for the popup/auto-sign-in path if the first fix
-touches `authClient.ts`.
+Popup/auto-sign-in coverage is out of scope for this patch because
+`authClient.ts` is unchanged.
 
 Implemented validation, 2026-03-19:
 
@@ -212,14 +213,16 @@ Implemented validation, 2026-03-19:
 - Last updated: 2026-03-19
 - Current status: `top-level consent redirect fix implemented`
 - Next step: `manual Codex connection retry or broader auth smoke test`
-- Findings confirmed:
+- Findings confirmed before this patch:
   - `apps/noter/convex/mcp/http.ts` already redirects consent to `SITE_URL`
-  - `SignInForm.tsx` and `authClient.ts` do not preserve the consent route
+  - `SignInForm.tsx` did not preserve the consent route for top-level sign-in
+  - `authClient.ts` popup/auto-sign-in behavior remained unchanged
   - `@convex-dev/auth` defaults back to `SITE_URL` without `redirectTo`
 - Implemented in this patch:
   - `SignInWithGoogle` now passes the current relative route as `redirectTo`
   - the helper strips `auth` from the return URL so future callback loops are
     avoided
+  - popup/auto-sign-in behavior is unchanged in this patch
 - Validation in this patch:
   - `pnpm exec vitest --run apps/noter/src/SignInForm.test.tsx apps/noter/src/lib/queryParams.test.ts`
   - `pnpm exec eslint apps/noter/src/SignInForm.tsx apps/noter/src/SignInForm.test.tsx --config .eslintrc.cjs --rulesdir eslint-rules`

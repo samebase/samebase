@@ -45,7 +45,10 @@ describe("SignInWithGoogle", () => {
     const consentSearchParams = cloneQueryParams();
     setQueryParam(consentSearchParams, "mcp_consent_request", "mcpar_test");
     setQueryParam(consentSearchParams, "mcp_login_required", "1");
+    setQueryParam(consentSearchParams, "auth", "google");
     const consentSearch = buildSearchString(consentSearchParams);
+    const expectedSearchParams = cloneQueryParams(consentSearch);
+    setQueryParam(expectedSearchParams, "auth", false);
 
     Object.defineProperty(globalThis, "window", {
       value: {
@@ -62,7 +65,7 @@ describe("SignInWithGoogle", () => {
     const element = SignInWithGoogle();
     const expectedRedirectTo = buildPathWithQuery({
       pathname: "/oauth/mcp/consent",
-      search: consentSearch,
+      search: buildSearchString(expectedSearchParams),
     });
 
     element.props.onClick();
@@ -71,6 +74,7 @@ describe("SignInWithGoogle", () => {
     expect(signInMock).toHaveBeenCalledWith("google", {
       redirectTo: expectedRedirectTo,
     });
+    expect(expectedRedirectTo).not.toContain("auth=");
     expect(openAuthPopupMock).not.toHaveBeenCalled();
   });
 });
