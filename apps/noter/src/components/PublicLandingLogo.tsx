@@ -24,6 +24,26 @@ type LandingLogoSceneComponent =
   typeof import("@/components/NLogoScene").NLogoScene;
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
+const AUTO_ROTATE_RESUME_DURATION_MS = 220;
+const AUTO_ROTATE_RESUME_MIN_SPEED_MULTIPLIER = 0.4;
+
+type LandingLogoView = {
+  elevationDegrees: number;
+  rotationDegrees: number;
+};
+
+const DEFAULT_LANDING_LOGO_VIEW: LandingLogoView = {
+  elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
+  rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
+};
+
+let persistedLandingLogoView: LandingLogoView = {
+  ...DEFAULT_LANDING_LOGO_VIEW,
+};
+
+function easeOutCubic(value: number) {
+  return 1 - Math.pow(1 - value, 3);
+}
 
 export function PublicLandingLogo({
   autoRotate = false,
@@ -37,11 +57,11 @@ export function PublicLandingLogo({
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [isSvgVisible, setIsSvgVisible] = useState(true);
   const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
-  const [view, setView] = useState(() => ({
-    elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
-    rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
+  const [view, setView] = useState<LandingLogoView>(() => ({
+    ...persistedLandingLogoView,
   }));
   const lastFrameTimeRef = useRef<number | null>(null);
+  const autoRotateResumeStartedAtRef = useRef<number | null>(null);
   const backgroundColor = getTailwindColorHex("background-base");
   const isSceneInteractive = isSceneReady && !isSvgVisible;
 
@@ -106,16 +126,12 @@ export function PublicLandingLogo({
   useEffect(() => {
     setIsAutoRotating(autoRotate);
     lastFrameTimeRef.current = null;
-
-    if (autoRotate) {
-      return;
-    }
-
-    setView({
-      elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
-      rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
-    });
+    autoRotateResumeStartedAtRef.current = null;
   }, [autoRotate]);
+
+  useEffect(() => {
+    persistedLandingLogoView = view;
+  }, [view]);
 
   useEffect(() => {
     if (!isAutoRotating) {
@@ -129,11 +145,26 @@ export function PublicLandingLogo({
       const lastFrameTime = lastFrameTimeRef.current;
       if (lastFrameTime !== null) {
         const deltaSeconds = (timestamp - lastFrameTime) / 1000;
+        let speedMultiplier = 1;
+        const resumeStartedAt = autoRotateResumeStartedAtRef.current;
+        if (resumeStartedAt !== null) {
+          const progress = Math.min(
+            (timestamp - resumeStartedAt) / AUTO_ROTATE_RESUME_DURATION_MS,
+            1,
+          );
+          speedMultiplier =
+            AUTO_ROTATE_RESUME_MIN_SPEED_MULTIPLIER +
+            (1 - AUTO_ROTATE_RESUME_MIN_SPEED_MULTIPLIER) *
+              easeOutCubic(progress);
+          if (progress >= 1) {
+            autoRotateResumeStartedAtRef.current = null;
+          }
+        }
         setView((currentView) => ({
           ...currentView,
           rotationDegrees: normalizeRotationDegrees(
             currentView.rotationDegrees +
-              deltaSeconds * AUTO_ROTATE_DEGREES_PER_SECOND,
+              deltaSeconds * AUTO_ROTATE_DEGREES_PER_SECOND * speedMultiplier,
           ),
         }));
       }
@@ -181,7 +212,16 @@ export function PublicLandingLogo({
               faceColors={STATIC_LOGO_FACE_COLORS}
               opacity={1}
               onInteractionStart={() => {
+                autoRotateResumeStartedAtRef.current = null;
                 setIsAutoRotating(false);
+              }}
+              onInteractionEnd={() => {
+                if (!autoRotate) {
+                  return;
+                }
+                autoRotateResumeStartedAtRef.current = performance.now();
+                lastFrameTimeRef.current = autoRotateResumeStartedAtRef.current;
+                setIsAutoRotating(true);
               }}
               onRenderReady={() => {
                 setIsSceneReady(true);
