@@ -1,6 +1,7 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useEffect } from "react";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
+import { buildCurrentGoogleRedirectTo } from "@/lib/googleAuthRedirect";
 
 const AUTH_FLAG_KEY = "noter_was_authenticated";
 const AUTH_PROVIDER_KEY = "noter_auth_provider";
@@ -129,14 +130,9 @@ export function useAutoSignIn() {
     const auth = params.get("auth");
     if (auth === "google") {
       setAuthProvider(auth);
-      const newUrl = buildPathWithUpdatedQuery(
-        window.location,
-        (nextSearchParams) => {
-          setQueryParam(nextSearchParams, "auth", false);
-        },
-      );
-      window.history.replaceState({}, "", newUrl);
-      void signIn(auth);
+      const redirectTo = buildCurrentGoogleRedirectTo(window.location);
+      window.history.replaceState({}, "", redirectTo);
+      void signIn("google", { redirectTo });
     }
   }, [signIn]);
 }

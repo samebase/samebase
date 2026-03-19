@@ -1,4 +1,4 @@
-import { isInIframe, openAuthPopup, setAuthProvider } from "@/authClient";
+import { setAuthProvider } from "@/authClient";
 import { LandingCopy } from "@/components/LandingCopy";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { PublicLandingLogo } from "@/components/PublicLandingLogo";
@@ -15,10 +15,10 @@ import {
 } from "@/lib/publicLandingWaitlistDraft";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
-import { Chrome } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../convex/_generated/api";
+import { SignInWithGoogle } from "./SignInWithGoogle";
 
 const DEV_PASSWORD_EMAIL = "nicu@noter.md";
 const DEV_PASSWORD_VALUE = "pass1234";
@@ -232,26 +232,5 @@ function PasswordAuthForm() {
       </form>
       {error ? <p className="text-xs text-red-600">{error}</p> : null}
     </div>
-  );
-}
-
-export function SignInWithGoogle() {
-  const { signIn } = useAuthActions();
-  return (
-    <Button
-      className="flex-1"
-      variant="outline"
-      type="button"
-      onClick={() => {
-        if (isInIframe()) {
-          openAuthPopup("google");
-        } else {
-          setAuthProvider("google");
-          void signIn("google");
-        }
-      }}
-    >
-      <Chrome className="mr-2 h-4 w-4" /> Google
-    </Button>
   );
 }
