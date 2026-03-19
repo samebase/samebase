@@ -4,6 +4,8 @@ import {
   getTailwindColorHex,
 } from "@/components/logoTailwindColors";
 import {
+  DEFAULT_ELEVATION_DEGREES,
+  DEFAULT_ROTATION_DEGREES,
   HALF_GRID,
   createFilledVoxelSet,
   voxelKey,
@@ -43,8 +45,6 @@ type ProjectedFaceDefinition = {
 const VIEWBOX_SIZE = 500;
 const CAMERA_FRUSTUM_PADDING = 1.12;
 const FACE_STROKE_WIDTH = 0.14;
-const DEFAULT_ROTATION_DEGREES = 0;
-const DEFAULT_ELEVATION_DEGREES = 35.26438968;
 const ORBIT_RIGHT_AXIS = normalizeVector({
   x: 1,
   y: 0,
