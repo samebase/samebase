@@ -77,6 +77,7 @@ import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
 import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
 import { CodexProviderRow } from "@/components/CodexProviderRow";
 import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";
+import { PublicLandingLogo } from "@/components/PublicLandingLogo";
 import {
   useApiKeyConnectDialog,
   type ApiKeyProvider,
@@ -1596,8 +1597,8 @@ export function VaultDashboard() {
             {userMenu}
           </div>
           <div className="text-center space-y-6">
-            <div className="mx-auto h-24 w-24 corner-notch-1 bg-muted flex items-center justify-center">
-              <GitHubLogoIcon className="h-12 w-12 text-muted-foreground" />
+            <div className="mx-auto w-full max-w-[8rem]">
+              <PublicLandingLogo />
             </div>
 
             <div className="space-y-2">
