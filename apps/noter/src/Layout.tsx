@@ -26,7 +26,8 @@ export function Layout({ children }: { children: ReactNode }) {
     !isAuthenticated &&
     location.pathname === "/" &&
     !searchParams.has("auth");
-  const showPublicNavigation = !isLoading && !isAuthenticated;
+  const showPublicNavigation =
+    !isLoading && !isAuthenticated && location.pathname !== "/";
   const landingDevToggleHref = buildLandingDevToggleHref(location);
   const landingDevToggleLabel = getLandingDevToggleLabel(searchParams);
   const handleLandingDevToggleClick = (
@@ -58,20 +59,12 @@ export function Layout({ children }: { children: ReactNode }) {
       <div className="border-b border-border/50">
         <div className="container flex items-center justify-end gap-2 px-3 py-1 text-[11px] text-muted-foreground">
           {showPublicNavigation && (
-            <>
-              <Link
-                to="/"
-                className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
-              >
-                Home
-              </Link>
-              <Link
-                to="/pricing"
-                className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
-              >
-                Pricing
-              </Link>
-            </>
+            <Link
+              to="/"
+              className="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground"
+            >
+              Home
+            </Link>
           )}
           {showLandingDevToggle && (
             <a

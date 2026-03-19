@@ -1,7 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { PRICING_PAGE_METADATA, applyPageMetadata } from "./pageMetadata";
+import {
+  APP_PAGE_METADATA,
+  applyPageMetadata,
+  resolveAppPageTitle,
+} from "./pageMetadata";
 
 class FakeHeadElement {
   readonly attributes = new Map<string, string>();
@@ -107,15 +111,22 @@ function getHeadAttribute(
 describe("page metadata", () => {
   it("pins canonical and social URLs to noter.md", () => {
     withFakeDocument((document) => {
-      applyPageMetadata(PRICING_PAGE_METADATA);
+      applyPageMetadata({
+        ...APP_PAGE_METADATA,
+        canonicalPath: "/vault/acme/demo",
+        title: resolveAppPageTitle("/vault/acme/demo"),
+      });
 
-      expect(document.title).toBe("Pricing | Noter");
+      expect(document.title).toBe("Workspace | Noter");
       expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
-        "https://noter.md/pricing",
+        "https://noter.md/vault/acme/demo",
       );
       expect(
         getHeadAttribute(document, 'meta[property="og:url"]', "content"),
-      ).toBe("https://noter.md/pricing");
+      ).toBe("https://noter.md/vault/acme/demo");
+      expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe(
+        "noindex,nofollow",
+      );
       expect(
         getHeadAttribute(document, 'meta[property="og:image"]', "content"),
       ).toBe("https://noter.md/lumina_icon.png");
@@ -125,15 +136,13 @@ describe("page metadata", () => {
     });
   });
 
-  it("keeps the raw html shell non-indexable until route metadata is applied", () => {
+  it("keeps the raw html shell aligned with the real public homepage", () => {
     const html = readFileSync(new URL("../../index.html", import.meta.url), {
       encoding: "utf8",
     });
 
-    expect(html).toContain('name="robots" content="noindex,nofollow"');
-    expect(html).not.toContain(
-      '<link rel="canonical" href="https://noter.md/"',
-    );
-    expect(html).not.toContain('property="og:url" content="https://noter.md/"');
+    expect(html).toContain('name="robots" content="index,follow"');
+    expect(html).toContain('<link rel="canonical" href="https://noter.md/"');
+    expect(html).toContain('property="og:url" content="https://noter.md/"');
   });
 });

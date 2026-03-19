@@ -131,7 +131,7 @@ content instead of a distinct public pricing document.
 Implication:
 
 - multiple URLs can expose essentially the same content under `200`
-- this creates duplicate and soft-404 style risk unless canonicals, `noindex`,
+- this creates duplicate and soft-404-style risk unless canonicals, `noindex`,
   or real public page rendering are added intentionally
 
 ### 7. Homepage positioning is unstable because the slogan rotates

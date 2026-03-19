@@ -19,7 +19,7 @@ import { isChatOnlyCodespaceRoute } from "@/lib/vaultRoutes";
 import {
   APP_PAGE_METADATA,
   HOME_PAGE_METADATA,
-  PRICING_PAGE_METADATA,
+  resolveAppPageTitle,
   type PageMetadata,
 } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
@@ -47,10 +47,6 @@ const CodespaceChatOnlyView = lazy(async () => {
 const PricingPage = lazy(async () => {
   const module = await import("@/components/PricingPage");
   return { default: module.PricingPage };
-});
-const PublicPricingPage = lazy(async () => {
-  const module = await import("@/components/PublicPricingPage");
-  return { default: module.PublicPricingPage };
 });
 const NetlifyOAuthCallback = lazy(async () => {
   const module = await import("@/components/NetlifyOAuthCallback");
@@ -325,10 +321,6 @@ export default function App() {
   const showLogoIsoStudy = location.pathname === "/logo-iso-study";
 
   const pageMetadata: PageMetadata = useMemo(() => {
-    if (location.pathname === "/pricing") {
-      return PRICING_PAGE_METADATA;
-    }
-
     if (!isAuthenticated && location.pathname === "/") {
       return HOME_PAGE_METADATA;
     }
@@ -336,12 +328,7 @@ export default function App() {
     return {
       ...APP_PAGE_METADATA,
       canonicalPath: location.pathname,
-      title:
-        location.pathname === "/"
-          ? "Vaults | Noter"
-          : location.pathname.startsWith("/vault/")
-            ? "Workspace | Noter"
-            : "Noter App",
+      title: resolveAppPageTitle(location.pathname),
     };
   }, [isAuthenticated, location.pathname]);
   usePageMetadata(pageMetadata);
@@ -426,7 +413,6 @@ export default function App() {
           <Suspense fallback={null}>
             <Routes>
               <Route path="/" element={<SignInForm />} />
-              <Route path="/pricing" element={<PublicPricingPage />} />
               <Route path="*" element={<SignInForm />} />
             </Routes>
           </Suspense>

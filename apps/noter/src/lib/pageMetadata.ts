@@ -19,15 +19,6 @@ export const HOME_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
-export const PRICING_PAGE_METADATA: PageMetadata = {
-  title: "Pricing | Noter",
-  description:
-    "See Noter pricing for GitHub-backed AI agent workspaces, including free self-serve and managed plans.",
-  canonicalPath: "/pricing",
-  robots: "index,follow",
-  openGraphType: "website",
-};
-
 export const APP_PAGE_METADATA: PageMetadata = {
   title: "Noter App",
   description: "Private Noter application workspace.",
@@ -35,6 +26,22 @@ export const APP_PAGE_METADATA: PageMetadata = {
   robots: "noindex,nofollow",
   openGraphType: "website",
 };
+
+export function resolveAppPageTitle(pathname: string): string {
+  if (pathname === "/") {
+    return "Vaults | Noter";
+  }
+
+  if (pathname === "/pricing") {
+    return "Pricing | Noter";
+  }
+
+  if (pathname.startsWith("/vault/")) {
+    return "Workspace | Noter";
+  }
+
+  return "Noter App";
+}
 
 function resolveSiteOrigin(): string {
   return DEFAULT_SITE_ORIGIN;

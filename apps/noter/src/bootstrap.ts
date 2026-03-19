@@ -6,9 +6,8 @@ import {
 } from "@/lib/landingDevMode";
 import {
   APP_PAGE_METADATA,
-  HOME_PAGE_METADATA,
-  PRICING_PAGE_METADATA,
   applyPageMetadata,
+  resolveAppPageTitle,
 } from "@/lib/pageMetadata";
 import {
   PUBLIC_LANDING_LOGO_ALT,
@@ -256,9 +255,6 @@ function renderFastLandingShell() {
     <div data-testid="public-landing-shell" class="flex h-full w-full flex-col">
       <div class="border-b border-border/50">
         <div class="container flex items-center justify-end gap-2 px-3 py-1 text-[11px] text-muted-foreground">
-          <a href="/pricing" class="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground">
-            Pricing
-          </a>
           <a href="${escapeHtml(landingDevToggleHref)}" class="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground">
             ${escapeHtml(landingDevToggleLabel)}
           </a>
@@ -380,22 +376,14 @@ function applyBootstrapPageMetadata(
   location: Location,
   fastLandingRoute: boolean,
 ) {
-  if (location.pathname === "/pricing") {
-    applyPageMetadata(PRICING_PAGE_METADATA);
-    return;
-  }
-
   if (fastLandingRoute) {
-    applyPageMetadata(HOME_PAGE_METADATA);
     return;
   }
 
   applyPageMetadata({
     ...APP_PAGE_METADATA,
     canonicalPath: location.pathname,
-    title: location.pathname.startsWith("/vault/")
-      ? "Workspace | Noter"
-      : "Noter App",
+    title: resolveAppPageTitle(location.pathname),
   });
 }
 
