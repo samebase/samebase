@@ -2,13 +2,7 @@ import { isInIframe, openAuthPopup, setAuthProvider } from "@/authClient";
 import { Button } from "@/components/ui/button";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { Chrome } from "lucide-react";
-import { buildPathWithUpdatedQuery, setQueryParam } from "./lib/queryParams";
-
-function buildCurrentGoogleRedirectTo() {
-  return buildPathWithUpdatedQuery(window.location, (searchParams) => {
-    setQueryParam(searchParams, "auth", false);
-  });
-}
+import { buildCurrentGoogleRedirectTo } from "./lib/googleAuthRedirect";
 
 export function SignInWithGoogle() {
   const { signIn } = useAuthActions();
@@ -23,7 +17,7 @@ export function SignInWithGoogle() {
         } else {
           setAuthProvider("google");
           void signIn("google", {
-            redirectTo: buildCurrentGoogleRedirectTo(),
+            redirectTo: buildCurrentGoogleRedirectTo(window.location),
           });
         }
       }}

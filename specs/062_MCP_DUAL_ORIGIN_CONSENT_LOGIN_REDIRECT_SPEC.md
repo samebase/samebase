@@ -90,8 +90,8 @@ flow currently defaults back to `SITE_URL` instead of the current consent route.
    - `api.noter.md` for MCP/OAuth protocol endpoints
    - `noter.md` for browser UI
 3. Keep using Convex Auth as-is; do not replace the auth provider.
-4. Fix the top-level browser sign-in entrypoint in this patch.
-5. Keep popup/auto-sign-in behavior unchanged in this patch.
+4. Fix the top-level browser sign-in and auto-sign-in entrypoints in this patch.
+5. Keep the popup launch surface unchanged in this patch.
 6. Add regression tests that fail on today’s behavior and pass only once the
    route is preserved.
 
@@ -130,27 +130,32 @@ Requirements:
 3. The route must round-trip for MCP consent URLs without special casing the
    request id format.
 
-### 2) Apply the same rule to popup/auto-sign-in flows
+### 2) Preserve `redirectTo` for auto-sign-in flows
 
-The popup/iframe path should preserve the initiating route too.
+When the shell or popup auto-triggers Google sign-in from `?auth=google`,
+`useAutoSignIn()` must compute an explicit `redirectTo` from the current route
+after stripping `auth`.
 
 Requirements:
 
-1. `openAuthPopup()` must carry the initiating route forward.
-2. `useAutoSignIn()` must pass that saved route to `signIn("google", ...)`.
-3. The popup may still open on `/` for shell UX reasons, but the auth completion
-   redirect must target the originating route, not the root landing page.
+1. `useAutoSignIn()` must call `signIn("google", { redirectTo })`.
+2. The computed route must preserve unrelated query params while removing only
+   `auth`.
+3. `openAuthPopup()` may continue opening on `/` for shell UX reasons, but the
+   auth completion redirect must target the popup's current route instead of
+   relying on a previously cached provider redirect.
 
 Patch note, 2026-03-19:
 
-1. This patch only changes the top-level browser sign-in path.
-2. The iframe/popup path was reviewed separately:
+1. This patch changes the top-level browser sign-in path and the
+   `useAutoSignIn()` path.
+2. The popup launch behavior remains unchanged:
    - the opener already stays on the consent route,
-   - the popup returns tokens to the opener and closes,
-   - redirecting the popup itself back to the consent route would conflict with
-     the existing “do not auto-close on consent route” behavior in `App.tsx`.
-3. That means the verified bug for the Codex flow is fixed without changing the
-   popup path in this patch.
+   - the popup still opens on `/` with carried query params,
+   - the popup still returns tokens to the opener and closes.
+3. This patch does not change the popup close rules in `App.tsx`; it only makes
+   the provider redirect explicit for auto-sign-in so stale redirect cookies are
+   not reused.
 
 ### 3) Keep MCP consent route handling unchanged once the user returns
 
@@ -174,19 +179,17 @@ Add a focused frontend test that proves:
 This should fail against the current implementation because the call is
 currently `signIn("google")`.
 
-### Follow-up coverage
-
-Popup/auto-sign-in coverage is out of scope for this patch because
-`authClient.ts` is unchanged.
-
 Implemented validation, 2026-03-19:
 
 1. Added `apps/noter/src/SignInForm.test.tsx`.
 2. The test failed first because `SignInWithGoogle` called `signIn("google")`
    without a `redirectTo`.
-3. After the runtime fix, the test passes and asserts the exact consent route is
+3. Added `apps/noter/src/authClient.test.ts`.
+4. The auto-sign-in test proves `useAutoSignIn()` strips `auth`, updates the URL
+   in place, and passes the same relative route as `redirectTo`.
+5. After the runtime fix, both tests pass and assert the exact consent route is
    preserved.
-4. Re-ran `apps/noter/src/lib/queryParams.test.ts` alongside the new test
+6. Re-ran `apps/noter/src/lib/queryParams.test.ts` alongside the new tests
    because the fix depends on the shared query-param helpers.
 
 ## Implementation Notes
@@ -200,7 +203,7 @@ Implemented validation, 2026-03-19:
 ## Acceptance Criteria
 
 1. An unauthenticated user who reaches MCP consent on `noter.md` and signs in
-   with Google returns to the exact same consent URL.
+   with Google returns to the exact consent URL.
 2. After authentication, `App.tsx` renders `McpConsentView` with the original
    `mcp_consent_request`.
 3. The flow works with the dual-origin deployment:
@@ -211,18 +214,19 @@ Implemented validation, 2026-03-19:
 ## Execution Tracker
 
 - Last updated: 2026-03-19
-- Current status: `top-level consent redirect fix implemented`
+- Current status: `top-level and auto-sign-in consent redirect fix implemented`
 - Next step: `manual Codex connection retry or broader auth smoke test`
 - Findings confirmed before this patch:
   - `apps/noter/convex/mcp/http.ts` already redirects consent to `SITE_URL`
   - `SignInForm.tsx` did not preserve the consent route for top-level sign-in
-  - `authClient.ts` popup/auto-sign-in behavior remained unchanged
+  - `authClient.ts` did not pass an explicit `redirectTo` for auto-sign-in
   - `@convex-dev/auth` defaults back to `SITE_URL` without `redirectTo`
 - Implemented in this patch:
   - `SignInWithGoogle` now passes the current relative route as `redirectTo`
+  - `useAutoSignIn()` now passes the current relative route as `redirectTo`
   - the helper strips `auth` from the return URL so future callback loops are
     avoided
-  - popup/auto-sign-in behavior is unchanged in this patch
+  - popup launch and popup-close behavior are unchanged in this patch
 - Validation in this patch:
-  - `pnpm exec vitest --run apps/noter/src/SignInForm.test.tsx apps/noter/src/lib/queryParams.test.ts`
-  - `pnpm exec eslint apps/noter/src/SignInForm.tsx apps/noter/src/SignInForm.test.tsx --config .eslintrc.cjs --rulesdir eslint-rules`
+  - `pnpm exec vitest --run apps/noter/src/SignInForm.test.tsx apps/noter/src/authClient.test.ts apps/noter/src/lib/queryParams.test.ts`
+  - `pnpm exec eslint apps/noter/src/SignInForm.tsx apps/noter/src/SignInWithGoogle.tsx apps/noter/src/authClient.ts apps/noter/src/authClient.test.ts apps/noter/src/SignInForm.test.tsx --config .eslintrc.cjs --rulesdir eslint-rules`
