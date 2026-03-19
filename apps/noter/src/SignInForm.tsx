@@ -15,7 +15,7 @@ import {
 } from "@/lib/publicLandingWaitlistDraft";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../convex/_generated/api";
 import { SignInWithGoogle } from "./SignInWithGoogle";
@@ -23,7 +23,11 @@ import { SignInWithGoogle } from "./SignInWithGoogle";
 const DEV_PASSWORD_EMAIL = "nicu@noter.md";
 const DEV_PASSWORD_VALUE = "pass1234";
 
-export function SignInForm() {
+type SignInFormProps = {
+  topNotice?: ReactNode;
+};
+
+export function SignInForm({ topNotice }: SignInFormProps = {}) {
   const [searchParams] = useSearchParams();
   const prodUiModeEnabled = isProdUiModeEnabled(searchParams);
   const showPasswordAuth = import.meta.env.DEV && !prodUiModeEnabled;
@@ -40,6 +44,7 @@ export function SignInForm() {
         data-testid="public-landing-content"
         className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8"
       >
+        {topNotice}
         <PublicLandingLogo autoRotate={isLandingCopyEditable} />
         <div data-testid={PUBLIC_LANDING_COPY_TEST_ID}>
           {isLandingCopyEditable ? (

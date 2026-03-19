@@ -1,5 +1,6 @@
 import { Layout } from "@/Layout";
 import { clearAuthFlag, setAuthFlag, useAutoSignIn } from "@/authClient";
+import { McpConsentSignInView } from "@/McpConsentSignInView";
 import { SignInForm } from "@/SignInForm";
 
 import { Button } from "@/components/button";
@@ -381,7 +382,7 @@ export default function App() {
             </ApprovalGate>
           </Authenticated>
           <Unauthenticated>
-            <SignInForm />
+            <McpConsentSignInView />
           </Unauthenticated>
         </>
       </Layout>
