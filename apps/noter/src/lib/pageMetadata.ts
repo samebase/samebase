@@ -36,6 +36,23 @@ export const APP_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
+export const PRICING_PAGE_METADATA: PageMetadata = {
+  title: "Pricing | Noter",
+  description:
+    "Free by default. $4.99/month for private-code access with transparent invite-based onboarding.",
+  canonicalPath: "/pricing",
+  robots: "index,follow",
+  openGraphType: "website",
+};
+
+export const BILLING_PAGE_METADATA: PageMetadata = {
+  title: "Billing | Noter",
+  description: "Private Noter billing workspace.",
+  canonicalPath: "/billing",
+  robots: "noindex,nofollow",
+  openGraphType: "website",
+};
+
 export function resolveAppPageTitle(pathname: string): string {
   if (pathname === "/") {
     return "Vaults | Noter";
@@ -49,6 +66,9 @@ export function resolveAppPageTitle(pathname: string): string {
     return "Privacy Policy | Noter";
   }
 
+  if (pathname === "/billing") {
+    return "Billing | Noter";
+  }
   if (pathname.startsWith("/vault/")) {
     return "Workspace | Noter";
   }
@@ -56,28 +76,59 @@ export function resolveAppPageTitle(pathname: string): string {
   return "Noter App";
 }
 
-export function resolvePageMetadata(args: {
+export function resolvePageMetadata({
+  pathname,
+  isAuthenticated,
+}: {
   pathname: string;
   isAuthenticated: boolean;
 }): PageMetadata {
-  if (args.pathname === "/privacy") {
+  if (pathname === "/privacy") {
     return PRIVACY_PAGE_METADATA;
   }
 
-  if (!args.isAuthenticated && args.pathname === "/") {
-    return HOME_PAGE_METADATA;
+  if (pathname === "/") {
+    if (!isAuthenticated) {
+      return HOME_PAGE_METADATA;
+    }
+
+    return {
+      ...APP_PAGE_METADATA,
+      canonicalPath: "/",
+      title: resolveAppPageTitle(pathname),
+    };
+  }
+
+  if (pathname === "/pricing") {
+    return PRICING_PAGE_METADATA;
+  }
+
+  if (pathname === "/billing") {
+    return BILLING_PAGE_METADATA;
   }
 
   return {
     ...APP_PAGE_METADATA,
-    canonicalPath: args.pathname,
-    title: resolveAppPageTitle(args.pathname),
+    canonicalPath: pathname,
+    title: resolveAppPageTitle(pathname),
   };
 }
 
 export function resolveBootstrapPageMetadata(pathname: string): PageMetadata {
   if (pathname === "/privacy") {
     return PRIVACY_PAGE_METADATA;
+  }
+
+  if (pathname === "/pricing") {
+    return PRICING_PAGE_METADATA;
+  }
+
+  if (pathname === "/billing") {
+    return BILLING_PAGE_METADATA;
+  }
+
+  if (pathname === "/") {
+    return HOME_PAGE_METADATA;
   }
 
   return {

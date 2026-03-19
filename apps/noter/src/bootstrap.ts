@@ -4,10 +4,7 @@ import {
   getLandingDevToggleLabel,
   isLandingDevModeEnabled,
 } from "@/lib/landingDevMode";
-import {
-  applyPageMetadata,
-  resolveBootstrapPageMetadata,
-} from "@/lib/pageMetadata";
+import { applyPageMetadata, resolvePageMetadata } from "@/lib/pageMetadata";
 import {
   PUBLIC_LANDING_LOGO_ALT,
   PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME,
@@ -24,6 +21,7 @@ import { FAST_LANDING_APP_BOOT_DELAY_MS } from "@/lib/fastLandingBoot";
 import { landingPageMarkdown } from "@/lib/landingCopy";
 import { PUBLIC_LANDING_COPY_TEST_ID } from "@/lib/publicLanding";
 import { renderLandingCopyShellHtml } from "@/lib/landingCopyShell";
+import { resolveLandingWaitlistContent } from "@/lib/publicPricing";
 import { writePublicLandingWaitlistDraft } from "@/lib/publicLandingWaitlistDraft";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 
@@ -247,6 +245,7 @@ function renderFastLandingShell() {
   const searchParams = new URLSearchParams(window.location.search);
   const landingDevToggleHref = buildLandingDevToggleHref(window.location);
   const landingDevToggleLabel = getLandingDevToggleLabel(searchParams);
+  const waitlistContent = resolveLandingWaitlistContent(searchParams);
   const { appCommit, shortCommit, commitUrl } = getShellCommitMetadata();
   const commitMarkup = commitUrl
     ? `<a class="font-mono transition-colors hover:text-foreground" href="${escapeHtml(commitUrl)}" target="_blank" rel="noreferrer noopener" title="${escapeHtml(appCommit)}">${escapeHtml(shortCommit)}</a>`
@@ -300,10 +299,32 @@ function renderFastLandingShell() {
                 <span>Google</span>
               </button>
             </div>
+            <div class="flex justify-end">
+              <a
+                href="/pricing"
+                class="inline-flex h-auto items-center justify-center px-2 py-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Pricing
+              </a>
+            </div>
             <div
               data-testid="${PUBLIC_LANDING_WAITLIST_PLACEHOLDER_TEST_ID}"
               class="flex flex-col gap-2 border-t pt-2"
             >
+              ${
+                waitlistContent.heading !== null ||
+                waitlistContent.description !== null
+                  ? `<div class="space-y-1">${
+                      waitlistContent.heading !== null
+                        ? `<p class="text-sm font-medium">${escapeHtml(waitlistContent.heading)}</p>`
+                        : ""
+                    }${
+                      waitlistContent.description !== null
+                        ? `<p class="text-sm text-muted-foreground">${escapeHtml(waitlistContent.description)}</p>`
+                        : ""
+                    }</div>`
+                  : ""
+              }
               <div class="flex gap-2">
                 <input
                   id="${PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID}"
@@ -316,7 +337,7 @@ function renderFastLandingShell() {
                   type="button"
                   class="inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
                 >
-                  Join Waitlist
+                  ${escapeHtml(waitlistContent.submitLabel)}
                 </button>
               </div>
             </div>
@@ -370,7 +391,12 @@ function applyBootstrapPageMetadata(
     return;
   }
 
-  applyPageMetadata(resolveBootstrapPageMetadata(location.pathname));
+  applyPageMetadata(
+    resolvePageMetadata({
+      pathname: location.pathname,
+      isAuthenticated: false,
+    }),
+  );
 }
 
 const fastLandingRoute = isFastLandingRoute(window.location);

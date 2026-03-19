@@ -168,4 +168,28 @@ describe("page metadata", () => {
     expect(html).toContain('<link rel="canonical" href="https://noter.md/"');
     expect(html).toContain('property="og:url" content="https://noter.md/"');
   });
+
+  it("treats pricing as public metadata and billing as private metadata", () => {
+    expect(
+      resolvePageMetadata({
+        pathname: "/pricing",
+        isAuthenticated: false,
+      }),
+    ).toMatchObject({
+      title: "Pricing | Noter",
+      canonicalPath: "/pricing",
+      robots: "index,follow",
+    });
+
+    expect(
+      resolvePageMetadata({
+        pathname: "/billing",
+        isAuthenticated: true,
+      }),
+    ).toMatchObject({
+      title: "Billing | Noter",
+      canonicalPath: "/billing",
+      robots: "noindex,nofollow",
+    });
+  });
 });

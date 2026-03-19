@@ -2,6 +2,8 @@ import type { BillingCycle } from "../../convex/dashboardSettings";
 
 export type PaidPlan = "pro" | "team";
 
+export const PUBLIC_PRIVATE_ACCESS_PRICE = "$4.99/month";
+
 export const PLAN_DISPLAY_PRICE: Record<
   PaidPlan,
   Record<BillingCycle, string>
@@ -18,9 +20,14 @@ export const PLAN_DISPLAY_PRICE: Record<
 
 export const PLAN_FEATURES = {
   free: [
-    "Use your own GitHub, Convex, Netlify, and Cloudflare accounts",
-    "Bring your own AI usage and provider costs",
-    "No Noter-hosted agent compute included",
+    "Try Noter before granting any private repo access.",
+    "No intro call required for Free.",
+    "Best for exploring and planning milestone progress.",
+  ],
+  privateAccess: [
+    "Invite-only for now, while we validate direct private-code work.",
+    "Sign up for milestone updates and private access instructions.",
+    "Noter can inspect private code only after founder confirmation.",
   ],
   pro: [
     "Managed Noter experience",

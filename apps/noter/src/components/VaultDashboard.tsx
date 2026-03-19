@@ -1589,7 +1589,7 @@ export function VaultDashboard() {
         <div className="container py-6 max-w-2xl mx-auto">
           <div className="mb-4 flex items-center justify-between gap-3">
             <Button variant="outline" asChild>
-              <Link to="/pricing">Pricing</Link>
+              <Link to="/billing">Billing</Link>
             </Button>
             {userMenu}
           </div>
@@ -1628,7 +1628,7 @@ export function VaultDashboard() {
           <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
             {createControl}
             <Button variant="outline" asChild>
-              <Link to="/pricing">Pricing</Link>
+              <Link to="/billing">Billing</Link>
             </Button>
             {userMenu}
           </div>

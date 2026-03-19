@@ -6,6 +6,7 @@ import { Button } from "@/components/button";
 import { Input } from "@/components/input";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { landingPageMarkdown } from "@/lib/landingCopy";
+import { resolveLandingWaitlistContent } from "@/lib/publicPricing";
 import { PUBLIC_LANDING_COPY_TEST_ID } from "@/lib/publicLanding";
 import { isProdUiModeEnabled } from "@/lib/prodUiMode";
 import {
@@ -66,6 +67,16 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
           <SignInWithGoogle />
           {showPasswordAuth ? <PasswordAuthForm /> : null}
         </div>
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-auto px-2 py-1"
+            asChild
+          >
+            <Link to="/pricing">Pricing</Link>
+          </Button>
+        </div>
         <WaitlistForm />
         <div className="border-t pt-2 text-center text-xs text-muted-foreground">
           <Link
@@ -81,9 +92,11 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
 }
 
 function WaitlistForm() {
+  const [searchParams] = useSearchParams();
   const joinWaitlist = useMutation(api.waitlist.joinWaitlist);
   const [email, setEmail] = useState(readPublicLandingWaitlistDraft);
   const [submitted, setSubmitted] = useState(false);
+  const waitlistContent = resolveLandingWaitlistContent(searchParams);
 
   useEffect(() => {
     writePublicLandingWaitlistDraft(email);
@@ -98,13 +111,26 @@ function WaitlistForm() {
   if (submitted) {
     return (
       <p className="text-sm text-muted-foreground text-center">
-        You're on the waitlist. We'll reach out when a spot opens up.
+        {waitlistContent.submittedMessage}
       </p>
     );
   }
 
   return (
     <div className="flex flex-col gap-2 pt-2 border-t">
+      {waitlistContent.heading !== null ||
+      waitlistContent.description !== null ? (
+        <div className="space-y-1">
+          {waitlistContent.heading !== null ? (
+            <p className="text-sm font-medium">{waitlistContent.heading}</p>
+          ) : null}
+          {waitlistContent.description !== null ? (
+            <p className="text-sm text-muted-foreground">
+              {waitlistContent.description}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       <form
         className="flex gap-2"
         onSubmit={(e) => {
@@ -124,7 +150,7 @@ function WaitlistForm() {
           required
         />
         <Button type="submit" variant="outline" className="shrink-0">
-          Join Waitlist
+          {waitlistContent.submitLabel}
         </Button>
       </form>
     </div>

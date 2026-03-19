@@ -83,7 +83,7 @@ export function UserMenu({
           <DropdownMenuLabel>{children}</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
-            <Link to="/pricing">Pricing</Link>
+            <Link to="/billing">Billing</Link>
           </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={() => setAccountOpen(true)}
