@@ -94,6 +94,12 @@ const MAX_LOGO_OPACITY = 1;
 const LOGO_OPACITY_STEP = 0.01;
 const ROTATION_QUERY_PARAM = "rot";
 const ELEVATION_QUERY_PARAM = "elev";
+const OPACITY_QUERY_PARAM = "opacity";
+const AUTO_ROTATE_QUERY_PARAM = "auto";
+const SHUFFLE_QUERY_PARAM = "shuffle";
+const SHUFFLE_PARALLEL_QUERY_PARAM = "shuffleParallel";
+const EDIT_MODE_QUERY_PARAM = "edit";
+const DEFAULT_SHUFFLE_PARALLEL_MOVES: LogoShuffleParallelMoves = 3;
 const FACE_COLOR_QUERY_PARAMS = {
   left: "leftColor",
   right: "rightColor",
@@ -226,6 +232,41 @@ function readFaceColors(searchParams: URLSearchParams): FaceColors {
   };
 }
 
+function readLogoOpacity(searchParams: URLSearchParams): number {
+  const value = searchParams.get(OPACITY_QUERY_PARAM);
+  const parsedValue = Number(value);
+  if (value === null || Number.isNaN(parsedValue)) {
+    return DEFAULT_LOGO_OPACITY;
+  }
+
+  return clampLogoOpacity(parsedValue);
+}
+
+function readAutoRotate(searchParams: URLSearchParams): boolean {
+  return searchParams.has(AUTO_ROTATE_QUERY_PARAM);
+}
+
+function readShuffleEnabled(searchParams: URLSearchParams): boolean {
+  return searchParams.has(SHUFFLE_QUERY_PARAM);
+}
+
+function readShuffleParallelMoves(
+  searchParams: URLSearchParams,
+): LogoShuffleParallelMoves {
+  const value = searchParams.get(SHUFFLE_PARALLEL_QUERY_PARAM);
+  if (value === null) {
+    return DEFAULT_SHUFFLE_PARALLEL_MOVES;
+  }
+
+  return parseShuffleParallelMoves(value);
+}
+
+function readEditMode(searchParams: URLSearchParams): VoxelEdit["kind"] {
+  return searchParams.get(EDIT_MODE_QUERY_PARAM) === "remove"
+    ? "remove"
+    : "add";
+}
+
 function formatDegreesParam(value: number): string {
   return value.toFixed(1).replace(/\.0$/, "");
 }
@@ -239,6 +280,85 @@ function areFaceColorsEqual(left: FaceColors, right: FaceColors): boolean {
     left.left === right.left &&
     left.right === right.right &&
     left.top === right.top
+  );
+}
+
+function syncLogoQueryParams(
+  searchParams: URLSearchParams,
+  args: {
+    editMode: VoxelEdit["kind"];
+    elevationDegrees: number;
+    faceColors: FaceColors;
+    isAutoRotating: boolean;
+    isShuffleEnabled: boolean;
+    isoStyleId: LogoIsometricStyleId;
+    logoOpacity: number;
+    rotationDegrees: number;
+    shuffleParallelMoves: LogoShuffleParallelMoves;
+    voxelState: string;
+  },
+): void {
+  setQueryParam(
+    searchParams,
+    ROTATION_QUERY_PARAM,
+    args.rotationDegrees !== DEFAULT_ROTATION_DEGREES
+      ? formatDegreesParam(args.rotationDegrees)
+      : null,
+  );
+  setQueryParam(
+    searchParams,
+    ELEVATION_QUERY_PARAM,
+    args.elevationDegrees !== DEFAULT_ELEVATION_DEGREES
+      ? formatDegreesParam(args.elevationDegrees)
+      : null,
+  );
+  setQueryParam(searchParams, "vox", args.voxelState);
+  setQueryParam(
+    searchParams,
+    "isoStyle",
+    args.isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID
+      ? args.isoStyleId
+      : null,
+  );
+  setQueryParam(
+    searchParams,
+    FACE_COLOR_QUERY_PARAMS.left,
+    args.faceColors.left !== DEFAULT_FACE_COLORS.left
+      ? args.faceColors.left
+      : null,
+  );
+  setQueryParam(
+    searchParams,
+    FACE_COLOR_QUERY_PARAMS.right,
+    args.faceColors.right !== DEFAULT_FACE_COLORS.right
+      ? args.faceColors.right
+      : null,
+  );
+  setQueryParam(
+    searchParams,
+    FACE_COLOR_QUERY_PARAMS.top,
+    args.faceColors.top !== DEFAULT_FACE_COLORS.top
+      ? args.faceColors.top
+      : null,
+  );
+  setQueryParam(
+    searchParams,
+    OPACITY_QUERY_PARAM,
+    args.logoOpacity !== DEFAULT_LOGO_OPACITY ? String(args.logoOpacity) : null,
+  );
+  setQueryParam(searchParams, AUTO_ROTATE_QUERY_PARAM, args.isAutoRotating);
+  setQueryParam(searchParams, SHUFFLE_QUERY_PARAM, args.isShuffleEnabled);
+  setQueryParam(
+    searchParams,
+    SHUFFLE_PARALLEL_QUERY_PARAM,
+    args.shuffleParallelMoves !== DEFAULT_SHUFFLE_PARALLEL_MOVES
+      ? String(args.shuffleParallelMoves)
+      : null,
+  );
+  setQueryParam(
+    searchParams,
+    EDIT_MODE_QUERY_PARAM,
+    args.editMode !== "add" ? args.editMode : null,
   );
 }
 
@@ -265,7 +385,9 @@ export function LogoPreviewPage({
   const [voxelState, setVoxelState] = useState(() =>
     readVoxelState(searchParams),
   );
-  const [editMode, setEditMode] = useState<VoxelEdit["kind"]>("add");
+  const [editMode, setEditMode] = useState<VoxelEdit["kind"]>(() =>
+    readEditMode(searchParams),
+  );
   const [selectedPresetId, setSelectedPresetId] = useState<LogoPresetSelection>(
     () => readLogoPresetSelection(searchParams),
   );
@@ -275,11 +397,19 @@ export function LogoPreviewPage({
   const [faceColors, setFaceColors] = useState<FaceColors>(() =>
     readFaceColors(searchParams),
   );
-  const [logoOpacity, setLogoOpacity] = useState(DEFAULT_LOGO_OPACITY);
-  const [isAutoRotating, setIsAutoRotating] = useState(false);
-  const [isShuffleEnabled, setIsShuffleEnabled] = useState(false);
+  const [logoOpacity, setLogoOpacity] = useState(() =>
+    readLogoOpacity(searchParams),
+  );
+  const [isAutoRotating, setIsAutoRotating] = useState(() =>
+    readAutoRotate(searchParams),
+  );
+  const [isShuffleEnabled, setIsShuffleEnabled] = useState(() =>
+    readShuffleEnabled(searchParams),
+  );
   const [shuffleParallelMoves, setShuffleParallelMoves] =
-    useState<LogoShuffleParallelMoves>(3);
+    useState<LogoShuffleParallelMoves>(() =>
+      readShuffleParallelMoves(searchParams),
+    );
   const [isControlsOpen, setIsControlsOpen] = useState(false);
   const [isViewControlsOpen, setIsViewControlsOpen] = useState(false);
   const [isFaceColorsOpen, setIsFaceColorsOpen] = useState(false);
@@ -301,51 +431,31 @@ export function LogoPreviewPage({
     setRotationDegrees(readRotationDegrees(searchParams));
     setElevationDegrees(readElevationDegrees(searchParams));
     setVoxelState(readVoxelState(searchParams));
+    setEditMode(readEditMode(searchParams));
     setSelectedPresetId(readLogoPresetSelection(searchParams));
     setIsoStyleId(readIsoStyleId(searchParams));
     setFaceColors(readFaceColors(searchParams));
+    setLogoOpacity(readLogoOpacity(searchParams));
+    setIsAutoRotating(readAutoRotate(searchParams));
+    setIsShuffleEnabled(readShuffleEnabled(searchParams));
+    setShuffleParallelMoves(readShuffleParallelMoves(searchParams));
   }, [searchParams]);
 
   useEffect(() => {
     const nextSearch = buildSearchString(
       updateQueryParams(searchParams, (nextSearchParams) => {
-        setQueryParam(
-          nextSearchParams,
-          ROTATION_QUERY_PARAM,
-          rotationDegrees !== DEFAULT_ROTATION_DEGREES
-            ? formatDegreesParam(rotationDegrees)
-            : null,
-        );
-        setQueryParam(
-          nextSearchParams,
-          ELEVATION_QUERY_PARAM,
-          elevationDegrees !== DEFAULT_ELEVATION_DEGREES
-            ? formatDegreesParam(elevationDegrees)
-            : null,
-        );
-        setQueryParam(nextSearchParams, "vox", voxelState);
-        setQueryParam(
-          nextSearchParams,
-          "isoStyle",
-          isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID ? isoStyleId : null,
-        );
-        setQueryParam(
-          nextSearchParams,
-          FACE_COLOR_QUERY_PARAMS.left,
-          faceColors.left !== DEFAULT_FACE_COLORS.left ? faceColors.left : null,
-        );
-        setQueryParam(
-          nextSearchParams,
-          FACE_COLOR_QUERY_PARAMS.right,
-          faceColors.right !== DEFAULT_FACE_COLORS.right
-            ? faceColors.right
-            : null,
-        );
-        setQueryParam(
-          nextSearchParams,
-          FACE_COLOR_QUERY_PARAMS.top,
-          faceColors.top !== DEFAULT_FACE_COLORS.top ? faceColors.top : null,
-        );
+        syncLogoQueryParams(nextSearchParams, {
+          editMode,
+          elevationDegrees,
+          faceColors,
+          isAutoRotating,
+          isShuffleEnabled,
+          isoStyleId,
+          logoOpacity,
+          rotationDegrees,
+          shuffleParallelMoves,
+          voxelState,
+        });
       }),
     );
 
@@ -354,14 +464,17 @@ export function LogoPreviewPage({
     }
   }, [
     currentSearch,
+    editMode,
     elevationDegrees,
-    faceColors.left,
-    faceColors.right,
-    faceColors.top,
+    faceColors,
+    isAutoRotating,
+    isShuffleEnabled,
     isoStyleId,
+    logoOpacity,
     rotationDegrees,
     searchParams,
     setSearchParams,
+    shuffleParallelMoves,
     voxelState,
   ]);
 
@@ -632,41 +745,18 @@ export function LogoPreviewPage({
     pathname: "/logo" | "/logo-iso" | "/logo-svg" | "/logo-iso-study",
   ) => {
     const nextSearchParams = new URLSearchParams(searchParams);
-    setQueryParam(
-      nextSearchParams,
-      ROTATION_QUERY_PARAM,
-      rotationDegrees !== DEFAULT_ROTATION_DEGREES
-        ? formatDegreesParam(rotationDegrees)
-        : null,
-    );
-    setQueryParam(
-      nextSearchParams,
-      ELEVATION_QUERY_PARAM,
-      elevationDegrees !== DEFAULT_ELEVATION_DEGREES
-        ? formatDegreesParam(elevationDegrees)
-        : null,
-    );
-    setQueryParam(nextSearchParams, "vox", voxelState);
-    setQueryParam(
-      nextSearchParams,
-      "isoStyle",
-      isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID ? isoStyleId : null,
-    );
-    setQueryParam(
-      nextSearchParams,
-      FACE_COLOR_QUERY_PARAMS.left,
-      faceColors.left !== DEFAULT_FACE_COLORS.left ? faceColors.left : null,
-    );
-    setQueryParam(
-      nextSearchParams,
-      FACE_COLOR_QUERY_PARAMS.right,
-      faceColors.right !== DEFAULT_FACE_COLORS.right ? faceColors.right : null,
-    );
-    setQueryParam(
-      nextSearchParams,
-      FACE_COLOR_QUERY_PARAMS.top,
-      faceColors.top !== DEFAULT_FACE_COLORS.top ? faceColors.top : null,
-    );
+    syncLogoQueryParams(nextSearchParams, {
+      editMode,
+      elevationDegrees,
+      faceColors,
+      isAutoRotating,
+      isShuffleEnabled,
+      isoStyleId,
+      logoOpacity,
+      rotationDegrees,
+      shuffleParallelMoves,
+      voxelState,
+    });
 
     return buildPathWithQuery({
       pathname,
