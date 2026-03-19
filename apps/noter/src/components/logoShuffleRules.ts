@@ -4,6 +4,10 @@ import {
   type VoxelCoordinate,
   voxelKey,
 } from "@/components/logoVoxelState";
+import {
+  getCameraLocalVector,
+  type LogoRotationAxisMode,
+} from "@/components/logoRotationMath";
 
 const CENTER_INDEX = (GRID_SIZE - 1) / 2;
 const CENTER_VOXEL_KEY = voxelKey(CENTER_INDEX, CENTER_INDEX, CENTER_INDEX);
@@ -47,26 +51,12 @@ type ShuffleOriginCandidateContext = {
   elevationDegrees: number;
   filledVoxels: Set<string>;
   lastMovedCubeKey: string | null;
+  rotationAxisMode: LogoRotationAxisMode;
   rotationDegrees: number;
 };
 
-function degreesToRadians(value: number): number {
-  return (value * Math.PI) / 180;
-}
-
 function dotProduct(left: Vector3, right: Vector3): number {
   return left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
-}
-
-function rotateVectorAroundY(
-  [x, y, z]: Vector3,
-  rotationDegrees: number,
-): Vector3 {
-  const radians = degreesToRadians(rotationDegrees);
-  const cosine = Math.cos(radians);
-  const sine = Math.sin(radians);
-
-  return [x * cosine + z * sine, y, -x * sine + z * cosine];
 }
 
 function voxelCoordinateFromKey(key: string): VoxelCoordinate {
@@ -76,21 +66,6 @@ function voxelCoordinateFromKey(key: string): VoxelCoordinate {
     Number.parseInt(yText, 10),
     Number.parseInt(zText, 10),
   ];
-}
-
-function getCameraLocalVector(
-  rotationDegrees: number,
-  elevationDegrees: number,
-): Vector3 {
-  const elevationRadians = degreesToRadians(elevationDegrees);
-  const horizontalComponent = Math.cos(elevationRadians);
-  const worldCameraVector: Vector3 = [
-    horizontalComponent / Math.sqrt(2),
-    Math.sin(elevationRadians),
-    horizontalComponent / Math.sqrt(2),
-  ];
-
-  return rotateVectorAroundY(worldCameraVector, -rotationDegrees);
 }
 
 function getAdjacentFreeDestinations(
@@ -151,12 +126,14 @@ export function getShuffleOriginCandidates({
   elevationDegrees,
   filledVoxels,
   lastMovedCubeKey,
+  rotationAxisMode,
   rotationDegrees,
 }: ShuffleOriginCandidateContext): ShuffleOriginCandidate[] {
-  const cameraLocalVector = getCameraLocalVector(
-    rotationDegrees,
+  const cameraLocalVector = getCameraLocalVector({
     elevationDegrees,
-  );
+    rotationAxisMode,
+    rotationDegrees,
+  });
   const candidates: ShuffleOriginCandidate[] = [];
 
   for (const fromKey of filledVoxels) {

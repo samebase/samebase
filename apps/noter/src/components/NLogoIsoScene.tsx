@@ -132,6 +132,7 @@ function scheduleNextCubeMove(
     elevationDegrees: LOGO_ISOMETRIC_ELEVATION_DEGREES,
     filledVoxels: sceneState.currentFilledVoxels,
     lastMovedCubeKey: lastMovedCubeKeyRef.current,
+    rotationAxisMode: "cube-y",
     rotationDegrees: LOGO_ISOMETRIC_ROTATION_DEGREES,
   });
 

@@ -3,6 +3,7 @@ import {
   NLogoScene,
   type LogoShuffleParallelMoves,
 } from "@/components/NLogoScene";
+import { type LogoRotationAxisMode } from "@/components/logoRotationMath";
 import { LogoIsoThumbnail, NLogoIsoScene } from "@/components/NLogoIsoScene";
 import {
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
@@ -81,6 +82,8 @@ const CONTROLS_POPOVER_VIEWPORT_PADDING_PX = 16;
 const DEFAULT_CONTROLS_POPOVER_MAX_HEIGHT =
   "calc(100dvh - env(safe-area-inset-top, 0px) - 5.5rem)";
 const DEFAULT_LOGO_OPACITY = 1;
+// Flip this back to "cube-y" to restore the original object-axis rotation.
+const DEV_THREE_ROTATION_AXIS_MODE: LogoRotationAxisMode = "screen-vertical";
 const MIN_LOGO_OPACITY = 0;
 const MAX_LOGO_OPACITY = 1;
 const LOGO_OPACITY_STEP = 0.01;
@@ -609,6 +612,7 @@ export function LogoPreviewPage({
           }}
           onViewChange={handleSceneViewChange}
           onVoxelEdit={handleVoxelEdit}
+          rotationAxisMode={DEV_THREE_ROTATION_AXIS_MODE}
           rotationDegrees={rotationDegrees}
           shuffleAnimation={{
             enabled: isShuffleEnabled,

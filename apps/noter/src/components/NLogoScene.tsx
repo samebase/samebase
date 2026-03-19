@@ -2,6 +2,12 @@ import {
   getTailwindColorHex,
   type FaceColors,
 } from "@/components/logoTailwindColors";
+import {
+  getLogoRotationAxis,
+  getWorldCameraVector,
+  getWorldScreenVerticalAxis,
+  type LogoRotationAxisMode,
+} from "@/components/logoRotationMath";
 import { getShuffleOriginCandidates } from "@/components/logoShuffleRules";
 import {
   HALF_GRID,
@@ -29,7 +35,6 @@ const DRAG_ROTATION_DEGREES_PER_PIXEL = 0.35;
 const DRAG_ELEVATION_DEGREES_PER_PIXEL = 0.18;
 const DRAG_THRESHOLD_PX = 4;
 const RAYCAST_OFFSET = 0.001;
-const ORBIT_RIGHT_AXIS = new THREE.Vector3(1, 0, -1).normalize();
 const CAMERA_FRUSTUM_PADDING = 1.12;
 const SHUFFLE_MOVE_DURATION_MS = 1800;
 const SHUFFLE_MOVE_STAGGER_MS = 520;
@@ -108,6 +113,7 @@ type NLogoSceneProps = {
     rotationDegrees: number;
   }) => void;
   onVoxelEdit: (edit: VoxelEdit) => void;
+  rotationAxisMode?: LogoRotationAxisMode;
   rotationDegrees: number;
   shuffleAnimation: LogoShuffleAnimationConfig;
   voxelState: string;
@@ -592,6 +598,7 @@ function scheduleNextCubeMove(
   sceneState: SceneState,
   elevationDegrees: number,
   lastMovedCubeKeyRef: MutableRefObject<string | null>,
+  rotationAxisMode: LogoRotationAxisMode,
   rotationDegrees: number,
   startTimeMs: number,
 ): boolean {
@@ -606,6 +613,7 @@ function scheduleNextCubeMove(
     elevationDegrees,
     filledVoxels: sceneState.currentFilledVoxels,
     lastMovedCubeKey: lastMovedCubeKeyRef.current,
+    rotationAxisMode,
     rotationDegrees,
   });
 
@@ -645,6 +653,7 @@ function syncCubeShuffleAnimation(
   elevationDegrees: number,
   lastMovedCubeKeyRef: MutableRefObject<string | null>,
   parallelMoves: LogoShuffleParallelMoves,
+  rotationAxisMode: LogoRotationAxisMode,
   rotationDegrees: number,
   timestampMs: number,
 ) {
@@ -697,6 +706,7 @@ function syncCubeShuffleAnimation(
       sceneState,
       elevationDegrees,
       lastMovedCubeKeyRef,
+      rotationAxisMode,
       rotationDegrees,
       timestampMs + sceneState.activeCubeMoves.length * SHUFFLE_MOVE_STAGGER_MS,
     );
@@ -719,6 +729,7 @@ export function NLogoScene({
   onRenderUnavailable,
   onViewChange,
   onVoxelEdit,
+  rotationAxisMode = "cube-y",
   rotationDegrees,
   shuffleAnimation,
   voxelState,
@@ -729,6 +740,7 @@ export function NLogoScene({
   const editModeRef = useRef(editMode);
   const rotationDegreesRef = useRef(rotationDegrees);
   const elevationDegreesRef = useRef(elevationDegrees);
+  const rotationAxisModeRef = useRef(rotationAxisMode);
   const voxelStateRef = useRef(voxelState);
   const faceColorsRef = useRef(faceColors);
   const opacityRef = useRef(opacity);
@@ -776,6 +788,11 @@ export function NLogoScene({
     elevationDegreesRef.current = elevationDegrees;
     renderSceneRef.current(performance.now());
   }, [elevationDegrees]);
+
+  useEffect(() => {
+    rotationAxisModeRef.current = rotationAxisMode;
+    renderSceneRef.current(performance.now());
+  }, [rotationAxisMode]);
 
   useEffect(() => {
     onInteractionStartRef.current = onInteractionStart;
@@ -873,6 +890,7 @@ export function NLogoScene({
     const initialCameraFitRadius = getGeometryFitRadius(
       logoParts.map(({ geometry }) => geometry),
     );
+    const rotationAxisVector = new THREE.Vector3();
 
     const getFrustumHalfSpan = () => {
       const radius =
@@ -881,21 +899,29 @@ export function NLogoScene({
     };
 
     const updateCameraPosition = () => {
-      const elevationRadians = THREE.MathUtils.degToRad(
+      const [cameraX, cameraY, cameraZ] = getWorldCameraVector(
         elevationDegreesRef.current,
       );
-      const horizontalComponent = Math.cos(elevationRadians);
-      const verticalComponent = Math.sin(elevationRadians);
-      const diagonalComponent = horizontalComponent / Math.sqrt(2);
-
       camera.position
-        .set(diagonalComponent, verticalComponent, diagonalComponent)
+        .set(cameraX, cameraY, cameraZ)
         .setLength(ISOMETRIC_CAMERA_DISTANCE);
-      const forward = camera.position.clone().normalize().multiplyScalar(-1);
-      camera.up.copy(
-        new THREE.Vector3().crossVectors(ORBIT_RIGHT_AXIS, forward).normalize(),
+      const [upX, upY, upZ] = getWorldScreenVerticalAxis(
+        elevationDegreesRef.current,
       );
+      camera.up.set(upX, upY, upZ);
       camera.lookAt(0, 0, 0);
+    };
+
+    const applyLogoRotation = () => {
+      const [axisX, axisY, axisZ] = getLogoRotationAxis({
+        elevationDegrees: elevationDegreesRef.current,
+        mode: rotationAxisModeRef.current,
+      });
+      rotationAxisVector.set(axisX, axisY, axisZ);
+      logoGroup.quaternion.setFromAxisAngle(
+        rotationAxisVector,
+        THREE.MathUtils.degToRad(rotationDegreesRef.current),
+      );
     };
 
     const resizeScene = () => {
@@ -913,6 +939,7 @@ export function NLogoScene({
       camera.top = frustumHalfHeight;
       camera.bottom = -frustumHalfHeight;
       updateCameraPosition();
+      applyLogoRotation();
       camera.updateProjectionMatrix();
       renderer.render(scene, camera);
     };
@@ -962,14 +989,13 @@ export function NLogoScene({
           elevationDegreesRef.current,
           lastMovedCubeKeyRef,
           shuffleAnimationRef.current.parallelMoves,
+          rotationAxisModeRef.current,
           rotationDegreesRef.current,
           timestampMs,
         );
       }
-      logoGroup.rotation.y = THREE.MathUtils.degToRad(
-        rotationDegreesRef.current,
-      );
       updateCameraPosition();
+      applyLogoRotation();
       if (sceneState) {
         syncTransparentFaceRenderOrder(sceneState);
       }
