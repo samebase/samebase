@@ -51,7 +51,7 @@ export function RepositoryMediaPreviewPanel({
           data-testid={`${testId}-image`}
           src={asset.url}
           alt={asset.fileName || fallbackLabel}
-          className="max-h-full max-w-full corner-notch-1 border bg-background object-contain shadow-sm"
+          className="max-h-full max-w-full border bg-background object-contain shadow-sm"
         />
       </div>
     </div>

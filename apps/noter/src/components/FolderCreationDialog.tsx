@@ -120,7 +120,6 @@ export function FolderCreationDialog({
   };
 
   const handleFolderInputFocus = () => {
-    console.log("focused?");
     setShowFolderDropdown(true);
   };
 
