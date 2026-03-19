@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { getCornerNotchClass } from "@/lib/cornerNotch";
+import { useCornerNotchBridgeColor } from "@/hooks/useCornerNotchBridgeColor";
 
 type FixtureBorderWidth = 1 | 2;
 type FixtureZoom = 1 | 12;
@@ -27,9 +28,11 @@ function CornerNotchChipElement({
   zoom: FixtureZoom;
 }) {
   const notchClass = getCornerNotchClass(type);
+  const bridgeRef = useCornerNotchBridgeColor(type, null);
 
   return (
     <div
+      ref={bridgeRef}
       className={cn(
         "box-border border-stone-500 bg-white",
         borderWidth === 1 ? "border" : "border-2",

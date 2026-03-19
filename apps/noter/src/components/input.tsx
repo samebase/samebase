@@ -4,6 +4,7 @@ import {
   getOptionalCornerNotchClass,
   type CornerNotchType,
 } from "@/lib/cornerNotch";
+import { useCornerNotchBridgeColor } from "@/hooks/useCornerNotchBridgeColor";
 import { cn } from "@/lib/utils";
 
 export interface InputProps
@@ -12,13 +13,17 @@ export interface InputProps
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, cornerNotch, ...props }, ref) => (
-    <BaseInput
-      ref={ref}
-      className={cn(getOptionalCornerNotchClass(cornerNotch), className)}
-      {...props}
-    />
-  ),
+  ({ className, cornerNotch, ...props }, ref) => {
+    const inputRef = useCornerNotchBridgeColor(cornerNotch, ref, className);
+
+    return (
+      <BaseInput
+        ref={inputRef}
+        className={cn(getOptionalCornerNotchClass(cornerNotch), className)}
+        {...props}
+      />
+    );
+  },
 );
 
 Input.displayName = "Input";

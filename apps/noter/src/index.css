@@ -248,35 +248,39 @@
   .corner-notch-2::before {
     content: "";
     position: absolute;
-    inset: var(--noter-corner-notch-stroke, 1px);
-    z-index: 1;
-    box-sizing: border-box;
-    border: inherit;
+    inset: 0;
     pointer-events: none;
-    /* Restore the inner corner bridge pixels that clip-path alone cannot draw. */
-    -webkit-mask:
-      linear-gradient(#fff 0 0) top left / var(--noter-corner-notch-stroke, 1px)
-        var(--noter-corner-notch-stroke, 1px) no-repeat,
-      linear-gradient(#fff 0 0) top right /
+    /* Paint the inner bridge pixel that the clipped outer border cannot reach. */
+    background:
+      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
+        var(--noter-corner-notch-stroke, 1px)
+        var(--noter-corner-notch-stroke, 1px) /
         var(--noter-corner-notch-stroke, 1px)
         var(--noter-corner-notch-stroke, 1px) no-repeat,
-      linear-gradient(#fff 0 0) bottom right /
+      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
+        calc(
+          100% - var(--noter-corner-notch-stroke, 1px) -
+            var(--noter-corner-notch-stroke, 1px)
+        )
+        var(--noter-corner-notch-stroke, 1px) /
         var(--noter-corner-notch-stroke, 1px)
         var(--noter-corner-notch-stroke, 1px) no-repeat,
-      linear-gradient(#fff 0 0) bottom left /
-        var(--noter-corner-notch-stroke, 1px)
-        var(--noter-corner-notch-stroke, 1px) no-repeat;
-    mask:
-      linear-gradient(#fff 0 0) top left / var(--noter-corner-notch-stroke, 1px)
+      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
+        calc(
+          100% - var(--noter-corner-notch-stroke, 1px) -
+            var(--noter-corner-notch-stroke, 1px)
+        )
+        calc(
+          100% - var(--noter-corner-notch-stroke, 1px) -
+            var(--noter-corner-notch-stroke, 1px)
+        ) / var(--noter-corner-notch-stroke, 1px)
         var(--noter-corner-notch-stroke, 1px) no-repeat,
-      linear-gradient(#fff 0 0) top right /
+      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
         var(--noter-corner-notch-stroke, 1px)
-        var(--noter-corner-notch-stroke, 1px) no-repeat,
-      linear-gradient(#fff 0 0) bottom right /
-        var(--noter-corner-notch-stroke, 1px)
-        var(--noter-corner-notch-stroke, 1px) no-repeat,
-      linear-gradient(#fff 0 0) bottom left /
-        var(--noter-corner-notch-stroke, 1px)
+        calc(
+          100% - var(--noter-corner-notch-stroke, 1px) -
+            var(--noter-corner-notch-stroke, 1px)
+        ) / var(--noter-corner-notch-stroke, 1px)
         var(--noter-corner-notch-stroke, 1px) no-repeat;
   }
 
