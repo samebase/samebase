@@ -4,9 +4,12 @@
 
 - Status: Proposed
 - Owner: Noter frontend/design system
-- Last updated: 2026-03-16
+- Last updated: 2026-03-19
 - Related files: `apps/noter/components.json`, `apps/noter/tailwind.config.js`,
-  `apps/noter/src/index.css`, `apps/noter/src/components/ui/*`, `AGENTS.md`
+  `apps/noter/src/index.css`, `apps/noter/src/components/ui/*`,
+  `apps/noter/src/lib/cornerNotch.ts`, `apps/noter/src/components/button.tsx`,
+  `apps/noter/src/components/input.tsx`, `apps/noter/src/components/card.tsx`,
+  `apps/noter/src/components/CornerNotchVisualFixture.tsx`, `AGENTS.md`
 
 ## Conclusion
 
@@ -134,6 +137,22 @@ For Noter, the rectangular rule is enforced as follows:
 - Chat bubbles, badges, and chips become rectangular labels rather than pills.
 - Floating panels and dialogs remain hard-edged on both desktop and mobile.
 
+### 7. Corner Notch Variants
+
+- Noter may use stepped corner-notch variants as an accent on otherwise
+  rectangular chrome.
+- `corner-notch-0` is the pure square baseline with no notch cutout.
+- `corner-notch-1` removes a single outer corner pixel and remains the default
+  notch variant.
+- `corner-notch-2` uses a two-step diagonal cut (`2px` then `1px`) for a
+  smoother corner removal.
+- App-owned wrappers such as `Button`, `Input`, and `Card` may expose
+  `cornerNotch={0 | 1 | 2}` so product code can choose a notch type without
+  hardcoding `corner-notch-*` utility strings.
+- The notch variants are geometry accents, not a return to rounded corners.
+- Focus-visible and focus-within states must disable the clip-path so focus
+  indication stays visible.
+
 ## Implementation Plan
 
 ### Phase 1. Theme Enforcement
@@ -156,6 +175,8 @@ For Noter, the rectangular rule is enforced as follows:
 - Perform visual QA on desktop and mobile-relevant layouts.
 - Verify overlays, sheets, dialogs, and chat surfaces remain visually coherent
   with hard edges.
+- Verify each supported corner-notch variant renders as intended and does not
+  clip focus rings.
 - Verify third-party and media content still display correctly when app framing
   is rectangular.
 

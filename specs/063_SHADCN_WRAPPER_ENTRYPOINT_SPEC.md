@@ -5,7 +5,9 @@
 - Status: Proposed
 - Owner: Noter frontend/design system
 - Last updated: 2026-03-19
-- Related files: `AGENTS.md`, `apps/noter/src/components/button.tsx`,
+- Related files: `AGENTS.md`, `apps/noter/src/lib/cornerNotch.ts`,
+  `apps/noter/src/components/button.tsx`, `apps/noter/src/components/input.tsx`,
+  `apps/noter/src/components/card.tsx`,
   `apps/noter/src/components/ui/button.tsx`
 
 ## Conclusion
@@ -78,6 +80,9 @@ Current rollout includes:
 
 - Shared app styling should be layered in the wrapper or through shared theme
   tokens and utility classes.
+- When product styling needs a reusable control surface, expose a typed
+  wrapper-owned prop such as `cornerNotch` instead of forcing call sites to
+  hardcode raw utility class strings.
 - One-off local adjustments may still use `className` at the call site.
 - `components.json` remains a CLI/generation configuration file, not the runtime
   styling entrypoint for existing buttons.
@@ -107,7 +112,8 @@ Current rollout includes:
 - Generated shadcn files under `apps/noter/src/components/ui/*` remain unchanged
   for this policy shift.
 - Wrapper modules preserve the generated public API closely enough that call
-  sites only need import-path rewrites.
+  sites only need import-path rewrites or explicit opt-in wrapper props such as
+  `cornerNotch`.
 - Repo guidance documents the wrapper convention as the default path for future
   styling ownership.
 

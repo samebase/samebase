@@ -239,6 +239,10 @@ use `--env-file` or an explicit deployment selector instead.
   path when it exists. Keep the generated primitive internal and alias it as
   `BaseButton` inside the wrapper instead of leaking names like `NButton` or
   editing the generated file by default
+- **Prefer wrapper-owned styling props over raw utility strings when available**
+  - when a wrapper already exposes a typed styling control such as
+    `cornerNotch`, prefer that prop in product code over repeating raw
+    `corner-notch-*` classes at call sites
 - **If manual edits are explicitly requested**, keep them minimal and call out
   that they diverge from generated output
 
