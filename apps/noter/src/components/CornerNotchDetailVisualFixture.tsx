@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { getCornerNotchClass } from "@/lib/cornerNotch";
 
 type FixtureBorderWidth = 1 | 2;
 type FixtureZoom = 1 | 12;
@@ -25,12 +26,14 @@ function CornerNotchChipElement({
 }: FixtureConfig & {
   zoom: FixtureZoom;
 }) {
+  const notchClass = getCornerNotchClass(type);
+
   return (
     <div
       className={cn(
         "box-border border-stone-500 bg-white",
         borderWidth === 1 ? "border" : "border-2",
-        `corner-notch-${type}`,
+        notchClass,
       )}
       style={{
         backgroundClip: "padding-box",

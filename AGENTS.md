@@ -206,6 +206,11 @@ use `--env-file` or an explicit deployment selector instead.
 - **Keep config surfaces minimal** - allowlists and config maps should contain
   only entries that are currently used by this repo; do not add placeholders for
   possible future integrations
+- **Do not construct CSS or Tailwind class names dynamically** - avoid patterns
+  such as `corner-notch-${type}`, `bg-${tone}`, or string fragments passed
+  through template literals. Map typed state to full literal class strings and
+  pass those complete names to `cn(...)` so classes stay searchable and visible
+  to Tailwind tooling
 
 ## UI/UX Guidelines
 

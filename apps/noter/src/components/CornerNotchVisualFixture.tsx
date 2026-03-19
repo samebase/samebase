@@ -8,6 +8,7 @@ import {
   getCornerNotchClass,
   type CornerNotchType,
 } from "@/lib/cornerNotch";
+import { cn } from "@/lib/utils";
 
 const CORNER_NOTCH_LABELS: Record<CornerNotchType, string> = {
   0: "Type 0",
@@ -139,12 +140,18 @@ export function CornerNotchVisualFixture() {
 
             <div className="grid grid-cols-2 gap-3">
               <div
-                className={`border border-stone-300 bg-stone-950 p-4 text-stone-50 ${getCornerNotchClass(DEFAULT_CORNER_NOTCH_TYPE)}`}
+                className={cn(
+                  "border border-stone-300 bg-stone-950 p-4 text-stone-50",
+                  getCornerNotchClass(DEFAULT_CORNER_NOTCH_TYPE),
+                )}
               >
                 Dark panel
               </div>
               <div
-                className={`border border-stone-300 bg-amber-100 p-4 ${getCornerNotchClass(DEFAULT_CORNER_NOTCH_TYPE)}`}
+                className={cn(
+                  "border border-stone-300 bg-amber-100 p-4",
+                  getCornerNotchClass(DEFAULT_CORNER_NOTCH_TYPE),
+                )}
               >
                 Warm panel
               </div>

@@ -149,6 +149,9 @@ For Noter, the rectangular rule is enforced as follows:
 - App-owned wrappers such as `Button`, `Input`, and `Card` may expose
   `cornerNotch={0 | 1 | 2}` so product code can choose a notch type without
   hardcoding `corner-notch-*` utility strings.
+- Do not construct notch or Tailwind classes via template interpolation such as
+  `corner-notch-${type}`. Map typed values to full literal class strings so the
+  classes remain searchable and statically visible to tooling.
 - The notch variants are geometry accents, not a return to rounded corners.
 - Focus-visible and focus-within states must disable the clip-path so focus
   indication stays visible.
