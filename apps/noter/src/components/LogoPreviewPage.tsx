@@ -98,6 +98,10 @@ const ROTATION_AXIS_MODE_LABELS: Record<LogoRotationAxisMode, string> = {
   "cube-y": "Cube axis",
   "screen-vertical": "Vertical",
 };
+const ROTATION_ANGLE_CONTROL_LABELS: Record<LogoRotationAxisMode, string> = {
+  "cube-y": "Yaw",
+  "screen-vertical": "Rotation",
+};
 const ROTATION_AXIS_MODE_OPTIONS = [
   "cube-y",
   "screen-vertical",
@@ -535,6 +539,8 @@ export function LogoPreviewPage({
       ? null
       : getLogoPreset(selectedPresetId);
   const selectedIsoStyle = getLogoIsometricStyle(isoStyleId);
+  const rotationAngleControlLabel =
+    ROTATION_ANGLE_CONTROL_LABELS[rotationAxisMode];
   const isPresetDirty =
     selectedPreset !== null && selectedPreset.voxelState !== voxelState;
 
@@ -806,6 +812,13 @@ export function LogoPreviewPage({
                               {ROTATION_AXIS_MODE_LABELS[rotationAxisMode]}
                             </span>
                           </div>
+                          {rotationAxisMode === "screen-vertical" && (
+                            <div className="text-xs text-black/55">
+                              Experimental mode. It rotates around the current
+                              screen-up axis, so changing elevation also changes
+                              the resulting pose.
+                            </div>
+                          )}
                           <div className="grid grid-cols-2 gap-2">
                             {ROTATION_AXIS_MODE_OPTIONS.map((mode) => (
                               <Button
@@ -829,7 +842,7 @@ export function LogoPreviewPage({
                         </div>
                         <div className="grid gap-2">
                           <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                            <span>Yaw</span>
+                            <span>{rotationAngleControlLabel}</span>
                             <span>{rotationDegrees.toFixed(1)}°</span>
                           </div>
                           <div className="flex items-center gap-2">
