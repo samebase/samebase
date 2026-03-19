@@ -1,7 +1,7 @@
 const ORBIT_RIGHT_AXIS = normalizeVector([1, 0, -1]);
 const WORLD_UP_AXIS = [0, 1, 0] as const;
 
-type Vector3 = readonly [number, number, number];
+export type Vector3 = readonly [number, number, number];
 
 export type LogoRotationAxisMode = "cube-y" | "screen-vertical";
 
@@ -9,7 +9,7 @@ function degreesToRadians(value: number): number {
   return (value * Math.PI) / 180;
 }
 
-function dotProduct(left: Vector3, right: Vector3): number {
+export function dotProduct(left: Vector3, right: Vector3): number {
   return left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
 }
 

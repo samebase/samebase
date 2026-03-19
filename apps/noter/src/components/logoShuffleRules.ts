@@ -5,7 +5,9 @@ import {
   voxelKey,
 } from "@/components/logoVoxelState";
 import {
+  dotProduct,
   getCameraLocalVector,
+  type Vector3,
   type LogoRotationAxisMode,
 } from "@/components/logoRotationMath";
 
@@ -38,8 +40,6 @@ const SHUFFLE_FACE_DIRECTIONS = [
   },
 ] as const;
 
-type Vector3 = readonly [number, number, number];
-
 export type ShuffleOriginCandidate = {
   destinations: VoxelCoordinate[];
   from: VoxelCoordinate;
@@ -54,10 +54,6 @@ type ShuffleOriginCandidateContext = {
   rotationAxisMode: LogoRotationAxisMode;
   rotationDegrees: number;
 };
-
-function dotProduct(left: Vector3, right: Vector3): number {
-  return left[0] * right[0] + left[1] * right[1] + left[2] * right[2];
-}
 
 function voxelCoordinateFromKey(key: string): VoxelCoordinate {
   const [xText, yText, zText] = key.split(",");
