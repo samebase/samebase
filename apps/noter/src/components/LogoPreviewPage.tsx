@@ -3,6 +3,7 @@ import {
   NLogoScene,
   type LogoShuffleParallelMoves,
 } from "@/components/NLogoScene";
+import { type LogoRotationAxisMode } from "@/components/logoRotationMath";
 import { LogoIsoThumbnail, NLogoIsoScene } from "@/components/NLogoIsoScene";
 import {
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
@@ -81,16 +82,30 @@ const CONTROLS_POPOVER_VIEWPORT_PADDING_PX = 16;
 const DEFAULT_CONTROLS_POPOVER_MAX_HEIGHT =
   "calc(100dvh - env(safe-area-inset-top, 0px) - 5.5rem)";
 const DEFAULT_LOGO_OPACITY = 1;
+const DEFAULT_ROTATION_AXIS_MODE: LogoRotationAxisMode = "cube-y";
 const MIN_LOGO_OPACITY = 0;
 const MAX_LOGO_OPACITY = 1;
 const LOGO_OPACITY_STEP = 0.01;
 const ROTATION_QUERY_PARAM = "rot";
+const ROTATION_AXIS_QUERY_PARAM = "axis";
 const ELEVATION_QUERY_PARAM = "elev";
 const FACE_COLOR_QUERY_PARAMS = {
   left: "leftColor",
   right: "rightColor",
   top: "topColor",
 } as const satisfies Record<FaceColorKey, string>;
+const ROTATION_AXIS_MODE_LABELS: Record<LogoRotationAxisMode, string> = {
+  "cube-y": "Cube axis",
+  "screen-vertical": "Vertical",
+};
+const ROTATION_ANGLE_CONTROL_LABELS: Record<LogoRotationAxisMode, string> = {
+  "cube-y": "Yaw",
+  "screen-vertical": "Rotation",
+};
+const ROTATION_AXIS_MODE_OPTIONS = [
+  "cube-y",
+  "screen-vertical",
+] as const satisfies readonly LogoRotationAxisMode[];
 
 type LogoPreviewRenderMode = "three" | "iso";
 const FACE_COLOR_LABELS: Record<FaceColorKey, string> = {
@@ -194,6 +209,23 @@ function readRotationDegrees(searchParams: URLSearchParams): number {
   return normalizeRotationDegrees(parsedValue);
 }
 
+function isLogoRotationAxisMode(
+  value: string | null,
+): value is LogoRotationAxisMode {
+  return value === "cube-y" || value === "screen-vertical";
+}
+
+function readRotationAxisMode(
+  searchParams: URLSearchParams,
+): LogoRotationAxisMode {
+  const value = searchParams.get(ROTATION_AXIS_QUERY_PARAM);
+  if (!isLogoRotationAxisMode(value)) {
+    return DEFAULT_ROTATION_AXIS_MODE;
+  }
+
+  return value;
+}
+
 function readElevationDegrees(searchParams: URLSearchParams): number {
   const value = searchParams.get(ELEVATION_QUERY_PARAM);
   const parsedValue = Number(value);
@@ -238,6 +270,9 @@ export function LogoPreviewPage({
   const [rotationDegrees, setRotationDegrees] = useState(() =>
     readRotationDegrees(searchParams),
   );
+  const [rotationAxisMode, setRotationAxisMode] = useState(() =>
+    readRotationAxisMode(searchParams),
+  );
   const [elevationDegrees, setElevationDegrees] = useState(() =>
     readElevationDegrees(searchParams),
   );
@@ -270,6 +305,7 @@ export function LogoPreviewPage({
 
   useEffect(() => {
     setRotationDegrees(readRotationDegrees(searchParams));
+    setRotationAxisMode(readRotationAxisMode(searchParams));
     setElevationDegrees(readElevationDegrees(searchParams));
     setVoxelState(readVoxelState(searchParams));
     setSelectedPresetId(readLogoPresetSelection(searchParams));
@@ -285,6 +321,13 @@ export function LogoPreviewPage({
           ROTATION_QUERY_PARAM,
           rotationDegrees !== DEFAULT_ROTATION_DEGREES
             ? formatDegreesParam(rotationDegrees)
+            : null,
+        );
+        setQueryParam(
+          nextSearchParams,
+          ROTATION_AXIS_QUERY_PARAM,
+          rotationAxisMode !== DEFAULT_ROTATION_AXIS_MODE
+            ? rotationAxisMode
             : null,
         );
         setQueryParam(
@@ -330,6 +373,7 @@ export function LogoPreviewPage({
     faceColors.right,
     faceColors.top,
     isoStyleId,
+    rotationAxisMode,
     rotationDegrees,
     searchParams,
     setSearchParams,
@@ -495,6 +539,8 @@ export function LogoPreviewPage({
       ? null
       : getLogoPreset(selectedPresetId);
   const selectedIsoStyle = getLogoIsometricStyle(isoStyleId);
+  const rotationAngleControlLabel =
+    ROTATION_ANGLE_CONTROL_LABELS[rotationAxisMode];
   const isPresetDirty =
     selectedPreset !== null && selectedPreset.voxelState !== voxelState;
 
@@ -544,6 +590,11 @@ export function LogoPreviewPage({
       rotationDegrees !== DEFAULT_ROTATION_DEGREES
         ? formatDegreesParam(rotationDegrees)
         : null,
+    );
+    setQueryParam(
+      nextSearchParams,
+      ROTATION_AXIS_QUERY_PARAM,
+      rotationAxisMode !== DEFAULT_ROTATION_AXIS_MODE ? rotationAxisMode : null,
     );
     setQueryParam(
       nextSearchParams,
@@ -609,6 +660,7 @@ export function LogoPreviewPage({
           }}
           onViewChange={handleSceneViewChange}
           onVoxelEdit={handleVoxelEdit}
+          rotationAxisMode={rotationAxisMode}
           rotationDegrees={rotationDegrees}
           shuffleAnimation={{
             enabled: isShuffleEnabled,
@@ -755,7 +807,42 @@ export function LogoPreviewPage({
                       <div className="grid gap-3">
                         <div className="grid gap-2">
                           <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                            <span>Yaw</span>
+                            <span>Rotation Axis</span>
+                            <span>
+                              {ROTATION_AXIS_MODE_LABELS[rotationAxisMode]}
+                            </span>
+                          </div>
+                          {rotationAxisMode === "screen-vertical" && (
+                            <div className="text-xs text-black/55">
+                              Experimental mode. It rotates around the current
+                              screen-up axis, so changing elevation also changes
+                              the resulting pose.
+                            </div>
+                          )}
+                          <div className="grid grid-cols-2 gap-2">
+                            {ROTATION_AXIS_MODE_OPTIONS.map((mode) => (
+                              <Button
+                                key={mode}
+                                type="button"
+                                size="sm"
+                                variant={
+                                  rotationAxisMode === mode
+                                    ? "default"
+                                    : "outline"
+                                }
+                                className="rounded-none"
+                                onClick={() => {
+                                  setRotationAxisMode(mode);
+                                }}
+                              >
+                                {ROTATION_AXIS_MODE_LABELS[mode]}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="grid gap-2">
+                          <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                            <span>{rotationAngleControlLabel}</span>
                             <span>{rotationDegrees.toFixed(1)}°</span>
                           </div>
                           <div className="flex items-center gap-2">
@@ -815,6 +902,7 @@ export function LogoPreviewPage({
                             className="rounded-none"
                             onClick={() => {
                               setIsAutoRotating(false);
+                              setRotationAxisMode(DEFAULT_ROTATION_AXIS_MODE);
                               setRotationDegrees(DEFAULT_ROTATION_DEGREES);
                               setElevationDegrees(DEFAULT_ELEVATION_DEGREES);
                             }}
