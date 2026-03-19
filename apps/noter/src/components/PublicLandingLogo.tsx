@@ -59,8 +59,10 @@ function easeOutCubic(value: number) {
 
 export function PublicLandingLogo({
   autoRotate = false,
+  enableViewSnapping = true,
 }: {
   autoRotate?: boolean;
+  enableViewSnapping?: boolean;
 }) {
   const [LogoScene, setLogoScene] = useState<LandingLogoSceneComponent | null>(
     null,
@@ -241,7 +243,9 @@ export function PublicLandingLogo({
               rotationDegrees={view.rotationDegrees}
               shuffleAnimation={{ enabled: false, parallelMoves: 1 }}
               animateFaceColors={false}
-              viewDragConfig={LANDING_LOGO_VIEW_DRAG_CONFIG}
+              viewDragConfig={
+                enableViewSnapping ? LANDING_LOGO_VIEW_DRAG_CONFIG : undefined
+              }
               voxelState={STATIC_LOGO_VOXEL_STATE}
             />
           </div>

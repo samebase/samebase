@@ -9,7 +9,7 @@ type ResolveDraggedAngleDegreesOptions = {
 };
 
 function getCircularAngleDistanceDegrees(left: number, right: number): number {
-  const delta = Math.abs(normalizeRotationDegrees(left - right));
+  const delta = normalizeRotationDegrees(left - right);
   return delta > 180 ? 360 - delta : delta;
 }
 

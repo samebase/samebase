@@ -29,10 +29,10 @@ type SignInFormProps = {
 
 export function SignInForm({ topNotice }: SignInFormProps = {}) {
   const [searchParams] = useSearchParams();
+  const landingDevModeEnabled = isLandingDevModeEnabled(searchParams);
   const prodUiModeEnabled = isProdUiModeEnabled(searchParams);
   const showPasswordAuth = import.meta.env.DEV && !prodUiModeEnabled;
-  const isLandingCopyEditable =
-    !prodUiModeEnabled && isLandingDevModeEnabled(searchParams);
+  const isLandingCopyEditable = !prodUiModeEnabled && landingDevModeEnabled;
   // Keep the editable `/?dev` view and the plain landing view on the same
   // in-memory draft so query-param toggles do not reset the current copy.
   const [landingMarkdownDraft, setLandingMarkdownDraft] =
@@ -45,7 +45,10 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
         className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8"
       >
         {topNotice}
-        <PublicLandingLogo autoRotate={isLandingCopyEditable} />
+        <PublicLandingLogo
+          autoRotate={isLandingCopyEditable}
+          enableViewSnapping={!landingDevModeEnabled}
+        />
         <div data-testid={PUBLIC_LANDING_COPY_TEST_ID}>
           {isLandingCopyEditable ? (
             <ProsemarkReadOnly
