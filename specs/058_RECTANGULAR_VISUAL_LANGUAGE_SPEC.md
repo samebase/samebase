@@ -150,6 +150,9 @@ For Noter, the rectangular rule is enforced as follows:
 - App-owned wrappers such as `Button`, `Input`, and `Card` may expose
   `cornerNotch={0 | 1 | 2}` so product code can choose a notch type without
   hardcoding `corner-notch-*` utility strings.
+- App-owned wrappers that own primary product chrome should default omitted
+  `cornerNotch` to the repo notch default, while `cornerNotch={0}` remains the
+  explicit square opt-out.
 - Do not construct notch or Tailwind classes via template interpolation such as
   `corner-notch-${type}`. Map typed values to full literal class strings so the
   classes remain searchable and statically visible to tooling.

@@ -4,6 +4,7 @@ import {
   type ButtonProps as BaseButtonProps,
 } from "@/components/ui/button";
 import {
+  DEFAULT_CORNER_NOTCH_TYPE,
   getOptionalCornerNotchClass,
   type CornerNotchType,
 } from "@/lib/cornerNotch";
@@ -16,12 +17,20 @@ export interface ButtonProps extends BaseButtonProps {
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, cornerNotch, ...props }, ref) => {
-    const buttonRef = useCornerNotchBridgeColor(cornerNotch, ref, className);
+    const resolvedCornerNotch = cornerNotch ?? DEFAULT_CORNER_NOTCH_TYPE;
+    const buttonRef = useCornerNotchBridgeColor(
+      resolvedCornerNotch,
+      ref,
+      className,
+    );
 
     return (
       <BaseButton
         ref={buttonRef}
-        className={cn(getOptionalCornerNotchClass(cornerNotch), className)}
+        className={cn(
+          getOptionalCornerNotchClass(resolvedCornerNotch),
+          className,
+        )}
         {...props}
       />
     );

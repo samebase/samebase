@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  DEFAULT_CORNER_NOTCH_TYPE,
   getOptionalCornerNotchClass,
   type CornerNotchType,
 } from "@/lib/cornerNotch";
@@ -21,12 +22,20 @@ export interface CardProps
 
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ className, cornerNotch, ...props }, ref) => {
-    const cardRef = useCornerNotchBridgeColor(cornerNotch, ref, className);
+    const resolvedCornerNotch = cornerNotch ?? DEFAULT_CORNER_NOTCH_TYPE;
+    const cardRef = useCornerNotchBridgeColor(
+      resolvedCornerNotch,
+      ref,
+      className,
+    );
 
     return (
       <BaseCard
         ref={cardRef}
-        className={cn(getOptionalCornerNotchClass(cornerNotch), className)}
+        className={cn(
+          getOptionalCornerNotchClass(resolvedCornerNotch),
+          className,
+        )}
         {...props}
       />
     );

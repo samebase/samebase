@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Input as BaseInput } from "@/components/ui/input";
 import {
+  DEFAULT_CORNER_NOTCH_TYPE,
   getOptionalCornerNotchClass,
   type CornerNotchType,
 } from "@/lib/cornerNotch";
@@ -14,12 +15,20 @@ export interface InputProps
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, cornerNotch, ...props }, ref) => {
-    const inputRef = useCornerNotchBridgeColor(cornerNotch, ref, className);
+    const resolvedCornerNotch = cornerNotch ?? DEFAULT_CORNER_NOTCH_TYPE;
+    const inputRef = useCornerNotchBridgeColor(
+      resolvedCornerNotch,
+      ref,
+      className,
+    );
 
     return (
       <BaseInput
         ref={inputRef}
-        className={cn(getOptionalCornerNotchClass(cornerNotch), className)}
+        className={cn(
+          getOptionalCornerNotchClass(resolvedCornerNotch),
+          className,
+        )}
         {...props}
       />
     );

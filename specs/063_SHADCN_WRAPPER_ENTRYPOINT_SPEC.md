@@ -83,6 +83,9 @@ Current rollout includes:
 - When product styling needs a reusable control surface, expose a typed
   wrapper-owned prop such as `cornerNotch` instead of forcing call sites to
   hardcode raw utility class strings.
+- If the repo has a canonical default treatment such as the standard Noter
+  notch, the wrapper should apply it by default and reserve `cornerNotch={0}`
+  for explicit opt-out.
 - One-off local adjustments may still use `className` at the call site.
 - `components.json` remains a CLI/generation configuration file, not the runtime
   styling entrypoint for existing buttons.
