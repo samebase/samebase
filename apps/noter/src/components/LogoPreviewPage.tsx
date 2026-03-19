@@ -72,8 +72,16 @@ import {
   updateQueryParams,
 } from "@/lib/queryParams";
 import { ChevronDown } from "lucide-react";
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { api } from "../../convex/_generated/api";
 
 const AUTO_ROTATE_DEGREES_PER_SECOND = 18;
 const CONTROLS_POPOVER_SIDE_OFFSET_PX = 10;
@@ -103,6 +111,7 @@ const RGB_FACE_COLORS: FaceColors = {
   right: "green-500",
   top: "blue-500",
 };
+const SAVE_PRESET_INPUT_PLACEHOLDER = "Name this preset";
 const EDIT_MODE_BUTTON_CLASS_NAMES: Record<VoxelEdit["kind"], string> = {
   add: "border-emerald-500/30 bg-emerald-500/15 text-emerald-950 hover:bg-emerald-500/25",
   remove: "border-red-500/30 bg-red-500/15 text-red-950 hover:bg-red-500/25",
@@ -225,12 +234,24 @@ function isLogoPresetId(value: string): value is LogoPresetId {
   return LOGO_PRESETS.some((preset) => preset.id === value);
 }
 
+function areFaceColorsEqual(left: FaceColors, right: FaceColors): boolean {
+  return (
+    left.left === right.left &&
+    left.right === right.right &&
+    left.top === right.top
+  );
+}
+
 export function LogoPreviewPage({
   renderMode = "three",
 }: {
   renderMode?: LogoPreviewRenderMode;
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
+  const saveShapePreset = useMutation(api.logoUserPresets.saveShapePreset);
+  const saveColorPreset = useMutation(api.logoUserPresets.saveColorPreset);
+  const viewerPresets = useQuery(api.logoUserPresets.getViewerPresets, {});
   const isIsometricMode = renderMode === "iso";
   const backgroundColor = getTailwindColorHex("background-base");
   const controlsToolbarRef = useRef<HTMLDivElement | null>(null);
@@ -263,10 +284,18 @@ export function LogoPreviewPage({
   const [isViewControlsOpen, setIsViewControlsOpen] = useState(false);
   const [isFaceColorsOpen, setIsFaceColorsOpen] = useState(false);
   const [isVoxelMapOpen, setIsVoxelMapOpen] = useState(false);
+  const [shapePresetName, setShapePresetName] = useState("");
+  const [colorPresetName, setColorPresetName] = useState("");
+  const [shapePresetError, setShapePresetError] = useState<string | null>(null);
+  const [colorPresetError, setColorPresetError] = useState<string | null>(null);
+  const [isSavingShapePreset, setIsSavingShapePreset] = useState(false);
+  const [isSavingColorPreset, setIsSavingColorPreset] = useState(false);
   const lastFrameTimeRef = useRef<number | null>(null);
   const [controlsPopoverMaxHeight, setControlsPopoverMaxHeight] = useState(
     DEFAULT_CONTROLS_POPOVER_MAX_HEIGHT,
   );
+  const savedShapePresets = viewerPresets?.shapePresets ?? [];
+  const savedColorPresets = viewerPresets?.colorPresets ?? [];
 
   useEffect(() => {
     setRotationDegrees(readRotationDegrees(searchParams));
@@ -497,6 +526,13 @@ export function LogoPreviewPage({
   const selectedIsoStyle = getLogoIsometricStyle(isoStyleId);
   const isPresetDirty =
     selectedPreset !== null && selectedPreset.voxelState !== voxelState;
+  const activeSavedShapePreset =
+    savedShapePresets.find((preset) => preset.voxelState === voxelState) ??
+    null;
+  const activeSavedColorPreset =
+    savedColorPresets.find((preset) =>
+      areFaceColorsEqual(preset.faceColors, faceColors),
+    ) ?? null;
 
   const applyPreset = (presetId: Exclude<LogoPresetSelection, "custom">) => {
     const preset = getLogoPreset(presetId);
@@ -532,6 +568,64 @@ export function LogoPreviewPage({
         currentFaceColors[faceColorKey],
       ),
     }));
+  };
+
+  const handleSaveShapePreset = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const trimmedName = shapePresetName.trim();
+    if (!trimmedName) {
+      setShapePresetError("Enter a preset name.");
+      return;
+    }
+
+    setShapePresetError(null);
+    setIsSavingShapePreset(true);
+
+    try {
+      await saveShapePreset({
+        name: trimmedName,
+        voxelState,
+      });
+      setShapePresetName("");
+    } catch (error) {
+      setShapePresetError(
+        error instanceof Error
+          ? error.message
+          : "Failed to save the shape preset.",
+      );
+    } finally {
+      setIsSavingShapePreset(false);
+    }
+  };
+
+  const handleSaveColorPreset = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const trimmedName = colorPresetName.trim();
+    if (!trimmedName) {
+      setColorPresetError("Enter a preset name.");
+      return;
+    }
+
+    setColorPresetError(null);
+    setIsSavingColorPreset(true);
+
+    try {
+      await saveColorPreset({
+        name: trimmedName,
+        faceColors,
+      });
+      setColorPresetName("");
+    } catch (error) {
+      setColorPresetError(
+        error instanceof Error
+          ? error.message
+          : "Failed to save the color preset.",
+      );
+    } finally {
+      setIsSavingColorPreset(false);
+    }
   };
 
   const modeHref = (
@@ -903,11 +997,13 @@ export function LogoPreviewPage({
                       Shape Preset
                     </div>
                     <div className="mt-1 text-xs text-black/55">
-                      {selectedPreset === null
-                        ? "Current URL shape is custom."
-                        : isPresetDirty
-                          ? `Edited from ${selectedPreset.label}.`
-                          : selectedPreset.description}
+                      {activeSavedShapePreset !== null
+                        ? `Saved preset ${activeSavedShapePreset.name}.`
+                        : selectedPreset === null
+                          ? "Current URL shape is custom."
+                          : isPresetDirty
+                            ? `Edited from ${selectedPreset.label}.`
+                            : selectedPreset.description}
                     </div>
                   </div>
                   <Button
@@ -964,6 +1060,84 @@ export function LogoPreviewPage({
                     ))}
                   </SelectContent>
                 </Select>
+                <div className="grid gap-2 border-t border-black/10 pt-2">
+                  <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                    Saved Shapes
+                  </div>
+                  {isAuthLoading ? null : isAuthenticated ? (
+                    <>
+                      <form
+                        className="flex flex-col gap-2 sm:flex-row"
+                        onSubmit={(event) => {
+                          void handleSaveShapePreset(event);
+                        }}
+                      >
+                        <Input
+                          value={shapePresetName}
+                          onChange={(event) => {
+                            setShapePresetName(event.target.value);
+                            if (shapePresetError !== null) {
+                              setShapePresetError(null);
+                            }
+                          }}
+                          placeholder={SAVE_PRESET_INPUT_PLACEHOLDER}
+                          className="h-9 rounded-none border-black/10 bg-white/90 px-2 text-sm"
+                        />
+                        <Button
+                          type="submit"
+                          size="sm"
+                          className="rounded-none"
+                          disabled={isSavingShapePreset}
+                        >
+                          {isSavingShapePreset ? "Saving..." : "Save shape"}
+                        </Button>
+                      </form>
+                      <div className="text-xs text-black/55">
+                        Saving again with the same name updates that preset.
+                      </div>
+                      {shapePresetError !== null ? (
+                        <div className="text-xs text-red-600">
+                          {shapePresetError}
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <div className="text-xs text-black/55">
+                      <Link
+                        to="/"
+                        className="font-medium text-black underline underline-offset-2"
+                      >
+                        Log in
+                      </Link>{" "}
+                      to save shape presets.
+                    </div>
+                  )}
+                  {savedShapePresets.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {savedShapePresets.map((preset) => (
+                        <Button
+                          key={preset._id}
+                          type="button"
+                          size="sm"
+                          variant={
+                            preset.voxelState === voxelState
+                              ? "default"
+                              : "outline"
+                          }
+                          className="rounded-none"
+                          onClick={() => {
+                            setIsAutoRotating(false);
+                            setIsShuffleEnabled(false);
+                            setSelectedPresetId(CUSTOM_LOGO_PRESET_ID);
+                            setVoxelState(preset.voxelState);
+                          }}
+                        >
+                          {preset.name}
+                        </Button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               </div>
               {isIsometricMode && (
                 <div className="grid gap-2 border border-black/10 bg-white/70 p-3">
@@ -1147,6 +1321,98 @@ export function LogoPreviewPage({
                 >
                   Reset shape
                 </Button>
+              </div>
+              <div className="grid gap-2 border border-black/10 bg-white/70 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                      Saved Colors
+                    </div>
+                    <div className="mt-1 text-xs text-black/55">
+                      {activeSavedColorPreset !== null
+                        ? `Saved preset ${activeSavedColorPreset.name}.`
+                        : "Store the current face colors in your account."}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {FACE_COLOR_KEYS.map((faceColorKey) => (
+                      <ColorSwatch
+                        key={faceColorKey}
+                        color={getTailwindColorHex(faceColors[faceColorKey])}
+                      />
+                    ))}
+                  </div>
+                </div>
+                {isAuthLoading ? null : isAuthenticated ? (
+                  <>
+                    <form
+                      className="flex flex-col gap-2 sm:flex-row"
+                      onSubmit={(event) => {
+                        void handleSaveColorPreset(event);
+                      }}
+                    >
+                      <Input
+                        value={colorPresetName}
+                        onChange={(event) => {
+                          setColorPresetName(event.target.value);
+                          if (colorPresetError !== null) {
+                            setColorPresetError(null);
+                          }
+                        }}
+                        placeholder={SAVE_PRESET_INPUT_PLACEHOLDER}
+                        className="h-9 rounded-none border-black/10 bg-white/90 px-2 text-sm"
+                      />
+                      <Button
+                        type="submit"
+                        size="sm"
+                        className="rounded-none"
+                        disabled={isSavingColorPreset}
+                      >
+                        {isSavingColorPreset ? "Saving..." : "Save colors"}
+                      </Button>
+                    </form>
+                    <div className="text-xs text-black/55">
+                      Saving again with the same name updates that preset.
+                    </div>
+                    {colorPresetError !== null ? (
+                      <div className="text-xs text-red-600">
+                        {colorPresetError}
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="text-xs text-black/55">
+                    <Link
+                      to="/"
+                      className="font-medium text-black underline underline-offset-2"
+                    >
+                      Log in
+                    </Link>{" "}
+                    to save color presets.
+                  </div>
+                )}
+                {savedColorPresets.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {savedColorPresets.map((preset) => (
+                      <Button
+                        key={preset._id}
+                        type="button"
+                        size="sm"
+                        variant={
+                          areFaceColorsEqual(preset.faceColors, faceColors)
+                            ? "default"
+                            : "outline"
+                        }
+                        className="rounded-none"
+                        onClick={() => {
+                          setFaceColors(preset.faceColors);
+                        }}
+                      >
+                        {preset.name}
+                      </Button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
               <Collapsible
                 open={isFaceColorsOpen}

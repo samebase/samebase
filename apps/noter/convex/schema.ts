@@ -156,6 +156,14 @@ export const ProviderKind = v.union(
   v.literal("codex"),
 );
 export type ProviderKind = Infer<typeof ProviderKind>;
+export const LogoFaceColors = object({
+  left: string(),
+  right: string(),
+  top: string(),
+});
+export type LogoFaceColors = Infer<typeof LogoFaceColors>;
+export const LogoUserPresetKind = union(literal("shape"), literal("color"));
+export type LogoUserPresetKind = Infer<typeof LogoUserPresetKind>;
 
 export const McpOauthClientCreatedBy = union(
   literal("dynamic_registration"),
@@ -326,6 +334,20 @@ export default defineSchema({
     providersPanelOpen: v.boolean(),
     pricingBillingCycle: PricingBillingCycle,
   }).index("by_user", ["userId"]),
+
+  logoUserPresets: defineTable({
+    userId: id("users"),
+    kind: LogoUserPresetKind,
+    name: string(),
+    nameKey: string(),
+    voxelState: optional(string()),
+    faceColors: optional(LogoFaceColors),
+    createdAt: number(),
+    updatedAt: number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_kind", ["userId", "kind"])
+    .index("by_user_kind_name", ["userId", "kind", "nameKey"]),
 
   /**
    * Vault contains a connected github repository.
