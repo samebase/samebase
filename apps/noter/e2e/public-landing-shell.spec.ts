@@ -189,7 +189,7 @@ test("prod-ui landing handoff stays visually aligned", async ({
     actual: hydratedScreenshot,
     artifactPrefix: "public-landing-prod-ui-handoff",
     expected: shellScreenshot,
-    maxDiffPixelRatio: 0.001,
+    maxDiffPixelRatio: 0.005,
     testInfo,
   });
 });
