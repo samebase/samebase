@@ -17,9 +17,10 @@ apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-svg.pn
 apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-missing-config.png
 apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-repository-config.png
 apps/noter/fixtures/daytona-convex-proxy.env
+apps/noter/public/favicon-32.png
 apps/noter/public/favicon.png
-apps/noter/public/favicon.svg
 apps/noter/public/logo_pick.svg
+apps/noter/public/logo-static.svg
 apps/noter/public/lumina_icon.png
 apps/noter/public/media-visual-fixture.svg
 apps/noter/public/robots.txt
@@ -137,8 +138,8 @@ specs/060_LOGO_PREVIEW_PLAYGROUND_SPEC.md
 specs/061_FAST_PUBLIC_LANDING_BOOT_SPEC.md
 specs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md
 specs/062_MCP_DUAL_ORIGIN_CONSENT_LOGIN_REDIRECT_SPEC.md
-specs/063_SHADCN_WRAPPER_ENTRYPOINT_SPEC.md
 specs/063_MCP_PREACCOUNT_ONBOARDING_FLOW_SPEC.md
+specs/063_SHADCN_WRAPPER_ENTRYPOINT_SPEC.md
 TODO.md
 VISION.md
 worktree.md
