@@ -72,7 +72,6 @@ function CornerNotchChip({
   return (
     <div className="w-fit border border-stone-400 bg-stone-300 p-3">
       <div
-        className="relative overflow-visible"
         style={{
           height: FIXTURE_BOX_SIZE * zoom,
           width: FIXTURE_BOX_SIZE * zoom,
@@ -97,23 +96,31 @@ function CornerNotchTouchingPair({
 }) {
   return (
     <div className="w-fit border border-stone-400 bg-stone-300 p-3">
-      <div
-        className="inline-flex gap-0"
-        style={{
-          height: FIXTURE_BOX_SIZE * zoom,
-          width: FIXTURE_BOX_SIZE * 2 * zoom,
-        }}
-      >
-        <CornerNotchChipElement
-          borderWidth={borderWidth}
-          type={type}
-          zoom={zoom}
-        />
-        <CornerNotchChipElement
-          borderWidth={borderWidth}
-          type={type}
-          zoom={zoom}
-        />
+      <div className="flex gap-0">
+        <div
+          style={{
+            height: FIXTURE_BOX_SIZE * zoom,
+            width: FIXTURE_BOX_SIZE * zoom,
+          }}
+        >
+          <CornerNotchChipElement
+            borderWidth={borderWidth}
+            type={type}
+            zoom={zoom}
+          />
+        </div>
+        <div
+          style={{
+            height: FIXTURE_BOX_SIZE * zoom,
+            width: FIXTURE_BOX_SIZE * zoom,
+          }}
+        >
+          <CornerNotchChipElement
+            borderWidth={borderWidth}
+            type={type}
+            zoom={zoom}
+          />
+        </div>
       </div>
     </div>
   );
