@@ -100,6 +100,7 @@ type NLogoSceneProps = {
   faceColors: FaceColors;
   opacity: number;
   onInteractionStart?: () => void;
+  onInteractionEnd?: () => void;
   onRenderReady?: () => void;
   onRenderUnavailable?: () => void;
   onViewChange: (nextView: {
@@ -713,6 +714,7 @@ export function NLogoScene({
   faceColors,
   opacity,
   onInteractionStart,
+  onInteractionEnd,
   onRenderReady,
   onRenderUnavailable,
   onViewChange,
@@ -732,6 +734,7 @@ export function NLogoScene({
   const opacityRef = useRef(opacity);
   const shuffleAnimationRef = useRef(shuffleAnimation);
   const onInteractionStartRef = useRef(onInteractionStart);
+  const onInteractionEndRef = useRef(onInteractionEnd);
   const onRenderReadyRef = useRef(onRenderReady);
   const onRenderUnavailableRef = useRef(onRenderUnavailable);
   const onViewChangeRef = useRef(onViewChange);
@@ -777,6 +780,10 @@ export function NLogoScene({
   useEffect(() => {
     onInteractionStartRef.current = onInteractionStart;
   }, [onInteractionStart]);
+
+  useEffect(() => {
+    onInteractionEndRef.current = onInteractionEnd;
+  }, [onInteractionEnd]);
 
   useEffect(() => {
     opacityRef.current = opacity;
@@ -1141,8 +1148,12 @@ export function NLogoScene({
   };
 
   const resetInteraction = (target: HTMLDivElement, pointerId: number) => {
+    const wasDragging = interactionRef.current.status === "dragging";
     if (target.hasPointerCapture(pointerId)) {
       target.releasePointerCapture(pointerId);
+    }
+    if (wasDragging) {
+      onInteractionEndRef.current?.();
     }
 
     interactionRef.current = {
@@ -1162,7 +1173,6 @@ export function NLogoScene({
     }
 
     event.currentTarget.setPointerCapture(event.pointerId);
-    onInteractionStartRef.current?.();
     interactionRef.current = {
       button: event.button,
       pointerId: event.pointerId,
@@ -1188,6 +1198,7 @@ export function NLogoScene({
       Math.hypot(deltaX, deltaY) >= DRAG_THRESHOLD_PX
     ) {
       interactionRef.current.status = "dragging";
+      onInteractionStartRef.current?.();
     }
 
     if (interactionRef.current.status !== "dragging") {
