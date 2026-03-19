@@ -242,6 +242,42 @@
       1px 1px,
       2px 1px
     );
+    position: relative;
+  }
+
+  .corner-notch-2::before {
+    content: "";
+    position: absolute;
+    inset: var(--noter-corner-notch-stroke, 1px);
+    z-index: 1;
+    box-sizing: border-box;
+    border: inherit;
+    pointer-events: none;
+    /* Restore the inner corner bridge pixels that clip-path alone cannot draw. */
+    -webkit-mask:
+      linear-gradient(#fff 0 0) top left / var(--noter-corner-notch-stroke, 1px)
+        var(--noter-corner-notch-stroke, 1px) no-repeat,
+      linear-gradient(#fff 0 0) top right /
+        var(--noter-corner-notch-stroke, 1px)
+        var(--noter-corner-notch-stroke, 1px) no-repeat,
+      linear-gradient(#fff 0 0) bottom right /
+        var(--noter-corner-notch-stroke, 1px)
+        var(--noter-corner-notch-stroke, 1px) no-repeat,
+      linear-gradient(#fff 0 0) bottom left /
+        var(--noter-corner-notch-stroke, 1px)
+        var(--noter-corner-notch-stroke, 1px) no-repeat;
+    mask:
+      linear-gradient(#fff 0 0) top left / var(--noter-corner-notch-stroke, 1px)
+        var(--noter-corner-notch-stroke, 1px) no-repeat,
+      linear-gradient(#fff 0 0) top right /
+        var(--noter-corner-notch-stroke, 1px)
+        var(--noter-corner-notch-stroke, 1px) no-repeat,
+      linear-gradient(#fff 0 0) bottom right /
+        var(--noter-corner-notch-stroke, 1px)
+        var(--noter-corner-notch-stroke, 1px) no-repeat,
+      linear-gradient(#fff 0 0) bottom left /
+        var(--noter-corner-notch-stroke, 1px)
+        var(--noter-corner-notch-stroke, 1px) no-repeat;
   }
 
   .corner-notch-1:focus-visible,
