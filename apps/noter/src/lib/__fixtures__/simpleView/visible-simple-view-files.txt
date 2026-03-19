@@ -18,6 +18,7 @@ apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-repository-confi
 apps/noter/fixtures/daytona-convex-proxy.env
 apps/noter/public/favicon.png
 apps/noter/public/favicon.svg
+apps/noter/public/logo_pick.svg
 apps/noter/public/lumina_icon.png
 apps/noter/public/media-visual-fixture.svg
 CHAT_SPEC.md
