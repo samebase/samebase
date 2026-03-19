@@ -9,6 +9,7 @@
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `specs/033_POLAR_BILLING_SPEC.md`
+  - `specs/065_PUBLIC_PRICING_PAGE_SPEC.md`
 
 ## Summary
 
@@ -43,7 +44,7 @@ rollout reduces risk by sequencing:
 
 1. Usage-based billing enforcement / credits deductions (later phases).
 2. Team/seat billing.
-3. Public pricing page (pricing remains authenticated-only for now).
+3. Public self-serve checkout rollout.
 
 ## Design Constraints (Locked)
 
@@ -78,7 +79,7 @@ rollout reduces risk by sequencing:
 Exit criteria:
 
 - [x] Codebase compiles, `pnpm lint` + `pnpm test` pass.
-- [x] Pricing page loads for authenticated users.
+- [x] Authenticated billing-management page loads.
 - [x] Checkout/session creation is wired but requires product IDs to be set.
 
 ### Phase 2: Sandbox end-to-end validation

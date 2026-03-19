@@ -9,6 +9,10 @@ Implement Polar billing so that:
   starter seeding + infra provisioning).
 - Entitlement is webhook-driven (never trust client redirects as the authority).
 
+Public pricing discovery is now specified separately in
+`specs/065_PUBLIC_PRICING_PAGE_SPEC.md`. This document remains the billing
+engine spec for the authenticated Polar flow.
+
 This spec is focused on a minimal, production-ready subscription flow, with a
 clear path to credits/metering later.
 
@@ -16,7 +20,7 @@ clear path to credits/metering later.
 
 - Usage-based billing / credits enforcement (later phase).
 - Team plan / seat-based billing.
-- Public pricing page (keep authenticated-only for now).
+- Public pricing discovery in this initial Polar rollout.
 
 ## Polar Model (What We Use)
 
