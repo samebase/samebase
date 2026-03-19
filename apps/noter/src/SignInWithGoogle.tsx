@@ -1,5 +1,5 @@
 import { isInIframe, openAuthPopup, setAuthProvider } from "@/authClient";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/button";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { Chrome } from "lucide-react";
 import { buildCurrentGoogleRedirectTo } from "./lib/googleAuthRedirect";

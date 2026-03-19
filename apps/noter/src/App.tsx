@@ -2,7 +2,7 @@ import { Layout } from "@/Layout";
 import { clearAuthFlag, setAuthFlag, useAutoSignIn } from "@/authClient";
 import { SignInForm } from "@/SignInForm";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/button";
 import {
   Authenticated,
   Unauthenticated,

@@ -4,7 +4,7 @@ import { useEffect, useReducer, useRef, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/button";
 import {
   Dialog,
   DialogContent,
