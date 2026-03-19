@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   APP_PAGE_METADATA,
   applyPageMetadata,
+  resolvePageMetadata,
   resolveAppPageTitle,
 } from "./pageMetadata";
 
@@ -133,6 +134,28 @@ describe("page metadata", () => {
       expect(
         getHeadAttribute(document, 'meta[name="twitter:image"]', "content"),
       ).toBe("https://noter.md/lumina_icon.png");
+    });
+  });
+
+  it("keeps the privacy page crawlable with its own canonical URL", () => {
+    withFakeDocument((document) => {
+      applyPageMetadata(
+        resolvePageMetadata({
+          pathname: "/privacy",
+          isAuthenticated: false,
+        }),
+      );
+
+      expect(document.title).toBe("Privacy Policy | Noter");
+      expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
+        "https://noter.md/privacy",
+      );
+      expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe(
+        "index,follow",
+      );
+      expect(
+        getHeadAttribute(document, 'meta[property="og:url"]', "content"),
+      ).toBe("https://noter.md/privacy");
     });
   });
 

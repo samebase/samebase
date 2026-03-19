@@ -5,9 +5,8 @@ import {
   isLandingDevModeEnabled,
 } from "@/lib/landingDevMode";
 import {
-  APP_PAGE_METADATA,
   applyPageMetadata,
-  resolveAppPageTitle,
+  resolveBootstrapPageMetadata,
 } from "@/lib/pageMetadata";
 import {
   PUBLIC_LANDING_LOGO_ALT,
@@ -321,6 +320,11 @@ function renderFastLandingShell() {
                 </button>
               </div>
             </div>
+            <div class="border-t pt-2 text-center text-xs text-muted-foreground">
+              <a href="/privacy" class="transition-colors hover:text-foreground">
+                /privacy
+              </a>
+            </div>
           </div>
         </div>
       </main>
@@ -366,11 +370,7 @@ function applyBootstrapPageMetadata(
     return;
   }
 
-  applyPageMetadata({
-    ...APP_PAGE_METADATA,
-    canonicalPath: location.pathname,
-    title: resolveAppPageTitle(location.pathname),
-  });
+  applyPageMetadata(resolveBootstrapPageMetadata(location.pathname));
 }
 
 const fastLandingRoute = isFastLandingRoute(window.location);

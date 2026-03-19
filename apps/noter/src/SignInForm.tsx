@@ -16,7 +16,7 @@ import {
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
 import { type ReactNode, useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../convex/_generated/api";
 import { SignInWithGoogle } from "./SignInWithGoogle";
 
@@ -67,6 +67,14 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
           {showPasswordAuth ? <PasswordAuthForm /> : null}
         </div>
         <WaitlistForm />
+        <div className="border-t pt-2 text-center text-xs text-muted-foreground">
+          <Link
+            to="/privacy"
+            className="transition-colors hover:text-foreground"
+          >
+            /privacy
+          </Link>
+        </div>
       </div>
     </div>
   );

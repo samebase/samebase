@@ -17,12 +17,7 @@ import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { isChatOnlyCodespaceRoute } from "@/lib/vaultRoutes";
-import {
-  APP_PAGE_METADATA,
-  HOME_PAGE_METADATA,
-  resolveAppPageTitle,
-  type PageMetadata,
-} from "@/lib/pageMetadata";
+import { resolvePageMetadata, type PageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 
 const VaultDashboard = lazy(async () => {
@@ -48,6 +43,10 @@ const CodespaceChatOnlyView = lazy(async () => {
 const PricingPage = lazy(async () => {
   const module = await import("@/components/PricingPage");
   return { default: module.PricingPage };
+});
+const PrivacyPolicyPage = lazy(async () => {
+  const module = await import("@/components/PrivacyPolicyPage");
+  return { default: module.PrivacyPolicyPage };
 });
 const NetlifyOAuthCallback = lazy(async () => {
   const module = await import("@/components/NetlifyOAuthCallback");
@@ -326,17 +325,13 @@ export default function App() {
   const showLogoStaticSvg = location.pathname === "/logo-svg";
   const showLogoIsoStudy = location.pathname === "/logo-iso-study";
   const showLogoTransitionLab = location.pathname === "/logo-transition-lab";
+  const showPrivacyPolicyPage = location.pathname === "/privacy";
 
   const pageMetadata: PageMetadata = useMemo(() => {
-    if (!isAuthenticated && location.pathname === "/") {
-      return HOME_PAGE_METADATA;
-    }
-
-    return {
-      ...APP_PAGE_METADATA,
-      canonicalPath: location.pathname,
-      title: resolveAppPageTitle(location.pathname),
-    };
+    return resolvePageMetadata({
+      pathname: location.pathname,
+      isAuthenticated,
+    });
   }, [isAuthenticated, location.pathname]);
   usePageMetadata(pageMetadata);
 
@@ -369,6 +364,16 @@ export default function App() {
       <Suspense fallback={null}>
         <LogoTransitionLabPage />
       </Suspense>
+    );
+  }
+
+  if (showPrivacyPolicyPage) {
+    return (
+      <Layout>
+        <Suspense fallback={null}>
+          <PrivacyPolicyPage />
+        </Suspense>
+      </Layout>
     );
   }
 
