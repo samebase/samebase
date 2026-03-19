@@ -433,6 +433,10 @@ Auth:
 - When sharing URLs (including localhost dev URLs), format them as Markdown
   links (for example `[http://localhost:5174/](http://localhost:5174/)`) so they
   are clickable in Codex.
+- When a response relates to an existing PR, always mention the PR number and
+  format that PR number itself as a clickable Markdown link to the PR (for
+  example `[#253](https://github.com/noter-md/noter/pull/253)`), even if the
+  full PR URL is also included elsewhere.
 - For boolean URL query params, prefer key-only flags (for example `?diff`)
   instead of assigning values (`?diff=1`); treat key presence as enabled.
 - When changing app URLs that already have query params, update only the owned
