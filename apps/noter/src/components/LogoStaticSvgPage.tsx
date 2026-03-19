@@ -10,7 +10,7 @@ import {
 import { createLogoThreeSvgMarkup } from "@/components/logoThreeSvgRenderer";
 import { getTailwindColorHex } from "@/components/logoTailwindColors";
 import { parseVoxelState } from "@/components/logoVoxelState";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/button";
 import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 

@@ -2,7 +2,7 @@ import { useAction, useQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/button";
 import {
   DaytonaPtyTerminal,
   type DaytonaPtySession,
