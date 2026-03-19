@@ -107,6 +107,80 @@
 }
 
 @layer utilities {
+  .cm-landing-copy .cm-scroller {
+    overflow: visible;
+  }
+
+  .cm-landing-copy .cm-content {
+    font-size: 0.875rem !important;
+    line-height: 1.25rem !important;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .cm-landing-copy .cm-line {
+    display: block;
+    padding: 0;
+  }
+
+  .cm-landing-copy .cm-line.cm-landing-copy-heading {
+    line-height: 1.75rem;
+  }
+
+  .cm-landing-copy
+    .cm-line.cm-landing-copy-heading
+    > span:not(.cm-hidden-token) {
+    font-size: 1.125rem !important;
+    line-height: 1.75rem;
+    font-weight: 500 !important;
+    letter-spacing: -0.025em !important;
+  }
+
+  .cm-landing-copy .cm-line.cm-landing-copy-gap {
+    height: 0 !important;
+    line-height: 0 !important;
+    font-size: 0 !important;
+  }
+
+  .cm-landing-copy.cm-landing-copy-editable .cm-line.cm-landing-copy-gap {
+    height: 1.25rem !important;
+    line-height: 1.25rem !important;
+    font-size: 0.875rem !important;
+  }
+
+  .cm-landing-copy .cm-line.cm-landing-copy-list {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .cm-landing-copy .cm-line.cm-landing-copy-list-first {
+    padding-top: 9px;
+  }
+
+  .cm-landing-copy
+    .cm-line.cm-landing-copy-list
+    + .cm-line.cm-landing-copy-list {
+    padding-top: 0.5rem;
+  }
+
+  .cm-landing-copy .cm-line.cm-landing-copy-list .cm-rendered-list-mark {
+    display: inline-flex;
+    width: 0.25rem !important;
+    margin: 0 !important;
+    overflow: visible;
+    color: transparent !important;
+    font-size: 0 !important;
+    text-align: left;
+  }
+
+  .cm-landing-copy
+    .cm-line.cm-landing-copy-list
+    .cm-rendered-list-mark::before {
+    content: "-";
+    color: hsl(var(--foreground));
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+
   .line-clamp-2 {
     overflow: hidden;
     display: -webkit-box;

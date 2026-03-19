@@ -18,10 +18,15 @@ import {
   LogoThreeVisualFixture,
   type LogoThreeVisualMode,
 } from "@/components/LogoThreeVisualFixture";
+import {
+  LandingCopyVisualFixture,
+  type LandingCopyVisualMode,
+} from "@/components/LandingCopyVisualFixture";
 import "./index.css";
 
 type VisualFixtureMode =
   | CommitReviewVisualMode
+  | LandingCopyVisualMode
   | LogoThreeVisualMode
   | RepositoryMediaVisualMode
   | SimpleViewVisualMode;
@@ -38,6 +43,7 @@ function readMode(): VisualFixtureMode {
     value === "logo-three-reference" ||
     value === "media-png" ||
     value === "media-svg" ||
+    value === "landing-copy-parity" ||
     value === "simple-repository-config" ||
     value === "simple-missing-config"
   ) {
@@ -54,6 +60,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <DialogProvider>
         {mode === "media-png" || mode === "media-svg" ? (
           <RepositoryMediaVisualFixture mode={mode} />
+        ) : mode === "landing-copy-parity" ? (
+          <LandingCopyVisualFixture />
         ) : mode === "logo-three-reference" ? (
           <LogoThreeVisualFixture />
         ) : mode === "simple-repository-config" ||
