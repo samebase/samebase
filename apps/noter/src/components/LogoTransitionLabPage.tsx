@@ -1,13 +1,16 @@
 import { Button } from "@/components/button";
 import { DEFAULT_STATIC_LOGO_SVG_URL } from "@/components/logoStaticSvgContract";
+import {
+  addOffset,
+  formatOffset,
+  getFaceCenter,
+  mixOffset,
+  type DragSession,
+  type Point,
+} from "@/components/logoTransitionLabUtils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/tabs";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-
-type Point = {
-  x: number;
-  y: number;
-};
 
 type ViewBox = {
   minX: number;
@@ -22,13 +25,6 @@ type Face = {
   points: Point[];
   stroke: string;
   strokeWidth: number;
-};
-
-type DragSession = {
-  frame: "start" | "end";
-  initialOffset: Point;
-  pointerId: number;
-  pointerStart: Point;
 };
 
 const DEFAULT_VIEW_BOX: ViewBox = {
@@ -109,43 +105,6 @@ function parseStrokeWidth(
   const parsed = Number(rawValue);
 
   return Number.isFinite(parsed) ? parsed : 0.14;
-}
-
-function addOffset(point: Point, offset: Point): Point {
-  return {
-    x: point.x + offset.x,
-    y: point.y + offset.y,
-  };
-}
-
-function mixOffset(start: Point, end: Point, progress: number): Point {
-  return {
-    x: start.x + (end.x - start.x) * progress,
-    y: start.y + (end.y - start.y) * progress,
-  };
-}
-
-function formatOffset(point: Point): string {
-  return `${point.x.toFixed(3)} ${point.y.toFixed(3)}`;
-}
-
-function getFaceCenter(points: Point[], offset: Point): Point {
-  if (points.length === 0) {
-    return offset;
-  }
-
-  const totals = points.reduce(
-    (accumulator, point) => ({
-      x: accumulator.x + point.x,
-      y: accumulator.y + point.y,
-    }),
-    { x: 0, y: 0 },
-  );
-
-  return {
-    x: totals.x / points.length + offset.x,
-    y: totals.y / points.length + offset.y,
-  };
 }
 
 export function LogoTransitionLabPage() {
