@@ -10,10 +10,6 @@ type StaticMarkdownDocumentProps = {
   className?: string;
 };
 
-function isExternalHref(href: string): boolean {
-  return /^(?:[a-z][a-z\d+\-.]*:|\/\/)/i.test(href);
-}
-
 function getHeadingClassName(level: 1 | 2 | 3 | 4 | 5 | 6): string {
   switch (level) {
     case 1:
@@ -43,31 +39,62 @@ function renderInlineContent(
       );
     }
 
-    if (segment.type === "code") {
-      return (
-        <code
-          key={`code-${index}-${segment.value}`}
-          className="cm-static-markdown-inline-code"
-        >
-          {segment.value}
-        </code>
-      );
-    }
-
-    const isExternalLink = isExternalHref(segment.href);
-
     return (
-      <a
-        key={`link-${index}-${segment.href}-${segment.text}`}
-        href={segment.href}
-        target={isExternalLink ? "_blank" : undefined}
-        rel={isExternalLink ? "noreferrer noopener" : undefined}
-        className="cm-static-markdown-link"
+      <code
+        key={`code-${index}-${segment.value}`}
+        className="cm-static-markdown-inline-code"
       >
-        {segment.text}
-      </a>
+        {segment.value}
+      </code>
     );
   });
+}
+
+function renderHeading(
+  level: 1 | 2 | 3 | 4 | 5 | 6,
+  key: string,
+  children: ReactNode[],
+) {
+  const className = getHeadingClassName(level);
+
+  switch (level) {
+    case 1:
+      return (
+        <h1 key={key} className={className}>
+          {children}
+        </h1>
+      );
+    case 2:
+      return (
+        <h2 key={key} className={className}>
+          {children}
+        </h2>
+      );
+    case 3:
+      return (
+        <h3 key={key} className={className}>
+          {children}
+        </h3>
+      );
+    case 4:
+      return (
+        <h4 key={key} className={className}>
+          {children}
+        </h4>
+      );
+    case 5:
+      return (
+        <h5 key={key} className={className}>
+          {children}
+        </h5>
+      );
+    case 6:
+      return (
+        <h6 key={key} className={className}>
+          {children}
+        </h6>
+      );
+  }
 }
 
 export function StaticMarkdownDocument({
@@ -92,41 +119,45 @@ export function StaticMarkdownDocument({
 
     if (block.type === "heading") {
       lines.push(
-        <div
-          key={`heading-${blockIndex}`}
-          className={getHeadingClassName(block.level)}
-        >
-          {renderInlineContent(block.content)}
-        </div>,
+        renderHeading(
+          block.level,
+          `heading-${blockIndex}`,
+          renderInlineContent(block.content),
+        ),
       );
       return;
     }
 
     if (block.type === "paragraph") {
       lines.push(
-        <div
+        <p
           key={`paragraph-${blockIndex}`}
           className="cm-line cm-static-markdown-paragraph"
         >
           {renderInlineContent(block.content)}
-        </div>,
+        </p>,
       );
       return;
     }
 
-    block.items.forEach((item, itemIndex) => {
-      lines.push(
-        <div
-          key={`list-${blockIndex}-${itemIndex}`}
-          className="cm-line cm-static-markdown-list"
-        >
-          <span className="cm-rendered-list-mark" aria-hidden="true">
-            •
-          </span>
-          {renderInlineContent(item)}
-        </div>,
-      );
-    });
+    lines.push(
+      <ul
+        key={`list-group-${blockIndex}`}
+        className="cm-static-markdown-list-root"
+      >
+        {block.items.map((item, itemIndex) => (
+          <li
+            key={`list-${blockIndex}-${itemIndex}`}
+            className="cm-line cm-static-markdown-list"
+          >
+            <span className="cm-rendered-list-mark" aria-hidden="true">
+              •
+            </span>
+            {renderInlineContent(item)}
+          </li>
+        ))}
+      </ul>,
+    );
   });
 
   return (

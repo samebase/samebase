@@ -4,11 +4,6 @@ export type StaticMarkdownInlineSegment =
       value: string;
     }
   | {
-      type: "link";
-      text: string;
-      href: string;
-    }
-  | {
       type: "code";
       value: string;
     };
@@ -30,7 +25,7 @@ export type StaticMarkdownBlock =
 
 const headingPattern = /^(#{1,6})\s+(.*)$/;
 const listItemPattern = /^-\s+(.*)$/;
-const inlineTokenPattern = /`([^`]+)`|\[([^\]]+)\]\(([^)\s]+)\)/g;
+const inlineTokenPattern = /`([^`]+)`/g;
 
 function isBlankLine(line: string): boolean {
   return line.trim().length === 0;
@@ -99,22 +94,12 @@ export function parseStaticMarkdownInline(
       pushTextSegment(segments, value.slice(lastIndex, match.index));
     }
 
-    const [token, codeValue, linkText, linkHref] = match;
+    const [token, codeValue] = match;
 
-    if (token.startsWith("`")) {
-      segments.push({
-        type: "code",
-        value: codeValue,
-      });
-    } else if (token.startsWith("[")) {
-      segments.push({
-        type: "link",
-        text: linkText,
-        href: linkHref,
-      });
-    } else {
-      pushTextSegment(segments, token);
-    }
+    segments.push({
+      type: "code",
+      value: codeValue,
+    });
 
     lastIndex = match.index + token.length;
   }
@@ -128,8 +113,9 @@ export function parseStaticMarkdownInline(
 
 // TODO: Replace or expand this renderer before treating arbitrary markdown as
 // supported. It is intentionally limited to the controlled subset currently
-// used by static docs like privacy-policy.md, so unsupported syntax will not
-// get full markdown behavior.
+// used by static docs like privacy-policy.md. Links are intentionally
+// unsupported for now; if a future doc needs them, add explicit routing and
+// href-safety rules instead of widening this parser implicitly.
 export function parseStaticMarkdown(markdown: string): StaticMarkdownBlock[] {
   const blocks: StaticMarkdownBlock[] = [];
   const lines = markdown.replace(/\r/g, "").split("\n");

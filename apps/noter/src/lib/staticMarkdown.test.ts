@@ -6,7 +6,7 @@ import {
 } from "./staticMarkdown";
 
 describe("parseStaticMarkdownInline", () => {
-  it("parses text, inline code, and links in sequence", () => {
+  it("parses text and inline code in sequence", () => {
     expect(
       parseStaticMarkdownInline(
         "Cookie named `sidebar_state` and [privacy page](/privacy).",
@@ -22,16 +22,7 @@ describe("parseStaticMarkdownInline", () => {
       },
       {
         type: "text",
-        value: " and ",
-      },
-      {
-        type: "link",
-        text: "privacy page",
-        href: "/privacy",
-      },
-      {
-        type: "text",
-        value: ".",
+        value: " and [privacy page](/privacy).",
       },
     ]);
   });

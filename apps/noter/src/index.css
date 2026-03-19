@@ -231,6 +231,12 @@
     letter-spacing: -0.015em;
   }
 
+  .cm-static-markdown .cm-static-markdown-list-root {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
   .cm-static-markdown .cm-line.cm-static-markdown-list {
     padding-inline-start: 1.5rem;
     text-indent: -1rem;
@@ -247,15 +253,6 @@
     width: 1ch !important;
     margin: 0 !important;
     text-align: center;
-  }
-
-  .cm-static-markdown .cm-static-markdown-link {
-    text-decoration: underline;
-    text-underline-offset: 0.2em;
-  }
-
-  .cm-static-markdown .cm-static-markdown-link:hover {
-    color: hsl(var(--foreground));
   }
 
   .cm-static-markdown .cm-static-markdown-inline-code {
