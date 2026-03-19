@@ -192,8 +192,16 @@
     clip-path: none;
   }
 
+  .border {
+    --noter-corner-notch-stroke: 1px;
+  }
+
+  .border-2 {
+    --noter-corner-notch-stroke: 2px;
+  }
+
   .corner-notch-1 {
-    --noter-corner-notch-size: 1px;
+    --noter-corner-notch-size: var(--noter-corner-notch-stroke, 1px);
     clip-path: polygon(
       var(--noter-corner-notch-size) 0,
       calc(100% - var(--noter-corner-notch-size)) 0,

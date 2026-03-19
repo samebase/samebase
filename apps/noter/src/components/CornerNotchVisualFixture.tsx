@@ -17,7 +17,7 @@ const CORNER_NOTCH_LABELS: Record<CornerNotchType, string> = {
 
 const CORNER_NOTCH_DESCRIPTIONS: Record<CornerNotchType, string> = {
   0: "Hard square corner.",
-  1: "Single corner pixel removed.",
+  1: "Square corner cutout sized to the border stroke.",
   2: "Two-step diagonal cut.",
 };
 
