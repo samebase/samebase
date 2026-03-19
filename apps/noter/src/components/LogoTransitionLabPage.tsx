@@ -342,6 +342,9 @@ export function LogoTransitionLabPage() {
           <Button asChild size="sm" variant="outline" className="rounded-none">
             <Link to="/logo-iso-study">Study</Link>
           </Button>
+          <Button asChild size="sm" variant="outline" className="rounded-none">
+            <Link to="/logo-transition-lab-transforms">Transform Lab</Link>
+          </Button>
           <div
             aria-current="page"
             className="inline-flex h-9 items-center border border-black bg-black px-3 text-sm font-medium text-white"

@@ -68,6 +68,11 @@ const LogoTransitionLabPage = lazy(async () => {
   return { default: module.LogoTransitionLabPage };
 });
 
+const LogoTransitionTransformsLabPage = lazy(async () => {
+  const module = await import("@/components/LogoTransitionTransformsLabPage");
+  return { default: module.LogoTransitionTransformsLabPage };
+});
+
 function useCloseOAuthPopup(pathname: string, enabled: boolean) {
   const { isAuthenticated } = useConvexAuth();
   useEffect(() => {
@@ -321,6 +326,8 @@ export default function App() {
   const showLogoIsoStudy = location.pathname === "/logo-iso-study";
   const showLogoTransitionLab = location.pathname === "/logo-transition-lab";
   const showPrivacyPolicyPage = location.pathname === "/privacy";
+  const showLogoTransitionTransformsLab =
+    location.pathname === "/logo-transition-lab-transforms";
 
   const pageMetadata: PageMetadata = useMemo(() => {
     return resolvePageMetadata({
@@ -371,7 +378,13 @@ export default function App() {
       </Layout>
     );
   }
-
+  if (showLogoTransitionTransformsLab) {
+    return (
+      <Suspense fallback={null}>
+        <LogoTransitionTransformsLabPage />
+      </Suspense>
+    );
+  }
   if (showMcpConsent) {
     return (
       <Layout>
