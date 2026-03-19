@@ -1,41 +1,38 @@
-import {
-  LOGO_THREE_SVG_VIEWBOX_SIZE,
-  STATIC_LOGO_ELEVATION_DEGREES,
-  STATIC_LOGO_ROTATION_DEGREES,
-} from "@/components/logoStaticSvgContract";
+import { STATIC_LOGO_VOXEL_COORDINATES } from "@/components/logoStaticSvgContract";
 import {
   DEFAULT_FACE_COLORS,
   getTailwindColorHex,
-  type FaceColorKey,
 } from "@/components/logoTailwindColors";
 import {
-  createLogoProjector,
-  type LogoProjectedPoint,
-  type LogoWorldPoint,
-} from "@/components/logoThreeSvgRenderer";
+  HALF_GRID,
+  createFilledVoxelSet,
+  voxelKey,
+  type VoxelCoordinate,
+} from "@/components/logoVoxelState";
 
-type CubeFaceDefinition = {
+type Point = {
+  x: number;
+  y: number;
+};
+
+type Vector3 = {
+  x: number;
+  y: number;
+  z: number;
+};
+
+type FaceDefinition = {
   color: string;
-  colorKey: FaceColorKey;
   key: string;
-  origin: LogoWorldPoint;
-  u: LogoWorldPoint;
-  v: LogoWorldPoint;
+  normal: Vector3;
+  origin: Vector3;
+  u: Vector3;
+  v: Vector3;
 };
 
-type AxisGuideLine = {
+type ProjectedFaceDefinition = {
   color: string;
-  end: LogoProjectedPoint;
-  key: "x" | "y" | "z";
-  label: string;
-  labelPosition: LogoProjectedPoint;
-  start: LogoProjectedPoint;
-};
-
-export type TransformLabFace = {
-  color: string;
-  colorKey: FaceColorKey;
-  corners: readonly LogoProjectedPoint[];
+  corners: readonly Point[];
   depth: number;
   key: string;
   stroke: string;
@@ -43,319 +40,325 @@ export type TransformLabFace = {
   transform: string;
 };
 
-export type TransformLabScene = {
-  axisGuideLines: readonly AxisGuideLine[];
-  faces: readonly TransformLabFace[];
-  svgMarkup: string;
-};
+const VIEWBOX_SIZE = 500;
+const CAMERA_FRUSTUM_PADDING = 1.12;
+const FACE_STROKE_WIDTH = 0.14;
+const DEFAULT_ROTATION_DEGREES = 0;
+const DEFAULT_ELEVATION_DEGREES = 35.26438968;
+const ORBIT_RIGHT_AXIS = normalizeVector({
+  x: 1,
+  y: 0,
+  z: -1,
+});
+
+export type TransformLabFace = ProjectedFaceDefinition;
 
 export const TRANSFORM_LAB_VIEW_BOX = {
   minX: 0,
   minY: 0,
-  width: LOGO_THREE_SVG_VIEWBOX_SIZE,
-  height: LOGO_THREE_SVG_VIEWBOX_SIZE,
+  width: VIEWBOX_SIZE,
+  height: VIEWBOX_SIZE,
 } as const;
 
-const FACE_STROKE_WIDTH = 0.14;
-const AXIS_GUIDE_LENGTH = 0.65;
-const AXIS_GUIDE_LABEL_DISTANCE = 11;
-const AXIS_GUIDE_COLORS = {
-  x: "#ef4444",
-  y: "#16a34a",
-  z: "#2563eb",
-} as const;
-const BACKGROUND_COLOR = "#fcfbf7";
-const CUBE_FACE_ID = "transform-lab-face";
-const ORIGIN_MARKER_LABEL_OFFSET = {
-  x: -12,
-  y: 16,
-} as const;
+function normalizeVector(vector: Vector3): Vector3 {
+  const length = Math.hypot(vector.x, vector.y, vector.z);
+  if (length === 0) {
+    throw new Error("Cannot normalize a zero-length vector.");
+  }
 
-const SINGLE_CUBE_FACE_DEFINITIONS = [
-  {
-    color: getTailwindColorHex(DEFAULT_FACE_COLORS.right),
-    colorKey: "right",
-    key: "positive-x",
-    origin: { x: 1, y: 0, z: 0 },
-    u: { x: 0, y: 0, z: 1 },
-    v: { x: 0, y: 1, z: 0 },
-  },
-  {
-    color: getTailwindColorHex(DEFAULT_FACE_COLORS.right),
-    colorKey: "right",
-    key: "negative-x",
-    origin: { x: 0, y: 0, z: 1 },
-    u: { x: 0, y: 0, z: -1 },
-    v: { x: 0, y: 1, z: 0 },
-  },
-  {
-    color: getTailwindColorHex(DEFAULT_FACE_COLORS.top),
-    colorKey: "top",
-    key: "positive-y",
-    origin: { x: 0, y: 1, z: 1 },
-    u: { x: 1, y: 0, z: 0 },
-    v: { x: 0, y: 0, z: -1 },
-  },
-  {
-    color: getTailwindColorHex(DEFAULT_FACE_COLORS.top),
-    colorKey: "top",
-    key: "negative-y",
-    origin: { x: 0, y: 0, z: 0 },
-    u: { x: 1, y: 0, z: 0 },
-    v: { x: 0, y: 0, z: 1 },
-  },
-  {
-    color: getTailwindColorHex(DEFAULT_FACE_COLORS.left),
-    colorKey: "left",
-    key: "positive-z",
-    origin: { x: 0, y: 0, z: 1 },
-    u: { x: 1, y: 0, z: 0 },
-    v: { x: 0, y: 1, z: 0 },
-  },
-  {
-    color: getTailwindColorHex(DEFAULT_FACE_COLORS.left),
-    colorKey: "left",
-    key: "negative-z",
-    origin: { x: 1, y: 0, z: 0 },
-    u: { x: -1, y: 0, z: 0 },
-    v: { x: 0, y: 1, z: 0 },
-  },
-] as const satisfies readonly CubeFaceDefinition[];
+  return {
+    x: vector.x / length,
+    y: vector.y / length,
+    z: vector.z / length,
+  };
+}
 
-function escapeSvgAttribute(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+function dotVectors(left: Vector3, right: Vector3): number {
+  return left.x * right.x + left.y * right.y + left.z * right.z;
+}
+
+function crossVectors(left: Vector3, right: Vector3): Vector3 {
+  return {
+    x: left.y * right.z - left.z * right.y,
+    y: left.z * right.x - left.x * right.z,
+    z: left.x * right.y - left.y * right.x,
+  };
+}
+
+function rotateVectorY(vector: Vector3, radians: number): Vector3 {
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  return {
+    x: vector.x * cosine + vector.z * sine,
+    y: vector.y,
+    z: -vector.x * sine + vector.z * cosine,
+  };
+}
+
+function toWorld(boundaryIndex: number): number {
+  return boundaryIndex - HALF_GRID;
+}
+
+function isVoxelFilled(
+  filledVoxels: ReadonlySet<string>,
+  x: number,
+  y: number,
+  z: number,
+): boolean {
+  return filledVoxels.has(voxelKey(x, y, z));
+}
+
+function createFaceDefinition(
+  coordinate: VoxelCoordinate,
+  axis:
+    | "negative-x"
+    | "negative-y"
+    | "negative-z"
+    | "positive-x"
+    | "positive-y"
+    | "positive-z",
+): FaceDefinition {
+  const [x, y, z] = coordinate;
+
+  switch (axis) {
+    case "positive-x":
+      return {
+        color: getTailwindColorHex(DEFAULT_FACE_COLORS.right),
+        key: `${x},${y},${z}:positive-x`,
+        normal: { x: 1, y: 0, z: 0 },
+        origin: { x: toWorld(x + 1), y: toWorld(y), z: toWorld(z) },
+        u: { x: 0, y: 0, z: 1 },
+        v: { x: 0, y: 1, z: 0 },
+      };
+    case "negative-x":
+      return {
+        color: getTailwindColorHex(DEFAULT_FACE_COLORS.right),
+        key: `${x},${y},${z}:negative-x`,
+        normal: { x: -1, y: 0, z: 0 },
+        origin: { x: toWorld(x), y: toWorld(y), z: toWorld(z + 1) },
+        u: { x: 0, y: 0, z: -1 },
+        v: { x: 0, y: 1, z: 0 },
+      };
+    case "positive-y":
+      return {
+        color: getTailwindColorHex(DEFAULT_FACE_COLORS.top),
+        key: `${x},${y},${z}:positive-y`,
+        normal: { x: 0, y: 1, z: 0 },
+        origin: { x: toWorld(x), y: toWorld(y + 1), z: toWorld(z + 1) },
+        u: { x: 1, y: 0, z: 0 },
+        v: { x: 0, y: 0, z: -1 },
+      };
+    case "negative-y":
+      return {
+        color: getTailwindColorHex(DEFAULT_FACE_COLORS.top),
+        key: `${x},${y},${z}:negative-y`,
+        normal: { x: 0, y: -1, z: 0 },
+        origin: { x: toWorld(x), y: toWorld(y), z: toWorld(z) },
+        u: { x: 1, y: 0, z: 0 },
+        v: { x: 0, y: 0, z: 1 },
+      };
+    case "positive-z":
+      return {
+        color: getTailwindColorHex(DEFAULT_FACE_COLORS.left),
+        key: `${x},${y},${z}:positive-z`,
+        normal: { x: 0, y: 0, z: 1 },
+        origin: { x: toWorld(x), y: toWorld(y), z: toWorld(z + 1) },
+        u: { x: 1, y: 0, z: 0 },
+        v: { x: 0, y: 1, z: 0 },
+      };
+    case "negative-z":
+      return {
+        color: getTailwindColorHex(DEFAULT_FACE_COLORS.left),
+        key: `${x},${y},${z}:negative-z`,
+        normal: { x: 0, y: 0, z: -1 },
+        origin: { x: toWorld(x + 1), y: toWorld(y), z: toWorld(z) },
+        u: { x: -1, y: 0, z: 0 },
+        v: { x: 0, y: 1, z: 0 },
+      };
+  }
+}
+
+function collectVisibleFaces(): FaceDefinition[] {
+  const filledVoxels = createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
+  const faces: FaceDefinition[] = [];
+
+  for (const coordinate of STATIC_LOGO_VOXEL_COORDINATES) {
+    const [x, y, z] = coordinate;
+
+    if (!isVoxelFilled(filledVoxels, x + 1, y, z)) {
+      faces.push(createFaceDefinition(coordinate, "positive-x"));
+    }
+    if (!isVoxelFilled(filledVoxels, x - 1, y, z)) {
+      faces.push(createFaceDefinition(coordinate, "negative-x"));
+    }
+    if (!isVoxelFilled(filledVoxels, x, y + 1, z)) {
+      faces.push(createFaceDefinition(coordinate, "positive-y"));
+    }
+    if (!isVoxelFilled(filledVoxels, x, y - 1, z)) {
+      faces.push(createFaceDefinition(coordinate, "negative-y"));
+    }
+    if (!isVoxelFilled(filledVoxels, x, y, z + 1)) {
+      faces.push(createFaceDefinition(coordinate, "positive-z"));
+    }
+    if (!isVoxelFilled(filledVoxels, x, y, z - 1)) {
+      faces.push(createFaceDefinition(coordinate, "negative-z"));
+    }
+  }
+
+  return faces;
+}
+
+function getCameraBasis(elevationDegrees: number) {
+  const elevationRadians = (elevationDegrees * Math.PI) / 180;
+  const horizontalComponent = Math.cos(elevationRadians);
+  const verticalComponent = Math.sin(elevationRadians);
+  const diagonalComponent = horizontalComponent / Math.sqrt(2);
+  const cameraDirection = normalizeVector({
+    x: diagonalComponent,
+    y: verticalComponent,
+    z: diagonalComponent,
+  });
+  const forward = {
+    x: -cameraDirection.x,
+    y: -cameraDirection.y,
+    z: -cameraDirection.z,
+  };
+  const up = normalizeVector(crossVectors(ORBIT_RIGHT_AXIS, forward));
+
+  return {
+    cameraDirection,
+    right: ORBIT_RIGHT_AXIS,
+    up,
+  };
+}
+
+function projectPoint(
+  point: Vector3,
+  right: Vector3,
+  up: Vector3,
+  frustumHalfHeight: number,
+): Point {
+  return {
+    x:
+      ((dotVectors(point, right) + frustumHalfHeight) /
+        (frustumHalfHeight * 2)) *
+      VIEWBOX_SIZE,
+    y:
+      ((frustumHalfHeight - dotVectors(point, up)) / (frustumHalfHeight * 2)) *
+      VIEWBOX_SIZE,
+  };
 }
 
 function formatNumber(value: number): string {
   return value.toFixed(6);
 }
 
-function createTransformString(
-  u: LogoProjectedPoint,
-  v: LogoProjectedPoint,
-  origin: LogoProjectedPoint,
-): string {
+function createTransformString(u: Point, v: Point, origin: Point): string {
   return `matrix(${formatNumber(u.x)} ${formatNumber(u.y)} ${formatNumber(v.x)} ${formatNumber(v.y)} ${formatNumber(origin.x)} ${formatNumber(origin.y)})`;
 }
 
-function addWorldPoints(
-  left: LogoWorldPoint,
-  right: LogoWorldPoint,
-): LogoWorldPoint {
-  return {
-    x: left.x + right.x,
-    y: left.y + right.y,
-    z: left.z + right.z,
-  };
-}
-
-function subtractUnitCubeCenter(point: LogoWorldPoint): LogoWorldPoint {
-  return {
-    x: point.x - 0.5,
-    y: point.y - 0.5,
-    z: point.z - 0.5,
-  };
-}
-
-function scaleWorldPoint(
-  point: LogoWorldPoint,
-  factor: number,
-): LogoWorldPoint {
-  return {
-    x: point.x * factor,
-    y: point.y * factor,
-    z: point.z * factor,
-  };
-}
-
-function dotWorldPoints(left: LogoWorldPoint, right: LogoWorldPoint): number {
-  return left.x * right.x + left.y * right.y + left.z * right.z;
-}
-
-function getAxisLabelPosition(
-  start: LogoProjectedPoint,
-  end: LogoProjectedPoint,
-): LogoProjectedPoint {
-  const deltaX = end.x - start.x;
-  const deltaY = end.y - start.y;
-  const length = Math.hypot(deltaX, deltaY) || 1;
-
-  return {
-    x: end.x + (deltaX / length) * AXIS_GUIDE_LABEL_DISTANCE,
-    y: end.y + (deltaY / length) * AXIS_GUIDE_LABEL_DISTANCE,
-  };
-}
-
-function createAxisGuideLines(args: {
-  elevationDegrees: number;
-  rotationDegrees: number;
-}): AxisGuideLine[] {
-  const origin = subtractUnitCubeCenter({ x: 0, y: 0, z: 0 });
-  const xEnd = subtractUnitCubeCenter({ x: AXIS_GUIDE_LENGTH, y: 0, z: 0 });
-  const yEnd = subtractUnitCubeCenter({ x: 0, y: AXIS_GUIDE_LENGTH, z: 0 });
-  const zEnd = subtractUnitCubeCenter({ x: 0, y: 0, z: AXIS_GUIDE_LENGTH });
-  const projector = createLogoProjector({
-    elevationDegrees: args.elevationDegrees,
-    rotationDegrees: args.rotationDegrees,
-    scenePoints: [origin, xEnd, yEnd, zEnd],
-    viewBoxSize: TRANSFORM_LAB_VIEW_BOX.width,
-  });
-  const projectedOrigin = projector.projectRotatedPoint(
-    projector.rotateWorldPoint(origin),
+function createProjectedFaceDefinitions(): ProjectedFaceDefinition[] {
+  const { cameraDirection, right, up } = getCameraBasis(
+    DEFAULT_ELEVATION_DEGREES,
   );
+  const rotationRadians = (DEFAULT_ROTATION_DEGREES * Math.PI) / 180;
 
-  return [
-    {
-      color: AXIS_GUIDE_COLORS.x,
-      end: projector.projectRotatedPoint(projector.rotateWorldPoint(xEnd)),
-      key: "x" as const,
-      label: "X",
-    },
-    {
-      color: AXIS_GUIDE_COLORS.y,
-      end: projector.projectRotatedPoint(projector.rotateWorldPoint(yEnd)),
-      key: "y" as const,
-      label: "Y",
-    },
-    {
-      color: AXIS_GUIDE_COLORS.z,
-      end: projector.projectRotatedPoint(projector.rotateWorldPoint(zEnd)),
-      key: "z" as const,
-      label: "Z",
-    },
-  ].map((line) => ({
-    color: line.color,
-    end: line.end,
-    key: line.key,
-    label: line.label,
-    labelPosition: getAxisLabelPosition(projectedOrigin, line.end),
-    start: projectedOrigin,
-  }));
-}
-
-function createFaceCorners(
-  face: CubeFaceDefinition,
-): readonly LogoWorldPoint[] {
-  const origin = subtractUnitCubeCenter(face.origin);
-  const uPoint = subtractUnitCubeCenter(addWorldPoints(face.origin, face.u));
-  const uvPoint = subtractUnitCubeCenter(
-    addWorldPoints(addWorldPoints(face.origin, face.u), face.v),
-  );
-  const vPoint = subtractUnitCubeCenter(addWorldPoints(face.origin, face.v));
-
-  return [origin, uPoint, uvPoint, vPoint] as const;
-}
-
-function createTransformLabFaces(args: {
-  elevationDegrees: number;
-  rotationDegrees: number;
-}): TransformLabFace[] {
-  const faceCorners = SINGLE_CUBE_FACE_DEFINITIONS.map(createFaceCorners);
-  const projector = createLogoProjector({
-    elevationDegrees: args.elevationDegrees,
-    rotationDegrees: args.rotationDegrees,
-    scenePoints: faceCorners.flat(),
-    viewBoxSize: TRANSFORM_LAB_VIEW_BOX.width,
-  });
-
-  return SINGLE_CUBE_FACE_DEFINITIONS.map((face, index) => {
-    const corners = faceCorners[index];
-    const rotatedCorners = corners.map(projector.rotateWorldPoint);
-    const projectedCorners = rotatedCorners.map(projector.projectRotatedPoint);
-    const projectedOrigin = projectedCorners[0];
-    const projectedUPoint = projectedCorners[1];
-    const projectedVPoint = projectedCorners[3];
-    const centeredFacePoint = subtractUnitCubeCenter(
-      addWorldPoints(
-        addWorldPoints(face.origin, scaleWorldPoint(face.u, 0.5)),
-        scaleWorldPoint(face.v, 0.5),
-      ),
-    );
-    const rotatedCenter = projector.rotateWorldPoint(centeredFacePoint);
-
-    return {
-      color: face.color,
-      colorKey: face.colorKey,
-      corners: projectedCorners,
-      depth: dotWorldPoints(rotatedCenter, projector.cameraDirection),
-      key: face.key,
-      stroke: face.color,
-      strokeWidth: FACE_STROKE_WIDTH,
-      transform: createTransformString(
-        {
-          x: projectedUPoint.x - projectedOrigin.x,
-          y: projectedUPoint.y - projectedOrigin.y,
-        },
-        {
-          x: projectedVPoint.x - projectedOrigin.x,
-          y: projectedVPoint.y - projectedOrigin.y,
-        },
-        projectedOrigin,
-      ),
-    };
-  }).sort((left, right) => left.depth - right.depth);
-}
-
-function serializeAxisGuideLines(lines: readonly AxisGuideLine[]): string {
-  const origin = lines[0]?.start ?? { x: 0, y: 0 };
-  const axisLines = lines
-    .map((line) => {
-      return [
-        `<line x1="${formatNumber(line.start.x)}" y1="${formatNumber(line.start.y)}" x2="${formatNumber(line.end.x)}" y2="${formatNumber(line.end.y)}" stroke="${escapeSvgAttribute(line.color)}" stroke-linecap="round" stroke-width="2.25" marker-end="url(#transform-lab-axis-arrow-${line.key})"/>`,
-        `<text x="${formatNumber(line.labelPosition.x)}" y="${formatNumber(line.labelPosition.y)}" dominant-baseline="middle" fill="${escapeSvgAttribute(line.color)}" font-size="11" font-weight="700" text-anchor="middle">${line.label}</text>`,
-      ].join("");
-    })
-    .join("");
-
-  return `<g><circle cx="${formatNumber(origin.x)}" cy="${formatNumber(origin.y)}" r="2.75" fill="#111111"/><text x="${formatNumber(origin.x + ORIGIN_MARKER_LABEL_OFFSET.x)}" y="${formatNumber(origin.y + ORIGIN_MARKER_LABEL_OFFSET.y)}" fill="#111111" font-size="10" font-weight="600">0,0,0</text>${axisLines}</g>`;
-}
-
-function serializeFaceUses(faces: readonly TransformLabFace[]): string {
-  return faces
+  const visibleFaces = collectVisibleFaces()
     .map((face) => {
-      return `<use href="#${CUBE_FACE_ID}" fill="${escapeSvgAttribute(face.color)}" stroke="${escapeSvgAttribute(face.stroke)}" stroke-width="${formatNumber(face.strokeWidth)}" transform="${escapeSvgAttribute(face.transform)}"/>`;
+      const normal = rotateVectorY(face.normal, rotationRadians);
+      if (dotVectors(normal, cameraDirection) <= 0) {
+        return null;
+      }
+
+      const origin = rotateVectorY(face.origin, rotationRadians);
+      const u = rotateVectorY(face.u, rotationRadians);
+      const v = rotateVectorY(face.v, rotationRadians);
+      const center = {
+        x: origin.x + (u.x + v.x) / 2,
+        y: origin.y + (u.y + v.y) / 2,
+        z: origin.z + (u.z + v.z) / 2,
+      };
+
+      return {
+        color: face.color,
+        corners: [
+          origin,
+          { x: origin.x + u.x, y: origin.y + u.y, z: origin.z + u.z },
+          {
+            x: origin.x + u.x + v.x,
+            y: origin.y + u.y + v.y,
+            z: origin.z + u.z + v.z,
+          },
+          { x: origin.x + v.x, y: origin.y + v.y, z: origin.z + v.z },
+        ] as const,
+        depth: dotVectors(center, cameraDirection),
+        key: face.key,
+        stroke: face.color,
+        strokeWidth: FACE_STROKE_WIDTH,
+        u,
+        v,
+      };
     })
-    .join("");
+    .filter((face) => face !== null);
+
+  const radius = visibleFaces.reduce((maxRadius, face) => {
+    const faceRadius = face.corners.reduce((maxCornerRadius, corner) => {
+      return Math.max(
+        maxCornerRadius,
+        Math.hypot(corner.x, corner.y, corner.z),
+      );
+    }, 0);
+    return Math.max(maxRadius, faceRadius);
+  }, 0);
+  const frustumHalfHeight = radius * CAMERA_FRUSTUM_PADDING;
+
+  return visibleFaces
+    .map((face) => {
+      const projectedOrigin = projectPoint(
+        face.corners[0],
+        right,
+        up,
+        frustumHalfHeight,
+      );
+      const projectedUPoint = projectPoint(
+        face.corners[1],
+        right,
+        up,
+        frustumHalfHeight,
+      );
+      const projectedVPoint = projectPoint(
+        face.corners[3],
+        right,
+        up,
+        frustumHalfHeight,
+      );
+      const projectedCorners = face.corners.map((corner) =>
+        projectPoint(corner, right, up, frustumHalfHeight),
+      );
+
+      return {
+        color: face.color,
+        corners: projectedCorners,
+        depth: face.depth,
+        key: face.key,
+        stroke: face.stroke,
+        strokeWidth: face.strokeWidth,
+        transform: createTransformString(
+          {
+            x: projectedUPoint.x - projectedOrigin.x,
+            y: projectedUPoint.y - projectedOrigin.y,
+          },
+          {
+            x: projectedVPoint.x - projectedOrigin.x,
+            y: projectedVPoint.y - projectedOrigin.y,
+          },
+          projectedOrigin,
+        ),
+      };
+    })
+    .sort((left, rightFace) => left.depth - rightFace.depth);
 }
 
-export function createTransformLabScene({
-  elevationDegrees = STATIC_LOGO_ELEVATION_DEGREES,
-  rotationDegrees = STATIC_LOGO_ROTATION_DEGREES,
-}: {
-  elevationDegrees?: number;
-  rotationDegrees?: number;
-} = {}): TransformLabScene {
-  const faces = createTransformLabFaces({
-    elevationDegrees,
-    rotationDegrees,
-  });
-  const axisGuideLines = createAxisGuideLines({
-    elevationDegrees,
-    rotationDegrees,
-  });
-  const svgMarkup = [
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${TRANSFORM_LAB_VIEW_BOX.width} ${TRANSFORM_LAB_VIEW_BOX.height}" width="${TRANSFORM_LAB_VIEW_BOX.width}" height="${TRANSFORM_LAB_VIEW_BOX.height}">`,
-    `<defs><rect id="${CUBE_FACE_ID}" x="0" y="0" width="1" height="1"/><marker id="transform-lab-axis-arrow-x" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" viewBox="0 0 6 6"><path d="M 0 0 L 6 3 L 0 6 z" fill="${AXIS_GUIDE_COLORS.x}"/></marker><marker id="transform-lab-axis-arrow-y" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" viewBox="0 0 6 6"><path d="M 0 0 L 6 3 L 0 6 z" fill="${AXIS_GUIDE_COLORS.y}"/></marker><marker id="transform-lab-axis-arrow-z" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" viewBox="0 0 6 6"><path d="M 0 0 L 6 3 L 0 6 z" fill="${AXIS_GUIDE_COLORS.z}"/></marker></defs>`,
-    `<rect x="0" y="0" width="${TRANSFORM_LAB_VIEW_BOX.width}" height="${TRANSFORM_LAB_VIEW_BOX.height}" fill="${BACKGROUND_COLOR}"/>`,
-    serializeFaceUses(faces),
-    serializeAxisGuideLines(axisGuideLines),
-    `</svg>`,
-  ].join("\n");
-
-  return {
-    axisGuideLines,
-    faces,
-    svgMarkup,
-  };
-}
-
-export function createTransformLabSvgMarkup(args?: {
-  elevationDegrees?: number;
-  rotationDegrees?: number;
-}): string {
-  return createTransformLabScene(args).svgMarkup;
+export function createLogoTransitionTransformFaces(): TransformLabFace[] {
+  return createProjectedFaceDefinitions();
 }
