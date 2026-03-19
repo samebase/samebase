@@ -5,6 +5,12 @@ import {
   isLandingDevModeEnabled,
 } from "@/lib/landingDevMode";
 import {
+  APP_PAGE_METADATA,
+  HOME_PAGE_METADATA,
+  PRICING_PAGE_METADATA,
+  applyPageMetadata,
+} from "@/lib/pageMetadata";
+import {
   PUBLIC_LANDING_LOGO_ALT,
   PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME,
   PUBLIC_LANDING_LOGO_HEIGHT,
@@ -370,7 +376,34 @@ function renderFastLandingShell() {
     ?.addEventListener("click", beginWaitlistInteraction);
 }
 
-if (isFastLandingRoute(window.location)) {
+function applyBootstrapPageMetadata(
+  location: Location,
+  fastLandingRoute: boolean,
+) {
+  if (location.pathname === "/pricing") {
+    applyPageMetadata(PRICING_PAGE_METADATA);
+    return;
+  }
+
+  if (fastLandingRoute) {
+    applyPageMetadata(HOME_PAGE_METADATA);
+    return;
+  }
+
+  applyPageMetadata({
+    ...APP_PAGE_METADATA,
+    canonicalPath: location.pathname,
+    title: location.pathname.startsWith("/vault/")
+      ? "Workspace | Noter"
+      : "Noter App",
+  });
+}
+
+const fastLandingRoute = isFastLandingRoute(window.location);
+
+applyBootstrapPageMetadata(window.location, fastLandingRoute);
+
+if (fastLandingRoute) {
   renderFastLandingShell();
   scheduleBackgroundAppLoad();
 } else {

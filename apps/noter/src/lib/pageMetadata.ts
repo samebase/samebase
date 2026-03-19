@@ -1,5 +1,3 @@
-import { useEffect } from "react";
-
 export type PageMetadata = {
   title: string;
   description: string;
@@ -39,11 +37,7 @@ export const APP_PAGE_METADATA: PageMetadata = {
 };
 
 function resolveSiteOrigin(): string {
-  if (typeof window === "undefined") {
-    return DEFAULT_SITE_ORIGIN;
-  }
-
-  return window.location.origin;
+  return DEFAULT_SITE_ORIGIN;
 }
 
 function resolveCanonicalUrl(canonicalPath: string): string {
@@ -159,10 +153,4 @@ export function applyPageMetadata(metadata: PageMetadata): void {
     content: socialImageUrl,
   });
   upsertCanonicalLink(canonicalUrl);
-}
-
-export function usePageMetadata(metadata: PageMetadata): void {
-  useEffect(() => {
-    applyPageMetadata(metadata);
-  }, [metadata]);
 }

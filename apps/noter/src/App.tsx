@@ -20,9 +20,9 @@ import {
   APP_PAGE_METADATA,
   HOME_PAGE_METADATA,
   PRICING_PAGE_METADATA,
-  usePageMetadata,
   type PageMetadata,
 } from "@/lib/pageMetadata";
+import { usePageMetadata } from "@/lib/usePageMetadata";
 
 const VaultDashboard = lazy(async () => {
   const module = await import("@/components/VaultDashboard");
