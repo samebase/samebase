@@ -5,20 +5,16 @@ import {
   drawSingleCubeStudy,
 } from "@/components/logoSingleCubeStudyRenderer";
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 function CubeStudyCanvas({
   angleDegrees,
-  ariaHidden,
-  ariaLabel,
   className,
   showEdges,
   showGrid,
   vividColors,
 }: {
   angleDegrees: number;
-  ariaHidden?: boolean;
-  ariaLabel?: string;
   className?: string;
   showEdges: boolean;
   showGrid: boolean;
@@ -50,11 +46,8 @@ function CubeStudyCanvas({
   return (
     <canvas
       ref={canvasRef}
-      aria-hidden={ariaHidden}
-      aria-label={ariaHidden ? undefined : ariaLabel}
       className={className}
       height={SINGLE_CUBE_STUDY_CANVAS_SIZE}
-      role={ariaHidden ? "presentation" : "img"}
       style={{
         imageRendering: "pixelated",
       }}
@@ -64,33 +57,24 @@ function CubeStudyCanvas({
 }
 
 export function LogoSingleCubeStudyPage() {
-  const location = useLocation();
   const [angleDegrees, setAngleDegrees] = useState(45);
-  const [showEdges, setShowEdges] = useState(true);
-  const [showGrid, setShowGrid] = useState(true);
+  const [showEdges, setShowEdges] = useState(false);
+  const [showGrid, setShowGrid] = useState(false);
   const [vividColors, setVividColors] = useState(true);
-  const modeHref = (pathname: "/logo" | "/logo-iso" | "/logo-svg") =>
-    location.search ? `${pathname}${location.search}` : pathname;
 
   return (
     <div className="min-h-screen bg-[#f5f4ef] text-black">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-4 py-4 sm:px-6">
         <div className="flex flex-wrap items-center gap-2 border border-black/10 bg-white/88 p-2 backdrop-blur-sm">
           <Button asChild size="sm" variant="outline" className="rounded-none">
-            <Link to={modeHref("/logo")}>3D</Link>
+            <Link to="/logo">3D</Link>
           </Button>
           <Button asChild size="sm" variant="outline" className="rounded-none">
-            <Link to={modeHref("/logo-iso")}>Iso</Link>
+            <Link to="/logo-iso">Iso</Link>
           </Button>
-          <Button asChild size="sm" variant="outline" className="rounded-none">
-            <Link to={modeHref("/logo-svg")}>SVG</Link>
-          </Button>
-          <div
-            aria-current="page"
-            className="inline-flex h-9 items-center border border-black bg-black px-3 text-sm font-medium text-white"
-          >
+          <Button size="sm" className="rounded-none">
             Single Cube Study
-          </div>
+          </Button>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
@@ -103,19 +87,19 @@ export function LogoSingleCubeStudyPage() {
                 Single Cube Rotation Lab
               </h1>
               <p className="mt-2 text-sm leading-6 text-black/60">
-                One cube, one fixed camera pitch, multiple yaw angles. Use this
-                to see which snapped views still produce legible pixel steps
-                before we change the full logo again.
+                One cube, one exact pixel baseline at 45°, and cleaner integer
+                variants between 0° and 90°. Use this to see which snapped views
+                still produce legible pixel steps before we change the full logo
+                again.
               </p>
             </div>
 
             <div className="grid gap-2">
               <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
-                <label htmlFor="single-cube-study-yaw-range">Yaw</label>
+                <span>Yaw</span>
                 <span>{angleDegrees.toFixed(0)}°</span>
               </div>
               <input
-                id="single-cube-study-yaw-range"
                 type="range"
                 min="0"
                 max="90"
@@ -127,11 +111,10 @@ export function LogoSingleCubeStudyPage() {
                 className="h-2 w-full cursor-pointer accent-black"
               />
               <div className="grid grid-cols-4 gap-2">
-                {[0, 30, 45, 60].map((presetAngle) => (
+                {SINGLE_CUBE_STUDY_SAMPLE_ANGLES.map((presetAngle) => (
                   <Button
                     key={presetAngle}
                     type="button"
-                    aria-pressed={angleDegrees === presetAngle}
                     size="sm"
                     variant={
                       angleDegrees === presetAngle ? "default" : "outline"
@@ -154,7 +137,6 @@ export function LogoSingleCubeStudyPage() {
               <div className="grid grid-cols-1 gap-2">
                 <Button
                   type="button"
-                  aria-pressed={showEdges}
                   size="sm"
                   variant={showEdges ? "default" : "outline"}
                   className="justify-start rounded-none"
@@ -166,7 +148,6 @@ export function LogoSingleCubeStudyPage() {
                 </Button>
                 <Button
                   type="button"
-                  aria-pressed={vividColors}
                   size="sm"
                   variant={vividColors ? "default" : "outline"}
                   className="justify-start rounded-none"
@@ -178,7 +159,6 @@ export function LogoSingleCubeStudyPage() {
                 </Button>
                 <Button
                   type="button"
-                  aria-pressed={showGrid}
                   size="sm"
                   variant={showGrid ? "default" : "outline"}
                   className="justify-start rounded-none"
@@ -186,7 +166,7 @@ export function LogoSingleCubeStudyPage() {
                     setShowGrid((currentValue) => !currentValue);
                   }}
                 >
-                  {showGrid ? "Hide grid" : "Show grid"}
+                  {showGrid ? "Hide pixel grid" : "Show pixel grid"}
                 </Button>
               </div>
             </div>
@@ -197,32 +177,32 @@ export function LogoSingleCubeStudyPage() {
               </div>
               <p className="mt-2">
                 Look for repeated stair-step rhythms, readable top corners, and
-                whether the side faces still feel like a cube instead of a
-                warped diamond. The grid makes irregular jumps easier to spot.
+                whether 45° matches the expected 2:1 diagonal baseline. Turn on
+                the pixel grid only when you need it.
               </p>
             </div>
           </div>
 
           <div className="grid gap-6">
-            <div className="grid gap-3 border border-black/10 bg-white/88 p-4">
+            <div className="grid gap-3 border border-black/10 bg-white/88 p-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                     Workspace
                   </div>
                   <div className="mt-1 text-sm text-black/60">
-                    Current study angle: {angleDegrees.toFixed(0)}°
+                    Tight crop, enlarged pixels, current angle{" "}
+                    {angleDegrees.toFixed(0)}°
                   </div>
                 </div>
                 <div className="font-mono text-[11px] text-black/45">
-                  pitch 35.264°
+                  45° = exact 2:1
                 </div>
               </div>
-              <div className="flex min-h-[22rem] items-center justify-center border border-black/10 bg-[#fcfbf7] p-4">
+              <div className="flex min-h-[40rem] items-center justify-center border border-black/10 bg-[#fcfbf7] p-0">
                 <CubeStudyCanvas
                   angleDegrees={angleDegrees}
-                  ariaLabel={`Single cube study at ${angleDegrees.toFixed(0)} degrees yaw`}
-                  className="h-[22rem] w-[22rem] max-w-full"
+                  className="h-[40rem] w-[40rem] max-w-full"
                   showEdges={showEdges}
                   showGrid={showGrid}
                   vividColors={vividColors}
@@ -230,7 +210,7 @@ export function LogoSingleCubeStudyPage() {
               </div>
             </div>
 
-            <div className="grid gap-3 border border-black/10 bg-white/88 p-4">
+            <div className="grid gap-3 border border-black/10 bg-white/88 p-3">
               <div>
                 <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                   Snap Comparison
@@ -244,8 +224,7 @@ export function LogoSingleCubeStudyPage() {
                   <button
                     key={sampleAngle}
                     type="button"
-                    aria-pressed={angleDegrees === sampleAngle}
-                    className={`grid gap-2 border p-3 text-left transition-colors ${
+                    className={`grid gap-2 border p-2 text-left transition-colors ${
                       angleDegrees === sampleAngle
                         ? "border-black bg-[#fcfbf7]"
                         : "border-black/10 bg-white hover:border-black/30"
@@ -262,11 +241,10 @@ export function LogoSingleCubeStudyPage() {
                         yaw
                       </span>
                     </div>
-                    <div className="flex items-center justify-center border border-black/10 bg-[#fcfbf7] p-2">
+                    <div className="flex items-center justify-center border border-black/10 bg-[#fcfbf7] p-0">
                       <CubeStudyCanvas
                         angleDegrees={sampleAngle}
-                        ariaHidden
-                        className="h-28 w-28"
+                        className="h-44 w-44"
                         showEdges={showEdges}
                         showGrid={showGrid}
                         vividColors={vividColors}
