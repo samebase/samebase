@@ -256,17 +256,13 @@
         0 0 / var(--noter-corner-notch-stroke, 1px)
         var(--noter-corner-notch-stroke, 1px) no-repeat,
       linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        calc(100% - var(--noter-corner-notch-stroke, 1px)) 0 /
-        var(--noter-corner-notch-stroke, 1px)
+        100% 0 / var(--noter-corner-notch-stroke, 1px)
         var(--noter-corner-notch-stroke, 1px) no-repeat,
       linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        calc(100% - var(--noter-corner-notch-stroke, 1px))
-        calc(100% - var(--noter-corner-notch-stroke, 1px)) /
-        var(--noter-corner-notch-stroke, 1px)
+        100% 100% / var(--noter-corner-notch-stroke, 1px)
         var(--noter-corner-notch-stroke, 1px) no-repeat,
       linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        0 calc(100% - var(--noter-corner-notch-stroke, 1px)) /
-        var(--noter-corner-notch-stroke, 1px)
+        0 100% / var(--noter-corner-notch-stroke, 1px)
         var(--noter-corner-notch-stroke, 1px) no-repeat;
   }
 
