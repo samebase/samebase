@@ -6,7 +6,7 @@
 - Owner: Noter frontend/editor + Convex vault/github
 - Last updated: 2026-03-08
 - Related specs:
-  - `specs/046_VAULT_MULTI_BRANCH_ROLLOUT_PLAN.md`
+  - `rfcs/046_VAULT_MULTI_BRANCH_ROLLOUT_PLAN.md`
   - `specs/037_EDITOR_COMMIT_DIFF_RELIABILITY_SPEC.md`
   - `specs/041_DAYTONA_COMMIT_PINNED_SNAPSHOT_SPEC.md`
   - `specs/008_CHAT_ONLY_CODESPACE_MODE_SPEC.md`
@@ -327,7 +327,7 @@ Delivery is intentionally phased; this work should not ship as one large change.
 
 Companion plan with concrete tasks and gates:
 
-1. `specs/046_VAULT_MULTI_BRANCH_ROLLOUT_PLAN.md`
+1. `rfcs/046_VAULT_MULTI_BRANCH_ROLLOUT_PLAN.md`
 
 ### Delivery Phases
 
