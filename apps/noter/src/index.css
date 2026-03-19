@@ -188,8 +188,20 @@
     -webkit-line-clamp: 2;
   }
 
+  .corner-notch-0 {
+    clip-path: none;
+  }
+
+  .border {
+    --noter-corner-notch-stroke: 1px;
+  }
+
+  .border-2 {
+    --noter-corner-notch-stroke: 2px;
+  }
+
   .corner-notch-1 {
-    --noter-corner-notch-size: 1px;
+    --noter-corner-notch-size: var(--noter-corner-notch-stroke, 1px);
     clip-path: polygon(
       var(--noter-corner-notch-size) 0,
       calc(100% - var(--noter-corner-notch-size)) 0,
@@ -207,8 +219,57 @@
     );
   }
 
+  .corner-notch-2 {
+    clip-path: polygon(
+      2px 0,
+      calc(100% - 2px) 0,
+      calc(100% - 2px) 1px,
+      calc(100% - 1px) 1px,
+      calc(100% - 1px) 2px,
+      100% 2px,
+      100% calc(100% - 2px),
+      calc(100% - 1px) calc(100% - 2px),
+      calc(100% - 1px) calc(100% - 1px),
+      calc(100% - 2px) calc(100% - 1px),
+      calc(100% - 2px) 100%,
+      2px 100%,
+      2px calc(100% - 1px),
+      1px calc(100% - 1px),
+      1px calc(100% - 2px),
+      0 calc(100% - 2px),
+      0 2px,
+      1px 2px,
+      1px 1px,
+      2px 1px
+    );
+    position: relative;
+  }
+
+  .corner-notch-2::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    /* Paint the inner bridge pixel that the clipped outer border cannot reach. */
+    background:
+      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
+        0 0 / var(--noter-corner-notch-stroke, 1px)
+        var(--noter-corner-notch-stroke, 1px) no-repeat,
+      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
+        100% 0 / var(--noter-corner-notch-stroke, 1px)
+        var(--noter-corner-notch-stroke, 1px) no-repeat,
+      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
+        100% 100% / var(--noter-corner-notch-stroke, 1px)
+        var(--noter-corner-notch-stroke, 1px) no-repeat,
+      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
+        0 100% / var(--noter-corner-notch-stroke, 1px)
+        var(--noter-corner-notch-stroke, 1px) no-repeat;
+  }
+
   .corner-notch-1:focus-visible,
-  .corner-notch-1:focus-within {
+  .corner-notch-1:focus-within,
+  .corner-notch-2:focus-visible,
+  .corner-notch-2:focus-within {
     clip-path: none;
   }
 

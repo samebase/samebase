@@ -206,6 +206,11 @@ use `--env-file` or an explicit deployment selector instead.
 - **Keep config surfaces minimal** - allowlists and config maps should contain
   only entries that are currently used by this repo; do not add placeholders for
   possible future integrations
+- **Do not construct CSS or Tailwind class names dynamically** - avoid patterns
+  such as `corner-notch-${type}`, `bg-${tone}`, or string fragments passed
+  through template literals. Map typed state to full literal class strings and
+  pass those complete names to `cn(...)` so classes stay searchable and visible
+  to Tailwind tooling
 
 ## UI/UX Guidelines
 
@@ -233,10 +238,16 @@ use `--env-file` or an explicit deployment selector instead.
 - **Prefer app-owned wrapper entrypoints for styled primitives** - when Noter
   needs a shared styling or behavior layer over a generated primitive, expose a
   repo-owned wrapper outside `components/ui/*` with the canonical app-facing
-  name (for example `apps/noter/src/components/button.tsx` exporting `Button`).
-  Keep the generated primitive internal and alias it as `BaseButton` inside the
-  wrapper instead of leaking names like `NButton` or editing the generated file
-  by default
+  name (for example `apps/noter/src/components/button.tsx`,
+  `apps/noter/src/components/dialog.tsx`, or
+  `apps/noter/src/components/input.tsx`). App code should import the wrapper
+  path when it exists. Keep the generated primitive internal and alias it as
+  `BaseButton` inside the wrapper instead of leaking names like `NButton` or
+  editing the generated file by default
+- **Prefer wrapper-owned styling props over raw utility strings when available**
+  - when a wrapper already exposes a typed styling control such as
+    `cornerNotch`, prefer that prop in product code over repeating raw
+    `corner-notch-*` classes at call sites
 - **If manual edits are explicitly requested**, keep them minimal and call out
   that they diverge from generated output
 

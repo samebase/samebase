@@ -9,15 +9,15 @@ import {
   type AgentGraphNode,
 } from "@/components/AgentGraphView";
 import { Button } from "@/components/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Checkbox } from "@/components/checkbox";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+} from "@/components/collapsible";
+import { Label } from "@/components/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";
 
 import {
   ChevronDownIcon,
@@ -25,7 +25,7 @@ import {
   PlusIcon,
   FilePlusIcon,
 } from "@radix-ui/react-icons";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/sidebar";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import { FileTree } from "./FileTree";
 import { CommandPalette } from "./CommandPalette";
@@ -38,7 +38,7 @@ import {
   useLayoutEffect,
 } from "react";
 import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
-import { useSidebar } from "@/components/ui/sidebar";
+import { useSidebar } from "@/hooks/use-sidebar";
 import { UserMenu } from "@/components/UserMenu";
 import { linkStyle } from "./styles";
 import { useConvexAction, useConvexMutation } from "@/lib/convexUtils";

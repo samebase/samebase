@@ -13,7 +13,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/components/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDialog } from "@/hooks/useDialog";
 import {

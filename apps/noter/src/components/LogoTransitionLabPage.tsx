@@ -1,6 +1,6 @@
 import { Button } from "@/components/button";
 import { DEFAULT_STATIC_LOGO_SVG_URL } from "@/components/logoStaticSvgContract";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/tabs";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 

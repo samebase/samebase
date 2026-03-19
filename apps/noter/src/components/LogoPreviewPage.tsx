@@ -34,26 +34,22 @@ import {
   type LogoPresetId,
   type LogoPresetSelection,
 } from "@/components/logoPresets";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Checkbox } from "@/components/checkbox";
 import { Button } from "@/components/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+} from "@/components/collapsible";
+import { Input } from "@/components/input";
+import { Label } from "@/components/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/popover";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-} from "@/components/ui/select";
+} from "@/components/select";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_ROTATION_DEGREES,

@@ -7,9 +7,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "@/components/dialog";
+import { Input } from "@/components/input";
+import { Label } from "@/components/label";
 
 export type ApiKeyProvider = "github" | "convex" | "netlify";
 

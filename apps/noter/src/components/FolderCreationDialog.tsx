@@ -1,18 +1,18 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Input } from "@/components/ui/input";
+import { Input } from "@/components/input";
 import { Button } from "@/components/button";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-} from "@/components/ui/sheet";
+} from "@/components/sheet";
 import {
   Dialog,
   DialogContent as DialogContentUI,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/components/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { fuzzyMatch, highlightMatches } from "@/lib/fuzzySearch.tsx";
