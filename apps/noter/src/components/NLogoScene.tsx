@@ -38,6 +38,10 @@ const RAYCAST_OFFSET = 0.001;
 const CAMERA_FRUSTUM_PADDING = 1.12;
 const SHUFFLE_MOVE_DURATION_MS = 1800;
 const SHUFFLE_MOVE_STAGGER_MS = 520;
+const FACE_COLOR_ANIMATION_DEGREES_PER_SECOND = 15;
+const FACE_COLOR_ANIMATION_MIN_LIGHTNESS = 0.38;
+const FACE_COLOR_ANIMATION_MAX_LIGHTNESS = 0.76;
+const FACE_COLOR_ANIMATION_MIN_SATURATION = 0.5;
 const WORLD_CENTER_OFFSET = (GRID_SIZE - 1) / 2;
 
 export const LOGO_SHUFFLE_PARALLEL_OPTIONS = [1, 2, 3] as const;
@@ -97,6 +101,12 @@ type SceneState = {
   scene: THREE.Scene;
 };
 
+type ResolvedFaceColors = {
+  left: THREE.Color;
+  right: THREE.Color;
+  top: THREE.Color;
+};
+
 type NLogoSceneProps = {
   backgroundColor: string;
   className?: string;
@@ -116,6 +126,7 @@ type NLogoSceneProps = {
   rotationAxisMode?: LogoRotationAxisMode;
   rotationDegrees: number;
   shuffleAnimation: LogoShuffleAnimationConfig;
+  animateFaceColors: boolean;
   voxelState: string;
 };
 
@@ -481,16 +492,58 @@ function applyFaceColors(
   materials: THREE.MeshBasicMaterial[],
   faceColors: FaceColors,
 ) {
-  const rightHex = getTailwindColorHex(faceColors.right);
-  const topHex = getTailwindColorHex(faceColors.top);
-  const leftHex = getTailwindColorHex(faceColors.left);
+  applyResolvedFaceColors(materials, resolveFaceColors(faceColors));
+}
 
-  materials[0].color.set(rightHex);
-  materials[1].color.set(rightHex);
-  materials[2].color.set(topHex);
-  materials[3].color.set(topHex);
-  materials[4].color.set(leftHex);
-  materials[5].color.set(leftHex);
+function resolveFaceColors(faceColors: FaceColors): ResolvedFaceColors {
+  return {
+    left: new THREE.Color(getTailwindColorHex(faceColors.left)),
+    right: new THREE.Color(getTailwindColorHex(faceColors.right)),
+    top: new THREE.Color(getTailwindColorHex(faceColors.top)),
+  };
+}
+
+function applyResolvedFaceColors(
+  materials: THREE.MeshBasicMaterial[],
+  faceColors: ResolvedFaceColors,
+) {
+  materials[0].color.copy(faceColors.right);
+  materials[1].color.copy(faceColors.right);
+  materials[2].color.copy(faceColors.top);
+  materials[3].color.copy(faceColors.top);
+  materials[4].color.copy(faceColors.left);
+  materials[5].color.copy(faceColors.left);
+}
+
+function getAnimatedColor(
+  color: THREE.Color,
+  elapsedSeconds: number,
+): THREE.Color {
+  const hsl = { h: 0, l: 0, s: 0 };
+  color.getHSL(hsl);
+
+  return new THREE.Color().setHSL(
+    (hsl.h + (elapsedSeconds * FACE_COLOR_ANIMATION_DEGREES_PER_SECOND) / 360) %
+      1,
+    Math.max(hsl.s, FACE_COLOR_ANIMATION_MIN_SATURATION),
+    THREE.MathUtils.clamp(
+      hsl.l,
+      FACE_COLOR_ANIMATION_MIN_LIGHTNESS,
+      FACE_COLOR_ANIMATION_MAX_LIGHTNESS,
+    ),
+  );
+}
+
+function getAnimatedFaceColors(
+  faceColors: FaceColors,
+  elapsedSeconds: number,
+): ResolvedFaceColors {
+  const resolvedFaceColors = resolveFaceColors(faceColors);
+  return {
+    left: getAnimatedColor(resolvedFaceColors.left, elapsedSeconds),
+    right: getAnimatedColor(resolvedFaceColors.right, elapsedSeconds),
+    top: getAnimatedColor(resolvedFaceColors.top, elapsedSeconds),
+  };
 }
 
 function applyMaterialOpacity(
@@ -732,6 +785,7 @@ export function NLogoScene({
   rotationAxisMode = "cube-y",
   rotationDegrees,
   shuffleAnimation,
+  animateFaceColors,
   voxelState,
 }: NLogoSceneProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -744,6 +798,8 @@ export function NLogoScene({
   const voxelStateRef = useRef(voxelState);
   const faceColorsRef = useRef(faceColors);
   const opacityRef = useRef(opacity);
+  const animateFaceColorsRef = useRef(animateFaceColors);
+  const faceColorAnimationStartedAtRef = useRef<number | null>(null);
   const shuffleAnimationRef = useRef(shuffleAnimation);
   const onInteractionStartRef = useRef(onInteractionStart);
   const onInteractionEndRef = useRef(onInteractionEnd);
@@ -821,6 +877,27 @@ export function NLogoScene({
   useEffect(() => {
     onVoxelEditRef.current = onVoxelEdit;
   }, [onVoxelEdit]);
+
+  useEffect(() => {
+    animateFaceColorsRef.current = animateFaceColors;
+
+    const sceneState = sceneStateRef.current;
+    if (!sceneState) {
+      return;
+    }
+
+    if (animateFaceColors) {
+      faceColorAnimationStartedAtRef.current = performance.now();
+      syncAnimationLoopRef.current();
+      renderSceneRef.current(performance.now());
+      return;
+    }
+
+    faceColorAnimationStartedAtRef.current = null;
+    applyFaceColors(sceneState.cubeMaterials, faceColorsRef.current);
+    syncAnimationLoopRef.current();
+    renderSceneRef.current(performance.now());
+  }, [animateFaceColors]);
 
   useEffect(() => {
     const wasEnabled = shuffleAnimationRef.current.enabled;
@@ -980,6 +1057,9 @@ export function NLogoScene({
       }
     };
 
+    const hasActiveAnimation = () =>
+      shuffleAnimationRef.current.enabled || animateFaceColorsRef.current;
+
     const renderScene = (timestampMs: number) => {
       timer.update(timestampMs);
       const sceneState = sceneStateRef.current;
@@ -994,6 +1074,18 @@ export function NLogoScene({
           timestampMs,
         );
       }
+      if (sceneState && animateFaceColorsRef.current) {
+        const animationStartedAt =
+          faceColorAnimationStartedAtRef.current ?? timestampMs;
+        faceColorAnimationStartedAtRef.current = animationStartedAt;
+        applyResolvedFaceColors(
+          sceneState.cubeMaterials,
+          getAnimatedFaceColors(
+            faceColorsRef.current,
+            (timestampMs - animationStartedAt) / 1000,
+          ),
+        );
+      }
       updateCameraPosition();
       applyLogoRotation();
       if (sceneState) {
@@ -1004,7 +1096,7 @@ export function NLogoScene({
 
     const animate = (timestamp?: number) => {
       renderScene(timestamp ?? performance.now());
-      if (shuffleAnimationRef.current.enabled) {
+      if (hasActiveAnimation()) {
         animationFrameId = window.requestAnimationFrame(animate);
         return;
       }
@@ -1014,7 +1106,7 @@ export function NLogoScene({
 
     renderSceneRef.current = renderScene;
     syncAnimationLoopRef.current = () => {
-      if (shuffleAnimationRef.current.enabled) {
+      if (hasActiveAnimation()) {
         if (animationFrameId === null) {
           animationFrameId = window.requestAnimationFrame(animate);
         }
@@ -1057,6 +1149,7 @@ export function NLogoScene({
       sceneStateRef.current = null;
       renderSceneRef.current = () => {};
       syncAnimationLoopRef.current = () => {};
+      faceColorAnimationStartedAtRef.current = null;
       renderer.dispose();
       container.replaceChildren();
     };
@@ -1085,9 +1178,20 @@ export function NLogoScene({
       return;
     }
 
-    applyFaceColors(sceneState.cubeMaterials, faceColors);
+    if (animateFaceColors) {
+      faceColorAnimationStartedAtRef.current = performance.now();
+      syncAnimationLoopRef.current();
+      renderSceneRef.current(performance.now());
+      return;
+    }
+
+    applyResolvedFaceColors(
+      sceneState.cubeMaterials,
+      resolveFaceColors(faceColors),
+    );
+    syncAnimationLoopRef.current();
     renderSceneRef.current(performance.now());
-  }, [faceColors]);
+  }, [animateFaceColors, faceColors]);
 
   useEffect(() => {
     opacityRef.current = opacity;
