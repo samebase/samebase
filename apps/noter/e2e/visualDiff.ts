@@ -16,6 +16,37 @@ const STABLE_SCREENSHOT_OPTIONS = {
   scale: "css",
 } as const;
 
+function buildWeightedRedDiffPng(expectedPng: PNG, actualPng: PNG): PNG {
+  const diffPng = new PNG({
+    width: expectedPng.width,
+    height: expectedPng.height,
+  });
+
+  for (let index = 0; index < expectedPng.data.length; index += 4) {
+    const redDelta = Math.abs(expectedPng.data[index] - actualPng.data[index]);
+    const greenDelta = Math.abs(
+      expectedPng.data[index + 1] - actualPng.data[index + 1],
+    );
+    const blueDelta = Math.abs(
+      expectedPng.data[index + 2] - actualPng.data[index + 2],
+    );
+    const alphaDelta = Math.abs(
+      expectedPng.data[index + 3] - actualPng.data[index + 3],
+    );
+    const normalizedDelta =
+      Math.max(redDelta, greenDelta, blueDelta, alphaDelta) / 255;
+    const intensity = normalizedDelta === 0 ? 0 : Math.sqrt(normalizedDelta);
+    const fadedChannel = Math.round(255 * (1 - intensity));
+
+    diffPng.data[index] = 255;
+    diffPng.data[index + 1] = fadedChannel;
+    diffPng.data[index + 2] = fadedChannel;
+    diffPng.data[index + 3] = 255;
+  }
+
+  return diffPng;
+}
+
 export async function takeStableScreenshot(locator: Locator): Promise<Buffer> {
   return locator.screenshot(STABLE_SCREENSHOT_OPTIONS);
 }
@@ -45,6 +76,7 @@ export async function expectScreenshotsToMatch({
     expectedPng.height,
   );
   const diffPixelRatio = diffPixels / (expectedPng.width * expectedPng.height);
+  const weightedDiffPng = buildWeightedRedDiffPng(expectedPng, actualPng);
 
   if (diffPixelRatio > maxDiffPixelRatio) {
     await testInfo.attach(`${artifactPrefix}-expected`, {
@@ -56,6 +88,10 @@ export async function expectScreenshotsToMatch({
       contentType: "image/png",
     });
     await testInfo.attach(`${artifactPrefix}-diff`, {
+      body: PNG.sync.write(weightedDiffPng),
+      contentType: "image/png",
+    });
+    await testInfo.attach(`${artifactPrefix}-diff-mask`, {
       body: PNG.sync.write(diffPng),
       contentType: "image/png",
     });
