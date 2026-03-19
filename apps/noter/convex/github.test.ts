@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeRepositoryTreeUpdatePlan,
   normalizeGitHubRepositoryListItem,
+  readGitHubNextPageUrl,
   resolveAheadBehindBaseBranch,
 } from "./github";
 
@@ -39,6 +40,24 @@ describe("normalizeGitHubRepositoryListItem", () => {
       stargazers_count: 0,
       forks_count: 0,
     });
+  });
+});
+
+describe("readGitHubNextPageUrl", () => {
+  it("returns the next page URL from a GitHub Link header", () => {
+    expect(
+      readGitHubNextPageUrl(
+        '<https://api.github.com/user/repos?page=2>; rel="next", <https://api.github.com/user/repos?page=4>; rel="last"',
+      ),
+    ).toBe("https://api.github.com/user/repos?page=2");
+  });
+
+  it("returns null when there is no next page", () => {
+    expect(
+      readGitHubNextPageUrl(
+        '<https://api.github.com/user/repos?page=1>; rel="prev", <https://api.github.com/user/repos?page=4>; rel="last"',
+      ),
+    ).toBeNull();
   });
 });
 

@@ -14,6 +14,10 @@ import { useState } from "react";
 import { linkStyle } from "./styles";
 import type { FunctionReturnType } from "convex/server";
 import { isInIframe } from "@/authClient";
+import {
+  getFuzzyMatchIndices,
+  repositoryMatchesSearch,
+} from "@/lib/repositorySearch";
 
 type Repository = FunctionReturnType<
   typeof api.github.listRepositories
@@ -74,31 +78,12 @@ export function AddRepository() {
     matches: boolean;
     highlightedText: JSX.Element;
   } => {
-    if (!query.trim()) {
+    const matchedIndices = getFuzzyMatchIndices(query, target);
+    if (matchedIndices !== null && matchedIndices.length === 0) {
       return { matches: true, highlightedText: <span>{target}</span> };
     }
-
-    const searchChars = query.toLowerCase().replace(/\s+/g, "").split("");
-    const targetChars = target.toLowerCase().split("");
     const targetOriginal = target.split("");
-
-    const matchedIndices: number[] = [];
-    let searchIndex = 0;
-
-    for (
-      let i = 0;
-      i < targetChars.length && searchIndex < searchChars.length;
-      i++
-    ) {
-      if (targetChars[i] === searchChars[searchIndex]) {
-        matchedIndices.push(i);
-        searchIndex++;
-      }
-    }
-
-    const matches = searchIndex === searchChars.length;
-
-    if (!matches) {
+    if (matchedIndices === null) {
       return { matches: false, highlightedText: <span>{target}</span> };
     }
 
@@ -148,14 +133,7 @@ export function AddRepository() {
       return !isConnected;
     })
     .filter((repo: Repository) => {
-      if (!searchQuery.trim()) return true;
-
-      const repoName = repo.name;
-
-      // Search only repo name
-      const repoMatch = fuzzySearchWithHighlight(searchQuery, repoName).matches;
-
-      return repoMatch;
+      return repositoryMatchesSearch(searchQuery, repo);
     });
 
   return (
@@ -241,6 +219,10 @@ export function AddRepository() {
               const ownerName = repo.full_name.split("/")[0];
               const repoName = repo.name;
 
+              const ownerHighlight = fuzzySearchWithHighlight(
+                searchQuery,
+                ownerName,
+              );
               const repoHighlight = fuzzySearchWithHighlight(
                 searchQuery,
                 repoName,
@@ -257,7 +239,7 @@ export function AddRepository() {
                         <span
                           className={`text-sm text-muted-foreground ${linkStyle}`}
                         >
-                          {ownerName}/
+                          {ownerHighlight.highlightedText}/
                         </span>
                         <h3 className="font-semibold truncate">
                           <span className={linkStyle}>

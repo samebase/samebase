@@ -48,6 +48,33 @@ type CachedRepositoryBlob = {
   mime?: string | undefined;
 };
 
+export function readGitHubNextPageUrl(
+  linkHeader: string | null | undefined,
+): string | null {
+  if (typeof linkHeader !== "string" || linkHeader.trim().length === 0) {
+    return null;
+  }
+
+  for (const rawPart of linkHeader.split(",")) {
+    const part = rawPart.trim();
+    const segments = part.split(";").map((segment) => segment.trim());
+    const urlSegment = segments[0];
+    if (
+      !urlSegment ||
+      !urlSegment.startsWith("<") ||
+      !urlSegment.endsWith(">")
+    ) {
+      continue;
+    }
+    if (!segments.slice(1).includes('rel="next"')) {
+      continue;
+    }
+    return urlSegment.slice(1, -1);
+  }
+
+  return null;
+}
+
 export function normalizeGitHubRepositoryListItem(
   value: unknown,
 ): GitHubRepositoryListItem | null {
@@ -121,37 +148,43 @@ export const listRepositories = action({
     }
 
     const accessToken = githubConnection.auth.credential;
+    const repositoriesById = new Map<number, GitHubRepositoryListItem>();
+    let nextPageUrl: string | null =
+      "https://api.github.com/user/repos?sort=updated&per_page=100&affiliation=owner,collaborator,organization_member";
 
-    // Fetch repositories from GitHub API
-    const response = await fetch(
-      "https://api.github.com/user/repos?sort=updated&per_page=100",
-      {
+    while (nextPageUrl) {
+      const response = await fetch(nextPageUrl, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
+          Accept: "application/vnd.github+json",
           "User-Agent": "noter-App",
+          "X-GitHub-Api-Version": "2022-11-28",
         },
-      },
-    );
+      });
 
-    if (!response.ok) {
-      throw new Error(
-        `GitHub API error: ${response.status} ${response.statusText}`,
-      );
-    }
-
-    const reposRaw: unknown = await response.json();
-    if (!Array.isArray(reposRaw)) {
-      throw new Error("Unexpected GitHub API response format");
-    }
-
-    return reposRaw.map((repo) => {
-      const normalized = normalizeGitHubRepositoryListItem(repo);
-      if (normalized === null) {
-        throw new Error("Unexpected GitHub repository payload");
+      if (!response.ok) {
+        throw new Error(
+          `GitHub API error: ${response.status} ${response.statusText}`,
+        );
       }
 
-      return normalized;
-    });
+      const reposRaw: unknown = await response.json();
+      if (!Array.isArray(reposRaw)) {
+        throw new Error("Unexpected GitHub API response format");
+      }
+
+      for (const repo of reposRaw) {
+        const normalized = normalizeGitHubRepositoryListItem(repo);
+        if (normalized === null) {
+          throw new Error("Unexpected GitHub repository payload");
+        }
+        repositoriesById.set(normalized.id, normalized);
+      }
+
+      nextPageUrl = readGitHubNextPageUrl(response.headers.get("link"));
+    }
+
+    return Array.from(repositoriesById.values());
   },
 });
 
