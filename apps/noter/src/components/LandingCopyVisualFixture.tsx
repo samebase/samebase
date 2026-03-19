@@ -1,5 +1,5 @@
-import { LandingCopy } from "@/components/LandingCopy";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
+import { renderLandingCopyShellHtml } from "@/lib/landingCopyShell";
 
 export type LandingCopyVisualMode = "landing-copy-parity";
 
@@ -10,6 +10,14 @@ const LANDING_COPY_VISUAL_FIXTURE_MARKDOWN = `## noter can disappear tomorrow an
 - work from desktop or mobile without context switching
 - use Codex to ship small apps directly from your workspace`;
 
+function BootstrapLandingCopyShell({ markdown }: { markdown: string }) {
+  return (
+    <div
+      dangerouslySetInnerHTML={{ __html: renderLandingCopyShellHtml(markdown) }}
+    />
+  );
+}
+
 export function LandingCopyVisualFixture() {
   return (
     <div
@@ -19,14 +27,13 @@ export function LandingCopyVisualFixture() {
       <div className="mx-auto flex max-w-5xl items-start justify-center gap-12">
         <div className="space-y-3">
           <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            LandingCopy
+            Bootstrap
           </div>
           <div
             data-testid="landing-copy-tailwind"
             className="w-[384px] bg-background"
           >
-            <LandingCopy
-              className="text-sm"
+            <BootstrapLandingCopyShell
               markdown={LANDING_COPY_VISUAL_FIXTURE_MARKDOWN}
             />
           </div>

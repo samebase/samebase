@@ -1,36 +1,27 @@
-import { expect, test } from "@playwright/test";
+import { test } from "@playwright/test";
 import { expectScreenshotsToMatch, takeStableScreenshot } from "./visualDiff";
+import { PUBLIC_LANDING_COPY_TEST_ID } from "../src/lib/publicLanding";
 
-test("landing copy and prosemark render identically", async ({
+test("landing copy stays visually aligned across the shell handoff", async ({
   page,
 }, testInfo) => {
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/visual-fixture.html?mode=landing-copy-parity", {
-    waitUntil: "domcontentloaded",
+  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
+
+  const landingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);
+  await page.getByTestId("public-landing-shell").waitFor({ state: "visible" });
+
+  const shellScreenshot = await takeStableScreenshot(landingCopy);
+  await page.getByTestId("public-landing-shell").waitFor({
+    state: "detached",
+    timeout: 10_000,
   });
-  await page.waitForLoadState("networkidle");
-
-  const fixture = page.getByTestId("landing-copy-visual-fixture");
-  await expect(fixture).toHaveScreenshot("landing-copy-parity-fixture.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0.01,
-  });
-
-  const landingCopy = page.getByTestId("landing-copy-tailwind");
-  const prosemarkCopy = page.getByTestId("landing-copy-prosemark");
-
-  const [landingScreenshot, prosemarkScreenshot] = await Promise.all([
-    takeStableScreenshot(landingCopy),
-    takeStableScreenshot(prosemarkCopy),
-  ]);
+  const hydratedScreenshot = await takeStableScreenshot(landingCopy);
 
   await expectScreenshotsToMatch({
-    actual: landingScreenshot,
-    expected: prosemarkScreenshot,
-    artifactPrefix: "landing-copy-parity",
-    maxDiffPixelRatio: 0,
+    actual: hydratedScreenshot,
+    expected: shellScreenshot,
+    artifactPrefix: "landing-copy-handoff",
+    maxDiffPixelRatio: 0.001,
     testInfo,
   });
 });

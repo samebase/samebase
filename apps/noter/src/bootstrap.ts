@@ -17,7 +17,9 @@ import {
   PUBLIC_LANDING_LOGO_WIDTH,
 } from "@/lib/publicLandingLogo";
 import { FAST_LANDING_APP_BOOT_DELAY_MS } from "@/lib/fastLandingBoot";
-import { landingPageBullets, landingPageSlogan } from "@/lib/landingCopy";
+import { landingPageMarkdown } from "@/lib/landingCopy";
+import { PUBLIC_LANDING_COPY_TEST_ID } from "@/lib/publicLanding";
+import { renderLandingCopyShellHtml } from "@/lib/landingCopyShell";
 import { writePublicLandingWaitlistDraft } from "@/lib/publicLandingWaitlistDraft";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 
@@ -281,24 +283,8 @@ function renderFastLandingShell() {
                 ></div>
               </div>
             </div>
-            <div class="space-y-4 text-sm">
-              <div class="space-y-2">
-                <h1 class="text-pretty text-lg font-medium tracking-tight">${escapeHtml(
-                  landingPageSlogan,
-                )}</h1>
-              </div>
-              <ul class="space-y-2 text-muted-foreground">
-                ${landingPageBullets
-                  .map(
-                    (bullet) => `
-                      <li class="flex gap-2">
-                        <span aria-hidden="true" class="text-foreground">-</span>
-                        <span>${escapeHtml(bullet)}</span>
-                      </li>
-                    `,
-                  )
-                  .join("")}
-              </ul>
+            <div data-testid="${PUBLIC_LANDING_COPY_TEST_ID}">
+              ${renderLandingCopyShellHtml(landingPageMarkdown)}
             </div>
             <div class="flex flex-col gap-2">
               <button

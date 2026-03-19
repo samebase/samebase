@@ -182,14 +182,14 @@ test("prod-ui landing handoff stays visually aligned", async ({
 
   const shellScreenshot = await takeStableScreenshot(landingContent);
 
-  await expect(page.getByPlaceholder("email@example.com")).toBeEditable();
+  await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
   const hydratedScreenshot = await takeStableScreenshot(landingContent);
 
   await expectScreenshotsToMatch({
     actual: hydratedScreenshot,
     artifactPrefix: "public-landing-prod-ui-handoff",
     expected: shellScreenshot,
-    maxDiffPixelRatio: 0.01,
+    maxDiffPixelRatio: 0.001,
     testInfo,
   });
 });

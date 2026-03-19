@@ -76,9 +76,9 @@ export async function expectScreenshotsToMatch({
     expectedPng.height,
   );
   const diffPixelRatio = diffPixels / (expectedPng.width * expectedPng.height);
-  const weightedDiffPng = buildWeightedRedDiffPng(expectedPng, actualPng);
 
   if (diffPixelRatio > maxDiffPixelRatio) {
+    const weightedDiffPng = buildWeightedRedDiffPng(expectedPng, actualPng);
     await testInfo.attach(`${artifactPrefix}-expected`, {
       body: expected,
       contentType: "image/png",
