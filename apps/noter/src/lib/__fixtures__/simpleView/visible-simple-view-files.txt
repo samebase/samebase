@@ -20,6 +20,8 @@ apps/noter/public/favicon.png
 apps/noter/public/favicon.svg
 apps/noter/public/lumina_icon.png
 apps/noter/public/media-visual-fixture.svg
+apps/noter/public/robots.txt
+apps/noter/public/sitemap.xml
 CHAT_SPEC.md
 CONVEX_CODEGEN_CI.md
 docs/compliance/licenses-prod-2026-03-06.txt
@@ -52,6 +54,7 @@ manual-tests/worktree/WT-002-wt-001-local-and-worktree.md
 noter.md
 notes/chatgpt-frontend-frameworks-llms-convex-2026-03-14.md
 notes/daytona-volume-direct-mount-research-2026-03-16.md
+notes/noter-seo-research-2026-03-19.md
 README.md
 RECOVERED_IDEAS.md
 REFERENCES.md

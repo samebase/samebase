@@ -5,6 +5,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { BillingCycle } from "../../convex/dashboardSettings";
 import { Button } from "@/components/ui/button";
+import { PLAN_DISPLAY_PRICE, PLAN_FEATURES } from "@/lib/pricingContent";
 import {
   Card,
   CardContent,
@@ -13,37 +14,6 @@ import {
 } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
-
-type PaidPlan = "pro" | "team";
-
-const PLAN_DISPLAY_PRICE: Record<PaidPlan, Record<BillingCycle, string>> = {
-  pro: {
-    monthly: "$20/mo",
-    annual: "$200/yr",
-  },
-  team: {
-    monthly: "Coming soon",
-    annual: "Coming soon",
-  },
-};
-
-const PLAN_FEATURES = {
-  free: [
-    "Use your own GitHub, Convex, Netlify, and Cloudflare accounts",
-    "Bring your own AI usage and provider costs",
-    "No Noter-hosted agent compute included",
-  ],
-  pro: [
-    "Managed Noter experience",
-    "Priority for paid billing features",
-    "Credits-ready path when usage metering ships",
-  ],
-  team: [
-    "Shared credits and workspace controls",
-    "Centralized team billing",
-    "Planned for a later phase",
-  ],
-} as const;
 
 function readCheckoutState(): "success" | "cancel" | null {
   if (typeof window === "undefined") {

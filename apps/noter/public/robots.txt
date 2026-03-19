@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://noter.md/sitemap.xml

@@ -5,6 +5,11 @@ import {
   isLandingDevModeEnabled,
 } from "@/lib/landingDevMode";
 import {
+  APP_PAGE_METADATA,
+  applyPageMetadata,
+  resolveAppPageTitle,
+} from "@/lib/pageMetadata";
+import {
   PUBLIC_LANDING_LOGO_ALT,
   PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME,
   PUBLIC_LANDING_LOGO_HEIGHT,
@@ -353,7 +358,26 @@ function renderFastLandingShell() {
     ?.addEventListener("click", beginWaitlistInteraction);
 }
 
-if (isFastLandingRoute(window.location)) {
+function applyBootstrapPageMetadata(
+  location: Location,
+  fastLandingRoute: boolean,
+) {
+  if (fastLandingRoute) {
+    return;
+  }
+
+  applyPageMetadata({
+    ...APP_PAGE_METADATA,
+    canonicalPath: location.pathname,
+    title: resolveAppPageTitle(location.pathname),
+  });
+}
+
+const fastLandingRoute = isFastLandingRoute(window.location);
+
+applyBootstrapPageMetadata(window.location, fastLandingRoute);
+
+if (fastLandingRoute) {
   renderFastLandingShell();
   scheduleBackgroundAppLoad();
 } else {
