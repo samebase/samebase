@@ -83,6 +83,12 @@ import {
 } from "@/components/ApiKeyConnectDialog";
 import type { Id } from "../../convex/_generated/dataModel";
 import { buildVaultCodespaceChatRoute } from "@/lib/vaultRoutes";
+import {
+  PUBLIC_LANDING_LOGO_ALT,
+  PUBLIC_LANDING_LOGO_HEIGHT,
+  PUBLIC_LANDING_LOGO_SRC,
+  PUBLIC_LANDING_LOGO_WIDTH,
+} from "@/lib/publicLandingLogo";
 
 const formatInfraState = (
   infraState: "not_started" | "provisioning" | "ready" | "failed" | "partial",
@@ -1596,8 +1602,16 @@ export function VaultDashboard() {
             {userMenu}
           </div>
           <div className="text-center space-y-6">
-            <div className="mx-auto h-24 w-24 corner-notch-1 bg-muted flex items-center justify-center">
-              <GitHubLogoIcon className="h-12 w-12 text-muted-foreground" />
+            <div className="mx-auto w-full max-w-[8rem]">
+              <img
+                src={PUBLIC_LANDING_LOGO_SRC}
+                alt={PUBLIC_LANDING_LOGO_ALT}
+                width={PUBLIC_LANDING_LOGO_WIDTH}
+                height={PUBLIC_LANDING_LOGO_HEIGHT}
+                loading="eager"
+                decoding="async"
+                className="block h-auto w-full"
+              />
             </div>
 
             <div className="space-y-2">
