@@ -215,7 +215,7 @@ function StatusBadge({
   return (
     <a
       className={cn(
-        "inline-flex items-center gap-1 rounded-sm text-[11px] leading-none transition",
+        "inline-flex items-center gap-1 corner-notch-1 text-[11px] leading-none transition",
         "hover:underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
         style.text,
       )}

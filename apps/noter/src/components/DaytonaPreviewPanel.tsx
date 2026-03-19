@@ -192,7 +192,7 @@ export function DaytonaPreviewPanel({
   };
 
   return (
-    <div className={cn("rounded-md border bg-muted/5 p-3", className)}>
+    <div className={cn("corner-notch-1 border bg-muted/5 p-3", className)}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-xs text-muted-foreground">Daytona Preview</div>
         <div className="flex flex-wrap items-center gap-2">
@@ -232,7 +232,7 @@ export function DaytonaPreviewPanel({
         </div>
       </div>
 
-      <div className="mt-3 rounded-md border bg-muted/5 p-2">
+      <div className="mt-3 corner-notch-1 border bg-muted/5 p-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-xs text-muted-foreground">Dev Server</div>
           <div className="flex flex-wrap items-center gap-2">
@@ -282,12 +282,12 @@ export function DaytonaPreviewPanel({
           </div>
         )}
         {devStatus && (
-          <div className="mt-2 rounded-md border bg-background/70 p-2 text-xs">
+          <div className="mt-2 corner-notch-1 border bg-background/70 p-2 text-xs">
             <div className="mb-1 text-muted-foreground">Dev log</div>
             <textarea
               readOnly
               rows={8}
-              className="max-h-56 min-h-[120px] w-full resize-y overflow-auto whitespace-pre-wrap rounded border bg-background/70 p-2 text-xs"
+              className="max-h-56 min-h-[120px] w-full resize-y overflow-auto whitespace-pre-wrap corner-notch-1 border bg-background/70 p-2 text-xs"
               value={devStatus.logTail ?? "No output yet."}
             />
           </div>
@@ -295,7 +295,7 @@ export function DaytonaPreviewPanel({
       </div>
 
       {previewUrl ? (
-        <div className="mt-3 overflow-hidden rounded-md border bg-white">
+        <div className="mt-3 overflow-hidden corner-notch-1 border bg-white">
           <iframe
             title="Daytona Preview"
             src={previewUrl}

@@ -51,7 +51,7 @@ export function RepositoryMediaPreviewPanel({
           data-testid={`${testId}-image`}
           src={asset.url}
           alt={asset.fileName || fallbackLabel}
-          className="max-h-full max-w-full rounded-lg border bg-background object-contain shadow-sm"
+          className="max-h-full max-w-full border bg-background object-contain shadow-sm"
         />
       </div>
     </div>
@@ -134,7 +134,7 @@ export function RepositoryMediaViewer({
   if (error) {
     return (
       <div className="flex h-full min-h-[400px] items-center justify-center p-6">
-        <div className="rounded-lg border bg-background px-4 py-3 text-sm text-muted-foreground">
+        <div className="corner-notch-1 border bg-background px-4 py-3 text-sm text-muted-foreground">
           {error}
         </div>
       </div>
@@ -148,7 +148,7 @@ export function RepositoryMediaViewer({
 
     return (
       <div className="flex h-full min-h-[400px] items-center justify-center p-6">
-        <div className="rounded-lg border bg-background px-4 py-3 text-sm text-muted-foreground">
+        <div className="corner-notch-1 border bg-background px-4 py-3 text-sm text-muted-foreground">
           {asset.message}
         </div>
       </div>

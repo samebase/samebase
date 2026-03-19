@@ -198,7 +198,7 @@ export function CodespaceIframe({
     <div
       className={cn(
         "relative h-full w-full overflow-hidden border bg-background",
-        kioskMode ? "border-0 rounded-ui" : "rounded-lg",
+        kioskMode ? "border-0 corner-notch-1" : "corner-notch-1",
         className,
       )}
     >

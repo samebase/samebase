@@ -163,7 +163,7 @@ function ColorOptionContent({
 }) {
   return (
     <div
-      className="flex items-center gap-2 rounded-sm border px-2 py-1"
+      className="flex items-center gap-2 corner-notch-1 border px-2 py-1"
       style={{
         backgroundColor: `${color}18`,
         borderColor: `${color}40`,

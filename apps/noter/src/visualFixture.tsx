@@ -14,6 +14,7 @@ import {
   SimpleViewVisualFixture,
   type SimpleViewVisualMode,
 } from "@/components/SimpleViewVisualFixture";
+import { CornerNotchVisualFixture } from "@/components/CornerNotchVisualFixture";
 import {
   LogoThreeVisualFixture,
   type LogoThreeVisualMode,
@@ -29,7 +30,8 @@ type VisualFixtureMode =
   | LandingCopyVisualMode
   | LogoThreeVisualMode
   | RepositoryMediaVisualMode
-  | SimpleViewVisualMode;
+  | SimpleViewVisualMode
+  | "corner-notch";
 
 function readMode(): VisualFixtureMode {
   const value = new URLSearchParams(window.location.search).get("mode");
@@ -45,7 +47,8 @@ function readMode(): VisualFixtureMode {
     value === "media-svg" ||
     value === "landing-copy-parity" ||
     value === "simple-repository-config" ||
-    value === "simple-missing-config"
+    value === "simple-missing-config" ||
+    value === "corner-notch"
   ) {
     return value;
   }
@@ -67,6 +70,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         ) : mode === "simple-repository-config" ||
           mode === "simple-missing-config" ? (
           <SimpleViewVisualFixture mode={mode} />
+        ) : mode === "corner-notch" ? (
+          <CornerNotchVisualFixture />
         ) : (
           <CommitReviewVisualFixture mode={mode} />
         )}

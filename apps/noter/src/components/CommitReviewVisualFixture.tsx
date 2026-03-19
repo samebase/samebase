@@ -185,7 +185,7 @@ function renderPatchLines(patch: string) {
   return patch.split("\n").map((line, index) => (
     <div
       key={`${index}:${line}`}
-      className={`whitespace-pre-wrap rounded-sm px-1 ${getPatchLineClassName(line)}`}
+      className={`whitespace-pre-wrap corner-notch-1 px-1 ${getPatchLineClassName(line)}`}
     >
       {line.length > 0 ? line : " "}
     </div>
@@ -257,7 +257,7 @@ export function CommitReviewVisualFixture({
       className="h-screen w-screen overflow-hidden bg-background p-4 text-foreground"
     >
       <div className="grid h-full grid-cols-[240px_minmax(0,1fr)] gap-4">
-        <aside className="overflow-hidden rounded border">
+        <aside className="overflow-hidden corner-notch-1 border">
           <div className="border-b px-3 py-2 text-xs text-muted-foreground">
             Sidebar
           </div>

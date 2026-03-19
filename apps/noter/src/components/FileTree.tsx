@@ -267,7 +267,7 @@ function TreeNodeComponent({
             <TooltipTrigger asChild>
               <div
                 className={cn(
-                  "flex items-center gap-2 py-3 px-3 md:py-1 md:px-2 text-base md:text-sm cursor-pointer hover:bg-muted/30 rounded-ui",
+                  "flex items-center gap-2 py-3 px-3 md:py-1 md:px-2 text-base md:text-sm cursor-pointer hover:bg-muted/30 corner-notch-1",
                   isSelected &&
                     "bg-primary/15 hover:bg-primary/20 ring-1 ring-inset ring-primary/40",
                   "transition-colors",
@@ -292,7 +292,7 @@ function TreeNodeComponent({
 
                 {node.type === "tree" ? (
                   <div className="h-4 w-4 md:h-3 md:w-3 flex items-center justify-center">
-                    <div className="h-3 w-3 md:h-2 md:w-2 bg-muted-foreground/30 rounded-sm" />
+                    <div className="h-3 w-3 md:h-2 md:w-2 bg-muted-foreground/30 corner-notch-1" />
                   </div>
                 ) : (
                   <FileIcon
@@ -313,7 +313,7 @@ function TreeNodeComponent({
                     onKeyDown={handleRenameKeyDown}
                     onClick={(e) => e.stopPropagation()}
                     onMouseDown={(e) => e.stopPropagation()}
-                    className="flex-1 bg-background border border-border rounded px-1 text-xs"
+                    className="flex-1 bg-background border border-border corner-notch-1 px-1 text-xs"
                     autoFocus
                   />
                 ) : (
@@ -376,7 +376,7 @@ function TreeNodeComponent({
             onClick={() => setContextMenu(null)}
           />
           <div
-            className="fixed z-20 bg-background border border-border rounded shadow-lg py-1 min-w-32"
+            className="fixed z-20 bg-background border border-border corner-notch-1 shadow-lg py-1 min-w-32"
             style={{ left: contextMenu.x, top: contextMenu.y }}
           >
             {isFolder && (

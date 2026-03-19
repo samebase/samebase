@@ -354,7 +354,7 @@ function VaultBranchLinkRow({
           <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground/70 line-through">
             {branchName}
           </span>
-          <span className="shrink-0 rounded border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground/80">
+          <span className="shrink-0 corner-notch-1 border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground/80">
             deleted upstream
           </span>
         </div>
@@ -515,7 +515,7 @@ function VaultBranchList({
   );
 
   return (
-    <div className="overflow-hidden rounded-md border border-border/60 bg-muted/20">
+    <div className="overflow-hidden corner-notch-1 border border-border/60 bg-muted/20">
       {remoteBranches.map((branch) => (
         <VaultBranchListRow
           key={branch.name}
@@ -1447,7 +1447,7 @@ export function VaultDashboard() {
   };
 
   const connectionPanel = (
-    <div className="rounded-lg border border-border bg-background p-4">
+    <div className="corner-notch-1 border border-border bg-background p-4">
       <Collapsible
         className="space-y-3"
         open={resolvedProvidersPanelOpen}
@@ -1596,7 +1596,7 @@ export function VaultDashboard() {
             {userMenu}
           </div>
           <div className="text-center space-y-6">
-            <div className="mx-auto h-24 w-24 rounded-ui bg-muted flex items-center justify-center">
+            <div className="mx-auto h-24 w-24 corner-notch-1 bg-muted flex items-center justify-center">
               <GitHubLogoIcon className="h-12 w-12 text-muted-foreground" />
             </div>
 
@@ -1672,7 +1672,7 @@ export function VaultDashboard() {
               <div
                 key={vault._id}
                 className={clsx(
-                  "relative rounded-lg border p-4",
+                  "relative corner-notch-1 border p-4",
                   !isReady && "bg-muted/30 opacity-75",
                 )}
               >

@@ -250,7 +250,7 @@ function AgentNode({ data, id, width, height }: NodeProps<AgentGraphNode>) {
 
   return (
     <div
-      className="relative flex h-full w-full flex-col rounded-lg border border-border/70 bg-background p-2 shadow-sm nowheel nopan"
+      className="relative h-full w-full nowheel nopan"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -350,80 +350,82 @@ function AgentNode({ data, id, width, height }: NodeProps<AgentGraphNode>) {
         position={Position.Right}
         className="h-2 w-2 rounded-ui border border-background bg-foreground/70"
       />
-      <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
-        <span className="text-[11px] font-semibold tracking-wide text-muted-foreground">
-          {headerLabel}
-        </span>
-      </div>
-      <div className="border-b border-border/60 px-3 py-2">
-        <button
-          type="button"
-          onClick={() => graphContext?.onOpenFile(data.path)}
-          className="text-left text-sm font-semibold text-foreground hover:underline"
-        >
-          {data.label}
-        </button>
-        <div className="mt-1 text-xs text-muted-foreground">{subtitle}</div>
-      </div>
-      {isAgent && (
-        <>
-          <div className="border-b border-border/60 px-3 py-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold tracking-wide text-muted-foreground">
-                INSTRUCTIONS
-              </span>
-              <button
-                type="button"
-                onClick={() => graphContext?.onOpenFile(data.path)}
-                className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
-              >
-                Edit
-              </button>
-            </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              Uses {data.label} as the system prompt for this agent.
-            </div>
-          </div>
-          <div className="flex min-h-0 flex-1 flex-col px-3 py-2">
-            {messages.length > 0 && (
-              <div className="mb-2 min-h-[2.5rem] flex-1 space-y-2 overflow-y-auto pr-1 text-xs nowheel nopan">
-                {messages.map((message, index) => (
-                  <div
-                    key={`${message.role}-${index}`}
-                    className={
-                      message.role === "assistant"
-                        ? "rounded-md bg-muted/70 px-2 py-1 text-muted-foreground"
-                        : "rounded-md border border-border/70 px-2 py-1 text-foreground"
-                    }
-                  >
-                    <div className="font-medium">
-                      {message.role === "assistant" ? "Agent" : "You"}
-                    </div>
-                    <ProsemarkReadOnly
-                      value={message.content}
-                      className="text-xs"
-                    />
-                  </div>
-                ))}
+      <div className="corner-notch-1 flex h-full w-full flex-col border border-border/70 bg-background p-2 shadow-sm">
+        <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
+          <span className="text-[11px] font-semibold tracking-wide text-muted-foreground">
+            {headerLabel}
+          </span>
+        </div>
+        <div className="border-b border-border/60 px-3 py-2">
+          <button
+            type="button"
+            onClick={() => graphContext?.onOpenFile(data.path)}
+            className="text-left text-sm font-semibold text-foreground hover:underline"
+          >
+            {data.label}
+          </button>
+          <div className="mt-1 text-xs text-muted-foreground">{subtitle}</div>
+        </div>
+        {isAgent && (
+          <>
+            <div className="border-b border-border/60 px-3 py-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold tracking-wide text-muted-foreground">
+                  INSTRUCTIONS
+                </span>
+                <button
+                  type="button"
+                  onClick={() => graphContext?.onOpenFile(data.path)}
+                  className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                >
+                  Edit
+                </button>
               </div>
-            )}
-            <ChatInput
-              value={input}
-              onValueChange={setInput}
-              onSend={() => void handleSend()}
-              disabled={isDisabled}
-              mode="prosemark"
-              rows={2}
-              className="nowheel nopan"
-              textareaClassName="min-h-[2.75rem] text-xs"
-              sendButtonClassName="h-7 w-7"
-            />
-            {error && (
-              <div className="mt-1 text-[11px] text-red-600">{error}</div>
-            )}
-          </div>
-        </>
-      )}
+              <div className="mt-1 text-xs text-muted-foreground">
+                Uses {data.label} as the system prompt for this agent.
+              </div>
+            </div>
+            <div className="flex min-h-0 flex-1 flex-col px-3 py-2">
+              {messages.length > 0 && (
+                <div className="mb-2 min-h-[2.5rem] flex-1 space-y-2 overflow-y-auto pr-1 text-xs nowheel nopan">
+                  {messages.map((message, index) => (
+                    <div
+                      key={`${message.role}-${index}`}
+                      className={
+                        message.role === "assistant"
+                          ? "corner-notch-1 bg-muted/70 px-2 py-1 text-muted-foreground"
+                          : "corner-notch-1 border border-border/70 px-2 py-1 text-foreground"
+                      }
+                    >
+                      <div className="font-medium">
+                        {message.role === "assistant" ? "Agent" : "You"}
+                      </div>
+                      <ProsemarkReadOnly
+                        value={message.content}
+                        className="text-xs"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+              <ChatInput
+                value={input}
+                onValueChange={setInput}
+                onSend={() => void handleSend()}
+                disabled={isDisabled}
+                mode="prosemark"
+                rows={2}
+                className="nowheel nopan"
+                textareaClassName="min-h-[2.75rem] text-xs"
+                sendButtonClassName="h-7 w-7"
+              />
+              {error && (
+                <div className="mt-1 text-[11px] text-red-600">{error}</div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -614,8 +616,8 @@ export function AgentGraphView({
   );
 
   return (
-    <div className="relative h-full w-full rounded-md border border-border/50">
-      <div className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-1 rounded-md bg-background/80 px-2 py-1 text-[11px] text-muted-foreground shadow-sm">
+    <div className="relative h-full w-full corner-notch-1 border border-border/50">
+      <div className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-1 corner-notch-1 bg-background/80 px-2 py-1 text-[11px] text-muted-foreground shadow-sm">
         <span>Zoom:</span>
         <KbdGroup>
           <Kbd>Cmd</Kbd>

@@ -244,7 +244,7 @@ function McpConsentView({ requestId }: { requestId: string }) {
           </p>
         </div>
 
-        <div className="rounded-md border p-4 space-y-3 text-sm">
+        <div className="corner-notch-1 border p-4 space-y-3 text-sm">
           <div>
             <div className="font-medium">Client</div>
             <div className="text-muted-foreground">{clientName}</div>

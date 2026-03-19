@@ -70,7 +70,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <a
               href={landingDevToggleHref}
               onClick={handleLandingDevToggleClick}
-              className="inline-flex min-w-[3ch] items-center justify-center rounded px-1 hover:text-foreground transition-colors"
+              className="inline-flex min-w-[3ch] items-center justify-center corner-notch-1 px-1 hover:text-foreground transition-colors"
             >
               {landingDevToggleLabel}
             </a>
