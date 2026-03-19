@@ -6,9 +6,9 @@
 - Owner: Noter platform
 - Last updated: 2026-02-18
 - Related specs:
-- `/Users/nicu/dev/my/noter/specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-- `/Users/nicu/dev/my/noter/specs/006_DNS_DOMAIN_STRATEGY_SPEC.md`
-- `/Users/nicu/dev/my/noter/specs/015_BYO_CONVEX_OAUTH_AND_WORKTREE_PROVISIONING_SPEC.md`
+  - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/006_DNS_DOMAIN_STRATEGY_SPEC.md`
+  - `specs/015_BYO_CONVEX_OAUTH_AND_WORKTREE_PROVISIONING_SPEC.md`
 
 ## Summary
 
@@ -26,7 +26,7 @@ Note: Cloudflare Pages is now a planned pilot option using Cloudflare MCP OAuth
 provider connections. See:
 
 - `specs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
-- `specs/032_CLOUDFLARE_HOSTING_PILOT_SPEC.md`
+- `rfcs/032_CLOUDFLARE_HOSTING_PILOT_SPEC.md`
 
 ## Goals
 
