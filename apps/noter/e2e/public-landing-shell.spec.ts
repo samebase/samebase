@@ -249,7 +249,7 @@ test("prod-ui landing logo becomes draggable after the SVG fallback is removed",
   const viewBeforeDrag = await readLandingLogoSceneView(landingLogoScene);
   expect(viewBeforeDrag).toEqual({
     elevationDegrees: "35.264",
-    rotationDegrees: "0.000",
+    rotationDegrees: "45.000",
   });
 
   const canvasBounds = await landingLogoCanvas.boundingBox();

@@ -125,13 +125,13 @@ test.describe("logo view snapping parity", () => {
     await expect.poll(() => page.url()).not.toContain("elev=359.1");
     expect(await readLogoViewState(snappedScene)).toEqual({
       elevationDegrees: "0",
-      rotationDegrees: "0",
+      rotationDegrees: "45",
     });
 
     const freeScene = await loadLogoRoute(page, "/logo?freeView&elev=359.1");
     expect(await readLogoViewState(freeScene)).toEqual({
       elevationDegrees: "359.1",
-      rotationDegrees: "0",
+      rotationDegrees: "45",
     });
   });
 });

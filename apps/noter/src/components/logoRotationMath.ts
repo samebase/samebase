@@ -1,3 +1,8 @@
+import {
+  FAVICON_ROTATION_DEGREES,
+  normalizeRotationDegrees,
+} from "./logoVoxelState";
+
 const ORBIT_RIGHT_AXIS = normalizeVector([1, 0, -1]);
 const WORLD_UP_AXIS = [0, 1, 0] as const;
 
@@ -86,6 +91,11 @@ export function getLogoRotationAxis(args: {
   return WORLD_UP_AXIS;
 }
 
+// User-facing 45deg matches the historic/favicon diagonal view.
+export function toRenderedRotationDegrees(rotationDegrees: number): number {
+  return normalizeRotationDegrees(rotationDegrees - FAVICON_ROTATION_DEGREES);
+}
+
 export function getCameraLocalVector(args: {
   elevationDegrees: number;
   rotationAxisMode: LogoRotationAxisMode;
@@ -97,6 +107,6 @@ export function getCameraLocalVector(args: {
       elevationDegrees: args.elevationDegrees,
       mode: args.rotationAxisMode,
     }),
-    -args.rotationDegrees,
+    -toRenderedRotationDegrees(args.rotationDegrees),
   );
 }

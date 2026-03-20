@@ -1,4 +1,5 @@
 import {
+  FAVICON_ROTATION_DEGREES,
   createFilledVoxelSet,
   serializeVoxelState,
   type VoxelCoordinate,
@@ -23,7 +24,7 @@ export const STATIC_LOGO_VOXEL_COORDINATES = [
 
 export const STATIC_LOGO_BACKGROUND_COLOR = "transparent";
 export const STATIC_LOGO_ELEVATION_DEGREES = 35.26438968;
-export const STATIC_LOGO_ROTATION_DEGREES = 0;
+export const STATIC_LOGO_ROTATION_DEGREES = FAVICON_ROTATION_DEGREES;
 export const DEFAULT_STATIC_LOGO_SVG_URL = "/logo-static.svg";
 
 export const STATIC_LOGO_VOXEL_STATE = serializeVoxelState(

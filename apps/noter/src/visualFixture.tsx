@@ -24,11 +24,16 @@ import {
   type LandingCopyVisualMode,
 } from "@/components/LandingCopyVisualFixture";
 import { CornerNotchDetailVisualFixture } from "@/components/CornerNotchDetailVisualFixture";
+import {
+  LogoSnapAnglesVisualFixture,
+  type LogoSnapAnglesVisualMode,
+} from "@/components/LogoSnapAnglesVisualFixture";
 import "./index.css";
 
 type VisualFixtureMode =
   | CommitReviewVisualMode
   | LandingCopyVisualMode
+  | LogoSnapAnglesVisualMode
   | LogoThreeVisualMode
   | RepositoryMediaVisualMode
   | SimpleViewVisualMode
@@ -54,6 +59,7 @@ function readMode(): VisualFixtureMode {
     value === "simple-repository-config" ||
     value === "simple-missing-config" ||
     value === "corner-notch" ||
+    value === "logo-snap-angles" ||
     value === "corner-notch-detail"
   ) {
     return value;
@@ -76,6 +82,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <LandingCopyVisualFixture mode={mode} />
         ) : mode === "logo-three-reference" ? (
           <LogoThreeVisualFixture />
+        ) : mode === "logo-snap-angles" ? (
+          <LogoSnapAnglesVisualFixture />
         ) : mode === "simple-repository-config" ||
           mode === "simple-missing-config" ? (
           <SimpleViewVisualFixture mode={mode} />

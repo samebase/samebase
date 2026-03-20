@@ -1,4 +1,5 @@
 import { LOGO_THREE_SVG_VIEWBOX_SIZE } from "./logoStaticSvgContract";
+import { toRenderedRotationDegrees } from "./logoRotationMath";
 import { getTailwindColorHex, type FaceColors } from "./logoTailwindColors";
 import {
   DEFAULT_ELEVATION_DEGREES,
@@ -389,7 +390,8 @@ export function createLogoThreeSvgMarkup({
   viewBoxSize?: number;
 }): string {
   const { cameraDirection, right, up } = getCameraBasis(elevationDegrees);
-  const rotationRadians = (rotationDegrees * Math.PI) / 180;
+  const rotationRadians =
+    (toRenderedRotationDegrees(rotationDegrees) * Math.PI) / 180;
   const rotatedQuads = buildSurfaceQuads(faceColors, filledVoxels)
     .map((quad) => {
       const normal = rotateVectorY(quad.normal, rotationRadians);

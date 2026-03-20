@@ -14,16 +14,15 @@ export const PUBLIC_LANDING_LOGO_WIDTH = 360;
 export const PUBLIC_LANDING_LOGO_VIEW_STEP_DEGREES = 1;
 export const PUBLIC_LANDING_LOGO_VIEW_SNAP_THRESHOLD_DEGREES = 2;
 export const PUBLIC_LANDING_LOGO_ROTATION_SNAP_DEGREES = Array.from(
-  { length: 24 },
-  (_, index) => index * 15,
+  { length: 8 },
+  (_, index) => index * 45,
 );
 export const PUBLIC_LANDING_LOGO_ELEVATION_SNAP_DEGREES = [
-  ...PUBLIC_LANDING_LOGO_ROTATION_SNAP_DEGREES,
+  0,
   STATIC_LOGO_ELEVATION_DEGREES,
   180 - STATIC_LOGO_ELEVATION_DEGREES,
-  180 + STATIC_LOGO_ELEVATION_DEGREES,
-  360 - STATIC_LOGO_ELEVATION_DEGREES,
-].sort((left, right) => left - right);
+  90,
+] as const satisfies readonly number[];
 export const PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG: LogoViewDragConfig = {
   elevationStepDegrees: PUBLIC_LANDING_LOGO_VIEW_STEP_DEGREES,
   rotationStepDegrees: PUBLIC_LANDING_LOGO_VIEW_STEP_DEGREES,

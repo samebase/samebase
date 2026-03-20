@@ -51,6 +51,17 @@ describe("resolveDraggedAngleDegrees", () => {
     ).toBe(0);
   });
 
+  it("snaps to the nearest 45-degree rotation target", () => {
+    expect(
+      resolveDraggedAngleDegrees({
+        snapDegrees: [0, 45, 90],
+        snapThresholdDegrees: 2,
+        stepDegrees: 1,
+        value: 43.6,
+      }),
+    ).toBe(45);
+  });
+
   it("lets modifier keys bypass snapping while keeping whole-degree movement", () => {
     expect(
       resolveDraggedAngleDegrees({
@@ -76,7 +87,7 @@ describe("resolveLogoViewState", () => {
       }),
     ).toEqual({
       elevationDegrees: 0,
-      rotationDegrees: 15,
+      rotationDegrees: 14,
     });
   });
 

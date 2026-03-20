@@ -6,6 +6,7 @@ import {
   getLogoRotationAxis,
   getWorldCameraVector,
   getWorldScreenVerticalAxis,
+  toRenderedRotationDegrees,
   type LogoRotationAxisMode,
 } from "@/components/logoRotationMath";
 import { getShuffleOriginCandidates } from "@/components/logoShuffleRules";
@@ -1003,7 +1004,9 @@ export function NLogoScene({
       rotationAxisVector.set(axisX, axisY, axisZ);
       logoGroup.quaternion.setFromAxisAngle(
         rotationAxisVector,
-        THREE.MathUtils.degToRad(rotationDegreesRef.current),
+        THREE.MathUtils.degToRad(
+          toRenderedRotationDegrees(rotationDegreesRef.current),
+        ),
       );
     };
 
