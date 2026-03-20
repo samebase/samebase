@@ -8,6 +8,7 @@ import {
   PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ELEVATION_SNAP_DEGREES,
   PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ROTATION_SNAP_DEGREES,
 } from "@/lib/publicLandingLogo";
+import { useState } from "react";
 
 export type LogoSnapAnglesVisualMode = "logo-snap-angles";
 
@@ -35,6 +36,7 @@ function readAngleParam(name: string, fallback: number): number {
 
 export function LogoSnapAnglesVisualFixture() {
   const backgroundColor = getTailwindColorHex("gray-400");
+  const [isRenderReady, setIsRenderReady] = useState(false);
   const rotationDegrees = readAngleParam(
     "rotation",
     PUBLIC_LANDING_LOGO_ORTHOGRAPHIC_ROTATION_SNAP_DEGREES[0],
@@ -61,6 +63,7 @@ export function LogoSnapAnglesVisualFixture() {
 
         <div
           data-testid="logo-snap-angle-cell"
+          data-render-ready={isRenderReady ? "true" : "false"}
           className="border border-slate-300"
           style={{
             backgroundColor,
@@ -75,6 +78,9 @@ export function LogoSnapAnglesVisualFixture() {
             elevationDegrees={elevationDegrees}
             faceColors={DEFAULT_FACE_COLORS}
             opacity={1}
+            onRenderReady={() => {
+              setIsRenderReady(true);
+            }}
             onViewChange={() => {}}
             onVoxelEdit={() => {}}
             rotationDegrees={rotationDegrees}

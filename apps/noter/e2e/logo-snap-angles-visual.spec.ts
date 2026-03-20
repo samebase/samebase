@@ -86,8 +86,7 @@ async function captureLogoSnapCellScreenshot(
 
   const cell = page.getByTestId("logo-snap-angle-cell");
   await expect(cell).toBeVisible();
-
-  await page.waitForTimeout(150);
+  await expect(cell).toHaveAttribute("data-render-ready", "true");
   const screenshot = await takeStableScreenshot(cell);
   return screenshot.toString("base64");
 }
@@ -295,7 +294,7 @@ test("logo snap angle matrix visual fixture", async ({ page }, testInfo) => {
   const actualScreenshot = await takeStableScreenshot(fixture);
   const snapshotPath = `${SNAPSHOT_DIRECTORY_PATH}${SNAPSHOT_NAME}`;
 
-  if (!existsSync(snapshotPath) || testInfo.config.updateSnapshots !== "none") {
+  if (!existsSync(snapshotPath) || testInfo.config.updateSnapshots === "all") {
     writeFileSync(snapshotPath, actualScreenshot);
   }
 
