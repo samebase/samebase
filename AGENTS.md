@@ -450,6 +450,12 @@ Auth:
   interpretations remain.
 - For this operator, keep responses concise by default and always include a
   final `Summary` section.
+- For this operator, default to additive minimalism in copy and visuals: start
+  from an empty canvas, add only what is clearly needed for the current goal,
+  and avoid filler copy or decorative chrome unless explicitly requested.
+- For this operator, do not add decorative lines, frames, borders, shadows,
+  extra buttons, nav, pricing blocks, or similar embellishments by default. If
+  something is not clearly missing, leave it out.
 - Assume Cloudflare is the default front door, proxy, routing layer, and
   observability layer for `noter.md` unless the user explicitly says otherwise.
 - Prefer keeping application server logic in Convex by default; introduce a

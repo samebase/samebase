@@ -6,85 +6,14 @@
   role="img"
   aria-labelledby="title desc"
 >
-  <title id="title">Noter social card</title>
+  <title id="title">noter.md social card</title>
   <desc id="desc">
-    Noter logo with the text GitHub-backed workspace for AI agents.
+    noter.md logo and the text GitHub-backed workspace for AI agents.
   </desc>
-  <defs>
-    <linearGradient
-      id="bg"
-      x1="160"
-      y1="40"
-      x2="1080"
-      y2="630"
-      gradientUnits="userSpaceOnUse"
-    >
-      <stop offset="0" stop-color="#13181b" />
-      <stop offset="1" stop-color="#20282a" />
-    </linearGradient>
-    <radialGradient
-      id="glow"
-      cx="0"
-      cy="0"
-      r="1"
-      gradientTransform="translate(318 304) rotate(90) scale(248 248)"
-      gradientUnits="userSpaceOnUse"
-    >
-      <stop offset="0" stop-color="#ecfccb" stop-opacity="0.22" />
-      <stop offset="1" stop-color="#ecfccb" stop-opacity="0" />
-    </radialGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow
-        dx="0"
-        dy="18"
-        stdDeviation="20"
-        flood-color="#0b0e10"
-        flood-opacity="0.28"
-      />
-    </filter>
-    <filter id="panel-shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow
-        dx="0"
-        dy="20"
-        stdDeviation="24"
-        flood-color="#0b0e10"
-        flood-opacity="0.2"
-      />
-    </filter>
-  </defs>
 
-  <rect width="1200" height="630" fill="url(#bg)" />
-  <rect x="0" y="0" width="1200" height="630" fill="url(#glow)" />
+  <rect width="1200" height="630" fill="#ffffff" />
 
-  <g opacity="0.18">
-    <path d="M0 104H1200" stroke="#ecfccb" stroke-width="1" />
-    <path d="M0 526H1200" stroke="#ecfccb" stroke-width="1" />
-    <path d="M104 0V630" stroke="#ecfccb" stroke-width="1" />
-    <path d="M1096 0V630" stroke="#ecfccb" stroke-width="1" />
-  </g>
-
-  <rect
-    x="92"
-    y="135"
-    width="372"
-    height="372"
-    fill="#f8fbef"
-    stroke="#dbe9c1"
-    stroke-width="2"
-    filter="url(#panel-shadow)"
-  />
-  <rect
-    x="116"
-    y="159"
-    width="324"
-    height="324"
-    fill="none"
-    stroke="#e7f3cf"
-    stroke-width="1.5"
-    opacity="0.65"
-  />
-
-  <g transform="translate(98 141) scale(1.00556)" filter="url(#shadow)">
+  <g transform="translate(120 155) scale(0.888889)">
     <polygon
       points="127.857400,89.686368 180.000000,119.790912 232.142600,89.686368 180.000000,59.581824"
       fill="#ffffff"
@@ -375,65 +304,26 @@
     />
   </g>
 
-  <g fill="#ecfccb" opacity="0.84">
-    <rect x="532" y="160" width="120" height="8" />
-    <rect x="1066" y="160" width="42" height="8" />
-  </g>
-
   <text
-    x="532"
-    y="260"
-    fill="#ffffff"
+    x="560"
+    y="292"
+    fill="#394447"
     font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-    font-size="88"
-    font-weight="680"
+    font-size="96"
+    font-weight="650"
     letter-spacing="-2"
   >
-    Noter
+    noter.md
   </text>
   <text
-    x="532"
-    y="328"
-    fill="#ecfccb"
+    x="560"
+    y="356"
+    fill="#394447"
     font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
     font-size="34"
-    font-weight="560"
-    letter-spacing="-0.5"
+    font-weight="430"
+    letter-spacing="-0.4"
   >
     GitHub-backed workspace for AI agents
   </text>
-  <text
-    x="532"
-    y="392"
-    fill="#d7e3d3"
-    font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-    font-size="24"
-    font-weight="420"
-  >
-    Real-time collaboration for code, notes, and live agent work
-  </text>
-  <text
-    x="532"
-    y="428"
-    fill="#d7e3d3"
-    font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-    font-size="24"
-    font-weight="420"
-  >
-    backed by a real GitHub repository.
-  </text>
-
-  <g opacity="0.6">
-    <rect x="532" y="484" width="576" height="1" fill="#465558" />
-    <text
-      x="532"
-      y="526"
-      fill="#ffffff"
-      font-family="ui-monospace, 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', monospace"
-      font-size="22"
-      letter-spacing="1"
-    >
-      noter.md
-    </text>
-  </g>
 </svg>
