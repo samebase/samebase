@@ -1,6 +1,7 @@
 # Noter Starter Template
 
-This project is the seeded baseline for newly created noter-managed repositories.
+This project is the seeded baseline for newly created noter-managed
+repositories.
 
 ## Stack
 
@@ -23,13 +24,3 @@ pnpm run lint
 ```bash
 pnpm run template:export
 ```
-
-## Netlify Production Build
-
-`netlify.toml` uses Convex deploy as a build wrapper:
-
-```bash
-pnpm exec convex deploy --cmd 'pnpm run build:frontend'
-```
-
-This keeps backend and frontend deploys in sync in a single build.

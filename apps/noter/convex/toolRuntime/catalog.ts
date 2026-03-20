@@ -65,7 +65,7 @@ const requestConvexProjectsReadInputSchema = z.object({
     "In owner mode, allow explicit raw payload fallback",
   ),
 });
-const requestNetlifyLogsReadInputSchema = z.object({
+const requestCloudflareLogsReadInputSchema = z.object({
   maxEntries: z
     .number()
     .int()
@@ -73,18 +73,6 @@ const requestNetlifyLogsReadInputSchema = z.object({
     .max(50)
     .optional()
     .describe("Maximum deployment entries to include"),
-  allowRawFallback: prodReadAllowRawFallbackSchema.describe(
-    "In owner mode, allow explicit raw payload fallback",
-  ),
-});
-const requestNetlifyProjectsReadInputSchema = z.object({
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(100)
-    .optional()
-    .describe("Maximum projects to include"),
   allowRawFallback: prodReadAllowRawFallbackSchema.describe(
     "In owner mode, allow explicit raw payload fallback",
   ),
@@ -291,12 +279,8 @@ export const requestConvexProjectsReadToolInputSchema = zodToToolInputSchema(
   requestConvexProjectsReadInputSchema,
 );
 
-export const requestNetlifyLogsReadToolInputSchema = zodToToolInputSchema(
-  requestNetlifyLogsReadInputSchema,
-);
-
-export const requestNetlifyProjectsReadToolInputSchema = zodToToolInputSchema(
-  requestNetlifyProjectsReadInputSchema,
+export const requestCloudflareLogsReadToolInputSchema = zodToToolInputSchema(
+  requestCloudflareLogsReadInputSchema,
 );
 
 export const requestCloudflareAccountsReadToolInputSchema =
@@ -465,9 +449,9 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     agentArgs: requestConvexProjectsReadInputSchema,
   },
   {
-    name: "request_netlify_status_read",
+    name: "request_cloudflare_status_read",
     description:
-      "Request approval to read Netlify site status for the current vault. This tool only creates an approval proposal.",
+      "Request approval to read Cloudflare Pages project status for the current vault. This tool only creates an approval proposal.",
     surfaces: ["agent", "mcp"],
     requiredScopes: ["prod.read.propose"],
     requiresVaultContext: true,
@@ -479,9 +463,9 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     agentArgs: emptyInputSchema,
   },
   {
-    name: "request_netlify_logs_read",
+    name: "request_cloudflare_logs_read",
     description:
-      "Request approval to read Netlify deploy/build logs for the current vault. This tool only proposes access.",
+      "Request approval to read Cloudflare Pages deployment logs for the current vault. This tool only proposes access.",
     surfaces: ["agent", "mcp"],
     requiredScopes: ["prod.read.propose"],
     requiresVaultContext: true,
@@ -489,22 +473,8 @@ export const RUNTIME_TOOL_CATALOG: ToolCatalogEntry<unknown>[] = [
     requiresThreadContext: true,
     requiresGithubConnection: false,
     safety: "proposal_only",
-    inputSchema: requestNetlifyLogsReadToolInputSchema,
-    agentArgs: requestNetlifyLogsReadInputSchema,
-  },
-  {
-    name: "request_netlify_projects_read",
-    description:
-      "Request approval to list Netlify sites for the configured team. This tool only creates an approval proposal and does not execute direct reads.",
-    surfaces: ["agent", "mcp"],
-    requiredScopes: ["prod.read.propose"],
-    requiresVaultContext: false,
-    requiresBranchContext: false,
-    requiresThreadContext: true,
-    requiresGithubConnection: false,
-    safety: "proposal_only",
-    inputSchema: requestNetlifyProjectsReadToolInputSchema,
-    agentArgs: requestNetlifyProjectsReadInputSchema,
+    inputSchema: requestCloudflareLogsReadToolInputSchema,
+    agentArgs: requestCloudflareLogsReadInputSchema,
   },
   {
     name: "request_cloudflare_accounts_read",

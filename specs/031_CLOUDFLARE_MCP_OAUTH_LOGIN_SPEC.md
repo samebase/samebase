@@ -37,14 +37,14 @@ integration.
 2. Keep a non-interactive, seed-friendly Cloudflare auth path using an API token
    (`api_key`) for `make anon` / worktree seeding.
 3. Make Cloudflare connection a first-class provider in `providerConnections`,
-   consistent with GitHub/Convex/Netlify.
+   consistent with GitHub/Convex provider connections.
 4. Keep the runtime integration surface **one**: Cloudflare MCP.
 5. Preserve least-privilege security and support easy disconnect/revocation.
 
 ## Non-Goals
 
-1. Migrating noter-managed hosting from Netlify to Cloudflare Pages in this spec
-   (that belongs in hosting provider selection and infra provisioning specs).
+1. Re-specifying noter-managed hosting in this spec (that belongs in hosting
+   provider selection and infra provisioning specs).
 2. Migrating apex DNS authority for `noter.md` (see DNS strategy spec).
 3. Supporting arbitrary third-party MCP endpoints as a generic feature.
 4. Building “local MCP bridge” infrastructure to talk to MCP servers running on
@@ -55,7 +55,7 @@ integration.
 1. Noter already models provider credentials in `providerConnections` with
    auth-method union (`oauth` or `api_key`).
 2. Noter already has OAuth state persistence via `oauthStates`.
-3. Noter’s existing provider OAuth flows are direct (GitHub/Convex/Netlify).
+3. Noter’s existing provider OAuth flows are direct for GitHub/Convex.
    Cloudflare differs:
    - Cloudflare’s “remote MCP server” provides OAuth consent and a stable hosted
      MCP endpoint.

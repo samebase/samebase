@@ -48,10 +48,6 @@ const PrivacyPolicyPage = lazy(async () => {
   const module = await import("@/components/PrivacyPolicyPage");
   return { default: module.PrivacyPolicyPage };
 });
-const NetlifyOAuthCallback = lazy(async () => {
-  const module = await import("@/components/NetlifyOAuthCallback");
-  return { default: module.NetlifyOAuthCallback };
-});
 const LogoPreviewPage = lazy(async () => {
   const module = await import("@/components/LogoPreviewPage");
   return { default: module.LogoPreviewPage };
@@ -77,7 +73,6 @@ function useCloseOAuthPopup(pathname: string, enabled: boolean) {
   useEffect(() => {
     if (!enabled) return;
     if (!isAuthenticated) return;
-    if (pathname.startsWith("/oauth/netlify")) return;
 
     // Remember that this user has authenticated, so we can auto-login next time
     if (!window.opener) {
@@ -404,10 +399,6 @@ export default function App() {
                 <Route path="/" element={<VaultDashboard />} />
                 <Route path="/pricing" element={<PricingPage />} />
                 <Route path="/add" element={<AddRepository />} />
-                <Route
-                  path="/oauth/netlify/callback"
-                  element={<NetlifyOAuthCallback />}
-                />
                 <Route
                   path="/vault/:owner/:repoName/codespace/:branch/chat"
                   element={<CodespaceChatOnlyView />}

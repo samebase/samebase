@@ -4,7 +4,8 @@ This file governs how AI agents maintain this starter template.
 
 ## Purpose
 
-This directory is the source of truth for starter content seeded into newly created noter-managed vault repositories.
+This directory is the source of truth for starter content seeded into newly
+created noter-managed vault repositories.
 
 Iteration 1 policy:
 
@@ -36,7 +37,8 @@ pnpm run template:export
 
 ## Regeneration Workflow
 
-1. Browse official setup docs first for Vite, Convex, Tailwind, and shadcn before making changes.
+1. Browse official setup docs first for Vite, Convex, Tailwind, and shadcn
+   before making changes.
 2. Update template files in this directory only (no layered snapshots).
 3. Keep runtime baseline intact:
    - React + Vite
@@ -49,7 +51,9 @@ pnpm run template:export
 pnpm run template:export
 ```
 
-`template:export` now auto-syncs these root assets into the template before manifest generation:
+`template:export` now auto-syncs these root assets into the template before
+manifest generation:
+
 - `.codespace-agent/**`
 - `.devcontainer/devcontainer.json`
 
@@ -69,4 +73,3 @@ pnpm run template:sync-codespace
 - [Convex Deploy Key / CI guidance](https://docs.convex.dev/production/ci-cd)
 - [Tailwind with Vite](https://tailwindcss.com/docs/installation/using-vite)
 - [shadcn/ui Vite install](https://ui.shadcn.com/docs/installation/vite)
-- [Netlify build command docs](https://docs.netlify.com/build/configure-builds/manage-dependencies/)

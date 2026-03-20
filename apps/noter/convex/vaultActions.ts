@@ -12,8 +12,6 @@ import {
 } from "./daytona/snapshotPolicy";
 import { createInfraProviders } from "./infraProviders";
 import { deleteHostingResources } from "./hostingProviders";
-import { hostingProviderValidator } from "./hostingState";
-import { resolveNetlifySiteId } from "./hostingStateHelpers";
 import { toErrorMessage } from "./jsonUtils";
 import { toSafeRepoName } from "./repoName";
 import { isAdminUser } from "./users";
@@ -320,20 +318,17 @@ export const createRepository = action({
     description: optional(v.string()),
     private: optional(v.boolean()),
     templateType: optional(v.union(v.literal("app"), v.literal("agent"))),
-    hostingProvider: optional(hostingProviderValidator),
   },
   returns: v.object({
     vaultId: v.string(),
   }),
   handler: async (ctx, args): Promise<{ vaultId: string }> => {
     const userId = await getUserId(ctx);
-    const requestedHostingProvider = args.hostingProvider ?? "netlify";
 
     const [
       currentUser,
       githubConnection,
       convexConnection,
-      netlifyConnection,
       cloudflareConnection,
     ] = await Promise.all([
       ctx.runQuery(internal.users.getById, { userId }),
@@ -344,10 +339,6 @@ export const createRepository = action({
       ctx.runQuery(internal.providerConnections.getByUserAndKind, {
         userId,
         kind: "convex",
-      }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId,
-        kind: "netlify",
       }),
       ctx.runQuery(internal.providerConnections.getByUserAndKind, {
         userId,
@@ -365,18 +356,7 @@ export const createRepository = action({
     if (convexConnection?.kind !== "convex") {
       throw new Error("Convex connection is required to create a project.");
     }
-    if (
-      requestedHostingProvider === "netlify" &&
-      netlifyConnection?.kind !== "netlify"
-    ) {
-      throw new Error(
-        "Netlify connection is required to create a Netlify-hosted project.",
-      );
-    }
-    if (
-      requestedHostingProvider === "cloudflare" &&
-      cloudflareConnection?.kind !== "cloudflare"
-    ) {
+    if (cloudflareConnection?.kind !== "cloudflare") {
       throw new Error(
         "Cloudflare connection is required to create a Cloudflare-hosted project.",
       );
@@ -472,7 +452,7 @@ export const createRepository = action({
       treeData: tree.data,
       state: "ready",
       isNoterManaged: true,
-      hostingProvider: requestedHostingProvider,
+      hostingProvider: "cloudflare",
     });
 
     await ctx.scheduler.runAfter(
@@ -531,29 +511,21 @@ export const deleteVault = action({
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getUserId(ctx);
-    const [
-      githubConnection,
-      convexConnection,
-      netlifyConnection,
-      cloudflareConnection,
-    ] = await Promise.all([
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId,
-        kind: "github",
-      }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId,
-        kind: "convex",
-      }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId,
-        kind: "netlify",
-      }),
-      ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-        userId,
-        kind: "cloudflare",
-      }),
-    ]);
+    const [githubConnection, convexConnection, cloudflareConnection] =
+      await Promise.all([
+        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId,
+          kind: "github",
+        }),
+        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId,
+          kind: "convex",
+        }),
+        ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          userId,
+          kind: "cloudflare",
+        }),
+      ]);
     let octokit: Octokit | null = null;
     const getOctokit = async (): Promise<Octokit> => {
       if (octokit) {
@@ -585,7 +557,6 @@ export const deleteVault = action({
       },
     );
 
-    const netlifySiteId = resolveNetlifySiteId(infrastructure);
     const cloudflareProjectName =
       infrastructure?.hosting?.provider === "cloudflare"
         ? infrastructure.hosting.projectName
@@ -594,16 +565,11 @@ export const deleteVault = action({
       infrastructure?.hosting?.provider === "cloudflare"
         ? infrastructure.hosting.accountId
         : undefined;
-    const hostingProvider =
-      infrastructure?.hosting?.provider ??
-      (typeof netlifySiteId === "string" ? "netlify" : undefined);
     const shouldRemoveHostingProvision =
       args.removeHostingProvision === true &&
       vault.isNoterManaged === true &&
-      ((hostingProvider === "netlify" && typeof netlifySiteId === "string") ||
-        (hostingProvider === "cloudflare" &&
-          typeof cloudflareProjectName === "string" &&
-          typeof cloudflareAccountId === "string"));
+      typeof cloudflareProjectName === "string" &&
+      typeof cloudflareAccountId === "string";
     const shouldRemoveConvexProvision =
       args.removeConvexProvision === true &&
       vault.isNoterManaged === true &&
@@ -623,62 +589,27 @@ export const deleteVault = action({
       if (shouldRemoveConvexProvision && !convexToken) {
         throw new Error("Convex connection is required to remove resources.");
       }
-      const netlifyToken =
-        shouldRemoveHostingProvision && hostingProvider === "netlify"
-          ? netlifyConnection?.kind === "netlify"
-            ? netlifyConnection.auth.credential
-            : undefined
-          : undefined;
-      if (
-        shouldRemoveHostingProvision &&
-        hostingProvider === "netlify" &&
-        !netlifyToken
-      ) {
-        throw new Error("Netlify connection is required to remove resources.");
-      }
-      const cloudflareToken =
-        shouldRemoveHostingProvision && hostingProvider === "cloudflare"
-          ? cloudflareConnection?.kind === "cloudflare"
-            ? cloudflareConnection.auth.credential
-            : undefined
-          : undefined;
-      if (
-        shouldRemoveHostingProvision &&
-        hostingProvider === "cloudflare" &&
-        !cloudflareToken
-      ) {
+      const cloudflareToken = shouldRemoveHostingProvision
+        ? cloudflareConnection?.kind === "cloudflare"
+          ? cloudflareConnection.auth.credential
+          : undefined
+        : undefined;
+      if (shouldRemoveHostingProvision && !cloudflareToken) {
         throw new Error(
           "Cloudflare connection is required to remove resources.",
         );
       }
       const cloudflareServerUrl =
         shouldRemoveHostingProvision &&
-        hostingProvider === "cloudflare" &&
         cloudflareConnection?.kind === "cloudflare"
           ? resolveCloudflareMcpServerUrl(cloudflareConnection)
           : resolveCloudflareMcpServerUrl(null);
 
       const providers = createInfraProviders({
         convexToken,
-        netlifyToken,
       });
 
-      if (shouldRemoveHostingProvision && hostingProvider === "netlify") {
-        if (typeof netlifySiteId === "string") {
-          try {
-            await deleteHostingResources({
-              provider: "netlify",
-              netlifyProvider: providers.netlify,
-              siteId: netlifySiteId,
-            });
-          } catch (error) {
-            if (!isProviderNotFoundError(error)) {
-              throw error;
-            }
-          }
-        }
-      }
-      if (shouldRemoveHostingProvision && hostingProvider === "cloudflare") {
+      if (shouldRemoveHostingProvision) {
         if (
           typeof cloudflareProjectName === "string" &&
           typeof cloudflareAccountId === "string" &&

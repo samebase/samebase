@@ -15,10 +15,7 @@ import {
   type ProvisionedByProvider,
 } from "./hostingProviders";
 import { hostingStateValidator } from "./hostingState";
-import {
-  resolveCloudflareHostingState,
-  resolveNetlifyHostingState,
-} from "./hostingStateHelpers";
+import { resolveCloudflareHostingState } from "./hostingStateHelpers";
 import {
   asRecord,
   readString,
@@ -59,13 +56,6 @@ const infraPatchValidator = v.object({
   convexDeployKeyId: v.optional(v.string()),
 
   hosting: v.optional(hostingStateValidator),
-
-  netlifySiteId: v.optional(v.string()),
-  netlifySiteName: v.optional(v.string()),
-  netlifyTeamId: v.optional(v.string()),
-  netlifyDefaultUrl: v.optional(v.string()),
-  netlifyProductionUrl: v.optional(v.string()),
-  netlifyBuildHookId: v.optional(v.string()),
 });
 
 async function readResponseTextSafe(response: Response): Promise<string> {
@@ -137,124 +127,6 @@ async function fetchGitHubRepoIdentity(args: {
   const ownerRecord = asRecord(record["owner"]);
   const ownerId = readStringOrNumber(ownerRecord, "id");
   return { repoId, ownerId };
-}
-
-async function ensureGitHubPushWebhook(args: {
-  githubAccessToken: string;
-  owner: string;
-  repo: string;
-  webhookUrl: string;
-}): Promise<void> {
-  const configPayload = {
-    url: args.webhookUrl,
-    content_type: "json",
-    insecure_ssl: "0",
-  };
-
-  const hooks: unknown[] = [];
-  const pageSize = 100;
-  for (let page = 1; ; page += 1) {
-    const hooksPageRaw = await requestGitHubRepoApi({
-      githubAccessToken: args.githubAccessToken,
-      owner: args.owner,
-      repo: args.repo,
-      path: `/hooks?per_page=${pageSize}&page=${page}`,
-      method: "GET",
-    });
-    const hooksPage = Array.isArray(hooksPageRaw) ? hooksPageRaw : [];
-    hooks.push(...hooksPage);
-    if (hooksPage.length < pageSize) {
-      break;
-    }
-  }
-
-  let hookId: string | undefined;
-  for (const hook of hooks) {
-    const hookRecord = asRecord(hook);
-    const hookName = readString(hookRecord, "name");
-    const hookConfig = asRecord(hookRecord["config"]);
-    const currentHookUrl = readString(hookConfig, "url");
-    if (hookName !== "web" || currentHookUrl !== args.webhookUrl) {
-      continue;
-    }
-
-    hookId = readStringOrNumber(hookRecord, "id");
-    if (hookId) {
-      break;
-    }
-  }
-
-  if (!hookId) {
-    await requestGitHubRepoApi({
-      githubAccessToken: args.githubAccessToken,
-      owner: args.owner,
-      repo: args.repo,
-      path: "/hooks",
-      method: "POST",
-      body: {
-        name: "web",
-        active: true,
-        events: ["push"],
-        config: configPayload,
-      },
-    });
-    return;
-  }
-
-  await requestGitHubRepoApi({
-    githubAccessToken: args.githubAccessToken,
-    owner: args.owner,
-    repo: args.repo,
-    path: `/hooks/${encodeURIComponent(hookId)}`,
-    method: "PATCH",
-    body: {
-      active: true,
-      events: ["push"],
-      config: configPayload,
-    },
-  });
-}
-
-async function addGitHubDeployKey(args: {
-  githubAccessToken: string;
-  owner: string;
-  repo: string;
-  title: string;
-  publicKey: string;
-}): Promise<void> {
-  const endpoint = `https://api.github.com/repos/${encodeURIComponent(args.owner)}/${encodeURIComponent(args.repo)}/keys`;
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${args.githubAccessToken}`,
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": GITHUB_API_VERSION,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      title: args.title,
-      key: args.publicKey,
-      read_only: true,
-    }),
-  });
-
-  if (response.ok) {
-    return;
-  }
-
-  const responseText = await readResponseTextSafe(response);
-  const lowered = responseText.toLowerCase();
-  if (
-    response.status === 422 &&
-    (lowered.includes("key is already in use") ||
-      lowered.includes("already exists"))
-  ) {
-    return;
-  }
-
-  throw new Error(
-    `GitHub deploy key creation failed (${response.status}) for ${args.owner}/${args.repo}: ${responseText}`,
-  );
 }
 
 function parseDeployKeyIdentifier(deployKey: string): string {
@@ -656,13 +528,6 @@ export const upsertInfrastructureRecord = internalMutation({
       convexDeployKeyId: args.patch.convexDeployKeyId,
 
       hosting: args.patch.hosting,
-
-      netlifySiteId: args.patch.netlifySiteId,
-      netlifySiteName: args.patch.netlifySiteName,
-      netlifyTeamId: args.patch.netlifyTeamId,
-      netlifyDefaultUrl: args.patch.netlifyDefaultUrl,
-      netlifyProductionUrl: args.patch.netlifyProductionUrl,
-      netlifyBuildHookId: args.patch.netlifyBuildHookId,
     });
 
     return null;
@@ -676,8 +541,6 @@ export const upsertDomainRecord = internalMutation({
     kind: v.union(v.literal("main"), v.literal("branch_preview")),
     url: v.string(),
     source: v.union(
-      v.literal("netlify_default"),
-      v.literal("netlify_custom"),
       v.literal("cloudflare_pages_default"),
       v.literal("cloudflare_pages_custom"),
     ),
@@ -771,7 +634,7 @@ export const provisionVaultInfrastructure = internalAction({
       previousVersion: existing?.provisioningVersion ?? 0,
       nextVersion,
       force: args.force ?? false,
-      hostingProvider: vault.hostingProvider ?? "netlify",
+      hostingProvider: vault.hostingProvider ?? "cloudflare",
     });
 
     let convexSuccess = false;
@@ -779,7 +642,7 @@ export const provisionVaultInfrastructure = internalAction({
 
     try {
       const defaultBranch = process.env.INFRA_DEFAULT_BRANCH ?? "main";
-      const [githubConnection, convexConnection, netlifyConnection] =
+      const [githubConnection, convexConnection, resolvedCloudflareConnection] =
         await Promise.all([
           ctx.runQuery(internal.providerConnections.getByUserAndKind, {
             userId: vault.userId,
@@ -789,9 +652,8 @@ export const provisionVaultInfrastructure = internalAction({
             userId: vault.userId,
             kind: "convex",
           }),
-          ctx.runQuery(internal.providerConnections.getByUserAndKind, {
+          ctx.runAction(internal.cloudflareMcpOAuth.resolveConnectionForUser, {
             userId: vault.userId,
-            kind: "netlify",
           }),
         ]);
 
@@ -817,68 +679,28 @@ export const provisionVaultInfrastructure = internalAction({
         );
       }
 
-      const requestedHostingProvider: ProvisionedByProvider["provider"] =
-        vault.hostingProvider ?? "netlify";
-      const resolvedCloudflareConnection =
-        requestedHostingProvider === "cloudflare"
-          ? await ctx.runAction(
-              internal.cloudflareMcpOAuth.resolveConnectionForUser,
-              {
-                userId: vault.userId,
-              },
-            )
-          : null;
-      const netlifyToken =
-        requestedHostingProvider === "netlify" &&
-        netlifyConnection?.kind === "netlify"
-          ? netlifyConnection.auth.credential.trim()
-          : "";
-      const netlifyTeamSlug =
-        requestedHostingProvider === "netlify" &&
-        netlifyConnection?.kind === "netlify"
-          ? netlifyConnection.teamSlug?.trim() ?? ""
-          : "";
-      const netlifyTeamId =
-        requestedHostingProvider === "netlify" &&
-        netlifyConnection?.kind === "netlify"
-          ? netlifyConnection.teamId.trim()
-          : "";
-      const netlifyTeam = netlifyTeamSlug || netlifyTeamId;
-      const cloudflareToken =
-        requestedHostingProvider === "cloudflare" &&
-        resolvedCloudflareConnection
-          ? resolvedCloudflareConnection.auth.credential.trim()
-          : "";
-      const cloudflareServerUrl =
-        requestedHostingProvider === "cloudflare" &&
-        resolvedCloudflareConnection
-          ? resolveCloudflareMcpServerUrl(resolvedCloudflareConnection)
-          : CLOUDFLARE_MCP_SERVER_URL;
-      let cloudflareAccountId =
-        requestedHostingProvider === "cloudflare" &&
-        resolvedCloudflareConnection
-          ? resolvedCloudflareConnection.accountId?.trim() ?? ""
-          : "";
+      const cloudflareToken = resolvedCloudflareConnection
+        ? resolvedCloudflareConnection.auth.credential.trim()
+        : "";
+      const cloudflareServerUrl = resolvedCloudflareConnection
+        ? resolveCloudflareMcpServerUrl(resolvedCloudflareConnection)
+        : CLOUDFLARE_MCP_SERVER_URL;
+      let cloudflareAccountId = resolvedCloudflareConnection?.accountId?.trim()
+        ? resolvedCloudflareConnection.accountId.trim()
+        : "";
 
-      if (
-        requestedHostingProvider === "netlify" &&
-        (!netlifyToken || !netlifyTeam)
-      ) {
+      if (!cloudflareToken) {
         throw new Error(
-          "Netlify connection is required to provision infrastructure. Connect Netlify and retry.",
+          "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
         );
       }
-      if (requestedHostingProvider === "cloudflare" && !cloudflareToken) {
+      if (!resolvedCloudflareConnection) {
         throw new Error(
           "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
         );
       }
 
-      if (
-        requestedHostingProvider === "cloudflare" &&
-        !cloudflareAccountId &&
-        resolvedCloudflareConnection
-      ) {
+      if (!cloudflareAccountId) {
         const accountInventory = await ctx.runAction(
           internal.infraRead.getCloudflareAccountInventory,
           {
@@ -906,7 +728,7 @@ export const provisionVaultInfrastructure = internalAction({
         });
       }
 
-      if (requestedHostingProvider === "cloudflare" && !cloudflareAccountId) {
+      if (!cloudflareAccountId) {
         throw new Error(
           "Cloudflare account selection is required before provisioning can continue.",
         );
@@ -914,8 +736,6 @@ export const provisionVaultInfrastructure = internalAction({
 
       const providers = createInfraProviders({
         convexToken,
-        netlifyToken:
-          requestedHostingProvider === "netlify" ? netlifyToken : undefined,
       });
 
       const convex = await ensureConvexResources({
@@ -956,22 +776,20 @@ export const provisionVaultInfrastructure = internalAction({
 
       let previewConvexCloudUrl = convex.convexCloudUrl;
       let previewConvexDeployKey = convex.deployKey;
-      if (requestedHostingProvider === "cloudflare") {
-        try {
-          const previewConvex = await ensureConvexPreviewResources({
-            convexProvider: providers.convex,
-            projectId: convex.convexProjectId,
-            vaultId: args.vaultId,
-          });
-          previewConvexCloudUrl = previewConvex.previewCloudUrl;
-          previewConvexDeployKey = previewConvex.previewDeployKey;
-        } catch (error) {
-          console.warn("infra:convex:preview:fallback_to_production", {
-            vaultId: args.vaultId,
-            projectId: convex.convexProjectId,
-            message: toErrorMessage(error),
-          });
-        }
+      try {
+        const previewConvex = await ensureConvexPreviewResources({
+          convexProvider: providers.convex,
+          projectId: convex.convexProjectId,
+          vaultId: args.vaultId,
+        });
+        previewConvexCloudUrl = previewConvex.previewCloudUrl;
+        previewConvexDeployKey = previewConvex.previewDeployKey;
+      } catch (error) {
+        console.warn("infra:convex:preview:fallback_to_production", {
+          vaultId: args.vaultId,
+          projectId: convex.convexProjectId,
+          message: toErrorMessage(error),
+        });
       }
 
       const repoIdentity = await fetchGitHubRepoIdentity({
@@ -979,173 +797,74 @@ export const provisionVaultInfrastructure = internalAction({
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
       });
-      const netlifyExisting = resolveNetlifyHostingState(existing);
       const cloudflareExisting = resolveCloudflareHostingState(existing);
-      let provisionedHosting: ProvisionedByProvider;
-      switch (requestedHostingProvider) {
-        case "netlify":
-          provisionedHosting = await ensureHostingResources({
-            provider: "netlify",
-            netlifyProvider: providers.netlify,
-            teamSlug: netlifyTeam,
-            owner: vault.ghRepoOwner,
-            repo: vault.ghRepoName,
-            ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
-            githubAccessToken,
-            defaultBranch,
-            vaultId: args.vaultId,
-            existing: {
-              siteId: netlifyExisting?.siteId,
-              siteName: netlifyExisting?.siteName,
-              defaultUrl: netlifyExisting?.defaultUrl,
-              productionUrl: netlifyExisting?.productionUrl,
-              buildHookId: netlifyExisting?.buildHookId,
-            },
-            convex: {
+      const provisionedHosting: ProvisionedByProvider =
+        await ensureHostingResources({
+          provider: "cloudflare",
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
+          ghRepoOwnerId: repoIdentity.ownerId,
+          defaultBranch,
+          vaultId: args.vaultId,
+          cloudflareToken,
+          cloudflareServerUrl,
+          accountId: cloudflareAccountId,
+          buildConfig: resolveCloudflareBuildConfig(vault),
+          existing: {
+            accountId: cloudflareExisting?.accountId,
+            projectName: cloudflareExisting?.projectName,
+            subdomain: cloudflareExisting?.subdomain,
+            productionUrl: cloudflareExisting?.productionUrl,
+          },
+          convex: {
+            production: {
               cloudUrl: convex.convexCloudUrl,
-              siteUrl: convex.convexSiteUrl,
               deployKey: convex.deployKey,
             },
-            addGitHubDeployKey,
-            ensureGitHubPushWebhook,
-          });
-          break;
-        case "cloudflare":
-          provisionedHosting = await ensureHostingResources({
-            provider: "cloudflare",
-            owner: vault.ghRepoOwner,
-            repo: vault.ghRepoName,
-            ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
-            ghRepoOwnerId: repoIdentity.ownerId,
-            defaultBranch,
-            vaultId: args.vaultId,
-            cloudflareToken,
-            cloudflareServerUrl,
-            accountId: cloudflareAccountId,
-            buildConfig: resolveCloudflareBuildConfig(vault),
-            existing: {
-              accountId: cloudflareExisting?.accountId,
-              projectName: cloudflareExisting?.projectName,
-              subdomain: cloudflareExisting?.subdomain,
-              productionUrl: cloudflareExisting?.productionUrl,
+            preview: {
+              cloudUrl: previewConvexCloudUrl,
+              deployKey: previewConvexDeployKey,
             },
-            convex: {
-              production: {
-                cloudUrl: convex.convexCloudUrl,
-                deployKey: convex.deployKey,
-              },
-              preview: {
-                cloudUrl: previewConvexCloudUrl,
-                deployKey: previewConvexDeployKey,
-              },
-            },
-          });
-          break;
-        default:
-          requestedHostingProvider satisfies never;
-          throw new Error("Unsupported hosting provider.");
+          },
+        });
+
+      hostingSuccess = true;
+
+      await ctx.runMutation(
+        internal.infraProvisioning.upsertInfrastructureRecord,
+        {
+          vaultId: args.vaultId,
+          patch: {
+            status: "ready",
+            provisioningVersion: nextVersion,
+            lastProvisionedAt: Date.now(),
+            hosting: provisionedHosting,
+            lastError: undefined,
+          },
+        },
+      );
+
+      const mainUrl = getProvisionedMainUrl(provisionedHosting);
+      if (mainUrl) {
+        await ctx.runMutation(internal.infraProvisioning.upsertDomainRecord, {
+          vaultId: args.vaultId,
+          branch: defaultBranch,
+          kind: "main",
+          url: mainUrl,
+          source: "cloudflare_pages_default",
+          active: true,
+        });
       }
 
-      switch (provisionedHosting.provider) {
-        case "netlify": {
-          hostingSuccess = true;
-
-          await ctx.runMutation(
-            internal.infraProvisioning.upsertInfrastructureRecord,
-            {
-              vaultId: args.vaultId,
-              patch: {
-                status: "ready",
-                provisioningVersion: nextVersion,
-                lastProvisionedAt: Date.now(),
-                hosting: provisionedHosting,
-
-                // Deprecated compatibility fields; prefer `hosting` and remove these after migration.
-                netlifySiteId: provisionedHosting.siteId,
-                netlifySiteName: provisionedHosting.siteName,
-                netlifyTeamId: provisionedHosting.teamId,
-                netlifyDefaultUrl: provisionedHosting.defaultUrl,
-                netlifyProductionUrl: provisionedHosting.productionUrl,
-                netlifyBuildHookId: provisionedHosting.buildHookId,
-                lastError: undefined,
-              },
-            },
-          );
-
-          const mainUrl = getProvisionedMainUrl(provisionedHosting);
-          if (mainUrl) {
-            await ctx.runMutation(
-              internal.infraProvisioning.upsertDomainRecord,
-              {
-                vaultId: args.vaultId,
-                branch: defaultBranch,
-                kind: "main",
-                url: mainUrl,
-                source: "netlify_default",
-                active: true,
-              },
-            );
-          }
-
-          console.log("infra:provision:success", {
-            vaultId: args.vaultId,
-            repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-            convexDeploymentName: convex.convexDeploymentName,
-            netlifySite: provisionedHosting.siteName,
-          });
-          break;
-        }
-        case "cloudflare": {
-          hostingSuccess = true;
-
-          await ctx.runMutation(
-            internal.infraProvisioning.upsertInfrastructureRecord,
-            {
-              vaultId: args.vaultId,
-              patch: {
-                status: "ready",
-                provisioningVersion: nextVersion,
-                lastProvisionedAt: Date.now(),
-                hosting: provisionedHosting,
-                netlifySiteId: undefined,
-                netlifySiteName: undefined,
-                netlifyTeamId: undefined,
-                netlifyDefaultUrl: undefined,
-                netlifyProductionUrl: undefined,
-                netlifyBuildHookId: undefined,
-                lastError: undefined,
-              },
-            },
-          );
-
-          const mainUrl = getProvisionedMainUrl(provisionedHosting);
-          if (mainUrl) {
-            await ctx.runMutation(
-              internal.infraProvisioning.upsertDomainRecord,
-              {
-                vaultId: args.vaultId,
-                branch: defaultBranch,
-                kind: "main",
-                url: mainUrl,
-                source: "cloudflare_pages_default",
-                active: true,
-              },
-            );
-          }
-
-          console.log("infra:provision:success", {
-            vaultId: args.vaultId,
-            repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
-            convexDeploymentName: convex.convexDeploymentName,
-            cloudflareAccountId: provisionedHosting.accountId,
-            cloudflareProjectName: provisionedHosting.projectName,
-            cloudflareSubdomain: provisionedHosting.subdomain,
-          });
-          break;
-        }
-        default:
-          provisionedHosting satisfies never;
-      }
+      console.log("infra:provision:success", {
+        vaultId: args.vaultId,
+        repo: `${vault.ghRepoOwner}/${vault.ghRepoName}`,
+        convexDeploymentName: convex.convexDeploymentName,
+        cloudflareAccountId: provisionedHosting.accountId,
+        cloudflareProjectName: provisionedHosting.projectName,
+        cloudflareSubdomain: provisionedHosting.subdomain,
+      });
 
       await ctx.runMutation(internal.infraProvisioning.setProvisioningState, {
         vaultId: args.vaultId,

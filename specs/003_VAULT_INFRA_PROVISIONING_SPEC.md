@@ -14,7 +14,7 @@ For noter-managed vaults, infrastructure is provisioned automatically after
 vault creation:
 
 1. Convex project/deployment resources (user-scoped)
-2. Netlify site + environment setup (user-scoped)
+2. Cloudflare Pages project + environment setup (user-scoped)
 3. Main-domain tracking in Convex tables
 
 Provisioning is asynchronous and resumable. Vault creation succeeds even if
@@ -23,7 +23,7 @@ downstream provisioning partially fails.
 ## Important Behavior
 
 - `vaultActions.createRepository` (new noter-managed repo) requires GitHub +
-  Convex + Netlify connections and schedules
+  Convex + Cloudflare connections and schedules
   `internal.infraProvisioning.provisionVaultInfrastructure` automatically.
 - `vaultActions.connectRepository` (existing GitHub repo connection) does
   **not** auto-provision infra.
@@ -54,8 +54,8 @@ downstream provisioning partially fails.
 - `status`, `lastError`, `provisioningVersion`, `lastProvisionedAt`
 - Convex fields: `convexProjectId`, `convexProjectSlug`, `convexDeploymentName`,
   `convexDeploymentType`, `convexCloudUrl`, `convexSiteUrl`, `convexDeployKeyId`
-- Netlify fields: `netlifySiteId`, `netlifySiteName`, `netlifyTeamId`,
-  `netlifyDefaultUrl`, `netlifyProductionUrl`, `netlifyBuildHookId`
+- Hosting fields: `hosting.provider`, `hosting.accountId`,
+  `hosting.projectName`, `hosting.subdomain`, `hosting.productionUrl`
 
 Indexes:
 
@@ -78,9 +78,7 @@ Required env vars (OAuth + redirects):
 - `PROVIDER_CONVEX_OAUTH_CLIENT_ID`
 - `PROVIDER_CONVEX_OAUTH_CLIENT_SECRET`
 - `PROVIDER_CONVEX_OAUTH_REDIRECT_URL`
-- `PROVIDER_NETLIFY_OAUTH_CLIENT_ID`
-- `PROVIDER_NETLIFY_OAUTH_CLIENT_SECRET`
-- `PROVIDER_NETLIFY_OAUTH_REDIRECT_URL`
+- `PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL`
 
 Optional:
 
@@ -124,7 +122,7 @@ sequenceDiagram
   participant SCH as "Convex Scheduler"
   participant IP as "infraProvisioning.provisionVaultInfrastructure"
   participant CVX as "Convex Mgmt API"
-  participant NFL as "Netlify API"
+  participant CFL as "Cloudflare Pages API"
   participant DB as "Convex DB"
 
   VA->>DB: addVault(isNoterManaged=true, infraState=not_started)
@@ -132,7 +130,7 @@ sequenceDiagram
   SCH->>IP: start
   IP->>DB: claim + set infraState=provisioning
   IP->>CVX: ensure project/deployment/deploy key
-  IP->>NFL: ensure site/env/build hook/deploy
+  IP->>CFL: ensure Pages project/env/deploy
   IP->>DB: upsert vaultInfrastructure + vaultDomains
   IP->>DB: set infraState=ready
 ```
@@ -156,7 +154,8 @@ In `VaultDashboard`:
 
 ## MVP Notes
 
-- Uses user-scoped OAuth tokens for Convex and Netlify (no operator fallback).
+- Uses user-scoped provider connections for Convex and Cloudflare (no operator
+  fallback).
 - Provisioning is idempotent/resumable and does not auto-teardown resources on
   vault deletion unless explicitly requested.
 

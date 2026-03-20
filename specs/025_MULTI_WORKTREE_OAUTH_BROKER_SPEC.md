@@ -9,7 +9,7 @@
 - Related specs:
   - `specs/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `specs/015_BYO_CONVEX_OAUTH_AND_WORKTREE_PROVISIONING_SPEC.md`
-  - `rfcs/017_NETLIFY_OAUTH_AND_TEAM_SELECTION_SPEC.md`
+  - `specs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
 
 ## Summary
@@ -17,7 +17,7 @@
 This spec defines the product behavior for:
 
 1. Password app-login support in development.
-2. API-key connection mode for GitHub/Convex/Netlify.
+2. API-key connection mode for GitHub/Convex.
 3. Anonymous worktree seed behavior for local development.
 
 Connection data architecture is defined by
@@ -58,10 +58,8 @@ storage/indexing details.
 Provide API-key connect actions with server-side validation:
 
 1. `connectGithubWithApiKey({ token })`
-2. `connectConvexWithApiKey({ token })`
-3. `connectNetlifyWithApiKey({ token })`
-
-Each action validates the key before upsert in `providerConnections`.
+2. `connectConvexWithApiKey({ token })` Each action validates the key before
+   upsert in `providerConnections`.
 
 ### Make targets
 
@@ -116,8 +114,7 @@ Only these env vars are used:
 1. `DEV_SEED_GITHUB_API_KEY`
 2. `DEV_SEED_CONVEX_MANAGEMENT_API_KEY`
 3. `DEV_SEED_CONVEX_TEAM_ID`
-4. `DEV_SEED_NETLIFY_API_KEY`
-5. `DEV_SEED_NETLIFY_TEAM_ID`
+4. `DEV_SEED_CLOUDFLARE_API_KEY`
 
 ## Notes
 

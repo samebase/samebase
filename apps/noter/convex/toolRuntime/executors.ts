@@ -42,13 +42,12 @@ type DeleteFileInput = {
 };
 
 type ProdReadScope = "vault" | "global";
-type ProdReadProvider = "convex" | "netlify" | "cloudflare";
+type ProdReadProvider = "convex" | "cloudflare";
 type ProdReadResourceKind =
   | "deployment_status"
   | "logs"
   | "data_query"
   | "project_inventory"
-  | "site_inventory"
   | "account_inventory"
   | "pages_project_inventory";
 
@@ -75,7 +74,6 @@ type ProdReadProposalPayload = {
 
 const PROD_READ_PROVIDER_LABELS: Record<ProdReadProvider, string> = {
   convex: "Convex",
-  netlify: "Netlify",
   cloudflare: "Cloudflare",
 };
 
@@ -84,7 +82,6 @@ const PROD_READ_RESOURCE_LABELS: Record<ProdReadResourceKind, string> = {
   logs: "logs",
   data_query: "data sample",
   project_inventory: "project inventory",
-  site_inventory: "site inventory",
   account_inventory: "account inventory",
   pages_project_inventory: "Pages project inventory",
 };
@@ -104,13 +101,8 @@ type RequestConvexProjectsReadInput = {
   allowRawFallback?: boolean;
 };
 
-type RequestNetlifyLogsReadInput = {
+type RequestCloudflareLogsReadInput = {
   maxEntries?: number;
-  allowRawFallback?: boolean;
-};
-
-type RequestNetlifyProjectsReadInput = {
-  limit?: number;
   allowRawFallback?: boolean;
 };
 
@@ -927,50 +919,33 @@ async function executeRequestConvexProjectsRead(
   });
 }
 
-async function executeRequestNetlifyStatusRead(
+async function executeRequestCloudflareStatusRead(
   context: ResolvedToolContext,
 ): Promise<ToolExecutionOutput> {
   return executeProdReadRequest({
     context,
     scope: "vault",
-    provider: "netlify",
+    provider: "cloudflare",
     resourceKind: "deployment_status",
-    toolName: "request_netlify_status_read",
+    toolName: "request_cloudflare_status_read",
     params: {},
   });
 }
 
-async function executeRequestNetlifyLogsRead(
+async function executeRequestCloudflareLogsRead(
   context: ResolvedToolContext,
-  input: RequestNetlifyLogsReadInput,
+  input: RequestCloudflareLogsReadInput,
 ): Promise<ToolExecutionOutput> {
   return executeProdReadRequest({
     context,
     scope: "vault",
-    provider: "netlify",
+    provider: "cloudflare",
     resourceKind: "logs",
-    toolName: "request_netlify_logs_read",
+    toolName: "request_cloudflare_logs_read",
     params: {
       ...(typeof input.maxEntries === "number"
         ? { maxEntries: input.maxEntries }
         : {}),
-    },
-    allowRawFallback: input.allowRawFallback,
-  });
-}
-
-async function executeRequestNetlifyProjectsRead(
-  context: ResolvedToolContext,
-  input: RequestNetlifyProjectsReadInput,
-): Promise<ToolExecutionOutput> {
-  return executeProdReadRequest({
-    context,
-    scope: "global",
-    provider: "netlify",
-    resourceKind: "site_inventory",
-    toolName: "request_netlify_projects_read",
-    params: {
-      ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
     },
     allowRawFallback: input.allowRawFallback,
   });
@@ -1230,9 +1205,9 @@ function parseRequestConvexProjectsReadInput(
   };
 }
 
-function parseRequestNetlifyLogsReadInput(
+function parseRequestCloudflareLogsReadInput(
   value: unknown,
-): RequestNetlifyLogsReadInput | null {
+): RequestCloudflareLogsReadInput | null {
   const record = toRecord(value);
   if (!record) {
     return null;
@@ -1249,29 +1224,6 @@ function parseRequestNetlifyLogsReadInput(
 
   return {
     ...(maxEntries !== undefined ? { maxEntries } : {}),
-    ...(allowRawFallback !== undefined ? { allowRawFallback } : {}),
-  };
-}
-
-function parseRequestNetlifyProjectsReadInput(
-  value: unknown,
-): RequestNetlifyProjectsReadInput | null {
-  const record = toRecord(value);
-  if (!record) {
-    return null;
-  }
-
-  const limit = parseOptionalPositiveInteger(record.limit);
-  if (record.limit !== undefined && limit === undefined) {
-    return null;
-  }
-  const allowRawFallback = parseOptionalBoolean(record.allowRawFallback);
-  if (record.allowRawFallback !== undefined && allowRawFallback === undefined) {
-    return null;
-  }
-
-  return {
-    ...(limit !== undefined ? { limit } : {}),
     ...(allowRawFallback !== undefined ? { allowRawFallback } : {}),
   };
 }
@@ -1450,21 +1402,14 @@ export async function executeRuntimeTool(args: {
       }
       return executeRequestConvexProjectsRead(args.context, input);
     }
-    case "request_netlify_status_read":
-      return executeRequestNetlifyStatusRead(args.context);
-    case "request_netlify_logs_read": {
-      const input = parseRequestNetlifyLogsReadInput(args.input);
+    case "request_cloudflare_status_read":
+      return executeRequestCloudflareStatusRead(args.context);
+    case "request_cloudflare_logs_read": {
+      const input = parseRequestCloudflareLogsReadInput(args.input);
       if (!input) {
-        throw new Error("Invalid request_netlify_logs_read input.");
+        throw new Error("Invalid request_cloudflare_logs_read input.");
       }
-      return executeRequestNetlifyLogsRead(args.context, input);
-    }
-    case "request_netlify_projects_read": {
-      const input = parseRequestNetlifyProjectsReadInput(args.input);
-      if (!input) {
-        throw new Error("Invalid request_netlify_projects_read input.");
-      }
-      return executeRequestNetlifyProjectsRead(args.context, input);
+      return executeRequestCloudflareLogsRead(args.context, input);
     }
     case "request_cloudflare_accounts_read": {
       const input = parseRequestCloudflareAccountsReadInput(args.input);

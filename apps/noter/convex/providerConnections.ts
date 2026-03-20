@@ -28,7 +28,6 @@ const {
 const providerKindValidator = union(
   literal("github"),
   literal("convex"),
-  literal("netlify"),
   literal("cloudflare"),
   literal("codex"),
 );
@@ -95,12 +94,6 @@ const convexConnectionUpsertValidator = object({
   teamId: string(),
   teamSlug: optional(string()),
 });
-const netlifyConnectionUpsertValidator = object({
-  userId: id("users"),
-  auth: standardProviderAuthValidator,
-  teamId: string(),
-  teamSlug: optional(string()),
-});
 const cloudflareConnectionUpsertValidator = object({
   userId: id("users"),
   auth: cloudflareProviderAuthValidator,
@@ -135,17 +128,6 @@ const convexConnectionResultValidator = object({
   createdAt: number(),
   updatedAt: number(),
 });
-const netlifyConnectionResultValidator = object({
-  _id: id("providerConnections"),
-  _creationTime: number(),
-  kind: literal("netlify"),
-  userId: id("users"),
-  auth: standardProviderAuthValidator,
-  teamId: string(),
-  teamSlug: optional(string()),
-  createdAt: number(),
-  updatedAt: number(),
-});
 const cloudflareConnectionResultValidator = object({
   _id: id("providerConnections"),
   _creationTime: number(),
@@ -171,7 +153,6 @@ const codexConnectionResultValidator = object({
 const providerConnectionResultValidator = union(
   githubConnectionResultValidator,
   convexConnectionResultValidator,
-  netlifyConnectionResultValidator,
   cloudflareConnectionResultValidator,
   codexConnectionResultValidator,
 );
@@ -240,32 +221,6 @@ async function upsertConvexConnection(
   }
   await db.insert("providerConnections", {
     kind: "convex",
-    userId: args.userId,
-    auth: args.auth,
-    teamId: args.teamId,
-    teamSlug: args.teamSlug,
-    createdAt: now,
-    updatedAt: now,
-  });
-}
-
-async function upsertNetlifyConnection(
-  db: DatabaseWriter,
-  args: Infer<typeof netlifyConnectionUpsertValidator>,
-): Promise<void> {
-  const now = Date.now();
-  const existing = await getConnectionByUserAndKind(db, args.userId, "netlify");
-  if (existing) {
-    await db.patch(existing._id, {
-      auth: args.auth,
-      teamId: args.teamId,
-      teamSlug: args.teamSlug,
-      updatedAt: now,
-    });
-    return;
-  }
-  await db.insert("providerConnections", {
-    kind: "netlify",
     userId: args.userId,
     auth: args.auth,
     teamId: args.teamId,
@@ -383,15 +338,6 @@ export const upsertConvex = internalMutation({
   returns: vNull(),
   handler: async (ctx, args) => {
     await upsertConvexConnection(ctx.db, args);
-    return null;
-  },
-});
-
-export const upsertNetlify = internalMutation({
-  args: netlifyConnectionUpsertValidator,
-  returns: vNull(),
-  handler: async (ctx, args) => {
-    await upsertNetlifyConnection(ctx.db, args);
     return null;
   },
 });

@@ -25,10 +25,7 @@ import {
   hostingProviderValidator,
   hostingStateValidator,
 } from "./hostingState";
-import {
-  resolveHostingMainUrl,
-  resolveNetlifySiteId,
-} from "./hostingStateHelpers";
+import { resolveHostingMainUrl } from "./hostingStateHelpers";
 import {
   TREE_REFRESH_DEBOUNCE_MS,
   TREE_REFRESH_STALE_LOCK_MS,
@@ -625,7 +622,6 @@ const getUserVaultsResult = array(
     isNoterManaged: boolean(),
     hostingProvider: optional(hostingProviderValidator),
     hasConvexProvision: boolean(),
-    hasNetlifyProvision: boolean(),
     hasHostingProvision: boolean(),
     daytonaSandboxId: optional(string()),
     daytonaSandboxName: optional(string()),
@@ -711,16 +707,13 @@ export const getUserVaults = query({
         const hasConvexProvision =
           typeof infra?.convexProjectId === "string" ||
           typeof infra?.convexDeploymentName === "string";
-        const hasNetlifyProvision =
-          typeof resolveNetlifySiteId(infra) === "string";
         const hasCloudflareProvision =
           infra?.hosting?.provider === "cloudflare" &&
           typeof infra.hosting.projectName === "string" &&
           infra.hosting.projectName.length > 0 &&
           typeof infra.hosting.accountId === "string" &&
           infra.hosting.accountId.length > 0;
-        const hasHostingProvision =
-          hasNetlifyProvision || hasCloudflareProvision;
+        const hasHostingProvision = hasCloudflareProvision;
 
         return {
           _id: vault._id,
@@ -737,7 +730,6 @@ export const getUserVaults = query({
           isNoterManaged: vault.isNoterManaged ?? false,
           hostingProvider: vault.hostingProvider,
           hasConvexProvision,
-          hasNetlifyProvision,
           hasHostingProvision,
           daytonaSandboxId: vault.daytonaSandboxId,
           daytonaSandboxName: vault.daytonaSandboxName,
@@ -1276,10 +1268,6 @@ export const getVaultInfrastructure = query({
           convexCloudUrl: v.optional(v.string()),
           convexSiteUrl: v.optional(v.string()),
           hosting: v.optional(hostingStateValidator),
-          netlifySiteId: v.optional(v.string()),
-          netlifySiteName: v.optional(v.string()),
-          netlifyDefaultUrl: v.optional(v.string()),
-          netlifyProductionUrl: v.optional(v.string()),
         }),
       ),
       domains: v.array(
@@ -1288,8 +1276,6 @@ export const getVaultInfrastructure = query({
           kind: v.union(v.literal("main"), v.literal("branch_preview")),
           url: v.string(),
           source: v.union(
-            v.literal("netlify_default"),
-            v.literal("netlify_custom"),
             v.literal("cloudflare_pages_default"),
             v.literal("cloudflare_pages_custom"),
           ),
@@ -1329,10 +1315,6 @@ export const getVaultInfrastructure = query({
             convexCloudUrl: infrastructure.convexCloudUrl,
             convexSiteUrl: infrastructure.convexSiteUrl,
             hosting: infrastructure.hosting,
-            netlifySiteId: infrastructure.netlifySiteId,
-            netlifySiteName: infrastructure.netlifySiteName,
-            netlifyDefaultUrl: infrastructure.netlifyDefaultUrl,
-            netlifyProductionUrl: infrastructure.netlifyProductionUrl,
           }
         : undefined,
       domains: domains.map((domain) => ({

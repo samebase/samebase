@@ -190,43 +190,6 @@ async function upsertSeedConvexConnection(
   });
 }
 
-async function upsertSeedNetlifyConnection(
-  db: DatabaseWriter,
-  userId: Id<"users">,
-): Promise<void> {
-  const credential = readOptionalEnv("DEV_SEED_NETLIFY_API_KEY");
-  const teamId = readOptionalEnv("DEV_SEED_NETLIFY_TEAM_ID");
-  if (credential === null || teamId === null) {
-    return;
-  }
-  const existing = await getConnectionByUserAndKind(db, userId, "netlify");
-  const now = Date.now();
-  if (existing) {
-    await db.patch(existing._id, {
-      auth: {
-        method: "api_key",
-        credential,
-      },
-      teamId,
-      teamSlug: teamId,
-      updatedAt: now,
-    });
-    return;
-  }
-  await db.insert("providerConnections", {
-    kind: "netlify",
-    userId,
-    auth: {
-      method: "api_key",
-      credential,
-    },
-    teamId,
-    teamSlug: teamId,
-    createdAt: now,
-    updatedAt: now,
-  });
-}
-
 async function upsertSeedCloudflareConnection(
   db: DatabaseWriter,
   userId: Id<"users">,
@@ -271,7 +234,6 @@ async function applyAutoSeedProviderKeys(
   }
   await upsertSeedGithubConnection(db, userId);
   await upsertSeedConvexConnection(db, userId);
-  await upsertSeedNetlifyConnection(db, userId);
   await upsertSeedCloudflareConnection(db, userId);
 }
 

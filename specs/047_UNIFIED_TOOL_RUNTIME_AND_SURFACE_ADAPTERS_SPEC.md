@@ -150,8 +150,8 @@ Phase 1 standardizes shared tooling for these existing names:
 8. `delete_file`
 9. `request_convex_status_read`
 10. `request_convex_logs_read`
-11. `request_netlify_status_read`
-12. `request_netlify_logs_read`
+11. `request_cloudflare_status_read`
+12. `request_cloudflare_logs_read`
 13. `request_cloudflare_accounts_read`
 14. `request_cloudflare_pages_projects_read`
 15. `request_convex_data_read`

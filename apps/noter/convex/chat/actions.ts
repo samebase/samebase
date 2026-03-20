@@ -413,27 +413,29 @@ export const executeApprovedProdRead = internalAction({
           },
         );
       } else if (
-        request.provider === "netlify" &&
+        request.provider === "cloudflare" &&
         request.resourceKind === "deployment_status"
       ) {
         if (!request.vaultId) {
-          throw new Error("Vault context is required for Netlify site status");
+          throw new Error(
+            "Vault context is required for Cloudflare project status",
+          );
         }
         executionResult = await ctx.runAction(
-          internal.infraRead.getNetlifySiteStatus,
+          internal.infraRead.getCloudflareProjectStatus,
           {
             vaultId: request.vaultId,
           },
         );
       } else if (
-        request.provider === "netlify" &&
+        request.provider === "cloudflare" &&
         request.resourceKind === "logs"
       ) {
         if (!request.vaultId) {
-          throw new Error("Vault context is required for Netlify logs");
+          throw new Error("Vault context is required for Cloudflare logs");
         }
         executionResult = await ctx.runAction(
-          internal.infraRead.getNetlifyLogs,
+          internal.infraRead.getCloudflareLogs,
           {
             vaultId: request.vaultId,
             maxEntries: parseOptionalPositiveNumber(params["maxEntries"]),
@@ -460,17 +462,6 @@ export const executeApprovedProdRead = internalAction({
       ) {
         executionResult = await ctx.runAction(
           internal.infraRead.getConvexProjectInventory,
-          {
-            limit: parseOptionalPositiveNumber(params["limit"]),
-            userId: request.requesterUserId,
-          },
-        );
-      } else if (
-        request.provider === "netlify" &&
-        request.resourceKind === "site_inventory"
-      ) {
-        executionResult = await ctx.runAction(
-          internal.infraRead.getNetlifySiteInventory,
           {
             limit: parseOptionalPositiveNumber(params["limit"]),
             userId: request.requesterUserId,

@@ -18,7 +18,7 @@ export const PLAN_DISPLAY_PRICE: Record<
 
 export const PLAN_FEATURES = {
   free: [
-    "Use your own GitHub, Convex, Netlify, and Cloudflare accounts",
+    "Use your own GitHub, Convex, and Cloudflare accounts",
     "Bring your own AI usage and provider costs",
     "No Noter-hosted agent compute included",
   ],

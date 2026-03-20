@@ -421,19 +421,19 @@ export function createTools(toolCtx: ToolContext) {
       },
     }),
 
-    request_netlify_status_read: createTool({
-      description: catalogDescription("request_netlify_status_read"),
+    request_cloudflare_status_read: createTool({
+      description: catalogDescription("request_cloudflare_status_read"),
       args: z.object({}),
       handler: async () => {
         return await executeSharedRuntimeTool(toolCtx, {
-          toolName: "request_netlify_status_read",
+          toolName: "request_cloudflare_status_read",
           input: {},
         });
       },
     }),
 
-    request_netlify_logs_read: createTool({
-      description: catalogDescription("request_netlify_logs_read"),
+    request_cloudflare_logs_read: createTool({
+      description: catalogDescription("request_cloudflare_logs_read"),
       args: z.object({
         maxEntries: z
           .number()
@@ -449,7 +449,7 @@ export function createTools(toolCtx: ToolContext) {
       }),
       handler: async (_ctx, input) => {
         return await executeSharedRuntimeTool(toolCtx, {
-          toolName: "request_netlify_logs_read",
+          toolName: "request_cloudflare_logs_read",
           input,
         });
       },
@@ -473,29 +473,6 @@ export function createTools(toolCtx: ToolContext) {
       handler: async (_ctx, input) => {
         return await executeSharedRuntimeTool(toolCtx, {
           toolName: "request_convex_projects_read",
-          input,
-        });
-      },
-    }),
-
-    request_netlify_projects_read: createTool({
-      description: catalogDescription("request_netlify_projects_read"),
-      args: z.object({
-        limit: z
-          .number()
-          .int()
-          .min(1)
-          .max(100)
-          .optional()
-          .describe("Maximum projects to include"),
-        allowRawFallback: z
-          .boolean()
-          .optional()
-          .describe("In owner mode, allow explicit raw payload fallback"),
-      }),
-      handler: async (_ctx, input) => {
-        return await executeSharedRuntimeTool(toolCtx, {
-          toolName: "request_netlify_projects_read",
           input,
         });
       },
