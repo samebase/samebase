@@ -1,44 +1,47 @@
 import {
   DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE,
-  DEFAULT_STATIC_LOGO_SVG_URL,
   STATIC_LOGO_BACKGROUND_COLOR,
   STATIC_LOGO_ELEVATION_DEGREES,
-  STATIC_LOGO_FACE_COLORS,
   STATIC_LOGO_ROTATION_DEGREES,
-  STATIC_LOGO_VOXEL_STATE,
+  STATIC_LOGO_VOXEL_COORDINATES,
 } from "@/components/logoStaticSvgContract";
 import { createLogoThreeSvgMarkup } from "@/components/logoThreeSvgRenderer";
-import { getTailwindColorHex } from "@/components/logoTailwindColors";
-import { parseVoxelState } from "@/components/logoVoxelState";
+import {
+  DEFAULT_FACE_COLORS,
+  getTailwindColorHex,
+} from "@/components/logoTailwindColors";
+import {
+  createFilledVoxelSet,
+  parseVoxelState,
+} from "@/components/logoVoxelState";
 import { Button } from "@/components/button";
-import { useMemo } from "react";
+import { useTheme } from "next-themes";
 import { Link, useSearchParams } from "react-router-dom";
 
 export function LogoStaticSvgPage() {
+  const { theme, systemTheme } = useTheme();
   const [searchParams] = useSearchParams();
+  const effectiveTheme = theme === "system" ? systemTheme : theme;
+  const isDarkTheme =
+    effectiveTheme === "dark" ||
+    (effectiveTheme === undefined &&
+      typeof document !== "undefined" &&
+      document.documentElement.classList.contains("dark"));
   const backgroundColor = getTailwindColorHex("background-base");
   const currentSearch = searchParams.toString();
-  const staticSvgSrc = useMemo(() => {
-    const voxelState = searchParams.get("vox");
-    if (!voxelState || voxelState === STATIC_LOGO_VOXEL_STATE) {
-      return DEFAULT_STATIC_LOGO_SVG_URL;
-    }
-
-    const filledVoxels = parseVoxelState(voxelState);
-    if (!filledVoxels) {
-      return DEFAULT_STATIC_LOGO_SVG_URL;
-    }
-
-    const markup = createLogoThreeSvgMarkup({
+  const filledVoxels =
+    parseVoxelState(searchParams.get("vox")) ??
+    createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
+  const themeFragment = isDarkTheme ? "dark" : "light";
+  const staticSvgSrc = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+    createLogoThreeSvgMarkup({
       backgroundColor: STATIC_LOGO_BACKGROUND_COLOR,
       elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
-      faceColors: STATIC_LOGO_FACE_COLORS,
+      faceColors: DEFAULT_FACE_COLORS,
       filledVoxels,
       rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
-    });
-
-    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;
-  }, [searchParams]);
+    }),
+  )}#${themeFragment}`;
   const modeHref = (pathname: "/logo" | "/logo-iso" | "/logo-iso-study") =>
     currentSearch ? `${pathname}?${currentSearch}` : pathname;
 
