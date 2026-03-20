@@ -1,5 +1,11 @@
 import { Button } from "@/components/button";
 import {
+  STATIC_LOGO_ELEVATION_DEGREES,
+  STATIC_LOGO_ROTATION_DEGREES,
+  STATIC_LOGO_VOXEL_COORDINATES,
+} from "@/components/logoStaticSvgContract";
+import { DEFAULT_FACE_COLORS } from "@/components/logoTailwindColors";
+import {
   addOffset,
   formatOffset,
   getFaceCenter,
@@ -12,7 +18,9 @@ import {
   TRANSFORM_LAB_VIEW_BOX,
   createLogoTransitionTransformFaces,
 } from "@/components/logoTransitionTransformFaces";
+import { projectLogoWorldPoints } from "@/components/logoThreeSvgRenderer";
 import { Tabs, TabsList, TabsTrigger } from "@/components/tabs";
+import { createFilledVoxelSet } from "@/components/logoVoxelState";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -21,6 +29,93 @@ const DEFAULT_TRANSFORM_LAB_END_OFFSET: Point = { x: -30.104, y: 52.142 };
 const DEFAULT_SELECTED_FACE_COLOR_KEY: TransformLabFace["colorKey"] = "right";
 const KEYBOARD_NUDGE_STEP = 1;
 const KEYBOARD_FAST_NUDGE_STEP = 10;
+const AXIS_GUIDE_ORIGIN: Point = {
+  x: 60,
+  y: TRANSFORM_LAB_VIEW_BOX.height - 50,
+};
+const AXIS_GUIDE_PANEL = {
+  x: 16,
+  y: TRANSFORM_LAB_VIEW_BOX.height - 118,
+  width: 126,
+  height: 100,
+} as const;
+const AXIS_GUIDE_LENGTH = 0.75;
+const AXIS_GUIDE_LABEL_DISTANCE = 11;
+const AXIS_GUIDE_COLORS = {
+  x: "#ef4444",
+  y: "#16a34a",
+  z: "#2563eb",
+} as const;
+const STATIC_LOGO_FILLED_VOXELS = createFilledVoxelSet(
+  STATIC_LOGO_VOXEL_COORDINATES,
+);
+
+type AxisGuideLine = {
+  color: string;
+  end: Point;
+  key: "x" | "y" | "z";
+  label: string;
+  labelPosition: Point;
+};
+
+function getAxisLabelPosition(end: Point): Point {
+  const deltaX = end.x - AXIS_GUIDE_ORIGIN.x;
+  const deltaY = end.y - AXIS_GUIDE_ORIGIN.y;
+  const length = Math.hypot(deltaX, deltaY) || 1;
+
+  return {
+    x: end.x + (deltaX / length) * AXIS_GUIDE_LABEL_DISTANCE,
+    y: end.y + (deltaY / length) * AXIS_GUIDE_LABEL_DISTANCE,
+  };
+}
+
+function createAxisGuideLines(): AxisGuideLine[] {
+  const [projectedOrigin, projectedX, projectedY, projectedZ] =
+    projectLogoWorldPoints({
+      elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
+      faceColors: DEFAULT_FACE_COLORS,
+      filledVoxels: STATIC_LOGO_FILLED_VOXELS,
+      points: [
+        { x: 0, y: 0, z: 0 },
+        { x: AXIS_GUIDE_LENGTH, y: 0, z: 0 },
+        { x: 0, y: AXIS_GUIDE_LENGTH, z: 0 },
+        { x: 0, y: 0, z: AXIS_GUIDE_LENGTH },
+      ],
+      rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
+      viewBoxSize: TRANSFORM_LAB_VIEW_BOX.width,
+    });
+  const guideOffset = {
+    x: AXIS_GUIDE_ORIGIN.x - projectedOrigin.x,
+    y: AXIS_GUIDE_ORIGIN.y - projectedOrigin.y,
+  };
+
+  return [
+    {
+      color: AXIS_GUIDE_COLORS.x,
+      end: addOffset(projectedX, guideOffset),
+      key: "x" as const,
+      label: "X",
+    },
+    {
+      color: AXIS_GUIDE_COLORS.y,
+      end: addOffset(projectedY, guideOffset),
+      key: "y" as const,
+      label: "Y",
+    },
+    {
+      color: AXIS_GUIDE_COLORS.z,
+      end: addOffset(projectedZ, guideOffset),
+      key: "z" as const,
+      label: "Z",
+    },
+  ].map((line) => ({
+    color: line.color,
+    end: line.end,
+    key: line.key,
+    label: line.label,
+    labelPosition: getAxisLabelPosition(line.end),
+  }));
+}
 
 function getDefaultSelectedFaceIndex(
   faces: readonly TransformLabFace[],
@@ -46,6 +141,7 @@ function getDefaultSelectedFaceIndex(
 
 export function LogoTransitionTransformsLabPage() {
   const faces = useMemo(() => createLogoTransitionTransformFaces(), []);
+  const axisGuideLines = useMemo(() => createAxisGuideLines(), []);
   const [selectedFaceIndex, setSelectedFaceIndex] = useState<number>(() =>
     getDefaultSelectedFaceIndex(faces),
   );
@@ -297,9 +393,11 @@ export function LogoTransitionTransformsLabPage() {
                 Transform Transition Lab
               </h1>
               <p className="mt-2 text-sm leading-6 text-black/60">
-                This variant derives the logo from voxel faces and unit-face
-                transforms instead of literal polygon point lists. Click a face,
-                then drag start and end offsets the same way as the literal lab.
+                This variant derives the logo from the same projected quad data
+                as <code>/logo-static.svg</code>, then re-expresses each face as
+                a unit-face transform instead of a literal polygon point list.
+                Click a face, then drag start and end offsets the same way as
+                the literal lab.
               </p>
             </div>
 
@@ -527,9 +625,10 @@ export function LogoTransitionTransformsLabPage() {
               </div>
               <p className="mt-2">
                 This page keeps the transition editing workflow from the literal
-                lab, but the base logo faces are generated from voxel-space
-                transforms. That keeps the experiment aligned with the transform
-                model instead of frozen polygon coordinates.
+                lab, but it now reuses the shared projection baseline from the
+                static SVG renderer. The experiment is transform-based without
+                drifting away from the snapped logo geometry in the merged
+                static asset path.
               </p>
             </div>
           </div>
@@ -542,7 +641,8 @@ export function LogoTransitionTransformsLabPage() {
                 </div>
                 <div className="mt-1 text-sm text-black/60">
                   Click any face to select it. Drag the solid overlay to place
-                  the active frame.
+                  the active frame. The lower-left triad shows the projected X,
+                  Y, and Z directions.
                 </div>
               </div>
               <div className="font-mono text-[11px] text-black/45">
@@ -568,7 +668,101 @@ export function LogoTransitionTransformsLabPage() {
                       width="1"
                       height="1"
                     />
+                    <marker
+                      id="transition-lab-axis-arrow-x"
+                      markerWidth="6"
+                      markerHeight="6"
+                      refX="5"
+                      refY="3"
+                      orient="auto"
+                      viewBox="0 0 6 6"
+                    >
+                      <path
+                        d="M 0 0 L 6 3 L 0 6 z"
+                        fill={AXIS_GUIDE_COLORS.x}
+                      />
+                    </marker>
+                    <marker
+                      id="transition-lab-axis-arrow-y"
+                      markerWidth="6"
+                      markerHeight="6"
+                      refX="5"
+                      refY="3"
+                      orient="auto"
+                      viewBox="0 0 6 6"
+                    >
+                      <path
+                        d="M 0 0 L 6 3 L 0 6 z"
+                        fill={AXIS_GUIDE_COLORS.y}
+                      />
+                    </marker>
+                    <marker
+                      id="transition-lab-axis-arrow-z"
+                      markerWidth="6"
+                      markerHeight="6"
+                      refX="5"
+                      refY="3"
+                      orient="auto"
+                      viewBox="0 0 6 6"
+                    >
+                      <path
+                        d="M 0 0 L 6 3 L 0 6 z"
+                        fill={AXIS_GUIDE_COLORS.z}
+                      />
+                    </marker>
                   </defs>
+
+                  <g pointerEvents="none">
+                    <rect
+                      x={AXIS_GUIDE_PANEL.x}
+                      y={AXIS_GUIDE_PANEL.y}
+                      width={AXIS_GUIDE_PANEL.width}
+                      height={AXIS_GUIDE_PANEL.height}
+                      fill="rgba(255,255,255,0.88)"
+                      stroke="rgba(17,17,17,0.12)"
+                    />
+                    <text
+                      x={AXIS_GUIDE_PANEL.x + 10}
+                      y={AXIS_GUIDE_PANEL.y + 18}
+                      fill="#111111"
+                      fontSize={10}
+                      fontWeight={600}
+                      letterSpacing="0.18em"
+                    >
+                      AXES
+                    </text>
+                    <circle
+                      cx={AXIS_GUIDE_ORIGIN.x}
+                      cy={AXIS_GUIDE_ORIGIN.y}
+                      r={2.75}
+                      fill="#111111"
+                    />
+                    {axisGuideLines.map((line) => (
+                      <g key={line.key}>
+                        <line
+                          x1={AXIS_GUIDE_ORIGIN.x}
+                          y1={AXIS_GUIDE_ORIGIN.y}
+                          x2={line.end.x}
+                          y2={line.end.y}
+                          stroke={line.color}
+                          strokeLinecap="round"
+                          strokeWidth={2.25}
+                          markerEnd={`url(#transition-lab-axis-arrow-${line.key})`}
+                        />
+                        <text
+                          x={line.labelPosition.x}
+                          y={line.labelPosition.y}
+                          dominantBaseline="middle"
+                          fill={line.color}
+                          fontSize={11}
+                          fontWeight={700}
+                          textAnchor="middle"
+                        >
+                          {line.label}
+                        </text>
+                      </g>
+                    ))}
+                  </g>
 
                   {faces.map((face, index) => (
                     <use
