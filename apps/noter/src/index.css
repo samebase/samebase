@@ -134,6 +134,7 @@
     line-height: 1.75rem;
     font-weight: 500 !important;
     letter-spacing: -0.025em !important;
+    color: hsl(var(--primary)) !important;
   }
 
   .cm-landing-copy .cm-line.cm-landing-copy-gap {
