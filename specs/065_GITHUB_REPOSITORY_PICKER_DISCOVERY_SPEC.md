@@ -4,7 +4,7 @@
 
 - Status: Implemented
 - Owner: Vault add flow + GitHub integration
-- Last updated: 2026-03-19
+- Last updated: 2026-03-20
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
 
@@ -82,6 +82,26 @@ The UI continues to hide repositories already connected as vaults by exact
 1. Server-side search queries to GitHub while typing
 2. Bypassing GitHub org approval, SSO, or third-party app restrictions
 3. Changing the connect flow after a repository is selected
+
+## External Constraint
+
+Noter currently connects to GitHub with an OAuth app, not a GitHub App.
+
+When a repository belongs to a private organization with OAuth app access
+restrictions enabled, repository discovery is still gated by GitHub's org-level
+approval model:
+
+1. Unapproved OAuth apps cannot access the organization's private resources.
+2. Organization owners approve pending requests from the org's OAuth app policy
+   settings.
+3. Organization members, and outside collaborators when the org enables access
+   requests for them, can request approval from their Authorized OAuth Apps
+   page.
+4. Non-owners may still need an organization owner to approve Noter directly,
+   depending on the org's request policy.
+5. Reconnecting the personal GitHub account does not override that org policy.
+6. The `/add` UI should surface a short note for both owner and non-owner
+   recovery paths instead of failing silently.
 
 ## Acceptance Checklist
 
