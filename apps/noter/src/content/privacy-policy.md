@@ -2,7 +2,7 @@
 
 Last updated: March 20, 2026
 
-Reviewed and updated by Codex (GPT-5.4 "Extra High") on March 20, 2026 based on
+Reviewed and updated by Codex (GPT-5.4 "Extra High") on March 20, 2026, based on
 the current Noter source code.
 
 This Privacy Policy describes how Noter handles information in the current app
