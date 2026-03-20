@@ -64,15 +64,14 @@ async function expectLandingLogoSceneReady(scene: Locator) {
   await expect(scene).toHaveAttribute("data-state", "ready");
 }
 
-async function readLandingLogoSceneImage(
-  page: Parameters<typeof test>[0]["page"],
-) {
-  return page.evaluate(() => {
-    const canvas = document.querySelector(
-      '[data-testid="public-landing-logo-scene"] canvas',
-    );
-    return canvas instanceof HTMLCanvasElement ? canvas.toDataURL() : null;
-  });
+async function readLandingLogoSceneView(scene: Locator) {
+  const elevationDegrees = await scene.getAttribute("data-elevation-degrees");
+  const rotationDegrees = await scene.getAttribute("data-rotation-degrees");
+
+  return {
+    elevationDegrees,
+    rotationDegrees,
+  };
 }
 
 test("public landing shell renders before the full app UI takes over", async ({
@@ -247,8 +246,11 @@ test("prod-ui landing logo becomes draggable after the SVG fallback is removed",
     )
     .toBe("grab");
 
-  const imageBeforeDrag = await readLandingLogoSceneImage(page);
-  expect(imageBeforeDrag).not.toBeNull();
+  const viewBeforeDrag = await readLandingLogoSceneView(landingLogoScene);
+  expect(viewBeforeDrag).toEqual({
+    elevationDegrees: "35.264",
+    rotationDegrees: "0.000",
+  });
 
   const canvasBounds = await landingLogoCanvas.boundingBox();
   expect(canvasBounds).not.toBeNull();
@@ -269,8 +271,8 @@ test("prod-ui landing logo becomes draggable after the SVG fallback is removed",
   await page.mouse.up();
 
   await expect
-    .poll(async () => readLandingLogoSceneImage(page))
-    .not.toBe(imageBeforeDrag);
+    .poll(async () => readLandingLogoSceneView(landingLogoScene))
+    .not.toEqual(viewBeforeDrag);
 });
 
 test("prod-ui landing logo keeps the SVG fallback when WebGL is unavailable", async ({
@@ -386,7 +388,11 @@ test("prod-ui mode overrides the landing dev editor", async ({ page }) => {
 
   await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
   await expect(page.getByText("Password auth (dev)")).toHaveCount(0);
-  await expect(page.locator(".cm-editor")).toHaveCount(0);
+  await expect(
+    page.locator(
+      '[data-testid="public-landing-copy"] [contenteditable="true"]',
+    ),
+  ).toHaveCount(0);
 });
 
 test("landing dev toggle preserves unrelated query params", async ({
@@ -400,7 +406,7 @@ test("landing dev toggle preserves unrelated query params", async ({
   await shellToggleLink.click();
   await expect(page).toHaveURL(/\/\?prod-ui&dev$/);
 
-  const appToggleLink = page.getByRole("link", { name: "/" });
+  const appToggleLink = page.getByRole("link", { name: "/", exact: true });
   await expect(appToggleLink).toHaveAttribute("href", "/?prod-ui");
 });
 
@@ -413,11 +419,15 @@ test("landing dev edits stay visible after toggling back to the plain landing vi
 
   await insertLandingHeadingMarker(page, headingMarker);
 
-  const appToggleLink = page.getByRole("link", { name: "/" });
+  const appToggleLink = page.getByRole("link", { name: "/", exact: true });
   await expect(appToggleLink).toBeVisible();
   await appToggleLink.click();
 
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.locator(".cm-editor")).toHaveCount(0);
+  await expect(
+    page.locator(
+      '[data-testid="public-landing-copy"] [contenteditable="true"]',
+    ),
+  ).toHaveCount(0);
   await expect(page.getByRole("heading")).toContainText(headingMarker);
 });

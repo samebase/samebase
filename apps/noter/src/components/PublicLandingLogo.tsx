@@ -1,35 +1,28 @@
-import { createLogoThreeSvgMarkup } from "@/components/logoThreeSvgRenderer";
 import {
   DEFAULT_FACE_COLORS,
   type FaceColors,
   getTailwindColorHex,
 } from "@/components/logoTailwindColors";
+import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
 import {
-  STATIC_LOGO_BACKGROUND_COLOR,
   STATIC_LOGO_ELEVATION_DEGREES,
   STATIC_LOGO_ROTATION_DEGREES,
-  STATIC_LOGO_VOXEL_COORDINATES,
   STATIC_LOGO_VOXEL_STATE,
 } from "@/components/logoStaticSvgContract";
-import {
-  createFilledVoxelSet,
-  normalizeRotationDegrees,
-} from "@/components/logoVoxelState";
+import { normalizeRotationDegrees } from "@/components/logoVoxelState";
 import {
   PUBLIC_LANDING_LOGO_ALT,
   PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME,
   PUBLIC_LANDING_LOGO_HEIGHT,
   PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME,
   PUBLIC_LANDING_LOGO_SCENE_TEST_ID,
-  PUBLIC_LANDING_LOGO_SRC,
   PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME,
   PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
   PUBLIC_LANDING_LOGO_TEST_ID,
   PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
   PUBLIC_LANDING_LOGO_WIDTH,
 } from "@/lib/publicLandingLogo";
-import { useDocumentThemeMode } from "@/hooks/useDocumentThemeMode";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type LandingLogoSceneComponent =
   typeof import("@/components/NLogoScene").NLogoScene;
@@ -47,6 +40,7 @@ const DEFAULT_LANDING_LOGO_VIEW: LandingLogoView = {
   elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
   rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
 };
+const STATIC_LOGO_SVG_SRC = createStaticLogoSvgDataUrl();
 
 let persistedLandingLogoView: LandingLogoView = {
   ...DEFAULT_LANDING_LOGO_VIEW,
@@ -63,7 +57,6 @@ export function PublicLandingLogo({
   autoRotate?: boolean;
   enableViewSnapping?: boolean;
 }) {
-  const documentThemeMode = useDocumentThemeMode();
   const [LogoScene, setLogoScene] = useState<LandingLogoSceneComponent | null>(
     null,
   );
@@ -76,28 +69,12 @@ export function PublicLandingLogo({
   }));
   const lastFrameTimeRef = useRef<number | null>(null);
   const autoRotateResumeStartedAtRef = useRef<number | null>(null);
-  const isDarkTheme = documentThemeMode === "dark";
   const backgroundColor = getTailwindColorHex("background-base");
   const faceColors: FaceColors = {
     left: DEFAULT_FACE_COLORS.left,
     right: DEFAULT_FACE_COLORS.right,
     top: DEFAULT_FACE_COLORS.top,
   };
-  const staticSvgSrc = useMemo(() => {
-    if (!isDarkTheme) {
-      return PUBLIC_LANDING_LOGO_SRC;
-    }
-
-    const markup = createLogoThreeSvgMarkup({
-      backgroundColor: STATIC_LOGO_BACKGROUND_COLOR,
-      elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
-      faceColors: DEFAULT_FACE_COLORS,
-      filledVoxels: createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES),
-      rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
-    });
-
-    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;
-  }, [isDarkTheme]);
   const isSceneInteractive = isSceneReady && !isSvgVisible;
 
   useEffect(() => {
@@ -216,7 +193,7 @@ export function PublicLandingLogo({
       >
         <img
           data-testid={PUBLIC_LANDING_LOGO_TEST_ID}
-          src={staticSvgSrc}
+          src={STATIC_LOGO_SVG_SRC}
           alt={PUBLIC_LANDING_LOGO_ALT}
           width={PUBLIC_LANDING_LOGO_WIDTH}
           height={PUBLIC_LANDING_LOGO_HEIGHT}
@@ -230,6 +207,8 @@ export function PublicLandingLogo({
             aria-hidden="true"
             data-testid={PUBLIC_LANDING_LOGO_SCENE_TEST_ID}
             data-state={isSceneReady ? "ready" : "loading"}
+            data-elevation-degrees={view.elevationDegrees.toFixed(3)}
+            data-rotation-degrees={view.rotationDegrees.toFixed(3)}
             className={`absolute inset-0 z-0 ${isSceneInteractive ? "pointer-events-auto touch-none" : "pointer-events-none"}`}
           >
             <LogoScene

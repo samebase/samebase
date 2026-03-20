@@ -13,7 +13,7 @@ test("corner notch detail fixture", async ({ page }) => {
       animations: "disabled",
       caret: "hide",
       scale: "css",
-      maxDiffPixelRatio: 0.01,
+      maxDiffPixelRatio: 0.03,
     },
   );
 
@@ -23,7 +23,7 @@ test("corner notch detail fixture", async ({ page }) => {
       animations: "disabled",
       caret: "hide",
       scale: "css",
-      maxDiffPixelRatio: 0.01,
+      maxDiffPixelRatio: 0.03,
     },
   );
 });

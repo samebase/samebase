@@ -1,17 +1,10 @@
-import { type FaceColors } from "@/components/logoTailwindColors";
 import {
   createFilledVoxelSet,
   serializeVoxelState,
   type VoxelCoordinate,
-} from "@/components/logoVoxelState";
+} from "./logoVoxelState";
 
 export const LOGO_THREE_SVG_VIEWBOX_SIZE = 360;
-
-export const STATIC_LOGO_FACE_COLORS = {
-  left: "#ecfccb",
-  right: "#394447",
-  top: "#ffffff",
-} as const satisfies FaceColors;
 
 export const STATIC_LOGO_VOXEL_COORDINATES = [
   [1, 2, 0],

@@ -1,15 +1,9 @@
 import {
   DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE,
-  STATIC_LOGO_BACKGROUND_COLOR,
-  STATIC_LOGO_ELEVATION_DEGREES,
-  STATIC_LOGO_ROTATION_DEGREES,
   STATIC_LOGO_VOXEL_COORDINATES,
 } from "@/components/logoStaticSvgContract";
-import { createLogoThreeSvgMarkup } from "@/components/logoThreeSvgRenderer";
-import {
-  DEFAULT_FACE_COLORS,
-  getTailwindColorHex,
-} from "@/components/logoTailwindColors";
+import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
+import { getTailwindColorHex } from "@/components/logoTailwindColors";
 import {
   createFilledVoxelSet,
   parseVoxelState,
@@ -28,15 +22,7 @@ export function LogoStaticSvgPage() {
     parseVoxelState(searchParams.get("vox")) ??
     createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
   const themeFragment = isDarkTheme ? "dark" : "light";
-  const staticSvgSrc = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
-    createLogoThreeSvgMarkup({
-      backgroundColor: STATIC_LOGO_BACKGROUND_COLOR,
-      elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
-      faceColors: DEFAULT_FACE_COLORS,
-      filledVoxels,
-      rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
-    }),
-  )}#${themeFragment}-${documentThemeMode}`;
+  const staticSvgSrc = `${createStaticLogoSvgDataUrl({ filledVoxels })}#${themeFragment}-${documentThemeMode}`;
   const modeHref = (pathname: "/logo" | "/logo-iso" | "/logo-iso-study") =>
     currentSearch ? `${pathname}?${currentSearch}` : pathname;
 

@@ -3,11 +3,13 @@ import {
   DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE,
   DEFAULT_STATIC_LOGO_SVG_URL,
   STATIC_LOGO_ELEVATION_DEGREES,
-  STATIC_LOGO_FACE_COLORS,
   STATIC_LOGO_ROTATION_DEGREES,
   STATIC_LOGO_VOXEL_STATE,
 } from "@/components/logoStaticSvgContract";
-import { getTailwindColorHex } from "@/components/logoTailwindColors";
+import {
+  DEFAULT_FACE_COLORS,
+  getTailwindColorHex,
+} from "@/components/logoTailwindColors";
 import { useEffect, useRef, useState } from "react";
 
 export type LogoThreeVisualMode = "logo-three-reference";
@@ -58,7 +60,7 @@ function LogoThreeScalePreview({
               className="h-full w-full"
               editMode="add"
               elevationDegrees={STATIC_LOGO_ELEVATION_DEGREES}
-              faceColors={STATIC_LOGO_FACE_COLORS}
+              faceColors={DEFAULT_FACE_COLORS}
               opacity={1}
               onRenderUnavailable={onRenderUnavailable}
               onViewChange={(_nextView) => {}}
@@ -347,7 +349,7 @@ export function LogoThreeVisualFixture() {
                   className="h-full w-full"
                   editMode="add"
                   elevationDegrees={STATIC_LOGO_ELEVATION_DEGREES}
-                  faceColors={STATIC_LOGO_FACE_COLORS}
+                  faceColors={DEFAULT_FACE_COLORS}
                   opacity={1}
                   onRenderReady={() => {
                     setIsReferenceReady(true);

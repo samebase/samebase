@@ -1,13 +1,5 @@
 import { isInIframe, openAuthPopup } from "@/authClient";
-import { createLogoThreeSvgMarkup } from "@/components/logoThreeSvgRenderer";
-import { DEFAULT_FACE_COLORS } from "@/components/logoTailwindColors";
-import {
-  STATIC_LOGO_BACKGROUND_COLOR,
-  STATIC_LOGO_ELEVATION_DEGREES,
-  STATIC_LOGO_ROTATION_DEGREES,
-  STATIC_LOGO_VOXEL_COORDINATES,
-} from "@/components/logoStaticSvgContract";
-import { createFilledVoxelSet } from "@/components/logoVoxelState";
+import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
 import {
   buildLandingDevToggleHref,
   getLandingDevToggleLabel,
@@ -23,7 +15,6 @@ import {
   PUBLIC_LANDING_LOGO_HEIGHT,
   PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME,
   PUBLIC_LANDING_LOGO_SCENE_TEST_ID,
-  PUBLIC_LANDING_LOGO_SRC,
   PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME,
   PUBLIC_LANDING_LOGO_STAGE_TEST_ID,
   PUBLIC_LANDING_LOGO_TEST_ID,
@@ -139,20 +130,8 @@ function applyBootstrapThemeClass(): boolean {
   return isDarkTheme;
 }
 
-function buildFastLandingLogoSrc(isDarkTheme: boolean): string {
-  if (!isDarkTheme) {
-    return PUBLIC_LANDING_LOGO_SRC;
-  }
-
-  const markup = createLogoThreeSvgMarkup({
-    backgroundColor: STATIC_LOGO_BACKGROUND_COLOR,
-    elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
-    faceColors: DEFAULT_FACE_COLORS,
-    filledVoxels: createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES),
-    rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
-  });
-
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;
+function buildFastLandingLogoSrc(): string {
+  return createStaticLogoSvgDataUrl();
 }
 
 function hasRestoredAuthTokens(): boolean {
@@ -280,7 +259,7 @@ function beginWaitlistInteraction() {
   void ensureAppLoaded();
 }
 
-function renderFastLandingShell(isDarkTheme: boolean) {
+function renderFastLandingShell() {
   const root = document.getElementById("root");
 
   if (!root) {
@@ -290,7 +269,7 @@ function renderFastLandingShell(isDarkTheme: boolean) {
   const searchParams = new URLSearchParams(window.location.search);
   const landingDevToggleHref = buildLandingDevToggleHref(window.location);
   const landingDevToggleLabel = getLandingDevToggleLabel(searchParams);
-  const landingLogoSrc = buildFastLandingLogoSrc(isDarkTheme);
+  const landingLogoSrc = buildFastLandingLogoSrc();
   const { appCommit, shortCommit, commitUrl } = getShellCommitMetadata();
   const commitMarkup = commitUrl
     ? `<a class="font-mono transition-colors hover:text-foreground" href="${escapeHtml(commitUrl)}" target="_blank" rel="noreferrer noopener" title="${escapeHtml(appCommit)}">${escapeHtml(shortCommit)}</a>`
@@ -417,13 +396,13 @@ function applyBootstrapPageMetadata(
   applyPageMetadata(resolveBootstrapPageMetadata(location.pathname));
 }
 
-const isBootstrapDarkTheme = applyBootstrapThemeClass();
+applyBootstrapThemeClass();
 const fastLandingRoute = isFastLandingRoute(window.location);
 
 applyBootstrapPageMetadata(window.location, fastLandingRoute);
 
 if (fastLandingRoute) {
-  renderFastLandingShell(isBootstrapDarkTheme);
+  renderFastLandingShell();
   scheduleBackgroundAppLoad();
 } else {
   void ensureAppLoaded();
