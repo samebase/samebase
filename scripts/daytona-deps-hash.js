@@ -15,6 +15,7 @@ const INPUT_FILES = [
   'package.json',
   'pnpm-lock.yaml',
   'pnpm-workspace.yaml',
+  'eslint-rules/package.json',
   'apps/noter/package.json',
   'apps/noter-starter-template/package.json',
 ]
