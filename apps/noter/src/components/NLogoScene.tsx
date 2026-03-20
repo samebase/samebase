@@ -10,6 +10,10 @@ import {
 } from "@/components/logoRotationMath";
 import { getShuffleOriginCandidates } from "@/components/logoShuffleRules";
 import {
+  DRAG_ELEVATION_DEGREES_PER_PIXEL,
+  DRAG_ROTATION_DEGREES_PER_PIXEL,
+} from "@/components/logoViewDragConstants";
+import {
   HALF_GRID,
   GRID_SIZE,
   createDefaultFilledVoxelSet,
@@ -19,7 +23,10 @@ import {
   type VoxelEdit,
   voxelKey,
 } from "@/components/logoVoxelState";
-import { resolveDraggedAngleDegrees } from "@/components/logoViewDrag";
+import {
+  resolveDraggedAngleDegrees,
+  type LogoViewDragConfig,
+} from "@/components/logoViewDrag";
 import {
   useEffect,
   useRef,
@@ -30,8 +37,6 @@ import {
 import * as THREE from "three";
 
 const ISOMETRIC_CAMERA_DISTANCE = 11;
-const DRAG_ROTATION_DEGREES_PER_PIXEL = 0.35;
-const DRAG_ELEVATION_DEGREES_PER_PIXEL = 0.18;
 const DRAG_THRESHOLD_PX = 4;
 const RAYCAST_OFFSET = 0.001;
 const CAMERA_FRUSTUM_PADDING = 1.12;
@@ -126,14 +131,7 @@ type NLogoSceneProps = {
   rotationDegrees: number;
   shuffleAnimation: LogoShuffleAnimationConfig;
   animateFaceColors: boolean;
-  viewDragConfig?: {
-    angleStepDegrees?: number;
-    snapAngles?: {
-      elevationDegrees: readonly number[];
-      rotationDegrees: readonly number[];
-      thresholdDegrees: number;
-    };
-  };
+  viewDragConfig?: LogoViewDragConfig;
   voxelState: string;
 };
 
@@ -1350,7 +1348,7 @@ export function NLogoScene({
         disableSnap,
         snapDegrees: snapAngles?.elevationDegrees,
         snapThresholdDegrees: snapAngles?.thresholdDegrees,
-        stepDegrees: viewDragConfig?.angleStepDegrees,
+        stepDegrees: viewDragConfig?.elevationStepDegrees,
         value:
           interaction.startElevationDegrees +
           deltaY * DRAG_ELEVATION_DEGREES_PER_PIXEL,
@@ -1359,7 +1357,7 @@ export function NLogoScene({
         disableSnap,
         snapDegrees: snapAngles?.rotationDegrees,
         snapThresholdDegrees: snapAngles?.thresholdDegrees,
-        stepDegrees: viewDragConfig?.angleStepDegrees,
+        stepDegrees: viewDragConfig?.rotationStepDegrees,
         value:
           interaction.startRotationDegrees +
           deltaX * DRAG_ROTATION_DEGREES_PER_PIXEL,
@@ -1406,6 +1404,8 @@ export function NLogoScene({
     <div
       ref={mountRef}
       className={className}
+      data-logo-elevation-degrees={elevationDegrees}
+      data-logo-rotation-degrees={rotationDegrees}
       onContextMenu={handleContextMenu}
       onPointerCancel={handlePointerCancel}
       onPointerDown={handlePointerDown}

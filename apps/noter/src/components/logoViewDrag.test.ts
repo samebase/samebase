@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveDraggedAngleDegrees } from "@/components/logoViewDrag";
+import {
+  resolveDraggedAngleDegrees,
+  resolveLogoViewState,
+} from "@/components/logoViewDrag";
+import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
 
 const EXACT_ISOMETRIC_ELEVATION_DEGREES = 35.26438968;
 
@@ -57,5 +61,36 @@ describe("resolveDraggedAngleDegrees", () => {
         value: 35.6,
       }),
     ).toBe(36);
+  });
+});
+
+describe("resolveLogoViewState", () => {
+  it("applies the shared landing snap config to arbitrary view state", () => {
+    expect(
+      resolveLogoViewState({
+        config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+        view: {
+          elevationDegrees: 359.1,
+          rotationDegrees: 14.3,
+        },
+      }),
+    ).toEqual({
+      elevationDegrees: 0,
+      rotationDegrees: 15,
+    });
+  });
+
+  it("preserves arbitrary values when no snap config is provided", () => {
+    expect(
+      resolveLogoViewState({
+        view: {
+          elevationDegrees: 359.1,
+          rotationDegrees: 14.3,
+        },
+      }),
+    ).toEqual({
+      elevationDegrees: 359.1,
+      rotationDegrees: 14.3,
+    });
   });
 });

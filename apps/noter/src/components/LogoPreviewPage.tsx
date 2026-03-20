@@ -64,11 +64,16 @@ import {
   type VoxelEdit,
 } from "@/components/logoVoxelState";
 import {
+  resolveLogoViewState,
+  type LogoViewState,
+} from "@/components/logoViewDrag";
+import {
   buildPathWithQuery,
   buildSearchString,
   setQueryParam,
   updateQueryParams,
 } from "@/lib/queryParams";
+import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
 import { cn } from "@/lib/utils";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ChangeEvent } from "react";
@@ -84,6 +89,7 @@ const DEFAULT_ROTATION_AXIS_MODE: LogoRotationAxisMode = "cube-y";
 const MIN_LOGO_OPACITY = 0;
 const MAX_LOGO_OPACITY = 1;
 const LOGO_OPACITY_STEP = 0.01;
+const VIEW_SNAP_DISABLED_QUERY_PARAM = "freeView";
 const ROTATION_QUERY_PARAM = "rot";
 const ROTATION_AXIS_QUERY_PARAM = "axis";
 const ELEVATION_QUERY_PARAM = "elev";
@@ -112,6 +118,7 @@ type LogoPreviewQueryState = {
   isoStyleId: LogoIsometricStyleId;
   rotationAxisMode: LogoRotationAxisMode;
   rotationDegrees: number;
+  viewSnapEnabled: boolean;
   voxelState: string;
 };
 
@@ -233,6 +240,36 @@ function readRotationAxisMode(
   return value;
 }
 
+function readViewSnapEnabled(searchParams: URLSearchParams): boolean {
+  return !searchParams.has(VIEW_SNAP_DISABLED_QUERY_PARAM);
+}
+
+function resolveLogoPreviewViewState(
+  view: LogoViewState,
+  viewSnapEnabled: boolean,
+): LogoViewState {
+  return resolveLogoViewState({
+    config: viewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined,
+    view,
+  });
+}
+
+function readLogoPreviewView(searchParams: URLSearchParams): LogoViewState & {
+  viewSnapEnabled: boolean;
+} {
+  const viewSnapEnabled = readViewSnapEnabled(searchParams);
+  return {
+    ...resolveLogoPreviewViewState(
+      {
+        elevationDegrees: readElevationDegrees(searchParams),
+        rotationDegrees: readRotationDegrees(searchParams),
+      },
+      viewSnapEnabled,
+    ),
+    viewSnapEnabled,
+  };
+}
+
 function readElevationDegrees(searchParams: URLSearchParams): number {
   const value = searchParams.get(ELEVATION_QUERY_PARAM);
   const parsedValue = Number(value);
@@ -264,6 +301,7 @@ function buildLogoPreviewSearchParams(
     isoStyleId,
     rotationAxisMode,
     rotationDegrees,
+    viewSnapEnabled,
     voxelState,
   }: LogoPreviewQueryState,
 ): URLSearchParams {
@@ -286,6 +324,11 @@ function buildLogoPreviewSearchParams(
       elevationDegrees !== DEFAULT_ELEVATION_DEGREES
         ? formatDegreesParam(elevationDegrees)
         : null,
+    );
+    setQueryParam(
+      nextSearchParams,
+      VIEW_SNAP_DISABLED_QUERY_PARAM,
+      viewSnapEnabled ? null : true,
     );
     setQueryParam(nextSearchParams, "vox", voxelState);
     setQueryParam(
@@ -329,14 +372,17 @@ export function LogoPreviewPage({
   const backgroundColor = getTailwindColorHex("background-base");
   const controlsToolbarRef = useRef<HTMLDivElement | null>(null);
   const currentSearch = buildSearchString(searchParams);
-  const [rotationDegrees, setRotationDegrees] = useState(() =>
-    readRotationDegrees(searchParams),
+  const [isViewSnapEnabled, setIsViewSnapEnabled] = useState(() =>
+    readViewSnapEnabled(searchParams),
+  );
+  const [rotationDegrees, setRotationDegrees] = useState(
+    () => readLogoPreviewView(searchParams).rotationDegrees,
   );
   const [rotationAxisMode, setRotationAxisMode] = useState(() =>
     readRotationAxisMode(searchParams),
   );
-  const [elevationDegrees, setElevationDegrees] = useState(() =>
-    readElevationDegrees(searchParams),
+  const [elevationDegrees, setElevationDegrees] = useState(
+    () => readLogoPreviewView(searchParams).elevationDegrees,
   );
   const [voxelState, setVoxelState] = useState(() =>
     readVoxelState(searchParams),
@@ -366,6 +412,7 @@ export function LogoPreviewPage({
   const [controlsPopoverMaxHeight, setControlsPopoverMaxHeight] = useState(
     DEFAULT_CONTROLS_POPOVER_MAX_HEIGHT,
   );
+  const viewSnapCheckboxId = useId();
   const faceColorAnimationCheckboxId = useId();
   const [isSceneInteracting, setIsSceneInteracting] = useState(false);
   const isSceneInteractingRef = useRef(false);
@@ -380,9 +427,11 @@ export function LogoPreviewPage({
       return;
     }
 
-    setRotationDegrees(readRotationDegrees(searchParams));
+    const nextView = readLogoPreviewView(searchParams);
+    setRotationDegrees(nextView.rotationDegrees);
     setRotationAxisMode(readRotationAxisMode(searchParams));
-    setElevationDegrees(readElevationDegrees(searchParams));
+    setIsViewSnapEnabled(nextView.viewSnapEnabled);
+    setElevationDegrees(nextView.elevationDegrees);
     setVoxelState(readVoxelState(searchParams));
     setSelectedPresetId(readLogoPresetSelection(searchParams));
     setIsoStyleId(readIsoStyleId(searchParams));
@@ -401,6 +450,7 @@ export function LogoPreviewPage({
         isoStyleId,
         rotationAxisMode,
         rotationDegrees,
+        viewSnapEnabled: isViewSnapEnabled,
         voxelState,
       }),
     );
@@ -413,6 +463,7 @@ export function LogoPreviewPage({
     elevationDegrees,
     faceColors,
     isSceneInteracting,
+    isViewSnapEnabled,
     isoStyleId,
     rotationAxisMode,
     rotationDegrees,
@@ -516,14 +567,32 @@ export function LogoPreviewPage({
     setIsViewControlsOpen(false);
   }, [isIsometricMode]);
 
+  const applyViewState = (
+    nextView: LogoViewState,
+    options?: { viewSnapEnabled?: boolean },
+  ) => {
+    const resolvedView = resolveLogoPreviewViewState(
+      nextView,
+      options?.viewSnapEnabled ?? isViewSnapEnabled,
+    );
+    setRotationDegrees(resolvedView.rotationDegrees);
+    setElevationDegrees(resolvedView.elevationDegrees);
+  };
+
   const handleRotationChange = (event: ChangeEvent<HTMLInputElement>) => {
     setIsAutoRotating(false);
-    setRotationDegrees(normalizeRotationDegrees(Number(event.target.value)));
+    applyViewState({
+      elevationDegrees,
+      rotationDegrees: normalizeRotationDegrees(Number(event.target.value)),
+    });
   };
 
   const handleElevationChange = (event: ChangeEvent<HTMLInputElement>) => {
     setIsAutoRotating(false);
-    setElevationDegrees(normalizeElevationDegrees(Number(event.target.value)));
+    applyViewState({
+      elevationDegrees: normalizeElevationDegrees(Number(event.target.value)),
+      rotationDegrees,
+    });
   };
 
   const handleRotationInputChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -532,7 +601,10 @@ export function LogoPreviewPage({
       return;
     }
     setIsAutoRotating(false);
-    setRotationDegrees(normalizeRotationDegrees(nextValue));
+    applyViewState({
+      elevationDegrees,
+      rotationDegrees: normalizeRotationDegrees(nextValue),
+    });
   };
 
   const handleElevationInputChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -541,7 +613,10 @@ export function LogoPreviewPage({
       return;
     }
     setIsAutoRotating(false);
-    setElevationDegrees(normalizeElevationDegrees(nextValue));
+    applyViewState({
+      elevationDegrees: normalizeElevationDegrees(nextValue),
+      rotationDegrees,
+    });
   };
 
   const handleOpacityChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -564,8 +639,10 @@ export function LogoPreviewPage({
     elevationDegrees: number;
     rotationDegrees: number;
   }) => {
-    setRotationDegrees(nextRotationDegrees);
-    setElevationDegrees(nextElevationDegrees);
+    applyViewState({
+      elevationDegrees: nextElevationDegrees,
+      rotationDegrees: nextRotationDegrees,
+    });
   };
 
   const handleVoxelEdit = (edit: VoxelEdit) => {
@@ -632,6 +709,7 @@ export function LogoPreviewPage({
         isoStyleId,
         rotationAxisMode,
         rotationDegrees,
+        viewSnapEnabled: isViewSnapEnabled,
         voxelState,
       }),
     });
@@ -680,6 +758,9 @@ export function LogoPreviewPage({
             parallelMoves: shuffleParallelMoves,
           }}
           animateFaceColors={isFaceColorAnimationEnabled}
+          viewDragConfig={
+            isViewSnapEnabled ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG : undefined
+          }
           voxelState={voxelState}
         />
       )}
@@ -819,6 +900,40 @@ export function LogoPreviewPage({
                     </CollapsibleTrigger>
                     <CollapsibleContent className="pt-3">
                       <div className="grid gap-3">
+                        <div className="flex items-start gap-3 border border-black/10 bg-white/80 p-3">
+                          <Checkbox
+                            id={viewSnapCheckboxId}
+                            checked={isViewSnapEnabled}
+                            onCheckedChange={(checked) => {
+                              const nextViewSnapEnabled = checked === true;
+                              setIsViewSnapEnabled(nextViewSnapEnabled);
+                              if (!nextViewSnapEnabled) {
+                                return;
+                              }
+                              applyViewState(
+                                {
+                                  elevationDegrees,
+                                  rotationDegrees,
+                                },
+                                { viewSnapEnabled: true },
+                              );
+                            }}
+                            className="mt-0.5 border-black/20"
+                          />
+                          <label
+                            htmlFor={viewSnapCheckboxId}
+                            className="grid gap-1 text-xs text-black/55"
+                          >
+                            <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                              Snap View
+                            </span>
+                            <span>
+                              Uses the same elevation and rotation snapping as
+                              the landing page. Hold Alt or Shift while dragging
+                              to bypass it.
+                            </span>
+                          </label>
+                        </div>
                         <div className="grid gap-2">
                           <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                             <span>Rotation Axis</span>
@@ -917,8 +1032,10 @@ export function LogoPreviewPage({
                             onClick={() => {
                               setIsAutoRotating(false);
                               setRotationAxisMode(DEFAULT_ROTATION_AXIS_MODE);
-                              setRotationDegrees(DEFAULT_ROTATION_DEGREES);
-                              setElevationDegrees(DEFAULT_ELEVATION_DEGREES);
+                              applyViewState({
+                                elevationDegrees: DEFAULT_ELEVATION_DEGREES,
+                                rotationDegrees: DEFAULT_ROTATION_DEGREES,
+                              });
                             }}
                           >
                             Reset view
@@ -929,11 +1046,12 @@ export function LogoPreviewPage({
                             variant="outline"
                             className="rounded-none"
                             onClick={() => {
-                              setRotationDegrees((currentRotationDegrees) =>
-                                normalizeRotationDegrees(
-                                  currentRotationDegrees + 45,
+                              applyViewState({
+                                elevationDegrees,
+                                rotationDegrees: normalizeRotationDegrees(
+                                  rotationDegrees + 45,
                                 ),
-                              );
+                              });
                             }}
                           >
                             +45°

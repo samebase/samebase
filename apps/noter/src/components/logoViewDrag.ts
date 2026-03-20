@@ -1,5 +1,22 @@
 import { normalizeRotationDegrees } from "@/components/logoVoxelState";
 
+export type LogoViewDragSnapAngles = {
+  elevationDegrees: readonly number[];
+  rotationDegrees: readonly number[];
+  thresholdDegrees: number;
+};
+
+export type LogoViewDragConfig = {
+  elevationStepDegrees?: number;
+  rotationStepDegrees?: number;
+  snapAngles?: LogoViewDragSnapAngles;
+};
+
+export type LogoViewState = {
+  elevationDegrees: number;
+  rotationDegrees: number;
+};
+
 type ResolveDraggedAngleDegreesOptions = {
   disableSnap?: boolean;
   snapDegrees?: readonly number[];
@@ -63,4 +80,27 @@ export function resolveDraggedAngleDegrees({
   }
 
   return closestSnapDegrees;
+}
+
+export function resolveLogoViewState(args: {
+  config?: LogoViewDragConfig;
+  disableSnap?: boolean;
+  view: LogoViewState;
+}): LogoViewState {
+  return {
+    elevationDegrees: resolveDraggedAngleDegrees({
+      disableSnap: args.disableSnap,
+      snapDegrees: args.config?.snapAngles?.elevationDegrees,
+      snapThresholdDegrees: args.config?.snapAngles?.thresholdDegrees,
+      stepDegrees: args.config?.elevationStepDegrees,
+      value: args.view.elevationDegrees,
+    }),
+    rotationDegrees: resolveDraggedAngleDegrees({
+      disableSnap: args.disableSnap,
+      snapDegrees: args.config?.snapAngles?.rotationDegrees,
+      snapThresholdDegrees: args.config?.snapAngles?.thresholdDegrees,
+      stepDegrees: args.config?.rotationStepDegrees,
+      value: args.view.rotationDegrees,
+    }),
+  };
 }
