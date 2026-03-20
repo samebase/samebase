@@ -13,7 +13,6 @@ describe("starterSeedManifest", () => {
     const filePaths = Object.keys(starterTemplateManifest.files);
 
     expect(filePaths).toContain("package.json");
-    expect(filePaths).toContain("netlify.toml");
     expect(filePaths).toContain("src/App.tsx");
     expect(filePaths).toContain("convex/schema.ts");
     expect(filePaths).toContain("AGENTS.md");

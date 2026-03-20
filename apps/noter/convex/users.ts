@@ -9,7 +9,7 @@ import {
 import { internal } from "./_generated/api";
 import { Infer, v } from "convex/values";
 import { getConnectionByUserAndKind } from "./providerConnections";
-import { isRecord, readBoolean, readString } from "./jsonUtils";
+import { isRecord, readString } from "./jsonUtils";
 import {
   deriveMcpTokenStatusFromExpiry,
   mcpTokenHealthStatusValidator,
@@ -41,7 +41,6 @@ const ALLOWED_EMAILS = new Set([
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
 const GITHUB_API_BASE = "https://api.github.com";
 const CONVEX_TOKEN_DETAILS_URL = "https://api.convex.dev/v1/token_details";
-const NETLIFY_API_BASE = "https://api.netlify.com/api/v1";
 
 const authProviderSummaryValidator = object({
   providers: array(string()),
@@ -103,12 +102,6 @@ type CloudflareConnectionStatusInput = {
 };
 
 type JsonRecord = Record<string, unknown>;
-type NetlifyAccount = {
-  id: string;
-  slug?: string;
-  type?: string;
-  isDefault?: boolean;
-};
 
 function readNumberAsString(
   record: JsonRecord,
@@ -376,70 +369,6 @@ async function fetchConvexTokenDetails(token: string): Promise<{
   return { teamId, teamSlug };
 }
 
-async function fetchNetlifyConnectionDetails(token: string): Promise<{
-  teamId: string;
-  teamSlug?: string;
-}> {
-  const userResponse = await fetchWithTimeout(`${NETLIFY_API_BASE}/user`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  const userPayload = await userResponse.json().catch(() => null);
-  if (!userResponse.ok || !isRecord(userPayload)) {
-    throw new Error("Invalid Netlify API key");
-  }
-
-  const accountsResponse = await fetchWithTimeout(
-    `${NETLIFY_API_BASE}/accounts`,
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    },
-  );
-  const accountsPayload = await accountsResponse.json().catch(() => null);
-  if (!accountsResponse.ok || !Array.isArray(accountsPayload)) {
-    throw new Error("Unable to list Netlify teams for this API key");
-  }
-
-  const accounts: NetlifyAccount[] = [];
-  for (const account of accountsPayload) {
-    if (!isRecord(account)) {
-      continue;
-    }
-    const id = readString(account, "id");
-    if (!id) {
-      continue;
-    }
-    const isDefault =
-      readBoolean(account, "is_default") ??
-      readBoolean(account, "isDefault") ??
-      readBoolean(account, "default");
-    accounts.push({
-      id,
-      slug: readString(account, "slug"),
-      type: readString(account, "type"),
-      isDefault,
-    });
-  }
-
-  if (accounts.length === 0) {
-    throw new Error("No Netlify team/account found for this API key");
-  }
-
-  const defaultAccount = accounts.find((account) => account.isDefault);
-  const teamAccount = accounts.find((account) => account.type === "team");
-  const selectedAccount = defaultAccount ?? teamAccount ?? accounts[0];
-
-  return {
-    teamId: selectedAccount.id,
-    teamSlug: selectedAccount.slug,
-  };
-}
-
 // Public
 
 export const viewer = query({
@@ -453,7 +382,6 @@ export const viewer = query({
       githubUsername: v.optional(v.string()),
       hasGithubConnection: boolean(),
       hasConvexConnection: boolean(),
-      hasNetlifyConnection: boolean(),
       hasCloudflareConnection: boolean(),
     }),
     v.null(),
@@ -468,10 +396,9 @@ export const viewer = query({
       return null;
     }
 
-    const [github, convex, netlify, cloudflare] = await Promise.all([
+    const [github, convex, cloudflare] = await Promise.all([
       getConnectionByUserAndKind(ctx.db, userId, "github"),
       getConnectionByUserAndKind(ctx.db, userId, "convex"),
-      getConnectionByUserAndKind(ctx.db, userId, "netlify"),
       getConnectionByUserAndKind(ctx.db, userId, "cloudflare"),
     ]);
 
@@ -486,7 +413,6 @@ export const viewer = query({
       githubUsername,
       hasGithubConnection: github !== null,
       hasConvexConnection: convex !== null,
-      hasNetlifyConnection: netlify !== null,
       hasCloudflareConnection: cloudflare !== null,
     };
   },
@@ -644,57 +570,6 @@ export const disconnectConvex = mutation({
       ctx.db,
       userId,
       "convex",
-    );
-    if (connection) {
-      await ctx.db.delete(connection._id);
-    }
-    return null;
-  },
-});
-
-export const getNetlifyConnectionStatus = query({
-  args: {},
-  returns: v.object({
-    connected: boolean(),
-    teamId: v.optional(v.string()),
-    teamSlug: v.optional(v.string()),
-    authMethod: v.optional(providerAuthMethodValidator),
-  }),
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      return { connected: false };
-    }
-    const connection = await getConnectionByUserAndKind(
-      ctx.db,
-      userId,
-      "netlify",
-    );
-    if (connection?.kind !== "netlify") {
-      return { connected: false };
-    }
-
-    return {
-      connected: true,
-      teamId: connection.teamId,
-      teamSlug: connection.teamSlug,
-      authMethod: connection.auth.method,
-    };
-  },
-});
-
-export const disconnectNetlify = mutation({
-  args: {},
-  returns: v.null(),
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      throw new Error("User not authenticated");
-    }
-    const connection = await getConnectionByUserAndKind(
-      ctx.db,
-      userId,
-      "netlify",
     );
     if (connection) {
       await ctx.db.delete(connection._id);
@@ -1008,14 +883,6 @@ type ConvexApiKeyConnectionResult = Infer<
   typeof convexApiKeyConnectionResultValidator
 >;
 
-const netlifyApiKeyConnectionResultValidator = v.object({
-  teamId: v.string(),
-  teamSlug: v.optional(v.string()),
-});
-type NetlifyApiKeyConnectionResult = Infer<
-  typeof netlifyApiKeyConnectionResultValidator
->;
-
 export const connectGithubWithApiKey = action({
   args: {
     token: v.string(),
@@ -1058,34 +925,6 @@ export const connectConvexWithApiKey = action({
     const details = await fetchConvexTokenDetails(token);
 
     await ctx.runMutation(internal.providerConnections.upsertConvex, {
-      userId,
-      auth: {
-        method: "api_key",
-        credential: token,
-      },
-      teamId: details.teamId,
-      teamSlug: details.teamSlug,
-    });
-
-    return { teamId: details.teamId, teamSlug: details.teamSlug };
-  },
-});
-
-export const connectNetlifyWithApiKey = action({
-  args: {
-    token: v.string(),
-  },
-  returns: netlifyApiKeyConnectionResultValidator,
-  handler: async (ctx, args): Promise<NetlifyApiKeyConnectionResult> => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      throw new Error("User not authenticated");
-    }
-
-    const token = normalizeApiToken(args.token);
-    const details = await fetchNetlifyConnectionDetails(token);
-
-    await ctx.runMutation(internal.providerConnections.upsertNetlify, {
       userId,
       auth: {
         method: "api_key",

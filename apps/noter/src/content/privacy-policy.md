@@ -20,10 +20,10 @@ claiming features or controls that are not in the product yet.
   the time you joined. If waitlist notifications are configured, that email
   address is also sent through Resend to notify the team.
 - Connected provider credentials and related identifiers. If you connect GitHub,
-  Convex, Netlify, Cloudflare, or Codex, Noter stores the credentials and
-  metadata needed to operate that integration, such as OAuth access tokens,
-  refresh tokens, API keys, expiry times, usernames, team IDs, account IDs, and
-  Codex volume or sandbox identifiers.
+  Convex, Cloudflare, or Codex, Noter stores the credentials and metadata needed
+  to operate that integration, such as OAuth access tokens, refresh tokens, API
+  keys, expiry times, usernames, team IDs, account IDs, and Codex volume or
+  sandbox identifiers.
 - Repository and workspace metadata. Noter stores repository owner and name,
   repository IDs, Git trees, commit SHAs, branch metadata, infrastructure
   status, domain mappings, Codespaces metadata, Daytona sandbox and snapshot
@@ -85,8 +85,8 @@ and the integrations described on this page to run the product.
 - With GitHub when you connect repositories, read repository data, create
   commits or repositories, manage deploy keys or webhooks, or use GitHub
   Codespaces.
-- With Convex, Netlify, Cloudflare, and Daytona when you connect those providers
-  or ask Noter to provision or operate related infrastructure.
+- With Convex, Cloudflare, and Daytona when you connect those providers or ask
+  Noter to provision or operate related infrastructure.
 - With Polar when you start checkout or open the billing portal, and when
   subscription state is synchronized by webhook.
 - With Resend if waitlist email notifications are configured.

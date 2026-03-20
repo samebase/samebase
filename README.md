@@ -11,7 +11,7 @@ monorepo with React + Vite on the frontend and Convex on the backend.
   as a runnable starter in a single commit
 - Automatic infrastructure provisioning for new noter-managed vaults:
   - Convex project/deployment
-  - Netlify site + environment wiring
+  - Cloudflare Pages project + environment wiring
   - Infrastructure status surfaced in Vault Dashboard
 - Manual infra retry for failed/partial provisioning
 - GitHub Codespaces integration for cloud execution
@@ -89,7 +89,7 @@ pnpm test
 
 1. Configure Convex deployment env vars.
 2. Configure app-login providers (Google, plus password in dev).
-3. Configure provider connection OAuth/API keys (GitHub/Convex/Netlify).
+3. Configure provider connection OAuth/API keys (GitHub/Convex/Cloudflare).
 
 ## Temporary Dependency Patch
 

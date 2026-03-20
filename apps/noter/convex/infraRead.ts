@@ -6,12 +6,8 @@ import type { ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { allowedInfraReadTable } from "./infraReadQueries";
 import { createInfraProviders } from "./infraProviders";
-import {
-  readHostingInventory,
-  readHostingLogs,
-  readHostingSiteStatus,
-} from "./hostingProviders";
-import { resolveNetlifyHostingState } from "./hostingStateHelpers";
+import { readHostingLogs, readHostingSiteStatus } from "./hostingProviders";
+import { resolveCloudflareHostingState } from "./hostingStateHelpers";
 import { asRecord, clamp, readString } from "./jsonUtils";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
@@ -37,20 +33,15 @@ async function loadVaultContext(
   vaultId: Id<"vaults">,
 ): Promise<{
   infra: Doc<"vaultInfrastructure"> | null;
+  vaultUserId: Id<"users"> | null;
   convexConnection: {
     kind: "convex";
     auth: { credential: string };
     teamId: string;
     teamSlug?: string;
   } | null;
-  netlifyConnection: {
-    kind: "netlify";
-    auth: { credential: string };
-    teamId: string;
-    teamSlug?: string;
-  } | null;
 }> {
-  const { infra, convexConnection, netlifyConnection } = await ctx.runQuery(
+  const { infra, vaultUserId, convexConnection } = await ctx.runQuery(
     internal.infraReadQueries.getVaultReadContext,
     {
       vaultId,
@@ -59,8 +50,8 @@ async function loadVaultContext(
 
   return {
     infra,
+    vaultUserId,
     convexConnection,
-    netlifyConnection,
   };
 }
 
@@ -86,31 +77,6 @@ function resolveConvexTeamId(
     return connection.teamId;
   }
   throw new Error("Convex is not connected");
-}
-
-function resolveNetlifyToken(
-  connection: {
-    kind: "netlify";
-    auth: { credential: string };
-  } | null,
-): string {
-  if (connection) {
-    return connection.auth.credential;
-  }
-  throw new Error("Netlify is not connected");
-}
-
-function resolveNetlifyTeamSlug(
-  connection: {
-    kind: "netlify";
-    teamSlug?: string;
-  } | null,
-): string {
-  const slug = connection?.teamSlug?.trim() ?? "";
-  if (slug) {
-    return slug;
-  }
-  throw new Error("Netlify is not connected");
 }
 
 function resolveCloudflareToken(
@@ -224,58 +190,61 @@ export const getConvexLogs = internalAction({
   },
 });
 
-export const getNetlifySiteStatus = internalAction({
+export const getCloudflareProjectStatus = internalAction({
   args: {
     vaultId: v.id("vaults"),
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { infra, netlifyConnection } = await loadVaultContext(
-      ctx,
-      args.vaultId,
-    );
-
-    const netlifyHosting = resolveNetlifyHostingState(infra);
-    if (!netlifyHosting) {
+    const { infra, vaultUserId } = await loadVaultContext(ctx, args.vaultId);
+    const hosting = resolveCloudflareHostingState(infra);
+    if (!hosting || !vaultUserId) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
 
-    const providers = createInfraProviders({
-      netlifyToken: resolveNetlifyToken(netlifyConnection),
-    });
+    const cloudflareConnection = await ctx.runAction(
+      internal.cloudflareMcpOAuth.resolveConnectionForUser,
+      {
+        userId: vaultUserId,
+      },
+    );
+
     return await readHostingSiteStatus({
-      provider: "netlify",
-      netlifyProvider: providers.netlify,
-      siteId: netlifyHosting.siteId,
-      siteName: netlifyHosting.siteName,
+      provider: "cloudflare",
+      cloudflareToken: resolveCloudflareToken(cloudflareConnection),
+      cloudflareServerUrl: resolveCloudflareMcpServerUrl(cloudflareConnection),
+      accountId: hosting.accountId,
+      projectName: hosting.projectName,
     });
   },
 });
 
-export const getNetlifyLogs = internalAction({
+export const getCloudflareLogs = internalAction({
   args: {
     vaultId: v.id("vaults"),
     maxEntries: v.optional(v.number()),
   },
   returns: EXECUTION_RESULT,
   handler: async (ctx, args): Promise<ExecutionResult> => {
-    const { infra, netlifyConnection } = await loadVaultContext(
-      ctx,
-      args.vaultId,
-    );
-
-    const netlifyHosting = resolveNetlifyHostingState(infra);
-    if (!netlifyHosting) {
+    const { infra, vaultUserId } = await loadVaultContext(ctx, args.vaultId);
+    const hosting = resolveCloudflareHostingState(infra);
+    if (!hosting || !vaultUserId) {
       throw new Error(getVaultInfraError(args.vaultId));
     }
 
-    const providers = createInfraProviders({
-      netlifyToken: resolveNetlifyToken(netlifyConnection),
-    });
+    const cloudflareConnection = await ctx.runAction(
+      internal.cloudflareMcpOAuth.resolveConnectionForUser,
+      {
+        userId: vaultUserId,
+      },
+    );
+
     return await readHostingLogs({
-      provider: "netlify",
-      netlifyProvider: providers.netlify,
-      siteId: netlifyHosting.siteId,
+      provider: "cloudflare",
+      cloudflareToken: resolveCloudflareToken(cloudflareConnection),
+      cloudflareServerUrl: resolveCloudflareMcpServerUrl(cloudflareConnection),
+      accountId: hosting.accountId,
+      projectName: hosting.projectName,
       maxEntries: args.maxEntries ?? 10,
     });
   },
@@ -313,34 +282,6 @@ export const getConvexProjectInventory = internalAction({
       raw: JSON.stringify(rows, null, 2),
       rowCount: rows.length,
     };
-  },
-});
-
-export const getNetlifySiteInventory = internalAction({
-  args: {
-    limit: v.optional(v.number()),
-    userId: v.optional(v.id("users")),
-  },
-  returns: EXECUTION_RESULT,
-  handler: async (ctx, args): Promise<ExecutionResult> => {
-    const netlifyConnectionRaw = args.userId
-      ? await ctx.runQuery(internal.providerConnections.getByUserAndKind, {
-          userId: args.userId,
-          kind: "netlify",
-        })
-      : null;
-    const netlifyConnection =
-      netlifyConnectionRaw?.kind === "netlify" ? netlifyConnectionRaw : null;
-    const providers = createInfraProviders({
-      netlifyToken: resolveNetlifyToken(netlifyConnection),
-    });
-    const teamSlug = resolveNetlifyTeamSlug(netlifyConnection);
-    return await readHostingInventory({
-      provider: "netlify",
-      netlifyProvider: providers.netlify,
-      teamSlug,
-      limit: args.limit ?? 50,
-    });
   },
 });
 

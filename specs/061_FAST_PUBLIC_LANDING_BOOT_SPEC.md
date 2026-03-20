@@ -134,7 +134,6 @@ including:
 - `ChatFab`
 - `CodespaceChatOnlyView`
 - `PricingPage`
-- `NetlifyOAuthCallback`
 
 This is required so the background app boot for unauthenticated users is much
 smaller than before.

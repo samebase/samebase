@@ -8,14 +8,14 @@
 - Related specs:
   - `specs/025_MULTI_WORKTREE_OAUTH_BROKER_SPEC.md`
   - `specs/015_BYO_CONVEX_OAUTH_AND_WORKTREE_PROVISIONING_SPEC.md`
-  - `rfcs/017_NETLIFY_OAUTH_AND_TEAM_SELECTION_SPEC.md`
+  - `specs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
   - `specs/009_CODESPACE_PORT_VISIBILITY_SPEC.md`
 
 ## Summary
 
 Refactor auth and provider connectivity so app login is separate from provider
 connections. Introduce a dedicated `providerConnections` table as the single
-source of truth for GitHub, Convex, and Netlify credentials.
+source of truth for GitHub, Convex, and Cloudflare credentials.
 
 ## Locked Product Decisions
 
@@ -23,11 +23,14 @@ source of truth for GitHub, Convex, and Netlify credentials.
    - `prod`: Google only.
    - `dev`: Google + password.
    - GitHub is removed from app sign-in.
-2. Provider access is explicit connection-only flow for GitHub/Convex/Netlify.
-3. One active connection per (`userId`, `kind`), with method `oauth` or
-   `api_key`.
-4. Use union-based modeling; no sparse generic token object on `users`.
-5. Include index support for `kind` + `auth.method`.
+2. Provider access is explicit connection-only flow for
+   GitHub/Convex/Cloudflare.
+3. One active connection per (`userId`, `kind`).
+4. `auth.method` values are `oauth`, `mcp_oauth`, and `api_key`. GitHub/Convex
+   use `oauth` or `api_key`; Cloudflare uses `mcp_oauth` in the user-facing flow
+   and `api_key` for local/dev seed bootstrap.
+5. Use union-based modeling; no sparse generic token object on `users`.
+6. Include index support for `kind` + `auth.method`.
 
 ## Data Model
 
@@ -41,7 +44,14 @@ union and nested auth-method union.
    - `credential`
    - `refreshCredential?`
    - `credentialExpiresAt?`
-2. `apiKeyAuth`:
+2. `mcpOauthAuth`:
+   - `method: "mcp_oauth"`
+   - `credential`
+   - `refreshCredential?`
+   - `credentialExpiresAt?`
+   - `clientId?`
+   - `mcpServerUrl`
+3. `apiKeyAuth`:
    - `method: "api_key"`
    - `credential`
    - `credentialExpiresAt?`
@@ -61,12 +71,11 @@ union and nested auth-method union.
    - `teamId`
    - `teamSlug?`
    - `createdAt`, `updatedAt`
-3. Netlify:
-   - `kind: "netlify"`
+3. Cloudflare:
+   - `kind: "cloudflare"`
    - `userId`
-   - `auth`
-   - `teamId`
-   - `teamSlug?`
+   - `auth` (`mcp_oauth` in user-facing flows, `api_key` for local/dev seed)
+   - `accountId?`
    - `createdAt`, `updatedAt`
 
 ### Indexes
@@ -95,19 +104,19 @@ credentials must be read from `providerConnections`.
 
 1. `getGithubConnectionStatus`
 2. `getConvexConnectionStatus`
-3. `getNetlifyConnectionStatus`
+3. `getCloudflareConnectionStatus`
 
 Each status includes:
 
 1. `connected`
 2. provider metadata (`username`, `teamId`, `teamSlug` as applicable)
-3. `authMethod?: "oauth" | "api_key"`
+3. `authMethod?: "oauth" | "mcp_oauth" | "api_key"`
 
 `viewer` exposes:
 
 1. `hasGithubConnection`
 2. `hasConvexConnection`
-3. `hasNetlifyConnection`
+3. `hasCloudflareConnection`
 
 ## OAuth + Login Split
 
@@ -121,7 +130,7 @@ Each status includes:
    - `/oauth/github/callback`
    - Callback stores `kind: "github"` + `auth.method: "oauth"` in
      `providerConnections`.
-3. Convex and Netlify OAuth modules write to `providerConnections` (not
+3. Convex and Cloudflare OAuth modules write to `providerConnections` (not
    `users`).
 
 ## Runtime Consumer Rule
@@ -131,7 +140,7 @@ All runtime flows that need provider credentials must read
 
 - `"GitHub is not connected"`
 - `"Convex is not connected"`
-- `"Netlify is not connected"`
+- `"Cloudflare is not connected"`
 
 No fallback to app-login provider tokens.
 
@@ -157,8 +166,7 @@ When running anonymous/local worktree seed path:
 1. `DEV_SEED_GITHUB_API_KEY`
 2. `DEV_SEED_CONVEX_MANAGEMENT_API_KEY`
 3. `DEV_SEED_CONVEX_TEAM_ID`
-4. `DEV_SEED_NETLIFY_API_KEY`
-5. `DEV_SEED_NETLIFY_TEAM_ID`
+4. `DEV_SEED_CLOUDFLARE_API_KEY`
 
 Seed transport contract:
 

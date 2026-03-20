@@ -98,37 +98,29 @@ export const getVaultReadContext = internalQuery({
     if (!vault) {
       return {
         infra: null,
+        vaultUserId: null,
         convexConnection: null,
-        netlifyConnection: null,
       };
     }
 
-    const [infra, convexConnectionRaw, netlifyConnectionRaw] =
-      await Promise.all([
-        ctx.db
-          .query("vaultInfrastructure")
-          .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-          .first(),
-        ctx.db
-          .query("providerConnections")
-          .withIndex("by_user_kind", (q) =>
-            q.eq("userId", vault.userId).eq("kind", "convex"),
-          )
-          .first(),
-        ctx.db
-          .query("providerConnections")
-          .withIndex("by_user_kind", (q) =>
-            q.eq("userId", vault.userId).eq("kind", "netlify"),
-          )
-          .first(),
-      ]);
+    const [infra, convexConnectionRaw] = await Promise.all([
+      ctx.db
+        .query("vaultInfrastructure")
+        .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+        .first(),
+      ctx.db
+        .query("providerConnections")
+        .withIndex("by_user_kind", (q) =>
+          q.eq("userId", vault.userId).eq("kind", "convex"),
+        )
+        .first(),
+    ]);
 
     return {
       infra,
+      vaultUserId: vault.userId,
       convexConnection:
         convexConnectionRaw?.kind === "convex" ? convexConnectionRaw : null,
-      netlifyConnection:
-        netlifyConnectionRaw?.kind === "netlify" ? netlifyConnectionRaw : null,
     };
   },
 });

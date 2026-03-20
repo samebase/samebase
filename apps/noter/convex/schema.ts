@@ -95,8 +95,6 @@ export const VaultDomainKind = v.union(
 );
 
 export const VaultDomainSource = v.union(
-  v.literal("netlify_default"),
-  v.literal("netlify_custom"),
   v.literal("cloudflare_pages_default"),
   v.literal("cloudflare_pages_custom"),
 );
@@ -110,7 +108,6 @@ export const ProdAccessScope = v.union(v.literal("vault"), v.literal("global"));
 
 export const ProdAccessProvider = v.union(
   v.literal("convex"),
-  v.literal("netlify"),
   v.literal("cloudflare"),
 );
 
@@ -119,7 +116,6 @@ export const ProdAccessResourceKind = v.union(
   v.literal("logs"),
   v.literal("data_query"),
   v.literal("project_inventory"),
-  v.literal("site_inventory"),
   v.literal("account_inventory"),
   v.literal("pages_project_inventory"),
 );
@@ -151,7 +147,6 @@ export const ProdAccessAuditAction = v.union(
 export const ProviderKind = v.union(
   v.literal("github"),
   v.literal("convex"),
-  v.literal("netlify"),
   v.literal("cloudflare"),
   v.literal("codex"),
 );
@@ -249,15 +244,6 @@ export const ConvexProviderConnection = v.object({
   createdAt: v.number(),
   updatedAt: v.number(),
 });
-export const NetlifyProviderConnection = v.object({
-  kind: v.literal("netlify"),
-  userId: v.id("users"),
-  auth: StandardProviderAuth,
-  teamId: v.string(),
-  teamSlug: v.optional(v.string()),
-  createdAt: v.number(),
-  updatedAt: v.number(),
-});
 export const CloudflareProviderConnection = v.object({
   kind: v.literal("cloudflare"),
   userId: v.id("users"),
@@ -279,7 +265,6 @@ export const CodexProviderConnection = object({
 export const ProviderConnection = v.union(
   GithubProviderConnection,
   ConvexProviderConnection,
-  NetlifyProviderConnection,
   CloudflareProviderConnection,
   CodexProviderConnection,
 );
@@ -432,14 +417,6 @@ export default defineSchema({
 
     // Provider-aware hosting state (phase 2+)
     hosting: v.optional(hostingStateValidator),
-
-    // Netlify
-    netlifySiteId: v.optional(v.string()),
-    netlifySiteName: v.optional(v.string()),
-    netlifyTeamId: v.optional(v.string()),
-    netlifyDefaultUrl: v.optional(v.string()),
-    netlifyProductionUrl: v.optional(v.string()),
-    netlifyBuildHookId: v.optional(v.string()),
   })
     .index("by_vault", ["vaultId"])
     .index("by_status", ["status"]),
@@ -715,7 +692,6 @@ export default defineSchema({
     provider: v.union(
       v.literal("github"),
       v.literal("convex"),
-      v.literal("netlify"),
       v.literal("cloudflare_mcp"),
     ),
     userId: v.id("users"),

@@ -1,19 +1,10 @@
 type ConvexRequestMethod = "GET" | "POST";
-type NetlifyRequestMethod = "GET" | "POST" | "PATCH" | "DELETE";
-type ProviderName = "Convex" | "Netlify";
+type ProviderName = "Convex";
 
 export interface ConvexManagementProvider {
   request(
     path: string,
     method: ConvexRequestMethod,
-    body?: unknown,
-  ): Promise<unknown>;
-}
-
-export interface NetlifyManagementProvider {
-  request(
-    path: string,
-    method: NetlifyRequestMethod,
     body?: unknown,
   ): Promise<unknown>;
 }
@@ -63,7 +54,7 @@ async function requestProviderApi(args: {
   baseUrl: string;
   token: string;
   path: string;
-  method: ConvexRequestMethod | NetlifyRequestMethod;
+  method: ConvexRequestMethod;
   body?: unknown;
 }): Promise<unknown> {
   const response = await fetch(`${args.baseUrl}${args.path}`, {
@@ -85,15 +76,10 @@ async function requestProviderApi(args: {
   return await parseResponseBody(response);
 }
 
-export function createInfraProviders(args?: {
-  convexToken?: string;
-  netlifyToken?: string;
-}): {
+export function createInfraProviders(args?: { convexToken?: string }): {
   convex: ConvexManagementProvider;
-  netlify: NetlifyManagementProvider;
 } {
   const convexTokenOverride = args?.convexToken;
-  const netlifyTokenOverride = args?.netlifyToken;
 
   return {
     convex: {
@@ -105,22 +91,6 @@ export function createInfraProviders(args?: {
         return requestProviderApi({
           provider: "Convex",
           baseUrl: "https://api.convex.dev/v1",
-          token,
-          path,
-          method,
-          body,
-        });
-      },
-    },
-    netlify: {
-      request(path, method, body) {
-        const token = netlifyTokenOverride;
-        if (!token) {
-          throw new Error("Netlify access token is required.");
-        }
-        return requestProviderApi({
-          provider: "Netlify",
-          baseUrl: "https://api.netlify.com/api/v1",
           token,
           path,
           method,

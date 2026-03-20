@@ -15,7 +15,6 @@ import {
   handleMcpRequest,
   registerMcpOauthClient,
 } from "./mcp/http";
-import { finishNetlifyOAuthCallback, startNetlifyOAuth } from "./netlifyOAuth";
 import { handlePolarWebhook } from "./polarWebhooks";
 
 const http = httpRouter();
@@ -56,18 +55,6 @@ http.route({
   path: "/oauth/github/callback",
   method: "GET",
   handler: finishGithubOAuth,
-});
-
-http.route({
-  path: "/oauth/netlify/start",
-  method: "GET",
-  handler: startNetlifyOAuth,
-});
-
-http.route({
-  path: "/oauth/netlify/callback",
-  method: "GET",
-  handler: finishNetlifyOAuthCallback,
 });
 
 http.route({

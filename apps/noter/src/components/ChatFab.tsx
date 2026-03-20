@@ -411,20 +411,19 @@ function CommitProposalCard({
 function renderProdReadLabel(metadata: {
   resourceKind: ProdReadProposal["resourceKind"];
 }) {
-  const { resourceKind } = metadata;
-  if (resourceKind === "deployment_status") return "Deployment status";
-  if (resourceKind === "logs") return "Logs";
-  if (resourceKind === "data_query") return "Data sample";
-  if (resourceKind === "project_inventory") return "Project inventory";
-  if (resourceKind === "account_inventory") return "Account inventory";
-  if (resourceKind === "pages_project_inventory")
-    return "Pages project inventory";
-  return "Site inventory";
+  const labels: Record<ProdReadProposal["resourceKind"], string> = {
+    deployment_status: "Deployment status",
+    logs: "Logs",
+    data_query: "Data sample",
+    project_inventory: "Project inventory",
+    account_inventory: "Account inventory",
+    pages_project_inventory: "Pages project inventory",
+  };
+  return labels[metadata.resourceKind];
 }
 
 function renderProviderLabel(provider: ProdReadProposal["provider"]) {
   if (provider === "convex") return "Convex";
-  if (provider === "netlify") return "Netlify";
   return "Cloudflare";
 }
 

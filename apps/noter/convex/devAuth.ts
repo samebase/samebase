@@ -101,40 +101,6 @@ async function upsertConvexApiKey(
   });
 }
 
-async function upsertNetlifyApiKey(
-  db: DatabaseWriter,
-  userId: Id<"users">,
-  credential: string,
-  teamId: string,
-): Promise<void> {
-  const existing = await getConnectionByUserAndKind(db, userId, "netlify");
-  const now = Date.now();
-  if (existing) {
-    await db.patch(existing._id, {
-      auth: {
-        method: "api_key",
-        credential,
-      },
-      teamId,
-      teamSlug: teamId,
-      updatedAt: now,
-    });
-    return;
-  }
-  await db.insert("providerConnections", {
-    kind: "netlify",
-    userId,
-    auth: {
-      method: "api_key",
-      credential,
-    },
-    teamId,
-    teamSlug: teamId,
-    createdAt: now,
-    updatedAt: now,
-  });
-}
-
 async function upsertCloudflareApiKey(
   db: DatabaseWriter,
   userId: Id<"users">,
@@ -172,8 +138,6 @@ const seedProviderConnectionsArgs = object({
   githubApiKey: optional(string()),
   convexManagementApiKey: optional(string()),
   convexTeamId: optional(string()),
-  netlifyApiKey: optional(string()),
-  netlifyTeamId: optional(string()),
   cloudflareApiKey: optional(string()),
   cloudflareAccountId: optional(string()),
 });
@@ -210,20 +174,6 @@ export const seedProviderConnectionsForEmail = internalMutation({
       );
     }
 
-    if (args.netlifyApiKey || args.netlifyTeamId) {
-      if (!args.netlifyApiKey || !args.netlifyTeamId) {
-        throw new Error(
-          "Both DEV_SEED_NETLIFY_API_KEY and DEV_SEED_NETLIFY_TEAM_ID are required",
-        );
-      }
-      await upsertNetlifyApiKey(
-        ctx.db,
-        user._id,
-        args.netlifyApiKey,
-        args.netlifyTeamId,
-      );
-    }
-
     if (args.cloudflareApiKey || args.cloudflareAccountId) {
       if (!args.cloudflareApiKey) {
         throw new Error(
@@ -256,8 +206,6 @@ export const seedPasswordAccount = internalAction({
       "DEV_SEED_CONVEX_MANAGEMENT_API_KEY",
     );
     const convexTeamId = readSeedValue("DEV_SEED_CONVEX_TEAM_ID");
-    const netlifyApiKey = readSeedValue("DEV_SEED_NETLIFY_API_KEY");
-    const netlifyTeamId = readSeedValue("DEV_SEED_NETLIFY_TEAM_ID");
     const cloudflareApiKey = readSeedValue("DEV_SEED_CLOUDFLARE_API_KEY");
     const cloudflareAccountId = readSeedValue("DEV_SEED_CLOUDFLARE_ACCOUNT_ID");
     const seedArgs: SeedProviderConnectionsArgs = { email };
@@ -269,12 +217,6 @@ export const seedPasswordAccount = internalAction({
     }
     if (convexTeamId !== undefined) {
       seedArgs.convexTeamId = convexTeamId;
-    }
-    if (netlifyApiKey !== undefined) {
-      seedArgs.netlifyApiKey = netlifyApiKey;
-    }
-    if (netlifyTeamId !== undefined) {
-      seedArgs.netlifyTeamId = netlifyTeamId;
     }
     if (cloudflareApiKey !== undefined) {
       seedArgs.cloudflareApiKey = cloudflareApiKey;

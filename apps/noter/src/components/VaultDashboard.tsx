@@ -12,7 +12,6 @@ import {
   TrashIcon,
   UpdateIcon,
   ChevronDownIcon,
-  GlobeIcon,
 } from "@radix-ui/react-icons";
 import { Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -149,23 +148,13 @@ const hasDaytonaResourcesForVault = (
   );
 
 type CreateTemplate = "app" | "agent";
-const CREATE_HOSTING_PROVIDERS = ["cloudflare", "netlify"] as const;
-type CreateHostingProvider = (typeof CREATE_HOSTING_PROVIDERS)[number];
 
 const isCreateTemplate = (value: string): value is CreateTemplate =>
   value === "app" || value === "agent";
-const isCreateHostingProvider = (
-  value: string,
-): value is CreateHostingProvider =>
-  CREATE_HOSTING_PROVIDERS.some((provider) => provider === value);
-const CREATE_HOSTING_PROVIDER_LABEL: Record<CreateHostingProvider, string> = {
-  netlify: "Netlify",
-  cloudflare: "Cloudflare",
-};
 
 const DASHBOARD_REFRESH_CONCURRENCY = 3;
 type RefreshTrigger = "focus" | "page_load";
-const PROVIDER_KEYS = ["github", "convex", "netlify", "cloudflare"] as const;
+const PROVIDER_KEYS = ["github", "convex", "cloudflare"] as const;
 type ProviderKey = (typeof PROVIDER_KEYS)[number];
 type ProviderMetadata = {
   label: string;
@@ -210,10 +199,6 @@ const ConvexProviderLogo = ({ className }: { className?: string }) => (
   </span>
 );
 
-const NetlifyProviderLogo = ({ className }: { className?: string }) => (
-  <GlobeIcon className={clsx("h-4 w-4", className)} />
-);
-
 const CloudflareProviderLogo = ({ className }: { className?: string }) => (
   <span className={clsx("inline-flex items-center justify-center", className)}>
     <svg
@@ -254,14 +239,6 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
     completionEventType: "convex-oauth-complete",
     icon: ConvexProviderLogo,
     apiKeyProvider: "convex",
-  },
-  netlify: {
-    label: "Netlify",
-    oauthButtonLabel: "Netlify OAuth",
-    popupName: "netlify-oauth",
-    completionEventType: "netlify-oauth-complete",
-    icon: NetlifyProviderLogo,
-    apiKeyProvider: "netlify",
   },
   cloudflare: {
     label: "Cloudflare",
@@ -542,7 +519,6 @@ export function VaultDashboard() {
   const refreshTree = useAction(api.github.refreshRepositoryTree);
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
-  const getNetlifyOAuthUrl = useMutation(api.netlifyOAuth.getNetlifyOAuthUrl);
   const getCloudflareMcpOAuthUrl = useAction(
     api.cloudflareMcpOAuth.getCloudflareMcpOAuthUrl,
   );
@@ -551,21 +527,14 @@ export function VaultDashboard() {
   );
   const connectGithubWithApiKey = useAction(api.users.connectGithubWithApiKey);
   const connectConvexWithApiKey = useAction(api.users.connectConvexWithApiKey);
-  const connectNetlifyWithApiKey = useAction(
-    api.users.connectNetlifyWithApiKey,
-  );
   const disconnectGithub = useMutation(api.users.disconnectGithub);
   const disconnectConvex = useMutation(api.users.disconnectConvex);
-  const disconnectNetlify = useMutation(api.users.disconnectNetlify);
   const disconnectCloudflare = useMutation(api.users.disconnectCloudflare);
   const setProvidersPanelOpen = useMutation(
     api.dashboardSettings.setProvidersPanelOpen,
   );
   const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
   const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus);
-  const netlifyConnection = useConvexQuery(
-    api.users.getNetlifyConnectionStatus,
-  );
   const cloudflareConnection = useConvexQuery(
     api.users.getCloudflareConnectionStatus,
   );
@@ -576,11 +545,9 @@ export function VaultDashboard() {
   const dashboardProvidersPanelOpen = dashboardSettings?.providersPanelOpen;
   const githubPopupRef = useRef<Window | null>(null);
   const convexPopupRef = useRef<Window | null>(null);
-  const netlifyPopupRef = useRef<Window | null>(null);
   const cloudflarePopupRef = useRef<Window | null>(null);
   const githubPopupOriginRef = useRef<string | null>(null);
   const convexPopupOriginRef = useRef<string | null>(null);
-  const netlifyPopupOriginRef = useRef<string | null>(null);
   const cloudflarePopupOriginRef = useRef<string | null>(null);
   const providerRuntimeConfig: Record<ProviderKey, ProviderRuntimeConfig> = {
     github: {
@@ -595,12 +562,6 @@ export function VaultDashboard() {
       popupRef: convexPopupRef,
       popupOriginRef: convexPopupOriginRef,
     },
-    netlify: {
-      getOAuthUrl: getNetlifyOAuthUrl,
-      disconnect: disconnectNetlify,
-      popupRef: netlifyPopupRef,
-      popupOriginRef: netlifyPopupOriginRef,
-    },
     cloudflare: {
       getOAuthUrl: getCloudflareMcpOAuthUrl,
       disconnect: disconnectCloudflare,
@@ -614,7 +575,6 @@ export function VaultDashboard() {
     isNoterManaged: boolean;
     hasConvexProvision: boolean;
     hasHostingProvision: boolean;
-    hostingProvider?: CreateHostingProvider;
   } | null>(null);
   const [removeGithubRepo, setRemoveGithubRepo] = useState(false);
   const [removeCodespaces, setRemoveCodespaces] = useState(false);
@@ -628,8 +588,6 @@ export function VaultDashboard() {
   } | null>(null);
   const [newRepositoryName, setNewRepositoryName] = useState("");
   const [createTemplate, setCreateTemplate] = useState<CreateTemplate>("app");
-  const [createHostingProvider, setCreateHostingProvider] =
-    useState<CreateHostingProvider>("cloudflare");
   const [disconnectingProvider, setDisconnectingProvider] =
     useState<ProviderKey | null>(null);
   const [isCheckingCloudflareToken, setIsCheckingCloudflareToken] =
@@ -697,11 +655,6 @@ export function VaultDashboard() {
         completionEventType: PROVIDER_METADATA.convex.completionEventType,
         popupRef: convexPopupRef,
         popupOriginRef: convexPopupOriginRef,
-      },
-      netlify: {
-        completionEventType: PROVIDER_METADATA.netlify.completionEventType,
-        popupRef: netlifyPopupRef,
-        popupOriginRef: netlifyPopupOriginRef,
       },
       cloudflare: {
         completionEventType: PROVIDER_METADATA.cloudflare.completionEventType,
@@ -914,18 +867,8 @@ export function VaultDashboard() {
   const stagedChangesCount = selectedVault?.fileCount ?? 0;
   const hasStagedChanges = stagedChangesCount > 0;
   const hasDaytonaResources = hasDaytonaResourcesForVault(selectedVault);
-  const removeHostingCheckboxId =
-    vaultToDelete?.hostingProvider === "cloudflare"
-      ? "remove-cloudflare-provision"
-      : vaultToDelete?.hostingProvider === "netlify"
-        ? "remove-netlify-provision"
-        : "remove-hosting-provision";
-  const removeHostingLabel =
-    vaultToDelete?.hostingProvider === "cloudflare"
-      ? "Also remove Cloudflare Pages project"
-      : vaultToDelete?.hostingProvider === "netlify"
-        ? "Also remove Netlify site"
-        : "Also remove hosting provider resources";
+  const removeHostingCheckboxId = "remove-cloudflare-provision";
+  const removeHostingLabel = "Also remove Cloudflare Pages project";
   const resetDeleteDialogState = () => {
     setVaultToDelete(null);
     setRemoveGithubRepo(false);
@@ -1112,7 +1055,6 @@ export function VaultDashboard() {
         name: repoName,
         private: true,
         templateType: createTemplate,
-        hostingProvider: createHostingProvider,
       });
       setNewRepositoryName("");
     } catch (error) {
@@ -1142,49 +1084,8 @@ export function VaultDashboard() {
 
   const githubConnected = githubConnection?.connected === true;
   const convexConnected = convexConnection?.connected === true;
-  const netlifyConnected = netlifyConnection?.connected === true;
   const cloudflareConnected = cloudflareConnection?.connected === true;
-  useEffect(() => {
-    const selectedConnected =
-      createHostingProvider === "netlify"
-        ? netlifyConnected
-        : cloudflareConnected;
-    if (selectedConnected) {
-      return;
-    }
-
-    const fallbackHostingProvider = cloudflareConnected
-      ? "cloudflare"
-      : netlifyConnected
-        ? "netlify"
-        : null;
-    if (
-      fallbackHostingProvider &&
-      fallbackHostingProvider !== createHostingProvider
-    ) {
-      setCreateHostingProvider(fallbackHostingProvider);
-    }
-  }, [cloudflareConnected, createHostingProvider, netlifyConnected]);
-
-  const hostingConnectionByProvider: Record<CreateHostingProvider, boolean> = {
-    cloudflare: cloudflareConnected,
-    netlify: netlifyConnected,
-  };
-  const connectedHostingProviders = CREATE_HOSTING_PROVIDERS.filter(
-    (provider) => hostingConnectionByProvider[provider],
-  );
-  const createHostingProviderOptions =
-    connectedHostingProviders.length > 0
-      ? connectedHostingProviders.includes(createHostingProvider)
-        ? connectedHostingProviders
-        : [...connectedHostingProviders, createHostingProvider]
-      : CREATE_HOSTING_PROVIDERS;
-  const isHostingProviderConnected = (provider: CreateHostingProvider) =>
-    hostingConnectionByProvider[provider];
-  const requiredHostingConnectionLabel =
-    CREATE_HOSTING_PROVIDER_LABEL[createHostingProvider];
-  const requiredHostingConnected =
-    hostingConnectionByProvider[createHostingProvider];
+  const requiredHostingConnectionLabel = "Cloudflare";
   const cloudflareMcpTokenStatus = cloudflareConnection?.mcpTokenStatus;
   const cloudflareMcpTokenExpiresAt = cloudflareConnection?.mcpTokenExpiresAt;
   const cloudflareMcpTokenCheckedAt = cloudflareConnection?.mcpTokenCheckedAt;
@@ -1196,12 +1097,11 @@ export function VaultDashboard() {
       ? cloudflareMcpTokenExpiresAt - CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS
       : undefined;
   const showCloudflareCreateWarning =
-    createHostingProvider === "cloudflare" &&
     cloudflareConnected &&
     (cloudflareMcpTokenStatus === "invalid" ||
       cloudflareMcpTokenStatus === "expired");
   const canCreateRepo = Boolean(
-    githubConnected && convexConnected && requiredHostingConnected,
+    githubConnected && convexConnected && cloudflareConnected,
   );
   const formatAuthMethod = (
     method: "oauth" | "mcp_oauth" | "api_key" | "device_auth" | undefined,
@@ -1217,9 +1117,6 @@ export function VaultDashboard() {
     : "Not connected";
   const convexStatus = convexConnected
     ? `Connected to ${convexConnection.teamSlug ?? convexConnection.teamId ?? "Convex team"} (${formatAuthMethod(convexConnection.authMethod)})`
-    : "Not connected";
-  const netlifyStatus = netlifyConnected
-    ? `Connected to ${netlifyConnection.teamSlug ?? netlifyConnection.teamId ?? "Netlify team"} (${formatAuthMethod(netlifyConnection.authMethod)})`
     : "Not connected";
   const cloudflareMcpTokenTimeStatus =
     cloudflareConnection?.authMethod === "mcp_oauth"
@@ -1281,11 +1178,6 @@ export function VaultDashboard() {
       status: convexStatus,
       showTokenCheck: false,
     },
-    netlify: {
-      connected: netlifyConnected,
-      status: netlifyStatus,
-      showTokenCheck: false,
-    },
     cloudflare: {
       connected: cloudflareConnected,
       status: cloudflareStatus,
@@ -1299,8 +1191,6 @@ export function VaultDashboard() {
   const createTemplateLabel = createTemplate === "app" ? "App" : "Agent";
   const createTemplateArticle =
     createTemplate === "app" ? "an app" : "an agent";
-  const createHostingProviderLabel =
-    CREATE_HOSTING_PROVIDER_LABEL[createHostingProvider];
   const createPlaceholder = `New ${createTemplate} name`;
   const createButtonLabel = isCreating
     ? `Creating ${createTemplate}...`
@@ -1308,7 +1198,6 @@ export function VaultDashboard() {
   const { openApiKeyDialog, apiKeyDialog } = useApiKeyConnectDialog({
     connectGithubWithApiKey,
     connectConvexWithApiKey,
-    connectNetlifyWithApiKey,
   });
   const createControl = (
     <div className="flex flex-col items-start gap-2">
@@ -1333,36 +1222,6 @@ export function VaultDashboard() {
             >
               <DropdownMenuRadioItem value="app">App</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="agent">Agent</DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button className="gap-2" variant="outline">
-              {createHostingProviderLabel}
-              <ChevronDownIcon className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuRadioGroup
-              value={createHostingProvider}
-              onValueChange={(value) => {
-                if (!isCreateHostingProvider(value)) return;
-                setCreateHostingProvider(value);
-                if (createError) {
-                  setCreateError(null);
-                }
-              }}
-            >
-              {createHostingProviderOptions.map((provider) => (
-                <DropdownMenuRadioItem
-                  key={provider}
-                  value={provider}
-                  disabled={!isHostingProviderConnected(provider)}
-                >
-                  {CREATE_HOSTING_PROVIDER_LABEL[provider]}
-                </DropdownMenuRadioItem>
-              ))}
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -1685,7 +1544,6 @@ export function VaultDashboard() {
                       isNoterManaged: vault.isNoterManaged,
                       hasConvexProvision: vault.hasConvexProvision,
                       hasHostingProvision: vault.hasHostingProvision,
-                      hostingProvider: vault.hostingProvider,
                     });
                     setRemoveGithubRepo(vault.isNoterManaged);
                     setRemoveCodespaces(true);

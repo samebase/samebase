@@ -42,10 +42,6 @@ convex/_generated
 convex/.tmp
 .convex
 
-# Hosting tooling
-.netlify
-.vercel
-
 # Codespace agent runtime state
 .codespace-agent/.agent-token
 

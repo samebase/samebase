@@ -51,8 +51,8 @@ to implement and operate.
 - Making public MCP access tokens valid against unrelated Convex routes or app
   APIs.
 - Reusing the browser app session token as an MCP access token.
-- Passing GitHub, Cloudflare, Convex, or Netlify provider tokens through to the
-  MCP client.
+- Passing GitHub, Cloudflare, or Convex provider tokens through to the MCP
+  client.
 - Shipping every optional MCP feature in v1.
 
 ## External Constraints

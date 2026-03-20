@@ -95,8 +95,8 @@ Fields:
 - `requesterUserId: Id<"users">`
 - `vaultId?: Id<"vaults">`
 - `scope: "vault" | "global"`
-- `provider: "convex" | "netlify"`
-- `resourceKind: "deployment_status" | "logs" | "data_query" | "project_inventory" | "site_inventory"`
+- `provider: "convex" | "cloudflare"`
+- `resourceKind: "deployment_status" | "logs" | "data_query" | "project_inventory" | "account_inventory" | "pages_project_inventory"`
 - `toolName: string`
 - `paramsJson: string`
 - `status: "proposed" | "approved" | "rejected" | "executed" | "failed" | "expired"`
@@ -154,13 +154,14 @@ aiProdAccessRequests: defineTable({
   requesterUserId: v.id('users'),
   vaultId: v.optional(v.id('vaults')),
   scope: v.union(v.literal('vault'), v.literal('global')),
-  provider: v.union(v.literal('convex'), v.literal('netlify')),
+  provider: v.union(v.literal('convex'), v.literal('cloudflare')),
   resourceKind: v.union(
     v.literal('deployment_status'),
     v.literal('logs'),
     v.literal('data_query'),
     v.literal('project_inventory'),
-    v.literal('site_inventory'),
+    v.literal('account_inventory'),
+    v.literal('pages_project_inventory'),
   ),
   toolName: v.string(),
   paramsJson: v.string(),
@@ -211,8 +212,11 @@ Add proposal-only tool entries in `TOOL_CATALOG`:
 
 - `request_convex_status_read`
 - `request_convex_logs_read`
-- `request_netlify_status_read`
-- `request_netlify_logs_read`
+- `request_cloudflare_status_read`
+- `request_cloudflare_logs_read`
+- `request_convex_projects_read`
+- `request_cloudflare_accounts_read`
+- `request_cloudflare_pages_projects_read`
 - `request_convex_data_read`
 
 Policy requirements:
@@ -231,13 +235,14 @@ Policy requirements:
 args: {
   threadId: string;
   vaultId?: Id<"vaults">;
-  provider: "convex" | "netlify";
+  provider: "convex" | "cloudflare";
   resourceKind:
     | "deployment_status"
     | "logs"
     | "data_query"
     | "project_inventory"
-    | "site_inventory";
+    | "account_inventory"
+    | "pages_project_inventory";
   toolName: string;
   paramsJson: string;
 }
@@ -278,8 +283,11 @@ Behavior:
 
 - `infraRead.getConvexDeploymentStatus`
 - `infraRead.getConvexLogs`
-- `infraRead.getNetlifySiteStatus`
-- `infraRead.getNetlifyLogs`
+- `infraRead.getCloudflareProjectStatus`
+- `infraRead.getCloudflareLogs`
+- `infraRead.getConvexProjectInventory`
+- `infraRead.getCloudflareAccountInventory`
+- `infraRead.getCloudflarePagesProjectInventory`
 - `infraRead.getConvexDataQuery`
 
 Executor constraints:

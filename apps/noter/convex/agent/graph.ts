@@ -17,13 +17,12 @@ const PROD_READ_SENTINEL = "__PROD_READ_PROPOSAL__:";
 const PROD_READ_PROPOSAL_SCHEMA = z.object({
   requestId: requestIdSchema,
   scope: z.enum(["vault", "global"]),
-  provider: z.enum(["convex", "netlify", "cloudflare"]),
+  provider: z.enum(["convex", "cloudflare"]),
   resourceKind: z.enum([
     "deployment_status",
     "logs",
     "data_query",
     "project_inventory",
-    "site_inventory",
     "account_inventory",
     "pages_project_inventory",
   ]),

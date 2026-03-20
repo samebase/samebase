@@ -28,6 +28,11 @@ const syncPairs = [
     destination: path.join(templateDir, ".devcontainer", "devcontainer.json"),
     recursive: false,
   },
+  {
+    source: path.join(repoRoot, ".devcontainer", "Dockerfile"),
+    destination: path.join(templateDir, ".devcontainer", "Dockerfile"),
+    recursive: false,
+  },
 ];
 
 export async function syncCodespaceAssets() {
@@ -39,7 +44,10 @@ export async function syncCodespaceAssets() {
       errorOnExist: false,
       filter: pair.filter,
     });
-    const relativeSource = path.relative(repoRoot, pair.source).split(path.sep).join("/");
+    const relativeSource = path
+      .relative(repoRoot, pair.source)
+      .split(path.sep)
+      .join("/");
     const relativeDestination = path
       .relative(templateDir, pair.destination)
       .split(path.sep)
