@@ -94,10 +94,13 @@ approval model:
 1. Unapproved OAuth apps cannot access the organization's private resources.
 2. Organization owners approve pending requests from the org's OAuth app policy
    settings.
-3. Organization members and outside collaborators request approval from their
-   Authorized OAuth Apps page, subject to the org's request policy.
-4. Reconnecting the personal GitHub account does not override that org policy.
-5. The `/add` UI should surface a short note for both owner and non-owner
+3. Organization members, and outside collaborators when the org enables access
+   requests for them, can request approval from their Authorized OAuth Apps
+   page.
+4. Non-owners may still need an organization owner to approve Noter directly,
+   depending on the org's request policy.
+5. Reconnecting the personal GitHub account does not override that org policy.
+6. The `/add` UI should surface a short note for both owner and non-owner
    recovery paths instead of failing silently.
 
 ## Acceptance Checklist

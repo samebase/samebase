@@ -213,7 +213,8 @@ export function AddRepository() {
             Missing a private org repo? GitHub may be blocking Noter's OAuth
             app. If you're an org owner, approve Noter in the org's Settings,
             then Third-party Access, then OAuth app policy. Otherwise request
-            access from GitHub's Authorized OAuth Apps page.{" "}
+            access from GitHub's Authorized OAuth Apps page if GitHub offers
+            that option, or ask an org owner to approve Noter.{" "}
             <a
               href={GITHUB_OAUTH_ORG_APPROVAL_DOCS_URL}
               target="_blank"
