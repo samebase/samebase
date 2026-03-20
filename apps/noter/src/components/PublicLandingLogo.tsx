@@ -207,6 +207,8 @@ export function PublicLandingLogo({
             aria-hidden="true"
             data-testid={PUBLIC_LANDING_LOGO_SCENE_TEST_ID}
             data-state={isSceneReady ? "ready" : "loading"}
+            data-elevation-degrees={view.elevationDegrees.toFixed(3)}
+            data-rotation-degrees={view.rotationDegrees.toFixed(3)}
             className={`absolute inset-0 z-0 ${isSceneInteractive ? "pointer-events-auto touch-none" : "pointer-events-none"}`}
           >
             <LogoScene

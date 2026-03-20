@@ -64,15 +64,14 @@ async function expectLandingLogoSceneReady(scene: Locator) {
   await expect(scene).toHaveAttribute("data-state", "ready");
 }
 
-async function readLandingLogoSceneImage(
-  page: Parameters<typeof test>[0]["page"],
-) {
-  return page.evaluate(() => {
-    const canvas = document.querySelector(
-      '[data-testid="public-landing-logo-scene"] canvas',
-    );
-    return canvas instanceof HTMLCanvasElement ? canvas.toDataURL() : null;
-  });
+async function readLandingLogoSceneView(scene: Locator) {
+  const elevationDegrees = await scene.getAttribute("data-elevation-degrees");
+  const rotationDegrees = await scene.getAttribute("data-rotation-degrees");
+
+  return {
+    elevationDegrees,
+    rotationDegrees,
+  };
 }
 
 test("public landing shell renders before the full app UI takes over", async ({
@@ -247,8 +246,11 @@ test("prod-ui landing logo becomes draggable after the SVG fallback is removed",
     )
     .toBe("grab");
 
-  const imageBeforeDrag = await readLandingLogoSceneImage(page);
-  expect(imageBeforeDrag).not.toBeNull();
+  const viewBeforeDrag = await readLandingLogoSceneView(landingLogoScene);
+  expect(viewBeforeDrag).toEqual({
+    elevationDegrees: "35.264",
+    rotationDegrees: "0.000",
+  });
 
   const canvasBounds = await landingLogoCanvas.boundingBox();
   expect(canvasBounds).not.toBeNull();
@@ -269,8 +271,8 @@ test("prod-ui landing logo becomes draggable after the SVG fallback is removed",
   await page.mouse.up();
 
   await expect
-    .poll(async () => readLandingLogoSceneImage(page))
-    .not.toBe(imageBeforeDrag);
+    .poll(async () => readLandingLogoSceneView(landingLogoScene))
+    .not.toEqual(viewBeforeDrag);
 });
 
 test("prod-ui landing logo keeps the SVG fallback when WebGL is unavailable", async ({
