@@ -1,6 +1,10 @@
 import { LOGO_THREE_SVG_VIEWBOX_SIZE } from "./logoStaticSvgContract";
 import { toRenderedRotationDegrees } from "./logoRotationMath";
-import { getTailwindColorHex, type FaceColors } from "./logoTailwindColors";
+import {
+  getTailwindColorHex,
+  type FaceColorKey,
+  type FaceColors,
+} from "./logoTailwindColors";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_ROTATION_DEGREES,
@@ -10,9 +14,15 @@ import {
   voxelKey,
 } from "./logoVoxelState";
 
-type Point = {
+export type LogoProjectedPoint = {
   x: number;
   y: number;
+};
+
+export type LogoWorldPoint = {
+  x: number;
+  y: number;
+  z: number;
 };
 
 type Rectangle = {
@@ -30,9 +40,21 @@ type Vector3 = {
 
 type SurfaceQuad = {
   color: string;
+  colorKey: FaceColorKey;
+  key: string;
   materialOrder: number;
   normal: Vector3;
   vertices: readonly Vector3[];
+};
+
+export type LogoProjectedQuad = {
+  color: string;
+  colorKey: FaceColorKey;
+  depth: number;
+  key: string;
+  materialOrder: number;
+  points: readonly LogoProjectedPoint[];
+  strokeWidth: number;
 };
 
 const CAMERA_FRUSTUM_PADDING = 1.12;
@@ -190,6 +212,8 @@ function buildSurfaceQuads(
       const z1 = toWorld(rectangle.column + rectangle.width);
       quads.push({
         color: rightColor,
+        colorKey: "right",
+        key: `positive-x:${x}:${rectangle.row}:${rectangle.column}:${rectangle.height}:${rectangle.width}`,
         materialOrder: 0,
         normal: { x: 1, y: 0, z: 0 },
         vertices: [
@@ -217,6 +241,8 @@ function buildSurfaceQuads(
       const z1 = toWorld(rectangle.column + rectangle.width);
       quads.push({
         color: rightColor,
+        colorKey: "right",
+        key: `negative-x:${x}:${rectangle.row}:${rectangle.column}:${rectangle.height}:${rectangle.width}`,
         materialOrder: 1,
         normal: { x: -1, y: 0, z: 0 },
         vertices: [
@@ -246,6 +272,8 @@ function buildSurfaceQuads(
       const z1 = toWorld(rectangle.column + rectangle.width);
       quads.push({
         color: topColor,
+        colorKey: "top",
+        key: `positive-y:${y}:${rectangle.row}:${rectangle.column}:${rectangle.height}:${rectangle.width}`,
         materialOrder: 2,
         normal: { x: 0, y: 1, z: 0 },
         vertices: [
@@ -273,6 +301,8 @@ function buildSurfaceQuads(
       const z1 = toWorld(rectangle.column + rectangle.width);
       quads.push({
         color: topColor,
+        colorKey: "top",
+        key: `negative-y:${y}:${rectangle.row}:${rectangle.column}:${rectangle.height}:${rectangle.width}`,
         materialOrder: 3,
         normal: { x: 0, y: -1, z: 0 },
         vertices: [
@@ -302,6 +332,8 @@ function buildSurfaceQuads(
       const y1 = toWorld(rectangle.column + rectangle.width);
       quads.push({
         color: leftColor,
+        colorKey: "left",
+        key: `positive-z:${z}:${rectangle.row}:${rectangle.column}:${rectangle.height}:${rectangle.width}`,
         materialOrder: 4,
         normal: { x: 0, y: 0, z: 1 },
         vertices: [
@@ -329,6 +361,8 @@ function buildSurfaceQuads(
       const y1 = toWorld(rectangle.column + rectangle.width);
       quads.push({
         color: leftColor,
+        colorKey: "left",
+        key: `negative-z:${z}:${rectangle.row}:${rectangle.column}:${rectangle.height}:${rectangle.width}`,
         materialOrder: 5,
         normal: { x: 0, y: 0, z: -1 },
         vertices: [
@@ -368,10 +402,169 @@ function getCameraBasis(elevationDegrees: number) {
   };
 }
 
-function serializePolygon(points: readonly Point[]): string {
+function projectPoint(
+  point: Vector3,
+  right: Vector3,
+  up: Vector3,
+  frustumHalfHeight: number,
+  viewBoxSize: number,
+): LogoProjectedPoint {
+  return {
+    x:
+      ((dotVectors(point, right) + frustumHalfHeight) /
+        (frustumHalfHeight * 2)) *
+      viewBoxSize,
+    y:
+      ((frustumHalfHeight - dotVectors(point, up)) / (frustumHalfHeight * 2)) *
+      viewBoxSize,
+  };
+}
+
+function serializePolygon(points: readonly LogoProjectedPoint[]): string {
   return points
     .map((point) => `${point.x.toFixed(6)},${point.y.toFixed(6)}`)
     .join(" ");
+}
+
+function getProjectedScene({
+  elevationDegrees = DEFAULT_ELEVATION_DEGREES,
+  faceColors,
+  filledVoxels,
+  rotationDegrees = DEFAULT_ROTATION_DEGREES,
+}: {
+  elevationDegrees?: number;
+  faceColors: FaceColors;
+  filledVoxels: ReadonlySet<string>;
+  rotationDegrees?: number;
+}) {
+  const { cameraDirection, right, up } = getCameraBasis(elevationDegrees);
+  const rotationRadians =
+    (toRenderedRotationDegrees(rotationDegrees) * Math.PI) / 180;
+  const rotatedQuads = buildSurfaceQuads(faceColors, filledVoxels)
+    .map((quad) => {
+      const normal = rotateVectorY(quad.normal, rotationRadians);
+      if (dotVectors(normal, cameraDirection) <= 0) {
+        return null;
+      }
+
+      return {
+        ...quad,
+        vertices: quad.vertices.map((vertex) =>
+          rotateVectorY(vertex, rotationRadians),
+        ),
+      };
+    })
+    .filter((quad) => quad !== null);
+  const radius = rotatedQuads.reduce((maxRadius, quad) => {
+    const quadRadius = quad.vertices.reduce((maxVertexRadius, vertex) => {
+      return Math.max(
+        maxVertexRadius,
+        Math.hypot(vertex.x, vertex.y, vertex.z),
+      );
+    }, 0);
+    return Math.max(maxRadius, quadRadius);
+  }, 0);
+
+  return {
+    cameraDirection,
+    frustumHalfHeight:
+      radius > 0 ? radius * CAMERA_FRUSTUM_PADDING : CAMERA_FRUSTUM_PADDING,
+    right,
+    rotatedQuads,
+    rotationRadians,
+    up,
+  };
+}
+
+export function projectLogoWorldPoints({
+  elevationDegrees = DEFAULT_ELEVATION_DEGREES,
+  faceColors,
+  filledVoxels,
+  points,
+  rotationDegrees = DEFAULT_ROTATION_DEGREES,
+  viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
+}: {
+  elevationDegrees?: number;
+  faceColors: FaceColors;
+  filledVoxels: ReadonlySet<string>;
+  points: readonly LogoWorldPoint[];
+  rotationDegrees?: number;
+  viewBoxSize?: number;
+}): LogoProjectedPoint[] {
+  const { frustumHalfHeight, right, rotationRadians, up } = getProjectedScene({
+    elevationDegrees,
+    faceColors,
+    filledVoxels,
+    rotationDegrees,
+  });
+
+  return points.map((point) =>
+    projectPoint(
+      rotateVectorY(point, rotationRadians),
+      right,
+      up,
+      frustumHalfHeight,
+      viewBoxSize,
+    ),
+  );
+}
+
+export function createLogoThreeProjectedQuads({
+  elevationDegrees = DEFAULT_ELEVATION_DEGREES,
+  faceColors,
+  filledVoxels,
+  rotationDegrees = DEFAULT_ROTATION_DEGREES,
+  viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
+}: {
+  elevationDegrees?: number;
+  faceColors: FaceColors;
+  filledVoxels: ReadonlySet<string>;
+  rotationDegrees?: number;
+  viewBoxSize?: number;
+}): LogoProjectedQuad[] {
+  const { cameraDirection, frustumHalfHeight, right, rotatedQuads, up } =
+    getProjectedScene({
+      elevationDegrees,
+      faceColors,
+      filledVoxels,
+      rotationDegrees,
+    });
+
+  if (rotatedQuads.length === 0) {
+    return [];
+  }
+
+  return rotatedQuads
+    .map((quad) => {
+      const points = quad.vertices.map((vertex) =>
+        projectPoint(vertex, right, up, frustumHalfHeight, viewBoxSize),
+      );
+      const center = quad.vertices.reduce(
+        (sum, vertex) => ({
+          x: sum.x + vertex.x / quad.vertices.length,
+          y: sum.y + vertex.y / quad.vertices.length,
+          z: sum.z + vertex.z / quad.vertices.length,
+        }),
+        { x: 0, y: 0, z: 0 },
+      );
+
+      return {
+        color: quad.color,
+        colorKey: quad.colorKey,
+        depth: dotVectors(center, cameraDirection),
+        key: quad.key,
+        materialOrder: quad.materialOrder,
+        points,
+        strokeWidth: FACE_STROKE_WIDTH,
+      };
+    })
+    .sort((left, rightQuad) => {
+      if (left.depth !== rightQuad.depth) {
+        return left.depth - rightQuad.depth;
+      }
+
+      return left.materialOrder - rightQuad.materialOrder;
+    });
 }
 
 export function createLogoThreeSvgMarkup({
@@ -389,81 +582,17 @@ export function createLogoThreeSvgMarkup({
   rotationDegrees?: number;
   viewBoxSize?: number;
 }): string {
-  const { cameraDirection, right, up } = getCameraBasis(elevationDegrees);
-  const rotationRadians =
-    (toRenderedRotationDegrees(rotationDegrees) * Math.PI) / 180;
-  const rotatedQuads = buildSurfaceQuads(faceColors, filledVoxels)
-    .map((quad) => {
-      const normal = rotateVectorY(quad.normal, rotationRadians);
-      if (dotVectors(normal, cameraDirection) <= 0) {
-        return null;
-      }
+  const projectedQuads = createLogoThreeProjectedQuads({
+    elevationDegrees,
+    faceColors,
+    filledVoxels,
+    rotationDegrees,
+    viewBoxSize,
+  });
 
-      const vertices = quad.vertices.map((vertex) =>
-        rotateVectorY(vertex, rotationRadians),
-      );
-      return {
-        ...quad,
-        normal,
-        vertices,
-      };
-    })
-    .filter((quad) => quad !== null);
-
-  if (rotatedQuads.length === 0) {
+  if (projectedQuads.length === 0) {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewBoxSize} ${viewBoxSize}" width="${viewBoxSize}" height="${viewBoxSize}"><rect x="0" y="0" width="${viewBoxSize}" height="${viewBoxSize}" fill="${escapeSvgAttribute(backgroundColor)}"/></svg>`;
   }
-
-  const radius = rotatedQuads.reduce((maxRadius, quad) => {
-    const quadRadius = quad.vertices.reduce((maxVertexRadius, vertex) => {
-      return Math.max(
-        maxVertexRadius,
-        Math.hypot(vertex.x, vertex.y, vertex.z),
-      );
-    }, 0);
-    return Math.max(maxRadius, quadRadius);
-  }, 0);
-  const frustumHalfHeight = radius * CAMERA_FRUSTUM_PADDING;
-
-  const projectedQuads = rotatedQuads
-    .map((quad) => {
-      const points = quad.vertices.map((vertex) => {
-        const projectedX =
-          ((dotVectors(vertex, right) + frustumHalfHeight) /
-            (frustumHalfHeight * 2)) *
-          viewBoxSize;
-        const projectedY =
-          ((frustumHalfHeight - dotVectors(vertex, up)) /
-            (frustumHalfHeight * 2)) *
-          viewBoxSize;
-
-        return {
-          x: projectedX,
-          y: projectedY,
-        };
-      });
-      const center = quad.vertices.reduce(
-        (sum, vertex) => ({
-          x: sum.x + vertex.x / quad.vertices.length,
-          y: sum.y + vertex.y / quad.vertices.length,
-          z: sum.z + vertex.z / quad.vertices.length,
-        }),
-        { x: 0, y: 0, z: 0 },
-      );
-      return {
-        color: quad.color,
-        depth: dotVectors(center, cameraDirection),
-        materialOrder: quad.materialOrder,
-        points,
-      };
-    })
-    .sort((left, rightQuad) => {
-      if (left.depth !== rightQuad.depth) {
-        return left.depth - rightQuad.depth;
-      }
-
-      return left.materialOrder - rightQuad.materialOrder;
-    });
 
   const backgroundRect = `<rect x="0" y="0" width="${viewBoxSize}" height="${viewBoxSize}" fill="${escapeSvgAttribute(backgroundColor)}"/>`;
   const polygons = projectedQuads
