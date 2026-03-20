@@ -3,7 +3,7 @@ import {
   DRAG_ELEVATION_DEGREES_PER_PIXEL,
   DRAG_ROTATION_DEGREES_PER_PIXEL,
 } from "../src/components/logoViewDragConstants";
-import { resolveDraggedAngleDegrees } from "../src/components/logoViewDrag";
+import { resolveLogoViewState } from "../src/components/logoViewDrag";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "../src/lib/publicLandingLogo";
 
 type LogoViewState = {
@@ -53,23 +53,19 @@ function computeExpectedDraggedView(args: {
 }): LogoViewState {
   const startElevationDegrees = Number(args.startState.elevationDegrees);
   const startRotationDegrees = Number(args.startState.rotationDegrees);
+  const resolvedView = resolveLogoViewState({
+    config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+    view: {
+      elevationDegrees:
+        startElevationDegrees + args.dy * DRAG_ELEVATION_DEGREES_PER_PIXEL,
+      rotationDegrees:
+        startRotationDegrees + args.dx * DRAG_ROTATION_DEGREES_PER_PIXEL,
+    },
+  });
+
   return {
-    elevationDegrees: `${resolveDraggedAngleDegrees({
-      snapDegrees:
-        PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG.snapAngles?.elevationDegrees,
-      snapThresholdDegrees:
-        PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG.snapAngles?.thresholdDegrees,
-      stepDegrees: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG.elevationStepDegrees,
-      value: startElevationDegrees + args.dy * DRAG_ELEVATION_DEGREES_PER_PIXEL,
-    })}`,
-    rotationDegrees: `${resolveDraggedAngleDegrees({
-      snapDegrees:
-        PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG.snapAngles?.rotationDegrees,
-      snapThresholdDegrees:
-        PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG.snapAngles?.thresholdDegrees,
-      stepDegrees: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG.rotationStepDegrees,
-      value: startRotationDegrees + args.dx * DRAG_ROTATION_DEGREES_PER_PIXEL,
-    })}`,
+    elevationDegrees: `${resolvedView.elevationDegrees}`,
+    rotationDegrees: `${resolvedView.rotationDegrees}`,
   };
 }
 
@@ -125,13 +121,13 @@ test.describe("logo view snapping parity", () => {
     await expect.poll(() => page.url()).not.toContain("elev=359.1");
     expect(await readLogoViewState(snappedScene)).toEqual({
       elevationDegrees: "0",
-      rotationDegrees: "0",
+      rotationDegrees: "45",
     });
 
     const freeScene = await loadLogoRoute(page, "/logo?freeView&elev=359.1");
     expect(await readLogoViewState(freeScene)).toEqual({
       elevationDegrees: "359.1",
-      rotationDegrees: "0",
+      rotationDegrees: "45",
     });
   });
 });

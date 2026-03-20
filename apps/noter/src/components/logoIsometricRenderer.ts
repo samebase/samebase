@@ -1,4 +1,5 @@
 import {
+  FAVICON_ROTATION_DEGREES,
   GRID_SIZE,
   isWithinGrid,
   type VoxelCoordinate,
@@ -204,7 +205,7 @@ const sceneBounds = buildSceneBounds();
 export const LOGO_ISOMETRIC_CANVAS_WIDTH = sceneBounds.width;
 export const LOGO_ISOMETRIC_CANVAS_HEIGHT = sceneBounds.height;
 export const LOGO_ISOMETRIC_ELEVATION_DEGREES = 35.26438968;
-export const LOGO_ISOMETRIC_ROTATION_DEGREES = 0;
+export const LOGO_ISOMETRIC_ROTATION_DEGREES = FAVICON_ROTATION_DEGREES;
 
 function translatePolygon(points: readonly Point[]): readonly Point[] {
   return points.map((point) => ({

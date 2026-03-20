@@ -51,6 +51,17 @@ describe("resolveDraggedAngleDegrees", () => {
     ).toBe(0);
   });
 
+  it("snaps to the nearest 45-degree rotation target", () => {
+    expect(
+      resolveDraggedAngleDegrees({
+        snapDegrees: [0, 45, 90],
+        snapThresholdDegrees: 2,
+        stepDegrees: 1,
+        value: 43.6,
+      }),
+    ).toBe(45);
+  });
+
   it("lets modifier keys bypass snapping while keeping whole-degree movement", () => {
     expect(
       resolveDraggedAngleDegrees({
@@ -76,7 +87,52 @@ describe("resolveLogoViewState", () => {
       }),
     ).toEqual({
       elevationDegrees: 0,
-      rotationDegrees: 15,
+      rotationDegrees: 14,
+    });
+  });
+
+  it("uses the diagonal elevation snap family for diagonal rotations", () => {
+    expect(
+      resolveLogoViewState({
+        config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+        view: {
+          elevationDegrees: 35.6,
+          rotationDegrees: 43.6,
+        },
+      }),
+    ).toEqual({
+      elevationDegrees: EXACT_ISOMETRIC_ELEVATION_DEGREES,
+      rotationDegrees: 45,
+    });
+  });
+
+  it("keeps the shared cardinal elevation snaps for diagonal rotations", () => {
+    expect(
+      resolveLogoViewState({
+        config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+        view: {
+          elevationDegrees: 359.1,
+          rotationDegrees: 43.6,
+        },
+      }),
+    ).toEqual({
+      elevationDegrees: 0,
+      rotationDegrees: 45,
+    });
+  });
+
+  it("does not use the diagonal elevation snap family for orthographic rotations", () => {
+    expect(
+      resolveLogoViewState({
+        config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+        view: {
+          elevationDegrees: 35.6,
+          rotationDegrees: 1.2,
+        },
+      }),
+    ).toEqual({
+      elevationDegrees: 36,
+      rotationDegrees: 0,
     });
   });
 
