@@ -21,7 +21,7 @@ module.exports = {
   parserOptions: {
     EXPERIMENTAL_useProjectService: true,
   },
-  plugins: ['react-refresh'],
+  plugins: ['react-refresh', 'noter-local'],
   rules: {
     'react-refresh/only-export-components': [
       'error',
@@ -115,7 +115,7 @@ module.exports = {
         'apps/noter/src/**/*.test.ts',
       ],
       rules: {
-        'use-query-param-helpers': 'error',
+        'noter-local/use-query-param-helpers': 'error',
       },
     },
     {
