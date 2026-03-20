@@ -1,9 +1,10 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import {
+  DRAG_ELEVATION_DEGREES_PER_PIXEL,
+  DRAG_ROTATION_DEGREES_PER_PIXEL,
+} from "../src/components/logoViewDragConstants";
 import { resolveDraggedAngleDegrees } from "../src/components/logoViewDrag";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "../src/lib/publicLandingLogo";
-
-const DRAG_ELEVATION_DEGREES_PER_PIXEL = 0.18;
-const DRAG_ROTATION_DEGREES_PER_PIXEL = 0.35;
 
 type LogoViewState = {
   elevationDegrees: string | null;

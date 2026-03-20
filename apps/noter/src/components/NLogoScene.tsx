@@ -10,6 +10,10 @@ import {
 } from "@/components/logoRotationMath";
 import { getShuffleOriginCandidates } from "@/components/logoShuffleRules";
 import {
+  DRAG_ELEVATION_DEGREES_PER_PIXEL,
+  DRAG_ROTATION_DEGREES_PER_PIXEL,
+} from "@/components/logoViewDragConstants";
+import {
   HALF_GRID,
   GRID_SIZE,
   createDefaultFilledVoxelSet,
@@ -33,8 +37,6 @@ import {
 import * as THREE from "three";
 
 const ISOMETRIC_CAMERA_DISTANCE = 11;
-const DRAG_ROTATION_DEGREES_PER_PIXEL = 0.35;
-const DRAG_ELEVATION_DEGREES_PER_PIXEL = 0.18;
 const DRAG_THRESHOLD_PX = 4;
 const RAYCAST_OFFSET = 0.001;
 const CAMERA_FRUSTUM_PADDING = 1.12;
