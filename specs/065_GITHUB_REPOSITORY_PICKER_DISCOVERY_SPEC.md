@@ -4,7 +4,7 @@
 
 - Status: Implemented
 - Owner: Vault add flow + GitHub integration
-- Last updated: 2026-03-19
+- Last updated: 2026-03-20
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
 
@@ -92,9 +92,13 @@ restrictions enabled, repository discovery is still gated by GitHub's org-level
 approval model:
 
 1. Unapproved OAuth apps cannot access the organization's private resources.
-2. Reconnecting the personal GitHub account does not override that org policy.
-3. The `/add` UI should surface a short note pointing users to the GitHub org
-   approval path instead of failing silently.
+2. Organization owners approve pending requests from the org's OAuth app policy
+   settings.
+3. Organization members and outside collaborators request approval from their
+   Authorized OAuth Apps page, subject to the org's request policy.
+4. Reconnecting the personal GitHub account does not override that org policy.
+5. The `/add` UI should surface a short note for both owner and non-owner
+   recovery paths instead of failing silently.
 
 ## Acceptance Checklist
 

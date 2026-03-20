@@ -25,6 +25,8 @@ type Repository = FunctionReturnType<
 
 const GITHUB_OAUTH_ORG_APPROVAL_DOCS_URL =
   "https://docs.github.com/en/organizations/managing-oauth-access-to-your-organizations-data/approving-oauth-apps-for-your-organization";
+const GITHUB_OAUTH_MEMBER_REQUEST_DOCS_URL =
+  "https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-personal-account-on-github/managing-your-membership-in-organizations/requesting-organization-approval-for-oauth-apps";
 
 export function AddRepository() {
   const navigate = useNavigate();
@@ -209,15 +211,25 @@ export function AddRepository() {
         {githubConnected && (
           <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
             Missing a private org repo? GitHub may be blocking Noter's OAuth
-            app. In the org, open Settings, then Third-party Access, then OAuth
-            app policy, and approve Noter.{" "}
+            app. If you're an org owner, approve Noter in the org's Settings,
+            then Third-party Access, then OAuth app policy. Otherwise request
+            access from GitHub's Authorized OAuth Apps page.{" "}
             <a
               href={GITHUB_OAUTH_ORG_APPROVAL_DOCS_URL}
               target="_blank"
               rel="noreferrer"
               className={linkStyle}
             >
-              GitHub docs
+              Owner docs
+            </a>{" "}
+            /{" "}
+            <a
+              href={GITHUB_OAUTH_MEMBER_REQUEST_DOCS_URL}
+              target="_blank"
+              rel="noreferrer"
+              className={linkStyle}
+            >
+              Member docs
             </a>
           </p>
         )}
