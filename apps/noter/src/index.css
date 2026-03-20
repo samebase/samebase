@@ -135,7 +135,7 @@
     font-weight: 500 !important;
     letter-spacing: -0.025em !important;
     color: hsl(var(--primary)) !important;
-    word-break: break-word;
+    overflow-wrap: anywhere;
     line-break: after-white-space;
     -webkit-line-break: after-white-space;
   }
