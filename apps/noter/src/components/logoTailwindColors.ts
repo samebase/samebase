@@ -248,9 +248,9 @@ for (const option of tailwindColorOptions) {
 export const FACE_COLOR_KEYS = ["left", "right", "top"] as const;
 
 export const DEFAULT_FACE_COLORS: FaceColors = {
-  left: "primary-base",
-  right: "background-base",
-  top: "secondary-base",
+  left: "secondary-base",
+  right: "primary-base",
+  top: "background-base",
 };
 
 export const TAILWIND_COLOR_FAMILIES = tailwindColorFamilies.map(
