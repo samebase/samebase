@@ -15,18 +15,13 @@ import {
   parseVoxelState,
 } from "@/components/logoVoxelState";
 import { Button } from "@/components/button";
-import { useTheme } from "next-themes";
+import { useDocumentThemeMode } from "@/hooks/useDocumentThemeMode";
 import { Link, useSearchParams } from "react-router-dom";
 
 export function LogoStaticSvgPage() {
-  const { theme, systemTheme } = useTheme();
+  const documentThemeMode = useDocumentThemeMode();
   const [searchParams] = useSearchParams();
-  const effectiveTheme = theme === "system" ? systemTheme : theme;
-  const isDarkTheme =
-    effectiveTheme === "dark" ||
-    (effectiveTheme === undefined &&
-      typeof document !== "undefined" &&
-      document.documentElement.classList.contains("dark"));
+  const isDarkTheme = documentThemeMode === "dark";
   const backgroundColor = getTailwindColorHex("background-base");
   const currentSearch = searchParams.toString();
   const filledVoxels =
@@ -41,7 +36,7 @@ export function LogoStaticSvgPage() {
       filledVoxels,
       rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
     }),
-  )}#${themeFragment}`;
+  )}#${themeFragment}-${documentThemeMode}`;
   const modeHref = (pathname: "/logo" | "/logo-iso" | "/logo-iso-study") =>
     currentSearch ? `${pathname}?${currentSearch}` : pathname;
 

@@ -31,7 +31,7 @@ import {
   PUBLIC_LANDING_LOGO_VIEW_STEP_DEGREES,
   PUBLIC_LANDING_LOGO_WIDTH,
 } from "@/lib/publicLandingLogo";
-import { useTheme } from "next-themes";
+import { useDocumentThemeMode } from "@/hooks/useDocumentThemeMode";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type LandingLogoSceneComponent =
@@ -74,7 +74,7 @@ export function PublicLandingLogo({
   autoRotate?: boolean;
   enableViewSnapping?: boolean;
 }) {
-  const { theme, systemTheme } = useTheme();
+  const documentThemeMode = useDocumentThemeMode();
   const [LogoScene, setLogoScene] = useState<LandingLogoSceneComponent | null>(
     null,
   );
@@ -87,12 +87,7 @@ export function PublicLandingLogo({
   }));
   const lastFrameTimeRef = useRef<number | null>(null);
   const autoRotateResumeStartedAtRef = useRef<number | null>(null);
-  const effectiveTheme = theme === "system" ? systemTheme : theme;
-  const isDarkTheme =
-    effectiveTheme === "dark" ||
-    (effectiveTheme === undefined &&
-      typeof document !== "undefined" &&
-      document.documentElement.classList.contains("dark"));
+  const isDarkTheme = documentThemeMode === "dark";
   const backgroundColor = getTailwindColorHex("background-base");
   const faceColors: FaceColors = {
     left: DEFAULT_FACE_COLORS.left,
