@@ -2,6 +2,7 @@ import { STATIC_LOGO_VOXEL_COORDINATES } from "@/components/logoStaticSvgContrac
 import {
   DEFAULT_FACE_COLORS,
   getTailwindColorHex,
+  type FaceColorKey,
 } from "@/components/logoTailwindColors";
 import {
   DEFAULT_ELEVATION_DEGREES,
@@ -25,6 +26,7 @@ type Vector3 = {
 
 type FaceDefinition = {
   color: string;
+  colorKey: FaceColorKey;
   key: string;
   normal: Vector3;
   origin: Vector3;
@@ -34,6 +36,7 @@ type FaceDefinition = {
 
 type ProjectedFaceDefinition = {
   color: string;
+  colorKey: FaceColorKey;
   corners: readonly Point[];
   depth: number;
   key: string;
@@ -124,6 +127,7 @@ function createFaceDefinition(
     case "positive-x":
       return {
         color: getTailwindColorHex(DEFAULT_FACE_COLORS.right),
+        colorKey: "right",
         key: `${x},${y},${z}:positive-x`,
         normal: { x: 1, y: 0, z: 0 },
         origin: { x: toWorld(x + 1), y: toWorld(y), z: toWorld(z) },
@@ -133,6 +137,7 @@ function createFaceDefinition(
     case "negative-x":
       return {
         color: getTailwindColorHex(DEFAULT_FACE_COLORS.right),
+        colorKey: "right",
         key: `${x},${y},${z}:negative-x`,
         normal: { x: -1, y: 0, z: 0 },
         origin: { x: toWorld(x), y: toWorld(y), z: toWorld(z + 1) },
@@ -142,6 +147,7 @@ function createFaceDefinition(
     case "positive-y":
       return {
         color: getTailwindColorHex(DEFAULT_FACE_COLORS.top),
+        colorKey: "top",
         key: `${x},${y},${z}:positive-y`,
         normal: { x: 0, y: 1, z: 0 },
         origin: { x: toWorld(x), y: toWorld(y + 1), z: toWorld(z + 1) },
@@ -151,6 +157,7 @@ function createFaceDefinition(
     case "negative-y":
       return {
         color: getTailwindColorHex(DEFAULT_FACE_COLORS.top),
+        colorKey: "top",
         key: `${x},${y},${z}:negative-y`,
         normal: { x: 0, y: -1, z: 0 },
         origin: { x: toWorld(x), y: toWorld(y), z: toWorld(z) },
@@ -160,6 +167,7 @@ function createFaceDefinition(
     case "positive-z":
       return {
         color: getTailwindColorHex(DEFAULT_FACE_COLORS.left),
+        colorKey: "left",
         key: `${x},${y},${z}:positive-z`,
         normal: { x: 0, y: 0, z: 1 },
         origin: { x: toWorld(x), y: toWorld(y), z: toWorld(z + 1) },
@@ -169,6 +177,7 @@ function createFaceDefinition(
     case "negative-z":
       return {
         color: getTailwindColorHex(DEFAULT_FACE_COLORS.left),
+        colorKey: "left",
         key: `${x},${y},${z}:negative-z`,
         normal: { x: 0, y: 0, z: -1 },
         origin: { x: toWorld(x + 1), y: toWorld(y), z: toWorld(z) },
@@ -281,6 +290,7 @@ function createProjectedFaceDefinitions(): ProjectedFaceDefinition[] {
 
       return {
         color: face.color,
+        colorKey: face.colorKey,
         corners: [
           origin,
           { x: origin.x + u.x, y: origin.y + u.y, z: origin.z + u.z },
@@ -338,6 +348,7 @@ function createProjectedFaceDefinitions(): ProjectedFaceDefinition[] {
 
       return {
         color: face.color,
+        colorKey: face.colorKey,
         corners: projectedCorners,
         depth: face.depth,
         key: face.key,

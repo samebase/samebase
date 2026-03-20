@@ -18,16 +18,18 @@ import { Link } from "react-router-dom";
 
 // Matches the literal lab's default demo displacement so both labs start aligned.
 const DEFAULT_TRANSFORM_LAB_END_OFFSET: Point = { x: -30.104, y: 52.142 };
+const DEFAULT_SELECTED_FACE_COLOR_KEY: TransformLabFace["colorKey"] = "right";
+const KEYBOARD_NUDGE_STEP = 1;
+const KEYBOARD_FAST_NUDGE_STEP = 10;
 
 function getDefaultSelectedFaceIndex(
   faces: readonly TransformLabFace[],
 ): number {
-  const accentColor = "#394447";
   let selectedIndex = 0;
   let selectedScore = Number.NEGATIVE_INFINITY;
 
   faces.forEach((face, index) => {
-    if (face.color.toLowerCase() !== accentColor) {
+    if (face.colorKey !== DEFAULT_SELECTED_FACE_COLOR_KEY) {
       return;
     }
 
@@ -43,22 +45,20 @@ function getDefaultSelectedFaceIndex(
 }
 
 export function LogoTransitionTransformsLabPage() {
-  const [faces] = useState(() => createLogoTransitionTransformFaces());
-  const [selectedFaceIndex, setSelectedFaceIndex] = useState<number>(0);
+  const faces = useMemo(() => createLogoTransitionTransformFaces(), []);
+  const [selectedFaceIndex, setSelectedFaceIndex] = useState<number>(() =>
+    getDefaultSelectedFaceIndex(faces),
+  );
   const [activeFrame, setActiveFrame] = useState<"start" | "end">("end");
   const [startOffset, setStartOffset] = useState<Point>({ x: 0, y: 0 });
-  const [endOffset, setEndOffset] = useState<Point>({ x: 0, y: 0 });
+  const [endOffset, setEndOffset] = useState<Point>(
+    DEFAULT_TRANSFORM_LAB_END_OFFSET,
+  );
   const [previewProgress, setPreviewProgress] = useState(1);
+  const [focusedFaceIndex, setFocusedFaceIndex] = useState<number | null>(null);
+  const [isHandleFocused, setIsHandleFocused] = useState(false);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const dragSessionRef = useRef<DragSession | null>(null);
-
-  useEffect(() => {
-    if (faces.length === 0) {
-      return;
-    }
-
-    setSelectedFaceIndex(getDefaultSelectedFaceIndex(faces));
-  }, [faces]);
 
   const selectedFace =
     selectedFaceIndex >= 0 && selectedFaceIndex < faces.length
@@ -79,6 +79,37 @@ export function LogoTransitionTransformsLabPage() {
   const currentEditableOffset =
     activeFrame === "start" ? startOffset : endOffset;
   const previewOffset = mixOffset(startOffset, endOffset, previewProgress);
+  const focusedFace =
+    focusedFaceIndex !== null &&
+    focusedFaceIndex >= 0 &&
+    focusedFaceIndex < faces.length
+      ? faces[focusedFaceIndex]
+      : null;
+
+  const updateActiveFrameOffset = (
+    updater: (currentOffset: Point) => Point,
+  ) => {
+    if (activeFrame === "start") {
+      setStartOffset((currentOffset) => updater(currentOffset));
+      return;
+    }
+
+    setEndOffset((currentOffset) => updater(currentOffset));
+  };
+
+  const nudgeActiveFrameOffset = (deltaX: number, deltaY: number) => {
+    updateActiveFrameOffset((currentOffset) => ({
+      x: currentOffset.x + deltaX,
+      y: currentOffset.y + deltaY,
+    }));
+  };
+
+  const setCurrentCoordinate = (axis: "x" | "y", value: number) => {
+    updateActiveFrameOffset((currentOffset) => ({
+      ...currentOffset,
+      [axis]: value,
+    }));
+  };
 
   const getSvgPoint = (clientX: number, clientY: number): Point | null => {
     const svgElement = svgRef.current;
@@ -153,6 +184,60 @@ export function LogoTransitionTransformsLabPage() {
     }
 
     setEndOffset(nextOffset);
+  };
+
+  const handleFaceKeyDown = (
+    event: React.KeyboardEvent<SVGUseElement>,
+    index: number,
+  ) => {
+    const lastIndex = faces.length - 1;
+    if (event.key === "Enter" || event.key === " ") {
+      setSelectedFaceIndex(index);
+      event.preventDefault();
+      return;
+    }
+
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      setSelectedFaceIndex(index >= lastIndex ? 0 : index + 1);
+      event.preventDefault();
+      return;
+    }
+
+    if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      setSelectedFaceIndex(index <= 0 ? lastIndex : index - 1);
+      event.preventDefault();
+    }
+  };
+
+  const handleActiveFaceKeyDown = (
+    event: React.KeyboardEvent<SVGUseElement>,
+  ) => {
+    const step = event.shiftKey
+      ? KEYBOARD_FAST_NUDGE_STEP
+      : KEYBOARD_NUDGE_STEP;
+
+    if (event.key === "ArrowLeft") {
+      nudgeActiveFrameOffset(-step, 0);
+      event.preventDefault();
+      return;
+    }
+
+    if (event.key === "ArrowRight") {
+      nudgeActiveFrameOffset(step, 0);
+      event.preventDefault();
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      nudgeActiveFrameOffset(0, -step);
+      event.preventDefault();
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      nudgeActiveFrameOffset(0, step);
+      event.preventDefault();
+    }
   };
 
   const endDrag = (event: React.PointerEvent<SVGSVGElement>) => {
@@ -299,6 +384,123 @@ export function LogoTransitionTransformsLabPage() {
               </div>
             </div>
 
+            <div className="grid gap-3 border border-black/10 bg-[#fbfaf6] p-3">
+              <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                Keyboard
+              </div>
+              <div className="grid gap-2">
+                <label
+                  htmlFor="logo-transition-transform-face-select"
+                  className="text-xs font-medium text-black/60"
+                >
+                  Face
+                </label>
+                <select
+                  id="logo-transition-transform-face-select"
+                  value={selectedFaceIndex}
+                  onChange={(event) => {
+                    setSelectedFaceIndex(Number(event.target.value));
+                  }}
+                  className="h-10 border border-black/15 bg-white px-3 text-sm text-black outline-none focus:border-black"
+                >
+                  {faces.map((face, index) => (
+                    <option key={face.key} value={index}>
+                      {`Face ${index + 1} · ${face.colorKey}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="grid gap-1 text-xs font-medium text-black/60">
+                  X Offset
+                  <input
+                    type="number"
+                    step="1"
+                    value={currentEditableOffset.x}
+                    onChange={(event) => {
+                      const nextValue = Number(event.target.value);
+                      if (!Number.isFinite(nextValue)) {
+                        return;
+                      }
+
+                      setCurrentCoordinate("x", nextValue);
+                    }}
+                    className="h-10 border border-black/15 bg-white px-3 text-sm text-black outline-none focus:border-black"
+                  />
+                </label>
+                <label className="grid gap-1 text-xs font-medium text-black/60">
+                  Y Offset
+                  <input
+                    type="number"
+                    step="1"
+                    value={currentEditableOffset.y}
+                    onChange={(event) => {
+                      const nextValue = Number(event.target.value);
+                      if (!Number.isFinite(nextValue)) {
+                        return;
+                      }
+
+                      setCurrentCoordinate("y", nextValue);
+                    }}
+                    className="h-10 border border-black/15 bg-white px-3 text-sm text-black outline-none focus:border-black"
+                  />
+                </label>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="rounded-none"
+                  onClick={() => {
+                    nudgeActiveFrameOffset(0, -KEYBOARD_NUDGE_STEP);
+                  }}
+                >
+                  Up
+                </Button>
+                <div />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="rounded-none"
+                  onClick={() => {
+                    nudgeActiveFrameOffset(-KEYBOARD_NUDGE_STEP, 0);
+                  }}
+                >
+                  Left
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="rounded-none"
+                  onClick={() => {
+                    nudgeActiveFrameOffset(0, KEYBOARD_NUDGE_STEP);
+                  }}
+                >
+                  Down
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="rounded-none"
+                  onClick={() => {
+                    nudgeActiveFrameOffset(KEYBOARD_NUDGE_STEP, 0);
+                  }}
+                >
+                  Right
+                </Button>
+              </div>
+              <p className="text-xs leading-5 text-black/55">
+                Select a face from the menu, then use the number inputs or focus
+                the solid face in the SVG and press arrow keys. Hold Shift for
+                10px nudges.
+              </p>
+            </div>
+
             <div className="grid gap-2 border border-black/10 bg-[#fbfaf6] p-3 text-sm leading-6 text-black/65">
               <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                 Selected Face
@@ -371,18 +573,46 @@ export function LogoTransitionTransformsLabPage() {
                   {faces.map((face, index) => (
                     <use
                       key={face.key}
+                      aria-label={`Select face ${index + 1}`}
                       href="#transition-lab-face"
                       fill={face.color}
                       opacity={index === selectedFaceIndex ? 0.18 : 1}
-                      stroke={face.stroke}
-                      strokeWidth={face.strokeWidth}
-                      transform={face.transform}
+                      onBlur={() => {
+                        setFocusedFaceIndex((currentIndex) =>
+                          currentIndex === index ? null : currentIndex,
+                        );
+                      }}
                       onClick={() => {
                         setSelectedFaceIndex(index);
                       }}
+                      onFocus={() => {
+                        setFocusedFaceIndex(index);
+                        setSelectedFaceIndex(index);
+                      }}
+                      onKeyDown={(event) => {
+                        handleFaceKeyDown(event, index);
+                      }}
+                      role="button"
+                      stroke={face.stroke}
+                      strokeWidth={face.strokeWidth}
+                      tabIndex={0}
+                      transform={face.transform}
                       style={{ cursor: "pointer" }}
                     />
                   ))}
+
+                  {focusedFace ? (
+                    <use
+                      aria-hidden="true"
+                      href="#transition-lab-face"
+                      fill="none"
+                      pointerEvents="none"
+                      stroke="#0ea5e9"
+                      strokeDasharray="6 4"
+                      strokeWidth={2}
+                      transform={focusedFace.transform}
+                    />
+                  ) : null}
 
                   <use
                     href="#transition-lab-face"
@@ -411,15 +641,38 @@ export function LogoTransitionTransformsLabPage() {
                   />
 
                   <use
+                    aria-label={`Move ${activeFrame} frame with arrow keys`}
                     href="#transition-lab-face"
                     fill={selectedFace.color}
                     fillOpacity={0.88}
+                    onBlur={() => {
+                      setIsHandleFocused(false);
+                    }}
+                    onFocus={() => {
+                      setIsHandleFocused(true);
+                    }}
+                    onKeyDown={handleActiveFaceKeyDown}
+                    onPointerDown={beginDrag}
+                    role="button"
                     stroke={selectedFace.stroke}
                     strokeWidth={selectedFace.strokeWidth}
+                    tabIndex={0}
                     transform={`translate(${currentEditableOffset.x} ${currentEditableOffset.y}) ${selectedFace.transform}`}
-                    onPointerDown={beginDrag}
                     style={{ cursor: "grab" }}
                   />
+
+                  {isHandleFocused ? (
+                    <use
+                      aria-hidden="true"
+                      href="#transition-lab-face"
+                      fill="none"
+                      pointerEvents="none"
+                      stroke="#0ea5e9"
+                      strokeDasharray="6 4"
+                      strokeWidth={2}
+                      transform={`translate(${currentEditableOffset.x} ${currentEditableOffset.y}) ${selectedFace.transform}`}
+                    />
+                  ) : null}
 
                   {selectedFace.corners.map((point, pointIndex) => {
                     const positionedPoint = addOffset(
