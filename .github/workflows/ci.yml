@@ -68,6 +68,9 @@ jobs:
       - name: Type check
         run: pnpm lint:ci
 
+      - name: Install Playwright browser
+        run: pnpm --filter noter exec playwright install --with-deps chromium
+
       - name: Run tests
         run: pnpm test:ci
 
