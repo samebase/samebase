@@ -69,6 +69,7 @@ import {
   setQueryParam,
   updateQueryParams,
 } from "@/lib/queryParams";
+import { cn } from "@/lib/utils";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ChangeEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -105,6 +106,15 @@ const ROTATION_AXIS_MODE_OPTIONS = [
 ] as const satisfies readonly LogoRotationAxisMode[];
 
 type LogoPreviewRenderMode = "three" | "iso";
+type LogoPreviewQueryState = {
+  elevationDegrees: number;
+  faceColors: FaceColors;
+  isoStyleId: LogoIsometricStyleId;
+  rotationAxisMode: LogoRotationAxisMode;
+  rotationDegrees: number;
+  voxelState: string;
+};
+
 const FACE_COLOR_LABELS: Record<FaceColorKey, string> = {
   left: "Left",
   right: "Right",
@@ -246,6 +256,61 @@ function readFaceColors(searchParams: URLSearchParams): FaceColors {
   };
 }
 
+function buildLogoPreviewSearchParams(
+  search: string | URLSearchParams,
+  {
+    elevationDegrees,
+    faceColors,
+    isoStyleId,
+    rotationAxisMode,
+    rotationDegrees,
+    voxelState,
+  }: LogoPreviewQueryState,
+): URLSearchParams {
+  return updateQueryParams(search, (nextSearchParams) => {
+    setQueryParam(
+      nextSearchParams,
+      ROTATION_QUERY_PARAM,
+      rotationDegrees !== DEFAULT_ROTATION_DEGREES
+        ? formatDegreesParam(rotationDegrees)
+        : null,
+    );
+    setQueryParam(
+      nextSearchParams,
+      ROTATION_AXIS_QUERY_PARAM,
+      rotationAxisMode !== DEFAULT_ROTATION_AXIS_MODE ? rotationAxisMode : null,
+    );
+    setQueryParam(
+      nextSearchParams,
+      ELEVATION_QUERY_PARAM,
+      elevationDegrees !== DEFAULT_ELEVATION_DEGREES
+        ? formatDegreesParam(elevationDegrees)
+        : null,
+    );
+    setQueryParam(nextSearchParams, "vox", voxelState);
+    setQueryParam(
+      nextSearchParams,
+      "isoStyle",
+      isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID ? isoStyleId : null,
+    );
+    setQueryParam(
+      nextSearchParams,
+      FACE_COLOR_QUERY_PARAMS.left,
+      faceColors.left !== DEFAULT_FACE_COLORS.left ? faceColors.left : null,
+    );
+    setQueryParam(
+      nextSearchParams,
+      FACE_COLOR_QUERY_PARAMS.right,
+      faceColors.right !== DEFAULT_FACE_COLORS.right ? faceColors.right : null,
+    );
+    setQueryParam(
+      nextSearchParams,
+      FACE_COLOR_QUERY_PARAMS.top,
+      faceColors.top !== DEFAULT_FACE_COLORS.top ? faceColors.top : null,
+    );
+  });
+}
+
 function formatDegreesParam(value: number): string {
   return value.toFixed(1).replace(/\.0$/, "");
 }
@@ -302,8 +367,19 @@ export function LogoPreviewPage({
     DEFAULT_CONTROLS_POPOVER_MAX_HEIGHT,
   );
   const faceColorAnimationCheckboxId = useId();
+  const [isSceneInteracting, setIsSceneInteracting] = useState(false);
+  const isSceneInteractingRef = useRef(false);
+
+  const setSceneInteracting = (nextValue: boolean) => {
+    isSceneInteractingRef.current = nextValue;
+    setIsSceneInteracting(nextValue);
+  };
 
   useEffect(() => {
+    if (isSceneInteractingRef.current) {
+      return;
+    }
+
     setRotationDegrees(readRotationDegrees(searchParams));
     setRotationAxisMode(readRotationAxisMode(searchParams));
     setElevationDegrees(readElevationDegrees(searchParams));
@@ -314,52 +390,18 @@ export function LogoPreviewPage({
   }, [searchParams]);
 
   useEffect(() => {
+    if (isSceneInteracting) {
+      return;
+    }
+
     const nextSearch = buildSearchString(
-      updateQueryParams(searchParams, (nextSearchParams) => {
-        setQueryParam(
-          nextSearchParams,
-          ROTATION_QUERY_PARAM,
-          rotationDegrees !== DEFAULT_ROTATION_DEGREES
-            ? formatDegreesParam(rotationDegrees)
-            : null,
-        );
-        setQueryParam(
-          nextSearchParams,
-          ROTATION_AXIS_QUERY_PARAM,
-          rotationAxisMode !== DEFAULT_ROTATION_AXIS_MODE
-            ? rotationAxisMode
-            : null,
-        );
-        setQueryParam(
-          nextSearchParams,
-          ELEVATION_QUERY_PARAM,
-          elevationDegrees !== DEFAULT_ELEVATION_DEGREES
-            ? formatDegreesParam(elevationDegrees)
-            : null,
-        );
-        setQueryParam(nextSearchParams, "vox", voxelState);
-        setQueryParam(
-          nextSearchParams,
-          "isoStyle",
-          isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID ? isoStyleId : null,
-        );
-        setQueryParam(
-          nextSearchParams,
-          FACE_COLOR_QUERY_PARAMS.left,
-          faceColors.left !== DEFAULT_FACE_COLORS.left ? faceColors.left : null,
-        );
-        setQueryParam(
-          nextSearchParams,
-          FACE_COLOR_QUERY_PARAMS.right,
-          faceColors.right !== DEFAULT_FACE_COLORS.right
-            ? faceColors.right
-            : null,
-        );
-        setQueryParam(
-          nextSearchParams,
-          FACE_COLOR_QUERY_PARAMS.top,
-          faceColors.top !== DEFAULT_FACE_COLORS.top ? faceColors.top : null,
-        );
+      buildLogoPreviewSearchParams(searchParams, {
+        elevationDegrees,
+        faceColors,
+        isoStyleId,
+        rotationAxisMode,
+        rotationDegrees,
+        voxelState,
       }),
     );
 
@@ -369,9 +411,8 @@ export function LogoPreviewPage({
   }, [
     currentSearch,
     elevationDegrees,
-    faceColors.left,
-    faceColors.right,
-    faceColors.top,
+    faceColors,
+    isSceneInteracting,
     isoStyleId,
     rotationAxisMode,
     rotationDegrees,
@@ -583,51 +624,16 @@ export function LogoPreviewPage({
   const modeHref = (
     pathname: "/logo" | "/logo-iso" | "/logo-svg" | "/logo-iso-study",
   ) => {
-    const nextSearchParams = new URLSearchParams(searchParams);
-    setQueryParam(
-      nextSearchParams,
-      ROTATION_QUERY_PARAM,
-      rotationDegrees !== DEFAULT_ROTATION_DEGREES
-        ? formatDegreesParam(rotationDegrees)
-        : null,
-    );
-    setQueryParam(
-      nextSearchParams,
-      ROTATION_AXIS_QUERY_PARAM,
-      rotationAxisMode !== DEFAULT_ROTATION_AXIS_MODE ? rotationAxisMode : null,
-    );
-    setQueryParam(
-      nextSearchParams,
-      ELEVATION_QUERY_PARAM,
-      elevationDegrees !== DEFAULT_ELEVATION_DEGREES
-        ? formatDegreesParam(elevationDegrees)
-        : null,
-    );
-    setQueryParam(nextSearchParams, "vox", voxelState);
-    setQueryParam(
-      nextSearchParams,
-      "isoStyle",
-      isoStyleId !== DEFAULT_LOGO_ISOMETRIC_STYLE_ID ? isoStyleId : null,
-    );
-    setQueryParam(
-      nextSearchParams,
-      FACE_COLOR_QUERY_PARAMS.left,
-      faceColors.left !== DEFAULT_FACE_COLORS.left ? faceColors.left : null,
-    );
-    setQueryParam(
-      nextSearchParams,
-      FACE_COLOR_QUERY_PARAMS.right,
-      faceColors.right !== DEFAULT_FACE_COLORS.right ? faceColors.right : null,
-    );
-    setQueryParam(
-      nextSearchParams,
-      FACE_COLOR_QUERY_PARAMS.top,
-      faceColors.top !== DEFAULT_FACE_COLORS.top ? faceColors.top : null,
-    );
-
     return buildPathWithQuery({
       pathname,
-      search: nextSearchParams,
+      search: buildLogoPreviewSearchParams(searchParams, {
+        elevationDegrees,
+        faceColors,
+        isoStyleId,
+        rotationAxisMode,
+        rotationDegrees,
+        voxelState,
+      }),
     });
   };
 
@@ -650,13 +656,20 @@ export function LogoPreviewPage({
       ) : (
         <NLogoScene
           backgroundColor={backgroundColor}
-          className="absolute inset-0 h-full w-full cursor-grab touch-none select-none active:cursor-grabbing"
+          className={cn(
+            "absolute inset-0 h-full w-full touch-none select-none",
+            isSceneInteracting ? "cursor-grabbing" : "cursor-grab",
+          )}
           editMode={editMode}
           elevationDegrees={elevationDegrees}
           faceColors={faceColors}
           opacity={logoOpacity}
           onInteractionStart={() => {
             setIsAutoRotating(false);
+            setSceneInteracting(true);
+          }}
+          onInteractionEnd={() => {
+            setSceneInteracting(false);
           }}
           onViewChange={handleSceneViewChange}
           onVoxelEdit={handleVoxelEdit}
