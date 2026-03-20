@@ -18,7 +18,7 @@ export function renderLandingCopyShellHtml(markdown: string): string {
 
   if (slogan.length > 0) {
     lines.push(
-      `<div class="cm-line cm-landing-copy-heading" style="padding-bottom: 5px;"><span>${escapeHtml(
+      `<div class="cm-line cm-landing-copy-heading"><span class="cm-hidden-token" aria-hidden="true" style="font-size: 0; line-height: 1.75rem;">## </span><span>${escapeHtml(
         slogan,
       )}</span></div>`,
     );
