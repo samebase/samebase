@@ -109,40 +109,25 @@ The connection is established automatically when you create a Codespace through
 Noter's interface, providing both visual and programmatic access to your GitHub
 repository in a cloud development environment.
 
-## TODO/Ideas
-
-### Enhanced Code Block Rendering
-
-- **Scope**: Not limited to TypeScript - apply to all languages that would use
-  Monaco if they were in a file
-  - Syntax highlighting
-  - IntelliSense/autocomplete
-  - Error detection
-  - Consistent editing experience
-- **Benefits**:
-- **Implementation Considerations**:
-  - Embed Monaco as a ProseMirror node view
-  - Language detection from code fence info
-  - Seamless integration with document flow
-  - Performance optimization for multiple code blocks
-
-## Implementation Files
-
-- `apps/noter/src/components/CodespaceIframe.tsx` - Web interface embedding
-- `apps/noter/convex/codespaces.ts` - Codespace management
-- `apps/noter/convex/codespacesExecutor.ts` - HTTP agent communication
-- `.codespace-agent/server.js` - Agent HTTP server
-
 ## TODOs / Ideas
 
 ### Monaco in ProseMirror
 
 - **Idea**: Render Monaco editor inside ProseMirror for code blocks (`ts`, `js`,
   etc.)
-- **Scope**: Not just TypeScript - all languages that would use Monaco if they
-  were in a file
-- **Benefit**: Rich code editing experience within markdown documents
-- **Implementation**: Custom ProseMirror node view with embedded Monaco instance
+- **Scope**: Not limited to TypeScript - apply to all languages that would use
+  Monaco if they were in a file
+- **Benefits**:
+  - Syntax highlighting
+  - IntelliSense/autocomplete
+  - Error detection
+  - Consistent editing experience
+  - Rich code editing experience within markdown documents
+- **Implementation Considerations**:
+  - Embed Monaco as a ProseMirror node view
+  - Language detection from code fence info
+  - Seamless integration with document flow
+  - Performance optimization for multiple code blocks
 
 ### Agent/Code Toggle (like build.io)
 
@@ -159,6 +144,13 @@ repository in a cloud development environment.
 - Performance optimization for Monaco embedding
 - User preference storage for mode selection
 - Integration with AI chat for seamless agent interactions
+
+## Implementation Files
+
+- `apps/noter/src/components/CodespaceIframe.tsx` - Web interface embedding
+- `apps/noter/convex/codespaces.ts` - Codespace management
+- `apps/noter/convex/codespacesExecutor.ts` - HTTP agent communication
+- `.codespace-agent/server.js` - Agent HTTP server
 
 This document specifies how Noter connects to and interacts with GitHub
 Codespaces, providing both visual and programmatic access to cloud development
@@ -192,107 +184,176 @@ All API endpoints (except health check) require Bearer token authentication:
 
 ```http
 Authorization: Bearer {uuid-token}
+```
+
 ### Endpoints
+
 #### Health Check
+
+```http
 GET /health
+```
+
 - **Auth Required**: No
 - **Response**: `{ status: "ok" }`
+
 #### Execute Commands
+
+```http
 POST /exec
 Content-Type: application/json
+```
+
+```json
 {
   "command": "string",
   "cwd": "string (optional)"
 }
+```
+
 #### File Operations
+
 **Write File**
+
+```http
 POST /files/write
+```
+
+```json
+{
   "path": "string",
   "content": "string"
+}
+```
+
 **Read File**
+
+```http
 GET /files/read?path={file-path}
+```
+
 **List Directory**
+
+```http
 GET /files/list?path={directory-path}
+```
+
 **Delete File/Directory**
+
+```http
 DELETE /files/delete?path={file-path}
+```
+
 **Get File Metadata**
+
+```http
 GET /files/stat?path={file-path}
+```
+
 ### 1. Authentication
+
 - **Token-based**: UUID tokens for API access
 - **Session-based**: GitHub authentication for web interface
 - **Scope Isolation**: Each Codespace has unique token
+
 ### 2. Path Validation
+
 - **Directory Traversal Protection**: Prevents `../` attacks
 - **Workspace Restriction**: All operations limited to `/workspaces` directory
 - **Path Sanitization**: Input validation on all file paths
+
 ### 3. Error Handling
+
 - **Graceful Degradation**: Fallback to external links if iframe fails
 - **Timeout Management**: Request timeouts for API calls
 - **Status Monitoring**: Real-time connection health checks
+
 ## Integration Points
+
 ### 1. Noter UI Components
+
 **CodespaceIframe Component**
+
 - Embeds VS Code web interface
 - Handles authentication state
-- Provides fallback external link
-**CodespaceStatus Component**
+- Provides fallback external link **CodespaceStatus Component**
 - Real-time status display
 - Connection health indicators
 - Action buttons (start/stop/delete)
+
 ### 2. Convex Backend
-**Database Schema**
-codespaces: {
-  id: string;
-  name: string;
-  webUrl: string;
-  agentUrl: string;
-  token: string;
-  status: "creating" | "running" | "stopped";
-  createdAt: number;
-  updatedAt: number;
-**API Functions**
+
+**Database Schema** codespaces: { id: string; name: string; webUrl: string;
+agentUrl: string; token: string; status: "creating" | "running" | "stopped";
+createdAt: number; updatedAt: number; **API Functions**
+
 - `createCodespace`: Creates new Codespace
 - `getCodespaceStatus`: Retrieves current status
 - `executeCommand`: Runs commands via agent API
 - `manageFiles`: File operations through agent
+
 ## Error Scenarios
+
 ### 1. Connection Failures
+
 - **Network Issues**: Retry logic with exponential backoff
 - **Authentication Errors**: Token refresh or re-authentication
 - **Timeout Errors**: Graceful degradation to manual access
+
 ### 2. Codespace States
+
 - **Creating**: Show loading state, poll for completion
 - **Stopped**: Provide start button, disable interactions
 - **Deleted**: Clean up database records, show creation option
+
 ### 3. Agent Unavailability
+
 - **Port Not Ready**: Retry connection with delays
 - **Service Down**: Fall back to web interface only
 - **Invalid Token**: Regenerate and update database
+
 ## Performance Considerations
+
 ### 1. Connection Optimization
+
 - **Connection Pooling**: Reuse HTTP connections
 - **Request Batching**: Combine multiple file operations
 - **Caching**: Cache file metadata and directory listings
+
 ### 2. UI Responsiveness
+
 - **Async Operations**: Non-blocking API calls
 - **Loading States**: Clear feedback during operations
 - **Progressive Enhancement**: Core functionality without agent API
+
 ## Future Enhancements
+
 ### 1. Advanced Features
+
 - **Port Forwarding**: Support for custom application ports
 - **Extension Management**: Install/configure VS Code extensions
 - **Environment Variables**: Secure environment configuration
+
 ### 2. Monitoring & Analytics
+
 - **Usage Metrics**: Track Codespace utilization
 - **Performance Monitoring**: API response times and errors
 - **Cost Optimization**: Automatic shutdown policies
+
 ## Implementation Notes
+
 ### 1. Development Setup
+
 - Agent server code located in `.codespace-agent/`
 - Automatic startup via `.devcontainer/devcontainer.json`
 - Environment-specific configuration
+
 ### 2. Deployment Considerations
+
 - **Token Security**: Secure storage and transmission
 - **Rate Limiting**: GitHub API quota management
 - **Resource Cleanup**: Automatic Codespace lifecycle management
+
+```
+
 ```

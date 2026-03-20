@@ -12,7 +12,6 @@ import {
 import {
   ensureHostingResources,
   getProvisionedMainUrl,
-  type ProvisionedByProvider,
 } from "./hostingProviders";
 import { hostingStateValidator } from "./hostingState";
 import { resolveCloudflareHostingState } from "./hostingStateHelpers";
@@ -23,10 +22,7 @@ import {
   toErrorMessage,
 } from "./jsonUtils";
 import { sanitizeSlug, vaultSuffix } from "./slugUtils";
-import {
-  CLOUDFLARE_MCP_SERVER_URL,
-  resolveCloudflareMcpServerUrl,
-} from "./cloudflareMcp";
+import { resolveCloudflareMcpServerUrl } from "./cloudflareMcp";
 
 const PROVISIONING_STALE_MS = 10 * 60 * 1000;
 const GITHUB_API_VERSION = "2022-11-28";
@@ -679,22 +675,21 @@ export const provisionVaultInfrastructure = internalAction({
         );
       }
 
-      const cloudflareToken = resolvedCloudflareConnection
-        ? resolvedCloudflareConnection.auth.credential.trim()
-        : "";
-      const cloudflareServerUrl = resolvedCloudflareConnection
-        ? resolveCloudflareMcpServerUrl(resolvedCloudflareConnection)
-        : CLOUDFLARE_MCP_SERVER_URL;
-      let cloudflareAccountId = resolvedCloudflareConnection?.accountId?.trim()
-        ? resolvedCloudflareConnection.accountId.trim()
-        : "";
-
-      if (!cloudflareToken) {
+      if (!resolvedCloudflareConnection) {
         throw new Error(
           "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
         );
       }
-      if (!resolvedCloudflareConnection) {
+      const cloudflareToken =
+        resolvedCloudflareConnection.auth.credential.trim();
+      const cloudflareServerUrl = resolveCloudflareMcpServerUrl(
+        resolvedCloudflareConnection,
+      );
+      let cloudflareAccountId = resolvedCloudflareConnection.accountId?.trim()
+        ? resolvedCloudflareConnection.accountId.trim()
+        : "";
+
+      if (!cloudflareToken) {
         throw new Error(
           "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
         );
@@ -786,36 +781,35 @@ export const provisionVaultInfrastructure = internalAction({
         repo: vault.ghRepoName,
       });
       const cloudflareExisting = resolveCloudflareHostingState(existing);
-      const provisionedHosting: ProvisionedByProvider =
-        await ensureHostingResources({
-          provider: "cloudflare",
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
-          ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
-          ghRepoOwnerId: repoIdentity.ownerId,
-          defaultBranch,
-          vaultId: args.vaultId,
-          cloudflareToken,
-          cloudflareServerUrl,
-          accountId: cloudflareAccountId,
-          buildConfig: resolveCloudflareBuildConfig(vault),
-          existing: {
-            accountId: cloudflareExisting?.accountId,
-            projectName: cloudflareExisting?.projectName,
-            subdomain: cloudflareExisting?.subdomain,
-            productionUrl: cloudflareExisting?.productionUrl,
+      const provisionedHosting = await ensureHostingResources({
+        provider: "cloudflare",
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        ghRepoId: repoIdentity.repoId ?? vault.ghRepoId,
+        ghRepoOwnerId: repoIdentity.ownerId,
+        defaultBranch,
+        vaultId: args.vaultId,
+        cloudflareToken,
+        cloudflareServerUrl,
+        accountId: cloudflareAccountId,
+        buildConfig: resolveCloudflareBuildConfig(vault),
+        existing: {
+          accountId: cloudflareExisting?.accountId,
+          projectName: cloudflareExisting?.projectName,
+          subdomain: cloudflareExisting?.subdomain,
+          productionUrl: cloudflareExisting?.productionUrl,
+        },
+        convex: {
+          production: {
+            cloudUrl: convex.convexCloudUrl,
+            deployKey: convex.deployKey,
           },
-          convex: {
-            production: {
-              cloudUrl: convex.convexCloudUrl,
-              deployKey: convex.deployKey,
-            },
-            preview: {
-              cloudUrl: previewConvex.previewCloudUrl,
-              deployKey: previewConvex.previewDeployKey,
-            },
+          preview: {
+            cloudUrl: previewConvex.previewCloudUrl,
+            deployKey: previewConvex.previewDeployKey,
           },
-        });
+        },
+      });
 
       hostingSuccess = true;
 
