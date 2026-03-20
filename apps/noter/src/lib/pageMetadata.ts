@@ -19,6 +19,15 @@ export const HOME_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
+export const PRIVACY_PAGE_METADATA: PageMetadata = {
+  title: "Privacy Policy | Noter",
+  description:
+    "Privacy Policy for Noter. Describes the data the current Noter app stores, the providers it talks to, and the browser storage it uses.",
+  canonicalPath: "/privacy",
+  robots: "index,follow",
+  openGraphType: "website",
+};
+
 export const APP_PAGE_METADATA: PageMetadata = {
   title: "Noter App",
   description: "Private Noter application workspace.",
@@ -36,11 +45,46 @@ export function resolveAppPageTitle(pathname: string): string {
     return "Pricing | Noter";
   }
 
+  if (pathname === "/privacy") {
+    return "Privacy Policy | Noter";
+  }
+
   if (pathname.startsWith("/vault/")) {
     return "Workspace | Noter";
   }
 
   return "Noter App";
+}
+
+export function resolvePageMetadata(args: {
+  pathname: string;
+  isAuthenticated: boolean;
+}): PageMetadata {
+  if (args.pathname === "/privacy") {
+    return PRIVACY_PAGE_METADATA;
+  }
+
+  if (!args.isAuthenticated && args.pathname === "/") {
+    return HOME_PAGE_METADATA;
+  }
+
+  return {
+    ...APP_PAGE_METADATA,
+    canonicalPath: args.pathname,
+    title: resolveAppPageTitle(args.pathname),
+  };
+}
+
+export function resolveBootstrapPageMetadata(pathname: string): PageMetadata {
+  if (pathname === "/privacy") {
+    return PRIVACY_PAGE_METADATA;
+  }
+
+  return {
+    ...APP_PAGE_METADATA,
+    canonicalPath: pathname,
+    title: resolveAppPageTitle(pathname),
+  };
 }
 
 function resolveSiteOrigin(): string {

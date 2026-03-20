@@ -181,6 +181,90 @@
     line-height: 1.25rem;
   }
 
+  .cm-static-markdown .cm-scroller {
+    overflow: visible;
+  }
+
+  .cm-static-markdown .cm-content {
+    font-size: 0.875rem !important;
+    line-height: 1.5rem !important;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .cm-static-markdown .cm-line {
+    display: block;
+    padding: 0;
+    color: hsl(var(--foreground));
+  }
+
+  .cm-static-markdown .cm-line.cm-static-markdown-gap {
+    height: 1rem;
+    line-height: 1rem;
+    font-size: 0;
+  }
+
+  .cm-static-markdown .cm-line.cm-static-markdown-heading-1 {
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 500;
+    letter-spacing: -0.025em;
+  }
+
+  .cm-static-markdown .cm-line.cm-static-markdown-heading-2 {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+    font-weight: 500;
+    letter-spacing: -0.025em;
+  }
+
+  .cm-static-markdown
+    .cm-line:is(
+      .cm-static-markdown-heading-3,
+      .cm-static-markdown-heading-4,
+      .cm-static-markdown-heading-5,
+      .cm-static-markdown-heading-6
+    ) {
+    font-size: 1rem;
+    line-height: 1.5rem;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+  }
+
+  .cm-static-markdown .cm-static-markdown-list-root {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .cm-static-markdown .cm-line.cm-static-markdown-list {
+    padding-inline-start: 1.5rem;
+    text-indent: -1rem;
+  }
+
+  .cm-static-markdown
+    .cm-line.cm-static-markdown-list
+    + .cm-line.cm-static-markdown-list {
+    padding-top: 0.5rem;
+  }
+
+  .cm-static-markdown .cm-line.cm-static-markdown-list .cm-rendered-list-mark {
+    display: inline-block;
+    width: 1ch !important;
+    margin: 0 !important;
+    text-align: center;
+  }
+
+  .cm-static-markdown .cm-static-markdown-inline-code {
+    border: 1px solid hsl(var(--border));
+    background-color: hsl(var(--accent));
+    padding: 0.0625rem 0.25rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      "Liberation Mono", "Courier New", monospace;
+    font-size: 0.8125rem;
+    line-height: 1.25rem;
+  }
+
   .line-clamp-2 {
     overflow: hidden;
     display: -webkit-box;
