@@ -1,7 +1,13 @@
 import { normalizeRotationDegrees } from "@/components/logoVoxelState";
 
+export type LogoViewDragElevationSnapGroup = {
+  elevationDegrees: readonly number[];
+  rotationDegrees: readonly number[];
+};
+
 export type LogoViewDragSnapAngles = {
   elevationDegrees: readonly number[];
+  elevationSnapGroups?: readonly LogoViewDragElevationSnapGroup[];
   rotationDegrees: readonly number[];
   thresholdDegrees: number;
 };
@@ -82,25 +88,48 @@ export function resolveDraggedAngleDegrees({
   return closestSnapDegrees;
 }
 
+function resolveElevationSnapDegrees(args: {
+  rotationDegrees: number;
+  snapAngles?: LogoViewDragSnapAngles;
+}): readonly number[] | undefined {
+  const snapAngles = args.snapAngles;
+  if (!snapAngles) {
+    return undefined;
+  }
+
+  for (const snapGroup of snapAngles.elevationSnapGroups ?? []) {
+    if (snapGroup.rotationDegrees.includes(args.rotationDegrees)) {
+      return snapGroup.elevationDegrees;
+    }
+  }
+
+  return snapAngles.elevationDegrees;
+}
+
 export function resolveLogoViewState(args: {
   config?: LogoViewDragConfig;
   disableSnap?: boolean;
   view: LogoViewState;
 }): LogoViewState {
+  const rotationDegrees = resolveDraggedAngleDegrees({
+    disableSnap: args.disableSnap,
+    snapDegrees: args.config?.snapAngles?.rotationDegrees,
+    snapThresholdDegrees: args.config?.snapAngles?.thresholdDegrees,
+    stepDegrees: args.config?.rotationStepDegrees,
+    value: args.view.rotationDegrees,
+  });
+
   return {
     elevationDegrees: resolveDraggedAngleDegrees({
       disableSnap: args.disableSnap,
-      snapDegrees: args.config?.snapAngles?.elevationDegrees,
+      snapDegrees: resolveElevationSnapDegrees({
+        rotationDegrees,
+        snapAngles: args.config?.snapAngles,
+      }),
       snapThresholdDegrees: args.config?.snapAngles?.thresholdDegrees,
       stepDegrees: args.config?.elevationStepDegrees,
       value: args.view.elevationDegrees,
     }),
-    rotationDegrees: resolveDraggedAngleDegrees({
-      disableSnap: args.disableSnap,
-      snapDegrees: args.config?.snapAngles?.rotationDegrees,
-      snapThresholdDegrees: args.config?.snapAngles?.thresholdDegrees,
-      stepDegrees: args.config?.rotationStepDegrees,
-      value: args.view.rotationDegrees,
-    }),
+    rotationDegrees,
   };
 }

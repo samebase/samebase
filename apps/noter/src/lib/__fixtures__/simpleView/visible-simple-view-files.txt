@@ -12,13 +12,7 @@ apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-unchanged.pn
 apps/noter/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-raw.png
 apps/noter/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-zoomed.png
 apps/noter/e2e/corner-notch-visual.spec.ts-snapshots/corner-notch.png
-apps/noter/e2e/logo-snap-angles-visual.spec.ts-snapshots/logo-snap-rotation-0-elevation-0.png
-apps/noter/e2e/logo-snap-angles-visual.spec.ts-snapshots/logo-snap-rotation-0-elevation-45.png
-apps/noter/e2e/logo-snap-angles-visual.spec.ts-snapshots/logo-snap-rotation-0-elevation-90.png
-apps/noter/e2e/logo-snap-angles-visual.spec.ts-snapshots/logo-snap-rotation-135-elevation-35_264.png
-apps/noter/e2e/logo-snap-angles-visual.spec.ts-snapshots/logo-snap-rotation-225-elevation-35_264.png
-apps/noter/e2e/logo-snap-angles-visual.spec.ts-snapshots/logo-snap-rotation-315-elevation-35_264.png
-apps/noter/e2e/logo-snap-angles-visual.spec.ts-snapshots/logo-snap-rotation-45-elevation-35_264.png
+apps/noter/e2e/logo-snap-angles-visual.spec.ts-snapshots/logo-snap-angle-matrix.png
 apps/noter/e2e/logo-three-visual.spec.ts-snapshots/logo-three-diff.png
 apps/noter/e2e/logo-three-visual.spec.ts-snapshots/logo-three-reference.png
 apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-png.png

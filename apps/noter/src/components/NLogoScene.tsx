@@ -25,7 +25,7 @@ import {
   voxelKey,
 } from "@/components/logoVoxelState";
 import {
-  resolveDraggedAngleDegrees,
+  resolveLogoViewState,
   type LogoViewDragConfig,
 } from "@/components/logoViewDrag";
 import {
@@ -1345,27 +1345,20 @@ export function NLogoScene({
     }
 
     const disableSnap = event.altKey || event.shiftKey;
-    const snapAngles = viewDragConfig?.snapAngles;
-    onViewChangeRef.current({
-      elevationDegrees: resolveDraggedAngleDegrees({
+    onViewChangeRef.current(
+      resolveLogoViewState({
+        config: viewDragConfig,
         disableSnap,
-        snapDegrees: snapAngles?.elevationDegrees,
-        snapThresholdDegrees: snapAngles?.thresholdDegrees,
-        stepDegrees: viewDragConfig?.elevationStepDegrees,
-        value:
-          interaction.startElevationDegrees +
-          deltaY * DRAG_ELEVATION_DEGREES_PER_PIXEL,
+        view: {
+          elevationDegrees:
+            interaction.startElevationDegrees +
+            deltaY * DRAG_ELEVATION_DEGREES_PER_PIXEL,
+          rotationDegrees:
+            interaction.startRotationDegrees +
+            deltaX * DRAG_ROTATION_DEGREES_PER_PIXEL,
+        },
       }),
-      rotationDegrees: resolveDraggedAngleDegrees({
-        disableSnap,
-        snapDegrees: snapAngles?.rotationDegrees,
-        snapThresholdDegrees: snapAngles?.thresholdDegrees,
-        stepDegrees: viewDragConfig?.rotationStepDegrees,
-        value:
-          interaction.startRotationDegrees +
-          deltaX * DRAG_ROTATION_DEGREES_PER_PIXEL,
-      }),
-    });
+    );
   };
 
   const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {

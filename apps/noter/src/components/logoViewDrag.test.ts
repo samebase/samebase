@@ -91,6 +91,36 @@ describe("resolveLogoViewState", () => {
     });
   });
 
+  it("uses the diagonal elevation snap family for diagonal rotations", () => {
+    expect(
+      resolveLogoViewState({
+        config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+        view: {
+          elevationDegrees: 35.6,
+          rotationDegrees: 43.6,
+        },
+      }),
+    ).toEqual({
+      elevationDegrees: EXACT_ISOMETRIC_ELEVATION_DEGREES,
+      rotationDegrees: 45,
+    });
+  });
+
+  it("does not use the diagonal elevation snap family for orthographic rotations", () => {
+    expect(
+      resolveLogoViewState({
+        config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+        view: {
+          elevationDegrees: 35.6,
+          rotationDegrees: 1.2,
+        },
+      }),
+    ).toEqual({
+      elevationDegrees: 36,
+      rotationDegrees: 0,
+    });
+  });
+
   it("preserves arbitrary values when no snap config is provided", () => {
     expect(
       resolveLogoViewState({
