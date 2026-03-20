@@ -1,8 +1,5 @@
-import { LOGO_THREE_SVG_VIEWBOX_SIZE } from "@/components/logoStaticSvgContract";
-import {
-  getTailwindColorHex,
-  type FaceColors,
-} from "@/components/logoTailwindColors";
+import { LOGO_THREE_SVG_VIEWBOX_SIZE } from "./logoStaticSvgContract";
+import { getTailwindColorHex, type FaceColors } from "./logoTailwindColors";
 import {
   DEFAULT_ELEVATION_DEGREES,
   DEFAULT_ROTATION_DEGREES,
@@ -10,7 +7,7 @@ import {
   HALF_GRID,
   isWithinGrid,
   voxelKey,
-} from "@/components/logoVoxelState";
+} from "./logoVoxelState";
 
 type Point = {
   x: number;

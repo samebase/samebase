@@ -2,7 +2,9 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { execSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
 import { readPackageVersion } from "../../scripts/readPackageVersion.js";
+import { createStaticLogoSvgMarkup } from "./src/components/logoStaticSvgAsset";
 import {
   readEnvFileValue,
   resolveDaytonaConvexProxyTarget,
@@ -42,6 +44,50 @@ const daytonaConvexProxyPath = daytonaConvexProxyTarget
   ? DAYTONA_CONVEX_PROXY_PATH
   : null;
 const shouldIncludeVisualFixture = process.env.PLAYWRIGHT === "1";
+const staticLogoSvgAssetPath = path.resolve(
+  __dirname,
+  "public/logo-static.svg",
+);
+
+function syncStaticLogoSvgAsset() {
+  const nextStaticLogoSvgMarkup = createStaticLogoSvgMarkup().trim();
+  const currentStaticLogoSvgMarkup = (() => {
+    try {
+      return readFileSync(staticLogoSvgAssetPath, "utf8").trim();
+    } catch {
+      return null;
+    }
+  })();
+
+  if (currentStaticLogoSvgMarkup === nextStaticLogoSvgMarkup) {
+    return;
+  }
+
+  writeFileSync(staticLogoSvgAssetPath, `${nextStaticLogoSvgMarkup}\n`, "utf8");
+}
+
+function syncStaticLogoSvgAssetPlugin() {
+  let hasSyncedStaticLogoSvgAsset = false;
+
+  const syncOnce = () => {
+    if (hasSyncedStaticLogoSvgAsset) {
+      return;
+    }
+
+    hasSyncedStaticLogoSvgAsset = true;
+    syncStaticLogoSvgAsset();
+  };
+
+  return {
+    name: "sync-static-logo-svg-asset",
+    buildStart() {
+      syncOnce();
+    },
+    configureServer() {
+      syncOnce();
+    },
+  };
+}
 
 function stripDaytonaConvexProxyPrefix(requestPath: string): string {
   if (
@@ -75,7 +121,7 @@ export default defineConfig({
     __DAYTONA_SDK_VERSION__: JSON.stringify(daytonaSdkVersion),
     __DAYTONA_CONVEX_PROXY_PATH__: JSON.stringify(daytonaConvexProxyPath),
   },
-  plugins: [react()],
+  plugins: [syncStaticLogoSvgAssetPlugin(), react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

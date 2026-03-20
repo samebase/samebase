@@ -20,6 +20,7 @@
     "preview": "turbo run preview",
     "clean": "turbo run clean",
     "test": "vitest --run",
+    "test:ci": "pnpm test && PLAYWRIGHT_VITE_PORT=43121 pnpm --filter noter test:visual",
     "test:watch": "vitest",
     "dev:noter": "turbo run dev --filter=noter",
     "build:noter": "turbo run build --filter=noter",

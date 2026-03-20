@@ -386,7 +386,11 @@ test("prod-ui mode overrides the landing dev editor", async ({ page }) => {
 
   await expect(page.getByPlaceholder("email@example.com")).toBeVisible();
   await expect(page.getByText("Password auth (dev)")).toHaveCount(0);
-  await expect(page.locator(".cm-editor")).toHaveCount(0);
+  await expect(
+    page.locator(
+      '[data-testid="public-landing-copy"] [contenteditable="true"]',
+    ),
+  ).toHaveCount(0);
 });
 
 test("landing dev toggle preserves unrelated query params", async ({
@@ -400,7 +404,7 @@ test("landing dev toggle preserves unrelated query params", async ({
   await shellToggleLink.click();
   await expect(page).toHaveURL(/\/\?prod-ui&dev$/);
 
-  const appToggleLink = page.getByRole("link", { name: "/" });
+  const appToggleLink = page.getByRole("link", { name: "/", exact: true });
   await expect(appToggleLink).toHaveAttribute("href", "/?prod-ui");
 });
 
@@ -413,11 +417,15 @@ test("landing dev edits stay visible after toggling back to the plain landing vi
 
   await insertLandingHeadingMarker(page, headingMarker);
 
-  const appToggleLink = page.getByRole("link", { name: "/" });
+  const appToggleLink = page.getByRole("link", { name: "/", exact: true });
   await expect(appToggleLink).toBeVisible();
   await appToggleLink.click();
 
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.locator(".cm-editor")).toHaveCount(0);
+  await expect(
+    page.locator(
+      '[data-testid="public-landing-copy"] [contenteditable="true"]',
+    ),
+  ).toHaveCount(0);
   await expect(page.getByRole("heading")).toContainText(headingMarker);
 });

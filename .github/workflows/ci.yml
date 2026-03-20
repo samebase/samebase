@@ -69,7 +69,7 @@ jobs:
         run: pnpm lint:ci
 
       - name: Run tests
-        run: pnpm test
+        run: pnpm test:ci
 
       - name: Build
         run: pnpm build:ci
