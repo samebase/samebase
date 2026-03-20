@@ -41,12 +41,17 @@ const githubRepositoryListItem = object({
 });
 
 type GitHubRepositoryListItem = Infer<typeof githubRepositoryListItem>;
+type GitHubRepositoryList = GitHubRepositoryListItem[];
 
 type CachedRepositoryBlob = {
   storageId?: string | null;
   text?: string | null;
   mime?: string | undefined;
 };
+
+const GITHUB_REPOSITORY_DISCOVERY_URL =
+  "https://api.github.com/user/repos?sort=updated&per_page=100&affiliation=owner,collaborator,organization_member";
+const MAX_GITHUB_REPOSITORY_PAGES = 100;
 
 export function readGitHubNextPageUrl(
   linkHeader: string | null | undefined,
@@ -55,21 +60,11 @@ export function readGitHubNextPageUrl(
     return null;
   }
 
-  for (const rawPart of linkHeader.split(",")) {
-    const part = rawPart.trim();
-    const segments = part.split(";").map((segment) => segment.trim());
-    const urlSegment = segments[0];
-    if (
-      !urlSegment ||
-      !urlSegment.startsWith("<") ||
-      !urlSegment.endsWith(">")
-    ) {
-      continue;
+  for (const match of linkHeader.matchAll(/<([^>]+)>\s*;\s*rel="([^"]+)"/g)) {
+    const [, url, rel] = match;
+    if (rel === "next") {
+      return url;
     }
-    if (!segments.slice(1).includes('rel="next"')) {
-      continue;
-    }
-    return urlSegment.slice(1, -1);
   }
 
   return null;
@@ -130,11 +125,65 @@ export function normalizeGitHubRepositoryListItem(
   };
 }
 
+export async function listGitHubRepositories(args: {
+  accessToken: string;
+  fetchImpl?: typeof fetch;
+}): Promise<GitHubRepositoryList> {
+  const repositoriesById = new Map<number, GitHubRepositoryListItem>();
+  const seenPageUrls = new Set<string>();
+  const fetchImpl = args.fetchImpl ?? fetch;
+  let nextPageUrl: string | null = GITHUB_REPOSITORY_DISCOVERY_URL;
+
+  while (nextPageUrl) {
+    if (seenPageUrls.has(nextPageUrl)) {
+      throw new Error("GitHub repository pagination loop detected");
+    }
+    if (seenPageUrls.size >= MAX_GITHUB_REPOSITORY_PAGES) {
+      throw new Error(
+        `GitHub repository pagination exceeded ${MAX_GITHUB_REPOSITORY_PAGES} pages`,
+      );
+    }
+    seenPageUrls.add(nextPageUrl);
+
+    const response = await fetchImpl(nextPageUrl, {
+      headers: {
+        Authorization: `Bearer ${args.accessToken}`,
+        Accept: "application/vnd.github+json",
+        "User-Agent": "noter-App",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `GitHub API error: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    const reposRaw: unknown = await response.json();
+    if (!Array.isArray(reposRaw)) {
+      throw new Error("Unexpected GitHub API response format");
+    }
+
+    for (const repo of reposRaw) {
+      const normalized = normalizeGitHubRepositoryListItem(repo);
+      if (normalized === null) {
+        throw new Error("Unexpected GitHub repository payload");
+      }
+      repositoriesById.set(normalized.id, normalized);
+    }
+
+    nextPageUrl = readGitHubNextPageUrl(response.headers.get("link"));
+  }
+
+  return Array.from(repositoriesById.values());
+}
+
 // List the current user's GitHub repositories
 export const listRepositories = action({
   args: {},
   returns: array(githubRepositoryListItem),
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<GitHubRepositoryList> => {
     const userId = await getUserId(ctx);
     const githubConnection = await ctx.runQuery(
       internal.providerConnections.getByUserAndKind,
@@ -148,43 +197,7 @@ export const listRepositories = action({
     }
 
     const accessToken = githubConnection.auth.credential;
-    const repositoriesById = new Map<number, GitHubRepositoryListItem>();
-    let nextPageUrl: string | null =
-      "https://api.github.com/user/repos?sort=updated&per_page=100&affiliation=owner,collaborator,organization_member";
-
-    while (nextPageUrl) {
-      const response = await fetch(nextPageUrl, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Accept: "application/vnd.github+json",
-          "User-Agent": "noter-App",
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(
-          `GitHub API error: ${response.status} ${response.statusText}`,
-        );
-      }
-
-      const reposRaw: unknown = await response.json();
-      if (!Array.isArray(reposRaw)) {
-        throw new Error("Unexpected GitHub API response format");
-      }
-
-      for (const repo of reposRaw) {
-        const normalized = normalizeGitHubRepositoryListItem(repo);
-        if (normalized === null) {
-          throw new Error("Unexpected GitHub repository payload");
-        }
-        repositoriesById.set(normalized.id, normalized);
-      }
-
-      nextPageUrl = readGitHubNextPageUrl(response.headers.get("link"));
-    }
-
-    return Array.from(repositoriesById.values());
+    return await listGitHubRepositories({ accessToken });
   },
 });
 

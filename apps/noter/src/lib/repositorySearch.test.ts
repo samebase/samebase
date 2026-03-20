@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  findRepositorySearchMatch,
   getFuzzyMatchIndices,
   repositoryMatchesSearch,
+  splitRepositoryFullNameMatch,
 } from "@/lib/repositorySearch";
 
 describe("getFuzzyMatchIndices", () => {
@@ -39,5 +41,41 @@ describe("repositoryMatchesSearch", () => {
 
   it("rejects unrelated queries", () => {
     expect(repositoryMatchesSearch("random", repository)).toBe(false);
+  });
+});
+
+describe("findRepositorySearchMatch", () => {
+  const repository = {
+    name: "noter",
+    full_name: "noter-md/noter",
+  };
+
+  it("returns repo match metadata", () => {
+    expect(findRepositorySearchMatch("not", repository)).toEqual({
+      kind: "repo",
+      indices: [0, 1, 2],
+    });
+  });
+
+  it("returns full-name match metadata when only the combined path matches", () => {
+    expect(findRepositorySearchMatch("notermd/noter", repository)).toEqual({
+      kind: "full_name",
+      indices: [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13],
+    });
+  });
+});
+
+describe("splitRepositoryFullNameMatch", () => {
+  it("splits full-name indices across owner, slash, and repo segments", () => {
+    expect(
+      splitRepositoryFullNameMatch({
+        ownerName: "noter-md",
+        indices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      }),
+    ).toEqual({
+      ownerIndices: [0, 1, 2, 3, 4, 5, 6, 7],
+      repoIndices: [0, 1],
+      slashMatched: true,
+    });
   });
 });

@@ -15,8 +15,8 @@ import { linkStyle } from "./styles";
 import type { FunctionReturnType } from "convex/server";
 import { isInIframe } from "@/authClient";
 import {
-  getFuzzyMatchIndices,
-  repositoryMatchesSearch,
+  findRepositorySearchMatch,
+  splitRepositoryFullNameMatch,
 } from "@/lib/repositorySearch";
 
 type Repository = FunctionReturnType<
@@ -71,21 +71,14 @@ export function AddRepository() {
     }
   };
 
-  const fuzzySearchWithHighlight = (
-    query: string,
+  const renderHighlightedText = (
     target: string,
-  ): {
-    matches: boolean;
-    highlightedText: JSX.Element;
-  } => {
-    const matchedIndices = getFuzzyMatchIndices(query, target);
-    if (matchedIndices !== null && matchedIndices.length === 0) {
-      return { matches: true, highlightedText: <span>{target}</span> };
+    matchedIndices: number[],
+  ): JSX.Element => {
+    if (matchedIndices.length === 0) {
+      return <span>{target}</span>;
     }
     const targetOriginal = target.split("");
-    if (matchedIndices === null) {
-      return { matches: false, highlightedText: <span>{target}</span> };
-    }
 
     // Build highlighted JSX
     const elements: JSX.Element[] = [];
@@ -118,23 +111,27 @@ export function AddRepository() {
       );
     }
 
-    return { matches: true, highlightedText: <span>{elements}</span> };
+    return <span>{elements}</span>;
   };
 
   const connectedVaults = vaults || [];
 
-  const filteredRepositories = repositories
-    .filter((repo: Repository) => {
-      // Filter out already connected repos
-      const isConnected = connectedVaults.some(
-        (vault: (typeof connectedVaults)[number]) =>
-          vault.repositoryFullName === repo.full_name,
-      );
-      return !isConnected;
-    })
-    .filter((repo: Repository) => {
-      return repositoryMatchesSearch(searchQuery, repo);
-    });
+  const filteredRepositories = repositories.flatMap((repo: Repository) => {
+    const isConnected = connectedVaults.some(
+      (vault: (typeof connectedVaults)[number]) =>
+        vault.repositoryFullName === repo.full_name,
+    );
+    if (isConnected) {
+      return [];
+    }
+
+    const searchMatch = findRepositorySearchMatch(searchQuery, repo);
+    if (searchMatch === null) {
+      return [];
+    }
+
+    return [{ repo, searchMatch }];
+  });
 
   return (
     <div className="container py-6 h-screen flex flex-col">
@@ -215,18 +212,38 @@ export function AddRepository() {
           </div>
         ) : (
           <div className="space-y-2">
-            {filteredRepositories.map((repo: Repository) => {
+            {filteredRepositories.map(({ repo, searchMatch }) => {
               const ownerName = repo.full_name.split("/")[0];
               const repoName = repo.name;
+              let ownerHighlight = <span>{ownerName}</span>;
+              let repoHighlight = <span>{repoName}</span>;
+              let slashHighlighted = false;
 
-              const ownerHighlight = fuzzySearchWithHighlight(
-                searchQuery,
-                ownerName,
-              );
-              const repoHighlight = fuzzySearchWithHighlight(
-                searchQuery,
-                repoName,
-              );
+              if (searchMatch.kind === "owner") {
+                ownerHighlight = renderHighlightedText(
+                  ownerName,
+                  searchMatch.indices,
+                );
+              } else if (searchMatch.kind === "repo") {
+                repoHighlight = renderHighlightedText(
+                  repoName,
+                  searchMatch.indices,
+                );
+              } else if (searchMatch.kind === "full_name") {
+                const fullNameMatch = splitRepositoryFullNameMatch({
+                  ownerName,
+                  indices: searchMatch.indices,
+                });
+                ownerHighlight = renderHighlightedText(
+                  ownerName,
+                  fullNameMatch.ownerIndices,
+                );
+                repoHighlight = renderHighlightedText(
+                  repoName,
+                  fullNameMatch.repoIndices,
+                );
+                slashHighlighted = fullNameMatch.slashMatched;
+              }
 
               return (
                 <div
@@ -239,12 +256,15 @@ export function AddRepository() {
                         <span
                           className={`text-sm text-muted-foreground ${linkStyle}`}
                         >
-                          {ownerHighlight.highlightedText}/
+                          {ownerHighlight}
+                          {slashHighlighted ? (
+                            <mark className="bg-yellow-200">/</mark>
+                          ) : (
+                            "/"
+                          )}
                         </span>
                         <h3 className="font-semibold truncate">
-                          <span className={linkStyle}>
-                            {repoHighlight.highlightedText}
-                          </span>
+                          <span className={linkStyle}>{repoHighlight}</span>
                         </h3>
                       </div>
                     </div>
