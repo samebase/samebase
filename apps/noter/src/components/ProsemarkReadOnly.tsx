@@ -192,6 +192,8 @@ function getStyleVariantExtension(
 
   return [
     createLandingCopyStyleVariantExtension(),
+    // The landing page needed an exact-token selection color instead of the
+    // shared blended ProseMark dark selection.
     prosemarkLandingCopyDarkSelectionTheme,
     EditorView.editorAttributes.of({
       class: editable

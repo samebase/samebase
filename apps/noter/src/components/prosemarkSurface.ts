@@ -174,6 +174,8 @@ export const prosemarkSurfaceTheme = EditorView.theme({
   },
 });
 
+// Keep the shared dark-mode selection translucent so editable ProseMark
+// surfaces still preserve contrast against their own background colors.
 const prosemarkDarkSelectionTheme = EditorView.theme(
   {
     "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, & .cm-selectionBackground":
@@ -195,6 +197,9 @@ export const prosemarkHiddenCursorTheme = EditorView.theme({
   },
 });
 
+// The landing copy intentionally uses the exact secondary token instead of the
+// shared translucent blend so the public selection highlight matches the design
+// color precisely in dark mode.
 export const prosemarkLandingCopyDarkSelectionTheme = EditorView.theme(
   {
     "&.cm-landing-copy .cm-content::selection, &.cm-landing-copy .cm-content ::selection":
