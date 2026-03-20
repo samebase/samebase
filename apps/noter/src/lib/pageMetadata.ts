@@ -8,7 +8,7 @@ export type PageMetadata = {
 
 const DEFAULT_SITE_NAME = "Noter";
 const DEFAULT_SITE_ORIGIN = "https://noter.md";
-const DEFAULT_SOCIAL_IMAGE_PATH = "/lumina_icon.png";
+const DEFAULT_SOCIAL_IMAGE_PATH = "/noter-social-card.png";
 
 export const HOME_PAGE_METADATA: PageMetadata = {
   title: "Noter | GitHub-backed workspace for AI agents",

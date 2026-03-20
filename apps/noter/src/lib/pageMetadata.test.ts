@@ -130,10 +130,10 @@ describe("page metadata", () => {
       );
       expect(
         getHeadAttribute(document, 'meta[property="og:image"]', "content"),
-      ).toBe("https://noter.md/lumina_icon.png");
+      ).toBe("https://noter.md/noter-social-card.png");
       expect(
         getHeadAttribute(document, 'meta[name="twitter:image"]', "content"),
-      ).toBe("https://noter.md/lumina_icon.png");
+      ).toBe("https://noter.md/noter-social-card.png");
     });
   });
 
@@ -167,5 +167,9 @@ describe("page metadata", () => {
     expect(html).toContain('name="robots" content="index,follow"');
     expect(html).toContain('<link rel="canonical" href="https://noter.md/"');
     expect(html).toContain('property="og:url" content="https://noter.md/"');
+    expect(html).toContain(
+      'property="og:image"\n      content="https://noter.md/noter-social-card.png"',
+    );
+    expect(html).toContain('name="twitter:image"');
   });
 });
