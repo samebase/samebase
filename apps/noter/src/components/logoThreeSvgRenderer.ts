@@ -25,6 +25,12 @@ export type LogoWorldPoint = {
   z: number;
 };
 
+export type LogoProjector = {
+  cameraDirection: LogoWorldPoint;
+  projectRotatedPoint: (point: LogoWorldPoint) => LogoProjectedPoint;
+  rotateWorldPoint: (point: LogoWorldPoint) => LogoWorldPoint;
+};
+
 type Rectangle = {
   column: number;
   height: number;
@@ -426,87 +432,78 @@ function serializePolygon(points: readonly LogoProjectedPoint[]): string {
     .join(" ");
 }
 
+export function createLogoProjector({
+  elevationDegrees = DEFAULT_ELEVATION_DEGREES,
+  rotationDegrees = DEFAULT_ROTATION_DEGREES,
+  scenePoints,
+  viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
+}: {
+  elevationDegrees?: number;
+  rotationDegrees?: number;
+  scenePoints: readonly LogoWorldPoint[];
+  viewBoxSize?: number;
+}): LogoProjector {
+  const { cameraDirection, right, up } = getCameraBasis(elevationDegrees);
+  const rotationRadians =
+    (toRenderedRotationDegrees(rotationDegrees) * Math.PI) / 180;
+  const rotateWorldPoint = (point: LogoWorldPoint) =>
+    rotateVectorY(point, rotationRadians);
+  const radius = scenePoints.reduce((maxRadius, point) => {
+    const rotatedPoint = rotateWorldPoint(point);
+    return Math.max(
+      maxRadius,
+      Math.hypot(rotatedPoint.x, rotatedPoint.y, rotatedPoint.z),
+    );
+  }, 0);
+  const frustumHalfHeight =
+    radius > 0 ? radius * CAMERA_FRUSTUM_PADDING : CAMERA_FRUSTUM_PADDING;
+
+  return {
+    cameraDirection,
+    projectRotatedPoint: (point) =>
+      projectPoint(point, right, up, frustumHalfHeight, viewBoxSize),
+    rotateWorldPoint,
+  };
+}
+
 function getProjectedScene({
   elevationDegrees = DEFAULT_ELEVATION_DEGREES,
   faceColors,
   filledVoxels,
-  rotationDegrees = DEFAULT_ROTATION_DEGREES,
-}: {
-  elevationDegrees?: number;
-  faceColors: FaceColors;
-  filledVoxels: ReadonlySet<string>;
-  rotationDegrees?: number;
-}) {
-  const { cameraDirection, right, up } = getCameraBasis(elevationDegrees);
-  const rotationRadians =
-    (toRenderedRotationDegrees(rotationDegrees) * Math.PI) / 180;
-  const rotatedQuads = buildSurfaceQuads(faceColors, filledVoxels)
-    .map((quad) => {
-      const normal = rotateVectorY(quad.normal, rotationRadians);
-      if (dotVectors(normal, cameraDirection) <= 0) {
-        return null;
-      }
-
-      return {
-        ...quad,
-        vertices: quad.vertices.map((vertex) =>
-          rotateVectorY(vertex, rotationRadians),
-        ),
-      };
-    })
-    .filter((quad) => quad !== null);
-  const radius = rotatedQuads.reduce((maxRadius, quad) => {
-    const quadRadius = quad.vertices.reduce((maxVertexRadius, vertex) => {
-      return Math.max(
-        maxVertexRadius,
-        Math.hypot(vertex.x, vertex.y, vertex.z),
-      );
-    }, 0);
-    return Math.max(maxRadius, quadRadius);
-  }, 0);
-
-  return {
-    cameraDirection,
-    frustumHalfHeight:
-      radius > 0 ? radius * CAMERA_FRUSTUM_PADDING : CAMERA_FRUSTUM_PADDING,
-    right,
-    rotatedQuads,
-    rotationRadians,
-    up,
-  };
-}
-
-export function projectLogoWorldPoints({
-  elevationDegrees = DEFAULT_ELEVATION_DEGREES,
-  faceColors,
-  filledVoxels,
-  points,
   rotationDegrees = DEFAULT_ROTATION_DEGREES,
   viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
 }: {
   elevationDegrees?: number;
   faceColors: FaceColors;
   filledVoxels: ReadonlySet<string>;
-  points: readonly LogoWorldPoint[];
   rotationDegrees?: number;
   viewBoxSize?: number;
-}): LogoProjectedPoint[] {
-  const { frustumHalfHeight, right, rotationRadians, up } = getProjectedScene({
+}) {
+  const surfaceQuads = buildSurfaceQuads(faceColors, filledVoxels);
+  const projector = createLogoProjector({
     elevationDegrees,
-    faceColors,
-    filledVoxels,
     rotationDegrees,
+    scenePoints: surfaceQuads.flatMap((quad) => quad.vertices),
+    viewBoxSize,
   });
+  const rotatedQuads = surfaceQuads
+    .map((quad) => {
+      const normal = projector.rotateWorldPoint(quad.normal);
+      if (dotVectors(normal, projector.cameraDirection) <= 0) {
+        return null;
+      }
 
-  return points.map((point) =>
-    projectPoint(
-      rotateVectorY(point, rotationRadians),
-      right,
-      up,
-      frustumHalfHeight,
-      viewBoxSize,
-    ),
-  );
+      return {
+        ...quad,
+        vertices: quad.vertices.map(projector.rotateWorldPoint),
+      };
+    })
+    .filter((quad) => quad !== null);
+
+  return {
+    projector,
+    rotatedQuads,
+  };
 }
 
 export function createLogoThreeProjectedQuads({
@@ -522,13 +519,13 @@ export function createLogoThreeProjectedQuads({
   rotationDegrees?: number;
   viewBoxSize?: number;
 }): LogoProjectedQuad[] {
-  const { cameraDirection, frustumHalfHeight, right, rotatedQuads, up } =
-    getProjectedScene({
-      elevationDegrees,
-      faceColors,
-      filledVoxels,
-      rotationDegrees,
-    });
+  const { projector, rotatedQuads } = getProjectedScene({
+    elevationDegrees,
+    faceColors,
+    filledVoxels,
+    rotationDegrees,
+    viewBoxSize,
+  });
 
   if (rotatedQuads.length === 0) {
     return [];
@@ -537,7 +534,7 @@ export function createLogoThreeProjectedQuads({
   return rotatedQuads
     .map((quad) => {
       const points = quad.vertices.map((vertex) =>
-        projectPoint(vertex, right, up, frustumHalfHeight, viewBoxSize),
+        projector.projectRotatedPoint(vertex),
       );
       const center = quad.vertices.reduce(
         (sum, vertex) => ({
@@ -551,7 +548,7 @@ export function createLogoThreeProjectedQuads({
       return {
         color: quad.color,
         colorKey: quad.colorKey,
-        depth: dotVectors(center, cameraDirection),
+        depth: dotVectors(center, projector.cameraDirection),
         key: quad.key,
         materialOrder: quad.materialOrder,
         points,
