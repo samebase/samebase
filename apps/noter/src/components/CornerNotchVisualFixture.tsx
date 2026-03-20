@@ -18,7 +18,7 @@ const CORNER_NOTCH_LABELS: Record<CornerNotchType, string> = {
 
 const CORNER_NOTCH_DESCRIPTIONS: Record<CornerNotchType, string> = {
   0: "Hard square corner.",
-  1: "Square corner cutout sized to the border stroke.",
+  1: "Single-pixel cut with one inner bridge step.",
   2: "Two-step diagonal cut.",
 };
 
@@ -132,8 +132,8 @@ export function CornerNotchVisualFixture() {
                   Default
                 </div>
                 <div className="mt-2 text-sm text-stone-700">
-                  The default app notch remains type 1 unless a component opts
-                  into another notch shape.
+                  The default app notch uses the stepped `corner-notch-1`
+                  geometry unless a component opts into another notch shape.
                 </div>
               </CardContent>
             </Card>

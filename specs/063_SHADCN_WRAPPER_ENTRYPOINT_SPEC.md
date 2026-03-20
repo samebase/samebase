@@ -13,8 +13,12 @@
 ## Conclusion
 
 When Noter wants to apply shared product styling or behavior to a shadcn
-primitive, app code should import a repo-owned wrapper entrypoint, not the
-generated primitive directly.
+primitive, app code should usually import a repo-owned wrapper entrypoint, not
+the generated primitive directly.
+
+`Button` is the current explicit exception: its shared notch behavior lives in
+`@/components/ui/button`, while `@/components/button` remains a pass-through app
+entrypoint for compatibility.
 
 The canonical app-facing import for a wrapped primitive is
 `@/components/<name>`, while the generated shadcn primitive remains under
@@ -45,8 +49,9 @@ Current rollout includes:
   `Button`.
 - Preserve the generated shadcn primitive as an internal base instead of making
   product code depend on a vendor-owned path.
-- Give Noter one durable place to layer shared styling or behavior onto buttons
-  without editing generated shadcn files by default.
+- Prefer one durable place to layer shared styling or behavior onto primitives,
+  while allowing explicit direct edits to generated files when the repo chooses
+  that tradeoff intentionally.
 - Make the ownership boundary obvious in code review.
 
 ## Non-Goals
@@ -80,12 +85,15 @@ Current rollout includes:
 
 - Shared app styling should be layered in the wrapper or through shared theme
   tokens and utility classes.
-- When product styling needs a reusable control surface, expose a typed
-  wrapper-owned prop such as `cornerNotch` instead of forcing call sites to
-  hardcode raw utility class strings.
+- `Button` may own its notch behavior directly in `@/components/ui/button` when
+  the repo explicitly chooses the smaller-change path over a wrapper-owned
+  layer.
+- When product styling needs a reusable control surface, expose a typed prop
+  such as `cornerNotch` instead of forcing call sites to hardcode raw utility
+  class strings.
 - If the repo has a canonical default treatment such as the standard Noter
-  notch, the wrapper should apply it by default and reserve `cornerNotch={0}`
-  for explicit opt-out.
+  notch, the shared component should apply it by default and reserve
+  `cornerNotch={0}` for explicit opt-out.
 - One-off local adjustments may still use `className` at the call site.
 - `components.json` remains a CLI/generation configuration file, not the runtime
   styling entrypoint for existing buttons.
@@ -102,8 +110,9 @@ Current rollout includes:
 
 ### 5. Naming Guidance
 
-- Use `Button` for the app-facing wrapper.
-- Use `BaseButton` for the generated primitive inside the wrapper.
+- Use `Button` for the app-facing component name.
+- When a wrapper exists, use `BaseButton` for the generated primitive inside the
+  wrapper.
 - Do not use lowercase JSX names such as `nButton`.
 - Avoid product-facing prefixes such as `NButton` unless the UI intentionally
   needs two distinct public button families at once.
@@ -113,7 +122,7 @@ Current rollout includes:
 - App-owned product code imports wrapped shadcn primitives from
   `@/components/<name>`.
 - Generated shadcn files under `apps/noter/src/components/ui/*` remain unchanged
-  for this policy shift.
+  by default unless the repo explicitly documents an exception such as `Button`.
 - Wrapper modules preserve the generated public API closely enough that call
   sites only need import-path rewrites or explicit opt-in wrapper props such as
   `cornerNotch`.

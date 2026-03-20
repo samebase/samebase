@@ -7,7 +7,8 @@
 - Last updated: 2026-03-19
 - Related files: `apps/noter/components.json`, `apps/noter/tailwind.config.js`,
   `apps/noter/src/index.css`, `apps/noter/src/components/ui/*`,
-  `apps/noter/src/lib/cornerNotch.ts`, `apps/noter/src/components/button.tsx`,
+  `apps/noter/src/lib/cornerNotch.ts`,
+  `apps/noter/src/components/ui/button.tsx`,
   `apps/noter/src/components/input.tsx`, `apps/noter/src/components/card.tsx`,
   `apps/noter/src/components/CornerNotchVisualFixture.tsx`, `AGENTS.md`
 
@@ -142,12 +143,12 @@ For Noter, the rectangular rule is enforced as follows:
 - Noter may use stepped corner-notch variants as an accent on otherwise
   rectangular chrome.
 - `corner-notch-0` is the pure square baseline with no notch cutout.
-- `corner-notch-1` removes a single outer corner pixel and remains the default
-  notch variant.
+- `corner-notch-1` adds one inner bridge step to the single-pixel outer cut and
+  is the default notch variant.
 - `corner-notch-2` uses a two-step diagonal cut (`2px` then `1px`) plus one
   inner bridge pixel per corner, scaled to the border stroke, so the border
   remains visually connected.
-- App-owned wrappers such as `Button`, `Input`, and `Card` may expose
+- Shared primitives such as `Button`, `Input`, and `Card` may expose
   `cornerNotch={0 | 1 | 2}` so product code can choose a notch type without
   hardcoding `corner-notch-*` utility strings.
 - App-owned wrappers that own primary product chrome should default omitted

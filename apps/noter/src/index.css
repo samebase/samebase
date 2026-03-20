@@ -289,21 +289,59 @@
   }
 
   .corner-notch-1 {
-    --noter-corner-notch-size: var(--noter-corner-notch-stroke, 1px);
+    /*
+     * `1` is one notch step, which tracks the current border width.
+     * `2` is the second inner step.
+     * `end-*` mirrors those same distances from the far edge so the polygon can
+     * reuse the same values on all four corners.
+     */
+    --noter-notch-1: var(--noter-corner-notch-stroke, 1px);
+    --noter-notch-2: calc(2 * var(--noter-notch-1));
+    --noter-notch-end-1: calc(100% - var(--noter-notch-1));
+    --noter-notch-end-2: calc(100% - var(--noter-notch-2));
+
+    /*
+     * Walk clockwise around the box.
+     *
+     * Each corner keeps this stepped profile:
+     * _xxx
+     * xx__
+     * x___
+     * x___
+     *
+     * Read it as:
+     * - remove the outermost corner pixel
+     * - step inward one more pixel
+     * - then return to the normal straight edge
+     */
     clip-path: polygon(
-      var(--noter-corner-notch-size) 0,
-      calc(100% - var(--noter-corner-notch-size)) 0,
-      calc(100% - var(--noter-corner-notch-size)) var(--noter-corner-notch-size),
-      100% var(--noter-corner-notch-size),
-      100% calc(100% - var(--noter-corner-notch-size)),
-      calc(100% - var(--noter-corner-notch-size))
-        calc(100% - var(--noter-corner-notch-size)),
-      calc(100% - var(--noter-corner-notch-size)) 100%,
-      var(--noter-corner-notch-size) 100%,
-      var(--noter-corner-notch-size) calc(100% - var(--noter-corner-notch-size)),
-      0 calc(100% - var(--noter-corner-notch-size)),
-      0 var(--noter-corner-notch-size),
-      var(--noter-corner-notch-size) var(--noter-corner-notch-size)
+      /* Top edge: start after the top-left cut and stop before the top-right cut. */
+        var(--noter-notch-1) 0,
+      var(--noter-notch-end-1) 0,
+
+      /* Top-right corner: in one step, down one step, then back to the edge. */
+        var(--noter-notch-end-2) 0,
+      var(--noter-notch-end-2) var(--noter-notch-1),
+      var(--noter-notch-end-1) var(--noter-notch-1),
+      var(--noter-notch-end-1) var(--noter-notch-2),
+      /* Right edge */ 100% var(--noter-notch-2),
+      100% var(--noter-notch-end-2),
+      /* Bottom-right corner */ var(--noter-notch-end-1)
+        var(--noter-notch-end-2),
+      var(--noter-notch-end-1) var(--noter-notch-end-1),
+      var(--noter-notch-end-2) var(--noter-notch-end-1),
+      var(--noter-notch-end-2) 100%,
+
+      /* Bottom edge */ var(--noter-notch-2) 100%,
+      var(--noter-notch-2) var(--noter-notch-end-1),
+      var(--noter-notch-1) var(--noter-notch-end-1),
+      var(--noter-notch-1) var(--noter-notch-end-2),
+      /* Bottom-left corner */ 0 var(--noter-notch-end-2),
+      0 var(--noter-notch-2),
+      var(--noter-notch-1) var(--noter-notch-2),
+      var(--noter-notch-1) var(--noter-notch-1),
+      var(--noter-notch-2) var(--noter-notch-1),
+      var(--noter-notch-2) 0
     );
   }
 
