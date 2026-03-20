@@ -3,6 +3,8 @@
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 - [ ] specifically left blank
 
+- [ ] research slogan "noter never looses your thoughts (everything is markdown)"
+
 - [ ] research: display cloudflare preview link directly on each branch in noter dashboard
 
 - [ ] idea.md -> lightbulb.md -> lumina.md ?!?!?!?!?!
