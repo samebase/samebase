@@ -353,7 +353,3 @@ createdAt: number; updatedAt: number; **API Functions**
 - **Token Security**: Secure storage and transmission
 - **Rate Limiting**: GitHub API quota management
 - **Resource Cleanup**: Automatic Codespace lifecycle management
-
-```
-
-```
