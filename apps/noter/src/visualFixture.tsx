@@ -48,6 +48,9 @@ function readMode(): VisualFixtureMode {
     value === "media-png" ||
     value === "media-svg" ||
     value === "landing-copy-parity" ||
+    value === "landing-copy-editable-parity-single-line" ||
+    value === "landing-copy-editable-parity-two-line" ||
+    value === "landing-copy-editable-parity-three-line" ||
     value === "simple-repository-config" ||
     value === "simple-missing-config" ||
     value === "corner-notch" ||
@@ -66,8 +69,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <DialogProvider>
         {mode === "media-png" || mode === "media-svg" ? (
           <RepositoryMediaVisualFixture mode={mode} />
-        ) : mode === "landing-copy-parity" ? (
-          <LandingCopyVisualFixture />
+        ) : mode === "landing-copy-parity" ||
+          mode === "landing-copy-editable-parity-single-line" ||
+          mode === "landing-copy-editable-parity-two-line" ||
+          mode === "landing-copy-editable-parity-three-line" ? (
+          <LandingCopyVisualFixture mode={mode} />
         ) : mode === "logo-three-reference" ? (
           <LogoThreeVisualFixture />
         ) : mode === "simple-repository-config" ||

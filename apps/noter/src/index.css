@@ -135,6 +135,9 @@
     font-weight: 500 !important;
     letter-spacing: -0.025em !important;
     color: hsl(var(--primary)) !important;
+    overflow-wrap: anywhere;
+    line-break: after-white-space;
+    -webkit-line-break: after-white-space;
   }
 
   .cm-landing-copy .cm-line.cm-landing-copy-gap {
@@ -144,9 +147,9 @@
   }
 
   .cm-landing-copy.cm-landing-copy-editable .cm-line.cm-landing-copy-gap {
-    height: 1.25rem !important;
-    line-height: 1.25rem !important;
-    font-size: 0.875rem !important;
+    height: 0 !important;
+    line-height: 0 !important;
+    font-size: 0 !important;
   }
 
   .cm-landing-copy .cm-line.cm-landing-copy-list {
