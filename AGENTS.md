@@ -549,6 +549,10 @@ Auth:
   lines, unless the work is too intertwined to split safely.
 - Always create a working branch (use `codex/` prefix when needed), and push
   after every commit so the remote stays up to date.
+- For this operator, once a new work branch has its first meaningful commit and
+  push, open a draft PR immediately so preview links (including Cloudflare
+  previews) exist throughout implementation. If a PR already exists for the
+  branch, keep updating that PR instead of opening another one.
 - Do not introduce new `.mjs` files; keep `type: "module"` and prefer `.js`
   files as ESM.
 - Always rebase work branches on `origin/main` (not only local `main`) before
