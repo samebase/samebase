@@ -71,6 +71,13 @@ environments.
    - Agent URL: `{codespace-name}-3000.app.github.dev`
 4. **Token Storage**: Unique authentication token stored in Convex database
 
+```ts
+// Example connection flow
+const codespace = await createCodespace(repoOwner, repoName)
+const webUrl = `https://${codespace.name}.github.dev`
+const agentUrl = `https://${codespace.name}-3000.app.github.dev`
+```
+
 ### Agent API Endpoints:
 
 - `GET /health` - Health check (no auth required)
@@ -84,7 +91,9 @@ environments.
 ## Security Features
 
 - **Token Authentication**: All API calls (except health) require Bearer token
+- **Scope Isolation**: Each Codespace has a unique API token
 - **Path Validation**: Prevents directory traversal attacks
+- **Path Sanitization**: Input validation on all file paths
 - **Workspace Isolation**: All operations restricted to `/workspaces` directory
 
 ## Usage in Noter
@@ -93,6 +102,8 @@ environments.
 - **Programmatic Control**: HTTP API for file operations and command execution
 - **State Management**: Real-time status tracking (creating → running → stopped)
 - **Error Handling**: Graceful fallbacks and external link options
+- **Operational Safeguards**: Request timeouts and connection health checks back
+  stop agent-driven flows
 
 ## Implementation Details
 
@@ -122,7 +133,7 @@ repository in a cloud development environment.
   - IntelliSense/autocomplete
   - Error detection
   - Consistent editing experience
-  - Rich code editing experience within markdown documents
+  - Rich code editing experience within Markdown documents
 - **Implementation Considerations**:
   - Embed Monaco as a ProseMirror node view
   - Language detection from code fence info
@@ -151,31 +162,6 @@ repository in a cloud development environment.
 - `apps/noter/convex/codespaces.ts` - Codespace management
 - `apps/noter/convex/codespacesExecutor.ts` - HTTP agent communication
 - `.codespace-agent/server.js` - Agent HTTP server
-
-This document specifies how Noter connects to and interacts with GitHub
-Codespaces, providing both visual and programmatic access to cloud development
-environments.
-
-- **Access Type**: Direct browser access to VS Code in the browser
-- **URL Pattern**: `https://{codespace-name}.github.dev`
-- **Authentication**: GitHub session-based authentication
-- **App URL Pattern**: `https://{codespace-name}-3000.app.github.dev`
-- **Port**: Runs on port 3000 inside the Codespace
-
-### 1. Codespace Creation Process
-
-1. **API Call**: Noter calls GitHub API to create a Codespace
-2. **Agent Setup**: Node.js HTTP server starts on port 3000 inside the Codespace
-3. **Status Tracking**: Real-time status updates (creating → running → stopped)
-
-### 2. Connection Establishment
-
-```typescript
-// Example connection flow
-const codespace = await createCodespace(repoOwner, repoName)
-const webUrl = `https://${codespace.name}.github.dev`
-const agentUrl = `https://${codespace.name}-3000.app.github.dev`
-```
 
 ## Agent API Specification
 
@@ -250,24 +236,6 @@ DELETE /files/delete?path={file-path}
 ```http
 GET /files/stat?path={file-path}
 ```
-
-### 1. Authentication
-
-- **Token-based**: UUID tokens for API access
-- **Session-based**: GitHub authentication for web interface
-- **Scope Isolation**: Each Codespace has unique token
-
-### 2. Path Validation
-
-- **Directory Traversal Protection**: Prevents `../` attacks
-- **Workspace Restriction**: All operations limited to `/workspaces` directory
-- **Path Sanitization**: Input validation on all file paths
-
-### 3. Error Handling
-
-- **Graceful Degradation**: Fallback to external links if iframe fails
-- **Timeout Management**: Request timeouts for API calls
-- **Status Monitoring**: Real-time connection health checks
 
 ## Integration Points
 
