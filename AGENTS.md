@@ -468,6 +468,9 @@ Auth:
 - When sharing URLs (including localhost dev URLs), format them as Markdown
   links (for example `[http://localhost:5174/](http://localhost:5174/)`) so they
   are clickable in Codex.
+- When a preview URL exists for the work in progress, always include it as a
+  clickable Markdown link in the user-facing response so the operator can open
+  it directly.
 - When a response relates to an existing PR, always mention the PR number and
   format that PR number itself as a clickable Markdown link to the PR (for
   example `[#253](https://github.com/noter-md/noter/pull/253)`), even if the
