@@ -56,6 +56,7 @@ manifest generation:
 
 - `.codespace-agent/**`
 - `.devcontainer/devcontainer.json`
+- `.devcontainer/Dockerfile`
 
 Optional manual sync without export:
 

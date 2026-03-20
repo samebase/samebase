@@ -25,10 +25,12 @@ source of truth for GitHub, Convex, and Cloudflare credentials.
    - GitHub is removed from app sign-in.
 2. Provider access is explicit connection-only flow for
    GitHub/Convex/Cloudflare.
-3. One active connection per (`userId`, `kind`), with method `oauth` or
-   `api_key`.
-4. Use union-based modeling; no sparse generic token object on `users`.
-5. Include index support for `kind` + `auth.method`.
+3. One active connection per (`userId`, `kind`).
+4. `auth.method` values are `oauth`, `mcp_oauth`, and `api_key`. GitHub/Convex
+   use `oauth` or `api_key`; Cloudflare uses `mcp_oauth` in the user-facing flow
+   and `api_key` for local/dev seed bootstrap.
+5. Use union-based modeling; no sparse generic token object on `users`.
+6. Include index support for `kind` + `auth.method`.
 
 ## Data Model
 
@@ -42,7 +44,14 @@ union and nested auth-method union.
    - `credential`
    - `refreshCredential?`
    - `credentialExpiresAt?`
-2. `apiKeyAuth`:
+2. `mcpOauthAuth`:
+   - `method: "mcp_oauth"`
+   - `credential`
+   - `refreshCredential?`
+   - `credentialExpiresAt?`
+   - `clientId?`
+   - `mcpServerUrl`
+3. `apiKeyAuth`:
    - `method: "api_key"`
    - `credential`
    - `credentialExpiresAt?`
@@ -65,7 +74,7 @@ union and nested auth-method union.
 3. Cloudflare:
    - `kind: "cloudflare"`
    - `userId`
-   - `auth`
+   - `auth` (`mcp_oauth` in user-facing flows, `api_key` for local/dev seed)
    - `accountId?`
    - `createdAt`, `updatedAt`
 
@@ -101,7 +110,7 @@ Each status includes:
 
 1. `connected`
 2. provider metadata (`username`, `teamId`, `teamSlug` as applicable)
-3. `authMethod?: "oauth" | "api_key"`
+3. `authMethod?: "oauth" | "mcp_oauth" | "api_key"`
 
 `viewer` exposes:
 

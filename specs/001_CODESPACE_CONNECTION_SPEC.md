@@ -137,7 +137,7 @@ repository in a cloud development environment.
 
 ### Monaco in ProseMirror
 
-- **Idea**: Render Monaco editor inside ProseMirror for code blocks (`ts, `js,
+- **Idea**: Render Monaco editor inside ProseMirror for code blocks (`ts`, `js`,
   etc.)
 - **Scope**: Not just TypeScript - all languages that would use Monaco if they
   were in a file

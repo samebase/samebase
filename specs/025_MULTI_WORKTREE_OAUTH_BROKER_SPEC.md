@@ -17,7 +17,8 @@
 This spec defines the product behavior for:
 
 1. Password app-login support in development.
-2. API-key connection mode for GitHub/Convex.
+2. API-key connection mode for GitHub/Convex, plus seed-only Cloudflare API-key
+   bootstrap for anonymous local development.
 3. Anonymous worktree seed behavior for local development.
 
 Connection data architecture is defined by
@@ -33,8 +34,10 @@ storage/indexing details.
 2. Password seeding uses fixed development credentials in code:
    - Email: `nicu@noter.md`
    - Password: `pass1234`
-3. Provider connections support both OAuth and API key methods.
-4. Allowlist enforcement remains mandatory for sign-in/sign-up.
+3. Provider connections support OAuth and API key methods.
+4. Cloudflare API keys are seed-only for anonymous local development; the
+   user-facing Cloudflare connection flow is MCP OAuth.
+5. Allowlist enforcement remains mandatory for sign-in/sign-up.
 
 ## Backend Requirements
 
@@ -114,7 +117,8 @@ Only these env vars are used:
 1. `DEV_SEED_GITHUB_API_KEY`
 2. `DEV_SEED_CONVEX_MANAGEMENT_API_KEY`
 3. `DEV_SEED_CONVEX_TEAM_ID`
-4. `DEV_SEED_CLOUDFLARE_API_KEY`
+4. `DEV_SEED_CLOUDFLARE_API_KEY` for seed-only local Cloudflare bootstrap
+5. `DEV_SEED_CLOUDFLARE_ACCOUNT_ID` for seed-only local Cloudflare bootstrap
 
 ## Notes
 

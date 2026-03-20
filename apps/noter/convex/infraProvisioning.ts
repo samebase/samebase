@@ -774,23 +774,11 @@ export const provisionVaultInfrastructure = internalAction({
         },
       );
 
-      let previewConvexCloudUrl = convex.convexCloudUrl;
-      let previewConvexDeployKey = convex.deployKey;
-      try {
-        const previewConvex = await ensureConvexPreviewResources({
-          convexProvider: providers.convex,
-          projectId: convex.convexProjectId,
-          vaultId: args.vaultId,
-        });
-        previewConvexCloudUrl = previewConvex.previewCloudUrl;
-        previewConvexDeployKey = previewConvex.previewDeployKey;
-      } catch (error) {
-        console.warn("infra:convex:preview:fallback_to_production", {
-          vaultId: args.vaultId,
-          projectId: convex.convexProjectId,
-          message: toErrorMessage(error),
-        });
-      }
+      const previewConvex = await ensureConvexPreviewResources({
+        convexProvider: providers.convex,
+        projectId: convex.convexProjectId,
+        vaultId: args.vaultId,
+      });
 
       const repoIdentity = await fetchGitHubRepoIdentity({
         githubAccessToken,
@@ -823,8 +811,8 @@ export const provisionVaultInfrastructure = internalAction({
               deployKey: convex.deployKey,
             },
             preview: {
-              cloudUrl: previewConvexCloudUrl,
-              deployKey: previewConvexDeployKey,
+              cloudUrl: previewConvex.previewCloudUrl,
+              deployKey: previewConvex.previewDeployKey,
             },
           },
         });
