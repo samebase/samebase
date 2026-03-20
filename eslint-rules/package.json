@@ -1,3 +1,10 @@
 {
-  "type": "commonjs"
+  "name": "eslint-plugin-noter-local",
+  "private": true,
+  "version": "0.0.0",
+  "type": "commonjs",
+  "main": "index.js",
+  "peerDependencies": {
+    "eslint": "^8.57.0"
+  }
 }
