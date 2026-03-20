@@ -40,7 +40,7 @@ const LOGO_SNAP_MATRICES = [
   },
   {
     description:
-      "Diagonal rotations use only the isometric elevation snap family.",
+      "Diagonal rotations keep the shared cardinal elevations plus the isometric elevation family.",
     elevationDegrees: PUBLIC_LANDING_LOGO_DIAGONAL_ELEVATION_SNAP_DEGREES,
     rotationDegrees: PUBLIC_LANDING_LOGO_DIAGONAL_ROTATION_SNAP_DEGREES,
     title: "Diagonal snap matrix",
@@ -294,7 +294,11 @@ test("logo snap angle matrix visual fixture", async ({ page }, testInfo) => {
   const actualScreenshot = await takeStableScreenshot(fixture);
   const snapshotPath = `${SNAPSHOT_DIRECTORY_PATH}${SNAPSHOT_NAME}`;
 
-  if (!existsSync(snapshotPath) || testInfo.config.updateSnapshots === "all") {
+  if (
+    !existsSync(snapshotPath) ||
+    testInfo.config.updateSnapshots === "all" ||
+    testInfo.config.updateSnapshots === "changed"
+  ) {
     writeFileSync(snapshotPath, actualScreenshot);
   }
 

@@ -106,6 +106,21 @@ describe("resolveLogoViewState", () => {
     });
   });
 
+  it("keeps the shared cardinal elevation snaps for diagonal rotations", () => {
+    expect(
+      resolveLogoViewState({
+        config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
+        view: {
+          elevationDegrees: 359.1,
+          rotationDegrees: 43.6,
+        },
+      }),
+    ).toEqual({
+      elevationDegrees: 0,
+      rotationDegrees: 45,
+    });
+  });
+
   it("does not use the diagonal elevation snap family for orthographic rotations", () => {
     expect(
       resolveLogoViewState({
