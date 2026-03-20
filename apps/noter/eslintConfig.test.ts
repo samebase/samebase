@@ -1,56 +1,68 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import fs from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { ESLint } from "eslint";
 import { describe, expect, it } from "vitest";
 
 const appDir = fileURLToPath(new URL("./", import.meta.url));
 const repoRoot = path.resolve(appDir, "..", "..");
-const sourceDir = path.join(appDir, "src");
-const eslintConfigPath = path.join(repoRoot, ".eslintrc.cjs");
+const requireFromRepoRoot = createRequire(`${repoRoot}/package.json`);
+
+function readJson(relativePath: string) {
+  return JSON.parse(
+    fs.readFileSync(path.join(repoRoot, relativePath), "utf8"),
+  ) as Record<string, unknown>;
+}
+
+function readEslintConfig() {
+  return requireFromRepoRoot("./.eslintrc.cjs") as {
+    plugins?: string[];
+    overrides?: Array<{
+      files?: string[];
+      excludedFiles?: string[];
+      rules?: Record<string, string>;
+    }>;
+  };
+}
 
 describe("eslint config", () => {
-  it("loads the local query param rule without rulesdir", async () => {
-    const fixtureDir = await mkdtemp(
-      path.join(sourceDir, "__eslint-rule-fixture-"),
-    );
-    const fixturePath = path.join(fixtureDir, "useQueryParamHelpers.tsx");
-
-    await writeFile(
-      fixturePath,
-      [
-        "import { useSearchParams } from 'react-router-dom'",
-        "",
-        "export function QueryParamFixture() {",
-        "  const [searchParams] = useSearchParams()",
-        "  searchParams.set('tab', 'settings')",
-        "  return null",
-        "}",
-        "",
-      ].join("\n"),
-      "utf8",
+  it("wires the local query param rule through the workspace plugin", () => {
+    const pluginPath = requireFromRepoRoot.resolve("eslint-plugin-noter-local");
+    const plugin = requireFromRepoRoot("eslint-plugin-noter-local") as {
+      rules?: Record<string, unknown>;
+    };
+    const eslintConfig = readEslintConfig();
+    const sourceOverride = eslintConfig.overrides?.find(
+      (override) =>
+        override.files?.includes("apps/noter/src/**/*.{ts,tsx}") ?? false,
     );
 
-    try {
-      const eslint = new ESLint({
-        cwd: repoRoot,
-        overrideConfigFile: eslintConfigPath,
-      });
-      const [result] = await eslint.lintFiles([fixturePath]);
+    expect(pluginPath).toBe(path.join(repoRoot, "eslint-rules", "index.js"));
+    expect(plugin.rules).toHaveProperty("use-query-param-helpers");
+    expect(eslintConfig.plugins).toContain("noter-local");
+    expect(sourceOverride?.rules).toMatchObject({
+      "noter-local/use-query-param-helpers": "error",
+    });
+  });
 
-      expect(result).toBeDefined();
-      expect(
-        result?.messages.some(
-          (message) => message.ruleId === "noter-local/use-query-param-helpers",
-        ),
-      ).toBe(true);
-      expect(
-        result?.messages.some((message) =>
-          message.message.includes("Definition for rule"),
-        ),
-      ).toBe(false);
-    } finally {
-      await rm(fixtureDir, { recursive: true, force: true });
-    }
+  it("uses plugin wiring instead of rulesdir flags", () => {
+    const rootPackage = readJson("package.json") as {
+      scripts?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    const appPackage = readJson("apps/noter/package.json") as {
+      scripts?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+
+    expect(rootPackage.devDependencies).toMatchObject({
+      "eslint-plugin-noter-local": "workspace:*",
+    });
+    expect(appPackage.devDependencies).toMatchObject({
+      "eslint-plugin-noter-local": "workspace:*",
+    });
+    expect(rootPackage.scripts?.["lint:scripts"]).not.toContain("--rulesdir");
+    expect(appPackage.scripts?.lint).not.toContain("--rulesdir");
+    expect(appPackage.scripts?.["lint:ci"]).not.toContain("--rulesdir");
   });
 });
