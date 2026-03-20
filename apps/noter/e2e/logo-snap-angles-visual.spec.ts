@@ -79,7 +79,6 @@ async function captureLogoSnapCellScreenshot(
     )}&elevation=${encodeURIComponent(elevationDegrees)}`,
     { waitUntil: "domcontentloaded" },
   );
-  await page.waitForLoadState("networkidle");
 
   const fixture = page.getByTestId("logo-snap-angles-visual-fixture");
   await expect(fixture).toBeVisible();
