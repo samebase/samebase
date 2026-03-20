@@ -35,6 +35,7 @@ CHAT_SPEC.md
 CONVEX_CODEGEN_CI.md
 docs/compliance/licenses-prod-2026-03-06.txt
 docs/research/onboarding-video-tooling-2026-03-19.md
+docs/research/typescript-lisp-surface-syntax-2026-03-21.md
 Ideas/augment-code-research.md
 Ideas/daytona-terminal-ui-transparency.md
 Ideas/E2b.md
