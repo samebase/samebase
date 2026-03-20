@@ -20,7 +20,6 @@ import {
   prosemarkBasicSetup,
   prosemarkMarkdownSyntaxExtensions,
 } from "@prosemark/core";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import {
@@ -32,6 +31,7 @@ import {
   blurOnOutsidePointerDownExtension,
   collapseSelectionOnBlurExtension,
   findInitialSafeSelectionAnchor,
+  prosemarkDarkTheme,
   prosemarkHiddenCursorTheme,
   prosemarkSurfaceTheme,
 } from "@/components/prosemarkSurface";
@@ -227,7 +227,7 @@ export function ProsemarkMergeEditor({
           onChangeRef.current?.(lastValueRef.current);
         }),
         themeCompartmentRef.current.of(
-          lastThemeIsDarkRef.current ? oneDark : [],
+          lastThemeIsDarkRef.current ? prosemarkDarkTheme : [],
         ),
       ],
     });
@@ -250,7 +250,9 @@ export function ProsemarkMergeEditor({
     const view = viewRef.current;
     if (!view) return;
     view.dispatch({
-      effects: themeCompartmentRef.current.reconfigure(isDark ? oneDark : []),
+      effects: themeCompartmentRef.current.reconfigure(
+        isDark ? prosemarkDarkTheme : [],
+      ),
     });
   }, [isDark]);
 

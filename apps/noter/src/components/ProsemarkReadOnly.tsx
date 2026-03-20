@@ -28,14 +28,15 @@ import {
   prosemarkBasicSetup,
   prosemarkMarkdownSyntaxExtensions,
 } from "@prosemark/core";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import {
+  prosemarkDarkTheme,
   blurOnOutsidePointerDownExtension,
   collapseSelectionOnBlurExtension,
   findInitialSafeSelectionAnchor,
   prosemarkHiddenCursorTheme,
+  prosemarkLandingCopyDarkSelectionTheme,
   prosemarkSurfaceTheme,
 } from "@/components/prosemarkSurface";
 
@@ -191,6 +192,9 @@ function getStyleVariantExtension(
 
   return [
     createLandingCopyStyleVariantExtension(),
+    // The landing page needed an exact-token selection color instead of the
+    // shared blended ProseMark dark selection.
+    prosemarkLandingCopyDarkSelectionTheme,
     EditorView.editorAttributes.of({
       class: editable
         ? "cm-landing-copy cm-landing-copy-editable"
@@ -334,7 +338,9 @@ export function ProsemarkReadOnly({
           resizeToContent();
           onChangeRef.current?.(lastValueRef.current);
         }),
-        themeCompartmentRef.current.of(isDarkRef.current ? oneDark : []),
+        themeCompartmentRef.current.of(
+          isDarkRef.current ? prosemarkDarkTheme : [],
+        ),
       ],
     });
 
@@ -355,7 +361,9 @@ export function ProsemarkReadOnly({
     const view = viewRef.current;
     if (!view) return;
     view.dispatch({
-      effects: themeCompartmentRef.current.reconfigure(isDark ? oneDark : []),
+      effects: themeCompartmentRef.current.reconfigure(
+        isDark ? prosemarkDarkTheme : [],
+      ),
     });
   }, [isDark]);
 

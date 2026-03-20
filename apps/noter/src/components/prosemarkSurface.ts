@@ -1,4 +1,5 @@
 import { EditorSelection, type Text } from "@codemirror/state";
+import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 
 function isBlankLineText(text: string): boolean {
@@ -173,8 +174,39 @@ export const prosemarkSurfaceTheme = EditorView.theme({
   },
 });
 
+// Keep the shared dark-mode selection translucent so editable ProseMark
+// surfaces still preserve contrast against their own background colors.
+const prosemarkDarkSelectionTheme = EditorView.theme(
+  {
+    "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, & .cm-selectionBackground":
+      {
+        backgroundColor: "hsl(var(--secondary) / 0.32) !important",
+      },
+    "& .cm-content::selection, & .cm-content *::selection": {
+      backgroundColor: "hsl(var(--secondary) / 0.32) !important",
+    },
+  },
+  { dark: true },
+);
+
+export const prosemarkDarkTheme = [oneDark, prosemarkDarkSelectionTheme];
+
 export const prosemarkHiddenCursorTheme = EditorView.theme({
   ".cm-cursor": {
     display: "none",
   },
 });
+
+// The landing copy intentionally uses the exact secondary token instead of the
+// shared translucent blend so the public selection highlight matches the design
+// color precisely in dark mode.
+export const prosemarkLandingCopyDarkSelectionTheme = EditorView.theme(
+  {
+    "&.cm-landing-copy .cm-content::selection, &.cm-landing-copy .cm-content ::selection":
+      {
+        backgroundColor: "hsl(var(--secondary)) !important",
+        color: "hsl(var(--secondary-foreground)) !important",
+      },
+  },
+  { dark: true },
+);
