@@ -37,6 +37,7 @@ import {
   type FileViewPushActionsVisualMode,
 } from "@/components/FileViewPushActionsVisualFixture";
 import { VaultDashboardBranchVisualFixture } from "@/components/VaultDashboardBranchVisualFixture";
+import { ButtonVisualFixture } from "@/components/ButtonVisualFixture";
 import "./index.css";
 
 type VisualFixtureMode =
@@ -49,6 +50,7 @@ type VisualFixtureMode =
   | SimpleViewVisualMode
   | VaultDashboardVisualMode
   | "vault-dashboard-branch-pr-title"
+  | "button"
   | "corner-notch"
   | "corner-notch-detail";
 
@@ -74,6 +76,7 @@ function readMode(): VisualFixtureMode {
     value === "file-view-push-ready" ||
     value === "file-view-open-pr" ||
     value === "vault-dashboard-branch-pr-title" ||
+    value === "button" ||
     value === "corner-notch" ||
     value === "logo-snap-angles" ||
     value === "corner-notch-detail"
@@ -109,6 +112,14 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <FileViewPushActionsVisualFixture mode={mode} />
         ) : mode === "vault-dashboard-branch-pr-title" ? (
           <VaultDashboardBranchVisualFixture />
+        ) : mode === "button" ? (
+          <ButtonVisualFixture />
+        ) : mode === "file-view-push-ready" || mode === "file-view-open-pr" ? (
+          <FileViewPushActionsVisualFixture mode={mode} />
+        ) : mode === "vault-dashboard-branch-pr-title" ? (
+          <VaultDashboardBranchVisualFixture />
+        ) : mode === "button" ? (
+          <ButtonVisualFixture />
         ) : mode === "corner-notch" ? (
           <CornerNotchVisualFixture />
         ) : mode === "corner-notch-detail" ? (
