@@ -167,8 +167,9 @@ describe("page metadata", () => {
     expect(html).toContain('name="robots" content="index,follow"');
     expect(html).toContain('<link rel="canonical" href="https://noter.md/"');
     expect(html).toContain('property="og:url" content="https://noter.md/"');
-    expect(html).toContain('property="og:image"');
-    expect(html).toContain("https://noter.md/noter-social-card.png");
+    expect(html).toContain(
+      'property="og:image"\n      content="https://noter.md/noter-social-card.png"',
+    );
     expect(html).toContain('name="twitter:image"');
   });
 });
