@@ -630,7 +630,7 @@ export const provisionVaultInfrastructure = internalAction({
       previousVersion: existing?.provisioningVersion ?? 0,
       nextVersion,
       force: args.force ?? false,
-      hostingProvider: vault.hostingProvider ?? "cloudflare",
+      hostingProvider: "cloudflare",
     });
 
     let convexSuccess = false;
@@ -709,8 +709,12 @@ export const provisionVaultInfrastructure = internalAction({
             "No Cloudflare account is available for provisioning. Reconnect Cloudflare and retry.",
           );
         }
-        const defaultAccount = accounts.find((account) => account.isDefault);
-        cloudflareAccountId = (defaultAccount ?? accounts[0]).id;
+        if (accounts.length > 1) {
+          throw new Error(
+            "Multiple Cloudflare accounts are available. Select an account before provisioning can continue.",
+          );
+        }
+        cloudflareAccountId = accounts[0].id;
         await ctx.runMutation(internal.providerConnections.upsertCloudflare, {
           userId: vault.userId,
           auth: resolvedCloudflareConnection.auth,
