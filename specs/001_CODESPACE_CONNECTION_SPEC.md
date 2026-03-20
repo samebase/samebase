@@ -154,11 +154,12 @@ repository in a cloud development environment.
 
 This document specifies how Noter connects to and interacts with GitHub
 Codespaces, providing both visual and programmatic access to cloud development
-environments. **URL Pattern**: `https://{codespace-name}.github.dev`
+environments.
 
 - **Access Type**: Direct browser access to VS Code in the browser
-- **Authentication**: GitHub session-based authentication **URL Pattern**:
-  `https://{codespace-name}-3000.app.github.dev`
+- **URL Pattern**: `https://{codespace-name}.github.dev`
+- **Authentication**: GitHub session-based authentication
+- **App URL Pattern**: `https://{codespace-name}-3000.app.github.dev`
 - **Port**: Runs on port 3000 inside the Codespace
 
 ### 1. Codespace Creation Process
@@ -276,16 +277,30 @@ GET /files/stat?path={file-path}
 
 - Embeds VS Code web interface
 - Handles authentication state
-- Provides fallback external link **CodespaceStatus Component**
-- Real-time status display
-- Connection health indicators
-- Action buttons (start/stop/delete)
+- Provides fallback external link
+- **CodespaceStatus Component**
+  - Real-time status display
+  - Connection health indicators
+  - Action buttons (start/stop/delete)
 
 ### 2. Convex Backend
 
-**Database Schema** codespaces: { id: string; name: string; webUrl: string;
-agentUrl: string; token: string; status: "creating" | "running" | "stopped";
-createdAt: number; updatedAt: number; **API Functions**
+**Database Schema**
+
+```ts
+codespaces: {
+  id: string
+  name: string
+  webUrl: string
+  agentUrl: string
+  token: string
+  status: 'creating' | 'running' | 'stopped'
+  createdAt: number
+  updatedAt: number
+}
+```
+
+**API Functions**
 
 - `createCodespace`: Creates new Codespace
 - `getCodespaceStatus`: Retrieves current status
