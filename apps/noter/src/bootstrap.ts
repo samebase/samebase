@@ -1,5 +1,13 @@
 import { isInIframe, openAuthPopup } from "@/authClient";
 import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
+import { createLogoProjectedDotPatternSvgMarkup } from "@/components/logoThreeSvgRenderer";
+import {
+  LOGO_THREE_SVG_VIEWBOX_SIZE,
+  STATIC_LOGO_ELEVATION_DEGREES,
+  STATIC_LOGO_ROTATION_DEGREES,
+  STATIC_LOGO_VOXEL_COORDINATES,
+} from "@/components/logoStaticSvgContract";
+import { createFilledVoxelSet } from "@/components/logoVoxelState";
 import {
   buildLandingDevToggleHref,
   getLandingDevToggleLabel,
@@ -23,6 +31,13 @@ import {
 import { FAST_LANDING_APP_BOOT_DELAY_MS } from "@/lib/fastLandingBoot";
 import { landingPageMarkdown } from "@/lib/landingCopy";
 import { PUBLIC_LANDING_COPY_TEST_ID } from "@/lib/publicLanding";
+import {
+  clearPublicLandingHoverPosition,
+  PUBLIC_LANDING_BACKGROUND_CLASS_NAME,
+  PUBLIC_LANDING_SURFACE_BASE_CLASS_NAME,
+  PUBLIC_LANDING_SURFACE_CLASS_NAME,
+  updatePublicLandingHoverPosition,
+} from "@/lib/publicLandingBackground";
 import { renderLandingCopyShellHtml } from "@/lib/landingCopyShell";
 import { writePublicLandingWaitlistDraft } from "@/lib/publicLandingWaitlistDraft";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
@@ -259,6 +274,30 @@ function beginWaitlistInteraction() {
   void ensureAppLoaded();
 }
 
+function bindFastLandingHoverSurface(root: HTMLElement) {
+  const landingSurface = root.querySelector<HTMLElement>(
+    `.${PUBLIC_LANDING_SURFACE_BASE_CLASS_NAME}`,
+  );
+
+  if (!landingSurface) {
+    return;
+  }
+
+  const updateHoverPosition = (event: PointerEvent) => {
+    updatePublicLandingHoverPosition(
+      landingSurface,
+      event.clientX,
+      event.clientY,
+    );
+  };
+
+  landingSurface.addEventListener("pointermove", updateHoverPosition);
+  landingSurface.addEventListener("pointerdown", updateHoverPosition);
+  landingSurface.addEventListener("pointerleave", () => {
+    clearPublicLandingHoverPosition(landingSurface);
+  });
+}
+
 function renderFastLandingShell() {
   const root = document.getElementById("root");
 
@@ -270,6 +309,13 @@ function renderFastLandingShell() {
   const landingDevToggleHref = buildLandingDevToggleHref(window.location);
   const landingDevToggleLabel = getLandingDevToggleLabel(searchParams);
   const landingLogoSrc = buildFastLandingLogoSrc();
+  const landingLogoDotFieldMarkup = createLogoProjectedDotPatternSvgMarkup({
+    dotColor: "currentColor",
+    elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
+    filledVoxels: createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES),
+    rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
+    viewBoxSize: LOGO_THREE_SVG_VIEWBOX_SIZE,
+  });
   const { appCommit, shortCommit, commitUrl } = getShellCommitMetadata();
   const commitMarkup = commitUrl
     ? `<a class="font-mono transition-colors hover:text-foreground" href="${escapeHtml(commitUrl)}" target="_blank" rel="noreferrer noopener" title="${escapeHtml(appCommit)}">${escapeHtml(shortCommit)}</a>`
@@ -287,72 +333,80 @@ function renderFastLandingShell() {
         </div>
       </div>
       <main class="flex grow flex-col overflow-hidden">
-        <div class="container my-auto">
-          <div data-testid="${PUBLIC_LANDING_CONTENT_TEST_ID}" class="mx-auto flex max-w-[384px] flex-col gap-4 pb-8">
-            <div class="${PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME}">
-              <div data-testid="${PUBLIC_LANDING_LOGO_STAGE_TEST_ID}" class="${PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME}">
-                <img
-                  data-testid="${PUBLIC_LANDING_LOGO_TEST_ID}"
-                  src="${escapeHtml(landingLogoSrc)}"
-                  alt="${escapeHtml(PUBLIC_LANDING_LOGO_ALT)}"
-                  width="${String(PUBLIC_LANDING_LOGO_WIDTH)}"
-                  height="${String(PUBLIC_LANDING_LOGO_HEIGHT)}"
-                  loading="eager"
-                  decoding="async"
-                  fetchpriority="high"
-                  class="${PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME}"
-                />
-                <div
-                  aria-hidden="true"
-                  data-testid="${PUBLIC_LANDING_LOGO_SCENE_TEST_ID}"
-                  data-state="loading"
-                  class="pointer-events-none absolute inset-0 z-0"
-                ></div>
+        <div class="${PUBLIC_LANDING_SURFACE_CLASS_NAME}">
+          <div aria-hidden="true" class="${PUBLIC_LANDING_BACKGROUND_CLASS_NAME}"></div>
+          <div class="container relative z-10 my-auto w-full">
+            <div data-testid="${PUBLIC_LANDING_CONTENT_TEST_ID}" class="mx-auto flex max-w-[384px] flex-col gap-4 pb-8">
+              <div class="${PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME}">
+                <div data-testid="${PUBLIC_LANDING_LOGO_STAGE_TEST_ID}" class="${PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME}">
+                  <div aria-hidden="true" class="public-landing-logo-dot-field absolute inset-0 z-0">
+                    ${landingLogoDotFieldMarkup}
+                  </div>
+                  <img
+                    data-testid="${PUBLIC_LANDING_LOGO_TEST_ID}"
+                    src="${escapeHtml(landingLogoSrc)}"
+                    alt="${escapeHtml(PUBLIC_LANDING_LOGO_ALT)}"
+                    width="${String(PUBLIC_LANDING_LOGO_WIDTH)}"
+                    height="${String(PUBLIC_LANDING_LOGO_HEIGHT)}"
+                    loading="eager"
+                    decoding="async"
+                    fetchpriority="high"
+                    class="${PUBLIC_LANDING_LOGO_IMAGE_CLASS_NAME}"
+                  />
+                  <div
+                    aria-hidden="true"
+                    data-testid="${PUBLIC_LANDING_LOGO_SCENE_TEST_ID}"
+                    data-state="loading"
+                    class="pointer-events-none absolute inset-0 z-10"
+                  ></div>
+                </div>
               </div>
-            </div>
-            <div data-testid="${PUBLIC_LANDING_COPY_TEST_ID}">
-              ${renderLandingCopyShellHtml(landingPageMarkdown)}
-            </div>
-            <div class="flex flex-col gap-2">
-              <button
-                id="${GOOGLE_AUTH_BUTTON_ID}"
-                type="button"
-                class="inline-flex h-9 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
-              >
-                ${renderChromeIconSvg()}
-                <span>Google</span>
-              </button>
-            </div>
-            <div
-              data-testid="${PUBLIC_LANDING_WAITLIST_PLACEHOLDER_TEST_ID}"
-              class="flex flex-col gap-2 border-t pt-2"
-            >
-              <div class="flex gap-2">
-                <input
-                  id="${PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID}"
-                  type="email"
-                  placeholder="email@example.com"
-                  class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
-                />
+              <div data-testid="${PUBLIC_LANDING_COPY_TEST_ID}">
+                ${renderLandingCopyShellHtml(landingPageMarkdown)}
+              </div>
+              <div class="flex flex-col gap-2">
                 <button
-                  id="${PUBLIC_LANDING_WAITLIST_SUBMIT_BUTTON_ID}"
+                  id="${GOOGLE_AUTH_BUTTON_ID}"
                   type="button"
-                  class="inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+                  class="inline-flex h-9 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
                 >
-                  Join Waitlist
+                  ${renderChromeIconSvg()}
+                  <span>Google</span>
                 </button>
               </div>
-            </div>
-            <div class="border-t pt-2 text-center text-xs text-muted-foreground">
-              <a href="/privacy" class="transition-colors hover:text-foreground">
-                /privacy
-              </a>
+              <div
+                data-testid="${PUBLIC_LANDING_WAITLIST_PLACEHOLDER_TEST_ID}"
+                class="flex flex-col gap-2 border-t pt-2"
+              >
+                <div class="flex gap-2">
+                  <input
+                    id="${PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID}"
+                    type="email"
+                    placeholder="email@example.com"
+                    class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                  />
+                  <button
+                    id="${PUBLIC_LANDING_WAITLIST_SUBMIT_BUTTON_ID}"
+                    type="button"
+                    class="inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    Join Waitlist
+                  </button>
+                </div>
+              </div>
+              <div class="border-t pt-2 text-center text-xs text-muted-foreground">
+                <a href="/privacy" class="transition-colors hover:text-foreground">
+                  /privacy
+                </a>
+              </div>
             </div>
           </div>
         </div>
       </main>
     </div>
   `;
+
+  bindFastLandingHoverSurface(root);
 
   root
     .querySelector<HTMLButtonElement>(`#${GOOGLE_AUTH_BUTTON_ID}`)

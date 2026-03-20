@@ -132,9 +132,26 @@ type NLogoSceneProps = {
   rotationDegrees: number;
   shuffleAnimation: LogoShuffleAnimationConfig;
   animateFaceColors: boolean;
+  transparentBackground?: boolean;
   viewDragConfig?: LogoViewDragConfig;
   voxelState: string;
 };
+
+function applySceneBackground(
+  scene: THREE.Scene,
+  renderer: THREE.WebGLRenderer,
+  backgroundColor: string,
+  transparentBackground: boolean,
+) {
+  if (transparentBackground) {
+    scene.background = null;
+    renderer.setClearColor("#000000", 0);
+    return;
+  }
+
+  scene.background = new THREE.Color(backgroundColor);
+  renderer.setClearColor(backgroundColor, 1);
+}
 
 function getVoxelWorldCenter(
   coordinate: VoxelCoordinate,
@@ -792,12 +809,14 @@ export function NLogoScene({
   rotationDegrees,
   shuffleAnimation,
   animateFaceColors,
+  transparentBackground = false,
   viewDragConfig,
   voxelState,
 }: NLogoSceneProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const sceneStateRef = useRef<SceneState | null>(null);
   const backgroundColorRef = useRef(backgroundColor);
+  const transparentBackgroundRef = useRef(transparentBackground);
   const editModeRef = useRef(editMode);
   const rotationDegreesRef = useRef(rotationDegrees);
   const elevationDegreesRef = useRef(elevationDegrees);
@@ -829,14 +848,20 @@ export function NLogoScene({
 
   useEffect(() => {
     backgroundColorRef.current = backgroundColor;
+    transparentBackgroundRef.current = transparentBackground;
     const sceneState = sceneStateRef.current;
     if (!sceneState) {
       return;
     }
 
-    sceneState.scene.background = new THREE.Color(backgroundColor);
+    applySceneBackground(
+      sceneState.scene,
+      sceneState.renderer,
+      backgroundColor,
+      transparentBackground,
+    );
     renderSceneRef.current(performance.now());
-  }, [backgroundColor]);
+  }, [backgroundColor, transparentBackground]);
 
   useEffect(() => {
     editModeRef.current = editMode;
@@ -924,17 +949,20 @@ export function NLogoScene({
   }, [shuffleAnimation]);
 
   useEffect(() => {
+    transparentBackgroundRef.current = transparentBackground;
+  }, [transparentBackground]);
+
+  useEffect(() => {
     const container = mountRef.current;
     if (!container) {
       return;
     }
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(backgroundColorRef.current);
 
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     } catch (error) {
       console.error("Failed to initialize logo scene renderer", error);
       onRenderUnavailableRef.current?.();
@@ -942,6 +970,12 @@ export function NLogoScene({
     }
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    applySceneBackground(
+      scene,
+      renderer,
+      backgroundColorRef.current,
+      transparentBackgroundRef.current,
+    );
     renderer.domElement.style.display = "block";
     renderer.domElement.style.height = "100%";
     renderer.domElement.style.width = "100%";
@@ -1213,15 +1247,6 @@ export function NLogoScene({
     applyMaterialOpacity(sceneState.cubeMaterials, opacity);
   }, [opacity]);
 
-  useEffect(() => {
-    const sceneState = sceneStateRef.current;
-    if (!sceneState) {
-      return;
-    }
-
-    sceneState.scene.background = new THREE.Color(backgroundColor);
-    sceneState.renderer.render(sceneState.scene, sceneState.camera);
-  }, [backgroundColor]);
   const pickVoxelEdit = (
     clientX: number,
     clientY: number,

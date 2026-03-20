@@ -7,6 +7,12 @@ import { Input } from "@/components/input";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { landingPageMarkdown } from "@/lib/landingCopy";
 import { PUBLIC_LANDING_COPY_TEST_ID } from "@/lib/publicLanding";
+import {
+  clearPublicLandingHoverPosition,
+  PUBLIC_LANDING_BACKGROUND_CLASS_NAME,
+  PUBLIC_LANDING_SURFACE_CLASS_NAME,
+  updatePublicLandingHoverPosition,
+} from "@/lib/publicLandingBackground";
 import { isProdUiModeEnabled } from "@/lib/prodUiMode";
 import {
   clearPublicLandingWaitlistDraft,
@@ -15,7 +21,7 @@ import {
 } from "@/lib/publicLandingWaitlistDraft";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation } from "convex/react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type PointerEvent, type ReactNode, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../convex/_generated/api";
 import { SignInWithGoogle } from "./SignInWithGoogle";
@@ -38,42 +44,68 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
   const [landingMarkdownDraft, setLandingMarkdownDraft] =
     useState(landingPageMarkdown);
 
+  const handleLandingPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    updatePublicLandingHoverPosition(
+      event.currentTarget,
+      event.clientX,
+      event.clientY,
+    );
+  };
+
+  const handleLandingPointerLeave = (event: PointerEvent<HTMLDivElement>) => {
+    clearPublicLandingHoverPosition(event.currentTarget);
+  };
+
   return (
-    <div className="container my-auto">
+    <div
+      className={PUBLIC_LANDING_SURFACE_CLASS_NAME}
+      onPointerDown={handleLandingPointerMove}
+      onPointerLeave={handleLandingPointerLeave}
+      onPointerMove={handleLandingPointerMove}
+    >
       <div
-        data-testid="public-landing-content"
-        className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8"
-      >
-        {topNotice}
-        <PublicLandingLogo
-          autoRotate={isLandingCopyEditable}
-          enableViewSnapping={!landingDevModeEnabled}
-        />
-        <div data-testid={PUBLIC_LANDING_COPY_TEST_ID}>
-          {isLandingCopyEditable ? (
-            <ProsemarkReadOnly
-              value={landingMarkdownDraft}
-              className="text-sm"
-              editable
-              styleVariant="landingCopy"
-              onChange={setLandingMarkdownDraft}
-            />
-          ) : (
-            <LandingCopy className="text-sm" markdown={landingMarkdownDraft} />
-          )}
-        </div>
-        <div className="flex flex-col gap-2">
-          <SignInWithGoogle />
-          {showPasswordAuth ? <PasswordAuthForm /> : null}
-        </div>
-        <WaitlistForm />
-        <div className="border-t pt-2 text-center text-xs text-muted-foreground">
-          <Link
-            to="/privacy"
-            className="transition-colors hover:text-foreground"
-          >
-            /privacy
-          </Link>
+        aria-hidden="true"
+        className={PUBLIC_LANDING_BACKGROUND_CLASS_NAME}
+      />
+      <div className="container relative z-10 my-auto w-full">
+        <div
+          data-testid="public-landing-content"
+          className="max-w-[384px] mx-auto flex flex-col my-auto gap-4 pb-8"
+        >
+          {topNotice}
+          <PublicLandingLogo
+            autoRotate={isLandingCopyEditable}
+            enableViewSnapping={!landingDevModeEnabled}
+          />
+          <div data-testid={PUBLIC_LANDING_COPY_TEST_ID}>
+            {isLandingCopyEditable ? (
+              <ProsemarkReadOnly
+                value={landingMarkdownDraft}
+                className="text-sm"
+                editable
+                styleVariant="landingCopy"
+                onChange={setLandingMarkdownDraft}
+              />
+            ) : (
+              <LandingCopy
+                className="text-sm"
+                markdown={landingMarkdownDraft}
+              />
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <SignInWithGoogle />
+            {showPasswordAuth ? <PasswordAuthForm /> : null}
+          </div>
+          <WaitlistForm />
+          <div className="border-t pt-2 text-center text-xs text-muted-foreground">
+            <Link
+              to="/privacy"
+              className="transition-colors hover:text-foreground"
+            >
+              /privacy
+            </Link>
+          </div>
         </div>
       </div>
     </div>

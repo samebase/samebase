@@ -1,15 +1,21 @@
+import { createLogoProjectedDotPatternSvgMarkup } from "@/components/logoThreeSvgRenderer";
 import {
   DEFAULT_FACE_COLORS,
-  type FaceColors,
   getTailwindColorHex,
+  type FaceColors,
 } from "@/components/logoTailwindColors";
 import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
 import {
+  LOGO_THREE_SVG_VIEWBOX_SIZE,
   STATIC_LOGO_ELEVATION_DEGREES,
   STATIC_LOGO_ROTATION_DEGREES,
+  STATIC_LOGO_VOXEL_COORDINATES,
   STATIC_LOGO_VOXEL_STATE,
 } from "@/components/logoStaticSvgContract";
-import { normalizeRotationDegrees } from "@/components/logoVoxelState";
+import {
+  createFilledVoxelSet,
+  normalizeRotationDegrees,
+} from "@/components/logoVoxelState";
 import {
   PUBLIC_LANDING_LOGO_ALT,
   PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME,
@@ -22,7 +28,7 @@ import {
   PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
   PUBLIC_LANDING_LOGO_WIDTH,
 } from "@/lib/publicLandingLogo";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type LandingLogoSceneComponent =
   typeof import("@/components/NLogoScene").NLogoScene;
@@ -40,6 +46,9 @@ const DEFAULT_LANDING_LOGO_VIEW: LandingLogoView = {
   elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
   rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
 };
+const STATIC_LOGO_FILLED_VOXELS = createFilledVoxelSet(
+  STATIC_LOGO_VOXEL_COORDINATES,
+);
 const STATIC_LOGO_SVG_SRC = createStaticLogoSvgDataUrl();
 
 let persistedLandingLogoView: LandingLogoView = {
@@ -75,6 +84,17 @@ export function PublicLandingLogo({
     right: DEFAULT_FACE_COLORS.right,
     top: DEFAULT_FACE_COLORS.top,
   };
+  const alignedDotFieldMarkup = useMemo(
+    () =>
+      createLogoProjectedDotPatternSvgMarkup({
+        dotColor: "currentColor",
+        elevationDegrees: view.elevationDegrees,
+        filledVoxels: STATIC_LOGO_FILLED_VOXELS,
+        rotationDegrees: view.rotationDegrees,
+        viewBoxSize: LOGO_THREE_SVG_VIEWBOX_SIZE,
+      }),
+    [view.elevationDegrees, view.rotationDegrees],
+  );
   const isSceneInteractive = isSceneReady && !isSvgVisible;
 
   useEffect(() => {
@@ -191,6 +211,11 @@ export function PublicLandingLogo({
         data-testid={PUBLIC_LANDING_LOGO_STAGE_TEST_ID}
         className={PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME}
       >
+        <div
+          aria-hidden="true"
+          className="public-landing-logo-dot-field absolute inset-0 z-0"
+          dangerouslySetInnerHTML={{ __html: alignedDotFieldMarkup }}
+        />
         <img
           data-testid={PUBLIC_LANDING_LOGO_TEST_ID}
           src={STATIC_LOGO_SVG_SRC}
@@ -209,7 +234,7 @@ export function PublicLandingLogo({
             data-state={isSceneReady ? "ready" : "loading"}
             data-elevation-degrees={view.elevationDegrees.toFixed(3)}
             data-rotation-degrees={view.rotationDegrees.toFixed(3)}
-            className={`absolute inset-0 z-0 ${isSceneInteractive ? "pointer-events-auto touch-none" : "pointer-events-none"}`}
+            className={`absolute inset-0 z-10 ${isSceneInteractive ? "pointer-events-auto touch-none" : "pointer-events-none"}`}
           >
             <LogoScene
               className={`h-full w-full ${isSceneInteractive ? "cursor-grab active:cursor-grabbing" : ""}`}
@@ -243,6 +268,7 @@ export function PublicLandingLogo({
               rotationDegrees={view.rotationDegrees}
               shuffleAnimation={{ enabled: false, parallelMoves: 1 }}
               animateFaceColors={false}
+              transparentBackground
               viewDragConfig={
                 enableViewSnapping
                   ? PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG

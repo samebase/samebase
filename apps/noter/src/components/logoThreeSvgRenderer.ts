@@ -63,11 +63,20 @@ export type LogoProjectedQuad = {
   strokeWidth: number;
 };
 
+export type LogoProjectedLatticeBasis = {
+  origin: LogoProjectedPoint;
+  xEdge: LogoProjectedPoint;
+  yEdge: LogoProjectedPoint;
+  zEdge: LogoProjectedPoint;
+};
+
 const CAMERA_FRUSTUM_PADDING = 1.12;
 // Browsers can still show hairline cracks between adjacent projected polygons
 // even when the math is exact. A thin same-color stroke closes those seams
 // while still scaling down with the delivered SVG on smaller surfaces.
 const FACE_STROKE_WIDTH = 0.14;
+const LOGO_LATTICE_DOT_RADIUS = 1.35;
+const LOGO_LATTICE_PADDING_STEPS = 4;
 const ORBIT_RIGHT_AXIS = normalizeVector({
   x: 1,
   y: 0,
@@ -432,6 +441,193 @@ function serializePolygon(points: readonly LogoProjectedPoint[]): string {
     .join(" ");
 }
 
+function subtractPoints(
+  left: LogoProjectedPoint,
+  right: LogoProjectedPoint,
+): LogoProjectedPoint {
+  return {
+    x: left.x - right.x,
+    y: left.y - right.y,
+  };
+}
+
+function getPointLength(point: LogoProjectedPoint): number {
+  return Math.hypot(point.x, point.y);
+}
+
+function serializeProjectedPointKey(point: LogoProjectedPoint) {
+  return `${point.x.toFixed(6)}:${point.y.toFixed(6)}`;
+}
+
+function parseVoxelKeyCoordinate(
+  key: string,
+): readonly [number, number, number] {
+  const [xText, yText, zText] = key.split(",");
+  return [Number(xText), Number(yText), Number(zText)];
+}
+
+function getFilledVoxelBoundaryExtents(filledVoxels: ReadonlySet<string>) {
+  let minBoundaryX = Number.POSITIVE_INFINITY;
+  let minBoundaryY = Number.POSITIVE_INFINITY;
+  let minBoundaryZ = Number.POSITIVE_INFINITY;
+  let maxBoundaryX = Number.NEGATIVE_INFINITY;
+  let maxBoundaryY = Number.NEGATIVE_INFINITY;
+  let maxBoundaryZ = Number.NEGATIVE_INFINITY;
+
+  for (const key of filledVoxels) {
+    const [x, y, z] = parseVoxelKeyCoordinate(key);
+    minBoundaryX = Math.min(minBoundaryX, x);
+    minBoundaryY = Math.min(minBoundaryY, y);
+    minBoundaryZ = Math.min(minBoundaryZ, z);
+    maxBoundaryX = Math.max(maxBoundaryX, x + 1);
+    maxBoundaryY = Math.max(maxBoundaryY, y + 1);
+    maxBoundaryZ = Math.max(maxBoundaryZ, z + 1);
+  }
+
+  if (!Number.isFinite(minBoundaryX)) {
+    return null;
+  }
+
+  return {
+    maxBoundaryX,
+    maxBoundaryY,
+    maxBoundaryZ,
+    minBoundaryX,
+    minBoundaryY,
+    minBoundaryZ,
+  };
+}
+
+function collectFilledVoxelCornerBoundaryTriples(
+  filledVoxels: ReadonlySet<string>,
+): readonly (readonly [number, number, number])[] {
+  const cornerTriples = new Map<string, readonly [number, number, number]>();
+
+  for (let x = 0; x < GRID_SIZE; x += 1) {
+    for (let y = 0; y < GRID_SIZE; y += 1) {
+      for (let z = 0; z < GRID_SIZE; z += 1) {
+        if (!isVoxelFilled(filledVoxels, x, y, z)) {
+          continue;
+        }
+
+        for (const cornerX of [x, x + 1]) {
+          for (const cornerY of [y, y + 1]) {
+            for (const cornerZ of [z, z + 1]) {
+              const key = `${cornerX}:${cornerY}:${cornerZ}`;
+              cornerTriples.set(key, [cornerX, cornerY, cornerZ]);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return [...cornerTriples.values()];
+}
+
+function toLogoWorldPoint(
+  boundaryX: number,
+  boundaryY: number,
+  boundaryZ: number,
+): LogoWorldPoint {
+  return {
+    x: toWorld(boundaryX),
+    y: toWorld(boundaryY),
+    z: toWorld(boundaryZ),
+  };
+}
+
+function collectFilledVoxelCornerWorldPoints(
+  filledVoxels: ReadonlySet<string>,
+): LogoWorldPoint[] {
+  return collectFilledVoxelCornerBoundaryTriples(filledVoxels).map(
+    ([boundaryX, boundaryY, boundaryZ]) =>
+      toLogoWorldPoint(boundaryX, boundaryY, boundaryZ),
+  );
+}
+
+function collectProjectedLatticeBoundaryTriples({
+  filledVoxels,
+  paddingSteps,
+}: {
+  filledVoxels: ReadonlySet<string>;
+  paddingSteps: number;
+}): readonly (readonly [number, number, number])[] {
+  const boundaryExtents = getFilledVoxelBoundaryExtents(filledVoxels);
+  if (!boundaryExtents) {
+    return [];
+  }
+
+  const triples: Array<readonly [number, number, number]> = [];
+  for (
+    let boundaryX = boundaryExtents.minBoundaryX - paddingSteps;
+    boundaryX <= boundaryExtents.maxBoundaryX + paddingSteps;
+    boundaryX += 1
+  ) {
+    for (
+      let boundaryY = boundaryExtents.minBoundaryY - paddingSteps;
+      boundaryY <= boundaryExtents.maxBoundaryY + paddingSteps;
+      boundaryY += 1
+    ) {
+      for (
+        let boundaryZ = boundaryExtents.minBoundaryZ - paddingSteps;
+        boundaryZ <= boundaryExtents.maxBoundaryZ + paddingSteps;
+        boundaryZ += 1
+      ) {
+        triples.push([boundaryX, boundaryY, boundaryZ]);
+      }
+    }
+  }
+
+  return triples;
+}
+
+function projectBoundaryTripleToPoint({
+  boundaryX,
+  boundaryY,
+  boundaryZ,
+  projector,
+}: {
+  boundaryX: number;
+  boundaryY: number;
+  boundaryZ: number;
+  projector: LogoProjector;
+}): LogoProjectedPoint {
+  return projector.projectRotatedPoint(
+    projector.rotateWorldPoint(
+      toLogoWorldPoint(boundaryX, boundaryY, boundaryZ),
+    ),
+  );
+}
+
+function projectUniqueBoundaryTriplesToPoints({
+  boundaryTriples,
+  pointFilter,
+  projector,
+}: {
+  boundaryTriples: readonly (readonly [number, number, number])[];
+  pointFilter?: (point: LogoProjectedPoint) => boolean;
+  projector: LogoProjector;
+}): LogoProjectedPoint[] {
+  const pointsByKey = new Map<string, LogoProjectedPoint>();
+
+  for (const [boundaryX, boundaryY, boundaryZ] of boundaryTriples) {
+    const point = projectBoundaryTripleToPoint({
+      boundaryX,
+      boundaryY,
+      boundaryZ,
+      projector,
+    });
+    if (pointFilter && !pointFilter(point)) {
+      continue;
+    }
+
+    pointsByKey.set(serializeProjectedPointKey(point), point);
+  }
+
+  return [...pointsByKey.values()];
+}
+
 export function createLogoProjector({
   elevationDegrees = DEFAULT_ELEVATION_DEGREES,
   rotationDegrees = DEFAULT_ROTATION_DEGREES,
@@ -464,6 +660,212 @@ export function createLogoProjector({
       projectPoint(point, right, up, frustumHalfHeight, viewBoxSize),
     rotateWorldPoint,
   };
+}
+
+function createLogoLatticeProjector({
+  elevationDegrees = DEFAULT_ELEVATION_DEGREES,
+  filledVoxels,
+  rotationDegrees = DEFAULT_ROTATION_DEGREES,
+  viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
+}: {
+  elevationDegrees?: number;
+  filledVoxels: ReadonlySet<string>;
+  rotationDegrees?: number;
+  viewBoxSize?: number;
+}): LogoProjector | null {
+  const scenePoints = collectFilledVoxelCornerWorldPoints(filledVoxels);
+  if (scenePoints.length === 0) {
+    return null;
+  }
+
+  return createLogoProjector({
+    elevationDegrees,
+    rotationDegrees,
+    scenePoints,
+    viewBoxSize,
+  });
+}
+
+export function getLogoProjectedLatticeBasis({
+  elevationDegrees = DEFAULT_ELEVATION_DEGREES,
+  filledVoxels,
+  rotationDegrees = DEFAULT_ROTATION_DEGREES,
+  viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
+}: {
+  elevationDegrees?: number;
+  filledVoxels: ReadonlySet<string>;
+  rotationDegrees?: number;
+  viewBoxSize?: number;
+}): LogoProjectedLatticeBasis | null {
+  const projector = createLogoLatticeProjector({
+    elevationDegrees,
+    filledVoxels,
+    rotationDegrees,
+    viewBoxSize,
+  });
+
+  if (!projector) {
+    return null;
+  }
+
+  const origin = projectBoundaryTripleToPoint({
+    boundaryX: 0,
+    boundaryY: 0,
+    boundaryZ: 0,
+    projector,
+  });
+  const xPoint = projectBoundaryTripleToPoint({
+    boundaryX: 1,
+    boundaryY: 0,
+    boundaryZ: 0,
+    projector,
+  });
+  const yPoint = projectBoundaryTripleToPoint({
+    boundaryX: 0,
+    boundaryY: 1,
+    boundaryZ: 0,
+    projector,
+  });
+  const zPoint = projectBoundaryTripleToPoint({
+    boundaryX: 0,
+    boundaryY: 0,
+    boundaryZ: 1,
+    projector,
+  });
+
+  return {
+    origin,
+    xEdge: subtractPoints(xPoint, origin),
+    yEdge: subtractPoints(yPoint, origin),
+    zEdge: subtractPoints(zPoint, origin),
+  };
+}
+
+export function collectLogoProjectedLatticePoints({
+  elevationDegrees = DEFAULT_ELEVATION_DEGREES,
+  filledVoxels,
+  paddingSteps = LOGO_LATTICE_PADDING_STEPS,
+  rotationDegrees = DEFAULT_ROTATION_DEGREES,
+  viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
+}: {
+  elevationDegrees?: number;
+  filledVoxels: ReadonlySet<string>;
+  paddingSteps?: number;
+  rotationDegrees?: number;
+  viewBoxSize?: number;
+}): LogoProjectedPoint[] {
+  const basis = getLogoProjectedLatticeBasis({
+    elevationDegrees,
+    filledVoxels,
+    rotationDegrees,
+    viewBoxSize,
+  });
+
+  if (!basis) {
+    return [];
+  }
+
+  const smallestProjectedStep = Math.max(
+    1,
+    Math.min(
+      getPointLength(basis.xEdge),
+      getPointLength(basis.yEdge),
+      getPointLength(basis.zEdge),
+    ),
+  );
+  const margin = LOGO_LATTICE_DOT_RADIUS * 2;
+  const screenCoverPaddingSteps =
+    Math.ceil((viewBoxSize + margin * 2) / smallestProjectedStep) +
+    paddingSteps;
+  const projector = createLogoLatticeProjector({
+    elevationDegrees,
+    filledVoxels,
+    rotationDegrees,
+    viewBoxSize,
+  });
+
+  if (!projector) {
+    return [];
+  }
+
+  return projectUniqueBoundaryTriplesToPoints({
+    boundaryTriples: collectProjectedLatticeBoundaryTriples({
+      filledVoxels,
+      paddingSteps: screenCoverPaddingSteps,
+    }),
+    pointFilter: (point) =>
+      point.x >= -margin &&
+      point.x <= viewBoxSize + margin &&
+      point.y >= -margin &&
+      point.y <= viewBoxSize + margin,
+    projector,
+  });
+}
+
+export function collectLogoProjectedVoxelCornerPoints({
+  elevationDegrees = DEFAULT_ELEVATION_DEGREES,
+  filledVoxels,
+  rotationDegrees = DEFAULT_ROTATION_DEGREES,
+  viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
+}: {
+  elevationDegrees?: number;
+  filledVoxels: ReadonlySet<string>;
+  rotationDegrees?: number;
+  viewBoxSize?: number;
+}): LogoProjectedPoint[] {
+  const projector = createLogoLatticeProjector({
+    elevationDegrees,
+    filledVoxels,
+    rotationDegrees,
+    viewBoxSize,
+  });
+
+  if (!projector) {
+    return [];
+  }
+
+  return projectUniqueBoundaryTriplesToPoints({
+    boundaryTriples: collectFilledVoxelCornerBoundaryTriples(filledVoxels),
+    projector,
+  });
+}
+
+export function getLogoProjectedPointKey(point: LogoProjectedPoint) {
+  return serializeProjectedPointKey(point);
+}
+
+export function createLogoProjectedDotPatternSvgMarkup({
+  dotColor,
+  elevationDegrees = DEFAULT_ELEVATION_DEGREES,
+  filledVoxels,
+  rotationDegrees = DEFAULT_ROTATION_DEGREES,
+  viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
+}: {
+  dotColor: string;
+  elevationDegrees?: number;
+  filledVoxels: ReadonlySet<string>;
+  rotationDegrees?: number;
+  viewBoxSize?: number;
+}): string {
+  const points = collectLogoProjectedLatticePoints({
+    elevationDegrees,
+    filledVoxels,
+    rotationDegrees,
+    viewBoxSize,
+  });
+
+  if (points.length === 0) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewBoxSize} ${viewBoxSize}" width="${viewBoxSize}" height="${viewBoxSize}"></svg>`;
+  }
+
+  const circles = points
+    .map(
+      (point) =>
+        `<circle cx="${point.x.toFixed(6)}" cy="${point.y.toFixed(6)}" r="${LOGO_LATTICE_DOT_RADIUS.toFixed(6)}"/>`,
+    )
+    .join("");
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewBoxSize} ${viewBoxSize}" width="${viewBoxSize}" height="${viewBoxSize}" fill="${escapeSvgAttribute(dotColor)}" fill-opacity="0.92">${circles}</svg>`;
 }
 
 function getProjectedScene({
