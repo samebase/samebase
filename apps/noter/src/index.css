@@ -54,7 +54,7 @@
   }
 
   .dark {
-    --background: 20 14.3% 4.1%;
+    --background: 192.9 10.9% 25.1%;
     --foreground: 60 9.1% 97.8%;
 
     --card: 20 14.3% 4.1%;
@@ -63,7 +63,7 @@
     --popover: 20 14.3% 4.1%;
     --popover-foreground: 60 9.1% 97.8%;
 
-    --primary: 60 9.1% 97.8%;
+    --primary: 0 0% 100%;
     --primary-foreground: 24 9.8% 10%;
 
     --secondary: 79.6 89.1% 89.2%;
@@ -134,6 +134,7 @@
     line-height: 1.75rem;
     font-weight: 500 !important;
     letter-spacing: -0.025em !important;
+    color: hsl(var(--primary)) !important;
   }
 
   .cm-landing-copy .cm-line.cm-landing-copy-gap {

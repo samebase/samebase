@@ -8,9 +8,9 @@ import {
 export const LOGO_THREE_SVG_VIEWBOX_SIZE = 360;
 
 export const STATIC_LOGO_FACE_COLORS = {
-  left: "#394447",
-  right: "#ffffff",
-  top: "#ecfccb",
+  left: "#ecfccb",
+  right: "#394447",
+  top: "#ffffff",
 } as const satisfies FaceColors;
 
 export const STATIC_LOGO_VOXEL_COORDINATES = [

@@ -1,4 +1,13 @@
 import { isInIframe, openAuthPopup } from "@/authClient";
+import { createLogoThreeSvgMarkup } from "@/components/logoThreeSvgRenderer";
+import { DEFAULT_FACE_COLORS } from "@/components/logoTailwindColors";
+import {
+  STATIC_LOGO_BACKGROUND_COLOR,
+  STATIC_LOGO_ELEVATION_DEGREES,
+  STATIC_LOGO_ROTATION_DEGREES,
+  STATIC_LOGO_VOXEL_COORDINATES,
+} from "@/components/logoStaticSvgContract";
+import { createFilledVoxelSet } from "@/components/logoVoxelState";
 import {
   buildLandingDevToggleHref,
   getLandingDevToggleLabel,
@@ -31,6 +40,7 @@ const AUTH_FLAG_KEY = "noter_was_authenticated";
 const CONVEX_AUTH_STORAGE_KEY_PREFIX = "__convexAuth";
 const GOOGLE_AUTH_BUTTON_ID = "public-landing-google-button";
 const PUBLIC_LANDING_CONTENT_TEST_ID = "public-landing-content";
+const THEME_STORAGE_KEY = "theme";
 const PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID = "public-landing-waitlist-email";
 const PUBLIC_LANDING_WAITLIST_PLACEHOLDER_TEST_ID =
   "public-landing-waitlist-placeholder";
@@ -110,6 +120,39 @@ function withLocalStorage<T>(reader: (storage: Storage) => T, fallback: T): T {
 
 function readLocalStorageValue(key: string): string | null {
   return withLocalStorage((storage) => storage.getItem(key), null);
+}
+
+function resolveBootstrapTheme(): "dark" | "light" {
+  const storedTheme = readLocalStorageValue(THEME_STORAGE_KEY);
+  if (storedTheme === "dark" || storedTheme === "light") {
+    return storedTheme;
+  }
+
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
+function applyBootstrapThemeClass(): boolean {
+  const isDarkTheme = resolveBootstrapTheme() === "dark";
+  document.documentElement.classList.toggle("dark", isDarkTheme);
+  return isDarkTheme;
+}
+
+function buildFastLandingLogoSrc(isDarkTheme: boolean): string {
+  if (!isDarkTheme) {
+    return PUBLIC_LANDING_LOGO_SRC;
+  }
+
+  const markup = createLogoThreeSvgMarkup({
+    backgroundColor: STATIC_LOGO_BACKGROUND_COLOR,
+    elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
+    faceColors: DEFAULT_FACE_COLORS,
+    filledVoxels: createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES),
+    rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
+  });
+
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;
 }
 
 function hasRestoredAuthTokens(): boolean {
@@ -237,7 +280,7 @@ function beginWaitlistInteraction() {
   void ensureAppLoaded();
 }
 
-function renderFastLandingShell() {
+function renderFastLandingShell(isDarkTheme: boolean) {
   const root = document.getElementById("root");
 
   if (!root) {
@@ -247,6 +290,7 @@ function renderFastLandingShell() {
   const searchParams = new URLSearchParams(window.location.search);
   const landingDevToggleHref = buildLandingDevToggleHref(window.location);
   const landingDevToggleLabel = getLandingDevToggleLabel(searchParams);
+  const landingLogoSrc = buildFastLandingLogoSrc(isDarkTheme);
   const { appCommit, shortCommit, commitUrl } = getShellCommitMetadata();
   const commitMarkup = commitUrl
     ? `<a class="font-mono transition-colors hover:text-foreground" href="${escapeHtml(commitUrl)}" target="_blank" rel="noreferrer noopener" title="${escapeHtml(appCommit)}">${escapeHtml(shortCommit)}</a>`
@@ -270,7 +314,7 @@ function renderFastLandingShell() {
               <div data-testid="${PUBLIC_LANDING_LOGO_STAGE_TEST_ID}" class="${PUBLIC_LANDING_LOGO_STAGE_CLASS_NAME}">
                 <img
                   data-testid="${PUBLIC_LANDING_LOGO_TEST_ID}"
-                  src="${escapeHtml(PUBLIC_LANDING_LOGO_SRC)}"
+                  src="${escapeHtml(landingLogoSrc)}"
                   alt="${escapeHtml(PUBLIC_LANDING_LOGO_ALT)}"
                   width="${String(PUBLIC_LANDING_LOGO_WIDTH)}"
                   height="${String(PUBLIC_LANDING_LOGO_HEIGHT)}"
@@ -373,12 +417,13 @@ function applyBootstrapPageMetadata(
   applyPageMetadata(resolveBootstrapPageMetadata(location.pathname));
 }
 
+const isBootstrapDarkTheme = applyBootstrapThemeClass();
 const fastLandingRoute = isFastLandingRoute(window.location);
 
 applyBootstrapPageMetadata(window.location, fastLandingRoute);
 
 if (fastLandingRoute) {
-  renderFastLandingShell();
+  renderFastLandingShell(isBootstrapDarkTheme);
   scheduleBackgroundAppLoad();
 } else {
   void ensureAppLoaded();
