@@ -23,6 +23,9 @@ type Repository = FunctionReturnType<
   typeof api.github.listRepositories
 >[number];
 
+const GITHUB_OAUTH_ORG_APPROVAL_DOCS_URL =
+  "https://docs.github.com/en/organizations/managing-oauth-access-to-your-organizations-data/approving-oauth-apps-for-your-organization";
+
 export function AddRepository() {
   const navigate = useNavigate();
   const vaults = useQuery(api.vault.getUserVaults);
@@ -203,6 +206,21 @@ export function AddRepository() {
           className="max-w-md"
           disabled={!githubConnected}
         />
+        {githubConnected && (
+          <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
+            Missing a private org repo? GitHub may be blocking Noter's OAuth
+            app. In the org, open Settings, then Third-party Access, then OAuth
+            app policy, and approve Noter.{" "}
+            <a
+              href={GITHUB_OAUTH_ORG_APPROVAL_DOCS_URL}
+              target="_blank"
+              rel="noreferrer"
+              className={linkStyle}
+            >
+              GitHub docs
+            </a>
+          </p>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto">

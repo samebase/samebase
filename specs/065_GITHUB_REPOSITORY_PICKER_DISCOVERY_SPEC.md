@@ -83,6 +83,19 @@ The UI continues to hide repositories already connected as vaults by exact
 2. Bypassing GitHub org approval, SSO, or third-party app restrictions
 3. Changing the connect flow after a repository is selected
 
+## External Constraint
+
+Noter currently connects to GitHub with an OAuth app, not a GitHub App.
+
+When a repository belongs to a private organization with OAuth app access
+restrictions enabled, repository discovery is still gated by GitHub's org-level
+approval model:
+
+1. Unapproved OAuth apps cannot access the organization's private resources.
+2. Reconnecting the personal GitHub account does not override that org policy.
+3. The `/add` UI should surface a short note pointing users to the GitHub org
+   approval path instead of failing silently.
+
 ## Acceptance Checklist
 
 - [x] A repo transferred from `user/repo` to `org/repo` can be found by typing
