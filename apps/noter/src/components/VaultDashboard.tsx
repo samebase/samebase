@@ -20,7 +20,6 @@ import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import {
   formatRelativeTimeAgo,
-  formatRelativeTimeAgoWithSeconds,
   formatRelativeTimeUntil,
 } from "@/lib/formatRelativeTime";
 import {
@@ -737,6 +736,18 @@ export function VaultDashboard() {
       })();
     },
     [refreshTree, vaults],
+  );
+
+  const handleForceRefreshVault = useCallback(
+    (owner: string, repo: string, repositoryFullName: string) => {
+      void refreshTree({ owner, repo, force: true }).catch((error: unknown) => {
+        console.error(
+          `Failed to force refresh repository tree for ${repositoryFullName}:`,
+          error,
+        );
+      });
+    },
+    [refreshTree],
   );
 
   useEffect(() => {
@@ -1602,15 +1613,24 @@ export function VaultDashboard() {
                             <span>Syncing...</span>
                           </>
                         ) : typeof sharedLastSyncedAt === "number" ? (
-                          <>
+                          <button
+                            type="button"
+                            className="inline-flex select-none items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:underline"
+                            title={`Last synced ${new Date(sharedLastSyncedAt).toLocaleString()}. Click to refresh now.`}
+                            aria-label={`Refresh ${vault.repositoryFullName} now`}
+                            onClick={() => {
+                              handleForceRefreshVault(
+                                vault.ghRepoOwner,
+                                vault.ghRepoName,
+                                vault.repositoryFullName,
+                              );
+                            }}
+                          >
                             <span>Updated</span>
-                            <span className="font-mono tabular-nums">
-                              {formatRelativeTimeAgoWithSeconds(
-                                sharedLastSyncedAt,
-                                now,
-                              )}
+                            <span className="min-w-[8ch] text-left font-mono tabular-nums">
+                              {formatRelativeTimeAgo(sharedLastSyncedAt, now)}
                             </span>
-                          </>
+                          </button>
                         ) : null}
                       </div>
                     ) : null}

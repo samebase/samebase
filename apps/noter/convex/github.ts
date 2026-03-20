@@ -1110,6 +1110,7 @@ export const refreshRepositoryTree = action({
     owner: string(),
     repo: string(),
     branch: optional(string()),
+    force: optional(boolean()),
     trigger: optional(union(literal("focus"), literal("page_load"))),
   },
   returns: nullValidator(),
@@ -1144,6 +1145,7 @@ export const refreshRepositoryTree = action({
     // Atomically claim the refresh lock; skip if debounced or already running
     const { claimed } = await ctx.runMutation(internal.vault.claimTreeRefresh, {
       vaultId: vault._id,
+      force: args.force,
       debounceMs,
     });
     if (!claimed) return null;
