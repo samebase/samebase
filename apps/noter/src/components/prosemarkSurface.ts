@@ -1,4 +1,5 @@
 import { EditorSelection, type Text } from "@codemirror/state";
+import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 
 function isBlankLineText(text: string): boolean {
@@ -173,8 +174,34 @@ export const prosemarkSurfaceTheme = EditorView.theme({
   },
 });
 
+const prosemarkDarkSelectionTheme = EditorView.theme(
+  {
+    "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, & .cm-selectionBackground":
+      {
+        backgroundColor: "hsl(var(--secondary) / 0.32) !important",
+      },
+    "& .cm-content::selection, & .cm-content *::selection": {
+      backgroundColor: "hsl(var(--secondary) / 0.32) !important",
+    },
+  },
+  { dark: true },
+);
+
+export const prosemarkDarkTheme = [oneDark, prosemarkDarkSelectionTheme];
+
 export const prosemarkHiddenCursorTheme = EditorView.theme({
   ".cm-cursor": {
     display: "none",
   },
 });
+
+export const prosemarkLandingCopyDarkSelectionTheme = EditorView.theme(
+  {
+    "&.cm-landing-copy .cm-content::selection, &.cm-landing-copy .cm-content ::selection":
+      {
+        backgroundColor: "hsl(var(--secondary)) !important",
+        color: "hsl(var(--secondary-foreground)) !important",
+      },
+  },
+  { dark: true },
+);

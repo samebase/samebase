@@ -28,7 +28,6 @@ import {
   ViewPlugin,
   ViewUpdate,
 } from "@codemirror/view";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { markdown } from "@codemirror/lang-markdown";
 import { useTheme } from "next-themes";
 import {
@@ -49,6 +48,7 @@ import {
 import { printTree } from "@lezer-unofficial/printer";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { GetFunctionReferenceReturnType } from "@/lib/convexUtils";
+import { prosemarkDarkTheme } from "@/components/prosemarkSurface";
 import { Id } from "../../convex/_generated/dataModel";
 import { type GithubTreeType } from "convex/schema";
 import { MonacoEditor } from "./MonacoEditor";
@@ -448,7 +448,7 @@ export function CodeEditor({
 
       // Add dark theme if requested
       if (isDark) {
-        extensions.push(oneDark);
+        extensions.push(...prosemarkDarkTheme);
       }
 
       editor = new EditorView({

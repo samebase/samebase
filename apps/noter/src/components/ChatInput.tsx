@@ -19,8 +19,8 @@ import {
   prosemarkBasicSetup,
   prosemarkMarkdownSyntaxExtensions,
 } from "@prosemark/core";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { useTheme } from "next-themes";
+import { prosemarkDarkTheme } from "@/components/prosemarkSurface";
 
 type ChatInputMode = "simple" | "prosemark";
 
@@ -313,7 +313,9 @@ const ProsemarkChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
           prosemarkInputTheme,
           updateListener,
           keymapExtension,
-          themeCompartmentRef.current.of(isDarkRef.current ? oneDark : []),
+          themeCompartmentRef.current.of(
+            isDarkRef.current ? prosemarkDarkTheme : [],
+          ),
           editableCompartmentRef.current.of(
             EditorView.editable.of(!disabledRef.current),
           ),
@@ -342,7 +344,9 @@ const ProsemarkChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
       if (!view) return;
       view.dispatch({
         effects: [
-          themeCompartmentRef.current.reconfigure(isDark ? oneDark : []),
+          themeCompartmentRef.current.reconfigure(
+            isDark ? prosemarkDarkTheme : [],
+          ),
           editableCompartmentRef.current.reconfigure(
             EditorView.editable.of(!disabled),
           ),
