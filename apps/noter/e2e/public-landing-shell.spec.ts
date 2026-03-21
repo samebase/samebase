@@ -83,20 +83,21 @@ function expectStableLandingToggleFrames(
   frames: LandingToggleFrame[],
   expectedPathWithSearch: "/?dev" | "/",
 ) {
-  const navigatedFrames = frames.filter((frame) => {
+  const sawExpectedPath = frames.some((frame) => {
     const url = new URL(frame.href);
     return `${url.pathname}${url.search}` === expectedPathWithSearch;
   });
-  expect(navigatedFrames.length).toBeGreaterThan(0);
+  expect(sawExpectedPath).toBe(true);
+  expect(frames.some((frame) => frame.top === null)).toBe(false);
 
-  const topValues = navigatedFrames
+  const topValues = frames
     .map((frame) => frame.top)
     .filter((value): value is number => value !== null);
   expect(topValues.length).toBeGreaterThan(0);
   expect(Math.max(...topValues) - Math.min(...topValues)).toBeLessThanOrEqual(
     1,
   );
-  expect(navigatedFrames.some((frame) => frame.activeTag === "A")).toBe(false);
+  expect(frames.some((frame) => frame.activeTag === "A")).toBe(false);
 }
 
 async function insertLandingHeadingMarker(
@@ -161,6 +162,18 @@ test("public landing shell renders before the full app UI takes over", async ({
 
 test.describe("mobile landing dev toggle", () => {
   test.use(mobileLandingDevice);
+
+  test("pre-hydration landing dev toggle keeps the landing card stable frame by frame", async ({
+    page,
+  }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page
+      .getByTestId("public-landing-shell")
+      .waitFor({ state: "visible" });
+
+    const shellFrames = await captureLandingToggleFrames(page, "/?dev");
+    expectStableLandingToggleFrames(shellFrames, "/?dev");
+  });
 
   test("landing dev toggle keeps the landing card stable frame by frame", async ({
     page,

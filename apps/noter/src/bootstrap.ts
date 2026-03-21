@@ -30,6 +30,7 @@ import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 const AUTH_FLAG_KEY = "noter_was_authenticated";
 const CONVEX_AUTH_STORAGE_KEY_PREFIX = "__convexAuth";
 const GOOGLE_AUTH_BUTTON_ID = "public-landing-google-button";
+const PUBLIC_LANDING_DEV_TOGGLE_ID = "public-landing-dev-toggle";
 const PUBLIC_LANDING_CONTENT_TEST_ID = "public-landing-content";
 const THEME_STORAGE_KEY = "theme";
 const PUBLIC_LANDING_WAITLIST_EMAIL_INPUT_ID = "public-landing-waitlist-email";
@@ -207,6 +208,32 @@ function beginGoogleSignInFromShell() {
   void ensureAppLoaded();
 }
 
+function beginLandingDevToggleFromShell(event: MouseEvent) {
+  if (
+    event.defaultPrevented ||
+    event.button !== 0 ||
+    event.metaKey ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.shiftKey
+  ) {
+    return;
+  }
+
+  const toggleLink = event.currentTarget;
+  if (!(toggleLink instanceof HTMLAnchorElement)) {
+    return;
+  }
+  if (toggleLink.target === "_blank") {
+    return;
+  }
+
+  event.preventDefault();
+  toggleLink.blur();
+  window.history.pushState(window.history.state, "", toggleLink.href);
+  void ensureAppLoaded();
+}
+
 function focusHydratedWaitlistInput(attempt = 0) {
   if (document.querySelector('[data-testid="public-landing-shell"]') !== null) {
     if (attempt < 10) {
@@ -279,7 +306,7 @@ function renderFastLandingShell() {
     <div data-testid="public-landing-shell" class="flex h-full w-full flex-col">
       <div class="border-b border-border/50">
         <div class="container flex items-center justify-end gap-2 px-3 py-1 text-[11px] text-muted-foreground">
-          <a href="${escapeHtml(landingDevToggleHref)}" class="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground">
+          <a id="${PUBLIC_LANDING_DEV_TOGGLE_ID}" href="${escapeHtml(landingDevToggleHref)}" class="inline-flex min-w-[3ch] items-center justify-center px-1 transition-colors hover:text-foreground">
             ${escapeHtml(landingDevToggleLabel)}
           </a>
           <span>Commit</span>
@@ -354,6 +381,9 @@ function renderFastLandingShell() {
     </div>
   `;
 
+  root
+    .querySelector<HTMLAnchorElement>(`#${PUBLIC_LANDING_DEV_TOGGLE_ID}`)
+    ?.addEventListener("click", beginLandingDevToggleFromShell);
   root
     .querySelector<HTMLButtonElement>(`#${GOOGLE_AUTH_BUTTON_ID}`)
     ?.addEventListener("click", beginGoogleSignInFromShell);
