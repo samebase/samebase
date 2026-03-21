@@ -32,6 +32,10 @@ type TreeItem = {
   type: "tree" | "blob";
 };
 
+type FilterSimpleViewTreeItemsOptions = {
+  alwaysIncludePaths?: readonly string[];
+};
+
 const frontmatterRegex = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 
 function getFrontmatterSource(markdown: string): string | null {
@@ -175,13 +179,18 @@ function isExcluded(path: string, excludePatterns: string[]): boolean {
 export function filterSimpleViewTreeItems<T extends TreeItem>(
   items: T[],
   excludePatterns: string[],
+  options?: FilterSimpleViewTreeItemsOptions,
 ): T[] {
   if (excludePatterns.length === 0) {
     return items;
   }
 
+  const alwaysIncludePaths = new Set(options?.alwaysIncludePaths ?? []);
+
   const includedItems = items.filter(
-    (item) => !isExcluded(item.path, excludePatterns),
+    (item) =>
+      alwaysIncludePaths.has(item.path) ||
+      !isExcluded(item.path, excludePatterns),
   );
   const includedPaths = includedItems.map((item) => item.path);
 

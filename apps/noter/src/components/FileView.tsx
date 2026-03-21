@@ -171,7 +171,7 @@ type RebaseConflictPreview = {
 };
 
 type CommitReviewMode = "editor" | "review";
-type SidebarMode = "simple" | "all" | "changes";
+type SidebarMode = "simple" | "all";
 type StagedFileRecord = NonNullable<
   (typeof api.fileStaging.listStagedFiles)["_returnType"]
 >[number];
@@ -982,9 +982,7 @@ function FileViewInner({
     if (!didResolveSimpleViewConfigSource) {
       return;
     }
-    const defaultMode: Exclude<SidebarMode, "changes"> = hasNoterConfigFile
-      ? "simple"
-      : "all";
+    const defaultMode: SidebarMode = hasNoterConfigFile ? "simple" : "all";
 
     try {
       const storedMode = localStorage.getItem(sidebarModeStorageKey);
@@ -1006,11 +1004,7 @@ function FileViewInner({
   ]);
 
   useEffect(() => {
-    if (
-      !didResolveSimpleViewConfigSource ||
-      !sidebarModeHydrated ||
-      sidebarMode === "changes"
-    ) {
+    if (!didResolveSimpleViewConfigSource || !sidebarModeHydrated) {
       return;
     }
     try {
@@ -1871,16 +1865,7 @@ function FileViewInner({
     return { agentGraphNodes: nodes, agentGraphEdges: edges };
   }, [finalTreeData]);
 
-  const changedTreeData = useMemo(
-    () => finalTreeData.filter((item) => item.type === "blob" && item.status),
-    [finalTreeData],
-  );
-
   const visibleTreeData = useMemo(() => {
-    if (sidebarMode === "changes") {
-      return changedTreeData;
-    }
-
     if (sidebarMode !== "simple") {
       return finalTreeData;
     }
@@ -1892,32 +1877,18 @@ function FileViewInner({
       return finalTreeData;
     }
 
+    // Deleted staged files still need a stable navigation entry even when
+    // simple-view would normally hide their path.
     return filterSimpleViewTreeItems(
       finalTreeData,
       simpleViewConfig.excludePatterns,
+      {
+        alwaysIncludePaths: finalTreeData
+          .filter((item) => item.type === "blob" && item.status === "deleted")
+          .map((item) => item.path),
+      },
     );
-  }, [changedTreeData, finalTreeData, simpleViewConfig, sidebarMode]);
-
-  const autoExpandedSidebarPaths = useMemo(() => {
-    if (sidebarMode !== "changes") {
-      return [];
-    }
-
-    const expandedPaths = new Set<string>();
-    for (const item of changedTreeData) {
-      const pathSegments = item.path.split("/");
-      let currentPath = "";
-      for (let index = 0; index < pathSegments.length - 1; index += 1) {
-        currentPath =
-          index === 0
-            ? pathSegments[index]
-            : `${currentPath}/${pathSegments[index]}`;
-        expandedPaths.add(currentPath);
-      }
-    }
-
-    return [...expandedPaths];
-  }, [changedTreeData, sidebarMode]);
+  }, [finalTreeData, simpleViewConfig, sidebarMode]);
 
   const emptyRepository = visibleTreeData.length === 0;
   const didResolveStagedFiles = stagedFiles !== undefined;
@@ -1966,25 +1937,6 @@ function FileViewInner({
       commitReviewMode === "review" ? current : true,
     );
   }, [branch, selectedFile, commitReviewMode]);
-
-  useEffect(() => {
-    if (!sidebarModeHydrated) {
-      return;
-    }
-    if (commitReviewMode === "review" && hasChangesToCommit) {
-      if (reviewSidebarModeRef.current === null && sidebarMode !== "changes") {
-        reviewSidebarModeRef.current = sidebarMode;
-        setSidebarMode("changes");
-      }
-      return;
-    }
-
-    const previousSidebarMode = reviewSidebarModeRef.current;
-    reviewSidebarModeRef.current = null;
-    if (previousSidebarMode && sidebarMode === "changes") {
-      setSidebarMode(previousSidebarMode);
-    }
-  }, [commitReviewMode, hasChangesToCommit, sidebarMode, sidebarModeHydrated]);
 
   useEffect(() => {
     if (
@@ -2094,11 +2046,7 @@ function FileViewInner({
             value={sidebarMode}
             className="justify-start"
             onValueChange={(value) => {
-              if (
-                value === "simple" ||
-                value === "all" ||
-                value === "changes"
-              ) {
+              if (value === "simple" || value === "all") {
                 setSidebarMode(value);
               }
             }}
@@ -2116,13 +2064,6 @@ function FileViewInner({
               className="h-7 px-2 text-xs"
             >
               All Files
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="changes"
-              aria-label="Changes"
-              className="h-7 px-2 text-xs"
-            >
-              Changes
             </ToggleGroupItem>
           </ToggleGroup>
         </div>
@@ -2144,13 +2085,31 @@ function FileViewInner({
             selectedFile={sidebarSelectedFile}
             folderExpansionStates={folderExpansionStates ?? []}
             onFolderToggle={handleFolderToggle}
-            autoExpandedPaths={autoExpandedSidebarPaths}
-            forceAutoExpandedPaths={sidebarMode === "changes"}
           />
         </div>
       )}
     </>
   );
+
+  const reviewModeButton =
+    viewMode === "editor" ? (
+      <Button
+        size="sm"
+        variant={commitReviewMode === "review" ? "secondary" : "outline"}
+        onClick={handleToggleReviewMode}
+        disabled={
+          commitReviewMode === "editor" &&
+          (!hasChangesToCommit || commitPreviewStatus === "loading")
+        }
+        className="h-6 px-2 text-xs"
+      >
+        {commitReviewMode === "review"
+          ? "Back to Editor"
+          : commitPreviewStatus === "loading"
+            ? "Loading..."
+            : "Review Changes"}
+      </Button>
+    ) : null;
 
   const handleInlinePreviewChange = useCallback((nextContent: string) => {
     setInlinePreviewDraftContent(nextContent);
@@ -2182,7 +2141,7 @@ function FileViewInner({
       >
         <div className="max-w-none h-full flex flex-col">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex min-w-0 items-start gap-3">
+            <div className="flex min-w-0 flex-col gap-2">
               <div className="min-w-0">
                 <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">
                   {branch}
@@ -2198,23 +2157,26 @@ function FileViewInner({
                   </a>
                 </h2>
               </div>
-              <Tabs
-                value={viewMode}
-                onValueChange={(value) => {
-                  if (value === "editor" || value === "graph") {
-                    setViewMode(value);
-                  }
-                }}
-              >
-                <TabsList className="h-7">
-                  <TabsTrigger value="editor" className="px-2 text-xs">
-                    Editor
-                  </TabsTrigger>
-                  <TabsTrigger value="graph" className="px-2 text-xs">
-                    Graph
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
+              <div className="flex flex-wrap items-center gap-2">
+                <Tabs
+                  value={viewMode}
+                  onValueChange={(value) => {
+                    if (value === "editor" || value === "graph") {
+                      setViewMode(value);
+                    }
+                  }}
+                >
+                  <TabsList className="h-7">
+                    <TabsTrigger value="editor" className="px-2 text-xs">
+                      Editor
+                    </TabsTrigger>
+                    <TabsTrigger value="graph" className="px-2 text-xs">
+                      Graph
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                {reviewModeButton}
+              </div>
             </div>
 
             <div className="flex flex-col gap-2">

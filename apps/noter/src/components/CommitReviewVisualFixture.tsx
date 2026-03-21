@@ -265,7 +265,7 @@ export function CommitReviewVisualFixture({
             <ToggleGroup
               type="single"
               size="sm"
-              value="changes"
+              value="simple"
               className="justify-start"
             >
               <ToggleGroupItem
@@ -281,13 +281,6 @@ export function CommitReviewVisualFixture({
                 className="h-7 px-2 text-xs"
               >
                 All Files
-              </ToggleGroupItem>
-              <ToggleGroupItem
-                value="changes"
-                aria-label="Changes"
-                className="h-7 px-2 text-xs"
-              >
-                Changes
               </ToggleGroupItem>
             </ToggleGroup>
           </div>
