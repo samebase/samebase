@@ -245,69 +245,33 @@ function VaultLastUpdatedStatus({
 }) {
   const [frozenNow, setFrozenNow] = useState<number | null>(null);
   const isPointerDownRef = useRef(false);
-  const suppressClickRef = useRef(false);
-
-  const freezeNow = useCallback(() => {
-    setFrozenNow((current) => current ?? getCurrentSecondTimestamp());
-  }, []);
-
-  const clearFrozenNow = useCallback(() => {
-    setFrozenNow(null);
-    suppressClickRef.current = false;
-  }, []);
-
-  const syncSelectionState = useCallback(() => {
-    if (hasActiveTextSelection()) {
-      freezeNow();
-      suppressClickRef.current = true;
-      return;
-    }
-
-    if (!isPointerDownRef.current) {
-      clearFrozenNow();
-    }
-  }, [clearFrozenNow, freezeNow]);
 
   useEffect(() => {
     const handleSelectionChange = () => {
-      syncSelectionState();
+      if (hasActiveTextSelection()) {
+        setFrozenNow((current) => current ?? getCurrentSecondTimestamp());
+        return;
+      }
+
+      if (!isPointerDownRef.current) {
+        setFrozenNow(null);
+      }
     };
 
     const handlePointerUp = () => {
       isPointerDownRef.current = false;
-      syncSelectionState();
-    };
-
-    const handlePointerCancel = () => {
-      isPointerDownRef.current = false;
-      clearFrozenNow();
+      if (!hasActiveTextSelection()) {
+        setFrozenNow(null);
+      }
     };
 
     document.addEventListener("selectionchange", handleSelectionChange);
-    window.addEventListener("mouseup", handlePointerUp);
-    window.addEventListener("touchend", handlePointerUp);
-    window.addEventListener("touchcancel", handlePointerCancel);
-    window.addEventListener("blur", handlePointerCancel);
+    window.addEventListener("pointerup", handlePointerUp);
 
     return () => {
       document.removeEventListener("selectionchange", handleSelectionChange);
-      window.removeEventListener("mouseup", handlePointerUp);
-      window.removeEventListener("touchend", handlePointerUp);
-      window.removeEventListener("touchcancel", handlePointerCancel);
-      window.removeEventListener("blur", handlePointerCancel);
+      window.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [clearFrozenNow, syncSelectionState]);
-
-  const beginInteraction = useCallback(() => {
-    isPointerDownRef.current = true;
-    suppressClickRef.current = false;
-    freezeNow();
-  }, [freezeNow]);
-
-  const reloadPage = useCallback(() => {
-    if (typeof window !== "undefined") {
-      window.location.reload();
-    }
   }, []);
 
   return (
@@ -317,21 +281,23 @@ function VaultLastUpdatedStatus({
       className="inline-flex cursor-pointer select-text items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:underline"
       title={`Last synced ${new Date(lastSyncedAt).toLocaleString()}. Click to refresh now.`}
       aria-label={`Refresh ${repositoryFullName} now`}
-      onMouseDown={beginInteraction}
-      onTouchStart={beginInteraction}
+      onPointerDown={() => {
+        isPointerDownRef.current = true;
+        setFrozenNow((current) => current ?? getCurrentSecondTimestamp());
+      }}
       onClick={(event) => {
-        if (suppressClickRef.current || hasActiveTextSelection()) {
+        if (hasActiveTextSelection()) {
           event.preventDefault();
           event.stopPropagation();
           return;
         }
 
-        reloadPage();
+        window.location.reload();
       }}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          reloadPage();
+          window.location.reload();
         }
       }}
     >
