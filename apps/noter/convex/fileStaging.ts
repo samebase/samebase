@@ -98,6 +98,12 @@ const deletionArgsValidator = {
   branch: branchValidator,
 };
 
+const revertDeletedFileArgsValidator = {
+  vaultId: vaultIdValidator,
+  filePath: filePathValidator,
+  branch: branchValidator,
+};
+
 const createFileArgsValidator = {
   vaultId: vaultIdValidator,
   filePath: filePathValidator,
@@ -266,6 +272,15 @@ export function summarizeStagedFilesByBranch(
   return Array.from(countsByBranch.entries())
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([branch, counts]) => ({ branch, counts }));
+}
+
+export function buildDeletedFileRestoreCandidate(
+  file: StagedFileChangeCandidate,
+): StagedFileChangeCandidate {
+  return {
+    ...file,
+    fileDeleted: false,
+  };
 }
 
 // MARK: Public
@@ -727,6 +742,50 @@ export const createFileInStaging = mutation({
       lastEditUserId: userId,
       branch: args.branch,
       version: 0,
+    });
+
+    return null;
+  },
+});
+
+export const revertDeletedFileInStaging = mutation({
+  args: revertDeletedFileArgsValidator,
+  returns: nullResultValidator,
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+
+    const existingStaging = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_branch_and_path", (q) =>
+        q
+          .eq("vaultId", args.vaultId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.filePath),
+      )
+      .first();
+
+    if (!existingStaging) {
+      throw new Error("Deleted staged file not found");
+    }
+
+    if (existingStaging.ownerId !== userId) {
+      throw new Error("Unauthorized");
+    }
+
+    if (!existingStaging.fileDeleted) {
+      throw new Error("Staged file is not deleted");
+    }
+
+    // Keep the staging row and only clear the deletion flag so any pending
+    // rename/content edits remain intact and unchanged files naturally fall out
+    // of staged views via the existing hasStagedFileChanges filter.
+    const restoredFile = buildDeletedFileRestoreCandidate(existingStaging);
+
+    await ctx.db.patch(existingStaging._id, {
+      fileDeleted: restoredFile.fileDeleted,
+      lastEditTime: Date.now(),
+      lastEditUserId: userId,
+      branch: args.branch,
     });
 
     return null;

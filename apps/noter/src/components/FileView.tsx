@@ -786,6 +786,9 @@ function FileViewInner({
   const [markFileForDeletion] = useConvexMutation(
     api.fileStaging.markFileForDeletion,
   );
+  const [revertDeletedFileInStaging] = useConvexMutation(
+    api.fileStaging.revertDeletedFileInStaging,
+  );
   const [renameFileInStaging] = useConvexAction(
     api.fileStagingActions.renameFileInStaging,
   );
@@ -1271,6 +1274,24 @@ function FileViewInner({
       console.log(`File ${filePath} marked for deletion`);
     } catch (error) {
       console.error("Failed to delete file:", error);
+    }
+  };
+
+  const handleRestoreDeletedFile = async (filePath: string) => {
+    try {
+      await revertDeletedFileInStaging({
+        vaultId: vault._id,
+        filePath,
+        branch,
+      });
+
+      if (selectedFile === filePath) {
+        void navigate(buildVaultFileUrl(filePath, { reviewMode: "editor" }), {
+          state,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to restore deleted file:", error);
     }
   };
 
@@ -2081,6 +2102,9 @@ function FileViewInner({
             onFileCreate={handleCreateFileInFolder}
             onFileDelete={(filePath, originalPath) =>
               void handleFileDelete(filePath, originalPath)
+            }
+            onFileRestore={(filePath) =>
+              void handleRestoreDeletedFile(filePath)
             }
             selectedFile={sidebarSelectedFile}
             folderExpansionStates={folderExpansionStates ?? []}

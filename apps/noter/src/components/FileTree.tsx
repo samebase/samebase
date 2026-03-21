@@ -6,6 +6,7 @@ import {
   PlusIcon,
   FilePlusIcon,
   TrashIcon,
+  UpdateIcon,
 } from "@radix-ui/react-icons";
 import { cn } from "@/lib/utils";
 import {
@@ -51,6 +52,7 @@ interface FileTreeProps {
   onFileRename?: (oldPath: string, newPath: string) => void;
   onFileCreate?: (folderPath: string, fileName: string) => void;
   onFileDelete?: (path: string, originalPath: string) => void;
+  onFileRestore?: (path: string, originalPath: string) => void;
   selectedFile?: string;
   folderExpansionStates: FolderExpansionState[];
   onFolderToggle?: (folderPath: string, isExpanded: boolean) => void;
@@ -123,6 +125,7 @@ function TreeNodeComponent({
   onFileRename,
   onFileCreate,
   onFileDelete,
+  onFileRestore,
   selectedFile,
   folderExpansionStates,
   onFolderToggle,
@@ -134,6 +137,7 @@ function TreeNodeComponent({
   onFileRename?: (originalPath: string, newPath: string) => void;
   onFileCreate?: (folderPath: string, fileName: string) => void;
   onFileDelete?: (path: string, originalPath: string) => void;
+  onFileRestore?: (path: string, originalPath: string) => void;
   selectedFile?: string;
   folderExpansionStates: FolderExpansionState[];
   onFolderToggle?: (folderPath: string, isExpanded: boolean) => void;
@@ -180,9 +184,6 @@ function TreeNodeComponent({
 
   const handleRightClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (isDeletedFile) {
-      return;
-    }
     setContextMenu({ x: e.clientX, y: e.clientY });
   };
 
@@ -340,7 +341,7 @@ function TreeNodeComponent({
                   : "Right-click to create file in this folder"
                 : node.type === "blob"
                   ? isDeletedFile
-                    ? "Click to review deleted file"
+                    ? "Click to review deleted file, right-click to revert deletion"
                     : "Right-click to rename"
                   : "Click to open"}
             </TooltipContent>
@@ -358,6 +359,7 @@ function TreeNodeComponent({
                 onFileRename={onFileRename}
                 onFileCreate={onFileCreate}
                 onFileDelete={onFileDelete}
+                onFileRestore={onFileRestore}
                 selectedFile={selectedFile}
                 folderExpansionStates={folderExpansionStates}
                 onFolderToggle={onFolderToggle}
@@ -417,6 +419,18 @@ function TreeNodeComponent({
                 </button>
               </>
             )}
+            {node.type === "blob" && isDeletedFile && (
+              <button
+                className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50 flex items-center gap-2"
+                onClick={() => {
+                  onFileRestore?.(node.path, node.originalPath);
+                  setContextMenu(null);
+                }}
+              >
+                <UpdateIcon className="h-3 w-3" />
+                Revert deletion
+              </button>
+            )}
           </div>
         </>
       )}
@@ -430,6 +444,7 @@ export function FileTree({
   onFileRename,
   onFileCreate,
   onFileDelete,
+  onFileRestore,
   selectedFile,
   folderExpansionStates,
   onFolderToggle,
@@ -495,6 +510,7 @@ export function FileTree({
           onFileRename={onFileRename}
           onFileCreate={onFileCreate}
           onFileDelete={onFileDelete}
+          onFileRestore={onFileRestore}
           selectedFile={selectedFile}
           folderExpansionStates={effectiveFolderExpansionStates}
           onFolderToggle={handleFolderToggleWithSessionOverride}
