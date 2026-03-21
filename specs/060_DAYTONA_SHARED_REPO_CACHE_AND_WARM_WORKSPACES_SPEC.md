@@ -16,16 +16,17 @@
 ## Summary
 
 Noter should keep Daytona sandboxes and sandbox-side `tmux` sessions alive, and
-make repo checkout plus dependency bootstrap fast by introducing shared
-Daytona-backed caches:
+make repo checkout plus dependency bootstrap fast by introducing shared cache
+surfaces:
 
-1. a per-user-per-repo git mirror cache
-2. a per-user pnpm store cache
+1. a per-user-per-repo git mirror cache on a real POSIX filesystem
+2. a per-user pnpm store Daytona volume
 3. the existing per-user shared Codex state volume
 
 The key design choice is:
 
-- use shared Daytona volumes for durable cache state
+- use a real POSIX filesystem for git object storage and Daytona volumes only
+  for cache surfaces that tolerate mount-s3 semantics
 - keep the live mutable repo working tree local to each sandbox
 
 This preserves the fast path from local objects and local package tarballs while
@@ -97,17 +98,20 @@ persistent sandbox-side `tmux` sessions.
 
 ## Main Decision
 
-Use a persistent repo cache volume plus a persistent pnpm store volume, but keep
-the active checkout local to the sandbox filesystem.
+Use a git mirror cache only on a real POSIX filesystem, plus a persistent pnpm
+store Daytona volume, while keeping the active checkout local to the sandbox
+filesystem.
 
 Reason:
 
 1. the repo mirror and pnpm store are naturally cache-shaped and durable
 2. the active worktree is where file watching, git index updates, lockfiles,
    chmod, and editor writes are most sensitive
-3. Daytona volume semantics are still not fully understood for heavy mutable
+3. Daytona's current mount-s3-backed volume surface is not a safe default
+   backing store for git object databases
+4. Daytona volume semantics are still not fully understood for heavy mutable
    worktree usage
-4. Noter already had to split live `CODEX_HOME` from shared volume-backed state
+5. Noter already had to split live `CODEX_HOME` from shared volume-backed state
    for similar reasons
 
 This gives a fast and conservative first path:
@@ -118,16 +122,16 @@ This gives a fast and conservative first path:
 
 ## Cache Model
 
-### 1. Git mirror cache volume
+### 1. Git mirror cache on a real POSIX filesystem
 
-Add a per-user-per-repo Daytona volume used only for git object storage and ref
-tracking.
+Add a per-user-per-repo git mirror cache used only for git object storage and
+ref tracking.
 
 Recommended contents:
 
-- bare mirror path: `/home/daytona/.noter-cache/git/mirrors/<owner>/<repo>.git`
+- bare mirror path: `<cache-root>/git/mirrors/<owner>/<repo>.git`
 
-Recommended naming:
+Recommended logical cache key:
 
 - `noter-git-cache-<env>-<userId>-<owner>-<repo>`
 
@@ -136,6 +140,15 @@ Behavior:
 1. the mirror tracks all remote refs needed by the user for that repo
 2. refreshes happen against the mirror, not against every workspace checkout
 3. workspace materialization reads from the mirror over a local filesystem path
+
+Implementation note:
+
+1. Do not back this mirror with a Daytona volume.
+2. Our Daytona volume research and the current `mount-s3` contract make that
+   surface a poor fit for git object databases.
+3. If a real POSIX-backed cache surface is not available, this optimization
+   should be skipped and the existing snapshot/image path should remain the
+   source of truth.
 
 ### 2. pnpm store volume
 
@@ -178,19 +191,20 @@ home design.
 
 ## Sandbox Roles
 
-### 1. Repo maintenance sandbox
+### 1. Repo maintenance worker
 
-Create one lightweight Daytona sandbox per user+repo that exists only to keep
-the shared git mirror warm.
+Create one lightweight repo maintenance worker per user+repo that exists only to
+keep the shared git mirror warm.
 
 Responsibilities:
 
-1. mount the repo cache volume
+1. use a real POSIX-backed cache surface for the bare mirror
 2. create or repair the bare mirror
 3. fetch all configured refs from origin
 4. expose the latest known commit map for branches
 
-This sandbox is a cache-maintenance worker, not the operator-facing workspace.
+This worker is cache-maintenance infrastructure, not the operator-facing
+workspace.
 
 ### 2. Operator workspace sandbox
 
@@ -200,7 +214,8 @@ environment.
 Responsibilities:
 
 1. mount the shared pnpm store volume
-2. optionally mount the repo cache volume at a cache path
+2. materialize from the git mirror cache when a POSIX-backed cache surface is
+   available
 3. keep the active worktree local at `/home/daytona/workspace/<repo>`
 4. own the durable `tmux` shell and dev-server sessions
 
@@ -234,7 +249,8 @@ Reason:
 
 When a workspace sandbox starts or needs a branch refresh:
 
-1. ensure the repo mirror volume is mounted and current enough
+1. ensure the repo mirror cache exists on a real POSIX filesystem and is current
+   enough
 2. keep the active checkout local in `/home/daytona/workspace/<repo>`
 3. materialize from the local mirror rather than cloning from GitHub over the
    network
@@ -292,12 +308,12 @@ Recommended characteristics:
 
 Questions this harness must answer:
 
-1. how fast is mirror refresh from GitHub into a Daytona volume-backed bare repo
+1. how fast is mirror refresh from GitHub into a POSIX-backed bare repo cache
 2. how fast is local checkout from that mirror into sandbox-local workspace
 3. how much does a shared pnpm store cut repeated install time
 4. whether a direct volume-mounted active worktree breaks git or file watchers
-5. whether the same volume can be mounted into multiple sandboxes safely for
-   this use case
+5. whether the same pnpm store volume can be mounted into multiple sandboxes
+   safely for this use case
 
 This research harness should be the primary place to understand Daytona volume
 behavior rather than using the full Noter monorepo as the first probe.
@@ -308,10 +324,11 @@ behavior rather than using the full Noter monorepo as the first probe.
 2. Add the smaller Daytona cache research harness and measure mirror checkout
    plus shared-store behavior.
 3. Add per-user pnpm store volume support to workspace sandboxes.
-4. Add per-user-per-repo git mirror volume support plus a maintenance sandbox.
+4. Add a POSIX-backed per-user-per-repo git mirror cache plus a maintenance
+   worker.
 5. Add workspace materialization from local mirror into sandbox-local checkout.
-6. Wire workspace refresh to reuse the existing sandbox and existing `tmux`
-   sessions whenever the sandbox is still compatible.
+6. Wire workspace refresh to reuse the existing sandbox when it is still
+   compatible, but recreate `tmux` sessions when the checkout changes.
 7. Only after the harness proves it safe, evaluate a direct volume-mounted live
    worktree path as an optional later optimization.
 
@@ -322,7 +339,7 @@ behavior rather than using the full Noter monorepo as the first probe.
 2. Refreshing to a newer commit on the same branch does not require recreating
    the sandbox when the sandbox is still compatible.
 3. The first workspace after a new commit can materialize from a local
-   volume-backed git mirror instead of cloning from GitHub over the network.
+   POSIX-backed git mirror instead of cloning from GitHub over the network.
 4. Repeated `pnpm install` runs in fresh sandboxes use the shared pnpm store and
    show at least 25% median wall-clock improvement and 15% p95 improvement
    across at least 30 fresh-sandbox runs per condition versus a no-shared-store
@@ -331,15 +348,11 @@ behavior rather than using the full Noter monorepo as the first probe.
 
 ## Open Questions
 
-1. Whether Daytona volume mounts are performant enough for git mirrors at the
-   scale of a large monorepo.
-2. Whether the same repo cache volume should be mounted into the maintenance
-   sandbox and workspace sandboxes simultaneously or whether the workspace
-   should read from a periodic synchronized copy.
-3. Whether a single shared cache volume with `subpath` mounts is better than
-   separate volumes for git mirror and pnpm store.
-4. Whether the maintenance worker belongs inside Daytona as a sandbox or outside
-   Daytona as a control-plane job that targets the volume.
+1. Which POSIX-backed cache surface should own the git mirror cache in practice.
+2. Whether the workspace should read from that cache directly or from a periodic
+   synchronized copy.
+3. Whether the maintenance worker belongs inside Daytona on a suitable POSIX
+   disk surface or outside Daytona as a control-plane job.
 
 ## Immediate Next Step
 
@@ -348,7 +361,7 @@ Do not start by replacing snapshots.
 Start by building the smaller Daytona cache harness and measuring three exact
 paths:
 
-1. GitHub -> volume-backed bare mirror refresh
+1. GitHub -> POSIX-backed bare mirror refresh
 2. bare mirror -> sandbox-local branch checkout
 3. shared pnpm store -> fresh sandbox bootstrap
 
