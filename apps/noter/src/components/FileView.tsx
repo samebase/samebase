@@ -53,7 +53,7 @@ import {
   ProsemarkMergeEditor,
   type ProsemarkMergeEditorOptions,
 } from "@/components/ProsemarkMergeEditor";
-import { nonNullable } from "@/lib/utils";
+import { cn, nonNullable } from "@/lib/utils";
 import {
   filterSimpleViewTreeItems,
   getSimpleViewPreferenceStorageKey,
@@ -202,6 +202,40 @@ function readGraphViewMode(storageKey: string): "editor" | "graph" | null {
     console.warn("Failed to read graph view preference", error);
   }
   return null;
+}
+
+const EDITOR_CHAT_MIN_HEIGHT = 14 * 16;
+const EDITOR_CHAT_DEFAULT_HEIGHT = 22 * 16;
+const EDITOR_CHAT_MOBILE_DEFAULT_HEIGHT_RATIO = 0.45;
+const EDITOR_CHAT_MAX_HEIGHT_RATIO = 0.7;
+
+function getMaxEditorChatHeight(): number {
+  if (typeof window === "undefined") {
+    return EDITOR_CHAT_DEFAULT_HEIGHT;
+  }
+  return Math.max(
+    EDITOR_CHAT_MIN_HEIGHT,
+    Math.floor(window.innerHeight * EDITOR_CHAT_MAX_HEIGHT_RATIO),
+  );
+}
+
+function clampEditorChatHeight(height: number): number {
+  return Math.max(
+    EDITOR_CHAT_MIN_HEIGHT,
+    Math.min(height, getMaxEditorChatHeight()),
+  );
+}
+
+function getDefaultEditorChatHeight(): number {
+  if (typeof window === "undefined") {
+    return EDITOR_CHAT_DEFAULT_HEIGHT;
+  }
+  const mobileDefaultHeight = Math.floor(
+    window.innerHeight * EDITOR_CHAT_MOBILE_DEFAULT_HEIGHT_RATIO,
+  );
+  const preferredHeight =
+    window.innerWidth < 768 ? mobileDefaultHeight : EDITOR_CHAT_DEFAULT_HEIGHT;
+  return clampEditorChatHeight(preferredHeight);
 }
 
 function getPatchLineClassName(line: string): string {
@@ -662,6 +696,14 @@ function FileViewInner({
     boolean | null
   >(null);
   const editorChatPendingRef = useRef<boolean | null>(null);
+  const [editorChatHeight, setEditorChatHeight] = useState<number>(() =>
+    getDefaultEditorChatHeight(),
+  );
+  const editorChatResizeRef = useRef<{
+    startY: number;
+    startHeight: number;
+  } | null>(null);
+  const [isEditorChatResizing, setIsEditorChatResizing] = useState(false);
 
   // Dialog state management
   const {
@@ -948,6 +990,30 @@ function FileViewInner({
     }
     setEditorChatOpenState(serverValue);
   }, [dashboardSettings?.editorChatOpen]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setEditorChatHeight((current) => clampEditorChatHeight(current));
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!isEditorChatResizing) {
+      document.body.style.removeProperty("cursor");
+      document.body.style.removeProperty("user-select");
+      return;
+    }
+
+    document.body.style.setProperty("cursor", "ns-resize");
+    document.body.style.setProperty("user-select", "none");
+    return () => {
+      document.body.style.removeProperty("cursor");
+      document.body.style.removeProperty("user-select");
+    };
+  }, [isEditorChatResizing]);
 
   useEffect(() => {
     if (!viewModeHydrated) {
@@ -2270,6 +2336,44 @@ function FileViewInner({
       setEditorChatOpenState(dashboardSettings?.editorChatOpen ?? false);
     });
   };
+  const handleEditorChatResizeStart = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.button !== 0) {
+        return;
+      }
+      event.preventDefault();
+      editorChatResizeRef.current = {
+        startY: event.clientY,
+        startHeight: editorChatHeight,
+      };
+      setIsEditorChatResizing(true);
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    [editorChatHeight],
+  );
+  const handleEditorChatResizeMove = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const dragState = editorChatResizeRef.current;
+      if (!dragState) {
+        return;
+      }
+      const nextHeight = clampEditorChatHeight(
+        dragState.startHeight + (dragState.startY - event.clientY),
+      );
+      setEditorChatHeight(nextHeight);
+    },
+    [],
+  );
+  const handleEditorChatResizeEnd = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      editorChatResizeRef.current = null;
+      setIsEditorChatResizing(false);
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    },
+    [],
+  );
 
   return (
     <>
@@ -2762,14 +2866,43 @@ function FileViewInner({
             )}
           </div>
           {editorChatOpen ? (
-            <div className="h-[45vh] min-h-[18rem] max-h-[32rem] shrink-0 md:h-[22rem]">
-              <EditorChatPanel
-                vaultId={vault._id}
-                repositoryFullName={repositoryFullName}
-                branch={branch}
-                filePath={selectedFile}
-                onClose={() => handleEditorChatOpenChange(false)}
-              />
+            <div
+              className="min-h-0 shrink-0"
+              style={{ height: `${editorChatHeight}px` }}
+            >
+              <div className="flex h-full min-h-0 flex-col">
+                <div
+                  role="separator"
+                  aria-label="Resize chat panel"
+                  aria-orientation="horizontal"
+                  className={cn(
+                    "mb-[-1px] flex h-5 shrink-0 cursor-row-resize touch-none items-center justify-center",
+                    isEditorChatResizing
+                      ? "text-foreground"
+                      : "text-muted-foreground",
+                  )}
+                  onPointerDown={handleEditorChatResizeStart}
+                  onPointerMove={handleEditorChatResizeMove}
+                  onPointerUp={handleEditorChatResizeEnd}
+                  onPointerCancel={handleEditorChatResizeEnd}
+                  onLostPointerCapture={() => {
+                    editorChatResizeRef.current = null;
+                    setIsEditorChatResizing(false);
+                  }}
+                >
+                  <div className="h-1 w-12 corner-notch-1 bg-current/40" />
+                </div>
+                <div className="min-h-0 flex-1">
+                  <EditorChatPanel
+                    vaultId={vault._id}
+                    repositoryFullName={repositoryFullName}
+                    branch={branch}
+                    filePath={selectedFile}
+                    className="h-full"
+                    onClose={() => handleEditorChatOpenChange(false)}
+                  />
+                </div>
+              </div>
             </div>
           ) : null}
         </div>
