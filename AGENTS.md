@@ -598,10 +598,9 @@ Auth:
   description when the scope shifts materially. Do not default to keeping the
   primary work log in repo files unless the user explicitly asks for that.
 - For this operator, draft PR creation is part of task startup. In the first
-  user-facing message for an implementation task, say that you will bootstrap
-  the worktree with `make anon` and then open or update a draft PR immediately
-  so preview links (including Cloudflare previews) exist from the beginning of
-  the work.
+  user-facing message for an implementation task, bootstrap the worktree with
+  `make anon` and then open or update a draft PR immediately so preview links
+  (including Cloudflare previews) exist from the beginning of the work.
 - If GitHub requires a diff before opening that startup draft PR, create a
   minimal checkpoint commit right after bootstrap rather than waiting for a
   larger implementation commit.
