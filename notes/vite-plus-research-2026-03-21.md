@@ -140,7 +140,8 @@ Then tested:
 
 Observed:
 
-- second run replayed cached results
+- first run populated cache entries and still reported `0/3 cache hit`
+- running `vp run --cache build -r` a second time replayed cached results
 - summary showed `3/3 cache hit`
 
 Practical takeaway:
