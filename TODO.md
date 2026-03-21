@@ -3,6 +3,10 @@
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 - [ ] specifically left blank
 
+- [ ] a cool thing we can do when keyboard is opened on mobile is to just shift the whole page up, we usually care more about text when writing? 
+
+- [ ] it should be possible to make sidebar peak a bit before you let go
+
 - [ ] in dashboard don't add so much margin, at least on mobile it should be linear display and each element can take whole width, never need for margins
 
 - [ ] goedel Bach book discussions between turtoise, are same as Ai discussions. same as philosopher discussions? 
