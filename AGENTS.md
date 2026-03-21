@@ -584,7 +584,6 @@ Auth:
   lines, unless the work is too intertwined to split safely.
 - Always create a working branch (use `codex/` prefix when needed), and push
   after every commit so the remote stays up to date.
-<<<<<<< HEAD
 - For this operator, draft PR creation is part of task startup. In the first
   user-facing message for an implementation task, bootstrap the worktree with
   `make anon` and then open or update a draft PR immediately so preview links
