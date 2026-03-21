@@ -20,6 +20,7 @@ import { clsx } from "clsx";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import {
   formatRelativeTimeAgo,
+  formatRelativeTimeAgoWithSeconds,
   formatRelativeTimeUntil,
 } from "@/lib/formatRelativeTime";
 import {
@@ -336,7 +337,7 @@ function VaultLastUpdatedStatus({
     >
       <span>Updated</span>
       <span className="min-w-[8ch] text-left font-mono tabular-nums">
-        {formatRelativeTimeAgo(lastSyncedAt, frozenNow ?? now)}
+        {formatRelativeTimeAgoWithSeconds(lastSyncedAt, frozenNow ?? now)}
       </span>
     </span>
   );
