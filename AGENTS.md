@@ -516,6 +516,9 @@ Auth:
   format that PR number itself as a clickable Markdown link to the PR (for
   example `[#253](https://github.com/noter-md/noter/pull/253)`), even if the
   full PR URL is also included elsewhere.
+- When posting GitHub comments via CLI on the user's behalf, prefix
+  agent-authored comments with `[Codex]` so they are easy to distinguish from
+  the user's own comments.
 - For boolean URL query params, prefer key-only flags (for example `?diff`)
   instead of assigning values (`?diff=1`); treat key presence as enabled.
 - When changing app URLs that already have query params, update only the owned
