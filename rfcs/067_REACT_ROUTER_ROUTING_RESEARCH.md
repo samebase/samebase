@@ -51,6 +51,17 @@ only if we want route-module ergonomics, typegen, route handles, and static
 pre-rendering for public pages. I would not start by rewriting the whole app
 into framework mode in one pass.
 
+From an onboarding perspective, the biggest issue today is not that the app is
+using plain React Router. It is that route behavior is split across several
+patterns. That is harder for new contributors and junior developers to learn
+than either:
+
+- a simple declarative router with one obvious route table
+- or a more opinionated framework setup with clear conventions
+
+Vite+ strengthens the case for a future framework-mode migration because it
+preserves much of the Vite mental model while reducing toolchain sprawl.
+
 ## Current Routing Shape
 
 ### 1. The app uses declarative routing, but not all routes are declared in one place
@@ -299,6 +310,131 @@ This repo is currently a plain Vite SPA. Framework adoption would require:
 
 That is real migration work, not a package swap.
 
+## Approachability For New Users And Junior Developers
+
+### 1. The current stack is familiar, but the current routing style is not especially teachable
+
+At a high level, the current stack sounds beginner-friendly:
+
+- Vite
+- React Router
+- React components
+
+Those are common tools, and many junior developers have seen some version of
+them before.
+
+In practice, the repo's routing behavior is harder to learn than the tool names
+suggest because the "truth" is fragmented:
+
+- some routes are declared in `App.tsx`
+- some route selection happens through pathname checks
+- some URL normalization happens inside `FileView.tsx` effects
+- some shared route behavior is driven by raw path strings
+- some route construction is centralized and some is hand-built
+
+That means a new contributor has to learn repo-specific exceptions instead of
+just learning React Router.
+
+### 2. Framework mode adds concepts up front, which is a real onboarding cost
+
+React Router explicitly positions its modes as additive, with more features
+coming "at the cost of architectural control". Framework mode also introduces
+new concepts and files:
+
+- `root.tsx`
+- `routes.ts`
+- `react-router.config.ts`
+- route modules
+- loaders/actions/clientLoaders/clientActions
+- `handle`
+- generated route types
+
+For a junior developer, that is more to absorb than `BrowserRouter` +
+`Routes`/`Route`.
+
+So if the question is only "what is easier to start typing into on day one?",
+the current Vite + declarative-router setup wins.
+
+### 3. But once adopted cleanly, framework mode is easier to reason about than today's hybrid
+
+The current app is paying complexity in a less teachable way:
+
+- there is no single obvious home for route behavior
+- route conventions are partly local custom knowledge
+- route-aware shell behavior is inferred from pathname strings
+
+A well-adopted framework setup is often easier for junior developers after the
+first learning pass because it answers basic questions consistently:
+
+- Where do I add a route?
+- Where does page metadata live?
+- Where does route-level error UI go?
+- Where do params and route props come from?
+- Where should route-specific loading logic live?
+
+React Router framework mode gives convention-based answers to those questions.
+That is usually easier to coach and review than a custom hybrid architecture.
+
+### 4. Vite+ makes the tooling side more approachable
+
+As of 2026-03-22, the current Vite+ docs describe it as:
+
+- "Manage your runtime, package manager, and frontend stack with one tool."
+- "One configuration file and one consistent flow of commands across your whole
+  stack."
+- "Supports every framework built on Vite."
+
+The config docs also say Vite+ keeps project configuration in `vite.config.ts`.
+
+That matters for onboarding because junior developers are often slowed down less
+by React itself than by command/config sprawl. Vite+ helps there by making the
+tooling surface more uniform:
+
+- one primary CLI (`vp`)
+- one primary config file (`vite.config.ts`)
+- one standard flow for dev/check/build/test/run
+
+If we eventually adopt React Router framework mode, Vite+ reduces one source of
+"this repo has a weird custom toolchain" anxiety because the stack still looks
+Vite-shaped.
+
+### 5. Vite+ does not remove the non-frontend complexity in this repo
+
+Vite+ would help frontend-tooling consistency, but it would not by itself
+simplify:
+
+- Convex concepts and workflows
+- anonymous/worktree bootstrap rules like `make anon`
+- provider auth/OAuth setup
+- the product-specific editor and collaboration model
+
+So Vite+ is a good option for developer experience, but it should not be
+over-credited as a full onboarding fix.
+
+### 6. Onboarding-oriented recommendation
+
+If we optimize specifically for new users and junior developers, I would frame
+the path this way:
+
+1. Immediate win
+
+   - centralize route ownership in the current app
+   - stop mixing route tables and pathname branches
+   - standardize route helper usage
+
+2. If we do a larger migration for long-term teachability
+
+   - prefer React Router framework mode over a custom half-step architecture
+     because conventions are easier to teach than repo-specific patterns
+   - pair it with Vite+ so the command/config story stays simple and
+     Vite-familiar
+
+3. Keep expectations realistic
+
+   - framework mode + Vite+ would improve routing and frontend DX
+   - it would not eliminate the need to document Convex/worktree/bootstrap
+     workflows clearly
+
 ## Migration Cost In This Repo
 
 The main work is organizational, not conceptual.
@@ -455,6 +591,12 @@ Official React Router docs used for this research:
 - [Automatic Code Splitting](https://reactrouter.com/explanation/code-splitting)
 - [Lazy Route Discovery](https://reactrouter.com/explanation/lazy-route-discovery)
 - [Link](https://reactrouter.com/main/api/components/Link)
+
+Official Vite+ docs used for onboarding/tooling analysis:
+
+- [Vite+ Home](https://viteplus.dev/)
+- [Vite+ Config](https://viteplus.dev/config/)
+- [Announcing Vite+ Alpha](https://voidzero.dev/posts/announcing-vite-plus-alpha/)
 
 Repository files reviewed for current-state analysis:
 
