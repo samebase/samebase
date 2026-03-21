@@ -35,6 +35,9 @@ export function DaytonaPreviewPanel({
     api.daytona.actions.getDaytonaDevServerStatus,
   );
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewErrorMessage, setPreviewErrorMessage] = useState<string | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
@@ -54,22 +57,26 @@ export function DaytonaPreviewPanel({
     }
     setIsLoading(true);
     setMessage(null);
+    setPreviewErrorMessage(null);
     setHasError(false);
 
     try {
       const result = await getDaytonaPreviewUrl({ vaultId });
       if (!result.ok || !result.url) {
+        const nextMessage = result.message ?? "Failed to load preview.";
         setHasError(true);
-        setMessage(result.message ?? "Failed to load preview.");
+        setMessage(nextMessage);
+        setPreviewErrorMessage(nextMessage);
         return null;
       }
       setMessage(result.message ?? "Preview link ready.");
       return result.url;
     } catch (error) {
+      const nextMessage =
+        error instanceof Error ? error.message : "Failed to load preview.";
       setHasError(true);
-      setMessage(
-        error instanceof Error ? error.message : "Failed to load preview.",
-      );
+      setMessage(nextMessage);
+      setPreviewErrorMessage(nextMessage);
       return null;
     } finally {
       setIsLoading(false);
@@ -105,6 +112,7 @@ export function DaytonaPreviewPanel({
     setIsFetchingDevStatus(true);
     if (!silent) {
       setMessage(null);
+      setPreviewErrorMessage(null);
       setHasError(false);
     }
 
@@ -146,6 +154,7 @@ export function DaytonaPreviewPanel({
     }
     setIsStartingDevSafe(true);
     setMessage(null);
+    setPreviewErrorMessage(null);
     setHasError(false);
 
     try {
@@ -173,6 +182,7 @@ export function DaytonaPreviewPanel({
     }
     setIsStartingDevFast(true);
     setMessage(null);
+    setPreviewErrorMessage(null);
     setHasError(false);
 
     try {
@@ -198,7 +208,10 @@ export function DaytonaPreviewPanel({
     await fetchDevStatus(false);
   };
 
-  const hasPreviewErrorState = hasError && message !== null && !previewUrl;
+  const hasPreviewErrorState =
+    previewErrorMessage !== null &&
+    previewErrorMessage === message &&
+    !previewUrl;
 
   return (
     <div className={cn("corner-notch-1 border bg-muted/5 p-3", className)}>
@@ -305,7 +318,7 @@ export function DaytonaPreviewPanel({
 
       {hasPreviewErrorState ? (
         <DaytonaPreviewErrorState
-          message={message}
+          message={previewErrorMessage}
           isLoading={isLoading}
           onShowPreview={() => {
             void handleShowPreview();
