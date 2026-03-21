@@ -170,6 +170,17 @@ type ProviderRuntimeConfig = {
   popupOriginRef: MutableRefObject<string | null>;
 };
 
+const hasActiveTextSelection = () => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const selection = window.getSelection();
+  return selection !== null && !selection.isCollapsed;
+};
+
+const getCurrentSecondTimestamp = () => Math.floor(Date.now() / 1000) * 1000;
+
 const GitHubProviderLogo = ({ className }: { className?: string }) => (
   <GitHubLogoIcon className={clsx("h-4 w-4", className)} />
 );
@@ -221,6 +232,115 @@ const CloudflareProviderLogo = ({ className }: { className?: string }) => (
     </svg>
   </span>
 );
+
+function VaultLastUpdatedStatus({
+  lastSyncedAt,
+  now,
+  repositoryFullName,
+}: {
+  lastSyncedAt: number;
+  now: number;
+  repositoryFullName: string;
+}) {
+  const [frozenNow, setFrozenNow] = useState<number | null>(null);
+  const isPointerDownRef = useRef(false);
+  const suppressClickRef = useRef(false);
+
+  const freezeNow = useCallback(() => {
+    setFrozenNow((current) => current ?? getCurrentSecondTimestamp());
+  }, []);
+
+  const clearFrozenNow = useCallback(() => {
+    setFrozenNow(null);
+    suppressClickRef.current = false;
+  }, []);
+
+  const syncSelectionState = useCallback(() => {
+    if (hasActiveTextSelection()) {
+      freezeNow();
+      suppressClickRef.current = true;
+      return;
+    }
+
+    if (!isPointerDownRef.current) {
+      clearFrozenNow();
+    }
+  }, [clearFrozenNow, freezeNow]);
+
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      syncSelectionState();
+    };
+
+    const handlePointerUp = () => {
+      isPointerDownRef.current = false;
+      syncSelectionState();
+    };
+
+    const handlePointerCancel = () => {
+      isPointerDownRef.current = false;
+      clearFrozenNow();
+    };
+
+    document.addEventListener("selectionchange", handleSelectionChange);
+    window.addEventListener("mouseup", handlePointerUp);
+    window.addEventListener("touchend", handlePointerUp);
+    window.addEventListener("touchcancel", handlePointerCancel);
+    window.addEventListener("blur", handlePointerCancel);
+
+    return () => {
+      document.removeEventListener("selectionchange", handleSelectionChange);
+      window.removeEventListener("mouseup", handlePointerUp);
+      window.removeEventListener("touchend", handlePointerUp);
+      window.removeEventListener("touchcancel", handlePointerCancel);
+      window.removeEventListener("blur", handlePointerCancel);
+    };
+  }, [clearFrozenNow, syncSelectionState]);
+
+  const beginInteraction = useCallback(() => {
+    isPointerDownRef.current = true;
+    suppressClickRef.current = false;
+    freezeNow();
+  }, [freezeNow]);
+
+  const reloadPage = useCallback(() => {
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    }
+  }, []);
+
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      className="inline-flex cursor-pointer select-text items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:underline"
+      title={`Last synced ${new Date(lastSyncedAt).toLocaleString()}. Click to refresh now.`}
+      aria-label={`Refresh ${repositoryFullName} now`}
+      onMouseDown={beginInteraction}
+      onTouchStart={beginInteraction}
+      onClick={(event) => {
+        if (suppressClickRef.current || hasActiveTextSelection()) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+
+        reloadPage();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          reloadPage();
+        }
+      }}
+    >
+      <span>Updated</span>
+      <span className="min-w-[8ch] text-left font-mono tabular-nums">
+        {formatRelativeTimeAgo(lastSyncedAt, frozenNow ?? now)}
+      </span>
+    </span>
+  );
+}
 
 const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
   github: {
@@ -1601,20 +1721,11 @@ export function VaultDashboard() {
                             <span>Syncing...</span>
                           </>
                         ) : typeof sharedLastSyncedAt === "number" ? (
-                          <button
-                            type="button"
-                            className="inline-flex select-none items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:underline"
-                            title={`Last synced ${new Date(sharedLastSyncedAt).toLocaleString()}. Click to refresh now.`}
-                            aria-label={`Refresh ${vault.repositoryFullName} now`}
-                            onClick={() => {
-                              window.location.reload();
-                            }}
-                          >
-                            <span>Updated</span>
-                            <span className="min-w-[8ch] text-left font-mono tabular-nums">
-                              {formatRelativeTimeAgo(sharedLastSyncedAt, now)}
-                            </span>
-                          </button>
+                          <VaultLastUpdatedStatus
+                            lastSyncedAt={sharedLastSyncedAt}
+                            now={now}
+                            repositoryFullName={vault.repositoryFullName}
+                          />
                         ) : null}
                       </div>
                     ) : null}
