@@ -45,6 +45,11 @@ export type TransformLabScene = {
   svgMarkup: string;
 };
 
+type TransformLabFacesResult = {
+  faces: readonly TransformLabFace[];
+  renderTransform: string;
+};
+
 export const TRANSFORM_LAB_VIEW_BOX = {
   minX: 0,
   minY: 0,
@@ -92,6 +97,15 @@ const ORIGIN_MARKER_LABEL_OFFSET = {
   x: -12,
   y: 16,
 } as const;
+
+type FrontToUnitAffineTransform = {
+  a: number;
+  b: number;
+  c: number;
+  d: number;
+  originX: number;
+  originY: number;
+};
 
 const SINGLE_CUBE_FACE_DEFINITIONS = [
   // Color intent:
@@ -182,7 +196,13 @@ function escapeSvgAttribute(value: string): string {
 }
 
 function formatNumber(value: number): string {
-  return value.toFixed(6);
+  // Keep enough precision for projected geometry, but strip static SVG noise
+  // like 1.000000 or -0.000000 from the serialized matrices.
+  if (Math.abs(value) < 0.0000005) {
+    return "0";
+  }
+
+  return value.toFixed(6).replace(/\.?0+$/, "");
 }
 
 function normalizeVector(vector: LogoWorldPoint): LogoWorldPoint {
@@ -231,16 +251,16 @@ function projectPoint(
   right: LogoWorldPoint,
   up: LogoWorldPoint,
   frustumHalfHeight: number,
-  viewBoxSize: number,
+  unitScale: number,
 ): LogoProjectedPoint {
   return {
     x:
       ((dotVectors(point, right) + frustumHalfHeight) /
         (frustumHalfHeight * 2)) *
-      viewBoxSize,
+      unitScale,
     y:
       ((frustumHalfHeight - dotVectors(point, up)) / (frustumHalfHeight * 2)) *
-      viewBoxSize,
+      unitScale,
   };
 }
 
@@ -276,12 +296,12 @@ function createLabLogoProjector({
   elevationDegrees,
   rotationDegrees,
   scenePoints,
-  viewBoxSize,
+  unitScale,
 }: {
   elevationDegrees: number;
   rotationDegrees: number;
   scenePoints: readonly LogoWorldPoint[];
-  viewBoxSize: number;
+  unitScale: number;
 }): {
   cameraDirection: LogoWorldPoint;
   projectRotatedPoint: (point: LogoWorldPoint) => LogoProjectedPoint;
@@ -304,15 +324,63 @@ function createLabLogoProjector({
   return {
     cameraDirection,
     projectRotatedPoint: (point) =>
-      projectPoint(point, right, up, frustumHalfHeight, viewBoxSize),
+      projectPoint(point, right, up, frustumHalfHeight, unitScale),
     rotateWorldPoint,
   };
 }
 
-function orientToSvgPoint(point: LogoProjectedPoint): LogoProjectedPoint {
+function orientToSvgPoint(
+  point: LogoProjectedPoint,
+  viewportHeight: number,
+): LogoProjectedPoint {
   return {
     x: point.x,
-    y: TRANSFORM_LAB_VIEW_BOX.height - point.y,
+    y: viewportHeight - point.y,
+  };
+}
+
+/**
+ * Computes an affine transform that maps the projected front (posZ) face corners into
+ * unit-square coordinates.
+ *
+ * This keeps the front face as the canonical basis (0,0) -> (1,1) without any
+ * special-casing downstream callers.
+ */
+function createFrontFaceAlignmentTransform(
+  frontCorners: readonly LogoProjectedPoint[],
+): FrontToUnitAffineTransform {
+  const origin = frontCorners[0];
+  const uVector = {
+    x: frontCorners[1].x - origin.x,
+    y: frontCorners[1].y - origin.y,
+  };
+  const vVector = {
+    x: frontCorners[3].x - origin.x,
+    y: frontCorners[3].y - origin.y,
+  };
+  const determinant = uVector.x * vVector.y - uVector.y * vVector.x;
+  const inverseDeterminant = 1 / determinant;
+
+  return {
+    a: vVector.y * inverseDeterminant,
+    b: -uVector.y * inverseDeterminant,
+    c: -vVector.x * inverseDeterminant,
+    d: uVector.x * inverseDeterminant,
+    originX: origin.x,
+    originY: origin.y,
+  };
+}
+
+function applyFrontAlignmentTransform(
+  transform: FrontToUnitAffineTransform,
+  point: LogoProjectedPoint,
+): LogoProjectedPoint {
+  const relativeX = point.x - transform.originX;
+  const relativeY = point.y - transform.originY;
+
+  return {
+    x: transform.a * relativeX + transform.b * relativeY,
+    y: transform.c * relativeX + transform.d * relativeY,
   };
 }
 
@@ -322,6 +390,26 @@ function createTransformString(
   origin: LogoProjectedPoint,
 ): string {
   return `matrix(${formatNumber(u.x)} ${formatNumber(u.y)} ${formatNumber(v.x)} ${formatNumber(v.y)} ${formatNumber(origin.x)} ${formatNumber(origin.y)})`;
+}
+
+function createRectTransformFromCorners(
+  corners: readonly LogoProjectedPoint[],
+): string {
+  const origin = corners[0];
+  const uPoint = corners[1];
+  const vPoint = corners[3];
+
+  return createTransformString(
+    {
+      x: uPoint.x - origin.x,
+      y: uPoint.y - origin.y,
+    },
+    {
+      x: vPoint.x - origin.x,
+      y: vPoint.y - origin.y,
+    },
+    origin,
+  );
 }
 
 function dotWorldPoints(left: LogoWorldPoint, right: LogoWorldPoint): number {
@@ -354,34 +442,31 @@ function createAxisGuideLines(args: {
     elevationDegrees: args.elevationDegrees,
     rotationDegrees: args.rotationDegrees,
     scenePoints: [origin, xEnd, yEnd, zEnd],
-    viewBoxSize: TRANSFORM_LAB_VIEW_BOX.width,
+    unitScale: TRANSFORM_LAB_VIEW_BOX.width,
   });
-  const projectedOrigin = orientToSvgPoint(
-    projector.projectRotatedPoint(projector.rotateWorldPoint(origin)),
-  );
+  const projectToViewBox = (point: LogoWorldPoint): LogoProjectedPoint =>
+    orientToSvgPoint(
+      projector.projectRotatedPoint(projector.rotateWorldPoint(point)),
+      TRANSFORM_LAB_VIEW_BOX.height,
+    );
+  const projectedOrigin = projectToViewBox(origin);
 
   return [
     {
       color: AXIS_GUIDE_COLORS.x,
-      end: orientToSvgPoint(
-        projector.projectRotatedPoint(projector.rotateWorldPoint(xEnd)),
-      ),
+      end: projectToViewBox(xEnd),
       key: "x" as const,
       label: "X",
     },
     {
       color: AXIS_GUIDE_COLORS.y,
-      end: orientToSvgPoint(
-        projector.projectRotatedPoint(projector.rotateWorldPoint(yEnd)),
-      ),
+      end: projectToViewBox(yEnd),
       key: "y" as const,
       label: "Y",
     },
     {
       color: AXIS_GUIDE_COLORS.z,
-      end: orientToSvgPoint(
-        projector.projectRotatedPoint(projector.rotateWorldPoint(zEnd)),
-      ),
+      end: projectToViewBox(zEnd),
       key: "z" as const,
       label: "Z",
     },
@@ -409,24 +494,48 @@ function calculateFaceCenter(
 function createTransformLabFaces(args: {
   elevationDegrees: number;
   rotationDegrees: number;
-}): TransformLabFace[] {
+}): TransformLabFacesResult {
   const faceCorners = SINGLE_CUBE_FACE_DEFINITIONS.map((face) => face.corners);
   const projector = createLabLogoProjector({
     elevationDegrees: args.elevationDegrees,
     rotationDegrees: args.rotationDegrees,
     scenePoints: faceCorners.flat(),
-    viewBoxSize: TRANSFORM_LAB_VIEW_BOX.width,
+    unitScale: TRANSFORM_LAB_VIEW_BOX.width,
   });
+  const frontFaceDefinition = SINGLE_CUBE_FACE_DEFINITIONS.find(
+    (face) => face.rectId === CUBE_FACE_IDS.posZFront,
+  );
+  if (!frontFaceDefinition) {
+    throw new Error("Front face definition missing. Unable to build faces.");
+  }
+  const projectedFrontFaceCorners = frontFaceDefinition.corners.map((point) =>
+    orientToSvgPoint(
+      projector.projectRotatedPoint(projector.rotateWorldPoint(point)),
+      TRANSFORM_LAB_VIEW_BOX.height,
+    ),
+  );
+  const frontAlignmentTransform = createFrontFaceAlignmentTransform(
+    projectedFrontFaceCorners,
+  );
+  const renderTransform = createRectTransformFromCorners(
+    projectedFrontFaceCorners,
+  );
+
+  // Each face definition is expressed in front-face local coordinates. The
+  // render group later reapplies the projected front-face basis to the whole set.
+  const projectToFrontSpace = (point: LogoProjectedPoint) =>
+    applyFrontAlignmentTransform(frontAlignmentTransform, point);
 
   const projectedFaces = SINGLE_CUBE_FACE_DEFINITIONS.map((face, index) => {
     const corners = faceCorners[index];
     const rotatedCorners = corners.map(projector.rotateWorldPoint);
     const projectedCorners = rotatedCorners.map((point) =>
-      orientToSvgPoint(projector.projectRotatedPoint(point)),
+      orientToSvgPoint(
+        projector.projectRotatedPoint(point),
+        TRANSFORM_LAB_VIEW_BOX.height,
+      ),
     );
-    const projectedOrigin = projectedCorners[0];
-    const projectedUPoint = projectedCorners[1];
-    const projectedVPoint = projectedCorners[3];
+    const localCorners = projectedCorners.map(projectToFrontSpace);
     const centeredFacePoint = calculateFaceCenter(face.corners);
     const rotatedCenter = projector.rotateWorldPoint(centeredFacePoint);
 
@@ -439,21 +548,14 @@ function createTransformLabFaces(args: {
       key: face.key,
       stroke: face.color,
       strokeWidth: FACE_STROKE_WIDTH,
-      transform: createTransformString(
-        {
-          x: projectedUPoint.x - projectedOrigin.x,
-          y: projectedUPoint.y - projectedOrigin.y,
-        },
-        {
-          x: projectedVPoint.x - projectedOrigin.x,
-          y: projectedVPoint.y - projectedOrigin.y,
-        },
-        projectedOrigin,
-      ),
+      transform: createRectTransformFromCorners(localCorners),
     };
   });
 
-  return projectedFaces.sort((left, right) => left.depth - right.depth);
+  return {
+    faces: projectedFaces.sort((left, right) => left.depth - right.depth),
+    renderTransform,
+  };
 }
 
 function getFacesInDefinitionOrder(
@@ -506,12 +608,17 @@ function serializeAxisGuideLines(lines: readonly AxisGuideLine[]): string {
     </g>`;
 }
 
-function serializeFaceUses(faces: readonly TransformLabFace[]): string {
+function serializeFaceUses(
+  faces: readonly TransformLabFace[],
+  renderTransform: string,
+): string {
   return stripIndent`
     <g id="${FACE_RENDER_GROUP_ID}">
-      ${faces
-        .map((face) => `<use href="#${escapeSvgAttribute(face.rectId)}" />`)
-        .join("\n")}
+      <g transform="${escapeSvgAttribute(renderTransform)}">
+        ${faces
+          .map((face) => `<use href="#${escapeSvgAttribute(face.rectId)}" />`)
+          .join("\n")}
+      </g>
     </g>`;
 }
 
@@ -547,7 +654,7 @@ export function createTransformLabScene({
   elevationDegrees?: number;
   rotationDegrees?: number;
 } = {}): TransformLabScene {
-  const faces = createTransformLabFaces({
+  const { faces, renderTransform } = createTransformLabFaces({
     elevationDegrees,
     rotationDegrees,
   });
@@ -578,8 +685,7 @@ export function createTransformLabScene({
       <!-- Background -->
       <rect x="0" y="0" width="${TRANSFORM_LAB_VIEW_BOX.width}" height="${TRANSFORM_LAB_VIEW_BOX.height}" fill="${BACKGROUND_COLOR}"/>
 
-
-      ${serializeFaceUses(faces)}
+      ${serializeFaceUses(faces, renderTransform)}
 
       ${serializeAxisGuideLines(axisGuideLines)}
 
