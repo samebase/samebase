@@ -501,6 +501,8 @@ Auth:
 - For this operator, do not use Python as the first option for scripting or
   automation in Codex. Prefer plain shell commands first; if scripting is
   needed, prefer ECMAScript/Node because Node is guaranteed to be available.
+- Before starting implementation on an existing work branch or worktree, fetch
+  `origin` and rebase onto the latest `origin/main` before doing new work.
 - Format documents you write with Prettier by default so markdown/docs do not
   require manual cleanup.
 - Default to persisting user-visible UI state in Convex (per-user settings) so
@@ -591,6 +593,10 @@ Auth:
 - If GitHub requires a diff before opening that startup draft PR, create a
   minimal checkpoint commit right after bootstrap rather than waiting for a
   larger implementation commit.
+- For this operator, parked draft PRs remain part of the kanban even when the
+  local workspace is no longer needed. It is fine to remove the current worktree
+  and local branch while leaving the remote branch and draft PR open for later
+  revisit.
 - For this operator, keep the running narrative primarily in GitHub: use the PR
   description as the canonical current summary/plan/links, use PR comments for
   incremental checkpoints and notable decisions, and update the PR title and
