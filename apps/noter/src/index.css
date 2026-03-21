@@ -280,12 +280,22 @@
     clip-path: none;
   }
 
-  .border {
+  :is(.corner-notch-1, .corner-notch-2) {
+    /*
+     * Notch bridge sizing must live on the notched element itself.
+     * If these variables come from a plain `.border` ancestor, borderless
+     * children can inherit them and paint stray bridge pixels.
+     */
+    --noter-corner-notch-border-width: 0px;
+    --noter-corner-notch-stroke: 1px;
+  }
+
+  :is(.corner-notch-1, .corner-notch-2).border {
     --noter-corner-notch-border-width: 1px;
     --noter-corner-notch-stroke: 1px;
   }
 
-  .border-2 {
+  :is(.corner-notch-1, .corner-notch-2).border-2 {
     --noter-corner-notch-border-width: 2px;
     --noter-corner-notch-stroke: 2px;
   }
@@ -429,6 +439,13 @@
   .corner-notch-2:focus-visible,
   .corner-notch-2:focus-within {
     clip-path: none;
+  }
+
+  .corner-notch-1:focus-visible::before,
+  .corner-notch-1:focus-within::before,
+  .corner-notch-2:focus-visible::before,
+  .corner-notch-2:focus-within::before {
+    content: none;
   }
 
   @keyframes underline-color-cycle {

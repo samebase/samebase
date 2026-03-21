@@ -8,20 +8,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import buttonVisualFixtureFontUrl from "three/examples/fonts/ttf/kenpixel.ttf";
 import { Button } from "@/components/button";
-
-const buttonVisualFixtureFontFace = `
-  @font-face {
-    font-family: "Noter Button Visual Fixture";
-    src: url("${buttonVisualFixtureFontUrl}") format("truetype");
-    font-display: block;
-  }
-`;
-
-const buttonVisualFixtureRootStyle = {
-  fontFamily: '"Noter Button Visual Fixture", monospace',
-} as const;
 
 interface FixtureSectionProps {
   children: ReactNode;
@@ -33,6 +20,38 @@ interface FixtureSectionProps {
 interface ButtonRowProps {
   children: ReactNode;
   label: string;
+  labelWidth: number;
+}
+
+interface VisualTextProps {
+  label: string;
+  width: number;
+}
+
+function VisualText({ label, width }: VisualTextProps) {
+  return (
+    <>
+      <span className="sr-only">{label}</span>
+      <span
+        aria-hidden
+        className="block h-2 shrink-0 bg-current"
+        style={{ width }}
+      />
+    </>
+  );
+}
+
+function VisualLegend({ label, width }: VisualTextProps) {
+  return (
+    <div className="flex h-4 items-center">
+      <span className="sr-only">{label}</span>
+      <span
+        aria-hidden
+        className="block h-2 shrink-0 bg-stone-400"
+        style={{ width }}
+      />
+    </div>
+  );
 }
 
 function FixtureSection({
@@ -42,25 +61,22 @@ function FixtureSection({
   title,
 }: FixtureSectionProps) {
   return (
-    <section
-      data-testid={testId}
-      className="grid gap-4 border border-stone-300 bg-white p-5"
-    >
+    <section className="grid gap-4 border border-stone-300 bg-white p-5">
       <div className="grid gap-1">
         <h2 className="text-sm font-semibold text-stone-900">{title}</h2>
         <p className="text-xs text-stone-600">{description}</p>
       </div>
-      {children}
+      <div data-testid={testId} className="grid gap-3">
+        {children}
+      </div>
     </section>
   );
 }
 
-function ButtonRow({ children, label }: ButtonRowProps) {
+function ButtonRow({ children, label, labelWidth }: ButtonRowProps) {
   return (
     <div className="grid items-center gap-3 border border-stone-200 bg-stone-50 p-3 md:grid-cols-[11rem_1fr]">
-      <div className="text-[11px] uppercase tracking-[0.2em] text-stone-500">
-        {label}
-      </div>
+      <VisualLegend label={label} width={labelWidth} />
       <div className="flex flex-wrap items-center gap-3">{children}</div>
     </div>
   );
@@ -71,9 +87,7 @@ export function ButtonVisualFixture() {
     <div
       data-testid="button-visual-fixture"
       className="min-h-screen bg-stone-100 p-8 text-stone-950"
-      style={buttonVisualFixtureRootStyle}
     >
-      <style>{buttonVisualFixtureFontFace}</style>
       <div className="mx-auto grid max-w-6xl gap-6">
         <header className="grid gap-2 border border-stone-300 bg-white p-5">
           <h1 className="text-2xl font-semibold tracking-tight">
@@ -91,40 +105,50 @@ export function ButtonVisualFixture() {
           title="Variants"
           description="Default-size shared variants used in product surfaces."
         >
-          <ButtonRow label="default">
-            <Button>Launch workspace</Button>
+          <ButtonRow label="default" labelWidth={50}>
+            <Button>
+              <VisualText label="Launch workspace" width={112} />
+            </Button>
             <Button>
               <Plus />
-              New vault
+              <VisualText label="New vault" width={64} />
             </Button>
           </ButtonRow>
-          <ButtonRow label="outline">
-            <Button variant="outline">Open preview</Button>
+          <ButtonRow label="outline" labelWidth={52}>
+            <Button variant="outline">
+              <VisualText label="Open preview" width={88} />
+            </Button>
             <Button variant="outline">
               <ExternalLink />
-              Open in browser
+              <VisualText label="Open in browser" width={104} />
             </Button>
           </ButtonRow>
-          <ButtonRow label="secondary">
-            <Button variant="secondary">Got it</Button>
+          <ButtonRow label="secondary" labelWidth={70}>
+            <Button variant="secondary">
+              <VisualText label="Got it" width={40} />
+            </Button>
           </ButtonRow>
-          <ButtonRow label="ghost">
-            <Button variant="ghost">Cancel</Button>
+          <ButtonRow label="ghost" labelWidth={40}>
+            <Button variant="ghost">
+              <VisualText label="Cancel" width={48} />
+            </Button>
             <Button variant="ghost">
               <PanelLeft />
-              Toggle sidebar
+              <VisualText label="Toggle sidebar" width={96} />
             </Button>
           </ButtonRow>
-          <ButtonRow label="destructive">
+          <ButtonRow label="destructive" labelWidth={74}>
             <Button variant="destructive">
               <Trash2 />
-              Delete vault
+              <VisualText label="Delete vault" width={88} />
             </Button>
           </ButtonRow>
-          <ButtonRow label="link">
-            <Button variant="link">Reconnect</Button>
+          <ButtonRow label="link" labelWidth={28}>
             <Button variant="link">
-              View logs
+              <VisualText label="Reconnect" width={72} />
+            </Button>
+            <Button variant="link">
+              <VisualText label="View logs" width={64} />
               <ArrowRight />
             </Button>
           </ButtonRow>
@@ -135,20 +159,26 @@ export function ButtonVisualFixture() {
           title="Sizes"
           description="Sizes and icon composition currently used by shared app buttons."
         >
-          <ButtonRow label="default">
-            <Button>Primary action</Button>
-            <Button variant="outline">Secondary action</Button>
+          <ButtonRow label="default" labelWidth={50}>
+            <Button>
+              <VisualText label="Primary action" width={96} />
+            </Button>
+            <Button variant="outline">
+              <VisualText label="Secondary action" width={112} />
+            </Button>
           </ButtonRow>
-          <ButtonRow label="sm">
-            <Button size="sm">Compact action</Button>
+          <ButtonRow label="sm" labelWidth={20}>
+            <Button size="sm">
+              <VisualText label="Compact action" width={96} />
+            </Button>
             <Button size="sm" variant="outline">
-              Review diff
+              <VisualText label="Review diff" width={80} />
             </Button>
             <Button size="sm" variant="ghost">
-              Dismiss
+              <VisualText label="Dismiss" width={56} />
             </Button>
           </ButtonRow>
-          <ButtonRow label="icon">
+          <ButtonRow label="icon" labelWidth={28}>
             <Button size="icon" variant="secondary" aria-label="Open user menu">
               <MoreHorizontal />
             </Button>
@@ -163,26 +193,28 @@ export function ButtonVisualFixture() {
           title="States"
           description="Disabled and pending-looking states used in async product flows."
         >
-          <ButtonRow label="disabled">
-            <Button disabled>Launch workspace</Button>
+          <ButtonRow label="disabled" labelWidth={56}>
+            <Button disabled>
+              <VisualText label="Launch workspace" width={112} />
+            </Button>
             <Button variant="outline" disabled>
-              Open preview
+              <VisualText label="Open preview" width={88} />
             </Button>
             <Button variant="ghost" size="sm" disabled>
-              Cancel
+              <VisualText label="Cancel" width={48} />
             </Button>
             <Button variant="destructive" disabled>
-              Delete vault
+              <VisualText label="Delete vault" width={88} />
             </Button>
           </ButtonRow>
-          <ButtonRow label="busy label">
+          <ButtonRow label="busy label" labelWidth={68}>
             <Button disabled>
               <LoaderCircle className="animate-spin" />
-              Removing...
+              <VisualText label="Removing..." width={72} />
             </Button>
             <Button variant="outline" disabled>
               <LoaderCircle className="animate-spin" />
-              Fetching logs...
+              <VisualText label="Fetching logs..." width={96} />
             </Button>
           </ButtonRow>
         </FixtureSection>
@@ -192,34 +224,40 @@ export function ButtonVisualFixture() {
           title="App Overrides"
           description="Known button overrides used in the app on top of shared button styling."
         >
-          <ButtonRow label="asChild">
+          <ButtonRow label="asChild" labelWidth={44}>
             <Button asChild variant="outline">
-              <a href="#open-preview">Open preview</a>
+              <a href="#open-preview">
+                <VisualText label="Open preview" width={88} />
+              </a>
             </Button>
             <Button asChild variant="ghost" size="sm">
-              <a href="#view-details">View details</a>
+              <a href="#view-details">
+                <VisualText label="View details" width={80} />
+              </a>
             </Button>
             <Button asChild variant="link" size="sm">
-              <a href="#retry-provider">Retry provider</a>
+              <a href="#retry-provider">
+                <VisualText label="Retry provider" width={96} />
+              </a>
             </Button>
           </ButtonRow>
-          <ButtonRow label="shape overrides">
+          <ButtonRow label="shape overrides" labelWidth={92}>
             <Button size="sm" variant="outline" className="rounded-none">
-              Static SVG
+              <VisualText label="Static SVG" width={72} />
             </Button>
             <Button size="icon" variant="secondary" className="rounded-ui">
               <MoreHorizontal />
             </Button>
           </ButtonRow>
-          <ButtonRow label="layout overrides">
+          <ButtonRow label="layout overrides" labelWidth={90}>
             <Button size="sm" className="h-7 px-2 text-xs">
-              Rebase onto latest GitHub
+              <VisualText label="Rebase onto latest GitHub" width={136} />
             </Button>
             <Button size="sm" variant="outline" className="h-7 px-2 text-xs">
-              Copy conflict bundle
+              <VisualText label="Copy conflict bundle" width={112} />
             </Button>
             <Button variant="outline" className="w-full md:w-56">
-              Full width CTA
+              <VisualText label="Full width CTA" width={96} />
             </Button>
           </ButtonRow>
         </FixtureSection>
