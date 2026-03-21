@@ -27,14 +27,16 @@ When starting a fresh chat for implementation/debugging, read in this order:
 
 1. `AGENTS.md` (this file)
 2. `README.md` (product/dev overview)
+3. `rfcs/logo-transform-lab-notes.md` when working on logo SVG / transform lab
+   geometry, projection, or optimization decisions
    <!-- dumb -->
    <!-- 3. `apps/noter-starter-template/AGENTS.md` +
       `apps/noter-starter-template/scripts/export-template-manifest.mjs` (starter
       regeneration contract + manifest export) -->
       <!-- research if it's actually necessary to read specs or just mention that they exist if needed (skill?) -->
-3. `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md` (vault infra lifecycle)
-4. `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md` (approval-first prod reads)
-5. `specs/001_CODESPACE_CONNECTION_SPEC.md` (codespace architecture)
+4. `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md` (vault infra lifecycle)
+5. `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md` (approval-first prod reads)
+6. `specs/001_CODESPACE_CONNECTION_SPEC.md` (codespace architecture)
 
 <!-- it has almost 1000 lines, do not read and the schema would've been one of the most important
 things -->

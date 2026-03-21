@@ -19,6 +19,7 @@ export function LogoTransitionTransformsLabPage() {
   const [rotationDegrees, setRotationDegrees] = useState(
     DEFAULT_ROTATION_DEGREES,
   );
+  const [includeAxes, setIncludeAxes] = useState(true);
   const [rotationSpeed, setRotationSpeed] = useState(DEFAULT_ROTATION_SPEED);
   const [isAnimating, setIsAnimating] = useState(false);
 
@@ -45,9 +46,10 @@ export function LogoTransitionTransformsLabPage() {
     () =>
       createTransformLabScene({
         elevationDegrees,
+        includeAxes,
         rotationDegrees,
       }),
-    [elevationDegrees, rotationDegrees],
+    [elevationDegrees, includeAxes, rotationDegrees],
   );
 
   return (
@@ -73,7 +75,7 @@ export function LogoTransitionTransformsLabPage() {
             aria-current="page"
             className="inline-flex h-9 items-center border border-black bg-black px-3 text-sm font-medium text-white"
           >
-            Transform Lab
+            Transform SVG
           </div>
         </div>
 
@@ -205,8 +207,27 @@ export function LogoTransitionTransformsLabPage() {
                 />
               </div>
 
+              <div className="grid gap-2 border border-black/10 bg-[#fbfaf6] p-2">
+                <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                  <span>Scene</span>
+                  <span>{includeAxes ? "Cube + axes" : "Cube only"}</span>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={includeAxes ? "outline" : "default"}
+                  className="rounded-none"
+                  onClick={() => {
+                    setIncludeAxes((currentValue) => !currentValue);
+                  }}
+                >
+                  {includeAxes ? "Hide axes" : "Show axes"}
+                </Button>
+              </div>
+
               <div className="grid gap-1 text-sm leading-6 text-black/65">
                 <span>{`Faces: ${scene.faces.length}`}</span>
+                <span>{`Axes: ${includeAxes ? "shown" : "hidden"}`}</span>
                 <span>{`Elevation: ${elevationDegrees.toFixed(2)}°`}</span>
                 <span>{`Rotation: ${rotationDegrees.toFixed(2)}°`}</span>
               </div>

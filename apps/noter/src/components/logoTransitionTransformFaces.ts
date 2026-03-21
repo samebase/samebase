@@ -45,11 +45,6 @@ export type TransformLabScene = {
   svgMarkup: string;
 };
 
-type TransformLabFacesResult = {
-  faces: readonly TransformLabFace[];
-  renderTransform: string;
-};
-
 export const TRANSFORM_LAB_VIEW_BOX = {
   minX: 0,
   minY: 0,
@@ -61,10 +56,10 @@ const FACE_STROKE_WIDTH = 0.14;
 const AXIS_GUIDE_LENGTH = 1.25;
 const AXIS_GUIDE_LABEL_DISTANCE = 11;
 const CAMERA_FRUSTUM_PADDING = 1.12;
-const ORBIT_RIGHT_AXIS: LogoWorldPoint = {
+const CAMERA_RIGHT_AXIS: LogoWorldPoint = {
   x: 1,
   y: 0,
-  z: -1,
+  z: 0,
 };
 const AXIS_GUIDE_COLORS = {
   x: "#ef4444",
@@ -93,19 +88,11 @@ const FACE_OUTPUT_ORDER = [
 ] as const;
 const FACE_DEFINITIONS_GROUP_ID = "transform-lab-face-definitions";
 const FACE_RENDER_GROUP_ID = "transform-lab-faces";
+const FACE_RECT_DEFINITION_ID = "unit";
 const ORIGIN_MARKER_LABEL_OFFSET = {
   x: -12,
   y: 16,
 } as const;
-
-type FrontToUnitAffineTransform = {
-  a: number;
-  b: number;
-  c: number;
-  d: number;
-  originX: number;
-  originY: number;
-};
 
 const SINGLE_CUBE_FACE_DEFINITIONS = [
   // Color intent:
@@ -174,9 +161,9 @@ const SINGLE_CUBE_FACE_DEFINITIONS = [
     ],
   },
   {
-    color: getTailwindColorHex(DEFAULT_FACE_COLORS.left),
+    color: getTailwindColorHex(DEFAULT_FACE_COLORS.right),
     rectId: CUBE_FACE_IDS.negZBack,
-    colorKey: "left",
+    colorKey: "right",
     key: "negZ-back",
     corners: [
       { x: 1, y: 0, z: 0 },
@@ -272,22 +259,24 @@ function getCameraBasis(elevationDegrees: number): {
   const elevationRadians = (elevationDegrees * Math.PI) / 180;
   const horizontalComponent = Math.cos(elevationRadians);
   const verticalComponent = Math.sin(elevationRadians);
-  const diagonalComponent = horizontalComponent / Math.sqrt(2);
+
+  // Keep rotation=0 as the literal front view. The earlier diagonal X/Z basis
+  // baked in an implicit 45deg yaw, which made the cube start already turned.
   const cameraDirection = normalizeVector({
-    x: diagonalComponent,
+    x: 0,
     y: verticalComponent,
-    z: diagonalComponent,
+    z: horizontalComponent,
   });
   const forward = {
     x: -cameraDirection.x,
     y: -cameraDirection.y,
     z: -cameraDirection.z,
   };
-  const up = normalizeVector(crossVectors(ORBIT_RIGHT_AXIS, forward));
+  const up = normalizeVector(crossVectors(CAMERA_RIGHT_AXIS, forward));
 
   return {
     cameraDirection,
-    right: normalizeVector(ORBIT_RIGHT_AXIS),
+    right: normalizeVector(CAMERA_RIGHT_AXIS),
     up,
   };
 }
@@ -336,51 +325,6 @@ function orientToSvgPoint(
   return {
     x: point.x,
     y: viewportHeight - point.y,
-  };
-}
-
-/**
- * Computes an affine transform that maps the projected front (posZ) face corners into
- * unit-square coordinates.
- *
- * This keeps the front face as the canonical basis (0,0) -> (1,1) without any
- * special-casing downstream callers.
- */
-function createFrontFaceAlignmentTransform(
-  frontCorners: readonly LogoProjectedPoint[],
-): FrontToUnitAffineTransform {
-  const origin = frontCorners[0];
-  const uVector = {
-    x: frontCorners[1].x - origin.x,
-    y: frontCorners[1].y - origin.y,
-  };
-  const vVector = {
-    x: frontCorners[3].x - origin.x,
-    y: frontCorners[3].y - origin.y,
-  };
-  const determinant = uVector.x * vVector.y - uVector.y * vVector.x;
-  const inverseDeterminant = 1 / determinant;
-
-  return {
-    a: vVector.y * inverseDeterminant,
-    b: -uVector.y * inverseDeterminant,
-    c: -vVector.x * inverseDeterminant,
-    d: uVector.x * inverseDeterminant,
-    originX: origin.x,
-    originY: origin.y,
-  };
-}
-
-function applyFrontAlignmentTransform(
-  transform: FrontToUnitAffineTransform,
-  point: LogoProjectedPoint,
-): LogoProjectedPoint {
-  const relativeX = point.x - transform.originX;
-  const relativeY = point.y - transform.originY;
-
-  return {
-    x: transform.a * relativeX + transform.b * relativeY,
-    y: transform.c * relativeX + transform.d * relativeY,
   };
 }
 
@@ -494,7 +438,7 @@ function calculateFaceCenter(
 function createTransformLabFaces(args: {
   elevationDegrees: number;
   rotationDegrees: number;
-}): TransformLabFacesResult {
+}): TransformLabFace[] {
   const faceCorners = SINGLE_CUBE_FACE_DEFINITIONS.map((face) => face.corners);
   const projector = createLabLogoProjector({
     elevationDegrees: args.elevationDegrees,
@@ -502,30 +446,6 @@ function createTransformLabFaces(args: {
     scenePoints: faceCorners.flat(),
     unitScale: TRANSFORM_LAB_VIEW_BOX.width,
   });
-  const frontFaceDefinition = SINGLE_CUBE_FACE_DEFINITIONS.find(
-    (face) => face.rectId === CUBE_FACE_IDS.posZFront,
-  );
-  if (!frontFaceDefinition) {
-    throw new Error("Front face definition missing. Unable to build faces.");
-  }
-  const projectedFrontFaceCorners = frontFaceDefinition.corners.map((point) =>
-    orientToSvgPoint(
-      projector.projectRotatedPoint(projector.rotateWorldPoint(point)),
-      TRANSFORM_LAB_VIEW_BOX.height,
-    ),
-  );
-  const frontAlignmentTransform = createFrontFaceAlignmentTransform(
-    projectedFrontFaceCorners,
-  );
-  const renderTransform = createRectTransformFromCorners(
-    projectedFrontFaceCorners,
-  );
-
-  // Each face definition is expressed in front-face local coordinates. The
-  // render group later reapplies the projected front-face basis to the whole set.
-  const projectToFrontSpace = (point: LogoProjectedPoint) =>
-    applyFrontAlignmentTransform(frontAlignmentTransform, point);
-
   const projectedFaces = SINGLE_CUBE_FACE_DEFINITIONS.map((face, index) => {
     const corners = faceCorners[index];
     const rotatedCorners = corners.map(projector.rotateWorldPoint);
@@ -535,7 +455,6 @@ function createTransformLabFaces(args: {
         TRANSFORM_LAB_VIEW_BOX.height,
       ),
     );
-    const localCorners = projectedCorners.map(projectToFrontSpace);
     const centeredFacePoint = calculateFaceCenter(face.corners);
     const rotatedCenter = projector.rotateWorldPoint(centeredFacePoint);
 
@@ -548,14 +467,14 @@ function createTransformLabFaces(args: {
       key: face.key,
       stroke: face.color,
       strokeWidth: FACE_STROKE_WIDTH,
-      transform: createRectTransformFromCorners(localCorners),
+      // Keep each face in direct projected screen space. A previous attempt to
+      // decompose everything through a parent basis caused singularities near
+      // edge-on views and visible flipping when the basis changed.
+      transform: createRectTransformFromCorners(projectedCorners),
     };
   });
 
-  return {
-    faces: projectedFaces.sort((left, right) => left.depth - right.depth),
-    renderTransform,
-  };
+  return projectedFaces.sort((left, right) => left.depth - right.depth);
 }
 
 function getFacesInDefinitionOrder(
@@ -608,17 +527,12 @@ function serializeAxisGuideLines(lines: readonly AxisGuideLine[]): string {
     </g>`;
 }
 
-function serializeFaceUses(
-  faces: readonly TransformLabFace[],
-  renderTransform: string,
-): string {
+function serializeFaceRenderGroup(faces: readonly TransformLabFace[]): string {
   return stripIndent`
     <g id="${FACE_RENDER_GROUP_ID}">
-      <g transform="${escapeSvgAttribute(renderTransform)}">
-        ${faces
-          .map((face) => `<use href="#${escapeSvgAttribute(face.rectId)}" />`)
-          .join("\n")}
-      </g>
+      ${faces
+        .map((face) => `<use href="#${escapeSvgAttribute(face.rectId)}" />`)
+        .join("\n")}
     </g>`;
 }
 
@@ -626,12 +540,9 @@ function serializeFaceDefinitions(faces: readonly TransformLabFace[]): string {
   return faces
     .map(
       (face) => stripIndent`
-        <rect
+        <use
+          href="#${FACE_RECT_DEFINITION_ID}"
           id="${face.rectId}"
-          x="0"
-          y="0"
-          width="1"
-          height="1"
           fill="${escapeSvgAttribute(face.color)}"
           transform="${escapeSvgAttribute(face.transform)}" />`,
     )
@@ -643,6 +554,8 @@ function serializeFaceDefinitionsGroup(
 ): string {
   return stripIndent`
     <g id="${FACE_DEFINITIONS_GROUP_ID}">
+      <!-- Reuse one canonical unit rect so face defs only carry color + transform. -->
+      <rect id="${FACE_RECT_DEFINITION_ID}" x="0" y="0" width="1" height="1" />
       ${serializeFaceDefinitions(faces)}
     </g>`;
 }
@@ -650,44 +563,56 @@ function serializeFaceDefinitionsGroup(
 export function createTransformLabScene({
   elevationDegrees = 0,
   rotationDegrees = 0,
+  includeAxes = true,
 }: {
   elevationDegrees?: number;
   rotationDegrees?: number;
+  includeAxes?: boolean;
 } = {}): TransformLabScene {
-  const { faces, renderTransform } = createTransformLabFaces({
+  const faces = createTransformLabFaces({
     elevationDegrees,
     rotationDegrees,
   });
   const definitionFaces = getFacesInDefinitionOrder(faces);
-  const axisGuideLines = createAxisGuideLines({
-    elevationDegrees,
-    rotationDegrees,
-  });
+  // Axes are a study aid only. The final exported cube SVG can omit them while
+  // reusing the exact same face geometry.
+  const axisGuideLines = includeAxes
+    ? createAxisGuideLines({
+        elevationDegrees,
+        rotationDegrees,
+      })
+    : [];
   const svgMarkup = stripIndent`
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${TRANSFORM_LAB_VIEW_BOX.width} ${TRANSFORM_LAB_VIEW_BOX.height}" width="${TRANSFORM_LAB_VIEW_BOX.width}" height="${TRANSFORM_LAB_VIEW_BOX.height}">
       <defs>
         ${serializeFaceDefinitionsGroup(definitionFaces)}
+        ${serializeFaceRenderGroup(faces)}
 
-        <marker id="transform-lab-axis-arrow-x" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" viewBox="0 0 6 6">
-          <path d="M 0 0 L 6 3 L 0 6 z" fill="${AXIS_GUIDE_COLORS.x}"/>
-        </marker>
-        
-        <marker id="transform-lab-axis-arrow-y" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" viewBox="0 0 6 6">
-          <path d="M 0 0 L 6 3 L 0 6 z" fill="${AXIS_GUIDE_COLORS.y}"/>
-        </marker>
-        
-        <marker id="transform-lab-axis-arrow-z" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" viewBox="0 0 6 6">
-          <path d="M 0 0 L 6 3 L 0 6 z" fill="${AXIS_GUIDE_COLORS.z}"/>
-        </marker>
+        ${
+          includeAxes
+            ? stripIndent`
+              <marker id="transform-lab-axis-arrow-x" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" viewBox="0 0 6 6">
+                <path d="M 0 0 L 6 3 L 0 6 z" fill="${AXIS_GUIDE_COLORS.x}"/>
+              </marker>
 
+              <marker id="transform-lab-axis-arrow-y" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" viewBox="0 0 6 6">
+                <path d="M 0 0 L 6 3 L 0 6 z" fill="${AXIS_GUIDE_COLORS.y}"/>
+              </marker>
+
+              <marker id="transform-lab-axis-arrow-z" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" viewBox="0 0 6 6">
+                <path d="M 0 0 L 6 3 L 0 6 z" fill="${AXIS_GUIDE_COLORS.z}"/>
+              </marker>`
+            : ""
+        }
       </defs>
 
       <!-- Background -->
       <rect x="0" y="0" width="${TRANSFORM_LAB_VIEW_BOX.width}" height="${TRANSFORM_LAB_VIEW_BOX.height}" fill="${BACKGROUND_COLOR}"/>
 
-      ${serializeFaceUses(faces, renderTransform)}
+      <!-- Draw the reusable face stack after defs so the same ordered cube can be reused later. -->
+      <use href="#${FACE_RENDER_GROUP_ID}" />
 
-      ${serializeAxisGuideLines(axisGuideLines)}
+      ${includeAxes ? serializeAxisGuideLines(axisGuideLines) : ""}
 
       </svg>
  `;
@@ -702,6 +627,7 @@ export function createTransformLabScene({
 export function createTransformLabSvgMarkup(args?: {
   elevationDegrees?: number;
   rotationDegrees?: number;
+  includeAxes?: boolean;
 }): string {
   return createTransformLabScene(args).svgMarkup;
 }
