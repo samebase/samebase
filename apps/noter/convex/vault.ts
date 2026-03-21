@@ -1365,7 +1365,7 @@ export const claimTreeRefresh = internalMutation({
         ? Math.max(0, Math.floor(args.debounceMs))
         : REFRESH_DEBOUNCE_MS;
 
-    // Always keep the in-flight lock so manual refreshes do not overlap.
+    // Skip if another refresh is already in progress (and not stale)
     if (
       vault.treeRefreshStartedAt &&
       now - vault.treeRefreshStartedAt < STALE_LOCK_MS

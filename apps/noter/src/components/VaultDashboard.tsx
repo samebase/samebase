@@ -738,18 +738,6 @@ export function VaultDashboard() {
     [refreshTree, vaults],
   );
 
-  const handleForceRefreshVault = useCallback(
-    (owner: string, repo: string, repositoryFullName: string) => {
-      void refreshTree({ owner, repo, force: true }).catch((error: unknown) => {
-        console.error(
-          `Failed to force refresh repository tree for ${repositoryFullName}:`,
-          error,
-        );
-      });
-    },
-    [refreshTree],
-  );
-
   useEffect(() => {
     if (!vaults || vaults.length === 0) {
       return;
@@ -1619,11 +1607,7 @@ export function VaultDashboard() {
                             title={`Last synced ${new Date(sharedLastSyncedAt).toLocaleString()}. Click to refresh now.`}
                             aria-label={`Refresh ${vault.repositoryFullName} now`}
                             onClick={() => {
-                              handleForceRefreshVault(
-                                vault.ghRepoOwner,
-                                vault.ghRepoName,
-                                vault.repositoryFullName,
-                              );
+                              window.location.reload();
                             }}
                           >
                             <span>Updated</span>
