@@ -76,7 +76,6 @@ describe("DaytonaPreviewErrorState", () => {
         onShowPreview={() => {}}
         onResetToGitHub={() => {}}
         isResettingToGitHub
-        resetToGitHubDisabled
       />,
     );
 

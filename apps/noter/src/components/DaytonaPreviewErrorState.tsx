@@ -34,6 +34,17 @@ export function DaytonaPreviewErrorState({
   isResettingToGitHub = false,
   resetToGitHubDisabled = false,
 }: DaytonaPreviewErrorStateProps) {
+  const handleResetToGitHubClick = () => {
+    if (
+      onResetToGitHub === undefined ||
+      isResettingToGitHub ||
+      resetToGitHubDisabled
+    ) {
+      return;
+    }
+    onResetToGitHub();
+  };
+
   return (
     <div className="mt-3 corner-notch-1 border bg-background/70 p-3">
       <ProsemarkReadOnly
@@ -61,8 +72,8 @@ export function DaytonaPreviewErrorState({
           <Button
             size="sm"
             variant="outline"
-            onClick={onResetToGitHub}
-            disabled={resetToGitHubDisabled}
+            onClick={handleResetToGitHubClick}
+            disabled={resetToGitHubDisabled || isResettingToGitHub}
             className="text-orange-600 hover:text-orange-700"
           >
             {isResettingToGitHub ? "Resetting..." : "Reset to GitHub"}

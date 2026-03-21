@@ -1835,6 +1835,11 @@ function FileViewInner({
         file.fileDeleted ||
         file.parentCommitSha === null,
     );
+  const isResettingToGitHub = clearingStagingStatus === "loading";
+  const resetToGitHubDisabled =
+    isResettingToGitHub ||
+    manualComittingStatus === "loading" ||
+    !hasChangesToCommit;
   const commitPreviewRefreshKey = useMemo(
     () =>
       (stagedFiles ?? [])
@@ -2186,16 +2191,10 @@ function FileViewInner({
                   size="sm"
                   variant="outline"
                   onClick={handleResetToGitHub}
-                  disabled={
-                    clearingStagingStatus === "loading" ||
-                    manualComittingStatus === "loading" ||
-                    !hasChangesToCommit
-                  }
+                  disabled={resetToGitHubDisabled}
                   className="h-6 px-2 text-xs text-orange-600 hover:text-orange-700"
                 >
-                  {clearingStagingStatus === "loading"
-                    ? "Resetting..."
-                    : "Reset to GitHub"}
+                  {isResettingToGitHub ? "Resetting..." : "Reset to GitHub"}
                 </Button>
               </div>
 
@@ -2245,12 +2244,8 @@ function FileViewInner({
               vaultId={vault._id}
               className="mb-4"
               onResetToGitHub={handleResetToGitHub}
-              isResettingToGitHub={clearingStagingStatus === "loading"}
-              resetToGitHubDisabled={
-                clearingStagingStatus === "loading" ||
-                manualComittingStatus === "loading" ||
-                !hasChangesToCommit
-              }
+              isResettingToGitHub={isResettingToGitHub}
+              resetToGitHubDisabled={resetToGitHubDisabled}
             />
           )}
 
