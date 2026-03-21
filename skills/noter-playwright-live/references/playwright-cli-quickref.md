@@ -2,6 +2,19 @@
 
 Use `@playwright/cli` for direct browser driving.
 
+## Noter Repo Default
+
+When `scripts/playwright-branch-browser.js` exists, prefer the branch wrapper so
+each branch keeps a deterministic session/profile and reopening the session adds
+a fresh tab instead of unloading a dirty page.
+
+```bash
+SESSION="$(node ./scripts/playwright-branch-browser.js session)"
+node ./scripts/playwright-branch-browser.js open "$URL"
+node ./scripts/playwright-branch-browser.js cli snapshot
+node ./scripts/playwright-branch-browser.js cli screenshot --filename=/tmp/noter-step.png
+```
+
 ## Session + Navigation
 
 ```bash

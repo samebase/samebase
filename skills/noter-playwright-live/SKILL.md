@@ -47,11 +47,16 @@ for p in $(seq 5173 5190); do
 done
 ```
 
-5. Open a Playwright CLI session scoped to the worktree/branch.
+5. Open a Playwright CLI session scoped to the current branch.
 
 ```bash
-SESSION="noter-$(basename "$PWD")-$(git rev-parse --abbrev-ref HEAD | tr '/' '-')"
-npx --yes @playwright/cli -s="$SESSION" open "$URL"
+if [ -f ./scripts/playwright-branch-browser.js ]; then
+  SESSION="$(node ./scripts/playwright-branch-browser.js session)"
+  node ./scripts/playwright-branch-browser.js open "$URL"
+else
+  SESSION="noter-$(basename "$PWD")-$(git rev-parse --abbrev-ref HEAD | tr '/' '-')"
+  npx --yes @playwright/cli -s="$SESSION" open "$URL"
+fi
 ```
 
 6. Run the requested UI actions.
@@ -63,8 +68,13 @@ npx --yes @playwright/cli -s="$SESSION" open "$URL"
 7. Capture evidence.
 
 ```bash
-npx --yes @playwright/cli -s="$SESSION" snapshot
-npx --yes @playwright/cli -s="$SESSION" screenshot --filename=/tmp/noter-<action>-<timestamp>.png
+if [ -f ./scripts/playwright-branch-browser.js ]; then
+  node ./scripts/playwright-branch-browser.js cli snapshot
+  node ./scripts/playwright-branch-browser.js cli screenshot --filename=/tmp/noter-<action>-<timestamp>.png
+else
+  npx --yes @playwright/cli -s="$SESSION" snapshot
+  npx --yes @playwright/cli -s="$SESSION" screenshot --filename=/tmp/noter-<action>-<timestamp>.png
+fi
 ```
 
 8. Report outcomes with concrete UI evidence.
@@ -89,8 +99,13 @@ Use these defaults when working in this repository.
 
 ## Playwright Session Rules
 
-- Use one session per active task/worktree.
+- In this repo, prefer `node ./scripts/playwright-branch-browser.js` or
+  `make playwright-open` over raw `@playwright/cli open`.
+- Use one deterministic session/profile per active branch.
 - Reuse the same `-s` session for multi-step flows.
+- If the branch session is already open, add a fresh tab instead of navigating a
+  dirty editor tab. This avoids Chrome `Leave site?` popups caused by
+  beforeunload handlers.
 - Avoid sharing one session across unrelated projects.
 - Use `close-all` only when explicitly cleaning up broad stale state.
 
