@@ -536,6 +536,10 @@ Auth:
 - For UI automation, never kill all `Google Chrome` processes. Only terminate
   Playwright-owned sessions/profile paths (for example
   `.../ms-playwright/mcp-chrome`).
+- For Playwright/browser automation, never bring the browser to the foreground
+  or steal OS focus from the operator's current work. Use background/headless
+  automation only; if a task truly cannot avoid a visible focused browser, stop
+  and ask first.
 - For concurrent Playwright work across multiple agents, default to isolated
   Playwright browser sessions or contexts per agent. Do not rely on separate
   tabs in a shared Chrome instance unless the user explicitly accepts the
