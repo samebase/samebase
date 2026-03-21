@@ -547,7 +547,7 @@ function FileViewWrapper() {
 
   const stagedFile = useQuery(
     api.fileStaging.getByNewPath,
-    vault && branch
+    vault && branch && selectedFile
       ? {
           branch,
           newPath: selectedFile,
@@ -639,7 +639,7 @@ function FileViewWrapper() {
     repoName,
   ]);
 
-  if (!vault || !selectedFile || !owner || !repoName || !branch) {
+  if (!vault || !owner || !repoName || !branch) {
     return null;
   }
 
@@ -726,7 +726,9 @@ function FileViewInner({
   const selectedFileIsRenderableMedia =
     isRenderableRepositoryMediaPath(selectedFile);
   const commitSha = vault.commitSHA;
-  const selectedFileGitHubUrl = `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/blob/${encodeGitHubPath(branch)}/${encodeGitHubPath(selectedFile)}`;
+  const selectedFileGitHubUrl = selectedFile
+    ? `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/blob/${encodeGitHubPath(branch)}/${encodeGitHubPath(selectedFile)}`
+    : `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/tree/${encodeGitHubPath(branch)}`;
 
   // Folder expansion state
   const folderExpansionStates = useQuery(
@@ -2438,16 +2440,18 @@ function FileViewInner({
                 <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">
                   {branch}
                 </div>
-                <h2 className="text-base md:text-sm font-medium">
-                  <a
-                    className={`block truncate ${linkStyle}`}
-                    href={selectedFileGitHubUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {selectedFile}
-                  </a>
-                </h2>
+                {selectedFile ? (
+                  <h2 className="text-base md:text-sm font-medium">
+                    <a
+                      className={`block truncate ${linkStyle}`}
+                      href={selectedFileGitHubUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {selectedFile}
+                    </a>
+                  </h2>
+                ) : null}
               </div>
               <Tabs
                 value={viewMode}
@@ -2910,7 +2914,7 @@ function FileViewInner({
                 vaultId={vault._id}
                 repositoryFullName={repositoryFullName}
                 branch={branch}
-                filePath={selectedFile}
+                filePath={selectedFile || undefined}
               />
             )}
             {!editorChatOpen ? (
@@ -2966,7 +2970,7 @@ function FileViewInner({
                     vaultId={vault._id}
                     repositoryFullName={repositoryFullName}
                     branch={branch}
-                    filePath={selectedFile}
+                    filePath={selectedFile || undefined}
                     autoFocusInput={
                       editorChatOpenState === true &&
                       editorChatPendingRef.current === true
