@@ -129,7 +129,7 @@ Recommended contents:
 
 Recommended naming:
 
-- `noter-git-cache-<env>-<userId>-<repo>`
+- `noter-git-cache-<env>-<userId>-<owner>-<repo>`
 
 Behavior:
 
@@ -239,7 +239,15 @@ When a workspace sandbox starts or needs a branch refresh:
 3. materialize from the local mirror rather than cloning from GitHub over the
    network
 4. reset the local checkout to the requested branch or commit
-5. keep existing `tmux` sessions when the sandbox itself is reused
+5. treat repo re-materialization as a `tmux` session reset boundary
+
+Implication:
+
+1. reusing a compatible sandbox does not automatically mean reusing the existing
+   `noter-shell` or `noter-dev-server` sessions
+2. if the active checkout is reset to a different branch or commit, Noter must
+   recreate those sessions before handing control back to the operator
+3. only same-checkout reconnects should preserve the existing `tmux` sessions
 
 The implementation should evaluate the fastest stable local materialization
 primitive:
