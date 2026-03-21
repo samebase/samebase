@@ -13,17 +13,26 @@ import {
 import { createLogoThreeSvgMarkup } from "@/components/logoThreeSvgRenderer";
 import {
   createTransformLabSvgMarkup,
-  TRANSFORM_LAB_VOXEL_STATE,
+  TRANSFORM_LAB_VOXEL_COORDINATES,
 } from "@/components/logoTransitionTransformFaces";
-import { createFilledVoxelSet } from "@/components/logoVoxelState";
+import {
+  createFilledVoxelSet,
+  serializeVoxelState,
+} from "@/components/logoVoxelState";
 import { useEffect, useRef, useState } from "react";
 
 export type LogoThreeVisualMode = "logo-three-reference";
-type LogoThreeVisualScene = "logo" | "transform-lab";
+type LogoThreeVisualScene =
+  | "logo"
+  | "transform-lab"
+  | "transform-lab-single-cube";
 
 const PREVIEW_SIZE = 1000;
 const SECONDARY_PREVIEW_SIZES = [240, 128, 64, 32] as const;
 const FILLED_VOXELS = createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
+const TRANSFORM_LAB_SINGLE_CUBE_VOXEL_COORDINATES = [
+  TRANSFORM_LAB_VOXEL_COORDINATES[0],
+] as const;
 
 function readAngleParam(name: string, fallback: number): number {
   const rawValue = new URLSearchParams(window.location.search).get(name);
@@ -41,7 +50,15 @@ function readAngleParam(name: string, fallback: number): number {
 
 function readSceneParam(): LogoThreeVisualScene {
   const rawValue = new URLSearchParams(window.location.search).get("scene");
-  return rawValue === "transform-lab" ? "transform-lab" : "logo";
+  if (rawValue === "transform-lab") {
+    return "transform-lab";
+  }
+
+  if (rawValue === "transform-lab-single-cube") {
+    return "transform-lab-single-cube";
+  }
+
+  return "logo";
 }
 
 function LogoThreeScalePreview({
@@ -150,24 +167,30 @@ export function LogoThreeVisualFixture() {
     "elevation",
     STATIC_LOGO_ELEVATION_DEGREES,
   );
+  const transformLabVoxelCoordinates =
+    scene === "transform-lab-single-cube"
+      ? TRANSFORM_LAB_SINGLE_CUBE_VOXEL_COORDINATES
+      : TRANSFORM_LAB_VOXEL_COORDINATES;
   const voxelState =
-    scene === "transform-lab"
-      ? TRANSFORM_LAB_VOXEL_STATE
-      : STATIC_LOGO_VOXEL_STATE;
+    scene === "logo"
+      ? STATIC_LOGO_VOXEL_STATE
+      : serializeVoxelState(createFilledVoxelSet(transformLabVoxelCoordinates));
   const svgMarkup =
-    scene === "transform-lab"
-      ? createTransformLabSvgMarkup({
-          elevationDegrees,
-          rotationDegrees,
-          includeAxes: false,
-          includeBackground: false,
-        })
-      : createLogoThreeSvgMarkup({
+    scene === "logo"
+      ? createLogoThreeSvgMarkup({
           backgroundColor: previewBackgroundColor,
           elevationDegrees,
           faceColors: DEFAULT_FACE_COLORS,
           filledVoxels: FILLED_VOXELS,
           rotationDegrees,
+        })
+      : createTransformLabSvgMarkup({
+          elevationDegrees,
+          rotationDegrees,
+          includeAxes: false,
+          includeBackground: false,
+          projectionMode: "three",
+          voxelCoordinates: transformLabVoxelCoordinates,
         });
   const svgSrc = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgMarkup)}`;
   const referenceContainerRef = useRef<HTMLDivElement | null>(null);
@@ -516,23 +539,25 @@ export function LogoThreeVisualFixture() {
           </section>
         </div>
 
-        <div className="grid gap-5 xl:grid-cols-2 2xl:grid-cols-4">
-          {SECONDARY_PREVIEW_SIZES.map((size) => (
-            <LogoThreeScalePreview
-              key={size}
-              elevationDegrees={elevationDegrees}
-              isReferenceUnavailable={isReferenceUnavailable}
-              mismatchPixels={mismatchPixelsBySize[size] ?? null}
-              onRenderUnavailable={() => {
-                setIsReferenceUnavailable(true);
-              }}
-              rotationDegrees={rotationDegrees}
-              size={size}
-              svgSrc={svgSrc}
-              voxelState={voxelState}
-            />
-          ))}
-        </div>
+        {scene === "logo" ? (
+          <div className="grid gap-5 xl:grid-cols-2 2xl:grid-cols-4">
+            {SECONDARY_PREVIEW_SIZES.map((size) => (
+              <LogoThreeScalePreview
+                key={size}
+                elevationDegrees={elevationDegrees}
+                isReferenceUnavailable={isReferenceUnavailable}
+                mismatchPixels={mismatchPixelsBySize[size] ?? null}
+                onRenderUnavailable={() => {
+                  setIsReferenceUnavailable(true);
+                }}
+                rotationDegrees={rotationDegrees}
+                size={size}
+                svgSrc={svgSrc}
+                voxelState={voxelState}
+              />
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   );

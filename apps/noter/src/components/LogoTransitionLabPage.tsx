@@ -64,6 +64,7 @@ export function LogoTransitionLabPage() {
     const scene = createTransformLabScene({
       elevationDegrees,
       includeAxes: true,
+      projectionMode: "three",
       rotationDegrees,
     });
     const parsedFaces = scene.faces.map((face) => ({

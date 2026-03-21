@@ -5,10 +5,12 @@ import {
   type FaceColorKey,
 } from "@/components/logoTailwindColors";
 import {
+  createLogoProjector,
   type LogoProjectedPoint,
   type LogoWorldPoint,
 } from "@/components/logoThreeSvgRenderer";
 import { stripIndent } from "../../shared/stripIndent";
+import { HALF_GRID, type VoxelCoordinate } from "./logoVoxelState";
 
 type CubeFaceDefinition = {
   color: string;
@@ -27,6 +29,8 @@ type AxisGuideLine = {
   labelPosition: LogoProjectedPoint;
   start: LogoProjectedPoint;
 };
+
+type TransformLabProjectionMode = "study" | "three";
 
 export type TransformLabFace = {
   color: string;
@@ -69,6 +73,11 @@ const AXIS_GUIDE_COLORS = {
 } as const;
 const BACKGROUND_COLOR = "#fcfbf7";
 export const TRANSFORM_LAB_VOXEL_STATE = "ox_oo-xo_ox";
+export const TRANSFORM_LAB_VOXEL_COORDINATES = [
+  [1, 0, 0],
+  [0, 0, 1],
+  [1, 1, 1],
+] as const satisfies readonly VoxelCoordinate[];
 const CUBE_FACE_IDS = {
   posZFront: "posZ-front",
   negZBack: "negZ-back",
@@ -288,19 +297,39 @@ function getCameraBasis(elevationDegrees: number): {
 
 function createLabLogoProjector({
   elevationDegrees,
+  projectionMode,
   rotationDegrees,
   scenePoints,
   unitScale,
 }: {
   elevationDegrees: number;
+  projectionMode: TransformLabProjectionMode;
   rotationDegrees: number;
   scenePoints: readonly LogoWorldPoint[];
   unitScale: number;
 }): {
   cameraDirection: LogoWorldPoint;
+  projectWorldPoint: (point: LogoWorldPoint) => LogoProjectedPoint;
   projectRotatedPoint: (point: LogoWorldPoint) => LogoProjectedPoint;
   rotateWorldPoint: (point: LogoWorldPoint) => LogoWorldPoint;
 } {
+  if (projectionMode === "three") {
+    const projector = createLogoProjector({
+      elevationDegrees,
+      rotationDegrees,
+      scenePoints,
+      viewBoxSize: unitScale,
+    });
+
+    return {
+      cameraDirection: projector.cameraDirection,
+      projectWorldPoint: (point) =>
+        projector.projectRotatedPoint(projector.rotateWorldPoint(point)),
+      projectRotatedPoint: projector.projectRotatedPoint,
+      rotateWorldPoint: projector.rotateWorldPoint,
+    };
+  }
+
   const { cameraDirection, right, up } = getCameraBasis(elevationDegrees);
   const rotationRadians = (rotationDegrees * Math.PI) / 180;
   const rotateWorldPoint = (point: LogoWorldPoint) =>
@@ -317,6 +346,17 @@ function createLabLogoProjector({
 
   return {
     cameraDirection,
+    projectWorldPoint: (point) =>
+      orientToSvgPoint(
+        projectPoint(
+          rotateWorldPoint(point),
+          right,
+          up,
+          frustumHalfHeight,
+          unitScale,
+        ),
+        TRANSFORM_LAB_VIEW_BOX.height,
+      ),
     projectRotatedPoint: (point) =>
       projectPoint(point, right, up, frustumHalfHeight, unitScale),
     rotateWorldPoint,
@@ -365,28 +405,6 @@ function createVoxelKey(x: number, y: number, z: number): string {
   return `${x},${y},${z}`;
 }
 
-function parseTransformLabVoxelState(
-  serializedState: string,
-): TransformLabVoxel[] {
-  // The transform lab uses the simplest traversal order:
-  // negZ -> posZ layers, negY -> posY rows, negX -> posX columns.
-  return serializedState.split("-").flatMap((layer, z) =>
-    layer.split("_").flatMap((row, y) =>
-      Array.from(row).flatMap((cell, x) =>
-        cell === "x"
-          ? [
-              {
-                x,
-                y,
-                z,
-              },
-            ]
-          : [],
-      ),
-    ),
-  );
-}
-
 function translateWorldPoint(
   point: LogoWorldPoint,
   voxel: TransformLabVoxel,
@@ -395,6 +413,24 @@ function translateWorldPoint(
     x: point.x + voxel.x,
     y: point.y + voxel.y,
     z: point.z + voxel.z,
+  };
+}
+
+function normalizeTransformLabVoxels(
+  voxelCoordinates: readonly VoxelCoordinate[],
+): TransformLabVoxel[] {
+  return voxelCoordinates.map(([x, y, z]) => ({
+    x,
+    y,
+    z,
+  }));
+}
+
+function toThreeWorldPoint(point: LogoWorldPoint): LogoWorldPoint {
+  return {
+    x: point.x - HALF_GRID,
+    y: point.y - HALF_GRID,
+    z: point.z - HALF_GRID,
   };
 }
 
@@ -418,41 +454,48 @@ function getAxisLabelPosition(
 
 function createAxisGuideLines(args: {
   elevationDegrees: number;
+  projectionMode: TransformLabProjectionMode;
   rotationDegrees: number;
 }): AxisGuideLine[] {
   const origin = { x: 0, y: 0, z: 0 };
   const xEnd = { x: AXIS_GUIDE_LENGTH, y: 0, z: 0 };
   const yEnd = { x: 0, y: AXIS_GUIDE_LENGTH, z: 0 };
   const zEnd = { x: 0, y: 0, z: AXIS_GUIDE_LENGTH };
+  const worldOrigin =
+    args.projectionMode === "three" ? toThreeWorldPoint(origin) : origin;
+  const worldXEnd =
+    args.projectionMode === "three" ? toThreeWorldPoint(xEnd) : xEnd;
+  const worldYEnd =
+    args.projectionMode === "three" ? toThreeWorldPoint(yEnd) : yEnd;
+  const worldZEnd =
+    args.projectionMode === "three" ? toThreeWorldPoint(zEnd) : zEnd;
   const projector = createLabLogoProjector({
     elevationDegrees: args.elevationDegrees,
+    projectionMode: args.projectionMode,
     rotationDegrees: args.rotationDegrees,
-    scenePoints: [origin, xEnd, yEnd, zEnd],
+    scenePoints: [worldOrigin, worldXEnd, worldYEnd, worldZEnd],
     unitScale: TRANSFORM_LAB_VIEW_BOX.width,
   });
   const projectToViewBox = (point: LogoWorldPoint): LogoProjectedPoint =>
-    orientToSvgPoint(
-      projector.projectRotatedPoint(projector.rotateWorldPoint(point)),
-      TRANSFORM_LAB_VIEW_BOX.height,
-    );
-  const projectedOrigin = projectToViewBox(origin);
+    projector.projectWorldPoint(point);
+  const projectedOrigin = projectToViewBox(worldOrigin);
 
   return [
     {
       color: AXIS_GUIDE_COLORS.x,
-      end: projectToViewBox(xEnd),
+      end: projectToViewBox(worldXEnd),
       key: "x" as const,
       label: "X",
     },
     {
       color: AXIS_GUIDE_COLORS.y,
-      end: projectToViewBox(yEnd),
+      end: projectToViewBox(worldYEnd),
       key: "y" as const,
       label: "Y",
     },
     {
       color: AXIS_GUIDE_COLORS.z,
-      end: projectToViewBox(zEnd),
+      end: projectToViewBox(worldZEnd),
       key: "z" as const,
       label: "Z",
     },
@@ -477,21 +520,55 @@ function calculateFaceCenter(
   };
 }
 
+function getThreeFaceColor(face: CubeFaceDefinition): {
+  color: string;
+  colorKey: FaceColorKey;
+} {
+  if (face.normal.y !== 0) {
+    return {
+      color: getTailwindColorHex(DEFAULT_FACE_COLORS.top),
+      colorKey: "top",
+    };
+  }
+
+  if (face.normal.x !== 0) {
+    return {
+      color: getTailwindColorHex(DEFAULT_FACE_COLORS.right),
+      colorKey: "right",
+    };
+  }
+
+  return {
+    color: getTailwindColorHex(DEFAULT_FACE_COLORS.left),
+    colorKey: "left",
+  };
+}
+
 function createTransformLabFaces(args: {
   elevationDegrees: number;
+  projectionMode: TransformLabProjectionMode;
   rotationDegrees: number;
+  voxelCoordinates?: readonly VoxelCoordinate[];
 }): TransformLabFace[] {
-  const voxels = parseTransformLabVoxelState(TRANSFORM_LAB_VOXEL_STATE);
+  const voxels = normalizeTransformLabVoxels(
+    args.voxelCoordinates ?? TRANSFORM_LAB_VOXEL_COORDINATES,
+  );
   const filledVoxelKeys = new Set(
     voxels.map((voxel) => createVoxelKey(voxel.x, voxel.y, voxel.z)),
   );
   const scenePoints = voxels.flatMap((voxel) =>
     SINGLE_CUBE_FACE_DEFINITIONS.flatMap((face) =>
-      face.corners.map((point) => translateWorldPoint(point, voxel)),
+      face.corners.map((point) => {
+        const translatedPoint = translateWorldPoint(point, voxel);
+        return args.projectionMode === "three"
+          ? toThreeWorldPoint(translatedPoint)
+          : translatedPoint;
+      }),
     ),
   );
   const projector = createLabLogoProjector({
     elevationDegrees: args.elevationDegrees,
+    projectionMode: args.projectionMode,
     rotationDegrees: args.rotationDegrees,
     scenePoints,
     unitScale: TRANSFORM_LAB_VIEW_BOX.width,
@@ -511,29 +588,37 @@ function createTransformLabFaces(args: {
       const corners = face.corners.map((point) =>
         translateWorldPoint(point, voxel),
       );
-      const rotatedCorners = corners.map(projector.rotateWorldPoint);
-      const projectedCorners = rotatedCorners.map((point) =>
-        orientToSvgPoint(
-          projector.projectRotatedPoint(point),
-          TRANSFORM_LAB_VIEW_BOX.height,
-        ),
+      const worldCorners =
+        args.projectionMode === "three"
+          ? corners.map(toThreeWorldPoint)
+          : corners;
+      const projectedCorners = worldCorners.map((point) =>
+        projector.projectWorldPoint(point),
       );
-      const centeredFacePoint = calculateFaceCenter(corners);
+      const centeredFacePoint = calculateFaceCenter(worldCorners);
       const rotatedCenter = projector.rotateWorldPoint(centeredFacePoint);
       const rectId = `${face.rectId}-${voxel.x}-${voxel.y}-${voxel.z}`;
       const isDebugFrontFace =
+        args.projectionMode === "study" &&
         voxel.x === 1 &&
         voxel.y === 0 &&
         voxel.z === 0 &&
         face.key === CUBE_FACE_IDS.posZFront;
+      const resolvedFaceColor =
+        args.projectionMode === "three"
+          ? getThreeFaceColor(face)
+          : {
+              color: face.color,
+              colorKey: face.colorKey,
+            };
 
       return [
         {
           // Temporary debug marker: highlight one known front face so the voxel
           // coordinate mapping stays easy to verify while iterating on the scene.
-          color: isDebugFrontFace ? "#ef4444" : face.color,
+          color: isDebugFrontFace ? "#ef4444" : resolvedFaceColor.color,
           rectId,
-          colorKey: face.colorKey,
+          colorKey: resolvedFaceColor.colorKey,
           corners: projectedCorners,
           depth: dotWorldPoints(rotatedCenter, projector.cameraDirection),
           key: rectId,
@@ -630,16 +715,22 @@ export function createTransformLabScene({
   includeAxes = true,
   includeBackground = true,
   backgroundColor = BACKGROUND_COLOR,
+  projectionMode = "study",
+  voxelCoordinates,
 }: {
   elevationDegrees?: number;
   rotationDegrees?: number;
   includeAxes?: boolean;
   includeBackground?: boolean;
   backgroundColor?: string;
+  projectionMode?: TransformLabProjectionMode;
+  voxelCoordinates?: readonly VoxelCoordinate[];
 } = {}): TransformLabScene {
   const faces = createTransformLabFaces({
     elevationDegrees,
+    projectionMode,
     rotationDegrees,
+    voxelCoordinates,
   });
   const definitionFaces = faces;
   // Axes are a study aid only. The final exported cube SVG can omit them while
@@ -647,6 +738,7 @@ export function createTransformLabScene({
   const axisGuideLines = includeAxes
     ? createAxisGuideLines({
         elevationDegrees,
+        projectionMode,
         rotationDegrees,
       })
     : [];
@@ -703,6 +795,8 @@ export function createTransformLabSvgMarkup(args?: {
   includeAxes?: boolean;
   includeBackground?: boolean;
   backgroundColor?: string;
+  projectionMode?: TransformLabProjectionMode;
+  voxelCoordinates?: readonly VoxelCoordinate[];
 }): string {
   return createTransformLabScene(args).svgMarkup;
 }

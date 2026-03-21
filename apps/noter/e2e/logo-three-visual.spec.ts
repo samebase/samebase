@@ -13,6 +13,12 @@ test.use({ serviceWorkers: "block" });
 
 const MAX_PARITY_MISMATCH_PIXELS = 20_000;
 const MAX_ANGLE_PARITY_DIFF_PIXEL_RATIO = 0.01;
+const MAX_SINGLE_CUBE_DIFF_PIXEL_RATIO = 0.002;
+
+type LogoThreeFixtureScene =
+  | "logo"
+  | "transform-lab"
+  | "transform-lab-single-cube";
 
 const ANGLE_PARITY_CASES = [
   {
@@ -41,15 +47,19 @@ async function openLogoThreeFixtureAtAngle(
   {
     elevationDegrees,
     rotationDegrees,
+    scene = "logo",
   }: {
     elevationDegrees: number;
     rotationDegrees: number;
+    scene?: LogoThreeFixtureScene;
   },
 ) {
   await page.goto(
-    `/visual-fixture.html?mode=logo-three-reference&rotation=${encodeURIComponent(
-      rotationDegrees,
-    )}&elevation=${encodeURIComponent(elevationDegrees)}`,
+    `/visual-fixture.html?mode=logo-three-reference&scene=${encodeURIComponent(
+      scene,
+    )}&rotation=${encodeURIComponent(rotationDegrees)}&elevation=${encodeURIComponent(
+      elevationDegrees,
+    )}`,
     {
       waitUntil: "domcontentloaded",
     },
@@ -121,6 +131,26 @@ test("logo three reference fixture", async ({ page }) => {
     caret: "hide",
     scale: "css",
     maxDiffPixelRatio: 0.01,
+  });
+});
+
+test("transform lab single cube parity fixture", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 3400, height: 2600 });
+  const { reference, svgFrame } = await openLogoThreeFixtureAtAngle(page, {
+    elevationDegrees: STATIC_LOGO_ELEVATION_DEGREES,
+    rotationDegrees: STATIC_LOGO_ROTATION_DEGREES,
+    scene: "transform-lab-single-cube",
+  });
+
+  const referenceScreenshot = await takeStableScreenshot(reference);
+  const svgScreenshot = await takeStableScreenshot(svgFrame);
+
+  await expectScreenshotsToMatch({
+    actual: svgScreenshot,
+    artifactPrefix: "transform-lab-single-cube",
+    expected: referenceScreenshot,
+    maxDiffPixelRatio: MAX_SINGLE_CUBE_DIFF_PIXEL_RATIO,
+    testInfo,
   });
 });
 
