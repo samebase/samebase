@@ -209,6 +209,20 @@ const EDITOR_CHAT_DEFAULT_HEIGHT = 22 * 16;
 const EDITOR_CHAT_MOBILE_DEFAULT_HEIGHT_RATIO = 0.45;
 const EDITOR_CHAT_MAX_HEIGHT_RATIO = 0.7;
 
+function ClosedEditorChatMark({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 12 12"
+      aria-hidden="true"
+      shapeRendering="crispEdges"
+      className={className}
+    >
+      <rect width="12" height="12" fill="#394447" />
+      <rect x="4" y="4" width="4" height="4" fill="#ffffff" />
+    </svg>
+  );
+}
+
 function getMaxEditorChatHeight(): number {
   if (typeof window === "undefined") {
     return EDITOR_CHAT_DEFAULT_HEIGHT;
@@ -2868,18 +2882,13 @@ function FileViewInner({
               <Button
                 type="button"
                 size="icon"
-                variant="outline"
+                variant="ghost"
                 onClick={() => handleEditorChatOpenChange(true)}
                 aria-label="Open chat"
                 title="Open chat"
-                className="absolute bottom-3 right-3 z-10 overflow-hidden border-border bg-background p-0 text-foreground hover:bg-accent"
+                className="absolute bottom-3 right-3 z-10 overflow-hidden rounded-ui border-0 bg-transparent p-0 hover:bg-transparent hover:opacity-90"
               >
-                <img
-                  src="/favicon-32.png"
-                  alt=""
-                  aria-hidden="true"
-                  className="block h-full w-full"
-                />
+                <ClosedEditorChatMark className="block h-full w-full" />
               </Button>
             ) : null}
           </div>
