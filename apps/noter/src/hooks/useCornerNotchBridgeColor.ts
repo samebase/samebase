@@ -33,7 +33,7 @@ export function useCornerNotchBridgeColor<T extends HTMLElement>(
       return;
     }
 
-    if (cornerNotch !== 2) {
+    if (!cornerNotch) {
       element.style.removeProperty("--noter-corner-notch-bridge-color");
       return;
     }

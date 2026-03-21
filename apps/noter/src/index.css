@@ -281,10 +281,12 @@
   }
 
   .border {
+    --noter-corner-notch-border-width: 1px;
     --noter-corner-notch-stroke: 1px;
   }
 
   .border-2 {
+    --noter-corner-notch-border-width: 2px;
     --noter-corner-notch-stroke: 2px;
   }
 
@@ -343,6 +345,36 @@
       var(--noter-notch-2) var(--noter-notch-1),
       var(--noter-notch-2) 0
     );
+    position: relative;
+  }
+
+  .corner-notch-1::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    /*
+     * The stepped notch keeps a single inner bridge block at each corner.
+     * Native borders never reach those blocks after clipping, so bordered
+     * surfaces need a separate paint pass there.
+     */
+    background:
+      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
+        var(--noter-notch-1) var(--noter-notch-1) /
+        var(--noter-corner-notch-border-width, 0px)
+        var(--noter-corner-notch-border-width, 0px) no-repeat,
+      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
+        var(--noter-notch-end-2) var(--noter-notch-1) /
+        var(--noter-corner-notch-border-width, 0px)
+        var(--noter-corner-notch-border-width, 0px) no-repeat,
+      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
+        var(--noter-notch-end-2) var(--noter-notch-end-2) /
+        var(--noter-corner-notch-border-width, 0px)
+        var(--noter-corner-notch-border-width, 0px) no-repeat,
+      linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
+        var(--noter-notch-1) var(--noter-notch-end-2) /
+        var(--noter-corner-notch-border-width, 0px)
+        var(--noter-corner-notch-border-width, 0px) no-repeat;
   }
 
   .corner-notch-2 {
