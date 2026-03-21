@@ -2568,7 +2568,7 @@ function FileViewInner({
             {reviewModeButton}
           </div>
 
-          <div className="flex-1 min-h-0">
+          <div className="relative flex-1 min-h-0">
             {viewMode === "editor" ? (
               commitReviewMode === "review" ? (
                 <div className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -2864,6 +2864,18 @@ function FileViewInner({
                 filePath={selectedFile}
               />
             )}
+            {!editorChatOpen ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => handleEditorChatOpenChange(true)}
+                className="absolute bottom-3 right-3 z-10 h-9 gap-2 border border-border bg-background px-3 text-xs hover:bg-accent"
+              >
+                <MessageSquare className="h-4 w-4" />
+                Open Chat
+              </Button>
+            ) : null}
           </div>
           {editorChatOpen ? (
             <div

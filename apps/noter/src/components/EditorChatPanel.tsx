@@ -844,7 +844,7 @@ export function EditorChatPanel({
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="border-t border-border px-2.5 py-2">
+      <div className="border-t border-border">
         <ChatInput
           ref={inputRef}
           value={input}
@@ -856,6 +856,7 @@ export function EditorChatPanel({
           disabled={sending || isWaitingForResponse}
           mode={inputMode}
           autoResize
+          sendButtonClassName="m-2 p-2"
         />
       </div>
     </div>
