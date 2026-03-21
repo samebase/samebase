@@ -3,6 +3,14 @@
 This file provides guidance to AI agents (Claude Code, Cursor, etc.) when
 working with this repository.
 
+## startup
+
+<!-- tell here that `make bootstrap-anon`  probably has run -->
+
+<!-- tell to run `make anon` so the worktree is setup, since it probably runs a worktree
+maybe add single command that runs either of these depending on current situation (includign daytona?)
+-->
+
 ## Project Structure
 
 noter is a Turborepo monorepo (PNPM + Node 24) with two apps:
@@ -19,27 +27,37 @@ When starting a fresh chat for implementation/debugging, read in this order:
 
 1. `AGENTS.md` (this file)
 2. `README.md` (product/dev overview)
-3. `apps/noter-starter-template/AGENTS.md` +
-   `apps/noter-starter-template/scripts/export-template-manifest.mjs` (starter
-   regeneration contract + manifest export)
-4. `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md` (vault infra lifecycle)
-5. `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md` (approval-first prod reads)
-6. `specs/001_CODESPACE_CONNECTION_SPEC.md` (codespace architecture)
+   <!-- dumb -->
+   <!-- 3. `apps/noter-starter-template/AGENTS.md` +
+      `apps/noter-starter-template/scripts/export-template-manifest.mjs` (starter
+      regeneration contract + manifest export) -->
+      <!-- research if it's actually necessary to read specs or just mention that they exist if needed (skill?) -->
+3. `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md` (vault infra lifecycle)
+4. `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md` (approval-first prod reads)
+5. `specs/001_CODESPACE_CONNECTION_SPEC.md` (codespace architecture)
+
+<!-- it has almost 1000 lines, do not read and the schema would've been one of the most important
+things -->
+
 7. `apps/noter/convex/schema.ts` (source of truth for data model)
-8. `apps/noter/convex/vaultActions.ts` +
-   `apps/noter/convex/infraProvisioning.ts` (vault creation + infra
-   provisioning)
-9. `apps/noter/convex/chat/index.ts` + `apps/noter/convex/chat/actions.ts`
+   <!-- and these are completely irrelefant -->
+   <!-- 8. `apps/noter/convex/vaultActions.ts` +
+      `apps/noter/convex/infraProvisioning.ts` (vault creation + infra
+      provisioning)
+8. `apps/noter/convex/chat/index.ts` + `apps/noter/convex/chat/actions.ts`
    (chat + approval flows)
-10. `apps/noter/src/components/VaultDashboard.tsx` +
-    `apps/noter/src/components/ChatFab.tsx` (user-visible controls)
+9. `apps/noter/src/components/VaultDashboard.tsx` +
+   `apps/noter/src/components/ChatFab.tsx` (user-visible controls) -->
 
 Low-signal/historical docs (do not treat as source of truth):
 
-- `LUMINA_PROJECT_ANALYSIS.md`
-- `apps/noter/src/components/Untitled-1.md`
+<!-- do we just need to delete these files? -->
+<!-- - `LUMINA_PROJECT_ANALYSIS.md`
+- `apps/noter/src/components/Untitled-1.md` -->
 
 ## Spec Organization
+
+<!-- maybe not now, but rethink this and maybe always start with just a pr/ let's start with just using a single  -->
 
 - `specs/` is for accepted/current source-of-truth docs only. A doc belongs here
   only when it describes current behavior or an accepted implementation plan
@@ -57,6 +75,8 @@ Low-signal/historical docs (do not treat as source of truth):
   in small batches and update references/fixtures in the same change.
 
 ## Development Commands
+
+<!-- idk, maybe just explain where it runs and about `make anon` so it doesn't do all this? -->
 
 ```bash
 # From root
@@ -80,8 +100,12 @@ make anon-once        # One-shot bootstrap for lint/codegen/hook commands in wor
 
 ### Local Environment Notes
 
+<!-- which exactly environment, probably osx/windows/daytona -->
+
 - `rg` (ripgrep) is not available in this environment. Use `grep`/`find`
   instead.
+  <!-- maybe just force to run `make anon-once` on startup -->
+  <!-- apparently these are not notes, this is the backbone -->
 - If Convex tooling complains about missing `CONVEX_DEPLOYMENT` (for lint or
   codegen), run `make anon` to set up an anonymous deployment.
 - In a git worktree, always start with `make anon` before dev/lint/test/commit
@@ -89,6 +113,8 @@ make anon-once        # One-shot bootstrap for lint/codegen/hook commands in wor
 - In a git worktree, do not run `npx convex dev` directly for normal startup;
   `make anon` is the required entrypoint.
 - For one-off setup in a git worktree, use `make anon-once`.
+
+<!-- maybe find official skill? -->
 
 ### Convex CLI
 
@@ -127,7 +153,8 @@ use `--env-file` or an explicit deployment selector instead.
 - **Auth**: Convex Auth app login (Google in prod, Google + password in dev)
   plus provider connection OAuth/API key flows
 - **Editor**: CodeMirror 6 with collaborative editing via Convex
-- **UI**: Tailwind CSS + Radix UI components + shadcn/ui patterns
+- **UI**: Tailwind CSS + Radix UI components + shadcn/ui patterns + a bit of
+  inhouse corner-notch-1
 - **State**: Convex real-time queries + TanStack Query
 
 **Key Data Models** (Convex schema):
@@ -562,6 +589,10 @@ Auth:
   incremental checkpoints and notable decisions, and update the PR title and
   description when the scope shifts materially. Do not default to keeping the
   primary work log in repo files unless the user explicitly asks for that.
+- Do not mirror the full chat transcript or raw tool-by-tool logs into the PR by
+  default. Summarize the important decisions, validation, and links in GitHub,
+  and only link out to heavier artifacts if the user explicitly wants that level
+  of trace detail.
 - Do not introduce new `.mjs` files; keep `type: "module"` and prefer `.js`
   files as ESM.
 - Always rebase work branches on `origin/main` (not only local `main`) before
