@@ -1,14 +1,18 @@
 import { Button } from "@/components/button";
 import { createTransformLabScene } from "@/components/logoTransitionTransformFaces";
-import { normalizeRotationDegrees } from "@/components/logoVoxelState";
+import {
+  DEFAULT_ELEVATION_DEGREES as DEFAULT_ISOMETRIC_ELEVATION_DEGREES,
+  DEFAULT_ROTATION_DEGREES as DEFAULT_ISOMETRIC_ROTATION_DEGREES,
+  normalizeRotationDegrees,
+} from "@/components/logoVoxelState";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 const ROTATION_PRESETS = [0, 45, 90, 135, 180, 225, 270, 315] as const;
 const ROTATION_STEP_INTERVAL_MS = 40;
 const DEFAULT_ROTATION_SPEED = 24;
-const DEFAULT_ROTATION_DEGREES = 0;
-const DEFAULT_ELEVATION_DEGREES = 0;
+const DEFAULT_ROTATION_DEGREES = DEFAULT_ISOMETRIC_ROTATION_DEGREES;
+const DEFAULT_ELEVATION_DEGREES = DEFAULT_ISOMETRIC_ELEVATION_DEGREES;
 const ELEVATION_MIN_DEGREES = -85;
 const ELEVATION_MAX_DEGREES = 85;
 

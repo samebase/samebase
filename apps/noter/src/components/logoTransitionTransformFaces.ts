@@ -13,6 +13,7 @@ import { stripIndent } from "../../shared/stripIndent";
 type CubeFaceDefinition = {
   color: string;
   colorKey: FaceColorKey;
+  normal: LogoWorldPoint;
   rectId: string;
   key: string;
   corners: [LogoWorldPoint, LogoWorldPoint, LogoWorldPoint, LogoWorldPoint];
@@ -53,7 +54,7 @@ export const TRANSFORM_LAB_VIEW_BOX = {
 } as const;
 
 const FACE_STROKE_WIDTH = 0.14;
-const AXIS_GUIDE_LENGTH = 1.25;
+const AXIS_GUIDE_LENGTH = 2.25;
 const AXIS_GUIDE_LABEL_DISTANCE = 11;
 const CAMERA_FRUSTUM_PADDING = 1.12;
 const CAMERA_RIGHT_AXIS: LogoWorldPoint = {
@@ -67,6 +68,7 @@ const AXIS_GUIDE_COLORS = {
   z: "#2563eb",
 } as const;
 const BACKGROUND_COLOR = "#fcfbf7";
+export const TRANSFORM_LAB_VOXEL_STATE = "ox_oo-xo_ox";
 const CUBE_FACE_IDS = {
   posZFront: "posZ-front",
   negZBack: "negZ-back",
@@ -75,17 +77,6 @@ const CUBE_FACE_IDS = {
   posYDown: "posY-down",
   negYTop: "negY-top",
 } as const;
-// Face identifiers are intentionally semantic, not numeric.
-// These names match camera-facing intent so the generated SVG can be read without
-// mapping math formula output to human-readable geometry labels.
-const FACE_OUTPUT_ORDER = [
-  CUBE_FACE_IDS.posZFront,
-  CUBE_FACE_IDS.negXLeft,
-  CUBE_FACE_IDS.negYTop,
-  CUBE_FACE_IDS.posYDown,
-  CUBE_FACE_IDS.negZBack,
-  CUBE_FACE_IDS.posXRight,
-] as const;
 const FACE_DEFINITIONS_GROUP_ID = "transform-lab-face-definitions";
 const FACE_RENDER_GROUP_ID = "transform-lab-faces";
 const FACE_RECT_DEFINITION_ID = "unit";
@@ -95,16 +86,19 @@ const ORIGIN_MARKER_LABEL_OFFSET = {
 } as const;
 
 const SINGLE_CUBE_FACE_DEFINITIONS = [
+  // These are local unit-cube face templates. Multi-cube scenes translate the
+  // same faces through integer grid coordinates before projection.
   // Color intent:
   // - posZ-front: primary
   // - X-axis faces (negX-left, posX-right): secondary
   // - Y-axis faces (negY-top, posY-down): top/background
-  // - negZ-back: secondary
+  // - negZ-back: primary
   {
     color: getTailwindColorHex(DEFAULT_FACE_COLORS.right),
     rectId: CUBE_FACE_IDS.posZFront,
     colorKey: "right",
     key: "posZ-front",
+    normal: { x: 0, y: 0, z: 1 },
     corners: [
       { x: 0, y: 0, z: 1 },
       { x: 1, y: 0, z: 1 },
@@ -117,6 +111,7 @@ const SINGLE_CUBE_FACE_DEFINITIONS = [
     rectId: CUBE_FACE_IDS.negXLeft,
     colorKey: "left",
     key: "negX-left",
+    normal: { x: -1, y: 0, z: 0 },
     corners: [
       { x: 0, y: 0, z: 1 },
       { x: 0, y: 0, z: 0 },
@@ -129,6 +124,7 @@ const SINGLE_CUBE_FACE_DEFINITIONS = [
     rectId: CUBE_FACE_IDS.negYTop,
     colorKey: "top",
     key: "negY-top",
+    normal: { x: 0, y: -1, z: 0 },
     corners: [
       { x: 0, y: 0, z: 0 },
       { x: 1, y: 0, z: 0 },
@@ -141,6 +137,7 @@ const SINGLE_CUBE_FACE_DEFINITIONS = [
     rectId: CUBE_FACE_IDS.posXRight,
     colorKey: "left",
     key: "posX-right",
+    normal: { x: 1, y: 0, z: 0 },
     corners: [
       { x: 1, y: 0, z: 0 },
       { x: 1, y: 0, z: 1 },
@@ -153,6 +150,7 @@ const SINGLE_CUBE_FACE_DEFINITIONS = [
     rectId: CUBE_FACE_IDS.posYDown,
     colorKey: "top",
     key: "posY-down",
+    normal: { x: 0, y: 1, z: 0 },
     corners: [
       { x: 0, y: 1, z: 1 },
       { x: 1, y: 1, z: 1 },
@@ -165,6 +163,7 @@ const SINGLE_CUBE_FACE_DEFINITIONS = [
     rectId: CUBE_FACE_IDS.negZBack,
     colorKey: "right",
     key: "negZ-back",
+    normal: { x: 0, y: 0, z: -1 },
     corners: [
       { x: 1, y: 0, z: 0 },
       { x: 0, y: 0, z: 0 },
@@ -173,6 +172,12 @@ const SINGLE_CUBE_FACE_DEFINITIONS = [
     ],
   },
 ] as const satisfies readonly CubeFaceDefinition[];
+
+type TransformLabVoxel = {
+  x: number;
+  y: number;
+  z: number;
+};
 
 function escapeSvgAttribute(value: string): string {
   return value
@@ -356,6 +361,43 @@ function createRectTransformFromCorners(
   );
 }
 
+function createVoxelKey(x: number, y: number, z: number): string {
+  return `${x},${y},${z}`;
+}
+
+function parseTransformLabVoxelState(
+  serializedState: string,
+): TransformLabVoxel[] {
+  // The transform lab uses the simplest traversal order:
+  // negZ -> posZ layers, negY -> posY rows, negX -> posX columns.
+  return serializedState.split("-").flatMap((layer, z) =>
+    layer.split("_").flatMap((row, y) =>
+      Array.from(row).flatMap((cell, x) =>
+        cell === "x"
+          ? [
+              {
+                x,
+                y,
+                z,
+              },
+            ]
+          : [],
+      ),
+    ),
+  );
+}
+
+function translateWorldPoint(
+  point: LogoWorldPoint,
+  voxel: TransformLabVoxel,
+): LogoWorldPoint {
+  return {
+    x: point.x + voxel.x,
+    y: point.y + voxel.y,
+    z: point.z + voxel.z,
+  };
+}
+
 function dotWorldPoints(left: LogoWorldPoint, right: LogoWorldPoint): number {
   return left.x * right.x + left.y * right.y + left.z * right.z;
 }
@@ -439,51 +481,73 @@ function createTransformLabFaces(args: {
   elevationDegrees: number;
   rotationDegrees: number;
 }): TransformLabFace[] {
-  const faceCorners = SINGLE_CUBE_FACE_DEFINITIONS.map((face) => face.corners);
+  const voxels = parseTransformLabVoxelState(TRANSFORM_LAB_VOXEL_STATE);
+  const filledVoxelKeys = new Set(
+    voxels.map((voxel) => createVoxelKey(voxel.x, voxel.y, voxel.z)),
+  );
+  const scenePoints = voxels.flatMap((voxel) =>
+    SINGLE_CUBE_FACE_DEFINITIONS.flatMap((face) =>
+      face.corners.map((point) => translateWorldPoint(point, voxel)),
+    ),
+  );
   const projector = createLabLogoProjector({
     elevationDegrees: args.elevationDegrees,
     rotationDegrees: args.rotationDegrees,
-    scenePoints: faceCorners.flat(),
+    scenePoints,
     unitScale: TRANSFORM_LAB_VIEW_BOX.width,
   });
-  const projectedFaces = SINGLE_CUBE_FACE_DEFINITIONS.map((face, index) => {
-    const corners = faceCorners[index];
-    const rotatedCorners = corners.map(projector.rotateWorldPoint);
-    const projectedCorners = rotatedCorners.map((point) =>
-      orientToSvgPoint(
-        projector.projectRotatedPoint(point),
-        TRANSFORM_LAB_VIEW_BOX.height,
-      ),
-    );
-    const centeredFacePoint = calculateFaceCenter(face.corners);
-    const rotatedCenter = projector.rotateWorldPoint(centeredFacePoint);
+  const projectedFaces = voxels.flatMap((voxel) =>
+    SINGLE_CUBE_FACE_DEFINITIONS.flatMap((face) => {
+      const neighborX = voxel.x + face.normal.x;
+      const neighborY = voxel.y + face.normal.y;
+      const neighborZ = voxel.z + face.normal.z;
 
-    return {
-      color: face.color,
-      rectId: face.rectId,
-      colorKey: face.colorKey,
-      corners: projectedCorners,
-      depth: dotWorldPoints(rotatedCenter, projector.cameraDirection),
-      key: face.key,
-      stroke: face.color,
-      strokeWidth: FACE_STROKE_WIDTH,
-      // Keep each face in direct projected screen space. A previous attempt to
-      // decompose everything through a parent basis caused singularities near
-      // edge-on views and visible flipping when the basis changed.
-      transform: createRectTransformFromCorners(projectedCorners),
-    };
-  });
+      if (
+        filledVoxelKeys.has(createVoxelKey(neighborX, neighborY, neighborZ))
+      ) {
+        return [];
+      }
+
+      const corners = face.corners.map((point) =>
+        translateWorldPoint(point, voxel),
+      );
+      const rotatedCorners = corners.map(projector.rotateWorldPoint);
+      const projectedCorners = rotatedCorners.map((point) =>
+        orientToSvgPoint(
+          projector.projectRotatedPoint(point),
+          TRANSFORM_LAB_VIEW_BOX.height,
+        ),
+      );
+      const centeredFacePoint = calculateFaceCenter(corners);
+      const rotatedCenter = projector.rotateWorldPoint(centeredFacePoint);
+      const rectId = `${face.rectId}-${voxel.x}-${voxel.y}-${voxel.z}`;
+      const isDebugFrontFace =
+        voxel.x === 1 &&
+        voxel.y === 0 &&
+        voxel.z === 0 &&
+        face.key === CUBE_FACE_IDS.posZFront;
+
+      return [
+        {
+          // Temporary debug marker: highlight one known front face so the voxel
+          // coordinate mapping stays easy to verify while iterating on the scene.
+          color: isDebugFrontFace ? "#ef4444" : face.color,
+          rectId,
+          colorKey: face.colorKey,
+          corners: projectedCorners,
+          depth: dotWorldPoints(rotatedCenter, projector.cameraDirection),
+          key: rectId,
+          stroke: face.color,
+          strokeWidth: FACE_STROKE_WIDTH,
+          // Keep each exposed voxel face in direct projected screen space. This
+          // stays readable and avoids the unstable basis-switching experiment.
+          transform: createRectTransformFromCorners(projectedCorners),
+        },
+      ];
+    }),
+  );
 
   return projectedFaces.sort((left, right) => left.depth - right.depth);
-}
-
-function getFacesInDefinitionOrder(
-  faces: readonly TransformLabFace[],
-): TransformLabFace[] {
-  const faceById = new Map(faces.map((face) => [face.rectId, face]));
-  return FACE_OUTPUT_ORDER.map((rectId) => faceById.get(rectId)).filter(
-    (face): face is TransformLabFace => face != null,
-  );
 }
 
 function serializeAxisGuideLines(lines: readonly AxisGuideLine[]): string {
@@ -564,16 +628,20 @@ export function createTransformLabScene({
   elevationDegrees = 0,
   rotationDegrees = 0,
   includeAxes = true,
+  includeBackground = true,
+  backgroundColor = BACKGROUND_COLOR,
 }: {
   elevationDegrees?: number;
   rotationDegrees?: number;
   includeAxes?: boolean;
+  includeBackground?: boolean;
+  backgroundColor?: string;
 } = {}): TransformLabScene {
   const faces = createTransformLabFaces({
     elevationDegrees,
     rotationDegrees,
   });
-  const definitionFaces = getFacesInDefinitionOrder(faces);
+  const definitionFaces = faces;
   // Axes are a study aid only. The final exported cube SVG can omit them while
   // reusing the exact same face geometry.
   const axisGuideLines = includeAxes
@@ -606,8 +674,13 @@ export function createTransformLabScene({
         }
       </defs>
 
-      <!-- Background -->
-      <rect x="0" y="0" width="${TRANSFORM_LAB_VIEW_BOX.width}" height="${TRANSFORM_LAB_VIEW_BOX.height}" fill="${BACKGROUND_COLOR}"/>
+      ${
+        includeBackground
+          ? stripIndent`
+            <!-- Background -->
+            <rect x="0" y="0" width="${TRANSFORM_LAB_VIEW_BOX.width}" height="${TRANSFORM_LAB_VIEW_BOX.height}" fill="${escapeSvgAttribute(backgroundColor)}"/>`
+          : ""
+      }
 
       <!-- Draw the reusable face stack after defs so the same ordered cube can be reused later. -->
       <use href="#${FACE_RENDER_GROUP_ID}" />
@@ -628,6 +701,8 @@ export function createTransformLabSvgMarkup(args?: {
   elevationDegrees?: number;
   rotationDegrees?: number;
   includeAxes?: boolean;
+  includeBackground?: boolean;
+  backgroundColor?: string;
 }): string {
   return createTransformLabScene(args).svgMarkup;
 }

@@ -1,5 +1,9 @@
 import { Button } from "@/components/button";
-import { DEFAULT_STATIC_LOGO_SVG_URL } from "@/components/logoStaticSvgContract";
+import {
+  TRANSFORM_LAB_VIEW_BOX,
+  createTransformLabScene,
+  type TransformLabScene,
+} from "@/components/logoTransitionTransformFaces";
 import {
   addOffset,
   formatOffset,
@@ -8,6 +12,10 @@ import {
   type DragSession,
   type Point,
 } from "@/components/logoTransitionLabUtils";
+import {
+  DEFAULT_ELEVATION_DEGREES,
+  DEFAULT_ROTATION_DEGREES,
+} from "@/components/logoVoxelState";
 import { Tabs, TabsList, TabsTrigger } from "@/components/tabs";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
@@ -20,181 +28,82 @@ type ViewBox = {
 };
 
 type Face = {
-  animateTo: Point;
   fill: string;
+  key: string;
   points: Point[];
   stroke: string;
   strokeWidth: number;
 };
 
-const DEFAULT_VIEW_BOX: ViewBox = {
-  minX: 0,
-  minY: 0,
-  width: 500,
-  height: 500,
-};
+type AxisGuideLine = TransformLabScene["axisGuideLines"][number];
 
-function parseViewBox(rawValue: string | null): ViewBox {
-  if (!rawValue) {
-    return DEFAULT_VIEW_BOX;
-  }
-
-  const values = rawValue
-    .trim()
-    .split(/[\s,]+/)
-    .map((token) => Number(token))
-    .filter((value) => Number.isFinite(value));
-
-  if (values.length !== 4) {
-    return DEFAULT_VIEW_BOX;
-  }
-
-  return {
-    minX: values[0],
-    minY: values[1],
-    width: values[2],
-    height: values[3],
-  };
-}
-
-function parsePointList(rawValue: string): Point[] {
-  const values = rawValue
-    .trim()
-    .split(/[\s,]+/)
-    .map((token) => Number(token))
-    .filter((value) => Number.isFinite(value));
-
-  const points: Point[] = [];
-  for (let index = 0; index < values.length - 1; index += 2) {
-    points.push({
-      x: values[index],
-      y: values[index + 1],
-    });
-  }
-
-  return points;
-}
-
-function parseTranslate(rawValue: string | null): Point {
-  if (!rawValue) {
-    return { x: 0, y: 0 };
-  }
-
-  const values = rawValue
-    .trim()
-    .split(/[\s,]+/)
-    .map((token) => Number(token))
-    .filter((value) => Number.isFinite(value));
-
-  if (values.length < 2) {
-    return { x: 0, y: 0 };
-  }
-
-  return {
-    x: values[0],
-    y: values[1],
-  };
-}
-
-function parseStrokeWidth(
-  strokeWidthAttribute: string | null,
-  styleAttribute: string | null,
-): number {
-  const styleMatch = styleAttribute?.match(/stroke-width\s*:\s*([0-9.]+)/);
-  const rawValue = styleMatch?.[1] ?? strokeWidthAttribute ?? "0.14";
-  const parsed = Number(rawValue);
-
-  return Number.isFinite(parsed) ? parsed : 0.14;
-}
+const EDGE_STROKE = "#111111";
+const EDGE_STROKE_WIDTH = 0.9;
 
 export function LogoTransitionLabPage() {
   const [faces, setFaces] = useState<Face[]>([]);
-  const [viewBox, setViewBox] = useState(DEFAULT_VIEW_BOX);
-  const [selectedFaceIndex, setSelectedFaceIndex] = useState<number>(-1);
+  const [axisGuideLines, setAxisGuideLines] = useState<AxisGuideLine[]>([]);
+  const [viewBox] = useState<ViewBox>(TRANSFORM_LAB_VIEW_BOX);
+  const [selectedFaceKey, setSelectedFaceKey] = useState<string | null>(null);
   const [activeFrame, setActiveFrame] = useState<"start" | "end">("end");
   const [startOffset, setStartOffset] = useState<Point>({ x: 0, y: 0 });
   const [endOffset, setEndOffset] = useState<Point>({ x: 0, y: 0 });
   const [previewProgress, setPreviewProgress] = useState(1);
+  const [elevationDegrees, setElevationDegrees] = useState(
+    DEFAULT_ELEVATION_DEGREES,
+  );
+  const [rotationDegrees, setRotationDegrees] = useState(
+    DEFAULT_ROTATION_DEGREES,
+  );
   const svgRef = useRef<SVGSVGElement | null>(null);
   const dragSessionRef = useRef<DragSession | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    // Reuse the exact same simplified cube scene generator as the transform
+    // lab so the drag workflow matches the math/debug view one-to-one.
+    const scene = createTransformLabScene({
+      elevationDegrees,
+      includeAxes: true,
+      rotationDegrees,
+    });
+    const parsedFaces = scene.faces.map((face) => ({
+      fill: face.color,
+      key: face.key,
+      points: face.corners.map((point) => ({ x: point.x, y: point.y })),
+      stroke: EDGE_STROKE,
+      strokeWidth: EDGE_STROKE_WIDTH,
+    }));
+    const highlightedFace = parsedFaces.find(
+      (face) => face.fill.toLowerCase() === "#ef4444",
+    );
+    const defaultFaceKey = highlightedFace
+      ? highlightedFace.key
+      : parsedFaces[0]?.key ?? null;
 
-    const loadSvg = async () => {
-      const response = await fetch(DEFAULT_STATIC_LOGO_SVG_URL);
-      const markup = await response.text();
-      if (cancelled) {
-        return;
-      }
-
-      const document = new DOMParser().parseFromString(markup, "image/svg+xml");
-      const svgElement = document.querySelector("svg");
-      if (!svgElement) {
-        return;
-      }
-
-      const parsedFaces = Array.from(
-        svgElement.querySelectorAll<SVGPolygonElement>("polygon"),
-      )
-        .map((polygonElement) => {
-          const points = parsePointList(
-            polygonElement.getAttribute("points") ?? "",
-          );
-          if (points.length < 3) {
-            return null;
-          }
-
-          const animateElement =
-            polygonElement.querySelector("animateTransform");
-
-          return {
-            animateTo: parseTranslate(
-              animateElement?.getAttribute("to") ?? null,
-            ),
-            fill: polygonElement.getAttribute("fill") ?? "#000000",
-            points,
-            stroke: polygonElement.getAttribute("stroke") ?? "#000000",
-            strokeWidth: parseStrokeWidth(
-              polygonElement.getAttribute("stroke-width"),
-              polygonElement.getAttribute("style"),
-            ),
-          };
-        })
-        .filter((face): face is Face => face !== null);
-
-      const defaultFaceIndex = parsedFaces.findIndex(
-        (face) => face.fill.toLowerCase() === "#390000",
-      );
-
-      setFaces(parsedFaces);
-      setViewBox(parseViewBox(svgElement.getAttribute("viewBox")));
-      setSelectedFaceIndex(defaultFaceIndex >= 0 ? defaultFaceIndex : 0);
-    };
-
-    void loadSvg();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    setFaces(parsedFaces);
+    setAxisGuideLines([...scene.axisGuideLines]);
+    setSelectedFaceKey((currentFaceKey) =>
+      parsedFaces.some((face) => face.key === currentFaceKey)
+        ? currentFaceKey
+        : defaultFaceKey,
+    );
+  }, [elevationDegrees, rotationDegrees]);
 
   useEffect(() => {
-    if (selectedFaceIndex < 0 || selectedFaceIndex >= faces.length) {
+    if (!selectedFaceKey) {
       return;
     }
 
-    const selectedFace = faces[selectedFaceIndex];
     setStartOffset({ x: 0, y: 0 });
-    setEndOffset(selectedFace.animateTo);
+    setEndOffset({ x: 0, y: 0 });
     setActiveFrame("end");
     setPreviewProgress(1);
-  }, [faces, selectedFaceIndex]);
+  }, [selectedFaceKey]);
 
   const selectedFace =
-    selectedFaceIndex >= 0 && selectedFaceIndex < faces.length
-      ? faces[selectedFaceIndex]
-      : null;
+    selectedFaceKey === null
+      ? null
+      : faces.find((face) => face.key === selectedFaceKey) ?? null;
 
   const getSvgPoint = (clientX: number, clientY: number): Point | null => {
     const svgElement = svgRef.current;
@@ -322,13 +231,56 @@ export function LogoTransitionLabPage() {
                 Start / End Transition Lab
               </h1>
               <p className="mt-2 text-sm leading-6 text-black/60">
-                Click a rhombus in the scene, switch between start and end, then
-                drag the active face to where it should land. The scrubber shows
-                the straight interpolation between those two points.
+                This uses the simplified 2x2 cube scene from the transform lab.
+                Click a face, switch between start and end, then drag the active
+                face to where it should land. The scrubber shows the straight
+                interpolation between those two points.
               </p>
             </div>
 
             <div className="grid gap-3">
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                  <label htmlFor="logo-transition-elevation-range">
+                    Elevation
+                  </label>
+                  <span>{elevationDegrees.toFixed(1)}deg</span>
+                </div>
+                <input
+                  id="logo-transition-elevation-range"
+                  type="range"
+                  min="-89"
+                  max="89"
+                  step="0.1"
+                  value={elevationDegrees}
+                  onChange={(event) => {
+                    setElevationDegrees(Number(event.target.value));
+                  }}
+                  className="h-2 w-full cursor-pointer accent-black"
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                  <label htmlFor="logo-transition-rotation-range">
+                    Rotation
+                  </label>
+                  <span>{rotationDegrees.toFixed(1)}deg</span>
+                </div>
+                <input
+                  id="logo-transition-rotation-range"
+                  type="range"
+                  min="0"
+                  max="360"
+                  step="0.1"
+                  value={rotationDegrees}
+                  onChange={(event) => {
+                    setRotationDegrees(Number(event.target.value));
+                  }}
+                  className="h-2 w-full cursor-pointer accent-black"
+                />
+              </div>
+
               <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                 Active Frame
               </div>
@@ -411,9 +363,7 @@ export function LogoTransitionLabPage() {
               <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
                 Selected Face
               </div>
-              <div>
-                Polygon {selectedFaceIndex >= 0 ? selectedFaceIndex + 1 : "?"}
-              </div>
+              <div>{selectedFace?.key ?? "?"}</div>
               <div>Start: {formatOffset(startOffset)}</div>
               <div>End: {formatOffset(endOffset)}</div>
             </div>
@@ -432,8 +382,9 @@ export function LogoTransitionLabPage() {
               </div>
               <p className="mt-2">
                 Black outline is the start frame. Orange outline is the end
-                frame. Cyan outline is the scrubbed preview. The solid face is
-                the one you are dragging right now.
+                frame. Cyan outline is the scrubbed preview. The live cube stays
+                untouched underneath so depth ordering remains readable while
+                you drag.
               </p>
             </div>
           </div>
@@ -445,8 +396,9 @@ export function LogoTransitionLabPage() {
                   Workspace
                 </div>
                 <div className="mt-1 text-sm text-black/60">
-                  Click any rhombus to select it. Drag the solid version of the
-                  selected face.
+                  Click any visible face to select it. Drag the solid version of
+                  the selected face. Axis guides and face edges stay visible for
+                  debugging.
                 </div>
               </div>
               <div className="font-mono text-[11px] text-black/45">
@@ -464,22 +416,56 @@ export function LogoTransitionLabPage() {
                   onPointerMove={updateDrag}
                   onPointerUp={endDrag}
                 >
-                  {faces.map((face, index) => (
+                  {faces.map((face) => (
                     <polygon
-                      key={`face-${index}`}
+                      key={face.key}
                       points={face.points
                         .map((point) => `${point.x} ${point.y}`)
                         .join(" ")}
                       fill={face.fill}
                       stroke={face.stroke}
                       strokeWidth={face.strokeWidth}
-                      opacity={index === selectedFaceIndex ? 0.18 : 1}
+                      strokeLinejoin="round"
                       onClick={() => {
-                        setSelectedFaceIndex(index);
+                        setSelectedFaceKey(face.key);
                       }}
                       style={{ cursor: "pointer" }}
                     />
                   ))}
+
+                  {axisGuideLines.map((line) => (
+                    <g key={line.key} pointerEvents="none">
+                      <line
+                        x1={line.start.x}
+                        y1={line.start.y}
+                        x2={line.end.x}
+                        y2={line.end.y}
+                        stroke={line.color}
+                        strokeLinecap="round"
+                        strokeWidth={2.25}
+                      />
+                      <text
+                        x={line.labelPosition.x}
+                        y={line.labelPosition.y}
+                        dominantBaseline="middle"
+                        fill={line.color}
+                        fontSize="11"
+                        fontWeight="700"
+                        textAnchor="middle"
+                      >
+                        {line.label}
+                      </text>
+                    </g>
+                  ))}
+                  {axisGuideLines[0] ? (
+                    <circle
+                      cx={axisGuideLines[0].start.x}
+                      cy={axisGuideLines[0].start.y}
+                      r={2.75}
+                      fill="#111111"
+                      pointerEvents="none"
+                    />
+                  ) : null}
 
                   <polygon
                     points={selectedFace.points
@@ -517,10 +503,9 @@ export function LogoTransitionLabPage() {
                     points={selectedFace.points
                       .map((point) => `${point.x} ${point.y}`)
                       .join(" ")}
-                    fill={selectedFace.fill}
-                    fillOpacity={0.88}
-                    stroke={selectedFace.stroke}
-                    strokeWidth={selectedFace.strokeWidth}
+                    fill="#000000"
+                    fillOpacity={0.001}
+                    stroke="none"
                     transform={`translate(${currentEditableOffset.x} ${currentEditableOffset.y})`}
                     onPointerDown={beginDrag}
                     style={{ cursor: "grab" }}
@@ -566,7 +551,9 @@ export function LogoTransitionLabPage() {
                   />
                 </svg>
               ) : (
-                <div className="text-sm text-black/50">Loading SVG lab…</div>
+                <div className="text-sm text-black/50">
+                  Loading transition lab…
+                </div>
               )}
             </div>
           </div>

@@ -1,32 +1,67 @@
 import { NLogoScene } from "@/components/NLogoScene";
 import {
   DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE,
-  DEFAULT_STATIC_LOGO_SVG_URL,
   STATIC_LOGO_ELEVATION_DEGREES,
   STATIC_LOGO_ROTATION_DEGREES,
+  STATIC_LOGO_VOXEL_COORDINATES,
   STATIC_LOGO_VOXEL_STATE,
 } from "@/components/logoStaticSvgContract";
 import {
   DEFAULT_FACE_COLORS,
   getTailwindColorHex,
 } from "@/components/logoTailwindColors";
+import { createLogoThreeSvgMarkup } from "@/components/logoThreeSvgRenderer";
+import {
+  createTransformLabSvgMarkup,
+  TRANSFORM_LAB_VOXEL_STATE,
+} from "@/components/logoTransitionTransformFaces";
+import { createFilledVoxelSet } from "@/components/logoVoxelState";
 import { useEffect, useRef, useState } from "react";
 
 export type LogoThreeVisualMode = "logo-three-reference";
+type LogoThreeVisualScene = "logo" | "transform-lab";
 
 const PREVIEW_SIZE = 1000;
 const SECONDARY_PREVIEW_SIZES = [240, 128, 64, 32] as const;
+const FILLED_VOXELS = createFilledVoxelSet(STATIC_LOGO_VOXEL_COORDINATES);
+
+function readAngleParam(name: string, fallback: number): number {
+  const rawValue = new URLSearchParams(window.location.search).get(name);
+  if (!rawValue) {
+    return fallback;
+  }
+
+  const parsedValue = Number(rawValue);
+  if (!Number.isFinite(parsedValue)) {
+    return fallback;
+  }
+
+  return parsedValue;
+}
+
+function readSceneParam(): LogoThreeVisualScene {
+  const rawValue = new URLSearchParams(window.location.search).get("scene");
+  return rawValue === "transform-lab" ? "transform-lab" : "logo";
+}
 
 function LogoThreeScalePreview({
+  elevationDegrees,
   isReferenceUnavailable,
   mismatchPixels,
   onRenderUnavailable,
+  rotationDegrees,
   size,
+  svgSrc,
+  voxelState,
 }: {
+  elevationDegrees: number;
   isReferenceUnavailable: boolean;
   mismatchPixels: number | null;
   onRenderUnavailable: () => void;
+  rotationDegrees: number;
   size: (typeof SECONDARY_PREVIEW_SIZES)[number];
+  svgSrc: string;
+  voxelState: string;
 }) {
   const previewBackgroundColor = getTailwindColorHex("background-base");
 
@@ -59,16 +94,16 @@ function LogoThreeScalePreview({
               backgroundColor={previewBackgroundColor}
               className="h-full w-full"
               editMode="add"
-              elevationDegrees={STATIC_LOGO_ELEVATION_DEGREES}
+              elevationDegrees={elevationDegrees}
               faceColors={DEFAULT_FACE_COLORS}
               opacity={1}
               onRenderUnavailable={onRenderUnavailable}
               onViewChange={(_nextView) => {}}
               onVoxelEdit={(_edit) => {}}
-              rotationDegrees={STATIC_LOGO_ROTATION_DEGREES}
+              rotationDegrees={rotationDegrees}
               shuffleAnimation={{ enabled: false, parallelMoves: 1 }}
               animateFaceColors={false}
-              voxelState={STATIC_LOGO_VOXEL_STATE}
+              voxelState={voxelState}
             />
           </div>
         </div>
@@ -86,7 +121,7 @@ function LogoThreeScalePreview({
             }}
           >
             <img
-              src={DEFAULT_STATIC_LOGO_SVG_URL}
+              src={svgSrc}
               alt=""
               width={DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE.width}
               height={DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE.height}
@@ -106,6 +141,35 @@ function LogoThreeScalePreview({
 export function LogoThreeVisualFixture() {
   const backgroundColor = getTailwindColorHex("background-base");
   const previewBackgroundColor = getTailwindColorHex("background-base");
+  const scene = readSceneParam();
+  const rotationDegrees = readAngleParam(
+    "rotation",
+    STATIC_LOGO_ROTATION_DEGREES,
+  );
+  const elevationDegrees = readAngleParam(
+    "elevation",
+    STATIC_LOGO_ELEVATION_DEGREES,
+  );
+  const voxelState =
+    scene === "transform-lab"
+      ? TRANSFORM_LAB_VOXEL_STATE
+      : STATIC_LOGO_VOXEL_STATE;
+  const svgMarkup =
+    scene === "transform-lab"
+      ? createTransformLabSvgMarkup({
+          elevationDegrees,
+          rotationDegrees,
+          includeAxes: false,
+          includeBackground: false,
+        })
+      : createLogoThreeSvgMarkup({
+          backgroundColor: previewBackgroundColor,
+          elevationDegrees,
+          faceColors: DEFAULT_FACE_COLORS,
+          filledVoxels: FILLED_VOXELS,
+          rotationDegrees,
+        });
+  const svgSrc = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgMarkup)}`;
   const referenceContainerRef = useRef<HTMLDivElement | null>(null);
   const svgImageRef = useRef<HTMLImageElement | null>(null);
   const diffCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -311,6 +375,13 @@ export function LogoThreeVisualFixture() {
   return (
     <div
       data-testid="logo-three-visual-fixture"
+      data-scene={scene}
+      data-compare-ready={
+        mismatchPixelsBySize[PREVIEW_SIZE] === undefined &&
+        !isReferenceUnavailable
+          ? "false"
+          : "true"
+      }
       className="min-h-screen p-8 text-slate-900"
       style={{ backgroundColor }}
     >
@@ -320,11 +391,11 @@ export function LogoThreeVisualFixture() {
             Logo Three Reference Fixture
           </h1>
           <p className="text-sm text-slate-600">
-            Left: current Three renderer at a fixed camera angle. Center:
-            rasterized SVG at the same display size. Right: per-pixel browser
-            diff after both are rasterized to a `1000x1000` comparison surface.
-            The lower row shows how the same pair behaves at smaller display
-            sizes.
+            Scene: {scene}. Left: current Three renderer at a fixed camera
+            angle. Center: rasterized SVG at the same display size. Right:
+            per-pixel browser diff after both are rasterized to a `1000x1000`
+            comparison surface. The lower row shows how the same pair behaves at
+            smaller display sizes.
           </p>
         </div>
 
@@ -348,7 +419,7 @@ export function LogoThreeVisualFixture() {
                   backgroundColor={previewBackgroundColor}
                   className="h-full w-full"
                   editMode="add"
-                  elevationDegrees={STATIC_LOGO_ELEVATION_DEGREES}
+                  elevationDegrees={elevationDegrees}
                   faceColors={DEFAULT_FACE_COLORS}
                   opacity={1}
                   onRenderReady={() => {
@@ -359,10 +430,10 @@ export function LogoThreeVisualFixture() {
                   }}
                   onViewChange={(_nextView) => {}}
                   onVoxelEdit={(_edit) => {}}
-                  rotationDegrees={STATIC_LOGO_ROTATION_DEGREES}
+                  rotationDegrees={rotationDegrees}
                   shuffleAnimation={{ enabled: false, parallelMoves: 1 }}
                   animateFaceColors={false}
-                  voxelState={STATIC_LOGO_VOXEL_STATE}
+                  voxelState={voxelState}
                 />
               </div>
             </div>
@@ -374,6 +445,7 @@ export function LogoThreeVisualFixture() {
             </div>
             <div className="flex items-center justify-center border border-slate-200 p-4">
               <div
+                data-testid="logo-three-parity-svg-frame"
                 className="flex items-center justify-center border border-slate-200"
                 style={{
                   backgroundColor: previewBackgroundColor,
@@ -384,7 +456,7 @@ export function LogoThreeVisualFixture() {
                 <img
                   ref={svgImageRef}
                   data-testid="logo-three-parity-svg"
-                  src={DEFAULT_STATIC_LOGO_SVG_URL}
+                  src={svgSrc}
                   alt=""
                   width={DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE.width}
                   height={DEFAULT_STATIC_LOGO_SVG_NATURAL_SIZE.height}
@@ -448,12 +520,16 @@ export function LogoThreeVisualFixture() {
           {SECONDARY_PREVIEW_SIZES.map((size) => (
             <LogoThreeScalePreview
               key={size}
+              elevationDegrees={elevationDegrees}
               isReferenceUnavailable={isReferenceUnavailable}
               mismatchPixels={mismatchPixelsBySize[size] ?? null}
               onRenderUnavailable={() => {
                 setIsReferenceUnavailable(true);
               }}
+              rotationDegrees={rotationDegrees}
               size={size}
+              svgSrc={svgSrc}
+              voxelState={voxelState}
             />
           ))}
         </div>
