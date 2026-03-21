@@ -173,6 +173,61 @@ This matches Cloudflare's dual-URL behavior:
 1. branch alias stays useful for the branch
 2. immutable preview URL is tied to one deploy/commit
 
+## Phased Rollout
+
+This feature is small enough to ship quickly, but it is still worth splitting
+into low-risk phases so parsing, caching, and UI regressions are easy to
+isolate.
+
+### Phase 1: Parse and cache PR comment metadata
+
+Scope:
+
+1. Add a parser for the Cloudflare Pages PR comment body.
+2. Add optional Cloudflare preview fields to branch metadata storage.
+3. Add a dashboard-scoped enrichment path that fetches PR comments and updates
+   branch metadata.
+
+Exit criteria:
+
+1. Branch records can cache:
+   - `cloudflareBranchPreviewUrl`
+   - `cloudflarePreviewUrl`
+   - `cloudflarePreviewCommitSha`
+   - `cloudflarePreviewStatus`
+   - `cloudflarePreviewLogsUrl`
+2. Branches with no PR or no Cloudflare comment remain unchanged.
+3. Re-running enrichment is idempotent for unchanged comments.
+
+### Phase 2: Expose cached fields to the dashboard query
+
+Scope:
+
+1. Extend `vault.getUserVaults()` branch payload with the cached Cloudflare
+   preview fields.
+2. Keep this query read-only; do not perform PR comment fetches inside the query
+   itself.
+
+Exit criteria:
+
+1. The dashboard query returns the cached preview fields when present.
+2. Query behavior does not depend on live GitHub comment reads at render time.
+
+### Phase 3: Render the branch preview link in the dashboard
+
+Scope:
+
+1. Render `cloudflareBranchPreviewUrl` in each active branch row when present.
+2. Render nothing when the field is absent.
+3. Keep the immutable `cloudflarePreviewUrl` hidden from the dashboard row for
+   now.
+
+Exit criteria:
+
+1. Branches with cached Cloudflare metadata show one preview link.
+2. Branches without cached Cloudflare metadata show no broken/placeholder link.
+3. Existing branch row metadata remains intact.
+
 ## Explicit Non-Goals
 
 1. Parsing Cloudflare deployments directly from the Pages API for this feature
@@ -203,10 +258,30 @@ That separation is intentional:
    - latest commit SHA
    - status
    - logs URL
-2. Verify branches without PRs are skipped.
-3. Verify branches with PRs but without Cloudflare comments keep preview fields
+2. Verify the parser tolerates:
+   - missing `View logs`
+   - missing `Status`
+   - comment bodies with extra text before/after the table
+3. Verify branches without PRs are skipped.
+4. Verify branches with PRs but without Cloudflare comments keep preview fields
    empty.
-4. Verify `vault.getUserVaults()` returns the cached branch preview fields.
+5. Verify older Cloudflare comments are ignored when a newer deploy comment
+   exists on the same PR.
+6. Verify the enrichment path patches only the intended branch row.
+7. Verify a stale `cloudflarePreviewCommitSha` does not clear or hide
+   `cloudflareBranchPreviewUrl`.
+8. Verify `vault.getUserVaults()` returns the cached branch preview fields.
+
+### Suggested implementation tests
+
+1. Pure parser tests for the exact Cloudflare markdown format already observed
+   in production PR comments.
+2. Enrichment tests that mock GitHub PR comments and confirm cache writes.
+3. Query-shape tests for `vault.getUserVaults()` branch payload additions.
+4. UI tests for `VaultDashboard` branch rows:
+   - link renders when `cloudflareBranchPreviewUrl` exists
+   - link does not render when absent
+   - existing commit/PR metadata still renders
 
 ### Manual coverage
 
@@ -216,6 +291,20 @@ That separation is intentional:
 4. After a new push changes head SHA before Cloudflare posts a new comment, the
    branch preview link still renders while the immutable preview URL is treated
    as stale metadata.
+5. Clicking the rendered dashboard link opens the `Branch Preview URL`, not the
+   immutable `Preview URL`.
+
+### Acceptance checklist
+
+- [ ] Branches without PRs never show preview links.
+- [ ] Branches with PRs but no Cloudflare comment never show preview links.
+- [ ] Branches with a valid Cloudflare Pages comment show exactly one link.
+- [ ] The displayed link target is the parsed `Branch Preview URL`.
+- [ ] The immutable `Preview URL` is stored for future use but not rendered in
+      the row.
+- [ ] A commit-SHA mismatch does not hide the branch preview link.
+- [ ] Dashboard rendering does not require a live GitHub comment fetch during
+      `vault.getUserVaults()`.
 
 ## Recommended Implementation Order
 
