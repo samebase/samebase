@@ -4,16 +4,23 @@ import { ExternalLink, Loader2, RefreshCw } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Button } from "@/components/button";
+import { DaytonaPreviewErrorState } from "@/components/DaytonaPreviewErrorState";
 import { cn } from "@/lib/utils";
 
 interface DaytonaPreviewPanelProps {
   vaultId: Id<"vaults">;
   className?: string;
+  onResetToGitHub?: () => void;
+  isResettingToGitHub?: boolean;
+  resetToGitHubDisabled?: boolean;
 }
 
 export function DaytonaPreviewPanel({
   vaultId,
   className,
+  onResetToGitHub,
+  isResettingToGitHub = false,
+  resetToGitHubDisabled = false,
 }: DaytonaPreviewPanelProps) {
   const getDaytonaPreviewUrl = useAction(
     api.daytona.actions.getDaytonaPreviewUrl,
@@ -28,6 +35,9 @@ export function DaytonaPreviewPanel({
     api.daytona.actions.getDaytonaDevServerStatus,
   );
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewErrorMessage, setPreviewErrorMessage] = useState<string | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
@@ -47,22 +57,26 @@ export function DaytonaPreviewPanel({
     }
     setIsLoading(true);
     setMessage(null);
+    setPreviewErrorMessage(null);
     setHasError(false);
 
     try {
       const result = await getDaytonaPreviewUrl({ vaultId });
       if (!result.ok || !result.url) {
+        const nextMessage = result.message ?? "Failed to load preview.";
         setHasError(true);
-        setMessage(result.message ?? "Failed to load preview.");
+        setMessage(nextMessage);
+        setPreviewErrorMessage(nextMessage);
         return null;
       }
       setMessage(result.message ?? "Preview link ready.");
       return result.url;
     } catch (error) {
+      const nextMessage =
+        error instanceof Error ? error.message : "Failed to load preview.";
       setHasError(true);
-      setMessage(
-        error instanceof Error ? error.message : "Failed to load preview.",
-      );
+      setMessage(nextMessage);
+      setPreviewErrorMessage(nextMessage);
       return null;
     } finally {
       setIsLoading(false);
@@ -98,6 +112,7 @@ export function DaytonaPreviewPanel({
     setIsFetchingDevStatus(true);
     if (!silent) {
       setMessage(null);
+      setPreviewErrorMessage(null);
       setHasError(false);
     }
 
@@ -139,6 +154,7 @@ export function DaytonaPreviewPanel({
     }
     setIsStartingDevSafe(true);
     setMessage(null);
+    setPreviewErrorMessage(null);
     setHasError(false);
 
     try {
@@ -166,6 +182,7 @@ export function DaytonaPreviewPanel({
     }
     setIsStartingDevFast(true);
     setMessage(null);
+    setPreviewErrorMessage(null);
     setHasError(false);
 
     try {
@@ -190,6 +207,11 @@ export function DaytonaPreviewPanel({
   const handleRefreshDevStatus = async () => {
     await fetchDevStatus(false);
   };
+
+  const hasPreviewErrorState =
+    previewErrorMessage !== null &&
+    previewErrorMessage === message &&
+    !previewUrl;
 
   return (
     <div className={cn("corner-notch-1 border bg-muted/5 p-3", className)}>
@@ -294,7 +316,18 @@ export function DaytonaPreviewPanel({
         )}
       </div>
 
-      {previewUrl ? (
+      {hasPreviewErrorState ? (
+        <DaytonaPreviewErrorState
+          message={previewErrorMessage}
+          isLoading={isLoading}
+          onShowPreview={() => {
+            void handleShowPreview();
+          }}
+          onResetToGitHub={onResetToGitHub}
+          isResettingToGitHub={isResettingToGitHub}
+          resetToGitHubDisabled={resetToGitHubDisabled}
+        />
+      ) : previewUrl ? (
         <div className="mt-3 overflow-hidden corner-notch-1 border bg-white">
           <iframe
             title="Daytona Preview"
@@ -315,7 +348,7 @@ export function DaytonaPreviewPanel({
         tab to confirm access.
       </div>
 
-      {message && (
+      {message && !hasPreviewErrorState && (
         <div
           className={cn(
             "mt-2 text-xs",
