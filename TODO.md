@@ -3,6 +3,8 @@
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 - [ ] specifically left blank
 
+- [ ] in dashboard don't add so much margin, at least on mobile it should be linear display and each element can take whole width, never need for margins
+
 - [ ] goedel Bach book discussions between turtoise, are same as Ai discussions. same as philosopher discussions? 
 
 - [ ] test using playwright from multiple browser states. E. g. browser was loaded with different version/cache from several days ago, and gets in again. 
