@@ -4,16 +4,23 @@ import { ExternalLink, Loader2, RefreshCw } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Button } from "@/components/button";
+import { DaytonaPreviewErrorState } from "@/components/DaytonaPreviewErrorState";
 import { cn } from "@/lib/utils";
 
 interface DaytonaPreviewPanelProps {
   vaultId: Id<"vaults">;
   className?: string;
+  onResetToGitHub?: () => void;
+  isResettingToGitHub?: boolean;
+  resetToGitHubDisabled?: boolean;
 }
 
 export function DaytonaPreviewPanel({
   vaultId,
   className,
+  onResetToGitHub,
+  isResettingToGitHub = false,
+  resetToGitHubDisabled = false,
 }: DaytonaPreviewPanelProps) {
   const getDaytonaPreviewUrl = useAction(
     api.daytona.actions.getDaytonaPreviewUrl,
@@ -191,6 +198,8 @@ export function DaytonaPreviewPanel({
     await fetchDevStatus(false);
   };
 
+  const hasPreviewErrorState = hasError && message !== null && !previewUrl;
+
   return (
     <div className={cn("corner-notch-1 border bg-muted/5 p-3", className)}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -294,7 +303,18 @@ export function DaytonaPreviewPanel({
         )}
       </div>
 
-      {previewUrl ? (
+      {hasPreviewErrorState ? (
+        <DaytonaPreviewErrorState
+          message={message}
+          isLoading={isLoading}
+          onShowPreview={() => {
+            void handleShowPreview();
+          }}
+          onResetToGitHub={onResetToGitHub}
+          isResettingToGitHub={isResettingToGitHub}
+          resetToGitHubDisabled={resetToGitHubDisabled}
+        />
+      ) : previewUrl ? (
         <div className="mt-3 overflow-hidden corner-notch-1 border bg-white">
           <iframe
             title="Daytona Preview"
@@ -315,7 +335,7 @@ export function DaytonaPreviewPanel({
         tab to confirm access.
       </div>
 
-      {message && (
+      {message && !hasPreviewErrorState && (
         <div
           className={cn(
             "mt-2 text-xs",

@@ -2241,7 +2241,17 @@ function FileViewInner({
           ) : null}
 
           {viewMode === "editor" && isPreviewOpen && (
-            <DaytonaPreviewPanel vaultId={vault._id} className="mb-4" />
+            <DaytonaPreviewPanel
+              vaultId={vault._id}
+              className="mb-4"
+              onResetToGitHub={handleResetToGitHub}
+              isResettingToGitHub={clearingStagingStatus === "loading"}
+              resetToGitHubDisabled={
+                clearingStagingStatus === "loading" ||
+                manualComittingStatus === "loading" ||
+                !hasChangesToCommit
+              }
+            />
           )}
 
           <div className="flex-1 min-h-0">
