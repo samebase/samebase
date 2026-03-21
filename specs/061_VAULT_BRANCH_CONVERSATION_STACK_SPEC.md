@@ -232,7 +232,8 @@ The UI should not attempt to visualize branch topology. It should simply:
 
 If the server cannot fetch the stack:
 
-1. keep the branch row usable
+1. keep the branch row usable and expandable even when `aheadBy` and `behindBy`
+   are unresolved
 2. show a lightweight inline error inside the expanded panel
 3. include a GitHub compare link when we can build one
 
@@ -347,7 +348,10 @@ Recommended local state:
 2. `branchStackByKey: Record<string, BranchConversationStackState>`
 3. `expandedCommitPreviewByKey: Record<string, boolean>`
 
-Where `key = vaultId + ":" + branchName`.
+Where the branch-stack cache key must include both sides of the comparison, for
+example:
+
+- `vaultId + ":" + branchName + ":" + headCommitSha + ":" + defaultBranchHeadCommitSha`
 
 This keeps the interaction cheap and avoids turning dashboard expansion state
 into a cross-device setting prematurely.
@@ -374,9 +378,11 @@ On first expand:
 
 On subsequent expand:
 
-1. reuse cached client state while `headCommitSha` is unchanged
-2. invalidate local cache for a branch when its `headCommitSha` changes in the
-   dashboard payload
+1. reuse cached client state only while the compare inputs are unchanged
+2. invalidate local cache when either:
+   - the branch `headCommitSha` changes
+   - the default branch head changes
+   - the resolved default branch name changes
 
 ## Relationship to Existing Specs
 
@@ -452,8 +458,8 @@ It does not copy T3 Code's local-desktop architecture or gmux's process model.
 
 ### Local references
 
-1. `/Users/nicu/dev/forks/t3code/apps/web/src/components/Sidebar.tsx`
-2. `/Users/nicu/dev/forks/gmux/README.md`
+1. `t3code/apps/web/src/components/Sidebar.tsx` (local fork reference)
+2. `gmux/README.md` (local fork reference)
 
 ### External reference
 
