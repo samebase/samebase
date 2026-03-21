@@ -8,6 +8,10 @@ import { Octokit } from "@octokit/rest";
 import { guessMime, withRetry } from "./gitOperationsActions";
 import { isRecord } from "./jsonUtils";
 import {
+  parseCloudflarePreviewComment,
+  type CloudflarePreviewCommentMetadata,
+} from "./cloudflarePreviewComment";
+import {
   getRepositoryMediaKind,
   isSvgRepositoryMediaPath,
 } from "../shared/repositoryMedia";
@@ -230,6 +234,7 @@ const repositoryMediaAssetResult = union(
 );
 
 type RepositoryMediaAsset = Infer<typeof repositoryMediaAssetResult>;
+const CLOUDFLARE_PREVIEW_COMMENT_CONCURRENCY = 5;
 
 function toGitTreeRef(branch: string): string {
   if (branch.startsWith("refs/heads/")) {
@@ -265,6 +270,17 @@ type PullRequestLabelSummary = Extract<
 interface CachedBranchTreeSnapshot {
   treeSHA: string;
   commitSHA?: string;
+}
+
+interface RemoteBranchCloudflarePreviewSync {
+  name: string;
+  previewState: "resolved" | "preserve";
+  cloudflareBranchPreviewUrl?: string;
+  cloudflarePreviewUrl?: string;
+  cloudflarePreviewCommitSha?: string;
+  cloudflarePreviewStatus?: string;
+  cloudflarePreviewLogsUrl?: string;
+  cloudflarePreviewCommentCreatedAt?: number;
 }
 
 interface RepositoryTreeUpdatePlan {
@@ -355,6 +371,173 @@ export function readPullRequestLabels(
   return labelNames;
 }
 
+async function getLatestPullRequestCloudflarePreviewComment(args: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  pullRequestNumber: number;
+}): Promise<
+  | (CloudflarePreviewCommentMetadata & {
+      cloudflarePreviewCommentCreatedAt?: number;
+    })
+  | undefined
+> {
+  const perPage = 100;
+  const maxPages = 20;
+  let bestMatch:
+    | (CloudflarePreviewCommentMetadata & {
+        cloudflarePreviewCommentCreatedAt?: number;
+        activityAt: number;
+      })
+    | undefined;
+  let hitPageLimit = false;
+
+  for (let page = 1; page <= maxPages; page += 1) {
+    const pageResponse = await args.octokit.rest.issues.listComments({
+      owner: args.owner,
+      repo: args.repo,
+      issue_number: args.pullRequestNumber,
+      per_page: perPage,
+      page,
+    });
+
+    if (pageResponse.data.length === 0) {
+      break;
+    }
+
+    for (const comment of pageResponse.data) {
+      if (typeof comment.body !== "string") {
+        continue;
+      }
+
+      const parsed = parseCloudflarePreviewComment(comment.body);
+      if (!parsed) {
+        continue;
+      }
+
+      const activityAt =
+        parseGitTimestamp(comment.updated_at) ??
+        parseGitTimestamp(comment.created_at) ??
+        0;
+      if (bestMatch && activityAt < bestMatch.activityAt) {
+        continue;
+      }
+
+      bestMatch = {
+        ...parsed,
+        cloudflarePreviewCommentCreatedAt: parseGitTimestamp(
+          comment.created_at,
+        ),
+        activityAt,
+      };
+    }
+
+    if (pageResponse.data.length < perPage) {
+      break;
+    }
+    if (page === maxPages) {
+      hitPageLimit = true;
+    }
+  }
+
+  if (hitPageLimit) {
+    console.warn(
+      "listPullRequestCloudflarePreviewComment reached page limit",
+      JSON.stringify({
+        owner: args.owner,
+        repo: args.repo,
+        pullRequestNumber: args.pullRequestNumber,
+        maxPages,
+        perPage,
+      }),
+    );
+  }
+
+  if (!bestMatch) {
+    return undefined;
+  }
+
+  return {
+    branchPreviewUrl: bestMatch.branchPreviewUrl,
+    previewUrl: bestMatch.previewUrl,
+    previewCommitSha: bestMatch.previewCommitSha,
+    previewStatus: bestMatch.previewStatus,
+    previewLogsUrl: bestMatch.previewLogsUrl,
+    cloudflarePreviewCommentCreatedAt:
+      bestMatch.cloudflarePreviewCommentCreatedAt,
+  };
+}
+
+async function getCloudflarePreviewLinksByBranch(args: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  branches: RemoteBranchSummary[];
+}): Promise<RemoteBranchCloudflarePreviewSync[]> {
+  const updates: RemoteBranchCloudflarePreviewSync[] = [];
+
+  for (
+    let index = 0;
+    index < args.branches.length;
+    index += CLOUDFLARE_PREVIEW_COMMENT_CONCURRENCY
+  ) {
+    const batch = args.branches.slice(
+      index,
+      index + CLOUDFLARE_PREVIEW_COMMENT_CONCURRENCY,
+    );
+    const batchUpdates = await Promise.all(
+      batch.map(async (branch): Promise<RemoteBranchCloudflarePreviewSync> => {
+        if (typeof branch.pullRequestNumber !== "number") {
+          return {
+            name: branch.name,
+            previewState: "resolved",
+          };
+        }
+
+        try {
+          const preview = await getLatestPullRequestCloudflarePreviewComment({
+            octokit: args.octokit,
+            owner: args.owner,
+            repo: args.repo,
+            pullRequestNumber: branch.pullRequestNumber,
+          });
+          return {
+            name: branch.name,
+            previewState: "resolved",
+            cloudflareBranchPreviewUrl: preview?.branchPreviewUrl,
+            cloudflarePreviewUrl: preview?.previewUrl,
+            cloudflarePreviewCommitSha: preview?.previewCommitSha,
+            cloudflarePreviewStatus: preview?.previewStatus,
+            cloudflarePreviewLogsUrl: preview?.previewLogsUrl,
+            cloudflarePreviewCommentCreatedAt:
+              preview?.cloudflarePreviewCommentCreatedAt,
+          };
+        } catch (error: unknown) {
+          console.warn(
+            "listPullRequestCloudflarePreviewComment failed",
+            JSON.stringify({
+              owner: args.owner,
+              repo: args.repo,
+              branchName: branch.name,
+              pullRequestNumber: branch.pullRequestNumber,
+              error:
+                error instanceof Error
+                  ? error.message
+                  : String(error ?? "unknown"),
+            }),
+          );
+          return {
+            name: branch.name,
+            previewState: "preserve",
+          };
+        }
+      }),
+    );
+    updates.push(...batchUpdates);
+  }
+
+  return updates;
+}
 function readPullRequestHeadRepositoryFullName(
   pullRequest: unknown,
 ): string | undefined {
@@ -1261,6 +1444,7 @@ export const refreshRepositoryTree = action({
     branch: optional(string()),
     includeAheadBehind: optional(boolean()),
     includePullRequestLinks: optional(boolean()),
+    includeCloudflarePreviewLinks: optional(boolean()),
     trigger: optional(union(literal("focus"), literal("page_load"))),
   },
   returns: nullValidator(),
@@ -1285,6 +1469,7 @@ export const refreshRepositoryTree = action({
         branch: requestedBranch,
         includeAheadBehind: args.includeAheadBehind === true,
         includePullRequestLinks: args.includePullRequestLinks === true,
+        includeCloudflarePreviewLinks: false,
       });
       return null;
     }
@@ -1307,6 +1492,8 @@ export const refreshRepositoryTree = action({
         repo: args.repo,
         includeAheadBehind: true,
         includePullRequestLinks: true,
+        includeCloudflarePreviewLinks:
+          args.includeCloudflarePreviewLinks === true,
       });
       markRefreshed = true;
     } finally {
@@ -1329,6 +1516,7 @@ export const updateRepositoryTree = internalAction({
     branch: optional(string()),
     includeAheadBehind: optional(boolean()),
     includePullRequestLinks: optional(boolean()),
+    includeCloudflarePreviewLinks: optional(boolean()),
   },
   returns: nullValidator(),
   handler: async (ctx, args) => {
@@ -1381,6 +1569,24 @@ export const updateRepositoryTree = internalAction({
       syncedAt: Date.now(),
       branches: remoteBranches,
     });
+    if (
+      args.includeCloudflarePreviewLinks === true &&
+      args.includePullRequestLinks === true
+    ) {
+      const cloudflarePreviews = await getCloudflarePreviewLinksByBranch({
+        octokit,
+        owner: args.owner,
+        repo: args.repo,
+        branches: remoteBranches,
+      });
+      await ctx.runMutation(
+        internal.vault.syncVaultRemoteBranchCloudflarePreviews,
+        {
+          vaultId: vault._id,
+          branches: cloudflarePreviews,
+        },
+      );
+    }
     const defaultBranch = remoteBranches.find(
       (branch) => branch.isDefault,
     )?.name;

@@ -366,6 +366,7 @@ interface VaultRemoteBranchListItem {
   pullRequestNumber?: number;
   pullRequestLabels?: Array<string | { name: string; color?: string }>;
   pullRequestTitle?: string;
+  cloudflareBranchPreviewUrl?: string;
 }
 
 interface VaultBranchLinkRowProps {
@@ -381,6 +382,7 @@ interface VaultBranchLinkRowProps {
   pullRequestNumber?: number;
   pullRequestLabels?: Array<string | { name: string; color?: string }>;
   pullRequestTitle?: string;
+  cloudflareBranchPreviewUrl?: string;
   stagedSummary?: StagedSummary;
   canDeleteBranch: boolean;
   isDeletingBranch: boolean;
@@ -502,6 +504,7 @@ export function VaultBranchLinkContent({
   pullRequestNumber,
   pullRequestLabels,
   pullRequestTitle,
+  cloudflareBranchPreviewUrl,
 }: {
   repositoryFullName: string;
   branchName: string;
@@ -514,6 +517,7 @@ export function VaultBranchLinkContent({
   pullRequestNumber?: number;
   pullRequestLabels?: VaultBranchLinkRowProps["pullRequestLabels"];
   pullRequestTitle?: string;
+  cloudflareBranchPreviewUrl?: string;
 }) {
   const commitUrl = `https://github.com/${repositoryFullName}/commit/${headCommitSha}`;
   const aheadBehindLabel = formatAheadBehindCounts(aheadBy, behindBy);
@@ -588,6 +592,21 @@ export function VaultBranchLinkContent({
                   </Badge>
                 ))
               : null}
+            {typeof cloudflareBranchPreviewUrl === "string" &&
+            cloudflareBranchPreviewUrl.length > 0 ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <a
+                  href={cloudflareBranchPreviewUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={clsx("font-mono", linkStyle)}
+                  title="Open Cloudflare branch preview"
+                >
+                  preview
+                </a>
+              </>
+            ) : null}
             {aheadBehindLabel ? (
               <>
                 <span aria-hidden="true">·</span>
@@ -619,6 +638,7 @@ export function VaultBranchLinkRow({
   pullRequestNumber,
   pullRequestLabels,
   pullRequestTitle,
+  cloudflareBranchPreviewUrl,
   stagedSummary,
   canDeleteBranch,
   isDeletingBranch,
@@ -640,6 +660,7 @@ export function VaultBranchLinkRow({
         pullRequestNumber={pullRequestNumber}
         pullRequestLabels={pullRequestLabels}
         pullRequestTitle={pullRequestTitle}
+        cloudflareBranchPreviewUrl={cloudflareBranchPreviewUrl}
       />
       <div className="flex shrink-0 items-start gap-2">
         {hasStagedChanges ? (
@@ -727,6 +748,7 @@ function VaultBranchListRow({
       pullRequestNumber={branch.pullRequestNumber}
       pullRequestLabels={branch.pullRequestLabels}
       pullRequestTitle={branch.pullRequestTitle}
+      cloudflareBranchPreviewUrl={branch.cloudflareBranchPreviewUrl}
       stagedSummary={stagedSummary}
       canDeleteBranch={deleteEligibility.canDelete}
       isDeletingBranch={activeDeletingBranchName === branch.name}
@@ -986,6 +1008,7 @@ function VaultDashboardContent() {
               await refreshTree({
                 owner: vault.ghRepoOwner,
                 repo: vault.ghRepoName,
+                includeCloudflarePreviewLinks: true,
                 trigger,
               }).catch((error: unknown) => {
                 console.error(
