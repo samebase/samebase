@@ -158,7 +158,7 @@ function sessionExists(session) {
     return false
   }
 
-  const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+  const output = `${result.stdout}\n${result.stderr}`
   const escapedSession = session.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')
   return new RegExp(`(^|\\s)${escapedSession}(\\s|$)`, 'm').test(output)
 }
