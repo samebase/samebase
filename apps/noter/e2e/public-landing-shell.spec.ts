@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { devices, expect, test, type Locator } from "@playwright/test";
 import { FAST_LANDING_APP_BOOT_DELAY_MS } from "../src/lib/fastLandingBoot";
 import {
   PUBLIC_LANDING_LOGO_SCENE_TEST_ID,
@@ -16,6 +16,11 @@ const NAVIGATION_BUDGET_MS = {
   load: 500,
 } as const;
 
+const {
+  defaultBrowserType: _mobileLandingDefaultBrowserType,
+  ...mobileLandingDevice
+} = devices["iPhone 13"];
+
 async function readNavigationTiming(page: Parameters<typeof test>[0]["page"]) {
   return page.evaluate(() => {
     const navigationEntry = performance.getEntriesByType("navigation")[0];
@@ -30,6 +35,68 @@ async function readNavigationTiming(page: Parameters<typeof test>[0]["page"]) {
       loadMs: navigationEntry.loadEventEnd,
     };
   });
+}
+
+type LandingToggleFrame = {
+  href: string;
+  top: number | null;
+  activeTag: string | null;
+};
+
+async function captureLandingToggleFrames(
+  page: Parameters<typeof test>[0]["page"],
+  linkName: "/?dev" | "/",
+): Promise<LandingToggleFrame[]> {
+  const framesPromise = page.evaluate(() => {
+    return new Promise<LandingToggleFrame[]>((resolve) => {
+      const samples: LandingToggleFrame[] = [];
+      let frame = 0;
+
+      const capture = () => {
+        const root = document.querySelector(
+          '[data-testid="public-landing-content"]',
+        );
+        const rect =
+          root instanceof HTMLElement ? root.getBoundingClientRect() : null;
+        samples.push({
+          href: window.location.href,
+          top: rect ? Number(rect.top.toFixed(3)) : null,
+          activeTag: document.activeElement?.tagName ?? null,
+        });
+        frame += 1;
+        if (frame >= 45) {
+          resolve(samples);
+          return;
+        }
+        requestAnimationFrame(capture);
+      };
+
+      requestAnimationFrame(capture);
+    });
+  });
+
+  await page.getByRole("link", { name: linkName, exact: true }).click();
+  return await framesPromise;
+}
+
+function expectStableLandingToggleFrames(
+  frames: LandingToggleFrame[],
+  expectedPathWithSearch: "/?dev" | "/",
+) {
+  const navigatedFrames = frames.filter((frame) => {
+    const url = new URL(frame.href);
+    return `${url.pathname}${url.search}` === expectedPathWithSearch;
+  });
+  expect(navigatedFrames.length).toBeGreaterThan(0);
+
+  const topValues = navigatedFrames
+    .map((frame) => frame.top)
+    .filter((value): value is number => value !== null);
+  expect(topValues.length).toBeGreaterThan(0);
+  expect(Math.max(...topValues) - Math.min(...topValues)).toBeLessThanOrEqual(
+    1,
+  );
+  expect(navigatedFrames.some((frame) => frame.activeTag === "A")).toBe(false);
 }
 
 async function insertLandingHeadingMarker(
@@ -90,6 +157,22 @@ test("public landing shell renders before the full app UI takes over", async ({
   await expect(
     page.getByRole("button", { name: "Join Waitlist" }),
   ).toBeEnabled();
+});
+
+test.describe("mobile landing dev toggle", () => {
+  test.use(mobileLandingDevice);
+
+  test("landing dev toggle keeps the landing card stable frame by frame", async ({
+    page,
+  }) => {
+    await page.goto("/", { waitUntil: "networkidle" });
+
+    const forwardFrames = await captureLandingToggleFrames(page, "/?dev");
+    expectStableLandingToggleFrames(forwardFrames, "/?dev");
+
+    const backFrames = await captureLandingToggleFrames(page, "/");
+    expectStableLandingToggleFrames(backFrames, "/");
+  });
 });
 
 test("shell waitlist input preserves typed email through handoff", async ({
