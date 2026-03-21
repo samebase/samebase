@@ -584,10 +584,24 @@ Auth:
   lines, unless the work is too intertwined to split safely.
 - Always create a working branch (use `codex/` prefix when needed), and push
   after every commit so the remote stays up to date.
+<<<<<<< HEAD
 - For this operator, draft PR creation is part of task startup. In the first
   user-facing message for an implementation task, bootstrap the worktree with
   `make anon` and then open or update a draft PR immediately so preview links
   (including Cloudflare previews) exist from the beginning of the work.
+- If GitHub requires a diff before opening that startup draft PR, create a
+  minimal checkpoint commit right after bootstrap rather than waiting for a
+  larger implementation commit.
+- For this operator, keep the running narrative primarily in GitHub: use the PR
+  description as the canonical current summary/plan/links, use PR comments for
+  incremental checkpoints and notable decisions, and update the PR title and
+  description when the scope shifts materially. Do not default to keeping the
+  primary work log in repo files unless the user explicitly asks for that.
+- For this operator, draft PR creation is part of task startup. In the first
+  user-facing message for an implementation task, say that you will bootstrap
+  the worktree with `make anon` and then open or update a draft PR immediately
+  so preview links (including Cloudflare previews) exist from the beginning of
+  the work.
 - If GitHub requires a diff before opening that startup draft PR, create a
   minimal checkpoint commit right after bootstrap rather than waiting for a
   larger implementation commit.
