@@ -328,17 +328,17 @@ use `--env-file` or an explicit deployment selector instead.
 Shorthand commands for git/GitHub workflows. When the user says these, execute
 them directly using CLI tools.
 
-| Command        | Action                                                                                                 |
-| -------------- | ------------------------------------------------------------------------------------------------------ |
-| `commit`       | Stage all changes, commit with concise message                                                         |
-| `push`         | Commit if needed, push to remote                                                                       |
-| `create pr`    | Push if needed, create PR, ensure a non-empty body, then mark ready                                    |
-| `ready`        | Mark draft PR as ready: `gh pr ready`                                                                  |
-| `wait`         | Monitor CI with `gh pr checks` or `gh run watch`, report status                                        |
-| `ship`         | Full flow: commit → push → create PR → ready → fix Greptile+CodeRabbit feedback loops → wait           |
-| `clean vaults` | Remove temporary Noter-managed vaults/resources created for the current worktree                       |
-| `clean`        | After PR is shipped/merged: run `clean vaults`, then remove the current worktree and delete its branch |
-| `status`       | Show branch, uncommitted changes, PR state                                                             |
+| Command        | Action                                                                                                    |
+| -------------- | --------------------------------------------------------------------------------------------------------- |
+| `commit`       | Stage all changes, commit with concise message                                                            |
+| `push`         | Commit if needed, push to remote                                                                          |
+| `create pr`    | Push if needed, create or update a draft PR, ensure a non-empty body, keep it draft unless asked ready    |
+| `ready`        | Mark draft PR as ready: `gh pr ready`                                                                     |
+| `wait`         | Monitor CI with `gh pr checks` or `gh run watch`, report status                                           |
+| `ship`         | Full flow: commit → push → create/update draft PR → ready → fix Greptile+CodeRabbit feedback loops → wait |
+| `clean vaults` | Remove temporary Noter-managed vaults/resources created for the current worktree                          |
+| `clean`        | After PR is shipped/merged: run `clean vaults`, then remove the current worktree and delete its branch    |
+| `status`       | Show branch, uncommitted changes, PR state                                                                |
 
 ### Rules
 
@@ -385,8 +385,9 @@ them directly using CLI tools.
 - PR descriptions must explain why the change exists, not just what changed. If
   a PR is split out from a broader branch or effort, say that explicitly in the
   `Why` section so reviewers have the missing context.
-- When the user asks to "open a PR" (or `create pr`), mark it ready for review
-  by default. Only keep it as draft if the user explicitly asks for draft.
+- When the user asks to "open a PR" (or `create pr`), create or update a draft
+  PR by default. Only mark it ready when the user explicitly asks for that or
+  when the command is `ready`/`ship`.
 - Update PR description with `gh pr edit --body` when commits change scope
 - During `ship`, if Greptile reports actionable findings, fix them, push
   updates, and continue until Greptile and required CI checks are green.
@@ -577,10 +578,9 @@ Auth:
 - Always create a working branch (use `codex/` prefix when needed), and push
   after every commit so the remote stays up to date.
 - For this operator, draft PR creation is part of task startup. In the first
-  user-facing message for an implementation task, say that you will bootstrap
-  the worktree with `make anon` and then open or update a draft PR immediately
-  so preview links (including Cloudflare previews) exist from the beginning of
-  the work.
+  user-facing message for an implementation task, bootstrap the worktree with
+  `make anon` and then open or update a draft PR immediately so preview links
+  (including Cloudflare previews) exist from the beginning of the work.
 - If GitHub requires a diff before opening that startup draft PR, create a
   minimal checkpoint commit right after bootstrap rather than waiting for a
   larger implementation commit.
@@ -614,12 +614,11 @@ Auth:
   so on explicit user request.
 - Never recommend bypassing commit or pre-commit hooks as an option; only
   proceed if the user explicitly asks to bypass them.
-- When the user asks to create a PR, automatically mark it ready for review
-  unless they explicitly ask for a draft PR.
-- After opening a PR, always request an initial CodeRabbit review by commenting
-  `@coderabbitai review`.
-- After opening a PR, always request an initial Codex review by commenting
-  `@codex review`.
+- When the user asks to create a PR, keep it draft by default unless they
+  explicitly ask to make it ready for review.
+- Do not request CodeRabbit or Codex review automatically for startup draft PRs
+  or early work-in-progress PRs. Request review when the PR is marked ready or
+  when the user explicitly asks for review on the current draft state.
 - When creating or editing PR descriptions with `gh`, use `--body-file` (or
   stdin/heredoc) so real newlines are preserved; never pass escaped `\n` in a
   single-line `--body` string.
@@ -627,10 +626,11 @@ Auth:
   immediate error-level rollout impractical, use a repo-wide warning first
   instead of scoping the rule to a narrow set of files unless the user
   explicitly asks for that.
-- After pushing fixes for PR review feedback, always request a fresh CodeRabbit
-  review by commenting `@coderabbitai review`.
-- After pushing fixes for PR review feedback, always request a fresh Codex
-  review by commenting `@codex review`.
+- After pushing fixes for PR review feedback on a PR that is actively under
+  review, always request a fresh CodeRabbit review by commenting
+  `@coderabbitai review`.
+- After pushing fixes for PR review feedback on a PR that is actively under
+  review, always request a fresh Codex review by commenting `@codex review`.
 - After fixing CodeRabbit findings, always reply on each relevant CodeRabbit
   review thread with a short note describing exactly what was changed, then
   resolve the thread.
