@@ -208,6 +208,31 @@ const EDITOR_CHAT_MIN_HEIGHT = 14 * 16;
 const EDITOR_CHAT_DEFAULT_HEIGHT = 22 * 16;
 const EDITOR_CHAT_MOBILE_DEFAULT_HEIGHT_RATIO = 0.45;
 const EDITOR_CHAT_MAX_HEIGHT_RATIO = 0.7;
+const CLOSED_EDITOR_CHAT_MARK_CELLS = [
+  [0, 0],
+  [4, 0],
+  [8, 0],
+  [0, 4],
+  [8, 4],
+  [0, 8],
+  [4, 8],
+  [8, 8],
+] as const;
+
+function ClosedEditorChatMark({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 11 11"
+      aria-hidden="true"
+      className={className}
+      fill="currentColor"
+    >
+      {CLOSED_EDITOR_CHAT_MARK_CELLS.map(([x, y]) => (
+        <rect key={`${x}-${y}`} x={x} y={y} width="3" height="3" rx="0.4" />
+      ))}
+    </svg>
+  );
+}
 
 function getMaxEditorChatHeight(): number {
   if (typeof window === "undefined") {
@@ -2867,13 +2892,14 @@ function FileViewInner({
             {!editorChatOpen ? (
               <Button
                 type="button"
-                size="sm"
-                variant="secondary"
+                size="icon"
+                variant="outline"
                 onClick={() => handleEditorChatOpenChange(true)}
-                className="absolute bottom-3 right-3 z-10 h-9 gap-2 border border-border bg-background px-3 text-xs hover:bg-accent"
+                aria-label="Open chat"
+                title="Open chat"
+                className="absolute bottom-3 right-3 z-10 border-border bg-background text-foreground hover:bg-accent"
               >
-                <MessageSquare className="h-4 w-4" />
-                Open Chat
+                <ClosedEditorChatMark className="h-3.5 w-3.5" />
               </Button>
             ) : null}
           </div>
