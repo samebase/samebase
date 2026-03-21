@@ -8,26 +8,29 @@
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md`
+  - `specs/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md`
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
   - `rfcs/046_VAULT_MULTI_BRANCH_ROLLOUT_PLAN.md`
 
 ## Summary
 
-This RFC captures research and implementation guidance for two related dashboard
-ideas:
+This RFC now captures research and future guidance for dashboard preview
+surfaces beyond the accepted direct-link implementation.
+
+The accepted implementation plan for direct branch preview links now lives in:
+
+- `specs/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md`
+
+This RFC remains useful for two related exploratory ideas:
 
 1. Show the Cloudflare preview link directly on each branch row in the vault
    dashboard.
 2. Explore a future branch-specific mini preview surface in the dashboard,
    likely as a cached thumbnail rather than a live embedded app.
 
-The near-term recommendation is to ship direct branch preview links first. The
-current codebase already has most of the structural pieces for this, but it does
-not yet sync or expose per-branch Cloudflare preview aliases.
-
-The thumbnail idea is viable, but only with a separate cache model keyed by
-immutable deployment identity. It should not be attempted as a live iframe per
-branch.
+The thumbnail idea is still viable, but only with a separate cache model keyed
+by immutable deployment identity. It should not be attempted as a live iframe
+per branch.
 
 ## Why this RFC exists
 
