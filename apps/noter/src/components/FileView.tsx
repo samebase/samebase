@@ -2911,7 +2911,7 @@ function FileViewInner({
                     repositoryFullName={repositoryFullName}
                     branch={branch}
                     filePath={selectedFile}
-                    className="h-full"
+                    className="h-full -mx-4 sm:mx-0"
                     onClose={() => handleEditorChatOpenChange(false)}
                   />
                 </div>

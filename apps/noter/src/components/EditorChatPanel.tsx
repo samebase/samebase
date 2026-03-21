@@ -791,7 +791,7 @@ export function EditorChatPanel({
         className,
       )}
     >
-      <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+      <div className="flex items-center justify-between border-b border-border px-0 py-2.5 sm:px-4">
         <span className="text-sm font-medium text-foreground">Chat</span>
         <div className="flex items-center gap-0.5">
           {threadId ? (
@@ -823,7 +823,7 @@ export function EditorChatPanel({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-3 py-2">
+      <div className="flex-1 overflow-y-auto px-0 py-2 sm:px-3">
         <CapabilitiesPanel
           repositoryFullName={repositoryFullName}
           vaultId={vaultId}
