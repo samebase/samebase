@@ -3,6 +3,8 @@
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 - [ ] specifically left blank
 
+- [ ] goedel Bach book discussions between turtoise, are same as Ai discussions. same as philosopher discussions? 
+
 - [ ] test using playwright from multiple browser states. E. g. browser was loaded with different version/cache from several days ago, and gets in again. 
 
 - [ ] the minimal unit of work is the draft pr that starts with just experimentation, or just thing research this
