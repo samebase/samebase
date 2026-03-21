@@ -61,18 +61,17 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     ref,
   ) => {
     const Comp = asChild ? Slot : "button";
-    const buttonRef = useCornerNotchBridgeColor(cornerNotch, ref, className);
-
-    return (
-      <Comp
-        className={cn(
-          buttonVariants({ variant, size, cornerNotch }),
-          className,
-        )}
-        ref={buttonRef}
-        {...props}
-      />
+    const finalClassName = cn(
+      buttonVariants({ variant, size, cornerNotch }),
+      className,
     );
+    const buttonRef = useCornerNotchBridgeColor(
+      cornerNotch,
+      ref,
+      finalClassName,
+    );
+
+    return <Comp className={finalClassName} ref={buttonRef} {...props} />;
   },
 );
 Button.displayName = "Button";

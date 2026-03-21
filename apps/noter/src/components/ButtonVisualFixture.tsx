@@ -8,19 +8,39 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import buttonVisualFixtureFontUrl from "three/examples/fonts/ttf/kenpixel.ttf";
 import { Button } from "@/components/button";
+
+const buttonVisualFixtureFontFace = `
+  @font-face {
+    font-family: "Noter Button Visual Fixture";
+    src: url("${buttonVisualFixtureFontUrl}") format("truetype");
+    font-display: block;
+  }
+`;
+
+const buttonVisualFixtureRootStyle = {
+  fontFamily: '"Noter Button Visual Fixture", monospace',
+} as const;
+
+interface FixtureSectionProps {
+  children: ReactNode;
+  description: string;
+  testId: string;
+  title: string;
+}
+
+interface ButtonRowProps {
+  children: ReactNode;
+  label: string;
+}
 
 function FixtureSection({
   children,
   description,
   testId,
   title,
-}: {
-  children: ReactNode;
-  description: string;
-  testId: string;
-  title: string;
-}) {
+}: FixtureSectionProps) {
   return (
     <section
       data-testid={testId}
@@ -35,13 +55,7 @@ function FixtureSection({
   );
 }
 
-function ButtonRow({
-  children,
-  label,
-}: {
-  children: ReactNode;
-  label: string;
-}) {
+function ButtonRow({ children, label }: ButtonRowProps) {
   return (
     <div className="grid items-center gap-3 border border-stone-200 bg-stone-50 p-3 md:grid-cols-[11rem_1fr]">
       <div className="text-[11px] uppercase tracking-[0.2em] text-stone-500">
@@ -57,7 +71,9 @@ export function ButtonVisualFixture() {
     <div
       data-testid="button-visual-fixture"
       className="min-h-screen bg-stone-100 p-8 text-stone-950"
+      style={buttonVisualFixtureRootStyle}
     >
+      <style>{buttonVisualFixtureFontFace}</style>
       <div className="mx-auto grid max-w-6xl gap-6">
         <header className="grid gap-2 border border-stone-300 bg-white p-5">
           <h1 className="text-2xl font-semibold tracking-tight">
