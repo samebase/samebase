@@ -96,6 +96,7 @@ export const setProvidersPanelOpen = mutation({
       await ctx.db.insert("dashboardSettings", {
         userId,
         providersPanelOpen: args.isOpen,
+        pricingBillingCycle: DEFAULT_PRICING_BILLING_CYCLE,
         editorChatOpen: false,
       });
     }

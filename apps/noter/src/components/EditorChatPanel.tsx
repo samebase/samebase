@@ -570,6 +570,7 @@ type EditorChatPanelProps = {
   branch: string;
   filePath?: string;
   className?: string;
+  autoFocusInput?: boolean;
   onClose?: () => void;
 };
 
@@ -581,6 +582,7 @@ export function EditorChatPanel({
   branch,
   filePath,
   className,
+  autoFocusInput = false,
   onClose,
 }: EditorChatPanelProps) {
   const [input, setInput] = useState("");
@@ -595,6 +597,8 @@ export function EditorChatPanel({
   const lastSavedDraftRef = useRef<string | null>(null);
   const isDirtyDraftRef = useRef(false);
   const creatingThreadRef = useRef<Promise<string> | null>(null);
+  const flushDraftRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  const flushDraftPromiseRef = useRef<Promise<void> | null>(null);
 
   const viewer = useQuery(api.users.viewer);
 
@@ -663,6 +667,22 @@ export function EditorChatPanel({
   }
 
   useEffect(() => {
+    setPendingThreadId(null);
+    setInput("");
+    setSending(false);
+    setIsDeleting(false);
+    if (draftSaveTimerRef.current) {
+      window.clearTimeout(draftSaveTimerRef.current);
+      draftSaveTimerRef.current = null;
+    }
+    lastHydratedThreadRef.current = null;
+    lastHydratedDraftRef.current = "";
+    lastSavedDraftRef.current = null;
+    isDirtyDraftRef.current = false;
+    flushDraftPromiseRef.current = null;
+  }, [vaultId]);
+
+  useEffect(() => {
     if (vaultThread?.threadId) {
       setPendingThreadId(null);
     }
@@ -682,8 +702,10 @@ export function EditorChatPanel({
   }, [messageResults]);
 
   useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+    if (autoFocusInput) {
+      inputRef.current?.focus();
+    }
+  }, [autoFocusInput]);
 
   // Clear sending flag when we get the assistant response
   useEffect(() => {
@@ -726,6 +748,50 @@ export function EditorChatPanel({
     lastHydratedDraftRef.current = remoteDraft;
     lastSavedDraftRef.current = remoteDraft;
   }, [threadId, threadContextLoaded, threadContext?.draftMessage]);
+
+  const flushDraftImmediately = useCallback(() => {
+    if (!threadId) {
+      return Promise.resolve();
+    }
+    if (draftSaveTimerRef.current) {
+      window.clearTimeout(draftSaveTimerRef.current);
+      draftSaveTimerRef.current = null;
+    }
+    const draft = input;
+    if (draft === lastSavedDraftRef.current) {
+      isDirtyDraftRef.current = false;
+      return Promise.resolve();
+    }
+    if (flushDraftPromiseRef.current) {
+      return flushDraftPromiseRef.current;
+    }
+    const savePromise = updateThreadDraft({ threadId, draftMessage: draft })
+      .then(() => {
+        lastSavedDraftRef.current = draft;
+        lastHydratedDraftRef.current = draft;
+        isDirtyDraftRef.current = false;
+      })
+      .catch(() => {
+        // keep dirty flag for a future retry
+      })
+      .finally(() => {
+        if (flushDraftPromiseRef.current === savePromise) {
+          flushDraftPromiseRef.current = null;
+        }
+      });
+    flushDraftPromiseRef.current = savePromise;
+    return savePromise;
+  }, [input, threadId, updateThreadDraft]);
+
+  useEffect(() => {
+    flushDraftRef.current = flushDraftImmediately;
+  }, [flushDraftImmediately]);
+
+  useEffect(() => {
+    return () => {
+      void flushDraftRef.current();
+    };
+  }, []);
 
   useEffect(() => {
     if (!threadId) return;
@@ -784,6 +850,11 @@ export function EditorChatPanel({
     }
   }
 
+  const handleClose = useCallback(() => {
+    void flushDraftImmediately();
+    onClose?.();
+  }, [flushDraftImmediately, onClose]);
+
   return (
     <div
       className={cn(
@@ -798,6 +869,9 @@ export function EditorChatPanel({
             <button
               onClick={() => void handleNewConversation()}
               title={isDeleting ? "Removing..." : "New conversation"}
+              aria-label={
+                isDeleting ? "Removing conversation" : "New conversation"
+              }
               disabled={isDeleting}
               aria-disabled={isDeleting}
               className={cn(
@@ -813,7 +887,7 @@ export function EditorChatPanel({
           ) : null}
           {onClose ? (
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="corner-notch-1 p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
               aria-label="Close chat"
             >

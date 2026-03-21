@@ -692,17 +692,23 @@ function FileViewInner({
   const setEditorChatOpen = useMutation(
     api.dashboardSettings.setEditorChatOpen,
   );
+  // `null` means "follow Convex" until the user makes a local optimistic toggle.
   const [editorChatOpenState, setEditorChatOpenState] = useState<
     boolean | null
   >(null);
+  // Pending open/close gates stale server echoes until the matching mutation lands.
   const editorChatPendingRef = useRef<boolean | null>(null);
+  // Failed mutations need the latest server snapshot, not the render-captured one.
+  const latestEditorChatServerValueRef = useRef(false);
   const [editorChatHeight, setEditorChatHeight] = useState<number>(() =>
+    // Keep the initial height consistent across mounts before any user resize.
     getDefaultEditorChatHeight(),
   );
   const editorChatResizeRef = useRef<{
     startY: number;
     startHeight: number;
   } | null>(null);
+  const editorChatKeyboardResizeTimeoutRef = useRef<number | null>(null);
   const [isEditorChatResizing, setIsEditorChatResizing] = useState(false);
 
   // Dialog state management
@@ -981,10 +987,12 @@ function FileViewInner({
     if (serverValue === undefined) {
       return;
     }
+    latestEditorChatServerValueRef.current = serverValue;
     if (editorChatPendingRef.current !== null) {
       if (editorChatPendingRef.current === serverValue) {
         editorChatPendingRef.current = null;
       } else {
+        // Ignore stale echoes while a newer optimistic toggle is still pending.
         return;
       }
     }
@@ -1001,7 +1009,8 @@ function FileViewInner({
   }, []);
 
   useEffect(() => {
-    if (!isEditorChatResizing) {
+    // Only pointer drags should grab the page cursor and disable selection.
+    if (!isEditorChatResizing || editorChatResizeRef.current === null) {
       document.body.style.removeProperty("cursor");
       document.body.style.removeProperty("user-select");
       return;
@@ -1014,6 +1023,14 @@ function FileViewInner({
       document.body.style.removeProperty("user-select");
     };
   }, [isEditorChatResizing]);
+
+  useEffect(() => {
+    return () => {
+      if (editorChatKeyboardResizeTimeoutRef.current !== null) {
+        window.clearTimeout(editorChatKeyboardResizeTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!viewModeHydrated) {
@@ -2327,15 +2344,21 @@ function FileViewInner({
     : undefined;
   const editorChatOpen =
     editorChatOpenState ?? dashboardSettings?.editorChatOpen ?? false;
-  const handleEditorChatOpenChange = (isOpen: boolean) => {
-    setEditorChatOpenState(isOpen);
-    editorChatPendingRef.current = isOpen;
-    void setEditorChatOpen({ isOpen }).catch((error: unknown) => {
-      console.error("Failed to persist editor chat state:", error);
-      editorChatPendingRef.current = null;
-      setEditorChatOpenState(dashboardSettings?.editorChatOpen ?? false);
-    });
-  };
+  const handleEditorChatOpenChange = useCallback(
+    (isOpen: boolean) => {
+      setEditorChatOpenState(isOpen);
+      editorChatPendingRef.current = isOpen;
+      void setEditorChatOpen({ isOpen }).catch((error: unknown) => {
+        console.error("Failed to persist editor chat state:", error);
+        editorChatPendingRef.current = null;
+        setEditorChatOpenState(latestEditorChatServerValueRef.current);
+      });
+    },
+    [setEditorChatOpen],
+  );
+  const handleEditorChatResizeBy = useCallback((delta: number) => {
+    setEditorChatHeight((current) => clampEditorChatHeight(current + delta));
+  }, []);
   const handleEditorChatResizeStart = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       if (event.button !== 0) {
@@ -2374,6 +2397,32 @@ function FileViewInner({
     },
     [],
   );
+  const handleEditorChatResizeKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      const step = event.shiftKey ? 96 : 24;
+      const delta =
+        event.key === "ArrowUp" || event.key === "ArrowRight"
+          ? step
+          : event.key === "ArrowDown" || event.key === "ArrowLeft"
+            ? -step
+            : 0;
+      if (delta === 0) {
+        return;
+      }
+      event.preventDefault();
+      setIsEditorChatResizing(true);
+      handleEditorChatResizeBy(delta);
+      if (editorChatKeyboardResizeTimeoutRef.current !== null) {
+        window.clearTimeout(editorChatKeyboardResizeTimeoutRef.current);
+      }
+      editorChatKeyboardResizeTimeoutRef.current = window.setTimeout(() => {
+        setIsEditorChatResizing(false);
+        editorChatKeyboardResizeTimeoutRef.current = null;
+      }, 120);
+    },
+    [handleEditorChatResizeBy],
+  );
+  const editorChatMaxHeight = getMaxEditorChatHeight();
 
   return (
     <>
@@ -2888,12 +2937,18 @@ function FileViewInner({
                   role="separator"
                   aria-label="Resize chat panel"
                   aria-orientation="horizontal"
+                  aria-valuemin={EDITOR_CHAT_MIN_HEIGHT}
+                  aria-valuemax={editorChatMaxHeight}
+                  aria-valuenow={Math.round(editorChatHeight)}
+                  aria-valuetext={`${Math.round(editorChatHeight)} pixels tall`}
+                  tabIndex={0}
                   className={cn(
                     "mb-[-1px] flex h-5 shrink-0 cursor-row-resize touch-none items-center justify-center",
                     isEditorChatResizing
                       ? "text-foreground"
                       : "text-muted-foreground",
                   )}
+                  onKeyDown={handleEditorChatResizeKeyDown}
                   onPointerDown={handleEditorChatResizeStart}
                   onPointerMove={handleEditorChatResizeMove}
                   onPointerUp={handleEditorChatResizeEnd}
@@ -2907,10 +2962,15 @@ function FileViewInner({
                 </div>
                 <div className="min-h-0 flex-1">
                   <EditorChatPanel
+                    key={vault._id}
                     vaultId={vault._id}
                     repositoryFullName={repositoryFullName}
                     branch={branch}
                     filePath={selectedFile}
+                    autoFocusInput={
+                      editorChatOpenState === true &&
+                      editorChatPendingRef.current === true
+                    }
                     className="h-full -mx-4 sm:mx-0"
                     onClose={() => handleEditorChatOpenChange(false)}
                   />
