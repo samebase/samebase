@@ -44,6 +44,7 @@ import {
   executeCommandAsSandboxUser,
 } from "./sandboxUser";
 import { DAYTONA_ENSURE_REPO_AUTO_CD_PROGRAM_SOURCE } from "./sandboxPrograms.generated";
+import { stripIndent } from "../../shared/stripIndent";
 import {
   canonicalizeCommitPinnedDaytonaBranch,
   DAYTONA_COMMIT_PINNED_BRANCH,
@@ -1617,53 +1618,6 @@ function isVaultSnapshotName(args: {
 
 function quoteForBash(input: string): string {
   return `'${input.replace(/'/g, `'\\''`)}'`;
-}
-
-type TemplateValue = string | number | boolean | null | undefined;
-
-function stripIndent(
-  strings: TemplateStringsArray,
-  ...values: TemplateValue[]
-): string {
-  let combined = "";
-  for (let index = 0; index < strings.length; index += 1) {
-    combined += strings[index];
-    if (index < values.length) {
-      combined += String(values[index]);
-    }
-  }
-
-  const trimmed = combined.trim();
-  if (trimmed.length === 0) {
-    return "";
-  }
-
-  const lines = trimmed.split("\n");
-  let minIndent: number | null = null;
-  for (const line of lines) {
-    if (line.trim().length === 0) {
-      continue;
-    }
-    const match = line.match(/^ +/);
-    const indent = match ? match[0].length : 0;
-    if (minIndent === null || indent < minIndent) {
-      minIndent = indent;
-      if (minIndent === 0) {
-        break;
-      }
-    }
-  }
-
-  if (minIndent === null || minIndent === 0) {
-    return lines.join("\n");
-  }
-
-  const stripPrefix = " ".repeat(minIndent);
-  return lines
-    .map((line) =>
-      line.startsWith(stripPrefix) ? line.slice(minIndent) : line,
-    )
-    .join("\n");
 }
 
 const DEV_SERVER_STATUS_MARKER = "__NOTER_DEV_STATUS__";

@@ -157,6 +157,7 @@ export function LogoTransitionTransformsLabPage() {
                 }}
                 className="h-2 w-full cursor-pointer accent-black"
               />
+
               <div className="grid grid-cols-4 gap-2">
                 {ROTATION_PRESETS.map((presetAngle) => (
                   <Button
@@ -260,7 +261,7 @@ export function LogoTransitionTransformsLabPage() {
                   /logo-transition-lab-transforms
                 </div>
               </div>
-              <div className="flex min-h-[38rem] items-center justify-center border border-black/10 bg-[#fcfbf7] p-4">
+              <div className="flex min-h-[16rem] items-center justify-center border border-black/10 bg-[#fcfbf7] p-4">
                 <div
                   className="block h-auto w-full max-w-[42rem]"
                   dangerouslySetInnerHTML={{ __html: scene.svgMarkup }}
@@ -279,10 +280,9 @@ export function LogoTransitionTransformsLabPage() {
                 </div>
               </div>
               <textarea
-                readOnly
                 spellCheck={false}
                 value={scene.svgMarkup}
-                className="min-h-[18rem] w-full resize-y border border-black/10 bg-[#fcfbf7] p-4 font-mono text-xs leading-5 text-black outline-none"
+                className="min-h-[16rem] h-full w-full resize-y border border-black/10 bg-[#fcfbf7] p-4 font-mono text-xs leading-5 text-black outline-none"
               />
             </div>
           </div>

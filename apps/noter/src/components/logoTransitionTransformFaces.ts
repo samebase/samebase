@@ -13,6 +13,7 @@ import {
   type LogoProjectedPoint,
   type LogoWorldPoint,
 } from "@/components/logoThreeSvgRenderer";
+import { stripIndent } from "../../shared/stripIndent";
 
 type CubeFaceDefinition = {
   color: string;
@@ -38,8 +39,8 @@ export type TransformLabFace = {
   corners: readonly LogoProjectedPoint[];
   depth: number;
   key: string;
-  stroke: string;
-  strokeWidth: number;
+  // stroke: string;
+  // strokeWidth: number;
   transform: string;
 };
 
@@ -57,7 +58,7 @@ export const TRANSFORM_LAB_VIEW_BOX = {
 } as const;
 
 const FACE_STROKE_WIDTH = 0.14;
-const AXIS_GUIDE_LENGTH = 0.65;
+const AXIS_GUIDE_LENGTH = 1.25;
 const AXIS_GUIDE_LABEL_DISTANCE = 11;
 const AXIS_GUIDE_COLORS = {
   x: "#ef4444",
@@ -153,14 +154,6 @@ function addWorldPoints(
   };
 }
 
-function subtractUnitCubeCenter(point: LogoWorldPoint): LogoWorldPoint {
-  return {
-    x: point.x - 0.5,
-    y: point.y - 0.5,
-    z: point.z - 0.5,
-  };
-}
-
 function scaleWorldPoint(
   point: LogoWorldPoint,
   factor: number,
@@ -194,10 +187,10 @@ function createAxisGuideLines(args: {
   elevationDegrees: number;
   rotationDegrees: number;
 }): AxisGuideLine[] {
-  const origin = subtractUnitCubeCenter({ x: 0, y: 0, z: 0 });
-  const xEnd = subtractUnitCubeCenter({ x: AXIS_GUIDE_LENGTH, y: 0, z: 0 });
-  const yEnd = subtractUnitCubeCenter({ x: 0, y: AXIS_GUIDE_LENGTH, z: 0 });
-  const zEnd = subtractUnitCubeCenter({ x: 0, y: 0, z: AXIS_GUIDE_LENGTH });
+  const origin = { x: 0, y: 0, z: 0 };
+  const xEnd = { x: AXIS_GUIDE_LENGTH, y: 0, z: 0 };
+  const yEnd = { x: 0, y: AXIS_GUIDE_LENGTH, z: 0 };
+  const zEnd = { x: 0, y: 0, z: AXIS_GUIDE_LENGTH };
   const projector = createLogoProjector({
     elevationDegrees: args.elevationDegrees,
     rotationDegrees: args.rotationDegrees,
@@ -240,12 +233,10 @@ function createAxisGuideLines(args: {
 function createFaceCorners(
   face: CubeFaceDefinition,
 ): readonly LogoWorldPoint[] {
-  const origin = subtractUnitCubeCenter(face.origin);
-  const uPoint = subtractUnitCubeCenter(addWorldPoints(face.origin, face.u));
-  const uvPoint = subtractUnitCubeCenter(
-    addWorldPoints(addWorldPoints(face.origin, face.u), face.v),
-  );
-  const vPoint = subtractUnitCubeCenter(addWorldPoints(face.origin, face.v));
+  const origin = face.origin;
+  const uPoint = addWorldPoints(face.origin, face.u);
+  const uvPoint = addWorldPoints(addWorldPoints(face.origin, face.u), face.v);
+  const vPoint = addWorldPoints(face.origin, face.v);
 
   return [origin, uPoint, uvPoint, vPoint] as const;
 }
@@ -269,11 +260,9 @@ function createTransformLabFaces(args: {
     const projectedOrigin = projectedCorners[0];
     const projectedUPoint = projectedCorners[1];
     const projectedVPoint = projectedCorners[3];
-    const centeredFacePoint = subtractUnitCubeCenter(
-      addWorldPoints(
-        addWorldPoints(face.origin, scaleWorldPoint(face.u, 0.5)),
-        scaleWorldPoint(face.v, 0.5),
-      ),
+    const centeredFacePoint = addWorldPoints(
+      addWorldPoints(face.origin, scaleWorldPoint(face.u, 0.5)),
+      scaleWorldPoint(face.v, 0.5),
     );
     const rotatedCenter = projector.rotateWorldPoint(centeredFacePoint);
 
@@ -304,22 +293,56 @@ function serializeAxisGuideLines(lines: readonly AxisGuideLine[]): string {
   const origin = lines[0]?.start ?? { x: 0, y: 0 };
   const axisLines = lines
     .map((line) => {
-      return [
-        `<line x1="${formatNumber(line.start.x)}" y1="${formatNumber(line.start.y)}" x2="${formatNumber(line.end.x)}" y2="${formatNumber(line.end.y)}" stroke="${escapeSvgAttribute(line.color)}" stroke-linecap="round" stroke-width="2.25" marker-end="url(#transform-lab-axis-arrow-${line.key})"/>`,
-        `<text x="${formatNumber(line.labelPosition.x)}" y="${formatNumber(line.labelPosition.y)}" dominant-baseline="middle" fill="${escapeSvgAttribute(line.color)}" font-size="11" font-weight="700" text-anchor="middle">${line.label}</text>`,
-      ].join("");
-    })
-    .join("");
+      return stripIndent`
+        <line
+          x1="${formatNumber(line.start.x)}"
+          y1="${formatNumber(line.start.y)}"
+          x2="${formatNumber(line.end.x)}"
+          y2="${formatNumber(line.end.y)}"
+          stroke="${escapeSvgAttribute(line.color)}"
+          stroke-linecap="round"
+          stroke-width="2.25"
+          marker-end="url(#transform-lab-axis-arrow-${line.key})"
+        />
 
-  return `<g><circle cx="${formatNumber(origin.x)}" cy="${formatNumber(origin.y)}" r="2.75" fill="#111111"/><text x="${formatNumber(origin.x + ORIGIN_MARKER_LABEL_OFFSET.x)}" y="${formatNumber(origin.y + ORIGIN_MARKER_LABEL_OFFSET.y)}" fill="#111111" font-size="10" font-weight="600">0,0,0</text>${axisLines}</g>`;
+        <text
+          x="${formatNumber(line.labelPosition.x)}"
+          y="${formatNumber(line.labelPosition.y)}"
+          dominant-baseline="middle"
+          fill="${escapeSvgAttribute(line.color)}"
+          font-size="11"
+          font-weight="700"
+          text-anchor="middle">${line.label}</text>`;
+    })
+    .join("\n");
+
+  return stripIndent`
+    <!-- Axis guide lines -->
+    <g>
+      <circle cx="${formatNumber(origin.x)}" cy="${formatNumber(origin.y)}" r="2.75" fill="#111111"/>
+      <text
+        x="${formatNumber(origin.x + ORIGIN_MARKER_LABEL_OFFSET.x)}"
+        y="${formatNumber(origin.y + ORIGIN_MARKER_LABEL_OFFSET.y)}"
+        fill="#111111"
+        font-size="10"
+        font-weight="600">0,0,0</text>
+      ${axisLines}
+    </g>`;
 }
 
 function serializeFaceUses(faces: readonly TransformLabFace[]): string {
   return faces
-    .map((face) => {
-      return `<use href="#${CUBE_FACE_ID}" fill="${escapeSvgAttribute(face.color)}" stroke="${escapeSvgAttribute(face.stroke)}" stroke-width="${formatNumber(face.strokeWidth)}" transform="${escapeSvgAttribute(face.transform)}"/>`;
-    })
-    .join("");
+    .map(
+      (face) => stripIndent`
+        <use
+          href="#${CUBE_FACE_ID}"
+          fill="${escapeSvgAttribute(face.color)}"
+          transform="${escapeSvgAttribute(face.transform)}"/>
+        
+        
+          `,
+    )
+    .join("\n");
 }
 
 export function createTransformLabScene({
@@ -337,14 +360,35 @@ export function createTransformLabScene({
     elevationDegrees,
     rotationDegrees,
   });
-  const svgMarkup = [
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${TRANSFORM_LAB_VIEW_BOX.width} ${TRANSFORM_LAB_VIEW_BOX.height}" width="${TRANSFORM_LAB_VIEW_BOX.width}" height="${TRANSFORM_LAB_VIEW_BOX.height}">`,
-    `<defs><rect id="${CUBE_FACE_ID}" x="0" y="0" width="1" height="1"/><marker id="transform-lab-axis-arrow-x" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" viewBox="0 0 6 6"><path d="M 0 0 L 6 3 L 0 6 z" fill="${AXIS_GUIDE_COLORS.x}"/></marker><marker id="transform-lab-axis-arrow-y" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" viewBox="0 0 6 6"><path d="M 0 0 L 6 3 L 0 6 z" fill="${AXIS_GUIDE_COLORS.y}"/></marker><marker id="transform-lab-axis-arrow-z" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" viewBox="0 0 6 6"><path d="M 0 0 L 6 3 L 0 6 z" fill="${AXIS_GUIDE_COLORS.z}"/></marker></defs>`,
-    `<rect x="0" y="0" width="${TRANSFORM_LAB_VIEW_BOX.width}" height="${TRANSFORM_LAB_VIEW_BOX.height}" fill="${BACKGROUND_COLOR}"/>`,
-    serializeFaceUses(faces),
-    serializeAxisGuideLines(axisGuideLines),
-    `</svg>`,
-  ].join("\n");
+  const svgMarkup = stripIndent`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${TRANSFORM_LAB_VIEW_BOX.width} ${TRANSFORM_LAB_VIEW_BOX.height}" width="${TRANSFORM_LAB_VIEW_BOX.width}" height="${TRANSFORM_LAB_VIEW_BOX.height}">
+      <defs>
+        <rect id="${CUBE_FACE_ID}" x="0" y="0" width="1" height="1"/>
+
+        <marker id="transform-lab-axis-arrow-x" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" viewBox="0 0 6 6">
+          <path d="M 0 0 L 6 3 L 0 6 z" fill="${AXIS_GUIDE_COLORS.x}"/>
+        </marker>
+        
+        <marker id="transform-lab-axis-arrow-y" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" viewBox="0 0 6 6">
+          <path d="M 0 0 L 6 3 L 0 6 z" fill="${AXIS_GUIDE_COLORS.y}"/>
+        </marker>
+        
+        <marker id="transform-lab-axis-arrow-z" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto" viewBox="0 0 6 6">
+          <path d="M 0 0 L 6 3 L 0 6 z" fill="${AXIS_GUIDE_COLORS.z}"/>
+        </marker>
+
+      </defs>
+
+      <!-- Background -->
+      <rect x="0" y="0" width="${TRANSFORM_LAB_VIEW_BOX.width}" height="${TRANSFORM_LAB_VIEW_BOX.height}" fill="${BACKGROUND_COLOR}"/>
+
+
+      ${serializeFaceUses(faces)}
+
+      ${serializeAxisGuideLines(axisGuideLines)}
+
+      </svg>
+ `;
 
   return {
     axisGuideLines,

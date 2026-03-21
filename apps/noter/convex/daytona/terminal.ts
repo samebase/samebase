@@ -43,6 +43,7 @@ import {
   buildAttachDevServerTmuxCommand,
   buildCreateOrAttachShellTmuxCommand,
 } from "./tmuxSessions";
+import { stripIndent } from "../../shared/stripIndent";
 
 const { object, id, string, optional, number, boolean } = v;
 
@@ -292,48 +293,6 @@ function clampTerminalSize(
 
 function quoteForShell(input: string): string {
   return `'${input.replace(/'/g, `'\\''`)}'`;
-}
-
-type TemplateValue = string | number | boolean | null | undefined;
-
-function stripIndent(
-  strings: TemplateStringsArray,
-  ...values: TemplateValue[]
-): string {
-  let combined = "";
-  for (let index = 0; index < strings.length; index += 1) {
-    combined += strings[index];
-    if (index < values.length) {
-      combined += String(values[index]);
-    }
-  }
-
-  const trimmed = combined.trim();
-  if (trimmed.length === 0) {
-    return "";
-  }
-
-  const lines = trimmed.split("\n");
-  let minIndent: number | null = null;
-  for (const line of lines) {
-    if (line.trim().length === 0) {
-      continue;
-    }
-    const match = line.match(/^ +/);
-    const indent = match ? match[0].length : 0;
-    if (minIndent === null || indent < minIndent) {
-      minIndent = indent;
-      if (minIndent === 0) {
-        break;
-      }
-    }
-  }
-
-  if (!minIndent) {
-    return trimmed;
-  }
-
-  return lines.map((line) => line.slice(minIndent)).join("\n");
 }
 
 function buildNonExecTmuxCommand(command: string): string {

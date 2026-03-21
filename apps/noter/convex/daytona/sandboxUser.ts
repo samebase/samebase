@@ -1,6 +1,7 @@
 "use node";
 
 import type { Sandbox } from "@daytonaio/sdk";
+import { stripIndent } from "../../shared/stripIndent";
 
 export const DAYTONA_WORKSPACE_DIR = "/home/daytona/workspace";
 export const DAYTONA_SANDBOX_USER = "daytona";
@@ -20,50 +21,9 @@ const DAYTONA_PURE_ARCHIVE_ROOT = "pure-4.9.0";
 const DAYTONA_CODEX_LOCAL_DIRS = ["tmp", "log"] as const;
 const DAYTONA_CODEX_SHARED_ENTRY_NAMES = ["auth.json", "memories"] as const;
 const DAYTONA_CODEX_LOCAL_SYNCED_FILE_NAMES = ["config.toml"] as const;
-type TemplateValue = string | number | boolean | null | undefined;
 
 function quoteForShell(input: string): string {
   return `'${input.replace(/'/g, `'\\''`)}'`;
-}
-
-function stripIndent(
-  strings: TemplateStringsArray,
-  ...values: TemplateValue[]
-): string {
-  let combined = "";
-  for (let index = 0; index < strings.length; index += 1) {
-    combined += strings[index];
-    if (index < values.length) {
-      combined += String(values[index]);
-    }
-  }
-
-  const trimmed = combined.trim();
-  if (trimmed.length === 0) {
-    return "";
-  }
-
-  const lines = trimmed.split("\n");
-  let minIndent: number | null = null;
-  for (const line of lines) {
-    if (line.trim().length === 0) {
-      continue;
-    }
-    const match = line.match(/^ +/);
-    const indent = match ? match[0].length : 0;
-    if (minIndent === null || indent < minIndent) {
-      minIndent = indent;
-      if (minIndent === 0) {
-        break;
-      }
-    }
-  }
-
-  if (!minIndent) {
-    return trimmed;
-  }
-
-  return lines.map((line) => line.slice(minIndent)).join("\n");
 }
 
 export function buildRunCommandAsSandboxUser(args: {
