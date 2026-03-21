@@ -2111,6 +2111,26 @@ function FileViewInner({
       </Button>
     ) : null;
 
+  const editorSurfaceTabs = (
+    <Tabs
+      value={viewMode}
+      onValueChange={(value) => {
+        if (value === "editor" || value === "graph") {
+          setViewMode(value);
+        }
+      }}
+    >
+      <TabsList className="h-7">
+        <TabsTrigger value="editor" className="px-2 text-xs">
+          Editor
+        </TabsTrigger>
+        <TabsTrigger value="graph" className="px-2 text-xs">
+          Graph
+        </TabsTrigger>
+      </TabsList>
+    </Tabs>
+  );
+
   const handleInlinePreviewChange = useCallback((nextContent: string) => {
     setInlinePreviewDraftContent(nextContent);
     setInlinePreviewHasPendingLocalEdit(true);
@@ -2141,42 +2161,20 @@ function FileViewInner({
       >
         <div className="max-w-none h-full flex flex-col">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex min-w-0 flex-col gap-2">
-              <div className="min-w-0">
-                <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">
-                  {branch}
-                </div>
-                <h2 className="text-base md:text-sm font-medium">
-                  <a
-                    className={`block truncate ${linkStyle}`}
-                    href={selectedFileGitHubUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {selectedFile}
-                  </a>
-                </h2>
+            <div className="min-w-0">
+              <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">
+                {branch}
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Tabs
-                  value={viewMode}
-                  onValueChange={(value) => {
-                    if (value === "editor" || value === "graph") {
-                      setViewMode(value);
-                    }
-                  }}
+              <h2 className="text-base md:text-sm font-medium">
+                <a
+                  className={`block truncate ${linkStyle}`}
+                  href={selectedFileGitHubUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
-                  <TabsList className="h-7">
-                    <TabsTrigger value="editor" className="px-2 text-xs">
-                      Editor
-                    </TabsTrigger>
-                    <TabsTrigger value="graph" className="px-2 text-xs">
-                      Graph
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-                {reviewModeButton}
-              </div>
+                  {selectedFile}
+                </a>
+              </h2>
             </div>
 
             <div className="flex flex-col gap-2">
@@ -2312,6 +2310,11 @@ function FileViewInner({
               resetToGitHubDisabled={resetToGitHubDisabled}
             />
           )}
+
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            {editorSurfaceTabs}
+            {reviewModeButton}
+          </div>
 
           <div className="flex-1 min-h-0">
             {viewMode === "editor" ? (
