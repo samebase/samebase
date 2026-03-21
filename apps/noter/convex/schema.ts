@@ -319,6 +319,7 @@ export default defineSchema({
     userId: v.id("users"),
     providersPanelOpen: v.boolean(),
     pricingBillingCycle: PricingBillingCycle,
+    editorChatOpen: v.optional(v.boolean()),
   }).index("by_user", ["userId"]),
 
   /**

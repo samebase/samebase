@@ -3,7 +3,7 @@
  *
  * Imported by:
  *  - tools.ts (LangGraph tool definitions)
- *  - ChatFab.tsx (UI capabilities panel + tool activity display)
+ *  - EditorChatPanel.tsx (UI capabilities panel + tool activity display)
  *
  * No "use node", no Convex server imports — safe for both server and client.
  */

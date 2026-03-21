@@ -16,7 +16,6 @@ import { api } from "../convex/_generated/api";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { isChatOnlyCodespaceRoute } from "@/lib/vaultRoutes";
 import { resolvePageMetadata, type PageMetadata } from "@/lib/pageMetadata";
 import { shouldRenderPublicLandingWithoutAuthGate } from "@/lib/publicLandingAuthState";
 import { usePageMetadata } from "@/lib/usePageMetadata";
@@ -32,10 +31,6 @@ const FileView = lazy(async () => {
 const AddRepository = lazy(async () => {
   const module = await import("@/components/AddRepository");
   return { default: module.AddRepository };
-});
-const ChatFab = lazy(async () => {
-  const module = await import("@/components/ChatFab");
-  return { default: module.ChatFab };
 });
 const CodespaceChatOnlyView = lazy(async () => {
   const module = await import("@/components/CodespaceChatOnlyView");
@@ -315,7 +310,6 @@ export default function App() {
     location.pathname,
     !(onMcpConsentRoute && mcpConsentRequestId !== null),
   );
-  const showChatFab = !isChatOnlyCodespaceRoute(location.pathname);
   const showMcpConsent = onMcpConsentRoute && mcpConsentRequestId !== null;
   const logoPreviewMode =
     location.pathname === "/logo"

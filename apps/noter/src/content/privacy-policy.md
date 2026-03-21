@@ -44,8 +44,7 @@ claiming features or controls that are not in the product yet.
 ## Browser Storage and Cookies
 
 - Local storage. The current app code uses localStorage for auth helper state
-  and popup sign-in token handoff, and for some UI preferences such as chat and
-  file-view state.
+  and popup sign-in token handoff, and for some file-view UI state.
 - Cookie. The current app code sets a first-party sidebar preference cookie
   named `sidebar_state` so the app can remember whether the sidebar is open.
 - IndexedDB. The app caches some Convex query results in browser IndexedDB under

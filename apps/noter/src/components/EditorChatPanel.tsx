@@ -1,6 +1,5 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
-  MessageSquare,
   X,
   Loader2,
   GitCommitHorizontal,
@@ -15,45 +14,14 @@ import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-import { useLocation } from "react-router-dom";
 import { TOOL_CATALOG } from "../../convex/agent/toolCatalog";
 import { useUIMessages, type UIMessage } from "@convex-dev/agent/react";
-import { parseVaultPathContext } from "@/lib/vaultRoutes";
 import {
   messageMetadataSchema,
   type CommitProposalPayload as CommitProposal,
   type MessageMetadata,
   type ProdReadProposalPayload as ProdReadProposal,
 } from "../../shared/chatMetadata";
-
-// --- Route context hook ---
-
-function useVaultContext() {
-  const { pathname } = useLocation();
-
-  const routeContext = useMemo(
-    () => parseVaultPathContext(pathname),
-    [pathname],
-  );
-  const repositoryFullName = routeContext.repositoryFullName;
-  const routeBranch = routeContext.branch;
-  const filePath = routeContext.filePath;
-
-  const vault = useQuery(
-    api.vault.getVaultByRepository,
-    repositoryFullName ? { repositoryFullName, branch: routeBranch } : "skip",
-  );
-
-  const vaultId = vault?._id;
-  const resolvedBranch = routeBranch ?? vault?.resolvedBranch;
-
-  return {
-    vaultId,
-    branch: resolvedBranch,
-    filePath,
-    repositoryFullName,
-  };
-}
 
 // --- Metadata parsing ---
 
@@ -596,46 +564,26 @@ function MessageBubble({
   );
 }
 
-// --- localStorage persistence helpers ---
-
-const STORAGE_KEY_SIZE = "noter-chat-size";
-const STORAGE_KEY_OPEN = "noter-chat-open";
-const STORAGE_KEY_LOCAL_THREAD = "noter-chat-thread";
-
-function loadFromStorage<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw === null) return fallback;
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function saveToStorage(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // ignore quota errors
-  }
-}
+type EditorChatPanelProps = {
+  vaultId: Id<"vaults">;
+  repositoryFullName: string;
+  branch: string;
+  filePath?: string;
+  className?: string;
+  onClose?: () => void;
+};
 
 // --- Main component ---
 
-const DEFAULT_WIDTH = 28 * 16; // 28rem in px
-const DEFAULT_HEIGHT = 32 * 16; // 32rem in px
-const MIN_WIDTH = 20 * 16; // 20rem
-const MIN_HEIGHT = 16 * 16; // 16rem
-
-export function ChatFab() {
-  const [isOpen, setIsOpen] = useState(() =>
-    loadFromStorage(STORAGE_KEY_OPEN, false),
-  );
+export function EditorChatPanel({
+  vaultId,
+  repositoryFullName,
+  branch,
+  filePath,
+  className,
+  onClose,
+}: EditorChatPanelProps) {
   const [input, setInput] = useState("");
-  // Local fallback for threads without a vault context
-  const [localThreadId, setLocalThreadId] = useState<string | null>(() =>
-    loadFromStorage(STORAGE_KEY_LOCAL_THREAD, null),
-  );
   const [pendingThreadId, setPendingThreadId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -648,60 +596,11 @@ export function ChatFab() {
   const isDirtyDraftRef = useRef(false);
   const creatingThreadRef = useRef<Promise<string> | null>(null);
 
-  const [size, setSize] = useState(() =>
-    loadFromStorage(STORAGE_KEY_SIZE, { w: DEFAULT_WIDTH, h: DEFAULT_HEIGHT }),
-  );
-  const dragRef = useRef<{
-    startX: number;
-    startY: number;
-    startW: number;
-    startH: number;
-  } | null>(null);
-
-  const onDragStart = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      e.currentTarget.setPointerCapture(e.pointerId);
-      dragRef.current = {
-        startX: e.clientX,
-        startY: e.clientY,
-        startW: size.w,
-        startH: size.h,
-      };
-    },
-    [size],
-  );
-
-  const onDragMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragRef.current) return;
-    const { startX, startY, startW, startH } = dragRef.current;
-    // Dragging top-left corner: moving left increases width, moving up increases height
-    const newW = Math.max(
-      MIN_WIDTH,
-      Math.min(window.innerWidth - 24, startW + (startX - e.clientX)),
-    );
-    const newH = Math.max(
-      MIN_HEIGHT,
-      Math.min(window.innerHeight - 80, startH + (startY - e.clientY)),
-    );
-    setSize({ w: newW, h: newH });
-  }, []);
-
-  const onDragEnd = useCallback(() => {
-    dragRef.current = null;
-  }, []);
-
-  const { vaultId, branch, filePath, repositoryFullName } = useVaultContext();
   const viewer = useQuery(api.users.viewer);
 
   // One thread per user per vault — persisted in Convex
-  const vaultThread = useQuery(
-    api.chat.index.getThreadForVault,
-    vaultId ? { vaultId } : "skip",
-  );
-  const threadId = vaultId
-    ? vaultThread?.threadId ?? pendingThreadId
-    : localThreadId;
+  const vaultThread = useQuery(api.chat.index.getThreadForVault, { vaultId });
+  const threadId = vaultThread?.threadId ?? pendingThreadId;
 
   const threadContext = useQuery(
     api.chat.index.getThreadContext,
@@ -730,16 +629,12 @@ export function ChatFab() {
 
     const createPromise = (async () => {
       const createdId = await createThread({
-        vaultId: vaultId ?? undefined,
+        vaultId,
         repositoryFullName,
         branch,
         filePath,
       });
-      if (vaultId) {
-        setPendingThreadId(createdId);
-      } else {
-        setLocalThreadId(createdId);
-      }
+      setPendingThreadId(createdId);
       return createdId;
     })();
 
@@ -756,9 +651,6 @@ export function ChatFab() {
     setIsDeleting(true);
     try {
       await deleteThread({ threadId });
-      if (!vaultId) {
-        setLocalThreadId(null);
-      }
       setPendingThreadId(null);
       setInput("");
       lastHydratedThreadRef.current = null;
@@ -770,28 +662,11 @@ export function ChatFab() {
     }
   }
 
-  // Persist UI state to localStorage (thread itself lives in Convex)
   useEffect(() => {
-    saveToStorage(STORAGE_KEY_OPEN, isOpen);
-  }, [isOpen]);
-
-  useEffect(() => {
-    saveToStorage(STORAGE_KEY_SIZE, size);
-  }, [size]);
-
-  useEffect(() => {
-    saveToStorage(STORAGE_KEY_LOCAL_THREAD, localThreadId);
-  }, [localThreadId]);
-
-  useEffect(() => {
-    if (!vaultId) {
-      setPendingThreadId(null);
-      return;
-    }
     if (vaultThread?.threadId) {
       setPendingThreadId(null);
     }
-  }, [vaultId, vaultThread?.threadId]);
+  }, [vaultThread?.threadId]);
 
   const messageResults: ChatUIMessage[] = messages.results;
   const hasStreaming = messageResults.some(
@@ -807,10 +682,8 @@ export function ChatFab() {
   }, [messageResults]);
 
   useEffect(() => {
-    if (isOpen) {
-      inputRef.current?.focus();
-    }
-  }, [isOpen]);
+    inputRef.current?.focus();
+  }, []);
 
   // Clear sending flag when we get the assistant response
   useEffect(() => {
@@ -912,138 +785,79 @@ export function ChatFab() {
   }
 
   return (
-    <>
-      {/* Chat Window */}
-      {isOpen && (
-        <div
-          className="fixed bottom-16 right-3 z-[9999] max-sm:!left-0 max-sm:!right-0 max-sm:!bottom-16 max-sm:!w-auto max-sm:!h-[calc(100%-5rem)]"
-          style={{
-            width: size.w,
-            height: size.h,
-            maxHeight: "calc(100vh - 5rem)",
-          }}
-        >
-          <div className="absolute inset-0 flex max-sm:rounded-ui flex-col corner-notch-1 border border-border bg-popover shadow-xl">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-              <span className="text-sm font-medium text-foreground">Chat</span>
-              <div className="flex items-center gap-0.5">
-                {threadId && (
-                  <button
-                    onClick={() => void handleNewConversation()}
-                    title={isDeleting ? "Removing..." : "New conversation"}
-                    disabled={isDeleting}
-                    aria-disabled={isDeleting}
-                    className={cn(
-                      "corner-notch-1 p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
-                    )}
-                  >
-                    {isDeleting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Plus className="h-4 w-4" />
-                    )}
-                  </button>
-                )}
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="corner-notch-1 p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-3 py-2">
-              <CapabilitiesPanel
-                repositoryFullName={repositoryFullName}
-                vaultId={vaultId}
-                hasGithubConnection={Boolean(viewer?.hasGithubConnection)}
-                systemPrompt={threadContext?.systemPrompt}
-              />
-              {threadId &&
-                messageResults.map((msg) => (
-                  <MessageBubble key={msg.id} msg={msg} threadId={threadId} />
-                ))}
-              {isWaitingForResponse && (
-                <div className="mb-2 flex max-w-[85%] items-center gap-2 corner-notch-1 bg-muted px-3 py-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  <span>Thinking...</span>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input */}
-            <div className="border-t border-border px-2.5 py-2">
-              <ChatInput
-                ref={inputRef}
-                value={input}
-                onValueChange={(value) => {
-                  setInput(value);
-                  isDirtyDraftRef.current = true;
-                }}
-                onSend={() => void handleSend()}
-                disabled={sending || isWaitingForResponse}
-                mode={inputMode}
-                autoResize
-              />
-            </div>
-          </div>
-
-          {/* Drag handle (top-left corner) */}
-          <div
-            onPointerDown={onDragStart}
-            onPointerMove={onDragMove}
-            onPointerUp={onDragEnd}
-            className="absolute -left-1.5 -top-1.5 h-6 w-6 cursor-nwse-resize max-sm:hidden z-10 flex items-end justify-end touch-none"
-          >
-            <svg
-              width="10"
-              height="10"
-              viewBox="0 0 10 10"
-              className="text-muted-foreground/50 mr-0.5 mb-0.5"
-            >
-              <path
-                d="M0 10L10 0"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                fill="none"
-              />
-              <path
-                d="M0 6L6 0"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                fill="none"
-              />
-              <path
-                d="M0 2L2 0"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                fill="none"
-              />
-            </svg>
-          </div>
-        </div>
+    <div
+      className={cn(
+        "flex h-full min-h-0 flex-col corner-notch-1 border border-border bg-background",
+        className,
       )}
+    >
+      <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+        <span className="text-sm font-medium text-foreground">Chat</span>
+        <div className="flex items-center gap-0.5">
+          {threadId ? (
+            <button
+              onClick={() => void handleNewConversation()}
+              title={isDeleting ? "Removing..." : "New conversation"}
+              disabled={isDeleting}
+              aria-disabled={isDeleting}
+              className={cn(
+                "corner-notch-1 p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
+              )}
+            >
+              {isDeleting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+            </button>
+          ) : null}
+          {onClose ? (
+            <button
+              onClick={onClose}
+              className="corner-notch-1 p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              aria-label="Close chat"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
+      </div>
 
-      {/* FAB */}
-      <button
-        onClick={() => setIsOpen((prev) => !prev)}
-        className={cn(
-          "fixed bottom-3 right-3 z-[9999] flex h-11 w-11 items-center justify-center corner-notch-1 shadow-lg transition-colors",
-          isOpen
-            ? "bg-muted text-foreground hover:bg-muted/80"
-            : "bg-primary text-primary-foreground hover:bg-primary/90",
-        )}
-      >
-        {isOpen ? (
-          <X className="h-5 w-5" />
-        ) : (
-          <MessageSquare className="h-5 w-5" />
-        )}
-      </button>
-    </>
+      <div className="flex-1 overflow-y-auto px-3 py-2">
+        <CapabilitiesPanel
+          repositoryFullName={repositoryFullName}
+          vaultId={vaultId}
+          hasGithubConnection={Boolean(viewer?.hasGithubConnection)}
+          systemPrompt={threadContext?.systemPrompt}
+        />
+        {threadId
+          ? messageResults.map((msg) => (
+              <MessageBubble key={msg.id} msg={msg} threadId={threadId} />
+            ))
+          : null}
+        {isWaitingForResponse ? (
+          <div className="mb-2 flex max-w-[85%] items-center gap-2 corner-notch-1 bg-muted px-3 py-2 text-sm text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>Thinking...</span>
+          </div>
+        ) : null}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div className="border-t border-border px-2.5 py-2">
+        <ChatInput
+          ref={inputRef}
+          value={input}
+          onValueChange={(value) => {
+            setInput(value);
+            isDirtyDraftRef.current = true;
+          }}
+          onSend={() => void handleSend()}
+          disabled={sending || isWaitingForResponse}
+          mode={inputMode}
+          autoResize
+        />
+      </div>
+    </div>
   );
 }

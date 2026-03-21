@@ -26,10 +26,12 @@ import {
   PlusIcon,
   FilePlusIcon,
 } from "@radix-ui/react-icons";
+import { MessageSquare } from "lucide-react";
 import { SidebarProvider } from "@/components/sidebar";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import { FileTree } from "./FileTree";
 import { CommandPalette } from "./CommandPalette";
+import { EditorChatPanel } from "./EditorChatPanel";
 import {
   useState,
   useEffect,
@@ -649,6 +651,17 @@ function FileViewInner({
     vaultId: vault._id,
   });
   const refreshRepositoryTree = useAction(api.github.refreshRepositoryTree);
+  const dashboardSettings = useLiveQuery(
+    api.dashboardSettings.getDashboardSettings,
+    {},
+  );
+  const setEditorChatOpen = useMutation(
+    api.dashboardSettings.setEditorChatOpen,
+  );
+  const [editorChatOpenState, setEditorChatOpenState] = useState<
+    boolean | null
+  >(null);
+  const editorChatPendingRef = useRef<boolean | null>(null);
 
   // Dialog state management
   const {
@@ -920,6 +933,21 @@ function FileViewInner({
     setViewMode(storedMode ?? "editor");
     setViewModeHydrated(true);
   }, [graphViewStorageKey]);
+
+  useEffect(() => {
+    const serverValue = dashboardSettings?.editorChatOpen;
+    if (serverValue === undefined) {
+      return;
+    }
+    if (editorChatPendingRef.current !== null) {
+      if (editorChatPendingRef.current === serverValue) {
+        editorChatPendingRef.current = null;
+      } else {
+        return;
+      }
+    }
+    setEditorChatOpenState(serverValue);
+  }, [dashboardSettings?.editorChatOpen]);
 
   useEffect(() => {
     if (!viewModeHydrated) {
@@ -2231,6 +2259,17 @@ function FileViewInner({
   const headerTitle = selectedFile
     ? selectedFile.split("/").slice(0, -1).join("/") || "/"
     : undefined;
+  const editorChatOpen =
+    editorChatOpenState ?? dashboardSettings?.editorChatOpen ?? false;
+  const handleEditorChatOpenChange = (isOpen: boolean) => {
+    setEditorChatOpenState(isOpen);
+    editorChatPendingRef.current = isOpen;
+    void setEditorChatOpen({ isOpen }).catch((error: unknown) => {
+      console.error("Failed to persist editor chat state:", error);
+      editorChatPendingRef.current = null;
+      setEditorChatOpenState(dashboardSettings?.editorChatOpen ?? false);
+    });
+  };
 
   return (
     <>
@@ -2239,22 +2278,41 @@ function FileViewInner({
         headerTitle={headerTitle}
         onQuickOpen={() => setIsCommandPaletteOpen(true)}
       >
-        <div className="max-w-none h-full flex flex-col">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <div className="min-w-0">
-              <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">
-                {branch}
+        <div className="max-w-none flex h-full min-h-0 flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="min-w-0">
+                <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">
+                  {branch}
+                </div>
+                <h2 className="text-base md:text-sm font-medium">
+                  <a
+                    className={`block truncate ${linkStyle}`}
+                    href={selectedFileGitHubUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {selectedFile}
+                  </a>
+                </h2>
               </div>
-              <h2 className="text-base md:text-sm font-medium">
-                <a
-                  className={`block truncate ${linkStyle}`}
-                  href={selectedFileGitHubUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {selectedFile}
-                </a>
-              </h2>
+              <Tabs
+                value={viewMode}
+                onValueChange={(value) => {
+                  if (value === "editor" || value === "graph") {
+                    setViewMode(value);
+                  }
+                }}
+              >
+                <TabsList className="h-7">
+                  <TabsTrigger value="editor" className="px-2 text-xs">
+                    Editor
+                  </TabsTrigger>
+                  <TabsTrigger value="graph" className="px-2 text-xs">
+                    Graph
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
 
             <div className="flex flex-col gap-2">
@@ -2290,6 +2348,16 @@ function FileViewInner({
                     {isPreviewOpen ? "Hide Preview" : "Show Preview"}
                   </Button>
                 )}
+
+                <Button
+                  size="sm"
+                  variant={editorChatOpen ? "secondary" : "outline"}
+                  onClick={() => handleEditorChatOpenChange(!editorChatOpen)}
+                  className="h-6 px-2 text-xs"
+                >
+                  <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
+                  {editorChatOpen ? "Hide Chat" : "Show Chat"}
+                </Button>
 
                 {viewMode === "editor" && (
                   <Button
@@ -2693,6 +2761,17 @@ function FileViewInner({
               />
             )}
           </div>
+          {editorChatOpen ? (
+            <div className="h-[45vh] min-h-[18rem] max-h-[32rem] shrink-0 md:h-[22rem]">
+              <EditorChatPanel
+                vaultId={vault._id}
+                repositoryFullName={repositoryFullName}
+                branch={branch}
+                filePath={selectedFile}
+                onClose={() => handleEditorChatOpenChange(false)}
+              />
+            </div>
+          ) : null}
         </div>
       </RepositoryWorkspaceFrame>
 
