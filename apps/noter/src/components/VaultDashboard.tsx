@@ -171,6 +171,17 @@ type ProviderRuntimeConfig = {
   popupOriginRef: MutableRefObject<string | null>;
 };
 
+const hasActiveTextSelection = () => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const selection = window.getSelection();
+  return selection !== null && !selection.isCollapsed;
+};
+
+const getCurrentSecondTimestamp = () => Math.floor(Date.now() / 1000) * 1000;
+
 const GitHubProviderLogo = ({ className }: { className?: string }) => (
   <GitHubLogoIcon className={clsx("h-4 w-4", className)} />
 );
@@ -222,6 +233,80 @@ const CloudflareProviderLogo = ({ className }: { className?: string }) => (
     </svg>
   </span>
 );
+
+/**
+ * Keeps the ticking relative-time label stable while the user is selecting it,
+ * then falls back to a normal navigation refresh on a plain click.
+ */
+function VaultLastUpdatedStatus({
+  lastSyncedAt,
+  now,
+  repositoryFullName,
+}: {
+  lastSyncedAt: number;
+  now: number;
+  repositoryFullName: string;
+}) {
+  const [frozenNow, setFrozenNow] = useState<number | null>(null);
+  const isPointerDownRef = useRef(false);
+  const refreshHref =
+    typeof window === "undefined"
+      ? "/"
+      : `${window.location.pathname}${window.location.search}${window.location.hash}`;
+
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      if (hasActiveTextSelection()) {
+        setFrozenNow((current) => current ?? getCurrentSecondTimestamp());
+        return;
+      }
+
+      if (!isPointerDownRef.current) {
+        setFrozenNow(null);
+      }
+    };
+
+    const handlePointerUp = () => {
+      isPointerDownRef.current = false;
+      if (!hasActiveTextSelection()) {
+        setFrozenNow(null);
+      }
+    };
+
+    document.addEventListener("selectionchange", handleSelectionChange);
+    window.addEventListener("pointerup", handlePointerUp);
+
+    return () => {
+      document.removeEventListener("selectionchange", handleSelectionChange);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, []);
+
+  return (
+    <a
+      href={refreshHref}
+      className="inline-flex cursor-pointer select-text items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:underline"
+      title={`Last synced ${new Date(lastSyncedAt).toLocaleString()}. Click to refresh now.`}
+      aria-label={`Refresh ${repositoryFullName} now`}
+      onPointerDown={() => {
+        isPointerDownRef.current = true;
+        setFrozenNow((current) => current ?? getCurrentSecondTimestamp());
+      }}
+      onClick={(event) => {
+        if (hasActiveTextSelection()) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+      }}
+    >
+      <span>Updated</span>
+      <span className="min-w-[8ch] text-left font-mono tabular-nums">
+        {formatRelativeTimeAgoWithSeconds(lastSyncedAt, frozenNow ?? now)}
+      </span>
+    </a>
+  );
+}
 
 const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
   github: {
@@ -1602,15 +1687,11 @@ export function VaultDashboard() {
                             <span>Syncing...</span>
                           </>
                         ) : typeof sharedLastSyncedAt === "number" ? (
-                          <>
-                            <span>Updated</span>
-                            <span className="font-mono tabular-nums">
-                              {formatRelativeTimeAgoWithSeconds(
-                                sharedLastSyncedAt,
-                                now,
-                              )}
-                            </span>
-                          </>
+                          <VaultLastUpdatedStatus
+                            lastSyncedAt={sharedLastSyncedAt}
+                            now={now}
+                            repositoryFullName={vault.repositoryFullName}
+                          />
                         ) : null}
                       </div>
                     ) : null}

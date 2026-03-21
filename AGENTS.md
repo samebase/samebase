@@ -212,6 +212,9 @@ use `--env-file` or an explicit deployment selector instead.
   syntax. If a file is generated or explicitly treated as read-only, do not
   hand-edit it just to satisfy this rule; put the context in the nearest
   repo-owned wrapper or calling code instead.
+- **Use JSDoc for function comments** - when a function needs an explanatory
+  comment, write it as a JSDoc block (`/** ... */`) immediately above the
+  function instead of using `//` comments inside the function body.
 - **Infer from schemas** - when a Zod/validator schema exists, derive the
   TypeScript type from it (`z.infer`/`Infer`) instead of duplicating manual
   types
