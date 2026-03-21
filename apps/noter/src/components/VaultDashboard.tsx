@@ -243,8 +243,14 @@ function VaultLastUpdatedStatus({
   now: number;
   repositoryFullName: string;
 }) {
+  // This wrapper freezes the ticking relative-time label while the user is
+  // selecting it; otherwise the 1s dashboard clock mutates the text mid-select.
   const [frozenNow, setFrozenNow] = useState<number | null>(null);
   const isPointerDownRef = useRef(false);
+  const refreshHref =
+    typeof window === "undefined"
+      ? "/"
+      : `${window.location.pathname}${window.location.search}${window.location.hash}`;
 
   useEffect(() => {
     const handleSelectionChange = () => {
@@ -275,9 +281,8 @@ function VaultLastUpdatedStatus({
   }, []);
 
   return (
-    <span
-      role="button"
-      tabIndex={0}
+    <a
+      href={refreshHref}
       className="inline-flex cursor-pointer select-text items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:underline"
       title={`Last synced ${new Date(lastSyncedAt).toLocaleString()}. Click to refresh now.`}
       aria-label={`Refresh ${repositoryFullName} now`}
@@ -291,21 +296,13 @@ function VaultLastUpdatedStatus({
           event.stopPropagation();
           return;
         }
-
-        window.location.reload();
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          window.location.reload();
-        }
       }}
     >
       <span>Updated</span>
       <span className="min-w-[8ch] text-left font-mono tabular-nums">
         {formatRelativeTimeAgoWithSeconds(lastSyncedAt, frozenNow ?? now)}
       </span>
-    </span>
+    </a>
   );
 }
 
