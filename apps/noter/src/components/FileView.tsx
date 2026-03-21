@@ -2872,13 +2872,13 @@ function FileViewInner({
                 onClick={() => handleEditorChatOpenChange(true)}
                 aria-label="Open chat"
                 title="Open chat"
-                className="absolute bottom-3 right-3 z-10 border-border bg-background text-foreground hover:bg-accent"
+                className="absolute bottom-3 right-3 z-10 overflow-hidden border-border bg-background p-0 text-foreground hover:bg-accent"
               >
                 <img
                   src="/favicon-32.png"
                   alt=""
                   aria-hidden="true"
-                  className="h-3.5 w-3.5"
+                  className="block h-full w-full"
                 />
               </Button>
             ) : null}
