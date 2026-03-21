@@ -3,6 +3,14 @@
 This file provides guidance to AI agents (Claude Code, Cursor, etc.) when
 working with this repository.
 
+## startup
+
+<!-- tell here that `make bootstrap-anon`  probably has run -->
+
+<!-- tell to run `make anon` so the worktree is setup, since it probably runs a worktree
+maybe add single command that runs either of these depending on current situation (includign daytona?)
+-->
+
 ## Project Structure
 
 noter is a Turborepo monorepo (PNPM + Node 24) with two apps:
@@ -19,27 +27,37 @@ When starting a fresh chat for implementation/debugging, read in this order:
 
 1. `AGENTS.md` (this file)
 2. `README.md` (product/dev overview)
-3. `apps/noter-starter-template/AGENTS.md` +
-   `apps/noter-starter-template/scripts/export-template-manifest.mjs` (starter
-   regeneration contract + manifest export)
-4. `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md` (vault infra lifecycle)
-5. `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md` (approval-first prod reads)
-6. `specs/001_CODESPACE_CONNECTION_SPEC.md` (codespace architecture)
+   <!-- dumb -->
+   <!-- 3. `apps/noter-starter-template/AGENTS.md` +
+      `apps/noter-starter-template/scripts/export-template-manifest.mjs` (starter
+      regeneration contract + manifest export) -->
+      <!-- research if it's actually necessary to read specs or just mention that they exist if needed (skill?) -->
+3. `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md` (vault infra lifecycle)
+4. `specs/004_AI_PROD_ACCESS_POLICY_SPEC.md` (approval-first prod reads)
+5. `specs/001_CODESPACE_CONNECTION_SPEC.md` (codespace architecture)
+
+<!-- it has almost 1000 lines, do not read and the schema would've been one of the most important
+things -->
+
 7. `apps/noter/convex/schema.ts` (source of truth for data model)
-8. `apps/noter/convex/vaultActions.ts` +
-   `apps/noter/convex/infraProvisioning.ts` (vault creation + infra
-   provisioning)
-9. `apps/noter/convex/chat/index.ts` + `apps/noter/convex/chat/actions.ts`
+   <!-- and these are completely irrelefant -->
+   <!-- 8. `apps/noter/convex/vaultActions.ts` +
+      `apps/noter/convex/infraProvisioning.ts` (vault creation + infra
+      provisioning)
+8. `apps/noter/convex/chat/index.ts` + `apps/noter/convex/chat/actions.ts`
    (chat + approval flows)
-10. `apps/noter/src/components/VaultDashboard.tsx` +
-    `apps/noter/src/components/ChatFab.tsx` (user-visible controls)
+9. `apps/noter/src/components/VaultDashboard.tsx` +
+   `apps/noter/src/components/ChatFab.tsx` (user-visible controls) -->
 
 Low-signal/historical docs (do not treat as source of truth):
 
-- `LUMINA_PROJECT_ANALYSIS.md`
-- `apps/noter/src/components/Untitled-1.md`
+<!-- do we just need to delete these files? -->
+<!-- - `LUMINA_PROJECT_ANALYSIS.md`
+- `apps/noter/src/components/Untitled-1.md` -->
 
 ## Spec Organization
+
+<!-- maybe not now, but rethink this and maybe always start with just a pr/ let's start with just using a single  -->
 
 - `specs/` is for accepted/current source-of-truth docs only. A doc belongs here
   only when it describes current behavior or an accepted implementation plan
@@ -57,6 +75,8 @@ Low-signal/historical docs (do not treat as source of truth):
   in small batches and update references/fixtures in the same change.
 
 ## Development Commands
+
+<!-- idk, maybe just explain where it runs and about `make anon` so it doesn't do all this? -->
 
 ```bash
 # From root
@@ -80,8 +100,12 @@ make anon-once        # One-shot bootstrap for lint/codegen/hook commands in wor
 
 ### Local Environment Notes
 
+<!-- which exactly environment, probably osx/windows/daytona -->
+
 - `rg` (ripgrep) is not available in this environment. Use `grep`/`find`
   instead.
+  <!-- maybe just force to run `make anon-once` on startup -->
+  <!-- apparently these are not notes, this is the backbone -->
 - If Convex tooling complains about missing `CONVEX_DEPLOYMENT` (for lint or
   codegen), run `make anon` to set up an anonymous deployment.
 - In a git worktree, always start with `make anon` before dev/lint/test/commit
@@ -89,6 +113,8 @@ make anon-once        # One-shot bootstrap for lint/codegen/hook commands in wor
 - In a git worktree, do not run `npx convex dev` directly for normal startup;
   `make anon` is the required entrypoint.
 - For one-off setup in a git worktree, use `make anon-once`.
+
+<!-- maybe find official skill? -->
 
 ### Convex CLI
 
@@ -127,7 +153,8 @@ use `--env-file` or an explicit deployment selector instead.
 - **Auth**: Convex Auth app login (Google in prod, Google + password in dev)
   plus provider connection OAuth/API key flows
 - **Editor**: CodeMirror 6 with collaborative editing via Convex
-- **UI**: Tailwind CSS + Radix UI components + shadcn/ui patterns
+- **UI**: Tailwind CSS + Radix UI components + shadcn/ui patterns + a bit of
+  inhouse corner-notch-1
 - **State**: Convex real-time queries + TanStack Query
 
 **Key Data Models** (Convex schema):
@@ -308,17 +335,17 @@ use `--env-file` or an explicit deployment selector instead.
 Shorthand commands for git/GitHub workflows. When the user says these, execute
 them directly using CLI tools.
 
-| Command        | Action                                                                                                 |
-| -------------- | ------------------------------------------------------------------------------------------------------ |
-| `commit`       | Stage all changes, commit with concise message                                                         |
-| `push`         | Commit if needed, push to remote                                                                       |
-| `create pr`    | Push if needed, create PR, ensure a non-empty body, then mark ready                                    |
-| `ready`        | Mark draft PR as ready: `gh pr ready`                                                                  |
-| `wait`         | Monitor CI with `gh pr checks` or `gh run watch`, report status                                        |
-| `ship`         | Full flow: commit → push → create PR → ready → fix Greptile+CodeRabbit feedback loops → wait           |
-| `clean vaults` | Remove temporary Noter-managed vaults/resources created for the current worktree                       |
-| `clean`        | After PR is shipped/merged: run `clean vaults`, then remove the current worktree and delete its branch |
-| `status`       | Show branch, uncommitted changes, PR state                                                             |
+| Command        | Action                                                                                                    |
+| -------------- | --------------------------------------------------------------------------------------------------------- |
+| `commit`       | Stage all changes, commit with concise message                                                            |
+| `push`         | Commit if needed, push to remote                                                                          |
+| `create pr`    | Push if needed, create or update a draft PR, ensure a non-empty body, keep it draft unless asked ready    |
+| `ready`        | Mark draft PR as ready: `gh pr ready`                                                                     |
+| `wait`         | Monitor CI with `gh pr checks` or `gh run watch`, report status                                           |
+| `ship`         | Full flow: commit → push → create/update draft PR → ready → fix Greptile+CodeRabbit feedback loops → wait |
+| `clean vaults` | Remove temporary Noter-managed vaults/resources created for the current worktree                          |
+| `clean`        | After PR is shipped/merged: run `clean vaults`, then remove the current worktree and delete its branch    |
+| `status`       | Show branch, uncommitted changes, PR state                                                                |
 
 ### Rules
 
@@ -365,8 +392,9 @@ them directly using CLI tools.
 - PR descriptions must explain why the change exists, not just what changed. If
   a PR is split out from a broader branch or effort, say that explicitly in the
   `Why` section so reviewers have the missing context.
-- When the user asks to "open a PR" (or `create pr`), mark it ready for review
-  by default. Only keep it as draft if the user explicitly asks for draft.
+- When the user asks to "open a PR" (or `create pr`), create or update a draft
+  PR by default. Only mark it ready when the user explicitly asks for that or
+  when the command is `ready`/`ship`.
 - Update PR description with `gh pr edit --body` when commits change scope
 - During `ship`, if Greptile reports actionable findings, fix them, push
   updates, and continue until Greptile and required CI checks are green.
@@ -556,6 +584,22 @@ Auth:
   lines, unless the work is too intertwined to split safely.
 - Always create a working branch (use `codex/` prefix when needed), and push
   after every commit so the remote stays up to date.
+- For this operator, draft PR creation is part of task startup. In the first
+  user-facing message for an implementation task, bootstrap the worktree with
+  `make anon` and then open or update a draft PR immediately so preview links
+  (including Cloudflare previews) exist from the beginning of the work.
+- If GitHub requires a diff before opening that startup draft PR, create a
+  minimal checkpoint commit right after bootstrap rather than waiting for a
+  larger implementation commit.
+- For this operator, keep the running narrative primarily in GitHub: use the PR
+  description as the canonical current summary/plan/links, use PR comments for
+  incremental checkpoints and notable decisions, and update the PR title and
+  description when the scope shifts materially. Do not default to keeping the
+  primary work log in repo files unless the user explicitly asks for that.
+- Do not mirror the full chat transcript or raw tool-by-tool logs into the PR by
+  default. Summarize the important decisions, validation, and links in GitHub,
+  and only link out to heavier artifacts if the user explicitly wants that level
+  of trace detail.
 - Do not introduce new `.mjs` files; keep `type: "module"` and prefer `.js`
   files as ESM.
 - Always rebase work branches on `origin/main` (not only local `main`) before
@@ -577,12 +621,11 @@ Auth:
   so on explicit user request.
 - Never recommend bypassing commit or pre-commit hooks as an option; only
   proceed if the user explicitly asks to bypass them.
-- When the user asks to create a PR, automatically mark it ready for review
-  unless they explicitly ask for a draft PR.
-- After opening a PR, always request an initial CodeRabbit review by commenting
-  `@coderabbitai review`.
-- After opening a PR, always request an initial Codex review by commenting
-  `@codex review`.
+- When the user asks to create a PR, keep it draft by default unless they
+  explicitly ask to make it ready for review.
+- Do not request CodeRabbit or Codex review automatically for startup draft PRs
+  or early work-in-progress PRs. Request review when the PR is marked ready or
+  when the user explicitly asks for review on the current draft state.
 - When creating or editing PR descriptions with `gh`, use `--body-file` (or
   stdin/heredoc) so real newlines are preserved; never pass escaped `\n` in a
   single-line `--body` string.
@@ -590,10 +633,11 @@ Auth:
   immediate error-level rollout impractical, use a repo-wide warning first
   instead of scoping the rule to a narrow set of files unless the user
   explicitly asks for that.
-- After pushing fixes for PR review feedback, always request a fresh CodeRabbit
-  review by commenting `@coderabbitai review`.
-- After pushing fixes for PR review feedback, always request a fresh Codex
-  review by commenting `@codex review`.
+- After pushing fixes for PR review feedback on a PR that is actively under
+  review, always request a fresh CodeRabbit review by commenting
+  `@coderabbitai review`.
+- After pushing fixes for PR review feedback on a PR that is actively under
+  review, always request a fresh Codex review by commenting `@codex review`.
 - After fixing CodeRabbit findings, always reply on each relevant CodeRabbit
   review thread with a short note describing exactly what was changed, then
   resolve the thread.
