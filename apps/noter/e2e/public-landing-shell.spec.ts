@@ -132,6 +132,21 @@ async function expectLandingLogoSceneReady(scene: Locator) {
   await expect(scene).toHaveAttribute("data-state", "ready");
 }
 
+async function expectLandingLogoAutoRotates(scene: Locator) {
+  await expectLandingLogoSceneReady(scene);
+  const initialRotationDegrees = await scene.getAttribute(
+    "data-rotation-degrees",
+  );
+  expect(initialRotationDegrees).not.toBeNull();
+  if (initialRotationDegrees === null) {
+    return;
+  }
+
+  await expect
+    .poll(async () => await scene.getAttribute("data-rotation-degrees"))
+    .not.toBe(initialRotationDegrees);
+}
+
 async function readLandingLogoSceneView(scene: Locator) {
   const elevationDegrees = await scene.getAttribute("data-elevation-degrees");
   const rotationDegrees = await scene.getAttribute("data-rotation-degrees");
@@ -173,6 +188,9 @@ test.describe("mobile landing dev toggle", () => {
 
     const shellFrames = await captureLandingToggleFrames(page, "/?dev");
     expectStableLandingToggleFrames(shellFrames, "/?dev");
+    await expectLandingLogoAutoRotates(
+      page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID),
+    );
   });
 
   test("landing dev toggle keeps the landing card stable frame by frame", async ({
@@ -182,6 +200,9 @@ test.describe("mobile landing dev toggle", () => {
 
     const forwardFrames = await captureLandingToggleFrames(page, "/?dev");
     expectStableLandingToggleFrames(forwardFrames, "/?dev");
+    await expectLandingLogoAutoRotates(
+      page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID),
+    );
 
     const backFrames = await captureLandingToggleFrames(page, "/");
     expectStableLandingToggleFrames(backFrames, "/");

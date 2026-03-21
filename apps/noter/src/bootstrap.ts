@@ -3,7 +3,6 @@ import { createStaticLogoSvgDataUrl } from "@/components/logoStaticSvgAsset";
 import {
   buildLandingDevToggleHref,
   getLandingDevToggleLabel,
-  isLandingDevModeEnabled,
 } from "@/lib/landingDevMode";
 import {
   applyPageMetadata,
@@ -20,6 +19,7 @@ import {
   PUBLIC_LANDING_LOGO_TEST_ID,
   PUBLIC_LANDING_LOGO_WIDTH,
 } from "@/lib/publicLandingLogo";
+import { shouldRenderFastLandingShell } from "@/lib/publicLandingAuthState";
 import { FAST_LANDING_APP_BOOT_DELAY_MS } from "@/lib/fastLandingBoot";
 import { landingPageMarkdown } from "@/lib/landingCopy";
 import { PUBLIC_LANDING_COPY_TEST_ID } from "@/lib/publicLanding";
@@ -27,8 +27,6 @@ import { renderLandingCopyShellHtml } from "@/lib/landingCopyShell";
 import { writePublicLandingWaitlistDraft } from "@/lib/publicLandingWaitlistDraft";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 
-const AUTH_FLAG_KEY = "noter_was_authenticated";
-const CONVEX_AUTH_STORAGE_KEY_PREFIX = "__convexAuth";
 const GOOGLE_AUTH_BUTTON_ID = "public-landing-google-button";
 const PUBLIC_LANDING_DEV_TOGGLE_ID = "public-landing-dev-toggle";
 const PUBLIC_LANDING_CONTENT_TEST_ID = "public-landing-content";
@@ -91,31 +89,14 @@ function getShellCommitMetadata() {
   return { appCommit, shortCommit, commitUrl };
 }
 
-function isFastLandingRoute(location: Location): boolean {
-  const searchParams = new URLSearchParams(location.search);
-  return (
-    location.pathname === "/" &&
-    !isLandingDevModeEnabled(searchParams) &&
-    !searchParams.has("auth") &&
-    readLocalStorageValue(AUTH_FLAG_KEY) !== "1" &&
-    !hasRestoredAuthTokens()
-  );
-}
-
-function withLocalStorage<T>(reader: (storage: Storage) => T, fallback: T): T {
-  try {
-    return reader(window.localStorage);
-  } catch {
-    return fallback;
-  }
-}
-
-function readLocalStorageValue(key: string): string | null {
-  return withLocalStorage((storage) => storage.getItem(key), null);
-}
-
 function resolveBootstrapTheme(): "dark" | "light" {
-  const storedTheme = readLocalStorageValue(THEME_STORAGE_KEY);
+  const storedTheme = (() => {
+    try {
+      return window.localStorage.getItem(THEME_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  })();
   if (storedTheme === "dark" || storedTheme === "light") {
     return storedTheme;
   }
@@ -133,22 +114,6 @@ function applyBootstrapThemeClass(): boolean {
 
 function buildFastLandingLogoSrc(): string {
   return createStaticLogoSvgDataUrl();
-}
-
-function hasRestoredAuthTokens(): boolean {
-  return withLocalStorage((storage) => {
-    for (let index = 0; index < storage.length; index += 1) {
-      const storageKey = storage.key(index);
-      if (
-        storageKey !== null &&
-        storageKey.startsWith(CONVEX_AUTH_STORAGE_KEY_PREFIX)
-      ) {
-        return true;
-      }
-    }
-
-    return false;
-  }, false);
 }
 
 function scheduleBackgroundAppLoad() {
@@ -427,7 +392,7 @@ function applyBootstrapPageMetadata(
 }
 
 applyBootstrapThemeClass();
-const fastLandingRoute = isFastLandingRoute(window.location);
+const fastLandingRoute = shouldRenderFastLandingShell(window.location);
 
 applyBootstrapPageMetadata(window.location, fastLandingRoute);
 

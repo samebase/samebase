@@ -18,6 +18,7 @@ import { Routes, Route, useLocation } from "react-router-dom";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { isChatOnlyCodespaceRoute } from "@/lib/vaultRoutes";
 import { resolvePageMetadata, type PageMetadata } from "@/lib/pageMetadata";
+import { shouldRenderPublicLandingWithoutAuthGate } from "@/lib/publicLandingAuthState";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 
 const VaultDashboard = lazy(async () => {
@@ -328,6 +329,8 @@ export default function App() {
   const showPrivacyPolicyPage = location.pathname === "/privacy";
   const showLogoTransitionTransformsLab =
     location.pathname === "/logo-transition-lab-transforms";
+  const showPublicLandingWithoutAuthGate =
+    !isAuthenticated && shouldRenderPublicLandingWithoutAuthGate(location);
 
   const pageMetadata: PageMetadata = useMemo(() => {
     return resolvePageMetadata({
@@ -404,44 +407,51 @@ export default function App() {
 
   return (
     <Layout>
-      <>
-        <Authenticated>
-          <ApprovalGate>
+      {showPublicLandingWithoutAuthGate ? (
+        <SignInForm />
+      ) : (
+        <>
+          <Authenticated>
+            <ApprovalGate>
+              <Suspense fallback={null}>
+                <Routes>
+                  <Route path="/" element={<VaultDashboard />} />
+                  <Route path="/pricing" element={<PricingPage />} />
+                  <Route path="/add" element={<AddRepository />} />
+                  <Route
+                    path="/vault/:owner/:repoName/codespace/:branch/chat"
+                    element={<CodespaceChatOnlyView />}
+                  />
+                  <Route
+                    path="/vault/:owner/:repoName/:branch"
+                    element={<FileView />}
+                  />
+                  <Route
+                    path="/vault/:owner/:repoName/:branch/*"
+                    element={<FileView />}
+                  />
+                  <Route
+                    path="/vault/:owner/:repoName"
+                    element={<FileView />}
+                  />
+
+                  {/* test route */}
+                  <Route path="/test" element={<div>Test</div>} />
+                </Routes>
+                {showChatFab ? <ChatFab /> : null}
+              </Suspense>
+            </ApprovalGate>
+          </Authenticated>
+          <Unauthenticated>
             <Suspense fallback={null}>
               <Routes>
-                <Route path="/" element={<VaultDashboard />} />
-                <Route path="/pricing" element={<PricingPage />} />
-                <Route path="/add" element={<AddRepository />} />
-                <Route
-                  path="/vault/:owner/:repoName/codespace/:branch/chat"
-                  element={<CodespaceChatOnlyView />}
-                />
-                <Route
-                  path="/vault/:owner/:repoName/:branch"
-                  element={<FileView />}
-                />
-                <Route
-                  path="/vault/:owner/:repoName/:branch/*"
-                  element={<FileView />}
-                />
-                <Route path="/vault/:owner/:repoName" element={<FileView />} />
-
-                {/* test route */}
-                <Route path="/test" element={<div>Test</div>} />
+                <Route path="/" element={<SignInForm />} />
+                <Route path="*" element={<SignInForm />} />
               </Routes>
-              {showChatFab ? <ChatFab /> : null}
             </Suspense>
-          </ApprovalGate>
-        </Authenticated>
-        <Unauthenticated>
-          <Suspense fallback={null}>
-            <Routes>
-              <Route path="/" element={<SignInForm />} />
-              <Route path="*" element={<SignInForm />} />
-            </Routes>
-          </Suspense>
-        </Unauthenticated>
-      </>
+          </Unauthenticated>
+        </>
+      )}
     </Layout>
   );
 }
