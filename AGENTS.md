@@ -178,6 +178,13 @@ use `--env-file` or an explicit deployment selector instead.
 - **Never use `@ts-nocheck`** - if a type suppression is unavoidable, use the
   narrowest possible `@ts-expect-error`
 - **Let TypeScript infer** - don't over-annotate when inference works
+- **Comment code inline with context** - new or materially changed code should
+  include inline comments that explain why the code exists, what constraint or
+  invariant it is preserving, and any non-obvious how/flow. Prefer comments that
+  give future readers decision context over comments that only restate the
+  syntax. If a file is generated or explicitly treated as read-only, do not
+  hand-edit it just to satisfy this rule; put the context in the nearest
+  repo-owned wrapper or calling code instead.
 - **Infer from schemas** - when a Zod/validator schema exists, derive the
   TypeScript type from it (`z.infer`/`Infer`) instead of duplicating manual
   types
