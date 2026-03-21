@@ -234,6 +234,10 @@ const CloudflareProviderLogo = ({ className }: { className?: string }) => (
   </span>
 );
 
+/**
+ * Keeps the ticking relative-time label stable while the user is selecting it,
+ * then falls back to a normal navigation refresh on a plain click.
+ */
 function VaultLastUpdatedStatus({
   lastSyncedAt,
   now,
@@ -243,8 +247,6 @@ function VaultLastUpdatedStatus({
   now: number;
   repositoryFullName: string;
 }) {
-  // This wrapper freezes the ticking relative-time label while the user is
-  // selecting it; otherwise the 1s dashboard clock mutates the text mid-select.
   const [frozenNow, setFrozenNow] = useState<number | null>(null);
   const isPointerDownRef = useRef(false);
   const refreshHref =
