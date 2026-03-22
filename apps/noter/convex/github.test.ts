@@ -8,6 +8,7 @@ import {
   readGitHubNextPageUrl,
   readPullRequestLabels,
   resolveAheadBehindBaseBranch,
+  shouldSyncCloudflarePreviewLinks,
 } from "./github";
 
 describe("normalizeGitHubRepositoryListItem", () => {
@@ -98,6 +99,34 @@ describe("readPullRequestLabels", () => {
         42,
       ]),
     ).toEqual([{ name: "release", color: undefined }]);
+  });
+});
+
+describe("shouldSyncCloudflarePreviewLinks", () => {
+  it("requires both preview-link enrichment flags and resolved PR metadata", () => {
+    expect(
+      shouldSyncCloudflarePreviewLinks({
+        includeCloudflarePreviewLinks: true,
+        includePullRequestLinks: true,
+        branches: [
+          { pullRequestState: "resolved" },
+          { pullRequestState: "resolved" },
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it("skips preview sync when PR discovery falls back to preserve", () => {
+    expect(
+      shouldSyncCloudflarePreviewLinks({
+        includeCloudflarePreviewLinks: true,
+        includePullRequestLinks: true,
+        branches: [
+          { pullRequestState: "resolved" },
+          { pullRequestState: "preserve" },
+        ],
+      }),
+    ).toBe(false);
   });
 });
 

@@ -2,9 +2,9 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Accepted
 - Owner: Vault dashboard + GitHub/Cloudflare integration
-- Last updated: 2026-03-21
+- Last updated: 2026-03-23
 - Related specs:
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
   - `specs/048_DASHBOARD_REMOTE_BRANCH_DELETE_SPEC.md`

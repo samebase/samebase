@@ -38,6 +38,18 @@ function readHtmlTableCell(body: string, label: string): string | undefined {
   return typeof match?.[1] === "string" ? match[1] : undefined;
 }
 
+function normalizeHttpsUrl(value: string): string | undefined {
+  try {
+    const parsed = new URL(value.trim());
+    if (parsed.protocol !== "https:" || parsed.host.length === 0) {
+      return undefined;
+    }
+    return parsed.toString();
+  } catch {
+    return undefined;
+  }
+}
+
 function readHtmlAnchorHref(body: string, label: string): string | undefined {
   const cell = readHtmlTableCell(body, label);
   if (typeof cell !== "string") {
@@ -49,8 +61,7 @@ function readHtmlAnchorHref(body: string, label: string): string | undefined {
     return undefined;
   }
 
-  const href = match[1].trim();
-  return href.length > 0 ? href : undefined;
+  return normalizeHttpsUrl(match[1]);
 }
 
 function readHtmlCodeText(body: string, label: string): string | undefined {
@@ -76,10 +87,17 @@ function readMarkdownLinkHref(body: string, label: string): string | undefined {
     return undefined;
   }
 
-  const href = match[1].trim();
-  return href.length > 0 ? href : undefined;
+  return normalizeHttpsUrl(match[1]);
 }
 
+/**
+ * Parse the semi-structured Cloudflare Pages PR comment body that drives
+ * dashboard preview-link caching. Returns `null` when the body does not look
+ * like the Cloudflare Pages deploy comment; otherwise returns any extracted
+ * CloudflarePreviewCommentMetadata fields so callers can preserve cached data
+ * on partial parses while still clearing it when no meaningful preview info
+ * exists at all.
+ */
 export function parseCloudflarePreviewComment(
   body: string,
 ): CloudflarePreviewCommentMetadata | null {

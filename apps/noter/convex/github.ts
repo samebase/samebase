@@ -235,6 +235,9 @@ const repositoryMediaAssetResult = union(
 
 type RepositoryMediaAsset = Infer<typeof repositoryMediaAssetResult>;
 const CLOUDFLARE_PREVIEW_COMMENT_CONCURRENCY = 5;
+const CLOUDFLARE_PREVIEW_COMMENT_AUTHORS = new Set([
+  "cloudflare-workers-and-pages[bot]",
+]);
 
 function toGitTreeRef(branch: string): string {
   if (branch.startsWith("refs/heads/")) {
@@ -371,6 +374,15 @@ export function readPullRequestLabels(
   return labelNames;
 }
 
+function isAllowedCloudflarePreviewCommentAuthor(
+  login: unknown,
+): login is string {
+  return (
+    typeof login === "string" &&
+    CLOUDFLARE_PREVIEW_COMMENT_AUTHORS.has(login.toLowerCase())
+  );
+}
+
 async function getLatestPullRequestCloudflarePreviewComment(args: {
   octokit: Octokit;
   owner: string;
@@ -384,12 +396,6 @@ async function getLatestPullRequestCloudflarePreviewComment(args: {
 > {
   const perPage = 100;
   const maxPages = 20;
-  let bestMatch:
-    | (CloudflarePreviewCommentMetadata & {
-        cloudflarePreviewCommentCreatedAt?: number;
-        activityAt: number;
-      })
-    | undefined;
   let hitPageLimit = false;
 
   for (let page = 1; page <= maxPages; page += 1) {
@@ -399,6 +405,8 @@ async function getLatestPullRequestCloudflarePreviewComment(args: {
       issue_number: args.pullRequestNumber,
       per_page: perPage,
       page,
+      sort: "updated",
+      direction: "desc",
     });
 
     if (pageResponse.data.length === 0) {
@@ -409,26 +417,20 @@ async function getLatestPullRequestCloudflarePreviewComment(args: {
       if (typeof comment.body !== "string") {
         continue;
       }
+      if (!isAllowedCloudflarePreviewCommentAuthor(comment.user?.login)) {
+        continue;
+      }
 
       const parsed = parseCloudflarePreviewComment(comment.body);
       if (!parsed) {
         continue;
       }
 
-      const activityAt =
-        parseGitTimestamp(comment.updated_at) ??
-        parseGitTimestamp(comment.created_at) ??
-        0;
-      if (bestMatch && activityAt < bestMatch.activityAt) {
-        continue;
-      }
-
-      bestMatch = {
+      return {
         ...parsed,
         cloudflarePreviewCommentCreatedAt: parseGitTimestamp(
           comment.created_at,
         ),
-        activityAt,
       };
     }
 
@@ -452,20 +454,7 @@ async function getLatestPullRequestCloudflarePreviewComment(args: {
       }),
     );
   }
-
-  if (!bestMatch) {
-    return undefined;
-  }
-
-  return {
-    branchPreviewUrl: bestMatch.branchPreviewUrl,
-    previewUrl: bestMatch.previewUrl,
-    previewCommitSha: bestMatch.previewCommitSha,
-    previewStatus: bestMatch.previewStatus,
-    previewLogsUrl: bestMatch.previewLogsUrl,
-    cloudflarePreviewCommentCreatedAt:
-      bestMatch.cloudflarePreviewCommentCreatedAt,
-  };
+  return undefined;
 }
 
 async function getCloudflarePreviewLinksByBranch(args: {
@@ -538,6 +527,19 @@ async function getCloudflarePreviewLinksByBranch(args: {
 
   return updates;
 }
+
+export function shouldSyncCloudflarePreviewLinks(args: {
+  includeCloudflarePreviewLinks: boolean;
+  includePullRequestLinks: boolean;
+  branches: Array<{ pullRequestState: "resolved" | "preserve" }>;
+}): boolean {
+  return (
+    args.includeCloudflarePreviewLinks &&
+    args.includePullRequestLinks &&
+    args.branches.every((branch) => branch.pullRequestState === "resolved")
+  );
+}
+
 function readPullRequestHeadRepositoryFullName(
   pullRequest: unknown,
 ): string | undefined {
@@ -1570,8 +1572,12 @@ export const updateRepositoryTree = internalAction({
       branches: remoteBranches,
     });
     if (
-      args.includeCloudflarePreviewLinks === true &&
-      args.includePullRequestLinks === true
+      shouldSyncCloudflarePreviewLinks({
+        includeCloudflarePreviewLinks:
+          args.includeCloudflarePreviewLinks === true,
+        includePullRequestLinks: args.includePullRequestLinks === true,
+        branches: remoteBranches,
+      })
     ) {
       const cloudflarePreviews = await getCloudflarePreviewLinksByBranch({
         octokit,
