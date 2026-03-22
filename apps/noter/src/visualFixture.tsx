@@ -59,6 +59,7 @@ function readMode(): VisualFixtureMode {
   if (
     value === "inline" ||
     value === "deleted" ||
+    value === "deleted-staged-changes" ||
     value === "deleted-markdown-link" ||
     value === "trailing-newline-only" ||
     value === "unchanged" ||

@@ -3,6 +3,22 @@ export interface FolderExpansionState {
   isExpanded: boolean;
 }
 
+export function getAncestorFolderPaths(path: string): string[] {
+  const pathSegments = path.split("/");
+  const folderPaths: string[] = [];
+  let currentPath = "";
+
+  for (let index = 0; index < pathSegments.length - 1; index += 1) {
+    currentPath =
+      index === 0
+        ? pathSegments[index]
+        : `${currentPath}/${pathSegments[index]}`;
+    folderPaths.push(currentPath);
+  }
+
+  return folderPaths;
+}
+
 export function buildEffectiveFolderExpansionStates(args: {
   folderExpansionStates: FolderExpansionState[];
   autoExpandedPaths: Set<string>;

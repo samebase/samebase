@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildDeletedFileRestoreCandidate,
   buildClearAllStagingPlan,
   canAccessVaultStaging,
   clearAllStagingImpl,
@@ -258,6 +259,68 @@ describe("canAccessVaultStaging", () => {
         requesterUserId: "users:other",
       }),
     ).toBe(false);
+  });
+});
+
+describe("buildDeletedFileRestoreCandidate", () => {
+  it("clears the deleted flag while preserving rename and content changes", () => {
+    expect(
+      buildDeletedFileRestoreCandidate({
+        fileDeleted: true,
+        parentCommitSha: "abc123",
+        filePath: "src/new-name.ts",
+        initialFilePath: "src/old-name.ts",
+        content: "updated",
+        initialContent: "original",
+      }),
+    ).toEqual({
+      fileDeleted: false,
+      parentCommitSha: "abc123",
+      filePath: "src/new-name.ts",
+      initialFilePath: "src/old-name.ts",
+      content: "updated",
+      initialContent: "original",
+    });
+  });
+
+  it("restores an existing file back to an unchanged candidate", () => {
+    expect(
+      buildDeletedFileRestoreCandidate({
+        fileDeleted: true,
+        parentCommitSha: "abc123",
+        filePath: "README.md",
+        initialFilePath: "README.md",
+        content: "# Readme",
+        initialContent: "# Readme",
+      }),
+    ).toEqual({
+      fileDeleted: false,
+      parentCommitSha: "abc123",
+      filePath: "README.md",
+      initialFilePath: "README.md",
+      content: "# Readme",
+      initialContent: "# Readme",
+    });
+  });
+
+  it("restores a newly created file back to a new-file candidate", () => {
+    expect(
+      buildDeletedFileRestoreCandidate({
+        fileDeleted: true,
+        parentCommitSha: null,
+        filePath: "src/new.ts",
+        initialFilePath: "src/new.ts",
+        content: "hello",
+        initialContent: "",
+      }),
+    ).toEqual({
+      fileDeleted: false,
+      parentCommitSha: null,
+      filePath: "src/new.ts",
+      initialFilePath: "src/new.ts",
+      content: "hello",
+      initialContent: "",
+    });
   });
 });
 

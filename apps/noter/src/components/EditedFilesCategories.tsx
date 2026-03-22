@@ -135,21 +135,24 @@ export function EditedFilesCategories({
   categories,
   repositoryFullName,
   branch,
+  onFileSelected,
 }: {
   categories: ReturnType<typeof categorizeStagedFiles>;
   repositoryFullName: string;
   branch: string;
+  onFileSelected?: () => void;
 }) {
   const navigate = useNavigate();
   const { search } = useLocation();
-  const navigateToDiffViewer = useCallback(
-    (filePath: string) => {
-      const encodedFilePath = filePath
+  const navigateToStagedFile = useCallback(
+    (file: StagedFile) => {
+      const encodedFilePath = file.filePath
         .split("/")
         .map((segment) => encodeURIComponent(segment))
         .join("/");
       const encodedBranch = encodeURIComponent(branch);
       const nextPath = `/vault/${repositoryFullName}/${encodedBranch}/${encodedFilePath}`;
+      onFileSelected?.();
       void navigate(
         buildPathWithUpdatedQuery(
           {
@@ -157,13 +160,15 @@ export function EditedFilesCategories({
             search,
           },
           (searchParams) => {
-            setQueryParam(searchParams, "diff", false);
-            setQueryParam(searchParams, "review", true);
+            // Deleted files should open in the same diff-first review route as
+            // deleted rows in the sidebar tree.
+            setQueryParam(searchParams, "diff", file.fileDeleted);
+            setQueryParam(searchParams, "review", !file.fileDeleted);
           },
         ),
       );
     },
-    [branch, navigate, repositoryFullName, search],
+    [branch, navigate, onFileSelected, repositoryFullName, search],
   );
   const sections = [];
 
@@ -179,7 +184,7 @@ export function EditedFilesCategories({
             <button
               key={file.filePath}
               onClick={() => {
-                navigateToDiffViewer(file.filePath);
+                navigateToStagedFile(file);
               }}
               className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 corner-notch-1 truncate w-full ${linkStyle}`}
             >
@@ -203,7 +208,7 @@ export function EditedFilesCategories({
             <button
               key={file.filePath}
               onClick={() => {
-                navigateToDiffViewer(file.filePath);
+                navigateToStagedFile(file);
               }}
               className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 corner-notch-1 truncate w-full ${linkStyle}`}
             >
@@ -231,7 +236,7 @@ export function EditedFilesCategories({
             <button
               key={file.filePath}
               onClick={() => {
-                navigateToDiffViewer(file.filePath);
+                navigateToStagedFile(file);
               }}
               className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 corner-notch-1 truncate w-full ${linkStyle}`}
             >
@@ -255,12 +260,15 @@ export function EditedFilesCategories({
         </div>
         <div className="space-y-1 pl-5">
           {categories.deleted.map((file) => (
-            <div
+            <button
               key={file.filePath}
-              className="block text-xs text-left p-1 corner-notch-1 truncate w-full text-muted-foreground line-through"
+              onClick={() => {
+                navigateToStagedFile(file);
+              }}
+              className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 corner-notch-1 truncate w-full text-muted-foreground line-through ${linkStyle}`}
             >
               {file.filePath}
-            </div>
+            </button>
           ))}
         </div>
       </div>,
@@ -279,7 +287,7 @@ export function EditedFilesCategories({
             <button
               key={file.filePath}
               onClick={() => {
-                navigateToDiffViewer(file.filePath);
+                navigateToStagedFile(file);
               }}
               className={`block text-xs text-left hover:bg-muted/50 transition-colors p-1 corner-notch-1 truncate w-full ${linkStyle}`}
             >
@@ -346,6 +354,7 @@ export function EditedFilesCategoriesPopover({
                 categories={categories}
                 repositoryFullName={repositoryFullName}
                 branch={branch}
+                onFileSelected={() => setOpen(false)}
               />
             )}
           </div>

@@ -2,6 +2,8 @@ import { minimatch } from "minimatch";
 import { z } from "zod";
 import { parseDocument } from "yaml";
 
+import { getAncestorFolderPaths } from "./fileTreeState";
+
 export const SIMPLE_VIEW_CONFIG_PATH = "noter.md";
 const SIMPLE_VIEW_STORAGE_KEY_PREFIX = "noter-simple-view";
 
@@ -30,6 +32,10 @@ export type SimpleViewConfig = {
 type TreeItem = {
   path: string;
   type: "tree" | "blob";
+};
+
+type FilterSimpleViewTreeItemsOptions = {
+  alwaysIncludePaths?: readonly string[];
 };
 
 const frontmatterRegex = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
@@ -175,13 +181,24 @@ function isExcluded(path: string, excludePatterns: string[]): boolean {
 export function filterSimpleViewTreeItems<T extends TreeItem>(
   items: T[],
   excludePatterns: string[],
+  options?: FilterSimpleViewTreeItemsOptions,
 ): T[] {
   if (excludePatterns.length === 0) {
     return items;
   }
 
+  const alwaysIncludePaths = new Set<string>();
+  for (const path of options?.alwaysIncludePaths ?? []) {
+    alwaysIncludePaths.add(path);
+    for (const folderPath of getAncestorFolderPaths(path)) {
+      alwaysIncludePaths.add(folderPath);
+    }
+  }
+
   const includedItems = items.filter(
-    (item) => !isExcluded(item.path, excludePatterns),
+    (item) =>
+      alwaysIncludePaths.has(item.path) ||
+      !isExcluded(item.path, excludePatterns),
   );
   const includedPaths = includedItems.map((item) => item.path);
 

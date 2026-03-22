@@ -68,6 +68,7 @@ import {
   releaseRefreshDebounce,
 } from "@/lib/treeRefreshDebounce";
 import { buildFileViewRefreshDebounceKey } from "@/lib/fileViewRefresh";
+import { getAncestorFolderPaths } from "@/lib/fileTreeState";
 import { type GithubTreeType } from "convex/schema";
 import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
 import { DaytonaSnapshotList } from "./DaytonaSnapshotList";
@@ -171,7 +172,7 @@ type RebaseConflictPreview = {
 };
 
 type CommitReviewMode = "editor" | "review";
-type SidebarMode = "simple" | "all" | "changes";
+type SidebarMode = "simple" | "all";
 type StagedFileRecord = NonNullable<
   (typeof api.fileStaging.listStagedFiles)["_returnType"]
 >[number];
@@ -727,6 +728,9 @@ function FileViewInner({
   >(null);
   const [rebaseConflictBundleFeedback, setRebaseConflictBundleFeedback] =
     useState<string | null>(null);
+  const [restoringDeletedFilePath, setRestoringDeletedFilePath] = useState<
+    string | null
+  >(null);
   const [inlinePreviewDraftStagingId, setInlinePreviewDraftStagingId] =
     useState<StagedFileRecord["_id"] | null>(null);
   const [inlinePreviewDraftContent, setInlinePreviewDraftContent] =
@@ -751,6 +755,7 @@ function FileViewInner({
   const [inlinePreviewFailedSave, setInlinePreviewFailedSave] =
     useState<InlinePreviewSaveSnapshot | null>(null);
   const inlinePreviewDraftContentRef = useRef("");
+  const restoringDeletedFilePathRef = useRef<string | null>(null);
   const activePreviewStagingIdRef = useRef<StagedFileRecord["_id"] | null>(
     null,
   );
@@ -785,6 +790,9 @@ function FileViewInner({
 
   const [markFileForDeletion] = useConvexMutation(
     api.fileStaging.markFileForDeletion,
+  );
+  const [revertDeletedFileInStaging] = useConvexMutation(
+    api.fileStaging.revertDeletedFileInStaging,
   );
   const [renameFileInStaging] = useConvexAction(
     api.fileStagingActions.renameFileInStaging,
@@ -842,9 +850,6 @@ function FileViewInner({
   }, [isDiffRequested]);
   const [allowAutoExitReview, setAllowAutoExitReview] = useState(true);
   const reviewRouteKeyRef = useRef<string | null>(null);
-  const reviewSidebarModeRef = useRef<Exclude<SidebarMode, "changes"> | null>(
-    null,
-  );
   const currentRemoteBranch = useMemo(
     () =>
       remoteBranches?.find(
@@ -934,6 +939,12 @@ function FileViewInner({
   }, [viewMode, isPreviewOpen]);
 
   useEffect(() => {
+    if (commitReviewMode === "review" && viewMode !== "editor") {
+      setViewMode("editor");
+    }
+  }, [commitReviewMode, setViewMode, viewMode]);
+
+  useEffect(() => {
     if (
       !shouldLoadRepositorySimpleViewConfig(
         stagedNoterFile,
@@ -982,9 +993,7 @@ function FileViewInner({
     if (!didResolveSimpleViewConfigSource) {
       return;
     }
-    const defaultMode: Exclude<SidebarMode, "changes"> = hasNoterConfigFile
-      ? "simple"
-      : "all";
+    const defaultMode: SidebarMode = hasNoterConfigFile ? "simple" : "all";
 
     try {
       const storedMode = localStorage.getItem(sidebarModeStorageKey);
@@ -1006,11 +1015,7 @@ function FileViewInner({
   ]);
 
   useEffect(() => {
-    if (
-      !didResolveSimpleViewConfigSource ||
-      !sidebarModeHydrated ||
-      sidebarMode === "changes"
-    ) {
+    if (!didResolveSimpleViewConfigSource || !sidebarModeHydrated) {
       return;
     }
     try {
@@ -1277,6 +1282,39 @@ function FileViewInner({
       console.log(`File ${filePath} marked for deletion`);
     } catch (error) {
       console.error("Failed to delete file:", error);
+    }
+  };
+
+  const handleRestoreDeletedFile = async (filePath: string) => {
+    if (restoringDeletedFilePathRef.current !== null) {
+      return;
+    }
+
+    restoringDeletedFilePathRef.current = filePath;
+    setRestoringDeletedFilePath(filePath);
+
+    try {
+      await revertDeletedFileInStaging({
+        vaultId: vault._id,
+        filePath,
+        branch,
+      });
+
+      if (selectedFile === filePath) {
+        void navigate(buildVaultFileUrl(filePath, { reviewMode: "editor" }), {
+          replace: true,
+          state,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to restore deleted file:", error);
+    } finally {
+      if (restoringDeletedFilePathRef.current === filePath) {
+        restoringDeletedFilePathRef.current = null;
+      }
+      setRestoringDeletedFilePath((current) =>
+        current === filePath ? null : current,
+      );
     }
   };
 
@@ -1871,16 +1909,23 @@ function FileViewInner({
     return { agentGraphNodes: nodes, agentGraphEdges: edges };
   }, [finalTreeData]);
 
-  const changedTreeData = useMemo(
-    () => finalTreeData.filter((item) => item.type === "blob" && item.status),
-    [finalTreeData],
-  );
+  const forceSidebarSelectionVisible =
+    reviewOnMountRequested || commitReviewMode === "review";
+  const alwaysVisibleSimpleViewPaths = useMemo(() => {
+    return finalTreeData
+      .filter((item) => {
+        if (item.type !== "blob" || !item.status) {
+          return false;
+        }
 
+        return (
+          item.status === "deleted" ||
+          (forceSidebarSelectionVisible && item.path === selectedFile)
+        );
+      })
+      .map((item) => item.path);
+  }, [finalTreeData, forceSidebarSelectionVisible, selectedFile]);
   const visibleTreeData = useMemo(() => {
-    if (sidebarMode === "changes") {
-      return changedTreeData;
-    }
-
     if (sidebarMode !== "simple") {
       return finalTreeData;
     }
@@ -1892,32 +1937,32 @@ function FileViewInner({
       return finalTreeData;
     }
 
+    // Review keeps the sidebar stable, so staged files hidden by simple-view
+    // rules still need a navigation entry while review is active. Deleted files
+    // stay visible even outside review because they do not exist in the
+    // repository tree anymore.
     return filterSimpleViewTreeItems(
       finalTreeData,
       simpleViewConfig.excludePatterns,
+      {
+        alwaysIncludePaths: alwaysVisibleSimpleViewPaths,
+      },
     );
-  }, [changedTreeData, finalTreeData, simpleViewConfig, sidebarMode]);
-
+  }, [
+    alwaysVisibleSimpleViewPaths,
+    finalTreeData,
+    simpleViewConfig,
+    sidebarMode,
+  ]);
   const autoExpandedSidebarPaths = useMemo(() => {
-    if (sidebarMode !== "changes") {
+    if (!forceSidebarSelectionVisible) {
       return [];
     }
 
-    const expandedPaths = new Set<string>();
-    for (const item of changedTreeData) {
-      const pathSegments = item.path.split("/");
-      let currentPath = "";
-      for (let index = 0; index < pathSegments.length - 1; index += 1) {
-        currentPath =
-          index === 0
-            ? pathSegments[index]
-            : `${currentPath}/${pathSegments[index]}`;
-        expandedPaths.add(currentPath);
-      }
-    }
-
-    return [...expandedPaths];
-  }, [changedTreeData, sidebarMode]);
+    // Keep the active review target visible in the stable sidebar even when a
+    // parent folder was previously collapsed.
+    return getAncestorFolderPaths(selectedFile);
+  }, [forceSidebarSelectionVisible, selectedFile]);
 
   const emptyRepository = visibleTreeData.length === 0;
   const didResolveStagedFiles = stagedFiles !== undefined;
@@ -1966,25 +2011,6 @@ function FileViewInner({
       commitReviewMode === "review" ? current : true,
     );
   }, [branch, selectedFile, commitReviewMode]);
-
-  useEffect(() => {
-    if (!sidebarModeHydrated) {
-      return;
-    }
-    if (commitReviewMode === "review" && hasChangesToCommit) {
-      if (reviewSidebarModeRef.current === null && sidebarMode !== "changes") {
-        reviewSidebarModeRef.current = sidebarMode;
-        setSidebarMode("changes");
-      }
-      return;
-    }
-
-    const previousSidebarMode = reviewSidebarModeRef.current;
-    reviewSidebarModeRef.current = null;
-    if (previousSidebarMode && sidebarMode === "changes") {
-      setSidebarMode(previousSidebarMode);
-    }
-  }, [commitReviewMode, hasChangesToCommit, sidebarMode, sidebarModeHydrated]);
 
   useEffect(() => {
     if (
@@ -2094,11 +2120,7 @@ function FileViewInner({
             value={sidebarMode}
             className="justify-start"
             onValueChange={(value) => {
-              if (
-                value === "simple" ||
-                value === "all" ||
-                value === "changes"
-              ) {
+              if (value === "simple" || value === "all") {
                 setSidebarMode(value);
               }
             }}
@@ -2117,13 +2139,6 @@ function FileViewInner({
             >
               All Files
             </ToggleGroupItem>
-            <ToggleGroupItem
-              value="changes"
-              aria-label="Changes"
-              className="h-7 px-2 text-xs"
-            >
-              Changes
-            </ToggleGroupItem>
           </ToggleGroup>
         </div>
       </div>
@@ -2141,15 +2156,59 @@ function FileViewInner({
             onFileDelete={(filePath, originalPath) =>
               void handleFileDelete(filePath, originalPath)
             }
+            onFileRestore={(filePath) =>
+              void handleRestoreDeletedFile(filePath)
+            }
+            restoringFilePath={restoringDeletedFilePath}
             selectedFile={sidebarSelectedFile}
             folderExpansionStates={folderExpansionStates ?? []}
             onFolderToggle={handleFolderToggle}
             autoExpandedPaths={autoExpandedSidebarPaths}
-            forceAutoExpandedPaths={sidebarMode === "changes"}
+            forceAutoExpandedPaths={forceSidebarSelectionVisible}
           />
         </div>
       )}
     </>
+  );
+
+  const reviewModeButton =
+    viewMode === "editor" ? (
+      <Button
+        size="sm"
+        variant={commitReviewMode === "review" ? "secondary" : "outline"}
+        onClick={handleToggleReviewMode}
+        disabled={
+          commitReviewMode === "editor" &&
+          (!hasChangesToCommit || commitPreviewStatus === "loading")
+        }
+        className="h-6 px-2 text-xs"
+      >
+        {commitReviewMode === "review"
+          ? "Back to Editor"
+          : commitPreviewStatus === "loading"
+            ? "Loading..."
+            : "Review Changes"}
+      </Button>
+    ) : null;
+
+  const editorSurfaceTabs = (
+    <Tabs
+      value={viewMode}
+      onValueChange={(value) => {
+        if (value === "editor" || value === "graph") {
+          setViewMode(value);
+        }
+      }}
+    >
+      <TabsList className="h-7">
+        <TabsTrigger value="editor" className="px-2 text-xs">
+          Editor
+        </TabsTrigger>
+        <TabsTrigger value="graph" className="px-2 text-xs">
+          Graph
+        </TabsTrigger>
+      </TabsList>
+    </Tabs>
   );
 
   const handleInlinePreviewChange = useCallback((nextContent: string) => {
@@ -2182,39 +2241,20 @@ function FileViewInner({
       >
         <div className="max-w-none h-full flex flex-col">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex min-w-0 items-start gap-3">
-              <div className="min-w-0">
-                <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">
-                  {branch}
-                </div>
-                <h2 className="text-base md:text-sm font-medium">
-                  <a
-                    className={`block truncate ${linkStyle}`}
-                    href={selectedFileGitHubUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {selectedFile}
-                  </a>
-                </h2>
+            <div className="min-w-0">
+              <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">
+                {branch}
               </div>
-              <Tabs
-                value={viewMode}
-                onValueChange={(value) => {
-                  if (value === "editor" || value === "graph") {
-                    setViewMode(value);
-                  }
-                }}
-              >
-                <TabsList className="h-7">
-                  <TabsTrigger value="editor" className="px-2 text-xs">
-                    Editor
-                  </TabsTrigger>
-                  <TabsTrigger value="graph" className="px-2 text-xs">
-                    Graph
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
+              <h2 className="text-base md:text-sm font-medium">
+                <a
+                  className={`block truncate ${linkStyle}`}
+                  href={selectedFileGitHubUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {selectedFile}
+                </a>
+              </h2>
             </div>
 
             <div className="flex flex-col gap-2">
@@ -2350,6 +2390,11 @@ function FileViewInner({
               resetToGitHubDisabled={resetToGitHubDisabled}
             />
           )}
+
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            {editorSurfaceTabs}
+            {reviewModeButton}
+          </div>
 
           <div className="flex-1 min-h-0">
             {viewMode === "editor" ? (

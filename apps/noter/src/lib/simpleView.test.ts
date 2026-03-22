@@ -346,6 +346,42 @@ describe("filterSimpleViewTreeItems", () => {
     );
   });
 
+  it("keeps always-included files even when simple-view rules exclude them", () => {
+    const filtered = filterSimpleViewTreeItems(tree, ["src/**"], {
+      alwaysIncludePaths: ["src/main.tsx"],
+    });
+
+    expect(filtered).toEqual([
+      { path: ".husky", type: "tree" },
+      { path: ".husky/pre-commit", type: "blob" },
+      { path: "src", type: "tree" },
+      { path: "src/main.tsx", type: "blob" },
+      { path: "docs", type: "tree" },
+      { path: "docs/guide.md", type: "blob" },
+      { path: "tsconfig.base.json", type: "blob" },
+    ]);
+  });
+
+  it("keeps ancestor folders for always-included files when folders are excluded directly", () => {
+    const filtered = filterSimpleViewTreeItems(
+      [
+        { path: "src", type: "tree" as const },
+        { path: "src/components", type: "tree" as const },
+        { path: "src/components/panel.tsx", type: "blob" as const },
+      ],
+      ["src", "src/components"],
+      {
+        alwaysIncludePaths: ["src/components/panel.tsx"],
+      },
+    );
+
+    expect(filtered).toEqual([
+      { path: "src", type: "tree" },
+      { path: "src/components", type: "tree" },
+      { path: "src/components/panel.tsx", type: "blob" },
+    ]);
+  });
+
   it("does not treat basename-only pattern as recursive", () => {
     const filtered = filterSimpleViewTreeItems(tree, ["pre-commit"]);
     expect(filtered.some((item) => item.path === ".husky/pre-commit")).toBe(

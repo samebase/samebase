@@ -1,4 +1,9 @@
+import { type ComponentProps } from "react";
 import { FileTree } from "@/components/FileTree";
+import {
+  EditedFilesCategories,
+  EditedFilesCategoriesPopoverTrigger,
+} from "@/components/EditedFilesCategories";
 import {
   ProsemarkMergeEditor,
   type ProsemarkMergeEditorOptions,
@@ -7,6 +12,7 @@ import { Button } from "@/components/button";
 import { Checkbox } from "@/components/checkbox";
 import { Label } from "@/components/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";
+import { MemoryRouter, useLocation } from "react-router-dom";
 
 const README_OLD = `# Noter Starter Template
 
@@ -176,10 +182,90 @@ function getPatchLineClassName(line: string): string {
 export type CommitReviewVisualMode =
   | "inline"
   | "deleted"
+  | "deleted-staged-changes"
   | "deleted-markdown-link"
   | "trailing-newline-only"
   | "unchanged"
   | "conflict";
+
+const DELETED_STAGED_FILES_FIXTURE = [
+  {
+    _id: "fixture-deleted-agents",
+    _creationTime: 0,
+    ownerId: "fixture-user",
+    vaultId: "fixture-vault",
+    fileDeleted: true,
+    filePath: "AGENTS.md",
+    initialFilePath: "AGENTS.md",
+    content: AGENTS_CONTENT,
+    initialContent: AGENTS_CONTENT,
+    parentCommitSha: "fixture-parent-sha",
+    lastEditTime: 0,
+    lastEditUserId: "fixture-user",
+    branch: "main",
+    version: 0,
+  },
+  {
+    _id: "fixture-deleted-components",
+    _creationTime: 0,
+    ownerId: "fixture-user",
+    vaultId: "fixture-vault",
+    fileDeleted: true,
+    filePath: "components.json",
+    initialFilePath: "components.json",
+    content: "",
+    initialContent: `{
+  "$schema": "https://ui.shadcn.com/schema.json"
+}`,
+    parentCommitSha: "fixture-parent-sha",
+    lastEditTime: 0,
+    lastEditUserId: "fixture-user",
+    branch: "main",
+    version: 0,
+  },
+];
+
+type FixtureEditedFileCategories = ComponentProps<
+  typeof EditedFilesCategories
+>["categories"];
+type FixtureEditedFileCounts = ComponentProps<
+  typeof EditedFilesCategoriesPopoverTrigger
+>["counts"];
+
+const DELETED_STAGED_COUNTS: FixtureEditedFileCounts = {
+  modified: 0,
+  deleted: 2,
+  new: 0,
+  renamed: 0,
+  renamedAndModified: 0,
+  total: 2,
+};
+
+const DELETED_STAGED_CATEGORIES_FIXTURE = {
+  deleted: DELETED_STAGED_FILES_FIXTURE,
+  renamed: [],
+  renamedAndModified: [],
+  modified: [],
+  new: [],
+};
+
+// @ts-expect-error Visual fixtures use plain string ids instead of Convex-branded ids.
+const DELETED_STAGED_CATEGORIES: FixtureEditedFileCategories =
+  DELETED_STAGED_CATEGORIES_FIXTURE;
+
+function FixtureRouteLabel() {
+  const location = useLocation();
+
+  return (
+    <div
+      data-testid="commit-review-staged-changes-location"
+      className="rounded-ui border px-2 py-1 font-mono text-[11px] text-muted-foreground"
+    >
+      {location.pathname}
+      {location.search}
+    </div>
+  );
+}
 
 function renderPatchLines(patch: string) {
   return patch.split("\n").map((line, index) => (
@@ -232,6 +318,10 @@ export function CommitReviewVisualFixture({
         (file) => file.path === "components.json",
       );
       break;
+    case "deleted-staged-changes":
+      selectedFile = "README.md";
+      activeFile = FIXTURE_FILES.find((file) => file.path === "README.md");
+      break;
     case "unchanged":
       selectedFile = "AGENTS.md";
       activeFile = {
@@ -257,7 +347,10 @@ export function CommitReviewVisualFixture({
       className="h-screen w-screen overflow-hidden bg-background p-4 text-foreground"
     >
       <div className="grid h-full grid-cols-[240px_minmax(0,1fr)] gap-4">
-        <aside className="overflow-hidden corner-notch-1 border">
+        <aside
+          data-testid="commit-review-visual-sidebar"
+          className="overflow-hidden corner-notch-1 border"
+        >
           <div className="border-b px-3 py-2 text-xs text-muted-foreground">
             Sidebar
           </div>
@@ -265,7 +358,7 @@ export function CommitReviewVisualFixture({
             <ToggleGroup
               type="single"
               size="sm"
-              value="changes"
+              value="simple"
               className="justify-start"
             >
               <ToggleGroupItem
@@ -281,13 +374,6 @@ export function CommitReviewVisualFixture({
                 className="h-7 px-2 text-xs"
               >
                 All Files
-              </ToggleGroupItem>
-              <ToggleGroupItem
-                value="changes"
-                aria-label="Changes"
-                className="h-7 px-2 text-xs"
-              >
-                Changes
               </ToggleGroupItem>
             </ToggleGroup>
           </div>
@@ -338,6 +424,45 @@ export function CommitReviewVisualFixture({
         </aside>
 
         <section className="flex h-full min-h-0 flex-col overflow-hidden">
+          {mode === "deleted-staged-changes" ? (
+            <MemoryRouter
+              initialEntries={["/vault/noter-md/noter/main/README.md"]}
+            >
+              <div className="mb-3 space-y-3">
+                <div className="flex items-center justify-between border px-3 py-2">
+                  <div className="text-xs text-muted-foreground">
+                    Staged changes header
+                  </div>
+                  <div
+                    data-testid="commit-review-staged-changes-trigger"
+                    className="flex items-center gap-3"
+                  >
+                    <button className="text-xs text-muted-foreground flex items-center gap-2">
+                      <EditedFilesCategoriesPopoverTrigger
+                        counts={DELETED_STAGED_COUNTS}
+                      />
+                    </button>
+                    <FixtureRouteLabel />
+                  </div>
+                </div>
+                <div
+                  data-testid="commit-review-staged-changes-popover"
+                  className="ml-auto w-80 border bg-background p-3 shadow-lg"
+                >
+                  <div className="space-y-3">
+                    <div className="text-sm font-medium">Staged Changes</div>
+                    <div className="space-y-3 max-h-64 overflow-y-auto">
+                      <EditedFilesCategories
+                        categories={DELETED_STAGED_CATEGORIES}
+                        repositoryFullName="noter-md/noter"
+                        branch="main"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </MemoryRouter>
+          ) : null}
           <div className="flex min-h-0 flex-1 flex-col">
             {activeFile ? (
               <div className="flex min-h-0 flex-1 flex-col">
