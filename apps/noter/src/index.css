@@ -282,35 +282,32 @@
 
   :is(.corner-notch-1, .corner-notch-2) {
     /*
-     * Notch bridge sizing must live on the notched element itself.
-     * If these variables come from a plain `.border` ancestor, borderless
-     * children can inherit them and paint stray bridge pixels.
+     * Notch sizing must live on the notched element itself.
+     * If the stroke width comes from a plain `.border` ancestor, borderless
+     * children can inherit it and render the wrong notch geometry.
      */
-    --noter-corner-notch-border-width: 0px;
+    --noter-corner-notch-bridge-size: 0px;
     --noter-corner-notch-stroke: 1px;
   }
 
   :is(.corner-notch-1, .corner-notch-2).border {
-    --noter-corner-notch-border-width: 1px;
+    --noter-corner-notch-bridge-size: 1px;
     --noter-corner-notch-stroke: 1px;
   }
 
   :is(.corner-notch-1, .corner-notch-2).border-2 {
-    --noter-corner-notch-border-width: 2px;
+    --noter-corner-notch-bridge-size: 2px;
     --noter-corner-notch-stroke: 2px;
   }
 
   .corner-notch-1 {
     /*
-     * `1` is one notch step, which tracks the current border width.
-     * `2` is the second inner step.
-     * `end-*` mirrors those same distances from the far edge so the polygon can
-     * reuse the same values on all four corners.
+     * The stepped type `1` notch scales with the current border width.
+     * `step` is the notch size, and `end` mirrors that same distance from the
+     * far edge so the polygon can reuse the same numbers on every corner.
      */
-    --noter-notch-1: var(--noter-corner-notch-stroke, 1px);
-    --noter-notch-2: calc(2 * var(--noter-notch-1));
-    --noter-notch-end-1: calc(100% - var(--noter-notch-1));
-    --noter-notch-end-2: calc(100% - var(--noter-notch-2));
+    --noter-notch-step: var(--noter-corner-notch-stroke, 1px);
+    --noter-notch-end: calc(100% - var(--noter-notch-step));
 
     /*
      * Walk clockwise around the box.
@@ -321,39 +318,22 @@
      * x___
      * x___
      *
-     * Read it as:
-     * - remove the outermost corner pixel
-     * - step inward one more pixel
-     * - then return to the normal straight edge
+     * The short bridge segment is part of the outline itself, so the native
+     * border paints the extra inner corner pixel directly.
      */
     clip-path: polygon(
-      /* Top edge: start after the top-left cut and stop before the top-right cut. */
-        var(--noter-notch-1) 0,
-      var(--noter-notch-end-1) 0,
-
-      /* Top-right corner: in one step, down one step, then back to the edge. */
-        var(--noter-notch-end-2) 0,
-      var(--noter-notch-end-2) var(--noter-notch-1),
-      var(--noter-notch-end-1) var(--noter-notch-1),
-      var(--noter-notch-end-1) var(--noter-notch-2),
-      /* Right edge */ 100% var(--noter-notch-2),
-      100% var(--noter-notch-end-2),
-      /* Bottom-right corner */ var(--noter-notch-end-1)
-        var(--noter-notch-end-2),
-      var(--noter-notch-end-1) var(--noter-notch-end-1),
-      var(--noter-notch-end-2) var(--noter-notch-end-1),
-      var(--noter-notch-end-2) 100%,
-
-      /* Bottom edge */ var(--noter-notch-2) 100%,
-      var(--noter-notch-2) var(--noter-notch-end-1),
-      var(--noter-notch-1) var(--noter-notch-end-1),
-      var(--noter-notch-1) var(--noter-notch-end-2),
-      /* Bottom-left corner */ 0 var(--noter-notch-end-2),
-      0 var(--noter-notch-2),
-      var(--noter-notch-1) var(--noter-notch-2),
-      var(--noter-notch-1) var(--noter-notch-1),
-      var(--noter-notch-2) var(--noter-notch-1),
-      var(--noter-notch-2) 0
+      var(--noter-notch-step) 0,
+      var(--noter-notch-end) 0,
+      var(--noter-notch-end) var(--noter-notch-step),
+      100% var(--noter-notch-step),
+      100% var(--noter-notch-end),
+      var(--noter-notch-end) var(--noter-notch-end),
+      var(--noter-notch-end) 100%,
+      var(--noter-notch-step) 100%,
+      var(--noter-notch-step) var(--noter-notch-end),
+      0 var(--noter-notch-end),
+      0 var(--noter-notch-step),
+      var(--noter-notch-step) var(--noter-notch-step)
     );
     position: relative;
   }
@@ -363,28 +343,19 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    /*
-     * The stepped notch keeps a single inner bridge block at each corner.
-     * Native borders never reach those blocks after clipping, so bordered
-     * surfaces need a separate paint pass there.
-     */
     background:
       linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        var(--noter-notch-1) var(--noter-notch-1) /
-        var(--noter-corner-notch-border-width, 0px)
-        var(--noter-corner-notch-border-width, 0px) no-repeat,
+        0 0 / var(--noter-corner-notch-bridge-size, 0px)
+        var(--noter-corner-notch-bridge-size, 0px) no-repeat,
       linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        var(--noter-notch-end-2) var(--noter-notch-1) /
-        var(--noter-corner-notch-border-width, 0px)
-        var(--noter-corner-notch-border-width, 0px) no-repeat,
+        100% 0 / var(--noter-corner-notch-bridge-size, 0px)
+        var(--noter-corner-notch-bridge-size, 0px) no-repeat,
       linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        var(--noter-notch-end-2) var(--noter-notch-end-2) /
-        var(--noter-corner-notch-border-width, 0px)
-        var(--noter-corner-notch-border-width, 0px) no-repeat,
+        100% 100% / var(--noter-corner-notch-bridge-size, 0px)
+        var(--noter-corner-notch-bridge-size, 0px) no-repeat,
       linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        var(--noter-notch-1) var(--noter-notch-end-2) /
-        var(--noter-corner-notch-border-width, 0px)
-        var(--noter-corner-notch-border-width, 0px) no-repeat;
+        0 100% / var(--noter-corner-notch-bridge-size, 0px)
+        var(--noter-corner-notch-bridge-size, 0px) no-repeat;
   }
 
   .corner-notch-2 {
@@ -421,17 +392,17 @@
     /* Paint the inner bridge pixel that the clipped outer border cannot reach. */
     background:
       linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        0 0 / var(--noter-corner-notch-stroke, 1px)
-        var(--noter-corner-notch-stroke, 1px) no-repeat,
+        0 0 / var(--noter-corner-notch-bridge-size, 0px)
+        var(--noter-corner-notch-bridge-size, 0px) no-repeat,
       linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        100% 0 / var(--noter-corner-notch-stroke, 1px)
-        var(--noter-corner-notch-stroke, 1px) no-repeat,
+        100% 0 / var(--noter-corner-notch-bridge-size, 0px)
+        var(--noter-corner-notch-bridge-size, 0px) no-repeat,
       linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        100% 100% / var(--noter-corner-notch-stroke, 1px)
-        var(--noter-corner-notch-stroke, 1px) no-repeat,
+        100% 100% / var(--noter-corner-notch-bridge-size, 0px)
+        var(--noter-corner-notch-bridge-size, 0px) no-repeat,
       linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        0 100% / var(--noter-corner-notch-stroke, 1px)
-        var(--noter-corner-notch-stroke, 1px) no-repeat;
+        0 100% / var(--noter-corner-notch-bridge-size, 0px)
+        var(--noter-corner-notch-bridge-size, 0px) no-repeat;
   }
 
   .corner-notch-1:focus-visible,
