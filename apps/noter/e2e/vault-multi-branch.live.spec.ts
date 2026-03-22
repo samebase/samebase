@@ -89,7 +89,7 @@ async function writeBranchFile(
       timeout: 10_000,
     })
     .toBe(true);
-  const commitNowButton = page.getByRole("button", { name: "Commit Now" });
+  const commitNowButton = page.getByRole("button", { name: "push" });
   await expect(commitNowButton).toBeVisible({
     timeout: 10_000,
   });

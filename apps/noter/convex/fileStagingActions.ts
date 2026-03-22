@@ -20,6 +20,8 @@ import { rebaseStagedContent } from "./stagingRebase";
 import { selectRepositoryTreeForBranch } from "./fileStaging";
 import { isStaleBaseVersionError } from "../shared/stagingErrors";
 
+const { boolean, number, object, optional, string } = v;
+
 type HeaderValue = string | number | readonly string[] | undefined;
 type HeaderMap = Record<string, HeaderValue>;
 type CreateTreeEntry = NonNullable<
@@ -125,6 +127,146 @@ async function getVaultDefaultBranch(
     owner,
     repo,
   });
+}
+
+type OpenPullRequestCandidate = {
+  number: number;
+  html_url?: string | null;
+  updated_at?: string | null;
+  created_at?: string | null;
+  base: {
+    ref?: string | null;
+  };
+  head: {
+    ref: string;
+    repo?: {
+      full_name?: string | null;
+    } | null;
+  };
+};
+
+function readPullRequestActivityAt(
+  pullRequest: OpenPullRequestCandidate,
+): number {
+  const updatedAt = Date.parse(pullRequest.updated_at ?? "");
+  if (!Number.isNaN(updatedAt)) {
+    return updatedAt;
+  }
+
+  const createdAt = Date.parse(pullRequest.created_at ?? "");
+  return Number.isNaN(createdAt) ? 0 : createdAt;
+}
+
+export function readOpenPullRequestForBranch(args: {
+  branch: string;
+  baseBranch: string;
+  repositoryFullName: string;
+  pullRequests: OpenPullRequestCandidate[];
+}): { url: string; number: number } | null {
+  const normalizedRepositoryFullName = args.repositoryFullName.toLowerCase();
+  let latestMatch: {
+    url: string;
+    number: number;
+    activityAt: number;
+  } | null = null;
+
+  for (const pullRequest of args.pullRequests) {
+    const pullRequestRepositoryFullName = pullRequest.head.repo?.full_name;
+    if (
+      pullRequest.head.ref !== args.branch ||
+      pullRequest.base.ref !== args.baseBranch ||
+      typeof pullRequestRepositoryFullName !== "string" ||
+      pullRequestRepositoryFullName.toLowerCase() !==
+        normalizedRepositoryFullName ||
+      typeof pullRequest.html_url !== "string" ||
+      pullRequest.html_url.length === 0
+    ) {
+      continue;
+    }
+
+    const activityAt = readPullRequestActivityAt(pullRequest);
+    if (!latestMatch || activityAt >= latestMatch.activityAt) {
+      latestMatch = {
+        url: pullRequest.html_url,
+        number: pullRequest.number,
+        activityAt,
+      };
+    }
+  }
+
+  return latestMatch
+    ? {
+        url: latestMatch.url,
+        number: latestMatch.number,
+      }
+    : null;
+}
+
+async function getOpenPullRequestForBranch(args: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  branch: string;
+  baseBranch: string;
+}): Promise<{ url: string; number: number } | null> {
+  const response = await args.octokit.rest.pulls.list({
+    owner: args.owner,
+    repo: args.repo,
+    state: "open",
+    head: `${args.owner}:${args.branch}`,
+    per_page: 100,
+  });
+
+  return readOpenPullRequestForBranch({
+    branch: args.branch,
+    baseBranch: args.baseBranch,
+    repositoryFullName: `${args.owner}/${args.repo}`,
+    pullRequests: response.data,
+  });
+}
+
+export function buildDraftPullRequestTitle(args: {
+  branch: string;
+  commitMessage: string | null;
+}): string {
+  const commitSubject = args.commitMessage?.split("\n")[0]?.trim();
+  if (typeof commitSubject === "string" && commitSubject.length > 0) {
+    return commitSubject;
+  }
+
+  return `Update ${args.branch}`;
+}
+
+async function getBranchHeadCommitMessage(args: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  branch: string;
+}): Promise<string | null> {
+  const branchRef = await args.octokit.rest.git.getRef({
+    owner: args.owner,
+    repo: args.repo,
+    ref: `heads/${args.branch}`,
+  });
+  const commit = await args.octokit.rest.git.getCommit({
+    owner: args.owner,
+    repo: args.repo,
+    commit_sha: branchRef.data.object.sha,
+  });
+  return commit.data.message;
+}
+
+export function getDraftPullRequestCreateErrorMessage(
+  error: unknown,
+): string | null {
+  const message = getErrorMessage(error);
+  if (message.includes("No commits between")) {
+    return "This branch has no changes to open as a pull request.";
+  }
+  if (message.includes("A pull request already exists")) {
+    return "A pull request already exists for this branch.";
+  }
+  return null;
 }
 
 function toGitTreeRef(branch: string): string {
@@ -384,6 +526,12 @@ const commitPreviewResult = v.object({
   }),
 });
 
+const draftPullRequestResult = object({
+  url: string(),
+  number: number(),
+  existing: boolean(),
+});
+
 const rebaseConflictPreviewFile = v.object({
   path: v.string(),
   previousPath: v.optional(v.string()),
@@ -404,6 +552,7 @@ const rebaseConflictPreviewResult = v.object({
 type CommitPreviewFile = Infer<typeof commitPreviewFile>;
 type CommitPreviewTotals = Infer<typeof commitPreviewTotals>;
 type CommitPreviewResult = Infer<typeof commitPreviewResult>;
+type DraftPullRequestResult = Infer<typeof draftPullRequestResult>;
 type RebaseConflictPreviewFile = Infer<typeof rebaseConflictPreviewFile>;
 type RebaseConflictPreviewResult = Infer<typeof rebaseConflictPreviewResult>;
 
@@ -1287,6 +1436,168 @@ export const commitStaging = action({
     });
 
     return null;
+  },
+});
+
+export const createDraftPullRequest = action({
+  args: {
+    repositoryFullName: string(),
+    branch: optional(string()),
+  },
+  returns: draftPullRequestResult,
+  handler: async (ctx, args): Promise<DraftPullRequestResult> => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
+    const githubAccessToken = await getGithubAccessToken(ctx, userId);
+    const octokit: Octokit = new Octokit({
+      auth: githubAccessToken,
+    });
+    const defaultBranch = await getRepositoryDefaultBranch({
+      octokit,
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+    });
+    const branch = args.branch?.trim() || defaultBranch;
+
+    if (branch === defaultBranch) {
+      throw new Error("Create the draft PR from a non-default branch.");
+    }
+
+    const stagedFiles: StagedFileForCommit[] = await ctx.runQuery(
+      internal.fileStaging.listAllStagedFiles,
+      {
+        vaultId: vault._id,
+        branch,
+      },
+    );
+    if (stagedFiles.length > 0) {
+      await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
+        userId,
+        vaultId: vault._id,
+        repoOwner: vault.ghRepoOwner,
+        repoName: vault.ghRepoName,
+        branch,
+      });
+    }
+
+    const existingPullRequest = await getOpenPullRequestForBranch({
+      octokit,
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+      branch,
+      baseBranch: defaultBranch,
+    });
+    if (existingPullRequest) {
+      try {
+        await ctx.runAction(internal.github.updateRepositoryTree, {
+          userId,
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          includeAheadBehind: true,
+          includePullRequestLinks: true,
+        });
+      } catch (error) {
+        console.warn(
+          "Failed to refresh remote branch metadata after opening existing PR:",
+          error,
+        );
+      }
+
+      return {
+        ...existingPullRequest,
+        existing: true,
+      };
+    }
+
+    const comparison = await octokit.rest.repos.compareCommitsWithBasehead({
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+      basehead: `${defaultBranch}...${branch}`,
+    });
+    if (comparison.data.ahead_by === 0) {
+      throw new Error("This branch has no changes to open as a pull request.");
+    }
+
+    try {
+      const response = await octokit.rest.pulls.create({
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        title: buildDraftPullRequestTitle({
+          branch,
+          commitMessage: await getBranchHeadCommitMessage({
+            octokit,
+            owner: vault.ghRepoOwner,
+            repo: vault.ghRepoName,
+            branch,
+          }),
+        }),
+        head: branch,
+        base: defaultBranch,
+        draft: true,
+      });
+
+      try {
+        await ctx.runAction(internal.github.updateRepositoryTree, {
+          userId,
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          includeAheadBehind: true,
+          includePullRequestLinks: true,
+        });
+      } catch (error) {
+        console.warn(
+          "Failed to refresh remote branch metadata after creating draft PR:",
+          error,
+        );
+      }
+
+      return {
+        url: response.data.html_url,
+        number: response.data.number,
+        existing: false,
+      };
+    } catch (error) {
+      const currentPullRequest = await getOpenPullRequestForBranch({
+        octokit,
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        branch,
+        baseBranch: defaultBranch,
+      });
+      if (currentPullRequest) {
+        try {
+          await ctx.runAction(internal.github.updateRepositoryTree, {
+            userId,
+            owner: vault.ghRepoOwner,
+            repo: vault.ghRepoName,
+            includeAheadBehind: true,
+            includePullRequestLinks: true,
+          });
+        } catch (refreshError) {
+          console.warn(
+            "Failed to refresh remote branch metadata after discovering existing PR:",
+            refreshError,
+          );
+        }
+        return {
+          ...currentPullRequest,
+          existing: true,
+        };
+      }
+
+      const friendlyMessage = getDraftPullRequestCreateErrorMessage(error);
+      if (friendlyMessage) {
+        throw new Error(friendlyMessage);
+      }
+      throw error;
+    }
   },
 });
 

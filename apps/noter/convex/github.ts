@@ -251,6 +251,7 @@ interface RemoteBranchSummary {
   pullRequestUrl?: string;
   pullRequestNumber?: number;
   pullRequestLabels?: PullRequestLabelSummary[];
+  pullRequestTitle?: string;
   pullRequestState: "resolved" | "preserve";
   isDefault: boolean;
   isProtected: boolean;
@@ -539,31 +540,134 @@ async function getHeadCommitTimestamps(args: {
   return timestampsBySha;
 }
 
+type OpenPullRequestCandidate = {
+  head: {
+    ref?: string;
+    repo?: {
+      full_name?: string | null;
+    } | null;
+  };
+  base?: {
+    ref?: string;
+  };
+  html_url?: string | null;
+  number?: number;
+  title?: string | null;
+  labels?: unknown;
+  updated_at?: string;
+  created_at?: string;
+};
+
+export function collectLatestOpenPullRequestsByBranch(args: {
+  branchNames: string[];
+  repositoryFullName: string;
+  defaultBaseBranch?: string;
+  pullRequests: OpenPullRequestCandidate[];
+}): Map<
+  string,
+  {
+    url: string;
+    number: number;
+    labels: PullRequestLabelSummary[];
+    title?: string;
+  }
+> {
+  const branchNameSet = new Set(args.branchNames);
+  const normalizedRepositoryFullName = args.repositoryFullName.toLowerCase();
+  const latestByBranch = new Map<
+    string,
+    {
+      url: string;
+      number: number;
+      labels: PullRequestLabelSummary[];
+      title?: string;
+      updatedAt: number;
+    }
+  >();
+
+  for (const pullRequest of args.pullRequests) {
+    const branchName = pullRequest.head.ref;
+    if (
+      typeof branchName !== "string" ||
+      !branchNameSet.has(branchName) ||
+      typeof pullRequest.html_url !== "string" ||
+      pullRequest.html_url.length === 0 ||
+      typeof pullRequest.number !== "number"
+    ) {
+      continue;
+    }
+    if (
+      typeof args.defaultBaseBranch === "string" &&
+      pullRequest.base?.ref !== args.defaultBaseBranch
+    ) {
+      continue;
+    }
+
+    const pullRequestHeadRepo =
+      readPullRequestHeadRepositoryFullName(pullRequest);
+    if (
+      typeof pullRequestHeadRepo !== "string" ||
+      pullRequestHeadRepo.toLowerCase() !== normalizedRepositoryFullName
+    ) {
+      continue;
+    }
+
+    const updatedAtRaw =
+      typeof pullRequest.updated_at === "string"
+        ? pullRequest.updated_at
+        : pullRequest.created_at;
+    const updatedAtParsed = Date.parse(updatedAtRaw ?? "");
+    const updatedAt = Number.isNaN(updatedAtParsed) ? 0 : updatedAtParsed;
+    const existing = latestByBranch.get(branchName);
+    if (!existing || updatedAt >= existing.updatedAt) {
+      latestByBranch.set(branchName, {
+        url: pullRequest.html_url,
+        number: pullRequest.number,
+        labels: readPullRequestLabels(pullRequest.labels),
+        title:
+          typeof pullRequest.title === "string" && pullRequest.title.length > 0
+            ? pullRequest.title
+            : undefined,
+        updatedAt,
+      });
+    }
+  }
+
+  return new Map(
+    Array.from(latestByBranch.entries()).map(([branchName, pullRequest]) => [
+      branchName,
+      {
+        url: pullRequest.url,
+        number: pullRequest.number,
+        labels: pullRequest.labels,
+        title: pullRequest.title,
+      },
+    ]),
+  );
+}
+
 async function getOpenPullRequestsByBranch(args: {
   octokit: Octokit;
   owner: string;
   repo: string;
   branchNames: string[];
+  defaultBaseBranch: string;
 }): Promise<{
   state: "resolved" | "preserve";
   pullRequestsByBranch: Map<
     string,
-    | { url?: string; number?: number; labels: PullRequestLabelSummary[] }
+    | {
+        url?: string;
+        number?: number;
+        labels: PullRequestLabelSummary[];
+        title?: string;
+      }
     | undefined
   >;
 }> {
   try {
-    const branchNameSet = new Set(args.branchNames);
     const repositoryFullName = `${args.owner}/${args.repo}`.toLowerCase();
-    const latestByBranch = new Map<
-      string,
-      {
-        url: string;
-        number: number;
-        labels: PullRequestLabelSummary[];
-        updatedAt: number;
-      }
-    >();
+    const openPullRequests: OpenPullRequestCandidate[] = [];
     const perPage = 100;
     const maxPages = 50;
     let hitPageLimit = false;
@@ -580,43 +684,7 @@ async function getOpenPullRequestsByBranch(args: {
         break;
       }
 
-      for (const pullRequest of pageResponse.data) {
-        const branchName = pullRequest.head.ref;
-        if (
-          typeof branchName !== "string" ||
-          !branchNameSet.has(branchName) ||
-          typeof pullRequest.html_url !== "string" ||
-          pullRequest.html_url.length === 0 ||
-          typeof pullRequest.number !== "number"
-        ) {
-          continue;
-        }
-
-        const pullRequestHeadRepo =
-          readPullRequestHeadRepositoryFullName(pullRequest);
-        if (
-          typeof pullRequestHeadRepo !== "string" ||
-          pullRequestHeadRepo.toLowerCase() !== repositoryFullName
-        ) {
-          continue;
-        }
-
-        const updatedAtRaw =
-          typeof pullRequest.updated_at === "string"
-            ? pullRequest.updated_at
-            : pullRequest.created_at;
-        const updatedAtParsed = Date.parse(updatedAtRaw);
-        const updatedAt = Number.isNaN(updatedAtParsed) ? 0 : updatedAtParsed;
-        const existing = latestByBranch.get(branchName);
-        if (!existing || updatedAt >= existing.updatedAt) {
-          latestByBranch.set(branchName, {
-            url: pullRequest.html_url,
-            number: pullRequest.number,
-            labels: readPullRequestLabels(pullRequest.labels),
-            updatedAt,
-          });
-        }
-      }
+      openPullRequests.push(...pageResponse.data);
 
       if (pageResponse.data.length < perPage) {
         break;
@@ -640,9 +708,20 @@ async function getOpenPullRequestsByBranch(args: {
 
     const pullRequestsByBranch = new Map<
       string,
-      | { url?: string; number?: number; labels: PullRequestLabelSummary[] }
+      | {
+          url?: string;
+          number?: number;
+          labels: PullRequestLabelSummary[];
+          title?: string;
+        }
       | undefined
     >();
+    const latestByBranch = collectLatestOpenPullRequestsByBranch({
+      branchNames: args.branchNames,
+      repositoryFullName,
+      defaultBaseBranch: args.defaultBaseBranch,
+      pullRequests: openPullRequests,
+    });
     for (const branchName of args.branchNames) {
       const pullRequest = latestByBranch.get(branchName);
       pullRequestsByBranch.set(
@@ -652,6 +731,7 @@ async function getOpenPullRequestsByBranch(args: {
               url: pullRequest.url,
               number: pullRequest.number,
               labels: pullRequest.labels,
+              title: pullRequest.title,
             }
           : undefined,
       );
@@ -758,12 +838,18 @@ async function listRemoteBranches(args: {
         owner: args.owner,
         repo: args.repo,
         branchNames,
+        defaultBaseBranch: defaultBranch,
       })
     : Promise.resolve({
         state: "preserve" as const,
         pullRequestsByBranch: new Map<
           string,
-          | { url?: string; number?: number; labels: PullRequestLabelSummary[] }
+          | {
+              url?: string;
+              number?: number;
+              labels: PullRequestLabelSummary[];
+              title?: string;
+            }
           | undefined
         >(),
       });
@@ -800,6 +886,7 @@ async function listRemoteBranches(args: {
       pullRequestUrl: pullRequest?.url,
       pullRequestNumber: pullRequest?.number,
       pullRequestLabels: pullRequest?.labels,
+      pullRequestTitle: pullRequest?.title,
       pullRequestState: pullRequestsByBranch.state,
     };
   });
@@ -1172,6 +1259,8 @@ export const refreshRepositoryTree = action({
     owner: string(),
     repo: string(),
     branch: optional(string()),
+    includeAheadBehind: optional(boolean()),
+    includePullRequestLinks: optional(boolean()),
     trigger: optional(union(literal("focus"), literal("page_load"))),
   },
   returns: nullValidator(),
@@ -1194,8 +1283,8 @@ export const refreshRepositoryTree = action({
         owner: args.owner,
         repo: args.repo,
         branch: requestedBranch,
-        includeAheadBehind: false,
-        includePullRequestLinks: false,
+        includeAheadBehind: args.includeAheadBehind === true,
+        includePullRequestLinks: args.includePullRequestLinks === true,
       });
       return null;
     }

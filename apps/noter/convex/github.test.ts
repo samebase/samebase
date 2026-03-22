@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  collectLatestOpenPullRequestsByBranch,
   computeRepositoryTreeUpdatePlan,
   listGitHubRepositories,
   normalizeGitHubRepositoryListItem,
@@ -324,6 +325,149 @@ describe("computeRepositoryTreeUpdatePlan", () => {
       shouldUpdateBranchTree: false,
       shouldUpdateLegacyTree: true,
       shouldUpdateLegacyCommit: true,
+    });
+  });
+});
+
+describe("collectLatestOpenPullRequestsByBranch", () => {
+  it("keeps the latest same-repo pull request and preserves its title", () => {
+    const pullRequestsByBranch = collectLatestOpenPullRequestsByBranch({
+      branchNames: ["feature/pr-title"],
+      repositoryFullName: "owner/noter",
+      pullRequests: [
+        {
+          head: {
+            ref: "feature/pr-title",
+            repo: {
+              full_name: "owner/noter",
+            },
+          },
+          html_url: "https://github.com/owner/noter/pull/11",
+          number: 11,
+          title: "Older title",
+          updated_at: "2026-03-20T10:00:00Z",
+        },
+        {
+          head: {
+            ref: "feature/pr-title",
+            repo: {
+              full_name: "fork/noter",
+            },
+          },
+          html_url: "https://github.com/owner/noter/pull/12",
+          number: 12,
+          title: "Fork PR should be ignored",
+          updated_at: "2026-03-21T10:00:00Z",
+        },
+        {
+          head: {
+            ref: "feature/pr-title",
+            repo: {
+              full_name: "owner/noter",
+            },
+          },
+          html_url: "https://github.com/owner/noter/pull/13",
+          number: 13,
+          title: "Show PR title above branch name",
+          updated_at: "2026-03-22T10:00:00Z",
+        },
+      ],
+    });
+
+    expect(pullRequestsByBranch.get("feature/pr-title")).toEqual({
+      url: "https://github.com/owner/noter/pull/13",
+      number: 13,
+      labels: [],
+      title: "Show PR title above branch name",
+    });
+  });
+
+  it("falls back to created_at when updated_at is missing", () => {
+    const pullRequestsByBranch = collectLatestOpenPullRequestsByBranch({
+      branchNames: ["feature/pr-title"],
+      repositoryFullName: "owner/noter",
+      pullRequests: [
+        {
+          head: {
+            ref: "feature/pr-title",
+            repo: {
+              full_name: "owner/noter",
+            },
+          },
+          html_url: "https://github.com/owner/noter/pull/21",
+          number: 21,
+          title: "Earlier PR",
+          created_at: "2026-03-20T10:00:00Z",
+        },
+        {
+          head: {
+            ref: "feature/pr-title",
+            repo: {
+              full_name: "owner/noter",
+            },
+          },
+          html_url: "https://github.com/owner/noter/pull/22",
+          number: 22,
+          title: "Later PR",
+          created_at: "2026-03-21T10:00:00Z",
+        },
+      ],
+    });
+
+    expect(pullRequestsByBranch.get("feature/pr-title")).toEqual({
+      url: "https://github.com/owner/noter/pull/22",
+      number: 22,
+      labels: [],
+      title: "Later PR",
+    });
+  });
+
+  it("ignores non-default-base pull requests when defaultBaseBranch is provided", () => {
+    const pullRequestsByBranch = collectLatestOpenPullRequestsByBranch({
+      branchNames: ["feature/pr-title"],
+      repositoryFullName: "owner/noter",
+      defaultBaseBranch: "main",
+      pullRequests: [
+        {
+          head: {
+            ref: "feature/pr-title",
+            repo: {
+              full_name: "owner/noter",
+            },
+          },
+          base: {
+            ref: "release/1.2",
+          },
+          html_url: "https://github.com/owner/noter/pull/21",
+          number: 21,
+          title: "Release PR",
+          updated_at: "2026-03-23T10:00:00Z",
+          labels: [{ name: "release", color: "1d76db" }],
+        },
+        {
+          head: {
+            ref: "feature/pr-title",
+            repo: {
+              full_name: "owner/noter",
+            },
+          },
+          base: {
+            ref: "main",
+          },
+          html_url: "https://github.com/owner/noter/pull/22",
+          number: 22,
+          title: "Default branch PR",
+          updated_at: "2026-03-22T10:00:00Z",
+          labels: [{ name: "needs review", color: "fbca04" }],
+        },
+      ],
+    });
+
+    expect(pullRequestsByBranch.get("feature/pr-title")).toEqual({
+      url: "https://github.com/owner/noter/pull/22",
+      number: 22,
+      labels: [{ name: "needs review", color: "fbca04" }],
+      title: "Default branch PR",
     });
   });
 });

@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
 import {
+  buildDraftPullRequestTitle,
   createCommitWithMultipleFiles,
+  getDraftPullRequestCreateErrorMessage,
   inspectStagedFilesAgainstLatestHead,
+  readOpenPullRequestForBranch,
 } from "./fileStagingActions";
 
 type GitApi = RestEndpointMethodTypes["git"];
@@ -180,6 +183,149 @@ const makeGetBlobResponse = (sha: string, text: string): GetBlobResponse => ({
     content: Buffer.from(text, "utf-8").toString("base64"),
     encoding: "base64",
   } satisfies GetBlobData,
+});
+
+describe("draft pull request helpers", () => {
+  it("matches the current branch pull request in the same repository", () => {
+    expect(
+      readOpenPullRequestForBranch({
+        branch: "feature-branch",
+        baseBranch: "main",
+        repositoryFullName: "test-owner/test-repo",
+        pullRequests: [
+          {
+            number: 42,
+            html_url: "https://github.com/test-owner/test-repo/pull/42",
+            base: {
+              ref: "main",
+            },
+            head: {
+              ref: "feature-branch",
+              repo: {
+                full_name: "test-owner/test-repo",
+              },
+            },
+          },
+          {
+            number: 43,
+            html_url: "https://github.com/test-owner/other-repo/pull/43",
+            base: {
+              ref: "main",
+            },
+            head: {
+              ref: "feature-branch",
+              repo: {
+                full_name: "test-owner/other-repo",
+              },
+            },
+          },
+        ],
+      }),
+    ).toEqual({
+      url: "https://github.com/test-owner/test-repo/pull/42",
+      number: 42,
+    });
+  });
+
+  it("ignores an open pull request that targets a different base branch", () => {
+    expect(
+      readOpenPullRequestForBranch({
+        branch: "feature-branch",
+        baseBranch: "main",
+        repositoryFullName: "test-owner/test-repo",
+        pullRequests: [
+          {
+            number: 42,
+            html_url: "https://github.com/test-owner/test-repo/pull/42",
+            base: {
+              ref: "release/1.2",
+            },
+            head: {
+              ref: "feature-branch",
+              repo: {
+                full_name: "test-owner/test-repo",
+              },
+            },
+          },
+        ],
+      }),
+    ).toBeNull();
+  });
+
+  it("keeps the latest updated pull request among matching default-base PRs", () => {
+    expect(
+      readOpenPullRequestForBranch({
+        branch: "feature-branch",
+        baseBranch: "main",
+        repositoryFullName: "test-owner/test-repo",
+        pullRequests: [
+          {
+            number: 41,
+            html_url: "https://github.com/test-owner/test-repo/pull/41",
+            updated_at: "2026-03-21T10:00:00Z",
+            base: {
+              ref: "main",
+            },
+            head: {
+              ref: "feature-branch",
+              repo: {
+                full_name: "test-owner/test-repo",
+              },
+            },
+          },
+          {
+            number: 42,
+            html_url: "https://github.com/test-owner/test-repo/pull/42",
+            created_at: "2026-03-22T10:00:00Z",
+            base: {
+              ref: "main",
+            },
+            head: {
+              ref: "feature-branch",
+              repo: {
+                full_name: "test-owner/test-repo",
+              },
+            },
+          },
+          {
+            number: 43,
+            html_url: "https://github.com/test-owner/test-repo/pull/43",
+            updated_at: "2026-03-23T10:00:00Z",
+            base: {
+              ref: "release/1.2",
+            },
+            head: {
+              ref: "feature-branch",
+              repo: {
+                full_name: "test-owner/test-repo",
+              },
+            },
+          },
+        ],
+      }),
+    ).toEqual({
+      url: "https://github.com/test-owner/test-repo/pull/42",
+      number: 42,
+    });
+  });
+
+  it("uses the latest commit subject for the draft PR title", () => {
+    expect(
+      buildDraftPullRequestTitle({
+        branch: "feature-branch",
+        commitMessage: "Add draft PR button\n\nExtra details",
+      }),
+    ).toBe("Add draft PR button");
+  });
+
+  it("returns a friendly message when the branch has no PR-worthy commits", () => {
+    expect(
+      getDraftPullRequestCreateErrorMessage({
+        message:
+          "Validation Failed: No commits between main and feature-branch",
+      }),
+    ).toBe("This branch has no changes to open as a pull request.");
+  });
 });
 
 describe("createCommitWithMultipleFiles", () => {
