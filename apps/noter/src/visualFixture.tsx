@@ -72,6 +72,7 @@ function readMode(): VisualFixtureMode {
     value === "logo-three-reference" ||
     value === "media-png" ||
     value === "media-svg" ||
+    value === "editor-chat-open-desktop" ||
     value === "editor-chat-open-mobile" ||
     value === "editor-chat-closed" ||
     value === "landing-copy-parity" ||
@@ -111,7 +112,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <LogoThreeVisualFixture />
         ) : mode === "logo-snap-angles" ? (
           <LogoSnapAnglesVisualFixture />
-        ) : mode === "editor-chat-open-mobile" ||
+        ) : mode === "editor-chat-open-desktop" ||
+          mode === "editor-chat-open-mobile" ||
           mode === "editor-chat-closed" ? (
           <EditorChatVisualFixture mode={mode} />
         ) : mode === "simple-repository-config" ||

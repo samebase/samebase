@@ -7,6 +7,11 @@ const SCENARIOS = [
     viewport: { width: 600, height: 520 },
   },
   {
+    mode: "editor-chat-open-desktop",
+    snapshotName: "editor-chat-open-desktop.png",
+    viewport: { width: 1200, height: 900 },
+  },
+  {
     mode: "editor-chat-open-mobile",
     snapshotName: "editor-chat-open-mobile.png",
     viewport: { width: 430, height: 932 },

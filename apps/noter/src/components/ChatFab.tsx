@@ -27,6 +27,7 @@ function saveStoredOpenState(isOpen: boolean) {
 
 export function ChatFab() {
   const [isOpen, setIsOpen] = useState(() => loadStoredOpenState());
+  const [shouldAutoFocusInput, setShouldAutoFocusInput] = useState(false);
 
   useEffect(() => {
     saveStoredOpenState(isOpen);
@@ -38,15 +39,22 @@ export function ChatFab() {
         <div className="fixed bottom-16 right-3 z-[9999] h-[32rem] w-[28rem] max-w-[calc(100vw-1.5rem)] max-sm:bottom-16 max-sm:left-0 max-sm:right-0 max-sm:h-[calc(100%-5rem)] max-sm:w-auto">
           <EditorChatPanel
             className="h-full shadow-xl"
-            autoFocusInput
-            onClose={() => setIsOpen(false)}
+            autoFocusInput={shouldAutoFocusInput}
+            onClose={() => {
+              setShouldAutoFocusInput(false);
+              setIsOpen(false);
+            }}
           />
         </div>
       ) : null}
 
       <button
         type="button"
-        onClick={() => setIsOpen((current) => !current)}
+        onClick={() => {
+          const nextOpenState = !isOpen;
+          setShouldAutoFocusInput(nextOpenState);
+          setIsOpen(nextOpenState);
+        }}
         aria-label={isOpen ? "Close chat" : "Open chat"}
         title={isOpen ? "Close chat" : "Open chat"}
         className={cn(

@@ -20,6 +20,7 @@ apps/noter/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-
 apps/noter/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-zoomed.png
 apps/noter/e2e/corner-notch-visual.spec.ts-snapshots/corner-notch.png
 apps/noter/e2e/editor-chat-visual.spec.ts-snapshots/editor-chat-closed.png
+apps/noter/e2e/editor-chat-visual.spec.ts-snapshots/editor-chat-open-desktop.png
 apps/noter/e2e/editor-chat-visual.spec.ts-snapshots/editor-chat-open-mobile.png
 apps/noter/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-open-pr.png
 apps/noter/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-push-ready.png
