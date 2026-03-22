@@ -193,9 +193,28 @@ function beginLandingDevToggleFromShell(event: MouseEvent) {
     return;
   }
 
+  const nextUrl = new URL(toggleLink.href, window.location.href);
+  const currentUrl = new URL(window.location.href);
+
   event.preventDefault();
+  // Keep the shell mounted while the app hydrates, but avoid leaving the
+  // toggle focused: mobile browsers can nudge the centered landing card,
+  // duplicate pre-hydration taps must not add duplicate history entries, and
+  // any already-mounted BrowserRouter still needs a popstate notification.
   toggleLink.blur();
-  window.history.pushState(window.history.state, "", toggleLink.href);
+  if (
+    nextUrl.pathname !== currentUrl.pathname ||
+    nextUrl.search !== currentUrl.search ||
+    nextUrl.hash !== currentUrl.hash
+  ) {
+    const nextPath = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
+    window.history.pushState(window.history.state, "", nextPath);
+    window.dispatchEvent(
+      new PopStateEvent("popstate", {
+        state: window.history.state,
+      }),
+    );
+  }
   void ensureAppLoaded();
 }
 

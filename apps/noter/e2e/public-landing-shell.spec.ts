@@ -40,7 +40,6 @@ async function readNavigationTiming(page: Parameters<typeof test>[0]["page"]) {
 type LandingToggleFrame = {
   href: string;
   top: number | null;
-  activeTag: string | null;
 };
 
 async function captureLandingToggleFrames(
@@ -61,7 +60,6 @@ async function captureLandingToggleFrames(
         samples.push({
           href: window.location.href,
           top: rect ? Number(rect.top.toFixed(3)) : null,
-          activeTag: document.activeElement?.tagName ?? null,
         });
         frame += 1;
         if (frame >= 45) {
@@ -97,7 +95,21 @@ function expectStableLandingToggleFrames(
   expect(Math.max(...topValues) - Math.min(...topValues)).toBeLessThanOrEqual(
     1,
   );
-  expect(frames.some((frame) => frame.activeTag === "A")).toBe(false);
+}
+
+async function expectLandingToggleFocusTarget(
+  page: Parameters<typeof test>[0]["page"],
+) {
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const activeElement = document.activeElement;
+        return activeElement === document.body
+          ? "body"
+          : activeElement?.tagName.toLowerCase() ?? null;
+      }),
+    )
+    .toBe("body");
 }
 
 async function insertLandingHeadingMarker(
@@ -143,7 +155,12 @@ async function expectLandingLogoAutoRotates(scene: Locator) {
   }
 
   await expect
-    .poll(async () => await scene.getAttribute("data-rotation-degrees"))
+    .poll(async () => {
+      const currentRotationDegrees = await scene.getAttribute(
+        "data-rotation-degrees",
+      );
+      return currentRotationDegrees ?? initialRotationDegrees;
+    })
     .not.toBe(initialRotationDegrees);
 }
 
@@ -188,6 +205,7 @@ test.describe("mobile landing dev toggle", () => {
 
     const shellFrames = await captureLandingToggleFrames(page, "/?dev");
     expectStableLandingToggleFrames(shellFrames, "/?dev");
+    await expectLandingToggleFocusTarget(page);
     await expectLandingLogoAutoRotates(
       page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID),
     );
@@ -200,13 +218,46 @@ test.describe("mobile landing dev toggle", () => {
 
     const forwardFrames = await captureLandingToggleFrames(page, "/?dev");
     expectStableLandingToggleFrames(forwardFrames, "/?dev");
+    await expectLandingToggleFocusTarget(page);
     await expectLandingLogoAutoRotates(
       page.getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID),
     );
 
     const backFrames = await captureLandingToggleFrames(page, "/");
     expectStableLandingToggleFrames(backFrames, "/");
+    await expectLandingToggleFocusTarget(page);
   });
+});
+
+test("pre-hydration landing dev toggle ignores duplicate taps", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.getByTestId("public-landing-shell").waitFor({ state: "visible" });
+
+  await page.evaluate(() => {
+    const toggleLink = document.getElementById("public-landing-dev-toggle");
+    if (!(toggleLink instanceof HTMLAnchorElement)) {
+      return;
+    }
+
+    toggleLink.dispatchEvent(
+      new MouseEvent("click", {
+        bubbles: true,
+        button: 0,
+      }),
+    );
+    toggleLink.dispatchEvent(
+      new MouseEvent("click", {
+        bubbles: true,
+        button: 0,
+      }),
+    );
+  });
+
+  await expect(page).toHaveURL(/\/\?dev$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/$/);
 });
 
 test("shell waitlist input preserves typed email through handoff", async ({

@@ -48,9 +48,7 @@ export function Layout({ children }: { children: ReactNode }) {
     // Mobile browsers can keep the header toggle focused and nudge the
     // vertically centered landing card while the query-param view swaps.
     event.currentTarget.blur();
-    void navigate(landingDevToggleHref, {
-      preventScrollReset: true,
-    });
+    void navigate(landingDevToggleHref);
   };
   useEffect(() => {
     console.info("[noter] build metadata", {

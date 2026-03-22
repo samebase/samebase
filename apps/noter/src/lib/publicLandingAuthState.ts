@@ -32,27 +32,28 @@ function hasStoredConvexAuthTokens(): boolean {
   }, false);
 }
 
-export function shouldRenderFastLandingShell(
-  location: PathWithSearch,
-): boolean {
+function isKnownUnauthenticatedLandingVisit(location: PathWithSearch): boolean {
   const searchParams = new URLSearchParams(location.search);
   return (
     location.pathname === "/" &&
-    !isLandingDevModeEnabled(searchParams) &&
     !searchParams.has("auth") &&
     readAuthFlagValue() !== "1" &&
     !hasStoredConvexAuthTokens()
   );
 }
 
-export function shouldRenderPublicLandingWithoutAuthGate(
+export function shouldRenderFastLandingShell(
   location: PathWithSearch,
 ): boolean {
   const searchParams = new URLSearchParams(location.search);
   return (
-    location.pathname === "/" &&
-    !searchParams.has("auth") &&
-    readAuthFlagValue() !== "1" &&
-    !hasStoredConvexAuthTokens()
+    isKnownUnauthenticatedLandingVisit(location) &&
+    !isLandingDevModeEnabled(searchParams)
   );
+}
+
+export function shouldRenderPublicLandingWithoutAuthGate(
+  location: PathWithSearch,
+): boolean {
+  return isKnownUnauthenticatedLandingVisit(location);
 }
