@@ -21,7 +21,7 @@ function omit<T extends Record<string, any>, K extends keyof T>(
   ) as Omit<T, K>;
 }
 
-const { id, literal, number, object, optional, string, union } = v;
+const { array, id, literal, number, object, optional, string, union } = v;
 
 const BillingProvider = optional(literal("polar"));
 const BillingPlan = optional(union(literal("free"), literal("pro")));
@@ -379,7 +379,7 @@ export default defineSchema({
     behindBy: v.optional(v.number()),
     pullRequestUrl: v.optional(v.string()),
     pullRequestNumber: v.optional(v.number()),
-    pullRequestLabels: v.optional(v.array(PullRequestLabel)),
+    pullRequestLabels: optional(array(PullRequestLabel)),
     isDefault: v.boolean(),
     isProtected: v.boolean(),
     remoteState: VaultRemoteBranchState,

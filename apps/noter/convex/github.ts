@@ -11,6 +11,7 @@ import {
   getRepositoryMediaKind,
   isSvgRepositoryMediaPath,
 } from "../shared/repositoryMedia";
+import type { PullRequestLabel as StoredPullRequestLabel } from "./schema";
 
 const {
   array,
@@ -255,10 +256,10 @@ interface RemoteBranchSummary {
   isProtected: boolean;
 }
 
-type PullRequestLabelSummary = {
-  name: string;
-  color?: string;
-};
+type PullRequestLabelSummary = Extract<
+  StoredPullRequestLabel,
+  { name: string }
+>;
 
 interface CachedBranchTreeSnapshot {
   treeSHA: string;

@@ -432,9 +432,9 @@ function normalizePullRequestLabels(
   return Array.from(labelsByName.values());
 }
 
-function getLabelTextColor(backgroundColor: string): string {
+function getHexColorLuminance(color: string): number {
   const [red, green, blue] = [0, 2, 4].map((index) =>
-    Number.parseInt(backgroundColor.slice(index + 1, index + 3), 16),
+    Number.parseInt(color.slice(index + 1, index + 3), 16),
   );
   const toLinear = (channel: number) => {
     const normalized = channel / 255;
@@ -442,10 +442,29 @@ function getLabelTextColor(backgroundColor: string): string {
       ? normalized / 12.92
       : ((normalized + 0.055) / 1.055) ** 2.4;
   };
-  const luminance =
-    0.2126 * toLinear(red) + 0.7152 * toLinear(green) + 0.0722 * toLinear(blue);
 
-  return luminance > 0.42 ? "#1f2328" : "#ffffff";
+  return (
+    0.2126 * toLinear(red) + 0.7152 * toLinear(green) + 0.0722 * toLinear(blue)
+  );
+}
+
+function getContrastRatio(a: number, b: number): number {
+  const lighter = Math.max(a, b);
+  const darker = Math.min(a, b);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function getLabelTextColor(backgroundColor: string): string {
+  const lightTextColor = "#ffffff";
+  const darkTextColor = "#1f2328";
+  const backgroundLuminance = getHexColorLuminance(backgroundColor);
+  const lightContrast = getContrastRatio(backgroundLuminance, 1);
+  const darkContrast = getContrastRatio(
+    backgroundLuminance,
+    getHexColorLuminance(darkTextColor),
+  );
+
+  return darkContrast >= lightContrast ? darkTextColor : lightTextColor;
 }
 
 function buildPullRequestLabelStyle(
