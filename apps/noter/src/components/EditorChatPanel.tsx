@@ -914,7 +914,7 @@ export function EditorChatPanel({
         className,
       )}
     >
-      <div className="flex items-center justify-between border-b border-border px-0 py-2.5 sm:px-4">
+      <div className="flex items-center justify-between border-b border-border pl-3 pr-2 py-1.5 sm:px-4 sm:py-2">
         <span className="text-sm font-medium text-foreground">Chat</span>
         <div className="flex items-center gap-0.5">
           {threadId ? (
@@ -982,7 +982,7 @@ export function EditorChatPanel({
           disabled={sending || isWaitingForResponse}
           mode={inputMode}
           autoResize
-          sendButtonClassName="m-2 p-2"
+          sendButtonClassName="mr-2 mt-2 mb-0 p-2"
         />
       </div>
     </div>

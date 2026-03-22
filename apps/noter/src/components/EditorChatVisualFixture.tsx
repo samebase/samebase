@@ -69,7 +69,7 @@ function OpenMobileChatFixture() {
             </div>
             <div className="min-h-0 flex-1">
               <div className="flex h-full min-h-0 flex-col corner-notch-1 border border-border bg-background">
-                <div className="flex items-center justify-between border-b border-border px-0 py-2.5">
+                <div className="flex items-center justify-between border-b border-border pl-3 pr-2 py-1.5">
                   <span className="text-sm font-medium text-foreground">
                     Chat
                   </span>
@@ -118,7 +118,7 @@ function OpenMobileChatFixture() {
                     onSend={() => {}}
                     mode="prosemark"
                     autoResize
-                    sendButtonClassName="m-2 p-2"
+                    sendButtonClassName="mr-2 mt-2 mb-0 p-2"
                   />
                 </div>
               </div>

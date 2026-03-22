@@ -204,9 +204,9 @@ function readGraphViewMode(storageKey: string): "editor" | "graph" | null {
   return null;
 }
 
-const EDITOR_CHAT_MIN_HEIGHT = 14 * 16;
-const EDITOR_CHAT_DEFAULT_HEIGHT = 22 * 16;
-const EDITOR_CHAT_MOBILE_DEFAULT_HEIGHT_RATIO = 0.45;
+const EDITOR_CHAT_MIN_HEIGHT = 12 * 16;
+const EDITOR_CHAT_DEFAULT_HEIGHT = 18 * 16;
+const EDITOR_CHAT_MOBILE_DEFAULT_HEIGHT_RATIO = 0.3;
 const EDITOR_CHAT_MAX_HEIGHT_RATIO = 0.7;
 
 function getMaxEditorChatHeight(): number {
