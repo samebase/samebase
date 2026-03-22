@@ -236,7 +236,7 @@ function CapabilitiesPanel({
   hasGithubConnection: boolean;
   systemPrompt?: string;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const toolsEnabled = Boolean(
     repositoryFullName && vaultId && hasGithubConnection,
   );

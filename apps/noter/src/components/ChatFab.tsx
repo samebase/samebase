@@ -50,7 +50,7 @@ export function ChatFab() {
         aria-label={isOpen ? "Close chat" : "Open chat"}
         title={isOpen ? "Close chat" : "Open chat"}
         className={cn(
-          "fixed bottom-3 right-3 z-[9999] flex h-11 w-11 items-center justify-center corner-notch-1 shadow-lg transition-colors",
+          "!fixed bottom-3 right-3 z-[9999] flex h-11 w-11 items-center justify-center corner-notch-1 shadow-lg transition-colors",
           isOpen
             ? "bg-muted text-foreground hover:bg-muted/80"
             : "bg-primary text-primary-foreground hover:bg-primary/90",

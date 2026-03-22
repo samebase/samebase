@@ -94,13 +94,11 @@ function OpenMobileChatFixture() {
                 <div className="flex-1 overflow-y-auto px-0 py-2">
                   <div className="mb-2 corner-notch-1 border border-border bg-muted/50 text-xs">
                     <div className="flex w-full items-center gap-1.5 px-3 py-1.5 text-muted-foreground">
+                      <div className="h-3 w-3 shrink-0 text-current">›</div>
                       <span className="font-medium">Chat tools</span>
                       <span className="ml-auto corner-notch-1 bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
                         Enabled
                       </span>
-                    </div>
-                    <div className="border-t border-border px-0 py-2 text-muted-foreground">
-                      <div>Tools are enabled for noter-md/noter.</div>
                     </div>
                   </div>
 
