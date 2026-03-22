@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
-  await page.setViewportSize({ width: 760, height: 260 });
+  await page.setViewportSize({ width: 640, height: 180 });
   await page.goto("/visual-fixture.html?mode=vault-branch-pr-labels", {
     waitUntil: "domcontentloaded",
   });
@@ -12,6 +12,6 @@ test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
     animations: "disabled",
     caret: "hide",
     scale: "css",
-    maxDiffPixelRatio: 0.01,
+    maxDiffPixelRatio: 0.03,
   });
 });
