@@ -56,6 +56,11 @@ export function VaultBranchPreviewVisualFixture({
             behindBy={0}
             pullRequestUrl="https://github.com/noter-md/noter/pull/290"
             pullRequestNumber={290}
+            pullRequestTitle="Show PR names and labels above branch metadata"
+            pullRequestLabels={[
+              { name: "needs review", color: "fbca04" },
+              { name: "dashboard", color: "0e8a16" },
+            ]}
             cloudflareBranchPreviewUrl={preview?.branchPreviewUrl}
             canDeleteBranch={false}
             isDeletingBranch={false}
