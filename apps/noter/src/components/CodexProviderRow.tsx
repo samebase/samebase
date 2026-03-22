@@ -321,19 +321,19 @@ export function CodexProviderRow() {
 
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+      <div className="corner-notch-1 border border-border/50 bg-background p-3">
         <div className="flex min-w-0 items-start gap-3">
           <div className="flex h-5 w-11 shrink-0 items-center justify-center">
             <CodexProviderLogo className="max-h-full max-w-full" />
           </div>
-          <div className="min-w-0 text-left">
+          <div className="min-w-0 flex-1 overflow-hidden text-left">
             <div className="text-sm font-medium">Codex</div>
             <div className="break-words text-xs leading-5 text-muted-foreground">
               {status}
             </div>
           </div>
         </div>
-        <div className="flex w-full shrink-0 flex-col gap-2 self-start sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
+        <div className="mt-3 flex w-full flex-col gap-2">
           {isReady ? (
             <>
               <Button
@@ -346,7 +346,7 @@ export function CodexProviderRow() {
                   isDisconnecting ||
                   isClosingTerminal
                 }
-                className="w-full sm:w-auto"
+                className="w-full justify-center"
               >
                 {isPreparing ? (
                   <>
@@ -367,7 +367,7 @@ export function CodexProviderRow() {
                   isDisconnecting ||
                   isClosingTerminal
                 }
-                className="w-full sm:w-auto"
+                className="w-full justify-center"
               >
                 {isVerifying ? (
                   <>
@@ -388,7 +388,7 @@ export function CodexProviderRow() {
                   isDisconnecting ||
                   isClosingTerminal
                 }
-                className="w-full sm:w-auto"
+                className="w-full justify-center"
               >
                 {isDisconnecting ? (
                   <>
@@ -412,7 +412,7 @@ export function CodexProviderRow() {
                   isDisconnecting ||
                   isClosingTerminal
                 }
-                className="w-full sm:w-auto"
+                className="w-full justify-center"
               >
                 {isPreparing ? (
                   <>
@@ -435,7 +435,7 @@ export function CodexProviderRow() {
                       isDisconnecting ||
                       isClosingTerminal
                     }
-                    className="w-full sm:w-auto"
+                    className="w-full justify-center"
                   >
                     {isVerifying ? (
                       <>
@@ -456,7 +456,7 @@ export function CodexProviderRow() {
                       isDisconnecting ||
                       isClosingTerminal
                     }
-                    className="w-full sm:w-auto"
+                    className="w-full justify-center"
                   >
                     {isDisconnecting ? (
                       <>

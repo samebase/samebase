@@ -1,6 +1,7 @@
 import { api } from "../../convex/_generated/api";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
+import { ButtonGroup, ButtonGroupSeparator } from "@/components/button-group";
 import { Checkbox } from "@/components/checkbox";
 import {
   Collapsible,
@@ -51,7 +52,6 @@ import {
   type MutableRefObject,
 } from "react";
 import { isInIframe } from "@/authClient";
-import { UserMenu } from "@/components/UserMenu";
 import {
   Dialog,
   DialogContent,
@@ -68,14 +68,15 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/dropdown-menu";
-import { ButtonGroup, ButtonGroupSeparator } from "@/components/button-group";
 import { CodespaceStatus } from "@/components/CodespaceStatus";
+import { DashboardSidebarSection } from "@/components/DashboardSidebarSection";
+import { DashboardWorkspaceFrame } from "@/components/DashboardWorkspaceFrame";
 import { DaytonaSnapshotBanner } from "@/components/DaytonaSnapshotBanner";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
 import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
 import { CodexProviderRow } from "@/components/CodexProviderRow";
 import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";
-import { PublicLandingLogo } from "@/components/PublicLandingLogo";
+import { UserMenu } from "@/components/UserMenu";
 import {
   useApiKeyConnectDialog,
   type ApiKeyProvider,
@@ -150,6 +151,9 @@ const hasDaytonaResourcesForVault = (
   );
 
 type CreateTemplate = "app" | "agent";
+const SIDEBAR_PANEL_KEYS = ["providers", "account", "newProject"] as const;
+type SidebarPanelKey = (typeof SIDEBAR_PANEL_KEYS)[number];
+type SidebarPanelState = Record<SidebarPanelKey, boolean>;
 
 const isCreateTemplate = (value: string): value is CreateTemplate =>
   value === "app" || value === "agent";
@@ -733,6 +737,12 @@ export function VaultDashboard() {
   const setProvidersPanelOpen = useMutation(
     api.dashboardSettings.setProvidersPanelOpen,
   );
+  const setAccountPanelOpen = useMutation(
+    api.dashboardSettings.setAccountPanelOpen,
+  );
+  const setNewProjectPanelOpen = useMutation(
+    api.dashboardSettings.setNewProjectPanelOpen,
+  );
   const githubConnection = useConvexQuery(api.users.getGithubConnectionStatus);
   const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus);
   const cloudflareConnection = useConvexQuery(
@@ -742,7 +752,6 @@ export function VaultDashboard() {
   const dashboardSettings = useConvexQuery(
     api.dashboardSettings.getDashboardSettings,
   );
-  const dashboardProvidersPanelOpen = dashboardSettings?.providersPanelOpen;
   const githubPopupRef = useRef<Window | null>(null);
   const convexPopupRef = useRef<Window | null>(null);
   const cloudflarePopupRef = useRef<Window | null>(null);
@@ -815,26 +824,35 @@ export function VaultDashboard() {
   );
   const [openDeveloperToolsByVaultId, setOpenDeveloperToolsByVaultId] =
     useState<Partial<Record<Id<"vaults">, boolean>>>({});
-  const [providersPanelOpen, setProvidersPanelOpenState] = useState<
-    boolean | null
-  >(null);
-  const providersPanelPendingRef = useRef<boolean | null>(null);
+  const [sidebarPanelState, setSidebarPanelState] =
+    useState<SidebarPanelState | null>(null);
+  const sidebarPanelPendingRef = useRef<Partial<SidebarPanelState>>({});
   const cloudflareAutoCheckInFlightRef = useRef(false);
 
   useEffect(() => {
-    if (dashboardProvidersPanelOpen === undefined) {
+    if (dashboardSettings === undefined) {
       return;
     }
-    const serverValue = dashboardProvidersPanelOpen;
-    if (providersPanelPendingRef.current !== null) {
-      if (providersPanelPendingRef.current === serverValue) {
-        providersPanelPendingRef.current = null;
-      } else {
-        return;
-      }
+
+    const serverState: SidebarPanelState = {
+      providers: dashboardSettings.providersPanelOpen,
+      account: dashboardSettings.accountPanelOpen,
+      newProject: dashboardSettings.newProjectPanelOpen,
+    };
+    if (
+      SIDEBAR_PANEL_KEYS.some((panel) => {
+        const pendingState = sidebarPanelPendingRef.current[panel];
+        return (
+          pendingState !== undefined && serverState[panel] !== pendingState
+        );
+      })
+    ) {
+      return;
     }
-    setProvidersPanelOpenState(serverValue);
-  }, [dashboardProvidersPanelOpen]);
+
+    sidebarPanelPendingRef.current = {};
+    setSidebarPanelState(serverState);
+  }, [dashboardSettings]);
 
   useEffect(() => {
     const expectedOrigin = window.location.origin;
@@ -1387,44 +1405,128 @@ export function VaultDashboard() {
   };
   const userDisplayName =
     user?.name ?? user?.email ?? user?.githubUsername ?? "...";
-  const userMenu = user ? <UserMenu>{userDisplayName}</UserMenu> : null;
   const createTemplateLabel = createTemplate === "app" ? "App" : "Agent";
   const createTemplateArticle =
     createTemplate === "app" ? "an app" : "an agent";
-  const createPlaceholder = `New ${createTemplate} name`;
+  const createPlaceholder = `${createTemplateLabel} name`;
   const createButtonLabel = isCreating
     ? `Creating ${createTemplate}...`
-    : `New ${createTemplate}`;
+    : `Create ${createTemplate}`;
   const { openApiKeyDialog, apiKeyDialog } = useApiKeyConnectDialog({
     connectGithubWithApiKey,
     connectConvexWithApiKey,
   });
+  const resolvedSidebarPanelState: SidebarPanelState = {
+    providers:
+      sidebarPanelState?.providers ??
+      dashboardSettings?.providersPanelOpen ??
+      false,
+    account:
+      sidebarPanelState?.account ??
+      dashboardSettings?.accountPanelOpen ??
+      false,
+    newProject:
+      sidebarPanelState?.newProject ??
+      dashboardSettings?.newProjectPanelOpen ??
+      false,
+  };
+  const handleSidebarPanelOpenChange = (
+    panel: SidebarPanelKey,
+    isOpen: boolean,
+  ) => {
+    setSidebarPanelState((prev) => ({
+      ...(prev ?? resolvedSidebarPanelState),
+      [panel]: isOpen,
+    }));
+    sidebarPanelPendingRef.current = {
+      ...sidebarPanelPendingRef.current,
+      [panel]: isOpen,
+    };
+
+    const persistOpenState =
+      panel === "providers"
+        ? setProvidersPanelOpen
+        : panel === "account"
+          ? setAccountPanelOpen
+          : setNewProjectPanelOpen;
+
+    void persistOpenState({ isOpen }).catch((error: unknown) => {
+      console.error(`Failed to persist ${panel} panel state:`, error);
+      delete sidebarPanelPendingRef.current[panel];
+      setSidebarPanelState({
+        providers: dashboardSettings?.providersPanelOpen ?? false,
+        account: dashboardSettings?.accountPanelOpen ?? false,
+        newProject: dashboardSettings?.newProjectPanelOpen ?? false,
+      });
+    });
+  };
   const createControl = (
-    <div className="flex flex-col items-start gap-2">
-      <ButtonGroup className="w-full sm:w-[480px]">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button className="gap-2" variant="outline">
-              {createTemplateLabel}
-              <ChevronDownIcon className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuRadioGroup
-              value={createTemplate}
-              onValueChange={(value) => {
-                if (!isCreateTemplate(value)) return;
-                setCreateTemplate(value);
-                if (createError) {
-                  setCreateError(null);
-                }
-              }}
-            >
-              <DropdownMenuRadioItem value="app">App</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="agent">Agent</DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+    <DashboardSidebarSection
+      title="New Project"
+      open={resolvedSidebarPanelState.newProject}
+      onOpenChange={(isOpen) =>
+        handleSidebarPanelOpenChange("newProject", isOpen)
+      }
+    >
+      <div className="flex flex-col items-start gap-2">
+        <ButtonGroup className="w-full">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="gap-2" variant="outline">
+                {createTemplateLabel}
+                <ChevronDownIcon className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuRadioGroup
+                value={createTemplate}
+                onValueChange={(value) => {
+                  if (!isCreateTemplate(value)) return;
+                  setCreateTemplate(value);
+                  if (createError) {
+                    setCreateError(null);
+                  }
+                }}
+              >
+                <DropdownMenuRadioItem value="app">App</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="agent">
+                  Agent
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            onClick={() => {
+              void handleCreateRepository();
+            }}
+            disabled={
+              isCreating ||
+              newRepositoryName.trim().length === 0 ||
+              !canCreateRepo
+            }
+          >
+            {createButtonLabel}
+          </Button>
+          <ButtonGroupSeparator className="bg-primary-foreground/30" />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="px-2" aria-label="More actions">
+                <ChevronDownIcon className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {githubConnected ? (
+                <DropdownMenuItem asChild>
+                  <Link to="/add">Connect existing repo</Link>
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem disabled>
+                  Connect existing repo
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </ButtonGroup>
         <Input
           placeholder={createPlaceholder}
           value={newRepositoryName}
@@ -1439,602 +1541,612 @@ export function VaultDashboard() {
               void handleCreateRepository();
             }
           }}
-          className="flex-1"
+          className="w-full"
           disabled={!canCreateRepo}
         />
-        <Button
-          onClick={() => {
-            void handleCreateRepository();
-          }}
-          disabled={
-            isCreating ||
-            newRepositoryName.trim().length === 0 ||
-            !canCreateRepo
-          }
-        >
-          {createButtonLabel}
-        </Button>
-        <ButtonGroupSeparator className="bg-primary-foreground/30" />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button className="px-2" aria-label="More actions">
-              <ChevronDownIcon className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {githubConnected ? (
-              <DropdownMenuItem asChild>
-                <Link to="/add">Connect existing repo</Link>
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem disabled>
-                Connect existing repo
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </ButtonGroup>
-      {createError && <div className="text-sm text-red-600">{createError}</div>}
+      </div>
       {!canCreateRepo && (
-        <div className="text-xs text-muted-foreground">
+        <div className="mt-3 text-xs text-muted-foreground">
           {`Connect GitHub, Convex, and ${requiredHostingConnectionLabel} to create apps or agents.`}
         </div>
       )}
       {showCloudflareCreateWarning && (
-        <div className="text-xs text-amber-700">
+        <div className="mt-3 text-xs text-amber-700">
           Cloudflare token is invalid or expired. Reconnect Cloudflare.
         </div>
       )}
-    </div>
+      {createError ? (
+        <div className="mt-3 text-sm text-red-600">{createError}</div>
+      ) : null}
+    </DashboardSidebarSection>
   );
 
-  const resolvedProvidersPanelOpen =
-    providersPanelOpen ?? dashboardSettings?.providersPanelOpen ?? false;
-
-  const handleProvidersPanelOpenChange = (isOpen: boolean) => {
-    setProvidersPanelOpenState(isOpen);
-    providersPanelPendingRef.current = isOpen;
-    void setProvidersPanelOpen({ isOpen }).catch((error: unknown) => {
-      console.error("Failed to persist providers panel state:", error);
-      providersPanelPendingRef.current = null;
-      setProvidersPanelOpenState(
-        dashboardSettings?.providersPanelOpen ?? false,
-      );
-    });
-  };
-
   const connectionPanel = (
-    <div className="corner-notch-1 border border-border bg-background p-4">
-      <Collapsible
-        className="space-y-3"
-        open={resolvedProvidersPanelOpen}
-        onOpenChange={handleProvidersPanelOpenChange}
-      >
-        <CollapsibleTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-auto w-full justify-between px-0 text-sm font-medium hover:bg-transparent [&[data-state=open]>svg]:rotate-180"
-          >
-            <span>Providers</span>
-            <ChevronDownIcon className="h-4 w-4 transition-transform" />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="space-y-3">
-            {PROVIDER_KEYS.map((provider) => {
-              const providerMetadata = PROVIDER_METADATA[provider];
-              const providerState = providerConnectionState[provider];
-              const Icon = providerMetadata.icon;
-              const apiKeyProvider = providerMetadata.apiKeyProvider;
-              return (
-                <div
-                  key={provider}
-                  className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3"
-                >
-                  <div className="flex min-w-0 items-start gap-3">
-                    <div className="flex h-5 w-11 shrink-0 items-center justify-center">
-                      <Icon className="max-h-full max-w-full" />
-                    </div>
-                    <div className="min-w-0 text-left">
-                      <div className="text-sm font-medium">
-                        {providerMetadata.label}
-                      </div>
-                      <div className="break-words text-xs leading-5 text-muted-foreground">
-                        {providerState.status}
-                      </div>
-                    </div>
-                  </div>
-                  {providerState.connected ? (
-                    providerState.showTokenCheck ? (
-                      <div className="flex shrink-0 flex-wrap justify-end gap-2 self-start">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void handleCheckCloudflareToken()}
-                          disabled={
-                            disconnectingProvider !== null ||
-                            isCheckingCloudflareToken ||
-                            isAutoCheckingCloudflareToken
-                          }
-                        >
-                          {isCheckingCloudflareToken ? (
-                            <>
-                              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                              Checking...
-                            </>
-                          ) : (
-                            "Check token"
-                          )}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void handleDisconnect(provider)}
-                          disabled={
-                            disconnectingProvider !== null ||
-                            isCheckingCloudflareToken ||
-                            isAutoCheckingCloudflareToken
-                          }
-                        >
-                          {disconnectingProvider === provider ? (
-                            <>
-                              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                              Disconnecting...
-                            </>
-                          ) : (
-                            "Disconnect"
-                          )}
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex shrink-0 justify-end self-start">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => void handleDisconnect(provider)}
-                          disabled={disconnectingProvider !== null}
-                        >
-                          {disconnectingProvider === provider ? (
-                            <>
-                              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                              Disconnecting...
-                            </>
-                          ) : (
-                            "Disconnect"
-                          )}
-                        </Button>
-                      </div>
-                    )
-                  ) : (
-                    <div className="flex shrink-0 flex-wrap justify-end gap-2 self-start">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => void handleConnect(provider)}
-                        disabled={disconnectingProvider !== null}
-                      >
-                        {providerMetadata.oauthButtonLabel}
-                      </Button>
-                      {apiKeyProvider ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openApiKeyDialog(apiKeyProvider)}
-                          disabled={disconnectingProvider !== null}
-                        >
-                          Use API key
-                        </Button>
-                      ) : null}
-                    </div>
-                  )}
+    <DashboardSidebarSection
+      title="Providers"
+      open={resolvedSidebarPanelState.providers}
+      onOpenChange={(isOpen) =>
+        handleSidebarPanelOpenChange("providers", isOpen)
+      }
+    >
+      <div className="space-y-3">
+        {PROVIDER_KEYS.map((provider) => {
+          const providerMetadata = PROVIDER_METADATA[provider];
+          const providerState = providerConnectionState[provider];
+          const Icon = providerMetadata.icon;
+          const apiKeyProvider = providerMetadata.apiKeyProvider;
+          return (
+            <div
+              key={provider}
+              className="corner-notch-1 border border-border/50 bg-background p-3"
+            >
+              <div className="flex min-w-0 items-start gap-3">
+                <div className="flex h-5 w-11 shrink-0 items-center justify-center">
+                  <Icon className="max-h-full max-w-full" />
                 </div>
-              );
-            })}
-            <CodexProviderRow />
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </div>
+                <div className="min-w-0 flex-1 overflow-hidden text-left">
+                  <div className="text-sm font-medium">
+                    {providerMetadata.label}
+                  </div>
+                  <div className="break-words text-xs leading-5 text-muted-foreground">
+                    {providerState.status}
+                  </div>
+                </div>
+              </div>
+              {providerState.connected ? (
+                providerState.showTokenCheck ? (
+                  <div className="mt-3 flex flex-col gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void handleCheckCloudflareToken()}
+                      disabled={
+                        disconnectingProvider !== null ||
+                        isCheckingCloudflareToken ||
+                        isAutoCheckingCloudflareToken
+                      }
+                      className="w-full justify-center"
+                    >
+                      {isCheckingCloudflareToken ? (
+                        <>
+                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                          Checking...
+                        </>
+                      ) : (
+                        "Check token"
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void handleDisconnect(provider)}
+                      disabled={
+                        disconnectingProvider !== null ||
+                        isCheckingCloudflareToken ||
+                        isAutoCheckingCloudflareToken
+                      }
+                      className="w-full justify-center"
+                    >
+                      {disconnectingProvider === provider ? (
+                        <>
+                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                          Disconnecting...
+                        </>
+                      ) : (
+                        "Disconnect"
+                      )}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="mt-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void handleDisconnect(provider)}
+                      disabled={disconnectingProvider !== null}
+                      className="w-full justify-center"
+                    >
+                      {disconnectingProvider === provider ? (
+                        <>
+                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                          Disconnecting...
+                        </>
+                      ) : (
+                        "Disconnect"
+                      )}
+                    </Button>
+                  </div>
+                )
+              ) : (
+                <div className="mt-3 flex flex-col gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleConnect(provider)}
+                    disabled={disconnectingProvider !== null}
+                    className="w-full justify-center"
+                  >
+                    {providerMetadata.oauthButtonLabel}
+                  </Button>
+                  {apiKeyProvider ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openApiKeyDialog(apiKeyProvider)}
+                      disabled={disconnectingProvider !== null}
+                      className="w-full justify-center"
+                    >
+                      Use API key
+                    </Button>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <CodexProviderRow />
+      </div>
+    </DashboardSidebarSection>
   );
 
   if (!vaults) {
     return null;
   }
 
-  if (vaults.length === 0) {
-    return (
-      <div className="h-full overflow-y-auto">
-        <div className="container py-6 max-w-2xl mx-auto">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <Button variant="outline" asChild>
-              <Link to="/pricing">Pricing</Link>
-            </Button>
-            {userMenu}
-          </div>
-          <div className="text-center space-y-6">
-            <div className="mx-auto w-full max-w-[8rem]">
-              <PublicLandingLogo />
-            </div>
-
-            <div className="space-y-2">
-              <h1 className="text-3xl font-bold">Create your first project</h1>
-              <p className="text-lg text-muted-foreground">
-                Start with a new project or connect an existing repository to
-                edit files directly in your browser.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              {connectionPanel}
-              <div className="flex justify-center">{createControl}</div>
-            </div>
-          </div>
-        </div>
-        {apiKeyDialog}
-      </div>
-    );
-  }
+  const projectCountLabel =
+    vaults.length === 1 ? "1 project" : `${vaults.length} projects`;
+  const accountPanel = user ? (
+    <DashboardSidebarSection
+      title="Account"
+      open={resolvedSidebarPanelState.account}
+      onOpenChange={(isOpen) => handleSidebarPanelOpenChange("account", isOpen)}
+    >
+      <UserMenu className="w-full" triggerVariant="inline">
+        {userDisplayName}
+      </UserMenu>
+    </DashboardSidebarSection>
+  ) : null;
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="container py-6">
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-center gap-2">
-            <GitHubLogoIcon className="h-5 w-5 sm:h-6 sm:w-6" />
-            <h1 className="text-xl sm:text-2xl font-semibold">Your Vaults</h1>
-          </div>
-          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
+    <div className="h-full">
+      <DashboardWorkspaceFrame
+        headerTitle="Projects"
+        headerSubtitle={projectCountLabel}
+        sidebarContent={
+          <>
+            {accountPanel}
+            {connectionPanel}
             {createControl}
-            <Button variant="outline" asChild>
-              <Link to="/pricing">Pricing</Link>
-            </Button>
-            {userMenu}
+          </>
+        }
+      >
+        {vaults.length === 0 ? (
+          <div className="corner-notch-1 border border-dashed border-border/70 bg-muted/10 p-6">
+            <h2 className="text-base font-medium">No projects yet</h2>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+              Use the sidebar to create a new app or connect an existing
+              repository.
+            </p>
           </div>
-        </div>
-        <div className="mb-6">{connectionPanel}</div>
-
-        <div className="space-y-2">
-          {vaults.map((vault: (typeof vaults)[0]) => {
-            const isReady = vault.state === "ready";
-            const remoteBranches = Array.isArray(vault.remoteBranches)
-              ? vault.remoteBranches
-              : [];
-            const activeRemoteBranches = remoteBranches.filter(
-              (branch) => branch.remoteState === "active",
-            );
-            const defaultBranch = activeRemoteBranches.find(
-              (branch) => branch.isDefault,
-            )?.name;
-            const primaryBranch =
-              defaultBranch || activeRemoteBranches[0]?.name || "";
-            const chatRoute =
-              primaryBranch.length > 0
-                ? buildVaultCodespaceChatRoute({
-                    repositoryFullName: vault.repositoryFullName,
-                    branch: primaryBranch,
-                  })
-                : null;
-            const githubRepositoryUrl = `https://github.com/${vault.ghRepoOwner}/${vault.ghRepoName}`;
-            const developerToolsOpen =
-              openDeveloperToolsByVaultId[vault._id] ?? false;
-            const infraActionLabel = vault.isNoterManaged
-              ? getInfraActionLabel(vault.infraState)
-              : null;
-            const sharedLastSyncedAt = vault.lastTreeRefreshAt;
-            const isVaultSyncing =
-              typeof vault.treeRefreshStartedAt === "number" &&
-              now - vault.treeRefreshStartedAt < TREE_REFRESH_STALE_LOCK_MS;
-            return (
-              <div
-                key={vault._id}
-                className={clsx(
-                  "relative corner-notch-1 border p-4",
-                  !isReady && "bg-muted/30 opacity-75",
-                )}
-              >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`Remove vault ${vault.repositoryFullName}`}
-                  onClick={() => {
-                    setVaultToDelete({
-                      id: vault._id,
+        ) : (
+          <div className="space-y-2">
+            {vaults.map((vault: (typeof vaults)[0]) => {
+              const isReady = vault.state === "ready";
+              const remoteBranches = Array.isArray(vault.remoteBranches)
+                ? vault.remoteBranches
+                : [];
+              const activeRemoteBranches = remoteBranches.filter(
+                (branch) => branch.remoteState === "active",
+              );
+              const defaultBranch = activeRemoteBranches.find(
+                (branch) => branch.isDefault,
+              )?.name;
+              const primaryBranch =
+                defaultBranch || activeRemoteBranches[0]?.name || "";
+              const chatRoute =
+                primaryBranch.length > 0
+                  ? buildVaultCodespaceChatRoute({
                       repositoryFullName: vault.repositoryFullName,
-                      isNoterManaged: vault.isNoterManaged,
-                      hasConvexProvision: vault.hasConvexProvision,
-                      hasHostingProvision: vault.hasHostingProvision,
-                    });
-                    setRemoveGithubRepo(vault.isNoterManaged);
-                    setRemoveCodespaces(true);
-                    setRemoveConvexProvision(
-                      vault.isNoterManaged && vault.hasConvexProvision,
-                    );
-                    setRemoveHostingProvision(
-                      vault.isNoterManaged && vault.hasHostingProvision,
-                    );
-                    setRemoveDaytonaResources(
-                      hasDaytonaResourcesForVault(vault),
-                    );
-                    setCommitError(null);
-                    setDeleteError(null);
-                    setDidAttemptCommit(false);
-                  }}
-                  className="absolute right-4 top-4 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      branch: primaryBranch,
+                    })
+                  : null;
+              const githubRepositoryUrl = `https://github.com/${vault.ghRepoOwner}/${vault.ghRepoName}`;
+              const developerToolsOpen =
+                openDeveloperToolsByVaultId[vault._id] ?? false;
+              const infraActionLabel = vault.isNoterManaged
+                ? getInfraActionLabel(vault.infraState)
+                : null;
+              const sharedLastSyncedAt = vault.lastTreeRefreshAt;
+              const isVaultSyncing =
+                typeof vault.treeRefreshStartedAt === "number" &&
+                now - vault.treeRefreshStartedAt < TREE_REFRESH_STALE_LOCK_MS;
+              return (
+                <div
+                  key={vault._id}
+                  className={clsx(
+                    "relative corner-notch-1 border p-4",
+                    !isReady && "bg-muted/30 opacity-75",
+                  )}
                 >
-                  <TrashIcon className="h-4 w-4" aria-hidden="true" />
-                </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Remove vault ${vault.repositoryFullName}`}
+                    onClick={() => {
+                      setVaultToDelete({
+                        id: vault._id,
+                        repositoryFullName: vault.repositoryFullName,
+                        isNoterManaged: vault.isNoterManaged,
+                        hasConvexProvision: vault.hasConvexProvision,
+                        hasHostingProvision: vault.hasHostingProvision,
+                      });
+                      setRemoveGithubRepo(vault.isNoterManaged);
+                      setRemoveCodespaces(true);
+                      setRemoveConvexProvision(
+                        vault.isNoterManaged && vault.hasConvexProvision,
+                      );
+                      setRemoveHostingProvision(
+                        vault.isNoterManaged && vault.hasHostingProvision,
+                      );
+                      setRemoveDaytonaResources(
+                        hasDaytonaResourcesForVault(vault),
+                      );
+                      setCommitError(null);
+                      setDeleteError(null);
+                      setDidAttemptCommit(false);
+                    }}
+                    className="absolute right-4 top-4 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <TrashIcon className="h-4 w-4" aria-hidden="true" />
+                  </Button>
 
-                <div className="space-y-3">
-                  <div className="flex flex-col items-start pr-10">
-                    <a
-                      href={githubRepositoryUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`flex min-w-0 flex-col items-start ${linkStyle}`}
-                      title={`Open ${vault.repositoryFullName} on GitHub`}
-                    >
-                      <span className="text-sm text-muted-foreground">
-                        {vault.ghRepoOwner}/
-                      </span>
-
-                      <h3 className="font-semibold">
-                        <span className="flex min-w-0 items-center gap-2">
-                          {!isReady && (
-                            <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
-                          )}
-                          <span className="min-w-0 truncate">
-                            {vault.ghRepoName}
-                          </span>
-                          {!isReady && (
-                            <span className="shrink-0 text-xs font-normal text-muted-foreground">
-                              (setting up...)
-                            </span>
-                          )}
-                        </span>
-                      </h3>
-                    </a>
-                    {isReady && (isVaultSyncing || sharedLastSyncedAt) ? (
-                      <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                        {isVaultSyncing ? (
-                          <>
-                            <UpdateIcon className="h-3 w-3 animate-spin" />
-                            <span>Syncing...</span>
-                          </>
-                        ) : typeof sharedLastSyncedAt === "number" ? (
-                          <VaultLastUpdatedStatus
-                            lastSyncedAt={sharedLastSyncedAt}
-                            now={now}
-                            repositoryFullName={vault.repositoryFullName}
-                          />
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {isReady && remoteBranches.length > 0 && (
-                    <div className="space-y-1.5">
-                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
-                        Branches
-                      </p>
-                      <VaultBranchList
-                        vaultId={vault._id}
-                        repositoryFullName={vault.repositoryFullName}
-                        remoteBranches={remoteBranches}
-                        activeDeletingBranchName={
-                          isDeletingBranch &&
-                          branchToDelete?.vaultId === vault._id
-                            ? branchToDelete.branchName
-                            : null
-                        }
-                        onDeleteBranch={(branchName) => {
-                          setBranchToDelete({
-                            vaultId: vault._id,
-                            repositoryFullName: vault.repositoryFullName,
-                            branchName,
-                          });
-                          setDeleteBranchError(null);
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {isReady && primaryBranch.length > 0 && (
-                    <DaytonaSnapshotBanner
-                      branch={primaryBranch}
-                      commitSha={vault.commitSHA}
-                      snapshotName={vault.daytonaCurrentSnapshotName}
-                      snapshotStatus={vault.daytonaCurrentSnapshotStatus}
-                      lastError={vault.daytonaCurrentSnapshotLastError}
-                    />
-                  )}
-
-                  {isReady && (
-                    <Collapsible
-                      className="space-y-1.5"
-                      open={developerToolsOpen}
-                      onOpenChange={(isOpen: boolean) => {
-                        setOpenDeveloperToolsByVaultId((prev) => ({
-                          ...prev,
-                          [vault._id]: isOpen,
-                        }));
-                      }}
-                    >
-                      <CollapsibleTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-auto gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180"
-                        >
-                          Developer tools
-                          <ChevronDownIcon className="h-3.5 w-3.5 transition-transform" />
-                        </Button>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent
-                        forceMount
-                        className="space-y-1.5 data-[state=closed]:hidden"
+                  <div className="space-y-3">
+                    <div className="flex flex-col items-start pr-10">
+                      <a
+                        href={githubRepositoryUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`flex min-w-0 flex-col items-start ${linkStyle}`}
+                        title={`Open ${vault.repositoryFullName} on GitHub`}
                       >
-                        <CodespaceStatus
+                        <span className="text-sm text-muted-foreground">
+                          {vault.ghRepoOwner}/
+                        </span>
+
+                        <h3 className="font-semibold">
+                          <span className="flex min-w-0 items-center gap-2">
+                            {!isReady && (
+                              <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+                            )}
+                            <span className="min-w-0 truncate">
+                              {vault.ghRepoName}
+                            </span>
+                            {!isReady && (
+                              <span className="shrink-0 text-xs font-normal text-muted-foreground">
+                                (setting up...)
+                              </span>
+                            )}
+                          </span>
+                        </h3>
+                      </a>
+                      {isReady && (isVaultSyncing || sharedLastSyncedAt) ? (
+                        <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                          {isVaultSyncing ? (
+                            <>
+                              <UpdateIcon className="h-3 w-3 animate-spin" />
+                              <span>Syncing...</span>
+                            </>
+                          ) : typeof sharedLastSyncedAt === "number" ? (
+                            <VaultLastUpdatedStatus
+                              lastSyncedAt={sharedLastSyncedAt}
+                              now={now}
+                              repositoryFullName={vault.repositoryFullName}
+                            />
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {isReady && remoteBranches.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+                          Branches
+                        </p>
+                        <VaultBranchList
                           vaultId={vault._id}
                           repositoryFullName={vault.repositoryFullName}
-                        />
-                        {primaryBranch.length > 0 && (
-                          <DaytonaWorkspaceButton
-                            vaultId={vault._id}
-                            branch={primaryBranch}
-                            sandboxId={vault.daytonaSandboxId}
-                            sandboxName={vault.daytonaSandboxName}
-                            commitSha={vault.commitSHA}
-                            snapshotStatus={vault.daytonaCurrentSnapshotStatus}
-                            snapshotName={vault.daytonaCurrentSnapshotName}
-                            snapshotError={
-                              vault.daytonaCurrentSnapshotLastError
-                            }
-                          />
-                        )}
-                        <DaytonaSnapshotList vaultId={vault._id} />
-                        {vault.isNoterManaged && (
-                          <div className="text-xs text-muted-foreground">
-                            Infra: {formatInfraState(vault.infraState)}
-                            {vault.infraProductionUrl && (
-                              <a
-                                href={vault.infraProductionUrl}
-                                target="_blank"
-                                rel="noreferrer noopener"
-                                className={`ml-2 font-mono break-all ${linkStyle}`}
-                              >
-                                {vault.infraProductionUrl}
-                              </a>
-                            )}
-                          </div>
-                        )}
-                      </CollapsibleContent>
-                    </Collapsible>
-                  )}
-
-                  {(infraActionLabel || (developerToolsOpen && chatRoute)) && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      {developerToolsOpen && chatRoute && (
-                        <Button asChild variant="outline" size="sm">
-                          <Link to={chatRoute}>Chat</Link>
-                        </Button>
-                      )}
-                      {infraActionLabel && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            void handleRetryInfrastructure(vault._id);
+                          remoteBranches={remoteBranches}
+                          activeDeletingBranchName={
+                            isDeletingBranch &&
+                            branchToDelete?.vaultId === vault._id
+                              ? branchToDelete.branchName
+                              : null
+                          }
+                          onDeleteBranch={(branchName) => {
+                            setBranchToDelete({
+                              vaultId: vault._id,
+                              repositoryFullName: vault.repositoryFullName,
+                              branchName,
+                            });
+                            setDeleteBranchError(null);
                           }}
-                          disabled={retryingVaultId === vault._id}
+                        />
+                      </div>
+                    )}
+
+                    {isReady && primaryBranch.length > 0 && (
+                      <DaytonaSnapshotBanner
+                        branch={primaryBranch}
+                        commitSha={vault.commitSHA}
+                        snapshotName={vault.daytonaCurrentSnapshotName}
+                        snapshotStatus={vault.daytonaCurrentSnapshotStatus}
+                        lastError={vault.daytonaCurrentSnapshotLastError}
+                      />
+                    )}
+
+                    {isReady && (
+                      <Collapsible
+                        className="space-y-1.5"
+                        open={developerToolsOpen}
+                        onOpenChange={(isOpen: boolean) => {
+                          setOpenDeveloperToolsByVaultId((prev) => ({
+                            ...prev,
+                            [vault._id]: isOpen,
+                          }));
+                        }}
+                      >
+                        <CollapsibleTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180"
+                          >
+                            Developer tools
+                            <ChevronDownIcon className="h-3.5 w-3.5 transition-transform" />
+                          </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent
+                          forceMount
+                          className="space-y-1.5 data-[state=closed]:hidden"
                         >
-                          {retryingVaultId === vault._id ? (
-                            <>
-                              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                              Retrying...
-                            </>
-                          ) : (
-                            infraActionLabel
+                          <CodespaceStatus
+                            vaultId={vault._id}
+                            repositoryFullName={vault.repositoryFullName}
+                          />
+                          {primaryBranch.length > 0 && (
+                            <DaytonaWorkspaceButton
+                              vaultId={vault._id}
+                              branch={primaryBranch}
+                              sandboxId={vault.daytonaSandboxId}
+                              sandboxName={vault.daytonaSandboxName}
+                              commitSha={vault.commitSHA}
+                              snapshotStatus={
+                                vault.daytonaCurrentSnapshotStatus
+                              }
+                              snapshotName={vault.daytonaCurrentSnapshotName}
+                              snapshotError={
+                                vault.daytonaCurrentSnapshotLastError
+                              }
+                            />
                           )}
-                        </Button>
-                      )}
+                          <DaytonaSnapshotList vaultId={vault._id} />
+                          {vault.isNoterManaged && (
+                            <div className="text-xs text-muted-foreground">
+                              Infra: {formatInfraState(vault.infraState)}
+                              {vault.infraProductionUrl && (
+                                <a
+                                  href={vault.infraProductionUrl}
+                                  target="_blank"
+                                  rel="noreferrer noopener"
+                                  className={`ml-2 font-mono break-all ${linkStyle}`}
+                                >
+                                  {vault.infraProductionUrl}
+                                </a>
+                              )}
+                            </div>
+                          )}
+                        </CollapsibleContent>
+                      </Collapsible>
+                    )}
+
+                    {(infraActionLabel ||
+                      (developerToolsOpen && chatRoute)) && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {developerToolsOpen && chatRoute && (
+                          <Button asChild variant="outline" size="sm">
+                            <Link to={chatRoute}>Chat</Link>
+                          </Button>
+                        )}
+                        {infraActionLabel && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              void handleRetryInfrastructure(vault._id);
+                            }}
+                            disabled={retryingVaultId === vault._id}
+                          >
+                            {retryingVaultId === vault._id ? (
+                              <>
+                                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                Retrying...
+                              </>
+                            ) : (
+                              infraActionLabel
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </DashboardWorkspaceFrame>
+
+      <Dialog
+        open={branchToDelete !== null}
+        onOpenChange={() => {
+          if (isDeletingBranch) return;
+          resetDeleteBranchDialogState();
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {branchToDelete
+                ? `Delete Branch ${branchToDelete.branchName}`
+                : "Delete Branch"}
+            </DialogTitle>
+            <DialogDescription>
+              {branchToDelete
+                ? `This will delete ${branchToDelete.branchName} from GitHub for ${branchToDelete.repositoryFullName}.`
+                : "This will delete the selected branch from GitHub."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Only branches with no staged files and no commits ahead of the
+              default branch can be deleted here.
+            </p>
+            {deleteBranchError ? (
+              <div className="text-sm text-red-600">{deleteBranchError}</div>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (isDeletingBranch) return;
+                resetDeleteBranchDialogState();
+              }}
+              disabled={isDeletingBranch}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                void handleRemoveBranch();
+              }}
+              disabled={isDeletingBranch}
+            >
+              {isDeletingBranch ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Branch"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Dialog */}
+      <Dialog
+        open={!!vaultToDelete}
+        onOpenChange={() => {
+          if (isDeleting || isCommitting) return;
+          resetDeleteDialogState();
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {vaultToDelete
+                ? `Remove Vault ${vaultToDelete.repositoryFullName}`
+                : "Remove Vault"}
+            </DialogTitle>
+            <DialogDescription>
+              {hasStagedChanges
+                ? `This vault has ${stagedChangesCount} uncommitted local change${stagedChangesCount === 1 ? "" : "s"}. You can commit ${stagedChangesCount === 1 ? "it" : "them"} now.`
+                : "All local changes are already backed up on GitHub."}
+            </DialogDescription>
+          </DialogHeader>
+          {vaultToDelete && (
+            <div className="space-y-2">
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="remove-github-repo"
+                  checked={removeGithubRepo}
+                  onCheckedChange={(checked) =>
+                    setRemoveGithubRepo(checked === true)
+                  }
+                  disabled={
+                    !vaultToDelete.isNoterManaged || isDeleting || isCommitting
+                  }
+                  className="mt-0.5"
+                />
+                <label
+                  htmlFor="remove-github-repo"
+                  className="text-sm text-muted-foreground"
+                >
+                  Also remove GitHub repository
+                  {!vaultToDelete.isNoterManaged && (
+                    <div className="text-xs text-muted-foreground">
+                      Only available for repositories created in Noter.
                     </div>
                   )}
-                </div>
+                </label>
               </div>
-            );
-          })}
-        </div>
-
-        <Dialog
-          open={branchToDelete !== null}
-          onOpenChange={() => {
-            if (isDeletingBranch) return;
-            resetDeleteBranchDialogState();
-          }}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {branchToDelete
-                  ? `Delete Branch ${branchToDelete.branchName}`
-                  : "Delete Branch"}
-              </DialogTitle>
-              <DialogDescription>
-                {branchToDelete
-                  ? `This will delete ${branchToDelete.branchName} from GitHub for ${branchToDelete.repositoryFullName}.`
-                  : "This will delete the selected branch from GitHub."}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Only branches with no staged files and no commits ahead of the
-                default branch can be deleted here.
-              </p>
-              {deleteBranchError ? (
-                <div className="text-sm text-red-600">{deleteBranchError}</div>
-              ) : null}
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (isDeletingBranch) return;
-                  resetDeleteBranchDialogState();
-                }}
-                disabled={isDeletingBranch}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  void handleRemoveBranch();
-                }}
-                disabled={isDeletingBranch}
-              >
-                {isDeletingBranch ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Deleting...
-                  </>
-                ) : (
-                  "Delete Branch"
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Confirmation Dialog */}
-        <Dialog
-          open={!!vaultToDelete}
-          onOpenChange={() => {
-            if (isDeleting || isCommitting) return;
-            resetDeleteDialogState();
-          }}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {vaultToDelete
-                  ? `Remove Vault ${vaultToDelete.repositoryFullName}`
-                  : "Remove Vault"}
-              </DialogTitle>
-              <DialogDescription>
-                {hasStagedChanges
-                  ? `This vault has ${stagedChangesCount} uncommitted local change${stagedChangesCount === 1 ? "" : "s"}. You can commit ${stagedChangesCount === 1 ? "it" : "them"} now.`
-                  : "All local changes are already backed up on GitHub."}
-              </DialogDescription>
-            </DialogHeader>
-            {vaultToDelete && (
-              <div className="space-y-2">
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="remove-codespaces"
+                  checked={
+                    connectedCodespacesCount === 0 ? true : removeCodespaces
+                  }
+                  onCheckedChange={(checked) =>
+                    setRemoveCodespaces(checked === true)
+                  }
+                  disabled={
+                    connectedCodespacesCount === 0 || isDeleting || isCommitting
+                  }
+                  className="mt-0.5"
+                />
+                <label
+                  htmlFor="remove-codespaces"
+                  className="text-sm text-muted-foreground"
+                >
+                  Also remove all Codespaces
+                  {connectedCodespacesCount === undefined
+                    ? null
+                    : ` (${connectedCodespacesCount} connected)`}
+                </label>
+              </div>
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="remove-daytona-resources"
+                  checked={removeDaytonaResources}
+                  onCheckedChange={(checked) =>
+                    setRemoveDaytonaResources(checked === true)
+                  }
+                  disabled={isDeleting || isCommitting}
+                  className="mt-0.5"
+                />
+                <label
+                  htmlFor="remove-daytona-resources"
+                  className="text-sm text-muted-foreground"
+                >
+                  Also remove Daytona sandboxes and snapshots
+                  {!hasDaytonaResources && (
+                    <div className="text-xs text-muted-foreground">
+                      We will try to remove any Daytona resources tied to this
+                      vault.
+                    </div>
+                  )}
+                </label>
+              </div>
+              {vaultToDelete.hasConvexProvision && (
                 <div className="flex items-start gap-2">
                   <Checkbox
-                    id="remove-github-repo"
-                    checked={removeGithubRepo}
+                    id="remove-convex-provision"
+                    checked={removeConvexProvision}
                     onCheckedChange={(checked) =>
-                      setRemoveGithubRepo(checked === true)
+                      setRemoveConvexProvision(checked === true)
                     }
                     disabled={
                       !vaultToDelete.isNoterManaged ||
@@ -2044,188 +2156,109 @@ export function VaultDashboard() {
                     className="mt-0.5"
                   />
                   <label
-                    htmlFor="remove-github-repo"
+                    htmlFor="remove-convex-provision"
                     className="text-sm text-muted-foreground"
                   >
-                    Also remove GitHub repository
+                    Also remove Convex project/deployment
                     {!vaultToDelete.isNoterManaged && (
                       <div className="text-xs text-muted-foreground">
-                        Only available for repositories created in Noter.
+                        Only available for infrastructure provisioned by Noter.
                       </div>
                     )}
                   </label>
                 </div>
+              )}
+              {vaultToDelete.hasHostingProvision && (
                 <div className="flex items-start gap-2">
                   <Checkbox
-                    id="remove-codespaces"
-                    checked={
-                      connectedCodespacesCount === 0 ? true : removeCodespaces
-                    }
+                    id={removeHostingCheckboxId}
+                    checked={removeHostingProvision}
                     onCheckedChange={(checked) =>
-                      setRemoveCodespaces(checked === true)
+                      setRemoveHostingProvision(checked === true)
                     }
                     disabled={
-                      connectedCodespacesCount === 0 ||
+                      !vaultToDelete.isNoterManaged ||
                       isDeleting ||
                       isCommitting
                     }
                     className="mt-0.5"
                   />
                   <label
-                    htmlFor="remove-codespaces"
+                    htmlFor={removeHostingCheckboxId}
                     className="text-sm text-muted-foreground"
                   >
-                    Also remove all Codespaces
-                    {connectedCodespacesCount === undefined
-                      ? null
-                      : ` (${connectedCodespacesCount} connected)`}
-                  </label>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Checkbox
-                    id="remove-daytona-resources"
-                    checked={removeDaytonaResources}
-                    onCheckedChange={(checked) =>
-                      setRemoveDaytonaResources(checked === true)
-                    }
-                    disabled={isDeleting || isCommitting}
-                    className="mt-0.5"
-                  />
-                  <label
-                    htmlFor="remove-daytona-resources"
-                    className="text-sm text-muted-foreground"
-                  >
-                    Also remove Daytona sandboxes and snapshots
-                    {!hasDaytonaResources && (
+                    {removeHostingLabel}
+                    {!vaultToDelete.isNoterManaged && (
                       <div className="text-xs text-muted-foreground">
-                        We will try to remove any Daytona resources tied to this
-                        vault.
+                        Only available for infrastructure provisioned by Noter.
                       </div>
                     )}
                   </label>
                 </div>
-                {vaultToDelete.hasConvexProvision && (
-                  <div className="flex items-start gap-2">
-                    <Checkbox
-                      id="remove-convex-provision"
-                      checked={removeConvexProvision}
-                      onCheckedChange={(checked) =>
-                        setRemoveConvexProvision(checked === true)
-                      }
-                      disabled={
-                        !vaultToDelete.isNoterManaged ||
-                        isDeleting ||
-                        isCommitting
-                      }
-                      className="mt-0.5"
-                    />
-                    <label
-                      htmlFor="remove-convex-provision"
-                      className="text-sm text-muted-foreground"
-                    >
-                      Also remove Convex project/deployment
-                      {!vaultToDelete.isNoterManaged && (
-                        <div className="text-xs text-muted-foreground">
-                          Only available for infrastructure provisioned by
-                          Noter.
-                        </div>
-                      )}
-                    </label>
-                  </div>
-                )}
-                {vaultToDelete.hasHostingProvision && (
-                  <div className="flex items-start gap-2">
-                    <Checkbox
-                      id={removeHostingCheckboxId}
-                      checked={removeHostingProvision}
-                      onCheckedChange={(checked) =>
-                        setRemoveHostingProvision(checked === true)
-                      }
-                      disabled={
-                        !vaultToDelete.isNoterManaged ||
-                        isDeleting ||
-                        isCommitting
-                      }
-                      className="mt-0.5"
-                    />
-                    <label
-                      htmlFor={removeHostingCheckboxId}
-                      className="text-sm text-muted-foreground"
-                    >
-                      {removeHostingLabel}
-                      {!vaultToDelete.isNoterManaged && (
-                        <div className="text-xs text-muted-foreground">
-                          Only available for infrastructure provisioned by
-                          Noter.
-                        </div>
-                      )}
-                    </label>
-                  </div>
-                )}
-                {deleteError && (
-                  <div className="text-sm text-red-600">{deleteError}</div>
-                )}
-                {commitError && (
-                  <div className="text-sm text-red-600">{commitError}</div>
-                )}
-                {didAttemptCommit && hasStagedChanges && (
-                  <div className="text-sm text-muted-foreground">
-                    Some local changes are still uncommitted. You can retry
-                    commit or remove anyway.
-                  </div>
-                )}
-              </div>
-            )}
-            <DialogFooter>
+              )}
+              {deleteError && (
+                <div className="text-sm text-red-600">{deleteError}</div>
+              )}
+              {commitError && (
+                <div className="text-sm text-red-600">{commitError}</div>
+              )}
+              {didAttemptCommit && hasStagedChanges && (
+                <div className="text-sm text-muted-foreground">
+                  Some local changes are still uncommitted. You can retry commit
+                  or remove anyway.
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (isDeleting || isCommitting) return;
+                resetDeleteDialogState();
+              }}
+              disabled={isDeleting || isCommitting}
+            >
+              Cancel
+            </Button>
+            {vaultToDelete && hasStagedChanges && (
               <Button
                 variant="outline"
                 onClick={() => {
-                  if (isDeleting || isCommitting) return;
-                  resetDeleteDialogState();
+                  void handleCommitBeforeRemove();
                 }}
                 disabled={isDeleting || isCommitting}
               >
-                Cancel
-              </Button>
-              {vaultToDelete && hasStagedChanges && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    void handleCommitBeforeRemove();
-                  }}
-                  disabled={isDeleting || isCommitting}
-                >
-                  {isCommitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Committing...
-                    </>
-                  ) : (
-                    "Commit changes"
-                  )}
-                </Button>
-              )}
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  void handleRemoveVault();
-                }}
-                disabled={isDeleting || isCommitting}
-              >
-                {isDeleting ? (
+                {isCommitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Removing...
+                    Committing...
                   </>
                 ) : (
-                  "Remove Vault"
+                  "Commit changes"
                 )}
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        {apiKeyDialog}
-      </div>
+            )}
+            <Button
+              variant="destructive"
+              onClick={() => {
+                void handleRemoveVault();
+              }}
+              disabled={isDeleting || isCommitting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                "Remove Vault"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {apiKeyDialog}
     </div>
   );
 }

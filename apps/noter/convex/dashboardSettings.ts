@@ -11,6 +11,8 @@ const DEFAULT_PRICING_BILLING_CYCLE: BillingCycle = "monthly";
 
 const dashboardSettingsValidator = object({
   providersPanelOpen: boolean(),
+  accountPanelOpen: boolean(),
+  newProjectPanelOpen: boolean(),
   pricingBillingCycle: billingCycleValidator,
 });
 
@@ -22,6 +24,16 @@ const setProvidersPanelOpenArgs = object({
 });
 const setProvidersPanelOpenReturns = vNull();
 
+const setAccountPanelOpenArgs = object({
+  isOpen: boolean(),
+});
+const setAccountPanelOpenReturns = vNull();
+
+const setNewProjectPanelOpenArgs = object({
+  isOpen: boolean(),
+});
+const setNewProjectPanelOpenReturns = vNull();
+
 const setPricingBillingCycleArgs = object({
   billingCycle: billingCycleValidator,
 });
@@ -29,6 +41,8 @@ const setPricingBillingCycleReturns = vNull();
 
 type GetDashboardSettingsArgs = Infer<typeof getDashboardSettingsArgs>;
 type SetProvidersPanelOpenArgs = Infer<typeof setProvidersPanelOpenArgs>;
+type SetAccountPanelOpenArgs = Infer<typeof setAccountPanelOpenArgs>;
+type SetNewProjectPanelOpenArgs = Infer<typeof setNewProjectPanelOpenArgs>;
 type SetPricingBillingCycleArgs = Infer<typeof setPricingBillingCycleArgs>;
 type DashboardSettings = Infer<typeof dashboardSettingsValidator>;
 
@@ -43,6 +57,8 @@ export const getDashboardSettings = query({
     if (!userId) {
       return {
         providersPanelOpen: false,
+        accountPanelOpen: false,
+        newProjectPanelOpen: false,
         pricingBillingCycle: DEFAULT_PRICING_BILLING_CYCLE,
       };
     }
@@ -60,6 +76,8 @@ export const getDashboardSettings = query({
 
     return {
       providersPanelOpen: existing?.providersPanelOpen ?? false,
+      accountPanelOpen: existing?.accountPanelOpen ?? false,
+      newProjectPanelOpen: existing?.newProjectPanelOpen ?? false,
       pricingBillingCycle,
     };
   },
@@ -87,6 +105,70 @@ export const setProvidersPanelOpen = mutation({
       await ctx.db.insert("dashboardSettings", {
         userId,
         providersPanelOpen: args.isOpen,
+        accountPanelOpen: false,
+        newProjectPanelOpen: false,
+      });
+    }
+
+    return null;
+  },
+});
+
+export const setAccountPanelOpen = mutation({
+  args: setAccountPanelOpenArgs,
+  returns: setAccountPanelOpenReturns,
+  handler: async (ctx, args: SetAccountPanelOpenArgs) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const existing = await ctx.db
+      .query("dashboardSettings")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        accountPanelOpen: args.isOpen,
+      });
+    } else {
+      await ctx.db.insert("dashboardSettings", {
+        userId,
+        providersPanelOpen: false,
+        accountPanelOpen: args.isOpen,
+        newProjectPanelOpen: false,
+      });
+    }
+
+    return null;
+  },
+});
+
+export const setNewProjectPanelOpen = mutation({
+  args: setNewProjectPanelOpenArgs,
+  returns: setNewProjectPanelOpenReturns,
+  handler: async (ctx, args: SetNewProjectPanelOpenArgs) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const existing = await ctx.db
+      .query("dashboardSettings")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        newProjectPanelOpen: args.isOpen,
+      });
+    } else {
+      await ctx.db.insert("dashboardSettings", {
+        userId,
+        providersPanelOpen: false,
+        accountPanelOpen: false,
+        newProjectPanelOpen: args.isOpen,
       });
     }
 
@@ -116,6 +198,8 @@ export const setPricingBillingCycle = mutation({
       await ctx.db.insert("dashboardSettings", {
         userId,
         providersPanelOpen: false,
+        accountPanelOpen: false,
+        newProjectPanelOpen: false,
         pricingBillingCycle: args.billingCycle,
       });
     }

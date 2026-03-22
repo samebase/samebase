@@ -318,6 +318,8 @@ export default defineSchema({
   dashboardSettings: defineTable({
     userId: v.id("users"),
     providersPanelOpen: v.boolean(),
+    accountPanelOpen: v.optional(v.boolean()),
+    newProjectPanelOpen: v.optional(v.boolean()),
     pricingBillingCycle: PricingBillingCycle,
   }).index("by_user", ["userId"]),
 

@@ -12,6 +12,10 @@ apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-unchanged.pn
 apps/noter/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-raw.png
 apps/noter/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-zoomed.png
 apps/noter/e2e/corner-notch-visual.spec.ts-snapshots/corner-notch.png
+apps/noter/e2e/dashboard-visual.spec.ts-snapshots/dashboard-sidebar-collapsed.png
+apps/noter/e2e/dashboard-visual.spec.ts-snapshots/dashboard-sidebar-expanded.png
+apps/noter/e2e/dashboard-visual.spec.ts-snapshots/dashboard-sidebar-new-project-open.png
+apps/noter/e2e/dashboard-visual.spec.ts-snapshots/dashboard-sidebar-providers-open.png
 apps/noter/e2e/logo-snap-angles-visual.spec.ts-snapshots/logo-snap-angle-matrix.png
 apps/noter/e2e/logo-three-visual.spec.ts-snapshots/logo-three-diff.png
 apps/noter/e2e/logo-three-visual.spec.ts-snapshots/logo-three-reference.png

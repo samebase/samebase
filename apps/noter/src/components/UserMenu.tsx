@@ -33,9 +33,11 @@ function formatProviderLabel(provider: string | undefined): string {
 export function UserMenu({
   children,
   className,
+  triggerVariant = "icon",
 }: {
   children: ReactNode;
   className?: string;
+  triggerVariant?: "icon" | "inline";
 }) {
   const [accountOpen, setAccountOpen] = useState(false);
   const viewer = useQuery(api.users.viewer);
@@ -46,12 +48,36 @@ export function UserMenu({
     return formatProviderLabel(provider);
   }, [authProviders?.primaryProvider, authProviders?.providers]);
   const emailLabel = viewer?.email ?? "Unknown";
+  const trigger =
+    triggerVariant === "inline" ? (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-auto w-full justify-between px-0 text-sm font-medium hover:bg-transparent"
+      >
+        <span className="truncate">{children}</span>
+        <span className="inline-flex h-8 w-8 items-center justify-center rounded-ui border border-border/60 bg-muted">
+          <PersonIcon className="h-4 w-4" />
+        </span>
+        <span className="sr-only">Toggle user menu</span>
+      </Button>
+    ) : (
+      <Button variant="secondary" size="icon" className="rounded-ui">
+        <PersonIcon className="h-5 w-5" />
+        <span className="sr-only">Toggle user menu</span>
+      </Button>
+    );
 
   return (
     <div
-      className={clsx("flex items-center gap-2 text-sm font-medium", className)}
+      className={clsx(
+        triggerVariant === "inline"
+          ? "w-full"
+          : "flex items-center gap-2 text-sm font-medium",
+        className,
+      )}
     >
-      {children}
+      {triggerVariant === "icon" ? children : null}
       <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
         <DialogContent>
           <DialogHeader>
@@ -73,12 +99,7 @@ export function UserMenu({
         </DialogContent>
       </Dialog>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="secondary" size="icon" className="rounded-ui">
-            <PersonIcon className="h-5 w-5" />
-            <span className="sr-only">Toggle user menu</span>
-          </Button>
-        </DropdownMenuTrigger>
+        <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>{children}</DropdownMenuLabel>
           <DropdownMenuSeparator />
