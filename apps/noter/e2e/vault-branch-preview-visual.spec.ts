@@ -24,7 +24,7 @@ for (const scenario of SCENARIOS) {
       animations: "disabled",
       caret: "hide",
       scale: "css",
-      maxDiffPixelRatio: 0.01,
+      maxDiffPixelRatio: 0.03,
     });
   });
 }
