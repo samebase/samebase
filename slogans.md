@@ -1,19 +1,19 @@
-- noter is a collaborative markdown workspace on top of GitHub
-- noter: the senior stack for junior devs
-- noter: if Notion and Obsidian had a baby
-- noter: if Lovable could build Lovable
-- noter disregards Gödel’s incompleteness theorems
-- noter is the tech stack for AI Agents
-- noter: ship a convex app in 3.4 seconds
-- noter: build MCP servers for ChatGPT
-- noter: orchestrate multiple agents from anywhere via MCP
-- noter: monitor & edit your apps when you're on the go
-- noter lets you focus on your business instead of your tech stack
-- noter makes the change easy, so you can make the easy change
-- noter is a dev environment for your codex agent
-- noter can disappear tomorrow and your app will be completely unimpacted
-- noter is web first so that any agent can use it
-- noter: add ai agent to your existing apps
-- noter is data for your ai
-- noter: a simpler way to use github
-- noter: spin up openclaw in 3.4 seconds 
+- is a collaborative markdown workspace on top of GitHub
+- the senior stack for junior devs
+- if Notion and Obsidian had a baby
+- if Lovable could build Lovable
+- disregards Gödel's incompleteness theorems
+   the tech stack for AI Agents
+- ship a convex app in 3.4 seconds
+- build MCP servers for ChatGPT
+- orchestrate multiple agents from anywhere via MCP
+- monitor & edit your apps when you're on the go
+- lets you focus on your business instead of your tech stack
+- makes the change easy, so you can make the easy change
+- is a dev environment for your codex agent
+- can disappear tomorrow and your app will be completely unimpacted
+- is web first so that any agent can use it
+- add ai agent to your existing apps
+- is data for your ai
+- a simpler way to use github
+- spin up openclaw in 3.4 seconds 
