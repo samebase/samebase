@@ -41,10 +41,11 @@ export function VaultBranchPreviewVisualFixture({
   return (
     <div
       data-testid="vault-branch-preview-visual-fixture"
-      className="min-h-screen bg-background p-8 text-foreground"
+      data-mode={mode}
+      className="inline-flex bg-background p-3 text-foreground"
     >
       <MemoryRouter>
-        <div className="mx-auto max-w-3xl overflow-hidden corner-notch-1 border border-border/60 bg-muted/20">
+        <div className="w-[560px] overflow-hidden corner-notch-1 border border-border bg-background">
           <VaultBranchLinkRow
             repositoryFullName="noter-md/noter"
             branchName="codex-preserve-logo-transfor"
