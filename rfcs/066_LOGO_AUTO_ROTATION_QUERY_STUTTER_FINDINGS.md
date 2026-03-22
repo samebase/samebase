@@ -4,15 +4,15 @@
 
 - Status: Investigating
 - Owner: Noter frontend/logo preview
-- Last updated: 2026-03-21
+- Last updated: 2026-03-22
 
 ## Summary
 
-On `/logo`, enabling the `Auto` button currently rewrites the URL query string
-on nearly every animation frame. In snapped view mode, that URL sync feeds back
-into snapped state rehydration, so the page alternates between an unsnapped
-transient rotation and the snapped query-param value. The result is visible
-stutter and heavy same-document navigation churn.
+On [`/logo`](/logo), enabling the `Auto` button currently rewrites the URL query
+string on nearly every animation frame. In snapped view mode, that URL sync
+feeds back into snapped state rehydration, so the page alternates between an
+unsnapped transient rotation and the snapped query-param value. The result is
+visible stutter and heavy same-document navigation churn.
 
 ## Scope
 
@@ -21,19 +21,19 @@ the final product fix yet.
 
 ## Reproduction
 
-1. Open `/logo`
+1. Open [`/logo`](/logo)
 2. Click `Auto`
 3. Watch the URL and logo movement while the default snapped view is enabled
 
 Control case:
 
-1. Open `/logo?freeView`
+1. Open [`/logo?freeView`](/logo?freeView)
 2. Click `Auto`
 3. Compare URL behavior and motion against snapped mode
 
 ## Measured Behavior
 
-### Default `/logo`
+### Default [`/logo`](/logo)
 
 - In a 300ms Playwright sample after clicking `Auto`, `history.replaceState` ran
   72 times
@@ -42,7 +42,7 @@ Control case:
   - `...?vox=...&rot=45.x`
 - The scene stayed pinned at the snapped pose instead of progressing smoothly
 
-### `/logo?freeView`
+### [`/logo?freeView`](/logo?freeView)
 
 - In the same 300ms sample, `history.replaceState` ran 36 times
 - The URL still changed continuously, but `rot` advanced normally instead of
