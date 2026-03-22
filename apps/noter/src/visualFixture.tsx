@@ -32,16 +32,23 @@ import {
   LogoSnapAnglesVisualFixture,
   type LogoSnapAnglesVisualMode,
 } from "@/components/LogoSnapAnglesVisualFixture";
+import {
+  FileViewPushActionsVisualFixture,
+  type FileViewPushActionsVisualMode,
+} from "@/components/FileViewPushActionsVisualFixture";
+import { VaultDashboardBranchVisualFixture } from "@/components/VaultDashboardBranchVisualFixture";
 import "./index.css";
 
 type VisualFixtureMode =
   | CommitReviewVisualMode
+  | FileViewPushActionsVisualMode
   | LandingCopyVisualMode
   | LogoSnapAnglesVisualMode
   | LogoThreeVisualMode
   | RepositoryMediaVisualMode
   | SimpleViewVisualMode
   | VaultDashboardVisualMode
+  | "vault-dashboard-branch-pr-title"
   | "corner-notch"
   | "corner-notch-detail";
 
@@ -64,6 +71,9 @@ function readMode(): VisualFixtureMode {
     value === "simple-repository-config" ||
     value === "simple-missing-config" ||
     value === "vault-branch-pr-labels" ||
+    value === "file-view-push-ready" ||
+    value === "file-view-open-pr" ||
+    value === "vault-dashboard-branch-pr-title" ||
     value === "corner-notch" ||
     value === "logo-snap-angles" ||
     value === "corner-notch-detail"
@@ -95,6 +105,10 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <SimpleViewVisualFixture mode={mode} />
         ) : mode === "vault-branch-pr-labels" ? (
           <VaultDashboardVisualFixture mode={mode} />
+        ) : mode === "file-view-push-ready" || mode === "file-view-open-pr" ? (
+          <FileViewPushActionsVisualFixture mode={mode} />
+        ) : mode === "vault-dashboard-branch-pr-title" ? (
+          <VaultDashboardBranchVisualFixture />
         ) : mode === "corner-notch" ? (
           <CornerNotchVisualFixture />
         ) : mode === "corner-notch-detail" ? (

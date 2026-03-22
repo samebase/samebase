@@ -649,6 +649,7 @@ const getUserVaultsResult = array(
         pullRequestUrl: optional(string()),
         pullRequestNumber: optional(number()),
         pullRequestLabels: optional(array(PullRequestLabel)),
+        pullRequestTitle: optional(string()),
         isDefault: boolean(),
         isProtected: boolean(),
         remoteState: union(literal("active"), literal("deleted_upstream")),
@@ -766,6 +767,7 @@ export const getUserVaults = query({
               pullRequestUrl: branch.pullRequestUrl,
               pullRequestNumber: branch.pullRequestNumber,
               pullRequestLabels: branch.pullRequestLabels,
+              pullRequestTitle: branch.pullRequestTitle,
               isDefault: branch.isDefault,
               isProtected: branch.isProtected,
               remoteState: branch.remoteState,
@@ -821,6 +823,7 @@ export const getVaultRemoteBranches = query({
       pullRequestUrl: optional(string()),
       pullRequestNumber: optional(number()),
       pullRequestLabels: optional(array(PullRequestLabel)),
+      pullRequestTitle: optional(string()),
       isDefault: boolean(),
       isProtected: boolean(),
       remoteState: union(literal("active"), literal("deleted_upstream")),
@@ -849,6 +852,7 @@ export const getVaultRemoteBranches = query({
       pullRequestUrl: branch.pullRequestUrl,
       pullRequestNumber: branch.pullRequestNumber,
       pullRequestLabels: branch.pullRequestLabels,
+      pullRequestTitle: branch.pullRequestTitle,
       isDefault: branch.isDefault,
       isProtected: branch.isProtected,
       remoteState: branch.remoteState,
@@ -923,6 +927,7 @@ export const syncVaultRemoteBranches = internalMutation({
         pullRequestUrl: optional(string()),
         pullRequestNumber: optional(number()),
         pullRequestLabels: optional(array(PullRequestLabel)),
+        pullRequestTitle: optional(string()),
         pullRequestState: union(literal("resolved"), literal("preserve")),
         isDefault: boolean(),
         isProtected: boolean(),
@@ -963,6 +968,7 @@ export const syncVaultRemoteBranches = internalMutation({
           pullRequestUrl?: string;
           pullRequestNumber?: number;
           pullRequestLabels?: PullRequestLabel[];
+          pullRequestTitle?: string;
           isDefault: boolean;
           isProtected: boolean;
           remoteState: "active";
@@ -991,6 +997,7 @@ export const syncVaultRemoteBranches = internalMutation({
           patchData.pullRequestUrl = branch.pullRequestUrl;
           patchData.pullRequestNumber = branch.pullRequestNumber;
           patchData.pullRequestLabels = branch.pullRequestLabels;
+          patchData.pullRequestTitle = branch.pullRequestTitle;
         }
         await ctx.db.patch(existingBranch._id, patchData);
         continue;
@@ -1006,6 +1013,7 @@ export const syncVaultRemoteBranches = internalMutation({
         pullRequestUrl?: string;
         pullRequestNumber?: number;
         pullRequestLabels?: PullRequestLabel[];
+        pullRequestTitle?: string;
         isDefault: boolean;
         isProtected: boolean;
         remoteState: "active";
@@ -1035,6 +1043,9 @@ export const syncVaultRemoteBranches = internalMutation({
         }
         if (Array.isArray(branch.pullRequestLabels)) {
           insertData.pullRequestLabels = branch.pullRequestLabels;
+        }
+        if (typeof branch.pullRequestTitle === "string") {
+          insertData.pullRequestTitle = branch.pullRequestTitle;
         }
       }
       await ctx.db.insert("vaultRemoteBranches", insertData);

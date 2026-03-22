@@ -12,6 +12,8 @@ apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-unchanged.pn
 apps/noter/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-raw.png
 apps/noter/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-zoomed.png
 apps/noter/e2e/corner-notch-visual.spec.ts-snapshots/corner-notch.png
+apps/noter/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-open-pr.png
+apps/noter/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-push-ready.png
 apps/noter/e2e/logo-snap-angles-visual.spec.ts-snapshots/logo-snap-angle-matrix.png
 apps/noter/e2e/logo-three-visual.spec.ts-snapshots/logo-three-diff.png
 apps/noter/e2e/logo-three-visual.spec.ts-snapshots/logo-three-reference.png
@@ -20,6 +22,7 @@ apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-svg.pn
 apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-missing-config.png
 apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-repository-config.png
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-pr-labels.png
+apps/noter/e2e/vault-dashboard-branch-visual.spec.ts-snapshots/vault-dashboard-branch-pr-title.png
 apps/noter/fixtures/daytona-convex-proxy.env
 apps/noter/public/favicon-32.png
 apps/noter/public/favicon.png

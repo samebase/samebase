@@ -1,0 +1,45 @@
+import { MemoryRouter } from "react-router-dom";
+import { VaultBranchLinkContent } from "@/components/VaultDashboard";
+
+export function VaultDashboardBranchVisualFixture() {
+  return (
+    <div
+      data-testid="vault-dashboard-branch-visual-fixture"
+      className="min-h-screen bg-stone-100 p-10 text-stone-950"
+    >
+      <div className="mx-auto max-w-4xl">
+        <div className="mb-6">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Vault Dashboard Branch Row
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-stone-600">
+            Visual fixture for the dashboard branch hierarchy when an open pull
+            request exists.
+          </p>
+        </div>
+
+        <div className="overflow-hidden corner-notch-1 border border-border/60 bg-muted/20">
+          <div className="flex items-start gap-3 border-b border-border/40 px-3 py-2.5">
+            <MemoryRouter>
+              <VaultBranchLinkContent
+                repositoryFullName="noter-md/noter"
+                branchName="codex/draft-pr-button"
+                headCommitSha="5bb80a8c1c1f0f6a9d78c7f9b8451f0dd9a3c123"
+                isDefault={false}
+                isDeletedUpstream={false}
+                aheadBy={3}
+                behindBy={0}
+                pullRequestUrl="https://github.com/noter-md/noter/pull/999"
+                pullRequestNumber={999}
+                pullRequestTitle="Show PR titles above lighter branch labels"
+              />
+            </MemoryRouter>
+            <span className="w-4 pt-1 text-right font-mono text-[11px] tabular-nums text-muted-foreground/70">
+              0
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

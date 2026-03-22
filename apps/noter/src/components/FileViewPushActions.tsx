@@ -1,0 +1,68 @@
+import { Button } from "@/components/button";
+import { PullRequestLink } from "@/components/PullRequestLink";
+import { cn } from "@/lib/utils";
+
+type FileViewPushActionsProps = {
+  canOpenOrCreateDraftPullRequest: boolean;
+  currentPullRequestNumber?: number;
+  currentPullRequestUrl?: string;
+  hasChangesToCommit: boolean;
+  isCreatingDraftPullRequest: boolean;
+  isPushing: boolean;
+  onDraftPullRequest: () => void;
+  onManualCommit: () => void;
+};
+
+export function FileViewPushActions({
+  canOpenOrCreateDraftPullRequest,
+  currentPullRequestNumber,
+  currentPullRequestUrl,
+  hasChangesToCommit,
+  isCreatingDraftPullRequest,
+  isPushing,
+  onDraftPullRequest,
+  onManualCommit,
+}: FileViewPushActionsProps) {
+  return (
+    <>
+      {currentPullRequestUrl ? (
+        <PullRequestLink
+          pullRequestNumber={currentPullRequestNumber}
+          pullRequestUrl={currentPullRequestUrl}
+          className="text-xs"
+        />
+      ) : (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onDraftPullRequest}
+          disabled={
+            isPushing ||
+            isCreatingDraftPullRequest ||
+            !canOpenOrCreateDraftPullRequest
+          }
+          className={cn(
+            "h-6 px-2 text-xs border-sky-500 text-sky-700 hover:bg-sky-50",
+            !canOpenOrCreateDraftPullRequest &&
+              "text-sky-600/70 hover:bg-transparent",
+          )}
+        >
+          {isCreatingDraftPullRequest ? "Creating..." : "draft"}
+        </Button>
+      )}
+      <Button
+        size="sm"
+        variant={hasChangesToCommit ? "default" : "outline"}
+        onClick={onManualCommit}
+        disabled={isPushing || !hasChangesToCommit}
+        className={
+          hasChangesToCommit
+            ? "h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
+            : "h-6 px-2 text-xs border-green-500 text-green-600 hover:bg-green-50"
+        }
+      >
+        {isPushing ? "Pushing..." : hasChangesToCommit ? "push" : "All Synced"}
+      </Button>
+    </>
+  );
+}

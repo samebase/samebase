@@ -73,6 +73,7 @@ import { CodespaceStatus } from "@/components/CodespaceStatus";
 import { DaytonaSnapshotBanner } from "@/components/DaytonaSnapshotBanner";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
 import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
+import { PullRequestLink } from "@/components/PullRequestLink";
 import { CodexProviderRow } from "@/components/CodexProviderRow";
 import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";
 import { PublicLandingLogo } from "@/components/PublicLandingLogo";
@@ -358,6 +359,7 @@ interface VaultRemoteBranchListItem {
   pullRequestUrl?: string;
   pullRequestNumber?: number;
   pullRequestLabels?: Array<string | { name: string; color?: string }>;
+  pullRequestTitle?: string;
 }
 
 interface VaultBranchLinkRowProps {
@@ -372,6 +374,7 @@ interface VaultBranchLinkRowProps {
   pullRequestUrl?: string;
   pullRequestNumber?: number;
   pullRequestLabels?: Array<string | { name: string; color?: string }>;
+  pullRequestTitle?: string;
   stagedSummary?: StagedSummary;
   canDeleteBranch: boolean;
   isDeletingBranch: boolean;
@@ -481,8 +484,7 @@ function buildPullRequestLabelStyle(
   };
 }
 
-export function VaultBranchLinkRow({
-  vaultId,
+export function VaultBranchLinkContent({
   repositoryFullName,
   branchName,
   headCommitSha,
@@ -493,23 +495,31 @@ export function VaultBranchLinkRow({
   pullRequestUrl,
   pullRequestNumber,
   pullRequestLabels,
-  stagedSummary,
-  canDeleteBranch,
-  isDeletingBranch,
-  onDeleteBranch,
-}: VaultBranchLinkRowProps) {
-  const hasStagedChanges = (stagedSummary?.total ?? 0) > 0;
+  pullRequestTitle,
+}: {
+  repositoryFullName: string;
+  branchName: string;
+  headCommitSha: string;
+  isDefault: boolean;
+  isDeletedUpstream: boolean;
+  aheadBy?: number;
+  behindBy?: number;
+  pullRequestUrl?: string;
+  pullRequestNumber?: number;
+  pullRequestLabels?: VaultBranchLinkRowProps["pullRequestLabels"];
+  pullRequestTitle?: string;
+}) {
   const commitUrl = `https://github.com/${repositoryFullName}/commit/${headCommitSha}`;
   const aheadBehindLabel = formatAheadBehindCounts(aheadBy, behindBy);
-  const pullRequestLabel =
-    typeof pullRequestNumber === "number" ? `#${pullRequestNumber}` : "PR";
   const normalizedPullRequestLabels =
     normalizePullRequestLabels(pullRequestLabels);
   const branchPath = encodeURIComponent(branchName);
   const branchRoute = `/vault/${repositoryFullName}/${branchPath}`;
+  const hasPullRequestTitle =
+    typeof pullRequestTitle === "string" && pullRequestTitle.length > 0;
 
   return (
-    <div className="flex items-start gap-3 border-b border-border/40 px-3 py-2.5 last:border-b-0">
+    <>
       {isDeletedUpstream ? (
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground/70 line-through">
@@ -521,11 +531,21 @@ export function VaultBranchLinkRow({
         </div>
       ) : (
         <div className="min-w-0 flex-1 space-y-1">
+          {hasPullRequestTitle ? (
+            <div className="truncate text-sm font-medium text-foreground">
+              {pullRequestTitle}
+            </div>
+          ) : null}
           <Link
             to={branchRoute}
             className={clsx(
-              "block truncate text-sm text-muted-foreground underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current",
-              isDefault && "font-medium text-foreground",
+              "block truncate underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current",
+              hasPullRequestTitle
+                ? "font-mono text-[11px] text-muted-foreground/70"
+                : "text-sm text-muted-foreground",
+              !hasPullRequestTitle &&
+                isDefault &&
+                "font-medium text-foreground",
             )}
           >
             {branchName}
@@ -543,15 +563,10 @@ export function VaultBranchLinkRow({
             {typeof pullRequestUrl === "string" && pullRequestUrl.length > 0 ? (
               <>
                 <span aria-hidden="true">·</span>
-                <a
-                  href={pullRequestUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className={clsx("font-mono", linkStyle)}
-                  title="Open pull request"
-                >
-                  {pullRequestLabel}
-                </a>
+                <PullRequestLink
+                  pullRequestNumber={pullRequestNumber}
+                  pullRequestUrl={pullRequestUrl}
+                />
               </>
             ) : null}
             {normalizedPullRequestLabels.length > 0
@@ -581,6 +596,45 @@ export function VaultBranchLinkRow({
           </div>
         </div>
       )}
+    </>
+  );
+}
+
+export function VaultBranchLinkRow({
+  vaultId,
+  repositoryFullName,
+  branchName,
+  headCommitSha,
+  isDefault,
+  isDeletedUpstream,
+  aheadBy,
+  behindBy,
+  pullRequestUrl,
+  pullRequestNumber,
+  pullRequestLabels,
+  pullRequestTitle,
+  stagedSummary,
+  canDeleteBranch,
+  isDeletingBranch,
+  onDeleteBranch,
+}: VaultBranchLinkRowProps) {
+  const hasStagedChanges = (stagedSummary?.total ?? 0) > 0;
+
+  return (
+    <div className="flex items-start gap-3 border-b border-border/40 px-3 py-2.5 last:border-b-0">
+      <VaultBranchLinkContent
+        repositoryFullName={repositoryFullName}
+        branchName={branchName}
+        headCommitSha={headCommitSha}
+        isDefault={isDefault}
+        isDeletedUpstream={isDeletedUpstream}
+        aheadBy={aheadBy}
+        behindBy={behindBy}
+        pullRequestUrl={pullRequestUrl}
+        pullRequestNumber={pullRequestNumber}
+        pullRequestLabels={pullRequestLabels}
+        pullRequestTitle={pullRequestTitle}
+      />
       <div className="flex shrink-0 items-start gap-2">
         {hasStagedChanges ? (
           <div className="pt-0.5">
@@ -666,6 +720,7 @@ function VaultBranchListRow({
       pullRequestUrl={branch.pullRequestUrl}
       pullRequestNumber={branch.pullRequestNumber}
       pullRequestLabels={branch.pullRequestLabels}
+      pullRequestTitle={branch.pullRequestTitle}
       stagedSummary={stagedSummary}
       canDeleteBranch={deleteEligibility.canDelete}
       isDeletingBranch={activeDeletingBranchName === branch.name}

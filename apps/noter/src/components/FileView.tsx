@@ -18,6 +18,7 @@ import {
 import { Label } from "@/components/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";
+import { FileViewPushActions } from "@/components/FileViewPushActions";
 
 import {
   ChevronDownIcon,
@@ -637,6 +638,10 @@ function FileViewInner({
 
   // Get current user for sidebar
   const user = useQuery(api.users.viewer);
+  const remoteBranches = useQuery(api.vault.getVaultRemoteBranches, {
+    vaultId: vault._id,
+  });
+  const refreshRepositoryTree = useAction(api.github.refreshRepositoryTree);
 
   // Dialog state management
   const {
@@ -700,6 +705,9 @@ function FileViewInner({
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
+  const [draftPullRequestError, setDraftPullRequestError] = useState<
+    string | null
+  >(null);
   const [commitPreview, setCommitPreview] = useState<CommitPreview | null>(
     null,
   );
@@ -747,6 +755,9 @@ function FileViewInner({
   // Convex hooks for staging
   const [commitStaging, manualComittingStatus] = useConvexAction(
     api.fileStagingActions.commitStaging,
+  );
+  const [createDraftPullRequest, draftPullRequestStatus] = useConvexAction(
+    api.fileStagingActions.createDraftPullRequest,
   );
   const [getCommitPreview, commitPreviewStatus] = useConvexAction(
     api.fileStagingActions.getCommitPreview,
@@ -828,6 +839,19 @@ function FileViewInner({
   const reviewSidebarModeRef = useRef<Exclude<SidebarMode, "changes"> | null>(
     null,
   );
+  const currentRemoteBranch = useMemo(
+    () =>
+      remoteBranches?.find(
+        (remoteBranch) =>
+          remoteBranch.name === branch && remoteBranch.remoteState === "active",
+      ) ?? null,
+    [branch, remoteBranches],
+  );
+  const currentPullRequestNumber = currentRemoteBranch?.pullRequestNumber;
+  const currentPullRequestUrl = currentRemoteBranch?.pullRequestUrl;
+  const isDefaultBranch =
+    currentRemoteBranch?.isDefault ??
+    (typeof vault.defaultBranch === "string" && branch === vault.defaultBranch);
 
   // Add command palette keyboard shortcut handler
   useEffect(() => {
@@ -1299,6 +1323,7 @@ function FileViewInner({
   const handleManualCommit = useCallback(() => {
     if (!selectedFile) return;
     setCommitError(null);
+    setDraftPullRequestError(null);
     setCommitPreviewError(null);
     setRebaseConflictPreviewError(null);
     setRebaseConflictBundleFeedback(null);
@@ -1326,8 +1351,49 @@ function FileViewInner({
     selectedFile,
   ]);
 
+  const handleDraftPullRequest = useCallback(() => {
+    setCommitError(null);
+    setDraftPullRequestError(null);
+    setCommitPreviewError(null);
+    setRebaseConflictPreviewError(null);
+    setRebaseConflictBundleFeedback(null);
+
+    if (currentPullRequestUrl) {
+      window.open(currentPullRequestUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    void createDraftPullRequest({
+      repositoryFullName,
+      branch,
+    })
+      .then((result) => {
+        void refreshRepositoryTree({
+          owner,
+          repo: repoName,
+        });
+        window.open(result.url, "_blank", "noopener,noreferrer");
+      })
+      .catch((error) => {
+        const message =
+          error instanceof Error && error.message.length > 0
+            ? error.message
+            : "Failed to create draft pull request";
+        setDraftPullRequestError(message);
+      });
+  }, [
+    branch,
+    createDraftPullRequest,
+    currentPullRequestUrl,
+    owner,
+    refreshRepositoryTree,
+    repoName,
+    repositoryFullName,
+  ]);
+
   const handleResetToGitHub = useCallback(() => {
     setCommitError(null);
+    setDraftPullRequestError(null);
     setCommitPreviewError(null);
     resetRebaseConflictState();
     void clearAllStaging({
@@ -1835,10 +1901,16 @@ function FileViewInner({
         file.fileDeleted ||
         file.parentCommitSha === null,
     );
+  const canOpenOrCreateDraftPullRequest =
+    !isDefaultBranch &&
+    (Boolean(currentPullRequestUrl) ||
+      hasChangesToCommit === true ||
+      (currentRemoteBranch?.aheadBy ?? 0) > 0);
   const isResettingToGitHub = clearingStagingStatus === "loading";
   const resetToGitHubDisabled =
     isResettingToGitHub ||
     manualComittingStatus === "loading" ||
+    draftPullRequestStatus === "loading" ||
     !hasChangesToCommit;
   const commitPreviewRefreshKey = useMemo(
     () =>
@@ -2168,25 +2240,20 @@ function FileViewInner({
                   </Button>
                 )}
 
-                <Button
-                  size="sm"
-                  variant={hasChangesToCommit ? "default" : "outline"}
-                  onClick={handleManualCommit}
-                  disabled={
-                    manualComittingStatus === "loading" || !hasChangesToCommit
+                <FileViewPushActions
+                  canOpenOrCreateDraftPullRequest={
+                    canOpenOrCreateDraftPullRequest
                   }
-                  className={
-                    hasChangesToCommit
-                      ? "h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
-                      : "h-6 px-2 text-xs border-green-500 text-green-600 hover:bg-green-50"
+                  currentPullRequestNumber={currentPullRequestNumber}
+                  currentPullRequestUrl={currentPullRequestUrl}
+                  hasChangesToCommit={Boolean(hasChangesToCommit)}
+                  isCreatingDraftPullRequest={
+                    draftPullRequestStatus === "loading"
                   }
-                >
-                  {manualComittingStatus === "loading"
-                    ? "Committing..."
-                    : hasChangesToCommit
-                      ? "Commit Now"
-                      : "All Synced"}
-                </Button>
+                  isPushing={manualComittingStatus === "loading"}
+                  onDraftPullRequest={handleDraftPullRequest}
+                  onManualCommit={handleManualCommit}
+                />
                 <Button
                   size="sm"
                   variant="outline"
@@ -2236,6 +2303,11 @@ function FileViewInner({
           {commitError ? (
             <div className="mb-3 corner-notch-1 border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">
               Commit failed: {commitError}
+            </div>
+          ) : null}
+          {draftPullRequestError ? (
+            <div className="mb-3 corner-notch-1 border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">
+              Draft PR failed: {draftPullRequestError}
             </div>
           ) : null}
 

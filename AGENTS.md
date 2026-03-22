@@ -258,6 +258,10 @@ use `--env-file` or an explicit deployment selector instead.
 - **Prefer silent, smooth UX** over chatty, jumpy interfaces
 - **Prefer existing shadcn/ui components** over custom Tailwind-only solutions
   when available
+- **Snapshot coverage for UI changes** - whenever a patch changes user-visible
+  UI in `apps/noter`, add or update at least one snapshot test that covers the
+  shipped surface. Prefer the smallest stable component or visual snapshot that
+  exercises the changed state.
 - **Use rectangular app chrome** - app-owned UI surfaces default to zero border
   radius; keep the shared radius token/Tailwind radius scale at `0`, prefer
   `rounded-ui` when an explicit semantic radius utility is needed, and do not
@@ -521,6 +525,10 @@ Auth:
   include at least one clickable localhost URL in the user-facing response. If
   no relevant local preview is running, say that explicitly instead of omitting
   the link expectation silently.
+- When UI snapshot or visual regression work produces changed, added, or removed
+  images, always show those images in the user-facing response after running the
+  snapshot flow. Use rendered image attachments/Markdown image tags, not just
+  text descriptions of the diff.
 - When a response relates to an existing PR, always mention the PR number and
   format that PR number itself as a clickable Markdown link to the PR (for
   example `[#253](https://github.com/noter-md/noter/pull/253)`), even if the

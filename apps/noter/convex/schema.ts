@@ -380,6 +380,7 @@ export default defineSchema({
     pullRequestUrl: v.optional(v.string()),
     pullRequestNumber: v.optional(v.number()),
     pullRequestLabels: optional(array(PullRequestLabel)),
+    pullRequestTitle: v.optional(v.string()),
     isDefault: v.boolean(),
     isProtected: v.boolean(),
     remoteState: VaultRemoteBranchState,
