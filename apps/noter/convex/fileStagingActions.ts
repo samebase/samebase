@@ -20,6 +20,8 @@ import { rebaseStagedContent } from "./stagingRebase";
 import { selectRepositoryTreeForBranch } from "./fileStaging";
 import { isStaleBaseVersionError } from "../shared/stagingErrors";
 
+const { boolean, number, object, optional, string } = v;
+
 type HeaderValue = string | number | readonly string[] | undefined;
 type HeaderMap = Record<string, HeaderValue>;
 type CreateTreeEntry = NonNullable<
@@ -130,6 +132,8 @@ async function getVaultDefaultBranch(
 type OpenPullRequestCandidate = {
   number: number;
   html_url?: string | null;
+  updated_at?: string | null;
+  created_at?: string | null;
   base: {
     ref?: string | null;
   };
@@ -141,6 +145,18 @@ type OpenPullRequestCandidate = {
   };
 };
 
+function readPullRequestActivityAt(
+  pullRequest: OpenPullRequestCandidate,
+): number {
+  const updatedAt = Date.parse(pullRequest.updated_at ?? "");
+  if (!Number.isNaN(updatedAt)) {
+    return updatedAt;
+  }
+
+  const createdAt = Date.parse(pullRequest.created_at ?? "");
+  return Number.isNaN(createdAt) ? 0 : createdAt;
+}
+
 export function readOpenPullRequestForBranch(args: {
   branch: string;
   baseBranch: string;
@@ -148,6 +164,11 @@ export function readOpenPullRequestForBranch(args: {
   pullRequests: OpenPullRequestCandidate[];
 }): { url: string; number: number } | null {
   const normalizedRepositoryFullName = args.repositoryFullName.toLowerCase();
+  let latestMatch: {
+    url: string;
+    number: number;
+    activityAt: number;
+  } | null = null;
 
   for (const pullRequest of args.pullRequests) {
     const pullRequestRepositoryFullName = pullRequest.head.repo?.full_name;
@@ -163,13 +184,22 @@ export function readOpenPullRequestForBranch(args: {
       continue;
     }
 
-    return {
-      url: pullRequest.html_url,
-      number: pullRequest.number,
-    };
+    const activityAt = readPullRequestActivityAt(pullRequest);
+    if (!latestMatch || activityAt >= latestMatch.activityAt) {
+      latestMatch = {
+        url: pullRequest.html_url,
+        number: pullRequest.number,
+        activityAt,
+      };
+    }
   }
 
-  return null;
+  return latestMatch
+    ? {
+        url: latestMatch.url,
+        number: latestMatch.number,
+      }
+    : null;
 }
 
 async function getOpenPullRequestForBranch(args: {
@@ -496,10 +526,10 @@ const commitPreviewResult = v.object({
   }),
 });
 
-const draftPullRequestResult = v.object({
-  url: v.string(),
-  number: v.number(),
-  existing: v.boolean(),
+const draftPullRequestResult = object({
+  url: string(),
+  number: number(),
+  existing: boolean(),
 });
 
 const rebaseConflictPreviewFile = v.object({
@@ -1411,8 +1441,8 @@ export const commitStaging = action({
 
 export const createDraftPullRequest = action({
   args: {
-    repositoryFullName: v.string(),
-    branch: v.optional(v.string()),
+    repositoryFullName: string(),
+    branch: optional(string()),
   },
   returns: draftPullRequestResult,
   handler: async (ctx, args): Promise<DraftPullRequestResult> => {

@@ -73,6 +73,7 @@ import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
 import { DaytonaSnapshotList } from "./DaytonaSnapshotList";
 import { DaytonaWorkspaceButton } from "./DaytonaWorkspaceButton";
 import { DaytonaSnapshotBanner } from "./DaytonaSnapshotBanner";
+import { DraftPullRequestFeedbackBanner } from "./DraftPullRequestFeedbackBanner";
 import { VaultSyncStatus } from "./VaultSyncStatus";
 import { RepositoryMediaViewer } from "./RepositoryMediaViewer";
 import { RepositoryWorkspaceFrame } from "./RepositoryWorkspaceFrame";
@@ -1405,12 +1406,17 @@ function FileViewInner({
           error instanceof Error && error.message.length > 0
             ? error.message
             : "Failed to create draft pull request";
+        if (parseUpstreamConflictPaths(message).length > 0) {
+          handleUpstreamConflictDetected(message);
+          return;
+        }
         setDraftPullRequestError(message);
       });
   }, [
     branch,
     createDraftPullRequest,
     currentPullRequestUrl,
+    handleUpstreamConflictDetected,
     owner,
     refreshRepositoryTree,
     repoName,
@@ -2332,9 +2338,7 @@ function FileViewInner({
             </div>
           ) : null}
           {draftPullRequestError ? (
-            <div className="mb-3 corner-notch-1 border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">
-              Draft PR failed: {draftPullRequestError}
-            </div>
+            <DraftPullRequestFeedbackBanner message={draftPullRequestError} />
           ) : null}
 
           {viewMode === "editor" && isPreviewOpen && (

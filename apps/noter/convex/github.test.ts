@@ -377,6 +377,7 @@ describe("collectLatestOpenPullRequestsByBranch", () => {
     expect(pullRequestsByBranch.get("feature/pr-title")).toEqual({
       url: "https://github.com/owner/noter/pull/13",
       number: 13,
+      labels: [],
       title: "Show PR title above branch name",
     });
   });
@@ -416,7 +417,57 @@ describe("collectLatestOpenPullRequestsByBranch", () => {
     expect(pullRequestsByBranch.get("feature/pr-title")).toEqual({
       url: "https://github.com/owner/noter/pull/22",
       number: 22,
+      labels: [],
       title: "Later PR",
+    });
+  });
+
+  it("ignores non-default-base pull requests when defaultBaseBranch is provided", () => {
+    const pullRequestsByBranch = collectLatestOpenPullRequestsByBranch({
+      branchNames: ["feature/pr-title"],
+      repositoryFullName: "owner/noter",
+      defaultBaseBranch: "main",
+      pullRequests: [
+        {
+          head: {
+            ref: "feature/pr-title",
+            repo: {
+              full_name: "owner/noter",
+            },
+          },
+          base: {
+            ref: "release/1.2",
+          },
+          html_url: "https://github.com/owner/noter/pull/21",
+          number: 21,
+          title: "Release PR",
+          updated_at: "2026-03-23T10:00:00Z",
+          labels: [{ name: "release", color: "1d76db" }],
+        },
+        {
+          head: {
+            ref: "feature/pr-title",
+            repo: {
+              full_name: "owner/noter",
+            },
+          },
+          base: {
+            ref: "main",
+          },
+          html_url: "https://github.com/owner/noter/pull/22",
+          number: 22,
+          title: "Default branch PR",
+          updated_at: "2026-03-22T10:00:00Z",
+          labels: [{ name: "needs review", color: "fbca04" }],
+        },
+      ],
+    });
+
+    expect(pullRequestsByBranch.get("feature/pr-title")).toEqual({
+      url: "https://github.com/owner/noter/pull/22",
+      number: 22,
+      labels: [{ name: "needs review", color: "fbca04" }],
+      title: "Default branch PR",
     });
   });
 });

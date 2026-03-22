@@ -252,6 +252,63 @@ describe("draft pull request helpers", () => {
     ).toBeNull();
   });
 
+  it("keeps the latest updated pull request among matching default-base PRs", () => {
+    expect(
+      readOpenPullRequestForBranch({
+        branch: "feature-branch",
+        baseBranch: "main",
+        repositoryFullName: "test-owner/test-repo",
+        pullRequests: [
+          {
+            number: 41,
+            html_url: "https://github.com/test-owner/test-repo/pull/41",
+            updated_at: "2026-03-21T10:00:00Z",
+            base: {
+              ref: "main",
+            },
+            head: {
+              ref: "feature-branch",
+              repo: {
+                full_name: "test-owner/test-repo",
+              },
+            },
+          },
+          {
+            number: 42,
+            html_url: "https://github.com/test-owner/test-repo/pull/42",
+            created_at: "2026-03-22T10:00:00Z",
+            base: {
+              ref: "main",
+            },
+            head: {
+              ref: "feature-branch",
+              repo: {
+                full_name: "test-owner/test-repo",
+              },
+            },
+          },
+          {
+            number: 43,
+            html_url: "https://github.com/test-owner/test-repo/pull/43",
+            updated_at: "2026-03-23T10:00:00Z",
+            base: {
+              ref: "release/1.2",
+            },
+            head: {
+              ref: "feature-branch",
+              repo: {
+                full_name: "test-owner/test-repo",
+              },
+            },
+          },
+        ],
+      }),
+    ).toEqual({
+      url: "https://github.com/test-owner/test-repo/pull/42",
+      number: 42,
+    });
+  });
+
   it("uses the latest commit subject for the draft PR title", () => {
     expect(
       buildDraftPullRequestTitle({
