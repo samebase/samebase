@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // @ts-check
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -17,8 +18,8 @@ Commands:
 Environment:
   PLAYWRIGHT_SESSION     Override the computed session name.`
 
-const NPX_COMMAND = process.platform === 'win32' ? 'npx.cmd' : 'npx'
-const PLAYWRIGHT_CLI_ARGS = ['--yes', '@playwright/cli']
+const PNPM_COMMAND = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
+const EXPLICIT_SESSION_PATTERN = /^[A-Za-z0-9._-]+$/
 
 main(process.argv.slice(2))
 
@@ -110,12 +111,12 @@ function openBranchSession(url) {
 function getSessionName() {
   const explicitSession = process.env.PLAYWRIGHT_SESSION?.trim()
   if (explicitSession) {
-    return explicitSession
+    return getSafeExplicitSession(explicitSession)
   }
 
-  const repoName = slugify(path.basename(getRepoRoot()))
-  const branchName = slugify(getBranchIdentifier())
-  return `${repoName}-${branchName}`
+  const repoRoot = getRepoRoot()
+  const branchIdentifier = getBranchIdentifier()
+  return buildDerivedSessionName(repoRoot, branchIdentifier)
 }
 
 /**
@@ -158,9 +159,12 @@ function sessionExists(session) {
     return false
   }
 
-  const output = `${result.stdout}\n${result.stderr}`
   const escapedSession = session.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return new RegExp(`(^|\\s)${escapedSession}(\\s|$)`, 'm').test(output)
+  const sessionLine = new RegExp(`^-\\s+${escapedSession}(?::|\\s|$)`)
+
+  return `${result.stdout}\n${result.stderr}`
+    .split('\n')
+    .some(line => sessionLine.test(line.trimStart()))
 }
 
 /**
@@ -169,10 +173,20 @@ function sessionExists(session) {
  * @returns {import('node:child_process').SpawnSyncReturns<string>}
  */
 function runPlaywrightCli(args, options = {}) {
-  const result = spawnSync(NPX_COMMAND, [...PLAYWRIGHT_CLI_ARGS, ...args], {
-    encoding: 'utf8',
-    stdio: options.stdio ?? 'inherit',
-  })
+  const result = spawnSync(
+    PNPM_COMMAND,
+    [
+      '--dir',
+      path.join(getRepoRoot(), 'apps/noter'),
+      'exec',
+      'playwright-cli',
+      ...args,
+    ],
+    {
+      encoding: 'utf8',
+      stdio: options.stdio ?? 'inherit',
+    },
+  )
 
   if (!options.allowFailure && result.status !== 0) {
     process.exit(result.status ?? 1)
@@ -221,6 +235,36 @@ function slugify(value) {
     .replaceAll(/^-|-$/g, '')
 
   return normalized || 'unknown'
+}
+
+/**
+ * @param {string} explicitSession
+ * @returns {string}
+ */
+function getSafeExplicitSession(explicitSession) {
+  if (!EXPLICIT_SESSION_PATTERN.test(explicitSession)) {
+    fail(
+      'PLAYWRIGHT_SESSION may only contain letters, numbers, ".", "_" and "-".',
+    )
+  }
+
+  return explicitSession
+}
+
+/**
+ * @param {string} repoRoot
+ * @param {string} branchIdentifier
+ * @returns {string}
+ */
+function buildDerivedSessionName(repoRoot, branchIdentifier) {
+  const repoName = slugify(path.basename(repoRoot))
+  const branchName = slugify(branchIdentifier)
+  const stableSuffix = createHash('sha256')
+    .update(`${repoRoot}\0${branchIdentifier}`)
+    .digest('hex')
+    .slice(0, 8)
+
+  return `${repoName}-${branchName}-${stableSuffix}`
 }
 
 /**
