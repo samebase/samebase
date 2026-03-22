@@ -370,7 +370,7 @@ interface VaultRemoteBranchListItem {
 }
 
 interface VaultBranchLinkRowProps {
-  vaultId: Id<"vaults">;
+  vaultId?: Id<"vaults">;
   repositoryFullName: string;
   branchName: string;
   headCommitSha: string;
@@ -579,34 +579,6 @@ export function VaultBranchLinkContent({
                 />
               </>
             ) : null}
-            {normalizedPullRequestLabels.length > 0
-              ? normalizedPullRequestLabels.map((label) => (
-                  <Badge
-                    key={label.name}
-                    variant="outline"
-                    className="h-5 max-w-48 px-1.5 py-0 text-[10px] font-medium"
-                    style={buildPullRequestLabelStyle(label.color)}
-                    title={label.name}
-                  >
-                    <span className="truncate">{label.name}</span>
-                  </Badge>
-                ))
-              : null}
-            {typeof cloudflareBranchPreviewUrl === "string" &&
-            cloudflareBranchPreviewUrl.length > 0 ? (
-              <>
-                <span aria-hidden="true">·</span>
-                <a
-                  href={cloudflareBranchPreviewUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className={clsx("font-mono", linkStyle)}
-                  title="Open Cloudflare branch preview"
-                >
-                  preview
-                </a>
-              </>
-            ) : null}
             {aheadBehindLabel ? (
               <>
                 <span aria-hidden="true">·</span>
@@ -663,7 +635,7 @@ export function VaultBranchLinkRow({
         cloudflareBranchPreviewUrl={cloudflareBranchPreviewUrl}
       />
       <div className="flex shrink-0 items-start gap-2">
-        {hasStagedChanges ? (
+        {hasStagedChanges && vaultId ? (
           <div className="pt-0.5">
             <EditedFilesCategoriesPopover
               vaultId={vaultId}
