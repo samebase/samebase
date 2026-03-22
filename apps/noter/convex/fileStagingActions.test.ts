@@ -190,11 +190,15 @@ describe("draft pull request helpers", () => {
     expect(
       readOpenPullRequestForBranch({
         branch: "feature-branch",
+        baseBranch: "main",
         repositoryFullName: "test-owner/test-repo",
         pullRequests: [
           {
             number: 42,
             html_url: "https://github.com/test-owner/test-repo/pull/42",
+            base: {
+              ref: "main",
+            },
             head: {
               ref: "feature-branch",
               repo: {
@@ -205,6 +209,9 @@ describe("draft pull request helpers", () => {
           {
             number: 43,
             html_url: "https://github.com/test-owner/other-repo/pull/43",
+            base: {
+              ref: "main",
+            },
             head: {
               ref: "feature-branch",
               repo: {
@@ -218,6 +225,31 @@ describe("draft pull request helpers", () => {
       url: "https://github.com/test-owner/test-repo/pull/42",
       number: 42,
     });
+  });
+
+  it("ignores an open pull request that targets a different base branch", () => {
+    expect(
+      readOpenPullRequestForBranch({
+        branch: "feature-branch",
+        baseBranch: "main",
+        repositoryFullName: "test-owner/test-repo",
+        pullRequests: [
+          {
+            number: 42,
+            html_url: "https://github.com/test-owner/test-repo/pull/42",
+            base: {
+              ref: "release/1.2",
+            },
+            head: {
+              ref: "feature-branch",
+              repo: {
+                full_name: "test-owner/test-repo",
+              },
+            },
+          },
+        ],
+      }),
+    ).toBeNull();
   });
 
   it("uses the latest commit subject for the draft PR title", () => {

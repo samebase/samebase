@@ -130,6 +130,9 @@ async function getVaultDefaultBranch(
 type OpenPullRequestCandidate = {
   number: number;
   html_url?: string | null;
+  base: {
+    ref?: string | null;
+  };
   head: {
     ref: string;
     repo?: {
@@ -140,6 +143,7 @@ type OpenPullRequestCandidate = {
 
 export function readOpenPullRequestForBranch(args: {
   branch: string;
+  baseBranch: string;
   repositoryFullName: string;
   pullRequests: OpenPullRequestCandidate[];
 }): { url: string; number: number } | null {
@@ -149,6 +153,7 @@ export function readOpenPullRequestForBranch(args: {
     const pullRequestRepositoryFullName = pullRequest.head.repo?.full_name;
     if (
       pullRequest.head.ref !== args.branch ||
+      pullRequest.base.ref !== args.baseBranch ||
       typeof pullRequestRepositoryFullName !== "string" ||
       pullRequestRepositoryFullName.toLowerCase() !==
         normalizedRepositoryFullName ||
@@ -172,6 +177,7 @@ async function getOpenPullRequestForBranch(args: {
   owner: string;
   repo: string;
   branch: string;
+  baseBranch: string;
 }): Promise<{ url: string; number: number } | null> {
   const response = await args.octokit.rest.pulls.list({
     owner: args.owner,
@@ -183,6 +189,7 @@ async function getOpenPullRequestForBranch(args: {
 
   return readOpenPullRequestForBranch({
     branch: args.branch,
+    baseBranch: args.baseBranch,
     repositoryFullName: `${args.owner}/${args.repo}`,
     pullRequests: response.data,
   });
@@ -1455,6 +1462,7 @@ export const createDraftPullRequest = action({
       owner: vault.ghRepoOwner,
       repo: vault.ghRepoName,
       branch,
+      baseBranch: defaultBranch,
     });
     if (existingPullRequest) {
       try {
@@ -1531,6 +1539,7 @@ export const createDraftPullRequest = action({
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
         branch,
+        baseBranch: defaultBranch,
       });
       if (currentPullRequest) {
         return {
