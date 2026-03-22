@@ -16,3 +16,4 @@
 - noter: add ai agent to your existing apps
 - noter is data for your ai
 - noter: a simpler way to use github
+- noter: spin up openclaw in 3.4 seconds 
