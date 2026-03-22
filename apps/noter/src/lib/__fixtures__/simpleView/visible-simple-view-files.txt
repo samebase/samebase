@@ -10,6 +10,8 @@ apps/noter/e2e/button-visual.spec.ts-snapshots/button-sizes.png
 apps/noter/e2e/button-visual.spec.ts-snapshots/button-states.png
 apps/noter/e2e/button-visual.spec.ts-snapshots/button-variants.png
 apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-conflict.png
+apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-deleted-sidebar-context-menu.png
+apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-deleted-staged-changes.png
 apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-deleted.png
 apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-inline.png
 apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-unchanged.png
