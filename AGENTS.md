@@ -544,6 +544,14 @@ Auth:
   Playwright browser sessions or contexts per agent. Do not rely on separate
   tabs in a shared Chrome instance unless the user explicitly accepts the
   interference risk.
+- In this repo, prefer `node ./scripts/playwright-branch-browser.js` or
+  `make playwright-open` over raw `@playwright/cli open`. Each git branch owns
+  one deterministic Playwright session/profile so the agent can identify the
+  correct Chrome window without guessing.
+- When re-entering a branch-owned Playwright Chrome session, preserve the
+  existing active tab if it may have unsaved changes. Open a fresh tab instead
+  of navigating the current tab so Chrome does not surface `Leave site?` or
+  similar native unload dialogs.
 - For concurrent Playwright agents, assign each isolated browser profile a
   random distinguishing color/theme so parallel sessions are easier to tell
   apart at a glance.

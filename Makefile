@@ -1,6 +1,6 @@
 # set default  to be `make run`
 # .PHONY ensures targets run even if a file with the same name exists.
-.PHONY: bootstrap bootstrap-anon run anon anon-once daytona-local daytona-local-once update-fixtures record-start record-stop
+.PHONY: bootstrap bootstrap-anon run anon anon-once daytona-local daytona-local-once update-fixtures playwright-open record-start record-stop
 
 ANON_SETUP_ONCE_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --once --codegen=enable --tail-logs=disable --typecheck=disable
 ANON_ALLOW_MISSING_SOURCE_ENV_ARG = $(if $(strip $(ANON_ALLOW_MISSING_SOURCE_ENV)),--allow-missing-source-env,)
@@ -13,8 +13,9 @@ DAYTONA_VITE_PORT ?= 5173
 BOOTSTRAP_ANON_ARGS ?=
 DAYTONA_SOURCE_ENV ?= apps/noter/.env.daytona-source.local
 DAYTONA_WRITE_SOURCE_ENV_CMD = node ./scripts/daytona-write-source-env.js --output "$(DAYTONA_SOURCE_ENV)" --optional
-PLAYWRIGHT_CLI = npx --yes @playwright/cli
-PLAYWRIGHT_SESSION ?= noter-$(notdir $(CURDIR))-$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null | tr '/' '-')
+PLAYWRIGHT_BRANCH_BROWSER = node ./scripts/playwright-branch-browser.js
+PLAYWRIGHT_SESSION ?= $(shell $(PLAYWRIGHT_BRANCH_BROWSER) session)
+PLAYWRIGHT_PROFILE_DIR = $(shell PLAYWRIGHT_SESSION="$(PLAYWRIGHT_SESSION)" $(PLAYWRIGHT_BRANCH_BROWSER) profile)
 PLAYWRIGHT_URL ?= http://127.0.0.1:$(ANON_VITE_PORT)
 PLAYWRIGHT_RECORD_DIR ?= /tmp/noter-browser-recordings
 
@@ -70,14 +71,21 @@ daytona-local-once:
 update-fixtures:
 	UPDATE_SIMPLE_VIEW_FIXTURES=1 pnpm exec vitest run apps/noter/src/lib/simpleView.test.ts
 
-# Start Playwright browser recording for the current workspace session.
+# Open the deterministic branch-owned Playwright session for the current repo.
+playwright-open:
+	@mkdir -p "$(PLAYWRIGHT_RECORD_DIR)" ".playwright-cli"
+	PLAYWRIGHT_SESSION="$(PLAYWRIGHT_SESSION)" $(PLAYWRIGHT_BRANCH_BROWSER) open "$(PLAYWRIGHT_URL)"
+	@echo "$(PLAYWRIGHT_SESSION)" > .playwright-cli/active-session
+	@echo "Opened Playwright session $(PLAYWRIGHT_SESSION) at $(PLAYWRIGHT_URL) using profile $(PLAYWRIGHT_PROFILE_DIR)"
+
+# Start Playwright browser recording for the current branch session.
 record-start:
 	@mkdir -p "$(PLAYWRIGHT_RECORD_DIR)" ".playwright-cli"
-	$(PLAYWRIGHT_CLI) -s="$(PLAYWRIGHT_SESSION)" open "$(PLAYWRIGHT_URL)"
-	$(PLAYWRIGHT_CLI) -s="$(PLAYWRIGHT_SESSION)" tracing-start
-	$(PLAYWRIGHT_CLI) -s="$(PLAYWRIGHT_SESSION)" video-start
+	PLAYWRIGHT_SESSION="$(PLAYWRIGHT_SESSION)" $(PLAYWRIGHT_BRANCH_BROWSER) open "$(PLAYWRIGHT_URL)"
+	PLAYWRIGHT_SESSION="$(PLAYWRIGHT_SESSION)" $(PLAYWRIGHT_BRANCH_BROWSER) cli tracing-start
+	PLAYWRIGHT_SESSION="$(PLAYWRIGHT_SESSION)" $(PLAYWRIGHT_BRANCH_BROWSER) cli video-start
 	@echo "$(PLAYWRIGHT_SESSION)" > .playwright-cli/active-session
-	@echo "Recording started for session $(PLAYWRIGHT_SESSION) at $(PLAYWRIGHT_URL)"
+	@echo "Recording started for session $(PLAYWRIGHT_SESSION) at $(PLAYWRIGHT_URL) using profile $(PLAYWRIGHT_PROFILE_DIR)"
 
 # Stop Playwright recording and persist artifacts to PLAYWRIGHT_RECORD_DIR.
 record-stop:
@@ -89,10 +97,10 @@ record-stop:
 	TS="$$(date +%Y%m%d-%H%M%S)"; \
 	OUT="$(PLAYWRIGHT_RECORD_DIR)"; \
 	mkdir -p "$$OUT"; \
-	$(PLAYWRIGHT_CLI) -s="$$SESSION" snapshot > "$$OUT/$$SESSION-$$TS.snapshot.txt"; \
-	$(PLAYWRIGHT_CLI) -s="$$SESSION" screenshot --filename="$$OUT/$$SESSION-$$TS.png"; \
-	$(PLAYWRIGHT_CLI) -s="$$SESSION" video-stop --filename="$$OUT/$$SESSION-$$TS.webm"; \
-	$(PLAYWRIGHT_CLI) -s="$$SESSION" tracing-stop > "$$OUT/$$SESSION-$$TS.trace.txt"; \
-	$(PLAYWRIGHT_CLI) -s="$$SESSION" close; \
+	PLAYWRIGHT_SESSION="$$SESSION" $(PLAYWRIGHT_BRANCH_BROWSER) cli snapshot > "$$OUT/$$SESSION-$$TS.snapshot.txt"; \
+	PLAYWRIGHT_SESSION="$$SESSION" $(PLAYWRIGHT_BRANCH_BROWSER) cli screenshot --filename="$$OUT/$$SESSION-$$TS.png"; \
+	PLAYWRIGHT_SESSION="$$SESSION" $(PLAYWRIGHT_BRANCH_BROWSER) cli video-stop --filename="$$OUT/$$SESSION-$$TS.webm"; \
+	PLAYWRIGHT_SESSION="$$SESSION" $(PLAYWRIGHT_BRANCH_BROWSER) cli tracing-stop > "$$OUT/$$SESSION-$$TS.trace.txt"; \
+	PLAYWRIGHT_SESSION="$$SESSION" $(PLAYWRIGHT_BRANCH_BROWSER) cli close; \
 	rm -f .playwright-cli/active-session; \
 	echo "Saved recording artifacts to $$OUT"
