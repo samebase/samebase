@@ -21,7 +21,7 @@ function omit<T extends Record<string, any>, K extends keyof T>(
   ) as Omit<T, K>;
 }
 
-const { id, literal, number, object, optional, string, union } = v;
+const { array, id, literal, number, object, optional, string, union } = v;
 
 const BillingProvider = optional(literal("polar"));
 const BillingPlan = optional(union(literal("free"), literal("pro")));
@@ -41,6 +41,15 @@ const BillingPolarExternalCustomerId = optional(string());
 const PricingBillingCycle = optional(
   union(literal("monthly"), literal("annual")),
 );
+
+export const PullRequestLabel = union(
+  string(),
+  object({
+    name: string(),
+    color: optional(string()),
+  }),
+);
+export type PullRequestLabel = Infer<typeof PullRequestLabel>;
 
 export const GithubTree = v.object({
   path: v.string(),
@@ -370,6 +379,7 @@ export default defineSchema({
     behindBy: v.optional(v.number()),
     pullRequestUrl: v.optional(v.string()),
     pullRequestNumber: v.optional(v.number()),
+    pullRequestLabels: optional(array(PullRequestLabel)),
     isDefault: v.boolean(),
     isProtected: v.boolean(),
     remoteState: VaultRemoteBranchState,

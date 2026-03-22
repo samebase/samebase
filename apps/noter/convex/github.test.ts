@@ -5,6 +5,7 @@ import {
   listGitHubRepositories,
   normalizeGitHubRepositoryListItem,
   readGitHubNextPageUrl,
+  readPullRequestLabels,
   resolveAheadBehindBaseBranch,
 } from "./github";
 
@@ -69,6 +70,33 @@ describe("readGitHubNextPageUrl", () => {
         '<https://api.github.com/user/repos?page=1>; rel="prev", <https://api.github.com/user/repos?page=4>; rel="last"',
       ),
     ).toBeNull();
+  });
+});
+
+describe("readPullRequestLabels", () => {
+  it("returns ordered unique label metadata from GitHub PR payloads", () => {
+    expect(
+      readPullRequestLabels([
+        { name: "bug", color: "d73a4a" },
+        { name: "needs review", color: "fbca04" },
+        { name: "bug", color: "000000" },
+      ]),
+    ).toEqual([
+      { name: "bug", color: "d73a4a" },
+      { name: "needs review", color: "fbca04" },
+    ]);
+  });
+
+  it("ignores malformed labels and supports string payloads", () => {
+    expect(
+      readPullRequestLabels([
+        "release",
+        { name: "" },
+        { color: "ff0000" },
+        null,
+        42,
+      ]),
+    ).toEqual([{ name: "release", color: undefined }]);
   });
 });
 
