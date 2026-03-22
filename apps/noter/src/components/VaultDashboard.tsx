@@ -1701,9 +1701,7 @@ export function VaultDashboard() {
       open={resolvedSidebarPanelState.account}
       onOpenChange={(isOpen) => handleSidebarPanelOpenChange("account", isOpen)}
     >
-      <UserMenu className="w-full" triggerVariant="inline">
-        {userDisplayName}
-      </UserMenu>
+      <UserMenu className="w-full justify-between">{userDisplayName}</UserMenu>
     </DashboardSidebarSection>
   ) : null;
 

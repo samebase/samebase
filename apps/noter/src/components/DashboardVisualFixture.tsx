@@ -139,29 +139,31 @@ export function DashboardVisualFixture({
               open={accountSectionOpen}
               onOpenChange={setAccountSectionOpen}
             >
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-auto w-full justify-between px-0 text-sm font-medium hover:bg-transparent"
-                  >
-                    <span className="truncate">Nicu</span>
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-ui border border-border/60 bg-muted">
-                      <PersonIcon className="h-4 w-4" />
-                    </span>
-                    <span className="sr-only">Toggle user menu</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuLabel>Nicu</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => setAccountDialogOpen(true)}>
-                    Account details
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>Sign out</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div className="flex w-full items-center justify-between gap-2 text-sm font-medium">
+                <span className="truncate">Nicu</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      className="rounded-ui"
+                    >
+                      <PersonIcon className="h-5 w-5" />
+                      <span className="sr-only">Toggle user menu</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuLabel>Nicu</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={() => setAccountDialogOpen(true)}
+                    >
+                      Account details
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>Sign out</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </DashboardSidebarSection>
 
             <DashboardSidebarSection
