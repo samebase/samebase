@@ -2,6 +2,8 @@ import { minimatch } from "minimatch";
 import { z } from "zod";
 import { parseDocument } from "yaml";
 
+import { getAncestorFolderPaths } from "./fileTreeState";
+
 export const SIMPLE_VIEW_CONFIG_PATH = "noter.md";
 const SIMPLE_VIEW_STORAGE_KEY_PREFIX = "noter-simple-view";
 
@@ -185,7 +187,13 @@ export function filterSimpleViewTreeItems<T extends TreeItem>(
     return items;
   }
 
-  const alwaysIncludePaths = new Set(options?.alwaysIncludePaths ?? []);
+  const alwaysIncludePaths = new Set<string>();
+  for (const path of options?.alwaysIncludePaths ?? []) {
+    alwaysIncludePaths.add(path);
+    for (const folderPath of getAncestorFolderPaths(path)) {
+      alwaysIncludePaths.add(folderPath);
+    }
+  }
 
   const includedItems = items.filter(
     (item) =>

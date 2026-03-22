@@ -362,6 +362,26 @@ describe("filterSimpleViewTreeItems", () => {
     ]);
   });
 
+  it("keeps ancestor folders for always-included files when folders are excluded directly", () => {
+    const filtered = filterSimpleViewTreeItems(
+      [
+        { path: "src", type: "tree" as const },
+        { path: "src/components", type: "tree" as const },
+        { path: "src/components/panel.tsx", type: "blob" as const },
+      ],
+      ["src", "src/components"],
+      {
+        alwaysIncludePaths: ["src/components/panel.tsx"],
+      },
+    );
+
+    expect(filtered).toEqual([
+      { path: "src", type: "tree" },
+      { path: "src/components", type: "tree" },
+      { path: "src/components/panel.tsx", type: "blob" },
+    ]);
+  });
+
   it("does not treat basename-only pattern as recursive", () => {
     const filtered = filterSimpleViewTreeItems(tree, ["pre-commit"]);
     expect(filtered.some((item) => item.path === ".husky/pre-commit")).toBe(

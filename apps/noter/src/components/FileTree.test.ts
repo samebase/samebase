@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { buildEffectiveFolderExpansionStates } from "@/lib/fileTreeState";
+import {
+  buildEffectiveFolderExpansionStates,
+  getAncestorFolderPaths,
+} from "@/lib/fileTreeState";
 
 describe("buildEffectiveFolderExpansionStates", () => {
   it("force-opens changed folders in changes mode", () => {
@@ -64,5 +67,19 @@ describe("buildEffectiveFolderExpansionStates", () => {
         isExpanded: false,
       },
     ]);
+  });
+});
+
+describe("getAncestorFolderPaths", () => {
+  it("returns each parent folder for a nested file", () => {
+    expect(getAncestorFolderPaths("src/features/editor/FileView.tsx")).toEqual([
+      "src",
+      "src/features",
+      "src/features/editor",
+    ]);
+  });
+
+  it("returns an empty list for root files", () => {
+    expect(getAncestorFolderPaths("README.md")).toEqual([]);
   });
 });

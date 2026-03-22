@@ -68,6 +68,7 @@ import {
   releaseRefreshDebounce,
 } from "@/lib/treeRefreshDebounce";
 import { buildFileViewRefreshDebounceKey } from "@/lib/fileViewRefresh";
+import { getAncestorFolderPaths } from "@/lib/fileTreeState";
 import { type GithubTreeType } from "convex/schema";
 import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
 import { DaytonaSnapshotList } from "./DaytonaSnapshotList";
@@ -1887,6 +1888,19 @@ function FileViewInner({
     return { agentGraphNodes: nodes, agentGraphEdges: edges };
   }, [finalTreeData]);
 
+  const forceSidebarSelectionVisible =
+    reviewOnMountRequested || commitReviewMode === "review";
+  const alwaysVisibleSimpleViewPaths = useMemo(() => {
+    return finalTreeData
+      .filter((item) => {
+        if (item.type !== "blob" || !item.status) {
+          return false;
+        }
+
+        return item.status === "deleted" || forceSidebarSelectionVisible;
+      })
+      .map((item) => item.path);
+  }, [finalTreeData, forceSidebarSelectionVisible]);
   const visibleTreeData = useMemo(() => {
     if (sidebarMode !== "simple") {
       return finalTreeData;
@@ -1899,18 +1913,32 @@ function FileViewInner({
       return finalTreeData;
     }
 
-    // Deleted staged files still need a stable navigation entry even when
-    // simple-view would normally hide their path.
+    // Review keeps the sidebar stable, so staged files hidden by simple-view
+    // rules still need a navigation entry while review is active. Deleted files
+    // stay visible even outside review because they do not exist in the
+    // repository tree anymore.
     return filterSimpleViewTreeItems(
       finalTreeData,
       simpleViewConfig.excludePatterns,
       {
-        alwaysIncludePaths: finalTreeData
-          .filter((item) => item.type === "blob" && item.status === "deleted")
-          .map((item) => item.path),
+        alwaysIncludePaths: alwaysVisibleSimpleViewPaths,
       },
     );
-  }, [finalTreeData, simpleViewConfig, sidebarMode]);
+  }, [
+    alwaysVisibleSimpleViewPaths,
+    finalTreeData,
+    simpleViewConfig,
+    sidebarMode,
+  ]);
+  const autoExpandedSidebarPaths = useMemo(() => {
+    if (!forceSidebarSelectionVisible) {
+      return [];
+    }
+
+    // Keep the active review target visible in the stable sidebar even when a
+    // parent folder was previously collapsed.
+    return getAncestorFolderPaths(selectedFile);
+  }, [forceSidebarSelectionVisible, selectedFile]);
 
   const emptyRepository = visibleTreeData.length === 0;
   const didResolveStagedFiles = stagedFiles !== undefined;
@@ -2110,6 +2138,8 @@ function FileViewInner({
             selectedFile={sidebarSelectedFile}
             folderExpansionStates={folderExpansionStates ?? []}
             onFolderToggle={handleFolderToggle}
+            autoExpandedPaths={autoExpandedSidebarPaths}
+            forceAutoExpandedPaths={forceSidebarSelectionVisible}
           />
         </div>
       )}
