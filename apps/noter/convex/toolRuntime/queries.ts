@@ -1,5 +1,6 @@
 import { Infer, v } from "convex/values";
 import { internalQuery } from "../_generated/server";
+import { PullRequestLabel } from "../schema";
 
 const {
   array,
@@ -47,6 +48,7 @@ const vaultRemoteBranchResultValidator = object({
   behindBy: optional(number()),
   pullRequestUrl: optional(string()),
   pullRequestNumber: optional(number()),
+  pullRequestLabels: optional(array(PullRequestLabel)),
   isDefault: boolean(),
   isProtected: boolean(),
   remoteState: union(literal("active"), literal("deleted_upstream")),
@@ -149,6 +151,7 @@ export const listVaultRemoteBranchesForUser = internalQuery({
       behindBy: branch.behindBy,
       pullRequestUrl: branch.pullRequestUrl,
       pullRequestNumber: branch.pullRequestNumber,
+      pullRequestLabels: branch.pullRequestLabels,
       isDefault: branch.isDefault,
       isProtected: branch.isProtected,
       remoteState: branch.remoteState,

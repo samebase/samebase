@@ -42,6 +42,15 @@ const PricingBillingCycle = optional(
   union(literal("monthly"), literal("annual")),
 );
 
+export const PullRequestLabel = union(
+  string(),
+  object({
+    name: string(),
+    color: optional(string()),
+  }),
+);
+export type PullRequestLabel = Infer<typeof PullRequestLabel>;
+
 export const GithubTree = v.object({
   path: v.string(),
   mode: v.string(),
@@ -370,6 +379,7 @@ export default defineSchema({
     behindBy: v.optional(v.number()),
     pullRequestUrl: v.optional(v.string()),
     pullRequestNumber: v.optional(v.number()),
+    pullRequestLabels: v.optional(v.array(PullRequestLabel)),
     isDefault: v.boolean(),
     isProtected: v.boolean(),
     remoteState: VaultRemoteBranchState,

@@ -14,6 +14,10 @@ import {
   SimpleViewVisualFixture,
   type SimpleViewVisualMode,
 } from "@/components/SimpleViewVisualFixture";
+import {
+  VaultDashboardVisualFixture,
+  type VaultDashboardVisualMode,
+} from "@/components/VaultDashboardVisualFixture";
 import { CornerNotchVisualFixture } from "@/components/CornerNotchVisualFixture";
 import {
   LogoThreeVisualFixture,
@@ -37,6 +41,7 @@ type VisualFixtureMode =
   | LogoThreeVisualMode
   | RepositoryMediaVisualMode
   | SimpleViewVisualMode
+  | VaultDashboardVisualMode
   | "corner-notch"
   | "corner-notch-detail";
 
@@ -58,6 +63,7 @@ function readMode(): VisualFixtureMode {
     value === "landing-copy-editable-parity-three-line" ||
     value === "simple-repository-config" ||
     value === "simple-missing-config" ||
+    value === "vault-branch-pr-labels" ||
     value === "corner-notch" ||
     value === "logo-snap-angles" ||
     value === "corner-notch-detail"
@@ -87,6 +93,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         ) : mode === "simple-repository-config" ||
           mode === "simple-missing-config" ? (
           <SimpleViewVisualFixture mode={mode} />
+        ) : mode === "vault-branch-pr-labels" ? (
+          <VaultDashboardVisualFixture mode={mode} />
         ) : mode === "corner-notch" ? (
           <CornerNotchVisualFixture />
         ) : mode === "corner-notch-detail" ? (

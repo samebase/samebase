@@ -249,10 +249,16 @@ interface RemoteBranchSummary {
   aheadBehindState: "resolved" | "unavailable" | "preserve";
   pullRequestUrl?: string;
   pullRequestNumber?: number;
+  pullRequestLabels?: PullRequestLabelSummary[];
   pullRequestState: "resolved" | "preserve";
   isDefault: boolean;
   isProtected: boolean;
 }
+
+type PullRequestLabelSummary = {
+  name: string;
+  color?: string;
+};
 
 interface CachedBranchTreeSnapshot {
   treeSHA: string;
@@ -304,6 +310,47 @@ function parseGitTimestamp(value: string | undefined): number | undefined {
     return undefined;
   }
   return timestamp;
+}
+
+/**
+ * Keep only stable human-visible label metadata from GitHub's PR payload so
+ * the cached branch metadata stays small and display-ready.
+ */
+export function readPullRequestLabels(
+  labels: unknown,
+): PullRequestLabelSummary[] {
+  if (!Array.isArray(labels)) {
+    return [];
+  }
+
+  const labelNames: PullRequestLabelSummary[] = [];
+  const seenNames = new Set<string>();
+  for (const label of labels) {
+    const name = (() => {
+      if (typeof label === "string") {
+        return label;
+      }
+      if (isRecord(label) && typeof label.name === "string") {
+        return label.name;
+      }
+      return undefined;
+    })();
+    if (typeof name !== "string" || name.length === 0 || seenNames.has(name)) {
+      continue;
+    }
+    seenNames.add(name);
+    labelNames.push({
+      name,
+      color:
+        isRecord(label) &&
+        typeof label.color === "string" &&
+        label.color.length > 0
+          ? label.color
+          : undefined,
+    });
+  }
+
+  return labelNames;
 }
 
 function readPullRequestHeadRepositoryFullName(
@@ -500,7 +547,8 @@ async function getOpenPullRequestsByBranch(args: {
   state: "resolved" | "preserve";
   pullRequestsByBranch: Map<
     string,
-    { url?: string; number?: number } | undefined
+    | { url?: string; number?: number; labels: PullRequestLabelSummary[] }
+    | undefined
   >;
 }> {
   try {
@@ -508,7 +556,12 @@ async function getOpenPullRequestsByBranch(args: {
     const repositoryFullName = `${args.owner}/${args.repo}`.toLowerCase();
     const latestByBranch = new Map<
       string,
-      { url: string; number: number; updatedAt: number }
+      {
+        url: string;
+        number: number;
+        labels: PullRequestLabelSummary[];
+        updatedAt: number;
+      }
     >();
     const perPage = 100;
     const maxPages = 50;
@@ -558,6 +611,7 @@ async function getOpenPullRequestsByBranch(args: {
           latestByBranch.set(branchName, {
             url: pullRequest.html_url,
             number: pullRequest.number,
+            labels: readPullRequestLabels(pullRequest.labels),
             updatedAt,
           });
         }
@@ -585,14 +639,19 @@ async function getOpenPullRequestsByBranch(args: {
 
     const pullRequestsByBranch = new Map<
       string,
-      { url?: string; number?: number } | undefined
+      | { url?: string; number?: number; labels: PullRequestLabelSummary[] }
+      | undefined
     >();
     for (const branchName of args.branchNames) {
       const pullRequest = latestByBranch.get(branchName);
       pullRequestsByBranch.set(
         branchName,
         pullRequest
-          ? { url: pullRequest.url, number: pullRequest.number }
+          ? {
+              url: pullRequest.url,
+              number: pullRequest.number,
+              labels: pullRequest.labels,
+            }
           : undefined,
       );
     }
@@ -703,7 +762,8 @@ async function listRemoteBranches(args: {
         state: "preserve" as const,
         pullRequestsByBranch: new Map<
           string,
-          { url?: string; number?: number } | undefined
+          | { url?: string; number?: number; labels: PullRequestLabelSummary[] }
+          | undefined
         >(),
       });
 
@@ -738,6 +798,7 @@ async function listRemoteBranches(args: {
       aheadBehindState: aheadBehind.state,
       pullRequestUrl: pullRequest?.url,
       pullRequestNumber: pullRequest?.number,
+      pullRequestLabels: pullRequest?.labels,
       pullRequestState: pullRequestsByBranch.state,
     };
   });
