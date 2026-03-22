@@ -94,19 +94,26 @@ function openBranchSession(url) {
 
     const reuseResult = runPlaywrightCli(reuseArgs, {
       allowFailure: true,
-      stdio: 'inherit',
+      stdio: 'pipe',
     })
 
     if (reuseResult.status === 0) {
+      writeCapturedOutput(reuseResult)
       return
     }
 
-    // `open` stops an existing session before recreating it, so only fall back
-    // when we can prove the original session is already gone.
-    if (getSessionState(session) !== 'missing') {
-      fail(
-        `Playwright session "${session}" rejected 'tab-new'. Leaving the existing browser untouched so unsaved changes are not lost.`,
-      )
+    if (requiresSessionReopen(reuseResult, session)) {
+      writeCapturedOutput(reuseResult)
+    } else {
+      writeCapturedOutput(reuseResult)
+
+      // `open` stops an existing session before recreating it, so only fall
+      // back when we can prove the original session is already gone.
+      if (getSessionState(session) !== 'missing') {
+        fail(
+          `Playwright session "${session}" rejected 'tab-new'. Leaving the existing browser untouched so unsaved changes are not lost.`,
+        )
+      }
     }
   }
 
@@ -118,8 +125,37 @@ function openBranchSession(url) {
     openArgs.push(url)
   }
 
-  openArgs.push('--browser=chrome', '--persistent', `--profile=${profileDir}`)
+  openArgs.push('--persistent', `--profile=${profileDir}`)
   runPlaywrightCli(openArgs)
+}
+
+/**
+ * Saved session configs can outlive a Playwright CLI upgrade. In that case the
+ * first command fails before the registry entry disappears, but re-opening the
+ * session is the documented recovery path.
+ *
+ * @param {import('node:child_process').SpawnSyncReturns<string>} result
+ * @param {string} session
+ * @returns {boolean}
+ */
+function requiresSessionReopen(result, session) {
+  const output = `${result.stdout}\n${result.stderr}`
+  const escapedSession = session.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`session '${escapedSession}' is v`, 'i').test(output)
+}
+
+/**
+ * @param {import('node:child_process').SpawnSyncReturns<string>} result
+ * @returns {void}
+ */
+function writeCapturedOutput(result) {
+  if (result.stdout) {
+    process.stdout.write(result.stdout)
+  }
+
+  if (result.stderr) {
+    process.stderr.write(result.stderr)
+  }
 }
 
 /** @returns {string} */
