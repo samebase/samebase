@@ -517,6 +517,10 @@ Auth:
 - When a preview URL exists for the work in progress, always include it as a
   clickable Markdown link in the user-facing response so the operator can open
   it directly.
+- When a relevant local preview/server exists for the current worktree, always
+  include at least one clickable localhost URL in the user-facing response. If
+  no relevant local preview is running, say that explicitly instead of omitting
+  the link expectation silently.
 - When a response relates to an existing PR, always mention the PR number and
   format that PR number itself as a clickable Markdown link to the PR (for
   example `[#253](https://github.com/noter-md/noter/pull/253)`), even if the
