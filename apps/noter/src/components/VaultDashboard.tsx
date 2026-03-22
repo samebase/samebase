@@ -523,6 +523,11 @@ export function VaultBranchLinkContent({
   const aheadBehindLabel = formatAheadBehindCounts(aheadBy, behindBy);
   const normalizedPullRequestLabels =
     normalizePullRequestLabels(pullRequestLabels);
+  const metadataLinkClassName = clsx(
+    "inline-flex min-h-6 items-center rounded-sm px-1.5 py-0.5 -mx-1.5 -my-0.5 touch-manipulation",
+    "font-mono",
+    linkStyle,
+  );
   const branchPath = encodeURIComponent(branchName);
   const branchRoute = `/vault/${repositoryFullName}/${branchPath}`;
   const hasPullRequestTitle =
@@ -565,7 +570,7 @@ export function VaultBranchLinkContent({
               href={commitUrl}
               target="_blank"
               rel="noreferrer noopener"
-              className={`font-mono ${linkStyle}`}
+              className={metadataLinkClassName}
               title="View commit on GitHub"
             >
               {headCommitSha.slice(0, 7)}
@@ -576,6 +581,7 @@ export function VaultBranchLinkContent({
                 <PullRequestLink
                   pullRequestNumber={pullRequestNumber}
                   pullRequestUrl={pullRequestUrl}
+                  className={metadataLinkClassName}
                 />
               </>
             ) : null}
@@ -600,7 +606,7 @@ export function VaultBranchLinkContent({
                   href={cloudflareBranchPreviewUrl}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className={clsx("font-mono", linkStyle)}
+                  className={metadataLinkClassName}
                   title="Open Cloudflare branch preview"
                 >
                   preview
