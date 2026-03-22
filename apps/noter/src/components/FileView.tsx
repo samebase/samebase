@@ -2925,7 +2925,7 @@ function FileViewInner({
                 onClick={() => handleEditorChatOpenChange(true)}
                 aria-label="Open chat"
                 title="Open chat"
-                className="!fixed bottom-3 right-3 z-10 flex h-11 w-11 items-center justify-center corner-notch-1 border-0 bg-primary p-0 text-primary-foreground shadow-lg transition-colors hover:bg-primary/90 sm:!absolute"
+                className="fixed bottom-3 right-3 z-10 flex h-11 w-11 items-center justify-center corner-notch-1 border-0 bg-primary p-0 text-primary-foreground shadow-lg transition-colors hover:bg-primary/90 sm:absolute"
               >
                 <span aria-hidden="true" className="h-4 w-4 bg-current" />
               </Button>
