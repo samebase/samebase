@@ -73,6 +73,7 @@ import {
   setQueryParam,
   updateQueryParams,
 } from "@/lib/queryParams";
+import { shouldSyncLogoPreviewQueryState } from "@/lib/logoPreviewQuerySync";
 import { PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG } from "@/lib/publicLandingLogo";
 import { cn } from "@/lib/utils";
 import { ChevronDown } from "lucide-react";
@@ -423,7 +424,12 @@ export function LogoPreviewPage({
   };
 
   useEffect(() => {
-    if (isSceneInteractingRef.current) {
+    if (
+      !shouldSyncLogoPreviewQueryState({
+        isAutoRotating,
+        isSceneInteracting: isSceneInteractingRef.current,
+      })
+    ) {
       return;
     }
 
@@ -439,17 +445,30 @@ export function LogoPreviewPage({
   }, [searchParams]);
 
   useEffect(() => {
-    if (isSceneInteracting) {
+    if (
+      !shouldSyncLogoPreviewQueryState({
+        isAutoRotating,
+        isSceneInteracting,
+      })
+    ) {
       return;
     }
 
+    const resolvedView = resolveLogoPreviewViewState(
+      {
+        elevationDegrees,
+        rotationDegrees,
+      },
+      isViewSnapEnabled,
+    );
+
     const nextSearch = buildSearchString(
       buildLogoPreviewSearchParams(searchParams, {
-        elevationDegrees,
+        elevationDegrees: resolvedView.elevationDegrees,
         faceColors,
         isoStyleId,
         rotationAxisMode,
-        rotationDegrees,
+        rotationDegrees: resolvedView.rotationDegrees,
         viewSnapEnabled: isViewSnapEnabled,
         voxelState,
       }),
@@ -462,6 +481,7 @@ export function LogoPreviewPage({
     currentSearch,
     elevationDegrees,
     faceColors,
+    isAutoRotating,
     isSceneInteracting,
     isViewSnapEnabled,
     isoStyleId,
