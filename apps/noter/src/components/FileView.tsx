@@ -1287,6 +1287,7 @@ function FileViewInner({
 
       if (selectedFile === filePath) {
         void navigate(buildVaultFileUrl(filePath, { reviewMode: "editor" }), {
+          replace: true,
           state,
         });
       }
