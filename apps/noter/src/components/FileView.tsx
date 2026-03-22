@@ -846,9 +846,6 @@ function FileViewInner({
   }, [isDiffRequested]);
   const [allowAutoExitReview, setAllowAutoExitReview] = useState(true);
   const reviewRouteKeyRef = useRef<string | null>(null);
-  const reviewSidebarModeRef = useRef<Exclude<SidebarMode, "changes"> | null>(
-    null,
-  );
   const currentRemoteBranch = useMemo(
     () =>
       remoteBranches?.find(
@@ -936,6 +933,12 @@ function FileViewInner({
       setIsPreviewOpen(false);
     }
   }, [viewMode, isPreviewOpen]);
+
+  useEffect(() => {
+    if (commitReviewMode === "review" && viewMode !== "editor") {
+      setViewMode("editor");
+    }
+  }, [commitReviewMode, setViewMode, viewMode]);
 
   useEffect(() => {
     if (
@@ -1897,10 +1900,13 @@ function FileViewInner({
           return false;
         }
 
-        return item.status === "deleted" || forceSidebarSelectionVisible;
+        return (
+          item.status === "deleted" ||
+          (forceSidebarSelectionVisible && item.path === selectedFile)
+        );
       })
       .map((item) => item.path);
-  }, [finalTreeData, forceSidebarSelectionVisible]);
+  }, [finalTreeData, forceSidebarSelectionVisible, selectedFile]);
   const visibleTreeData = useMemo(() => {
     if (sidebarMode !== "simple") {
       return finalTreeData;
