@@ -402,6 +402,7 @@ export function LogoPreviewPage({
   const [isFaceColorAnimationEnabled, setIsFaceColorAnimationEnabled] =
     useState(false);
   const [isAutoRotating, setIsAutoRotating] = useState(false);
+  const isAutoRotatingRef = useRef(isAutoRotating);
   const [isShuffleEnabled, setIsShuffleEnabled] = useState(false);
   const [shuffleParallelMoves, setShuffleParallelMoves] =
     useState<LogoShuffleParallelMoves>(3);
@@ -424,9 +425,13 @@ export function LogoPreviewPage({
   };
 
   useEffect(() => {
+    isAutoRotatingRef.current = isAutoRotating;
+  }, [isAutoRotating]);
+
+  useEffect(() => {
     if (
       !shouldSyncLogoPreviewQueryState({
-        isAutoRotating,
+        isAutoRotating: isAutoRotatingRef.current,
         isSceneInteracting: isSceneInteractingRef.current,
       })
     ) {
