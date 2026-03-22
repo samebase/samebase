@@ -13,7 +13,6 @@ DAYTONA_VITE_PORT ?= 5173
 BOOTSTRAP_ANON_ARGS ?=
 DAYTONA_SOURCE_ENV ?= apps/noter/.env.daytona-source.local
 DAYTONA_WRITE_SOURCE_ENV_CMD = node ./scripts/daytona-write-source-env.js --output "$(DAYTONA_SOURCE_ENV)" --optional
-PLAYWRIGHT_CLI = npx --yes @playwright/cli
 PLAYWRIGHT_BRANCH_BROWSER = node ./scripts/playwright-branch-browser.js
 PLAYWRIGHT_SESSION ?= $(shell $(PLAYWRIGHT_BRANCH_BROWSER) session)
 PLAYWRIGHT_PROFILE_DIR = $(shell PLAYWRIGHT_SESSION="$(PLAYWRIGHT_SESSION)" $(PLAYWRIGHT_BRANCH_BROWSER) profile)
@@ -98,10 +97,10 @@ record-stop:
 	TS="$$(date +%Y%m%d-%H%M%S)"; \
 	OUT="$(PLAYWRIGHT_RECORD_DIR)"; \
 	mkdir -p "$$OUT"; \
-	$(PLAYWRIGHT_CLI) -s="$$SESSION" snapshot > "$$OUT/$$SESSION-$$TS.snapshot.txt"; \
-	$(PLAYWRIGHT_CLI) -s="$$SESSION" screenshot --filename="$$OUT/$$SESSION-$$TS.png"; \
-	$(PLAYWRIGHT_CLI) -s="$$SESSION" video-stop --filename="$$OUT/$$SESSION-$$TS.webm"; \
-	$(PLAYWRIGHT_CLI) -s="$$SESSION" tracing-stop > "$$OUT/$$SESSION-$$TS.trace.txt"; \
-	$(PLAYWRIGHT_CLI) -s="$$SESSION" close; \
+	PLAYWRIGHT_SESSION="$$SESSION" $(PLAYWRIGHT_BRANCH_BROWSER) cli snapshot > "$$OUT/$$SESSION-$$TS.snapshot.txt"; \
+	PLAYWRIGHT_SESSION="$$SESSION" $(PLAYWRIGHT_BRANCH_BROWSER) cli screenshot --filename="$$OUT/$$SESSION-$$TS.png"; \
+	PLAYWRIGHT_SESSION="$$SESSION" $(PLAYWRIGHT_BRANCH_BROWSER) cli video-stop --filename="$$OUT/$$SESSION-$$TS.webm"; \
+	PLAYWRIGHT_SESSION="$$SESSION" $(PLAYWRIGHT_BRANCH_BROWSER) cli tracing-stop > "$$OUT/$$SESSION-$$TS.trace.txt"; \
+	PLAYWRIGHT_SESSION="$$SESSION" $(PLAYWRIGHT_BRANCH_BROWSER) cli close; \
 	rm -f .playwright-cli/active-session; \
 	echo "Saved recording artifacts to $$OUT"

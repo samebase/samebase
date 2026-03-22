@@ -78,8 +78,15 @@ function main(args) {
 function openBranchSession(url) {
   const session = getSessionName()
   const cliArgs = [`-s=${session}`]
+  const initialSessionState = getSessionState(session)
 
-  if (sessionExists(session)) {
+  if (initialSessionState === 'unknown') {
+    fail(
+      `Could not determine whether Playwright session "${session}" is already running. Refusing to reopen it because that could replace an unsaved browser tab.`,
+    )
+  }
+
+  if (initialSessionState === 'exists') {
     const reuseArgs = [...cliArgs, 'tab-new']
     if (url) {
       reuseArgs.push(url)
@@ -92,6 +99,14 @@ function openBranchSession(url) {
 
     if (reuseResult.status === 0) {
       return
+    }
+
+    // `open` stops an existing session before recreating it, so only fall back
+    // when we can prove the original session is already gone.
+    if (getSessionState(session) !== 'missing') {
+      fail(
+        `Playwright session "${session}" rejected 'tab-new'. Leaving the existing browser untouched so unsaved changes are not lost.`,
+      )
     }
   }
 
@@ -147,16 +162,16 @@ function getBranchIdentifier() {
 
 /**
  * @param {string} session
- * @returns {boolean}
+ * @returns {'exists' | 'missing' | 'unknown'}
  */
-function sessionExists(session) {
+function getSessionState(session) {
   const result = runPlaywrightCli(['list', '--all'], {
     allowFailure: true,
     stdio: 'pipe',
   })
 
   if (result.status !== 0) {
-    return false
+    return 'unknown'
   }
 
   const escapedSession = session.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -165,6 +180,8 @@ function sessionExists(session) {
   return `${result.stdout}\n${result.stderr}`
     .split('\n')
     .some(line => sessionLine.test(line.trimStart()))
+    ? 'exists'
+    : 'missing'
 }
 
 /**
