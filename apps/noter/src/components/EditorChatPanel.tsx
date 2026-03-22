@@ -565,14 +565,37 @@ function MessageBubble({
 }
 
 type EditorChatPanelProps = {
-  vaultId: Id<"vaults">;
-  repositoryFullName: string;
-  branch: string;
+  vaultId?: Id<"vaults">;
+  repositoryFullName?: string;
+  branch?: string;
   filePath?: string;
   className?: string;
   autoFocusInput?: boolean;
   onClose?: () => void;
 };
+
+const STORAGE_KEY_LOCAL_THREAD = "noter-chat-thread";
+
+function loadStoredLocalThreadId(): string | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_LOCAL_THREAD);
+    if (raw === null) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    return typeof parsed === "string" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredLocalThreadId(threadId: string | null) {
+  try {
+    localStorage.setItem(STORAGE_KEY_LOCAL_THREAD, JSON.stringify(threadId));
+  } catch {
+    // ignore quota errors
+  }
+}
 
 // --- Main component ---
 
@@ -586,6 +609,9 @@ export function EditorChatPanel({
   onClose,
 }: EditorChatPanelProps) {
   const [input, setInput] = useState("");
+  const [localThreadId, setLocalThreadId] = useState<string | null>(() =>
+    loadStoredLocalThreadId(),
+  );
   const [pendingThreadId, setPendingThreadId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -602,9 +628,14 @@ export function EditorChatPanel({
 
   const viewer = useQuery(api.users.viewer);
 
-  // One thread per user per vault — persisted in Convex
-  const vaultThread = useQuery(api.chat.index.getThreadForVault, { vaultId });
-  const threadId = vaultThread?.threadId ?? pendingThreadId;
+  // Vault pages use the per-vault thread; non-vault pages fall back to the old local thread id.
+  const vaultThread = useQuery(
+    api.chat.index.getThreadForVault,
+    vaultId ? { vaultId } : "skip",
+  );
+  const threadId = vaultId
+    ? vaultThread?.threadId ?? pendingThreadId
+    : localThreadId;
 
   const threadContext = useQuery(
     api.chat.index.getThreadContext,
@@ -633,12 +664,16 @@ export function EditorChatPanel({
 
     const createPromise = (async () => {
       const createdId = await createThread({
-        vaultId,
+        vaultId: vaultId ?? undefined,
         repositoryFullName,
         branch,
         filePath,
       });
-      setPendingThreadId(createdId);
+      if (vaultId) {
+        setPendingThreadId(createdId);
+      } else {
+        setLocalThreadId(createdId);
+      }
       return createdId;
     })();
 
@@ -655,6 +690,9 @@ export function EditorChatPanel({
     setIsDeleting(true);
     try {
       await deleteThread({ threadId });
+      if (!vaultId) {
+        setLocalThreadId(null);
+      }
       setPendingThreadId(null);
       setInput("");
       lastHydratedThreadRef.current = null;
@@ -665,6 +703,12 @@ export function EditorChatPanel({
       setIsDeleting(false);
     }
   }
+
+  useEffect(() => {
+    if (!vaultId) {
+      saveStoredLocalThreadId(localThreadId);
+    }
+  }, [localThreadId, vaultId]);
 
   useEffect(() => {
     setPendingThreadId(null);
@@ -750,14 +794,14 @@ export function EditorChatPanel({
   }, [threadId, threadContextLoaded, threadContext?.draftMessage]);
 
   const flushDraftImmediately = useCallback(() => {
-    if (!threadId) {
-      return Promise.resolve();
-    }
+    const draft = input;
     if (draftSaveTimerRef.current) {
       window.clearTimeout(draftSaveTimerRef.current);
       draftSaveTimerRef.current = null;
     }
-    const draft = input;
+    if (!threadId && draft.trim().length === 0) {
+      return Promise.resolve();
+    }
     if (draft === lastSavedDraftRef.current) {
       isDirtyDraftRef.current = false;
       return Promise.resolve();
@@ -765,12 +809,20 @@ export function EditorChatPanel({
     if (flushDraftPromiseRef.current) {
       return flushDraftPromiseRef.current;
     }
-    const savePromise = updateThreadDraft({ threadId, draftMessage: draft })
-      .then(() => {
-        lastSavedDraftRef.current = draft;
-        lastHydratedDraftRef.current = draft;
-        isDirtyDraftRef.current = false;
-      })
+    const savePromise = (async () => {
+      const activeThreadId =
+        threadId ?? (draft.trim().length > 0 ? await ensureThreadId() : null);
+      if (!activeThreadId) {
+        return;
+      }
+      await updateThreadDraft({
+        threadId: activeThreadId,
+        draftMessage: draft,
+      });
+      lastSavedDraftRef.current = draft;
+      lastHydratedDraftRef.current = draft;
+      isDirtyDraftRef.current = false;
+    })()
       .catch(() => {
         // keep dirty flag for a future retry
       })
@@ -781,7 +833,7 @@ export function EditorChatPanel({
       });
     flushDraftPromiseRef.current = savePromise;
     return savePromise;
-  }, [input, threadId, updateThreadDraft]);
+  }, [ensureThreadId, input, threadId, updateThreadDraft]);
 
   useEffect(() => {
     flushDraftRef.current = flushDraftImmediately;
@@ -838,7 +890,7 @@ export function EditorChatPanel({
       await sendMessage({
         threadId: activeThreadId,
         content: trimmed,
-        vaultId,
+        vaultId: vaultId ?? undefined,
         filePath,
         branch,
       });

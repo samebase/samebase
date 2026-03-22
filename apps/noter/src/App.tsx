@@ -32,6 +32,10 @@ const AddRepository = lazy(async () => {
   const module = await import("@/components/AddRepository");
   return { default: module.AddRepository };
 });
+const ChatFab = lazy(async () => {
+  const module = await import("@/components/ChatFab");
+  return { default: module.ChatFab };
+});
 const CodespaceChatOnlyView = lazy(async () => {
   const module = await import("@/components/CodespaceChatOnlyView");
   return { default: module.CodespaceChatOnlyView };
@@ -310,6 +314,8 @@ export default function App() {
     location.pathname,
     !(onMcpConsentRoute && mcpConsentRequestId !== null),
   );
+  // Vault routes own the docked editor chat; everywhere else keeps the legacy floating entrypoint.
+  const showGlobalChatFab = !location.pathname.startsWith("/vault/");
   const showMcpConsent = onMcpConsentRoute && mcpConsentRequestId !== null;
   const logoPreviewMode =
     location.pathname === "/logo"
@@ -432,7 +438,7 @@ export default function App() {
                   {/* test route */}
                   <Route path="/test" element={<div>Test</div>} />
                 </Routes>
-                {showChatFab ? <ChatFab /> : null}
+                {showGlobalChatFab ? <ChatFab /> : null}
               </Suspense>
             </ApprovalGate>
           </Authenticated>

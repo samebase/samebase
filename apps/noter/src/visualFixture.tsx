@@ -38,11 +38,16 @@ import {
 } from "@/components/FileViewPushActionsVisualFixture";
 import { VaultDashboardBranchVisualFixture } from "@/components/VaultDashboardBranchVisualFixture";
 import { ButtonVisualFixture } from "@/components/ButtonVisualFixture";
+import {
+  EditorChatVisualFixture,
+  type EditorChatVisualMode,
+} from "@/components/EditorChatVisualFixture";
 import "./index.css";
 
 type VisualFixtureMode =
   | CommitReviewVisualMode
   | FileViewPushActionsVisualMode
+  | EditorChatVisualMode
   | LandingCopyVisualMode
   | LogoSnapAnglesVisualMode
   | LogoThreeVisualMode
@@ -67,6 +72,8 @@ function readMode(): VisualFixtureMode {
     value === "logo-three-reference" ||
     value === "media-png" ||
     value === "media-svg" ||
+    value === "editor-chat-open-mobile" ||
+    value === "editor-chat-closed" ||
     value === "landing-copy-parity" ||
     value === "landing-copy-editable-parity-single-line" ||
     value === "landing-copy-editable-parity-two-line" ||
@@ -104,6 +111,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <LogoThreeVisualFixture />
         ) : mode === "logo-snap-angles" ? (
           <LogoSnapAnglesVisualFixture />
+        ) : mode === "editor-chat-open-mobile" ||
+          mode === "editor-chat-closed" ? (
+          <EditorChatVisualFixture mode={mode} />
         ) : mode === "simple-repository-config" ||
           mode === "simple-missing-config" ? (
           <SimpleViewVisualFixture mode={mode} />
