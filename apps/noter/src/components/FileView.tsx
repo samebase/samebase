@@ -1478,7 +1478,6 @@ function FileViewInner({
   };
 
   const handleManualCommit = useCallback(() => {
-    if (!selectedFile) return;
     setCommitError(null);
     setDraftPullRequestError(null);
     setCommitPreviewError(null);
@@ -1505,7 +1504,6 @@ function FileViewInner({
     commitStaging,
     handleUpstreamConflictDetected,
     repositoryFullName,
-    selectedFile,
   ]);
 
   const handleDraftPullRequest = useCallback(() => {

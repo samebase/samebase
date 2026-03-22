@@ -686,7 +686,7 @@ export function EditorChatPanel({
   }, [threadId, createThread, vaultId, repositoryFullName, branch, filePath]);
 
   async function handleNewConversation() {
-    if (!threadId || isDeleting) return;
+    if (!threadId || isDeleting || sending) return;
     setIsDeleting(true);
     try {
       await deleteThread({ threadId });
@@ -877,7 +877,7 @@ export function EditorChatPanel({
 
   async function handleSend() {
     const trimmed = input.trim();
-    if (!trimmed || sending) return;
+    if (!trimmed || sending || isDeleting) return;
 
     setSending(true);
     setInput("");
@@ -903,9 +903,12 @@ export function EditorChatPanel({
   }
 
   const handleClose = useCallback(() => {
+    if (sending || isDeleting) {
+      return;
+    }
     void flushDraftImmediately();
     onClose?.();
-  }, [flushDraftImmediately, onClose]);
+  }, [flushDraftImmediately, isDeleting, onClose, sending]);
 
   return (
     <div
@@ -924,8 +927,8 @@ export function EditorChatPanel({
               aria-label={
                 isDeleting ? "Removing conversation" : "New conversation"
               }
-              disabled={isDeleting}
-              aria-disabled={isDeleting}
+              disabled={isDeleting || sending}
+              aria-disabled={isDeleting || sending}
               className={cn(
                 "corner-notch-1 p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
               )}
@@ -940,7 +943,9 @@ export function EditorChatPanel({
           {onClose ? (
             <button
               onClick={handleClose}
-              className="corner-notch-1 p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              disabled={sending || isDeleting}
+              aria-disabled={sending || isDeleting}
+              className="corner-notch-1 p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Close chat"
             >
               <X className="h-4 w-4" />
@@ -979,7 +984,7 @@ export function EditorChatPanel({
             isDirtyDraftRef.current = true;
           }}
           onSend={() => void handleSend()}
-          disabled={sending || isWaitingForResponse}
+          disabled={sending || isWaitingForResponse || isDeleting}
           mode={inputMode}
           autoResize
           sendButtonClassName="mr-2 mt-2 mb-0 p-2"
