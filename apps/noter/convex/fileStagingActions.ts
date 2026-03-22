@@ -1542,6 +1542,20 @@ export const createDraftPullRequest = action({
         baseBranch: defaultBranch,
       });
       if (currentPullRequest) {
+        try {
+          await ctx.runAction(internal.github.updateRepositoryTree, {
+            userId,
+            owner: vault.ghRepoOwner,
+            repo: vault.ghRepoName,
+            includeAheadBehind: true,
+            includePullRequestLinks: true,
+          });
+        } catch (refreshError) {
+          console.warn(
+            "Failed to refresh remote branch metadata after discovering existing PR:",
+            refreshError,
+          );
+        }
         return {
           ...currentPullRequest,
           existing: true,

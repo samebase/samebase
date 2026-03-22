@@ -431,12 +431,17 @@ function FileViewWrapper() {
         branch,
       });
       if (!claimRefreshDebounce("file_view", key)) return;
-      void refreshTree({ owner, repo: repoName, branch, trigger }).catch(
-        (error: unknown) => {
-          console.error("Failed to refresh repository tree:", error);
-          releaseRefreshDebounce("file_view", key);
-        },
-      );
+      void refreshTree({
+        owner,
+        repo: repoName,
+        branch,
+        includeAheadBehind: true,
+        includePullRequestLinks: true,
+        trigger,
+      }).catch((error: unknown) => {
+        console.error("Failed to refresh repository tree:", error);
+        releaseRefreshDebounce("file_view", key);
+      });
     },
     [vaultId, owner, repoName, branch, refreshTree],
   );
@@ -1363,6 +1368,8 @@ function FileViewInner({
       return;
     }
 
+    const pendingPullRequestWindow = window.open("", "_blank");
+
     void createDraftPullRequest({
       repositoryFullName,
       branch,
@@ -1371,10 +1378,29 @@ function FileViewInner({
         void refreshRepositoryTree({
           owner,
           repo: repoName,
+        }).catch((error) => {
+          console.warn("Failed to refresh tree after draft PR:", error);
         });
-        window.open(result.url, "_blank", "noopener,noreferrer");
+        if (pendingPullRequestWindow && !pendingPullRequestWindow.closed) {
+          pendingPullRequestWindow.opener = null;
+          pendingPullRequestWindow.location.replace(result.url);
+          return;
+        }
+        const openedWindow = window.open(
+          result.url,
+          "_blank",
+          "noopener,noreferrer",
+        );
+        if (!openedWindow) {
+          setDraftPullRequestError(
+            "Draft pull request created, but the browser blocked opening a new tab.",
+          );
+        }
       })
       .catch((error) => {
+        if (pendingPullRequestWindow && !pendingPullRequestWindow.closed) {
+          pendingPullRequestWindow.close();
+        }
         const message =
           error instanceof Error && error.message.length > 0
             ? error.message

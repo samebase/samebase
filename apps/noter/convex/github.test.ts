@@ -380,6 +380,45 @@ describe("collectLatestOpenPullRequestsByBranch", () => {
       title: "Show PR title above branch name",
     });
   });
+
+  it("falls back to created_at when updated_at is missing", () => {
+    const pullRequestsByBranch = collectLatestOpenPullRequestsByBranch({
+      branchNames: ["feature/pr-title"],
+      repositoryFullName: "owner/noter",
+      pullRequests: [
+        {
+          head: {
+            ref: "feature/pr-title",
+            repo: {
+              full_name: "owner/noter",
+            },
+          },
+          html_url: "https://github.com/owner/noter/pull/21",
+          number: 21,
+          title: "Earlier PR",
+          created_at: "2026-03-20T10:00:00Z",
+        },
+        {
+          head: {
+            ref: "feature/pr-title",
+            repo: {
+              full_name: "owner/noter",
+            },
+          },
+          html_url: "https://github.com/owner/noter/pull/22",
+          number: 22,
+          title: "Later PR",
+          created_at: "2026-03-21T10:00:00Z",
+        },
+      ],
+    });
+
+    expect(pullRequestsByBranch.get("feature/pr-title")).toEqual({
+      url: "https://github.com/owner/noter/pull/22",
+      number: 22,
+      title: "Later PR",
+    });
+  });
 });
 
 describe("resolveAheadBehindBaseBranch", () => {

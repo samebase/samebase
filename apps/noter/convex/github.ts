@@ -1259,6 +1259,8 @@ export const refreshRepositoryTree = action({
     owner: string(),
     repo: string(),
     branch: optional(string()),
+    includeAheadBehind: optional(boolean()),
+    includePullRequestLinks: optional(boolean()),
     trigger: optional(union(literal("focus"), literal("page_load"))),
   },
   returns: nullValidator(),
@@ -1281,8 +1283,8 @@ export const refreshRepositoryTree = action({
         owner: args.owner,
         repo: args.repo,
         branch: requestedBranch,
-        includeAheadBehind: false,
-        includePullRequestLinks: false,
+        includeAheadBehind: args.includeAheadBehind === true,
+        includePullRequestLinks: args.includePullRequestLinks === true,
       });
       return null;
     }

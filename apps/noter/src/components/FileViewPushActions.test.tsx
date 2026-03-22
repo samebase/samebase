@@ -86,4 +86,21 @@ describe("FileViewPushActions", () => {
       `"<a class="text-xs" data-component="PullRequestLink" data-pull-request-number="999" href="https://github.com/noter-md/noter/pull/999">#999</a><button class="h-6 px-2 text-xs border-green-500 text-green-600 hover:bg-green-50" disabled="" data-size="sm" data-variant="outline">All Synced</button>"`,
     );
   });
+
+  it("disables push while a draft pull request is being created", () => {
+    const markup = renderToStaticMarkup(
+      <FileViewPushActions
+        canOpenOrCreateDraftPullRequest
+        hasChangesToCommit
+        isCreatingDraftPullRequest
+        isPushing={false}
+        onDraftPullRequest={() => {}}
+        onManualCommit={() => {}}
+      />,
+    );
+
+    expect(markup).toMatchInlineSnapshot(
+      `"<button class="h-6 px-2 text-xs border-sky-500 text-sky-700 hover:bg-sky-50" disabled="" data-size="sm" data-variant="outline">Creating...</button><button class="h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white" disabled="" data-size="sm" data-variant="default">push</button>"`,
+    );
+  });
 });

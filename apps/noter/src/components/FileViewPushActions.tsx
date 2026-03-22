@@ -54,7 +54,9 @@ export function FileViewPushActions({
         size="sm"
         variant={hasChangesToCommit ? "default" : "outline"}
         onClick={onManualCommit}
-        disabled={isPushing || !hasChangesToCommit}
+        disabled={
+          isPushing || isCreatingDraftPullRequest || !hasChangesToCommit
+        }
         className={
           hasChangesToCommit
             ? "h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
