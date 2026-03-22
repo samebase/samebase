@@ -16,22 +16,17 @@ export interface InputProps
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, cornerNotch, ...props }, ref) => {
     const resolvedCornerNotch = cornerNotch ?? DEFAULT_CORNER_NOTCH_TYPE;
+    const finalClassName = cn(
+      getOptionalCornerNotchClass(resolvedCornerNotch),
+      className,
+    );
     const inputRef = useCornerNotchBridgeColor(
       resolvedCornerNotch,
       ref,
-      className,
+      finalClassName,
     );
 
-    return (
-      <BaseInput
-        ref={inputRef}
-        className={cn(
-          getOptionalCornerNotchClass(resolvedCornerNotch),
-          className,
-        )}
-        {...props}
-      />
-    );
+    return <BaseInput ref={inputRef} className={finalClassName} {...props} />;
   },
 );
 

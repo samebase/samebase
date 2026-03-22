@@ -287,6 +287,18 @@
      * children can inherit it and render the wrong notch geometry.
      */
     --noter-corner-notch-bridge-size: 0px;
+    --noter-corner-notch-bridge-top-left-size: var(
+      --noter-corner-notch-bridge-size
+    );
+    --noter-corner-notch-bridge-top-right-size: var(
+      --noter-corner-notch-bridge-size
+    );
+    --noter-corner-notch-bridge-bottom-right-size: var(
+      --noter-corner-notch-bridge-size
+    );
+    --noter-corner-notch-bridge-bottom-left-size: var(
+      --noter-corner-notch-bridge-size
+    );
     --noter-corner-notch-stroke: 1px;
   }
 
@@ -298,6 +310,69 @@
   :is(.corner-notch-1, .corner-notch-2).border-2 {
     --noter-corner-notch-bridge-size: 2px;
     --noter-corner-notch-stroke: 2px;
+  }
+
+  /*
+   * Side-specific border utilities can remove one of the two edges that meet at
+   * a corner. Clear that corner's bridge block so raw `corner-notch-*` surfaces
+   * stay in sync with utilities like `border-x-0`.
+   */
+  :is(.corner-notch-1, .corner-notch-2).border-x-0,
+  :is(.corner-notch-1, .corner-notch-2).border-y-0 {
+    --noter-corner-notch-bridge-top-left-size: 0px;
+    --noter-corner-notch-bridge-top-right-size: 0px;
+    --noter-corner-notch-bridge-bottom-right-size: 0px;
+    --noter-corner-notch-bridge-bottom-left-size: 0px;
+  }
+
+  :is(.corner-notch-1, .corner-notch-2).border-l-0 {
+    --noter-corner-notch-bridge-top-left-size: 0px;
+    --noter-corner-notch-bridge-bottom-left-size: 0px;
+  }
+
+  :is(.corner-notch-1, .corner-notch-2).border-r-0 {
+    --noter-corner-notch-bridge-top-right-size: 0px;
+    --noter-corner-notch-bridge-bottom-right-size: 0px;
+  }
+
+  :is(.corner-notch-1, .corner-notch-2).border-t-0 {
+    --noter-corner-notch-bridge-top-left-size: 0px;
+    --noter-corner-notch-bridge-top-right-size: 0px;
+  }
+
+  :is(.corner-notch-1, .corner-notch-2).border-b-0 {
+    --noter-corner-notch-bridge-bottom-right-size: 0px;
+    --noter-corner-notch-bridge-bottom-left-size: 0px;
+  }
+
+  @media not all and (min-width: 640px) {
+    :is(.corner-notch-1, .corner-notch-2).max-sm\:border-x-0,
+    :is(.corner-notch-1, .corner-notch-2).max-sm\:border-y-0 {
+      --noter-corner-notch-bridge-top-left-size: 0px;
+      --noter-corner-notch-bridge-top-right-size: 0px;
+      --noter-corner-notch-bridge-bottom-right-size: 0px;
+      --noter-corner-notch-bridge-bottom-left-size: 0px;
+    }
+
+    :is(.corner-notch-1, .corner-notch-2).max-sm\:border-l-0 {
+      --noter-corner-notch-bridge-top-left-size: 0px;
+      --noter-corner-notch-bridge-bottom-left-size: 0px;
+    }
+
+    :is(.corner-notch-1, .corner-notch-2).max-sm\:border-r-0 {
+      --noter-corner-notch-bridge-top-right-size: 0px;
+      --noter-corner-notch-bridge-bottom-right-size: 0px;
+    }
+
+    :is(.corner-notch-1, .corner-notch-2).max-sm\:border-t-0 {
+      --noter-corner-notch-bridge-top-left-size: 0px;
+      --noter-corner-notch-bridge-top-right-size: 0px;
+    }
+
+    :is(.corner-notch-1, .corner-notch-2).max-sm\:border-b-0 {
+      --noter-corner-notch-bridge-bottom-right-size: 0px;
+      --noter-corner-notch-bridge-bottom-left-size: 0px;
+    }
   }
 
   .corner-notch-1 {
@@ -345,17 +420,17 @@
     pointer-events: none;
     background:
       linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        0 0 / var(--noter-corner-notch-bridge-size, 0px)
-        var(--noter-corner-notch-bridge-size, 0px) no-repeat,
+        0 0 / var(--noter-corner-notch-bridge-top-left-size, 0px)
+        var(--noter-corner-notch-bridge-top-left-size, 0px) no-repeat,
       linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        100% 0 / var(--noter-corner-notch-bridge-size, 0px)
-        var(--noter-corner-notch-bridge-size, 0px) no-repeat,
+        100% 0 / var(--noter-corner-notch-bridge-top-right-size, 0px)
+        var(--noter-corner-notch-bridge-top-right-size, 0px) no-repeat,
       linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        100% 100% / var(--noter-corner-notch-bridge-size, 0px)
-        var(--noter-corner-notch-bridge-size, 0px) no-repeat,
+        100% 100% / var(--noter-corner-notch-bridge-bottom-right-size, 0px)
+        var(--noter-corner-notch-bridge-bottom-right-size, 0px) no-repeat,
       linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        0 100% / var(--noter-corner-notch-bridge-size, 0px)
-        var(--noter-corner-notch-bridge-size, 0px) no-repeat;
+        0 100% / var(--noter-corner-notch-bridge-bottom-left-size, 0px)
+        var(--noter-corner-notch-bridge-bottom-left-size, 0px) no-repeat;
   }
 
   .corner-notch-2 {
@@ -392,17 +467,17 @@
     /* Paint the inner bridge pixel that the clipped outer border cannot reach. */
     background:
       linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        0 0 / var(--noter-corner-notch-bridge-size, 0px)
-        var(--noter-corner-notch-bridge-size, 0px) no-repeat,
+        0 0 / var(--noter-corner-notch-bridge-top-left-size, 0px)
+        var(--noter-corner-notch-bridge-top-left-size, 0px) no-repeat,
       linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        100% 0 / var(--noter-corner-notch-bridge-size, 0px)
-        var(--noter-corner-notch-bridge-size, 0px) no-repeat,
+        100% 0 / var(--noter-corner-notch-bridge-top-right-size, 0px)
+        var(--noter-corner-notch-bridge-top-right-size, 0px) no-repeat,
       linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        100% 100% / var(--noter-corner-notch-bridge-size, 0px)
-        var(--noter-corner-notch-bridge-size, 0px) no-repeat,
+        100% 100% / var(--noter-corner-notch-bridge-bottom-right-size, 0px)
+        var(--noter-corner-notch-bridge-bottom-right-size, 0px) no-repeat,
       linear-gradient(var(--noter-corner-notch-bridge-color, currentColor) 0 0)
-        0 100% / var(--noter-corner-notch-bridge-size, 0px)
-        var(--noter-corner-notch-bridge-size, 0px) no-repeat;
+        0 100% / var(--noter-corner-notch-bridge-bottom-left-size, 0px)
+        var(--noter-corner-notch-bridge-bottom-left-size, 0px) no-repeat;
   }
 
   .corner-notch-1:focus-visible,

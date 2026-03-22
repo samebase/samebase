@@ -23,22 +23,17 @@ export interface CardProps
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ className, cornerNotch, ...props }, ref) => {
     const resolvedCornerNotch = cornerNotch ?? DEFAULT_CORNER_NOTCH_TYPE;
+    const finalClassName = cn(
+      getOptionalCornerNotchClass(resolvedCornerNotch),
+      className,
+    );
     const cardRef = useCornerNotchBridgeColor(
       resolvedCornerNotch,
       ref,
-      className,
+      finalClassName,
     );
 
-    return (
-      <BaseCard
-        ref={cardRef}
-        className={cn(
-          getOptionalCornerNotchClass(resolvedCornerNotch),
-          className,
-        )}
-        {...props}
-      />
-    );
+    return <BaseCard ref={cardRef} className={finalClassName} {...props} />;
   },
 );
 

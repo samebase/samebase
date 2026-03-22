@@ -114,12 +114,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <VaultDashboardBranchVisualFixture />
         ) : mode === "button" ? (
           <ButtonVisualFixture />
-        ) : mode === "file-view-push-ready" || mode === "file-view-open-pr" ? (
-          <FileViewPushActionsVisualFixture mode={mode} />
-        ) : mode === "vault-dashboard-branch-pr-title" ? (
-          <VaultDashboardBranchVisualFixture />
-        ) : mode === "button" ? (
-          <ButtonVisualFixture />
         ) : mode === "corner-notch" ? (
           <CornerNotchVisualFixture />
         ) : mode === "corner-notch-detail" ? (

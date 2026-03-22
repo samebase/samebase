@@ -1459,7 +1459,7 @@ export function VaultDashboard() {
       <ButtonGroup className="w-full sm:w-[480px]">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button className="gap-2" variant="outline">
+            <Button cornerNotch={0} className="gap-2" variant="outline">
               {createTemplateLabel}
               <ChevronDownIcon className="h-4 w-4" />
             </Button>
@@ -1481,6 +1481,7 @@ export function VaultDashboard() {
           </DropdownMenuContent>
         </DropdownMenu>
         <Input
+          cornerNotch={0}
           placeholder={createPlaceholder}
           value={newRepositoryName}
           onChange={(e) => {
@@ -1498,6 +1499,7 @@ export function VaultDashboard() {
           disabled={!canCreateRepo}
         />
         <Button
+          cornerNotch={0}
           onClick={() => {
             void handleCreateRepository();
           }}
@@ -1512,7 +1514,7 @@ export function VaultDashboard() {
         <ButtonGroupSeparator className="bg-primary-foreground/30" />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button className="px-2" aria-label="More actions">
+            <Button cornerNotch={0} className="px-2" aria-label="More actions">
               <ChevronDownIcon className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
