@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getFileTreeTooltipText,
+  getRestoreDeletionLabel,
+} from "@/lib/fileTreeLabels";
+import {
   buildEffectiveFolderExpansionStates,
   getAncestorFolderPaths,
 } from "@/lib/fileTreeState";
@@ -81,5 +85,39 @@ describe("getAncestorFolderPaths", () => {
 
   it("returns an empty list for root files", () => {
     expect(getAncestorFolderPaths("README.md")).toEqual([]);
+  });
+});
+
+describe("getFileTreeTooltipText", () => {
+  it("uses action copy for mobile folders", () => {
+    expect(
+      getFileTreeTooltipText({
+        isFolder: true,
+        isDeletedFile: false,
+        isMobile: true,
+        type: "tree",
+      }),
+    ).toBe("Long press for actions");
+  });
+
+  it("describes deleted-file tap plus long press on mobile", () => {
+    expect(
+      getFileTreeTooltipText({
+        isFolder: false,
+        isDeletedFile: true,
+        isMobile: true,
+        type: "blob",
+      }),
+    ).toBe("Tap to review deleted file, long press for actions");
+  });
+});
+
+describe("getRestoreDeletionLabel", () => {
+  it("shows the pending label while restore is in flight", () => {
+    expect(getRestoreDeletionLabel(true)).toBe("Reverting...");
+  });
+
+  it("shows the default restore label when idle", () => {
+    expect(getRestoreDeletionLabel(false)).toBe("Revert deletion");
   });
 });

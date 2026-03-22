@@ -25,6 +25,10 @@ import {
   buildEffectiveFolderExpansionStates,
   type FolderExpansionState,
 } from "@/lib/fileTreeState";
+import {
+  getFileTreeTooltipText,
+  getRestoreDeletionLabel,
+} from "@/lib/fileTreeLabels";
 
 interface FileTreeItem {
   path: string;
@@ -53,6 +57,7 @@ interface FileTreeProps {
   onFileCreate?: (folderPath: string, fileName: string) => void;
   onFileDelete?: (path: string, originalPath: string) => void;
   onFileRestore?: (path: string, originalPath: string) => void;
+  restoringFilePath?: string | null;
   selectedFile?: string;
   folderExpansionStates: FolderExpansionState[];
   onFolderToggle?: (folderPath: string, isExpanded: boolean) => void;
@@ -126,6 +131,7 @@ function TreeNodeComponent({
   onFileCreate,
   onFileDelete,
   onFileRestore,
+  restoringFilePath,
   selectedFile,
   folderExpansionStates,
   onFolderToggle,
@@ -138,6 +144,7 @@ function TreeNodeComponent({
   onFileCreate?: (folderPath: string, fileName: string) => void;
   onFileDelete?: (path: string, originalPath: string) => void;
   onFileRestore?: (path: string, originalPath: string) => void;
+  restoringFilePath?: string | null;
   selectedFile?: string;
   folderExpansionStates: FolderExpansionState[];
   onFolderToggle?: (folderPath: string, isExpanded: boolean) => void;
@@ -162,18 +169,27 @@ function TreeNodeComponent({
 
   // Long press detection for mobile
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
-  const [isLongPressing, setIsLongPressing] = useState(false);
+  const didTriggerLongPressRef = useRef(false);
 
   const hasChildren = node.children && node.children.length > 0;
   const isSelected = selectedFile === node.path;
   const isFolder = node.type === "tree";
   const fileStatus = node.type === "blob" ? node.status : undefined;
   const isDeletedFile = fileStatus === "deleted" || node.deleted === true;
+  const isRestorePending = restoringFilePath === node.path;
   const fileStatusClassName = fileStatus
     ? getCommitStatusTextClassName(fileStatus)
     : undefined;
+  const openContextMenu = useCallback((x: number, y: number) => {
+    setContextMenu({ x, y });
+  }, []);
 
   const handleClick = () => {
+    if (didTriggerLongPressRef.current) {
+      didTriggerLongPressRef.current = false;
+      return;
+    }
+
     if (hasChildren) {
       const newIsOpen = !isOpen;
       onFolderToggle?.(node.path, newIsOpen);
@@ -184,24 +200,24 @@ function TreeNodeComponent({
 
   const handleRightClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY });
+    openContextMenu(e.clientX, e.clientY);
   };
 
   // Long press handlers for mobile
   const handleTouchStart = useCallback(
     (e: React.TouchEvent) => {
-      if (!isMobile || !isFolder) return;
+      if (!isMobile) return;
+      const touch = e.touches[0];
 
-      setIsLongPressing(false);
+      didTriggerLongPressRef.current = false;
+      const touchX = touch.clientX;
+      const touchY = touch.clientY;
       longPressTimer.current = setTimeout(() => {
-        setIsLongPressing(true);
-
-        openFileCreation(node.path);
-        // Prevent normal click
-        e.preventDefault();
+        didTriggerLongPressRef.current = true;
+        openContextMenu(touchX, touchY);
       }, 500); // 500ms long press threshold
     },
-    [isMobile, isFolder, openFileCreation, node.path],
+    [isMobile, openContextMenu],
   );
 
   const handleTouchEnd = useCallback(() => {
@@ -209,10 +225,7 @@ function TreeNodeComponent({
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
-    if (isLongPressing) {
-      setIsLongPressing(false);
-    }
-  }, [isLongPressing]);
+  }, []);
 
   const handleTouchMove = useCallback(() => {
     if (longPressTimer.current) {
@@ -335,15 +348,12 @@ function TreeNodeComponent({
               </div>
             </TooltipTrigger>
             <TooltipContent side="right" className="text-xs">
-              {isFolder
-                ? isMobile
-                  ? "Long press to create file in this folder"
-                  : "Right-click to create file in this folder"
-                : node.type === "blob"
-                  ? isDeletedFile
-                    ? "Click to review deleted file, right-click to revert deletion"
-                    : "Right-click to rename"
-                  : "Click to open"}
+              {getFileTreeTooltipText({
+                isFolder,
+                isDeletedFile,
+                isMobile,
+                type: node.type,
+              })}
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -360,6 +370,7 @@ function TreeNodeComponent({
                 onFileCreate={onFileCreate}
                 onFileDelete={onFileDelete}
                 onFileRestore={onFileRestore}
+                restoringFilePath={restoringFilePath}
                 selectedFile={selectedFile}
                 folderExpansionStates={folderExpansionStates}
                 onFolderToggle={onFolderToggle}
@@ -421,14 +432,18 @@ function TreeNodeComponent({
             )}
             {node.type === "blob" && isDeletedFile && (
               <button
-                className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50 flex items-center gap-2"
+                className="w-full px-3 py-2 text-xs text-left hover:bg-muted/50 flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isRestorePending}
                 onClick={() => {
+                  if (isRestorePending) {
+                    return;
+                  }
                   onFileRestore?.(node.path, node.originalPath);
                   setContextMenu(null);
                 }}
               >
                 <UpdateIcon className="h-3 w-3" />
-                Revert deletion
+                {getRestoreDeletionLabel(isRestorePending)}
               </button>
             )}
           </div>
@@ -445,6 +460,7 @@ export function FileTree({
   onFileCreate,
   onFileDelete,
   onFileRestore,
+  restoringFilePath,
   selectedFile,
   folderExpansionStates,
   onFolderToggle,
@@ -511,6 +527,7 @@ export function FileTree({
           onFileCreate={onFileCreate}
           onFileDelete={onFileDelete}
           onFileRestore={onFileRestore}
+          restoringFilePath={restoringFilePath}
           selectedFile={selectedFile}
           folderExpansionStates={effectiveFolderExpansionStates}
           onFolderToggle={handleFolderToggleWithSessionOverride}

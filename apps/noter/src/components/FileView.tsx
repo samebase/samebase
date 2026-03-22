@@ -728,6 +728,9 @@ function FileViewInner({
   >(null);
   const [rebaseConflictBundleFeedback, setRebaseConflictBundleFeedback] =
     useState<string | null>(null);
+  const [restoringDeletedFilePath, setRestoringDeletedFilePath] = useState<
+    string | null
+  >(null);
   const [inlinePreviewDraftStagingId, setInlinePreviewDraftStagingId] =
     useState<StagedFileRecord["_id"] | null>(null);
   const [inlinePreviewDraftContent, setInlinePreviewDraftContent] =
@@ -752,6 +755,7 @@ function FileViewInner({
   const [inlinePreviewFailedSave, setInlinePreviewFailedSave] =
     useState<InlinePreviewSaveSnapshot | null>(null);
   const inlinePreviewDraftContentRef = useRef("");
+  const restoringDeletedFilePathRef = useRef<string | null>(null);
   const activePreviewStagingIdRef = useRef<StagedFileRecord["_id"] | null>(
     null,
   );
@@ -1282,6 +1286,13 @@ function FileViewInner({
   };
 
   const handleRestoreDeletedFile = async (filePath: string) => {
+    if (restoringDeletedFilePathRef.current !== null) {
+      return;
+    }
+
+    restoringDeletedFilePathRef.current = filePath;
+    setRestoringDeletedFilePath(filePath);
+
     try {
       await revertDeletedFileInStaging({
         vaultId: vault._id,
@@ -1297,6 +1308,13 @@ function FileViewInner({
       }
     } catch (error) {
       console.error("Failed to restore deleted file:", error);
+    } finally {
+      if (restoringDeletedFilePathRef.current === filePath) {
+        restoringDeletedFilePathRef.current = null;
+      }
+      setRestoringDeletedFilePath((current) =>
+        current === filePath ? null : current,
+      );
     }
   };
 
@@ -2141,6 +2159,7 @@ function FileViewInner({
             onFileRestore={(filePath) =>
               void handleRestoreDeletedFile(filePath)
             }
+            restoringFilePath={restoringDeletedFilePath}
             selectedFile={sidebarSelectedFile}
             folderExpansionStates={folderExpansionStates ?? []}
             onFolderToggle={handleFolderToggle}
