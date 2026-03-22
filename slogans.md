@@ -1,19 +1,19 @@
-- is a collaborative markdown workspace on top of GitHub
+- a collaborative markdown workspace on top of GitHub
 - the senior stack for junior devs
 - if Notion and Obsidian had a baby
 - if Lovable could build Lovable
 - disregards Gödel's incompleteness theorems
-   the tech stack for AI Agents
+- the tech stack for AI Agents
 - ship a convex app in 3.4 seconds
 - build MCP servers for ChatGPT
 - orchestrate multiple agents from anywhere via MCP
 - monitor & edit your apps when you're on the go
-- lets you focus on your business instead of your tech stack
+- focus on your business instead of your tech stack
 - makes the change easy, so you can make the easy change
-- is a dev environment for your codex agent
+- a dev environment for your codex agent
 - can disappear tomorrow and your app will be completely unimpacted
-- is web first so that any agent can use it
-- add ai agent to your existing apps
+- is web-first so that any agent can use it
+- add an ai agent to your existing apps
 - is data for your ai
 - a simpler way to use github
 - spin up openclaw in 3.4 seconds 
