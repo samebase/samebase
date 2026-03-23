@@ -2193,7 +2193,11 @@ function FileViewInner({
           to="/"
           className={`flex items-center justify-between ${linkStyle}`}
         >
-          <UserMenu>{user?.name ?? user?.email ?? "..."}</UserMenu>
+          <UserMenu className="w-full min-w-0 justify-between">
+            <span className="block min-w-0 truncate">
+              {user?.name ?? user?.email ?? "..."}
+            </span>
+          </UserMenu>
         </Link>
       </SidebarAccountSection>
       <div className="border-b border-border/50 p-3">

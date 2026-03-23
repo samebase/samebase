@@ -25,8 +25,10 @@ export function VaultDashboardVisualFixture({
     const sidebarContent = (
       <>
         <SidebarAccountSection>
-          <div className="flex items-center justify-between gap-2 text-sm font-medium">
-            <span className="truncate">Nicu Chiciuc</span>
+          <div className="flex w-full min-w-0 items-center justify-between gap-2 text-sm font-medium">
+            <span className="block min-w-0 truncate">
+              nicu.chiciuc@noter.md
+            </span>
             <Button variant="secondary" size="icon" className="rounded-ui">
               <PersonIcon className="h-5 w-5" />
               <span className="sr-only">Open user menu</span>
@@ -48,13 +50,13 @@ export function VaultDashboardVisualFixture({
           contentClassName="flex-1 overflow-y-auto p-0"
         >
           <div className="container py-6">
-            <div className="mb-6 flex items-start justify-between gap-4">
+            <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="flex items-center gap-2">
                 <GitHubLogoIcon className="h-5 w-5" />
                 <h1 className="text-xl font-semibold">Your Vaults</h1>
               </div>
-              <div className="corner-notch-1 border border-border bg-background px-3 py-2 text-sm font-medium">
-                New App
+              <div className="w-full max-w-[480px] corner-notch-1 border border-border bg-background px-3 py-2 text-sm font-medium">
+                Create control
               </div>
             </div>
 

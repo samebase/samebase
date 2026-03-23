@@ -1459,8 +1459,8 @@ function VaultDashboardContent() {
     connectConvexWithApiKey,
   });
   const createControl = (
-    <div className="flex flex-col items-start gap-2">
-      <ButtonGroup className="w-full sm:w-[480px]">
+    <div className="flex w-full max-w-[480px] flex-col items-start gap-2">
+      <ButtonGroup className="w-full">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button cornerNotch={0} className="gap-2" variant="outline">
@@ -1706,7 +1706,9 @@ function VaultDashboardContent() {
   const sidebarContent = (
     <>
       <SidebarAccountSection>
-        <UserMenu>{userDisplayName}</UserMenu>
+        <UserMenu className="w-full min-w-0 justify-between">
+          <span className="block min-w-0 truncate">{userDisplayName}</span>
+        </UserMenu>
       </SidebarAccountSection>
       <div className="flex-1" />
     </>
@@ -1736,14 +1738,12 @@ function VaultDashboardContent() {
       </div>
     ) : (
       <div className="container py-6">
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex items-center gap-2">
             <GitHubLogoIcon className="h-5 w-5 sm:h-6 sm:w-6" />
             <h1 className="text-xl font-semibold sm:text-2xl">Your Vaults</h1>
           </div>
-          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
-            {createControl}
-          </div>
+          <div className="w-full lg:w-auto">{createControl}</div>
         </div>
         <div className="mb-6">{connectionPanel}</div>
 
@@ -2298,11 +2298,13 @@ export function VaultDashboard() {
 function VaultDashboardWithSwipe() {
   const { isMobile, openMobile, setOpenMobile } = useSidebar();
 
-  useSwipeToOpenSidebar(() => {
+  const handleSwipeOpen = useCallback(() => {
     if (isMobile && !openMobile) {
       setOpenMobile(true);
     }
-  });
+  }, [isMobile, openMobile, setOpenMobile]);
+
+  useSwipeToOpenSidebar(handleSwipeOpen);
 
   return <VaultDashboardContent />;
 }
