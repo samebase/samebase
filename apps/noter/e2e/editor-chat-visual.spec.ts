@@ -29,7 +29,10 @@ for (const scenario of SCENARIOS) {
     });
     await page.waitForLoadState("networkidle");
 
-    const fixture = page.getByTestId("editor-chat-visual-fixture");
+    const fixture =
+      scenario.mode === "editor-chat-closed"
+        ? page.getByTestId("editor-chat-visual-fixture")
+        : page.getByTestId("editor-chat-panel-visual-fixture");
     await expect(fixture).toHaveScreenshot(scenario.snapshotName, {
       animations: "disabled",
       caret: "hide",

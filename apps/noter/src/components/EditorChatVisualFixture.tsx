@@ -1,11 +1,97 @@
-import { ChatInput } from "@/components/ChatInput";
 import { Button } from "@/components/button";
 import { Plus, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export type EditorChatVisualMode =
   | "editor-chat-open-desktop"
   | "editor-chat-open-mobile"
   | "editor-chat-closed";
+
+function FixtureBar({ className }: { className?: string }) {
+  return (
+    <div
+      aria-hidden="true"
+      className={cn("rounded-none bg-current/50", className)}
+    />
+  );
+}
+
+function FixtureButtonLabel({ className }: { className?: string }) {
+  return <FixtureBar className={cn("h-2.5", className)} />;
+}
+
+function FixtureToolbarIcon({ className }: { className?: string }) {
+  return (
+    <div
+      aria-hidden="true"
+      className={cn("h-6 w-6 border border-foreground", className)}
+    />
+  );
+}
+
+function FixtureComposer() {
+  return (
+    <div className="border-t border-border">
+      <div className="flex items-end gap-2 pr-2 pt-2">
+        <div className="min-h-[5.75rem] flex-1 border border-border bg-background">
+          <FixtureBar className="ml-4 mt-4 h-4 w-40 bg-muted-foreground/35" />
+        </div>
+        <div className="mb-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-500">
+          <FixtureBar className="h-2.5 w-2.5 bg-white" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FixtureMessage({
+  align = "left",
+  tone = "muted",
+  widthClass,
+}: {
+  align?: "left" | "right";
+  tone?: "muted" | "primary";
+  widthClass: string;
+}) {
+  const bubbleClassName =
+    tone === "primary"
+      ? "bg-primary text-primary-foreground"
+      : "bg-muted text-foreground";
+  const firstLineClassName =
+    tone === "primary" ? "bg-white/65" : "bg-current/45";
+  const secondLineClassName =
+    tone === "primary" ? "bg-white/45" : "bg-current/30";
+
+  return (
+    <div
+      className={cn(
+        "mb-2 flex",
+        align === "right" ? "justify-end" : "justify-start",
+      )}
+    >
+      <div
+        className={cn("corner-notch-1 px-3 py-2", bubbleClassName, widthClass)}
+      >
+        <FixtureBar className={cn("h-2.5", firstLineClassName)} />
+        <FixtureBar className={cn("mt-2 h-2.5 w-4/5", secondLineClassName)} />
+      </div>
+    </div>
+  );
+}
+
+function FixtureChatToolsRow() {
+  return (
+    <div className="mb-2 corner-notch-1 border border-border bg-muted/50 text-xs">
+      <div className="flex w-full items-center gap-1.5 px-3 py-1.5 text-muted-foreground">
+        <div className="h-3 w-3 shrink-0 bg-current/45" />
+        <FixtureBar className="h-2.5 w-16 bg-current/40" />
+        <div className="ml-auto corner-notch-1 bg-emerald-100 px-2 py-0.5 text-emerald-700">
+          <FixtureBar className="h-2 w-10 bg-current/55" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ClosedChatFabFixture() {
   return (
@@ -41,16 +127,18 @@ function OpenMobileChatFixture() {
       >
         <div className="border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
-            <div className="h-6 w-6 border border-foreground" />
-            <div className="h-6 w-6 rounded-full border border-foreground" />
-            <div className="text-3xl leading-none text-foreground">/</div>
+            <FixtureToolbarIcon />
+            <FixtureToolbarIcon className="rounded-full" />
+            <div className="flex h-6 w-6 items-center justify-center">
+              <div className="h-6 w-px -rotate-[20deg] bg-foreground" />
+            </div>
           </div>
           <div className="mt-4 flex flex-wrap gap-3">
             <Button size="sm" variant="outline" className="h-6 px-2 text-xs">
-              Show Preview
+              <FixtureButtonLabel className="w-16" />
             </Button>
             <Button size="sm" variant="outline" className="h-6 px-2 text-xs">
-              Review Changes
+              <FixtureButtonLabel className="w-20" />
             </Button>
           </div>
         </div>
@@ -65,11 +153,12 @@ function OpenMobileChatFixture() {
               <div className="h-1 w-12 corner-notch-1 bg-current/40" />
             </div>
             <div className="min-h-0 flex-1">
-              <div className="flex h-full min-h-0 flex-col corner-notch-1 border border-border bg-background">
+              <div
+                data-testid="editor-chat-panel-visual-fixture"
+                className="flex h-full min-h-0 flex-col corner-notch-1 border border-border bg-background"
+              >
                 <div className="flex items-center justify-between border-b border-border pl-3 pr-2 py-1.5">
-                  <span className="text-sm font-medium text-foreground">
-                    Chat
-                  </span>
+                  <FixtureBar className="h-3 w-10 bg-foreground/70" />
                   <div className="flex items-center gap-0.5">
                     <button
                       type="button"
@@ -89,35 +178,16 @@ function OpenMobileChatFixture() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-0 py-2">
-                  <div className="mb-2 corner-notch-1 border border-border bg-muted/50 text-xs">
-                    <div className="flex w-full items-center gap-1.5 px-3 py-1.5 text-muted-foreground">
-                      <div className="h-3 w-3 shrink-0 text-current">›</div>
-                      <span className="font-medium">Chat tools</span>
-                      <span className="ml-auto corner-notch-1 bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
-                        Enabled
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mb-2 ml-auto max-w-[85%] corner-notch-1 bg-primary px-3 py-2 text-sm text-primary-foreground">
-                    Move the chat into the editor.
-                  </div>
-                  <div className="mb-2 max-w-[85%] corner-notch-1 bg-muted px-3 py-2 text-sm text-foreground">
-                    The mobile dock now runs edge to edge, without the extra
-                    side gutter.
-                  </div>
-                </div>
-
-                <div className="border-t border-border">
-                  <ChatInput
-                    value=""
-                    onValueChange={() => {}}
-                    onSend={() => {}}
-                    mode="prosemark"
-                    autoResize
-                    sendButtonClassName="mr-2 mt-2 mb-2 p-2"
+                  <FixtureChatToolsRow />
+                  <FixtureMessage
+                    align="right"
+                    tone="primary"
+                    widthClass="max-w-[85%] w-48"
                   />
+                  <FixtureMessage widthClass="max-w-[85%] w-52" />
                 </div>
+
+                <FixtureComposer />
               </div>
             </div>
           </div>
@@ -137,19 +207,15 @@ function OpenDesktopChatFixture() {
         <div className="border-b border-border px-5 py-3">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <div className="font-mono text-[11px] text-muted-foreground">
-                codex/editor-chat-panel
-              </div>
-              <div className="mt-1 text-base font-medium text-foreground">
-                README.md
-              </div>
+              <FixtureBar className="h-2.5 w-32 bg-muted-foreground/45" />
+              <FixtureBar className="mt-2 h-3 w-20 bg-foreground/65" />
             </div>
             <div className="flex items-center gap-2">
               <Button size="sm" variant="outline" className="h-6 px-2 text-xs">
-                Show Preview
+                <FixtureButtonLabel className="w-16" />
               </Button>
               <Button size="sm" variant="outline" className="h-6 px-2 text-xs">
-                Review Changes
+                <FixtureButtonLabel className="w-20" />
               </Button>
             </div>
           </div>
@@ -170,11 +236,12 @@ function OpenDesktopChatFixture() {
               <div className="h-1 w-12 corner-notch-1 bg-current/40" />
             </div>
             <div className="min-h-0 shrink-0">
-              <div className="flex h-[240px] min-h-0 flex-col corner-notch-1 border border-border bg-background">
+              <div
+                data-testid="editor-chat-panel-visual-fixture"
+                className="flex h-[240px] min-h-0 flex-col corner-notch-1 border border-border bg-background"
+              >
                 <div className="flex items-center justify-between border-b border-border px-4 py-2">
-                  <span className="text-sm font-medium text-foreground">
-                    Chat
-                  </span>
+                  <FixtureBar className="h-3 w-10 bg-foreground/70" />
                   <div className="flex items-center gap-0.5">
                     <button
                       type="button"
@@ -194,35 +261,16 @@ function OpenDesktopChatFixture() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-3 py-2">
-                  <div className="mb-2 corner-notch-1 border border-border bg-muted/50 text-xs">
-                    <div className="flex w-full items-center gap-1.5 px-3 py-1.5 text-muted-foreground">
-                      <div className="h-3 w-3 shrink-0 text-current">›</div>
-                      <span className="font-medium">Chat tools</span>
-                      <span className="ml-auto corner-notch-1 bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
-                        Enabled
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mb-2 ml-auto max-w-[60%] corner-notch-1 bg-primary px-3 py-2 text-sm text-primary-foreground">
-                    Move the chat into the editor.
-                  </div>
-                  <div className="mb-2 max-w-[68%] corner-notch-1 bg-muted px-3 py-2 text-sm text-foreground">
-                    The desktop dock now keeps the resize bar, tighter header
-                    spacing, and the composer flush to the bottom edge.
-                  </div>
-                </div>
-
-                <div className="border-t border-border">
-                  <ChatInput
-                    value=""
-                    onValueChange={() => {}}
-                    onSend={() => {}}
-                    mode="prosemark"
-                    autoResize
-                    sendButtonClassName="mr-2 mt-2 mb-2 p-2"
+                  <FixtureChatToolsRow />
+                  <FixtureMessage
+                    align="right"
+                    tone="primary"
+                    widthClass="max-w-[60%] w-72"
                   />
+                  <FixtureMessage widthClass="max-w-[68%] w-80" />
                 </div>
+
+                <FixtureComposer />
               </div>
             </div>
           </div>
