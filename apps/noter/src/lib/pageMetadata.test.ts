@@ -118,7 +118,7 @@ describe("page metadata", () => {
         title: resolveAppPageTitle("/vault/acme/demo"),
       });
 
-      expect(document.title).toBe("Workspace | Noter");
+      expect(document.title).toBe("Workspace | noter");
       expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
         "https://noter.md/vault/acme/demo",
       );
@@ -146,7 +146,7 @@ describe("page metadata", () => {
         }),
       );
 
-      expect(document.title).toBe("Privacy Policy | Noter");
+      expect(document.title).toBe("Privacy Policy | noter");
       expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
         "https://noter.md/privacy",
       );
@@ -156,6 +156,28 @@ describe("page metadata", () => {
       expect(
         getHeadAttribute(document, 'meta[property="og:url"]', "content"),
       ).toBe("https://noter.md/privacy");
+    });
+  });
+
+  it("keeps the terms page crawlable with its own canonical URL", () => {
+    withFakeDocument((document) => {
+      applyPageMetadata(
+        resolvePageMetadata({
+          pathname: "/terms",
+          isAuthenticated: false,
+        }),
+      );
+
+      expect(document.title).toBe("Terms of Service | noter");
+      expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
+        "https://noter.md/terms",
+      );
+      expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe(
+        "index,follow",
+      );
+      expect(
+        getHeadAttribute(document, 'meta[property="og:url"]', "content"),
+      ).toBe("https://noter.md/terms");
     });
   });
 
@@ -200,7 +222,6 @@ describe("page metadata", () => {
       });
     }
   });
-
   it("keeps the raw html shell aligned with the real public homepage", () => {
     const html = readFileSync(new URL("../../index.html", import.meta.url), {
       encoding: "utf8",
