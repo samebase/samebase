@@ -626,7 +626,7 @@ export function VaultBranchLinkRow({
   const hasStagedChanges = (stagedSummary?.total ?? 0) > 0;
 
   return (
-    <div className="flex items-start gap-3 border-b border-border/40 px-3 py-2.5 last:border-b-0">
+    <div className="flex items-start gap-3 border-b border-border/40 px-4 py-2.5 last:border-b-0 sm:px-3">
       <VaultBranchLinkContent
         repositoryFullName={repositoryFullName}
         branchName={branchName}
@@ -750,7 +750,9 @@ function VaultBranchList({
   );
 
   return (
-    <div className="overflow-hidden corner-notch-1 border border-border/60 bg-muted/20">
+    // Let mobile branch rows align with the vault card edge instead of nesting
+    // a second inset panel inside the already padded card.
+    <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
       {remoteBranches.map((branch) => (
         <VaultBranchListRow
           key={branch.name}
@@ -1824,20 +1826,19 @@ function VaultDashboardContent() {
                       href={githubRepositoryUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`flex min-w-0 flex-col items-start ${linkStyle}`}
+                      className={`flex min-w-0 items-start ${linkStyle}`}
                       title={`Open ${vault.repositoryFullName} on GitHub`}
                     >
-                      <span className="text-sm text-muted-foreground">
-                        {vault.ghRepoOwner}/
-                      </span>
-
-                      <h3 className="font-semibold">
+                      <h3 className="min-w-0 font-semibold">
                         <span className="flex min-w-0 items-center gap-2">
                           {!isReady && (
                             <UpdateIcon className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
                           )}
                           <span className="min-w-0 truncate">
-                            {vault.ghRepoName}
+                            <span className="font-normal text-muted-foreground">
+                              {vault.ghRepoOwner}/
+                            </span>
+                            <span>{vault.ghRepoName}</span>
                           </span>
                           {!isReady && (
                             <span className="shrink-0 text-xs font-normal text-muted-foreground">

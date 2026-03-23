@@ -50,3 +50,19 @@ test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
     maxDiffPixelRatio: 0.03,
   });
 });
+
+test("vault dashboard fixture (mobile branch alignment)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/visual-fixture.html?mode=vault-branch-mobile-alignment", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(fixture).toHaveScreenshot("vault-branch-mobile-alignment.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});

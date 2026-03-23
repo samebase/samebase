@@ -8,7 +8,8 @@ import { GitHubLogoIcon, PersonIcon } from "@radix-ui/react-icons";
 
 export type VaultDashboardVisualMode =
   | "dashboard-shared-sidebar"
-  | "vault-branch-pr-labels";
+  | "vault-branch-pr-labels"
+  | "vault-branch-mobile-alignment";
 
 function fakeVaultId(): Parameters<typeof VaultBranchLinkRow>[0]["vaultId"] {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
@@ -68,8 +69,12 @@ export function VaultDashboardVisualFixture({
             </div>
 
             <div className="corner-notch-1 border border-border bg-background p-4">
-              <div className="text-sm text-muted-foreground">noter-md/</div>
-              <div className="text-lg font-semibold">noter</div>
+              <div className="text-lg font-semibold">
+                <span className="font-normal text-muted-foreground">
+                  noter-md/
+                </span>
+                <span>noter</span>
+              </div>
               <div className="mt-2 text-xs text-muted-foreground">
                 Updated 12s ago
               </div>
@@ -77,6 +82,73 @@ export function VaultDashboardVisualFixture({
           </div>
         </RepositoryWorkspaceFrame>
       </SidebarProvider>
+    );
+  }
+
+  if (mode === "vault-branch-mobile-alignment") {
+    return (
+      <div
+        data-testid="vault-dashboard-visual-fixture"
+        data-mode={mode}
+        className="flex w-full justify-center bg-stone-100 p-4 text-foreground"
+      >
+        <div className="mx-auto max-w-[390px]">
+          <div className="corner-notch-1 border border-border bg-background p-4">
+            <div className="space-y-3">
+              <div>
+                <div className="text-lg font-semibold">
+                  <span className="font-normal text-muted-foreground">
+                    noter-md/
+                  </span>
+                  <span>noter</span>
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Updated 12s ago
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+                  Branches
+                </p>
+                <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
+                  <MemoryRouter>
+                    <VaultBranchLinkRow
+                      vaultId={fakeVaultId()}
+                      repositoryFullName="noter-md/noter"
+                      branchName="main"
+                      headCommitSha="1234567890abcdef1234567890abcdef12345678"
+                      isDefault={true}
+                      isDeletedUpstream={false}
+                      aheadBy={0}
+                      behindBy={0}
+                      canDeleteBranch={false}
+                      isDeletingBranch={false}
+                      onDeleteBranch={() => {}}
+                    />
+                    <VaultBranchLinkRow
+                      vaultId={fakeVaultId()}
+                      repositoryFullName="noter-md/noter"
+                      branchName="codex/mobile-branch-card-spacing"
+                      headCommitSha="abcdef1234567890abcdef1234567890abcdef12"
+                      isDefault={false}
+                      isDeletedUpstream={false}
+                      aheadBy={2}
+                      behindBy={0}
+                      pullRequestUrl="https://github.com/noter-md/noter/pull/321"
+                      pullRequestNumber={321}
+                      pullRequestTitle="Align mobile branch rows with vault cards"
+                      canDeleteBranch={true}
+                      isDeletingBranch={false}
+                      onDeleteBranch={() => {}}
+                    />
+                  </MemoryRouter>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 
