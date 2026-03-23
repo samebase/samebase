@@ -28,6 +28,24 @@ export const PRIVACY_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
+export const PITCH_DECK_PAGE_METADATA: PageMetadata = {
+  title: "Pitch Deck | Noter",
+  description:
+    "Pitch deck surface for Noter. Public route used for deck review and PDF export.",
+  canonicalPath: "/pitch",
+  robots: "noindex,nofollow",
+  openGraphType: "website",
+};
+
+export const PITCH_DECK_PRINT_PAGE_METADATA: PageMetadata = {
+  title: "Pitch Deck Print | Noter",
+  description:
+    "Print-ready pitch deck surface for Noter. Used for stable PDF export.",
+  canonicalPath: "/pitch/print",
+  robots: "noindex,nofollow",
+  openGraphType: "website",
+};
+
 export const APP_PAGE_METADATA: PageMetadata = {
   title: "Noter App",
   description: "Private Noter application workspace.",
@@ -49,6 +67,14 @@ export function resolveAppPageTitle(pathname: string): string {
     return "Privacy Policy | Noter";
   }
 
+  if (pathname === "/pitch") {
+    return PITCH_DECK_PAGE_METADATA.title;
+  }
+
+  if (pathname === "/pitch/print") {
+    return PITCH_DECK_PRINT_PAGE_METADATA.title;
+  }
+
   if (pathname.startsWith("/vault/")) {
     return "Workspace | Noter";
   }
@@ -62,6 +88,14 @@ export function resolvePageMetadata(args: {
 }): PageMetadata {
   if (args.pathname === "/privacy") {
     return PRIVACY_PAGE_METADATA;
+  }
+
+  if (args.pathname === "/pitch") {
+    return PITCH_DECK_PAGE_METADATA;
+  }
+
+  if (args.pathname === "/pitch/print") {
+    return PITCH_DECK_PRINT_PAGE_METADATA;
   }
 
   if (!args.isAuthenticated && args.pathname === "/") {
@@ -78,6 +112,14 @@ export function resolvePageMetadata(args: {
 export function resolveBootstrapPageMetadata(pathname: string): PageMetadata {
   if (pathname === "/privacy") {
     return PRIVACY_PAGE_METADATA;
+  }
+
+  if (pathname === "/pitch") {
+    return PITCH_DECK_PAGE_METADATA;
+  }
+
+  if (pathname === "/pitch/print") {
+    return PITCH_DECK_PRINT_PAGE_METADATA;
   }
 
   return {

@@ -72,6 +72,10 @@ const LogoTransitionTransformsLabPage = lazy(async () => {
   const module = await import("@/components/LogoTransitionTransformsLabPage");
   return { default: module.LogoTransitionTransformsLabPage };
 });
+const PitchDeckPage = lazy(async () => {
+  const module = await import("@/components/PitchDeckPage");
+  return { default: module.PitchDeckPage };
+});
 
 function useCloseOAuthPopup(pathname: string, enabled: boolean) {
   const { isAuthenticated } = useConvexAuth();
@@ -329,6 +333,8 @@ export default function App() {
   const showPrivacyPolicyPage = location.pathname === "/privacy";
   const showLogoTransitionTransformsLab =
     location.pathname === "/logo-transition-lab-transforms";
+  const showPitchDeckPage =
+    location.pathname === "/pitch" || location.pathname === "/pitch/print";
   const showPublicLandingWithoutAuthGate =
     !isAuthenticated && shouldRenderPublicLandingWithoutAuthGate(location);
 
@@ -385,6 +391,15 @@ export default function App() {
     return (
       <Suspense fallback={null}>
         <LogoTransitionTransformsLabPage />
+      </Suspense>
+    );
+  }
+  if (showPitchDeckPage) {
+    return (
+      <Suspense fallback={null}>
+        <PitchDeckPage
+          mode={location.pathname === "/pitch/print" ? "print" : "interactive"}
+        />
       </Suspense>
     );
   }

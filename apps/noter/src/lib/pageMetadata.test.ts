@@ -159,6 +159,28 @@ describe("page metadata", () => {
     });
   });
 
+  it("keeps the pitch deck routes public but non-indexed", () => {
+    withFakeDocument((document) => {
+      applyPageMetadata(
+        resolvePageMetadata({
+          pathname: "/pitch",
+          isAuthenticated: false,
+        }),
+      );
+
+      expect(document.title).toBe("Pitch Deck | Noter");
+      expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
+        "https://noter.md/pitch",
+      );
+      expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe(
+        "noindex,nofollow",
+      );
+      expect(
+        getHeadAttribute(document, 'meta[property="og:url"]', "content"),
+      ).toBe("https://noter.md/pitch");
+    });
+  });
+
   it("keeps the raw html shell aligned with the real public homepage", () => {
     const html = readFileSync(new URL("../../index.html", import.meta.url), {
       encoding: "utf8",

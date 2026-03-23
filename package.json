@@ -18,6 +18,7 @@
     "ci:convex-bootstrap": "CONVEX_AGENT_MODE=anonymous pnpm --filter noter exec convex dev --until-success --typecheck=disable --tail-logs=disable",
     "format": "prettier --write .",
     "preview": "turbo run preview",
+    "export:pitch-deck:pdf": "pnpm --filter noter build:ci && node scripts/export-pitch-deck.mjs",
     "clean": "turbo run clean",
     "test": "vitest --run",
     "test:ci": "pnpm test && PLAYWRIGHT_VITE_PORT=43121 pnpm --filter noter test:visual",

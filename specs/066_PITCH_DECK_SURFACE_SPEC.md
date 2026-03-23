@@ -37,7 +37,7 @@ final storytelling come later.
 - `apps/noter/src/components/PitchDeckPage.tsx`
 - `apps/noter/src/components/pitchDeck/*`
 - `apps/noter/package.json`
-- `scripts/export-pitch-deck.mts`
+- `scripts/export-pitch-deck.mjs`
 
 ## Route Contract
 
@@ -87,7 +87,7 @@ the Spectacle surface.
   2. serve the built app locally
   3. open `/pitch/print` in Playwright
   4. write `pitch-deck.pdf`
-- The export command lives at repo level in `scripts/export-pitch-deck.mts`.
+- The export command lives at repo level in `scripts/export-pitch-deck.mjs`.
 
 ## Acceptance Checklist
 
