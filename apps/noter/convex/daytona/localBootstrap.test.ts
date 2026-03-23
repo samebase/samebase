@@ -101,7 +101,7 @@ describe("daytonaLocalBootstrap", () => {
     expect(
       buildDaytonaSandboxEnvVars({
         vaultId: "vault-123",
-        repo: "nicu-chiciuc/noter",
+        repo: "noter-md/noter",
         branch: "main",
         commitSha: "abc123",
         codexHome: "/home/daytona/.codex",
@@ -109,7 +109,7 @@ describe("daytonaLocalBootstrap", () => {
       }),
     ).toEqual({
       NOTER_VAULT_ID: "vault-123",
-      NOTER_REPO: "nicu-chiciuc/noter",
+      NOTER_REPO: "noter-md/noter",
       NOTER_BRANCH: "main",
       NOTER_COMMIT_SHA: "abc123",
       CODEX_HOME: "/home/daytona/.codex",

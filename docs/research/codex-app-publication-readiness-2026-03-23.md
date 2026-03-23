@@ -125,13 +125,16 @@ OpenAI's current Apps SDK docs.
   - categories of recipients
   - user controls
 - Tool inputs and outputs must be minimal and purpose-driven.
-- Tool responses must avoid unnecessary user-related data, telemetry, internal
-  IDs, timestamps, logs, or secrets.
+- Tool responses should stay focused on the requested action and avoid
+  unnecessary personal data or secrets.
 - Restricted data such as PCI data, PHI, government identifiers, passwords, and
   MFA/OTP codes must not be collected.
 - User-supplied API keys or OAuth credentials should be collected only when they
   are strictly necessary for an explicit provider-connection flow and must never
   be exposed through tool output, logs, screenshots, or demo materials.
+- If the product stores logs, audit records, or operational metadata, sensitive
+  user data should be minimized and handled consistently with the privacy
+  policy.
 - Sensitive or special-category personal data requires strict necessity,
   adequate consent where legally required, and prominent disclosure.
 
@@ -363,8 +366,8 @@ down:
 - Lock CSP down to exact fetch domains.
 - Use a global-data-residency OpenAI project for submission.
 - Publish and verify the privacy policy URL.
-- Publish and verify the terms of service URL.
-- Publish and verify a company URL.
+- Confirm the terms-of-service URL is live and accessible.
+- Ensure the company URL is live and accurate.
 - Provide support contact details for end users.
 - Record a demo URL that covers the main use cases and tools.
 - Create a stable demo account with sample data, direct login/password access,

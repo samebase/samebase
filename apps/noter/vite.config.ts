@@ -6,6 +6,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { readPackageVersion } from "../../scripts/readPackageVersion.js";
 import { createStaticLogoSvgMarkup } from "./src/components/logoStaticSvgAsset";
 import {
+  type PageMetadata,
   PRIVACY_PAGE_METADATA,
   TERMS_PAGE_METADATA,
 } from "./src/lib/pageMetadata";
@@ -37,7 +38,7 @@ const appCommit =
   readGitOutput("git rev-parse HEAD") ??
   "unknown";
 
-const appRepoUrl = "https://github.com/nicu-chiciuc/noter";
+const appRepoUrl = "https://github.com/noter-md/noter";
 const daytonaSdkVersion = readPackageVersion("@daytonaio/sdk", import.meta.url);
 const daytonaLocalEnvPath = path.resolve(__dirname, ".env.local");
 const daytonaConvexProxyTarget = resolveDaytonaConvexProxyTarget({
@@ -87,7 +88,7 @@ function syncStaticLogoSvgAsset() {
 function syncStaticLegalPageAsset(args: {
   markdownPath: string;
   htmlPath: string;
-  metadata: typeof PRIVACY_PAGE_METADATA | typeof TERMS_PAGE_METADATA;
+  metadata: PageMetadata;
 }) {
   const markdown = readFileSync(args.markdownPath, "utf8");
   const nextHtml = renderStaticLegalPageHtml({

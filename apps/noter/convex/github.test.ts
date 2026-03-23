@@ -16,8 +16,8 @@ describe("normalizeGitHubRepositoryListItem", () => {
     const normalized = normalizeGitHubRepositoryListItem({
       id: 1021726325,
       name: "noter",
-      full_name: "nicu-chiciuc/noter",
-      html_url: "https://github.com/nicu-chiciuc/noter",
+      full_name: "noter-md/noter",
+      html_url: "https://github.com/noter-md/noter",
       description: null,
       private: true,
       fork: false,
@@ -27,14 +27,14 @@ describe("normalizeGitHubRepositoryListItem", () => {
       stargazers_count: 0,
       forks_count: 0,
       allow_forking: true,
-      owner: { login: "nicu-chiciuc" },
+      owner: { login: "noter-md" },
     });
 
     expect(normalized).toEqual({
       id: 1021726325,
       name: "noter",
-      full_name: "nicu-chiciuc/noter",
-      html_url: "https://github.com/nicu-chiciuc/noter",
+      full_name: "noter-md/noter",
+      html_url: "https://github.com/noter-md/noter",
       description: null,
       private: true,
       fork: false,

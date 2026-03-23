@@ -150,10 +150,21 @@ function renderBlockHtml(block: StaticMarkdownBlock): string {
   return `<ul>${itemsHtml}</ul>`;
 }
 
+/**
+ * Renders the supported markdown subset used by public legal docs into escaped
+ * HTML fragments. The parser intentionally supports only the repo-controlled
+ * heading, paragraph, list, and inline-code syntax used by these pages.
+ */
 export function renderStaticMarkdownHtml(markdown: string): string {
   return parseStaticMarkdown(markdown).map(renderBlockHtml).join("\n");
 }
 
+/**
+ * Builds a complete crawlable HTML document for a public legal page. The
+ * output includes canonical/social metadata, inline styles, and the rendered
+ * markdown body so `/privacy` and `/terms` work even when JavaScript is not
+ * executed by crawlers or app reviewers.
+ */
 export function renderStaticLegalPageHtml(args: {
   metadata: PageMetadata;
   markdown: string;

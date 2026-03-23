@@ -128,5 +128,5 @@ updated Terms.
 
 ## 15. Contact
 
-For support, legal notices, or questions about these Terms, use the contact
-details made available on noter.md or in the app listing for noter.
+For support, legal notices, or questions about these Terms, contact
+nicu@noter.md.
