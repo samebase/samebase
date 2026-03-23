@@ -14,7 +14,7 @@ const pitchDeckScreenshotOptions = {
 test("/pitch stays visually stable", async ({ page }) => {
   await page.goto("/pitch", { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Use Codex or Claude. Keep your stack.",
+    "Use Codex or Claude. Noter handles the stack.",
   );
   await expect(page.getByRole("link", { name: "Desktop print" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Mobile print" })).toBeVisible();

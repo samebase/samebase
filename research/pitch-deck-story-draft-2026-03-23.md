@@ -18,15 +18,15 @@ The story should explain four things fast:
 
 Best current opening:
 
-`Use Codex or Claude. Keep your stack.`
+`Use Codex or Claude. Noter handles the stack.`
 
 Best current support line:
 
-`Noter is the thin layer around GitHub, Cloudflare, and Convex.`
+`GitHub, Cloudflare, and Convex, already set up.`
 
 What this means:
 
-- `keep your stack` does not mean stackless or vague
+- the opening should lead with the offer, not portability
 - Noter can wrap existing GitHub work, edit files, and preview changes across
   many projects
 - Noter can be used through the web UI or directly through MCP
@@ -74,21 +74,21 @@ Use 7 slides.
 
 Headline:
 
-`Use Codex or Claude. Keep your stack.`
+`Use Codex or Claude. Noter handles the stack.`
 
 Support:
 
-`Noter sits around your real tools instead of reselling them back to you.`
+`GitHub, Cloudflare, and Convex, already set up.`
 
 ### 2. Problem One
 
 Headline:
 
-`App builders add an AI tax.`
+`App builders charge twice for AI.`
 
 Support:
 
-`You already pay for the model. Then the builder meters it again.`
+`You already pay for Codex or Claude. Then the builder meters it again.`
 
 Proof chips:
 
@@ -100,11 +100,11 @@ Proof chips:
 
 Headline:
 
-`No-code creates two classes of developers.`
+`No-code splits config from code.`
 
 Support:
 
-`First you stretch config. Then you rewrite the hard parts in code.`
+`One group edits JSON. Another group writes the real components.`
 
 Proof chips:
 
@@ -120,7 +120,7 @@ Headline:
 
 Support:
 
-`With AI and strong rules, code is simpler than growing config.`
+`Open a GitHub repo. Change files from the web or over MCP.`
 
 Proof chips:
 
@@ -136,7 +136,7 @@ Headline:
 
 Support:
 
-`Open the project, inspect it, and change it before the idea fades.`
+`Open it from the web, even on mobile, before the idea fades.`
 
 Proof chips:
 
@@ -160,15 +160,15 @@ Implementation note:
 - if needed in narration: Noter uses Daytona today because speed is the main
   requirement
 
-### 6. Stack
+### 6. Portability
 
 Headline:
 
-`Three services. One sane stack.`
+`Your stack stays yours.`
 
 Support:
 
-`GitHub stores the source, Cloudflare publishes it, Convex powers the app.`
+`GitHub, Cloudflare, and Convex still belong to you.`
 
 Proof chips:
 
@@ -240,11 +240,12 @@ inventing new diagrams.
 
 Strong:
 
-- `Use Codex or Claude. Keep your stack.`
-- `App builders add an AI tax.`
+- `Use Codex or Claude. Noter handles the stack.`
+- `App builders charge twice for AI.`
+- `No-code splits config from code.`
 - `In Noter, both paths are just code.`
 - `Ideas should start in seconds, not minutes.`
-- `Three services. One sane stack.`
+- `Your stack stays yours.`
 - `We build Noter with Noter.`
 
 Good backups from the repo:
@@ -277,7 +278,7 @@ Use carefully:
 
 - Avoid saying we `guarantee` the stack.
 - Better: the stack is under daily load because we use it ourselves.
-- `Keep your stack` should mean portable, not generic.
+- Portability is stronger after the stack is named explicitly.
 - Better: Noter can wrap existing GitHub work, but the recommended path is the
   opinionated GitHub + Cloudflare + Convex stack.
 - Avoid broad lock-in claims that are easy to dispute.
