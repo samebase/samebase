@@ -12,6 +12,7 @@ const pitchDeckScreenshotOptions = {
 } as const;
 
 test("/pitch stays visually stable", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1800 });
   await page.goto("/pitch", { waitUntil: "networkidle" });
 
   await expect(page.getByTestId(PITCH_DECK_SURFACE_TEST_ID)).toHaveScreenshot(
