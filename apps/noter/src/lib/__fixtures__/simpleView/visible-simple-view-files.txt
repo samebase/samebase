@@ -35,6 +35,7 @@ apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-missing-config.p
 apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-repository-config.png
 apps/noter/e2e/vault-dashboard-branch-visual.spec.ts-snapshots/vault-dashboard-branch-pr-title.png
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-pr-labels.png
+apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-shared-sidebar.png
 apps/noter/fixtures/daytona-convex-proxy.env
 apps/noter/public/favicon-32.png
 apps/noter/public/favicon.png
@@ -94,6 +95,7 @@ rfcs/062_NETLIFY_REMOVAL_AND_CLOUDFLARE_ONLY_HOSTING_SPEC.md
 rfcs/065_NETLIFY_REMOVAL_ROLLOUT_PLAN.md
 rfcs/066_GITHUB_ORG_OVERVIEW_ONBOARDING_RESEARCH.md
 rfcs/066_LOGO_AUTO_ROTATION_QUERY_STUTTER_FINDINGS.md
+rfcs/067_DASHBOARD_SHARED_SIDEBAR_SPEC.md
 rfcs/README.md
 Screenshot 2026-02-17 at 01.19.49.png
 skills/create-pr/SKILL.md

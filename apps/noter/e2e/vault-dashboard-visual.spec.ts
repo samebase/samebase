@@ -1,5 +1,21 @@
 import { expect, test } from "@playwright/test";
 
+test("vault dashboard fixture (shared sidebar)", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 760 });
+  await page.goto("/visual-fixture.html?mode=dashboard-shared-sidebar", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("vault-dashboard-visual-fixture");
+  await expect(fixture).toHaveScreenshot("vault-dashboard-shared-sidebar.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
 test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
   await page.setViewportSize({ width: 640, height: 180 });
   await page.goto("/visual-fixture.html?mode=vault-branch-pr-labels", {

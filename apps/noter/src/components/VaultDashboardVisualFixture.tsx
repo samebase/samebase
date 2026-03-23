@@ -1,7 +1,14 @@
 import { MemoryRouter } from "react-router-dom";
+import { Button } from "@/components/button";
+import { SidebarProvider } from "@/components/sidebar";
+import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";
+import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { VaultBranchLinkRow } from "@/components/VaultDashboard";
+import { GitHubLogoIcon, PersonIcon } from "@radix-ui/react-icons";
 
-export type VaultDashboardVisualMode = "vault-branch-pr-labels";
+export type VaultDashboardVisualMode =
+  | "dashboard-shared-sidebar"
+  | "vault-branch-pr-labels";
 
 function fakeVaultId(): Parameters<typeof VaultBranchLinkRow>[0]["vaultId"] {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
@@ -14,6 +21,63 @@ export function VaultDashboardVisualFixture({
 }: {
   mode: VaultDashboardVisualMode;
 }) {
+  if (mode === "dashboard-shared-sidebar") {
+    const sidebarContent = (
+      <>
+        <SidebarAccountSection>
+          <div className="flex items-center justify-between gap-2 text-sm font-medium">
+            <span className="truncate">Nicu Chiciuc</span>
+            <Button variant="secondary" size="icon" className="rounded-ui">
+              <PersonIcon className="h-5 w-5" />
+              <span className="sr-only">Open user menu</span>
+            </Button>
+          </div>
+        </SidebarAccountSection>
+        <div className="flex-1" />
+      </>
+    );
+
+    return (
+      <SidebarProvider
+        defaultOpen={true}
+        className="h-[720px] min-h-0 bg-background text-foreground"
+      >
+        <RepositoryWorkspaceFrame
+          dataTestId="vault-dashboard-visual-fixture"
+          sidebarContent={sidebarContent}
+          contentClassName="flex-1 overflow-y-auto p-0"
+        >
+          <div className="container py-6">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <GitHubLogoIcon className="h-5 w-5" />
+                <h1 className="text-xl font-semibold">Your Vaults</h1>
+              </div>
+              <div className="corner-notch-1 border border-border bg-background px-3 py-2 text-sm font-medium">
+                New App
+              </div>
+            </div>
+
+            <div className="mb-6 corner-notch-1 border border-border bg-background p-4">
+              <div className="text-sm font-medium">Providers</div>
+              <div className="mt-3 text-xs text-muted-foreground">
+                GitHub, Convex, and Cloudflare are connected.
+              </div>
+            </div>
+
+            <div className="corner-notch-1 border border-border bg-background p-4">
+              <div className="text-sm text-muted-foreground">noter-md/</div>
+              <div className="text-lg font-semibold">noter</div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                Updated 12s ago
+              </div>
+            </div>
+          </div>
+        </RepositoryWorkspaceFrame>
+      </SidebarProvider>
+    );
+  }
+
   return (
     <div
       data-testid="vault-dashboard-visual-fixture"

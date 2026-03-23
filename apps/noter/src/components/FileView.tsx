@@ -80,6 +80,7 @@ import { DraftPullRequestFeedbackBanner } from "./DraftPullRequestFeedbackBanner
 import { VaultSyncStatus } from "./VaultSyncStatus";
 import { RepositoryMediaViewer } from "./RepositoryMediaViewer";
 import { RepositoryWorkspaceFrame } from "./RepositoryWorkspaceFrame";
+import { SidebarAccountSection } from "./SidebarAccountSection";
 import { isRenderableRepositoryMediaPath } from "../../shared/repositoryMedia";
 import { isStaleBaseVersionError } from "../../shared/stagingErrors";
 import { decodeRouteSegmentSafe } from "@/lib/vaultRoutes";
@@ -2187,14 +2188,14 @@ function FileViewInner({
 
   const sidebarContent = (
     <>
-      <div className="border-b border-border/50 p-3">
+      <SidebarAccountSection>
         <Link
           to="/"
           className={`flex items-center justify-between ${linkStyle}`}
         >
           <UserMenu>{user?.name ?? user?.email ?? "..."}</UserMenu>
         </Link>
-      </div>
+      </SidebarAccountSection>
       <div className="border-b border-border/50 p-3">
         <div className="flex items-center gap-2">
           <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />

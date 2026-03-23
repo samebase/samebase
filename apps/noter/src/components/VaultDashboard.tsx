@@ -18,6 +18,7 @@ import { Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { linkStyle } from "./styles";
 import { clsx } from "clsx";
+import { SidebarProvider } from "@/components/sidebar";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import {
   formatRelativeTimeAgo,
@@ -52,6 +53,8 @@ import {
 } from "react";
 import { isInIframe } from "@/authClient";
 import { UserMenu } from "@/components/UserMenu";
+import { useSwipeToOpenSidebar } from "@/hooks/use-touch-gestures";
+import { useSidebar } from "@/hooks/use-sidebar";
 import {
   Dialog,
   DialogContent,
@@ -83,6 +86,8 @@ import {
 } from "@/components/ApiKeyConnectDialog";
 import type { Id } from "../../convex/_generated/dataModel";
 import { buildVaultCodespaceChatRoute } from "@/lib/vaultRoutes";
+import { RepositoryWorkspaceFrame } from "./RepositoryWorkspaceFrame";
+import { SidebarAccountSection } from "./SidebarAccountSection";
 
 const formatInfraState = (
   infraState: "not_started" | "provisioning" | "ready" | "failed" | "partial",
@@ -761,7 +766,7 @@ function VaultBranchList({
   );
 }
 
-export function VaultDashboard() {
+function VaultDashboardContent() {
   const vaults = useQuery(api.vault.getUserVaults);
   const now = useNow();
   const deleteVault = useAction(api.vaultActions.deleteVault);
@@ -1442,7 +1447,6 @@ export function VaultDashboard() {
   };
   const userDisplayName =
     user?.name ?? user?.email ?? user?.githubUsername ?? "...";
-  const userMenu = user ? <UserMenu>{userDisplayName}</UserMenu> : null;
   const createTemplateLabel = createTemplate === "app" ? "App" : "Agent";
   const createTemplateArticle =
     createTemplate === "app" ? "an app" : "an agent";
@@ -1699,54 +1703,46 @@ export function VaultDashboard() {
     return null;
   }
 
-  if (vaults.length === 0) {
-    return (
-      <div className="h-full overflow-y-auto">
-        <div className="container py-6 max-w-2xl mx-auto">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <Button variant="outline" asChild>
-              <Link to="/pricing">Pricing</Link>
-            </Button>
-            {userMenu}
+  const sidebarContent = (
+    <>
+      <SidebarAccountSection>
+        <UserMenu>{userDisplayName}</UserMenu>
+      </SidebarAccountSection>
+      <div className="flex-1" />
+    </>
+  );
+
+  const dashboardContent =
+    vaults.length === 0 ? (
+      <div className="container mx-auto max-w-2xl py-6">
+        <div className="space-y-6 text-center">
+          <div className="mx-auto w-full max-w-[8rem]">
+            <PublicLandingLogo />
           </div>
-          <div className="text-center space-y-6">
-            <div className="mx-auto w-full max-w-[8rem]">
-              <PublicLandingLogo />
-            </div>
 
-            <div className="space-y-2">
-              <h1 className="text-3xl font-bold">Create your first project</h1>
-              <p className="text-lg text-muted-foreground">
-                Start with a new project or connect an existing repository to
-                edit files directly in your browser.
-              </p>
-            </div>
+          <div className="space-y-2">
+            <h1 className="text-3xl font-bold">Create your first project</h1>
+            <p className="text-lg text-muted-foreground">
+              Start with a new project or connect an existing repository to edit
+              files directly in your browser.
+            </p>
+          </div>
 
-            <div className="space-y-4">
-              {connectionPanel}
-              <div className="flex justify-center">{createControl}</div>
-            </div>
+          <div className="space-y-4">
+            {connectionPanel}
+            <div className="flex justify-center">{createControl}</div>
           </div>
         </div>
-        {apiKeyDialog}
       </div>
-    );
-  }
-
-  return (
-    <div className="h-full overflow-y-auto">
+    ) : (
       <div className="container py-6">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-2">
             <GitHubLogoIcon className="h-5 w-5 sm:h-6 sm:w-6" />
-            <h1 className="text-xl sm:text-2xl font-semibold">Your Vaults</h1>
+            <h1 className="text-xl font-semibold sm:text-2xl">Your Vaults</h1>
           </div>
           <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
             {createControl}
-            <Button variant="outline" asChild>
-              <Link to="/pricing">Pricing</Link>
-            </Button>
-            {userMenu}
           </div>
         </div>
         <div className="mb-6">{connectionPanel}</div>
@@ -2002,96 +1998,179 @@ export function VaultDashboard() {
             );
           })}
         </div>
+      </div>
+    );
 
-        <Dialog
-          open={branchToDelete !== null}
-          onOpenChange={() => {
-            if (isDeletingBranch) return;
-            resetDeleteBranchDialogState();
-          }}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {branchToDelete
-                  ? `Delete Branch ${branchToDelete.branchName}`
-                  : "Delete Branch"}
-              </DialogTitle>
-              <DialogDescription>
-                {branchToDelete
-                  ? `This will delete ${branchToDelete.branchName} from GitHub for ${branchToDelete.repositoryFullName}.`
-                  : "This will delete the selected branch from GitHub."}
-              </DialogDescription>
-            </DialogHeader>
+  return (
+    <>
+      <RepositoryWorkspaceFrame
+        sidebarContent={sidebarContent}
+        contentClassName="flex-1 overflow-y-auto p-0"
+      >
+        {dashboardContent}
+      </RepositoryWorkspaceFrame>
+
+      <Dialog
+        open={branchToDelete !== null}
+        onOpenChange={() => {
+          if (isDeletingBranch) return;
+          resetDeleteBranchDialogState();
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {branchToDelete
+                ? `Delete Branch ${branchToDelete.branchName}`
+                : "Delete Branch"}
+            </DialogTitle>
+            <DialogDescription>
+              {branchToDelete
+                ? `This will delete ${branchToDelete.branchName} from GitHub for ${branchToDelete.repositoryFullName}.`
+                : "This will delete the selected branch from GitHub."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Only branches with no staged files and no commits ahead of the
+              default branch can be deleted here.
+            </p>
+            {deleteBranchError ? (
+              <div className="text-sm text-red-600">{deleteBranchError}</div>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (isDeletingBranch) return;
+                resetDeleteBranchDialogState();
+              }}
+              disabled={isDeletingBranch}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                void handleRemoveBranch();
+              }}
+              disabled={isDeletingBranch}
+            >
+              {isDeletingBranch ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Branch"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Dialog */}
+      <Dialog
+        open={!!vaultToDelete}
+        onOpenChange={() => {
+          if (isDeleting || isCommitting) return;
+          resetDeleteDialogState();
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {vaultToDelete
+                ? `Remove Vault ${vaultToDelete.repositoryFullName}`
+                : "Remove Vault"}
+            </DialogTitle>
+            <DialogDescription>
+              {hasStagedChanges
+                ? `This vault has ${stagedChangesCount} uncommitted local change${stagedChangesCount === 1 ? "" : "s"}. You can commit ${stagedChangesCount === 1 ? "it" : "them"} now.`
+                : "All local changes are already backed up on GitHub."}
+            </DialogDescription>
+          </DialogHeader>
+          {vaultToDelete && (
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Only branches with no staged files and no commits ahead of the
-                default branch can be deleted here.
-              </p>
-              {deleteBranchError ? (
-                <div className="text-sm text-red-600">{deleteBranchError}</div>
-              ) : null}
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (isDeletingBranch) return;
-                  resetDeleteBranchDialogState();
-                }}
-                disabled={isDeletingBranch}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  void handleRemoveBranch();
-                }}
-                disabled={isDeletingBranch}
-              >
-                {isDeletingBranch ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Deleting...
-                  </>
-                ) : (
-                  "Delete Branch"
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Confirmation Dialog */}
-        <Dialog
-          open={!!vaultToDelete}
-          onOpenChange={() => {
-            if (isDeleting || isCommitting) return;
-            resetDeleteDialogState();
-          }}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {vaultToDelete
-                  ? `Remove Vault ${vaultToDelete.repositoryFullName}`
-                  : "Remove Vault"}
-              </DialogTitle>
-              <DialogDescription>
-                {hasStagedChanges
-                  ? `This vault has ${stagedChangesCount} uncommitted local change${stagedChangesCount === 1 ? "" : "s"}. You can commit ${stagedChangesCount === 1 ? "it" : "them"} now.`
-                  : "All local changes are already backed up on GitHub."}
-              </DialogDescription>
-            </DialogHeader>
-            {vaultToDelete && (
-              <div className="space-y-2">
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="remove-github-repo"
+                  checked={removeGithubRepo}
+                  onCheckedChange={(checked) =>
+                    setRemoveGithubRepo(checked === true)
+                  }
+                  disabled={
+                    !vaultToDelete.isNoterManaged || isDeleting || isCommitting
+                  }
+                  className="mt-0.5"
+                />
+                <label
+                  htmlFor="remove-github-repo"
+                  className="text-sm text-muted-foreground"
+                >
+                  Also remove GitHub repository
+                  {!vaultToDelete.isNoterManaged && (
+                    <div className="text-xs text-muted-foreground">
+                      Only available for repositories created in Noter.
+                    </div>
+                  )}
+                </label>
+              </div>
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="remove-codespaces"
+                  checked={
+                    connectedCodespacesCount === 0 ? true : removeCodespaces
+                  }
+                  onCheckedChange={(checked) =>
+                    setRemoveCodespaces(checked === true)
+                  }
+                  disabled={
+                    connectedCodespacesCount === 0 || isDeleting || isCommitting
+                  }
+                  className="mt-0.5"
+                />
+                <label
+                  htmlFor="remove-codespaces"
+                  className="text-sm text-muted-foreground"
+                >
+                  Also remove all Codespaces
+                  {connectedCodespacesCount === undefined
+                    ? null
+                    : ` (${connectedCodespacesCount} connected)`}
+                </label>
+              </div>
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="remove-daytona-resources"
+                  checked={removeDaytonaResources}
+                  onCheckedChange={(checked) =>
+                    setRemoveDaytonaResources(checked === true)
+                  }
+                  disabled={isDeleting || isCommitting}
+                  className="mt-0.5"
+                />
+                <label
+                  htmlFor="remove-daytona-resources"
+                  className="text-sm text-muted-foreground"
+                >
+                  Also remove Daytona sandboxes and snapshots
+                  {!hasDaytonaResources && (
+                    <div className="text-xs text-muted-foreground">
+                      We will try to remove any Daytona resources tied to this
+                      vault.
+                    </div>
+                  )}
+                </label>
+              </div>
+              {vaultToDelete.hasConvexProvision && (
                 <div className="flex items-start gap-2">
                   <Checkbox
-                    id="remove-github-repo"
-                    checked={removeGithubRepo}
+                    id="remove-convex-provision"
+                    checked={removeConvexProvision}
                     onCheckedChange={(checked) =>
-                      setRemoveGithubRepo(checked === true)
+                      setRemoveConvexProvision(checked === true)
                     }
                     disabled={
                       !vaultToDelete.isNoterManaged ||
@@ -2101,188 +2180,129 @@ export function VaultDashboard() {
                     className="mt-0.5"
                   />
                   <label
-                    htmlFor="remove-github-repo"
+                    htmlFor="remove-convex-provision"
                     className="text-sm text-muted-foreground"
                   >
-                    Also remove GitHub repository
+                    Also remove Convex project/deployment
                     {!vaultToDelete.isNoterManaged && (
                       <div className="text-xs text-muted-foreground">
-                        Only available for repositories created in Noter.
+                        Only available for infrastructure provisioned by Noter.
                       </div>
                     )}
                   </label>
                 </div>
+              )}
+              {vaultToDelete.hasHostingProvision && (
                 <div className="flex items-start gap-2">
                   <Checkbox
-                    id="remove-codespaces"
-                    checked={
-                      connectedCodespacesCount === 0 ? true : removeCodespaces
-                    }
+                    id={removeHostingCheckboxId}
+                    checked={removeHostingProvision}
                     onCheckedChange={(checked) =>
-                      setRemoveCodespaces(checked === true)
+                      setRemoveHostingProvision(checked === true)
                     }
                     disabled={
-                      connectedCodespacesCount === 0 ||
+                      !vaultToDelete.isNoterManaged ||
                       isDeleting ||
                       isCommitting
                     }
                     className="mt-0.5"
                   />
                   <label
-                    htmlFor="remove-codespaces"
+                    htmlFor={removeHostingCheckboxId}
                     className="text-sm text-muted-foreground"
                   >
-                    Also remove all Codespaces
-                    {connectedCodespacesCount === undefined
-                      ? null
-                      : ` (${connectedCodespacesCount} connected)`}
-                  </label>
-                </div>
-                <div className="flex items-start gap-2">
-                  <Checkbox
-                    id="remove-daytona-resources"
-                    checked={removeDaytonaResources}
-                    onCheckedChange={(checked) =>
-                      setRemoveDaytonaResources(checked === true)
-                    }
-                    disabled={isDeleting || isCommitting}
-                    className="mt-0.5"
-                  />
-                  <label
-                    htmlFor="remove-daytona-resources"
-                    className="text-sm text-muted-foreground"
-                  >
-                    Also remove Daytona sandboxes and snapshots
-                    {!hasDaytonaResources && (
+                    {removeHostingLabel}
+                    {!vaultToDelete.isNoterManaged && (
                       <div className="text-xs text-muted-foreground">
-                        We will try to remove any Daytona resources tied to this
-                        vault.
+                        Only available for infrastructure provisioned by Noter.
                       </div>
                     )}
                   </label>
                 </div>
-                {vaultToDelete.hasConvexProvision && (
-                  <div className="flex items-start gap-2">
-                    <Checkbox
-                      id="remove-convex-provision"
-                      checked={removeConvexProvision}
-                      onCheckedChange={(checked) =>
-                        setRemoveConvexProvision(checked === true)
-                      }
-                      disabled={
-                        !vaultToDelete.isNoterManaged ||
-                        isDeleting ||
-                        isCommitting
-                      }
-                      className="mt-0.5"
-                    />
-                    <label
-                      htmlFor="remove-convex-provision"
-                      className="text-sm text-muted-foreground"
-                    >
-                      Also remove Convex project/deployment
-                      {!vaultToDelete.isNoterManaged && (
-                        <div className="text-xs text-muted-foreground">
-                          Only available for infrastructure provisioned by
-                          Noter.
-                        </div>
-                      )}
-                    </label>
-                  </div>
-                )}
-                {vaultToDelete.hasHostingProvision && (
-                  <div className="flex items-start gap-2">
-                    <Checkbox
-                      id={removeHostingCheckboxId}
-                      checked={removeHostingProvision}
-                      onCheckedChange={(checked) =>
-                        setRemoveHostingProvision(checked === true)
-                      }
-                      disabled={
-                        !vaultToDelete.isNoterManaged ||
-                        isDeleting ||
-                        isCommitting
-                      }
-                      className="mt-0.5"
-                    />
-                    <label
-                      htmlFor={removeHostingCheckboxId}
-                      className="text-sm text-muted-foreground"
-                    >
-                      {removeHostingLabel}
-                      {!vaultToDelete.isNoterManaged && (
-                        <div className="text-xs text-muted-foreground">
-                          Only available for infrastructure provisioned by
-                          Noter.
-                        </div>
-                      )}
-                    </label>
-                  </div>
-                )}
-                {deleteError && (
-                  <div className="text-sm text-red-600">{deleteError}</div>
-                )}
-                {commitError && (
-                  <div className="text-sm text-red-600">{commitError}</div>
-                )}
-                {didAttemptCommit && hasStagedChanges && (
-                  <div className="text-sm text-muted-foreground">
-                    Some local changes are still uncommitted. You can retry
-                    commit or remove anyway.
-                  </div>
-                )}
-              </div>
-            )}
-            <DialogFooter>
+              )}
+              {deleteError && (
+                <div className="text-sm text-red-600">{deleteError}</div>
+              )}
+              {commitError && (
+                <div className="text-sm text-red-600">{commitError}</div>
+              )}
+              {didAttemptCommit && hasStagedChanges && (
+                <div className="text-sm text-muted-foreground">
+                  Some local changes are still uncommitted. You can retry commit
+                  or remove anyway.
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (isDeleting || isCommitting) return;
+                resetDeleteDialogState();
+              }}
+              disabled={isDeleting || isCommitting}
+            >
+              Cancel
+            </Button>
+            {vaultToDelete && hasStagedChanges && (
               <Button
                 variant="outline"
                 onClick={() => {
-                  if (isDeleting || isCommitting) return;
-                  resetDeleteDialogState();
+                  void handleCommitBeforeRemove();
                 }}
                 disabled={isDeleting || isCommitting}
               >
-                Cancel
-              </Button>
-              {vaultToDelete && hasStagedChanges && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    void handleCommitBeforeRemove();
-                  }}
-                  disabled={isDeleting || isCommitting}
-                >
-                  {isCommitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Committing...
-                    </>
-                  ) : (
-                    "Commit changes"
-                  )}
-                </Button>
-              )}
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  void handleRemoveVault();
-                }}
-                disabled={isDeleting || isCommitting}
-              >
-                {isDeleting ? (
+                {isCommitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Removing...
+                    Committing...
                   </>
                 ) : (
-                  "Remove Vault"
+                  "Commit changes"
                 )}
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        {apiKeyDialog}
-      </div>
-    </div>
+            )}
+            <Button
+              variant="destructive"
+              onClick={() => {
+                void handleRemoveVault();
+              }}
+              disabled={isDeleting || isCommitting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                "Remove Vault"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {apiKeyDialog}
+    </>
   );
+}
+
+export function VaultDashboard() {
+  return (
+    <SidebarProvider className="h-full min-h-0">
+      <VaultDashboardWithSwipe />
+    </SidebarProvider>
+  );
+}
+
+function VaultDashboardWithSwipe() {
+  const { isMobile, openMobile, setOpenMobile } = useSidebar();
+
+  useSwipeToOpenSidebar(() => {
+    if (isMobile && !openMobile) {
+      setOpenMobile(true);
+    }
+  });
+
+  return <VaultDashboardContent />;
 }
