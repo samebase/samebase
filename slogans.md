@@ -16,4 +16,5 @@
 - add an ai agent to your existing apps
 - is data for your ai
 - a simpler way to use github
-- spin up openclaw in 3.4 seconds 
+- spin up openclaw in 3.4 seconds
+- durable ad-hoc software
