@@ -318,7 +318,9 @@ export default defineSchema({
   dashboardSettings: defineTable({
     userId: v.id("users"),
     providersPanelOpen: v.boolean(),
+    // TODO: remove this
     pricingBillingCycle: PricingBillingCycle,
+    editorChatOpen: v.optional(v.boolean()),
   }).index("by_user", ["userId"]),
 
   /**

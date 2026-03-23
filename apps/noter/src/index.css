@@ -410,7 +410,6 @@
       0 var(--noter-notch-step),
       var(--noter-notch-step) var(--noter-notch-step)
     );
-    position: relative;
   }
 
   .corner-notch-1::before {
@@ -456,7 +455,6 @@
       1px 1px,
       2px 1px
     );
-    position: relative;
   }
 
   .corner-notch-2::before {

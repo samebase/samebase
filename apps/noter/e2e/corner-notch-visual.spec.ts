@@ -12,6 +12,6 @@ test("corner notch fixture", async ({ page }) => {
     animations: "disabled",
     caret: "hide",
     scale: "css",
-    maxDiffPixelRatio: 0.03,
+    maxDiffPixelRatio: 0,
   });
 });

@@ -11,7 +11,9 @@ const DEFAULT_PRICING_BILLING_CYCLE: BillingCycle = "monthly";
 
 const dashboardSettingsValidator = object({
   providersPanelOpen: boolean(),
+  // TODO: Why is this necessary? (probably remove it)
   pricingBillingCycle: billingCycleValidator,
+  editorChatOpen: boolean(),
 });
 
 const getDashboardSettingsArgs = object({});
@@ -27,9 +29,15 @@ const setPricingBillingCycleArgs = object({
 });
 const setPricingBillingCycleReturns = vNull();
 
+const setEditorChatOpenArgs = object({
+  isOpen: boolean(),
+});
+const setEditorChatOpenReturns = vNull();
+
 type GetDashboardSettingsArgs = Infer<typeof getDashboardSettingsArgs>;
 type SetProvidersPanelOpenArgs = Infer<typeof setProvidersPanelOpenArgs>;
 type SetPricingBillingCycleArgs = Infer<typeof setPricingBillingCycleArgs>;
+type SetEditorChatOpenArgs = Infer<typeof setEditorChatOpenArgs>;
 type DashboardSettings = Infer<typeof dashboardSettingsValidator>;
 
 export const getDashboardSettings = query({
@@ -44,6 +52,7 @@ export const getDashboardSettings = query({
       return {
         providersPanelOpen: false,
         pricingBillingCycle: DEFAULT_PRICING_BILLING_CYCLE,
+        editorChatOpen: false,
       };
     }
 
@@ -61,6 +70,7 @@ export const getDashboardSettings = query({
     return {
       providersPanelOpen: existing?.providersPanelOpen ?? false,
       pricingBillingCycle,
+      editorChatOpen: existing?.editorChatOpen ?? false,
     };
   },
 });
@@ -87,6 +97,8 @@ export const setProvidersPanelOpen = mutation({
       await ctx.db.insert("dashboardSettings", {
         userId,
         providersPanelOpen: args.isOpen,
+        pricingBillingCycle: DEFAULT_PRICING_BILLING_CYCLE,
+        editorChatOpen: false,
       });
     }
 
@@ -117,6 +129,38 @@ export const setPricingBillingCycle = mutation({
         userId,
         providersPanelOpen: false,
         pricingBillingCycle: args.billingCycle,
+        editorChatOpen: false,
+      });
+    }
+
+    return null;
+  },
+});
+
+export const setEditorChatOpen = mutation({
+  args: setEditorChatOpenArgs,
+  returns: setEditorChatOpenReturns,
+  handler: async (ctx, args: SetEditorChatOpenArgs) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const existing = await ctx.db
+      .query("dashboardSettings")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        editorChatOpen: args.isOpen,
+      });
+    } else {
+      await ctx.db.insert("dashboardSettings", {
+        userId,
+        providersPanelOpen: false,
+        pricingBillingCycle: DEFAULT_PRICING_BILLING_CYCLE,
+        editorChatOpen: args.isOpen,
       });
     }
 

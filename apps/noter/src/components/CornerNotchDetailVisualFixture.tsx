@@ -20,6 +20,15 @@ const FIXTURE_CONFIGS: FixtureConfig[] = [
   { borderWidth: 2, type: 2 },
 ];
 
+function FixtureBar({ className }: { className?: string }) {
+  return (
+    <div
+      aria-hidden="true"
+      className={cn("rounded-none bg-current/50", className)}
+    />
+  );
+}
+
 function CornerNotchChipElement({
   borderWidth,
   type,
@@ -132,15 +141,43 @@ function CornerNotchTouchingPair({
   );
 }
 
+function FixtureTypeMarkers({ type }: { type: FixtureConfig["type"] }) {
+  return (
+    <div className="flex gap-1">
+      {[0, 1, 2].map((markerType) => (
+        <div
+          key={markerType}
+          aria-hidden="true"
+          className={cn(
+            "h-2.5 w-2.5 border border-stone-400",
+            markerType <= type ? "bg-stone-700" : "bg-transparent",
+          )}
+        />
+      ))}
+    </div>
+  );
+}
+
+function FixtureBorderMarkers({
+  borderWidth,
+}: {
+  borderWidth: FixtureBorderWidth;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <FixtureBar className="h-1.5 w-8 bg-stone-500/55" />
+      {borderWidth === 2 ? (
+        <FixtureBar className="h-1 w-5 bg-stone-500/45" />
+      ) : null}
+    </div>
+  );
+}
+
 function CornerNotchFixtureSection({
-  description,
   testId,
-  title,
   zoom,
 }: {
-  description: string;
   testId: string;
-  title: string;
   zoom: FixtureZoom;
 }) {
   return (
@@ -148,30 +185,22 @@ function CornerNotchFixtureSection({
       data-testid={testId}
       className="grid gap-3 border border-stone-300 bg-stone-100 p-4"
     >
-      <div className="grid gap-1">
-        <h2 className="text-sm font-semibold text-stone-900">{title}</h2>
-        <p className="text-xs text-stone-600">{description}</p>
-      </div>
-
       <div className="grid gap-3 md:grid-cols-3">
         {FIXTURE_CONFIGS.map((config) => (
           <div
             key={`${config.type}-${config.borderWidth}-${zoom}`}
             className="grid gap-3 border border-stone-300 bg-white p-3"
           >
-            <div className="font-mono text-[11px] text-stone-700">
-              {`type ${config.type} • ${FIXTURE_BOX_SIZE}x${FIXTURE_BOX_SIZE} • border ${config.borderWidth}px`}
+            <div className="flex items-center justify-between gap-3">
+              <FixtureTypeMarkers type={config.type} />
+              <FixtureBorderMarkers borderWidth={config.borderWidth} />
             </div>
             <div className="grid gap-2">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
-                Single
-              </div>
+              <FixtureBar className="h-2 w-10 bg-stone-400/45" />
               <CornerNotchChip {...config} zoom={zoom} />
             </div>
             <div className="grid gap-2">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-stone-500">
-                Touching Pair
-              </div>
+              <FixtureBar className="h-2 w-16 bg-stone-400/45" />
               <CornerNotchTouchingPair {...config} zoom={zoom} />
             </div>
           </div>
@@ -188,28 +217,10 @@ export function CornerNotchDetailVisualFixture() {
       className="min-h-screen bg-stone-200 p-6 text-stone-950"
     >
       <div className="mx-auto grid max-w-[1800px] gap-6">
-        <div className="grid gap-1 border border-stone-300 bg-white p-4">
-          <h1 className="text-sm font-semibold text-stone-900">
-            Corner Notch Detail Fixture
-          </h1>
-          <p className="text-xs text-stone-600">
-            These chips use `box-sizing: border-box`, so the declared 16 by 16
-            size includes the border. The interior pattern is clipped to the
-            padding box to make the visible inside area easier to count.
-          </p>
-        </div>
-
-        <CornerNotchFixtureSection
-          testId="corner-notch-detail-raw"
-          title="Raw tiny captures"
-          description="Actual 16 by 16 boxes on gray background, including a touching pair with no gap."
-          zoom={1}
-        />
+        <CornerNotchFixtureSection testId="corner-notch-detail-raw" zoom={1} />
 
         <CornerNotchFixtureSection
           testId="corner-notch-detail-zoomed"
-          title="Zoomed inspection views"
-          description="The same 16 by 16 boxes scaled up 12 times so border seams and clipped corners are easy to inspect."
           zoom={12}
         />
       </div>

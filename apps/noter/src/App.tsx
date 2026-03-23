@@ -16,7 +16,6 @@ import { api } from "../convex/_generated/api";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { isChatOnlyCodespaceRoute } from "@/lib/vaultRoutes";
 import { resolvePageMetadata, type PageMetadata } from "@/lib/pageMetadata";
 import { shouldRenderPublicLandingWithoutAuthGate } from "@/lib/publicLandingAuthState";
 import { usePageMetadata } from "@/lib/usePageMetadata";
@@ -315,7 +314,8 @@ export default function App() {
     location.pathname,
     !(onMcpConsentRoute && mcpConsentRequestId !== null),
   );
-  const showChatFab = !isChatOnlyCodespaceRoute(location.pathname);
+  // Vault routes own the docked editor chat; everywhere else keeps the legacy floating entrypoint.
+  const showGlobalChatFab = !location.pathname.startsWith("/vault/");
   const showMcpConsent = onMcpConsentRoute && mcpConsentRequestId !== null;
   const logoPreviewMode =
     location.pathname === "/logo"
@@ -438,7 +438,7 @@ export default function App() {
                   {/* test route */}
                   <Route path="/test" element={<div>Test</div>} />
                 </Routes>
-                {showChatFab ? <ChatFab /> : null}
+                {showGlobalChatFab ? <ChatFab /> : null}
               </Suspense>
             </ApprovalGate>
           </Authenticated>

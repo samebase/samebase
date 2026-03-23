@@ -1,8 +1,8 @@
 # Privacy Policy
 
-Last updated: March 20, 2026
+Last updated: March 23, 2026
 
-Reviewed and updated by Codex (GPT-5.4 "Extra High") on March 20, 2026, based on
+Reviewed and updated by Codex (GPT-5.4 "Extra High") on March 23, 2026, based on
 the current Noter source code.
 
 This Privacy Policy describes how Noter handles information in the current app
@@ -44,8 +44,8 @@ claiming features or controls that are not in the product yet.
 ## Browser Storage and Cookies
 
 - Local storage. The current app code uses localStorage for auth helper state
-  and popup sign-in token handoff, and for some UI preferences such as chat and
-  file-view state.
+  and popup sign-in token handoff, for non-vault chat open/thread state, and for
+  some file-view UI state.
 - Cookie. The current app code sets a first-party sidebar preference cookie
   named `sidebar_state` so the app can remember whether the sidebar is open.
 - IndexedDB. The app caches some Convex query results in browser IndexedDB under
