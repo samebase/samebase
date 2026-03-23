@@ -29,6 +29,7 @@ What this means:
 - `keep your stack` does not mean stackless or vague
 - Noter can wrap existing GitHub work, edit files, and preview changes across
   many projects
+- Noter can be used through the web UI or directly through MCP
 - the opinionated path is GitHub, Cloudflare, and Convex
 - that stack is portable: users can keep it even if they ever leave Noter
 - many serious builders already pay for fixed AI tools like Codex or Claude
@@ -50,6 +51,7 @@ These themes show up repeatedly across the repo and should influence the deck:
 
 - `same stack seniors actually use`
 - `web-first so any agent can use it`
+- `direct MCP access for external agents`
 - `monitor and edit your apps when you're on the go`
 - `docs + code in one place`
 - `terminal is the escape hatch, not the product`
@@ -60,6 +62,7 @@ What they suggest for the deck:
 - Noter should feel opinionated, not generic
 - mobile and browser access are product pillars, not side benefits
 - web is the primary platform; native wrappers are secondary
+- MCP is a first-class access path, not an afterthought
 - GitHub should read as the durable system of record
 - the AI/product UX should feel transparent, not magical in a fragile way
 
@@ -122,8 +125,8 @@ Support:
 Proof chips:
 
 - `real files`
-- `real repos`
-- `real deploys`
+- `real repos + deploys`
+- `web + MCP access`
 
 ### 5. Speed
 
@@ -251,6 +254,8 @@ Good backups from the repo:
 - `a simpler way to use GitHub`
 - `the same stack seniors actually use`
 - `web-first so any agent can use it`
+- `orchestrate multiple agents from anywhere via MCP`
+- `build MCP servers for ChatGPT`
 - `monitor and edit your apps when you're on the go`
 
 Good backup concepts from repo research:
@@ -261,6 +266,7 @@ Good backup concepts from repo research:
 - `Git as the durable layer.`
 - `Web is the primary platform.`
 - `If an agent can open the web app, it can use the product.`
+- `The web UI and MCP should both be first-class ways to use Noter.`
 
 Use carefully:
 
@@ -283,6 +289,9 @@ Use carefully:
 - `Web-first` should mean agent-usable first, not just mobile-friendly.
 - Better: the web app is the main product because both humans and agents can use
   it directly; PWA/native wrappers are secondary.
+- MCP should appear as a real product capability.
+- Better: users can operate Noter through the web app, or connect it directly to
+  agents like ChatGPT and Codex over MCP.
 
 ## Sources
 
