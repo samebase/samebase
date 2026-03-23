@@ -56,7 +56,8 @@ name as the lighter secondary line when a PR exists.
 - `pullRequestLabels`
 - `pullRequestTitle`
 
-This is already enough to support:
+This is already enough to support, for branches whose open PR targets the
+repository default branch:
 
 - text filtering by branch name
 - text filtering by PR title
@@ -70,6 +71,12 @@ labels, and title, but not whether the PR is draft.
 
 That means draft filtering is not possible today, even though it is one of the
 most useful filters for this dashboard.
+
+There is a second backend gap as well: the current PR lookup keeps only open
+pull requests whose `base.ref` matches the repository default branch. Branches
+with PRs targeting release, backport, or other non-default base branches are
+therefore treated as `no PR` today and would not match PR-title or `label:`
+filters until that sync behavior is widened.
 
 ## GitHub Model Research
 
@@ -318,9 +325,19 @@ Draft matching should be tri-state:
 
 ### Persistence
 
-Prefer storing the filter in dashboard settings because Noter already uses
-per-user dashboard settings in Convex and the operator prefers synced state over
-`localStorage`.
+Prefer storing the filter in Convex-backed synced state because the operator
+prefers cross-device persistence over `localStorage`.
+
+Because this RFC proposes per-vault filtering, persistence must also be scoped
+per vault or repository. `dashboardSettings` is currently keyed only by user, so
+the implementation should not store one global raw filter string there unless
+the product is explicitly reframed as a global dashboard filter.
+
+Reasonable shapes include:
+
+- a `dashboardSettings` map keyed by `vaultId` or `repositoryFullName`
+- a small dedicated per-user, per-vault filter table
+- a URL-owned filter with optional synced recent-history state
 
 If URL persistence is added, it should be additive and should use the existing
 query-param helpers in `apps/noter/src/lib/queryParams.ts`.
