@@ -73,6 +73,40 @@ test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
   });
 });
 
+test("vault dashboard fixture (branch filters popover)", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 560 });
+  await page.goto("/visual-fixture.html?mode=vault-branch-filters", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Filters", exact: true }).click();
+
+  await expect(page).toHaveScreenshot("vault-branch-filters-popover.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
+test("vault dashboard fixture (branch filters mobile sheet)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/visual-fixture.html?mode=vault-branch-filters", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Filters", exact: true }).click();
+
+  await expect(page).toHaveScreenshot("vault-branch-filters-mobile.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
 test("vault dashboard fixture (mobile branch alignment)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/visual-fixture.html?mode=vault-branch-mobile-alignment", {

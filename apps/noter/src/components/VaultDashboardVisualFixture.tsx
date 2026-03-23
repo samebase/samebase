@@ -4,6 +4,7 @@ import { SidebarProvider } from "@/components/sidebar";
 import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";
 import { ResizeGripLines } from "@/components/ResizeGripLines";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
+import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";
 import { VaultBranchLinkRow } from "@/components/VaultDashboard";
 import { GitHubLogoIcon, PersonIcon } from "@radix-ui/react-icons";
 import { Plus, X } from "lucide-react";
@@ -11,6 +12,7 @@ import { Plus, X } from "lucide-react";
 export type VaultDashboardVisualMode =
   | "dashboard-shared-sidebar"
   | "dashboard-shared-sidebar-mobile-chat"
+  | "vault-branch-filters"
   | "vault-branch-pr-labels"
   | "vault-branch-mobile-alignment";
 
@@ -152,6 +154,98 @@ export function VaultDashboardVisualFixture({
                       pullRequestUrl="https://github.com/noter-md/noter/pull/321"
                       pullRequestNumber={321}
                       pullRequestTitle="Align mobile branch rows with vault cards"
+                      canDeleteBranch={true}
+                      isDeletingBranch={false}
+                      onDeleteBranch={() => {}}
+                    />
+                  </MemoryRouter>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === "vault-branch-filters") {
+    return (
+      <div className="min-h-screen bg-stone-100 p-4 text-foreground">
+        <div
+          data-testid="vault-dashboard-visual-fixture"
+          data-mode={mode}
+          className="mx-auto w-full max-w-[720px]"
+        >
+          <div className="corner-notch-1 border border-border bg-background p-4">
+            <div className="space-y-3">
+              <div>
+                <div className="text-lg font-semibold">
+                  <span className="font-normal text-muted-foreground">
+                    noter-md/
+                  </span>
+                  <span>noter</span>
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Updated 12s ago
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+                    Branches
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-muted-foreground/80">
+                      1 of 3
+                    </span>
+                    <VaultBranchFiltersControl
+                      value={{
+                        hiddenLabels: ["research"],
+                        includeDrafts: false,
+                      }}
+                      labelOptions={[
+                        {
+                          name: "research",
+                          color: "#0969da",
+                          count: 1,
+                          selected: true,
+                        },
+                        {
+                          name: "needs review",
+                          color: "#bf8700",
+                          count: 1,
+                          selected: false,
+                        },
+                        {
+                          name: "customer",
+                          color: "#1a7f37",
+                          count: 1,
+                          selected: false,
+                        },
+                      ]}
+                      onChange={() => {}}
+                    />
+                  </div>
+                </div>
+                <div className="-mx-4 overflow-hidden border-y border-border/60 bg-muted/20 sm:mx-0 sm:corner-notch-1 sm:border">
+                  <MemoryRouter>
+                    <VaultBranchLinkRow
+                      vaultId={fakeVaultId()}
+                      repositoryFullName="noter-md/noter"
+                      branchName="codex/branch-filters"
+                      headCommitSha="abcdef1234567890abcdef1234567890abcdef12"
+                      isDefault={false}
+                      isDeletedUpstream={false}
+                      aheadBy={1}
+                      behindBy={0}
+                      pullRequestUrl="https://github.com/noter-md/noter/pull/321"
+                      pullRequestNumber={321}
+                      pullRequestTitle="Ship saved branch filters per vault"
+                      pullRequestLabels={[
+                        { name: "needs review", color: "bf8700" },
+                        { name: "customer", color: "1a7f37" },
+                      ]}
                       canDeleteBranch={true}
                       isDeletingBranch={false}
                       onDeleteBranch={() => {}}

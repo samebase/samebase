@@ -36,6 +36,8 @@ apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-repository-confi
 apps/noter/e2e/vault-branch-preview-visual.spec.ts-snapshots/vault-branch-preview-link.png
 apps/noter/e2e/vault-branch-preview-visual.spec.ts-snapshots/vault-branch-preview-missing.png
 apps/noter/e2e/vault-dashboard-branch-visual.spec.ts-snapshots/vault-dashboard-branch-pr-title.png
+apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-filters-mobile.png
+apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-filters-popover.png
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-mobile-alignment.png
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-pr-labels.png
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-shared-sidebar-mobile-chat.png
