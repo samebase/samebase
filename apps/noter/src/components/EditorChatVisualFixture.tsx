@@ -7,6 +7,9 @@ export type EditorChatVisualMode =
   | "editor-chat-open-mobile"
   | "editor-chat-closed";
 
+const MOBILE_CHAT_FIXTURE_HEIGHT_PX = 280;
+const MOBILE_CHAT_FIXTURE_DOCK_INSET = `calc(${MOBILE_CHAT_FIXTURE_HEIGHT_PX}px + 0.5rem)`;
+
 function FixtureBar({ className }: { className?: string }) {
   return (
     <div
@@ -143,12 +146,18 @@ function OpenMobileChatFixture() {
           </div>
         </div>
 
-        <div className="flex-1 bg-white px-4 py-4 pb-[18rem]">
+        <div
+          className="flex-1 bg-white px-4 py-4"
+          style={{ paddingBottom: MOBILE_CHAT_FIXTURE_DOCK_INSET }}
+        >
           <div className="h-full min-h-[420px] border border-stone-200 bg-stone-50" />
         </div>
 
         <div className="absolute inset-x-0 bottom-0 px-2 pb-2">
-          <div className="flex h-[280px] min-h-0 flex-col">
+          <div
+            className="flex min-h-0 flex-col"
+            style={{ height: `${MOBILE_CHAT_FIXTURE_HEIGHT_PX}px` }}
+          >
             <div className="mb-[-1px] flex h-5 shrink-0 items-center justify-center text-muted-foreground">
               <div className="h-1 w-12 corner-notch-1 bg-current/40" />
             </div>

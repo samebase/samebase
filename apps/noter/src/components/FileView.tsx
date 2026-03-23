@@ -208,6 +208,8 @@ const EDITOR_CHAT_MIN_HEIGHT = 12 * 16;
 const EDITOR_CHAT_DEFAULT_HEIGHT = 18 * 16;
 const EDITOR_CHAT_MOBILE_DEFAULT_HEIGHT_RATIO = 0.3;
 const EDITOR_CHAT_MAX_HEIGHT_RATIO = 0.7;
+const EDITOR_CHAT_MOBILE_BOTTOM_INSET =
+  "max(0.5rem,env(safe-area-inset-bottom))";
 
 function getMaxEditorChatHeight(): number {
   if (typeof window === "undefined") {
@@ -236,6 +238,10 @@ function getDefaultEditorChatHeight(): number {
   const preferredHeight =
     window.innerWidth < 768 ? mobileDefaultHeight : EDITOR_CHAT_DEFAULT_HEIGHT;
   return clampEditorChatHeight(preferredHeight);
+}
+
+function getMobileEditorChatDockInset(height: number): string {
+  return `calc(${height}px + ${EDITOR_CHAT_MOBILE_BOTTOM_INSET})`;
 }
 
 function getPatchLineClassName(line: string): string {
@@ -2412,6 +2418,16 @@ function FileViewInner({
   const editorChatPanelClassName = isMobileViewport
     ? "h-full"
     : "h-full -mx-4 sm:mx-0";
+  const mobileEditorChatDockInset =
+    isMobileViewport && editorChatOpen
+      ? getMobileEditorChatDockInset(editorChatHeight)
+      : undefined;
+  const editorChatReopenButtonClassName = cn(
+    "right-3 z-10 flex h-11 w-11 items-center justify-center corner-notch-1 border-0 bg-primary p-0 text-primary-foreground shadow-lg transition-colors hover:bg-primary/90",
+    isMobileViewport
+      ? "fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))]"
+      : "absolute bottom-3",
+  );
 
   return (
     <>
@@ -2420,7 +2436,19 @@ function FileViewInner({
         headerTitle={headerTitle}
         onQuickOpen={() => setIsCommandPaletteOpen(true)}
       >
-        <div className="max-w-none flex h-full min-h-0 flex-col gap-4">
+        <div
+          className="max-w-none flex h-full min-h-0 flex-col gap-4"
+          style={
+            mobileEditorChatDockInset
+              ? {
+                  // Keep the fixed mobile dock from obscuring the scrollable
+                  // editor surface underneath it.
+                  paddingBottom: mobileEditorChatDockInset,
+                  scrollPaddingBottom: mobileEditorChatDockInset,
+                }
+              : undefined
+          }
+        >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="min-w-0">
               <div className="min-w-0">
@@ -2884,7 +2912,7 @@ function FileViewInner({
                 onClick={() => handleEditorChatOpenChange(true)}
                 aria-label="Open chat"
                 title="Open chat"
-                className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-3 z-10 flex h-11 w-11 items-center justify-center corner-notch-1 border-0 bg-primary p-0 text-primary-foreground shadow-lg transition-colors hover:bg-primary/90 sm:absolute sm:bottom-3"
+                className={editorChatReopenButtonClassName}
               >
                 <span aria-hidden="true" className="h-4 w-4 bg-current" />
               </Button>
