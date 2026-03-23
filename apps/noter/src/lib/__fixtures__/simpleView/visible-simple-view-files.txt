@@ -109,6 +109,8 @@ CONVEX_CODEGEN_CI.md
 docs/agent-workflows.md
 docs/compliance/licenses-prod-2026-03-06.txt
 docs/README.md
+research/onboarding-video-tooling-2026-03-19.md
+research/pitch-deck-story-draft-2026-03-23.md
 Ideas/augment-code-research.md
 Ideas/daytona-terminal-ui-transparency.md
 Ideas/E2b.md
