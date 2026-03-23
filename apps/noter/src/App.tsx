@@ -334,8 +334,9 @@ export default function App() {
     location.pathname,
     !(onMcpConsentRoute && mcpConsentRequestId !== null),
   );
-  // Vault routes own the docked editor chat; everywhere else keeps the legacy floating entrypoint.
-  const showGlobalChatFab = !location.pathname.startsWith("/vault/");
+  // Vault and dashboard routes own the shared docked chat inside their scroll containers.
+  const showGlobalChatFab =
+    !location.pathname.startsWith("/vault/") && location.pathname !== "/";
   const showMcpConsent = onMcpConsentRoute && mcpConsentRequestId !== null;
   const logoPreviewMode =
     location.pathname === "/logo"

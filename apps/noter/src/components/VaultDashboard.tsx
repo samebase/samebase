@@ -79,6 +79,7 @@ import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
 import { PullRequestLink } from "@/components/PullRequestLink";
 import { CodexProviderRow } from "@/components/CodexProviderRow";
 import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";
+import { EditorChatDock } from "@/components/EditorChatDock";
 import { PublicLandingLogo } from "@/components/PublicLandingLogo";
 import {
   useApiKeyConnectDialog,
@@ -1700,6 +1701,10 @@ function VaultDashboardContent() {
     </div>
   );
 
+  const [mobileEditorChatDockInset, setMobileEditorChatDockInset] = useState<
+    string | undefined
+  >(undefined);
+
   if (!vaults) {
     return null;
   }
@@ -1717,7 +1722,17 @@ function VaultDashboardContent() {
     </>
   );
 
-  const dashboardContent =
+  const dashboardScrollStyle: CSSProperties | undefined =
+    mobileEditorChatDockInset
+      ? {
+          // Mirror the editor route so the fixed mobile dock does not cover the
+          // dashboard list or empty-state controls underneath it.
+          paddingBottom: mobileEditorChatDockInset,
+          scrollPaddingBottom: mobileEditorChatDockInset,
+        }
+      : undefined;
+
+  const dashboardBody =
     vaults.length === 0 ? (
       <div className="container mx-auto max-w-2xl py-6">
         <div className="space-y-6 text-center">
@@ -2007,9 +2022,20 @@ function VaultDashboardContent() {
     <>
       <RepositoryWorkspaceFrame
         sidebarContent={sidebarContent}
-        contentClassName="flex-1 overflow-y-auto p-0"
+        contentClassName="flex-1 min-h-0 p-0"
       >
-        {dashboardContent}
+        <div className="flex h-full min-h-0 flex-col">
+          <div
+            className="min-h-0 flex-1 overflow-y-auto"
+            style={dashboardScrollStyle}
+          >
+            {dashboardBody}
+          </div>
+          <EditorChatDock
+            desktopMode="inline"
+            onMobileDockInsetChange={setMobileEditorChatDockInset}
+          />
+        </div>
       </RepositoryWorkspaceFrame>
 
       <Dialog

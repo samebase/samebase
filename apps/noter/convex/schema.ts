@@ -321,6 +321,7 @@ export default defineSchema({
     // TODO: remove this
     pricingBillingCycle: PricingBillingCycle,
     editorChatOpen: v.optional(v.boolean()),
+    globalChatOpen: v.optional(v.boolean()),
   }).index("by_user", ["userId"]),
 
   /**

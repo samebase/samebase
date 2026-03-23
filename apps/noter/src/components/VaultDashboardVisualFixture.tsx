@@ -2,14 +2,28 @@ import { MemoryRouter } from "react-router-dom";
 import { Button } from "@/components/button";
 import { SidebarProvider } from "@/components/sidebar";
 import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";
+import { ResizeGripLines } from "@/components/ResizeGripLines";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { VaultBranchLinkRow } from "@/components/VaultDashboard";
 import { GitHubLogoIcon, PersonIcon } from "@radix-ui/react-icons";
+import { Plus, X } from "lucide-react";
 
 export type VaultDashboardVisualMode =
   | "dashboard-shared-sidebar"
+  | "dashboard-shared-sidebar-mobile-chat"
   | "vault-branch-pr-labels"
   | "vault-branch-mobile-alignment";
+
+const MOBILE_CHAT_FIXTURE_HEIGHT_PX = 280;
+const MOBILE_CHAT_FIXTURE_DOCK_INSET = `calc(${MOBILE_CHAT_FIXTURE_HEIGHT_PX}px + 0.5rem)`;
+
+function FixtureResizeGrip() {
+  return (
+    <div className="flex h-4 w-full items-center justify-center corner-notch-1 text-foreground/80">
+      <ResizeGripLines />
+    </div>
+  );
+}
 
 function fakeVaultId(): Parameters<typeof VaultBranchLinkRow>[0]["vaultId"] {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
@@ -148,6 +162,131 @@ export function VaultDashboardVisualFixture({
             </div>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (mode === "dashboard-shared-sidebar-mobile-chat") {
+    const sidebarContent = (
+      <>
+        <SidebarAccountSection>
+          <div className="flex w-full min-w-0 items-center justify-between gap-2 text-sm font-medium">
+            <span className="block min-w-0 truncate">
+              nicu.chiciuc@noter.md
+            </span>
+            <Button variant="secondary" size="icon" className="rounded-ui">
+              <PersonIcon className="h-5 w-5" />
+              <span className="sr-only">Open user menu</span>
+            </Button>
+          </div>
+        </SidebarAccountSection>
+        <div className="flex-1" />
+      </>
+    );
+
+    return (
+      <div className="min-h-screen bg-stone-100 p-0 text-stone-950">
+        <SidebarProvider
+          defaultOpen={false}
+          className="mx-auto h-[932px] min-h-0 w-full max-w-[430px] bg-background text-foreground"
+        >
+          <RepositoryWorkspaceFrame
+            dataTestId="vault-dashboard-visual-fixture"
+            sidebarContent={sidebarContent}
+            contentClassName="flex-1 min-h-0 p-0"
+          >
+            <div className="relative flex h-full min-h-0 flex-col">
+              <div
+                className="min-h-0 flex-1 overflow-y-auto px-4 py-4"
+                style={{
+                  paddingBottom: MOBILE_CHAT_FIXTURE_DOCK_INSET,
+                  scrollPaddingBottom: MOBILE_CHAT_FIXTURE_DOCK_INSET,
+                }}
+              >
+                <div className="mb-4 corner-notch-1 border border-border bg-background p-4">
+                  <div className="text-sm text-muted-foreground">Vaults</div>
+                  <div className="mt-1 text-xl font-semibold">Your Vaults</div>
+                </div>
+
+                <div className="mb-4 corner-notch-1 border border-border bg-background p-4">
+                  <div className="text-sm font-medium">Providers</div>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    GitHub, Convex, and Cloudflare are connected.
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="corner-notch-1 border border-border bg-background p-4">
+                    <div className="text-sm text-muted-foreground">
+                      noter-md/
+                    </div>
+                    <div className="mt-1 text-lg font-semibold">noter</div>
+                    <div className="mt-3 h-8 w-full border border-border bg-muted/20" />
+                  </div>
+                  <div className="corner-notch-1 border border-border bg-background p-4">
+                    <div className="text-sm text-muted-foreground">
+                      personal/
+                    </div>
+                    <div className="mt-1 text-lg font-semibold">notes</div>
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Updated 12s ago
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="absolute inset-x-0 bottom-0 px-2 pb-2">
+                <div
+                  className="flex min-h-0 flex-col"
+                  style={{ height: `${MOBILE_CHAT_FIXTURE_HEIGHT_PX}px` }}
+                >
+                  <div className="min-h-0 flex-1">
+                    <div className="flex h-full min-h-0 flex-col corner-notch-1 border border-border bg-background">
+                      <div className="flex items-center gap-1 border-b border-border pl-1.5 pr-1 py-0">
+                        <div className="min-w-0 flex-1">
+                          <FixtureResizeGrip />
+                        </div>
+                        <div className="flex items-center gap-0">
+                          <button
+                            type="button"
+                            aria-label="New conversation"
+                            className="corner-notch-1 p-0 text-muted-foreground"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Close chat"
+                            className="corner-notch-1 p-0 text-muted-foreground"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex-1 overflow-y-auto px-3 py-2">
+                        <div className="mb-2 corner-notch-1 border border-border bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground">
+                          Chat tools enabled
+                        </div>
+                        <div className="mb-2 ml-auto h-10 w-44 corner-notch-1 bg-primary/90" />
+                        <div className="h-10 w-52 corner-notch-1 bg-muted" />
+                      </div>
+
+                      <div className="border-t border-border">
+                        <div className="flex items-end gap-2 pr-2 pt-2">
+                          <div className="min-h-[5.75rem] flex-1 border border-border bg-background" />
+                          <div className="mb-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary">
+                            <div className="h-2.5 w-2.5 bg-primary-foreground" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </RepositoryWorkspaceFrame>
+        </SidebarProvider>
       </div>
     );
   }
