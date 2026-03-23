@@ -296,6 +296,11 @@ Suggested internal model:
 Unknown tokens should fall back to plain text matching instead of producing a
 hard parse error.
 
+If a token looks qualifier-like but is not recognized, the UI should also
+surface a non-blocking hint or chip. For example, `lable:research` should still
+behave like plain text, while the UI can show `Unrecognized qualifier: lable:`
+and suggest `label:`.
+
 ### Matching behavior
 
 Plain text should match against:
