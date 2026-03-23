@@ -384,9 +384,9 @@ metadata, not a GitHub label, so it should not compete with actual labels.
 
 ### Current code
 
-1. `apps/noter/src/components/VaultDashboard.tsx`
-2. `apps/noter/convex/vault.ts`
-3. `apps/noter/convex/github.ts`
+1. [apps/noter/src/components/VaultDashboard.tsx](https://github.com/noter-md/noter/blob/main/apps/noter/src/components/VaultDashboard.tsx)
+2. [apps/noter/convex/vault.ts](https://github.com/noter-md/noter/blob/main/apps/noter/convex/vault.ts)
+3. [apps/noter/convex/github.ts](https://github.com/noter-md/noter/blob/main/apps/noter/convex/github.ts)
 
 ### External sources
 
