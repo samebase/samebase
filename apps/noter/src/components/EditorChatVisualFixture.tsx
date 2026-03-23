@@ -119,7 +119,7 @@ function OpenMobileChatFixture() {
                     onSend={() => {}}
                     mode="prosemark"
                     autoResize
-                    sendButtonClassName="mr-2 mt-2 mb-0 p-2"
+                    sendButtonClassName="mr-2 mt-2 mb-2 p-2"
                   />
                 </div>
               </div>
@@ -232,7 +232,7 @@ function OpenDesktopChatFixture() {
                     onSend={() => {}}
                     mode="prosemark"
                     autoResize
-                    sendButtonClassName="mr-2 mt-2 mb-0 p-2"
+                    sendButtonClassName="mr-2 mt-2 mb-2 p-2"
                   />
                 </div>
               </div>
