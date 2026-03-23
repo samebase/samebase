@@ -56,8 +56,7 @@ name as the lighter secondary line when a PR exists.
 - `pullRequestLabels`
 - `pullRequestTitle`
 
-This is already enough to support, for branches whose open PR targets the
-repository default branch, when PR sync succeeds:
+This is already enough to support, when PR sync succeeds:
 
 - text filtering by branch name
 - limited text filtering by the latest synced PR title
@@ -71,11 +70,10 @@ labels, and title, but not whether the PR is draft.
 That means draft filtering is not possible today, even though it is one of the
 most useful filters for this dashboard.
 
-There is a second backend gap as well: the current PR lookup keeps only open
-pull requests whose `base.ref` matches the repository default branch. Branches
-with PRs targeting release, backport, or other non-default base branches are
-therefore treated as `no PR` today and would not match PR-title or `label:`
-filters until that sync behavior is widened.
+There is a second limitation as well: the current PR lookup only attaches open
+pull requests whose head branch belongs to the same repository as the vault.
+That matches the current dashboard branch model, but it means the sync logic is
+still branch-centric rather than PR-centric.
 
 There is a third limitation: the sync model keeps only one open PR per branch,
 choosing the most recently updated PR. If a branch has multiple open pull
