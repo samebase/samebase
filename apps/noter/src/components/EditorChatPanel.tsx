@@ -1,4 +1,10 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  type ReactNode,
+} from "react";
 import {
   X,
   Loader2,
@@ -571,6 +577,7 @@ type EditorChatPanelProps = {
   filePath?: string;
   className?: string;
   autoFocusInput?: boolean;
+  headerResizeHandle?: ReactNode;
   onClose?: () => void;
 };
 
@@ -606,6 +613,7 @@ export function EditorChatPanel({
   filePath,
   className,
   autoFocusInput = false,
+  headerResizeHandle,
   onClose,
 }: EditorChatPanelProps) {
   const [input, setInput] = useState("");
@@ -917,9 +925,9 @@ export function EditorChatPanel({
         className,
       )}
     >
-      <div className="flex items-center justify-between border-b border-border pl-3 pr-2 py-1.5 sm:px-4 sm:py-2">
-        <span className="text-sm font-medium text-foreground">Chat</span>
-        <div className="flex items-center gap-0.5">
+      <div className="flex items-center gap-1 border-b border-border pl-1.5 pr-1 py-0 sm:pl-2 sm:pr-1.5 sm:py-0">
+        <div className="min-w-0 flex-1">{headerResizeHandle}</div>
+        <div className="flex shrink-0 items-center gap-0">
           {threadId ? (
             <button
               onClick={() => void handleNewConversation()}
@@ -930,13 +938,13 @@ export function EditorChatPanel({
               disabled={isDeleting || sending}
               aria-disabled={isDeleting || sending}
               className={cn(
-                "corner-notch-1 p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
+                "corner-notch-1 p-0 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
               )}
             >
               {isDeleting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5" />
               )}
             </button>
           ) : null}
@@ -945,10 +953,10 @@ export function EditorChatPanel({
               onClick={handleClose}
               disabled={sending || isDeleting}
               aria-disabled={sending || isDeleting}
-              className="corner-notch-1 p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="corner-notch-1 p-0 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Close chat"
             >
-              <X className="h-4 w-4" />
+              <X className="h-3.5 w-3.5" />
             </button>
           ) : null}
         </div>

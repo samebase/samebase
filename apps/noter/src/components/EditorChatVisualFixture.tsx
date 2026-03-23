@@ -32,6 +32,18 @@ function FixtureToolbarIcon({ className }: { className?: string }) {
   );
 }
 
+function FixtureResizeGrip() {
+  return (
+    <div className="flex h-4 w-full items-center justify-center corner-notch-1 text-foreground/80">
+      <div className="flex items-center gap-1 text-current">
+        {Array.from({ length: 4 }, (_, index) => (
+          <div key={index} className="h-2.5 w-px rounded-full bg-current" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function FixtureComposer() {
   return (
     <div className="border-t border-border">
@@ -158,30 +170,29 @@ function OpenMobileChatFixture() {
             className="flex min-h-0 flex-col"
             style={{ height: `${MOBILE_CHAT_FIXTURE_HEIGHT_PX}px` }}
           >
-            <div className="mb-[-1px] flex h-5 shrink-0 items-center justify-center text-muted-foreground">
-              <div className="h-1 w-12 corner-notch-1 bg-current/40" />
-            </div>
             <div className="min-h-0 flex-1">
               <div
                 data-testid="editor-chat-panel-visual-fixture"
                 className="flex h-full min-h-0 flex-col corner-notch-1 border border-border bg-background"
               >
-                <div className="flex items-center justify-between border-b border-border pl-3 pr-2 py-1.5">
-                  <FixtureBar className="h-3 w-10 bg-foreground/70" />
-                  <div className="flex items-center gap-0.5">
+                <div className="flex items-center gap-1 border-b border-border pl-1.5 pr-1 py-0">
+                  <div className="min-w-0 flex-1">
+                    <FixtureResizeGrip />
+                  </div>
+                  <div className="flex items-center gap-0">
                     <button
                       type="button"
                       aria-label="New conversation"
-                      className="corner-notch-1 p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      className="corner-notch-1 p-0 text-muted-foreground hover:bg-accent hover:text-foreground"
                     >
-                      <Plus className="h-4 w-4" />
+                      <Plus className="h-3.5 w-3.5" />
                     </button>
                     <button
                       type="button"
                       aria-label="Close chat"
-                      className="corner-notch-1 p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      className="corner-notch-1 p-0 text-muted-foreground hover:bg-accent hover:text-foreground"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
@@ -241,30 +252,29 @@ function OpenDesktopChatFixture() {
 
         <div className="min-h-0 shrink-0">
           <div className="flex h-full min-h-0 flex-col">
-            <div className="mb-[-1px] flex h-5 shrink-0 items-center justify-center text-muted-foreground">
-              <div className="h-1 w-12 corner-notch-1 bg-current/40" />
-            </div>
             <div className="min-h-0 shrink-0">
               <div
                 data-testid="editor-chat-panel-visual-fixture"
                 className="flex h-[240px] min-h-0 flex-col corner-notch-1 border border-border bg-background"
               >
-                <div className="flex items-center justify-between border-b border-border px-4 py-2">
-                  <FixtureBar className="h-3 w-10 bg-foreground/70" />
-                  <div className="flex items-center gap-0.5">
+                <div className="flex items-center gap-1 border-b border-border pl-1.5 pr-1 py-0 sm:pl-2 sm:pr-1.5 sm:py-0">
+                  <div className="min-w-0 flex-1">
+                    <FixtureResizeGrip />
+                  </div>
+                  <div className="flex items-center gap-0">
                     <button
                       type="button"
                       aria-label="New conversation"
-                      className="corner-notch-1 p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      className="corner-notch-1 p-0 text-muted-foreground hover:bg-accent hover:text-foreground"
                     >
-                      <Plus className="h-4 w-4" />
+                      <Plus className="h-3.5 w-3.5" />
                     </button>
                     <button
                       type="button"
                       aria-label="Close chat"
-                      className="corner-notch-1 p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      className="corner-notch-1 p-0 text-muted-foreground hover:bg-accent hover:text-foreground"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
