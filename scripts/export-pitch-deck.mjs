@@ -20,8 +20,8 @@ const exportTargets = [
     outputPath: path.join(appDistDir, 'pitch-deck.pdf'),
     route: '/pitch/print',
     viewport: {
-      width: 1440,
-      height: 900,
+      width: 1280,
+      height: 720,
     },
     pdf: {
       width: '13.333in',
@@ -32,8 +32,8 @@ const exportTargets = [
     outputPath: path.join(appDistDir, 'pitch-deck-mobile.pdf'),
     route: '/pitch/print/mobile',
     viewport: {
-      width: 900,
-      height: 1440,
+      width: 720,
+      height: 1280,
     },
     pdf: {
       width: '7.5in',

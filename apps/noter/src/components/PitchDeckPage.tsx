@@ -98,11 +98,11 @@ function MetricBlock({ label, value }: { label: string; value: string }) {
 
 function resolveSurfaceClasses(mode: PitchDeckMode): string {
   if (mode === "print") {
-    return "grid min-h-[720px] w-[1280px] gap-8 border border-border bg-background px-10 py-8 text-foreground lg:grid-cols-[minmax(0,1.2fr)_minmax(23rem,0.85fr)]";
+    return "grid h-full w-full overflow-hidden border border-border bg-background px-10 py-8 text-foreground lg:grid-cols-[minmax(0,1.2fr)_minmax(23rem,0.85fr)]";
   }
 
   if (mode === "printMobile") {
-    return "grid min-h-[1280px] w-[720px] gap-6 border border-border bg-background p-8 text-foreground";
+    return "grid h-full w-full overflow-hidden border border-border bg-background p-8 text-foreground";
   }
 
   return "grid w-full max-w-[1360px] gap-6 border border-border bg-background p-5 text-foreground sm:p-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(21rem,0.85fr)] xl:p-10";
@@ -261,11 +261,11 @@ function PitchDeckSurface({ mode }: { mode: PitchDeckMode }) {
 
 function resolvePageFrameClasses(mode: PitchDeckMode): string {
   if (mode === "print") {
-    return "bg-background text-foreground min-h-screen overflow-auto px-4 py-4";
+    return "bg-background text-foreground h-[7.5in] w-[13.333in] overflow-hidden";
   }
 
   if (mode === "printMobile") {
-    return "bg-background text-foreground min-h-screen overflow-auto px-4 py-4";
+    return "bg-background text-foreground h-[13.333in] w-[7.5in] overflow-hidden";
   }
 
   return "bg-background text-foreground min-h-screen px-4 py-6 sm:px-6 sm:py-8";
@@ -277,10 +277,15 @@ function resolvePageFrameClasses(mode: PitchDeckMode): string {
  * deterministic page size for PDF export.
  */
 export function PitchDeckPage({ mode }: { mode: PitchDeckMode }) {
-  const centerClasses =
-    mode === "interactive"
-      ? "mx-auto flex w-full items-start justify-center"
-      : "mx-auto flex w-full items-center justify-center";
+  if (mode === "print" || mode === "printMobile") {
+    return (
+      <div className={resolvePageFrameClasses(mode)}>
+        <PitchDeckSurface mode={mode} />
+      </div>
+    );
+  }
+
+  const centerClasses = "mx-auto flex w-full items-start justify-center";
 
   return (
     <div className={resolvePageFrameClasses(mode)}>
