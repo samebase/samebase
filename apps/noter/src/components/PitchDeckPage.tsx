@@ -1,6 +1,21 @@
+import { Button } from "@/components/button";
+
 export type PitchDeckMode = "interactive" | "print" | "printMobile";
 
 export const PITCH_DECK_SURFACE_TEST_ID = "pitch-deck-surface";
+
+const pdfDownloads = [
+  {
+    label: "Desktop PDF",
+    href: "/pitch-deck.pdf",
+    download: "noter-pitch-deck.pdf",
+  },
+  {
+    label: "Mobile PDF",
+    href: "/pitch-deck-mobile.pdf",
+    download: "noter-pitch-deck-mobile.pdf",
+  },
+] as const;
 
 const featureCards = [
   {
@@ -32,11 +47,11 @@ const metricBlocks = [
   },
   {
     label: "Desktop PDF",
-    value: "/pitch/print",
+    value: "pitch-deck.pdf",
   },
   {
     label: "Mobile PDF",
-    value: "/pitch/print/mobile",
+    value: "pitch-deck-mobile.pdf",
   },
 ] as const;
 
@@ -135,6 +150,7 @@ function resolveHeaderClasses(mode: PitchDeckMode): {
 
 function PitchDeckSurface({ mode }: { mode: PitchDeckMode }) {
   const classes = resolveHeaderClasses(mode);
+  const showPdfDownloads = mode === "interactive";
 
   return (
     <div
@@ -158,10 +174,28 @@ function PitchDeckSurface({ mode }: { mode: PitchDeckMode }) {
             </h1>
             <p className={classes.subtitle}>
               This placeholder slide proves the deck can live inside Noter as
-              normal UI, stay responsive on <code>/pitch</code>, and export
-              stable desktop and mobile PDFs from dedicated print routes.
+              normal UI, stay responsive on <code>/pitch</code>, and expose
+              direct desktop and mobile PDF downloads generated from the export
+              pipeline.
             </p>
           </div>
+
+          {showPdfDownloads ? (
+            <div className="flex flex-wrap gap-3">
+              {pdfDownloads.map((pdfDownload) => (
+                <Button
+                  key={pdfDownload.href}
+                  asChild
+                  className="min-w-[11rem]"
+                  cornerNotch={1}
+                >
+                  <a download={pdfDownload.download} href={pdfDownload.href}>
+                    Download {pdfDownload.label}
+                  </a>
+                </Button>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className={classes.cards}>

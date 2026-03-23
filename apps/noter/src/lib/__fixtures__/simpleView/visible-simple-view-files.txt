@@ -27,6 +27,7 @@ apps/noter/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-push-re
 apps/noter/e2e/logo-snap-angles-visual.spec.ts-snapshots/logo-snap-angle-matrix.png
 apps/noter/e2e/logo-three-visual.spec.ts-snapshots/logo-three-diff.png
 apps/noter/e2e/logo-three-visual.spec.ts-snapshots/logo-three-reference.png
+apps/noter/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-interactive.png
 apps/noter/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-print-mobile.png
 apps/noter/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-print.png
 apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-png.png
