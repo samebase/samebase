@@ -16,8 +16,8 @@ test("/pitch stays visually stable", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Use Codex or Claude. Keep your stack.",
   );
-  await expect(page.getByRole("link", { name: "Desktop PDF" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Mobile PDF" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Desktop print" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Mobile print" })).toBeVisible();
 });
 
 const printRoutes = [
