@@ -6,9 +6,9 @@ These Terms of Service govern your use of noter and the noter.md website. In
 these Terms, "noter", "we", "us", and "our" refer to the service operated by
 Flux Byte SRL. By using noter, you agree to these Terms.
 
-This page is a product-aligned public draft based on the current app behavior.
-It is intended to be clear and conservative, not to overclaim features or
-promises that are not in the product today.
+These Terms are intended to describe the current rules and legal conditions for
+using noter without overclaiming features or promises that are not in the
+product today.
 
 ## 1. Operator
 
@@ -75,7 +75,7 @@ You may not use noter to:
 
 ## 8. Availability and product changes
 
-- noter is provided on an as available basis.
+- noter is provided on an as-available basis.
 - Features may change, be paused, or be removed.
 - Preview, beta, experimental, or developer-facing functionality may change more
   often and may be less stable than the core service.
@@ -98,8 +98,8 @@ Flux Byte SRL may suspend or terminate access to noter if:
 
 ## 11. Warranties disclaimer
 
-To the maximum extent permitted by law, noter is provided as is and as
-available, without warranties of any kind, whether express, implied, or
+To the maximum extent permitted by law, noter is provided as-is and
+as-available, without warranties of any kind, whether express, implied, or
 statutory.
 
 ## 12. Limitation of liability

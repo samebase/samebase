@@ -57,6 +57,23 @@ So the practical recommendation is:
 - Make sure these pages and assets reflect actual product behavior, especially
   for provider connections, write actions, and AI-driven workflows.
 
+## Revalidation Required Before Submission
+
+Owner: noter publisher / Flux Byte SRL operator
+
+SLA: Re-check the live OpenAI submission UI and official docs within 7 days
+before any actual submission.
+
+Minimum revalidation checklist:
+
+- Confirm that the submission form still requires the same public URLs and
+  fields, especially privacy policy, terms of service, support contact, and demo
+  recording.
+- Confirm that the live privacy policy URL and terms-of-service URL resolve to
+  real public pages without auth or JavaScript-only rendering requirements.
+- Confirm that the current app-commerce policy still allows the launch posture
+  described in this memo.
+
 ## What OpenAI Explicitly Requires For Submission
 
 These items are current published requirements or common review blockers from
@@ -93,7 +110,7 @@ OpenAI's current Apps SDK docs.
 
 ### Authenticated app review requirements
 
-- Provide working demo credentials for a fully featured test account with sample
+- Provide a login and password for a fully featured demo account with sample
   data.
 - The review account cannot require additional setup steps, inaccessible 2FA,
   SMS codes, email verification loops, or similar MFA friction.
@@ -110,8 +127,11 @@ OpenAI's current Apps SDK docs.
 - Tool inputs and outputs must be minimal and purpose-driven.
 - Tool responses must avoid unnecessary user-related data, telemetry, internal
   IDs, timestamps, logs, or secrets.
-- Restricted data such as PCI data, PHI, government identifiers, passwords,
-  MFA/OTP codes, and API keys must not be collected.
+- Restricted data such as PCI data, PHI, government identifiers, passwords, and
+  MFA/OTP codes must not be collected.
+- User-supplied API keys or OAuth credentials should be collected only when they
+  are strictly necessary for an explicit provider-connection flow and must never
+  be exposed through tool output, logs, screenshots, or demo materials.
 - Sensitive or special-category personal data requires strict necessity,
   adequate consent where legally required, and prominent disclosure.
 
@@ -145,10 +165,11 @@ Practical implication for Noter:
 
 - If the published app is meant to sell Noter subscriptions inside the ChatGPT
   app experience, that currently conflicts with the published guidelines.
-- A free app or an app that avoids in-app digital upsell is the safer path.
-- If paid Noter access still exists elsewhere, pricing and upgrade flows need a
-  careful strategy outside the ChatGPT app experience and should be checked
-  again before launch because this policy can change.
+- The safest launch posture is a free-only app with no subscription sales or
+  paid upgrade path linked from the ChatGPT app experience.
+- If paid Noter access still exists elsewhere, the public app should avoid
+  pointing users at that offer until OpenAI's commerce policy changes and the
+  submission guidance is revalidated.
 
 ### 2. Privacy-policy mismatch is a known rejection reason
 
@@ -166,13 +187,17 @@ Practical implication for Noter:
 
 ### 3. Authenticated apps need a real demo account with no MFA friction
 
-If the app requires login, OpenAI review needs a working demo account that does
-not depend on private infrastructure or inaccessible MFA steps.
+If the app requires login, OpenAI review needs a working demo account with a
+direct login and password that does not depend on private infrastructure or
+inaccessible MFA steps.
 
 Practical implication for Noter:
 
 - If Noter requires external providers to be connected before the app is useful,
   we need a review-friendly demo setup with stable sample data.
+- If the production app remains Google-only, that is a review blocker until
+  there is a testable username/password reviewer flow or OpenAI explicitly
+  approves a different setup.
 - If any provider flow depends on manual approval, SMS, email OTP, or a private
   corporate network, that will need a review-safe alternative.
 
@@ -340,11 +365,15 @@ down:
 - Publish and verify the privacy policy URL.
 - Publish and verify the terms of service URL.
 - Publish and verify a company URL.
-- Prepare support contact details for end users.
-- Prepare a demo recording URL that covers the main use cases and tools.
-- Prepare a stable demo account with sample data and no MFA blockers.
+- Provide support contact details for end users.
+- Record a demo URL that covers the main use cases and tools.
+- Create a stable demo account with sample data, direct login/password access,
+  and no MFA blockers.
 - Prepare screenshots, test prompts, expected responses, and localization
   metadata.
+- Revalidate this memo against the live OpenAI submission flow within 7 days of
+  submission and confirm that the privacy and terms URLs still resolve
+  correctly.
 
 ### Strongly recommended tasks
 
@@ -368,8 +397,8 @@ Short version:
 
 1. Keep the existing privacy policy and tighten it against actual tool outputs.
 2. Add a public `/terms` page next.
-3. Plan the first public app as free or at least non-monetized inside the
-   ChatGPT app experience unless OpenAI's commerce policy changes.
+3. Plan the first public app as free-only, with no paid upgrade path linked from
+   the ChatGPT app experience unless OpenAI's commerce policy changes.
 4. Build a review-safe demo environment with stable credentials and no MFA.
 5. Keep the first submitted app surface narrow, explicit, and low-surprise.
 
@@ -395,3 +424,6 @@ Official OpenAI sources reviewed on 2026-03-23:
   demo recording, and commerce disclosure.
 - For practical submission planning, the UI should be treated as the operative
   checklist, not the narrower wording in the public docs alone.
+- Because these requirements can change, this memo should not be used for an
+  actual submission unless it has been revalidated within the 7-day window
+  described above.

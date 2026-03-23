@@ -2,9 +2,14 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { execSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { readPackageVersion } from "../../scripts/readPackageVersion.js";
 import { createStaticLogoSvgMarkup } from "./src/components/logoStaticSvgAsset";
+import {
+  PRIVACY_PAGE_METADATA,
+  TERMS_PAGE_METADATA,
+} from "./src/lib/pageMetadata";
+import { renderStaticLegalPageHtml } from "./src/lib/staticLegalPage";
 import {
   readEnvFileValue,
   resolveDaytonaConvexProxyTarget,
@@ -48,6 +53,19 @@ const staticLogoSvgAssetPath = path.resolve(
   __dirname,
   "public/logo-static.svg",
 );
+const privacyPolicyMarkdownPath = path.resolve(
+  __dirname,
+  "src/content/privacy-policy.md",
+);
+const termsOfServiceMarkdownPath = path.resolve(
+  __dirname,
+  "src/content/terms-of-service.md",
+);
+const staticPrivacyHtmlPath = path.resolve(
+  __dirname,
+  "public/privacy/index.html",
+);
+const staticTermsHtmlPath = path.resolve(__dirname, "public/terms/index.html");
 
 function syncStaticLogoSvgAsset() {
   const nextStaticLogoSvgMarkup = createStaticLogoSvgMarkup().trim();
@@ -66,6 +84,45 @@ function syncStaticLogoSvgAsset() {
   writeFileSync(staticLogoSvgAssetPath, `${nextStaticLogoSvgMarkup}\n`, "utf8");
 }
 
+function syncStaticLegalPageAsset(args: {
+  markdownPath: string;
+  htmlPath: string;
+  metadata: typeof PRIVACY_PAGE_METADATA | typeof TERMS_PAGE_METADATA;
+}) {
+  const markdown = readFileSync(args.markdownPath, "utf8");
+  const nextHtml = renderStaticLegalPageHtml({
+    metadata: args.metadata,
+    markdown,
+  });
+  const currentHtml = (() => {
+    try {
+      return readFileSync(args.htmlPath, "utf8");
+    } catch {
+      return null;
+    }
+  })();
+
+  if (currentHtml === nextHtml) {
+    return;
+  }
+
+  mkdirSync(path.dirname(args.htmlPath), { recursive: true });
+  writeFileSync(args.htmlPath, nextHtml, "utf8");
+}
+
+function syncStaticLegalPageAssets() {
+  syncStaticLegalPageAsset({
+    markdownPath: privacyPolicyMarkdownPath,
+    htmlPath: staticPrivacyHtmlPath,
+    metadata: PRIVACY_PAGE_METADATA,
+  });
+  syncStaticLegalPageAsset({
+    markdownPath: termsOfServiceMarkdownPath,
+    htmlPath: staticTermsHtmlPath,
+    metadata: TERMS_PAGE_METADATA,
+  });
+}
+
 function syncStaticLogoSvgAssetPlugin() {
   let hasSyncedStaticLogoSvgAsset = false;
 
@@ -80,6 +137,29 @@ function syncStaticLogoSvgAssetPlugin() {
 
   return {
     name: "sync-static-logo-svg-asset",
+    buildStart() {
+      syncOnce();
+    },
+    configureServer() {
+      syncOnce();
+    },
+  };
+}
+
+function syncStaticLegalPageAssetsPlugin() {
+  let hasSyncedStaticLegalPageAssets = false;
+
+  const syncOnce = () => {
+    if (hasSyncedStaticLegalPageAssets) {
+      return;
+    }
+
+    hasSyncedStaticLegalPageAssets = true;
+    syncStaticLegalPageAssets();
+  };
+
+  return {
+    name: "sync-static-legal-page-assets",
     buildStart() {
       syncOnce();
     },
@@ -121,7 +201,11 @@ export default defineConfig({
     __DAYTONA_SDK_VERSION__: JSON.stringify(daytonaSdkVersion),
     __DAYTONA_CONVEX_PROXY_PATH__: JSON.stringify(daytonaConvexProxyPath),
   },
-  plugins: [syncStaticLogoSvgAssetPlugin(), react()],
+  plugins: [
+    syncStaticLogoSvgAssetPlugin(),
+    syncStaticLegalPageAssetsPlugin(),
+    react(),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
