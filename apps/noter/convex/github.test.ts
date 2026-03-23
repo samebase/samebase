@@ -451,11 +451,10 @@ describe("collectLatestOpenPullRequestsByBranch", () => {
     });
   });
 
-  it("ignores non-default-base pull requests when defaultBaseBranch is provided", () => {
+  it("keeps the latest same-repo pull request even when it targets a non-default base branch", () => {
     const pullRequestsByBranch = collectLatestOpenPullRequestsByBranch({
       branchNames: ["feature/pr-title"],
       repositoryFullName: "owner/noter",
-      defaultBaseBranch: "main",
       pullRequests: [
         {
           head: {
@@ -493,10 +492,10 @@ describe("collectLatestOpenPullRequestsByBranch", () => {
     });
 
     expect(pullRequestsByBranch.get("feature/pr-title")).toEqual({
-      url: "https://github.com/owner/noter/pull/22",
-      number: 22,
-      labels: [{ name: "needs review", color: "fbca04" }],
-      title: "Default branch PR",
+      url: "https://github.com/owner/noter/pull/21",
+      number: 21,
+      labels: [{ name: "release", color: "1d76db" }],
+      title: "Release PR",
     });
   });
 });

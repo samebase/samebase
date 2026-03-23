@@ -1011,10 +1011,21 @@ function VaultDashboardContent() {
 
           await Promise.all(
             batch.map(async (vault) => {
+              const shouldIncludeCloudflarePreviewLinks =
+                trigger === "page_load" ||
+                vault.remoteBranches.some(
+                  (branch) =>
+                    typeof branch.pullRequestNumber === "number" &&
+                    typeof branch.cloudflareBranchPreviewUrl !== "string",
+                );
               await refreshTree({
                 owner: vault.ghRepoOwner,
                 repo: vault.ghRepoName,
-                includeCloudflarePreviewLinks: true,
+                // Preview-comment scans are expensive compared to the branch/tree
+                // refresh itself, so only re-run them on first load or while a
+                // PR branch is still missing cached preview metadata.
+                includeCloudflarePreviewLinks:
+                  shouldIncludeCloudflarePreviewLinks,
                 trigger,
               }).catch((error: unknown) => {
                 console.error(

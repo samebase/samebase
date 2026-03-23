@@ -56,10 +56,55 @@ describe("parseCloudflarePreviewComment", () => {
     });
   });
 
+  it("tolerates missing status and logs rows when the Pages deploy table is present", () => {
+    const parsed = parseCloudflarePreviewComment(
+      VALID_COMMENT.replace(
+        "<tr><td><strong>Status:</strong></td><td>&nbsp;✅&nbsp; Deploy successful!</td></tr>\n",
+        "",
+      ).replace(
+        "\n\n[View logs](https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/pages/view/noter/a3070b07-c653-4083-8493-0b0a540f8b34)",
+        "",
+      ),
+    );
+
+    expect(parsed).toEqual({
+      branchPreviewUrl:
+        "https://codex-preserve-logo-transfor.noter-ax1.pages.dev/",
+      previewUrl: "https://a3070b07.noter-ax1.pages.dev/",
+      previewCommitSha: "aa16371",
+      previewStatus: undefined,
+      previewLogsUrl: undefined,
+    });
+  });
+
+  it("ignores extra text around the Cloudflare Pages deploy table", () => {
+    const parsed = parseCloudflarePreviewComment(
+      `Preflight note before the bot payload.\n\n${VALID_COMMENT}\n\nFooter text after the deploy table.`,
+    );
+
+    expect(parsed).toEqual({
+      branchPreviewUrl:
+        "https://codex-preserve-logo-transfor.noter-ax1.pages.dev/",
+      previewUrl: "https://a3070b07.noter-ax1.pages.dev/",
+      previewCommitSha: "aa16371",
+      previewStatus: "✅ Deploy successful!",
+      previewLogsUrl:
+        "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/pages/view/noter/a3070b07-c653-4083-8493-0b0a540f8b34",
+    });
+  });
+
   it("returns null when no meaningful Cloudflare preview fields can be extracted", () => {
     expect(
       parseCloudflarePreviewComment(
         "Cloudflare Pages deployment completed, but no preview metadata was included.",
+      ),
+    ).toBeNull();
+  });
+
+  it("rejects generic Cloudflare text that does not include the Pages deploy table", () => {
+    expect(
+      parseCloudflarePreviewComment(
+        "## Deploying noter with Cloudflare Pages\n\nPreview URL: https://example.com",
       ),
     ).toBeNull();
   });

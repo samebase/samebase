@@ -277,7 +277,7 @@ interface CachedBranchTreeSnapshot {
 
 interface RemoteBranchCloudflarePreviewSync {
   name: string;
-  previewState: "resolved" | "preserve";
+  previewState: "resolved" | "clear" | "preserve";
   cloudflareBranchPreviewUrl?: string;
   cloudflarePreviewUrl?: string;
   cloudflarePreviewCommitSha?: string;
@@ -389,10 +389,17 @@ async function getLatestPullRequestCloudflarePreviewComment(args: {
   repo: string;
   pullRequestNumber: number;
 }): Promise<
-  | (CloudflarePreviewCommentMetadata & {
-      cloudflarePreviewCommentCreatedAt?: number;
-    })
-  | undefined
+  | {
+      state: "resolved";
+      preview?:
+        | (CloudflarePreviewCommentMetadata & {
+            cloudflarePreviewCommentCreatedAt?: number;
+          })
+        | undefined;
+    }
+  | {
+      state: "preserve";
+    }
 > {
   const perPage = 100;
   const maxPages = 20;
@@ -427,10 +434,13 @@ async function getLatestPullRequestCloudflarePreviewComment(args: {
       }
 
       return {
-        ...parsed,
-        cloudflarePreviewCommentCreatedAt: parseGitTimestamp(
-          comment.created_at,
-        ),
+        state: "resolved",
+        preview: {
+          ...parsed,
+          cloudflarePreviewCommentCreatedAt: parseGitTimestamp(
+            comment.created_at,
+          ),
+        },
       };
     }
 
@@ -453,8 +463,13 @@ async function getLatestPullRequestCloudflarePreviewComment(args: {
         perPage,
       }),
     );
+    return {
+      state: "preserve",
+    };
   }
-  return undefined;
+  return {
+    state: "resolved",
+  };
 }
 
 async function getCloudflarePreviewLinksByBranch(args: {
@@ -476,30 +491,53 @@ async function getCloudflarePreviewLinksByBranch(args: {
     );
     const batchUpdates = await Promise.all(
       batch.map(async (branch): Promise<RemoteBranchCloudflarePreviewSync> => {
+        if (branch.pullRequestState !== "resolved") {
+          return {
+            name: branch.name,
+            previewState: "preserve",
+          };
+        }
+
         if (typeof branch.pullRequestNumber !== "number") {
           return {
             name: branch.name,
-            previewState: "resolved",
+            previewState: "clear",
           };
         }
 
         try {
-          const preview = await getLatestPullRequestCloudflarePreviewComment({
-            octokit: args.octokit,
-            owner: args.owner,
-            repo: args.repo,
-            pullRequestNumber: branch.pullRequestNumber,
-          });
+          const previewResult =
+            await getLatestPullRequestCloudflarePreviewComment({
+              octokit: args.octokit,
+              owner: args.owner,
+              repo: args.repo,
+              pullRequestNumber: branch.pullRequestNumber,
+            });
+          if (previewResult.state === "preserve") {
+            return {
+              name: branch.name,
+              previewState: "preserve",
+            };
+          }
+
+          const preview = previewResult.preview;
+          if (!preview) {
+            return {
+              name: branch.name,
+              previewState: "clear",
+            };
+          }
+
           return {
             name: branch.name,
             previewState: "resolved",
-            cloudflareBranchPreviewUrl: preview?.branchPreviewUrl,
-            cloudflarePreviewUrl: preview?.previewUrl,
-            cloudflarePreviewCommitSha: preview?.previewCommitSha,
-            cloudflarePreviewStatus: preview?.previewStatus,
-            cloudflarePreviewLogsUrl: preview?.previewLogsUrl,
+            cloudflareBranchPreviewUrl: preview.branchPreviewUrl,
+            cloudflarePreviewUrl: preview.previewUrl,
+            cloudflarePreviewCommitSha: preview.previewCommitSha,
+            cloudflarePreviewStatus: preview.previewStatus,
+            cloudflarePreviewLogsUrl: preview.previewLogsUrl,
             cloudflarePreviewCommentCreatedAt:
-              preview?.cloudflarePreviewCommentCreatedAt,
+              preview.cloudflarePreviewCommentCreatedAt,
           };
         } catch (error: unknown) {
           console.warn(
@@ -746,7 +784,6 @@ type OpenPullRequestCandidate = {
 export function collectLatestOpenPullRequestsByBranch(args: {
   branchNames: string[];
   repositoryFullName: string;
-  defaultBaseBranch?: string;
   pullRequests: OpenPullRequestCandidate[];
 }): Map<
   string,
@@ -778,12 +815,6 @@ export function collectLatestOpenPullRequestsByBranch(args: {
       typeof pullRequest.html_url !== "string" ||
       pullRequest.html_url.length === 0 ||
       typeof pullRequest.number !== "number"
-    ) {
-      continue;
-    }
-    if (
-      typeof args.defaultBaseBranch === "string" &&
-      pullRequest.base?.ref !== args.defaultBaseBranch
     ) {
       continue;
     }
@@ -836,7 +867,6 @@ async function getOpenPullRequestsByBranch(args: {
   owner: string;
   repo: string;
   branchNames: string[];
-  defaultBaseBranch: string;
 }): Promise<{
   state: "resolved" | "preserve";
   pullRequestsByBranch: Map<
@@ -904,7 +934,6 @@ async function getOpenPullRequestsByBranch(args: {
     const latestByBranch = collectLatestOpenPullRequestsByBranch({
       branchNames: args.branchNames,
       repositoryFullName,
-      defaultBaseBranch: args.defaultBaseBranch,
       pullRequests: openPullRequests,
     });
     for (const branchName of args.branchNames) {
@@ -1023,7 +1052,6 @@ async function listRemoteBranches(args: {
         owner: args.owner,
         repo: args.repo,
         branchNames,
-        defaultBaseBranch: defaultBranch,
       })
     : Promise.resolve({
         state: "preserve" as const,

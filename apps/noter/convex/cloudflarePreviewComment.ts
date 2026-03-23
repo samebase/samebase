@@ -6,6 +6,16 @@ export type CloudflarePreviewCommentMetadata = {
   previewLogsUrl?: string;
 };
 
+function looksLikeCloudflarePagesDeployComment(body: string): boolean {
+  return (
+    /Cloudflare Pages/i.test(body) &&
+    /<table[\s>]/i.test(body) &&
+    (/<strong>\s*Preview URL:/i.test(body) ||
+      /<strong>\s*Branch Preview URL:/i.test(body) ||
+      /<strong>\s*Latest commit:/i.test(body))
+  );
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -101,11 +111,7 @@ function readMarkdownLinkHref(body: string, label: string): string | undefined {
 export function parseCloudflarePreviewComment(
   body: string,
 ): CloudflarePreviewCommentMetadata | null {
-  if (
-    !/Cloudflare Pages/i.test(body) &&
-    !/<strong>\s*Preview URL:/i.test(body) &&
-    !/<strong>\s*Branch Preview URL:/i.test(body)
-  ) {
+  if (!looksLikeCloudflarePagesDeployComment(body)) {
     return null;
   }
 

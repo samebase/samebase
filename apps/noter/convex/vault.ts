@@ -47,6 +47,59 @@ const cloudflarePreviewMetadataFields = {
   cloudflarePreviewCommentCreatedAt: optional(number()),
 } as const;
 
+type CloudflarePreviewMetadata = {
+  cloudflareBranchPreviewUrl?: string;
+  cloudflarePreviewUrl?: string;
+  cloudflarePreviewCommitSha?: string;
+  cloudflarePreviewStatus?: string;
+  cloudflarePreviewLogsUrl?: string;
+  cloudflarePreviewCommentCreatedAt?: number;
+};
+
+/**
+ * Cloudflare can edit or partially reformat its PR comment without removing the
+ * underlying branch alias. Preserve existing cached fields when the latest
+ * comment only yields a partial parse, but still clear everything when GitHub
+ * told us there is no relevant preview comment for the branch anymore.
+ */
+export function resolveSyncedCloudflarePreviewMetadata(args: {
+  existing?: CloudflarePreviewMetadata;
+  incoming: CloudflarePreviewMetadata & {
+    previewState: "resolved" | "clear";
+  };
+}): CloudflarePreviewMetadata {
+  if (args.incoming.previewState === "clear") {
+    return {
+      cloudflareBranchPreviewUrl: undefined,
+      cloudflarePreviewUrl: undefined,
+      cloudflarePreviewCommitSha: undefined,
+      cloudflarePreviewStatus: undefined,
+      cloudflarePreviewLogsUrl: undefined,
+      cloudflarePreviewCommentCreatedAt: undefined,
+    };
+  }
+
+  return {
+    cloudflareBranchPreviewUrl:
+      args.incoming.cloudflareBranchPreviewUrl ??
+      args.existing?.cloudflareBranchPreviewUrl,
+    cloudflarePreviewUrl:
+      args.incoming.cloudflarePreviewUrl ?? args.existing?.cloudflarePreviewUrl,
+    cloudflarePreviewCommitSha:
+      args.incoming.cloudflarePreviewCommitSha ??
+      args.existing?.cloudflarePreviewCommitSha,
+    cloudflarePreviewStatus:
+      args.incoming.cloudflarePreviewStatus ??
+      args.existing?.cloudflarePreviewStatus,
+    cloudflarePreviewLogsUrl:
+      args.incoming.cloudflarePreviewLogsUrl ??
+      args.existing?.cloudflarePreviewLogsUrl,
+    cloudflarePreviewCommentCreatedAt:
+      args.incoming.cloudflarePreviewCommentCreatedAt ??
+      args.existing?.cloudflarePreviewCommentCreatedAt,
+  };
+}
+
 // MARK: Public
 
 export const removeVault = mutation({
@@ -1105,7 +1158,11 @@ export const syncVaultRemoteBranchCloudflarePreviews = internalMutation({
     branches: array(
       object({
         name: string(),
-        previewState: union(literal("resolved"), literal("preserve")),
+        previewState: union(
+          literal("resolved"),
+          literal("clear"),
+          literal("preserve"),
+        ),
         ...cloudflarePreviewMetadataFields,
       }),
     ),
@@ -1121,7 +1178,7 @@ export const syncVaultRemoteBranchCloudflarePreviews = internalMutation({
     );
 
     for (const branch of args.branches) {
-      if (branch.previewState !== "resolved") {
+      if (branch.previewState === "preserve") {
         continue;
       }
 
@@ -1130,15 +1187,29 @@ export const syncVaultRemoteBranchCloudflarePreviews = internalMutation({
         continue;
       }
 
-      await ctx.db.patch(existingBranch._id, {
-        cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,
-        cloudflarePreviewUrl: branch.cloudflarePreviewUrl,
-        cloudflarePreviewCommitSha: branch.cloudflarePreviewCommitSha,
-        cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
-        cloudflarePreviewLogsUrl: branch.cloudflarePreviewLogsUrl,
-        cloudflarePreviewCommentCreatedAt:
-          branch.cloudflarePreviewCommentCreatedAt,
-      });
+      const resolvedMetadata =
+        branch.previewState === "clear"
+          ? resolveSyncedCloudflarePreviewMetadata({
+              existing: existingBranch,
+              incoming: {
+                previewState: "clear",
+              },
+            })
+          : resolveSyncedCloudflarePreviewMetadata({
+              existing: existingBranch,
+              incoming: {
+                previewState: "resolved",
+                cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,
+                cloudflarePreviewUrl: branch.cloudflarePreviewUrl,
+                cloudflarePreviewCommitSha: branch.cloudflarePreviewCommitSha,
+                cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
+                cloudflarePreviewLogsUrl: branch.cloudflarePreviewLogsUrl,
+                cloudflarePreviewCommentCreatedAt:
+                  branch.cloudflarePreviewCommentCreatedAt,
+              },
+            });
+
+      await ctx.db.patch(existingBranch._id, resolvedMetadata);
     }
 
     return null;
