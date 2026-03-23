@@ -83,6 +83,7 @@ function readMode(): VisualFixtureMode {
     value === "simple-repository-config" ||
     value === "simple-missing-config" ||
     value === "vault-branch-pr-labels" ||
+    value === "vault-branch-mobile-alignment" ||
     value === "file-view-push-ready" ||
     value === "file-view-open-pr" ||
     value === "vault-dashboard-branch-pr-title" ||
@@ -121,7 +122,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           mode === "simple-missing-config" ? (
           <SimpleViewVisualFixture mode={mode} />
         ) : mode === "dashboard-shared-sidebar" ||
-          mode === "vault-branch-pr-labels" ? (
+          mode === "vault-branch-pr-labels" ||
+          mode === "vault-branch-mobile-alignment" ? (
           <VaultDashboardVisualFixture mode={mode} />
         ) : mode === "file-view-push-ready" || mode === "file-view-open-pr" ? (
           <FileViewPushActionsVisualFixture mode={mode} />
