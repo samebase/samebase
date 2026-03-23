@@ -24,11 +24,21 @@ under `docs/research/` than under `specs/`.
 
 ## Bottom Line
 
-As of March 23, 2026, OpenAI's published app-submission docs explicitly require
-a public privacy policy URL, but I did not find an equally explicit published
-requirement for a public terms-and-conditions URL in the submission form.
+As of March 23, 2026, the current app submission UI includes an explicit
+`Terms of Service URL` field. The user also provided a screenshot of that
+submission form showing these relevant fields:
 
-That said, shipping a public terms page is still the safer posture:
+- `Customer Support URL or Email Address`
+- `Privacy Policy URL`
+- `Terms of Service URL`
+- `Demo Recording URL`
+- `App Commerce & Purchasing` disclosure
+
+That means the practical launch checklist is stricter than a docs-only read of
+the public submission guide suggests. For this submission flow, Noter should
+treat a public terms page as required, not just recommended.
+
+That remains consistent with the underlying policy posture:
 
 - OpenAI's App Developer Terms expressly contemplate that apps may have
   associated end-user terms or documentation.
@@ -42,8 +52,10 @@ So the practical recommendation is:
 
 - Keep the privacy policy as a precise data-handling document.
 - Add a public `/terms` page for contractual and operational rules.
-- Make sure both pages reflect actual product behavior, especially for provider
-  connections, write actions, and AI-driven workflows.
+- Prepare a real support contact and demo recording URL, since the current
+  submission UI asks for them explicitly.
+- Make sure these pages and assets reflect actual product behavior, especially
+  for provider connections, write actions, and AI-driven workflows.
 
 ## What OpenAI Explicitly Requires For Submission
 
@@ -67,12 +79,17 @@ OpenAI's current Apps SDK docs.
 - Logo
 - Description
 - Company URL
+- Customer support URL or email address
 - Privacy policy URL
+- Terms of service URL
+- Demo recording URL
 - MCP and tool information
 - Screenshots
 - Test prompts and expected responses
 - Localization information
 - OAuth credentials, if OAuth is used
+- Commerce disclosure, if the app links or directs users out of ChatGPT to make
+  purchases
 
 ### Authenticated app review requirements
 
@@ -180,16 +197,19 @@ the risks created by Noter's actual product behavior.
 ### Recommended section list
 
 1. Operator identity and contact details
+
    - Legal entity or individual publisher name
    - Support email
    - Business address or legal notice address if you want one published
 
 2. What the service is
+
    - A plain description of Noter and the ChatGPT/Codex app surface
    - A statement that the app connects to third-party services and may perform
      read or write actions when the user requests them
 
 3. Eligibility and account requirements
+
    - Minimum age position
    - Whether the service is for businesses, developers, consumers, or a mixed
      audience
@@ -197,12 +217,14 @@ the risks created by Noter's actual product behavior.
      provider access
 
 4. Connected accounts and authorizations
+
    - Which third-party services the app can connect to
    - That the user authorizes Noter and ChatGPT to send the minimum necessary
      data and requests to those services when the user enables the app
    - That third-party service terms also apply
 
 5. Acceptable use
+
    - Ban abuse, unlawful use, credential misuse, unauthorized scraping,
      circumvention of third-party restrictions, and attempts to use the app in
      ways that violate OpenAI policies or partner-service terms
@@ -210,6 +232,7 @@ the risks created by Noter's actual product behavior.
      passwords, OTP codes, and similar material
 
 6. AI and automation disclaimers
+
    - Explain that AI outputs, plans, code changes, and tool suggestions can be
      wrong or incomplete
    - Put responsibility on the user to review high-impact actions before relying
@@ -218,46 +241,54 @@ the risks created by Noter's actual product behavior.
      availability and permissions
 
 7. User content and rights
+
    - State what the user retains ownership of
    - Grant the service the limited rights needed to host, process, transform,
      and transmit content to operate the product
    - Cover content from connected third-party systems and any limits on reuse
 
 8. Service changes, beta status, and availability
+
    - Reserve the right to modify, suspend, or discontinue features
    - Explain that preview, beta, or experimental features may change or be
      removed
    - Clarify that uptime is not guaranteed unless you intend to make an SLA
 
 9. Fees, billing, refunds, and cancellation
+
    - Include this only if you actually charge users outside the ChatGPT app
      experience
    - Keep it aligned with the current OpenAI app-commerce restriction on digital
      services
 
 10. Suspension and termination
+
     - Right to suspend or terminate access for abuse, policy violations,
       security incidents, legal risk, or provider misuse
     - Effects of termination, including what happens to connected accounts or
       stored workspaces
 
 11. Third-party services and external sites
+
     - Disclaimer that OpenAI, GitHub, Convex, Cloudflare, Codex, and other
       providers operate under their own terms and availability
     - Disclaimer that Noter is not responsible for outages or policy actions by
       those providers
 
 12. Warranties and liability
+
     - Standard "as is" / "as available" language
     - Limitation of liability language
     - This is a section to have counsel review carefully
 
 13. Governing law, venue, and dispute process
+
     - Court venue or arbitration position
     - Required notices
     - This is another section where a jurisdiction-specific legal review matters
 
 14. Changes to the terms
+
     - How updates will be posted
     - When changes take effect
 
@@ -307,16 +338,16 @@ down:
 - Lock CSP down to exact fetch domains.
 - Use a global-data-residency OpenAI project for submission.
 - Publish and verify the privacy policy URL.
+- Publish and verify the terms of service URL.
 - Publish and verify a company URL.
 - Prepare support contact details for end users.
+- Prepare a demo recording URL that covers the main use cases and tools.
 - Prepare a stable demo account with sample data and no MFA blockers.
 - Prepare screenshots, test prompts, expected responses, and localization
   metadata.
 
 ### Strongly recommended tasks
 
-- Publish a public `/terms` page even though I did not find a current explicit
-  submission-form requirement for a terms URL.
 - Add the `/terms` link anywhere the `/privacy` link is currently surfaced.
 - Run an audit of real tool outputs and compare them field-by-field against the
   privacy policy.
@@ -358,8 +389,9 @@ Official OpenAI sources reviewed on 2026-03-23:
 ## Source Notes
 
 - The current submission guide explicitly lists company URL and privacy policy
-  URL in the submission form requirements, but I did not find a matching
-  published requirement for a terms URL.
-- The recommendation to ship a public terms page anyway is an inference from the
-  current App Developer Terms, the current Service Terms, and standard SaaS risk
-  allocation practice.
+  URL in the published documentation.
+- The current submission UI, as provided by the user in a screenshot on
+  2026-03-23, also shows explicit fields for customer support, terms of service,
+  demo recording, and commerce disclosure.
+- For practical submission planning, the UI should be treated as the operative
+  checklist, not the narrower wording in the public docs alone.

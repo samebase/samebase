@@ -56,6 +56,7 @@ archive/README.md
 CHAT_SPEC.md
 CONVEX_CODEGEN_CI.md
 docs/compliance/licenses-prod-2026-03-06.txt
+docs/research/codex-app-publication-readiness-2026-03-23.md
 docs/research/onboarding-video-tooling-2026-03-19.md
 Ideas/augment-code-research.md
 Ideas/daytona-terminal-ui-transparency.md
