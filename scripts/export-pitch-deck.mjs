@@ -8,7 +8,6 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(scriptDir, '..')
 const appDir = path.join(repoRoot, 'apps/noter')
 const appDistDir = path.join(appDir, 'dist')
-const outputPath = path.join(appDistDir, 'pitch-deck.pdf')
 const previewPort = Number.parseInt(
   process.env.PITCH_DECK_EXPORT_PORT ?? '43129',
   10,
@@ -16,6 +15,32 @@ const previewPort = Number.parseInt(
 const previewUrl = `http://127.0.0.1:${previewPort}`
 const requireFromApp = createRequire(path.join(appDir, 'package.json'))
 const { chromium } = requireFromApp('@playwright/test')
+const exportTargets = [
+  {
+    outputPath: path.join(appDistDir, 'pitch-deck.pdf'),
+    route: '/pitch/print',
+    viewport: {
+      width: 1440,
+      height: 900,
+    },
+    pdf: {
+      width: '13.333in',
+      height: '7.5in',
+    },
+  },
+  {
+    outputPath: path.join(appDistDir, 'pitch-deck-mobile.pdf'),
+    route: '/pitch/print/mobile',
+    viewport: {
+      width: 900,
+      height: 1440,
+    },
+    pdf: {
+      width: '7.5in',
+      height: '13.333in',
+    },
+  },
+]
 
 async function waitForPreviewServer(url) {
   const deadline = Date.now() + 30_000
@@ -67,28 +92,31 @@ async function main() {
 
     const browser = await chromium.launch({ headless: true })
     try {
-      const page = await browser.newPage({
-        viewport: {
-          width: 1440,
-          height: 900,
-        },
-      })
-      await page.goto(`${previewUrl}/pitch/print`, {
-        waitUntil: 'networkidle',
-      })
-      await page.emulateMedia({ media: 'screen' })
-      await page.pdf({
-        path: outputPath,
-        printBackground: true,
-        width: '13.333in',
-        height: '7.5in',
-        margin: {
-          top: '0',
-          right: '0',
-          bottom: '0',
-          left: '0',
-        },
-      })
+      for (const exportTarget of exportTargets) {
+        const page = await browser.newPage({
+          viewport: exportTarget.viewport,
+        })
+        try {
+          await page.goto(`${previewUrl}${exportTarget.route}`, {
+            waitUntil: 'networkidle',
+          })
+          await page.emulateMedia({ media: 'screen' })
+          await page.pdf({
+            path: exportTarget.outputPath,
+            printBackground: true,
+            width: exportTarget.pdf.width,
+            height: exportTarget.pdf.height,
+            margin: {
+              top: '0',
+              right: '0',
+              bottom: '0',
+              left: '0',
+            },
+          })
+        } finally {
+          await page.close()
+        }
+      }
     } finally {
       await browser.close()
     }
@@ -107,7 +135,11 @@ async function main() {
     })
   }
 
-  console.log(`Wrote pitch deck PDF to ${outputPath}`)
+  console.log(
+    `Wrote pitch deck PDFs to ${exportTargets
+      .map(exportTarget => exportTarget.outputPath)
+      .join(', ')}`,
+  )
 }
 
 main().catch(error => {

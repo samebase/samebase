@@ -160,6 +160,22 @@ function isMcpConsentRoute(pathname: string): boolean {
   return pathname === MCP_CONSENT_APP_PATH;
 }
 
+function resolvePitchDeckMode(pathname: string) {
+  if (pathname === "/pitch") {
+    return "interactive" as const;
+  }
+
+  if (pathname === "/pitch/print") {
+    return "print" as const;
+  }
+
+  if (pathname === "/pitch/print/mobile") {
+    return "printMobile" as const;
+  }
+
+  return null;
+}
+
 function McpConsentView({ requestId }: { requestId: string }) {
   const authorizationRequest = useQuery(
     api.mcp.oauth.getAuthorizationRequestForCurrentUser,
@@ -333,8 +349,8 @@ export default function App() {
   const showPrivacyPolicyPage = location.pathname === "/privacy";
   const showLogoTransitionTransformsLab =
     location.pathname === "/logo-transition-lab-transforms";
-  const showPitchDeckPage =
-    location.pathname === "/pitch" || location.pathname === "/pitch/print";
+  const pitchDeckMode = resolvePitchDeckMode(location.pathname);
+  const showPitchDeckPage = pitchDeckMode !== null;
   const showPublicLandingWithoutAuthGate =
     !isAuthenticated && shouldRenderPublicLandingWithoutAuthGate(location);
 
@@ -397,9 +413,7 @@ export default function App() {
   if (showPitchDeckPage) {
     return (
       <Suspense fallback={null}>
-        <PitchDeckPage
-          mode={location.pathname === "/pitch/print" ? "print" : "interactive"}
-        />
+        <PitchDeckPage mode={pitchDeckMode} />
       </Suspense>
     );
   }

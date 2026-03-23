@@ -160,25 +160,45 @@ describe("page metadata", () => {
   });
 
   it("keeps the pitch deck routes public but non-indexed", () => {
-    withFakeDocument((document) => {
-      applyPageMetadata(
-        resolvePageMetadata({
-          pathname: "/pitch",
-          isAuthenticated: false,
-        }),
-      );
+    const deckPaths = [
+      {
+        pathname: "/pitch",
+        title: "Pitch Deck | Noter",
+        canonicalUrl: "https://noter.md/pitch",
+      },
+      {
+        pathname: "/pitch/print",
+        title: "Pitch Deck Print | Noter",
+        canonicalUrl: "https://noter.md/pitch/print",
+      },
+      {
+        pathname: "/pitch/print/mobile",
+        title: "Pitch Deck Mobile Print | Noter",
+        canonicalUrl: "https://noter.md/pitch/print/mobile",
+      },
+    ] as const;
 
-      expect(document.title).toBe("Pitch Deck | Noter");
-      expect(getHeadAttribute(document, 'link[rel="canonical"]', "href")).toBe(
-        "https://noter.md/pitch",
-      );
-      expect(getHeadAttribute(document, 'meta[name="robots"]', "content")).toBe(
-        "noindex,nofollow",
-      );
-      expect(
-        getHeadAttribute(document, 'meta[property="og:url"]', "content"),
-      ).toBe("https://noter.md/pitch");
-    });
+    for (const deckPath of deckPaths) {
+      withFakeDocument((document) => {
+        applyPageMetadata(
+          resolvePageMetadata({
+            pathname: deckPath.pathname,
+            isAuthenticated: false,
+          }),
+        );
+
+        expect(document.title).toBe(deckPath.title);
+        expect(
+          getHeadAttribute(document, 'link[rel="canonical"]', "href"),
+        ).toBe(deckPath.canonicalUrl);
+        expect(
+          getHeadAttribute(document, 'meta[name="robots"]', "content"),
+        ).toBe("noindex,nofollow");
+        expect(
+          getHeadAttribute(document, 'meta[property="og:url"]', "content"),
+        ).toBe(deckPath.canonicalUrl);
+      });
+    }
   });
 
   it("keeps the raw html shell aligned with the real public homepage", () => {

@@ -9,20 +9,20 @@
 ## Summary
 
 Add a public pitch-deck surface inside `apps/noter` instead of creating a
-separate app. The initial implementation is intentionally small: one Spectacle
-page that proves route wiring, theming, and PDF export readiness. Deck copy and
-final storytelling come later.
+separate app. The initial implementation is intentionally small: one app-owned
+deck surface that proves route wiring, responsive layout, and PDF export
+readiness. Deck copy and final storytelling come later.
 
 ## Goals
 
 1. Add a public interactive route at `/pitch`.
 2. Add a public print/export route at `/pitch/print`.
-3. Use Spectacle as the slide framework so the deck looks polished without
-   building a custom slide system.
-4. Keep the implementation generic under `pitchDeck` naming, not
+3. Add a public mobile print/export route at `/pitch/print/mobile`.
+4. Use plain React components plus Tailwind utilities for the deck surface.
+5. Keep the implementation generic under `pitchDeck` naming, not
    provider-specific naming.
-5. Support PDF export as a separate command, not part of the default app build.
-6. Keep one shared pitch-deck content source across desktop and mobile views.
+6. Support PDF export as a separate command, not part of the default app build.
+7. Keep one shared pitch-deck content source across desktop and mobile views.
 
 ## Non-Goals
 
@@ -46,7 +46,7 @@ final storytelling come later.
 
 - Public route that bypasses auth gating, following the existing special-route
   pattern used for `/privacy` and logo lab pages.
-- Renders a single Spectacle deck page in interactive mode.
+- Renders the shared pitch-deck content in responsive document flow.
 - Acts as the single interactive source of truth for both desktop and mobile.
 - Adapts to viewport size responsively instead of splitting interactive browsing
   into separate desktop and mobile routes.
@@ -56,8 +56,7 @@ final storytelling come later.
 ### `/pitch/print`
 
 - Public route that renders the same deck in desktop print mode.
-- Disables interactive-only behavior such as animations, autoplay, keyboard
-  hints, and presenter affordances.
+- Uses fixed desktop dimensions so PDF output is deterministic.
 - Produces a stable horizontal layout suitable for PDF export.
 
 ### `/pitch/print/mobile`
@@ -89,9 +88,9 @@ not the final content. It should visibly prove that the system can handle:
 6. A desktop-horizontal presentation and a mobile-vertical presentation from the
    same content source
 
-Spectacle owns slide structure and theme primitives. Tailwind should be limited
-to lightweight spacing, utility wrappers, and print-specific adjustments around
-the Spectacle surface.
+The deck should be implemented as normal app-owned React components. Tailwind is
+the primary layout and typography system. Print-specific differences should be
+handled through explicit layout presets, not a slide framework.
 
 ## Metadata Contract
 
@@ -118,7 +117,8 @@ the Spectacle surface.
 - [ ] `/pitch` renders as a public route without sign-in
 - [ ] `/pitch/print` renders as a public route without sign-in
 - [ ] `/pitch/print/mobile` renders as a public route without sign-in
-- [ ] The first implementation uses Spectacle, not a custom slide framework
+- [ ] The first implementation uses plain React components and Tailwind, not
+      Spectacle
 - [ ] The initial route contains exactly one polished demo slide
 - [ ] The interactive route stays responsive instead of splitting into separate
       desktop and mobile interactive routes
