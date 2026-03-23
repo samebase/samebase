@@ -1,6 +1,6 @@
 import { ChatInput } from "@/components/ChatInput";
 import { Button } from "@/components/button";
-import { MessageSquare, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 
 export type EditorChatVisualMode =
   | "editor-chat-open-desktop"
@@ -46,10 +46,6 @@ function OpenMobileChatFixture() {
             <div className="text-3xl leading-none text-foreground">/</div>
           </div>
           <div className="mt-4 flex flex-wrap gap-3">
-            <Button size="sm" variant="secondary" className="h-6 px-2 text-xs">
-              <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
-              Hide Chat
-            </Button>
             <Button size="sm" variant="outline" className="h-6 px-2 text-xs">
               Show Preview
             </Button>
@@ -151,14 +147,6 @@ function OpenDesktopChatFixture() {
             <div className="flex items-center gap-2">
               <Button size="sm" variant="outline" className="h-6 px-2 text-xs">
                 Show Preview
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                className="h-6 px-2 text-xs"
-              >
-                <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
-                Hide Chat
               </Button>
               <Button size="sm" variant="outline" className="h-6 px-2 text-xs">
                 Review Changes

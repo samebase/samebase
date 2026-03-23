@@ -26,7 +26,6 @@ import {
   PlusIcon,
   FilePlusIcon,
 } from "@radix-ui/react-icons";
-import { MessageSquare } from "lucide-react";
 import { SidebarProvider } from "@/components/sidebar";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import { FileTree } from "./FileTree";
@@ -2503,16 +2502,6 @@ function FileViewInner({
                     {isPreviewOpen ? "Hide Preview" : "Show Preview"}
                   </Button>
                 )}
-
-                <Button
-                  size="sm"
-                  variant={editorChatOpen ? "secondary" : "outline"}
-                  onClick={() => handleEditorChatOpenChange(!editorChatOpen)}
-                  className="h-6 px-2 text-xs"
-                >
-                  <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
-                  {editorChatOpen ? "Hide Chat" : "Show Chat"}
-                </Button>
 
                 {viewMode === "editor" && (
                   <Button
