@@ -1,4 +1,5 @@
 import { Button } from "@/components/button";
+import { ResizeGripLines } from "@/components/ResizeGripLines";
 import { Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -35,11 +36,7 @@ function FixtureToolbarIcon({ className }: { className?: string }) {
 function FixtureResizeGrip() {
   return (
     <div className="flex h-4 w-full items-center justify-center corner-notch-1 text-foreground/80">
-      <div className="flex items-center gap-1 text-current">
-        {Array.from({ length: 4 }, (_, index) => (
-          <div key={index} className="h-2.5 w-px rounded-full bg-current" />
-        ))}
-      </div>
+      <ResizeGripLines />
     </div>
   );
 }

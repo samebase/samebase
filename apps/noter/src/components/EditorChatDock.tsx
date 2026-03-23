@@ -4,6 +4,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Button } from "@/components/button";
 import { EditorChatPanel } from "@/components/EditorChatPanel";
+import { ResizeGripLines } from "@/components/ResizeGripLines";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
@@ -47,16 +48,6 @@ function getMobileEditorChatDockInset(height: number): string {
   return `calc(${height}px + ${EDITOR_CHAT_MOBILE_BOTTOM_INSET})`;
 }
 
-function ResizeGripLines() {
-  return (
-    <div aria-hidden="true" className="flex items-center gap-1 text-current">
-      {Array.from({ length: 4 }, (_, index) => (
-        <span key={index} className="h-2.5 w-px rounded-full bg-current" />
-      ))}
-    </div>
-  );
-}
-
 type EditorChatDockProps = {
   vaultId?: Id<"vaults">;
   repositoryFullName?: string;
@@ -84,6 +75,7 @@ export function EditorChatDock({
     api.dashboardSettings.setEditorChatOpen,
   );
   const isMobileViewport = useIsMobile();
+  const chatOpenScope = vaultId ? "vault" : "global";
   const [editorChatOpenState, setEditorChatOpenState] = useState<
     boolean | null
   >(null);
@@ -99,9 +91,13 @@ export function EditorChatDock({
   } | null>(null);
   const editorChatKeyboardResizeTimeoutRef = useRef<number | null>(null);
   const [isEditorChatResizing, setIsEditorChatResizing] = useState(false);
+  const serverEditorChatOpen =
+    chatOpenScope === "vault"
+      ? dashboardSettings?.editorChatOpen
+      : dashboardSettings?.globalChatOpen;
 
   useEffect(() => {
-    const serverValue = dashboardSettings?.editorChatOpen;
+    const serverValue = serverEditorChatOpen;
     if (serverValue === undefined) {
       return;
     }
@@ -114,7 +110,7 @@ export function EditorChatDock({
       }
     }
     setEditorChatOpenState(serverValue);
-  }, [dashboardSettings?.editorChatOpen]);
+  }, [serverEditorChatOpen]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -148,8 +144,7 @@ export function EditorChatDock({
     };
   }, []);
 
-  const editorChatOpen =
-    editorChatOpenState ?? dashboardSettings?.editorChatOpen ?? false;
+  const editorChatOpen = editorChatOpenState ?? serverEditorChatOpen ?? false;
   const mobileEditorChatDockInset =
     isMobileViewport && editorChatOpen
       ? getMobileEditorChatDockInset(editorChatHeight)
@@ -168,14 +163,16 @@ export function EditorChatDock({
       setShouldAutoFocusInput(Boolean(isOpen && options?.focusInput));
       setEditorChatOpenState(isOpen);
       editorChatPendingRef.current = isOpen;
-      void setEditorChatOpen({ isOpen }).catch((error: unknown) => {
-        console.error("Failed to persist editor chat state:", error);
-        editorChatPendingRef.current = null;
-        setShouldAutoFocusInput(false);
-        setEditorChatOpenState(latestEditorChatServerValueRef.current);
-      });
+      void setEditorChatOpen({ isOpen, scope: chatOpenScope }).catch(
+        (error: unknown) => {
+          console.error("Failed to persist editor chat state:", error);
+          editorChatPendingRef.current = null;
+          setShouldAutoFocusInput(false);
+          setEditorChatOpenState(latestEditorChatServerValueRef.current);
+        },
+      );
     },
-    [setEditorChatOpen],
+    [chatOpenScope, setEditorChatOpen],
   );
 
   const handleEditorChatResizeBy = useCallback((delta: number) => {
