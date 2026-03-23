@@ -30,7 +30,8 @@ for (const scenario of SCENARIOS) {
     await page.waitForLoadState("networkidle");
 
     const fixture =
-      scenario.mode === "editor-chat-closed"
+      scenario.mode === "editor-chat-closed" ||
+      scenario.mode === "editor-chat-open-mobile"
         ? page.getByTestId("editor-chat-visual-fixture")
         : page.getByTestId("editor-chat-panel-visual-fixture");
     await expect(fixture).toHaveScreenshot(scenario.snapshotName, {

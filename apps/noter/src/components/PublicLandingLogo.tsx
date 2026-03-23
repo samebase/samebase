@@ -45,6 +45,10 @@ const STATIC_LOGO_SVG_SRC = createStaticLogoSvgDataUrl();
 let persistedLandingLogoView: LandingLogoView = {
   ...DEFAULT_LANDING_LOGO_VIEW,
 };
+let cachedLandingLogoScene: LandingLogoSceneComponent | null = null;
+// Unsupported renderer paths can loop on remount, so keep that failure sticky
+// for the session while still allowing later chunk loads to retry.
+let didLandingLogoSceneRenderFail = false;
 
 function easeOutCubic(value: number) {
   return 1 - Math.pow(1 - value, 3);
@@ -58,9 +62,11 @@ export function PublicLandingLogo({
   enableViewSnapping?: boolean;
 }) {
   const [LogoScene, setLogoScene] = useState<LandingLogoSceneComponent | null>(
-    null,
+    () => cachedLandingLogoScene,
   );
-  const [didSceneFail, setDidSceneFail] = useState(false);
+  const [didSceneFail, setDidSceneFail] = useState(
+    () => didLandingLogoSceneRenderFail,
+  );
   const [isSceneReady, setIsSceneReady] = useState(false);
   const [isSvgVisible, setIsSvgVisible] = useState(true);
   const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
@@ -78,6 +84,16 @@ export function PublicLandingLogo({
   const isSceneInteractive = isSceneReady && !isSvgVisible;
 
   useEffect(() => {
+    if (didLandingLogoSceneRenderFail) {
+      setDidSceneFail(true);
+      return;
+    }
+
+    if (cachedLandingLogoScene !== null) {
+      setLogoScene(() => cachedLandingLogoScene);
+      return;
+    }
+
     let cancelled = false;
     let idleCallbackId: number | null = null;
     let frameId = 0;
@@ -90,6 +106,7 @@ export function PublicLandingLogo({
             return;
           }
 
+          cachedLandingLogoScene = module.NLogoScene;
           setLogoScene(() => module.NLogoScene);
         })
         .catch((error: unknown) => {
@@ -234,6 +251,7 @@ export function PublicLandingLogo({
                 setIsSceneReady(true);
               }}
               onRenderUnavailable={() => {
+                didLandingLogoSceneRenderFail = true;
                 setDidSceneFail(true);
               }}
               onViewChange={(nextView) => {
