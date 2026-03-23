@@ -366,10 +366,11 @@ interface VaultRemoteBranchListItem {
   pullRequestNumber?: number;
   pullRequestLabels?: Array<string | { name: string; color?: string }>;
   pullRequestTitle?: string;
+  cloudflareBranchPreviewUrl?: string;
 }
 
 interface VaultBranchLinkRowProps {
-  vaultId: Id<"vaults">;
+  vaultId?: Id<"vaults">;
   repositoryFullName: string;
   branchName: string;
   headCommitSha: string;
@@ -381,6 +382,7 @@ interface VaultBranchLinkRowProps {
   pullRequestNumber?: number;
   pullRequestLabels?: Array<string | { name: string; color?: string }>;
   pullRequestTitle?: string;
+  cloudflareBranchPreviewUrl?: string;
   stagedSummary?: StagedSummary;
   canDeleteBranch: boolean;
   isDeletingBranch: boolean;
@@ -502,6 +504,7 @@ export function VaultBranchLinkContent({
   pullRequestNumber,
   pullRequestLabels,
   pullRequestTitle,
+  cloudflareBranchPreviewUrl,
 }: {
   repositoryFullName: string;
   branchName: string;
@@ -514,11 +517,17 @@ export function VaultBranchLinkContent({
   pullRequestNumber?: number;
   pullRequestLabels?: VaultBranchLinkRowProps["pullRequestLabels"];
   pullRequestTitle?: string;
+  cloudflareBranchPreviewUrl?: string;
 }) {
   const commitUrl = `https://github.com/${repositoryFullName}/commit/${headCommitSha}`;
   const aheadBehindLabel = formatAheadBehindCounts(aheadBy, behindBy);
   const normalizedPullRequestLabels =
     normalizePullRequestLabels(pullRequestLabels);
+  const metadataLinkClassName = clsx(
+    "inline-flex min-h-6 items-center rounded-sm px-1.5 py-0.5 -mx-1.5 -my-0.5 touch-manipulation",
+    "font-mono",
+    linkStyle,
+  );
   const branchPath = encodeURIComponent(branchName);
   const branchRoute = `/vault/${repositoryFullName}/${branchPath}`;
   const hasPullRequestTitle =
@@ -561,7 +570,7 @@ export function VaultBranchLinkContent({
               href={commitUrl}
               target="_blank"
               rel="noreferrer noopener"
-              className={`font-mono ${linkStyle}`}
+              className={metadataLinkClassName}
               title="View commit on GitHub"
             >
               {headCommitSha.slice(0, 7)}
@@ -572,6 +581,7 @@ export function VaultBranchLinkContent({
                 <PullRequestLink
                   pullRequestNumber={pullRequestNumber}
                   pullRequestUrl={pullRequestUrl}
+                  className={metadataLinkClassName}
                 />
               </>
             ) : null}
@@ -588,6 +598,21 @@ export function VaultBranchLinkContent({
                   </Badge>
                 ))
               : null}
+            {typeof cloudflareBranchPreviewUrl === "string" &&
+            cloudflareBranchPreviewUrl.length > 0 ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <a
+                  href={cloudflareBranchPreviewUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={metadataLinkClassName}
+                  title="Open Cloudflare branch preview"
+                >
+                  preview
+                </a>
+              </>
+            ) : null}
             {aheadBehindLabel ? (
               <>
                 <span aria-hidden="true">·</span>
@@ -619,6 +644,7 @@ export function VaultBranchLinkRow({
   pullRequestNumber,
   pullRequestLabels,
   pullRequestTitle,
+  cloudflareBranchPreviewUrl,
   stagedSummary,
   canDeleteBranch,
   isDeletingBranch,
@@ -640,9 +666,10 @@ export function VaultBranchLinkRow({
         pullRequestNumber={pullRequestNumber}
         pullRequestLabels={pullRequestLabels}
         pullRequestTitle={pullRequestTitle}
+        cloudflareBranchPreviewUrl={cloudflareBranchPreviewUrl}
       />
       <div className="flex shrink-0 items-start gap-2">
-        {hasStagedChanges ? (
+        {hasStagedChanges && vaultId ? (
           <div className="pt-0.5">
             <EditedFilesCategoriesPopover
               vaultId={vaultId}
@@ -727,6 +754,7 @@ function VaultBranchListRow({
       pullRequestNumber={branch.pullRequestNumber}
       pullRequestLabels={branch.pullRequestLabels}
       pullRequestTitle={branch.pullRequestTitle}
+      cloudflareBranchPreviewUrl={branch.cloudflareBranchPreviewUrl}
       stagedSummary={stagedSummary}
       canDeleteBranch={deleteEligibility.canDelete}
       isDeletingBranch={activeDeletingBranchName === branch.name}
@@ -983,9 +1011,21 @@ function VaultDashboardContent() {
 
           await Promise.all(
             batch.map(async (vault) => {
+              const shouldIncludeCloudflarePreviewLinks =
+                trigger === "page_load" ||
+                vault.remoteBranches.some(
+                  (branch) =>
+                    typeof branch.pullRequestNumber === "number" &&
+                    typeof branch.cloudflareBranchPreviewUrl !== "string",
+                );
               await refreshTree({
                 owner: vault.ghRepoOwner,
                 repo: vault.ghRepoName,
+                // Preview-comment scans are expensive compared to the branch/tree
+                // refresh itself, so only re-run them on first load or while a
+                // PR branch is still missing cached preview metadata.
+                includeCloudflarePreviewLinks:
+                  shouldIncludeCloudflarePreviewLinks,
                 trigger,
               }).catch((error: unknown) => {
                 console.error(

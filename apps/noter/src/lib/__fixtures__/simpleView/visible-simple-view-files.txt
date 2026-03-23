@@ -33,6 +33,8 @@ apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-png.pn
 apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-svg.png
 apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-missing-config.png
 apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-repository-config.png
+apps/noter/e2e/vault-branch-preview-visual.spec.ts-snapshots/vault-branch-preview-link.png
+apps/noter/e2e/vault-branch-preview-visual.spec.ts-snapshots/vault-branch-preview-missing.png
 apps/noter/e2e/vault-dashboard-branch-visual.spec.ts-snapshots/vault-dashboard-branch-pr-title.png
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-mobile-alignment.png
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-pr-labels.png
@@ -96,6 +98,7 @@ rfcs/038_RAILWAY_REMOVAL_AND_DATA_CLEANUP_SPEC.md
 rfcs/046_VAULT_MULTI_BRANCH_ROLLOUT_PLAN.md
 rfcs/062_NETLIFY_REMOVAL_AND_CLOUDFLARE_ONLY_HOSTING_SPEC.md
 rfcs/065_NETLIFY_REMOVAL_ROLLOUT_PLAN.md
+rfcs/066_DASHBOARD_CLOUDFLARE_BRANCH_PREVIEW_LINKS_AND_THUMBNAILS.md
 rfcs/066_GITHUB_ORG_OVERVIEW_ONBOARDING_RESEARCH.md
 rfcs/066_LOGO_AUTO_ROTATION_QUERY_STUTTER_FINDINGS.md
 rfcs/067_DASHBOARD_SHARED_SIDEBAR_SPEC.md
@@ -173,6 +176,7 @@ specs/063_MCP_PREACCOUNT_ONBOARDING_FLOW_SPEC.md
 specs/063_SHADCN_WRAPPER_ENTRYPOINT_SPEC.md
 specs/064_THIN_INSTALLABLE_WEB_APP_SPEC.md
 specs/065_GITHUB_REPOSITORY_PICKER_DISCOVERY_SPEC.md
+specs/066_DASHBOARD_PR_CLOUDFLARE_BRANCH_PREVIEW_LINK_SPEC.md
 specs/066_PITCH_DECK_SURFACE_SPEC.md
 TODO.md
 VISION.md

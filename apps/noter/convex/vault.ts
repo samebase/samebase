@@ -38,6 +38,67 @@ import {
 const nullValidator = v.null();
 const { array, boolean, id, literal, number, object, optional, string, union } =
   v;
+const cloudflarePreviewMetadataFields = {
+  cloudflareBranchPreviewUrl: optional(string()),
+  cloudflarePreviewUrl: optional(string()),
+  cloudflarePreviewCommitSha: optional(string()),
+  cloudflarePreviewStatus: optional(string()),
+  cloudflarePreviewLogsUrl: optional(string()),
+  cloudflarePreviewCommentCreatedAt: optional(number()),
+} as const;
+
+type CloudflarePreviewMetadata = {
+  cloudflareBranchPreviewUrl?: string;
+  cloudflarePreviewUrl?: string;
+  cloudflarePreviewCommitSha?: string;
+  cloudflarePreviewStatus?: string;
+  cloudflarePreviewLogsUrl?: string;
+  cloudflarePreviewCommentCreatedAt?: number;
+};
+
+/**
+ * Cloudflare can edit or partially reformat its PR comment without removing the
+ * underlying branch alias. Preserve existing cached fields when the latest
+ * comment only yields a partial parse, but still clear everything when GitHub
+ * told us there is no relevant preview comment for the branch anymore.
+ */
+export function resolveSyncedCloudflarePreviewMetadata(args: {
+  existing?: CloudflarePreviewMetadata;
+  incoming: CloudflarePreviewMetadata & {
+    previewState: "resolved" | "clear";
+  };
+}): CloudflarePreviewMetadata {
+  if (args.incoming.previewState === "clear") {
+    return {
+      cloudflareBranchPreviewUrl: undefined,
+      cloudflarePreviewUrl: undefined,
+      cloudflarePreviewCommitSha: undefined,
+      cloudflarePreviewStatus: undefined,
+      cloudflarePreviewLogsUrl: undefined,
+      cloudflarePreviewCommentCreatedAt: undefined,
+    };
+  }
+
+  return {
+    cloudflareBranchPreviewUrl:
+      args.incoming.cloudflareBranchPreviewUrl ??
+      args.existing?.cloudflareBranchPreviewUrl,
+    cloudflarePreviewUrl:
+      args.incoming.cloudflarePreviewUrl ?? args.existing?.cloudflarePreviewUrl,
+    cloudflarePreviewCommitSha:
+      args.incoming.cloudflarePreviewCommitSha ??
+      args.existing?.cloudflarePreviewCommitSha,
+    cloudflarePreviewStatus:
+      args.incoming.cloudflarePreviewStatus ??
+      args.existing?.cloudflarePreviewStatus,
+    cloudflarePreviewLogsUrl:
+      args.incoming.cloudflarePreviewLogsUrl ??
+      args.existing?.cloudflarePreviewLogsUrl,
+    cloudflarePreviewCommentCreatedAt:
+      args.incoming.cloudflarePreviewCommentCreatedAt ??
+      args.existing?.cloudflarePreviewCommentCreatedAt,
+  };
+}
 
 // MARK: Public
 
@@ -654,6 +715,7 @@ const getUserVaultsResult = array(
         isProtected: boolean(),
         remoteState: union(literal("active"), literal("deleted_upstream")),
         lastSyncedAt: number(),
+        ...cloudflarePreviewMetadataFields,
       }),
     ),
     infraState: union(
@@ -772,6 +834,13 @@ export const getUserVaults = query({
               isProtected: branch.isProtected,
               remoteState: branch.remoteState,
               lastSyncedAt: branch.lastSyncedAt,
+              cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,
+              cloudflarePreviewUrl: branch.cloudflarePreviewUrl,
+              cloudflarePreviewCommitSha: branch.cloudflarePreviewCommitSha,
+              cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
+              cloudflarePreviewLogsUrl: branch.cloudflarePreviewLogsUrl,
+              cloudflarePreviewCommentCreatedAt:
+                branch.cloudflarePreviewCommentCreatedAt,
             })),
           infraState: vault.infraState ?? "not_started",
           infraProductionUrl: resolveHostingMainUrl(infra),
@@ -829,6 +898,7 @@ export const getVaultRemoteBranches = query({
       remoteState: union(literal("active"), literal("deleted_upstream")),
       deletedUpstreamAt: optional(number()),
       lastSyncedAt: number(),
+      ...cloudflarePreviewMetadataFields,
     }),
   ),
   handler: async (ctx, args) => {
@@ -858,6 +928,13 @@ export const getVaultRemoteBranches = query({
       remoteState: branch.remoteState,
       deletedUpstreamAt: branch.deletedUpstreamAt,
       lastSyncedAt: branch.lastSyncedAt,
+      cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,
+      cloudflarePreviewUrl: branch.cloudflarePreviewUrl,
+      cloudflarePreviewCommitSha: branch.cloudflarePreviewCommitSha,
+      cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
+      cloudflarePreviewLogsUrl: branch.cloudflarePreviewLogsUrl,
+      cloudflarePreviewCommentCreatedAt:
+        branch.cloudflarePreviewCommentCreatedAt,
     }));
   },
 });
@@ -1060,10 +1137,80 @@ export const syncVaultRemoteBranches = internalMutation({
         remoteState: "deleted_upstream",
         deletedUpstreamAt: branch.deletedUpstreamAt ?? args.syncedAt,
         lastSyncedAt: args.syncedAt,
+        cloudflareBranchPreviewUrl: undefined,
+        cloudflarePreviewUrl: undefined,
+        cloudflarePreviewCommitSha: undefined,
+        cloudflarePreviewStatus: undefined,
+        cloudflarePreviewLogsUrl: undefined,
+        cloudflarePreviewCommentCreatedAt: undefined,
       });
     }
 
     await pruneDeletedUpstreamBranchesForVault(ctx, args.vaultId);
+
+    return null;
+  },
+});
+
+export const syncVaultRemoteBranchCloudflarePreviews = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    branches: array(
+      object({
+        name: string(),
+        previewState: union(
+          literal("resolved"),
+          literal("clear"),
+          literal("preserve"),
+        ),
+        ...cloudflarePreviewMetadataFields,
+      }),
+    ),
+  },
+  returns: nullValidator,
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("vaultRemoteBranches")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .collect();
+    const existingByName = new Map(
+      existing.map((branch) => [branch.name, branch]),
+    );
+
+    for (const branch of args.branches) {
+      if (branch.previewState === "preserve") {
+        continue;
+      }
+
+      const existingBranch = existingByName.get(branch.name);
+      if (!existingBranch) {
+        continue;
+      }
+
+      const resolvedMetadata =
+        branch.previewState === "clear"
+          ? resolveSyncedCloudflarePreviewMetadata({
+              existing: existingBranch,
+              incoming: {
+                previewState: "clear",
+              },
+            })
+          : resolveSyncedCloudflarePreviewMetadata({
+              existing: existingBranch,
+              incoming: {
+                previewState: "resolved",
+                cloudflareBranchPreviewUrl: branch.cloudflareBranchPreviewUrl,
+                cloudflarePreviewUrl: branch.cloudflarePreviewUrl,
+                cloudflarePreviewCommitSha: branch.cloudflarePreviewCommitSha,
+                cloudflarePreviewStatus: branch.cloudflarePreviewStatus,
+                cloudflarePreviewLogsUrl: branch.cloudflarePreviewLogsUrl,
+                cloudflarePreviewCommentCreatedAt:
+                  branch.cloudflarePreviewCommentCreatedAt,
+              },
+            });
+
+      await ctx.db.patch(existingBranch._id, resolvedMetadata);
+    }
 
     return null;
   },

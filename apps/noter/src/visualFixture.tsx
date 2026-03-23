@@ -42,6 +42,10 @@ import {
   EditorChatVisualFixture,
   type EditorChatVisualMode,
 } from "@/components/EditorChatVisualFixture";
+import {
+  VaultBranchPreviewVisualFixture,
+  type VaultBranchPreviewVisualMode,
+} from "@/components/VaultBranchPreviewVisualFixture";
 import "./index.css";
 
 type VisualFixtureMode =
@@ -54,6 +58,7 @@ type VisualFixtureMode =
   | RepositoryMediaVisualMode
   | SimpleViewVisualMode
   | VaultDashboardVisualMode
+  | VaultBranchPreviewVisualMode
   | "vault-dashboard-branch-pr-title"
   | "button"
   | "corner-notch"
@@ -85,6 +90,8 @@ function readMode(): VisualFixtureMode {
     value === "simple-missing-config" ||
     value === "vault-branch-pr-labels" ||
     value === "vault-branch-mobile-alignment" ||
+    value === "vault-branch-preview-link" ||
+    value === "vault-branch-preview-missing" ||
     value === "file-view-push-ready" ||
     value === "file-view-open-pr" ||
     value === "vault-dashboard-branch-pr-title" ||
@@ -127,6 +134,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           mode === "vault-branch-pr-labels" ||
           mode === "vault-branch-mobile-alignment" ? (
           <VaultDashboardVisualFixture mode={mode} />
+        ) : mode === "vault-branch-preview-link" ||
+          mode === "vault-branch-preview-missing" ? (
+          <VaultBranchPreviewVisualFixture mode={mode} />
         ) : mode === "file-view-push-ready" || mode === "file-view-open-pr" ? (
           <FileViewPushActionsVisualFixture mode={mode} />
         ) : mode === "vault-dashboard-branch-pr-title" ? (

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   hasBranchStagingChanges,
   resolveSyncedBranchLastCommitAt,
+  resolveSyncedCloudflarePreviewMetadata,
   resolveVaultBranchSelection,
   selectDeletedUpstreamBranchesToAutoPrune,
 } from "./vault";
@@ -125,6 +126,60 @@ describe("resolveSyncedBranchLastCommitAt", () => {
         },
       }),
     ).toBeUndefined();
+  });
+});
+
+describe("resolveSyncedCloudflarePreviewMetadata", () => {
+  it("preserves cached preview fields when the latest parsed comment is partial", () => {
+    expect(
+      resolveSyncedCloudflarePreviewMetadata({
+        existing: {
+          cloudflareBranchPreviewUrl: "https://branch.pages.dev/",
+          cloudflarePreviewUrl: "https://sha.pages.dev/",
+          cloudflarePreviewCommitSha: "sha-old",
+          cloudflarePreviewStatus: "✅ Deploy successful!",
+          cloudflarePreviewLogsUrl: "https://dash.cloudflare.com/logs",
+          cloudflarePreviewCommentCreatedAt: 123,
+        },
+        incoming: {
+          previewState: "resolved",
+          cloudflarePreviewCommitSha: "sha-new",
+          cloudflarePreviewStatus: "⏳ Building",
+        },
+      }),
+    ).toEqual({
+      cloudflareBranchPreviewUrl: "https://branch.pages.dev/",
+      cloudflarePreviewUrl: "https://sha.pages.dev/",
+      cloudflarePreviewCommitSha: "sha-new",
+      cloudflarePreviewStatus: "⏳ Building",
+      cloudflarePreviewLogsUrl: "https://dash.cloudflare.com/logs",
+      cloudflarePreviewCommentCreatedAt: 123,
+    });
+  });
+
+  it("clears cached preview fields when GitHub resolved to no preview comment", () => {
+    expect(
+      resolveSyncedCloudflarePreviewMetadata({
+        existing: {
+          cloudflareBranchPreviewUrl: "https://branch.pages.dev/",
+          cloudflarePreviewUrl: "https://sha.pages.dev/",
+          cloudflarePreviewCommitSha: "sha-old",
+          cloudflarePreviewStatus: "✅ Deploy successful!",
+          cloudflarePreviewLogsUrl: "https://dash.cloudflare.com/logs",
+          cloudflarePreviewCommentCreatedAt: 123,
+        },
+        incoming: {
+          previewState: "clear",
+        },
+      }),
+    ).toEqual({
+      cloudflareBranchPreviewUrl: undefined,
+      cloudflarePreviewUrl: undefined,
+      cloudflarePreviewCommitSha: undefined,
+      cloudflarePreviewStatus: undefined,
+      cloudflarePreviewLogsUrl: undefined,
+      cloudflarePreviewCommentCreatedAt: undefined,
+    });
   });
 });
 
