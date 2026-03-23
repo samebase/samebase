@@ -1445,8 +1445,7 @@ function VaultDashboardContent() {
         cloudflareConnected && cloudflareAuthMethod === "mcp_oauth",
     },
   };
-  const userDisplayName =
-    user?.name ?? user?.email ?? user?.githubUsername ?? "...";
+  const userDisplayName = user?.name ?? user?.email ?? user?.githubUsername;
   const createTemplateLabel = createTemplate === "app" ? "App" : "Agent";
   const createTemplateArticle =
     createTemplate === "app" ? "an app" : "an agent";
@@ -1705,11 +1704,13 @@ function VaultDashboardContent() {
 
   const sidebarContent = (
     <>
-      <SidebarAccountSection>
-        <UserMenu className="w-full min-w-0 justify-between">
-          <span className="block min-w-0 truncate">{userDisplayName}</span>
-        </UserMenu>
-      </SidebarAccountSection>
+      {userDisplayName ? (
+        <SidebarAccountSection>
+          <UserMenu className="w-full min-w-0 justify-between">
+            <span className="block min-w-0 truncate">{userDisplayName}</span>
+          </UserMenu>
+        </SidebarAccountSection>
+      ) : null}
       <div className="flex-1" />
     </>
   );
