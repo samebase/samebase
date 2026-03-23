@@ -57,12 +57,11 @@ name as the lighter secondary line when a PR exists.
 - `pullRequestTitle`
 
 This is already enough to support, for branches whose open PR targets the
-repository default branch:
+repository default branch, when PR sync succeeds:
 
 - text filtering by branch name
-- text filtering by PR title
-- inclusion/exclusion by PR label
-- simple filters such as "has PR" vs "no PR"
+- limited text filtering by the latest synced PR title
+- limited inclusion/exclusion by the latest synced PR labels
 
 ### Current data gap
 
@@ -77,6 +76,18 @@ pull requests whose `base.ref` matches the repository default branch. Branches
 with PRs targeting release, backport, or other non-default base branches are
 therefore treated as `no PR` today and would not match PR-title or `label:`
 filters until that sync behavior is widened.
+
+There is a third limitation: the sync model keeps only one open PR per branch,
+choosing the most recently updated PR. If a branch has multiple open pull
+requests, older PR titles and labels are invisible to the current payload and
+would not participate in filtering.
+
+There is a fourth limitation for any `has PR` / `no PR` style filter: the PR
+sync path can preserve older metadata when GitHub PR lookup fails or is rate
+limited, and the current dashboard queries do not expose whether the latest PR
+lookup resolved cleanly versus preserved stale data. A v1 filter should either
+surface PR-sync freshness explicitly or avoid promising precise `has PR` /
+`no PR` semantics until that state is exposed.
 
 ## GitHub Model Research
 
