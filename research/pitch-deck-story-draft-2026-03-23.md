@@ -44,6 +44,24 @@ What this means:
 - developers who want ownership and predictable cost
 - teams that want real code, real repos, and a stack they can keep
 
+## Repo-Wide Takeaways
+
+These themes show up repeatedly across the repo and should influence the deck:
+
+- `same stack seniors actually use`
+- `web-first so any agent can use it`
+- `monitor and edit your apps when you're on the go`
+- `docs + code in one place`
+- `terminal is the escape hatch, not the product`
+- `Git is the durable layer`
+
+What they suggest for the deck:
+
+- Noter should feel opinionated, not generic
+- mobile and browser access are product pillars, not side benefits
+- GitHub should read as the durable system of record
+- the AI/product UX should feel transparent, not magical in a fragile way
+
 ## Main Deck
 
 Use 7 slides.
@@ -227,6 +245,16 @@ Good backups from the repo:
 - `a dev environment for your Codex agent`
 - `focus on your business instead of your tech stack`
 - `a simpler way to use GitHub`
+- `the same stack seniors actually use`
+- `web-first so any agent can use it`
+- `monitor and edit your apps when you're on the go`
+
+Good backup concepts from repo research:
+
+- `Everything is text. Everything is instant.`
+- `Docs and code in one place.`
+- `Terminal as escape hatch, not primary UX.`
+- `Git as the durable layer.`
 
 Use carefully:
 
@@ -254,6 +282,13 @@ Repo context:
 - [VISION.md](/Users/nicu/.codex/worktrees/6d39/noter/VISION.md)
 - [TODO.md](/Users/nicu/.codex/worktrees/6d39/noter/TODO.md)
 - [slogans.md](/Users/nicu/.codex/worktrees/6d39/noter/slogans.md)
+- [Ideas/senior-stack-for-juniors.md](/Users/nicu/.codex/worktrees/6d39/noter/Ideas/senior-stack-for-juniors.md)
+- [Ideas/signin-view-code-prosemark.md](/Users/nicu/.codex/worktrees/6d39/noter/Ideas/signin-view-code-prosemark.md)
+- [Ideas/daytona-terminal-ui-transparency.md](/Users/nicu/.codex/worktrees/6d39/noter/Ideas/daytona-terminal-ui-transparency.md)
+- [Ideas/worktree-conversation-log.md](/Users/nicu/.codex/worktrees/6d39/noter/Ideas/worktree-conversation-log.md)
+- [docs/research/onboarding-video-tooling-2026-03-19.md](/Users/nicu/.codex/worktrees/6d39/noter/docs/research/onboarding-video-tooling-2026-03-19.md)
+- [specs/024_DAYTONA_IMAGE_AND_STARTUP_PERFORMANCE_SPEC.md](/Users/nicu/.codex/worktrees/6d39/noter/specs/024_DAYTONA_IMAGE_AND_STARTUP_PERFORMANCE_SPEC.md)
+- [specs/050_T3_CODE_REFERENCE_ARCHITECTURE_SPEC.md](/Users/nicu/.codex/worktrees/6d39/noter/specs/050_T3_CODE_REFERENCE_ARCHITECTURE_SPEC.md)
 - [specs/060_LOGO_PREVIEW_PLAYGROUND_SPEC.md](/Users/nicu/.codex/worktrees/6d39/noter/specs/060_LOGO_PREVIEW_PLAYGROUND_SPEC.md)
 - [specs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md](/Users/nicu/.codex/worktrees/6d39/noter/specs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md)
 
