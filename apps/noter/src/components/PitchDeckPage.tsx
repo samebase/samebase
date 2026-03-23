@@ -56,25 +56,25 @@ function FeatureCard({
   body: string;
 }) {
   return (
-    <div className="border border-[#d4c1aa] bg-[#faf5ed] p-4">
-      <div className="text-[11px] uppercase tracking-[0.24em] text-[#91512f]">
+    <div className="border border-border bg-background p-4">
+      <div className="text-primary text-[11px] uppercase tracking-[0.24em]">
         {eyebrow}
       </div>
-      <div className="mt-3 text-lg font-medium tracking-[-0.03em] text-[#17120e]">
+      <div className="text-foreground mt-3 text-lg font-medium tracking-[-0.03em]">
         {title}
       </div>
-      <p className="mt-2 text-sm leading-6 text-[#5d5246]">{body}</p>
+      <p className="text-muted-foreground mt-2 text-sm leading-6">{body}</p>
     </div>
   );
 }
 
 function MetricBlock({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border border-[#d4c1aa] bg-[#fffaf3] px-4 py-3">
-      <div className="text-[11px] uppercase tracking-[0.22em] text-[#7d7062]">
+    <div className="border border-border bg-secondary px-4 py-3 text-secondary-foreground">
+      <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">
         {label}
       </div>
-      <div className="mt-2 text-[24px] leading-none tracking-[-0.05em] text-[#17120e] sm:text-[28px]">
+      <div className="mt-2 text-[24px] leading-none tracking-[-0.05em] sm:text-[28px]">
         {value}
       </div>
     </div>
@@ -83,14 +83,14 @@ function MetricBlock({ label, value }: { label: string; value: string }) {
 
 function resolveSurfaceClasses(mode: PitchDeckMode): string {
   if (mode === "print") {
-    return "grid min-h-[720px] w-[1280px] gap-8 border border-[#d4c1aa] bg-[linear-gradient(180deg,#fbf7f0_0%,#f1e6d6_100%)] px-10 py-8 text-[#17120e] lg:grid-cols-[minmax(0,1.2fr)_minmax(23rem,0.85fr)]";
+    return "grid min-h-[720px] w-[1280px] gap-8 border border-border bg-background px-10 py-8 text-foreground lg:grid-cols-[minmax(0,1.2fr)_minmax(23rem,0.85fr)]";
   }
 
   if (mode === "printMobile") {
-    return "grid min-h-[1280px] w-[720px] gap-6 border border-[#d4c1aa] bg-[linear-gradient(180deg,#fbf7f0_0%,#f1e6d6_100%)] p-8 text-[#17120e]";
+    return "grid min-h-[1280px] w-[720px] gap-6 border border-border bg-background p-8 text-foreground";
   }
 
-  return "grid w-full max-w-[1360px] gap-6 border border-[#d4c1aa] bg-[linear-gradient(180deg,#fbf7f0_0%,#f1e6d6_100%)] p-5 text-[#17120e] sm:p-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(21rem,0.85fr)] xl:p-10";
+  return "grid w-full max-w-[1360px] gap-6 border border-border bg-background p-5 text-foreground sm:p-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(21rem,0.85fr)] xl:p-10";
 }
 
 function resolveHeaderClasses(mode: PitchDeckMode): {
@@ -103,8 +103,8 @@ function resolveHeaderClasses(mode: PitchDeckMode): {
   if (mode === "print") {
     return {
       title:
-        "max-w-[11ch] font-serif text-[76px] leading-[0.9] tracking-[-0.07em]",
-      subtitle: "max-w-[56ch] text-[22px] leading-[1.5] text-[#5d5246]",
+        "max-w-[11ch] font-sans text-[76px] font-medium leading-[0.9] tracking-[-0.07em]",
+      subtitle: "text-muted-foreground max-w-[56ch] text-[22px] leading-[1.5]",
       cards: "grid gap-4 md:grid-cols-2",
       metrics: "grid gap-3 sm:grid-cols-3",
       aside: "grid gap-4",
@@ -114,8 +114,8 @@ function resolveHeaderClasses(mode: PitchDeckMode): {
   if (mode === "printMobile") {
     return {
       title:
-        "max-w-[10ch] font-serif text-[64px] leading-[0.92] tracking-[-0.07em]",
-      subtitle: "max-w-[38ch] text-[22px] leading-[1.45] text-[#5d5246]",
+        "max-w-[10ch] font-sans text-[64px] font-medium leading-[0.92] tracking-[-0.07em]",
+      subtitle: "text-muted-foreground max-w-[38ch] text-[22px] leading-[1.45]",
       cards: "grid gap-4",
       metrics: "grid gap-3",
       aside: "grid gap-4",
@@ -124,9 +124,9 @@ function resolveHeaderClasses(mode: PitchDeckMode): {
 
   return {
     title:
-      "max-w-[11ch] font-serif text-[clamp(3.3rem,7vw,5.5rem)] leading-[0.92] tracking-[-0.07em]",
+      "max-w-[11ch] font-sans text-[clamp(3.3rem,7vw,5.5rem)] font-medium leading-[0.92] tracking-[-0.07em]",
     subtitle:
-      "max-w-[58ch] text-lg leading-[1.55] text-[#5d5246] sm:text-[21px]",
+      "text-muted-foreground max-w-[58ch] text-lg leading-[1.55] sm:text-[21px]",
     cards: "grid gap-4 md:grid-cols-2",
     metrics: "grid gap-3 sm:grid-cols-3",
     aside: "grid gap-4",
@@ -143,11 +143,11 @@ function PitchDeckSurface({ mode }: { mode: PitchDeckMode }) {
     >
       <section className="flex flex-col justify-between gap-8">
         <div className="space-y-6">
-          <div className="flex items-center justify-between gap-4 border-b border-[#d4c1aa] pb-4">
-            <div className="text-[11px] uppercase tracking-[0.28em] text-[#91512f]">
+          <div className="border-border flex items-center justify-between gap-4 border-b pb-4">
+            <div className="text-primary text-[11px] uppercase tracking-[0.28em]">
               Pitch Deck Surface
             </div>
-            <div className="text-[11px] uppercase tracking-[0.22em] text-[#7d7062]">
+            <div className="text-muted-foreground text-[11px] uppercase tracking-[0.22em]">
               React + Tailwind
             </div>
           </div>
@@ -170,7 +170,7 @@ function PitchDeckSurface({ mode }: { mode: PitchDeckMode }) {
           ))}
         </div>
 
-        <div className={`border-t border-[#d4c1aa] pt-5 ${classes.metrics}`}>
+        <div className={`border-border border-t pt-5 ${classes.metrics}`}>
           {metricBlocks.map((metric) => (
             <MetricBlock key={metric.label} {...metric} />
           ))}
@@ -178,21 +178,21 @@ function PitchDeckSurface({ mode }: { mode: PitchDeckMode }) {
       </section>
 
       <section className={classes.aside}>
-        <div className="border border-[#d4c1aa] bg-[#fffaf3] p-4">
-          <div className="mb-3 flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.22em] text-[#7d7062]">
+        <div className="border border-border bg-secondary p-4 text-secondary-foreground">
+          <div className="mb-3 flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.22em] opacity-70">
             <span>Visual Surface</span>
             <span>App-owned</span>
           </div>
           <img
             alt="Noter visual surface"
-            className="block w-full border border-[#d4c1aa] object-cover"
+            className="border-border block w-full border object-cover"
             src="/noter-social-card.png"
           />
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="border border-[#d4c1aa] bg-[#17120e] p-4 text-[#f8f3ea]">
-            <div className="text-[11px] uppercase tracking-[0.22em] text-[#d8c8b2]">
+          <div className="border border-border bg-primary p-4 text-primary-foreground">
+            <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">
               Layout
             </div>
             <div className="mt-3 text-2xl leading-tight tracking-[-0.05em]">
@@ -200,21 +200,21 @@ function PitchDeckSurface({ mode }: { mode: PitchDeckMode }) {
             </div>
           </div>
 
-          <div className="border border-[#d4c1aa] bg-[#f4eadb] p-4">
-            <div className="text-[11px] uppercase tracking-[0.22em] text-[#7d7062]">
+          <div className="border border-border bg-secondary p-4 text-secondary-foreground">
+            <div className="text-[11px] uppercase tracking-[0.22em] opacity-70">
               Next Move
             </div>
-            <div className="mt-3 text-2xl leading-tight tracking-[-0.05em] text-[#17120e]">
+            <div className="mt-3 text-2xl leading-tight tracking-[-0.05em]">
               Replace the placeholder blocks with the real pitch story.
             </div>
           </div>
         </div>
 
-        <div className="border border-[#d4c1aa] bg-[#fcf7ef] p-5">
-          <div className="text-[11px] uppercase tracking-[0.24em] text-[#91512f]">
+        <div className="border border-border bg-background p-5">
+          <div className="text-primary text-[11px] uppercase tracking-[0.24em]">
             Implementation Notes
           </div>
-          <ul className="mt-4 space-y-3 text-base leading-7 text-[#5d5246]">
+          <ul className="text-muted-foreground mt-4 space-y-3 text-base leading-7">
             {implementationNotes.map((note) => (
               <li key={note}>{note}</li>
             ))}
@@ -227,14 +227,14 @@ function PitchDeckSurface({ mode }: { mode: PitchDeckMode }) {
 
 function resolvePageFrameClasses(mode: PitchDeckMode): string {
   if (mode === "print") {
-    return "min-h-screen overflow-auto bg-[#ede0cb] px-4 py-4 text-[#17120e]";
+    return "bg-background text-foreground min-h-screen overflow-auto px-4 py-4";
   }
 
   if (mode === "printMobile") {
-    return "min-h-screen overflow-auto bg-[#ede0cb] px-4 py-4 text-[#17120e]";
+    return "bg-background text-foreground min-h-screen overflow-auto px-4 py-4";
   }
 
-  return "min-h-screen bg-[#ede0cb] px-4 py-6 text-[#17120e] sm:px-6 sm:py-8";
+  return "bg-background text-foreground min-h-screen px-4 py-6 sm:px-6 sm:py-8";
 }
 
 /**
