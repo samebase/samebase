@@ -408,6 +408,7 @@ describe("collectLatestOpenPullRequestsByBranch", () => {
       number: 13,
       labels: [],
       title: "Show PR title above branch name",
+      isDraft: false,
     });
   });
 
@@ -448,6 +449,7 @@ describe("collectLatestOpenPullRequestsByBranch", () => {
       number: 22,
       labels: [],
       title: "Later PR",
+      isDraft: false,
     });
   });
 
@@ -496,6 +498,37 @@ describe("collectLatestOpenPullRequestsByBranch", () => {
       number: 21,
       labels: [{ name: "release", color: "1d76db" }],
       title: "Release PR",
+      isDraft: false,
+    });
+  });
+
+  it("preserves draft state for the latest same-repo pull request", () => {
+    const pullRequestsByBranch = collectLatestOpenPullRequestsByBranch({
+      branchNames: ["feature/pr-title"],
+      repositoryFullName: "owner/noter",
+      pullRequests: [
+        {
+          head: {
+            ref: "feature/pr-title",
+            repo: {
+              full_name: "owner/noter",
+            },
+          },
+          html_url: "https://github.com/owner/noter/pull/21",
+          number: 21,
+          title: "Draft PR",
+          updated_at: "2026-03-23T10:00:00Z",
+          draft: true,
+        },
+      ],
+    });
+
+    expect(pullRequestsByBranch.get("feature/pr-title")).toEqual({
+      url: "https://github.com/owner/noter/pull/21",
+      number: 21,
+      labels: [],
+      title: "Draft PR",
+      isDraft: true,
     });
   });
 });
