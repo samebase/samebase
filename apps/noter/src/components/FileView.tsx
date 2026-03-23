@@ -46,6 +46,7 @@ import { linkStyle } from "./styles";
 import { useConvexAction, useConvexMutation } from "@/lib/convexUtils";
 import { DialogProvider } from "@/contexts/DialogContext";
 import { useDialog } from "@/hooks/useDialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { FileCreationDialog } from "@/components/FileCreationDialog";
 import { FolderCreationDialog } from "@/components/FolderCreationDialog";
 import {
@@ -907,6 +908,7 @@ function FileViewInner({
     const params = new URLSearchParams(search);
     return params.get("mobileLineNumbers") === "1";
   }, [search]);
+  const isMobileViewport = useIsMobile();
   const commitReviewMode = useMemo<CommitReviewMode>(() => {
     return isDiffRequested ? "review" : "editor";
   }, [isDiffRequested]);
@@ -2281,26 +2283,6 @@ function FileViewInner({
     </>
   );
 
-  const reviewModeButton =
-    viewMode === "editor" ? (
-      <Button
-        size="sm"
-        variant={commitReviewMode === "review" ? "secondary" : "outline"}
-        onClick={handleToggleReviewMode}
-        disabled={
-          commitReviewMode === "editor" &&
-          (!hasChangesToCommit || commitPreviewStatus === "loading")
-        }
-        className="h-6 px-2 text-xs"
-      >
-        {commitReviewMode === "review"
-          ? "Back to Editor"
-          : commitPreviewStatus === "loading"
-            ? "Loading..."
-            : "Review Changes"}
-      </Button>
-    ) : null;
-
   const editorSurfaceTabs = (
     <Tabs
       value={viewMode}
@@ -2422,6 +2404,14 @@ function FileViewInner({
     [handleEditorChatResizeBy],
   );
   const editorChatMaxHeight = getMaxEditorChatHeight();
+  // Mobile needs a real viewport-attached bottom sheet; inline layout makes the
+  // panel scroll away and appear as regular page content instead of a dock.
+  const editorChatDockWrapperClassName = isMobileViewport
+    ? "fixed inset-x-0 bottom-0 z-20 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+    : "min-h-0 shrink-0";
+  const editorChatPanelClassName = isMobileViewport
+    ? "h-full"
+    : "h-full -mx-4 sm:mx-0";
 
   return (
     <>
@@ -2432,7 +2422,7 @@ function FileViewInner({
       >
         <div className="max-w-none flex h-full min-h-0 flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex min-w-0 items-start gap-3">
+            <div className="min-w-0">
               <div className="min-w-0">
                 <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">
                   {branch}
@@ -2450,23 +2440,6 @@ function FileViewInner({
                   </h2>
                 ) : null}
               </div>
-              <Tabs
-                value={viewMode}
-                onValueChange={(value) => {
-                  if (value === "editor" || value === "graph") {
-                    setViewMode(value);
-                  }
-                }}
-              >
-                <TabsList className="h-7">
-                  <TabsTrigger value="editor" className="px-2 text-xs">
-                    Editor
-                  </TabsTrigger>
-                  <TabsTrigger value="graph" className="px-2 text-xs">
-                    Graph
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
             </div>
 
             <div className="flex flex-col gap-2">
@@ -2605,7 +2578,6 @@ function FileViewInner({
 
           <div className="mb-2 flex flex-wrap items-center gap-2">
             {editorSurfaceTabs}
-            {reviewModeButton}
           </div>
 
           <div className="relative flex-1 min-h-0">
@@ -2912,18 +2884,18 @@ function FileViewInner({
                 onClick={() => handleEditorChatOpenChange(true)}
                 aria-label="Open chat"
                 title="Open chat"
-                className="fixed bottom-3 right-3 z-10 flex h-11 w-11 items-center justify-center corner-notch-1 border-0 bg-primary p-0 text-primary-foreground shadow-lg transition-colors hover:bg-primary/90 sm:absolute"
+                className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-3 z-10 flex h-11 w-11 items-center justify-center corner-notch-1 border-0 bg-primary p-0 text-primary-foreground shadow-lg transition-colors hover:bg-primary/90 sm:absolute sm:bottom-3"
               >
                 <span aria-hidden="true" className="h-4 w-4 bg-current" />
               </Button>
             ) : null}
           </div>
           {editorChatOpen ? (
-            <div
-              className="min-h-0 shrink-0"
-              style={{ height: `${editorChatHeight}px` }}
-            >
-              <div className="flex h-full min-h-0 flex-col">
+            <div className={editorChatDockWrapperClassName}>
+              <div
+                className="flex h-full min-h-0 flex-col"
+                style={{ height: `${editorChatHeight}px` }}
+              >
                 <div
                   role="separator"
                   aria-label="Resize chat panel"
@@ -2962,7 +2934,7 @@ function FileViewInner({
                       editorChatOpenState === true &&
                       editorChatPendingRef.current === true
                     }
-                    className="h-full -mx-4 sm:mx-0"
+                    className={editorChatPanelClassName}
                     onClose={() => handleEditorChatOpenChange(false)}
                   />
                 </div>

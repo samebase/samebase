@@ -123,7 +123,7 @@ function OpenMobileChatFixture() {
     <div className="min-h-screen bg-stone-100 p-0 text-stone-950">
       <div
         data-testid="editor-chat-visual-fixture"
-        className="mx-auto flex min-h-screen w-full max-w-[430px] flex-col bg-white"
+        className="relative mx-auto flex min-h-screen w-full max-w-[430px] flex-col overflow-hidden bg-white"
       >
         <div className="border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
@@ -143,12 +143,12 @@ function OpenMobileChatFixture() {
           </div>
         </div>
 
-        <div className="flex-1 bg-white px-4 py-4">
-          <div className="h-full min-h-[300px] border border-stone-200 bg-stone-50" />
+        <div className="flex-1 bg-white px-4 py-4 pb-[18rem]">
+          <div className="h-full min-h-[420px] border border-stone-200 bg-stone-50" />
         </div>
 
-        <div className="min-h-0 shrink-0">
-          <div className="flex h-full min-h-0 flex-col">
+        <div className="absolute inset-x-0 bottom-0 px-2 pb-2">
+          <div className="flex h-[280px] min-h-0 flex-col">
             <div className="mb-[-1px] flex h-5 shrink-0 items-center justify-center text-muted-foreground">
               <div className="h-1 w-12 corner-notch-1 bg-current/40" />
             </div>
