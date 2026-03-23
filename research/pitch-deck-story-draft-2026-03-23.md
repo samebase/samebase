@@ -59,6 +59,7 @@ What they suggest for the deck:
 
 - Noter should feel opinionated, not generic
 - mobile and browser access are product pillars, not side benefits
+- web is the primary platform; native wrappers are secondary
 - GitHub should read as the durable system of record
 - the AI/product UX should feel transparent, not magical in a fragile way
 
@@ -146,6 +147,9 @@ Why this matters:
 - the target experience is several seconds, not several minutes
 - the dev environment should feel invisible, not like a separate system to
   manage
+- web matters because agents can use it directly with tools like Playwright
+- native apps and app-store shells are secondary because they are harder for
+  agents to operate
 
 Implementation note:
 
@@ -255,6 +259,8 @@ Good backup concepts from repo research:
 - `Docs and code in one place.`
 - `Terminal as escape hatch, not primary UX.`
 - `Git as the durable layer.`
+- `Web is the primary platform.`
+- `If an agent can open the web app, it can use the product.`
 
 Use carefully:
 
@@ -274,6 +280,9 @@ Use carefully:
 - Do not lead with Daytona as a brand name.
 - Lead with the result: instant access, mobile access, and an invisible dev
   environment.
+- `Web-first` should mean agent-usable first, not just mobile-friendly.
+- Better: the web app is the main product because both humans and agents can use
+  it directly; PWA/native wrappers are secondary.
 
 ## Sources
 
