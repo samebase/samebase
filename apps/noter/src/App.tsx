@@ -72,6 +72,10 @@ const LogoTransitionTransformsLabPage = lazy(async () => {
   const module = await import("@/components/LogoTransitionTransformsLabPage");
   return { default: module.LogoTransitionTransformsLabPage };
 });
+const PitchDeckPage = lazy(async () => {
+  const module = await import("@/components/PitchDeckPage");
+  return { default: module.PitchDeckPage };
+});
 
 function useCloseOAuthPopup(pathname: string, enabled: boolean) {
   const { isAuthenticated } = useConvexAuth();
@@ -154,6 +158,22 @@ function readMcpConsentRequestId(search: string): string | null {
 
 function isMcpConsentRoute(pathname: string): boolean {
   return pathname === MCP_CONSENT_APP_PATH;
+}
+
+function resolvePitchDeckMode(pathname: string) {
+  if (pathname === "/pitch") {
+    return "interactive" as const;
+  }
+
+  if (pathname === "/pitch/print") {
+    return "print" as const;
+  }
+
+  if (pathname === "/pitch/print/mobile") {
+    return "printMobile" as const;
+  }
+
+  return null;
 }
 
 function McpConsentView({ requestId }: { requestId: string }) {
@@ -329,6 +349,8 @@ export default function App() {
   const showPrivacyPolicyPage = location.pathname === "/privacy";
   const showLogoTransitionTransformsLab =
     location.pathname === "/logo-transition-lab-transforms";
+  const pitchDeckMode = resolvePitchDeckMode(location.pathname);
+  const showPitchDeckPage = pitchDeckMode !== null;
   const showPublicLandingWithoutAuthGate =
     !isAuthenticated && shouldRenderPublicLandingWithoutAuthGate(location);
 
@@ -385,6 +407,13 @@ export default function App() {
     return (
       <Suspense fallback={null}>
         <LogoTransitionTransformsLabPage />
+      </Suspense>
+    );
+  }
+  if (showPitchDeckPage) {
+    return (
+      <Suspense fallback={null}>
+        <PitchDeckPage mode={pitchDeckMode} />
       </Suspense>
     );
   }

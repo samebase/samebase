@@ -159,6 +159,48 @@ describe("page metadata", () => {
     });
   });
 
+  it("keeps the pitch deck routes public but non-indexed", () => {
+    const deckPaths = [
+      {
+        pathname: "/pitch",
+        title: "Pitch Deck | Noter",
+        canonicalUrl: "https://noter.md/pitch",
+      },
+      {
+        pathname: "/pitch/print",
+        title: "Pitch Deck Print | Noter",
+        canonicalUrl: "https://noter.md/pitch/print",
+      },
+      {
+        pathname: "/pitch/print/mobile",
+        title: "Pitch Deck Mobile Print | Noter",
+        canonicalUrl: "https://noter.md/pitch/print/mobile",
+      },
+    ] as const;
+
+    for (const deckPath of deckPaths) {
+      withFakeDocument((document) => {
+        applyPageMetadata(
+          resolvePageMetadata({
+            pathname: deckPath.pathname,
+            isAuthenticated: false,
+          }),
+        );
+
+        expect(document.title).toBe(deckPath.title);
+        expect(
+          getHeadAttribute(document, 'link[rel="canonical"]', "href"),
+        ).toBe(deckPath.canonicalUrl);
+        expect(
+          getHeadAttribute(document, 'meta[name="robots"]', "content"),
+        ).toBe("noindex,nofollow");
+        expect(
+          getHeadAttribute(document, 'meta[property="og:url"]', "content"),
+        ).toBe(deckPath.canonicalUrl);
+      });
+    }
+  });
+
   it("keeps the raw html shell aligned with the real public homepage", () => {
     const html = readFileSync(new URL("../../index.html", import.meta.url), {
       encoding: "utf8",
