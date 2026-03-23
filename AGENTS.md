@@ -533,6 +533,9 @@ Auth:
   running the screenshot flow. Use rendered image attachments/Markdown image
   tags, not just text descriptions of the diff, and keep the screenshots compact
   enough to inspect without overwhelming the response.
+- When explaining a screenshot diff or visual regression, always include the
+  pixelmatch diff image and the before/after screenshots in the user-facing
+  response when those images are available.
 - When a response relates to an existing PR, always mention the PR number and
   format that PR number itself as a clickable Markdown link to the PR (for
   example `[#253](https://github.com/noter-md/noter/pull/253)`), even if the

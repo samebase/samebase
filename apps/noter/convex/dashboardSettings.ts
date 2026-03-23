@@ -11,6 +11,7 @@ const DEFAULT_PRICING_BILLING_CYCLE: BillingCycle = "monthly";
 
 const dashboardSettingsValidator = object({
   providersPanelOpen: boolean(),
+  // TODO: Why is this necessary? (probably remove it)
   pricingBillingCycle: billingCycleValidator,
   editorChatOpen: boolean(),
 });
