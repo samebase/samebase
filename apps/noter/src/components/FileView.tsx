@@ -874,10 +874,16 @@ function FileViewInner({
   const currentPullRequestNumber = currentRemoteBranch?.pullRequestNumber;
   const currentPullRequestUrl = currentRemoteBranch?.pullRequestUrl;
   const didResolveRemoteBranches = remoteBranches !== undefined;
-  const hasCurrentPullRequest = currentPullRequestUrl != null;
   const isDefaultBranch =
     currentRemoteBranch?.isDefault ??
     (typeof vault.defaultBranch === "string" && branch === vault.defaultBranch);
+  const currentBranchPullRequestNumber = isDefaultBranch
+    ? undefined
+    : currentPullRequestNumber;
+  const currentBranchPullRequestUrl = isDefaultBranch
+    ? undefined
+    : currentPullRequestUrl;
+  const hasCurrentBranchPullRequest = currentBranchPullRequestUrl != null;
 
   // Add command palette keyboard shortcut handler
   useEffect(() => {
@@ -1418,8 +1424,8 @@ function FileViewInner({
     setRebaseConflictPreviewError(null);
     setRebaseConflictBundleFeedback(null);
 
-    if (currentPullRequestUrl) {
-      window.open(currentPullRequestUrl, "_blank", "noopener,noreferrer");
+    if (currentBranchPullRequestUrl) {
+      window.open(currentBranchPullRequestUrl, "_blank", "noopener,noreferrer");
       return;
     }
 
@@ -1514,7 +1520,7 @@ function FileViewInner({
     buildVaultFileUrl,
     createDraftPullRequest,
     createDraftPullRequestFromDefaultBranch,
-    currentPullRequestUrl,
+    currentBranchPullRequestUrl,
     didResolveRemoteBranches,
     handleUpstreamConflictDetected,
     isDefaultBranch,
@@ -2044,13 +2050,11 @@ function FileViewInner({
         file.fileDeleted ||
         file.parentCommitSha === null,
     );
-  const canCreateDraftPullRequest =
-    !hasCurrentPullRequest &&
-    (isDefaultBranch
-      ? hasChangesToCommit === true
-      : didResolveRemoteBranches &&
-        (hasChangesToCommit === true ||
-          (currentRemoteBranch?.aheadBy ?? 0) > 0));
+  const canCreateDraftPullRequest = isDefaultBranch
+    ? hasChangesToCommit === true
+    : !hasCurrentBranchPullRequest &&
+      didResolveRemoteBranches &&
+      (hasChangesToCommit === true || (currentRemoteBranch?.aheadBy ?? 0) > 0);
   const draftButtonLabel = isDefaultBranch ? "draft" : "create draft";
   const isCreatingDraftPullRequest =
     draftPullRequestStatus === "loading" ||
@@ -2390,8 +2394,8 @@ function FileViewInner({
 
                   <FileViewPushActions
                     canCreateDraftPullRequest={canCreateDraftPullRequest}
-                    currentPullRequestNumber={currentPullRequestNumber}
-                    currentPullRequestUrl={currentPullRequestUrl}
+                    currentPullRequestNumber={currentBranchPullRequestNumber}
+                    currentPullRequestUrl={currentBranchPullRequestUrl}
                     draftButtonLabel={draftButtonLabel}
                     hasChangesToCommit={Boolean(hasChangesToCommit)}
                     isCreatingDraftPullRequest={isCreatingDraftPullRequest}

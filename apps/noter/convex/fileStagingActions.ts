@@ -1839,15 +1839,6 @@ export const createDraftPullRequestFromDefaultBranch = action({
     }
 
     try {
-      // Committing the captured snapshot moves that unit of work onto the draft
-      // branch. Clear only the unchanged source snapshot so newer default-branch
-      // edits survive while retries do not re-draft the same work.
-      await ctx.runMutation(internal.fileStaging.clearMatchingStagingSnapshot, {
-        vaultId: vault._id,
-        branch: defaultBranch,
-        stagedFiles,
-      });
-
       let url: string;
       let number: number;
       try {
@@ -1878,13 +1869,34 @@ export const createDraftPullRequestFromDefaultBranch = action({
           baseBranch: defaultBranch,
         });
         if (!currentPullRequest) {
-          throw new Error(
-            `Draft branch ${targetBranch} was created, but the pull request could not be opened.`,
-          );
+          // If GitHub never confirmed a PR, keep the default-branch staging
+          // intact so the user can retry from the same source state.
+          await cleanupTemporaryDraftBranch({
+            ctx,
+            octokit,
+            vaultId: vault._id,
+            owner: vault.ghRepoOwner,
+            repo: vault.ghRepoName,
+            branch: targetBranch,
+          });
+
+          if (error instanceof Error && error.message.length > 0) {
+            throw error;
+          }
+          throw new Error("Failed to create draft pull request");
         }
         url = currentPullRequest.url;
         number = currentPullRequest.number;
       }
+
+      // Once GitHub confirms the draft PR, clear only the unchanged source
+      // snapshot so newer default-branch edits survive while retries do not
+      // re-draft the same work.
+      await ctx.runMutation(internal.fileStaging.clearMatchingStagingSnapshot, {
+        vaultId: vault._id,
+        branch: defaultBranch,
+        stagedFiles,
+      });
 
       try {
         await ctx.runAction(internal.github.updateRepositoryTree, {
