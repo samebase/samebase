@@ -34,6 +34,7 @@ import {
 } from "@/components/LogoSnapAnglesVisualFixture";
 import { FileViewPushActionsVisualFixture } from "@/components/FileViewPushActionsVisualFixture";
 import {
+  FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES,
   isFileViewPushActionsVisualMode,
   type FileViewPushActionsVisualMode,
 } from "@/components/fileViewPushActionsVisualModes";
@@ -47,6 +48,7 @@ import {
   VaultBranchPreviewVisualFixture,
   type VaultBranchPreviewVisualMode,
 } from "@/components/VaultBranchPreviewVisualFixture";
+import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import "./index.css";
 
 type VisualFixtureMode =
@@ -65,93 +67,306 @@ type VisualFixtureMode =
   | "corner-notch"
   | "corner-notch-detail";
 
-function readMode(): VisualFixtureMode {
-  const value = new URLSearchParams(window.location.search).get("mode");
-  if (
-    value === "inline" ||
-    value === "deleted" ||
-    value === "deleted-staged-changes" ||
-    value === "deleted-markdown-link" ||
-    value === "trailing-newline-only" ||
-    value === "unchanged" ||
-    value === "conflict" ||
-    value === "logo-three-reference" ||
-    value === "media-png" ||
-    value === "media-svg" ||
-    value === "editor-chat-open-desktop" ||
-    value === "editor-chat-open-mobile" ||
-    value === "editor-chat-closed" ||
-    value === "landing-copy-parity" ||
-    value === "landing-copy-editable-parity-single-line" ||
-    value === "landing-copy-editable-parity-two-line" ||
-    value === "landing-copy-editable-parity-three-line" ||
-    value === "dashboard-shared-sidebar" ||
-    value === "dashboard-shared-sidebar-mobile-chat" ||
-    value === "vault-branch-filters" ||
-    value === "simple-repository-config" ||
-    value === "simple-missing-config" ||
-    value === "vault-branch-pr-labels" ||
-    value === "vault-branch-mobile-alignment" ||
-    value === "vault-branch-preview-link" ||
-    value === "vault-branch-preview-missing" ||
-    (typeof value === "string" && isFileViewPushActionsVisualMode(value)) ||
-    value === "vault-dashboard-branch-pr-title" ||
-    value === "button" ||
-    value === "corner-notch" ||
-    value === "logo-snap-angles" ||
-    value === "corner-notch-detail"
-  ) {
-    return value;
-  }
-  return "inline";
+type VisualFixtureSelection =
+  | {
+      status: "missing";
+    }
+  | {
+      status: "invalid";
+      value: string;
+    }
+  | {
+      status: "valid";
+      mode: VisualFixtureMode;
+    };
+
+const COMMIT_REVIEW_VISUAL_MODES = [
+  "inline",
+  "deleted",
+  "deleted-staged-changes",
+  "deleted-markdown-link",
+  "trailing-newline-only",
+  "unchanged",
+  "conflict",
+] as const satisfies readonly CommitReviewVisualMode[];
+
+const REPOSITORY_MEDIA_VISUAL_MODES = [
+  "media-png",
+  "media-svg",
+] as const satisfies readonly RepositoryMediaVisualMode[];
+
+const EDITOR_CHAT_VISUAL_MODES = [
+  "editor-chat-open-desktop",
+  "editor-chat-open-mobile",
+  "editor-chat-closed",
+] as const satisfies readonly EditorChatVisualMode[];
+
+const LANDING_COPY_VISUAL_MODES = [
+  "landing-copy-parity",
+  "landing-copy-editable-parity-single-line",
+  "landing-copy-editable-parity-two-line",
+  "landing-copy-editable-parity-three-line",
+] as const satisfies readonly LandingCopyVisualMode[];
+
+const LOGO_VISUAL_MODES = [
+  "logo-three-reference",
+  "logo-snap-angles",
+] as const satisfies readonly (
+  | LogoThreeVisualMode
+  | LogoSnapAnglesVisualMode
+)[];
+
+const SIMPLE_VIEW_VISUAL_MODES = [
+  "simple-repository-config",
+  "simple-missing-config",
+] as const satisfies readonly SimpleViewVisualMode[];
+
+const VAULT_DASHBOARD_VISUAL_MODES = [
+  "dashboard-shared-sidebar",
+  "dashboard-shared-sidebar-mobile-chat",
+  "vault-branch-filters",
+  "vault-branch-pr-labels",
+  "vault-branch-mobile-alignment",
+] as const satisfies readonly VaultDashboardVisualMode[];
+
+const VAULT_BRANCH_PREVIEW_VISUAL_MODES = [
+  "vault-branch-preview-link",
+  "vault-branch-preview-missing",
+] as const satisfies readonly VaultBranchPreviewVisualMode[];
+
+const MISC_VISUAL_MODES = [
+  "vault-dashboard-branch-pr-title",
+  "button",
+  "corner-notch",
+  "corner-notch-detail",
+] as const satisfies readonly VisualFixtureMode[];
+
+const VISUAL_FIXTURE_GROUPS = [
+  {
+    label: "Commit Review",
+    modes: COMMIT_REVIEW_VISUAL_MODES,
+  },
+  {
+    label: "File View",
+    modes: FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES,
+  },
+  {
+    label: "Editor Chat",
+    modes: EDITOR_CHAT_VISUAL_MODES,
+  },
+  {
+    label: "Landing Copy",
+    modes: LANDING_COPY_VISUAL_MODES,
+  },
+  {
+    label: "Logo",
+    modes: LOGO_VISUAL_MODES,
+  },
+  {
+    label: "Repository Media",
+    modes: REPOSITORY_MEDIA_VISUAL_MODES,
+  },
+  {
+    label: "Simple View",
+    modes: SIMPLE_VIEW_VISUAL_MODES,
+  },
+  {
+    label: "Vault Dashboard",
+    modes: VAULT_DASHBOARD_VISUAL_MODES,
+  },
+  {
+    label: "Vault Branch Preview",
+    modes: VAULT_BRANCH_PREVIEW_VISUAL_MODES,
+  },
+  {
+    label: "Misc",
+    modes: MISC_VISUAL_MODES,
+  },
+] as const satisfies readonly {
+  label: string;
+  modes: readonly VisualFixtureMode[];
+}[];
+
+function isCommitReviewVisualMode(
+  mode: VisualFixtureMode,
+): mode is CommitReviewVisualMode {
+  return COMMIT_REVIEW_VISUAL_MODES.some(
+    (commitReviewMode) => commitReviewMode === mode,
+  );
 }
 
-const mode = readMode();
+function isVisualFixtureMode(value: string): value is VisualFixtureMode {
+  return VISUAL_FIXTURE_GROUPS.some((group) =>
+    group.modes.some((mode) => mode === value),
+  );
+}
+
+function readSelection(): VisualFixtureSelection {
+  const value = new URLSearchParams(window.location.search).get("mode")?.trim();
+
+  if (!value) {
+    return { status: "missing" };
+  }
+
+  if (isVisualFixtureMode(value)) {
+    return {
+      status: "valid",
+      mode: value,
+    };
+  }
+
+  return {
+    status: "invalid",
+    value,
+  };
+}
+
+function renderVisualFixture(mode: VisualFixtureMode) {
+  if (mode === "media-png" || mode === "media-svg") {
+    return <RepositoryMediaVisualFixture mode={mode} />;
+  }
+
+  if (
+    mode === "landing-copy-parity" ||
+    mode === "landing-copy-editable-parity-single-line" ||
+    mode === "landing-copy-editable-parity-two-line" ||
+    mode === "landing-copy-editable-parity-three-line"
+  ) {
+    return <LandingCopyVisualFixture mode={mode} />;
+  }
+
+  if (mode === "logo-three-reference") {
+    return <LogoThreeVisualFixture />;
+  }
+
+  if (mode === "logo-snap-angles") {
+    return <LogoSnapAnglesVisualFixture />;
+  }
+
+  if (
+    mode === "editor-chat-open-desktop" ||
+    mode === "editor-chat-open-mobile" ||
+    mode === "editor-chat-closed"
+  ) {
+    return <EditorChatVisualFixture mode={mode} />;
+  }
+
+  if (mode === "simple-repository-config" || mode === "simple-missing-config") {
+    return <SimpleViewVisualFixture mode={mode} />;
+  }
+
+  if (
+    mode === "dashboard-shared-sidebar" ||
+    mode === "dashboard-shared-sidebar-mobile-chat" ||
+    mode === "vault-branch-filters" ||
+    mode === "vault-branch-pr-labels" ||
+    mode === "vault-branch-mobile-alignment"
+  ) {
+    return <VaultDashboardVisualFixture mode={mode} />;
+  }
+
+  if (
+    mode === "vault-branch-preview-link" ||
+    mode === "vault-branch-preview-missing"
+  ) {
+    return <VaultBranchPreviewVisualFixture mode={mode} />;
+  }
+
+  if (isFileViewPushActionsVisualMode(mode)) {
+    return <FileViewPushActionsVisualFixture mode={mode} />;
+  }
+
+  if (mode === "vault-dashboard-branch-pr-title") {
+    return <VaultDashboardBranchVisualFixture />;
+  }
+
+  if (mode === "button") {
+    return <ButtonVisualFixture />;
+  }
+
+  if (mode === "corner-notch") {
+    return <CornerNotchVisualFixture />;
+  }
+
+  if (mode === "corner-notch-detail") {
+    return <CornerNotchDetailVisualFixture />;
+  }
+
+  if (isCommitReviewVisualMode(mode)) {
+    return <CommitReviewVisualFixture mode={mode} />;
+  }
+
+  mode satisfies never;
+  return null;
+}
+
+function buildFixtureModeHref(mode: VisualFixtureMode) {
+  return buildPathWithUpdatedQuery(window.location, (nextSearchParams) => {
+    setQueryParam(nextSearchParams, "mode", mode);
+  });
+}
+
+function renderVisualFixtureModeDirectory({
+  invalidMode,
+}: {
+  invalidMode?: string;
+}) {
+  return (
+    <div className="min-h-screen bg-stone-100 p-8 text-stone-950">
+      <div className="mx-auto grid max-w-6xl gap-8">
+        <div className="grid gap-3">
+          <div className="text-xs font-medium uppercase tracking-[0.2em] text-stone-500">
+            Visual Fixture
+          </div>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {invalidMode ? "Mode not found" : "Choose a fixture mode"}
+          </h1>
+          <p className="max-w-3xl text-sm leading-6 text-stone-600">
+            {invalidMode
+              ? `No visual fixture is registered for "${invalidMode}". Pick one of the known modes below.`
+              : "Pick a registered mode to open that visual fixture directly. This keeps the page lightweight while still giving you a browsable index."}
+          </p>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          {VISUAL_FIXTURE_GROUPS.map((group) => (
+            <section
+              key={group.label}
+              className="corner-notch-1 border border-stone-300 bg-white p-4"
+            >
+              <div className="mb-3 text-sm font-medium text-stone-900">
+                {group.label}
+              </div>
+              <div className="grid gap-2">
+                {group.modes.map((mode) => (
+                  <a
+                    key={mode}
+                    className="corner-notch-1 border border-stone-300 px-3 py-2 text-sm text-stone-700 transition-colors hover:bg-stone-100"
+                    href={buildFixtureModeHref(mode)}
+                  >
+                    {mode}
+                  </a>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const selection = readSelection();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <DialogProvider>
-        {mode === "media-png" || mode === "media-svg" ? (
-          <RepositoryMediaVisualFixture mode={mode} />
-        ) : mode === "landing-copy-parity" ||
-          mode === "landing-copy-editable-parity-single-line" ||
-          mode === "landing-copy-editable-parity-two-line" ||
-          mode === "landing-copy-editable-parity-three-line" ? (
-          <LandingCopyVisualFixture mode={mode} />
-        ) : mode === "logo-three-reference" ? (
-          <LogoThreeVisualFixture />
-        ) : mode === "logo-snap-angles" ? (
-          <LogoSnapAnglesVisualFixture />
-        ) : mode === "editor-chat-open-desktop" ||
-          mode === "editor-chat-open-mobile" ||
-          mode === "editor-chat-closed" ? (
-          <EditorChatVisualFixture mode={mode} />
-        ) : mode === "simple-repository-config" ||
-          mode === "simple-missing-config" ? (
-          <SimpleViewVisualFixture mode={mode} />
-        ) : mode === "dashboard-shared-sidebar" ||
-          mode === "dashboard-shared-sidebar-mobile-chat" ||
-          mode === "vault-branch-filters" ||
-          mode === "vault-branch-pr-labels" ||
-          mode === "vault-branch-mobile-alignment" ? (
-          <VaultDashboardVisualFixture mode={mode} />
-        ) : mode === "vault-branch-preview-link" ||
-          mode === "vault-branch-preview-missing" ? (
-          <VaultBranchPreviewVisualFixture mode={mode} />
-        ) : isFileViewPushActionsVisualMode(mode) ? (
-          <FileViewPushActionsVisualFixture mode={mode} />
-        ) : mode === "vault-dashboard-branch-pr-title" ? (
-          <VaultDashboardBranchVisualFixture />
-        ) : mode === "button" ? (
-          <ButtonVisualFixture />
-        ) : mode === "corner-notch" ? (
-          <CornerNotchVisualFixture />
-        ) : mode === "corner-notch-detail" ? (
-          <CornerNotchDetailVisualFixture />
-        ) : (
-          <CommitReviewVisualFixture mode={mode} />
-        )}
+        {selection.status === "missing"
+          ? renderVisualFixtureModeDirectory({})
+          : selection.status === "invalid"
+            ? renderVisualFixtureModeDirectory({ invalidMode: selection.value })
+            : renderVisualFixture(selection.mode)}
       </DialogProvider>
     </ThemeProvider>
   </React.StrictMode>,

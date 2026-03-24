@@ -495,6 +495,9 @@ Auth:
   interpretations remain.
 - For this operator, keep responses concise by default and always include a
   final `Summary` section.
+- For this operator, do not let local changes sit too long; commit progress in
+  reasonably small chunks from time to time instead of batching everything into
+  one late commit.
 - For this operator, default to additive minimalism in copy and visuals: start
   from an empty canvas, add only what is clearly needed for the current goal,
   and avoid filler copy or decorative chrome unless explicitly requested.
@@ -515,6 +518,9 @@ Auth:
   `origin` and rebase onto the latest `origin/main` before doing new work.
 - Format documents you write with Prettier by default so markdown/docs do not
   require manual cleanup.
+- Prefer exhaustive, type-safe dispatch with `satisfies never` when a union
+  should be fully handled at compile time; avoid catch-all fallbacks when this
+  pattern fits, and use an explicit runtime fallback only when needed.
 - Default to persisting user-visible UI state in Convex (per-user settings) so
   it syncs across devices; avoid localStorage unless explicitly requested for
   per-device behavior.
