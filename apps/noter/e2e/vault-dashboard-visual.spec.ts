@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { devices, expect, test } from "@playwright/test";
 
 test("vault dashboard fixture (shared sidebar)", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 760 });
@@ -71,6 +71,52 @@ test("vault dashboard fixture (branch PR labels)", async ({ page }) => {
     scale: "css",
     maxDiffPixelRatio: 0.03,
   });
+});
+
+test("vault dashboard fixture (branch filters popover)", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 560 });
+  await page.goto("/visual-fixture.html?mode=vault-branch-filters", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Filters", exact: true }).click();
+
+  await expect(page).toHaveScreenshot("vault-branch-filters-popover.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+});
+
+test("vault dashboard fixture (branch filters mobile sheet)", async ({
+  browser,
+}, testInfo) => {
+  const baseURL = testInfo.project.use.baseURL;
+  if (typeof baseURL !== "string") {
+    throw new Error("Playwright baseURL is required for mobile fixture tests.");
+  }
+
+  const context = await browser.newContext({
+    ...devices["iPhone 13"],
+    baseURL,
+  });
+  const page = await context.newPage();
+
+  await page.goto("/visual-fixture.html?mode=vault-branch-filters", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Filters", exact: true }).click();
+
+  await expect(page).toHaveScreenshot("vault-branch-filters-mobile.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+
+  await context.close();
 });
 
 test("vault dashboard fixture (mobile branch alignment)", async ({ page }) => {

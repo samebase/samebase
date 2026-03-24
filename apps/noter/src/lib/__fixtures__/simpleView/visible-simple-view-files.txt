@@ -36,6 +36,8 @@ apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-repository-confi
 apps/noter/e2e/vault-branch-preview-visual.spec.ts-snapshots/vault-branch-preview-link.png
 apps/noter/e2e/vault-branch-preview-visual.spec.ts-snapshots/vault-branch-preview-missing.png
 apps/noter/e2e/vault-dashboard-branch-visual.spec.ts-snapshots/vault-dashboard-branch-pr-title.png
+apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-filters-mobile.png
+apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-filters-popover.png
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-mobile-alignment.png
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-branch-pr-labels.png
 apps/noter/e2e/vault-dashboard-visual.spec.ts-snapshots/vault-dashboard-shared-sidebar-mobile-chat.png
@@ -103,6 +105,7 @@ rfcs/066_DASHBOARD_CLOUDFLARE_BRANCH_PREVIEW_LINKS_AND_THUMBNAILS.md
 rfcs/066_GITHUB_ORG_OVERVIEW_ONBOARDING_RESEARCH.md
 rfcs/066_LOGO_AUTO_ROTATION_QUERY_STUTTER_FINDINGS.md
 rfcs/067_DASHBOARD_SHARED_SIDEBAR_SPEC.md
+rfcs/068_VAULT_BRANCH_PR_FILTERING_RESEARCH.md
 rfcs/README.md
 Screenshot 2026-02-17 at 01.19.49.png
 skills/create-pr/SKILL.md

@@ -324,6 +324,15 @@ export default defineSchema({
     globalChatOpen: v.optional(v.boolean()),
   }).index("by_user", ["userId"]),
 
+  vaultBranchFilters: defineTable({
+    userId: v.id("users"),
+    vaultId: v.id("vaults"),
+    hiddenLabels: v.array(v.string()),
+    includeDrafts: v.boolean(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_and_vault", ["userId", "vaultId"]),
+
   /**
    * Vault contains a connected github repository.
    */
@@ -384,6 +393,7 @@ export default defineSchema({
     pullRequestNumber: v.optional(v.number()),
     pullRequestLabels: optional(array(PullRequestLabel)),
     pullRequestTitle: v.optional(v.string()),
+    pullRequestIsDraft: v.optional(v.boolean()),
     cloudflareBranchPreviewUrl: v.optional(v.string()),
     cloudflarePreviewUrl: v.optional(v.string()),
     cloudflarePreviewCommitSha: v.optional(v.string()),

@@ -56,6 +56,13 @@ type CloudflarePreviewMetadata = {
   cloudflarePreviewCommentCreatedAt?: number;
 };
 
+const vaultBranchFiltersValidator = object({
+  vaultId: id("vaults"),
+  hiddenLabels: array(string()),
+  includeDrafts: boolean(),
+});
+type VaultBranchFilters = Infer<typeof vaultBranchFiltersValidator>;
+
 /**
  * Cloudflare can edit or partially reformat its PR comment without removing the
  * underlying branch alias. Preserve existing cached fields when the latest
@@ -116,6 +123,16 @@ export const removeVault = mutation({
     if (vault.userId !== userId) {
       console.error("vault ownership mismatch", args.vaultId);
       return;
+    }
+
+    const vaultBranchFilter = await ctx.db
+      .query("vaultBranchFilters")
+      .withIndex("by_user_and_vault", (q) =>
+        q.eq("userId", userId).eq("vaultId", args.vaultId),
+      )
+      .first();
+    if (vaultBranchFilter) {
+      await ctx.db.delete(vaultBranchFilter._id);
     }
 
     // 1. Delete all blobs
@@ -247,6 +264,68 @@ export const removeVault = mutation({
     await ctx.db.delete(vault._id).catch((e) => {
       console.error("vault delete", e);
     });
+  },
+});
+
+export const getUserVaultBranchFilters = query({
+  args: {},
+  returns: array(vaultBranchFiltersValidator),
+  handler: async (ctx) => {
+    const userId = await getUserId(ctx);
+    return (
+      await ctx.db
+        .query("vaultBranchFilters")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect()
+    ).map((vaultBranchFilter) => ({
+      vaultId: vaultBranchFilter.vaultId,
+      hiddenLabels: vaultBranchFilter.hiddenLabels,
+      includeDrafts: vaultBranchFilter.includeDrafts,
+    }));
+  },
+});
+
+export const setVaultBranchFilters = mutation({
+  args: vaultBranchFiltersValidator,
+  returns: nullValidator,
+  handler: async (ctx, args: VaultBranchFilters) => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.db.get(args.vaultId);
+    if (!vault || vault.userId !== userId) {
+      throw new Error("Vault not found");
+    }
+
+    const existing = await ctx.db
+      .query("vaultBranchFilters")
+      .withIndex("by_user_and_vault", (q) =>
+        q.eq("userId", userId).eq("vaultId", args.vaultId),
+      )
+      .first();
+    const shouldPersist =
+      args.hiddenLabels.length > 0 || args.includeDrafts === true;
+
+    if (!shouldPersist) {
+      if (existing) {
+        await ctx.db.delete(existing._id);
+      }
+      return null;
+    }
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        hiddenLabels: args.hiddenLabels,
+        includeDrafts: args.includeDrafts,
+      });
+    } else {
+      await ctx.db.insert("vaultBranchFilters", {
+        userId,
+        vaultId: args.vaultId,
+        hiddenLabels: args.hiddenLabels,
+        includeDrafts: args.includeDrafts,
+      });
+    }
+
+    return null;
   },
 });
 
@@ -711,6 +790,7 @@ const getUserVaultsResult = array(
         pullRequestNumber: optional(number()),
         pullRequestLabels: optional(array(PullRequestLabel)),
         pullRequestTitle: optional(string()),
+        pullRequestIsDraft: optional(boolean()),
         isDefault: boolean(),
         isProtected: boolean(),
         remoteState: union(literal("active"), literal("deleted_upstream")),
@@ -830,6 +910,7 @@ export const getUserVaults = query({
               pullRequestNumber: branch.pullRequestNumber,
               pullRequestLabels: branch.pullRequestLabels,
               pullRequestTitle: branch.pullRequestTitle,
+              pullRequestIsDraft: branch.pullRequestIsDraft,
               isDefault: branch.isDefault,
               isProtected: branch.isProtected,
               remoteState: branch.remoteState,
@@ -893,6 +974,7 @@ export const getVaultRemoteBranches = query({
       pullRequestNumber: optional(number()),
       pullRequestLabels: optional(array(PullRequestLabel)),
       pullRequestTitle: optional(string()),
+      pullRequestIsDraft: optional(boolean()),
       isDefault: boolean(),
       isProtected: boolean(),
       remoteState: union(literal("active"), literal("deleted_upstream")),
@@ -923,6 +1005,7 @@ export const getVaultRemoteBranches = query({
       pullRequestNumber: branch.pullRequestNumber,
       pullRequestLabels: branch.pullRequestLabels,
       pullRequestTitle: branch.pullRequestTitle,
+      pullRequestIsDraft: branch.pullRequestIsDraft,
       isDefault: branch.isDefault,
       isProtected: branch.isProtected,
       remoteState: branch.remoteState,
@@ -1005,6 +1088,7 @@ export const syncVaultRemoteBranches = internalMutation({
         pullRequestNumber: optional(number()),
         pullRequestLabels: optional(array(PullRequestLabel)),
         pullRequestTitle: optional(string()),
+        pullRequestIsDraft: optional(boolean()),
         pullRequestState: union(literal("resolved"), literal("preserve")),
         isDefault: boolean(),
         isProtected: boolean(),
@@ -1046,6 +1130,7 @@ export const syncVaultRemoteBranches = internalMutation({
           pullRequestNumber?: number;
           pullRequestLabels?: PullRequestLabel[];
           pullRequestTitle?: string;
+          pullRequestIsDraft?: boolean;
           isDefault: boolean;
           isProtected: boolean;
           remoteState: "active";
@@ -1075,6 +1160,10 @@ export const syncVaultRemoteBranches = internalMutation({
           patchData.pullRequestNumber = branch.pullRequestNumber;
           patchData.pullRequestLabels = branch.pullRequestLabels;
           patchData.pullRequestTitle = branch.pullRequestTitle;
+          patchData.pullRequestIsDraft =
+            typeof branch.pullRequestUrl === "string"
+              ? branch.pullRequestIsDraft === true
+              : undefined;
         }
         await ctx.db.patch(existingBranch._id, patchData);
         continue;
@@ -1091,6 +1180,7 @@ export const syncVaultRemoteBranches = internalMutation({
         pullRequestNumber?: number;
         pullRequestLabels?: PullRequestLabel[];
         pullRequestTitle?: string;
+        pullRequestIsDraft?: boolean;
         isDefault: boolean;
         isProtected: boolean;
         remoteState: "active";
@@ -1123,6 +1213,9 @@ export const syncVaultRemoteBranches = internalMutation({
         }
         if (typeof branch.pullRequestTitle === "string") {
           insertData.pullRequestTitle = branch.pullRequestTitle;
+        }
+        if (typeof branch.pullRequestUrl === "string") {
+          insertData.pullRequestIsDraft = branch.pullRequestIsDraft === true;
         }
       }
       await ctx.db.insert("vaultRemoteBranches", insertData);

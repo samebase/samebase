@@ -77,6 +77,7 @@ import { DaytonaSnapshotBanner } from "@/components/DaytonaSnapshotBanner";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
 import { DaytonaSnapshotList } from "@/components/DaytonaSnapshotList";
 import { PullRequestLink } from "@/components/PullRequestLink";
+import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";
 import { CodexProviderRow } from "@/components/CodexProviderRow";
 import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";
 import { EditorChatDock } from "@/components/EditorChatDock";
@@ -89,6 +90,19 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { buildVaultCodespaceChatRoute } from "@/lib/vaultRoutes";
 import { RepositoryWorkspaceFrame } from "./RepositoryWorkspaceFrame";
 import { SidebarAccountSection } from "./SidebarAccountSection";
+import {
+  buildPullRequestLabelStyle,
+  normalizePullRequestLabels,
+} from "@/lib/pullRequestLabels";
+import {
+  areVaultBranchFiltersEqual,
+  buildVaultBranchFilterLabelOptions,
+  filterVaultRemoteBranches,
+  getDefaultVaultBranchFilters,
+  normalizeVaultBranchFilters,
+  type VaultBranchFilters as VaultBranchFiltersState,
+} from "@/lib/vaultBranchFilters";
+import { toast } from "@/components/ui/use-toast";
 
 const formatInfraState = (
   infraState: "not_started" | "provisioning" | "ready" | "failed" | "partial",
@@ -366,6 +380,7 @@ interface VaultRemoteBranchListItem {
   pullRequestNumber?: number;
   pullRequestLabels?: Array<string | { name: string; color?: string }>;
   pullRequestTitle?: string;
+  pullRequestIsDraft?: boolean;
   cloudflareBranchPreviewUrl?: string;
 }
 
@@ -382,17 +397,13 @@ interface VaultBranchLinkRowProps {
   pullRequestNumber?: number;
   pullRequestLabels?: Array<string | { name: string; color?: string }>;
   pullRequestTitle?: string;
+  pullRequestIsDraft?: boolean;
   cloudflareBranchPreviewUrl?: string;
   stagedSummary?: StagedSummary;
   canDeleteBranch: boolean;
   isDeletingBranch: boolean;
   onDeleteBranch: () => void;
 }
-
-type PullRequestLabelDisplay = {
-  name: string;
-  color?: string;
-};
 
 function formatAheadBehindCounts(
   aheadBy: number | undefined,
@@ -402,94 +413,6 @@ function formatAheadBehindCounts(
     return null;
   }
   return `↑${aheadBy} ↓${behindBy}`;
-}
-
-function normalizePullRequestLabelColor(
-  color: string | undefined,
-): string | undefined {
-  if (typeof color !== "string") {
-    return undefined;
-  }
-
-  const normalizedColor = color.trim().replace(/^#/, "");
-  if (!/^[0-9a-fA-F]{6}$/.test(normalizedColor)) {
-    return undefined;
-  }
-
-  return `#${normalizedColor.toLowerCase()}`;
-}
-
-function normalizePullRequestLabels(
-  labels: VaultBranchLinkRowProps["pullRequestLabels"],
-): PullRequestLabelDisplay[] {
-  const labelsByName = new Map<string, PullRequestLabelDisplay>();
-
-  for (const label of labels ?? []) {
-    const name = typeof label === "string" ? label : label.name;
-    if (typeof name !== "string" || name.length === 0) {
-      continue;
-    }
-
-    const color =
-      typeof label === "string"
-        ? undefined
-        : normalizePullRequestLabelColor(label.color);
-    const existing = labelsByName.get(name);
-    if (!existing || (typeof color === "string" && existing.color !== color)) {
-      labelsByName.set(name, { name, color });
-    }
-  }
-
-  return Array.from(labelsByName.values());
-}
-
-function getHexColorLuminance(color: string): number {
-  const [red, green, blue] = [0, 2, 4].map((index) =>
-    Number.parseInt(color.slice(index + 1, index + 3), 16),
-  );
-  const toLinear = (channel: number) => {
-    const normalized = channel / 255;
-    return normalized <= 0.03928
-      ? normalized / 12.92
-      : ((normalized + 0.055) / 1.055) ** 2.4;
-  };
-
-  return (
-    0.2126 * toLinear(red) + 0.7152 * toLinear(green) + 0.0722 * toLinear(blue)
-  );
-}
-
-function getContrastRatio(a: number, b: number): number {
-  const lighter = Math.max(a, b);
-  const darker = Math.min(a, b);
-  return (lighter + 0.05) / (darker + 0.05);
-}
-
-function getLabelTextColor(backgroundColor: string): string {
-  const lightTextColor = "#ffffff";
-  const darkTextColor = "#1f2328";
-  const backgroundLuminance = getHexColorLuminance(backgroundColor);
-  const lightContrast = getContrastRatio(backgroundLuminance, 1);
-  const darkContrast = getContrastRatio(
-    backgroundLuminance,
-    getHexColorLuminance(darkTextColor),
-  );
-
-  return darkContrast >= lightContrast ? darkTextColor : lightTextColor;
-}
-
-function buildPullRequestLabelStyle(
-  color: string | undefined,
-): CSSProperties | undefined {
-  if (typeof color !== "string") {
-    return undefined;
-  }
-
-  return {
-    backgroundColor: color,
-    borderColor: color,
-    color: getLabelTextColor(color),
-  };
 }
 
 export function VaultBranchLinkContent({
@@ -504,6 +427,7 @@ export function VaultBranchLinkContent({
   pullRequestNumber,
   pullRequestLabels,
   pullRequestTitle,
+  pullRequestIsDraft,
   cloudflareBranchPreviewUrl,
 }: {
   repositoryFullName: string;
@@ -517,6 +441,7 @@ export function VaultBranchLinkContent({
   pullRequestNumber?: number;
   pullRequestLabels?: VaultBranchLinkRowProps["pullRequestLabels"];
   pullRequestTitle?: string;
+  pullRequestIsDraft?: boolean;
   cloudflareBranchPreviewUrl?: string;
 }) {
   const commitUrl = `https://github.com/${repositoryFullName}/commit/${headCommitSha}`;
@@ -583,6 +508,14 @@ export function VaultBranchLinkContent({
                   pullRequestUrl={pullRequestUrl}
                   className={metadataLinkClassName}
                 />
+                {pullRequestIsDraft ? (
+                  <Badge
+                    variant="outline"
+                    className="h-5 px-1.5 py-0 text-[10px] font-medium uppercase tracking-wide"
+                  >
+                    draft
+                  </Badge>
+                ) : null}
               </>
             ) : null}
             {normalizedPullRequestLabels.length > 0
@@ -644,6 +577,7 @@ export function VaultBranchLinkRow({
   pullRequestNumber,
   pullRequestLabels,
   pullRequestTitle,
+  pullRequestIsDraft,
   cloudflareBranchPreviewUrl,
   stagedSummary,
   canDeleteBranch,
@@ -666,6 +600,7 @@ export function VaultBranchLinkRow({
         pullRequestNumber={pullRequestNumber}
         pullRequestLabels={pullRequestLabels}
         pullRequestTitle={pullRequestTitle}
+        pullRequestIsDraft={pullRequestIsDraft}
         cloudflareBranchPreviewUrl={cloudflareBranchPreviewUrl}
       />
       <div className="flex shrink-0 items-start gap-2">
@@ -754,6 +689,7 @@ function VaultBranchListRow({
       pullRequestNumber={branch.pullRequestNumber}
       pullRequestLabels={branch.pullRequestLabels}
       pullRequestTitle={branch.pullRequestTitle}
+      pullRequestIsDraft={branch.pullRequestIsDraft}
       cloudflareBranchPreviewUrl={branch.cloudflareBranchPreviewUrl}
       stagedSummary={stagedSummary}
       canDeleteBranch={deleteEligibility.canDelete}
@@ -797,6 +733,66 @@ function VaultBranchList({
   );
 }
 
+function VaultBranchSection({
+  vaultId,
+  repositoryFullName,
+  remoteBranches,
+  activeDeletingBranchName,
+  filters,
+  onChangeFilters,
+  onDeleteBranch,
+}: {
+  vaultId: Id<"vaults">;
+  repositoryFullName: string;
+  remoteBranches: VaultRemoteBranchListItem[];
+  activeDeletingBranchName: string | null;
+  filters: VaultBranchFiltersState;
+  onChangeFilters: (nextFilters: VaultBranchFiltersState) => void;
+  onDeleteBranch: (branchName: string) => void;
+}) {
+  const filteredRemoteBranches = filterVaultRemoteBranches(
+    remoteBranches,
+    filters,
+  );
+  const hiddenBranchCount =
+    remoteBranches.length - filteredRemoteBranches.length;
+  const labelOptions = buildVaultBranchFilterLabelOptions({
+    branches: remoteBranches,
+    hiddenLabels: filters.hiddenLabels,
+  });
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
+          Branches
+        </p>
+        <div className="flex items-center gap-2">
+          {hiddenBranchCount > 0 ? (
+            <span className="text-[11px] text-muted-foreground/80">
+              {filteredRemoteBranches.length} of {remoteBranches.length}
+            </span>
+          ) : null}
+          <VaultBranchFiltersControl
+            value={filters}
+            labelOptions={labelOptions}
+            onChange={onChangeFilters}
+          />
+        </div>
+      </div>
+      {filteredRemoteBranches.length > 0 ? (
+        <VaultBranchList
+          vaultId={vaultId}
+          repositoryFullName={repositoryFullName}
+          remoteBranches={filteredRemoteBranches}
+          activeDeletingBranchName={activeDeletingBranchName}
+          onDeleteBranch={onDeleteBranch}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 function VaultDashboardContent() {
   const vaults = useQuery(api.vault.getUserVaults);
   const now = useNow();
@@ -829,11 +825,15 @@ function VaultDashboardContent() {
   const cloudflareConnection = useConvexQuery(
     api.users.getCloudflareConnectionStatus,
   );
+  const userVaultBranchFilters = useConvexQuery(
+    api.vault.getUserVaultBranchFilters,
+  );
   const user = useConvexQuery(api.users.viewer);
   const dashboardSettings = useConvexQuery(
     api.dashboardSettings.getDashboardSettings,
   );
   const dashboardProvidersPanelOpen = dashboardSettings?.providersPanelOpen;
+  const setVaultBranchFilters = useMutation(api.vault.setVaultBranchFilters);
   const githubPopupRef = useRef<Window | null>(null);
   const convexPopupRef = useRef<Window | null>(null);
   const cloudflarePopupRef = useRef<Window | null>(null);
@@ -1744,10 +1744,97 @@ function VaultDashboardContent() {
   const [mobileEditorChatDockInset, setMobileEditorChatDockInset] = useState<
     string | undefined
   >(undefined);
+  const [
+    pendingVaultBranchFiltersByVaultId,
+    setPendingVaultBranchFiltersByVaultId,
+  ] = useState<Partial<Record<string, VaultBranchFiltersState>>>({});
+
+  useEffect(() => {
+    if (!userVaultBranchFilters) {
+      return;
+    }
+
+    const serverVaultBranchFiltersByVaultId = new Map<
+      string,
+      VaultBranchFiltersState
+    >(
+      userVaultBranchFilters.map((vaultBranchFilter) => [
+        vaultBranchFilter.vaultId,
+        normalizeVaultBranchFilters(vaultBranchFilter),
+      ]),
+    );
+
+    setPendingVaultBranchFiltersByVaultId((previous) => {
+      let hasChanges = false;
+      const next = { ...previous };
+
+      for (const [vaultId, pendingVaultBranchFilters] of Object.entries(
+        previous,
+      )) {
+        const serverVaultBranchFilters =
+          serverVaultBranchFiltersByVaultId.get(vaultId) ??
+          getDefaultVaultBranchFilters();
+        if (
+          areVaultBranchFiltersEqual(
+            pendingVaultBranchFilters,
+            serverVaultBranchFilters,
+          )
+        ) {
+          delete next[vaultId];
+          hasChanges = true;
+        }
+      }
+
+      return hasChanges ? next : previous;
+    });
+  }, [userVaultBranchFilters]);
 
   if (!vaults) {
     return null;
   }
+
+  const persistedVaultBranchFiltersByVaultId = new Map<
+    string,
+    VaultBranchFiltersState
+  >(
+    (userVaultBranchFilters ?? []).map((vaultBranchFilter) => [
+      vaultBranchFilter.vaultId,
+      normalizeVaultBranchFilters(vaultBranchFilter),
+    ]),
+  );
+
+  const saveVaultBranchFilters = async (
+    vaultId: Id<"vaults">,
+    nextVaultBranchFilters: VaultBranchFiltersState,
+  ) => {
+    const normalizedVaultBranchFilters = normalizeVaultBranchFilters(
+      nextVaultBranchFilters,
+    );
+    setPendingVaultBranchFiltersByVaultId((previous) => ({
+      ...previous,
+      [vaultId]: normalizedVaultBranchFilters,
+    }));
+
+    try {
+      await setVaultBranchFilters({
+        vaultId,
+        hiddenLabels: normalizedVaultBranchFilters.hiddenLabels,
+        includeDrafts: normalizedVaultBranchFilters.includeDrafts,
+      });
+    } catch (error: unknown) {
+      setPendingVaultBranchFiltersByVaultId((previous) => {
+        const next = { ...previous };
+        delete next[vaultId];
+        return next;
+      });
+      toast({
+        title: "Could not save filters",
+        description:
+          error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const sidebarContent = (
     <>
@@ -1811,6 +1898,10 @@ function VaultDashboardContent() {
             const remoteBranches = Array.isArray(vault.remoteBranches)
               ? vault.remoteBranches
               : [];
+            const vaultBranchFilters =
+              pendingVaultBranchFiltersByVaultId[vault._id] ??
+              persistedVaultBranchFiltersByVaultId.get(vault._id) ??
+              getDefaultVaultBranchFilters();
             const activeRemoteBranches = remoteBranches.filter(
               (branch) => branch.remoteState === "active",
             );
@@ -1923,30 +2014,32 @@ function VaultDashboardContent() {
                   </div>
 
                   {isReady && remoteBranches.length > 0 && (
-                    <div className="space-y-1.5">
-                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
-                        Branches
-                      </p>
-                      <VaultBranchList
-                        vaultId={vault._id}
-                        repositoryFullName={vault.repositoryFullName}
-                        remoteBranches={remoteBranches}
-                        activeDeletingBranchName={
-                          isDeletingBranch &&
-                          branchToDelete?.vaultId === vault._id
-                            ? branchToDelete.branchName
-                            : null
-                        }
-                        onDeleteBranch={(branchName) => {
-                          setBranchToDelete({
-                            vaultId: vault._id,
-                            repositoryFullName: vault.repositoryFullName,
-                            branchName,
-                          });
-                          setDeleteBranchError(null);
-                        }}
-                      />
-                    </div>
+                    <VaultBranchSection
+                      vaultId={vault._id}
+                      repositoryFullName={vault.repositoryFullName}
+                      remoteBranches={remoteBranches}
+                      activeDeletingBranchName={
+                        isDeletingBranch &&
+                        branchToDelete?.vaultId === vault._id
+                          ? branchToDelete.branchName
+                          : null
+                      }
+                      filters={vaultBranchFilters}
+                      onChangeFilters={(nextVaultBranchFilters) => {
+                        void saveVaultBranchFilters(
+                          vault._id,
+                          nextVaultBranchFilters,
+                        );
+                      }}
+                      onDeleteBranch={(branchName) => {
+                        setBranchToDelete({
+                          vaultId: vault._id,
+                          repositoryFullName: vault.repositoryFullName,
+                          branchName,
+                        });
+                        setDeleteBranchError(null);
+                      }}
+                    />
                   )}
 
                   {isReady && primaryBranch.length > 0 && (

@@ -260,6 +260,7 @@ interface RemoteBranchSummary {
   pullRequestNumber?: number;
   pullRequestLabels?: PullRequestLabelSummary[];
   pullRequestTitle?: string;
+  pullRequestIsDraft?: boolean;
   pullRequestState: "resolved" | "preserve";
   isDefault: boolean;
   isProtected: boolean;
@@ -776,6 +777,7 @@ type OpenPullRequestCandidate = {
   html_url?: string | null;
   number?: number;
   title?: string | null;
+  draft?: boolean | null;
   labels?: unknown;
   updated_at?: string;
   created_at?: string;
@@ -792,6 +794,7 @@ export function collectLatestOpenPullRequestsByBranch(args: {
     number: number;
     labels: PullRequestLabelSummary[];
     title?: string;
+    isDraft: boolean;
   }
 > {
   const branchNameSet = new Set(args.branchNames);
@@ -803,6 +806,7 @@ export function collectLatestOpenPullRequestsByBranch(args: {
       number: number;
       labels: PullRequestLabelSummary[];
       title?: string;
+      isDraft: boolean;
       updatedAt: number;
     }
   >();
@@ -844,6 +848,7 @@ export function collectLatestOpenPullRequestsByBranch(args: {
           typeof pullRequest.title === "string" && pullRequest.title.length > 0
             ? pullRequest.title
             : undefined,
+        isDraft: pullRequest.draft === true,
         updatedAt,
       });
     }
@@ -857,6 +862,7 @@ export function collectLatestOpenPullRequestsByBranch(args: {
         number: pullRequest.number,
         labels: pullRequest.labels,
         title: pullRequest.title,
+        isDraft: pullRequest.isDraft,
       },
     ]),
   );
@@ -876,6 +882,7 @@ async function getOpenPullRequestsByBranch(args: {
         number?: number;
         labels: PullRequestLabelSummary[];
         title?: string;
+        isDraft?: boolean;
       }
     | undefined
   >;
@@ -928,6 +935,7 @@ async function getOpenPullRequestsByBranch(args: {
           number?: number;
           labels: PullRequestLabelSummary[];
           title?: string;
+          isDraft?: boolean;
         }
       | undefined
     >();
@@ -946,6 +954,7 @@ async function getOpenPullRequestsByBranch(args: {
               number: pullRequest.number,
               labels: pullRequest.labels,
               title: pullRequest.title,
+              isDraft: pullRequest.isDraft,
             }
           : undefined,
       );
@@ -1062,6 +1071,7 @@ async function listRemoteBranches(args: {
               number?: number;
               labels: PullRequestLabelSummary[];
               title?: string;
+              isDraft?: boolean;
             }
           | undefined
         >(),
@@ -1100,6 +1110,7 @@ async function listRemoteBranches(args: {
       pullRequestNumber: pullRequest?.number,
       pullRequestLabels: pullRequest?.labels,
       pullRequestTitle: pullRequest?.title,
+      pullRequestIsDraft: pullRequest?.isDraft,
       pullRequestState: pullRequestsByBranch.state,
     };
   });
