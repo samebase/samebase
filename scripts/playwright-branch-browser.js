@@ -2,7 +2,7 @@
 // @ts-check
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -12,7 +12,7 @@ const HELP_TEXT = `Usage: scripts/playwright-branch-browser.js <command> [args]
 Commands:
   session                Print the deterministic Playwright session name.
   profile                Print the branch-owned browser profile directory.
-  open [url]             Open the branch session without unloading a dirty tab.
+  open [url] [--headed]  Open the branch session without unloading a dirty tab.
   cli <command> [args]   Run @playwright/cli inside the branch session.
   help                   Show this help message.
 
@@ -68,7 +68,7 @@ function main(args) {
   }
 
   if (command === 'open') {
-    openBranchSession(rest[0])
+    openBranchSession(parseOpenCommandArgs(rest))
     return
   }
 
@@ -89,10 +89,10 @@ function main(args) {
  * Opening a fresh tab keeps unsaved editor state intact and avoids native
  * beforeunload popups when a branch window is already in use.
  *
- * @param {string | undefined} url
+ * @param {{ url?: string, headed: boolean }} options
  * @returns {void}
  */
-function openBranchSession(url) {
+function openBranchSession(options) {
   const session = getSessionName()
   const cliArgs = [`-s=${session}`]
   const initialSessionState = getSessionState(session)
@@ -105,8 +105,8 @@ function openBranchSession(url) {
 
   if (initialSessionState === 'exists') {
     const reuseArgs = [...cliArgs, 'tab-new']
-    if (url) {
-      reuseArgs.push(url)
+    if (options.url) {
+      reuseArgs.push(options.url)
     }
 
     const reuseResult = runPlaywrightCli(reuseArgs, {
@@ -136,14 +136,28 @@ function openBranchSession(url) {
 
   const profileDir = getProfileDir(session)
   mkdirSync(profileDir, { recursive: true })
+  sanitizeChromeCrashRecoveryState(profileDir)
 
   const openArgs = [...cliArgs, 'open']
-  if (url) {
-    openArgs.push(url)
+  if (options.url) {
+    openArgs.push(options.url)
   }
 
   openArgs.push('--persistent', `--profile=${profileDir}`)
+  if (options.headed) {
+    openArgs.push('--headed')
+  }
   runPlaywrightCli(openArgs)
+}
+
+/**
+ * @param {string[]} args
+ * @returns {{ url?: string, headed: boolean }}
+ */
+function parseOpenCommandArgs(args) {
+  const headed = args.includes('--headed')
+  const url = args.find(arg => arg !== '--headed')
+  return url ? { url, headed } : { headed }
 }
 
 /**
@@ -232,6 +246,43 @@ export function ensurePlaywrightCliConfig(repoRoot) {
     'utf8',
   )
   return configPath
+}
+
+/**
+ * Chrome persists crash markers in the profile itself. Clearing them before
+ * each persistent launch prevents the restore-pages prompt from resurfacing
+ * after an unclean browser exit.
+ *
+ * @param {string} profileDir
+ * @returns {void}
+ */
+export function sanitizeChromeCrashRecoveryState(profileDir) {
+  updateJsonFile(path.join(profileDir, 'Local State'), localState => {
+    if (typeof localState.variations_crash_streak === 'number') {
+      localState.variations_crash_streak = 0
+    }
+    return localState
+  })
+
+  updateJsonFile(
+    path.join(profileDir, 'Default', 'Preferences'),
+    preferences => {
+      if (isRecord(preferences.profile)) {
+        preferences.profile.exit_type = 'Normal'
+      }
+
+      const sessionEventLog = isRecord(preferences.sessions)
+        ? preferences.sessions.event_log
+        : undefined
+
+      if (isRecord(preferences.sessions) && Array.isArray(sessionEventLog)) {
+        preferences.sessions.event_log =
+          clearCrashFlagsFromSessionEventLog(sessionEventLog)
+      }
+
+      return preferences
+    },
+  )
 }
 
 /** @returns {string} */
@@ -333,6 +384,48 @@ function tryRunGit(args) {
   }
 
   return result.stdout.trim()
+}
+
+/**
+ * @param {string} filePath
+ * @param {(value: Record<string, unknown>) => Record<string, unknown>} update
+ * @returns {void}
+ */
+function updateJsonFile(filePath, update) {
+  if (!existsSync(filePath)) {
+    return
+  }
+
+  const nextValue = update(parseJsonObject(readFileSync(filePath, 'utf8')))
+  writeFileSync(filePath, `${JSON.stringify(nextValue)}\n`, 'utf8')
+}
+
+/**
+ * @param {string} rawJson
+ * @returns {Record<string, unknown>}
+ */
+function parseJsonObject(rawJson) {
+  /** @type {unknown} */
+  const value = JSON.parse(rawJson)
+  return isRecord(value) ? value : {}
+}
+
+/**
+ * @param {unknown} value
+ * @returns {value is Record<string, unknown>}
+ */
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+/**
+ * @param {unknown[]} eventLog
+ * @returns {unknown[]}
+ */
+function clearCrashFlagsFromSessionEventLog(eventLog) {
+  return eventLog.map(entry =>
+    isRecord(entry) ? { ...entry, crashed: false } : entry,
+  )
 }
 
 /**

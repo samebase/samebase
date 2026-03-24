@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { mkdtempSync, readFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { describe, expect, it } from 'vitest'
 import {
@@ -7,6 +7,7 @@ import {
   buildDerivedSessionName,
   ensurePlaywrightCliConfig,
   getPlaywrightCliConfigPath,
+  sanitizeChromeCrashRecoveryState,
 } from './playwright-branch-browser.js'
 
 describe('playwright-branch-browser', () => {
@@ -37,5 +38,45 @@ describe('playwright-branch-browser', () => {
         'codex/disable-restore-pages-prompt',
       ),
     ).toBe('noter-drp-7113b8')
+  })
+
+  it('clears persisted crash markers before relaunching a persistent profile', () => {
+    const profileDir = mkdtempSync(path.join(tmpdir(), 'noter-chrome-profile-'))
+    const defaultDir = path.join(profileDir, 'Default')
+
+    mkdirSync(defaultDir, { recursive: true })
+    writeFileSync(
+      path.join(profileDir, 'Local State'),
+      JSON.stringify({ variations_crash_streak: 4 }),
+    )
+    writeFileSync(
+      path.join(defaultDir, 'Preferences'),
+      JSON.stringify({
+        profile: { exit_type: 'Crashed' },
+        sessions: {
+          event_log: [
+            { crashed: true, time: '1', type: 0 },
+            { crashed: false, time: '2', type: 0 },
+          ],
+        },
+      }),
+    )
+
+    sanitizeChromeCrashRecoveryState(profileDir)
+
+    expect(
+      JSON.parse(readFileSync(path.join(profileDir, 'Local State'), 'utf8')),
+    ).toEqual({ variations_crash_streak: 0 })
+    expect(
+      JSON.parse(readFileSync(path.join(defaultDir, 'Preferences'), 'utf8')),
+    ).toEqual({
+      profile: { exit_type: 'Normal' },
+      sessions: {
+        event_log: [
+          { crashed: false, time: '1', type: 0 },
+          { crashed: false, time: '2', type: 0 },
+        ],
+      },
+    })
   })
 })
