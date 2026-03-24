@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { Button } from "@/components/button";
+import { Button } from "@/components/ui/button";
 import { EditorChatPanel } from "@/components/EditorChatPanel";
 import { ResizeGripLines } from "@/components/ResizeGripLines";
 import { useIsMobile } from "@/hooks/use-mobile";

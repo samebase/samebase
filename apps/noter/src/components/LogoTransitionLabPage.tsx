@@ -1,4 +1,4 @@
-import { Button } from "@/components/button";
+import { Button } from "@/components/ui/button";
 import { DEFAULT_STATIC_LOGO_SVG_URL } from "@/components/logoStaticSvgContract";
 import {
   addOffset,

@@ -1,6 +1,6 @@
 import { ConvexLogo } from "@/GetStarted/ConvexLogo";
 import { Code } from "@/components/Code";
-import { Button } from "@/components/button";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
 import {
   Dialog,

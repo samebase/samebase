@@ -2,7 +2,7 @@ import { setAuthProvider } from "@/authClient";
 import { LandingCopy } from "@/components/LandingCopy";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { PublicLandingLogo } from "@/components/PublicLandingLogo";
-import { Button } from "@/components/button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/input";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { landingPageMarkdown } from "@/lib/landingCopy";

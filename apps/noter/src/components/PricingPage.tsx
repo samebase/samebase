@@ -4,7 +4,7 @@ import { Check, Loader2 } from "lucide-react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { BillingCycle } from "../../convex/dashboardSettings";
-import { Button } from "@/components/button";
+import { Button } from "@/components/ui/button";
 import { PLAN_DISPLAY_PRICE, PLAN_FEATURES } from "@/lib/pricingContent";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";

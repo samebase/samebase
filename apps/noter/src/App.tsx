@@ -3,7 +3,7 @@ import { clearAuthFlag, setAuthFlag, useAutoSignIn } from "@/authClient";
 import { McpConsentSignInView } from "@/McpConsentSignInView";
 import { SignInForm } from "@/SignInForm";
 
-import { Button } from "@/components/button";
+import { Button } from "@/components/ui/button";
 import {
   Authenticated,
   Unauthenticated,

@@ -35,7 +35,7 @@ import {
   type LogoPresetSelection,
 } from "@/components/logoPresets";
 import { Checkbox } from "@/components/checkbox";
-import { Button } from "@/components/button";
+import { Button } from "@/components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,

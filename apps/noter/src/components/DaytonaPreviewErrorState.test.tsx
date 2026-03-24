@@ -22,7 +22,7 @@ vi.mock("@/components/ProsemarkReadOnly", () => ({
   ),
 }));
 
-vi.mock("@/components/button", () => ({
+vi.mock("@/components/ui/button", () => ({
   Button: ({
     children,
     className,
