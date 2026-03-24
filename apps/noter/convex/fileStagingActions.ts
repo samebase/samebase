@@ -279,6 +279,68 @@ async function getBranchHeadCommitMessage(args: {
   return commit.data.message;
 }
 
+/**
+ * Read the current head SHA for a branch. Returning null lets callers avoid
+ * destructive rollback when GitHub cannot confirm whether the ref advanced.
+ */
+async function getBranchHeadShaOrNull(args: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  branch: string;
+}): Promise<string | null> {
+  try {
+    const refResponse = await args.octokit.rest.git.getRef({
+      owner: args.owner,
+      repo: args.repo,
+      ref: `heads/${args.branch}`,
+    });
+    return refResponse.data.object.sha;
+  } catch (error) {
+    console.warn("Failed to inspect branch head after draft error:", error);
+    return null;
+  }
+}
+
+/**
+ * Best-effort cleanup for a temporary draft branch that never advanced beyond
+ * the default branch head.
+ */
+async function cleanupTemporaryDraftBranch(args: {
+  ctx: ActionCtx;
+  octokit: Octokit;
+  vaultId: Id<"vaults">;
+  owner: string;
+  repo: string;
+  branch: string;
+}) {
+  try {
+    await args.ctx.runMutation(api.fileStaging.clearAllStaging, {
+      vaultId: args.vaultId,
+      branch: args.branch,
+      skipTreeUpdate: true,
+    });
+  } catch (cleanupError) {
+    console.warn(
+      "Failed to clear temporary draft-branch staging after draft PR error:",
+      cleanupError,
+    );
+  }
+
+  try {
+    await args.octokit.rest.git.deleteRef({
+      owner: args.owner,
+      repo: args.repo,
+      ref: `heads/${args.branch}`,
+    });
+  } catch (cleanupError) {
+    console.warn(
+      "Failed to remove temporary draft branch after draft PR error:",
+      cleanupError,
+    );
+  }
+}
+
 export function getDraftPullRequestCreateErrorMessage(
   error: unknown,
 ): string | null {
@@ -1718,7 +1780,7 @@ export const createDraftPullRequestFromDefaultBranch = action({
       sha: defaultRef.data.object.sha,
     });
 
-    let committedBranch = false;
+    const initialTargetBranchSha = defaultRef.data.object.sha;
     try {
       await ctx.runMutation(internal.fileStaging.duplicateBranchStaging, {
         vaultId: vault._id,
@@ -1726,7 +1788,23 @@ export const createDraftPullRequestFromDefaultBranch = action({
         targetBranch,
         stagedFiles,
       });
+    } catch (error) {
+      await cleanupTemporaryDraftBranch({
+        ctx,
+        octokit,
+        vaultId: vault._id,
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        branch: targetBranch,
+      });
 
+      if (error instanceof Error && error.message.length > 0) {
+        throw error;
+      }
+      throw new Error("Failed to create draft pull request");
+    }
+
+    try {
       await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
         userId,
         vaultId: vault._id,
@@ -1734,8 +1812,33 @@ export const createDraftPullRequestFromDefaultBranch = action({
         repoName: vault.ghRepoName,
         branch: targetBranch,
       });
-      committedBranch = true;
+    } catch (error) {
+      // commitAllStaged can fail after GitHub advances the branch ref, so
+      // re-check the head before rolling back the newly created branch.
+      const currentTargetBranchSha = await getBranchHeadShaOrNull({
+        octokit,
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        branch: targetBranch,
+      });
+      if (currentTargetBranchSha === initialTargetBranchSha) {
+        await cleanupTemporaryDraftBranch({
+          ctx,
+          octokit,
+          vaultId: vault._id,
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          branch: targetBranch,
+        });
+      }
 
+      if (error instanceof Error && error.message.length > 0) {
+        throw error;
+      }
+      throw new Error("Failed to create draft pull request");
+    }
+
+    try {
       // Committing the captured snapshot moves that unit of work onto the draft
       // branch. Clear only the unchanged source snapshot so newer default-branch
       // edits survive while retries do not re-draft the same work.
@@ -1804,34 +1907,6 @@ export const createDraftPullRequestFromDefaultBranch = action({
         number,
       };
     } catch (error) {
-      if (!committedBranch) {
-        try {
-          await ctx.runMutation(api.fileStaging.clearAllStaging, {
-            vaultId: vault._id,
-            branch: targetBranch,
-            skipTreeUpdate: true,
-          });
-        } catch (cleanupError) {
-          console.warn(
-            "Failed to clear temporary draft-branch staging after draft PR error:",
-            cleanupError,
-          );
-        }
-
-        try {
-          await octokit.rest.git.deleteRef({
-            owner: vault.ghRepoOwner,
-            repo: vault.ghRepoName,
-            ref: `heads/${targetBranch}`,
-          });
-        } catch (cleanupError) {
-          console.warn(
-            "Failed to remove temporary draft branch after draft PR error:",
-            cleanupError,
-          );
-        }
-      }
-
       if (error instanceof Error && error.message.length > 0) {
         throw error;
       }

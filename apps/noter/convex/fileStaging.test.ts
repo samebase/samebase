@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { internal } from "./_generated/api";
 
 import {
   buildDeletedFileRestoreCandidate,
@@ -38,7 +39,11 @@ function createClearAllStagingTestContext(args: {
   stagedFiles: Array<{ _id: string; vaultId: string; branch: string }>;
 }) {
   const deletedIds: string[] = [];
-  const scheduledCalls: Array<{ delayMs: number; args: unknown }> = [];
+  const scheduledCalls: Array<{
+    delayMs: number;
+    fnRef: unknown;
+    args: unknown;
+  }> = [];
   const queriedScopes: Array<{
     table: string;
     indexName: string;
@@ -103,10 +108,10 @@ function createClearAllStagingTestContext(args: {
       scheduler: {
         runAfter: async (
           delayMs: number,
-          _fnRef: unknown,
+          fnRef: unknown,
           scheduledArgs: unknown,
         ) => {
-          scheduledCalls.push({ delayMs, args: scheduledArgs });
+          scheduledCalls.push({ delayMs, fnRef, args: scheduledArgs });
         },
       },
     },
@@ -132,7 +137,11 @@ function createClearMatchingStagingSnapshotTestContext(args: {
   }>;
 }) {
   const deletedIds: string[] = [];
-  const scheduledCalls: Array<{ delayMs: number; args: unknown }> = [];
+  const scheduledCalls: Array<{
+    delayMs: number;
+    fnRef: unknown;
+    args: unknown;
+  }> = [];
   const stagingById = new Map(
     args.stagedFiles.map((file) => [file._id, file] as const),
   );
@@ -150,10 +159,10 @@ function createClearMatchingStagingSnapshotTestContext(args: {
       scheduler: {
         runAfter: async (
           delayMs: number,
-          _fnRef: unknown,
+          fnRef: unknown,
           scheduledArgs: unknown,
         ) => {
-          scheduledCalls.push({ delayMs, args: scheduledArgs });
+          scheduledCalls.push({ delayMs, fnRef, args: scheduledArgs });
         },
       },
     },
@@ -496,6 +505,7 @@ describe("buildClearAllStagingPlan", () => {
     expect(context.scheduledCalls).toEqual([
       {
         delayMs: 0,
+        fnRef: internal.fileStaging.deleteCollaborativeUpdatesBatch,
         args: {
           vaultId: targetVaultId,
           branch: targetBranch,
@@ -504,6 +514,7 @@ describe("buildClearAllStagingPlan", () => {
       },
       {
         delayMs: 0,
+        fnRef: internal.github.updateRepositoryTree,
         args: {
           userId: "users:owner",
           owner: "octo",
@@ -596,6 +607,7 @@ describe("clearMatchingStagingSnapshotImpl", () => {
     expect(context.scheduledCalls).toEqual([
       {
         delayMs: 0,
+        fnRef: internal.fileStaging.deleteCollaborativeUpdatesForFilePathBatch,
         args: {
           vaultId: "vault-1",
           branch: "main",
@@ -605,6 +617,7 @@ describe("clearMatchingStagingSnapshotImpl", () => {
       },
       {
         delayMs: 0,
+        fnRef: internal.fileStaging.deleteCollaborativeUpdatesForFilePathBatch,
         args: {
           vaultId: "vault-1",
           branch: "main",

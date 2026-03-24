@@ -873,6 +873,8 @@ function FileViewInner({
   );
   const currentPullRequestNumber = currentRemoteBranch?.pullRequestNumber;
   const currentPullRequestUrl = currentRemoteBranch?.pullRequestUrl;
+  const didResolveRemoteBranches = remoteBranches !== undefined;
+  const hasCurrentPullRequest = currentPullRequestUrl != null;
   const isDefaultBranch =
     currentRemoteBranch?.isDefault ??
     (typeof vault.defaultBranch === "string" && branch === vault.defaultBranch);
@@ -1421,6 +1423,10 @@ function FileViewInner({
       return;
     }
 
+    if (!isDefaultBranch && !didResolveRemoteBranches) {
+      return;
+    }
+
     const pendingPullRequestWindow = window.open("", "_blank");
     const handleCreatedPullRequest = async (args: {
       url: string;
@@ -1509,6 +1515,7 @@ function FileViewInner({
     createDraftPullRequest,
     createDraftPullRequestFromDefaultBranch,
     currentPullRequestUrl,
+    didResolveRemoteBranches,
     handleUpstreamConflictDetected,
     isDefaultBranch,
     navigate,
@@ -2038,11 +2045,12 @@ function FileViewInner({
         file.parentCommitSha === null,
     );
   const canCreateDraftPullRequest =
-    currentPullRequestUrl === undefined
-      ? isDefaultBranch
-        ? hasChangesToCommit === true
-        : hasChangesToCommit === true || (currentRemoteBranch?.aheadBy ?? 0) > 0
-      : false;
+    !hasCurrentPullRequest &&
+    (isDefaultBranch
+      ? hasChangesToCommit === true
+      : didResolveRemoteBranches &&
+        (hasChangesToCommit === true ||
+          (currentRemoteBranch?.aheadBy ?? 0) > 0));
   const draftButtonLabel = isDefaultBranch ? "draft" : "create draft";
   const isCreatingDraftPullRequest =
     draftPullRequestStatus === "loading" ||
