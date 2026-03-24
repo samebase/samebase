@@ -143,7 +143,7 @@ Research on the GitHub API suggests two different data paths:
    - This is the closest match to "show the files in the current PR".
    - It naturally respects PR base selection and PR diff semantics.
    - These PR files are only the remote committed baseline; current
-     `fileStaging` rows still need to be merged on top.
+     `fileStaging` rows still need to be applied on top.
 2. When no open PR exists, fall back to branch-vs-default compare.
    - Use `compareCommitsWithBasehead`.
    - GitHub documents that file data is only present on the first page and is
@@ -301,7 +301,7 @@ The new action should resolve compare context in this order:
 This gives correct PR behavior when a PR exists and still supports the "compare
 my branch to main/default" workflow before a PR is opened.
 
-### 3. Compare/file merge logic
+### 3. Compare/file combination logic
 
 The frontend needs a new derived data path. Filtering `finalTreeData` is not
 enough because `finalTreeData` only knows about current branch tree plus staged
@@ -311,7 +311,7 @@ Introduce a helper, for example:
 
 - `apps/noter/src/lib/fileViewCompare.ts`
 
-It should merge:
+It should combine:
 
 1. remote compare files from the new action
 2. staged files from `api.fileStaging.listStagedFiles`
@@ -497,7 +497,7 @@ remain the implementation boundary for the first slice.
 1. Add backend tests for:
    - live PR resolution by head branch
    - default-branch fallback when no PR exists
-   - merge of remote compare rows with staged-only rows
+   - combination of remote compare rows with staged-only rows
    - rename and deletion edge cases
 2. Add frontend tests for:
    - `?compare` query-param behavior
