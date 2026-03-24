@@ -22,6 +22,9 @@ Environment:
 const PNPM_COMMAND = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
 const EXPLICIT_SESSION_PATTERN = /^[A-Za-z0-9._-]+$/
 const PLAYWRIGHT_CLI_CHROMIUM_ARGS = ['--disable-session-crashed-bubble']
+const SESSION_REPO_SEGMENT_MAX_LENGTH = 5
+const SESSION_BRANCH_SEGMENT_MAX_LENGTH = 3
+const SESSION_HASH_LENGTH = 6
 
 if (isMainModule()) {
   main(process.argv.slice(2))
@@ -347,6 +350,55 @@ function slugify(value) {
 }
 
 /**
+ * Stable session names need to stay below local Unix socket path limits while
+ * still being recognizable in Playwright CLI listings.
+ *
+ * @param {string} value
+ * @param {number} maxLength
+ * @returns {string}
+ */
+function truncateSessionSegment(value, maxLength) {
+  const truncated = value.slice(0, maxLength).replaceAll(/^-|-$/g, '')
+  return truncated || 'unknown'
+}
+
+/**
+ * Most worktree branches use the `codex/` prefix, which is not useful inside a
+ * derived session name and only increases the socket path length.
+ *
+ * @param {string} branchIdentifier
+ * @returns {string}
+ */
+function normalizeBranchSessionSegment(branchIdentifier) {
+  return branchIdentifier.startsWith('codex/')
+    ? branchIdentifier.slice('codex/'.length)
+    : branchIdentifier
+}
+
+/**
+ * @param {string} branchIdentifier
+ * @returns {string}
+ */
+function abbreviateBranchSessionSegment(branchIdentifier) {
+  const normalizedBranch = slugify(
+    normalizeBranchSessionSegment(branchIdentifier),
+  )
+  const segments = normalizedBranch.split('-').filter(Boolean)
+
+  if (segments.length > 1) {
+    return truncateSessionSegment(
+      segments.map(segment => segment[0]).join(''),
+      SESSION_BRANCH_SEGMENT_MAX_LENGTH,
+    )
+  }
+
+  return truncateSessionSegment(
+    normalizedBranch,
+    SESSION_BRANCH_SEGMENT_MAX_LENGTH,
+  )
+}
+
+/**
  * @param {string} explicitSession
  * @returns {string}
  */
@@ -365,13 +417,16 @@ function getSafeExplicitSession(explicitSession) {
  * @param {string} branchIdentifier
  * @returns {string}
  */
-function buildDerivedSessionName(repoRoot, branchIdentifier) {
-  const repoName = slugify(path.basename(repoRoot))
-  const branchName = slugify(branchIdentifier)
+export function buildDerivedSessionName(repoRoot, branchIdentifier) {
+  const repoName = truncateSessionSegment(
+    slugify(path.basename(repoRoot)),
+    SESSION_REPO_SEGMENT_MAX_LENGTH,
+  )
+  const branchName = abbreviateBranchSessionSegment(branchIdentifier)
   const stableSuffix = createHash('sha256')
     .update(`${repoRoot}\0${branchIdentifier}`)
     .digest('hex')
-    .slice(0, 8)
+    .slice(0, SESSION_HASH_LENGTH)
 
   return `${repoName}-${branchName}-${stableSuffix}`
 }

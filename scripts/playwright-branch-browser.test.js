@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { describe, expect, it } from 'vitest'
 import {
   buildPlaywrightCliConfig,
+  buildDerivedSessionName,
   ensurePlaywrightCliConfig,
   getPlaywrightCliConfigPath,
 } from './playwright-branch-browser.js'
@@ -27,5 +28,14 @@ describe('playwright-branch-browser', () => {
     expect(JSON.parse(readFileSync(configPath, 'utf8'))).toEqual(
       buildPlaywrightCliConfig(),
     )
+  })
+
+  it('shortens derived session names so they fit local socket path limits', () => {
+    expect(
+      buildDerivedSessionName(
+        '/Users/nicu/.codex/worktrees/0fb0/noter',
+        'codex/disable-restore-pages-prompt',
+      ),
+    ).toBe('noter-drp-7113b8')
   })
 })
