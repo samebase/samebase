@@ -1,9 +1,5 @@
 import { FileViewPushActions } from "@/components/FileViewPushActions";
-
-export type FileViewPushActionsVisualMode =
-  | "file-view-default-draft"
-  | "file-view-create-draft"
-  | "file-view-open-pr";
+import type { FileViewPushActionsVisualMode } from "@/components/fileViewPushActionsVisualModes";
 
 export function FileViewPushActionsVisualFixture({
   mode,

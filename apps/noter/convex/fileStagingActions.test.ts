@@ -334,7 +334,7 @@ describe("draft pull request helpers", () => {
         ],
         now: 1_712_345_678_901,
       }),
-    ).toMatch(/^draft\/draft-button-md-fileview-tsx-[a-z0-9]+$/);
+    ).toBe("draft/draft-button-md-fileview-tsx-lun2elv9");
   });
 
   it("returns a friendly message when the branch has no PR-worthy commits", () => {

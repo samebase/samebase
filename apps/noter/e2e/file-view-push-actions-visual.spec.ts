@@ -1,19 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES } from "../src/components/fileViewPushActionsVisualModes";
 
-const SCENARIOS = [
-  {
-    mode: "file-view-default-draft",
-    snapshotName: "file-view-default-draft.png",
-  },
-  {
-    mode: "file-view-create-draft",
-    snapshotName: "file-view-create-draft.png",
-  },
-  {
-    mode: "file-view-open-pr",
-    snapshotName: "file-view-open-pr.png",
-  },
-] as const;
+const SCENARIOS = FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES.map((mode) => ({
+  mode,
+  snapshotName: `${mode}.png`,
+}));
 
 for (const scenario of SCENARIOS) {
   test(`file view push actions fixture (${scenario.mode})`, async ({

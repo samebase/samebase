@@ -256,7 +256,7 @@ export function buildDraftBranchName(args: {
     ),
   );
   const stem = sanitizeSlug(labels.slice(0, 3).join("-"), 36);
-  const suffix = args.now.toString(36).slice(-6);
+  const suffix = args.now.toString(36);
   return `draft/${stem.length > 0 ? stem : "work"}-${suffix}`;
 }
 
@@ -595,6 +595,17 @@ type StagedFileForCommit = {
   fileDeleted: boolean;
   parentCommitSha: string | null;
   branch: string;
+};
+type DraftSourceStagingSnapshot = StagedFileForCommit & {
+  _id: Id<"fileStaging">;
+  ownerId: Id<"users">;
+  vaultId: Id<"vaults">;
+  lastEditTime: number;
+  lastEditUserId: Id<"users">;
+  version: number;
+};
+type DraftSourceStagingRecord = DraftSourceStagingSnapshot & {
+  _creationTime: number;
 };
 
 type StagedFileRebaseConflict = StagedFileForCommit & {
@@ -1662,12 +1673,29 @@ export const createDraftPullRequestFromDefaultBranch = action({
       throw new Error("Create a new draft branch from the default branch.");
     }
 
-    const stagedFiles: StagedFileForCommit[] = await ctx.runQuery(
+    const stagedFilesResult: DraftSourceStagingRecord[] = await ctx.runQuery(
       internal.fileStaging.listAllStagedFiles,
       {
         vaultId: vault._id,
         branch: defaultBranch,
       },
+    );
+    const stagedFiles = stagedFilesResult.map(
+      (file): DraftSourceStagingSnapshot => ({
+        _id: file._id,
+        ownerId: file.ownerId,
+        vaultId: file.vaultId,
+        fileDeleted: file.fileDeleted,
+        filePath: file.filePath,
+        initialFilePath: file.initialFilePath,
+        content: file.content,
+        initialContent: file.initialContent,
+        parentCommitSha: file.parentCommitSha,
+        branch: file.branch,
+        lastEditTime: file.lastEditTime,
+        lastEditUserId: file.lastEditUserId,
+        version: file.version,
+      }),
     );
     if (stagedFiles.length === 0) {
       throw new Error("Stage changes on the default branch before drafting.");
@@ -1696,6 +1724,7 @@ export const createDraftPullRequestFromDefaultBranch = action({
         vaultId: vault._id,
         sourceBranch: defaultBranch,
         targetBranch,
+        stagedFiles,
       });
 
       await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
@@ -1706,6 +1735,15 @@ export const createDraftPullRequestFromDefaultBranch = action({
         branch: targetBranch,
       });
       committedBranch = true;
+
+      // Committing the captured snapshot moves that unit of work onto the draft
+      // branch. Clear only the unchanged source snapshot so newer default-branch
+      // edits survive while retries do not re-draft the same work.
+      await ctx.runMutation(internal.fileStaging.clearMatchingStagingSnapshot, {
+        vaultId: vault._id,
+        branch: defaultBranch,
+        stagedFiles,
+      });
 
       let url: string;
       let number: number;
@@ -1756,19 +1794,6 @@ export const createDraftPullRequestFromDefaultBranch = action({
       } catch (error) {
         console.warn(
           "Failed to refresh remote branch metadata after creating default-branch draft PR:",
-          error,
-        );
-      }
-
-      try {
-        await ctx.runMutation(api.fileStaging.clearAllStaging, {
-          vaultId: vault._id,
-          branch: defaultBranch,
-          skipTreeUpdate: true,
-        });
-      } catch (error) {
-        console.warn(
-          "Failed to clear default-branch staging after creating draft PR:",
           error,
         );
       }

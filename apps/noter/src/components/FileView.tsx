@@ -1422,16 +1422,21 @@ function FileViewInner({
     }
 
     const pendingPullRequestWindow = window.open("", "_blank");
-    const handleCreatedPullRequest = (args: {
+    const handleCreatedPullRequest = async (args: {
       url: string;
       nextBranch: string;
     }) => {
-      void refreshRepositoryTree({
-        owner,
-        repo: repoName,
-      }).catch((error) => {
+      try {
+        await refreshRepositoryTree({
+          owner,
+          repo: repoName,
+          branch: args.nextBranch,
+          includeAheadBehind: true,
+          includePullRequestLinks: true,
+        });
+      } catch (error) {
         console.warn("Failed to refresh tree after draft PR:", error);
-      });
+      }
       if (args.nextBranch !== branch) {
         void navigate(
           buildVaultFileUrl(selectedFile, { branch: args.nextBranch }),
@@ -1477,12 +1482,12 @@ function FileViewInner({
         repositoryFullName,
         branch,
       })
-        .then((result) => {
+        .then((result) =>
           handleCreatedPullRequest({
             url: result.url,
             nextBranch: result.branch,
-          });
-        })
+          }),
+        )
         .catch(handleDraftPullRequestError);
       return;
     }
@@ -1491,12 +1496,12 @@ function FileViewInner({
       repositoryFullName,
       branch,
     })
-      .then((result) => {
+      .then((result) =>
         handleCreatedPullRequest({
           url: result.url,
           nextBranch: branch,
-        });
-      })
+        }),
+      )
       .catch(handleDraftPullRequestError);
   }, [
     branch,
