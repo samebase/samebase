@@ -3,6 +3,10 @@
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 - [ ] specifically left blank
 
+- [ ] idea, when people successfuly go the logo in form 1, it starts getting bigger and transform into a markdown chat input that says welcome and it says that they do something, idk
+
+- [ ] research slogan idea: the same way there are preview frontend (cloudflare) deploys, preview backend (convex) deploys, now you have dev (noter.md) deploys 
+
 - [ ] research this idea then come up with a slogan; the idea is to allow people to import their existing lovable project and we create a plan to transform it and actually do it since the user provides codex;
 
 - [ ] a cool thing we can do when keyboard is opened on mobile is to just shift the whole page up, we usually care more about text when writing? 
