@@ -6,24 +6,33 @@ export type PageMetadata = {
   openGraphType?: "website" | "article";
 };
 
-const DEFAULT_SITE_NAME = "Noter";
+const DEFAULT_SITE_NAME = "noter";
 const DEFAULT_SITE_ORIGIN = "https://noter.md";
 const DEFAULT_SOCIAL_IMAGE_PATH = "/noter-social-card.png";
 
 export const HOME_PAGE_METADATA: PageMetadata = {
-  title: "Noter | GitHub-backed workspace for AI agents",
+  title: "noter | GitHub-backed markdown notes and AI workspace",
   description:
-    "GitHub-backed workspace for AI agents and human operators. Collaborate in real time, keep code and notes in a real repository, and work from anywhere.",
+    "GitHub-backed markdown notes and AI workspace. Keep notes and code in a real repository, collaborate in real time, and ship small apps from the same workspace.",
   canonicalPath: "/",
   robots: "index,follow",
   openGraphType: "website",
 };
 
 export const PRIVACY_PAGE_METADATA: PageMetadata = {
-  title: "Privacy Policy | Noter",
+  title: "Privacy Policy | noter",
   description:
-    "Privacy Policy for Noter. Describes the data the current Noter app stores, the providers it talks to, and the browser storage it uses.",
+    "Privacy Policy for noter. Describes the data the current app stores, the providers it talks to, and the browser storage it uses.",
   canonicalPath: "/privacy",
+  robots: "index,follow",
+  openGraphType: "website",
+};
+
+export const TERMS_PAGE_METADATA: PageMetadata = {
+  title: "Terms of Service | noter",
+  description:
+    "Terms of Service for noter. Describes the rules, responsibilities, and legal terms for using noter and noter.md.",
+  canonicalPath: "/terms",
   robots: "index,follow",
   openGraphType: "website",
 };
@@ -54,10 +63,9 @@ export const PITCH_DECK_MOBILE_PRINT_PAGE_METADATA: PageMetadata = {
   robots: "noindex,nofollow",
   openGraphType: "website",
 };
-
 export const APP_PAGE_METADATA: PageMetadata = {
-  title: "Noter App",
-  description: "Private Noter application workspace.",
+  title: "noter App",
+  description: "Private noter application workspace.",
   canonicalPath: "/",
   robots: "noindex,nofollow",
   openGraphType: "website",
@@ -65,15 +73,19 @@ export const APP_PAGE_METADATA: PageMetadata = {
 
 export function resolveAppPageTitle(pathname: string): string {
   if (pathname === "/") {
-    return "Vaults | Noter";
+    return "Vaults | noter";
   }
 
   if (pathname === "/pricing") {
-    return "Pricing | Noter";
+    return "Pricing | noter";
   }
 
   if (pathname === "/privacy") {
-    return "Privacy Policy | Noter";
+    return "Privacy Policy | noter";
+  }
+
+  if (pathname === "/terms") {
+    return "Terms of Service | noter";
   }
 
   if (pathname === "/pitch") {
@@ -89,10 +101,10 @@ export function resolveAppPageTitle(pathname: string): string {
   }
 
   if (pathname.startsWith("/vault/")) {
-    return "Workspace | Noter";
+    return "Workspace | noter";
   }
 
-  return "Noter App";
+  return "noter App";
 }
 
 export function resolvePageMetadata(args: {
@@ -101,6 +113,10 @@ export function resolvePageMetadata(args: {
 }): PageMetadata {
   if (args.pathname === "/privacy") {
     return PRIVACY_PAGE_METADATA;
+  }
+
+  if (args.pathname === "/terms") {
+    return TERMS_PAGE_METADATA;
   }
 
   if (args.pathname === "/pitch") {
@@ -114,7 +130,6 @@ export function resolvePageMetadata(args: {
   if (args.pathname === "/pitch/print/mobile") {
     return PITCH_DECK_MOBILE_PRINT_PAGE_METADATA;
   }
-
   if (!args.isAuthenticated && args.pathname === "/") {
     return HOME_PAGE_METADATA;
   }
@@ -131,6 +146,10 @@ export function resolveBootstrapPageMetadata(pathname: string): PageMetadata {
     return PRIVACY_PAGE_METADATA;
   }
 
+  if (pathname === "/terms") {
+    return TERMS_PAGE_METADATA;
+  }
+
   if (pathname === "/pitch") {
     return PITCH_DECK_PAGE_METADATA;
   }
@@ -142,7 +161,6 @@ export function resolveBootstrapPageMetadata(pathname: string): PageMetadata {
   if (pathname === "/pitch/print/mobile") {
     return PITCH_DECK_MOBILE_PRINT_PAGE_METADATA;
   }
-
   return {
     ...APP_PAGE_METADATA,
     canonicalPath: pathname,

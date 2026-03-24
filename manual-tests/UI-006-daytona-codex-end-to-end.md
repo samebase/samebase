@@ -9,15 +9,15 @@ workspace sandbox.
 This test intentionally covers two workspace variants:
 
 1. a newly created noter-managed repo
-2. the existing `nicu-chiciuc/noter` repo connected through the app
+2. the existing `noter-md/noter` repo connected through the app
 
 ## Current Validated Scope
 
 - Validated locally from the worktree app at
   [http://127.0.0.1:5174/](http://127.0.0.1:5174/).
 - Validated for Variant B only.
-- Variant B was validated specifically against `nicu-chiciuc/noter` after
-  connecting that repo through `/add` in the local app.
+- Variant B was validated specifically against `noter-md/noter` after connecting
+  that repo through `/add` in the local app.
 - Production coverage and Variant A should be run separately and recorded when
   completed.
 
@@ -37,7 +37,7 @@ This test intentionally covers two workspace variants:
 ## Test Data
 
 - Temporary repo name for Variant A: `tmp-<worktree-id>-codex-e2e`
-- Existing repo for Variant B: `nicu-chiciuc/noter`
+- Existing repo for Variant B: `noter-md/noter`
 
 If running this from a Codex worktree, use the exact temporary repo prefix
 `tmp-<worktree-id>-` required by repo policy.
@@ -92,18 +92,18 @@ If running this from a Codex worktree, use the exact temporary repo prefix
 7. The repo should already be trusted; there should be no interactive
    `Yes, continue` / `No, quit` trust prompt for that repo path.
 
-## Variant B: Existing `nicu-chiciuc/noter` repo
+## Variant B: Existing `noter-md/noter` repo
 
 ### Steps
 
-1. If `nicu-chiciuc/noter` is not already connected in the current app, open
-   `/add`, connect `nicu-chiciuc/noter`, then return to the dashboard.
-2. Choose the `nicu-chiciuc/noter` vault card. Do not substitute any other
-   existing repo for this variant.
+1. If `noter-md/noter` is not already connected in the current app, open `/add`,
+   connect `noter-md/noter`, then return to the dashboard.
+2. Choose the `noter-md/noter` vault card. Do not substitute any other existing
+   repo for this variant.
 3. Expand `Developer tools`.
 4. Check the latest snapshot shown in the UI.
-5. Verify the snapshot name in the UI matches `nicu-chiciuc/noter` on `main`. Do
-   not assume a stale similarly named snapshot is the correct one.
+5. Verify the snapshot name in the UI matches `noter-md/noter` on `main`. Do not
+   assume a stale similarly named snapshot is the correct one.
 6. If no usable snapshot exists, build one and wait for it to become ready.
 7. If an existing sandbox was created before the latest ready snapshot or does
    not expose `fish` + `fisher` + `pure`, remove it and create a fresh sandbox
@@ -119,10 +119,9 @@ If running this from a Codex worktree, use the exact temporary repo prefix
 
 ### Expected Results
 
-1. The `nicu-chiciuc/noter` Daytona flow reuses the already connected Codex
-   state.
-2. Connecting `nicu-chiciuc/noter` through `/add` works and produces a usable
-   vault card on the dashboard.
+1. The `noter-md/noter` Daytona flow reuses the already connected Codex state.
+2. Connecting `noter-md/noter` through `/add` works and produces a usable vault
+   card on the dashboard.
 3. Sandbox creation or reuse succeeds without requiring a second device-auth
    flow.
 4. The in-app shell opens as `daytona`, not `root`, uses `fish`, has `fisher`

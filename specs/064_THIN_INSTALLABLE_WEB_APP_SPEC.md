@@ -31,11 +31,11 @@ browser refresh model.
 - The app currently exposes no manifest link and no Apple touch icon.
 - Production `/manifest.webmanifest` currently resolves to the SPA HTML fallback
   instead of a real manifest asset.
-- [#245](https://github.com/nicu-chiciuc/noter/pull/245) removed
-  `vite-plugin-pwa` and `registerSW`. That removed the stale-cache path, but it
-  also removed the only manifest-generation path.
-- [#262](https://github.com/nicu-chiciuc/noter/pull/262) refined the small
-  favicon assets for browser chrome, but that did not restore dedicated install
+- [#245](https://github.com/noter-md/noter/pull/245) removed `vite-plugin-pwa`
+  and `registerSW`. That removed the stale-cache path, but it also removed the
+  only manifest-generation path.
+- [#262](https://github.com/noter-md/noter/pull/262) refined the small favicon
+  assets for browser chrome, but that did not restore dedicated install
   metadata.
 - Result: browser tabs can still show a correct favicon while Add to Home Screen
   can create a plain shortcut and choose an unexpected icon or stale fallback.
@@ -157,7 +157,7 @@ Requirements:
 ### 6. Caching constraints
 
 This feature must not reintroduce the stale-content problems removed with
-[#245](https://github.com/nicu-chiciuc/noter/pull/245).
+[#245](https://github.com/noter-md/noter/pull/245).
 
 Constraints:
 
@@ -217,9 +217,9 @@ or HTML freshness problems are not.
 
 ## Historical Context
 
-- [#245](https://github.com/nicu-chiciuc/noter/pull/245) removed caching and
+- [#245](https://github.com/noter-md/noter/pull/245) removed caching and
   accidentally removed install metadata in the same step.
-- [#262](https://github.com/nicu-chiciuc/noter/pull/262) improved the small
+- [#262](https://github.com/noter-md/noter/pull/262) improved the small
   browser-favicon assets but did not restore dedicated install metadata.
 
 This spec keeps the cache removal and restores only the thin install pieces.

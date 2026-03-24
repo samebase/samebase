@@ -355,6 +355,10 @@ function renderFastLandingShell() {
               </div>
             </div>
             <div class="border-t pt-2 text-center text-xs text-muted-foreground">
+              <a href="/terms" class="transition-colors hover:text-foreground">
+                /terms
+              </a>
+              <span class="px-2">·</span>
               <a href="/privacy" class="transition-colors hover:text-foreground">
                 /privacy
               </a>

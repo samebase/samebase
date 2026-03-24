@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en" translate="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="google" content="notranslate" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy Policy | noter</title>
+    <meta
+      name="description"
+      content="Privacy Policy for noter. Describes the data the current app stores, the providers it talks to, and the browser storage it uses."
+    />
+    <meta name="robots" content="index,follow" />
+    <link rel="canonical" href="https://noter.md/privacy" />
+    <link rel="icon" type="image/png" href="/favicon.png" sizes="16x16" />
+    <link rel="icon" type="image/png" href="/favicon-32.png" sizes="32x32" />
+    <meta property="og:site_name" content="noter" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Privacy Policy | noter" />
+    <meta
+      property="og:description"
+      content="Privacy Policy for noter. Describes the data the current app stores, the providers it talks to, and the browser storage it uses."
+    />
+    <meta property="og:url" content="https://noter.md/privacy" />
+    <meta
+      property="og:image"
+      content="https://noter.md/noter-social-card.png"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Privacy Policy | noter" />
+    <meta
+      name="twitter:description"
+      content="Privacy Policy for noter. Describes the data the current app stores, the providers it talks to, and the browser storage it uses."
+    />
+    <meta
+      name="twitter:image"
+      content="https://noter.md/noter-social-card.png"
+    />
+    <meta name="theme-color" content="#17120a" />
+    <style>
+      :root {
+        color-scheme: light;
+        --background: #f7f2e8;
+        --surface: #fffdf8;
+        --border: #dfd5c2;
+        --text: #17120a;
+        --muted: #645b4b;
+        --code-background: #efe5d1;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        font-size: 16px;
+      }
+
+      body {
+        margin: 0;
+        background: radial-gradient(
+          circle at top,
+          #fbf6ed 0%,
+          #f7f2e8 45%,
+          #efe7da 100%
+        );
+        color: var(--text);
+        font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua",
+          Palatino, "Times New Roman", serif;
+        line-height: 1.65;
+      }
+
+      main {
+        padding: 48px 20px 72px;
+      }
+
+      .legal-shell {
+        margin: 0 auto;
+        max-width: 760px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        padding: 32px 28px 40px;
+      }
+
+      .legal-document h1,
+      .legal-document h2,
+      .legal-document h3,
+      .legal-document h4,
+      .legal-document h5,
+      .legal-document h6 {
+        margin: 0 0 16px;
+        line-height: 1.2;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+
+      .legal-document h1 {
+        font-size: 2.5rem;
+      }
+
+      .legal-document h2 {
+        margin-top: 32px;
+        font-size: 1.5rem;
+      }
+
+      .legal-document h3 {
+        margin-top: 24px;
+        font-size: 1.125rem;
+      }
+
+      .legal-document p,
+      .legal-document ul {
+        margin: 0 0 16px;
+      }
+
+      .legal-document ul {
+        padding-left: 20px;
+      }
+
+      .legal-document li + li {
+        margin-top: 10px;
+      }
+
+      .legal-document code {
+        border-radius: 0;
+        background: var(--code-background);
+        padding: 0.1rem 0.35rem;
+        font-family: "SFMono-Regular", Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+        font-size: 0.92em;
+      }
+
+      .legal-document a {
+        color: inherit;
+      }
+
+      .legal-footer {
+        margin: 24px auto 0;
+        max-width: 760px;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <article class="legal-shell legal-document">
+        <h1>Privacy Policy</h1>
+        <p>Last updated: March 23, 2026</p>
+        <p>
+          Reviewed and updated by Codex (GPT-5.4 &quot;Extra High&quot;) on
+          March 23, 2026, based on the current Noter source code.
+        </p>
+        <p>
+          This Privacy Policy describes how Noter handles information in the
+          current app code. It is intentionally narrow: it covers the data
+          flows, integrations, browser storage, and retention behavior that are
+          implemented today, and avoids claiming features or controls that are
+          not in the product yet.
+        </p>
+        <h2>What Noter Collects</h2>
+        <ul>
+          <li>
+            Account and sign-in data. When you sign in, Noter stores the account
+            fields needed to identify you and operate login, including your
+            name, email address, profile image, email verification time,
+            approval state, and the auth/session records required by the current
+            auth system.
+          </li>
+          <li>
+            Waitlist data. If you join the waitlist, Noter stores your email
+            address and the time you joined. If waitlist notifications are
+            configured, that email address is also sent through Resend to notify
+            the team.
+          </li>
+          <li>
+            Connected provider credentials and related identifiers. If you
+            connect GitHub, Convex, Cloudflare, or Codex, Noter stores the
+            credentials and metadata needed to operate that integration, such as
+            OAuth access tokens, refresh tokens, API keys, expiry times,
+            usernames, team IDs, account IDs, and Codex volume or sandbox
+            identifiers.
+          </li>
+          <li>
+            Repository and workspace metadata. Noter stores repository owner and
+            name, repository IDs, Git trees, commit SHAs, branch metadata,
+            infrastructure status, domain mappings, Codespaces metadata, Daytona
+            sandbox and snapshot metadata, and related operational fields.
+          </li>
+          <li>
+            Workspace content. Noter stores staged file content, initial file
+            content, file paths, deduplicated blobs, collaborative editing
+            updates, and other state needed to sync and restore your work.
+          </li>
+          <li>
+            AI, approval, and MCP OAuth records. If you use the AI features,
+            Noter stores AI thread records, user prompts, assistant replies,
+            streamed message state and deltas, model/provider metadata,
+            per-thread context and draft messages, message metadata for
+            proposals and results, production-read approval requests and audit
+            records, and MCP OAuth client, authorization-request,
+            authorization-code, grant, access-token, refresh-token, and audit
+            records.
+          </li>
+          <li>
+            Billing state. For paid plans, Noter stores billing provider, plan,
+            status, renewal period end, and a Polar external customer ID. The
+            current app code does not store raw payment card numbers.
+          </li>
+        </ul>
+        <h2>Browser Storage and Cookies</h2>
+        <ul>
+          <li>
+            Local storage. The current app code uses localStorage for auth
+            helper state and popup sign-in token handoff, for non-vault chat
+            open/thread state, and for some file-view UI state.
+          </li>
+          <li>
+            Cookie. The current app code sets a first-party sidebar preference
+            cookie named <code>sidebar_state</code> so the app can remember
+            whether the sidebar is open.
+          </li>
+          <li>
+            IndexedDB. The app caches some Convex query results in browser
+            IndexedDB under the <code>convexQueryCache</code> database so
+            screens can render faster. Those cached results can include
+            workspace data.
+          </li>
+          <li>
+            Temporary in-memory landing state. The public landing page keeps the
+            waitlist email draft in memory during the shell-to-app handoff.
+          </li>
+        </ul>
+        <p>
+          Depending on the sign-in flow you use, third-party identity providers
+          such as Google may also set their own cookies or session state as part
+          of authentication.
+        </p>
+        <h2>How Noter Uses Information</h2>
+        <ul>
+          <li>
+            To authenticate users, maintain sessions, and enforce access
+            controls such as waitlist approval.
+          </li>
+          <li>
+            To connect to external providers and perform the actions you ask
+            Noter to perform, including reading repositories, staging edits,
+            proposing commits, creating repositories, and provisioning
+            infrastructure.
+          </li>
+          <li>
+            To sync collaborative editing state and preserve your workspace,
+            branch, and UI context.
+          </li>
+          <li>
+            To generate AI responses, tool activity, and approval proposals
+            using the configured model provider and the repository or file
+            context for the active thread.
+          </li>
+          <li>
+            To create and manage hosted resources, previews, Codespaces, Daytona
+            sandboxes, and related operational infrastructure when you enable
+            those features.
+          </li>
+          <li>
+            To create checkout or customer-portal sessions with Polar and keep
+            subscription status in sync.
+          </li>
+          <li>
+            To maintain security, audit, and troubleshooting records for
+            sensitive operations such as production-read approvals and MCP OAuth
+            access.
+          </li>
+        </ul>
+        <h2>What the Current App Code Does Not Include</h2>
+        <p>
+          The current app code does not include third-party product analytics,
+          advertising, or session-replay SDKs. Noter does use first-party
+          browser storage and the integrations described on this page to run the
+          product.
+        </p>
+        <h2>When Noter Shares Information</h2>
+        <ul>
+          <li>With Google when you use Google sign-in.</li>
+          <li>
+            With Anthropic when you use the in-app AI chat, because the current
+            chat runtime sends prompts, system context, and selected repository
+            or file context to Anthropic&#39;s Claude model to generate
+            responses.
+          </li>
+          <li>
+            With GitHub when you connect repositories, read repository data,
+            create commits or repositories, manage deploy keys or webhooks, or
+            use GitHub Codespaces.
+          </li>
+          <li>
+            With Convex, Cloudflare, and Daytona when you connect those
+            providers or ask Noter to provision or operate related
+            infrastructure.
+          </li>
+          <li>
+            With Polar when you start checkout or open the billing portal, and
+            when subscription state is synchronized by webhook.
+          </li>
+          <li>With Resend if waitlist email notifications are configured.</li>
+          <li>
+            With MCP clients that you explicitly authorize through Noter&#39;s
+            MCP OAuth flow.
+          </li>
+        </ul>
+        <p>
+          If you ask Noter to create hosted previews or production
+          infrastructure, deployment URLs and provider-side resource identifiers
+          may be created and stored as part of that workflow.
+        </p>
+        <h2>Retention and Controls</h2>
+        <ul>
+          <li>
+            The current codebase does not implement one global auto-deletion
+            schedule for all personal data.
+          </li>
+          <li>
+            Account, workspace, billing, waitlist, and audit records generally
+            remain until they are removed through product actions or operational
+            cleanup.
+          </li>
+          <li>
+            Some short-lived records, including OAuth state and certain token
+            records, are created with expiration timestamps and are intended to
+            expire automatically.
+          </li>
+          <li>
+            You can disconnect connected providers, which removes the
+            corresponding provider-connection record stored by Noter.
+          </li>
+          <li>
+            You can delete vaults from the dashboard, and that deletion flow can
+            also remove related GitHub, Codespaces, Convex, hosting, and Daytona
+            resources when those options are selected.
+          </li>
+          <li>
+            A self-serve account deletion flow is not currently implemented in
+            the app code.
+          </li>
+        </ul>
+        <h2>Changes to This Policy</h2>
+        <p>
+          Noter should update this page when code-level data behavior changes.
+          If a future version of the product adds analytics, different retention
+          rules, new providers, or new public data-use commitments, this policy
+          should be updated before those changes go live.
+        </p>
+      </article>
+      <p class="legal-footer">
+        Generated from the noter markdown source for a crawlable public legal
+        page.
+      </p>
+    </main>
+  </body>
+</html>

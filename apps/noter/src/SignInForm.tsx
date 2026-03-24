@@ -68,6 +68,10 @@ export function SignInForm({ topNotice }: SignInFormProps = {}) {
         </div>
         <WaitlistForm />
         <div className="border-t pt-2 text-center text-xs text-muted-foreground">
+          <Link to="/terms" className="transition-colors hover:text-foreground">
+            /terms
+          </Link>
+          <span className="px-2">·</span>
           <Link
             to="/privacy"
             className="transition-colors hover:text-foreground"

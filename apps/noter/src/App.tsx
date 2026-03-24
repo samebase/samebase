@@ -44,6 +44,10 @@ const PricingPage = lazy(async () => {
   const module = await import("@/components/PricingPage");
   return { default: module.PricingPage };
 });
+const TermsOfServicePage = lazy(async () => {
+  const module = await import("@/components/TermsOfServicePage");
+  return { default: module.TermsOfServicePage };
+});
 const PrivacyPolicyPage = lazy(async () => {
   const module = await import("@/components/PrivacyPolicyPage");
   return { default: module.PrivacyPolicyPage };
@@ -348,6 +352,7 @@ export default function App() {
   const showLogoIsoStudy = location.pathname === "/logo-iso-study";
   const showLogoTransitionLab = location.pathname === "/logo-transition-lab";
   const showPrivacyPolicyPage = location.pathname === "/privacy";
+  const showTermsOfServicePage = location.pathname === "/terms";
   const showLogoTransitionTransformsLab =
     location.pathname === "/logo-transition-lab-transforms";
   const pitchDeckMode = resolvePitchDeckMode(location.pathname);
@@ -400,6 +405,15 @@ export default function App() {
       <Layout>
         <Suspense fallback={null}>
           <PrivacyPolicyPage />
+        </Suspense>
+      </Layout>
+    );
+  }
+  if (showTermsOfServicePage) {
+    return (
+      <Layout>
+        <Suspense fallback={null}>
+          <TermsOfServicePage />
         </Suspense>
       </Layout>
     );
