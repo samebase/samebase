@@ -42,6 +42,7 @@ const daytonaSnapshotRecord = object({
   logs: optional(string()),
   logsUpdatedAt: optional(number()),
   nextRetryAt: optional(number()),
+  retryDisabled: optional(boolean()),
   createdAt: number(),
   updatedAt: number(),
 });
@@ -104,6 +105,7 @@ export async function enqueueSnapshotBuild(
   const snapshotName = inferCommitPinnedSnapshotName(normalizedArgs);
 
   if (existing) {
+    const retryDisabled = existing.retryDisabled === true;
     const retryBlocked =
       existing.status === "failed" &&
       args.force !== true &&
@@ -111,6 +113,7 @@ export async function enqueueSnapshotBuild(
       existing.nextRetryAt > now;
     const shouldSchedule =
       !retryBlocked &&
+      (args.force === true || !retryDisabled) &&
       (existing.status === "failed" || existing.status === "removing");
 
     if (!shouldSchedule) {
@@ -125,6 +128,7 @@ export async function enqueueSnapshotBuild(
     await ctx.db.patch(existing._id, {
       snapshotName,
       status: "queued",
+      retryDisabled: false,
       updatedAt: now,
       nextRetryAt: undefined,
     });
@@ -149,6 +153,7 @@ export async function enqueueSnapshotBuild(
     logs: "",
     logsUpdatedAt: undefined,
     nextRetryAt: undefined,
+    retryDisabled: false,
     createdAt: now,
     updatedAt: now,
   });
@@ -280,6 +285,7 @@ export const tryMarkBuildStarted = internalMutation({
       typeof existing.nextRetryAt === "number" &&
       existing.nextRetryAt > args.startedAt;
     if (
+      existing.retryDisabled === true ||
       existing.status === "active" ||
       existing.status === "building" ||
       retryBlocked ||
@@ -307,6 +313,7 @@ export const tryMarkBuildStarted = internalMutation({
       logsUpdatedAt:
         args.logs !== undefined ? args.startedAt : existing.logsUpdatedAt,
       nextRetryAt: undefined,
+      retryDisabled: false,
       updatedAt: args.startedAt,
     });
 
@@ -367,6 +374,7 @@ export const markBuildActive = internalMutation({
       status: "active",
       lastError: undefined,
       nextRetryAt: undefined,
+      retryDisabled: false,
       updatedAt: args.updatedAt,
     });
 
@@ -426,11 +434,23 @@ export const markBuildFailedAndScheduleRetry = internalMutation({
       return null;
     }
 
+    if (existing.retryDisabled === true) {
+      await ctx.db.patch(existing._id, {
+        status: "failed",
+        lastError: args.error,
+        nextRetryAt: undefined,
+        retryDisabled: true,
+        updatedAt: args.updatedAt,
+      });
+      return await ctx.db.get(existing._id);
+    }
+
     const nextRetryAt = args.updatedAt + args.retryDelayMs;
     await ctx.db.patch(existing._id, {
       status: "failed",
       lastError: args.error,
       nextRetryAt,
+      retryDisabled: false,
       updatedAt: args.updatedAt,
     });
 
@@ -447,6 +467,37 @@ export const markBuildFailedAndScheduleRetry = internalMutation({
     );
 
     return await ctx.db.get(existing._id);
+  },
+});
+
+export const disableRetriesByIds = internalMutation({
+  args: {
+    snapshotIds: array(id("daytonaSnapshots")),
+    updatedAt: number(),
+  },
+  returns: nullValidator,
+  handler: async (ctx, args) => {
+    await Promise.all(
+      args.snapshotIds.map(async (snapshotId) => {
+        const snapshot = await ctx.db.get(snapshotId);
+        if (!snapshot) {
+          return;
+        }
+
+        await ctx.db.patch(snapshotId, {
+          status: snapshot.status === "active" ? "active" : "failed",
+          lastError:
+            snapshot.lastError && snapshot.lastError.trim().length > 0
+              ? snapshot.lastError
+              : "Automatic retries stopped manually.",
+          nextRetryAt: undefined,
+          retryDisabled: snapshot.status === "active" ? undefined : true,
+          updatedAt: args.updatedAt,
+        });
+      }),
+    );
+
+    return null;
   },
 });
 

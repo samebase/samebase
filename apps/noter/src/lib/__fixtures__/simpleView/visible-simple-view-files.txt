@@ -19,6 +19,7 @@ apps/noter/e2e/commit-review-visual.spec.ts-snapshots/commit-review-unchanged.pn
 apps/noter/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-raw.png
 apps/noter/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-zoomed.png
 apps/noter/e2e/corner-notch-visual.spec.ts-snapshots/corner-notch.png
+apps/noter/e2e/daytona-snapshot-list-visual.spec.ts-snapshots/daytona-snapshot-list-stop.png
 apps/noter/e2e/editor-chat-visual.spec.ts-snapshots/editor-chat-closed.png
 apps/noter/e2e/editor-chat-visual.spec.ts-snapshots/editor-chat-open-desktop.png
 apps/noter/e2e/editor-chat-visual.spec.ts-snapshots/editor-chat-open-mobile.png

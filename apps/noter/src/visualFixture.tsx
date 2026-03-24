@@ -47,6 +47,7 @@ import {
   VaultBranchPreviewVisualFixture,
   type VaultBranchPreviewVisualMode,
 } from "@/components/VaultBranchPreviewVisualFixture";
+import { DaytonaSnapshotListVisualFixture } from "@/components/DaytonaSnapshotListVisualFixture";
 import "./index.css";
 
 type VisualFixtureMode =
@@ -60,6 +61,7 @@ type VisualFixtureMode =
   | SimpleViewVisualMode
   | VaultDashboardVisualMode
   | VaultBranchPreviewVisualMode
+  | "daytona-snapshot-list-stop"
   | "vault-dashboard-branch-pr-title"
   | "button"
   | "corner-notch"
@@ -95,6 +97,7 @@ function readMode(): VisualFixtureMode {
     value === "vault-branch-preview-link" ||
     value === "vault-branch-preview-missing" ||
     (typeof value === "string" && isFileViewPushActionsVisualMode(value)) ||
+    value === "daytona-snapshot-list-stop" ||
     value === "vault-dashboard-branch-pr-title" ||
     value === "button" ||
     value === "corner-notch" ||
@@ -139,6 +142,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         ) : mode === "vault-branch-preview-link" ||
           mode === "vault-branch-preview-missing" ? (
           <VaultBranchPreviewVisualFixture mode={mode} />
+        ) : mode === "daytona-snapshot-list-stop" ? (
+          <DaytonaSnapshotListVisualFixture />
         ) : isFileViewPushActionsVisualMode(mode) ? (
           <FileViewPushActionsVisualFixture mode={mode} />
         ) : mode === "vault-dashboard-branch-pr-title" ? (

@@ -468,6 +468,7 @@ export default defineSchema({
     logs: optional(string()),
     logsUpdatedAt: optional(number()),
     nextRetryAt: optional(number()),
+    retryDisabled: optional(boolean()),
     createdAt: number(),
     updatedAt: number(),
   })

@@ -2528,6 +2528,17 @@ const listDaytonaSnapshotsForVaultResult = object({
   message: optional(string()),
 });
 
+const stopDaytonaSnapshotRetriesForVaultArgs = object({
+  vaultId: id("vaults"),
+});
+
+const stopDaytonaSnapshotRetriesForVaultResult = object({
+  ok: boolean(),
+  stoppedCount: number(),
+  deletedCount: number(),
+  message: optional(string()),
+});
+
 const removeDaytonaSnapshotArgs = object({
   vaultId: id("vaults"),
   branch: optional(string()),
@@ -4618,6 +4629,17 @@ export const buildCommitPinnedSnapshot = internalAction({
       };
     }
     if (!markStartedResult.started) {
+      if (markStartedResult.snapshotRecord.retryDisabled === true) {
+        return {
+          ok: false,
+          snapshotName:
+            markStartedResult.snapshotRecord.snapshotName ?? snapshotName,
+          commitSha: args.commitSha,
+          message: `Snapshot retries are stopped for ${branch}@${shortenCommitSha(
+            args.commitSha,
+          )}.`,
+        };
+      }
       if (markStartedResult.snapshotRecord.status === "active") {
         return {
           ok: true,
@@ -5579,5 +5601,123 @@ export const ensureDaytonaRegistryForVault = action({
             : "Failed to configure Daytona registry.",
       };
     }
+  },
+});
+
+export const stopDaytonaSnapshotRetriesForVault = action({
+  args: stopDaytonaSnapshotRetriesForVaultArgs,
+  returns: stopDaytonaSnapshotRetriesForVaultResult,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof stopDaytonaSnapshotRetriesForVaultResult>> => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.runQuery(internal.vault.getById, {
+      id: args.vaultId,
+    });
+
+    if (!vault || vault.userId !== userId) {
+      throw new Error("Vault not found");
+    }
+
+    const records = await ctx.runQuery(
+      internal.daytona.snapshotRecords.listByRepoBranch,
+      {
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        branch: DAYTONA_COMMIT_PINNED_BRANCH,
+      },
+    );
+    const stoppableRecords = records.filter(
+      (record) => record.status !== "active",
+    );
+    if (stoppableRecords.length === 0) {
+      return {
+        ok: true,
+        stoppedCount: 0,
+        deletedCount: 0,
+        message: "No snapshot retries are currently running.",
+      };
+    }
+
+    const hasOtherVaultsForRepository = await ctx.runQuery(
+      internal.vault.hasOtherVaultsForRepository,
+      {
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        excludeVaultId: vault._id,
+      },
+    );
+    if (hasOtherVaultsForRepository) {
+      return {
+        ok: false,
+        stoppedCount: 0,
+        deletedCount: 0,
+        message:
+          "This repository is shared across vaults, so stopping shared Daytona retries is blocked.",
+      };
+    }
+
+    const updatedAt = Date.now();
+    await ctx.runMutation(
+      internal.daytona.snapshotRecords.disableRetriesByIds,
+      {
+        snapshotIds: stoppableRecords.map((record) => record._id),
+        updatedAt,
+      },
+    );
+
+    const apiConfig = resolveDaytonaApiConfig();
+    if (!apiConfig.ok) {
+      return {
+        ok: true,
+        stoppedCount: stoppableRecords.length,
+        deletedCount: 0,
+        message: `Stopped automatic retries, but Daytona cleanup is unavailable: ${apiConfig.message}`,
+      };
+    }
+
+    const config: { apiKey: string; apiUrl?: string } = {
+      apiKey: apiConfig.token,
+    };
+    if (apiConfig.baseUrl) {
+      config.apiUrl = apiConfig.baseUrl;
+    }
+    const daytona = new Daytona(config);
+    const snapshotNames = [
+      ...new Set(
+        stoppableRecords
+          .map((record) => record.snapshotName?.trim() ?? "")
+          .filter((snapshotName) => snapshotName.length > 0),
+      ),
+    ];
+
+    let deletedCount = 0;
+    for (const snapshotName of snapshotNames) {
+      try {
+        const snapshot = await daytona.snapshot.get(snapshotName);
+        await daytona.snapshot.delete(snapshot);
+        deletedCount += 1;
+      } catch (error) {
+        if (isNotFoundError(error)) {
+          deletedCount += 1;
+          continue;
+        }
+        console.warn("daytona:snapshot:stop-retries:delete-failed", {
+          snapshotName,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    return {
+      ok: true,
+      stoppedCount: stoppableRecords.length,
+      deletedCount,
+      message:
+        deletedCount > 0
+          ? `Stopped automatic retries and removed ${deletedCount} Daytona snapshot${deletedCount === 1 ? "" : "s"}.`
+          : `Stopped automatic retries for ${stoppableRecords.length} snapshot record${stoppableRecords.length === 1 ? "" : "s"}.`,
+    };
   },
 });

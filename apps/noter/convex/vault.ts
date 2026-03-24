@@ -1730,8 +1730,23 @@ export const updateVaultTree = internalMutation({
       commitSha !== vault.commitSHA &&
       vault.ghRepoOwner.length > 0 &&
       vault.ghRepoName.length > 0;
+    const autoSnapshotRetriesStopped = shouldQueueDaytonaSnapshot
+      ? (
+          await ctx.db
+            .query("daytonaSnapshots")
+            .withIndex("by_ghRepoOwner_and_ghRepoName_and_branch", (q) =>
+              q
+                .eq("ghRepoOwner", vault.ghRepoOwner)
+                .eq("ghRepoName", vault.ghRepoName)
+                .eq("branch", DAYTONA_COMMIT_PINNED_BRANCH),
+            )
+            .collect()
+        )
+          .sort((left, right) => right.updatedAt - left.updatedAt)
+          .at(0)?.retryDisabled === true
+      : false;
 
-    if (shouldQueueDaytonaSnapshot) {
+    if (shouldQueueDaytonaSnapshot && !autoSnapshotRetriesStopped) {
       const queueResult = await enqueueSnapshotBuild(ctx, {
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,

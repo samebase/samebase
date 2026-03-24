@@ -20,6 +20,7 @@ type ListSnapshotsResult = FunctionReturnType<
   typeof api.daytona.actions.listDaytonaSnapshotsForVault
 >;
 type SnapshotRow = ListSnapshotsResult["snapshots"][number];
+export type DaytonaSnapshotListSurfaceSnapshot = SnapshotRow;
 
 interface DaytonaSnapshotListProps {
   vaultId: Id<"vaults">;
@@ -65,123 +66,57 @@ const formatRetryTime = (timestamp: number, now: number = Date.now()) =>
     ? formatRelativeTimeUntil(timestamp, now)
     : formatRelativeTimeAgo(timestamp, now);
 
-export function DaytonaSnapshotList({
-  vaultId,
+interface DaytonaSnapshotListSurfaceProps {
+  snapshots: DaytonaSnapshotListSurfaceSnapshot[] | null;
+  disabled?: boolean;
+  className?: string;
+  errorMessage: string | null;
+  statusMessage: string | null;
+  deletingSnapshotName: string | null;
+  isExpanded: boolean;
+  isFetching: boolean;
+  isStoppingRetries: boolean;
+  onToggleExpanded: () => void;
+  onRefresh: () => void;
+  onStopRetries: () => void;
+  onDeleteSnapshot: (snapshotName: string) => void;
+  testId?: string;
+}
+
+export function DaytonaSnapshotListSurface({
+  snapshots,
   disabled,
   className,
-}: DaytonaSnapshotListProps) {
-  const listDaytonaSnapshotsForVault = useAction(
-    api.daytona.actions.listDaytonaSnapshotsForVault,
-  );
-  const removeDaytonaSnapshot = useAction(
-    api.daytona.actions.removeDaytonaSnapshot,
-  );
-  const fetchInFlightRef = useRef(false);
-
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [isFetching, setIsFetching] = useState(false);
-  const [snapshots, setSnapshots] = useState<SnapshotRow[] | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [deletingSnapshotName, setDeletingSnapshotName] = useState<
-    string | null
-  >(null);
-
-  const fetchSnapshots = useCallback(
-    async (silent: boolean) => {
-      if (fetchInFlightRef.current) {
-        return;
-      }
-      fetchInFlightRef.current = true;
-      if (!silent) {
-        setIsFetching(true);
-        setErrorMessage(null);
-      }
-
-      try {
-        const result = await listDaytonaSnapshotsForVault({ vaultId });
-        if (!result.ok) {
-          if (!silent) {
-            setErrorMessage(result.message ?? "Failed to fetch snapshots.");
-          }
-          return;
-        }
-        setSnapshots(result.snapshots);
-      } catch (error) {
-        if (!silent) {
-          setErrorMessage(
-            error instanceof Error
-              ? error.message
-              : "Failed to fetch snapshots.",
-          );
-        }
-      } finally {
-        fetchInFlightRef.current = false;
-        if (!silent) {
-          setIsFetching(false);
-        }
-      }
-    },
-    [listDaytonaSnapshotsForVault, vaultId],
-  );
-
-  useEffect(() => {
-    if (!isExpanded) {
-      return;
-    }
-
-    void fetchSnapshots(false);
-    const pollId = window.setInterval(() => {
-      void fetchSnapshots(true);
-    }, SNAPSHOT_POLL_INTERVAL_MS);
-    return () => {
-      window.clearInterval(pollId);
-    };
-  }, [fetchSnapshots, isExpanded]);
-
-  const handleDeleteSnapshot = async (snapshotName: string) => {
-    if (disabled || deletingSnapshotName) {
-      return;
-    }
-    setDeletingSnapshotName(snapshotName);
-    setErrorMessage(null);
-
-    try {
-      const result = await removeDaytonaSnapshot({
-        vaultId,
-        snapshotName,
-      });
-      if (!result.ok) {
-        setErrorMessage(result.message ?? "Failed to delete snapshot.");
-        return;
-      }
-
-      setSnapshots((current) =>
-        current === null
-          ? current
-          : current.filter((snapshot) => snapshot.name !== snapshotName),
-      );
-      void fetchSnapshots(true);
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Failed to delete snapshot.",
-      );
-    } finally {
-      setDeletingSnapshotName(null);
-    }
-  };
+  errorMessage,
+  statusMessage,
+  deletingSnapshotName,
+  isExpanded,
+  isFetching,
+  isStoppingRetries,
+  onToggleExpanded,
+  onRefresh,
+  onStopRetries,
+  onDeleteSnapshot,
+  testId,
+}: DaytonaSnapshotListSurfaceProps) {
   const snapshotCountLabel = snapshots === null ? "?" : `${snapshots.length}`;
+  const hasStoppableSnapshots =
+    snapshots?.some(
+      (snapshot) => snapshot.state.trim().toLowerCase() !== "active",
+    ) ?? false;
 
   return (
-    <div className={cn("mt-1 flex flex-col gap-1", className)}>
+    <div
+      data-testid={testId}
+      className={cn("mt-1 flex flex-col gap-1", className)}
+    >
       <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="ghost"
           size="sm"
           className="h-7 px-2"
           disabled={disabled}
-          onClick={() => {
-            setIsExpanded((current) => !current);
-          }}
+          onClick={onToggleExpanded}
         >
           <ChevronDownIcon
             className={cn(
@@ -192,24 +127,45 @@ export function DaytonaSnapshotList({
           {`Snapshots (${snapshotCountLabel})`}
         </Button>
         {isExpanded && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs"
-            onClick={() => {
-              void fetchSnapshots(false);
-            }}
-            disabled={disabled || isFetching}
-          >
-            {isFetching ? (
-              <>
-                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                Refreshing...
-              </>
-            ) : (
-              "Refresh"
-            )}
-          </Button>
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={onRefresh}
+              disabled={disabled || isFetching || isStoppingRetries}
+            >
+              {isFetching ? (
+                <>
+                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                  Refreshing...
+                </>
+              ) : (
+                "Refresh"
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+              onClick={onStopRetries}
+              disabled={
+                disabled ||
+                isStoppingRetries ||
+                isFetching ||
+                !hasStoppableSnapshots
+              }
+            >
+              {isStoppingRetries ? (
+                <>
+                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                  Stopping...
+                </>
+              ) : (
+                "Stop Retries"
+              )}
+            </Button>
+          </>
         )}
       </div>
 
@@ -259,7 +215,7 @@ export function DaytonaSnapshotList({
                     className="h-6 px-2 text-xs text-destructive hover:text-destructive"
                     disabled={disabled || deletingSnapshotName !== null}
                     onClick={() => {
-                      void handleDeleteSnapshot(snapshot.name);
+                      onDeleteSnapshot(snapshot.name);
                     }}
                   >
                     {isDeleting ? (
@@ -297,6 +253,176 @@ export function DaytonaSnapshotList({
       {isExpanded && errorMessage && (
         <div className="text-xs text-destructive">{errorMessage}</div>
       )}
+      {isExpanded && statusMessage && !errorMessage && (
+        <div className="text-xs text-muted-foreground">{statusMessage}</div>
+      )}
     </div>
+  );
+}
+
+export function DaytonaSnapshotList({
+  vaultId,
+  disabled,
+  className,
+}: DaytonaSnapshotListProps) {
+  const listDaytonaSnapshotsForVault = useAction(
+    api.daytona.actions.listDaytonaSnapshotsForVault,
+  );
+  const removeDaytonaSnapshot = useAction(
+    api.daytona.actions.removeDaytonaSnapshot,
+  );
+  const stopDaytonaSnapshotRetriesForVault = useAction(
+    api.daytona.actions.stopDaytonaSnapshotRetriesForVault,
+  );
+  const fetchInFlightRef = useRef(false);
+
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
+  const [snapshots, setSnapshots] = useState<SnapshotRow[] | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [deletingSnapshotName, setDeletingSnapshotName] = useState<
+    string | null
+  >(null);
+  const [isStoppingRetries, setIsStoppingRetries] = useState(false);
+
+  const fetchSnapshots = useCallback(
+    async (silent: boolean) => {
+      if (fetchInFlightRef.current) {
+        return;
+      }
+      fetchInFlightRef.current = true;
+      if (!silent) {
+        setIsFetching(true);
+        setErrorMessage(null);
+        setStatusMessage(null);
+      }
+
+      try {
+        const result = await listDaytonaSnapshotsForVault({ vaultId });
+        if (!result.ok) {
+          if (!silent) {
+            setErrorMessage(result.message ?? "Failed to fetch snapshots.");
+          }
+          return;
+        }
+        setSnapshots(result.snapshots);
+      } catch (error) {
+        if (!silent) {
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : "Failed to fetch snapshots.",
+          );
+        }
+      } finally {
+        fetchInFlightRef.current = false;
+        if (!silent) {
+          setIsFetching(false);
+        }
+      }
+    },
+    [listDaytonaSnapshotsForVault, vaultId],
+  );
+
+  useEffect(() => {
+    if (!isExpanded) {
+      return;
+    }
+
+    void fetchSnapshots(false);
+    const pollId = window.setInterval(() => {
+      void fetchSnapshots(true);
+    }, SNAPSHOT_POLL_INTERVAL_MS);
+    return () => {
+      window.clearInterval(pollId);
+    };
+  }, [fetchSnapshots, isExpanded]);
+
+  const handleDeleteSnapshot = async (snapshotName: string) => {
+    if (disabled || deletingSnapshotName) {
+      return;
+    }
+    setDeletingSnapshotName(snapshotName);
+    setErrorMessage(null);
+    setStatusMessage(null);
+
+    try {
+      const result = await removeDaytonaSnapshot({
+        vaultId,
+        snapshotName,
+      });
+      if (!result.ok) {
+        setErrorMessage(result.message ?? "Failed to delete snapshot.");
+        return;
+      }
+
+      setSnapshots((current) =>
+        current === null
+          ? current
+          : current.filter((snapshot) => snapshot.name !== snapshotName),
+      );
+      void fetchSnapshots(true);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to delete snapshot.",
+      );
+    } finally {
+      setDeletingSnapshotName(null);
+    }
+  };
+  const handleStopRetries = async () => {
+    if (disabled || isStoppingRetries) {
+      return;
+    }
+    setIsStoppingRetries(true);
+    setErrorMessage(null);
+    setStatusMessage(null);
+
+    try {
+      const result = await stopDaytonaSnapshotRetriesForVault({ vaultId });
+      if (!result.ok) {
+        setErrorMessage(result.message ?? "Failed to stop snapshot retries.");
+        return;
+      }
+      setStatusMessage(
+        result.message ?? "Stopped automatic Daytona snapshot retries.",
+      );
+      await fetchSnapshots(false);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to stop snapshot retries.",
+      );
+    } finally {
+      setIsStoppingRetries(false);
+    }
+  };
+
+  return (
+    <DaytonaSnapshotListSurface
+      snapshots={snapshots}
+      disabled={disabled}
+      className={className}
+      errorMessage={errorMessage}
+      statusMessage={statusMessage}
+      deletingSnapshotName={deletingSnapshotName}
+      isExpanded={isExpanded}
+      isFetching={isFetching}
+      isStoppingRetries={isStoppingRetries}
+      onToggleExpanded={() => {
+        setIsExpanded((current) => !current);
+      }}
+      onRefresh={() => {
+        void fetchSnapshots(false);
+      }}
+      onStopRetries={() => {
+        void handleStopRetries();
+      }}
+      onDeleteSnapshot={(snapshotName) => {
+        void handleDeleteSnapshot(snapshotName);
+      }}
+    />
   );
 }
