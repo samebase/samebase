@@ -533,6 +533,9 @@ Auth:
   running the screenshot flow. Use rendered image attachments/Markdown image
   tags, not just text descriptions of the diff, and keep the screenshots compact
   enough to inspect without overwhelming the response.
+- For this operator, screenshots should contain real representative in-UI text
+  inside the rendered elements by default. Do not add explanatory overlay text
+  on top of the screenshot itself unless the user explicitly asks for that.
 - When explaining a screenshot diff or visual regression, always include the
   pixelmatch diff image and the before/after screenshots in the user-facing
   response when those images are available.

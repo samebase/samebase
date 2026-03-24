@@ -1,11 +1,13 @@
 import { MemoryRouter } from "react-router-dom";
 import { Button } from "@/components/button";
+import { EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME } from "@/components/editorChatLayout";
 import { SidebarProvider } from "@/components/sidebar";
 import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";
 import { ResizeGripLines } from "@/components/ResizeGripLines";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";
 import { VaultBranchLinkRow } from "@/components/VaultDashboard";
+import { cn } from "@/lib/utils";
 import { GitHubLogoIcon, PersonIcon } from "@radix-ui/react-icons";
 import { Plus, X } from "lucide-react";
 
@@ -350,41 +352,52 @@ export function VaultDashboardVisualFixture({
                 >
                   <div className="min-h-0 flex-1">
                     <div className="flex h-full min-h-0 flex-col corner-notch-1 border border-border bg-background">
-                      <div className="flex items-center gap-1 border-b border-border pl-1.5 pr-1 py-0">
-                        <div className="min-w-0 flex-1">
-                          <FixtureResizeGrip />
-                        </div>
-                        <div className="flex items-center gap-0">
-                          <button
-                            type="button"
-                            aria-label="New conversation"
-                            className="corner-notch-1 p-0 text-muted-foreground"
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label="Close chat"
-                            className="corner-notch-1 p-0 text-muted-foreground"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
+                      <div className="border-b border-border">
+                        <div
+                          className={cn(
+                            "flex items-center gap-1 py-0",
+                            EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME,
+                          )}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <FixtureResizeGrip />
+                          </div>
+                          <div className="flex items-center gap-0">
+                            <button
+                              type="button"
+                              aria-label="New conversation"
+                              className="corner-notch-1 p-0 text-muted-foreground"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label="Close chat"
+                              className="corner-notch-1 p-0 text-muted-foreground"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="flex-1 overflow-y-auto px-3 py-2">
-                        <div className="mb-2 corner-notch-1 border border-border bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground">
-                          Chat tools enabled
+                      <div className="flex-1 overflow-y-auto py-2">
+                        <div className={EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME}>
+                          <div className="mb-2 corner-notch-1 border border-border bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground">
+                            Chat tools enabled
+                          </div>
+                          <div className="mb-2 ml-auto h-10 w-44 corner-notch-1 bg-primary/90" />
+                          <div className="h-10 w-52 corner-notch-1 bg-muted" />
                         </div>
-                        <div className="mb-2 ml-auto h-10 w-44 corner-notch-1 bg-primary/90" />
-                        <div className="h-10 w-52 corner-notch-1 bg-muted" />
                       </div>
 
                       <div className="border-t border-border">
-                        <div className="flex items-end gap-2 pr-2 pt-2">
-                          <div className="min-h-[5.75rem] flex-1 border border-border bg-background" />
-                          <div className="mb-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary">
-                            <div className="h-2.5 w-2.5 bg-primary-foreground" />
+                        <div className={EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME}>
+                          <div className="flex items-end gap-2 pr-2 pt-2">
+                            <div className="min-h-[5.75rem] flex-1 border border-border bg-background" />
+                            <div className="mb-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary">
+                              <div className="h-2.5 w-2.5 bg-primary-foreground" />
+                            </div>
                           </div>
                         </div>
                       </div>

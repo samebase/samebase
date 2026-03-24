@@ -17,6 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ChatInput, type ChatInputHandle } from "@/components/ChatInput";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
+import { EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME } from "@/components/editorChatLayout";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
@@ -925,78 +926,89 @@ export function EditorChatPanel({
         className,
       )}
     >
-      <div className="flex items-center gap-1 border-b border-border pl-1.5 pr-1 py-0 sm:pl-2 sm:pr-1.5 sm:py-0">
-        <div className="min-w-0 flex-1">{headerResizeHandle}</div>
-        <div className="flex shrink-0 items-center gap-0">
-          {threadId ? (
-            <button
-              onClick={() => void handleNewConversation()}
-              title={isDeleting ? "Removing..." : "New conversation"}
-              aria-label={
-                isDeleting ? "Removing conversation" : "New conversation"
-              }
-              disabled={isDeleting || sending}
-              aria-disabled={isDeleting || sending}
-              className={cn(
-                "corner-notch-1 p-0 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
-              )}
-            >
-              {isDeleting ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Plus className="h-3.5 w-3.5" />
-              )}
-            </button>
-          ) : null}
-          {onClose ? (
-            <button
-              onClick={handleClose}
-              disabled={sending || isDeleting}
-              aria-disabled={sending || isDeleting}
-              className="corner-notch-1 p-0 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label="Close chat"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          ) : null}
+      <div className="border-b border-border">
+        <div
+          className={cn(
+            "flex items-center gap-1 py-0",
+            EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME,
+          )}
+        >
+          <div className="min-w-0 flex-1">{headerResizeHandle}</div>
+          <div className="flex shrink-0 items-center gap-0">
+            {threadId ? (
+              <button
+                onClick={() => void handleNewConversation()}
+                title={isDeleting ? "Removing..." : "New conversation"}
+                aria-label={
+                  isDeleting ? "Removing conversation" : "New conversation"
+                }
+                disabled={isDeleting || sending}
+                aria-disabled={isDeleting || sending}
+                className={cn(
+                  "corner-notch-1 p-0 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
+                )}
+              >
+                {isDeleting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Plus className="h-3.5 w-3.5" />
+                )}
+              </button>
+            ) : null}
+            {onClose ? (
+              <button
+                onClick={handleClose}
+                disabled={sending || isDeleting}
+                aria-disabled={sending || isDeleting}
+                className="corner-notch-1 p-0 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Close chat"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-0 py-2 sm:px-3">
-        <CapabilitiesPanel
-          repositoryFullName={repositoryFullName}
-          vaultId={vaultId}
-          hasGithubConnection={Boolean(viewer?.hasGithubConnection)}
-          systemPrompt={threadContext?.systemPrompt}
-        />
-        {threadId
-          ? messageResults.map((msg) => (
-              <MessageBubble key={msg.id} msg={msg} threadId={threadId} />
-            ))
-          : null}
-        {isWaitingForResponse ? (
-          <div className="mb-2 flex max-w-[85%] items-center gap-2 corner-notch-1 bg-muted px-3 py-2 text-sm text-muted-foreground">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            <span>Thinking...</span>
-          </div>
-        ) : null}
-        <div ref={messagesEndRef} />
+      <div className="flex-1 overflow-y-auto py-2">
+        <div className={EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME}>
+          <CapabilitiesPanel
+            repositoryFullName={repositoryFullName}
+            vaultId={vaultId}
+            hasGithubConnection={Boolean(viewer?.hasGithubConnection)}
+            systemPrompt={threadContext?.systemPrompt}
+          />
+          {threadId
+            ? messageResults.map((msg) => (
+                <MessageBubble key={msg.id} msg={msg} threadId={threadId} />
+              ))
+            : null}
+          {isWaitingForResponse ? (
+            <div className="mb-2 flex max-w-[85%] items-center gap-2 corner-notch-1 bg-muted px-3 py-2 text-sm text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Thinking...</span>
+            </div>
+          ) : null}
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
       <div className="border-t border-border">
-        <ChatInput
-          ref={inputRef}
-          value={input}
-          onValueChange={(value) => {
-            setInput(value);
-            isDirtyDraftRef.current = true;
-          }}
-          onSend={() => void handleSend()}
-          disabled={sending || isWaitingForResponse || isDeleting}
-          mode={inputMode}
-          autoResize
-          sendButtonClassName="mr-2 mt-2 mb-2 p-2"
-        />
+        <div className={EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME}>
+          <ChatInput
+            ref={inputRef}
+            value={input}
+            onValueChange={(value) => {
+              setInput(value);
+              isDirtyDraftRef.current = true;
+            }}
+            onSend={() => void handleSend()}
+            disabled={sending || isWaitingForResponse || isDeleting}
+            mode={inputMode}
+            autoResize
+            sendButtonClassName="mr-2 mt-2 mb-2 p-2"
+          />
+        </div>
       </div>
     </div>
   );
