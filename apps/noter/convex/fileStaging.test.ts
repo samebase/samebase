@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { internal } from "./_generated/api";
 
 import {
   buildDeletedFileRestoreCandidate,
   buildClearAllStagingPlan,
   canAccessVaultStaging,
+  clearMatchingStagingSnapshotImpl,
   clearAllStagingImpl,
   selectRepositoryTreeForBranch,
   summarizeStagedFilesByBranch,
@@ -37,7 +39,11 @@ function createClearAllStagingTestContext(args: {
   stagedFiles: Array<{ _id: string; vaultId: string; branch: string }>;
 }) {
   const deletedIds: string[] = [];
-  const scheduledCalls: Array<{ delayMs: number; args: unknown }> = [];
+  const scheduledCalls: Array<{
+    delayMs: number;
+    fnRef: unknown;
+    args: unknown;
+  }> = [];
   const queriedScopes: Array<{
     table: string;
     indexName: string;
@@ -102,10 +108,61 @@ function createClearAllStagingTestContext(args: {
       scheduler: {
         runAfter: async (
           delayMs: number,
-          _fnRef: unknown,
+          fnRef: unknown,
           scheduledArgs: unknown,
         ) => {
-          scheduledCalls.push({ delayMs, args: scheduledArgs });
+          scheduledCalls.push({ delayMs, fnRef, args: scheduledArgs });
+        },
+      },
+    },
+  };
+}
+
+function createClearMatchingStagingSnapshotTestContext(args: {
+  stagedFiles: Array<{
+    _id: string;
+    _creationTime: number;
+    ownerId: string;
+    vaultId: string;
+    fileDeleted: boolean;
+    filePath: string;
+    initialFilePath: string;
+    content: string;
+    initialContent: string;
+    parentCommitSha: string | null;
+    lastEditTime: number;
+    lastEditUserId: string;
+    branch: string;
+    version: number;
+  }>;
+}) {
+  const deletedIds: string[] = [];
+  const scheduledCalls: Array<{
+    delayMs: number;
+    fnRef: unknown;
+    args: unknown;
+  }> = [];
+  const stagingById = new Map(
+    args.stagedFiles.map((file) => [file._id, file] as const),
+  );
+
+  return {
+    deletedIds,
+    scheduledCalls,
+    ctx: {
+      db: {
+        get: async (id: string) => stagingById.get(id) ?? null,
+        delete: async (id: string) => {
+          deletedIds.push(id);
+        },
+      },
+      scheduler: {
+        runAfter: async (
+          delayMs: number,
+          fnRef: unknown,
+          scheduledArgs: unknown,
+        ) => {
+          scheduledCalls.push({ delayMs, fnRef, args: scheduledArgs });
         },
       },
     },
@@ -448,6 +505,7 @@ describe("buildClearAllStagingPlan", () => {
     expect(context.scheduledCalls).toEqual([
       {
         delayMs: 0,
+        fnRef: internal.fileStaging.deleteCollaborativeUpdatesBatch,
         args: {
           vaultId: targetVaultId,
           branch: targetBranch,
@@ -456,11 +514,115 @@ describe("buildClearAllStagingPlan", () => {
       },
       {
         delayMs: 0,
+        fnRef: internal.github.updateRepositoryTree,
         args: {
           userId: "users:owner",
           owner: "octo",
           repo: "repo",
           branch: targetBranch,
+        },
+      },
+    ]);
+  });
+});
+
+describe("clearMatchingStagingSnapshotImpl", () => {
+  it("clears only the unchanged snapshot rows and scopes cleanup by file path", async () => {
+    const context = createClearMatchingStagingSnapshotTestContext({
+      stagedFiles: [
+        {
+          _id: "matching-1",
+          _creationTime: 1,
+          ownerId: "users:owner",
+          vaultId: "vault-1",
+          fileDeleted: false,
+          filePath: "src/new-name.ts",
+          initialFilePath: "src/old-name.ts",
+          content: "updated",
+          initialContent: "original",
+          parentCommitSha: "sha-1",
+          lastEditTime: 200,
+          lastEditUserId: "users:owner",
+          branch: "main",
+          version: 3,
+        },
+        {
+          _id: "changed-1",
+          _creationTime: 2,
+          ownerId: "users:owner",
+          vaultId: "vault-1",
+          fileDeleted: false,
+          filePath: "src/keep.ts",
+          initialFilePath: "src/keep.ts",
+          content: "newer content",
+          initialContent: "original",
+          parentCommitSha: "sha-2",
+          lastEditTime: 450,
+          lastEditUserId: "users:other",
+          branch: "main",
+          version: 4,
+        },
+      ],
+    });
+
+    // @ts-expect-error Regression test uses a minimal MutationCtx stub that only includes accessed fields.
+    await clearMatchingStagingSnapshotImpl(context.ctx, {
+      vaultId: "vault-1",
+      branch: "main",
+      stagedFiles: [
+        {
+          _id: "matching-1",
+          ownerId: "users:owner",
+          vaultId: "vault-1",
+          fileDeleted: false,
+          filePath: "src/new-name.ts",
+          initialFilePath: "src/old-name.ts",
+          content: "updated",
+          initialContent: "original",
+          parentCommitSha: "sha-1",
+          lastEditTime: 200,
+          lastEditUserId: "users:owner",
+          branch: "main",
+          version: 3,
+        },
+        {
+          _id: "changed-1",
+          ownerId: "users:owner",
+          vaultId: "vault-1",
+          fileDeleted: false,
+          filePath: "src/keep.ts",
+          initialFilePath: "src/keep.ts",
+          content: "original retry snapshot",
+          initialContent: "original",
+          parentCommitSha: "sha-2",
+          lastEditTime: 300,
+          lastEditUserId: "users:owner",
+          branch: "main",
+          version: 2,
+        },
+      ],
+    });
+
+    expect(context.deletedIds).toEqual(["matching-1"]);
+    expect(context.scheduledCalls).toEqual([
+      {
+        delayMs: 0,
+        fnRef: internal.fileStaging.deleteCollaborativeUpdatesForFilePathBatch,
+        args: {
+          vaultId: "vault-1",
+          branch: "main",
+          filePath: "src/new-name.ts",
+          cutoffTimestamp: 201,
+        },
+      },
+      {
+        delayMs: 0,
+        fnRef: internal.fileStaging.deleteCollaborativeUpdatesForFilePathBatch,
+        args: {
+          vaultId: "vault-1",
+          branch: "main",
+          filePath: "src/old-name.ts",
+          cutoffTimestamp: 201,
         },
       },
     ]);

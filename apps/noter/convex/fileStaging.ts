@@ -54,9 +54,26 @@ const stagedFileValidator = object({
   version: number(),
 });
 type StagedFile = Infer<typeof stagedFileValidator>;
+const stagedFileSnapshotValidator = object({
+  _id: fileStagingIdValidator,
+  ownerId: userIdValidator,
+  vaultId: vaultIdValidator,
+  fileDeleted: boolean(),
+  filePath: filePathValidator,
+  initialFilePath: filePathValidator,
+  content: contentValidator,
+  initialContent: contentValidator,
+  parentCommitSha: nullableStringValidator,
+  lastEditTime: number(),
+  lastEditUserId: userIdValidator,
+  branch: branchValidator,
+  version: number(),
+});
+type StagedFileSnapshot = Infer<typeof stagedFileSnapshotValidator>;
 
 const stagedFileOrNullValidator = union(stagedFileValidator, nullValue());
 const stagedFileListValidator = array(stagedFileValidator);
+const stagedFileSnapshotListValidator = array(stagedFileSnapshotValidator);
 const stagedFilesCategoryCountsValidator = object({
   modified: number(),
   deleted: number(),
@@ -89,6 +106,17 @@ const listAllStagedFilesArgsValidator = {
   vaultId: vaultIdValidator,
   branch: optional(branchValidator),
   includeUnchanged: optional(boolean()),
+};
+const duplicateBranchStagingArgsValidator = {
+  vaultId: vaultIdValidator,
+  sourceBranch: branchValidator,
+  targetBranch: branchValidator,
+  stagedFiles: stagedFileSnapshotListValidator,
+};
+const clearMatchingStagingSnapshotArgsValidator = {
+  vaultId: vaultIdValidator,
+  branch: branchValidator,
+  stagedFiles: stagedFileSnapshotListValidator,
 };
 
 const deletionArgsValidator = {
@@ -392,6 +420,150 @@ export const listAllStagedFiles = internalQuery({
   },
 });
 
+export const duplicateBranchStaging = internalMutation({
+  args: duplicateBranchStagingArgsValidator,
+  returns: nullResultValidator,
+  handler: async (ctx, args) => {
+    if (args.sourceBranch === args.targetBranch) {
+      throw new Error("Source and target branches must differ.");
+    }
+
+    const existingTargetFiles = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_branch", (q) =>
+        q.eq("vaultId", args.vaultId).eq("branch", args.targetBranch),
+      )
+      .filter((q) =>
+        q.or(
+          q.neq(q.field("content"), q.field("initialContent")),
+          q.eq(q.field("fileDeleted"), true),
+          q.neq(q.field("filePath"), q.field("initialFilePath")),
+          q.eq(q.field("parentCommitSha"), null),
+        ),
+      )
+      .take(1);
+    if (existingTargetFiles.length > 0) {
+      throw new Error("Target branch already has staged changes.");
+    }
+
+    for (const file of args.stagedFiles) {
+      if (file.vaultId !== args.vaultId) {
+        throw new Error("Staging snapshot belongs to a different vault.");
+      }
+      if (file.branch !== args.sourceBranch) {
+        throw new Error("Staging snapshot belongs to a different branch.");
+      }
+      if (!hasStagedFileChanges(file)) {
+        continue;
+      }
+
+      await ctx.db.insert("fileStaging", {
+        ownerId: file.ownerId,
+        vaultId: file.vaultId,
+        fileDeleted: file.fileDeleted,
+        filePath: file.filePath,
+        initialFilePath: file.initialFilePath,
+        content: file.content,
+        initialContent: file.initialContent,
+        parentCommitSha: file.parentCommitSha,
+        lastEditTime: file.lastEditTime,
+        lastEditUserId: file.lastEditUserId,
+        branch: args.targetBranch,
+        version: file.version,
+      });
+    }
+
+    return null;
+  },
+});
+
+function matchesStagedFileSnapshot(args: {
+  current: StagedFile;
+  snapshot: StagedFileSnapshot;
+}): boolean {
+  return (
+    args.current._id === args.snapshot._id &&
+    args.current.ownerId === args.snapshot.ownerId &&
+    args.current.vaultId === args.snapshot.vaultId &&
+    args.current.fileDeleted === args.snapshot.fileDeleted &&
+    args.current.filePath === args.snapshot.filePath &&
+    args.current.initialFilePath === args.snapshot.initialFilePath &&
+    args.current.content === args.snapshot.content &&
+    args.current.initialContent === args.snapshot.initialContent &&
+    args.current.parentCommitSha === args.snapshot.parentCommitSha &&
+    args.current.lastEditTime === args.snapshot.lastEditTime &&
+    args.current.lastEditUserId === args.snapshot.lastEditUserId &&
+    args.current.branch === args.snapshot.branch &&
+    args.current.version === args.snapshot.version
+  );
+}
+
+function listSnapshotCleanupPaths(snapshot: StagedFileSnapshot): string[] {
+  return Array.from(new Set([snapshot.filePath, snapshot.initialFilePath]));
+}
+
+type ClearMatchingStagingSnapshotArgs = {
+  vaultId: Infer<typeof vaultIdValidator>;
+  branch: string;
+  stagedFiles: StagedFileSnapshot[];
+};
+
+/**
+ * Clear only the source-branch staging rows that still match the exact snapshot
+ * committed onto a draft branch, so newer default-branch edits survive.
+ */
+export async function clearMatchingStagingSnapshotImpl(
+  ctx: MutationCtx,
+  args: ClearMatchingStagingSnapshotArgs,
+) {
+  const cleanupCutoffByFilePath = new Map<string, number>();
+
+  for (const snapshot of args.stagedFiles) {
+    if (snapshot.vaultId !== args.vaultId) {
+      throw new Error("Staging snapshot belongs to a different vault.");
+    }
+    if (snapshot.branch !== args.branch) {
+      throw new Error("Staging snapshot belongs to a different branch.");
+    }
+
+    const current = await ctx.db.get(snapshot._id);
+    if (!current || !matchesStagedFileSnapshot({ current, snapshot })) {
+      continue;
+    }
+
+    await ctx.db.delete(current._id);
+
+    const cutoffTimestamp = snapshot.lastEditTime + 1;
+    for (const filePath of listSnapshotCleanupPaths(snapshot)) {
+      cleanupCutoffByFilePath.set(
+        filePath,
+        Math.max(cleanupCutoffByFilePath.get(filePath) ?? 0, cutoffTimestamp),
+      );
+    }
+  }
+
+  for (const [filePath, cutoffTimestamp] of cleanupCutoffByFilePath) {
+    await ctx.scheduler.runAfter(
+      0,
+      internal.fileStaging.deleteCollaborativeUpdatesForFilePathBatch,
+      {
+        vaultId: args.vaultId,
+        branch: args.branch,
+        filePath,
+        cutoffTimestamp,
+      },
+    );
+  }
+
+  return null;
+}
+
+export const clearMatchingStagingSnapshot = internalMutation({
+  args: clearMatchingStagingSnapshotArgsValidator,
+  returns: nullResultValidator,
+  handler: clearMatchingStagingSnapshotImpl,
+});
+
 const DELETION_BATCH_SIZE = 500;
 
 type ClearAllStagingPlan<
@@ -603,6 +775,49 @@ export const deleteCollaborativeUpdatesBatch = internalMutation({
           branch: args.branch,
           cutoffTimestamp: args.cutoffTimestamp,
         },
+      );
+    }
+
+    return null;
+  },
+});
+
+// Delete collaborative updates for one file path in batches to preserve newer
+// edits on the same branch while removing history for a committed snapshot.
+export const deleteCollaborativeUpdatesForFilePathBatch = internalMutation({
+  args: {
+    vaultId: vaultIdValidator,
+    branch: branchValidator,
+    filePath: filePathValidator,
+    cutoffTimestamp: number(),
+  },
+  returns: nullResultValidator,
+  handler: async (ctx, args) => {
+    const updates = [];
+    for await (const update of ctx.db
+      .query("collaborativeUpdates")
+      .withIndex("by_vaultId_and_branch_and_filePath_and_timestamp", (q) =>
+        q
+          .eq("vaultId", args.vaultId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.filePath)
+          .lt("timestamp", args.cutoffTimestamp),
+      )) {
+      updates.push(update);
+      if (updates.length === DELETION_BATCH_SIZE) {
+        break;
+      }
+    }
+
+    for (const update of updates) {
+      await ctx.db.delete(update._id);
+    }
+
+    if (updates.length === DELETION_BATCH_SIZE) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.fileStaging.deleteCollaborativeUpdatesForFilePathBatch,
+        args,
       );
     }
 

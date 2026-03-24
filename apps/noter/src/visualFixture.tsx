@@ -32,10 +32,11 @@ import {
   LogoSnapAnglesVisualFixture,
   type LogoSnapAnglesVisualMode,
 } from "@/components/LogoSnapAnglesVisualFixture";
+import { FileViewPushActionsVisualFixture } from "@/components/FileViewPushActionsVisualFixture";
 import {
-  FileViewPushActionsVisualFixture,
+  isFileViewPushActionsVisualMode,
   type FileViewPushActionsVisualMode,
-} from "@/components/FileViewPushActionsVisualFixture";
+} from "@/components/fileViewPushActionsVisualModes";
 import { VaultDashboardBranchVisualFixture } from "@/components/VaultDashboardBranchVisualFixture";
 import { ButtonVisualFixture } from "@/components/ButtonVisualFixture";
 import {
@@ -93,8 +94,7 @@ function readMode(): VisualFixtureMode {
     value === "vault-branch-mobile-alignment" ||
     value === "vault-branch-preview-link" ||
     value === "vault-branch-preview-missing" ||
-    value === "file-view-push-ready" ||
-    value === "file-view-open-pr" ||
+    (typeof value === "string" && isFileViewPushActionsVisualMode(value)) ||
     value === "vault-dashboard-branch-pr-title" ||
     value === "button" ||
     value === "corner-notch" ||
@@ -139,7 +139,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         ) : mode === "vault-branch-preview-link" ||
           mode === "vault-branch-preview-missing" ? (
           <VaultBranchPreviewVisualFixture mode={mode} />
-        ) : mode === "file-view-push-ready" || mode === "file-view-open-pr" ? (
+        ) : isFileViewPushActionsVisualMode(mode) ? (
           <FileViewPushActionsVisualFixture mode={mode} />
         ) : mode === "vault-dashboard-branch-pr-title" ? (
           <VaultDashboardBranchVisualFixture />

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
 import {
+  buildDraftBranchName,
   buildDraftPullRequestTitle,
   createCommitWithMultipleFiles,
   getDraftPullRequestCreateErrorMessage,
@@ -316,6 +317,24 @@ describe("draft pull request helpers", () => {
         commitMessage: "Add draft PR button\n\nExtra details",
       }),
     ).toBe("Add draft PR button");
+  });
+
+  it("builds a readable draft branch name from staged files", () => {
+    expect(
+      buildDraftBranchName({
+        stagedFiles: [
+          {
+            filePath: "docs/Draft Button.md",
+            initialFilePath: "docs/Draft Button.md",
+          },
+          {
+            filePath: "src/FileView.tsx",
+            initialFilePath: "src/FileView.tsx",
+          },
+        ],
+        now: 1_712_345_678_901,
+      }),
+    ).toBe("draft/draft-button-md-fileview-tsx-lun2elv9");
   });
 
   it("returns a friendly message when the branch has no PR-worthy commits", () => {
