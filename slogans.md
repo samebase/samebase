@@ -1,5 +1,5 @@
 - a collaborative markdown workspace on top of GitHub
-- anyone can create a crud app
+- create collaborative app in 3.4 seconds
 - the senior stack for junior devs
 - if Notion and Obsidian had a baby
 - if Lovable could build Lovable
