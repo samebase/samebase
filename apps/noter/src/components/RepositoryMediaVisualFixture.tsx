@@ -50,15 +50,17 @@ export function RepositoryMediaVisualFixture({
       isExpanded: true,
     },
   ];
+  const sidebarHeader = (
+    <div className="border-b border-border/50 p-3">
+      <div className="text-sm font-medium text-foreground">Noter</div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        Fixture Workspace
+      </div>
+    </div>
+  );
+
   const sidebarContent = (
     <>
-      <div className="border-b border-border/50 p-3">
-        <div className="text-sm font-medium text-foreground">Noter</div>
-        <div className="mt-1 text-xs text-muted-foreground">
-          Fixture Workspace
-        </div>
-      </div>
-
       <div className="border-b border-border/50 p-3">
         <div className="flex items-center gap-2">
           <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
@@ -100,6 +102,21 @@ export function RepositoryMediaVisualFixture({
     </>
   );
 
+  const contentHeader = (
+    <div className="p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-base font-medium md:text-sm">
+          <span className="block truncate text-foreground">
+            {fixture.selectedFile}
+          </span>
+        </h2>
+        <div className="text-xs text-muted-foreground">
+          Read-only media preview
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <SidebarProvider
       defaultOpen={true}
@@ -107,29 +124,20 @@ export function RepositoryMediaVisualFixture({
     >
       <RepositoryWorkspaceFrame
         dataTestId="repository-media-visual-fixture"
+        sidebarHeader={sidebarHeader}
         sidebarContent={sidebarContent}
+        contentHeader={contentHeader}
         headerTitle={
           fixture.selectedFile.split("/").slice(0, -1).join("/") || "/"
         }
+        contentClassName="flex min-h-0 flex-col p-0"
       >
-        <div className="max-w-none h-full flex flex-col">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-base font-medium md:text-sm">
-              <span className="block truncate text-foreground">
-                {fixture.selectedFile}
-              </span>
-            </h2>
-            <div className="text-xs text-muted-foreground">
-              Read-only media preview
-            </div>
-          </div>
-          <div className="min-h-0 flex-1">
-            <RepositoryMediaPreviewPanel
-              asset={fixture.asset}
-              fallbackLabel={fixture.selectedFile}
-              testId="repository-media-preview-panel"
-            />
-          </div>
+        <div className="min-h-0 flex-1">
+          <RepositoryMediaPreviewPanel
+            asset={fixture.asset}
+            fallbackLabel={fixture.selectedFile}
+            testId="repository-media-preview-panel"
+          />
         </div>
       </RepositoryWorkspaceFrame>
     </SidebarProvider>

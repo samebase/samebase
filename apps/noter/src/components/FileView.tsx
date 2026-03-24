@@ -2144,20 +2144,18 @@ function FileViewInner({
   // MARK: Return
 
   const userDisplayName = user?.name ?? user?.email ?? user?.githubUsername;
+  const sidebarHeader = userDisplayName ? (
+    <SidebarAccountSection>
+      <Link to="/" className={`flex items-center justify-between ${linkStyle}`}>
+        <UserMenu className="w-full min-w-0 justify-between">
+          <span className="block min-w-0 truncate">{userDisplayName}</span>
+        </UserMenu>
+      </Link>
+    </SidebarAccountSection>
+  ) : null;
+
   const sidebarContent = (
     <>
-      {userDisplayName ? (
-        <SidebarAccountSection>
-          <Link
-            to="/"
-            className={`flex items-center justify-between ${linkStyle}`}
-          >
-            <UserMenu className="w-full min-w-0 justify-between">
-              <span className="block min-w-0 truncate">{userDisplayName}</span>
-            </UserMenu>
-          </Link>
-        </SidebarAccountSection>
-      ) : null}
       <div className="border-b border-border/50 p-3">
         <div className="flex items-center gap-2">
           <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
@@ -2293,13 +2291,153 @@ function FileViewInner({
     ? selectedFile.split("/").slice(0, -1).join("/") || "/"
     : undefined;
 
+  const contentHeader = (
+    <div className="p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="min-w-0">
+            <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">
+              {branch}
+            </div>
+            {selectedFile ? (
+              <h2 className="text-base font-medium md:text-sm">
+                <a
+                  className={`block truncate ${linkStyle}`}
+                  href={selectedFileGitHubUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {selectedFile}
+                </a>
+              </h2>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <DaytonaSnapshotBanner
+            branch={branch}
+            commitSha={vault.commitSHA}
+            snapshotName={vault.daytonaCurrentSnapshotName}
+            snapshotStatus={vault.daytonaCurrentSnapshotStatus}
+            lastError={vault.daytonaCurrentSnapshotLastError}
+            className="w-full"
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <VaultSyncStatus
+              vaultId={vault._id}
+              repositoryFullName={repositoryFullName}
+              branch={branch}
+              owner={owner}
+              repoName={repoName}
+              commitSha={commitSha}
+              treeRefreshStartedAt={vault.treeRefreshStartedAt}
+              lastTreeRefreshAt={vault.lastTreeRefreshAt}
+              stagedFiles={stagedFiles}
+              disableStagedFilesQuery
+            />
+
+            {viewMode === "editor" && (
+              <Button
+                size="sm"
+                variant={isPreviewOpen ? "secondary" : "outline"}
+                onClick={() => setIsPreviewOpen((current) => !current)}
+                className="h-6 px-2 text-xs"
+              >
+                {isPreviewOpen ? "Hide Preview" : "Show Preview"}
+              </Button>
+            )}
+
+            {viewMode === "editor" && (
+              <Button
+                size="sm"
+                variant={
+                  commitReviewMode === "review" ? "secondary" : "outline"
+                }
+                onClick={handleToggleReviewMode}
+                disabled={
+                  commitReviewMode === "editor" &&
+                  (!hasChangesToCommit || commitPreviewStatus === "loading")
+                }
+                className="h-6 px-2 text-xs"
+              >
+                {commitReviewMode === "review"
+                  ? "Back to Editor"
+                  : commitPreviewStatus === "loading"
+                    ? "Loading..."
+                    : "Review Changes"}
+              </Button>
+            )}
+
+            <FileViewPushActions
+              canCreateDraftPullRequest={canCreateDraftPullRequest}
+              currentPullRequestNumber={currentBranchPullRequestNumber}
+              currentPullRequestUrl={currentBranchPullRequestUrl}
+              draftButtonLabel={draftButtonLabel}
+              hasChangesToCommit={Boolean(hasChangesToCommit)}
+              isCreatingDraftPullRequest={isCreatingDraftPullRequest}
+              isPushing={manualComittingStatus === "loading"}
+              onCreateDraftPullRequest={handleDraftPullRequest}
+              onManualCommit={handleManualCommit}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleResetToGitHub}
+              disabled={resetToGitHubDisabled}
+              className="h-6 px-2 text-xs text-orange-600 hover:text-orange-700"
+            >
+              {isResettingToGitHub ? "Resetting..." : "Reset to GitHub"}
+            </Button>
+          </div>
+
+          <Collapsible
+            className="space-y-1.5"
+            open={developerToolsOpen}
+            onOpenChange={setDeveloperToolsOpen}
+          >
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto self-start gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180"
+              >
+                Developer tools
+                <ChevronDownIcon className="h-3.5 w-3.5 transition-transform" />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent
+              forceMount
+              className="space-y-1.5 data-[state=closed]:hidden"
+            >
+              <DaytonaWorkspaceButton
+                vaultId={vault._id}
+                branch={branch}
+                sandboxId={vault.daytonaSandboxId}
+                sandboxName={vault.daytonaSandboxName}
+                commitSha={vault.commitSHA}
+                snapshotStatus={vault.daytonaCurrentSnapshotStatus}
+                snapshotName={vault.daytonaCurrentSnapshotName}
+                snapshotError={vault.daytonaCurrentSnapshotLastError}
+                className="text-xs"
+              />
+              <DaytonaSnapshotList vaultId={vault._id} />
+            </CollapsibleContent>
+          </Collapsible>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <>
       <RepositoryWorkspaceFrame
+        sidebarHeader={sidebarHeader}
         sidebarContent={sidebarContent}
+        contentHeader={contentHeader}
         headerTitle={headerTitle}
         onQuickOpen={() => setIsCommandPaletteOpen(true)}
-        contentClassName="flex-1 min-h-0 p-0"
+        contentClassName="flex min-h-0 flex-col p-0"
       >
         <div className="flex h-full min-h-0 flex-col">
           <div
@@ -2315,140 +2453,6 @@ function FileViewInner({
                 : undefined
             }
           >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="min-w-0">
-                <div className="min-w-0">
-                  <div className="mb-0.5 font-mono text-[11px] text-muted-foreground">
-                    {branch}
-                  </div>
-                  {selectedFile ? (
-                    <h2 className="text-base md:text-sm font-medium">
-                      <a
-                        className={`block truncate ${linkStyle}`}
-                        href={selectedFileGitHubUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {selectedFile}
-                      </a>
-                    </h2>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <DaytonaSnapshotBanner
-                  branch={branch}
-                  commitSha={vault.commitSHA}
-                  snapshotName={vault.daytonaCurrentSnapshotName}
-                  snapshotStatus={vault.daytonaCurrentSnapshotStatus}
-                  lastError={vault.daytonaCurrentSnapshotLastError}
-                  className="w-full"
-                />
-                <div className="flex flex-wrap items-center gap-2">
-                  <VaultSyncStatus
-                    vaultId={vault._id}
-                    repositoryFullName={repositoryFullName}
-                    branch={branch}
-                    owner={owner}
-                    repoName={repoName}
-                    commitSha={commitSha}
-                    treeRefreshStartedAt={vault.treeRefreshStartedAt}
-                    lastTreeRefreshAt={vault.lastTreeRefreshAt}
-                    stagedFiles={stagedFiles}
-                    disableStagedFilesQuery
-                  />
-
-                  {viewMode === "editor" && (
-                    <Button
-                      size="sm"
-                      variant={isPreviewOpen ? "secondary" : "outline"}
-                      onClick={() => setIsPreviewOpen((current) => !current)}
-                      className="h-6 px-2 text-xs"
-                    >
-                      {isPreviewOpen ? "Hide Preview" : "Show Preview"}
-                    </Button>
-                  )}
-
-                  {viewMode === "editor" && (
-                    <Button
-                      size="sm"
-                      variant={
-                        commitReviewMode === "review" ? "secondary" : "outline"
-                      }
-                      onClick={handleToggleReviewMode}
-                      disabled={
-                        commitReviewMode === "editor" &&
-                        (!hasChangesToCommit ||
-                          commitPreviewStatus === "loading")
-                      }
-                      className="h-6 px-2 text-xs"
-                    >
-                      {commitReviewMode === "review"
-                        ? "Back to Editor"
-                        : commitPreviewStatus === "loading"
-                          ? "Loading..."
-                          : "Review Changes"}
-                    </Button>
-                  )}
-
-                  <FileViewPushActions
-                    canCreateDraftPullRequest={canCreateDraftPullRequest}
-                    currentPullRequestNumber={currentBranchPullRequestNumber}
-                    currentPullRequestUrl={currentBranchPullRequestUrl}
-                    draftButtonLabel={draftButtonLabel}
-                    hasChangesToCommit={Boolean(hasChangesToCommit)}
-                    isCreatingDraftPullRequest={isCreatingDraftPullRequest}
-                    isPushing={manualComittingStatus === "loading"}
-                    onCreateDraftPullRequest={handleDraftPullRequest}
-                    onManualCommit={handleManualCommit}
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleResetToGitHub}
-                    disabled={resetToGitHubDisabled}
-                    className="h-6 px-2 text-xs text-orange-600 hover:text-orange-700"
-                  >
-                    {isResettingToGitHub ? "Resetting..." : "Reset to GitHub"}
-                  </Button>
-                </div>
-
-                <Collapsible
-                  className="space-y-1.5"
-                  open={developerToolsOpen}
-                  onOpenChange={setDeveloperToolsOpen}
-                >
-                  <CollapsibleTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto self-start gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180"
-                    >
-                      Developer tools
-                      <ChevronDownIcon className="h-3.5 w-3.5 transition-transform" />
-                    </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent
-                    forceMount
-                    className="space-y-1.5 data-[state=closed]:hidden"
-                  >
-                    <DaytonaWorkspaceButton
-                      vaultId={vault._id}
-                      branch={branch}
-                      sandboxId={vault.daytonaSandboxId}
-                      sandboxName={vault.daytonaSandboxName}
-                      commitSha={vault.commitSHA}
-                      snapshotStatus={vault.daytonaCurrentSnapshotStatus}
-                      snapshotName={vault.daytonaCurrentSnapshotName}
-                      snapshotError={vault.daytonaCurrentSnapshotLastError}
-                      className="text-xs"
-                    />
-                    <DaytonaSnapshotList vaultId={vault._id} />
-                  </CollapsibleContent>
-                </Collapsible>
-              </div>
-            </div>
             {commitError ? (
               <div className="mb-3 corner-notch-1 border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">
                 Commit failed: {commitError}

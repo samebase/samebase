@@ -1841,18 +1841,15 @@ function VaultDashboardContent() {
     }
   };
 
-  const sidebarContent = (
-    <>
-      {userDisplayName ? (
-        <SidebarAccountSection>
-          <UserMenu className="w-full min-w-0 justify-between">
-            <span className="block min-w-0 truncate">{userDisplayName}</span>
-          </UserMenu>
-        </SidebarAccountSection>
-      ) : null}
-      <div className="flex-1" />
-    </>
-  );
+  const sidebarHeader = userDisplayName ? (
+    <SidebarAccountSection>
+      <UserMenu className="w-full min-w-0 justify-between">
+        <span className="block min-w-0 truncate">{userDisplayName}</span>
+      </UserMenu>
+    </SidebarAccountSection>
+  ) : null;
+
+  const sidebarContent = <div className="flex-1" />;
 
   const dashboardScrollStyle: CSSProperties | undefined =
     mobileEditorChatDockInset
@@ -1863,6 +1860,20 @@ function VaultDashboardContent() {
           scrollPaddingBottom: mobileEditorChatDockInset,
         }
       : undefined;
+
+  const dashboardContentHeader =
+    vaults.length === 0 ? null : (
+      <div className="container py-6">
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-center gap-2">
+            <GitHubLogoIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+            <h1 className="text-xl font-semibold sm:text-2xl">Your Vaults</h1>
+          </div>
+          <div className="w-full lg:w-auto">{createControl}</div>
+        </div>
+        <div>{connectionPanel}</div>
+      </div>
+    );
 
   const dashboardBody =
     vaults.length === 0 ? (
@@ -1888,15 +1899,6 @@ function VaultDashboardContent() {
       </div>
     ) : (
       <div className="container py-6">
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-center gap-2">
-            <GitHubLogoIcon className="h-5 w-5 sm:h-6 sm:w-6" />
-            <h1 className="text-xl font-semibold sm:text-2xl">Your Vaults</h1>
-          </div>
-          <div className="w-full lg:w-auto">{createControl}</div>
-        </div>
-        <div className="mb-6">{connectionPanel}</div>
-
         <div className="space-y-2">
           {vaults.map((vault: (typeof vaults)[0]) => {
             const isReady = vault.state === "ready";
@@ -2159,8 +2161,10 @@ function VaultDashboardContent() {
   return (
     <>
       <RepositoryWorkspaceFrame
+        sidebarHeader={sidebarHeader}
         sidebarContent={sidebarContent}
-        contentClassName="flex-1 min-h-0 p-0"
+        contentHeader={dashboardContentHeader}
+        contentClassName="flex min-h-0 flex-col p-0"
       >
         <div className="flex h-full min-h-0 flex-col">
           <div
