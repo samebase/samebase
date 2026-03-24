@@ -31,7 +31,8 @@ function compareLabelNames(a: string, b: string): number {
   return a.localeCompare(b, undefined, { sensitivity: "base" });
 }
 
-const NO_LABEL_FILTER_KEY = "__no_label__";
+// Use a sentinel key that a GitHub label cannot reproduce after normalization.
+const NO_LABEL_FILTER_KEY = "\u0000no-label";
 const NO_LABEL_FILTER_NAME = "No label";
 
 export function getDefaultVaultBranchFilters(): VaultBranchFilters {

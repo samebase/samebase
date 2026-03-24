@@ -159,10 +159,41 @@ describe("vaultBranchFilters", () => {
         isNoLabel: false,
       },
       {
-        key: "__no_label__",
+        key: "\u0000no-label",
         name: "No label",
         count: 1,
         included: false,
+        isNoLabel: true,
+      },
+    ]);
+  });
+
+  it("keeps the synthetic no-label option distinct from a real label key", () => {
+    expect(
+      buildVaultBranchFilterOptions({
+        branches: [
+          {
+            pullRequestLabels: [{ name: "__no_label__", color: "d73a4a" }],
+          },
+          {},
+        ],
+        hiddenLabels: ["__no_label__"],
+        includeNoLabel: true,
+      }),
+    ).toEqual([
+      {
+        key: "__no_label__",
+        name: "__no_label__",
+        color: "#d73a4a",
+        count: 1,
+        included: false,
+        isNoLabel: false,
+      },
+      {
+        key: "\u0000no-label",
+        name: "No label",
+        count: 1,
+        included: true,
         isNoLabel: true,
       },
     ]);

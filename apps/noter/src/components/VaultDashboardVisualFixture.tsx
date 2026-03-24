@@ -231,7 +231,7 @@ export function VaultDashboardVisualFixture({
                           isNoLabel: false,
                         },
                         {
-                          key: "__no_label__",
+                          key: "\u0000no-label",
                           name: "No label",
                           count: 1,
                           included: false,
