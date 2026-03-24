@@ -4,7 +4,12 @@ import { Button } from "@/components/button";
 import { Checkbox } from "@/components/checkbox";
 import { Input } from "@/components/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/popover";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/sheet";
 import { buildPullRequestLabelStyle } from "@/lib/pullRequestLabels";
 import {
   setVaultBranchFilterLabelIncluded,
@@ -185,6 +190,7 @@ export function VaultBranchFiltersControl({
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetTrigger asChild>{trigger}</SheetTrigger>
         <SheetContent side="bottom" className="max-h-[85vh] overflow-hidden">
+          <SheetTitle className="sr-only">Filters</SheetTitle>
           <VaultBranchFiltersPanel
             value={value}
             options={options}
