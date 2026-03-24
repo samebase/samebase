@@ -18,6 +18,7 @@ import {
 import { isObjectRecord as isRecord } from "./jsonUtils";
 import { rebaseStagedContent } from "./stagingRebase";
 import { selectRepositoryTreeForBranch } from "./fileStaging";
+import { sanitizeSlug } from "./slugUtils";
 import { isStaleBaseVersionError } from "../shared/stagingErrors";
 
 const { boolean, number, object, optional, string } = v;
@@ -235,6 +236,28 @@ export function buildDraftPullRequestTitle(args: {
   }
 
   return `Update ${args.branch}`;
+}
+
+/**
+ * Keep auto-created draft branches readable so the PR unit of work also gets a
+ * readable branch name.
+ */
+export function buildDraftBranchName(args: {
+  stagedFiles: Array<Pick<StagedFileForCommit, "filePath" | "initialFilePath">>;
+  now: number;
+}): string {
+  const labels = Array.from(
+    new Set(
+      args.stagedFiles
+        .flatMap((file) => [file.filePath, file.initialFilePath])
+        .map((path) => path.split("/").at(-1) ?? path)
+        .map((segment) => sanitizeSlug(segment, 18))
+        .filter((segment) => segment.length > 0),
+    ),
+  );
+  const stem = sanitizeSlug(labels.slice(0, 3).join("-"), 36);
+  const suffix = args.now.toString(36).slice(-6);
+  return `draft/${stem.length > 0 ? stem : "work"}-${suffix}`;
 }
 
 async function getBranchHeadCommitMessage(args: {
@@ -531,6 +554,11 @@ const draftPullRequestResult = object({
   number: number(),
   existing: boolean(),
 });
+const defaultBranchDraftPullRequestResult = object({
+  branch: string(),
+  url: string(),
+  number: number(),
+});
 
 const rebaseConflictPreviewFile = v.object({
   path: v.string(),
@@ -553,6 +581,9 @@ type CommitPreviewFile = Infer<typeof commitPreviewFile>;
 type CommitPreviewTotals = Infer<typeof commitPreviewTotals>;
 type CommitPreviewResult = Infer<typeof commitPreviewResult>;
 type DraftPullRequestResult = Infer<typeof draftPullRequestResult>;
+type DefaultBranchDraftPullRequestResult = Infer<
+  typeof defaultBranchDraftPullRequestResult
+>;
 type RebaseConflictPreviewFile = Infer<typeof rebaseConflictPreviewFile>;
 type RebaseConflictPreviewResult = Infer<typeof rebaseConflictPreviewResult>;
 
@@ -1597,6 +1628,189 @@ export const createDraftPullRequest = action({
         throw new Error(friendlyMessage);
       }
       throw error;
+    }
+  },
+});
+
+export const createDraftPullRequestFromDefaultBranch = action({
+  args: {
+    repositoryFullName: string(),
+    branch: optional(string()),
+  },
+  returns: defaultBranchDraftPullRequestResult,
+  handler: async (ctx, args): Promise<DefaultBranchDraftPullRequestResult> => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
+    const githubAccessToken = await getGithubAccessToken(ctx, userId);
+    const octokit: Octokit = new Octokit({
+      auth: githubAccessToken,
+    });
+    const defaultBranch = await getRepositoryDefaultBranch({
+      octokit,
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+    });
+    const sourceBranch = args.branch?.trim() || defaultBranch;
+    if (sourceBranch !== defaultBranch) {
+      throw new Error("Create a new draft branch from the default branch.");
+    }
+
+    const stagedFiles: StagedFileForCommit[] = await ctx.runQuery(
+      internal.fileStaging.listAllStagedFiles,
+      {
+        vaultId: vault._id,
+        branch: defaultBranch,
+      },
+    );
+    if (stagedFiles.length === 0) {
+      throw new Error("Stage changes on the default branch before drafting.");
+    }
+
+    const targetBranch = buildDraftBranchName({
+      stagedFiles,
+      now: Date.now(),
+    });
+    const defaultRef = await octokit.rest.git.getRef({
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+      ref: `heads/${defaultBranch}`,
+    });
+
+    await octokit.rest.git.createRef({
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+      ref: `refs/heads/${targetBranch}`,
+      sha: defaultRef.data.object.sha,
+    });
+
+    let committedBranch = false;
+    try {
+      await ctx.runMutation(internal.fileStaging.duplicateBranchStaging, {
+        vaultId: vault._id,
+        sourceBranch: defaultBranch,
+        targetBranch,
+      });
+
+      await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
+        userId,
+        vaultId: vault._id,
+        repoOwner: vault.ghRepoOwner,
+        repoName: vault.ghRepoName,
+        branch: targetBranch,
+      });
+      committedBranch = true;
+
+      let url: string;
+      let number: number;
+      try {
+        const response = await octokit.rest.pulls.create({
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          title: buildDraftPullRequestTitle({
+            branch: targetBranch,
+            commitMessage: await getBranchHeadCommitMessage({
+              octokit,
+              owner: vault.ghRepoOwner,
+              repo: vault.ghRepoName,
+              branch: targetBranch,
+            }),
+          }),
+          head: targetBranch,
+          base: defaultBranch,
+          draft: true,
+        });
+        url = response.data.html_url;
+        number = response.data.number;
+      } catch (error) {
+        const currentPullRequest = await getOpenPullRequestForBranch({
+          octokit,
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          branch: targetBranch,
+          baseBranch: defaultBranch,
+        });
+        if (!currentPullRequest) {
+          throw new Error(
+            `Draft branch ${targetBranch} was created, but the pull request could not be opened.`,
+          );
+        }
+        url = currentPullRequest.url;
+        number = currentPullRequest.number;
+      }
+
+      try {
+        await ctx.runAction(internal.github.updateRepositoryTree, {
+          userId,
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          includeAheadBehind: true,
+          includePullRequestLinks: true,
+        });
+      } catch (error) {
+        console.warn(
+          "Failed to refresh remote branch metadata after creating default-branch draft PR:",
+          error,
+        );
+      }
+
+      try {
+        await ctx.runMutation(api.fileStaging.clearAllStaging, {
+          vaultId: vault._id,
+          branch: defaultBranch,
+          skipTreeUpdate: true,
+        });
+      } catch (error) {
+        console.warn(
+          "Failed to clear default-branch staging after creating draft PR:",
+          error,
+        );
+      }
+
+      return {
+        branch: targetBranch,
+        url,
+        number,
+      };
+    } catch (error) {
+      if (!committedBranch) {
+        try {
+          await ctx.runMutation(api.fileStaging.clearAllStaging, {
+            vaultId: vault._id,
+            branch: targetBranch,
+            skipTreeUpdate: true,
+          });
+        } catch (cleanupError) {
+          console.warn(
+            "Failed to clear temporary draft-branch staging after draft PR error:",
+            cleanupError,
+          );
+        }
+
+        try {
+          await octokit.rest.git.deleteRef({
+            owner: vault.ghRepoOwner,
+            repo: vault.ghRepoName,
+            ref: `heads/${targetBranch}`,
+          });
+        } catch (cleanupError) {
+          console.warn(
+            "Failed to remove temporary draft branch after draft PR error:",
+            cleanupError,
+          );
+        }
+      }
+
+      if (error instanceof Error && error.message.length > 0) {
+        throw error;
+      }
+      throw new Error("Failed to create draft pull request");
     }
   },
 });

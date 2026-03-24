@@ -2,8 +2,12 @@ import { expect, test } from "@playwright/test";
 
 const SCENARIOS = [
   {
-    mode: "file-view-push-ready",
-    snapshotName: "file-view-push-ready.png",
+    mode: "file-view-default-draft",
+    snapshotName: "file-view-default-draft.png",
+  },
+  {
+    mode: "file-view-create-draft",
+    snapshotName: "file-view-create-draft.png",
   },
   {
     mode: "file-view-open-pr",

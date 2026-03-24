@@ -90,6 +90,11 @@ const listAllStagedFilesArgsValidator = {
   branch: optional(branchValidator),
   includeUnchanged: optional(boolean()),
 };
+const duplicateBranchStagingArgsValidator = {
+  vaultId: vaultIdValidator,
+  sourceBranch: branchValidator,
+  targetBranch: branchValidator,
+};
 
 const deletionArgsValidator = {
   vaultId: vaultIdValidator,
@@ -389,6 +394,54 @@ export const listAllStagedFiles = internalQuery({
           })();
 
     return args.includeUnchanged ? files : files.filter(hasStagedFileChanges);
+  },
+});
+
+export const duplicateBranchStaging = internalMutation({
+  args: duplicateBranchStagingArgsValidator,
+  returns: nullResultValidator,
+  handler: async (ctx, args) => {
+    if (args.sourceBranch === args.targetBranch) {
+      throw new Error("Source and target branches must differ.");
+    }
+
+    const existingTargetFiles = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_branch", (q) =>
+        q.eq("vaultId", args.vaultId).eq("branch", args.targetBranch),
+      )
+      .take(1);
+    if (existingTargetFiles.length > 0) {
+      throw new Error("Target branch already has staged changes.");
+    }
+
+    const sourceFiles = (
+      await ctx.db
+        .query("fileStaging")
+        .withIndex("by_vault_and_branch", (q) =>
+          q.eq("vaultId", args.vaultId).eq("branch", args.sourceBranch),
+        )
+        .collect()
+    ).filter(hasStagedFileChanges);
+
+    for (const file of sourceFiles) {
+      await ctx.db.insert("fileStaging", {
+        ownerId: file.ownerId,
+        vaultId: file.vaultId,
+        fileDeleted: file.fileDeleted,
+        filePath: file.filePath,
+        initialFilePath: file.initialFilePath,
+        content: file.content,
+        initialContent: file.initialContent,
+        parentCommitSha: file.parentCommitSha,
+        lastEditTime: file.lastEditTime,
+        lastEditUserId: file.lastEditUserId,
+        branch: args.targetBranch,
+        version: file.version,
+      });
+    }
+
+    return null;
   },
 });
 

@@ -777,6 +777,12 @@ function FileViewInner({
   const [createDraftPullRequest, draftPullRequestStatus] = useConvexAction(
     api.fileStagingActions.createDraftPullRequest,
   );
+  const [
+    createDraftPullRequestFromDefaultBranch,
+    defaultBranchDraftPullRequestStatus,
+  ] = useConvexAction(
+    api.fileStagingActions.createDraftPullRequestFromDefaultBranch,
+  );
   const [getCommitPreview, commitPreviewStatus] = useConvexAction(
     api.fileStagingActions.getCommitPreview,
   );
@@ -1052,9 +1058,12 @@ function FileViewInner({
     (
       path: string,
       options?: {
+        branch?: string;
         reviewMode?: CommitReviewMode;
       },
     ) => {
+      const targetBranch = options?.branch ?? branch;
+      const encodedTargetBranch = encodeURIComponent(targetBranch);
       const encodedPath = encodeVaultFilePath(path);
       const preserveCurrentReviewMode = options?.reviewMode === undefined;
       const currentSearchParams = new URLSearchParams(search);
@@ -1067,7 +1076,7 @@ function FileViewInner({
         (preserveCurrentReviewMode && currentSearchParams.has("diff"));
       return buildPathWithUpdatedQuery(
         {
-          pathname: `/vault/${owner}/${repoName}/${encodedBranch}/${encodedPath}`,
+          pathname: `/vault/${owner}/${repoName}/${encodedTargetBranch}/${encodedPath}`,
           search,
         },
         (searchParams) => {
@@ -1076,7 +1085,7 @@ function FileViewInner({
         },
       );
     },
-    [encodedBranch, owner, repoName, search],
+    [branch, owner, repoName, search],
   );
   const setReviewModeInQuery = useCallback(
     (
@@ -1413,57 +1422,97 @@ function FileViewInner({
     }
 
     const pendingPullRequestWindow = window.open("", "_blank");
+    const handleCreatedPullRequest = (args: {
+      url: string;
+      nextBranch: string;
+    }) => {
+      void refreshRepositoryTree({
+        owner,
+        repo: repoName,
+      }).catch((error) => {
+        console.warn("Failed to refresh tree after draft PR:", error);
+      });
+      if (args.nextBranch !== branch) {
+        void navigate(
+          buildVaultFileUrl(selectedFile, { branch: args.nextBranch }),
+          {
+            state,
+          },
+        );
+      }
+      if (pendingPullRequestWindow && !pendingPullRequestWindow.closed) {
+        pendingPullRequestWindow.opener = null;
+        pendingPullRequestWindow.location.replace(args.url);
+        return;
+      }
+      const openedWindow = window.open(
+        args.url,
+        "_blank",
+        "noopener,noreferrer",
+      );
+      if (!openedWindow) {
+        setDraftPullRequestError(
+          "Draft pull request created, but the browser blocked opening a new tab.",
+        );
+      }
+    };
+
+    const handleDraftPullRequestError = (error: unknown) => {
+      if (pendingPullRequestWindow && !pendingPullRequestWindow.closed) {
+        pendingPullRequestWindow.close();
+      }
+      const message =
+        error instanceof Error && error.message.length > 0
+          ? error.message
+          : "Failed to create draft pull request";
+      if (parseUpstreamConflictPaths(message).length > 0) {
+        handleUpstreamConflictDetected(message);
+        return;
+      }
+      setDraftPullRequestError(message);
+    };
+
+    if (isDefaultBranch) {
+      void createDraftPullRequestFromDefaultBranch({
+        repositoryFullName,
+        branch,
+      })
+        .then((result) => {
+          handleCreatedPullRequest({
+            url: result.url,
+            nextBranch: result.branch,
+          });
+        })
+        .catch(handleDraftPullRequestError);
+      return;
+    }
 
     void createDraftPullRequest({
       repositoryFullName,
       branch,
     })
       .then((result) => {
-        void refreshRepositoryTree({
-          owner,
-          repo: repoName,
-        }).catch((error) => {
-          console.warn("Failed to refresh tree after draft PR:", error);
+        handleCreatedPullRequest({
+          url: result.url,
+          nextBranch: branch,
         });
-        if (pendingPullRequestWindow && !pendingPullRequestWindow.closed) {
-          pendingPullRequestWindow.opener = null;
-          pendingPullRequestWindow.location.replace(result.url);
-          return;
-        }
-        const openedWindow = window.open(
-          result.url,
-          "_blank",
-          "noopener,noreferrer",
-        );
-        if (!openedWindow) {
-          setDraftPullRequestError(
-            "Draft pull request created, but the browser blocked opening a new tab.",
-          );
-        }
       })
-      .catch((error) => {
-        if (pendingPullRequestWindow && !pendingPullRequestWindow.closed) {
-          pendingPullRequestWindow.close();
-        }
-        const message =
-          error instanceof Error && error.message.length > 0
-            ? error.message
-            : "Failed to create draft pull request";
-        if (parseUpstreamConflictPaths(message).length > 0) {
-          handleUpstreamConflictDetected(message);
-          return;
-        }
-        setDraftPullRequestError(message);
-      });
+      .catch(handleDraftPullRequestError);
   }, [
     branch,
+    buildVaultFileUrl,
     createDraftPullRequest,
+    createDraftPullRequestFromDefaultBranch,
     currentPullRequestUrl,
     handleUpstreamConflictDetected,
+    isDefaultBranch,
+    navigate,
     owner,
     refreshRepositoryTree,
     repoName,
     repositoryFullName,
+    selectedFile,
+    state,
   ]);
 
   const handleResetToGitHub = useCallback(() => {
@@ -1983,16 +2032,21 @@ function FileViewInner({
         file.fileDeleted ||
         file.parentCommitSha === null,
     );
-  const canOpenOrCreateDraftPullRequest =
-    !isDefaultBranch &&
-    (Boolean(currentPullRequestUrl) ||
-      hasChangesToCommit === true ||
-      (currentRemoteBranch?.aheadBy ?? 0) > 0);
+  const canCreateDraftPullRequest =
+    currentPullRequestUrl === undefined
+      ? isDefaultBranch
+        ? hasChangesToCommit === true
+        : hasChangesToCommit === true || (currentRemoteBranch?.aheadBy ?? 0) > 0
+      : false;
+  const draftButtonLabel = isDefaultBranch ? "draft" : "create draft";
+  const isCreatingDraftPullRequest =
+    draftPullRequestStatus === "loading" ||
+    defaultBranchDraftPullRequestStatus === "loading";
   const isResettingToGitHub = clearingStagingStatus === "loading";
   const resetToGitHubDisabled =
     isResettingToGitHub ||
     manualComittingStatus === "loading" ||
-    draftPullRequestStatus === "loading" ||
+    isCreatingDraftPullRequest ||
     !hasChangesToCommit;
   const commitPreviewRefreshKey = useMemo(
     () =>
@@ -2322,17 +2376,14 @@ function FileViewInner({
                   )}
 
                   <FileViewPushActions
-                    canOpenOrCreateDraftPullRequest={
-                      canOpenOrCreateDraftPullRequest
-                    }
+                    canCreateDraftPullRequest={canCreateDraftPullRequest}
                     currentPullRequestNumber={currentPullRequestNumber}
                     currentPullRequestUrl={currentPullRequestUrl}
+                    draftButtonLabel={draftButtonLabel}
                     hasChangesToCommit={Boolean(hasChangesToCommit)}
-                    isCreatingDraftPullRequest={
-                      draftPullRequestStatus === "loading"
-                    }
+                    isCreatingDraftPullRequest={isCreatingDraftPullRequest}
                     isPushing={manualComittingStatus === "loading"}
-                    onDraftPullRequest={handleDraftPullRequest}
+                    onCreateDraftPullRequest={handleDraftPullRequest}
                     onManualCommit={handleManualCommit}
                   />
                   <Button

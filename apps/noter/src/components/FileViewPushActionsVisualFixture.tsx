@@ -1,7 +1,8 @@
 import { FileViewPushActions } from "@/components/FileViewPushActions";
 
 export type FileViewPushActionsVisualMode =
-  | "file-view-push-ready"
+  | "file-view-default-draft"
+  | "file-view-create-draft"
   | "file-view-open-pr";
 
 export function FileViewPushActionsVisualFixture({
@@ -10,6 +11,7 @@ export function FileViewPushActionsVisualFixture({
   mode: FileViewPushActionsVisualMode;
 }) {
   const isOpenPullRequestMode = mode === "file-view-open-pr";
+  const isDefaultDraftMode = mode === "file-view-default-draft";
 
   return (
     <div
@@ -30,17 +32,18 @@ export function FileViewPushActionsVisualFixture({
         <div className="corner-notch-1 border border-stone-300 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-2">
             <FileViewPushActions
-              canOpenOrCreateDraftPullRequest
+              canCreateDraftPullRequest={!isOpenPullRequestMode}
               currentPullRequestNumber={isOpenPullRequestMode ? 999 : undefined}
               currentPullRequestUrl={
                 isOpenPullRequestMode
                   ? "https://github.com/noter-md/noter/pull/999"
                   : undefined
               }
+              draftButtonLabel={isDefaultDraftMode ? "draft" : "create draft"}
               hasChangesToCommit={!isOpenPullRequestMode}
               isCreatingDraftPullRequest={false}
               isPushing={false}
-              onDraftPullRequest={() => {}}
+              onCreateDraftPullRequest={() => {}}
               onManualCommit={() => {}}
             />
           </div>

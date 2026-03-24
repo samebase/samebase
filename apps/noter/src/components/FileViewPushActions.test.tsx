@@ -51,14 +51,15 @@ vi.mock("@/components/PullRequestLink", () => ({
 import { FileViewPushActions } from "./FileViewPushActions";
 
 describe("FileViewPushActions", () => {
-  it("matches the draft and push snapshot when branch changes are ready", () => {
+  it("matches the default-branch draft and push snapshot", () => {
     const markup = renderToStaticMarkup(
       <FileViewPushActions
-        canOpenOrCreateDraftPullRequest
+        canCreateDraftPullRequest
+        draftButtonLabel="draft"
         hasChangesToCommit
         isCreatingDraftPullRequest={false}
         isPushing={false}
-        onDraftPullRequest={() => {}}
+        onCreateDraftPullRequest={() => {}}
         onManualCommit={() => {}}
       />,
     );
@@ -68,16 +69,35 @@ describe("FileViewPushActions", () => {
     );
   });
 
+  it("matches the branch create-draft and push snapshot", () => {
+    const markup = renderToStaticMarkup(
+      <FileViewPushActions
+        canCreateDraftPullRequest
+        draftButtonLabel="create draft"
+        hasChangesToCommit
+        isCreatingDraftPullRequest={false}
+        isPushing={false}
+        onCreateDraftPullRequest={() => {}}
+        onManualCommit={() => {}}
+      />,
+    );
+
+    expect(markup).toMatchInlineSnapshot(
+      `"<button class="h-6 px-2 text-xs border-sky-500 text-sky-700 hover:bg-sky-50" data-size="sm" data-variant="outline">create draft</button><button class="h-6 px-2 text-xs bg-green-600 hover:bg-green-700 text-white" data-size="sm" data-variant="default">push</button>"`,
+    );
+  });
+
   it("matches the existing PR and synced snapshot", () => {
     const markup = renderToStaticMarkup(
       <FileViewPushActions
-        canOpenOrCreateDraftPullRequest
+        canCreateDraftPullRequest={false}
         currentPullRequestNumber={999}
         currentPullRequestUrl="https://github.com/noter-md/noter/pull/999"
+        draftButtonLabel="create draft"
         hasChangesToCommit={false}
         isCreatingDraftPullRequest={false}
         isPushing={false}
-        onDraftPullRequest={() => {}}
+        onCreateDraftPullRequest={() => {}}
         onManualCommit={() => {}}
       />,
     );
@@ -90,11 +110,12 @@ describe("FileViewPushActions", () => {
   it("disables push while a draft pull request is being created", () => {
     const markup = renderToStaticMarkup(
       <FileViewPushActions
-        canOpenOrCreateDraftPullRequest
+        canCreateDraftPullRequest
+        draftButtonLabel="create draft"
         hasChangesToCommit
         isCreatingDraftPullRequest
         isPushing={false}
-        onDraftPullRequest={() => {}}
+        onCreateDraftPullRequest={() => {}}
         onManualCommit={() => {}}
       />,
     );

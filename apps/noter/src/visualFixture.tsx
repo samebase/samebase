@@ -93,7 +93,8 @@ function readMode(): VisualFixtureMode {
     value === "vault-branch-mobile-alignment" ||
     value === "vault-branch-preview-link" ||
     value === "vault-branch-preview-missing" ||
-    value === "file-view-push-ready" ||
+    value === "file-view-default-draft" ||
+    value === "file-view-create-draft" ||
     value === "file-view-open-pr" ||
     value === "vault-dashboard-branch-pr-title" ||
     value === "button" ||
@@ -139,7 +140,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         ) : mode === "vault-branch-preview-link" ||
           mode === "vault-branch-preview-missing" ? (
           <VaultBranchPreviewVisualFixture mode={mode} />
-        ) : mode === "file-view-push-ready" || mode === "file-view-open-pr" ? (
+        ) : mode === "file-view-default-draft" ||
+          mode === "file-view-create-draft" ||
+          mode === "file-view-open-pr" ? (
           <FileViewPushActionsVisualFixture mode={mode} />
         ) : mode === "vault-dashboard-branch-pr-title" ? (
           <VaultDashboardBranchVisualFixture />

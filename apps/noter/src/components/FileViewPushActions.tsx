@@ -3,24 +3,26 @@ import { PullRequestLink } from "@/components/PullRequestLink";
 import { cn } from "@/lib/utils";
 
 type FileViewPushActionsProps = {
-  canOpenOrCreateDraftPullRequest: boolean;
+  canCreateDraftPullRequest: boolean;
   currentPullRequestNumber?: number;
   currentPullRequestUrl?: string;
+  draftButtonLabel: string;
   hasChangesToCommit: boolean;
   isCreatingDraftPullRequest: boolean;
   isPushing: boolean;
-  onDraftPullRequest: () => void;
+  onCreateDraftPullRequest: () => void;
   onManualCommit: () => void;
 };
 
 export function FileViewPushActions({
-  canOpenOrCreateDraftPullRequest,
+  canCreateDraftPullRequest,
   currentPullRequestNumber,
   currentPullRequestUrl,
+  draftButtonLabel,
   hasChangesToCommit,
   isCreatingDraftPullRequest,
   isPushing,
-  onDraftPullRequest,
+  onCreateDraftPullRequest,
   onManualCommit,
 }: FileViewPushActionsProps) {
   return (
@@ -35,19 +37,19 @@ export function FileViewPushActions({
         <Button
           size="sm"
           variant="outline"
-          onClick={onDraftPullRequest}
+          onClick={onCreateDraftPullRequest}
           disabled={
             isPushing ||
             isCreatingDraftPullRequest ||
-            !canOpenOrCreateDraftPullRequest
+            !canCreateDraftPullRequest
           }
           className={cn(
             "h-6 px-2 text-xs border-sky-500 text-sky-700 hover:bg-sky-50",
-            !canOpenOrCreateDraftPullRequest &&
+            !canCreateDraftPullRequest &&
               "text-sky-600/70 hover:bg-transparent",
           )}
         >
-          {isCreatingDraftPullRequest ? "Creating..." : "draft"}
+          {isCreatingDraftPullRequest ? "Creating..." : draftButtonLabel}
         </Button>
       )}
       <Button
