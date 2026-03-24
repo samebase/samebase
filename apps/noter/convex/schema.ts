@@ -21,7 +21,8 @@ function omit<T extends Record<string, any>, K extends keyof T>(
   ) as Omit<T, K>;
 }
 
-const { array, id, literal, number, object, optional, string, union } = v;
+const { array, boolean, id, literal, number, object, optional, string, union } =
+  v;
 
 const BillingProvider = optional(literal("polar"));
 const BillingPlan = optional(union(literal("free"), literal("pro")));
@@ -329,6 +330,9 @@ export default defineSchema({
     vaultId: v.id("vaults"),
     hiddenLabels: v.array(v.string()),
     includeDrafts: v.boolean(),
+    // Keep this optional so rows saved before unlabeled-branch support remain
+    // readable until each user re-saves their filters.
+    includeNoLabel: optional(boolean()),
   })
     .index("by_user", ["userId"])
     .index("by_user_and_vault", ["userId", "vaultId"]),

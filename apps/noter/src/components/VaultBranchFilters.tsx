@@ -7,29 +7,22 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/popover";
 import {
   Sheet,
   SheetContent,
-  SheetHeader,
   SheetTitle,
   SheetTrigger,
 } from "@/components/sheet";
+import { buildPullRequestLabelStyle } from "@/lib/pullRequestLabels";
 import {
-  buildPullRequestLabelStyle,
-  type PullRequestLabelDisplay,
-} from "@/lib/pullRequestLabels";
-import {
-  setVaultBranchFilterHiddenLabel,
-  type VaultBranchFilterLabelOption,
+  setVaultBranchFilterLabelIncluded,
+  type VaultBranchFilterOption,
   type VaultBranchFilters,
 } from "@/lib/vaultBranchFilters";
 
-function matchesLabelSearch(
-  label: PullRequestLabelDisplay,
-  search: string,
-): boolean {
+function matchesOptionSearch(option: VaultBranchFilterOption, search: string) {
   if (search.length === 0) {
     return true;
   }
 
-  return label.name.toLowerCase().includes(search.toLowerCase());
+  return option.name.toLowerCase().includes(search.toLowerCase());
 }
 
 /**
@@ -64,30 +57,26 @@ function useUsesTouchSheet() {
 
 function VaultBranchFiltersPanel({
   value,
-  labelOptions,
+  options,
   onChange,
 }: {
   value: VaultBranchFilters;
-  labelOptions: VaultBranchFilterLabelOption[];
+  options: VaultBranchFilterOption[];
   onChange: (nextValue: VaultBranchFilters) => void;
 }) {
   const [labelSearch, setLabelSearch] = useState("");
   const hasCustomFilters =
-    value.hiddenLabels.length > 0 || value.includeDrafts === true;
-  const visibleLabelOptions = labelOptions.filter((labelOption) =>
-    matchesLabelSearch(labelOption, labelSearch.trim()),
+    value.hiddenLabels.length > 0 ||
+    value.includeDrafts === true ||
+    value.includeNoLabel === false;
+  const visibleOptions = options.filter((option) =>
+    matchesOptionSearch(option, labelSearch.trim()),
   );
 
   return (
     <div className="space-y-4 p-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1">
-          <p className="text-sm font-medium">Filters</p>
-          <p className="text-xs text-muted-foreground">
-            Hide task labels for this vault and optionally show draft pull
-            requests.
-          </p>
-        </div>
+        <p className="text-sm font-medium">Filters</p>
         {hasCustomFilters ? (
           <Button
             type="button"
@@ -98,19 +87,17 @@ function VaultBranchFiltersPanel({
               onChange({
                 hiddenLabels: [],
                 includeDrafts: false,
+                includeNoLabel: true,
               })
             }
           >
-            Clear all
+            Reset all
           </Button>
         ) : null}
       </div>
 
-      {labelOptions.length > 0 ? (
+      {options.length > 0 ? (
         <div className="space-y-2">
-          <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80">
-            Hide labels
-          </p>
           <Input
             value={labelSearch}
             onChange={(event) => setLabelSearch(event.target.value)}
@@ -118,36 +105,44 @@ function VaultBranchFiltersPanel({
             className="h-8 text-sm"
           />
           <div className="max-h-64 overflow-y-auto corner-notch-1 border border-border/60 bg-muted/10">
-            {visibleLabelOptions.map((labelOption) => (
+            {visibleOptions.map((option) => (
               <label
-                key={labelOption.name}
+                key={option.key}
                 className="flex min-h-11 cursor-pointer items-center gap-3 border-b border-border/40 px-3 py-2 last:border-b-0"
               >
                 <Checkbox
-                  checked={labelOption.selected}
-                  onCheckedChange={(checked) =>
+                  checked={option.included}
+                  onCheckedChange={(checked) => {
+                    if (option.isNoLabel) {
+                      onChange({
+                        ...value,
+                        includeNoLabel: checked === true,
+                      });
+                      return;
+                    }
+
                     onChange({
                       ...value,
-                      hiddenLabels: setVaultBranchFilterHiddenLabel({
+                      hiddenLabels: setVaultBranchFilterLabelIncluded({
                         hiddenLabels: value.hiddenLabels,
-                        labelName: labelOption.name,
-                        selected: checked === true,
+                        labelName: option.name,
+                        included: checked === true,
                       }),
-                    })
-                  }
+                    });
+                  }}
                 />
                 <div className="min-w-0 flex-1">
                   <Badge
                     variant="outline"
                     className="h-5 max-w-full px-1.5 py-0 text-[10px] font-medium"
-                    style={buildPullRequestLabelStyle(labelOption.color)}
-                    title={labelOption.name}
+                    style={buildPullRequestLabelStyle(option.color)}
+                    title={option.name}
                   >
-                    <span className="truncate">{labelOption.name}</span>
+                    <span className="truncate">{option.name}</span>
                   </Badge>
                 </div>
                 <span className="font-mono text-[11px] tabular-nums text-muted-foreground/80">
-                  {labelOption.count}
+                  {option.count}
                 </span>
               </label>
             ))}
@@ -167,9 +162,6 @@ function VaultBranchFiltersPanel({
         />
         <div className="space-y-1">
           <p className="text-sm font-medium leading-none">Include drafts</p>
-          <p className="text-xs text-muted-foreground">
-            Show draft pull requests alongside ready branches in this vault.
-          </p>
         </div>
       </label>
     </div>
@@ -178,11 +170,11 @@ function VaultBranchFiltersPanel({
 
 export function VaultBranchFiltersControl({
   value,
-  labelOptions,
+  options,
   onChange,
 }: {
   value: VaultBranchFilters;
-  labelOptions: VaultBranchFilterLabelOption[];
+  options: VaultBranchFilterOption[];
   onChange: (nextValue: VaultBranchFilters) => void;
 }) {
   const usesTouchSheet = useUsesTouchSheet();
@@ -198,12 +190,10 @@ export function VaultBranchFiltersControl({
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetTrigger asChild>{trigger}</SheetTrigger>
         <SheetContent side="bottom" className="max-h-[85vh] overflow-hidden">
-          <SheetHeader>
-            <SheetTitle>Filters</SheetTitle>
-          </SheetHeader>
+          <SheetTitle className="sr-only">Filters</SheetTitle>
           <VaultBranchFiltersPanel
             value={value}
-            labelOptions={labelOptions}
+            options={options}
             onChange={onChange}
           />
         </SheetContent>
@@ -220,7 +210,7 @@ export function VaultBranchFiltersControl({
       >
         <VaultBranchFiltersPanel
           value={value}
-          labelOptions={labelOptions}
+          options={options}
           onChange={onChange}
         />
       </PopoverContent>

@@ -1,17 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildVaultBranchFilterLabelOptions,
+  buildVaultBranchFilterOptions,
   filterVaultRemoteBranches,
   getDefaultVaultBranchFilters,
   normalizeVaultBranchFilters,
-  setVaultBranchFilterHiddenLabel,
+  setVaultBranchFilterLabelIncluded,
 } from "./vaultBranchFilters";
 
 describe("vaultBranchFilters", () => {
-  it("defaults to hidden drafts with no hidden labels", () => {
+  it("defaults to hidden drafts with all labels included", () => {
     expect(getDefaultVaultBranchFilters()).toEqual({
       hiddenLabels: [],
       includeDrafts: false,
+      includeNoLabel: true,
     });
   });
 
@@ -24,28 +25,29 @@ describe("vaultBranchFilters", () => {
     ).toEqual({
       hiddenLabels: ["Research", "wip"],
       includeDrafts: false,
+      includeNoLabel: true,
     });
   });
 
-  it("toggles hidden labels without duplicating case variants", () => {
-    const withResearch = setVaultBranchFilterHiddenLabel({
+  it("toggles included labels without duplicating case variants", () => {
+    const withoutResearch = setVaultBranchFilterLabelIncluded({
       hiddenLabels: ["WIP"],
       labelName: "research",
-      selected: true,
+      included: false,
     });
 
-    expect(withResearch).toEqual(["research", "WIP"]);
+    expect(withoutResearch).toEqual(["research", "WIP"]);
 
     expect(
-      setVaultBranchFilterHiddenLabel({
-        hiddenLabels: withResearch,
+      setVaultBranchFilterLabelIncluded({
+        hiddenLabels: withoutResearch,
         labelName: "wip",
-        selected: false,
+        included: true,
       }),
     ).toEqual(["research"]);
   });
 
-  it("hides branches that match a hidden label and hides drafts by default", () => {
+  it("hides branches that match an excluded label and hides drafts by default", () => {
     const branches = [
       {
         name: "main",
@@ -68,6 +70,7 @@ describe("vaultBranchFilters", () => {
       filterVaultRemoteBranches(branches, {
         hiddenLabels: ["research"],
         includeDrafts: false,
+        includeNoLabel: true,
       }),
     ).toEqual([
       {
@@ -88,23 +91,111 @@ describe("vaultBranchFilters", () => {
       filterVaultRemoteBranches(branches, {
         hiddenLabels: [],
         includeDrafts: true,
+        includeNoLabel: true,
       }),
     ).toEqual(branches);
   });
 
-  it("keeps persisted hidden labels visible in the options even when absent", () => {
+  it("hides unlabeled branches when the no-label option is deselected", () => {
+    const branches = [
+      { name: "unlabeled" },
+      {
+        name: "labeled",
+        pullRequestLabels: [{ name: "ops", color: "ffffff" }],
+      },
+    ];
+
     expect(
-      buildVaultBranchFilterLabelOptions({
+      filterVaultRemoteBranches(branches, {
+        hiddenLabels: [],
+        includeDrafts: false,
+        includeNoLabel: false,
+      }),
+    ).toEqual([
+      {
+        name: "labeled",
+        pullRequestLabels: [{ name: "ops", color: "ffffff" }],
+      },
+    ]);
+  });
+
+  it("sorts filter options alphabetically and keeps no-label last", () => {
+    expect(
+      buildVaultBranchFilterOptions({
         branches: [
+          {
+            pullRequestLabels: [{ name: "customer", color: "1a7f37" }],
+          },
           {
             pullRequestLabels: [{ name: "bug", color: "d73a4a" }],
           },
+          {},
         ],
         hiddenLabels: ["research"],
+        includeNoLabel: false,
       }),
     ).toEqual([
-      { name: "research", count: 0, selected: true },
-      { name: "bug", color: "#d73a4a", count: 1, selected: false },
+      {
+        key: "bug",
+        name: "bug",
+        color: "#d73a4a",
+        count: 1,
+        included: true,
+        isNoLabel: false,
+      },
+      {
+        key: "customer",
+        name: "customer",
+        color: "#1a7f37",
+        count: 1,
+        included: true,
+        isNoLabel: false,
+      },
+      {
+        key: "research",
+        name: "research",
+        count: 0,
+        included: false,
+        isNoLabel: false,
+      },
+      {
+        key: "\u0000no-label",
+        name: "No label",
+        count: 1,
+        included: false,
+        isNoLabel: true,
+      },
+    ]);
+  });
+
+  it("keeps the synthetic no-label option distinct from a real label key", () => {
+    expect(
+      buildVaultBranchFilterOptions({
+        branches: [
+          {
+            pullRequestLabels: [{ name: "__no_label__", color: "d73a4a" }],
+          },
+          {},
+        ],
+        hiddenLabels: ["__no_label__"],
+        includeNoLabel: true,
+      }),
+    ).toEqual([
+      {
+        key: "__no_label__",
+        name: "__no_label__",
+        color: "#d73a4a",
+        count: 1,
+        included: false,
+        isNoLabel: false,
+      },
+      {
+        key: "\u0000no-label",
+        name: "No label",
+        count: 1,
+        included: true,
+        isNoLabel: true,
+      },
     ]);
   });
 });

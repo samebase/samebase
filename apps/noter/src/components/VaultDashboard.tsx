@@ -96,7 +96,7 @@ import {
 } from "@/lib/pullRequestLabels";
 import {
   areVaultBranchFiltersEqual,
-  buildVaultBranchFilterLabelOptions,
+  buildVaultBranchFilterOptions,
   filterVaultRemoteBranches,
   getDefaultVaultBranchFilters,
   normalizeVaultBranchFilters,
@@ -756,9 +756,10 @@ function VaultBranchSection({
   );
   const hiddenBranchCount =
     remoteBranches.length - filteredRemoteBranches.length;
-  const labelOptions = buildVaultBranchFilterLabelOptions({
+  const filterOptions = buildVaultBranchFilterOptions({
     branches: remoteBranches,
     hiddenLabels: filters.hiddenLabels,
+    includeNoLabel: filters.includeNoLabel,
   });
 
   return (
@@ -775,7 +776,7 @@ function VaultBranchSection({
           ) : null}
           <VaultBranchFiltersControl
             value={filters}
-            labelOptions={labelOptions}
+            options={filterOptions}
             onChange={onChangeFilters}
           />
         </div>
@@ -1820,6 +1821,7 @@ function VaultDashboardContent() {
         vaultId,
         hiddenLabels: normalizedVaultBranchFilters.hiddenLabels,
         includeDrafts: normalizedVaultBranchFilters.includeDrafts,
+        includeNoLabel: normalizedVaultBranchFilters.includeNoLabel,
       });
     } catch (error: unknown) {
       setPendingVaultBranchFiltersByVaultId((previous) => {
