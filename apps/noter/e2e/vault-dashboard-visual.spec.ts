@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { devices, expect, test } from "@playwright/test";
 
 test("vault dashboard fixture (shared sidebar)", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 760 });
@@ -90,9 +90,19 @@ test("vault dashboard fixture (branch filters popover)", async ({ page }) => {
 });
 
 test("vault dashboard fixture (branch filters mobile sheet)", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+  browser,
+}, testInfo) => {
+  const baseURL = testInfo.project.use.baseURL;
+  if (typeof baseURL !== "string") {
+    throw new Error("Playwright baseURL is required for mobile fixture tests.");
+  }
+
+  const context = await browser.newContext({
+    ...devices["iPhone 13"],
+    baseURL,
+  });
+  const page = await context.newPage();
+
   await page.goto("/visual-fixture.html?mode=vault-branch-filters", {
     waitUntil: "domcontentloaded",
   });
@@ -105,6 +115,8 @@ test("vault dashboard fixture (branch filters mobile sheet)", async ({
     scale: "css",
     maxDiffPixelRatio: 0.03,
   });
+
+  await context.close();
 });
 
 test("vault dashboard fixture (mobile branch alignment)", async ({ page }) => {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/badge";
 import { Button } from "@/components/button";
 import { Checkbox } from "@/components/checkbox";
@@ -11,7 +11,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/sheet";
-import { useIsMobile } from "@/hooks/use-mobile";
 import {
   buildPullRequestLabelStyle,
   type PullRequestLabelDisplay,
@@ -31,6 +30,36 @@ function matchesLabelSearch(
   }
 
   return label.name.toLowerCase().includes(search.toLowerCase());
+}
+
+/**
+ * Keep the narrow-sheet treatment for touch-first devices only so desktop
+ * browsers still get the lighter popover, even in smaller windows.
+ */
+function useUsesTouchSheet() {
+  const [usesTouchSheet, setUsesTouchSheet] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+  });
+
+  useEffect(() => {
+    const touchDeviceQuery = window.matchMedia(
+      "(hover: none) and (pointer: coarse)",
+    );
+    const updateUsesTouchSheet = () => {
+      setUsesTouchSheet(touchDeviceQuery.matches);
+    };
+
+    updateUsesTouchSheet();
+    touchDeviceQuery.addEventListener("change", updateUsesTouchSheet);
+    return () =>
+      touchDeviceQuery.removeEventListener("change", updateUsesTouchSheet);
+  }, []);
+
+  return usesTouchSheet;
 }
 
 function VaultBranchFiltersPanel({
@@ -156,7 +185,7 @@ export function VaultBranchFiltersControl({
   labelOptions: VaultBranchFilterLabelOption[];
   onChange: (nextValue: VaultBranchFilters) => void;
 }) {
-  const isMobile = useIsMobile();
+  const usesTouchSheet = useUsesTouchSheet();
   const [isOpen, setIsOpen] = useState(false);
   const trigger = (
     <Button type="button" variant="outline" size="sm" className="h-7 px-2.5">
@@ -164,7 +193,7 @@ export function VaultBranchFiltersControl({
     </Button>
   );
 
-  if (isMobile) {
+  if (usesTouchSheet) {
     return (
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetTrigger asChild>{trigger}</SheetTrigger>
@@ -185,7 +214,10 @@ export function VaultBranchFiltersControl({
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent align="end" className="w-[22rem] p-0">
+      <PopoverContent
+        align="end"
+        className="w-[22rem] max-w-[calc(100vw-1rem)] p-0"
+      >
         <VaultBranchFiltersPanel
           value={value}
           labelOptions={labelOptions}
