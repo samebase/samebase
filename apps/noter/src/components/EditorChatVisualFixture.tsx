@@ -116,7 +116,7 @@ function FixtureMessage({
       >
         {lines.map((line, index) => (
           <p
-            key={line}
+            key={index}
             className={cn("text-sm leading-5", index > 0 && "mt-1 opacity-90")}
           >
             {line}
