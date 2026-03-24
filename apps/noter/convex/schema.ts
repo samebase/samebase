@@ -329,6 +329,9 @@ export default defineSchema({
     vaultId: v.id("vaults"),
     hiddenLabels: v.array(v.string()),
     includeDrafts: v.boolean(),
+    // Keep this optional so rows saved before unlabeled-branch support remain
+    // readable until each user re-saves their filters.
+    includeNoLabel: v.optional(v.boolean()),
   })
     .index("by_user", ["userId"])
     .index("by_user_and_vault", ["userId", "vaultId"]),

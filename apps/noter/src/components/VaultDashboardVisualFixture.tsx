@@ -197,31 +197,45 @@ export function VaultDashboardVisualFixture({
                   </p>
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] text-muted-foreground/80">
-                      1 of 3
+                      1 of 4
                     </span>
                     <VaultBranchFiltersControl
                       value={{
                         hiddenLabels: ["research"],
                         includeDrafts: false,
+                        includeNoLabel: false,
                       }}
-                      labelOptions={[
+                      options={[
                         {
-                          name: "research",
-                          color: "#0969da",
-                          count: 1,
-                          selected: true,
-                        },
-                        {
-                          name: "needs review",
-                          color: "#bf8700",
-                          count: 1,
-                          selected: false,
-                        },
-                        {
+                          key: "customer",
                           name: "customer",
                           color: "#1a7f37",
                           count: 1,
-                          selected: false,
+                          included: true,
+                          isNoLabel: false,
+                        },
+                        {
+                          key: "needs review",
+                          name: "needs review",
+                          color: "#bf8700",
+                          count: 1,
+                          included: true,
+                          isNoLabel: false,
+                        },
+                        {
+                          key: "research",
+                          name: "research",
+                          color: "#0969da",
+                          count: 1,
+                          included: false,
+                          isNoLabel: false,
+                        },
+                        {
+                          key: "__no_label__",
+                          name: "No label",
+                          count: 1,
+                          included: false,
+                          isNoLabel: true,
                         },
                       ]}
                       onChange={() => {}}
