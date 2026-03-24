@@ -2,9 +2,10 @@
 // @ts-check
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 
 const HELP_TEXT = `Usage: scripts/playwright-branch-browser.js <command> [args]
 
@@ -20,8 +21,21 @@ Environment:
 
 const PNPM_COMMAND = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
 const EXPLICIT_SESSION_PATTERN = /^[A-Za-z0-9._-]+$/
+const PLAYWRIGHT_CLI_CHROMIUM_ARGS = ['--disable-session-crashed-bubble']
 
-main(process.argv.slice(2))
+if (isMainModule()) {
+  main(process.argv.slice(2))
+}
+
+/**
+ * @typedef {{
+ *   browser: {
+ *     launchOptions: {
+ *       args: string[]
+ *     }
+ *   }
+ * }} PlaywrightCliConfig
+ */
 
 /**
  * @param {string[]} args
@@ -178,6 +192,45 @@ function getProfileDir(session) {
   return path.join(getRepoRoot(), '.playwright-cli', 'profiles', session)
 }
 
+/**
+ * Every branch-owned persistent browser should inherit the same launch flags so
+ * Chrome crash recovery UI never blocks automation after an unclean exit.
+ *
+ * @returns {PlaywrightCliConfig}
+ */
+export function buildPlaywrightCliConfig() {
+  return {
+    browser: {
+      launchOptions: {
+        args: [...PLAYWRIGHT_CLI_CHROMIUM_ARGS],
+      },
+    },
+  }
+}
+
+/**
+ * @param {string} repoRoot
+ * @returns {string}
+ */
+export function getPlaywrightCliConfigPath(repoRoot) {
+  return path.join(repoRoot, '.playwright-cli', 'cli.config.json')
+}
+
+/**
+ * @param {string} repoRoot
+ * @returns {string}
+ */
+export function ensurePlaywrightCliConfig(repoRoot) {
+  const configPath = getPlaywrightCliConfigPath(repoRoot)
+  mkdirSync(path.dirname(configPath), { recursive: true })
+  writeFileSync(
+    configPath,
+    `${JSON.stringify(buildPlaywrightCliConfig(), null, 2)}\n`,
+    'utf8',
+  )
+  return configPath
+}
+
 /** @returns {string} */
 function getRepoRoot() {
   return runGit(['rev-parse', '--show-toplevel'])
@@ -226,13 +279,16 @@ function getSessionState(session) {
  * @returns {import('node:child_process').SpawnSyncReturns<string>}
  */
 function runPlaywrightCli(args, options = {}) {
+  const repoRoot = getRepoRoot()
+  const configPath = ensurePlaywrightCliConfig(repoRoot)
   const result = spawnSync(
     PNPM_COMMAND,
     [
       '--dir',
-      path.join(getRepoRoot(), 'apps/noter'),
+      path.join(repoRoot, 'apps/noter'),
       'exec',
       'playwright-cli',
+      `--config=${configPath}`,
       ...args,
     ],
     {
@@ -328,4 +384,11 @@ function fail(message) {
   console.error(message)
   console.error(HELP_TEXT)
   process.exit(1)
+}
+
+/** @returns {boolean} */
+function isMainModule() {
+  return process.argv[1]
+    ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+    : false
 }
