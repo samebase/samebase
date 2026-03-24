@@ -32,6 +32,7 @@ export function AddRepository() {
   const navigate = useNavigate();
   const vaults = useQuery(api.vault.getUserVaults);
   const [searchQuery, setSearchQuery] = useState("");
+  const listRepositoriesPreview = useAction(api.github.listRepositoriesPreview);
   const listRepositories = useAction(api.github.listRepositories);
   const connectRepository = useAction(api.vaultActions.connectRepository);
   const getGithubOAuthUrl = useMutation(api.githubOAuth.getGithubOAuthUrl);
@@ -40,23 +41,54 @@ export function AddRepository() {
   const [connectError, setConnectError] = useState<string | null>(null);
 
   const {
-    data: repositories = [],
-    isLoading: loading,
-    error: queryError,
-    refetch: _refetch,
+    data: repositoryPreview,
+    isLoading: previewLoading,
+    error: previewQueryError,
+  } = useReactQuery({
+    queryKey: ["github-repositories-preview"],
+    queryFn: async () => {
+      return await listRepositoriesPreview();
+    },
+    enabled: githubConnected,
+  });
+
+  // Keep the fast preview and the full discovery scan separate so /add can
+  // paint recent repositories immediately without regressing eventual search completeness.
+  const {
+    data: fullRepositories,
+    error: fullQueryError,
+    refetch: refetchFullRepositories,
+    fetchStatus: fullRepositoriesFetchStatus,
   } = useReactQuery({
     queryKey: ["github-repositories"],
     queryFn: async () => {
       return await listRepositories();
     },
-    enabled: githubConnected,
+    enabled: githubConnected && repositoryPreview?.hasMore === true,
   });
+
+  const repositories = githubConnected
+    ? fullRepositories ?? repositoryPreview?.repositories ?? []
+    : [];
+  const loading = previewLoading;
+  // Until the full query succeeds, every search result is still partial even
+  // though the first page is already interactive.
+  const hasPartialResults =
+    githubConnected &&
+    repositoryPreview?.hasMore === true &&
+    fullRepositories === undefined;
+  const loadingMore =
+    hasPartialResults && fullRepositoriesFetchStatus === "fetching";
+  const hasFinalRepositorySet = githubConnected && !hasPartialResults;
+  const hasSearchQuery = searchQuery.trim().length > 0;
+  const backgroundError =
+    hasPartialResults && !loadingMore ? fullQueryError?.message ?? null : null;
 
   const error =
     connectError ??
-    (queryError
-      ? queryError instanceof Error
-        ? queryError.message
+    (previewQueryError
+      ? previewQueryError instanceof Error
+        ? previewQueryError.message
         : "Failed to fetch repositories"
       : null);
 
@@ -209,30 +241,59 @@ export function AddRepository() {
           disabled={!githubConnected}
         />
         {githubConnected && (
-          <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
-            Missing a private org repo? GitHub may be blocking Noter's OAuth
-            app. If you're an org owner, approve Noter in the org's Settings,
-            then Third-party Access, then OAuth app policy. Otherwise request
-            access from GitHub's Authorized OAuth Apps page if GitHub offers
-            that option, or ask an org owner to approve Noter.{" "}
-            <a
-              href={GITHUB_OAUTH_ORG_APPROVAL_DOCS_URL}
-              target="_blank"
-              rel="noreferrer"
-              className={linkStyle}
-            >
-              Owner docs
-            </a>{" "}
-            /{" "}
-            <a
-              href={GITHUB_OAUTH_MEMBER_REQUEST_DOCS_URL}
-              target="_blank"
-              rel="noreferrer"
-              className={linkStyle}
-            >
-              Member docs
-            </a>
-          </p>
+          <>
+            <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
+              Missing a private org repo? GitHub may be blocking Noter's OAuth
+              app. If you're an org owner, approve Noter in the org's Settings,
+              then Third-party Access, then OAuth app policy. Otherwise request
+              access from GitHub's Authorized OAuth Apps page if GitHub offers
+              that option, or ask an org owner to approve Noter.{" "}
+              <a
+                href={GITHUB_OAUTH_ORG_APPROVAL_DOCS_URL}
+                target="_blank"
+                rel="noreferrer"
+                className={linkStyle}
+              >
+                Owner docs
+              </a>{" "}
+              /{" "}
+              <a
+                href={GITHUB_OAUTH_MEMBER_REQUEST_DOCS_URL}
+                target="_blank"
+                rel="noreferrer"
+                className={linkStyle}
+              >
+                Member docs
+              </a>
+            </p>
+
+            {loadingMore && (
+              <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
+                Showing the {repositoryPreview.repositories.length} most
+                recently updated repositories while we load the rest. Search
+                results stay partial until loading finishes.
+              </p>
+            )}
+
+            {backgroundError && (
+              <div className="mt-3 flex max-w-2xl items-center justify-between gap-3 border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 corner-notch-1">
+                <div>
+                  Couldn&apos;t load the rest of your repositories. You&apos;re
+                  still seeing the most recently updated ones.
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-amber-300 bg-transparent"
+                  onClick={() => {
+                    void refetchFullRepositories();
+                  }}
+                >
+                  Retry
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -341,7 +402,15 @@ export function AddRepository() {
           githubConnected && (
             <div className="text-center py-8">
               <div className="text-muted-foreground">
-                No repositories match your search
+                {backgroundError
+                  ? hasSearchQuery
+                    ? "Couldn't finish loading the rest of your repositories. Retry to finish your search."
+                    : "Couldn't finish loading the rest of your repositories."
+                  : hasFinalRepositorySet
+                    ? "No repositories match your search"
+                    : hasSearchQuery
+                      ? "Loading more repositories to finish your search..."
+                      : "Loading more repositories..."}
               </div>
             </div>
           )}
