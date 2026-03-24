@@ -8,7 +8,7 @@ import {
   createFilledVoxelSet,
   parseVoxelState,
 } from "@/components/logoVoxelState";
-import { Button } from "@/components/button";
+import { Button } from "@/components/ui/button";
 import { useDocumentThemeMode } from "@/hooks/useDocumentThemeMode";
 import { Link, useSearchParams } from "react-router-dom";
 

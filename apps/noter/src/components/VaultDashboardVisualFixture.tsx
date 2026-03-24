@@ -1,5 +1,5 @@
 import { MemoryRouter } from "react-router-dom";
-import { Button } from "@/components/button";
+import { Button } from "@/components/ui/button";
 import { EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME } from "@/components/editorChatLayout";
 import { SidebarProvider } from "@/components/sidebar";
 import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";

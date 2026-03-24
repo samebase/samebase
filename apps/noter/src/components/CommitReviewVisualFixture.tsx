@@ -8,7 +8,7 @@ import {
   ProsemarkMergeEditor,
   type ProsemarkMergeEditorOptions,
 } from "@/components/ProsemarkMergeEditor";
-import { Button } from "@/components/button";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/checkbox";
 import { Label } from "@/components/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";

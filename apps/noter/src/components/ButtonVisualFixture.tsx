@@ -8,7 +8,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { Button } from "@/components/button";
+import { Button } from "@/components/ui/button";
 
 interface FixtureSectionProps {
   children: ReactNode;

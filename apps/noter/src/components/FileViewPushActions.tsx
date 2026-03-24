@@ -1,4 +1,4 @@
-import { Button } from "@/components/button";
+import { Button } from "@/components/ui/button";
 import { PullRequestLink } from "@/components/PullRequestLink";
 import { cn } from "@/lib/utils";
 

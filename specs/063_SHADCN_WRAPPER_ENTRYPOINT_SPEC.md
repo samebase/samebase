@@ -4,10 +4,9 @@
 
 - Status: Proposed
 - Owner: Noter frontend/design system
-- Last updated: 2026-03-19
+- Last updated: 2026-03-25
 - Related files: `AGENTS.md`, `apps/noter/src/lib/cornerNotch.ts`,
-  `apps/noter/src/components/button.tsx`, `apps/noter/src/components/input.tsx`,
-  `apps/noter/src/components/card.tsx`,
+  `apps/noter/src/components/input.tsx`, `apps/noter/src/components/card.tsx`,
   `apps/noter/src/components/ui/button.tsx`
 
 ## Conclusion
@@ -16,9 +15,8 @@ When Noter wants to apply shared product styling or behavior to a shadcn
 primitive, app code should usually import a repo-owned wrapper entrypoint, not
 the generated primitive directly.
 
-`Button` is the current explicit exception: its shared notch behavior lives in
-`@/components/ui/button`, while `@/components/button` remains a pass-through app
-entrypoint for compatibility.
+`Button` is the current explicit exception: its shared notch behavior and
+canonical product import both live in `@/components/ui/button`.
 
 The canonical app-facing import for a wrapped primitive is
 `@/components/<name>`, while the generated shadcn primitive remains under
@@ -26,7 +24,6 @@ The canonical app-facing import for a wrapped primitive is
 
 Current rollout includes:
 
-- `@/components/button`
 - `@/components/badge`
 - `@/components/card`
 - `@/components/checkbox`
@@ -74,6 +71,8 @@ Current rollout includes:
 ### 2. Canonical App Import
 
 - App code should import a wrapped primitive from `@/components/<name>`.
+- `Button` remains the explicit exception and should import from
+  `@/components/ui/button`.
 - A single-component wrapper should continue exporting the canonical
   product-facing component name, for example `Button`.
 - A multi-export wrapper module should preserve the generated public API while
@@ -106,7 +105,8 @@ Current rollout includes:
 - Generated shadcn components may continue importing other generated
   `@/components/ui/*` primitives internally.
 - Product surfaces should not depend on a generated `@/components/ui/*` path
-  when the app-owned wrapper exists.
+  when the app-owned wrapper exists, except for the intentional direct `Button`
+  import.
 
 ### 5. Naming Guidance
 
@@ -120,7 +120,8 @@ Current rollout includes:
 ## Acceptance Criteria
 
 - App-owned product code imports wrapped shadcn primitives from
-  `@/components/<name>`.
+  `@/components/<name>` when a wrapper exists, with `Button` importing from
+  `@/components/ui/button`.
 - Generated shadcn files under `apps/noter/src/components/ui/*` remain unchanged
   by default unless the repo explicitly documents an exception such as `Button`.
 - Wrapper modules preserve the generated public API closely enough that call

@@ -1,5 +1,5 @@
 import { Loader2 } from "lucide-react";
-import { Button } from "@/components/button";
+import { Button } from "@/components/ui/button";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 
 interface DaytonaPreviewErrorStateProps {

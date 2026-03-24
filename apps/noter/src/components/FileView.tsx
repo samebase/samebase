@@ -8,7 +8,7 @@ import {
   type AgentGraphEdge,
   type AgentGraphNode,
 } from "@/components/AgentGraphView";
-import { Button } from "@/components/button";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/checkbox";
 import {
   Collapsible,

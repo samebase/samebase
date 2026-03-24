@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
-import { Button } from "@/components/button";
+import { Button } from "@/components/ui/button";
 import {
   Sidebar,
   SidebarContent,

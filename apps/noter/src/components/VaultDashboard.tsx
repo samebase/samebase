@@ -1,6 +1,6 @@
 import { api } from "../../convex/_generated/api";
 import { Badge } from "@/components/badge";
-import { Button } from "@/components/button";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/checkbox";
 import {
   Collapsible,
@@ -71,7 +71,10 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/dropdown-menu";
-import { ButtonGroup, ButtonGroupSeparator } from "@/components/button-group";
+import {
+  ButtonGroup,
+  ButtonGroupSeparator,
+} from "@/components/ui/button-group";
 import { CodespaceStatus } from "@/components/CodespaceStatus";
 import { DaytonaSnapshotBanner } from "@/components/DaytonaSnapshotBanner";
 import { DaytonaWorkspaceButton } from "@/components/DaytonaWorkspaceButton";
