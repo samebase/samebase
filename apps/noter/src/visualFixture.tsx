@@ -11,6 +11,10 @@ import {
   type RepositoryMediaVisualMode,
 } from "@/components/RepositoryMediaVisualFixture";
 import {
+  AddRepositoryVisualFixture,
+  type AddRepositoryVisualMode,
+} from "@/components/AddRepositoryVisualFixture";
+import {
   SimpleViewVisualFixture,
   type SimpleViewVisualMode,
 } from "@/components/SimpleViewVisualFixture";
@@ -58,6 +62,7 @@ type VisualFixtureMode =
   | LandingCopyVisualMode
   | LogoSnapAnglesVisualMode
   | LogoThreeVisualMode
+  | AddRepositoryVisualMode
   | RepositoryMediaVisualMode
   | SimpleViewVisualMode
   | VaultDashboardVisualMode
@@ -100,6 +105,11 @@ const EDITOR_CHAT_VISUAL_MODES = [
   "editor-chat-open-mobile",
   "editor-chat-closed",
 ] as const satisfies readonly EditorChatVisualMode[];
+
+const ADD_REPOSITORY_VISUAL_MODES = [
+  "add-repository-loading-more",
+  "add-repository-background-error",
+] as const satisfies readonly AddRepositoryVisualMode[];
 
 const LANDING_COPY_VISUAL_MODES = [
   "landing-copy-parity",
@@ -153,6 +163,10 @@ const VISUAL_FIXTURE_GROUPS = [
   {
     label: "Editor Chat",
     modes: EDITOR_CHAT_VISUAL_MODES,
+  },
+  {
+    label: "Add Repository",
+    modes: ADD_REPOSITORY_VISUAL_MODES,
   },
   {
     label: "Landing Copy",
@@ -249,6 +263,13 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "editor-chat-closed"
   ) {
     return <EditorChatVisualFixture mode={mode} />;
+  }
+
+  if (
+    mode === "add-repository-loading-more" ||
+    mode === "add-repository-background-error"
+  ) {
+    return <AddRepositoryVisualFixture mode={mode} />;
   }
 
   if (mode === "simple-repository-config" || mode === "simple-missing-config") {
