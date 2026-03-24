@@ -73,16 +73,24 @@ function FixtureResizeGrip() {
 
 function FixtureComposer() {
   return (
+    <div className="flex items-end gap-2 pr-2 pt-2">
+      <div className="min-h-[5.75rem] flex-1 border border-border bg-background px-4 py-3">
+        <p className="text-sm leading-5 text-muted-foreground">
+          Align the chat content with the dashboard frame.
+        </p>
+      </div>
+      <div className="mb-2 flex h-10 shrink-0 items-center justify-center rounded-full bg-blue-500 px-3 text-xs font-medium text-white">
+        Send
+      </div>
+    </div>
+  );
+}
+
+function FixtureComposerFooter() {
+  return (
     <div className="border-t border-border">
-      <div className="flex items-end gap-2 pr-2 pt-2">
-        <div className="min-h-[5.75rem] flex-1 border border-border bg-background px-4 py-3">
-          <p className="text-sm leading-5 text-muted-foreground">
-            Align the chat content with the dashboard frame.
-          </p>
-        </div>
-        <div className="mb-2 flex h-10 shrink-0 items-center justify-center rounded-full bg-blue-500 px-3 text-xs font-medium text-white">
-          Send
-        </div>
+      <div className={EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME}>
+        <FixtureComposer />
       </div>
     </div>
   );
@@ -265,9 +273,7 @@ function OpenMobileChatFixture() {
                   </div>
                 </div>
 
-                <div className={EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME}>
-                  <FixtureComposer />
-                </div>
+                <FixtureComposerFooter />
               </div>
             </div>
           </div>
@@ -379,9 +385,7 @@ function OpenDesktopChatFixture() {
                   </div>
                 </div>
 
-                <div className={EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME}>
-                  <FixtureComposer />
-                </div>
+                <FixtureComposerFooter />
               </div>
             </div>
           </div>
