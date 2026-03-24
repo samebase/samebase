@@ -42,6 +42,10 @@ import {
 } from "@/components/LogoSnapAnglesVisualFixture";
 import { FileViewPushActionsVisualFixture } from "@/components/FileViewPushActionsVisualFixture";
 import {
+  FileViewCompareVisualFixture,
+  type FileViewCompareVisualMode,
+} from "@/components/FileViewCompareVisualFixture";
+import {
   FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES,
   isFileViewPushActionsVisualMode,
   type FileViewPushActionsVisualMode,
@@ -61,6 +65,7 @@ import "./index.css";
 
 type VisualFixtureMode =
   | CommitReviewVisualMode
+  | FileViewCompareVisualMode
   | FileViewLayoutVisualMode
   | FileViewPushActionsVisualMode
   | EditorChatVisualMode
@@ -157,6 +162,10 @@ const VAULT_BRANCH_PREVIEW_VISUAL_MODES = [
   "vault-branch-preview-missing",
 ] as const satisfies readonly VaultBranchPreviewVisualMode[];
 
+const FILE_VIEW_COMPARE_VISUAL_MODES = [
+  "file-view-compare-sidebar",
+] as const satisfies readonly FileViewCompareVisualMode[];
+
 const MISC_VISUAL_MODES = [
   "vault-dashboard-branch-pr-title",
   "button",
@@ -171,7 +180,10 @@ const VISUAL_FIXTURE_GROUPS = [
   },
   {
     label: "File View",
-    modes: FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES,
+    modes: [
+      ...FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES,
+      ...FILE_VIEW_COMPARE_VISUAL_MODES,
+    ],
   },
   {
     label: "File View Layout",
@@ -319,6 +331,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (isFileViewPushActionsVisualMode(mode)) {
     return <FileViewPushActionsVisualFixture mode={mode} />;
+  }
+
+  if (mode === "file-view-compare-sidebar") {
+    return <FileViewCompareVisualFixture mode={mode} />;
   }
 
   if (mode === "vault-dashboard-branch-pr-title") {

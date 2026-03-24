@@ -158,16 +158,17 @@ function readPullRequestActivityAt(
   return Number.isNaN(createdAt) ? 0 : createdAt;
 }
 
-export function readOpenPullRequestForBranch(args: {
+function readMatchingOpenPullRequestForBranch(args: {
   branch: string;
-  baseBranch: string;
   repositoryFullName: string;
   pullRequests: OpenPullRequestCandidate[];
-}): { url: string; number: number } | null {
+  baseBranch?: string;
+}): { url: string; number: number; baseBranch: string } | null {
   const normalizedRepositoryFullName = args.repositoryFullName.toLowerCase();
   let latestMatch: {
     url: string;
     number: number;
+    baseBranch: string;
     activityAt: number;
   } | null = null;
 
@@ -175,10 +176,13 @@ export function readOpenPullRequestForBranch(args: {
     const pullRequestRepositoryFullName = pullRequest.head.repo?.full_name;
     if (
       pullRequest.head.ref !== args.branch ||
-      pullRequest.base.ref !== args.baseBranch ||
+      (typeof args.baseBranch === "string" &&
+        pullRequest.base.ref !== args.baseBranch) ||
       typeof pullRequestRepositoryFullName !== "string" ||
       pullRequestRepositoryFullName.toLowerCase() !==
         normalizedRepositoryFullName ||
+      typeof pullRequest.base.ref !== "string" ||
+      pullRequest.base.ref.length === 0 ||
       typeof pullRequest.html_url !== "string" ||
       pullRequest.html_url.length === 0
     ) {
@@ -190,6 +194,7 @@ export function readOpenPullRequestForBranch(args: {
       latestMatch = {
         url: pullRequest.html_url,
         number: pullRequest.number,
+        baseBranch: pullRequest.base.ref,
         activityAt,
       };
     }
@@ -199,8 +204,34 @@ export function readOpenPullRequestForBranch(args: {
     ? {
         url: latestMatch.url,
         number: latestMatch.number,
+        baseBranch: latestMatch.baseBranch,
       }
     : null;
+}
+
+export function readOpenPullRequestForBranch(args: {
+  branch: string;
+  baseBranch: string;
+  repositoryFullName: string;
+  pullRequests: OpenPullRequestCandidate[];
+}): { url: string; number: number } | null {
+  const latestMatch = readMatchingOpenPullRequestForBranch(args);
+  if (!latestMatch) {
+    return null;
+  }
+
+  return {
+    url: latestMatch.url,
+    number: latestMatch.number,
+  };
+}
+
+export function readLatestOpenPullRequestForBranch(args: {
+  branch: string;
+  repositoryFullName: string;
+  pullRequests: OpenPullRequestCandidate[];
+}): { url: string; number: number; baseBranch: string } | null {
+  return readMatchingOpenPullRequestForBranch(args);
 }
 
 async function getOpenPullRequestForBranch(args: {
@@ -221,6 +252,27 @@ async function getOpenPullRequestForBranch(args: {
   return readOpenPullRequestForBranch({
     branch: args.branch,
     baseBranch: args.baseBranch,
+    repositoryFullName: `${args.owner}/${args.repo}`,
+    pullRequests: response.data,
+  });
+}
+
+async function getLatestOpenPullRequestForBranch(args: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  branch: string;
+}): Promise<{ url: string; number: number; baseBranch: string } | null> {
+  const response = await args.octokit.rest.pulls.list({
+    owner: args.owner,
+    repo: args.repo,
+    state: "open",
+    head: `${args.owner}:${args.branch}`,
+    per_page: 100,
+  });
+
+  return readLatestOpenPullRequestForBranch({
+    branch: args.branch,
     repositoryFullName: `${args.owner}/${args.repo}`,
     pullRequests: response.data,
   });
@@ -355,6 +407,10 @@ export function getDraftPullRequestCreateErrorMessage(
 }
 
 function toGitTreeRef(branch: string): string {
+  if (/^[0-9a-f]{40}$/i.test(branch)) {
+    return branch;
+  }
+
   if (branch.startsWith("refs/heads/")) {
     return branch.slice("refs/".length);
   }
@@ -366,16 +422,16 @@ function toGitTreeRef(branch: string): string {
   return `heads/${branch}`;
 }
 
-async function getBranchTreeMap(args: {
+async function getTreeMapForRef(args: {
   octokit: Octokit;
   owner: string;
   repo: string;
-  branch: string;
+  ref: string;
 }): Promise<Map<string, string>> {
   const treeResponse = await args.octokit.rest.git.getTree({
     owner: args.owner,
     repo: args.repo,
-    tree_sha: toGitTreeRef(args.branch),
+    tree_sha: toGitTreeRef(args.ref),
     recursive: "1",
   });
 
@@ -397,6 +453,20 @@ async function getBranchTreeMap(args: {
   }
 
   return shaByPath;
+}
+
+async function getBranchTreeMap(args: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  branch: string;
+}): Promise<Map<string, string>> {
+  return getTreeMapForRef({
+    octokit: args.octokit,
+    owner: args.owner,
+    repo: args.repo,
+    ref: args.branch,
+  });
 }
 
 function toHeaderMap(value: unknown): HeaderMap | null {
@@ -599,16 +669,30 @@ const commitPreviewTotals = v.object({
   deletions: v.number(),
 });
 
+const commitPreviewSafety = v.object({
+  destructiveFileCount: v.number(),
+  truncatedPatchFileCount: v.number(),
+  includesTruncatedPatches: v.boolean(),
+});
+
 const commitPreviewResult = v.object({
   branch: v.string(),
   hasDestructiveChanges: v.boolean(),
   files: v.array(commitPreviewFile),
   totals: commitPreviewTotals,
-  safety: v.object({
-    destructiveFileCount: v.number(),
-    truncatedPatchFileCount: v.number(),
-    includesTruncatedPatches: v.boolean(),
-  }),
+  safety: commitPreviewSafety,
+});
+
+const branchComparePreviewResult = v.object({
+  branch: v.string(),
+  baseBranch: v.string(),
+  source: v.union(v.literal("pull_request"), v.literal("branch_compare")),
+  pullRequestNumber: v.optional(v.number()),
+  pullRequestUrl: v.optional(v.string()),
+  hasDestructiveChanges: v.boolean(),
+  files: v.array(commitPreviewFile),
+  totals: commitPreviewTotals,
+  safety: commitPreviewSafety,
 });
 
 const draftPullRequestResult = object({
@@ -641,7 +725,9 @@ const rebaseConflictPreviewResult = v.object({
 
 type CommitPreviewFile = Infer<typeof commitPreviewFile>;
 type CommitPreviewTotals = Infer<typeof commitPreviewTotals>;
+type CommitPreviewSafety = Infer<typeof commitPreviewSafety>;
 type CommitPreviewResult = Infer<typeof commitPreviewResult>;
+type BranchComparePreviewResult = Infer<typeof branchComparePreviewResult>;
 type DraftPullRequestResult = Infer<typeof draftPullRequestResult>;
 type DefaultBranchDraftPullRequestResult = Infer<
   typeof defaultBranchDraftPullRequestResult
@@ -673,6 +759,15 @@ type DraftSourceStagingRecord = DraftSourceStagingSnapshot & {
 type StagedFileRebaseConflict = StagedFileForCommit & {
   upstreamContent: string;
   upstreamSha: string;
+};
+
+type GitHubCompareFileCandidate = {
+  filename?: string | null;
+  previous_filename?: string | null;
+  status?: string | null;
+  additions?: number | null;
+  deletions?: number | null;
+  patch?: string | null;
 };
 
 function formatUpstreamConflictError(paths: string[]): string {
@@ -1123,101 +1218,106 @@ function isMarkdownPath(path: string): boolean {
   );
 }
 
-export function buildCommitPreviewFromStagedFiles({
-  stagedFiles,
-  branch,
-  includePatch,
-}: {
-  stagedFiles: StagedFileForCommit[];
-  branch: string;
+function buildCommitPreviewFileFromContents(args: {
+  status: CommitPreviewFile["status"];
+  path: string;
+  previousPath?: string;
+  oldContent: string;
+  newContent: string;
   includePatch: boolean;
-}): CommitPreviewResult {
-  const files: CommitPreviewFile[] = [];
-  let totalPatchChars = 0;
-  let truncatedPatchFileCount = 0;
+}): CommitPreviewFile {
+  const isMarkdown = isMarkdownPath(args.path);
+  const lineStats = computeLineStats(args.oldContent, args.newContent);
 
-  for (const file of stagedFiles) {
-    const oldContent = file.initialContent;
-    const newContent = file.fileDeleted ? "" : file.content;
-    const renamed = file.filePath !== file.initialFilePath;
-    const isMarkdown = isMarkdownPath(file.filePath);
-    const status = file.fileDeleted
-      ? ("deleted" as const)
-      : file.parentCommitSha === null
-        ? ("added" as const)
-        : renamed
-          ? ("renamed" as const)
-          : ("modified" as const);
-    const lineStats = computeLineStats(oldContent, newContent);
-
-    let richOldContent: string | undefined;
-    let richNewContent: string | undefined;
-    let richContentTruncated: boolean | undefined;
-    if (isMarkdown) {
-      const truncatedOld = truncateMarkdownRichContent(oldContent);
-      const truncatedNew = truncateMarkdownRichContent(newContent);
-      richOldContent = truncatedOld.content;
-      richNewContent = truncatedNew.content;
-      richContentTruncated = truncatedOld.truncated || truncatedNew.truncated;
-    }
-
-    let patch: string | undefined;
-    let patchTruncated = false;
-    if (includePatch && !(status === "renamed" && oldContent === newContent)) {
-      const fullPatch = createTwoFilesPatch(
-        file.initialFilePath,
-        file.filePath,
-        oldContent,
-        newContent,
-        "",
-        "",
-        { context: 3 },
-      );
-      let boundedPatch = fullPatch;
-      if (boundedPatch.length > MAX_COMMIT_PREVIEW_PATCH_CHARS_PER_FILE) {
-        boundedPatch = `${boundedPatch.slice(0, MAX_COMMIT_PREVIEW_PATCH_CHARS_PER_FILE)}\n... [patch truncated]`;
-        patchTruncated = true;
-      }
-
-      const remainingBudget = Math.max(
-        0,
-        MAX_COMMIT_PREVIEW_PATCH_CHARS_TOTAL - totalPatchChars,
-      );
-      if (boundedPatch.length > remainingBudget) {
-        if (remainingBudget > 0) {
-          boundedPatch = `${boundedPatch.slice(0, remainingBudget)}\n... [patch truncated]`;
-        } else {
-          boundedPatch = "... [patch truncated]";
-        }
-        patchTruncated = true;
-      }
-
-      patch = boundedPatch;
-      totalPatchChars += patch.length;
-    }
-
-    if (patchTruncated) {
-      truncatedPatchFileCount += 1;
-    }
-
-    files.push({
-      status,
-      path: file.filePath,
-      previousPath: renamed ? file.initialFilePath : undefined,
-      additions: lineStats.additions,
-      deletions: lineStats.deletions,
-      oldLineCount: countLines(oldContent),
-      newLineCount: countLines(newContent),
-      isMarkdown,
-      richOldContent,
-      richNewContent,
-      richContentTruncated,
-      patchTruncated,
-      patch,
-    });
+  let richOldContent: string | undefined;
+  let richNewContent: string | undefined;
+  let richContentTruncated: boolean | undefined;
+  if (isMarkdown) {
+    const truncatedOld = truncateMarkdownRichContent(args.oldContent);
+    const truncatedNew = truncateMarkdownRichContent(args.newContent);
+    richOldContent = truncatedOld.content;
+    richNewContent = truncatedNew.content;
+    richContentTruncated = truncatedOld.truncated || truncatedNew.truncated;
   }
 
-  const totals = files.reduce<CommitPreviewTotals>(
+  let patch: string | undefined;
+  if (
+    args.includePatch &&
+    !(args.status === "renamed" && args.oldContent === args.newContent)
+  ) {
+    patch = createTwoFilesPatch(
+      args.previousPath ?? args.path,
+      args.path,
+      args.oldContent,
+      args.newContent,
+      "",
+      "",
+      { context: 3 },
+    );
+  }
+
+  return {
+    status: args.status,
+    path: args.path,
+    previousPath: args.previousPath,
+    additions: lineStats.additions,
+    deletions: lineStats.deletions,
+    oldLineCount: countLines(args.oldContent),
+    newLineCount: countLines(args.newContent),
+    isMarkdown,
+    richOldContent,
+    richNewContent,
+    richContentTruncated,
+    patchTruncated: false,
+    patch,
+  };
+}
+
+function clampCommitPreviewPatches(
+  files: CommitPreviewFile[],
+): CommitPreviewFile[] {
+  let totalPatchChars = 0;
+
+  return files.map((file) => {
+    if (typeof file.patch !== "string") {
+      return file;
+    }
+
+    let boundedPatch = file.patch;
+    let patchTruncated = file.patchTruncated;
+
+    if (boundedPatch.length > MAX_COMMIT_PREVIEW_PATCH_CHARS_PER_FILE) {
+      boundedPatch = `${boundedPatch.slice(0, MAX_COMMIT_PREVIEW_PATCH_CHARS_PER_FILE)}\n... [patch truncated]`;
+      patchTruncated = true;
+    }
+
+    const remainingBudget = Math.max(
+      0,
+      MAX_COMMIT_PREVIEW_PATCH_CHARS_TOTAL - totalPatchChars,
+    );
+    if (boundedPatch.length > remainingBudget) {
+      if (remainingBudget > 0) {
+        boundedPatch = `${boundedPatch.slice(0, remainingBudget)}\n... [patch truncated]`;
+      } else {
+        boundedPatch = "... [patch truncated]";
+      }
+      patchTruncated = true;
+    }
+
+    totalPatchChars += boundedPatch.length;
+
+    return {
+      ...file,
+      patch: boundedPatch,
+      patchTruncated,
+    };
+  });
+}
+
+function buildCommitPreviewTotals(
+  files: CommitPreviewFile[],
+): CommitPreviewTotals {
+  return files.reduce<CommitPreviewTotals>(
     (acc, file) => {
       acc.files += 1;
       acc.additions += file.additions;
@@ -1240,18 +1340,322 @@ export function buildCommitPreviewFromStagedFiles({
       deletions: 0,
     },
   );
+}
+
+function buildCommitPreviewSafety(
+  files: CommitPreviewFile[],
+): CommitPreviewSafety {
+  const destructiveFileCount = files.filter(
+    (file) => file.status === "deleted",
+  ).length;
+  const truncatedPatchFileCount = files.filter(
+    (file) => file.patchTruncated,
+  ).length;
+
+  return {
+    destructiveFileCount,
+    truncatedPatchFileCount,
+    includesTruncatedPatches: truncatedPatchFileCount > 0,
+  };
+}
+
+function finalizeCommitPreviewFiles(
+  files: CommitPreviewFile[],
+): CommitPreviewFile[] {
+  const sortedFiles = [...files].sort((left, right) =>
+    left.path.localeCompare(right.path),
+  );
+  return clampCommitPreviewPatches(sortedFiles);
+}
+
+export function buildCommitPreviewFromStagedFiles({
+  stagedFiles,
+  branch,
+  includePatch,
+}: {
+  stagedFiles: StagedFileForCommit[];
+  branch: string;
+  includePatch: boolean;
+}): CommitPreviewResult {
+  const files = finalizeCommitPreviewFiles(
+    stagedFiles.map((file) => {
+      const renamed = file.filePath !== file.initialFilePath;
+      const status = file.fileDeleted
+        ? ("deleted" as const)
+        : file.parentCommitSha === null
+          ? ("added" as const)
+          : renamed
+            ? ("renamed" as const)
+            : ("modified" as const);
+
+      return buildCommitPreviewFileFromContents({
+        status,
+        path: file.filePath,
+        previousPath: renamed ? file.initialFilePath : undefined,
+        oldContent: file.initialContent,
+        newContent: file.fileDeleted ? "" : file.content,
+        includePatch,
+      });
+    }),
+  );
+  const totals = buildCommitPreviewTotals(files);
+  const safety = buildCommitPreviewSafety(files);
 
   return {
     branch,
     hasDestructiveChanges: totals.deleted > 0,
     files,
     totals,
-    safety: {
-      destructiveFileCount: totals.deleted,
-      truncatedPatchFileCount,
-      includesTruncatedPatches: truncatedPatchFileCount > 0,
-    },
+    safety,
   };
+}
+
+function readCommitPreviewFileStatus(
+  status: string | null | undefined,
+): CommitPreviewFile["status"] {
+  if (status === "added") {
+    return "added";
+  }
+  if (status === "removed") {
+    return "deleted";
+  }
+  if (status === "renamed") {
+    return "renamed";
+  }
+  return "modified";
+}
+
+function buildRemoteComparePreviewFile(
+  file: GitHubCompareFileCandidate,
+): CommitPreviewFile | null {
+  if (typeof file.filename !== "string" || file.filename.length === 0) {
+    return null;
+  }
+
+  return {
+    status: readCommitPreviewFileStatus(file.status),
+    path: file.filename,
+    previousPath:
+      typeof file.previous_filename === "string" &&
+      file.previous_filename.length > 0
+        ? file.previous_filename
+        : undefined,
+    additions: typeof file.additions === "number" ? file.additions : 0,
+    deletions: typeof file.deletions === "number" ? file.deletions : 0,
+    oldLineCount: 0,
+    newLineCount: 0,
+    isMarkdown: isMarkdownPath(file.filename),
+    patchTruncated: false,
+    patch:
+      typeof file.patch === "string" && file.patch.length > 0
+        ? file.patch
+        : undefined,
+  };
+}
+
+function findMatchingRemoteCompareFile(args: {
+  stagedFile: StagedFileForCommit;
+  remoteFilesByPath: Map<string, CommitPreviewFile>;
+  remoteFilesByPreviousPath: Map<string, CommitPreviewFile>;
+}): CommitPreviewFile | null {
+  const candidates = [
+    args.remoteFilesByPath.get(args.stagedFile.initialFilePath),
+    args.remoteFilesByPath.get(args.stagedFile.filePath),
+    args.remoteFilesByPreviousPath.get(args.stagedFile.initialFilePath),
+    args.remoteFilesByPreviousPath.get(args.stagedFile.filePath),
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate && args.remoteFilesByPath.has(candidate.path)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function resolveComparedStagedFileBasePath(args: {
+  stagedFile: StagedFileForCommit;
+  matchedRemoteFile: Pick<
+    CommitPreviewFile,
+    "status" | "path" | "previousPath"
+  > | null;
+  baseTreePaths: Set<string>;
+}): string | null {
+  if (args.matchedRemoteFile) {
+    if (args.matchedRemoteFile.status === "added") {
+      return null;
+    }
+
+    if (
+      args.matchedRemoteFile.status === "renamed" &&
+      typeof args.matchedRemoteFile.previousPath === "string"
+    ) {
+      return args.matchedRemoteFile.previousPath;
+    }
+
+    return args.matchedRemoteFile.path;
+  }
+
+  if (args.baseTreePaths.has(args.stagedFile.initialFilePath)) {
+    return args.stagedFile.initialFilePath;
+  }
+
+  if (args.baseTreePaths.has(args.stagedFile.filePath)) {
+    return args.stagedFile.filePath;
+  }
+
+  return null;
+}
+
+/**
+ * Compare mode needs to reinterpret staged rows against the PR/base side rather
+ * than against the current branch head, otherwise remote PR changes and local
+ * staged edits produce incorrect statuses like added->renamed or deleted->added.
+ */
+export function buildComparedCommitPreviewFileFromStagedFile(args: {
+  stagedFile: StagedFileForCommit;
+  matchedRemoteFile: Pick<
+    CommitPreviewFile,
+    "status" | "path" | "previousPath"
+  > | null;
+  basePath: string | null;
+  baseContent: string;
+  includePatch: boolean;
+}): CommitPreviewFile | null {
+  if (args.stagedFile.fileDeleted) {
+    if (args.basePath === null) {
+      return null;
+    }
+
+    return buildCommitPreviewFileFromContents({
+      status: "deleted",
+      path: args.stagedFile.filePath,
+      oldContent: args.baseContent,
+      newContent: "",
+      includePatch: args.includePatch,
+    });
+  }
+
+  if (args.basePath === null) {
+    return buildCommitPreviewFileFromContents({
+      status: "added",
+      path: args.stagedFile.filePath,
+      oldContent: "",
+      newContent: args.stagedFile.content,
+      includePatch: args.includePatch,
+    });
+  }
+
+  const previousPath =
+    args.matchedRemoteFile?.status === "renamed" &&
+    typeof args.matchedRemoteFile.previousPath === "string"
+      ? args.matchedRemoteFile.previousPath
+      : args.basePath !== args.stagedFile.filePath
+        ? args.basePath
+        : undefined;
+
+  if (!previousPath && args.stagedFile.content === args.baseContent) {
+    return null;
+  }
+
+  return buildCommitPreviewFileFromContents({
+    status: previousPath ? "renamed" : "modified",
+    path: args.stagedFile.filePath,
+    previousPath,
+    oldContent: args.baseContent,
+    newContent: args.stagedFile.content,
+    includePatch: args.includePatch,
+  });
+}
+
+async function buildBranchComparePreviewFiles(args: {
+  remoteFiles: CommitPreviewFile[];
+  stagedFiles: StagedFileForCommit[];
+  baseShaByPath: Map<string, string>;
+  getBlobTextBySha: (sha: string) => Promise<string>;
+  includePatch: boolean;
+}): Promise<CommitPreviewFile[]> {
+  const remoteFilesByPath = new Map(
+    args.remoteFiles.map((file) => [file.path, file]),
+  );
+  const remoteFilesByPreviousPath = new Map(
+    args.remoteFiles.flatMap((file) =>
+      typeof file.previousPath === "string"
+        ? ([[file.previousPath, file]] as const)
+        : [],
+    ),
+  );
+  const baseTreePaths = new Set(args.baseShaByPath.keys());
+  const overlayFiles: CommitPreviewFile[] = [];
+
+  for (const stagedFile of args.stagedFiles) {
+    const matchedRemoteFile = findMatchingRemoteCompareFile({
+      stagedFile,
+      remoteFilesByPath,
+      remoteFilesByPreviousPath,
+    });
+    if (matchedRemoteFile) {
+      remoteFilesByPath.delete(matchedRemoteFile.path);
+      if (typeof matchedRemoteFile.previousPath === "string") {
+        remoteFilesByPreviousPath.delete(matchedRemoteFile.previousPath);
+      }
+    }
+
+    const basePath = resolveComparedStagedFileBasePath({
+      stagedFile,
+      matchedRemoteFile,
+      baseTreePaths,
+    });
+    const baseSha =
+      typeof basePath === "string"
+        ? args.baseShaByPath.get(basePath)
+        : undefined;
+    const baseContent =
+      typeof baseSha === "string" ? await args.getBlobTextBySha(baseSha) : "";
+
+    const overlayFile = buildComparedCommitPreviewFileFromStagedFile({
+      stagedFile,
+      matchedRemoteFile,
+      basePath,
+      baseContent,
+      includePatch: args.includePatch,
+    });
+    if (overlayFile) {
+      overlayFiles.push(overlayFile);
+    }
+  }
+
+  return finalizeCommitPreviewFiles([
+    ...remoteFilesByPath.values(),
+    ...overlayFiles,
+  ]);
+}
+
+async function getPullRequestCompareFiles(args: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  pullRequestNumber: number;
+}): Promise<GitHubCompareFileCandidate[]> {
+  const files: GitHubCompareFileCandidate[] = [];
+
+  for (let page = 1; page <= 50; page += 1) {
+    const response = await args.octokit.rest.pulls.listFiles({
+      owner: args.owner,
+      repo: args.repo,
+      pull_number: args.pullRequestNumber,
+      per_page: 100,
+      page,
+    });
+    files.push(...response.data);
+
+    if (response.data.length < 100) {
+      break;
+    }
+  }
+
+  return files;
 }
 
 // MARK: Public
@@ -2448,6 +2852,236 @@ export const getCommitPreview = action({
       branch,
       includePatch,
     });
+  },
+});
+
+export const getBranchComparePreview = action({
+  args: {
+    repositoryFullName: v.string(),
+    branch: v.optional(v.string()),
+    includePatch: v.optional(v.boolean()),
+  },
+  returns: branchComparePreviewResult,
+  handler: async (ctx, args): Promise<BranchComparePreviewResult> => {
+    const userId = await getUserId(ctx);
+    const includePatch = args.includePatch ?? true;
+
+    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
+    const stagedFiles: StagedFileForCommit[] = await ctx.runQuery(
+      internal.fileStaging.listAllStagedFiles,
+      {
+        vaultId: vault._id,
+        branch: args.branch,
+      },
+    );
+    const stagedBranches = Array.from(
+      new Set(
+        stagedFiles
+          .map((file) => file.branch)
+          .filter((branch): branch is string => typeof branch === "string"),
+      ),
+    );
+    if (stagedBranches.length > 1) {
+      throw new Error(
+        `Cannot compare staged files across multiple branches: ${stagedBranches.join(", ")}`,
+      );
+    }
+
+    const githubAccessToken = await getGithubAccessToken(ctx, userId);
+    const octokit: Octokit = new Octokit({
+      auth: githubAccessToken,
+    });
+    const defaultBranch = await getRepositoryDefaultBranch({
+      octokit,
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+    });
+    const branch = args.branch?.trim() || stagedBranches.at(0) || defaultBranch;
+    const currentPullRequest = await getLatestOpenPullRequestForBranch({
+      octokit,
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+      branch,
+    });
+    const baseBranch = currentPullRequest?.baseBranch ?? defaultBranch;
+    const compareResponse = await octokit.rest.repos.compareCommitsWithBasehead(
+      {
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        basehead: `${baseBranch}...${branch}`,
+      },
+    );
+    const mergeBaseCommitSha = compareResponse.data.merge_base_commit.sha;
+    const baseCommitSha = compareResponse.data.base_commit.sha;
+    const mergeBaseSha =
+      mergeBaseCommitSha.length > 0
+        ? mergeBaseCommitSha
+        : baseCommitSha.length > 0
+          ? baseCommitSha
+          : baseBranch;
+
+    const remoteFileCandidates = currentPullRequest
+      ? await getPullRequestCompareFiles({
+          octokit,
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          pullRequestNumber: currentPullRequest.number,
+        })
+      : compareResponse.data.files ?? [];
+    const remoteFiles = remoteFileCandidates
+      .map((file) => buildRemoteComparePreviewFile(file))
+      .filter((file): file is CommitPreviewFile => file !== null);
+    const baseShaByPath = await getTreeMapForRef({
+      octokit,
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+      ref: mergeBaseSha,
+    });
+    const blobTextBySha = new Map<string, Promise<string>>();
+    const getBlobTextBySha = (sha: string): Promise<string> => {
+      const existing = blobTextBySha.get(sha);
+      if (existing) {
+        return existing;
+      }
+
+      const loaded = octokit.rest.git
+        .getBlob({
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          file_sha: sha,
+        })
+        .then((response) => {
+          const content = response.data.content.replace(/\n/g, "");
+          return Buffer.from(content, "base64").toString("utf-8");
+        })
+        .catch((error) => {
+          blobTextBySha.delete(sha);
+          throw error;
+        });
+
+      blobTextBySha.set(sha, loaded);
+      return loaded;
+    };
+    const files =
+      stagedFiles.length > 0
+        ? await buildBranchComparePreviewFiles({
+            remoteFiles,
+            stagedFiles,
+            baseShaByPath,
+            getBlobTextBySha,
+            includePatch,
+          })
+        : finalizeCommitPreviewFiles(remoteFiles);
+    const totals = buildCommitPreviewTotals(files);
+    const safety = buildCommitPreviewSafety(files);
+
+    return {
+      branch,
+      baseBranch,
+      source: currentPullRequest ? "pull_request" : "branch_compare",
+      pullRequestNumber: currentPullRequest?.number,
+      pullRequestUrl: currentPullRequest?.url,
+      hasDestructiveChanges: totals.deleted > 0,
+      files,
+      totals,
+      safety,
+    };
+  },
+});
+
+export const restoreComparedDeletedFileToStaging = action({
+  args: {
+    repositoryFullName: v.string(),
+    branch: v.optional(v.string()),
+    filePath: v.string(),
+    previousPath: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
+    const githubAccessToken = await getGithubAccessToken(ctx, userId);
+    const octokit: Octokit = new Octokit({
+      auth: githubAccessToken,
+    });
+    const defaultBranch = await getRepositoryDefaultBranch({
+      octokit,
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+    });
+    const branch = args.branch?.trim() || defaultBranch;
+    const currentPullRequest = await getLatestOpenPullRequestForBranch({
+      octokit,
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+      branch,
+    });
+    const baseBranch = currentPullRequest?.baseBranch ?? defaultBranch;
+    const compareResponse = await octokit.rest.repos.compareCommitsWithBasehead(
+      {
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+        basehead: `${baseBranch}...${branch}`,
+      },
+    );
+    const mergeBaseCommitSha = compareResponse.data.merge_base_commit.sha;
+    const baseCommitSha = compareResponse.data.base_commit.sha;
+    const mergeBaseSha =
+      mergeBaseCommitSha.length > 0
+        ? mergeBaseCommitSha
+        : baseCommitSha.length > 0
+          ? baseCommitSha
+          : baseBranch;
+    const baseShaByPath = await getTreeMapForRef({
+      octokit,
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+      ref: mergeBaseSha,
+    });
+    const basePath =
+      typeof args.previousPath === "string" &&
+      baseShaByPath.has(args.previousPath)
+        ? args.previousPath
+        : args.filePath;
+    const baseSha = baseShaByPath.get(basePath);
+    if (typeof baseSha !== "string") {
+      throw new Error(
+        "Deleted compare file is not available from the PR base.",
+      );
+    }
+
+    const blobResponse = await octokit.rest.git.getBlob({
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+      file_sha: baseSha,
+    });
+    const content = Buffer.from(
+      blobResponse.data.content.replace(/\n/g, ""),
+      "base64",
+    ).toString("utf-8");
+
+    await ctx.runMutation(api.fileStaging.createFileInStaging, {
+      vaultId: vault._id,
+      filePath: args.filePath,
+      content,
+      branch,
+    });
+
+    return null;
   },
 });
 

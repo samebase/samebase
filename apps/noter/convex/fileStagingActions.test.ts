@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
 import {
+  buildComparedCommitPreviewFileFromStagedFile,
   buildDraftBranchName,
   buildDraftPullRequestTitle,
   createCommitWithMultipleFiles,
   getDraftPullRequestCreateErrorMessage,
   inspectStagedFilesAgainstLatestHead,
+  readLatestOpenPullRequestForBranch,
   readOpenPullRequestForBranch,
 } from "./fileStagingActions";
 
@@ -344,6 +346,156 @@ describe("draft pull request helpers", () => {
           "Validation Failed: No commits between main and feature-branch",
       }),
     ).toBe("This branch has no changes to open as a pull request.");
+  });
+
+  it("keeps the latest open pull request for compare mode even when the base branch differs", () => {
+    expect(
+      readLatestOpenPullRequestForBranch({
+        branch: "feature-branch",
+        repositoryFullName: "test-owner/test-repo",
+        pullRequests: [
+          {
+            number: 41,
+            html_url: "https://github.com/test-owner/test-repo/pull/41",
+            updated_at: "2026-03-21T10:00:00Z",
+            base: {
+              ref: "main",
+            },
+            head: {
+              ref: "feature-branch",
+              repo: {
+                full_name: "test-owner/test-repo",
+              },
+            },
+          },
+          {
+            number: 43,
+            html_url: "https://github.com/test-owner/test-repo/pull/43",
+            updated_at: "2026-03-23T10:00:00Z",
+            base: {
+              ref: "release/1.2",
+            },
+            head: {
+              ref: "feature-branch",
+              repo: {
+                full_name: "test-owner/test-repo",
+              },
+            },
+          },
+        ],
+      }),
+    ).toEqual({
+      url: "https://github.com/test-owner/test-repo/pull/43",
+      number: 43,
+      baseBranch: "release/1.2",
+    });
+  });
+});
+
+describe("buildComparedCommitPreviewFileFromStagedFile", () => {
+  it("drops a locally deleted file that only exists because the PR added it", () => {
+    expect(
+      buildComparedCommitPreviewFileFromStagedFile({
+        stagedFile: {
+          filePath: "src/new.ts",
+          initialFilePath: "src/new.ts",
+          content: "console.log('new');\n",
+          initialContent: "console.log('new');\n",
+          fileDeleted: true,
+          parentCommitSha: "head-sha",
+          branch: "feature",
+        },
+        matchedRemoteFile: {
+          status: "added",
+          path: "src/new.ts",
+        },
+        basePath: null,
+        baseContent: "",
+        includePatch: true,
+      }),
+    ).toBeNull();
+  });
+
+  it("keeps a locally renamed PR-added file as added at the new path", () => {
+    expect(
+      buildComparedCommitPreviewFileFromStagedFile({
+        stagedFile: {
+          filePath: "src/better-name.ts",
+          initialFilePath: "src/new.ts",
+          content: "console.log('new');\n",
+          initialContent: "console.log('new');\n",
+          fileDeleted: false,
+          parentCommitSha: "head-sha",
+          branch: "feature",
+        },
+        matchedRemoteFile: {
+          status: "added",
+          path: "src/new.ts",
+        },
+        basePath: null,
+        baseContent: "",
+        includePatch: true,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        status: "added",
+        path: "src/better-name.ts",
+        previousPath: undefined,
+      }),
+    );
+  });
+
+  it("drops a restored deleted file when staging matches the PR base content", () => {
+    expect(
+      buildComparedCommitPreviewFileFromStagedFile({
+        stagedFile: {
+          filePath: "docs/guide.md",
+          initialFilePath: "docs/guide.md",
+          content: "# Guide\n",
+          initialContent: "",
+          fileDeleted: false,
+          parentCommitSha: null,
+          branch: "feature",
+        },
+        matchedRemoteFile: {
+          status: "deleted",
+          path: "docs/guide.md",
+        },
+        basePath: "docs/guide.md",
+        baseContent: "# Guide\n",
+        includePatch: true,
+      }),
+    ).toBeNull();
+  });
+
+  it("preserves the original base path for a renamed file with additional staged edits", () => {
+    expect(
+      buildComparedCommitPreviewFileFromStagedFile({
+        stagedFile: {
+          filePath: "src/file-new.ts",
+          initialFilePath: "src/file-new.ts",
+          content: "export const value = 2;\n",
+          initialContent: "export const value = 1;\n",
+          fileDeleted: false,
+          parentCommitSha: "head-sha",
+          branch: "feature",
+        },
+        matchedRemoteFile: {
+          status: "renamed",
+          path: "src/file-new.ts",
+          previousPath: "src/file-old.ts",
+        },
+        basePath: "src/file-old.ts",
+        baseContent: "export const value = 1;\n",
+        includePatch: true,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        status: "renamed",
+        path: "src/file-new.ts",
+        previousPath: "src/file-old.ts",
+      }),
+    );
   });
 });
 
