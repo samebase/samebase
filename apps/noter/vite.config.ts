@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { format as formatWithPrettier } from "prettier";
 import { readPackageVersion } from "../../scripts/readPackageVersion.js";
 import { createStaticLogoSvgMarkup } from "./src/components/logoStaticSvgAsset";
 import {
@@ -85,15 +86,25 @@ function syncStaticLogoSvgAsset() {
   writeFileSync(staticLogoSvgAssetPath, `${nextStaticLogoSvgMarkup}\n`, "utf8");
 }
 
-function syncStaticLegalPageAsset(args: {
+async function formatGeneratedHtml(args: { htmlPath: string; html: string }) {
+  const formattedHtml = await formatWithPrettier(args.html, {
+    filepath: args.htmlPath,
+  });
+  return formattedHtml.endsWith("\n") ? formattedHtml : `${formattedHtml}\n`;
+}
+
+async function syncStaticLegalPageAsset(args: {
   markdownPath: string;
   htmlPath: string;
   metadata: PageMetadata;
 }) {
   const markdown = readFileSync(args.markdownPath, "utf8");
-  const nextHtml = renderStaticLegalPageHtml({
-    metadata: args.metadata,
-    markdown,
+  const nextHtml = await formatGeneratedHtml({
+    htmlPath: args.htmlPath,
+    html: renderStaticLegalPageHtml({
+      metadata: args.metadata,
+      markdown,
+    }),
   });
   const currentHtml = (() => {
     try {
@@ -111,13 +122,13 @@ function syncStaticLegalPageAsset(args: {
   writeFileSync(args.htmlPath, nextHtml, "utf8");
 }
 
-function syncStaticLegalPageAssets() {
-  syncStaticLegalPageAsset({
+async function syncStaticLegalPageAssets() {
+  await syncStaticLegalPageAsset({
     markdownPath: privacyPolicyMarkdownPath,
     htmlPath: staticPrivacyHtmlPath,
     metadata: PRIVACY_PAGE_METADATA,
   });
-  syncStaticLegalPageAsset({
+  await syncStaticLegalPageAsset({
     markdownPath: termsOfServiceMarkdownPath,
     htmlPath: staticTermsHtmlPath,
     metadata: TERMS_PAGE_METADATA,
@@ -150,22 +161,22 @@ function syncStaticLogoSvgAssetPlugin() {
 function syncStaticLegalPageAssetsPlugin() {
   let hasSyncedStaticLegalPageAssets = false;
 
-  const syncOnce = () => {
+  const syncOnce = async () => {
     if (hasSyncedStaticLegalPageAssets) {
       return;
     }
 
     hasSyncedStaticLegalPageAssets = true;
-    syncStaticLegalPageAssets();
+    await syncStaticLegalPageAssets();
   };
 
   return {
     name: "sync-static-legal-page-assets",
     buildStart() {
-      syncOnce();
+      return syncOnce();
     },
     configureServer() {
-      syncOnce();
+      return syncOnce();
     },
   };
 }
