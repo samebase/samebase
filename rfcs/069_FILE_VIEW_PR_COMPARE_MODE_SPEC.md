@@ -243,7 +243,16 @@ remote committed changes.
 Committed-only deleted files must appear in the list and must not route into the
 existing staged-review-only deleted-file flow by accident.
 
-That requires a compare-specific deleted-file presentation path.
+The preferred direction is to reuse the same deleted-file review surface that is
+already used for staged deleted files, but make that surface accept generic
+review payload data instead of assuming a staged DB row exists.
+
+For committed-only deleted rows, that reused surface should also expose:
+
+- `Restore in staging`
+
+That action should create a staged file from the deleted file's pre-deletion
+content so the operator can bring it back intentionally.
 
 ## Proposed Architecture
 
@@ -277,8 +286,8 @@ type BranchCompareResult = {
 ```
 
 `patch` is optional in v1 but strongly recommended at least for committed-only
-deleted rows so the UI can show something meaningful without inventing another
-fetch path.
+deleted rows so the existing deleted-file review surface can be reused without
+inventing a separate presentation path.
 
 ### 2. Live compare-context resolution
 
@@ -393,16 +402,11 @@ For compare rows:
 1. committed/staged added, modified, and renamed rows open the current branch
    editor surface as today
 2. staged deleted rows keep using the existing review/deleted-file surface
-3. committed-only deleted rows open a lightweight compare-deleted preview panel
+3. committed-only deleted rows should open that same deleted-file review surface
+   via a generic review payload, not a separate bespoke panel
+4. committed-only deleted rows should offer `Restore in staging`
 
-That compare-deleted preview panel can reuse existing file-view patterns:
-
-1. muted metadata banner
-2. optional patch output
-3. read-only content if patch is unavailable
-
-This keeps deleted rows usable without requiring a full remote diff-review
-system for every compare file in v1.
+This keeps deleted rows usable without introducing a second deleted-file UI.
 
 ### 8. Refresh behavior
 
@@ -515,5 +519,6 @@ remain the implementation boundary for the first slice.
 2. Add frontend compare-tree derivation in a dedicated helper module.
 3. Extend `FileTree` / `CommandPalette` to pass richer navigation items.
 4. Wire the `?compare` query param and third toggle in `FileView`.
-5. Add the committed-only deleted-file preview path.
+5. Reuse the deleted-file review surface for committed-only deleted rows and add
+   `Restore in staging`.
 6. Finish with fixture/screenshot coverage.
