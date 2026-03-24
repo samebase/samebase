@@ -4,7 +4,8 @@ import { ClockIcon, GitHubLogoIcon } from "@radix-ui/react-icons";
 
 export type AddRepositoryVisualMode =
   | "add-repository-loading-more"
-  | "add-repository-background-error";
+  | "add-repository-background-error"
+  | "add-repository-retrying";
 
 type RepositoryFixture = {
   id: number;
@@ -44,6 +45,7 @@ const FIXTURE_BY_MODE: Record<
     repositories: RepositoryFixture[];
     loadingMore: boolean;
     backgroundError: boolean;
+    retrying: boolean;
     emptyMessage?: string;
   }
 > = {
@@ -52,14 +54,24 @@ const FIXTURE_BY_MODE: Record<
     repositories: RECENT_REPOSITORIES,
     loadingMore: true,
     backgroundError: false,
+    retrying: false,
   },
   "add-repository-background-error": {
     searchQuery: "transferred",
     repositories: [],
     loadingMore: false,
     backgroundError: true,
+    retrying: false,
     emptyMessage:
       "Couldn't finish loading the rest of your repositories. Retry to finish your search.",
+  },
+  "add-repository-retrying": {
+    searchQuery: "transferred",
+    repositories: [],
+    loadingMore: true,
+    backgroundError: true,
+    retrying: true,
+    emptyMessage: "Loading more repositories to finish your search...",
   },
 };
 
@@ -114,8 +126,9 @@ export function AddRepositoryVisualFixture({
                 variant="outline"
                 size="sm"
                 className="border-amber-300 bg-transparent"
+                disabled={fixture.retrying}
               >
-                Retry
+                {fixture.retrying ? "Retrying..." : "Retry"}
               </Button>
             </div>
           )}

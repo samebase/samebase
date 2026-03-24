@@ -33,6 +33,8 @@ export function AddRepository() {
   const navigate = useNavigate();
   const vaults = useQuery(api.vault.getUserVaults);
   const [searchQuery, setSearchQuery] = useState("");
+  const [retryingFullRepositories, setRetryingFullRepositories] =
+    useState(false);
   const listRepositoriesPreview = useAction(api.github.listRepositoriesPreview);
   const listRepositories = useAction(api.github.listRepositories);
   const connectRepository = useAction(api.vaultActions.connectRepository);
@@ -84,8 +86,8 @@ export function AddRepository() {
     hasPartialResults && fullRepositoriesFetchStatus === "fetching";
   const hasFinalRepositorySet = githubConnected && !hasPartialResults;
   const hasSearchQuery = searchQuery.trim().length > 0;
-  const backgroundError =
-    hasPartialResults && !loadingMore ? fullQueryError?.message ?? null : null;
+  const showBackgroundError =
+    hasPartialResults && (fullQueryError != null || retryingFullRepositories);
 
   const error =
     connectError ??
@@ -278,7 +280,7 @@ export function AddRepository() {
               </p>
             )}
 
-            {backgroundError && (
+            {showBackgroundError && (
               <div className="mt-3 flex max-w-2xl items-center justify-between gap-3 border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 corner-notch-1">
                 <div>
                   Couldn&apos;t load the rest of your repositories. You&apos;re
@@ -289,10 +291,14 @@ export function AddRepository() {
                   size="sm"
                   className="border-amber-300 bg-transparent"
                   onClick={() => {
-                    void refetchFullRepositories();
+                    setRetryingFullRepositories(true);
+                    void refetchFullRepositories().finally(() => {
+                      setRetryingFullRepositories(false);
+                    });
                   }}
+                  disabled={retryingFullRepositories}
                 >
-                  Retry
+                  {retryingFullRepositories ? "Retrying..." : "Retry"}
                 </Button>
               </div>
             )}
@@ -405,7 +411,7 @@ export function AddRepository() {
           githubConnected && (
             <div className="text-center py-8">
               <div className="text-muted-foreground">
-                {backgroundError
+                {showBackgroundError && !retryingFullRepositories
                   ? hasSearchQuery
                     ? "Couldn't finish loading the rest of your repositories. Retry to finish your search."
                     : "Couldn't finish loading the rest of your repositories."

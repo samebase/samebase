@@ -9,6 +9,10 @@ const SCENARIOS = [
     mode: "add-repository-background-error",
     snapshotName: "add-repository-background-error.png",
   },
+  {
+    mode: "add-repository-retrying",
+    snapshotName: "add-repository-retrying.png",
+  },
 ] as const;
 
 for (const scenario of SCENARIOS) {

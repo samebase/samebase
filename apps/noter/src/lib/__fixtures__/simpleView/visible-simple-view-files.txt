@@ -7,6 +7,7 @@ apps/noter-starter-template/noter.md
 apps/noter-starter-template/README.md
 apps/noter/e2e/add-repository-visual.spec.ts-snapshots/add-repository-background-error.png
 apps/noter/e2e/add-repository-visual.spec.ts-snapshots/add-repository-loading-more.png
+apps/noter/e2e/add-repository-visual.spec.ts-snapshots/add-repository-retrying.png
 apps/noter/e2e/button-visual.spec.ts-snapshots/button-overrides.png
 apps/noter/e2e/button-visual.spec.ts-snapshots/button-sizes.png
 apps/noter/e2e/button-visual.spec.ts-snapshots/button-states.png
