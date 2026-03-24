@@ -18,6 +18,7 @@ import {
   findRepositorySearchMatch,
   splitRepositoryFullNameMatch,
 } from "@/lib/repositorySearch";
+import { resolveDisplayedRepositories } from "@/lib/addRepositoryPicker";
 
 type Repository = FunctionReturnType<
   typeof api.github.listRepositories
@@ -67,9 +68,11 @@ export function AddRepository() {
     enabled: githubConnected && repositoryPreview?.hasMore === true,
   });
 
-  const repositories = githubConnected
-    ? fullRepositories ?? repositoryPreview?.repositories ?? []
-    : [];
+  const repositories = resolveDisplayedRepositories({
+    githubConnected,
+    repositoryPreview,
+    fullRepositories,
+  });
   const loading = previewLoading;
   // Until the full query succeeds, every search result is still partial even
   // though the first page is already interactive.
