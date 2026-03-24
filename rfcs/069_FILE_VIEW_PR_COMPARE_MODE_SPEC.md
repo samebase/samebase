@@ -142,12 +142,15 @@ Research on the GitHub API suggests two different data paths:
 1. For an open PR, use the PR file list endpoint.
    - This is the closest match to "show the files in the current PR".
    - It naturally respects PR base selection and PR diff semantics.
+   - These PR files are only the remote committed baseline; current
+     `fileStaging` rows still need to be merged on top.
 2. When no open PR exists, fall back to branch-vs-default compare.
    - Use `compareCommitsWithBasehead`.
    - GitHub documents that file data is only present on the first page and is
      capped at 300 changed files for the whole comparison.
 
-That means the open-PR path should use PR files directly, while the no-PR
+That means the open-PR path should use PR files as the remote committed
+baseline and then union current staged DB changes on top, while the no-PR
 fallback should expose a truncation hint because GitHub's compare endpoint is
 not fully lossless for very large diffs.
 
@@ -286,6 +289,7 @@ The new action should resolve compare context in this order:
 3. keep the latest same-repo open PR for that branch
 4. if a PR exists:
    - use `pulls.listFiles`
+   - treat that file list as the remote committed compare baseline only
    - return `source: "pull_request"`
    - return `baseBranch = pr.base.ref`
 5. otherwise:
