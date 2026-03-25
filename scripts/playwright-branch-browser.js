@@ -2,16 +2,18 @@
 // @ts-check
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 
 const HELP_TEXT = `Usage: scripts/playwright-branch-browser.js <command> [args]
 
 Commands:
   session                Print the deterministic Playwright session name.
   profile                Print the branch-owned browser profile directory.
-  open [url]             Open the branch session without unloading a dirty tab.
+  open [url] [--headed]  Open the branch session without unloading a dirty tab.
+  verify [url]           Launch headed, assert no restore-pages prompt, close.
   cli <command> [args]   Run @playwright/cli inside the branch session.
   help                   Show this help message.
 
@@ -20,8 +22,47 @@ Environment:
 
 const PNPM_COMMAND = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
 const EXPLICIT_SESSION_PATTERN = /^[A-Za-z0-9._-]+$/
+const PLAYWRIGHT_CLI_BROWSER_NAME = 'chromium'
+const PLAYWRIGHT_CLI_CHANNEL = 'chromium'
+const SESSION_REPO_SEGMENT_MAX_LENGTH = 5
+const SESSION_BRANCH_SEGMENT_MAX_LENGTH = 3
+const SESSION_HASH_LENGTH = 6
+const SESSION_CONFIG_SALT = `${PLAYWRIGHT_CLI_BROWSER_NAME}-${PLAYWRIGHT_CLI_CHANNEL}-v1`
+const VERIFY_TIMEOUT_MS = 5_000
+const VERIFY_POLL_INTERVAL_MS = 200
+const RESTORE_PAGES_WINDOW_TITLE = 'Restore pages?'
+const BROWSER_THEME_SATURATION = 0.64
+const BROWSER_THEME_LIGHTNESS = 0.56
 
-main(process.argv.slice(2))
+class PlaywrightBranchBrowserError extends Error {
+  /**
+   * @param {string} message
+   */
+  constructor(message) {
+    super(message)
+    this.name = 'PlaywrightBranchBrowserError'
+  }
+}
+
+if (isMainModule()) {
+  try {
+    main(process.argv.slice(2))
+  } catch (error) {
+    handleMainError(error)
+  }
+}
+
+/**
+ * @typedef {{
+ *   browser: {
+ *     browserName: 'chromium'
+ *     launchOptions: {
+ *       channel: 'chromium'
+ *       args: string[]
+ *     }
+ *   }
+ * }} PlaywrightCliConfig
+ */
 
 /**
  * @param {string[]} args
@@ -51,7 +92,12 @@ function main(args) {
   }
 
   if (command === 'open') {
-    openBranchSession(rest[0])
+    openBranchSession(parseOpenCommandArgs(rest))
+    return
+  }
+
+  if (command === 'verify') {
+    verifyRestorePagesSuppression(parseOpenCommandArgs(rest))
     return
   }
 
@@ -72,10 +118,10 @@ function main(args) {
  * Opening a fresh tab keeps unsaved editor state intact and avoids native
  * beforeunload popups when a branch window is already in use.
  *
- * @param {string | undefined} url
+ * @param {{ url?: string, headed: boolean }} options
  * @returns {void}
  */
-function openBranchSession(url) {
+function openBranchSession(options) {
   const session = getSessionName()
   const cliArgs = [`-s=${session}`]
   const initialSessionState = getSessionState(session)
@@ -86,10 +132,10 @@ function openBranchSession(url) {
     )
   }
 
-  if (initialSessionState === 'exists') {
+  if (initialSessionState === 'open') {
     const reuseArgs = [...cliArgs, 'tab-new']
-    if (url) {
-      reuseArgs.push(url)
+    if (options.url) {
+      reuseArgs.push(options.url)
     }
 
     const reuseResult = runPlaywrightCli(reuseArgs, {
@@ -119,14 +165,29 @@ function openBranchSession(url) {
 
   const profileDir = getProfileDir(session)
   mkdirSync(profileDir, { recursive: true })
+  sanitizeChromeCrashRecoveryState(profileDir)
+  ensureConfiguredBrowserInstalled()
 
   const openArgs = [...cliArgs, 'open']
-  if (url) {
-    openArgs.push(url)
+  if (options.url) {
+    openArgs.push(options.url)
   }
 
   openArgs.push('--persistent', `--profile=${profileDir}`)
+  if (options.headed) {
+    openArgs.push('--headed')
+  }
   runPlaywrightCli(openArgs)
+}
+
+/**
+ * @param {string[]} args
+ * @returns {{ url?: string, headed: boolean }}
+ */
+function parseOpenCommandArgs(args) {
+  const headed = args.includes('--headed')
+  const url = args.find(arg => arg !== '--headed')
+  return url ? { url, headed } : { headed }
 }
 
 /**
@@ -178,6 +239,195 @@ function getProfileDir(session) {
   return path.join(getRepoRoot(), '.playwright-cli', 'profiles', session)
 }
 
+/**
+ * Every branch-owned persistent browser should inherit the same launch flags so
+ * Chrome crash recovery UI never blocks automation after an unclean exit.
+ *
+ * @param {string} [repoRoot]
+ * @returns {PlaywrightCliConfig}
+ */
+export function buildPlaywrightCliConfig(repoRoot = getRepoRoot()) {
+  return {
+    browser: {
+      browserName: PLAYWRIGHT_CLI_BROWSER_NAME,
+      launchOptions: {
+        channel: PLAYWRIGHT_CLI_CHANNEL,
+        args: getPlaywrightCliChromiumArgs(repoRoot),
+      },
+    },
+  }
+}
+
+/**
+ * @param {string} repoRoot
+ * @returns {string}
+ */
+export function getPlaywrightCliConfigPath(repoRoot) {
+  return path.join(repoRoot, '.playwright-cli', 'cli.config.json')
+}
+
+/**
+ * @param {string} repoRoot
+ * @returns {string}
+ */
+export function ensurePlaywrightCliConfig(repoRoot) {
+  const configPath = getPlaywrightCliConfigPath(repoRoot)
+  mkdirSync(path.dirname(configPath), { recursive: true })
+  writeFileSync(
+    configPath,
+    `${JSON.stringify(buildPlaywrightCliConfig(repoRoot), null, 2)}\n`,
+    'utf8',
+  )
+  return configPath
+}
+
+/**
+ * The repo wrapper pins a non-default browser channel, but `playwright-cli`
+ * only auto-installs browsers when it owns the default config file. Ensure the
+ * exact bundled Chromium build exists before launch so `open` works on a fresh
+ * machine and after CLI upgrades.
+ *
+ * @returns {void}
+ */
+function ensureConfiguredBrowserInstalled() {
+  const repoRoot = getRepoRoot()
+  const playwrightCliPath = getBundledPlaywrightCliPath(repoRoot)
+  const executablePath = getBundledBrowserExecutablePath(playwrightCliPath)
+
+  if (existsSync(executablePath)) {
+    return
+  }
+
+  const installResult = spawnSync(
+    'node',
+    [playwrightCliPath, 'install', PLAYWRIGHT_CLI_CHANNEL],
+    {
+      encoding: 'utf8',
+      stdio: 'inherit',
+    },
+  )
+
+  if (installResult.status !== 0 || !existsSync(executablePath)) {
+    fail(
+      `Failed to install Playwright browser "${PLAYWRIGHT_CLI_CHANNEL}" for ${playwrightCliPath}.`,
+    )
+  }
+}
+
+/**
+ * @param {string} repoRoot
+ * @returns {string}
+ */
+function getBundledPlaywrightCliPath(repoRoot) {
+  const result = spawnSync(
+    PNPM_COMMAND,
+    [
+      '--dir',
+      path.join(repoRoot, 'apps/noter'),
+      'exec',
+      'node',
+      '-p',
+      "require.resolve('@playwright/cli/playwright-cli.js')",
+    ],
+    {
+      encoding: 'utf8',
+      stdio: 'pipe',
+    },
+  )
+
+  if (result.status !== 0) {
+    process.stderr.write(result.stderr)
+    fail('Failed to resolve the bundled @playwright/cli entrypoint.')
+  }
+
+  const cliEntryPath = result.stdout.trim()
+  return path.resolve(
+    path.dirname(cliEntryPath),
+    '..',
+    '..',
+    'playwright',
+    'cli.js',
+  )
+}
+
+/**
+ * @param {string} playwrightCliPath
+ * @returns {string}
+ */
+function getBundledBrowserExecutablePath(playwrightCliPath) {
+  const resolveExecutableProgram = `const path = require("node:path")
+const playwrightCliPath = process.argv[1]
+const browserName = process.argv[2]
+const registryPath = require.resolve("playwright-core/lib/server/registry/index", {
+  paths: [path.dirname(playwrightCliPath)],
+})
+const { registry } = require(registryPath)
+const executable = registry.findExecutable(browserName)
+if (!executable) {
+  process.exit(1)
+}
+process.stdout.write(executable.executablePath())`
+
+  const result = spawnSync(
+    'node',
+    ['-e', resolveExecutableProgram, playwrightCliPath, PLAYWRIGHT_CLI_CHANNEL],
+    {
+      encoding: 'utf8',
+      stdio: 'pipe',
+    },
+  )
+
+  if (result.status !== 0) {
+    process.stderr.write(result.stderr)
+    fail(
+      `Failed to resolve the executable path for Playwright browser "${PLAYWRIGHT_CLI_CHANNEL}".`,
+    )
+  }
+
+  return result.stdout.trim()
+}
+
+/**
+ * Chrome persists crash markers in the profile itself. Clearing them before
+ * each persistent launch prevents the restore-pages prompt from resurfacing
+ * after an unclean browser exit.
+ *
+ * @param {string} profileDir
+ * @returns {void}
+ */
+export function sanitizeChromeCrashRecoveryState(profileDir) {
+  updateJsonFile(path.join(profileDir, 'Variations'), variationsState => {
+    variationsState.variations_crash_streak = 0
+    variationsState['user_experience_metrics.stability.exited_cleanly'] = true
+    return variationsState
+  })
+
+  updateJsonFile(path.join(profileDir, 'Local State'), localState => {
+    localState.variations_crash_streak = 0
+    return localState
+  })
+
+  updateJsonFile(
+    path.join(profileDir, 'Default', 'Preferences'),
+    preferences => {
+      if (isRecord(preferences.profile)) {
+        preferences.profile.exit_type = 'Normal'
+      }
+
+      const sessionEventLog = isRecord(preferences.sessions)
+        ? preferences.sessions.event_log
+        : undefined
+
+      if (isRecord(preferences.sessions) && Array.isArray(sessionEventLog)) {
+        preferences.sessions.event_log =
+          clearCrashFlagsFromSessionEventLog(sessionEventLog)
+      }
+
+      return preferences
+    },
+  )
+}
+
 /** @returns {string} */
 function getRepoRoot() {
   return runGit(['rev-parse', '--show-toplevel'])
@@ -198,26 +448,14 @@ function getBranchIdentifier() {
 
 /**
  * @param {string} session
- * @returns {'exists' | 'missing' | 'unknown'}
+ * @returns {'open' | 'closed' | 'missing' | 'unknown'}
  */
 function getSessionState(session) {
-  const result = runPlaywrightCli(['list', '--all'], {
-    allowFailure: true,
-    stdio: 'pipe',
-  })
-
-  if (result.status !== 0) {
+  const sessionDetails = getSessionDetails(session)
+  if (!sessionDetails) {
     return 'unknown'
   }
-
-  const escapedSession = session.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const sessionLine = new RegExp(`^-\\s+${escapedSession}(?::|\\s|$)`)
-
-  return `${result.stdout}\n${result.stderr}`
-    .split('\n')
-    .some(line => sessionLine.test(line.trimStart()))
-    ? 'exists'
-    : 'missing'
+  return sessionDetails.status
 }
 
 /**
@@ -226,13 +464,16 @@ function getSessionState(session) {
  * @returns {import('node:child_process').SpawnSyncReturns<string>}
  */
 function runPlaywrightCli(args, options = {}) {
+  const repoRoot = getRepoRoot()
+  const configPath = ensurePlaywrightCliConfig(repoRoot)
   const result = spawnSync(
     PNPM_COMMAND,
     [
       '--dir',
-      path.join(getRepoRoot(), 'apps/noter'),
+      path.join(repoRoot, 'apps/noter'),
       'exec',
       'playwright-cli',
+      `--config=${configPath}`,
       ...args,
     ],
     {
@@ -277,6 +518,160 @@ function tryRunGit(args) {
 }
 
 /**
+ * @param {string} filePath
+ * @param {(value: Record<string, unknown>) => Record<string, unknown>} update
+ * @returns {void}
+ */
+function updateJsonFile(filePath, update) {
+  if (!existsSync(filePath)) {
+    return
+  }
+
+  const nextValue = update(parseJsonObject(readFileSync(filePath, 'utf8')))
+  writeFileSync(filePath, `${JSON.stringify(nextValue)}\n`, 'utf8')
+}
+
+/**
+ * @param {string} rawJson
+ * @returns {Record<string, unknown>}
+ */
+function parseJsonObject(rawJson) {
+  try {
+    /** @type {unknown} */
+    const value = JSON.parse(rawJson)
+    return isRecord(value) ? value : {}
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * @param {unknown} value
+ * @returns {value is Record<string, unknown>}
+ */
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+/**
+ * @param {unknown[]} eventLog
+ * @returns {unknown[]}
+ */
+function clearCrashFlagsFromSessionEventLog(eventLog) {
+  return eventLog.map(entry =>
+    isRecord(entry) ? { ...entry, crashed: false } : entry,
+  )
+}
+
+/**
+ * Worktree-owned browsers should be visually distinct at a glance. Chromium's
+ * built-in autogenerated theme switch lets us tint the browser chrome without
+ * sharing a theme extension or profile data between worktrees.
+ *
+ * @param {string} repoRoot
+ * @returns {string[]}
+ */
+export function getPlaywrightCliChromiumArgs(repoRoot) {
+  const { red, green, blue } = getDeterministicBrowserThemeColor(repoRoot)
+
+  return [
+    '--disable-session-crashed-bubble',
+    `--install-autogenerated-theme=${red},${green},${blue}`,
+  ]
+}
+
+/**
+ * @typedef {{ red: number, green: number, blue: number }} RgbColor
+ */
+
+/**
+ * @param {string} repoRoot
+ * @returns {RgbColor}
+ */
+export function getDeterministicBrowserThemeColor(repoRoot) {
+  const hue = getStableHueDegrees(repoRoot)
+  return hslToRgb(hue / 360, BROWSER_THEME_SATURATION, BROWSER_THEME_LIGHTNESS)
+}
+
+/**
+ * @param {string} repoRoot
+ * @returns {number}
+ */
+function getStableHueDegrees(repoRoot) {
+  const hueToken = createHash('sha256')
+    .update(`browser-theme\0${repoRoot}`)
+    .digest()
+    .readUInt16BE(0)
+
+  return Math.round((hueToken / 0xffff) * 359)
+}
+
+/**
+ * @param {number} hue
+ * @param {number} saturation
+ * @param {number} lightness
+ * @returns {RgbColor}
+ */
+function hslToRgb(hue, saturation, lightness) {
+  if (saturation === 0) {
+    const grayscale = Math.round(lightness * 255)
+    return {
+      red: grayscale,
+      green: grayscale,
+      blue: grayscale,
+    }
+  }
+
+  const q =
+    lightness < 0.5
+      ? lightness * (1 + saturation)
+      : lightness + saturation - lightness * saturation
+  const p = 2 * lightness - q
+
+  return {
+    red: toRgbChannel(hueToRgb(p, q, hue + 1 / 3)),
+    green: toRgbChannel(hueToRgb(p, q, hue)),
+    blue: toRgbChannel(hueToRgb(p, q, hue - 1 / 3)),
+  }
+}
+
+/**
+ * @param {number} p
+ * @param {number} q
+ * @param {number} hue
+ * @returns {number}
+ */
+function hueToRgb(p, q, hue) {
+  let normalizedHue = hue
+
+  if (normalizedHue < 0) {
+    normalizedHue += 1
+  }
+  if (normalizedHue > 1) {
+    normalizedHue -= 1
+  }
+  if (normalizedHue < 1 / 6) {
+    return p + (q - p) * 6 * normalizedHue
+  }
+  if (normalizedHue < 1 / 2) {
+    return q
+  }
+  if (normalizedHue < 2 / 3) {
+    return p + (q - p) * (2 / 3 - normalizedHue) * 6
+  }
+
+  return p
+}
+
+/**
+ * @param {number} value
+ * @returns {number}
+ */
+function toRgbChannel(value) {
+  return Math.round(value * 255)
+}
+
+/**
  * @param {string} value
  * @returns {string}
  */
@@ -288,6 +683,55 @@ function slugify(value) {
     .replaceAll(/^-|-$/g, '')
 
   return normalized || 'unknown'
+}
+
+/**
+ * Stable session names need to stay below local Unix socket path limits while
+ * still being recognizable in Playwright CLI listings.
+ *
+ * @param {string} value
+ * @param {number} maxLength
+ * @returns {string}
+ */
+function truncateSessionSegment(value, maxLength) {
+  const truncated = value.slice(0, maxLength).replaceAll(/^-|-$/g, '')
+  return truncated || 'unknown'
+}
+
+/**
+ * Most worktree branches use the `codex/` prefix, which is not useful inside a
+ * derived session name and only increases the socket path length.
+ *
+ * @param {string} branchIdentifier
+ * @returns {string}
+ */
+function normalizeBranchSessionSegment(branchIdentifier) {
+  return branchIdentifier.startsWith('codex/')
+    ? branchIdentifier.slice('codex/'.length)
+    : branchIdentifier
+}
+
+/**
+ * @param {string} branchIdentifier
+ * @returns {string}
+ */
+function abbreviateBranchSessionSegment(branchIdentifier) {
+  const normalizedBranch = slugify(
+    normalizeBranchSessionSegment(branchIdentifier),
+  )
+  const segments = normalizedBranch.split('-').filter(Boolean)
+
+  if (segments.length > 1) {
+    return truncateSessionSegment(
+      segments.map(segment => segment[0]).join(''),
+      SESSION_BRANCH_SEGMENT_MAX_LENGTH,
+    )
+  }
+
+  return truncateSessionSegment(
+    normalizedBranch,
+    SESSION_BRANCH_SEGMENT_MAX_LENGTH,
+  )
 }
 
 /**
@@ -309,15 +753,456 @@ function getSafeExplicitSession(explicitSession) {
  * @param {string} branchIdentifier
  * @returns {string}
  */
-function buildDerivedSessionName(repoRoot, branchIdentifier) {
-  const repoName = slugify(path.basename(repoRoot))
-  const branchName = slugify(branchIdentifier)
+export function buildDerivedSessionName(repoRoot, branchIdentifier) {
+  const repoName = truncateSessionSegment(
+    slugify(path.basename(repoRoot)),
+    SESSION_REPO_SEGMENT_MAX_LENGTH,
+  )
+  const branchName = abbreviateBranchSessionSegment(branchIdentifier)
   const stableSuffix = createHash('sha256')
-    .update(`${repoRoot}\0${branchIdentifier}`)
+    .update(`${SESSION_CONFIG_SALT}\0${repoRoot}\0${branchIdentifier}`)
     .digest('hex')
-    .slice(0, 8)
+    .slice(0, SESSION_HASH_LENGTH)
 
   return `${repoName}-${branchName}-${stableSuffix}`
+}
+
+/**
+ * @param {string} output
+ * @param {string} session
+ * @returns {{
+ *   status: 'open' | 'closed'
+ *   browserType?: string
+ *   userDataDir?: string
+ *   headed?: boolean
+ * } | null}
+ */
+export function parseSessionDetailsFromListOutput(output, session) {
+  const escapedSession = session.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const sessionHeaderPattern = new RegExp(`^-\\s+${escapedSession}(?::|\\s|$)`)
+  const lines = output.split('\n')
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? ''
+    if (!sessionHeaderPattern.test(line)) {
+      continue
+    }
+
+    /** @type {{
+     *   status: 'open' | 'closed'
+     *   browserType?: string
+     *   userDataDir?: string
+     *   headed?: boolean
+     * }}
+     */
+    const details = {
+      status: 'open',
+    }
+
+    for (
+      let detailIndex = index + 1;
+      detailIndex < lines.length;
+      detailIndex += 1
+    ) {
+      const detailLine = lines[detailIndex] ?? ''
+      if (detailLine.startsWith('- ')) {
+        break
+      }
+
+      const trimmedDetailLine = detailLine.trim()
+      if (!trimmedDetailLine.startsWith('- ')) {
+        continue
+      }
+
+      const detailMatch = /^-\s+([^:]+):\s*(.*)$/.exec(trimmedDetailLine)
+      if (!detailMatch) {
+        continue
+      }
+
+      const [, key, rawValue] = detailMatch
+      if (key === 'status' && (rawValue === 'open' || rawValue === 'closed')) {
+        details.status = rawValue
+      }
+      if (key === 'browser-type' && rawValue) {
+        details.browserType = rawValue
+      }
+      if (key === 'user-data-dir' && rawValue) {
+        details.userDataDir = rawValue
+      }
+      if (key === 'headed' && (rawValue === 'true' || rawValue === 'false')) {
+        details.headed = rawValue === 'true'
+      }
+    }
+
+    return details
+  }
+
+  return null
+}
+
+/**
+ * @param {string} output
+ * @param {string} session
+ * @returns {'open' | 'closed' | 'missing'}
+ */
+export function parseSessionStateFromListOutput(output, session) {
+  return parseSessionDetailsFromListOutput(output, session)?.status ?? 'missing'
+}
+
+/**
+ * Verification needs the real native browser window, not the page DOM. It
+ * closes only the branch-owned profile, relaunches it in headed mode, then
+ * polls the macOS window list for a restore-pages popup from that exact PID.
+ *
+ * @param {{ url?: string, headed: boolean }} options
+ * @returns {void}
+ */
+function verifyRestorePagesSuppression(options) {
+  const session = getSessionName()
+  const profileDir = getProfileDir(session)
+
+  closeBranchSession(session, profileDir)
+
+  try {
+    openBranchSession({
+      url: options.url,
+      headed: true,
+    })
+
+    const sessionDetails = waitForSessionDetails(session)
+    if (sessionDetails.browserType !== PLAYWRIGHT_CLI_CHANNEL) {
+      fail(
+        `Expected Playwright session "${session}" to resolve to "${PLAYWRIGHT_CLI_CHANNEL}", got "${sessionDetails.browserType ?? 'unknown'}".`,
+      )
+    }
+
+    const browserProcess = waitForProfileBrowserProcess(profileDir)
+    const windowTitles = observeWindowTitlesForPid(browserProcess.pid)
+    assertObservedWindowTitles(windowTitles, browserProcess.pid)
+
+    if (windowTitles.has(RESTORE_PAGES_WINDOW_TITLE)) {
+      fail(
+        `Playwright session "${session}" still showed "${RESTORE_PAGES_WINDOW_TITLE}" for profile ${profileDir}.`,
+      )
+    }
+
+    console.log(
+      `Verified Playwright session "${session}" launched without "${RESTORE_PAGES_WINDOW_TITLE}".`,
+    )
+  } finally {
+    closeBranchSession(session, profileDir)
+  }
+}
+
+/**
+ * @param {string} session
+ * @returns {{
+ *   status: 'open' | 'closed' | 'missing' | 'unknown'
+ *   browserType?: string
+ *   userDataDir?: string
+ *   headed?: boolean
+ * } | null}
+ */
+function getSessionDetails(session) {
+  const result = runPlaywrightCli(['list', '--all'], {
+    allowFailure: true,
+    stdio: 'pipe',
+  })
+
+  if (result.status !== 0) {
+    return null
+  }
+
+  const sessionDetails = parseSessionDetailsFromListOutput(
+    `${result.stdout}\n${result.stderr}`,
+    session,
+  )
+
+  if (!sessionDetails) {
+    return {
+      status: 'missing',
+    }
+  }
+
+  return sessionDetails
+}
+
+/**
+ * @param {string} session
+ * @param {string} profileDir
+ * @returns {void}
+ */
+function closeBranchSession(session, profileDir) {
+  if (getSessionState(session) === 'open') {
+    runPlaywrightCli([`-s=${session}`, 'close'], {
+      allowFailure: true,
+      stdio: 'pipe',
+    })
+  }
+
+  terminateProfileBrowserProcesses(profileDir)
+  waitForProfileBrowserToClose(profileDir)
+}
+
+/**
+ * @param {string} profileDir
+ * @returns {void}
+ */
+function terminateProfileBrowserProcesses(profileDir) {
+  for (const { pid } of listProfileBrowserProcesses(profileDir)) {
+    try {
+      process.kill(pid)
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ESRCH') {
+        continue
+      }
+
+      fail(
+        `Failed to terminate branch browser process ${pid} for ${profileDir}.`,
+      )
+    }
+  }
+}
+
+/**
+ * @param {Set<string>} windowTitles
+ * @param {number} pid
+ * @returns {void}
+ */
+function assertObservedWindowTitles(windowTitles, pid) {
+  if (windowTitles.size > 0) {
+    return
+  }
+
+  fail(`Did not observe any onscreen browser windows for PID ${pid}.`)
+}
+
+/**
+ * @param {string} profileDir
+ * @returns {void}
+ */
+function waitForProfileBrowserToClose(profileDir) {
+  waitForCondition(
+    () => listProfileBrowserProcesses(profileDir).length === 0,
+    VERIFY_TIMEOUT_MS,
+    `Timed out waiting for browser processes using ${profileDir} to exit.`,
+  )
+}
+
+/**
+ * @param {string} session
+ * @returns {{
+ *   status: 'open' | 'closed'
+ *   browserType?: string
+ *   userDataDir?: string
+ *   headed?: boolean
+ * }}
+ */
+function waitForSessionDetails(session) {
+  return waitForValue(
+    () => {
+      const sessionDetails = getSessionDetails(session)
+      if (sessionDetails?.status !== 'open') {
+        return null
+      }
+
+      return {
+        ...sessionDetails,
+        status: 'open',
+      }
+    },
+    VERIFY_TIMEOUT_MS,
+    `Timed out waiting for Playwright session "${session}" to open.`,
+  )
+}
+
+/**
+ * @param {string} profileDir
+ * @returns {{ pid: number, args: string }}
+ */
+function waitForProfileBrowserProcess(profileDir) {
+  return waitForValue(
+    () => getPrimaryProfileBrowserProcess(profileDir),
+    VERIFY_TIMEOUT_MS,
+    `Timed out waiting for a browser process using ${profileDir}.`,
+  )
+}
+
+/**
+ * @param {number} pid
+ * @returns {Set<string>}
+ */
+function observeWindowTitlesForPid(pid) {
+  /** @type {Set<string>} */
+  const seenTitles = new Set()
+  const deadline = Date.now() + VERIFY_TIMEOUT_MS
+
+  while (Date.now() < deadline) {
+    for (const title of getOnscreenWindowTitlesForPid(pid)) {
+      seenTitles.add(title)
+    }
+
+    sleep(VERIFY_POLL_INTERVAL_MS)
+  }
+
+  return seenTitles
+}
+
+/**
+ * @param {number} pid
+ * @returns {string[]}
+ */
+function getOnscreenWindowTitlesForPid(pid) {
+  const swiftProgram = `import Foundation
+import CoreGraphics
+let targetPid = Int(CommandLine.arguments[1]) ?? -1
+let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
+let names = windows.compactMap { window -> String? in
+  guard let ownerPid = window[kCGWindowOwnerPID as String] as? Int, ownerPid == targetPid else {
+    return nil
+  }
+  let name = window[kCGWindowName as String] as? String ?? ""
+  return name.isEmpty ? nil : name
+}
+let data = try JSONSerialization.data(withJSONObject: names)
+FileHandle.standardOutput.write(data)`
+
+  const result = spawnSync('swift', ['-e', swiftProgram, String(pid)], {
+    encoding: 'utf8',
+  })
+
+  if (result.status !== 0) {
+    process.stderr.write(result.stderr)
+    fail(`Failed to query onscreen browser windows for PID ${pid}.`)
+  }
+
+  /** @type {unknown} */
+  const parsed = JSON.parse(result.stdout || '[]')
+  return Array.isArray(parsed)
+    ? parsed.filter(title => typeof title === 'string')
+    : []
+}
+
+/**
+ * @param {string} profileDir
+ * @returns {{ pid: number, args: string }[]}
+ */
+function listProfileBrowserProcesses(profileDir) {
+  const result = spawnSync('ps', ['-axo', 'pid=,args='], {
+    encoding: 'utf8',
+  })
+
+  if (result.status !== 0) {
+    process.stderr.write(result.stderr)
+    fail(`Failed to inspect browser processes for ${profileDir}.`)
+  }
+
+  return parseProfileBrowserProcessesFromPsOutput(result.stdout, profileDir)
+}
+
+/**
+ * @param {string} output
+ * @param {string} profileDir
+ * @returns {{ pid: number, args: string }[]}
+ */
+export function parseProfileBrowserProcessesFromPsOutput(output, profileDir) {
+  const userDataDirFlag = `--user-data-dir=${profileDir}`
+  const escapedUserDataDirFlag = userDataDirFlag.replaceAll(
+    /[.*+?^${}()|[\]\\]/g,
+    '\\$&',
+  )
+  const userDataDirPattern = new RegExp(
+    `(?:^|\\s)${escapedUserDataDirFlag}(?:\\s|$)`,
+  )
+
+  return output
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(line => {
+      const match = /^(\d+)\s+(.*)$/.exec(line)
+      if (!match) {
+        return null
+      }
+
+      return {
+        pid: Number(match[1]),
+        args: match[2],
+      }
+    })
+    .filter(processInfo => processInfo !== null)
+    .filter(processInfo => userDataDirPattern.test(processInfo.args))
+}
+
+/**
+ * The main browser process has the profile arg but no helper subprocess flags.
+ *
+ * @param {string} profileDir
+ * @returns {{ pid: number, args: string } | null}
+ */
+function getPrimaryProfileBrowserProcess(profileDir) {
+  for (const processInfo of listProfileBrowserProcesses(profileDir)) {
+    if (processInfo.args.includes('Helper')) {
+      continue
+    }
+    if (processInfo.args.includes('chrome_crashpad_handler')) {
+      continue
+    }
+    if (processInfo.args.includes(' --type=')) {
+      continue
+    }
+    return processInfo
+  }
+
+  return null
+}
+
+/**
+ * @template T
+ * @param {() => T | null} readValue
+ * @param {number} timeoutMs
+ * @param {string} timeoutMessage
+ * @returns {T}
+ */
+function waitForValue(readValue, timeoutMs, timeoutMessage) {
+  const deadline = Date.now() + timeoutMs
+
+  while (Date.now() < deadline) {
+    const value = readValue()
+    if (value !== null) {
+      return value
+    }
+    sleep(VERIFY_POLL_INTERVAL_MS)
+  }
+
+  fail(timeoutMessage)
+}
+
+/**
+ * @param {() => boolean} checkCondition
+ * @param {number} timeoutMs
+ * @param {string} timeoutMessage
+ * @returns {void}
+ */
+function waitForCondition(checkCondition, timeoutMs, timeoutMessage) {
+  const deadline = Date.now() + timeoutMs
+
+  while (Date.now() < deadline) {
+    if (checkCondition()) {
+      return
+    }
+    sleep(VERIFY_POLL_INTERVAL_MS)
+  }
+
+  fail(timeoutMessage)
+}
+
+/**
+ * @param {number} milliseconds
+ * @returns {void}
+ */
+function sleep(milliseconds) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds)
 }
 
 /**
@@ -325,7 +1210,26 @@ function buildDerivedSessionName(repoRoot, branchIdentifier) {
  * @returns {never}
  */
 function fail(message) {
-  console.error(message)
-  console.error(HELP_TEXT)
-  process.exit(1)
+  throw new PlaywrightBranchBrowserError(message)
+}
+
+/**
+ * @param {unknown} error
+ * @returns {never}
+ */
+function handleMainError(error) {
+  if (error instanceof PlaywrightBranchBrowserError) {
+    console.error(error.message)
+    console.error(HELP_TEXT)
+    process.exit(1)
+  }
+
+  throw error
+}
+
+/** @returns {boolean} */
+function isMainModule() {
+  return process.argv[1]
+    ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+    : false
 }

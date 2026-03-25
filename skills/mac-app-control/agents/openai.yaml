@@ -1,0 +1,5 @@
+interface:
+  display_name: 'Mac App Control'
+  short_description: 'Control Mac apps with native tools'
+  default_prompt:
+    'Use $mac-app-control to inspect and automate a Mac app safely.'
