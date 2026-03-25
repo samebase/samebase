@@ -88,6 +88,10 @@ import { isRenderableRepositoryMediaPath } from "../../shared/repositoryMedia";
 import { isStaleBaseVersionError } from "../../shared/stagingErrors";
 import { decodeRouteSegmentSafe } from "@/lib/vaultRoutes";
 import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
+import {
+  buildStagingPreviewRefreshKey,
+  getBranchComparePreviewReloadMode,
+} from "@/lib/fileViewCompare";
 
 function isFileTreeNodeType(type: string): type is "tree" | "blob" {
   return type === "tree" || type === "blob";
@@ -192,6 +196,7 @@ type InlinePreviewSaveSnapshot = {
 };
 
 type RefreshTrigger = "focus" | "page_load";
+const BRANCH_COMPARE_PREVIEW_STAGING_DEBOUNCE_MS = 1000;
 
 function isStorageBackedFileError(error: unknown): boolean {
   return (
@@ -898,6 +903,11 @@ function FileViewInner({
   const [allowAutoExitReview, setAllowAutoExitReview] = useState(true);
   const reviewRouteKeyRef = useRef<string | null>(null);
   const branchComparePreviewRequestKeyRef = useRef<string | null>(null);
+  const branchComparePreviewRequestedTargetKeyRef = useRef<string | null>(null);
+  const branchComparePreviewRequestedStagingKeyRef = useRef<string | null>(
+    null,
+  );
+  const branchComparePreviewReloadTimeoutRef = useRef<number | null>(null);
   const currentRemoteBranch = useMemo(
     () =>
       remoteBranches?.find(
@@ -1695,6 +1705,14 @@ function FileViewInner({
     },
     [branch, getBranchComparePreview, repositoryFullName],
   );
+  const clearBranchComparePreviewReloadTimeout = useCallback(() => {
+    if (branchComparePreviewReloadTimeoutRef.current === null) {
+      return;
+    }
+
+    window.clearTimeout(branchComparePreviewReloadTimeoutRef.current);
+    branchComparePreviewReloadTimeoutRef.current = null;
+  }, []);
 
   const handleRebaseOntoLatestGitHub = useCallback(() => {
     setAllowAutoExitReview(false);
@@ -2247,14 +2265,7 @@ function FileViewInner({
     isCreatingDraftPullRequest ||
     !hasChangesToCommit;
   const commitPreviewRefreshKey = useMemo(
-    () =>
-      (stagedFiles ?? [])
-        .map(
-          (file: NonNullable<typeof stagedFiles>[number]) =>
-            `${file._id}:${file.version}:${file.filePath}:${file.initialFilePath}:${file.fileDeleted}:${file.parentCommitSha ?? "new"}`,
-        )
-        .sort()
-        .join("|"),
+    () => buildStagingPreviewRefreshKey(stagedFiles),
     [stagedFiles],
   );
   const branchCompareTargetRefreshKey = useMemo(
@@ -2272,9 +2283,9 @@ function FileViewInner({
       vault.lastTreeRefreshAt,
     ],
   );
-  const branchComparePreviewRefreshKey = useMemo(
-    () => `${branchCompareTargetRefreshKey}:${commitPreviewRefreshKey}`,
-    [branchCompareTargetRefreshKey, commitPreviewRefreshKey],
+  const branchComparePreviewStagingRefreshKey = useMemo(
+    () => buildStagingPreviewRefreshKey(stagedFiles),
+    [stagedFiles],
   );
   const compareModeSummary = useMemo(() => {
     if (!isCompareRequested) {
@@ -2380,19 +2391,63 @@ function FileViewInner({
   ]);
 
   useEffect(() => {
+    return () => {
+      clearBranchComparePreviewReloadTimeout();
+    };
+  }, [clearBranchComparePreviewReloadTimeout]);
+
+  useEffect(() => {
     if (!isCompareRequested) {
+      clearBranchComparePreviewReloadTimeout();
       branchComparePreviewRequestKeyRef.current = null;
+      branchComparePreviewRequestedTargetKeyRef.current = null;
+      branchComparePreviewRequestedStagingKeyRef.current = null;
       setBranchComparePreview(null);
       setBranchComparePreviewError(null);
       return;
     }
 
-    branchComparePreviewRequestKeyRef.current = branchComparePreviewRefreshKey;
-    setBranchComparePreview(null);
-    setBranchComparePreviewError(null);
-    void loadBranchComparePreview(branchComparePreviewRefreshKey);
+    const reloadMode = getBranchComparePreviewReloadMode({
+      previousTargetKey: branchComparePreviewRequestedTargetKeyRef.current,
+      previousStagingKey: branchComparePreviewRequestedStagingKeyRef.current,
+      nextTargetKey: branchCompareTargetRefreshKey,
+      nextStagingKey: branchComparePreviewStagingRefreshKey,
+    });
+    if (reloadMode === "none") {
+      return;
+    }
+
+    const nextRequestKey = `${branchCompareTargetRefreshKey}:${branchComparePreviewStagingRefreshKey}`;
+    const startBranchCompareReload = (resetPreview: boolean) => {
+      clearBranchComparePreviewReloadTimeout();
+      branchComparePreviewRequestKeyRef.current = nextRequestKey;
+      branchComparePreviewRequestedTargetKeyRef.current =
+        branchCompareTargetRefreshKey;
+      branchComparePreviewRequestedStagingKeyRef.current =
+        branchComparePreviewStagingRefreshKey;
+      if (resetPreview) {
+        setBranchComparePreview(null);
+      }
+      setBranchComparePreviewError(null);
+      void loadBranchComparePreview(nextRequestKey);
+    };
+
+    if (reloadMode === "immediate") {
+      startBranchCompareReload(true);
+      return;
+    }
+
+    branchComparePreviewReloadTimeoutRef.current = window.setTimeout(() => {
+      startBranchCompareReload(false);
+    }, BRANCH_COMPARE_PREVIEW_STAGING_DEBOUNCE_MS);
+
+    return () => {
+      clearBranchComparePreviewReloadTimeout();
+    };
   }, [
-    branchComparePreviewRefreshKey,
+    branchComparePreviewStagingRefreshKey,
+    branchCompareTargetRefreshKey,
+    clearBranchComparePreviewReloadTimeout,
     isCompareRequested,
     loadBranchComparePreview,
   ]);
