@@ -251,6 +251,9 @@ function createLogoIsometricFrameMetrics(
   };
 }
 
+// normalizeLogoIsometricCubeSidePixels limits getLogoIsometricFrameMetrics to a
+// small fixed set of step-aligned keys, so this cache only ever grows to the
+// supported cube-side variants for isometricFrameMetricsCache.
 const isometricFrameMetricsCache = new Map<number, LogoIsometricFrameMetrics>();
 
 export function getLogoIsometricFrameMetrics(

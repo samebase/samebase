@@ -22,6 +22,18 @@ describe("normalizeLogoIsometricCubeSidePixels", () => {
       MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX,
     );
   });
+
+  it("returns the default for non-finite input", () => {
+    expect(normalizeLogoIsometricCubeSidePixels(Number.NaN)).toBe(
+      DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+    );
+    expect(normalizeLogoIsometricCubeSidePixels(Number.POSITIVE_INFINITY)).toBe(
+      DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+    );
+    expect(normalizeLogoIsometricCubeSidePixels(Number.NEGATIVE_INFINITY)).toBe(
+      DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+    );
+  });
 });
 
 describe("getLogoIsometricFrameMetrics", () => {
