@@ -96,6 +96,8 @@ npm run lint          # TypeScript + ESLint check
 # Worktree bootstrap (required in git worktrees)
 make anon             # Full startup in worktrees (Convex + frontend with anon wiring)
 make anon-once        # One-shot bootstrap for lint/codegen/hook commands in worktrees
+make connect          # Poll labeled noter-origin PRs and launch local Codex research runs
+make connect-once     # Run one local noter-origin polling cycle
 ```
 
 ### Local Environment Notes
@@ -113,6 +115,11 @@ make anon-once        # One-shot bootstrap for lint/codegen/hook commands in wor
 - In a git worktree, do not run `npx convex dev` directly for normal startup;
   `make anon` is the required entrypoint.
 - For one-off setup in a git worktree, use `make anon-once`.
+- `make connect` is a local operator tool. It only reacts to PRs that carry both
+  the configured label and a valid hidden `<!-- noter-origin:v1 {...} -->`
+  marker in the PR body.
+- `make connect` does not read Convex chat state. Noter's Convex chat tables and
+  Codex threads are separate systems today.
 
 <!-- maybe find official skill? -->
 
