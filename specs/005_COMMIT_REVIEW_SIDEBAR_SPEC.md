@@ -23,7 +23,8 @@ Compare-only pull request files still follow that same review contract. If a PR
 diff can render in the inline merge surface, it should expose the same inline
 controls (`Show patch`, `Inline diffs`, `Side by side`, `Syntax deleted`) that
 staged review files use, and leaving review from that state must return to the
-real editor surface for the selected file.
+real editor surface for the selected file when that file still exists outside
+compare mode.
 
 When the editor is in compare-only Changed Files mode without staged changes,
 the same top-left slot should offer `Back to Editor` to clear compare mode
@@ -112,13 +113,16 @@ second sidebar mode.
 ### 6. Return-to-editor behavior
 
 - `Back to Editor` always returns to the normal editor surface for the selected
-  file.
+  file when one exists.
 - When review was opened from a compare-only PR diff, leaving review must also
   exit the compare-only diff surface instead of landing in a read-only compare
-  preview.
+  preview for files that still exist in the normal editor tree.
 - When the user is already in compare-only editor mode and no staged review is
   available, `Back to Editor` clears compare mode directly from that editor
   state.
+- Deleted compare-only PR entries stay in compare mode when leaving review or
+  leaving the compare-only editor surface because there is no normal editor
+  target to reopen.
 - The return action should preserve the selected file path while clearing only
   the review/compare state that prevented the normal editor from opening.
 
@@ -136,9 +140,13 @@ second sidebar mode.
 - Side-by-side before/after preview remains available from that same control
   strip.
 - Leaving review from a compare-only PR file opens the normal editor for that
-  file instead of a read-only compare preview.
+  file instead of a read-only compare preview when the file still exists outside
+  compare mode.
 - Compare-only Changed Files mode without staged changes shows `Back to Editor`
-  instead of a disabled `Review Changes` button.
+  instead of a disabled `Review Changes` button when the selected compare row
+  can reopen in the normal editor.
+- Deleted compare-only PR rows keep compare mode active instead of redirecting
+  to a different file.
 - No review-only `Changes` mode or duplicate `Staged Files` panel is required
   for commit review.
 

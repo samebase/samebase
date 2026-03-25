@@ -1778,10 +1778,19 @@ function FileViewInner({
   }, [resetRebaseConflictState]);
 
   const handleToggleReviewMode = useCallback(() => {
+    const selectedComparedPreviewFile =
+      branchComparePreview?.files.find((file) => file.path === selectedFile) ??
+      null;
+    const hasComparedEditorTarget = Boolean(
+      selectedComparedPreviewFile &&
+        selectedComparedPreviewFile.status !== "deleted",
+    );
+
     if (
       shouldShowCompareBackToEditor({
         commitReviewMode,
         isCompareRequested,
+        hasComparedEditorTarget,
         hasChangesToCommit: hasStagedChangesToCommit,
       })
     ) {
@@ -1793,11 +1802,8 @@ function FileViewInner({
       setReviewModeInQuery("editor", {
         compare: shouldClearCompareOnReviewExit({
           isCompareRequested,
-          hasComparedSelection: Boolean(
-            branchComparePreview?.files.some(
-              (file) => file.path === selectedFile,
-            ),
-          ),
+          hasComparedSelection: Boolean(selectedComparedPreviewFile),
+          hasComparedEditorTarget,
           hasStagedSelection: Boolean(stagedFile),
         })
           ? false
@@ -2852,6 +2858,9 @@ function FileViewInner({
   const showCompareBackToEditor = shouldShowCompareBackToEditor({
     commitReviewMode,
     isCompareRequested,
+    hasComparedEditorTarget: Boolean(
+      selectedComparedFile && selectedComparedFile.status !== "deleted",
+    ),
     hasChangesToCommit: hasStagedChangesToCommit,
   });
 

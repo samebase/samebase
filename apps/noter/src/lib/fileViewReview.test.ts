@@ -11,9 +11,21 @@ describe("shouldClearCompareOnReviewExit", () => {
       shouldClearCompareOnReviewExit({
         isCompareRequested: true,
         hasComparedSelection: true,
+        hasComparedEditorTarget: true,
         hasStagedSelection: false,
       }),
     ).toBe(true);
+  });
+
+  it("keeps compare for deleted compare-only review selections", () => {
+    expect(
+      shouldClearCompareOnReviewExit({
+        isCompareRequested: true,
+        hasComparedSelection: true,
+        hasComparedEditorTarget: false,
+        hasStagedSelection: false,
+      }),
+    ).toBe(false);
   });
 
   it("keeps compare when the reviewed file already has staging", () => {
@@ -21,6 +33,7 @@ describe("shouldClearCompareOnReviewExit", () => {
       shouldClearCompareOnReviewExit({
         isCompareRequested: true,
         hasComparedSelection: true,
+        hasComparedEditorTarget: true,
         hasStagedSelection: true,
       }),
     ).toBe(false);
@@ -31,6 +44,7 @@ describe("shouldClearCompareOnReviewExit", () => {
       shouldClearCompareOnReviewExit({
         isCompareRequested: false,
         hasComparedSelection: true,
+        hasComparedEditorTarget: true,
         hasStagedSelection: false,
       }),
     ).toBe(false);
@@ -43,9 +57,21 @@ describe("shouldShowCompareBackToEditor", () => {
       shouldShowCompareBackToEditor({
         commitReviewMode: "editor",
         isCompareRequested: true,
+        hasComparedEditorTarget: true,
         hasChangesToCommit: false,
       }),
     ).toBe(true);
+  });
+
+  it("keeps the compare-only deleted diff in compare mode", () => {
+    expect(
+      shouldShowCompareBackToEditor({
+        commitReviewMode: "editor",
+        isCompareRequested: true,
+        hasComparedEditorTarget: false,
+        hasChangesToCommit: false,
+      }),
+    ).toBe(false);
   });
 
   it("keeps review CTA when staged changes exist", () => {
@@ -53,6 +79,7 @@ describe("shouldShowCompareBackToEditor", () => {
       shouldShowCompareBackToEditor({
         commitReviewMode: "editor",
         isCompareRequested: true,
+        hasComparedEditorTarget: true,
         hasChangesToCommit: true,
       }),
     ).toBe(false);
@@ -63,6 +90,7 @@ describe("shouldShowCompareBackToEditor", () => {
       shouldShowCompareBackToEditor({
         commitReviewMode: "review",
         isCompareRequested: true,
+        hasComparedEditorTarget: true,
         hasChangesToCommit: false,
       }),
     ).toBe(false);

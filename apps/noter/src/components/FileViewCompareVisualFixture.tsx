@@ -38,11 +38,13 @@ const COMPARE_TEXT_BASE = "";
 const COMPARE_TEXT_NEXT = `export function shouldClearCompareOnReviewExit(args: {
   isCompareRequested: boolean;
   hasComparedSelection: boolean;
+  hasComparedEditorTarget: boolean;
   hasStagedSelection: boolean;
 }): boolean {
   return (
     args.isCompareRequested &&
     args.hasComparedSelection &&
+    args.hasComparedEditorTarget &&
     !args.hasStagedSelection
   );
 }
