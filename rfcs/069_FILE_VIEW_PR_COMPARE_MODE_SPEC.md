@@ -3,7 +3,7 @@
 ## Document Control
 
 - Status: Proposed
-- Owner: Noter frontend/editor + Convex github/file staging
+- Owner: Noter frontend/editor + Convex GitHub/file staging
 - Last updated: 2026-03-25
 - Related specs:
   - `specs/005_COMMIT_REVIEW_SIDEBAR_SPEC.md`
@@ -149,10 +149,10 @@ Research on the GitHub API suggests two different data paths:
    - GitHub documents that file data is only present on the first page and is
      capped at 300 changed files for the whole comparison.
 
-That means the open-PR path should use PR files as the remote committed
-baseline and then union current staged DB changes on top, while the no-PR
-fallback should expose a truncation hint because GitHub's compare endpoint is
-not fully lossless for very large diffs.
+That means the open-PR path should use PR files as the remote committed baseline
+and then union current staged DB changes on top, while the no-PR fallback should
+expose a truncation hint because GitHub's compare endpoint is not fully lossless
+for very large diffs.
 
 ## Goals
 

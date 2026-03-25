@@ -666,6 +666,43 @@ describe("buildRemoteComparePreviewFile", () => {
     });
     expect(getBlobBufferBySha).toHaveBeenCalledTimes(2);
   });
+
+  it("omits raw patch metadata when includePatch is false", async () => {
+    const encoder = new TextEncoder();
+    const getBlobBufferBySha = vi.fn(async (sha: string) => {
+      if (sha === "base-sha") {
+        return encoder.encode("export const flag = false;\n");
+      }
+      if (sha === "head-sha") {
+        return encoder.encode("export const flag = true;\n");
+      }
+
+      throw new Error(`Unexpected sha ${sha}`);
+    });
+
+    const result = await buildRemoteComparePreviewFile({
+      file: {
+        filename: "src/file.ts",
+        status: "modified",
+        additions: 1,
+        deletions: 1,
+        patch: "@@ -1 +1 @@",
+      },
+      baseShaByPath: new Map([["src/file.ts", "base-sha"]]),
+      headShaByPath: new Map([["src/file.ts", "head-sha"]]),
+      getBlobBufferBySha,
+      includePatch: false,
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        path: "src/file.ts",
+        richOldContent: "export const flag = false;\n",
+        richNewContent: "export const flag = true;\n",
+        patch: undefined,
+      }),
+    );
+  });
 });
 
 describe("createCommitWithMultipleFiles", () => {

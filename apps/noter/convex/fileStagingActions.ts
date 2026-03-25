@@ -689,6 +689,7 @@ const branchComparePreviewResult = v.object({
   source: v.union(v.literal("pull_request"), v.literal("branch_compare")),
   pullRequestNumber: v.optional(v.number()),
   pullRequestUrl: v.optional(v.string()),
+  sourceFileListTruncated: v.boolean(),
   hasDestructiveChanges: v.boolean(),
   files: v.array(commitPreviewFile),
   totals: commitPreviewTotals,
@@ -1482,6 +1483,12 @@ export async function buildRemoteComparePreviewFile(args: {
   if (!metadataFile) {
     return null;
   }
+  const metadataFileWithoutPatch = args.includePatch
+    ? metadataFile
+    : {
+        ...metadataFile,
+        patch: undefined,
+      };
 
   const basePath =
     metadataFile.status === "renamed" &&
@@ -1501,7 +1508,7 @@ export async function buildRemoteComparePreviewFile(args: {
     (metadataFile.status !== "added" && !oldSha) ||
     (metadataFile.status !== "deleted" && !newSha)
   ) {
-    return metadataFile;
+    return metadataFileWithoutPatch;
   }
 
   const oldBuffer = oldSha ? await args.getBlobBufferBySha(oldSha) : null;
@@ -1519,7 +1526,7 @@ export async function buildRemoteComparePreviewFile(args: {
     (metadataFile.status !== "added" && oldContent === null) ||
     (metadataFile.status !== "deleted" && newContent === null)
   ) {
-    return metadataFile;
+    return metadataFileWithoutPatch;
   }
 
   return buildCommitPreviewFileFromContents({
@@ -3088,6 +3095,8 @@ export const getBranchComparePreview = action({
       source: currentPullRequest ? "pull_request" : "branch_compare",
       pullRequestNumber: currentPullRequest?.number,
       pullRequestUrl: currentPullRequest?.url,
+      sourceFileListTruncated:
+        !currentPullRequest && remoteFileCandidates.length >= 300,
       hasDestructiveChanges: totals.deleted > 0,
       files,
       totals,
@@ -3169,6 +3178,14 @@ export const restoreComparedDeletedFileToStaging = action({
       repo: vault.ghRepoName,
       file_sha: baseSha,
     });
+    const buffer = new Uint8Array(
+      Buffer.from(blobResponse.data.content.replace(/\n/g, ""), "base64"),
+    );
+    if (!canHydrateInlineDiffText(basePath, buffer)) {
+      throw new Error(
+        "Only text compare files can be restored into staging right now.",
+      );
+    }
     const content = Buffer.from(
       blobResponse.data.content.replace(/\n/g, ""),
       "base64",

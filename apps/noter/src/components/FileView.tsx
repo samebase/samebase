@@ -1294,9 +1294,15 @@ function FileViewInner({
   );
 
   const handleFileRename = async (originalPath: string, newPath: string) => {
-    if (!owner || !repoName || !stagedFile) return;
+    if (!owner || !repoName) return;
 
     try {
+      await stageFileForEditing({
+        repositoryFullName: `${owner}/${repoName}`,
+        originalFilePath: originalPath,
+        branch,
+      });
+
       // Rename the file in staging instead of committing immediately
       await renameFileInStaging({
         vaultId: vault._id,
@@ -1306,7 +1312,7 @@ function FileViewInner({
       });
 
       // If we're currently viewing the renamed file, navigate to the new path
-      if (stagedFile.initialFilePath === originalPath) {
+      if (selectedFile === originalPath) {
         void navigate(buildVaultFileUrl(newPath), { state });
       }
 
@@ -2297,10 +2303,13 @@ function FileViewInner({
       .includesTruncatedPatches
       ? " · truncated patches"
       : "";
+    const sourceListSummary = branchComparePreview.sourceFileListTruncated
+      ? " · file list may be truncated"
+      : "";
 
     return {
-      text: `${sourceSummary}${truncationSummary}`,
-      ariaLabel: `Changed Files comparing ${sourceSummary}${truncationSummary}`,
+      text: `${sourceSummary}${truncationSummary}${sourceListSummary}`,
+      ariaLabel: `Changed Files comparing ${sourceSummary}${truncationSummary}${sourceListSummary}`,
     };
   }, [branchComparePreview, branchComparePreviewError, isCompareRequested]);
 
