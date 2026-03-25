@@ -5,6 +5,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
+// MARK: - Types
+
 /**
  * @typedef {{
  *   once: boolean
@@ -79,6 +81,8 @@ import path from 'node:path'
  * }} ConnectState
  */
 
+// MARK: - Constants
+
 const DEFAULT_LABEL = 'research'
 const DEFAULT_INTERVAL_SECONDS = 60
 const MARKER_PREFIX = '<!-- noter-origin:v1 '
@@ -95,6 +99,8 @@ Options:
   --pr <number>        Limit processing to a specific PR number.
   -h, --help           Show this help message.
 `
+
+// MARK: - Bootstrap
 
 const options = parseArgs(process.argv.slice(2))
 if (options.showHelp) {
@@ -119,6 +125,8 @@ process.on('SIGTERM', () => {
 })
 
 await main()
+
+// MARK: - Main Loop
 
 async function main() {
   const state = loadState()
@@ -240,6 +248,8 @@ function parseArgs(args) {
   return result
 }
 
+// MARK: - Local State
+
 /** @returns {ConnectState} */
 function loadState() {
   if (!fs.existsSync(statePath)) {
@@ -316,6 +326,7 @@ async function processCycle(state) {
     const validation = validateOriginMarker(pullRequest)
     if (!validation.ok) {
       const existingInvalid = state.invalidRuns[runKey]
+      // Avoid posting the same "missing contract" comment every polling cycle.
       if (existingInvalid?.reason === validation.reason) {
         continue
       }
@@ -346,6 +357,8 @@ async function processCycle(state) {
     await handleValidPullRequest(pullRequest, validation.marker, state)
   }
 }
+
+// MARK: - GitHub PR Discovery
 
 /** @returns {PullRequestSummary[]} */
 function listOpenPullRequests() {
@@ -395,6 +408,8 @@ function buildRunKey(pullRequest) {
  * @returns {MarkerValidationResult}
  */
 function validateOriginMarker(pullRequest) {
+  // Treat the PR body marker as the cross-system contract. We do not infer this
+  // from Noter chat state or branch naming.
   const extractedMarker = extractOriginMarkerJson(pullRequest.body)
   if (!extractedMarker.ok) {
     return {
@@ -485,6 +500,8 @@ function validateOriginMarker(pullRequest) {
   }
 }
 
+// MARK: - Run Orchestration
+
 /**
  * @param {PullRequestSummary} pullRequest
  * @param {NoterOriginMarker} marker
@@ -503,6 +520,8 @@ async function handleValidPullRequest(pullRequest, marker, state) {
   )
 
   if (options.dryRun) {
+    // Dry-run computes the same deterministic paths but stops before mutating
+    // local git state, GitHub, or Codex state.
     console.log(
       `[connect] Would run PR #${pullRequest.number} in ${worktreePath} ` +
         `with model ${marker.requestedModel} / effort ${marker.requestedReasoningEffort}`,
@@ -556,6 +575,8 @@ async function handleValidPullRequest(pullRequest, marker, state) {
     if (result.exitCode !== 0) {
       handledRecord.error = `codex exec exited with status ${result.exitCode}`
     }
+    // Persist the handled key before attempting the completion comment so a
+    // transient GitHub comment failure does not cause duplicate executions.
     state.handledRuns[runKey] = handledRecord
     tryPostPullRequestComment(
       pullRequest.number,
@@ -598,6 +619,8 @@ function buildWorktreePath(pullRequest) {
   )
 }
 
+// MARK: - Worktree Management
+
 /**
  * @param {PullRequestSummary} pullRequest
  * @returns {string}
@@ -606,6 +629,8 @@ function ensureWorktreeForPullRequest(pullRequest) {
   const worktreeDir = buildWorktreePath(pullRequest)
   const branchRef = `refs/heads/${pullRequest.headRefName}`
   const existingWorktree = findWorktreeByBranch(branchRef)
+  // Fail closed if the PR branch is already checked out somewhere else. The
+  // watcher should not guess which worktree owns it.
   if (
     existingWorktree &&
     path.resolve(existingWorktree) !== path.resolve(worktreeDir)
@@ -615,6 +640,8 @@ function ensureWorktreeForPullRequest(pullRequest) {
     )
   }
 
+  // Always refresh from origin first so we fast-forward onto the PR head the
+  // watcher actually observed.
   runCommand('git', ['fetch', 'origin', pullRequest.headRefName], {
     cwd: repoRoot,
   })
@@ -740,6 +767,8 @@ function findWorktreeByBranch(branchRef) {
   return null
 }
 
+// MARK: - Codex Execution
+
 /**
  * @param {{
  *   pullRequest: PullRequestSummary
@@ -831,6 +860,8 @@ function buildCodexPrompt(params) {
     'Visible first user message:',
     params.marker.firstMessage,
     '',
+    // Mirror the validated marker back into the prompt so the Codex run sees
+    // the same explicit contract the watcher used to decide it was safe.
     'Hidden PR body marker:',
     markerText,
     '',
@@ -838,6 +869,8 @@ function buildCodexPrompt(params) {
     'Continue the work implied by the first user message. Research the topic in depth, update the PR branch if code or docs should change, and update the PR description/comments with findings and validation.',
   ].join('\n')
 }
+
+// MARK: - GitHub PR Updates
 
 /**
  * @param {number} pullRequestNumber
@@ -915,6 +948,8 @@ function tryPostPullRequestComment(pullRequestNumber, body) {
     )
   }
 }
+
+// MARK: - Comment Bodies
 
 /**
  * @param {{
@@ -1012,6 +1047,8 @@ function buildFailureComment(params) {
   ].join('\n')
 }
 
+// MARK: - Formatting Helpers
+
 /**
  * @param {PullRequestSummary} pullRequest
  * @returns {string}
@@ -1052,6 +1089,8 @@ function truncateText(text, maxLength) {
   }
   return `${text.slice(0, maxLength - 16)}\n\n[truncated]`
 }
+
+// MARK: - Command Utilities
 
 /**
  * @param {string} command
@@ -1114,6 +1153,8 @@ function extractOriginMarkerJson(body) {
   }
 
   const jsonStart = markerStart + MARKER_PREFIX.length
+  // Slice to the closing HTML comment instead of trying to parse braces from
+  // free-form markdown; firstMessage can legitimately contain braces/code.
   const markerEnd = body.indexOf(MARKER_SUFFIX, jsonStart)
   if (markerEnd === -1) {
     return {
@@ -1127,6 +1168,8 @@ function extractOriginMarkerJson(body) {
     json: body.slice(jsonStart, markerEnd),
   }
 }
+
+// MARK: - Process Helpers
 
 /**
  * @param {number} milliseconds
