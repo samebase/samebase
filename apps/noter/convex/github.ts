@@ -1532,31 +1532,6 @@ function getRepositoryMediaErrorStatus(error: unknown): number | null {
   return null;
 }
 
-function getRepositoryMediaErrorMessage(error: unknown): string {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error &&
-    typeof error.message === "string"
-  ) {
-    return error.message;
-  }
-  return "Preview unavailable.";
-}
-
-function isRepositoryMediaTooLargeError(error: unknown): boolean {
-  if (getRepositoryMediaErrorStatus(error) !== 403) {
-    return false;
-  }
-
-  const message = getRepositoryMediaErrorMessage(error).toLowerCase();
-  return (
-    message.includes("too large") ||
-    message.includes("too_large") ||
-    message.includes("blobs up to 1 mb")
-  );
-}
-
 export const getRepositoryFileContent = action({
   args: {
     repositoryFullName: string(),
@@ -1667,28 +1642,74 @@ export const getRepositoryMediaAsset = action({
       return { found: false, reason: "missing" };
     }
 
+    const requestedBranch = args.branch?.trim() || undefined;
     const userId = await getUserId(ctx);
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
+      branch: requestedBranch,
     });
     if (!vault) {
       throw new Error("Vault not found");
     }
 
-    const requestedBranch = args.branch?.trim() || undefined;
     const fileName = getRepositoryMediaFileName(args.filePath);
 
-    if (!requestedBranch) {
-      const targetFile = vault.treeData.tree.find(
-        (item: { path: string; type: string; sha?: string }) =>
-          item.path === args.filePath && item.type === "blob",
+    if (requestedBranch) {
+      const stagedFile = await ctx.runQuery(
+        internal.fileStaging.getByNewPathInternal,
+        {
+          vaultId: vault._id,
+          branch: requestedBranch,
+          newPath: args.filePath,
+        },
       );
+      if (stagedFile) {
+        if (stagedFile.fileDeleted) {
+          return { found: false, reason: "missing" };
+        }
 
-      if (!targetFile?.sha) {
-        return { found: false, reason: "missing" };
+        if (typeof stagedFile.storageId === "string") {
+          const stagedUrl = await ctx.storage.getUrl(stagedFile.storageId);
+          if (typeof stagedUrl === "string" && stagedUrl.length > 0) {
+            return {
+              found: true,
+              kind: mediaKind,
+              mimeType: stagedFile.mime ?? guessMime(args.filePath),
+              url: stagedUrl,
+              fileName,
+            };
+          }
+        }
+
+        if (
+          typeof stagedFile.content === "string" &&
+          isSvgRepositoryMediaPath(args.filePath)
+        ) {
+          return {
+            found: true,
+            kind: mediaKind,
+            mimeType: "image/svg+xml",
+            url: buildDataUrl(
+              "image/svg+xml",
+              Buffer.from(stagedFile.content, "utf-8"),
+            ),
+            fileName,
+          };
+        }
       }
+    }
 
+    const targetFile = vault.treeData.tree.find(
+      (item: { path: string; type: string; sha?: string }) =>
+        item.path === args.filePath && item.type === "blob",
+    );
+
+    if (!targetFile?.sha) {
+      return { found: false, reason: "missing" };
+    }
+
+    if (!requestedBranch) {
       const cachedBlob = await ctx.runQuery(
         internal.gitOperations.getBlobBySha,
         {
@@ -1723,39 +1744,14 @@ export const getRepositoryMediaAsset = action({
     });
 
     try {
-      const file = await octokit.rest.repos.getContent({
+      const blob = await octokit.rest.git.getBlob({
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
-        path: args.filePath,
-        ref: requestedBranch,
+        file_sha: targetFile.sha,
       });
-
-      if (Array.isArray(file.data) || file.data.type !== "file") {
-        return { found: false, reason: "missing" };
-      }
-
-      if (typeof file.data.sha === "string") {
-        const cachedBlob = await ctx.runQuery(
-          internal.gitOperations.getBlobBySha,
-          {
-            sha: file.data.sha,
-          },
-        );
-        const resolvedCachedAsset = await resolveCachedRepositoryMediaAsset(
-          ctx,
-          cachedBlob,
-          args.filePath,
-          mediaKind,
-          fileName,
-        );
-        if (resolvedCachedAsset) {
-          return resolvedCachedAsset;
-        }
-      }
-
       if (
-        typeof file.data.content !== "string" ||
-        file.data.content.length === 0
+        typeof blob.data.content !== "string" ||
+        blob.data.content.length === 0
       ) {
         return {
           found: false,
@@ -1765,24 +1761,22 @@ export const getRepositoryMediaAsset = action({
       }
 
       const mimeType = guessMime(args.filePath);
-      const content = file.data.content.replace(/\n/g, "");
+      const content = blob.data.content.replace(/\n/g, "");
       const buffer = Buffer.from(content, "base64");
       const storageId = await withRetry(() =>
         ctx.storage.store(new Blob([buffer], { type: mimeType })),
       );
 
-      if (typeof file.data.sha === "string") {
-        await ctx.runMutation(internal.gitOperations.saveFileBlob, {
-          vaultId: vault._id,
-          sha: file.data.sha,
-          size: buffer.byteLength,
-          mime: mimeType,
-          text: undefined,
-          storageId,
-          ext: getRepositoryMediaExtension(args.filePath),
-          debugFilePath: args.filePath,
-        });
-      }
+      await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+        vaultId: vault._id,
+        sha: targetFile.sha,
+        size: buffer.byteLength,
+        mime: mimeType,
+        text: undefined,
+        storageId,
+        ext: getRepositoryMediaExtension(args.filePath),
+        debugFilePath: args.filePath,
+      });
 
       const url = await ctx.storage.getUrl(storageId);
       if (typeof url !== "string" || url.length === 0) {
@@ -1804,7 +1798,6 @@ export const getRepositoryMediaAsset = action({
       if (isRepositoryMediaTooLargeError(error)) {
         return getRepositoryMediaTooLargeAsset();
       }
-
       throw error;
     }
   },

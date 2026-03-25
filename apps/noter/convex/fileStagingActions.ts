@@ -18,6 +18,12 @@ import {
 import { isObjectRecord as isRecord } from "./jsonUtils";
 import { rebaseStagedContent } from "./stagingRebase";
 import { selectRepositoryTreeForBranch } from "./fileStaging";
+import {
+  hasStagedFileChanges,
+  hasStagedFileContentChange,
+  readStagedFileKind,
+  type StagedFileKind,
+} from "./stagingChanges";
 import { sanitizeSlug } from "./slugUtils";
 import { describeRepositoryTreeRefreshFailure } from "./github";
 import { isStaleBaseVersionError } from "../shared/stagingErrors";
@@ -554,13 +560,6 @@ function getErrorMessage(error: unknown): string {
   return typeof message === "string" ? message : "";
 }
 
-function isStorageBackedFileError(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    error.message === STORAGE_BACKED_FILE_ERROR_MESSAGE
-  );
-}
-
 function isGitHubRateLimitError(error: unknown): boolean {
   const status = getErrorStatus(error);
   if (status === 429) {
@@ -613,6 +612,8 @@ const commitPreviewFile = v.object({
   status: commitPreviewFileStatus,
   path: v.string(),
   previousPath: v.optional(v.string()),
+  isBinary: v.boolean(),
+  mimeType: v.optional(v.string()),
   additions: v.number(),
   deletions: v.number(),
   oldLineCount: v.number(),
@@ -676,6 +677,8 @@ const defaultBranchDraftPullRequestResult = object({
 const rebaseConflictPreviewFile = v.object({
   path: v.string(),
   previousPath: v.optional(v.string()),
+  isBinary: v.boolean(),
+  mimeType: v.optional(v.string()),
   isMarkdown: v.boolean(),
   baseBlobSha: v.optional(v.string()),
   upstreamBlobSha: v.string(),
@@ -703,15 +706,21 @@ type RebaseConflictPreviewFile = Infer<typeof rebaseConflictPreviewFile>;
 type RebaseConflictPreviewResult = Infer<typeof rebaseConflictPreviewResult>;
 
 type StagedFileForCommit = {
+  kind?: StagedFileKind;
   filePath: string;
   initialFilePath: string;
   content: string;
   initialContent: string;
   fileDeleted: boolean;
+  storageId?: Id<"_storage">;
+  mime?: string;
+  size?: number;
+  stagedBlobSha?: string;
   parentCommitSha: string | null;
-  branch: string;
+  branch?: string;
 };
-type DraftSourceStagingSnapshot = StagedFileForCommit & {
+type DraftSourceStagingSnapshot = Omit<StagedFileForCommit, "branch"> & {
+  branch: string;
   _id: Id<"fileStaging">;
   ownerId: Id<"users">;
   vaultId: Id<"vaults">;
@@ -724,7 +733,7 @@ type DraftSourceStagingRecord = DraftSourceStagingSnapshot & {
 };
 
 type StagedFileRebaseConflict = StagedFileForCommit & {
-  upstreamContent: string;
+  upstreamContent?: string;
   upstreamSha: string;
 };
 
@@ -737,6 +746,18 @@ type GitHubCompareFileCandidate = {
   patch?: string | null;
 };
 
+function isBinaryStagedFile(file: Pick<StagedFileForCommit, "kind">): boolean {
+  return readStagedFileKind(file.kind) === "binary";
+}
+
+function computeGitBlobShaFromBuffer(buffer: Uint8Array): string {
+  const headerBuffer = Buffer.from(`blob ${buffer.byteLength}\0`, "utf-8");
+  return createHash("sha1").update(headerBuffer).update(buffer).digest("hex");
+}
+
+function computeGitBlobShaFromText(content: string): string {
+  return computeGitBlobShaFromBuffer(Buffer.from(content, "utf-8"));
+}
 function formatUpstreamConflictError(paths: string[]): string {
   const uniquePaths = Array.from(new Set(paths)).sort();
   return `Commit conflicts with upstream changes. Resolve and retry: ${uniquePaths.join(", ")}`;
@@ -756,15 +777,6 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
     return { rebasedFiles: [], conflicts: [] };
   }
 
-  const contentMatchesSha = (content: string, sha: string): boolean => {
-    const contentBuffer = Buffer.from(content, "utf-8");
-    const headerBuffer = Buffer.from(`blob ${contentBuffer.length}\0`, "utf-8");
-    const computedSha = createHash("sha1")
-      .update(headerBuffer)
-      .update(contentBuffer)
-      .digest("hex");
-    return computedSha === sha;
-  };
   const initialContentMatchesUpstreamCache = new Map<
     StagedFileForCommit,
     { upstreamSha: string; matches: boolean }
@@ -773,11 +785,15 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
     file: StagedFileForCommit,
     upstreamSha: string,
   ): boolean => {
+    if (isBinaryStagedFile(file)) {
+      return upstreamSha === file.parentCommitSha;
+    }
     const cached = initialContentMatchesUpstreamCache.get(file);
     if (cached && cached.upstreamSha === upstreamSha) {
       return cached.matches;
     }
-    const matches = contentMatchesSha(file.initialContent, upstreamSha);
+    const matches =
+      computeGitBlobShaFromText(file.initialContent) === upstreamSha;
     initialContentMatchesUpstreamCache.set(file, {
       upstreamSha,
       matches,
@@ -849,6 +865,9 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
     if (!upstreamSha) {
       continue;
     }
+    if (isBinaryStagedFile(file)) {
+      continue;
+    }
     if (file.fileDeleted) {
       if (
         file.parentCommitSha !== null &&
@@ -877,6 +896,68 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
 
   for (const file of args.stagedFiles) {
     const upstreamSha = resolveUpstreamShaForFile(file);
+    if (isBinaryStagedFile(file)) {
+      if (file.fileDeleted) {
+        if (
+          file.parentCommitSha === null ||
+          !upstreamSha ||
+          upstreamSha === file.parentCommitSha
+        ) {
+          rebasedFiles.push(file);
+          continue;
+        }
+
+        conflicts.push({
+          ...file,
+          upstreamSha,
+        });
+        rebasedFiles.push(file);
+        continue;
+      }
+
+      if (file.parentCommitSha === null) {
+        if (!upstreamSha) {
+          rebasedFiles.push(file);
+          continue;
+        }
+
+        if (file.stagedBlobSha === upstreamSha) {
+          rebasedFiles.push({
+            ...file,
+            parentCommitSha: upstreamSha,
+          });
+          continue;
+        }
+
+        conflicts.push({
+          ...file,
+          upstreamSha,
+        });
+        rebasedFiles.push(file);
+        continue;
+      }
+
+      if (!upstreamSha || upstreamSha === file.parentCommitSha) {
+        rebasedFiles.push(file);
+        continue;
+      }
+
+      if (file.stagedBlobSha === upstreamSha) {
+        rebasedFiles.push({
+          ...file,
+          parentCommitSha: upstreamSha,
+        });
+        continue;
+      }
+
+      conflicts.push({
+        ...file,
+        upstreamSha,
+      });
+      rebasedFiles.push(file);
+      continue;
+    }
+
     if (file.fileDeleted) {
       if (
         file.parentCommitSha === null ||
@@ -1025,6 +1106,10 @@ function buildConflictPatchPair(file: StagedFileRebaseConflict): {
     truncated: boolean;
   };
 } {
+  if (file.upstreamContent === undefined) {
+    throw new Error("Cannot build text patches for a binary conflict.");
+  }
+
   return {
     baseToStagedPatch: buildBoundedPatch({
       oldPath: file.initialFilePath,
@@ -1048,20 +1133,24 @@ export function buildRebaseConflictPreviewFromStagedFiles(args: {
   branch: string;
 }): RebaseConflictPreviewResult {
   const files: RebaseConflictPreviewFile[] = args.conflicts.map((file) => {
-    const { baseToStagedPatch, baseToUpstreamPatch } =
-      buildConflictPatchPair(file);
+    const isBinary = isBinaryStagedFile(file);
+    const patchPair = isBinary ? null : buildConflictPatchPair(file);
     const renamed = file.filePath !== file.initialFilePath;
 
     return {
       path: file.filePath,
       previousPath: renamed ? file.initialFilePath : undefined,
-      isMarkdown: isMarkdownPath(file.filePath),
+      isBinary,
+      mimeType: isBinary ? file.mime : undefined,
+      isMarkdown: !isBinary && isMarkdownPath(file.filePath),
       baseBlobSha: file.parentCommitSha ?? undefined,
       upstreamBlobSha: file.upstreamSha,
-      baseToStagedPatchTruncated: baseToStagedPatch.truncated,
-      baseToStagedPatch: baseToStagedPatch.patch,
-      baseToUpstreamPatchTruncated: baseToUpstreamPatch.truncated,
-      baseToUpstreamPatch: baseToUpstreamPatch.patch,
+      baseToStagedPatchTruncated:
+        patchPair?.baseToStagedPatch.truncated ?? false,
+      baseToStagedPatch: patchPair?.baseToStagedPatch.patch,
+      baseToUpstreamPatchTruncated:
+        patchPair?.baseToUpstreamPatch.truncated ?? false,
+      baseToUpstreamPatch: patchPair?.baseToUpstreamPatch.patch,
     };
   });
 
@@ -1077,6 +1166,26 @@ function buildRebaseConflictBundleMarkdown(args: {
   conflicts: StagedFileRebaseConflict[];
 }): string {
   const sections = args.conflicts.flatMap((file) => {
+    if (isBinaryStagedFile(file)) {
+      const fileLines = [
+        `## ${file.filePath}`,
+        ...(file.filePath !== file.initialFilePath
+          ? [`- Previous path: ${file.initialFilePath}`]
+          : []),
+        ...(file.parentCommitSha
+          ? [`- Base blob SHA: ${file.parentCommitSha}`]
+          : []),
+        `- Upstream blob SHA: ${file.upstreamSha}`,
+        `- Binary media conflict${file.mime ? ` (${file.mime})` : ""}`,
+      ];
+
+      return [
+        fileLines.join("\n"),
+        "### Resolution",
+        "Binary conflict requires a replace or retry after reloading.",
+      ];
+    }
+
     const { baseToStagedPatch, baseToUpstreamPatch } =
       buildConflictPatchPair(file);
     const fileLines = [
@@ -1201,18 +1310,23 @@ function buildCommitPreviewFileFromContents(args: {
   status: CommitPreviewFile["status"];
   path: string;
   previousPath?: string;
+  isBinary?: boolean;
+  mimeType?: string;
   oldContent: string;
   newContent: string;
   includePatch: boolean;
   hydrateRichContent?: boolean;
 }): CommitPreviewFile {
-  const isMarkdown = isMarkdownPath(args.path);
-  const lineStats = computeLineStats(args.oldContent, args.newContent);
+  const isBinary = args.isBinary ?? false;
+  const isMarkdown = !isBinary && isMarkdownPath(args.path);
+  const lineStats = isBinary
+    ? { additions: 0, deletions: 0 }
+    : computeLineStats(args.oldContent, args.newContent);
 
   let richOldContent: string | undefined;
   let richNewContent: string | undefined;
   let richContentTruncated: boolean | undefined;
-  if (args.hydrateRichContent ?? isMarkdown) {
+  if (!isBinary && (args.hydrateRichContent ?? isMarkdown)) {
     const truncatedOld = truncateInlineDiffContent(args.oldContent);
     const truncatedNew = truncateInlineDiffContent(args.newContent);
     richOldContent = truncatedOld.content;
@@ -1222,6 +1336,7 @@ function buildCommitPreviewFileFromContents(args: {
 
   let patch: string | undefined;
   if (
+    !isBinary &&
     args.includePatch &&
     !(args.status === "renamed" && args.oldContent === args.newContent)
   ) {
@@ -1240,10 +1355,12 @@ function buildCommitPreviewFileFromContents(args: {
     status: args.status,
     path: args.path,
     previousPath: args.previousPath,
+    isBinary,
+    mimeType: isBinary ? args.mimeType : undefined,
     additions: lineStats.additions,
     deletions: lineStats.deletions,
-    oldLineCount: countLines(args.oldContent),
-    newLineCount: countLines(args.newContent),
+    oldLineCount: isBinary ? 0 : countLines(args.oldContent),
+    newLineCount: isBinary ? 0 : countLines(args.newContent),
     isMarkdown,
     richOldContent,
     richNewContent,
@@ -1359,6 +1476,7 @@ export function buildCommitPreviewFromStagedFiles({
 }): CommitPreviewResult {
   const files = finalizeCommitPreviewFiles(
     stagedFiles.map((file) => {
+      const isBinary = isBinaryStagedFile(file);
       const renamed = file.filePath !== file.initialFilePath;
       const status = file.fileDeleted
         ? ("deleted" as const)
@@ -1372,8 +1490,10 @@ export function buildCommitPreviewFromStagedFiles({
         status,
         path: file.filePath,
         previousPath: renamed ? file.initialFilePath : undefined,
-        oldContent: file.initialContent,
-        newContent: file.fileDeleted ? "" : file.content,
+        isBinary,
+        mimeType: isBinary ? file.mime : undefined,
+        oldContent: isBinary ? "" : file.initialContent,
+        newContent: file.fileDeleted || isBinary ? "" : file.content,
         includePatch,
         hydrateRichContent: true,
       });
@@ -1421,6 +1541,8 @@ function buildRemoteComparePreviewFileFromMetadata(
       file.previous_filename.length > 0
         ? file.previous_filename
         : undefined,
+    isBinary: false,
+    mimeType: undefined,
     additions: typeof file.additions === "number" ? file.additions : 0,
     deletions: typeof file.deletions === "number" ? file.deletions : 0,
     oldLineCount: 0,
@@ -1863,7 +1985,32 @@ export const getFileForEditing = action({
 
       if (cachedBlob) {
         if (typeof cachedBlob.text !== "string") {
-          throw new Error(STORAGE_BACKED_FILE_ERROR_MESSAGE);
+          if (typeof cachedBlob.storageId !== "string") {
+            throw new Error("Cached binary blob is missing storage data.");
+          }
+
+          const stagedFile = await ctx.runMutation(
+            internal.fileStaging.saveBinaryUploadToStaging,
+            {
+              vaultId: vault._id,
+              filePath: args.originalFilePath,
+              branch: targetBranch,
+              storageId: cachedBlob.storageId,
+              mime: cachedBlob.mime ?? guessMime(filePath),
+              size: file.data.size,
+              stagedBlobSha: fileSha,
+              replaceExisting: true,
+              userId,
+            },
+          );
+
+          return {
+            content: stagedFile.content,
+            parentCommitSha: stagedFile.parentCommitSha,
+            lastEditTime: stagedFile.lastEditTime,
+            branch: stagedFile.branch,
+            version: stagedFile.version,
+          };
         }
 
         const stagedFile = await ctx.runMutation(
@@ -1942,7 +2089,32 @@ export const getFileForEditing = action({
       }
 
       if (typeof savedBlob.text !== "string") {
-        throw new Error(STORAGE_BACKED_FILE_ERROR_MESSAGE);
+        if (typeof savedBlob.storageId !== "string") {
+          throw new Error("Saved binary blob is missing storage data.");
+        }
+
+        const stagedFile = await ctx.runMutation(
+          internal.fileStaging.saveBinaryUploadToStaging,
+          {
+            vaultId: vault._id,
+            filePath: args.originalFilePath,
+            branch: targetBranch,
+            storageId: savedBlob.storageId,
+            mime,
+            size: file.data.size,
+            stagedBlobSha: fileSha,
+            replaceExisting: true,
+            userId,
+          },
+        );
+
+        return {
+          content: stagedFile.content,
+          parentCommitSha: stagedFile.parentCommitSha,
+          lastEditTime: stagedFile.lastEditTime,
+          branch: stagedFile.branch,
+          version: stagedFile.version,
+        };
       }
 
       const stagedFile = await ctx.runMutation(
@@ -1965,9 +2137,7 @@ export const getFileForEditing = action({
         version: stagedFile.version,
       };
     } catch (error) {
-      if (!isStorageBackedFileError(error)) {
-        console.error("error", error);
-      }
+      console.error("error", error);
       throw error;
     }
   },
@@ -3341,20 +3511,15 @@ export async function createCommitWithMultipleFiles({
   repo,
   stagedFiles,
   branch,
+  loadStorageBlob,
   skipRebase = false,
 }: {
   octokit: Octokit;
   owner: string;
   repo: string;
-  stagedFiles: Array<{
-    filePath: string;
-    content: string;
-    fileDeleted: boolean;
-    initialFilePath: string;
-    initialContent?: string;
-    parentCommitSha: string | null;
-  }>;
+  stagedFiles: StagedFileForCommit[];
   branch: string;
+  loadStorageBlob?: (storageId: Id<"_storage">) => Promise<Blob | null>;
   skipRebase?: boolean;
 }) {
   // Helper to compute modified (added) line ranges in the new content
@@ -3389,12 +3554,8 @@ export async function createCommitWithMultipleFiles({
 
   const normalizedStagedFiles: StagedFileForCommit[] = stagedFiles.map(
     (file) => ({
-      filePath: file.filePath,
-      initialFilePath: file.initialFilePath,
-      content: file.content,
-      initialContent: file.initialContent ?? "",
-      fileDeleted: file.fileDeleted,
-      parentCommitSha: file.parentCommitSha,
+      ...file,
+      initialContent: file.initialContent,
       branch,
     }),
   );
@@ -3408,32 +3569,47 @@ export async function createCommitWithMultipleFiles({
         branch,
         stagedFiles: normalizedStagedFiles,
       });
+  const changedResolvedStagedFiles =
+    resolvedStagedFiles.filter(hasStagedFileChanges);
 
   // Summarize all changes to craft a commit message
   const changesInfo: Array<{
     deleted: boolean;
+    isBinary: boolean;
     modifiedLines: Array<{ from: number; to: number }>;
     filePath: string;
     initialFilePath: string;
     wasModified: boolean;
-  }> = resolvedStagedFiles.map((file) => ({
+  }> = changedResolvedStagedFiles.map((file) => ({
     deleted: file.fileDeleted,
+    isBinary: isBinaryStagedFile(file),
     filePath: file.filePath,
     initialFilePath: file.initialFilePath,
-    modifiedLines: file.fileDeleted
-      ? []
-      : computeModifiedLineRanges(file.initialContent, file.content),
-    wasModified: !file.fileDeleted && file.initialContent !== file.content,
+    modifiedLines:
+      file.fileDeleted || isBinaryStagedFile(file)
+        ? []
+        : computeModifiedLineRanges(file.initialContent, file.content),
+    wasModified: !file.fileDeleted && hasStagedFileContentChange(file),
   }));
 
   // 1. Prepare file lists
   const pathsToDelete = new Set<string>();
-  const filesToAdd: Array<{
-    filePath: string;
-    content: string;
-  }> = [];
+  const filesToAdd: Array<
+    | {
+        kind: "text";
+        filePath: string;
+        content: string;
+      }
+    | {
+        kind: "binary";
+        filePath: string;
+        parentCommitSha: string | null;
+        storageId?: Id<"_storage">;
+        stagedBlobSha?: string;
+      }
+  > = [];
 
-  for (const file of resolvedStagedFiles) {
+  for (const file of changedResolvedStagedFiles) {
     if (file.fileDeleted) {
       // Only delete paths that actually exist in the repo
       if (file.parentCommitSha !== null) {
@@ -3444,32 +3620,34 @@ export async function createCommitWithMultipleFiles({
       if (isRenamed && file.parentCommitSha !== null) {
         pathsToDelete.add(file.initialFilePath);
       }
-      filesToAdd.push({
-        filePath: file.filePath,
-        content: file.content,
-      });
+      if (isBinaryStagedFile(file)) {
+        filesToAdd.push({
+          kind: "binary",
+          filePath: file.filePath,
+          parentCommitSha: file.parentCommitSha,
+          storageId: file.storageId,
+          stagedBlobSha: file.stagedBlobSha,
+        });
+      } else {
+        filesToAdd.push({
+          kind: "text",
+          filePath: file.filePath,
+          content: file.content,
+        });
+      }
     }
   }
 
-  // 2. Build tree entries with inline content (no separate createBlob needed)
-  //    GitHub creates blobs atomically as part of createTree, avoiding propagation races.
-  const newTreeEntries: CreateTreeEntry[] = [];
+  // 2. Prepare tree deletions up front. File additions are rebuilt per retry so
+  //    binary blob creation can stay deterministic across attempts.
+  const baseTreeEntries: CreateTreeEntry[] = [];
 
   for (const path of pathsToDelete) {
-    newTreeEntries.push({
+    baseTreeEntries.push({
       path,
       mode: "100644",
       type: "blob",
       sha: null,
-    });
-  }
-
-  for (const file of filesToAdd) {
-    newTreeEntries.push({
-      path: file.filePath,
-      mode: "100644",
-      type: "blob",
-      content: file.content,
     });
   }
 
@@ -3492,6 +3670,12 @@ export async function createCommitWithMultipleFiles({
     const renamed = info.initialFilePath !== info.filePath;
     if (info.deleted) {
       subjectTokens.push(`D ${basename(info.initialFilePath)}`);
+    } else if (info.isBinary && renamed) {
+      subjectTokens.push(
+        `${basename(info.initialFilePath)}->${basename(info.filePath)}`,
+      );
+    } else if (info.isBinary) {
+      subjectTokens.push(`${basename(info.filePath)}`);
     } else if (renamed && info.modifiedLines.length > 0) {
       subjectTokens.push(
         `${basename(info.initialFilePath)}->${basename(info.filePath)}[${shortRanges(info.modifiedLines)}]`,
@@ -3534,7 +3718,7 @@ export async function createCommitWithMultipleFiles({
         commit_sha: currentCommitSha,
       });
 
-      if (newTreeEntries.length === 0) {
+      if (baseTreeEntries.length === 0 && filesToAdd.length === 0) {
         return {
           sha: currentCommitSha,
           url: currentCommit.html_url,
@@ -3542,12 +3726,93 @@ export async function createCommitWithMultipleFiles({
       }
 
       const currentTreeSha = currentCommit.tree.sha;
+      const createdBlobShaBySourceSha = new Map<string, string>();
+      const treeEntries: CreateTreeEntry[] = [...baseTreeEntries];
+
+      for (const file of filesToAdd) {
+        if (file.kind === "text") {
+          treeEntries.push({
+            path: file.filePath,
+            mode: "100644",
+            type: "blob",
+            content: file.content,
+          });
+          continue;
+        }
+
+        const existingBlobSha =
+          file.parentCommitSha !== null &&
+          file.stagedBlobSha === file.parentCommitSha
+            ? file.parentCommitSha
+            : null;
+        if (existingBlobSha) {
+          treeEntries.push({
+            path: file.filePath,
+            mode: "100644",
+            type: "blob",
+            sha: existingBlobSha,
+          });
+          continue;
+        }
+
+        if (!file.storageId) {
+          throw new Error(
+            `Binary file ${file.filePath} is missing staged storage data.`,
+          );
+        }
+
+        const cacheKey = file.stagedBlobSha ?? file.storageId;
+        const cachedCreatedSha = createdBlobShaBySourceSha.get(cacheKey);
+        if (cachedCreatedSha) {
+          treeEntries.push({
+            path: file.filePath,
+            mode: "100644",
+            type: "blob",
+            sha: cachedCreatedSha,
+          });
+          continue;
+        }
+
+        if (!loadStorageBlob) {
+          throw new Error("Binary commit loading is not configured.");
+        }
+
+        const storedBlob = await loadStorageBlob(file.storageId);
+        if (!storedBlob) {
+          throw new Error(
+            `Binary file ${file.filePath} is no longer available in staged storage.`,
+          );
+        }
+
+        const storedBuffer = Buffer.from(await storedBlob.arrayBuffer());
+        const { data: createdBlob } = await octokit.rest.git.createBlob({
+          owner,
+          repo,
+          content: storedBuffer.toString("base64"),
+          encoding: "base64",
+        });
+        const expectedSha =
+          file.stagedBlobSha ?? computeGitBlobShaFromBuffer(storedBuffer);
+        if (createdBlob.sha !== expectedSha) {
+          throw new Error(
+            `Binary file ${file.filePath} blob SHA mismatch during commit.`,
+          );
+        }
+
+        createdBlobShaBySourceSha.set(cacheKey, createdBlob.sha);
+        treeEntries.push({
+          path: file.filePath,
+          mode: "100644",
+          type: "blob",
+          sha: createdBlob.sha,
+        });
+      }
 
       const { data: newTree } = await octokit.rest.git.createTree({
         owner,
         repo,
         base_tree: currentTreeSha,
-        tree: newTreeEntries,
+        tree: treeEntries,
       });
 
       const { data: newCommit } = await octokit.rest.git.createCommit({
@@ -3685,6 +3950,7 @@ export const commitAllStaged = internalAction({
         repo: args.repoName,
         stagedFiles: resolvedChangedFiles,
         branch: commitBranch,
+        loadStorageBlob: async (storageId) => await ctx.storage.get(storageId),
         skipRebase: true,
       });
 
@@ -3725,14 +3991,38 @@ export const commitAllStaged = internalAction({
       //    the correct content immediately without hitting GitHub API
       if (updatedVault) {
         try {
-          for (const file of resolvedChangedFiles) {
+          for (const file of resolvedChangedFiles.filter(
+            hasStagedFileChanges,
+          )) {
             if (file.fileDeleted) continue;
 
             const newSha = updatedVault.treeData.tree.find(
               (t: { path?: string }) => t.path === file.filePath,
             )?.sha;
 
-            if (newSha && typeof file.content === "string") {
+            if (!newSha) {
+              continue;
+            }
+
+            if (isBinaryStagedFile(file)) {
+              if (!file.storageId) {
+                continue;
+              }
+
+              await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+                vaultId: args.vaultId,
+                sha: newSha,
+                size: file.size ?? 0,
+                text: undefined,
+                storageId: file.storageId,
+                ext: file.filePath.split(".").pop()?.toLowerCase() ?? "",
+                mime: file.mime ?? guessMime(file.filePath),
+                debugFilePath: file.filePath,
+              });
+              continue;
+            }
+
+            if (typeof file.content === "string") {
               await ctx.runMutation(internal.gitOperations.saveFileBlob, {
                 vaultId: args.vaultId,
                 sha: newSha,

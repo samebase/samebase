@@ -11,6 +11,8 @@ import { getUserId } from "./common";
 import type { GithubTreeType } from "./schema";
 import {
   hasStagedFileChanges,
+  hasStagedFileContentChange,
+  readStagedFileKind,
   type StagedFileChangeCandidate,
 } from "./stagingChanges";
 
@@ -30,10 +32,12 @@ const {
 
 const vaultIdValidator = id("vaults");
 const fileStagingIdValidator = id("fileStaging");
+const storageIdValidator = id("_storage");
 const userIdValidator = id("users");
 const branchValidator = string();
 const filePathValidator = string();
 const contentValidator = string();
+const stagedFileKindValidator = union(literal("text"), literal("binary"));
 const nullableStringValidator = union(string(), nullValue());
 const nullResultValidator = nullValue();
 
@@ -43,10 +47,15 @@ const stagedFileValidator = object({
   ownerId: userIdValidator,
   vaultId: vaultIdValidator,
   fileDeleted: boolean(),
+  kind: optional(stagedFileKindValidator),
   filePath: filePathValidator,
   initialFilePath: filePathValidator,
   content: contentValidator,
   initialContent: contentValidator,
+  storageId: optional(storageIdValidator),
+  mime: optional(string()),
+  size: optional(number()),
+  stagedBlobSha: optional(string()),
   parentCommitSha: nullableStringValidator,
   lastEditTime: number(),
   lastEditUserId: userIdValidator,
@@ -59,10 +68,15 @@ const stagedFileSnapshotValidator = object({
   ownerId: userIdValidator,
   vaultId: vaultIdValidator,
   fileDeleted: boolean(),
+  kind: optional(stagedFileKindValidator),
   filePath: filePathValidator,
   initialFilePath: filePathValidator,
   content: contentValidator,
   initialContent: contentValidator,
+  storageId: optional(storageIdValidator),
+  mime: optional(string()),
+  size: optional(number()),
+  stagedBlobSha: optional(string()),
   parentCommitSha: nullableStringValidator,
   lastEditTime: number(),
   lastEditUserId: userIdValidator,
@@ -154,6 +168,17 @@ const saveToStagingArgsValidator = {
   branch: branchValidator,
   userId: optional(userIdValidator),
 };
+const saveBinaryUploadToStagingArgsValidator = {
+  vaultId: vaultIdValidator,
+  filePath: filePathValidator,
+  branch: branchValidator,
+  storageId: storageIdValidator,
+  mime: string(),
+  size: number(),
+  stagedBlobSha: string(),
+  replaceExisting: boolean(),
+  userId: userIdValidator,
+};
 
 const internalDeletionArgsValidator = {
   vaultId: vaultIdValidator,
@@ -207,9 +232,7 @@ function classifyStagedFile(
     return "new";
   }
   if (file.filePath !== file.initialFilePath) {
-    return file.content !== file.initialContent
-      ? "renamedAndModified"
-      : "renamed";
+    return hasStagedFileContentChange(file) ? "renamedAndModified" : "renamed";
   }
   return "modified";
 }
@@ -311,6 +334,48 @@ export function buildDeletedFileRestoreCandidate(
   };
 }
 
+async function readDeletionSnapshotSeed(
+  ctx: MutationCtx,
+  parentCommitSha: string | null,
+): Promise<{
+  initialContent: string;
+  kind: "text" | "binary";
+  mime?: string;
+  size?: number;
+}> {
+  if (!parentCommitSha) {
+    return {
+      initialContent: "",
+      kind: "text",
+    };
+  }
+
+  const blob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+    sha: parentCommitSha,
+  });
+
+  if (!blob) {
+    return {
+      initialContent: "",
+      kind: "text",
+    };
+  }
+
+  if (typeof blob.text === "string") {
+    return {
+      initialContent: blob.text,
+      kind: "text",
+    };
+  }
+
+  return {
+    initialContent: "",
+    kind: "binary",
+    mime: blob.mime,
+    size: blob.size,
+  };
+}
+
 // MARK: Public
 
 export const getByNewPath = query({
@@ -328,6 +393,22 @@ export const getByNewPath = query({
       .first();
 
     return staging;
+  },
+});
+
+export const getByNewPathInternal = internalQuery({
+  args: getByNewPathArgsValidator,
+  returns: stagedFileOrNullValidator,
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_branch_and_path", (q) =>
+        q
+          .eq("vaultId", args.vaultId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.newPath),
+      )
+      .first();
   },
 });
 
@@ -383,16 +464,8 @@ export const hasStagedFilesForBranch = internalQuery({
       .withIndex("by_vault_and_branch", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", args.branch),
       )
-      .filter((q) =>
-        q.or(
-          q.neq(q.field("content"), q.field("initialContent")),
-          q.eq(q.field("fileDeleted"), true),
-          q.neq(q.field("filePath"), q.field("initialFilePath")),
-          q.eq(q.field("parentCommitSha"), null),
-        ),
-      )
-      .take(1);
-    return files.length > 0;
+      .collect();
+    return files.some(hasStagedFileChanges);
   },
 });
 
@@ -433,16 +506,8 @@ export const duplicateBranchStaging = internalMutation({
       .withIndex("by_vault_and_branch", (q) =>
         q.eq("vaultId", args.vaultId).eq("branch", args.targetBranch),
       )
-      .filter((q) =>
-        q.or(
-          q.neq(q.field("content"), q.field("initialContent")),
-          q.eq(q.field("fileDeleted"), true),
-          q.neq(q.field("filePath"), q.field("initialFilePath")),
-          q.eq(q.field("parentCommitSha"), null),
-        ),
-      )
-      .take(1);
-    if (existingTargetFiles.length > 0) {
+      .collect();
+    if (existingTargetFiles.some(hasStagedFileChanges)) {
       throw new Error("Target branch already has staged changes.");
     }
 
@@ -461,10 +526,15 @@ export const duplicateBranchStaging = internalMutation({
         ownerId: file.ownerId,
         vaultId: file.vaultId,
         fileDeleted: file.fileDeleted,
+        kind: file.kind,
         filePath: file.filePath,
         initialFilePath: file.initialFilePath,
         content: file.content,
         initialContent: file.initialContent,
+        storageId: file.storageId,
+        mime: file.mime,
+        size: file.size,
+        stagedBlobSha: file.stagedBlobSha,
         parentCommitSha: file.parentCommitSha,
         lastEditTime: file.lastEditTime,
         lastEditUserId: file.lastEditUserId,
@@ -486,10 +556,15 @@ function matchesStagedFileSnapshot(args: {
     args.current.ownerId === args.snapshot.ownerId &&
     args.current.vaultId === args.snapshot.vaultId &&
     args.current.fileDeleted === args.snapshot.fileDeleted &&
+    args.current.kind === args.snapshot.kind &&
     args.current.filePath === args.snapshot.filePath &&
     args.current.initialFilePath === args.snapshot.initialFilePath &&
     args.current.content === args.snapshot.content &&
     args.current.initialContent === args.snapshot.initialContent &&
+    args.current.storageId === args.snapshot.storageId &&
+    args.current.mime === args.snapshot.mime &&
+    args.current.size === args.snapshot.size &&
+    args.current.stagedBlobSha === args.snapshot.stagedBlobSha &&
     args.current.parentCommitSha === args.snapshot.parentCommitSha &&
     args.current.lastEditTime === args.snapshot.lastEditTime &&
     args.current.lastEditUserId === args.snapshot.lastEditUserId &&
@@ -853,15 +928,10 @@ export const markFileForDeletion = mutation({
         branch: args.branch,
       });
     } else {
-      let preservedInitialContent = "";
-      if (args.parentCommitSha) {
-        const blob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
-          sha: args.parentCommitSha,
-        });
-        if (typeof blob?.text === "string") {
-          preservedInitialContent = blob.text;
-        }
-      }
+      const snapshotSeed = await readDeletionSnapshotSeed(
+        ctx,
+        args.parentCommitSha,
+      );
 
       // Create new staging record for deletion
       await ctx.db.insert("fileStaging", {
@@ -871,8 +941,11 @@ export const markFileForDeletion = mutation({
         initialFilePath: args.filePath,
         fileDeleted: true,
         // Keep original text when available so deleted files remain inspectable.
-        content: preservedInitialContent,
-        initialContent: preservedInitialContent,
+        kind: snapshotSeed.kind,
+        content: snapshotSeed.initialContent,
+        initialContent: snapshotSeed.initialContent,
+        mime: snapshotSeed.mime,
+        size: snapshotSeed.size,
         parentCommitSha: args.parentCommitSha,
         lastEditTime: currentTimestamp,
         lastEditUserId: userId,
@@ -950,6 +1023,7 @@ export const createFileInStaging = mutation({
       filePath: args.filePath,
       initialFilePath: args.filePath,
       fileDeleted: false,
+      kind: "text",
       content: args.content,
       initialContent: "", // New files have no initial content
       parentCommitSha: null, // New files have no parent commit
@@ -1026,6 +1100,10 @@ export const updateStagedFileContent = mutation({
       throw new Error("Cannot update content for a deleted staged file.");
     }
 
+    if (readStagedFileKind(existingStaging.kind) === "binary") {
+      throw new Error("Cannot edit binary staged content as text.");
+    }
+
     if (existingStaging.content === args.content) {
       return existingStaging;
     }
@@ -1072,6 +1150,10 @@ export const saveToStaging = internalMutation({
     const currentTimestamp = Date.now();
 
     if (existingStaging) {
+      if (readStagedFileKind(existingStaging.kind) === "binary") {
+        throw new Error("Cannot overwrite binary staged content as text.");
+      }
+
       // Codemirror gives lots of updates
       if (existingStaging.content === args.content) {
         return existingStaging;
@@ -1079,6 +1161,7 @@ export const saveToStaging = internalMutation({
 
       // Update existing staging
       await ctx.db.patch(existingStaging._id, {
+        kind: "text",
         content: args.content,
         lastEditTime: currentTimestamp,
         lastEditUserId: userId,
@@ -1092,6 +1175,7 @@ export const saveToStaging = internalMutation({
         filePath: args.initialFilePath,
         initialFilePath: args.initialFilePath,
         fileDeleted: false,
+        kind: "text",
         content: args.content,
         initialContent: args.initialContent,
         parentCommitSha: args.parentCommitSha,
@@ -1146,15 +1230,10 @@ export const internalMarkFileForDeletion = internalMutation({
         branch: args.branch,
       });
     } else {
-      let preservedInitialContent = "";
-      if (args.parentCommitSha) {
-        const blob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
-          sha: args.parentCommitSha,
-        });
-        if (typeof blob?.text === "string") {
-          preservedInitialContent = blob.text;
-        }
-      }
+      const snapshotSeed = await readDeletionSnapshotSeed(
+        ctx,
+        args.parentCommitSha,
+      );
 
       await ctx.db.insert("fileStaging", {
         ownerId: args.userId,
@@ -1162,8 +1241,11 @@ export const internalMarkFileForDeletion = internalMutation({
         filePath: args.filePath,
         initialFilePath: args.filePath,
         fileDeleted: true,
-        content: preservedInitialContent,
-        initialContent: preservedInitialContent,
+        kind: snapshotSeed.kind,
+        content: snapshotSeed.initialContent,
+        initialContent: snapshotSeed.initialContent,
+        mime: snapshotSeed.mime,
+        size: snapshotSeed.size,
         parentCommitSha: args.parentCommitSha,
         lastEditTime: currentTimestamp,
         lastEditUserId: args.userId,
@@ -1173,6 +1255,133 @@ export const internalMarkFileForDeletion = internalMutation({
     }
 
     return null;
+  },
+});
+
+export const saveBinaryUploadToStaging = internalMutation({
+  args: saveBinaryUploadToStagingArgsValidator,
+  returns: stagedFileValidator,
+  handler: async (ctx, args) => {
+    const vault = await ctx.runQuery(internal.vault.getById, {
+      id: args.vaultId,
+    });
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
+    const currentTimestamp = Date.now();
+    const existingStagingByPath = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_branch_and_path", (q) =>
+        q
+          .eq("vaultId", args.vaultId)
+          .eq("branch", args.branch)
+          .eq("filePath", args.filePath),
+      )
+      .first();
+
+    const existingStagingByInitialPath = await ctx.db
+      .query("fileStaging")
+      .withIndex("by_vault_and_branch_and_initial_path", (q) =>
+        q
+          .eq("vaultId", args.vaultId)
+          .eq("branch", args.branch)
+          .eq("initialFilePath", args.filePath),
+      )
+      .first();
+
+    if (
+      existingStagingByInitialPath &&
+      existingStagingByPath &&
+      existingStagingByInitialPath._id !== existingStagingByPath._id
+    ) {
+      throw new Error("An existing staged rename already owns this file path");
+    }
+
+    const existingStaging =
+      existingStagingByPath ?? existingStagingByInitialPath;
+    if (
+      existingStaging &&
+      existingStaging.filePath !== args.filePath &&
+      existingStaging.initialFilePath === args.filePath
+    ) {
+      throw new Error("An existing staged rename already owns this file path");
+    }
+
+    const repositoryTree = await resolveRepositoryTreeForVault({
+      ctx,
+      vaultId: args.vaultId,
+      requestedBranch: args.branch,
+      legacyTree: vault.treeData.tree,
+    });
+    const existingRepositoryEntry = repositoryTree.find(
+      (entry: GithubTreeType) =>
+        entry.type === "blob" && entry.path === args.filePath,
+    );
+    const parentCommitSha = existingRepositoryEntry?.sha ?? null;
+    const isReplacement = Boolean(existingStaging) || parentCommitSha !== null;
+
+    if (isReplacement && !args.replaceExisting) {
+      throw new Error("A file already exists at this path");
+    }
+
+    if (existingStaging) {
+      await ctx.db.patch(existingStaging._id, {
+        ownerId: args.userId,
+        fileDeleted: false,
+        kind: "binary",
+        filePath: args.filePath,
+        initialFilePath:
+          parentCommitSha === null
+            ? args.filePath
+            : existingStaging.initialFilePath,
+        content: "",
+        initialContent:
+          parentCommitSha === null ? "" : existingStaging.initialContent,
+        storageId: args.storageId,
+        mime: args.mime,
+        size: args.size,
+        stagedBlobSha: args.stagedBlobSha,
+        parentCommitSha,
+        lastEditTime: currentTimestamp,
+        lastEditUserId: args.userId,
+        branch: args.branch,
+      });
+
+      const updatedStaging = await ctx.db.get(existingStaging._id);
+      if (!updatedStaging) {
+        throw new Error("Staged binary upload disappeared while saving");
+      }
+
+      return updatedStaging;
+    }
+
+    const insertedId = await ctx.db.insert("fileStaging", {
+      ownerId: args.userId,
+      vaultId: args.vaultId,
+      fileDeleted: false,
+      kind: "binary",
+      filePath: args.filePath,
+      initialFilePath: args.filePath,
+      content: "",
+      initialContent: "",
+      storageId: args.storageId,
+      mime: args.mime,
+      size: args.size,
+      stagedBlobSha: args.stagedBlobSha,
+      parentCommitSha,
+      lastEditTime: currentTimestamp,
+      lastEditUserId: args.userId,
+      branch: args.branch,
+      version: 0,
+    });
+
+    const insertedStaging = await ctx.db.get(insertedId);
+    if (!insertedStaging) {
+      throw new Error("Staged binary upload disappeared after insert");
+    }
+
+    return insertedStaging;
   },
 });
 
