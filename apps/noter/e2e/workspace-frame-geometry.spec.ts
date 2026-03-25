@@ -15,7 +15,7 @@ function expectClose(
   actual: number,
   expected: number,
   description: string,
-  tolerance = 1.5,
+  tolerance = 1,
 ) {
   expect(
     Math.abs(actual - expected),
