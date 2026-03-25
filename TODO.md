@@ -3,6 +3,8 @@
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 - [ ] specifically left blank
 
+- [ ] slogan: replace Telegram "Saved Messages" with a versioned repo on GitHub
+
 - [ ] something
 
 - [ ] idea, when people successfuly go the logo in form 1, it starts getting bigger and transform into a markdown chat input that says welcome and it says that they do something, idk
