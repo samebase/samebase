@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Noter frontend/editor
-- Last updated: 2026-03-21
+- Last updated: 2026-03-25
 
 ## Summary
 
@@ -18,6 +18,12 @@ stable across simple editor, code editor, and review mode.
 The only missing navigation case worth adding is deleted files: they must be
 visible in the normal tree in both editor variants as red crossed-out file
 entries.
+
+Compare-only pull request files still follow that same review contract. If a PR
+diff can render in the inline merge surface, it should expose the same inline
+controls (`Show patch`, `Inline diffs`, `Syntax deleted`) that staged review
+files use, and leaving review from that state must return to the real editor
+surface for the selected file.
 
 ## Problem
 
@@ -90,6 +96,18 @@ second sidebar mode.
 - Review mode should not introduce its own duplicate file navigation panel.
 - Markdown review may keep its file-level rich/inline/patch presentation rules,
   but those controls live inside the review surface, not in the sidebar model.
+- Compare-only PR files that can render in the inline merge surface use that
+  same control strip instead of a separate PR-only diff chrome.
+
+### 6. Return-to-editor behavior
+
+- `Back to Editor` always returns to the normal editor surface for the selected
+  file.
+- When review was opened from a compare-only PR diff, leaving review must also
+  exit the compare-only diff surface instead of landing in a read-only compare
+  preview.
+- The return action should preserve the selected file path while clearing only
+  the review/compare state that prevented the normal editor from opening.
 
 ## Acceptance Criteria
 
@@ -100,6 +118,10 @@ second sidebar mode.
 - Added, modified, and renamed files continue to appear with their existing
   colors in the normal tree.
 - Deleted files appear in that same tree as red crossed-out entries.
+- Compare-only PR files that render inline show the same inline control strip as
+  staged review files.
+- Leaving review from a compare-only PR file opens the normal editor for that
+  file instead of a read-only compare preview.
 - No review-only `Changes` mode or duplicate `Staged Files` panel is required
   for commit review.
 
