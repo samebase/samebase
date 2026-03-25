@@ -129,7 +129,9 @@ Reasons:
 - The dashboard has shared chrome but still lacks a precise upload destination.
 
 The dashboard can adopt the same component later once the product decides how a
-global upload target should be chosen. `/add` should not show a live dropzone in
+global upload target should be chosen. In phase 1, the dashboard must not
+expose a live dropzone, and dragging files over the dashboard should do nothing
+instead of implying an upload target. `/add` should not show a live dropzone in
 phase 1.
 
 ### 2. Support images only in phase 1
@@ -346,8 +348,6 @@ binary branch to it.
 
 ## Open Questions
 
-- Whether dashboard sidebar uploads should stay hidden or ship as a disabled
-  affordance until the product defines an explicit vault and branch target there
 - Whether replacement uploads should reuse the same staged path automatically or
   always force an explicit conflict prompt
 - Whether the phase 1 destination rule should stay `current file folder or root`
