@@ -405,6 +405,11 @@ them directly using CLI tools.
 - When the user asks to "open a PR" (or `create pr`), always write a normal PR
   description (`Why`, summary, key changes, validation). Never leave the PR body
   empty.
+- When a PR represents a research or automation run initiated from Noter or
+  Codex, include the originating first user message in the PR description and
+  include the exact requested model plus reasoning effort if known. Prefer
+  explicit sections such as `First Message` and `Requested Codex Runtime`
+  instead of assuming local defaults.
 - PR descriptions must explain why the change exists, not just what changed. If
   a PR is split out from a broader branch or effort, say that explicitly in the
   `Why` section so reviewers have the missing context.
