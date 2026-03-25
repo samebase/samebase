@@ -6,10 +6,15 @@ import {
 import { type LogoRotationAxisMode } from "@/components/logoRotationMath";
 import { LogoIsoThumbnail, NLogoIsoScene } from "@/components/NLogoIsoScene";
 import {
+  DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
+  LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX,
   LOGO_ISOMETRIC_STYLES,
+  MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+  MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   getLogoIsometricStyle,
   isLogoIsometricStyleId,
+  normalizeLogoIsometricCubeSidePixels,
   type LogoIsometricStyleId,
 } from "@/components/logoIsometricRenderer";
 import {
@@ -91,6 +96,7 @@ const MIN_LOGO_OPACITY = 0;
 const MAX_LOGO_OPACITY = 1;
 const LOGO_OPACITY_STEP = 0.01;
 const VIEW_SNAP_DISABLED_QUERY_PARAM = "freeView";
+const ISOMETRIC_CUBE_SIDE_QUERY_PARAM = "isoSide";
 const ROTATION_QUERY_PARAM = "rot";
 const ROTATION_AXIS_QUERY_PARAM = "axis";
 const ELEVATION_QUERY_PARAM = "elev";
@@ -116,6 +122,7 @@ type LogoPreviewRenderMode = "three" | "iso";
 type LogoPreviewQueryState = {
   elevationDegrees: number;
   faceColors: FaceColors;
+  isoCubeSidePixels: number;
   isoStyleId: LogoIsometricStyleId;
   rotationAxisMode: LogoRotationAxisMode;
   rotationDegrees: number;
@@ -214,6 +221,16 @@ function readIsoStyleId(searchParams: URLSearchParams): LogoIsometricStyleId {
   return isoStyle;
 }
 
+function readIsoCubeSidePixels(searchParams: URLSearchParams): number {
+  const value = searchParams.get(ISOMETRIC_CUBE_SIDE_QUERY_PARAM);
+  const parsedValue = Number(value);
+  if (value === null || !Number.isFinite(parsedValue)) {
+    return DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX;
+  }
+
+  return normalizeLogoIsometricCubeSidePixels(parsedValue);
+}
+
 function readRotationDegrees(searchParams: URLSearchParams): number {
   const value = searchParams.get(ROTATION_QUERY_PARAM);
   const parsedValue = Number(value);
@@ -299,6 +316,7 @@ function buildLogoPreviewSearchParams(
   {
     elevationDegrees,
     faceColors,
+    isoCubeSidePixels,
     isoStyleId,
     rotationAxisMode,
     rotationDegrees,
@@ -332,6 +350,13 @@ function buildLogoPreviewSearchParams(
       viewSnapEnabled ? null : true,
     );
     setQueryParam(nextSearchParams, "vox", voxelState);
+    setQueryParam(
+      nextSearchParams,
+      ISOMETRIC_CUBE_SIDE_QUERY_PARAM,
+      isoCubeSidePixels !== DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX
+        ? `${isoCubeSidePixels}`
+        : null,
+    );
     setQueryParam(
       nextSearchParams,
       "isoStyle",
@@ -392,6 +417,9 @@ export function LogoPreviewPage({
   const [selectedPresetId, setSelectedPresetId] = useState<LogoPresetSelection>(
     () => readLogoPresetSelection(searchParams),
   );
+  const [isoCubeSidePixels, setIsoCubeSidePixels] = useState(() =>
+    readIsoCubeSidePixels(searchParams),
+  );
   const [isoStyleId, setIsoStyleId] = useState<LogoIsometricStyleId>(() =>
     readIsoStyleId(searchParams),
   );
@@ -445,6 +473,7 @@ export function LogoPreviewPage({
     setElevationDegrees(nextView.elevationDegrees);
     setVoxelState(readVoxelState(searchParams));
     setSelectedPresetId(readLogoPresetSelection(searchParams));
+    setIsoCubeSidePixels(readIsoCubeSidePixels(searchParams));
     setIsoStyleId(readIsoStyleId(searchParams));
     setFaceColors(readFaceColors(searchParams));
   }, [searchParams]);
@@ -471,6 +500,7 @@ export function LogoPreviewPage({
       buildLogoPreviewSearchParams(searchParams, {
         elevationDegrees: resolvedView.elevationDegrees,
         faceColors,
+        isoCubeSidePixels,
         isoStyleId,
         rotationAxisMode,
         rotationDegrees: resolvedView.rotationDegrees,
@@ -489,6 +519,7 @@ export function LogoPreviewPage({
     isAutoRotating,
     isSceneInteracting,
     isViewSnapEnabled,
+    isoCubeSidePixels,
     isoStyleId,
     rotationAxisMode,
     rotationDegrees,
@@ -657,6 +688,25 @@ export function LogoPreviewPage({
     setLogoOpacity(clampLogoOpacity(nextValue));
   };
 
+  const handleIsoCubeSidePixelsChange = (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    setIsoCubeSidePixels(
+      normalizeLogoIsometricCubeSidePixels(Number(event.target.value)),
+    );
+  };
+
+  const handleIsoCubeSidePixelsInputChange = (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const nextValue = Number(event.target.value);
+    if (!Number.isFinite(nextValue)) {
+      return;
+    }
+
+    setIsoCubeSidePixels(normalizeLogoIsometricCubeSidePixels(nextValue));
+  };
+
   const handleSceneViewChange = ({
     elevationDegrees: nextElevationDegrees,
     rotationDegrees: nextRotationDegrees,
@@ -731,6 +781,7 @@ export function LogoPreviewPage({
       search: buildLogoPreviewSearchParams(searchParams, {
         elevationDegrees,
         faceColors,
+        isoCubeSidePixels,
         isoStyleId,
         rotationAxisMode,
         rotationDegrees,
@@ -746,6 +797,7 @@ export function LogoPreviewPage({
         <NLogoIsoScene
           backgroundColor={backgroundColor}
           className="absolute inset-0 h-full w-full touch-none select-none"
+          cubeSidePixels={isoCubeSidePixels}
           editMode={editMode}
           faceColors={faceColors}
           onVoxelEdit={handleVoxelEdit}
@@ -881,6 +933,7 @@ export function LogoPreviewPage({
             </Button>
           </div>
           <PopoverContent
+            aria-label="Logo controls"
             align="start"
             side="bottom"
             sideOffset={CONTROLS_POPOVER_SIDE_OFFSET_PX}
@@ -1231,6 +1284,66 @@ export function LogoPreviewPage({
                       </div>
                     </div>
                   </div>
+                  <div className="grid gap-3 border-b border-black/10 pb-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                          Cube Side
+                        </div>
+                        <div className="mt-1 text-xs text-black/55">
+                          Raster source edge length. Two-pixel steps keep the
+                          2:1 iso rise on whole pixels.
+                        </div>
+                      </div>
+                      <span className="font-mono text-[11px] text-black/60">
+                        {isoCubeSidePixels}px
+                      </span>
+                    </div>
+                    <div className="grid gap-2">
+                      <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.2em] text-black/55">
+                        <span>Source Edge</span>
+                        <span>
+                          {isoCubeSidePixels}px / {isoCubeSidePixels / 2}px rise
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          aria-label="Cube side"
+                          type="range"
+                          min={MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX}
+                          max={MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX}
+                          step={LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX}
+                          value={isoCubeSidePixels}
+                          onChange={handleIsoCubeSidePixelsChange}
+                          className="h-2 w-full cursor-pointer accent-[#8a88ac]"
+                        />
+                        <Input
+                          aria-label="Cube side pixels"
+                          type="number"
+                          inputMode="numeric"
+                          min={MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX}
+                          max={MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX}
+                          step={LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX}
+                          value={isoCubeSidePixels}
+                          onChange={handleIsoCubeSidePixelsInputChange}
+                          className="h-9 w-20 rounded-none border-black/10 bg-white/90 px-2 font-mono text-sm"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="rounded-none"
+                      onClick={() => {
+                        setIsoCubeSidePixels(
+                          DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+                        );
+                      }}
+                    >
+                      Reset size
+                    </Button>
+                  </div>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {LOGO_ISOMETRIC_STYLES.map((style) => (
                       <button
@@ -1255,10 +1368,11 @@ export function LogoPreviewPage({
                             {style.edgeMode === "shaded" ? " + edge" : ""}
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="grid gap-2">
                           <div className="flex min-h-20 min-w-20 items-center justify-center border border-black/10 bg-white p-2">
                             <LogoIsoThumbnail
                               backgroundColor={backgroundColor}
+                              cubeSidePixels={isoCubeSidePixels}
                               faceColors={faceColors}
                               size={72}
                               styleId={style.id}
@@ -1288,6 +1402,7 @@ export function LogoPreviewPage({
                           <div className="flex min-h-16 min-w-16 items-center justify-center border border-black/10 bg-white/90 p-2">
                             <LogoIsoThumbnail
                               backgroundColor={backgroundColor}
+                              cubeSidePixels={isoCubeSidePixels}
                               faceColors={faceColors}
                               size={size}
                               styleId={isoStyleId}
