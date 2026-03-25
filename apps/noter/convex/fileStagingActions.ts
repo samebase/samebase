@@ -684,6 +684,7 @@ const defaultBranchDraftPullRequestResult = object({
 const rebaseConflictPreviewFile = v.object({
   path: v.string(),
   previousPath: v.optional(v.string()),
+  upstreamPath: v.optional(v.string()),
   isBinary: v.boolean(),
   mimeType: v.optional(v.string()),
   isMarkdown: v.boolean(),
@@ -743,6 +744,7 @@ type DraftSourceStagingRecord = DraftSourceStagingSnapshot & {
 type StagedFileRebaseConflict = StagedFileForCommit & {
   upstreamContent?: string;
   upstreamSha: string;
+  upstreamPath?: string;
 };
 
 type GitHubCompareFileCandidate = {
@@ -848,9 +850,9 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
     return loaded;
   };
 
-  const resolveUpstreamShaForFile = (
+  const resolveUpstreamLocationForFile = (
     file: StagedFileForCommit,
-  ): string | null => {
+  ): { path: string; sha: string } | null => {
     const preferredUpstreamPath =
       file.filePath === file.initialFilePath
         ? file.filePath
@@ -864,15 +866,23 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
     if (!upstreamPath) {
       return null;
     }
-    return shaByPath.get(upstreamPath) ?? null;
+    const upstreamSha = shaByPath.get(upstreamPath);
+    if (!upstreamSha) {
+      return null;
+    }
+    return {
+      path: upstreamPath,
+      sha: upstreamSha,
+    };
   };
 
   const upstreamShasToPrefetch = new Set<string>();
   for (const file of args.stagedFiles) {
-    const upstreamSha = resolveUpstreamShaForFile(file);
-    if (!upstreamSha) {
+    const upstreamLocation = resolveUpstreamLocationForFile(file);
+    if (!upstreamLocation) {
       continue;
     }
+    const upstreamSha = upstreamLocation.sha;
     if (isBinaryStagedFile(file)) {
       continue;
     }
@@ -903,7 +913,8 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
   const rebasedFiles: StagedFileForCommit[] = [];
 
   for (const file of args.stagedFiles) {
-    const upstreamSha = resolveUpstreamShaForFile(file);
+    const upstreamLocation = resolveUpstreamLocationForFile(file);
+    const upstreamSha = upstreamLocation?.sha ?? null;
     if (isBinaryStagedFile(file)) {
       if (file.fileDeleted) {
         if (
@@ -917,6 +928,7 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
 
         conflicts.push({
           ...file,
+          upstreamPath: upstreamLocation?.path,
           upstreamSha,
         });
         rebasedFiles.push(file);
@@ -939,6 +951,7 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
 
         conflicts.push({
           ...file,
+          upstreamPath: upstreamLocation?.path,
           upstreamSha,
         });
         rebasedFiles.push(file);
@@ -960,6 +973,7 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
 
       conflicts.push({
         ...file,
+        upstreamPath: upstreamLocation?.path,
         upstreamSha,
       });
       rebasedFiles.push(file);
@@ -980,6 +994,7 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
       conflicts.push({
         ...file,
         upstreamContent,
+        upstreamPath: upstreamLocation?.path,
         upstreamSha,
       });
       rebasedFiles.push(file);
@@ -1006,6 +1021,7 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
       conflicts.push({
         ...file,
         upstreamContent,
+        upstreamPath: upstreamLocation?.path,
         upstreamSha,
       });
       rebasedFiles.push(file);
@@ -1027,6 +1043,7 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
       conflicts.push({
         ...file,
         upstreamContent,
+        upstreamPath: upstreamLocation?.path,
         upstreamSha,
       });
       rebasedFiles.push(file);
@@ -1128,7 +1145,7 @@ function buildConflictPatchPair(file: StagedFileRebaseConflict): {
     }),
     baseToUpstreamPatch: buildBoundedPatch({
       oldPath: file.initialFilePath,
-      newPath: file.initialFilePath,
+      newPath: file.upstreamPath ?? file.initialFilePath,
       oldContent: file.initialContent,
       newContent: file.upstreamContent,
       maxChars: MAX_CONFLICT_PREVIEW_PATCH_CHARS_PER_PATCH,
@@ -1148,6 +1165,10 @@ export function buildRebaseConflictPreviewFromStagedFiles(args: {
     return {
       path: file.filePath,
       previousPath: renamed ? file.initialFilePath : undefined,
+      upstreamPath:
+        file.upstreamPath !== undefined && file.upstreamPath !== file.filePath
+          ? file.upstreamPath
+          : undefined,
       isBinary,
       mimeType: isBinary ? file.mime : undefined,
       isMarkdown: !isBinary && isMarkdownPath(file.filePath),
@@ -1993,6 +2014,11 @@ export const getFileForEditing = action({
 
       if (cachedBlob) {
         if (typeof cachedBlob.text !== "string") {
+          if (getRepositoryMediaKind(filePath) === null) {
+            throw new Error(
+              "File content is stored in storage-backed binary form.",
+            );
+          }
           if (typeof cachedBlob.storageId !== "string") {
             throw new Error("Cached binary blob is missing storage data.");
           }
@@ -2097,6 +2123,11 @@ export const getFileForEditing = action({
       }
 
       if (typeof savedBlob.text !== "string") {
+        if (getRepositoryMediaKind(filePath) === null) {
+          throw new Error(
+            "File content is stored in storage-backed binary form.",
+          );
+        }
         if (typeof savedBlob.storageId !== "string") {
           throw new Error("Saved binary blob is missing storage data.");
         }
@@ -2761,10 +2792,7 @@ export const pullFromGitHubInternal = internalAction({
 
     for (const staged of allStaged) {
       const branchTreeMap = await getTreeMapForBranch(staged.branch);
-      const isEdited =
-        staged.content !== staged.initialContent ||
-        staged.fileDeleted ||
-        staged.filePath !== staged.initialFilePath;
+      const isEdited = hasStagedFileChanges(staged);
       const isNewFile = staged.parentCommitSha === null;
 
       if (isNewFile) {
@@ -2787,6 +2815,14 @@ export const pullFromGitHubInternal = internalAction({
           parentCommitSha: null,
         });
       } else if (newSha !== staged.parentCommitSha) {
+        if (readStagedFileKind(staged.kind) === "binary") {
+          instructions.push({
+            action: "update",
+            stagingId: staged._id,
+            parentCommitSha: newSha,
+          });
+          continue;
+        }
         blobFetchQueue.push({
           stagingId: staged._id,
           sha: newSha,

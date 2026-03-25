@@ -1147,6 +1147,40 @@ describe("createCommitWithMultipleFiles", () => {
     });
   });
 
+  it("keeps the resolved upstream path for renamed conflicts", async () => {
+    vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(
+      makeGetTreeResponse("head-tree", [{ path: "TODO.md", sha: "upstream" }]),
+    );
+    vi.spyOn(octokit.rest.git, "getBlob").mockResolvedValue(
+      makeGetBlobResponse("upstream", ["alpha", "theirs", ""].join("\n")),
+    );
+
+    const inspection = await inspectStagedFilesAgainstLatestHead({
+      octokit,
+      owner: "test-owner",
+      repo: "test-repo",
+      branch: "main",
+      stagedFiles: [
+        {
+          filePath: "docs/TODO.md",
+          content: ["alpha", "ours", ""].join("\n"),
+          fileDeleted: false,
+          initialFilePath: "TODO.md",
+          initialContent: ["alpha", "base", ""].join("\n"),
+          parentCommitSha: "base-sha",
+          branch: "main",
+        },
+      ],
+    });
+
+    expect(inspection.conflicts[0]).toMatchObject({
+      filePath: "docs/TODO.md",
+      initialFilePath: "TODO.md",
+      upstreamPath: "TODO.md",
+      upstreamSha: "upstream",
+    });
+  });
+
   it("Test 1c: skipRebase avoids extra head-tree lookups", async () => {
     vi.spyOn(octokit.rest.git, "getRef").mockResolvedValue(
       makeGetRefResponse("abc123"),

@@ -238,4 +238,31 @@ describe("buildRebaseConflictPreviewFromStagedFiles", () => {
     expect(preview.files[0]?.baseToStagedPatch).toContain("+ours");
     expect(preview.files[0]?.baseToUpstreamPatch).toContain("+theirs");
   });
+
+  it("carries the resolved upstream path for renamed conflicts", () => {
+    const preview = buildRebaseConflictPreviewFromStagedFiles({
+      branch: "main",
+      conflicts: [
+        {
+          filePath: "docs/TODO.md",
+          initialFilePath: "TODO.md",
+          content: ["alpha", "ours", ""].join("\n"),
+          initialContent: ["alpha", "base", ""].join("\n"),
+          upstreamContent: ["alpha", "theirs", ""].join("\n"),
+          upstreamPath: "TODO.md",
+          upstreamSha: "upstream-sha",
+          fileDeleted: false,
+          parentCommitSha: "base-sha",
+          branch: "main",
+        },
+      ],
+    });
+
+    expect(preview.files[0]).toMatchObject({
+      path: "docs/TODO.md",
+      previousPath: "TODO.md",
+      upstreamPath: "TODO.md",
+    });
+    expect(preview.files[0]?.baseToUpstreamPatch).toContain("+++ TODO.md");
+  });
 });

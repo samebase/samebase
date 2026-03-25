@@ -93,7 +93,6 @@ import {
   VaultBranchPreviewVisualFixture,
   type VaultBranchPreviewVisualMode,
 } from "@/components/VaultBranchPreviewVisualFixture";
-<<<<<<< HEAD
 import {
   VaultSyncStatusVisualFixture,
   type VaultSyncStatusVisualMode,

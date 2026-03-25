@@ -17,6 +17,7 @@ import {
   isSvgRepositoryMediaPath,
 } from "../shared/repositoryMedia";
 import { TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
+import { readStagedFileKind } from "./stagingChanges";
 import type { PullRequestLabel as StoredPullRequestLabel } from "./schema";
 
 const {
@@ -1669,6 +1670,7 @@ export const getRepositoryMediaAsset = action({
           return { found: false, reason: "missing" };
         }
 
+        const stagedKind = readStagedFileKind(stagedFile.kind);
         if (typeof stagedFile.storageId === "string") {
           const stagedUrl = await ctx.storage.getUrl(stagedFile.storageId);
           if (typeof stagedUrl === "string" && stagedUrl.length > 0) {
@@ -1682,10 +1684,21 @@ export const getRepositoryMediaAsset = action({
           }
         }
 
-        if (
-          typeof stagedFile.content === "string" &&
-          isSvgRepositoryMediaPath(args.filePath)
-        ) {
+        if (stagedKind === "binary") {
+          console.warn("Staged binary media preview is missing storage data", {
+            vaultId: vault._id,
+            branch: requestedBranch,
+            filePath: args.filePath,
+            stagingId: stagedFile._id,
+          });
+          return {
+            found: false,
+            reason: "unavailable",
+            message: "Staged upload is missing storage reference.",
+          };
+        }
+
+        if (isSvgRepositoryMediaPath(args.filePath)) {
           return {
             found: true,
             kind: mediaKind,
@@ -1700,20 +1713,22 @@ export const getRepositoryMediaAsset = action({
       }
     }
 
-    const targetFile = vault.treeData.tree.find(
-      (item: { path: string; type: string; sha?: string }) =>
-        item.path === args.filePath && item.type === "blob",
-    );
-
-    if (!targetFile?.sha) {
-      return { found: false, reason: "missing" };
-    }
-
+    let targetFileSha: string | null = null;
     if (!requestedBranch) {
+      const targetFile = vault.treeData.tree.find(
+        (item: { path: string; type: string; sha?: string }) =>
+          item.path === args.filePath && item.type === "blob",
+      );
+
+      if (!targetFile?.sha) {
+        return { found: false, reason: "missing" };
+      }
+
+      targetFileSha = targetFile.sha;
       const cachedBlob = await ctx.runQuery(
         internal.gitOperations.getBlobBySha,
         {
-          sha: targetFile.sha,
+          sha: targetFileSha,
         },
       );
       const resolvedCachedAsset = await resolveCachedRepositoryMediaAsset(
@@ -1744,10 +1759,44 @@ export const getRepositoryMediaAsset = action({
     });
 
     try {
+      if (requestedBranch) {
+        const targetFile = await octokit.rest.repos.getContent({
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          path: args.filePath,
+          ref: requestedBranch,
+        });
+        if (Array.isArray(targetFile.data) || targetFile.data.type !== "file") {
+          return { found: false, reason: "missing" };
+        }
+
+        targetFileSha = targetFile.data.sha;
+        const cachedBlob = await ctx.runQuery(
+          internal.gitOperations.getBlobBySha,
+          {
+            sha: targetFileSha,
+          },
+        );
+        const resolvedCachedAsset = await resolveCachedRepositoryMediaAsset(
+          ctx,
+          cachedBlob,
+          args.filePath,
+          mediaKind,
+          fileName,
+        );
+        if (resolvedCachedAsset) {
+          return resolvedCachedAsset;
+        }
+      }
+
+      if (targetFileSha === null) {
+        return { found: false, reason: "missing" };
+      }
+
       const blob = await octokit.rest.git.getBlob({
         owner: vault.ghRepoOwner,
         repo: vault.ghRepoName,
-        file_sha: targetFile.sha,
+        file_sha: targetFileSha,
       });
       if (
         typeof blob.data.content !== "string" ||
@@ -1769,7 +1818,7 @@ export const getRepositoryMediaAsset = action({
 
       await ctx.runMutation(internal.gitOperations.saveFileBlob, {
         vaultId: vault._id,
-        sha: targetFile.sha,
+        sha: targetFileSha,
         size: buffer.byteLength,
         mime: mimeType,
         text: undefined,

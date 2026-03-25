@@ -177,6 +177,7 @@ type BranchComparePreview =
 type RebaseConflictPreviewFile = {
   path: string;
   previousPath?: string;
+  upstreamPath?: string;
   isBinary: boolean;
   mimeType?: string;
   isMarkdown: boolean;
@@ -1327,7 +1328,7 @@ function FileViewInner({
       setIsUploadingMedia(true);
       setMediaUploadError(null);
 
-      void generateUploadUrl({})
+      void generateUploadUrl({ vaultId: vault._id })
         .then((uploadUrl) =>
           fetch(uploadUrl, {
             method: "POST",
@@ -1380,6 +1381,7 @@ function FileViewInner({
       repositoryFullName,
       stageUploadedMedia,
       state,
+      vault._id,
     ],
   );
   const handleMediaUploadDrop = useCallback(
@@ -3538,6 +3540,7 @@ function FileViewInner({
                                               repositoryFullName
                                             }
                                             filePath={
+                                              selectedRebaseConflictFile.upstreamPath ??
                                               selectedRebaseConflictFile.path
                                             }
                                             branch={branch}

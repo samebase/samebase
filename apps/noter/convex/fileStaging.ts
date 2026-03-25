@@ -380,10 +380,21 @@ async function readDeletionSnapshotSeed(
 // MARK: Public
 
 export const generateUploadUrl = mutation({
-  args: {},
+  args: {
+    vaultId: vaultIdValidator,
+  },
   returns: uploadUrlResultValidator,
-  handler: async (ctx) => {
-    await getUserId(ctx);
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.db.get(args.vaultId);
+    if (
+      !canAccessVaultStaging({
+        vaultOwnerId: vault?.userId,
+        requesterUserId: userId,
+      })
+    ) {
+      throw new Error("Unauthorized");
+    }
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -1336,23 +1347,22 @@ export const saveBinaryUploadToStaging = internalMutation({
     }
 
     if (existingStaging) {
+      const preservedParentCommitSha =
+        parentCommitSha ?? existingStaging.parentCommitSha;
+
       await ctx.db.patch(existingStaging._id, {
         ownerId: args.userId,
         fileDeleted: false,
         kind: "binary",
         filePath: args.filePath,
-        initialFilePath:
-          parentCommitSha === null
-            ? args.filePath
-            : existingStaging.initialFilePath,
+        initialFilePath: existingStaging.initialFilePath,
         content: "",
-        initialContent:
-          parentCommitSha === null ? "" : existingStaging.initialContent,
+        initialContent: existingStaging.initialContent,
         storageId: args.storageId,
         mime: args.mime,
         size: args.size,
         stagedBlobSha: args.stagedBlobSha,
-        parentCommitSha,
+        parentCommitSha: preservedParentCommitSha,
         lastEditTime: currentTimestamp,
         lastEditUserId: args.userId,
         branch: args.branch,

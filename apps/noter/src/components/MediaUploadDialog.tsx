@@ -84,12 +84,22 @@ export function MediaUploadDialog({
   }, [initialFolderPath, isOpen]);
 
   useEffect(() => {
+    if (isSubmitting) {
+      setShowFolderDropdown(false);
+    }
+  }, [isSubmitting]);
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      if (!(event.target instanceof Node)) {
+        return;
+      }
+
       if (
         dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node) &&
+        !dropdownRef.current.contains(event.target) &&
         folderInputRef.current &&
-        !folderInputRef.current.contains(event.target as Node)
+        !folderInputRef.current.contains(event.target)
       ) {
         setShowFolderDropdown(false);
       }
@@ -122,7 +132,8 @@ export function MediaUploadDialog({
     return folderChoices
       .map((folder) => {
         const match = fuzzyMatch(query, folder.label);
-        return { ...folder, ...match } as FilteredFolder;
+        const filteredFolder: FilteredFolder = { ...folder, ...match };
+        return filteredFolder;
       })
       .filter((folder) => folder.score >= 0)
       .sort((left, right) => right.score - left.score)
@@ -148,11 +159,19 @@ export function MediaUploadDialog({
   };
 
   const handleFolderSelect = (folderPath: string) => {
+    if (isSubmitting) {
+      return;
+    }
     setFolderInputValue(folderPath);
     setShowFolderDropdown(false);
   };
 
   const handleFolderKeyDown = (event: React.KeyboardEvent) => {
+    if (isSubmitting) {
+      event.preventDefault();
+      return;
+    }
+
     if (!showFolderDropdown) {
       if (event.key === "Enter") {
         event.preventDefault();
@@ -216,6 +235,7 @@ export function MediaUploadDialog({
             onFocus={handleFolderInputFocus}
             onKeyDown={handleFolderKeyDown}
             className="text-sm"
+            disabled={isSubmitting}
             autoFocus
           />
           {showFolderDropdown ? (
