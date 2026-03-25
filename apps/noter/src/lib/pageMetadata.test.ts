@@ -234,5 +234,9 @@ describe("page metadata", () => {
       'property="og:image"\n      content="https://noter.md/noter-social-card.png"',
     );
     expect(html).toContain('name="twitter:image"');
+    expect(html).toContain('<link rel="manifest" href="/manifest.webmanifest"');
+    expect(html).toContain(
+      '<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />',
+    );
   });
 });
