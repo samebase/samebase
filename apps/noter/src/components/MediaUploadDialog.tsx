@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -68,6 +68,7 @@ export function MediaUploadDialog({
   }) => void;
 }) {
   const isMobile = useIsMobile();
+  const locationInputId = useId();
   const folderInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [folderInputValue, setFolderInputValue] = useState(initialFolderPath);
@@ -214,9 +215,7 @@ export function MediaUploadDialog({
   };
 
   const dialogContent = (
-    <div className="space-y-4">
-      <span tabIndex={0} />
-
+    <div className="space-y-4" data-testid="media-upload-dialog-form">
       <div className="space-y-2">
         <label className="text-sm font-medium">File</label>
         <div className="corner-notch-1 border px-3 py-2 text-sm text-muted-foreground">
@@ -225,9 +224,12 @@ export function MediaUploadDialog({
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium">Location</label>
+        <label htmlFor={locationInputId} className="text-sm font-medium">
+          Location
+        </label>
         <div className="relative">
           <Input
+            id={locationInputId}
             ref={folderInputRef}
             placeholder="/"
             value={folderInputValue}

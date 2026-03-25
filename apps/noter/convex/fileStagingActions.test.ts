@@ -11,6 +11,7 @@ import {
   inspectStagedFilesAgainstLatestHead,
   readLatestOpenPullRequestForBranch,
   readOpenPullRequestForBranch,
+  shouldAdvanceBinaryPullParentCommit,
 } from "./fileStagingActions";
 
 type GitApi = RestEndpointMethodTypes["git"];
@@ -1705,5 +1706,34 @@ describe("createCommitWithMultipleFiles", () => {
       }
       expect(entry.content).toBeDefined();
     }
+  });
+});
+
+describe("shouldAdvanceBinaryPullParentCommit", () => {
+  it("advances when the staged binary already matches upstream", () => {
+    expect(
+      shouldAdvanceBinaryPullParentCommit({
+        stagedBlobSha: "upstream-sha",
+        upstreamSha: "upstream-sha",
+      }),
+    ).toBe(true);
+  });
+
+  it("preserves the previous base when upstream diverges", () => {
+    expect(
+      shouldAdvanceBinaryPullParentCommit({
+        stagedBlobSha: "staged-sha",
+        upstreamSha: "upstream-sha",
+      }),
+    ).toBe(false);
+  });
+
+  it("preserves the previous base when the staged row has no uploaded blob", () => {
+    expect(
+      shouldAdvanceBinaryPullParentCommit({
+        stagedBlobSha: undefined,
+        upstreamSha: "upstream-sha",
+      }),
+    ).toBe(false);
   });
 });

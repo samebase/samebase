@@ -760,6 +760,13 @@ function isBinaryStagedFile(file: Pick<StagedFileForCommit, "kind">): boolean {
   return readStagedFileKind(file.kind) === "binary";
 }
 
+export function shouldAdvanceBinaryPullParentCommit(args: {
+  stagedBlobSha?: string | null;
+  upstreamSha: string;
+}): boolean {
+  return args.stagedBlobSha === args.upstreamSha;
+}
+
 function computeGitBlobShaFromBuffer(buffer: Uint8Array): string {
   const headerBuffer = Buffer.from(`blob ${buffer.byteLength}\0`, "utf-8");
   return createHash("sha1").update(headerBuffer).update(buffer).digest("hex");
@@ -2816,11 +2823,18 @@ export const pullFromGitHubInternal = internalAction({
         });
       } else if (newSha !== staged.parentCommitSha) {
         if (readStagedFileKind(staged.kind) === "binary") {
-          instructions.push({
-            action: "update",
-            stagingId: staged._id,
-            parentCommitSha: newSha,
-          });
+          if (
+            shouldAdvanceBinaryPullParentCommit({
+              stagedBlobSha: staged.stagedBlobSha,
+              upstreamSha: newSha,
+            })
+          ) {
+            instructions.push({
+              action: "update",
+              stagingId: staged._id,
+              parentCommitSha: newSha,
+            });
+          }
           continue;
         }
         blobFetchQueue.push({

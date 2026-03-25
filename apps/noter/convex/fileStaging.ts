@@ -399,6 +399,29 @@ export const generateUploadUrl = mutation({
   },
 });
 
+export const deletePendingUploadBlob = mutation({
+  args: {
+    vaultId: vaultIdValidator,
+    storageId: storageIdValidator,
+  },
+  returns: nullResultValidator,
+  handler: async (ctx, args) => {
+    const userId = await getUserId(ctx);
+    const vault = await ctx.db.get(args.vaultId);
+    if (
+      !canAccessVaultStaging({
+        vaultOwnerId: vault?.userId,
+        requesterUserId: userId,
+      })
+    ) {
+      throw new Error("Unauthorized");
+    }
+
+    await ctx.storage.delete(args.storageId);
+    return null;
+  },
+});
+
 export const getByNewPath = query({
   args: getByNewPathArgsValidator,
   returns: stagedFileOrNullValidator,

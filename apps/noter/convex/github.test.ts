@@ -10,6 +10,7 @@ import {
   normalizeGitHubRepositoryListItem,
   readGitHubNextPageUrl,
   readPullRequestLabels,
+  resolveStagedRepositoryMediaAsset,
   resolveAheadBehindBaseBranch,
   shouldBypassRecentSuccessDebounceForBranchRefresh,
   shouldSyncCloudflarePreviewLinks,
@@ -297,6 +298,86 @@ describe("shouldBypassRecentSuccessDebounceForBranchRefresh", () => {
   });
 });
 
+describe("resolveStagedRepositoryMediaAsset", () => {
+  it("falls back to the staged blob cache for binary media without a direct storage id", async () => {
+    const getUrl = async (storageId: string) =>
+      storageId === "storage-1" ? "https://cdn.example.test/cover.png" : null;
+
+    const result = await resolveStagedRepositoryMediaAsset({
+      storage: { getUrl },
+      loadCachedBlobBySha: async (sha) =>
+        sha === "blob-sha"
+          ? {
+              storageId: "storage-1",
+              mime: "image/png",
+            }
+          : null,
+      stagedFile: {
+        fileDeleted: false,
+        kind: "binary",
+        content: "",
+        stagedBlobSha: "blob-sha",
+      },
+      filePath: "assets/cover.png",
+      mediaKind: "image",
+      fileName: "cover.png",
+    });
+
+    expect(result).toEqual({
+      found: true,
+      kind: "image",
+      mimeType: "image/png",
+      url: "https://cdn.example.test/cover.png",
+      fileName: "cover.png",
+    });
+  });
+
+  it("reports staged binary previews as unavailable when no storage-backed blob can be resolved", async () => {
+    const result = await resolveStagedRepositoryMediaAsset({
+      storage: {
+        getUrl: async () => null,
+      },
+      loadCachedBlobBySha: async () => null,
+      stagedFile: {
+        fileDeleted: false,
+        kind: "binary",
+        content: "",
+        stagedBlobSha: "missing-sha",
+      },
+      filePath: "assets/cover.png",
+      mediaKind: "image",
+      fileName: "cover.png",
+    });
+
+    expect(result).toEqual({
+      found: false,
+      reason: "unavailable",
+      message: "Staged upload is missing storage reference.",
+    });
+  });
+
+  it("returns missing for deleted staged media", async () => {
+    const result = await resolveStagedRepositoryMediaAsset({
+      storage: {
+        getUrl: async () => null,
+      },
+      loadCachedBlobBySha: async () => null,
+      stagedFile: {
+        fileDeleted: true,
+        kind: "binary",
+        content: "",
+      },
+      filePath: "assets/cover.png",
+      mediaKind: "image",
+      fileName: "cover.png",
+    });
+
+    expect(result).toEqual({
+      found: false,
+      reason: "missing",
+    });
+  });
+});
 describe("listGitHubRepositories", () => {
   it("iterates GitHub pagination and deduplicates by repository id", async () => {
     const requestedUrls: string[] = [];

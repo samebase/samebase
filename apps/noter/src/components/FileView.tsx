@@ -66,6 +66,10 @@ import { claimRefreshDebounce } from "@/lib/treeRefreshDebounce";
 import { buildFileViewRefreshDebounceKey } from "@/lib/fileViewRefresh";
 import { getAncestorFolderPaths } from "@/lib/fileTreeState";
 import { FILE_VIEW_TREE_SIDEBAR_SIDE } from "@/lib/fileViewSidebarLayout";
+import {
+  readUploadStorageId,
+  uploadMediaWithCleanup,
+} from "@/lib/mediaUploadWorkflow";
 import { type GithubTreeType } from "convex/schema";
 import { formatStopwatchDuration } from "@/lib/stopwatch";
 import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
@@ -303,20 +307,6 @@ function getDefaultUploadFolderPath(filePath: string): string {
 
 function normalizeFolderPath(folderPath: string): string {
   return folderPath.trim().replace(/^\/+|\/+$/g, "");
-}
-
-function readUploadStorageId(value: unknown): string {
-  if (
-    typeof value === "object" &&
-    value !== null &&
-    "storageId" in value &&
-    typeof value.storageId === "string" &&
-    value.storageId.length > 0
-  ) {
-    return value.storageId;
-  }
-
-  throw new Error("Upload response did not include a storage id.");
 }
 
 function FileViewWrapper() {
@@ -926,6 +916,9 @@ function FileViewInner({
   const [generateUploadUrl] = useConvexMutation(
     api.fileStaging.generateUploadUrl,
   );
+  const [deletePendingUploadBlob] = useConvexMutation(
+    api.fileStaging.deletePendingUploadBlob,
+  );
 
   const [markFileForDeletion] = useConvexMutation(
     api.fileStaging.markFileForDeletion,
@@ -1328,25 +1321,24 @@ function FileViewInner({
       setIsUploadingMedia(true);
       setMediaUploadError(null);
 
-      void generateUploadUrl({ vaultId: vault._id })
-        .then((uploadUrl) =>
-          fetch(uploadUrl, {
+      void uploadMediaWithCleanup({
+        requestUploadUrl: () => generateUploadUrl({ vaultId: vault._id }),
+        uploadFile: async (uploadUrl) => {
+          const response = await fetch(uploadUrl, {
             method: "POST",
             headers: {
               "Content-Type":
                 pendingMediaUpload.file.type || "application/octet-stream",
             },
             body: pendingMediaUpload.file,
-          }),
-        )
-        .then(async (response) => {
+          });
           if (!response.ok) {
             throw new Error("Failed to upload image.");
           }
           return readUploadStorageId(await response.json());
-        })
-        .then((storageId) =>
-          stageUploadedMedia({
+        },
+        stageUploadedMedia: async (storageId) => {
+          await stageUploadedMedia({
             repositoryFullName,
             filePath: targetPath,
             // Convex returns upload ids as opaque strings over HTTP even though
@@ -1355,8 +1347,23 @@ function FileViewInner({
             storageId,
             branch,
             replaceExisting,
-          }),
-        )
+          });
+        },
+        deleteUploadedMedia: async (storageId) => {
+          await deletePendingUploadBlob({
+            vaultId: vault._id,
+            // Upload responses cannot preserve the storage id brand.
+            // @ts-expect-error Upload responses are plain strings from fetch JSON.
+            storageId,
+          });
+        },
+        onCleanupError: (cleanupError, storageId) => {
+          console.warn("Failed to clean up uploaded media blob", {
+            storageId,
+            cleanupError,
+          });
+        },
+      })
         .then(() => {
           setPendingMediaUpload(null);
           void navigate(buildVaultFileUrl(targetPath), { state });
@@ -1375,6 +1382,7 @@ function FileViewInner({
     [
       branch,
       buildVaultFileUrl,
+      deletePendingUploadBlob,
       generateUploadUrl,
       navigate,
       pendingMediaUpload,

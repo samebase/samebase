@@ -550,6 +550,14 @@ type RepositoryMediaUnavailableAsset = Extract<
   RepositoryMediaAsset,
   { found: false; reason: "unavailable" }
 >;
+type StagedRepositoryMediaAssetCandidate = {
+  fileDeleted: boolean;
+  kind?: "text" | "binary";
+  storageId?: string | null;
+  stagedBlobSha?: string | null;
+  mime?: string;
+  content: string;
+};
 const CLOUDFLARE_PREVIEW_COMMENT_CONCURRENCY = 5;
 const CLOUDFLARE_PREVIEW_COMMENT_AUTHORS = new Set([
   "cloudflare-workers-and-pages[bot]",
@@ -1508,6 +1516,84 @@ async function resolveCachedRepositoryMediaAsset(
   return null;
 }
 
+export async function resolveStagedRepositoryMediaAsset(args: {
+  storage: {
+    getUrl(storageId: string): Promise<string | null>;
+  };
+  loadCachedBlobBySha: (sha: string) => Promise<CachedRepositoryBlob | null>;
+  stagedFile: StagedRepositoryMediaAssetCandidate;
+  filePath: string;
+  mediaKind: "image";
+  fileName: string;
+}): Promise<RepositoryMediaAsset> {
+  if (args.stagedFile.fileDeleted) {
+    return { found: false, reason: "missing" };
+  }
+
+  const stagedKind = readStagedFileKind(args.stagedFile.kind);
+  const directAsset = await resolveCachedRepositoryMediaAsset(
+    { storage: args.storage },
+    {
+      storageId: args.stagedFile.storageId,
+      text: args.stagedFile.content,
+      mime: args.stagedFile.mime,
+    },
+    args.filePath,
+    args.mediaKind,
+    args.fileName,
+  );
+  if (directAsset) {
+    return directAsset;
+  }
+
+  if (
+    stagedKind === "binary" &&
+    typeof args.stagedFile.stagedBlobSha === "string" &&
+    args.stagedFile.stagedBlobSha.length > 0
+  ) {
+    const cachedBlob = await args.loadCachedBlobBySha(
+      args.stagedFile.stagedBlobSha,
+    );
+    const resolvedCachedAsset = await resolveCachedRepositoryMediaAsset(
+      { storage: args.storage },
+      cachedBlob,
+      args.filePath,
+      args.mediaKind,
+      args.fileName,
+    );
+    if (resolvedCachedAsset) {
+      return resolvedCachedAsset;
+    }
+  }
+
+  if (stagedKind === "binary") {
+    return {
+      found: false,
+      reason: "unavailable",
+      message: "Staged upload is missing storage reference.",
+    };
+  }
+
+  if (isSvgRepositoryMediaPath(args.filePath)) {
+    return {
+      found: true,
+      kind: args.mediaKind,
+      mimeType: "image/svg+xml",
+      url: buildDataUrl(
+        "image/svg+xml",
+        Buffer.from(args.stagedFile.content, "utf-8"),
+      ),
+      fileName: args.fileName,
+    };
+  }
+
+  return {
+    found: false,
+    reason: "unavailable",
+    message: "Preview unavailable for this staged file.",
+  };
+}
+
 function getRepositoryMediaFileName(filePath: string): string {
   return filePath.split("/").pop() ?? filePath;
 }
@@ -1666,50 +1752,28 @@ export const getRepositoryMediaAsset = action({
         },
       );
       if (stagedFile) {
-        if (stagedFile.fileDeleted) {
-          return { found: false, reason: "missing" };
-        }
-
-        const stagedKind = readStagedFileKind(stagedFile.kind);
-        if (typeof stagedFile.storageId === "string") {
-          const stagedUrl = await ctx.storage.getUrl(stagedFile.storageId);
-          if (typeof stagedUrl === "string" && stagedUrl.length > 0) {
-            return {
-              found: true,
-              kind: mediaKind,
-              mimeType: stagedFile.mime ?? guessMime(args.filePath),
-              url: stagedUrl,
-              fileName,
-            };
-          }
-        }
-
-        if (stagedKind === "binary") {
+        const stagedAsset = await resolveStagedRepositoryMediaAsset({
+          storage: ctx.storage,
+          loadCachedBlobBySha: (sha) =>
+            ctx.runQuery(internal.gitOperations.getBlobBySha, { sha }),
+          stagedFile,
+          filePath: args.filePath,
+          mediaKind,
+          fileName,
+        });
+        if (
+          !stagedAsset.found &&
+          stagedAsset.reason === "unavailable" &&
+          readStagedFileKind(stagedFile.kind) === "binary"
+        ) {
           console.warn("Staged binary media preview is missing storage data", {
             vaultId: vault._id,
             branch: requestedBranch,
             filePath: args.filePath,
             stagingId: stagedFile._id,
           });
-          return {
-            found: false,
-            reason: "unavailable",
-            message: "Staged upload is missing storage reference.",
-          };
         }
-
-        if (isSvgRepositoryMediaPath(args.filePath)) {
-          return {
-            found: true,
-            kind: mediaKind,
-            mimeType: "image/svg+xml",
-            url: buildDataUrl(
-              "image/svg+xml",
-              Buffer.from(stagedFile.content, "utf-8"),
-            ),
-            fileName,
-          };
-        }
+        return stagedAsset;
       }
     }
 
