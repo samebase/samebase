@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
 import {
+  buildCommitPreviewFromStagedFiles,
   buildComparedCommitPreviewFileFromStagedFile,
   buildDraftBranchName,
   buildDraftPullRequestTitle,
@@ -497,6 +498,65 @@ describe("buildComparedCommitPreviewFileFromStagedFile", () => {
         previousPath: "src/file-old.ts",
       }),
     );
+  });
+
+  it("hydrates rich text content for non-markdown staged compare overlays", () => {
+    expect(
+      buildComparedCommitPreviewFileFromStagedFile({
+        stagedFile: {
+          filePath: "src/file.ts",
+          initialFilePath: "src/file.ts",
+          content: "export const value = 2;\n",
+          initialContent: "export const value = 1;\n",
+          fileDeleted: false,
+          parentCommitSha: "head-sha",
+          branch: "feature",
+        },
+        matchedRemoteFile: {
+          status: "modified",
+          path: "src/file.ts",
+        },
+        basePath: "src/file.ts",
+        baseContent: "export const value = 1;\n",
+        includePatch: true,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        status: "modified",
+        path: "src/file.ts",
+        richOldContent: "export const value = 1;\n",
+        richNewContent: "export const value = 2;\n",
+      }),
+    );
+  });
+});
+
+describe("buildCommitPreviewFromStagedFiles", () => {
+  it("hydrates rich text content for non-markdown staged files", () => {
+    const preview = buildCommitPreviewFromStagedFiles({
+      branch: "feature",
+      includePatch: true,
+      stagedFiles: [
+        {
+          filePath: "src/file.ts",
+          initialFilePath: "src/file.ts",
+          content: "export const value = 2;\n",
+          initialContent: "export const value = 1;\n",
+          fileDeleted: false,
+          parentCommitSha: "head-sha",
+          branch: "feature",
+        },
+      ],
+    });
+
+    expect(preview.files).toEqual([
+      expect.objectContaining({
+        status: "modified",
+        path: "src/file.ts",
+        richOldContent: "export const value = 1;\n",
+        richNewContent: "export const value = 2;\n",
+      }),
+    ]);
   });
 });
 

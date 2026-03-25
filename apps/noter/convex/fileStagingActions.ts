@@ -1409,6 +1409,7 @@ export function buildCommitPreviewFromStagedFiles({
         oldContent: file.initialContent,
         newContent: file.fileDeleted ? "" : file.content,
         includePatch,
+        hydrateRichContent: true,
       });
     }),
   );
@@ -1599,6 +1600,8 @@ function resolveComparedStagedFileBasePath(args: {
  * Compare mode needs to reinterpret staged rows against the PR/base side rather
  * than against the current branch head, otherwise remote PR changes and local
  * staged edits produce incorrect statuses like added->renamed or deleted->added.
+ * These rows are editor-backed text files, so they should keep the same rich
+ * merge surface for code/text diffs that markdown already uses.
  */
 export function buildComparedCommitPreviewFileFromStagedFile(args: {
   stagedFile: StagedFileForCommit;
@@ -1621,6 +1624,7 @@ export function buildComparedCommitPreviewFileFromStagedFile(args: {
       oldContent: args.baseContent,
       newContent: "",
       includePatch: args.includePatch,
+      hydrateRichContent: true,
     });
   }
 
@@ -1631,6 +1635,7 @@ export function buildComparedCommitPreviewFileFromStagedFile(args: {
       oldContent: "",
       newContent: args.stagedFile.content,
       includePatch: args.includePatch,
+      hydrateRichContent: true,
     });
   }
 
@@ -1653,6 +1658,7 @@ export function buildComparedCommitPreviewFileFromStagedFile(args: {
     oldContent: args.baseContent,
     newContent: args.stagedFile.content,
     includePatch: args.includePatch,
+    hydrateRichContent: true,
   });
 }
 
