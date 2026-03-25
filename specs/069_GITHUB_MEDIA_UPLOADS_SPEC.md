@@ -1,4 +1,4 @@
-# 068 GitHub Media Uploads Spec
+# 069 GitHub Media Uploads Spec
 
 ## Document Control
 
@@ -135,10 +135,9 @@ Reasons:
 - The dashboard has shared chrome but still lacks a precise upload destination.
 
 The dashboard can adopt the same component later once the product decides how a
-global upload target should be chosen. In phase 1, the dashboard must not
-expose a live dropzone, and dragging files over the dashboard should do nothing
-instead of implying an upload target. `/add` should not show a live dropzone in
-phase 1.
+global upload target should be chosen. In phase 1, the dashboard must not expose
+a live dropzone, and dragging files over the dashboard should do nothing instead
+of implying an upload target. `/add` should not show a live dropzone in phase 1.
 
 ### 2. Support images only in phase 1
 
@@ -193,8 +192,9 @@ Destination control:
 
 Conflict behavior:
 
-- fail closed on duplicate destination paths
-- show an inline error or toast
+- if the destination path already exists, require an explicit replace
+  confirmation before staging
+- show an inline warning or confirmation state instead of silently overwriting
 - do not auto-rename files in phase 1
 
 ### 4. Keep GitHub as the source of truth, use Convex storage only as staging
@@ -359,8 +359,8 @@ binary branch to it.
   - upload a new image to the selected folder
   - upload a new image to repository root
   - reject an oversized image
-  - reject a duplicate destination path
-  - replace an existing image
+  - require explicit confirmation before replacing an existing path
+  - replace an existing image after confirmation
   - rename a staged image
   - delete and restore a staged image
   - commit and reload
@@ -373,11 +373,6 @@ binary branch to it.
 - Git LFS integration in phase 1
 - a global upload entrypoint on `/add`
 - dashboard uploads without an explicit vault and branch target
-
-## Open Questions
-
-- Whether replacement uploads should reuse the same staged path automatically or
-  always force an explicit conflict prompt
 
 ## Primary Sources
 
