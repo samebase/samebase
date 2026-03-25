@@ -62,6 +62,7 @@ export function AddRepository() {
     error: fullQueryError,
     refetch: refetchFullRepositories,
     fetchStatus: fullRepositoriesFetchStatus,
+    isFetchedAfterMount: fullRepositoriesFetchedAfterMount,
   } = useReactQuery({
     queryKey: ["github-repositories"],
     queryFn: async () => {
@@ -70,10 +71,15 @@ export function AddRepository() {
     enabled: githubConnected && repositoryPreview?.hasMore === true,
   });
 
+  const hasFreshFullRepositories =
+    repositoryPreview?.hasMore === true &&
+    fullRepositoriesFetchedAfterMount &&
+    fullQueryError == null;
   const repositories = resolveDisplayedRepositories({
     githubConnected,
     repositoryPreview,
     fullRepositories,
+    hasFreshFullRepositories,
   });
   const loading = previewLoading;
   // Until the full query succeeds, every search result is still partial even
@@ -81,13 +87,24 @@ export function AddRepository() {
   const hasPartialResults =
     githubConnected &&
     repositoryPreview?.hasMore === true &&
-    fullRepositories === undefined;
+    !hasFreshFullRepositories;
   const loadingMore =
     hasPartialResults && fullRepositoriesFetchStatus === "fetching";
-  const hasFinalRepositorySet = githubConnected && !hasPartialResults;
   const hasSearchQuery = searchQuery.trim().length > 0;
   const showBackgroundError =
     hasPartialResults && (fullQueryError != null || retryingFullRepositories);
+  const emptyRepositoryMessage =
+    showBackgroundError && !retryingFullRepositories
+      ? hasSearchQuery
+        ? "Couldn't finish loading the rest of your repositories. Retry to finish your search."
+        : "Couldn't finish loading the rest of your repositories."
+      : hasPartialResults
+        ? hasSearchQuery
+          ? "Loading more repositories to finish your search..."
+          : "Loading more repositories..."
+        : hasSearchQuery
+          ? "No repositories match your search"
+          : null;
 
   const error =
     connectError ??
@@ -408,18 +425,11 @@ export function AddRepository() {
           !loading &&
           !error &&
           repositories.length > 0 &&
+          emptyRepositoryMessage !== null &&
           githubConnected && (
             <div className="text-center py-8">
               <div className="text-muted-foreground">
-                {showBackgroundError && !retryingFullRepositories
-                  ? hasSearchQuery
-                    ? "Couldn't finish loading the rest of your repositories. Retry to finish your search."
-                    : "Couldn't finish loading the rest of your repositories."
-                  : hasFinalRepositorySet
-                    ? "No repositories match your search"
-                    : hasSearchQuery
-                      ? "Loading more repositories to finish your search..."
-                      : "Loading more repositories..."}
+                {emptyRepositoryMessage}
               </div>
             </div>
           )}

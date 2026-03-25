@@ -11,6 +11,7 @@ export function resolveDisplayedRepositories<T>(args: {
       }
     | undefined;
   fullRepositories: T[] | undefined;
+  hasFreshFullRepositories: boolean;
 }): T[] {
   if (!args.githubConnected) {
     return [];
@@ -20,5 +21,9 @@ export function resolveDisplayedRepositories<T>(args: {
     return args.repositoryPreview.repositories;
   }
 
-  return args.fullRepositories ?? args.repositoryPreview?.repositories ?? [];
+  if (args.hasFreshFullRepositories) {
+    return args.fullRepositories ?? args.repositoryPreview?.repositories ?? [];
+  }
+
+  return args.repositoryPreview?.repositories ?? [];
 }

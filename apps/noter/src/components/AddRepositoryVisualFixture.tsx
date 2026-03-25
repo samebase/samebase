@@ -5,7 +5,8 @@ import { ClockIcon, GitHubLogoIcon } from "@radix-ui/react-icons";
 export type AddRepositoryVisualMode =
   | "add-repository-loading-more"
   | "add-repository-background-error"
-  | "add-repository-retrying";
+  | "add-repository-retrying"
+  | "add-repository-empty-final";
 
 type RepositoryFixture = {
   id: number;
@@ -72,6 +73,13 @@ const FIXTURE_BY_MODE: Record<
     backgroundError: true,
     retrying: true,
     emptyMessage: "Loading more repositories to finish your search...",
+  },
+  "add-repository-empty-final": {
+    searchQuery: "",
+    repositories: [],
+    loadingMore: false,
+    backgroundError: false,
+    retrying: false,
   },
 };
 

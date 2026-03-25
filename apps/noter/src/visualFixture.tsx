@@ -110,6 +110,7 @@ const ADD_REPOSITORY_VISUAL_MODES = [
   "add-repository-loading-more",
   "add-repository-background-error",
   "add-repository-retrying",
+  "add-repository-empty-final",
 ] as const satisfies readonly AddRepositoryVisualMode[];
 
 const LANDING_COPY_VISUAL_MODES = [
@@ -269,7 +270,8 @@ function renderVisualFixture(mode: VisualFixtureMode) {
   if (
     mode === "add-repository-loading-more" ||
     mode === "add-repository-background-error" ||
-    mode === "add-repository-retrying"
+    mode === "add-repository-retrying" ||
+    mode === "add-repository-empty-final"
   ) {
     return <AddRepositoryVisualFixture mode={mode} />;
   }

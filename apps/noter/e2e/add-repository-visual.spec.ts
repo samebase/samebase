@@ -13,6 +13,10 @@ const SCENARIOS = [
     mode: "add-repository-retrying",
     snapshotName: "add-repository-retrying.png",
   },
+  {
+    mode: "add-repository-empty-final",
+    snapshotName: "add-repository-empty-final.png",
+  },
 ] as const;
 
 for (const scenario of SCENARIOS) {

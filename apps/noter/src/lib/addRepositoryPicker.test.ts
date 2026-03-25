@@ -34,6 +34,7 @@ describe("resolveDisplayedRepositories", () => {
           hasMore: false,
         },
         fullRepositories: staleFullRepositories,
+        hasFreshFullRepositories: false,
       }),
     ).toEqual(previewRepositories);
   });
@@ -53,7 +54,52 @@ describe("resolveDisplayedRepositories", () => {
           hasMore: true,
         },
         fullRepositories,
+        hasFreshFullRepositories: true,
       }),
     ).toEqual(fullRepositories);
+  });
+
+  it("falls back to preview repositories while the full scan is still pending", () => {
+    const previewRepositories = [buildRepository(1, "owner/preview-repo")];
+
+    expect(
+      resolveDisplayedRepositories({
+        githubConnected: true,
+        repositoryPreview: {
+          repositories: previewRepositories,
+          hasMore: true,
+        },
+        fullRepositories: undefined,
+        hasFreshFullRepositories: false,
+      }),
+    ).toEqual(previewRepositories);
+  });
+
+  it("ignores cached full repositories until the current background scan succeeds", () => {
+    const previewRepositories = [buildRepository(1, "owner/preview-repo")];
+    const staleFullRepositories = [buildRepository(2, "owner/stale-full-repo")];
+
+    expect(
+      resolveDisplayedRepositories({
+        githubConnected: true,
+        repositoryPreview: {
+          repositories: previewRepositories,
+          hasMore: true,
+        },
+        fullRepositories: staleFullRepositories,
+        hasFreshFullRepositories: false,
+      }),
+    ).toEqual(previewRepositories);
+  });
+
+  it("returns an empty list when GitHub is disconnected", () => {
+    expect(
+      resolveDisplayedRepositories({
+        githubConnected: false,
+        repositoryPreview: undefined,
+        fullRepositories: [buildRepository(1, "owner/ignored-repo")],
+        hasFreshFullRepositories: true,
+      }),
+    ).toEqual([]);
   });
 });
