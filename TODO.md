@@ -3,6 +3,8 @@
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 - [ ] specifically left blank
 
+- [ ] something
+
 - [ ] idea, when people successfuly go the logo in form 1, it starts getting bigger and transform into a markdown chat input that says welcome and it says that they do something, idk
 
 - [ ] research slogan idea: the same way there are preview frontend (cloudflare) deploys, preview backend (convex) deploys, now you have dev (noter.md) deploys 
