@@ -2,13 +2,15 @@
 
 ## Document Control
 
-- Status: Accepted, not yet implemented
+- Status: Accepted and implemented
 - Owner: Noter frontend
 - Last updated: 2026-03-25
 - Related files: `specs/061_FAST_PUBLIC_LANDING_BOOT_SPEC.md`,
   `specs/061_USER_LOGO_STATIC_SVG_DELIVERY_SPEC.md`, `apps/noter/index.html`,
   `apps/noter/public/_redirects`, `apps/noter/public/favicon.png`,
-  `apps/noter/public/favicon-32.png`, `apps/noter/public/logo-static.svg`,
+  `apps/noter/public/favicon-32.png`, `apps/noter/public/install-icon.svg`,
+  `apps/noter/public/logo-static.svg`,
+  `apps/noter/scripts/generate-install-icon-assets.mjs`,
   `apps/noter/src/bootstrap.ts`, `apps/noter/src/main.tsx`,
   `apps/noter/src/components/logoStaticSvgAsset.ts`,
   `apps/noter/src/lib/staticLegalPage.ts`, `apps/noter/vite.config.ts`
@@ -27,7 +29,7 @@ must be as thin as possible:
 The install path should improve homescreen behavior without changing the normal
 browser refresh model.
 
-## Current Problem Snapshot (2026-03-25)
+## Problem Context
 
 - `apps/noter/index.html` and the generated public legal HTML pages currently
   link only `16x16` and `32x32` favicons.
@@ -151,6 +153,8 @@ Requirements:
   than launcher heuristics
 - provide an Apple touch icon for iOS homescreen install flows
 - derive all install icons from the current public logo source of truth
+- render install icons on a white canvas and remap the static logo's white top
+  faces to the light-theme primary so the mark keeps contrast on that canvas
 
 Initial default:
 

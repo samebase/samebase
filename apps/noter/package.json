@@ -8,6 +8,7 @@
     "dev": "npm-run-all --parallel dev:frontend dev:backend",
     "dev:frontend": "vite --host 0.0.0.0 --port ${VITE_PORT:-5173}",
     "dev:backend": "node convex-dev.js",
+    "generate:install-icon-assets": "node ./scripts/generate-install-icon-assets.mjs",
     "predev": "node predev.js",
     "typecheck": "convex codegen && tsc --noEmit",
     "build": "convex codegen && tsc && vite build",

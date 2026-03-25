@@ -5,6 +5,7 @@ import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { format as formatWithPrettier } from "prettier";
 import { readPackageVersion } from "../../scripts/readPackageVersion.js";
+import { createInstallIconSvgMarkup } from "./src/components/installIconSvgAsset";
 import { createStaticLogoSvgMarkup } from "./src/components/logoStaticSvgAsset";
 import {
   type PageMetadata,
@@ -55,6 +56,10 @@ const staticLogoSvgAssetPath = path.resolve(
   __dirname,
   "public/logo-static.svg",
 );
+const staticInstallIconSvgAssetPath = path.resolve(
+  __dirname,
+  "public/install-icon.svg",
+);
 const privacyPolicyMarkdownPath = path.resolve(
   __dirname,
   "src/content/privacy-policy.md",
@@ -84,6 +89,27 @@ function syncStaticLogoSvgAsset() {
   }
 
   writeFileSync(staticLogoSvgAssetPath, `${nextStaticLogoSvgMarkup}\n`, "utf8");
+}
+
+function syncStaticInstallIconSvgAsset() {
+  const nextInstallIconSvgMarkup = createInstallIconSvgMarkup().trim();
+  const currentInstallIconSvgMarkup = (() => {
+    try {
+      return readFileSync(staticInstallIconSvgAssetPath, "utf8").trim();
+    } catch {
+      return null;
+    }
+  })();
+
+  if (currentInstallIconSvgMarkup === nextInstallIconSvgMarkup) {
+    return;
+  }
+
+  writeFileSync(
+    staticInstallIconSvgAssetPath,
+    `${nextInstallIconSvgMarkup}\n`,
+    "utf8",
+  );
 }
 
 async function formatGeneratedHtml(args: { htmlPath: string; html: string }) {
@@ -158,6 +184,29 @@ function syncStaticLogoSvgAssetPlugin() {
   };
 }
 
+function syncStaticInstallIconSvgAssetPlugin() {
+  let hasSyncedStaticInstallIconSvgAsset = false;
+
+  const syncOnce = () => {
+    if (hasSyncedStaticInstallIconSvgAsset) {
+      return;
+    }
+
+    hasSyncedStaticInstallIconSvgAsset = true;
+    syncStaticInstallIconSvgAsset();
+  };
+
+  return {
+    name: "sync-static-install-icon-svg-asset",
+    buildStart() {
+      syncOnce();
+    },
+    configureServer() {
+      syncOnce();
+    },
+  };
+}
+
 function syncStaticLegalPageAssetsPlugin() {
   let hasSyncedStaticLegalPageAssets = false;
 
@@ -215,6 +264,7 @@ export default defineConfig({
   },
   plugins: [
     syncStaticLogoSvgAssetPlugin(),
+    syncStaticInstallIconSvgAssetPlugin(),
     syncStaticLegalPageAssetsPlugin(),
     react(),
   ],
