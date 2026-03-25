@@ -4,3 +4,4 @@
 - https://tree.md/
 - https://studio.neato.fun/dither
 - https://notable.app/
+- https://superset.sh/
