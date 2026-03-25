@@ -1861,19 +1861,20 @@ function VaultDashboardContent() {
         }
       : undefined;
 
-  const dashboardTopBarContent = (
-    <div className="p-3">
-      <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
-    </div>
-  );
-
-  const dashboardPageHeaderContent =
-    vaults.length === 0 ? null : (
+  const dashboardHeaderContent =
+    vaults.length === 0 ? (
+      <div className="p-3">
+        <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
+      </div>
+    ) : (
       <div className="container py-6">
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-center gap-2">
-            <GitHubLogoIcon className="h-5 w-5 sm:h-6 sm:w-6" />
-            <h1 className="text-xl font-semibold sm:text-2xl">Your Vaults</h1>
+          <div className="flex items-center gap-3">
+            <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
+            <div className="flex items-center gap-2">
+              <GitHubLogoIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+              <h1 className="text-xl font-semibold sm:text-2xl">Your Vaults</h1>
+            </div>
           </div>
           <div className="w-full lg:w-auto">{createControl}</div>
         </div>
@@ -2170,8 +2171,7 @@ function VaultDashboardContent() {
         dataTestId="vault-dashboard"
         sidebarHeader={sidebarHeader}
         sidebarContent={sidebarContent}
-        topBarContent={dashboardTopBarContent}
-        pageHeaderContent={dashboardPageHeaderContent}
+        headerContent={dashboardHeaderContent}
         bodyClassName="flex min-h-0 flex-col"
       >
         <div className="flex h-full min-h-0 flex-col">
