@@ -1425,7 +1425,7 @@ function readCommitPreviewFileStatus(
   return "modified";
 }
 
-function buildRemoteComparePreviewFile(
+function buildRemoteComparePreviewFileFromMetadata(
   file: GitHubCompareFileCandidate,
 ): CommitPreviewFile | null {
   if (typeof file.filename !== "string" || file.filename.length === 0) {
@@ -1451,6 +1451,60 @@ function buildRemoteComparePreviewFile(
         ? file.patch
         : undefined,
   };
+}
+
+/**
+ * GitHub compare metadata only includes patch text, but markdown compare mode
+ * needs full old/new content to render the merge view instead of a raw patch.
+ */
+export async function buildRemoteComparePreviewFile(args: {
+  file: GitHubCompareFileCandidate;
+  baseShaByPath: Map<string, string>;
+  headShaByPath: Map<string, string>;
+  getBlobTextBySha: (sha: string) => Promise<string>;
+  includePatch: boolean;
+}): Promise<CommitPreviewFile | null> {
+  const metadataFile = buildRemoteComparePreviewFileFromMetadata(args.file);
+  if (!metadataFile) {
+    return null;
+  }
+
+  if (!metadataFile.isMarkdown) {
+    return metadataFile;
+  }
+
+  const basePath =
+    metadataFile.status === "renamed" &&
+    typeof metadataFile.previousPath === "string"
+      ? metadataFile.previousPath
+      : metadataFile.path;
+  const oldSha =
+    metadataFile.status === "added"
+      ? null
+      : args.baseShaByPath.get(basePath) ?? null;
+  const newSha =
+    metadataFile.status === "deleted"
+      ? null
+      : args.headShaByPath.get(metadataFile.path) ?? null;
+
+  if (
+    (metadataFile.status !== "added" && !oldSha) ||
+    (metadataFile.status !== "deleted" && !newSha)
+  ) {
+    return metadataFile;
+  }
+
+  const oldContent = oldSha ? await args.getBlobTextBySha(oldSha) : "";
+  const newContent = newSha ? await args.getBlobTextBySha(newSha) : "";
+
+  return buildCommitPreviewFileFromContents({
+    status: metadataFile.status,
+    path: metadataFile.path,
+    previousPath: metadataFile.previousPath,
+    oldContent,
+    newContent,
+    includePatch: args.includePatch,
+  });
 }
 
 function findMatchingRemoteCompareFile(args: {
@@ -2927,22 +2981,17 @@ export const getBranchComparePreview = action({
           ? baseCommitSha
           : baseBranch;
 
-    const remoteFileCandidates = currentPullRequest
-      ? await getPullRequestCompareFiles({
-          octokit,
-          owner: vault.ghRepoOwner,
-          repo: vault.ghRepoName,
-          pullRequestNumber: currentPullRequest.number,
-        })
-      : compareResponse.data.files ?? [];
-    const remoteFiles = remoteFileCandidates
-      .map((file) => buildRemoteComparePreviewFile(file))
-      .filter((file): file is CommitPreviewFile => file !== null);
     const baseShaByPath = await getTreeMapForRef({
       octokit,
       owner: vault.ghRepoOwner,
       repo: vault.ghRepoName,
       ref: mergeBaseSha,
+    });
+    const headShaByPath = await getTreeMapForRef({
+      octokit,
+      owner: vault.ghRepoOwner,
+      repo: vault.ghRepoName,
+      ref: branch,
     });
     const blobTextBySha = new Map<string, Promise<string>>();
     const getBlobTextBySha = (sha: string): Promise<string> => {
@@ -2969,6 +3018,27 @@ export const getBranchComparePreview = action({
       blobTextBySha.set(sha, loaded);
       return loaded;
     };
+    const remoteFileCandidates = currentPullRequest
+      ? await getPullRequestCompareFiles({
+          octokit,
+          owner: vault.ghRepoOwner,
+          repo: vault.ghRepoName,
+          pullRequestNumber: currentPullRequest.number,
+        })
+      : compareResponse.data.files ?? [];
+    const remoteFiles = (
+      await Promise.all(
+        remoteFileCandidates.map((file) =>
+          buildRemoteComparePreviewFile({
+            file,
+            baseShaByPath,
+            headShaByPath,
+            getBlobTextBySha,
+            includePatch,
+          }),
+        ),
+      )
+    ).filter((file): file is CommitPreviewFile => file !== null);
     const files =
       stagedFiles.length > 0
         ? await buildBranchComparePreviewFiles({

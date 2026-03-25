@@ -4,6 +4,7 @@ import {
   buildComparedCommitPreviewFileFromStagedFile,
   buildDraftBranchName,
   buildDraftPullRequestTitle,
+  buildRemoteComparePreviewFile,
   createCommitWithMultipleFiles,
   getDraftPullRequestCreateErrorMessage,
   inspectStagedFilesAgainstLatestHead,
@@ -496,6 +497,82 @@ describe("buildComparedCommitPreviewFileFromStagedFile", () => {
         previousPath: "src/file-old.ts",
       }),
     );
+  });
+});
+
+describe("buildRemoteComparePreviewFile", () => {
+  it("hydrates markdown compare files with rich content from base and head trees", async () => {
+    const getBlobTextBySha = vi.fn(async (sha: string) => {
+      if (sha === "base-sha") {
+        return "# Spec\n\nOld line\n";
+      }
+
+      if (sha === "head-sha") {
+        return "# Spec\n\nNew line\n";
+      }
+
+      throw new Error(`Unexpected sha ${sha}`);
+    });
+
+    const result = await buildRemoteComparePreviewFile({
+      file: {
+        filename: "rfcs/spec.md",
+        status: "modified",
+        additions: 1,
+        deletions: 1,
+        patch: "@@ -1,3 +1,3 @@",
+      },
+      baseShaByPath: new Map([["rfcs/spec.md", "base-sha"]]),
+      headShaByPath: new Map([["rfcs/spec.md", "head-sha"]]),
+      getBlobTextBySha,
+      includePatch: true,
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: "modified",
+        path: "rfcs/spec.md",
+        isMarkdown: true,
+        richOldContent: "# Spec\n\nOld line\n",
+        richNewContent: "# Spec\n\nNew line\n",
+      }),
+    );
+    expect(result?.patch).toContain("--- rfcs/spec.md");
+    expect(getBlobTextBySha).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps non-markdown compare files as patch-only metadata", async () => {
+    const getBlobTextBySha = vi.fn(async () => {
+      throw new Error("Should not load blob text for non-markdown files");
+    });
+
+    const result = await buildRemoteComparePreviewFile({
+      file: {
+        filename: "src/file.ts",
+        status: "modified",
+        additions: 3,
+        deletions: 2,
+        patch: "@@ -1 +1 @@",
+      },
+      baseShaByPath: new Map([["src/file.ts", "base-sha"]]),
+      headShaByPath: new Map([["src/file.ts", "head-sha"]]),
+      getBlobTextBySha,
+      includePatch: true,
+    });
+
+    expect(result).toEqual({
+      status: "modified",
+      path: "src/file.ts",
+      previousPath: undefined,
+      additions: 3,
+      deletions: 2,
+      oldLineCount: 0,
+      newLineCount: 0,
+      isMarkdown: false,
+      patchTruncated: false,
+      patch: "@@ -1 +1 @@",
+    });
+    expect(getBlobTextBySha).not.toHaveBeenCalled();
   });
 });
 
