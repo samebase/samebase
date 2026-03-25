@@ -3,8 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/checkbox";
 import { FileTree } from "@/components/FileTree";
 import { Label } from "@/components/label";
-import { ProsemarkMergeEditor } from "@/components/ProsemarkMergeEditor";
+import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";
+import { getReviewSplitDiffHighlights } from "@/lib/reviewSplitDiff";
 
 export type FileViewCompareVisualMode = "file-view-compare-sidebar";
 
@@ -47,11 +48,6 @@ const COMPARE_TEXT_NEXT = `export function shouldClearCompareOnReviewExit(args: 
 }
 `;
 
-const COMPARE_INLINE_OPTIONS = {
-  allowInlineDiffs: false,
-  syntaxHighlightDeletions: true,
-} as const;
-
 // The fixture keeps restore visible so deleted compare rows exercise the same
 // affordance as the live sidebar without introducing fixture-only behavior.
 const NOOP_ON_FILE_RESTORE = () => {};
@@ -61,6 +57,11 @@ export function FileViewCompareVisualFixture({
 }: {
   mode: FileViewCompareVisualMode;
 }) {
+  const splitDiffHighlights = getReviewSplitDiffHighlights(
+    COMPARE_TEXT_BASE,
+    COMPARE_TEXT_NEXT,
+  );
+
   return (
     <div
       data-testid="file-view-compare-visual-fixture"
@@ -139,7 +140,7 @@ export function FileViewCompareVisualFixture({
                   <div className="flex items-center gap-2">
                     <Checkbox
                       id="fixture-compare-inline-diffs"
-                      checked={COMPARE_INLINE_OPTIONS.allowInlineDiffs}
+                      checked={false}
                       disabled
                     />
                     <Label
@@ -151,8 +152,21 @@ export function FileViewCompareVisualFixture({
                   </div>
                   <div className="flex items-center gap-2">
                     <Checkbox
+                      id="fixture-compare-side-by-side"
+                      checked={true}
+                      disabled
+                    />
+                    <Label
+                      htmlFor="fixture-compare-side-by-side"
+                      className="text-xs font-medium text-slate-500"
+                    >
+                      Side by side
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
                       id="fixture-compare-syntax-deleted"
-                      checked={COMPARE_INLINE_OPTIONS.syntaxHighlightDeletions}
+                      checked={true}
                       disabled
                     />
                     <Label
@@ -166,13 +180,30 @@ export function FileViewCompareVisualFixture({
               </div>
 
               <div className="p-4">
-                <ProsemarkMergeEditor
-                  value={COMPARE_TEXT_NEXT}
-                  baseValue={COMPARE_TEXT_BASE}
-                  options={COMPARE_INLINE_OPTIONS}
-                  editable={false}
-                  className="text-sm leading-6"
-                />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="min-w-0 corner-notch-1 border bg-white p-3">
+                    <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700">
+                      Before
+                    </div>
+                    <ProsemarkReadOnly
+                      value={COMPARE_TEXT_BASE}
+                      highlightedLineNumbers={splitDiffHighlights.oldLines}
+                      lineHighlightTone="remove"
+                      className="text-sm leading-6"
+                    />
+                  </div>
+                  <div className="min-w-0 corner-notch-1 border bg-white p-3">
+                    <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-emerald-700">
+                      After
+                    </div>
+                    <ProsemarkReadOnly
+                      value={COMPARE_TEXT_NEXT}
+                      highlightedLineNumbers={splitDiffHighlights.newLines}
+                      lineHighlightTone="add"
+                      className="text-sm leading-6"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>

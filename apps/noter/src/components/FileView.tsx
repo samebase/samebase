@@ -56,6 +56,7 @@ import {
   ProsemarkMergeEditor,
   type ProsemarkMergeEditorOptions,
 } from "@/components/ProsemarkMergeEditor";
+import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { nonNullable } from "@/lib/utils";
 import {
   filterSimpleViewTreeItems,
@@ -96,6 +97,7 @@ import {
   shouldClearCompareOnReviewExit,
   shouldShowCompareBackToEditor,
 } from "@/lib/fileViewReview";
+import { getReviewSplitDiffHighlights } from "@/lib/reviewSplitDiff";
 
 function isFileTreeNodeType(type: string): type is "tree" | "blob" {
   return type === "tree" || type === "blob";
@@ -258,6 +260,7 @@ const DEFAULT_INLINE_PREVIEW_OPTIONS = {
 } satisfies ProsemarkMergeEditorOptions;
 
 const DEFAULT_SHOW_INLINE_PREVIEW_PATCH = false;
+const DEFAULT_SHOW_INLINE_PREVIEW_SIDE_BY_SIDE = false;
 const UPSTREAM_CONFLICT_ERROR_PREFIX =
   "Commit conflicts with upstream changes. Resolve and retry: ";
 
@@ -790,6 +793,8 @@ function FileViewInner({
   const [showInlinePreviewPatch, setShowInlinePreviewPatch] = useState(
     DEFAULT_SHOW_INLINE_PREVIEW_PATCH,
   );
+  const [showInlinePreviewSideBySide, setShowInlinePreviewSideBySide] =
+    useState(DEFAULT_SHOW_INLINE_PREVIEW_SIDE_BY_SIDE);
   const [developerToolsOpen, setDeveloperToolsOpen] = useState(false);
   const [inlinePreviewSaveError, setInlinePreviewSaveError] = useState<
     string | null
@@ -1885,6 +1890,14 @@ function FileViewInner({
     inlinePreviewDraftStagingId === activePreviewStagingId
       ? inlinePreviewDraftContent
       : activePreviewPersistedContent;
+  const inlinePreviewSplitDiffHighlights = useMemo(
+    () =>
+      getReviewSplitDiffHighlights(
+        selectedPreviewBaseContent,
+        inlinePreviewEditorContent,
+      ),
+    [inlinePreviewEditorContent, selectedPreviewBaseContent],
+  );
   const renderInlinePreviewControls = (
     controlsIdPrefix: string,
     patchAvailable: boolean,
@@ -1896,7 +1909,11 @@ function FileViewInner({
           checked={showInlinePreviewPatch}
           disabled={!patchAvailable}
           onCheckedChange={(checked) => {
-            setShowInlinePreviewPatch(checked === true);
+            const nextValue = checked === true;
+            setShowInlinePreviewPatch(nextValue);
+            if (nextValue) {
+              setShowInlinePreviewSideBySide(false);
+            }
           }}
         />
         <Label
@@ -1926,6 +1943,25 @@ function FileViewInner({
       </div>
       <div className="flex items-center gap-2">
         <Checkbox
+          id={`${controlsIdPrefix}-side-by-side`}
+          checked={showInlinePreviewSideBySide}
+          onCheckedChange={(checked) => {
+            const nextValue = checked === true;
+            setShowInlinePreviewSideBySide(nextValue);
+            if (nextValue) {
+              setShowInlinePreviewPatch(false);
+            }
+          }}
+        />
+        <Label
+          htmlFor={`${controlsIdPrefix}-side-by-side`}
+          className="text-xs font-medium text-muted-foreground"
+        >
+          Side by side
+        </Label>
+      </div>
+      <div className="flex items-center gap-2">
+        <Checkbox
           id={`${controlsIdPrefix}-syntax-deletions`}
           checked={inlinePreviewOptions.syntaxHighlightDeletions}
           onCheckedChange={(checked) => {
@@ -1941,6 +1977,32 @@ function FileViewInner({
         >
           Syntax deleted
         </Label>
+      </div>
+    </div>
+  );
+  const renderSplitPreview = (beforeValue: string, afterValue: string) => (
+    <div className="grid gap-3 p-3 md:grid-cols-2">
+      <div className="min-w-0 corner-notch-1 border bg-background p-3">
+        <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">
+          Before
+        </div>
+        <ProsemarkReadOnly
+          value={beforeValue}
+          highlightedLineNumbers={inlinePreviewSplitDiffHighlights.oldLines}
+          lineHighlightTone="remove"
+          className="text-sm leading-6"
+        />
+      </div>
+      <div className="min-w-0 corner-notch-1 border bg-background p-3">
+        <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+          After
+        </div>
+        <ProsemarkReadOnly
+          value={afterValue}
+          highlightedLineNumbers={inlinePreviewSplitDiffHighlights.newLines}
+          lineHighlightTone="add"
+          className="text-sm leading-6"
+        />
       </div>
     </div>
   );
@@ -2117,6 +2179,7 @@ function FileViewInner({
 
   useEffect(() => {
     setShowInlinePreviewPatch(false);
+    setShowInlinePreviewSideBySide(false);
   }, [selectedFile]);
 
   useEffect(() => {
@@ -3132,6 +3195,11 @@ function FileViewInner({
                                     {showInlinePreviewPatch &&
                                     selectedPreviewFile?.patch ? (
                                       renderPreviewPatch(selectedPreviewFile)
+                                    ) : showInlinePreviewSideBySide ? (
+                                      renderSplitPreview(
+                                        selectedPreviewBaseContent,
+                                        inlinePreviewEditorContent,
+                                      )
                                     ) : (
                                       <ProsemarkMergeEditor
                                         key={`${selectedFile}:${activePreviewStagingId ?? "inline"}`}
@@ -3189,6 +3257,11 @@ function FileViewInner({
                     </div>
                     {showInlinePreviewPatch && selectedComparedFile?.patch ? (
                       renderPreviewPatch(selectedComparedFile)
+                    ) : showInlinePreviewSideBySide ? (
+                      renderSplitPreview(
+                        selectedPreviewBaseContent,
+                        inlinePreviewEditorContent,
+                      )
                     ) : (
                       <ProsemarkMergeEditor
                         key={`${selectedFile}:compare`}

@@ -21,9 +21,9 @@ entries.
 
 Compare-only pull request files still follow that same review contract. If a PR
 diff can render in the inline merge surface, it should expose the same inline
-controls (`Show patch`, `Inline diffs`, `Syntax deleted`) that staged review
-files use, and leaving review from that state must return to the real editor
-surface for the selected file.
+controls (`Show patch`, `Inline diffs`, `Side by side`, `Syntax deleted`) that
+staged review files use, and leaving review from that state must return to the
+real editor surface for the selected file.
 
 When the editor is in compare-only Changed Files mode without staged changes,
 the same top-left slot should offer `Back to Editor` to clear compare mode
@@ -105,6 +105,9 @@ second sidebar mode.
   but those controls live inside the review surface, not in the sidebar model.
 - Compare-only PR files that can render in the inline merge surface use that
   same control strip instead of a separate PR-only diff chrome.
+- The control strip may switch between unified inline diff, side-by-side
+  before/after preview, and raw patch, but those modes stay within the same
+  review panel.
 
 ### 6. Return-to-editor behavior
 
@@ -130,6 +133,8 @@ second sidebar mode.
 - Deleted files appear in that same tree as red crossed-out entries.
 - Compare-only PR files that render inline show the same inline control strip as
   staged review files.
+- Side-by-side before/after preview remains available from that same control
+  strip.
 - Leaving review from a compare-only PR file opens the normal editor for that
   file instead of a read-only compare preview.
 - Compare-only Changed Files mode without staged changes shows `Back to Editor`
