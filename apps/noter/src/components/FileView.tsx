@@ -3162,10 +3162,10 @@ function FileViewInner({
         ) : null}
         <button
           type="button"
-          className={`flex w-full items-center justify-center border-[3px] border-dashed px-3 py-4 text-sm text-muted-foreground transition-colors ${
+          className={`flex w-full items-center justify-center border-[3px] border-dashed px-3 py-4 text-sm transition-colors ${
             isMediaUploadDragOver
               ? "border-primary bg-primary/5 text-foreground"
-              : "border-foreground/25 hover:border-foreground/45 hover:text-foreground"
+              : "border-foreground/45 text-foreground/80 hover:border-foreground/65 hover:text-foreground"
           }`}
           onClick={() => handleRequestMediaUpload()}
           onDragOver={(event) => {
