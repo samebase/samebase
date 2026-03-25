@@ -1738,8 +1738,26 @@ function FileViewInner({
     : selectedCommitPreviewFile;
   const selectedPreviewStagedFile = stagedFile ?? null;
   const sidebarSelectedFile = selectedFile;
+  // Compare-only markdown files do not have staging rows, so their merge view
+  // has to come from the preview payload instead of fileStaging.
+  const selectedPreviewHasRichMarkdownDiff = Boolean(
+    selectedPreviewFile?.isMarkdown &&
+      typeof selectedPreviewFile.richOldContent === "string" &&
+      typeof selectedPreviewFile.richNewContent === "string",
+  );
   const selectedPreviewCanRenderInline = Boolean(
-    selectedPreviewStagedFile && !selectedFileIsRenderableMedia,
+    (selectedPreviewStagedFile || selectedPreviewHasRichMarkdownDiff) &&
+      !selectedFileIsRenderableMedia,
+  );
+  const selectedPreviewBaseContent =
+    selectedPreviewStagedFile?.initialContent ??
+    selectedPreviewFile?.richOldContent ??
+    "";
+  const selectedComparedFileCanRenderInline = Boolean(
+    selectedComparedFile?.isMarkdown &&
+      typeof selectedComparedFile.richOldContent === "string" &&
+      typeof selectedComparedFile.richNewContent === "string" &&
+      !selectedFileIsRenderableMedia,
   );
   const activePreviewPersistedContent = selectedPreviewStagedFile
     ? selectedPreviewStagedFile.fileDeleted
@@ -2909,10 +2927,7 @@ function FileViewInner({
                                       <ProsemarkMergeEditor
                                         key={`${selectedFile}:${activePreviewStagingId ?? "inline"}`}
                                         value={inlinePreviewEditorContent}
-                                        baseValue={
-                                          selectedPreviewStagedFile?.initialContent ??
-                                          ""
-                                        }
+                                        baseValue={selectedPreviewBaseContent}
                                         options={inlinePreviewOptions}
                                         editable={inlinePreviewEditable}
                                         onChange={handleInlinePreviewChange}
@@ -2965,6 +2980,18 @@ function FileViewInner({
                     treeSHA={vault.treeSHA}
                     showMobileLineNumbers={showMobileEditorLineNumbers}
                   />
+                ) : isCompareRequested &&
+                  selectedComparedFileCanRenderInline ? (
+                  <div className="min-h-full">
+                    <ProsemarkMergeEditor
+                      key={`${selectedFile}:compare`}
+                      value={selectedComparedFile?.richNewContent ?? ""}
+                      baseValue={selectedComparedFile?.richOldContent ?? ""}
+                      options={inlinePreviewOptions}
+                      editable={false}
+                      className="text-sm leading-6"
+                    />
+                  </div>
                 ) : isCompareRequested && selectedComparedFile?.patch ? (
                   <div>
                     {selectedComparedFile.patchTruncated ? (
