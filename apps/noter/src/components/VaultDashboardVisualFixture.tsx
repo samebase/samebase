@@ -12,6 +12,7 @@ import { GitHubLogoIcon, PersonIcon } from "@radix-ui/react-icons";
 import { Plus, X } from "lucide-react";
 
 export type VaultDashboardVisualMode =
+  | "dashboard-layout-minimal"
   | "dashboard-shared-sidebar"
   | "dashboard-shared-sidebar-mobile-chat"
   | "vault-branch-filters"
@@ -40,13 +41,47 @@ export function VaultDashboardVisualFixture({
 }: {
   mode: VaultDashboardVisualMode;
 }) {
+  if (mode === "dashboard-layout-minimal") {
+    const sidebarHeader = (
+      <SidebarAccountSection dataTestId="dashboard-layout-account-section">
+        <div className="text-sm font-medium">nicu@noter.md</div>
+      </SidebarAccountSection>
+    );
+
+    return (
+      <SidebarProvider
+        defaultOpen={true}
+        className="h-[240px] min-h-0 bg-background text-foreground"
+      >
+        <DashboardWorkspaceLayout
+          dataTestId="vault-dashboard-visual-fixture"
+          sidebarHeader={sidebarHeader}
+          sidebarContent={
+            <div
+              data-testid="dashboard-layout-sidebar-body"
+              className="h-full min-h-0 bg-muted/10"
+            />
+          }
+          headerContent={<div className="p-3 text-sm font-medium">Header</div>}
+          bodyClassName="min-h-0 bg-muted/10"
+        >
+          <div data-testid="dashboard-layout-minimal-body" className="h-full" />
+        </DashboardWorkspaceLayout>
+      </SidebarProvider>
+    );
+  }
+
   if (mode === "dashboard-shared-sidebar") {
     const sidebarHeader = (
-      <SidebarAccountSection>
+      <SidebarAccountSection dataTestId="dashboard-layout-account-section">
         <div className="flex w-full min-w-0 items-center justify-between gap-2 text-sm font-medium">
           <span className="block min-w-0 truncate">nicu.chiciuc@noter.md</span>
-          <Button variant="secondary" size="icon" className="rounded-ui">
-            <PersonIcon className="h-5 w-5" />
+          <Button
+            variant="secondary"
+            size="icon"
+            className="h-8 w-8 rounded-ui md:h-6 md:w-6"
+          >
+            <PersonIcon className="h-4 w-4 md:h-3 md:w-3" />
             <span className="sr-only">Open user menu</span>
           </Button>
         </div>
@@ -54,25 +89,11 @@ export function VaultDashboardVisualFixture({
     );
     const sidebarContent = <div className="flex-1" />;
     const headerContent = (
-      <div className="container py-6">
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-center gap-3">
-            <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
-            <div className="flex items-center gap-2">
-              <GitHubLogoIcon className="h-5 w-5" />
-              <h1 className="text-xl font-semibold">Your Vaults</h1>
-            </div>
-          </div>
-          <div className="w-full max-w-[480px] corner-notch-1 border border-border bg-background px-3 py-2 text-sm font-medium">
-            Create control
-          </div>
-        </div>
-
-        <div className="corner-notch-1 border border-border bg-background p-4">
-          <div className="text-sm font-medium">Providers</div>
-          <div className="mt-3 text-xs text-muted-foreground">
-            GitHub, Convex, and Cloudflare are connected.
-          </div>
+      <div className="flex items-center gap-3 p-3">
+        <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
+        <div className="flex min-w-0 items-center gap-2">
+          <GitHubLogoIcon className="h-4 w-4 shrink-0" />
+          <span className="truncate text-sm font-medium">Your Vaults</span>
         </div>
       </div>
     );
@@ -90,6 +111,18 @@ export function VaultDashboardVisualFixture({
           bodyClassName="min-h-0 overflow-y-auto p-0"
         >
           <div className="container py-6">
+            <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="corner-notch-1 border border-border bg-background p-4 lg:flex-1">
+                <div className="text-sm font-medium">Providers</div>
+                <div className="mt-3 text-xs text-muted-foreground">
+                  GitHub, Convex, and Cloudflare are connected.
+                </div>
+              </div>
+              <div className="w-full max-w-[480px] corner-notch-1 border border-border bg-background px-3 py-2 text-sm font-medium lg:w-auto">
+                Create control
+              </div>
+            </div>
+
             <div className="corner-notch-1 border border-border bg-background p-4">
               <div className="text-lg font-semibold">
                 <span className="font-normal text-muted-foreground">
@@ -282,11 +315,15 @@ export function VaultDashboardVisualFixture({
 
   if (mode === "dashboard-shared-sidebar-mobile-chat") {
     const sidebarHeader = (
-      <SidebarAccountSection>
+      <SidebarAccountSection dataTestId="dashboard-layout-account-section">
         <div className="flex w-full min-w-0 items-center justify-between gap-2 text-sm font-medium">
           <span className="block min-w-0 truncate">nicu.chiciuc@noter.md</span>
-          <Button variant="secondary" size="icon" className="rounded-ui">
-            <PersonIcon className="h-5 w-5" />
+          <Button
+            variant="secondary"
+            size="icon"
+            className="h-8 w-8 rounded-ui md:h-6 md:w-6"
+          >
+            <PersonIcon className="h-4 w-4 md:h-3 md:w-3" />
             <span className="sr-only">Open user menu</span>
           </Button>
         </div>

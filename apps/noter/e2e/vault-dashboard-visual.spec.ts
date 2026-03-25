@@ -1,27 +1,4 @@
-import { devices, expect, test, type Page } from "@playwright/test";
-
-async function getBox(page: Page, testId: string) {
-  const locator = page.getByTestId(testId);
-  const box = await locator.boundingBox();
-
-  if (box === null) {
-    throw new Error(`Expected ${testId} to have a bounding box.`);
-  }
-
-  return box;
-}
-
-function expectClose(
-  actual: number,
-  expected: number,
-  description: string,
-  tolerance = 1.5,
-) {
-  expect(
-    Math.abs(actual - expected),
-    `${description}: expected ${actual} to be within ${tolerance}px of ${expected}`,
-  ).toBeLessThanOrEqual(tolerance);
-}
+import { devices, expect, test } from "@playwright/test";
 
 test("vault dashboard fixture (shared sidebar)", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 760 });
@@ -37,30 +14,6 @@ test("vault dashboard fixture (shared sidebar)", async ({ page }) => {
     scale: "css",
     maxDiffPixelRatio: 0.03,
   });
-});
-
-test("vault dashboard fixture grid lines stay aligned", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 760 });
-  await page.goto("/visual-fixture.html?mode=dashboard-shared-sidebar", {
-    waitUntil: "domcontentloaded",
-  });
-  await page.waitForLoadState("networkidle");
-
-  const sidebarHeader = await getBox(page, "dashboard-layout-sidebar-header");
-  const sidebarContent = await getBox(page, "dashboard-layout-sidebar-content");
-  const header = await getBox(page, "dashboard-layout-header");
-  const body = await getBox(page, "dashboard-layout-body");
-
-  const sidebarDividerX = sidebarHeader.x + sidebarHeader.width;
-  const headerDividerY = header.y + header.height;
-
-  expectClose(sidebarHeader.height, header.height, "header row heights");
-  expectClose(sidebarDividerX, header.x, "sidebar/header divider x");
-  expectClose(sidebarDividerX, body.x, "sidebar/body divider x");
-  expectClose(headerDividerY, sidebarContent.y, "left lower row start");
-  expectClose(headerDividerY, body.y, "right lower row start");
-  expectClose(sidebarHeader.x, sidebarContent.x, "left column x");
-  expectClose(sidebarHeader.width, sidebarContent.width, "left column width");
 });
 
 test("vault dashboard fixture (shared sidebar narrow)", async ({ page }) => {

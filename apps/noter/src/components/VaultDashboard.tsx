@@ -1863,22 +1863,18 @@ function VaultDashboardContent() {
 
   const dashboardHeaderContent =
     vaults.length === 0 ? (
-      <div className="p-3">
+      <div className="flex items-center gap-3 p-3">
         <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
       </div>
     ) : (
-      <div className="container py-6">
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-center gap-3">
-            <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
-            <div className="flex items-center gap-2">
-              <GitHubLogoIcon className="h-5 w-5 sm:h-6 sm:w-6" />
-              <h1 className="text-xl font-semibold sm:text-2xl">Your Vaults</h1>
-            </div>
-          </div>
-          <div className="w-full lg:w-auto">{createControl}</div>
+      <div className="flex items-center gap-3 p-3">
+        <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
+        <div className="flex min-w-0 items-center gap-2">
+          <GitHubLogoIcon className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" />
+          <span className="truncate text-sm font-medium sm:text-base">
+            Your Vaults
+          </span>
         </div>
-        <div>{connectionPanel}</div>
       </div>
     );
 
@@ -1906,6 +1902,10 @@ function VaultDashboardContent() {
       </div>
     ) : (
       <div className="container py-6">
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>{connectionPanel}</div>
+          <div className="w-full lg:w-auto">{createControl}</div>
+        </div>
         <div className="space-y-2">
           {vaults.map((vault: (typeof vaults)[0]) => {
             const isReady = vault.state === "ready";
