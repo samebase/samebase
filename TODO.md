@@ -3,6 +3,8 @@
 !!!github uses `gh` for its documentation, so that's why it works so well https://docs.github.com/en/codespaces/troubleshooting/troubleshooting-your-connection-to-github-codespaces
 - [ ] specifically left blank
 
+- [ ] instead of making the user choose between draft/push, just push to main, and an agent can pick it up and start working on it in a separate pr, but the initila idea is already on main; that way it's more async and you get instand knowledge for all other parallel branches, pretty fast (rebase.md)
+
 - [ ] let users provide their own compute! instead of forccing to use Daytona, make it work on their actual machines; but it's much safer alternative to openclaw!!!!!!
 
 - [ ] something
