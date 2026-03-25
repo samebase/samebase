@@ -31,6 +31,7 @@ type CreateTreeEntry = NonNullable<
 
 const githubRateLimitResetByUser = new Map<string, number>();
 const RATE_LIMIT_COOLDOWN_FALLBACK_MS = 60_000;
+const PULL_REQUEST_COMPARE_FILE_LIST_LIMIT = 3_000;
 const STORAGE_BACKED_FILE_ERROR_MESSAGE =
   "File is in storage, not implemented yet";
 
@@ -1620,7 +1621,7 @@ export function buildComparedCommitPreviewFileFromStagedFile(args: {
 
     return buildCommitPreviewFileFromContents({
       status: "deleted",
-      path: args.stagedFile.filePath,
+      path: args.basePath,
       oldContent: args.baseContent,
       newContent: "",
       includePatch: args.includePatch,
@@ -3102,7 +3103,9 @@ export const getBranchComparePreview = action({
       pullRequestNumber: currentPullRequest?.number,
       pullRequestUrl: currentPullRequest?.url,
       sourceFileListTruncated:
-        !currentPullRequest && remoteFileCandidates.length >= 300,
+        currentPullRequest != null
+          ? remoteFileCandidates.length >= PULL_REQUEST_COMPARE_FILE_LIST_LIMIT
+          : remoteFileCandidates.length >= 300,
       hasDestructiveChanges: totals.deleted > 0,
       files,
       totals,

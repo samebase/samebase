@@ -1321,8 +1321,13 @@ function FileViewInner({
         branch,
       });
 
-      // If we're currently viewing the renamed file, navigate to the new path
-      if (selectedFile === originalPath) {
+      // Renamed staging rows keep their initial path as the mutation key, so a
+      // second rename needs to follow either the current selected path or the
+      // selected staged row's initial path.
+      if (
+        selectedFile === originalPath ||
+        stagedFile?.initialFilePath === originalPath
+      ) {
         void navigate(buildVaultFileUrl(newPath), { state });
       }
 

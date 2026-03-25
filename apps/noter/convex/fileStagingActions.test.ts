@@ -529,6 +529,37 @@ describe("buildComparedCommitPreviewFileFromStagedFile", () => {
       }),
     );
   });
+
+  it("reports renamed-file deletes against the base path", () => {
+    expect(
+      buildComparedCommitPreviewFileFromStagedFile({
+        stagedFile: {
+          filePath: "src/file-new.ts",
+          initialFilePath: "src/file-new.ts",
+          content: "export const value = 1;\n",
+          initialContent: "export const value = 1;\n",
+          fileDeleted: true,
+          parentCommitSha: "head-sha",
+          branch: "feature",
+        },
+        matchedRemoteFile: {
+          status: "renamed",
+          path: "src/file-new.ts",
+          previousPath: "src/file-old.ts",
+        },
+        basePath: "src/file-old.ts",
+        baseContent: "export const value = 1;\n",
+        includePatch: true,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        status: "deleted",
+        path: "src/file-old.ts",
+        richOldContent: "export const value = 1;\n",
+        richNewContent: "",
+      }),
+    );
+  });
 });
 
 describe("buildCommitPreviewFromStagedFiles", () => {

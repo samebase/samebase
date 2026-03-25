@@ -52,6 +52,29 @@ describe("getBranchComparePreviewReloadMode", () => {
 });
 
 describe("buildStagingPreviewRefreshKey", () => {
+  it("is stable regardless of input order", () => {
+    const left = {
+      _id: "file-1",
+      version: 1,
+      filePath: "src/a.ts",
+      initialFilePath: "src/a.ts",
+      fileDeleted: false,
+      parentCommitSha: "abc123",
+    };
+    const right = {
+      _id: "file-2",
+      version: 1,
+      filePath: "src/b.ts",
+      initialFilePath: "src/b.ts",
+      fileDeleted: false,
+      parentCommitSha: "abc123",
+    };
+
+    expect(buildStagingPreviewRefreshKey([left, right])).toBe(
+      buildStagingPreviewRefreshKey([right, left]),
+    );
+  });
+
   it("changes when the staged version changes", () => {
     expect(
       buildStagingPreviewRefreshKey([
@@ -73,6 +96,43 @@ describe("buildStagingPreviewRefreshKey", () => {
           initialFilePath: "src/app.ts",
           fileDeleted: false,
           parentCommitSha: "abc123",
+        },
+      ]),
+    );
+  });
+
+  it("does not collide when paths or commit shas contain delimiters", () => {
+    const keyA = buildStagingPreviewRefreshKey([
+      {
+        _id: "file-1",
+        version: 1,
+        filePath: "src/a:b.ts",
+        initialFilePath: "src/c.ts",
+        fileDeleted: false,
+        parentCommitSha: "abc|123",
+      },
+    ]);
+    const keyB = buildStagingPreviewRefreshKey([
+      {
+        _id: "file-1",
+        version: 1,
+        filePath: "src/a.ts",
+        initialFilePath: "src/b:c.ts",
+        fileDeleted: false,
+        parentCommitSha: "abc:123",
+      },
+    ]);
+
+    expect(keyA).not.toBe(keyB);
+    expect(keyA).toBe(
+      buildStagingPreviewRefreshKey([
+        {
+          _id: "file-1",
+          version: 1,
+          filePath: "src/a:b.ts",
+          initialFilePath: "src/c.ts",
+          fileDeleted: false,
+          parentCommitSha: "abc|123",
         },
       ]),
     );

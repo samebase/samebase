@@ -1,5 +1,12 @@
 export type BranchComparePreviewReloadMode = "none" | "immediate" | "debounced";
 
+/**
+ * Builds a deterministic, order-independent refresh key for staged file rows.
+ * The key captures each row's `_id`, `version`, `filePath`,
+ * `initialFilePath`, `fileDeleted`, and `parentCommitSha` (with `null`
+ * preserved as `"new"`). `null`/`undefined` inputs produce an empty key, and
+ * equivalent file sets produce the same key regardless of array order.
+ */
 export function buildStagingPreviewRefreshKey<
   T extends {
     _id: unknown;
@@ -11,9 +18,15 @@ export function buildStagingPreviewRefreshKey<
   },
 >(files: readonly T[] | null | undefined): string {
   return (files ?? [])
-    .map(
-      (file) =>
-        `${String(file._id)}:${file.version}:${file.filePath}:${file.initialFilePath}:${file.fileDeleted}:${file.parentCommitSha ?? "new"}`,
+    .map((file) =>
+      JSON.stringify({
+        _id: String(file._id),
+        version: file.version,
+        filePath: file.filePath,
+        initialFilePath: file.initialFilePath,
+        fileDeleted: file.fileDeleted,
+        parentCommitSha: file.parentCommitSha ?? "new",
+      }),
     )
     .sort()
     .join("|");
