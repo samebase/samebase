@@ -15,6 +15,10 @@ import {
   type AddRepositoryVisualMode,
 } from "@/components/AddRepositoryVisualFixture";
 import {
+  FileViewLayoutVisualFixture,
+  type FileViewLayoutVisualMode,
+} from "@/components/FileViewLayoutVisualFixture";
+import {
   SimpleViewVisualFixture,
   type SimpleViewVisualMode,
 } from "@/components/SimpleViewVisualFixture";
@@ -57,6 +61,7 @@ import "./index.css";
 
 type VisualFixtureMode =
   | CommitReviewVisualMode
+  | FileViewLayoutVisualMode
   | FileViewPushActionsVisualMode
   | EditorChatVisualMode
   | LandingCopyVisualMode
@@ -100,6 +105,11 @@ const REPOSITORY_MEDIA_VISUAL_MODES = [
   "media-svg",
 ] as const satisfies readonly RepositoryMediaVisualMode[];
 
+const FILE_VIEW_LAYOUT_VISUAL_MODES = [
+  "fileview-layout",
+  "fileview-layout-persistence",
+] as const satisfies readonly FileViewLayoutVisualMode[];
+
 const EDITOR_CHAT_VISUAL_MODES = [
   "editor-chat-open-desktop",
   "editor-chat-open-mobile",
@@ -134,6 +144,7 @@ const SIMPLE_VIEW_VISUAL_MODES = [
 ] as const satisfies readonly SimpleViewVisualMode[];
 
 const VAULT_DASHBOARD_VISUAL_MODES = [
+  "dashboard-layout-minimal",
   "dashboard-shared-sidebar",
   "dashboard-shared-sidebar-mobile-chat",
   "vault-branch-filters",
@@ -161,6 +172,10 @@ const VISUAL_FIXTURE_GROUPS = [
   {
     label: "File View",
     modes: FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES,
+  },
+  {
+    label: "File View Layout",
+    modes: FILE_VIEW_LAYOUT_VISUAL_MODES,
   },
   {
     label: "Editor Chat",
@@ -242,6 +257,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <RepositoryMediaVisualFixture mode={mode} />;
   }
 
+  if (mode === "fileview-layout" || mode === "fileview-layout-persistence") {
+    return <FileViewLayoutVisualFixture mode={mode} />;
+  }
+
   if (
     mode === "landing-copy-parity" ||
     mode === "landing-copy-editable-parity-single-line" ||
@@ -281,6 +300,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
   }
 
   if (
+    mode === "dashboard-layout-minimal" ||
     mode === "dashboard-shared-sidebar" ||
     mode === "dashboard-shared-sidebar-mobile-chat" ||
     mode === "vault-branch-filters" ||

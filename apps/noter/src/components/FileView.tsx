@@ -2144,20 +2144,18 @@ function FileViewInner({
   // MARK: Return
 
   const userDisplayName = user?.name ?? user?.email ?? user?.githubUsername;
+  const sidebarHeader = userDisplayName ? (
+    <SidebarAccountSection>
+      <Link to="/" className={`flex items-center justify-between ${linkStyle}`}>
+        <UserMenu className="w-full min-w-0 justify-between">
+          <span className="block min-w-0 truncate">{userDisplayName}</span>
+        </UserMenu>
+      </Link>
+    </SidebarAccountSection>
+  ) : null;
+
   const sidebarContent = (
     <>
-      {userDisplayName ? (
-        <SidebarAccountSection>
-          <Link
-            to="/"
-            className={`flex items-center justify-between ${linkStyle}`}
-          >
-            <UserMenu className="w-full min-w-0 justify-between">
-              <span className="block min-w-0 truncate">{userDisplayName}</span>
-            </UserMenu>
-          </Link>
-        </SidebarAccountSection>
-      ) : null}
       <div className="border-b border-border/50 p-3">
         <div className="flex items-center gap-2">
           <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
@@ -2296,6 +2294,7 @@ function FileViewInner({
   return (
     <>
       <RepositoryWorkspaceFrame
+        sidebarHeader={sidebarHeader}
         sidebarContent={sidebarContent}
         headerTitle={headerTitle}
         onQuickOpen={() => setIsCommandPaletteOpen(true)}

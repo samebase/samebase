@@ -50,15 +50,17 @@ export function RepositoryMediaVisualFixture({
       isExpanded: true,
     },
   ];
+  const sidebarHeader = (
+    <div className="border-b border-border/50 p-3">
+      <div className="text-sm font-medium text-foreground">Noter</div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        Fixture Workspace
+      </div>
+    </div>
+  );
+
   const sidebarContent = (
     <>
-      <div className="border-b border-border/50 p-3">
-        <div className="text-sm font-medium text-foreground">Noter</div>
-        <div className="mt-1 text-xs text-muted-foreground">
-          Fixture Workspace
-        </div>
-      </div>
-
       <div className="border-b border-border/50 p-3">
         <div className="flex items-center gap-2">
           <GitHubLogoIcon className="h-3 w-3 text-muted-foreground" />
@@ -107,6 +109,7 @@ export function RepositoryMediaVisualFixture({
     >
       <RepositoryWorkspaceFrame
         dataTestId="repository-media-visual-fixture"
+        sidebarHeader={sidebarHeader}
         sidebarContent={sidebarContent}
         headerTitle={
           fixture.selectedFile.split("/").slice(0, -1).join("/") || "/"
