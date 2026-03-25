@@ -91,6 +91,10 @@ function syncStaticLogoSvgAsset() {
   writeFileSync(staticLogoSvgAssetPath, `${nextStaticLogoSvgMarkup}\n`, "utf8");
 }
 
+/**
+ * Keep the checked-in install icon SVG stable by comparing trimmed markup and
+ * only rewriting when the canonical source output has semantically changed.
+ */
 function syncStaticInstallIconSvgAsset() {
   const nextInstallIconSvgMarkup = createInstallIconSvgMarkup().trim();
   const currentInstallIconSvgMarkup = (() => {
@@ -184,6 +188,10 @@ function syncStaticLogoSvgAssetPlugin() {
   };
 }
 
+/**
+ * The install icon SVG is a generated artifact, so the plugin syncs it only
+ * once per Vite process instead of rewriting on every hook invocation.
+ */
 function syncStaticInstallIconSvgAssetPlugin() {
   let hasSyncedStaticInstallIconSvgAsset = false;
 
@@ -192,6 +200,7 @@ function syncStaticInstallIconSvgAssetPlugin() {
       return;
     }
 
+    // One-time sync avoids repeated write churn while keeping the tracked SVG current.
     hasSyncedStaticInstallIconSvgAsset = true;
     syncStaticInstallIconSvgAsset();
   };

@@ -10,7 +10,7 @@
   `apps/noter/public/_redirects`, `apps/noter/public/favicon.png`,
   `apps/noter/public/favicon-32.png`, `apps/noter/public/install-icon.svg`,
   `apps/noter/public/logo-static.svg`,
-  `apps/noter/scripts/generate-install-icon-assets.mjs`,
+  `apps/noter/scripts/generate-install-icon-assets.js`,
   `apps/noter/src/bootstrap.ts`, `apps/noter/src/main.tsx`,
   `apps/noter/src/components/logoStaticSvgAsset.ts`,
   `apps/noter/src/lib/staticLegalPage.ts`, `apps/noter/vite.config.ts`

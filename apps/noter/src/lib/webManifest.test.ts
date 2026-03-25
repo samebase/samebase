@@ -7,22 +7,7 @@ describe("web manifest", () => {
       new URL("../../public/manifest.webmanifest", import.meta.url),
       "utf8",
     );
-    const manifest = JSON.parse(manifestText) as {
-      background_color: string;
-      display: string;
-      icons: Array<{
-        purpose?: string;
-        sizes: string;
-        src: string;
-        type: string;
-      }>;
-      id: string;
-      name: string;
-      scope: string;
-      short_name: string;
-      start_url: string;
-      theme_color: string;
-    };
+    const manifest = JSON.parse(manifestText);
 
     expect(manifest).toMatchObject({
       id: "/",
