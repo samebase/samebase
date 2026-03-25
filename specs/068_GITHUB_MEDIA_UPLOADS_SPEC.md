@@ -16,7 +16,6 @@
   - `apps/noter/convex/github.ts`
   - `apps/noter/convex/gitOperations.ts`
   - `apps/noter/convex/schema.ts`
-  - `rfcs/067_DASHBOARD_SHARED_SIDEBAR_SPEC.md`
 
 ## Why
 
@@ -320,13 +319,12 @@ binary branch to it.
 
 ## Validation
 
-- Add unit tests for binary staged-file classification.
-- Add unit tests for binary commit conflict rules.
-- Add unit tests for Git blob SHA handling used by staged binary rows.
-- Add or update a visual fixture that shows the sidebar footer dropzone.
-- Add or update a visual fixture that shows staged image preview.
-- Add or update at least one Playwright screenshot covering the shipped upload
-  surface.
+- Include unit tests for binary staged-file classification.
+- Cover binary commit conflict rules with dedicated tests.
+- Verify Git blob SHA handling used by staged binary rows.
+- Update or add a visual fixture that shows the sidebar footer dropzone.
+- Provide a visual fixture that shows staged image preview.
+- Cover the shipped upload surface with at least one Playwright screenshot.
 - Manually verify:
   - upload a new image to the selected folder
   - upload a new image to repository root
@@ -349,7 +347,7 @@ binary branch to it.
 ## Open Questions
 
 - Whether dashboard sidebar uploads should stay hidden or ship as a disabled
-  affordance once `rfcs/067_DASHBOARD_SHARED_SIDEBAR_SPEC.md` lands fully
+  affordance until the product defines an explicit vault and branch target there
 - Whether replacement uploads should reuse the same staged path automatically or
   always force an explicit conflict prompt
 - Whether the phase 1 destination rule should stay `current file folder or root`
