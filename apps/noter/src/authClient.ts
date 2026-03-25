@@ -1,5 +1,6 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useEffect } from "react";
+import { browserAuthStorage } from "@/lib/authStorage";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import { buildCurrentGoogleRedirectTo } from "@/lib/googleAuthRedirect";
 
@@ -28,16 +29,16 @@ function isStringRecord(value: unknown): value is Record<string, string> {
 }
 
 export function clearAuthFlag() {
-  localStorage.removeItem(AUTH_FLAG_KEY);
-  localStorage.removeItem(AUTH_PROVIDER_KEY);
+  browserAuthStorage.removeItem(AUTH_FLAG_KEY);
+  browserAuthStorage.removeItem(AUTH_PROVIDER_KEY);
 }
 
 export function setAuthFlag() {
-  localStorage.setItem(AUTH_FLAG_KEY, "1");
+  browserAuthStorage.setItem(AUTH_FLAG_KEY, "1");
 }
 
 export function setAuthProvider(provider: AuthProvider) {
-  localStorage.setItem(AUTH_PROVIDER_KEY, provider);
+  browserAuthStorage.setItem(AUTH_PROVIDER_KEY, provider);
 }
 
 export function isInIframe() {
@@ -81,8 +82,9 @@ export function openAuthPopup(provider: "google") {
       );
       return;
     }
-    for (const [key, value] of Object.entries(messageData.tokens)) {
-      localStorage.setItem(key, value);
+    const popupTokens = messageData.tokens;
+    for (const [key, value] of Object.entries(popupTokens)) {
+      browserAuthStorage.setItem(key, value);
     }
     window.location.reload();
   };

@@ -35,11 +35,13 @@ import { useAutoSignIn } from "./authClient";
 describe("useAutoSignIn", () => {
   const originalWindow = globalThis.window;
   const originalLocalStorage = globalThis.localStorage;
+  const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
   afterEach(() => {
     signInMock.mockReset();
     replaceStateMock.mockReset();
     localStorageSetItemMock.mockReset();
+    consoleWarnSpy.mockClear();
     Object.defineProperty(globalThis, "window", {
       value: originalWindow,
       configurable: true,
@@ -63,6 +65,10 @@ describe("useAutoSignIn", () => {
       search: buildSearchString(expectedSearchParams),
     });
 
+    const localStorageMock = {
+      setItem: localStorageSetItemMock,
+    };
+
     Object.defineProperty(globalThis, "window", {
       value: {
         location: {
@@ -73,14 +79,13 @@ describe("useAutoSignIn", () => {
         history: {
           replaceState: replaceStateMock,
         },
+        localStorage: localStorageMock,
       },
       configurable: true,
     });
 
     Object.defineProperty(globalThis, "localStorage", {
-      value: {
-        setItem: localStorageSetItemMock,
-      },
+      value: localStorageMock,
       configurable: true,
     });
 
@@ -93,6 +98,41 @@ describe("useAutoSignIn", () => {
     expect(replaceStateMock).toHaveBeenCalledWith({}, "", expectedRedirectTo);
     expect(signInMock).toHaveBeenCalledWith("google", {
       redirectTo: expectedRedirectTo,
+    });
+  });
+
+  it("still starts Google auth when local storage is unavailable", () => {
+    const localStorageMock = {
+      setItem: vi.fn(() => {
+        throw new DOMException("Access denied", "SecurityError");
+      }),
+    };
+
+    Object.defineProperty(globalThis, "window", {
+      value: {
+        location: {
+          pathname: "/",
+          search: "?auth=google",
+          hash: "",
+        },
+        history: {
+          replaceState: replaceStateMock,
+        },
+        localStorage: localStorageMock,
+      },
+      configurable: true,
+    });
+
+    Object.defineProperty(globalThis, "localStorage", {
+      value: localStorageMock,
+      configurable: true,
+    });
+
+    useAutoSignIn();
+
+    expect(replaceStateMock).toHaveBeenCalledWith({}, "", "/");
+    expect(signInMock).toHaveBeenCalledWith("google", {
+      redirectTo: "/",
     });
   });
 });

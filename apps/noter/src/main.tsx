@@ -6,6 +6,7 @@ import { ThemeProvider } from "next-themes";
 import { ConvexReactClient } from "convex/react";
 import App from "./App.tsx";
 import "@xyflow/react/dist/style.css";
+import { browserAuthStorage } from "@/lib/authStorage";
 import { QueryProvider } from "./lib/providers/query-provider";
 
 const convexUrl = __DAYTONA_CONVEX_PROXY_PATH__
@@ -29,7 +30,7 @@ export function mountApp() {
     <React.StrictMode>
       <BrowserRouter>
         <ThemeProvider attribute="class">
-          <ConvexAuthProvider client={client}>
+          <ConvexAuthProvider client={client} storage={browserAuthStorage}>
             <QueryProvider>
               <App />
             </QueryProvider>
