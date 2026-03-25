@@ -25,21 +25,35 @@ This RFC focuses on Daytona workspaces and snapshot-backed sandboxes for the
 Noter monorepo. It does not attempt to solve arbitrary repo caching for all
 future vaults.
 
+## Product Framing
+
+The goal here is not "remove every install step at any cost." The real goal is:
+
+1. get to a usable workspace as fast as practical
+2. keep the startup path simple enough that an operator can explain what
+   happened afterward
+3. make slow starts and failures easy to debug
+
+That means a slightly slower startup with one clear timeline can be better than
+a more heavily cached system whose behavior is hard to reconstruct.
+
 ## Executive Summary
 
 As researched on 2026-03-25, the answer is:
 
-1. Do not move live Git repositories or shared Git object databases onto a
+1. The first follow-up should be startup observability, not a new shared-cache
+   mechanism.
+2. Do not move live Git repositories or shared Git object databases onto a
    Daytona volume as a normal path.
-2. A shared writable PNPM store volume is technically feasible, but only as a
+3. A shared writable PNPM store volume is technically feasible, but only as a
    network-download cache. It will not behave like the fast same-filesystem
    hardlink path that pnpm is optimized for.
-3. A read-only shared cache volume is not a good primary design for either pnpm
+4. A read-only shared cache volume is not a good primary design for either pnpm
    or Git with current Daytona volume semantics.
-4. The best near-term path remains the existing deps-image and snapshot work,
-   with an optional follow-up pilot for a writable shared PNPM store volume in
-   live-debug and fallback-install paths.
-5. If Noter wants direct shared mounts for metadata-sensitive tools, the more
+5. The best near-term path remains the existing deps-image and snapshot work,
+   plus a clearer startup timeline, with an optional later pilot for a writable
+   shared PNPM store volume in live-debug and fallback-install paths.
+6. If Noter wants direct shared mounts for metadata-sensitive tools, the more
    important upstream Daytona ask is not "more volume usage"; it is a better
    mount contract: ownership control, read-only mounts, and ideally a local-disk
    cache class that is not backed by S3/FUSE.
@@ -93,6 +107,37 @@ reliable enough for metadata-sensitive home-directory behavior.
 
 This matters here because both Git object stores and pnpm stores are also
 metadata-sensitive.
+
+### Existing debug surface is still fragmented
+
+The current startup action already records useful timing data:
+
+- `totalMs`
+- `sandboxCreateMs`
+- `repoRefreshMs`
+- `devServerStartMs`
+- provisioning and repo-refresh mode fields
+
+However, the operator-facing story is still fragmented:
+
+1. `startDaytonaWorkspace` returns one long synthesized message plus coarse
+   timing.
+2. raw `daytona:*` console events are spread across many branches of the action.
+3. `getDaytonaBootstrapLogs` currently tails only `PNPM_INSTALL_LOG`, which
+   covers install fallback but not the full startup path.
+4. snapshot selection, sandbox reuse versus recreate, repo refresh decisions,
+   and dev-server launch status do not appear as one persisted ordered timeline.
+
+Implication:
+
+Today it is still too hard to answer basic operator questions such as:
+
+- did we reuse or recreate the sandbox
+- which snapshot was selected and why
+- whether repo refresh ran or was skipped
+- whether the slow part was sandbox materialization, git refresh, install
+  fallback, or dev-server boot
+- what failed first
 
 ## External Findings
 
@@ -316,14 +361,67 @@ to be the bottleneck, but it should be measured separately.
 
 The recommended plan is:
 
-1. Keep deps images and snapshot-backed startup as the primary optimization
+1. First, add one clear startup timeline and phase model for Daytona launches.
+2. Keep deps images and snapshot-backed startup as the primary optimization
    path.
-2. If we want a shared runtime cache, pilot only a writable shared pnpm store
-   volume.
-3. Keep Git repos and Git object databases local to each sandbox.
-4. Reject read-only shared cache designs for now.
-5. Capture an upstream Daytona ask for richer volume mount controls and a
+3. If we still need a shared runtime cache after measuring the observable
+   startup path, pilot only a writable shared pnpm store volume.
+4. Keep Git repos and Git object databases local to each sandbox.
+5. Reject read-only shared cache designs for now.
+6. Capture an upstream Daytona ask for richer volume mount controls and a
    non-FUSE local cache primitive.
+
+## Recommended Debuggability Work First
+
+Before adding a shared pnpm-store volume, Noter should make startup legible.
+
+### Desired startup model
+
+Every Daytona workspace launch should be explainable as one ordered sequence of
+phases with timestamps and outcomes, for example:
+
+1. request accepted
+2. commit resolved
+3. snapshot selected
+4. sandbox reused, resumed, or created
+5. sandbox writable check
+6. repo refresh decision and result
+7. dependency/install fallback decision and result
+8. dev server launch decision and result
+9. final ready or failed outcome
+
+### Minimum product surface
+
+For each launch attempt, expose a small structured timeline instead of only a
+free-form paragraph and scattered logs.
+
+The smallest useful shape is:
+
+- `runId`
+- `startedAt`
+- `finishedAt`
+- `outcome`
+- `snapshotName`
+- `sandboxLifecycle`
+- ordered `phases[]` with:
+  - `name`
+  - `startedAt`
+  - `finishedAt`
+  - `status`
+  - `summary`
+
+### Why this should come first
+
+If startup is still confusing, adding a shared cache volume increases the number
+of hidden branches:
+
+- was the volume mounted
+- was the store warm
+- did `pnpm fetch` run
+- did offline install work
+- did we fall back to online install
+
+That is acceptable only after the base launch path is visible enough to debug.
 
 ## Proposed Noter Pilot
 
@@ -337,6 +435,9 @@ runtime install:
 - dev-server fallback when `node_modules` is missing
 
 Do not change the normal snapshot-backed happy path first.
+
+This pilot should happen only after the startup timeline work above exists,
+because otherwise the new cache path will make failure analysis harder.
 
 ### Storage shape
 
@@ -392,7 +493,21 @@ files than for pretending to be a local package-manager disk.
 
 ## Rollout Plan
 
-### Phase 0: Measure current runtime-install paths
+### Phase 0: Make startup observable
+
+Before changing cache behavior, add a structured startup timeline for Daytona
+workspace launches so operators can see what happened and when.
+
+At minimum, record and surface:
+
+- selected snapshot name
+- sandbox lifecycle: reused, resumed, created
+- repo refresh attempted or skipped, with reason
+- dependency/install fallback attempted or skipped
+- dev-server launch outcome
+- per-phase timing and overall timing
+
+### Phase 1: Measure current runtime-install paths
 
 Before changing behavior, capture baseline numbers for:
 
@@ -401,7 +516,7 @@ Before changing behavior, capture baseline numbers for:
 - snapshot-miss frequency
 - live-debug frequency
 
-### Phase 1: Writable shared pnpm-store pilot
+### Phase 2: Writable shared pnpm-store pilot
 
 Implement the volume mount behind a narrow runtime gate and validate:
 
@@ -411,7 +526,7 @@ Implement the volume mount behind a narrow runtime gate and validate:
 - concurrent sandboxes for the same user
 - sandbox recreation after volume reuse
 
-### Phase 2: Keep or remove based on data
+### Phase 3: Keep or remove based on data
 
 Keep the feature only if the pilot materially reduces wall-clock startup time in
 the runtime-install paths that actually matter in production.
