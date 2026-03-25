@@ -187,6 +187,8 @@ export function renderStaticLegalPageHtml(args: {
     <link rel="canonical" href="${escapeHtml(canonicalUrl)}" />
     <link rel="icon" type="image/png" href="/favicon.png" sizes="16x16" />
     <link rel="icon" type="image/png" href="/favicon-32.png" sizes="32x32" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
     <meta property="og:site_name" content="noter" />
     <meta property="og:type" content="${escapeHtml(args.metadata.openGraphType ?? "website")}" />
     <meta property="og:title" content="${escapeHtml(args.metadata.title)}" />

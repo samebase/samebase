@@ -24,6 +24,12 @@ describe("renderStaticLegalPageHtml", () => {
     expect(html).toContain(
       '<link rel="canonical" href="https://noter.md/terms" />',
     );
+    expect(html).toContain(
+      '<link rel="manifest" href="/manifest.webmanifest" />',
+    );
+    expect(html).toContain(
+      '<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />',
+    );
     expect(html).toContain('<article class="legal-shell legal-document">');
     expect(html).toContain("<h1>Terms of Service</h1>");
     expect(html).toContain(
@@ -62,6 +68,12 @@ describe("renderStaticLegalPageHtml", () => {
     expect(checkedInPrivacyHtml).toContain(
       '<link rel="canonical" href="https://noter.md/privacy" />',
     );
+    expect(checkedInPrivacyHtml).toContain(
+      '<link rel="manifest" href="/manifest.webmanifest" />',
+    );
+    expect(checkedInPrivacyHtml).toContain(
+      '<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />',
+    );
     expect(checkedInPrivacyHtml).toContain("<h1>Privacy Policy</h1>");
     expect(checkedInPrivacyHtml).toContain(
       '<article class="legal-shell legal-document">',
@@ -72,6 +84,12 @@ describe("renderStaticLegalPageHtml", () => {
 
     expect(checkedInTermsHtml).toContain(
       '<link rel="canonical" href="https://noter.md/terms" />',
+    );
+    expect(checkedInTermsHtml).toContain(
+      '<link rel="manifest" href="/manifest.webmanifest" />',
+    );
+    expect(checkedInTermsHtml).toContain(
+      '<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />',
     );
     expect(checkedInTermsHtml).toContain("<h1>Terms of Service</h1>");
     expect(checkedInTermsHtml).toContain(
