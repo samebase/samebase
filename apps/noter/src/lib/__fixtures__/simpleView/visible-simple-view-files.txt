@@ -26,6 +26,7 @@ apps/noter/e2e/corner-notch-visual.spec.ts-snapshots/corner-notch.png
 apps/noter/e2e/editor-chat-visual.spec.ts-snapshots/editor-chat-closed.png
 apps/noter/e2e/editor-chat-visual.spec.ts-snapshots/editor-chat-open-desktop.png
 apps/noter/e2e/editor-chat-visual.spec.ts-snapshots/editor-chat-open-mobile.png
+apps/noter/e2e/file-view-compare-visual.spec.ts-snapshots/file-view-compare-sidebar.png
 apps/noter/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-create-draft.png
 apps/noter/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-default-draft.png
 apps/noter/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-open-pr.png
@@ -117,6 +118,7 @@ rfcs/066_GITHUB_ORG_OVERVIEW_ONBOARDING_RESEARCH.md
 rfcs/066_LOGO_AUTO_ROTATION_QUERY_STUTTER_FINDINGS.md
 rfcs/067_DASHBOARD_SHARED_SIDEBAR_SPEC.md
 rfcs/068_VAULT_BRANCH_PR_FILTERING_RESEARCH.md
+rfcs/069_FILE_VIEW_PR_COMPARE_MODE_SPEC.md
 rfcs/README.md
 Screenshot 2026-02-17 at 01.19.49.png
 skills/create-pr/SKILL.md

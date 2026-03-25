@@ -162,7 +162,7 @@ describe("buildCommitPreviewFromStagedFiles", () => {
     expect(preview.safety.truncatedPatchFileCount).toBe(0);
   });
 
-  it("omits rich markdown preview fields for non-markdown files", () => {
+  it("hydrates rich preview fields for non-markdown staged files", () => {
     const preview = buildCommitPreviewFromStagedFiles({
       stagedFiles: [
         makeStagedFile({
@@ -177,9 +177,9 @@ describe("buildCommitPreviewFromStagedFiles", () => {
     });
 
     expect(preview.files[0]?.isMarkdown).toBe(false);
-    expect(preview.files[0]?.richOldContent).toBeUndefined();
-    expect(preview.files[0]?.richNewContent).toBeUndefined();
-    expect(preview.files[0]?.richContentTruncated).toBeUndefined();
+    expect(preview.files[0]?.richOldContent).toBe("const n = 1;\n");
+    expect(preview.files[0]?.richNewContent).toBe("const n = 2;\n");
+    expect(preview.files[0]?.richContentTruncated).toBe(false);
   });
 });
 
