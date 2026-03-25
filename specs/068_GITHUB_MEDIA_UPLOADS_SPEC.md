@@ -43,9 +43,15 @@ where the project actually lives.
 
 ## Summary
 
-Noter should support media uploads by adding a bottom-of-sidebar dropzone on
-vault routes first. The shipped CTA should read `Drop file or click` and use
+Noter should support media uploads by adding a bottom-of-sidebar upload surface
+on vault routes first. The shipped CTA should read `Drop file or click` and use
 rectangular app chrome with a segmented or dashed border.
+
+That surface must be mobile-friendly, not desktop-only. On touch devices, the
+primary path is tap-to-pick rather than drag-and-drop. Phase 1 should also let
+the user confirm or change the destination folder before the upload is staged so
+images can land in a specific repository folder instead of relying only on the
+current-file heuristic.
 
 For the ASAP slice, the final source of truth should remain the GitHub
 repository. Convex storage should only be used as temporary staging and preview
@@ -158,18 +164,32 @@ Add a dedicated footer component to the file-view sidebar:
 - segmented or dashed border
 - primary copy: `Drop file or click`
 - secondary copy: file type and size rules, for example `Images up to 25 MiB`
+- full-width, touch-friendly sizing that stays usable inside the mobile sidebar
+  sheet
 
 Interaction model:
 
-- clicking opens a hidden `<input type="file">`
-- dragging files over the surface highlights the dropzone
-- dropping files queues upload
+- clicking or tapping opens a hidden `<input type="file">`
+- dragging files over the surface highlights the dropzone on devices that
+  support file drag-and-drop
+- dropping files queues upload on those devices
+- mobile behavior must not depend on hover, drag state, or precision gestures
 - the dropzone should stay visible on both desktop and mobile layouts
 
-Default destination:
+Initial destination suggestion:
 
 - use the currently selected file's parent folder when a file is selected
 - otherwise upload to repository root
+
+Destination control:
+
+- before finalizing the staged upload, let the user change the destination
+  folder explicitly
+- drive that control from the current repository tree so uploads can land in a
+  specific existing folder
+- keep the mobile version simple: a tap-friendly picker or sheet, not a
+  drag-based interaction
+- if no explicit override is chosen, use the initial destination suggestion
 
 Conflict behavior:
 
@@ -309,14 +329,17 @@ binary branch to it.
 
 1. Add binary-aware fields to `fileStaging` and related validators/types.
 2. Add upload-URL and finalize-upload mutations for vault-scoped image staging.
-3. Add a reusable sidebar footer dropzone component to `FileView`.
-4. Extend file-tree staged status helpers so binary uploads and replacements
+3. Add a reusable sidebar footer upload component to `FileView` with tap-first
+   mobile behavior.
+4. Add an explicit destination-folder picker seeded from the current selection
+   but overridable before finalize.
+5. Extend file-tree staged status helpers so binary uploads and replacements
    show as added or modified.
-5. Extend `RepositoryMediaViewer` so staged images render before commit.
-6. Teach the commit pipeline to partition text and binary rows, create GitHub
+6. Extend `RepositoryMediaViewer` so staged images render before commit.
+7. Teach the commit pipeline to partition text and binary rows, create GitHub
    blobs for binary rows, and use SHA-based binary conflict checks.
-7. Warm the `blobs` cache with committed binary metadata after commit.
-8. Switch committed media preview fallback from contents-only behavior to the
+8. Warm the `blobs` cache with committed binary metadata after commit.
+9. Switch committed media preview fallback from contents-only behavior to the
    Git blob path when needed.
 
 ## Validation
@@ -325,9 +348,14 @@ binary branch to it.
 - Cover binary commit conflict rules with dedicated tests.
 - Verify Git blob SHA handling used by staged binary rows.
 - Update or add a visual fixture that shows the sidebar footer dropzone.
+- Add a mobile visual fixture or screenshot that shows the tap-first upload
+  surface.
 - Provide a visual fixture that shows staged image preview.
-- Cover the shipped upload surface with at least one Playwright screenshot.
+- Cover the shipped upload surface with at least one Playwright screenshot on a
+  mobile viewport.
 - Manually verify:
+  - tap the upload surface on mobile and choose an image
+  - change the destination folder before staging
   - upload a new image to the selected folder
   - upload a new image to repository root
   - reject an oversized image
@@ -350,8 +378,6 @@ binary branch to it.
 
 - Whether replacement uploads should reuse the same staged path automatically or
   always force an explicit conflict prompt
-- Whether the phase 1 destination rule should stay `current file folder or root`
-  or grow into an explicit folder picker
 
 ## Primary Sources
 
