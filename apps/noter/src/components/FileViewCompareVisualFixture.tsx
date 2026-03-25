@@ -24,24 +24,23 @@ const COMPARED_TREE_ITEMS = [
     path: "src/lib/queryParams.ts",
     originalPath: "src/lib/queryParams.ts",
     type: "blob" as const,
-    status: "renamed" as const,
+    status: "modified" as const,
     deleted: false,
   },
 ] as const;
 
-const COMPARE_MARKDOWN_BASE = `# PR guide
-
-- Open the draft PR
-- Verify the changed files list
-- Restore deleted files from compare mode when needed
+const COMPARE_TEXT_BASE = `export function cloneQueryParams(search?: string): URLSearchParams {
+  return new URLSearchParams(search ?? "");
+}
 `;
 
-const COMPARE_MARKDOWN_NEXT = `# PR guide
+const COMPARE_TEXT_NEXT = `export function cloneQueryParams(search?: string): URLSearchParams {
+  return new URLSearchParams(search ?? "");
+}
 
-- Open the draft PR
-- Verify the changed files list in the sidebar
-- Restore deleted files from compare mode when needed
-- Review markdown changes in the inline diff by default
+export function hasQueryParam(search: string | undefined, name: string): boolean {
+  return new URLSearchParams(search ?? "").has(name);
+}
 `;
 
 const COMPARE_INLINE_OPTIONS = {
@@ -92,7 +91,7 @@ export function FileViewCompareVisualFixture({
             <div className="border-r border-slate-200">
               <FileTree
                 items={[...COMPARED_TREE_ITEMS]}
-                selectedFile="docs/pr-guide.md"
+                selectedFile="src/lib/queryParams.ts"
                 restoringFilePath={null}
                 folderExpansionStates={[]}
                 autoExpandedPaths={["docs", "src", "src/components", "src/lib"]}
@@ -104,18 +103,18 @@ export function FileViewCompareVisualFixture({
             <div className="min-w-0 bg-white">
               <div className="border-b border-slate-200 px-4 py-3">
                 <div className="text-sm font-medium text-slate-900">
-                  docs/pr-guide.md
+                  src/lib/queryParams.ts
                 </div>
                 <div className="mt-1 text-xs text-slate-500">
-                  Compare-only markdown files should use the inline diff
-                  preview.
+                  Compare-only text files should use the inline diff preview,
+                  even when the editable view uses Monaco elsewhere.
                 </div>
               </div>
 
               <div className="p-4">
                 <ProsemarkMergeEditor
-                  value={COMPARE_MARKDOWN_NEXT}
-                  baseValue={COMPARE_MARKDOWN_BASE}
+                  value={COMPARE_TEXT_NEXT}
+                  baseValue={COMPARE_TEXT_BASE}
                   options={COMPARE_INLINE_OPTIONS}
                   editable={false}
                   className="text-sm leading-6"

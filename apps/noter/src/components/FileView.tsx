@@ -1756,19 +1756,19 @@ function FileViewInner({
     : selectedCommitPreviewFile;
   const selectedPreviewStagedFile = stagedFile ?? null;
   const sidebarSelectedFile = selectedFile;
-  // Compare-only markdown files do not have staging rows, so their merge view
-  // has to come from the preview payload instead of fileStaging.
-  const selectedPreviewHasRichMarkdownDiff = Boolean(
-    selectedPreviewFile?.isMarkdown &&
+  // Compare-only text files do not have staging rows, so their merge view has
+  // to come from the preview payload instead of fileStaging.
+  const selectedPreviewHasRichTextDiff = Boolean(
+    selectedPreviewFile &&
       typeof selectedPreviewFile.richOldContent === "string" &&
       typeof selectedPreviewFile.richNewContent === "string",
   );
   const selectedPreviewCanRenderInline = Boolean(
     !selectedFileIsRenderableMedia &&
       (isCompareRequested
-        ? selectedPreviewHasRichMarkdownDiff ||
+        ? selectedPreviewHasRichTextDiff ||
           (!selectedComparedFile && selectedPreviewStagedFile)
-        : selectedPreviewStagedFile || selectedPreviewHasRichMarkdownDiff),
+        : selectedPreviewStagedFile || selectedPreviewHasRichTextDiff),
   );
   const selectedPreviewBaseContent =
     isCompareRequested &&
@@ -1778,7 +1778,7 @@ function FileViewInner({
         selectedPreviewFile?.richOldContent ??
         "";
   const selectedComparedFileCanRenderInline = Boolean(
-    selectedComparedFile?.isMarkdown &&
+    selectedComparedFile &&
       typeof selectedComparedFile.richOldContent === "string" &&
       typeof selectedComparedFile.richNewContent === "string" &&
       !selectedFileIsRenderableMedia,

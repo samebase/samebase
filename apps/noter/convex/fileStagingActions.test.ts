@@ -502,13 +502,14 @@ describe("buildComparedCommitPreviewFileFromStagedFile", () => {
 
 describe("buildRemoteComparePreviewFile", () => {
   it("hydrates markdown compare files with rich content from base and head trees", async () => {
-    const getBlobTextBySha = vi.fn(async (sha: string) => {
+    const encoder = new TextEncoder();
+    const getBlobBufferBySha = vi.fn(async (sha: string) => {
       if (sha === "base-sha") {
-        return "# Spec\n\nOld line\n";
+        return encoder.encode("# Spec\n\nOld line\n");
       }
 
       if (sha === "head-sha") {
-        return "# Spec\n\nNew line\n";
+        return encoder.encode("# Spec\n\nNew line\n");
       }
 
       throw new Error(`Unexpected sha ${sha}`);
@@ -524,7 +525,7 @@ describe("buildRemoteComparePreviewFile", () => {
       },
       baseShaByPath: new Map([["rfcs/spec.md", "base-sha"]]),
       headShaByPath: new Map([["rfcs/spec.md", "head-sha"]]),
-      getBlobTextBySha,
+      getBlobBufferBySha,
       includePatch: true,
     });
 
@@ -538,13 +539,14 @@ describe("buildRemoteComparePreviewFile", () => {
       }),
     );
     expect(result?.patch).toContain("--- rfcs/spec.md");
-    expect(getBlobTextBySha).toHaveBeenCalledTimes(2);
+    expect(getBlobBufferBySha).toHaveBeenCalledTimes(2);
   });
 
   it("hydrates added markdown compare files from the head tree", async () => {
-    const getBlobTextBySha = vi.fn(async (sha: string) => {
+    const encoder = new TextEncoder();
+    const getBlobBufferBySha = vi.fn(async (sha: string) => {
       if (sha === "head-sha") {
-        return "# New spec\n\nAdded line\n";
+        return encoder.encode("# New spec\n\nAdded line\n");
       }
 
       throw new Error(`Unexpected sha ${sha}`);
@@ -560,7 +562,7 @@ describe("buildRemoteComparePreviewFile", () => {
       },
       baseShaByPath: new Map(),
       headShaByPath: new Map([["rfcs/spec.md", "head-sha"]]),
-      getBlobTextBySha,
+      getBlobBufferBySha,
       includePatch: true,
     });
 
@@ -576,12 +578,22 @@ describe("buildRemoteComparePreviewFile", () => {
       }),
     );
     expect(result?.patch).toContain("+++ rfcs/spec.md");
-    expect(getBlobTextBySha).toHaveBeenCalledTimes(1);
+    expect(getBlobBufferBySha).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps non-markdown compare files as patch-only metadata", async () => {
-    const getBlobTextBySha = vi.fn(async () => {
-      throw new Error("Should not load blob text for non-markdown files");
+  it("hydrates text compare files from the base and head trees", async () => {
+    const encoder = new TextEncoder();
+    const getBlobBufferBySha = vi.fn(async (sha: string) => {
+      if (sha === "base-sha") {
+        return encoder.encode("export const flag = false;\n");
+      }
+      if (sha === "head-sha") {
+        return encoder.encode(
+          "export const flag = true;\nexport const compare = true;\n",
+        );
+      }
+
+      throw new Error(`Unexpected sha ${sha}`);
     });
 
     const result = await buildRemoteComparePreviewFile({
@@ -594,13 +606,55 @@ describe("buildRemoteComparePreviewFile", () => {
       },
       baseShaByPath: new Map([["src/file.ts", "base-sha"]]),
       headShaByPath: new Map([["src/file.ts", "head-sha"]]),
-      getBlobTextBySha,
+      getBlobBufferBySha,
+      includePatch: true,
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: "modified",
+        path: "src/file.ts",
+        isMarkdown: false,
+        richOldContent: "export const flag = false;\n",
+        richNewContent:
+          "export const flag = true;\nexport const compare = true;\n",
+        oldLineCount: 2,
+        newLineCount: 3,
+      }),
+    );
+    expect(result?.patch).toContain("--- src/file.ts");
+    expect(getBlobBufferBySha).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps binary compare files as patch-only metadata", async () => {
+    const getBlobBufferBySha = vi.fn(async (sha: string) => {
+      if (sha === "base-sha") {
+        return new Uint8Array([0, 255, 0, 255]);
+      }
+      if (sha === "head-sha") {
+        return new Uint8Array([255, 0, 255, 0]);
+      }
+
+      throw new Error(`Unexpected sha ${sha}`);
+    });
+
+    const result = await buildRemoteComparePreviewFile({
+      file: {
+        filename: "public/image.png",
+        status: "modified",
+        additions: 3,
+        deletions: 2,
+        patch: "@@ -1 +1 @@",
+      },
+      baseShaByPath: new Map([["public/image.png", "base-sha"]]),
+      headShaByPath: new Map([["public/image.png", "head-sha"]]),
+      getBlobBufferBySha,
       includePatch: true,
     });
 
     expect(result).toEqual({
       status: "modified",
-      path: "src/file.ts",
+      path: "public/image.png",
       previousPath: undefined,
       additions: 3,
       deletions: 2,
@@ -610,7 +664,7 @@ describe("buildRemoteComparePreviewFile", () => {
       patchTruncated: false,
       patch: "@@ -1 +1 @@",
     });
-    expect(getBlobTextBySha).not.toHaveBeenCalled();
+    expect(getBlobBufferBySha).toHaveBeenCalledTimes(2);
   });
 });
 

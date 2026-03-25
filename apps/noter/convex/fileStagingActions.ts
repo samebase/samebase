@@ -1157,7 +1157,7 @@ function buildRebaseConflictBundleMarkdown(args: {
   ].join("\n");
 }
 
-function truncateMarkdownRichContent(content: string): {
+function truncateInlineDiffContent(content: string): {
   content: string;
   truncated: boolean;
 } {
@@ -1218,6 +1218,18 @@ function isMarkdownPath(path: string): boolean {
   );
 }
 
+function canHydrateInlineDiffText(path: string, buffer: Uint8Array): boolean {
+  const mime = guessMime(path);
+  const hasKnownTextMime =
+    mime.includes("charset=utf-8") || mime === "image/svg+xml";
+
+  if (!hasKnownTextMime && mime !== "application/octet-stream") {
+    return false;
+  }
+
+  return buffer.byteLength <= INLINE_TEXT_MAX && isTextBuffer(buffer);
+}
+
 function buildCommitPreviewFileFromContents(args: {
   status: CommitPreviewFile["status"];
   path: string;
@@ -1225,6 +1237,7 @@ function buildCommitPreviewFileFromContents(args: {
   oldContent: string;
   newContent: string;
   includePatch: boolean;
+  hydrateRichContent?: boolean;
 }): CommitPreviewFile {
   const isMarkdown = isMarkdownPath(args.path);
   const lineStats = computeLineStats(args.oldContent, args.newContent);
@@ -1232,9 +1245,9 @@ function buildCommitPreviewFileFromContents(args: {
   let richOldContent: string | undefined;
   let richNewContent: string | undefined;
   let richContentTruncated: boolean | undefined;
-  if (isMarkdown) {
-    const truncatedOld = truncateMarkdownRichContent(args.oldContent);
-    const truncatedNew = truncateMarkdownRichContent(args.newContent);
+  if (args.hydrateRichContent ?? isMarkdown) {
+    const truncatedOld = truncateInlineDiffContent(args.oldContent);
+    const truncatedNew = truncateInlineDiffContent(args.newContent);
     richOldContent = truncatedOld.content;
     richNewContent = truncatedNew.content;
     richContentTruncated = truncatedOld.truncated || truncatedNew.truncated;
@@ -1454,23 +1467,20 @@ function buildRemoteComparePreviewFileFromMetadata(
 }
 
 /**
- * GitHub compare metadata only includes patch text, but markdown compare mode
- * needs full old/new content to render the merge view instead of a raw patch.
+ * GitHub compare metadata only includes patch text, but compare mode needs full
+ * old/new text content whenever we want to reuse the inline merge view instead
+ * of falling back to a raw patch.
  */
 export async function buildRemoteComparePreviewFile(args: {
   file: GitHubCompareFileCandidate;
   baseShaByPath: Map<string, string>;
   headShaByPath: Map<string, string>;
-  getBlobTextBySha: (sha: string) => Promise<string>;
+  getBlobBufferBySha: (sha: string) => Promise<Uint8Array>;
   includePatch: boolean;
 }): Promise<CommitPreviewFile | null> {
   const metadataFile = buildRemoteComparePreviewFileFromMetadata(args.file);
   if (!metadataFile) {
     return null;
-  }
-
-  if (!metadataFile.isMarkdown) {
-    return metadataFile;
   }
 
   const basePath =
@@ -1494,16 +1504,32 @@ export async function buildRemoteComparePreviewFile(args: {
     return metadataFile;
   }
 
-  const oldContent = oldSha ? await args.getBlobTextBySha(oldSha) : "";
-  const newContent = newSha ? await args.getBlobTextBySha(newSha) : "";
+  const oldBuffer = oldSha ? await args.getBlobBufferBySha(oldSha) : null;
+  const newBuffer = newSha ? await args.getBlobBufferBySha(newSha) : null;
+  const oldContent =
+    oldBuffer && canHydrateInlineDiffText(metadataFile.path, oldBuffer)
+      ? new TextDecoder("utf-8", { fatal: false }).decode(oldBuffer)
+      : null;
+  const newContent =
+    newBuffer && canHydrateInlineDiffText(metadataFile.path, newBuffer)
+      ? new TextDecoder("utf-8", { fatal: false }).decode(newBuffer)
+      : null;
+
+  if (
+    (metadataFile.status !== "added" && oldContent === null) ||
+    (metadataFile.status !== "deleted" && newContent === null)
+  ) {
+    return metadataFile;
+  }
 
   return buildCommitPreviewFileFromContents({
     status: metadataFile.status,
     path: metadataFile.path,
     previousPath: metadataFile.previousPath,
-    oldContent,
-    newContent,
+    oldContent: oldContent ?? "",
+    newContent: newContent ?? "",
     includePatch: args.includePatch,
+    hydrateRichContent: true,
   });
 }
 
@@ -2993,9 +3019,9 @@ export const getBranchComparePreview = action({
       repo: vault.ghRepoName,
       ref: branch,
     });
-    const blobTextBySha = new Map<string, Promise<string>>();
-    const getBlobTextBySha = (sha: string): Promise<string> => {
-      const existing = blobTextBySha.get(sha);
+    const blobBufferBySha = new Map<string, Promise<Uint8Array>>();
+    const getBlobBufferBySha = (sha: string): Promise<Uint8Array> => {
+      const existing = blobBufferBySha.get(sha);
       if (existing) {
         return existing;
       }
@@ -3008,15 +3034,19 @@ export const getBranchComparePreview = action({
         })
         .then((response) => {
           const content = response.data.content.replace(/\n/g, "");
-          return Buffer.from(content, "base64").toString("utf-8");
+          return new Uint8Array(Buffer.from(content, "base64"));
         })
         .catch((error) => {
-          blobTextBySha.delete(sha);
+          blobBufferBySha.delete(sha);
           throw error;
         });
 
-      blobTextBySha.set(sha, loaded);
+      blobBufferBySha.set(sha, loaded);
       return loaded;
+    };
+    const getBlobTextBySha = async (sha: string): Promise<string> => {
+      const buffer = await getBlobBufferBySha(sha);
+      return new TextDecoder("utf-8", { fatal: false }).decode(buffer);
     };
     const remoteFileCandidates = currentPullRequest
       ? await getPullRequestCompareFiles({
@@ -3033,7 +3063,7 @@ export const getBranchComparePreview = action({
             file,
             baseShaByPath,
             headShaByPath,
-            getBlobTextBySha,
+            getBlobBufferBySha,
             includePatch,
           }),
         ),
