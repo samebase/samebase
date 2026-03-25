@@ -58,7 +58,7 @@ describe("shouldShowCompareBackToEditor", () => {
         commitReviewMode: "editor",
         isCompareRequested: true,
         hasComparedEditorTarget: true,
-        hasChangesToCommit: false,
+        hasStagedSelection: false,
       }),
     ).toBe(true);
   });
@@ -69,18 +69,18 @@ describe("shouldShowCompareBackToEditor", () => {
         commitReviewMode: "editor",
         isCompareRequested: true,
         hasComparedEditorTarget: false,
-        hasChangesToCommit: false,
+        hasStagedSelection: false,
       }),
     ).toBe(false);
   });
 
-  it("keeps review CTA when staged changes exist", () => {
+  it("keeps review CTA when the selected file is staged", () => {
     expect(
       shouldShowCompareBackToEditor({
         commitReviewMode: "editor",
         isCompareRequested: true,
         hasComparedEditorTarget: true,
-        hasChangesToCommit: true,
+        hasStagedSelection: true,
       }),
     ).toBe(false);
   });
@@ -91,7 +91,7 @@ describe("shouldShowCompareBackToEditor", () => {
         commitReviewMode: "review",
         isCompareRequested: true,
         hasComparedEditorTarget: true,
-        hasChangesToCommit: false,
+        hasStagedSelection: false,
       }),
     ).toBe(false);
   });

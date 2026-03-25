@@ -15,7 +15,11 @@ function getLineCountFromDiffPart(
   if (!value || value.length === 0) {
     return 0;
   }
-  return value.split("\n").length;
+  let lines = value.split("\n").length;
+  if (value.endsWith("\n")) {
+    lines -= 1;
+  }
+  return lines;
 }
 
 export function getReviewSplitDiffHighlights(

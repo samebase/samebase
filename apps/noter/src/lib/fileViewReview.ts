@@ -9,7 +9,7 @@ type CompareBackToEditorBehavior = {
   commitReviewMode: "editor" | "review";
   isCompareRequested: boolean;
   hasComparedEditorTarget: boolean;
-  hasChangesToCommit: boolean;
+  hasStagedSelection: boolean;
 };
 
 /**
@@ -39,6 +39,6 @@ export function shouldShowCompareBackToEditor(
     args.commitReviewMode === "editor" &&
     args.isCompareRequested &&
     args.hasComparedEditorTarget &&
-    !args.hasChangesToCommit
+    !args.hasStagedSelection
   );
 }

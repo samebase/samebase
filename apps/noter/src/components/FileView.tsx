@@ -1791,7 +1791,7 @@ function FileViewInner({
         commitReviewMode,
         isCompareRequested,
         hasComparedEditorTarget,
-        hasChangesToCommit: hasStagedChangesToCommit,
+        hasStagedSelection: Boolean(stagedFile),
       })
     ) {
       setCompareModeInQuery(false);
@@ -1818,7 +1818,6 @@ function FileViewInner({
   }, [
     branchComparePreview,
     commitReviewMode,
-    hasStagedChangesToCommit,
     isCompareRequested,
     resetCommitPreviewState,
     selectedFile,
@@ -1896,14 +1895,20 @@ function FileViewInner({
     inlinePreviewDraftStagingId === activePreviewStagingId
       ? inlinePreviewDraftContent
       : activePreviewPersistedContent;
-  const inlinePreviewSplitDiffHighlights = useMemo(
-    () =>
-      getReviewSplitDiffHighlights(
-        selectedPreviewBaseContent,
-        inlinePreviewEditorContent,
-      ),
-    [inlinePreviewEditorContent, selectedPreviewBaseContent],
-  );
+  const inlinePreviewSplitDiffHighlights = useMemo(() => {
+    if (!showInlinePreviewSideBySide) {
+      return { oldLines: [], newLines: [] };
+    }
+
+    return getReviewSplitDiffHighlights(
+      selectedPreviewBaseContent,
+      inlinePreviewEditorContent,
+    );
+  }, [
+    inlinePreviewEditorContent,
+    selectedPreviewBaseContent,
+    showInlinePreviewSideBySide,
+  ]);
   const renderInlinePreviewControls = (
     controlsIdPrefix: string,
     patchAvailable: boolean,
@@ -2861,7 +2866,7 @@ function FileViewInner({
     hasComparedEditorTarget: Boolean(
       selectedComparedFile && selectedComparedFile.status !== "deleted",
     ),
-    hasChangesToCommit: hasStagedChangesToCommit,
+    hasStagedSelection: Boolean(stagedFile),
   });
 
   return (
