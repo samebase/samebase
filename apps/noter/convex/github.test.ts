@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   collectLatestOpenPullRequestsByBranch,
   computeRepositoryTreeUpdatePlan,
+  listGitHubRepositoryPreview,
   listGitHubRepositories,
   normalizeGitHubRepositoryListItem,
   readGitHubNextPageUrl,
@@ -293,6 +294,123 @@ describe("listGitHubRepositories", () => {
         fetchImpl,
       }),
     ).rejects.toThrow("GitHub repository pagination loop detected");
+  });
+});
+
+describe("listGitHubRepositoryPreview", () => {
+  it("returns the first 10 updated repositories and marks hasMore from pagination", async () => {
+    const requestedUrls: string[] = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+      requestedUrls.push(
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url,
+      );
+      expect(init?.headers).toMatchObject({
+        Authorization: "Bearer github-token",
+      });
+
+      return new Response(
+        JSON.stringify([
+          {
+            id: 1,
+            name: "alpha",
+            full_name: "owner/alpha",
+            html_url: "https://github.com/owner/alpha",
+            description: null,
+            private: true,
+            fork: false,
+            created_at: "2026-03-01T00:00:00Z",
+            updated_at: "2026-03-10T00:00:00Z",
+            language: "TypeScript",
+            stargazers_count: 1,
+            forks_count: 2,
+          },
+        ]),
+        {
+          headers: {
+            Link: '<https://api.github.com/user/repos?page=2>; rel="next"',
+          },
+        },
+      );
+    };
+
+    const result = await listGitHubRepositoryPreview({
+      accessToken: "github-token",
+      fetchImpl,
+    });
+
+    expect(requestedUrls).toEqual([
+      "https://api.github.com/user/repos?sort=updated&per_page=10&affiliation=owner,collaborator,organization_member",
+    ]);
+    expect(result).toEqual({
+      repositories: [
+        {
+          id: 1,
+          name: "alpha",
+          full_name: "owner/alpha",
+          html_url: "https://github.com/owner/alpha",
+          description: null,
+          private: true,
+          fork: false,
+          created_at: "2026-03-01T00:00:00Z",
+          updated_at: "2026-03-10T00:00:00Z",
+          language: "TypeScript",
+          stargazers_count: 1,
+          forks_count: 2,
+        },
+      ],
+      hasMore: true,
+    });
+  });
+
+  it("reports hasMore false when the preview page is complete", async () => {
+    const fetchImpl: typeof fetch = async () =>
+      new Response(
+        JSON.stringify([
+          {
+            id: 1,
+            name: "alpha",
+            full_name: "owner/alpha",
+            html_url: "https://github.com/owner/alpha",
+            description: null,
+            private: true,
+            fork: false,
+            created_at: "2026-03-01T00:00:00Z",
+            updated_at: "2026-03-10T00:00:00Z",
+            language: "TypeScript",
+            stargazers_count: 1,
+            forks_count: 2,
+          },
+        ]),
+      );
+
+    await expect(
+      listGitHubRepositoryPreview({
+        accessToken: "github-token",
+        fetchImpl,
+      }),
+    ).resolves.toEqual({
+      repositories: [
+        {
+          id: 1,
+          name: "alpha",
+          full_name: "owner/alpha",
+          html_url: "https://github.com/owner/alpha",
+          description: null,
+          private: true,
+          fork: false,
+          created_at: "2026-03-01T00:00:00Z",
+          updated_at: "2026-03-10T00:00:00Z",
+          language: "TypeScript",
+          stargazers_count: 1,
+          forks_count: 2,
+        },
+      ],
+      hasMore: false,
+    });
   });
 });
 
