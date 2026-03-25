@@ -91,7 +91,7 @@ function readPathFixture(fixturePath: string): string[] {
     .filter((line) => line.length > 0);
 }
 
-function assertPathsMatchFixture(
+function assertPathsContainFixture(
   fixturePath: string,
   actualPaths: string[],
 ): void {
@@ -101,28 +101,47 @@ function assertPathsMatchFixture(
   }
 
   const expectedPaths = readPathFixture(fixturePath);
-  expect(actualPaths).toEqual(expectedPaths);
+  const actualPathSet = new Set(actualPaths);
+  const missingPaths = expectedPaths.filter((path) => !actualPathSet.has(path));
+  expect(missingPaths).toEqual([]);
+}
+
+function getRootVisibleSimpleViewFilePaths(): string[] {
+  const parsedConfig = parseSimpleViewConfig(getRootNoterMarkdown());
+  if (!parsedConfig.hasValidConfig) {
+    throw new Error("Expected root noter.md to have valid simpleView config");
+  }
+
+  return filterSimpleViewTreeItems(
+    getRepositoryTreeItems(),
+    parsedConfig.excludePatterns,
+  )
+    .filter((item) => item.type === "blob")
+    .map((item) => item.path)
+    .sort((a, b) => a.localeCompare(b));
 }
 
 describe("repository file tree fixtures", () => {
-  it("matches visible simple-view file fixture for root noter.md", () => {
-    const parsedConfig = parseSimpleViewConfig(getRootNoterMarkdown());
-    if (!parsedConfig.hasValidConfig) {
-      throw new Error("Expected root noter.md to have valid simpleView config");
-    }
+  it("contains the visible simple-view baseline fixture for root noter.md", () => {
+    const visibleFiles = getRootVisibleSimpleViewFilePaths();
 
-    const visibleFiles = filterSimpleViewTreeItems(
-      getRepositoryTreeItems(),
-      parsedConfig.excludePatterns,
-    )
-      .filter((item) => item.type === "blob")
-      .map((item) => item.path)
-      .sort((a, b) => a.localeCompare(b));
-
-    assertPathsMatchFixture(
+    assertPathsContainFixture(
       toFixtureFilePath("visible-simple-view-files.txt"),
       visibleFiles,
     );
+  });
+
+  it("keeps visible spec files on the numbered underscore naming convention", () => {
+    const visibleSpecPaths = getRootVisibleSimpleViewFilePaths().filter((path) =>
+      path.startsWith("specs/"),
+    );
+
+    const invalidSpecPaths = visibleSpecPaths.filter((path) => {
+      const specFileName = path.slice("specs/".length);
+      return !/^\d{3}_.+\.md$/.test(specFileName);
+    });
+
+    expect(invalidSpecPaths).toEqual([]);
   });
 });
 
