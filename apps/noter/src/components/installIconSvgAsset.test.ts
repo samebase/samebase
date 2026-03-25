@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import {
   createInstallIconSvgMarkup,
   INSTALL_ICON_BACKGROUND_COLOR,
-  INSTALL_ICON_TOP_FACE_COLOR,
 } from "@/components/installIconSvgAsset";
 
 describe("installIconSvgAsset", () => {
@@ -22,12 +21,11 @@ describe("installIconSvgAsset", () => {
     expect(installIconSvg).toBe(generatedSvg);
   });
 
-  it("uses a white canvas and the light-theme primary on top faces", () => {
+  it("uses a white canvas and preserves the white-mode top faces", () => {
     const generatedSvg = createInstallIconSvgMarkup();
 
     expect(generatedSvg).toContain(`fill="${INSTALL_ICON_BACKGROUND_COLOR}"`);
-    expect(generatedSvg).toContain(`fill="${INSTALL_ICON_TOP_FACE_COLOR}"`);
     expect(generatedSvg).not.toContain('fill="transparent"');
-    expect(generatedSvg).not.toContain('stroke="#ffffff"');
+    expect(generatedSvg).toContain('stroke="#ffffff"');
   });
 });

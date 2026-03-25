@@ -153,8 +153,8 @@ Requirements:
   than launcher heuristics
 - provide an Apple touch icon for iOS homescreen install flows
 - derive all install icons from the current public logo source of truth
-- render install icons on a white canvas and remap the static logo's white top
-  faces to the light-theme primary so the mark keeps contrast on that canvas
+- render install icons on a white canvas while preserving the white-mode logo
+  face colors
 
 Initial default:
 
