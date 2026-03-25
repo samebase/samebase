@@ -39,8 +39,6 @@ type CreateTreeEntry = NonNullable<
 
 const githubRateLimitResetByUser = new Map<string, number>();
 const PULL_REQUEST_COMPARE_FILE_LIST_LIMIT = 3_000;
-const STORAGE_BACKED_FILE_ERROR_MESSAGE =
-  "File is in storage, not implemented yet";
 
 export function selectBatchReadRepositoryTree(args: {
   requestedBranch?: string;

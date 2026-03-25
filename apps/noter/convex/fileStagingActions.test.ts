@@ -748,6 +748,8 @@ describe("buildRemoteComparePreviewFile", () => {
       status: "modified",
       path: "public/image.png",
       previousPath: undefined,
+      isBinary: false,
+      mimeType: undefined,
       additions: 3,
       deletions: 2,
       oldLineCount: 0,
