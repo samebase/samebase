@@ -1,16 +1,22 @@
+import { useState } from "react";
 import { PersonIcon } from "@radix-ui/react-icons";
 import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { SidebarProvider } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 
-export type FileViewLayoutVisualMode = "fileview-layout";
+export type FileViewLayoutVisualMode =
+  | "fileview-layout"
+  | "fileview-layout-persistence";
 
 export function FileViewLayoutVisualFixture({
   mode,
 }: {
   mode: FileViewLayoutVisualMode;
 }) {
+  const [clickCount, setClickCount] = useState(0);
+  const scrollRows = Array.from({ length: 40 }, (_, index) => index + 1);
+
   mode satisfies FileViewLayoutVisualMode;
 
   return (
@@ -37,10 +43,48 @@ export function FileViewLayoutVisualFixture({
           </SidebarAccountSection>
         }
         sidebarContent={
-          <div
-            data-testid="fileview-layout-sidebar-body"
-            className="min-h-0 flex-1 bg-muted/10"
-          />
+          mode === "fileview-layout" ? (
+            <div
+              data-testid="fileview-layout-sidebar-body"
+              className="min-h-0 flex-1 bg-muted/10"
+            />
+          ) : (
+            <div className="flex min-h-0 flex-1 flex-col bg-muted/10">
+              <div className="border-b border-border/50 p-3">
+                <Button
+                  data-testid="fileview-layout-counter-button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() =>
+                    setClickCount((currentCount) => currentCount + 1)
+                  }
+                >
+                  Increment
+                </Button>
+                <span
+                  data-testid="fileview-layout-counter-value"
+                  className="ml-3 text-sm text-foreground"
+                >
+                  {clickCount}
+                </span>
+              </div>
+              <div
+                data-testid="fileview-layout-sidebar-scroll"
+                className="min-h-0 flex-1 overflow-auto"
+              >
+                <div className="grid gap-2 p-3">
+                  {scrollRows.map((row) => (
+                    <div
+                      key={row}
+                      className="border border-border/50 bg-background px-3 py-2 text-sm"
+                    >
+                      File {row}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )
         }
         headerTitle="/"
         headerRight={

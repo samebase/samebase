@@ -29,6 +29,12 @@ export function RepositoryWorkspaceFrame({
   const { isMobile, open } = useSidebar();
   const hasSidebarHeader =
     sidebarHeader !== undefined && sidebarHeader !== null;
+  // Keep the desktop sidebar mounted while collapsed so file-tree scroll
+  // position and any sidebar-local state survive toggle cycles.
+  const desktopSidebarCellClassName = cn(
+    "min-w-0 overflow-hidden border-r transition-colors duration-200 ease-linear",
+    open ? "border-border/50" : "pointer-events-none border-transparent",
+  );
 
   if (isMobile) {
     return (
@@ -93,22 +99,32 @@ export function RepositoryWorkspaceFrame({
         gridTemplateRows: "auto minmax(0, 1fr)",
       }}
     >
-      {open && hasSidebarHeader ? (
-        <div className="min-w-0 overflow-hidden border-r border-border/50">
-          {sidebarHeader}
+      {hasSidebarHeader ? (
+        <div aria-hidden={!open} className={desktopSidebarCellClassName}>
+          <div
+            className="min-w-0 overflow-hidden"
+            style={{ width: "var(--sidebar-width)" }}
+          >
+            {sidebarHeader}
+          </div>
         </div>
       ) : null}
 
-      {open ? (
+      <div
+        aria-hidden={!open}
+        className={cn(
+          desktopSidebarCellClassName,
+          "min-h-0",
+          hasSidebarHeader ? "row-start-2" : "row-span-2 row-start-1",
+        )}
+      >
         <div
-          className={cn(
-            "min-h-0 min-w-0 overflow-hidden border-r border-border/50",
-            hasSidebarHeader ? "row-start-2" : "row-span-2 row-start-1",
-          )}
+          className="flex h-full min-h-0 flex-col"
+          style={{ width: "var(--sidebar-width)" }}
         >
-          <div className="flex h-full min-h-0 flex-col">{sidebarContent}</div>
+          {sidebarContent}
         </div>
-      ) : null}
+      </div>
 
       <div
         data-testid={headerTestId}

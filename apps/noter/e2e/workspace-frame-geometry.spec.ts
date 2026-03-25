@@ -122,3 +122,63 @@ test("fileview minimal frame lines stay aligned", async ({ page }) => {
     "fileview minimal sidebar/header divider x",
   );
 });
+
+test("fileview sidebar keeps local state across collapse", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 760 });
+  await page.goto("/visual-fixture.html?mode=fileview-layout-persistence", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const fixture = page.getByTestId("fileview-layout-visual-fixture");
+  const header = page.getByTestId("fileview-layout-header");
+  const scrollContainer = page.getByTestId("fileview-layout-sidebar-scroll");
+
+  await page.getByTestId("fileview-layout-counter-button").click();
+  await expect(page.getByTestId("fileview-layout-counter-value")).toHaveText(
+    "1",
+  );
+
+  await scrollContainer.evaluate((element) => {
+    element.scrollTop = 180;
+  });
+  const scrollTopBeforeCollapse = await scrollContainer.evaluate(
+    (element) => element.scrollTop,
+  );
+  expect(scrollTopBeforeCollapse).toBe(180);
+
+  await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+  await expect
+    .poll(async () => {
+      const fixtureBox = await fixture.boundingBox();
+      const headerBox = await header.boundingBox();
+
+      if (fixtureBox === null || headerBox === null) {
+        return Number.NaN;
+      }
+
+      return headerBox.x - fixtureBox.x;
+    })
+    .toBeLessThanOrEqual(1);
+
+  await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+  await expect
+    .poll(async () => {
+      const fixtureBox = await fixture.boundingBox();
+      const headerBox = await header.boundingBox();
+
+      if (fixtureBox === null || headerBox === null) {
+        return Number.NaN;
+      }
+
+      return headerBox.x - fixtureBox.x;
+    })
+    .toBeGreaterThan(100);
+
+  await expect(page.getByTestId("fileview-layout-counter-value")).toHaveText(
+    "1",
+  );
+  await expect
+    .poll(async () => scrollContainer.evaluate((element) => element.scrollTop))
+    .toBe(scrollTopBeforeCollapse);
+});
