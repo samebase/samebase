@@ -541,6 +541,44 @@ describe("buildRemoteComparePreviewFile", () => {
     expect(getBlobTextBySha).toHaveBeenCalledTimes(2);
   });
 
+  it("hydrates added markdown compare files from the head tree", async () => {
+    const getBlobTextBySha = vi.fn(async (sha: string) => {
+      if (sha === "head-sha") {
+        return "# New spec\n\nAdded line\n";
+      }
+
+      throw new Error(`Unexpected sha ${sha}`);
+    });
+
+    const result = await buildRemoteComparePreviewFile({
+      file: {
+        filename: "rfcs/spec.md",
+        status: "added",
+        additions: 3,
+        deletions: 0,
+        patch: "@@ -0,0 +1,3 @@",
+      },
+      baseShaByPath: new Map(),
+      headShaByPath: new Map([["rfcs/spec.md", "head-sha"]]),
+      getBlobTextBySha,
+      includePatch: true,
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: "added",
+        path: "rfcs/spec.md",
+        isMarkdown: true,
+        richOldContent: "",
+        richNewContent: "# New spec\n\nAdded line\n",
+        oldLineCount: 0,
+        newLineCount: 4,
+      }),
+    );
+    expect(result?.patch).toContain("+++ rfcs/spec.md");
+    expect(getBlobTextBySha).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps non-markdown compare files as patch-only metadata", async () => {
     const getBlobTextBySha = vi.fn(async () => {
       throw new Error("Should not load blob text for non-markdown files");
