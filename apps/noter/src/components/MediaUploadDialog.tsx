@@ -295,7 +295,7 @@ export function MediaUploadDialog({
   if (isMobile) {
     return (
       <Sheet open={isOpen} onOpenChange={handleOpenChange}>
-        <SheetContent side="bottom">
+        <SheetContent side="bottom" data-testid="media-upload-dialog-content">
           <SheetHeader>
             <SheetTitle>Upload Image</SheetTitle>
           </SheetHeader>
@@ -307,7 +307,10 @@ export function MediaUploadDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContentUI className="sm:max-w-md">
+      <DialogContentUI
+        className="sm:max-w-md"
+        data-testid="media-upload-dialog-content"
+      >
         <DialogHeader>
           <DialogTitle>Upload Image</DialogTitle>
         </DialogHeader>

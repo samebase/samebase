@@ -6,12 +6,14 @@ const SCENARIOS = [
     snapshotName: "sidebar-media-upload-desktop.png",
     viewport: { width: 1440, height: 1000 },
     expectsFooterVisible: true,
+    screenshotTarget: "page",
   },
   {
     name: "mobile",
     snapshotName: "sidebar-media-upload-mobile.png",
     viewport: { width: 390, height: 844 },
     expectsFooterVisible: false,
+    screenshotTarget: "dialog",
   },
 ] as const;
 
@@ -35,7 +37,11 @@ for (const scenario of SCENARIOS) {
       await document.fonts.ready;
     });
 
-    const screenshot = await page.screenshot({
+    const screenshotTarget =
+      scenario.screenshotTarget === "dialog"
+        ? page.getByTestId("media-upload-dialog-content")
+        : page;
+    const screenshot = await screenshotTarget.screenshot({
       animations: "disabled",
       caret: "hide",
       scale: "css",
