@@ -93,10 +93,15 @@ import {
   VaultBranchPreviewVisualFixture,
   type VaultBranchPreviewVisualMode,
 } from "@/components/VaultBranchPreviewVisualFixture";
+<<<<<<< HEAD
 import {
   VaultSyncStatusVisualFixture,
   type VaultSyncStatusVisualMode,
 } from "@/components/VaultSyncStatusVisualFixture";
+import {
+  SidebarMediaUploadVisualFixture,
+  type SidebarMediaUploadVisualMode,
+} from "@/components/SidebarMediaUploadVisualFixture";
 import {
   ThreadBrowserVisualFixture,
   type ThreadBrowserVisualMode,
@@ -125,6 +130,7 @@ type VisualFixtureMode =
   | LogoThreeVisualMode
   | AddRepositoryVisualMode
   | RepositoryMediaVisualMode
+  | SidebarMediaUploadVisualMode
   | SimpleViewVisualMode
   | ThreadBrowserVisualMode
   | ThreadHistoryVisualMode
@@ -169,6 +175,9 @@ const REPOSITORY_MEDIA_VISUAL_MODES = [
   "media-svg",
   "media-vox",
 ] as const satisfies readonly RepositoryMediaVisualMode[];
+const SIDEBAR_MEDIA_UPLOAD_VISUAL_MODES = [
+  "sidebar-media-upload",
+] as const satisfies readonly SidebarMediaUploadVisualMode[];
 
 const FILE_VIEW_LAYOUT_VISUAL_MODES = [
   "fileview-layout",
@@ -312,6 +321,10 @@ const VISUAL_FIXTURE_GROUPS = [
     modes: REPOSITORY_MEDIA_VISUAL_MODES,
   },
   {
+    label: "Media Upload",
+    modes: SIDEBAR_MEDIA_UPLOAD_VISUAL_MODES,
+  },
+  {
     label: "Simple View",
     modes: SIMPLE_VIEW_VISUAL_MODES,
   },
@@ -382,7 +395,9 @@ function renderVisualFixture(mode: VisualFixtureMode) {
   if (mode === "fileview-layout" || mode === "fileview-layout-persistence") {
     return <FileViewLayoutVisualFixture mode={mode} />;
   }
-
+  if (mode === "sidebar-media-upload") {
+    return <SidebarMediaUploadVisualFixture />;
+  }
   if (
     mode === "landing-copy-parity" ||
     mode === "landing-copy-editable-parity-single-line" ||

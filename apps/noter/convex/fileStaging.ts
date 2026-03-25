@@ -103,6 +103,7 @@ const stagedFilesBranchSummaryValidator = object({
 const stagedFilesBranchSummaryListValidator = array(
   stagedFilesBranchSummaryValidator,
 );
+const uploadUrlResultValidator = string();
 
 const getByNewPathArgsValidator = {
   vaultId: vaultIdValidator,
@@ -377,6 +378,15 @@ async function readDeletionSnapshotSeed(
 }
 
 // MARK: Public
+
+export const generateUploadUrl = mutation({
+  args: {},
+  returns: uploadUrlResultValidator,
+  handler: async (ctx) => {
+    await getUserId(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
 
 export const getByNewPath = query({
   args: getByNewPathArgsValidator,

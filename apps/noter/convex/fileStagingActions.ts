@@ -26,6 +26,7 @@ import {
 } from "./stagingChanges";
 import { sanitizeSlug } from "./slugUtils";
 import { describeRepositoryTreeRefreshFailure } from "./github";
+import { getRepositoryMediaKind } from "../shared/repositoryMedia";
 import { isStaleBaseVersionError } from "../shared/stagingErrors";
 
 const { boolean, number, object, optional, string } = v;
@@ -668,6 +669,12 @@ const draftPullRequestResult = object({
   number: number(),
   existing: boolean(),
 });
+const stagedMediaUploadResult = object({
+  filePath: string(),
+  branch: string(),
+  parentCommitSha: optional(string()),
+  replacedExisting: boolean(),
+});
 const defaultBranchDraftPullRequestResult = object({
   branch: string(),
   url: string(),
@@ -699,6 +706,7 @@ type CommitPreviewSafety = Infer<typeof commitPreviewSafety>;
 type CommitPreviewResult = Infer<typeof commitPreviewResult>;
 type BranchComparePreviewResult = Infer<typeof branchComparePreviewResult>;
 type DraftPullRequestResult = Infer<typeof draftPullRequestResult>;
+type StagedMediaUploadResult = Infer<typeof stagedMediaUploadResult>;
 type DefaultBranchDraftPullRequestResult = Infer<
   typeof defaultBranchDraftPullRequestResult
 >;
@@ -2140,6 +2148,72 @@ export const getFileForEditing = action({
       console.error("error", error);
       throw error;
     }
+  },
+});
+
+export const stageUploadedMedia = action({
+  args: {
+    repositoryFullName: string(),
+    filePath: string(),
+    storageId: v.id("_storage"),
+    branch: optional(string()),
+    replaceExisting: boolean(),
+  },
+  returns: stagedMediaUploadResult,
+  handler: async (ctx, args): Promise<StagedMediaUploadResult> => {
+    if (getRepositoryMediaKind(args.filePath) !== "image") {
+      throw new Error("Only image uploads are supported right now.");
+    }
+
+    const userId = await getUserId(ctx);
+    const githubAccessToken = await getGithubAccessToken(ctx, userId);
+    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
+      repositoryFullName: args.repositoryFullName,
+      userId,
+    });
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+
+    const octokit: Octokit = new Octokit({
+      auth: githubAccessToken,
+    });
+    const targetBranch =
+      args.branch ??
+      (await getRepositoryDefaultBranch({
+        octokit,
+        owner: vault.ghRepoOwner,
+        repo: vault.ghRepoName,
+      }));
+
+    const uploadedBlob = await ctx.storage.get(args.storageId);
+    if (!uploadedBlob) {
+      throw new Error("Uploaded media is no longer available.");
+    }
+
+    const uploadedBuffer = Buffer.from(await uploadedBlob.arrayBuffer());
+    const stagedBlobSha = computeGitBlobShaFromBuffer(uploadedBuffer);
+    const stagedFile = await ctx.runMutation(
+      internal.fileStaging.saveBinaryUploadToStaging,
+      {
+        vaultId: vault._id,
+        filePath: args.filePath,
+        branch: targetBranch,
+        storageId: args.storageId,
+        mime: uploadedBlob.type || guessMime(args.filePath),
+        size: uploadedBlob.size,
+        stagedBlobSha,
+        replaceExisting: args.replaceExisting,
+        userId,
+      },
+    );
+
+    return {
+      filePath: stagedFile.filePath,
+      branch: stagedFile.branch,
+      parentCommitSha: stagedFile.parentCommitSha ?? undefined,
+      replacedExisting: stagedFile.parentCommitSha !== null,
+    };
   },
 });
 
