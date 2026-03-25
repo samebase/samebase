@@ -5,6 +5,8 @@
 
 - [ ] instead of making the user choose between draft/push, just push to main, and an agent can pick it up and start working on it in a separate pr, but the initila idea is already on main; that way it's more async and you get instand knowledge for all other parallel branches, pretty fast (rebase.md)
 
+- [ ] use Firefox Tree Style Tab as the reference UI for branch/PR representation: branches become collapsible tree items, draft PRs hang off the branch as child nodes, and activity/unread state should stay visible without opening each branch
+
 - [ ] let users provide their own compute! instead of forccing to use Daytona, make it work on their actual machines; but it's much safer alternative to openclaw!!!!!!
 
 - [ ] something
