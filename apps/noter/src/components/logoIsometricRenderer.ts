@@ -10,11 +10,11 @@ import {
   type FaceColors,
 } from "@/components/logoTailwindColors";
 
-// Use a larger source cube so the shape stays readable before favicon downscaling.
-const TILE_HALF_WIDTH = 16;
-const TILE_HALF_HEIGHT = 8;
-const VOXEL_SCREEN_HEIGHT = 16;
 const FRAME_PADDING = 4;
+export const DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX = 16;
+export const MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX = 2;
+export const MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX = 40;
+export const LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX = 2;
 
 type Point = {
   x: number;
@@ -53,6 +53,17 @@ export type IsometricVisibleFace = {
 export type IsometricMovingVoxel = {
   coordinate: VoxelCoordinate;
   position: CubePosition;
+};
+
+export type LogoIsometricFrameMetrics = {
+  canvasHeight: number;
+  canvasWidth: number;
+  cubeSidePixels: number;
+  offsetX: number;
+  offsetY: number;
+  tileHalfHeight: number;
+  tileHalfWidth: number;
+  voxelScreenHeight: number;
 };
 
 type LogoIsometricEdgeMode = "none" | "shaded";
@@ -135,55 +146,91 @@ export function getLogoIsometricStyle(
   );
 }
 
-function projectPoint(position: CubePosition): Point {
+export function normalizeLogoIsometricCubeSidePixels(value: number): number {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX;
+  }
+
+  const roundedToStep =
+    Math.round(value / LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX) *
+    LOGO_ISOMETRIC_CUBE_SIDE_STEP_PX;
+
+  return Math.min(
+    Math.max(roundedToStep, MIN_LOGO_ISOMETRIC_CUBE_SIDE_PX),
+    MAX_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+  );
+}
+
+function projectPoint(
+  position: CubePosition,
+  frameMetrics: LogoIsometricFrameMetrics,
+): Point {
   return {
-    x: (position[0] - position[2]) * TILE_HALF_WIDTH,
+    x: (position[0] - position[2]) * frameMetrics.tileHalfWidth,
     y:
-      (position[0] + position[2]) * TILE_HALF_HEIGHT -
-      position[1] * VOXEL_SCREEN_HEIGHT,
+      (position[0] + position[2]) * frameMetrics.tileHalfHeight -
+      position[1] * frameMetrics.voxelScreenHeight,
   };
 }
 
 function getCubeFacePolygon(
   position: CubePosition,
   direction: IsometricFaceDirection,
+  frameMetrics: LogoIsometricFrameMetrics,
 ): readonly Point[] {
   const [x, y, z] = position;
   switch (direction) {
     case "top":
       return [
-        projectPoint([x, y + 1, z]),
-        projectPoint([x + 1, y + 1, z]),
-        projectPoint([x + 1, y + 1, z + 1]),
-        projectPoint([x, y + 1, z + 1]),
+        projectPoint([x, y + 1, z], frameMetrics),
+        projectPoint([x + 1, y + 1, z], frameMetrics),
+        projectPoint([x + 1, y + 1, z + 1], frameMetrics),
+        projectPoint([x, y + 1, z + 1], frameMetrics),
       ];
     case "right":
       return [
-        projectPoint([x + 1, y + 1, z]),
-        projectPoint([x + 1, y, z]),
-        projectPoint([x + 1, y, z + 1]),
-        projectPoint([x + 1, y + 1, z + 1]),
+        projectPoint([x + 1, y + 1, z], frameMetrics),
+        projectPoint([x + 1, y, z], frameMetrics),
+        projectPoint([x + 1, y, z + 1], frameMetrics),
+        projectPoint([x + 1, y + 1, z + 1], frameMetrics),
       ];
     case "left":
       return [
-        projectPoint([x, y + 1, z + 1]),
-        projectPoint([x + 1, y + 1, z + 1]),
-        projectPoint([x + 1, y, z + 1]),
-        projectPoint([x, y, z + 1]),
+        projectPoint([x, y + 1, z + 1], frameMetrics),
+        projectPoint([x + 1, y + 1, z + 1], frameMetrics),
+        projectPoint([x + 1, y, z + 1], frameMetrics),
+        projectPoint([x, y, z + 1], frameMetrics),
       ];
   }
 }
 
-function buildSceneBounds() {
+function createLogoIsometricFrameMetrics(
+  cubeSidePixels: number,
+): LogoIsometricFrameMetrics {
+  const normalizedCubeSidePixels =
+    normalizeLogoIsometricCubeSidePixels(cubeSidePixels);
+  const tileHalfWidth = normalizedCubeSidePixels;
+  const tileHalfHeight = normalizedCubeSidePixels / 2;
+  const voxelScreenHeight = normalizedCubeSidePixels;
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
   let maxY = Number.NEGATIVE_INFINITY;
+  const provisionalMetrics = {
+    canvasHeight: 0,
+    canvasWidth: 0,
+    cubeSidePixels: normalizedCubeSidePixels,
+    offsetX: 0,
+    offsetY: 0,
+    tileHalfHeight,
+    tileHalfWidth,
+    voxelScreenHeight,
+  } satisfies LogoIsometricFrameMetrics;
 
   for (let x = 0; x <= GRID_SIZE; x += 1) {
     for (let y = 0; y <= GRID_SIZE; y += 1) {
       for (let z = 0; z <= GRID_SIZE; z += 1) {
-        const point = projectPoint([x, y, z]);
+        const point = projectPoint([x, y, z], provisionalMetrics);
         minX = Math.min(minX, point.x);
         minY = Math.min(minY, point.y);
         maxX = Math.max(maxX, point.x);
@@ -193,24 +240,53 @@ function buildSceneBounds() {
   }
 
   return {
-    height: Math.ceil(maxY - minY) + FRAME_PADDING * 2 + 1,
+    canvasHeight: Math.ceil(maxY - minY) + FRAME_PADDING * 2 + 1,
+    canvasWidth: Math.ceil(maxX - minX) + FRAME_PADDING * 2 + 1,
+    cubeSidePixels: normalizedCubeSidePixels,
     offsetX: FRAME_PADDING - minX,
     offsetY: FRAME_PADDING - minY,
-    width: Math.ceil(maxX - minX) + FRAME_PADDING * 2 + 1,
+    tileHalfHeight,
+    tileHalfWidth,
+    voxelScreenHeight,
   };
 }
 
-const sceneBounds = buildSceneBounds();
+const isometricFrameMetricsCache = new Map<number, LogoIsometricFrameMetrics>();
 
-export const LOGO_ISOMETRIC_CANVAS_WIDTH = sceneBounds.width;
-export const LOGO_ISOMETRIC_CANVAS_HEIGHT = sceneBounds.height;
+export function getLogoIsometricFrameMetrics(
+  cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
+): LogoIsometricFrameMetrics {
+  const normalizedCubeSidePixels =
+    normalizeLogoIsometricCubeSidePixels(cubeSidePixels);
+  const cachedFrameMetrics = isometricFrameMetricsCache.get(
+    normalizedCubeSidePixels,
+  );
+
+  if (cachedFrameMetrics) {
+    return cachedFrameMetrics;
+  }
+
+  const frameMetrics = createLogoIsometricFrameMetrics(
+    normalizedCubeSidePixels,
+  );
+  isometricFrameMetricsCache.set(normalizedCubeSidePixels, frameMetrics);
+  return frameMetrics;
+}
+
+const defaultFrameMetrics = getLogoIsometricFrameMetrics();
+
+export const LOGO_ISOMETRIC_CANVAS_WIDTH = defaultFrameMetrics.canvasWidth;
+export const LOGO_ISOMETRIC_CANVAS_HEIGHT = defaultFrameMetrics.canvasHeight;
 export const LOGO_ISOMETRIC_ELEVATION_DEGREES = 35.26438968;
 export const LOGO_ISOMETRIC_ROTATION_DEGREES = FAVICON_ROTATION_DEGREES;
 
-function translatePolygon(points: readonly Point[]): readonly Point[] {
+function translatePolygon(
+  points: readonly Point[],
+  frameMetrics: LogoIsometricFrameMetrics,
+): readonly Point[] {
   return points.map((point) => ({
-    x: point.x + sceneBounds.offsetX,
-    y: point.y + sceneBounds.offsetY,
+    x: point.x + frameMetrics.offsetX,
+    y: point.y + frameMetrics.offsetY,
   }));
 }
 
@@ -326,17 +402,20 @@ function serializeSvgPolygon(points: readonly Point[]): string {
   return points.map((point) => `${point.x},${point.y}`).join(" ");
 }
 
-function applyShadedEdges(context: CanvasRenderingContext2D) {
+function applyShadedEdges(
+  context: CanvasRenderingContext2D,
+  frameMetrics: LogoIsometricFrameMetrics,
+) {
   const imageData = context.getImageData(
     0,
     0,
-    LOGO_ISOMETRIC_CANVAS_WIDTH,
-    LOGO_ISOMETRIC_CANVAS_HEIGHT,
+    frameMetrics.canvasWidth,
+    frameMetrics.canvasHeight,
   );
   const source = imageData.data.slice();
   const next = imageData.data;
-  const width = LOGO_ISOMETRIC_CANVAS_WIDTH;
-  const height = LOGO_ISOMETRIC_CANVAS_HEIGHT;
+  const width = frameMetrics.canvasWidth;
+  const height = frameMetrics.canvasHeight;
 
   const isOpaque = (x: number, y: number) => {
     if (x < 0 || x >= width || y < 0 || y >= height) {
@@ -460,11 +539,13 @@ function createRenderFace({
   color,
   coordinate,
   direction,
+  frameMetrics,
   position,
 }: {
   color: string;
   coordinate: VoxelCoordinate;
   direction: IsometricFaceDirection;
+  frameMetrics: LogoIsometricFrameMetrics;
   position: CubePosition;
 }): RenderFace {
   return {
@@ -472,7 +553,10 @@ function createRenderFace({
     coordinate,
     direction,
     normal: FACE_NORMALS[direction],
-    polygon: translatePolygon(getCubeFacePolygon(position, direction)),
+    polygon: translatePolygon(
+      getCubeFacePolygon(position, direction, frameMetrics),
+      frameMetrics,
+    ),
     position,
   };
 }
@@ -480,6 +564,7 @@ function createRenderFace({
 function buildStaticRenderFaces(
   filledVoxels: ReadonlySet<string>,
   faceColors: FaceColors,
+  frameMetrics: LogoIsometricFrameMetrics,
 ): RenderFace[] {
   const renderFaces: RenderFace[] = [];
   const topColor = getTailwindColorHex(faceColors.top);
@@ -502,6 +587,7 @@ function buildStaticRenderFaces(
           color: leftColor,
           coordinate,
           direction: "left",
+          frameMetrics,
           position: coordinate,
         }),
       );
@@ -520,6 +606,7 @@ function buildStaticRenderFaces(
           color: rightColor,
           coordinate,
           direction: "right",
+          frameMetrics,
           position: coordinate,
         }),
       );
@@ -538,6 +625,7 @@ function buildStaticRenderFaces(
           color: topColor,
           coordinate,
           direction: "top",
+          frameMetrics,
           position: coordinate,
         }),
       );
@@ -550,6 +638,7 @@ function buildStaticRenderFaces(
 function buildMovingRenderFaces(
   filledVoxels: ReadonlySet<string>,
   faceColors: FaceColors,
+  frameMetrics: LogoIsometricFrameMetrics,
   movingVoxels: readonly IsometricMovingVoxel[],
 ): RenderFace[] {
   const topColor = getTailwindColorHex(faceColors.top);
@@ -583,6 +672,7 @@ function buildMovingRenderFaces(
           color: leftColor,
           coordinate: movingVoxel.coordinate,
           direction: "left",
+          frameMetrics,
           position: movingVoxel.position,
         }),
       );
@@ -601,6 +691,7 @@ function buildMovingRenderFaces(
           color: rightColor,
           coordinate: movingVoxel.coordinate,
           direction: "right",
+          frameMetrics,
           position: movingVoxel.position,
         }),
       );
@@ -619,6 +710,7 @@ function buildMovingRenderFaces(
           color: topColor,
           coordinate: movingVoxel.coordinate,
           direction: "top",
+          frameMetrics,
           position: movingVoxel.position,
         }),
       );
@@ -639,6 +731,7 @@ function compareRenderFaces(left: RenderFace, right: RenderFace): number {
 
 export function drawLogoIsometricFrame({
   backgroundColor,
+  cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   context,
   faceColors,
   filledVoxels,
@@ -646,6 +739,7 @@ export function drawLogoIsometricFrame({
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
 }: {
   backgroundColor: string;
+  cubeSidePixels?: number;
   context: CanvasRenderingContext2D;
   faceColors: FaceColors;
   filledVoxels: ReadonlySet<string>;
@@ -653,17 +747,18 @@ export function drawLogoIsometricFrame({
   styleId?: LogoIsometricStyleId;
 }): readonly IsometricVisibleFace[] {
   const style = getLogoIsometricStyle(styleId);
+  const frameMetrics = getLogoIsometricFrameMetrics(cubeSidePixels);
 
-  context.clearRect(
-    0,
-    0,
-    LOGO_ISOMETRIC_CANVAS_WIDTH,
-    LOGO_ISOMETRIC_CANVAS_HEIGHT,
-  );
+  context.clearRect(0, 0, frameMetrics.canvasWidth, frameMetrics.canvasHeight);
 
   const renderFaces = [
-    ...buildStaticRenderFaces(filledVoxels, faceColors),
-    ...buildMovingRenderFaces(filledVoxels, faceColors, movingVoxels),
+    ...buildStaticRenderFaces(filledVoxels, faceColors, frameMetrics),
+    ...buildMovingRenderFaces(
+      filledVoxels,
+      faceColors,
+      frameMetrics,
+      movingVoxels,
+    ),
   ].sort(compareRenderFaces);
 
   for (const renderFace of renderFaces) {
@@ -676,18 +771,13 @@ export function drawLogoIsometricFrame({
   }
 
   if (style.edgeMode === "shaded") {
-    applyShadedEdges(context);
+    applyShadedEdges(context, frameMetrics);
   }
 
   context.save();
   context.globalCompositeOperation = "destination-over";
   context.fillStyle = backgroundColor;
-  context.fillRect(
-    0,
-    0,
-    LOGO_ISOMETRIC_CANVAS_WIDTH,
-    LOGO_ISOMETRIC_CANVAS_HEIGHT,
-  );
+  context.fillRect(0, 0, frameMetrics.canvasWidth, frameMetrics.canvasHeight);
   context.restore();
 
   return renderFaces.map(({ coordinate, direction, normal, polygon }) => ({
@@ -713,16 +803,22 @@ export function createLogoIsometricSvgMarkup({
   styleId?: LogoIsometricSvgSafeStyleId;
 }): string {
   const style = getLogoIsometricStyle(styleId);
+  const frameMetrics = defaultFrameMetrics;
 
   if (style.edgeMode !== "none" || style.capWidth !== 2) {
     throw new Error("SVG export only supports flat four-point face geometry.");
   }
 
   const renderFaces = [
-    ...buildStaticRenderFaces(filledVoxels, faceColors),
-    ...buildMovingRenderFaces(filledVoxels, faceColors, movingVoxels),
+    ...buildStaticRenderFaces(filledVoxels, faceColors, frameMetrics),
+    ...buildMovingRenderFaces(
+      filledVoxels,
+      faceColors,
+      frameMetrics,
+      movingVoxels,
+    ),
   ].sort(compareRenderFaces);
-  const backgroundRect = `<rect x="0" y="0" width="${LOGO_ISOMETRIC_CANVAS_WIDTH}" height="${LOGO_ISOMETRIC_CANVAS_HEIGHT}" fill="${escapeSvgAttribute(backgroundColor)}"/>`;
+  const backgroundRect = `<rect x="0" y="0" width="${frameMetrics.canvasWidth}" height="${frameMetrics.canvasHeight}" fill="${escapeSvgAttribute(backgroundColor)}"/>`;
   const renderFacePolygons = renderFaces
     .map((renderFace) => {
       const fill = escapeSvgAttribute(renderFace.color);
@@ -733,7 +829,7 @@ export function createLogoIsometricSvgMarkup({
     })
     .join("");
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${LOGO_ISOMETRIC_CANVAS_WIDTH} ${LOGO_ISOMETRIC_CANVAS_HEIGHT}" width="${LOGO_ISOMETRIC_CANVAS_WIDTH}" height="${LOGO_ISOMETRIC_CANVAS_HEIGHT}">${backgroundRect}${renderFacePolygons}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${frameMetrics.canvasWidth} ${frameMetrics.canvasHeight}" width="${frameMetrics.canvasWidth}" height="${frameMetrics.canvasHeight}">${backgroundRect}${renderFacePolygons}</svg>`;
 }
 
 export function getIsometricAddCoordinate(

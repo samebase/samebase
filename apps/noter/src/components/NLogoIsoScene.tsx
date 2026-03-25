@@ -1,15 +1,15 @@
 import { getShuffleOriginCandidates } from "@/components/logoShuffleRules";
 import {
+  DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
-  LOGO_ISOMETRIC_CANVAS_HEIGHT,
-  LOGO_ISOMETRIC_CANVAS_WIDTH,
   LOGO_ISOMETRIC_ELEVATION_DEGREES,
   LOGO_ISOMETRIC_ROTATION_DEGREES,
   drawLogoIsometricFrame,
+  getLogoIsometricFrameMetrics,
   getIsometricAddCoordinate,
   isPointInsideRowSpans,
-  type LogoIsometricStyleId,
   type IsometricVisibleFace,
+  type LogoIsometricStyleId,
 } from "@/components/logoIsometricRenderer";
 import { type FaceColors } from "@/components/logoTailwindColors";
 import {
@@ -71,6 +71,7 @@ type SceneViewport = {
 type NLogoIsoSceneProps = {
   backgroundColor: string;
   className?: string;
+  cubeSidePixels?: number;
   editMode: VoxelEdit["kind"];
   faceColors: FaceColors;
   onVoxelEdit: (edit: VoxelEdit) => void;
@@ -216,6 +217,7 @@ function syncCubeShuffleAnimation(
 export function LogoIsoThumbnail({
   backgroundColor,
   className,
+  cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   dataTestId,
   faceColors,
   size,
@@ -224,6 +226,7 @@ export function LogoIsoThumbnail({
 }: {
   backgroundColor: string;
   className?: string;
+  cubeSidePixels?: number;
   dataTestId?: string;
   faceColors: FaceColors;
   size: number;
@@ -247,9 +250,10 @@ export function LogoIsoThumbnail({
 
     const filledVoxels =
       parseVoxelState(voxelState) ?? createDefaultFilledVoxelSet();
+    const frameMetrics = getLogoIsometricFrameMetrics(cubeSidePixels);
     const rasterCanvas = document.createElement("canvas");
-    rasterCanvas.width = LOGO_ISOMETRIC_CANVAS_WIDTH;
-    rasterCanvas.height = LOGO_ISOMETRIC_CANVAS_HEIGHT;
+    rasterCanvas.width = frameMetrics.canvasWidth;
+    rasterCanvas.height = frameMetrics.canvasHeight;
     const rasterContext = rasterCanvas.getContext("2d", {
       willReadFrequently: true,
     });
@@ -259,6 +263,7 @@ export function LogoIsoThumbnail({
 
     drawLogoIsometricFrame({
       backgroundColor,
+      cubeSidePixels,
       context: rasterContext,
       faceColors,
       filledVoxels,
@@ -267,7 +272,7 @@ export function LogoIsoThumbnail({
     context.clearRect(0, 0, size, size);
     context.imageSmoothingEnabled = false;
     context.drawImage(rasterCanvas, 0, 0, size, size);
-  }, [backgroundColor, faceColors, size, styleId, voxelState]);
+  }, [backgroundColor, cubeSidePixels, faceColors, size, styleId, voxelState]);
 
   return (
     <canvas
@@ -288,6 +293,7 @@ export function LogoIsoThumbnail({
 export function NLogoIsoScene({
   backgroundColor,
   className,
+  cubeSidePixels = DEFAULT_LOGO_ISOMETRIC_CUBE_SIDE_PX,
   editMode,
   faceColors,
   onVoxelEdit,
@@ -373,14 +379,15 @@ export function NLogoIsoScene({
       return;
     }
 
+    const frameMetrics = getLogoIsometricFrameMetrics(cubeSidePixels);
+
     if (!offscreenCanvasRef.current) {
-      const offscreenCanvas = document.createElement("canvas");
-      offscreenCanvas.width = LOGO_ISOMETRIC_CANVAS_WIDTH;
-      offscreenCanvas.height = LOGO_ISOMETRIC_CANVAS_HEIGHT;
-      offscreenCanvasRef.current = offscreenCanvas;
+      offscreenCanvasRef.current = document.createElement("canvas");
     }
 
     const offscreenCanvas = offscreenCanvasRef.current;
+    offscreenCanvas.width = frameMetrics.canvasWidth;
+    offscreenCanvas.height = frameMetrics.canvasHeight;
     const offscreenContext = offscreenCanvas.getContext("2d", {
       willReadFrequently: true,
     });
@@ -419,6 +426,7 @@ export function NLogoIsoScene({
 
       const visibleFaces = drawLogoIsometricFrame({
         backgroundColor: backgroundColorRef.current,
+        cubeSidePixels,
         context: offscreenContext,
         faceColors: faceColorsRef.current,
         filledVoxels: sceneState.currentFilledVoxels,
@@ -432,13 +440,13 @@ export function NLogoIsoScene({
         1,
         Math.floor(
           Math.min(
-            containerWidth / LOGO_ISOMETRIC_CANVAS_WIDTH,
-            containerHeight / LOGO_ISOMETRIC_CANVAS_HEIGHT,
+            containerWidth / frameMetrics.canvasWidth,
+            containerHeight / frameMetrics.canvasHeight,
           ),
         ),
       );
-      const drawWidth = LOGO_ISOMETRIC_CANVAS_WIDTH * pixelScale;
-      const drawHeight = LOGO_ISOMETRIC_CANVAS_HEIGHT * pixelScale;
+      const drawWidth = frameMetrics.canvasWidth * pixelScale;
+      const drawHeight = frameMetrics.canvasHeight * pixelScale;
       const offsetX = Math.floor((containerWidth - drawWidth) / 2);
       const offsetY = Math.floor((containerHeight - drawHeight) / 2);
       const devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
@@ -531,7 +539,7 @@ export function NLogoIsoScene({
       renderSceneRef.current = () => {};
       syncAnimationLoopRef.current = () => {};
     };
-  }, [styleId]);
+  }, [cubeSidePixels, styleId]);
 
   const resetInteraction = (target: HTMLDivElement, pointerId: number) => {
     if (target.hasPointerCapture(pointerId)) {
