@@ -16,18 +16,13 @@ const TREE_ITEMS = [
     type: "tree" as const,
   },
   {
-    path: "assets/uploads",
-    originalPath: "assets/uploads",
-    type: "tree" as const,
-  },
-  {
-    path: "assets/uploads/camera-roll.png",
-    originalPath: "assets/uploads/camera-roll.png",
+    path: "assets/cover.png",
+    originalPath: "assets/cover.png",
     type: "blob" as const,
   },
   {
-    path: "assets/uploads/cover.png",
-    originalPath: "assets/uploads/cover.png",
+    path: "assets/hero.png",
+    originalPath: "assets/hero.png",
     type: "blob" as const,
   },
 ];
@@ -35,10 +30,6 @@ const TREE_ITEMS = [
 const FOLDER_EXPANSION_STATES = [
   {
     folderPath: "assets",
-    isExpanded: true,
-  },
-  {
-    folderPath: "assets/uploads",
     isExpanded: true,
   },
 ];
@@ -67,7 +58,7 @@ export function SidebarMediaUploadVisualFixture() {
       <div className="flex-1 overflow-auto">
         <FileTree
           items={TREE_ITEMS}
-          selectedFile="assets/uploads/cover.png"
+          selectedFile="assets/cover.png"
           folderExpansionStates={FOLDER_EXPANSION_STATES}
         />
       </div>
@@ -91,7 +82,7 @@ export function SidebarMediaUploadVisualFixture() {
       <RepositoryWorkspaceFrame
         dataTestId="sidebar-media-upload-visual-fixture"
         sidebarContent={sidebarContent}
-        headerTitle="assets/uploads"
+        headerTitle="assets"
       >
         <div className="flex h-full min-h-0 flex-col p-6">
           <div className="mb-3">
@@ -108,10 +99,10 @@ export function SidebarMediaUploadVisualFixture() {
       <MediaUploadDialog
         isOpen={true}
         onClose={() => {}}
-        fileName="camera-roll.png"
-        initialFolderPath="assets/uploads"
+        fileName="cover.png"
+        initialFolderPath="assets"
         folders={TREE_ITEMS}
-        existingFilePaths={["assets/uploads/camera-roll.png"]}
+        existingFilePaths={["assets/cover.png"]}
         onSubmit={() => {}}
       />
     </SidebarProvider>
