@@ -22,6 +22,13 @@ export function cloneQueryParams(
   return new URLSearchParams(normalizeSearchInput(search));
 }
 
+export function hasQueryParam(
+  search: string | URLSearchParams | undefined,
+  name: string,
+): boolean {
+  return cloneQueryParams(search).has(name);
+}
+
 export function setQueryParam(
   searchParams: URLSearchParams,
   name: string,

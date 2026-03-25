@@ -27,7 +27,11 @@ import {
   FilePlusIcon,
 } from "@radix-ui/react-icons";
 import { SidebarProvider } from "@/components/sidebar";
-import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
+import {
+  buildPathWithUpdatedQuery,
+  hasQueryParam,
+  setQueryParam,
+} from "@/lib/queryParams";
 import { FileTree } from "./FileTree";
 import { CommandPalette } from "./CommandPalette";
 import { EditorChatDock } from "./EditorChatDock";
@@ -286,10 +290,10 @@ function FileViewWrapper() {
   const navigate = useNavigate();
   const location = useLocation();
   const { search, state } = location;
-  const isCompareRequested = useMemo(() => {
-    const params = new URLSearchParams(search);
-    return params.has("compare");
-  }, [search]);
+  const isCompareRequested = useMemo(
+    () => hasQueryParam(search, "compare"),
+    [search],
+  );
 
   const {
     owner,
@@ -655,14 +659,14 @@ function FileViewInner({
 
   const navigate = useNavigate();
   const { search, state } = useLocation();
-  const reviewOnMountRequested = useMemo(() => {
-    const params = new URLSearchParams(search);
-    return params.has("review");
-  }, [search]);
-  const isCompareRequested = useMemo(() => {
-    const params = new URLSearchParams(search);
-    return params.has("compare");
-  }, [search]);
+  const reviewOnMountRequested = useMemo(
+    () => hasQueryParam(search, "review"),
+    [search],
+  );
+  const isCompareRequested = useMemo(
+    () => hasQueryParam(search, "compare"),
+    [search],
+  );
 
   // Get current user for sidebar
   const user = useQuery(api.users.viewer);
@@ -846,10 +850,10 @@ function FileViewInner({
   const stageFileForEditing = useAction(
     api.fileStagingActions.getFileForEditing,
   );
-  const isDiffRequested = useMemo(() => {
-    const params = new URLSearchParams(search);
-    return params.has("diff");
-  }, [search]);
+  const isDiffRequested = useMemo(
+    () => hasQueryParam(search, "diff"),
+    [search],
+  );
 
   // Get count of staged files for this vault
   const stagedFiles = useQuery(
@@ -893,6 +897,7 @@ function FileViewInner({
   }, [isDiffRequested]);
   const [allowAutoExitReview, setAllowAutoExitReview] = useState(true);
   const reviewRouteKeyRef = useRef<string | null>(null);
+  const branchComparePreviewRequestKeyRef = useRef<string | null>(null);
   const currentRemoteBranch = useMemo(
     () =>
       remoteBranches?.find(
@@ -1103,23 +1108,25 @@ function FileViewInner({
     ) => {
       const targetBranch = options?.branch ?? branch;
       const encodedTargetBranch = encodeURIComponent(targetBranch);
-      const encodedPath = encodeVaultFilePath(path);
       const preserveCurrentReviewMode = options?.reviewMode === undefined;
       const preserveCurrentCompareMode = options?.compare === undefined;
-      const currentSearchParams = new URLSearchParams(search);
       const preserveReviewOnMount =
         preserveCurrentReviewMode &&
-        currentSearchParams.has("review") &&
-        !currentSearchParams.has("diff");
+        hasQueryParam(search, "review") &&
+        !hasQueryParam(search, "diff");
       const includeDiff =
         options?.reviewMode === "review" ||
-        (preserveCurrentReviewMode && currentSearchParams.has("diff"));
+        (preserveCurrentReviewMode && hasQueryParam(search, "diff"));
       const includeCompare =
         options?.compare === true ||
-        (preserveCurrentCompareMode && currentSearchParams.has("compare"));
+        (preserveCurrentCompareMode && hasQueryParam(search, "compare"));
+      const pathname =
+        path.length > 0
+          ? `/vault/${owner}/${repoName}/${encodedTargetBranch}/${encodeVaultFilePath(path)}`
+          : `/vault/${owner}/${repoName}/${encodedTargetBranch}`;
       return buildPathWithUpdatedQuery(
         {
-          pathname: `/vault/${owner}/${repoName}/${encodedTargetBranch}/${encodedPath}`,
+          pathname,
           search,
         },
         (searchParams) => {
@@ -1350,7 +1357,9 @@ function FileViewInner({
         if (commitReviewMode === "review") {
           return;
         }
-        void navigate(`/vault/${owner}/${repoName}/${encodedBranch}`);
+        void navigate(buildVaultFileUrl("", { reviewMode: "editor" }), {
+          state,
+        });
       }
 
       console.log(`File ${filePath} marked for deletion`);
@@ -1652,25 +1661,34 @@ function FileViewInner({
     repositoryFullName,
     resetRebaseConflictState,
   ]);
-  const loadBranchComparePreview = useCallback(() => {
-    setBranchComparePreviewError(null);
-    return getBranchComparePreview({
-      repositoryFullName,
-      branch,
-      includePatch: true,
-    })
-      .then((preview) => {
-        setBranchComparePreview(preview);
+  const loadBranchComparePreview = useCallback(
+    (requestKey: string) => {
+      setBranchComparePreviewError(null);
+      return getBranchComparePreview({
+        repositoryFullName,
+        branch,
+        includePatch: true,
       })
-      .catch((error) => {
-        const message =
-          error instanceof Error && error.message.length > 0
-            ? error.message
-            : "Failed to load branch comparison";
-        setBranchComparePreview(null);
-        setBranchComparePreviewError(message);
-      });
-  }, [branch, getBranchComparePreview, repositoryFullName]);
+        .then((preview) => {
+          if (branchComparePreviewRequestKeyRef.current !== requestKey) {
+            return;
+          }
+          setBranchComparePreview(preview);
+        })
+        .catch((error) => {
+          if (branchComparePreviewRequestKeyRef.current !== requestKey) {
+            return;
+          }
+          const message =
+            error instanceof Error && error.message.length > 0
+              ? error.message
+              : "Failed to load branch comparison";
+          setBranchComparePreview(null);
+          setBranchComparePreviewError(message);
+        });
+    },
+    [branch, getBranchComparePreview, repositoryFullName],
+  );
 
   const handleRebaseOntoLatestGitHub = useCallback(() => {
     setAllowAutoExitReview(false);
@@ -1746,13 +1764,19 @@ function FileViewInner({
       typeof selectedPreviewFile.richNewContent === "string",
   );
   const selectedPreviewCanRenderInline = Boolean(
-    (selectedPreviewStagedFile || selectedPreviewHasRichMarkdownDiff) &&
-      !selectedFileIsRenderableMedia,
+    !selectedFileIsRenderableMedia &&
+      (isCompareRequested
+        ? selectedPreviewHasRichMarkdownDiff ||
+          (!selectedComparedFile && selectedPreviewStagedFile)
+        : selectedPreviewStagedFile || selectedPreviewHasRichMarkdownDiff),
   );
   const selectedPreviewBaseContent =
-    selectedPreviewStagedFile?.initialContent ??
-    selectedPreviewFile?.richOldContent ??
-    "";
+    isCompareRequested &&
+    typeof selectedComparedFile?.richOldContent === "string"
+      ? selectedComparedFile.richOldContent
+      : selectedPreviewStagedFile?.initialContent ??
+        selectedPreviewFile?.richOldContent ??
+        "";
   const selectedComparedFileCanRenderInline = Boolean(
     selectedComparedFile?.isMarkdown &&
       typeof selectedComparedFile.richOldContent === "string" &&
@@ -2065,7 +2089,7 @@ function FileViewInner({
     return (branchComparePreview?.files ?? []).map((file) => ({
       deleted: file.status === "deleted",
       path: file.path,
-      originalPath: file.previousPath ?? file.path,
+      originalPath: file.path,
       type: "blob" as const,
       size: undefined,
       status: file.status,
@@ -2227,10 +2251,58 @@ function FileViewInner({
         .join("|"),
     [stagedFiles],
   );
-  const branchComparePreviewRefreshKey = useMemo(
-    () => `${branch}:${commitPreviewRefreshKey}`,
-    [branch, commitPreviewRefreshKey],
+  const branchCompareTargetRefreshKey = useMemo(
+    () =>
+      [
+        branch,
+        commitSha ?? "no-commit",
+        currentBranchPullRequestNumber ?? "no-pr",
+        vault.lastTreeRefreshAt ?? "no-refresh",
+      ].join(":"),
+    [
+      branch,
+      commitSha,
+      currentBranchPullRequestNumber,
+      vault.lastTreeRefreshAt,
+    ],
   );
+  const branchComparePreviewRefreshKey = useMemo(
+    () => `${branchCompareTargetRefreshKey}:${commitPreviewRefreshKey}`,
+    [branchCompareTargetRefreshKey, commitPreviewRefreshKey],
+  );
+  const compareModeSummary = useMemo(() => {
+    if (!isCompareRequested) {
+      return null;
+    }
+    if (branchComparePreviewError) {
+      return {
+        text: "Compare unavailable",
+        ariaLabel: "Changed Files compare is unavailable",
+      };
+    }
+    if (!branchComparePreview) {
+      return {
+        text: "Loading compare...",
+        ariaLabel: "Loading changed files compare target",
+      };
+    }
+
+    const baseSummary = `vs ${branchComparePreview.baseBranch}`;
+    const sourceSummary =
+      branchComparePreview.source === "pull_request" &&
+      typeof branchComparePreview.pullRequestNumber === "number"
+        ? `PR #${branchComparePreview.pullRequestNumber} ${baseSummary}`
+        : `${baseSummary} (no open PR)`;
+    const truncationSummary = branchComparePreview.safety
+      .includesTruncatedPatches
+      ? " · truncated patches"
+      : "";
+
+    return {
+      text: `${sourceSummary}${truncationSummary}`,
+      ariaLabel: `Changed Files comparing ${sourceSummary}${truncationSummary}`,
+    };
+  }, [branchComparePreview, branchComparePreviewError, isCompareRequested]);
 
   useEffect(() => {
     const nextRouteKey = `${branch}:${selectedFile}`;
@@ -2300,12 +2372,16 @@ function FileViewInner({
 
   useEffect(() => {
     if (!isCompareRequested) {
+      branchComparePreviewRequestKeyRef.current = null;
       setBranchComparePreview(null);
       setBranchComparePreviewError(null);
       return;
     }
 
-    void loadBranchComparePreview();
+    branchComparePreviewRequestKeyRef.current = branchComparePreviewRefreshKey;
+    setBranchComparePreview(null);
+    setBranchComparePreviewError(null);
+    void loadBranchComparePreview(branchComparePreviewRefreshKey);
   }, [
     branchComparePreviewRefreshKey,
     isCompareRequested,
@@ -2396,7 +2472,7 @@ function FileViewInner({
             <FilePlusIcon className="h-4 w-4 md:h-3 md:w-3" />
           </Button>
         </div>
-        <div className="mt-2">
+        <div className="mt-2 flex items-center gap-2">
           <ToggleGroup
             type="single"
             size="sm"
@@ -2436,6 +2512,15 @@ function FileViewInner({
               Changed Files
             </ToggleGroupItem>
           </ToggleGroup>
+          {isCompareRequested && compareModeSummary ? (
+            <div
+              aria-label={compareModeSummary.ariaLabel}
+              aria-live="polite"
+              className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground"
+            >
+              {compareModeSummary.text}
+            </div>
+          ) : null}
         </div>
       </div>
       {emptyRepository ? (

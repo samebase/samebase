@@ -49,6 +49,10 @@ const COMPARE_INLINE_OPTIONS = {
   syntaxHighlightDeletions: true,
 } as const;
 
+// The fixture keeps restore visible so deleted compare rows exercise the same
+// affordance as the live sidebar without introducing fixture-only behavior.
+const NOOP_ON_FILE_RESTORE = () => {};
+
 export function FileViewCompareVisualFixture({
   mode,
 }: {
@@ -66,7 +70,7 @@ export function FileViewCompareVisualFixture({
           noter-md/noter
         </div>
 
-        <div className="mt-3">
+        <div className="mt-3 flex items-center gap-2">
           <ToggleGroup type="single" size="sm" value="compare">
             <ToggleGroupItem value="simple" className="h-7 px-2 text-xs">
               Simple View
@@ -78,6 +82,9 @@ export function FileViewCompareVisualFixture({
               Changed Files
             </ToggleGroupItem>
           </ToggleGroup>
+          <div className="min-w-0 flex-1 truncate text-[11px] text-slate-500">
+            PR #335 vs main
+          </div>
         </div>
 
         <div className="mt-5 corner-notch-1 border border-slate-200">
@@ -90,7 +97,7 @@ export function FileViewCompareVisualFixture({
                 folderExpansionStates={[]}
                 autoExpandedPaths={["docs", "src", "src/components", "src/lib"]}
                 forceAutoExpandedPaths={true}
-                onFileRestore={() => {}}
+                onFileRestore={NOOP_ON_FILE_RESTORE}
               />
             </div>
 
