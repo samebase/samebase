@@ -62,20 +62,29 @@ Important current behavior:
    - an origin marker
    - any link back to a Noter chat thread or first prompt
 
-### What Noter already stores about chat threads
+### What Noter stores today and what it does not
 
-`agentThreadContext` already stores per-thread vault/repo context in
-`apps/noter/convex/schema.ts`, and chat messages are already persisted through
-`apps/noter/convex/chat/index.ts`.
+`agentThreadContext` in `apps/noter/convex/schema.ts` and messages persisted via
+`apps/noter/convex/chat/index.ts` belong to Noter's own Convex-backed chat
+product.
 
-That means the product already has a durable place to recover:
+That state is **not** the same thing as a Codex Desktop or Codex CLI thread
+today.
 
-- thread id
-- vault / repo / branch context
-- the first user message, if the PR came from a chat-backed flow
+Current verified limitation:
 
-However, the draft-PR flow is not currently carrying that information into the
-PR metadata.
+- there is no shared thread id between the Noter Convex chat tables and Codex
+  sessions
+- there is no automatic bridge that rehydrates a Codex first message from the
+  Noter chat tables
+- the current draft-PR flow does not copy Noter chat context into PR metadata
+
+Conclusion:
+
+- if we want a local machine runner to act on a PR safely today, the PR itself
+  needs to carry the first message and runtime contract
+- reusing Noter chat state for Codex later is a future product decision, not a
+  capability that already exists
 
 ### What Codex can already do on this machine
 
@@ -106,9 +115,9 @@ That is enough for the MVP polling path to read PRs and update PR bodies,
 comments, labels, and branches through `gh` / GitHub API calls without adding a
 second auth layer first.
 
-### What the repo already knows about Codex app-server
+### What the repo already has for Codex app-server
 
-This repo already has working app-server bridge code for Codespaces:
+This repo already has working app-server bridge code for GitHub Codespaces:
 
 - `.codespace-agent/server.js`
 - `apps/noter/convex/codespacesExecutor.ts`
@@ -121,8 +130,28 @@ That code already:
 4. exposes `/codex/turn/start`
 5. passes `cwd`, model, approval policy, and `effort`
 
-This matters because a local-machine runner does not need to invent a new Codex
-RPC integration from scratch. The repo already has one.
+Important correction:
+
+- this is a **Codespaces-only** path today
+- it depends on Codespace records, `agentUrl`, and `agentToken`
+- it is not a local-machine runner that can be started with `make connect`
+
+What it proves:
+
+- the repo already knows the Codex app-server RPC shape
+- `thread/start` and `turn/start` are real operations the product has used in a
+  remote environment
+
+What it does **not** prove:
+
+- that Noter already has a local app-server daemon
+- that Codespaces and local worktrees share the same runtime management path
+
+For local-machine app-server management, `~/dev/forks/t3code/` is the better
+reference, especially:
+
+- `~/dev/forks/t3code/apps/server/src/codexAppServerManager.ts`
+- `~/dev/forks/t3code/apps/server/src/wsServer.ts`
 
 ## Requirements
 
@@ -142,8 +171,8 @@ The local solution should:
 
 Mechanics:
 
-1. A local LaunchAgent runs every 60 seconds.
-2. The agent runs a small repo-owned Node script.
+1. The operator runs `make connect` locally.
+2. That Make target runs a small repo-owned Node watcher.
 3. The script polls GitHub for open PRs with an explicit Noter automation
    marker.
 4. For each unclaimed PR/head SHA, the script creates or reuses a local worktree
@@ -156,6 +185,7 @@ Pros:
 - no tunnel requirement
 - works with the operator's existing `gh` login
 - easiest MVP to reason about and debug
+- matches the operator request for a local command such as `make connect`
 
 Cons:
 
@@ -196,13 +226,14 @@ Assessment:
 - viable phase 2
 - unnecessary complexity for a single-machine MVP
 
-### Option C: Local poller + extracted app-server bridge
+### Option C: Local poller + extracted local app-server bridge
 
 Mechanics:
 
 1. Same trigger as Option A.
 2. Instead of calling `codex exec`, the runner talks to a local HTTP bridge that
-   reuses the Codespace app-server integration pattern.
+   reuses the same Codex RPC concepts as the existing Codespaces code, but runs
+   them through a local daemon.
 3. The bridge calls:
    - `thread/start`
    - `thread/name/set`
@@ -214,7 +245,8 @@ Pros:
 - exact control over model and reasoning effort per run
 - easier to attach richer thread metadata later
 - lower implementation risk than a greenfield app-server client because this
-  repo already has the bridge logic
+  repo already has a remote proof of concept and `t3code` has a stronger local
+  manager example
 
 Cons:
 
@@ -235,7 +267,7 @@ Ship this in two layers:
 Use:
 
 - explicit PR metadata from Noter
-- a machine-local LaunchAgent poller
+- a repo-owned `make connect` local watcher
 - `codex exec` in a deterministic worktree
 
 Why:
@@ -248,8 +280,7 @@ Why:
 
 ### Phase 2 (only if the MVP proves too weak)
 
-Extract the existing app-server bridge logic from `.codespace-agent/server.js`
-into a shared local service and switch execution from `codex exec` to:
+Build a real local app-server manager and switch execution from `codex exec` to:
 
 1. `thread/start`
 2. `thread/name/set`
@@ -260,6 +291,8 @@ Why:
 - if you need a first-class named Codex thread with explicit runtime settings
 - if you want the local runner to report thread ids back into the PR body or
   comments
+- if the operator explicitly wants a local named-thread experience instead of a
+  fire-and-wait `codex exec` run
 
 ## The Missing Contract: PR Metadata
 
@@ -369,14 +402,18 @@ This keeps the prompt explicit and reproducible.
 
 ### Trigger mechanism
 
-Recommended MVP:
+Recommended operator entrypoint:
 
-- `~/Library/LaunchAgents/com.noter.pr-watcher.plist`
-- runs every 60 seconds via `StartInterval`
-- executes a repo-owned Node script in the main checkout
+- `make connect` for a long-running local watcher
+- `make connect-once` for one polling cycle during testing or manual retries
 
-The Node script should support `--once` so it is easy to test manually and easy
-to schedule from `launchd`.
+Optional wrapper:
+
+- `launchd` can run `make connect-once` on a schedule later if the operator
+  wants the runner to survive terminal closes
+
+The repo-owned script should keep `--once` so it stays easy to test manually and
+easy to wrap with `launchd`.
 
 ### Detection flow
 
@@ -392,7 +429,7 @@ Suggested stored dedupe key:
 
 Suggested local state location:
 
-- `~/.codex/noter-pr-watcher/state.json`
+- `~/.codex/noter-connect/state.json`
 
 ### Worktree flow
 
@@ -405,7 +442,7 @@ For the matched PR:
 
 Suggested deterministic path:
 
-- `~/.codex/worktrees/pr-<number>-<sanitized-head>/noter`
+- `~/.codex/noter-connect/worktrees/pr-<number>-<sanitized-head>/noter`
 
 Suggested checkout rule:
 
@@ -416,6 +453,11 @@ Suggested checkout rule:
 ### Execution flow
 
 #### MVP path
+
+This branch now ships that MVP as:
+
+- `make connect`
+- `make connect-once`
 
 Run:
 
@@ -433,10 +475,12 @@ Notes:
 - do not use `--ephemeral`; the session should persist in shared Codex state
 - write the last message and JSON event stream to local artifacts if you want
   richer post-run reporting
+- use the PR body marker, not Convex chat state, as the durable cross-system
+  contract
 
 #### Rich-thread path
 
-If phase 2 is needed, reuse the existing Codespace bridge pattern locally:
+If phase 2 is needed, build a local daemon that uses the same Codex RPC calls:
 
 1. start `codex app-server --listen stdio://`
 2. call `initialize`
@@ -444,10 +488,11 @@ If phase 2 is needed, reuse the existing Codespace bridge pattern locally:
 4. call `thread/name/set`
 5. call `turn/start` with `input`, `model`, and `effort`
 
-This is already a known pattern in:
+The remote proof and local reference points are:
 
 - `.codespace-agent/server.js`
 - `apps/noter/convex/codespacesExecutor.ts`
+- `~/dev/forks/t3code/apps/server/src/codexAppServerManager.ts`
 
 ## PR Update Behavior
 
@@ -456,8 +501,11 @@ comment that says:
 
 1. the run was claimed
 2. which machine claimed it
-3. which worktree path is being used
+3. which local run id claimed it
 4. which model and reasoning effort were requested
+
+Do **not** post raw local filesystem paths to GitHub comments. Keep those local
+to the operator machine.
 
 When the run finishes, it should:
 
@@ -484,6 +532,12 @@ real product risk is ambiguous PR intent.
 That is why the most important change is not the daemon. It is the PR metadata
 contract.
 
+The Convex local-first article is useful here only as a design reminder: when a
+workflow needs durable coordination or third-party events, it is often more
+convenient to drive the flow from a coordinator instead of hiding everything in
+client-local state. In this case, the PR body and GitHub state are that durable
+coordination surface for the MVP, not Noter's internal chat tables.
+
 ## Concrete Implementation Plan
 
 ### 1. Noter product change
@@ -499,7 +553,7 @@ When the user creates a PR that should trigger local Codex work:
 
 ### 2. Local runner MVP
 
-Add a local-only script that:
+Add and use a local-only script behind `make connect` that:
 
 1. polls GitHub
 2. claims matching PRs
@@ -509,8 +563,8 @@ Add a local-only script that:
 
 ### 3. Optional phase 2
 
-Extract the shared app-server bridge from the Codespace agent so the same repo
-code can drive Codex locally and remotely.
+Build a dedicated local app-server manager, borrowing RPC shape from the
+Codespaces implementation and runtime management ideas from `t3code`.
 
 ## Open Questions
 
