@@ -18,7 +18,7 @@ import { Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { linkStyle } from "./styles";
 import { clsx } from "clsx";
-import { SidebarProvider } from "@/components/sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/sidebar";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import {
   formatRelativeTimeAgo,
@@ -85,13 +85,13 @@ import { CodexProviderRow } from "@/components/CodexProviderRow";
 import { EditedFilesCategoriesPopover } from "@/components/EditedFilesCategories";
 import { EditorChatDock } from "@/components/EditorChatDock";
 import { PublicLandingLogo } from "@/components/PublicLandingLogo";
+import { DashboardWorkspaceLayout } from "@/components/DashboardWorkspaceLayout";
 import {
   useApiKeyConnectDialog,
   type ApiKeyProvider,
 } from "@/components/ApiKeyConnectDialog";
 import type { Id } from "../../convex/_generated/dataModel";
 import { buildVaultCodespaceChatRoute } from "@/lib/vaultRoutes";
-import { RepositoryWorkspaceFrame } from "./RepositoryWorkspaceFrame";
 import { SidebarAccountSection } from "./SidebarAccountSection";
 import {
   buildPullRequestLabelStyle,
@@ -1861,13 +1861,20 @@ function VaultDashboardContent() {
         }
       : undefined;
 
-  const dashboardContentHeader =
-    vaults.length === 0 ? null : (
+  const dashboardHeaderContent =
+    vaults.length === 0 ? (
+      <div className="p-3">
+        <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
+      </div>
+    ) : (
       <div className="container py-6">
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-center gap-2">
-            <GitHubLogoIcon className="h-5 w-5 sm:h-6 sm:w-6" />
-            <h1 className="text-xl font-semibold sm:text-2xl">Your Vaults</h1>
+          <div className="flex items-center gap-3">
+            <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
+            <div className="flex items-center gap-2">
+              <GitHubLogoIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+              <h1 className="text-xl font-semibold sm:text-2xl">Your Vaults</h1>
+            </div>
           </div>
           <div className="w-full lg:w-auto">{createControl}</div>
         </div>
@@ -2160,11 +2167,12 @@ function VaultDashboardContent() {
 
   return (
     <>
-      <RepositoryWorkspaceFrame
+      <DashboardWorkspaceLayout
+        dataTestId="vault-dashboard"
         sidebarHeader={sidebarHeader}
         sidebarContent={sidebarContent}
-        contentHeader={dashboardContentHeader}
-        contentClassName="flex min-h-0 flex-col p-0"
+        headerContent={dashboardHeaderContent}
+        bodyClassName="flex min-h-0 flex-col"
       >
         <div className="flex h-full min-h-0 flex-col">
           <div
@@ -2178,7 +2186,7 @@ function VaultDashboardContent() {
             onMobileDockInsetChange={setMobileEditorChatDockInset}
           />
         </div>
-      </RepositoryWorkspaceFrame>
+      </DashboardWorkspaceLayout>
 
       <Dialog
         open={branchToDelete !== null}

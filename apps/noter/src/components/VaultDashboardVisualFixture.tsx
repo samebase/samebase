@@ -1,8 +1,8 @@
 import { MemoryRouter } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME } from "@/components/editorChatLayout";
-import { SidebarProvider } from "@/components/sidebar";
-import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";
+import { SidebarProvider, SidebarTrigger } from "@/components/sidebar";
+import { DashboardWorkspaceLayout } from "@/components/DashboardWorkspaceLayout";
 import { ResizeGripLines } from "@/components/ResizeGripLines";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { VaultBranchFiltersControl } from "@/components/VaultBranchFilters";
@@ -53,12 +53,15 @@ export function VaultDashboardVisualFixture({
       </SidebarAccountSection>
     );
     const sidebarContent = <div className="flex-1" />;
-    const contentHeader = (
+    const headerContent = (
       <div className="container py-6">
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-center gap-2">
-            <GitHubLogoIcon className="h-5 w-5" />
-            <h1 className="text-xl font-semibold">Your Vaults</h1>
+          <div className="flex items-center gap-3">
+            <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
+            <div className="flex items-center gap-2">
+              <GitHubLogoIcon className="h-5 w-5" />
+              <h1 className="text-xl font-semibold">Your Vaults</h1>
+            </div>
           </div>
           <div className="w-full max-w-[480px] corner-notch-1 border border-border bg-background px-3 py-2 text-sm font-medium">
             Create control
@@ -79,12 +82,12 @@ export function VaultDashboardVisualFixture({
         defaultOpen={true}
         className="h-[720px] min-h-0 bg-background text-foreground"
       >
-        <RepositoryWorkspaceFrame
+        <DashboardWorkspaceLayout
           dataTestId="vault-dashboard-visual-fixture"
           sidebarHeader={sidebarHeader}
           sidebarContent={sidebarContent}
-          contentHeader={contentHeader}
-          contentClassName="min-h-0 overflow-y-auto p-0"
+          headerContent={headerContent}
+          bodyClassName="min-h-0 overflow-y-auto p-0"
         >
           <div className="container py-6">
             <div className="corner-notch-1 border border-border bg-background p-4">
@@ -99,7 +102,7 @@ export function VaultDashboardVisualFixture({
               </div>
             </div>
           </div>
-        </RepositoryWorkspaceFrame>
+        </DashboardWorkspaceLayout>
       </SidebarProvider>
     );
   }
@@ -290,8 +293,11 @@ export function VaultDashboardVisualFixture({
       </SidebarAccountSection>
     );
     const sidebarContent = <div className="flex-1" />;
-    const contentHeader = (
+    const headerContent = (
       <div className="px-4 py-4">
+        <div className="mb-4">
+          <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
+        </div>
         <div className="mb-4 corner-notch-1 border border-border bg-background p-4">
           <div className="text-sm text-muted-foreground">Vaults</div>
           <div className="mt-1 text-xl font-semibold">Your Vaults</div>
@@ -312,12 +318,12 @@ export function VaultDashboardVisualFixture({
           defaultOpen={false}
           className="mx-auto h-[932px] min-h-0 w-full max-w-[430px] bg-background text-foreground"
         >
-          <RepositoryWorkspaceFrame
+          <DashboardWorkspaceLayout
             dataTestId="vault-dashboard-visual-fixture"
             sidebarHeader={sidebarHeader}
             sidebarContent={sidebarContent}
-            contentHeader={contentHeader}
-            contentClassName="flex min-h-0 flex-col p-0"
+            headerContent={headerContent}
+            bodyClassName="flex min-h-0 flex-col p-0"
           >
             <div className="relative flex h-full min-h-0 flex-col">
               <div
@@ -408,7 +414,7 @@ export function VaultDashboardVisualFixture({
                 </div>
               </div>
             </div>
-          </RepositoryWorkspaceFrame>
+          </DashboardWorkspaceLayout>
         </SidebarProvider>
       </div>
     );
