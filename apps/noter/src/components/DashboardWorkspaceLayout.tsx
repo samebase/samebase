@@ -6,7 +6,8 @@ import { cn } from "@/lib/utils";
 export function DashboardWorkspaceLayout({
   sidebarHeader,
   sidebarContent,
-  headerContent,
+  topBarContent,
+  pageHeaderContent,
   children,
   dataTestId,
   bodyClassName,
@@ -14,7 +15,8 @@ export function DashboardWorkspaceLayout({
 }: {
   sidebarHeader?: ReactNode;
   sidebarContent?: ReactNode;
-  headerContent: ReactNode;
+  topBarContent: ReactNode;
+  pageHeaderContent?: ReactNode;
   children: ReactNode;
   dataTestId?: string;
   bodyClassName?: string;
@@ -25,6 +27,8 @@ export function DashboardWorkspaceLayout({
     sidebarHeader !== undefined && sidebarHeader !== null;
   const hasSidebarContent =
     sidebarContent !== undefined && sidebarContent !== null;
+  const hasPageHeader =
+    pageHeaderContent !== undefined && pageHeaderContent !== null;
 
   if (isMobile) {
     return (
@@ -41,7 +45,10 @@ export function DashboardWorkspaceLayout({
         ) : null}
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
-          <div className="border-b border-border/50">{headerContent}</div>
+          <div className="border-b border-border/50">{topBarContent}</div>
+          {hasPageHeader ? (
+            <div className="border-b border-border/50">{pageHeaderContent}</div>
+          ) : null}
           <div
             className={cn("min-h-0 flex-1", bodyClassName)}
             style={bodyStyle}
@@ -62,7 +69,9 @@ export function DashboardWorkspaceLayout({
           open && (hasSidebarHeader || hasSidebarContent)
             ? "var(--sidebar-width) minmax(0, 1fr)"
             : "0 minmax(0, 1fr)",
-        gridTemplateRows: "auto minmax(0, 1fr)",
+        gridTemplateRows: hasPageHeader
+          ? "auto auto minmax(0, 1fr)"
+          : "auto minmax(0, 1fr)",
       }}
     >
       {open && hasSidebarHeader ? (
@@ -72,17 +81,33 @@ export function DashboardWorkspaceLayout({
       ) : null}
 
       {open && hasSidebarContent ? (
-        <div className="row-start-2 min-h-0 min-w-0 overflow-hidden border-r border-border/50">
+        <div
+          className="min-h-0 min-w-0 overflow-hidden border-r border-border/50"
+          style={{
+            gridColumn: 1,
+            gridRow: hasPageHeader ? "2 / 4" : "2 / 3",
+          }}
+        >
           <div className="flex h-full min-h-0 flex-col">{sidebarContent}</div>
         </div>
       ) : null}
 
       <div className="col-start-2 row-start-1 min-w-0 border-b border-border/50">
-        {headerContent}
+        {topBarContent}
       </div>
 
+      {hasPageHeader ? (
+        <div className="col-start-2 row-start-2 min-w-0 border-b border-border/50">
+          {pageHeaderContent}
+        </div>
+      ) : null}
+
       <div
-        className={cn("col-start-2 row-start-2 min-h-0 min-w-0", bodyClassName)}
+        className={cn(
+          "col-start-2 min-h-0 min-w-0",
+          hasPageHeader ? "row-start-3" : "row-start-2",
+          bodyClassName,
+        )}
         style={bodyStyle}
       >
         {children}
