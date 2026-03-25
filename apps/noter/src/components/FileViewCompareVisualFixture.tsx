@@ -1,4 +1,5 @@
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/checkbox";
 import { FileTree } from "@/components/FileTree";
 import { Label } from "@/components/label";
@@ -70,6 +71,12 @@ export function FileViewCompareVisualFixture({
         <div className="flex items-center gap-2 text-xs text-slate-600">
           <GitHubLogoIcon className="h-3 w-3" />
           noter-md/noter
+        </div>
+
+        <div className="mt-3">
+          <Button size="sm" variant="secondary" className="h-6 px-2 text-xs">
+            Back to Editor
+          </Button>
         </div>
 
         <div className="mt-3 flex items-center gap-2">

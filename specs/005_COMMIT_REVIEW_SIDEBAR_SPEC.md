@@ -25,6 +25,10 @@ controls (`Show patch`, `Inline diffs`, `Syntax deleted`) that staged review
 files use, and leaving review from that state must return to the real editor
 surface for the selected file.
 
+When the editor is in compare-only Changed Files mode without staged changes,
+the same top-left slot should offer `Back to Editor` to clear compare mode
+rather than showing a disabled `Review Changes` control.
+
 ## Problem
 
 The earlier commit-review sidebar direction over-rotated toward a dedicated
@@ -59,6 +63,9 @@ second sidebar mode.
   editor content rather than the right-side action cluster.
 - When review is open, the return action (`Back to Editor` or equivalent)
   remains in the same location so the control does not jump around.
+- Compare-only Changed Files mode reuses that same location for `Back to Editor`
+  when the user is already in a PR diff surface and there is no staged review
+  session to enter.
 
 ### 2. Stable sidebar
 
@@ -106,6 +113,9 @@ second sidebar mode.
 - When review was opened from a compare-only PR diff, leaving review must also
   exit the compare-only diff surface instead of landing in a read-only compare
   preview.
+- When the user is already in compare-only editor mode and no staged review is
+  available, `Back to Editor` clears compare mode directly from that editor
+  state.
 - The return action should preserve the selected file path while clearing only
   the review/compare state that prevented the normal editor from opening.
 
@@ -122,6 +132,8 @@ second sidebar mode.
   staged review files.
 - Leaving review from a compare-only PR file opens the normal editor for that
   file instead of a read-only compare preview.
+- Compare-only Changed Files mode without staged changes shows `Back to Editor`
+  instead of a disabled `Review Changes` button.
 - No review-only `Changes` mode or duplicate `Staged Files` panel is required
   for commit review.
 

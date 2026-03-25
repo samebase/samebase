@@ -92,7 +92,10 @@ import {
   buildStagingPreviewRefreshKey,
   getBranchComparePreviewReloadMode,
 } from "@/lib/fileViewCompare";
-import { shouldClearCompareOnReviewExit } from "@/lib/fileViewReview";
+import {
+  shouldClearCompareOnReviewExit,
+  shouldShowCompareBackToEditor,
+} from "@/lib/fileViewReview";
 
 function isFileTreeNodeType(type: string): type is "tree" | "blob" {
   return type === "tree" || type === "blob";
@@ -894,6 +897,21 @@ function FileViewInner({
   const [sidebarModeHydrated, setSidebarModeHydrated] = useState(false);
 
   const createFileInStaging = useMutation(api.fileStaging.createFileInStaging);
+  const hasStagedChangesToCommit = useMemo(
+    () =>
+      Boolean(
+        stagedFiles &&
+          stagedFiles.length > 0 &&
+          stagedFiles.some(
+            (file) =>
+              file.content !== file.initialContent ||
+              file.filePath !== file.initialFilePath ||
+              file.fileDeleted ||
+              file.parentCommitSha === null,
+          ),
+      ),
+    [stagedFiles],
+  );
   const showMobileEditorLineNumbers = useMemo(() => {
     const params = new URLSearchParams(search);
     return params.get("mobileLineNumbers") === "1";
@@ -1755,6 +1773,17 @@ function FileViewInner({
   }, [resetRebaseConflictState]);
 
   const handleToggleReviewMode = useCallback(() => {
+    if (
+      shouldShowCompareBackToEditor({
+        commitReviewMode,
+        isCompareRequested,
+        hasChangesToCommit: hasStagedChangesToCommit,
+      })
+    ) {
+      setCompareModeInQuery(false);
+      return;
+    }
+
     if (commitReviewMode === "review") {
       setReviewModeInQuery("editor", {
         compare: shouldClearCompareOnReviewExit({
@@ -1778,9 +1807,11 @@ function FileViewInner({
   }, [
     branchComparePreview,
     commitReviewMode,
+    hasStagedChangesToCommit,
     isCompareRequested,
     resetCommitPreviewState,
     selectedFile,
+    setCompareModeInQuery,
     setReviewModeInQuery,
     stagedFile,
   ]);
@@ -2345,16 +2376,7 @@ function FileViewInner({
   const didResolveStagedFiles = stagedFiles !== undefined;
 
   // Check if there are any changes to commit
-  const hasChangesToCommit =
-    stagedFiles &&
-    stagedFiles.length > 0 &&
-    stagedFiles.some(
-      (file: NonNullable<typeof stagedFiles>[number]) =>
-        file.content !== file.initialContent ||
-        file.filePath !== file.initialFilePath ||
-        file.fileDeleted ||
-        file.parentCommitSha === null,
-    );
+  const hasChangesToCommit = hasStagedChangesToCommit;
   const canCreateDraftPullRequest = isDefaultBranch
     ? hasChangesToCommit === true
     : !hasCurrentBranchPullRequest &&
@@ -2764,6 +2786,11 @@ function FileViewInner({
   const headerTitle = selectedFile
     ? selectedFile.split("/").slice(0, -1).join("/") || "/"
     : undefined;
+  const showCompareBackToEditor = shouldShowCompareBackToEditor({
+    commitReviewMode,
+    isCompareRequested,
+    hasChangesToCommit: hasStagedChangesToCommit,
+  });
 
   return (
     <>
@@ -2847,17 +2874,20 @@ function FileViewInner({
                     <Button
                       size="sm"
                       variant={
-                        commitReviewMode === "review" ? "secondary" : "outline"
+                        commitReviewMode === "review" || showCompareBackToEditor
+                          ? "secondary"
+                          : "outline"
                       }
                       onClick={handleToggleReviewMode}
                       disabled={
+                        !showCompareBackToEditor &&
                         commitReviewMode === "editor" &&
                         (!hasChangesToCommit ||
                           commitPreviewStatus === "loading")
                       }
                       className="h-6 px-2 text-xs"
                     >
-                      {commitReviewMode === "review"
+                      {commitReviewMode === "review" || showCompareBackToEditor
                         ? "Back to Editor"
                         : commitPreviewStatus === "loading"
                           ? "Loading..."
