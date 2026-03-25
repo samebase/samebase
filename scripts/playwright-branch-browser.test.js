@@ -9,6 +9,7 @@ import {
   getDeterministicBrowserThemeColor,
   getPlaywrightCliConfigPath,
   getPlaywrightCliChromiumArgs,
+  parseProfileBrowserProcessesFromPsOutput,
   parseSessionDetailsFromListOutput,
   parseSessionStateFromListOutput,
   sanitizeChromeCrashRecoveryState,
@@ -145,6 +146,30 @@ describe('playwright-branch-browser', () => {
     })
   })
 
+  it('tolerates malformed crash-state JSON from an unclean browser exit', () => {
+    const profileDir = mkdtempSync(path.join(tmpdir(), 'noter-chrome-profile-'))
+    const defaultDir = path.join(profileDir, 'Default')
+
+    mkdirSync(defaultDir, { recursive: true })
+    writeFileSync(path.join(profileDir, 'Local State'), '{"broken":')
+    writeFileSync(path.join(profileDir, 'Variations'), '{')
+    writeFileSync(path.join(defaultDir, 'Preferences'), 'not-json')
+
+    expect(() => sanitizeChromeCrashRecoveryState(profileDir)).not.toThrow()
+    expect(
+      JSON.parse(readFileSync(path.join(profileDir, 'Local State'), 'utf8')),
+    ).toEqual({ variations_crash_streak: 0 })
+    expect(
+      JSON.parse(readFileSync(path.join(profileDir, 'Variations'), 'utf8')),
+    ).toEqual({
+      'user_experience_metrics.stability.exited_cleanly': true,
+      variations_crash_streak: 0,
+    })
+    expect(
+      JSON.parse(readFileSync(path.join(defaultDir, 'Preferences'), 'utf8')),
+    ).toEqual({})
+  })
+
   it('distinguishes open sessions from closed remembered sessions', () => {
     const sampleOutput = [
       '57814cf9b7521b5a:',
@@ -189,5 +214,51 @@ describe('playwright-branch-browser', () => {
       userDataDir: '/tmp/noter-drp-e06cfa',
       headed: true,
     })
+  })
+
+  it('matches only true top-level session headers', () => {
+    const sampleOutput = [
+      '57814cf9b7521b5a:',
+      '- restore-smoke:',
+      '  - status: open',
+      '  - browser-type: chromium',
+      '- status:',
+      '  - status: closed',
+      '  - browser-type: chrome',
+    ].join('\n')
+
+    expect(parseSessionStateFromListOutput(sampleOutput, 'status')).toBe(
+      'closed',
+    )
+    expect(
+      parseSessionDetailsFromListOutput(sampleOutput, 'restore-smoke'),
+    ).toEqual({
+      status: 'open',
+      browserType: 'chromium',
+    })
+  })
+
+  it('matches only exact user-data-dir process arguments', () => {
+    const sampleOutput = [
+      '41763 /tmp/chromium --user-data-dir=/tmp/noter-drp-e06cfa --flag',
+      '41764 /tmp/chromium --user-data-dir=/tmp/noter-drp-e06cfax --flag',
+      '41765 /tmp/chromium --profile-directory=Default --user-data-dir=/tmp/noter-drp-e06cfa',
+    ].join('\n')
+
+    expect(
+      parseProfileBrowserProcessesFromPsOutput(
+        sampleOutput,
+        '/tmp/noter-drp-e06cfa',
+      ),
+    ).toEqual([
+      {
+        pid: 41763,
+        args: '/tmp/chromium --user-data-dir=/tmp/noter-drp-e06cfa --flag',
+      },
+      {
+        pid: 41765,
+        args: '/tmp/chromium --profile-directory=Default --user-data-dir=/tmp/noter-drp-e06cfa',
+      },
+    ])
   })
 })

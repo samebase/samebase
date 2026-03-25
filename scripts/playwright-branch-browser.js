@@ -34,8 +34,22 @@ const RESTORE_PAGES_WINDOW_TITLE = 'Restore pages?'
 const BROWSER_THEME_SATURATION = 0.64
 const BROWSER_THEME_LIGHTNESS = 0.56
 
+class PlaywrightBranchBrowserError extends Error {
+  /**
+   * @param {string} message
+   */
+  constructor(message) {
+    super(message)
+    this.name = 'PlaywrightBranchBrowserError'
+  }
+}
+
 if (isMainModule()) {
-  main(process.argv.slice(2))
+  try {
+    main(process.argv.slice(2))
+  } catch (error) {
+    handleMainError(error)
+  }
 }
 
 /**
@@ -341,20 +355,18 @@ function getBundledPlaywrightCliPath(repoRoot) {
  * @returns {string}
  */
 function getBundledBrowserExecutablePath(playwrightCliPath) {
-  const resolveExecutableProgram = [
-    'const path = require("node:path")',
-    'const playwrightCliPath = process.argv[1]',
-    'const browserName = process.argv[2]',
-    'const registryPath = require.resolve("playwright-core/lib/server/registry/index", {',
-    '  paths: [path.dirname(playwrightCliPath)],',
-    '})',
-    'const { registry } = require(registryPath)',
-    'const executable = registry.findExecutable(browserName)',
-    'if (!executable) {',
-    '  process.exit(1)',
-    '}',
-    'process.stdout.write(executable.executablePath())',
-  ].join('\n')
+  const resolveExecutableProgram = `const path = require("node:path")
+const playwrightCliPath = process.argv[1]
+const browserName = process.argv[2]
+const registryPath = require.resolve("playwright-core/lib/server/registry/index", {
+  paths: [path.dirname(playwrightCliPath)],
+})
+const { registry } = require(registryPath)
+const executable = registry.findExecutable(browserName)
+if (!executable) {
+  process.exit(1)
+}
+process.stdout.write(executable.executablePath())`
 
   const result = spawnSync(
     'node',
@@ -524,9 +536,13 @@ function updateJsonFile(filePath, update) {
  * @returns {Record<string, unknown>}
  */
 function parseJsonObject(rawJson) {
-  /** @type {unknown} */
-  const value = JSON.parse(rawJson)
-  return isRecord(value) ? value : {}
+  try {
+    /** @type {unknown} */
+    const value = JSON.parse(rawJson)
+    return isRecord(value) ? value : {}
+  } catch {
+    return {}
+  }
 }
 
 /**
@@ -763,11 +779,12 @@ export function buildDerivedSessionName(repoRoot, branchIdentifier) {
  */
 export function parseSessionDetailsFromListOutput(output, session) {
   const escapedSession = session.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const sessionHeaderPattern = new RegExp(`^-\\s+${escapedSession}(?::|\\s|$)`)
   const lines = output.split('\n')
 
   for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index]?.trimStart() ?? ''
-    if (!new RegExp(`^-\\s+${escapedSession}(?::|\\s|$)`).test(line)) {
+    const line = lines[index] ?? ''
+    if (!sessionHeaderPattern.test(line)) {
       continue
     }
 
@@ -1036,21 +1053,19 @@ function observeWindowTitlesForPid(pid) {
  * @returns {string[]}
  */
 function getOnscreenWindowTitlesForPid(pid) {
-  const swiftProgram = [
-    'import Foundation',
-    'import CoreGraphics',
-    'let targetPid = Int(CommandLine.arguments[1]) ?? -1',
-    'let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []',
-    'let names = windows.compactMap { window -> String? in',
-    '  guard let ownerPid = window[kCGWindowOwnerPID as String] as? Int, ownerPid == targetPid else {',
-    '    return nil',
-    '  }',
-    '  let name = window[kCGWindowName as String] as? String ?? ""',
-    '  return name.isEmpty ? nil : name',
-    '}',
-    'let data = try JSONSerialization.data(withJSONObject: names)',
-    'FileHandle.standardOutput.write(data)',
-  ].join('\n')
+  const swiftProgram = `import Foundation
+import CoreGraphics
+let targetPid = Int(CommandLine.arguments[1]) ?? -1
+let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
+let names = windows.compactMap { window -> String? in
+  guard let ownerPid = window[kCGWindowOwnerPID as String] as? Int, ownerPid == targetPid else {
+    return nil
+  }
+  let name = window[kCGWindowName as String] as? String ?? ""
+  return name.isEmpty ? nil : name
+}
+let data = try JSONSerialization.data(withJSONObject: names)
+FileHandle.standardOutput.write(data)`
 
   const result = spawnSync('swift', ['-e', swiftProgram, String(pid)], {
     encoding: 'utf8',
@@ -1082,9 +1097,25 @@ function listProfileBrowserProcesses(profileDir) {
     fail(`Failed to inspect browser processes for ${profileDir}.`)
   }
 
-  const userDataDirFlag = `--user-data-dir=${profileDir}`
+  return parseProfileBrowserProcessesFromPsOutput(result.stdout, profileDir)
+}
 
-  return result.stdout
+/**
+ * @param {string} output
+ * @param {string} profileDir
+ * @returns {{ pid: number, args: string }[]}
+ */
+export function parseProfileBrowserProcessesFromPsOutput(output, profileDir) {
+  const userDataDirFlag = `--user-data-dir=${profileDir}`
+  const escapedUserDataDirFlag = userDataDirFlag.replaceAll(
+    /[.*+?^${}()|[\]\\]/g,
+    '\\$&',
+  )
+  const userDataDirPattern = new RegExp(
+    `(?:^|\\s)${escapedUserDataDirFlag}(?:\\s|$)`,
+  )
+
+  return output
     .split('\n')
     .map(line => line.trim())
     .filter(Boolean)
@@ -1100,7 +1131,7 @@ function listProfileBrowserProcesses(profileDir) {
       }
     })
     .filter(processInfo => processInfo !== null)
-    .filter(processInfo => processInfo.args.includes(userDataDirFlag))
+    .filter(processInfo => userDataDirPattern.test(processInfo.args))
 }
 
 /**
@@ -1179,9 +1210,21 @@ function sleep(milliseconds) {
  * @returns {never}
  */
 function fail(message) {
-  console.error(message)
-  console.error(HELP_TEXT)
-  process.exit(1)
+  throw new PlaywrightBranchBrowserError(message)
+}
+
+/**
+ * @param {unknown} error
+ * @returns {never}
+ */
+function handleMainError(error) {
+  if (error instanceof PlaywrightBranchBrowserError) {
+    console.error(error.message)
+    console.error(HELP_TEXT)
+    process.exit(1)
+  }
+
+  throw error
 }
 
 /** @returns {boolean} */

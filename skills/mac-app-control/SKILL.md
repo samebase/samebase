@@ -39,10 +39,11 @@ Example requests:
 
 - Prefer a stable differentiator: bundle name, PID, profile path, session name,
   or unique command-line flag.
-- Use targeted process inspection first:
+- Use targeted process inspection first. Match on `--user-data-dir=` because
+  this repo pins a bundled Playwright browser and the visible app name can vary:
 
 ```bash
-ps -axo pid=,args= | grep -F "Google Chrome for Testing" | grep -F -- "--user-data-dir="
+ps -axo pid=,args= | grep -F -- "--user-data-dir="
 ```
 
 - For this repo's branch-owned browser session:
