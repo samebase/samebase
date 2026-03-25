@@ -75,7 +75,7 @@ export function SidebarMediaUploadVisualFixture() {
       <div className="shrink-0 border-t border-border/50 p-3">
         <button
           type="button"
-          className="flex w-full items-center justify-center border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground"
+          className="flex w-full items-center justify-center border-[3px] border-dashed border-foreground/25 px-3 py-4 text-sm text-muted-foreground"
         >
           Drop file or click
         </button>
