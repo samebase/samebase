@@ -3,6 +3,7 @@ import { useAction, useMutation, useQuery as useLiveQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { CodeEditorWrapper } from "@/components/CodeEditor";
+import { EditorHistoryControls } from "@/components/EditorHistoryControls";
 import {
   AgentGraphView,
   type AgentGraphEdge,
@@ -92,6 +93,11 @@ import {
   buildStagingPreviewRefreshKey,
   getBranchComparePreviewReloadMode,
 } from "@/lib/fileViewCompare";
+import {
+  EMPTY_EDITOR_HISTORY_STATE,
+  type EditorHistoryController,
+  type EditorHistoryState,
+} from "@/lib/editorHistory";
 
 function isFileTreeNodeType(type: string): type is "tree" | "blob" {
   return type === "tree" || type === "blob";
@@ -660,7 +666,7 @@ function FileViewInner({
   repoName: string;
   stagedFile: (typeof api.fileStaging.getByNewPath)["_returnType"];
 }) {
-  const { setOpenMobile } = useSidebar();
+  const { isMobile, setOpenMobile } = useSidebar();
 
   const navigate = useNavigate();
   const { search, state } = useLocation();
@@ -891,6 +897,10 @@ function FileViewInner({
     useState(false);
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>("all");
   const [sidebarModeHydrated, setSidebarModeHydrated] = useState(false);
+  const [editorHistoryState, setEditorHistoryState] =
+    useState<EditorHistoryState>(EMPTY_EDITOR_HISTORY_STATE);
+  const [editorHistoryController, setEditorHistoryController] =
+    useState<EditorHistoryController | null>(null);
 
   const createFileInStaging = useMutation(api.fileStaging.createFileInStaging);
   const showMobileEditorLineNumbers = useMemo(() => {
@@ -972,6 +982,18 @@ function FileViewInner({
     return readGraphViewMode(graphViewStorageKey) ?? "editor";
   });
   const [viewModeHydrated, setViewModeHydrated] = useState(false);
+  const handleEditorHistoryStateChange = useCallback(
+    (nextState: EditorHistoryState) => {
+      setEditorHistoryState(nextState);
+    },
+    [],
+  );
+  const handleEditorHistoryControllerChange = useCallback(
+    (nextController: EditorHistoryController | null) => {
+      setEditorHistoryController(nextController);
+    },
+    [],
+  );
 
   useEffect(() => {
     setRepositoryNoterContent(null);
@@ -2659,10 +2681,43 @@ function FileViewInner({
       </div>
     ));
   }, []);
+  const isEditableCodeEditorVisible =
+    isMobile &&
+    viewMode === "editor" &&
+    commitReviewMode === "editor" &&
+    !isCompareRequested &&
+    !selectedFileIsRenderableMedia &&
+    stagedFile !== null;
 
   const headerTitle = selectedFile
     ? selectedFile.split("/").slice(0, -1).join("/") || "/"
     : undefined;
+
+  useEffect(() => {
+    // Clear the previous file's controls while the new editor remounts.
+    setEditorHistoryController(null);
+    setEditorHistoryState(EMPTY_EDITOR_HISTORY_STATE);
+  }, [branch, selectedFile]);
+
+  useEffect(() => {
+    if (!isEditableCodeEditorVisible) {
+      setEditorHistoryController(null);
+      setEditorHistoryState(EMPTY_EDITOR_HISTORY_STATE);
+    }
+  }, [isEditableCodeEditorVisible]);
+
+  const mobileHeaderRight = isEditableCodeEditorVisible ? (
+    <EditorHistoryControls
+      canUndo={editorHistoryState.canUndo}
+      canRedo={editorHistoryState.canRedo}
+      onUndo={() => {
+        editorHistoryController?.undo();
+      }}
+      onRedo={() => {
+        editorHistoryController?.redo();
+      }}
+    />
+  ) : null;
 
   return (
     <>
@@ -2670,6 +2725,7 @@ function FileViewInner({
         sidebarHeader={sidebarHeader}
         sidebarContent={sidebarContent}
         headerTitle={headerTitle}
+        headerRight={mobileHeaderRight}
         onQuickOpen={() => setIsCommandPaletteOpen(true)}
         contentClassName="flex-1 min-h-0 p-0"
       >
@@ -3133,6 +3189,10 @@ function FileViewInner({
                     tree={vault.treeData.tree}
                     treeSHA={vault.treeSHA}
                     showMobileLineNumbers={showMobileEditorLineNumbers}
+                    onHistoryStateChange={handleEditorHistoryStateChange}
+                    onHistoryControllerChange={
+                      handleEditorHistoryControllerChange
+                    }
                   />
                 ) : isCompareRequested &&
                   selectedComparedFileCanRenderInline ? (

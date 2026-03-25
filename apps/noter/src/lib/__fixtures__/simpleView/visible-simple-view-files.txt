@@ -27,6 +27,7 @@ apps/noter/e2e/editor-chat-visual.spec.ts-snapshots/editor-chat-closed.png
 apps/noter/e2e/editor-chat-visual.spec.ts-snapshots/editor-chat-open-desktop.png
 apps/noter/e2e/editor-chat-visual.spec.ts-snapshots/editor-chat-open-mobile.png
 apps/noter/e2e/file-view-compare-visual.spec.ts-snapshots/file-view-compare-sidebar.png
+apps/noter/e2e/file-view-mobile-history-visual.spec.ts-snapshots/fileview-layout-mobile-history.png
 apps/noter/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-create-draft.png
 apps/noter/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-default-draft.png
 apps/noter/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-open-pr.png

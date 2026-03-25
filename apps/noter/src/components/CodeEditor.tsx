@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 /* eslint-disable @typescript-eslint/no-floating-promises */
 /* eslint-disable prefer-const */
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { ChangeSet, EditorState } from "@codemirror/state";
 import { EditorView } from "codemirror";
 import { languages } from "@codemirror/language-data";
@@ -12,6 +12,10 @@ import {
   history,
   historyKeymap,
   indentWithTab,
+  redo,
+  redoDepth,
+  undo,
+  undoDepth,
 } from "@codemirror/commands";
 import {
   bracketMatching,
@@ -49,6 +53,11 @@ import { printTree } from "@lezer-unofficial/printer";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
 import { GetFunctionReferenceReturnType } from "@/lib/convexUtils";
 import { prosemarkDarkTheme } from "@/components/prosemarkSurface";
+import {
+  EMPTY_EDITOR_HISTORY_STATE,
+  type EditorHistoryController,
+  type EditorHistoryState,
+} from "@/lib/editorHistory";
 import { Id } from "../../convex/_generated/dataModel";
 import { type GithubTreeType } from "convex/schema";
 import { MonacoEditor } from "./MonacoEditor";
@@ -293,6 +302,19 @@ function isProseFile(filePath: string): boolean {
   return !ext || PROSE_EXTENSIONS.has(ext);
 }
 
+function getCodeMirrorHistoryState(
+  view: EditorView | null,
+): EditorHistoryState {
+  if (view === null) {
+    return EMPTY_EDITOR_HISTORY_STATE;
+  }
+
+  return {
+    canUndo: undoDepth(view.state) > 0,
+    canRedo: redoDepth(view.state) > 0,
+  };
+}
+
 export function CodeEditorWrapper({
   repositoryFullName,
   branch,
@@ -302,6 +324,8 @@ export function CodeEditorWrapper({
   tree,
   treeSHA,
   showMobileLineNumbers = false,
+  onHistoryStateChange,
+  onHistoryControllerChange,
 }: {
   repositoryFullName: string;
   branch: string;
@@ -313,6 +337,10 @@ export function CodeEditorWrapper({
   tree: GithubTreeType[];
   treeSHA: string;
   showMobileLineNumbers?: boolean;
+  onHistoryStateChange?: (state: EditorHistoryState) => void;
+  onHistoryControllerChange?: (
+    controller: EditorHistoryController | null,
+  ) => void;
 }) {
   if (isProseFile(filePath)) {
     return (
@@ -322,6 +350,8 @@ export function CodeEditorWrapper({
         repositoryFullName={repositoryFullName}
         branch={branch}
         filePath={filePath}
+        onHistoryStateChange={onHistoryStateChange}
+        onHistoryControllerChange={onHistoryControllerChange}
       />
     );
   }
@@ -337,6 +367,8 @@ export function CodeEditorWrapper({
       tree={tree}
       treeSHA={treeSHA}
       showMobileLineNumbers={showMobileLineNumbers}
+      onHistoryStateChange={onHistoryStateChange}
+      onHistoryControllerChange={onHistoryControllerChange}
     />
   );
 }
@@ -346,11 +378,17 @@ export function CodeEditor({
   repositoryFullName,
   branch,
   filePath,
+  onHistoryStateChange,
+  onHistoryControllerChange,
 }: {
   firstDoc: { version: number; content: string };
   repositoryFullName: string;
   branch: string;
   filePath: string;
+  onHistoryStateChange?: (state: EditorHistoryState) => void;
+  onHistoryControllerChange?: (
+    controller: EditorHistoryController | null,
+  ) => void;
 }) {
   const fileName = filePath.split("/").pop();
   const editorRef = useRef<HTMLDivElement>(null);
@@ -361,6 +399,12 @@ export function CodeEditor({
   const { theme, systemTheme } = useTheme();
   const [version, setVersion] = useState(firstDoc.version);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const publishHistoryState = useCallback(
+    (view: EditorView | null) => {
+      onHistoryStateChange?.(getCodeMirrorHistoryState(view));
+    },
+    [onHistoryStateChange],
+  );
 
   const updates = useQuery(
     api.collaborative.pullUpdates,
@@ -431,6 +475,11 @@ export function CodeEditor({
             pullRef.current = pull;
           },
         }),
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) {
+            publishHistoryState(update.view);
+          }
+        }),
 
         keymap.of([
           indentWithTab,
@@ -458,6 +507,31 @@ export function CodeEditor({
       });
 
       viewRef.current = editor;
+      publishHistoryState(editor);
+      onHistoryControllerChange?.({
+        undo: () => {
+          const view = viewRef.current;
+          if (view === null) {
+            return;
+          }
+
+          if (undo(view)) {
+            publishHistoryState(view);
+          }
+          view.focus();
+        },
+        redo: () => {
+          const view = viewRef.current;
+          if (view === null) {
+            return;
+          }
+
+          if (redo(view)) {
+            publishHistoryState(view);
+          }
+          view.focus();
+        },
+      });
 
       (window as any).editor = editor;
     };
@@ -469,9 +543,18 @@ export function CodeEditor({
       cancelled = true;
       editor?.destroy();
       viewRef.current = null;
+      onHistoryControllerChange?.(null);
+      onHistoryStateChange?.(EMPTY_EDITOR_HISTORY_STATE);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fileName, theme, systemTheme]); // Re-create editor when theme or filename changes (value intentionally excluded to prevent recreation on every keystroke)
+  }, [
+    fileName,
+    onHistoryControllerChange,
+    onHistoryStateChange,
+    publishHistoryState,
+    systemTheme,
+    theme,
+  ]); // Re-create editor when theme or filename changes (value intentionally excluded to prevent recreation on every keystroke)
 
   useEffect(() => {
     setSyncError(null);

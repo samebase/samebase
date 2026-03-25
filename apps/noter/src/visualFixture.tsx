@@ -113,6 +113,7 @@ const REPOSITORY_MEDIA_VISUAL_MODES = [
 const FILE_VIEW_LAYOUT_VISUAL_MODES = [
   "fileview-layout",
   "fileview-layout-persistence",
+  "fileview-layout-mobile-history",
 ] as const satisfies readonly FileViewLayoutVisualMode[];
 
 const EDITOR_CHAT_VISUAL_MODES = [
@@ -269,7 +270,11 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <RepositoryMediaVisualFixture mode={mode} />;
   }
 
-  if (mode === "fileview-layout" || mode === "fileview-layout-persistence") {
+  if (
+    mode === "fileview-layout" ||
+    mode === "fileview-layout-persistence" ||
+    mode === "fileview-layout-mobile-history"
+  ) {
     return <FileViewLayoutVisualFixture mode={mode} />;
   }
 

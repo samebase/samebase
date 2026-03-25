@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { PersonIcon } from "@radix-ui/react-icons";
 import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";
+import { EditorHistoryControls } from "@/components/EditorHistoryControls";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { SidebarProvider } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 
 export type FileViewLayoutVisualMode =
   | "fileview-layout"
-  | "fileview-layout-persistence";
+  | "fileview-layout-persistence"
+  | "fileview-layout-mobile-history";
 
 export function FileViewLayoutVisualFixture({
   mode,
@@ -88,7 +90,18 @@ export function FileViewLayoutVisualFixture({
         }
         headerTitle="/"
         headerRight={
-          <div className="font-mono text-xs text-muted-foreground">e4c2a91</div>
+          mode === "fileview-layout-mobile-history" ? (
+            <EditorHistoryControls
+              canUndo={true}
+              canRedo={false}
+              onUndo={() => {}}
+              onRedo={() => {}}
+            />
+          ) : (
+            <div className="font-mono text-xs text-muted-foreground">
+              e4c2a91
+            </div>
+          )
         }
         onQuickOpen={() => {}}
         contentClassName="flex-1 min-h-0 p-0"

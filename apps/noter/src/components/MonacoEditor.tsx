@@ -23,6 +23,11 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useProjectFiles, type ProjectFile } from "@/hooks/useProjectFiles";
 import { buildMonacoAppliedCacheKey } from "@/lib/editorCacheKeys";
+import {
+  EMPTY_EDITOR_HISTORY_STATE,
+  type EditorHistoryController,
+  type EditorHistoryState,
+} from "@/lib/editorHistory";
 import { buildMonacoFileUri } from "@/lib/monacoFileUri";
 
 // ---------------------------------------------------------------------------
@@ -135,6 +140,17 @@ const appliedCacheKeys = new Set<string>();
 
 type MonacoEditorInstance = Parameters<OnMount>[0];
 
+function getMonacoHistoryState(
+  editor: MonacoEditorInstance | null,
+): EditorHistoryState {
+  const model = editor?.getModel();
+
+  return {
+    canUndo: model?.canUndo() ?? false,
+    canRedo: model?.canRedo() ?? false,
+  };
+}
+
 export function MonacoEditor({
   firstDoc,
   repositoryFullName,
@@ -144,6 +160,8 @@ export function MonacoEditor({
   tree,
   treeSHA,
   showMobileLineNumbers = false,
+  onHistoryStateChange,
+  onHistoryControllerChange,
 }: {
   firstDoc: { version: number; content: string };
   repositoryFullName: string;
@@ -153,6 +171,10 @@ export function MonacoEditor({
   tree: GithubTreeType[];
   treeSHA: string;
   showMobileLineNumbers?: boolean;
+  onHistoryStateChange?: (state: EditorHistoryState) => void;
+  onHistoryControllerChange?: (
+    controller: EditorHistoryController | null,
+  ) => void;
 }) {
   const { theme, systemTheme } = useTheme();
   const effectiveTheme = theme === "system" ? systemTheme : theme;
@@ -193,6 +215,12 @@ export function MonacoEditor({
   // Collab version – drives the pullUpdates subscription
   const [version, setVersion] = useState(firstDoc.version);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const publishHistoryState = useCallback(
+    (editor: MonacoEditorInstance | null) => {
+      onHistoryStateChange?.(getMonacoHistoryState(editor));
+    },
+    [onHistoryStateChange],
+  );
 
   // ---- Pull remote updates via Convex real-time query ----
   const remoteUpdates = useQuery(
@@ -326,10 +354,40 @@ export function MonacoEditor({
     setSyncError(null);
   }, [repositoryFullName, filePath]);
 
+  useEffect(() => {
+    return () => {
+      onHistoryControllerChange?.(null);
+      onHistoryStateChange?.(EMPTY_EDITOR_HISTORY_STATE);
+    };
+  }, [onHistoryControllerChange, onHistoryStateChange]);
+
   // ---- Monaco mount handler ----
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+    publishHistoryState(editor);
+    onHistoryControllerChange?.({
+      undo: () => {
+        const model = editorRef.current?.getModel();
+        if (!model) {
+          return;
+        }
+
+        void model.undo();
+        editorRef.current?.focus();
+        publishHistoryState(editorRef.current);
+      },
+      redo: () => {
+        const model = editorRef.current?.getModel();
+        if (!model) {
+          return;
+        }
+
+        void model.redo();
+        editorRef.current?.focus();
+        publishHistoryState(editorRef.current);
+      },
+    });
 
     // If project files are already loaded (cache hit), sync immediately
     if (projectFiles.length > 0) {
@@ -358,7 +416,10 @@ export function MonacoEditor({
 
     // Bridge local Monaco edits → headless CM → Convex
     editor.onDidChangeModelContent((e) => {
-      if (isApplyingRemoteRef.current) return;
+      if (isApplyingRemoteRef.current) {
+        publishHistoryState(editor);
+        return;
+      }
 
       const changes = e.changes.map((c) => ({
         from: c.rangeOffset,
@@ -370,6 +431,7 @@ export function MonacoEditor({
       cmStateRef.current = tr.state;
 
       void pushToServer();
+      publishHistoryState(editor);
     });
   };
 
