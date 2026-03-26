@@ -35,6 +35,7 @@ import {
   TREE_REFRESH_DEBOUNCE_MS,
   TREE_REFRESH_STALE_LOCK_MS,
 } from "../shared/treeRefresh";
+import { DAYTONA_PAUSED } from "../shared/daytonaPause";
 
 const nullValidator = v.null();
 const { array, boolean, id, literal, number, object, optional, string, union } =
@@ -1783,6 +1784,7 @@ export const updateVaultTree = internalMutation({
     const shouldQueueDaytonaSnapshot =
       typeof commitSha === "string" &&
       commitSha !== vault.commitSHA &&
+      !DAYTONA_PAUSED &&
       vault.ghRepoOwner.length > 0 &&
       vault.ghRepoName.length > 0;
 

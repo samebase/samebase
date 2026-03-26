@@ -12,6 +12,7 @@ import {
   inferCommitPinnedSnapshotName,
 } from "./snapshotPolicy";
 import { DaytonaSnapshotBuildStatus } from "../schema";
+import { DAYTONA_PAUSED } from "../../shared/daytonaPause";
 
 const {
   array,
@@ -426,7 +427,9 @@ export const markBuildFailedAndScheduleRetry = internalMutation({
       return null;
     }
 
-    const nextRetryAt = args.updatedAt + args.retryDelayMs;
+    const nextRetryAt = DAYTONA_PAUSED
+      ? undefined
+      : args.updatedAt + args.retryDelayMs;
     await ctx.db.patch(existing._id, {
       status: "failed",
       lastError: args.error,
@@ -434,17 +437,19 @@ export const markBuildFailedAndScheduleRetry = internalMutation({
       updatedAt: args.updatedAt,
     });
 
-    await ctx.scheduler.runAfter(
-      args.retryDelayMs,
-      internal.daytona.actions.buildCommitPinnedSnapshot,
-      {
-        userId: args.userId,
-        owner: args.owner,
-        repo: args.repo,
-        branch,
-        commitSha: args.commitSha,
-      },
-    );
+    if (!DAYTONA_PAUSED) {
+      await ctx.scheduler.runAfter(
+        args.retryDelayMs,
+        internal.daytona.actions.buildCommitPinnedSnapshot,
+        {
+          userId: args.userId,
+          owner: args.owner,
+          repo: args.repo,
+          branch,
+          commitSha: args.commitSha,
+        },
+      );
+    }
 
     return await ctx.db.get(existing._id);
   },

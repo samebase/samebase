@@ -74,6 +74,10 @@ import { buildDaytonaSandboxEnvVars } from "./sandboxEnv";
 import { DAYTONA_DEV_SERVER_TMUX_SESSION } from "./tmuxSessions";
 import { toSafeRepoName } from "../repoName";
 import type { Id } from "../_generated/dataModel";
+import {
+  DAYTONA_PAUSED,
+  DAYTONA_PAUSED_MESSAGE,
+} from "../../shared/daytonaPause";
 
 const { object, id, string, optional, boolean, union, literal, number, array } =
   v;
@@ -274,6 +278,13 @@ function normalizeRegistryUrl(url: string): string {
 function resolveDaytonaApiConfig():
   | { ok: true; baseUrl: string; token: string }
   | { ok: false; message: string } {
+  if (DAYTONA_PAUSED) {
+    return {
+      ok: false,
+      message: DAYTONA_PAUSED_MESSAGE,
+    };
+  }
+
   const baseUrl = process.env[DAYTONA_API_URL_ENV]?.trim() ?? "";
   const token =
     process.env[DAYTONA_API_TOKEN_ENV] ??
@@ -4594,6 +4605,41 @@ export const buildCommitPinnedSnapshot = internalAction({
       branch,
       commitSha: args.commitSha,
     });
+    if (DAYTONA_PAUSED) {
+      const existingSnapshotRecord = await ctx.runQuery(
+        internal.daytona.snapshotRecords.getByRepoBranchCommit,
+        {
+          owner: args.owner,
+          repo: args.repo,
+          branch,
+          commitSha: args.commitSha,
+        },
+      );
+      if (
+        existingSnapshotRecord !== null &&
+        existingSnapshotRecord.status !== "active"
+      ) {
+        await ctx.runMutation(
+          internal.daytona.snapshotRecords.markBuildFailed,
+          {
+            owner: args.owner,
+            repo: args.repo,
+            branch,
+            commitSha: args.commitSha,
+            error: DAYTONA_PAUSED_MESSAGE,
+            updatedAt: Date.now(),
+            nextRetryAt: undefined,
+          },
+        );
+      }
+      return {
+        ok: false,
+        snapshotName,
+        commitSha: args.commitSha,
+        message: DAYTONA_PAUSED_MESSAGE,
+      };
+    }
+
     const prebuildStartedAt = Date.now();
     const prebuildStartLine = `Snapshot build started for ${branch}@${shortenCommitSha(
       args.commitSha,
@@ -5076,6 +5122,13 @@ export const prebuildDaytonaSnapshot = action({
     ctx,
     args,
   ): Promise<Infer<typeof prebuildDaytonaSnapshotResult>> => {
+    if (DAYTONA_PAUSED) {
+      return {
+        ok: false,
+        message: DAYTONA_PAUSED_MESSAGE,
+      };
+    }
+
     const userId = await getUserId(ctx);
     const vault = await ctx.runQuery(internal.vault.getById, {
       id: args.vaultId,

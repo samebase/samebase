@@ -74,6 +74,7 @@ import { VaultSyncStatus } from "./VaultSyncStatus";
 import { RepositoryMediaViewer } from "./RepositoryMediaViewer";
 import { RepositoryWorkspaceFrame } from "./RepositoryWorkspaceFrame";
 import { SidebarAccountSection } from "./SidebarAccountSection";
+import { DAYTONA_PAUSED } from "../../shared/daytonaPause";
 import { isRenderableRepositoryMediaPath } from "../../shared/repositoryMedia";
 import { isStaleBaseVersionError } from "../../shared/stagingErrors";
 import { decodeRouteSegmentSafe } from "@/lib/vaultRoutes";
@@ -2964,14 +2965,16 @@ function FileViewInner({
               </div>
 
               <div className="flex flex-col gap-2">
-                <DaytonaSnapshotBanner
-                  branch={branch}
-                  commitSha={vault.commitSHA}
-                  snapshotName={vault.daytonaCurrentSnapshotName}
-                  snapshotStatus={vault.daytonaCurrentSnapshotStatus}
-                  lastError={vault.daytonaCurrentSnapshotLastError}
-                  className="w-full"
-                />
+                {!DAYTONA_PAUSED ? (
+                  <DaytonaSnapshotBanner
+                    branch={branch}
+                    commitSha={vault.commitSHA}
+                    snapshotName={vault.daytonaCurrentSnapshotName}
+                    snapshotStatus={vault.daytonaCurrentSnapshotStatus}
+                    lastError={vault.daytonaCurrentSnapshotLastError}
+                    className="w-full"
+                  />
+                ) : null}
                 <div className="flex flex-wrap items-center gap-2">
                   <VaultSyncStatus
                     vaultId={vault._id}
@@ -2990,7 +2993,7 @@ function FileViewInner({
                     disableStagedFilesQuery
                   />
 
-                  {viewMode === "editor" && (
+                  {!DAYTONA_PAUSED && viewMode === "editor" ? (
                     <Button
                       size="sm"
                       variant={isPreviewOpen ? "secondary" : "outline"}
@@ -2999,7 +3002,7 @@ function FileViewInner({
                     >
                       {isPreviewOpen ? "Hide Preview" : "Show Preview"}
                     </Button>
-                  )}
+                  ) : null}
 
                   {viewMode === "editor" && (
                     <Button
@@ -3047,30 +3050,32 @@ function FileViewInner({
                     {isResettingToGitHub ? "Resetting..." : "Reset to GitHub"}
                   </Button>
                 </div>
-                <FileViewDeveloperTools
-                  open={developerToolsVisible}
-                  onOpenChange={(isOpen) => {
-                    if (viewMode === "graph" && !isOpen) {
-                      return;
-                    }
-                    setDeveloperToolsOpen(isOpen);
-                  }}
-                  viewMode={viewMode}
-                  onViewModeChange={setViewMode}
-                >
-                  <DaytonaWorkspaceButton
-                    vaultId={vault._id}
-                    branch={branch}
-                    sandboxId={vault.daytonaSandboxId}
-                    sandboxName={vault.daytonaSandboxName}
-                    commitSha={vault.commitSHA}
-                    snapshotStatus={vault.daytonaCurrentSnapshotStatus}
-                    snapshotName={vault.daytonaCurrentSnapshotName}
-                    snapshotError={vault.daytonaCurrentSnapshotLastError}
-                    className="text-xs"
-                  />
-                  <DaytonaSnapshotList vaultId={vault._id} />
-                </FileViewDeveloperTools>
+                {!DAYTONA_PAUSED ? (
+                  <FileViewDeveloperTools
+                    open={developerToolsVisible}
+                    onOpenChange={(isOpen) => {
+                      if (viewMode === "graph" && !isOpen) {
+                        return;
+                      }
+                      setDeveloperToolsOpen(isOpen);
+                    }}
+                    viewMode={viewMode}
+                    onViewModeChange={setViewMode}
+                  >
+                    <DaytonaWorkspaceButton
+                      vaultId={vault._id}
+                      branch={branch}
+                      sandboxId={vault.daytonaSandboxId}
+                      sandboxName={vault.daytonaSandboxName}
+                      commitSha={vault.commitSHA}
+                      snapshotStatus={vault.daytonaCurrentSnapshotStatus}
+                      snapshotName={vault.daytonaCurrentSnapshotName}
+                      snapshotError={vault.daytonaCurrentSnapshotLastError}
+                      className="text-xs"
+                    />
+                    <DaytonaSnapshotList vaultId={vault._id} />
+                  </FileViewDeveloperTools>
+                ) : null}
               </div>
             </div>
             {commitError ? (
@@ -3087,7 +3092,7 @@ function FileViewInner({
               </div>
             ) : null}
 
-            {viewMode === "editor" && isPreviewOpen && (
+            {!DAYTONA_PAUSED && viewMode === "editor" && isPreviewOpen ? (
               <DaytonaPreviewPanel
                 vaultId={vault._id}
                 className="mb-4"
@@ -3095,7 +3100,7 @@ function FileViewInner({
                 isResettingToGitHub={isResettingToGitHub}
                 resetToGitHubDisabled={resetToGitHubDisabled}
               />
-            )}
+            ) : null}
             <div className="relative flex-1 min-h-0">
               {viewMode === "editor" ? (
                 commitReviewMode === "review" ? (
