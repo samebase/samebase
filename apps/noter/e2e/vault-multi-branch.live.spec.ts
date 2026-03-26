@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { signInIfNeeded } from "./liveHelpers";
 
 const REPO_OWNER = "nicu-chiciuc";
 const REPO_NAME = "tmp-main-branch-stress-20260309";
@@ -36,21 +37,6 @@ function branchLinkLocator(page: Page, branch: string): Locator {
 
 function branchRowLocator(page: Page, branch: string): Locator {
   return branchLinkLocator(page, branch).locator("xpath=ancestor::div[1]");
-}
-
-async function signInIfNeeded(page: Page): Promise<void> {
-  const autofillButton = page.getByRole("button", {
-    name: "Autofill & sign in",
-  });
-  try {
-    await autofillButton.waitFor({ state: "visible", timeout: 5_000 });
-    await autofillButton.click();
-  } catch {
-    // Sign-in button is not present when session is already active.
-  }
-  await expect(page.getByRole("heading", { name: "Your Vaults" })).toBeVisible({
-    timeout: 30_000,
-  });
 }
 
 async function requireVaultOrSkip(page: Page): Promise<void> {
