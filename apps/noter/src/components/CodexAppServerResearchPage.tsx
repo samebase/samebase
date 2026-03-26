@@ -1,5 +1,6 @@
 import { Badge } from "@/components/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
+import { CodexAppServerThreadHistoryItemCard } from "@/components/CodexAppServerThreadHistoryItemCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -501,27 +502,10 @@ function SelectedThreadDetailPanel(props: {
                 ) : null}
                 <div className="grid gap-2">
                   {turn.items.map((item, index) => (
-                    <div
+                    <CodexAppServerThreadHistoryItemCard
                       key={`${turn.id}-${item.id ?? item.type}-${index}`}
-                      className="grid gap-1 border border-border bg-white px-3 py-2"
-                    >
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="font-mono text-xs">{item.type}</div>
-                        {item.id ? (
-                          <Badge
-                            variant="outline"
-                            className="font-mono text-[10px]"
-                          >
-                            {item.id}
-                          </Badge>
-                        ) : null}
-                      </div>
-                      {item.summary ? (
-                        <div className="text-sm text-slate-700">
-                          {item.summary}
-                        </div>
-                      ) : null}
-                    </div>
+                      item={item}
+                    />
                   ))}
                 </div>
               </div>
