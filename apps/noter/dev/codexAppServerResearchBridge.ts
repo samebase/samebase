@@ -15,6 +15,7 @@ import {
   normalizeCodexAppServerEvent,
   type CodexAppServerApprovalRequest,
   type CodexAppServerEventsResponse,
+  type CodexAppServerLoadedThreadsResponse,
   type CodexAppServerProtocolArtifact,
   type CodexAppServerProtocolResponse,
   type CodexAppServerResearchEvent,
@@ -1178,6 +1179,39 @@ class CodexAppServerResearchRuntime {
     };
   }
 
+  /**
+   * Surface the provider's in-memory thread inventory separately from the
+   * persisted thread list so Noter can distinguish "currently loaded in the
+   * runtime" from "known on disk".
+   */
+  async listLoadedThreads(
+    searchParams: URLSearchParams,
+  ): Promise<CodexAppServerLoadedThreadsResponse> {
+    const params: Record<string, unknown> = {};
+
+    const cursor = searchParams.get("cursor");
+    if (cursor) {
+      params.cursor = cursor;
+    }
+
+    const limitValue = Number.parseInt(searchParams.get("limit") ?? "", 10);
+    if (Number.isFinite(limitValue) && limitValue > 0) {
+      params.limit = limitValue;
+    }
+
+    const result = await this.sendRequestNoEnsure({
+      method: "thread/loaded/list",
+      params,
+    });
+    const record = asRecord(result);
+
+    return {
+      threadIds: readStringArray(record?.data),
+      nextCursor: readString(record?.nextCursor) ?? null,
+      runtime: this.getSnapshot(),
+    };
+  }
+
   async respondApproval(body: unknown) {
     const record = asRecord(body);
     const requestId = record?.requestId;
@@ -1263,6 +1297,36 @@ class CodexAppServerResearchRuntime {
       params,
     });
     this.currentThreadId = threadId;
+    return { result, runtime: this.getSnapshot() };
+  }
+
+  async threadArchive(body: unknown) {
+    const record = asRecord(body) ?? {};
+    const threadId = readString(record.threadId);
+    if (!threadId) {
+      throw new Error("threadId is required");
+    }
+
+    const result = await this.sendRequestNoEnsure({
+      method: "thread/archive",
+      params: { threadId },
+    });
+
+    return { result, runtime: this.getSnapshot() };
+  }
+
+  async threadUnarchive(body: unknown) {
+    const record = asRecord(body) ?? {};
+    const threadId = readString(record.threadId);
+    if (!threadId) {
+      throw new Error("threadId is required");
+    }
+
+    const result = await this.sendRequestNoEnsure({
+      method: "thread/unarchive",
+      params: { threadId },
+    });
+
     return { result, runtime: this.getSnapshot() };
   }
 
@@ -1418,6 +1482,16 @@ function buildRouter(args: { runtime: CodexAppServerResearchRuntime }) {
         return;
       }
 
+      if (req.method === "GET" && routePath === "/threads/loaded") {
+        await args.runtime.ensureRuntime(false);
+        sendJson(
+          res,
+          200,
+          await args.runtime.listLoadedThreads(url.searchParams),
+        );
+        return;
+      }
+
       if (req.method === "GET" && routePath.startsWith("/threads/")) {
         const encodedThreadId = routePath.slice("/threads/".length);
         const threadId = decodeURIComponent(encodedThreadId);
@@ -1456,6 +1530,26 @@ function buildRouter(args: { runtime: CodexAppServerResearchRuntime }) {
           res,
           200,
           await args.runtime.threadResume(await readJsonBody(req)),
+        );
+        return;
+      }
+
+      if (req.method === "POST" && routePath === "/thread/archive") {
+        await args.runtime.ensureRuntime(false);
+        sendJson(
+          res,
+          200,
+          await args.runtime.threadArchive(await readJsonBody(req)),
+        );
+        return;
+      }
+
+      if (req.method === "POST" && routePath === "/thread/unarchive") {
+        await args.runtime.ensureRuntime(false);
+        sendJson(
+          res,
+          200,
+          await args.runtime.threadUnarchive(await readJsonBody(req)),
         );
         return;
       }

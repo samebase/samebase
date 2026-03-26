@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   CODEX_APP_SERVER_RESEARCH_API_BASE,
+  CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
   type CodexAppServerApprovalRequest,
   type CodexAppServerEventsResponse,
   type CodexAppServerProtocolResponse,
@@ -783,7 +784,14 @@ export function CodexAppServerResearchPage() {
                 Codex App Server
               </h1>
             </div>
-            <RuntimeStatusBadge status={status} />
+            <div className="flex flex-wrap items-center gap-2">
+              <Button asChild variant="outline" size="sm">
+                <a href={CODEX_APP_SERVER_THREAD_BROWSER_ROUTE}>
+                  Open browser view
+                </a>
+              </Button>
+              <RuntimeStatusBadge status={status} />
+            </div>
           </div>
           <p className="max-w-4xl text-sm text-slate-600">
             Local-only dev page for exploring the repo-owned bridge around{" "}

@@ -53,6 +53,10 @@ import {
 import { VaultDashboardBranchVisualFixture } from "@/components/VaultDashboardBranchVisualFixture";
 import { ButtonVisualFixture } from "@/components/ButtonVisualFixture";
 import {
+  CodexThreadBrowserVisualFixture,
+  type CodexThreadBrowserVisualMode,
+} from "@/components/CodexThreadBrowserVisualFixture";
+import {
   CodexThreadHistoryVisualFixture,
   type CodexThreadHistoryVisualMode,
 } from "@/components/CodexThreadHistoryVisualFixture";
@@ -81,6 +85,7 @@ type VisualFixtureMode =
   | SimpleViewVisualMode
   | VaultDashboardVisualMode
   | VaultBranchPreviewVisualMode
+  | CodexThreadBrowserVisualMode
   | CodexThreadHistoryVisualMode
   | "vault-dashboard-branch-pr-title"
   | "button"
@@ -174,6 +179,7 @@ const FILE_VIEW_COMPARE_VISUAL_MODES = [
 ] as const satisfies readonly FileViewCompareVisualMode[];
 
 const MISC_VISUAL_MODES = [
+  "codex-thread-browser",
   "codex-thread-history",
   "vault-dashboard-branch-pr-title",
   "button",
@@ -354,6 +360,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "codex-thread-history") {
     return <CodexThreadHistoryVisualFixture mode={mode} />;
+  }
+
+  if (mode === "codex-thread-browser") {
+    return <CodexThreadBrowserVisualFixture mode={mode} />;
   }
 
   if (mode === "button") {

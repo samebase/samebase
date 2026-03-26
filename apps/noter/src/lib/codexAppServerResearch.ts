@@ -1,4 +1,6 @@
 export const CODEX_APP_SERVER_RESEARCH_ROUTE = "/research/codex-app-server";
+export const CODEX_APP_SERVER_THREAD_BROWSER_ROUTE =
+  "/research/codex-app-server/browser";
 export const CODEX_APP_SERVER_RESEARCH_API_BASE =
   "/__noter/research/codex-app-server";
 
@@ -131,6 +133,12 @@ export type CodexAppServerThreadsResponse = {
 
 export type CodexAppServerThreadDetailResponse = {
   thread: CodexAppServerThread;
+  runtime: CodexAppServerRuntimeSnapshot;
+};
+
+export type CodexAppServerLoadedThreadsResponse = {
+  threadIds: string[];
+  nextCursor: string | null;
   runtime: CodexAppServerRuntimeSnapshot;
 };
 
