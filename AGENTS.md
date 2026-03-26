@@ -520,6 +520,10 @@ Auth:
 - For this operator, do not use Python as the first option for scripting or
   automation in Codex. Prefer plain shell commands first; if scripting is
   needed, prefer ECMAScript/Node because Node is guaranteed to be available.
+- For this operator, when constructing multi-line JavaScript/TypeScript source
+  snippets, prefer template literals over arrays of one-line strings joined with
+  `'\n'`. Use `stripIndent` when indentation cleanup is needed; do not default
+  to `['line 1', 'line 2'].join('\n')` unless there is a concrete reason.
 - Before starting implementation on an existing work branch or worktree, fetch
   `origin` and rebase onto the latest `origin/main` before doing new work.
 - Format documents you write with Prettier by default so markdown/docs do not
