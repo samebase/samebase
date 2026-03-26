@@ -285,6 +285,8 @@ export function guessMime(filePath: string): string {
       return "image/webp";
     case "svg":
       return "image/svg+xml";
+    case "vox":
+      return "application/octet-stream";
 
     default:
       console.log("unknown mime", ext);

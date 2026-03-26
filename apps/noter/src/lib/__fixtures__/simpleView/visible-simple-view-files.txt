@@ -37,6 +37,7 @@ apps/noter/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-print-mobile.png
 apps/noter/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-print.png
 apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-png.png
 apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-svg.png
+apps/noter/e2e/repository-media-visual.spec.ts-snapshots/repository-media-vox.png
 apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-missing-config.png
 apps/noter/e2e/simple-view-visual.spec.ts-snapshots/simple-view-repository-config.png
 apps/noter/e2e/vault-branch-preview-visual.spec.ts-snapshots/vault-branch-preview-link.png

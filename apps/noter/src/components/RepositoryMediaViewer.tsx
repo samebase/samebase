@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAction } from "convex/react";
 import { Loader2 } from "lucide-react";
+import { RepositoryVoxPreview } from "@/components/RepositoryVoxPreview";
 import { api } from "../../convex/_generated/api";
 
 export type RepositoryMediaAsset =
@@ -16,6 +17,13 @@ export type RepositoryMediaAsset =
   | {
       found: true;
       kind: "image";
+      mimeType: string;
+      url: string;
+      fileName: string;
+    }
+  | {
+      found: true;
+      kind: "vox";
       mimeType: string;
       url: string;
       fileName: string;
@@ -46,16 +54,34 @@ export function RepositoryMediaPreviewPanel({
         </span>
         <span className="shrink-0">{asset.mimeType}</span>
       </div>
-      <div className="flex min-h-0 flex-1 items-center justify-center p-6">
-        <img
-          data-testid={`${testId}-image`}
-          src={asset.url}
-          alt={asset.fileName || fallbackLabel}
-          className="max-h-full max-w-full border bg-background object-contain shadow-sm"
-        />
-      </div>
+      {renderRepositoryMediaAsset(asset, fallbackLabel, testId)}
     </div>
   );
+}
+
+function renderRepositoryMediaAsset(
+  asset: RepositoryMediaDisplayAsset,
+  fallbackLabel: string,
+  testId: string,
+) {
+  switch (asset.kind) {
+    case "image":
+      return (
+        <div className="flex min-h-0 flex-1 items-center justify-center p-6">
+          <img
+            data-testid={`${testId}-image`}
+            src={asset.url}
+            alt={asset.fileName || fallbackLabel}
+            className="max-h-full max-w-full border bg-background object-contain shadow-sm"
+          />
+        </div>
+      );
+    case "vox":
+      return <RepositoryVoxPreview testId={testId} url={asset.url} />;
+    default:
+      asset satisfies never;
+      return null;
+  }
 }
 
 export function RepositoryMediaViewer({
