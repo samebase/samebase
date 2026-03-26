@@ -26,6 +26,8 @@ shared per-user/per-repo cooldown state.
 As a result:
 
 - multiple open views can multiply expensive GitHub refreshes
+- multiple connected repositories can also multiply dashboard-triggered
+  refreshes
 - branch-specific refreshes can bypass the shared backend tree-refresh lock
 - sync failure often leads to another attempt on the next focus or visibility
   event
@@ -122,6 +124,15 @@ This is debounced only by an in-memory frontend map in
 
 This creates a second independent refresh source even when an individual file
 view is already open for the same repository.
+
+It also compounds as the user connects more repositories. On dashboard load,
+every ready vault becomes eligible for refresh work, and the dashboard batches
+those requests with `DASHBOARD_REFRESH_CONCURRENCY = 3`.
+
+That means the current operator workflow of connecting multiple repositories is
+not just a per-repo problem. Opening the dashboard can create a burst of
+parallel repo refreshes across distinct repositories, each of which may itself
+perform expensive repo-wide GitHub metadata sync.
 
 ### 3. Commit/check status polling
 
@@ -278,6 +289,9 @@ refresh succeeded. This can make the sync strip look healthier than reality.
    - silent repeated re-attempts on the next browser event
 7. Partial rate-limit handling exists, but it is not centralized. Each feature
    handles its own errors differently.
+8. Per-repo backoff alone may not be sufficient once a user has many connected
+   repositories. The dashboard can create a cross-repo burst even if each
+   individual repository is internally deduplicated.
 
 ## Recommended Direction
 
@@ -313,6 +327,10 @@ When the repo is in cooldown:
 
 Manual refresh can still be allowed as an explicit override, but it should not
 silently become another background loop.
+
+In addition, the dashboard likely needs a per-user global budget for automatic
+GitHub refreshes so opening a workspace with many repositories does not start
+too many repo refreshes at once.
 
 ### 3. Put branch refresh behind the same backend claim path
 
@@ -382,6 +400,9 @@ These are containment ideas, not the final design:
 4. Stop branch-specific refreshes from doing full ahead/behind and PR refresh by
    default.
 5. Ensure failed manual pull does not advance `lastTreeRefreshAt`.
+6. Cap dashboard auto-refresh more aggressively, or temporarily disable
+   dashboard-wide page-load refresh while the user has many connected
+   repositories.
 
 ## Open Questions
 
@@ -393,6 +414,10 @@ These are containment ideas, not the final design:
    intentionally stale for a few minutes without harming UX?
 4. Is there a pragmatic conditional-request path worth adding first for PR or
    branch metadata, or is reducing refresh fanout the higher-value first move?
+5. Does the final design need both:
+   - a per-user global automatic-refresh budget
+   - a per-user/per-repo cooldown to handle the dashboard multi-repo case
+     cleanly?
 
 ## Recommendation
 
