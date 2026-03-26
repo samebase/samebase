@@ -35,6 +35,15 @@ const TWO_LINE_THREAD = {
   preview:
     "Machine threads stay local to the connector.\nNoter only needs the normalized session handle.",
   cwd: "/Users/nicu/.codex/worktrees/5fed/noter",
+  project: {
+    id: "/Users/nicu/dev/my/noter",
+    label: "noter",
+    rootCwd: "/Users/nicu/dev/my/noter",
+  },
+  workspace: {
+    label: "5fed",
+    isProjectRoot: false,
+  },
   createdAt: 1_774_539_343,
   updatedAt: 1_774_539_373,
   cliVersion: "0.114.0",

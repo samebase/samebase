@@ -57,25 +57,6 @@ async function requestJson<T>(args: {
   return payload;
 }
 
-function readPathLeaf(value: string): string {
-  const normalized = value.split("\\").join("/");
-  const segments = normalized
-    .split("/")
-    .filter((segment: string) => segment.length > 0);
-  return segments[segments.length - 1] ?? value;
-}
-
-function readProjectLabel(value: string): string {
-  const worktreeMatch = value.match(/\/worktrees\/([^/]+)\//);
-  const worktreeId = worktreeMatch?.[1] ?? null;
-  const leaf = readPathLeaf(value);
-  if (!worktreeId) {
-    return leaf;
-  }
-
-  return `${leaf} · ${worktreeId}`;
-}
-
 function threadIsArchived(thread: CodexAppServerThread): boolean {
   return thread.path?.includes("/archived_sessions/") ?? false;
 }
@@ -103,9 +84,9 @@ function dedupeThreadsById(
 }
 
 /**
- * Group the deduped inventory by cwd so the sidebar mirrors how the operator
- * actually thinks about Codex work: a folder/worktree followed by the threads
- * inside it.
+ * Group by canonical project root, not raw cwd. That keeps sibling worktrees
+ * for the same repo under one project entry, while each thread still carries
+ * its own worktree label.
  */
 function buildThreadGroups(args: {
   threads: CodexAppServerThread[];
@@ -124,7 +105,7 @@ function buildThreadGroups(args: {
   >();
 
   for (const thread of args.threads) {
-    const current = groupMap.get(thread.cwd);
+    const current = groupMap.get(thread.project.id);
     const loadedCountDelta = args.loadedThreadIds.includes(thread.id) ? 1 : 0;
     if (current) {
       current.count += 1;
@@ -137,9 +118,9 @@ function buildThreadGroups(args: {
       continue;
     }
 
-    groupMap.set(thread.cwd, {
-      label: readProjectLabel(thread.cwd),
-      detail: thread.cwd,
+    groupMap.set(thread.project.id, {
+      label: thread.project.label,
+      detail: thread.project.rootCwd,
       count: 1,
       loadedCount: loadedCountDelta,
       latestUpdatedAt: thread.updatedAt,
@@ -229,6 +210,8 @@ export function CodexAppServerThreadBrowserResearchPage() {
         thread.name ?? "",
         thread.preview,
         thread.cwd,
+        thread.project.rootCwd,
+        thread.workspace.label ?? "",
         thread.gitInfo?.branch ?? "",
       ]
         .join("\n")

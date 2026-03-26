@@ -40,6 +40,15 @@ const ACTIVE_THREADS: CodexAppServerThread[] = [
     preview:
       "check latest pr created; it was created from noter.md ui and I need a local process that starts Codex, does the research, and updates the PR automatically.",
     cwd: "/Users/nicu/.codex/worktrees/5fed/noter",
+    project: {
+      id: "/Users/nicu/dev/my/noter",
+      label: "noter",
+      rootCwd: "/Users/nicu/dev/my/noter",
+    },
+    workspace: {
+      label: "5fed",
+      isProjectRoot: false,
+    },
     createdAt: 1_774_541_701,
     updatedAt: 1_774_541_762,
     cliVersion: "0.117.0-alpha.10",
@@ -68,6 +77,15 @@ const ACTIVE_THREADS: CodexAppServerThread[] = [
     preview:
       "the changed files view can take multiple seconds, so the loading state needs a clearer explanation and a stopwatch.",
     cwd: "/Users/nicu/.codex/worktrees/6257/noter",
+    project: {
+      id: "/Users/nicu/dev/my/noter",
+      label: "noter",
+      rootCwd: "/Users/nicu/dev/my/noter",
+    },
+    workspace: {
+      label: "6257",
+      isProjectRoot: false,
+    },
     createdAt: 1_774_538_096,
     updatedAt: 1_774_541_609,
     cliVersion: "0.117.0-alpha.10",
@@ -95,6 +113,15 @@ const ACTIVE_THREADS: CodexAppServerThread[] = [
     name: null,
     preview: "Reply with exactly READY and nothing else.",
     cwd: "/Users/nicu/.codex/worktrees/5fed/noter",
+    project: {
+      id: "/Users/nicu/dev/my/noter",
+      label: "noter",
+      rootCwd: "/Users/nicu/dev/my/noter",
+    },
+    workspace: {
+      label: "5fed",
+      isProjectRoot: false,
+    },
     createdAt: 1_774_538_016,
     updatedAt: 1_774_538_050,
     cliVersion: "0.114.0",
@@ -132,20 +159,12 @@ export function CodexThreadBrowserVisualFixture({
         browserMode="active"
         groups={[
           {
-            id: "/Users/nicu/.codex/worktrees/5fed/noter",
-            label: "noter · 5fed",
-            detail: "/Users/nicu/.codex/worktrees/5fed/noter",
-            count: 2,
+            id: "/Users/nicu/dev/my/noter",
+            label: "noter",
+            detail: "/Users/nicu/dev/my/noter",
+            count: 3,
             loadedCount: 1,
-            threads: [ACTIVE_THREADS[0], ACTIVE_THREADS[2]],
-          },
-          {
-            id: "/Users/nicu/.codex/worktrees/6257/noter",
-            label: "noter · 6257",
-            detail: "/Users/nicu/.codex/worktrees/6257/noter",
-            count: 1,
-            loadedCount: 0,
-            threads: [ACTIVE_THREADS[1]],
+            threads: [ACTIVE_THREADS[0], ACTIVE_THREADS[1], ACTIVE_THREADS[2]],
           },
         ]}
         searchTerm=""
