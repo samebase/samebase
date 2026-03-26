@@ -25,9 +25,11 @@ import {
   type CodexAppServerStatusResponse,
   type CodexAppServerThread,
   type CodexAppServerThreadDetailResponse,
+  type CodexAppServerThreadProject,
   type CodexAppServerThreadItem,
   type CodexAppServerThreadsResponse,
   type CodexAppServerThreadTurn,
+  type CodexAppServerThreadWorkspace,
 } from "../src/lib/codexAppServerResearch";
 
 const execFileAsync = promisify(execFile);
@@ -71,6 +73,13 @@ type ApprovalContext = {
 
 type RuntimeApprovalRequest = CodexAppServerApprovalRequest;
 
+type ThreadProjectInfo = {
+  project: CodexAppServerThreadProject;
+  workspace: CodexAppServerThreadWorkspace;
+};
+
+const threadProjectInfoByCwd = new Map<string, Promise<ThreadProjectInfo>>();
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     return null;
@@ -103,6 +112,142 @@ function readStringArray(value: unknown): string[] {
 
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function normalizePathForDisplay(value: string): string {
+  return value.split("\\").join("/");
+}
+
+function readPathLeaf(value: string): string {
+  const normalized = normalizePathForDisplay(value);
+  const segments = normalized
+    .split("/")
+    .filter((segment) => segment.length > 0);
+  return segments[segments.length - 1] ?? value;
+}
+
+function readCodexWorktreeId(value: string): string | null {
+  const match = normalizePathForDisplay(value).match(/\/worktrees\/([^/]+)\//);
+  return match?.[1] ?? null;
+}
+
+/**
+ * Use the shared git common dir as the project identity so sibling worktrees
+ * collapse into one project while keeping their individual cwd labels.
+ */
+function buildThreadProjectInfo(args: {
+  cwd: string;
+  projectRoot: string;
+}): ThreadProjectInfo {
+  const normalizedCwd = normalizePathForDisplay(path.resolve(args.cwd));
+  const normalizedProjectRoot = normalizePathForDisplay(
+    path.resolve(args.projectRoot),
+  );
+  const isProjectRoot = normalizedCwd === normalizedProjectRoot;
+
+  if (isProjectRoot) {
+    return {
+      project: {
+        id: normalizedProjectRoot,
+        label: readPathLeaf(normalizedProjectRoot),
+        rootCwd: normalizedProjectRoot,
+      },
+      workspace: {
+        label: null,
+        isProjectRoot: true,
+      },
+    };
+  }
+
+  const codexWorktreeId = readCodexWorktreeId(normalizedCwd);
+  const cwdLeaf = readPathLeaf(normalizedCwd);
+  const projectRootLeaf = readPathLeaf(normalizedProjectRoot);
+  const cwdParentLeaf = readPathLeaf(path.dirname(normalizedCwd));
+  const projectParentLeaf = readPathLeaf(path.dirname(normalizedProjectRoot));
+  const workspaceLabel =
+    codexWorktreeId ??
+    (cwdLeaf !== projectRootLeaf ? cwdLeaf : null) ??
+    (cwdParentLeaf !== projectParentLeaf ? cwdParentLeaf : null) ??
+    cwdLeaf;
+
+  return {
+    project: {
+      id: normalizedProjectRoot,
+      label: projectRootLeaf,
+      rootCwd: normalizedProjectRoot,
+    },
+    workspace: {
+      label: workspaceLabel,
+      isProjectRoot: false,
+    },
+  };
+}
+
+function buildFallbackThreadProjectInfo(cwd: string): ThreadProjectInfo {
+  return buildThreadProjectInfo({
+    cwd,
+    projectRoot: cwd,
+  });
+}
+
+async function readThreadProjectInfo(cwd: string): Promise<ThreadProjectInfo> {
+  const cached = threadProjectInfoByCwd.get(cwd);
+  if (cached) {
+    return cached;
+  }
+
+  const promise = (async () => {
+    const fallback = buildFallbackThreadProjectInfo(cwd);
+
+    try {
+      const { stdout } = await execFileAsync(
+        "git",
+        [
+          "-C",
+          cwd,
+          "rev-parse",
+          "--path-format=absolute",
+          "--show-toplevel",
+          "--git-common-dir",
+        ],
+        {
+          timeout: 5_000,
+          maxBuffer: 64 * 1024,
+        },
+      );
+
+      const [topLevelLine, commonDirLine] = stdout
+        .trim()
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+
+      if (!topLevelLine || !commonDirLine) {
+        return fallback;
+      }
+
+      const resolvedTopLevel = path.isAbsolute(topLevelLine)
+        ? topLevelLine
+        : path.resolve(cwd, topLevelLine);
+      const resolvedCommonDir = path.isAbsolute(commonDirLine)
+        ? commonDirLine
+        : path.resolve(cwd, commonDirLine);
+      const projectRoot =
+        path.basename(resolvedCommonDir) === ".git"
+          ? path.dirname(resolvedCommonDir)
+          : resolvedTopLevel;
+
+      return buildThreadProjectInfo({
+        cwd,
+        projectRoot,
+      });
+    } catch {
+      return fallback;
+    }
+  })();
+
+  threadProjectInfoByCwd.set(cwd, promise);
+  return promise;
 }
 
 function cloneJsonValue(value: unknown): unknown {
@@ -463,6 +608,7 @@ function normalizeThread(value: unknown): CodexAppServerThread | null {
   }
 
   const gitInfo = asRecord(record.gitInfo);
+  const fallbackProjectInfo = buildFallbackThreadProjectInfo(cwd);
   const turns = Array.isArray(record.turns)
     ? record.turns
         .map((turn) => normalizeThreadTurn(turn))
@@ -474,6 +620,8 @@ function normalizeThread(value: unknown): CodexAppServerThread | null {
     name: readString(record.name) ?? null,
     preview,
     cwd,
+    project: fallbackProjectInfo.project,
+    workspace: fallbackProjectInfo.workspace,
     createdAt,
     updatedAt,
     cliVersion: readString(record.cliVersion) ?? null,
@@ -493,6 +641,17 @@ function normalizeThread(value: unknown): CodexAppServerThread | null {
     agentRole: readString(record.agentRole) ?? null,
     turns,
     raw: cloneJsonValue(value),
+  };
+}
+
+async function enrichThreadProjectInfo(
+  thread: CodexAppServerThread,
+): Promise<CodexAppServerThread> {
+  const projectInfo = await readThreadProjectInfo(thread.cwd);
+  return {
+    ...thread,
+    project: projectInfo.project,
+    workspace: projectInfo.workspace,
   };
 }
 
@@ -1146,9 +1305,12 @@ class CodexAppServerResearchRuntime {
     });
     const record = asRecord(result);
     const threads = Array.isArray(record?.data)
-      ? record.data
-          .map((thread) => normalizeThread(thread))
-          .filter((thread): thread is CodexAppServerThread => thread !== null)
+      ? await Promise.all(
+          record.data
+            .map((thread) => normalizeThread(thread))
+            .filter((thread): thread is CodexAppServerThread => thread !== null)
+            .map((thread) => enrichThreadProjectInfo(thread)),
+        )
       : [];
 
     return {
@@ -1168,7 +1330,11 @@ class CodexAppServerResearchRuntime {
         includeTurns: true,
       },
     });
-    const thread = normalizeThread(asRecord(result)?.thread);
+    const normalizedThread = normalizeThread(asRecord(result)?.thread);
+    const thread =
+      normalizedThread === null
+        ? null
+        : await enrichThreadProjectInfo(normalizedThread);
     if (!thread) {
       throw new Error("thread/read returned an invalid thread payload");
     }

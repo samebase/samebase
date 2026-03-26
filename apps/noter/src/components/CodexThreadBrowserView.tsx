@@ -118,6 +118,14 @@ function readThreadPreview(thread: CodexAppServerThread): string | null {
   return previewLine;
 }
 
+function readThreadWorkspaceLabel(thread: CodexAppServerThread): string | null {
+  if (thread.workspace.isProjectRoot) {
+    return null;
+  }
+
+  return thread.workspace.label;
+}
+
 function ThreadRow(props: {
   thread: CodexAppServerThread;
   isSelected: boolean;
@@ -125,6 +133,7 @@ function ThreadRow(props: {
   onSelect?: (threadId: string) => void;
 }) {
   const preview = readThreadPreview(props.thread);
+  const workspaceLabel = readThreadWorkspaceLabel(props.thread);
 
   return (
     <button
@@ -190,6 +199,19 @@ function ThreadRow(props: {
         >
           {readShortThreadId(props.thread.id)}
         </span>
+        {workspaceLabel ? (
+          <span
+            className={clsx(
+              "rounded-ui border px-1.5 py-0.5 font-mono",
+              props.isSelected
+                ? "border-sky-400/50 text-sky-200"
+                : "border-sky-200 text-sky-700",
+            )}
+            title={props.thread.cwd}
+          >
+            {workspaceLabel}
+          </span>
+        ) : null}
         <span
           className={clsx(
             "rounded-ui border px-1.5 py-0.5 font-mono",
@@ -476,6 +498,22 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
                         <span className="text-slate-500">Branch</span>
                         <span className="font-mono text-xs">
                           {props.selectedThread.gitInfo?.branch ?? "n/a"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-slate-500">Project root</span>
+                        <span
+                          className="max-w-[360px] truncate font-mono text-xs"
+                          title={props.selectedThread.project.rootCwd}
+                        >
+                          {props.selectedThread.project.rootCwd}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-slate-500">Workspace</span>
+                        <span className="font-mono text-xs">
+                          {readThreadWorkspaceLabel(props.selectedThread) ??
+                            "project root"}
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
