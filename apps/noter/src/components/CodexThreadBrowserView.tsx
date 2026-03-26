@@ -323,7 +323,7 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
           </div>
         ) : null}
 
-        <div className="grid gap-4 xl:grid-cols-[420px_minmax(0,1fr)]">
+        <div className="grid gap-4 sm:grid-cols-[minmax(280px,320px)_minmax(0,1fr)] xl:grid-cols-[380px_minmax(0,1fr)]">
           <Card cornerNotch={0}>
             <CardHeader className="gap-3">
               <div className="flex items-center justify-between gap-3">
