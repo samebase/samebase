@@ -14,6 +14,13 @@ worktree, and let Codex continue the research and update the PR?
 This research also covers what metadata the PR itself should carry so the local
 runner does not need to guess.
 
+Strategic direction update:
+
+- this RFC remains the narrow PR-triggered local automation document
+- for the broader "connected machines visible from the web UI / phone" product
+  direction, see
+  `rfcs/071_CONNECTED_MACHINES_AND_REMOTE_THREAD_CONTROL_RESEARCH.md`
+
 ## Verified Current State
 
 ### Latest UI-created PR observed on 2026-03-25
