@@ -108,7 +108,8 @@ Behavior:
    - `searchTerm`
    - `sortKey`
    - `archived`
-5. Default this research surface to non-archived interactive threads.
+5. Default this research surface to non-archived local interactive threads,
+   including `appServer` sessions created by the research page itself.
 
 The inventory response must preserve enough metadata to review the local thread
 population usefully, including:
@@ -139,6 +140,13 @@ Behavior:
 
 The detail surface must expose the provider thread record directly enough for
 protocol research, including turns and turn items when available.
+
+Important behavior:
+
+1. A brand-new provider thread may not be materialized for `thread/read` with
+   hydrated turns until the first user message exists.
+2. The UI should surface that provider error directly instead of silently
+   pretending the thread has an empty history.
 
 ### Selected thread semantics
 

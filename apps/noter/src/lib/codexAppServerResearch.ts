@@ -74,6 +74,66 @@ export type CodexAppServerRequestsResponse = {
   requests: CodexAppServerApprovalRequest[];
 };
 
+export type CodexAppServerThreadListSortKey = "created_at" | "updated_at";
+
+export type CodexAppServerThreadStatus = {
+  type: string;
+  activeFlags: string[];
+  raw: unknown;
+};
+
+export type CodexAppServerThreadGitInfo = {
+  branch: string | null;
+  originUrl: string | null;
+  sha: string | null;
+};
+
+export type CodexAppServerThreadItem = {
+  id: string | null;
+  type: string;
+  summary: string | null;
+  raw: unknown;
+};
+
+export type CodexAppServerThreadTurn = {
+  id: string;
+  status: string;
+  errorMessage: string | null;
+  items: CodexAppServerThreadItem[];
+  raw: unknown;
+};
+
+export type CodexAppServerThread = {
+  id: string;
+  name: string | null;
+  preview: string;
+  cwd: string;
+  createdAt: number;
+  updatedAt: number;
+  cliVersion: string | null;
+  modelProvider: string | null;
+  sourceLabel: string;
+  source: unknown;
+  status: CodexAppServerThreadStatus;
+  gitInfo: CodexAppServerThreadGitInfo | null;
+  path: string | null;
+  agentNickname: string | null;
+  agentRole: string | null;
+  turns: CodexAppServerThreadTurn[];
+  raw: unknown;
+};
+
+export type CodexAppServerThreadsResponse = {
+  threads: CodexAppServerThread[];
+  nextCursor: string | null;
+  runtime: CodexAppServerRuntimeSnapshot;
+};
+
+export type CodexAppServerThreadDetailResponse = {
+  thread: CodexAppServerThread;
+  runtime: CodexAppServerRuntimeSnapshot;
+};
+
 export type CodexAppServerProtocolArtifact = {
   path: string;
   content: string;
