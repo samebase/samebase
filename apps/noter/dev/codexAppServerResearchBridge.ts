@@ -76,6 +76,7 @@ type RuntimeApprovalRequest = CodexAppServerApprovalRequest;
 type ThreadProjectInfo = {
   project: CodexAppServerThreadProject;
   workspace: CodexAppServerThreadWorkspace;
+  resolvedFromGit: boolean;
 };
 
 const threadProjectInfoByCwd = new Map<string, Promise<ThreadProjectInfo>>();
@@ -138,6 +139,7 @@ function readCodexWorktreeId(value: string): string | null {
 function buildThreadProjectInfo(args: {
   cwd: string;
   projectRoot: string;
+  resolvedFromGit: boolean;
 }): ThreadProjectInfo {
   const normalizedCwd = normalizePathForDisplay(path.resolve(args.cwd));
   const normalizedProjectRoot = normalizePathForDisplay(
@@ -156,6 +158,7 @@ function buildThreadProjectInfo(args: {
         label: null,
         isProjectRoot: true,
       },
+      resolvedFromGit: args.resolvedFromGit,
     };
   }
 
@@ -180,6 +183,7 @@ function buildThreadProjectInfo(args: {
       label: workspaceLabel,
       isProjectRoot: false,
     },
+    resolvedFromGit: args.resolvedFromGit,
   };
 }
 
@@ -187,6 +191,7 @@ function buildFallbackThreadProjectInfo(cwd: string): ThreadProjectInfo {
   return buildThreadProjectInfo({
     cwd,
     projectRoot: cwd,
+    resolvedFromGit: false,
   });
 }
 
@@ -240,6 +245,7 @@ async function readThreadProjectInfo(cwd: string): Promise<ThreadProjectInfo> {
       return buildThreadProjectInfo({
         cwd,
         projectRoot,
+        resolvedFromGit: true,
       });
     } catch {
       return fallback;
@@ -648,11 +654,84 @@ async function enrichThreadProjectInfo(
   thread: CodexAppServerThread,
 ): Promise<CodexAppServerThread> {
   const projectInfo = await readThreadProjectInfo(thread.cwd);
+  return applyThreadProjectInfo(thread, projectInfo);
+}
+
+function applyThreadProjectInfo(
+  thread: CodexAppServerThread,
+  projectInfo: ThreadProjectInfo,
+): CodexAppServerThread {
   return {
     ...thread,
     project: projectInfo.project,
     workspace: projectInfo.workspace,
   };
+}
+
+function readThreadProjectAliasKey(
+  thread: CodexAppServerThread,
+): string | null {
+  const originUrl = thread.gitInfo?.originUrl;
+  if (!originUrl) {
+    return null;
+  }
+
+  return `${originUrl}::${readPathLeaf(thread.cwd)}`;
+}
+
+/**
+ * Some older Codex sessions point at worktree paths that no longer exist, so
+ * Git cannot resolve their common dir directly. When the same repo still has a
+ * live thread elsewhere on disk, reuse that canonical project root and keep
+ * only the dead worktree label as per-thread metadata.
+ */
+function alignFallbackThreadProjects(
+  entries: {
+    thread: CodexAppServerThread;
+    projectInfo: ThreadProjectInfo;
+  }[],
+): CodexAppServerThread[] {
+  const canonicalProjectInfoByAliasKey = new Map<string, ThreadProjectInfo>();
+
+  for (const entry of entries) {
+    if (!entry.projectInfo.resolvedFromGit) {
+      continue;
+    }
+
+    const aliasKey = readThreadProjectAliasKey(entry.thread);
+    if (!aliasKey) {
+      continue;
+    }
+
+    if (!canonicalProjectInfoByAliasKey.has(aliasKey)) {
+      canonicalProjectInfoByAliasKey.set(aliasKey, entry.projectInfo);
+    }
+  }
+
+  return entries.map((entry) => {
+    if (entry.projectInfo.resolvedFromGit) {
+      return applyThreadProjectInfo(entry.thread, entry.projectInfo);
+    }
+
+    const aliasKey = readThreadProjectAliasKey(entry.thread);
+    if (!aliasKey) {
+      return applyThreadProjectInfo(entry.thread, entry.projectInfo);
+    }
+
+    const canonicalProjectInfo = canonicalProjectInfoByAliasKey.get(aliasKey);
+    if (!canonicalProjectInfo) {
+      return applyThreadProjectInfo(entry.thread, entry.projectInfo);
+    }
+
+    return applyThreadProjectInfo(
+      entry.thread,
+      buildThreadProjectInfo({
+        cwd: entry.thread.cwd,
+        projectRoot: canonicalProjectInfo.project.rootCwd,
+        resolvedFromGit: false,
+      }),
+    );
+  });
 }
 
 function withApprovalContext(args: {
@@ -1305,11 +1384,18 @@ class CodexAppServerResearchRuntime {
     });
     const record = asRecord(result);
     const threads = Array.isArray(record?.data)
-      ? await Promise.all(
-          record.data
-            .map((thread) => normalizeThread(thread))
-            .filter((thread): thread is CodexAppServerThread => thread !== null)
-            .map((thread) => enrichThreadProjectInfo(thread)),
+      ? alignFallbackThreadProjects(
+          await Promise.all(
+            record.data
+              .map((thread) => normalizeThread(thread))
+              .filter(
+                (thread): thread is CodexAppServerThread => thread !== null,
+              )
+              .map(async (thread) => ({
+                thread,
+                projectInfo: await readThreadProjectInfo(thread.cwd),
+              })),
+          ),
         )
       : [];
 
