@@ -11,6 +11,7 @@ import {
   readGitHubNextPageUrl,
   readPullRequestLabels,
   resolveAheadBehindBaseBranch,
+  shouldBypassRecentSuccessDebounceForBranchRefresh,
   shouldSyncCloudflarePreviewLinks,
 } from "./github";
 
@@ -171,6 +172,27 @@ describe("describeRepositoryTreeRefreshFailure", () => {
     });
   });
 
+  it("treats retry-after on 403 as a rate-limit backoff signal", () => {
+    expect(
+      describeRepositoryTreeRefreshFailure(
+        {
+          status: 403,
+          message: "abuse detection mechanism",
+          response: {
+            headers: {
+              "retry-after": "45",
+            },
+          },
+        },
+        now,
+      ),
+    ).toEqual({
+      kind: "rate_limited",
+      message: "GitHub API rate limited. Auto-refresh paused.",
+      cooldownUntil: now + 45_000,
+    });
+  });
+
   it("falls back to a generic failure cooldown", () => {
     expect(
       describeRepositoryTreeRefreshFailure(
@@ -185,6 +207,38 @@ describe("describeRepositoryTreeRefreshFailure", () => {
       message: "GitHub sync failed. Showing cached state.",
       cooldownUntil: now + 60_000,
     });
+  });
+});
+
+describe("shouldBypassRecentSuccessDebounceForBranchRefresh", () => {
+  it("bypasses debounce when branch metadata is missing or stale", () => {
+    expect(
+      shouldBypassRecentSuccessDebounceForBranchRefresh({
+        requestedBranch: "feature",
+        defaultBranch: "main",
+        branchNotFound: false,
+        hasResolvedBranchTree: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldBypassRecentSuccessDebounceForBranchRefresh({
+        requestedBranch: "feature",
+        defaultBranch: "main",
+        branchNotFound: true,
+        hasResolvedBranchTree: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps default-branch refreshes on the repo debounce path", () => {
+    expect(
+      shouldBypassRecentSuccessDebounceForBranchRefresh({
+        requestedBranch: "main",
+        defaultBranch: "main",
+        branchNotFound: false,
+        hasResolvedBranchTree: false,
+      }),
+    ).toBe(false);
   });
 });
 

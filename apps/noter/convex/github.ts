@@ -71,6 +71,16 @@ type TreeRefreshFailureDescriptor = {
   message: string;
   cooldownUntil: number;
 };
+const treeRefreshSkipReason = union(
+  literal("cooldown"),
+  literal("recent_success"),
+  literal("in_progress"),
+);
+const refreshRepositoryTreeResult = object({
+  refreshed: boolean(),
+  reason: optional(treeRefreshSkipReason),
+});
+type RefreshRepositoryTreeResult = Infer<typeof refreshRepositoryTreeResult>;
 
 const GITHUB_REPOSITORY_DISCOVERY_AFFILIATION =
   "owner,collaborator,organization_member";
@@ -186,6 +196,10 @@ function isRateLimitError(
     return false;
   }
 
+  if (getHeaderValue(headers, "retry-after") !== null) {
+    return true;
+  }
+
   if (getHeaderValue(headers, "x-ratelimit-remaining") === "0") {
     return true;
   }
@@ -232,6 +246,25 @@ export function describeRepositoryTreeRefreshFailure(
         ? Math.max(...cooldownCandidates)
         : now + TREE_REFRESH_FAILURE_COOLDOWN_MS,
   };
+}
+
+export function shouldBypassRecentSuccessDebounceForBranchRefresh(args: {
+  requestedBranch?: string;
+  defaultBranch?: string;
+  branchNotFound: boolean;
+  hasResolvedBranchTree: boolean;
+}): boolean {
+  if (args.requestedBranch === undefined) {
+    return false;
+  }
+
+  if (args.branchNotFound) {
+    return true;
+  }
+
+  return (
+    !args.hasResolvedBranchTree && args.defaultBranch !== args.requestedBranch
+  );
 }
 
 function buildGitHubRepositoryDiscoveryUrl(perPage: number): string {
@@ -1772,8 +1805,8 @@ export const refreshRepositoryTree = action({
     includeCloudflarePreviewLinks: optional(boolean()),
     trigger: optional(union(literal("focus"), literal("page_load"))),
   },
-  returns: nullValidator(),
-  handler: async (ctx, args) => {
+  returns: refreshRepositoryTreeResult,
+  handler: async (ctx, args): Promise<RefreshRepositoryTreeResult> => {
     const userId = await getUserId(ctx);
     const requestedBranch =
       typeof args.branch === "string" && args.branch.trim().length > 0
@@ -1783,24 +1816,40 @@ export const refreshRepositoryTree = action({
     const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
       repositoryFullName: `${args.owner}/${args.repo}`,
       userId,
+      branch: requestedBranch,
     });
-    if (!vault) return null;
+    if (!vault) {
+      return { refreshed: false };
+    }
 
     const debounceMs =
       args.trigger === "page_load" ? PAGE_LOAD_REFRESH_DEBOUNCE_MS : undefined;
     const skipRecentSuccessDebounce =
-      requestedBranch !== undefined && args.trigger === undefined;
+      requestedBranch !== undefined &&
+      shouldBypassRecentSuccessDebounceForBranchRefresh({
+        requestedBranch,
+        defaultBranch: vault.defaultBranch,
+        branchNotFound: vault.branchNotFound,
+        hasResolvedBranchTree: vault.hasResolvedBranchTree,
+      });
 
     // Atomically claim the refresh lock; skip if debounced or already running
-    const { claimed } = await ctx.runMutation(internal.vault.claimTreeRefresh, {
+    const claim = await ctx.runMutation(internal.vault.claimTreeRefresh, {
       vaultId: vault._id,
       debounceMs,
-      // Manual branch hydration must not be blocked by a recent repo-level
-      // refresh because branch-specific tree data may still be missing.
+      // Missing branch caches need a first branch-specific fetch even when the
+      // repo itself refreshed recently.
       skipRecentSuccessDebounce,
     });
-    if (!claimed) return null;
+    if (!claim.claimed) {
+      return {
+        refreshed: false,
+        reason: claim.reason,
+      };
+    }
 
+    let refreshError: unknown = null;
+    let refreshFailure: TreeRefreshFailureDescriptor | null = null;
     try {
       await ctx.runAction(internal.github.updateRepositoryTree, {
         userId,
@@ -1819,31 +1868,45 @@ export const refreshRepositoryTree = action({
           requestedBranch === undefined &&
           args.includeCloudflarePreviewLinks === true,
       });
-      await ctx.runMutation(internal.vault.releaseTreeRefresh, {
-        vaultId: vault._id,
-        markRefreshed: true,
-      });
     } catch (error) {
-      const failure = describeRepositoryTreeRefreshFailure(error);
+      refreshError = error;
+      refreshFailure = describeRepositoryTreeRefreshFailure(error);
       console.error("Failed to refresh repository tree", {
         owner: args.owner,
         repo: args.repo,
         branch: requestedBranch,
-        kind: failure.kind,
-        message: failure.message,
+        kind: refreshFailure.kind,
+        message: refreshFailure.message,
         error,
       });
-      await ctx.runMutation(internal.vault.releaseTreeRefresh, {
-        vaultId: vault._id,
-        markRefreshed: false,
-        failureKind: failure.kind,
-        failureMessage: failure.message,
-        cooldownUntil: failure.cooldownUntil,
-      });
-      throw error;
     }
 
-    return null;
+    if (refreshFailure) {
+      try {
+        await ctx.runMutation(internal.vault.releaseTreeRefresh, {
+          vaultId: vault._id,
+          markRefreshed: false,
+          failureKind: refreshFailure.kind,
+          failureMessage: refreshFailure.message,
+          cooldownUntil: refreshFailure.cooldownUntil,
+        });
+      } catch (releaseError) {
+        console.error("Failed to persist repository tree refresh failure", {
+          owner: args.owner,
+          repo: args.repo,
+          branch: requestedBranch,
+          releaseError,
+          refreshError,
+        });
+      }
+      throw refreshError;
+    }
+
+    await ctx.runMutation(internal.vault.releaseTreeRefresh, {
+      vaultId: vault._id,
+      markRefreshed: true,
+    });
+    return { refreshed: true };
   },
 });
 

@@ -112,7 +112,7 @@ export function VaultSyncStatusContent({
             "Auto-refresh paused after a failed sync."
           }
         >
-          <span>Retrying</span>
+          <span>Paused</span>
           <span>·</span>
           <span className="font-mono tabular-nums">
             {formatRelativeTimeUntil(treeRefreshUiState.cooldownUntil, now)}

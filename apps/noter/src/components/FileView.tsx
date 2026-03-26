@@ -70,10 +70,7 @@ import {
   shouldLoadRepositorySimpleViewConfig,
 } from "@/lib/simpleView";
 import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/lib/commitReviewStatus";
-import {
-  claimRefreshDebounce,
-  releaseRefreshDebounce,
-} from "@/lib/treeRefreshDebounce";
+import { claimRefreshDebounce } from "@/lib/treeRefreshDebounce";
 import { buildFileViewRefreshDebounceKey } from "@/lib/fileViewRefresh";
 import { getAncestorFolderPaths } from "@/lib/fileTreeState";
 import { type GithubTreeType } from "convex/schema";
@@ -476,7 +473,6 @@ function FileViewWrapper() {
         includePullRequestLinks: true,
         trigger,
       }).catch((error: unknown) => {
-        releaseRefreshDebounce("file_view", key);
         console.error("Failed to refresh repository tree:", error);
       });
     },
@@ -1597,18 +1593,30 @@ function FileViewInner({
       url: string;
       nextBranch: string;
     }) => {
+      let didHydrateNextBranch = false;
       try {
-        await refreshRepositoryTree({
+        const refreshResult = await refreshRepositoryTree({
           owner,
           repo: repoName,
           branch: args.nextBranch,
           includeAheadBehind: true,
           includePullRequestLinks: true,
         });
+        didHydrateNextBranch = refreshResult.refreshed;
+        if (!refreshResult.refreshed) {
+          setDraftPullRequestError(
+            refreshResult.reason === "cooldown"
+              ? "Draft pull request created, but GitHub sync is paused. Staying on the current branch until sync resumes."
+              : "Draft pull request created, but the new branch is still syncing. Staying on the current branch for now.",
+          );
+        }
       } catch (error) {
         console.warn("Failed to refresh tree after draft PR:", error);
+        setDraftPullRequestError(
+          "Draft pull request created, but the new branch is still syncing. Staying on the current branch for now.",
+        );
       }
-      if (args.nextBranch !== branch) {
+      if (didHydrateNextBranch && args.nextBranch !== branch) {
         void navigate(
           buildVaultFileUrl(selectedFile, { branch: args.nextBranch }),
           {

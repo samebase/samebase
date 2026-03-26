@@ -1468,6 +1468,7 @@ async function getVaultByRepositoryHelper(
     treeRefreshFailureKind: vault.treeRefreshFailureKind,
     treeRefreshFailureMessage: vault.treeRefreshFailureMessage,
     treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
+    hasResolvedBranchTree: branchTree !== null,
     defaultBranch,
     resolvedBranch,
     branchNotFound,
@@ -1643,8 +1644,23 @@ export const claimTreeRefresh = internalMutation({
     debounceMs: v.optional(v.number()),
     skipRecentSuccessDebounce: v.optional(v.boolean()),
   },
-  returns: v.object({ claimed: v.boolean() }),
-  handler: async (ctx, args) => {
+  returns: v.object({
+    claimed: v.boolean(),
+    reason: v.optional(
+      v.union(
+        v.literal("cooldown"),
+        v.literal("recent_success"),
+        v.literal("in_progress"),
+      ),
+    ),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    claimed: boolean;
+    reason?: "cooldown" | "recent_success" | "in_progress";
+  }> => {
     const vault = await ctx.db.get(args.vaultId);
     if (!vault) return { claimed: false };
 
@@ -1659,7 +1675,7 @@ export const claimTreeRefresh = internalMutation({
         typeof vault.treeRefreshCooldownUntil === "number" &&
         vault.treeRefreshCooldownUntil > now
       ) {
-        return { claimed: false };
+        return { claimed: false, reason: "cooldown" };
       }
 
       // Skip if last successful refresh was recent
@@ -1668,7 +1684,7 @@ export const claimTreeRefresh = internalMutation({
         vault.lastTreeRefreshAt &&
         now - vault.lastTreeRefreshAt < debounceMs
       ) {
-        return { claimed: false };
+        return { claimed: false, reason: "recent_success" };
       }
 
       // Skip if another refresh is already in progress (and not stale)
@@ -1676,7 +1692,7 @@ export const claimTreeRefresh = internalMutation({
         vault.treeRefreshStartedAt &&
         now - vault.treeRefreshStartedAt < STALE_LOCK_MS
       ) {
-        return { claimed: false };
+        return { claimed: false, reason: "in_progress" };
       }
     }
 

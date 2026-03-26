@@ -1035,7 +1035,6 @@ function VaultDashboardContent() {
                   shouldIncludeCloudflarePreviewLinks,
                 trigger,
               }).catch((error: unknown) => {
-                releaseRefreshDebounce("dashboard", vault.repositoryFullName);
                 console.error(
                   "Failed to refresh repository tree from dashboard:",
                   error,
@@ -2058,7 +2057,7 @@ function VaultDashboardContent() {
                                 "Auto-refresh paused after a failed sync."
                               }
                             >
-                              Retrying
+                              Paused
                             </span>
                             <span>·</span>
                             <span className="font-mono tabular-nums">
