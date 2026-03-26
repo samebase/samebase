@@ -31,7 +31,6 @@ type CreateTreeEntry = NonNullable<
 >[number];
 
 const githubRateLimitResetByUser = new Map<string, number>();
-const RATE_LIMIT_COOLDOWN_FALLBACK_MS = 60_000;
 const PULL_REQUEST_COMPARE_FILE_LIST_LIMIT = 3_000;
 const STORAGE_BACKED_FILE_ERROR_MESSAGE =
   "File is in storage, not implemented yet";
@@ -526,15 +525,6 @@ function getHeaderValue(
   return null;
 }
 
-function parsePositiveInteger(value: string | null): number | null {
-  if (value === null) {
-    return null;
-  }
-
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-}
-
 function getErrorHeaders(error: unknown): HeaderMap | null {
   if (!isRecord(error)) {
     return null;
@@ -593,30 +583,6 @@ function isGitHubRateLimitError(error: unknown): boolean {
   return getErrorMessage(error).toLowerCase().includes("rate limit");
 }
 
-function getRateLimitResetAtMsFromError(error: unknown): number | null {
-  const headers = getErrorHeaders(error);
-  const now = Date.now();
-
-  const retryAfterSeconds = parsePositiveInteger(
-    getHeaderValue(headers, "retry-after"),
-  );
-  if (retryAfterSeconds !== null) {
-    return now + retryAfterSeconds * 1000;
-  }
-
-  const rateLimitRemaining = getHeaderValue(headers, "x-ratelimit-remaining");
-  const resetAtSeconds = parsePositiveInteger(
-    getHeaderValue(headers, "x-ratelimit-reset"),
-  );
-
-  if (rateLimitRemaining !== "0" || resetAtSeconds === null) {
-    return null;
-  }
-
-  const resetAtMs = resetAtSeconds * 1000;
-  return resetAtMs > now ? resetAtMs : now;
-}
-
 function getKnownRateLimitResetAtMs(userId: string): number | null {
   const resetAtMs = githubRateLimitResetByUser.get(userId);
   if (typeof resetAtMs !== "number") {
@@ -631,10 +597,7 @@ function getKnownRateLimitResetAtMs(userId: string): number | null {
   return resetAtMs;
 }
 
-function rememberRateLimitResetAtMs(userId: string, error: unknown): number {
-  const resetAtMs =
-    getRateLimitResetAtMsFromError(error) ??
-    Date.now() + RATE_LIMIT_COOLDOWN_FALLBACK_MS;
+function rememberRateLimitResetAtMs(userId: string, resetAtMs: number): number {
   githubRateLimitResetByUser.set(userId, resetAtMs);
   return resetAtMs;
 }
@@ -2874,7 +2837,11 @@ export const batchReadFiles = action({
         results.push({ path: miss.path, content: text });
       } catch (error) {
         if (isGitHubRateLimitError(error)) {
-          const resetAtMs = rememberRateLimitResetAtMs(userId, error);
+          const failure = describeRepositoryTreeRefreshFailure(error);
+          const resetAtMs = rememberRateLimitResetAtMs(
+            userId,
+            failure.cooldownUntil,
+          );
           console.warn(
             "batchReadFiles: hit GitHub rate limit, stopping uncached reads for now",
             {

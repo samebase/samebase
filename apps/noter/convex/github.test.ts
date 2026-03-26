@@ -215,6 +215,22 @@ describe("describeRepositoryTreeRefreshFailure", () => {
     });
   });
 
+  it("uses a conservative fallback when only the error message indicates a rate limit", () => {
+    expect(
+      describeRepositoryTreeRefreshFailure(
+        {
+          status: 403,
+          message: "secondary rate limit exceeded",
+        },
+        now,
+      ),
+    ).toEqual({
+      kind: "rate_limited",
+      message: "GitHub API rate limited. Auto-refresh paused.",
+      cooldownUntil: now + 300_000,
+    });
+  });
+
   it("falls back to a generic failure cooldown", () => {
     expect(
       describeRepositoryTreeRefreshFailure(
@@ -233,7 +249,7 @@ describe("describeRepositoryTreeRefreshFailure", () => {
 });
 
 describe("shouldBypassRecentSuccessDebounceForBranchRefresh", () => {
-  it("bypasses debounce when branch metadata is missing or stale", () => {
+  it("bypasses debounce when branch metadata is stale", () => {
     expect(
       shouldBypassRecentSuccessDebounceForBranchRefresh({
         requestedBranch: "feature",
@@ -242,14 +258,31 @@ describe("shouldBypassRecentSuccessDebounceForBranchRefresh", () => {
         hasResolvedBranchTree: false,
       }),
     ).toBe(true);
+  });
+
+  it("only bypasses missing-branch refreshes when the missing branch was not confirmed recently", () => {
+    const now = Date.parse("2026-03-26T18:00:00Z");
+
     expect(
       shouldBypassRecentSuccessDebounceForBranchRefresh({
         requestedBranch: "feature",
         defaultBranch: "main",
         branchNotFound: true,
         hasResolvedBranchTree: true,
+        now,
+        lastTreeRefreshAt: now - 31_000,
       }),
     ).toBe(true);
+    expect(
+      shouldBypassRecentSuccessDebounceForBranchRefresh({
+        requestedBranch: "feature",
+        defaultBranch: "main",
+        branchNotFound: true,
+        hasResolvedBranchTree: true,
+        now,
+        lastTreeRefreshAt: now - 5_000,
+      }),
+    ).toBe(false);
   });
 
   it("keeps default-branch refreshes on the repo debounce path", () => {

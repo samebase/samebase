@@ -88,6 +88,8 @@ const GITHUB_REPOSITORY_DISCOVERY_AFFILIATION =
 const GITHUB_REPOSITORY_PREVIEW_PAGE_SIZE = 10;
 const GITHUB_REPOSITORY_DISCOVERY_PAGE_SIZE = 100;
 const MAX_GITHUB_REPOSITORY_PAGES = 100;
+const GITHUB_RATE_LIMIT_FALLBACK_MS = 5 * 60 * 1000;
+const MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS = 30 * 1000;
 
 function toHeaderMap(value: unknown): HeaderMap | null {
   if (!isRecord(value)) {
@@ -246,7 +248,7 @@ export function describeRepositoryTreeRefreshFailure(
     cooldownUntil:
       rateLimitRemaining === "0" && resetAtSeconds !== null
         ? resetAtSeconds * 1000
-        : now + TREE_REFRESH_FAILURE_COOLDOWN_MS,
+        : now + GITHUB_RATE_LIMIT_FALLBACK_MS,
   };
 }
 
@@ -255,12 +257,24 @@ export function shouldBypassRecentSuccessDebounceForBranchRefresh(args: {
   defaultBranch?: string;
   branchNotFound: boolean;
   hasResolvedBranchTree: boolean;
+  lastTreeRefreshAt?: number;
+  now?: number;
 }): boolean {
   if (args.requestedBranch === undefined) {
     return false;
   }
 
   if (args.branchNotFound) {
+    // A recent repo-level confirmation that the branch is missing should fall
+    // back to the normal debounce path so typoed URLs do not keep refetching
+    // repo metadata on every retry.
+    const now = args.now ?? Date.now();
+    if (
+      typeof args.lastTreeRefreshAt === "number" &&
+      now - args.lastTreeRefreshAt < MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS
+    ) {
+      return false;
+    }
     return true;
   }
 
@@ -1842,7 +1856,11 @@ export const refreshRepositoryTree = action({
     }
 
     const debounceMs =
-      args.trigger === "page_load" ? PAGE_LOAD_REFRESH_DEBOUNCE_MS : undefined;
+      requestedBranch !== undefined && vault.branchNotFound
+        ? MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS
+        : args.trigger === "page_load"
+          ? PAGE_LOAD_REFRESH_DEBOUNCE_MS
+          : undefined;
     const skipRecentSuccessDebounce =
       requestedBranch !== undefined &&
       shouldBypassRecentSuccessDebounceForBranchRefresh({
@@ -1850,6 +1868,7 @@ export const refreshRepositoryTree = action({
         defaultBranch: vault.defaultBranch,
         branchNotFound: vault.branchNotFound,
         hasResolvedBranchTree: vault.hasResolvedBranchTree,
+        lastTreeRefreshAt: vault.lastTreeRefreshAt,
       });
 
     // Atomically claim the refresh lock; skip if debounced or already running
