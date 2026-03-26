@@ -581,6 +581,10 @@ function isGitHubRateLimitError(error: unknown): boolean {
   }
 
   const headers = getErrorHeaders(error);
+  if (getHeaderValue(headers, "retry-after") !== null) {
+    return true;
+  }
+
   const remaining = getHeaderValue(headers, "x-ratelimit-remaining");
   if (remaining === "0") {
     return true;
@@ -596,24 +600,21 @@ function getRateLimitResetAtMsFromError(error: unknown): number | null {
   const retryAfterSeconds = parsePositiveInteger(
     getHeaderValue(headers, "retry-after"),
   );
+  if (retryAfterSeconds !== null) {
+    return now + retryAfterSeconds * 1000;
+  }
+
+  const rateLimitRemaining = getHeaderValue(headers, "x-ratelimit-remaining");
   const resetAtSeconds = parsePositiveInteger(
     getHeaderValue(headers, "x-ratelimit-reset"),
   );
 
-  const candidates: number[] = [];
-  if (retryAfterSeconds !== null) {
-    candidates.push(now + retryAfterSeconds * 1000);
-  }
-  if (resetAtSeconds !== null) {
-    candidates.push(resetAtSeconds * 1000);
-  }
-
-  if (candidates.length === 0) {
+  if (rateLimitRemaining !== "0" || resetAtSeconds === null) {
     return null;
   }
 
-  const latestResetAt = Math.max(...candidates);
-  return latestResetAt > now ? latestResetAt : now;
+  const resetAtMs = resetAtSeconds * 1000;
+  return resetAtMs > now ? resetAtMs : now;
 }
 
 function getKnownRateLimitResetAtMs(userId: string): number | null {

@@ -71,14 +71,15 @@ type TreeRefreshFailureDescriptor = {
   message: string;
   cooldownUntil: number;
 };
-const treeRefreshSkipReason = union(
+const refreshRepositoryTreeReason = union(
   literal("cooldown"),
   literal("recent_success"),
   literal("in_progress"),
+  literal("branch_not_found"),
 );
 const refreshRepositoryTreeResult = object({
   refreshed: boolean(),
-  reason: optional(treeRefreshSkipReason),
+  reason: optional(refreshRepositoryTreeReason),
 });
 type RefreshRepositoryTreeResult = Infer<typeof refreshRepositoryTreeResult>;
 
@@ -226,24 +227,25 @@ export function describeRepositoryTreeRefreshFailure(
   const retryAfterSeconds = parsePositiveInteger(
     getHeaderValue(headers, "retry-after"),
   );
+  const rateLimitRemaining = getHeaderValue(headers, "x-ratelimit-remaining");
   const resetAtSeconds = parsePositiveInteger(
     getHeaderValue(headers, "x-ratelimit-reset"),
   );
-  const cooldownCandidates: number[] = [];
 
   if (retryAfterSeconds !== null) {
-    cooldownCandidates.push(now + retryAfterSeconds * 1000);
-  }
-  if (resetAtSeconds !== null) {
-    cooldownCandidates.push(resetAtSeconds * 1000);
+    return {
+      kind: "rate_limited",
+      message: "GitHub API rate limited. Auto-refresh paused.",
+      cooldownUntil: now + retryAfterSeconds * 1000,
+    };
   }
 
   return {
     kind: "rate_limited",
     message: "GitHub API rate limited. Auto-refresh paused.",
     cooldownUntil:
-      cooldownCandidates.length > 0
-        ? Math.max(...cooldownCandidates)
+      rateLimitRemaining === "0" && resetAtSeconds !== null
+        ? resetAtSeconds * 1000
         : now + TREE_REFRESH_FAILURE_COOLDOWN_MS,
   };
 }
@@ -1813,11 +1815,28 @@ export const refreshRepositoryTree = action({
         ? args.branch.trim()
         : undefined;
 
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: `${args.owner}/${args.repo}`,
-      userId,
-      branch: requestedBranch,
-    });
+    const repositoryFullName = `${args.owner}/${args.repo}`;
+    const readVault = async (branch: string | undefined) =>
+      ctx.runQuery(internal.vault.getByRepositoryFullName, {
+        repositoryFullName,
+        userId,
+        branch,
+      });
+    const runRepositoryTreeUpdate = async (branch: string | undefined) =>
+      ctx.runAction(internal.github.updateRepositoryTree, {
+        userId,
+        owner: args.owner,
+        repo: args.repo,
+        branch,
+        includeAheadBehind:
+          branch === undefined ? true : args.includeAheadBehind === true,
+        includePullRequestLinks:
+          branch === undefined ? true : args.includePullRequestLinks === true,
+        includeCloudflarePreviewLinks:
+          branch === undefined && args.includeCloudflarePreviewLinks === true,
+      });
+
+    let vault = await readVault(requestedBranch);
     if (!vault) {
       return { refreshed: false };
     }
@@ -1837,8 +1856,8 @@ export const refreshRepositoryTree = action({
     const claim = await ctx.runMutation(internal.vault.claimTreeRefresh, {
       vaultId: vault._id,
       debounceMs,
-      // Missing branch caches need a first branch-specific fetch even when the
-      // repo itself refreshed recently.
+      // Missing or stale branch metadata still needs a refresh even when the
+      // repo itself synced recently.
       skipRecentSuccessDebounce,
     });
     if (!claim.claimed) {
@@ -1850,24 +1869,28 @@ export const refreshRepositoryTree = action({
 
     let refreshError: unknown = null;
     let refreshFailure: TreeRefreshFailureDescriptor | null = null;
+    let refreshResult: RefreshRepositoryTreeResult = { refreshed: true };
     try {
-      await ctx.runAction(internal.github.updateRepositoryTree, {
-        userId,
-        owner: args.owner,
-        repo: args.repo,
-        branch: requestedBranch,
-        includeAheadBehind:
-          requestedBranch === undefined
-            ? true
-            : args.includeAheadBehind === true,
-        includePullRequestLinks:
-          requestedBranch === undefined
-            ? true
-            : args.includePullRequestLinks === true,
-        includeCloudflarePreviewLinks:
-          requestedBranch === undefined &&
-          args.includeCloudflarePreviewLinks === true,
-      });
+      if (requestedBranch !== undefined && vault.branchNotFound) {
+        // Refresh shared branch metadata before attempting a branch tree fetch
+        // so missing refs do not poison the repo-wide sync state.
+        await runRepositoryTreeUpdate(undefined);
+        const refreshedVault = await readVault(requestedBranch);
+        if (!refreshedVault) {
+          throw new Error("Vault not found");
+        }
+        vault = refreshedVault;
+        if (vault.branchNotFound) {
+          refreshResult = {
+            refreshed: false,
+            reason: "branch_not_found",
+          };
+        } else {
+          await runRepositoryTreeUpdate(requestedBranch);
+        }
+      } else {
+        await runRepositoryTreeUpdate(requestedBranch);
+      }
     } catch (error) {
       refreshError = error;
       refreshFailure = describeRepositoryTreeRefreshFailure(error);
@@ -1906,7 +1929,7 @@ export const refreshRepositoryTree = action({
       vaultId: vault._id,
       markRefreshed: true,
     });
-    return { refreshed: true };
+    return refreshResult;
   },
 });
 

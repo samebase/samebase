@@ -149,7 +149,7 @@ describe("shouldSyncCloudflarePreviewLinks", () => {
 describe("describeRepositoryTreeRefreshFailure", () => {
   const now = Date.parse("2026-03-26T18:00:00Z");
 
-  it("uses rate-limit headers to compute cooldown", () => {
+  it("prioritizes retry-after over reset when GitHub provides both", () => {
     expect(
       describeRepositoryTreeRefreshFailure(
         {
@@ -159,6 +159,28 @@ describe("describeRepositoryTreeRefreshFailure", () => {
             headers: {
               "x-ratelimit-remaining": "0",
               "retry-after": "30",
+              "x-ratelimit-reset": String(Math.floor((now + 90_000) / 1000)),
+            },
+          },
+        },
+        now,
+      ),
+    ).toEqual({
+      kind: "rate_limited",
+      message: "GitHub API rate limited. Auto-refresh paused.",
+      cooldownUntil: now + 30_000,
+    });
+  });
+
+  it("uses the primary reset window when retry-after is absent", () => {
+    expect(
+      describeRepositoryTreeRefreshFailure(
+        {
+          status: 403,
+          message: "API rate limit exceeded",
+          response: {
+            headers: {
+              "x-ratelimit-remaining": "0",
               "x-ratelimit-reset": String(Math.floor((now + 90_000) / 1000)),
             },
           },
