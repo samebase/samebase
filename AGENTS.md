@@ -353,6 +353,7 @@ them directly using CLI tools.
 | `ready`        | Mark draft PR as ready: `gh pr ready`                                                                     |
 | `wait`         | Monitor CI with `gh pr checks` or `gh run watch`, report status                                           |
 | `ship`         | Full flow: commit → push → create/update draft PR → ready → fix Greptile+CodeRabbit feedback loops → wait |
+| `archive`      | Require an existing PR for the current branch, then remove the current worktree and local branch          |
 | `clean vaults` | Remove temporary Noter-managed vaults/resources created for the current worktree                          |
 | `clean`        | After PR is shipped/merged: run `clean vaults`, then remove the current worktree and delete its branch    |
 | `status`       | Show branch, uncommitted changes, PR state                                                                |
@@ -392,6 +393,11 @@ them directly using CLI tools.
   vaults.
 - `clean vaults` must fail closed: never guess based on recency, plain `tmp-`,
   or partial name matches, and never remove non-matching vaults.
+- For `archive`, require an existing GitHub PR whose head branch is the current
+  branch; a draft PR is sufficient. Once confirmed, remove the current
+  non-`main` worktree and delete only the local branch so the Codex thread can
+  be archived while the GitHub branch and PR remain intact. If no matching PR
+  exists, stop and report instead of guessing.
 - For `clean`, run it only after the PR is shipped/merged. Execute from CLI: run
   `clean vaults` first, then remove the current non-main worktree, delete its
   local branch, and delete its remote branch if it still exists. If vault
