@@ -80,6 +80,10 @@ const PitchDeckPage = lazy(async () => {
   const module = await import("@/components/PitchDeckPage");
   return { default: module.PitchDeckPage };
 });
+const CodexAppServerResearchPage = lazy(async () => {
+  const module = await import("@/components/CodexAppServerResearchPage");
+  return { default: module.CodexAppServerResearchPage };
+});
 
 function useCloseOAuthPopup(pathname: string, enabled: boolean) {
   const { isAuthenticated } = useConvexAuth();
@@ -357,6 +361,8 @@ export default function App() {
     location.pathname === "/logo-transition-lab-transforms";
   const pitchDeckMode = resolvePitchDeckMode(location.pathname);
   const showPitchDeckPage = pitchDeckMode !== null;
+  const showCodexAppServerResearchPage =
+    location.pathname === "/research/codex-app-server";
   const showPublicLandingWithoutAuthGate =
     !isAuthenticated && shouldRenderPublicLandingWithoutAuthGate(location);
 
@@ -429,6 +435,13 @@ export default function App() {
     return (
       <Suspense fallback={null}>
         <PitchDeckPage mode={pitchDeckMode} />
+      </Suspense>
+    );
+  }
+  if (showCodexAppServerResearchPage) {
+    return (
+      <Suspense fallback={null}>
+        <CodexAppServerResearchPage />
       </Suspense>
     );
   }
