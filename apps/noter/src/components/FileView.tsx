@@ -10,23 +10,13 @@ import {
 } from "@/components/AgentGraphView";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/checkbox";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/collapsible";
 import { Label } from "@/components/label";
-import { Tabs, TabsList, TabsTrigger } from "@/components/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";
 import { FileViewPushActions } from "@/components/FileViewPushActions";
 import { ChangedFilesLoadingState } from "@/components/ChangedFilesLoadingState";
+import { FileViewDeveloperTools } from "@/components/FileViewDeveloperTools";
 
-import {
-  ChevronDownIcon,
-  GitHubLogoIcon,
-  PlusIcon,
-  FilePlusIcon,
-} from "@radix-ui/react-icons";
+import { GitHubLogoIcon, PlusIcon, FilePlusIcon } from "@radix-ui/react-icons";
 import { SidebarProvider } from "@/components/sidebar";
 import {
   buildPathWithUpdatedQuery,
@@ -2893,26 +2883,6 @@ function FileViewInner({
     </>
   );
 
-  const editorSurfaceTabs = (
-    <Tabs
-      value={viewMode}
-      onValueChange={(value) => {
-        if (value === "editor" || value === "graph") {
-          setViewMode(value);
-        }
-      }}
-    >
-      <TabsList className="h-7">
-        <TabsTrigger value="editor" className="px-2 text-xs">
-          Editor
-        </TabsTrigger>
-        <TabsTrigger value="graph" className="px-2 text-xs">
-          Graph
-        </TabsTrigger>
-      </TabsList>
-    </Tabs>
-  );
-
   const handleInlinePreviewChange = useCallback((nextContent: string) => {
     setInlinePreviewDraftContent(nextContent);
     setInlinePreviewHasPendingLocalEdit(true);
@@ -2933,6 +2903,7 @@ function FileViewInner({
   const headerTitle = selectedFile
     ? selectedFile.split("/").slice(0, -1).join("/") || "/"
     : undefined;
+  const developerToolsVisible = viewMode === "graph" || developerToolsOpen;
   const showCompareBackToEditor = shouldShowCompareBackToEditor({
     commitReviewMode,
     isCompareRequested,
@@ -3076,40 +3047,30 @@ function FileViewInner({
                     {isResettingToGitHub ? "Resetting..." : "Reset to GitHub"}
                   </Button>
                 </div>
-
-                <Collapsible
-                  className="space-y-1.5"
-                  open={developerToolsOpen}
-                  onOpenChange={setDeveloperToolsOpen}
+                <FileViewDeveloperTools
+                  open={developerToolsVisible}
+                  onOpenChange={(isOpen) => {
+                    if (viewMode === "graph" && !isOpen) {
+                      return;
+                    }
+                    setDeveloperToolsOpen(isOpen);
+                  }}
+                  viewMode={viewMode}
+                  onViewModeChange={setViewMode}
                 >
-                  <CollapsibleTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto self-start gap-1 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground [&[data-state=open]>svg]:rotate-180"
-                    >
-                      Developer tools
-                      <ChevronDownIcon className="h-3.5 w-3.5 transition-transform" />
-                    </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent
-                    forceMount
-                    className="space-y-1.5 data-[state=closed]:hidden"
-                  >
-                    <DaytonaWorkspaceButton
-                      vaultId={vault._id}
-                      branch={branch}
-                      sandboxId={vault.daytonaSandboxId}
-                      sandboxName={vault.daytonaSandboxName}
-                      commitSha={vault.commitSHA}
-                      snapshotStatus={vault.daytonaCurrentSnapshotStatus}
-                      snapshotName={vault.daytonaCurrentSnapshotName}
-                      snapshotError={vault.daytonaCurrentSnapshotLastError}
-                      className="text-xs"
-                    />
-                    <DaytonaSnapshotList vaultId={vault._id} />
-                  </CollapsibleContent>
-                </Collapsible>
+                  <DaytonaWorkspaceButton
+                    vaultId={vault._id}
+                    branch={branch}
+                    sandboxId={vault.daytonaSandboxId}
+                    sandboxName={vault.daytonaSandboxName}
+                    commitSha={vault.commitSHA}
+                    snapshotStatus={vault.daytonaCurrentSnapshotStatus}
+                    snapshotName={vault.daytonaCurrentSnapshotName}
+                    snapshotError={vault.daytonaCurrentSnapshotLastError}
+                    className="text-xs"
+                  />
+                  <DaytonaSnapshotList vaultId={vault._id} />
+                </FileViewDeveloperTools>
               </div>
             </div>
             {commitError ? (
@@ -3135,11 +3096,6 @@ function FileViewInner({
                 resetToGitHubDisabled={resetToGitHubDisabled}
               />
             )}
-
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              {editorSurfaceTabs}
-            </div>
-
             <div className="relative flex-1 min-h-0">
               {viewMode === "editor" ? (
                 commitReviewMode === "review" ? (

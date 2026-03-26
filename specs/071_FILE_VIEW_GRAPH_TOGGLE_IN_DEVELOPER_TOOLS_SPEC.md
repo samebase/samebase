@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Implemented
 - Owner: File view + agent graph
 - Last updated: 2026-03-26
 - Related specs:
@@ -11,18 +11,19 @@
   - `specs/040_DAYTONA_USAGE_AND_FLOW_SPEC.md`
 - Source of truth files:
   - `apps/noter/src/components/FileView.tsx`
+  - `apps/noter/src/components/FileViewDeveloperTools.tsx`
   - `apps/noter/src/components/AgentGraphView.tsx`
 
 ## Summary
 
-Move the FileView `Editor`/`Graph` switch out of the always-visible editor
-header and into the existing `Developer tools` collapsible.
+FileView keeps the `Editor`/`Graph` switch inside the existing `Developer tools`
+collapsible instead of rendering it as an always-visible header row.
 
 The goal is to keep Graph View available for advanced and agent-focused
 workflows without spending default header space on a mode that most file-view
 sessions do not need.
 
-This RFC keeps the current Graph behavior intact:
+This behavior keeps the current Graph contract intact:
 
 1. Graph mode still replaces the main editor pane.
 2. The selected mode still persists per vault in localStorage.
@@ -86,30 +87,29 @@ header:
 4. Changing dashboard `Developer tools` behavior.
 5. Introducing a broader FileView header redesign in this change.
 
-## Proposal
+## Behavior
 
-### 1. Move the mode switch into FileView `Developer tools`
+### 1. FileView mode switch lives in `Developer tools`
 
 Remove the standalone `Editor`/`Graph` row from the main FileView content area.
 
-Instead, render the same two-state mode control as the first item inside the
-existing `Developer tools` collapsible in `FileView`.
+FileView renders the same two-state mode control as the first item inside the
+existing `Developer tools` collapsible.
 
 This treats Graph View as an advanced tool rather than a default navigation
 surface.
 
-### 2. Keep `Developer tools` hidden by default in normal editor mode
+### 2. `Developer tools` stays hidden by default in normal editor mode
 
 When FileView opens in the normal `editor` mode, `Developer tools` should remain
 closed by default, matching the current Daytona-tool behavior.
 
-This is the primary user-visible outcome of the RFC: the graph switch is no
+This is the primary user-visible outcome of the change: the graph switch is no
 longer visible by default.
 
-### 3. Auto-open `Developer tools` when graph mode is active
+### 3. `Developer tools` stays visible when graph mode is active
 
-If FileView switches into `graph` mode, the `Developer tools` section should
-open automatically.
+When FileView is in `graph` mode, the `Developer tools` section stays visible.
 
 This applies both when:
 
@@ -123,12 +123,12 @@ Why:
 3. it avoids trapping the user in a hidden toggle after persistence restores
    graph mode
 
-This RFC does not require persisting the open/closed state of `Developer tools`.
-The only persisted state remains `viewMode`.
+This behavior does not require persisting the open/closed state of
+`Developer tools`. The only persisted state remains `viewMode`.
 
 ### 4. Preserve the existing graph-mode contract
 
-This proposal intentionally does not change the current graph contract:
+This behavior intentionally does not change the current graph contract:
 
 1. localStorage key remains `noter:graph-view:${vaultId}`
 2. corrupt or unavailable storage still falls back to `editor`
@@ -146,20 +146,18 @@ becomes the single home for advanced FileView controls.
 
 ## Product Decisions
 
-### Recommended interaction model
-
 Use the same `Editor`/`Graph` control semantics that exist today, only in a new
 placement.
 
-The RFC does not require switching component primitives. Reusing the current
-tabs-style control is preferred if it keeps the implementation small.
+The implementation does not require switching component primitives. Reusing the
+current tabs-style control is preferred if it keeps the implementation small.
 
 ### No new persistence surface
 
 Do not add Convex or localStorage persistence for the FileView `Developer tools`
 section itself.
 
-Reason:
+Reasons:
 
 1. the user request is about default visibility, not cross-device sync
 2. `viewMode` is already the only state that needs to survive reloads
@@ -171,9 +169,10 @@ Reason:
 1. Remove the standalone `editorSurfaceTabs` row from `FileView`.
 2. Render the same `Editor`/`Graph` control at the top of `CollapsibleContent`
    for `Developer tools`.
-3. When switching into `graph`, also open `Developer tools`.
-4. When hydrating with persisted `graph` mode, initialize `Developer tools` as
-   open so the toggle is visible immediately.
+3. When `viewMode === "graph"`, keep `Developer tools` visible so the path back
+   to editor cannot disappear.
+4. When hydrating with persisted `graph` mode, render `Developer tools` open on
+   the first paint.
 5. Keep the current `viewMode` persistence effect and storage key unchanged.
 
 ## Acceptance Criteria
@@ -182,7 +181,7 @@ Reason:
    switch until `Developer tools` is expanded.
 2. Expanding `Developer tools` reveals the `Editor`/`Graph` switch above the
    Daytona controls.
-3. Switching to `graph` mode opens `Developer tools` automatically.
+3. Switching to `graph` mode makes `Developer tools` visible immediately.
 4. Reloading a vault whose persisted mode is `graph` restores graph mode and
    shows the toggle inside an open `Developer tools` section.
 5. Reloading a vault whose persisted mode is `editor` restores editor mode with
@@ -206,5 +205,5 @@ Reason:
 
 ## Follow-Up
 
-If this RFC is accepted and implemented, update the graph-related source docs so
-they stop describing the toggle as part of the default editor header.
+Graph-related source docs should describe the toggle as part of
+`Developer tools`, not the default editor header.

@@ -2,30 +2,31 @@
 
 ## Document Control
 
-- Status: Draft for implementation.
+- Status: Implemented for MVP
 - Owner: Noter frontend
 - Date: 2026-02-22
 - Related specs:
   - `specs/021_AGENT_BUILDER_TEMPLATE_SPEC.md`
+  - `specs/071_FILE_VIEW_GRAPH_TOGGLE_IN_DEVELOPER_TOOLS_SPEC.md`
 - Related files:
   - `apps/noter/src/components/FileView.tsx`
+  - `apps/noter/src/components/FileViewDeveloperTools.tsx`
   - `apps/noter/src/components/CodeEditor.tsx`
-  - `apps/noter/src/components/ui/toggle-group.tsx`
   - `apps/noter/src/main.tsx`
 
 ## Summary
 
 Add an alternate Graph View to the file editor using ReactFlow. The MVP is
 minimal: it renders nodes for root `AGENTS.md` and `tools.json` (when present),
-connects them with a single edge, and provides a toggle to switch between Editor
-and Graph. The graph is read-only and is intended to validate ReactFlow’s feel
-and integration surface before deeper agent-editing work.
+connects them with a single edge, and provides an `Editor`/`Graph` switch inside
+FileView `Developer tools`. The graph is read-only and is intended to validate
+ReactFlow’s feel and integration surface before deeper agent-editing work.
 
 ## Goals
 
 - Validate ReactFlow in the Noter UI with minimal integration risk.
 - Provide a clear, simple graph view of agent scaffolding files.
-- Allow users to switch between Editor and Graph view quickly.
+- Allow users to switch between Editor and Graph view from Developer tools.
 - Persist the chosen view per vault.
 
 ## Non-Goals (MVP)
@@ -38,7 +39,9 @@ and integration surface before deeper agent-editing work.
 ## UX Requirements
 
 - Graph view replaces the editor pane (sidebar remains visible).
-- Toggle lives in the editor header area alongside existing controls.
+- Toggle lives inside FileView `Developer tools`, not the default editor header.
+- `Developer tools` stays hidden by default in normal editor mode and remains
+  visible while graph mode is active.
 - Toggle state is persisted per vault via localStorage.
 - Clicking a graph node opens the file and switches back to Editor view.
 - If no nodes are present, render an empty canvas (no placeholder text).
@@ -85,6 +88,8 @@ Positions:
    - Persist in localStorage with key `noter:graph-view:${vault._id}`.
    - Build nodes/edges from `finalTreeData` in a `useMemo`.
    - Render `AgentGraphView` when `viewMode === "graph"`.
+   - Render the mode switch inside `FileViewDeveloperTools`.
+   - Keep `Developer tools` visible while graph mode is active.
    - Ensure preview is closed or hidden while in graph view.
 
 ## Public API / Behavior Changes
@@ -105,7 +110,8 @@ Positions:
 
 - Open a repo with `AGENTS.md` and `tools.json` present.
 - Rename or delete one of the files in staging and confirm node updates.
-- Toggle between Editor/Graph and refresh; verify persisted view.
+- Expand `Developer tools`, toggle between Editor/Graph, and refresh; verify
+  persisted view.
 - Click node to open file; verify it switches to Editor view.
 
 ## Future Iterations
