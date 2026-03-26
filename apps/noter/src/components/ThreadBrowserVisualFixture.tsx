@@ -6,6 +6,14 @@ import {
 
 export type ThreadBrowserVisualMode = "thread-browser";
 
+const THREAD_VISUAL_FIXTURE_FONT_RULES = `
+  [data-thread-visual-fixture-font],
+  [data-thread-visual-fixture-font] * {
+    font-family: "IBM Plex Sans", sans-serif !important;
+    font-synthesis: none;
+  }
+`;
+
 const FIXTURE_TURN: ThreadBrowserTurn = {
   id: "turn-1",
   status: "completed",
@@ -109,7 +117,11 @@ export function ThreadBrowserVisualFixture({
   mode satisfies ThreadBrowserVisualMode;
 
   return (
-    <div data-testid="thread-browser-visual-fixture">
+    <div
+      data-testid="thread-browser-visual-fixture"
+      data-thread-visual-fixture-font
+    >
+      <style>{THREAD_VISUAL_FIXTURE_FONT_RULES}</style>
       <ThreadBrowserView
         browserMode="active"
         pinnedThreads={[ACTIVE_THREADS[0]]}

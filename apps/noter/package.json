@@ -43,6 +43,7 @@
     "@convex-dev/eslint-plugin": "0.0.1-alpha.4",
     "@daytonaio/api-client": "^0.143.0",
     "@daytonaio/sdk": "^0.143.0",
+    "@fontsource/ibm-plex-sans": "^5.2.8",
     "@lezer-unofficial/printer": "^1.0.1",
     "@lezer/markdown": "^1.4.0",
     "@monaco-editor/react": "^4.7.0",

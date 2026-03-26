@@ -2,6 +2,14 @@ import { ThreadHistoryItemCard } from "@/components/ThreadHistoryItemCard";
 
 export type ThreadHistoryVisualMode = "thread-history";
 
+const THREAD_VISUAL_FIXTURE_FONT_RULES = `
+  [data-thread-visual-fixture-font],
+  [data-thread-visual-fixture-font] * {
+    font-family: "IBM Plex Sans", sans-serif !important;
+    font-synthesis: none;
+  }
+`;
+
 const SHORT_ITEM = {
   id: "message-short",
   type: "assistant_message",
@@ -35,8 +43,10 @@ export function ThreadHistoryVisualFixture({
   return (
     <div
       data-testid="thread-history-visual-fixture"
+      data-thread-visual-fixture-font
       className="min-h-screen bg-slate-100 p-8 text-slate-950"
     >
+      <style>{THREAD_VISUAL_FIXTURE_FONT_RULES}</style>
       <div className="mx-auto grid max-w-4xl gap-6">
         <header className="grid gap-2 border border-slate-300 bg-white p-5">
           <h1 className="text-2xl font-semibold tracking-tight">
