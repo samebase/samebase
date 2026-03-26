@@ -555,6 +555,19 @@ export function CommitReviewVisualFixture({
                           </div>
                           <div className="flex items-center gap-2">
                             <Checkbox
+                              id="fixture-inline-option-side-by-side"
+                              checked={false}
+                              disabled
+                            />
+                            <Label
+                              htmlFor="fixture-inline-option-side-by-side"
+                              className="text-xs font-medium text-muted-foreground"
+                            >
+                              Side by side
+                            </Label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
                               id="fixture-inline-option-syntax-deletions"
                               checked={
                                 INLINE_FIXTURE_OPTIONS.syntaxHighlightDeletions

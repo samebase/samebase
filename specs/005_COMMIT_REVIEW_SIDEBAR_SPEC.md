@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Noter frontend/editor
-- Last updated: 2026-03-21
+- Last updated: 2026-03-25
 
 ## Summary
 
@@ -18,6 +18,17 @@ stable across simple editor, code editor, and review mode.
 The only missing navigation case worth adding is deleted files: they must be
 visible in the normal tree in both editor variants as red crossed-out file
 entries.
+
+Compare-only pull request files still follow that same review contract. If a PR
+diff can render in the inline merge surface, it should expose the same inline
+controls (`Show patch`, `Inline diffs`, `Side by side`, `Syntax deleted`) that
+staged review files use, and leaving review from that state must return to the
+real editor surface for the selected file when that file still exists outside
+compare mode.
+
+When the editor is in compare-only Changed Files mode without staged changes,
+the same top-left slot should offer `Back to Editor` to clear compare mode
+rather than showing a disabled `Review Changes` control.
 
 ## Problem
 
@@ -53,6 +64,9 @@ second sidebar mode.
   editor content rather than the right-side action cluster.
 - When review is open, the return action (`Back to Editor` or equivalent)
   remains in the same location so the control does not jump around.
+- Compare-only Changed Files mode reuses that same location for `Back to Editor`
+  when the user is already in a PR diff surface and there is no staged review
+  session to enter.
 
 ### 2. Stable sidebar
 
@@ -90,6 +104,27 @@ second sidebar mode.
 - Review mode should not introduce its own duplicate file navigation panel.
 - Markdown review may keep its file-level rich/inline/patch presentation rules,
   but those controls live inside the review surface, not in the sidebar model.
+- Compare-only PR files that can render in the inline merge surface use that
+  same control strip instead of a separate PR-only diff chrome.
+- The control strip may switch between unified inline diff, side-by-side
+  before/after preview, and raw patch, but those modes stay within the same
+  review panel.
+
+### 6. Return-to-editor behavior
+
+- `Back to Editor` always returns to the normal editor surface for the selected
+  file when one exists.
+- When review was opened from a compare-only PR diff, leaving review must also
+  exit the compare-only diff surface instead of landing in a read-only compare
+  preview for files that still exist in the normal editor tree.
+- When the user is already in compare-only editor mode and no staged review is
+  available, `Back to Editor` clears compare mode directly from that editor
+  state.
+- Deleted compare-only PR entries stay in compare mode when leaving review or
+  leaving the compare-only editor surface because there is no normal editor
+  target to reopen.
+- The return action should preserve the selected file path while clearing only
+  the review/compare state that prevented the normal editor from opening.
 
 ## Acceptance Criteria
 
@@ -100,6 +135,18 @@ second sidebar mode.
 - Added, modified, and renamed files continue to appear with their existing
   colors in the normal tree.
 - Deleted files appear in that same tree as red crossed-out entries.
+- Compare-only PR files that render inline show the same inline control strip as
+  staged review files.
+- Side-by-side before/after preview remains available from that same control
+  strip.
+- Leaving review from a compare-only PR file opens the normal editor for that
+  file instead of a read-only compare preview when the file still exists outside
+  compare mode.
+- Compare-only Changed Files mode without staged changes shows `Back to Editor`
+  instead of a disabled `Review Changes` button when the selected compare row
+  can reopen in the normal editor.
+- Deleted compare-only PR rows keep compare mode active instead of redirecting
+  to a different file.
 - No review-only `Changes` mode or duplicate `Staged Files` panel is required
   for commit review.
 

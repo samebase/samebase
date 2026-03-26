@@ -1,7 +1,11 @@
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/checkbox";
 import { FileTree } from "@/components/FileTree";
-import { ProsemarkMergeEditor } from "@/components/ProsemarkMergeEditor";
+import { Label } from "@/components/label";
+import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";
+import { getReviewSplitDiffHighlights } from "@/lib/reviewSplitDiff";
 
 export type FileViewCompareVisualMode = "file-view-compare-sidebar";
 
@@ -21,32 +25,30 @@ const COMPARED_TREE_ITEMS = [
     deleted: false,
   },
   {
-    path: "src/lib/queryParams.ts",
-    originalPath: "src/lib/queryParams.ts",
+    path: "src/lib/reviewDiffControls.ts",
+    originalPath: "src/lib/reviewDiffControls.ts",
     type: "blob" as const,
-    status: "modified" as const,
+    status: "added" as const,
     deleted: false,
   },
 ] as const;
 
-const COMPARE_TEXT_BASE = `export function cloneQueryParams(search?: string): URLSearchParams {
-  return new URLSearchParams(search ?? "");
+const COMPARE_TEXT_BASE = "";
+
+const COMPARE_TEXT_NEXT = `export function shouldClearCompareOnReviewExit(args: {
+  isCompareRequested: boolean;
+  hasComparedSelection: boolean;
+  hasComparedEditorTarget: boolean;
+  hasStagedSelection: boolean;
+}): boolean {
+  return (
+    args.isCompareRequested &&
+    args.hasComparedSelection &&
+    args.hasComparedEditorTarget &&
+    !args.hasStagedSelection
+  );
 }
 `;
-
-const COMPARE_TEXT_NEXT = `export function cloneQueryParams(search?: string): URLSearchParams {
-  return new URLSearchParams(search ?? "");
-}
-
-export function hasQueryParam(search: string | undefined, name: string): boolean {
-  return new URLSearchParams(search ?? "").has(name);
-}
-`;
-
-const COMPARE_INLINE_OPTIONS = {
-  allowInlineDiffs: false,
-  syntaxHighlightDeletions: true,
-} as const;
 
 // The fixture keeps restore visible so deleted compare rows exercise the same
 // affordance as the live sidebar without introducing fixture-only behavior.
@@ -57,6 +59,11 @@ export function FileViewCompareVisualFixture({
 }: {
   mode: FileViewCompareVisualMode;
 }) {
+  const splitDiffHighlights = getReviewSplitDiffHighlights(
+    COMPARE_TEXT_BASE,
+    COMPARE_TEXT_NEXT,
+  );
+
   return (
     <div
       data-testid="file-view-compare-visual-fixture"
@@ -67,6 +74,12 @@ export function FileViewCompareVisualFixture({
         <div className="flex items-center gap-2 text-xs text-slate-600">
           <GitHubLogoIcon className="h-3 w-3" />
           noter-md/noter
+        </div>
+
+        <div className="mt-3">
+          <Button size="sm" variant="secondary" className="h-6 px-2 text-xs">
+            Back to Editor
+          </Button>
         </div>
 
         <div className="mt-3 flex items-center gap-2">
@@ -91,7 +104,7 @@ export function FileViewCompareVisualFixture({
             <div className="border-r border-slate-200">
               <FileTree
                 items={[...COMPARED_TREE_ITEMS]}
-                selectedFile="src/lib/queryParams.ts"
+                selectedFile="src/lib/reviewDiffControls.ts"
                 restoringFilePath={null}
                 folderExpansionStates={[]}
                 autoExpandedPaths={["docs", "src", "src/components", "src/lib"]}
@@ -103,22 +116,96 @@ export function FileViewCompareVisualFixture({
             <div className="min-w-0 bg-white">
               <div className="border-b border-slate-200 px-4 py-3">
                 <div className="text-sm font-medium text-slate-900">
-                  src/lib/queryParams.ts
+                  src/lib/reviewDiffControls.ts
                 </div>
                 <div className="mt-1 text-xs text-slate-500">
-                  Compare-only text files should use the inline diff preview,
-                  even when the editable view uses Monaco elsewhere.
+                  Compare-only added PR files should keep the same diff controls
+                  as staged review files.
+                </div>
+              </div>
+
+              <div className="border-b border-slate-200 px-4 py-3">
+                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="fixture-compare-show-patch"
+                      checked={false}
+                      disabled
+                    />
+                    <Label
+                      htmlFor="fixture-compare-show-patch"
+                      className="text-xs font-medium text-slate-500"
+                    >
+                      Show patch
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="fixture-compare-inline-diffs"
+                      checked={false}
+                      disabled
+                    />
+                    <Label
+                      htmlFor="fixture-compare-inline-diffs"
+                      className="text-xs font-medium text-slate-500"
+                    >
+                      Inline diffs
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="fixture-compare-side-by-side"
+                      checked={true}
+                      disabled
+                    />
+                    <Label
+                      htmlFor="fixture-compare-side-by-side"
+                      className="text-xs font-medium text-slate-500"
+                    >
+                      Side by side
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="fixture-compare-syntax-deleted"
+                      checked={true}
+                      disabled
+                    />
+                    <Label
+                      htmlFor="fixture-compare-syntax-deleted"
+                      className="text-xs font-medium text-slate-500"
+                    >
+                      Syntax deleted
+                    </Label>
+                  </div>
                 </div>
               </div>
 
               <div className="p-4">
-                <ProsemarkMergeEditor
-                  value={COMPARE_TEXT_NEXT}
-                  baseValue={COMPARE_TEXT_BASE}
-                  options={COMPARE_INLINE_OPTIONS}
-                  editable={false}
-                  className="text-sm leading-6"
-                />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="min-w-0 corner-notch-1 border bg-white p-3">
+                    <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700">
+                      Before
+                    </div>
+                    <ProsemarkReadOnly
+                      value={COMPARE_TEXT_BASE}
+                      highlightedLineNumbers={splitDiffHighlights.oldLines}
+                      lineHighlightTone="remove"
+                      className="text-sm leading-6"
+                    />
+                  </div>
+                  <div className="min-w-0 corner-notch-1 border bg-white p-3">
+                    <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-emerald-700">
+                      After
+                    </div>
+                    <ProsemarkReadOnly
+                      value={COMPARE_TEXT_NEXT}
+                      highlightedLineNumbers={splitDiffHighlights.newLines}
+                      lineHighlightTone="add"
+                      className="text-sm leading-6"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
