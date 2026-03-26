@@ -139,10 +139,10 @@ async function main() {
   console.log(
     `[connect] Watching ${repoFullName} every ${options.intervalSeconds}s for label "${options.label}"`,
   )
-  while (!stopRequested) {
+  while (!shouldStop()) {
     await processCycle(state)
     persistState(state)
-    if (stopRequested) {
+    if (shouldStop()) {
       break
     }
     await sleep(options.intervalSeconds * 1000)
@@ -271,17 +271,19 @@ function loadState() {
     )
   }
 
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`Unexpected state shape in ${statePath}`)
+  }
+
+  const parsedRecord = /** @type {Record<string, unknown>} */ (parsed)
   if (
-    !parsed ||
-    typeof parsed !== 'object' ||
-    Array.isArray(parsed) ||
-    parsed['version'] !== 1 ||
-    typeof parsed['handledRuns'] !== 'object' ||
-    parsed['handledRuns'] === null ||
-    Array.isArray(parsed['handledRuns']) ||
-    typeof parsed['invalidRuns'] !== 'object' ||
-    parsed['invalidRuns'] === null ||
-    Array.isArray(parsed['invalidRuns'])
+    parsedRecord['version'] !== 1 ||
+    typeof parsedRecord['handledRuns'] !== 'object' ||
+    parsedRecord['handledRuns'] === null ||
+    Array.isArray(parsedRecord['handledRuns']) ||
+    typeof parsedRecord['invalidRuns'] !== 'object' ||
+    parsedRecord['invalidRuns'] === null ||
+    Array.isArray(parsedRecord['invalidRuns'])
   ) {
     throw new Error(`Unexpected state shape in ${statePath}`)
   }
@@ -319,15 +321,20 @@ async function processCycle(state) {
     }
 
     const runKey = buildRunKey(pullRequest)
-    if (state.handledRuns[runKey]) {
+    if (Object.hasOwn(state.handledRuns, runKey)) {
       continue
     }
 
     const validation = validateOriginMarker(pullRequest)
     if (!validation.ok) {
-      const existingInvalid = state.invalidRuns[runKey]
+      const existingInvalid = Object.hasOwn(state.invalidRuns, runKey)
+        ? state.invalidRuns[runKey]
+        : null
       // Avoid posting the same "missing contract" comment every polling cycle.
-      if (existingInvalid?.reason === validation.reason) {
+      if (
+        existingInvalid !== null &&
+        existingInvalid.reason === validation.reason
+      ) {
         continue
       }
 
@@ -388,11 +395,47 @@ function listOpenPullRequests() {
     )
   }
 
-  if (!Array.isArray(parsed)) {
+  if (!Array.isArray(parsed) || !parsed.every(isPullRequestSummary)) {
     throw new Error('Expected gh pr list to return an array')
   }
 
-  return /** @type {PullRequestSummary[]} */ (parsed)
+  return parsed
+}
+
+/**
+ * @param {unknown} value
+ * @returns {value is PullRequestSummary}
+ */
+function isPullRequestSummary(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+
+  const record = /** @type {Record<string, unknown>} */ (value)
+  return (
+    typeof record['number'] === 'number' &&
+    typeof record['title'] === 'string' &&
+    typeof record['body'] === 'string' &&
+    typeof record['headRefName'] === 'string' &&
+    typeof record['headRefOid'] === 'string' &&
+    typeof record['url'] === 'string' &&
+    typeof record['isDraft'] === 'boolean' &&
+    Array.isArray(record['labels']) &&
+    record['labels'].every(isPullRequestLabel)
+  )
+}
+
+/**
+ * @param {unknown} value
+ * @returns {value is PullRequestLabel}
+ */
+function isPullRequestLabel(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+
+  const record = /** @type {Record<string, unknown>} */ (value)
+  return typeof record['name'] === 'string'
 }
 
 /**
@@ -899,15 +942,16 @@ function fetchPullRequestHeadOid(pullRequestNumber) {
       `Could not parse gh pr view output: ${describeError(error)}`,
     )
   }
-  if (
-    !parsed ||
-    typeof parsed !== 'object' ||
-    Array.isArray(parsed) ||
-    typeof parsed['headRefOid'] !== 'string'
-  ) {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw new Error('gh pr view did not return a headRefOid string')
   }
-  return parsed['headRefOid']
+
+  const parsedRecord = /** @type {Record<string, unknown>} */ (parsed)
+  if (typeof parsedRecord['headRefOid'] !== 'string') {
+    throw new Error('gh pr view did not return a headRefOid string')
+  }
+
+  return parsedRecord['headRefOid']
 }
 
 /**
@@ -1112,8 +1156,8 @@ function runCommand(command, args, options = {}) {
     throw result.error
   }
   if (result.status !== 0) {
-    const stderr = String(result.stderr ?? '').trim()
-    const stdout = String(result.stdout ?? '').trim()
+    const stderr = result.stderr.trim()
+    const stdout = result.stdout.trim()
     throw new Error(
       [
         `Command failed: ${command} ${args.join(' ')}`,
@@ -1143,33 +1187,44 @@ function describeError(error) {
  * @returns {{ ok: true, json: string } | { ok: false, reason: string }}
  */
 function extractOriginMarkerJson(body) {
-  const markerStart = body.indexOf(MARKER_PREFIX)
-  if (markerStart === -1) {
-    return {
-      ok: false,
-      reason:
-        'missing hidden `<!-- noter-origin:v1 {...} -->` marker in the PR body',
+  const lines = body.split('\n')
+  for (const line of lines) {
+    const trimmedLine = line.trim()
+    if (!trimmedLine.startsWith(MARKER_PREFIX)) {
+      continue
     }
-  }
 
-  const jsonStart = markerStart + MARKER_PREFIX.length
-  // Slice to the closing HTML comment instead of trying to parse braces from
-  // free-form markdown; firstMessage can legitimately contain braces/code.
-  const markerEnd = body.indexOf(MARKER_SUFFIX, jsonStart)
-  if (markerEnd === -1) {
+    // Require a standalone marker line so inline code examples do not count as
+    // real automation contracts.
+    if (!trimmedLine.endsWith(MARKER_SUFFIX)) {
+      return {
+        ok: false,
+        reason: 'noter-origin marker is missing the closing `-->` delimiter',
+      }
+    }
+
     return {
-      ok: false,
-      reason: 'noter-origin marker is missing the closing `-->` delimiter',
+      ok: true,
+      json: trimmedLine.slice(
+        MARKER_PREFIX.length,
+        trimmedLine.length - MARKER_SUFFIX.length,
+      ),
     }
   }
 
   return {
-    ok: true,
-    json: body.slice(jsonStart, markerEnd),
+    ok: false,
+    reason:
+      'missing hidden `<!-- noter-origin:v1 {...} -->` marker in the PR body',
   }
 }
 
 // MARK: - Process Helpers
+
+/** @returns {boolean} */
+function shouldStop() {
+  return stopRequested
+}
 
 /**
  * @param {number} milliseconds
