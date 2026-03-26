@@ -165,6 +165,7 @@ const VAULT_BRANCH_PREVIEW_VISUAL_MODES = [
 
 const FILE_VIEW_COMPARE_VISUAL_MODES = [
   "file-view-compare-sidebar",
+  "file-view-compare-loading",
 ] as const satisfies readonly FileViewCompareVisualMode[];
 
 const MISC_VISUAL_MODES = [
@@ -334,7 +335,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <FileViewPushActionsVisualFixture mode={mode} />;
   }
 
-  if (mode === "file-view-compare-sidebar") {
+  if (
+    mode === "file-view-compare-sidebar" ||
+    mode === "file-view-compare-loading"
+  ) {
     return <FileViewCompareVisualFixture mode={mode} />;
   }
 

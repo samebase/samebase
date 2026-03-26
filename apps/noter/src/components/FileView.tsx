@@ -19,6 +19,7 @@ import { Label } from "@/components/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";
 import { FileViewPushActions } from "@/components/FileViewPushActions";
+import { ChangedFilesLoadingState } from "@/components/ChangedFilesLoadingState";
 
 import {
   ChevronDownIcon,
@@ -76,6 +77,7 @@ import {
 import { buildFileViewRefreshDebounceKey } from "@/lib/fileViewRefresh";
 import { getAncestorFolderPaths } from "@/lib/fileTreeState";
 import { type GithubTreeType } from "convex/schema";
+import { formatStopwatchDuration } from "@/lib/stopwatch";
 import { DaytonaPreviewPanel } from "./DaytonaPreviewPanel";
 import { DaytonaSnapshotList } from "./DaytonaSnapshotList";
 import { DaytonaWorkspaceButton } from "./DaytonaWorkspaceButton";
@@ -768,6 +770,10 @@ function FileViewInner({
   const [branchComparePreviewError, setBranchComparePreviewError] = useState<
     string | null
   >(null);
+  const [branchCompareLoadingStartedAt, setBranchCompareLoadingStartedAt] =
+    useState<number | null>(null);
+  const [branchCompareLoadingElapsedMs, setBranchCompareLoadingElapsedMs] =
+    useState(0);
   const [rebaseConflictPreview, setRebaseConflictPreview] =
     useState<RebaseConflictPreview | null>(null);
   const [rebaseConflictPreviewError, setRebaseConflictPreviewError] = useState<
@@ -1725,12 +1731,14 @@ function FileViewInner({
           if (branchComparePreviewRequestKeyRef.current !== requestKey) {
             return;
           }
+          setBranchCompareLoadingStartedAt(null);
           setBranchComparePreview(preview);
         })
         .catch((error) => {
           if (branchComparePreviewRequestKeyRef.current !== requestKey) {
             return;
           }
+          setBranchCompareLoadingStartedAt(null);
           const message =
             error instanceof Error && error.message.length > 0
               ? error.message
@@ -2489,6 +2497,15 @@ function FileViewInner({
     () => buildStagingPreviewRefreshKey(stagedFiles),
     [stagedFiles],
   );
+  const branchCompareLoadingStopwatchLabel = useMemo(
+    () => formatStopwatchDuration(branchCompareLoadingElapsedMs),
+    [branchCompareLoadingElapsedMs],
+  );
+  const isBranchCompareLoading =
+    isCompareRequested &&
+    branchComparePreview === null &&
+    branchComparePreviewError === null &&
+    branchCompareLoadingStartedAt !== null;
   const compareModeSummary = useMemo(() => {
     if (!isCompareRequested) {
       return null;
@@ -2525,6 +2542,26 @@ function FileViewInner({
       ariaLabel: `Changed Files comparing ${sourceSummary}${truncationSummary}${sourceListSummary}`,
     };
   }, [branchComparePreview, branchComparePreviewError, isCompareRequested]);
+
+  useEffect(() => {
+    if (branchCompareLoadingStartedAt === null) {
+      setBranchCompareLoadingElapsedMs(0);
+      return;
+    }
+
+    const updateElapsed = () => {
+      setBranchCompareLoadingElapsedMs(
+        Date.now() - branchCompareLoadingStartedAt,
+      );
+    };
+
+    updateElapsed();
+    const intervalId = window.setInterval(updateElapsed, 100);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [branchCompareLoadingStartedAt]);
 
   useEffect(() => {
     const nextRouteKey = `${branch}:${selectedFile}`;
@@ -2604,6 +2641,7 @@ function FileViewInner({
       branchComparePreviewRequestKeyRef.current = null;
       branchComparePreviewRequestedTargetKeyRef.current = null;
       branchComparePreviewRequestedStagingKeyRef.current = null;
+      setBranchCompareLoadingStartedAt(null);
       setBranchComparePreview(null);
       setBranchComparePreviewError(null);
       return;
@@ -2627,6 +2665,17 @@ function FileViewInner({
         branchCompareTargetRefreshKey;
       branchComparePreviewRequestedStagingKeyRef.current =
         branchComparePreviewStagingRefreshKey;
+      setBranchCompareLoadingStartedAt((current) => {
+        if (resetPreview) {
+          return Date.now();
+        }
+
+        if (branchComparePreview === null) {
+          return current ?? Date.now();
+        }
+
+        return null;
+      });
       if (resetPreview) {
         setBranchComparePreview(null);
       }
@@ -2648,6 +2697,7 @@ function FileViewInner({
     };
   }, [
     branchComparePreviewStagingRefreshKey,
+    branchComparePreview,
     branchCompareTargetRefreshKey,
     clearBranchComparePreviewReloadTimeout,
     isCompareRequested,
@@ -2868,6 +2918,12 @@ function FileViewInner({
     ),
     hasStagedSelection: Boolean(stagedFile),
   });
+  const branchCompareLoadingState = isBranchCompareLoading ? (
+    <ChangedFilesLoadingState
+      elapsedLabel={branchCompareLoadingStopwatchLabel}
+      className="flex-1 min-h-0"
+    />
+  ) : null;
 
   return (
     <>
@@ -3072,9 +3128,11 @@ function FileViewInner({
                       </div>
                     ) : null}
 
-                    {commitPreview ||
-                    rebaseConflictPreview ||
-                    branchComparePreview ? (
+                    {branchCompareLoadingState ? (
+                      branchCompareLoadingState
+                    ) : commitPreview ||
+                      rebaseConflictPreview ||
+                      branchComparePreview ? (
                       <div className="flex min-h-0 flex-1 flex-col">
                         <div className="flex min-h-0 flex-1 flex-col">
                           {selectedFile ? (
@@ -3242,6 +3300,8 @@ function FileViewInner({
                       </div>
                     ) : null}
                   </div>
+                ) : branchCompareLoadingState ? (
+                  branchCompareLoadingState
                 ) : selectedFileIsRenderableMedia ? (
                   <RepositoryMediaViewer
                     repositoryFullName={repositoryFullName}
