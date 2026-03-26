@@ -2665,7 +2665,13 @@ function FileViewInner({
         branchCompareTargetRefreshKey;
       branchComparePreviewRequestedStagingKeyRef.current =
         branchComparePreviewStagingRefreshKey;
-      setBranchCompareLoadingStartedAt(resetPreview ? Date.now() : null);
+      setBranchCompareLoadingStartedAt((current) => {
+        if (resetPreview || branchComparePreview === null) {
+          return current ?? Date.now();
+        }
+
+        return null;
+      });
       if (resetPreview) {
         setBranchComparePreview(null);
       }
@@ -2687,6 +2693,7 @@ function FileViewInner({
     };
   }, [
     branchComparePreviewStagingRefreshKey,
+    branchComparePreview,
     branchCompareTargetRefreshKey,
     clearBranchComparePreviewReloadTimeout,
     isCompareRequested,
