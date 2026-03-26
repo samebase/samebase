@@ -68,6 +68,14 @@ import {
   VaultSyncStatusVisualFixture,
   type VaultSyncStatusVisualMode,
 } from "@/components/VaultSyncStatusVisualFixture";
+import {
+  ThreadBrowserVisualFixture,
+  type ThreadBrowserVisualMode,
+} from "@/components/ThreadBrowserVisualFixture";
+import {
+  ThreadHistoryVisualFixture,
+  type ThreadHistoryVisualMode,
+} from "@/components/ThreadHistoryVisualFixture";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import "./index.css";
 
@@ -84,6 +92,8 @@ type VisualFixtureMode =
   | AddRepositoryVisualMode
   | RepositoryMediaVisualMode
   | SimpleViewVisualMode
+  | ThreadBrowserVisualMode
+  | ThreadHistoryVisualMode
   | VaultDashboardVisualMode
   | VaultBranchPreviewVisualMode
   | VaultSyncStatusVisualMode
@@ -177,6 +187,14 @@ const VAULT_SYNC_STATUS_VISUAL_MODES = [
   "vault-sync-status-states",
 ] as const satisfies readonly VaultSyncStatusVisualMode[];
 
+const THREAD_VISUAL_MODES = [
+  "thread-browser",
+  "thread-history",
+] as const satisfies readonly (
+  | ThreadBrowserVisualMode
+  | ThreadHistoryVisualMode
+)[];
+
 const FILE_VIEW_COMPARE_VISUAL_MODES = [
   "file-view-compare-sidebar",
   "file-view-compare-loading",
@@ -246,6 +264,10 @@ const VISUAL_FIXTURE_GROUPS = [
   {
     label: "Vault Sync Status",
     modes: VAULT_SYNC_STATUS_VISUAL_MODES,
+  },
+  {
+    label: "Thread Browser",
+    modes: THREAD_VISUAL_MODES,
   },
   {
     label: "Misc",
@@ -357,6 +379,14 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "vault-sync-status-states") {
     return <VaultSyncStatusVisualFixture mode={mode} />;
+  }
+
+  if (mode === "thread-browser") {
+    return <ThreadBrowserVisualFixture mode={mode} />;
+  }
+
+  if (mode === "thread-history") {
+    return <ThreadHistoryVisualFixture mode={mode} />;
   }
 
   if (isFileViewPushActionsVisualMode(mode)) {
