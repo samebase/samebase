@@ -104,6 +104,10 @@ export function resolveAppPageTitle(pathname: string): string {
     return "Codex App Server Research | noter";
   }
 
+  if (pathname === "/research/codex-app-server/browser") {
+    return "Codex Thread Browser Research | noter";
+  }
+
   if (pathname.startsWith("/vault/")) {
     return "Workspace | noter";
   }

@@ -228,6 +228,12 @@ describe("page metadata", () => {
       "Codex App Server Research | noter",
     );
   });
+
+  it("gives the codex browser research route a dedicated app title", () => {
+    expect(resolveAppPageTitle("/research/codex-app-server/browser")).toBe(
+      "Codex Thread Browser Research | noter",
+    );
+  });
   it("keeps the raw html shell aligned with the real public homepage", () => {
     const html = readFileSync(new URL("../../index.html", import.meta.url), {
       encoding: "utf8",
