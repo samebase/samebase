@@ -19,7 +19,7 @@ import { isObjectRecord as isRecord } from "./jsonUtils";
 import { rebaseStagedContent } from "./stagingRebase";
 import { selectRepositoryTreeForBranch } from "./fileStaging";
 import { sanitizeSlug } from "./slugUtils";
-import { TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
+import { describeRepositoryTreeRefreshFailure } from "./github";
 import { isStaleBaseVersionError } from "../shared/stagingErrors";
 
 const { boolean, number, object, optional, string } = v;
@@ -612,8 +612,8 @@ function getRateLimitResetAtMsFromError(error: unknown): number | null {
     return null;
   }
 
-  const earliestResetAt = Math.min(...candidates);
-  return earliestResetAt > now ? earliestResetAt : now;
+  const latestResetAt = Math.max(...candidates);
+  return latestResetAt > now ? latestResetAt : now;
 }
 
 function getKnownRateLimitResetAtMs(userId: string): number | null {
@@ -2461,22 +2461,16 @@ export const pullFromGitHub = action({
         markRefreshed: true,
       });
     } catch (error) {
-      const failureKind = isGitHubRateLimitError(error)
-        ? "rate_limited"
-        : "failed";
-      const cooldownUntil =
-        failureKind === "rate_limited"
-          ? rememberRateLimitResetAtMs(userId, error)
-          : Date.now() + TREE_REFRESH_FAILURE_COOLDOWN_MS;
+      const failure = describeRepositoryTreeRefreshFailure(error);
+      if (failure.kind === "rate_limited") {
+        githubRateLimitResetByUser.set(userId, failure.cooldownUntil);
+      }
       await ctx.runMutation(internal.vault.releaseTreeRefresh, {
         vaultId: vault._id,
         markRefreshed: false,
-        failureKind,
-        failureMessage:
-          failureKind === "rate_limited"
-            ? "GitHub API rate limited. Auto-refresh paused."
-            : getErrorMessage(error) || "GitHub sync failed.",
-        cooldownUntil,
+        failureKind: failure.kind,
+        failureMessage: failure.message,
+        cooldownUntil: failure.cooldownUntil,
       });
       throw error;
     }

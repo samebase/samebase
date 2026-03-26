@@ -204,7 +204,7 @@ export function describeRepositoryTreeRefreshFailure(
   if (!isRateLimitError(status, headers, message)) {
     return {
       kind: "failed",
-      message: message ?? "GitHub sync failed. Showing cached state.",
+      message: "GitHub sync failed. Showing cached state.",
       cooldownUntil: now + TREE_REFRESH_FAILURE_COOLDOWN_MS,
     };
   }
@@ -1788,11 +1788,16 @@ export const refreshRepositoryTree = action({
 
     const debounceMs =
       args.trigger === "page_load" ? PAGE_LOAD_REFRESH_DEBOUNCE_MS : undefined;
+    const skipRecentSuccessDebounce =
+      requestedBranch !== undefined && args.trigger === undefined;
 
     // Atomically claim the refresh lock; skip if debounced or already running
     const { claimed } = await ctx.runMutation(internal.vault.claimTreeRefresh, {
       vaultId: vault._id,
       debounceMs,
+      // Manual branch hydration must not be blocked by a recent repo-level
+      // refresh because branch-specific tree data may still be missing.
+      skipRecentSuccessDebounce,
     });
     if (!claimed) return null;
 
@@ -1826,6 +1831,7 @@ export const refreshRepositoryTree = action({
         branch: requestedBranch,
         kind: failure.kind,
         message: failure.message,
+        error,
       });
       await ctx.runMutation(internal.vault.releaseTreeRefresh, {
         vaultId: vault._id,
@@ -1834,6 +1840,7 @@ export const refreshRepositoryTree = action({
         failureMessage: failure.message,
         cooldownUntil: failure.cooldownUntil,
       });
+      throw error;
     }
 
     return null;

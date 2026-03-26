@@ -182,7 +182,7 @@ describe("describeRepositoryTreeRefreshFailure", () => {
       ),
     ).toEqual({
       kind: "failed",
-      message: "boom",
+      message: "GitHub sync failed. Showing cached state.",
       cooldownUntil: now + 60_000,
     });
   });

@@ -1641,6 +1641,7 @@ export const claimTreeRefresh = internalMutation({
     vaultId: v.id("vaults"),
     force: v.optional(v.boolean()),
     debounceMs: v.optional(v.number()),
+    skipRecentSuccessDebounce: v.optional(v.boolean()),
   },
   returns: v.object({ claimed: v.boolean() }),
   handler: async (ctx, args) => {
@@ -1663,6 +1664,7 @@ export const claimTreeRefresh = internalMutation({
 
       // Skip if last successful refresh was recent
       if (
+        !args.skipRecentSuccessDebounce &&
         vault.lastTreeRefreshAt &&
         now - vault.lastTreeRefreshAt < debounceMs
       ) {

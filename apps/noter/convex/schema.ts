@@ -114,9 +114,9 @@ export const VaultRemoteBranchState = v.union(
   v.literal("deleted_upstream"),
 );
 
-export const TreeRefreshFailureKind = v.union(
-  v.literal("failed"),
-  v.literal("rate_limited"),
+export const TreeRefreshFailureKind = union(
+  literal("failed"),
+  literal("rate_limited"),
 );
 export type TreeRefreshFailureKind = Infer<typeof TreeRefreshFailureKind>;
 

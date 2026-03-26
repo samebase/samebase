@@ -1035,6 +1035,7 @@ function VaultDashboardContent() {
                   shouldIncludeCloudflarePreviewLinks,
                 trigger,
               }).catch((error: unknown) => {
+                releaseRefreshDebounce("dashboard", vault.repositoryFullName);
                 console.error(
                   "Failed to refresh repository tree from dashboard:",
                   error,

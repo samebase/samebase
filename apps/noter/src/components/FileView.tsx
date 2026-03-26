@@ -70,7 +70,10 @@ import {
   shouldLoadRepositorySimpleViewConfig,
 } from "@/lib/simpleView";
 import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/lib/commitReviewStatus";
-import { claimRefreshDebounce } from "@/lib/treeRefreshDebounce";
+import {
+  claimRefreshDebounce,
+  releaseRefreshDebounce,
+} from "@/lib/treeRefreshDebounce";
 import { buildFileViewRefreshDebounceKey } from "@/lib/fileViewRefresh";
 import { getAncestorFolderPaths } from "@/lib/fileTreeState";
 import { type GithubTreeType } from "convex/schema";
@@ -473,6 +476,7 @@ function FileViewWrapper() {
         includePullRequestLinks: true,
         trigger,
       }).catch((error: unknown) => {
+        releaseRefreshDebounce("file_view", key);
         console.error("Failed to refresh repository tree:", error);
       });
     },

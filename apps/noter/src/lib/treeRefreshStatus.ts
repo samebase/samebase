@@ -18,6 +18,14 @@ type TreeRefreshUiState =
   | { kind: "failed" }
   | { kind: "idle" };
 
+/**
+ * Collapses the shared repo refresh timestamps into the UI state used by the
+ * dashboard and sync strip.
+ *
+ * Precedence matters here: a non-stale treeRefreshStartedAt lock wins first,
+ * then an active treeRefreshCooldownUntil window, then a lastTreeRefreshFailedAt
+ * that is newer than lastTreeRefreshAt. Anything else is idle.
+ */
 export function getTreeRefreshUiState(
   args: TreeRefreshUiStateArgs,
 ): TreeRefreshUiState {
