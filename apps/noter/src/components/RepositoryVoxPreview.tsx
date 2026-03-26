@@ -242,21 +242,11 @@ export function RepositoryVoxPreview({
     const abortController = new AbortController();
     let isDisposed = false;
     let loadedObject: THREE.Object3D | null = null;
-
-    const renderer = new THREE.WebGLRenderer({
-      alpha: true,
-      antialias: false,
-      powerPreference: "high-performance",
-    });
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.setPixelRatio(1);
-    renderer.domElement.className = "h-full w-full";
-    renderer.domElement.setAttribute("data-testid", `${testId}-vox-canvas`);
-
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 1000);
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = false;
+    let renderer: THREE.WebGLRenderer | null = null;
+    let controls: OrbitControls | null = null;
+    let resizeObserver: ResizeObserver | null = null;
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
     const keyLight = new THREE.DirectionalLight(0xffffff, 1.1);
@@ -269,7 +259,7 @@ export function RepositoryVoxPreview({
     scene.add(fillLight);
 
     const renderScene = () => {
-      if (!isDisposed) {
+      if (!isDisposed && renderer) {
         renderer.render(scene, camera);
       }
     };
@@ -280,26 +270,47 @@ export function RepositoryVoxPreview({
     const handleControlChange = () => {
       renderScene();
     };
-
-    controls.addEventListener("change", handleControlChange);
-    container.replaceChildren(renderer.domElement);
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      const targetEntry = entries[0];
-      const nextWidth = Math.max(targetEntry.contentRect.width, 1);
-      const nextHeight = Math.max(targetEntry.contentRect.height, 1);
-      renderer.setSize(nextWidth, nextHeight, false);
-      camera.aspect = nextWidth / nextHeight;
-      camera.updateProjectionMatrix();
-      renderScene();
-    });
-
-    resizeObserver.observe(container);
     setStatus("loading");
     setErrorMessage(null);
 
     void (async () => {
       try {
+        /**
+         * WebGL setup can fail synchronously on unsupported browsers or devices,
+         * so keep it inside the preview error boundary instead of crashing the
+         * entire media panel.
+         */
+        renderer = new THREE.WebGLRenderer({
+          alpha: true,
+          antialias: false,
+          powerPreference: "high-performance",
+        });
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.setPixelRatio(1);
+        renderer.domElement.className = "h-full w-full";
+        renderer.domElement.setAttribute("data-testid", `${testId}-vox-canvas`);
+
+        controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = false;
+        controls.addEventListener("change", handleControlChange);
+
+        const currentRenderer = renderer;
+        const currentControls = controls;
+
+        container.replaceChildren(renderer.domElement);
+
+        resizeObserver = new ResizeObserver((entries) => {
+          const targetEntry = entries[0];
+          const nextWidth = Math.max(targetEntry.contentRect.width, 1);
+          const nextHeight = Math.max(targetEntry.contentRect.height, 1);
+          currentRenderer.setSize(nextWidth, nextHeight, false);
+          camera.aspect = nextWidth / nextHeight;
+          camera.updateProjectionMatrix();
+          renderScene();
+        });
+
+        resizeObserver.observe(container);
+
         const [{ VOXLoader }, response] = await Promise.all([
           import("three/examples/jsm/loaders/VOXLoader.js"),
           fetch(url, { signal: abortController.signal }),
@@ -322,7 +333,7 @@ export function RepositoryVoxPreview({
         const renderableObject = createRenderableObject(result);
         loadedObject = renderableObject.object;
         scene.add(loadedObject);
-        fitCameraToBounds(camera, controls, renderableObject.bounds);
+        fitCameraToBounds(camera, currentControls, renderableObject.bounds);
         renderScene();
 
         if (shouldIgnoreResult()) {
@@ -351,16 +362,16 @@ export function RepositoryVoxPreview({
     return () => {
       isDisposed = true;
       abortController.abort();
-      resizeObserver.disconnect();
-      controls.removeEventListener("change", handleControlChange);
-      controls.dispose();
+      resizeObserver?.disconnect();
+      controls?.removeEventListener("change", handleControlChange);
+      controls?.dispose();
 
       if (loadedObject) {
         scene.remove(loadedObject);
         disposeObjectResources(loadedObject);
       }
 
-      renderer.dispose();
+      renderer?.dispose();
       container.replaceChildren();
     };
   }, [testId, url]);
