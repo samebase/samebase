@@ -114,6 +114,12 @@ export const VaultRemoteBranchState = v.union(
   v.literal("deleted_upstream"),
 );
 
+export const TreeRefreshFailureKind = v.union(
+  v.literal("failed"),
+  v.literal("rate_limited"),
+);
+export type TreeRefreshFailureKind = Infer<typeof TreeRefreshFailureKind>;
+
 export const ProdAccessScope = v.union(v.literal("vault"), v.literal("global"));
 
 export const ProdAccessProvider = v.union(
@@ -356,6 +362,10 @@ export default defineSchema({
     // Tree refresh mutex: prevents concurrent/redundant GitHub API calls
     lastTreeRefreshAt: v.optional(v.number()),
     treeRefreshStartedAt: v.optional(v.number()),
+    lastTreeRefreshFailedAt: v.optional(v.number()),
+    treeRefreshFailureKind: v.optional(TreeRefreshFailureKind),
+    treeRefreshFailureMessage: v.optional(v.string()),
+    treeRefreshCooldownUntil: v.optional(v.number()),
 
     // Codespace integration
     activeCodespaceId: v.optional(v.id("codespaces")),

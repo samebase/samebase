@@ -1,36 +1,23 @@
 import { UpdateIcon } from "@radix-ui/react-icons";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { TREE_REFRESH_STALE_LOCK_MS } from "../../shared/treeRefresh";
 import { useNow } from "@/hooks/useNow";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import { formatRelativeTimeAgoWithSeconds } from "@/lib/formatRelativeTime";
+import {
+  formatRelativeTimeAgoWithSeconds,
+  formatRelativeTimeUntil,
+} from "@/lib/formatRelativeTime";
+import { getTreeRefreshUiState } from "@/lib/treeRefreshStatus";
 import { cn } from "@/lib/utils";
 import { CommitStatus } from "./CommitStatus";
 import { EditedFilesCategoriesPopover } from "./EditedFilesCategories";
 import { linkStyle } from "./styles";
 
-type StagedFile = NonNullable<
+export type VaultSyncStatusStagedFile = NonNullable<
   (typeof api.fileStaging.listStagedFiles)["_returnType"]
 >[number];
 
-export function VaultSyncStatus({
-  vaultId,
-  repositoryFullName,
-  branch,
-  owner,
-  repoName,
-  commitSha,
-  treeRefreshStartedAt,
-  lastTreeRefreshAt,
-  stagedFiles,
-  stagedFilesCount,
-  now: nowFromParent,
-  disableStagedFilesQuery = false,
-  showChecks = true,
-  className,
-}: {
-  vaultId: Id<"vaults">;
+type VaultSyncStatusSharedProps = {
   repositoryFullName: string;
   branch: string;
   owner: string;
@@ -38,32 +25,50 @@ export function VaultSyncStatus({
   commitSha?: string;
   treeRefreshStartedAt?: number;
   lastTreeRefreshAt?: number;
-  stagedFiles?: StagedFile[];
-  stagedFilesCount?: number;
+  lastTreeRefreshFailedAt?: number;
+  treeRefreshFailureKind?: "failed" | "rate_limited";
+  treeRefreshFailureMessage?: string;
+  treeRefreshCooldownUntil?: number;
+  stagedFiles?: VaultSyncStatusStagedFile[];
   now?: number;
-  disableStagedFilesQuery?: boolean;
   showChecks?: boolean;
   className?: string;
-}) {
+};
+
+export function VaultSyncStatusContent({
+  repositoryFullName,
+  branch,
+  owner,
+  repoName,
+  commitSha,
+  treeRefreshStartedAt,
+  lastTreeRefreshAt,
+  lastTreeRefreshFailedAt,
+  treeRefreshFailureKind,
+  treeRefreshFailureMessage,
+  treeRefreshCooldownUntil,
+  stagedFiles = [],
+  now: nowFromParent,
+  showChecks = true,
+  className,
+}: VaultSyncStatusSharedProps) {
   const fallbackNow = useNow({ enabled: nowFromParent === undefined });
   const now = nowFromParent ?? fallbackNow;
-  const shouldFetchStagedFiles =
-    !disableStagedFilesQuery &&
-    stagedFiles === undefined &&
-    (stagedFilesCount === undefined || stagedFilesCount > 0);
-  const stagedFilesFromQuery = useQuery(
-    api.fileStaging.listStagedFiles,
-    shouldFetchStagedFiles ? { vaultId, branch } : "skip",
-  );
-  const resolvedStagedFiles = stagedFiles ?? stagedFilesFromQuery ?? [];
-
   const commitUrl = commitSha
     ? `https://github.com/${owner}/${repoName}/commit/${commitSha}`
     : null;
-
-  const isSyncing =
-    typeof treeRefreshStartedAt === "number" &&
-    now - treeRefreshStartedAt < TREE_REFRESH_STALE_LOCK_MS;
+  const treeRefreshUiState = getTreeRefreshUiState({
+    now,
+    treeRefreshStartedAt,
+    lastTreeRefreshAt,
+    lastTreeRefreshFailedAt,
+    treeRefreshFailureKind,
+    treeRefreshCooldownUntil,
+  });
+  const isSyncing = treeRefreshUiState.kind === "syncing";
+  const suppressChecks =
+    treeRefreshUiState.kind === "rate_limited" ||
+    treeRefreshUiState.kind === "cooldown";
 
   return (
     <div
@@ -72,11 +77,11 @@ export function VaultSyncStatus({
         className,
       )}
     >
-      {resolvedStagedFiles.length > 0 && (
+      {stagedFiles.length > 0 && (
         <EditedFilesCategoriesPopover
           repositoryFullName={repositoryFullName}
           branch={branch}
-          stagedFiles={resolvedStagedFiles}
+          stagedFiles={stagedFiles}
         />
       )}
 
@@ -85,9 +90,51 @@ export function VaultSyncStatus({
           <UpdateIcon className="animate-spin" />
           Syncing…
         </span>
+      ) : treeRefreshUiState.kind === "rate_limited" ? (
+        <span
+          className="inline-flex items-center gap-1 text-amber-700"
+          title={
+            treeRefreshFailureMessage ??
+            "GitHub API rate limited. Auto-refresh paused."
+          }
+        >
+          <span>GitHub rate limited</span>
+          <span>·</span>
+          <span className="font-mono tabular-nums">
+            {formatRelativeTimeUntil(treeRefreshUiState.cooldownUntil, now)}
+          </span>
+        </span>
+      ) : treeRefreshUiState.kind === "cooldown" ? (
+        <span
+          className="inline-flex items-center gap-1 text-amber-700"
+          title={
+            treeRefreshFailureMessage ??
+            "Auto-refresh paused after a failed sync."
+          }
+        >
+          <span>Retrying</span>
+          <span>·</span>
+          <span className="font-mono tabular-nums">
+            {formatRelativeTimeUntil(treeRefreshUiState.cooldownUntil, now)}
+          </span>
+        </span>
       ) : (
         <span className="inline-flex items-center gap-1">
-          {showChecks && (
+          {treeRefreshUiState.kind === "failed" && (
+            <>
+              <span
+                className="text-amber-700"
+                title={
+                  treeRefreshFailureMessage ??
+                  "Last sync failed. Showing cached state."
+                }
+              >
+                Last sync failed
+              </span>
+              <span>·</span>
+            </>
+          )}
+          {showChecks && !suppressChecks && (
             <CommitStatus
               owner={owner}
               repo={repoName}
@@ -124,5 +171,34 @@ export function VaultSyncStatus({
         </span>
       )}
     </div>
+  );
+}
+
+export function VaultSyncStatus({
+  vaultId,
+  stagedFiles,
+  stagedFilesCount,
+  disableStagedFilesQuery = false,
+  ...props
+}: VaultSyncStatusSharedProps & {
+  vaultId: Id<"vaults">;
+  stagedFiles?: VaultSyncStatusStagedFile[];
+  stagedFilesCount?: number;
+  disableStagedFilesQuery?: boolean;
+}) {
+  const shouldFetchStagedFiles =
+    !disableStagedFilesQuery &&
+    stagedFiles === undefined &&
+    (stagedFilesCount === undefined || stagedFilesCount > 0);
+  const stagedFilesFromQuery = useQuery(
+    api.fileStaging.listStagedFiles,
+    shouldFetchStagedFiles ? { vaultId, branch: props.branch } : "skip",
+  );
+
+  return (
+    <VaultSyncStatusContent
+      {...props}
+      stagedFiles={stagedFiles ?? stagedFilesFromQuery ?? []}
+    />
   );
 }

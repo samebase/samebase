@@ -1,2 +1,3 @@
 export const TREE_REFRESH_DEBOUNCE_MS = 2 * 60 * 1000;
 export const TREE_REFRESH_STALE_LOCK_MS = 3 * 60 * 1000;
+export const TREE_REFRESH_FAILURE_COOLDOWN_MS = 60 * 1000;

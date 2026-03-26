@@ -16,6 +16,7 @@ import {
   type RepositoryMediaKind,
   isSvgRepositoryMediaPath,
 } from "../shared/repositoryMedia";
+import { TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
 import type { PullRequestLabel as StoredPullRequestLabel } from "./schema";
 
 const {
@@ -63,12 +64,175 @@ type CachedRepositoryBlob = {
   text?: string | null;
   mime?: string | undefined;
 };
+type HeaderValue = string | number | readonly string[] | undefined;
+type HeaderMap = Record<string, HeaderValue>;
+type TreeRefreshFailureDescriptor = {
+  kind: "failed" | "rate_limited";
+  message: string;
+  cooldownUntil: number;
+};
 
 const GITHUB_REPOSITORY_DISCOVERY_AFFILIATION =
   "owner,collaborator,organization_member";
 const GITHUB_REPOSITORY_PREVIEW_PAGE_SIZE = 10;
 const GITHUB_REPOSITORY_DISCOVERY_PAGE_SIZE = 100;
 const MAX_GITHUB_REPOSITORY_PAGES = 100;
+
+function toHeaderMap(value: unknown): HeaderMap | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const headers: HeaderMap = {};
+  for (const [key, headerValue] of Object.entries(value)) {
+    if (
+      typeof headerValue === "string" ||
+      typeof headerValue === "number" ||
+      headerValue === undefined
+    ) {
+      headers[key] = headerValue;
+      continue;
+    }
+
+    if (
+      Array.isArray(headerValue) &&
+      headerValue.every((item) => typeof item === "string")
+    ) {
+      headers[key] = headerValue;
+    }
+  }
+
+  return headers;
+}
+
+function getErrorStatus(error: unknown): number | null {
+  if (!isRecord(error)) {
+    return null;
+  }
+
+  const status = error.status;
+  return typeof status === "number" ? status : null;
+}
+
+function getErrorMessage(error: unknown): string | null {
+  if (!isRecord(error)) {
+    return null;
+  }
+
+  const message = error.message;
+  return typeof message === "string" && message.length > 0 ? message : null;
+}
+
+function getErrorHeaders(error: unknown): HeaderMap | null {
+  if (!isRecord(error)) {
+    return null;
+  }
+
+  const response = error.response;
+  if (!isRecord(response)) {
+    return null;
+  }
+
+  return toHeaderMap(response.headers);
+}
+
+function getHeaderValue(
+  headers: HeaderMap | null,
+  name: string,
+): string | null {
+  if (!headers) {
+    return null;
+  }
+
+  const target = name.toLowerCase();
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() !== target) {
+      continue;
+    }
+
+    if (typeof value === "string") {
+      return value;
+    }
+    if (typeof value === "number") {
+      return String(value);
+    }
+    if (Array.isArray(value)) {
+      return value.length > 0 ? value[0] : null;
+    }
+    return null;
+  }
+
+  return null;
+}
+
+function parsePositiveInteger(value: string | null): number | null {
+  if (value === null) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function isRateLimitError(
+  status: number | null,
+  headers: HeaderMap | null,
+  message: string | null,
+): boolean {
+  if (status === 429) {
+    return true;
+  }
+  if (status !== 403) {
+    return false;
+  }
+
+  if (getHeaderValue(headers, "x-ratelimit-remaining") === "0") {
+    return true;
+  }
+
+  return (message ?? "").toLowerCase().includes("rate limit");
+}
+
+export function describeRepositoryTreeRefreshFailure(
+  error: unknown,
+  now: number = Date.now(),
+): TreeRefreshFailureDescriptor {
+  const status = getErrorStatus(error);
+  const headers = getErrorHeaders(error);
+  const message = getErrorMessage(error);
+
+  if (!isRateLimitError(status, headers, message)) {
+    return {
+      kind: "failed",
+      message: message ?? "GitHub sync failed. Showing cached state.",
+      cooldownUntil: now + TREE_REFRESH_FAILURE_COOLDOWN_MS,
+    };
+  }
+
+  const retryAfterSeconds = parsePositiveInteger(
+    getHeaderValue(headers, "retry-after"),
+  );
+  const resetAtSeconds = parsePositiveInteger(
+    getHeaderValue(headers, "x-ratelimit-reset"),
+  );
+  const cooldownCandidates: number[] = [];
+
+  if (retryAfterSeconds !== null) {
+    cooldownCandidates.push(now + retryAfterSeconds * 1000);
+  }
+  if (resetAtSeconds !== null) {
+    cooldownCandidates.push(resetAtSeconds * 1000);
+  }
+
+  return {
+    kind: "rate_limited",
+    message: "GitHub API rate limited. Auto-refresh paused.",
+    cooldownUntil:
+      cooldownCandidates.length > 0
+        ? Math.max(...cooldownCandidates)
+        : now + TREE_REFRESH_FAILURE_COOLDOWN_MS,
+  };
+}
 
 function buildGitHubRepositoryDiscoveryUrl(perPage: number): string {
   return `https://api.github.com/user/repos?sort=updated&per_page=${perPage}&affiliation=${GITHUB_REPOSITORY_DISCOVERY_AFFILIATION}`;
@@ -1622,19 +1786,6 @@ export const refreshRepositoryTree = action({
     });
     if (!vault) return null;
 
-    if (requestedBranch) {
-      await ctx.runAction(internal.github.updateRepositoryTree, {
-        userId,
-        owner: args.owner,
-        repo: args.repo,
-        branch: requestedBranch,
-        includeAheadBehind: args.includeAheadBehind === true,
-        includePullRequestLinks: args.includePullRequestLinks === true,
-        includeCloudflarePreviewLinks: false,
-      });
-      return null;
-    }
-
     const debounceMs =
       args.trigger === "page_load" ? PAGE_LOAD_REFRESH_DEBOUNCE_MS : undefined;
 
@@ -1645,22 +1796,43 @@ export const refreshRepositoryTree = action({
     });
     if (!claimed) return null;
 
-    let markRefreshed = false;
     try {
       await ctx.runAction(internal.github.updateRepositoryTree, {
         userId,
         owner: args.owner,
         repo: args.repo,
-        includeAheadBehind: true,
-        includePullRequestLinks: true,
+        branch: requestedBranch,
+        includeAheadBehind:
+          requestedBranch === undefined
+            ? true
+            : args.includeAheadBehind === true,
+        includePullRequestLinks:
+          requestedBranch === undefined
+            ? true
+            : args.includePullRequestLinks === true,
         includeCloudflarePreviewLinks:
+          requestedBranch === undefined &&
           args.includeCloudflarePreviewLinks === true,
       });
-      markRefreshed = true;
-    } finally {
       await ctx.runMutation(internal.vault.releaseTreeRefresh, {
         vaultId: vault._id,
-        markRefreshed,
+        markRefreshed: true,
+      });
+    } catch (error) {
+      const failure = describeRepositoryTreeRefreshFailure(error);
+      console.error("Failed to refresh repository tree", {
+        owner: args.owner,
+        repo: args.repo,
+        branch: requestedBranch,
+        kind: failure.kind,
+        message: failure.message,
+      });
+      await ctx.runMutation(internal.vault.releaseTreeRefresh, {
+        vaultId: vault._id,
+        markRefreshed: false,
+        failureKind: failure.kind,
+        failureMessage: failure.message,
+        cooldownUntil: failure.cooldownUntil,
       });
     }
 

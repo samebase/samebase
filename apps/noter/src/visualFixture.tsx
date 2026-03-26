@@ -60,6 +60,10 @@ import {
   VaultBranchPreviewVisualFixture,
   type VaultBranchPreviewVisualMode,
 } from "@/components/VaultBranchPreviewVisualFixture";
+import {
+  VaultSyncStatusVisualFixture,
+  type VaultSyncStatusVisualMode,
+} from "@/components/VaultSyncStatusVisualFixture";
 import { buildPathWithUpdatedQuery, setQueryParam } from "@/lib/queryParams";
 import "./index.css";
 
@@ -77,6 +81,7 @@ type VisualFixtureMode =
   | SimpleViewVisualMode
   | VaultDashboardVisualMode
   | VaultBranchPreviewVisualMode
+  | VaultSyncStatusVisualMode
   | "vault-dashboard-branch-pr-title"
   | "button"
   | "corner-notch"
@@ -163,6 +168,10 @@ const VAULT_BRANCH_PREVIEW_VISUAL_MODES = [
   "vault-branch-preview-missing",
 ] as const satisfies readonly VaultBranchPreviewVisualMode[];
 
+const VAULT_SYNC_STATUS_VISUAL_MODES = [
+  "vault-sync-status-states",
+] as const satisfies readonly VaultSyncStatusVisualMode[];
+
 const FILE_VIEW_COMPARE_VISUAL_MODES = [
   "file-view-compare-sidebar",
   "file-view-compare-loading",
@@ -222,6 +231,10 @@ const VISUAL_FIXTURE_GROUPS = [
   {
     label: "Vault Branch Preview",
     modes: VAULT_BRANCH_PREVIEW_VISUAL_MODES,
+  },
+  {
+    label: "Vault Sync Status",
+    modes: VAULT_SYNC_STATUS_VISUAL_MODES,
   },
   {
     label: "Misc",
@@ -329,6 +342,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "vault-branch-preview-missing"
   ) {
     return <VaultBranchPreviewVisualFixture mode={mode} />;
+  }
+
+  if (mode === "vault-sync-status-states") {
+    return <VaultSyncStatusVisualFixture mode={mode} />;
   }
 
   if (isFileViewPushActionsVisualMode(mode)) {

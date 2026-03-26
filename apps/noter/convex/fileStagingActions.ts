@@ -19,6 +19,7 @@ import { isObjectRecord as isRecord } from "./jsonUtils";
 import { rebaseStagedContent } from "./stagingRebase";
 import { selectRepositoryTreeForBranch } from "./fileStaging";
 import { sanitizeSlug } from "./slugUtils";
+import { TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
 import { isStaleBaseVersionError } from "../shared/stagingErrors";
 
 const { boolean, number, object, optional, string } = v;
@@ -2455,10 +2456,29 @@ export const pullFromGitHub = action({
         userId,
         vaultId: args.vaultId,
       });
-    } finally {
       await ctx.runMutation(internal.vault.releaseTreeRefresh, {
         vaultId: vault._id,
+        markRefreshed: true,
       });
+    } catch (error) {
+      const failureKind = isGitHubRateLimitError(error)
+        ? "rate_limited"
+        : "failed";
+      const cooldownUntil =
+        failureKind === "rate_limited"
+          ? rememberRateLimitResetAtMs(userId, error)
+          : Date.now() + TREE_REFRESH_FAILURE_COOLDOWN_MS;
+      await ctx.runMutation(internal.vault.releaseTreeRefresh, {
+        vaultId: vault._id,
+        markRefreshed: false,
+        failureKind,
+        failureMessage:
+          failureKind === "rate_limited"
+            ? "GitHub API rate limited. Auto-refresh paused."
+            : getErrorMessage(error) || "GitHub sync failed.",
+        cooldownUntil,
+      });
+      throw error;
     }
 
     return null;

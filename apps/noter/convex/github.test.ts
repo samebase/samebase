@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   collectLatestOpenPullRequestsByBranch,
   computeRepositoryTreeUpdatePlan,
+  describeRepositoryTreeRefreshFailure,
   isRepositoryMediaPreviewTooLarge,
   listGitHubRepositoryPreview,
   listGitHubRepositories,
@@ -141,6 +142,49 @@ describe("shouldSyncCloudflarePreviewLinks", () => {
         ],
       }),
     ).toBe(false);
+  });
+});
+
+describe("describeRepositoryTreeRefreshFailure", () => {
+  const now = Date.parse("2026-03-26T18:00:00Z");
+
+  it("uses rate-limit headers to compute cooldown", () => {
+    expect(
+      describeRepositoryTreeRefreshFailure(
+        {
+          status: 403,
+          message: "secondary rate limit",
+          response: {
+            headers: {
+              "x-ratelimit-remaining": "0",
+              "retry-after": "30",
+              "x-ratelimit-reset": String(Math.floor((now + 90_000) / 1000)),
+            },
+          },
+        },
+        now,
+      ),
+    ).toEqual({
+      kind: "rate_limited",
+      message: "GitHub API rate limited. Auto-refresh paused.",
+      cooldownUntil: now + 90_000,
+    });
+  });
+
+  it("falls back to a generic failure cooldown", () => {
+    expect(
+      describeRepositoryTreeRefreshFailure(
+        {
+          status: 500,
+          message: "boom",
+        },
+        now,
+      ),
+    ).toEqual({
+      kind: "failed",
+      message: "boom",
+      cooldownUntil: now + 60_000,
+    });
   });
 });
 
