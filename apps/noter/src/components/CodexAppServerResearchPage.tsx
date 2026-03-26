@@ -1,19 +1,29 @@
 import { Badge } from "@/components/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   CODEX_APP_SERVER_RESEARCH_API_BASE,
   type CodexAppServerApprovalRequest,
   type CodexAppServerEventsResponse,
   type CodexAppServerProtocolResponse,
-  type CodexAppServerResearchEvent,
   type CodexAppServerRequestsResponse,
+  type CodexAppServerRuntimeSnapshot,
   type CodexAppServerStatusResponse,
+  type CodexAppServerThread,
+  type CodexAppServerThreadDetailResponse,
+  type CodexAppServerThreadListSortKey,
+  type CodexAppServerThreadsResponse,
+  type CodexAppServerResearchEvent,
 } from "@/lib/codexAppServerResearch";
+import {
+  buildPathWithQuery,
+  setQueryParam,
+  updateQueryParams,
+} from "@/lib/queryParams";
 import { clsx } from "clsx";
 import { useEffect, useRef, useState } from "react";
 
@@ -39,8 +49,19 @@ type InterruptFormState = {
   turnId: string;
 };
 
+type ThreadListQueryState = {
+  searchTerm: string;
+  sortKey: CodexAppServerThreadListSortKey;
+};
+
+type ThreadActionResponse = {
+  result?: unknown;
+  runtime: CodexAppServerRuntimeSnapshot;
+};
+
 const DEFAULT_TURN_PROMPT =
   "Reply with exactly the word READY and nothing else.";
+const THREAD_LIST_LIMIT = 100;
 
 async function requestJson<T>(args: {
   path: string;
@@ -72,15 +93,43 @@ async function requestJson<T>(args: {
   return payload;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  return Object.fromEntries(Object.entries(value));
+}
+
+function normalizeTimestampToMilliseconds(value: number): number {
+  return value < 10_000_000_000 ? value * 1000 : value;
+}
+
 function formatTimestamp(value: number | null | undefined): string {
   if (typeof value !== "number") {
     return "n/a";
   }
-  return new Date(value).toLocaleTimeString();
+
+  return new Date(normalizeTimestampToMilliseconds(value)).toLocaleTimeString();
+}
+
+function formatDateTime(value: number | null | undefined): string {
+  if (typeof value !== "number") {
+    return "n/a";
+  }
+
+  return new Date(normalizeTimestampToMilliseconds(value)).toLocaleString();
 }
 
 function formatJson(value: unknown): string {
   return JSON.stringify(value, null, 2);
+}
+
+function readCurrentThreadId(value: unknown): string | null {
+  const runtime = asRecord(asRecord(value)?.runtime);
+  return typeof runtime?.currentThreadId === "string"
+    ? runtime.currentThreadId
+    : null;
 }
 
 function getEventListKey(args: {
@@ -89,6 +138,14 @@ function getEventListKey(args: {
   index: number;
 }): string {
   return `${args.scope}-${args.event.cursor}-${args.event.method}-${args.index}`;
+}
+
+function getThreadStatusLabel(thread: CodexAppServerThread): string {
+  if (thread.status.type === "active" && thread.status.activeFlags.length > 0) {
+    return `active:${thread.status.activeFlags.join(",")}`;
+  }
+
+  return thread.status.type;
 }
 
 function RuntimeStatusBadge(props: {
@@ -127,6 +184,19 @@ function EventLevelBadge(props: {
           : "bg-slate-200 text-slate-900";
 
   return <Badge className={className}>{props.level}</Badge>;
+}
+
+function ThreadStatusBadge(props: { thread: CodexAppServerThread }) {
+  const className =
+    props.thread.status.type === "active"
+      ? "bg-emerald-600 text-white"
+      : props.thread.status.type === "systemError"
+        ? "bg-red-600 text-white"
+        : "bg-slate-200 text-slate-900";
+
+  return (
+    <Badge className={className}>{getThreadStatusLabel(props.thread)}</Badge>
+  );
 }
 
 function ProtocolFilesViewer(props: {
@@ -179,12 +249,316 @@ function ProtocolFilesViewer(props: {
   );
 }
 
+function ThreadInventoryPanel(props: {
+  threads: CodexAppServerThread[];
+  selectedThreadId: string | null;
+  nextCursor: string | null;
+  queryForm: ThreadListQueryState;
+  onQueryFormChange: (
+    updater: (current: ThreadListQueryState) => ThreadListQueryState,
+  ) => void;
+  onLoadThreads: () => void;
+  onSelectThread: (threadId: string) => void;
+  isBusy: boolean;
+}) {
+  return (
+    <div className="grid gap-3 border border-border bg-white p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+          Local provider threads
+        </div>
+        <Button
+          variant="outline"
+          disabled={props.isBusy}
+          onClick={props.onLoadThreads}
+        >
+          Load threads
+        </Button>
+      </div>
+
+      <div className="grid gap-3">
+        <Input
+          placeholder="Search first prompt"
+          value={props.queryForm.searchTerm}
+          onChange={(event) => {
+            props.onQueryFormChange((current) => ({
+              ...current,
+              searchTerm: event.target.value,
+            }));
+          }}
+        />
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={
+              props.queryForm.sortKey === "updated_at" ? "default" : "outline"
+            }
+            onClick={() => {
+              props.onQueryFormChange((current) => ({
+                ...current,
+                sortKey: "updated_at",
+              }));
+            }}
+          >
+            Sort by updated
+          </Button>
+          <Button
+            variant={
+              props.queryForm.sortKey === "created_at" ? "default" : "outline"
+            }
+            onClick={() => {
+              props.onQueryFormChange((current) => ({
+                ...current,
+                sortKey: "created_at",
+              }));
+            }}
+          >
+            Sort by created
+          </Button>
+        </div>
+      </div>
+
+      <div className="text-xs text-slate-500">
+        {props.threads.length} loaded
+        {props.nextCursor ? " · more threads available" : ""}
+      </div>
+
+      <div className="grid max-h-[540px] gap-2 overflow-auto">
+        {props.threads.length === 0 ? (
+          <div className="border border-dashed border-border px-4 py-8 text-sm text-muted-foreground">
+            No threads loaded yet.
+          </div>
+        ) : null}
+        {props.threads.map((thread) => (
+          <button
+            key={thread.id}
+            type="button"
+            className={clsx(
+              "grid gap-2 border px-3 py-3 text-left transition-colors",
+              thread.id === props.selectedThreadId
+                ? "border-slate-900 bg-slate-900 text-white"
+                : "border-border bg-slate-50 text-slate-900 hover:bg-slate-100",
+            )}
+            onClick={() => {
+              props.onSelectThread(thread.id);
+            }}
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="line-clamp-2 flex-1 text-sm font-medium">
+                {thread.preview}
+              </div>
+              <ThreadStatusBadge thread={thread} />
+            </div>
+            <div className="font-mono text-[11px] opacity-80">{thread.id}</div>
+            <div className="text-xs opacity-80">
+              {thread.cwd}
+              <span className="mx-2">·</span>
+              {formatDateTime(thread.updatedAt)}
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SelectedThreadDetailPanel(props: {
+  thread: CodexAppServerThread | null;
+  selectedThreadId: string | null;
+  isLoading: boolean;
+  error: string | null;
+  onRefresh: () => void;
+  isBusy: boolean;
+}) {
+  return (
+    <div className="grid gap-4 border border-border bg-white p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+          Selected thread
+        </div>
+        <Button
+          variant="outline"
+          disabled={props.isBusy || !props.selectedThreadId}
+          onClick={props.onRefresh}
+        >
+          Refresh detail
+        </Button>
+      </div>
+
+      {!props.selectedThreadId ? (
+        <div className="border border-dashed border-border px-4 py-8 text-sm text-muted-foreground">
+          Select a local provider thread to inspect it.
+        </div>
+      ) : null}
+
+      {props.selectedThreadId && props.isLoading ? (
+        <div className="border border-dashed border-border px-4 py-8 text-sm text-muted-foreground">
+          Loading thread detail for {props.selectedThreadId}.
+        </div>
+      ) : null}
+
+      {props.selectedThreadId && props.error ? (
+        <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {props.error}
+        </div>
+      ) : null}
+
+      {props.thread && props.thread.id === props.selectedThreadId ? (
+        <>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-2 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Status</span>
+                <ThreadStatusBadge thread={props.thread} />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Provider thread</span>
+                <span className="font-mono text-xs">{props.thread.id}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Source</span>
+                <span className="font-mono text-xs">
+                  {props.thread.sourceLabel}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Model provider</span>
+                <span className="font-mono text-xs">
+                  {props.thread.modelProvider ?? "n/a"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Turns</span>
+                <span className="font-mono text-xs">
+                  {props.thread.turns.length}
+                </span>
+              </div>
+            </div>
+            <div className="grid gap-2 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Created</span>
+                <span className="font-mono text-xs">
+                  {formatDateTime(props.thread.createdAt)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Updated</span>
+                <span className="font-mono text-xs">
+                  {formatDateTime(props.thread.updatedAt)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Path</span>
+                <span className="font-mono text-xs">
+                  {props.thread.path ?? "n/a"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Branch</span>
+                <span className="font-mono text-xs">
+                  {props.thread.gitInfo?.branch ?? "n/a"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">CWD</span>
+                <span className="font-mono text-xs">{props.thread.cwd}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-2 border border-border bg-slate-50 p-3">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Preview
+            </div>
+            <div className="text-sm text-slate-800">{props.thread.preview}</div>
+          </div>
+
+          <div className="grid gap-3">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Turn history
+            </div>
+            {props.thread.turns.length === 0 ? (
+              <div className="border border-dashed border-border px-4 py-8 text-sm text-muted-foreground">
+                No hydrated turns returned for this thread.
+              </div>
+            ) : null}
+            {props.thread.turns.map((turn) => (
+              <div
+                key={turn.id}
+                className="grid gap-3 border border-border bg-slate-50 p-3"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="font-mono text-sm">{turn.id}</div>
+                  <Badge variant="outline">{turn.status}</Badge>
+                  <Badge variant="outline">
+                    {turn.items.length} item
+                    {turn.items.length === 1 ? "" : "s"}
+                  </Badge>
+                </div>
+                {turn.errorMessage ? (
+                  <div className="text-sm text-red-700">
+                    {turn.errorMessage}
+                  </div>
+                ) : null}
+                <div className="grid gap-2">
+                  {turn.items.map((item, index) => (
+                    <div
+                      key={`${turn.id}-${item.id ?? item.type}-${index}`}
+                      className="grid gap-1 border border-border bg-white px-3 py-2"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="font-mono text-xs">{item.type}</div>
+                        {item.id ? (
+                          <Badge
+                            variant="outline"
+                            className="font-mono text-[10px]"
+                          >
+                            {item.id}
+                          </Badge>
+                        ) : null}
+                      </div>
+                      {item.summary ? (
+                        <div className="text-sm text-slate-700">
+                          {item.summary}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-3 border border-border bg-slate-50 p-4">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Raw thread JSON
+            </div>
+            <Textarea
+              readOnly
+              value={formatJson(props.thread.raw)}
+              className="min-h-[260px] font-mono text-xs"
+            />
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 export function CodexAppServerResearchPage() {
   const [status, setStatus] = useState<CodexAppServerStatusResponse | null>(
     null,
   );
   const [events, setEvents] = useState<CodexAppServerResearchEvent[]>([]);
   const [requests, setRequests] = useState<CodexAppServerApprovalRequest[]>([]);
+  const [threads, setThreads] = useState<CodexAppServerThread[]>([]);
+  const [nextThreadCursor, setNextThreadCursor] = useState<string | null>(null);
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [selectedThread, setSelectedThread] =
+    useState<CodexAppServerThread | null>(null);
+  const [selectedThreadError, setSelectedThreadError] = useState<string | null>(
+    null,
+  );
+  const [isSelectedThreadLoading, setIsSelectedThreadLoading] = useState(false);
   const [protocol, setProtocol] =
     useState<CodexAppServerProtocolResponse | null>(null);
   const [protocolMode, setProtocolMode] = useState<"json-schema" | "ts">(
@@ -206,6 +580,14 @@ export function CodexAppServerResearchPage() {
     persistExtendedHistory: false,
   });
   const [resumeThreadId, setResumeThreadId] = useState("");
+  const [threadListForm, setThreadListForm] = useState<ThreadListQueryState>({
+    searchTerm: "",
+    sortKey: "updated_at",
+  });
+  const [threadListQuery, setThreadListQuery] = useState<ThreadListQueryState>({
+    searchTerm: "",
+    sortKey: "updated_at",
+  });
   const [turnForm, setTurnForm] = useState<TurnFormState>({
     threadId: "",
     prompt: DEFAULT_TURN_PROMPT,
@@ -218,6 +600,7 @@ export function CodexAppServerResearchPage() {
     turnId: "",
   });
   const nextCursorRef = useRef(0);
+  const selectedThreadRequestRef = useRef(0);
 
   const refreshStatus = async () => {
     const nextStatus = await requestJson<CodexAppServerStatusResponse>({
@@ -232,14 +615,7 @@ export function CodexAppServerResearchPage() {
             cwd: nextStatus.workspaceRoot,
           },
     );
-    setTurnForm((current) =>
-      current.threadId.length > 0 || !nextStatus.runtime.currentThreadId
-        ? current
-        : {
-            ...current,
-            threadId: nextStatus.runtime.currentThreadId,
-          },
-    );
+    return nextStatus;
   };
 
   const refreshRequests = async () => {
@@ -247,6 +623,7 @@ export function CodexAppServerResearchPage() {
       path: "/requests",
     });
     setRequests(nextRequests.requests);
+    return nextRequests;
   };
 
   const refreshEvents = async () => {
@@ -255,12 +632,10 @@ export function CodexAppServerResearchPage() {
     });
     nextCursorRef.current = response.nextCursor;
     if (response.events.length === 0) {
-      return;
+      return response;
     }
+
     setEvents((current) => {
-      // Dev-mode effect replays and action-triggered refreshes can overlap, so
-      // the same cursor window may arrive more than once. Deduping by cursor
-      // keeps the research log stable and avoids duplicate React keys.
       const mergedByCursor = new Map<number, CodexAppServerResearchEvent>();
       for (const event of current) {
         mergedByCursor.set(event.cursor, event);
@@ -270,7 +645,123 @@ export function CodexAppServerResearchPage() {
       }
       return Array.from(mergedByCursor.values()).slice(-200);
     });
+    return response;
   };
+
+  function buildThreadsPath(query: ThreadListQueryState): string {
+    const searchParams = updateQueryParams(undefined, (nextSearchParams) => {
+      setQueryParam(nextSearchParams, "limit", `${THREAD_LIST_LIMIT}`);
+      setQueryParam(nextSearchParams, "sortKey", query.sortKey);
+      setQueryParam(nextSearchParams, "searchTerm", query.searchTerm.trim());
+    });
+
+    return buildPathWithQuery({
+      pathname: "/threads",
+      search: searchParams,
+    });
+  }
+
+  const refreshThreads = async (
+    query: ThreadListQueryState = threadListQuery,
+  ) => {
+    const response = await requestJson<CodexAppServerThreadsResponse>({
+      path: buildThreadsPath(query),
+    });
+    setThreads(response.threads);
+    setNextThreadCursor(response.nextCursor);
+    setSelectedThreadId((current) => {
+      if (typeof current === "string") {
+        return current;
+      }
+      return response.threads.length > 0 ? response.threads[0].id : null;
+    });
+    setSelectedThread((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const refreshedSummary = response.threads.find(
+        (thread) => thread.id === current.id,
+      );
+      return refreshedSummary
+        ? {
+            ...current,
+            ...refreshedSummary,
+            turns: current.turns,
+          }
+        : current;
+    });
+    return response;
+  };
+
+  const refreshSelectedThread = async (
+    threadId: string | null = selectedThreadId,
+  ) => {
+    const requestId = selectedThreadRequestRef.current + 1;
+    selectedThreadRequestRef.current = requestId;
+
+    if (!threadId) {
+      setSelectedThread(null);
+      setSelectedThreadError(null);
+      setIsSelectedThreadLoading(false);
+      return null;
+    }
+
+    setIsSelectedThreadLoading(true);
+    try {
+      const response = await requestJson<CodexAppServerThreadDetailResponse>({
+        path: `/threads/${encodeURIComponent(threadId)}`,
+      });
+      if (selectedThreadRequestRef.current === requestId) {
+        setSelectedThread(response.thread);
+        setSelectedThreadError(null);
+      }
+      return response;
+    } catch (nextError) {
+      if (selectedThreadRequestRef.current === requestId) {
+        setSelectedThreadError(
+          nextError instanceof Error
+            ? nextError.message
+            : "Failed to load thread detail.",
+        );
+      }
+      throw nextError;
+    } finally {
+      if (selectedThreadRequestRef.current === requestId) {
+        setIsSelectedThreadLoading(false);
+      }
+    }
+  };
+
+  const runAction = async (action: () => Promise<unknown>) => {
+    setIsBusy(true);
+    try {
+      const response = await action();
+      setLastResponse(response);
+      setError(null);
+      await Promise.all([refreshStatus(), refreshRequests(), refreshEvents()]);
+      return response;
+    } catch (nextError) {
+      setError(
+        nextError instanceof Error ? nextError.message : "Request failed.",
+      );
+      return null;
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const refreshStatusRef = useRef(refreshStatus);
+  const refreshRequestsRef = useRef(refreshRequests);
+  const refreshEventsRef = useRef(refreshEvents);
+  const refreshThreadsRef = useRef(refreshThreads);
+  const refreshSelectedThreadRef = useRef(refreshSelectedThread);
+
+  refreshStatusRef.current = refreshStatus;
+  refreshRequestsRef.current = refreshRequests;
+  refreshEventsRef.current = refreshEvents;
+  refreshThreadsRef.current = refreshThreads;
+  refreshSelectedThreadRef.current = refreshSelectedThread;
 
   useEffect(() => {
     let cancelled = false;
@@ -278,9 +769,10 @@ export function CodexAppServerResearchPage() {
     const hydrate = async () => {
       try {
         await Promise.all([
-          refreshStatus(),
-          refreshRequests(),
-          refreshEvents(),
+          refreshStatusRef.current(),
+          refreshRequestsRef.current(),
+          refreshEventsRef.current(),
+          refreshThreadsRef.current(threadListQuery),
         ]);
         if (!cancelled) {
           setError(null);
@@ -305,23 +797,11 @@ export function CodexAppServerResearchPage() {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, []);
+  }, [threadListQuery]);
 
-  const runAction = async (action: () => Promise<unknown>) => {
-    setIsBusy(true);
-    try {
-      const response = await action();
-      setLastResponse(response);
-      setError(null);
-      await Promise.all([refreshStatus(), refreshRequests(), refreshEvents()]);
-    } catch (nextError) {
-      setError(
-        nextError instanceof Error ? nextError.message : "Request failed.",
-      );
-    } finally {
-      setIsBusy(false);
-    }
-  };
+  useEffect(() => {
+    void refreshSelectedThreadRef.current(selectedThreadId);
+  }, [selectedThreadId]);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(148,163,184,0.18),_transparent_30%),linear-gradient(180deg,_#f8fafc_0%,_#e2e8f0_100%)] text-slate-950">
@@ -340,9 +820,8 @@ export function CodexAppServerResearchPage() {
           </div>
           <p className="max-w-4xl text-sm text-slate-600">
             Local-only dev page for exploring the repo-owned bridge around{" "}
-            <code>codex app-server</code>. The goal is to inspect raw protocol
-            behavior, compare it to a smaller normalized runtime model, and
-            learn what actually needs to cross into Noter/Convex later.
+            <code>codex app-server</code>. This phase treats the runtime as a
+            machine-scoped thread inventory, not a single current-thread demo.
           </p>
           <div className="flex flex-wrap gap-2 text-xs text-slate-600">
             <span className="border border-slate-300 bg-slate-100 px-2 py-1 font-mono">
@@ -386,9 +865,19 @@ export function CodexAppServerResearchPage() {
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Thread</span>
+                    <span className="text-muted-foreground">
+                      Current thread
+                    </span>
                     <span className="font-mono">
                       {status?.runtime.currentThreadId ?? "none"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">
+                      Selected thread
+                    </span>
+                    <span className="font-mono">
+                      {selectedThreadId ?? "none"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -628,6 +1117,58 @@ export function CodexAppServerResearchPage() {
             <Card cornerNotch={0}>
               <CardHeader>
                 <CardTitle className="font-mono text-base">
+                  Thread inventory
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
+                <ThreadInventoryPanel
+                  threads={threads}
+                  selectedThreadId={selectedThreadId}
+                  nextCursor={nextThreadCursor}
+                  queryForm={threadListForm}
+                  onQueryFormChange={(updater) => {
+                    setThreadListForm((current) => updater(current));
+                  }}
+                  onLoadThreads={() => {
+                    void runAction(async () => {
+                      const nextQuery = { ...threadListForm };
+                      setThreadListQuery(nextQuery);
+                      const response = await refreshThreads(nextQuery);
+                      const activeThreadId =
+                        typeof selectedThreadId === "string"
+                          ? selectedThreadId
+                          : response.threads[0]?.id ?? null;
+                      if (activeThreadId) {
+                        await refreshSelectedThread(activeThreadId);
+                      }
+                      return response;
+                    });
+                  }}
+                  onSelectThread={(threadId) => {
+                    setSelectedThreadId(threadId);
+                  }}
+                  isBusy={isBusy}
+                />
+                <SelectedThreadDetailPanel
+                  thread={selectedThread}
+                  selectedThreadId={selectedThreadId}
+                  isLoading={isSelectedThreadLoading}
+                  error={selectedThreadError}
+                  onRefresh={() => {
+                    void runAction(async () => {
+                      const response =
+                        await refreshSelectedThread(selectedThreadId);
+                      return response;
+                    });
+                  }}
+                  isBusy={isBusy}
+                />
+              </CardContent>
+            </Card>
+
+            <Card cornerNotch={0}>
+              <CardHeader>
+                <CardTitle className="font-mono text-base">
                   Thread and turn control
                 </CardTitle>
               </CardHeader>
@@ -640,22 +1181,31 @@ export function CodexAppServerResearchPage() {
                     <Button
                       disabled={isBusy}
                       onClick={() => {
-                        void runAction(() =>
-                          requestJson({
-                            path: "/thread/start",
-                            method: "POST",
-                            body: {
-                              cwd: runtimeForm.cwd || undefined,
-                              model: runtimeForm.model || undefined,
-                              approvalPolicy:
-                                runtimeForm.approvalPolicy || undefined,
-                              sandbox: runtimeForm.sandbox || undefined,
-                              personality: runtimeForm.personality || undefined,
-                              persistExtendedHistory:
-                                runtimeForm.persistExtendedHistory,
-                            },
-                          }),
-                        );
+                        void runAction(async () => {
+                          const response =
+                            await requestJson<ThreadActionResponse>({
+                              path: "/thread/start",
+                              method: "POST",
+                              body: {
+                                cwd: runtimeForm.cwd || undefined,
+                                model: runtimeForm.model || undefined,
+                                approvalPolicy:
+                                  runtimeForm.approvalPolicy || undefined,
+                                sandbox: runtimeForm.sandbox || undefined,
+                                personality:
+                                  runtimeForm.personality || undefined,
+                                persistExtendedHistory:
+                                  runtimeForm.persistExtendedHistory,
+                              },
+                            });
+                          const nextThreadId = response.runtime.currentThreadId;
+                          await refreshThreads(threadListQuery);
+                          if (nextThreadId) {
+                            setSelectedThreadId(nextThreadId);
+                            await refreshSelectedThread(nextThreadId);
+                          }
+                          return response;
+                        });
                       }}
                     >
                       Start thread
@@ -671,21 +1221,30 @@ export function CodexAppServerResearchPage() {
                       variant="outline"
                       disabled={isBusy || resumeThreadId.trim().length === 0}
                       onClick={() => {
-                        void runAction(() =>
-                          requestJson({
-                            path: "/thread/resume",
-                            method: "POST",
-                            body: {
-                              threadId: resumeThreadId.trim(),
-                              cwd: runtimeForm.cwd || undefined,
-                              model: runtimeForm.model || undefined,
-                              approvalPolicy:
-                                runtimeForm.approvalPolicy || undefined,
-                              sandbox: runtimeForm.sandbox || undefined,
-                              personality: runtimeForm.personality || undefined,
-                            },
-                          }),
-                        );
+                        void runAction(async () => {
+                          const response =
+                            await requestJson<ThreadActionResponse>({
+                              path: "/thread/resume",
+                              method: "POST",
+                              body: {
+                                threadId: resumeThreadId.trim(),
+                                cwd: runtimeForm.cwd || undefined,
+                                model: runtimeForm.model || undefined,
+                                approvalPolicy:
+                                  runtimeForm.approvalPolicy || undefined,
+                                sandbox: runtimeForm.sandbox || undefined,
+                                personality:
+                                  runtimeForm.personality || undefined,
+                              },
+                            });
+                          const nextThreadId =
+                            response.runtime.currentThreadId ??
+                            resumeThreadId.trim();
+                          await refreshThreads(threadListQuery);
+                          setSelectedThreadId(nextThreadId);
+                          await refreshSelectedThread(nextThreadId);
+                          return response;
+                        });
                       }}
                     >
                       Resume thread
@@ -697,7 +1256,7 @@ export function CodexAppServerResearchPage() {
                       Turn
                     </div>
                     <Input
-                      placeholder="Thread id (blank uses current thread)"
+                      placeholder="Thread id (blank uses selected thread)"
                       value={turnForm.threadId}
                       onChange={(event) => {
                         setTurnForm((current) => ({
@@ -751,12 +1310,14 @@ export function CodexAppServerResearchPage() {
                     <Button
                       disabled={isBusy || turnForm.prompt.trim().length === 0}
                       onClick={() => {
-                        void runAction(() =>
-                          requestJson({
+                        void runAction(async () => {
+                          const targetThreadId =
+                            turnForm.threadId.trim() || selectedThreadId;
+                          const response = await requestJson({
                             path: "/turn/start",
                             method: "POST",
                             body: {
-                              threadId: turnForm.threadId || undefined,
+                              threadId: targetThreadId || undefined,
                               text: turnForm.prompt,
                               cwd: runtimeForm.cwd || undefined,
                               model: runtimeForm.model || undefined,
@@ -771,8 +1332,16 @@ export function CodexAppServerResearchPage() {
                                   ? Number(turnForm.timeoutMs)
                                   : undefined,
                             },
-                          }),
-                        );
+                          });
+                          const nextThreadId =
+                            targetThreadId ?? readCurrentThreadId(response);
+                          await refreshThreads(threadListQuery);
+                          if (nextThreadId) {
+                            setSelectedThreadId(nextThreadId);
+                            await refreshSelectedThread(nextThreadId);
+                          }
+                          return response;
+                        });
                       }}
                     >
                       Start turn
@@ -805,16 +1374,22 @@ export function CodexAppServerResearchPage() {
                         isBusy || interruptForm.turnId.trim().length === 0
                       }
                       onClick={() => {
-                        void runAction(() =>
-                          requestJson({
+                        void runAction(async () => {
+                          const targetThreadId =
+                            interruptForm.threadId.trim() || selectedThreadId;
+                          const response = await requestJson({
                             path: "/turn/interrupt",
                             method: "POST",
                             body: {
-                              threadId: interruptForm.threadId || undefined,
+                              threadId: targetThreadId || undefined,
                               turnId: interruptForm.turnId,
                             },
-                          }),
-                        );
+                          });
+                          if (targetThreadId) {
+                            await refreshSelectedThread(targetThreadId);
+                          }
+                          return response;
+                        });
                       }}
                     >
                       Interrupt turn

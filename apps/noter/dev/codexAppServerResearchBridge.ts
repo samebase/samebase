@@ -22,6 +22,11 @@ import {
   type CodexAppServerRequestsResponse,
   type CodexAppServerRuntimeSnapshot,
   type CodexAppServerStatusResponse,
+  type CodexAppServerThread,
+  type CodexAppServerThreadDetailResponse,
+  type CodexAppServerThreadItem,
+  type CodexAppServerThreadsResponse,
+  type CodexAppServerThreadTurn,
 } from "../src/lib/codexAppServerResearch";
 
 const execFileAsync = promisify(execFile);
@@ -31,6 +36,7 @@ const CODEX_INIT_TIMEOUT_MS = 30_000;
 const CODEX_EVENT_BUFFER_SIZE = 500;
 const CODEX_REQUEST_BUFFER_SIZE = 100;
 const CODEX_APPROVAL_CONTEXT_BUFFER_SIZE = 100;
+const DEFAULT_THREAD_SOURCE_KINDS = ["cli", "vscode", "exec", "appServer"];
 
 type JsonRpcId = string | number;
 
@@ -78,6 +84,20 @@ function readString(value: unknown): string | undefined {
 
 function readBoolean(value: unknown): boolean | undefined {
   return typeof value === "boolean" ? value : undefined;
+}
+
+function readNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
+}
+
+function readStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((entry): entry is string => typeof entry === "string");
 }
 
 function describeError(error: unknown): string {
@@ -247,6 +267,232 @@ function applySettingsOverrides(
   if (params.summary === undefined && summary !== undefined) {
     params.summary = summary;
   }
+}
+
+// MARK: - Thread inventory normalization
+
+function truncateText(value: string, maxLength = 120): string {
+  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
+}
+
+function describeThreadSource(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  const record = asRecord(value);
+  if (!record) {
+    return "unknown";
+  }
+
+  const subAgent = record.subAgent;
+  if (typeof subAgent === "string") {
+    return `subAgent:${subAgent}`;
+  }
+
+  const subAgentRecord = asRecord(subAgent);
+  if (subAgentRecord) {
+    const nestedKey = Object.keys(subAgentRecord)[0];
+    if (nestedKey) {
+      return `subAgent:${nestedKey}`;
+    }
+  }
+
+  const key = Object.keys(record)[0];
+  if (key) {
+    return key;
+  }
+
+  return "unknown";
+}
+
+function summarizeUserMessageContent(value: unknown): string | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const firstText = value.find((entry) => {
+    const record = asRecord(entry);
+    return record?.type === "text" && typeof record.text === "string";
+  });
+  const firstTextRecord = asRecord(firstText);
+  if (typeof firstTextRecord?.text === "string") {
+    return truncateText(firstTextRecord.text);
+  }
+
+  if (value.length === 0) {
+    return "Empty user message";
+  }
+
+  return `${value.length} input item${value.length === 1 ? "" : "s"}`;
+}
+
+function summarizeThreadItem(record: Record<string, unknown>): string | null {
+  const itemType = readString(record.type) ?? "unknown";
+
+  if (itemType === "userMessage") {
+    return summarizeUserMessageContent(record.content);
+  }
+
+  if (itemType === "agentMessage") {
+    const text = readString(record.text);
+    return text ? truncateText(text) : null;
+  }
+
+  if (itemType === "commandExecution") {
+    const command = readString(record.command);
+    const cwd = readString(record.cwd);
+    if (command && cwd) {
+      return `${command} (${cwd})`;
+    }
+    return command ?? cwd ?? null;
+  }
+
+  if (itemType === "fileChange") {
+    const changes = Array.isArray(record.changes) ? record.changes.length : 0;
+    return `${changes} change${changes === 1 ? "" : "s"}`;
+  }
+
+  if (itemType === "reasoning") {
+    const summary = readStringArray(record.summary).at(0);
+    const content = readStringArray(record.content).at(0);
+    return summary ?? content ?? "Reasoning";
+  }
+
+  if (itemType === "mcpToolCall") {
+    const server = readString(record.server);
+    const tool = readString(record.tool);
+    if (server && tool) {
+      return `${server}/${tool}`;
+    }
+    return server ?? tool ?? null;
+  }
+
+  if (itemType === "dynamicToolCall" || itemType === "collabAgentToolCall") {
+    return readString(record.tool) ?? null;
+  }
+
+  if (itemType === "webSearch") {
+    return readString(record.query) ?? null;
+  }
+
+  if (itemType === "imageView") {
+    return readString(record.path) ?? null;
+  }
+
+  if (itemType === "imageGeneration") {
+    return readString(record.result) ?? null;
+  }
+
+  if (itemType === "enteredReviewMode" || itemType === "exitedReviewMode") {
+    return readString(record.review) ?? null;
+  }
+
+  if (itemType === "contextCompaction") {
+    return "Context compaction";
+  }
+
+  return readString(record.text) ?? readString(record.command) ?? null;
+}
+
+function normalizeThreadItem(value: unknown): CodexAppServerThreadItem | null {
+  const record = asRecord(value);
+  if (!record) {
+    return null;
+  }
+
+  return {
+    id: readString(record.id) ?? null,
+    type: readString(record.type) ?? "unknown",
+    summary: summarizeThreadItem(record),
+    raw: cloneJsonValue(value),
+  };
+}
+
+function normalizeThreadTurn(value: unknown): CodexAppServerThreadTurn | null {
+  const record = asRecord(value);
+  if (!record) {
+    return null;
+  }
+  const id = readString(record.id);
+  const status = readString(record.status);
+  if (!id || !status) {
+    return null;
+  }
+
+  const items = Array.isArray(record.items)
+    ? record.items
+        .map((item) => normalizeThreadItem(item))
+        .filter((item): item is CodexAppServerThreadItem => item !== null)
+    : [];
+
+  return {
+    id,
+    status,
+    errorMessage: readString(asRecord(record.error)?.message) ?? null,
+    items,
+    raw: cloneJsonValue(value),
+  };
+}
+
+function normalizeThreadStatus(value: unknown) {
+  const record = asRecord(value);
+  return {
+    type: readString(record?.type) ?? "unknown",
+    activeFlags: readStringArray(record?.activeFlags),
+    raw: cloneJsonValue(value),
+  };
+}
+
+function normalizeThread(value: unknown): CodexAppServerThread | null {
+  const record = asRecord(value);
+  if (!record) {
+    return null;
+  }
+  const id = readString(record.id);
+  const preview = readString(record.preview);
+  const cwd = readString(record.cwd);
+  const createdAt = readNumber(record.createdAt);
+  const updatedAt = readNumber(record.updatedAt);
+  if (!id || preview === undefined || !cwd || createdAt === undefined) {
+    return null;
+  }
+  if (updatedAt === undefined) {
+    return null;
+  }
+
+  const gitInfo = asRecord(record.gitInfo);
+  const turns = Array.isArray(record.turns)
+    ? record.turns
+        .map((turn) => normalizeThreadTurn(turn))
+        .filter((turn): turn is CodexAppServerThreadTurn => turn !== null)
+    : [];
+
+  return {
+    id,
+    name: readString(record.name) ?? null,
+    preview,
+    cwd,
+    createdAt,
+    updatedAt,
+    cliVersion: readString(record.cliVersion) ?? null,
+    modelProvider: readString(record.modelProvider) ?? null,
+    sourceLabel: describeThreadSource(record.source),
+    source: cloneJsonValue(record.source),
+    status: normalizeThreadStatus(record.status),
+    gitInfo: gitInfo
+      ? {
+          branch: readString(gitInfo.branch) ?? null,
+          originUrl: readString(gitInfo.originUrl) ?? null,
+          sha: readString(gitInfo.sha) ?? null,
+        }
+      : null,
+    path: readString(record.path) ?? null,
+    agentNickname: readString(record.agentNickname) ?? null,
+    agentRole: readString(record.agentRole) ?? null,
+    turns,
+    raw: cloneJsonValue(value),
+  };
 }
 
 function withApprovalContext(args: {
@@ -839,6 +1085,99 @@ class CodexAppServerResearchRuntime {
     };
   }
 
+  /**
+   * Keep the browser contract focused on the subset Noter needs for a future
+   * machine connector, while preserving the raw provider payload on each thread
+   * for protocol inspection.
+   */
+  async listThreads(
+    searchParams: URLSearchParams,
+  ): Promise<CodexAppServerThreadsResponse> {
+    const params: Record<string, unknown> = {};
+    const archived = searchParams.get("archived");
+    if (archived === "true") {
+      params.archived = true;
+    }
+    if (archived === "false") {
+      params.archived = false;
+    }
+
+    const cursor = searchParams.get("cursor");
+    if (cursor) {
+      params.cursor = cursor;
+    }
+
+    const cwd = searchParams.get("cwd");
+    if (cwd) {
+      params.cwd = cwd;
+    }
+
+    const limitValue = Number.parseInt(searchParams.get("limit") ?? "", 10);
+    if (Number.isFinite(limitValue) && limitValue > 0) {
+      params.limit = limitValue;
+    }
+
+    const searchTerm = searchParams.get("searchTerm");
+    if (searchTerm) {
+      params.searchTerm = searchTerm;
+    }
+
+    const sortKey = searchParams.get("sortKey");
+    if (sortKey === "created_at" || sortKey === "updated_at") {
+      params.sortKey = sortKey;
+    }
+
+    const sourceKinds = searchParams.get("sourceKinds");
+    if (sourceKinds) {
+      params.sourceKinds = sourceKinds
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0);
+    } else {
+      // `thread/list` omits app-server sessions by default, but the research
+      // page needs to see the threads it just created through this bridge.
+      params.sourceKinds = DEFAULT_THREAD_SOURCE_KINDS;
+    }
+
+    const result = await this.sendRequestNoEnsure({
+      method: "thread/list",
+      params,
+    });
+    const record = asRecord(result);
+    const threads = Array.isArray(record?.data)
+      ? record.data
+          .map((thread) => normalizeThread(thread))
+          .filter((thread): thread is CodexAppServerThread => thread !== null)
+      : [];
+
+    return {
+      threads,
+      nextCursor: readString(record?.nextCursor) ?? null,
+      runtime: this.getSnapshot(),
+    };
+  }
+
+  async readThread(
+    threadId: string,
+  ): Promise<CodexAppServerThreadDetailResponse> {
+    const result = await this.sendRequestNoEnsure({
+      method: "thread/read",
+      params: {
+        threadId,
+        includeTurns: true,
+      },
+    });
+    const thread = normalizeThread(asRecord(result)?.thread);
+    if (!thread) {
+      throw new Error("thread/read returned an invalid thread payload");
+    }
+
+    return {
+      thread,
+      runtime: this.getSnapshot(),
+    };
+  }
+
   async respondApproval(body: unknown) {
     const record = asRecord(body);
     const requestId = record?.requestId;
@@ -1070,6 +1409,25 @@ function buildRouter(args: { runtime: CodexAppServerResearchRuntime }) {
 
       if (req.method === "GET" && routePath === "/requests") {
         sendJson(res, 200, await args.runtime.listRequests());
+        return;
+      }
+
+      if (req.method === "GET" && routePath === "/threads") {
+        await args.runtime.ensureRuntime(false);
+        sendJson(res, 200, await args.runtime.listThreads(url.searchParams));
+        return;
+      }
+
+      if (req.method === "GET" && routePath.startsWith("/threads/")) {
+        const encodedThreadId = routePath.slice("/threads/".length);
+        const threadId = decodeURIComponent(encodedThreadId);
+        if (threadId.length === 0) {
+          sendJson(res, 400, { error: "threadId is required" });
+          return;
+        }
+
+        await args.runtime.ensureRuntime(false);
+        sendJson(res, 200, await args.runtime.readThread(threadId));
         return;
       }
 
