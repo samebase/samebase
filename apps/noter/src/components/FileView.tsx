@@ -216,7 +216,7 @@ type PendingMediaUpload = {
   preferredFolderPath: string;
 };
 
-type RefreshTrigger = "focus" | "page_load";
+type RefreshTrigger = "visibility" | "page_load";
 const BRANCH_COMPARE_PREVIEW_STAGING_DEBOUNCE_MS = 1000;
 
 function isStorageBackedFileError(error: unknown): boolean {
@@ -606,7 +606,7 @@ function FileViewWrapper() {
   ]);
 
   const refreshTreeIfNeeded = useCallback(
-    (trigger: RefreshTrigger = "focus") => {
+    (trigger: RefreshTrigger = "visibility") => {
       if (
         !vaultId ||
         !owner ||
@@ -644,23 +644,18 @@ function FileViewWrapper() {
   );
 
   /**
-   * Refresh the repository tree when this tab becomes visible or focused again,
-   * and also do one initial refresh if the vault loads while the tab is already
-   * active. This keeps file/branch metadata in sync with GitHub.
+   * Refresh the active branch when the tab becomes visible again, plus one
+   * initial sync if the vault loads while the tab is already active.
    */
   useEffect(() => {
     if (!vaultId || !owner || !repoName) return;
 
-    const handleFocus = () => {
-      refreshTreeIfNeeded();
-    };
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        refreshTreeIfNeeded();
+        refreshTreeIfNeeded("visibility");
       }
     };
 
-    window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     // Initial sync when the vault loads while this tab is already active.
@@ -669,7 +664,6 @@ function FileViewWrapper() {
     }
 
     return () => {
-      window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [vaultId, owner, repoName, refreshTreeIfNeeded]);
@@ -1959,6 +1953,7 @@ function FileViewInner({
           branch: args.nextBranch,
           includeAheadBehind: true,
           includePullRequestLinks: true,
+          trigger: "manual",
         });
         didHydrateNextBranch = refreshResult.refreshed;
         if (!refreshResult.refreshed) {

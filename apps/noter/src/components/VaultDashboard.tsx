@@ -33,6 +33,11 @@ import {
 } from "@/lib/treeRefreshDebounce";
 import { useNow } from "@/hooks/useNow";
 import {
+  getLastRepositoryMetadataRefreshAt,
+  isRepositoryMetadataStale,
+  TREE_REFRESH_DEBOUNCE_MS,
+} from "../../shared/treeRefresh";
+import {
   useAction,
   useMutation,
   useQuery as useConvexQuery,
@@ -184,7 +189,7 @@ const isCreateTemplate = (value: string): value is CreateTemplate =>
   value === "app" || value === "agent";
 
 const DASHBOARD_REFRESH_CONCURRENCY = 3;
-type RefreshTrigger = "focus" | "page_load";
+type RefreshTrigger = "visibility" | "page_load";
 const PROVIDER_KEYS = ["github", "convex", "cloudflare"] as const;
 type ProviderKey = (typeof PROVIDER_KEYS)[number];
 type ProviderMetadata = {
@@ -212,6 +217,48 @@ type DashboardManualRefreshVault = {
   state: string;
   treeRefreshCooldownUntil?: number;
 };
+
+const getCurrentSecondTimestamp = () => Math.floor(Date.now() / 1000) * 1000;
+
+function shouldAutoRefreshVault(args: {
+  lastTreeRefreshAt?: number;
+  remoteBranches: Array<{
+    remoteState: "active" | "deleted_upstream";
+    lastSyncedAt: number;
+    pullRequestNumber?: number;
+    cloudflareBranchPreviewUrl?: string;
+  }>;
+  trigger: RefreshTrigger;
+  now?: number;
+}): boolean {
+  const now = args.now ?? Date.now();
+  const activeRemoteBranches = args.remoteBranches.filter(
+    (branch) => branch.remoteState === "active",
+  );
+  const hasMissingPreviewLinks = activeRemoteBranches.some(
+    (branch) =>
+      typeof branch.pullRequestNumber === "number" &&
+      typeof branch.cloudflareBranchPreviewUrl !== "string",
+  );
+  const metadataStale =
+    activeRemoteBranches.length > 0 &&
+    (hasMissingPreviewLinks ||
+      isRepositoryMetadataStale({
+        lastRepositoryMetadataRefreshAt:
+          getLastRepositoryMetadataRefreshAt(activeRemoteBranches),
+        now,
+      }));
+
+  if (args.trigger === "visibility") {
+    return metadataStale;
+  }
+
+  return (
+    metadataStale ||
+    typeof args.lastTreeRefreshAt !== "number" ||
+    now - args.lastTreeRefreshAt >= TREE_REFRESH_DEBOUNCE_MS
+  );
+}
 
 const GitHubProviderLogo = ({ className }: { className?: string }) => (
   <GitHubLogoIcon className={clsx("h-4 w-4", className)} />
@@ -940,16 +987,22 @@ function VaultDashboardContent() {
   }, []);
 
   const refreshVaultTreesIfNeeded = useCallback(
-    (trigger: RefreshTrigger = "focus") => {
+    (trigger: RefreshTrigger = "visibility") => {
       if (!vaults || vaults.length === 0) {
         return;
       }
 
+      const now = Date.now();
       const readyVaults = vaults.filter((vault) => vault.state === "ready");
       const vaultsToRefresh = readyVaults.filter((vault) =>
         typeof vault.treeRefreshCooldownUntil !== "number" ||
-        vault.treeRefreshCooldownUntil <= Date.now()
-          ? claimRefreshDebounce("dashboard", vault.repositoryFullName)
+        vault.treeRefreshCooldownUntil <= now
+          ? shouldAutoRefreshVault({
+              lastTreeRefreshAt: vault.lastTreeRefreshAt,
+              remoteBranches: vault.remoteBranches,
+              trigger,
+              now,
+            }) && claimRefreshDebounce("dashboard", vault.repositoryFullName)
           : false,
       );
 
@@ -971,18 +1024,18 @@ function VaultDashboardContent() {
           await Promise.all(
             batch.map(async (vault) => {
               const shouldIncludeCloudflarePreviewLinks =
-                trigger === "page_load" ||
                 vault.remoteBranches.some(
                   (branch) =>
+                    branch.remoteState === "active" &&
                     typeof branch.pullRequestNumber === "number" &&
                     typeof branch.cloudflareBranchPreviewUrl !== "string",
                 );
               await refreshTree({
                 owner: vault.ghRepoOwner,
                 repo: vault.ghRepoName,
-                // Preview-comment scans are expensive compared to the branch/tree
-                // refresh itself, so only re-run them on first load or while a
-                // PR branch is still missing cached preview metadata.
+                // Preview-comment scans are expensive compared to the default
+                // branch tree refresh itself, so only re-run them while a PR
+                // branch is still missing cached preview metadata.
                 includeCloudflarePreviewLinks:
                   shouldIncludeCloudflarePreviewLinks,
                 trigger,
@@ -1037,17 +1090,12 @@ function VaultDashboardContent() {
       return;
     }
 
-    const handleFocus = () => {
-      refreshVaultTreesIfNeeded();
-    };
-
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        refreshVaultTreesIfNeeded();
+        refreshVaultTreesIfNeeded("visibility");
       }
     };
 
-    window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     if (document.visibilityState === "visible") {
@@ -1055,7 +1103,6 @@ function VaultDashboardContent() {
     }
 
     return () => {
-      window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [refreshVaultTreesIfNeeded, vaults]);

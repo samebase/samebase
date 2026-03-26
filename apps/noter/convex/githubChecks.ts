@@ -5,6 +5,7 @@ import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { getUserId } from "./common";
 import { Octokit } from "@octokit/rest";
+import { describeRepositoryTreeRefreshFailure } from "./github";
 import { isObjectRecord as isRecord } from "./jsonUtils";
 
 const { array, literal, number, object, string, union } = v;
@@ -38,8 +39,15 @@ const commitStatusRateLimitedResultValidator = object({
   retryAfterMs: union(number(), v.null()),
 });
 
+const commitStatusCooldownResultValidator = object({
+  kind: literal("cooldown"),
+  message: string(),
+  cooldownUntilMs: number(),
+});
+
 const commitStatusResultValidator = union(
   commitStatusOkResultValidator,
+  commitStatusCooldownResultValidator,
   commitStatusRateLimitedResultValidator,
 );
 
@@ -48,9 +56,28 @@ type HeaderMap = Record<string, HeaderValue>;
 
 type CommitStatusResult = Infer<typeof commitStatusResultValidator>;
 type CommitStatusOkResult = Infer<typeof commitStatusOkResultValidator>;
+type CommitStatusCooldownResult = Infer<
+  typeof commitStatusCooldownResultValidator
+>;
 type CommitStatusRateLimitedResult = Infer<
   typeof commitStatusRateLimitedResultValidator
 >;
+
+function readSharedCooldownMessage(vault: {
+  treeRefreshFailureKind?: "failed" | "rate_limited";
+  treeRefreshFailureMessage?: string;
+}): string {
+  if (
+    typeof vault.treeRefreshFailureMessage === "string" &&
+    vault.treeRefreshFailureMessage.length > 0
+  ) {
+    return vault.treeRefreshFailureMessage;
+  }
+
+  return vault.treeRefreshFailureKind === "rate_limited"
+    ? "GitHub API rate limited. Auto-refresh paused."
+    : "GitHub sync failed. Showing cached state.";
+}
 
 function toHeaderMap(value: unknown): HeaderMap | null {
   if (!isRecord(value)) {
@@ -174,6 +201,25 @@ export const getCommitStatus = action({
   returns: commitStatusResultValidator,
   handler: async (ctx, { owner, repo, ref }): Promise<CommitStatusResult> => {
     const userId = await getUserId(ctx);
+    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
+      repositoryFullName: `${owner}/${repo}`,
+      userId,
+    });
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
+    if (
+      typeof vault.treeRefreshCooldownUntil === "number" &&
+      vault.treeRefreshCooldownUntil > Date.now()
+    ) {
+      const cooldownResult: CommitStatusCooldownResult = {
+        kind: "cooldown",
+        message: readSharedCooldownMessage(vault),
+        cooldownUntilMs: vault.treeRefreshCooldownUntil,
+      };
+      return cooldownResult;
+    }
+
     const githubConnection = await ctx.runQuery(
       internal.providerConnections.getByUserAndKind,
       {
@@ -230,6 +276,14 @@ export const getCommitStatus = action({
         throw error;
       }
 
+      const failure = describeRepositoryTreeRefreshFailure(error);
+      await ctx.runMutation(internal.vault.recordTreeRefreshFailure, {
+        vaultId: vault._id,
+        failureKind: failure.kind,
+        failureMessage: failure.message,
+        cooldownUntil: failure.cooldownUntil,
+      });
+
       const resetAtSeconds = parsePositiveInteger(
         getHeaderValue(headers, "x-ratelimit-reset"),
       );
@@ -239,7 +293,7 @@ export const getCommitStatus = action({
 
       const rateLimitedResult: CommitStatusRateLimitedResult = {
         kind: "rate_limited",
-        message,
+        message: failure.message,
         resetAtMs: resetAtSeconds === null ? null : resetAtSeconds * 1000,
         retryAfterMs:
           retryAfterSeconds === null ? null : retryAfterSeconds * 1000,

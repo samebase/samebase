@@ -4,8 +4,8 @@
 
 - Status: Accepted phased rollout plan
 - Owner: Noter backend/frontend sync flows
-- Last updated: 2026-03-26
-- Related research: `rfcs/069_GITHUB_SYNC_RATE_LIMIT_RESEARCH.md`
+- Last updated: 2026-03-27
+- Related research: none retained in-repo; Phase 1 scope shipped in `#347`
 
 ## Summary
 
@@ -175,6 +175,121 @@ Minimum user-visible states in Phase 1:
 - `Retrying in 4m`
 - `Last sync failed`
 
+## Phase 2 Design
+
+### Refresh Split
+
+Phase 2 splits the current mixed GitHub refresh path into two backend-owned
+operations:
+
+1. branch-tree refresh
+2. repo-metadata sync
+
+Branch-tree refresh is the cheap path. It fetches only the selected branch tree
+and latest branch commit, then updates:
+
+- `vaults.treeData` / `vaults.commitSHA` for the default branch
+- `vaultBranchTrees.treeData` / `vaultBranchTrees.commitSHA` for non-default
+  branches
+- `lastTreeRefreshAt` on the tree record that was actually refreshed
+
+Repo-metadata sync is the expensive path. It updates repository-wide cached
+branch metadata in `vaultRemoteBranches`, including:
+
+- remote branch list and default-branch membership
+- branch head SHAs and `lastCommitAt`
+- ahead/behind counts
+- pull request URL / number / title / labels / draft state
+- Cloudflare preview metadata when explicitly requested
+
+Phase 2 must keep these paths independently selectable. A tree refresh must not
+implicitly perform repo metadata sync unless the trigger contract below requires
+it.
+
+### Trigger Contract
+
+Allowed Phase 2 trigger behavior:
+
+- `page_load`
+  - File view may run branch-tree refresh.
+  - File view may run repo-metadata sync only when cached repo metadata is
+    missing, stale, or the requested branch is not present in the cached branch
+    list.
+  - Dashboard may run default-branch tree refresh plus repo-metadata sync when
+    cached metadata is missing or stale.
+- `focus`
+  - File view may run branch-tree refresh only.
+  - Dashboard must not fan out repo refreshes across all vaults on plain window
+    focus.
+- `visibility`
+  - File view may run branch-tree refresh only when the document becomes visible
+    again, except for the requested-branch cache-miss reconfirmation rule below.
+  - Dashboard may run repo-metadata sync only when cached metadata is stale.
+- `manual_refresh`
+  - May run both branch-tree refresh and repo-metadata sync.
+  - Still respects any active shared cooldown; manual refresh does not bypass a
+    live GitHub backoff window.
+- `polling`
+  - Reserved for commit/check status polling.
+  - Must not trigger branch-tree refresh or repo-metadata sync directly.
+
+### Cached Repo Metadata Freshness
+
+Phase 2 treats repo metadata freshness separately from tree freshness.
+
+Source of truth:
+
+- repo metadata freshness comes from the latest
+  `vaultRemoteBranches.lastSyncedAt` value for the vault
+- tree freshness comes from `lastTreeRefreshAt` on the relevant tree cache row
+
+Rules:
+
+- missing repo metadata means the vault has no cached `vaultRemoteBranches` rows
+- stale repo metadata means the latest `vaultRemoteBranches.lastSyncedAt` is
+  older than the Phase 2 metadata freshness window
+- requested-branch cache miss is a special case: a file view for branch `X` may
+  force repo-metadata sync even if normal metadata freshness has not yet
+  expired, but it must still debounce repeated "branch still missing" checks
+- recent branch-tree success must not by itself make repo metadata count as
+  fresh
+
+Phase 2 should use a longer freshness window for repo metadata than for
+branch-tree refresh so dashboard/page visibility churn stops multiplying GitHub
+traffic.
+
+### Shared Cooldown Contract for Commit/Check Polling
+
+Commit/check polling joins the same repo-level cooldown contract introduced in
+Phase 1.
+
+Rules:
+
+- commit/check polling must consult shared repo cooldown state before calling
+  GitHub
+- when repo cooldown is active, polling should return a paused/cooldown result
+  from cached Convex state instead of attempting new GitHub requests
+- when GitHub check/status APIs return a rate-limit response, polling must write
+  the shared repo cooldown state so tree refreshes and future polls pause
+  together
+- generic non-rate-limit check polling failures do not need to create a new repo
+  cooldown window, but they must not clear an existing one
+- while checks are still running, frontend polling may continue on its normal
+  cadence only when no shared cooldown is active
+
+### Phase 2 Acceptance Checklist
+
+- [ ] File-view focus/visibility churn only triggers the branch-tree refresh
+      path
+- [ ] Dashboard auto-refresh no longer fans out repo-wide metadata sync on plain
+      window focus
+- [ ] Repo metadata freshness is evaluated independently from tree freshness
+- [ ] Requested-branch cache misses revalidate repo metadata without causing
+      repeated burst retries
+- [ ] Commit/check polling skips GitHub during active shared cooldown
+- [ ] Commit/check rate-limit responses write the shared repo cooldown state
+- [ ] Phase 2 ships as a standalone traffic-reduction deploy
+
 ## Monitoring and Rollout Gates
 
 After each deploy, inspect:
@@ -187,6 +302,11 @@ After each deploy, inspect:
 - time spent in syncing state without a successful completion
 - recovery behavior after cooldown expires
 
+If production logs are used as a Phase 2 rollout gate for cooldown skips,
+trigger attribution, or polling behavior, first add minimal structured logging
+around refresh claim / skip / run decisions. Current logs are sufficient for
+actual executions and failures, but not for proving skipped auto-refresh paths.
+
 Phase advancement rule:
 
 - do not start the next phase only because the code is ready
@@ -198,6 +318,7 @@ Phase advancement rule:
 - `apps/noter/convex/schema.ts`
 - `apps/noter/convex/vault.ts`
 - `apps/noter/convex/github.ts`
+- `apps/noter/convex/githubChecks.ts`
 - `apps/noter/convex/fileStagingActions.ts`
 - `apps/noter/src/components/FileView.tsx`
 - `apps/noter/src/components/VaultDashboard.tsx`
@@ -206,9 +327,9 @@ Phase advancement rule:
 
 ## Acceptance Checklist
 
-- [ ] Phase 1 repo-level cooldown state exists in Convex
-- [ ] Tree refresh skips while cooldown is active
-- [ ] Branch refresh uses the same backend claim path as default refresh
-- [ ] Failed refresh no longer looks like a fresh successful sync
-- [ ] Sync UI renders rate-limited and failed states
-- [ ] Phase 1 ships as a standalone deployable change
+- [x] Phase 1 repo-level cooldown state exists in Convex
+- [x] Tree refresh skips while cooldown is active
+- [x] Branch refresh uses the same backend claim path as default refresh
+- [x] Failed refresh no longer looks like a fresh successful sync
+- [x] Sync UI renders rate-limited and failed states
+- [x] Phase 1 ships as a standalone deployable change

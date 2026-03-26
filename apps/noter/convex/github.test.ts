@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   collectLatestOpenPullRequestsByBranch,
+  computeRepositoryRefreshPlan,
   computeRepositoryTreeUpdatePlan,
   describeRepositoryTreeRefreshFailure,
   isRepositoryMediaPreviewTooLarge,
@@ -13,6 +14,8 @@ import {
   resolveStagedRepositoryMediaAsset,
   resolveAheadBehindBaseBranch,
   shouldBypassRecentSuccessDebounceForBranchRefresh,
+  shouldRefreshBranchTree,
+  shouldRefreshRepositoryMetadata,
   shouldSyncCloudflarePreviewLinks,
 } from "./github";
 
@@ -271,7 +274,7 @@ describe("shouldBypassRecentSuccessDebounceForBranchRefresh", () => {
         branchNotFound: true,
         hasResolvedBranchTree: true,
         now,
-        lastTreeRefreshAt: now - 31_000,
+        lastRepositoryMetadataRefreshAt: now - 31_000,
       }),
     ).toBe(true);
     expect(
@@ -281,7 +284,7 @@ describe("shouldBypassRecentSuccessDebounceForBranchRefresh", () => {
         branchNotFound: true,
         hasResolvedBranchTree: true,
         now,
-        lastTreeRefreshAt: now - 5_000,
+        lastRepositoryMetadataRefreshAt: now - 5_000,
       }),
     ).toBe(false);
   });
@@ -403,6 +406,156 @@ describe("resolveStagedRepositoryMediaAsset", () => {
       found: false,
       reason: "missing",
     });
+  });
+});
+describe("shouldRefreshRepositoryMetadata", () => {
+  const now = Date.parse("2026-03-27T12:00:00Z");
+
+  it("refreshes metadata on manual triggers", () => {
+    expect(
+      shouldRefreshRepositoryMetadata({
+        trigger: "manual",
+        branchNotFound: false,
+        includeCloudflarePreviewLinks: false,
+        now,
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps branch file views on the tree-only path while repo metadata is fresh", () => {
+    expect(
+      shouldRefreshRepositoryMetadata({
+        trigger: "page_load",
+        requestedBranch: "feature/login",
+        branchNotFound: false,
+        includeCloudflarePreviewLinks: false,
+        lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
+        now,
+      }),
+    ).toBe(false);
+    expect(
+      shouldRefreshRepositoryMetadata({
+        trigger: "visibility",
+        requestedBranch: "feature/login",
+        branchNotFound: false,
+        includeCloudflarePreviewLinks: false,
+        lastRepositoryMetadataRefreshAt: now - 5 * 60 * 1000,
+        now,
+      }),
+    ).toBe(false);
+  });
+
+  it("refreshes stale repo metadata from branch-scoped views", () => {
+    expect(
+      shouldRefreshRepositoryMetadata({
+        trigger: "visibility",
+        requestedBranch: "feature/login",
+        branchNotFound: false,
+        includeCloudflarePreviewLinks: false,
+        lastRepositoryMetadataRefreshAt: now - 11 * 60 * 1000,
+        now,
+      }),
+    ).toBe(true);
+  });
+
+  it("refreshes stale dashboard metadata on visibility", () => {
+    expect(
+      shouldRefreshRepositoryMetadata({
+        trigger: "visibility",
+        branchNotFound: false,
+        includeCloudflarePreviewLinks: false,
+        lastRepositoryMetadataRefreshAt: now - 11 * 60 * 1000,
+        now,
+      }),
+    ).toBe(true);
+  });
+
+  it("rechecks missing branches only after the missing-branch debounce expires", () => {
+    expect(
+      shouldRefreshRepositoryMetadata({
+        trigger: "visibility",
+        requestedBranch: "feature/login",
+        branchNotFound: true,
+        includeCloudflarePreviewLinks: false,
+        lastRepositoryMetadataRefreshAt: now - 31_000,
+        now,
+      }),
+    ).toBe(true);
+    expect(
+      shouldRefreshRepositoryMetadata({
+        trigger: "visibility",
+        requestedBranch: "feature/login",
+        branchNotFound: true,
+        includeCloudflarePreviewLinks: false,
+        lastRepositoryMetadataRefreshAt: now - 5_000,
+        now,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("computeRepositoryRefreshPlan", () => {
+  const now = Date.parse("2026-03-27T12:00:00Z");
+
+  it("re-enables branch tree refresh after metadata sync resolves a missing branch", () => {
+    expect(
+      computeRepositoryRefreshPlan({
+        trigger: "visibility",
+        requestedBranch: "feature/login",
+        branchNotFound: true,
+        includeCloudflarePreviewLinks: false,
+        lastRepositoryMetadataRefreshAt: now - 11 * 60 * 1000,
+        now,
+      }),
+    ).toEqual({
+      shouldSyncMetadata: true,
+      shouldRefreshTreeData: false,
+    });
+
+    expect(
+      computeRepositoryRefreshPlan({
+        trigger: "visibility",
+        requestedBranch: "feature/login",
+        branchNotFound: false,
+        includeCloudflarePreviewLinks: false,
+        lastRepositoryMetadataRefreshAt: now,
+        now,
+      }),
+    ).toEqual({
+      shouldSyncMetadata: false,
+      shouldRefreshTreeData: true,
+    });
+  });
+});
+
+describe("shouldRefreshBranchTree", () => {
+  it("refreshes branch views on visibility", () => {
+    expect(
+      shouldRefreshBranchTree({
+        trigger: "visibility",
+        requestedBranch: "feature/login",
+        branchNotFound: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("skips default-branch dashboard refreshes on plain visibility", () => {
+    expect(
+      shouldRefreshBranchTree({
+        trigger: "visibility",
+        branchNotFound: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("skips tree refresh entirely while the requested branch is still missing", () => {
+    expect(
+      shouldRefreshBranchTree({
+        trigger: "manual",
+        requestedBranch: "feature/login",
+        branchNotFound: true,
+      }),
+    ).toBe(false);
   });
 });
 describe("listGitHubRepositories", () => {
