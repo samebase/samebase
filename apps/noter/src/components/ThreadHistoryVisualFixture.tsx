@@ -20,8 +20,9 @@ const TWO_LINE_ITEM = {
 const LONG_ITEM = {
   id: "message-long",
   type: "assistant_message",
-  summary: `I inspected the local runtime handshake and captured the full event sequence so we can separate the provider protocol from the Noter contract.\n\nThe next step is to keep machine presence, approvals, and recent normalized events in Convex while treating the provider thread id as opaque runtime state. That gives us one machine connector process that can service multiple remote threads without leaking provider-specific details into the product model.`,
-  text: `I inspected the local runtime handshake and captured the full event sequence so we can separate the provider protocol from the Noter contract.\n\nThe next step is to keep machine presence, approvals, and recent normalized events in Convex while treating the provider thread id as opaque runtime state. That gives us one machine connector process that can service multiple remote threads without leaking provider-specific details into the product model.`,
+  summary:
+    "Inspect the runtime handshake.\nKeep the connector local.\nExpose one remote session handle.\nStore normalized events in Convex.",
+  text: "Inspect the runtime handshake.\nKeep the connector local.\nExpose one remote session handle.\nStore normalized events in Convex.",
 } as const;
 
 export function ThreadHistoryVisualFixture({
