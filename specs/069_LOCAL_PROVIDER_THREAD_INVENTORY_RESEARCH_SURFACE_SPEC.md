@@ -193,20 +193,22 @@ Keep two dev-only research surfaces:
 
 The browser route should add a machine-style thread inspection layout:
 
-1. a project list panel keyed by cwd
-2. a thread list panel scoped by project and search
-3. a selected-thread detail panel
-4. archive/unarchive actions for the selected thread
-5. a link back to the protocol lab
+1. one grouped sidebar keyed by cwd/worktree
+2. thread rows nested inside each project/worktree group
+3. id-aware search that can find a thread by title, prompt, id, branch, or cwd
+4. a selected-thread detail panel
+5. archive/unarchive actions for the selected thread
+6. a link back to the protocol lab
+7. load-once plus explicit refresh behavior rather than aggressive background
+   polling that disrupts search or reading
 
 The thread list should show at least:
 
 1. preview
-2. provider thread id
+2. provider thread id or a stable short id label for disambiguation
 3. status
-4. cwd
-5. updated time
-6. loaded-state cues when the provider runtime reports them
+4. updated time
+5. loaded-state cues when the provider runtime reports them
 
 The detail panel should show at least:
 
@@ -251,6 +253,8 @@ But it must preserve the boundary required for that future work:
 
 - [ ] `/research/codex-app-server/browser` shows a list of local provider
       threads rather than only one current thread id.
+- [ ] The browser route groups threads under their real cwd/worktree instead of
+      splitting projects and threads into separate columns.
 - [ ] A user can select an existing local provider thread and inspect hydrated
       thread detail, including turns.
 - [ ] Starting a new thread adds or refreshes it in the inventory and selects it

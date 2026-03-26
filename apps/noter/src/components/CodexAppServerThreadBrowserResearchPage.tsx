@@ -1,8 +1,8 @@
 import {
   CodexThreadBrowserView,
   type CodexThreadBrowserDetailState,
+  type CodexThreadBrowserGroup,
   type CodexThreadBrowserMode,
-  type CodexThreadBrowserProject,
 } from "@/components/CodexThreadBrowserView";
 import {
   CODEX_APP_SERVER_RESEARCH_API_BASE,
@@ -20,7 +20,6 @@ import {
 } from "@/lib/queryParams";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-const ALL_THREADS_PROJECT_ID = "__all__";
 const THREAD_LIST_LIMIT = 100;
 
 type ThreadActionResponse = {
@@ -66,19 +65,53 @@ function readPathLeaf(value: string): string {
   return segments[segments.length - 1] ?? value;
 }
 
+function readProjectLabel(value: string): string {
+  const worktreeMatch = value.match(/\/worktrees\/([^/]+)\//);
+  const worktreeId = worktreeMatch?.[1] ?? null;
+  const leaf = readPathLeaf(value);
+  if (!worktreeId) {
+    return leaf;
+  }
+
+  return `${leaf} · ${worktreeId}`;
+}
+
 function threadIsArchived(thread: CodexAppServerThread): boolean {
   return thread.path?.includes("/archived_sessions/") ?? false;
 }
 
 /**
- * Group the provider inventory by cwd so the web view can browse threads using
- * the same project-oriented shape shown in Codex and T3 Code.
+ * The provider inventory can contain many similar prompts across multiple
+ * worktrees. Dedupe by thread id so the browser never renders the same thread
+ * multiple times even if the upstream inventory surface changes shape.
  */
-function buildProjects(args: {
+function dedupeThreadsById(
+  threads: CodexAppServerThread[],
+): CodexAppServerThread[] {
+  const threadsById = new Map<string, CodexAppServerThread>();
+
+  for (const thread of threads) {
+    const current = threadsById.get(thread.id);
+    if (!current || thread.updatedAt > current.updatedAt) {
+      threadsById.set(thread.id, thread);
+    }
+  }
+
+  return Array.from(threadsById.values()).sort(
+    (left, right) => right.updatedAt - left.updatedAt,
+  );
+}
+
+/**
+ * Group the deduped inventory by cwd so the sidebar mirrors how the operator
+ * actually thinks about Codex work: a folder/worktree followed by the threads
+ * inside it.
+ */
+function buildThreadGroups(args: {
   threads: CodexAppServerThread[];
   loadedThreadIds: string[];
-}): CodexThreadBrowserProject[] {
-  const projectMap = new Map<
+}): CodexThreadBrowserGroup[] {
+  const groupMap = new Map<
     string,
     {
       label: string;
@@ -86,11 +119,12 @@ function buildProjects(args: {
       count: number;
       loadedCount: number;
       latestUpdatedAt: number;
+      threads: CodexAppServerThread[];
     }
   >();
 
   for (const thread of args.threads) {
-    const current = projectMap.get(thread.cwd);
+    const current = groupMap.get(thread.cwd);
     const loadedCountDelta = args.loadedThreadIds.includes(thread.id) ? 1 : 0;
     if (current) {
       current.count += 1;
@@ -99,38 +133,32 @@ function buildProjects(args: {
         current.latestUpdatedAt,
         thread.updatedAt,
       );
+      current.threads.push(thread);
       continue;
     }
 
-    projectMap.set(thread.cwd, {
-      label: readPathLeaf(thread.cwd),
+    groupMap.set(thread.cwd, {
+      label: readProjectLabel(thread.cwd),
       detail: thread.cwd,
       count: 1,
       loadedCount: loadedCountDelta,
       latestUpdatedAt: thread.updatedAt,
+      threads: [thread],
     });
   }
 
-  const projects = Array.from(projectMap.entries())
+  return Array.from(groupMap.entries())
     .sort((left, right) => right[1].latestUpdatedAt - left[1].latestUpdatedAt)
-    .map(([id, project]) => ({
+    .map(([id, group]) => ({
       id,
-      label: project.label,
-      detail: project.detail,
-      count: project.count,
-      loadedCount: project.loadedCount,
+      label: group.label,
+      detail: group.detail,
+      count: group.count,
+      loadedCount: group.loadedCount,
+      threads: group.threads.sort(
+        (left, right) => right.updatedAt - left.updatedAt,
+      ),
     }));
-
-  return [
-    {
-      id: ALL_THREADS_PROJECT_ID,
-      label: "All threads",
-      detail: "Every visible provider thread",
-      count: args.threads.length,
-      loadedCount: args.loadedThreadIds.length,
-    },
-    ...projects,
-  ];
 }
 
 function buildThreadsPath(mode: CodexThreadBrowserMode): string {
@@ -155,9 +183,6 @@ export function CodexAppServerThreadBrowserResearchPage() {
     useState<CodexThreadBrowserMode>("active");
   const [threads, setThreads] = useState<CodexAppServerThread[]>([]);
   const [loadedThreadIds, setLoadedThreadIds] = useState<string[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState(
-    ALL_THREADS_PROJECT_ID,
-  );
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [selectedThreadDetail, setSelectedThreadDetail] =
     useState<CodexAppServerThread | null>(null);
@@ -186,60 +211,57 @@ export function CodexAppServerThreadBrowserResearchPage() {
     const response = await requestJson<CodexAppServerLoadedThreadsResponse>({
       path: "/threads/loaded?limit=200",
     });
-    setLoadedThreadIds(response.threadIds);
+    setLoadedThreadIds(Array.from(new Set(response.threadIds)));
     return response;
   }, []);
+
+  const uniqueThreads = useMemo(() => dedupeThreadsById(threads), [threads]);
+
+  const visibleThreads = useMemo(() => {
+    const trimmedSearch = searchTerm.trim().toLowerCase();
+    return uniqueThreads.filter((thread) => {
+      if (trimmedSearch.length === 0) {
+        return true;
+      }
+
+      const haystack = [
+        thread.id,
+        thread.name ?? "",
+        thread.preview,
+        thread.cwd,
+        thread.gitInfo?.branch ?? "",
+      ]
+        .join("\n")
+        .toLowerCase();
+      return haystack.includes(trimmedSearch);
+    });
+  }, [searchTerm, uniqueThreads]);
 
   const selectedThreadSummary = useMemo(() => {
     if (!selectedThreadId) {
       return null;
     }
 
-    return threads.find((thread) => thread.id === selectedThreadId) ?? null;
-  }, [selectedThreadId, threads]);
+    return (
+      visibleThreads.find((thread) => thread.id === selectedThreadId) ?? null
+    );
+  }, [selectedThreadId, visibleThreads]);
 
-  const filteredThreads = useMemo(() => {
-    const trimmedSearch = searchTerm.trim().toLowerCase();
-    return threads.filter((thread) => {
-      if (
-        selectedProjectId !== ALL_THREADS_PROJECT_ID &&
-        thread.cwd !== selectedProjectId
-      ) {
-        return false;
-      }
-
-      if (trimmedSearch.length === 0) {
-        return true;
-      }
-
-      const haystack = `${thread.name ?? ""}\n${thread.preview}`.toLowerCase();
-      return haystack.includes(trimmedSearch);
-    });
-  }, [searchTerm, selectedProjectId, threads]);
-
-  const projects = useMemo(
-    () => buildProjects({ threads, loadedThreadIds }),
-    [loadedThreadIds, threads],
+  const groups = useMemo(
+    () => buildThreadGroups({ threads: visibleThreads, loadedThreadIds }),
+    [loadedThreadIds, visibleThreads],
   );
-
-  useEffect(() => {
-    if (projects.some((project) => project.id === selectedProjectId)) {
-      return;
-    }
-
-    setSelectedProjectId(ALL_THREADS_PROJECT_ID);
-  }, [projects, selectedProjectId]);
 
   useEffect(() => {
     if (
       selectedThreadId &&
-      filteredThreads.some((thread) => thread.id === selectedThreadId)
+      visibleThreads.some((thread) => thread.id === selectedThreadId)
     ) {
       return;
     }
 
-    setSelectedThreadId(filteredThreads[0]?.id ?? null);
-  }, [filteredThreads, selectedThreadId]);
+    setSelectedThreadId(visibleThreads[0]?.id ?? null);
+  }, [selectedThreadId, visibleThreads]);
 
   const refreshSelectedThread = useCallback(
     async (thread: CodexAppServerThread | null = selectedThreadSummary) => {
@@ -303,34 +325,20 @@ export function CodexAppServerThreadBrowserResearchPage() {
   );
 
   useEffect(() => {
-    let cancelled = false;
-
     const hydrate = async () => {
       try {
         await refreshAll(browserMode);
-        if (!cancelled) {
-          setError(null);
-        }
+        setError(null);
       } catch (nextError) {
-        if (!cancelled) {
-          setError(
-            nextError instanceof Error
-              ? nextError.message
-              : "Failed to load Codex thread browser state.",
-          );
-        }
+        setError(
+          nextError instanceof Error
+            ? nextError.message
+            : "Failed to load Codex thread browser state.",
+        );
       }
     };
 
     void hydrate();
-    const intervalId = window.setInterval(() => {
-      void hydrate();
-    }, 1500);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
   }, [browserMode, refreshAll]);
 
   useEffect(() => {
@@ -354,10 +362,8 @@ export function CodexAppServerThreadBrowserResearchPage() {
   return (
     <CodexThreadBrowserView
       browserMode={browserMode}
-      projects={projects}
-      selectedProjectId={selectedProjectId}
+      groups={groups}
       searchTerm={searchTerm}
-      threads={filteredThreads}
       loadedThreadIds={loadedThreadIds}
       selectedThreadId={selectedThreadId}
       selectedThread={selectedThreadDetail ?? selectedThreadSummary}
@@ -371,7 +377,6 @@ export function CodexAppServerThreadBrowserResearchPage() {
         setSelectedThreadDetail(null);
         setDetailState({ kind: "idle" });
       }}
-      onProjectSelect={setSelectedProjectId}
       onSearchTermChange={setSearchTerm}
       onThreadSelect={setSelectedThreadId}
       onRefresh={() => {
