@@ -2666,7 +2666,11 @@ function FileViewInner({
       branchComparePreviewRequestedStagingKeyRef.current =
         branchComparePreviewStagingRefreshKey;
       setBranchCompareLoadingStartedAt((current) => {
-        if (resetPreview || branchComparePreview === null) {
+        if (resetPreview) {
+          return Date.now();
+        }
+
+        if (branchComparePreview === null) {
           return current ?? Date.now();
         }
 
@@ -3296,14 +3300,14 @@ function FileViewInner({
                       </div>
                     ) : null}
                   </div>
+                ) : branchCompareLoadingState ? (
+                  branchCompareLoadingState
                 ) : selectedFileIsRenderableMedia ? (
                   <RepositoryMediaViewer
                     repositoryFullName={repositoryFullName}
                     filePath={selectedFile}
                     branch={branch}
                   />
-                ) : branchCompareLoadingState ? (
-                  branchCompareLoadingState
                 ) : stagedFile ? (
                   <CodeEditorWrapper
                     key={`${branch}/${selectedFile}-${stagedFile.parentCommitSha ?? "new"}`}
