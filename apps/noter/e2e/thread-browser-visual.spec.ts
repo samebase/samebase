@@ -22,7 +22,7 @@ test("thread browser visual fixture", async ({ page }) => {
   await openBrowserFixture(page);
   await expect(
     page.getByTestId("thread-browser-visual-fixture"),
-  ).toHaveScreenshot("thread-browser.png", {
+  ).toHaveScreenshot(`thread-browser-${process.platform}.png`, {
     animations: "disabled",
     caret: "hide",
     scale: "css",

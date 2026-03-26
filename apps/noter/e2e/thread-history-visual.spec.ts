@@ -13,7 +13,7 @@ test("thread history visual fixture", async ({ page }) => {
 
   await expect(
     page.getByTestId("thread-history-visual-fixture"),
-  ).toHaveScreenshot("thread-history.png", {
+  ).toHaveScreenshot(`thread-history-${process.platform}.png`, {
     animations: "disabled",
     caret: "hide",
     scale: "css",
