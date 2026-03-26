@@ -108,6 +108,7 @@ const COMMIT_REVIEW_VISUAL_MODES = [
 const REPOSITORY_MEDIA_VISUAL_MODES = [
   "media-png",
   "media-svg",
+  "media-vox",
 ] as const satisfies readonly RepositoryMediaVisualMode[];
 
 const FILE_VIEW_LAYOUT_VISUAL_MODES = [
@@ -265,7 +266,7 @@ function readSelection(): VisualFixtureSelection {
 }
 
 function renderVisualFixture(mode: VisualFixtureMode) {
-  if (mode === "media-png" || mode === "media-svg") {
+  if (mode === "media-png" || mode === "media-svg" || mode === "media-vox") {
     return <RepositoryMediaVisualFixture mode={mode} />;
   }
 

@@ -7,7 +7,7 @@ import {
 } from "@/components/RepositoryMediaViewer";
 import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";
 
-export type RepositoryMediaVisualMode = "media-png" | "media-svg";
+export type RepositoryMediaVisualMode = "media-png" | "media-svg" | "media-vox";
 
 const FIXTURE_BY_MODE: Record<
   RepositoryMediaVisualMode,
@@ -34,6 +34,16 @@ const FIXTURE_BY_MODE: Record<
       mimeType: "image/svg+xml",
       url: "/media-visual-fixture.svg",
       fileName: "media-visual-fixture.svg",
+    },
+  },
+  "media-vox": {
+    selectedFile: "assets/monu10.vox",
+    asset: {
+      found: true,
+      kind: "vox",
+      mimeType: "application/octet-stream",
+      url: "/repository-media-fixtures/monu10.vox",
+      fileName: "monu10.vox",
     },
   },
 };
@@ -91,6 +101,18 @@ export function RepositoryMediaVisualFixture({
             {
               path: "assets/media-visual-fixture.svg",
               originalPath: "assets/media-visual-fixture.svg",
+              type: "blob",
+              deleted: false,
+            },
+            {
+              path: "assets/monu10.png",
+              originalPath: "assets/monu10.png",
+              type: "blob",
+              deleted: false,
+            },
+            {
+              path: "assets/monu10.vox",
+              originalPath: "assets/monu10.vox",
               type: "blob",
               deleted: false,
             },

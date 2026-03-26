@@ -8,7 +8,9 @@ const IMAGE_EXTENSIONS = new Set([
   "avif",
 ]);
 
-export type RepositoryMediaKind = "image";
+const VOX_EXTENSIONS = new Set(["vox"]);
+
+export type RepositoryMediaKind = "image" | "vox";
 
 function getNormalizedExtension(filePath: string): string | null {
   const trimmed = filePath.trim();
@@ -33,7 +35,15 @@ export function getRepositoryMediaKind(
     return null;
   }
 
-  return IMAGE_EXTENSIONS.has(extension) ? "image" : null;
+  if (IMAGE_EXTENSIONS.has(extension)) {
+    return "image";
+  }
+
+  if (VOX_EXTENSIONS.has(extension)) {
+    return "vox";
+  }
+
+  return null;
 }
 
 export function isRenderableRepositoryMediaPath(filePath: string): boolean {

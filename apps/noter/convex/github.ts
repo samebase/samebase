@@ -13,6 +13,7 @@ import {
 } from "./cloudflarePreviewComment";
 import {
   getRepositoryMediaKind,
+  type RepositoryMediaKind,
   isSvgRepositoryMediaPath,
 } from "../shared/repositoryMedia";
 import type { PullRequestLabel as StoredPullRequestLabel } from "./schema";
@@ -312,6 +313,13 @@ const repositoryMediaAssetResult = union(
   object({
     found: literal(true),
     kind: literal("image"),
+    mimeType: string(),
+    url: string(),
+    fileName: string(),
+  }),
+  object({
+    found: literal(true),
+    kind: literal("vox"),
     mimeType: string(),
     url: string(),
     fileName: string(),
@@ -1223,7 +1231,7 @@ async function resolveCachedRepositoryMediaAsset(
   },
   cachedBlob: CachedRepositoryBlob | null,
   filePath: string,
-  mediaKind: "image",
+  mediaKind: RepositoryMediaKind,
   fileName: string,
 ): Promise<RepositoryMediaAsset | null> {
   if (typeof cachedBlob?.storageId === "string") {
