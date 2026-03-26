@@ -5,12 +5,25 @@ import {
   useImperativeHandle,
   useLayoutEffect,
   useRef,
+  useState,
 } from "react";
 import { Send } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Annotation, EditorState, Prec, Compartment } from "@codemirror/state";
+import {
+  Annotation,
+  EditorState,
+  Prec,
+  Compartment,
+  Transaction,
+} from "@codemirror/state";
 import { EditorView, keymap, placeholder } from "@codemirror/view";
-import { insertNewlineAndIndent } from "@codemirror/commands";
+import {
+  insertNewlineAndIndent,
+  redo,
+  redoDepth,
+  undo,
+  undoDepth,
+} from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { GFM } from "@lezer/markdown";
@@ -19,8 +32,14 @@ import {
   prosemarkBasicSetup,
   prosemarkMarkdownSyntaxExtensions,
 } from "@prosemark/core";
+import { EditorHistoryControls } from "@/components/EditorHistoryControls";
 import { useTheme } from "next-themes";
 import { prosemarkDarkTheme } from "@/components/prosemarkSurface";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  EMPTY_EDITOR_HISTORY_STATE,
+  type EditorHistoryState,
+} from "@/lib/editorHistory";
 
 type ChatInputMode = "simple" | "prosemark";
 
@@ -47,6 +66,65 @@ type ChatInputBaseProps = Omit<ChatInputProps, "mode">;
 const AUTO_RESIZE_MIN_HEIGHT = 72;
 const AUTO_RESIZE_MAX_HEIGHT = 240;
 const EXTERNAL_UPDATE = Annotation.define<boolean>();
+
+/**
+ * Mirror the active editor's native undo/redo availability into the shared
+ * mobile controls without duplicating CodeMirror history state.
+ */
+function getCodeMirrorHistoryState(
+  view: EditorView | null,
+): EditorHistoryState {
+  if (view === null) {
+    return EMPTY_EDITOR_HISTORY_STATE;
+  }
+
+  return {
+    canUndo: undoDepth(view.state) > 0,
+    canRedo: redoDepth(view.state) > 0,
+  };
+}
+
+function ChatInputActionCluster({
+  canSend,
+  onSend,
+  sendButtonClassName,
+  showHistoryControls,
+  historyState,
+  onUndo,
+  onRedo,
+}: {
+  canSend: boolean;
+  onSend: () => void;
+  sendButtonClassName?: string;
+  showHistoryControls: boolean;
+  historyState: EditorHistoryState;
+  onUndo: () => void;
+  onRedo: () => void;
+}) {
+  return (
+    <div className="flex shrink-0 items-end gap-1.5">
+      {showHistoryControls ? (
+        <EditorHistoryControls
+          canUndo={historyState.canUndo}
+          canRedo={historyState.canRedo}
+          onUndo={onUndo}
+          onRedo={onRedo}
+        />
+      ) : null}
+      <button
+        type="button"
+        onClick={() => onSend()}
+        disabled={!canSend}
+        className={cn(
+          "flex h-8 w-8 shrink-0 items-center justify-center corner-notch-1 bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40",
+          sendButtonClassName,
+        )}
+      >
+        <Send className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
 
 const prosemarkInputTheme = EditorView.theme({
   "&": {
@@ -97,7 +175,20 @@ const SimpleChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
     ref,
   ) {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const isMobile = useIsMobile();
     const canSend = value.trim().length > 0 && !disabled;
+    const [historyState, setHistoryState] = useState<EditorHistoryState>(
+      EMPTY_EDITOR_HISTORY_STATE,
+    );
+    const undoStackRef = useRef<string[]>([]);
+    const redoStackRef = useRef<string[]>([]);
+    const lastAppliedValueRef = useRef(value);
+    const syncHistoryState = useCallback(() => {
+      setHistoryState({
+        canUndo: undoStackRef.current.length > 0,
+        canRedo: redoStackRef.current.length > 0,
+      });
+    }, []);
 
     const resizeTextarea = useCallback(() => {
       const el = textareaRef.current;
@@ -128,12 +219,60 @@ const SimpleChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
       resizeTextarea();
     }, [value, resizeTextarea]);
 
+    useEffect(() => {
+      if (value === lastAppliedValueRef.current) {
+        return;
+      }
+
+      // Prop-driven resets such as send/clear should not become redoable steps.
+      lastAppliedValueRef.current = value;
+      undoStackRef.current = [];
+      redoStackRef.current = [];
+      syncHistoryState();
+    }, [syncHistoryState, value]);
+
+    const handleUndo = useCallback(() => {
+      const previousValue = undoStackRef.current.pop();
+      if (typeof previousValue !== "string") {
+        return;
+      }
+
+      redoStackRef.current.push(lastAppliedValueRef.current);
+      lastAppliedValueRef.current = previousValue;
+      onValueChange(previousValue);
+      syncHistoryState();
+      textareaRef.current?.focus();
+    }, [onValueChange, syncHistoryState]);
+
+    const handleRedo = useCallback(() => {
+      const nextValue = redoStackRef.current.pop();
+      if (typeof nextValue !== "string") {
+        return;
+      }
+
+      undoStackRef.current.push(lastAppliedValueRef.current);
+      lastAppliedValueRef.current = nextValue;
+      onValueChange(nextValue);
+      syncHistoryState();
+      textareaRef.current?.focus();
+    }, [onValueChange, syncHistoryState]);
+
     return (
       <div className={cn("flex items-end gap-2", className)}>
         <textarea
           ref={textareaRef}
           value={value}
-          onChange={(event) => onValueChange(event.target.value)}
+          onChange={(event) => {
+            const nextValue = event.target.value;
+            const previousValue = lastAppliedValueRef.current;
+            if (nextValue !== previousValue) {
+              undoStackRef.current.push(previousValue);
+              redoStackRef.current = [];
+              lastAppliedValueRef.current = nextValue;
+              syncHistoryState();
+            }
+            onValueChange(nextValue);
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
@@ -150,16 +289,15 @@ const SimpleChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
             textareaClassName,
           )}
         />
-        <button
-          onClick={() => onSend()}
-          disabled={!canSend}
-          className={cn(
-            "flex h-8 w-8 shrink-0 items-center justify-center corner-notch-1 bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40",
-            sendButtonClassName,
-          )}
-        >
-          <Send className="h-4 w-4" />
-        </button>
+        <ChatInputActionCluster
+          canSend={canSend}
+          onSend={onSend}
+          sendButtonClassName={sendButtonClassName}
+          showHistoryControls={isMobile}
+          historyState={historyState}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+        />
       </div>
     );
   },
@@ -183,7 +321,11 @@ const ProsemarkChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
     const { theme, systemTheme } = useTheme();
     const effectiveTheme = theme === "system" ? systemTheme : theme;
     const isDark = effectiveTheme === "dark";
+    const isMobile = useIsMobile();
     const canSend = value.trim().length > 0 && !disabled;
+    const [historyState, setHistoryState] = useState<EditorHistoryState>(
+      EMPTY_EDITOR_HISTORY_STATE,
+    );
 
     const editorHostRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -199,6 +341,9 @@ const ProsemarkChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
     const themeCompartmentRef = useRef(new Compartment());
     const editableCompartmentRef = useRef(new Compartment());
     const placeholderCompartmentRef = useRef(new Compartment());
+    const syncHistoryState = useCallback((view: EditorView | null) => {
+      setHistoryState(getCodeMirrorHistoryState(view));
+    }, []);
 
     useEffect(() => {
       onValueChangeRef.current = onValueChange;
@@ -266,17 +411,18 @@ const ProsemarkChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
       const updateListener = EditorView.updateListener.of((update) => {
         if (!update.docChanged) return;
         if (
-          update.transactions.some((transaction) =>
+          !update.transactions.some((transaction) =>
             transaction.annotation(EXTERNAL_UPDATE),
           )
         ) {
-          return;
+          const nextValue = update.state.doc.toString();
+          if (nextValue !== lastValueRef.current) {
+            lastValueRef.current = nextValue;
+            onValueChangeRef.current(nextValue);
+            resizeInputRef.current();
+          }
         }
-        const nextValue = update.state.doc.toString();
-        if (nextValue === lastValueRef.current) return;
-        lastValueRef.current = nextValue;
-        onValueChangeRef.current(nextValue);
-        resizeInputRef.current();
+        syncHistoryState(update.view);
       });
 
       const sendOnEnter = () => {
@@ -332,12 +478,14 @@ const ProsemarkChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
 
       viewRef.current = view;
       resizeInputRef.current();
+      syncHistoryState(view);
 
       return () => {
         view.destroy();
         viewRef.current = null;
+        setHistoryState(EMPTY_EDITOR_HISTORY_STATE);
       };
-    }, []);
+    }, [syncHistoryState]);
 
     useEffect(() => {
       const view = viewRef.current;
@@ -364,11 +512,41 @@ const ProsemarkChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
       if (currentValue === value) return;
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: value },
-        annotations: EXTERNAL_UPDATE.of(true),
+        annotations: [
+          // Parent-driven draft updates should replace the visible value
+          // without creating a fresh local history checkpoint.
+          EXTERNAL_UPDATE.of(true),
+          Transaction.addToHistory.of(false),
+        ],
       });
       lastValueRef.current = value;
       resizeInputRef.current();
-    }, [value]);
+      syncHistoryState(view);
+    }, [syncHistoryState, value]);
+
+    const handleUndo = useCallback(() => {
+      const view = viewRef.current;
+      if (view === null) {
+        return;
+      }
+
+      if (undo(view)) {
+        syncHistoryState(view);
+      }
+      view.focus();
+    }, [syncHistoryState]);
+
+    const handleRedo = useCallback(() => {
+      const view = viewRef.current;
+      if (view === null) {
+        return;
+      }
+
+      if (redo(view)) {
+        syncHistoryState(view);
+      }
+      view.focus();
+    }, [syncHistoryState]);
 
     return (
       <div className={cn("flex items-end gap-2", className)}>
@@ -382,16 +560,15 @@ const ProsemarkChatInput = forwardRef<ChatInputHandle, ChatInputBaseProps>(
         >
           <div ref={editorHostRef} />
         </div>
-        <button
-          onClick={() => onSend()}
-          disabled={!canSend}
-          className={cn(
-            "flex h-8 w-8 shrink-0 items-center justify-center corner-notch-1 bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40",
-            sendButtonClassName,
-          )}
-        >
-          <Send className="h-4 w-4" />
-        </button>
+        <ChatInputActionCluster
+          canSend={canSend}
+          onSend={onSend}
+          sendButtonClassName={sendButtonClassName}
+          showHistoryControls={isMobile}
+          historyState={historyState}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+        />
       </div>
     );
   },

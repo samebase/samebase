@@ -1,3 +1,6 @@
+import { useState } from "react";
+
+import { ChatInput } from "@/components/ChatInput";
 import { Button } from "@/components/ui/button";
 import { EDITOR_CHAT_CONTENT_FRAME_CLASS_NAME } from "@/components/editorChatLayout";
 import { ResizeGripLines } from "@/components/ResizeGripLines";
@@ -72,16 +75,20 @@ function FixtureResizeGrip() {
 }
 
 function FixtureComposer() {
+  const [value, setValue] = useState(
+    "Align the chat content with the dashboard frame.",
+  );
+
   return (
-    <div className="flex items-end gap-2 pr-2 pt-2">
-      <div className="min-h-[5.75rem] flex-1 border border-border bg-background px-4 py-3">
-        <p className="text-sm leading-5 text-muted-foreground">
-          Align the chat content with the dashboard frame.
-        </p>
-      </div>
-      <div className="mb-2 flex h-10 shrink-0 items-center justify-center rounded-full bg-blue-500 px-3 text-xs font-medium text-white">
-        Send
-      </div>
+    <div className="pt-2">
+      <ChatInput
+        value={value}
+        onValueChange={setValue}
+        onSend={() => {}}
+        mode="prosemark"
+        autoResize
+        sendButtonClassName="mr-2 mt-2 mb-2 p-2"
+      />
     </div>
   );
 }
