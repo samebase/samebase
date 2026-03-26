@@ -2517,14 +2517,9 @@ function FileViewInner({
       };
     }
     if (!branchComparePreview) {
-      const loadingText = isBranchCompareLoading
-        ? `Loading compare... ${branchCompareLoadingStopwatchLabel}`
-        : "Loading compare...";
       return {
-        text: loadingText,
-        ariaLabel: isBranchCompareLoading
-          ? `Loading changed files compare target. Elapsed ${branchCompareLoadingStopwatchLabel}`
-          : "Loading changed files compare target",
+        text: "Loading compare...",
+        ariaLabel: "Loading changed files compare target",
       };
     }
 
@@ -2546,13 +2541,7 @@ function FileViewInner({
       text: `${sourceSummary}${truncationSummary}${sourceListSummary}`,
       ariaLabel: `Changed Files comparing ${sourceSummary}${truncationSummary}${sourceListSummary}`,
     };
-  }, [
-    branchCompareLoadingStopwatchLabel,
-    branchComparePreview,
-    branchComparePreviewError,
-    isBranchCompareLoading,
-    isCompareRequested,
-  ]);
+  }, [branchComparePreview, branchComparePreviewError, isCompareRequested]);
 
   useEffect(() => {
     if (branchCompareLoadingStartedAt === null) {
@@ -2676,7 +2665,7 @@ function FileViewInner({
         branchCompareTargetRefreshKey;
       branchComparePreviewRequestedStagingKeyRef.current =
         branchComparePreviewStagingRefreshKey;
-      setBranchCompareLoadingStartedAt(Date.now());
+      setBranchCompareLoadingStartedAt(resetPreview ? Date.now() : null);
       if (resetPreview) {
         setBranchComparePreview(null);
       }

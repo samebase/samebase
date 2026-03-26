@@ -99,7 +99,7 @@ export function FileViewCompareVisualFixture({
             </ToggleGroupItem>
           </ToggleGroup>
           <div className="min-w-0 flex-1 truncate text-[11px] text-slate-500">
-            {isLoadingMode ? "Loading compare... 00:04.8" : "PR #335 vs main"}
+            {isLoadingMode ? "Loading compare..." : "PR #335 vs main"}
           </div>
         </div>
 

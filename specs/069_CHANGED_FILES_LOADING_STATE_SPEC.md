@@ -54,8 +54,6 @@ surface should show an explicit loading state that:
   payload with a loading state.
 - The stopwatch stops when that request resolves successfully, fails, or the
   user leaves `Changed Files` mode.
-- The sidebar compare summary may also surface the same elapsed time while the
-  loading state is visible.
 
 ## Acceptance Criteria
 
