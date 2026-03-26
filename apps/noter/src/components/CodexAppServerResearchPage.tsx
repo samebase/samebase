@@ -83,6 +83,14 @@ function formatJson(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
+function getEventListKey(args: {
+  scope: "normalized" | "raw";
+  event: CodexAppServerResearchEvent;
+  index: number;
+}): string {
+  return `${args.scope}-${args.event.cursor}-${args.event.method}-${args.index}`;
+}
+
 function RuntimeStatusBadge(props: {
   status: CodexAppServerStatusResponse | null;
 }) {
@@ -250,8 +258,17 @@ export function CodexAppServerResearchPage() {
       return;
     }
     setEvents((current) => {
-      const merged = [...current, ...response.events];
-      return merged.slice(-200);
+      // Dev-mode effect replays and action-triggered refreshes can overlap, so
+      // the same cursor window may arrive more than once. Deduping by cursor
+      // keeps the research log stable and avoids duplicate React keys.
+      const mergedByCursor = new Map<number, CodexAppServerResearchEvent>();
+      for (const event of current) {
+        mergedByCursor.set(event.cursor, event);
+      }
+      for (const event of response.events) {
+        mergedByCursor.set(event.cursor, event);
+      }
+      return Array.from(mergedByCursor.values()).slice(-200);
     });
   };
 
@@ -895,9 +912,13 @@ export function CodexAppServerResearchPage() {
                       ) : null}
                       {events
                         .filter((event) => event.normalized !== null)
-                        .map((event) => (
+                        .map((event, index) => (
                           <div
-                            key={`normalized-${event.cursor}`}
+                            key={getEventListKey({
+                              scope: "normalized",
+                              event,
+                              index,
+                            })}
                             className="grid gap-2 border border-border bg-white p-4"
                           >
                             <div className="flex flex-wrap items-center gap-2">
@@ -933,9 +954,13 @@ export function CodexAppServerResearchPage() {
                   </TabsContent>
                   <TabsContent value="raw">
                     <div className="grid gap-3">
-                      {events.map((event) => (
+                      {events.map((event, index) => (
                         <div
-                          key={`raw-${event.cursor}`}
+                          key={getEventListKey({
+                            scope: "raw",
+                            event,
+                            index,
+                          })}
                           className="grid gap-2 border border-border bg-white p-4"
                         >
                           <div className="flex flex-wrap items-center gap-2">
