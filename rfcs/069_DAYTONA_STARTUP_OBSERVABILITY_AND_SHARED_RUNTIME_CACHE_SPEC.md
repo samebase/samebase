@@ -1,4 +1,4 @@
-# 069 Daytona Shared Git Objects And PNPM Store Spec
+# 069 Daytona Startup Observability And Shared Runtime Cache Spec
 
 ## Document Control
 
@@ -7,19 +7,14 @@
 - Last updated: 2026-03-25
 - Depends on:
   - `specs/010_DAYTONA_SANDBOX_INTEGRATION_SPEC.md`
-  - `specs/024_DAYTONA_IMAGE_AND_STARTUP_PERFORMANCE_SPEC.md`
   - `specs/055_DAYTONA_CODEX_SHARED_HOME_SPEC.md`
-  - `specs/058_DAYTONA_DEPS_IMAGE_DISCOVERY_SPEC.md`
   - `notes/daytona-volume-direct-mount-research-2026-03-16.md`
   - `apps/noter/convex/daytona/actions.ts`
-  - `Dockerfile.daytona-deps`
 
 ## Purpose
 
-Decide whether Noter should place Git object data and PNPM package data on a
-Daytona volume shared across sandboxes, and if so, define the narrowest
-implementation that is likely to improve startup time without creating a fragile
-storage contract.
+Define the smallest Daytona startup model that is both fast and easy to debug,
+and then decide whether any shared runtime cache should exist inside that model.
 
 This RFC focuses on Daytona workspaces and snapshot-backed sandboxes for the
 Noter monorepo. It does not attempt to solve arbitrary repo caching for all
@@ -50,9 +45,9 @@ As researched on 2026-03-25, the answer is:
    hardlink path that pnpm is optimized for.
 4. A read-only shared cache volume is not a good primary design for either pnpm
    or Git with current Daytona volume semantics.
-5. The best near-term path remains the existing deps-image and snapshot work,
-   plus a clearer startup timeline, with an optional later pilot for a writable
-   shared PNPM store volume in live-debug and fallback-install paths.
+5. The best near-term path is the existing Daytona startup flow plus a clearer
+   startup timeline, with an optional later pilot for a writable shared PNPM
+   store volume in live-debug and fallback-install paths.
 6. If Noter wants direct shared mounts for metadata-sensitive tools, the more
    important upstream Daytona ask is not "more volume usage"; it is a better
    mount contract: ownership control, read-only mounts, and ideally a local-disk
@@ -73,15 +68,12 @@ As researched on 2026-03-25, the answer is:
 
 ### Existing startup optimizations
 
-Noter already invests in startup speed in two places:
+Noter already invests in startup speed through snapshot-backed Daytona
+provisioning and sandbox reuse/resume behavior.
 
-1. `Dockerfile.daytona-deps` installs dependencies into the deps image and uses
-   a BuildKit cache mount for the pnpm store during image build.
-2. Daytona snapshot-backed provisioning avoids repeating full bootstrap work
-   when a suitable snapshot already exists.
-
-Those are the current primary optimizations. They operate on local filesystem
-layers inside the image/snapshot path, not on a shared runtime volume.
+Those are the current primary optimizations. They avoid repeating full startup
+work when an appropriate sandbox or snapshot path is already available, and they
+do not depend on a shared runtime volume.
 
 ### Current runtime fallback behavior
 
@@ -228,8 +220,8 @@ If Noter uses a shared writable pnpm store volume, the correct model is:
 - prewarm the store with `pnpm fetch`
 - later install from that warm store with `--offline`
 
-This is a network-cache optimization, not a replacement for image/snapshot
-prebuilds.
+This is a network-cache optimization, not a replacement for the existing
+snapshot-backed path.
 
 ### 7. Git already has local object-sharing mechanisms, but they are fragile
 
@@ -274,8 +266,8 @@ Feasible as a limited pilot.
 
 - same-filesystem hardlink import speed
 - local `node_modules` materialization cost
-- snapshot build performance, unless Daytona later supports mounting volumes in
-  snapshot build contexts
+- other parts of the existing snapshot-backed startup path, unless Daytona later
+  supports mounting volumes in snapshot build contexts
 
 #### Why it is still worth considering
 
@@ -314,8 +306,8 @@ Do not use as the primary design.
 #### Acceptable future follow-up
 
 Revisit only if Daytona ships explicit read-only volume mounts and Noter can
-show that a writable local overlay is materially faster than today's deps-image
-path.
+show that a writable local overlay is materially faster than the current
+runtime-install fallback path.
 
 ### Option C: Shared Git object database or bare mirror on a Daytona volume
 
@@ -333,13 +325,13 @@ Do not adopt as a normal Noter path.
 3. A shared bare mirror on a volume would need its own update, locking, and GC
    policy to avoid cache corruption or stale-object surprises.
 4. Even if the cache is correct, it is not obvious that reading packfiles over
-   Daytona's FUSE/S3 volume will beat cloning from GitHub's normal smart
-   transport for Noter's repo shape.
+   Daytona's FUSE/S3 volume will beat using the normal remote smart transport
+   for Noter's repo shape.
 
 #### Acceptable future follow-up
 
 Only revisit if measurement shows Git network transfer is the dominant startup
-cost after the existing deps-image and snapshot path is already warm.
+cost after the existing startup path is already warm.
 
 ### Option D: Git partial clone instead of shared Git blobs
 
@@ -362,8 +354,8 @@ to be the bottleneck, but it should be measured separately.
 The recommended plan is:
 
 1. First, add one clear startup timeline and phase model for Daytona launches.
-2. Keep deps images and snapshot-backed startup as the primary optimization
-   path.
+2. Keep the current snapshot-backed Daytona startup path as the primary
+   optimization path.
 3. If we still need a shared runtime cache after measuring the observable
    startup path, pilot only a writable shared pnpm store volume.
 4. Keep Git repos and Git object databases local to each sandbox.
@@ -572,11 +564,8 @@ this RFC reflect the current hosted documentation as of 2026-03-25.
 
 1. `notes/daytona-volume-direct-mount-research-2026-03-16.md`
 2. `specs/010_DAYTONA_SANDBOX_INTEGRATION_SPEC.md`
-3. `specs/024_DAYTONA_IMAGE_AND_STARTUP_PERFORMANCE_SPEC.md`
-4. `specs/055_DAYTONA_CODEX_SHARED_HOME_SPEC.md`
-5. `specs/058_DAYTONA_DEPS_IMAGE_DISCOVERY_SPEC.md`
-6. `apps/noter/convex/daytona/actions.ts`
-7. `Dockerfile.daytona-deps`
+3. `specs/055_DAYTONA_CODEX_SHARED_HOME_SPEC.md`
+4. `apps/noter/convex/daytona/actions.ts`
 
 ### External sources
 
