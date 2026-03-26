@@ -4,6 +4,8 @@
 
 - Research
 - Last updated: 2026-03-26
+- Follow-on accepted implementation plan:
+  - `specs/070_CONNECTED_MACHINE_CODEX_THREAD_STORAGE_SPEC.md`
 
 ## Question
 
