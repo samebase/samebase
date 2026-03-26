@@ -119,13 +119,18 @@ The inventory response must preserve enough metadata to review the local thread
 population usefully, including:
 
 1. provider thread id
-2. preview / first-message summary
-3. name
-4. status
-5. cwd
-6. created/update timestamps
-7. source
-8. git metadata when available
+2. local `pinned-thread-ids` from the Codex desktop global state file
+3. preview / first-message summary
+4. name
+5. status
+6. cwd
+7. created/update timestamps
+8. source
+9. git metadata when available
+
+Pinned state remains machine-local UI state, not provider-owned thread data. The
+bridge may read it from Codex desktop storage so the browser route can mirror
+the same top-level pinned section as the native app.
 
 ### Thread detail
 
@@ -193,14 +198,17 @@ Keep two dev-only research surfaces:
 
 The browser route should add a machine-style thread inspection layout:
 
-1. one grouped sidebar keyed by canonical project root
-2. thread rows nested inside each project, with worktree context shown per row
-3. id-aware search that can find a thread by title, prompt, id, branch, cwd, or
+1. a pinned section at the top, outside project groups, using the desktop
+   sidebar's local pin order
+2. one grouped sidebar keyed by canonical project root for the remaining
+   unpinned threads
+3. thread rows nested inside each project, with worktree context shown per row
+4. id-aware search that can find a thread by title, prompt, id, branch, cwd, or
    project root
-4. a selected-thread detail panel
-5. archive/unarchive actions for the selected thread
-6. a link back to the protocol lab
-7. load-once plus explicit refresh behavior rather than aggressive background
+5. a selected-thread detail panel
+6. archive/unarchive actions for the selected thread
+7. a link back to the protocol lab
+8. load-once plus explicit refresh behavior rather than aggressive background
    polling that disrupts search or reading
 
 The thread list should show at least:
@@ -254,6 +262,8 @@ But it must preserve the boundary required for that future work:
 
 - [ ] `/research/codex-app-server/browser` shows a list of local provider
       threads rather than only one current thread id.
+- [ ] Pinned threads render in a dedicated top section and do not also appear
+      inside project groups.
 - [ ] The browser route groups sibling worktrees under one canonical project
       root instead of treating each worktree cwd as a separate project.
 - [ ] A user can select an existing local provider thread and inspect hydrated

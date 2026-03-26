@@ -157,14 +157,15 @@ export function CodexThreadBrowserVisualFixture({
     <div data-testid="codex-thread-browser-visual-fixture">
       <CodexThreadBrowserView
         browserMode="active"
+        pinnedThreads={[ACTIVE_THREADS[0]]}
         groups={[
           {
             id: "/Users/nicu/dev/my/noter",
             label: "noter",
             detail: "/Users/nicu/dev/my/noter",
-            count: 3,
-            loadedCount: 1,
-            threads: [ACTIVE_THREADS[0], ACTIVE_THREADS[1], ACTIVE_THREADS[2]],
+            count: 2,
+            loadedCount: 0,
+            threads: [ACTIVE_THREADS[1], ACTIVE_THREADS[2]],
           },
         ]}
         searchTerm=""

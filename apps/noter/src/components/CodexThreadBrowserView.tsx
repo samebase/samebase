@@ -26,6 +26,7 @@ export type CodexThreadBrowserDetailState =
 
 type CodexThreadBrowserViewProps = {
   browserMode: CodexThreadBrowserMode;
+  pinnedThreads: CodexAppServerThread[];
   groups: CodexThreadBrowserGroup[];
   searchTerm: string;
   loadedThreadIds: string[];
@@ -130,6 +131,7 @@ function ThreadRow(props: {
   thread: CodexAppServerThread;
   isSelected: boolean;
   isLoaded: boolean;
+  projectLabel?: string | null;
   onSelect?: (threadId: string) => void;
 }) {
   const preview = readThreadPreview(props.thread);
@@ -199,6 +201,19 @@ function ThreadRow(props: {
         >
           {readShortThreadId(props.thread.id)}
         </span>
+        {props.projectLabel ? (
+          <span
+            className={clsx(
+              "rounded-ui border px-1.5 py-0.5 font-mono",
+              props.isSelected
+                ? "border-amber-300/60 text-amber-100"
+                : "border-amber-200 text-amber-700",
+            )}
+            title={props.thread.project.rootCwd}
+          >
+            {props.projectLabel}
+          </span>
+        ) : null}
         {workspaceLabel ? (
           <span
             className={clsx(
@@ -224,6 +239,43 @@ function ThreadRow(props: {
         </span>
       </div>
     </button>
+  );
+}
+
+function PinnedSection(props: {
+  threads: CodexAppServerThread[];
+  loadedThreadIds: string[];
+  selectedThreadId: string | null;
+  onThreadSelect?: (threadId: string) => void;
+}) {
+  return (
+    <section className="grid gap-2 border-b border-slate-200 pb-4">
+      <div className="grid gap-1 px-1">
+        <div className="flex items-center justify-between gap-3">
+          <div className="truncate text-sm font-semibold text-slate-900">
+            Pinned
+          </div>
+          <div className="shrink-0 text-[11px] font-medium text-slate-500">
+            {props.threads.length}
+          </div>
+        </div>
+        <div className="text-[11px] text-slate-500">
+          Desktop-pinned threads stay outside the project groups.
+        </div>
+      </div>
+      <div className="grid gap-2">
+        {props.threads.map((thread) => (
+          <ThreadRow
+            key={thread.id}
+            thread={thread}
+            isSelected={thread.id === props.selectedThreadId}
+            isLoaded={props.loadedThreadIds.includes(thread.id)}
+            projectLabel={thread.project.label}
+            onSelect={props.onThreadSelect}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -286,10 +338,9 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
   const selectedThreadIsLoaded =
     props.selectedThread !== null &&
     props.loadedThreadIds.includes(props.selectedThread.id);
-  const visibleThreadCount = props.groups.reduce(
-    (total, group) => total + group.count,
-    0,
-  );
+  const visibleThreadCount =
+    props.pinnedThreads.length +
+    props.groups.reduce((total, group) => total + group.count, 0);
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,_#f8fafc_0%,_#e2e8f0_100%)] text-slate-950">
@@ -350,7 +401,7 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
             <CardHeader className="gap-3">
               <div className="flex items-center justify-between gap-3">
                 <CardTitle className="font-mono text-base">
-                  Projects and threads
+                  Pinned and projects
                 </CardTitle>
                 <div className="text-xs text-slate-500">
                   {visibleThreadCount} visible
@@ -365,7 +416,7 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
               />
             </CardHeader>
             <CardContent className="grid max-h-[calc(100vh-220px)] gap-4 overflow-auto">
-              {props.groups.length === 0 ? (
+              {props.pinnedThreads.length === 0 && props.groups.length === 0 ? (
                 <EmptyState
                   title={
                     props.browserMode === "archived"
@@ -377,6 +428,14 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
                       ? "Archive a thread from the active view to test the cold-storage workflow."
                       : "Adjust the search term to inspect a different slice of the local provider inventory."
                   }
+                />
+              ) : null}
+              {props.pinnedThreads.length > 0 ? (
+                <PinnedSection
+                  threads={props.pinnedThreads}
+                  loadedThreadIds={props.loadedThreadIds}
+                  selectedThreadId={props.selectedThreadId}
+                  onThreadSelect={props.onThreadSelect}
                 />
               ) : null}
               {props.groups.map((group) => (

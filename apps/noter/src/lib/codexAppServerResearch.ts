@@ -140,6 +140,7 @@ export type CodexAppServerThread = {
 
 export type CodexAppServerThreadsResponse = {
   threads: CodexAppServerThread[];
+  pinnedThreadIds: string[];
   nextCursor: string | null;
   runtime: CodexAppServerRuntimeSnapshot;
 };
