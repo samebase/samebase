@@ -58,6 +58,7 @@ type GitHubRepositoryPreviewResult = Infer<
 >;
 
 type CachedRepositoryBlob = {
+  size?: number | null;
   storageId?: string | null;
   text?: string | null;
   mime?: string | undefined;
@@ -299,6 +300,9 @@ const repositoryFileContentResult = union(
 
 type RepositoryFileContent = Infer<typeof repositoryFileContentResult>;
 const PAGE_LOAD_REFRESH_DEBOUNCE_MS = 10 * 1000;
+const MAX_REPOSITORY_MEDIA_BYTES = 1_000_000;
+const REPOSITORY_MEDIA_TOO_LARGE_MESSAGE =
+  "Preview unavailable for files larger than 1 MB.";
 
 const repositoryMediaAssetResult = union(
   object({
@@ -327,10 +331,33 @@ const repositoryMediaAssetResult = union(
 );
 
 type RepositoryMediaAsset = Infer<typeof repositoryMediaAssetResult>;
+
+type RepositoryMediaUnavailableAsset = Extract<
+  RepositoryMediaAsset,
+  { found: false; reason: "unavailable" }
+>;
 const CLOUDFLARE_PREVIEW_COMMENT_CONCURRENCY = 5;
 const CLOUDFLARE_PREVIEW_COMMENT_AUTHORS = new Set([
   "cloudflare-workers-and-pages[bot]",
 ]);
+
+/**
+ * Mirror GitHub's preview size ceiling for cached blobs so storage-backed media
+ * cannot bypass the same protection the live Contents API path already applies.
+ */
+export function isRepositoryMediaPreviewTooLarge(
+  size: number | null | undefined,
+): boolean {
+  return typeof size === "number" && size > MAX_REPOSITORY_MEDIA_BYTES;
+}
+
+function getRepositoryMediaTooLargeAsset(): RepositoryMediaUnavailableAsset {
+  return {
+    found: false,
+    reason: "unavailable",
+    message: REPOSITORY_MEDIA_TOO_LARGE_MESSAGE,
+  };
+}
 
 function toGitTreeRef(branch: string): string {
   if (branch.startsWith("refs/heads/")) {
@@ -1234,6 +1261,10 @@ async function resolveCachedRepositoryMediaAsset(
   mediaKind: RepositoryMediaKind,
   fileName: string,
 ): Promise<RepositoryMediaAsset | null> {
+  if (isRepositoryMediaPreviewTooLarge(cachedBlob?.size)) {
+    return getRepositoryMediaTooLargeAsset();
+  }
+
   if (typeof cachedBlob?.storageId === "string") {
     const url = await ctx.storage.getUrl(cachedBlob.storageId);
     if (typeof url === "string" && url.length > 0) {
@@ -1558,11 +1589,7 @@ export const getRepositoryMediaAsset = action({
       }
 
       if (isRepositoryMediaTooLargeError(error)) {
-        return {
-          found: false,
-          reason: "unavailable",
-          message: "Preview unavailable for files larger than 1 MB.",
-        };
+        return getRepositoryMediaTooLargeAsset();
       }
 
       throw error;

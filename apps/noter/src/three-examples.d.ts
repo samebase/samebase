@@ -1,3 +1,8 @@
+/**
+ * Local ambient typings for the Three.js example modules used by Noter's VOX
+ * preview. Keep these declarations aligned with the `three` version in
+ * `apps/noter/package.json` when example loader/control APIs change upstream.
+ */
 declare module "three/examples/jsm/loaders/VOXLoader.js" {
   import type { Group } from "three";
 

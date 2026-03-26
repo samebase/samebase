@@ -7,7 +7,8 @@ import type {
   VOXResult,
 } from "three/examples/jsm/loaders/VOXLoader.js";
 
-type PreviewStatus = "loading" | "ready" | "error";
+type PreviewStatus = "idle" | "loading" | "ready" | "error";
+const PREVIEW_LOADING_DELAY_MS = 500;
 
 type RenderableObject = {
   bounds: THREE.Box3;
@@ -231,7 +232,7 @@ export function RepositoryVoxPreview({
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [status, setStatus] = useState<PreviewStatus>("loading");
+  const [status, setStatus] = useState<PreviewStatus>("idle");
 
   useEffect(() => {
     const container = containerRef.current;
@@ -242,6 +243,7 @@ export function RepositoryVoxPreview({
     const abortController = new AbortController();
     let isDisposed = false;
     let loadedObject: THREE.Object3D | null = null;
+    let loadingDelayId: number | null = null;
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 1000);
     let renderer: THREE.WebGLRenderer | null = null;
@@ -267,11 +269,25 @@ export function RepositoryVoxPreview({
     const shouldIgnoreResult = () =>
       abortController.signal.aborted || isDisposed;
 
+    const clearLoadingDelay = () => {
+      if (loadingDelayId !== null) {
+        window.clearTimeout(loadingDelayId);
+        loadingDelayId = null;
+      }
+    };
+
     const handleControlChange = () => {
       renderScene();
     };
-    setStatus("loading");
+    setStatus("idle");
     setErrorMessage(null);
+    loadingDelayId = window.setTimeout(() => {
+      if (shouldIgnoreResult()) {
+        return;
+      }
+      setStatus("loading");
+      loadingDelayId = null;
+    }, PREVIEW_LOADING_DELAY_MS);
 
     void (async () => {
       try {
@@ -340,6 +356,7 @@ export function RepositoryVoxPreview({
           return;
         }
 
+        clearLoadingDelay();
         setStatus("ready");
       } catch (error: unknown) {
         if (error instanceof DOMException && error.name === "AbortError") {
@@ -354,6 +371,7 @@ export function RepositoryVoxPreview({
           return;
         }
 
+        clearLoadingDelay();
         setErrorMessage(message);
         setStatus("error");
       }
@@ -362,6 +380,7 @@ export function RepositoryVoxPreview({
     return () => {
       isDisposed = true;
       abortController.abort();
+      clearLoadingDelay();
       resizeObserver?.disconnect();
       controls?.removeEventListener("change", handleControlChange);
       controls?.dispose();

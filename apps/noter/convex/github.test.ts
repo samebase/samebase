@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   collectLatestOpenPullRequestsByBranch,
   computeRepositoryTreeUpdatePlan,
+  isRepositoryMediaPreviewTooLarge,
   listGitHubRepositoryPreview,
   listGitHubRepositories,
   normalizeGitHubRepositoryListItem,
@@ -100,6 +101,18 @@ describe("readPullRequestLabels", () => {
         42,
       ]),
     ).toEqual([{ name: "release", color: undefined }]);
+  });
+});
+
+describe("isRepositoryMediaPreviewTooLarge", () => {
+  it("allows missing sizes and blobs at the preview limit", () => {
+    expect(isRepositoryMediaPreviewTooLarge(undefined)).toBe(false);
+    expect(isRepositoryMediaPreviewTooLarge(null)).toBe(false);
+    expect(isRepositoryMediaPreviewTooLarge(1_000_000)).toBe(false);
+  });
+
+  it("rejects blobs above the preview limit", () => {
+    expect(isRepositoryMediaPreviewTooLarge(1_000_001)).toBe(true);
   });
 });
 

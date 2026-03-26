@@ -39,10 +39,21 @@ for (const scenario of SCENARIOS) {
         }
 
         if (!element.complete) {
-          await new Promise<void>((resolve) => {
+          await new Promise<void>((resolve, reject) => {
             element.addEventListener("load", () => resolve(), { once: true });
-            element.addEventListener("error", () => resolve(), { once: true });
+            element.addEventListener(
+              "error",
+              () =>
+                reject(
+                  new Error("Failed to load repository media fixture image."),
+                ),
+              { once: true },
+            );
           });
+        }
+
+        if (element.naturalWidth === 0) {
+          throw new Error("Repository media fixture image failed to decode.");
         }
 
         if (typeof element.decode === "function") {
