@@ -9,6 +9,16 @@ const SHORT_ITEM = {
   raw: {},
 } as const;
 
+const TWO_LINE_ITEM = {
+  id: "message-two-line",
+  type: "assistant_message",
+  summary:
+    "Machine threads stay local to the connector.\nNoter only needs the normalized session handle.",
+  raw: {
+    text: "Machine threads stay local to the connector.\nNoter only needs the normalized session handle.",
+  },
+} as const;
+
 const LONG_ITEM = {
   id: "message-long",
   type: "assistant_message",
@@ -45,6 +55,13 @@ export function CodexThreadHistoryVisualFixture({
               Short message
             </div>
             <CodexAppServerThreadHistoryItemCard item={SHORT_ITEM} />
+          </div>
+
+          <div className="grid gap-2">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Exactly two lines
+            </div>
+            <CodexAppServerThreadHistoryItemCard item={TWO_LINE_ITEM} />
           </div>
 
           <div className="grid gap-2">
