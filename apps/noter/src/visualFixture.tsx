@@ -53,6 +53,10 @@ import {
 import { VaultDashboardBranchVisualFixture } from "@/components/VaultDashboardBranchVisualFixture";
 import { ButtonVisualFixture } from "@/components/ButtonVisualFixture";
 import {
+  CodexThreadHistoryVisualFixture,
+  type CodexThreadHistoryVisualMode,
+} from "@/components/CodexThreadHistoryVisualFixture";
+import {
   EditorChatVisualFixture,
   type EditorChatVisualMode,
 } from "@/components/EditorChatVisualFixture";
@@ -82,6 +86,7 @@ type VisualFixtureMode =
   | VaultDashboardVisualMode
   | VaultBranchPreviewVisualMode
   | VaultSyncStatusVisualMode
+  | CodexThreadHistoryVisualMode
   | "vault-dashboard-branch-pr-title"
   | "button"
   | "corner-notch"
@@ -178,6 +183,7 @@ const FILE_VIEW_COMPARE_VISUAL_MODES = [
 ] as const satisfies readonly FileViewCompareVisualMode[];
 
 const MISC_VISUAL_MODES = [
+  "codex-thread-history",
   "vault-dashboard-branch-pr-title",
   "button",
   "corner-notch",
@@ -361,6 +367,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "vault-dashboard-branch-pr-title") {
     return <VaultDashboardBranchVisualFixture />;
+  }
+
+  if (mode === "codex-thread-history") {
+    return <CodexThreadHistoryVisualFixture mode={mode} />;
   }
 
   if (mode === "button") {
