@@ -90,6 +90,17 @@ export type CodexAppServerThreadGitInfo = {
   sha: string | null;
 };
 
+export type CodexAppServerThreadProject = {
+  id: string;
+  label: string;
+  rootCwd: string;
+};
+
+export type CodexAppServerThreadWorkspace = {
+  label: string | null;
+  isProjectRoot: boolean;
+};
+
 export type CodexAppServerThreadItem = {
   id: string | null;
   type: string;
@@ -110,6 +121,8 @@ export type CodexAppServerThread = {
   name: string | null;
   preview: string;
   cwd: string;
+  project: CodexAppServerThreadProject;
+  workspace: CodexAppServerThreadWorkspace;
   createdAt: number;
   updatedAt: number;
   cliVersion: string | null;
