@@ -1,4 +1,7 @@
+import { Badge } from "@/components/badge";
+import { CodexAppServerThreadInventoryCard } from "@/components/CodexAppServerThreadInventoryCard";
 import { CodexAppServerThreadHistoryItemCard } from "@/components/CodexAppServerThreadHistoryItemCard";
+import { type CodexAppServerThread } from "@/lib/codexAppServerResearch";
 
 export type CodexThreadHistoryVisualMode = "codex-thread-history";
 
@@ -26,6 +29,38 @@ const LONG_ITEM = {
   raw: {},
 } as const;
 
+const TWO_LINE_THREAD = {
+  id: "thread-two-line",
+  name: null,
+  preview:
+    "Machine threads stay local to the connector.\nNoter only needs the normalized session handle.",
+  cwd: "/Users/nicu/.codex/worktrees/5fed/noter",
+  createdAt: 1_774_539_343,
+  updatedAt: 1_774_539_373,
+  cliVersion: "0.114.0",
+  modelProvider: "openai",
+  sourceLabel: "vscode",
+  source: "vscode",
+  status: {
+    type: "idle",
+    activeFlags: [],
+    raw: { type: "idle" },
+  },
+  gitInfo: null,
+  path: null,
+  agentNickname: null,
+  agentRole: null,
+  turns: [],
+  raw: {},
+} as const satisfies CodexAppServerThread;
+
+const LONG_THREAD = {
+  ...TWO_LINE_THREAD,
+  id: "thread-long",
+  preview:
+    "check latest pr created; it was created from noter.md ui I'd like something to run on this machine that when it sees such a pr created knows that it needs to start codex to do the research and update the pull request with findings",
+} as const satisfies CodexAppServerThread;
+
 export function CodexThreadHistoryVisualFixture({
   mode,
 }: {
@@ -43,9 +78,9 @@ export function CodexThreadHistoryVisualFixture({
             Codex Thread History Visual Fixture
           </h1>
           <p className="max-w-3xl text-sm leading-6 text-slate-600">
-            Covers the collapsed two-line preview, the no-noise short-message
-            state, and the in-place icon toggle used to reveal the full message
-            in the research page thread detail panel.
+            Covers both research-page ellipsis surfaces: thread history rows and
+            thread inventory previews. The chevron only appears when the
+            collapsed two-line view actually hides text.
           </p>
         </header>
 
@@ -78,6 +113,36 @@ export function CodexThreadHistoryVisualFixture({
             <CodexAppServerThreadHistoryItemCard
               item={LONG_ITEM}
               defaultExpanded
+            />
+          </div>
+        </section>
+
+        <section className="grid gap-4 border border-slate-300 bg-white p-5">
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Thread inventory preview
+          </div>
+
+          <div className="grid gap-2">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Exactly two lines
+            </div>
+            <CodexAppServerThreadInventoryCard
+              isSelected={false}
+              statusBadge={<Badge variant="outline">idle</Badge>}
+              thread={TWO_LINE_THREAD}
+              updatedAtLabel="3/26/2026, 5:36:13 PM"
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Collapsed long preview
+            </div>
+            <CodexAppServerThreadInventoryCard
+              isSelected
+              statusBadge={<Badge variant="outline">notLoaded</Badge>}
+              thread={LONG_THREAD}
+              updatedAtLabel="3/26/2026, 5:55:08 PM"
             />
           </div>
         </section>

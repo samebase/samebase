@@ -1,4 +1,5 @@
 import { Badge } from "@/components/badge";
+import { CodexAppServerThreadInventoryCard } from "@/components/CodexAppServerThreadInventoryCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
 import { CodexAppServerThreadHistoryItemCard } from "@/components/CodexAppServerThreadHistoryItemCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/tabs";
@@ -330,32 +331,14 @@ function ThreadInventoryPanel(props: {
           </div>
         ) : null}
         {props.threads.map((thread) => (
-          <button
+          <CodexAppServerThreadInventoryCard
             key={thread.id}
-            type="button"
-            className={clsx(
-              "grid gap-2 border px-3 py-3 text-left transition-colors",
-              thread.id === props.selectedThreadId
-                ? "border-slate-900 bg-slate-900 text-white"
-                : "border-border bg-slate-50 text-slate-900 hover:bg-slate-100",
-            )}
-            onClick={() => {
-              props.onSelectThread(thread.id);
-            }}
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="line-clamp-2 flex-1 text-sm font-medium">
-                {thread.preview}
-              </div>
-              <ThreadStatusBadge thread={thread} />
-            </div>
-            <div className="font-mono text-[11px] opacity-80">{thread.id}</div>
-            <div className="text-xs opacity-80">
-              {thread.cwd}
-              <span className="mx-2">·</span>
-              {formatDateTime(thread.updatedAt)}
-            </div>
-          </button>
+            isSelected={thread.id === props.selectedThreadId}
+            onSelectThread={props.onSelectThread}
+            statusBadge={<ThreadStatusBadge thread={thread} />}
+            thread={thread}
+            updatedAtLabel={formatDateTime(thread.updatedAt)}
+          />
         ))}
       </div>
     </div>
