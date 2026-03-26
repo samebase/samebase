@@ -1,8 +1,12 @@
-import { expect, type Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
 
 export async function signInIfNeeded(page: Page): Promise<void> {
   const autofillButton = page.getByRole("button", {
     name: "Autofill & sign in",
+  });
+  const vaultsLabel = page.getByText("Your Vaults", { exact: true }).first();
+  const emptyStateHeading = page.getByRole("heading", {
+    name: "Create your first project",
   });
 
   try {
@@ -12,11 +16,8 @@ export async function signInIfNeeded(page: Page): Promise<void> {
     // The autofill shortcut is absent once a session is already active.
   }
 
-  await expect(
-    page.getByRole("heading", {
-      name: /^(Your Vaults|Create your first project)$/,
-    }),
-  ).toBeVisible({
-    timeout: 30_000,
-  });
+  await Promise.any([
+    vaultsLabel.waitFor({ state: "visible", timeout: 30_000 }),
+    emptyStateHeading.waitFor({ state: "visible", timeout: 30_000 }),
+  ]);
 }

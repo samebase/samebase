@@ -50,9 +50,7 @@ async function removeTemporaryVault(
   repoName: string,
 ): Promise<void> {
   const removeButton = removeVaultButton(page, repoName);
-  if ((await removeButton.count()) === 0) {
-    return;
-  }
+  await expect(removeButton).toBeVisible({ timeout: 120_000 });
 
   await removeButton.click();
 
@@ -93,6 +91,7 @@ test.describe("vault create app live flow", () => {
       await page.goto("/", { waitUntil: "domcontentloaded" });
       await signInIfNeeded(page);
       await createAppIfAvailable(page, repositoryName);
+      createdRepository = true;
 
       const createdVaultCard = vaultCard(page, repositoryName);
       const repositoryLink = createdVaultCard.locator(
@@ -104,8 +103,6 @@ test.describe("vault create app live flow", () => {
       await expect(
         createdVaultCard.getByRole("button", { name: "Developer tools" }),
       ).toBeVisible({ timeout: 120_000 });
-
-      createdRepository = true;
 
       await testInfo.attach("created-repository-link", {
         body: (await repositoryLink.first().getAttribute("href")) ?? "",
