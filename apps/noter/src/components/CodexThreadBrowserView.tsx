@@ -8,12 +8,13 @@ import { clsx } from "clsx";
 
 export type CodexThreadBrowserMode = "active" | "archived";
 
-export type CodexThreadBrowserProject = {
+export type CodexThreadBrowserGroup = {
   id: string;
   label: string;
   detail: string;
   count: number;
   loadedCount: number;
+  threads: CodexAppServerThread[];
 };
 
 export type CodexThreadBrowserDetailState =
@@ -25,10 +26,8 @@ export type CodexThreadBrowserDetailState =
 
 type CodexThreadBrowserViewProps = {
   browserMode: CodexThreadBrowserMode;
-  projects: CodexThreadBrowserProject[];
-  selectedProjectId: string;
+  groups: CodexThreadBrowserGroup[];
   searchTerm: string;
-  threads: CodexAppServerThread[];
   loadedThreadIds: string[];
   selectedThreadId: string | null;
   selectedThread: CodexAppServerThread | null;
@@ -37,7 +36,6 @@ type CodexThreadBrowserViewProps = {
   isBusy: boolean;
   labHref?: string;
   onBrowserModeChange?: (mode: CodexThreadBrowserMode) => void;
-  onProjectSelect?: (projectId: string) => void;
   onSearchTermChange?: (value: string) => void;
   onThreadSelect?: (threadId: string) => void;
   onRefresh?: () => void;
@@ -59,8 +57,8 @@ function formatDateTime(value: number | null | undefined): string {
 }
 
 /**
- * Use a compact relative label so the browser list reads more like the Codex
- * sidebar than the detail-heavy protocol research page.
+ * Use a compact relative label so the grouped sidebar stays close to the Codex
+ * mental model without flooding the left rail with full timestamps.
  */
 function formatRelativeTime(value: number): string {
   const now = Date.now();
@@ -93,12 +91,12 @@ function readFirstNonEmptyLine(value: string): string {
   return firstLine ?? value.trim();
 }
 
-function readPathLeaf(value: string): string {
-  const normalized = value.split("\\").join("/");
-  const segments = normalized
-    .split("/")
-    .filter((segment: string) => segment.length > 0);
-  return segments[segments.length - 1] ?? value;
+function readShortThreadId(value: string): string {
+  if (value.length <= 18) {
+    return value;
+  }
+
+  return `${value.slice(0, 8)}…${value.slice(-6)}`;
 }
 
 function readThreadTitle(thread: CodexAppServerThread): string {
@@ -110,14 +108,14 @@ function readThreadTitle(thread: CodexAppServerThread): string {
   return readFirstNonEmptyLine(thread.preview);
 }
 
-function readThreadSubtitle(thread: CodexAppServerThread): string {
+function readThreadPreview(thread: CodexAppServerThread): string | null {
   const previewLine = readFirstNonEmptyLine(thread.preview);
   const title = readThreadTitle(thread);
-  if (previewLine !== title) {
-    return previewLine;
+  if (previewLine === title) {
+    return null;
   }
 
-  return readPathLeaf(thread.cwd);
+  return previewLine;
 }
 
 function ThreadRow(props: {
@@ -126,20 +124,20 @@ function ThreadRow(props: {
   isLoaded: boolean;
   onSelect?: (threadId: string) => void;
 }) {
-  const handleSelect = () => {
-    props.onSelect?.(props.thread.id);
-  };
+  const preview = readThreadPreview(props.thread);
 
   return (
     <button
       type="button"
       className={clsx(
-        "grid w-full gap-1 border px-3 py-2 text-left transition-colors",
+        "grid w-full gap-2 border px-3 py-3 text-left transition-colors",
         props.isSelected
           ? "border-slate-900 bg-slate-900 text-white"
           : "border-slate-200 bg-white text-slate-900 hover:bg-slate-100",
       )}
-      onClick={handleSelect}
+      onClick={() => {
+        props.onSelect?.(props.thread.id);
+      }}
     >
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
@@ -149,15 +147,17 @@ function ThreadRow(props: {
           >
             {readThreadTitle(props.thread)}
           </div>
-          <div
-            className={clsx(
-              "truncate text-xs",
-              props.isSelected ? "text-slate-300" : "text-slate-500",
-            )}
-            title={readThreadSubtitle(props.thread)}
-          >
-            {readThreadSubtitle(props.thread)}
-          </div>
+          {preview ? (
+            <div
+              className={clsx(
+                "truncate text-xs",
+                props.isSelected ? "text-slate-300" : "text-slate-500",
+              )}
+              title={preview}
+            >
+              {preview}
+            </div>
+          ) : null}
         </div>
         <div
           className={clsx(
@@ -168,7 +168,7 @@ function ThreadRow(props: {
           {formatRelativeTime(props.thread.updatedAt)}
         </div>
       </div>
-      <div className="flex items-center gap-2 text-[11px]">
+      <div className="flex flex-wrap items-center gap-2 text-[11px]">
         <div
           className={clsx(
             "h-2 w-2 shrink-0 rounded-full",
@@ -183,69 +183,69 @@ function ThreadRow(props: {
         />
         <span
           className={clsx(
-            "truncate",
+            "font-mono",
             props.isSelected ? "text-slate-300" : "text-slate-500",
           )}
-          title={props.thread.cwd}
+          title={props.thread.id}
         >
-          {readPathLeaf(props.thread.cwd)}
+          {readShortThreadId(props.thread.id)}
+        </span>
+        <span
+          className={clsx(
+            "rounded-ui border px-1.5 py-0.5 font-mono",
+            props.isSelected
+              ? "border-slate-600 text-slate-300"
+              : "border-slate-300 text-slate-500",
+          )}
+        >
+          {props.thread.status.type}
         </span>
       </div>
     </button>
   );
 }
 
-function ProjectRow(props: {
-  project: CodexThreadBrowserProject;
-  isSelected: boolean;
-  onSelect?: (projectId: string) => void;
+function GroupSection(props: {
+  group: CodexThreadBrowserGroup;
+  loadedThreadIds: string[];
+  selectedThreadId: string | null;
+  onThreadSelect?: (threadId: string) => void;
 }) {
   return (
-    <button
-      type="button"
-      className={clsx(
-        "grid w-full gap-1 border px-3 py-2 text-left transition-colors",
-        props.isSelected
-          ? "border-slate-900 bg-slate-900 text-white"
-          : "border-slate-200 bg-white text-slate-900 hover:bg-slate-100",
-      )}
-      onClick={() => {
-        props.onSelect?.(props.project.id);
-      }}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <div className="truncate text-sm font-medium">
-          {props.project.label}
+    <section className="grid gap-2 border-t border-slate-200 pt-4 first:border-t-0 first:pt-0">
+      <div className="grid gap-1 px-1">
+        <div className="flex items-center justify-between gap-3">
+          <div className="truncate text-sm font-semibold text-slate-900">
+            {props.group.label}
+          </div>
+          <div className="shrink-0 text-[11px] font-medium text-slate-500">
+            {props.group.count}
+          </div>
         </div>
         <div
-          className={clsx(
-            "shrink-0 text-[11px] font-medium",
-            props.isSelected ? "text-slate-300" : "text-slate-500",
-          )}
+          className="truncate text-[11px] text-slate-500"
+          title={props.group.detail}
         >
-          {props.project.count}
+          {props.group.detail}
         </div>
+        {props.group.loadedCount > 0 ? (
+          <div className="text-[11px] text-emerald-700">
+            {props.group.loadedCount} loaded
+          </div>
+        ) : null}
       </div>
-      <div
-        className={clsx(
-          "truncate text-[11px]",
-          props.isSelected ? "text-slate-300" : "text-slate-500",
-        )}
-        title={props.project.detail}
-      >
-        {props.project.detail}
+      <div className="grid gap-2">
+        {props.group.threads.map((thread) => (
+          <ThreadRow
+            key={thread.id}
+            thread={thread}
+            isSelected={thread.id === props.selectedThreadId}
+            isLoaded={props.loadedThreadIds.includes(thread.id)}
+            onSelect={props.onThreadSelect}
+          />
+        ))}
       </div>
-      {props.project.loadedCount > 0 ? (
-        <div
-          className={clsx(
-            "text-[11px]",
-            props.isSelected ? "text-emerald-300" : "text-emerald-700",
-          )}
-        >
-          {props.project.loadedCount} loaded
-        </div>
-      ) : null}
-    </button>
+    </section>
   );
 }
 
@@ -264,6 +264,10 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
   const selectedThreadIsLoaded =
     props.selectedThread !== null &&
     props.loadedThreadIds.includes(props.selectedThread.id);
+  const visibleThreadCount = props.groups.reduce(
+    (total, group) => total + group.count,
+    0,
+  );
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,_#f8fafc_0%,_#e2e8f0_100%)] text-slate-950">
@@ -319,41 +323,27 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
           </div>
         ) : null}
 
-        <div className="grid gap-4 xl:grid-cols-[240px_320px_minmax(0,1fr)]">
-          <Card cornerNotch={0}>
-            <CardHeader>
-              <CardTitle className="font-mono text-base">Projects</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-2">
-              {props.projects.map((project) => (
-                <ProjectRow
-                  key={project.id}
-                  project={project}
-                  isSelected={project.id === props.selectedProjectId}
-                  onSelect={props.onProjectSelect}
-                />
-              ))}
-            </CardContent>
-          </Card>
-
+        <div className="grid gap-4 xl:grid-cols-[420px_minmax(0,1fr)]">
           <Card cornerNotch={0}>
             <CardHeader className="gap-3">
               <div className="flex items-center justify-between gap-3">
-                <CardTitle className="font-mono text-base">Threads</CardTitle>
+                <CardTitle className="font-mono text-base">
+                  Projects and threads
+                </CardTitle>
                 <div className="text-xs text-slate-500">
-                  {props.loadedThreadIds.length} loaded
+                  {visibleThreadCount} visible
                 </div>
               </div>
               <Input
-                placeholder="Search thread title"
+                placeholder="Search thread title, prompt, id, or path"
                 value={props.searchTerm}
                 onChange={(event) => {
                   props.onSearchTermChange?.(event.target.value);
                 }}
               />
             </CardHeader>
-            <CardContent className="grid max-h-[calc(100vh-220px)] gap-2 overflow-auto">
-              {props.threads.length === 0 ? (
+            <CardContent className="grid max-h-[calc(100vh-220px)] gap-4 overflow-auto">
+              {props.groups.length === 0 ? (
                 <EmptyState
                   title={
                     props.browserMode === "archived"
@@ -363,17 +353,17 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
                   body={
                     props.browserMode === "archived"
                       ? "Archive a thread from the active view to test the cold-storage workflow."
-                      : "Adjust the project filter or search term to inspect a different slice of the local provider inventory."
+                      : "Adjust the search term to inspect a different slice of the local provider inventory."
                   }
                 />
               ) : null}
-              {props.threads.map((thread) => (
-                <ThreadRow
-                  key={thread.id}
-                  thread={thread}
-                  isSelected={thread.id === props.selectedThreadId}
-                  isLoaded={props.loadedThreadIds.includes(thread.id)}
-                  onSelect={props.onThreadSelect}
+              {props.groups.map((group) => (
+                <GroupSection
+                  key={group.id}
+                  group={group}
+                  loadedThreadIds={props.loadedThreadIds}
+                  selectedThreadId={props.selectedThreadId}
+                  onThreadSelect={props.onThreadSelect}
                 />
               ))}
             </CardContent>
@@ -450,7 +440,7 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
               {!props.selectedThread ? (
                 <EmptyState
                   title="No thread selected"
-                  body="Pick a thread from the middle column to inspect its preview, metadata, and hydrated turn history."
+                  body="Pick a thread from the left sidebar to inspect its preview, metadata, and hydrated turn history."
                 />
               ) : (
                 <>
@@ -458,7 +448,10 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
                     <div className="grid gap-2 text-sm">
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-slate-500">Preview</span>
-                        <span className="font-mono text-[11px]">
+                        <span
+                          className="font-mono text-[11px]"
+                          title={props.selectedThread.id}
+                        >
                           {props.selectedThread.id}
                         </span>
                       </div>

@@ -130,32 +130,25 @@ export function CodexThreadBrowserVisualFixture({
     <div data-testid="codex-thread-browser-visual-fixture">
       <CodexThreadBrowserView
         browserMode="active"
-        projects={[
-          {
-            id: "__all__",
-            label: "All threads",
-            detail: "Every visible provider thread",
-            count: ACTIVE_THREADS.length,
-            loadedCount: 1,
-          },
+        groups={[
           {
             id: "/Users/nicu/.codex/worktrees/5fed/noter",
-            label: "noter",
+            label: "noter · 5fed",
             detail: "/Users/nicu/.codex/worktrees/5fed/noter",
             count: 2,
             loadedCount: 1,
+            threads: [ACTIVE_THREADS[0], ACTIVE_THREADS[2]],
           },
           {
             id: "/Users/nicu/.codex/worktrees/6257/noter",
-            label: "noter (6257)",
+            label: "noter · 6257",
             detail: "/Users/nicu/.codex/worktrees/6257/noter",
             count: 1,
             loadedCount: 0,
+            threads: [ACTIVE_THREADS[1]],
           },
         ]}
-        selectedProjectId="__all__"
         searchTerm=""
-        threads={ACTIVE_THREADS}
         loadedThreadIds={["thread-browser-active"]}
         selectedThreadId="thread-browser-active"
         selectedThread={ACTIVE_THREADS[0]}
