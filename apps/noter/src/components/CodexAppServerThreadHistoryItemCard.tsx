@@ -47,15 +47,6 @@ function readThreadItemDisplayText(
   return textParts.join("\n");
 }
 
-function textLikelyNeedsExpansion(text: string): boolean {
-  return (
-    text.includes("\n") ||
-    text.includes("…") ||
-    text.includes("...") ||
-    text.length > 120
-  );
-}
-
 /**
  * Keep turn history dense for scanning, but let reviewers expand the opaque
  * provider text in place when they need the full payload wording.
@@ -65,11 +56,9 @@ export function CodexAppServerThreadHistoryItemCard({
   defaultExpanded = false,
 }: CodexAppServerThreadHistoryItemCardProps) {
   const displayText = readThreadItemDisplayText(item);
-  const summaryPreviewRef = useRef<HTMLDivElement | null>(null);
+  const textMeasurementRef = useRef<HTMLDivElement | null>(null);
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-  const [isExpandable, setIsExpandable] = useState(
-    displayText ? textLikelyNeedsExpansion(displayText) : false,
-  );
+  const [isExpandable, setIsExpandable] = useState(false);
 
   useEffect(() => {
     if (!displayText) {
@@ -77,26 +66,28 @@ export function CodexAppServerThreadHistoryItemCard({
       return;
     }
 
-    const fallbackExpandable =
-      textLikelyNeedsExpansion(displayText) ||
-      (item.summary?.includes("…") ?? false);
-    const summaryPreviewNode = summaryPreviewRef.current;
-    if (!summaryPreviewNode) {
-      setIsExpandable(fallbackExpandable);
+    const measurementNode = textMeasurementRef.current;
+    if (!measurementNode) {
+      setIsExpandable(false);
       return;
     }
 
     const updateIsExpandable = () => {
-      setIsExpandable(
-        fallbackExpandable ||
-          summaryPreviewNode.scrollHeight - summaryPreviewNode.clientHeight >
-            1 ||
-          summaryPreviewNode.scrollWidth - summaryPreviewNode.clientWidth > 1,
+      const measuredHeight = measurementNode.getBoundingClientRect().height;
+      const lineHeight = Number.parseFloat(
+        window.getComputedStyle(measurementNode).lineHeight,
       );
+
+      if (!Number.isFinite(lineHeight) || lineHeight <= 0) {
+        setIsExpandable(false);
+        return;
+      }
+
+      setIsExpandable(measuredHeight > lineHeight * 2 + 1);
     };
 
-    // Clamp detection keeps the extra trigger out of short items without
-    // baking layout-specific length guesses into the provider summary model.
+    // Measure the unclamped rendered height against two line-heights so the
+    // chevron only appears when the collapsed view actually hides text.
     updateIsExpandable();
 
     if (typeof ResizeObserver !== "function") {
@@ -109,12 +100,12 @@ export function CodexAppServerThreadHistoryItemCard({
     const resizeObserver = new ResizeObserver(() => {
       updateIsExpandable();
     });
-    resizeObserver.observe(summaryPreviewNode);
+    resizeObserver.observe(measurementNode);
 
     return () => {
       resizeObserver.disconnect();
     };
-  }, [displayText, item.summary]);
+  }, [displayText]);
 
   return (
     <div className="grid gap-2 border border-border bg-white px-3 py-2">
@@ -153,14 +144,22 @@ export function CodexAppServerThreadHistoryItemCard({
       </div>
 
       {displayText ? (
-        <div
-          ref={summaryPreviewRef}
-          className={clsx(
-            "whitespace-pre-wrap break-words text-sm leading-6 text-slate-700",
-            isExpanded ? "" : "line-clamp-2",
-          )}
-        >
-          {displayText}
+        <div className="relative">
+          <div
+            ref={textMeasurementRef}
+            aria-hidden="true"
+            className="pointer-events-none invisible absolute inset-x-0 top-0 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700"
+          >
+            {displayText}
+          </div>
+          <div
+            className={clsx(
+              "whitespace-pre-wrap break-words text-sm leading-6 text-slate-700",
+              isExpanded ? "" : "line-clamp-2",
+            )}
+          >
+            {displayText}
+          </div>
         </div>
       ) : null}
     </div>
