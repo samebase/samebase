@@ -163,6 +163,7 @@ export function CodexAppServerThreadBrowserResearchPage() {
   const [browserMode, setBrowserMode] =
     useState<CodexThreadBrowserMode>("active");
   const [threads, setThreads] = useState<CodexAppServerThread[]>([]);
+  const [pinnedThreadIds, setPinnedThreadIds] = useState<string[]>([]);
   const [loadedThreadIds, setLoadedThreadIds] = useState<string[]>([]);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [selectedThreadDetail, setSelectedThreadDetail] =
@@ -183,6 +184,7 @@ export function CodexAppServerThreadBrowserResearchPage() {
         path: buildThreadsPath(mode),
       });
       setThreads(response.threads);
+      setPinnedThreadIds(response.pinnedThreadIds);
       return response;
     },
     [browserMode],
@@ -230,9 +232,33 @@ export function CodexAppServerThreadBrowserResearchPage() {
     );
   }, [selectedThreadId, visibleThreads]);
 
+  /**
+   * Codex stores pinned thread ids in explicit sidebar order. Preserve that
+   * local desktop order instead of re-sorting by updated time.
+   */
+  const pinnedThreads = useMemo(() => {
+    const visibleThreadById = new Map(
+      visibleThreads.map((thread) => [thread.id, thread]),
+    );
+
+    return pinnedThreadIds
+      .map((threadId) => visibleThreadById.get(threadId) ?? null)
+      .filter((thread): thread is CodexAppServerThread => thread !== null);
+  }, [pinnedThreadIds, visibleThreads]);
+
+  /**
+   * Pinned threads render in their own section above projects, so keep the
+   * grouped project inventory strictly to the remaining unpinned threads.
+   */
+  const unpinnedVisibleThreads = useMemo(() => {
+    const pinnedThreadIdSet = new Set(pinnedThreadIds);
+    return visibleThreads.filter((thread) => !pinnedThreadIdSet.has(thread.id));
+  }, [pinnedThreadIds, visibleThreads]);
+
   const groups = useMemo(
-    () => buildThreadGroups({ threads: visibleThreads, loadedThreadIds }),
-    [loadedThreadIds, visibleThreads],
+    () =>
+      buildThreadGroups({ threads: unpinnedVisibleThreads, loadedThreadIds }),
+    [loadedThreadIds, unpinnedVisibleThreads],
   );
 
   useEffect(() => {
@@ -345,6 +371,7 @@ export function CodexAppServerThreadBrowserResearchPage() {
   return (
     <CodexThreadBrowserView
       browserMode={browserMode}
+      pinnedThreads={pinnedThreads}
       groups={groups}
       searchTerm={searchTerm}
       loadedThreadIds={loadedThreadIds}

@@ -5,7 +5,7 @@ import {
 } from "node:child_process";
 import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import type { Plugin, ViteDevServer } from "vite";
@@ -40,6 +40,7 @@ const CODEX_EVENT_BUFFER_SIZE = 500;
 const CODEX_REQUEST_BUFFER_SIZE = 100;
 const CODEX_APPROVAL_CONTEXT_BUFFER_SIZE = 100;
 const DEFAULT_THREAD_SOURCE_KINDS = ["cli", "vscode", "exec", "appServer"];
+const CODEX_GLOBAL_STATE_FILENAME = ".codex-global-state.json";
 
 type JsonRpcId = string | number;
 
@@ -111,12 +112,42 @@ function readStringArray(value: unknown): string[] {
   return value.filter((entry): entry is string => typeof entry === "string");
 }
 
+function readPinnedThreadIds(value: unknown): string[] {
+  return Array.from(new Set(readStringArray(value)));
+}
+
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
 function normalizePathForDisplay(value: string): string {
   return value.split("\\").join("/");
+}
+
+function resolveCodexHomeDirectory(): string {
+  const configuredHome = process.env.CODEX_HOME?.trim();
+  if (configuredHome && configuredHome.length > 0) {
+    return configuredHome;
+  }
+
+  return path.join(homedir(), ".codex");
+}
+
+async function readDesktopPinnedThreadIds(): Promise<string[]> {
+  const globalStatePath = path.join(
+    resolveCodexHomeDirectory(),
+    CODEX_GLOBAL_STATE_FILENAME,
+  );
+
+  try {
+    const rawGlobalState = await readFile(globalStatePath, "utf8");
+    const parsedGlobalState = asRecord(JSON.parse(rawGlobalState));
+    return readPinnedThreadIds(parsedGlobalState?.["pinned-thread-ids"]);
+  } catch {
+    // The research bridge should fail closed here: an unreadable desktop state
+    // file means "no known pinned threads", not a broken thread inventory.
+    return [];
+  }
 }
 
 function readPathLeaf(value: string): string {
@@ -1325,6 +1356,33 @@ class CodexAppServerResearchRuntime {
   }
 
   /**
+   * The desktop sidebar can pin older sessions that fall outside the current
+   * `thread/list` page. Read those by id so the research browser can mirror the
+   * same pinned section instead of silently dropping them.
+   */
+  private async readThreadSummary(
+    threadId: string,
+  ): Promise<CodexAppServerThread | null> {
+    try {
+      const result = await this.sendRequestNoEnsure({
+        method: "thread/read",
+        params: {
+          threadId,
+          includeTurns: false,
+        },
+      });
+      const normalizedThread = normalizeThread(asRecord(result)?.thread);
+      if (normalizedThread === null) {
+        return null;
+      }
+
+      return enrichThreadProjectInfo(normalizedThread);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Keep the browser contract focused on the subset Noter needs for a future
    * machine connector, while preserving the raw provider payload on each thread
    * for protocol inspection.
@@ -1332,6 +1390,7 @@ class CodexAppServerResearchRuntime {
   async listThreads(
     searchParams: URLSearchParams,
   ): Promise<CodexAppServerThreadsResponse> {
+    const pinnedThreadIds = await readDesktopPinnedThreadIds();
     const params: Record<string, unknown> = {};
     const archived = searchParams.get("archived");
     if (archived === "true") {
@@ -1383,7 +1442,7 @@ class CodexAppServerResearchRuntime {
       params,
     });
     const record = asRecord(result);
-    const threads = Array.isArray(record?.data)
+    let threads = Array.isArray(record?.data)
       ? alignFallbackThreadProjects(
           await Promise.all(
             record.data
@@ -1399,8 +1458,26 @@ class CodexAppServerResearchRuntime {
         )
       : [];
 
+    const missingPinnedThreadIds = pinnedThreadIds.filter(
+      (threadId) => !threads.some((thread) => thread.id === threadId),
+    );
+    if (missingPinnedThreadIds.length > 0 && archived !== "true") {
+      const missingPinnedThreads = (
+        await Promise.all(
+          missingPinnedThreadIds.map((threadId) =>
+            this.readThreadSummary(threadId),
+          ),
+        )
+      ).filter((thread): thread is CodexAppServerThread => thread !== null);
+
+      threads = [...threads, ...missingPinnedThreads].sort(
+        (left, right) => right.updatedAt - left.updatedAt,
+      );
+    }
+
     return {
       threads,
+      pinnedThreadIds,
       nextCursor: readString(record?.nextCursor) ?? null,
       runtime: this.getSnapshot(),
     };
