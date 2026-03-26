@@ -46,6 +46,10 @@ import {
   type FileViewCompareVisualMode,
 } from "@/components/FileViewCompareVisualFixture";
 import {
+  FileViewDeveloperToolsVisualFixture,
+  type FileViewDeveloperToolsVisualMode,
+} from "@/components/FileViewDeveloperToolsVisualFixture";
+import {
   FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES,
   isFileViewPushActionsVisualMode,
   type FileViewPushActionsVisualMode,
@@ -70,6 +74,7 @@ import "./index.css";
 type VisualFixtureMode =
   | CommitReviewVisualMode
   | FileViewCompareVisualMode
+  | FileViewDeveloperToolsVisualMode
   | FileViewLayoutVisualMode
   | FileViewPushActionsVisualMode
   | EditorChatVisualMode
@@ -177,6 +182,11 @@ const FILE_VIEW_COMPARE_VISUAL_MODES = [
   "file-view-compare-loading",
 ] as const satisfies readonly FileViewCompareVisualMode[];
 
+const FILE_VIEW_DEVELOPER_TOOLS_VISUAL_MODES = [
+  "file-view-developer-tools-collapsed",
+  "file-view-developer-tools-graph",
+] as const satisfies readonly FileViewDeveloperToolsVisualMode[];
+
 const MISC_VISUAL_MODES = [
   "vault-dashboard-branch-pr-title",
   "button",
@@ -194,6 +204,7 @@ const VISUAL_FIXTURE_GROUPS = [
     modes: [
       ...FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES,
       ...FILE_VIEW_COMPARE_VISUAL_MODES,
+      ...FILE_VIEW_DEVELOPER_TOOLS_VISUAL_MODES,
     ],
   },
   {
@@ -357,6 +368,13 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "file-view-compare-loading"
   ) {
     return <FileViewCompareVisualFixture mode={mode} />;
+  }
+
+  if (
+    mode === "file-view-developer-tools-collapsed" ||
+    mode === "file-view-developer-tools-graph"
+  ) {
+    return <FileViewDeveloperToolsVisualFixture mode={mode} />;
   }
 
   if (mode === "vault-dashboard-branch-pr-title") {
