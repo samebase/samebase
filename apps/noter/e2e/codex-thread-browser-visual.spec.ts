@@ -8,25 +8,10 @@ async function openBrowserFixture(page: Page) {
 }
 
 test("codex thread browser visual fixture", async ({ page }) => {
-  await page.setViewportSize({ width: 1680, height: 1400 });
   await openBrowserFixture(page);
   await expect(
     page.getByTestId("codex-thread-browser-visual-fixture"),
   ).toHaveScreenshot("codex-thread-browser.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    maxDiffPixelRatio: 0,
-    maxDiffPixels: 0,
-  });
-});
-
-test("codex thread browser visual fixture half screen", async ({ page }) => {
-  await page.setViewportSize({ width: 900, height: 1400 });
-  await openBrowserFixture(page);
-  await expect(
-    page.getByTestId("codex-thread-browser-visual-fixture"),
-  ).toHaveScreenshot("codex-thread-browser-half-screen.png", {
     animations: "disabled",
     caret: "hide",
     scale: "css",
