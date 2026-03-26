@@ -4,7 +4,7 @@
 
 - Status: Research note
 - Owner: Noter frontend/backend sync flows
-- Last updated: 2026-03-25
+- Last updated: 2026-03-26
 - Depends on:
   - `apps/noter/src/components/FileView.tsx`
   - `apps/noter/src/components/VaultDashboard.tsx`
@@ -94,6 +94,36 @@ GitHub also exposes `GET /rate_limit`, but its docs explicitly say to prefer
 response headers over polling that endpoint because it can still count against
 secondary limits. That makes it a poor candidate for a tight feedback loop in
 Noter.
+
+### Which rate-limit bucket Noter is actually hitting
+
+Noter currently authenticates GitHub requests with the current user's stored
+GitHub credential, not a single shared noter.md GitHub token.
+
+Relevant code paths:
+
+- `apps/noter/convex/githubOAuth.ts` stores the GitHub access token under the
+  current `userId`
+- `apps/noter/convex/providerConnections.ts` resolves GitHub connections by
+  `userId` and `kind`
+- `apps/noter/convex/github.ts` creates Octokit with
+  `githubConnection.auth.credential`
+- `apps/noter/convex/githubChecks.ts` does the same for commit/check status
+
+GitHub's docs say OAuth access tokens and GitHub App user access tokens are
+governed by the authenticated user's primary rate limit, and that this budget is
+combined with the user's personal access tokens plus any other GitHub App or
+OAuth app traffic made on that user's behalf.
+
+For Noter, the practical implication is:
+
+- this is not primarily one shared noter.md hourly bucket across all users
+- it is primarily each user's own GitHub budget being consumed by that user's
+  open tabs, repositories, branches, and background refreshes
+- a per-user global auto-refresh budget matters because multiple repositories
+  still share the same user's GitHub budget
+- per-user/per-repo deduplication still matters because one repository can fan
+  out badly within that shared user budget
 
 ## Current Noter Refresh Surfaces
 
@@ -388,6 +418,68 @@ hammering GitHub.
 When GitHub is rate limited or cooling down, the UI should continue rendering
 the latest known Convex-cached metadata rather than surfacing raw action errors
 as if the data is gone.
+
+## Convex Workpool Assessment
+
+Convex Workpool looks useful here, but only as an execution primitive inside a
+broader shared sync-state design.
+
+Useful Workpool properties for this problem:
+
+- bounded parallelism for async work
+- retry with backoff and jitter for idempotent actions
+- durable `onComplete` handling
+- reactive job status stored in Convex
+- the ability to pause work by lowering pool parallelism, including to `0`
+
+Those map well to the shape of Noter's current problem because the app is
+creating too many concurrent GitHub-backed refreshes and does not have one place
+that owns retry pacing.
+
+However, Workpool is not a complete fix by itself.
+
+It does not automatically:
+
+- deduplicate equivalent refreshes from multiple tabs or views
+- understand that repo `A` branch `x` and repo `A` branch `y` may need to share
+  one refresh claim
+- create a per-user cooldown after GitHub returns `retry-after` or
+  `x-ratelimit-reset`
+- tell `VaultSyncStatus` what user-facing state to show for `failed` /
+  `rate_limited` / `cooldown_until`
+
+The component also has explicit overhead, and its own README advises against
+creating too many pools. That makes "one pool per repo" or "one pool per user"
+an unattractive fit.
+
+### Best-fit use of Workpool in Noter
+
+If Noter adopts Workpool, the cleanest shape appears to be:
+
+1. Keep shared sync ownership in app data first:
+   - claim work by `user + repository` or `user + vault`
+   - record `syncing`, `failed`, `rate_limited`, and `cooldownUntil`
+   - suppress duplicate enqueues while work is already claimed or cooling down
+2. Enqueue the actual GitHub refresh through a small number of shared pools:
+   - one pool for automatic repo sync
+   - optionally a separate lower-priority pool for checks/status refresh
+3. Use Workpool retries only for idempotent GitHub reads, and still honor
+   GitHub's explicit cooldown headers instead of blindly retrying
+4. Use `onComplete` to patch the shared sync state so the UI can show a truthful
+   result
+
+### Recommendation on Workpool
+
+Workpool is probably worth considering for the durable background execution
+layer, especially for dashboard-triggered multi-repo sync and other automatic
+GitHub reads.
+
+It is probably not the first fix to land by itself.
+
+The first fix still needs to be shared per-user sync state, shared
+per-user/per-repo deduplication, and shared cooldown handling. Once that exists,
+Workpool becomes a strong option for running the background jobs with bounded
+parallelism instead of firing them directly from many UI entrypoints.
 
 ## Short-Term Containment Ideas
 
