@@ -352,6 +352,7 @@ Image behavior must remain unchanged.
    kind instead of assuming `<img>`.
 5. Add a `RepositoryVoxPreview` component that owns:
    - binary fetch
+   - aborting/canceling in-flight fetch on unmount or asset change
    - `VOXLoader` parse
    - scene/camera/light setup
    - pointer interaction
@@ -362,8 +363,12 @@ Image behavior must remain unchanged.
 
 - [ ] Selecting a small `.vox` file in file view renders an in-app 3D preview.
 - [ ] Existing image previews continue to render unchanged.
+- [ ] A missing `.vox` file preserves the existing missing-state behavior
+      without rendering stale preview content.
 - [ ] A `.vox` file larger than the existing media limit shows the current size
       error instead of attempting a partial load.
+- [ ] A `.vox` fetch/load failure shows a user-visible unavailable state that is
+      distinct from parse failure.
 - [ ] An invalid or unsupported `.vox` file shows an unavailable-state message
       instead of crashing the page.
 - [ ] The viewer remains read-only and embedded in the existing media panel.
