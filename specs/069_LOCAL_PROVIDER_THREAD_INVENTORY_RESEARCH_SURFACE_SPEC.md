@@ -21,6 +21,8 @@ Phase 1 therefore adds:
 3. UI state that treats "selected thread" as explicit local research state
 4. thread-start, thread-resume, and turn-start flows that operate on the
    selected thread instead of an implicit singleton
+5. a second Codex-style browser route that makes project and thread browsing
+   primary while preserving the protocol lab as a separate surface
 
 This phase does not bind local provider threads to Convex/Noter threads yet. Its
 purpose is to prove the machine-local contract first so the later Convex mapping
@@ -28,7 +30,7 @@ is based on real runtime behavior rather than guesses.
 
 ## Problem Statement
 
-The current research page at `/research/codex-app-server` only exposes one
+The original research page at `/research/codex-app-server` only exposes one
 `currentThreadId` plus start/resume controls.
 
 That is too narrow for the direction already agreed in RFC 071:
@@ -84,6 +86,8 @@ Today:
 - `apps/noter/dev/codexAppServerResearchBridge.ts`
 - `apps/noter/src/lib/codexAppServerResearch.ts`
 - `apps/noter/src/components/CodexAppServerResearchPage.tsx`
+- `apps/noter/src/components/CodexAppServerThreadBrowserResearchPage.tsx`
+- `apps/noter/src/components/CodexThreadBrowserView.tsx`
 
 ## Runtime Contract
 
@@ -148,6 +152,23 @@ Important behavior:
 2. The UI should surface that provider error directly instead of silently
    pretending the thread has an empty history.
 
+### Loaded and archived thread controls
+
+Add bridge endpoints:
+
+- `GET /threads/loaded`
+- `POST /thread/archive`
+- `POST /thread/unarchive`
+
+Behavior:
+
+1. `thread/loaded/list` powers loaded-state badges for the browser route.
+2. `thread/archive` moves a visible active thread into archived inventory.
+3. `thread/unarchive` moves an archived thread back into active inventory.
+4. Archived threads remain selectable in the browser route, but their detail
+   panel should explain that full history and resume are unavailable until the
+   thread is unarchived.
+
 ### Selected thread semantics
 
 The research UI must track an explicit selected thread id.
@@ -164,12 +185,19 @@ Rules:
 
 ### UI shape
 
-The page should add a machine-style thread inspection layout:
+Keep two dev-only research surfaces:
 
-1. a thread list panel
-2. a selected-thread detail panel
-3. existing start/resume/turn controls, updated to work against the selected
-   thread
+1. `/research/codex-app-server` remains the protocol/control lab
+2. `/research/codex-app-server/browser` is the primary browser-style inventory
+   surface
+
+The browser route should add a machine-style thread inspection layout:
+
+1. a project list panel keyed by cwd
+2. a thread list panel scoped by project and search
+3. a selected-thread detail panel
+4. archive/unarchive actions for the selected thread
+5. a link back to the protocol lab
 
 The thread list should show at least:
 
@@ -178,12 +206,15 @@ The thread list should show at least:
 3. status
 4. cwd
 5. updated time
+6. loaded-state cues when the provider runtime reports them
 
 The detail panel should show at least:
 
 1. provider thread metadata
 2. raw thread JSON
 3. turn history / item history from the hydrated thread read
+4. an archived-state explanation when the selected thread is in provider cold
+   storage
 
 ### Status surface
 
@@ -218,13 +249,15 @@ But it must preserve the boundary required for that future work:
 
 ## Acceptance
 
-- [ ] `/research/codex-app-server` shows a list of local provider threads rather
-      than only one current thread id.
+- [ ] `/research/codex-app-server/browser` shows a list of local provider
+      threads rather than only one current thread id.
 - [ ] A user can select an existing local provider thread and inspect hydrated
       thread detail, including turns.
 - [ ] Starting a new thread adds or refreshes it in the inventory and selects it
       automatically.
 - [ ] Resuming a thread selects it and refreshes its detail view.
+- [ ] Archive and unarchive actions move threads between active and archived
+      inventories.
 - [ ] Starting a turn without manually entering a thread id uses the selected
       thread.
 - [ ] The runtime card may still show `currentThreadId`, but the page remains
