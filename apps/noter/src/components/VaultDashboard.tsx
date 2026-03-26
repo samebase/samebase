@@ -25,12 +25,12 @@ import {
   formatRelativeTimeAgoWithSeconds,
   formatRelativeTimeUntil,
 } from "@/lib/formatRelativeTime";
+import { getTreeRefreshUiState } from "@/lib/treeRefreshStatus";
 import {
   CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS,
   CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS,
 } from "../../shared/cloudflareTokenRefresh";
 import { getRemoteBranchDeleteEligibility } from "../../shared/remoteBranchDelete";
-import { TREE_REFRESH_STALE_LOCK_MS } from "../../shared/treeRefresh";
 import type { DaytonaSnapshotStatus } from "@/lib/daytonaSnapshot";
 import {
   claimRefreshDebounce,
@@ -995,7 +995,10 @@ function VaultDashboardContent() {
 
       const readyVaults = vaults.filter((vault) => vault.state === "ready");
       const vaultsToRefresh = readyVaults.filter((vault) =>
-        claimRefreshDebounce("dashboard", vault.repositoryFullName),
+        typeof vault.treeRefreshCooldownUntil !== "number" ||
+        vault.treeRefreshCooldownUntil <= Date.now()
+          ? claimRefreshDebounce("dashboard", vault.repositoryFullName)
+          : false,
       );
 
       if (vaultsToRefresh.length === 0) {
@@ -1036,7 +1039,6 @@ function VaultDashboardContent() {
                   "Failed to refresh repository tree from dashboard:",
                   error,
                 );
-                releaseRefreshDebounce("dashboard", vault.repositoryFullName);
               });
             }),
           );
@@ -1938,9 +1940,15 @@ function VaultDashboardContent() {
               ? getInfraActionLabel(vault.infraState)
               : null;
             const sharedLastSyncedAt = vault.lastTreeRefreshAt;
-            const isVaultSyncing =
-              typeof vault.treeRefreshStartedAt === "number" &&
-              now - vault.treeRefreshStartedAt < TREE_REFRESH_STALE_LOCK_MS;
+            const treeRefreshUiState = getTreeRefreshUiState({
+              now,
+              treeRefreshStartedAt: vault.treeRefreshStartedAt,
+              lastTreeRefreshAt: vault.lastTreeRefreshAt,
+              lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt,
+              treeRefreshFailureKind: vault.treeRefreshFailureKind,
+              treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil,
+            });
+            const isVaultSyncing = treeRefreshUiState.kind === "syncing";
             return (
               <div
                 key={vault._id}
@@ -2009,13 +2017,66 @@ function VaultDashboardContent() {
                         </span>
                       </h3>
                     </a>
-                    {isReady && (isVaultSyncing || sharedLastSyncedAt) ? (
+                    {isReady &&
+                    (isVaultSyncing ||
+                      sharedLastSyncedAt ||
+                      treeRefreshUiState.kind === "rate_limited" ||
+                      treeRefreshUiState.kind === "cooldown" ||
+                      treeRefreshUiState.kind === "failed") ? (
                       <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                         {isVaultSyncing ? (
                           <>
                             <UpdateIcon className="h-3 w-3 animate-spin" />
                             <span>Syncing...</span>
                           </>
+                        ) : treeRefreshUiState.kind === "rate_limited" ? (
+                          <>
+                            <span
+                              className="text-amber-700"
+                              title={
+                                vault.treeRefreshFailureMessage ??
+                                "GitHub API rate limited. Auto-refresh paused."
+                              }
+                            >
+                              GitHub rate limited
+                            </span>
+                            <span>·</span>
+                            <span className="font-mono tabular-nums">
+                              {formatRelativeTimeUntil(
+                                treeRefreshUiState.cooldownUntil,
+                                now,
+                              )}
+                            </span>
+                          </>
+                        ) : treeRefreshUiState.kind === "cooldown" ? (
+                          <>
+                            <span
+                              className="text-amber-700"
+                              title={
+                                vault.treeRefreshFailureMessage ??
+                                "Auto-refresh paused after a failed sync."
+                              }
+                            >
+                              Paused
+                            </span>
+                            <span>·</span>
+                            <span className="font-mono tabular-nums">
+                              {formatRelativeTimeUntil(
+                                treeRefreshUiState.cooldownUntil,
+                                now,
+                              )}
+                            </span>
+                          </>
+                        ) : treeRefreshUiState.kind === "failed" ? (
+                          <span
+                            className="text-amber-700"
+                            title={
+                              vault.treeRefreshFailureMessage ??
+                              "Last sync failed. Showing cached state."
+                            }
+                          >
+                            Last sync failed
+                          </span>
                         ) : typeof sharedLastSyncedAt === "number" ? (
                           <VaultLastUpdatedStatus
                             lastSyncedAt={sharedLastSyncedAt}

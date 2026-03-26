@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   collectLatestOpenPullRequestsByBranch,
   computeRepositoryTreeUpdatePlan,
+  describeRepositoryTreeRefreshFailure,
   isRepositoryMediaPreviewTooLarge,
   listGitHubRepositoryPreview,
   listGitHubRepositories,
@@ -10,6 +11,7 @@ import {
   readGitHubNextPageUrl,
   readPullRequestLabels,
   resolveAheadBehindBaseBranch,
+  shouldBypassRecentSuccessDebounceForBranchRefresh,
   shouldSyncCloudflarePreviewLinks,
 } from "./github";
 
@@ -139,6 +141,157 @@ describe("shouldSyncCloudflarePreviewLinks", () => {
           { pullRequestState: "resolved" },
           { pullRequestState: "preserve" },
         ],
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("describeRepositoryTreeRefreshFailure", () => {
+  const now = Date.parse("2026-03-26T18:00:00Z");
+
+  it("prioritizes retry-after over reset when GitHub provides both", () => {
+    expect(
+      describeRepositoryTreeRefreshFailure(
+        {
+          status: 403,
+          message: "secondary rate limit",
+          response: {
+            headers: {
+              "x-ratelimit-remaining": "0",
+              "retry-after": "30",
+              "x-ratelimit-reset": String(Math.floor((now + 90_000) / 1000)),
+            },
+          },
+        },
+        now,
+      ),
+    ).toEqual({
+      kind: "rate_limited",
+      message: "GitHub API rate limited. Auto-refresh paused.",
+      cooldownUntil: now + 30_000,
+    });
+  });
+
+  it("uses the primary reset window when retry-after is absent", () => {
+    expect(
+      describeRepositoryTreeRefreshFailure(
+        {
+          status: 403,
+          message: "API rate limit exceeded",
+          response: {
+            headers: {
+              "x-ratelimit-remaining": "0",
+              "x-ratelimit-reset": String(Math.floor((now + 90_000) / 1000)),
+            },
+          },
+        },
+        now,
+      ),
+    ).toEqual({
+      kind: "rate_limited",
+      message: "GitHub API rate limited. Auto-refresh paused.",
+      cooldownUntil: now + 90_000,
+    });
+  });
+
+  it("treats retry-after on 403 as a rate-limit backoff signal", () => {
+    expect(
+      describeRepositoryTreeRefreshFailure(
+        {
+          status: 403,
+          message: "abuse detection mechanism",
+          response: {
+            headers: {
+              "retry-after": "45",
+            },
+          },
+        },
+        now,
+      ),
+    ).toEqual({
+      kind: "rate_limited",
+      message: "GitHub API rate limited. Auto-refresh paused.",
+      cooldownUntil: now + 45_000,
+    });
+  });
+
+  it("uses a conservative fallback when only the error message indicates a rate limit", () => {
+    expect(
+      describeRepositoryTreeRefreshFailure(
+        {
+          status: 403,
+          message: "secondary rate limit exceeded",
+        },
+        now,
+      ),
+    ).toEqual({
+      kind: "rate_limited",
+      message: "GitHub API rate limited. Auto-refresh paused.",
+      cooldownUntil: now + 300_000,
+    });
+  });
+
+  it("falls back to a generic failure cooldown", () => {
+    expect(
+      describeRepositoryTreeRefreshFailure(
+        {
+          status: 500,
+          message: "boom",
+        },
+        now,
+      ),
+    ).toEqual({
+      kind: "failed",
+      message: "GitHub sync failed. Showing cached state.",
+      cooldownUntil: now + 60_000,
+    });
+  });
+});
+
+describe("shouldBypassRecentSuccessDebounceForBranchRefresh", () => {
+  it("bypasses debounce when branch metadata is stale", () => {
+    expect(
+      shouldBypassRecentSuccessDebounceForBranchRefresh({
+        requestedBranch: "feature",
+        defaultBranch: "main",
+        branchNotFound: false,
+        hasResolvedBranchTree: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("only bypasses missing-branch refreshes when the missing branch was not confirmed recently", () => {
+    const now = Date.parse("2026-03-26T18:00:00Z");
+
+    expect(
+      shouldBypassRecentSuccessDebounceForBranchRefresh({
+        requestedBranch: "feature",
+        defaultBranch: "main",
+        branchNotFound: true,
+        hasResolvedBranchTree: true,
+        now,
+        lastTreeRefreshAt: now - 31_000,
+      }),
+    ).toBe(true);
+    expect(
+      shouldBypassRecentSuccessDebounceForBranchRefresh({
+        requestedBranch: "feature",
+        defaultBranch: "main",
+        branchNotFound: true,
+        hasResolvedBranchTree: true,
+        now,
+        lastTreeRefreshAt: now - 5_000,
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps default-branch refreshes on the repo debounce path", () => {
+    expect(
+      shouldBypassRecentSuccessDebounceForBranchRefresh({
+        requestedBranch: "main",
+        defaultBranch: "main",
+        branchNotFound: false,
+        hasResolvedBranchTree: false,
       }),
     ).toBe(false);
   });

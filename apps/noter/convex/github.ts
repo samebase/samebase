@@ -16,6 +16,7 @@ import {
   type RepositoryMediaKind,
   isSvgRepositoryMediaPath,
 } from "../shared/repositoryMedia";
+import { TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
 import type { PullRequestLabel as StoredPullRequestLabel } from "./schema";
 
 const {
@@ -63,12 +64,224 @@ type CachedRepositoryBlob = {
   text?: string | null;
   mime?: string | undefined;
 };
+type HeaderValue = string | number | readonly string[] | undefined;
+type HeaderMap = Record<string, HeaderValue>;
+type TreeRefreshFailureDescriptor = {
+  kind: "failed" | "rate_limited";
+  message: string;
+  cooldownUntil: number;
+};
+const refreshRepositoryTreeReason = union(
+  literal("cooldown"),
+  literal("recent_success"),
+  literal("in_progress"),
+  literal("branch_not_found"),
+);
+const refreshRepositoryTreeResult = object({
+  refreshed: boolean(),
+  reason: optional(refreshRepositoryTreeReason),
+});
+type RefreshRepositoryTreeResult = Infer<typeof refreshRepositoryTreeResult>;
 
 const GITHUB_REPOSITORY_DISCOVERY_AFFILIATION =
   "owner,collaborator,organization_member";
 const GITHUB_REPOSITORY_PREVIEW_PAGE_SIZE = 10;
 const GITHUB_REPOSITORY_DISCOVERY_PAGE_SIZE = 100;
 const MAX_GITHUB_REPOSITORY_PAGES = 100;
+const GITHUB_RATE_LIMIT_FALLBACK_MS = 5 * 60 * 1000;
+const MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS = 30 * 1000;
+
+function toHeaderMap(value: unknown): HeaderMap | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const headers: HeaderMap = {};
+  for (const [key, headerValue] of Object.entries(value)) {
+    if (
+      typeof headerValue === "string" ||
+      typeof headerValue === "number" ||
+      headerValue === undefined
+    ) {
+      headers[key] = headerValue;
+      continue;
+    }
+
+    if (
+      Array.isArray(headerValue) &&
+      headerValue.every((item) => typeof item === "string")
+    ) {
+      headers[key] = headerValue;
+    }
+  }
+
+  return headers;
+}
+
+function getErrorStatus(error: unknown): number | null {
+  if (!isRecord(error)) {
+    return null;
+  }
+
+  const status = error.status;
+  return typeof status === "number" ? status : null;
+}
+
+function getErrorMessage(error: unknown): string | null {
+  if (!isRecord(error)) {
+    return null;
+  }
+
+  const message = error.message;
+  return typeof message === "string" && message.length > 0 ? message : null;
+}
+
+function getErrorHeaders(error: unknown): HeaderMap | null {
+  if (!isRecord(error)) {
+    return null;
+  }
+
+  const response = error.response;
+  if (!isRecord(response)) {
+    return null;
+  }
+
+  return toHeaderMap(response.headers);
+}
+
+function getHeaderValue(
+  headers: HeaderMap | null,
+  name: string,
+): string | null {
+  if (!headers) {
+    return null;
+  }
+
+  const target = name.toLowerCase();
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() !== target) {
+      continue;
+    }
+
+    if (typeof value === "string") {
+      return value;
+    }
+    if (typeof value === "number") {
+      return String(value);
+    }
+    if (Array.isArray(value)) {
+      return value.length > 0 ? value[0] : null;
+    }
+    return null;
+  }
+
+  return null;
+}
+
+function parsePositiveInteger(value: string | null): number | null {
+  if (value === null) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function isRateLimitError(
+  status: number | null,
+  headers: HeaderMap | null,
+  message: string | null,
+): boolean {
+  if (status === 429) {
+    return true;
+  }
+  if (status !== 403) {
+    return false;
+  }
+
+  if (getHeaderValue(headers, "retry-after") !== null) {
+    return true;
+  }
+
+  if (getHeaderValue(headers, "x-ratelimit-remaining") === "0") {
+    return true;
+  }
+
+  return (message ?? "").toLowerCase().includes("rate limit");
+}
+
+export function describeRepositoryTreeRefreshFailure(
+  error: unknown,
+  now: number = Date.now(),
+): TreeRefreshFailureDescriptor {
+  const status = getErrorStatus(error);
+  const headers = getErrorHeaders(error);
+  const message = getErrorMessage(error);
+
+  if (!isRateLimitError(status, headers, message)) {
+    return {
+      kind: "failed",
+      message: "GitHub sync failed. Showing cached state.",
+      cooldownUntil: now + TREE_REFRESH_FAILURE_COOLDOWN_MS,
+    };
+  }
+
+  const retryAfterSeconds = parsePositiveInteger(
+    getHeaderValue(headers, "retry-after"),
+  );
+  const rateLimitRemaining = getHeaderValue(headers, "x-ratelimit-remaining");
+  const resetAtSeconds = parsePositiveInteger(
+    getHeaderValue(headers, "x-ratelimit-reset"),
+  );
+
+  if (retryAfterSeconds !== null) {
+    return {
+      kind: "rate_limited",
+      message: "GitHub API rate limited. Auto-refresh paused.",
+      cooldownUntil: now + retryAfterSeconds * 1000,
+    };
+  }
+
+  return {
+    kind: "rate_limited",
+    message: "GitHub API rate limited. Auto-refresh paused.",
+    cooldownUntil:
+      rateLimitRemaining === "0" && resetAtSeconds !== null
+        ? resetAtSeconds * 1000
+        : now + GITHUB_RATE_LIMIT_FALLBACK_MS,
+  };
+}
+
+export function shouldBypassRecentSuccessDebounceForBranchRefresh(args: {
+  requestedBranch?: string;
+  defaultBranch?: string;
+  branchNotFound: boolean;
+  hasResolvedBranchTree: boolean;
+  lastTreeRefreshAt?: number;
+  now?: number;
+}): boolean {
+  if (args.requestedBranch === undefined) {
+    return false;
+  }
+
+  if (args.branchNotFound) {
+    // A recent repo-level confirmation that the branch is missing should fall
+    // back to the normal debounce path so typoed URLs do not keep refetching
+    // repo metadata on every retry.
+    const now = args.now ?? Date.now();
+    if (
+      typeof args.lastTreeRefreshAt === "number" &&
+      now - args.lastTreeRefreshAt < MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  return (
+    !args.hasResolvedBranchTree && args.defaultBranch !== args.requestedBranch
+  );
+}
 
 function buildGitHubRepositoryDiscoveryUrl(perPage: number): string {
   return `https://api.github.com/user/repos?sort=updated&per_page=${perPage}&affiliation=${GITHUB_REPOSITORY_DISCOVERY_AFFILIATION}`;
@@ -1608,63 +1821,134 @@ export const refreshRepositoryTree = action({
     includeCloudflarePreviewLinks: optional(boolean()),
     trigger: optional(union(literal("focus"), literal("page_load"))),
   },
-  returns: nullValidator(),
-  handler: async (ctx, args) => {
+  returns: refreshRepositoryTreeResult,
+  handler: async (ctx, args): Promise<RefreshRepositoryTreeResult> => {
     const userId = await getUserId(ctx);
     const requestedBranch =
       typeof args.branch === "string" && args.branch.trim().length > 0
         ? args.branch.trim()
         : undefined;
 
-    const vault = await ctx.runQuery(internal.vault.getByRepositoryFullName, {
-      repositoryFullName: `${args.owner}/${args.repo}`,
-      userId,
-    });
-    if (!vault) return null;
-
-    if (requestedBranch) {
-      await ctx.runAction(internal.github.updateRepositoryTree, {
+    const repositoryFullName = `${args.owner}/${args.repo}`;
+    const readVault = async (branch: string | undefined) =>
+      ctx.runQuery(internal.vault.getByRepositoryFullName, {
+        repositoryFullName,
+        userId,
+        branch,
+      });
+    const runRepositoryTreeUpdate = async (branch: string | undefined) =>
+      ctx.runAction(internal.github.updateRepositoryTree, {
         userId,
         owner: args.owner,
         repo: args.repo,
-        branch: requestedBranch,
-        includeAheadBehind: args.includeAheadBehind === true,
-        includePullRequestLinks: args.includePullRequestLinks === true,
-        includeCloudflarePreviewLinks: false,
+        branch,
+        includeAheadBehind:
+          branch === undefined ? true : args.includeAheadBehind === true,
+        includePullRequestLinks:
+          branch === undefined ? true : args.includePullRequestLinks === true,
+        includeCloudflarePreviewLinks:
+          branch === undefined && args.includeCloudflarePreviewLinks === true,
       });
-      return null;
+
+    let vault = await readVault(requestedBranch);
+    if (!vault) {
+      return { refreshed: false };
     }
 
     const debounceMs =
-      args.trigger === "page_load" ? PAGE_LOAD_REFRESH_DEBOUNCE_MS : undefined;
+      requestedBranch !== undefined && vault.branchNotFound
+        ? MISSING_BRANCH_CONFIRMATION_DEBOUNCE_MS
+        : args.trigger === "page_load"
+          ? PAGE_LOAD_REFRESH_DEBOUNCE_MS
+          : undefined;
+    const skipRecentSuccessDebounce =
+      requestedBranch !== undefined &&
+      shouldBypassRecentSuccessDebounceForBranchRefresh({
+        requestedBranch,
+        defaultBranch: vault.defaultBranch,
+        branchNotFound: vault.branchNotFound,
+        hasResolvedBranchTree: vault.hasResolvedBranchTree,
+        lastTreeRefreshAt: vault.lastTreeRefreshAt,
+      });
 
     // Atomically claim the refresh lock; skip if debounced or already running
-    const { claimed } = await ctx.runMutation(internal.vault.claimTreeRefresh, {
+    const claim = await ctx.runMutation(internal.vault.claimTreeRefresh, {
       vaultId: vault._id,
       debounceMs,
+      // Missing or stale branch metadata still needs a refresh even when the
+      // repo itself synced recently.
+      skipRecentSuccessDebounce,
     });
-    if (!claimed) return null;
+    if (!claim.claimed) {
+      return {
+        refreshed: false,
+        reason: claim.reason,
+      };
+    }
 
-    let markRefreshed = false;
+    let refreshError: unknown = null;
+    let refreshFailure: TreeRefreshFailureDescriptor | null = null;
+    let refreshResult: RefreshRepositoryTreeResult = { refreshed: true };
     try {
-      await ctx.runAction(internal.github.updateRepositoryTree, {
-        userId,
+      if (requestedBranch !== undefined && vault.branchNotFound) {
+        // Refresh shared branch metadata before attempting a branch tree fetch
+        // so missing refs do not poison the repo-wide sync state.
+        await runRepositoryTreeUpdate(undefined);
+        const refreshedVault = await readVault(requestedBranch);
+        if (!refreshedVault) {
+          throw new Error("Vault not found");
+        }
+        vault = refreshedVault;
+        if (vault.branchNotFound) {
+          refreshResult = {
+            refreshed: false,
+            reason: "branch_not_found",
+          };
+        } else {
+          await runRepositoryTreeUpdate(requestedBranch);
+        }
+      } else {
+        await runRepositoryTreeUpdate(requestedBranch);
+      }
+    } catch (error) {
+      refreshError = error;
+      refreshFailure = describeRepositoryTreeRefreshFailure(error);
+      console.error("Failed to refresh repository tree", {
         owner: args.owner,
         repo: args.repo,
-        includeAheadBehind: true,
-        includePullRequestLinks: true,
-        includeCloudflarePreviewLinks:
-          args.includeCloudflarePreviewLinks === true,
-      });
-      markRefreshed = true;
-    } finally {
-      await ctx.runMutation(internal.vault.releaseTreeRefresh, {
-        vaultId: vault._id,
-        markRefreshed,
+        branch: requestedBranch,
+        kind: refreshFailure.kind,
+        message: refreshFailure.message,
+        error,
       });
     }
 
-    return null;
+    if (refreshFailure) {
+      try {
+        await ctx.runMutation(internal.vault.releaseTreeRefresh, {
+          vaultId: vault._id,
+          markRefreshed: false,
+          failureKind: refreshFailure.kind,
+          failureMessage: refreshFailure.message,
+          cooldownUntil: refreshFailure.cooldownUntil,
+        });
+      } catch (releaseError) {
+        console.error("Failed to persist repository tree refresh failure", {
+          owner: args.owner,
+          repo: args.repo,
+          branch: requestedBranch,
+          releaseError,
+          refreshError,
+        });
+      }
+      throw refreshError;
+    }
+
+    await ctx.runMutation(internal.vault.releaseTreeRefresh, {
+      vaultId: vault._id,
+      markRefreshed: true,
+    });
+    return refreshResult;
   },
 });
 
