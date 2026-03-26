@@ -1,9 +1,6 @@
 import { PersonIcon } from "@radix-ui/react-icons";
 import { Button } from "@/components/ui/button";
-import {
-  FileViewDeveloperTools,
-  type FileViewMode,
-} from "@/components/FileViewDeveloperTools";
+import { type FileViewMode } from "@/components/FileViewDeveloperTools";
 import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { SidebarProvider } from "@/components/sidebar";
@@ -24,7 +21,6 @@ export function FileViewDeveloperToolsVisualFixture({
   mode: FileViewDeveloperToolsVisualMode;
 }) {
   const viewMode = getFixtureViewMode(mode);
-  const developerToolsOpen = viewMode === "graph";
   const showEditorActions = viewMode === "editor";
 
   return (
@@ -90,13 +86,6 @@ export function FileViewDeveloperToolsVisualFixture({
                         variant="outline"
                         className="h-6 px-2 text-xs"
                       >
-                        Show Preview
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-6 px-2 text-xs"
-                      >
                         Review Changes
                       </Button>
                     </>
@@ -116,24 +105,6 @@ export function FileViewDeveloperToolsVisualFixture({
                     Reset to GitHub
                   </Button>
                 </div>
-
-                <FileViewDeveloperTools
-                  open={developerToolsOpen}
-                  onOpenChange={() => {}}
-                  viewMode={viewMode}
-                  onViewModeChange={() => {}}
-                >
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-6 self-start px-2 text-xs"
-                  >
-                    Open workspace
-                  </Button>
-                  <div className="rounded-ui border px-3 py-2 text-xs text-muted-foreground">
-                    2 Daytona snapshots available
-                  </div>
-                </FileViewDeveloperTools>
               </div>
             </div>
 
@@ -148,11 +119,10 @@ export function FileViewDeveloperToolsVisualFixture({
                       export function FileViewInner() {"{"}
                     </div>
                     <div className="rounded-ui bg-muted/40 px-3 py-2">
-                      {"  "}const developerToolsVisible = viewMode === "graph"
-                      {" || "}developerToolsOpen;
+                      {"  "}const daytonaPaused = true;
                     </div>
                     <div className="rounded-ui bg-muted/40 px-3 py-2">
-                      {"  "}return {"<FileViewDeveloperTools />"};
+                      {"  "}return {"<RepositoryEditor />"};
                     </div>
                     <div className="rounded-ui bg-muted/60 px-3 py-2">
                       {"}"}

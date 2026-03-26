@@ -90,6 +90,7 @@ import {
   useApiKeyConnectDialog,
   type ApiKeyProvider,
 } from "@/components/ApiKeyConnectDialog";
+import { DAYTONA_PAUSED } from "../../shared/daytonaPause";
 import type { Id } from "../../convex/_generated/dataModel";
 import { buildVaultCodespaceChatRoute } from "@/lib/vaultRoutes";
 import { SidebarAccountSection } from "./SidebarAccountSection";
@@ -2117,7 +2118,7 @@ function VaultDashboardContent() {
                     />
                   )}
 
-                  {isReady && primaryBranch.length > 0 && (
+                  {!DAYTONA_PAUSED && isReady && primaryBranch.length > 0 ? (
                     <DaytonaSnapshotBanner
                       branch={primaryBranch}
                       commitSha={vault.commitSHA}
@@ -2125,7 +2126,7 @@ function VaultDashboardContent() {
                       snapshotStatus={vault.daytonaCurrentSnapshotStatus}
                       lastError={vault.daytonaCurrentSnapshotLastError}
                     />
-                  )}
+                  ) : null}
 
                   {isReady && (
                     <Collapsible
@@ -2156,7 +2157,7 @@ function VaultDashboardContent() {
                           vaultId={vault._id}
                           repositoryFullName={vault.repositoryFullName}
                         />
-                        {primaryBranch.length > 0 && (
+                        {!DAYTONA_PAUSED && primaryBranch.length > 0 ? (
                           <DaytonaWorkspaceButton
                             vaultId={vault._id}
                             branch={primaryBranch}
@@ -2169,8 +2170,10 @@ function VaultDashboardContent() {
                               vault.daytonaCurrentSnapshotLastError
                             }
                           />
-                        )}
-                        <DaytonaSnapshotList vaultId={vault._id} />
+                        ) : null}
+                        {!DAYTONA_PAUSED ? (
+                          <DaytonaSnapshotList vaultId={vault._id} />
+                        ) : null}
                         {vault.isNoterManaged && (
                           <div className="text-xs text-muted-foreground">
                             Infra: {formatInfraState(vault.infraState)}

@@ -43,6 +43,10 @@ import {
   buildAttachDevServerTmuxCommand,
   buildCreateOrAttachShellTmuxCommand,
 } from "./tmuxSessions";
+import {
+  DAYTONA_PAUSED,
+  DAYTONA_PAUSED_MESSAGE,
+} from "../../shared/daytonaPause";
 
 const { object, id, string, optional, number, boolean } = v;
 
@@ -168,6 +172,13 @@ const closeCodexAuthPtySessionResult = object({
 function resolveDaytonaApiConfig():
   | { ok: true; baseUrl: string; token: string }
   | { ok: false; message: string } {
+  if (DAYTONA_PAUSED) {
+    return {
+      ok: false,
+      message: DAYTONA_PAUSED_MESSAGE,
+    };
+  }
+
   const baseUrl = process.env[DAYTONA_API_URL_ENV]?.trim() ?? "";
   const token =
     process.env[DAYTONA_API_TOKEN_ENV] ??

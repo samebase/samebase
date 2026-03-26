@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { DAYTONA_CODEX_HOME, DAYTONA_CODEX_SHARED_HOME } from "./sandboxUser";
+import { DAYTONA_CODEX_HOME } from "./sandboxUser";
+import { DAYTONA_PAUSED_MESSAGE } from "../../shared/daytonaPause";
 
 const originalDaytonaApiUrl = process.env.DAYTONA_API_URL;
 const originalDaytonaApiToken = process.env.DAYTONA_API_TOKEN;
@@ -284,265 +285,69 @@ describe("openWorkspacePtySession", () => {
     }
   });
 
-  it("returns the actual Daytona PTY session id after createPty rewrites it", async () => {
-    const handler = readActionHandler(openWorkspacePtySession);
-    const result = await handler(createWorkspaceActionContext(), {
-      vaultId: "vault-1",
-      branch: "main",
-      cols: 120,
-      rows: 32,
-    });
+  async function expectPausedActionResult(
+    action: unknown,
+    context: unknown,
+    args: Record<string, unknown>,
+  ) {
+    const handler = readActionHandler(action);
+    const result = await handler(context, args);
 
-    expect(mockState.requestedSessionId).toMatch(/^noter-pty-vault-1-/);
-    expect(mockState.requestedSessionId).not.toBe("actual-pty-session-1");
-    expect(result).toMatchObject({
-      ok: true,
-      sessionId: "actual-pty-session-1",
-      webSocketUrl:
-        "wss://toolbox.example/sandbox-1/process/pty/actual-pty-session-1/connect",
-      previewToken: "preview-token-1",
-      sandboxId: "sandbox-1",
-      sandboxName: "noter-sandbox",
-      initialInput: expect.stringContaining("noter-shell"),
-    });
-    expect(mockState.sentInputs).toHaveLength(1);
-    expect(mockState.sentInputs[0]).toContain('su -m -s "$target_shell"');
-    expect(mockState.sentInputs[0]).toContain("/home/daytona/workspace/noter");
-    if (typeof result !== "object" || result === null) {
-      throw new Error("Expected workspace PTY result to be an object.");
-    }
-    const initialInput = Reflect.get(result, "initialInput");
-    expect(initialInput).toContain("tmux_status=$?");
-    expect(initialInput).toContain('exec "$SHELL" -l');
-    expect(initialInput).not.toContain("exec tmux");
-  });
-
-  it("writes Codex config as the sandbox user into the local Codex home", async () => {
-    const executedCommands: string[] = [];
-    mockState.sandbox = createSandbox(executedCommands);
-
-    const handler = readActionHandler(openWorkspacePtySession);
-    const result = await handler(createWorkspaceActionContext(), {
-      vaultId: "vault-1",
-      branch: "main",
-      cols: 120,
-      rows: 32,
-    });
-
-    expect(result).toMatchObject({ ok: true });
-    const configWriteCommand = executedCommands.find((command) =>
-      command.includes('base64 --decode > "$config_path"'),
-    );
-    expect(configWriteCommand).toBeDefined();
-    expect(configWriteCommand).toContain(`${DAYTONA_CODEX_HOME}/config.toml`);
-    expect(configWriteCommand).toContain(
-      'exec su -m -s /bin/bash "$target_user" -c',
-    );
-    expect(configWriteCommand).not.toContain(DAYTONA_CODEX_SHARED_HOME);
-  });
-
-  it("moves fisher/pure repair into the shell bootstrap input", async () => {
-    const commands: string[] = [];
-    const sandbox = createSandbox();
-    sandbox.process.executeCommand = async (command: string) => {
-      commands.push(command);
-      if (command.includes(`cat '${DAYTONA_CODEX_HOME}/config.toml'`)) {
-        return {
-          exitCode: 0,
-          result: "",
-        };
-      }
-      return {
-        exitCode: 0,
-        result: "",
-      };
-    };
-    sandbox.process.createPty = async (options) => {
-      commands.push("createPty");
-      mockState.requestedSessionId = options.id ?? "";
-      return {
-        sessionId: "actual-pty-session-1",
-        waitForConnection: async () => {},
-        sendInput: async (input) => {
-          mockState.sentInputs.push(input);
-        },
-        disconnect: async () => {},
-      };
-    };
-    mockState.sandbox = sandbox;
-
-    const handler = readActionHandler(openWorkspacePtySession);
-    const result = await handler(createWorkspaceActionContext(), {
-      vaultId: "vault-1",
-      branch: "main",
-      cols: 120,
-      rows: 32,
-    });
-
-    expect(result).toMatchObject({
-      ok: true,
-      sessionId: "actual-pty-session-1",
-    });
-    expect(
-      commands.some((command) =>
-        command.includes("codeload.github.com/pure-fish/pure/tar.gz/v4.9.0"),
-      ),
-    ).toBe(false);
-    if (typeof result !== "object" || result === null) {
-      throw new Error("Expected workspace PTY result to be an object.");
-    }
-    const initialInput = Reflect.get(result, "initialInput");
-    expect(initialInput).toContain(
-      "Installing fisher/pure before opening the shell",
-    );
-    expect(initialInput).toContain("/tmp/noter-fish-tooling.log");
-    expect(initialInput).toContain(
-      "codeload.github.com/pure-fish/pure/tar.gz/v4.9.0",
-    );
-    expect(initialInput).toContain('cp -f "$pure_root/functions/"*.fish');
-  });
-
-  it("keeps the shell bootstrap best-effort when fisher/pure install fails", async () => {
-    const handler = readActionHandler(openWorkspacePtySession);
-    const result = await handler(createWorkspaceActionContext(), {
-      vaultId: "vault-1",
-      branch: "main",
-      cols: 120,
-      rows: 32,
-    });
-
-    expect(result).toMatchObject({
-      ok: true,
-      sessionId: "actual-pty-session-1",
-    });
-    if (typeof result !== "object" || result === null) {
-      throw new Error("Expected workspace PTY result to be an object.");
-    }
-    const initialInput = Reflect.get(result, "initialInput");
-    expect(initialInput).toContain(
-      "fisher/pure install failed; continuing without it.",
-    );
-    expect(initialInput).toContain("/tmp/noter-fish-tooling.log");
-  });
-
-  it("returns the actual Daytona PTY session id for dev server PTYs too", async () => {
-    const handler = readActionHandler(openWorkspaceDevServerPtySession);
-    const result = await handler(createWorkspaceActionContext(), {
-      vaultId: "vault-1",
-      branch: "main",
-      cols: 120,
-      rows: 32,
-    });
-
-    expect(mockState.requestedSessionId).toMatch(
-      /^noter-dev-server-pty-vault-1-/,
-    );
-    expect(mockState.requestedSessionId).not.toBe("actual-pty-session-1");
-    expect(result).toMatchObject({
-      ok: true,
-      sessionId: "actual-pty-session-1",
-      webSocketUrl:
-        "wss://toolbox.example/sandbox-1/process/pty/actual-pty-session-1/connect",
-      previewToken: "preview-token-1",
-      sandboxId: "sandbox-1",
-      sandboxName: "noter-sandbox",
-      initialInput: expect.stringContaining("noter-dev-server"),
-    });
-    expect(mockState.sentInputs).toHaveLength(1);
-    expect(mockState.sentInputs[0]).toContain('su -m -s "$target_shell"');
-    expect(mockState.sentInputs[0]).toContain("/home/daytona/workspace/noter");
-    if (typeof result !== "object" || result === null) {
-      throw new Error("Expected dev server PTY result to be an object.");
-    }
-    const initialInput = Reflect.get(result, "initialInput");
-    expect(initialInput).toContain("attach-session -r -t");
-    expect(initialInput).toContain("tmux_status=$?");
-    expect(initialInput).toContain("tail -n 200 -F");
-    expect(initialInput).toContain("/tmp/noter-dev.log");
-    expect(initialInput).not.toContain("exec tmux");
-  });
-
-  it("cleans up dev server PTYs using the rewritten session id on failure", async () => {
-    const sandbox = createSandbox();
-    const killedSessionIds: string[] = [];
-    sandbox.process.createPty = async (options) => {
-      mockState.requestedSessionId = options.id ?? "";
-      return {
-        sessionId: "actual-pty-session-1",
-        waitForConnection: async () => {},
-        sendInput: async () => {
-          throw new Error("simulated sendInput failure");
-        },
-        disconnect: async () => {},
-      };
-    };
-    sandbox.process.killPtySession = async (sessionId) => {
-      killedSessionIds.push(sessionId);
-    };
-    mockState.sandbox = sandbox;
-
-    const handler = readActionHandler(openWorkspaceDevServerPtySession);
-    const result = await handler(createWorkspaceActionContext(), {
-      vaultId: "vault-1",
-      branch: "main",
-      cols: 120,
-      rows: 32,
-    });
-
-    expect(mockState.requestedSessionId).toMatch(
-      /^noter-dev-server-pty-vault-1-/,
-    );
-    expect(mockState.requestedSessionId).not.toBe("actual-pty-session-1");
-    expect(killedSessionIds).toEqual(["actual-pty-session-1"]);
     expect(result).toMatchObject({
       ok: false,
-      message: "simulated sendInput failure",
+      message: DAYTONA_PAUSED_MESSAGE,
     });
-  });
+    expect(mockState.requestedSessionId).toBe("");
+    expect(mockState.daytonaGet).not.toHaveBeenCalled();
+    expect(mockState.getToolboxProxyUrl).not.toHaveBeenCalled();
+  }
 
-  it("returns the actual Daytona PTY session id for Codex auth PTYs too", async () => {
-    const handler = readActionHandler(openCodexAuthPtySession);
-    const result = await handler(createCodexAuthActionContext(), {
-      cols: 120,
-      rows: 32,
-    });
-
-    expect(mockState.requestedSessionId).toMatch(/^noter-codex-auth-pty-/);
-    expect(mockState.requestedSessionId).not.toBe("actual-pty-session-1");
-    expect(result).toMatchObject({
-      ok: true,
-      sessionId: "actual-pty-session-1",
-      webSocketUrl:
-        "wss://toolbox.example/sandbox-1/process/pty/actual-pty-session-1/connect",
-      previewToken: "preview-token-1",
-      sandboxName: "noter-sandbox",
-    });
-  });
-
-  it("syncs the local Codex config back to the shared volume when a workspace PTY closes", async () => {
-    const executedCommands: string[] = [];
-    const sandbox = createSandbox(executedCommands);
-    const killedSessionIds: string[] = [];
-    sandbox.process.killPtySession = async (sessionId) => {
-      killedSessionIds.push(sessionId);
-    };
-    mockState.sandbox = sandbox;
-
-    const handler = readActionHandler(closeWorkspacePtySession);
-    const result = await handler(createWorkspaceActionContext(), {
-      vaultId: "vault-1",
-      branch: "main",
-      sessionId: "workspace-pty-1",
-    });
-
-    expect(result).toMatchObject({ ok: true });
-    expect(killedSessionIds).toEqual(["workspace-pty-1"]);
-    const syncCommand = executedCommands.find(
-      (command) =>
-        command.includes(`${DAYTONA_CODEX_SHARED_HOME}/config.toml`) &&
-        command.includes('cat "$local_path" > "$shared_path"'),
+  it("rejects workspace PTY opens while Daytona is paused", async () => {
+    await expectPausedActionResult(
+      openWorkspacePtySession,
+      createWorkspaceActionContext(),
+      {
+        vaultId: "vault-1",
+        branch: "main",
+        cols: 120,
+        rows: 32,
+      },
     );
-    expect(syncCommand).toBeDefined();
-    expect(syncCommand).toContain('exec su -m -s /bin/bash "$target_user" -c');
+  });
+
+  it("rejects dev server PTY opens while Daytona is paused", async () => {
+    await expectPausedActionResult(
+      openWorkspaceDevServerPtySession,
+      createWorkspaceActionContext(),
+      {
+        vaultId: "vault-1",
+        branch: "main",
+        cols: 120,
+        rows: 32,
+      },
+    );
+  });
+
+  it("rejects Codex auth PTY opens while Daytona is paused", async () => {
+    await expectPausedActionResult(
+      openCodexAuthPtySession,
+      createCodexAuthActionContext(),
+      {
+        cols: 120,
+        rows: 32,
+      },
+    );
+  });
+
+  it("rejects PTY closes while Daytona is paused", async () => {
+    await expectPausedActionResult(
+      closeWorkspacePtySession,
+      createWorkspaceActionContext(),
+      {
+        vaultId: "vault-1",
+        branch: "main",
+        sessionId: "workspace-pty-1",
+      },
+    );
   });
 });

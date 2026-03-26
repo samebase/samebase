@@ -9,6 +9,7 @@ import {
 } from "@/components/DaytonaPtyTerminal";
 import { clsx } from "clsx";
 import codexAppLogo from "@/assets/codex-app.png";
+import { DAYTONA_PAUSED } from "../../shared/daytonaPause";
 
 const CodexProviderLogo = ({ className }: { className?: string }) => (
   <span className={clsx("inline-flex items-center justify-center", className)}>
@@ -318,6 +319,10 @@ export function CodexProviderRow() {
       setIsDisconnecting(false);
     }
   };
+
+  if (DAYTONA_PAUSED) {
+    return null;
+  }
 
   return (
     <div className="space-y-2">
