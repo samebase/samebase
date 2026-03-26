@@ -1,13 +1,16 @@
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/checkbox";
+import { ChangedFilesLoadingState } from "@/components/ChangedFilesLoadingState";
 import { FileTree } from "@/components/FileTree";
 import { Label } from "@/components/label";
 import { ProsemarkReadOnly } from "@/components/ProsemarkReadOnly";
 import { ToggleGroup, ToggleGroupItem } from "@/components/toggle-group";
 import { getReviewSplitDiffHighlights } from "@/lib/reviewSplitDiff";
 
-export type FileViewCompareVisualMode = "file-view-compare-sidebar";
+export type FileViewCompareVisualMode =
+  | "file-view-compare-sidebar"
+  | "file-view-compare-loading";
 
 const COMPARED_TREE_ITEMS = [
   {
@@ -59,6 +62,7 @@ export function FileViewCompareVisualFixture({
 }: {
   mode: FileViewCompareVisualMode;
 }) {
+  const isLoadingMode = mode === "file-view-compare-loading";
   const splitDiffHighlights = getReviewSplitDiffHighlights(
     COMPARE_TEXT_BASE,
     COMPARE_TEXT_NEXT,
@@ -95,118 +99,135 @@ export function FileViewCompareVisualFixture({
             </ToggleGroupItem>
           </ToggleGroup>
           <div className="min-w-0 flex-1 truncate text-[11px] text-slate-500">
-            PR #335 vs main
+            {isLoadingMode ? "Loading compare... 00:04.8" : "PR #335 vs main"}
           </div>
         </div>
 
         <div className="mt-5 corner-notch-1 border border-slate-200">
           <div className="grid min-h-[640px] grid-cols-[280px_minmax(0,1fr)]">
             <div className="border-r border-slate-200">
-              <FileTree
-                items={[...COMPARED_TREE_ITEMS]}
-                selectedFile="src/lib/reviewDiffControls.ts"
-                restoringFilePath={null}
-                folderExpansionStates={[]}
-                autoExpandedPaths={["docs", "src", "src/components", "src/lib"]}
-                forceAutoExpandedPaths={true}
-                onFileRestore={NOOP_ON_FILE_RESTORE}
-              />
+              {isLoadingMode ? null : (
+                <FileTree
+                  items={[...COMPARED_TREE_ITEMS]}
+                  selectedFile="src/lib/reviewDiffControls.ts"
+                  restoringFilePath={null}
+                  folderExpansionStates={[]}
+                  autoExpandedPaths={[
+                    "docs",
+                    "src",
+                    "src/components",
+                    "src/lib",
+                  ]}
+                  forceAutoExpandedPaths={true}
+                  onFileRestore={NOOP_ON_FILE_RESTORE}
+                />
+              )}
             </div>
 
             <div className="min-w-0 bg-white">
-              <div className="border-b border-slate-200 px-4 py-3">
-                <div className="text-sm font-medium text-slate-900">
-                  src/lib/reviewDiffControls.ts
-                </div>
-                <div className="mt-1 text-xs text-slate-500">
-                  Compare-only added PR files should keep the same diff controls
-                  as staged review files.
-                </div>
-              </div>
-
-              <div className="border-b border-slate-200 px-4 py-3">
-                <div className="flex flex-wrap gap-x-4 gap-y-2">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="fixture-compare-show-patch"
-                      checked={false}
-                      disabled
-                    />
-                    <Label
-                      htmlFor="fixture-compare-show-patch"
-                      className="text-xs font-medium text-slate-500"
-                    >
-                      Show patch
-                    </Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="fixture-compare-inline-diffs"
-                      checked={false}
-                      disabled
-                    />
-                    <Label
-                      htmlFor="fixture-compare-inline-diffs"
-                      className="text-xs font-medium text-slate-500"
-                    >
-                      Inline diffs
-                    </Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="fixture-compare-side-by-side"
-                      checked={true}
-                      disabled
-                    />
-                    <Label
-                      htmlFor="fixture-compare-side-by-side"
-                      className="text-xs font-medium text-slate-500"
-                    >
-                      Side by side
-                    </Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="fixture-compare-syntax-deleted"
-                      checked={true}
-                      disabled
-                    />
-                    <Label
-                      htmlFor="fixture-compare-syntax-deleted"
-                      className="text-xs font-medium text-slate-500"
-                    >
-                      Syntax deleted
-                    </Label>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="min-w-0 corner-notch-1 border bg-white p-3">
-                    <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700">
-                      Before
+              {isLoadingMode ? (
+                <ChangedFilesLoadingState
+                  elapsedLabel="00:04.8"
+                  className="min-h-[640px] p-6"
+                  dataTestId="file-view-compare-loading-state"
+                />
+              ) : (
+                <>
+                  <div className="border-b border-slate-200 px-4 py-3">
+                    <div className="text-sm font-medium text-slate-900">
+                      src/lib/reviewDiffControls.ts
                     </div>
-                    <ProsemarkReadOnly
-                      value={COMPARE_TEXT_BASE}
-                      highlightedLineNumbers={splitDiffHighlights.oldLines}
-                      lineHighlightTone="remove"
-                      className="text-sm leading-6"
-                    />
-                  </div>
-                  <div className="min-w-0 corner-notch-1 border bg-white p-3">
-                    <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-emerald-700">
-                      After
+                    <div className="mt-1 text-xs text-slate-500">
+                      Compare-only added PR files should keep the same diff
+                      controls as staged review files.
                     </div>
-                    <ProsemarkReadOnly
-                      value={COMPARE_TEXT_NEXT}
-                      highlightedLineNumbers={splitDiffHighlights.newLines}
-                      lineHighlightTone="add"
-                      className="text-sm leading-6"
-                    />
                   </div>
-                </div>
-              </div>
+
+                  <div className="border-b border-slate-200 px-4 py-3">
+                    <div className="flex flex-wrap gap-x-4 gap-y-2">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="fixture-compare-show-patch"
+                          checked={false}
+                          disabled
+                        />
+                        <Label
+                          htmlFor="fixture-compare-show-patch"
+                          className="text-xs font-medium text-slate-500"
+                        >
+                          Show patch
+                        </Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="fixture-compare-inline-diffs"
+                          checked={false}
+                          disabled
+                        />
+                        <Label
+                          htmlFor="fixture-compare-inline-diffs"
+                          className="text-xs font-medium text-slate-500"
+                        >
+                          Inline diffs
+                        </Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="fixture-compare-side-by-side"
+                          checked={true}
+                          disabled
+                        />
+                        <Label
+                          htmlFor="fixture-compare-side-by-side"
+                          className="text-xs font-medium text-slate-500"
+                        >
+                          Side by side
+                        </Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="fixture-compare-syntax-deleted"
+                          checked={true}
+                          disabled
+                        />
+                        <Label
+                          htmlFor="fixture-compare-syntax-deleted"
+                          className="text-xs font-medium text-slate-500"
+                        >
+                          Syntax deleted
+                        </Label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="min-w-0 corner-notch-1 border bg-white p-3">
+                        <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-rose-700">
+                          Before
+                        </div>
+                        <ProsemarkReadOnly
+                          value={COMPARE_TEXT_BASE}
+                          highlightedLineNumbers={splitDiffHighlights.oldLines}
+                          lineHighlightTone="remove"
+                          className="text-sm leading-6"
+                        />
+                      </div>
+                      <div className="min-w-0 corner-notch-1 border bg-white p-3">
+                        <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-emerald-700">
+                          After
+                        </div>
+                        <ProsemarkReadOnly
+                          value={COMPARE_TEXT_NEXT}
+                          highlightedLineNumbers={splitDiffHighlights.newLines}
+                          lineHighlightTone="add"
+                          className="text-sm leading-6"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
