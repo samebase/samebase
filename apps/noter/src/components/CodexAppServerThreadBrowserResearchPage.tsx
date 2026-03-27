@@ -5,9 +5,9 @@ import {
   type CodexThreadBrowserMode,
 } from "@/components/CodexThreadBrowserView";
 import {
-  CODEX_APP_SERVER_RESEARCH_API_BASE,
   CODEX_APP_SERVER_RESEARCH_ROUTE,
   codexThreadPathIsArchived,
+  requestCodexAppServerJson as requestJson,
   type CodexAppServerEventsResponse,
   type CodexAppServerLoadedThreadsResponse,
   type CodexAppServerRuntimeSnapshot,
@@ -32,36 +32,6 @@ type ThreadActionResponse = {
   result?: unknown;
   runtime: CodexAppServerRuntimeSnapshot;
 };
-
-async function requestJson<T>(args: {
-  path: string;
-  method?: "GET" | "POST";
-  body?: Record<string, unknown>;
-}): Promise<T> {
-  const response = await fetch(
-    `${CODEX_APP_SERVER_RESEARCH_API_BASE}${args.path}`,
-    {
-      method: args.method ?? "GET",
-      headers:
-        args.body !== undefined
-          ? {
-              "Content-Type": "application/json",
-            }
-          : undefined,
-      body: args.body !== undefined ? JSON.stringify(args.body) : undefined,
-    },
-  );
-
-  const payload = await response.json();
-  if (!response.ok) {
-    throw new Error(
-      typeof payload.error === "string"
-        ? payload.error
-        : `Request failed: ${response.status}`,
-    );
-  }
-  return payload;
-}
 
 /**
  * The provider inventory can contain many similar prompts across multiple

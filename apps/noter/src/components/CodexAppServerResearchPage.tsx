@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   CODEX_APP_SERVER_RESEARCH_API_BASE,
   CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
+  requestCodexAppServerJson as requestJson,
   type CodexAppServerApprovalRequest,
   type CodexAppServerEventsResponse,
   type CodexAppServerProtocolResponse,
@@ -65,36 +66,6 @@ type ThreadActionResponse = {
 const DEFAULT_TURN_PROMPT =
   "Reply with exactly the word READY and nothing else.";
 const THREAD_LIST_LIMIT = 100;
-
-async function requestJson<T>(args: {
-  path: string;
-  method?: "GET" | "POST";
-  body?: Record<string, unknown>;
-}): Promise<T> {
-  const response = await fetch(
-    `${CODEX_APP_SERVER_RESEARCH_API_BASE}${args.path}`,
-    {
-      method: args.method ?? "GET",
-      headers:
-        args.body !== undefined
-          ? {
-              "Content-Type": "application/json",
-            }
-          : undefined,
-      body: args.body !== undefined ? JSON.stringify(args.body) : undefined,
-    },
-  );
-
-  const payload = await response.json();
-  if (!response.ok) {
-    throw new Error(
-      typeof payload.error === "string"
-        ? payload.error
-        : `Request failed: ${response.status}`,
-    );
-  }
-  return payload;
-}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {

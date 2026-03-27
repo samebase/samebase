@@ -8,6 +8,7 @@ async function openBrowserFixture(page: Page) {
 }
 
 test("codex thread browser visual fixture", async ({ page }) => {
+  await page.setViewportSize({ width: 1480, height: 1600 });
   await openBrowserFixture(page);
   await expect(
     page.getByTestId("codex-thread-browser-visual-fixture"),

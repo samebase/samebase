@@ -167,6 +167,36 @@ export type CodexAppServerProtocolResponse = {
   files: CodexAppServerProtocolArtifact[];
 };
 
+export async function requestCodexAppServerJson<T>(args: {
+  path: string;
+  method?: "GET" | "POST";
+  body?: Record<string, unknown>;
+}): Promise<T> {
+  const response = await fetch(
+    `${CODEX_APP_SERVER_RESEARCH_API_BASE}${args.path}`,
+    {
+      method: args.method ?? "GET",
+      headers:
+        args.body !== undefined
+          ? {
+              "Content-Type": "application/json",
+            }
+          : undefined,
+      body: args.body !== undefined ? JSON.stringify(args.body) : undefined,
+    },
+  );
+
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(
+      typeof payload.error === "string"
+        ? payload.error
+        : `Request failed: ${response.status}`,
+    );
+  }
+  return payload;
+}
+
 export function normalizeCodexPathForDisplay(value: string): string {
   return value.split("\\").join("/");
 }
@@ -299,11 +329,7 @@ export function normalizeCodexAppServerEvent(args: {
     };
   }
 
-  if (
-    method === "item/commandExecution/requestApproval" ||
-    method === "item/fileChange/requestApproval" ||
-    method === "item/fileRead/requestApproval"
-  ) {
+  if (method.startsWith("item/") && method.endsWith("/requestApproval")) {
     return {
       kind: "approval.requested",
       level: "warning",

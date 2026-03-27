@@ -1,3 +1,8 @@
+import {
+  CODEX_APP_SERVER_RESEARCH_ROUTE,
+  CODEX_APP_SERVER_THREAD_BROWSER_ROUTE,
+} from "./codexAppServerResearch";
+
 export type PageMetadata = {
   title: string;
   description: string;
@@ -100,11 +105,11 @@ export function resolveAppPageTitle(pathname: string): string {
     return PITCH_DECK_MOBILE_PRINT_PAGE_METADATA.title;
   }
 
-  if (pathname === "/research/codex-app-server") {
+  if (pathname === CODEX_APP_SERVER_RESEARCH_ROUTE) {
     return "Codex App Server Research | noter";
   }
 
-  if (pathname === "/research/codex-app-server/browser") {
+  if (pathname === CODEX_APP_SERVER_THREAD_BROWSER_ROUTE) {
     return "Codex Thread Browser Research | noter";
   }
 

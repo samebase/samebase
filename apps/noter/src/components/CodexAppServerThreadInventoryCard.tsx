@@ -12,6 +12,13 @@ type CodexAppServerThreadInventoryCardProps = {
   updatedAtLabel: string;
 };
 
+/**
+ * Treat Enter and Space as card activation keys so the selectable thread card
+ * behaves like a native button without scrolling the page on Space.
+ *
+ * @param event Keyboard interaction fired on the card container.
+ * @param onSelect Selection callback for the owning thread row.
+ */
 function handleSelectableCardKeyDown(
   event: KeyboardEvent<HTMLDivElement>,
   onSelect: () => void,
@@ -24,6 +31,24 @@ function handleSelectableCardKeyDown(
   onSelect();
 }
 
+/**
+ * Nested controls inside the selectable card should keep their own keyboard
+ * behavior without bubbling activation keys up to the parent card handler.
+ *
+ * @param event Keyboard interaction fired on the nested toggle button.
+ */
+function handleNestedToggleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+  if (event.key !== "Enter" && event.key !== " ") {
+    return;
+  }
+
+  event.stopPropagation();
+}
+
+/**
+ * Render a selectable thread inventory row whose outer card owns selection
+ * while the preview clamp toggle stays local to the preview text itself.
+ */
 export function CodexAppServerThreadInventoryCard(
   props: CodexAppServerThreadInventoryCardProps,
 ) {
@@ -78,6 +103,7 @@ export function CodexAppServerThreadInventoryCard(
                 event.stopPropagation();
                 toggleExpanded();
               }}
+              onKeyDown={handleNestedToggleKeyDown}
             />
           ) : null}
           {props.statusBadge}

@@ -39,6 +39,7 @@ const CODEX_INIT_TIMEOUT_MS = 30_000;
 const CODEX_EVENT_BUFFER_SIZE = 500;
 const CODEX_REQUEST_BUFFER_SIZE = 100;
 const CODEX_APPROVAL_CONTEXT_BUFFER_SIZE = 100;
+const MAX_THREAD_PROJECT_INFO_CACHE_SIZE = 500;
 const DEFAULT_THREAD_SOURCE_KINDS = ["cli", "vscode", "exec", "appServer"];
 const CODEX_GLOBAL_STATE_FILENAME = ".codex-global-state.json";
 
@@ -81,6 +82,28 @@ type ThreadProjectInfo = {
 };
 
 const threadProjectInfoByCwd = new Map<string, Promise<ThreadProjectInfo>>();
+
+function getCachedThreadProjectInfo(
+  cwd: string,
+): Promise<ThreadProjectInfo> | undefined {
+  return threadProjectInfoByCwd.get(cwd);
+}
+
+function setCachedThreadProjectInfo(
+  cwd: string,
+  promise: Promise<ThreadProjectInfo>,
+) {
+  threadProjectInfoByCwd.set(cwd, promise);
+
+  if (threadProjectInfoByCwd.size <= MAX_THREAD_PROJECT_INFO_CACHE_SIZE) {
+    return;
+  }
+
+  const oldestKey = threadProjectInfoByCwd.keys().next().value;
+  if (oldestKey !== undefined) {
+    threadProjectInfoByCwd.delete(oldestKey);
+  }
+}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
@@ -227,7 +250,7 @@ function buildFallbackThreadProjectInfo(cwd: string): ThreadProjectInfo {
 }
 
 async function readThreadProjectInfo(cwd: string): Promise<ThreadProjectInfo> {
-  const cached = threadProjectInfoByCwd.get(cwd);
+  const cached = getCachedThreadProjectInfo(cwd);
   if (cached) {
     return cached;
   }
@@ -283,7 +306,7 @@ async function readThreadProjectInfo(cwd: string): Promise<ThreadProjectInfo> {
     }
   })();
 
-  threadProjectInfoByCwd.set(cwd, promise);
+  setCachedThreadProjectInfo(cwd, promise);
   return promise;
 }
 
@@ -2020,6 +2043,7 @@ export function codexAppServerResearchBridgePlugin(args: {
 }): Plugin {
   return {
     name: "codex-app-server-research-bridge",
+    apply: "serve",
     configureServer(server: ViteDevServer) {
       const runtime = new CodexAppServerResearchRuntime(args.workspaceRoot);
       const router = buildRouter({ runtime });

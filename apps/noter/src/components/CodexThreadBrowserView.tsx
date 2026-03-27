@@ -175,6 +175,20 @@ function readDefaultExpandedTurnIds(
   return lastTurnId ? [lastTurnId] : [];
 }
 
+function readSelectedThreadIsArchived(args: {
+  selectedThread: CodexAppServerThread | null;
+  detailState: CodexThreadBrowserDetailState;
+}): boolean {
+  if (args.detailState.kind === "archived") {
+    return true;
+  }
+
+  return (
+    args.selectedThread !== null &&
+    codexThreadPathIsArchived(args.selectedThread.path)
+  );
+}
+
 function ThreadRow(props: {
   thread: CodexAppServerThread;
   isSelected: boolean;
@@ -427,7 +441,7 @@ function TurnHistoryCard(props: {
               {preview}
             </div>
           ) : (
-            <div className="text-sm text-slate-400">No summarized items</div>
+            <div aria-hidden="true" className="h-6" />
           )}
         </button>
       </CollapsibleTrigger>
@@ -453,9 +467,10 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
   const [expandedTurnIds, setExpandedTurnIds] = useState<string[]>(() =>
     readDefaultExpandedTurnIds(props.selectedThread),
   );
-  const selectedThreadIsArchived =
-    props.selectedThread !== null &&
-    codexThreadPathIsArchived(props.selectedThread.path);
+  const selectedThreadIsArchived = readSelectedThreadIsArchived({
+    selectedThread: props.selectedThread,
+    detailState: props.detailState,
+  });
   const selectedThreadIsLoaded =
     props.selectedThread !== null &&
     props.loadedThreadIds.includes(props.selectedThread.id);
