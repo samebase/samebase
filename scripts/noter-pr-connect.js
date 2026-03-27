@@ -87,6 +87,7 @@ import path from 'node:path'
  * @typedef {{
  *   version: 1
  *   handledRuns: Record<string, HandledRunRecord>
+ *   failedRuns: Record<string, HandledRunRecord>
  *   invalidRuns: Record<string, InvalidRunRecord>
  * }} ConnectState
  */
@@ -95,6 +96,7 @@ import path from 'node:path'
 
 const DEFAULT_LABEL = 'research'
 const DEFAULT_INTERVAL_SECONDS = 60
+const FAILED_RUN_RETRY_COOLDOWN_MS = 15 * 60 * 1000
 const SAFE_MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 const ALLOWED_REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh']
 const MARKER_PREFIX = '<!-- noter-origin:v1 '
@@ -275,6 +277,7 @@ function loadState() {
     return {
       version: 1,
       handledRuns: {},
+      failedRuns: {},
       invalidRuns: {},
     }
   }
@@ -300,6 +303,10 @@ function loadState() {
     typeof parsedRecord['handledRuns'] !== 'object' ||
     parsedRecord['handledRuns'] === null ||
     Array.isArray(parsedRecord['handledRuns']) ||
+    (parsedRecord['failedRuns'] !== undefined &&
+      (typeof parsedRecord['failedRuns'] !== 'object' ||
+        parsedRecord['failedRuns'] === null ||
+        Array.isArray(parsedRecord['failedRuns']))) ||
     typeof parsedRecord['invalidRuns'] !== 'object' ||
     parsedRecord['invalidRuns'] === null ||
     Array.isArray(parsedRecord['invalidRuns'])
@@ -307,7 +314,21 @@ function loadState() {
     throw new Error(`Unexpected state shape in ${statePath}`)
   }
 
-  return /** @type {ConnectState} */ (parsed)
+  return {
+    version: 1,
+    handledRuns: /** @type {Record<string, HandledRunRecord>} */ (
+      parsedRecord['handledRuns']
+    ),
+    failedRuns:
+      parsedRecord['failedRuns'] === undefined
+        ? {}
+        : /** @type {Record<string, HandledRunRecord>} */ (
+            parsedRecord['failedRuns']
+          ),
+    invalidRuns: /** @type {Record<string, InvalidRunRecord>} */ (
+      parsedRecord['invalidRuns']
+    ),
+  }
 }
 
 /**
@@ -341,6 +362,15 @@ async function processCycle(state) {
 
     const runKey = buildRunKey(pullRequest)
     if (Object.hasOwn(state.handledRuns, runKey)) {
+      continue
+    }
+    const failedRunRecord = Object.hasOwn(state.failedRuns, runKey)
+      ? state.failedRuns[runKey]
+      : null
+    if (
+      failedRunRecord !== null &&
+      shouldDelayFailedRunRetry(failedRunRecord.finishedAt, new Date())
+    ) {
       continue
     }
 
@@ -787,9 +817,14 @@ async function handleValidPullRequest(pullRequest, marker, state) {
     if (result.exitCode !== 0) {
       handledRecord.error = `codex exec exited with status ${result.exitCode}`
     }
-    // Persist the handled key before attempting the completion comment so a
-    // transient GitHub comment failure does not cause duplicate executions.
-    recordHandledRun(state, runKey, handledRecord)
+    // Persist successful SHAs before commenting so a transient GitHub comment
+    // failure still prevents duplicate executions for the same completed head.
+    if (handledRecord.status === 'succeeded') {
+      recordHandledRun(state, runKey, handledRecord)
+      delete state.failedRuns[runKey]
+    } else {
+      recordFailedRun(state, runKey, handledRecord)
+    }
     tryPostPullRequestComment(
       pullRequest.number,
       buildCompletionComment({
@@ -806,7 +841,7 @@ async function handleValidPullRequest(pullRequest, marker, state) {
     handledRecord.remoteHeadAfterRun = tryFetchPullRequestHeadOid(
       pullRequest.number,
     )
-    recordHandledRun(state, runKey, handledRecord)
+    recordFailedRun(state, runKey, handledRecord)
     tryPostPullRequestComment(
       pullRequest.number,
       buildFailureComment({
@@ -1294,6 +1329,7 @@ function sanitizePathSegment(value) {
  */
 function recordHandledRun(state, runKey, record) {
   state.handledRuns[runKey] = record
+  delete state.failedRuns[runKey]
   if (
     typeof record.remoteHeadAfterRun === 'string' &&
     record.remoteHeadAfterRun.length > 0 &&
@@ -1306,6 +1342,41 @@ function recordHandledRun(state, runKey, record) {
       headRefOid: record.remoteHeadAfterRun,
     }
   }
+}
+
+/**
+ * Persist failed attempts separately so operators can retry the same PR head
+ * without editing state by hand, while still keeping a cooldown window for the
+ * long-running watcher.
+ *
+ * @param {ConnectState} state
+ * @param {string} runKey
+ * @param {HandledRunRecord} record
+ * @returns {void}
+ */
+function recordFailedRun(state, runKey, record) {
+  state.failedRuns[runKey] = record
+}
+
+/**
+ * Watch mode should back off after a failed run instead of hammering the same
+ * SHA every interval, but one-shot invocations should stay retryable.
+ *
+ * @param {string} finishedAt
+ * @param {Date} now
+ * @returns {boolean}
+ */
+function shouldDelayFailedRunRetry(finishedAt, now) {
+  if (options.once) {
+    return false
+  }
+
+  const finishedAtMs = Date.parse(finishedAt)
+  if (!Number.isFinite(finishedAtMs)) {
+    return false
+  }
+
+  return now.getTime() - finishedAtMs < FAILED_RUN_RETRY_COOLDOWN_MS
 }
 
 // MARK: - Command Utilities
