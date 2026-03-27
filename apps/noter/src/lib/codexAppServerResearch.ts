@@ -167,6 +167,18 @@ export type CodexAppServerProtocolResponse = {
   files: CodexAppServerProtocolArtifact[];
 };
 
+export function normalizeCodexPathForDisplay(value: string): string {
+  return value.split("\\").join("/");
+}
+
+export function codexThreadPathIsArchived(path: string | null): boolean {
+  if (path === null) {
+    return false;
+  }
+
+  return normalizeCodexPathForDisplay(path).includes("/archived_sessions/");
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     return null;

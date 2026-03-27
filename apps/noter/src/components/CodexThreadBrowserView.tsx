@@ -3,7 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
 import { CodexAppServerThreadHistoryItemCard } from "@/components/CodexAppServerThreadHistoryItemCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { type CodexAppServerThread } from "@/lib/codexAppServerResearch";
+import {
+  codexThreadPathIsArchived,
+  type CodexAppServerThread,
+} from "@/lib/codexAppServerResearch";
 import { clsx } from "clsx";
 
 export type CodexThreadBrowserMode = "active" | "archived";
@@ -84,10 +87,6 @@ function formatRelativeTime(
   return `${Math.floor(diffMs / dayMs)}d`;
 }
 
-function threadIsArchived(thread: CodexAppServerThread): boolean {
-  return thread.path?.includes("/archived_sessions/") ?? false;
-}
-
 function readFirstNonEmptyLine(value: string): string {
   const firstLine = value
     .split("\n")
@@ -130,6 +129,10 @@ function readThreadWorkspaceLabel(thread: CodexAppServerThread): string | null {
   }
 
   return thread.workspace.label;
+}
+
+function formatJsonValue(value: unknown): string {
+  return JSON.stringify(value, null, 2);
 }
 
 function ThreadRow(props: {
@@ -348,7 +351,8 @@ function EmptyState(props: { title: string; body: string }) {
 export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
   const fillViewport = props.fillViewport ?? true;
   const selectedThreadIsArchived =
-    props.selectedThread !== null && threadIsArchived(props.selectedThread);
+    props.selectedThread !== null &&
+    codexThreadPathIsArchived(props.selectedThread.path);
   const selectedThreadIsLoaded =
     props.selectedThread !== null &&
     props.loadedThreadIds.includes(props.selectedThread.id);
@@ -679,6 +683,22 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
                       title="No hydrated turns"
                       body="This thread is visible in inventory, but the provider did not return any hydrated turns for the current detail read."
                     />
+                  ) : null}
+
+                  {props.detailState.kind === "ready" &&
+                  props.selectedThread.raw !== null &&
+                  props.selectedThread.raw !== undefined ? (
+                    <div className="grid gap-3">
+                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        Raw thread JSON
+                      </div>
+                      <pre
+                        className="max-h-[480px] overflow-auto border border-slate-200 bg-slate-950 p-3 font-mono text-xs leading-6 text-slate-100"
+                        title={formatJsonValue(props.selectedThread.raw)}
+                      >
+                        <code>{formatJsonValue(props.selectedThread.raw)}</code>
+                      </pre>
+                    </div>
                   ) : null}
                 </>
               )}

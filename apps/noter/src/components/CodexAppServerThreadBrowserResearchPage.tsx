@@ -7,6 +7,7 @@ import {
 import {
   CODEX_APP_SERVER_RESEARCH_API_BASE,
   CODEX_APP_SERVER_RESEARCH_ROUTE,
+  codexThreadPathIsArchived,
   type CodexAppServerLoadedThreadsResponse,
   type CodexAppServerRuntimeSnapshot,
   type CodexAppServerThread,
@@ -55,10 +56,6 @@ async function requestJson<T>(args: {
     );
   }
   return payload;
-}
-
-function threadIsArchived(thread: CodexAppServerThread): boolean {
-  return thread.path?.includes("/archived_sessions/") ?? false;
 }
 
 /**
@@ -142,15 +139,23 @@ function buildThreadGroups(args: {
     }));
 }
 
-function buildThreadsPath(mode: CodexThreadBrowserMode): string {
+function buildThreadsPath(args: {
+  mode: CodexThreadBrowserMode;
+  searchTerm: string;
+}): string {
   const search = updateQueryParams(undefined, (nextSearchParams) => {
     setQueryParam(
       nextSearchParams,
       "archived",
-      mode === "archived" ? "true" : "false",
+      args.mode === "archived" ? "true" : "false",
     );
     setQueryParam(nextSearchParams, "limit", `${THREAD_LIST_LIMIT}`);
     setQueryParam(nextSearchParams, "sortKey", "updated_at");
+    setQueryParam(
+      nextSearchParams,
+      "searchTerm",
+      args.searchTerm.trim().length > 0 ? args.searchTerm.trim() : null,
+    );
   });
 
   return buildPathWithQuery({
@@ -179,15 +184,15 @@ export function CodexAppServerThreadBrowserResearchPage() {
   const selectedThreadRequestRef = useRef(0);
 
   const refreshThreads = useCallback(
-    async (mode: CodexThreadBrowserMode = browserMode) => {
+    async (mode: CodexThreadBrowserMode = browserMode, term = searchTerm) => {
       const response = await requestJson<CodexAppServerThreadsResponse>({
-        path: buildThreadsPath(mode),
+        path: buildThreadsPath({ mode, searchTerm: term }),
       });
       setThreads(response.threads);
       setPinnedThreadIds(response.pinnedThreadIds);
       return response;
     },
-    [browserMode],
+    [browserMode, searchTerm],
   );
 
   const refreshLoadedThreadIds = useCallback(async () => {
@@ -212,6 +217,7 @@ export function CodexAppServerThreadBrowserResearchPage() {
         thread.name ?? "",
         thread.preview,
         thread.cwd,
+        thread.path ?? "",
         thread.project.rootCwd,
         thread.workspace.label ?? "",
         thread.gitInfo?.branch ?? "",
@@ -228,9 +234,9 @@ export function CodexAppServerThreadBrowserResearchPage() {
     }
 
     return (
-      visibleThreads.find((thread) => thread.id === selectedThreadId) ?? null
+      uniqueThreads.find((thread) => thread.id === selectedThreadId) ?? null
     );
-  }, [selectedThreadId, visibleThreads]);
+  }, [selectedThreadId, uniqueThreads]);
 
   /**
    * Codex stores pinned thread ids in explicit sidebar order. Preserve that
@@ -264,13 +270,18 @@ export function CodexAppServerThreadBrowserResearchPage() {
   useEffect(() => {
     if (
       selectedThreadId &&
-      visibleThreads.some((thread) => thread.id === selectedThreadId)
+      uniqueThreads.some((thread) => thread.id === selectedThreadId)
     ) {
       return;
     }
 
-    setSelectedThreadId(visibleThreads[0]?.id ?? null);
-  }, [selectedThreadId, visibleThreads]);
+    if (selectedThreadId !== null) {
+      setSelectedThreadId(null);
+      return;
+    }
+
+    setSelectedThreadId(uniqueThreads[0]?.id ?? null);
+  }, [selectedThreadId, uniqueThreads]);
 
   const refreshSelectedThread = useCallback(
     async (thread: CodexAppServerThread | null = selectedThreadSummary) => {
@@ -283,7 +294,7 @@ export function CodexAppServerThreadBrowserResearchPage() {
         return null;
       }
 
-      if (threadIsArchived(thread)) {
+      if (codexThreadPathIsArchived(thread.path)) {
         setSelectedThreadDetail(thread);
         setDetailState({
           kind: "archived",
@@ -323,20 +334,23 @@ export function CodexAppServerThreadBrowserResearchPage() {
   );
 
   const refreshAll = useCallback(
-    async (mode: CodexThreadBrowserMode = browserMode) => {
+    async (
+      mode: CodexThreadBrowserMode = browserMode,
+      term: string = searchTerm,
+    ) => {
       const [threadsResponse] = await Promise.all([
-        refreshThreads(mode),
+        refreshThreads(mode, term),
         refreshLoadedThreadIds(),
       ]);
       return threadsResponse;
     },
-    [browserMode, refreshLoadedThreadIds, refreshThreads],
+    [browserMode, refreshLoadedThreadIds, refreshThreads, searchTerm],
   );
 
   useEffect(() => {
     const hydrate = async () => {
       try {
-        await refreshAll(browserMode);
+        await refreshAll(browserMode, searchTerm);
         setError(null);
       } catch (nextError) {
         setError(
@@ -348,7 +362,7 @@ export function CodexAppServerThreadBrowserResearchPage() {
     };
 
     void hydrate();
-  }, [browserMode, refreshAll]);
+  }, [browserMode, refreshAll, searchTerm]);
 
   useEffect(() => {
     void refreshSelectedThread(selectedThreadSummary);

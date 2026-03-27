@@ -673,7 +673,10 @@ function normalizeThread(value: unknown): CodexAppServerThread | null {
           sha: readString(gitInfo.sha) ?? null,
         }
       : null,
-    path: readString(record.path) ?? null,
+    path:
+      typeof record.path === "string"
+        ? normalizePathForDisplay(record.path)
+        : null,
     agentNickname: readString(record.agentNickname) ?? null,
     agentRole: readString(record.agentRole) ?? null,
     turns,
@@ -1419,6 +1422,7 @@ class CodexAppServerResearchRuntime {
     if (searchTerm) {
       params.searchTerm = searchTerm;
     }
+    const normalizedSearchTerm = searchTerm?.trim().toLowerCase() ?? "";
 
     const sortKey = searchParams.get("sortKey");
     if (sortKey === "created_at" || sortKey === "updated_at") {
@@ -1461,14 +1465,45 @@ class CodexAppServerResearchRuntime {
     const missingPinnedThreadIds = pinnedThreadIds.filter(
       (threadId) => !threads.some((thread) => thread.id === threadId),
     );
-    if (missingPinnedThreadIds.length > 0 && archived !== "true") {
+    if (missingPinnedThreadIds.length > 0) {
       const missingPinnedThreads = (
         await Promise.all(
           missingPinnedThreadIds.map((threadId) =>
             this.readThreadSummary(threadId),
           ),
         )
-      ).filter((thread): thread is CodexAppServerThread => thread !== null);
+      )
+        .filter((thread): thread is CodexAppServerThread => thread !== null)
+        .filter((thread) => {
+          if (normalizedSearchTerm.length === 0) {
+            return true;
+          }
+
+          const haystack = [
+            thread.id,
+            thread.name ?? "",
+            thread.preview,
+            thread.cwd,
+            thread.path ?? "",
+            thread.project.rootCwd,
+            thread.workspace.label ?? "",
+            thread.gitInfo?.branch ?? "",
+          ]
+            .join("\n")
+            .toLowerCase();
+          return haystack.includes(normalizedSearchTerm);
+        })
+        .filter((thread) =>
+          archived === "true"
+            ? normalizePathForDisplay(thread.path ?? "").includes(
+                "/archived_sessions/",
+              )
+            : archived === "false"
+              ? !normalizePathForDisplay(thread.path ?? "").includes(
+                  "/archived_sessions/",
+                )
+              : true,
+        );
 
       threads = [...threads, ...missingPinnedThreads].sort(
         (left, right) => right.updatedAt - left.updatedAt,
@@ -1909,7 +1944,7 @@ function buildRouter(args: { runtime: CodexAppServerResearchRuntime }) {
           200,
           await args.runtime.generateProtocol({
             mode: "json-schema",
-            experimental: url.searchParams.get("experimental") === "1",
+            experimental: url.searchParams.has("experimental"),
           }),
         );
         return;
@@ -1921,7 +1956,7 @@ function buildRouter(args: { runtime: CodexAppServerResearchRuntime }) {
           200,
           await args.runtime.generateProtocol({
             mode: "ts",
-            experimental: url.searchParams.get("experimental") === "1",
+            experimental: url.searchParams.has("experimental"),
           }),
         );
         return;
