@@ -104,6 +104,7 @@
 - [ ] starter manifest hygiene: exclude `.codespace-agent/node_modules/**` from template export and regenerate deterministic `starterSeedManifest.generated.ts`
 - [ ] starter template hygiene: add CI coverage for `apps/noter-starter-template` (we missed a `node_modules`/ignore drift once because it wasn't being checked)
 - [ ] add help center app, show how easy it is to have one, where everything is markdown
+- [ ] add a user-centering support route where someone can report an issue and noter automatically creates a GitHub issue so I can review it and help
 - [ ] worktree friendly vibe code editor
 - [ ] **IMPORTANT**: make `noter.md` comfortable to use with worktrees using Codex on mac
 - [ ] document 3 ways to view `noter.md`:
