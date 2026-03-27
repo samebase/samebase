@@ -30,6 +30,19 @@ function FixtureResizeGrip() {
   );
 }
 
+function FixtureProvidersSidebarContent() {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="border-b border-border/50 p-3">
+        <div className="text-sm font-medium">Providers</div>
+        <div className="mt-3 text-xs text-muted-foreground">
+          GitHub, Convex, and Cloudflare are connected.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function fakeVaultId(): Parameters<typeof VaultBranchLinkRow>[0]["vaultId"] {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
@@ -87,7 +100,7 @@ export function VaultDashboardVisualFixture({
         </div>
       </SidebarAccountSection>
     );
-    const sidebarContent = <div className="flex-1" />;
+    const sidebarContent = <FixtureProvidersSidebarContent />;
     const headerContent = (
       <div className="flex items-center gap-3 p-3">
         <SidebarTrigger className="h-8 w-8 md:h-6 md:w-6" />
@@ -111,13 +124,7 @@ export function VaultDashboardVisualFixture({
           bodyClassName="min-h-0 overflow-y-auto p-0"
         >
           <div className="container py-6">
-            <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="corner-notch-1 border border-border bg-background p-4 lg:flex-1">
-                <div className="text-sm font-medium">Providers</div>
-                <div className="mt-3 text-xs text-muted-foreground">
-                  GitHub, Convex, and Cloudflare are connected.
-                </div>
-              </div>
+            <div className="mb-6 flex justify-start lg:justify-end">
               <div className="w-full max-w-[480px] corner-notch-1 border border-border bg-background px-3 py-2 text-sm font-medium lg:w-auto">
                 Create control
               </div>
@@ -329,7 +336,7 @@ export function VaultDashboardVisualFixture({
         </div>
       </SidebarAccountSection>
     );
-    const sidebarContent = <div className="flex-1" />;
+    const sidebarContent = <FixtureProvidersSidebarContent />;
     const headerContent = (
       <div className="px-4 py-4">
         <div className="mb-4">
@@ -338,13 +345,6 @@ export function VaultDashboardVisualFixture({
         <div className="mb-4 corner-notch-1 border border-border bg-background p-4">
           <div className="text-sm text-muted-foreground">Vaults</div>
           <div className="mt-1 text-xl font-semibold">Your Vaults</div>
-        </div>
-
-        <div className="corner-notch-1 border border-border bg-background p-4">
-          <div className="text-sm font-medium">Providers</div>
-          <div className="mt-2 text-xs text-muted-foreground">
-            GitHub, Convex, and Cloudflare are connected.
-          </div>
         </div>
       </div>
     );
