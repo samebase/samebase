@@ -185,7 +185,7 @@ export function CodexThreadBrowserVisualFixture({
     <div className="bg-slate-100 p-8 text-slate-950">
       <div
         data-testid="codex-thread-browser-visual-fixture"
-        className="w-[1280px]"
+        className="h-[1253px] w-[1280px] overflow-hidden"
       >
         <CodexThreadBrowserView
           browserMode="active"
