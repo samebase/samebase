@@ -342,6 +342,24 @@ function McpConsentView({ requestId }: { requestId: string }) {
   );
 }
 
+function ResearchRouteUnavailablePage(props: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <Layout>
+      <div className="container my-auto">
+        <div className="mx-auto flex max-w-[420px] flex-col items-center gap-3 py-16 text-center">
+          <h2 className="text-xl font-semibold tracking-tight">
+            {props.title}
+          </h2>
+          <p className="text-sm text-muted-foreground">{props.description}</p>
+        </div>
+      </div>
+    </Layout>
+  );
+}
+
 export default function App() {
   useAutoSignIn();
   const location = useLocation();
@@ -375,6 +393,7 @@ export default function App() {
     location.pathname === CODEX_APP_SERVER_RESEARCH_ROUTE;
   const showCodexAppServerThreadBrowserResearchPage =
     location.pathname === CODEX_APP_SERVER_THREAD_BROWSER_ROUTE;
+  const isCodexAppServerResearchRuntimeAvailable = import.meta.env.DEV;
   const showPublicLandingWithoutAuthGate =
     !isAuthenticated && shouldRenderPublicLandingWithoutAuthGate(location);
 
@@ -451,6 +470,14 @@ export default function App() {
     );
   }
   if (showCodexAppServerResearchPage) {
+    if (!isCodexAppServerResearchRuntimeAvailable) {
+      return (
+        <ResearchRouteUnavailablePage
+          title="Codex research unavailable"
+          description="This research surface only runs in the local development server."
+        />
+      );
+    }
     return (
       <Suspense fallback={null}>
         <CodexAppServerResearchPage />
@@ -458,6 +485,14 @@ export default function App() {
     );
   }
   if (showCodexAppServerThreadBrowserResearchPage) {
+    if (!isCodexAppServerResearchRuntimeAvailable) {
+      return (
+        <ResearchRouteUnavailablePage
+          title="Codex thread browser unavailable"
+          description="This research surface only runs in the local development server."
+        />
+      );
+    }
     return (
       <Suspense fallback={null}>
         <CodexAppServerThreadBrowserResearchPage />

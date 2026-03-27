@@ -248,7 +248,7 @@ function ThreadRow(props: {
       <div className="flex flex-wrap items-center gap-2 text-[11px]">
         <div
           className={clsx(
-            "h-2 w-2 shrink-0 rounded-full",
+            "h-2 w-2 shrink-0 rounded-ui",
             props.isLoaded
               ? props.isSelected
                 ? "bg-emerald-300"

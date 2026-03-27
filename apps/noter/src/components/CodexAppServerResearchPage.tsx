@@ -66,6 +66,7 @@ type ThreadActionResponse = {
 const DEFAULT_TURN_PROMPT =
   "Reply with exactly the word READY and nothing else.";
 const THREAD_LIST_LIMIT = 100;
+type ProtocolMode = "json-schema" | "ts";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
@@ -120,6 +121,20 @@ function getThreadStatusLabel(thread: CodexAppServerThread): string {
   }
 
   return thread.status.type;
+}
+
+function readProtocolRequestPath(args: {
+  mode: ProtocolMode;
+  experimental: boolean;
+}): string {
+  const searchParams = updateQueryParams(undefined, (nextSearchParams) => {
+    setQueryParam(nextSearchParams, "experimental", args.experimental);
+  });
+  return buildPathWithQuery({
+    pathname:
+      args.mode === "json-schema" ? "/protocol/json-schema" : "/protocol/ts",
+    search: searchParams,
+  });
 }
 
 function RuntimeStatusBadge(props: {
@@ -500,9 +515,7 @@ export function CodexAppServerResearchPage() {
   const [isSelectedThreadLoading, setIsSelectedThreadLoading] = useState(false);
   const [protocol, setProtocol] =
     useState<CodexAppServerProtocolResponse | null>(null);
-  const [protocolMode, setProtocolMode] = useState<"json-schema" | "ts">(
-    "json-schema",
-  );
+  const [protocolMode, setProtocolMode] = useState<ProtocolMode>("json-schema");
   const [protocolExperimental, setProtocolExperimental] = useState(true);
   const [activeProtocolFilePath, setActiveProtocolFilePath] = useState<
     string | null
@@ -1025,10 +1038,10 @@ export function CodexAppServerResearchPage() {
                     void runAction(async () => {
                       const nextProtocol =
                         await requestJson<CodexAppServerProtocolResponse>({
-                          path:
-                            protocolMode === "json-schema"
-                              ? `/protocol/json-schema?experimental=${protocolExperimental ? "1" : "0"}`
-                              : `/protocol/ts?experimental=${protocolExperimental ? "1" : "0"}`,
+                          path: readProtocolRequestPath({
+                            mode: protocolMode,
+                            experimental: protocolExperimental,
+                          }),
                         });
                       setProtocol(nextProtocol);
                       setActiveProtocolFilePath(
