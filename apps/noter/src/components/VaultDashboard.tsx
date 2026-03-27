@@ -1672,9 +1672,9 @@ function VaultDashboardContent() {
               return (
                 <div
                   key={provider}
-                  className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3"
+                  className="flex flex-wrap items-start gap-3"
                 >
-                  <div className="flex min-w-0 items-start gap-3">
+                  <div className="flex min-w-0 flex-1 basis-[11rem] items-start gap-3">
                     <div className="flex h-5 w-11 shrink-0 items-center justify-center">
                       <Icon className="max-h-full max-w-full" />
                     </div>
@@ -1689,11 +1689,12 @@ function VaultDashboardContent() {
                   </div>
                   {providerState.connected ? (
                     providerState.showTokenCheck ? (
-                      <div className="flex shrink-0 flex-wrap justify-end gap-2 self-start">
+                      <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => void handleCheckCloudflareToken()}
+                          className="h-auto max-w-full whitespace-normal py-2 text-left"
                           disabled={
                             disconnectingProvider !== null ||
                             isCheckingCloudflareToken ||
@@ -1713,6 +1714,7 @@ function VaultDashboardContent() {
                           variant="outline"
                           size="sm"
                           onClick={() => void handleDisconnect(provider)}
+                          className="h-auto max-w-full whitespace-normal py-2 text-left"
                           disabled={
                             disconnectingProvider !== null ||
                             isCheckingCloudflareToken ||
@@ -1730,11 +1732,12 @@ function VaultDashboardContent() {
                         </Button>
                       </div>
                     ) : (
-                      <div className="flex shrink-0 justify-end self-start">
+                      <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => void handleDisconnect(provider)}
+                          className="h-auto max-w-full whitespace-normal py-2 text-left"
                           disabled={disconnectingProvider !== null}
                         >
                           {disconnectingProvider === provider ? (
@@ -1749,11 +1752,12 @@ function VaultDashboardContent() {
                       </div>
                     )
                   ) : (
-                    <div className="flex shrink-0 flex-wrap justify-end gap-2 self-start">
+                    <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => void handleConnect(provider)}
+                        className="h-auto max-w-full whitespace-normal py-2 text-left"
                         disabled={disconnectingProvider !== null}
                       >
                         {providerMetadata.oauthButtonLabel}
@@ -1763,6 +1767,7 @@ function VaultDashboardContent() {
                           variant="outline"
                           size="sm"
                           onClick={() => openApiKeyDialog(apiKeyProvider)}
+                          className="h-auto max-w-full whitespace-normal py-2 text-left"
                           disabled={disconnectingProvider !== null}
                         >
                           Use API key

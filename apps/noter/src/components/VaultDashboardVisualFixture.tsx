@@ -35,8 +35,52 @@ function FixtureProvidersSidebarContent() {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="border-b border-border/50 p-3">
         <div className="text-sm font-medium">Providers</div>
-        <div className="mt-3 text-xs text-muted-foreground">
-          GitHub, Convex, and Cloudflare are connected.
+        <div className="mt-3 space-y-3">
+          <div className="flex flex-wrap items-start gap-3">
+            <div className="flex min-w-0 flex-1 basis-[11rem] items-start gap-3">
+              <div className="flex h-5 w-11 shrink-0 items-center justify-center">
+                <GitHubLogoIcon className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 text-left">
+                <div className="text-sm font-medium">GitHub</div>
+                <div className="break-words text-xs leading-5 text-muted-foreground">
+                  Connected as GitHub user (API key)
+                </div>
+              </div>
+            </div>
+            <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-auto max-w-full whitespace-normal py-2 text-left"
+              >
+                Disconnect
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-start gap-3">
+            <div className="flex min-w-0 flex-1 basis-[11rem] items-start gap-3">
+              <div className="flex h-5 w-11 shrink-0 items-center justify-center">
+                <span className="h-3.5 w-3.5 rounded-full bg-orange-500" />
+              </div>
+              <div className="min-w-0 text-left">
+                <div className="text-sm font-medium">Cloudflare</div>
+                <div className="break-words text-xs leading-5 text-muted-foreground">
+                  Not connected
+                </div>
+              </div>
+            </div>
+            <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-auto max-w-full whitespace-normal py-2 text-left"
+              >
+                Cloudflare MCP OAuth
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
