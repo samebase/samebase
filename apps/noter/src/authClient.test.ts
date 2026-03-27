@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildPathWithQuery,
   buildSearchString,
@@ -36,6 +36,10 @@ describe("useAutoSignIn", () => {
   const originalWindow = globalThis.window;
   const originalLocalStorage = globalThis.localStorage;
   const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+  afterAll(() => {
+    consoleWarnSpy.mockRestore();
+  });
 
   afterEach(() => {
     signInMock.mockReset();

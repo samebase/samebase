@@ -18,6 +18,7 @@ import { Routes, Route, useLocation } from "react-router-dom";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { resolvePageMetadata, type PageMetadata } from "@/lib/pageMetadata";
 import { shouldRenderPublicLandingWithoutAuthGate } from "@/lib/publicLandingAuthState";
+import { readBrowserAuthStorageEntries } from "@/lib/authStorage";
 import { usePageMetadata } from "@/lib/usePageMetadata";
 
 const VaultDashboard = lazy(async () => {
@@ -94,13 +95,7 @@ function useCloseOAuthPopup(pathname: string, enabled: boolean) {
 
     if (!window.opener) return;
 
-    const authKeys = Object.keys(localStorage).filter((k) =>
-      k.startsWith("__convexAuth"),
-    );
-    const authTokens: Record<string, string> = {};
-    for (const key of authKeys) {
-      authTokens[key] = localStorage.getItem(key) ?? "";
-    }
+    const authTokens = readBrowserAuthStorageEntries("__convexAuth");
 
     // Try writing directly to the parent's localStorage.
     try {
