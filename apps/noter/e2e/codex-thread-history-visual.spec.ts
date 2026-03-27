@@ -13,7 +13,9 @@ test("codex thread history visual fixture", async ({ page }) => {
     animations: "disabled",
     caret: "hide",
     scale: "css",
-    maxDiffPixelRatio: 0,
-    maxDiffPixels: 0,
+    // The fixture is text-heavy enough that Linux and macOS wrap a few lines
+    // differently, so keep the snapshot shared but allow small cross-platform
+    // typography drift.
+    maxDiffPixelRatio: 0.06,
   });
 });
