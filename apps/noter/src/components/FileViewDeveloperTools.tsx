@@ -21,7 +21,9 @@ type FileViewDeveloperToolsProps = {
 
 /**
  * FileView keeps graph mode behind the developer tools section by default, but
- * still needs a stable way back to editor mode when that advanced surface is active.
+ * still needs a stable way back to editor mode when that advanced surface is
+ * active. The section also survives Daytona pauses because graph mode is still
+ * a FileView-owned developer surface.
  */
 export function FileViewDeveloperTools({
   open,
