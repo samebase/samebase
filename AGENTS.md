@@ -414,9 +414,10 @@ them directly using CLI tools.
   empty.
 - When a PR represents a research or automation run initiated from Noter or
   Codex, include the originating first user message in the PR description and
-  include the exact requested model plus reasoning effort if known. Prefer
-  explicit sections such as `First Message` and `Requested Codex Runtime`
-  instead of assuming local defaults.
+  require both runtime fields `requestedModel` and `requestedReasoningEffort`.
+  Prefer explicit sections such as `First Message` and `Requested Codex Runtime`
+  instead of assuming local defaults, because the local runner skips PRs whose
+  hidden contract omits either field.
 - PR descriptions must explain why the change exists, not just what changed. If
   a PR is split out from a broader branch or effort, say that explicitly in the
   `Why` section so reviewers have the missing context.

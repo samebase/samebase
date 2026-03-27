@@ -22,11 +22,21 @@ import path from 'node:path'
  * }} PullRequestLabel
  *
  * @typedef {{
+ *   name: string
+ * } | null} PullRequestRepositoryRef
+ *
+ * @typedef {{
+ *   login: string
+ * } | null} PullRequestRepositoryOwnerRef
+ *
+ * @typedef {{
  *   number: number
  *   title: string
  *   body: string
  *   headRefName: string
  *   headRefOid: string
+ *   headRepository: PullRequestRepositoryRef
+ *   headRepositoryOwner: PullRequestRepositoryOwnerRef
  *   url: string
  *   isDraft: boolean
  *   labels: PullRequestLabel[]
@@ -114,6 +124,9 @@ const stateRoot = path.join(os.homedir(), '.codex', 'noter-connect')
 const worktreesRoot = path.join(stateRoot, 'worktrees')
 const runsRoot = path.join(stateRoot, 'runs')
 const statePath = path.join(stateRoot, 'state.json')
+const repositoryPathSegment = sanitizePathSegment(
+  repoFullName.replace('/', '-'),
+)
 
 /** @type {boolean} */
 let stopRequested = false
@@ -140,7 +153,11 @@ async function main() {
     `[connect] Watching ${repoFullName} every ${options.intervalSeconds}s for label "${options.label}"`,
   )
   while (!shouldStop()) {
-    await processCycle(state)
+    try {
+      await processCycle(state)
+    } catch (error) {
+      console.error(`[connect] Cycle failed: ${describeError(error)}`)
+    }
     persistState(state)
     if (shouldStop()) {
       break
@@ -381,7 +398,7 @@ function listOpenPullRequests() {
       '--limit',
       '100',
       '--json',
-      'number,title,body,headRefName,headRefOid,url,isDraft,labels',
+      'number,title,body,headRefName,headRefOid,headRepository,headRepositoryOwner,url,isDraft,labels',
     ],
     { cwd: repoRoot },
   )
@@ -418,6 +435,8 @@ function isPullRequestSummary(value) {
     typeof record['body'] === 'string' &&
     typeof record['headRefName'] === 'string' &&
     typeof record['headRefOid'] === 'string' &&
+    isPullRequestRepositoryRef(record['headRepository']) &&
+    isPullRequestRepositoryOwnerRef(record['headRepositoryOwner']) &&
     typeof record['url'] === 'string' &&
     typeof record['isDraft'] === 'boolean' &&
     Array.isArray(record['labels']) &&
@@ -436,6 +455,52 @@ function isPullRequestLabel(value) {
 
   const record = /** @type {Record<string, unknown>} */ (value)
   return typeof record['name'] === 'string'
+}
+
+/**
+ * @param {unknown} value
+ * @returns {value is PullRequestRepositoryRef}
+ */
+function isPullRequestRepositoryRef(value) {
+  if (value === null) {
+    return true
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+
+  const record = /** @type {Record<string, unknown>} */ (value)
+  return typeof record['name'] === 'string'
+}
+
+/**
+ * @param {unknown} value
+ * @returns {value is PullRequestRepositoryOwnerRef}
+ */
+function isPullRequestRepositoryOwnerRef(value) {
+  if (value === null) {
+    return true
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+
+  const record = /** @type {Record<string, unknown>} */ (value)
+  return typeof record['login'] === 'string'
+}
+
+/**
+ * @param {PullRequestSummary} pullRequest
+ * @returns {string | null}
+ */
+function readHeadRepositoryFullName(pullRequest) {
+  const repositoryName = pullRequest.headRepository?.name
+  const repositoryOwner = pullRequest.headRepositoryOwner?.login
+  if (!repositoryName || !repositoryOwner) {
+    return null
+  }
+
+  return `${repositoryOwner}/${repositoryName}`
 }
 
 /**
@@ -558,6 +623,7 @@ async function handleValidPullRequest(pullRequest, marker, state) {
   const worktreePath = buildWorktreePath(pullRequest)
   const artifactDir = path.join(
     runsRoot,
+    repositoryPathSegment,
     `pr-${pullRequest.number}`,
     `${timestampForPath(runStartAt)}-${sanitizePathSegment(pullRequest.headRefOid)}`,
   )
@@ -571,21 +637,6 @@ async function handleValidPullRequest(pullRequest, marker, state) {
     )
     return
   }
-
-  ensureWorktreeForPullRequest(pullRequest)
-  fs.mkdirSync(artifactDir, { recursive: true })
-  console.log(
-    `[connect] Claiming PR #${pullRequest.number} as ${runId} ` +
-      `(${marker.requestedModel}, ${marker.requestedReasoningEffort})`,
-  )
-  tryPostPullRequestComment(
-    pullRequest.number,
-    buildClaimComment({
-      pullRequest,
-      marker,
-      runId,
-    }),
-  )
 
   /** @type {HandledRunRecord} */
   const handledRecord = {
@@ -603,6 +654,20 @@ async function handleValidPullRequest(pullRequest, marker, state) {
   }
 
   try {
+    ensureWorktreeForPullRequest(pullRequest)
+    fs.mkdirSync(artifactDir, { recursive: true })
+    console.log(
+      `[connect] Claiming PR #${pullRequest.number} as ${runId} ` +
+        `(${marker.requestedModel}, ${marker.requestedReasoningEffort})`,
+    )
+    tryPostPullRequestComment(
+      pullRequest.number,
+      buildClaimComment({
+        pullRequest,
+        marker,
+        runId,
+      }),
+    )
     const result = runCodexForPullRequest({
       pullRequest,
       marker,
@@ -620,14 +685,13 @@ async function handleValidPullRequest(pullRequest, marker, state) {
     }
     // Persist the handled key before attempting the completion comment so a
     // transient GitHub comment failure does not cause duplicate executions.
-    state.handledRuns[runKey] = handledRecord
+    recordHandledRun(state, runKey, handledRecord)
     tryPostPullRequestComment(
       pullRequest.number,
       buildCompletionComment({
         pullRequest,
         runId,
         exitCode: result.exitCode,
-        lastMessage: result.lastMessage,
         remoteHeadAfterRun: handledRecord.remoteHeadAfterRun,
       }),
     )
@@ -635,13 +699,15 @@ async function handleValidPullRequest(pullRequest, marker, state) {
     handledRecord.finishedAt = new Date().toISOString()
     handledRecord.status = 'failed'
     handledRecord.error = describeError(error)
-    state.handledRuns[runKey] = handledRecord
+    handledRecord.remoteHeadAfterRun = tryFetchPullRequestHeadOid(
+      pullRequest.number,
+    )
+    recordHandledRun(state, runKey, handledRecord)
     tryPostPullRequestComment(
       pullRequest.number,
       buildFailureComment({
         pullRequest,
         runId,
-        error: handledRecord.error,
       }),
     )
     console.error(
@@ -657,6 +723,7 @@ async function handleValidPullRequest(pullRequest, marker, state) {
 function buildWorktreePath(pullRequest) {
   return path.join(
     worktreesRoot,
+    repositoryPathSegment,
     `pr-${pullRequest.number}-${sanitizePathSegment(pullRequest.headRefName)}`,
     'noter',
   )
@@ -669,6 +736,13 @@ function buildWorktreePath(pullRequest) {
  * @returns {string}
  */
 function ensureWorktreeForPullRequest(pullRequest) {
+  const headRepositoryFullName = readHeadRepositoryFullName(pullRequest)
+  if (headRepositoryFullName !== repoFullName) {
+    throw new Error(
+      `PR #${pullRequest.number} head repository ${headRepositoryFullName ?? '(unknown)'} does not match origin ${repoFullName}`,
+    )
+  }
+
   const worktreeDir = buildWorktreePath(pullRequest)
   const branchRef = `refs/heads/${pullRequest.headRefName}`
   const existingWorktree = findWorktreeByBranch(branchRef)
@@ -752,13 +826,7 @@ function ensureWorktreeForPullRequest(pullRequest) {
   )
   runCommand(
     'git',
-    [
-      '-C',
-      worktreeDir,
-      'merge',
-      '--ff-only',
-      `origin/${pullRequest.headRefName}`,
-    ],
+    ['-C', worktreeDir, 'reset', '--hard', `origin/${pullRequest.headRefName}`],
     { cwd: repoRoot },
   )
 
@@ -820,7 +888,7 @@ function findWorktreeByBranch(branchRef) {
  *   worktreePath: string
  *   artifactDir: string
  * }} params
- * @returns {{ exitCode: number, lastMessage: string }}
+ * @returns {{ exitCode: number }}
  */
 function runCodexForPullRequest(params) {
   const eventsPath = path.join(params.artifactDir, 'events.jsonl')
@@ -833,7 +901,10 @@ function runCodexForPullRequest(params) {
       'codex',
       [
         'exec',
-        '--dangerously-bypass-approvals-and-sandbox',
+        '--ask-for-approval',
+        'never',
+        '--sandbox',
+        'workspace-write',
         '--json',
         '--output-last-message',
         lastMessagePath,
@@ -855,13 +926,8 @@ function runCodexForPullRequest(params) {
     if (result.error) {
       throw result.error
     }
-
-    const lastMessage = fs.existsSync(lastMessagePath)
-      ? fs.readFileSync(lastMessagePath, 'utf8').trim()
-      : ''
     return {
       exitCode: result.status ?? 1,
-      lastMessage,
     }
   } finally {
     fs.closeSync(eventsFd)
@@ -886,9 +952,7 @@ function buildCodexPrompt(params) {
     `Repository: ${repoFullName}`,
     `PR: #${params.pullRequest.number} ${params.pullRequest.url}`,
     `Head branch: ${params.pullRequest.headRefName}`,
-    `Worktree: ${params.worktreePath}`,
     `Local run id: ${params.runId}`,
-    `Artifacts directory: ${params.artifactDir}`,
     '',
     'Important context:',
     '- Read AGENTS.md and the current source-of-truth docs before making decisions.',
@@ -1044,7 +1108,6 @@ function buildInvalidContractComment(pullRequest, reason) {
  *   pullRequest: PullRequestSummary
  *   runId: string
  *   exitCode: number
- *   lastMessage: string
  *   remoteHeadAfterRun: string
  * }} params
  * @returns {string}
@@ -1059,13 +1122,7 @@ function buildCompletionComment(params) {
     `- exit code: \`${params.exitCode}\``,
     `- PR head after run: \`${params.remoteHeadAfterRun}\``,
     '',
-    'Last assistant message excerpt:',
-    '```text',
-    truncateText(
-      params.lastMessage || '(no final assistant message captured)',
-      2000,
-    ),
-    '```',
+    'The operator can inspect the local run artifacts if deeper debugging is needed.',
   ]
   return lines.join('\n')
 }
@@ -1074,7 +1131,6 @@ function buildCompletionComment(params) {
  * @param {{
  *   pullRequest: PullRequestSummary
  *   runId: string
- *   error: string
  * }} params
  * @returns {string}
  */
@@ -1085,7 +1141,7 @@ function buildFailureComment(params) {
     `- host: \`${os.hostname()}\``,
     `- local run id: \`${params.runId}\``,
     `- PR: #${params.pullRequest.number}`,
-    `- error: ${params.error}`,
+    `- result: \`local execution failed\``,
     '',
     'The operator can inspect the local run artifacts and retry after fixing the issue.',
   ].join('\n')
@@ -1123,15 +1179,29 @@ function sanitizePathSegment(value) {
 }
 
 /**
- * @param {string} text
- * @param {number} maxLength
- * @returns {string}
+ * Persist both the observed pre-run head SHA and any post-run head SHA so a
+ * successful local push does not cause the watcher to immediately claim the
+ * same PR again on the next polling cycle.
+ *
+ * @param {ConnectState} state
+ * @param {string} runKey
+ * @param {HandledRunRecord} record
+ * @returns {void}
  */
-function truncateText(text, maxLength) {
-  if (text.length <= maxLength) {
-    return text
+function recordHandledRun(state, runKey, record) {
+  state.handledRuns[runKey] = record
+  if (
+    typeof record.remoteHeadAfterRun === 'string' &&
+    record.remoteHeadAfterRun.length > 0 &&
+    record.remoteHeadAfterRun !== record.headRefOid
+  ) {
+    state.handledRuns[
+      `${repoFullName}#${record.prNumber}@${record.remoteHeadAfterRun}`
+    ] = {
+      ...record,
+      headRefOid: record.remoteHeadAfterRun,
+    }
   }
-  return `${text.slice(0, maxLength - 16)}\n\n[truncated]`
 }
 
 // MARK: - Command Utilities
@@ -1188,8 +1258,16 @@ function describeError(error) {
  */
 function extractOriginMarkerJson(body) {
   const lines = body.split('\n')
+  let insideCodeFence = false
   for (const line of lines) {
     const trimmedLine = line.trim()
+    if (trimmedLine.startsWith('```')) {
+      insideCodeFence = !insideCodeFence
+      continue
+    }
+    if (insideCodeFence) {
+      continue
+    }
     if (!trimmedLine.startsWith(MARKER_PREFIX)) {
       continue
     }
@@ -1224,6 +1302,21 @@ function extractOriginMarkerJson(body) {
 /** @returns {boolean} */
 function shouldStop() {
   return stopRequested
+}
+
+/**
+ * @param {number} pullRequestNumber
+ * @returns {string | undefined}
+ */
+function tryFetchPullRequestHeadOid(pullRequestNumber) {
+  try {
+    return fetchPullRequestHeadOid(pullRequestNumber)
+  } catch (error) {
+    console.error(
+      `[connect] Could not refresh PR #${pullRequestNumber} head SHA: ${describeError(error)}`,
+    )
+    return undefined
+  }
 }
 
 /**

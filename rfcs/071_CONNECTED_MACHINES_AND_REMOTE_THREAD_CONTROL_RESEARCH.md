@@ -112,10 +112,10 @@ connector maps that shell onto a machine-local Codex thread.
 4. `/codex/turn/interrupt`
 5. `/codex/events`
 
-The local `t3code` reference also shows the same direction more explicitly:
+An out-of-repo `t3code` reference also shows the same direction more explicitly:
 
-- `~/dev/forks/t3code/apps/server/src/codexAppServerManager.ts`
-- `~/dev/forks/t3code/apps/server/src/wsServer.ts`
+- `t3code/apps/server/src/codexAppServerManager.ts`
+- `t3code/apps/server/src/wsServer.ts`
 
 Conclusion:
 
