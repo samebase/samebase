@@ -597,6 +597,9 @@ Auth:
   Playwright browser sessions or contexts per agent. Do not rely on separate
   tabs in a shared Chrome instance unless the user explicitly accepts the
   interference risk.
+- For Playwright MCP/browser checks, open a fresh browser window or other
+  isolated page context for each new validation pass instead of reusing an
+  existing interactive page that another MCP call might still be touching.
 - In this repo, prefer `node ./scripts/playwright-branch-browser.js` or
   `make playwright-open` over raw `@playwright/cli open`. Each git branch owns
   one deterministic Playwright session/profile so the agent can identify the

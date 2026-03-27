@@ -346,9 +346,15 @@ export function CodexAppServerThreadBrowserResearchPage() {
   }, [selectedThreadId]);
 
   const refreshSelectedThread = useCallback(
-    async (thread: CodexAppServerThread | null = selectedThreadSummary) => {
+    async (
+      thread: CodexAppServerThread | null = selectedThreadSummary,
+      options?: {
+        silent?: boolean;
+      },
+    ) => {
       const requestId = selectedThreadRequestRef.current + 1;
       selectedThreadRequestRef.current = requestId;
+      const isSilent = options?.silent === true;
 
       if (!thread) {
         setSelectedThreadDetail(null);
@@ -366,8 +372,10 @@ export function CodexAppServerThreadBrowserResearchPage() {
         return null;
       }
 
-      setSelectedThreadDetail(thread);
-      setDetailState({ kind: "loading" });
+      if (!isSilent) {
+        setSelectedThreadDetail(thread);
+        setDetailState({ kind: "loading" });
+      }
       try {
         const response = await requestJson<CodexAppServerThreadDetailResponse>({
           path: `/threads/${encodeURIComponent(thread.id)}`,
@@ -380,7 +388,7 @@ export function CodexAppServerThreadBrowserResearchPage() {
 
         return response;
       } catch (nextError) {
-        if (selectedThreadRequestRef.current === requestId) {
+        if (selectedThreadRequestRef.current === requestId && !isSilent) {
           setDetailState({
             kind: "error",
             message:
@@ -440,8 +448,29 @@ export function CodexAppServerThreadBrowserResearchPage() {
   }, [browserMode, refreshAll, refreshEvents, searchTerm]);
 
   useEffect(() => {
+    if (selectedThreadId === null) {
+      void refreshSelectedThread(null);
+      return;
+    }
+
+    // Background event refreshes should keep the hydrated detail pane stable.
+    // Only show the explicit loading state when the operator changes selection
+    // or when the page has not loaded the selected thread yet.
+    const needsVisibleHydration =
+      selectedThreadDetail?.id !== selectedThreadId ||
+      detailState.kind === "idle";
+    if (!needsVisibleHydration) {
+      return;
+    }
+
     void refreshSelectedThread(selectedThreadSummary);
-  }, [refreshSelectedThread, selectedThreadSummary]);
+  }, [
+    detailState.kind,
+    refreshSelectedThread,
+    selectedThreadDetail?.id,
+    selectedThreadId,
+    selectedThreadSummary,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -471,7 +500,9 @@ export function CodexAppServerThreadBrowserResearchPage() {
               ) ??
               selectedThreadSummaryRef.current ??
               null;
-        await refreshSelectedThreadRef.current(refreshedThread);
+        await refreshSelectedThreadRef.current(refreshedThread, {
+          silent: true,
+        });
       } catch {
         // Keep the last rendered state and let the existing page error surface
         // handle action failures instead of replacing the detail pane on poll.
