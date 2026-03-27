@@ -1,6 +1,6 @@
 # set default  to be `make run`
 # .PHONY ensures targets run even if a file with the same name exists.
-.PHONY: bootstrap bootstrap-anon run anon anon-once daytona-local daytona-local-once update-fixtures playwright-open record-start record-stop
+.PHONY: bootstrap bootstrap-anon run anon anon-once connect connect-once daytona-local daytona-local-once update-fixtures playwright-open record-start record-stop
 
 ANON_SETUP_ONCE_CMD = cd apps/noter && CONVEX_AGENT_MODE=anonymous node convex-dev.js --once --codegen=enable --tail-logs=disable --typecheck=disable
 ANON_ALLOW_MISSING_SOURCE_ENV_ARG = $(if $(strip $(ANON_ALLOW_MISSING_SOURCE_ENV)),--allow-missing-source-env,)
@@ -18,6 +18,9 @@ PLAYWRIGHT_SESSION ?= $(shell $(PLAYWRIGHT_BRANCH_BROWSER) session)
 PLAYWRIGHT_PROFILE_DIR = $(shell PLAYWRIGHT_SESSION="$(PLAYWRIGHT_SESSION)" $(PLAYWRIGHT_BRANCH_BROWSER) profile)
 PLAYWRIGHT_URL ?= http://127.0.0.1:$(ANON_VITE_PORT)
 PLAYWRIGHT_RECORD_DIR ?= /tmp/noter-browser-recordings
+CONNECT_LABEL ?= research
+CONNECT_INTERVAL_SECONDS ?= 60
+CONNECT_RUNNER = node ./scripts/noter-pr-connect.js --label "$(CONNECT_LABEL)" --interval "$(CONNECT_INTERVAL_SECONDS)"
 
 # also add a step that updates the env for preview server when using worktrees
 # or daytona or gh codespaces or something else
@@ -49,6 +52,14 @@ anon-once:
 	$(ANON_SYNC_ENV_CMD)
 	$(ANON_SEED_PASSWORD_ACCOUNT_CMD)
 	$(ANON_REFRESH_AUTH_KEYS_CMD)
+
+# Poll GitHub for explicit noter-origin PRs and launch local Codex runs.
+connect:
+	$(CONNECT_RUNNER)
+
+# Run one local noter-origin polling cycle, then exit.
+connect-once:
+	$(CONNECT_RUNNER) --once
 
 # Daytona-local bootstrap: one repo checkout, no internal branch creation,
 # explicit source env when Daytona exposes a cloud dev deployment identity.
