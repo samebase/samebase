@@ -3050,32 +3050,34 @@ function FileViewInner({
                     {isResettingToGitHub ? "Resetting..." : "Reset to GitHub"}
                   </Button>
                 </div>
-                {!DAYTONA_PAUSED ? (
-                  <FileViewDeveloperTools
-                    open={developerToolsVisible}
-                    onOpenChange={(isOpen) => {
-                      if (viewMode === "graph" && !isOpen) {
-                        return;
-                      }
-                      setDeveloperToolsOpen(isOpen);
-                    }}
-                    viewMode={viewMode}
-                    onViewModeChange={setViewMode}
-                  >
-                    <DaytonaWorkspaceButton
-                      vaultId={vault._id}
-                      branch={branch}
-                      sandboxId={vault.daytonaSandboxId}
-                      sandboxName={vault.daytonaSandboxName}
-                      commitSha={vault.commitSHA}
-                      snapshotStatus={vault.daytonaCurrentSnapshotStatus}
-                      snapshotName={vault.daytonaCurrentSnapshotName}
-                      snapshotError={vault.daytonaCurrentSnapshotLastError}
-                      className="text-xs"
-                    />
-                    <DaytonaSnapshotList vaultId={vault._id} />
-                  </FileViewDeveloperTools>
-                ) : null}
+                <FileViewDeveloperTools
+                  open={developerToolsVisible}
+                  onOpenChange={(isOpen) => {
+                    if (viewMode === "graph" && !isOpen) {
+                      return;
+                    }
+                    setDeveloperToolsOpen(isOpen);
+                  }}
+                  viewMode={viewMode}
+                  onViewModeChange={setViewMode}
+                >
+                  {!DAYTONA_PAUSED ? (
+                    <>
+                      <DaytonaWorkspaceButton
+                        vaultId={vault._id}
+                        branch={branch}
+                        sandboxId={vault.daytonaSandboxId}
+                        sandboxName={vault.daytonaSandboxName}
+                        commitSha={vault.commitSHA}
+                        snapshotStatus={vault.daytonaCurrentSnapshotStatus}
+                        snapshotName={vault.daytonaCurrentSnapshotName}
+                        snapshotError={vault.daytonaCurrentSnapshotLastError}
+                        className="text-xs"
+                      />
+                      <DaytonaSnapshotList vaultId={vault._id} />
+                    </>
+                  ) : null}
+                </FileViewDeveloperTools>
               </div>
             </div>
             {commitError ? (

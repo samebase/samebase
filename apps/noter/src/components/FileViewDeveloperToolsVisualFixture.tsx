@@ -1,6 +1,9 @@
 import { PersonIcon } from "@radix-ui/react-icons";
 import { Button } from "@/components/ui/button";
-import { type FileViewMode } from "@/components/FileViewDeveloperTools";
+import {
+  FileViewDeveloperTools,
+  type FileViewMode,
+} from "@/components/FileViewDeveloperTools";
 import { RepositoryWorkspaceFrame } from "@/components/RepositoryWorkspaceFrame";
 import { SidebarAccountSection } from "@/components/SidebarAccountSection";
 import { SidebarProvider } from "@/components/sidebar";
@@ -105,6 +108,14 @@ export function FileViewDeveloperToolsVisualFixture({
                     Reset to GitHub
                   </Button>
                 </div>
+                <FileViewDeveloperTools
+                  open={viewMode === "graph"}
+                  onOpenChange={() => {}}
+                  viewMode={viewMode}
+                  onViewModeChange={() => {}}
+                >
+                  {null}
+                </FileViewDeveloperTools>
               </div>
             </div>
 
