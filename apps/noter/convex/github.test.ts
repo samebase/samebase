@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  computeRepositoryRefreshPlan,
   collectLatestOpenPullRequestsByBranch,
   computeRepositoryRefreshPlan,
   computeRepositoryTreeUpdatePlan,

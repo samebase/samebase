@@ -225,7 +225,7 @@ Allowed Phase 2 trigger behavior:
   - File view may run branch-tree refresh only when the document becomes visible
     again, except for the requested-branch cache-miss reconfirmation rule below.
   - Dashboard may run repo-metadata sync only when cached metadata is stale.
-- `manual_refresh`
+- `manual`
   - May run both branch-tree refresh and repo-metadata sync.
   - Still respects any active shared cooldown; manual refresh does not bypass a
     live GitHub backoff window.
