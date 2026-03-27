@@ -96,6 +96,8 @@ npm run lint          # TypeScript + ESLint check
 # Worktree bootstrap (required in git worktrees)
 make anon             # Full startup in worktrees (Convex + frontend with anon wiring)
 make anon-once        # One-shot bootstrap for lint/codegen/hook commands in worktrees
+make connect          # Poll labeled noter-origin PRs and launch local Codex research runs
+make connect-once     # Run one local noter-origin polling cycle
 ```
 
 ### Local Environment Notes
@@ -113,6 +115,11 @@ make anon-once        # One-shot bootstrap for lint/codegen/hook commands in wor
 - In a git worktree, do not run `npx convex dev` directly for normal startup;
   `make anon` is the required entrypoint.
 - For one-off setup in a git worktree, use `make anon-once`.
+- `make connect` is a local operator tool. It only reacts to PRs that carry both
+  the configured label and a valid hidden `<!-- noter-origin:v1 {...} -->`
+  marker in the PR body.
+- `make connect` does not read Convex chat state. Noter's Convex chat tables and
+  Codex threads are separate systems today.
 
 <!-- maybe find official skill? -->
 
@@ -405,6 +412,12 @@ them directly using CLI tools.
 - When the user asks to "open a PR" (or `create pr`), always write a normal PR
   description (`Why`, summary, key changes, validation). Never leave the PR body
   empty.
+- When a PR represents a research or automation run initiated from Noter or
+  Codex, include the originating first user message in the PR description and
+  require both runtime fields `requestedModel` and `requestedReasoningEffort`.
+  Prefer explicit sections such as `First Message` and `Requested Codex Runtime`
+  instead of assuming local defaults, because the local runner skips PRs whose
+  hidden contract omits either field.
 - PR descriptions must explain why the change exists, not just what changed. If
   a PR is split out from a broader branch or effort, say that explicitly in the
   `Why` section so reviewers have the missing context.
@@ -504,6 +517,8 @@ Auth:
 - For this operator, do not let local changes sit too long; commit progress in
   reasonably small chunks from time to time instead of batching everything into
   one late commit.
+- For this operator, push committed changes promptly so work is not stranded
+  only in the local worktree.
 - For this operator, default to additive minimalism in copy and visuals: start
   from an empty canvas, add only what is clearly needed for the current goal,
   and avoid filler copy or decorative chrome unless explicitly requested.
@@ -582,6 +597,9 @@ Auth:
   Playwright browser sessions or contexts per agent. Do not rely on separate
   tabs in a shared Chrome instance unless the user explicitly accepts the
   interference risk.
+- For Playwright MCP/browser checks, open a fresh browser window or other
+  isolated page context for each new validation pass instead of reusing an
+  existing interactive page that another MCP call might still be touching.
 - In this repo, prefer `node ./scripts/playwright-branch-browser.js` or
   `make playwright-open` over raw `@playwright/cli open`. Each git branch owns
   one deterministic Playwright session/profile so the agent can identify the
