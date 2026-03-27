@@ -24,13 +24,13 @@ import { FAST_LANDING_APP_BOOT_DELAY_MS } from "@/lib/fastLandingBoot";
 import { landingPageMarkdown } from "@/lib/landingCopy";
 import {
   PUBLIC_LANDING_INTAKE_BUTTON_LABEL,
+  PUBLIC_LANDING_INTAKE_EMAIL_LABEL,
   PUBLIC_LANDING_INTAKE_EMAIL_INPUT_ID,
   PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER,
-  PUBLIC_LANDING_INTAKE_HELP_TEXT,
+  PUBLIC_LANDING_INTAKE_MESSAGE_LABEL,
   PUBLIC_LANDING_INTAKE_MESSAGE_INPUT_ID,
   PUBLIC_LANDING_INTAKE_MESSAGE_PLACEHOLDER,
   PUBLIC_LANDING_INTAKE_PLACEHOLDER_TEST_ID,
-  PUBLIC_LANDING_INTAKE_PROMPT,
   PUBLIC_LANDING_INTAKE_SUBMIT_BUTTON_ID,
 } from "@/lib/publicLandingIntake";
 import { writePublicLandingIntakeDraft } from "@/lib/publicLandingIntakeDraft";
@@ -363,22 +363,18 @@ function renderFastLandingShell() {
             </div>
             <div
               data-testid="${PUBLIC_LANDING_INTAKE_PLACEHOLDER_TEST_ID}"
-              class="flex flex-col gap-2 border-t pt-2"
+              class="flex flex-col gap-2"
             >
-              <p class="text-sm">${escapeHtml(PUBLIC_LANDING_INTAKE_PROMPT)}</p>
-              <p class="text-xs text-muted-foreground">
-                ${escapeHtml(PUBLIC_LANDING_INTAKE_HELP_TEXT)}
-              </p>
               <textarea
                 id="${PUBLIC_LANDING_INTAKE_MESSAGE_INPUT_ID}"
-                aria-label="${escapeHtml(PUBLIC_LANDING_INTAKE_PROMPT)}"
+                aria-label="${escapeHtml(PUBLIC_LANDING_INTAKE_MESSAGE_LABEL)}"
                 placeholder="${escapeHtml(PUBLIC_LANDING_INTAKE_MESSAGE_PLACEHOLDER)}"
                 class="flex min-h-[96px] w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               ></textarea>
               <input
                 id="${PUBLIC_LANDING_INTAKE_EMAIL_INPUT_ID}"
                 type="email"
-                aria-label="${escapeHtml(PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER)}"
+                aria-label="${escapeHtml(PUBLIC_LANDING_INTAKE_EMAIL_LABEL)}"
                 placeholder="${escapeHtml(PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER)}"
                 class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
               />

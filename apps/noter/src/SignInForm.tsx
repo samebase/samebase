@@ -8,14 +8,14 @@ import { Input } from "@/components/input";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import { landingPageMarkdown } from "@/lib/landingCopy";
 import {
-  buildPublicLandingIntakeSuccessMessage,
   PUBLIC_LANDING_INTAKE_BUTTON_LABEL,
+  PUBLIC_LANDING_INTAKE_EMAIL_LABEL,
   PUBLIC_LANDING_INTAKE_EMAIL_INPUT_ID,
   PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER,
-  PUBLIC_LANDING_INTAKE_HELP_TEXT,
+  PUBLIC_LANDING_INTAKE_MESSAGE_LABEL,
   PUBLIC_LANDING_INTAKE_MESSAGE_INPUT_ID,
   PUBLIC_LANDING_INTAKE_MESSAGE_PLACEHOLDER,
-  PUBLIC_LANDING_INTAKE_PROMPT,
+  PUBLIC_LANDING_INTAKE_SUCCESS_MESSAGE,
 } from "@/lib/publicLandingIntake";
 import {
   clearPublicLandingIntakeDraft,
@@ -100,9 +100,7 @@ function PublicLandingIntakeForm() {
   const [landingDraft, setLandingDraft] = useState(
     readPublicLandingIntakeDraft,
   );
-  const [submittedWithEmail, setSubmittedWithEmail] = useState<boolean | null>(
-    null,
-  );
+  const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -116,20 +114,16 @@ function PublicLandingIntakeForm() {
     };
   }, []);
 
-  if (submittedWithEmail !== null) {
+  if (submitted) {
     return (
-      <p className="text-sm text-muted-foreground text-center">
-        {buildPublicLandingIntakeSuccessMessage(submittedWithEmail)}
+      <p className="text-sm text-muted-foreground">
+        {PUBLIC_LANDING_INTAKE_SUCCESS_MESSAGE}
       </p>
     );
   }
 
   return (
-    <div className="flex flex-col gap-2 pt-2 border-t">
-      <p className="text-sm">{PUBLIC_LANDING_INTAKE_PROMPT}</p>
-      <p className="text-xs text-muted-foreground">
-        {PUBLIC_LANDING_INTAKE_HELP_TEXT}
-      </p>
+    <div className="flex flex-col gap-2">
       <form
         className="flex flex-col gap-2"
         onSubmit={(event) => {
@@ -149,7 +143,7 @@ function PublicLandingIntakeForm() {
           })
             .then(() => {
               clearPublicLandingIntakeDraft();
-              setSubmittedWithEmail(nextEmail.length > 0);
+              setSubmitted(true);
             })
             .catch((submitLandingIntakeError: unknown) => {
               setSubmitError(
@@ -165,7 +159,7 @@ function PublicLandingIntakeForm() {
       >
         <Textarea
           id={PUBLIC_LANDING_INTAKE_MESSAGE_INPUT_ID}
-          aria-label={PUBLIC_LANDING_INTAKE_PROMPT}
+          aria-label={PUBLIC_LANDING_INTAKE_MESSAGE_LABEL}
           placeholder={PUBLIC_LANDING_INTAKE_MESSAGE_PLACEHOLDER}
           value={landingDraft.message}
           onChange={(event) =>
@@ -182,7 +176,7 @@ function PublicLandingIntakeForm() {
           id={PUBLIC_LANDING_INTAKE_EMAIL_INPUT_ID}
           type="email"
           autoComplete="email"
-          aria-label={PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER}
+          aria-label={PUBLIC_LANDING_INTAKE_EMAIL_LABEL}
           placeholder={PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER}
           value={landingDraft.email}
           onChange={(event) =>
@@ -194,7 +188,7 @@ function PublicLandingIntakeForm() {
           disabled={submitting}
         />
         <Button type="submit" variant="outline" className="self-start">
-          {submitting ? "Sharing..." : PUBLIC_LANDING_INTAKE_BUTTON_LABEL}
+          {submitting ? "Sending..." : PUBLIC_LANDING_INTAKE_BUTTON_LABEL}
         </Button>
       </form>
       {submitError ? (

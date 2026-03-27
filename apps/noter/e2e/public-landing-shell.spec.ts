@@ -21,10 +21,9 @@ const {
   ...mobileLandingDevice
 } = devices["iPhone 13"];
 const PUBLIC_LANDING_INTAKE_TEST_ID = "public-landing-intake-placeholder";
-const PUBLIC_LANDING_INTAKE_PROMPT =
-  "What are you trying to make with noter.md?";
-const PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER = "Email for a reply (optional)";
-const PUBLIC_LANDING_INTAKE_BUTTON_LABEL = "Share idea";
+const PUBLIC_LANDING_INTAKE_MESSAGE_LABEL = "Message";
+const PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER = "e.g. name@team.com (optional)";
+const PUBLIC_LANDING_INTAKE_BUTTON_LABEL = "Send";
 
 async function readNavigationTiming(page: Parameters<typeof test>[0]["page"]) {
   return page.evaluate(() => {
@@ -188,9 +187,12 @@ test("public landing shell renders before the full app UI takes over", async ({
   await expectLandingLogoReady(page.getByTestId(PUBLIC_LANDING_LOGO_TEST_ID));
   await expect(page.getByTestId(PUBLIC_LANDING_INTAKE_TEST_ID)).toBeVisible();
   await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
-  await expect(page.getByText(PUBLIC_LANDING_INTAKE_PROMPT)).toBeVisible();
-  await expect(page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT)).toBeVisible();
-  await expect(page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT)).toBeEditable();
+  await expect(
+    page.getByLabel(PUBLIC_LANDING_INTAKE_MESSAGE_LABEL),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel(PUBLIC_LANDING_INTAKE_MESSAGE_LABEL),
+  ).toBeEditable();
   await expect(
     page.getByPlaceholder(PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER),
   ).toBeVisible();
@@ -282,14 +284,16 @@ test("shell landing note preserves typed message through handoff", async ({
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
-  const messageField = page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT);
+  const messageField = page.getByLabel(PUBLIC_LANDING_INTAKE_MESSAGE_LABEL);
   await expect(page.getByTestId("public-landing-shell")).toBeVisible();
   await messageField.fill("A publishing-aware repo notes surface.");
   await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
-  await expect(page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT)).toBeEditable();
-  await expect(page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT)).toHaveValue(
-    "A publishing-aware repo notes surface.",
-  );
+  await expect(
+    page.getByLabel(PUBLIC_LANDING_INTAKE_MESSAGE_LABEL),
+  ).toBeEditable();
+  await expect(
+    page.getByLabel(PUBLIC_LANDING_INTAKE_MESSAGE_LABEL),
+  ).toHaveValue("A publishing-aware repo notes surface.");
 });
 
 test("shell landing note preserves typed optional email through handoff", async ({
@@ -326,11 +330,13 @@ test("shell landing note message focus survives the scheduled handoff", async ({
 }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
-  const messageField = page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT);
+  const messageField = page.getByLabel(PUBLIC_LANDING_INTAKE_MESSAGE_LABEL);
   await expect(page.getByTestId("public-landing-shell")).toBeVisible();
   await messageField.click();
   await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
-  await expect(page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT)).toBeFocused();
+  await expect(
+    page.getByLabel(PUBLIC_LANDING_INTAKE_MESSAGE_LABEL),
+  ).toBeFocused();
 });
 
 test("shell landing note email focus survives the scheduled handoff", async ({
@@ -354,7 +360,7 @@ test("shell landing note blur clears pending focus restore intent", async ({
 }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
-  const messageField = page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT);
+  const messageField = page.getByLabel(PUBLIC_LANDING_INTAKE_MESSAGE_LABEL);
   const submitButton = page.getByRole("button", {
     name: PUBLIC_LANDING_INTAKE_BUTTON_LABEL,
   });
@@ -363,7 +369,9 @@ test("shell landing note blur clears pending focus restore intent", async ({
   await messageField.click();
   await submitButton.click();
   await expect(page.getByTestId("public-landing-shell")).toHaveCount(0);
-  await expect(page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT)).not.toBeFocused();
+  await expect(
+    page.getByLabel(PUBLIC_LANDING_INTAKE_MESSAGE_LABEL),
+  ).not.toBeFocused();
 });
 
 test("public landing handoff keeps the card height stable", async ({
@@ -380,7 +388,9 @@ test("public landing handoff keeps the card height stable", async ({
   );
 
   await expect(page.getByTestId(PUBLIC_LANDING_INTAKE_TEST_ID)).toBeVisible();
-  await expect(page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT)).toBeVisible();
+  await expect(
+    page.getByLabel(PUBLIC_LANDING_INTAKE_MESSAGE_LABEL),
+  ).toBeVisible();
   await expect(
     page.getByPlaceholder(PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER),
   ).toBeVisible();
@@ -598,7 +608,9 @@ test("prod-ui mode hides developer password auth controls", async ({
   await expect(page.getByTestId("public-landing-shell")).toBeVisible();
   await expect(page.getByRole("button", { name: "Google" })).toBeVisible();
 
-  await expect(page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT)).toBeVisible();
+  await expect(
+    page.getByLabel(PUBLIC_LANDING_INTAKE_MESSAGE_LABEL),
+  ).toBeVisible();
   await expect(
     page.getByPlaceholder(PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER),
   ).toBeVisible();
@@ -612,7 +624,9 @@ test("prod-ui mode hides developer password auth controls", async ({
 test("prod-ui mode overrides the landing dev editor", async ({ page }) => {
   await page.goto("/?prod-ui&dev", { waitUntil: "domcontentloaded" });
 
-  await expect(page.getByLabel(PUBLIC_LANDING_INTAKE_PROMPT)).toBeVisible();
+  await expect(
+    page.getByLabel(PUBLIC_LANDING_INTAKE_MESSAGE_LABEL),
+  ).toBeVisible();
   await expect(
     page.getByPlaceholder(PUBLIC_LANDING_INTAKE_EMAIL_PLACEHOLDER),
   ).toBeVisible();
