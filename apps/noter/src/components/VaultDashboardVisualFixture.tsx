@@ -31,6 +31,32 @@ function FixtureResizeGrip() {
   );
 }
 
+function FixtureCloudflareProviderLogo({ className }: { className?: string }) {
+  return (
+    <span className={cn("inline-flex items-center justify-center", className)}>
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 64 32"
+        className="h-4 w-auto"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          fill="#FAAE40"
+          d="M14.2 25.3a4.8 4.8 0 0 1 4.8-4.8c.4 0 .8 0 1.2.1a7.4 7.4 0 0 1 7.1-5.4c3 0 5.8 1.8 7 4.5.4-.1.9-.2 1.4-.2 2.2 0 4.1 1.6 4.5 3.8H14.2Z"
+        />
+        <path
+          fill="#F38020"
+          d="M9.2 25.3a7 7 0 0 1 7-7c.6 0 1.3.1 1.9.2A11.6 11.6 0 0 1 29.2 9c5.2 0 9.8 3.2 11.7 8a7.5 7.5 0 0 1 1.3-.1c3.8 0 7 2.9 7.4 6.6l.1 1.8H9.2v-.1Z"
+        />
+        <path
+          fill="#F38020"
+          d="M43.5 22.7a5.3 5.3 0 0 1 5.2-4.6c2.8 0 5.1 2.1 5.4 4.8l.2 2.4h-10l-.8-2.6Z"
+        />
+      </svg>
+    </span>
+  );
+}
+
 function FixtureProvidersSidebarContent() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -63,7 +89,7 @@ function FixtureProvidersSidebarContent() {
           <div className="flex flex-wrap items-start gap-3">
             <div className="flex min-w-0 flex-1 basis-[11rem] items-start gap-3">
               <div className="flex h-5 w-11 shrink-0 items-center justify-center">
-                <span className="h-3.5 w-3.5 rounded-full bg-orange-500" />
+                <FixtureCloudflareProviderLogo className="max-h-full max-w-full" />
               </div>
               <div className="min-w-0 text-left">
                 <div className="text-sm font-medium">Cloudflare</div>
