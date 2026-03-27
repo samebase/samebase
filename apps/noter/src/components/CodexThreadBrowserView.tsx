@@ -1,13 +1,22 @@
 import { Badge } from "@/components/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/collapsible";
 import { CodexAppServerThreadHistoryItemCard } from "@/components/CodexAppServerThreadHistoryItemCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   codexThreadPathIsArchived,
   type CodexAppServerThread,
+  type CodexAppServerThreadTurn,
 } from "@/lib/codexAppServerResearch";
 import { clsx } from "clsx";
+import { ChevronDown } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export type CodexThreadBrowserMode = "active" | "archived";
 
@@ -48,6 +57,9 @@ type CodexThreadBrowserViewProps = {
   onResumeSelected?: () => void;
   onArchiveSelected?: () => void;
   onUnarchiveSelected?: () => void;
+  turnDraft: string;
+  onTurnDraftChange?: (value: string) => void;
+  onTurnSubmit?: () => void;
 };
 
 function normalizeTimestampToMilliseconds(value: number): number {
@@ -133,6 +145,34 @@ function readThreadWorkspaceLabel(thread: CodexAppServerThread): string | null {
 
 function formatJsonValue(value: unknown): string {
   return JSON.stringify(value, null, 2);
+}
+
+/**
+ * Collapsed turn rows need one stable summary line so long histories stay scannable.
+ */
+function readTurnPreview(turn: CodexAppServerThreadTurn): string | null {
+  if (turn.errorMessage) {
+    return turn.errorMessage;
+  }
+
+  for (let index = turn.items.length - 1; index >= 0; index -= 1) {
+    const summary = turn.items[index]?.summary?.trim();
+    if (summary) {
+      return summary;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * New thread selections start with only the latest turn expanded to keep deep histories compact.
+ */
+function readDefaultExpandedTurnIds(
+  thread: CodexAppServerThread | null,
+): string[] {
+  const lastTurnId = thread?.turns.at(-1)?.id;
+  return lastTurnId ? [lastTurnId] : [];
 }
 
 function ThreadRow(props: {
@@ -348,17 +388,91 @@ function EmptyState(props: { title: string; body: string }) {
   );
 }
 
+function TurnHistoryCard(props: {
+  turn: CodexAppServerThreadTurn;
+  isExpanded: boolean;
+  onExpandedChange: (nextOpen: boolean) => void;
+}) {
+  const preview = readTurnPreview(props.turn);
+
+  return (
+    <Collapsible
+      open={props.isExpanded}
+      onOpenChange={props.onExpandedChange}
+      className="border border-slate-200 bg-slate-50"
+    >
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="grid w-full gap-3 px-3 py-3 text-left transition-colors hover:bg-slate-100"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <div className="font-mono text-sm">{props.turn.id}</div>
+              <Badge variant="outline">{props.turn.status}</Badge>
+              <Badge variant="outline">
+                {props.turn.items.length} item
+                {props.turn.items.length === 1 ? "" : "s"}
+              </Badge>
+            </div>
+            <ChevronDown
+              className={clsx(
+                "h-4 w-4 shrink-0 text-slate-500 transition-transform",
+                props.isExpanded ? "rotate-180" : null,
+              )}
+            />
+          </div>
+          {preview ? (
+            <div className="line-clamp-2 text-sm leading-6 text-slate-600">
+              {preview}
+            </div>
+          ) : (
+            <div className="text-sm text-slate-400">No summarized items</div>
+          )}
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="grid gap-3 border-t border-slate-200 px-3 py-3">
+        {props.turn.errorMessage ? (
+          <div className="text-sm text-red-700">{props.turn.errorMessage}</div>
+        ) : null}
+        <div className="grid gap-2">
+          {props.turn.items.map((item, index) => (
+            <CodexAppServerThreadHistoryItemCard
+              key={`${props.turn.id}-${item.id ?? item.type}-${index}`}
+              item={item}
+            />
+          ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
   const fillViewport = props.fillViewport ?? true;
+  const [expandedTurnIds, setExpandedTurnIds] = useState<string[]>(() =>
+    readDefaultExpandedTurnIds(props.selectedThread),
+  );
   const selectedThreadIsArchived =
     props.selectedThread !== null &&
     codexThreadPathIsArchived(props.selectedThread.path);
   const selectedThreadIsLoaded =
     props.selectedThread !== null &&
     props.loadedThreadIds.includes(props.selectedThread.id);
+  const lastSelectedTurnId = props.selectedThread?.turns.at(-1)?.id ?? null;
   const visibleThreadCount =
     props.pinnedThreads.length +
     props.groups.reduce((total, group) => total + group.count, 0);
+  const sendTurnDisabled =
+    props.isBusy ||
+    props.selectedThreadId === null ||
+    selectedThreadIsArchived ||
+    props.turnDraft.trim().length === 0;
+
+  // Reset expansion only when the selected thread changes or a newer turn arrives.
+  useEffect(() => {
+    setExpandedTurnIds(lastSelectedTurnId ? [lastSelectedTurnId] : []);
+  }, [lastSelectedTurnId, props.selectedThread?.id]);
 
   return (
     <div
@@ -628,6 +742,47 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
                     />
                   ) : null}
 
+                  <div className="grid gap-3 border border-slate-200 bg-white p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="grid gap-1">
+                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          Continue thread
+                        </div>
+                        <div className="text-sm text-slate-600">
+                          Send a prompt to the selected Codex thread through the
+                          local app-server bridge.
+                        </div>
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {selectedThreadIsArchived
+                          ? "Unarchive before sending"
+                          : selectedThreadIsLoaded
+                            ? "Loaded in runtime"
+                            : "Will resume on send"}
+                      </div>
+                    </div>
+                    <Textarea
+                      value={props.turnDraft}
+                      onChange={(event) => {
+                        props.onTurnDraftChange?.(event.target.value);
+                      }}
+                      placeholder="Continue this thread from the browser..."
+                      disabled={
+                        props.selectedThreadId === null ||
+                        selectedThreadIsArchived
+                      }
+                      className="min-h-[128px] border-slate-200 bg-slate-50 font-mono text-sm"
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        disabled={sendTurnDisabled}
+                        onClick={props.onTurnSubmit}
+                      >
+                        {props.isBusy ? "Sending..." : "Send prompt"}
+                      </Button>
+                    </div>
+                  </div>
+
                   {props.detailState.kind === "archived" ? (
                     <div className="border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                       {props.detailState.message}
@@ -647,32 +802,21 @@ export function CodexThreadBrowserView(props: CodexThreadBrowserViewProps) {
                         Turn history
                       </div>
                       {props.selectedThread.turns.map((turn) => (
-                        <div
+                        <TurnHistoryCard
                           key={turn.id}
-                          className="grid gap-3 border border-slate-200 bg-slate-50 p-3"
-                        >
-                          <div className="flex flex-wrap items-center gap-2">
-                            <div className="font-mono text-sm">{turn.id}</div>
-                            <Badge variant="outline">{turn.status}</Badge>
-                            <Badge variant="outline">
-                              {turn.items.length} item
-                              {turn.items.length === 1 ? "" : "s"}
-                            </Badge>
-                          </div>
-                          {turn.errorMessage ? (
-                            <div className="text-sm text-red-700">
-                              {turn.errorMessage}
-                            </div>
-                          ) : null}
-                          <div className="grid gap-2">
-                            {turn.items.map((item, index) => (
-                              <CodexAppServerThreadHistoryItemCard
-                                key={`${turn.id}-${item.id ?? item.type}-${index}`}
-                                item={item}
-                              />
-                            ))}
-                          </div>
-                        </div>
+                          turn={turn}
+                          isExpanded={expandedTurnIds.includes(turn.id)}
+                          onExpandedChange={(nextOpen) => {
+                            setExpandedTurnIds((current) =>
+                              nextOpen
+                                ? Array.from(new Set([...current, turn.id]))
+                                : current.filter(
+                                    (expandedTurnId) =>
+                                      expandedTurnId !== turn.id,
+                                  ),
+                            );
+                          }}
+                        />
                       ))}
                     </div>
                   ) : null}

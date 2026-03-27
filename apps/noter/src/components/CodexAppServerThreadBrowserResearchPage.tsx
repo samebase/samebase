@@ -179,6 +179,7 @@ export function CodexAppServerThreadBrowserResearchPage() {
     },
   );
   const [searchTerm, setSearchTerm] = useState("");
+  const [turnDraft, setTurnDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const selectedThreadRequestRef = useRef(0);
@@ -282,6 +283,10 @@ export function CodexAppServerThreadBrowserResearchPage() {
 
     setSelectedThreadId(uniqueThreads[0]?.id ?? null);
   }, [selectedThreadId, uniqueThreads]);
+
+  useEffect(() => {
+    setTurnDraft("");
+  }, [selectedThreadId]);
 
   const refreshSelectedThread = useCallback(
     async (thread: CodexAppServerThread | null = selectedThreadSummary) => {
@@ -403,6 +408,32 @@ export function CodexAppServerThreadBrowserResearchPage() {
       }}
       onSearchTermChange={setSearchTerm}
       onThreadSelect={setSelectedThreadId}
+      turnDraft={turnDraft}
+      onTurnDraftChange={setTurnDraft}
+      onTurnSubmit={() => {
+        if (!selectedThreadId || turnDraft.trim().length === 0) {
+          return;
+        }
+
+        void runAction(async () => {
+          // Reuse the existing app-server turn entrypoint so browser sends follow the same thread lifecycle.
+          await requestJson<ThreadActionResponse>({
+            path: "/turn/start",
+            method: "POST",
+            body: {
+              threadId: selectedThreadId,
+              text: turnDraft.trim(),
+            },
+          });
+          setTurnDraft("");
+          const threadsResponse = await refreshAll(browserMode);
+          const refreshedThread =
+            threadsResponse.threads.find(
+              (thread) => thread.id === selectedThreadId,
+            ) ?? null;
+          await refreshSelectedThread(refreshedThread);
+        });
+      }}
       onRefresh={() => {
         void runAction(async () => {
           const threadsResponse = await refreshAll(browserMode);

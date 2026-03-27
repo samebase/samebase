@@ -7,8 +7,8 @@ import {
 export type CodexThreadBrowserVisualMode = "codex-thread-browser";
 const FIXTURE_RELATIVE_TIME_REFERENCE_MS = 1_774_541_762_000;
 
-const FIXTURE_TURN: CodexAppServerThreadTurn = {
-  id: "turn-fixture-1",
+const FIXTURE_TURN_OLDER: CodexAppServerThreadTurn = {
+  id: "turn-fixture-older",
   status: "completed",
   errorMessage: null,
   items: [
@@ -28,6 +28,33 @@ const FIXTURE_TURN: CodexAppServerThreadTurn = {
         "The browser should see the same provider thread inventory that Codex sees, including loaded sessions and archive state, without coupling Noter to provider-specific persistence internals.",
       raw: {
         text: "The browser should see the same provider thread inventory that Codex sees, including loaded sessions and archive state, without coupling Noter to provider-specific persistence internals.",
+      },
+    },
+  ],
+  raw: null,
+};
+
+const FIXTURE_TURN_LATEST: CodexAppServerThreadTurn = {
+  id: "turn-fixture-latest",
+  status: "completed",
+  errorMessage: null,
+  items: [
+    {
+      id: "item-fixture-user-latest",
+      type: "userMessage",
+      summary:
+        "Add a browser-side prompt composer so I can continue the thread from my phone without opening the protocol lab.",
+      raw: {
+        text: "Add a browser-side prompt composer so I can continue the thread from my phone without opening the protocol lab.",
+      },
+    },
+    {
+      id: "item-fixture-agent-latest",
+      type: "agentMessage",
+      summary:
+        "The thread browser can post directly to turn/start, then refresh the selected thread and keep only the latest turn expanded by default.",
+      raw: {
+        text: "The thread browser can post directly to turn/start, then refresh the selected thread and keep only the latest turn expanded by default.",
       },
     },
   ],
@@ -69,7 +96,7 @@ const ACTIVE_THREADS: CodexAppServerThread[] = [
     path: "/Users/nicu/.codex/sessions/2026/03/26/rollout-thread-browser-active.jsonl",
     agentNickname: null,
     agentRole: null,
-    turns: [FIXTURE_TURN],
+    turns: [FIXTURE_TURN_OLDER, FIXTURE_TURN_LATEST],
     raw: null,
   },
   {
@@ -180,6 +207,7 @@ export function CodexThreadBrowserVisualFixture({
           detailState={{ kind: "ready" }}
           errorMessage={null}
           isBusy={false}
+          turnDraft="Continue from the phone: add the machine summary sync mutations next."
           fillViewport={false}
           relativeTimeReferenceMs={FIXTURE_RELATIVE_TIME_REFERENCE_MS}
         />
