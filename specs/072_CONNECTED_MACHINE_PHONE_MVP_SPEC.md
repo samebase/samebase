@@ -7,6 +7,7 @@
 - Last updated: 2026-03-27
 - Related docs:
   - `rfcs/071_CONNECTED_MACHINES_AND_REMOTE_THREAD_CONTROL_RESEARCH.md`
+  - `rfcs/073_GENERIC_WORKSPACE_SURFACE_RESEARCH.md`
   - `specs/069_LOCAL_PROVIDER_THREAD_INVENTORY_RESEARCH_SURFACE_SPEC.md`
   - `specs/070_CONNECTED_MACHINE_CODEX_THREAD_STORAGE_SPEC.md`
 
@@ -66,6 +67,10 @@ then the first release will be slower to ship and harder to validate.
    delta streaming is not required.
 10. If a command requires local approval semantics the MVP may surface a
     pending-state message instead of implementing full remote approval UX.
+11. New connected-machine UI work should depend on Noter-owned workspace verbs,
+    not raw `api.github.*` calls or raw GitHub REST endpoint names.
+12. The phase-1 generic surface only needs the `catalog` and `threads`
+    capability buckets from `rfcs/073_GENERIC_WORKSPACE_SURFACE_RESEARCH.md`.
 
 ## User Stories
 
