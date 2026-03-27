@@ -386,19 +386,41 @@ async function processCycle(state) {
 
 /** @returns {PullRequestSummary[]} */
 function listOpenPullRequests() {
+  /** @type {PullRequestSummary[]} */
+  const pullRequests = []
+  let page = 1
+  let pageResultCount = 100
+  while (pageResultCount === 100) {
+    const pageResults = listOpenPullRequestPage(page)
+    pullRequests.push(...pageResults)
+    pageResultCount = pageResults.length
+    page += 1
+  }
+
+  return pullRequests
+}
+
+/**
+ * Keep paging through GitHub's open PR list so the runner does not silently
+ * miss labeled targets when the repository has more than 100 open PRs.
+ *
+ * @param {number} page
+ * @returns {PullRequestSummary[]}
+ */
+function listOpenPullRequestPage(page) {
   const stdout = runCommand(
     'gh',
     [
-      'pr',
-      'list',
-      '--repo',
-      repoFullName,
-      '--state',
-      'open',
-      '--limit',
-      '100',
-      '--json',
-      'number,title,body,headRefName,headRefOid,headRepository,headRepositoryOwner,url,isDraft,labels',
+      'api',
+      `repos/${repoFullName}/pulls`,
+      '--method',
+      'GET',
+      '--field',
+      'state=open',
+      '--field',
+      `page=${page}`,
+      '--field',
+      'per_page=100',
     ],
     { cwd: repoRoot },
   )
@@ -408,85 +430,148 @@ function listOpenPullRequests() {
     parsed = JSON.parse(stdout)
   } catch (error) {
     throw new Error(
-      `Could not parse gh pr list output: ${describeError(error)}`,
+      `Could not parse gh api pulls output: ${describeError(error)}`,
     )
   }
 
-  if (!Array.isArray(parsed) || !parsed.every(isPullRequestSummary)) {
-    throw new Error('Expected gh pr list to return an array')
+  if (!Array.isArray(parsed)) {
+    throw new Error('Expected gh api pulls to return an array')
   }
 
-  return parsed
+  return parsed.map(normalizePullRequestSummary)
 }
 
 /**
  * @param {unknown} value
- * @returns {value is PullRequestSummary}
+ * @returns {PullRequestSummary}
  */
-function isPullRequestSummary(value) {
+function normalizePullRequestSummary(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return false
+    throw new Error('Expected gh api pulls to return pull request objects')
   }
 
   const record = /** @type {Record<string, unknown>} */ (value)
-  return (
-    typeof record['number'] === 'number' &&
-    typeof record['title'] === 'string' &&
-    typeof record['body'] === 'string' &&
-    typeof record['headRefName'] === 'string' &&
-    typeof record['headRefOid'] === 'string' &&
-    isPullRequestRepositoryRef(record['headRepository']) &&
-    isPullRequestRepositoryOwnerRef(record['headRepositoryOwner']) &&
-    typeof record['url'] === 'string' &&
-    typeof record['isDraft'] === 'boolean' &&
-    Array.isArray(record['labels']) &&
-    record['labels'].every(isPullRequestLabel)
-  )
+  const head = normalizePullRequestHead(record['head'])
+  const labels = normalizePullRequestLabels(record['labels'])
+  if (
+    typeof record['number'] !== 'number' ||
+    typeof record['title'] !== 'string' ||
+    typeof record['body'] !== 'string' ||
+    typeof record['html_url'] !== 'string' ||
+    typeof record['draft'] !== 'boolean'
+  ) {
+    throw new Error('Expected gh api pulls to return pull request objects')
+  }
+
+  return {
+    number: record['number'],
+    title: record['title'],
+    body: record['body'],
+    headRefName: head.headRefName,
+    headRefOid: head.headRefOid,
+    headRepository: head.headRepository,
+    headRepositoryOwner: head.headRepositoryOwner,
+    url: record['html_url'],
+    isDraft: record['draft'],
+    labels,
+  }
 }
 
 /**
  * @param {unknown} value
- * @returns {value is PullRequestLabel}
+ * @returns {PullRequestLabel[]}
  */
-function isPullRequestLabel(value) {
+function normalizePullRequestLabels(value) {
+  if (!Array.isArray(value)) {
+    throw new Error('Expected gh api pulls to return label arrays')
+  }
+
+  return value.map(labelValue => {
+    /** @type {unknown} */
+    const label = labelValue
+    if (!label || typeof label !== 'object' || Array.isArray(label)) {
+      throw new Error('Expected gh api pulls to return label objects')
+    }
+
+    const record = /** @type {Record<string, unknown>} */ (label)
+    if (typeof record['name'] !== 'string') {
+      throw new Error('Expected gh api pulls to return label objects')
+    }
+
+    return { name: record['name'] }
+  })
+}
+
+/**
+ * @param {unknown} value
+ * @returns {{
+ *   headRefName: string
+ *   headRefOid: string
+ *   headRepository: PullRequestRepositoryRef
+ *   headRepositoryOwner: PullRequestRepositoryOwnerRef
+ * }}
+ */
+function normalizePullRequestHead(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return false
+    throw new Error('Expected gh api pulls to return head objects')
   }
 
   const record = /** @type {Record<string, unknown>} */ (value)
-  return typeof record['name'] === 'string'
+  if (typeof record['ref'] !== 'string' || typeof record['sha'] !== 'string') {
+    throw new Error('Expected gh api pulls to return head objects')
+  }
+
+  const repository = normalizePullRequestRepository(record['repo'])
+  return {
+    headRefName: record['ref'],
+    headRefOid: record['sha'],
+    headRepository: repository.headRepository,
+    headRepositoryOwner: repository.headRepositoryOwner,
+  }
 }
 
 /**
  * @param {unknown} value
- * @returns {value is PullRequestRepositoryRef}
+ * @returns {{
+ *   headRepository: PullRequestRepositoryRef
+ *   headRepositoryOwner: PullRequestRepositoryOwnerRef
+ * }}
  */
-function isPullRequestRepositoryRef(value) {
+function normalizePullRequestRepository(value) {
   if (value === null) {
-    return true
+    return {
+      headRepository: null,
+      headRepositoryOwner: null,
+    }
   }
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return false
+    throw new Error('Expected gh api pulls to return repository objects')
   }
 
   const record = /** @type {Record<string, unknown>} */ (value)
-  return typeof record['name'] === 'string'
+  const repositoryName =
+    typeof record['name'] === 'string' ? record['name'] : null
+  const repositoryOwner = normalizePullRequestRepositoryOwner(record['owner'])
+  return {
+    headRepository: repositoryName === null ? null : { name: repositoryName },
+    headRepositoryOwner: repositoryOwner,
+  }
 }
 
 /**
  * @param {unknown} value
- * @returns {value is PullRequestRepositoryOwnerRef}
+ * @returns {PullRequestRepositoryOwnerRef}
  */
-function isPullRequestRepositoryOwnerRef(value) {
+function normalizePullRequestRepositoryOwner(value) {
   if (value === null) {
-    return true
+    return null
   }
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return false
+    throw new Error('Expected gh api pulls to return owner objects')
   }
 
   const record = /** @type {Record<string, unknown>} */ (value)
-  return typeof record['login'] === 'string'
+  return typeof record['login'] === 'string' ? { login: record['login'] } : null
 }
 
 /**
