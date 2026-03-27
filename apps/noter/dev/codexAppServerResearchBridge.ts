@@ -1644,6 +1644,27 @@ class CodexAppServerResearchRuntime {
     return { result, runtime: this.getSnapshot() };
   }
 
+  /**
+   * Persisted threads can exist on disk even when the current app-server
+   * process has not loaded them into memory yet.
+   */
+  private async resumeThreadById(args: {
+    threadId: string;
+    body: Record<string, unknown>;
+  }): Promise<unknown> {
+    const params: Record<string, unknown> = { threadId: args.threadId };
+    applyCommonTurnOptions(params, args.body);
+    delete params.sandboxPolicy;
+    applyThreadSandbox(params, args.body);
+
+    const result = await this.sendRequestNoEnsure({
+      method: "thread/resume",
+      params,
+    });
+    this.currentThreadId = args.threadId;
+    return result;
+  }
+
   async threadResume(body: unknown) {
     const record = asRecord(body) ?? {};
     const threadId = readString(record.threadId);
@@ -1651,16 +1672,10 @@ class CodexAppServerResearchRuntime {
       throw new Error("threadId is required");
     }
 
-    const params: Record<string, unknown> = { threadId };
-    applyCommonTurnOptions(params, record);
-    delete params.sandboxPolicy;
-    applyThreadSandbox(params, record);
-
-    const result = await this.sendRequestNoEnsure({
-      method: "thread/resume",
-      params,
+    const result = await this.resumeThreadById({
+      threadId,
+      body: record,
     });
-    this.currentThreadId = threadId;
     return { result, runtime: this.getSnapshot() };
   }
 
@@ -1728,11 +1743,36 @@ class CodexAppServerResearchRuntime {
         ? timeoutValue
         : CODEX_RPC_TIMEOUT_MS;
 
-    const result = await this.sendRequestNoEnsure({
-      method: "turn/start",
-      params,
-      timeoutMs,
-    });
+    let result: unknown;
+    try {
+      result = await this.sendRequestNoEnsure({
+        method: "turn/start",
+        params,
+        timeoutMs,
+      });
+    } catch (error) {
+      const canRetryAfterResume =
+        error instanceof Error &&
+        error.message.startsWith("thread not found:") &&
+        threadId.length > 0;
+      if (!canRetryAfterResume) {
+        throw error;
+      }
+
+      // The browser can target persisted threads that are not loaded into the
+      // current runtime yet, so resume once and retry the turn transparently.
+      await this.resumeThreadById({
+        threadId,
+        body: record,
+      });
+      result = await this.sendRequestNoEnsure({
+        method: "turn/start",
+        params,
+        timeoutMs,
+      });
+    }
+
+    this.currentThreadId = threadId;
     return { result, runtime: this.getSnapshot() };
   }
 
